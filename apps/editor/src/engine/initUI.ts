@@ -19,6 +19,8 @@
  * Contract: 01-BIM-ENGINE-CORE-CONTRACT §2.7 (builders owned at bootstrap layer).
  */
 
+import type { BuilderMaterialDef } from '@pryzm/core-app-model/material-resolver';
+import { applyMaterialMaps, uvSpaceOfGeometry } from '@pryzm/core-app-model/material-resolver';
 import * as THREE from '@pryzm/renderer-three/three';
 import { installEnvironmentHud } from '../ui/environment/EnvironmentHud';
 // §FIX-POSTFX-WEBGPU (L-111) — backend-aware routing for the AO + Exposure
@@ -2285,7 +2287,7 @@ export async function initUI(p: UIParams): Promise<void> {
     // glazingMaterialId render as real PBR instead of a flat colour. Lazy dynamic
     // import keeps initUI decoupled from the renderer-layer library at module load;
     // the library is module-scoped + immutable so one resolution suffices.
-    let _cwMaterialMap: ReadonlyMap<string, { params?: Record<string, unknown>; textures?: { color?: unknown; normal?: unknown; roughness?: unknown } }> | undefined;
+    let _cwMaterialMap: ReadonlyMap<string, BuilderMaterialDef> | undefined;
     try {
         const matLib = await import('@pryzm/core-app-model/material-library');
         _cwMaterialMap = new Map(matLib.STANDARD_MATERIAL_LIBRARY.map(m => [m.id, m] as const));
@@ -2389,9 +2391,13 @@ export async function initUI(p: UIParams): Promise<void> {
                         params.normalMap = undefined;
                         params.roughnessMap = undefined;
                     } else {
-                        params.map = def.textures?.color;
-                        params.normalMap = def.textures?.normal;
-                        params.roughnessMap = def.textures?.roughness;
+                        // §MATERIAL-MAPS-AND-TILING (L-1702). ⭐ This sweep
+                        // re-materials meshes it did NOT build, so it asks each
+                        // geometry what its UVs mean rather than assuming. A
+                        // builder that emits metre UVs stamps them; anything
+                        // undeclared refuses the maps and keeps its flat colour,
+                        // which is why this is safe on every element kind at once.
+                        applyMaterialMaps(params, def, uvSpaceOfGeometry(obj.geometry));
                     }
                     obj.material = new THREE.MeshStandardMaterial(params);
                     obj.castShadow = true;

@@ -17,7 +17,8 @@
 // depend on them and a concurrent lane consumes them mid-flight (C84 §8.3).
 
 import * as THREE from "@pryzm/renderer-three/three";
-import { MATERIAL_CATALOG, type MaterialRecord } from "@pryzm/schemas/materials";
+import { MATERIAL_CATALOG, hasAnyMap, type MaterialMaps, type MaterialRecord, type MaterialTiling } from "@pryzm/schemas/materials";
+import { disposeMaterialTextures } from "./materials/MaterialResolver";
 
 export type { MaterialCategory } from "@pryzm/schemas/materials";
 
@@ -33,14 +34,44 @@ export type StandardMaterialDef = {
     label: string;
     category: string;
     params: THREE.MeshStandardMaterialParameters;
-    textures?: {
-        color?: THREE.Texture;
-        normal?: THREE.Texture;
-        roughness?: THREE.Texture;
-    };
+    /**
+     * The master's LOGICAL map paths and real-world scale, carried through
+     * unchanged. A projection MAPS the master (C84 §1.3) — these are master
+     * fields, so passing them through is mapping, not extending. They are what
+     * `applyMaterialMaps()` needs in order to derive a PER-SURFACE repeat.
+     *
+     * ⛔ THE `textures?: { color, normal, roughness }` FIELD THAT USED TO SIT HERE
+     * IS DELETED (L-1702), and deleting it was the point of the slice rather than
+     * a side effect. C100 §10.6 measured it READ at seven sites and WRITTEN by
+     * nothing — *"all seven reads resolve `undefined` on every element, every
+     * frame"* — and the obvious repair, "populate it", is WRONG:
+     *
+     *   a `THREE.Texture`'s `repeat` is only meaningful against a KNOWN uv space,
+     *   and this field carried no uv space. A single pre-resolved texture set
+     *   handed to seven call sites is correct on the ones whose geometry happens
+     *   to be metre-UV and silently wrong on the rest — and three of those seven
+     *   (`initUI`'s style sweep, the property inspector, the roof builder)
+     *   re-material geometry that has NO uv attribute at all, where an attached
+     *   map paints texel (0,0) over the whole surface.
+     *
+     * So the field is replaced by a seam that cannot be used wrong:
+     * `applyMaterialMaps(params, def, uvSpace)`, where the caller must state what
+     * its own UVs mean. `uvSpaceOfGeometry()` reads the builder's declared stamp
+     * and refuses when there is none.
+     */
+    readonly maps?: MaterialMaps;
+    readonly tiling?: MaterialTiling;
 };
 
-/** One catalogue row -> the THREE-typed shape this module has always exposed. */
+/**
+ * One catalogue row -> the THREE-typed shape this module has always exposed.
+ *
+ * ⭐ EXPORTED as `projectMaterialRecord` since L-1702, and not only for tests: the
+ * T2 tier (`UserMaterialStore`) holds records in the SAME shape (C100 §1.1), so a
+ * user material needs the same projection a built-in gets. Exposing the one
+ * projection is what stops a second one being written for T2 — which is exactly
+ * how four of the six rival vocabularies C100 §1.1 counted came to exist.
+ */
 function project(m: MaterialRecord): StandardMaterialDef {
     const params: THREE.MeshStandardMaterialParameters = {
         color: new THREE.Color(m.color),
@@ -54,7 +85,19 @@ function project(m: MaterialRecord): StandardMaterialDef {
         params.transparent = true;
         params.opacity = m.opacity;
     }
-    return { id: m.id, label: m.label, category: m.category, params };
+    // §MATERIAL-MAPS-AND-TILING (L-1702) — the master's map paths and real-world
+    // scale ride through to the projection as DATA. No texture is loaded here:
+    // resolution needs a uv space, which only the surface knows, so it happens in
+    // `applyMaterialMaps()` at the point of use. That also means building
+    // `STANDARD_MATERIAL_LIBRARY` at module load stays free — eagerly resolving
+    // 205 rows would fire a request per map for materials nothing places.
+    if (!hasAnyMap(m.maps)) {
+        return { id: m.id, label: m.label, category: m.category, params };
+    }
+    return {
+        id: m.id, label: m.label, category: m.category, params,
+        maps: m.maps, tiling: m.tiling,
+    };
 }
 
 /**
@@ -62,10 +105,20 @@ function project(m: MaterialRecord): StandardMaterialDef {
  * from `MATERIAL_CATALOG` (C84 §1.3). Exposed as a read-only "Materials Library"
  * schedule in the Data Panel (SchedulePanel -> Materials Schedule).
  *
- * Textures are still unpopulated here; `MaterialRecord.textureUrl` is where user
- * uploads land (SPEC-MATERIALS-REPOSITORY §3.2 is still the roadmap for wiring them).
+ * ⭐ TEXTURE MAPS ARE REACHABLE SINCE L-1702 (§MATERIAL-MAPS-AND-TILING).
+ * `project()` carries the master's `maps` + `tiling` through as DATA, and
+ * `materials/MaterialResolver.ts` — SPEC-MATERIALS-REPOSITORY §3.2, built at last
+ * — turns them into shared `THREE.Texture`s at the point of use, where the
+ * surface's uv space is known. The dead `textures` field C100 §10.6 measured
+ * (read at seven sites, written by nothing) is GONE; see `StandardMaterialDef`
+ * for why populating it would have been the wrong repair.
+ * `MaterialRecord.textureUrl` remains the separate (T2-only, swatch-only) home
+ * for user uploads; C100 §10.6 records why that path is still a decoy.
  */
 export const STANDARD_MATERIAL_LIBRARY: StandardMaterialDef[] = MATERIAL_CATALOG.map(project);
+
+/** The ONE projection from a master record (either tier) to the THREE-typed view. */
+export const projectMaterialRecord = project;
 
 /**
  * Index of the master library by id, built once.
@@ -124,10 +177,16 @@ export {
     createWallRealisticMaterial,
 } from './wallViewStyleMaterials';
 
+/**
+ * Dispose every texture the library has caused to be loaded.
+ *
+ * ⚠ REWRITTEN L-1702. The old body walked `STANDARD_MATERIAL_LIBRARY` disposing
+ * `def.textures`, a field that no longer exists — and could not exist, because a
+ * texture's `repeat` is only meaningful against a known uv space and a material
+ * definition has no surface. The textures are owned by the RESOLVER's cache (one
+ * per path x scale, shared by every element that uses the material), so disposal
+ * delegates there. Same observable effect, and one owner rather than two.
+ */
 export function disposeLibraryTextures(): void {
-    STANDARD_MATERIAL_LIBRARY.forEach(def => {
-        def.textures?.color?.dispose();
-        def.textures?.normal?.dispose();
-        def.textures?.roughness?.dispose();
-    });
+    disposeMaterialTextures();
 }

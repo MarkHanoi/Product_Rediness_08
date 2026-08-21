@@ -1,3 +1,4 @@
+import { applyMaterialMaps, uvSpaceOfGeometry } from '@pryzm/core-app-model/material-resolver';
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import { EditorMode } from '@pryzm/core-app-model';
@@ -883,14 +884,16 @@ export class PropertyInspector {
             this.selectedObject.traverse((child) => {
                 if (child instanceof THREE.Mesh) {
                     child.userData.materialId = matId;
-                    const params = { ...matDef.params } as any;
+                    const params: THREE.MeshStandardMaterialParameters = { ...matDef.params };
                     if (this.callbacks.getCurrentVisualStyle() === 1) {
                         params.metalness = 0;
                         params.roughness = 1;
                     } else {
-                        params.map = matDef.textures?.color;
-                        params.normalMap = matDef.textures?.normal;
-                        params.roughnessMap = matDef.textures?.roughness;
+                        // §MATERIAL-MAPS-AND-TILING (L-1702). Same rule as the
+                        // style sweep: the GEOMETRY declares its uv space, and an
+                        // undeclared one refuses the maps rather than painting
+                        // texel (0,0) across the element.
+                        applyMaterialMaps(params, matDef, uvSpaceOfGeometry(child.geometry));
                     }
                     child.material = new THREE.MeshStandardMaterial(params);
                     child.castShadow = true;

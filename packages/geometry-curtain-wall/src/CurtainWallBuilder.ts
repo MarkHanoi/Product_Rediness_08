@@ -121,6 +121,8 @@ import { CurtainPanelData } from './CurtainPanelTypes';
 import { CurtainPanelStore } from './CurtainPanelStore';
 import { batchCoordinator } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+import { applyMaterialMaps, uvSpaceOfGeometry } from '@pryzm/core-app-model/material-resolver';
+import type { MaterialMaps, MaterialTiling } from '@pryzm/schemas/materials';
 import { GeometryWorkerPool } from './GeometryWorkerPool';
 import { DOMEventBus, type EventCatalog } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
@@ -162,7 +164,7 @@ export interface CurtainWallBuilderDependencies {
      * `matDef.params`/`textures`; otherwise it uses `mullionColor` / `glazingColor`.
      * Mirrors the WallFragmentBuilder / RoofFragmentBuilder material injection.
      */
-    materialMap?: ReadonlyMap<string, { params?: Record<string, unknown>; textures?: { color?: unknown; normal?: unknown; roughness?: unknown } }>;
+    materialMap?: ReadonlyMap<string, { params?: Record<string, unknown>; id: string; maps?: MaterialMaps; tiling?: MaterialTiling }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -2166,15 +2168,18 @@ export class CurtainWallBuilder {
             if (cached) return cached;
             const matDef = matMap.get(matId);
             if (matDef) {
-                const params: Record<string, unknown> = { ...(matDef.params ?? {}) };
-                if (matDef.textures) {
-                    params.map          = matDef.textures.color;
-                    params.normalMap    = matDef.textures.normal;
-                    params.roughnessMap = matDef.textures.roughness;
-                }
+                const params: THREE.MeshStandardMaterialParameters = { ...(matDef.params ?? {}) };
+                // §MATERIAL-MAPS-AND-TILING (L-1702). This surface has NOT declared
+                // a uv space, so the adapter REFUSES its maps and the material
+                // renders from its base colour. That is deliberate: this geometry
+                // carries no `uv` attribute, and an attached map would paint the
+                // whole surface with texel (0,0) — neither the pattern nor the
+                // colour. It lights up automatically, with no edit here, the day
+                // this builder emits metre UVs and calls `stampMetreUvs()`.
+                applyMaterialMaps(params, matDef, uvSpaceOfGeometry(null));
                 // per-wall mullionColor acts as a tint when the def has no colour.
                 if (cw.mullionColor && params.color === undefined) params.color = cw.mullionColor;
-                const m = new THREE.MeshStandardMaterial(params as ConstructorParameters<typeof THREE.MeshStandardMaterial>[0]);
+                const m = new THREE.MeshStandardMaterial(params);
                 this.mullionMaterialCache.set(cacheKey, m);
                 return m;
             }
@@ -2213,18 +2218,21 @@ export class CurtainWallBuilder {
             if (cached) return cached;
             const matDef = matMap.get(matId);
             if (matDef) {
-                const params: Record<string, unknown> = { ...(matDef.params ?? {}) };
-                if (matDef.textures) {
-                    params.map          = matDef.textures.color;
-                    params.normalMap    = matDef.textures.normal;
-                    params.roughnessMap = matDef.textures.roughness;
-                }
+                const params: THREE.MeshStandardMaterialParameters = { ...(matDef.params ?? {}) };
+                // §MATERIAL-MAPS-AND-TILING (L-1702). This surface has NOT declared
+                // a uv space, so the adapter REFUSES its maps and the material
+                // renders from its base colour. That is deliberate: this geometry
+                // carries no `uv` attribute, and an attached map would paint the
+                // whole surface with texel (0,0) — neither the pattern nor the
+                // colour. It lights up automatically, with no edit here, the day
+                // this builder emits metre UVs and calls `stampMetreUvs()`.
+                applyMaterialMaps(params, matDef, uvSpaceOfGeometry(null));
                 // Glass invariants — keep see-through + both faces visible.
                 if (params.transparent === undefined) params.transparent = true;
                 if (params.opacity === undefined) params.opacity = 0.4;
                 params.side = THREE.DoubleSide;
                 if (cw?.glazingColor && params.color === undefined) params.color = cw.glazingColor;
-                const m = new THREE.MeshStandardMaterial(params as ConstructorParameters<typeof THREE.MeshStandardMaterial>[0]);
+                const m = new THREE.MeshStandardMaterial(params);
                 this._fallbackPanelMatCache.set(cacheKey, m);
                 return m;
             }

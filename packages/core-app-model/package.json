@@ -1,7 +1,7 @@
 {
   "name": "@pryzm/core-app-model",
   "version": "0.1.0",
-  "description": "PRYZM \u2014 Core application model layer (Wave 10 LIFT). Drawing pipeline worker-protocol types, pen/hatch/poche style tables migrated from src/core/drawing/. L3 layer: no DOM frameworks; pure Canvas2D globals only.",
+  "description": "PRYZM — Core application model layer (Wave 10 LIFT). Drawing pipeline worker-protocol types, pen/hatch/poche style tables migrated from src/core/drawing/. L3 layer: no DOM frameworks; pure Canvas2D globals only.",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -37,7 +37,8 @@
     "./store-registry": "./src/StoreRegistry.ts",
     "./store-event-bus": "./src/StoreEventBus.ts",
     "./curved-wall-tessellation": "./src/geometry/curvedWallTessellation.ts",
-    "./ring-simplicity": "./src/geometry/ringSimplicity.ts"
+    "./ring-simplicity": "./src/geometry/ringSimplicity.ts",
+    "./material-resolver": "./src/materials/MaterialResolver.ts"
   },
   "files": [
     "src",

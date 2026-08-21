@@ -44,7 +44,24 @@
 
 /**
  * A LOGICAL asset path for one texture map — e.g.
- * `/textures/wood/oak-parquet-herringbone/color.ktx2`.
+ * `/items/textures/wood-parquet-plank-043/color.webp`.
+ *
+ * ⛔ THE `/items/` PREFIX IS MANDATORY, AND THIS EXAMPLE WAS WRONG UNTIL LANE
+ * MAT-2 RAN IT. It read `/textures/…`, which `resolveCatalogAssetUrl` returns
+ * UNCHANGED — the "not a catalogue path" branch — so in production it would never
+ * reach the CDN and would 404 at fetch time, silently. `/items/` is the one
+ * prefix the rewriter and the server-side proxy both mount. The resolver now
+ * REFUSES a non-`/items/` path with a named reason rather than fetching it and
+ * hoping (C84 EI-1b: a path that does not rewrite and a path that does must not
+ * be the same value).
+ *
+ * ⛔ AND THE FORMAT IS `.webp`, NOT `.ktx2`. That was wrong too, and the same
+ * lane measured it: `.ktx2` is on the proxy's `CATALOG_ALLOWED_EXT`, which reads
+ * like end-to-end support, but there are ZERO `KTX2Loader` references in `src`
+ * and `persistence-client/src/codec/ktx2.ts` is a stub that returns its input
+ * unchanged. We can DELIVER a `.ktx2` and cannot DECODE one. KTX2 is the right
+ * long-term container and is UNBUILT; the named blocker is the decoder, not the
+ * bucket.
  *
  * ⛔ MUST NOT be an absolute CDN URL. The path stored here is what gets PERSISTED
  * on a project (a T2 user material) and what a T1 row carries in code; the bucket
@@ -189,7 +206,9 @@ export function materialMapsDefect(record: {
     }
     // ⚠ Read the size BEFORE the guard: inside the negative arm of a type
     // predicate over an already-narrowed value, TypeScript narrows to `never`.
-    const size = Array.isArray(tiling.realWorldSizeM) ? tiling.realWorldSizeM : [];
+    const size: readonly number[] = Array.isArray(tiling.realWorldSizeM)
+        ? (tiling.realWorldSizeM as readonly number[])
+        : [];
     if (!isUsableTiling(tiling)) {
         return `material '${record.id}' has an unusable tiling.realWorldSizeM [${size.map(String).join(', ')}] — both components must be finite and > 0`;
     }

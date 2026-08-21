@@ -30,8 +30,36 @@
 // `ARG/ENV VITE_GLB_URL`). Verify by grepping the built bundle for the host.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** The logical prefix every catalogue asset path carries (see FurnitureCategoryData*). */
-const CATALOG_PREFIX = '/items/';
+// ─────────────────────────────────────────────────────────────────────────────
+// ⬇ MOVED L7 -> L2, 2026-08-21 (§MATERIAL-MAPS-AND-TILING, L-1701). NOT rewritten.
+//
+// This file used to live at `apps/editor/src/ui/furniture-carousel/catalogAssetUrl.ts`
+// (L7). `MaterialResolver` (L2, `core-app-model/src/materials/`) must resolve
+// texture map paths through THE SAME seam the GLBs use — C100 §10.6 records that
+// the furniture 404s and the texture question are literally the same unbuilt
+// bucket, and a SECOND asset-URL path would be a second answer to one question
+// (C84 EI-8), diverging the moment either bucket moves again.
+//
+// An L2 package may not import from L7, so the ONE implementation moved DOWN to
+// the lowest layer that serves both consumers. `apps/editor/.../catalogAssetUrl.ts`
+// remains, as a pure re-export shim, so all four editor call sites and the
+// existing L-570 test keep working against their original specifier. There is
+// still exactly one implementation and exactly one env read.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The logical prefix every catalogue asset path carries (see FurnitureCategoryData*).
+ *
+ * ⭐ EXPORTED since L-1701, and it is load-bearing rather than decorative. A path
+ * that does NOT start with it is returned UNCHANGED by `resolveCatalogAssetUrl`,
+ * which in production means it never reaches the CDN and 404s at fetch time. That
+ * pass-through is correct for the inputs it was written for (drag payloads,
+ * `blob:`/`data:` URLs, the `box` sentinel) and a TRAP for anything that believes
+ * itself to be a catalogue asset. Callers that only ever hold catalogue paths
+ * MUST check against this prefix and report a named state, not fetch and hope.
+ */
+export const CATALOG_LOGICAL_PREFIX = '/items/';
+const CATALOG_PREFIX = CATALOG_LOGICAL_PREFIX;
 
 /**
  * Build-time base for the re-hosted catalogue, e.g.

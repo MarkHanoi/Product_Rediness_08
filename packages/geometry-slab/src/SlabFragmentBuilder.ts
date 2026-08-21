@@ -16,7 +16,13 @@ import { BimManager } from '@pryzm/core-app-model';
 // it returns undefined on a miss so a lost material stays distinguishable from a
 // grey one. `@pryzm/core-app-model` is already a dependency of this package, so
 // this reference costs no new edge and no lockfile change.
-import { materialHexById } from '@pryzm/core-app-model/material-library';
+import { materialHexById, type StandardMaterialDef } from '@pryzm/core-app-model/material-library';
+// §MATERIAL-MAPS-AND-TILING (L-1702) — the ONE adapter that turns a material's
+// logical map paths into THREE textures at true real-world scale. Every builder
+// that wants a pattern calls this and states, in the same expression, what its
+// own uv attribute means. C100 §3: it carries no material data, so it is an
+// adapter and not a duplicate.
+import { applyMaterialMaps, stampMetreUvs, UV_METRES } from '@pryzm/core-app-model/material-resolver';
 // §FEAT-SLAB-LOD (L-286) — the SLAB row of ADR-121's LOD matrix. The slab's LOD consumer
 // is the MESH, because a slab has no plan symbol: in plan it lies BELOW the cut plane
 // (ADR-121 §3.1, "— (below cut)"), and its section and elevation are PROJECTIONS OF THIS
@@ -129,10 +135,16 @@ export function applySlabEdgeRenderMode(
  * openingStore — read-only opening lookup for hole punching (§01 §4.3).
  * materialMap  — STANDARD_MATERIAL_LIBRARY id → MaterialDefinition map.
  * getVisualStyle — returns current VisualStyle enum value (0 = shaded, 1 = consistent).
+ *
+ * ⚠ `materialMap` was `Map<string, any>` until L-1702. That `any` meant the
+ * builder's whole material path was UNTYPED — `matDef.textures` type-checked
+ * whether or not the field existed, which is one reason C100 §10.6 could measure
+ * seven reads of a field nothing wrote and no compiler ever objected. It is
+ * `StandardMaterialDef` now, the type the map actually carries.
  */
 export interface SlabBuilderDeps {
     openingStore?: { getByHostId(id: string): any[] };
-    materialMap?: Map<string, any>;
+    materialMap?: Map<string, StandardMaterialDef>;
     getVisualStyle?: () => number;
 }
 
@@ -1140,6 +1152,66 @@ export class SlabFragmentBuilder {
      * @param holes    Optional array of hole polygons (XZ coords, any winding).
      *                 Supports both SlabData.holes (HOLLOW_SLAB) and openingStore profiles.
      */
+    /**
+     * Rewrite an AXIS-ALIGNED geometry's `uv` to metres, in place.
+     *
+     * §MATERIAL-MAPS-AND-TILING (L-1703). Used for the degraded `BoxGeometry`
+     * arm, whose default uv runs 0..1 per face. For an axis-aligned face the
+     * correct metre parameterisation is simply the vertex's two world components
+     * PERPENDICULAR to the face normal — exact, not an approximation, because
+     * every face of a box is orthogonal to an axis.
+     *
+     * ⚠ It is deliberately a no-op on geometry without `position` + `normal`
+     * rather than throwing: this runs on a body that is ALREADY a degradation
+     * (§REFUSE-NONSIMPLE-SLAB-RING), and turning a data defect into a crash in
+     * the texture path would be a worse trade than a slab that tiles at 0..1.
+     */
+    private static rewriteAxisAlignedUVsToMetres(geo: THREE.BufferGeometry): void {
+        const pos = geo.getAttribute('position');
+        const nrm = geo.getAttribute('normal');
+        if (!pos || !nrm || pos.count !== nrm.count) return;
+        const uv = new Float32Array(pos.count * 2);
+        for (let i = 0; i < pos.count; i++) {
+            const nx = Math.abs(nrm.getX(i));
+            const ny = Math.abs(nrm.getY(i));
+            const nz = Math.abs(nrm.getZ(i));
+            const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+            if (ny >= nx && ny >= nz) {          // horizontal face -> plan XZ
+                uv[i * 2] = x;      uv[i * 2 + 1] = z;
+            } else if (nx >= nz) {                // face normal along X -> ZY
+                uv[i * 2] = z;      uv[i * 2 + 1] = y;
+            } else {                              // face normal along Z -> XY
+                uv[i * 2] = x;      uv[i * 2 + 1] = y;
+            }
+        }
+        geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+        stampMetreUvs(geo);
+    }
+
+    /**
+     * ⭐ §MATERIAL-MAPS-AND-TILING (L-1703) — THIS GEOMETRY NOW CARRIES `uv`, AND
+     * THE UNITS ARE METRES.
+     *
+     * Until 2026-08-21 it emitted `position` + `normal` + `index` and NOTHING
+     * else. That was harmless only while every slab was a flat colour: a
+     * `BufferGeometry` with no `uv` attribute feeds `vec2(0,0)` to the shader for
+     * every vertex, so the first `map` ever attached would have painted the whole
+     * floor with texel (0,0) — neither the pattern nor the base colour. The
+     * founder's *"wooden parquet materials, proper tiling floors"* is a FLOOR
+     * request and this is the live floor/slab body, so it is the surface that had
+     * to gain UVs before any map could be attached honestly.
+     *
+     * ⭐ METRES, NOT 0..1, AND THE TWO ARE NOT INTERCHANGEABLE. A 0..1 cap uv makes
+     * one repetition span the whole slab, so a 600 mm tile would be 600 mm on a
+     * small slab and 6 m on a large one — the same product rendering as two
+     * different products, which is C100 §2.3's defect. With uv in metres the
+     * texture's `repeat` is `1 / realWorldSizeM` (see
+     * `core-app-model/src/materials/MaterialResolver.ts#deriveTextureRepeat`), a
+     * pure function of the MATERIAL — so a 600 mm tile is 600 mm on every slab,
+     * and a hundred floors share ONE texture object and one GPU upload.
+     *
+     * @param polygon plan ring, world metres.
+     */
     private static buildSlabGeometry(
         polygon: { x: number; y: number }[],
         thickness: number,
@@ -1173,12 +1245,21 @@ export class SlabFragmentBuilder {
         const positions: number[] = [];
         const normals:   number[] = [];
         const indices:   number[] = [];
+        // ⭐ §MATERIAL-MAPS-AND-TILING (L-1703). UVs IN METRES — see the doc
+        // comment on `buildSlabGeometry` for why this geometry had none, and why
+        // metres rather than 0..1.
+        const uvs:       number[] = [];
 
         // ── TOP CAP — Y = thickness, normal = (0, +1, 0) ──────────────────
         const topBase = 0;
         for (const p of allPts) {
             positions.push(p.x, thickness, p.y);
             normals.push(0, 1, 0);
+            // The cap is a horizontal plane, so its uv IS its plan position, in
+            // metres of world X and Z. Two adjacent slabs therefore continue one
+            // another's pattern instead of each restarting it — which is what a
+            // parquet or a tiled floor does in the world.
+            uvs.push(p.x, p.y);
         }
         // ShapeUtils CCW in 2D → for +Y face reverse each triangle to get
         // correct CCW winding in 3D XZ (so normal faces up).
@@ -1191,6 +1272,9 @@ export class SlabFragmentBuilder {
         for (const p of allPts) {
             positions.push(p.x, 0, p.y);
             normals.push(0, -1, 0);
+            // Same plan projection as the top. The soffit is seen from below, so
+            // the pattern reads mirrored — correct, and what a real soffit does.
+            uvs.push(p.x, p.y);
         }
         // Bottom face (normal -Y): CCW winding — same order as ShapeUtils output.
         for (const [a, b, c] of triIndices) {
@@ -1198,6 +1282,12 @@ export class SlabFragmentBuilder {
         }
 
         // ── OUTER SIDE FACES — one quad per outer edge ────────────────────
+        // `uRun` accumulates perimeter distance so the pattern runs CONTINUOUSLY
+        // around the edge band instead of restarting at every corner. A tiled slab
+        // edge that restarts its bond at each corner reads as a modelling error,
+        // which is the §L-1703 test: a visibly wrong pattern is worse than a flat
+        // colour.
+        let uRun = 0;
         const nOuter = outerPts.length;
         for (let i = 0; i < nOuter; i++) {
             const j = (i + 1) % nOuter;
@@ -1225,6 +1315,13 @@ export class SlabFragmentBuilder {
             normals.push(nx, 0, nz);
             normals.push(nx, 0, nz);
 
+            // u = metres around the perimeter, v = metres up the edge band.
+            uvs.push(uRun,       0);
+            uvs.push(uRun + len, 0);
+            uvs.push(uRun + len, thickness);
+            uvs.push(uRun,       thickness);
+            uRun += len;
+
             indices.push(base, base + 1, base + 2);
             indices.push(base, base + 2, base + 3);
         }
@@ -1235,6 +1332,7 @@ export class SlabFragmentBuilder {
         // Winding is reversed relative to outer sides so the face is CCW when
         // viewed from inside the hole.
         for (const hole of validHoles) {
+            let holeRun = 0;
             const nh = hole.length;
             for (let i = 0; i < nh; i++) {
                 const j = (i + 1) % nh;
@@ -1260,6 +1358,13 @@ export class SlabFragmentBuilder {
                 normals.push(nx, 0, nz);
                 normals.push(nx, 0, nz);
 
+                // Same metre parameterisation as the outer band, run per hole.
+                uvs.push(holeRun,       0);
+                uvs.push(holeRun + len, 0);
+                uvs.push(holeRun + len, thickness);
+                uvs.push(holeRun,       thickness);
+                holeRun += len;
+
                 // Reversed winding: CCW when viewed from inside the hole
                 indices.push(base, base + 2, base + 1);
                 indices.push(base, base + 3, base + 2);
@@ -1269,6 +1374,11 @@ export class SlabFragmentBuilder {
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
         geo.setAttribute('normal',   new THREE.Float32BufferAttribute(normals,   3));
+        geo.setAttribute('uv',       new THREE.Float32BufferAttribute(uvs,       2));
+        // DECLARE the space, in the same function that wrote the attribute. A
+        // consumer that re-materials this mesh later cannot tell metres from 0..1
+        // by looking at floats, so the builder says so once (L-1703).
+        stampMetreUvs(geo);
         geo.setIndex(indices);
         geo.computeBoundingBox();
         geo.computeBoundingSphere();
@@ -1542,6 +1652,18 @@ export class SlabFragmentBuilder {
             SlabFragmentBuilder._reportedBoxFallback.delete(data.id);
         }
 
+        // ⭐ §MATERIAL-MAPS-AND-TILING (L-1703) — ONE UV INVARIANT FOR EVERY ARM.
+        // `buildSlabGeometry` emits uv in METRES; the degraded `BoxGeometry` arm
+        // ships THREE's default 0..1-per-face uv. Leaving both would make the SAME
+        // material tile at two different scales depending on whether a ring passed
+        // earcut's precondition — a rendering difference caused by a data defect,
+        // which is the worst possible coupling. Rewriting the box to metres costs
+        // one pass over six faces and makes the invariant "every slab body this
+        // builder produces is metre-UV" true without exception.
+        if (geometry instanceof THREE.BoxGeometry) {
+            SlabFragmentBuilder.rewriteAxisAlignedUVsToMetres(geometry);
+        }
+
         // ── Material ───────────────────────────────────────────────────────
         // FIX-5: materialMap and visualStyle resolved from injected deps, not from
         // window.materialMap / window.projectContext.
@@ -1551,15 +1673,20 @@ export class SlabFragmentBuilder {
         if (data.materialId && materialMap) {
             const matDef = materialMap.get(data.materialId);
             if (matDef) {
-                const params = { ...matDef.params } as any;
+                const params: THREE.MeshStandardMaterialParameters = { ...matDef.params };
                 const visualStyle = deps.getVisualStyle ? deps.getVisualStyle() : 0;
                 if (visualStyle === 1) {
+                    // SCHEMATIC collapses PBR to flat matte on purpose; a pattern
+                    // would contradict the whole point of the style.
                     params.metalness = 0;
                     params.roughness = 1;
-                } else if (matDef.textures) {
-                    params.map = matDef.textures.color;
-                    params.normalMap = matDef.textures.normal;
-                    params.roughnessMap = matDef.textures.roughness;
+                } else {
+                    // §MATERIAL-MAPS-AND-TILING (L-1702). `UV_METRES` is a CLAIM
+                    // about this geometry and it is now true for every arm above.
+                    // The adapter returns a named state; an unresolved map leaves
+                    // the base colour rendering and is reported once per path
+                    // rather than silently swallowed (C100 §5).
+                    applyMaterialMaps(params, matDef, UV_METRES);
                 }
                 // DoubleSide ensures sides render correctly for any polygon winding.
                 params.side = THREE.DoubleSide;

@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 
+import type { BuilderMaterialDef } from '@pryzm/core-app-model/material-resolver';
 import * as THREE from '@pryzm/renderer-three/three';
 import { mergeGeometries, toCreasedNormals } from '@pryzm/renderer-three';
 // §I2 — WebGPU-safe disposal for the live wall-rebuild teardown sites (a stale
@@ -108,6 +109,8 @@ export type SingleVolumeWallProducer =
 import { JoinData } from '@pryzm/core-app-model';
 import type { WallInstanceBridge } from './WallInstanceBridge';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+import { applyMaterialMaps, uvSpaceOfGeometry } from '@pryzm/core-app-model/material-resolver';
+import type { MaterialMaps, MaterialTiling } from '@pryzm/schemas/materials';
 import { resolveIntentStyle } from '@pryzm/core-app-model';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 // §PRYZM-PERF (INSTR1) — per-clause instancing-rejection counters. Off by default;
@@ -509,7 +512,7 @@ export class WallFragmentBuilder {
      * the existing materialColor-only path, so callers that don't supply a
      * material map continue to work exactly as before.
      */
-    private injectedMaterialMap: Map<string, { params?: Record<string, unknown>; textures?: { color?: unknown; normal?: unknown; roughness?: unknown } }> | null = null;
+    private injectedMaterialMap: Map<string, { params?: Record<string, unknown>; id: string; maps?: MaterialMaps; tiling?: MaterialTiling }> | null = null;
 
     /**
      * §WALL-AUDIT-2026-M2: View-projection stores (view definitions, view-intent
@@ -544,7 +547,7 @@ export class WallFragmentBuilder {
              * is set, `createWallMaterial` resolves to a PBR material; otherwise the
              * existing `materialColor`-only fallback applies.
              */
-            materialMap?: Map<string, { params?: Record<string, unknown>; textures?: { color?: unknown; normal?: unknown; roughness?: unknown } }>;
+            materialMap?: Map<string, BuilderMaterialDef>;
         },
     ) {
         this.scene = scene;
@@ -4676,10 +4679,27 @@ export class WallFragmentBuilder {
                     // like cardboard" intent of schematic mode).
                     params.metalness = 0;
                     params.roughness = 1;
-                } else if (matDef.textures) {
-                    params.map           = matDef.textures.color;
-                    params.normalMap     = matDef.textures.normal;
-                    params.roughnessMap  = matDef.textures.roughness;
+                } else {
+                    // §MATERIAL-MAPS-AND-TILING (L-1702/L-1703). ⛔ WALLS ARE A
+                    // NAMED GAP, and the reason is measured, not assumed: the wall
+                    // body has SIX geometry constructors, four of which emit no
+                    // `uv` attribute at all (MiterPrismBuilder, the LAYERED grid
+                    // punch, the curved builder, the CSG single-volume bridge) and
+                    // one of which DELETES uv during the seam merge
+                    // (`_mergeWallBodySegments`, "drop `uv` … the wall body is
+                    // schematic/PBR-shaded by world position"). Only the
+                    // hole-extrude arm carries metre UVs today.
+                    //
+                    // This material is built ONCE per wall, before the body path
+                    // is chosen, so it cannot know which arm ran. Handing it maps
+                    // would tile a wall WITHOUT openings differently from an
+                    // otherwise identical wall WITH one — a rendering difference
+                    // with no cause in the model, which is C100 §2.3's defect.
+                    // So it declares no uv space and correctly gets nothing; the
+                    // wall renders its honest finish colour. Closing this means
+                    // giving every wall body arm metre UVs, which is a geometry
+                    // slice of its own and is recorded as such.
+                    applyMaterialMaps(params, matDef, uvSpaceOfGeometry(null));
                 }
                 params.depthWrite = true;
                 params.depthTest  = true;

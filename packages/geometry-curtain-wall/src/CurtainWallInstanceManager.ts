@@ -49,6 +49,8 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { CurtainCell } from './CurtainCellComputer';
 import { CurtainPanelData, PANEL_TYPE_DEFAULTS, PanelType } from './CurtainPanelTypes';
 import { isBatchable } from './CurtainPanelFactory';
+import { applyMaterialMaps, uvSpaceOfGeometry } from '@pryzm/core-app-model/material-resolver';
+import type { MaterialMaps, MaterialTiling } from '@pryzm/schemas/materials';
 
 /**
  * The shape of one master-library entry, structurally identical to the map
@@ -60,7 +62,18 @@ import { isBatchable } from './CurtainPanelFactory';
  */
 export interface PanelMaterialDef {
     params?: Record<string, unknown>;
-    textures?: { color?: unknown; normal?: unknown; roughness?: unknown };
+    /**
+     * §MATERIAL-MAPS-AND-TILING (L-1702). ⛔ REPLACED a dead
+     * `textures?: { color?, normal?, roughness? }` member. C100 §10.6 measured
+     * that field read at seven sites and written by nothing; it is gone from
+     * `StandardMaterialDef` too, because a pre-resolved texture carries a
+     * `repeat` that is only meaningful against a KNOWN uv space, and a material
+     * definition has no surface. The LOGICAL map paths and the real-world scale
+     * ride here instead, and `applyMaterialMaps()` resolves them per surface.
+     */
+    id: string;
+    maps?: MaterialMaps;
+    tiling?: MaterialTiling;
 }
 
 export interface InstanceManagerResult {
@@ -222,17 +235,18 @@ export class CurtainWallInstanceManager {
         let mat: THREE.MeshStandardMaterial;
         const matDef = materialId ? this._materialMap?.get(materialId) : undefined;
         if (matDef) {
-            const params: Record<string, unknown> = { ...(matDef.params ?? {}) };
-            if (matDef.textures) {
-                params.map = matDef.textures.color;
-                params.normalMap = matDef.textures.normal;
-                params.roughnessMap = matDef.textures.roughness;
-            }
+            const params: THREE.MeshStandardMaterialParameters = { ...(matDef.params ?? {}) };
+            // §MATERIAL-MAPS-AND-TILING (L-1702). This surface has NOT declared
+            // a uv space, so the adapter REFUSES its maps and the material
+            // renders from its base colour. That is deliberate: this geometry
+            // carries no `uv` attribute, and an attached map would paint the
+            // whole surface with texel (0,0) — neither the pattern nor the
+            // colour. It lights up automatically, with no edit here, the day
+            // this builder emits metre UVs and calls `stampMetreUvs()`.
+            applyMaterialMaps(params, matDef, uvSpaceOfGeometry(null));
             // Both faces only when the resolved material is actually see-through.
             params.side = params.transparent ? THREE.DoubleSide : THREE.FrontSide;
-            mat = new THREE.MeshStandardMaterial(
-                params as ConstructorParameters<typeof THREE.MeshStandardMaterial>[0],
-            );
+            mat = new THREE.MeshStandardMaterial(params);
         } else {
             const defaults = PANEL_TYPE_DEFAULTS[panelType];
             mat = new THREE.MeshStandardMaterial({

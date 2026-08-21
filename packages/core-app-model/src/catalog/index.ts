@@ -21,3 +21,14 @@ export {
 export { AssetCatalogStore, assetCatalogStore } from './AssetCatalogStore.js';
 
 export { buildDefaultAssetCatalog } from './assetCatalogDefaults.js';
+
+// §FURNITURE-GLB-404-SUMMARY / L-570 — THE object-storage URL seam, moved here
+// from apps/editor (L7) by L-1701 so `MaterialResolver` (L2) resolves texture map
+// paths through the SAME seam the catalogue GLBs use. One implementation, one env
+// read; apps/editor keeps a re-export shim at its original path.
+export {
+    isCatalogRehosted,
+    catalogBaseUrl,
+    resolveCatalogAssetUrl,
+    CATALOG_LOGICAL_PREFIX,
+} from './catalogAssetUrl.js';
