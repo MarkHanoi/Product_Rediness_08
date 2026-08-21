@@ -27,6 +27,7 @@
  *   - RoomTopologyObserver (needs commandManager)            → EngineBootstrap.ts
  */
 
+import type { BuilderMaterialDef } from '@pryzm/core-app-model/material-resolver';
 import * as THREE from '@pryzm/renderer-three/three';
 import type { CommandManager } from '@pryzm/command-registry';
 import type { BimManager } from '@pryzm/core-app-model';
@@ -584,7 +585,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     // shingle colour. Lazy dynamic import keeps `initBuilders` decoupled from
     // a renderer-layer library at module load time; the map is module-scoped
     // + immutable so a single resolution per builder suffices.
-    let _roofMaterialMap: ReadonlyMap<string, { params?: Record<string, unknown>; textures?: { color?: unknown; normal?: unknown; roughness?: unknown } }> | undefined;
+    let _roofMaterialMap: ReadonlyMap<string, BuilderMaterialDef> | undefined;
     // §FEAT-LANDSCAPE-SLAB-TYPES (L-963) — the SAME map, for the slab builder.
     // `SlabBuilderDeps.materialMap` is typed `Map`, not `ReadonlyMap`, so it gets
     // its own binding rather than a cast. Injected at the setDeps call below.
@@ -894,9 +895,20 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     const handrailBuilder = new HandrailFragmentBuilder(scene, bimManager);
     // ADR-0076 Axis 3 (§PERF-WEBGPU-FRAGMENT / §PERF-RAIL-INSTANCING) — inject the
     // GPU-instancing bridge over the SAME shared renderer walls + columns + beams use.
-    // DEFAULT-OFF: the repeated handrail balusters + posts only instance when
-    // globalThis.__pryzmElementInstancingV1 === true; otherwise the builder stays
-    // entirely on the fragment path. Mirrors the columnBuilder / beamBuilder wiring.
+    //
+    // ⚠ CORRECTED 2026-08-21 (§NAV-SMOOTHNESS, L-1781). This said "DEFAULT-OFF: the
+    // repeated handrail balusters + posts only instance when
+    // globalThis.__pryzmElementInstancingV1 === true". `handrail` is now DEFAULT-ON
+    // via the per-family table in `ElementInstanceBridge._FAMILY_DEFAULTS`, which the
+    // builder finally consults — it used to call `isElementInstancingEnabled()` with
+    // no argument (the legacy master-only contract), so its per-family row was
+    // authored-but-unwired. Measured worth, through the real builders into a real
+    // scene: 240 railing elements 4920 → 250 draw calls, 19.7x.
+    // `__pryzmElementInstancingV1 = false` remains a true kill switch.
+    //
+    // ⭐ THIS INJECTION IS UNCONDITIONAL AND MUST STAY SO. The flag decides whether
+    // the builder USES the bridge; if the bridge were itself gated, flipping the
+    // default would change nothing at runtime — the shape this lane found and fixed.
     try {
         handrailBuilder.setInstanceBridge(new ElementInstanceBridge(instancedElementRenderer));
     } catch (instErr) {
@@ -945,8 +957,15 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     // ADR-0076 Axis 3 (§PERF-WEBGPU-FRAGMENT / §PERF-RAIL-INSTANCING) — inject the
     // GPU-instancing bridge so the repeated stair-railing posts + balusters (the
     // ~200-300 post / ~500-1000 baluster mesh multiplier the spike measured) route
-    // through the shared InstancedMesh. DEFAULT-OFF: only instances when
-    // globalThis.__pryzmElementInstancingV1 === true. Mirrors columnBuilder wiring.
+    // through the shared InstancedMesh.
+    //
+    // ⚠ CORRECTED 2026-08-21 (§NAV-SMOOTHNESS, L-1781). This said "DEFAULT-OFF: only
+    // instances when globalThis.__pryzmElementInstancingV1 === true". `stairRailing`
+    // is now DEFAULT-ON. Its recorded blocker — "safe, but it leaks" — was retired by
+    // MEASUREMENT, not by assertion: after deleting every railing, 5 railings retain
+    // ONE material and 50 railings retain ONE material (constant, handed back at
+    // project close), against a 19.7x draw-call collapse.
+    // `__pryzmElementInstancingV1 = false` remains a true kill switch.
     try {
         stairRailingBuilder.setInstanceBridge(new ElementInstanceBridge(instancedElementRenderer));
     } catch (instErr) {

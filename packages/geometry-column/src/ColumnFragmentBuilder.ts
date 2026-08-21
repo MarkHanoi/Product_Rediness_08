@@ -121,7 +121,18 @@ export class ColumnFragmentBuilder {
      * multi-mesh THREE.LOD and MUST stay on the fragment path.
      */
     private _instanceKindFor(column: ColumnData): 'box' | 'cylinder' | null {
-        if (!this._instanceBridge || !isElementInstancingEnabled()) return null;
+        // §NAV-SMOOTHNESS (L-1781) — eligibility now NAMES the family, so the
+        // per-family table in `ElementInstanceBridge._FAMILY_DEFAULTS` is REACHABLE
+        // from here. It was not before: this read `isElementInstancingEnabled()` with
+        // NO argument, the LEGACY master-only contract (`__pryzmElementInstancingV1
+        // === true`, default off), so the `column` entry in that table was
+        // authored-but-unwired and setting `__pryzmElementInstancing.column = true`
+        // changed the draw-call count by ZERO (measured: NavigationDrawCallCensus.spec.ts,
+        // "THE GATE ITSELF"). Naming the family is behaviour-NEUTRAL under the master
+        // flag — the resolver honours `__pryzmElementInstancingV1` in BOTH directions
+        // before falling through to the default — so `= true` still turns everything on
+        // and `= false` is still a true kill switch.
+        if (!this._instanceBridge || !isElementInstancingEnabled('column')) return null;
         const isSteel = (column.profile === 'UC' || column.profile === 'UB') && !!column.steelProfileName;
         if (isSteel) return null;
         return column.profile === 'circular' ? 'cylinder' : 'box';

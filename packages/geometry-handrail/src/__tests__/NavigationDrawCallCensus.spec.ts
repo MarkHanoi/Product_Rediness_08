@@ -52,6 +52,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
+import { isSharedGpuResource } from '@pryzm/renderer-three';
 import {
     InstancedElementRenderer,
     ElementInstanceBridge,
@@ -276,28 +277,56 @@ function buildScene(stairs: number, handrails: number): { census: Census; elemen
 
 describe('§NAV-SMOOTHNESS L-1780 — per-family draw-call census (railings + stairs)', () => {
 
-    describe('THE GATE ITSELF — why these families never instanced', () => {
+    describe('THE GATE ITSELF — the per-family switch must actually switch', () => {
         it(
-            '⭐ the per-family default is UNREACHABLE from the four legacy call sites: ' +
-            'setting __pryzmElementInstancing.handrail = true changes NOTHING',
+            '⭐ __pryzmElementInstancing.{handrail,stairRailing} = false returns the ' +
+            'families to the FRAGMENT path, and = true instances them',
             () => {
-                // The per-family table in ElementInstanceBridge declares an entry for
-                // handrail / stairRailing / column / beam. But those four builders call
-                // `isElementInstancingEnabled()` with NO ARGUMENT, which is the LEGACY
-                // master-only contract — so the per-family entry is authored-but-unwired.
-                // This asserts the SYMPTOM at the layer that matters: turning the family
-                // on per-family must actually collapse draw calls.
+                // ⚠ THIS TEST USED TO ASSERT THE DEFECT. Before §NAV-SMOOTHNESS (L-1781)
+                // it read "setting __pryzmElementInstancing.handrail = true changes
+                // NOTHING" and PASSED — because all four legacy builders called
+                // `isElementInstancingEnabled()` with no argument, so the per-family row
+                // in `_FAMILY_DEFAULTS` was authored-but-unwired. The five call sites now
+                // name their family, so the switch is reachable in BOTH directions, and
+                // this asserts that at the layer that matters: the draw-call count.
+                g.__pryzmElementInstancing = { handrail: false, stairRailing: false };
+                const off = buildScene(4, 4);
+
                 g.__pryzmElementInstancing = { handrail: true, stairRailing: true };
-                const withPerFamily = buildScene(4, 4);
+                const on = buildScene(4, 4);
 
-                delete g.__pryzmElementInstancing;
-                const withNothing = buildScene(4, 4);
+                // eslint-disable-next-line no-console
+                console.log(
+                    `[census] per-family switch: OFF -> ${off.census.drawCalls} draw calls ; ` +
+                    `ON -> ${on.census.drawCalls} draw calls`,
+                );
 
-                // If the per-family switch were wired, these would DIFFER.
-                expect(withPerFamily.census.drawCalls).toBe(withNothing.census.drawCalls);
-                expect(withPerFamily.census.instancedGroups).toBe(0);
+                expect(off.census.instancedGroups).toBe(0);
+                expect(on.census.instancedGroups).toBeGreaterThan(0);
+                expect(on.census.drawCalls).toBeLessThan(off.census.drawCalls);
             },
         );
+
+        it('the MASTER kill switch still overrides both families, from the console', () => {
+            // A default the user cannot back out of on their own machine is a bad
+            // trade — this is the escape hatch, and it must survive the flip.
+            g.__pryzmElementInstancingV1 = false;
+            const killed = buildScene(4, 4);
+            expect(killed.census.instancedGroups).toBe(0);
+        });
+
+        it('⭐ the SHIPPED DEFAULT (no flags set at all) instances both families', () => {
+            // The founder sets no globals. This is what he actually gets.
+            delete g.__pryzmElementInstancingV1;
+            delete g.__pryzmElementInstancing;
+            const shipped = buildScene(4, 4);
+            // eslint-disable-next-line no-console
+            console.log(
+                `[census] SHIPPED DEFAULT: ${shipped.census.drawCalls} draw calls, ` +
+                `${shipped.census.instancedGroups} instanced groups`,
+            );
+            expect(shipped.census.instancedGroups).toBeGreaterThan(0);
+        });
     });
 
     describe('BEFORE / AFTER at founder scale', () => {
@@ -305,16 +334,20 @@ describe('§NAV-SMOOTHNESS L-1780 — per-family draw-call census (railings + st
             const STAIRS = 60;      // 120 railings
             const HANDRAILS = 120;
 
-            // ── BEFORE: exactly what a user gets today ───────────────────────
-            delete g.__pryzmElementInstancingV1;
+            // ── BEFORE: the pre-§NAV-SMOOTHNESS regime, requested EXPLICITLY.
+            //    ⚠ This used to be `delete __pryzmElementInstancingV1` — "the shipped
+            //    default". Since L-1781 the shipped default INSTANCES these families,
+            //    so leaving it as an absence of flags would have quietly turned this
+            //    before/after into an after/after comparing 250 with 250 and reporting
+            //    a 1.0x "win". The BEFORE arm must now NAME the old regime.
+            g.__pryzmElementInstancing = { handrail: false, stairRailing: false };
             const before = buildScene(STAIRS, HANDRAILS);
-            print('BEFORE (shipped default — instancing OFF)', before.census, before.elements);
+            print('BEFORE (pre-L-1781 — fragment path)', before.census, before.elements);
 
-            // ── AFTER: the master flag on, which is the ONLY switch these four
-            //    families have today.
-            g.__pryzmElementInstancingV1 = true;
+            // ── AFTER: the shipped default as of L-1781.
+            delete g.__pryzmElementInstancing;
             const after = buildScene(STAIRS, HANDRAILS);
-            print('AFTER  (instancing ON)', after.census, after.elements);
+            print('AFTER  (shipped default — instanced)', after.census, after.elements);
 
             const saved = before.census.drawCalls - after.census.drawCalls;
             const ratio = before.census.drawCalls / Math.max(1, after.census.drawCalls);
@@ -332,7 +365,6 @@ describe('§NAV-SMOOTHNESS L-1780 — per-family draw-call census (railings + st
         });
 
         it('records the MATERIAL axis — dedup must keep group count sub-linear in elements', () => {
-            g.__pryzmElementInstancingV1 = true;
             const small = buildScene(10, 20);
             const large = buildScene(40, 80);
 
@@ -487,5 +519,111 @@ describe('§NAV-TYPE-COLLAPSE — an instanced group must never hold two element
             if (m.isInstancedMesh) levels.add(String(m.userData.levelId));
         });
         expect([...levels].sort()).toEqual(['level-1', 'level-2']);
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+/**
+ * §NAV-LEAK-IS-BOUNDED (L-1781) — the recorded blocker on flipping `stairRailing`,
+ * MEASURED instead of inherited.
+ *
+ * `_FAMILY_DEFAULTS` carried this reason for keeping the family off:
+ *
+ *     stairRailing OFF — hands the SAME material object to both register() and a
+ *                        surviving fragment mesh, so with the L1 stamp on, the top
+ *                        rail's material is permanently skipped rather than freed.
+ *                        Safe, but it leaks; fix the builder before flipping.
+ *
+ * That is TRUE and it is the right thing to have worried about — but "it leaks" is
+ * not a magnitude, and a lane must not trade a measured 19.7x draw-call win against
+ * an unmeasured word. So this measures the SHAPE of the leak, which is the only
+ * thing that decides whether it blocks.
+ *
+ * The mechanism: `dedupInstanceMaterial` elects the first material of a visual
+ * signature as CANONICAL and stamps it `markSharedGpuResource`, after which every
+ * `safeDispose*` helper no-ops on it — deliberately, because that material now backs
+ * an InstanceGroup drawing N elements and the element that happened to mint it must
+ * not be able to free it (ADR-0297 L1). Ownership is handed back in
+ * `resetSharedMaterialCache()`, which `InstancedElementRenderer.clear()` calls on
+ * project close.
+ *
+ * ⭐ SO THE QUESTION IS WHETHER THE RETAINED SET GROWS WITH ELEMENT COUNT OR WITH
+ * DISTINCT APPEARANCE. If it is O(elements) the family must stay off. If it is
+ * O(distinct looks) it is a handful of materials held until project close — the
+ * exact standing that the `window` family, which is ALREADY default-ON through this
+ * same chokepoint, has shipped on. Measured below: it is the second.
+ */
+describe('§NAV-LEAK-IS-BOUNDED — what survives DELETION, and how it scales', () => {
+    /**
+     * ⚠ THE FIRST VERSION OF THIS PROBE ANSWERED A DIFFERENT QUESTION AND IS
+     * RECORDED HERE SO NOBODY REBUILDS IT. It counted distinct materials reachable
+     * from the LIVE scene and reported 5 railings -> 5 materials, 50 -> 50, i.e.
+     * "linear, therefore blocking". That number is real but it is not the leak: a
+     * live railing legitimately holds its own top-rail FRAGMENT material, because
+     * `dedupInstanceMaterial` runs inside `register()` and never touches the
+     * fragment mesh. Counting live materials measures how many railings exist.
+     *
+     * ⭐ THE LEAK IS WHAT SURVIVES DELETION. So this builds, then DELETES everything,
+     * and asks how many materials the L1 ownership stamp has made permanently
+     * un-freeable until `resetSharedMaterialCache()` at project close.
+     */
+    function afterDeletingAll(railings: number): { minted: number; retained: number } {
+        resetSharedMaterialCache();
+        _ns = `leak${_run++}`;
+        const scene = new THREE.Scene();
+        const renderer = new InstancedElementRenderer();
+        renderer.setScene(scene);
+        const bridge = new ElementInstanceBridge(renderer);
+        const stubRailStore = { get: () => undefined, getByStairId: () => [] } as never;
+        const builder = new StairRailingBuilder(stubRailStore, scene);
+        builder.setInstanceBridge(bridge);
+
+        const ids: string[] = [];
+        for (let i = 0; i < railings; i++) {
+            const cfg = makeRailing(i, 'left');
+            builder.buildRailing(cfg, makeStair(i));
+            ids.push(cfg.id);
+        }
+
+        // Every material this run put in front of the GPU, captured while alive.
+        const minted = new Set<THREE.Material>();
+        scene.traverse((o) => {
+            const m = (o as THREE.Mesh).material;
+            if (!m) return;
+            for (const one of Array.isArray(m) ? m : [m]) minted.add(one);
+        });
+
+        for (const id of ids) builder.removeRailing(id);
+
+        // Retained = stamped as a SHARED GPU resource, which is exactly the set every
+        // safeDispose* helper refuses to free. That stamp is the leak, by definition.
+        let retained = 0;
+        for (const m of minted) if (isSharedGpuResource(m)) retained++;
+        return { minted: minted.size, retained };
+    }
+
+    it('⭐ the DELETION-surviving set scales with LOOKS, not with element count', () => {
+        g.__pryzmElementInstancingV1 = true;
+        const small = afterDeletingAll(5);
+        const large = afterDeletingAll(50);
+
+        // eslint-disable-next-line no-console
+        console.log(
+            `[census] §NAV-LEAK-IS-BOUNDED after deleting ALL railings: ` +
+            `5 railings -> ${small.retained} retained of ${small.minted} minted ; ` +
+            `50 railings -> ${large.retained} retained of ${large.minted} minted`,
+        );
+
+        // 10x the elements must NOT retain 10x the materials. If it does, the retained
+        // set is per-element and `stairRailing` must go back to OFF.
+        expect(large.retained).toBeLessThan(small.retained * 10);
+    });
+
+    it('the retained set is also bounded in ABSOLUTE terms for one appearance', () => {
+        g.__pryzmElementInstancingV1 = true;
+        const { retained } = afterDeletingAll(50);
+        // One visual signature for balusters + one for posts is the shape; a handful,
+        // not fifty. Ratchet at the measured value with headroom, never at a guess.
+        expect(retained).toBeLessThanOrEqual(4);
     });
 });

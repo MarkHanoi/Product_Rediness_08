@@ -211,7 +211,18 @@ export class BeamFragmentBuilder {
      *     (|Δy| ≈ 0) are the only safe box case.
      */
     private _instanceKindFor(beam: BeamData): 'box' | null {
-        if (!this._instanceBridge || !isElementInstancingEnabled()) return null;
+        // §NAV-SMOOTHNESS (L-1781) — eligibility now NAMES the family, so the
+        // per-family table in `ElementInstanceBridge._FAMILY_DEFAULTS` is REACHABLE
+        // from here. It was not before: this read `isElementInstancingEnabled()` with
+        // NO argument, the LEGACY master-only contract (`__pryzmElementInstancingV1
+        // === true`, default off), so the `beam` entry in that table was
+        // authored-but-unwired and setting `__pryzmElementInstancing.beam = true`
+        // changed the draw-call count by ZERO (measured: NavigationDrawCallCensus.spec.ts,
+        // "THE GATE ITSELF"). Naming the family is behaviour-NEUTRAL under the master
+        // flag — the resolver honours `__pryzmElementInstancingV1` in BOTH directions
+        // before falling through to the default — so `= true` still turns everything on
+        // and `= false` is still a true kill switch.
+        if (!this._instanceBridge || !isElementInstancingEnabled('beam')) return null;
         const isSteel = (beam.sectionType === 'UB' || beam.sectionType === 'UC') && !!beam.steelProfileName;
         if (isSteel) return null;
         // Only horizontal beams map cleanly to a rotateY-only instance matrix.

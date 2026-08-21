@@ -19,7 +19,10 @@ import type { HandrailData } from '@pryzm/core-app-model/stores';
 import { HandrailFragmentBuilder } from '../HandrailFragmentBuilder';
 import { postStations } from '../postStations';
 
-const g = globalThis as { __pryzmElementInstancingV1?: boolean };
+const g = globalThis as {
+    __pryzmElementInstancingV1?: boolean;
+    __pryzmElementInstancing?: Record<string, boolean>;
+};
 
 /** Spy bridge: records register/unregister + an O(1) live-id set, no real renderer. */
 class SpyBridge {
@@ -85,11 +88,21 @@ describe('HandrailFragmentBuilder §PERF-RAIL-INSTANCING (ADR-0076 Axis 3)', () 
         builder.setInstanceBridge(spy as unknown as ElementInstanceBridge);
     });
 
-    afterEach(() => { delete g.__pryzmElementInstancingV1; });
+    afterEach(() => {
+        delete g.__pryzmElementInstancingV1;
+        delete g.__pryzmElementInstancing;
+    });
 
     // ── (a) flag OFF → fragment path, bridge untouched ────────────────────────
     describe('(a) flag OFF keeps balusters + posts on the FRAGMENT path', () => {
         it('does not register anything on the bridge and builds real meshes', () => {
+            // ⚠ §NAV-SMOOTHNESS (L-1781) — this used to set NO flag and rely on the
+            // shipped default being OFF. `handrail` is now default ON (measured:
+            // 4920 → 250 draw calls over 240 railing elements), so "off" has to be
+            // NAMED. The test's subject is unchanged and still worth keeping: the
+            // FRAGMENT path must remain correct and reachable, because it is what a
+            // user gets the moment they use the kill switch.
+            g.__pryzmElementInstancing = { handrail: false };
             builder.updateHandrail(makeHandrail());
             expect(spy.registers).toHaveLength(0);
             // 3 balusters + 2 end posts + 1 intermediate post = 6 repeated meshes.

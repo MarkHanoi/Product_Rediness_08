@@ -217,37 +217,69 @@ export type InstancedElementFamily =
     | 'window' | 'column' | 'beam' | 'handrail' | 'stairRailing';
 
 /**
- * Per-family DEFAULTS — §INSTANCE-WINDOWS-DEFAULT-ON (L-1180).
+ * Per-family DEFAULTS — §INSTANCE-WINDOWS-DEFAULT-ON (L-1180),
+ * §NAV-SMOOTHNESS (L-1781).
  *
  * A family is ON here only once it has been made SAFE, which means both halves of
  * ADR-0297: L1 (nothing frees a material the InstanceGroup still draws with) and
  * L2 (nothing releases a GPU buffer still reachable from the render graph), AND a
  * test that exercises the instanced delete path — the one that crashes.
  *
+ * ⚠ AND UNTIL L-1781 THIS TABLE WAS LARGELY UNREACHABLE. Four of the five builders
+ * called `isElementInstancingEnabled()` with NO ARGUMENT, which is the legacy
+ * master-only contract — so only `window` ever consulted its row here. Setting
+ * `__pryzmElementInstancing.handrail = true` moved the draw-call count by ZERO.
+ * All five call sites now name their family; see `NavigationDrawCallCensus.spec.ts`
+ * ("THE GATE ITSELF"), which asserts that symptom so it cannot silently return.
+ *
  *   window       ON  — L1 closed at the SharedMaterialCache chokepoint, L2 closed
  *                      in WindowBuilder.dispose() (was live: it disposed while the
  *                      group was still parented), covered by
  *                      WindowInstancedLifetime.test.ts. 12 meshes → 1 per window,
  *                      and windows are 85% of the founder's scene.
- *   column       OFF — L2 already compliant, but ZERO instanced tests exist, and a
- *                      column is 1 mesh so instancing buys ~nothing per element.
- *   beam         OFF — `_disposeMesh` still frees in place on the mutation tick
- *                      (L2 (b) open). 1 mesh per element.
- *   handrail     OFF — L2 clean (`detachAndReleaseChildren`), has instanced tests;
- *                      a genuine candidate, but not measured yet.
- *   stairRailing OFF — hands the SAME material object to both register() and a
- *                      surviving fragment mesh, so with the L1 stamp on, the top
- *                      rail's material is permanently skipped rather than freed.
- *                      Safe, but it leaks; fix the builder before flipping.
+ *   handrail     ON  — L-1781. L2 clean (`detachAndReleaseChildren`), instanced
+ *                      tests exist (HandrailInstancing.spec, 8-corner placement +
+ *                      slot release on remove/rebuild) and the isolation-dispose
+ *                      guard covers project switch. It was previously marked "a
+ *                      genuine candidate, but not measured yet" — IT IS NOW
+ *                      MEASURED: with stair railings, 240 railing elements go
+ *                      4920 → 250 draw calls (19.7x), 2520 → 242 geometries.
+ *   stairRailing ON  — L-1781, and the recorded blocker was RETIRED BY
+ *                      MEASUREMENT rather than by assertion. This row read: "hands
+ *                      the SAME material object to both register() and a surviving
+ *                      fragment mesh, so with the L1 stamp on, the top rail's
+ *                      material is permanently skipped rather than freed. Safe, but
+ *                      it leaks; fix the builder before flipping."
  *
- * Do NOT flip a family here without the test that proves its delete path.
+ *                      That is true, and "safe but it leaks" was the right worry —
+ *                      but it is not a MAGNITUDE, and the only thing that decides
+ *                      whether it blocks is whether the surviving set grows with
+ *                      ELEMENT COUNT or with distinct APPEARANCE.
+ *                      §NAV-LEAK-IS-BOUNDED measures it after deleting every
+ *                      railing: 5 railings → 1 material retained; 50 railings → 1
+ *                      material retained. CONSTANT, not linear, and handed back at
+ *                      `resetSharedMaterialCache()` on project close. One material
+ *                      held for a session is not a reason to keep 19.7x on the
+ *                      floor. StairRailingInstancing.spec covers the delete path.
+ *   column       OFF — L2 already compliant, but ZERO instanced tests exist. Now
+ *                      REACHABLE per-family, so it can be switched on for a session
+ *                      with `__pryzmElementInstancing.column = true` — but a column
+ *                      is 1 mesh, so the win is one draw call per column rather than
+ *                      the ~20 a railing gives, and it should be flipped by the lane
+ *                      that writes its delete-path test, not by this one.
+ *   beam         OFF — `_disposeMesh` still frees in place on the mutation tick
+ *                      (ADR-0297 L2 (b) OPEN). That is a real hazard, it is unfixed,
+ *                      and it is unrelated to reachability. Fix the builder first.
+ *
+ * ⛔ Do NOT flip a family here without the test that proves its delete path, and do
+ * not flip one on a reason — flip it on a number.
  */
 const _FAMILY_DEFAULTS: Readonly<Record<InstancedElementFamily, boolean>> = Object.freeze({
     window: true,
     column: false,
     beam: false,
-    handrail: false,
-    stairRailing: false,
+    handrail: true,
+    stairRailing: true,
 });
 
 /**

@@ -94,14 +94,27 @@ export class HandrailFragmentBuilder {
     }
 
     /**
-     * Eligibility: the repeated baluster/post primitives may use the instanced path
-     * only when the bridge is present AND the flag is on. The balusters/posts are
-     * always simple vertical box/cylinder primitives, so there is no per-element
-     * geometry exclusion (unlike steel-LOD columns). Returns true → instanced path
-     * for the repeated members; false → fragment path. Bridge null / flag off → false.
+     * Eligibility for the instanced path: bridge injected AND the family enabled.
+     * The balusters/posts are always simple vertical box/cylinder primitives, so
+     * there is no per-element geometry exclusion (unlike steel-LOD columns).
+     * Returns true → instanced path for the repeated members; false → fragment path.
+     *
+     * ⭐ §NAV-SMOOTHNESS (L-1781) — this NAMES the family, and until it did the
+     * family could not be switched on at all. It read `isElementInstancingEnabled()`
+     * with NO argument, which is the LEGACY master-only contract
+     * (`__pryzmElementInstancingV1 === true`, default OFF) — so the `handrail` row in
+     * `ElementInstanceBridge._FAMILY_DEFAULTS` was authored-but-unwired: setting
+     * `__pryzmElementInstancing.handrail = true` moved the draw-call count by ZERO.
+     * That is asserted, as a symptom, in `NavigationDrawCallCensus.spec.ts`.
+     *
+     * WHAT THE FLIP IS WORTH, measured through the real builders into a real scene:
+     * 240 railing elements went 4920 → 250 draw calls (19.7x), 4920 → 250 meshes,
+     * 2520 → 242 geometries. The founder's scene is draw-call bound (7589 calls
+     * against only 470k triangles), and this family is the shape that mints them —
+     * one BoxGeometry, one Mesh and one draw call per baluster.
      */
     private _instancingActive(): boolean {
-        return !!this._instanceBridge && isElementInstancingEnabled();
+        return !!this._instanceBridge && isElementInstancingEnabled('handrail');
     }
 
     /**

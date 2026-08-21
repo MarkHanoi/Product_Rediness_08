@@ -73,9 +73,18 @@ interface TraversableLike {
 interface SceneNodeLike {
     isMesh?: boolean;
     isInstancedMesh?: boolean;
+    /** §NAV-FAMILY-CENSUS — line objects (edge overlays) draw too, and are not meshes. */
+    isLine?: boolean;
+    isLineSegments?: boolean;
     visible?: boolean;
     count?: number;
-    userData?: { id?: string; elementType?: string; isInstancedGroup?: boolean };
+    castShadow?: boolean;
+    userData?: {
+        id?: string;
+        elementType?: string;
+        isInstancedGroup?: boolean;
+        role?: string;
+    };
 }
 
 /** `renderer.info`-shaped stats, as returned by RenderPerformanceService.getStats(). */
@@ -287,6 +296,31 @@ function counterRow(label: string, c: Record<string, number>, key: string, note 
 
 // ── Live-state sampling ─────────────────────────────────────────────────────
 
+/**
+ * §NAV-FAMILY-CENSUS (L-1780) — one family's contribution to the frame.
+ *
+ * ⭐ THIS IS THE ROW THE PRIOR REPORT COULD NOT PRINT, and its absence is why
+ * "are railings instanced?" had to be answered by reading code. `elementsByType`
+ * counts objects carrying `userData.id` + `elementType`, which for a family that
+ * stamps EVERY child mesh (stair-railing does) is a mesh count wearing an element
+ * label, and for a family that stamps only its root is an element count. One
+ * column, two meanings, no way to tell them apart — so both are broken out here.
+ */
+interface FamilyRow {
+    /** Distinct `userData.id` values seen — real ELEMENTS. */
+    elements: number;
+    /** Plain meshes attributed to this family — ONE DRAW CALL EACH. */
+    standaloneMeshes: number;
+    /** InstancedMesh aggregates stamped with this family — one draw call each. */
+    instancedGroups: number;
+    /** Instances packed into those aggregates — these cost NO extra draw call. */
+    instances: number;
+    /** Meshes flagged `castShadow` — a shadow pass RE-SUBMITS every one of them. */
+    shadowCasters: number;
+    /** Line / LineSegments objects (edge overlays) — decoration that still draws. */
+    lines: number;
+}
+
 interface SceneCensus {
     meshes: number;
     visibleMeshes: number;
@@ -294,6 +328,20 @@ interface SceneCensus {
     instancedGroupMeshes: number;
     elements: number;
     elementsByType: Record<string, number>;
+    /** §NAV-FAMILY-CENSUS — family → what it costs the renderer. */
+    families: Record<string, FamilyRow>;
+    /** Every Line/LineSegments in the scene, visible or not. */
+    lineObjects: number;
+    visibleLineObjects: number;
+    /** Meshes with castShadow — the shadow pass re-draws these. */
+    shadowCasters: number;
+    /**
+     * ⭐ THE HEADLINE, computed the way a forward pass counts:
+     * visible standalone meshes + visible instance groups + visible line objects.
+     * EXCLUDES the shadow pass and frustum culling — compare it against the
+     * renderer's own `drawCalls` row and the GAP is the shadow/post/multi-pass cost.
+     */
+    estimatedForwardDrawCalls: number;
 }
 
 /**
@@ -309,22 +357,67 @@ function censusScene(scene: TraversableLike): SceneCensus {
         instancedGroupMeshes: 0,
         elements: 0,
         elementsByType: {},
+        families: {},
+        lineObjects: 0,
+        visibleLineObjects: 0,
+        shadowCasters: 0,
+        estimatedForwardDrawCalls: 0,
     };
+    const idsByFamily: Record<string, Set<string>> = {};
+    const famRow = (name: string): FamilyRow => (c.families[name] ??= {
+        elements: 0, standaloneMeshes: 0, instancedGroups: 0,
+        instances: 0, shadowCasters: 0, lines: 0,
+    });
+
     scene.traverse((o) => {
+        const type = o.userData?.elementType;
+        // §NAV-FAMILY-CENSUS — an unlabelled object is NOT silently folded into a
+        // family. "(unattributed)" is a finding in its own right: it is geometry
+        // nobody can hide, isolate or select by type.
+        const fam = type ?? '(unattributed)';
+
+        if (o.isLine || o.isLineSegments) {
+            c.lineObjects++;
+            if (o.visible !== false) {
+                c.visibleLineObjects++;
+                c.estimatedForwardDrawCalls++;
+            }
+            famRow(fam).lines++;
+            return;
+        }
+        if (!o.isMesh) return;
+
+        c.meshes++;
+        const visible = o.visible !== false;
+        if (visible) c.visibleMeshes++;
+        if (o.castShadow === true) {
+            c.shadowCasters++;
+            famRow(fam).shadowCasters++;
+        }
+
         if (o.isInstancedMesh) {
             c.instancedMeshes++;
             if (o.userData?.isInstancedGroup) c.instancedGroupMeshes++;
+            const row = famRow(fam);
+            row.instancedGroups++;
+            row.instances += o.count ?? 0;
+            if (visible) c.estimatedForwardDrawCalls++;
+        } else {
+            famRow(fam).standaloneMeshes++;
+            if (visible) c.estimatedForwardDrawCalls++;
         }
-        if (o.isMesh) {
-            c.meshes++;
-            if (o.visible !== false) c.visibleMeshes++;
-        }
-        const t = o.userData?.elementType;
-        if (o.userData?.id && t) {
-            c.elements++;
-            c.elementsByType[t] = (c.elementsByType[t] ?? 0) + 1;
+
+        const id = o.userData?.id;
+        if (id && type) {
+            c.elementsByType[type] = (c.elementsByType[type] ?? 0) + 1;
+            (idsByFamily[type] ??= new Set<string>()).add(id);
         }
     });
+
+    // DISTINCT ids, so a family that stamps every child mesh (stair-railing does)
+    // reports its real element count and not its mesh count under an element label.
+    for (const [name, ids] of Object.entries(idsByFamily)) famRow(name).elements = ids.size;
+    c.elements = Object.values(idsByFamily).reduce((n, set) => n + set.size, 0);
     return c;
 }
 
@@ -499,6 +592,22 @@ function buildReport(): PryzmPerfReport {
             // second implementation that can disagree with the one that matters —
             // and this report exists precisely to stop a founder concluding
             // "instancing is broken" when the truth is a switch.
+            //
+            // ⚠ AND UNTIL §NAV-SMOOTHNESS (L-1781) THIS ROW COULD LIE, in the exact
+            // way the paragraph above promises it cannot. It calls the resolver WITH
+            // a family name; four of the five builders called it WITHOUT one, which
+            // is a different overload with different precedence. So with
+            // `__pryzmElementInstancingV1 = true` this row printed `handrail: false`
+            // from the per-family default while the builder was busy instancing —
+            // the same resolver, a different question, opposite answers. Every
+            // builder now names its family, so the row and the behaviour are finally
+            // the same fact.
+            //
+            // ⛔ A future family added WITHOUT naming itself puts this row straight
+            // back to lying, and nothing here would notice. The guard is
+            // `NavigationDrawCallCensus.spec.ts` "THE GATE ITSELF", which asserts the
+            // per-family switch actually moves the draw-call count — add the new
+            // family there rather than trusting this row.
             families: safe(() => {
                 const fams = ['window', 'column', 'beam', 'handrail', 'stairRailing'] as const;
                 const out: Record<string, boolean> = {};
@@ -567,6 +676,63 @@ function printReport(r: PryzmPerfReport): void {
             .map(([k, v]) => `${k}=${v}`)
             .join('  ');
         if (byType) p(row('  by type (top 8)', byType));
+
+        // ── ⭐ §NAV-FAMILY-CENSUS (L-1780) — WHICH FAMILIES COST THE FRAME ─────
+        //
+        // The founder's question was "check all elements are now instanced
+        // (railings stairs...)", and until this table existed the only way to
+        // answer it was to read builder source. Sorted by DRAW CALLS, because that
+        // is the currency: his scene reports 7589 calls against only 470k
+        // triangles, so it is draw-call bound and the top row of this table IS the
+        // bottleneck.
+        //
+        // ⚠ The `inst` column is measured FROM THE SCENE GRAPH, never read off a
+        // flag. A family showing only `frag` while its flag row below says ON is a
+        // WIRING failure — the bridge was never injected — and those two rows
+        // disagreeing is itself the finding.
+        p('');
+        p('  ⭐ PER-FAMILY DRAW-CALL CENSUS  — sorted by cost, not by name');
+        p('       family                    elems   draws  = frag + inst(xN)   shadow  lines');
+        const famRows = Object.entries(r.scene.families)
+            .map(([name, f]) => ({
+                name, f, draws: f.standaloneMeshes + f.instancedGroups + f.lines,
+            }))
+            .sort((a, b) => b.draws - a.draws)
+            .slice(0, 12);
+        for (const fr of famRows) {
+            const inst = fr.f.instancedGroups > 0
+                ? `${String(fr.f.instancedGroups)}(x${String(fr.f.instances)})`
+                : '-';
+            p(
+                '       ' + fr.name.slice(0, 24).padEnd(24) +
+                String(fr.f.elements).padStart(6) +
+                String(fr.draws).padStart(8) +
+                '   ' + String(fr.f.standaloneMeshes).padStart(5) +
+                '   ' + inst.padStart(11) +
+                String(fr.f.shadowCasters).padStart(8) +
+                String(fr.f.lines).padStart(7),
+            );
+        }
+        p(row('estimated FORWARD draw calls', num(r.scene.estimatedForwardDrawCalls),
+            '← scene-graph count: visible meshes + groups + lines'));
+        if (r.render) {
+            // ⭐ THE GAP IS THE FINDING, and it is why BOTH numbers are printed.
+            // The scene-graph estimate covers ONE forward pass. The renderer's own
+            // counter covers everything it actually submitted. A renderer count of
+            // roughly 2x the estimate is the signature of a SHADOW PASS re-drawing
+            // casters, or of a second render pass — NOT of extra geometry. Those
+            // are different fixes, so the report must not collapse them into one
+            // number and leave the reader guessing which they are looking at.
+            const gap = r.render.drawCalls - r.scene.estimatedForwardDrawCalls;
+            p(row('  renderer says', num(r.render.drawCalls),
+                gap > 0
+                    ? `← ${num(gap)} MORE than one forward pass = shadow/post/multi-pass`
+                    : '← at or below the forward estimate (culling is removing work)'));
+        }
+        p(row('shadow casters', num(r.scene.shadowCasters),
+            '← a shadow map pass RE-SUBMITS each one'));
+        p(row('line objects (edge overlays)', num(r.scene.lineObjects),
+            `(${num(r.scene.visibleLineObjects)} visible) ← decoration, still draws`));
     } else {
         p(row('scene meshes', null, '← no scene handle injected'));
     }
@@ -633,9 +799,14 @@ function printReport(r: PryzmPerfReport): void {
     if (famNames.length > 0) {
         p('       per-family instancing (resolved, incl. defaults + overrides):');
         for (const name of famNames) {
-            p(row(`  ${name}`,
-                fam[name] ? 'ON' : 'OFF',
-                fam[name] && name === 'window' ? '← ~12 meshes/window collapse to 1' : ''));
+            const note =
+                name === 'window'       ? '← ~12 meshes/window collapse to 1'
+                : name === 'handrail'     ? '← L-1781: ~20 meshes/railing collapse to ~1'
+                : name === 'stairRailing' ? '← L-1781: ~20 meshes/railing collapse to ~1'
+                : name === 'beam'         ? '(OFF: ADR-0297 L2(b) dispose-in-place OPEN)'
+                : name === 'column'       ? '(OFF: no instanced delete-path test yet)'
+                : '';
+            p(row(`  ${name}`, fam[name] ? 'ON' : 'OFF', note));
         }
     }
     p(row('__pryzmElementInstancingV1',
@@ -648,10 +819,14 @@ function printReport(r: PryzmPerfReport): void {
     p('       per-family override:  __pryzmElementInstancing = { window: false }');
 
     if (i.groups && i.groups.length > 0) {
-        // The key is levelId_idxCt_vtxCt_x0_y0_z0_materialUuid — reading the top
-        // keys says whether groups split by LEVEL, by VERTEX COUNT, or by MATERIAL
-        // UUID. Three different bugs, and the ratio alone conflates all three.
-        p('       top groups (key = level_idxCt_vtxCt_x0_y0_z0_materialUuid):');
+        // The key is elementType_levelId_idxCt_vtxCt_x0_y0_z0_materialUuid —
+        // reading the top keys says whether groups split by TYPE, by LEVEL, by
+        // VERTEX COUNT, or by MATERIAL UUID. Four different bugs, and the ratio
+        // alone conflates all four. (elementType joined the key in
+        // §NAV-TYPE-IN-GROUP-KEY, L-1781: without it two families sharing a
+        // geometry + material + level collapsed into ONE group under ONE type
+        // stamp, which left hide/isolate-by-type unable to address either.)
+        p('       top groups (key = type_level_idxCt_vtxCt_x0_y0_z0_materialUuid):');
         for (const grp of i.groups.slice(0, 6)) {
             p(`         ${String(grp.active).padStart(5)} active / ${String(grp.allocated).padStart(5)} slots   ${grp.key}`);
         }

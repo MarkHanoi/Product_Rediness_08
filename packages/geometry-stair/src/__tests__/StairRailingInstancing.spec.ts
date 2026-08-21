@@ -29,6 +29,7 @@ beforeEach(() => {
 afterEach(() => {
     (globalThis as any).window = _origWindow;
     delete (globalThis as { __pryzmElementInstancingV1?: boolean }).__pryzmElementInstancingV1;
+    delete (globalThis as { __pryzmElementInstancing?: unknown }).__pryzmElementInstancing;
 });
 
 // Imported AFTER the window stub setup at top-level is harmless (ctor runs per-test).
@@ -36,7 +37,10 @@ import { StairRailingBuilder } from '../StairRailingBuilder';
 import type { StairRailingConfig } from '../StairRailingTypes';
 import type { StairData } from '../StairTypes';
 
-const g = globalThis as { __pryzmElementInstancingV1?: boolean };
+const g = globalThis as {
+    __pryzmElementInstancingV1?: boolean;
+    __pryzmElementInstancing?: Record<string, boolean>;
+};
 
 class SpyBridge {
     registers: Array<{ id: string; levelId: string; type: string; transform: any; kind: string }> = [];
@@ -111,6 +115,13 @@ describe('StairRailingBuilder §PERF-RAIL-INSTANCING (ADR-0076 Axis 3)', () => {
     // ── (a) flag OFF → fragment path ──────────────────────────────────────────
     describe('(a) flag OFF keeps posts + balusters on the FRAGMENT path', () => {
         it('registers nothing on the bridge and builds real meshes', () => {
+            // ⚠ §NAV-SMOOTHNESS (L-1781) — this used to set NO flag and rely on the
+            // shipped default being OFF. `stairRailing` is now default ON (measured:
+            // 4920 → 250 draw calls over 240 railing elements; the recorded "it leaks"
+            // blocker measured at ONE retained material whether 5 railings or 50), so
+            // "off" has to be NAMED. The fragment path itself is unchanged and must
+            // stay correct — it is what the kill switch returns the user to.
+            g.__pryzmElementInstancing = { stairRailing: false };
             builder.buildRailing(makeRailing(), makeStair());
             expect(spy.registers).toHaveLength(0);
             // A flat-bar railing produces baluster + post meshes — assert several exist.
