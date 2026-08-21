@@ -1,0 +1,630 @@
+{
+  "//": [
+    "NAMED, SHRINK-ONLY ledger for check-dependent-adapts-on-host-move.",
+    "",
+    "SUBJECT: the founder's principle, 2026-08-21 — 'elements should propagate when one",
+    "moves, all contexts'. One cell per (dependent family, moving host), one verdict per",
+    "cell: PROPAGATES, REFUSES, or SILENT. The narrative form is ADR-0343.",
+    "",
+    "PINNED 2026-08-21 (lane PROP1) AT THE FIRST MEASURED READING — 64 cells,",
+    "19 PROPAGATES / 6 REFUSES / 39 SILENT. Every PROPAGATES and REFUSES marker in this",
+    "file was grep-verified against HEAD before the ledger was written, and every 'absent'",
+    "probe on a SILENT cell was verified to be genuinely absent. A ledger pinned above or",
+    "below its own gate's reading is not a ratchet — the first is free slots, the second is",
+    "permanently unsatisfiable (move-propagation.json records that exact draft mistake).",
+    "",
+    "WHY SILENT IS THE ONLY FINDING. An honest REFUSES is a valid answer: the product",
+    "does not adapt the dependent AND says so by name with a reason (C74). SILENT is the",
+    "defect — nothing happens and nothing is said, so 'there is no dependent here' and",
+    "'the dependent was never wired' arrive at the reader as the SAME VALUE (C78 §1.4).",
+    "That is exactly what the founder saw: a wall moved 19.444 m and the floor finish",
+    "neither followed nor refused.",
+    "",
+    "SHRINK-ONLY, CHECKED IN BOTH DIRECTIONS. A new SILENT cell exits 3. A SILENT cell",
+    "whose probe says the defect is GONE is STALE and also exits 3 — debt that has been",
+    "paid must leave the ledger in the commit that pays it. And a PROPAGATES cell whose",
+    "wiring evidence stops resolving is a REGRESSION TO SILENT, counted as a finding on",
+    "top of the ledger, so it cannot be absorbed.",
+    "",
+    "THE ONE CELL THIS LANE CLOSED: 'floor finish × wall' and 'ceiling finish × wall' were",
+    "SILENT for every finish whose relationship was never recorded at creation. Closed by",
+    "§FINISH-FOLLOW-LATE-ATTRIBUTION (L-2090); the cells now carry the hook itself as",
+    "evidence, so deleting the repair turns the gate red rather than turning the product",
+    "quiet again.",
+    "",
+    "⚠ THE HEADER ABOVE WAS WRONG ON ITS FIRST WRITE AND THE GATE CAUGHT IT. It was",
+    "hand-typed as '52 cells, 27 SILENT' before the ledger was finished; the first run",
+    "read 64 / 39. Recorded rather than quietly corrected, because 'the prose number was",
+    "transcribed instead of counted' is the exact defect shape this repository logs most",
+    "often, and it happened inside the artefact built to stop it. Read the gate's output,",
+    "never this paragraph.",
+    "",
+    "NEGATIVE CONTROL, executed 2026-08-21 before this ledger was trusted (C74 §6.2 — an",
+    "arm never watched failing is UNPROVEN): the 'floor finish × wall' cell's marker",
+    "'new FloorHostDependencyTracker(' was temporarily changed to a symbol that does not",
+    "exist. The gate went to RC=3 with 'REGRESSED-TO-SILENT: floor finish × wall', 40",
+    "findings against 39. The marker was restored and the gate returned to RC=1 at 39.",
+    "ARM A therefore discriminates; it is not counting its own ledger back to itself.",
+    "",
+    "EXIT CONDITION — declaredSilent reaches [] when every dependent family either adapts",
+    "to every host that can move it, or refuses BY NAME. Reducing a cell from SILENT to",
+    "REFUSES is a legitimate and often correct fix: narrowing a claim to the truth is a",
+    "fix; leaving it silent is not."
+  ],
+  "declaredSilent": [
+    "slab × slab",
+    "slab × room boundary",
+    "roof × slab",
+    "roof × stair",
+    "roof × room boundary",
+    "beam × wall",
+    "beam × slab",
+    "beam × stair",
+    "column × wall",
+    "column × slab",
+    "column × stair",
+    "curtain wall / panel × wall",
+    "curtain wall / panel × slab",
+    "curtain wall / panel × stair",
+    "stair × wall",
+    "stair × slab",
+    "furniture × wall",
+    "furniture × slab",
+    "furniture × room boundary",
+    "lighting × wall",
+    "lighting × level",
+    "lighting × room boundary",
+    "plumbing × wall",
+    "plumbing × level",
+    "handrail × wall",
+    "handrail × stair",
+    "stair railing × wall",
+    "ceiling finish × slab",
+    "ceiling finish × level",
+    "ceiling finish × room boundary",
+    "floor finish × slab",
+    "floor finish × level",
+    "room × level",
+    "room tag × wall",
+    "room tag × room boundary",
+    "annotation / dimension × slab",
+    "annotation / dimension × level",
+    "annotation / dimension × room boundary",
+    "standalone opening × level"
+  ],
+  "unprobed": [],
+  "cells": [
+    {
+      "dependent": "floor finish",
+      "host": "wall",
+      "verdict": "PROPAGATES",
+      "note": "FinishHostDependencyTracker re-projects the boundary and writes it back through UpdateFloorBoundaryCommand as a STRUCTURAL_CASCADE child (one undo). Finishes whose relationship was never recorded at creation are re-attributed against the moved wall alone (§FINISH-FOLLOW-LATE-ATTRIBUTION, L-2090).",
+      "probe": [
+        { "path": "packages/finish-host-tracker/src/FinishHostDependencyTracker.ts", "pattern": "wallStore.subscribe", "expect": "present" },
+        { "path": "packages/finish-host-tracker/src/FinishHostDependencyTracker.ts", "pattern": "STRUCTURAL_CASCADE", "expect": "present" },
+        { "path": "apps/editor/src/engine/initTools.ts", "pattern": "new FloorHostDependencyTracker(", "expect": "present" },
+        { "path": "apps/editor/src/engine/finishLateAttribution.ts", "pattern": "attributeFinishAgainstMovedWall", "expect": "present" },
+        { "path": "apps/editor/src/engine/initTools.ts", "pattern": "attributeFinishAgainstMovedWall", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "ceiling finish",
+      "host": "wall",
+      "verdict": "PROPAGATES",
+      "note": "The floor's twin, through the same base class and the same hook — C79 §7.4 forbids the two finish families diverging.",
+      "probe": [
+        { "path": "apps/editor/src/engine/initTools.ts", "pattern": "new CeilingHostDependencyTracker(", "expect": "present" },
+        { "path": "packages/finish-host-tracker/src/CeilingHostDependencyTracker.ts", "pattern": "FinishLateAttribution", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "slab",
+      "host": "wall",
+      "verdict": "PROPAGATES",
+      "note": "Two live paths: SlabDependencyTracker re-resolves the region sketch, and SlabWallConnectivityService dispatches CascadeWallBaselineCommand as a STRUCTURAL_CASCADE. The tracker's own write-back is a direct store write, not a command — see ADR-0343 §P6 shortfall.",
+      "probe": [
+        { "path": "packages/geometry-slab/src/SlabDependencyTracker.ts", "pattern": "wallStore.subscribe", "expect": "present" },
+        { "path": "packages/geometry-slab/src/SlabWallConnectivityService.ts", "pattern": "STRUCTURAL_CASCADE", "expect": "present" },
+        { "path": "apps/editor/src/engine/initTools.ts", "pattern": "new SlabDependencyTracker(", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "slab",
+      "host": "level",
+      "verdict": "PROPAGATES",
+      "note": "The level-rebuild callback queries slabs by level and calls triggerRebuild. One of exactly TWO kinds the reconcile reaches.",
+      "probe": [
+        { "path": "apps/editor/src/engine/initWallLevelSubscribers.ts", "pattern": "registerLevelRebuildCallback", "expect": "present" },
+        { "path": "apps/editor/src/engine/initWallLevelSubscribers.ts", "pattern": "triggerRebuild", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "slab",
+      "host": "stair",
+      "verdict": "PROPAGATES",
+      "note": "The stair's void follows and the host slab rebuilds. The slab's own polygon is untouched — only the hosted opening moves.",
+      "probe": [
+        { "path": "packages/command-registry/src/stair/MoveStairCommand.ts", "pattern": "cascadeStairVoids", "expect": "present" },
+        { "path": "packages/command-registry/src/stair/StairSlabOpeningReconciler.ts", "pattern": "triggerRebuild", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "wall",
+      "host": "level",
+      "verdict": "PROPAGATES",
+      "note": "The level-rebuild callback rebuilds each delivered wall id. The OTHER of the two kinds the reconcile reaches.",
+      "probe": [
+        { "path": "apps/editor/src/engine/initWallLevelSubscribers.ts", "pattern": "builder.updateWall", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "roof",
+      "host": "wall",
+      "verdict": "PROPAGATES",
+      "note": "RoofDependencyTracker re-asks the region question at the stored anchor and writes UpdateRoofBoundaryCommand. NOTE: dispatched WITHOUT source metadata, so a roof follow costs a SECOND undo — ADR-0343 §P6 shortfall.",
+      "probe": [
+        { "path": "packages/geometry-roof/src/RoofDependencyTracker.ts", "pattern": "wallStore.subscribe", "expect": "present" },
+        { "path": "apps/editor/src/engine/initTools.ts", "pattern": "new RoofDependencyTracker(", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "room",
+      "host": "wall",
+      "verdict": "PROPAGATES",
+      "note": "RoomTopologyObserver schedules a debounced re-detect; the wall command invalidates the boundary conclusions so a stale ring is never read as current.",
+      "probe": [
+        { "path": "packages/room-topology/src/RoomTopologyObserver.ts", "pattern": "this.wallStore.subscribe", "expect": "present" },
+        { "path": "packages/command-registry/src/walls/UpdateWallBaselineCommand.ts", "pattern": "GR12-BOUNDARY-INVALIDATION", "expect": "present" },
+        { "path": "apps/editor/src/engine/initTools.ts", "pattern": "new RoomTopologyObserver(", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "room",
+      "host": "slab",
+      "verdict": "PROPAGATES",
+      "note": "Wired: a slab add/update/remove schedules a re-detect on its level. NO test in the tree drives this arm — wiring proven, behaviour UNPROVEN.",
+      "probe": [
+        { "path": "packages/room-topology/src/RoomTopologyObserver.ts", "pattern": "slabStore", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "room",
+      "host": "room boundary",
+      "verdict": "PROPAGATES",
+      "note": "A room-bounding-line edit schedules a re-detect on its level. Also undriven by any test.",
+      "probe": [
+        { "path": "packages/room-topology/src/RoomTopologyObserver.ts", "pattern": "_roomBoundingLineStore.subscribe", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "hosted opening (door/window)",
+      "host": "wall",
+      "verdict": "PROPAGATES",
+      "note": "The best-wired pair in the product: baseline, height and thickness all re-anchor, once per opening, and the executed gate check-propagation-trackers-reach drives all three branches.",
+      "probe": [
+        { "path": "packages/geometry-door/src/DoorDependencyTracker.ts", "pattern": "wallStore.subscribe", "expect": "present" },
+        { "path": "packages/geometry-window/src/WindowDependencyTracker.ts", "pattern": "wallStore.subscribe", "expect": "present" },
+        { "path": "apps/editor/src/engine/initBuilders.ts", "pattern": "new DoorDependencyTracker(", "expect": "present" },
+        { "path": "apps/editor/src/engine/initBuilders.ts", "pattern": "new WindowDependencyTracker(", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "hosted opening (door/window)",
+      "host": "slab",
+      "verdict": "PROPAGATES",
+      "note": "The BASE-OFFSET term only: a slab base-offset change moves the host wall's base plane, which no wall-record diff can see, and the trackers subscribe to that term directly. A slab POLYGON change reaches no opening.",
+      "probe": [
+        { "path": "packages/geometry-door/src/DoorDependencyTracker.ts", "pattern": "onWallBaseYChanged", "expect": "present" },
+        { "path": "packages/geometry-window/src/WindowDependencyTracker.ts", "pattern": "onWallBaseYChanged", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "hosted opening (door/window)",
+      "host": "level",
+      "verdict": "PROPAGATES",
+      "note": "Classified DETERMINED-HOSTED: re-rendered by the host wall's own rebuild via its opening render map, with no independent reconcile consumer.",
+      "probe": [
+        { "path": "packages/core-app-model/src/SpatialAuthority.ts", "pattern": "DETERMINED-HOSTED", "expect": "present" },
+        { "path": "apps/editor/src/engine/initWallLevelSubscribers.ts", "pattern": "resolveOpeningRenderMap", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "standalone opening",
+      "host": "wall",
+      "verdict": "PROPAGATES",
+      "note": "Direct edit refits openings inside UpdateWallBaselineCommand; a wall moved BY ANOTHER wall's move rebases them inside CascadeWallBaselineCommand, as a STRUCTURAL_CASCADE. This is the path the founder's log shows working.",
+      "probe": [
+        { "path": "packages/command-registry/src/walls/UpdateWallBaselineCommand.ts", "pattern": "planOpeningRefit", "expect": "present" },
+        { "path": "packages/command-registry/src/walls/CascadeWallBaselineCommand.ts", "pattern": "HOSTED-OPENING-HOST-MOVE", "expect": "present" },
+        { "path": "packages/geometry-wall/src/WallMoveReweldService.ts", "pattern": "STRUCTURAL_CASCADE", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "standalone opening",
+      "host": "stair",
+      "verdict": "PROPAGATES",
+      "note": "Move a stair and the SAME opening moves with it, inside the stair command's own frame — so it is one undo by construction.",
+      "probe": [
+        { "path": "packages/command-registry/src/stair/MoveStairCommand.ts", "pattern": "cascadeStairVoids", "expect": "present" },
+        { "path": "packages/command-registry/src/stair/StairVoidCascade.ts", "pattern": "cascadeStairVoids", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "stair railing",
+      "host": "stair",
+      "verdict": "PROPAGATES",
+      "note": "The rail path is re-sampled from the host at build time on bim-stair-updated. No record write-back, so no command and no undo entry — correct here, because nothing authored is being changed.",
+      "probe": [
+        { "path": "packages/geometry-stair/src/StairRailingBuilder.ts", "pattern": "bim-stair-updated", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "annotation / dimension",
+      "host": "wall",
+      "verdict": "PROPAGATES",
+      "note": "AnnotationDependencyGraph subscribes to StoreEventBus and re-resolves every wall reference on flush. WallStore is the ONLY emitter that forwards prevState. NOTE: zero test files reference AnnotationDependencyGraph — the resolver is pinned, the subscription is not.",
+      "probe": [
+        { "path": "plugins/annotations/src/subsystem/AnnotationDependencyGraph.ts", "pattern": "storeEventBus.subscribe", "expect": "present" },
+        { "path": "plugins/annotations/src/subsystem/AnnotationReference.ts", "pattern": "elementType === 'wall'", "expect": "present" },
+        { "path": "packages/geometry-wall/src/WallStore.ts", "pattern": "prevState", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "furniture / plumbing / lighting (seating datum)",
+      "host": "floor or ceiling finish",
+      "verdict": "PROPAGATES",
+      "note": "ReseatLevelElementsCommand re-seats position.y for exactly these three families when a floor/ceiling FINISH is created, updated, re-layered or removed — composed into the parent command's undo. It is NOT reached by a wall move or a level elevation change.",
+      "probe": [
+        { "path": "packages/command-registry/src/seating/ReseatLevelElementsCommand.ts", "pattern": "'furniture', 'plumbing', 'lighting'", "expect": "present" },
+        { "path": "packages/command-registry/src/floors/CreateFloorCommand.ts", "pattern": "ReseatLevelElementsCommand", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "slab / wall (sitsOn · supports)",
+      "host": "generic dependency cascade",
+      "verdict": "PROPAGATES",
+      "note": "The ONE surviving generic channel: pryzm-dep-cascade, listened to by initDependencyCascade, routing sitsOn/supports ONLY. Priorities 2-5 reach the listener and are dropped on the floor by design, because the bespoke trackers own them.",
+      "probe": [
+        { "path": "packages/core-app-model/src/DependencyResolver.ts", "pattern": "pryzm-dep-cascade", "expect": "present" },
+        { "path": "apps/editor/src/engine/initDependencyCascade.ts", "pattern": "relationshipType !== 'sitsOn'", "expect": "present" }
+      ]
+    },
+
+    {
+      "dependent": "roof",
+      "host": "level",
+      "verdict": "REFUSES",
+      "note": "DETERMINED-STRANDED by name, plus a user-facing toast naming the level, the delta and the roof: 'Level X moved N m but roof Y did not follow … Rebuild the roof or adjust its base offset.' The strongest refusal in the matrix — it reaches the USER, not just the console.",
+      "probe": [
+        { "path": "packages/core-app-model/src/SpatialAuthority.ts", "pattern": "has no reconcile consumer", "expect": "present" },
+        { "path": "apps/editor/src/engine/roofWallClashAnnouncer.ts", "pattern": "did not follow", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "beam",
+      "host": "level",
+      "verdict": "REFUSES",
+      "note": "DETERMINED-STRANDED with the C72 §5.1 / PR-07 reason: the level-rebuild callback reaches Wall and Slab only, so a beam keeps its old elevation and the shortfall is announced per level.",
+      "probe": [
+        { "path": "packages/core-app-model/src/SpatialAuthority.ts", "pattern": "DETERMINED-STRANDED", "expect": "present" },
+        { "path": "packages/core-app-model/src/SpatialAuthority.ts", "pattern": "C72 §5.1 SHORTFALL", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "column",
+      "host": "level",
+      "verdict": "REFUSES",
+      "note": "Same seam, same named refusal, enumerated by name in StrandedKind.",
+      "probe": [
+        { "path": "packages/core-app-model/src/SpatialAuthority.ts", "pattern": "StrandedKind", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "curtain wall / panel",
+      "host": "level",
+      "verdict": "REFUSES",
+      "note": "Same seam. 'CurtainWall' is a named member of StrandedKind.",
+      "probe": [
+        { "path": "packages/core-app-model/src/SpatialAuthority.ts", "pattern": "'CurtainWall'", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "stair",
+      "host": "level",
+      "verdict": "REFUSES",
+      "note": "Same seam. 'Stair' is a named member of StrandedKind.",
+      "probe": [
+        { "path": "packages/core-app-model/src/SpatialAuthority.ts", "pattern": "'Stair'", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "furniture",
+      "host": "level",
+      "verdict": "REFUSES",
+      "note": "Same seam. 'Furniture' is a named member of StrandedKind and is probed by SpatialAuthority, so the refusal is reached rather than fallen through.",
+      "probe": [
+        { "path": "packages/core-app-model/src/SpatialAuthority.ts", "pattern": "'Furniture'", "expect": "present" }
+      ]
+    },
+
+    {
+      "dependent": "slab",
+      "host": "slab",
+      "verdict": "SILENT",
+      "note": "UpdateSlabPolygonCommand notifies no dependent of any kind. A slab boundary edit reaches nothing.",
+      "probe": [{ "path": "packages/command-registry/src/slabs/UpdateSlabPolygonCommand.ts", "pattern": "cascade", "expect": "absent" }]
+    },
+    {
+      "dependent": "slab",
+      "host": "room boundary",
+      "verdict": "SILENT",
+      "note": "No room→slab edge exists in either direction of adaptation.",
+      "probe": [{ "path": "packages/geometry-slab/src/SlabDependencyTracker.ts", "pattern": "roomStore", "expect": "absent" }]
+    },
+    {
+      "dependent": "roof",
+      "host": "slab",
+      "verdict": "SILENT",
+      "note": "RoofDependencyTracker subscribes to the wall store only.",
+      "probe": [{ "path": "packages/geometry-roof", "pattern": "slabStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "roof",
+      "host": "stair",
+      "verdict": "SILENT",
+      "note": "No stair→roof edge.",
+      "probe": [{ "path": "packages/geometry-roof", "pattern": "stairStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "roof",
+      "host": "room boundary",
+      "verdict": "SILENT",
+      "note": "A roof records the bounding-wall SET and an anchor, never a room.",
+      "probe": [{ "path": "packages/geometry-roof", "pattern": "roomStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "beam",
+      "host": "wall",
+      "verdict": "SILENT",
+      "note": "The host reference EXISTS — BeamData.startSupportId / startSupportType 'wall' — written by AssignBeamSupportsCommand and read by the AI read-model and the rule engine. No mover reads it. C70 §4.2 in its purest form: reference present, consumer absent.",
+      "probe": [{ "path": "packages/geometry-beam", "pattern": "wallStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "beam",
+      "host": "slab",
+      "verdict": "SILENT",
+      "note": "No slab subscription in the beam package.",
+      "probe": [{ "path": "packages/geometry-beam", "pattern": "slabStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "beam",
+      "host": "stair",
+      "verdict": "SILENT",
+      "note": "No stair subscription in the beam package.",
+      "probe": [{ "path": "packages/geometry-beam", "pattern": "stairStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "column",
+      "host": "wall",
+      "verdict": "SILENT",
+      "note": "No subscription. SlabColumnCoupling.resolveSlabBaseOffsetForPoint is a pure read-only query consulted at authoring and build time only; nothing re-invokes it when the host moves.",
+      "probe": [{ "path": "packages/geometry-column", "pattern": "wallStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "column",
+      "host": "slab",
+      "verdict": "SILENT",
+      "note": "A column's base offset is resolved from the slab beneath it AT CREATION and never re-resolved when that slab moves.",
+      "probe": [{ "path": "packages/geometry-column", "pattern": "slabStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "column",
+      "host": "stair",
+      "verdict": "SILENT",
+      "note": "No stair subscription in the column package.",
+      "probe": [{ "path": "packages/geometry-column", "pattern": "stairStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "curtain wall / panel",
+      "host": "wall",
+      "verdict": "SILENT",
+      "note": "CurtainWallTypes declares NO host-wall field at all, so the relationship cannot even be expressed. Panels do follow their own curtain wall (CurtainPanelSyncHandler); the curtain wall follows nothing.",
+      "probe": [{ "path": "packages/geometry-curtain-wall", "pattern": "wallStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "curtain wall / panel",
+      "host": "slab",
+      "verdict": "SILENT",
+      "note": "No slab subscription.",
+      "probe": [{ "path": "packages/geometry-curtain-wall", "pattern": "slabStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "curtain wall / panel",
+      "host": "stair",
+      "verdict": "SILENT",
+      "note": "No stair subscription.",
+      "probe": [{ "path": "packages/geometry-curtain-wall", "pattern": "stairStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "stair",
+      "host": "wall",
+      "verdict": "SILENT",
+      "note": "StairVerticalSpanResolver and StairLevelSpanChange are pure resolvers invoked at create and parameter time; neither subscribes to anything.",
+      "probe": [{ "path": "packages/geometry-stair", "pattern": "wallStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "stair",
+      "host": "slab",
+      "verdict": "SILENT",
+      "note": "A stair pierces its horizontal hosts at create/param time and is never re-resolved when one of them moves.",
+      "probe": [{ "path": "packages/geometry-stair", "pattern": "slabStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "furniture",
+      "host": "wall",
+      "verdict": "SILENT",
+      "note": "FurnitureData carries no wallId, no hostId and no roomId. A wardrobe against a wall has no relationship to lose — the edge cannot be expressed at all. THE LARGEST GAP IN THIS MATRIX by user-visible impact.",
+      "probe": [{ "path": "packages/geometry-furniture", "pattern": "wallStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "furniture",
+      "host": "slab",
+      "verdict": "SILENT",
+      "note": "Same: no host field, no subscription.",
+      "probe": [{ "path": "packages/geometry-furniture", "pattern": "slabStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "furniture",
+      "host": "room boundary",
+      "verdict": "SILENT",
+      "note": "RoomContentsService reads furniture INTO a room query; it is a read service and writes no element.",
+      "probe": [{ "path": "packages/geometry-furniture", "pattern": "roomStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "lighting",
+      "host": "wall",
+      "verdict": "SILENT",
+      "note": "LightingData declares hostId, and the file itself records that exactly one writer and one loader-reader exist and that no placement path sets it. The one refusal that DOES exist (§L-1032) is about the fixture's own storey change, not a host move.",
+      "probe": [
+        { "path": "packages/geometry-lighting", "pattern": "wallStore.subscribe", "expect": "absent" },
+        { "path": "packages/geometry-lighting/src/LightingStore.ts", "pattern": "L-1032", "expect": "present" }
+      ]
+    },
+    {
+      "dependent": "lighting",
+      "host": "level",
+      "verdict": "SILENT",
+      "note": "Lighting is absent from SpatialAuthority's probe list, so it classifies UNDETERMINED, is delivered fail-open, and is dropped by the level-rebuild callback with no else and no log. A handler EXISTS and early-returns silently — the worst shape in the matrix, because it looks handled.",
+      "probe": [{ "path": "packages/core-app-model/src/SpatialAuthority.ts", "pattern": "lightingStore", "expect": "absent" }]
+    },
+    {
+      "dependent": "lighting",
+      "host": "room boundary",
+      "verdict": "SILENT",
+      "note": "roomId is resolved from plan position at create/move time only; LightingStore states it is left alone deliberately because re-deriving it needs a room set the store cannot see. Deliberate, but unannounced at the moment it matters.",
+      "probe": [{ "path": "packages/geometry-lighting", "pattern": "roomStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "plumbing",
+      "host": "wall",
+      "verdict": "SILENT",
+      "note": "PlumbingFixtureData has no wallId and no hostId. The nearest-wall logic is placement-time orientation only and persists nothing — a wall-hung WC cannot record the wall it hangs on.",
+      "probe": [{ "path": "packages/geometry-plumbing", "pattern": "wallStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "plumbing",
+      "host": "level",
+      "verdict": "SILENT",
+      "note": "Same silent drop as lighting at the level-rebuild callback.",
+      "probe": [{ "path": "packages/core-app-model/src/SpatialAuthority.ts", "pattern": "plumbingStore", "expect": "absent" }]
+    },
+    {
+      "dependent": "handrail",
+      "host": "wall",
+      "verdict": "SILENT",
+      "note": "HandrailData.hostKind is 'stair' | 'slab' — it cannot be 'wall', so a wall-mounted handrail is inexpressible.",
+      "probe": [{ "path": "packages/geometry-handrail", "pattern": "wallStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "handrail",
+      "host": "stair",
+      "verdict": "SILENT",
+      "note": "AUTHORED-BUT-UNWIRED, and the clearest case in the repo: buildStairHandrailCascadeRule is fully written and synthesises handrail.recompute on stair.move — its only caller is registerCrossHandlers, which has ZERO production callers, and CascadeRunner is instantiated only in tests. MoveStairCommand.affectedStores does not name handrail. Deletion of a stair DOES orphan-clean its handrails; motion does nothing.",
+      "probe": [
+        { "path": "plugins/cross/src/stair-handrail.ts", "pattern": "buildStairHandrailCascadeRule", "expect": "present" },
+        { "path": "packages/command-registry/src/stair/MoveStairCommand.ts", "pattern": "handrail", "expect": "absent" }
+      ]
+    },
+    {
+      "dependent": "stair railing",
+      "host": "wall",
+      "verdict": "SILENT",
+      "note": "A stair railing follows its stair and nothing else.",
+      "probe": [{ "path": "packages/geometry-stair/src/StairRailingBuilder.ts", "pattern": "bim-wall-updated", "expect": "absent" }]
+    },
+    {
+      "dependent": "ceiling finish",
+      "host": "slab",
+      "verdict": "SILENT",
+      "note": "FinishHostDependencyTracker wires exactly one store subscription — the wall store. There is no slab subscription anywhere in the package.",
+      "probe": [{ "path": "packages/finish-host-tracker", "pattern": "slabStore.subscribe", "expect": "absent" }]
+    },
+    {
+      "dependent": "ceiling finish",
+      "host": "level",
+      "verdict": "SILENT",
+      "note": "ceilingStore is not among SpatialAuthority's eight probed stores, so a ceiling id is delivered fail-open and dropped without a log.",
+      "probe": [{ "path": "packages/core-app-model/src/SpatialAuthority.ts", "pattern": "ceilingStore", "expect": "absent" }]
+    },
+    {
+      "dependent": "ceiling finish",
+      "host": "room boundary",
+      "verdict": "SILENT",
+      "note": "RoomFinishSyncService listens to bim-room-updated but writes only finishSpec — material and colour. No boundary or sketch re-derivation exists on this path, and its guard early-returns with no log.",
+      "probe": [{ "path": "packages/core-app-model/src/RoomFinishSyncService.ts", "pattern": "boundary", "expect": "absent" }]
+    },
+    {
+      "dependent": "floor finish",
+      "host": "slab",
+      "verdict": "SILENT",
+      "note": "A finish is seated ON its slab at creation (resolveFinishSeating) and re-seated when the FINISH changes — never when the SLAB moves or its boundary changes.",
+      "probe": [{ "path": "packages/finish-host-tracker", "pattern": "hostSlabId", "expect": "absent" }]
+    },
+    {
+      "dependent": "floor finish",
+      "host": "level",
+      "verdict": "SILENT",
+      "note": "Same fail-open drop as the ceiling: floorStore is not probed by SpatialAuthority.",
+      "probe": [{ "path": "packages/core-app-model/src/SpatialAuthority.ts", "pattern": "floorStore", "expect": "absent" }]
+    },
+    {
+      "dependent": "room",
+      "host": "level",
+      "verdict": "SILENT",
+      "note": "RoomTopologyObserver.attach subscribes to wall, curtain-wall, room-bounding-line, slab and column stores. It has no level subscription and no reconcile listener.",
+      "probe": [{ "path": "packages/room-topology/src/RoomTopologyObserver.ts", "pattern": "spatial-authority-reconcile", "expect": "absent" }]
+    },
+    {
+      "dependent": "room tag",
+      "host": "wall",
+      "verdict": "SILENT",
+      "note": "PARTIAL, and classified by what it fails to do: the refresh writes only `parameters`, so the label and area update while the ANCHOR strands. The tag is bound to a baked point reference, and AnnotationDependencyGraph explicitly skips point refs, so it is not in the associativity index at all.",
+      "probe": [{ "path": "packages/room-topology/src/RoomTagAutoPopulator.ts", "pattern": "makePointRef", "expect": "present" }]
+    },
+    {
+      "dependent": "room tag",
+      "host": "room boundary",
+      "verdict": "SILENT",
+      "note": "Same mechanism: area drift refreshes the text, the position stays at the old centroid.",
+      "probe": [{ "path": "packages/room-topology/src/RoomTagAutoPopulator.ts", "pattern": "makePointRef", "expect": "present" }]
+    },
+    {
+      "dependent": "annotation / dimension",
+      "host": "slab",
+      "verdict": "SILENT",
+      "note": "The AUTODIMENSION executor can only mint wall/door/window references, so no auto-dimension ever carries a slab id and the graph lookup returns nothing. A hand-picked slope dimension is the only slab-referencing case.",
+      "probe": [{ "path": "apps/editor/src/ui/documentation/dimensionReferences.ts", "pattern": "'slab'", "expect": "absent" }]
+    },
+    {
+      "dependent": "annotation / dimension",
+      "host": "level",
+      "verdict": "SILENT",
+      "note": "NO store in the repo emits elementType 'level' on StoreEventBus, so the level branch of the reference resolver is unreachable dead code. The subscriber exists and never fires.",
+      "probe": [{ "path": "packages/core-app-model/src/BimKernel.ts", "pattern": "storeEventBus.emit", "expect": "absent" }]
+    },
+    {
+      "dependent": "annotation / dimension",
+      "host": "room boundary",
+      "verdict": "SILENT",
+      "note": "RoomStore does emit on the bus, but no production code mints a room StableReference and the resolver has no room branch — a room ref would fall to its cached position. The lookup returns undefined and the handler early-returns with no log.",
+      "probe": [{ "path": "plugins/annotations/src/subsystem/AnnotationReference.ts", "pattern": "elementType === 'room'", "expect": "absent" }]
+    },
+    {
+      "dependent": "standalone opening",
+      "host": "level",
+      "verdict": "SILENT",
+      "note": "openingStore is not in SpatialAuthority's probe list, so an opening id classifies UNDETERMINED and is delivered to the rebuild callback — which drops it at `const wall = store.getById(id); if (wall) {` with no else and no log, even though window.openingStore is populated and reachable.",
+      "probe": [{ "path": "packages/core-app-model/src/SpatialAuthority.ts", "pattern": "openingStore", "expect": "absent" }]
+    }
+  ]
+}

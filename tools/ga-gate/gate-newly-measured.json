@@ -631,6 +631,21 @@
       "notMeasured": "⚠ This gate asserts that a row EXISTS for every file and a file for every row. It does NOT assert that the row's DESCRIPTION is true, that its Status column is current, or that the prose ranges in rows 4–6 agree with the table — README:219's undated present-tense '69 contract files exist (C01–C60 + C62–C69 + C24.1)' is FALSE at HEAD and this gate cannot see it (register §1, L-1131). A prose-range arm is the obvious next extension and is deliberately not claimed here.",
       "territory": "tools/ga-gate/check-contract-index-equivalence.ts. The DRAIN is docs/02-decisions/contracts/README.md's table, owned by C00 — unclaimed by any live lane as of 2026-08-19.",
       "reviewBy": "2026-11-19"
+    },
+    {
+      "gate": "check-dependent-adapts-on-host-move.ts",
+      "runner": "ga-gate",
+      "addedAt": "2026-08-21",
+      "builtBy": "L-2090..L-2093 - lane PROP1 - ADR-0343 - founder ask 2026-08-21: “elements should propagate when one moves, all contexts; audit all elements against this principle”",
+      "firstReading": "exit 1 DECLARED-LEVEL at a ledger pinned to THIS reading - 64 matrix cells, 19 PROPAGATES / 6 REFUSES / 39 SILENT; 259 production files read while resolving evidence. ARM A 19/19 (every PROPAGATES cell's wiring evidence still resolves), ARM B 6/6 (every REFUSES string still exists), ARM C 39 SILENT cells, each named. All four floors met.",
+      "pinnedTo": "tools/rac-conformance/certification/gates/host-move-propagation-matrix.json - `declaredSilent`, a NAMED shrink-only list, never a bare integer: the subject is 64 concurrently-edited cells and a count alone could not tell 'furniture x wall was fixed' from 'beam x slab regressed'.",
+      "negativeControl": "EXECUTED before the ledger was trusted (C74 6.2). The 'floor finish x wall' cell's marker `new FloorHostDependencyTracker(` was temporarily replaced with a symbol that does not exist; the gate went RC=3 'REGRESSED-TO-SILENT: floor finish x wall', 40 findings vs 39. Restored, RC=1 at 39. ARM A discriminates - it is not reading its own ledger back to itself.",
+      "predatesTheGate": [
+        "ALL 39 SILENT cells predate the gate. Two cells - 'floor finish x wall' and 'ceiling finish x wall' - were SILENT for every finish whose relationship was never recorded at creation, and were CLOSED by this same lane (L-2090); they are enrolled as PROPAGATES with the repair itself as evidence, so deleting the repair turns the gate red rather than turning the product quiet again.",
+        "The largest holders by user-visible impact: furniture (no host field at all - a wardrobe cannot record the wall it stands against), plumbing (same), curtain wall (no host-wall field), and handrail x stair (the cascade rule is fully AUTHORED and registered by nothing).",
+        "THE MOST DANGEROUS SHAPE is not 'no subscriber' but 'a handler that early-returns with no log': lighting, plumbing, ceiling, floor and standalone-opening ids are all DELIVERED to the level-rebuild callback and dropped at `const wall = store.getById(id); if (wall) {` with no else and no line. Those read as handled."
+      ],
+      "reviewBy": "2026-11-21"
     }
   ]
 }
