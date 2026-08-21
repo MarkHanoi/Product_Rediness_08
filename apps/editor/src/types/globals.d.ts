@@ -578,6 +578,23 @@ declare global {
         pryzmViewportBackgroundReport:
             | ((label?: string) => Record<string, unknown>)
             | undefined;
+        /**
+         * §VIEWPORT-GREY-PIXEL-PROBE (L-1942) — the measurement its sibling above cannot
+         * make: the colour actually IN THE FRAMEBUFFER.
+         *
+         * `pryzmViewportBackgroundReport` reports what each surface is CONFIGURED to be,
+         * so every answer built on it ends in an inference. This one renders, downsamples
+         * the live canvas to a 5x5 grid and reads the 25 real RGBA values; then hides the
+         * ground shadow-catcher, re-reads, and restores it. The per-cell delta says
+         * whether the catcher is painting those pixels — an observation, not a verdict —
+         * without anyone toggling a panel. Works on both backends.
+         *
+         * MUTATES: renders up to 3 extra frames and flips `catcher.visible` inside a
+         * try/finally that always restores it. No GPU dispose, no material/light change.
+         */
+        pryzmViewportGreyPixelProbe:
+            | ((label?: string) => Record<string, unknown>)
+            | undefined;
         obcRendererCanvas: HTMLCanvasElement | undefined;
         renderPipelineManager:
             | {

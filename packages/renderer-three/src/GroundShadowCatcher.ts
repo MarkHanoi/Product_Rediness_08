@@ -54,6 +54,47 @@ export class GroundShadowCatcher {
     /** Tiny downward bias so a coincident floor slab always wins the depth test. */
     private static readonly _DEPTH_BIAS_M = 0.01;
 
+    /**
+     * ── §CATCHER-CANNOT-WASH-THE-VIEWPORT (L-1940) ───────────────────────────
+     *
+     * The plane's geometry edge length in metres (what the constructor built). The
+     * LIVE footprint is `_size` (≤ `_baseSize`), reached by scaling the mesh — never
+     * by rebuilding geometry, so this stays a pure transform write with no GPU
+     * allocation and no ADR-0111 dispose.
+     *
+     * WHY A LIVE FOOTPRINT EXISTS AT ALL. This plane's alpha is not a constant: on
+     * three's node renderer (r183, used by BOTH the 'webgpu' and 'webgl-fallback'
+     * backends) `THREE.ShadowMaterial` compiles to `ShadowNodeMaterial` →
+     * `ShadowMaskModel`, whose entire body is
+     *
+     *     shadowMask = 1 ; direct(): shadowMask *= lightNode.shadowNode
+     *     finish():  diffuseColor.a *= shadowMask.oneMinus()
+     *
+     * (`three/src/nodes/functions/ShadowMaskModel.js`, read 2026-08-21) — so the
+     * plane paints `opacity` worth of BLACK wherever the shadow mask reads 0, and
+     * `ShadowNode.setupShadowFilter` returns a mask of **1 (lit)** only OUTSIDE the
+     * shadow camera's frustum. Inside it, the mask is a texture compare: a shadow map
+     * that was never written, written by a foreign renderer, or written with a
+     * mismatched compare function reads exactly the same as "totally in shadow".
+     * **A failure of the shadow pipeline and a real shadow are the SAME VALUE**, and
+     * a 4 km plane renders that failure as a viewport-wide grey field over a
+     * background stack that measures pure white.
+     *
+     * A plane sized to the geometry that can actually shadow it cannot do that. It
+     * still receives every real shadow (the throw is added by the caller), but it can
+     * no longer paint anything that reads as a BACKGROUND. This is a containment
+     * bound on a known failure mode, not a claim about which failure fired.
+     */
+    private readonly _baseSize: number;
+    /** Live footprint edge length in metres (≤ {@link _baseSize}). */
+    private _size: number;
+    /** Live footprint centre, world X (metres). */
+    private _centreX = 0;
+    /** Live footprint centre, world Z (metres). */
+    private _centreZ = 0;
+    /** Ground datum the plane is seated on (metres); the depth bias is applied below it. */
+    private _elevation = 0;
+
     constructor(opts: GroundShadowCatcherOptions = {}) {
         const size = opts.size ?? 4000;
         const opacity = opts.opacity ?? 0.32;
@@ -94,6 +135,8 @@ export class GroundShadowCatcher {
         mesh.raycast = () => { /* not raycastable */ };
 
         this._mesh = mesh;
+        this._baseSize = size;
+        this._size = size;
         this.setElevation(opts.elevation ?? 0);
     }
 
@@ -119,9 +162,45 @@ export class GroundShadowCatcher {
         }
     }
 
-    /** Move the catcher to the given ground elevation (metres). */
+    /** Move the catcher to the given ground elevation (metres). Keeps the XZ footprint. */
     setElevation(y: number): void {
-        this._mesh.position.set(0, y - GroundShadowCatcher._DEPTH_BIAS_M, 0);
+        this._elevation = y;
+        this._applyTransform();
+    }
+
+    /**
+     * §CATCHER-CANNOT-WASH-THE-VIEWPORT (L-1940) — seat the plane over `centre` with a
+     * live edge length of `size` metres.
+     *
+     * `size` is clamped to `(0, baseSize]`: the footprint may only ever SHRINK from
+     * what the constructor built, so this can never enlarge the surface a previous
+     * revision was already painting. Pure transform write — position + scale +
+     * `updateMatrix()`. No geometry rebuild, no material change, no GPU allocation and
+     * no dispose (ADR-0111 / §SHADOW-DEVICE-LOSS-FIX safe), and `matrixAutoUpdate`
+     * stays false.
+     */
+    setFootprint(centreX: number, centreZ: number, size: number): void {
+        if (!Number.isFinite(centreX) || !Number.isFinite(centreZ) || !Number.isFinite(size)) return;
+        this._centreX = centreX;
+        this._centreZ = centreZ;
+        this._size = Math.min(this._baseSize, Math.max(1e-3, size));
+        this._applyTransform();
+    }
+
+    /** The catcher's live world footprint (diagnostics / tests). */
+    get footprint(): { centreX: number; centreZ: number; size: number; baseSize: number } {
+        return { centreX: this._centreX, centreZ: this._centreZ, size: this._size, baseSize: this._baseSize };
+    }
+
+    /** Seat the plane from the current centre / size / elevation. */
+    private _applyTransform(): void {
+        const s = this._size / this._baseSize;
+        this._mesh.scale.set(s, 1, s);
+        this._mesh.position.set(
+            this._centreX,
+            this._elevation - GroundShadowCatcher._DEPTH_BIAS_M,
+            this._centreZ,
+        );
         this._mesh.updateMatrix();
     }
 

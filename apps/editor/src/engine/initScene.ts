@@ -5130,6 +5130,139 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     };
     window.pryzmViewportBackgroundReport = reportViewportBackground;
 
+    // ── §VIEWPORT-GREY-PIXEL-PROBE (L-1942) — read the PIXEL, not the config ──
+    //
+    // §VIEWPORT-BG-PROBE above enumerates what every surface is CONFIGURED to be. Six
+    // reports of "the background is grey" have now been answered from that list, and
+    // every one of them had to end in an inference — "these read white, therefore the
+    // grey must be something else" — because nothing in this codebase has ever read the
+    // colour that is actually on the screen. That inference is what a wrong fix is made
+    // of: it is equally consistent with "the catcher is painting it", "a surface not on
+    // the list is painting it", and "the configured value never reached the GPU".
+    //
+    // This probe measures the FRAMEBUFFER. It renders, downsamples the live canvas into
+    // a 5x5 2D canvas and reads the 25 actual RGBA values; then it hides the ground
+    // shadow-catcher, renders again, reads again, and restores it. The two grids and
+    // their per-cell delta answer the question that five fixes had to assume:
+    //
+    //   * grids DIFFER  -> the catcher IS painting those pixels. The `withCatcher` hex
+    //                      is the founder's grey and `withoutCatcher` is what is under
+    //                      it. No background fix can ever close it.
+    //   * grids MATCH   -> the catcher is NOT the grey. Whatever `withCatcher` reads is
+    //                      being painted by something else, and §VIEWPORT-BG-PROBE's
+    //                      surface list is where to look next.
+    //
+    // That is an OBSERVATION either way, not a verdict — the probe never says which
+    // outcome it expects. It is also the one check that needs no UI toggling, so it can
+    // be run from a console on production in one call, on BOTH backends.
+    //
+    // Mutating: it renders up to 3 extra frames and flips `catcher.visible` inside a
+    // try/finally that always restores it. It allocates one 5x5 2D canvas. It performs
+    // NO GPU dispose and touches no material, light or shadow state (ADR-0111 safe).
+    const GREY_PIXEL_PROBE_GRID = 5;
+
+    /** Downsample the live canvas to a 5x5 grid and return the 25 hex values. */
+    const samplePresentedPixels = (): string[] | string => {
+        try {
+            const cv = pryzmCanvas;
+            if (!cv) return 'no-canvas';
+            const n = GREY_PIXEL_PROBE_GRID;
+            const tmp = document.createElement('canvas');
+            tmp.width = n; tmp.height = n;
+            const ctx = tmp.getContext('2d', { willReadFrequently: true });
+            if (!ctx) return 'no-2d-context';
+            // Fill magenta first: if the WebGL/WebGPU canvas hands back nothing (a lost
+            // drawing buffer), the reader sees #ff00ff and knows the sample is INVALID
+            // rather than reading an all-zero grid as "the screen is black".
+            ctx.fillStyle = '#ff00ff';
+            ctx.fillRect(0, 0, n, n);
+            ctx.drawImage(cv, 0, 0, n, n);
+            const d = ctx.getImageData(0, 0, n, n).data;
+            const out: string[] = [];
+            for (let i = 0; i < n * n; i++) {
+                const r = d[i * 4], g = d[i * 4 + 1], b = d[i * 4 + 2], a = d[i * 4 + 3];
+                const hex = `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+                out.push(a === 255 ? hex : `${hex}/a${a}`);
+            }
+            return out;
+        } catch (e) {
+            return `sample-failed:${e instanceof Error ? e.message : String(e)}`;
+        }
+    };
+
+    const greyPixelProbe = (label = 'manual'): Record<string, unknown> => {
+        const scene = world.scene.three as THREE.Scene;
+        let catcher: THREE.Object3D | null = null;
+        scene.traverse((o: THREE.Object3D) => {
+            if (catcher === null && o.userData?.isGroundShadowCatcher === true) catcher = o;
+        });
+        const renderOnce = (): void => {
+            try { renderPipelineManagerRef?.render(0); } catch { /* probe never breaks the frame loop */ }
+        };
+
+        renderOnce();
+        const withCatcher = samplePresentedPixels();
+
+        let withoutCatcher: string[] | string = 'catcher-not-in-scene';
+        let catcherWasVisible: boolean | null = null;
+        if (catcher !== null) {
+            const c = catcher as THREE.Object3D;
+            catcherWasVisible = c.visible;
+            try {
+                c.visible = false;
+                renderOnce();
+                withoutCatcher = samplePresentedPixels();
+            } finally {
+                c.visible = catcherWasVisible;
+                renderOnce();
+            }
+        }
+
+        // Per-cell delta — the measurement. Only computed when BOTH samples are grids.
+        let changedCells: number | null = null;
+        let firstChange: string | null = null;
+        if (Array.isArray(withCatcher) && Array.isArray(withoutCatcher)) {
+            changedCells = 0;
+            for (let i = 0; i < withCatcher.length; i++) {
+                if (withCatcher[i] !== withoutCatcher[i]) {
+                    changedCells++;
+                    if (firstChange === null) {
+                        firstChange = `cell${i}: ${withCatcher[i]} -> ${withoutCatcher[i]}`;
+                    }
+                }
+            }
+        }
+
+        const report: Record<string, unknown> = {
+            label,
+            backend: pryzmRendererBackend,
+            canvasSize: pryzmCanvas ? `${pryzmCanvas.width}x${pryzmCanvas.height}` : null,
+            grid: `${GREY_PIXEL_PROBE_GRID}x${GREY_PIXEL_PROBE_GRID}`,
+            catcherInScene: catcher !== null,
+            catcherWasVisible,
+            withCatcher,
+            withoutCatcher,
+            changedCells,
+            firstChange,
+        };
+        console.log('[initScene] §VIEWPORT-GREY-PIXEL-PROBE', report);
+        if (changedCells !== null) {
+            console.log(
+                changedCells > 0
+                    ? `[initScene] §VIEWPORT-GREY-PIXEL-PROBE OBSERVED — hiding the ground shadow-catcher ` +
+                      `changed ${changedCells} of ${GREY_PIXEL_PROBE_GRID * GREY_PIXEL_PROBE_GRID} sampled ` +
+                      `pixels (${firstChange}). Those pixels are DRAWN BY THE CATCHER; no scene.background ` +
+                      'or renderer-clear change can affect them.'
+                    : `[initScene] §VIEWPORT-GREY-PIXEL-PROBE OBSERVED — hiding the ground shadow-catcher ` +
+                      'changed NONE of the sampled pixels. The catcher is not painting them. Read ' +
+                      'window.pryzmViewportBackgroundReport() for the configured background stack, and ' +
+                      'note that its surface list is a ledger, not a proof of completeness.',
+            );
+        }
+        return report;
+    };
+    window.pryzmViewportGreyPixelProbe = greyPixelProbe;
+
     // §SURFACE-WITH-NO-AREA-REFUSES-THE-PASS (L-1470) — the SURVIVING half of the
     // aggregated log. Each refusing site warns ONCE per episode; the counts stay here
     // so a reader who arrived after the message scrolled past (or after Chrome stopped

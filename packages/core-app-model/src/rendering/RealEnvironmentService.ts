@@ -41,6 +41,27 @@ export type SiteLatLonReader = () => { lat: number; lon: number } | null;
 export type GroundElevationReader = () => number;
 
 /**
+ * §CATCHER-CANNOT-WASH-THE-VIEWPORT (L-1940) — metres of slack added on every side of
+ * the caster extent, on top of the computed shadow throw, so a shadow is never clipped
+ * by a rounding error at the plane's edge.
+ */
+const CATCHER_MARGIN_M = 6;
+
+/**
+ * §CATCHER-CANNOT-WASH-THE-VIEWPORT (L-1940) — floor on the catcher's edge length, so a
+ * single small caster still gets a usable contact-shadow area.
+ */
+const CATCHER_MIN_SIZE_M = 12;
+
+/**
+ * §CATCHER-CANNOT-WASH-THE-VIEWPORT (L-1940) — ceiling on the computed shadow throw.
+ * At a low sun the true throw diverges (height / tan(elevation) -> infinity at sunrise);
+ * past this it is no longer a contact shadow and re-admitting a viewport-wide plane to
+ * chase it would reinstate exactly the defect this bounds.
+ */
+const CATCHER_MAX_THROW_M = 150;
+
+/**
  * Orchestrates the real sun + ground shadow-catcher for one scene. One instance
  * per editor session, created and wired by `initScene`.
  */
@@ -70,6 +91,42 @@ export class RealEnvironmentService {
      * and NO pipeline/ScenePass rebuild — it flips `mesh.visible` only.
      */
     private _hasCasters = false;
+
+    /**
+     * ── §CATCHER-CANNOT-WASH-THE-VIEWPORT (L-1940) ───────────────────────────
+     *
+     * World-space XZ extent (plus Y range) of the scene's shadow-CASTING meshes, from
+     * the SAME traverse that computes {@link _hasCasters} — no second sweep, no extra
+     * `bumpPerf` site. `null` until the first sweep finds a caster.
+     *
+     * THE DEFECT THIS BOUNDS, stated as a mechanism and not as a guess. The catcher is
+     * a `THREE.ShadowMaterial` plane **4 km across**. On three r183's node renderer —
+     * used by BOTH the 'webgpu' and the 'webgl-fallback' backend the founder is on —
+     * that material's alpha is `opacity x (1 - product of every shadow-casting light
+     * mask)` (`ShadowMaskModel.finish()`), and `ShadowNode.setupShadowFilter()` returns
+     * a mask of 1 (lit, i.e. transparent) ONLY outside the shadow camera's frustum.
+     * INSIDE it the mask is a depth-texture compare, and **every** way that compare can
+     * fail — a map that was never rendered, one allocated by a rival renderer, a
+     * mismatched compare function, a caster set the pass never drew — produces the
+     * value 0, which is bit-identical to "this fragment is fully shadowed". The plane
+     * then paints a flat 32 % black wash across its whole in-frustum footprint. Over
+     * the white viewport background (#ffffff, RenderPipelineManager
+     * §VIEWPORT-BG-ONE-AUTHORITY-RUNTIME) that composites to ~#adadad: **the founder's
+     * grey, DRAWN, on a background stack that measures white** — which is why five
+     * consecutive fixes aimed at `scene.background` / the renderer clear all missed.
+     *
+     * This field does NOT diagnose which of those failures fires. It CONTAINS all of
+     * them: the plane is re-seated over the casters and sized to their extent plus the
+     * sun's real shadow throw, so the worst case it can paint is the ground the model
+     * actually stands on — never a viewport-wide field. Every real shadow still lands
+     * (the throw is what guarantees that), so this is not "turn ground shadows off".
+     */
+    private _casterBounds: {
+        minX: number; maxX: number; minZ: number; maxZ: number; minY: number; maxY: number;
+    } | null = null;
+
+    /** Scratch sphere for the caster-bounds accumulation (never allocated per mesh). */
+    private readonly _tmpSphere = new THREE.Sphere();
 
     /**
      * §DIAG-GROUND-SHADOW-FIT (L-205) — the host that owns the scene's sole real shadow
@@ -187,11 +244,89 @@ export class RealEnvironmentService {
         if (!this._scene) return;
         if (this._groundShadowsEnabled) {
             this._ground.setElevation(this._readGroundElevation());
+            this._applyCatcherFootprint();
             this._ground.attach(this._scene);
-            this._ground.setEnabled(this._hasCasters);
+            this._ground.setEnabled(this._hasCasters && this._shadowMaskCanBeReal());
         } else {
             this._ground.setEnabled(false);
         }
+    }
+
+    /**
+     * §CATCHER-GATED-ON-A-LIVE-CASTING-LIGHT (L-1941) — is there a light that could
+     * produce a MEANINGFUL shadow mask right now?
+     *
+     * §L-205 gates the catcher on MESH casters. It never gated on the other half of the
+     * product: `ShadowMaskModel` multiplies the mask of every shadow-casting LIGHT, and
+     * this scene has exactly one (`pascal-key-light`, measured in the founder's session
+     * via §DIAG-GROUND-SHADOW-CASTING-LIGHTS: `castingLights=1`). §PERF-HEAVY-SHADOW-OFF
+     * clears that light's `castShadow` on a heavy scene (`PascalSceneLighting
+     * .setShadowsSuppressed`, fired at >= 8000 meshes by
+     * `RenderingPipelineCoordinator.applyTierForMeshCount`) — and the catcher stayed
+     * VISIBLE right through it, because nothing joined the two levers up. In that state
+     * no shadow pass runs at all, so whatever the plane paints is definitionally not a
+     * shadow. Hide it.
+     *
+     * `null` key light is UNKNOWN, not false: `enable()` can run before
+     * `PascalSceneLighting.apply()` has minted the light, and answering "no" there would
+     * regress the empty-to-first-caster path this class already pins. Unknown keeps the
+     * pre-existing behaviour (a scene with no casting light composites `mask = 1` -> the
+     * plane is transparent anyway, so nothing is painted either way).
+     *
+     * Pure boolean read. No GPU work, no light mutation.
+     */
+    private _shadowMaskCanBeReal(): boolean {
+        const key = this._keyLightHost?.keyLight ?? null;
+        if (!key) return true;
+        return key.castShadow === true;
+    }
+
+    /**
+     * §CATCHER-CANNOT-WASH-THE-VIEWPORT (L-1940) — seat + size the catcher from the
+     * measured caster extent, so the surface can only ever darken the ground the model
+     * actually stands on.
+     *
+     * Two independent defects close here:
+     *
+     *  1. **Size.** 4 km of `ShadowMaterial` is 4 km of "any shadow-map failure reads as
+     *     32 % black" (see {@link _casterBounds}). The live footprint becomes the caster
+     *     extent + the sun's real shadow throw + a margin, clamped to the constructed
+     *     size — it can only ever SHRINK.
+     *  2. **Position.** The plane was hard-centred on the WORLD ORIGIN and never moved.
+     *     A model seated off-origin (every geolocated PRYZM site) had its contact
+     *     shadows land on a plane that was not under it. It now follows the casters.
+     *
+     * The throw is derived from the key light's ACTUAL direction rather than from a solar
+     * API, so it stays correct in `manual` sun mode and needs no second source of truth.
+     */
+    private _applyCatcherFootprint(): void {
+        const b = this._casterBounds;
+        if (!b) return; // no caster measured yet — leave the constructed footprint alone
+        const groundY = this._readGroundElevation();
+        const height = Math.max(0, b.maxY - Math.min(b.minY, groundY));
+        const throwM = this._shadowThrowForHeight(height);
+        const span = Math.max(b.maxX - b.minX, b.maxZ - b.minZ);
+        const size = Math.max(CATCHER_MIN_SIZE_M, span + 2 * (throwM + CATCHER_MARGIN_M));
+        this._ground.setFootprint((b.minX + b.maxX) / 2, (b.minZ + b.maxZ) / 2, size);
+    }
+
+    /**
+     * §CATCHER-CANNOT-WASH-THE-VIEWPORT (L-1940) — how far a caster of `height` metres
+     * throws its shadow along the ground, from the key light's live world direction
+     * (`height * horizontal / vertical`). Clamped to {@link CATCHER_MAX_THROW_M}; falls
+     * back to that clamp when there is no light or the light is at/below the horizon,
+     * which is the conservative direction (a larger plane, never a clipped shadow).
+     */
+    private _shadowThrowForHeight(height: number): number {
+        if (!(height > 0)) return 0;
+        const key = this._keyLightHost?.keyLight ?? null;
+        if (!key) return CATCHER_MAX_THROW_M;
+        const dx = key.position.x - key.target.position.x;
+        const dy = key.position.y - key.target.position.y;
+        const dz = key.position.z - key.target.position.z;
+        if (!(dy > 1e-3)) return CATCHER_MAX_THROW_M;
+        const throwM = height * (Math.hypot(dx, dz) / dy);
+        return Number.isFinite(throwM) ? Math.min(CATCHER_MAX_THROW_M, throwM) : CATCHER_MAX_THROW_M;
     }
 
     /**
@@ -214,8 +349,15 @@ export class RealEnvironmentService {
         // §PRYZM-PERF (INSTR1) — full-scene walk, attributed to this call site.
         bumpPerf(PERF_KEYS.TRAVERSE_REAL_ENV);
         let hasCaster = false;
+        // §CATCHER-CANNOT-WASH-THE-VIEWPORT (L-1940) — accumulate the caster EXTENT in
+        // the same walk. The `if (hasCaster) return` short-circuit that used to sit here
+        // is gone deliberately: it answered "is there >= 1 caster" and stopped, which is
+        // why the plane could never be sized to them. The added per-mesh work is one
+        // cached bounding-sphere read + one `applyMatrix4` + six comparisons; the walk
+        // itself is unchanged and still attributed to PERF_KEYS.TRAVERSE_REAL_ENV.
+        let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
         this._scene.traverse((obj) => {
-            if (hasCaster) return;
             if (obj === catcher) return;
             const mesh = obj as THREE.Mesh;
             if (!mesh.isMesh) return;
@@ -228,10 +370,47 @@ export class RealEnvironmentService {
             // A real, shadow-CASTING mesh is what the catcher needs to show a shadow.
             // Pascal flags every element castShadow, so "has caster" == "has real
             // geometry" in practice, but check castShadow explicitly for intent.
-            if (mesh.castShadow) hasCaster = true;
+            if (!mesh.castShadow) return;
+            hasCaster = true;
+
+            // Bounds. An InstancedMesh's own boundingSphere covers its INSTANCES; the
+            // geometry's covers only the prototype, so an aggregate would otherwise
+            // measure as one element at the origin. Both are local-space, so both take
+            // matrixWorld. Cached by three for frustum culling — computed here only if
+            // absent, and never fatal.
+            const inst = obj as THREE.Object3D & {
+                isInstancedMesh?: boolean;
+                boundingSphere?: THREE.Sphere | null;
+                computeBoundingSphere?: () => void;
+            };
+            let sphere: THREE.Sphere | null = null;
+            try {
+                if (inst.isInstancedMesh === true) {
+                    if (!inst.boundingSphere) inst.computeBoundingSphere?.();
+                    sphere = inst.boundingSphere ?? null;
+                } else {
+                    const geom = mesh.geometry as THREE.BufferGeometry | undefined;
+                    if (geom) {
+                        if (!geom.boundingSphere) geom.computeBoundingSphere();
+                        sphere = geom.boundingSphere ?? null;
+                    }
+                }
+            } catch { sphere = null; }
+            if (!sphere) return;
+            const s = this._tmpSphere.copy(sphere).applyMatrix4(mesh.matrixWorld);
+            if (!Number.isFinite(s.radius)) return;
+            if (s.center.x - s.radius < minX) minX = s.center.x - s.radius;
+            if (s.center.x + s.radius > maxX) maxX = s.center.x + s.radius;
+            if (s.center.z - s.radius < minZ) minZ = s.center.z - s.radius;
+            if (s.center.z + s.radius > maxZ) maxZ = s.center.z + s.radius;
+            if (s.center.y - s.radius < minY) minY = s.center.y - s.radius;
+            if (s.center.y + s.radius > maxY) maxY = s.center.y + s.radius;
         });
         const hadCasters = this._hasCasters;
         this._hasCasters = hasCaster;
+        this._casterBounds = Number.isFinite(minX) && Number.isFinite(maxX)
+            ? { minX, maxX, minZ, maxZ, minY, maxY }
+            : null;
         this._applyCatcher();
         // §DIAG-GROUND-SHADOW-FIT (L-205) — one read-only line on the first caster (0→≥1),
         // dumping the live light + shadow-camera + catcher state so the next shadow bug is
@@ -318,6 +497,12 @@ export class RealEnvironmentService {
                 `shadowMapType=${shMap?.constructor?.name ?? 'none'} shadowTexType=${shMap?.texture?.constructor?.name ?? 'none'} ` +
                 `lightAutoUpdate=${sh?.autoUpdate} ` +
                 `catcher{visible=${this._ground.mesh.visible},mat=${mat?.type ?? 'none'},opacity=${mat?.opacity ?? 'none'}} ` +
+                // §CATCHER-CANNOT-WASH-THE-VIEWPORT (L-1940) — the LIVE footprint. A
+                // reader can now compute the worst-case painted area directly instead of
+                // assuming the constructed 4 km. `size` >> the shadow camera width means
+                // the plane still extends past where any shadow information exists.
+                `catcherFootprint={cx=${this._ground.footprint.centreX.toFixed(1)},cz=${this._ground.footprint.centreZ.toFixed(1)},` +
+                `size=${this._ground.footprint.size.toFixed(1)}m,base=${this._ground.footprint.baseSize}m} ` +
                 `casters=${casterCount} ` +
                 // §DIAG-GROUND-SHADOW-CASTING-LIGHTS (L-1353) — >1 here means the catcher's
                 // transparency is a PRODUCT of that many shadow masks; see the block above.
