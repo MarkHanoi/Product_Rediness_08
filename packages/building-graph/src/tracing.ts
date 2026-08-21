@@ -24,7 +24,17 @@ export type UbgMutationOp =
   | 'clear'
   | 'fromJSON'
   | 'project'
-  | 'describe';
+  | 'describe'
+  // ── The RETRACTION half (L-3250, lane UBG1) ────────────────────────────────
+  // Until these existed the store had `addNode`/`addEdge`/`clear`/`fromJSON`
+  // and NOTHING that removes a single fact. A projection whose only retraction
+  // primitive is "destroy everything" cannot be maintained incrementally — the
+  // delete leg of a delta is unrepresentable — so the UBG was not merely
+  // un-subscribed from the StoreEventBus (L-2131), it was STRUCTURALLY
+  // incapable of being subscribed usefully. These three close that.
+  | 'removeNode'
+  | 'removeEdge'
+  | 'retractIncident';
 
 let cachedTracer: Tracer | null = null;
 function tracer(): Tracer {
