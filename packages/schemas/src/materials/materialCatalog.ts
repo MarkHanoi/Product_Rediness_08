@@ -378,6 +378,138 @@ export const MATERIAL_CATALOG: readonly MaterialRecord[] = ([
   // size are READ from the generator, not authored. tile.
   { source: 'builtin' as const, id: 'tile-mosaic-50-white', label: "Tile · Mosaic 50 × 50 white, 2 mm grout", category: 'Ceramic & Tile', color: '#eeece6', metalness: 0, roughness: 0.22, maps: { color: 'procedural:tile-mosaic-50-white', normal: 'procedural:tile-mosaic-50-white', roughness: 'procedural:tile-mosaic-50-white' }, tiling: { realWorldSizeM: [0.416, 0.416] } },
   // ─── END GENERATED PROCEDURAL ─────────────────────────────────────────────
+
+  // ═══ §MICROCEMENT-PAINT-AND-TILE-RANGE (L-1900..L-1902, lane MAT2, 2026-08-21) ═══
+  //
+  // Founder, verbatim: *"I need 20 microcement colours — from red, blue, green, dark
+  // grey… many greys, all possible colours"*, *"30 different colour paints"*, and
+  // *"30+ types of tiles for kitchen and toilets — with different sizes, colours,
+  // shine finishes"*. Measured before writing a row: the master held exactly ONE
+  // microcement and FOUR paints.
+  //
+  // ⛔ THREE THINGS ARE DELIBERATELY ABSENT FROM EVERY NAME BELOW, AND THE REASON IS
+  //    MEASURED, NOT STYLISTIC (C100 §10.11):
+  //
+  //  1. NO SIZE ("600 × 600", "200 × 100"). A size only reads if the surface carries
+  //     METRE UVs, and `WallFragmentBuilder.ts` calls
+  //     `applyMaterialMaps(params, matDef, uvSpaceOfGeometry(null))` — literally
+  //     `null` — so every wall resolves `UV_NONE` and `resolveMaterialTextures`
+  //     returns `state: 'no-uvs'`. A row called "Metro 200 × 100" paints a FLAT
+  //     wall. These rows are for walls, so they claim no size.
+  //  2. NO BOND / GROUT / PATTERN word ("half bond", "3 mm grout", "herringbone").
+  //     Same mechanism: pattern is a MAP, and no map binds to a wall body today.
+  //  3. NO RAL / NCS NUMBER. A RAL code is a PROCUREMENT claim — someone orders paint
+  //     by it. We cannot verify our hex against a physical standard, and a wrong RAL
+  //     number is an ordering error, not a rendering error. Naming the pigment and
+  //     NOT the code is the honest half of that pair (C100 §10.11.c).
+  //
+  // ⭐ WHAT THEY DO CARRY IS REAL: `color` renders on every wall arm, and `roughness`
+  //    renders since L-1905 wired the finish's shine through both arms. Gloss / satin
+  //    / matt in a name below is therefore a claim the renderer HONOURS.
+  //
+  // ⛔ ADD A COLOUR BY ADDING A ROW HERE. No alias is needed for it to be reachable
+  //    from chat: `finishRef.finishRefCandidates` matches the MASTER'S OWN LABELS by
+  //    token subset, so a new row is chat-nameable with no edit in `ai-host`. Every
+  //    label below was checked for uniqueness against all 245 prior rows by an
+  //    exhaustive 1-and-2-token sweep before it was committed.
+
+  // ── Microcement, 20 pigments (L-1900). A cementitious coating: matt-to-satin, so
+  //    roughness sits 0.60–0.70 and metalness is 0 for every one.
+  { source: 'builtin' as const, id: 'coating-microcement-natural-white', label: "Coating · Microcement Natural White", category: 'Paint & Coating', color: '#ece9e2', metalness: 0, roughness: 0.6 },
+  { source: 'builtin' as const, id: 'coating-microcement-pearl-grey', label: "Coating · Microcement Pearl Grey", category: 'Paint & Coating', color: '#d5d3ce', metalness: 0, roughness: 0.62 },
+  { source: 'builtin' as const, id: 'coating-microcement-ash-grey', label: "Coating · Microcement Ash Grey", category: 'Paint & Coating', color: '#b6b8b4', metalness: 0, roughness: 0.64 },
+  { source: 'builtin' as const, id: 'coating-microcement-cool-grey', label: "Coating · Microcement Cool Grey", category: 'Paint & Coating', color: '#a8adb1', metalness: 0, roughness: 0.64 },
+  { source: 'builtin' as const, id: 'coating-microcement-mid-grey', label: "Coating · Microcement Mid Grey", category: 'Paint & Coating', color: '#8e9296', metalness: 0, roughness: 0.66 },
+  { source: 'builtin' as const, id: 'coating-microcement-graphite-grey', label: "Coating · Microcement Graphite Grey", category: 'Paint & Coating', color: '#5d6165', metalness: 0, roughness: 0.66 },
+  { source: 'builtin' as const, id: 'coating-microcement-anthracite', label: "Coating · Microcement Anthracite", category: 'Paint & Coating', color: '#3d4146', metalness: 0, roughness: 0.68 },
+  { source: 'builtin' as const, id: 'coating-microcement-carbon-black', label: "Coating · Microcement Carbon Black", category: 'Paint & Coating', color: '#25272a', metalness: 0, roughness: 0.7 },
+  { source: 'builtin' as const, id: 'coating-microcement-bone', label: "Coating · Microcement Bone", category: 'Paint & Coating', color: '#e2dccf', metalness: 0, roughness: 0.62 },
+  { source: 'builtin' as const, id: 'coating-microcement-sand', label: "Coating · Microcement Sand", category: 'Paint & Coating', color: '#d5c5a9', metalness: 0, roughness: 0.66 },
+  { source: 'builtin' as const, id: 'coating-microcement-taupe', label: "Coating · Microcement Taupe", category: 'Paint & Coating', color: '#a99c8c', metalness: 0, roughness: 0.66 },
+  { source: 'builtin' as const, id: 'coating-microcement-mushroom', label: "Coating · Microcement Mushroom", category: 'Paint & Coating', color: '#b9aea1', metalness: 0, roughness: 0.66 },
+  { source: 'builtin' as const, id: 'coating-microcement-amber', label: "Coating · Microcement Amber", category: 'Paint & Coating', color: '#d0912c', metalness: 0, roughness: 0.6 },
+  { source: 'builtin' as const, id: 'coating-microcement-ochre', label: "Coating · Microcement Ochre", category: 'Paint & Coating', color: '#bf8a37', metalness: 0, roughness: 0.64 },
+  { source: 'builtin' as const, id: 'coating-microcement-terracotta', label: "Coating · Microcement Terracotta", category: 'Paint & Coating', color: '#b2604a', metalness: 0, roughness: 0.66 },
+  { source: 'builtin' as const, id: 'coating-microcement-oxide-red', label: "Coating · Microcement Oxide Red", category: 'Paint & Coating', color: '#8f3b32', metalness: 0, roughness: 0.66 },
+  { source: 'builtin' as const, id: 'coating-microcement-petrol-blue', label: "Coating · Microcement Petrol Blue", category: 'Paint & Coating', color: '#2f5d6b', metalness: 0, roughness: 0.62 },
+  { source: 'builtin' as const, id: 'coating-microcement-indigo-blue', label: "Coating · Microcement Indigo Blue", category: 'Paint & Coating', color: '#38507f', metalness: 0, roughness: 0.62 },
+  { source: 'builtin' as const, id: 'coating-microcement-sage-green', label: "Coating · Microcement Sage Green", category: 'Paint & Coating', color: '#9aa88f', metalness: 0, roughness: 0.64 },
+  { source: 'builtin' as const, id: 'coating-microcement-forest-green', label: "Coating · Microcement Forest Green", category: 'Paint & Coating', color: '#375441', metalness: 0, roughness: 0.64 },
+
+  // ── Paint, 30 colours (L-1901). Eight PASTELS because the founder asked for
+  //    "Blue pastel paint" by that word; the rest span saturated architectural
+  //    colours and the neutral/grey range. Matt emulsion reads 0.90–0.94; the
+  //    deeper colours are eggshell at 0.84–0.88, which is how they are actually sold.
+  { source: 'builtin' as const, id: 'paint-pastel-blue', label: "Paint · Pastel Blue", category: 'Paint & Coating', color: '#b9cfe1', metalness: 0, roughness: 0.92 },
+  { source: 'builtin' as const, id: 'paint-pastel-green', label: "Paint · Pastel Green", category: 'Paint & Coating', color: '#c3d9be', metalness: 0, roughness: 0.92 },
+  { source: 'builtin' as const, id: 'paint-pastel-pink', label: "Paint · Pastel Pink", category: 'Paint & Coating', color: '#efd0d3', metalness: 0, roughness: 0.92 },
+  { source: 'builtin' as const, id: 'paint-pastel-yellow', label: "Paint · Pastel Yellow", category: 'Paint & Coating', color: '#f2e6b9', metalness: 0, roughness: 0.92 },
+  { source: 'builtin' as const, id: 'paint-pastel-lilac', label: "Paint · Pastel Lilac", category: 'Paint & Coating', color: '#d4cce2', metalness: 0, roughness: 0.92 },
+  { source: 'builtin' as const, id: 'paint-pastel-peach', label: "Paint · Pastel Peach", category: 'Paint & Coating', color: '#f3d6c0', metalness: 0, roughness: 0.92 },
+  { source: 'builtin' as const, id: 'paint-pastel-mint', label: "Paint · Pastel Mint", category: 'Paint & Coating', color: '#c5e1d6', metalness: 0, roughness: 0.92 },
+  { source: 'builtin' as const, id: 'paint-pastel-grey', label: "Paint · Pastel Grey", category: 'Paint & Coating', color: '#d9dbdc', metalness: 0, roughness: 0.92 },
+  { source: 'builtin' as const, id: 'paint-deep-navy', label: "Paint · Deep Navy", category: 'Paint & Coating', color: '#1f2d45', metalness: 0, roughness: 0.84 },
+  { source: 'builtin' as const, id: 'paint-cobalt-blue', label: "Paint · Cobalt Blue", category: 'Paint & Coating', color: '#2b52a6', metalness: 0, roughness: 0.84 },
+  { source: 'builtin' as const, id: 'paint-sky-blue', label: "Paint · Sky Blue", category: 'Paint & Coating', color: '#8fbcd9', metalness: 0, roughness: 0.88 },
+  { source: 'builtin' as const, id: 'paint-teal', label: "Paint · Teal", category: 'Paint & Coating', color: '#1f6b6b', metalness: 0, roughness: 0.84 },
+  { source: 'builtin' as const, id: 'paint-sage-green', label: "Paint · Sage Green", category: 'Paint & Coating', color: '#9caa93', metalness: 0, roughness: 0.88 },
+  { source: 'builtin' as const, id: 'paint-olive-green', label: "Paint · Olive Green", category: 'Paint & Coating', color: '#6d7448', metalness: 0, roughness: 0.86 },
+  { source: 'builtin' as const, id: 'paint-forest-green', label: "Paint · Forest Green", category: 'Paint & Coating', color: '#2f4f3e', metalness: 0, roughness: 0.84 },
+  { source: 'builtin' as const, id: 'paint-emerald-green', label: "Paint · Emerald Green", category: 'Paint & Coating', color: '#1f7355', metalness: 0, roughness: 0.84 },
+  { source: 'builtin' as const, id: 'paint-terracotta', label: "Paint · Terracotta", category: 'Paint & Coating', color: '#b3624a', metalness: 0, roughness: 0.86 },
+  { source: 'builtin' as const, id: 'paint-oxide-red', label: "Paint · Oxide Red", category: 'Paint & Coating', color: '#8e3b31', metalness: 0, roughness: 0.84 },
+  { source: 'builtin' as const, id: 'paint-burnt-orange', label: "Paint · Burnt Orange", category: 'Paint & Coating', color: '#c2622c', metalness: 0, roughness: 0.86 },
+  { source: 'builtin' as const, id: 'paint-mustard-yellow', label: "Paint · Mustard Yellow", category: 'Paint & Coating', color: '#d3a02c', metalness: 0, roughness: 0.86 },
+  { source: 'builtin' as const, id: 'paint-plum', label: "Paint · Plum", category: 'Paint & Coating', color: '#6b4157', metalness: 0, roughness: 0.84 },
+  { source: 'builtin' as const, id: 'paint-blush-pink', label: "Paint · Blush Pink", category: 'Paint & Coating', color: '#e4c0bb', metalness: 0, roughness: 0.9 },
+  { source: 'builtin' as const, id: 'paint-brilliant-white', label: "Paint · Brilliant White", category: 'Paint & Coating', color: '#fafaf7', metalness: 0, roughness: 0.9 },
+  { source: 'builtin' as const, id: 'paint-chalk-white', label: "Paint · Chalk White", category: 'Paint & Coating', color: '#f2efe8', metalness: 0, roughness: 0.94 },
+  { source: 'builtin' as const, id: 'paint-greige', label: "Paint · Greige", category: 'Paint & Coating', color: '#cfc7ba', metalness: 0, roughness: 0.9 },
+  { source: 'builtin' as const, id: 'paint-light-grey', label: "Paint · Light Grey", category: 'Paint & Coating', color: '#d2d4d3', metalness: 0, roughness: 0.9 },
+  { source: 'builtin' as const, id: 'paint-mid-grey', label: "Paint · Mid Grey", category: 'Paint & Coating', color: '#9ea3a5', metalness: 0, roughness: 0.9 },
+  { source: 'builtin' as const, id: 'paint-slate-grey', label: "Paint · Slate Grey", category: 'Paint & Coating', color: '#6d757b', metalness: 0, roughness: 0.88 },
+  { source: 'builtin' as const, id: 'paint-anthracite-grey', label: "Paint · Anthracite Grey", category: 'Paint & Coating', color: '#43484d', metalness: 0, roughness: 0.86 },
+  { source: 'builtin' as const, id: 'paint-soft-black', label: "Paint · Soft Black", category: 'Paint & Coating', color: '#242628', metalness: 0, roughness: 0.86 },
+
+  // ── Ceramic tile, 34 colour × sheen (L-1902), for kitchen splashbacks and
+  //    bathroom walls. THE SHEEN IS THE POINT and it is the axis that renders:
+  //    gloss 0.06 · satin 0.35 · matt 0.80. `materialMaps.ts` is explicit that sheen
+  //    is expressed THROUGH roughness and never as a new PBR lobe, so these three
+  //    bands are the whole vocabulary — there is no rival `sheen` field to add.
+  { source: 'builtin' as const, id: 'tile-gloss-ivory', label: "Ceramic Tile · Ivory Gloss", category: 'Ceramic & Tile', color: '#f2ece0', metalness: 0, roughness: 0.06 },
+  { source: 'builtin' as const, id: 'tile-gloss-sky-blue', label: "Ceramic Tile · Sky Blue Gloss", category: 'Ceramic & Tile', color: '#a8ccdf', metalness: 0, roughness: 0.06 },
+  { source: 'builtin' as const, id: 'tile-gloss-cobalt', label: "Ceramic Tile · Cobalt Gloss", category: 'Ceramic & Tile', color: '#2b5aa0', metalness: 0, roughness: 0.06 },
+  { source: 'builtin' as const, id: 'tile-gloss-navy', label: "Ceramic Tile · Navy Gloss", category: 'Ceramic & Tile', color: '#23344f', metalness: 0, roughness: 0.06 },
+  { source: 'builtin' as const, id: 'tile-gloss-sage', label: "Ceramic Tile · Sage Gloss", category: 'Ceramic & Tile', color: '#a6b8a3', metalness: 0, roughness: 0.06 },
+  { source: 'builtin' as const, id: 'tile-gloss-emerald', label: "Ceramic Tile · Emerald Gloss", category: 'Ceramic & Tile', color: '#1f6b52', metalness: 0, roughness: 0.06 },
+  { source: 'builtin' as const, id: 'tile-gloss-olive', label: "Ceramic Tile · Olive Gloss", category: 'Ceramic & Tile', color: '#737a4c', metalness: 0, roughness: 0.06 },
+  { source: 'builtin' as const, id: 'tile-gloss-mustard', label: "Ceramic Tile · Mustard Gloss", category: 'Ceramic & Tile', color: '#d3a233', metalness: 0, roughness: 0.06 },
+  { source: 'builtin' as const, id: 'tile-gloss-amber', label: "Ceramic Tile · Amber Gloss", category: 'Ceramic & Tile', color: '#cf8a2a', metalness: 0, roughness: 0.06 },
+  { source: 'builtin' as const, id: 'tile-gloss-coral', label: "Ceramic Tile · Coral Gloss", category: 'Ceramic & Tile', color: '#e0715c', metalness: 0, roughness: 0.06 },
+  { source: 'builtin' as const, id: 'tile-gloss-burgundy', label: "Ceramic Tile · Burgundy Gloss", category: 'Ceramic & Tile', color: '#6d2733', metalness: 0, roughness: 0.06 },
+  { source: 'builtin' as const, id: 'tile-gloss-blush', label: "Ceramic Tile · Blush Gloss", category: 'Ceramic & Tile', color: '#eec9c4', metalness: 0, roughness: 0.06 },
+  { source: 'builtin' as const, id: 'tile-gloss-charcoal', label: "Ceramic Tile · Charcoal Gloss", category: 'Ceramic & Tile', color: '#3a3d40', metalness: 0, roughness: 0.06 },
+  { source: 'builtin' as const, id: 'tile-gloss-obsidian', label: "Ceramic Tile · Obsidian Gloss", category: 'Ceramic & Tile', color: '#1c1c1e', metalness: 0, roughness: 0.06 },
+  { source: 'builtin' as const, id: 'tile-gloss-pistachio', label: "Ceramic Tile · Pistachio Gloss", category: 'Ceramic & Tile', color: '#c3d3a0', metalness: 0, roughness: 0.06 },
+  { source: 'builtin' as const, id: 'tile-gloss-buttermilk', label: "Ceramic Tile · Buttermilk Gloss", category: 'Ceramic & Tile', color: '#f0e3bf', metalness: 0, roughness: 0.06 },
+  { source: 'builtin' as const, id: 'tile-satin-white', label: "Ceramic Tile · White Satin", category: 'Ceramic & Tile', color: '#f0efea', metalness: 0, roughness: 0.35 },
+  { source: 'builtin' as const, id: 'tile-satin-greige', label: "Ceramic Tile · Greige Satin", category: 'Ceramic & Tile', color: '#cdc5b8', metalness: 0, roughness: 0.35 },
+  { source: 'builtin' as const, id: 'tile-satin-taupe', label: "Ceramic Tile · Taupe Satin", category: 'Ceramic & Tile', color: '#a89c8d', metalness: 0, roughness: 0.35 },
+  { source: 'builtin' as const, id: 'tile-satin-duck-egg', label: "Ceramic Tile · Duck Egg Satin", category: 'Ceramic & Tile', color: '#bdd6d2', metalness: 0, roughness: 0.35 },
+  { source: 'builtin' as const, id: 'tile-satin-clay', label: "Ceramic Tile · Clay Satin", category: 'Ceramic & Tile', color: '#b57a5f', metalness: 0, roughness: 0.35 },
+  { source: 'builtin' as const, id: 'tile-satin-graphite', label: "Ceramic Tile · Graphite Satin", category: 'Ceramic & Tile', color: '#4d5154', metalness: 0, roughness: 0.35 },
+  { source: 'builtin' as const, id: 'tile-satin-rose', label: "Ceramic Tile · Rose Satin", category: 'Ceramic & Tile', color: '#dcb2ad', metalness: 0, roughness: 0.35 },
+  { source: 'builtin' as const, id: 'tile-satin-moss', label: "Ceramic Tile · Moss Satin", category: 'Ceramic & Tile', color: '#7d8a63', metalness: 0, roughness: 0.35 },
+  { source: 'builtin' as const, id: 'tile-matt-bone', label: "Ceramic Tile · Bone Matt", category: 'Ceramic & Tile', color: '#e6e0d4', metalness: 0, roughness: 0.8 },
+  { source: 'builtin' as const, id: 'tile-matt-sand', label: "Ceramic Tile · Sand Matt", category: 'Ceramic & Tile', color: '#d6c6a9', metalness: 0, roughness: 0.8 },
+  { source: 'builtin' as const, id: 'tile-matt-pearl', label: "Ceramic Tile · Pearl Matt", category: 'Ceramic & Tile', color: '#ded9d1', metalness: 0, roughness: 0.8 },
+  { source: 'builtin' as const, id: 'tile-matt-cement', label: "Ceramic Tile · Cement Matt", category: 'Ceramic & Tile', color: '#a9abaa', metalness: 0, roughness: 0.8 },
+  { source: 'builtin' as const, id: 'tile-matt-stone', label: "Ceramic Tile · Stone Matt", category: 'Ceramic & Tile', color: '#b0aaa2', metalness: 0, roughness: 0.8 },
+  { source: 'builtin' as const, id: 'tile-matt-anthracite', label: "Ceramic Tile · Anthracite Matt", category: 'Ceramic & Tile', color: '#3e4247', metalness: 0, roughness: 0.8 },
+  { source: 'builtin' as const, id: 'tile-matt-ink-blue', label: "Ceramic Tile · Ink Blue Matt", category: 'Ceramic & Tile', color: '#2b3a4e', metalness: 0, roughness: 0.8 },
+  { source: 'builtin' as const, id: 'tile-matt-forest-green', label: "Ceramic Tile · Forest Green Matt", category: 'Ceramic & Tile', color: '#33513f', metalness: 0, roughness: 0.8 },
+  { source: 'builtin' as const, id: 'tile-matt-rust', label: "Ceramic Tile · Rust Matt", category: 'Ceramic & Tile', color: '#9c4f33', metalness: 0, roughness: 0.8 },
+  { source: 'builtin' as const, id: 'tile-matt-almond', label: "Ceramic Tile · Almond Matt", category: 'Ceramic & Tile', color: '#dcc3b6', metalness: 0, roughness: 0.8 },
 ] as Array<Omit<MaterialRecord, 'opacity' | 'transparent'> & { opacity?: number; transparent?: boolean }>)
   .map((m) => ({ ...m, opacity: m.opacity ?? 1, transparent: m.transparent ?? false }));
 
