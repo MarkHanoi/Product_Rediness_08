@@ -15,6 +15,7 @@ import type { ViewDefinition } from '@pryzm/core-app-model';
 import { MoveViewportCommand } from '@pryzm/command-registry';
 import { UpdateViewportScaleCommand } from '@pryzm/command-registry';
 import { RemoveViewportFromSheetCommand } from '@pryzm/command-registry';
+import { SetViewportCropCommand } from '@pryzm/command-registry';
 import { sheetCommentStore } from '@pryzm/core-app-model';
 import type { SheetComment } from '@pryzm/core-app-model';
 import { VIEW_TYPE_ICONS, VIEW_DRAG_MIME } from './SheetEditorContracts';
@@ -168,6 +169,32 @@ export function buildViewportPropsSection(sheet: SheetDefinition, opts: SidebarO
     addRow('View', view?.name ?? vp.viewId);
     addRow('Type', view?.viewType ?? '—');
 
+    // ── §SHEET-VIEWPORT-SCALE-IS-LIVE (L-1863) — the VIEW's own properties ──
+    //
+    // The founder asked for *"a panel — like the sheet panel — with information
+    // of the view, like the properties panel"*. Everything below the two rows
+    // above used to describe the PLACEMENT only (where on the paper, at what
+    // scale), which is the sheet's half of the story and not the drawing's.
+    //
+    // These rows are READ-ONLY on purpose. Level, discipline, detail level and
+    // view range belong to the ViewDefinition and apply EVERYWHERE that view
+    // appears — editing them from one sheet would silently re-document every
+    // other sheet the view is placed on. The properties that belong to THIS
+    // placement (position, scale, crop) are the editable ones, and they are
+    // below. Where a value is genuinely absent it reads '—' rather than a
+    // plausible default [context-data-honesty].
+    if (view) {
+        const levelId = view.spatial?.levelId;
+        if (levelId) addRow('Level', levelId);
+        if (view.discipline) addRow('Discipline', view.discipline);
+        if (view.output?.detailLevel) addRow('Detail level', String(view.output.detailLevel));
+        if (view.viewRange) {
+            const vr = view.viewRange as { cutPlane?: number; topOffset?: number; bottomOffset?: number };
+            if (typeof vr.cutPlane === 'number') addRow('Cut plane', `${vr.cutPlane.toFixed(2)} m`);
+        }
+        addRow('View crop', view.crop?.enabled ? 'on (view-wide)' : 'off');
+    }
+
     // Position X
     const posXRow = document.createElement('div');
     posXRow.className = 'sh-prop-row';
@@ -273,15 +300,146 @@ export function buildViewportPropsSection(sheet: SheetDefinition, opts: SidebarO
     scaleRow.appendChild(scaleInputGroup);
     sec.appendChild(scaleRow);
 
+    // ── §SHEET-VIEWPORT-CROP-UI (L-1864) — crop, on the sheet, on demand ────
+    //
+    // The founder: *"also crop the view on demand as I do with the elevations in
+    // floor plan."*
+    //
+    // The persistence and rendering halves of this landed in L-1840
+    // (`SheetViewport.crop`, `sheetStore.updateViewportCrop`,
+    // `SetViewportCropCommand`, and `ViewportSvgComposer`'s `cropWorldM`
+    // branch). NOTHING DISPATCHED IT — the crop existed everywhere except where
+    // a user could ask for one. This section is that missing half.
+    //
+    // ⚠ THE UNITS ARE DRAWING-SPACE METRES, and the label says so. This is the
+    // THIRD crop concept in the codebase and the other two are in different
+    // frames: `ViewDefinition.crop.region` is view-wide and its `region[0]`
+    // carries two incompatible meanings depending on view type (see
+    // ViewDefinitionTypes §ELEV-SCOPE-FRAME), and `spatial.cropRegion` is a
+    // third. A fourth is not invented here — these four inputs write the one
+    // field `ViewportSvgComposer` already frames in.
+    const cropTitle = document.createElement('div');
+    cropTitle.className   = 'sh-prop-label';
+    cropTitle.textContent = 'Crop (drawing metres)';
+    cropTitle.style.cssText = 'margin-top:8px;opacity:0.75;';
+    sec.appendChild(cropTitle);
+
+    const cropInputs: Record<'minX' | 'maxX' | 'minZ' | 'maxZ', HTMLInputElement> =
+        {} as Record<'minX' | 'maxX' | 'minZ' | 'maxZ', HTMLInputElement>;
+
+    const dispatchCrop = (next: { minX: number; minZ: number; maxX: number; maxZ: number } | null): void => {
+        const mgr = window.commandManager; // TODO(E.5.x): replace with runtime.bus.executeCommand — Phase E.5.x
+        if (!mgr) return;
+        const cmd = new SetViewportCropCommand(sheet.id, vp.id, next);
+        // The command REFUSES an inverted or zero-area rectangle rather than
+        // normalising it, so a half-typed crop is rejected loudly instead of
+        // persisting a zero-width viewBox. Surface the refusal; do not swallow.
+        const res = mgr.execute(cmd, { source: 'HUMAN_DIRECT' }) as { success?: boolean; error?: string } | undefined;
+        if (res && res.success === false) {
+            console.warn(`[SheetEditorSidebar] crop refused: ${res.error ?? 'unknown reason'}`);
+        }
+        opts.refreshSidebar();
+    };
+
+    const cropKeys = ['minX', 'maxX', 'minZ', 'maxZ'] as const;
+
+    const readCropFields = (): { minX: number; minZ: number; maxX: number; maxZ: number } | null => {
+        const n = (k: typeof cropKeys[number]) => parseFloat(cropInputs[k].value);
+        const r = { minX: n('minX'), minZ: n('minZ'), maxX: n('maxX'), maxZ: n('maxZ') };
+        return Object.values(r).every(v => Number.isFinite(v)) ? r : null;
+    };
+
+    const cropGrid = document.createElement('div');
+    cropGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;';
+    for (const field of cropKeys) {
+        const wrap = document.createElement('label');
+        wrap.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:10px;opacity:0.8;';
+        wrap.textContent = field;
+        const inp = document.createElement('input');
+        inp.className = 'sh-prop-input';
+        inp.type      = 'number';
+        inp.step      = '0.1';
+        inp.style.width = '100%';
+        inp.dataset['cropField'] = field;
+        inp.value = vp.crop ? String(vp.crop[field]) : '';
+        inp.placeholder = 'auto';
+        inp.addEventListener('change', () => {
+            const r = readCropFields();
+            // All four blank means the user CLEARED the crop, which is a
+            // different operation from "crop to everything": an uncropped
+            // viewport reframes itself as the drawing grows, a cropped one does
+            // not. Partially-filled is neither, and is left alone.
+            if (!r) {
+                const allBlank = cropKeys.every(k => cropInputs[k].value.trim() === '');
+                if (allBlank && vp.crop) dispatchCrop(null);
+                return;
+            }
+            dispatchCrop(r);
+        });
+        cropInputs[field] = inp;
+        wrap.appendChild(inp);
+        cropGrid.appendChild(wrap);
+    }
+    sec.appendChild(cropGrid);
+
+    const cropBtnRow = document.createElement('div');
+    cropBtnRow.style.cssText = 'display:flex;gap:4px;';
+
+    const cropToViewBtn = document.createElement('button');
+    cropToViewBtn.className   = 'sh-header-btn';
+    cropToViewBtn.type        = 'button';
+    cropToViewBtn.textContent = '⛶ Crop to current view';
+    cropToViewBtn.title       = 'Crop this placement to exactly what the viewport is showing right now';
+    cropToViewBtn.style.flex  = '1';
+    cropToViewBtn.addEventListener('click', () => {
+        const rect = opts.getVisibleWorldRect(vp.id);
+        if (!rect) {
+            console.warn('[SheetEditorSidebar] no composed drawing to crop to');
+            return;
+        }
+        dispatchCrop(rect);
+    });
+    cropBtnRow.appendChild(cropToViewBtn);
+
+    const clearCropBtn = document.createElement('button');
+    clearCropBtn.className   = 'sh-header-btn';
+    clearCropBtn.type        = 'button';
+    clearCropBtn.textContent = '↺';
+    clearCropBtn.title       = 'Clear the crop and reframe to the full content bounds';
+    clearCropBtn.disabled    = !vp.crop;
+    clearCropBtn.addEventListener('click', () => dispatchCrop(null));
+    cropBtnRow.appendChild(clearCropBtn);
+    sec.appendChild(cropBtnRow);
+
+    // ── §SHEET-DBLCLICK-STAYS-ON-THE-SHEET (L-1866) — the named escape hatch ─
+    //
+    // Double-click now activates navigation IN the sheet, which is what the
+    // founder asked for. Leaving the sheet to edit the view's ELEMENTS is still
+    // possible — it is the only way to edit elements at all, because the
+    // composed SVG carries no per-element identity to pick against — but it is
+    // now a button he presses, not something that happens to him.
+    const openBtn = document.createElement('button');
+    openBtn.className   = 'sh-header-btn';
+    openBtn.type        = 'button';
+    openBtn.textContent = '↗ Open in main editor';
+    openBtn.title       = 'Leave the sheet and open this view in the main editor to edit its elements';
+    openBtn.style.width     = '100%';
+    openBtn.style.marginTop = '6px';
+    openBtn.addEventListener('click', () => opts.openViewInMainEditor(vp.viewId));
+    sec.appendChild(openBtn);
+
     const removeBtn = document.createElement('button');
     removeBtn.className   = 'sh-header-btn sh-header-btn--danger';
     removeBtn.type        = 'button';
-    removeBtn.textContent = '✕ Remove from sheet';
+    removeBtn.textContent = '✕ Remove from sheet  (Del)';
     removeBtn.style.width     = '100%';
     removeBtn.style.marginTop = '6px';
+    // Routed through the panel's dispatcher rather than a local
+    // `mgr.execute(...)`: the panel also has to drop the viewport's navigation
+    // camera and clear the selection, and a second removal path that skips both
+    // is how a re-placed view inherits a deleted one's pan.
     removeBtn.addEventListener('click', () => {
-        const mgr = window.commandManager; // TODO(E.5.x): replace with runtime.bus.executeCommand — Phase E.5.x
-        if (mgr) mgr.execute(new RemoveViewportFromSheetCommand(sheet.id, vp.id), { source: 'HUMAN_DIRECT' });
+        opts.removeViewport(sheet.id, vp.id);
     });
     sec.appendChild(removeBtn);
 

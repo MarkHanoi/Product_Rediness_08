@@ -45,9 +45,16 @@ import { dataPanelRenderer } from '@pryzm/core-app-model';
 import { sheetCommentStore } from '@pryzm/core-app-model';
 import type { SheetComment } from '@pryzm/core-app-model';
 import { panelManager } from '../PanelManager';
+// §SHEET-NAVIGATE-INSIDE-THE-VIEWPORT (L-1865) — the authored, tested model of
+// "which viewport is activated and where is its camera". Imported by SUBPATH,
+// not through `@pryzm/plugin-sheets`'s root barrel: that barrel also pulls the
+// Canvas2D sheet-editor host, every command handler and the whole book exporter
+// into the editor's critical path [scc-no-barrel-access-at-module-load].
+import { ViewportEditController } from '@pryzm/plugin-sheets/view-renderer';
+import { activateViewForEditing } from './activateViewForEditing';
 
 // ── Wave 7 WS-B extracted modules ─────────────────────────────────────────
-import type { SidebarOpts, FocusOpts, VpFocusState } from './SheetEditorContracts';
+import type { SidebarOpts, FocusOpts, VpFocusState, VpCameraPx } from './SheetEditorContracts';
 import { VIEW_TYPE_ICONS, VIEW_DRAG_MIME } from './SheetEditorContracts';
 import {
     dispatchAddViewport,
@@ -56,7 +63,6 @@ import {
     dispatchUpdateSheetField,
     showExportDialog,
     buildInlineScaleOverlay,
-    enterEditInPlace,
 } from './SheetEditorCommands';
 import {
     buildSidebar,
@@ -132,6 +138,30 @@ export class SheetEditorPanel {
 
     // SC-11: cleanup callbacks for document-level mouse listeners attached during focus mode
     private _vpFocusCleanup: (() => void) | null = null;
+
+    /**
+     * §SHEET-NAVIGATE-INSIDE-THE-VIEWPORT (L-1865) — THE owner of the
+     * per-viewport navigation camera.
+     *
+     * The founder, 2026-08-21: *"When I select a view within the sheet I would
+     * like to be able to navigate in the view like if I am in the main scene,
+     * still being in the sheet / view interface — but now it brings me to the
+     * main pryzm view, which is NOT what I want."*
+     *
+     * This controller was authored months ago with tests and a barrel export and
+     * had NO construction site anywhere in the repo — the panel had instead
+     * grown a private rival (`camOffset` / `camZoom` on `VpFocusState`) that was
+     * thrown away on every exit. Wiring the real one, rather than blessing the
+     * rival, is what makes the camera survive a rebuild, a deselect, and a jump
+     * to another viewport and back.
+     *
+     * It stores DRAWING-SPACE METRES; the surface speaks CSS pixels. The two are
+     * related by `sf × 1000 / scaleDenom` — see `_pxPerWorldM`.
+     */
+    private readonly _vpEditCtl = new ViewportEditController({ minZoom: 0.2, maxZoom: 20 });
+
+    /** Removes the document-level key listeners installed by `_build()`. */
+    private _keyCleanup: (() => void) | null = null;
 
     /** Phase B (S73-WIRE) — runtime threaded by parent. */
     public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -252,6 +282,11 @@ export class SheetEditorPanel {
         this._activeSheetId = null;
         this._selectedVpId  = null;
         this._dragging      = null;
+        // §SHEET-VIEWPORT-ALWAYS-REMOVABLE (L-1862) — `_build()` installs
+        // document-level key listeners and used to remove them only on the
+        // Escape branch, so every `_refresh()` stacked another copy and a closed
+        // sheet still swallowed keystrokes. Dispose them where the panel dies.
+        if (this._keyCleanup) { this._keyCleanup(); this._keyCleanup = null; }
         // SC-11: cleanup focus mode
         if (this._vpFocusCleanup) { this._vpFocusCleanup(); this._vpFocusCleanup = null; }
         this._vpFocusState = null;
@@ -328,8 +363,20 @@ export class SheetEditorPanel {
                     return;
                 }
                 this.close();
-                document.removeEventListener('keydown', onKey);
-                document.removeEventListener('keyup',  onKeyUp);
+            } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                // §SHEET-VIEWPORT-ALWAYS-REMOVABLE (L-1862) — the founder:
+                // *"I was not able to remove it because I could not reach the
+                // 'x' … if the user clicks delete it should go away."*
+                //
+                // The '✕' lives at the viewport's top-right corner, so a
+                // viewport wider than the paper puts its own close control off
+                // the canvas. That is fixed at source (L-1854) and again in the
+                // control's own geometry, but BOTH of those are positional
+                // arguments and a positional argument can be defeated by the
+                // next oversized drawing. A key binding cannot: it does not
+                // care where the viewport is.
+                if (this._isTypingTarget(e.target)) return;
+                if (this._deleteSelectedViewports()) e.preventDefault();
             } else if (e.key === ' ') {
                 if (!e.repeat) {
                     e.preventDefault();
@@ -348,8 +395,13 @@ export class SheetEditorPanel {
                 canvasArea.style.cursor = 'default';
             }
         };
+        if (this._keyCleanup) this._keyCleanup();
         document.addEventListener('keydown', onKey);
         document.addEventListener('keyup',   onKeyUp);
+        this._keyCleanup = () => {
+            document.removeEventListener('keydown', onKey);
+            document.removeEventListener('keyup',   onKeyUp);
+        };
 
         // Ctrl+wheel = mouse-position zoom; plain wheel = pan
         canvasArea.addEventListener('wheel', (e: WheelEvent) => {
@@ -674,6 +726,18 @@ export class SheetEditorPanel {
                 return;
             }
 
+            // §SHEET-VIEWPORT-ALWAYS-REMOVABLE (L-1862) — the canvas is
+            // focusable (tabIndex 0) and receives keys directly when the user
+            // has clicked it; the document-level handler in `_build()` covers
+            // the case where focus sits elsewhere in the overlay. Both routes
+            // funnel into one dispatcher, so there is one definition of what
+            // Delete means on a sheet.
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (this._isTypingTarget(e.target)) return;
+                if (this._deleteSelectedViewports()) e.preventDefault();
+                return;
+            }
+
             let dx = 0, dy = 0;
             if (e.key === 'ArrowLeft')  dx = -step;
             if (e.key === 'ArrowRight') dx =  step;
@@ -886,8 +950,9 @@ export class SheetEditorPanel {
             const fstate = this._vpFocusState;
             const camContainer = document.createElement('div');
             camContainer.className   = 'sh-vp-cam-container';
+            const camPx = this._cameraPx(fstate.vpId, fstate.scaleDenom);
             camContainer.style.transform =
-                `translate(${fstate.camOffset.x}px,${fstate.camOffset.y}px) scale(${fstate.camZoom})`;
+                `translate(${camPx.panPx.x}px,${camPx.panPx.y}px) scale(${camPx.zoom})`;
             camContainer.appendChild(contentNode);
 
             const svgNS = 'http://www.w3.org/2000/svg';
@@ -938,7 +1003,26 @@ export class SheetEditorPanel {
         removeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             dispatchRemoveViewport(sheet.id, vp.id);
+            this._vpEditCtl.forgetViewport(vp.id);
         });
+
+        // §SHEET-VIEWPORT-ALWAYS-REMOVABLE (L-1862) — pin the control ONTO THE
+        // PAPER when the viewport overflows it.
+        //
+        // The CSS puts this at `right: 3px` of the viewport, which is correct
+        // for a viewport that fits and catastrophic for one that does not: the
+        // founder's 8020 mm elevation on an 1189 mm sheet put its own close
+        // button roughly seven sheet-widths away, with no scrollbar that reaches
+        // it. Growing `right` by the overflow keeps the control at the visible
+        // edge of the drawing it belongs to.
+        //
+        // This is a SECOND line of defence, not the fix. The fix is L-1854 — a
+        // viewport should not be 8020 mm wide in the first place. But a control
+        // whose reachability depends on upstream numbers staying sane is a
+        // control that will go missing again, so it is also made unconditionally
+        // reachable here, and by the Delete key, which has no geometry at all.
+        const overflowRight = Math.max(0, (posX + vpWidth) - usableW);
+        if (overflowRight > 0) removeBtn.style.right = `${overflowRight + 3}px`;
         vpEl.appendChild(removeBtn);
 
         // §SHEET-COMPOSITE-ON-SHEET (L-1630) — the raster ladder below is now the
@@ -1005,16 +1089,17 @@ export class SheetEditorPanel {
                 buildFocusToolbar(vp, view, focusSvgEl, previewCanvas, focusCamContainer,
                     this._makeFocusOpts(this._vpFocusState)),
             );
-            const svgRef   = focusSvgEl;
-            const camRef   = focusCamContainer;
-            const pcanvasW = previewCanvas.width;
-            const pcanvasH = previewCanvas.height;
-            getFrameScheduler().scheduleOnce('sheet-editor-attach-focus', () => {
-                if (this._vpFocusState) {
-                    attachFocusInteraction(contentEl, camRef, svgRef, pcanvasW, pcanvasH,
-                        this._makeFocusOpts(this._vpFocusState));
-                }
-            });
+            // §SHEET-NAVIGATE-INSIDE-THE-VIEWPORT (L-1865) — attached
+            // SYNCHRONOUSLY. This was deferred to the frame scheduler, which
+            // bought nothing: `attachFocusInteraction` only registers listeners,
+            // and every measurement it makes (`getBoundingClientRect`) happens
+            // inside a handler at event time, long after layout. Deferring it
+            // only created a window in which an activated viewport ignored the
+            // wheel — and made the behaviour unobservable to any test that does
+            // not drive a frame loop.
+            attachFocusInteraction(contentEl, focusCamContainer, focusSvgEl,
+                previewCanvas.width, previewCanvas.height,
+                this._makeFocusOpts(this._vpFocusState));
         }
 
         // Inline scale overlay (when selected but not focused)
@@ -1033,16 +1118,28 @@ export class SheetEditorPanel {
             }
         });
 
-        // Double-click → SC-11 inline focus for 2D views; Edit-in-Place for 3D
+        // ── §SHEET-DBLCLICK-STAYS-ON-THE-SHEET (L-1866) ───────────────────
+        // Double-click ACTIVATES the viewport for navigation. It does not leave
+        // the sheet, for ANY view type.
+        //
+        // The founder, 2026-08-21: *"When I select a view within the sheet I
+        // would like to be able to navigate in the view like if I am in the main
+        // scene, still being in the sheet / view interface — but now it brings
+        // me to the main pryzm view, which is NOT what I want."*
+        //
+        // It used to branch on view type: 2D views activated in place, 3D views
+        // called `enterEditInPlace()`, which CLOSES the sheet editor and
+        // switches the main viewport. That was the branch he hit. Navigation
+        // needs no element identity — it is a transform on a mounted node — so
+        // there is no reason for the 3D case to be the one that teleports.
+        //
+        // Opening the source view in the main editor is still available, but as
+        // a NAMED BUTTON in the properties panel ("Open in main editor"), where
+        // it is a decision rather than a side effect of a double-click.
         vpEl.addEventListener('dblclick', (e) => {
             e.stopPropagation();
             if (!view) return;
-            const is3d = ['3d', 'walkthrough', 'render'].includes(view.viewType);
-            if (is3d) {
-                enterEditInPlace(vp.id, view.id, () => this.close(), this._activeSheetId);
-            } else {
-                this._enterViewportFocusMode(vp, view);
-            }
+            this._enterViewportFocusMode(vp, view);
         });
 
         // Drag to move (suppressed in SC-11 focus mode)
@@ -1164,6 +1261,118 @@ export class SheetEditorPanel {
         this._applyTransform();
     }
 
+    // ── §SHEET-VIEWPORT-ALWAYS-REMOVABLE (L-1862) ──────────────────────────
+
+    /**
+     * True when the event target is a field the user is typing into, so Delete
+     * means "delete a character" rather than "delete a viewport". Without this
+     * the scale and position inputs in the sidebar would silently destroy the
+     * viewport they are editing on the first backspace.
+     */
+    private _isTypingTarget(target: EventTarget | null): boolean {
+        const el = target as HTMLElement | null;
+        if (!el || typeof el.tagName !== 'string') return false;
+        const tag = el.tagName.toUpperCase();
+        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable === true;
+    }
+
+    /**
+     * Remove every selected viewport. Returns true when at least one removal was
+     * dispatched, so the key handler can decide whether to consume the event —
+     * swallowing Delete when nothing is selected would break the browser's own
+     * behaviour elsewhere in the overlay.
+     */
+    private _deleteSelectedViewports(): boolean {
+        const sheetId = this._activeSheetId;
+        if (!sheetId) return false;
+        const ids = this._selectedVpIds.size > 0
+            ? [...this._selectedVpIds]
+            : (this._selectedVpId ? [this._selectedVpId] : []);
+        if (ids.length === 0) return false;
+
+        for (const vpId of ids) {
+            dispatchRemoveViewport(sheetId, vpId);
+            // Drop the navigation camera with the viewport it belonged to,
+            // otherwise a re-placed view inherits the deleted one's pan.
+            this._vpEditCtl.forgetViewport(vpId);
+        }
+        this._selectedVpIds.clear();
+        this._selectedVpId = null;
+        if (this._vpFocusState && ids.includes(this._vpFocusState.vpId)) {
+            this._exitViewportFocusMode();
+        }
+        return true;
+    }
+
+    // ── §SHEET-NAVIGATE-INSIDE-THE-VIEWPORT (L-1865) ───────────────────────
+
+    /**
+     * CSS pixels per drawing-space metre for a viewport at `scaleDenom`.
+     *
+     * EXACT, and independent of the drawing: the composer lays a viewport out at
+     * `worldM × 1000 / scaleDenom` millimetres of paper, and the canvas renders
+     * a paper millimetre as `_scaleFactor` pixels. So px/m = sf × 1000 / denom
+     * with nothing measured and nothing to go stale. This is the whole reason
+     * the camera can be stored in metres and applied in pixels without either
+     * representation being an approximation of the other.
+     */
+    private _pxPerWorldM(scaleDenom: number): number {
+        const denom = scaleDenom > 0 ? scaleDenom : 100;
+        return this._scaleFactor * 1000 / denom;
+    }
+
+    /** The activated viewport's camera, projected into CSS pixels. */
+    private _cameraPx(vpId: string, scaleDenom: number): VpCameraPx {
+        const cam = this._vpEditCtl.getEditCamera(vpId);
+        const k = this._pxPerWorldM(scaleDenom) * cam.zoom;
+        // A pan of +X metres moves the VIEW toward +X, so the content moves the
+        // other way on screen. The sign is stated here once rather than being
+        // absorbed into the drag handler, where it would be invisible.
+        return {
+            panPx: { x: -cam.panWorldX * k, y: -cam.panWorldY * k },
+            zoom:  cam.zoom,
+        };
+    }
+
+    /** Write a pixel-space camera back to the controller. Returns what stuck. */
+    private _setCameraPx(vpId: string, scaleDenom: number, cam: VpCameraPx): VpCameraPx {
+        const zoom = cam.zoom > 0 && Number.isFinite(cam.zoom) ? cam.zoom : 1;
+        const k = this._pxPerWorldM(scaleDenom) * zoom;
+        this._vpEditCtl.setEditCamera(vpId, {
+            panWorldX: k !== 0 ? -cam.panPx.x / k : 0,
+            panWorldY: k !== 0 ? -cam.panPx.y / k : 0,
+            zoom,
+        });
+        // Read BACK rather than echoing the request: the controller clamps zoom,
+        // and a caller that trusts its own request will drift from the state.
+        return this._cameraPx(vpId, scaleDenom);
+    }
+
+    /**
+     * The drawing-space rectangle the activated viewport is currently showing.
+     *
+     * This is what makes "crop to what I am looking at" a one-line operation
+     * rather than a fourth crop concept: the navigated frame and
+     * `SheetViewport.crop` are the same four numbers in the same units.
+     * Returns null when the viewport has no composed drawing to frame.
+     */
+    getVisibleWorldRect(vpId: string): { minX: number; minZ: number; maxX: number; maxZ: number } | null {
+        const sheet = this._activeSheetId ? sheetStore.get(this._activeSheetId) : null;
+        const vp = sheet?.viewports.find(v => v.id === vpId);
+        if (!vp) return null;
+        const composed = composeSheetViewport(vp);
+        if (!composed.resolved) return null;
+
+        const cam = this._vpEditCtl.getEditCamera(vpId);
+        const fullW = composed.widthMm  * composed.scale / 1000;
+        const fullH = composed.heightMm * composed.scale / 1000;
+        const w = fullW / cam.zoom;
+        const h = fullH / cam.zoom;
+        const cx = composed.originX + fullW / 2 + cam.panWorldX;
+        const cz = composed.originZ + fullH / 2 + cam.panWorldY;
+        return { minX: cx - w / 2, minZ: cz - h / 2, maxX: cx + w / 2, maxZ: cz + h / 2 };
+    }
+
     // ── SC-11: Viewport focus mode ─────────────────────────────────────────
 
     private _enterViewportFocusMode(vp: SheetViewport, view: ViewDefinition): void {
@@ -1174,12 +1383,15 @@ export class SheetEditorPanel {
             vpId:        vp.id,
             viewId:      view.id,
             scaleDenom:  vp.scale ?? 100,
-            camOffset:   { x: 0, y: 0 },
-            camZoom:     1,
             activeTool:  'select',
             dimPoints:   [],
             annotations: prevAnnotations,
         };
+        // §SHEET-NAVIGATE-INSIDE-THE-VIEWPORT (L-1865) — the camera is NOT reset
+        // here. Re-activating a viewport the user already navigated must return
+        // them to where they were looking; zeroing it on entry is what made the
+        // old private camera feel like it "forgot" every time.
+        this._vpEditCtl.setActiveViewport(vp.id);
         this._selectedVpId = vp.id;
         const sheet = this._activeSheetId ? sheetStore.get(this._activeSheetId) : null;
         if (sheet) this._refreshCanvas(sheet);
@@ -1190,6 +1402,11 @@ export class SheetEditorPanel {
         if (!this._vpFocusState) return;
         if (this._vpFocusCleanup) { this._vpFocusCleanup(); this._vpFocusCleanup = null; }
         this._vpFocusState = null;
+        // Deactivate, but KEEP the camera: `setActiveViewport(null)` parks the
+        // controller without discarding `cameras`, which is exactly the
+        // difference between "I stopped navigating" and "my navigation was
+        // thrown away".
+        this._vpEditCtl.setActiveViewport(null);
         const sheet = this._activeSheetId ? sheetStore.get(this._activeSheetId) : null;
         if (sheet) this._refreshCanvas(sheet);
     }
@@ -1207,14 +1424,59 @@ export class SheetEditorPanel {
     private _makeSidebarCallbacks(): SidebarOpts {
         return {
             updateSheetField:    (sheetId, key, value) => dispatchUpdateSheetField(sheetId, key, value),
-            removeViewport:      (sheetId, vpId)       => dispatchRemoveViewport(sheetId, vpId),
+            removeViewport:      (sheetId, vpId)       => {
+                dispatchRemoveViewport(sheetId, vpId);
+                this._vpEditCtl.forgetViewport(vpId);
+                this._selectedVpIds.delete(vpId);
+                if (this._selectedVpId === vpId) this._selectedVpId = null;
+                if (this._vpFocusState?.vpId === vpId) this._exitViewportFocusMode();
+            },
             addViewToSheet:      (sheet, view)          => dispatchAddViewport(sheet, view),
             refreshSidebar:      ()                     => this._refreshSidebar(),
             getRevisionFormOpen: ()                     => this._revisionFormOpen,
             setRevisionFormOpen: (open)                 => { this._revisionFormOpen = open; },
             getSelectedVpId:     ()                     => this._selectedVpId,
             getActiveSheetId:    ()                     => this._activeSheetId,
+            getVisibleWorldRect: (vpId)                 => this.getVisibleWorldRect(vpId),
+            openViewInMainEditor: (viewId)              => this._openViewInMainEditor(viewId),
         };
+    }
+
+    /**
+     * §SHEET-DBLCLICK-STAYS-ON-THE-SHEET (L-1866) — leave the sheet and open
+     * `viewId` in the main editor.
+     *
+     * This is `activateViewForEditing`'s FIRST call site. That module was
+     * written earlier today (L-1842) and shipped with none — `grep -rn
+     * activateViewForEditing` found the definition and nothing else — so the
+     * defective `enterEditInPlace()` path it was written to replace was still
+     * the only one running. `enterEditInPlace` called
+     * `viewController.activate(viewId)`, but `activate()` takes a ViewMode
+     * ('3D' | 'Top' | 'Front' | …), never a ViewDefinition id, so it silently
+     * did the wrong thing for every non-3D view.
+     *
+     * The outcome is reported rather than assumed: 'no engine yet', 'that view
+     * is gone' and 'activation threw' are different facts and a surface that
+     * renders them identically teaches the user nothing.
+     */
+    private _openViewInMainEditor(viewId: string): void {
+        const sheetId = this._activeSheetId;
+        const outcome = activateViewForEditing(viewId);
+        if (!outcome.ok) {
+            console.warn(
+                `[SheetEditorPanel] could not open view ${viewId} in the main editor: ` +
+                `${outcome.reason}${outcome.detail ? ` (${outcome.detail})` : ''}`,
+            );
+            // The sheet stays OPEN on failure. Closing it would strand the user
+            // on whatever the main editor happened to be showing, having lost
+            // the sheet, to accomplish nothing.
+            return;
+        }
+        console.log(`[SheetEditorPanel] opened view ${viewId} in the main editor as mode ${outcome.mode}`);
+        this.close();
+        // Remember where to come back to, matching the Edit-in-Place banner's
+        // contract with `window.sheetEditorPanel.open(...)`.
+        window.__sheetEditorPreviousSheet = sheetId; // TODO(F.6.5): panel-host registry bridge state — Phase F.6.5
     }
 
     /** Build the FocusOpts bag passed to the RendererBridge module. */
@@ -1224,6 +1486,9 @@ export class SheetEditorPanel {
             activeSheetId: this._activeSheetId,
             scaleFactor:   this._scaleFactor,
             renderDim:     (svgEl, w, h, fs) => renderDimAnnotations(svgEl, w, h, fs),
+            getCamera:     () => this._cameraPx(focusState.vpId, focusState.scaleDenom),
+            setCamera:     (cam) => this._setCameraPx(focusState.vpId, focusState.scaleDenom, cam),
+            resetCamera:   () => { this._vpEditCtl.setEditCamera(focusState.vpId, { panWorldX: 0, panWorldY: 0, zoom: 1 }); },
             exitFocusMode: () => this._exitViewportFocusMode(),
             setFocusCleanup: (fn) => { this._vpFocusCleanup = fn; },
         };

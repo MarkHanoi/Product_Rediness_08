@@ -425,8 +425,12 @@ export function buildFocusToolbar(
     fitBtn.title = 'Reset pan and zoom to fit the viewport';
     fitBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        fstate.camOffset = { x: 0, y: 0 };
-        fstate.camZoom   = 1;
+        // §SHEET-NAVIGATE-INSIDE-THE-VIEWPORT (L-1865) — reset through the
+        // controller, never by writing the CSS back to identity. The transform
+        // is a RENDERING of the camera; zeroing the rendering while the camera
+        // still holds a pan is how a "Fit" button starts lying on the next
+        // rebuild.
+        opts.resetCamera();
         camContainer.style.transform = 'translate(0px,0px) scale(1)';
     });
     toolbar.appendChild(fitBtn);
@@ -505,9 +509,9 @@ export function attachFocusInteraction(
     const fstate = opts.focusState;
 
     const applyTransform = () => {
-        const { camOffset, camZoom } = fstate;
+        const { panPx, zoom } = opts.getCamera();
         camContainer.style.transform =
-            `translate(${camOffset.x}px,${camOffset.y}px) scale(${camZoom})`;
+            `translate(${panPx.x}px,${panPx.y}px) scale(${zoom})`;
     };
 
     let panStart: { mx: number; my: number; ox: number; oy: number } | null = null;
@@ -516,14 +520,20 @@ export function attachFocusInteraction(
         if (e.button !== 0) return;
         if (fstate.activeTool !== 'select') return;
         e.stopPropagation();
-        panStart = { mx: e.clientX, my: e.clientY, ox: fstate.camOffset.x, oy: fstate.camOffset.y };
+        const cam = opts.getCamera();
+        panStart = { mx: e.clientX, my: e.clientY, ox: cam.panPx.x, oy: cam.panPx.y };
         contentEl.style.cursor = 'grabbing';
     };
 
     const onMouseMove = (e: MouseEvent) => {
         if (!panStart) return;
-        fstate.camOffset.x = panStart.ox + (e.clientX - panStart.mx);
-        fstate.camOffset.y = panStart.oy + (e.clientY - panStart.my);
+        opts.setCamera({
+            panPx: {
+                x: panStart.ox + (e.clientX - panStart.mx),
+                y: panStart.oy + (e.clientY - panStart.my),
+            },
+            zoom: opts.getCamera().zoom,
+        });
         applyTransform();
     };
 
@@ -537,14 +547,30 @@ export function attachFocusInteraction(
         e.preventDefault();
         e.stopPropagation();
         const rect  = contentEl.getBoundingClientRect();
-        const fx    = e.clientX - rect.left;
-        const fy    = e.clientY - rect.top;
+        // happy-dom (and any headless host) reports a zero-size rect, which
+        // would make the focal point NaN-free but meaningless. Falling back to
+        // the container's own centre keeps the gesture well-defined instead of
+        // silently pinning every zoom to the top-left corner.
+        const fx = rect.width  > 0 ? e.clientX - rect.left : contentEl.clientWidth  / 2;
+        const fy = rect.height > 0 ? e.clientY - rect.top  : contentEl.clientHeight / 2;
         const delta = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-        const oldZ  = fstate.camZoom;
-        const newZ  = Math.max(0.2, Math.min(10, oldZ * delta));
-        fstate.camOffset.x = fx - (fx - fstate.camOffset.x) * (newZ / oldZ);
-        fstate.camOffset.y = fy - (fy - fstate.camOffset.y) * (newZ / oldZ);
-        fstate.camZoom     = newZ;
+        const cur   = opts.getCamera();
+
+        // ⚠ ASK FIRST, THEN COMPUTE THE PAN FROM WHAT WAS GRANTED.
+        // The controller CLAMPS zoom to its min/max rails, so the requested
+        // ratio and the applied ratio are not always the same number. Deriving
+        // the focal-point pan from `delta` — the request — makes the drawing
+        // crawl sideways on every wheel tick once the user is parked at a rail,
+        // because the pan keeps moving for a zoom that never happened.
+        const applied = opts.setCamera({ panPx: cur.panPx, zoom: cur.zoom * delta });
+        const ratio   = cur.zoom > 0 ? applied.zoom / cur.zoom : 1;
+        opts.setCamera({
+            panPx: {
+                x: fx - (fx - cur.panPx.x) * ratio,
+                y: fy - (fy - cur.panPx.y) * ratio,
+            },
+            zoom: applied.zoom,
+        });
         applyTransform();
     };
 

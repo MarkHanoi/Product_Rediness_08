@@ -53,13 +53,31 @@ export interface DraggingState {
 
 // ── SC-11 viewport focus state ─────────────────────────────────────────────
 
+/**
+ * The viewport's navigation camera expressed in the units the SURFACE works in
+ * — CSS pixels of translation and a unitless zoom multiplier.
+ *
+ * §SHEET-NAVIGATE-INSIDE-THE-VIEWPORT (L-1865) — this is a PROJECTION of
+ * `ViewportEditController`'s `EditCamera`, which is the authority and stores the
+ * same camera in DRAWING-SPACE METRES. The two are related by an exact,
+ * drawing-independent constant, `pxPerWorldM = scaleFactor × 1000 / scaleDenom`,
+ * so neither is an approximation of the other. Pixels live here because that is
+ * what a wheel event and a CSS transform speak; metres live in the controller
+ * because that is what a crop rectangle and a viewBox speak, and the navigated
+ * rect must be convertible into a crop without a unit guess.
+ */
+export interface VpCameraPx {
+    /** CSS translate applied to the viewport's content container. */
+    panPx: { x: number; y: number };
+    /** Zoom multiplier. 1 = fit. */
+    zoom: number;
+}
+
 /** Internal state for the SC-11 "Edit-in-Sheet" viewport focus mode. */
 export interface VpFocusState {
     vpId:        string;
     viewId:      string;
     scaleDenom:  number;
-    camOffset:   { x: number; y: number };
-    camZoom:     number;
     activeTool:  'select' | 'dimension';
     dimPoints:   Array<{ x: number; y: number }>;
     annotations: Array<{ x1: number; y1: number; x2: number; y2: number; label: string }>;
@@ -89,6 +107,34 @@ export interface SidebarOpts {
     getSelectedVpId:     () => string | null;
     /** Read `_activeSheetId` panel state. */
     getActiveSheetId:    () => string | null;
+
+    /**
+     * §SHEET-DBLCLICK-STAYS-ON-THE-SHEET (L-1866) — open the viewport's SOURCE
+     * view in the main editor, leaving the sheet.
+     *
+     * This is the escape hatch for the one thing a sheet viewport genuinely
+     * cannot do: EDIT ELEMENTS. The composed SVG carries no element identity to
+     * pick against (`SVGCompositeRenderer` emits anonymous `<line>` segments
+     * grouped by layer, because the identity is already gone in the merged
+     * `THREE.LineSegments` buffers it reads). So element editing happens on the
+     * real view, with the real picking stack.
+     *
+     * It is a BUTTON and not a double-click, because leaving the sheet is a
+     * decision the user should make on purpose. Double-click activates
+     * navigation and stays put.
+     */
+    openViewInMainEditor: (viewId: string) => void;
+
+    /**
+     * §SHEET-VIEWPORT-CROP-UI (L-1864) — the drawing-space rectangle the
+     * activated viewport is currently showing, in METRES, or null when it has
+     * no composed drawing.
+     *
+     * Powers "Crop to current view": the navigated frame and
+     * `SheetViewport.crop` are the same four numbers in the same units, so
+     * cropping to what you are looking at is a copy, not a conversion.
+     */
+    getVisibleWorldRect: (vpId: string) => { minX: number; minZ: number; maxX: number; maxZ: number } | null;
 }
 
 // ── Renderer-bridge callback interface ────────────────────────────────────
@@ -104,6 +150,26 @@ export interface FocusOpts {
     scaleFactor:    number;
     /** Re-render dim annotations on the SVG overlay. */
     renderDim:      (svgEl: SVGSVGElement, w: number, h: number, fs: VpFocusState | null) => void;
+    /**
+     * §SHEET-NAVIGATE-INSIDE-THE-VIEWPORT (L-1865) — read the activated
+     * viewport's navigation camera, in CSS pixels.
+     *
+     * The bridge holds NO camera state of its own. It used to mutate
+     * `focusState.camOffset` / `camZoom` directly, which made it a second owner
+     * of a fact `ViewportEditController` already models — and the bridge's copy
+     * was destroyed on every exit, so the founder's pan was silently discarded
+     * the moment he clicked another viewport.
+     */
+    getCamera:      () => VpCameraPx;
+    /**
+     * Write the camera. Returns the camera that was ACTUALLY applied, which may
+     * differ from the request: the controller clamps zoom to its rails. Callers
+     * that derive a focal-point pan must use the returned value, never their own
+     * request.
+     */
+    setCamera:      (cam: VpCameraPx) => VpCameraPx;
+    /** Reset this viewport's camera to fit (identity). */
+    resetCamera:    () => void;
     /** Exit SC-11 focus mode (panel callback). */
     exitFocusMode:  () => void;
     /** Store the event-listener cleanup fn so `_exitViewportFocusMode` can call it. */

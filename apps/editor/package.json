@@ -57,6 +57,7 @@
     "@pryzm/plugin-roof": "workspace:*",
     "@pryzm/plugin-rooms": "workspace:*",
     "@pryzm/plugin-selection": "workspace:*",
+    "@pryzm/plugin-sheets": "workspace:*",
     "@pryzm/plugin-slab": "workspace:*",
     "@pryzm/plugin-stair": "workspace:*",
     "@pryzm/plugin-structural": "workspace:*",

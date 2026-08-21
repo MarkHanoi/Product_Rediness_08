@@ -1040,6 +1040,9 @@ importers:
       '@pryzm/plugin-selection':
         specifier: workspace:*
         version: link:../../plugins/selection
+      '@pryzm/plugin-sheets':
+        specifier: workspace:*
+        version: link:../../plugins/sheets
       '@pryzm/plugin-slab':
         specifier: workspace:*
         version: link:../../plugins/slab
