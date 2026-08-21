@@ -225,7 +225,12 @@ class SheetStoreImpl {
     updateViewportCrop(
         sheetId:    string,
         viewportId: string,
-        crop:       SheetViewport['crop'] | null,
+        // NonNullable, deliberately: `SheetViewport['crop']` already includes
+        // `undefined` (the field is optional), so accepting it here would let a
+        // caller pass `undefined` meaning "no change" and have it land as a
+        // clear. The two states a caller can express are a COMPLETE crop or
+        // `null` to clear — there is no third.
+        crop:       NonNullable<SheetViewport['crop']> | null,
     ): boolean {
         const sheet = this._sheets.get(sheetId);
         if (!sheet) return false;
