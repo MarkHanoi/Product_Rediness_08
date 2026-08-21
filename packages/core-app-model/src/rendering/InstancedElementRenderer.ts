@@ -205,7 +205,12 @@ export class InstancedElementRenderer {
         // re-keys the element out WITHOUT recolouring the others it shared with.
         const sharedMaterial = dedupInstanceMaterial(material);
 
-        const baseKey = this._hashGeometry(geometry, sharedMaterial, levelId);
+        // §NAV-TYPE-IN-GROUP-KEY (L-1781) — elementType is part of the group
+        // IDENTITY, not merely a label stamped on it. See _createGroup's stamp for
+        // the measurement that forced this: `geometry × material × levelId` does
+        // NOT imply one element type, and the aggregate carries no per-element
+        // userData.id for the visibility traverses to fall back on.
+        const baseKey = this._hashGeometry(geometry, sharedMaterial, levelId, elementType);
 
         // §WALL-AUDIT-2026-W7 (move-revert root cause):
         //
@@ -384,9 +389,30 @@ export class InstancedElementRenderer {
         // §INSTANCED-ISOLATE-FIX (2026-05-25) — stamp the REAL element type (e.g.
         // 'wall') rather than the generic placeholder so the Project Browser's
         // isolate/hide-by-type traverses (ProjectVisibilitySection) can resolve this
-        // per-level aggregate group. The group key includes geometry+material+levelId,
-        // so every instance in a group shares one element type. Falls back to the
-        // generic label when the caller does not supply a type.
+        // per-level aggregate group. Falls back to the generic label when the caller
+        // does not supply a type.
+        //
+        // ⚠ CORRECTED 2026-08-21 (§NAV-TYPE-IN-GROUP-KEY, L-1781). This comment used
+        // to end: "The group key includes geometry+material+levelId, so every instance
+        // in a group shares one element type." THAT IMPLICATION IS FALSE, and it was
+        // MEASURED false — `NavigationDrawCallCensus.spec.ts` §NAV-TYPE-COLLAPSE
+        // registered six handrail balusters and six stair-railing balusters at the same
+        // level, same unit box, same look, and got ONE group reported as
+        //     handrail[handrail+stair-railing]
+        // because SharedMaterialCache correctly deduplicates two look-alike materials
+        // to one canonical uuid — which is its job — and the key then cannot tell the
+        // families apart. The stamp below was therefore a claim about the group's
+        // contents that the key did not establish.
+        //
+        // This matters because an InstancedMesh exposes NO per-element userData.id, so
+        // ProjectVisibilitySection's §INSTANCED-ISOLATE-FIX helpers address aggregates
+        // by `(levelId, elementType)` and have no other handle. A group holding two
+        // families under one stamp is a group where "hide stair railings" hides the
+        // handrails too, or neither. `elementType` is consequently part of the group
+        // KEY now (see register()), so the stamp is true by construction. The cost is
+        // at most one extra group per (geometry × material × level × TYPE) — measured
+        // at 10 groups for 240 railing elements, i.e. nothing — and the alternative was
+        // trading a 19.7x draw-call win for a visibility regression.
         group.mesh.userData.elementType = elementType ?? 'InstancedElement';
         group.mesh.userData.isInstancedGroup = true;
         // §SELECT-INSTANCED-PICK (FIX #1) — stamp a STABLE synthetic group id so
@@ -706,6 +732,7 @@ export class InstancedElementRenderer {
         geometry: THREE.BufferGeometry,
         material: THREE.Material,
         levelId = 'default',
+        elementType = 'InstancedElement',
     ): string {
         const pos   = geometry.attributes.position;
         const idxCt = geometry.index?.count ?? 0;
@@ -713,7 +740,7 @@ export class InstancedElementRenderer {
         const x0    = pos ? pos.getX(0).toFixed(3) : '0';
         const y0    = pos ? pos.getY(0).toFixed(3) : '0';
         const z0    = pos ? pos.getZ(0).toFixed(3) : '0';
-        return `${levelId}_${idxCt}_${vtxCt}_${x0}_${y0}_${z0}_${material.uuid}`;
+        return `${elementType}_${levelId}_${idxCt}_${vtxCt}_${x0}_${y0}_${z0}_${material.uuid}`;
     }
 }
 
