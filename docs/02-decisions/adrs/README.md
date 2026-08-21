@@ -300,9 +300,14 @@ should CITE them rather than re-argue the doctrine.
 > PRYZM may assert only what authoritative publication demonstrates. Where evidence is incomplete or
 > legally insufficient, PRYZM returns Unknown rather than inferring entitlement.
 
-⚠ **The §6 table above is STALE** — it ends at ADR-0266 while the directory holds ADRs through 0287.
-Deliberately not backfilled here (16 entries authored by others); recorded so the gap is known rather
-than mistaken for "no ADRs exist in that range".
+⚠ **The §6 table above is STALE, and the staleness NOTE was stale too** — re-measured
+**2026-08-21** (lane FREEZE1): the table's last row is **ADR-0287**, and the directory holds
+**ADR-0338**. This note previously read *"ends at ADR-0266 … through 0287"*, i.e. **both numbers had
+moved on** — the table had in fact been extended to 0287 and the directory had grown by fifty more.
+⭐ **Re-measure, never re-transcribe:** `ls docs/02-decisions/adrs/ADR-*.md | tail -1` and
+`grep -o 'ADR-0[0-9]*' README.md | sort -u | tail -1`. Deliberately not backfilled here (the
+gap is ~51 entries authored by other lanes); recorded so the gap is known rather than mistaken for
+"no ADRs exist in that range".
 
 ## §7 — Update / supersession rule
 

@@ -25388,3 +25388,178 @@ exists**: `beginMotion`/`endMotion` exist but `isInMotion()` **has no consumer t
 coverage is PlanView/SplitView only, **not the main 3-D view**. That is its own lane.
 
 ---
+
+## L-1850 … L-1853 — ✅ ROOT CAUSE MEASURED + FIXED: the GPU pick path scanned the WHOLE model to answer a question about ONE group — 550 ms of blocked main thread per pointermove — 2026-08-21 (lane FREEZE1, commits `89dacf75`, `50df40a5`, `47efc9e1`)
+
+Founder, 2026-08-21 ~11:00 UK: *"I just tested last deployment from 15 min ago — and the scene is
+still frozen — whereas this morning — european time — was not!"* and, on the deploy before it:
+*"the performance is terrible - the main scene is stuck on pryzm app - nothing can be done - is
+frozen!"* Then, once production was rolled back to `a547eff2`: ⭐ *"Yes, better navigation is like
+this morning!!"*
+
+⭐ **`InstancedElementRenderer` IS A MODULE-LEVEL SINGLETON, SO ITS `_elements` MAP HOLDS EVERY
+INSTANCED REGISTRATION IN THE PROJECT AT ONCE** — windows, walls, furniture, columns, beams,
+railings. `_createGroup` installed two closures on **every** group and **both answered a question
+about ONE group by walking the WHOLE map**:
+
+| closure | cost | called by `gpu-pick.ts _syncInstancedGroup` (1190-1201) |
+|---|---|---|
+| `getOccupiedInstanceSlots()` | `O(N)` | **once per group** |
+| `getInstanceElementId(slot)` | `O(N)` | **once per occupied slot** |
+
+`SelectionManager` drives `syncPickScene()` from the **hover rAF**. One pass was `G·N + N²`,
+**per pointermove**.
+
+**L-1850 — THE MEASUREMENT.** Driven through the REAL `InstancedElementRenderer` and the REAL
+closures, running the exact membership-signature loop from `gpu-pick.ts` (28 groups, 4 materials ×
+7 levels), never a re-implementation:
+
+| N | BEFORE | AFTER | ratio |
+|---|---|---|---|
+| 500 | 7.9 ms | 0.30 ms | 26× |
+| 1 000 | 13.7 ms | 0.51 ms | 27× |
+| 2 000 | 73.0 ms | 4.58 ms | 16× |
+| 4 000 | **312.4 ms** | 1.40 ms | 223× |
+| 6 000 | **550.0 ms** | 1.39 ms | **395×** |
+
+BEFORE quadruples on a doubling (13.7 → 73.0 → 312.4): a clean quadratic. A 60 Hz frame is 16.7 ms.
+**312 ms of blocked main thread per mouse movement is "nothing can be done".** It is plain `Map`
+iteration in `core-app-model` — it never touches a device, a queue or a shader — which is exactly
+why it reproduced on **`webgl-classic` AND `webgpu`**, and on **two different projects**.
+
+⚠ **THE QUADRATIC WAS ALWAYS THERE. WHAT CHANGED WAS N.** `f80ed827` (09:09 UK) flipped `handrail`
+and `stairRailing` to instance by default; its own census measures **240 railing elements as 4920
+meshes**, i.e. **4920 new ROWS** in `_elements` where there had been zero. Squaring a number you
+have just multiplied by ten is a hundredfold cost. **That is why the fix is in the data structure
+and not in the flag** — any future family flip re-detonates it otherwise.
+
+**THE FIX (`50df40a5`)** — `_membersByGroup: Map<groupKey, Map<slot, pickId>>`, maintained at
+**exactly the five sites that write `_elements`**, beside `_obbByGroup` which already had this
+shape. Not a cache: never rebuilt lazily, never invalidated. A sixth writer that forgets it is a
+pick resolving the **wrong** element, so the two are kept adjacent and the field comment says so.
+
+**L-1851 — AND THE REGRESSION SUITE CAUGHT A DEFECT IN MY OWN FIX BEFORE IT SHIPPED.** The closures
+capture the `Map` **by reference**, so deleting the registry entry in `_removeGroup` left a
+**disposed, off-scene group still resolving element ids** — it answered `'a'` after `clear()`. The
+old `O(N)` bodies read `_elements`, which `clear()` empties, so they went quiet **by accident**;
+that behaviour was never designed. The maps are now **emptied before the handle is dropped**, in
+both `_removeGroup` and `clear()`. A stale pick into a torn-down group is precisely what
+`§SELECT-INSTANCED-PICK` exists to prevent.
+
+**L-1852 — TWO SUITES IN TWO PACKAGES DISAGREED ABOUT ONE SHIPPED DEFAULT, AND THE DISAGREEMENT
+SHIPPED.** At `9ebaae47`, `_FAMILY_DEFAULTS.handrail` is `true`; `NavigationDrawCallCensus.spec.ts`
+asserted instancing ON and was green; `geometry-window/__tests__/WindowInstancedLifetime.test.ts:136`
+asserted `false` and was **RED on the SHA the founder was running**. `f80ed827`'s VERIFIED list names
+six suites and `geometry-window` is not among them. Worse: the census's BEFORE arm had **already**
+been broken once by that default moving, was fixed by naming its regime, and its AFTER arm was left
+reading the default — so flipping the default back broke it in the **mirror image**. ⭐ **A
+comparison with one leg tied to a mutable default lies whenever that default moves, in EITHER
+direction.** Both legs now NAME their regime; the default is pinned in ONE place.
+
+**L-1853 — THE PROBE, because this lane could NOT measure the founder's N.** `window.pryzmPerf.pick()`
+runs the production closures in the production call pattern on the LIVE scene and prints `N`, `G`,
+the singleton-group count and the **milliseconds for one pass**. Above ~16 ms the hover rAF cannot
+keep up; single digits means the pick path is not what is blocking and the search moves on.
+`[[context-data-honesty-family]]` — ship the probe **even when you also have the fix**, because a
+mechanism asserted without the number is what cost this founder a working demo earlier the same day.
+
+---
+
+### ⚠ WHAT THIS LANE ELIMINATED vs WHAT IT SIMPLY DID NOT INVESTIGATE — these are different, and conflating them is how 2026-08-21 went wrong
+
+The regression window `a547eff2..9ebaae47` is **21 commits**. This lane touched a minority of them.
+
+**ELIMINATED — cannot affect the running bundle (file lists checked):**
+
+| commit | why |
+|---|---|
+| `10e300e5`, `7880b419` | `docs/04-reference/ISSUE-LOG.md` only |
+| `86abd66b` | `docs/02-decisions/DEPLOY-CONTRACT-MANUAL-FLY.md` only |
+| `133f41b2` | `C100-*.md` + `PASCAL-FINISHES-RESEARCH.md` only |
+| `9ebaae47` | one NEW test file (`L1830WoodWallIsNotWhite.test.ts`) only — the HEAD the founder ran, and it ships no source |
+| `12321521` | `eslint.config.js` + `pnpm-lock.yaml` only — no client source. ⚠ a lockfile edit is not *provably* runtime-neutral; it is called eliminated because it added one workspace importer, not a dependency version bump |
+
+**INVESTIGATED AND FOUND IMPLICATED — the finding above:**
+
+| commit | role |
+|---|---|
+| `f80ed827` | flipped `handrail`/`stairRailing` ON — **the amplifier**, reverted by `89dacf75` |
+| `5b845a53` | put `elementType` in the group key — raises `G`, adding to the `G·N` term. **Not reverted**; correct on its own terms and rendered harmless by the cure |
+
+**INVESTIGATED, NOT IMPLICATED — but only on the narrow axis named:**
+
+| commit | what I checked, with my own eyes | what I did NOT check |
+|---|---|---|
+| `c67ab0e3` | `isProceduralTextureGenerationEnabled()` reads `__pryzmProceduralTexturesV1 === true` → **OFF by default**, and the fork returns before the blocking call | its NEW two-level texture cache (`_textureSources` + `.clone()` views) is untested by me |
+| `a6e9fd2d` | `FrameProfiler.ts:120-121` gates on `__pryzmFrameProfile === true` → **OFF by default** | nothing further |
+| `7dbc0685`, `1fa7993a` | the section capability resolver is called from `BottomActionMenu` **on click/render**, not at boot; `localClippingEnabled = true` was **removed**, not added | `SectionBoxTool.ts`'s 168 changed lines were not read line by line |
+
+**⛔ NOT INVESTIGATED AT ALL — 9 commits. Do not read this entry as clearing them:**
+
+`54071cd6`, `b58500d7`, `08296995`, `7af920ab`, `8da69fd6`, `e535246d` (materials / texture pipeline)
+and `ad5d1358`, `67e61403`, `c237a89d` (panel-brand styling). The materials group wires
+`applyMaterialMaps` into the slab, roof and curtain-wall builders — **per-element work on the
+project-load path** — and was not measured by this lane.
+
+### ⚠ WHAT REMAINS UNPROVEN
+
+1. ⭐ **That the quadratic is the WHOLE freeze.** What is proven: a severe, backend-independent,
+   scene-size-dependent quadratic on the hover path, whose N was multiplied ~10× by a commit inside
+   the window, on a build the founder confirms is frozen — against a build he confirms is smooth
+   that predates it. What is **not** proven: the founder's own `N`. **Only a browser settles it.**
+2. **Nothing here was verified in a browser by this lane.** Every number above is node.
+3. **The founder's log stops after `[initScene] Scene subsystem fully initialised.` + five
+   `THREE.WebGLProgram X4122` warnings.** If that is a real stopping point and not a paste cut, the
+   hang is at scene init and this finding is **not** the cause. Against it: the EARLIER frozen log
+   ran all the way through `ProjectLoader`, and *"in the project list there is not issue: it is
+   after the project opens"* fits an interaction-time block exactly (the project list has no
+   viewport, so no hover picks).
+4. **Something compiles `THREE.WebGLProgram` in a `backend: webgpu` session** — candidates are the
+   PMREM/environment path and the off-screen preview renderers. **Unexplained, not exonerated.**
+5. **`[renderQualityPin] restored a user pin: tier="performance"`** appears in both frozen sessions —
+   ADR-0094's automatic policy is being overridden for the session. Recorded, not investigated.
+
+### THE FOUNDER'S EXACT NEXT STEPS — one line each, and what each outcome PROVES
+
+Open the demo project on the next deploy, let it settle, then in the console:
+
+```js
+window.pryzmPerf.pick()
+```
+
+- **`passMs` > 16 ms** → the pick path is still the block. Report `N` and `G`.
+- **`passMs` in single-digit ms** → ⭐ **the pick path is NOT what is freezing the scene**, this
+  finding is real but insufficient, and the search moves to the 9 uninvestigated commits above.
+- **A high `singletonGroups` count** → `SharedMaterialCache` dedup is failing and per-element unique
+  materials are defeating instancing again (`[[webgpu-heavy-scene-crash-and-instancing]]`).
+
+Then, to test whether the railing families were the amplifier:
+
+```js
+__pryzmElementInstancing = { handrail: true, stairRailing: true }   // then reload
+```
+
+- **Still smooth** → the cure holds, the 19.7× draw-call win is safe, and those two rows go back to
+  `true` as a shipped default.
+- **Freezes again** → the cure is incomplete and there is a second mechanism. Run
+  `window.pryzmPerf.pick()` before reporting.
+
+The master kill switch is unchanged and still works from the console with no redeploy:
+`__pryzmElementInstancingV1 = false`.
+
+### Architecture
+
+⭐ **This is the THIRD local fix to ONE missing data structure.** `ProjectVisibilitySection` asks
+*"which objects are on level L / of type T?"* with a full `scene.traverse` (OI-058). ADR-0302 found
+four `scene.traverse` passes **per element created**. This lane found a full `_elements` scan **twice,
+per group, per hover frame**. `pascalorg/editor` — PRYZM's closest architectural cousin — never
+traverses the scene graph for lookup at all; it keeps a **Scene Registry** (`Map<id → Object3D>` +
+`byType`). The next lane to touch visibility, selection or picking should **build the registry
+(OI-058) rather than add a fourth local index**.
+
+**Full review + plan, including the WebGPU-vs-WebGL analysis and the Pascal comparison the founder
+asked for: `docs/02-decisions/adrs/ADR-0338-interaction-cost-is-proportional-to-the-answer.md`**
+(it extends ADR-0302 from the edit clock to the interaction clock, and names its own six unproven
+axes).
+
+---
