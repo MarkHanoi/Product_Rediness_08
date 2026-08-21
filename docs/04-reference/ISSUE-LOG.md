@@ -27300,3 +27300,133 @@ directly**: the three render as three distinct `data-state` values and three dis
    bbox, vertex count, compactness) is **computed by the providers and never persisted at all**. If
    the founder's "many more data" meant *the parcel card specifically*, that is a **separate, still-open
    gap** and it is recorded here rather than assumed closed.
+
+---
+
+## L-1940 … L-1942 — 🟡 CONTAINED (not yet proven closed): the "grey viewport" is a 4 km `ShadowMaterial` PLANE, and every shadow-map failure paints it — 2026-08-21 (lane BG1, commit `2141072e`)
+
+Founder, on production `071a7b2c`, backend `webgl-fallback`: *"**WebGL still renders grey background —
+it should be white — requested many times.** It is still grey."* His View Properties panel showed
+**SHADOWS → Cast shadows ☑ · Ground shadows ☑**, and his scene was a five-storey building with trees.
+
+### Why five previous attempts could not have worked
+
+They targeted `scene.background` and the renderer clear colour. **On his backend both of those are
+`#ffffff` by construction**, and that is readable in the source without a log:
+
+- `RenderPipelineManager._applyViewportBackground()` (§VIEWPORT-BG-ONE-AUTHORITY-RUNTIME) resolves
+  `_tslOwnsBackground = isNativeWebGpuBackend(backend)` → **false** on `webgl-fallback`, so it sets
+  `scene.background = _lightweightBgColor`, and `LIGHT_BG_HEX = '#ffffff'`
+  (`packages/renderer-three/src/pipeline/BackgroundUniform.ts:63`).
+- The lightweight branch of `RenderPipelineManager.render()` additionally clears
+  `setClearColor(_lightweightBgColor, 1)` **every frame**.
+- `initScene.ts:2263`'s rival `scene.background = null` is already gated on
+  `isNativeWebGpuBackend(...)` and is SKIPPED on his backend.
+
+⇒ **The grey is DRAWN over white.** No background fix can ever reach it. That is the whole reason the
+report keeps coming back.
+
+### ⭐ L-1940 — the mechanism: a failing shadow map and a real shadow are the SAME VALUE
+
+`GroundShadowCatcher` is a `THREE.ShadowMaterial` plane **4000 m across**. On three r183's node
+renderer — used by **BOTH** the `'webgpu'` and the `'webgl-fallback'` backend — `ShadowMaterial`
+compiles to `ShadowNodeMaterial` → `ShadowMaskModel`, whose entire body is
+(`node_modules/three/src/nodes/functions/ShadowMaskModel.js`, read 2026-08-21):
+
+```
+shadowMask = 1
+direct({ lightNode }): if (lightNode.shadowNode !== null) shadowMask *= lightNode.shadowNode
+finish():              diffuseColor.a *= shadowMask.oneMinus()
+```
+
+and `ShadowNode.setupShadowFilter()` (`ShadowNode.js:318`) is
+
+```
+frustumTest = x in [0,1] AND y in [0,1] AND z <= 1
+return frustumTest.select( shadowNode, float(1) )
+```
+
+Two consequences, both read from source:
+
+1. **OUTSIDE the shadow camera frustum the mask is 1 (lit) => alpha 0 => transparent.** So the grey can
+   never be "the plane beyond the shadow camera". That candidate is **refuted**, not deferred.
+2. **INSIDE it the mask is a depth-texture compare**, and *every* way that compare can fail — a map
+   never rendered, a map allocated by a rival renderer, a mismatched compare function, a caster set
+   the pass never drew — yields **0**, which is bit-identical to *"this fragment is fully shadowed"*.
+   The plane then paints a flat `opacity` (0.32) of black. Over `#ffffff` that composites to
+   **~#adadad** — a mid grey, uniform, hard-edged at the shadow-camera footprint.
+
+This is [[context-data-honesty-family]] in a shader: **failure and the real answer are the same
+value**, and the surface rendering it was 4 km wide.
+
+**Measured in the founder's own session** (§DIAG-GROUND-SHADOW-FIT, relayed by the orchestrator):
+`catcher{visible=true, mat=ShadowMaterial, opacity=0.32}` · `casters=1008` ·
+`castingLights=1[DirectionalLight:pascal-key-light]` · `shadowCam=[L-50 R50 T50 B-50 n1 f100]` ·
+`mapSize=512x512` · `shadowMapAllocated=true`.
+
+- `casters=1008` **refutes** the "no caster ⇒ composites fully shadowed" story that
+  `RealEnvironmentService.ts:62` and `BimWorld.ts:106` both record. **Do not ship that explanation.**
+- `castingLights=1` means the product in `ShadowMaskModel` is that ONE light's mask, so a single
+  broken mask paints at the full 0.32 with no gradient.
+- `mapSize=512` is `ShadowQualityUpgrader`'s `standard` level, which
+  `RenderingPipelineCoordinator.applyTierForMeshCount` caps to on a non-WebGPU backend. Consistent —
+  the shadow pipeline is nominally live.
+
+**THE FIX SHIPPED IS A CONTAINMENT, NOT A DIAGNOSIS.** Nothing in this lane ran a GPU, so *which* of
+those compare failures fires in his scene is **NOT ESTABLISHED**. What ships bounds all of them: the
+catcher now **follows the casters** and is sized to their extent plus the sun's **real shadow throw**
+(computed from the key light's live direction, so it holds in `manual` sun mode too), clamped at 150 m
+of throw and **shrink-only** against the constructed size. Its worst case becomes the ground the model
+stands on — never a viewport-wide field.
+
+**A second, independent defect closed in the same change:** the plane was **hard-centred on the world
+origin** and never moved. Every geolocated off-origin PRYZM model had its contact shadows landing on a
+plane that was not underneath it.
+
+### ⛔ L-1941 — §L-205 gated on MESH casters and never on the LIGHT
+
+`ShadowMaskModel` multiplies the mask of every shadow-casting **light**. §L-205's caster gate counts
+shadow-casting **meshes**. Nothing joined the two up — so when §PERF-HEAVY-SHADOW-OFF clears
+`keyLight.castShadow` on a heavy scene (>= 8000 meshes:
+`RenderingPipelineCoordinator.applyTierForMeshCount` -> `PascalSceneLighting.setShadowsSuppressed`),
+**the catcher stayed VISIBLE**, compositing a mask that no shadow pass had written. It is now hidden
+whenever the scene's sole casting light is not casting. A `null` key light stays **UNKNOWN, not
+false**, so the empty-to-first-caster path this class already pins is unchanged.
+
+### ⭐ L-1942 — six reports, and nobody had ever read the PIXEL
+
+§VIEWPORT-BG-PROBE (L-1191/L-1352) enumerates what every surface is **CONFIGURED** to be. Every answer
+built on it therefore ends in an **inference** — *"these read white, therefore the grey is something
+else"* — and that inference is equally consistent with three different causes. **That inference is what
+a wrong fix is made of, and this family has produced five.**
+
+`window.pryzmViewportGreyPixelProbe()` measures the **framebuffer**: it renders, downsamples the live
+canvas to a 5x5 grid, reads the 25 real RGBA values, then hides the ground shadow-catcher, re-reads,
+restores it, and prints the **per-cell delta**.
+
+- grids **DIFFER** -> the catcher **is** painting those pixels; `withCatcher` is the founder's grey.
+- grids **MATCH** -> the catcher is **not** the grey, and §VIEWPORT-BG-PROBE's surface list — *a
+  ledger, not a proof of completeness* — is where to look next.
+
+It states an observation either way and never names the outcome it expects. It needs **no UI toggling**
+(so it is not the "turn ground shadows off" discriminator, which is neither an acceptable fix nor an
+acceptable ask), works on **both** backends, and is one console call on production. It pre-fills the
+grid with `#ff00ff` so a lost drawing buffer reads as INVALID rather than as "the screen is black".
+
+### What is NOT established
+
+- **No GPU was exercised in this lane.** Vitest runs three's CPU classes only.
+- **The founder may still see grey.** The containment bounds the painted area to caster extent +
+  throw. In a scene carrying site context (neighbouring buildings, terrain — all flagged
+  `castShadow=true` by `PascalSceneLighting._enableShadowsOnScene` within `MAX_CASTER_RADIUS_M = 500`)
+  that bound can still be a hundred-plus metres. **The next lever, if it persists, is to additionally
+  clamp the plane to the shadow camera's ground footprint** — provably free, because outside that
+  frustum `setupShadowFilter` already returns "lit". It was deliberately NOT taken here rather than
+  guess the projection.
+- **`shadowMapType=Jn shadowTexType=Sn` in his log are MINIFIED constructor names and remain
+  unresolved.** They are the direct evidence for or against the "foreign renderer claimed the shadow
+  map" story that `BimWorld.ts:106` documents — a story this lane could **not** corroborate, because
+  `ShadowNode.setupShadow()` (`ShadowNode.js:414`) always calls `setupRenderTarget()` and then assigns
+  `this.shadow.map = shadowMap` (`:564`); it never reads a pre-existing `shadow.map`. **The diagnostic
+  should print non-minifiable facts** (`isRenderTarget`, `texture.isDepthTexture`, `width/height`)
+  instead of `constructor.name`. Not done here.
