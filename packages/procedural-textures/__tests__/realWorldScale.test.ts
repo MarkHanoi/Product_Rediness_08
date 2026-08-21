@@ -7,9 +7,9 @@
 // wallpaper, not a material."
 
 import { describe, expect, it } from 'vitest';
-import { PROCEDURAL_TEXTURE_SPECS } from '../src/presets.js';
+import { PROCEDURAL_ID_PREFIX, PROCEDURAL_TEXTURE_SPECS } from '../src/presets.js';
 import { buildLayout, generateProceduralTexture, proceduralRealWorldSizeM } from '../src/generate.js';
-import { describeProceduralGenerator, listProceduralGenerators } from '../src/resolve.js';
+import { describeProceduralGenerator, listProceduralGenerators, proceduralTilingFor } from '../src/resolve.js';
 import { herringboneLayout } from '../src/layouts/herringbone.js';
 import { chevronLayout } from '../src/layouts/chevron.js';
 import { hexagonLayout } from '../src/layouts/hexagon.js';
@@ -46,7 +46,7 @@ describe('the size is knowable WITHOUT rasterising', () => {
   it('every generator is describable, and unknown ids are undefined, never a default', () => {
     expect(listProceduralGenerators().length).toBe(PROCEDURAL_TEXTURE_SPECS.length);
     // ⛔ C100 §5 — no silent fallback. An unknown source must be VISIBLY unresolved.
-    expect(describeProceduralGenerator('proc:does-not-exist')).toBeUndefined();
+    expect(describeProceduralGenerator('procedural:does-not-exist')).toBeUndefined();
     expect(describeProceduralGenerator('textures/oak.ktx2')).toBeUndefined();
   });
 });
@@ -90,7 +90,7 @@ describe('the repeat cells are the arithmetic the layouts claim', () => {
 
 describe('grout is a MEASURED fraction of the surface, not a decoration', () => {
   it('a 600 x 600 tile with 3 mm grout gives the grout fraction the arithmetic predicts', () => {
-    const spec = PROCEDURAL_TEXTURE_SPECS.find((s) => s.id === 'proc:tile-porcelain-600-stack');
+    const spec = PROCEDURAL_TEXTURE_SPECS.find((s) => s.id === 'procedural:tile-porcelain-600-stack');
     if (!spec) throw new Error('preset missing');
     const set = generateProceduralTexture(spec, 1024);
     const module = 603;
@@ -114,7 +114,7 @@ describe('grout is a MEASURED fraction of the surface, not a decoration', () => 
 
 describe('the full PBR set is produced, not just colour', () => {
   it('a parquet carries a real normal map, so it does not read as printed vinyl', () => {
-    const spec = PROCEDURAL_TEXTURE_SPECS.find((s) => s.id === 'proc:parquet-oak-herringbone');
+    const spec = PROCEDURAL_TEXTURE_SPECS.find((s) => s.id === 'procedural:parquet-oak-herringbone');
     if (!spec) throw new Error('preset missing');
     const set = generateProceduralTexture(spec, 512);
     const n = set.normal.data;
@@ -133,7 +133,7 @@ describe('the full PBR set is produced, not just colour', () => {
   });
 
   it('roughness distinguishes the joint from the face', () => {
-    const spec = PROCEDURAL_TEXTURE_SPECS.find((s) => s.id === 'proc:tile-metro-white-subway');
+    const spec = PROCEDURAL_TEXTURE_SPECS.find((s) => s.id === 'procedural:tile-metro-white-subway');
     if (!spec) throw new Error('preset missing');
     const set = generateProceduralTexture(spec, 512);
     const r = set.roughness.data;
@@ -146,5 +146,48 @@ describe('the full PBR set is produced, not just colour', () => {
     }
     // Glazed porcelain 0.22 vs grout 0.88 — a spread of well over 100 8-bit steps.
     expect(max - min).toBeGreaterThan(100);
+  });
+});
+
+// ─── THE MAT-1 SEAM ────────────────────────────────────────────────────────────
+// ⭐ `MaterialResolver.ts`'s `registerTextureLoader` docstring reserves the scheme
+// `procedural:<generator-id>` and says the branch behind it is "UNWRITTEN on
+// purpose: a scheme with no generator behind it is exactly the authored-but-unwired
+// defect this repo keeps producing. It ships in MAT-3's slice, WITH its generators,
+// or it does not ship." These tests hold this package to the shape that clause
+// requires, so the wiring is an edit at ONE site and not a negotiation.
+
+describe('the generator ids match MAT-1s reserved scheme, verbatim', () => {
+  it('every id carries the procedural: scheme, not a rival spelling', () => {
+    expect(PROCEDURAL_ID_PREFIX).toBe('procedural:');
+    for (const spec of PROCEDURAL_TEXTURE_SPECS) {
+      expect(spec.id.startsWith('procedural:'), spec.id).toBe(true);
+      // ⛔ Never a path. MaterialMapPath REFUSES anything not under /items/, and a
+      // generated texture has no file for that rule to be about.
+      expect(spec.id.includes('/'), spec.id).toBe(false);
+    }
+    expect(new Set(PROCEDURAL_TEXTURE_SPECS.map((s) => s.id)).size).toBe(PROCEDURAL_TEXTURE_SPECS.length);
+  });
+
+  it('proceduralTilingFor returns MaterialTilings exact tuple shape', () => {
+    for (const spec of PROCEDURAL_TEXTURE_SPECS) {
+      const tiling = proceduralTilingFor(spec.id);
+      expect(tiling, spec.id).toBeDefined();
+      const size = tiling?.realWorldSizeM;
+      expect(Array.isArray(size), spec.id).toBe(true);
+      expect(size?.length, spec.id).toBe(2);
+      // isUsableTiling()'s exact predicate, restated: both finite and > 0.
+      expect(Number.isFinite(size?.[0]) && (size?.[0] as number) > 0, spec.id).toBe(true);
+      expect(Number.isFinite(size?.[1]) && (size?.[1] as number) > 0, spec.id).toBe(true);
+      // ...and it agrees with the layout it came from.
+      const layout = buildLayout(spec.layout);
+      expect(size?.[0]).toBeCloseTo(layout.cellWidthMm / 1000, 9);
+      expect(size?.[1]).toBeCloseTo(layout.cellHeightMm / 1000, 9);
+    }
+  });
+
+  it('an unknown id yields no tiling — a scale is never invented', () => {
+    expect(proceduralTilingFor('procedural:not-a-generator')).toBeUndefined();
+    expect(proceduralTilingFor('/items/textures/oak/color.webp')).toBeUndefined();
   });
 });

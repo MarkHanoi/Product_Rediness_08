@@ -49,6 +49,40 @@ export function describeProceduralGenerator(id: string): ProceduralDescriptor | 
   };
 }
 
+/**
+ * The generator's scale in the EXACT SHAPE `MaterialTiling` declares at L0
+ * (`packages/schemas/src/materials/materialMaps.ts`): a two-element metre tuple,
+ * plus an optional rotation.
+ *
+ * ⭐ SHAPED TO FIT, NOT MERELY COMPATIBLE. MAT-1's field is
+ * `realWorldSizeM: readonly [number, number]`, and its rule is blunt: "⛔ A record
+ * carrying `maps` MUST carry a usable `tiling`", checked by
+ * `tools/ga-gate/check-material-maps-tiling.ts`. Returning `{x, y}` here would have
+ * forced every wiring site to transcribe the pair — and a transcription is how
+ * C100 §4's six rival vocabularies got written. So the tuple is produced here,
+ * once, by the party that knows the number.
+ *
+ * ⚠ STRUCTURAL, NOT IMPORTED. This package does not import `@pryzm/schemas` — it
+ * imports nothing at all, which its own test suite asserts. TypeScript's structural
+ * typing means the returned value satisfies `MaterialTiling` without a dependency
+ * edge. If MAT-1 ever changes the shape, the wiring site fails to compile, which is
+ * the correct place for that failure to land.
+ *
+ * ⛔ `rotationDeg` is deliberately NOT set. A herringbone generator emits an
+ * AXIS-ALIGNED pattern; laying it at 45° is a TILING concern, and MAT-1's field
+ * says so in its own docstring ("a product laid differently is not a different
+ * product"). Rotating the bitmap instead would destroy the seamlessness the whole
+ * package is built to guarantee — a rotated square texture no longer wraps.
+ */
+export function proceduralTilingFor(
+  id: string,
+): { readonly realWorldSizeM: readonly [number, number] } | undefined {
+  const spec = findProceduralSpec(id);
+  if (!spec) return undefined;
+  const size = proceduralRealWorldSizeM(spec.layout);
+  return { realWorldSizeM: [size.x, size.y] as const };
+}
+
 export function listProceduralGenerators(): readonly ProceduralDescriptor[] {
   return PROCEDURAL_TEXTURE_SPECS.map((s) => describeProceduralGenerator(s.id) as ProceduralDescriptor);
 }

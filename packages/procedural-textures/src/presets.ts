@@ -27,8 +27,26 @@ import {
   WALNUT,
 } from './shading/SurfaceProfile.js';
 
-/** Prefix marking a map source as GENERATED rather than fetched. */
-export const PROCEDURAL_ID_PREFIX = 'proc:';
+/**
+ * Prefix marking a map source as GENERATED rather than fetched.
+ *
+ * ⭐ THIS SPELLING IS NOT FREE — IT IS MAT-1'S RESERVED SCHEME, ADOPTED VERBATIM.
+ * `packages/core-app-model/src/materials/MaterialResolver.ts`'s
+ * `registerTextureLoader` docstring reserves exactly this shape and says why the
+ * branch behind it was left unwritten:
+ *
+ *   "A PROCEDURAL source (lane MAT-3) is deliberately NOT expressible here. An
+ *    extension is a property of a FILE, and a generated texture has no file. The
+ *    reserved shape for it is a `procedural:<generator-id>` scheme on the map path
+ *    … that branch is UNWRITTEN on purpose: a scheme with no generator behind it
+ *    is exactly the authored-but-unwired defect this repo keeps producing."
+ *
+ * This package is the generators that clause was waiting for. ⚠ An earlier draft
+ * of this file spelt it `proc:` — a rival spelling for one concept, which is C100
+ * §4's entire census in miniature. Read the resolver, never this comment, if the
+ * two ever disagree.
+ */
+export const PROCEDURAL_ID_PREFIX = 'procedural:';
 
 const spec = (
   family: 'parquet' | 'tile',

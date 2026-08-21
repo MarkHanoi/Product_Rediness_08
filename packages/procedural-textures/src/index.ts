@@ -72,6 +72,7 @@ export {
 export type { ProceduralDescriptor } from './resolve.js';
 export {
   describeProceduralGenerator,
+  proceduralTilingFor,
   listProceduralGenerators,
   getProceduralTexture,
   clearProceduralCache,

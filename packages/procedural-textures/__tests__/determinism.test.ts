@@ -61,7 +61,7 @@ describe('the same seed produces the same floor, byte for byte', () => {
 
 describe('the seed is wired, not decorative', () => {
   it('a different seed produces a visibly different floor at the same layout', () => {
-    const spec = PROCEDURAL_TEXTURE_SPECS.find((s) => s.id === 'proc:parquet-oak-herringbone');
+    const spec = PROCEDURAL_TEXTURE_SPECS.find((s) => s.id === 'procedural:parquet-oak-herringbone');
     if (!spec) throw new Error('preset missing');
     const a = generateProceduralTexture(spec, 192);
     const b = generateProceduralTexture({ ...spec, seed: spec.seed + 1 }, 192);
@@ -88,17 +88,17 @@ describe('the seed is wired, not decorative', () => {
 describe('the cache returns the identical object, and clearing it changes nothing visible', () => {
   it('is memoised per (id, resolution)', () => {
     clearProceduralCache();
-    const first = getProceduralTexture('proc:tile-hexagon-200-white', 192);
-    const second = getProceduralTexture('proc:tile-hexagon-200-white', 192);
+    const first = getProceduralTexture('procedural:tile-hexagon-200-white', 192);
+    const second = getProceduralTexture('procedural:tile-hexagon-200-white', 192);
     expect(second).toBe(first);
     clearProceduralCache();
-    const third = getProceduralTexture('proc:tile-hexagon-200-white', 192);
+    const third = getProceduralTexture('procedural:tile-hexagon-200-white', 192);
     expect(third).not.toBe(first);
     expect(Array.from(third?.albedo.data ?? [])).toEqual(Array.from(first?.albedo.data ?? []));
   });
 
   it('an unknown id resolves to undefined, never to a default texture', () => {
-    expect(getProceduralTexture('proc:nope')).toBeUndefined();
+    expect(getProceduralTexture('procedural:nope')).toBeUndefined();
   });
 });
 

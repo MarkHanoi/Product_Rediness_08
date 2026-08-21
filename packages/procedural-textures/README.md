@@ -21,7 +21,7 @@ hosting: no bucket, no loader, no licence.
 > stochastic and which photography does better than any shader.
 
 `layouts/` owns the first. `shading/` owns the second. Keeping them apart is why
-**herringbone laid in ceramic cost nothing** (`proc:tile-metro-herringbone` is the
+**herringbone laid in ceramic cost nothing** (`procedural:tile-metro-herringbone` is the
 herringbone layout with the porcelain profile) and it is the seam a photographic
 character map plugs into later without touching a layout file.
 

@@ -19,7 +19,7 @@ import { deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { generateProceduralTexture, type GeneratedTextureSet } from '../src/generate.js';
-import { PROCEDURAL_TEXTURE_SPECS } from '../src/presets.js';
+import { PROCEDURAL_ID_PREFIX, PROCEDURAL_TEXTURE_SPECS } from '../src/presets.js';
 import type { TextureMap } from '../src/shading/shade.js';
 
 const CRC_TABLE = (() => {
@@ -98,7 +98,7 @@ mkdirSync(outDir, { recursive: true });
 const rows: string[] = [];
 for (const spec of PROCEDURAL_TEXTURE_SPECS) {
   const set: GeneratedTextureSet = generateProceduralTexture(spec, resolution);
-  const base = spec.id.replace('proc:', '');
+  const base = spec.id.replace(PROCEDURAL_ID_PREFIX, '');
   writeFileSync(join(outDir, `${base}.albedo.png`), encodePng(set.albedo));
   writeFileSync(join(outDir, `${base}.normal.png`), encodePng(set.normal));
   writeFileSync(join(outDir, `${base}.roughness.png`), encodePng(set.roughness));

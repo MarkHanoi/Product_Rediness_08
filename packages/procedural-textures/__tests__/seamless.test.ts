@@ -236,7 +236,7 @@ describe('⭐ NEGATIVE CONTROLS — the arms failing on deliberately broken text
   });
 
   it('ARM C catches a CROPPED texture — the classic non-seamless bitmap', () => {
-    const spec = PROCEDURAL_TEXTURE_SPECS.find((s) => s.id === 'proc:parquet-oak-herringbone');
+    const spec = PROCEDURAL_TEXTURE_SPECS.find((s) => s.id === 'procedural:parquet-oak-herringbone');
     if (!spec) throw new Error('preset missing');
     const field = rasterizeLayout(buildLayout(spec.layout), { resolution: RES });
     expect(patternBreaks(field)).toEqual({ x: 0, y: 0 });
@@ -247,7 +247,7 @@ describe('⭐ NEGATIVE CONTROLS — the arms failing on deliberately broken text
   });
 
   it('ARM B catches SOME broken crops...', () => {
-    const spec = PROCEDURAL_TEXTURE_SPECS.find((s) => s.id === 'proc:floor-oak-plank-wide');
+    const spec = PROCEDURAL_TEXTURE_SPECS.find((s) => s.id === 'procedural:floor-oak-plank-wide');
     if (!spec) throw new Error('preset missing');
     const set = generateProceduralTexture(spec, RES);
     expect(seamRatio(set.albedo)).toBeLessThan(1.25);
@@ -259,7 +259,7 @@ describe('⭐ NEGATIVE CONTROLS — the arms failing on deliberately broken text
     // A low-contrast tile crop scores BETTER than the tolerance while being visibly
     // broken: its seam step is small in absolute terms because the tile face is
     // nearly uniform, and the grout lines dominate the interior maximum.
-    const spec = PROCEDURAL_TEXTURE_SPECS.find((s) => s.id === 'proc:tile-metro-white-subway');
+    const spec = PROCEDURAL_TEXTURE_SPECS.find((s) => s.id === 'procedural:tile-metro-white-subway');
     if (!spec) throw new Error('preset missing');
     const set = generateProceduralTexture(spec, RES);
     const brokenRatio = seamRatio(cropRGBA(set.albedo, 0.8));
