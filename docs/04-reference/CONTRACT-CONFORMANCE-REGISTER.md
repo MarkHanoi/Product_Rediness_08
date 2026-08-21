@@ -409,9 +409,22 @@ C98: CONFORMS 10 · VIOLATED 3 · UNENFORCED 0 · UNMEASURED 14.**
 
 ### 3.3 C88 · C89 · C90 · C91 · C92 · C93 · C94 — horizontal and structural families
 
-*Sub-lane result pending at the time of writing; see the AUD-6 report for the delivered table,
-including the C84 §6 structural-compliance measurement (which mandatory sections each contract
-omits, and how many cells are BLANK rather than `NOT MEASURED`).*
+⛔ **NOT DELIVERED — these seven contracts are UNMEASURED at clause level, and the register says so
+rather than leaving the section looking covered.** The AUD-6 sub-lane assigned to them did not
+return within the session. **Nothing below should be read as a verdict on C88–C94.**
+
+**Still owed for these seven, and the reason each matters:**
+
+1. **The C84 §6 structural-compliance measurement** — which mandatory sections each contract omits,
+   and how many table cells are **BLANK rather than `NOT MEASURED`**. C84 §6 makes the structure
+   MANDATORY and IDENTICAL across all fifteen, and states the reason: *"A blank reads as 'fine';
+   that is how every defect in §4 survived."* This is cheap (a grep) and is a deliverable on its own.
+2. **C94 (Room/Space) against `check-graph-write-coverage`'s four findings** — `boundedBy` and
+   `contains` are **room** relationships, and both are among the four REQUIRED families with no
+   typed production reader (§4.2). C94 is where that violation becomes a user-facing capability gap.
+3. **C92 (Slab)** — `check-material-id-required` ARM C names `producers/slab.ts` as unrouted, and
+   `check-material-id-required` ARM E's own note records slab's `systemTypeId`, `layers`,
+   `baseOffset` and `properties` as still dropped on reload with **no arm watching**.
 
 **A structural observation that stands independently of that sub-lane:** five of these seven
 contracts carry almost no normative prose. Measured with
