@@ -705,11 +705,13 @@ export const AUDIT_STACK_STYLES = `
      legends — two independent definitions of one encoding, and the light end was
      visibly the wrong colour. Both are now the brand ramp, and the endpoints are
      PUBLISHED onto this element by the zone from that single function, so the
-     legend cannot drift from the swatches again. Fallbacks are the ramp's own
-     endpoints so a zone that has not published yet still shows the right hues. */
+     legend cannot drift from the swatches again. Deliberately NO fallback:
+     publishDiscoveryRamp() runs on the legend before it is mounted, so an
+     unpainted swatch means the publish was lost — which is worth seeing,
+     where a hard-coded fallback would hide it behind a plausible gradient. */
   background: linear-gradient(to right,
-      var(--aud-ramp-from, rgb(216,203,255)),
-      var(--aud-ramp-to,   rgb(102,0,255)));
+      var(--aud-ramp-from),
+      var(--aud-ramp-to));
 }
 
 /* ── Discovery room list ───────────────────────────────────────────────────── */

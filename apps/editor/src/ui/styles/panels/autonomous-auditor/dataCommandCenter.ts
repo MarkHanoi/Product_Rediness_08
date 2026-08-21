@@ -51,7 +51,7 @@ export const DATA_COMMAND_CENTER_STYLES = `
 }
 
 .dcc-bucket-btn.dcc-bucket-active {
-  background: rgba(102, 0, 255, 0.08);
+  background: var(--app-violet-soft);
   color: var(--app-accent);
 }
 
@@ -81,7 +81,7 @@ export const DATA_COMMAND_CENTER_STYLES = `
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.07em;
-  color: #fff;
+  color: var(--app-on-accent);
   text-transform: uppercase;
   border-bottom: 1px solid var(--app-border);
   flex-shrink: 0;
@@ -130,7 +130,7 @@ export const DATA_COMMAND_CENTER_STYLES = `
 }
 
 .dcc-tree-node--selected {
-  background: rgba(102, 0, 255, 0.07);
+  background: var(--app-violet-soft);
   color: var(--app-accent);
 }
 
@@ -205,7 +205,7 @@ export const DATA_COMMAND_CENTER_STYLES = `
   border-radius: 8px;
   overflow: hidden;
   z-index: 50;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  box-shadow: var(--app-shadow-panel);
 }
 
 .dcc-pip-header {
@@ -221,7 +221,7 @@ export const DATA_COMMAND_CENTER_STYLES = `
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.07em;
-  color: #fff;
+  color: var(--app-on-accent);
   text-transform: uppercase;
   z-index: 1;
 }

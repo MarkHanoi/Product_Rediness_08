@@ -890,7 +890,11 @@ export const DATA_WORKBENCH_STYLES = `
   padding: 0 14px;
   height: 44px;
   flex-shrink: 0;
-  background: var(--bucket-header-bg, var(--app-gradient));
+  /* Was 'var(--bucket-header-bg, <the gradient written out again>)'. MEASURED
+     2026-08-21: NOTHING in this repo ever writes --bucket-header-bg, so the
+     fallback was the value, always. A runtime hook nobody publishes is not
+     configurability, it is a second copy of the token with a longer name. */
+  background: var(--app-gradient);
   color: var(--app-on-accent);
 }
 .dw-bucket-header-left {

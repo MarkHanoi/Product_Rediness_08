@@ -451,7 +451,7 @@ export const STRATEGIZE_STYLES = `
 
 .strat-catalog-add-error {
   font-size: 10px;
-  color: var(--app-error, var(--app-status-error-ink));
+  color: var(--app-status-error-ink);
   margin-top: 6px;
   padding: 4px 6px;
   background: var(--app-status-error-bg);
