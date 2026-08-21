@@ -25741,3 +25741,118 @@ recorded as a named hazard on `ViewCropSettings.region`. **Do not add a third en
 --noEmit --skipLibCheck` **RC=0**.
 
 ---
+
+## L-1867 — ✅ ROOT CAUSE MEASURED + FIXED: a SUPERSEDED projection abandoned its half-built linework INSIDE the 3D scene — 2026-08-21 (lane ELEV1, commit `78750bbb`)
+
+**Founder, production, 2026-08-21:**
+
+> "when opening the 3D view after having opened the elevation, the 3D view doesn't render as it
+> should — there are reminiscences of the elevation edge projectors. The walls are rendering the
+> edges within (windows edges etc.) — this is NOT expected."
+
+**§LINEWORK-3D-PROBE (L-1225) reported, on every 3D entry:** 649 line objects, 607 effectively
+visible, of which **×442 `LineSegments | layer:EDITOR(mask 2) | VISIBLE`,
+`projectId: (unstamped) viewId: (unstamped)`** — and, decisively:
+
+> ⭐ NO DIFF vs the first 3D entry — every visible line class was present from first paint.
+> Hypothesis (a) "not torn down on view switch" is FALSIFIED.
+
+**⭐ The probe was right on both counts, and the shipped-probe-before-the-fix discipline paid.**
+This is **not** a teardown leak. It is an **accumulation**, and the accumulator is the
+**supersede** path — so hunting a missing dispose would have found nothing, exactly as the
+coordinator warned.
+
+### The mechanism, MEASURED in `node_modules/@thatopen/components/dist/index.mjs`
+
+```js
+create(world) {
+  const drawing = new TechnicalDrawing(this.components);
+  drawing.world = world;
+  world.scene.three.add(drawing.three);   // ← parented AT BIRTH, unconditionally
+  const cam = world.camera;
+  cam.three.layers.enable(1);             // ← and layer 1 force-enabled …
+  cam.threePersp.layers.enable(1);        //    … on ALL THREE cameras
+  cam.threeOrtho.layers.enable(1);
+```
+
+and `addProjectionLines` ends `ls.layers.set(1); this.three.add(ls);`. **OBC layer 1 IS PRYZM
+`EDITOR_LAYER`**, which `_activate3DView` enables *deliberately* so the parcel boundary and
+buildable envelope show in the design scene (§L-426). Two populations, one layer, one of which
+**must** show — so **no layer-mask change can separate them**, exactly as the coordinator reasoned.
+
+### Where the leak actually is
+
+`EdgeProjectorService.project()` **always** unparented the drawing on its **SUCCESS** exit:
+
+```ts
+const drawingObject = (drawing as any).three;
+drawingObject?.parent?.remove(drawingObject);
+return drawing;
+```
+
+But the `§PERF-PROJECTION-CANCEL-SUPERSEDED` (L-704) path **`throw`s a `ProjectionSupersededError`**,
+so it never reached that line. And the comment sitting on that path asserted the *exact opposite of
+the truth*:
+
+> *"the lines added so far are **not attached to any render graph**, and the frame that could have
+> referenced them never happened"*  ← **FALSE. OBC attached them at birth.**
+
+`drawing.onDisposed.trigger()` fires a **hook**; it unparents nothing. **So every superseded pass
+left its half-built linework in the 3D scene, visible, forever.** The founder's crop drag alone
+logged 20+ consecutive supersedes, and a plan view supersedes several times at boot — which is why
+the count was already 442 on 3D entry **#1** and byte-identical on **#2** and **#3**.
+
+### ⭐ This resolves the contradiction the coordinator flagged
+
+`[ViewController] DOC-1.5a: PlanViewManager is active — TechnicalDrawing NOT mounted to 3D scene
+(Canvas2D only)` is **TRUE about its own `scene.add()` and FALSE about the outcome**, because OBC
+had already added it. **Neither the log nor the probe was lying — the log's IMPLICATION was.**
+
+The same root explains `projectId: (unstamped) viewId: (unstamped)`: both stamps are written in
+`ViewController._mountDrawing`, which these drawings never reach. Consequently
+`_restampAllDrawingsInScene()` — the **L-1227 sweep written to catch precisely this** — cannot see
+them either, because it keys on `userData.isTechnicalDrawing`, also stamped only at mount.
+**The L-1227 fix was authored and left unwired for the drawings it was written for**
+([[authored-but-unwired-is-the-bottleneck]] — audit REACHABILITY, not existence).
+
+### The fix
+
+ONE owner for *"is this drawing parented to the scene"*: `_detachDrawingFromScene(drawing)`, called
+on **BOTH** exits of `project()` (success and superseded-cancel). Idempotent, non-throwing,
+unparents only its own group. **No layer-mask change**, so §L-426's parcel boundary is untouched —
+asserted by a test that puts a sibling group in the scene and checks it survives.
+
+**Verified (foreground):** `supersededDrawingLeavesScene.spec.ts` + `edgeProjectorCropReproject.spec.ts`
+— **2 files / 14 PASS** under the **ROOT** vitest config. Root `tsc --noEmit --skipLibCheck`: **zero
+errors in any file this lane touched.**
+
+> 🔎 **Worth knowing:** `apps/editor`'s own vitest config includes only `*.test.ts`, so
+> `apps/editor/src/engine/__tests__/**/*.spec.ts` run **only** from the ROOT config
+> (`npx vitest run` at the repo root). `pnpm --filter @pryzm/editor exec vitest run <a .spec.ts>`
+> reports *"No test files found"* — which prints the same as a passing suite if you are not reading
+> carefully. Same shape as §L-851.
+
+### 🔴 OPEN / NOT ESTABLISHED
+
+1. **🔴 NOT browser-verified.** The test drives the helper's **contract** against a structural fake
+   of the OBC shape reproduced from the bundle; it does **not** run the real `project()` (which
+   needs OBC, fragments and a `World`). **442 → ~0 is a PREDICTION until the founder re-runs the
+   probe**, and the probe is already shipped to measure exactly that.
+2. **🔴 The layer collision itself is NOT resolved.** OBC projection lines and the parcel boundary
+   still share `EDITOR_LAYER`. This fix removes the *leaked* population from the scene; it does not
+   give documentation linework a layer of its own. If any drawing reaches the 3D scene by a path
+   not covered here, it will still be indistinguishable from §L-426 content.
+3. **🔴 `View switch to "3D" took 504.4 ms (target: <100 ms)`** on every entry, the engine naming
+   `camera.projection.set()`, a SceneBoundsCache miss, or `RenderPipelineManager.updateCamera()`.
+   **Not investigated** — recorded only, as instructed.
+4. **🔴 No gate.** Nothing prevents a future `throw` between `create()` and the detach from
+   re-opening this. A probe-backed assertion (scene holds zero `isTechnicalDrawing` groups after a
+   projection settles) would be the real ratchet.
+
+> ⚠ **NUMBERING.** Authored as **L-1862**; lane SHEETS took **L-1862 … L-1866** (commit
+> `a1cdc93c`) while this was in flight, so it is **L-1867**. This is the **second** id collision
+> this session — the `L-1858 … L-1861` block above records the first. Two lanes picking "the next
+> free number" from a stale read of the same file will keep colliding; the id needs allocating, not
+> guessing.
+
+---

@@ -1026,6 +1026,33 @@ function concatLineGeometries(geos: THREE.BufferGeometry[]): THREE.BufferGeometr
     return makeGeoFromPositions(positions);
 }
 
+/**
+ * §LINEWORK-3D-SUPERSEDE-LEAK (L-1867) — take a TechnicalDrawing OUT of the world scene.
+ *
+ * THE ONE OWNER of "is this drawing parented to the 3D scene". `project()` calls it on
+ * BOTH of its exits (success and superseded-cancel), because OBC parents every drawing
+ * into `world.scene.three` inside `TechnicalDrawings.create()` — before PRYZM has any
+ * say — and PRYZM never wants it there implicitly:
+ *
+ *   • Canvas2D views (plan / elevation / section) render linework on `PlanViewCanvas`,
+ *     and `ViewController._mountDrawing` prints *"TechnicalDrawing NOT mounted to 3D
+ *     scene (Canvas2D only)"* — a statement that was TRUE about its own `scene.add` and
+ *     FALSE about the outcome, because OBC had already added it.
+ *   • 3D views mount deliberately via `_mountDrawing`, which re-parents and re-stamps
+ *     the layer to `DOCUMENTATION_LAYER`.
+ *
+ * Idempotent (a detached group has no parent) and non-throwing: a teardown must never
+ * propagate out of a projection path and mask the projection's own result.
+ *
+ * ⚠ This does NOT dispose geometry — the caller owns that. It only unparents.
+ */
+function _detachDrawingFromScene(drawing: unknown): void {
+    try {
+        const group = (drawing as { three?: { parent?: { remove?: (o: unknown) => void } } } | null)?.three;
+        group?.parent?.remove?.(group);
+    } catch { /* §SWALLOW-TEARDOWN — unparenting is best-effort by design. */ }
+}
+
 function resolveSectionDepthPlane(
     viewDef: ViewDefinition,
     projectionDirection: THREE.Vector3,
@@ -3260,9 +3287,30 @@ export class EdgeProjectorService {
                             `a newer generation superseded this pass.`,
                         );
                         // Release the half-built drawing here — nobody downstream will ever
-                        // receive it, so no caller can be relied on to free it (ADR-0297 L2:
-                        // the lines added so far are not attached to any render graph, and
-                        // the frame that could have referenced them never happened).
+                        // receive it, so no caller can be relied on to free it.
+                        //
+                        // ⚠ §LINEWORK-3D-SUPERSEDE-LEAK (L-1867) — THE COMMENT THAT USED TO
+                        // STAND HERE WAS FALSE, AND IT IS WHY THIS LEAKED. It read: *"the lines
+                        // added so far are not attached to any render graph, and the frame that
+                        // could have referenced them never happened"*. They ARE attached.
+                        // MEASURED in `@thatopen/components` — `TechnicalDrawings.create(world)`:
+                        //
+                        //     world.scene.three.add(drawing.three);   ← parented AT BIRTH
+                        //     cam.three.layers.enable(1);             ← on all three cameras
+                        //
+                        // and `addProjectionLines` ends `ls.layers.set(1); this.three.add(ls)`.
+                        // OBC layer 1 IS PRYZM `EDITOR_LAYER`, which `_activate3DView` enables
+                        // deliberately so the parcel boundary shows in 3D (§L-426). So every
+                        // superseded pass abandoned its half-built linework INSIDE the 3D scene,
+                        // visible, forever — the founder's *"reminiscences of the elevation edge
+                        // projectors … walls are rendering the edges within (windows edges etc.)"*
+                        // and the probe's 442 unattributed `layer:EDITOR` LineSegments.
+                        //
+                        // `onDisposed.trigger()` fires a HOOK; it does not unparent anything.
+                        // The SUCCESS path at the end of `project()` always did the unparenting
+                        // — but this path `throw`s, so it never reached it. One owner now:
+                        // `_detachDrawingFromScene`, called on BOTH exits.
+                        _detachDrawingFromScene(drawing);
                         try { drawing.onDisposed.trigger(); } catch { /* best-effort */ }
                         throw new ProjectionSupersededError(viewId, _chunkGroupIdx, nativeMeshGroups.length);
                     }
@@ -3724,8 +3772,12 @@ export class EdgeProjectorService {
             minProjectionOccluderDepth: isPlanView ? 0 : -Infinity,
         });
 
-        const drawingObject = (drawing as any).three as THREE.Object3D | undefined;
-        drawingObject?.parent?.remove(drawingObject);
+        // §LINEWORK-3D-SUPERSEDE-LEAK (L-1867) — the SUCCESS exit. OBC parents every
+        // drawing into `world.scene.three` at `create()`; PRYZM renders documentation
+        // linework through PlanViewCanvas / an explicit `_mountDrawing`, never by leaving
+        // it where OBC put it. Both exits from `project()` must therefore unparent, and
+        // they now share ONE implementation (C06 §13.3).
+        _detachDrawingFromScene(drawing);
         return drawing;
     }
 
