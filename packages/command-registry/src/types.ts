@@ -230,6 +230,8 @@ export enum CommandType {
     TAKE_LATEST_INTENT_VERSION        = 'TAKE_LATEST_INTENT_VERSION',
     CREATE_INTENT_FROM_VIEW           = 'CREATE_INTENT_FROM_VIEW',
     HIDE_ELEMENT_IN_VIEW              = 'HIDE_ELEMENT_IN_VIEW',
+    // §PER-CATEGORY-VIEW-VISIBILITY (L-1874) — the per-CATEGORY twin of the row above.
+    SET_CATEGORY_VISIBILITY_IN_VIEW   = 'SET_CATEGORY_VISIBILITY_IN_VIEW',
     ISOLATE_ELEMENT_IN_VIEW           = 'ISOLATE_ELEMENT_IN_VIEW',
     GHOST_ELEMENT_IN_VIEW             = 'GHOST_ELEMENT_IN_VIEW',
     SET_GRAPHIC_OVERRIDE              = 'SET_GRAPHIC_OVERRIDE',
@@ -631,7 +633,7 @@ export interface Command {
      */
     nonUndoable?: boolean;
     /**
-     * §UNDO-HISTORY-DROPDOWN (ADR-0340, C16 §5 `CA-22`) — OPTIONAL one-line,
+     * §UNDO-HISTORY-DROPDOWN (ADR-0341, C16 §5 `CA-22`) — OPTIONAL one-line,
      * present-tense description of what this command did, for the undo/redo
      * history dropdown. E.g. `"Move 3 walls"`, `"Set wall height to 3.2 m"`.
      *

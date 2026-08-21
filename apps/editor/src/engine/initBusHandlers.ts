@@ -95,6 +95,7 @@ import {
   UpdateViewDefinitionCommand,
   SetViewCropCommand,
   HideElementInViewCommand,
+  SetCategoryVisibilityInViewCommand,
   IsolateElementInViewCommand,
   SetGraphicOverrideCommand,
   ClearOverrideCommand,
@@ -2371,6 +2372,25 @@ export function initBusHandlers(
             stores: [] as const,
             validate: (cmd) => (!cmd.viewId || !cmd.elementId ? 'viewId and elementId are required' : null),
             fn: (cmd) => { _cmExec(new HideElementInViewCommand(cmd.viewId, cmd.elementId)); },
+        },
+        {
+            // §PER-CATEGORY-VIEW-VISIBILITY (L-1874) — the founder's "click boolean
+            // for general visibility" (hide furniture in elevation). Writes ONE
+            // view-scoped override for a whole element type / category rather than N
+            // per-element ones, so it also covers elements created later.
+            // `visible: true` REMOVES the override (a default is not an override,
+            // C09 §4.5.1) — see the command's header.
+            type: 'view.setCategoryVisibility',
+            stores: [] as const,
+            validate: (cmd) => (!cmd.viewId || !cmd.targetId ? 'viewId and targetId are required' : null),
+            fn: (cmd) => {
+                _cmExec(new SetCategoryVisibilityInViewCommand(
+                    cmd.viewId,
+                    cmd.targetId,
+                    cmd.visible !== false,
+                    cmd.targetKind === 'category' ? 'category' : 'elementType',
+                ));
+            },
         },
         {
             type: 'view.isolateElement',

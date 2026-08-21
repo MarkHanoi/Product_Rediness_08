@@ -36,6 +36,8 @@ export { CreateVisibilityIntentCommand } from './CreateVisibilityIntentCommand';
 export { UpdateVisibilityIntentCommand } from './UpdateVisibilityIntentCommand';
 export { DeleteVisibilityIntentCommand } from './DeleteVisibilityIntentCommand';
 export { HideElementInViewCommand } from './HideElementInViewCommand';
+export { SetCategoryVisibilityInViewCommand } from './SetCategoryVisibilityInViewCommand';
+export type { CategoryVisibilityKind } from './SetCategoryVisibilityInViewCommand';
 export { IsolateElementInViewCommand } from './IsolateElementInViewCommand';
 export { GhostElementInViewCommand } from './GhostElementInViewCommand';
 export { SetGraphicOverrideCommand } from './SetGraphicOverrideCommand';

@@ -316,6 +316,7 @@ export * from './vg/DeleteVisibilityIntentCommand';
 export * from './vg/DeleteVisibilityRuleCommand';
 export * from './vg/GhostElementInViewCommand';
 export * from './vg/HideElementInViewCommand';
+export * from './vg/SetCategoryVisibilityInViewCommand';
 export * from './vg/IsolateElementInViewCommand';
 export * from './vg/OverrideCommandUtils';
 export * from './vg/PinViewIntentVersionCommand';
