@@ -1108,3 +1108,39 @@ Dispatch→proof ≈ **22 min** wall-clock, no retry, first attempt reached a pu
 `now ready` — blue served throughout.
 
 ---
+
+## 6.9.5 SEVENTH EXECUTION — 2026-08-21 evening (`04a57083`), bundle proof 6/6 — AND THE BLOCKER WAS A TYPECHECK READING WITH A SHELF LIFE
+
+**Result: PASSED.** Served chunk moved `main-CrEFTXal.js` → `main-BLxHPiWI.js`; cesium 257 / google 39;
+`/version` `git_sha == 04a57083d6f85b35c53f290d5f4ebb06737f58e0`; `/api/health/live` `{"ok":true}`.
+Rollback tag captured **before** deploying (§5.3): `pryzm:deployment-01M0JP4T7J255ASN1Z4AXTSBCJ`.
+**18 commits**, five lanes (DIM46, LINK2, RAC4, UBG1, ANLZ2). Dispatch→proof ≈ 24 min, first attempt.
+
+### The blocker was not infrastructure — and the reading that named it EXPIRED
+
+The deploy was held by **two `TS6133` errors** (`carbonCsv.ts:96`, `MedicionesTimeCarbon.ts:359`).
+Neither lane's *targeted* `pnpm --filter` typecheck saw them; only the **root**
+`NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` did — which is
+[[build-uses-stricter-root-tsc]] recurring, and is why §3 requires the root run and not a filtered one.
+
+⭐ **The instructive part is what happened next.** *Two* lanes independently reported those errors as
+live and deploy-blocking. By the time the second report was read, **lane DIM46 had already fixed them**
+and root `tsc` was exit 0. Both readings were **true when taken and false when read**.
+
+> **In a shared tree with N live lanes, a typecheck reading has a shelf life of minutes.** Treat a
+> lane's "tsc is red" as a *timestamped observation*, never as current state — **re-run it at the
+> deploy gate yourself**. The correct handling is what UBG1 did: strike the claim through in the
+> ISSUE-LOG rather than delete it, because a reading that decays is the argument for re-running the
+> command, not evidence the lane was careless.
+
+### `/version` is deliberately behind `origin/main` AGAIN — for a NEW reason
+
+§6.9.4 recorded docs commits landing after the deploy SHA. This time it is **source**: `f84516d5` +
+`9afdc851` (the repo-wide NUL sweep) landed on `main` after `04a57083` and are **not in this image**.
+That is safe **because the change is byte-identical at runtime** — ten raw `0x00` bytes inside string
+literals rewritten as `\u0000` escapes, so the emitted JS is unchanged; the fix exists to make those
+files visible to `grep`, which had been silently skipping them as *binary*. **Verify that
+byte-identity claim before assuming any future post-SHA commit is equally harmless** — "it's only
+hygiene" is not a property you can read off a commit message.
+
+---
