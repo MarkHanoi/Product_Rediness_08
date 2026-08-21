@@ -53,6 +53,30 @@ const VIEW_3D_TYPES   = new Set(['3d', 'walkthrough', 'render']);
 
 const PREVIEW_PADDING = 10;
 
+/**
+ * §SHEET-3D-CAPTURE-IS-NOT-A-DRAWING (L-1842) — does this RGBA buffer carry any
+ * actual COLOUR?
+ *
+ * Exported as a pure function purely so the defect it replaces can be pinned by
+ * a test without a working canvas backend. The bug: the original walked every
+ * byte and accepted on `data[i] > 0`, which INCLUDED the alpha channel. An
+ * opaque black frame is `(0,0,0,255)` repeated — alpha 255 everywhere — so it
+ * was accepted as content. The predicate could only ever have rejected a fully
+ * TRANSPARENT surface, which is not what "the renderer drew nothing" looks like
+ * on a WebGL canvas with a cleared framebuffer.
+ *
+ * @param data      RGBA bytes, 4 per pixel.
+ * @param threshold per-channel value above which a pixel counts as coloured;
+ *                  small non-zero to tolerate codec/compression noise.
+ */
+export function rgbaHasColour(data: Uint8ClampedArray | number[], threshold = 8): boolean {
+    for (let i = 0; i < data.length; i++) {
+        if (i % 4 === 3) continue;                    // skip alpha
+        if ((data[i] ?? 0) > threshold) return true;
+    }
+    return false;
+}
+
 const FALLBACK_WALL_EDGE    = '#1a1a2e';
 const FALLBACK_SLAB_FILL    = '#e4e8ef';
 const FALLBACK_SLAB_EDGE    = '#a0a8b8';
@@ -305,11 +329,7 @@ class ViewportPreviewRenderer {
             if (!tmpCtx) return true;
             tmpCtx.drawImage(src, sx, sy, sw, sh, 0, 0, sw, sh);
             const { data } = tmpCtx.getImageData(0, 0, sw, sh);
-            for (let i = 0; i < data.length; i++) {
-                if (i % 4 === 3) continue;              // skip alpha
-                if ((data[i] ?? 0) > 8) return true;    // >8 tolerates codec noise
-            }
-            return false;
+            return rgbaHasColour(data);
         } catch {
             return true;
         }
