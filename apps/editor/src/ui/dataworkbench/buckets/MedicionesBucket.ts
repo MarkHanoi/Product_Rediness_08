@@ -3,7 +3,7 @@
  *
  * Layer Affected:   UI — Data Workbench › Mediciones Bucket (L7)
  * File:             apps/editor/src/ui/dataworkbench/buckets/MedicionesBucket.ts
- * Contract:         C66 §1.1 by analogy · C84 EI-11 · ADR-0343 §MEDICIONES
+ * Contract:         C66 §1.1 by analogy · C84 EI-11 · ADR-0344 §MEDICIONES
  * Engine:           @pryzm/core-app-model — `computeTakeoff()` / `applyRates()`
  *
  * ─────────────────────────────────────────────────────────────────────────────
@@ -549,7 +549,7 @@ function notBuiltPanel(a: {
 
                 <p style="margin:18px 0 0;padding:11px 13px;border-left:3px solid var(--app-accent);background:rgba(102,0,255,.05);font-size:11.5px;line-height:1.7;color:var(--app-text);">${a.close}</p>
                 <p style="margin:14px 0 0;font-size:10px;color:var(--app-text-muted);line-height:1.6;">
-                    Recorded in ADR-0343. Nothing on this tab is broken — the capability has not shipped, and this panel exists so that is visible where the decision gets made rather than only in a document.
+                    Recorded in ADR-0344. Nothing on this tab is broken — the capability has not shipped, and this panel exists so that is visible where the decision gets made rather than only in a document.
                 </p>
             </div>
         </div>`;

@@ -4,7 +4,7 @@
  * Layer:     L2 — packages/core-app-model
  * Contract:  C66 §1.1 (nothing may be described as supported while it is merely CLAIMED),
  *            C84 EI-11 (what the user sees and what the system exports must be the same code),
- *            ADR-0343 (§MEDICIONES — the take-off is the only floor 4D/5D/6D may stand on).
+ *            ADR-0344 (§MEDICIONES — the take-off is the only floor 4D/5D/6D may stand on).
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * ⭐ THE ONE RULE THIS FILE EXISTS TO ENFORCE

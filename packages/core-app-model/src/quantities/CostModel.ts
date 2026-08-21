@@ -4,7 +4,7 @@
  * Layer:    L2 — packages/core-app-model
  * Contract: C66 §1.1 by analogy — a price that has not been sourced is a CLAIM,
  *           not a cost, and MUST NOT be written the way a sourced price is.
- * ADR:      ADR-0343 §5D
+ * ADR:      ADR-0344 §5D
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * ⛔ THE PROHIBITION THIS MODULE EXISTS TO ENCODE

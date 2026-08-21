@@ -2,7 +2,7 @@
  * @pryzm/core-app-model — quantities sub-barrel (lane DATA1, 2026-08-21).
  *
  * The *medición* (quantity take-off) read-model and the 5D cost layer that sits
- * on it. See ADR-0343 for why 4D and 6D are NOT here.
+ * on it. See ADR-0344 for why 4D and 6D are NOT here.
  */
 
 export type {
