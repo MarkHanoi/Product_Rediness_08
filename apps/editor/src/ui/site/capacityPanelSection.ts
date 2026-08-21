@@ -238,6 +238,19 @@ const UNIT_WORD: Readonly<Record<CapacityRow['unit'], string>> = {
 // The section
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * §GIS-ENVELOPE-FULL-SECTIONS (L-1651) — the ONE renderer for measurement-caveat lines, shared
+ * by the internal "How these were measured" disclosure below and by the card's promoted
+ * `buildHowMeasuredFold` (envelopeCardSections.ts). Exported so the promoted fold cannot drift
+ * into a second, disagreeing rendering of the same caveats.
+ */
+export function renderMeasurementCaveatLinesHtml(caveats: readonly string[]): string {
+    return caveats
+        .map((c) => `<div style="color:#8a83a0;font-size:10px;line-height:1.45;`
+            + `margin-top:3px;">${escHtml(c)}</div>`)
+        .join('');
+}
+
 const METRIC_TO_MEASURE_KEY: Readonly<Record<CapacityRow['metric'], keyof DesignMeasurement['unmeasured']>> = {
     footprint: 'footprintM2',
     grossFloorArea: 'grossFloorAreaM2',
@@ -309,6 +322,25 @@ function renderRow(row: CapacityRow, measurement: DesignMeasurement | null): str
 }
 
 /**
+ * §GIS-ENVELOPE-FULL-SECTIONS (L-1651) — embed options for hosting this section inside a
+ * first-class card fold (`envelopeCardSections.buildDesignedVsPermittedFold`):
+ *
+ *  · `omitTitle` — the fold's own <summary> IS the heading, so the internal uppercase
+ *    "Designed vs permitted" title would double up.
+ *  · `omitMeasurementCaveats` — "How these were measured" is PROMOTED to its own fold on the
+ *    card (`buildHowMeasuredFold`), which also covers the arms this internal block could never
+ *    reach: `measurement.caveats` is legitimately `[]` for a nothing-authored project, so the
+ *    `caveats.length > 0` gate below made the founder's "how is this measured" section
+ *    UNREACHABLE in exactly the state their repro was in (L-1650 root cause 2).
+ *
+ * Both default to `false` so every existing caller renders byte-identically.
+ */
+export interface CapacitySectionEmbedOpts {
+    readonly omitTitle?: boolean;
+    readonly omitMeasurementCaveats?: boolean;
+}
+
+/**
  * Build the "Designed vs permitted" section.
  *
  * Returns `''` when there is no comparison to show — an absent section, never a placeholder that
@@ -317,6 +349,7 @@ function renderRow(row: CapacityRow, measurement: DesignMeasurement | null): str
 export function buildCapacitySectionHtml(
     comparison: CapacityComparison | null,
     measurement: DesignMeasurement | null,
+    opts?: CapacitySectionEmbedOpts,
 ): string {
     const span = _tracer.startSpan('pryzm.site.buildCapacitySectionHtml');
     try {
@@ -346,13 +379,10 @@ export function buildCapacitySectionHtml(
               + `${measurement.designedStoreyCount === 1 ? '' : 's'}.</div>`
             : '';
 
-        const caveats = measurement !== null && measurement.caveats.length > 0
+        const caveats = !opts?.omitMeasurementCaveats && measurement !== null && measurement.caveats.length > 0
             ? `<details style="margin-top:6px;"><summary style="cursor:pointer;color:#6600FF;`
               + `font-size:10px;font-weight:600;list-style:none;">How these were measured</summary>`
-              + measurement.caveats
-                  .map((c) => `<div style="color:#8a83a0;font-size:10px;line-height:1.45;`
-                      + `margin-top:3px;">${escHtml(c)}</div>`)
-                  .join('')
+              + renderMeasurementCaveatLinesHtml(measurement.caveats)
               + `</details>`
             : '';
 
@@ -369,10 +399,19 @@ export function buildCapacitySectionHtml(
         span.setAttribute('pryzm.capacity.unknownRows', comparison.unknownCount);
         span.setAttribute('pryzm.capacity.overRows', comparison.overCount);
 
-        return `<div data-testid="capacity-comparison" style="margin-top:10px;`
-            + `border-top:1px solid #efecf7;padding-top:8px;">`
-            + `<div style="font-weight:700;font-size:10px;letter-spacing:.04em;text-transform:uppercase;`
-            + `color:#6600FF;">Designed vs permitted</div>`
+        const title = opts?.omitTitle
+            ? ''
+            : `<div style="font-weight:700;font-size:10px;letter-spacing:.04em;text-transform:uppercase;`
+              + `color:#6600FF;">Designed vs permitted</div>`;
+
+        // Embedded in a fold, the fold's own border/summary already frames the section, so the
+        // standalone top rule would render a doubled divider.
+        const wrapStyle = opts?.omitTitle
+            ? 'margin-top:2px;'
+            : 'margin-top:10px;border-top:1px solid #efecf7;padding-top:8px;';
+
+        return `<div data-testid="capacity-comparison" style="${wrapStyle}">`
+            + `${title}`
             + `${verdictBlock}`
             + `<div style="font-size:11px;margin-top:4px;">${rowsHtml}</div>`
             + `${storeyNote}${caveats}${footer}</div>`;

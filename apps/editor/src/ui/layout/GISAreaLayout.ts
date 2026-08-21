@@ -56,6 +56,10 @@ import {
     // `dispatchParcelBoundary` would (see its own header).
     reapplyZoningForActiveSite,
     resolveRenderableBuildableEnvelope,
+    // §GIS-ENVELOPE-DETERMINATION-PERSIST (L-1654) — the FULL persisted determination (dated).
+    // The load-path answer the L-445 reduced card existed to refuse to fabricate: now that the
+    // whole record is persisted at commit time, the card can render it — WITH its date.
+    resolveStoredBuildableDetermination,
     resolveActiveProjectId,
     resolveSiteContext,
 } from '../site/siteDispatch';
@@ -192,7 +196,11 @@ import {
 // section RENDERER. Both live beside the envelope they are compared against (see the layering
 // argument at the head of `designMeasurement.ts`).
 import { collectAuthoredModelSnapshot, measureAuthoredDesign } from '../site/designMeasurement';
-import { buildCapacitySectionHtml } from '../site/capacityPanelSection';
+// §GIS-ENVELOPE-FULL-SECTIONS (L-1650..L-1653) — the card's rich sections as FIRST-CLASS,
+// default-collapsed folds (Designed vs permitted · How these were measured), extracted pure so
+// every arm of every state is pinned by envelopeCardSections.spec.ts instead of asserted in a
+// comment. They wrap `buildCapacitySectionHtml` — ONE producer (C06 §13.3), not a rival.
+import { buildDesignedVsPermittedFold, buildHowMeasuredFold } from '../site/envelopeCardSections';
 
 /**
  * §SITE-VIEWPOINT-CONSISTENT (L-532) — THE ONE default camera preset for entering a 3D view of
@@ -2513,9 +2521,23 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                </span>
              </div>
              <div style="display:flex;justify-content:space-between;"><span style="color:#6b6480;">Max height</span><span style="font-weight:600;">${escHtml(heightTxt)}</span></div>
-             <div style="margin-top:8px;color:#8a5a00;background:#fff6e5;border-radius:6px;padding:5px 7px;font-size:10px;">
-               Saved envelope shape. The source values and citations were not re-derived in this
-               session — re-commit the parcel to see the full determination.
+             <div style="margin-top:8px;color:#8a5a00;background:#fff6e5;border-radius:6px;padding:5px 7px;font-size:10px;line-height:1.5;">
+               Saved envelope shape only. This project was saved <b>before PRYZM stored full
+               determinations</b> (§L-1654), so the values, citations and confidence of the
+               original solve were never persisted — nothing was lost in this session, and
+               nothing here is the user's doing. Re-commit the parcel once to solve, store and
+               show the full determination.
+               <div style="margin-top:4px;">
+                 <!-- §GIS-ENVELOPE-FULL-SECTIONS (L-1652) — NAME the withheld sections. The rich
+                      folds (Designed vs permitted · How these were measured · Full site &
+                      massing data · Why these numbers?) all rest on the solved determination's
+                      derivation + provenance, which this load path does not persist (L-445 /
+                      C58 §1.4). Rendering them from the saved shape alone would fabricate
+                      provenance, so their ABSENCE is stated rather than silent. -->
+                 The <b>Designed-vs-permitted</b> check, <b>ordinance limits</b>, <b>massing
+                 potential</b>, the <b>per-storey table</b> and <b>“Why these numbers?”</b> need
+                 that determination — they are deliberately not shown from the saved shape alone.
+               </div>
              </div>
              ${safeEnvToggle}`;
         wireEnvelopeToggle(panel);
@@ -2756,9 +2778,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 + row('Source', 'PGM Art. 323 — aplicació exclusiva al municipi de Barcelona'))
             : '';
 
-        return `<details style="margin-top:9px;border-top:1px solid #efecf7;padding-top:7px;">
+        // §GIS-ENVELOPE-FULL-SECTIONS (L-1651) — a first-class fold of the card (no longer
+        // nested inside a "Site data & capacity" wrapper); min/max-width contain it in the
+        // narrow GIS rail.
+        return `<details data-testid="envelope-section-site-data" style="margin-top:9px;border-top:1px solid #efecf7;padding-top:7px;min-width:0;max-width:100%;overflow-wrap:break-word;">
                   <summary style="cursor:pointer;font-weight:700;font-size:10.5px;color:#6600FF;list-style:none;">Full site &amp; massing data</summary>
-                  <div style="font-size:10.5px;margin-top:4px;">
+                  <div style="font-size:10.5px;margin-top:4px;min-width:0;max-width:100%;">
                     ${parcelBlock}${ordBlock}${massBlock}${perLevel}${capacityBlock}
                     <div style="margin-top:9px;color:#8a5a00;background:#fff6e5;border-radius:6px;padding:5px 7px;font-size:9.5px;line-height:1.45;">
                       Values marked <i>not derived</i> were not produced by the rule pack for this zone.
@@ -2772,24 +2797,34 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     /** Mount/refresh the "Estimated" facts card + on/off toggle (SPEC §2). */
     const refreshEnvelopePanel = (): void => {
         const viewport = getForma3dHostEl();
-        const env = getLastBuildableEnvelope();
-        // L-445 — the card must not vanish while the VOLUME is on screen. After a reload the
-        // envelope now renders from the persisted ring (C58 §1.7a) but `getLastBuildableEnvelope`
-        // is legitimately null, so the full card cannot be built. Without this branch the user
-        // would see an envelope with NO card and therefore NO toggle — visible, uncontrollable.
-        // The reduced card carries only what is genuinely persisted plus the toggle; it shows NO
-        // confidence badge and NO "Why these numbers?", because that provenance was not
-        // re-derived and inventing it is precisely the C58 §1.4 violation this fix exists to
-        // prevent. Re-committing the parcel re-solves and restores the full card.
+        const live = getLastBuildableEnvelope();
         // §L-574 — `status: 'none'` NO LONGER IMPLIES "nothing to say". The construction-
         // incomplete refusal carries that status (attempted, no data) together with a `refusal`
-        // object, and BOTH branches below would have destroyed it: the first would paint a
-        // reduced card from a stale persisted ring, the second would remove the panel outright.
+        // object, and BOTH fallback branches below would have destroyed it: one would paint a
+        // reduced card from a stale persisted ring, the other would remove the panel outright.
         // A refusal rendered as an empty screen is the failure L-553 exists to prevent — a blank
         // panel reads as a crash, not as "we could not complete this". So a `'none'` carrying a
         // refusal skips both and falls through to the refusal card below.
-        const isNoneWithoutRefusal = (e: typeof env): boolean =>
+        const isNoneWithoutRefusal = (e: typeof live): boolean =>
             !!e && e.status === 'none' && !e.refusal;
+        // §GIS-ENVELOPE-DETERMINATION-PERSIST (L-1654, founder 2026-08-21) — HYDRATE, never
+        // re-derive. When this session holds no solved envelope, read the FULL determination
+        // persisted at parcel-commit time and render the SAME complete card from it — in the
+        // main scene as much as the site view. The session-solved envelope always wins when
+        // present (it IS this session's answer). Nothing is re-derived on load: the stored
+        // record is a dated snapshot, the date is rendered on the card, and re-committing the
+        // parcel is the one refresh.
+        const hydrated = (!live || isNoneWithoutRefusal(live))
+            ? resolveStoredBuildableDetermination(runtime ?? null)
+            : null;
+        const env = hydrated ? hydrated.envelope : live;
+        const hydratedAtIso = hydrated?.determinedAtIso ?? null;
+        // L-445 — the LEGACY reduced card. Reachable only for projects saved BEFORE the
+        // determination record shipped (ring persisted, record null): the card must not vanish
+        // while the VOLUME is on screen, but that provenance was never persisted and inventing
+        // it is precisely the C58 §1.4 violation the reduced card exists to prevent.
+        // Re-committing the parcel re-solves, persists the full record, and retires this arm
+        // for the project.
         if (viewport && (!env || isNoneWithoutRefusal(env))) {
             const persisted = resolveRenderableBuildableEnvelope(runtime ?? null);
             if (persisted && persisted.source === 'persisted') {
@@ -2824,8 +2859,19 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // still the area schedule the founder asked for, and it is honest to show it.
         //
         // The `safe*` name is the repo's escaped-before-assignment convention (C08 §3.1): the
-        // builder escapes every runtime string it interpolates via its own local `escHtml`.
-        const safeCapacitySection = ((): string => {
+        // builders escape every runtime string they interpolate via their own local `escHtml`.
+        //
+        // §GIS-ENVELOPE-FULL-SECTIONS (L-1652) — the catch used to `return ''`, which rendered a
+        // MEASUREMENT FAILURE and "nothing to compare" as the same absent section — the
+        // §CONTEXT-DATA-HONESTY conflation, at the exact surface whose job is honesty. The join
+        // still never takes the card down, but a failure now reaches the fold builders as a
+        // stated fact (`joinFailed`), and they render it in words — never as zeros, never as a
+        // pass, never as silence.
+        const capacityJoin = ((): {
+            comparison: ReturnType<typeof buildCapacityComparison>;
+            measurement: ReturnType<typeof measureAuthoredDesign> | null;
+            joinFailed: boolean;
+        } => {
             try {
                 const measurement = measureAuthoredDesign(collectAuthoredModelSnapshot({
                     // The authoritative storey datums for the AUTHORED model (BimKernel levels).
@@ -2838,13 +2884,36 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 const comparison = buildCapacityComparison(env, measurement.design, {
                     maxFloors: env.maxFloors ?? null,
                 });
-                return buildCapacitySectionHtml(comparison, measurement);
+                return { comparison, measurement, joinFailed: false };
             } catch {
-                // A measurement failure must never take the envelope card down with it, and it
-                // must never render as a pass — an absent section is the honest degradation.
-                return '';
+                return { comparison: null, measurement: null, joinFailed: true };
             }
         })();
+        const safeCapacitySection = buildDesignedVsPermittedFold(
+            capacityJoin.comparison, capacityJoin.measurement, { joinFailed: capacityJoin.joinFailed });
+        // §GIS-ENVELOPE-FULL-SECTIONS (L-1650 root cause 2) — "How these were measured" is a
+        // first-class fold with arms for the states the old `caveats.length > 0` gate could
+        // never reach: nothing-authored, authored-but-unmeasurable, and measure-failed.
+        const safeMeasuredSection = buildHowMeasuredFold(
+            capacityJoin.measurement, { joinFailed: capacityJoin.joinFailed });
+
+        // §GIS-ENVELOPE-DETERMINATION-PERSIST (L-1654) — a HYDRATED card must wear its date,
+        // prominently (mirroring the parcel section's "Retrieved:" line): a stored snapshot
+        // presented as freshly derived would fabricate recency, which is provenance (C58 §1.4).
+        // Rendered on BOTH the full and refusal templates; '' for a session-solved envelope.
+        const safeHydratedLine = hydratedAtIso
+            ? (() => {
+                const d = new Date(hydratedAtIso);
+                const dateTxt = Number.isFinite(d.getTime())
+                    ? d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+                    : hydratedAtIso;
+                return `<div data-testid="envelope-hydrated-at" style="margin-top:2px;margin-bottom:6px;padding:5px 8px;border-radius:6px;background:#f3eeff;color:#6600FF;font-size:10px;line-height:1.45;">
+                     <b>Stored determination · ${escHtml(dateTxt)}.</b> Determined when the parcel was
+                     committed and saved with this project — not re-derived on load. Re-commit the
+                     parcel to refresh it.
+                   </div>`;
+            })()
+            : '';
 
         // ── §L-550 PHASE-1B — THE REFUSAL CARD. ──────────────────────────────────────────────
         // `status: 'not-applicable'` means the ORDINANCE answered and its answer is "no private
@@ -2986,6 +3055,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 `<div data-envelope-drag="1" title="Drag to move" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:9px;cursor:grab;">
                    <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${safeChip}${safeCloseBtn}
                  </div>
+                 ${safeHydratedLine}
                  <div style="font-weight:600;font-size:11.5px;color:#3d4a5c;line-height:1.4;">${escHtml(r.headline)}</div>
                  <div style="margin-top:6px;color:#6b6480;font-size:11px;line-height:1.5;">${escHtml(r.detail)}</div>
                  ${safeFacts}
@@ -2993,6 +3063,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                  ${safeCite}
                  ${safeManualZoneBtn}
                  ${safeCapacitySection}
+                 ${safeMeasuredSection}
                  ${safeEnvToggle}`;
             wireEnvelopeToggle(panel);
             wireEnvelopeClose(panel);
@@ -3157,9 +3228,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             const caveat = report.hasAnyEstimate
                 ? `<div style="margin-top:6px;color:#8a5a00;background:#fff6e5;border-radius:6px;padding:5px 7px;font-size:10px;">${report.estimatedRowCount} of ${report.rows.length} value(s) are ESTIMATED — not an authoritative determination.</div>`
                 : '';
-            return `<details style="margin-top:9px;">
+            // §GIS-ENVELOPE-FULL-SECTIONS (L-1651) — first-class fold; contained for the
+            // narrow GIS rail like its three sibling sections.
+            return `<details data-testid="envelope-section-why" style="margin-top:9px;min-width:0;max-width:100%;overflow-wrap:break-word;">
                       <summary style="cursor:pointer;color:#6600FF;font-size:11px;font-weight:600;list-style:none;">Why these numbers?</summary>
-                      <div style="margin-top:5px;font-size:11px;">${rowsHtml}${gfa}${caveat}</div>
+                      <div style="margin-top:5px;font-size:11px;min-width:0;max-width:100%;">${rowsHtml}${gfa}${caveat}</div>
                     </details>`;
         })();
         // §L-518c — an ALIGNMENT zone (Barcelona 13a) has NULL setbacks/height/FAR BY DESIGN (the
@@ -3230,20 +3303,27 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             '<b>Footprint = zone extent</b> — an upper bound on where you may build. Why?',
             safeZoneExtentCaveat, 'warn',
         );
-        const safeSiteDataDisclosure = envelopeDisclosureHtml(
-            'Site data &amp; capacity', `${safeCapacitySection}${safeSiteDataBlock}`,
-        );
+        // §GIS-ENVELOPE-FULL-SECTIONS (L-1651, founder 2026-08-21) — the one-fold
+        // `'Site data & capacity'` wrapper is GONE. It nested the capacity comparison AND the
+        // full-site block (itself another <details>) behind a single disclosure, so on the
+        // GIS-hosted card the founder's sections sat two folds deep and did not read as
+        // sections at all. The card now carries FOUR first-class, default-collapsed folds:
+        // Designed vs permitted · How these were measured · Full site & massing data · Why
+        // these numbers? — each summary carrying its fact (§UX1-PROSE-ALTITUDE).
         panel.innerHTML =
             `<div data-envelope-drag="1" title="Drag to move" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:8px;cursor:grab;">
                <span style="font-weight:600;font-size:var(--pryzm-panel-font-size-title);color:#6600FF;">Buildable envelope</span>${safeBadge}${safeCloseBtn}
              </div>
+             ${safeHydratedLine}
              ${safeRows}
              ${safeUpperBoundBlock}
              ${safeZoneExtentBlock}
              <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;">
                ${safeSourceLine}
              </div>
-             ${safeSiteDataDisclosure}
+             ${safeCapacitySection}
+             ${safeMeasuredSection}
+             ${safeSiteDataBlock}
              ${safeWhyBlock}
              ${safeEnvToggle}`;
         wireEnvelopeToggle(panel);

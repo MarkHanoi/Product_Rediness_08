@@ -17,6 +17,7 @@ import { buildCapacityComparison, type MeasuredDesign } from '@pryzm/site-parcel
 import type { BuildableEnvelope } from '@pryzm/schemas';
 import {
     buildCapacitySectionHtml,
+    renderMeasurementCaveatLinesHtml,
     resolveCapacityVerdict,
     CAPACITY_STATUS_STYLE,
 } from '../capacityPanelSection';
@@ -274,5 +275,59 @@ describe('L-456 UI — HONESTY RULE 3: measure, never infer', () => {
         expect(rowByMetric(host, 'height').textContent)
             .toMatch(/not from the rasant at the fa/i);
         expect((host.textContent ?? '')).toMatch(/How these were measured/i);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// §GIS-ENVELOPE-FULL-SECTIONS (L-1651) — the embed options that let the card host this section
+// inside a first-class fold WITHOUT a second producer. Defaults must stay byte-compatible.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+describe('L-1651 embed opts — hosting the section inside a card fold', () => {
+    const measured = () => measureAuthoredDesign({
+        levels: [{ id: 'L0', name: 'Ground', elevation: 0, height: 3 }],
+        floorPlates: [{ levelId: 'L0', ring: [{ x: 0, z: 0 }, { x: 5, z: 0 }, { x: 5, z: 4 }, { x: 0, z: 4 }], holes: [] }],
+        rooms: [{ levelId: 'L0', areaM2: 18 }],
+        elementLevelIds: ['L0'],
+    });
+
+    it('default output is unchanged: internal title + internal caveats disclosure both render', () => {
+        const m = measured();
+        const cmp = buildCapacityComparison(envelope(), m.design, { maxFloors: null });
+        const html = buildCapacitySectionHtml(cmp, m);
+        expect(html).toContain('Designed vs permitted');
+        expect(html).toContain('How these were measured');
+    });
+
+    it('omitTitle drops ONLY the internal heading (the fold summary is the heading)', () => {
+        const m = measured();
+        const cmp = buildCapacityComparison(envelope(), m.design, { maxFloors: null });
+        const html = buildCapacitySectionHtml(cmp, m, { omitTitle: true });
+        expect(html).not.toContain('Designed vs permitted');
+        // The content survives: verdict + all five rows.
+        const host = document.createElement('div');
+        host.innerHTML = html;
+        expect(host.querySelector('[data-testid="capacity-verdict"]')).not.toBeNull();
+        expect(host.querySelectorAll('[data-testid="capacity-row"]').length).toBe(5);
+    });
+
+    it('omitMeasurementCaveats drops ONLY the internal caveats disclosure (promoted to its own fold)', () => {
+        const m = measured();
+        const cmp = buildCapacityComparison(envelope(), m.design, { maxFloors: null });
+        const html = buildCapacitySectionHtml(cmp, m, { omitMeasurementCaveats: true });
+        expect(html).not.toContain('How these were measured');
+        // The per-row honesty is untouched: the height row still carries the rasant caveat.
+        const host = document.createElement('div');
+        host.innerHTML = html;
+        expect(rowByMetric(host, 'height').textContent).toMatch(/not from the rasant at the fa/i);
+        // …and the standing footer disclaimer still renders for every embedding.
+        expect(host.querySelector('[data-testid="capacity-footer"]')).not.toBeNull();
+    });
+
+    it('renderMeasurementCaveatLinesHtml renders every caveat and escapes markup', () => {
+        const html = renderMeasurementCaveatLinesHtml(['a & b', '<script>x</script>']);
+        expect(html).toContain('a &amp; b');
+        expect(html).not.toContain('<script>');
+        expect(html).toContain('&lt;script&gt;');
     });
 });

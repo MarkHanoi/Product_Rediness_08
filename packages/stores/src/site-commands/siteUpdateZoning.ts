@@ -73,6 +73,13 @@ export function siteUpdateZoning(
             payload.buildableRing === undefined
                 ? (current.parcel.buildableRing ?? null)
                 : payload.buildableRing,
+        // §GIS-ENVELOPE-DETERMINATION-PERSIST (L-1654) — the FULL dated determination record,
+        // same delta semantics as `buildableRing` (omitted = untouched · null = explicit clear).
+        // `?? null` keeps legacy parcels (saved before the field existed) well-formed.
+        buildableDetermination:
+            payload.buildableDetermination === undefined
+                ? (current.parcel.buildableDetermination ?? null)
+                : payload.buildableDetermination,
     };
 
     const next = { ...current, parcel: nextParcel };

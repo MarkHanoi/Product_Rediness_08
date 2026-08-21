@@ -7,6 +7,9 @@
 import { z } from 'zod';
 import { PtSchema } from './types.js';
 import { ParcelProvenanceSchema } from './ParcelProvenance.js';
+// §GIS-ENVELOPE-DETERMINATION-PERSIST (L-1654) — the dated, persisted determination record.
+// No cycle: zoning/BuildableEnvelope.ts imports only ./types.js + zoning-local schemas.
+import { BuildableDeterminationRecordSchema } from './zoning/BuildableEnvelope.js';
 
 /**
  * The edge classification array MUST have exactly one entry per edge of
@@ -142,6 +145,29 @@ export const ParcelSchema = z.object({
      * `site.setParcelBoundary` alongside the polygon, and never by a direct store write (P6).
      */
     provenance: ParcelProvenanceSchema.nullable().default(null),
+
+    /**
+     * §GIS-ENVELOPE-DETERMINATION-PERSIST (L-1654, founder 2026-08-21) — THE FULL PERSISTED
+     * DETERMINATION, as a dated artefact.
+     *
+     * `buildableRing` above persists only the GEOMETRY; everything else the card needs —
+     * confidence, per-field provenance, citations, refusals, tiers — lived in a session
+     * global and died on reload, which is why every surface outside the solving session fell
+     * to the L-445 "reduced" card (badge SAVED, max height only). This record persists the
+     * WHOLE envelope plus its determination date, so the main scene and the site view render
+     * the same complete card from the store.
+     *
+     * RULES (see `BuildableDeterminationRecordSchema`):
+     *  · dated — consumers MUST surface `determinedAtIso`; never present a stored
+     *    determination as freshly derived;
+     *  · never silently re-derived on load — re-committing the parcel is the refresh;
+     *  · `null` = NOT RECORDED (legacy project or no determination ever ran) — say so,
+     *    never render a blank (C84 EI-1b).
+     *
+     * Written ONLY via `site.updateZoning` (P6), by the same dispatch that writes
+     * `buildableRing`; the two therefore can never describe different solves.
+     */
+    buildableDetermination: BuildableDeterminationRecordSchema.nullable().default(null),
 
     /** Computed square metres of polygon; the L3 store fills this. */
     area: z.number().min(0).default(0),

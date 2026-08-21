@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { SiteModelStore } from '../src/SiteModelStore.js';
+import { SiteModelSchema } from '@pryzm/schemas';
 import {
     siteCreate,
     siteUpdateZoning,
@@ -419,5 +420,116 @@ describe('siteClearFootprint', () => {
         const result = siteClearFootprint({ siteId: '' }, store);
         if (result.ok) throw new Error('unreachable');
         expect(result.reason).toBe('invalid-payload');
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §GIS-ENVELOPE-DETERMINATION-PERSIST (L-1654) — the FULL dated determination
+// record. The ring above persists the geometry; this persists the provenance
+// the L-445 reduced card had to refuse to fabricate. Delta semantics mirror
+// buildableRing exactly: omitted = untouched, null = explicit clear.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('siteUpdateZoning — buildableDetermination (§L-1654 dated determination record)', () => {
+    const RING = [
+        { x: 2, z: 2 },
+        { x: 8, z: 2 },
+        { x: 8, z: 6 },
+        { x: 2, z: 6 },
+    ];
+    const DETERMINATION = {
+        envelope: {
+            insetPolygon: RING,
+            insetAreaM2: 24,
+            maxHeight_m: 12,
+            confidence: 'block-constructed',
+            status: 'ok',
+            zoneCode: '13b',
+            derivation: [
+                {
+                    constraint: 'alignment.depth',
+                    value: 16.5,
+                    zoneCode: '13b',
+                    source: 'test-pack',
+                    fieldProvenance: 'published-structured',
+                    ordinanceRef: 'PGM Art. 242.2',
+                },
+            ],
+        },
+        determinedAtIso: '2026-08-21T10:00:00.000Z',
+        schemaVersion: 1,
+    };
+
+    it('persists the full record onto the Parcel — envelope, provenance rows and date intact', () => {
+        const store = setupSite();
+        const result = siteUpdateZoning(
+            { siteId: 'site_proj-001', buildableDetermination: DETERMINATION }, store);
+        expect(result.ok).toBe(true);
+        const stored = store.getSite()!.parcel.buildableDetermination;
+        expect(stored).not.toBeNull();
+        expect(stored!.determinedAtIso).toBe('2026-08-21T10:00:00.000Z');
+        expect(stored!.envelope.confidence).toBe('block-constructed');
+        expect(stored!.envelope.derivation[0]!.ordinanceRef).toBe('PGM Art. 242.2');
+    });
+
+    it('defaults to null for a parcel that never solved (NOT RECORDED, not blank)', () => {
+        expect(setupSite().getSite()!.parcel.buildableDetermination ?? null).toBeNull();
+    });
+
+    it('omitting the field leaves a stored record untouched (delta semantics)', () => {
+        const store = setupSite();
+        siteUpdateZoning({ siteId: 'site_proj-001', buildableDetermination: DETERMINATION }, store);
+        siteUpdateZoning({ siteId: 'site_proj-001', maxHeight: 20 }, store);
+        const after = store.getSite()!;
+        expect(after.parcel.maxHeight).toBe(20);
+        expect(after.parcel.buildableDetermination?.determinedAtIso)
+            .toBe('2026-08-21T10:00:00.000Z');
+    });
+
+    it('an explicit null CLEARS a stale record', () => {
+        const store = setupSite();
+        siteUpdateZoning({ siteId: 'site_proj-001', buildableDetermination: DETERMINATION }, store);
+        siteUpdateZoning({ siteId: 'site_proj-001', buildableDetermination: null }, store);
+        expect(store.getSite()!.parcel.buildableDetermination).toBeNull();
+    });
+
+    it('a REFUSAL determination persists too — a cited refusal is a determination', () => {
+        const store = setupSite();
+        const refusal = {
+            ...DETERMINATION,
+            envelope: {
+                ...DETERMINATION.envelope,
+                status: 'not-applicable',
+                insetPolygon: [],
+                insetAreaM2: 0,
+                refusal: {
+                    code: 'derived-plan',
+                    legallyGrounded: true,
+                    headline: 'No general-plan envelope applies here.',
+                    detail: 'The zone delegates buildability to a per-site derived plan.',
+                    ordinanceRef: 'PGM clau 18',
+                },
+            },
+        };
+        const result = siteUpdateZoning(
+            { siteId: 'site_proj-001', buildableDetermination: refusal }, store);
+        expect(result.ok).toBe(true);
+        const stored = store.getSite()!.parcel.buildableDetermination;
+        expect(stored!.envelope.status).toBe('not-applicable');
+        expect(stored!.envelope.refusal?.code).toBe('derived-plan');
+    });
+
+    it('survives a JSON round-trip through the SiteModel (the ProjectSerializer path)', () => {
+        const store = setupSite();
+        siteUpdateZoning({ siteId: 'site_proj-001', buildableDetermination: DETERMINATION }, store);
+        const json = JSON.parse(JSON.stringify(store.getSite()));
+        // The EXACT load-path call: ProjectLoader -> restoreSiteState -> SiteModelSchema.parse.
+        const parsed = SiteModelSchema.parse(json);
+        expect(parsed.parcel.buildableDetermination?.envelope.maxHeight_m).toBe(12);
+        expect(parsed.parcel.buildableDetermination?.determinedAtIso)
+            .toBe('2026-08-21T10:00:00.000Z');
+        // ...and a LEGACY snapshot (field absent) parses to null: NOT RECORDED, never a crash.
+        const legacy = JSON.parse(JSON.stringify(store.getSite()));
+        delete legacy.parcel.buildableDetermination;
+        expect(SiteModelSchema.parse(legacy).parcel.buildableDetermination).toBeNull();
     });
 });

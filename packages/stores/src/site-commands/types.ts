@@ -26,6 +26,7 @@ import {
     ProvenanceRecordSchema,
     ParcelProvenanceSchema,
     PtSchema,
+    BuildableDeterminationRecordSchema,
     type SiteModel,
 } from '@pryzm/schemas';
 import type { ContainmentReport, FARReport } from '@pryzm/site-validators';
@@ -159,6 +160,17 @@ export const SiteUpdateZoningPayloadSchema = z.object({
      * lets it survive close+reopen (cf. L-188).
      */
     buildableRing: z.array(PtSchema).nullable().optional(),
+    /**
+     * §GIS-ENVELOPE-DETERMINATION-PERSIST (L-1654) — the FULL determination as a dated record
+     * (`Parcel.buildableDetermination`). Same delta semantics as `buildableRing`:
+     *   • OMITTED → leave the stored record untouched;
+     *   • `null`  → explicitly CLEAR a record that no longer describes this parcel;
+     *   • a record → persist it (refusal determinations included — a cited refusal is a
+     *     determination too and must survive reload).
+     * Written by the same dispatch that writes `buildableRing`, so the two can never
+     * describe different solves.
+     */
+    buildableDetermination: BuildableDeterminationRecordSchema.nullable().optional(),
 });
 export type SiteUpdateZoningPayload = z.infer<
     typeof SiteUpdateZoningPayloadSchema

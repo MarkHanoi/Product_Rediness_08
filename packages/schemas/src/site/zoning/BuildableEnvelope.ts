@@ -1,9 +1,17 @@
 // C58 §2.4 — `BuildableEnvelope` + `DerivationTrace` (the engine output).
 //
-// L0-pure: Zod only (P5). Transient — NOT persisted authored model data
-// (C58 §1.7): the numeric results reach the C19 Parcel via `site.updateZoning`;
+// L0-pure: Zod only (P5). The numeric results reach the C19 Parcel via `site.updateZoning`;
 // this full object (with its confidence label + per-constraint derivation) is
 // what the compliance report + the 3D Forma render read.
+//
+// ⚠ This header used to say "Transient — NOT persisted authored model data (C58 §1.7)".
+// **Superseded 2026-08-21 (§GIS-ENVELOPE-DETERMINATION-PERSIST, L-1654, founder-requested):**
+// the WHOLE determination is now persisted onto the Parcel as a DATED ARTEFACT
+// (`BuildableDeterminationRecordSchema` below → `Parcel.buildableDetermination`), because the
+// L-445 "reduced card" proved that persisting only the ring loses exactly the provenance the
+// user needs on every surface outside the solving session. Persisting the record does NOT
+// change its epistemic status: it is what was determined WHEN the parcel was committed —
+// consumers must show its date, and re-committing the parcel is the only refresh.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 // DEVIATION FROM C58 §2.4 (deliberate, documented):
@@ -729,3 +737,39 @@ export const BuildableEnvelopeSchema = z.object({
     },
 );
 export type BuildableEnvelope = z.infer<typeof BuildableEnvelopeSchema>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §GIS-ENVELOPE-DETERMINATION-PERSIST (L-1654) — the determination as a DATED,
+// PERSISTED ARTEFACT.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The full buildable determination, persisted onto the C19 Parcel at parcel-commit time and
+ * hydrated on project load — so every surface (site view AND the main scene) can render the
+ * complete card (values, confidence, per-field provenance, citations, refusals) without
+ * re-deriving anything.
+ *
+ * Founder 2026-08-21: «once we have already selected the parcel — and working on this parcel
+ * as our project — the parcel data should be there — present». Before this record existed,
+ * only `Parcel.buildableRing` survived a reload, and the card fell to the L-445 "reduced" arm
+ * (badge SAVED, max height only) everywhere outside the solving session.
+ *
+ * THE HONESTY RULES THIS RECORD CARRIES:
+ *  · It is a SNAPSHOT, dated by `determinedAtIso`. A consumer MUST surface that date; a stored
+ *    determination presented as freshly derived would be a provenance fabrication (C58 §1.4).
+ *  · It is NEVER silently re-derived on load — the answer could change under the user, and
+ *    re-derivation needs network. Re-committing the parcel is the ONE refresh action.
+ *  · It records whatever the envelope said, refusals included: a cited refusal is a
+ *    determination too, and it must survive a reload exactly like a solved envelope.
+ *  · `null` on the Parcel means NOT RECORDED (a project saved before this record existed, or
+ *    no determination ever ran) — a reader must say so, never render a blank (C84 EI-1b).
+ */
+export const BuildableDeterminationRecordSchema = z.object({
+    /** The determination exactly as the engine emitted it, refusal branches included. */
+    envelope: BuildableEnvelopeSchema,
+    /** When the determination was made (parcel-commit time), ISO-8601. */
+    determinedAtIso: z.string().datetime(),
+    /** Bumped on breaking change to this record's own shape (C47). */
+    schemaVersion: z.number().int().positive().default(1),
+});
+export type BuildableDeterminationRecord = z.infer<typeof BuildableDeterminationRecordSchema>;

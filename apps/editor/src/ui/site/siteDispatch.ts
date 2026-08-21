@@ -36,6 +36,8 @@ import type {
     Pt,
     // §L-1580 (C57 §1.4 / §2.2) — the persisted cadastral attribution of a committed parcel.
     ParcelProvenance,
+    // §GIS-ENVELOPE-DETERMINATION-PERSIST (L-1654) — the dated, persisted determination record.
+    BuildableDeterminationRecord,
 } from '@pryzm/schemas';
 import { SiteModelSchema } from '@pryzm/schemas';
 // ADR-0270 — "does this zone's rule need a cadastral block to solve?" asked of the RULE, not of a
@@ -899,6 +901,41 @@ export function resolveRenderableBuildableEnvelope(
         // Never let a render path throw on a missing store.
     }
     return null;
+}
+
+/**
+ * §GIS-ENVELOPE-DETERMINATION-PERSIST (L-1654, founder 2026-08-21) — read back the FULL
+ * persisted determination (`Parcel.buildableDetermination`), so every surface — the site view
+ * AND the main scene — can render the complete buildability card after a reload without
+ * re-deriving anything.
+ *
+ * ⚠ THIS DOES NOT SUPERSEDE `getLastBuildableEnvelope()`. The session-solved envelope is
+ * always preferred by callers (it is this session's answer); this accessor is the LOAD-PATH
+ * fallback that replaces the L-445 "reduced card" for projects saved after the record shipped.
+ * Projects saved BEFORE it legitimately return `null` here and keep the reduced card — that is
+ * the honest legacy arm, not a defect.
+ *
+ * ⚠ THE RECORD IS DATED AND THE DATE IS PART OF THE ANSWER. A consumer that renders the
+ * envelope without surfacing `determinedAtIso` presents a stored snapshot as freshly derived —
+ * the C58 §1.4 fabrication this whole persistence slice was specified to avoid. Nothing is
+ * re-derived here; re-committing the parcel is the one refresh.
+ *
+ * Deliberately store-read-only and throw-safe, mirroring `resolveRenderableBuildableEnvelope`
+ * fallback (2): "no site yet" is a normal render-path case, never an error.
+ */
+export function resolveStoredBuildableDetermination(
+    runtimeArg?: PryzmRuntime | null,
+): BuildableDeterminationRecord | null {
+    try {
+        const rt = (runtimeArg ?? (window.runtime as unknown as PryzmRuntime | undefined)) ?? undefined;
+        const store = rt?.siteModelStore as SiteModelStore | undefined;
+        const record = store?.getSite()?.parcel?.buildableDetermination ?? null;
+        if (!record || !record.envelope) return null;
+        return record;
+    } catch {
+        // Never let a render path throw on a missing store.
+        return null;
+    }
 }
 
 /**
@@ -8645,6 +8682,18 @@ function dispatchEnvelope(
             ? envelope.insetPolygon.map((p) => ({ x: p.x, z: p.z }))
             : null;
 
+    // §GIS-ENVELOPE-DETERMINATION-PERSIST (L-1654, founder 2026-08-21) — PERSIST THE WHOLE
+    // DETERMINATION as a dated record, on EVERY dispatch (refusals included: a cited refusal
+    // is a determination and must survive reload exactly like a solved envelope). This is the
+    // other half of the L-451 wiring: the ring persisted the geometry; this persists the
+    // provenance the L-445 reduced card had to refuse to fabricate. Consumers render it WITH
+    // its date and never silently re-derive — re-committing the parcel is the one refresh.
+    const determination: BuildableDeterminationRecord = {
+        envelope,
+        determinedAtIso: new Date().toISOString(),
+        schemaVersion: 1,
+    };
+
     const res = siteUpdateZoning(
         {
             siteId,
@@ -8652,6 +8701,7 @@ function dispatchEnvelope(
             maxFAR: envelope.maxFAR,
             maxHeight: envelope.maxHeight_m,
             buildableRing: insetRing,
+            buildableDetermination: determination,
             zoning: {
                 category: envelope.zoneCode,
                 jurisdictionRef,
