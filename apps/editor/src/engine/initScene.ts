@@ -3987,8 +3987,52 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             }, 0);
         };
 
+        // ── §LOAD-SHADOW-PASS-DEFERRED (L-3056) ─────────────────────────────
+        // How many caster-mutation events this handler declined DURING a project
+        // load. Reported by the one-shot pass below, so the saving is a NUMBER in
+        // the founder's own console rather than a claim in a commit message.
+        let _geomAddedSuppressedDuringLoad = 0;
         const _debouncedGeomAdded = () => {
             if (batchCoordinator.isBatching) return;
+            // ── §LOAD-SHADOW-PASS-DEFERRED (L-3056) ─────────────────────────
+            //
+            // ⭐ THE ASYMMETRY THIS CLOSES. The sibling handler ~1000 lines above
+            // reads `if (shouldDeferPerAddGeometryPass(batchCoordinator.isBatching)) return;`
+            // — which consults BOTH `isBatching` AND `isProjectLoadActive()` — and
+            // its own comment states the measured fact that makes the difference
+            // matter: *"During a load, isBatching is FALSE while loadActive is
+            // TRUE"*. So `isBatching` alone does not gate anything during a load,
+            // and this handler ran unguarded on all 41 caster-mutation events,
+            // eighteen of which (`bim-door-added`, `bim-window-added`,
+            // `bim-opening-added`, `bim-handrail-added`, `bim-plumbing-added`, …)
+            // arm ONLY this one. Its body is a full `scene.traverse()` with
+            // per-mesh userData reads, a toLowerCase(), three .includes() scans, a
+            // first-sight computeBoundingSphere() and castShadow/receiveShadow
+            // writes against a LIVE renderer.
+            //
+            // ⛔ THE SIZE OF THIS IS NOT KNOWN AND IS NOT CLAIMED. The 14 950 ms
+            // figure that circulates for this mechanism was measured for the
+            // POST-BATCH call site, which §FIX-POST-BATCH-SHADOW deleted (see the
+            // tombstone comment in this file). The 100 ms debounce is cleared by
+            // every subsequent event, so the number of passes that actually fired
+            // during a load is somewhere between 1 and one-per-100 ms and has
+            // never been counted. That is exactly why the counter below exists.
+            //
+            // ⭐ AND THE PASS IS NOT DROPPED — IT IS MOVED. A guard whose "yes"
+            // branch simply stops doing the work is a regression with a citation
+            // attached: shadow flags on a restored project would never be set,
+            // because nothing else sets them (the post-batch call site is gone).
+            // The one-shot handler registered below runs the pass EXACTLY ONCE
+            // when the load ends, on either of the two independent "load is over"
+            // signals, and is idempotent via the counter.
+            //
+            // Returning BEFORE _armWallCommitShadowFreeze() is deliberate and
+            // load-bearing: arming without the debounce callback to release it
+            // would leave setShadowReallocFrozen(true) latched for the session.
+            if (isProjectLoadActive()) {
+                _geomAddedSuppressedDuringLoad++;
+                return;
+            }
             // §FIX-SHADOW-WALLCOMMIT-DESTROY — freeze BEFORE the shadow-flag pass runs
             // and before the deferred per-event tier re-eval macrotask escalates the
             // tier, coalescing a burst of commit events (all segments of one polyline
@@ -4006,6 +4050,42 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
 
         _pascalGeomEvents.forEach(evt => {
             window.addEventListener(evt, _debouncedGeomAdded);
+        });
+
+        // ── §LOAD-SHADOW-PASS-DEFERRED (L-3056) — the one-shot, at load end ───
+        // The escape hatch for the guard above. Runs the full shadow-flag pass
+        // ONCE for everything the load added, and says how many per-add passes it
+        // stood in for.
+        //
+        // TWO signals, deliberately, because they fail in different directions:
+        //   · `pryzm-project-loaded` (runtime bus) is emitted by
+        //     PlatformVersionController / PlatformShell on a SUCCESSFUL load.
+        //   · `pryzm-load-suppress-end` (window) is dispatched by ProjectLoader's
+        //     `__closeAutosaveSuppress()`, which runs on EVERY exit — including a
+        //     cancelled or failed load, where the first signal never arrives.
+        // Whichever lands first wins; the counter reset makes the second a no-op.
+        const _runDeferredLoadShadowPass = (via: string): void => {
+            if (_geomAddedSuppressedDuringLoad === 0) return;
+            const n = _geomAddedSuppressedDuringLoad;
+            _geomAddedSuppressedDuringLoad = 0;
+            try {
+                const t0 = performance.now();
+                pascalSceneLighting.onGeometryAdded(world.scene.three as THREE.Scene);
+                console.log(
+                    `[initScene] §LOAD-SHADOW-PASS-DEFERRED ran ONE full-scene shadow-flag pass ` +
+                    `in ${(performance.now() - t0).toFixed(1)}ms (via ${via}) for ${n} caster-mutation ` +
+                    `event(s) declined during the load. Before this guard each of those events armed a ` +
+                    `100ms debounce toward its own full scene.traverse().`,
+                );
+            } catch (e) {
+                console.warn('[initScene] §LOAD-SHADOW-PASS-DEFERRED pass failed (non-fatal):', e);
+            }
+        };
+        window.runtime?.events?.on('pryzm-project-loaded', () => { // F.events.9
+            _runDeferredLoadShadowPass('pryzm-project-loaded');
+        });
+        window.addEventListener('pryzm-load-suppress-end', () => {
+            _runDeferredLoadShadowPass('pryzm-load-suppress-end');
         });
 
         // Expose on window for manual tuning from browser console

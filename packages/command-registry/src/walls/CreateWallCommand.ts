@@ -443,7 +443,46 @@ export class CreateWallCommand implements Command {
         // Scoped to the same level as the new wall — joins are level-local
         // (resolver is invoked per-level), so cross-level walls cannot be
         // affected by this command and don't need to be snapshotted.
-        this._neighbourSnapshot = ctx.stores.wallStore.getAll()
+        //
+        // ── §LOAD-NO-UNDO-NO-SNAPSHOT (L-3057) ──────────────────────────────
+        //
+        // ⭐ SKIPPED ENTIRELY DURING A PROJECT LOAD, and the precedent for this is
+        // 200 lines ABOVE, in this same method: the C83 spatial gate at the
+        // `_c83Suppressed` guard calls the same `wallStore.getAll()` for the same
+        // reason and IS suppressed. This call site was not.
+        //
+        // `wallStore.getAll()` is the ONLY store getAll() in the repo that DEEP
+        // CLONES (`WallStore.ts` — object spread + four fresh Vec3s +
+        // openings.map + layers.map + Object.freeze per layer; `SlabStore`
+        // carries the comment "O(N) array construction only, no per-element deep
+        // clone" and `StairStore.getAll` is a plain Array.from). So restoring N
+        // walls performs N(N−1)/2 full deep clones — quadratic, which is the one
+        // shape a chunked loader cannot chunk away.
+        //
+        // Three facts make it PURE WASTE on the load path, all three checked:
+        //   1. `_neighbourSnapshot` is read in exactly one place — `undo()`.
+        //      (`grep -n _neighbourSnapshot` → 4 hits: the declaration, this
+        //      write, and two reads inside undo().)
+        //   2. `CommandManagerImpl`'s PROJECT_LOAD fast path pushes NO undo entry
+        //      ("PROJECT_LOAD: no undo push (Contract 20 GAP-3)").
+        //   3. `ProjectLoader` calls `clearHistory()` at the end of every load
+        //      regardless. The command instance is discarded unread.
+        //
+        // ⚠ DELIBERATELY NARROWER THAN THE C83 GUARD ABOVE, which also suppresses
+        // on `__pryzmBuildingGenActive`. Only the LOAD path has a written,
+        // checkable guarantee that no undo entry is pushed. A generated building
+        // IS undoable from the founder's point of view, so a snapshot skipped
+        // there could silently degrade an undo that today works. Widening this to
+        // building generation needs that guarantee established first — it is not
+        // established here, so it is not claimed here.
+        //
+        // MEASURED at the founder's own N (59 walls → 1 711 clones): SMALL. This
+        // is not the fix for his 47 s load and must not be reported as one. It is
+        // taken because it is one guard line, it removes a quadratic before the
+        // model grows into it, and the identical guard already sits above it.
+        const _loadActive = (globalThis as unknown as { __pryzmProjectLoadActive?: boolean })
+            .__pryzmProjectLoadActive === true;
+        this._neighbourSnapshot = _loadActive ? null : ctx.stores.wallStore.getAll()
             .filter(w => w.levelId === this.wallData.levelId)
             .map(w => ({
                 id: w.id,
