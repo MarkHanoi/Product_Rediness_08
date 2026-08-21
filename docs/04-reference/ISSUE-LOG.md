@@ -27488,10 +27488,22 @@ Measured: `window.__pryzmBuildingGraph` is written in exactly one place —
 `apps/editor/src/engine/buildBuildingGraph.ts:853-855`, inside the `window.pryzmBuildBuildingGraph()`
 hook, which **rebuilds the whole graph from every source on each call**. Its production callers are:
 
-* `apps/editor/src/ui/graph/BuildingGraphOverlay.ts:366-367`
-* `apps/editor/src/ui/living-graph/LivingGraphOverlay.ts:770, 773, 905`
+* `apps/editor/src/ui/graph/BuildingGraphOverlay.ts:367`
+* `apps/editor/src/ui/living-graph/LivingGraphOverlay.ts:773` and `:905`
 
-and nothing else. `apps/editor/src/ui/layout/installLiveGraphWiring.ts` — the file whose header calls
+and nothing else. ⭐ **Re-measured UNCAPPED, repo-wide, after this row was first written** (the
+original sweep was capped at 40 results and scoped to `apps/editor`, so *"nothing else"* was the
+weaker claim it could support). A full `grep -rn` across the tree returns **32 lines in 9 source
+files, every one of them under `apps/editor`** — the declaration, the two overlays, one test
+(`ui/layout/__tests__/devToolsInstallGuard.test.ts`) and six comments. **Zero references in
+`packages/`, `plugins/`, or `server.js`.** The only non-source hits are build artefacts
+(`dist/assets/engineLauncher-*.js`, a bundled `index-*.js`). ⚠ **Two line citations in the first
+version of this row were loosened rather than left**: `BuildingGraphOverlay.ts:366` is the
+`typeof w.pryzmBuildBuildingGraph === 'function'` guard and `LivingGraphOverlay.ts:770` is its
+sibling guard — **neither is a call**, and citing a guard as a caller is the kind of imprecision this
+lane's whole thesis is against. The three real invocation sites are the ones listed above.
+
+`apps/editor/src/ui/layout/installLiveGraphWiring.ts` — the file whose header calls
 these *"load-bearing production capabilities"* — makes four install calls
 (`provideLiveGraphSources`, `installBuildBuildingGraph`, `installBuildingGraphOverlay`,
 `installLivingGraphOverlay`) and **subscribes to no store event at all**.
