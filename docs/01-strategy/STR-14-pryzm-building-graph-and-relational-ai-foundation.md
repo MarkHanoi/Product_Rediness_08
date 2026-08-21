@@ -41,7 +41,7 @@ A thin **L2/L3 `@pryzm/building-graph` package** that does NOT replace the speci
 
 - **Nodes:** every BIM entity (Site, Building, Level, Unit, Room, Wall, Door, Window, Furniture, System…) + abstract nodes (Zone, Circulation path) — keyed by the existing element ids. Node = `{ id, kind, props, refs }`.
 - **Edges (typed, directed):** `bounds`, `adjacentTo`, `connectsTo` (door/opening), `circulatesVia`, `hostedIn` (door-in-wall), `servesZone`, `derivesFrom` (SemanticGraph), `dependsOn` (DependencyResolver), `precededBy` (TemporalGraph), `violates` (ConstraintEngine). Edge = `{ from, to, type, weight, evidence }`.
-- **Built by adapters** over the existing services (TopologyLayer→bounds/adjacent, RoomGraphService→connectsTo, SemanticGraph→derivesFrom, DependencyResolver→dependsOn, ConstraintEngine→violates, D-TGL→circulation/sightline). ~~Incrementally maintained off the StoreEventBus (we already fire per-element events).~~
+- **Built by adapters** over the existing services (TopologyLayer→bounds/adjacent, RoomGraphService→connectsTo, SemanticGraph→derivesFrom, DependencyResolver→dependsOn, ConstraintEngine→violates, D-TGL→circulation/sightline). **Incrementally maintained off the StoreEventBus — BUILT 2026-08-21; see both boxes below.**
 
   > ⚠ **CORRECTED 2026-08-21 (lane ANLZ1, ISSUE-LOG L-2131) — the struck clause describes maintenance
   > that WAS NEVER BUILT, and it is load-bearing for anything that reads the graph.** Measured at HEAD:
@@ -58,7 +58,43 @@ A thin **L2/L3 `@pryzm/building-graph` package** that does NOT replace the speci
   > why [ADR-0343](../02-decisions/adrs/ADR-0343-analysis-surface-and-composable-widget-model.md) §D.7
   > makes StoreEventBus maintenance a **binding precondition** of hosting the graphs on the Analysis
   > surface. Adapters that read whole snapshots do not become incremental by being subscribed —
-  > **that is the real work, and it is unstarted.**
+  > **that is the real work.**
+
+  > ⭐ **CLOSED 2026-08-21 (lane UBG1, ISSUE-LOG L-3250…L-3254). The struck clause is now TRUE.**
+  > The box above is KEPT, not deleted — the history is the point.
+  >
+  > `apps/editor/src/engine/buildingGraphMaintainer.ts` subscribes `storeEventBus`, coalesces dirty
+  > ids into ONE drain per frame via `getFrameScheduler().scheduleOnce('ubg-maintain', …,
+  > 'pre-render')` (no new rAF — P3), and applies a **retract-then-re-project** delta.
+  > `installLiveGraphWiring()` installs it — that function previously made four install calls and
+  > subscribed to nothing.
+  >
+  > ⭐ **ANLZ1's diagnosis was correct and INCOMPLETE, and the missing half was the harder one.**
+  > Before this work `BuildingGraph` exposed four mutations — `addNode`, `addEdge`, `clear`,
+  > `fromJSON` — **all additive or total**. There was no `removeNode` and no `removeEdge`, so **the
+  > delete leg of a delta was UNREPRESENTABLE**: subscribing alone could not have helped. L-3250 adds
+  > `removeNode` / `removeEdge` / `retractIncident`, the last keyed on the `evidence` prefix every
+  > adapter already stamps — which is what lets one leg be re-derived without disturbing the others.
+  >
+  > **Cost, MEASURED as source reads** (not wall-clock, so it cannot flake): a full rebuild issues
+  > **100** topology reads on a 50-element model and **2000** on a 1000-element model; the delta
+  > issues **2 on both**. The topology leg is exact O(|Δ|·deg). The semantic / dependency /
+  > constraint legs are an O(R) walk of an already-materialised array with O(Δ) writes — **that is
+  > not the same claim as "O(Δ) everywhere", and the code does not make it**; `UbgDeltaReport.legs`
+  > reports per leg, per drain.
+  >
+  > ⚠ **TWO FURTHER DEFECTS, both found by the differential test, neither predicted:**
+  > **(1) L-3253** — `resolveElementIds()` read `window.pryzmScene`, which **nothing in the repo ever
+  > assigns**, so the topology adapter had **never fired in production**: `bounds` and
+  > topology-`adjacentTo` were never emitted. The entire spatial half of this graph was empty, and it
+  > read exactly like *"this building has no adjacencies"*.
+  > **(2) L-3254** — edge DIRECTION was scan-order dependent, so two rebuilds of the same model could
+  > disagree, and no neighbourhood-scoped delta could ever converge on a universe-scoped rebuild.
+  >
+  > ⚠ **FOUR of the ten edge types listed above still cannot be populated in production** —
+  > `derivesFrom`, `circulatesVia`, `servesZone`, `precededBy` (L-3258). **Being maintained did not
+  > make them real.** The Analysis surface ships a coverage row per family that says so, because an
+  > empty `derivesFrom` otherwise renders exactly like a building with no derivations.
 - **One query surface** (`ubg.query(...)`, `ubg.neighbors(id, edgeType)`, `ubg.subgraph(roomId)`) that SemanticQueryEngine + the AI host + the visual overlay all consume. Pure, P5-safe core; spans per P8.
 - **Serialisable** → persists in the `.pryzm` snapshot + exports as the relational view alongside IFC (the "shared language" artifact).
 

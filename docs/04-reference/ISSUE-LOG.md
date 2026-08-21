@@ -27481,6 +27481,14 @@ hold them to it.
 
 ### ⭐ L-2131 — THE UNIFIED BUILDING GRAPH IS STALE BY CONSTRUCTION, AND THE STRATEGY DOC SAYS OTHERWISE
 
+> ⭐ **CLOSED 2026-08-21 by lane UBG1 — see L-3250…L-3259. Everything measured below was CORRECT.**
+> It was also **incomplete, and the missing half was the harder one**: `BuildingGraph` had no
+> `removeNode` and no `removeEdge`, so **a delete could not be represented at all** and subscribing
+> the bus alone would not have fixed this. L-3250 adds the retraction primitives; L-3251 adds the
+> subscriber. ⚠ Two further defects surfaced only once a differential test existed — the topology
+> adapter had **never fired in production** (L-3253, `window.pryzmScene` is assigned nowhere) and edge
+> direction was **scan-order dependent** (L-3254).
+
 `STR-14 §3` describes the UBG as *"Incrementally maintained off the StoreEventBus (we already fire
 per-element events)"*. **Nothing does this.**
 
@@ -31738,3 +31746,232 @@ translucent violet massing appearance, and the C13 audit's `scene.linkedModel` a
 from code, not seen**. Route shapes were read from `server.js` and matched by inspection; no lane
 has fetched another project's snapshot and drawn it. A single browser session closes most of this,
 and until one does, SPEC §11 is the honest statement of what this feature is.
+
+---
+
+## L-3250 … L-3259 — LANE UBG1: the graph is LIVE, then it moved — 2026-08-21
+
+> **Founder instruction:** he was told the Living Graph and Building Graph could not move into the
+> new Analysis mode because the graph is *stale by construction*. His reply: **"I NEED ALL OF THAT
+> PRESENT."** So: make the graph live, then move it. In that order — the second was blocked on the
+> first, and the block was real (L-2131).
+>
+> ⭐ **CLOSES L-2131** and ADR-0343 §D.7's **binding precondition**. Commits `5902d32b`, `7b9f22f3`,
+> `ef655e94`.
+
+### ⭐ L-3250 — CLOSED: the blocker was DEEPER than "nothing subscribes" — a delete was UNREPRESENTABLE
+
+Lane ANLZ1 measured layer one (L-2131) and corrected STR-14 §3 in place: nothing subscribes the UBG
+to the StoreEventBus. **That measurement is correct and it is not the whole blocker.**
+
+Measured by reading the class: `packages/building-graph/src/BuildingGraph.ts` exposed exactly **four**
+mutations — `addNode`, `addEdge`, `clear`, `fromJSON`. **All four are ADDITIVE or TOTAL.** There was
+no `removeNode`, no `removeEdge`, no way to withdraw a single fact.
+
+⇒ **A delta could not have been applied even by a subscriber that existed.** A maintainer written
+against the old API had exactly two options and both are the defect:
+
+1. `clear()` + full rebuild per store event — O(N) per keystroke. A rebuild on a trigger, not
+   maintenance.
+2. never retract — a graph that accumulates deleted elements forever and silently **overstates** the
+   model ([[envelope-solid-overstates-partial-data]]).
+
+**Fixed.** Three primitives, each with a P8 span: `removeEdge(from,to,type)`, `removeNode(id)` (edges
+retracted, or `-1` for "no such node" — different answers), and **`retractIncident(id, evidencePrefix)`,
+the delta primitive**. It keys on the `evidence` string every adapter already stamps with its own name,
+which is what keeps the legs independent: a maintainer re-derives one element's *topology* edges
+without disturbing its *semantic* or *constraint* edges, because it did not re-read those sources.
+An edge with **no** evidence is never retracted — un-stamped means no provenance, so no caller can
+honestly claim the right to withdraw it.
+
+20 tests across five arms. The two carrying the argument are negative: **ARM D** shows an idempotent
+re-project leaving behind a fact that has STOPPED holding (`project()` is idempotent-*additive*;
+idempotence is not retraction), then shows retract-then-project converging. **ARM E** measures the
+adjacency indices structurally, because an index leak reads as a *correct empty result* —
+`outEdges` does `edges.get(key)` and `continue`s on undefined.
+
+### ⚠ L-3250b — `BuildingGraph.ts` was BINARY to grep, so every sweep silently skipped it
+
+The edge dedup key is a template literal joined by **four literal 0x00 bytes**. Deliberate as a
+separator — and it made the UBG's own core class invisible to line-level search:
+`rg addEdge packages/building-graph/src/BuildingGraph.ts` returns **`binary file matches`** and *no
+lines*. Any sweep asking "who reads the graph / what edge types exist" silently omitted the file that
+defines them. Replaced with the ` ` escape: byte-identical at runtime, greppable in source.
+**Verified 0 NUL bytes; grep now returns line numbers.**
+
+### ⭐ L-3251 — CLOSED: the UBG is now incrementally maintained off the StoreEventBus
+
+`apps/editor/src/engine/buildingGraphMaintainer.ts`, installed by `installLiveGraphWiring()` — which
+previously made four install calls and **subscribed to nothing**. Retract-then-re-project, coalesced
+into ONE drain per frame via `getFrameScheduler().scheduleOnce('ubg-maintain', …, 'pre-render')` —
+the sanctioned frame-bus path, **no new rAF (P3)**, the same shape `ElementSpatialIndex.scheduleUpsert`
+uses.
+
+**Per-leg honesty, because "O(Δ)" is not true of all five and rounding it up would be the defect:**
+
+| leg | reads | this delta |
+|---|---|---|
+| topology | `getAdjacencyRelationships(id)`, PER ID | ⭐ **EXACT O(\|Δ\|·deg)** |
+| roomGraph | `getGraph(levelId)`, per LEVEL | level-scoped |
+| semantic | `getAll()` — one flat in-memory array | O(R) scan, O(Δ) write |
+| dependency | the SAME `getAll()` | O(R) scan, O(Δ) write |
+| constraint | the last validation report | O(V) scan, O(Δ) write |
+
+⭐ **MEASURED, not claimed** (`ubgDeltaConvergence.test.ts`, final arm — it asserts on **source reads**,
+not wall-clock, so it cannot flake): a full rebuild issues **100** topology reads on a 50-element
+model and **2000** on a 1000-element model (20×, as expected). The delta issues **2 on both**. The
+work does not grow with model size.
+
+⚠ The **constraint** leg's *freshness* is bounded by the ConstraintEngine's own 800 ms debounce
+(`initDataPlatform.ts:304`), **not** by the delta — an edit does not re-validate. The liveness record
+says so rather than implying otherwise.
+
+⛔ **The bus is not a lossless log.** `suppressDuring()` / `discardBatch()` are declared exceptions to
+the §9 no-drops guarantee and both fire on project switch. `pryzm-project-loaded` therefore forces a
+**full rebuild** — the incremental path is an optimisation over a correct baseline, never a
+replacement for one.
+
+`window.__pryzmUbgLiveness` publishes `absent | rebuilt | maintained | stale` plus the last delta's
+report. **A surface can now state the graph's freshness; before this the only honest label was "stale
+by construction" and no code path could say it.**
+
+### ⭐ L-3253 — CLOSED: the topology leg had NEVER FIRED IN PRODUCTION. Two of ten edge types were dead
+
+`resolveElementIds()` read `window.pryzmScene ?? window.__pryzmScene`. **Measured with `grep -rn`
+over `apps/`, `packages/` and `src/`: those two lines READ it and NOTHING ANYWHERE ASSIGNS IT.** The
+only other hit is `pryzmSceneFrame`, an unrelated GLB userData key in `packages/file-format`.
+
+`buildBuildingGraph` gates the topology adapter on `services.elementIds.length > 0`, so the adapter
+**never ran**, and **`bounds` and topology-`adjacentTo` were never emitted in production** — the
+entire *spatial* half of the graph. `TopologyLayer` itself is live and correct; the id list handed to
+it was empty.
+
+⭐ **It read exactly like "this building has no adjacencies"** — a plausible answer, which is why it
+survived. [[context-data-honesty-family]]: the failure value and the empty value were the same value.
+[[authored-but-unwired-is-the-bottleneck]].
+
+**Fixed** by falling back to the twelve element stores that DO register on `window`. The scene read is
+kept as the preferred source — it can tell a preview/helper from a real element, which a store cannot.
+
+### ⭐ L-3254 — CLOSED: edge DIRECTION was scan-order dependent. Found by the differential test, not predicted
+
+Both `AdjacencyRelationship` kinds are **symmetric** predicates; `TopologyLayer` reports each pair from
+both endpoints; `extractTopologySnapshot` de-duped on `min|max` but kept **whichever orientation it
+scanned first**. So two rebuilds of the same model could emit `wall→room` or `room→wall`, and a delta
+scanning a *neighbourhood* could never converge on a rebuild scanning the *universe* — even having
+derived identical facts. Now emits the canonical orientation the dedup key already computed.
+
+One existing assertion pinned the old direction (`buildBuildingGraph.test.ts:111`). Updated, with the
+reason inline: it was asserting an artefact of `elementIds` order, not a fact about the model.
+
+### ⚠ L-3255 — OPEN: `bounds` is a DIRECTED claim derived from a SYMMETRIC test
+
+`intersects` projects to the UBG edge type `bounds`, documented as *"A spatially bounds B (wall bounds
+room)"*. It is derived from a bounding-box **overlap** test, which is symmetric. **It never carried
+that meaning at any point in this file's history** — canonicalising (L-3254) makes the pre-existing
+fact legible rather than introducing it. Giving `bounds` a real direction needs a containment test in
+`TopologyLayer`, not a change in the extractor.
+
+### ⭐ The ORPHAN-NODE divergence — also found by the differential test, also not predicted
+
+The topology adapter materialises both endpoints of every relationship, so a full rebuild **never**
+holds a node with no relationships. A delta that retracted the last edge touching `room_1` left
+`room_1` standing — **the maintained graph reporting an element the authority does not have.** ARM 3
+and ARM 5 both failed on it before `sweepOrphans()` existed.
+
+The predicate is deliberately narrow: drop only if isolated **and** carrying neither `props` nor
+`refs`. Those fields mark a node another projection owns (`roomGraph` stamps `props.levelId` and
+`refs`; the A.21.D16 enrichment stamps name/occupancy/area/façade), and those legs did not run in this
+delta, so their nodes are not this delta's to withdraw.
+
+### L-3256 / L-3257 — ONE node-link renderer published; the four hand-rolls NOT yet collapsed
+
+`apps/editor/src/ui/analysis/nodeLinkSvg.ts`. The force layout is **lifted from**
+`ui/rooms/RoomGraphPanel.ts` (`_forceLayout`, :122-205) — read first, as the lane brief required. It
+was a good implementation (deterministic circle seeding, no `Math.random` in a render path, no rAF,
+cooling schedule, clamped positions) and it was module-private, bound to one floating panel's `_svg`
+singleton, hard-coding `#f7f8fc`.
+
+⚠ **L-3257, OPEN — this publishes the TARGET, it does not discharge the debt.** The four hand-rolls to
+collapse into it: `ui/rooms/RoomGraphPanel.ts`, `ui/graph/BuildingGraphOverlay.ts`,
+`ui/living-graph/LivingGraphOverlay.ts`, and the plan graph overlay. Migrating three **live** overlays
+blind was the larger risk. Saying *"shared module added"* while four hand-rolls stand would be the
+false half of the claim.
+
+⛔ Renders **once**. STR-14 §4.1's "living blob" (metaballs, perpetual motion, ripple-on-change) is a
+real and separate deliverable that needs the frame bus; ADR-0343 §D.3 forbids any widget refreshing
+`on-frame`. Truncates at 60 nodes (the layout is O(n²)) and **says so**, with every count then
+reading `≥`.
+
+### ⭐ L-3258 — the relational widgets ship, and the COVERAGE CARD is what makes them honest
+
+New source `graph` + axis `relationship`; `runQuery` enforces the pairing **in both directions** (a
+graph query on any other axis throws; a `relationship` grouping off any other source throws). Three
+widgets, two of them on the **default** dashboard: `relationship-graph`, `relationship-coverage`,
+`relationship-table`.
+
+⛔ **The UBG is still forbidden for AGGREGATES, and the reason has changed.** `analysisReadModel`'s
+header said it *"may never be read"* because it is *"stale by construction"* — **corrected in place,
+because this lane's own work falsified half of it.** The prohibition stands on §D.4's *other* half:
+the UBG is a **projection**, so a node exists in it only if some adapter projected a relationship
+touching it. Counting walls there counts the walls that participate in a projected edge — an
+undercount that reads as a count (§C.3.2). Staleness was never the only reason and is no longer a
+reason at all.
+
+⭐ **MEASURED at HEAD by this lane: FOUR of the UBG's TEN declared edge types cannot be populated in
+production at all**, and nothing said so — an empty `derivesFrom` renders exactly like a building with
+no derivations.
+
+| edge type | state | why |
+|---|---|---|
+| `derivesFrom` | ⛔ STRUCTURALLY EMPTY | the semantic adapter projects ONLY `branchedFrom`/`supersedes`/`precededBy`. **Verified: grepping for each as a production `type:` literal over `packages apps plugins`, tests excluded → 0.** The adapter is gated on a predicate that can never be true. |
+| `circulatesVia` | ⛔ STRUCTURALLY UNREACHABLE | needs `RoomGraphSnapshot.circulationPaths`; `extractRoomGraphSnapshot` never sets it. **Verified: the key appears only in the adapter, its type declaration, and two tests.** D-TGL circulation exists; nothing wires it to the UBG. |
+| `servesZone` | ⛔ NO WRITER ANYWHERE | a declared edge type no adapter emits. Zoning is not projected. |
+| `precededBy` | ⛔ NO WRITER ANYWHERE | the TemporalGraph records every mutation and is **never** projected, so *"how the design evolved"* is absent from the relational view. |
+
+Each is `NOT_MEASURED` with the reason **and the command that settles it** — never `COUNTED_ONLY`,
+which would read as *"wired, and this project has none"*. Guarded by two new assertions. The existing
+axis guard **caught the new axis on its first run**, which is what it is for.
+
+### L-3259 — the graphs LEFT the GIS tab (ADR-0343 §D.7)
+
+`GIS_ACTIONS` loses `graph.building` and `graph.living`; `GisActionGroup` loses `'graphs'`;
+`GIS_GROUP_LABEL` loses its row. **15 → 13 actions, 4 → 3 groups**, exactly as §D.7 specified. They
+were *building* concerns hosted in the *site* tab. The `window` entry-point seam is **unchanged** —
+`installLiveGraphWiring()` still installs both overlays and both console openers still work. Only the
+host moved.
+
+### ⚖ L-3259b — FOUNDER DECISION, SURFACED AND DELIBERATELY NOT TAKEN
+
+**Does `graph.building` (⚛ Graph) retire in favour of `graph.living` (✦ Living Graph)?** ADR-0343 §U.1
+leaves this open and it stays open. `living-graph/index.ts` states in its own header that the Living
+Graph *"is intended to SUPERSEDE the static ⚛ Graph view as the primary graph UI"*, and **that
+reconciliation has never happened** — which is why the founder saw two adjacent pills for one concept.
+Retiring `graph.building` would delete a live capability.
+
+**Both overlays remain installed and reachable.** The decision costs one edit either way. The
+reasoning is written into `gisActionRegistry.ts` at the point of removal so it cannot be lost.
+
+### ⚠ L-3252 — OPEN: what this lane did NOT prove
+
+* **No browser run.** Everything here is measured by tests and by grep. Nothing was clicked. The delta
+  converges on the full rebuild *in a fake world*; it has not been watched maintaining a real
+  Barcelona project. [[committed-is-not-reachable]] — the *reachability* half is genuinely closed (the
+  maintainer is called from `installLiveGraphWiring`, which `AIAreaLayout.mountAIArea` calls
+  unconditionally), but **behaviour on a real model is not**.
+* **The cost figure is a SOURCE-READ COUNT, not a benchmark.** It establishes the *shape* (work does
+  not grow with model size), which is what ADR-0343 §D.4 requires. It is not a p95 and C66 §1.1 still
+  applies: nothing here is benched.
+* **The roomGraph leg is level-scoped, not element-scoped**, because `StoreChangeEvent` carries no
+  `levelId`. A connectivity edit re-reads every level's room graph — bounded by rooms-per-level, not
+  by |Δ|.
+* **`check-graph-write-coverage` was NOT run to green by this lane, and its 4 findings look STALE.**
+  Its reader arm credits only a closed 3-entry `DEDICATED_READERS` map, while `SemanticGraphManager`
+  ships ≥8 typed family readers with production consumers. That is a separate lane's fix; this lane
+  did not touch the gate.
+* **Two root-`tsc` errors exist at HEAD and are NOT this lane's** —
+  `ui/dataworkbench/buckets/MedicionesTimeCarbon.ts:359` and
+  `packages/core-app-model/src/quantities/carbonCsv.ts:96`, both `TS6133` unused-variable, both from
+  lane DIM46's commits `33dfda79`/`4e0ff9a8`, both in files this lane was forbidden to touch. **They
+  will hard-fail the Fly build** ([[build-uses-stricter-root-tsc]]). Verified none of this lane's 18
+  files appear in either commit.
