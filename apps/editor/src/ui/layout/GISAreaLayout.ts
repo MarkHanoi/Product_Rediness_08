@@ -203,6 +203,10 @@ import { collectAuthoredModelSnapshot, measureAuthoredDesign } from '../site/des
 import {
     buildDesignedVsPermittedFold,
     buildHowMeasuredFold,
+    // §GIS-LEGACY-DETERMINATION-ESCAPE (L-1970..L-1974) — the REDUCED card's notice AND its
+    // escape hatch. The reduced card was honest and unactionable; this carries the route out.
+    buildLegacyDeterminationNoticeHtml,
+    LEGACY_RECOMPUTE_BTN_TESTID,
     // §BCN-OV-CITATION (L-1656) — which article a `block-constructed` envelope cites,
     // decided by the engine's own derivation row rather than a hard-coded string.
     resolveBlockConstructedSourceText,
@@ -2509,6 +2513,101 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      * everything else says so plainly. The toggle is present so a visible envelope is always
      * controllable.
      */
+    /**
+     * §GIS-LEGACY-DETERMINATION-ESCAPE (L-1972) — THE ONE RECOMPUTE. Hoisted out of
+     * `window.pryzmRecomputeEnvelopeCard` (§L-1587) so the reduced card and the empty state
+     * share it instead of growing a second, drifting copy — the C06 §13.3 rule this whole
+     * card has already been re-hosted twice to honour.
+     *
+     * Re-runs the SAME C58 determination against the SAME committed boundary via
+     * `reapplyZoningForActiveSite`, which touches ZONING ONLY and never geometry (its own
+     * header explains why a second `dispatchParcelBoundary` would silently re-rotate a
+     * hand-drawn ring). Since §L-1654 that write also persists the full
+     * `BuildableDeterminationRecord`, so a success RETIRES the legacy reduced arm for the
+     * project rather than merely repainting this session.
+     *
+     * Returns TRUE only if a card is on screen afterwards. Every refusal branch survives: a
+     * parcel that genuinely has no envelope still refuses, and the caller must say so.
+     */
+    const recomputeEnvelopeDetermination = (): boolean => {
+        try {
+            const ctx = resolveSiteContext(runtime ?? null);
+            if (!ctx || !reapplyZoningForActiveSite(ctx)) return false;
+            refreshEnvelopePanel();
+            const present = !!envelopePanel && !!envelopePanel.parentElement;
+            console.log(
+                `[gis][envelope-card] §L-1587-RECOMPUTE re-derived from the committed parcel → `
+                + `card ${present ? 'PRESENT' : 'ABSENT (C58 determined there is nothing to show)'}.`,
+            );
+            return present;
+        } catch (e) {
+            console.warn('[gis][envelope-card] §L-1587-RECOMPUTE failed (non-fatal):', e);
+            return false;
+        }
+    };
+
+    /**
+     * §GIS-LEGACY-DETERMINATION-ESCAPE (L-1973) — can the recompute actually run here?
+     *
+     * Asked so the button renders DISABLED-WITH-REASON rather than live-and-inert when it
+     * cannot (the L-1187 honest-unavailability rule). The predicate is the same one
+     * `reapplyZoningForActiveSite` itself applies — an active site context with a committed
+     * ≥3-point boundary — read rather than duplicated in spirit only.
+     */
+    const legacyRecomputeUnavailableReason = (): string | null => {
+        try {
+            const ctx = resolveSiteContext(runtime ?? null);
+            if (!ctx) {
+                return 'No active site in this session, so there is no committed boundary to '
+                    + 're-solve against. Open the project’s site view first.';
+            }
+            const poly = ctx.store.getSite()?.parcel?.boundary?.polygon;
+            if (!Array.isArray(poly) || poly.length < 3) {
+                return 'This project has no committed parcel boundary to re-solve against — '
+                    + 'select or draw a plot on the 2D map first.';
+            }
+            return null;
+        } catch {
+            return 'The site store could not be read in this session, so the re-solve cannot be '
+                + 'offered. Nothing is wrong with the saved envelope above.';
+        }
+    };
+
+    /**
+     * §GIS-LEGACY-DETERMINATION-ESCAPE (L-1974) — wire the reduced card's escape hatch.
+     *
+     * A no-op query on every other render template (none of them emit this button), exactly
+     * like `wireManualZoneButton` above. On failure the notice is REPLACED by its stated-failure
+     * arm rather than the button silently re-enabling: "I pressed it and nothing happened" is
+     * the defect this button exists to end, not one it may reintroduce.
+     */
+    const wireLegacyRecompute = (panel: HTMLDivElement): void => {
+        const btn = panel.querySelector(
+            `[data-testid="${LEGACY_RECOMPUTE_BTN_TESTID}"]`,
+        ) as HTMLButtonElement | null;
+        if (!btn || btn.disabled) return;
+        btn.onclick = (ev) => {
+            ev.stopPropagation(); // never bubble into the header's drag-start handler
+            btn.disabled = true;
+            btn.textContent = 'Solving…';
+            // The recompute repaints the card itself on success (refreshEnvelopePanel), which
+            // REPLACES this whole panel body with the full determination. So there is nothing
+            // to clean up on the success path — only the failure path has to speak.
+            if (recomputeEnvelopeDetermination()) return;
+            const notice = panel.querySelector(
+                '[data-testid="envelope-legacy-notice"]',
+            ) as HTMLElement | null;
+            if (!notice) return;
+            notice.outerHTML = buildLegacyDeterminationNoticeHtml({
+                recomputeAvailable: false,
+                failedReason:
+                    'The determination engine could not resolve a site context for this project '
+                    + 'in this session — this is a PRYZM-side failure, not a fact about your '
+                    + 'land, and it says nothing about whether the plot is buildable.',
+            });
+        };
+    };
+
     const renderReducedEnvelopePanel = (viewport: HTMLElement, maxHeightM: number | null): void => {
         const panel = ensureEnvelopePanel(viewport);
         const heightTxt = maxHeightM !== null ? `${maxHeightM.toFixed(1)} m` : '—';
@@ -2518,6 +2617,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // anyway for consistency.
         const safeCloseBtn = envelopeCloseButtonHtml();
         const safeEnvToggle = envelopeToggleHtml();
+        // §GIS-LEGACY-DETERMINATION-ESCAPE (L-1971) — the notice is now built by the PURE
+        // module beside the other card sections, so both of its arms (route available /
+        // route unavailable-with-reason) are pinned by envelopeCardSections.spec.ts rather
+        // than asserted in a comment. It escapes its own interpolations (C08 §3.1).
+        const unavailableReason = legacyRecomputeUnavailableReason();
+        const safeLegacyNotice = buildLegacyDeterminationNoticeHtml({
+            recomputeAvailable: unavailableReason === null,
+            unavailableReason,
+        });
         panel.innerHTML =
             `<div data-envelope-drag="1" title="Drag to move" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;cursor:grab;">
                <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>
@@ -2527,27 +2635,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                </span>
              </div>
              <div style="display:flex;justify-content:space-between;"><span style="color:#6b6480;">Max height</span><span style="font-weight:600;">${escHtml(heightTxt)}</span></div>
-             <div style="margin-top:8px;color:#8a5a00;background:#fff6e5;border-radius:6px;padding:5px 7px;font-size:10px;line-height:1.5;">
-               Saved envelope shape only. This project was saved <b>before PRYZM stored full
-               determinations</b> (§L-1654), so the values, citations and confidence of the
-               original solve were never persisted — nothing was lost in this session, and
-               nothing here is the user's doing. Re-commit the parcel once to solve, store and
-               show the full determination.
-               <div style="margin-top:4px;">
-                 <!-- §GIS-ENVELOPE-FULL-SECTIONS (L-1652) — NAME the withheld sections. The rich
-                      folds (Designed vs permitted · How these were measured · Full site &
-                      massing data · Why these numbers?) all rest on the solved determination's
-                      derivation + provenance, which this load path does not persist (L-445 /
-                      C58 §1.4). Rendering them from the saved shape alone would fabricate
-                      provenance, so their ABSENCE is stated rather than silent. -->
-                 The <b>Designed-vs-permitted</b> check, <b>ordinance limits</b>, <b>massing
-                 potential</b>, the <b>per-storey table</b> and <b>“Why these numbers?”</b> need
-                 that determination — they are deliberately not shown from the saved shape alone.
-               </div>
-             </div>
+             ${safeLegacyNotice}
              ${safeEnvToggle}`;
         wireEnvelopeToggle(panel);
         wireEnvelopeClose(panel);
+        // §GIS-LEGACY-DETERMINATION-ESCAPE (L-1974) — the route OUT of this arm, which is the
+        // half L-1652 did not build: naming the withheld sections told the founder what he was
+        // missing without telling him how to get it, and the only route the copy did name
+        // ("re-commit the parcel") is a GEOMETRY-touching action offered for a PROVENANCE gap.
+        wireLegacyRecompute(panel);
     };
 
     // ── §ENVELOPE-SITE-DATA (L-586) — the full parcel + massing read-out ─────────────────────
@@ -4573,22 +4669,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      *  It re-runs the SAME C58 computation against the SAME committed boundary - it does not
      *  persist, reconstruct or infer an envelope, so every refusal branch still applies and a
      *  parcel that legitimately has no envelope still refuses to draw one. */
-    window.pryzmRecomputeEnvelopeCard = (): boolean => {
-        try {
-            const ctx = resolveSiteContext(runtime ?? null);
-            if (!ctx || !reapplyZoningForActiveSite(ctx)) return false;
-            refreshEnvelopePanel();
-            const present = !!envelopePanel && !!envelopePanel.parentElement;
-            console.log(
-                `[gis][envelope-card] §L-1587-RECOMPUTE re-derived from the committed parcel → `
-                + `card ${present ? 'PRESENT' : 'ABSENT (C58 determined there is nothing to show)'}.`,
-            );
-            return present;
-        } catch (e) {
-            console.warn('[gis][envelope-card] §L-1587-RECOMPUTE failed (non-fatal):', e);
-            return false;
-        }
-    };
+    //  §GIS-LEGACY-DETERMINATION-ESCAPE (L-1972) — this hook is now a SEAM over the one
+    //  `recomputeEnvelopeDetermination` closure (declared beside the reduced card), not a
+    //  second implementation of it. It used to be the only place the recompute existed, which
+    //  is why the reduced card — the arm that actually fires for pre-L-1654 projects — had no
+    //  way to reach it. One producer, two callers.
+    window.pryzmRecomputeEnvelopeCard = (): boolean => recomputeEnvelopeDetermination();
 
     /** §GIS-ENVELOPE-REHOST (L-1362, C06 §13.3) — claim the buildability read-out for a host.
      *

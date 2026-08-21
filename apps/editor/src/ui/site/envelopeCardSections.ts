@@ -252,3 +252,152 @@ export function resolveBlockConstructedSourceText(
         span.end();
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §GIS-LEGACY-DETERMINATION-ESCAPE (L-1970..L-1974) — the REDUCED card's way OUT
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Founder 2026-08-21, on production `071a7b2c`: *"I requested to have all the data of the
+// selected parcel: many more data — why is it still not present on an OLD project?"*
+//
+// ⭐ THE FEATURE IS IN HIS BUILD. `a54a49fd` (L-1650..L-1656) is an ancestor of the SHA he is
+// running. The rich sections — Designed vs permitted · How these were measured · Full site &
+// massing data (which is where the "many more data ABOUT THE PARCEL" actually lives, §L-586:
+// depth, perimeter, bounding box, per-storey massing, with sources) · Why these numbers? — all
+// hang off the SOLVED determination. On a project saved BEFORE L-1654,
+// `Parcel.buildableDetermination` is `null`, `getLastBuildableEnvelope()` is `null` after any
+// reload, and `refreshEnvelopePanel` therefore takes the L-445 REDUCED arm, which renders the
+// saved ring's max height and NOTHING else.
+//
+// The reduced card was already HONEST — L-1652 made it NAME every withheld section. It was
+// UNACTIONABLE, which is a different defect and the one the founder actually hit: its only
+// stated route forward was *"Re-commit the parcel"*, i.e. go to the 2D map and re-select the
+// plot. That is a GEOMETRY-TOUCHING action offered as the fix for a PROVENANCE gap, and it is
+// exactly the [[refusing-half-needs-its-escape-hatch]] / §L-942 shape — a refusing branch whose
+// escape hatch is knowledge the user does not have.
+//
+// ⛔ AND THE SAFE ROUTE ALREADY EXISTED. §L-1587 built `pryzmRecomputeEnvelopeCard` →
+// `reapplyZoningForActiveSite`, which re-solves against the ALREADY-COMMITTED boundary and
+// never touches geometry (its own docstring says so, and says why re-calling
+// `dispatchParcelBoundary` instead would silently re-rotate a hand-drawn ring). It was wired
+// to ONE surface only: the sibling branch where there is no card at all. The branch that
+// actually fires for the founder's projects — ring persisted, determination null — never got
+// it. Two arms of one refusal, one escape hatch between them.
+//
+// Since L-1654, that recompute also PERSISTS the full `BuildableDeterminationRecord` through
+// the same `site.updateZoning` write that persists the ring (P6). So one click does not merely
+// repaint: it RETIRES this legacy arm for the project, permanently. That is why the button
+// belongs here and not a schema migration — the determination is not recoverable data, it is
+// RE-DERIVABLE data, and re-deriving it is a user-initiated, explicit act.
+//
+// ── THE HONESTY THIS BUILDER IS RESPONSIBLE FOR ─────────────────────────────────
+//
+//  1. **The original solve is GONE and cannot be recovered.** Its values, citations and
+//     confidence were never written. Saying "restore" or "refresh" would imply otherwise.
+//  2. **What the button produces is a NEW determination, dated TODAY, from TODAY's rule pack.**
+//     L-1654's rule is that a stored snapshot must never be presented as freshly derived; the
+//     INVERSE binds equally — a fresh re-solve must never be presented as the recovered
+//     original. A rule pack that changed between the two dates would make them different
+//     answers, and nothing on the card could tell them apart.
+//  3. **It may legitimately REFUSE.** Re-solving can produce a cited refusal, and a refusal is
+//     a determination (C63). The copy promises a determination, never a positive one.
+//  4. **An unavailable route says WHY and renders DISABLED** — the L-1187 honest-unavailability
+//     rule — rather than a live-looking button that does nothing.
+
+/** `data-testid` on the reduced card's legacy notice. */
+export const LEGACY_NOTICE_TESTID = 'envelope-legacy-notice';
+/** `data-testid` on the escape-hatch button the notice carries. */
+export const LEGACY_RECOMPUTE_BTN_TESTID = 'envelope-legacy-recompute-btn';
+/** The button's label. A verb that promises what actually happens — solve, then store.
+ *  Deliberately free of `&`: the label is escaped like every other interpolation (C08 §3.1),
+ *  so an ampersand here would render as `&amp;` in the markup and make the constant and the
+ *  DOM disagree for anything asserting on it. */
+export const LEGACY_RECOMPUTE_LABEL = 'Solve and store the full determination';
+
+/**
+ * §GIS-LEGACY-DETERMINATION-ESCAPE (L-1971) — the REDUCED card's amber notice, with its
+ * escape hatch. Pure string builder; the caller wires the button by its testid.
+ *
+ * Three `data-state` arms, deliberately distinct (C84 EI-1b — failure, emptiness and
+ * "fetched under an older schema" must not present identically):
+ *   · `legacy-recompute-available`   — the route resolves; the button is live.
+ *   · `legacy-recompute-unavailable` — no site context / no committed boundary to re-solve
+ *                                      against; button DISABLED, reason shown.
+ *   · `legacy-recompute-failed`      — the user pressed it and the re-solve could not run.
+ *
+ * `escHtml` is applied to every interpolated runtime string; everything else is author-written
+ * static markup (§XSS-SINK-SCAN, C08 §3.1).
+ */
+export function buildLegacyDeterminationNoticeHtml(opts: {
+    readonly recomputeAvailable: boolean;
+    readonly unavailableReason?: string | null;
+    readonly failedReason?: string | null;
+}): string {
+    const span = _tracer.startSpan('pryzm.site.buildLegacyDeterminationNoticeHtml');
+    try {
+        const failed = typeof opts.failedReason === 'string' && opts.failedReason.length > 0;
+        const state = failed
+            ? 'legacy-recompute-failed'
+            : (opts.recomputeAvailable ? 'legacy-recompute-available' : 'legacy-recompute-unavailable');
+        span.setAttribute('pryzm.envelopeCard.legacyArm', state);
+
+        // The action. Live, disabled-with-reason, or replaced by a stated failure — never a
+        // live-looking control with no effect, and never silence.
+        let safeAction: string;
+        if (failed) {
+            safeAction =
+                '<div data-testid="' + LEGACY_RECOMPUTE_BTN_TESTID + '-failed" style="margin-top:7px;'
+                + 'background:#fdecec;color:#8a1f1f;border-radius:6px;padding:5px 7px;font-size:9.5px;line-height:1.45;">'
+                + '<b>The re-solve could not run.</b> ' + escHtml(opts.failedReason)
+                + ' Nothing was changed — the saved envelope shape above is untouched, and no '
+                + 'determination was stored.'
+                + '</div>';
+        } else if (opts.recomputeAvailable) {
+            safeAction =
+                '<button type="button" data-testid="' + LEGACY_RECOMPUTE_BTN_TESTID + '"'
+                + ' title="Re-runs the buildability determination against the parcel boundary already'
+                + ' committed to this project, then stores it. Does not move, redraw or re-derive the boundary."'
+                + ' style="margin-top:7px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;'
+                + 'padding:6px 10px;border-radius:8px;font:600 11px system-ui;background:#ffffff;color:#6600FF;">'
+                + escHtml(LEGACY_RECOMPUTE_LABEL) + '</button>';
+        } else {
+            const reason = opts.unavailableReason
+                ?? 'This project has no committed parcel boundary to re-solve against.';
+            safeAction =
+                '<button type="button" disabled aria-disabled="true"'
+                + ' data-testid="' + LEGACY_RECOMPUTE_BTN_TESTID + '"'
+                + ' title="' + escHtml(reason) + '"'
+                + ' style="margin-top:7px;width:100%;appearance:none;border:1px solid #d8d3e6;cursor:not-allowed;'
+                + 'padding:6px 10px;border-radius:8px;font:600 11px system-ui;background:#f4f2f8;color:#8a83a0;">'
+                + escHtml(LEGACY_RECOMPUTE_LABEL) + '</button>'
+                + '<div style="margin-top:4px;font-size:9.5px;line-height:1.4;color:#6b6480;">'
+                + escHtml(reason) + '</div>';
+        }
+
+        return '<div data-testid="' + LEGACY_NOTICE_TESTID + '" data-state="' + state + '"'
+            + ' style="margin-top:8px;color:#8a5a00;background:#fff6e5;border-radius:6px;'
+            + 'padding:5px 7px;font-size:10px;line-height:1.5;min-width:0;max-width:100%;overflow-wrap:break-word;">'
+            + 'Saved envelope <b>shape</b> only. This project was saved <b>before PRYZM stored full '
+            + 'determinations</b>, so the values, citations and confidence of the original solve were '
+            + 'never written down — they are <b>not recoverable</b>. Nothing was lost in this session, '
+            + 'and nothing here is your doing.'
+            + '<div style="margin-top:4px;">'
+            + 'The <b>Designed-vs-permitted</b> check, <b>ordinance limits</b>, <b>massing potential</b>, '
+            + 'the <b>per-storey table</b>, the <b>full site &amp; parcel data</b> and <b>&ldquo;Why these '
+            + 'numbers?&rdquo;</b> all rest on that determination. They are deliberately not shown from the '
+            + 'saved shape alone — rendering them from it would fabricate provenance.'
+            + '</div>'
+            + '<div style="margin-top:5px;">'
+            + '<b>You can get them back for this project.</b> The button below re-solves against the '
+            + 'parcel boundary <b>already committed here</b> — it does not move, redraw or re-derive '
+            + 'the boundary — and stores the result, so the full card returns on every future load. '
+            + '⚠ It produces a <b>new determination dated today, from today&rsquo;s rule pack</b>; it does '
+            + 'not recover the original solve, and the two could differ. It may also return a cited '
+            + '<b>refusal</b> — that is a determination too, and it will be stored and shown as one.'
+            + '</div>'
+            + safeAction
+            + '</div>';
+    } finally {
+        span.end();
+    }
+}

@@ -39,6 +39,10 @@ import {
 import {
     buildDesignedVsPermittedFold,
     buildHowMeasuredFold,
+    // §GIS-LEGACY-DETERMINATION-ESCAPE (L-1970..L-1974) — the reduced card's route out.
+    buildLegacyDeterminationNoticeHtml,
+    LEGACY_RECOMPUTE_BTN_TESTID,
+    LEGACY_RECOMPUTE_LABEL,
     resolveBlockConstructedSourceText,
 } from '../envelopeCardSections';
 
@@ -281,7 +285,14 @@ describe('§L-1654 wiring — the card HYDRATES the persisted determination (sou
     });
 
     it('the reduced card is now the LEGACY arm and says the project predates stored determinations', () => {
-        expect(src).toContain('before PRYZM stored full');
+        // §GIS-LEGACY-DETERMINATION-ESCAPE (L-1971) — the SENTENCE is unchanged, its PRODUCER
+        // moved. It used to be inline markup in `renderReducedEnvelopePanel`; it is now built by
+        // the pure module beside the other card sections so both of its arms are unit-pinned.
+        // The pin therefore follows the fact rather than the file: the card must still render
+        // the statement, and it must do so through the one builder.
+        expect(src).toContain('buildLegacyDeterminationNoticeHtml({');
+        expect(buildLegacyDeterminationNoticeHtml({ recomputeAvailable: true }))
+            .toContain('before PRYZM stored full');
     });
 });
 
@@ -335,5 +346,162 @@ describe('L-1656 — block-constructed cites the instrument the engine used', ()
         expect(src).toContain('resolveBlockConstructedSourceText(env.derivation)');
         // The literal that used to be hard-coded must no longer live in the card.
         expect(src).not.toContain('Constructed per PGM Art. 242.2 from the real Catastro block');
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// §GIS-LEGACY-DETERMINATION-ESCAPE (L-1970..L-1974) — the REDUCED card's route OUT.
+//
+// Founder 2026-08-21 on production `071a7b2c`: *"I requested to have all the data of the
+// selected parcel: many more data — why is it still not present on an OLD project?"*
+//
+// The feature IS in his build (`a54a49fd` is an ancestor of the live SHA). What is missing on
+// an OLD project is the SOLVED DETERMINATION every rich section hangs off:
+// `Parcel.buildableDetermination` is `null` for anything saved before L-1654, so
+// `refreshEnvelopePanel` takes the L-445 REDUCED arm and the founder gets a max height and
+// nothing else — including none of the "Full site & massing data" fold, which is where the
+// parcel's depth/perimeter/bbox/per-storey figures (§L-586, the "many more data") live.
+//
+// L-1652 made that arm HONEST — it names every withheld section. It was still UNACTIONABLE:
+// the only route it named was "re-commit the parcel", a GEOMETRY-touching action proposed as
+// the fix for a PROVENANCE gap. Meanwhile the safe, geometry-free recompute built by §L-1587
+// was wired to the SIBLING branch only (the one where no card renders at all).
+//
+// These pin the escape hatch and — more importantly — the honesty it must carry: the original
+// solve is NOT recoverable, what the button produces is a NEW determination dated today, and it
+// may legitimately refuse.
+// ─────────────────────────────────────────────────────────────────────────────────────────
+
+describe('§GIS-LEGACY-DETERMINATION-ESCAPE (L-1970..L-1974) — the reduced card can reach the full data', () => {
+    const AVAILABLE = buildLegacyDeterminationNoticeHtml({ recomputeAvailable: true });
+    const UNAVAILABLE = buildLegacyDeterminationNoticeHtml({
+        recomputeAvailable: false,
+        unavailableReason: 'No committed parcel boundary in this project.',
+    });
+    const FAILED = buildLegacyDeterminationNoticeHtml({
+        recomputeAvailable: false,
+        failedReason: 'The site context could not be resolved.',
+    });
+
+    it('THE DEFECT: the available arm carries a LIVE button, so an old project is no longer stuck', () => {
+        expect(AVAILABLE).toContain('data-state="legacy-recompute-available"');
+        expect(AVAILABLE).toContain(`data-testid="${LEGACY_RECOMPUTE_BTN_TESTID}"`);
+        expect(AVAILABLE).toContain(LEGACY_RECOMPUTE_LABEL);
+        // Live means NOT disabled — a disabled button here would be the defect, not the fix.
+        expect(AVAILABLE).not.toContain('disabled');
+    });
+
+    it('the unavailable arm is DISABLED and states its reason — never live-and-inert (L-1187)', () => {
+        expect(UNAVAILABLE).toContain('data-state="legacy-recompute-unavailable"');
+        expect(UNAVAILABLE).toContain('disabled');
+        expect(UNAVAILABLE).toContain('aria-disabled="true"');
+        // The reason is shown in the BODY, not only hidden in a title attribute.
+        expect(UNAVAILABLE).toContain('No committed parcel boundary in this project.');
+    });
+
+    it('a FAILED re-solve says so in words and does not re-offer a button that just failed', () => {
+        expect(FAILED).toContain('data-state="legacy-recompute-failed"');
+        expect(FAILED).toContain('The re-solve could not run.');
+        expect(FAILED).toContain('The site context could not be resolved.');
+        // ⭐ It must say the saved state is untouched: "I pressed it and now I do not know what
+        // I have" is worse than the dead end this button replaced.
+        expect(FAILED).toMatch(/untouched|Nothing was changed/);
+        expect(FAILED).not.toContain(`data-testid="${LEGACY_RECOMPUTE_BTN_TESTID}"`);
+    });
+
+    it('⭐ C84 EI-1b — available, unavailable and failed are THREE different renderings', () => {
+        const arms = new Set([AVAILABLE, UNAVAILABLE, FAILED]);
+        expect(arms.size).toBe(3);
+        const states = [AVAILABLE, UNAVAILABLE, FAILED]
+            .map((h) => /data-state="([^"]+)"/.exec(h)?.[1] ?? null);
+        expect(new Set(states).size).toBe(3);
+        expect(states).not.toContain(null);
+    });
+
+    it('⭐ NEVER FABRICATE: the notice says the ORIGINAL solve is not recoverable', () => {
+        // The whole hazard of a "refresh"-shaped button on a provenance gap is that the user
+        // reads the result as the restored original. It is not, and cannot be.
+        expect(AVAILABLE).toContain('not recoverable');
+        expect(AVAILABLE).toContain('never written down');
+        // "Restore"/"refresh" both imply the original comes back. It cannot.
+        expect(AVAILABLE.toLowerCase()).not.toContain('restore');
+        expect(AVAILABLE.toLowerCase()).not.toContain('refresh');
+    });
+
+    it('⭐ NEVER FABRICATE RECENCY, INVERTED: what the button produces is dated TODAY', () => {
+        // L-1654's rule is that a STORED snapshot must not be presented as freshly derived.
+        // The inverse binds equally: a FRESH re-solve must not be presented as the recovered
+        // original — a rule pack that moved between the two dates makes them different answers.
+        expect(AVAILABLE).toContain('new determination dated today');
+        expect(AVAILABLE).toContain('rule pack');
+        expect(AVAILABLE).toMatch(/not recover the original solve/);
+        expect(AVAILABLE).toMatch(/the two could differ/);
+    });
+
+    it('⭐ C63 — the copy promises a DETERMINATION, never a positive answer', () => {
+        // A refusal is a determination. A button that implies "press this and you get numbers"
+        // sets up the founder to read a cited refusal as a failure of the button.
+        expect(AVAILABLE).toContain('refusal');
+        expect(AVAILABLE).toMatch(/that is a determination too/i);
+    });
+
+    it('it names the withheld sections INCLUDING the parcel data the founder asked for', () => {
+        // The founder said "all the data of the SELECTED PARCEL: many more data". That data is
+        // the "Full site & massing data" fold (§L-586: depth, perimeter, bbox, per-storey),
+        // which is gated on the determination — so the notice must name it explicitly rather
+        // than let him believe the parcel simply has no data.
+        expect(AVAILABLE).toContain('Designed-vs-permitted');
+        expect(AVAILABLE).toContain('ordinance limits');
+        expect(AVAILABLE).toContain('massing potential');
+        expect(AVAILABLE).toContain('per-storey table');
+        expect(AVAILABLE).toContain('full site &amp; parcel data');
+        expect(AVAILABLE).toContain('fabricate provenance');
+    });
+
+    it('it promises the fix is PERSISTENT — the full card returns on every future load', () => {
+        // Otherwise the founder re-presses it on every reload, which is the same dead end with
+        // extra steps.
+        expect(AVAILABLE).toMatch(/on every future load/);
+    });
+
+    it('it states that the boundary is NOT touched (a provenance fix, not a geometry action)', () => {
+        expect(AVAILABLE).toMatch(/does not move, redraw or re-derive/);
+        expect(AVAILABLE).toContain('already committed here');
+    });
+
+    it('C08 §3.1 — an injected reason is escaped, not interpolated raw', () => {
+        const evil = buildLegacyDeterminationNoticeHtml({
+            recomputeAvailable: false,
+            unavailableReason: '<script>alert(1)</script>',
+        });
+        expect(evil).not.toContain('<script>');
+        expect(evil).toContain('&lt;script&gt;');
+    });
+
+    it('never throws on a missing reason and still renders the disabled arm with words', () => {
+        const bare = buildLegacyDeterminationNoticeHtml({ recomputeAvailable: false });
+        expect(bare).toContain('data-state="legacy-recompute-unavailable"');
+        expect(bare).toContain('disabled');
+        expect(bare.replace(/<[^>]*>/g, '').trim().length).toBeGreaterThan(0);
+    });
+
+    // ── SOURCE PINS — the wiring, not just the builder ────────────────────────────────────
+
+    it('the reduced card RENDERS the builder and WIRES the button (not a second copy)', () => {
+        const src = readFileSync(resolve(__dirname, '../../layout/GISAreaLayout.ts'), 'utf8');
+        expect(src).toContain('buildLegacyDeterminationNoticeHtml({');
+        expect(src).toContain('wireLegacyRecompute(panel)');
+        // ⭐ The old DEAD END must be gone: it named a geometry-touching action as the only
+        // route out of a provenance gap, and named no button at all.
+        expect(src).not.toContain('Re-commit the parcel once to solve, store and');
+    });
+
+    it('⭐ C06 §13.3 — there is exactly ONE recompute producer, with two callers', () => {
+        const src = readFileSync(resolve(__dirname, '../../layout/GISAreaLayout.ts'), 'utf8');
+        // The re-solve itself is invoked in exactly one place. `window.pryzmRecomputeEnvelopeCard`
+        // and the reduced card's button both route through `recomputeEnvelopeDetermination`.
+        const callSites = src.match(/reapplyZoningForActiveSite\(ctx\)/g) ?? [];
+        expect(callSites.length).toBe(1);
+        expect(src).toContain('window.pryzmRecomputeEnvelopeCard = (): boolean => recomputeEnvelopeDetermination()');
     });
 });
