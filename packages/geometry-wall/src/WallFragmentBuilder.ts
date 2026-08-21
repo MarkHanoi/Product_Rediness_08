@@ -209,7 +209,54 @@ export class WallFragmentBuilder {
         if (wall._renderVersion === undefined) return null;
         const jh = this._joinHash(joinData);
         const slabTag = (slabBaseOffset ?? 0).toFixed(4);
-        return `${wall._renderVersion}|${jh}|${slabTag}|${this._rakeTag(wall)}${this._openingProfileTag(wall)}`;
+        return `${wall._renderVersion}|${jh}|${slabTag}|${this._levelDatumTag(wall)}|${this._rakeTag(wall)}${this._openingProfileTag(wall)}`;
+    }
+
+    /**
+     * §LEVEL-DATUM-IS-NOT-IN-THE-KEY (L-2050) — the LEVEL's elevation, as a cache-key
+     * fragment. THE THIRD OF THE THREE INVALIDATION GATES, and the one that was open.
+     *
+     * ⛔ MEASURED, not reasoned. `_buildWallInternal` seats every wall at
+     *
+     *     worldY = level.elevation + slabBaseOffset + wall.baseOffset
+     *
+     * Two of those three terms were already folded into the key — `slabBaseOffset`
+     * directly, `wall.baseOffset` via `_renderVersion` (a wall-record write bumps it).
+     * **`level.elevation` was the one term that was not**, and it is the only one of the
+     * three that can move WITHOUT any wall record changing: `BimKernel.updateLevel`
+     * writes the LEVEL and fires `spatial-authority-reconcile`; no `WallStore.update`
+     * occurs, so `_renderVersion` is untouched.
+     *
+     * The consequence, measured with the real builder before this fix (probe in
+     * `L2050LevelMoveReseatsHostedOpening.test.ts`): drive a level from 3.0 m to 4.3 m
+     * and re-dispatch the EXACT call `initWallLevelSubscribers` makes —
+     * `updateWall(wall, null, renderMap)` — and the composite key is byte-identical, so
+     * `_buildWallInternal` returns at the version guard. The wall is **not rebuilt at
+     * all**, and therefore `publishWallBaseY` is **never called**.
+     *
+     * ⭐ WHY THIS IS A *HOSTED-OPENING* DEFECT, AND THE WORST KIND. A window/door does
+     * not follow its host by watching the wall record — `SpatialAuthority` deliberately
+     * classifies hosted elements `DETERMINED-HOSTED` and EXCLUDES them from the
+     * reconcile, on the stated ground that they are *"re-rendered by the host wall's own
+     * rebuild"*. Their one re-seat channel is `onWallBaseYChanged`, which only ever fires
+     * from `publishWallBaseY` inside a real build. So this single skipped rebuild silently
+     * severs the entire hosted chain: `WindowBuilder` then reads the STALE published plane
+     * back out of `resolveWallBaseYOrLevel` and re-seats the leaf exactly where it was.
+     *
+     * NOT rake, and not curvature — the probe measures a VERTICAL host failing identically
+     * (base stayed 3.0 for `rakeAngleDeg` null and 70 alike). Rake only makes the damage
+     * VISIBLE: a wall that leans is at a different XZ at every height, so a leaf left at
+     * the wrong height is also at the wrong PLACE and hangs in mid-air, while the same
+     * error on a plumb wall leaves the leaf still in the façade plane, merely too low.
+     *
+     * Read through the SAME `getBimManager()` the build itself uses, so the key cannot
+     * disagree with the datum it is keying. `'?'` when no level resolves — distinct from
+     * any real elevation, and never `0`, which is a real datum (§context-data-honesty).
+     * 4 dp = 0.1 mm, matching `slabTag`.
+     */
+    private _levelDatumTag(wall: WallData): string {
+        const elev = this.getBimManager()?.getLevelById?.(wall.levelId)?.elevation;
+        return typeof elev === 'number' && Number.isFinite(elev) ? `e${elev.toFixed(4)}` : 'e?';
     }
 
     /**

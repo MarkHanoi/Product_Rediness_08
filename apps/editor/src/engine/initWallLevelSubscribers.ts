@@ -1,4 +1,5 @@
 import { resolveOpeningRenderMap } from './WallRebuildCoordinator';
+import { resolveSlabBaseOffsetForWall } from '@pryzm/geometry-wall';
 import { doorStore } from '@pryzm/geometry-door';
 import { windowStore } from '@pryzm/geometry-window';
 import { initDependencyCascade } from './initDependencyCascade';
@@ -51,7 +52,26 @@ export function initWallLevelSubscribers(params: {
             const wall = store.getById(id);
             if (wall) {
                 try {
-                    builder.updateWall(wall, null, resolveOpeningRenderMap(wall, store));
+                    // §LEVEL-DATUM-IS-NOT-IN-THE-KEY (L-2051) — RESOLVE THE SLAB TERM.
+                    //
+                    // This passed no `slabBaseOffset` at all, i.e. the builder's
+                    // `slabBaseOffset ?? 0`. That was INVISIBLE for as long as the
+                    // sibling defect (L-2050) meant this call never rebuilt anything:
+                    // the composite cache key omitted the level elevation, so a level
+                    // move short-circuited at the version guard every time.
+                    //
+                    // Folding the datum into that key makes THIS call live — and a live
+                    // call with a missing slab term would seat every wall on a raised
+                    // slab `slabBaseOffset` metres too LOW, dropping its hosted openings
+                    // with it. The two changes must ship together: fixing the
+                    // invalidation without this line converts a stale wall into a
+                    // wrongly-seated one, which is worse because it looks deliberate.
+                    //
+                    // `_flushWallRebuild` resolves exactly this way (WallRebuildCoordinator
+                    // :617, :1374, :2241, :2373, :2393) — same function, same store, so the
+                    // level path and the edit path cannot seat one wall two ways.
+                    const slabOff = resolveSlabBaseOffsetForWall(wall, slabStore);
+                    builder.updateWall(wall, null, resolveOpeningRenderMap(wall, store), slabOff);
                 } catch (err) {
                     console.error(`[initWallLevelSubscribers] §WALL-AUDIT-2026-C1: updateWall (level-rebuild) failed for wall "${id}" — continuing.`, err);
                 }
