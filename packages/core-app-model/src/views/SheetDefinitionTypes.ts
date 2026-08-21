@@ -85,6 +85,34 @@ export interface SheetViewport {
         min: [number, number];
         max: [number, number];
     };
+    /**
+     * §SHEET-VIEWPORT-CROP (L-1840) — per-PLACEMENT crop of the composed
+     * drawing, in DRAWING-SPACE METRES (world X / world Z). That is the very
+     * frame `TechnicalDrawingBounds.compute()` reports and `ViewportSvgComposer`
+     * frames in, so applying a crop is a SUBSTITUTION for content bounds, not a
+     * unit conversion.
+     *
+     * ⚠ THE UNITS ARE SPELLED OUT HERE ON PURPOSE. The sibling field
+     * `ViewportDto.clippingBox` (packages/schemas/src/sheet/sheet.ts) documents
+     * itself as "mm, viewport-local" while its only consumer,
+     * `ViewportManager.computeWorldBounds()`, reads it as WORLD space and says so
+     * in its own comment — one field, two coordinate systems. Nothing has ever
+     * written that field, so the contradiction was never observable at runtime;
+     * it is recorded in the ISSUE-LOG rather than inherited here.
+     *
+     * Absent ⇒ the viewport frames the drawing's full content bounds, which is
+     * the pre-crop behaviour and stays the default. Crop is per-placement by
+     * design: the same view may be cropped differently on two sheets. The
+     * view-wide equivalent is `ViewDefinition.crop` (ViewCropSettings), which
+     * clips the view EVERYWHERE it appears — a different decision, deliberately
+     * kept as a separate field.
+     */
+    crop?: {
+        minX: number;
+        minZ: number;
+        maxX: number;
+        maxZ: number;
+    };
 }
 
 // ── Sheet Workflow Status ──────────────────────────────────────────────────────

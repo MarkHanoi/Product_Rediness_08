@@ -86,6 +86,21 @@ export interface ComposeViewportSvgOptions {
      * compose a viewport whose annotations are not (yet) in the store.
      */
     annotations?: AnnotationElement[];
+    /**
+     * §SHEET-VIEWPORT-CROP (L-1840) — frame the composition to an explicit
+     * drawing-space rectangle, in METRES (world X / world Z): the same frame
+     * `TechnicalDrawingBounds.compute()` reports.
+     *
+     * When supplied this REPLACES content-bounds framing outright. No padding is
+     * added and the `minWidthMm` / `minHeightMm` floors are NOT applied — a crop
+     * is an exact statement about what the drawing shows, and quietly growing the
+     * frame to a minimum would un-crop it while still reporting success.
+     *
+     * Linework outside the rectangle needs no explicit clip path: the emitted SVG
+     * root carries a `viewBox`, and an outermost `<svg>` clips to its viewport by
+     * default.
+     */
+    cropWorldM?: { minX: number; minZ: number; maxX: number; maxZ: number };
 }
 
 export interface ComposedViewportSvg {
@@ -97,7 +112,7 @@ export interface ComposedViewportSvg {
      * the drawing — [context-data-honesty]: "no drawing yet" and "the drawing is
      * empty" must not present as the same thing.
      */
-    reason: 'ok' | 'no-drawing' | 'no-bounds';
+    reason: 'ok' | 'no-drawing' | 'no-bounds' | 'bad-crop';
     /** Standalone SVG document (with XML prolog). Empty string when unresolved. */
     svg: string;
     /** Paper-space width in mm the SVG was laid out for. */
@@ -116,6 +131,12 @@ export interface ComposedViewportSvg {
     pocheCount: number;
     /** Number of annotation elements composed. */
     annotationCount: number;
+    /**
+     * True when framing came from an explicit `cropWorldM` rather than the
+     * drawing's own content bounds. Consumers that print "fit" affordances need
+     * to know which of the two framings produced the result.
+     */
+    cropped: boolean;
 }
 
 // ── The producer ──────────────────────────────────────────────────────────────
@@ -162,6 +183,7 @@ export function composeViewportSvg(
                     lineCount: 0,
                     pocheCount: 0,
                     annotationCount: 0,
+                    cropped: false,
                 };
             };
 
@@ -171,11 +193,36 @@ export function composeViewportSvg(
             const bounds = TechnicalDrawingBounds.compute(drawing);
             if (!bounds) return empty('no-bounds');
 
-            const mm = TechnicalDrawingBounds.toMm(bounds, scale, paddingM);
-            const widthMm = Math.max(mm.widthMm, minW);
-            const heightMm = Math.max(mm.heightMm, minH);
-            const originX = bounds.minX - mm.padX;
-            const originZ = bounds.minZ - mm.padZ;
+            // §SHEET-VIEWPORT-CROP (L-1840) — an explicit crop SUBSTITUTES for
+            // content-bounds framing. Both branches produce the same four numbers
+            // the renderer needs (origin + paper size), so cropping costs one
+            // branch here and nothing downstream.
+            const crop = opts.cropWorldM;
+            let widthMm: number;
+            let heightMm: number;
+            let originX: number;
+            let originZ: number;
+            let cropped = false;
+
+            if (crop) {
+                // A degenerate crop is REFUSED, never silently ignored. Falling
+                // back to full bounds would render a correct-looking, uncropped
+                // drawing and report `resolved: true` — the caller would have no
+                // way to tell that the crop it asked for did not happen.
+                if (!_isUsableCrop(crop)) return empty('bad-crop');
+                originX  = crop.minX;
+                originZ  = crop.minZ;
+                widthMm  = (crop.maxX - crop.minX) * 1000 / scale;
+                heightMm = (crop.maxZ - crop.minZ) * 1000 / scale;
+                cropped  = true;
+                span.setAttribute('pryzm.cropped', true);
+            } else {
+                const mm = TechnicalDrawingBounds.toMm(bounds, scale, paddingM);
+                widthMm  = Math.max(mm.widthMm, minW);
+                heightMm = Math.max(mm.heightMm, minH);
+                originX  = bounds.minX - mm.padX;
+                originZ  = bounds.minZ - mm.padZ;
+            }
 
             const renderer = new SVGCompositeRenderer({
                 originX,
@@ -220,11 +267,25 @@ export function composeViewportSvg(
                 lineCount: renderer.projectionLineCount,
                 pocheCount: renderer.pochePolygons.length,
                 annotationCount: annotations.length,
+                cropped,
             };
         } finally {
             span.end();
         }
     });
+}
+
+/**
+ * A crop is usable only when every bound is finite and both extents are
+ * strictly positive. Zero-area and inverted rectangles are the two shapes a
+ * drag gesture produces on its very first frame, so they are expected input,
+ * not corruption — but they cannot be composed, and composing them anyway
+ * would emit an SVG with a zero or negative viewBox.
+ */
+function _isUsableCrop(c: { minX: number; minZ: number; maxX: number; maxZ: number }): boolean {
+    return Number.isFinite(c.minX) && Number.isFinite(c.minZ)
+        && Number.isFinite(c.maxX) && Number.isFinite(c.maxZ)
+        && c.maxX > c.minX && c.maxZ > c.minZ;
 }
 
 // ── Private helpers ───────────────────────────────────────────────────────────

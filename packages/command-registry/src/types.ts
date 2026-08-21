@@ -244,6 +244,7 @@ export enum CommandType {
     REMOVE_VIEWPORT_FROM_SHEET        = 'REMOVE_VIEWPORT_FROM_SHEET',
     MOVE_VIEWPORT                     = 'MOVE_VIEWPORT',
     UPDATE_VIEWPORT_SCALE             = 'UPDATE_VIEWPORT_SCALE',
+    SET_VIEWPORT_CROP                 = 'SET_VIEWPORT_CROP',
     // Phase S1 — Sheet Revision Management
     ADD_REVISION_TO_SHEET             = 'ADD_REVISION_TO_SHEET',
     REMOVE_REVISION_FROM_SHEET        = 'REMOVE_REVISION_FROM_SHEET',

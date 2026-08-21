@@ -57,11 +57,16 @@ export const COMPOSITE_SVG_CLASS = 'sh-vp-composite';
  * which is precisely the defect L-1630 closes.
  */
 export function composeSheetViewport(
-    vp: Pick<SheetViewport, 'viewId'> & { scale?: number },
+    vp: Pick<SheetViewport, 'viewId' | 'crop'> & { scale?: number },
 ): ComposedViewportSvg {
     return composeViewportSvg({
         viewId: vp.viewId,
         scale:  vp.scale ?? 100,
+        // §SHEET-VIEWPORT-CROP (L-1840) — the crop rides the SAME producer as the
+        // drawing itself, which is the whole reason it is safe: the sheet, the PDF
+        // and the print layer cannot disagree about what the crop shows, because
+        // there is only one place that knows how a crop becomes a viewBox.
+        ...(vp.crop ? { cropWorldM: vp.crop } : {}),
     });
 }
 

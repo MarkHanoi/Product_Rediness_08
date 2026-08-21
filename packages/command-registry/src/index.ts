@@ -370,6 +370,7 @@ export * from './views/UpdateScheduleCommand';
 export * from './views/UpdateSheetCommand';
 export * from './views/UpdateViewDefinitionCommand';
 export * from './views/UpdateViewportScaleCommand';
+export * from './views/SetViewportCropCommand';
 export * from './views/UpdateViewTemplateCommand';
 
 // ─── Walls ────────────────────────────────────────────────────────────────

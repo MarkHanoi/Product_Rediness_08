@@ -216,6 +216,29 @@ class SheetStoreImpl {
         return true;
     }
 
+    /**
+     * §SHEET-VIEWPORT-CROP (L-1840) — set or clear a viewport's per-placement
+     * crop. `null` clears it, restoring content-bounds framing; that is a
+     * distinct operation from "crop to everything", which is why the signature
+     * takes `| null` rather than making the caller invent a full-extent box.
+     */
+    updateViewportCrop(
+        sheetId:    string,
+        viewportId: string,
+        crop:       SheetViewport['crop'] | null,
+    ): boolean {
+        const sheet = this._sheets.get(sheetId);
+        if (!sheet) return false;
+        const vp = sheet.viewports.find(v => v.id === viewportId);
+        if (!vp) return false;
+        if (crop === null) delete vp.crop;
+        else vp.crop = { ...crop };
+        sheet.metadata.modifiedAt = Date.now();
+        storeEventBus.emit({ elementType: 'sheet-definition', elementId: sheetId, operation: 'update', timestamp: Date.now() });
+        this.dispatch('sd:sheet-updated', { sheetId });
+        return true;
+    }
+
     // ── Revision operations (called only by Commands) ─────────────────────────
 
     addRevision(sheetId: string, entry: RevisionEntry): boolean {
