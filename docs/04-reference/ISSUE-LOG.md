@@ -31975,3 +31975,169 @@ reasoning is written into `gisActionRegistry.ts` at the point of removal so it c
   lane DIM46's commits `33dfda79`/`4e0ff9a8`, both in files this lane was forbidden to touch. **They
   will hard-fail the Fly build** ([[build-uses-stricter-root-tsc]]). Verified none of this lane's 18
   files appear in either commit.
+
+---
+
+## L-3200 … L-3207 — RAC × EVERY PROPERTY: the shared blocker was mis-diagnosed, and the real one was worse — 2026-08-21 (lane RAC4, commits `0fb1e9f9`, `452a5839`)
+
+The founder, on being told two RAC things are not built: **"I NEED ALL OF THAT PRESENT."** The two
+were (1) 75 of 112 property cells SILENT and (2) window reveals unreachable by RAC. Both were said to
+share one blocker — `WallStore.updateWindow`'s four-field whitelist, per L-1923.
+
+### ⭐ L-3200 — FIXED: a parameter the store DROPPED was reported as SUCCESS
+
+**The blocker as recorded was half wrong, and the half that was wrong mattered more.** Measured
+against the real stores before anything was changed:
+
+| probe | outcome BEFORE | verdict |
+|---|---|---|
+| `{revealProjection: 0.25}` | `success:true`, **and the value LANDS** on `windowStore.getById()` | the stated blocker does **not** bite this feature |
+| `{totallyNotAField: 7}` | `success:true`, **value silently DROPPED** | ⛔ the real silent-success seam |
+| `{revealSplayJambLeft:85, revealSplayJambRight:85}` on a 1.2 m window | `success:true`, **value STORED** | ⛔ worse than a drop — see L-3202 |
+
+**`WallStore.updateWindow` does not drop reveal fields.** Its four-field list is the projection onto
+`wall.openings[]`; the window record itself is a full merge, and the reveal geometry is built from
+the WINDOW record, which never travels through that projection.
+
+**The real mechanism is ZOD, not the whitelist.** `WindowStore.update` writes
+`WindowOpeningSchema.safeParse(merged).data`, and a Zod object **strips unknown keys by default**.
+`UpdateElementParameterCommand.execute` then returned `{success:true}` straight off `applyUpdate`,
+which returns `void` — so the success claim asserted only *"nothing threw"*. L-995 / L-1670 in a
+third costume.
+
+**Fixed** by a read-back that counts **RECORDS, not calls** (C67 rule 12 · C16 CA-21 ·
+§WALL-FINISH-READBACK). All keys dropped means a refusal naming them; some dropped means success for
+what landed, with the shortfall NAMED and never rolled back.
+
+⭐ **It must read the AUTHORITY, never the mirror — and that is measured, not assumed.** After the
+junk write, `WallStore.getWindow()` **HELD** `totallyNotAField` (its merge is a plain spread) while
+`windowStore.getById()` did not. A read-back aimed at the mirror would have certified the drop as a
+success — [[fake-more-capable-than-real]] with the fake being a *production* store.
+
+**PRESENCE, not equality**, because `_clampPatchToWall` and the circular-profile squaring both land a
+*different* value than was asked for on purpose. An unreadable record claims **nothing**, so
+"unreadable" never collapses into "absent".
+
+### ⭐ L-3201 — FIXED: one FAKE was less capable than the real store, and hid the defect for as long as it existed
+
+`makeRecorder` in `updateElementParameterSnapshotScope.test.ts` recorded that a write happened and
+**threw the values away** (`update() { written.add(key); }`). Invisible while the command reported
+success off a void; **eighteen arms went red** the moment it started reading back, because on that
+fake the write genuinely did not land.
+
+That is [[fake-more-capable-than-real]] **INVERTED** and just as blind: a stand-in that accepts a
+call and keeps nothing cannot tell a working store from a dropping one. The fake now merges the patch
+the way every real store does. **Its own subject — which store received the write — is untouched.**
+
+### ⭐ L-3202 — FIXED: `element.updateParameters` BYPASSED the C83 IMPOSSIBLE gate
+
+`UpdateWindowParameterCommand` refuses a splay steep enough that the two reveals meet (zero glazing
+area). **That gate lived only in that command, and NO bus route reaches it** — `WindowSection`
+dispatches it through the commandManager directly. So the PANEL was guarded and **every other writer
+— chat, collaboration replay, the property inspector — was not**, and a degenerate splay stored
+happily and reported success.
+
+Worse than a dropped field: it writes a window with invisible glazing and reports success, which from
+the user's side is indistinguishable from one that worked.
+
+Fixed by putting the same gate — **imported from `@pryzm/geometry-window`, never restated** — on the
+generic path, in the same idiom as the existing rake and profile pre-flights, and enforced in
+`execute` as well as `canExecute` because the class is also executed directly.
+
+### ⭐ L-3203 — SHIPPED: the window reveal is settable AND askable, 5 cells SILENT to BOTH
+
+Five capabilities, five mirrored query rows, **zero new resolver case arms**:
+
+```
+"set the reveal projection to 100mm"     -> revealProjection 0.1
+"change the reveal projection to -50mm"  -> revealProjection -0.05   (SIGNED = a recess)
+"set the reveal splay to 15 degrees"     -> all four sides, ONE command, ONE undo step
+"set the head splay to 20 degrees"       -> revealSplayHead 20
+"set the jamb splay to 20 degrees"       -> both jambs
+"what is the head splay"                 -> "20 deg"
+```
+
+**THE FIRST ANGLE IN A LENGTH-ONLY VOCABULARY.** Every prior `PROPERTY_VOCABULARY` member is a length
+and the resolver converts with `toMeters`, under which *"set the jamb splay to 20"* is **twenty
+metres** and any mm-suffixed phrasing is **0.02**. `PropertyEntry.measure` declares the quantity and
+the resolver branches on it. That distribution — right for the bare form **by coincidence**, wrong
+for every suffixed one — is why the assertion exists and not merely the code.
+
+⭐ **THE NUMBER IS ASSERTED, NOT ONLY THE ROUTE.** `check-property-rac-matrix` reports a cell BOTH the
+moment a capability names the field; it would say exactly the same if the sentence arrived carrying
+`0.02`. `windowRevealRac.test.ts` (16 assertions) pins the VALUE at the payload, both units in one
+file, plus a non-vacuity control that a length in the same table is still converted as a length.
+
+**Gate movement** (`npx tsx tools/ga-gate/check-property-rac-matrix.ts`):
+
+| | BOTH | EXECUTE-ONLY | QUERY-ONLY | SILENT |
+|---|---|---|---|---|
+| before | 36 | 1 | 0 | **75** |
+| after | **41** | 1 | 0 | **70** |
+
+window 3 BOTH / 15 SILENT becomes **8 BOTH / 10 SILENT**; ARM A 17 to **22** rows. The five paid
+cells LEAVE the shrink-only ledger **in the same commit**, so the next regression cannot hide inside
+stale debt.
+
+### 🔴 L-3204 — OPEN: an ASYMMETRIC jamb splay has no sentence
+
+`set-reveal-splay-jambs` writes BOTH jambs. *"Splay the left jamb to 20 and leave the right"* is a
+real detail (a window turning a corner) and the panel offers the two independently. Named rather than
+approximated by an alias that would then disappoint.
+
+### 🔴 L-3205 — OPEN, and the reason `mark` is NOT the cheap win it looks like
+
+`mark` is SILENT in **eleven** families (L-2201) and looked like the cheapest single cluster. It is
+not, for three measured reasons, and wiring it blind would have been the exact defect this lane
+exists to remove:
+
+1. **TWO RECORD WORLDS, unresolved (L-2204).** `CoreElement` (`core-app-model/src/CoreElement.ts:57`)
+   declares the canonical home as **`properties.mark`**. The panel's SCHEMAS table declares
+   **top-level `mark`** for eleven families. `element.updateMark`'s handler writes `properties.mark`
+   **for stair only** and top-level `mark` for everything else. Three surfaces, two fields, no
+   agreement. A capability registry entry would have to pick one and would bake the ambiguity in.
+2. **PERSISTENCE IS UNVERIFIED** for the four families whose record type declares no `mark` at all
+   (wall, slab, column, curtain-wall — their stores merge permissively, so it *lands*, but that is
+   the L-999 defect class: a field four hand-written serializer whitelists may drop on save).
+3. **It needs machinery this lane did not build.** `PropertyReadOutcome.value` is `number`; a mark is
+   a string, so the ASK half needs the union, `speak()` and `chatPropertyReader` widened.
+
+⚠ **One thing checked and found NOT to be a defect**, recorded because it nearly was "fixed":
+`PropertyRenderer.getNestedValue` looks like it reads only `obj.properties?.mark` (:327) while its
+own comment quotes `properties?.mark ?? mark`. It is fine — **`if (key in obj) return obj[key]` at
+:290 runs first**, so a top-level mark is returned before that branch is reached. The read handles
+both homes; only the WRITE side disagrees with itself.
+
+### 🔴 L-3206 — OPEN: THREE DOOR DIMENSION CONTROLS ARE DEAD — the panel offers them, the builder reads the TYPE
+
+`DoorSection` renders `frameThickness`, `frameDepth` and `leafThickness` as editable numbers, all
+three are on `DoorOpeningSchema` with positive defaults, and a write genuinely lands on the record.
+**`DoorBuilder` does not read any of them:**
+
+* `frameThickness` reads `dims.frameThickness`, from `resolveDoorDimensions(door.systemTypeId, door.doorType)` (:847)
+* `leafThickness` reads `dims.leafThickness` (:932)
+* `frameDepth` reads `wallFrameDepth ?? dims.frameDepth ?? door.frameDepth` (:850) — and `wallFrameDepth` is `(wallData.thickness ?? 0.2) + 0.02` (:589), **always a number**, so the record's value is unreachable
+
+The builder's own comment states the intent: *"frame + leaf thickness come from the SELECTED type via
+the shared resolver so the placed frame equals the preview."* **That is a defensible design and an
+indefensible panel.** These are dead controls — the beam-height lie, at the panel instead of in the
+chat — and they sit in the RAC matrix denominator as if they were real properties.
+
+⛔ **They were therefore NOT wired to RAC.** `handleHeight` (:1119, `door.handleHeight`) is the ONE of
+the four the builder reads from the record and is the only one a capability could honestly claim.
+
+### ⚠ L-3207 — what this lane did NOT prove
+
+* **No browser run.** Every claim is measured at the command, store, resolver or gate layer.
+* **PERSIST (V4) and SYNC (V6) are unmeasured for the reveal fields.** The write, the refusal, the
+  read-back and the query are proven; save, reload, still-there is not.
+* **The read-back cannot see a store that ACCEPTS a field nothing reads.** It proves the record
+  carries the key, never that a builder consumes it. That is the honesty bar's second half and it is
+  still enforced only by hand (L-3206 is what that inspection catches).
+* **`check-property-rac-matrix` proves a sentence REACHES a command or an answer, never that the
+  number is right.** `windowRevealRac.test.ts` closes that gap for the reveal rows **only**; the
+  other 41 BOTH cells remain route-proven and value-unproven.
+* **70 cells remain SILENT.** They are named individually by the gate's ledger, not estimated.
+* **No property-granular refusal was added.** RAC3 deferred it because a refusal table no grammar
+  claims is authored-but-unwired; that reasoning still holds and this lane did not build the grammar
+  half either, so shipping the table alone was declined rather than half-done.
