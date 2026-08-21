@@ -1053,3 +1053,58 @@ proof establishes that the right bytes are being served, never that the feature 
 different claims and this contract only makes the first.
 
 ---
+
+---
+
+## 6.9.4 SIXTH EXECUTION — 2026-08-21 (`a547eff2`), bundle proof 6/6 — AND THE TRIGGER WAS THE **BILLING BLOCK**, NOT AN OUTAGE
+
+**Result: PASSED.** Served chunk moved `main-DOtOKQKJ.js` → `main-5t7Bkd0r.js`; cesium 257 / google 39;
+`GIT_SHA` == `a547eff2e5…`; `/api/health/live` `{"ok":true}`. Rollback tag captured **before** deploying:
+`pryzm:deployment-01M0H7TR8ZKX19VYVWDQWWHXJY`.
+
+### The trigger — a THIRD distinct signature, and §1 only names two
+
+§1 distinguishes the **Actions outage** (queued 34+ min, no runner) from the **billing block** (jobs die
+in 3–4 s, never started). This execution was the **billing block**, and the CI path was attempted first
+and correctly:
+
+```
+POST .../deploy-fly.yml/dispatches  {"ref":"main","inputs":{"bypass_ci_gate":"true"}}  → 204
+run 32455075622  status=completed  conclusion=failure
+  JOB "build (16GB runner) + deploy"   started 06:36:25  completed 06:36:29  steps=0   ← 4s, ZERO steps
+  JOB "CI must be green … (§L-540-CI-GATE)"  conclusion=skipped                        ← bypass WORKED
+```
+
+⭐ **The bypass is not what failed, and reading the run as "the deploy failed" would have sent the next
+agent hunting a code defect.** The gate job *skipped* exactly as designed; the build job never started.
+**4 seconds with `steps=0` is the billing signature** — the same reading as
+[[github-actions-billing-blocks-deploy]]. Two runs on the same SHA failed identically, which is the
+dispatch-retry behaviour §L-570 notes, not two different faults.
+
+**How to tell them apart in one call** — the job list, not the run conclusion:
+
+| | steps | duration | conclusion |
+|---|---|---|---|
+| Billing block | **0** | **3–4 s** | failure |
+| Actions outage | 0 | **queued 30+ min** | (never completes) |
+| Real code defect | **>0** | minutes | failure at a named step |
+
+### §2.3 + the worktree rule held, and this time it MATTERED
+
+Nine lanes had been running in the main tree. The deploy ran from the detached worktree
+`/c/pryzm-deploy/tree` at `a547eff2` with `git status --porcelain` **empty**, per the 2026-08-20 rule
+(the script's context is `COPY . .` — it ships the WORKING TREE, and `git rev-parse HEAD` only *stamps*
+the SHA). `GIT_BRANCH=HEAD` again — the known provenance blemish, accepted.
+
+⚠ **The docs commits (`133f41b2`, `7880b419`) landed on `main` AFTER the deploy SHA and are NOT in this
+image.** That is correct and intended — docs do not enter the bundle — but it means
+`/version`'s `git_sha` is deliberately behind `origin/main`. Do not read that as a stale deploy.
+
+### Timing (compare §4.2 / §6.5.4)
+
+Dispatch→proof ≈ **22 min** wall-clock, no retry, first attempt reached a push. Builder
+`fly-builder-shimmering-glow-9973` machine `1850352c021ee8` verified at **16384 MB** before launch
+(§2.1). Blue-green rolled 4 green machines; one showed `0/1 passing` mid-roll before all four reached
+`now ready` — blue served throughout.
+
+---
