@@ -25856,3 +25856,103 @@ errors in any file this lane touched.**
 > guessing.
 
 ---
+
+## L-1868 … L-1869 — ✅ FIXED (half) + 🔴 OPEN (half): cropping an elevation was silently moving LEVEL DATUMS — 2026-08-21 (lane ELEV1)
+
+**Founder, production, 2026-08-21:**
+
+> "In elevation view — the crop view is sound, works great — **but I often move the level or the
+> floor finish**. First floor finish and slabs are meant to be **hosted — they are level-based — so
+> they should NOT move in the Z axis** unless the user changes the base offset (which should be
+> accessible via RAC and via the Properties panel). Second, I would like a more robust process —
+> maybe **select the boundary by double-click** and then easily be able to **only modify the
+> boundary line without the risk of moving things up and down**."
+
+**His console, logged WHILE HE WAS CROPPING the South Elevation:**
+
+```
+[CommandManager] EXECUTE: UPDATE_LEVEL
+[PlanViewInteraction] Level elevation updated: L1787150975010 3.079
+[PlanViewInteraction] Level elevation updated: L1787150975010 2.875
+[PlanViewInteraction] Level elevation updated: L1787150975010 4.182
+[PlanViewInteraction] Level elevation updated: L0 0.023          ← the GROUND DATUM, off zero
+[PlanViewInteraction] Level elevation updated: L5-1787153736228 19.718
+```
+
+then repeated `UNDO: UPDATE_LEVEL … history remaining: 23`. **A 23 mm move of L0 is a silent
+structural change to the project, made while the user believed he was adjusting a crop.**
+
+---
+
+### L-1868 — ✅ FIXED: the level datum was a drag target with no gate at all
+
+**MEASURED.** `PlanViewInteraction._onMouseDown` armed a level drag on **any** mousedown within
+**10 px** of a datum line — no selection, no modifier, no mode:
+
+```ts
+const levelLineId = this._planCanvas.hitTestLevel?.(sx, sy, 10) ?? null;
+if (levelLineId) { this._levelDrag = { … }; this._isDragging = true; … return; }
+```
+
+A level datum line **spans the full width of an elevation**. So this is a 20 px tall band across
+the entire drawing whose meaning is *"move a whole storey"*, sitting in the same view as the crop
+handles. **The gesture was not merely discoverable — it was unavoidable.**
+
+And the commit test was a **1 mm** threshold **alone**:
+
+```ts
+if (Math.abs(rounded - drag.startElevation) > 0.001) { … 'level.update' … }
+```
+
+which commits on a **one-pixel slip**. At the founder's zoom, ~2 px is the 23 mm that moved L0.
+
+**THE RULE, and it is architectural rather than cosmetic — this is the founder's own statement:**
+a level's elevation is a **datum**, not a drawing annotation. Everything hosted on it (slabs, floor
+finishes) derives its Z from *level + base offset*, so moving the line silently moves real
+geometry. Changing it must be **deliberate**.
+
+**FIX — two independent floors, and neither is a new gesture:**
+
+- **GUARD A — select before you may drag.** The first press on an unselected datum line **selects
+  it and arms nothing**; only a press on the **already-selected** line arms the drag. This is
+  exactly the convention the file already uses for `_hitTestMarkOrigin` (L-305) and the
+  hosted-element handle, and `PlanViewCanvas` **already stored and rendered** `_selectedLevelId`
+  (`isSelected`, `PlanViewCanvas.ts:1192`) — **the state existed and simply never gated the drag.**
+  The capability is kept, not removed: one deliberate extra click now stands between a crop
+  gesture and a structural edit.
+- **GUARD B — a pixel floor as well as a metre floor.** `LEVEL_DRAG_MIN_TRAVEL_PX = CLICK_MAX_DRAG_PX + 1`,
+  deliberately derived from the file's OWN click/drag boundary: below that travel this file already
+  classifies the gesture as a **click**, so committing a datum change there contradicted its own
+  definition. Both floors must clear — the pixel floor rejects jitter at any zoom, the metre floor
+  rejects a long drag that lands back where it started.
+
+**Verified (foreground):** `levelDatumNotADragTarget.spec.ts` + `supersededDrawingLeavesScene.spec.ts`
+— **2 files / 19 PASS** (root vitest config). Root `tsc --noEmit --skipLibCheck`: **zero errors in
+any file this lane touched.**
+
+---
+
+### L-1869 — 🔴 OPEN: the half NOT built, and the questions it must answer first
+
+1. **🔴 Double-click to edit the boundary in isolation is NOT implemented.** The founder's part (b)
+   — *"select the boundary by double-click and then easily be able to only modify the boundary
+   line"* — is a **MODE**, not a gesture, and it should be designed against C09/C25 alongside the
+   sheet-viewport crop another lane is building (§SHEET-VIEWPORT-CROP-UI, L-1862…L-1866), so the
+   two crops do not acquire two different interaction grammars. Guards A+B stop the damage; they do
+   not give him the isolated boundary-edit mode he asked for.
+2. **🔴 `LevelPlaneConstraint` was NOT investigated.** It logs `Locked model Y=… for element …` and
+   may already encode "hosted Z is a consequence, not an input" **for elements** while leaving the
+   LEVEL line itself freely draggable. If so, the two rules should be stated in one place rather
+   than half-enforced in each. **Not measured — do not assume either way.**
+3. **🔴 Base offset via Properties panel / RAC is unverified.** The founder says Z should be
+   changeable *"via RAC and via the Properties panel"*. Whether both routes exist and reach the
+   store today was **not checked**. If they do not, Guard A has made the datum harder to move
+   without providing the deliberate route that replaces it — which would be a net regression for
+   anyone who legitimately needs to re-level a storey.
+4. **🔴 NOT browser-verified.** The tests drive the two decision rules **in isolation**, reproduced
+   from the production source; they do not construct a `PlanViewInteraction`. That the founder can
+   now crop without moving a datum is a **prediction**.
+5. **🔴 No gate.** Nothing prevents a future draggable annotation from being armed without a
+   selection gate in this same file.
+
+---

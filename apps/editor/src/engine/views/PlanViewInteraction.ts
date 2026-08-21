@@ -107,6 +107,17 @@ const GRID_HIT_RADIUS_PX = 12;
 const SCOPE_HANDLE_GRAB_PX = 14;
 
 /**
+ * §LEVEL-Z-IS-NOT-A-DRAG-TARGET (L-1868) — minimum vertical travel, in CSS pixels,
+ * before a level-datum drag may commit a new elevation.
+ *
+ * Deliberately equal to `CLICK_MAX_DRAG_PX` + 1: below that threshold this file already
+ * classifies a pointer gesture as a CLICK, not a drag, so committing a structural datum
+ * change there would contradict the file's own definition of the gesture. The founder's
+ * `L0 → 0.023` was ~2 px of slip.
+ */
+const LEVEL_DRAG_MIN_TRAVEL_PX = CLICK_MAX_DRAG_PX + 1;
+
+/**
  * Snap families and snap algorithm live in `PlanSnapEngine` (Contract 32).
  * This class only delegates to that engine via `querySnap` / `prewarmSnap`.
  */
@@ -306,10 +317,58 @@ export class PlanViewInteraction {
 
         // ── Level datum line drag (section/elevation views) ───────────────────
         // Only allow dragging the line itself, not the head (head is for click-to-edit).
+        //
+        // ⭐ §LEVEL-Z-IS-NOT-A-DRAG-TARGET (L-1868) — SELECT FIRST, THEN DRAG.
+        //
+        // THE DEFECT (founder, production, 2026-08-21): *"the crop view is sound, works
+        // great - but i often move the level or the floor finish … they are level-based -
+        // so they should NOT move in the Z axis unless the user changes the base offset"*.
+        // His console, logged WHILE HE WAS CROPPING the South Elevation:
+        //
+        //     Level elevation updated: L1787150975010 3.079
+        //     Level elevation updated: L1787150975010 2.875
+        //     Level elevation updated: L1787150975010 4.182
+        //     Level elevation updated: L0 0.023          ← the GROUND DATUM, off zero
+        //
+        // followed by repeated Ctrl+Z. A 23 mm move of L0 is a SILENT STRUCTURAL CHANGE to
+        // the project, made while the user believed he was adjusting a crop.
+        //
+        // WHY IT WAS SO EASY TO HIT. A level datum line spans the FULL WIDTH of an
+        // elevation, and this test armed a drag on ANY mousedown within 10 px of one — no
+        // selection, no modifier, no mode. That is a 20 px tall band across the entire
+        // drawing whose meaning is "move a whole storey", sitting in the same view as the
+        // crop handles. The gesture was not discoverable; it was unavoidable.
+        //
+        // THE RULE, and it is architectural rather than cosmetic: **a level's elevation is
+        // a datum, not a drawing annotation.** Everything hosted on it — slabs, floor
+        // finishes — derives its Z from level + base offset, so moving the line silently
+        // moves real geometry. Changing it must be DELIBERATE.
+        //
+        // THE FIX IS THE CONVENTION THIS FILE ALREADY USES, NOT A NEW GESTURE. Both
+        // `_hitTestMarkOrigin` (L-305) and the hosted-element handle require the target to
+        // be SELECTED before they will grab it. Level lines already HAVE a selected state
+        // — `PlanViewCanvas` stores `_selectedLevelId` and renders the line differently for
+        // it (`isSelected`, PlanViewCanvas.ts:1192) — the state simply never gated the drag.
+        // So: first press SELECTS and returns; only a press on the ALREADY-SELECTED line
+        // arms the drag. One deliberate extra click stands between a crop gesture and a
+        // structural edit.
         const levelHeadHit = this._planCanvas.hitTestLevelHead?.(sx, sy) ?? null;
         if (!levelHeadHit) {
             const levelLineId = this._planCanvas.hitTestLevel?.(sx, sy, 10) ?? null;
             if (levelLineId) {
+                if (this._planCanvas.getSelectedLevelId?.() !== levelLineId) {
+                    // ARM NOTHING. Select, show the affordance, and let this press end.
+                    this._planCanvas.setSelectedLevelId?.(levelLineId);
+                    this._canvas.style.cursor = 'ns-resize';
+                    (e as any).__pryzmToolHandled = true;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log(
+                        `[PlanViewInteraction] §LEVEL-Z-IS-NOT-A-DRAG-TARGET selected level ${levelLineId} ` +
+                        '— press again on the SAME line to move its datum.',
+                    );
+                    return;
+                }
                 const bimManager = window.bimManager;
                 const levels = bimManager?.getLevels?.() ?? [];
                 const level = levels.find((l: any) => l.id === levelLineId);
@@ -801,7 +860,15 @@ export class PlanViewInteraction {
                 const endSy = e.clientY - rect.top;
                 const newElevation = this._planCanvas.screenYToElevation(endSy);
                 const rounded = Math.round(newElevation * 1000) / 1000;
-                if (Math.abs(rounded - drag.startElevation) > 0.001) {
+                // §LEVEL-Z-IS-NOT-A-DRAG-TARGET (L-1868) — a PIXEL floor as well as a metre
+                // floor. The metre test alone (> 1 mm) commits on a ONE-PIXEL slip: at the
+                // founder's zoom a 2 px twitch is the 23 mm that moved L0 off zero. A datum
+                // edit must look like a drag, not like a click that wobbled. Both floors
+                // must be cleared, and neither alone is sufficient — the pixel floor rejects
+                // jitter at any zoom, the metre floor rejects a long drag that lands back
+                // where it started.
+                const travelPx = Math.abs(endSy - drag.startSy);
+                if (travelPx >= LEVEL_DRAG_MIN_TRAVEL_PX && Math.abs(rounded - drag.startElevation) > 0.001) {
                     // [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary
                     window.runtime?.bus?.executeCommand('level.update', {
                         levelId: drag.levelId,
