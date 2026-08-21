@@ -38,6 +38,8 @@ import { layerForZone } from '@pryzm/core-app-model';
 import { emitPlanViewMotionEvent } from '@pryzm/core-app-model';
 import type * as FRAGS from '@thatopen/fragments';
 import { ViewDefinition, VIEW_PROJECTION_DIRECTIONS } from '@pryzm/core-app-model';
+// §ELEV-SCOPE-DEPTH (L-1855) — the far-clip fallback is now a NAMED, SHARED constant.
+import { resolveElevationFarDepth, UNCLIPPED_ELEVATION_FAR_DEPTH_M } from '@pryzm/core-app-model';
 // §FIX-ELEVATION-POCHE (L-119) — unified per-view-type drawing scope. An
 // elevation has cut:false → emit :proj/:beyond ONLY (no :cut → no black poché).
 // §FEAT-VIEW-OCCLUSION-DISPOSITION (L-279) — `resolveViewScope` gives the view TYPE's
@@ -1726,7 +1728,14 @@ const DEFAULT_FAR_OFFSET  = 3.0;
  * so a default elevation captures the full depth of large/deep buildings the
  * founder was losing beyond the old 50 m cut. DOC-22 §7.
  */
-const DEFAULT_ELEVATION_FAR_DEPTH = 200.0;
+/**
+ * ⚠ §ELEV-SCOPE-DEPTH (L-1855) — kept as an ALIAS of the shared constant, not a
+ * second literal. This module owned `200` while the plan scope symbol and the scope
+ * drag independently owned `8` for the SAME quantity; the disagreement is what let a
+ * single touch of the depth handle collapse an elevation from the whole building to
+ * an 8 m slab. One owner: `@pryzm/core-app-model`.
+ */
+const DEFAULT_ELEVATION_FAR_DEPTH = UNCLIPPED_ELEVATION_FAR_DEPTH_M;
 
 /** Fallback cut elevation when no level reference is available. */
 const FALLBACK_CUT_ELEVATION = 0;
@@ -3897,7 +3906,7 @@ export class EdgeProjectorService {
         // explicit depth overrides; fall back to safe coverage defaults.
         if (viewDef.viewType === 'elevation' || viewDef.viewType === 'section') {
             const nearDepth = viewDef.spatial.viewRange?.nearOffset ?? 0;
-            const farDepth  = viewDef.crop?.farClip?.offset ?? viewDef.spatial.viewRange?.farOffset ?? DEFAULT_ELEVATION_FAR_DEPTH;
+            const farDepth  = resolveElevationFarDepth(viewDef, DEFAULT_ELEVATION_FAR_DEPTH);
             console.log(
                 `[EdgeProjectorService] resolveClipRange() ${viewDef.viewType} depth ` +
                 `near=${nearDepth.toFixed(3)} far=${farDepth.toFixed(3)}`,

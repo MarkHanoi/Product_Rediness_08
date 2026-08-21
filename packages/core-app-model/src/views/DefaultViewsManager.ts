@@ -40,11 +40,29 @@ export const DEFAULT_PLAN_VIEW_ID = 'vd-sys-plan-l0';
 // separately. Each carries `spatial.projectionDirection` — the shape
 // EdgeProjectorService reads (identical to the shipped documentation-set N/S/E/W
 // elevations in generateDocumentationSet.ts), so each projects REAL geometry.
+// ⚠ §ELEV-SCOPE-FRAME (L-1854) — **EAST AND WEST WERE SWAPPED HERE.** Founder,
+// 2026-08-21: *"East and west however dont work as expected: i am opening east
+// elevation and it is showing me the wrong side?"* — and North/South were fine,
+// which is the shape of the defect: the Z rows applied one naming rule and the X
+// rows applied the opposite one.
+//
+// East was `elevationRight` (+X) and West was `elevationLeft` (-X). Under the
+// frame derived in `VIEW_PROJECTION_DIRECTIONS` (-Z = north, +X = east; an
+// elevation is named for the façade nearest the viewer, and the viewer sits at
+// `-direction`), direction +X puts the viewer at -X and shows the WEST face. So
+// the row labelled "East Elevation" was projecting the west façade, exactly as
+// reported. The two comments on `elevationLeft` / `elevationRight` said "west
+// face" / "east face" and were themselves inverted — that is where this came from.
+//
+// Two independent producers already had it right and this table contradicted both:
+// `initUI.ts` generateElevations ('East Elevation' → (-1,0,0), camera at +X) and
+// ai-host `buildingElevations.ts` (`direction: 'E'` → `facing: {x:-1,z:0}`,
+// anchor at `maxX + offset`). Three producers, one subject — this one was alone.
 export const DEFAULT_ELEVATION_VIEWS = [
     { id: 'vd-sys-elev-north', markId: 'an-sys-elev-north', name: 'North Elevation', dir: VIEW_PROJECTION_DIRECTIONS.elevationBack  },
-    { id: 'vd-sys-elev-east',  markId: 'an-sys-elev-east',  name: 'East Elevation',  dir: VIEW_PROJECTION_DIRECTIONS.elevationRight },
+    { id: 'vd-sys-elev-east',  markId: 'an-sys-elev-east',  name: 'East Elevation',  dir: VIEW_PROJECTION_DIRECTIONS.elevationLeft  },
     { id: 'vd-sys-elev-south', markId: 'an-sys-elev-south', name: 'South Elevation', dir: VIEW_PROJECTION_DIRECTIONS.elevationFront },
-    { id: 'vd-sys-elev-west',  markId: 'an-sys-elev-west',  name: 'West Elevation',  dir: VIEW_PROJECTION_DIRECTIONS.elevationLeft  },
+    { id: 'vd-sys-elev-west',  markId: 'an-sys-elev-west',  name: 'West Elevation',  dir: VIEW_PROJECTION_DIRECTIONS.elevationRight },
 ] as const;
 
 const DEFAULT_ELEVATION_IDS = new Set<string>(DEFAULT_ELEVATION_VIEWS.map(v => v.id));
@@ -247,6 +265,118 @@ function _ensureElevationMarksForPlanView(planViewId: string): void {
         } else {
             if (_planViewHasElevationMark(store, planViewId, elev.id)) continue;
             _addElevationMark(store, _annotationId(), planViewId, elev.id, elev.dir);
+        }
+    }
+}
+
+/**
+ * §ELEV-SCOPE-FRAME (L-1854) — MIGRATION: re-point default elevations that were
+ * seeded with the swapped East/West direction.
+ *
+ * ⭐ WITHOUT THIS THE FIX IS UNREACHABLE. `ensureDefaultViews()` creates each
+ * default elevation only `if (!viewDefinitionStore.has(elev.id))`, and
+ * `_ensureElevationMarksForPlanView()` skips any mark that already exists. Every
+ * project created before this change — INCLUDING the founder's live one, whose
+ * console names `vd-sys-elev-south` — already holds `vd-sys-elev-east` with
+ * `projectionDirection = (+1,0,0)` and a mark at `x = -24`. Correcting the seed
+ * table alone would fix only projects that do not exist yet.
+ * ([committed-is-not-reachable] — prove the fix at the layer the user sees.)
+ *
+ * SAFETY — this repairs ONLY what the system itself authored, and refuses to
+ * overwrite user intent:
+ *   · the VIEW's `projectionDirection` is system-owned for `vd-sys-elev-*`, so it
+ *     is corrected unconditionally when it disagrees with the table.
+ *   · the MARK's `facingDirection` is likewise corrected.
+ *   · the mark's ANCHOR is re-seeded **only if it is still sitting at the position
+ *     the old (wrong) direction would have produced** — `-oldDir * radius`. The
+ *     old direction IS the mark's stored `facingDirection`, so no legacy table has
+ *     to be hard-coded here. If the founder has MOVED that mark (L-305), the
+ *     anchor is left exactly where he put it and only the facing is corrected.
+ */
+function _repairDefaultElevationOrientation(): void {
+    const EPS = 0.01;
+    const store = _annotationStore();
+
+    for (const elev of DEFAULT_ELEVATION_VIEWS) {
+        const want = elev.dir;
+
+        // ── 1. The VIEW's projection direction ──────────────────────────────
+        const view = viewDefinitionStore.get(elev.id);
+        if (view) {
+            const have = view.spatial?.projectionDirection;
+            if (have && (Math.abs((have.x ?? 0) - want.x) > EPS || Math.abs((have.z ?? 0) - want.z) > EPS)) {
+                viewDefinitionStore.update(elev.id, {
+                    spatial: { ...view.spatial, projectionDirection: { x: want.x, y: want.y, z: want.z } },
+                });
+                console.log(
+                    `[DefaultViewsManager] §ELEV-SCOPE-FRAME repaired ${elev.name} direction ` +
+                    `(${have.x},${have.z}) → (${want.x},${want.z})`,
+                );
+            }
+        }
+
+        // ── 2. Every plan view's MARK for this elevation ────────────────────
+        if (!store) continue;
+        for (const mark of _allElevationMarks(store)) {
+            const params = mark.parameters as {
+                linkedViewId?: string;
+                facingDirection?: { x?: number; y?: number; z?: number };
+                position?: { x: number; y: number; z: number };
+            } | undefined;
+            if (params?.linkedViewId !== elev.id) continue;
+            const had = params.facingDirection;
+            if (!had) continue;
+            const oldX = had.x ?? 0;
+            const oldZ = had.z ?? 0;
+            if (Math.abs(oldX - want.x) <= EPS && Math.abs(oldZ - want.z) <= EPS) continue; // already correct
+
+            const anchor = (mark.geometry2D as { modelPoints?: Array<{ x: number; y: number; z: number }> } | undefined)
+                ?.modelPoints?.[0];
+            // Was the anchor still at the position the OLD direction seeded?
+            const seededByOld = anchor
+                && Math.abs(anchor.x - (-oldX * ELEV_MARK_RADIUS_M)) <= EPS
+                && Math.abs(anchor.z - (-oldZ * ELEV_MARK_RADIUS_M)) <= EPS;
+
+            const ownerViewId = mark.ownerViewId as string | undefined;
+            const markId = mark.id as string | undefined;
+            if (!ownerViewId || !markId) continue;
+
+            try {
+                store.remove(markId);
+            } catch { /* non-fatal — re-add below regardless */ }
+
+            if (seededByOld) {
+                // Untouched system mark — re-seed position AND facing from the table.
+                _addElevationMark(store, markId, ownerViewId, elev.id, want);
+                console.log(`[DefaultViewsManager] §ELEV-SCOPE-FRAME re-seeded mark ${markId} for ${elev.name}`);
+            } else {
+                // The user moved this mark. Keep their anchor; correct only the facing.
+                const keep = anchor ?? { x: 0, y: 0, z: 0 };
+                const now = Date.now();
+                const dirEndpoint = {
+                    x: keep.x + want.x * ELEV_MARK_ARROW_LEN_M,
+                    y: keep.y,
+                    z: keep.z + want.z * ELEV_MARK_ARROW_LEN_M,
+                };
+                try {
+                    store.add({
+                        ...mark,
+                        geometry2D: { modelPoints: [keep, dirEndpoint], offset: 0 },
+                        parameters: {
+                            ...params,
+                            facingDirection: { x: want.x, y: want.y, z: want.z },
+                            position: keep,
+                        },
+                        updatedAt: now,
+                    });
+                } catch (e) {
+                    console.warn(`[DefaultViewsManager] §ELEV-SCOPE-FRAME mark ${markId} repair failed (non-fatal):`, e);
+                }
+                console.log(
+                    `[DefaultViewsManager] §ELEV-SCOPE-FRAME corrected facing on USER-MOVED mark ${markId} ` +
+                    `for ${elev.name}; anchor left at (${keep.x}, ${keep.z})`,
+                );
+            }
         }
     }
 }
@@ -593,6 +723,12 @@ function ensureDefaultViews(): void {
     for (const planView of viewDefinitionStore.getByType('plan')) {
         _ensureElevationMarksForPlanView(planView.id);
     }
+
+    // ── 5. §ELEV-SCOPE-FRAME (L-1854) — repair swapped East/West on projects that
+    // were seeded before the fix. MUST run AFTER step 4 so freshly topped-up marks
+    // are covered by the same pass. Idempotent: on a correct project every
+    // comparison matches the table and nothing is written.
+    _repairDefaultElevationOrientation();
 }
 
 let _resetDebounce: ReturnType<typeof setTimeout> | null = null;

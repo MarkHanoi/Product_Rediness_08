@@ -319,6 +319,12 @@ export type {
 } from './views/ViewDefinitionTypes.js';
 export {
     ALL_VIEW_TYPES, PLAN_VIEW_TYPES, VIEW_PROJECTION_DIRECTIONS,
+    // §ELEV-SCOPE-DEPTH (L-1855) — ONE far-clip expression, two NAMED fallbacks.
+    // Every producer of an elevation far clip (projector + plan scope symbol +
+    // scope drag) resolves through resolveElevationFarDepth; never inline a magic
+    // `?? 8` / `?? 200` again. See ViewDefinitionTypes for the derivation.
+    UNCLIPPED_ELEVATION_FAR_DEPTH_M, DEFAULT_ELEVATION_SCOPE_DEPTH_M,
+    resolveElevationFarDepth,
 } from './views/ViewDefinitionTypes.js';
 // §FIX-ELEVATION-POCHE / §FIX-ELEVATION-SCOPE (L-119 / L-120 P4) — unified view scope.
 export { resolveViewScope, resolveOcclusionDisposition, resolveBeyondLineStyle } from './views/ViewScope.js';

@@ -29,6 +29,12 @@ import {
 import { formatDimension } from '@pryzm/plugin-annotations';
 import { viewDefinitionStore } from './ViewDefinitionStore';
 import type { ViewDefinition } from './ViewDefinitionTypes';
+// §ELEV-SCOPE-DEPTH (L-1855) — ONE far-clip expression. The three sites below used
+// to inline `?? 8` while EdgeProjectorService.resolveClipRange() inlined `?? 200`,
+// so an untouched elevation PROJECTED the whole building but drew its depth handle
+// 8 m from a mark seeded 24 m away — unreachable, and committing it sliced the
+// building. See ViewDefinitionTypes for the derivation.
+import { resolveElevationFarDepth, DEFAULT_ELEVATION_SCOPE_DEPTH_M } from './ViewDefinitionTypes';
 // §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — a tag's size is PAPER, scaled by the
 // view (C24). The same mechanism as the dimension tier gap (L-281); tags never got it.
 import {
@@ -2043,7 +2049,24 @@ export class PlanViewAnnotationRenderer {
         const linkedViewId = ann.parameters.linkedViewId as string | undefined;
         const viewDef = linkedViewId ? viewDefinitionStore.get(linkedViewId) : undefined;
         if (!viewDef) return;
-        const scope = this._computeElevationScope(ann, viewDef);
+        // ⚠ §ELEV-SCOPE-FRAME (L-1856) — THIS LINE USED TO CALL `_computeElevationScope`
+        // DIRECTLY, and that was the founder's *"line staying static pointing to the
+        // wrong place"* (2026-08-21). `_computeElevationScope` reads `crop.region[0]`
+        // as a SIGNED PERPENDICULAR OFFSET from the mark anchor — but every writer that
+        // also stores a `sectionVolume` (the scope drag, `CreateElevationMarkCommand`)
+        // writes it as an ABSOLUTE world-H coordinate. Adding an absolute coordinate to
+        // the anchor displaces the cut line by the anchor's OWN H value: on the
+        // founder's South elevation the crop spanned world-H -15.69 → 0.15 while this
+        // line was drawn 7.8 m to its left, unmoving, beside a crop rectangle that was
+        // correct. Two producers of one surface (C06 §13.3).
+        //
+        // `_scopeWorld` is that ONE producer: it prefers `spatial.sectionVolume` — the
+        // same frame the projector and the crop rectangle use — and falls back to
+        // `_computeElevationScope` only when no volume exists, which is the only case
+        // in which the OFFSET encoding is the correct reading. Do not re-point this at
+        // `_computeElevationScope`; the dual encoding is documented on
+        // `ViewCropSettings.region` and is not yet unified.
+        const scope = this._scopeWorld(ann, viewDef);
         if (!scope) return;
 
         const a = w2s(scope.a.x, scope.a.z);
@@ -2103,7 +2126,7 @@ export class PlanViewAnnotationRenderer {
         const viewDef = linkedViewId ? viewDefinitionStore.get(linkedViewId) : undefined;
         if (!viewDef) return;
 
-        const depth = Math.max(0.1, viewDef.spatial.sectionVolume?.far ?? viewDef.crop?.farClip?.offset ?? 8);
+        const depth = Math.max(0.1, viewDef.spatial.sectionVolume?.far ?? resolveElevationFarDepth(viewDef, DEFAULT_ELEVATION_SCOPE_DEPTH_M));
         const scope = this._scopeWorld(ann, viewDef);
         if (!scope) return;
 
@@ -2299,7 +2322,7 @@ export class PlanViewAnnotationRenderer {
         if (!pt) return null;
         const dir = normalize2((ann.parameters.facingDirection as { x: number; z: number } | undefined) ?? { x: 0, z: -1 });
         const perp = { x: -dir.z, z: dir.x };
-        const depth = Math.max(0.1, viewDef.crop?.farClip?.offset ?? 8);
+        const depth = Math.max(0.1, resolveElevationFarDepth(viewDef, DEFAULT_ELEVATION_SCOPE_DEPTH_M));
         const DEFAULT_HALF = 3;
         const leftPerp  = viewDef.crop?.region?.min[0]  ?? -DEFAULT_HALF;
         const rightPerp = viewDef.crop?.region?.max[0]  ??  DEFAULT_HALF;
@@ -2336,7 +2359,7 @@ export class PlanViewAnnotationRenderer {
                 projectionB: { x: projCenter.x + right.x * half, z: projCenter.z + right.z * half },
             };
         }
-        const depth = Math.max(0.1, viewDef.crop?.farClip?.offset ?? 8);
+        const depth = Math.max(0.1, resolveElevationFarDepth(viewDef, DEFAULT_ELEVATION_SCOPE_DEPTH_M));
         return ann.type === 'section-mark'
             ? this._sectionScopeWorld(ann, depth)
             : this._computeElevationScope(ann, viewDef);

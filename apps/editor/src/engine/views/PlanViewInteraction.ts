@@ -26,6 +26,9 @@ export type { PlanSnapType } from '@pryzm/core-app-model';
 import { planElementDragController } from '@pryzm/core-app-model';
 import { annotationStore } from '@pryzm/plugin-annotations';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
+// §ELEV-SCOPE-DEPTH (L-1855) — the depth HANDLE's fallback must be a named constant
+// that reaches the model, not a magic 8 that sits short of a mark seeded 24 m out.
+import { resolveElevationFarDepth, DEFAULT_ELEVATION_SCOPE_DEPTH_M } from '@pryzm/core-app-model';
 import { floorPlanUnderlayRef } from '@pryzm/core-app-model';
 import type { AnnotationElement } from '@pryzm/plugin-annotations';
 import type { ViewDefinition, ViewSectionVolume, ViewCropSettings } from '@pryzm/core-app-model';
@@ -1705,7 +1708,7 @@ export class PlanViewInteraction {
 
     private _resolveSectionVolumeForDrag(ann: AnnotationElement, viewDef: ViewDefinition): ViewSectionVolume | null {
         if (viewDef.spatial.sectionVolume) return viewDef.spatial.sectionVolume;
-        const far = Math.max(0.25, viewDef.crop?.farClip?.offset ?? viewDef.spatial.viewRange?.farOffset ?? 8);
+        const far = Math.max(0.25, resolveElevationFarDepth(viewDef, DEFAULT_ELEVATION_SCOPE_DEPTH_M));
         const height = Math.max(
             0.25,
             (viewDef.crop?.region?.max?.[1] ?? viewDef.spatial.boundingBox?.max?.[1] ?? 3) -

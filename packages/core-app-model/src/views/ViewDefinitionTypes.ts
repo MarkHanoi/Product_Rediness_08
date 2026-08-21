@@ -178,21 +178,129 @@ export interface ViewSectionVolume {
 // ── Preset projection direction vectors (DOC-1.2) ────────────────────────────
 // Consumed by EdgeProjectorService; plain objects — no THREE.js imports.
 // All vectors are unit-length and right-handed (PRYZM world: Y = up).
+//
+// ═══ §ELEV-SCOPE-FRAME (L-1854) — THE CARDINAL FRAME, STATED ONCE ═══
+//
+// Two of the six doc-comments below USED TO BE WRONG, and the wrong pair is what
+// seeded a swapped East/West into `DEFAULT_ELEVATION_VIEWS` (founder, 2026-08-21:
+// *"i am opening east elevation and it is showing me the wrong side"*). Read this
+// derivation before editing either the vectors or their comments.
+//
+// THE FRAME — derived, not asserted. `PlanViewService.getViewConfig('top')` sets
+// the plan camera to `dirVec = (0,-1,0)`, `upVec = (0,0,-1)`. For a three.js
+// camera, screen-up is `up` and screen-right is `cross(up, -forward)`:
+//     screen-up    = (0,0,-1) = -Z     → and screen-up in a plan IS NORTH
+//     screen-right = cross((0,0,-1),(0,1,0)) = (1,0,0) = +X → EAST
+// Therefore, for the whole editor:      -Z = NORTH   +X = EAST
+//
+// THE NAMING RULE — an elevation is named for the FAÇADE IT SHOWS, which is the
+// façade NEAREST the viewer. The camera sits at `centre - direction * distance`
+// (see `_elevationMarkPlacement`, which places the mark at `-dir * radius`), so:
+//     viewer side = -direction        named façade = the -direction face
+// e.g. direction (0,0,-1) ⇒ viewer at +Z ⇒ shows the +Z face ⇒ +Z is SOUTH ⇒
+// "South elevation". That is `elevationFront`, and it is the row the founder
+// confirms works.
+//
+// APPLYING THE SAME RULE TO X (this is the part that was inverted):
+//     direction (-1,0,0) ⇒ viewer at +X ⇒ shows the +X face ⇒ EAST elevation
+//     direction (+1,0,0) ⇒ viewer at -X ⇒ shows the -X face ⇒ WEST elevation
+//
+// CORROBORATED by two independent producers that were already correct and that
+// `DEFAULT_ELEVATION_VIEWS` silently contradicted:
+//   · `apps/editor/src/engine/initUI.ts` (generateElevations) — 'East Elevation'
+//     is created with direction (-1,0,0) and the camera at `+distance` on X.
+//   · `packages/ai-host/src/workflows/houseLayout/buildingElevations.ts` —
+//     `{ direction: 'E', anchor: { x: maxX + offset }, facing: { x: -1, z: 0 } }`.
+//
+// ⚠ The NAMES `elevationLeft` / `elevationRight` describe the AXIS SIGN (-X / +X)
+// and are correct as such. Do NOT "fix" this by flipping the vectors — other
+// callers resolve a *preset* by name. The cardinal mapping belongs to the caller
+// that names a compass direction, and there is exactly one: DEFAULT_ELEVATION_VIEWS.
 
 export const VIEW_PROJECTION_DIRECTIONS = {
     /** Standard floor plan — looking downward along -Y. */
     plan:           { x:  0, y: -1, z:  0 },
     /** Reflected ceiling plan — looking upward along +Y. */
     ceilingPlan:    { x:  0, y:  1, z:  0 },
-    /** Front elevation — looking along -Z (south face). */
+    /** Front elevation — looking along -Z; viewer at +Z, shows the +Z (SOUTH) face. */
     elevationFront: { x:  0, y:  0, z: -1 },
-    /** Back elevation — looking along +Z (north face). */
+    /** Back elevation — looking along +Z; viewer at -Z, shows the -Z (NORTH) face. */
     elevationBack:  { x:  0, y:  0, z:  1 },
-    /** Left elevation — looking along -X (west face). */
+    /**
+     * Left elevation — looking along -X; viewer at +X, shows the +X (EAST) face.
+     * ⚠ Previously documented as "west face". That comment was the defect: it is
+     * what mapped `East Elevation → elevationRight` in DEFAULT_ELEVATION_VIEWS.
+     */
     elevationLeft:  { x: -1, y:  0, z:  0 },
-    /** Right elevation — looking along +X (east face). */
+    /**
+     * Right elevation — looking along +X; viewer at -X, shows the -X (WEST) face.
+     * ⚠ Previously documented as "east face". See `elevationLeft`.
+     */
     elevationRight: { x:  1, y:  0, z:  0 },
 } as const;
+
+// ── §ELEV-SCOPE-DEPTH (L-1855) — ONE far-clip expression, TWO NAMED fallbacks ──
+//
+// THE DEFECT (founder, 2026-08-21: *"the sides are off - and the 'crop' is not
+// present"*). The far clip of an elevation was resolved by TWO hand-copied
+// expressions with DIFFERENT magic fallbacks:
+//   · `EdgeProjectorService.resolveClipRange()` — `?? viewRange.farOffset ?? 200`
+//   · the plan scope handle (`PlanViewInteraction._resolveSectionVolumeForDrag`,
+//     `PlanViewAnnotationRenderer._scopeWorld`) — `?? 8`
+// So an untouched elevation PROJECTED at 200 m (correct: the whole building) but
+// DREW its depth handle at 8 m. The default elevation marks are seeded 24 m from
+// the origin (`ELEV_MARK_RADIUS_M`), so 8 m does not reach the model at all — and
+// the instant the user touched that handle the drag COMMITTED 8 m into
+// `crop.farClip.offset`, collapsing the projector's far from 200 → 8 and slicing
+// the building down to a slab. That is the founder's "Depth 8.00 m" → "Depth
+// 0.47 m" sequence: the handle was never on the building to begin with.
+//
+// The two fallbacks are genuinely different QUESTIONS and are allowed to differ —
+// but only deliberately, and only by name:
+//   · UNCLIPPED  — "no far clip is stored, so clip nothing." A depth, not a UI.
+//   · SCOPE HANDLE — "no far clip is stored, so where do we DRAW the grab handle?"
+//     It must land past the building or the user cannot reach it.
+// `resolveElevationFarDepth()` below is the single expression; the caller names
+// which fallback it means. Never inline `?? 8` or `?? 200` again.
+
+/**
+ * Far-clip depth (metres) used when a section/elevation view stores none —
+ * the "unclipped" stand-in for the PROJECTOR. Large enough to contain any
+ * building we document.
+ */
+export const UNCLIPPED_ELEVATION_FAR_DEPTH_M = 200;
+
+/**
+ * Far-clip depth (metres) at which the PLAN SCOPE HANDLE is drawn for a view that
+ * stores no far clip.
+ *
+ * ⚠ STAND-IN, stated as such. The honest value is "the distance from the mark's
+ * depth plane to the far side of the model bounding box", which neither the L3
+ * renderer nor the plan interaction can read today. 40 m is chosen so that the
+ * handle clears a typical footprint measured from the 24 m default mark radius
+ * (`ELEV_MARK_RADIUS_M`) — i.e. it OVERSHOOTS. Overshoot is the safe direction:
+ * too far shows the whole building, too near silently slices it (that was the
+ * defect). Exit condition: derive from model bounds and delete this constant.
+ */
+export const DEFAULT_ELEVATION_SCOPE_DEPTH_M = 40;
+
+/**
+ * The ONE far-clip resolution for a section/elevation view.
+ *
+ * `fallback` names which question is being asked — see the block comment above.
+ * Both the projector and every scope-symbol producer MUST come through here so
+ * they cannot drift apart again (C06 §13.3 — one producer per surface).
+ */
+export function resolveElevationFarDepth(
+    viewDef: {
+        crop?: { farClip?: { offset?: number } };
+        spatial?: { viewRange?: { farOffset?: number } };
+    },
+    fallback: number,
+): number {
+    const stored = viewDef.crop?.farClip?.offset ?? viewDef.spatial?.viewRange?.farOffset;
+    return typeof stored === 'number' && Number.isFinite(stored) ? stored : fallback;
+}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TEMPORAL CONTEXT                                                  [B + VI]
@@ -392,8 +500,33 @@ export interface ViewCropSettings {
     enabled: boolean;
 
     /**
-     * 2D crop region in level-plane coordinates [x, z].
-     * Undefined when enabled = false or when the view uses full extent.
+     * 2D crop region. Undefined when enabled = false or the view uses full extent.
+     *
+     * ⚠ §ELEV-SCOPE-FRAME (L-1856) — **`region[0]` CARRIES TWO INCOMPATIBLE
+     * MEANINGS** and this is a KNOWN, UNRESOLVED hazard. Do not add a third.
+     *
+     *   · plan views                         — `[worldX, worldZ]`.
+     *   · section/elevation WITH `spatial.sectionVolume`
+     *                                        — `[ABSOLUTE world-H, world-Y]`,
+     *     where H is world X when |dir.z| ≥ |dir.x|, else world Z.
+     *     Written by `PlanViewInteraction._applyScopeDragFromPointer` and by
+     *     `CreateElevationMarkCommand`; read by
+     *     `PlanViewCanvas._resolveCropCanvasBounds` (sectionVolume branch).
+     *   · section/elevation WITHOUT `sectionVolume`
+     *                                        — `[SIGNED PERPENDICULAR OFFSET from
+     *     the linked mark's anchor, world-Y]`. Read by
+     *     `PlanViewCanvas._elevationCropFrame` and by
+     *     `PlanViewAnnotationRenderer._computeElevationScope`.
+     *
+     * The discriminator is *the presence of an unrelated field*, which is why the
+     * two readers disagreed in production: `_renderElevationCutLine` called
+     * `_computeElevationScope` (OFFSET meaning) unconditionally, while the drag
+     * that had just written the value used the ABSOLUTE meaning — so the orange
+     * dashed cut line was displaced by the anchor's own H coordinate and sat
+     * "static, pointing to the wrong place" (founder, 2026-08-21) beside a crop
+     * rectangle that was correct. Fixed at the READER (one producer:
+     * `_scopeWorld`); the dual encoding itself is NOT yet unified — see
+     * ADR-0339 §5 for the migration that would collapse it to one.
      */
     region?: {
         min: [number, number];
