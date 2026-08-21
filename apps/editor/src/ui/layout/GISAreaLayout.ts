@@ -206,6 +206,7 @@ import {
     // §GIS-LEGACY-DETERMINATION-ESCAPE (L-1970..L-1974) — the REDUCED card's notice AND its
     // escape hatch. The reduced card was honest and unactionable; this carries the route out.
     buildLegacyDeterminationNoticeHtml,
+    LEGACY_NOTICE_TESTID,
     LEGACY_RECOMPUTE_BTN_TESTID,
     // §BCN-OV-CITATION (L-1656) — which article a `block-constructed` envelope cites,
     // decided by the engine's own derivation row rather than a hard-coded string.
@@ -2594,8 +2595,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // REPLACES this whole panel body with the full determination. So there is nothing
             // to clean up on the success path — only the failure path has to speak.
             if (recomputeEnvelopeDetermination()) return;
+            // By the EXPORTED constant, never a copied literal: the failure arm is the one
+            // branch a user only reaches when something already went wrong, so a renamed
+            // testid must break the build here rather than silently swallow the message.
             const notice = panel.querySelector(
-                '[data-testid="envelope-legacy-notice"]',
+                `[data-testid="${LEGACY_NOTICE_TESTID}"]`,
             ) as HTMLElement | null;
             if (!notice) return;
             notice.outerHTML = buildLegacyDeterminationNoticeHtml({

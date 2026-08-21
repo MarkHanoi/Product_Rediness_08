@@ -27184,3 +27184,116 @@ drawing what the other cannot carry.
 3. **RAC (L-1923) and elevation (L-1925) are not built.**
 4. **The plan linework is asserted only as segment counts and endpoints in the builder**, not as a
    rendered drawing or a PDF.
+
+---
+
+## L-1970 … L-1974 — ✅ FIXED: an OLD project could SEE what it was missing and had NO WAY to get it — 2026-08-21 (lane GIS4, commit `4e9d3e2e`)
+
+Founder, on production `071a7b2c`: *"I requested to have all the data of the selected parcel: many
+more data — why is it **still not present on an OLD project**?"* His GIS panel's PARCEL card showed
+seven rows (Ref · Addr · two areas · Zone pack · Match · Source · Retrieved **2026-08-20T20:56**) and
+one button.
+
+### The verdict: **(b) GATED, not (a) stale-and-unnoticed**
+
+The orchestrator's hypothesis was *(a) stale persisted data — nothing re-fetches or recomputes on
+load*. That is **half right and the wrong half to act on**, so it is recorded here as refuted in its
+operative part:
+
+- ⭐ **The feature IS in his build.** `git merge-base --is-ancestor a54a49fd 071a7b2c` → **0**. The
+  L-1650..L-1656 sections shipped and are running. Nothing is missing from the bundle.
+- ⭐ **The parcel card is NOT the surface that holds "many more data".** The founder's phrase points
+  at the **`Full site & massing data` fold** (§L-586: depth, perimeter, bounding box, per-storey
+  massing, each with its source) — which lives on the **buildability card**, not the parcel card. So
+  there is a verdict-(c) component too: he was reading the card that was never meant to carry it.
+- ⭐ **The gate is `Parcel.buildableDetermination`.** It shipped *today* (L-1654). Every project saved
+  before it has `null` there; `getLastBuildableEnvelope()` is also null after any reload. So
+  `refreshEnvelopePanel` takes the **L-445 REDUCED arm** — max height, and nothing else.
+  **Independently confirmed by a PRE-EXISTING test**, not by reading the code:
+  `envelopeDeterminationHydration.test.ts` → *"LEGACY project (ring persisted, record never written)
+  → null, so the reduced card arm survives"* — **45/45 GREEN**.
+- **A re-fetch was NOT the answer, and would have been the wrong fix.** Nothing about the parcel needs
+  re-fetching from Catastro; the provenance is intact and correct. What is missing is a **derivation**,
+  and §L-1583 already refused the cadastral re-fetch on separate grounds.
+
+### ⭐ L-1970 — the real defect: **honest, and unactionable**
+
+L-1652 had already made the reduced card **NAME every withheld section**, so the founder could see
+precisely what he was missing. That is why this did not present as a blank or as zeros — the
+[[context-data-honesty-family]] rule was already satisfied.
+
+**The defect is one layer up: the only route the copy named was *"Re-commit the parcel"*** — go to the
+2D map and re-select the plot. That is a **GEOMETRY-touching action offered as the fix for a
+PROVENANCE gap**, and it is [[refusing-half-needs-its-escape-hatch]] / §L-942 verbatim: a refusing
+branch whose escape hatch is knowledge the user does not have.
+
+### ⛔ L-1971 — and the safe route ALREADY EXISTED, wired to the wrong arm
+
+§L-1587 built `pryzmRecomputeEnvelopeCard` → `reapplyZoningForActiveSite`, which re-solves against the
+**already-committed boundary and never touches geometry** (its own header explains why a second
+`dispatchParcelBoundary` would silently re-rotate a hand-drawn ring). It was offered on **ONE** surface:
+the sibling branch where **no card renders at all**. The branch that actually fires for the founder's
+projects — ring persisted, determination null — never got it. **Two arms of one refusal, one escape
+hatch between them.** This is the L-1587 shape recurring inside L-1587's own fix.
+
+### L-1972 — the fix, and why it is a button rather than a migration
+
+The reduced card now carries the hatch. Since L-1654 the recompute **also persists the full
+`BuildableDeterminationRecord`** through the same `site.updateZoning` write that persists the ring
+(P6) — so **one click retires the legacy arm for that project permanently**, and the full card returns
+on every future load.
+
+**No schema migration, deliberately.** The determination is **not recoverable data — it is RE-DERIVABLE
+data.** A silent on-load re-derive would (i) put a network chain on every project open and (ii) present
+a *today* answer wearing a *yesterday* project's authority. Re-deriving is therefore an **explicit,
+user-initiated act**, which is also what the brief's own constraint required.
+
+**C06 §13.3 — ONE PRODUCER, TWO CALLERS.** `recomputeEnvelopeDetermination` is hoisted out of the window
+hook; `window.pryzmRecomputeEnvelopeCard` is now a seam over it. Pinned by count: exactly **1**
+`reapplyZoningForActiveSite(ctx)` call site in the file.
+
+### L-1973 — the honesty the copy is now responsible for
+
+This is the part that makes it not a "Refresh" button:
+
+- **The ORIGINAL solve is gone and NOT RECOVERABLE** — its values, citations and confidence were never
+  written down. *"restore"* and *"refresh"* are absent from the copy and **pinned absent**.
+- ⭐ **What the button produces is a NEW determination, DATED TODAY, from TODAY's rule pack.** L-1654's
+  rule is that a stored snapshot must never be presented as freshly derived; **the INVERSE binds
+  equally** — a fresh re-solve must not be presented as the recovered original. A rule pack that moved
+  between the two dates makes them different answers, and nothing on the card could tell them apart.
+- **It MAY REFUSE**, and a cited refusal is a determination (C63) that is stored and shown as one. The
+  copy promises a *determination*, never a *positive* one.
+- **An unresolvable route renders DISABLED with its reason** (L-1187), never live-and-inert.
+- **A failed press states the failure AND that nothing was changed.** *"I pressed it and now I don't
+  know what I have"* would be worse than the dead end it replaces.
+
+### L-1974 — three arms, pinned as three
+
+Extracted to the pure `envelopeCardSections.ts` beside the other folds, so `available` /
+`unavailable` / `failed` are unit-pinned rather than asserted in a comment, and **C84 EI-1b is pinned
+directly**: the three render as three distinct `data-state` values and three distinct strings.
+
+### What was RUN, and its actual output
+
+- `npx vitest run apps/editor/src/ui/site/__tests__/envelopeCardSections.spec.ts` → **40/40 passed**
+  (13 new). It went **RED first at 3 failed / 37 passed** — one of those three was a **pre-existing
+  L-1654 source pin** that grepped `GISAreaLayout.ts` for a literal my change had legitimately moved
+  into the pure module. It was **updated to follow the fact through the builder, not deleted**.
+- `npx vitest run --root apps/editor --config vitest.config.ts envelopeDeterminationHydration
+  buildableEnvelopeRehydrate parcelProvenanceRehost` → **3 files / 45 tests passed**.
+- `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` (root) → **RC=0**.
+- `git merge-base --is-ancestor 4e9d3e2e HEAD` → **0** (the commit is on `main`, not dangling).
+
+### 🔴 NOT established
+
+1. **Nothing here is browser-verified.** The branch selection is established by a pre-existing unit
+   test over the hydration accessor plus code reading — **not** by opening the founder's project.
+2. **The recompute's own success is not end-to-end asserted here.** That it persists a determination
+   is inherited from L-1654's suite; that a click retires the legacy arm is **reasoned, not measured**.
+3. **The PARCEL card itself was not extended.** `ParcelProvenance.confidence` carries `areaDeltaPct`,
+   `pointToParcelM` and `candidateMarginM`, and `sourceVersion`/`retrievedAt` exist on the record —
+   **none are rendered on the parcel card today**, and `ParcelGeometryMetrics` (perimeter, centroid,
+   bbox, vertex count, compactness) is **computed by the providers and never persisted at all**. If
+   the founder's "many more data" meant *the parcel card specifically*, that is a **separate, still-open
+   gap** and it is recorded here rather than assumed closed.
