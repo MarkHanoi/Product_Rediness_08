@@ -41,7 +41,32 @@ export interface ResolvedFinish {
  * contract exists to remove (C85 section 5).
  */
 const FINISH_ALIASES: ReadonlyArray<{ readonly id: string; readonly aliases: readonly string[] }> = [
-  { id: 'gypsum-skim', aliases: ['plaster', 'skim', 'skim coat', 'plaster skim'] },
+  // §FIX-PLASTER-WHITE-IS-A-SERIAL-NUMBER (L-1904, lane MAT2, 2026-08-21).
+  //
+  // ⭐ MEASURED, AND IT WAS ALREADY RED BEFORE THIS LANE OPENED. The founder's
+  // shipped L-998 sentence *"change wall finish to plaster white"* resolved to
+  // `gypsum-skim` for as long as it existed, because `finishRefCandidates`
+  // scored ZERO on the two-word span and the shrinking-window scan then fell to
+  // the one-word span "plaster" — an exact alias. Counted over three catalogue
+  // states, all three by the same script:
+  //
+  //   before b58500d7  205 rows   "plaster white" -> 0 hits  => gypsum-skim  ✅
+  //   at     408a6c5e  245 rows   "plaster white" -> 1 hit   => plaster-rough-white-003  ⛔
+  //   now              329 rows   "plaster white" -> 1 hit   => plaster-rough-white-003  ⛔
+  //
+  // `b58500d7` added `Plaster · Rough White 003`, whose label is the FIRST in the
+  // master to carry both words — so a TWO-word span started matching, and a
+  // longer span always beats a shorter one in that scan. The founder asking for
+  // white plaster got a rough external render with a texture-pack serial number
+  // in its name, reported as success. ⚠ Nothing about the two-word span is wrong;
+  // what is wrong is that an obscure serialised row silently outranked the
+  // CANONICAL one, which is §L960-WOOD-IS-A-SURFACE with the roles reversed.
+  //
+  // ⛔ NOT FIXED BY RENAMING `plaster-rough-white-003` — it is a real, map-bearing
+  // product and its name is accurate. Fixed where the repository already rules
+  // such things belong: the LANGUAGE layer, arm 1, which "wins outright" by
+  // design precisely so a canonical nickname cannot be outvoted by row count.
+  { id: 'gypsum-skim', aliases: ['plaster', 'skim', 'skim coat', 'plaster skim', 'plaster white', 'white plaster'] },
   { id: 'gypsum-plasterboard', aliases: ['plasterboard', 'drywall', 'gypsum', 'gypsum board', 'sheetrock'] },
   { id: 'gypsum-acoustic', aliases: ['acoustic plasterboard', 'acoustic board'] },
   { id: 'gypsum-venetian', aliases: ['venetian plaster', 'polished plaster'] },
@@ -196,14 +221,98 @@ const GRAMMAR_STOPWORDS: ReadonlySet<string> = new Set([
   'material', 'materials', 'colour', 'color',
 ]);
 
+/**
+ * §FIX-AMBAR-IS-AMBER (L-1903, lane MAT2, 2026-08-21) — ONE WORD, ONE MEANING,
+ * applied to BOTH SIDES of the match.
+ *
+ * ⭐ THE FOUNDER TYPED *"ambar microcement"*. Measured on the real resolver with
+ * `Coating · Microcement Amber` present in the master:
+ *
+ *     resolveFinishRef('ambar microcement')   ->  null        (before)
+ *
+ * — because no catalogue label contains "ambar", so `finishRefCandidates` scored
+ * 0, and the loose alias arm then matched `n.includes('microcement')` while
+ * DROPPING the one word that carried his whole ask. That is exactly the L-1880
+ * shape (*"wooden parquet"* → plain oak), and `droppedCatalogueWords` correctly
+ * refuses it. The refusal is right; the miss is not.
+ *
+ * ⛔ THE FIX IS NOT AN ALIAS ROW PER COLOUR. Adding `'ambar microcement'` to
+ * `FINISH_ALIASES` would answer this one sentence and none of the twenty next to
+ * it, and it is the remember-don't-derive defect this file's own header convicts.
+ * "ambar" is not a synonym for one material — it is the Spanish word for a
+ * COLOUR, and the founder builds in Barcelona. So the equivalence is stated ONCE,
+ * at the word level, and every present and future amber row inherits it.
+ *
+ * ⭐ IT IS APPLIED INSIDE `tokens()`, WHICH MEANS IT IS SYMMETRIC. The same
+ * function tokenises the CATALOGUE'S labels and the USER'S phrase, so a mapping
+ * can never make the two sides disagree — and `CATALOGUE_WORDS`, which
+ * `droppedCatalogueWords` guards with, is derived from the same call. A map
+ * applied to only the query would have made the guard fire on words the
+ * catalogue now demonstrably knows.
+ *
+ * ⚠ WHAT IS DELIBERATELY NOT HERE: no stemmer, and no general `-s` stripper. A
+ * blind plural rule turns "glass" into "glas" and "moss" into "mos"; the eleven
+ * plurals below are the family nouns a person actually types, listed because the
+ * cost of listing them is bounded and the cost of a stemmer is not. This is a
+ * LANGUAGE table (C68 §5.d — the resolver owns the language, the master owns the
+ * values), never a second name→value matcher (C68 §7.c).
+ */
+const WORD_EQUIVALENTS: ReadonlyMap<string, string> = new Map<string, string>([
+  // ── Spanish / Catalan colour words. The founder writes them; "ambar" is the
+  //    measured one, the rest are its immediate neighbours.
+  ['ambar', 'amber'], ['ámbar', 'amber'],
+  ['azul', 'blue'], ['blau', 'blue'],
+  ['verde', 'green'], ['verd', 'green'],
+  ['rojo', 'red'], ['roig', 'red'], ['vermell', 'red'],
+  ['gris', 'grey'],
+  ['blanco', 'white'], ['blanc', 'white'],
+  ['negro', 'black'], ['negre', 'black'],
+  ['amarillo', 'yellow'], ['groc', 'yellow'],
+  ['rosa', 'pink'],
+  ['naranja', 'orange'], ['taronja', 'orange'],
+  ['marron', 'brown'], ['marrón', 'brown'], ['marro', 'brown'],
+  ['crema', 'cream'],
+  ['arena', 'sand'], ['sorra', 'sand'],
+  // ── Spanish / Catalan material words.
+  ['microcemento', 'microcement'], ['microciment', 'microcement'],
+  ['cemento', 'cement'], ['ciment', 'cement'],
+  ['pintura', 'paint'],
+  ['azulejo', 'tile'], ['azulejos', 'tile'], ['rajola', 'tile'], ['baldosa', 'tile'],
+  ['madera', 'wood'], ['fusta', 'wood'],
+  ['hormigon', 'concrete'], ['hormigón', 'concrete'], ['formigo', 'concrete'],
+  ['piedra', 'stone'], ['pedra', 'stone'],
+  ['marmol', 'marble'], ['mármol', 'marble'], ['marbre', 'marble'],
+  ['ladrillo', 'brick'],
+  ['yeso', 'plaster'], ['guix', 'plaster'],
+  ['vidrio', 'glass'], ['vidre', 'glass'],
+  ['acero', 'steel'], ['acer', 'steel'],
+  ['roble', 'oak'], ['nogal', 'walnut'], ['pino', 'pine'],
+  // ── en-US ↔ en-GB, and this repository's own two spellings of one sheen.
+  //    ⚠ `Paint · Matte White` and `Ceramic Tile · Grey Matt` are BOTH in the
+  //    master, so "matt white" missed a row the picker prints. Folding the pair
+  //    makes the two spellings one word on both sides.
+  ['gray', 'grey'], ['grays', 'grey'],
+  ['matte', 'matt'], ['glossy', 'gloss'],
+  ['aluminum', 'aluminium'], ['fiber', 'fibre'],
+  ['galvanized', 'galvanised'], ['anodized', 'anodised'], ['patinated', 'patinated'],
+  // ── The family nouns, in the plural a person actually types.
+  ['tiles', 'tile'], ['paints', 'paint'], ['plasters', 'plaster'],
+  ['bricks', 'brick'], ['stones', 'stone'], ['woods', 'wood'],
+  ['greys', 'grey'], ['blues', 'blue'], ['greens', 'green'],
+  ['whites', 'white'], ['blacks', 'black'],
+]);
+
 /** Split a catalogue label or a spoken phrase into comparable word tokens.
  *  The label separator `·`, slashes, parentheses and hyphens are all just
- *  punctuation here: "Steel · Corten (Weathering)" → {steel, corten, weathering}. */
+ *  punctuation here: "Steel · Corten (Weathering)" → {steel, corten, weathering}.
+ *  §FIX-AMBAR-IS-AMBER — each token is then folded through
+ *  {@link WORD_EQUIVALENTS}, on BOTH sides of every comparison. */
 function tokens(s: string): string[] {
   return normalize(s)
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .split(' ')
-    .filter((w) => w.length > 1);
+    .filter((w) => w.length > 1)
+    .map((w) => WORD_EQUIVALENTS.get(w) ?? w);
 }
 
 /** The master, pre-tokenised once. DERIVED — adding a material to C100 makes it
