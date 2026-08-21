@@ -39,6 +39,7 @@ import {
 import {
     buildDesignedVsPermittedFold,
     buildHowMeasuredFold,
+    resolveBlockConstructedSourceText,
 } from '../envelopeCardSections';
 
 // ── Fixtures (mirroring capacityPanelSection.spec / designMeasurement.spec) ────────────────
@@ -281,5 +282,58 @@ describe('§L-1654 wiring — the card HYDRATES the persisted determination (sou
 
     it('the reduced card is now the LEGACY arm and says the project predates stored determinations', () => {
         expect(src).toContain('before PRYZM stored full');
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// §BCN-OV-CITATION (L-1656) — the card cites the article the ENGINE actually applied.
+//
+// Handoff from BCN1 (L-1660..L-1663): both Barcelona demo parcels now resolve a REAL
+// `block-constructed` clau-18 OV determination, but the card hard-coded "PGM Art. 242.2" for
+// every `block-constructed` envelope. Wrong article on a real determination = L-583 mis-citation
+// on the one surface whose proposition is that it quotes the law correctly. BOTH arms are pinned
+// so neither citation can silently swap into the other's case.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+describe('L-1656 — block-constructed cites the instrument the engine used', () => {
+    const OV_ROW = { constraint: 'explicitArea.footprintBinding' };
+    const DEPTH_ROW = { constraint: 'alignment.depth' };
+
+    it('OV arm: an explicitArea.footprintBinding row cites the published per-site volumetric ordering', () => {
+        const txt = resolveBlockConstructedSourceText([DEPTH_ROW, OV_ROW]);
+        expect(txt).toContain('published per-site volumetric ordering');
+        expect(txt).toContain('OV_Trames');
+        expect(txt).toContain('Art. 306');
+        expect(txt).toContain('Art. 327.2');
+        // ⛔ The wrong article must not appear on this arm at all.
+        expect(txt).not.toContain('242.2');
+        // The honesty qualifier survives on BOTH arms — constructed is not certified.
+        expect(txt).toContain('not an official municipal certificate');
+    });
+
+    it('Art. 242.2 arm: without that row the Catastro-block construction keeps its own citation', () => {
+        const txt = resolveBlockConstructedSourceText([DEPTH_ROW]);
+        expect(txt).toContain('PGM Art. 242.2');
+        expect(txt).toContain('real Catastro block');
+        expect(txt).not.toContain('OV_Trames');
+        expect(txt).toContain('not an official municipal certificate');
+    });
+
+    it('the two arms are genuinely different sentences (neither may collapse into the other)', () => {
+        expect(resolveBlockConstructedSourceText([OV_ROW]))
+            .not.toBe(resolveBlockConstructedSourceText([]));
+    });
+
+    it('an absent/empty derivation falls back to Art. 242.2 and never throws', () => {
+        expect(resolveBlockConstructedSourceText([])).toContain('242.2');
+        expect(resolveBlockConstructedSourceText(null)).toContain('242.2');
+        expect(resolveBlockConstructedSourceText(undefined)).toContain('242.2');
+    });
+
+    it('the card reads the resolver rather than a hard-coded article (source pin)', () => {
+        const src = readFileSync(resolve(__dirname, '../../layout/GISAreaLayout.ts'), 'utf8');
+        expect(src).toContain('resolveBlockConstructedSourceText(env.derivation)');
+        // The literal that used to be hard-coded must no longer live in the card.
+        expect(src).not.toContain('Constructed per PGM Art. 242.2 from the real Catastro block');
     });
 });

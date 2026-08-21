@@ -666,12 +666,38 @@ export const BuildableEnvelopeSchema = z.object({
      */
     tiers: z.array(EnvelopeTierSchema).default([]),
 }).refine(
-    (e) => (e.status === 'not-applicable') === (e.refusal !== null),
+    // §L-550 (original intent) + §L-574 (the widening this refinement never caught up with),
+    // corrected 2026-08-21 under §GIS-ENVELOPE-REFUSAL-PERSIST (L-1655).
+    //
+    // ⚠ THIS USED TO READ `(e.status === 'not-applicable') === (e.refusal !== null)`, i.e. a
+    // refusal was legal ONLY on `'not-applicable'`. **That has been false in the code since
+    // L-574**: `buildRefusedEnvelope(zoneCode, refusal, status)` types its status parameter
+    // `'not-applicable' | 'none'` and the construction-incomplete refusal (attempted, no data)
+    // is emitted as `'none'` WITH a refusal object; the envelope card branches on exactly
+    // `(status === 'not-applicable' || status === 'none') && refusal`. Three places in the
+    // code agreed; the schema disagreed alone — and it was never caught because nothing
+    // PARSED a constructed envelope until L-1654 began persisting one. The moment it did,
+    // every `'none'` refusal failed validation and took its whole `site.updateZoning` payload
+    // down with it, dropping the zoning write on the refusal path (§L-663 guard, L-1655).
+    //
+    // THE L-550 INTENT IS UNCHANGED AND IS STILL ENFORCED, in both directions:
+    //   · a refusal may appear ONLY on a refusing status — never on `'ok'`/`'degenerate'`, so
+    //     a UI can still never deny an envelope it actually has;
+    //   · `'not-applicable'` MUST carry its reason — a refusal without one renders as a blank
+    //     card, which reads as a crash (L-553).
+    // `'none'` is the one status that is legal BOTH ways: with a refusal it is "we attempted
+    // and here is why we could not"; without one it is "no zoning data at all". Those are
+    // genuinely different facts and the schema must admit both (C84 EI-1b).
+    (e) => {
+        if (e.refusal !== null) return e.status === 'not-applicable' || e.status === 'none';
+        return e.status !== 'not-applicable';
+    },
     {
         message:
-            "`refusal` must be present exactly when status is 'not-applicable' — a refusal " +
-            'without a reason renders as a blank card, and a reason on a solved envelope would ' +
-            'let the UI deny an envelope it actually has (L-550).',
+            "`refusal` may be present ONLY on a refusing status ('not-applicable' or 'none'), " +
+            "and 'not-applicable' MUST carry one — a refusal without a reason renders as a " +
+            'blank card, and a reason on a solved envelope would let the UI deny an envelope ' +
+            "it actually has (L-550; 'none'-with-refusal per L-574).",
         path: ['refusal'],
     },
 ).refine(

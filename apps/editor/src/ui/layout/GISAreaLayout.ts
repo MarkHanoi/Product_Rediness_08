@@ -200,7 +200,13 @@ import { collectAuthoredModelSnapshot, measureAuthoredDesign } from '../site/des
 // default-collapsed folds (Designed vs permitted · How these were measured), extracted pure so
 // every arm of every state is pinned by envelopeCardSections.spec.ts instead of asserted in a
 // comment. They wrap `buildCapacitySectionHtml` — ONE producer (C06 §13.3), not a rival.
-import { buildDesignedVsPermittedFold, buildHowMeasuredFold } from '../site/envelopeCardSections';
+import {
+    buildDesignedVsPermittedFold,
+    buildHowMeasuredFold,
+    // §BCN-OV-CITATION (L-1656) — which article a `block-constructed` envelope cites,
+    // decided by the engine's own derivation row rather than a hard-coded string.
+    resolveBlockConstructedSourceText,
+} from '../site/envelopeCardSections';
 
 /**
  * §SITE-VIEWPOINT-CONSISTENT (L-532) — THE ONE default camera preset for entering a 3D view of
@@ -3172,7 +3178,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 : env.confidence === 'estimated-ruleset'
                 ? '<span style="color:#8a83a0;font-size:10.5px;">Default rule pack — real DK/ES zoning coming</span>'
                 : env.confidence === 'block-constructed'
-                ? '<span style="color:#8a83a0;font-size:10.5px;">Constructed per PGM Art. 242.2 from the real Catastro block — real inputs + accepted rule, not an official municipal certificate.</span>'
+                // §BCN-OV-CITATION (L-1656) — the article is READ FROM THE DERIVATION, never
+                // hard-coded: the clau-18 OV arm (L-1660) constructs from the published
+                // per-site volumetric ordering, not Art. 242.2, and citing 242.2 there is an
+                // L-583-class mis-citation on a real determination. See the builder's header.
+                ? `<span style="color:#8a83a0;font-size:10.5px;">${escHtml(resolveBlockConstructedSourceText(env.derivation))}</span>`
                 : sourceId === 'plandata-dk'
                 ? `<span style="color:#8a83a0;font-size:10.5px;">Source: Plandata.dk${ordHref ? ` · <a href="${escHtml(ordHref)}" target="_blank" rel="noopener noreferrer" style="color:#6600FF;text-decoration:underline;">plan document</a>` : ''}</span>`
                 : `<span style="color:#8a83a0;font-size:10.5px;">Source: ${escHtml(sourceId || 'zoning provider')}</span>`;

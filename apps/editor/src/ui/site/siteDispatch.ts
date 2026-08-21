@@ -39,6 +39,9 @@ import type {
     // §GIS-ENVELOPE-DETERMINATION-PERSIST (L-1654) — the dated, persisted determination record.
     BuildableDeterminationRecord,
 } from '@pryzm/schemas';
+// §L-1655 — VALUE import (the type above is erased): the determination record is validated
+// before dispatch so a record that cannot be represented can never veto the zoning write.
+import { BuildableDeterminationRecordSchema } from '@pryzm/schemas';
 import { SiteModelSchema } from '@pryzm/schemas';
 // ADR-0270 — "does this zone's rule need a cadastral block to solve?" asked of the RULE, not of a
 // clau literal, so a parcel-only pack for any city takes the parcel-only branch automatically.
@@ -8719,11 +8722,46 @@ function dispatchEnvelope(
     // other half of the L-451 wiring: the ring persisted the geometry; this persists the
     // provenance the L-445 reduced card had to refuse to fabricate. Consumers render it WITH
     // its date and never silently re-derive — re-committing the parcel is the one refresh.
-    const determination: BuildableDeterminationRecord = {
+    //
+    // ⛔ §GIS-ENVELOPE-REFUSAL-PERSIST (L-1655) — THIS FIELD MAY NEVER VETO THE ZONING WRITE.
+    //
+    // It did, for one commit. `BuildableDeterminationRecordSchema` embeds the STRICT
+    // `BuildableEnvelopeSchema`, and that schema's refusal refinement was stale relative to
+    // §L-574 (`'none'` + refusal was legal in the code and illegal in the schema). Nothing had
+    // ever PARSED a constructed envelope before this record began persisting one — so the
+    // moment it did, every `'none'` refusal made the WHOLE `site.updateZoning` payload invalid
+    // and the command soft-rejected, silently dropping `jurisdictionRef`, `zoneCode` and the
+    // setbacks on the refusal path. A refusal that fails to persist is the purest form of the
+    // context-data-honesty defect: the card cannot tell "we refused, here is why" from
+    // "nothing happened".
+    //
+    // The refinement is fixed (L-1655), but the STRUCTURAL fault was that an ADDITIVE,
+    // OPTIONAL field could take down a pre-existing command. So it is validated HERE, up
+    // front: if the record cannot be represented, the zoning write still goes through without
+    // it and says so loudly. Degrading to "no stored determination" is survivable; degrading
+    // to "no zoning write" is the defect above.
+    const determinationCandidate: BuildableDeterminationRecord = {
         envelope,
         determinedAtIso: new Date().toISOString(),
         schemaVersion: 1,
     };
+    const determinationCheck =
+        BuildableDeterminationRecordSchema.safeParse(determinationCandidate);
+    // `null`, NOT `undefined`, on failure: `undefined` means "leave untouched" (delta
+    // semantics), which would strand the PREVIOUS determination on a parcel this solve no
+    // longer describes — the same stale-but-authoritative hazard the ring's explicit-null
+    // clear exists to prevent (C58 §1.4). Clearing is the honest degradation.
+    const determination = determinationCheck.success ? determinationCandidate : null;
+    if (!determinationCheck.success) {
+        console.error(
+            '[gis][c58] §L-1655 — the determination RECORD did not validate, so it is NOT being ' +
+                'persisted; the zoning write proceeds without it (never dropped). This is a ' +
+                'schema/producer disagreement and a real loss of provenance on reload — fix the ' +
+                `schema, do not loosen the record. status=${envelope.status} ` +
+                `refusal=${envelope.refusal ? envelope.refusal.code : 'none'} ` +
+                `issue=${determinationCheck.error.issues[0]?.message ?? 'unknown'}`,
+        );
+    }
 
     const res = siteUpdateZoning(
         {

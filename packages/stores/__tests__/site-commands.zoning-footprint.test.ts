@@ -518,6 +518,88 @@ describe('siteUpdateZoning — buildableDetermination (§L-1654 dated determinat
         expect(stored!.envelope.refusal?.code).toBe('derived-plan');
     });
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // §GIS-ENVELOPE-REFUSAL-PERSIST (L-1655) — THE REGRESSION THAT SHIPPED FOR ONE
+    // COMMIT. `BuildableDeterminationRecordSchema` embeds the strict envelope schema,
+    // whose refusal refinement was stale relative to §L-574: `'none'` + refusal is
+    // legal in the code (`buildRefusedEnvelope`'s own signature) and was illegal in
+    // the schema. Nothing parsed a constructed envelope until L-1654 persisted one —
+    // then every `'none'` refusal invalidated the WHOLE payload and `site.updateZoning`
+    // soft-rejected, dropping `jurisdictionRef`/`zoneCode`/setbacks on the refusal path.
+    // A refusal that fails to persist cannot be told apart from nothing happening.
+    // ─────────────────────────────────────────────────────────────────────────
+    const noneRefusal = {
+        ...DETERMINATION,
+        envelope: {
+            ...DETERMINATION.envelope,
+            // §L-574: attempted, no data — a refusal carried on `'none'`, NOT 'not-applicable'.
+            status: 'none',
+            insetPolygon: [],
+            insetAreaM2: 0,
+            refusal: {
+                code: 'regime-undetermined',
+                legallyGrounded: false,
+                headline: 'Could not complete this determination.',
+                detail: 'This point resolves to more than one municipal instrument.',
+                ordinanceRef: null,
+            },
+        },
+    };
+
+    it("§L-1655 a 'none'-status refusal (L-574) persists — it does NOT invalidate the payload", () => {
+        const store = setupSite();
+        const result = siteUpdateZoning(
+            { siteId: 'site_proj-001', buildableDetermination: noneRefusal }, store);
+        expect(result.ok).toBe(true);
+        const stored = store.getSite()!.parcel.buildableDetermination;
+        expect(stored!.envelope.status).toBe('none');
+        expect(stored!.envelope.refusal?.code).toBe('regime-undetermined');
+    });
+
+    it('§L-1655 the REST of the zoning write still lands on a refusal dispatch (the dropped write)', () => {
+        const store = setupSite();
+        const result = siteUpdateZoning(
+            {
+                siteId: 'site_proj-001',
+                buildableDetermination: noneRefusal,
+                buildableRing: null,
+                zoning: { category: null, jurisdictionRef: 'es-canarias-88' },
+            },
+            store,
+        );
+        expect(result.ok).toBe(true);
+        // THE ASSERTION THE §L-663 GUARD MAKES: the jurisdiction tag must survive a refusal.
+        expect(store.getSite()!.parcel.zoning.jurisdictionRef).toBe('es-canarias-88');
+        expect(store.getSite()!.parcel.buildableRing).toBeNull();
+    });
+
+    it('§L-1655 the L-550 intent still holds: a refusal on a SOLVED envelope is rejected', () => {
+        const store = setupSite();
+        const result = siteUpdateZoning(
+            {
+                siteId: 'site_proj-001',
+                buildableDetermination: {
+                    ...DETERMINATION,
+                    envelope: { ...DETERMINATION.envelope, status: 'ok', refusal: noneRefusal.envelope.refusal },
+                },
+            },
+            store,
+        );
+        expect(result.ok).toBe(false);
+        // …and a 'not-applicable' with NO refusal is still rejected too (blank-card guard).
+        const noReason = siteUpdateZoning(
+            {
+                siteId: 'site_proj-001',
+                buildableDetermination: {
+                    ...DETERMINATION,
+                    envelope: { ...DETERMINATION.envelope, status: 'not-applicable', refusal: null },
+                },
+            },
+            store,
+        );
+        expect(noReason.ok).toBe(false);
+    });
+
     it('survives a JSON round-trip through the SiteModel (the ProjectSerializer path)', () => {
         const store = setupSite();
         siteUpdateZoning({ siteId: 'site_proj-001', buildableDetermination: DETERMINATION }, store);

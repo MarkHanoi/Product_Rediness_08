@@ -207,3 +207,48 @@ export function buildHowMeasuredFold(
         span.end();
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §BCN-OV-CITATION (L-1656) — WHICH ARTICLE a `block-constructed` envelope cites
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The source caption for a `block-constructed` determination.
+ *
+ * ⚠ WHY THIS IS A BRANCH AND NOT A STRING. The card hard-coded *"Constructed per PGM Art. 242.2
+ * from the real Catastro block"* for EVERY `block-constructed` envelope. That sentence is true
+ * for the Art. 242.2 *profunditat edificable* construction and FALSE for the clau-18 OV arm
+ * (L-1660..L-1663), which constructs from the published per-site volumetric ordering — a
+ * different instrument, different articles. Printing 242.2 there is an L-583-class
+ * MIS-CITATION: the wrong article attached to a real, correctly-solved determination, on the
+ * one surface whose entire proposition is that it quotes the law correctly. A wrong citation is
+ * worse than none — it is checkable, and it fails the check.
+ *
+ * The discriminator is the ENGINE'S OWN declaration, not a zone-code guess: the OV path emits
+ * an `explicitArea.footprintBinding` derivation row (ZoningRulesEngine, §L-572 stamps
+ * `block-constructed` off exactly that row) and no other path does. Reading the derivation
+ * means a new city that constructs the same way inherits the correct caption automatically,
+ * and a path that stops emitting the row stops claiming the citation — the citation and the
+ * evidence move together, which is the property a hard-coded string cannot have.
+ *
+ * Pure: returns TEXT, not markup, so the caller keeps its own escaping/wrapping (C08 §3.1).
+ */
+export function resolveBlockConstructedSourceText(
+    derivation: ReadonlyArray<{ readonly constraint: string }> | null | undefined,
+): string {
+    const span = _tracer.startSpan('pryzm.site.resolveBlockConstructedSourceText');
+    try {
+        const isPublishedSiteOrdering = Array.isArray(derivation)
+            && derivation.some((d) => d?.constraint === 'explicitArea.footprintBinding');
+        span.setAttribute('pryzm.envelopeCard.blockConstructedArm',
+            isPublishedSiteOrdering ? 'published-site-ordering' : 'art-242-2');
+        return isPublishedSiteOrdering
+            ? 'Constructed from the published per-site volumetric ordering (AMB Refós OV_Trames; '
+              + 'PGM Art. 306 + Art. 327.2) — real published inputs + accepted rule, not an '
+              + 'official municipal certificate.'
+            : 'Constructed per PGM Art. 242.2 from the real Catastro block — real inputs + '
+              + 'accepted rule, not an official municipal certificate.';
+    } finally {
+        span.end();
+    }
+}
