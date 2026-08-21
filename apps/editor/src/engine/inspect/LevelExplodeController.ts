@@ -222,6 +222,8 @@ export class LevelExplodeController {
       }
     }
     this._levelGroups = [];
+    // §EXPLODE-MOVES-THE-BOUNDS (L-2071) — collapsing the stack moves the bounds back.
+    window.__sceneBoundsCache?.invalidate();
     console.log(
       `[§LEVEL-STACK] Deactivated — restored ${restored} root positions + visibility `
       + `(${fromModelY} from the builder's published userData.modelY, `
@@ -587,6 +589,14 @@ export class LevelExplodeController {
     if (allSettled && this._raf !== null) {
       this._raf();
       this._raf = null;
+      // §EXPLODE-MOVES-THE-BOUNDS (L-2071) — the lift moved every root up to 10 m per
+      // level, and NOTHING told the scene-bounds cache. Every consumer of those bounds
+      // then reads the UN-exploded stack: default framing, Fit All, the near-plane
+      // standoff policy (§CAM-NEAR-SCALES-WITH-STANDOFF, L-2070). Invalidating at the
+      // SETTLE point and not per tick is deliberate — `getBounds()` rebuilds by full
+      // scene traversal, so a per-frame invalidation would traverse the scene on every
+      // frame of the animation.
+      window.__sceneBoundsCache?.invalidate();
       // §FIX-LEVEL-EXPLODE-COORDINATION (L-113) — the lift has settled; re-anchor
       // the selection now so the highlight + gizmo sit on the exploded mesh.
       if (this._reanchorPending) this._refreshSelectionAnchor();
