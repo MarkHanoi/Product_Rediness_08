@@ -29886,3 +29886,205 @@ cover. ⚠ Cross-domain: belongs to whoever owns `ProjectLifecycleController`.
 `EdgeProjectorService` stages 8-10, `resolveLevel`'s exponent, the founder's actual wall count, and
 above all **§10.2, the live A/B that is the only thing converting any of this into a felt
 improvement. If it comes back flat, row #1 is over-ranked and this ledger must say so.**
+
+---
+
+## L-2700 … L-2712 — lane AUD-5 (PLUGINS, SDK & EXTERNAL API) — 2026-08-21
+
+Companion document: `docs/04-reference/PLUGIN-SDK-AND-EXTERNAL-API-READINESS-REGISTER.md`.
+Every number below was produced by running the gate or the scan on this tree today. Read the gate,
+never these lines.
+
+### 🐛 L-2700 — **THE SDK BOUNDARY RULE TWO CONTRACTS CALL A HARD-FAIL GATE IS NOT ENABLED**
+
+**C76 §1.1** (minted 2026-08-19, `C76-PLATFORM-AND-API-SURFACE.md:63-66`): *"This is not advisory:
+the ESLint rule `pryzm/no-direct-pryzm-in-plugins` enforces it at error level."*
+**C07:61**: *"**CI gate**: `no-direct-pryzm-in-plugins` ESLint rule — hard-fail."*
+
+`eslint.config.js` is the **only** ESLint config in the repo. Its 16 enabled `pryzm/*` rules (lines
+431,432,433,438,531,564,578,579,599,603,611,618,619,620,634,649) **do not include it**, nor its three
+siblings `no-l7-direct-import`, `no-l7-boundary-violation`, `no-l7-allowlist-grow` — 4 rules defined
+and exported at `packages/eslint-plugin-pryzm/src/index.js:60-77`, **0 enabled**.
+
+**Proven by execution, not grep.** `plugins/floor/src/store.ts:17` imports `@pryzm/core-app-model`
+— a textbook violation:
+
+```
+$ npx eslint plugins/floor/src/store.ts --format json
+plugins/floor/src/store.ts | errors=0 warnings=0 | messages: []   ESLINT-RC=0
+```
+
+⭐ **This is the FOURTH recurrence of the L-809 shape** — a document describing enforcement that does
+not exist — and it landed **inside a contract minted two days earlier**. Two further defects in the
+same citation chain: `packages/plugin-sdk/src/index.ts:126-128` cites the rule at
+`packages/lint-config/src/plugin-boundary.ts`, **which does not exist**; and the rule's own header
+(`:5-7`) asserts *"all 46 L7 plugin packages are L8-compliant — they import ONLY from
+`@pryzm/plugin-sdk`"* while the gate measures **173 bypasses across 30 plugins**, over **48** plugins.
+
+### 🐛 L-2701 — `check-layer-boundaries` is RED on three arms; `CLAUDE.md` records it green
+
+`npx tsx tools/ga-gate/check-layer-boundaries.ts` → **RC=3** (2026-08-21):
+upward **103 / 102 FAIL** · unclassified **14 / 13 FAIL** · banned third-party **117 / 113 FAIL** ·
+sdk-bypass 173 / 182 within. `CLAUDE.md` carries 102/102, 13/13, 171/182, exit 0 (2026-08-16) and
+**never mentions the fourth arm at all**. The 14th unclassified package is `@pryzm/geometry-handrail`.
+
+### L-2702 — The L7 gate that DOES exist ratchets FILES, so new violations are free
+
+`check-l7-boundary.ts` → RC=0, *"102 violating import line(s) in 83 file(s) … Baseline ceiling: 84
+files."* It is **WARN-mode**, not the hard-fail C07 describes, and its header (line 11) makes the
+subject explicit: *"Hard-fail if ANY plugin's L0–L5 import **file count** GROWS."* **Adding an import
+to an already-counted file costs nothing.** Its denominator (83 files / 21 plugins) and
+`check-layer-boundaries` (173 imports / 30 plugins) disagree because they count different things —
+**name the gate before quoting a number.**
+
+### 🐛 L-2703 — `@pryzm/plugin-sdk` is DECLARED PUBLISHABLE AND CANNOT INSTALL
+
+`packages/plugin-sdk/package.json`: v`1.0.0`, `publishConfig.name = "@pryzm/sdk"`, `access: public`.
+And **all 12 of its runtime `@pryzm/*` dependencies are `private: true`** with `main: ./src/index.ts`
+(command-bus, stores, schemas, scene-committer, geometry-kernel, view-state, frame-scheduler,
+sync-client, renderer, types-builtin, ui, core-app-model). All 8 subpath exports resolve to raw
+`.ts`; there is no `dist/`; `bin.pryzm` points at a `.ts` file `node` cannot run. **`npm i
+@pryzm/sdk` resolves 12 names that are not on the registry.** *(UNMEASURED: whether it was ever
+actually published — I did not query npm.)*
+
+### 🐛 L-2704 — The whole third-party plugin execution path is defined and NEVER MOUNTED
+
+Consumers outside `plugin-sdk/src` and its own tests: `definePlugin` **0** (only the 3 SDK examples)
+· `IframeSandbox` **0** · `HostProxies`/`CommandBusProxy`/`StoresProxy` **0** ·
+`validateManifest`/`PluginManifestSchema` **0**.
+`packages/plugin-sdk/src/sandbox/iframe-sandbox.ts:27-28` states the runtime *"lives in
+`apps/editor/src/plugin-runtime/`"*. **That directory does not exist.**
+⭐ **None of the 48 in-repo plugins is a plugin in the SDK sense** — they are compile-time
+workspace packages hand-wired in `apps/editor/src/PluginRegistry.ts` + `engineLauncher.ts`. The
+permission model, sandbox, manifest lock and hook timeouts have never executed. 5 of 48 carry a
+`plugin.manifest.json` (`bcf`, `family-editor`, `ifc-inspector`, `schedules`, `wall`); nothing loads
+them.
+
+### 🐛 L-2705 — 12 of 48 plugins have ZERO importers repo-wide (4 842 LOC)
+
+`ai-floorplan` · `ai-generative` · `ai-query` · `ai-rules` · `ai-voice` · `dxf` · `family-editor` ·
+`multiplayer` · `navigate` · `render` · `schedules` · `visibility-intent`. Confirmed twice (exact
+package-specifier scan of `apps/ packages/ src/ server/` + cross-plugin; and
+`grep -rl "plugin-<n>"` → 0). Two are **not** scaffolds: **`schedules`** (2 833 LOC, 23 src, **13
+test files**, 6 handlers, `exceljs`+`pdf-lib`, its own manifest) and **`multiplayer`** (969 LOC, 4
+test files, `registerMultiplayerHandlers` defined, 0 call sites).
+⭐ **`family-editor` is the sharpest row:** the **only `private:false` plugin in the tree**, v1.0.0,
+28 LOC, **0 tests**, an `activate()` whose body is `console.info('… stub implementation')`
+(`src/index.ts:24`) — and its own header says it exists *"so the package builds and the manifest
+passes K3-C Gate #1"*. **A package shaped to satisfy a gate.**
+
+### L-2706 — TWO rival plugin registration mechanisms; 7 registrars are dead on one of them
+
+`register<X>Handlers(bus)` (called from `engineLauncher.ts` / `initBusHandlers.ts`) and
+`build<X>HandlerSet()` (declared in the 22 `ALL_PLUGINS` descriptors of `PluginRegistry.ts`). **7
+registrars have zero call sites anywhere**: `registerBCFHandlers`, `registerCrossHandlers`,
+`registerIFCExportHandlers`, `registerMultiplayerHandlers`, `registerPlanViewHandlers`,
+`registerStairHandlers`, `registerCubeHandlers`. ⚠ **`stair`/`bcf`/`cross`/`toy-cube` are still
+LIVE** via the other path (`PluginRegistry.ts:313` for stair) — a plugin can be alive on one
+mechanism and dead on the other. `ifc-export` (6 004 LOC), `multiplayer` and `plan-view` (3 821 LOC)
+are dead on **both**.
+
+### 🐛 L-2707 — 7 of 337 registered verbs (2.1 %) prove a write; 11 plugin stores are ABSENT from the composed runtime
+
+`npx tsx tools/ga-gate/check-verb-liveness.ts` → RC=0 (**PASS**), 395 s, real `composeRuntime`:
+`register verbs 337 · PROVEN 7 · UNPROVABLE-NO-STORE 116 · UNKNOWN 214`.
+`STORE CENSUS — REACHABLE (11): door, window, annotation, sheet, schedule, view, hierarchy,
+template, wall, slab, room · ABSENT (12): roof, ceiling, floor, furniture, plumbing, stair, column,
+curtain-wall, grid, beam, handrail, opening.`
+⭐ **11 element families own a store the composed runtime does not contain — and every one of them
+is a registered `PluginDescriptor` in `ALL_PLUGINS` with a `storeKey`.** That is the detached-DTO
+condition, at 11 plugins, established by EXECUTION. The gate passes because its ratchet is grow-only
+on the 7; its own closing line says *"116 … UNPROVABLE-NO-STORE and 214 UNKNOWN. Neither is a pass;
+both are the work."*
+
+### L-2708 — The 13 declared DEAD VERBS are the HONEST half; the detachment beneath them is not fixed
+
+`§FIX-DEAD-VERB-REFUSE` (W3-3) / `§FIX-DEAD-MOVE-VERB-REFUSE` (W3-4) appear in **13 handlers across
+10 plugins**: `beam.{setMaterial,move}`, `ceiling.setMaterial`, `column.{setMaterial,move}`,
+`curtain-wall.setMaterial`, `dimension.move`, `door.move`, `floor.setMaterial`,
+`furniture.{setMaterial,move,rotate}`, `handrail.setMaterial`, `lighting.{setMaterial,move}`,
+`plumbing.{setMaterial,move}`. `plugins/floor/src/handlers/SetFloorFinishBatch.ts:11-12` states it
+plainly: *"`floor.setMaterial` is a **DECLARED DEAD VERB** … returns `{valid:false}` from
+`canExecute`."*
+⭐ **A verb that refuses with a cited rationale is strictly better than one that silently writes a
+store nothing reads.** The defect is that **9 of these 10 plugins are exactly the plugins whose store
+is ABSENT (L-2707)** — the refusal is the symptom, and the detachment is unfixed.
+
+### 🐛 L-2709 — 26 of 48 plugins build only by pnpm accident (undeclared dependencies)
+
+`plugins: 48 | with >=1 UNDECLARED runtime import: 26 | total undeclared specifiers: 32 |
+declared-but-never-imported: 56`.
+⭐ **21 plugins import `@pryzm/renderer-three`; exactly ONE (`annotations`) declares it.** Also:
+`geospatial` imports `cesium` undeclared; **`levels` imports `@pryzm/plugin-sdk` itself undeclared**;
+`sheets` imports `zod` undeclared; `ceiling`/`door`/`window`/`floor`/`levels` import
+`@pryzm/command-registry` undeclared. All four `ai-*` plugins declare `@pryzm/ai-host` and import
+nothing from it. **Every one of the 26 is unextractable and unpublishable** — and this is *why* the
+facade rule feels optional: the import works regardless of the manifest. Only **13 / 48 (27 %)**
+satisfy the stated L8 rule (*only* `@pryzm/plugin-sdk` among `@pryzm/*` deps); 16 declare `three`
+directly.
+
+### 🐛 L-2710 — `apps/api-gateway` SHIPPED bootstrap trusts `X-Test-Roles` / `X-Test-Scopes`
+
+`apps/api-gateway/src/app.ts:73` — `const authShim = opts.authShim ?? defaultTestAuthShim;`. The
+production bootstrap `src/index.ts:73-81` passes **no `authShim`**, and `Dockerfile:68`
+(`CMD ["pnpm","start"]` → `tsx src/index.ts`) runs exactly that bootstrap.
+`src/auth-shim.ts:39-44` — docstring *"Default test shim — production wires a real OAuth2 resource
+server"* — reads `x-test-subject`, `x-test-scopes`, `x-test-roles`, `x-test-tier` **straight off the
+request**, and **never rejects**. A request carrying `X-Test-Roles: owner` and
+`X-Test-Scopes: project:write ai:invoke` is full admin over all 20 routes. `src/index.ts:87` — WS
+`authResolver: (token) => (token ? {subject:'demo',scopes:['project:read']} : null)`: **any non-empty
+string reads any project**. `apps/marketplace-api/src/app.ts:189` —
+`POST /v1/admin/plugins/.../revoke` has **no admin check at all** (`requireAdmin` does not exist in
+that app); anyone with `project:write` revokes any publisher version.
+⚠ **Mitigating, and it matters:** neither app is deployed — `.github/workflows/**` has **0** matches
+for either, and root `fly.toml:36` deploys `server.js`. `apps/api-gateway` ships only in
+`pryzm-selfhost/docker-compose.yml:120-125`; `apps/marketplace-api` has **no deploy artifact at all**.
+The risk is to self-hosters, not to `app.pryzm.com`. **UNMEASURED: whether any real customer runs
+that bundle.**
+
+### 🐛 L-2711 — The OpenAPI spec is INERT: imported by zero source files, covering 44 % of the surface, gated by nothing
+
+`packages/api-spec/openapi.yaml` is a real OpenAPI 3.1.0 doc (408 lines) declaring **12 paths / 14
+operations**. Implemented routes across both apps: **27** → **12 / 27 (44 %) covered**.
+**`@pryzm/api-spec` is imported by ZERO source files anywhere outside its own package** (7 total
+references: 2 dependency-manifest lines, its own name/doc/2 tests, 1 CI-skip-ledger entry). No
+conformance gate exists — both `__tests__/*.test.ts` never import Express, and **neither ever runs**:
+all 10 API packages declare `test`, not `test:ci`, so the root aggregator (`package.json:54`,
+`--if-present`) skips them, as `scripts/check/test-ci-coverage-baseline.json` already records at
+lines 6,9,11,12,13,15,24,43,95,126.
+⭐ **Drift is already present and unmeasured:** the spec sets `security: oauth2:['project:read']` at
+`openapi.yaml:77-78, 99-100, 257-258, 266-267`; `routes/ai.ts:47,55` and `routes/formulas.ts:34,39`
+apply **no `requireScopes`**. A SHA-256 byte-pin over a file nothing imports, in a package CI skips,
+guards nothing.
+
+### L-2712 — `server.js` IS the defended surface — and its marketplace endpoint has three holes
+
+⭐ **SOUND, and it should be said first:** `npx tsx tools/ga-gate/check-write-route-auth.ts` → RC=0,
+*"47 mutating route(s) scanned in server.js: **40 behind authMiddleware, 7 declared-exempt with a
+rationale**."* Zero undefended. **The deployed thing is the defended thing** — a materially better
+posture than the api-gateway shim above. `POST /marketplace/api/plugins/submit` (`server.js:5223`)
+performs real Ed25519 verification via `server/pluginSigningService.js:55` with typed refusal codes
+(`MISSING_SIGNATURE`, `MALFORMED_SIGNATURE`, `UNREGISTERED_KEY`, `SIGNATURE_VERIFICATION_FAILED`).
+**Three traced holes in that same endpoint:**
+
+1. **`server.js` never imports `@pryzm/plugin-sdk`** (grep → 0). Validation is
+   `manifest.id && manifest.name && manifest.version` (`:5233-5235`) — **the LOCKED D1 descriptor
+   schema (ADR-0038) is not enforced at the boundary it exists to defend.**
+2. `:5256-5263` wraps the publisher-key lookup in `catch { /* DB unavailable — fall through */ }`
+   and guards with `if (pool && !keyRow)` at `:5265`. **With no DB the key-registration check does
+   not run**, and the signature verifies against the public key supplied *in the same request* —
+   self-attestation, not authentication.
+3. `bundleSha256` is taken from the request (`:5273-5276`); `bundleUrl` is stored (`:5310`) and
+   **never fetched, never hashed**. Nothing proves the bundle at that URL is the bundle signed.
+
+**⛔ WHAT LANE AUD-5 DID NOT REACH** — the full `server.js` route census (only the 47 mutating routes
+via the gate, plus the marketplace endpoints read directly): no Zod-coverage count, no `res.status(500)`
+shape count, no CORS policy, no `/v1` census on that file. Whether `@pryzm/sdk` was ever published to
+npm. Whether any customer runs the self-host bundle. CORS/CSP on the two API apps. The 1-import
+discrepancy between the gate 173 bypasses and my by-source 172. `plugins/annotations` 16 932 LOC
+internals. `apps/component-editor`, `apps/cli`, `apps/docs-site`. **No browser, no build, no `tsc`
+was run.** "Reachable" throughout means *an import/registration edge exists*, never *observed
+executing* — except in L-2707, which is the one executed measurement here.
+**Cross-domain, not mine:** the `@thatopen/components` ratchet is **breached at 117/113** with 27 in
+`packages/core-app-model` — a packages-layer lane find; and the 214 UNKNOWN verbs from
+`check-verb-liveness` belong to whoever owns C69.
