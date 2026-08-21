@@ -145,6 +145,35 @@ export const VISIBILITY_GRAPHICS_STYLES = `
         gap: 8px;
     }
 
+    /* §PER-CATEGORY-VIEW-VISIBILITY (L-1874) — per-view category toggles.
+       Two columns so twelve categories stay scannable without scrolling the
+       panel; the note explains the SCOPE, which is the part users get wrong
+       (this hides in ONE view, not project-wide). */
+    .ov-cat-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2px 10px;
+    }
+
+    .ov-cat-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--app-text-1);
+        cursor: pointer;
+        padding: 2px 0;
+        user-select: none;
+    }
+
+    .ov-cat-row input { cursor: pointer; accent-color: #6600FF; }
+
+    .ov-cat-note {
+        font-size: 10px;
+        color: var(--app-text-2);
+        font-style: italic;
+    }
+
     .ov-intent-select {
         flex: 1;
         font-size: 12px;

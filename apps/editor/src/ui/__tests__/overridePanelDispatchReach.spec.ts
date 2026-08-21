@@ -56,6 +56,11 @@ describe('§OVERRIDE-PANEL-DISPATCH-IS-DEAD — the panel reaches a bus even whe
         // The panel is reached in production as a `window.overridePanel` singleton;
         // clear it so each case constructs its own.
         delete (window as unknown as { overridePanel?: unknown }).overridePanel;
+        // Every `new OverridePanel()` appends its root to document.body and nothing
+        // disposes it, so without this a `document.querySelector` in a later case
+        // finds the FIRST (stale) panel's DOM and reports its dead controls as the
+        // live ones. That produced a real false failure while writing this suite.
+        document.body.innerHTML = '';
     });
 
     afterEach(() => {
@@ -99,6 +104,24 @@ describe('§OVERRIDE-PANEL-DISPATCH-IS-DEAD — the panel reaches a bus even whe
         // The injected bus saw it; the window fallback did not.
         expect(injectedSeen.some(d => d.name === 'vg.assignIntent')).toBe(true);
         expect(seen.some(d => d.name === 'vg.assignIntent')).toBe(false);
+    });
+
+    it('§PER-CATEGORY-VIEW-VISIBILITY (L-1874) — unticking a category dispatches view.setCategoryVisibility', () => {
+        const panel = new OverridePanel();
+        panel.open('view-cat');
+
+        const box = document.querySelector<HTMLInputElement>('[data-action="cat-visible"][data-cat="furniture"]');
+        expect(box, 'the furniture toggle is not rendered').not.toBeNull();
+        expect(box!.checked, 'furniture starts visible').toBe(true);
+
+        box!.checked = false;
+        box!.dispatchEvent(new Event('change'));
+
+        const cat = seen.filter(d => d.name === 'view.setCategoryVisibility');
+        expect(cat).toHaveLength(1);
+        expect(cat[0].payload).toMatchObject({
+            viewId: 'view-cat', targetId: 'furniture', visible: false, targetKind: 'elementType',
+        });
     });
 
     it('constructing with NO runtime available anywhere does not throw (degrades, never crashes)', () => {

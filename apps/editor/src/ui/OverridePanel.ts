@@ -174,6 +174,8 @@ export class OverridePanel {
 
                 ${det.kind === 'determined' && det.isolateActive ? '<div class="ov-isolate-note">Isolate mode is active for this view.</div>' : ''}
 
+                ${this.categorySection(viewId, visibility)}
+
                 <section class="ov-section">
                     <div class="ov-section-title">Local overrides</div>
                     ${rows.length
@@ -191,6 +193,71 @@ export class OverridePanel {
         `;
         this.bind();
     }
+
+    /**
+     * §PER-CATEGORY-VIEW-VISIBILITY (L-1874) — the founder's "click boolean for
+     * general visibility": one checkbox per element category, scoped to THIS view.
+     *
+     * > *"imagine I don't want to see furniture elements in elevation — I need to
+     * >  control this."*
+     *
+     * This is deliberately NOT the intent editor's per-state VISIBLE checkbox.
+     * That one is per element-type PER STATE (cut / beyond / hidden / projection)
+     * and edits the INTENT, which is SHARED by every view bound to it — turning
+     * furniture off there would turn it off everywhere. This writes a per-VIEW
+     * OVERRIDE, which is the scope the request actually describes.
+     *
+     * Each toggle dispatches `view.setCategoryVisibility`, so it is one command,
+     * one undo entry, persisted in the snapshot, and read by plan / section /
+     * elevation through the same resolver every other override uses. Nothing here
+     * touches `Object3D.visible` — that would be a P7 violation and would be
+     * invisible to the 2D views this request is about.
+     */
+    private categorySection(viewId: string | null, visibility: readonly VisibilityOverride[]): string {
+        if (!viewId) return '';
+        const hidden = new Set(
+            visibility
+                .filter(o => o.action === 'hide' && (o.targetKind === 'elementType' || o.targetKind === 'category'))
+                .map(o => o.targetId),
+        );
+        const rows = OverridePanel.CATEGORIES.map(({ id, label }) => `
+            <label class="ov-cat-row">
+                <input type="checkbox" data-action="cat-visible" data-cat="${this.escape(id)}"
+                       ${hidden.has(id) ? '' : 'checked'}>
+                <span>${this.escape(label)}</span>
+            </label>
+        `).join('');
+        return `
+            <section class="ov-section">
+                <div class="ov-section-title">Categories in this view</div>
+                <div class="ov-cat-grid">${rows}</div>
+                <div class="ov-cat-note">Unticking hides the whole category in this view only.</div>
+            </section>
+        `;
+    }
+
+    /**
+     * The categories offered as quick toggles. A curated list, not a scan of what
+     * happens to be in the model: the control must be STABLE across projects and
+     * must offer a category even when the current project has none of it yet — a
+     * toggle that appears only after you place furniture is not a control the user
+     * can plan with. `targetKind: 'elementType'` matches these ids in
+     * IntentRuleResolver.targetMatches().
+     */
+    private static readonly CATEGORIES: ReadonlyArray<{ id: string; label: string }> = [
+        { id: 'wall',        label: 'Walls' },
+        { id: 'slab',        label: 'Slabs' },
+        { id: 'door',        label: 'Doors' },
+        { id: 'window',      label: 'Windows' },
+        { id: 'stair',       label: 'Stairs' },
+        { id: 'roof',        label: 'Roofs' },
+        { id: 'column',      label: 'Columns' },
+        { id: 'beam',        label: 'Beams' },
+        { id: 'furniture',   label: 'Furniture' },
+        { id: 'curtainwall', label: 'Curtain walls' },
+        { id: 'railing',     label: 'Railings' },
+        { id: 'ceiling',     label: 'Ceilings' },
+    ];
 
     private visibilityRow(override: VisibilityOverride): string {
         return `
@@ -222,6 +289,22 @@ export class OverridePanel {
             if (!this.activeViewId) return;
             this.runtime?.bus?.executeCommand('view.clearAllOverrides', { viewId: this.activeViewId });
             this.render();
+        });
+        // §PER-CATEGORY-VIEW-VISIBILITY (L-1874) — one command per toggle, so each
+        // is its own undo entry and each syncs through the normal command path.
+        this.panel.querySelectorAll<HTMLInputElement>('[data-action="cat-visible"]').forEach(box => {
+            box.addEventListener('change', () => {
+                if (!this.activeViewId) return;
+                const targetId = box.dataset.cat;
+                if (!targetId) return;
+                this.runtime?.bus?.executeCommand('view.setCategoryVisibility', {
+                    viewId:     this.activeViewId,
+                    targetId,
+                    visible:    box.checked,
+                    targetKind: 'elementType',
+                });
+                this.render();
+            });
         });
         this.panel.querySelector('[data-action="promote"]')?.addEventListener('click', () => this.promoteToIntent());
         this.panel.querySelectorAll('[data-action="clear"]').forEach(btn => {
