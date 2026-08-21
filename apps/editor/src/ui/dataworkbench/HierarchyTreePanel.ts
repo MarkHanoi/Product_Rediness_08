@@ -204,7 +204,7 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
             const empty = document.createElement('div');
             empty.className = 'dw-placeholder';
             empty.style.paddingTop = '32px';
-            empty.innerHTML = '<div class="dw-placeholder-icon">🏗</div><div style="font-size:12px;text-align:center;max-width:200px;line-height:1.5;color:var(--app-text-muted,#7a8aaa)">No hierarchy yet.<br>Click <strong>[+ Site]</strong> to start.</div>';
+            empty.innerHTML = '<div class="dw-placeholder-icon">🏗</div><div style="font-size:12px;text-align:center;max-width:200px;line-height:1.5;color:var(--app-text-muted)">No hierarchy yet.<br>Click <strong>[+ Site]</strong> to start.</div>';
             scroll.appendChild(empty);
         } else {
             for (const site of sites) {
@@ -621,7 +621,7 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
             display:flex;align-items:center;gap:5px;
             padding:2px 0 2px ${10 + depth * 16}px;
             font-size:10px;font-weight:700;letter-spacing:.4px;
-            color:var(--app-text-muted,#7a8aaa);
+            color:var(--app-text-muted);
             text-transform:uppercase;
             user-select:none;
         `;
@@ -657,7 +657,7 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
 
         if (el.code) {
             const codeSpan = document.createElement('span');
-            codeSpan.style.cssText = 'color:var(--app-text-muted,#7a8aaa);font-size:10px;margin-left:4px;';
+            codeSpan.style.cssText = 'color:var(--app-text-muted);font-size:10px;margin-left:4px;';
             codeSpan.textContent = `(${el.code})`;
             label.appendChild(codeSpan);
         }
@@ -667,7 +667,7 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
 
         if (el.meta) {
             const meta = document.createElement('span');
-            meta.style.cssText = 'font-size:11px;color:var(--app-text-muted,#7a8aaa);margin-left:6px;flex-shrink:0;white-space:nowrap;';
+            meta.style.cssText = 'font-size:11px;color:var(--app-text-muted);margin-left:6px;flex-shrink:0;white-space:nowrap;';
             meta.textContent = el.meta;
             row.appendChild(meta);
         }
@@ -748,7 +748,7 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
         if (opts.code) {
             const codeSpan = document.createElement('span');
             codeSpan.textContent = ` (${opts.code})`;
-            codeSpan.style.cssText = 'color:var(--app-text-muted,#7a8aaa);font-size:11px;';
+            codeSpan.style.cssText = 'color:var(--app-text-muted);font-size:11px;';
             labelEl.appendChild(codeSpan);
         }
 
@@ -756,7 +756,7 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
         if (opts.meta) {
             const metaEl = document.createElement('span');
             metaEl.textContent = opts.meta;
-            metaEl.style.cssText = 'font-size:11px;color:var(--app-text-muted,#7a8aaa);margin-left:6px;flex-shrink:0;white-space:nowrap;';
+            metaEl.style.cssText = 'font-size:11px;color:var(--app-text-muted);margin-left:6px;flex-shrink:0;white-space:nowrap;';
             row.style.display = 'flex';
             row.style.alignItems = 'center';
             row.appendChild(arrow);
@@ -915,7 +915,7 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
         const elLabel = document.createElement('label');
         elLabel.htmlFor = 'dw-filter-include-elements';
         elLabel.textContent = 'Include elements in filter';
-        elLabel.style.cssText = 'font-size:10px;color:var(--app-text-muted,#7a8aaa);cursor:pointer;user-select:none;';
+        elLabel.style.cssText = 'font-size:10px;color:var(--app-text-muted);cursor:pointer;user-select:none;';
 
         elToggleRow.appendChild(elCheckbox);
         elToggleRow.appendChild(elLabel);
@@ -1029,7 +1029,7 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
             label.textContent = node.name ?? node.occupancyType ?? node.id;
             if (node.code) {
                 const codeSpan = document.createElement('span');
-                codeSpan.style.cssText = 'color:var(--app-text-muted,#7a8aaa);font-size:10px;margin-left:4px;';
+                codeSpan.style.cssText = 'color:var(--app-text-muted);font-size:10px;margin-left:4px;';
                 codeSpan.textContent = `(${node.code})`;
                 label.appendChild(codeSpan);
             }

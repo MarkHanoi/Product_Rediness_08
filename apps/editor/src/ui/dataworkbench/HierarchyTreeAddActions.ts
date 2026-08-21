@@ -128,7 +128,7 @@ export function showAlert(msg: string): void {
     overlay.innerHTML = `
         <div class="dw-dialog">
             <div class="dw-dialog-title">Notice</div>
-            <div style="font-size:13px;color:var(--app-text,#1a2035);margin-bottom:16px;">${msg}</div>
+            <div style="font-size:13px;color:var(--app-text);margin-bottom:16px;">${msg}</div>
             <div class="dw-dialog-actions">
                 <button class="dw-dialog-btn dw-dialog-btn--primary" id="dw-alert-ok">OK</button>
             </div>

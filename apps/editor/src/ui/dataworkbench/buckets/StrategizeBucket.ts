@@ -31,7 +31,7 @@ export function mountGenerativePanel(
     genContainer.appendChild(genWrapper);
 
     const briefContainer = document.createElement('div');
-    briefContainer.style.cssText = 'flex:0 0 55%;overflow-y:auto;border-bottom:2px solid var(--dw-border,#e5e7eb);';
+    briefContainer.style.cssText = 'flex:0 0 55%;overflow-y:auto;border-bottom:2px solid var(--app-border);';
     const variantContainer = document.createElement('div');
     variantContainer.style.cssText = 'flex:1;overflow:hidden;display:flex;flex-direction:column;';
 

@@ -67,10 +67,10 @@ export class NLQueryPanel {
     private _buildDOM(): void {
         // Header
         const header = document.createElement('div');
-        header.style.cssText = 'padding:12px 12px 8px;border-bottom:1px solid var(--app-border,#334155);flex-shrink:0;';
+        header.style.cssText = 'padding:12px 12px 8px;border-bottom:1px solid var(--app-border);flex-shrink:0;';
 
         const title = document.createElement('div');
-        title.style.cssText = 'font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--app-text-muted,#94a3b8);margin-bottom:8px;';
+        title.style.cssText = 'font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--app-text-muted);margin-bottom:8px;';
         title.textContent = 'Natural Language Query';
         header.appendChild(title);
 
@@ -83,9 +83,9 @@ export class NLQueryPanel {
         this._input.placeholder = 'e.g. rooms without doors';
         this._input.style.cssText = [
             'flex:1;padding:6px 10px;border-radius:6px;',
-            'border:1px solid var(--app-border,#334155);',
-            'background:var(--app-surface,#1e293b);',
-            'color:var(--app-text,#e2e8f0);',
+            'border:1px solid var(--app-border);',
+            'background:var(--app-panel-bg);',
+            'color:var(--app-text);',
             'font-size:12px;outline:none;',
         ].join('');
         this._input.addEventListener('keydown', (e) => {
@@ -107,15 +107,15 @@ export class NLQueryPanel {
 
         // Suggested queries
         const chips = document.createElement('div');
-        chips.style.cssText = 'padding:8px 12px;border-bottom:1px solid var(--app-border,#334155);flex-shrink:0;display:flex;flex-wrap:wrap;gap:4px;';
+        chips.style.cssText = 'padding:8px 12px;border-bottom:1px solid var(--app-border);flex-shrink:0;display:flex;flex-wrap:wrap;gap:4px;';
 
         for (const q of SUGGESTED_QUERIES) {
             const chip = document.createElement('button');
             chip.textContent = q;
             chip.style.cssText = [
                 'font-size:10px;padding:3px 8px;border-radius:12px;',
-                'border:1px solid var(--app-border,#334155);background:transparent;',
-                'color:var(--app-text-muted,#94a3b8);cursor:pointer;',
+                'border:1px solid var(--app-border);background:transparent;',
+                'color:var(--app-text-muted);cursor:pointer;',
                 'transition:background .15s,color .15s;',
             ].join('');
             chip.addEventListener('mouseenter', () => {
@@ -125,8 +125,8 @@ export class NLQueryPanel {
             });
             chip.addEventListener('mouseleave', () => {
                 chip.style.background = 'transparent';
-                chip.style.color = 'var(--app-text-muted,#94a3b8)';
-                chip.style.borderColor = 'var(--app-border,#334155)';
+                chip.style.color = 'var(--app-text-muted)';
+                chip.style.borderColor = 'var(--app-border)';
             });
             chip.addEventListener('click', () => {
                 this._input.value = q;
@@ -138,7 +138,7 @@ export class NLQueryPanel {
 
         // Status / summary bar
         this._statusEl = document.createElement('div');
-        this._statusEl.style.cssText = 'padding:6px 12px;font-size:11px;color:var(--app-text-muted,#94a3b8);flex-shrink:0;min-height:24px;';
+        this._statusEl.style.cssText = 'padding:6px 12px;font-size:11px;color:var(--app-text-muted);flex-shrink:0;min-height:24px;';
         this._root.appendChild(this._statusEl);
 
         // Results
@@ -182,7 +182,7 @@ export class NLQueryPanel {
 
         if (result.rows.length === 0) {
             const empty = document.createElement('div');
-            empty.style.cssText = 'padding:24px 12px;text-align:center;color:var(--app-text-muted,#94a3b8);font-size:12px;';
+            empty.style.cssText = 'padding:24px 12px;text-align:center;color:var(--app-text-muted);font-size:12px;';
             empty.textContent = result.rows.length === 0 ? 'No results.' : '';
             this._resultsEl.appendChild(empty);
             return;
@@ -202,10 +202,10 @@ export class NLQueryPanel {
         const el = document.createElement('div');
         el.style.cssText = [
             'display:flex;align-items:center;gap:8px;padding:7px 12px;',
-            'cursor:pointer;transition:background .12s;border-bottom:1px solid var(--app-border,#1e293b33);',
+            'cursor:pointer;transition:background .12s;border-bottom:1px solid var(--app-border);',
         ].join('');
 
-        el.addEventListener('mouseenter', () => { el.style.background = 'var(--app-hover,rgba(59,130,246,.08))'; });
+        el.addEventListener('mouseenter', () => { el.style.background = 'var(--app-wash-hover)'; });
         el.addEventListener('mouseleave', () => { el.style.background = ''; });
 
         // Type badge
@@ -220,14 +220,14 @@ export class NLQueryPanel {
 
         // Label
         const label = document.createElement('div');
-        label.style.cssText = 'flex:1;font-size:12px;color:var(--app-text,#e2e8f0);';
+        label.style.cssText = 'flex:1;font-size:12px;color:var(--app-text);';
         label.textContent = row.label;
         el.appendChild(label);
 
         // Meta
         if (row.meta) {
             const meta = document.createElement('div');
-            meta.style.cssText = 'font-size:10px;color:var(--app-text-muted,#94a3b8);flex-shrink:0;';
+            meta.style.cssText = 'font-size:10px;color:var(--app-text-muted);flex-shrink:0;';
             meta.textContent = row.meta;
             el.appendChild(meta);
         }

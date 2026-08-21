@@ -515,8 +515,8 @@ export class DataWorkbench implements IDataWorkbench {
         panel.innerHTML = `
             <div class="dw-placeholder">
                 <div class="dw-placeholder-icon">${icon}</div>
-                <div style="font-weight:600;font-size:13px;color:var(--app-text,#1a2035);margin-bottom:4px">${title}</div>
-                <div style="font-size:12px;max-width:200px;text-align:center;line-height:1.6;color:var(--app-text-muted,#7a8aaa)">${desc}</div>
+                <div style="font-weight:600;font-size:13px;color:var(--app-text);margin-bottom:4px">${title}</div>
+                <div style="font-size:12px;max-width:200px;text-align:center;line-height:1.6;color:var(--app-text-muted)">${desc}</div>
             </div>
         `;
     }

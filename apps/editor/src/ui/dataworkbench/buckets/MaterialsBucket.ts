@@ -55,7 +55,7 @@ function buildMaterialSelect(
             `<option value="${escapeHtml(m.id)}"${m.id === currentId ? ' selected' : ''}>${escapeHtml(m.label)}</option>`
           ).join('')}</optgroup>`
         : '';
-    return `<select data-material-select ${dataAttrs} ${disabled ? 'disabled title="Duplicate this type to assign a library material"' : ''} style="font-size:10px;border:1px solid var(--dw-border,#e5e7eb);border-radius:6px;padding:3px 6px;background:#fff;color:var(--app-text,#1a2035);cursor:${disabled ? 'not-allowed' : 'pointer'};max-width:160px;"><option value="">— library material —</option>${userOptgroup}${optgroups}</select>`;
+    return `<select data-material-select ${dataAttrs} ${disabled ? 'disabled title="Duplicate this type to assign a library material"' : ''} style="font-size:10px;border:1px solid var(--app-border);border-radius:6px;padding:3px 6px;background:#fff;color:var(--app-text);cursor:${disabled ? 'not-allowed' : 'pointer'};max-width:160px;"><option value="">— library material —</option>${userOptgroup}${optgroups}</select>`;
 }
 
 // ── #105 Materials Repository — user-created materials section ─────────────────
@@ -71,12 +71,12 @@ function userMaterialsMarkup(): string {
     const mats = userMaterialStore.getAll();
     const header = `
         <div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 10px;">
-            <h4 style="margin:0;font-size:11px;letter-spacing:.09em;text-transform:uppercase;font-weight:800;color:var(--app-text,#1a2035);">My Materials</h4>
-            <span style="font-size:10px;color:var(--app-text-muted,#7a8aaa);">${mats.length}</span>
+            <h4 style="margin:0;font-size:11px;letter-spacing:.09em;text-transform:uppercase;font-weight:800;color:var(--app-text);">My Materials</h4>
+            <span style="font-size:10px;color:var(--app-text-muted);">${mats.length}</span>
         </div>`;
     if (mats.length === 0) {
         return `<section style="margin-bottom:20px;">${header}
-            <div style="font-size:10px;color:var(--app-text-muted,#7a8aaa);padding:2px 0 4px;">No custom materials yet — click <strong>+ New Material</strong> above.</div>
+            <div style="font-size:10px;color:var(--app-text-muted);padding:2px 0 4px;">No custom materials yet — click <strong>+ New Material</strong> above.</div>
         </section>`;
     }
     const cards = mats.map(m => {
@@ -85,12 +85,12 @@ function userMaterialsMarkup(): string {
             <article data-material-card data-user-material data-material-id="${escapeHtml(m.id)}" data-material-color="${escapeHtml(m.color)}"
                 data-search="${escapeHtml(`${m.label} ${m.category} ${m.id}`.toLowerCase())}"
                 title="Click to select · ${escapeHtml(m.id)}"
-                style="border:1.5px solid var(--dw-border,#e5e7eb);border-radius:10px;background:var(--app-panel,#fff);overflow:hidden;cursor:pointer;position:relative;transition:border-color .12s,box-shadow .12s;">
+                style="border:1.5px solid var(--app-border);border-radius:10px;background:var(--app-panel-bg);overflow:hidden;cursor:pointer;position:relative;transition:border-color .12s,box-shadow .12s;">
                 <button data-remove-user-material="${escapeHtml(m.id)}" title="Remove material" style="position:absolute;top:4px;left:5px;z-index:2;font-size:11px;line-height:1;background:rgba(0,0,0,.42);color:#fff;border:none;border-radius:4px;padding:2px 6px;cursor:pointer;font-weight:700;">×</button>
                 <div style="height:44px;background:${escapeHtml(m.color)};${m.textureUrl ? `background-image:url('${escapeHtml(m.textureUrl)}');background-size:cover;background-position:center;` : ''}${isTransparent ? `opacity:${m.opacity.toFixed(2)};` : ''}"></div>
                 <div style="padding:8px 9px;">
-                    <div style="font-size:11px;font-weight:700;color:var(--app-text,#1a2035);line-height:1.3;margin-bottom:3px;">${escapeHtml(m.label)}</div>
-                    <div style="display:flex;gap:6px;font-size:9px;color:var(--app-text-muted,#7a8aaa);">
+                    <div style="font-size:11px;font-weight:700;color:var(--app-text);line-height:1.3;margin-bottom:3px;">${escapeHtml(m.label)}</div>
+                    <div style="display:flex;gap:6px;font-size:9px;color:var(--app-text-muted);">
                         <span>R ${m.roughness.toFixed(2)}</span><span>·</span><span>M ${m.metalness.toFixed(2)}</span>
                     </div>
                 </div>
@@ -116,8 +116,8 @@ export function mountMaterialLibrary(panel: HTMLElement): void {
         .map(([category, materials]) => `
             <section style="margin-bottom:20px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 10px;">
-                    <h4 style="margin:0;font-size:11px;letter-spacing:.09em;text-transform:uppercase;font-weight:800;color:var(--app-text,#1a2035);">${escapeHtml(category)}</h4>
-                    <span style="font-size:10px;color:var(--app-text-muted,#7a8aaa);">${materials.length}</span>
+                    <h4 style="margin:0;font-size:11px;letter-spacing:.09em;text-transform:uppercase;font-weight:800;color:var(--app-text);">${escapeHtml(category)}</h4>
+                    <span style="font-size:10px;color:var(--app-text-muted);">${materials.length}</span>
                 </div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">
                     ${materials.map(material => {
@@ -133,15 +133,15 @@ export function mountMaterialLibrary(panel: HTMLElement): void {
                                 data-material-color="${escapeHtml(color)}"
                                 data-search="${escapeHtml(`${material.label} ${material.category} ${material.id}`.toLowerCase())}"
                                 title="Click to select · ${escapeHtml(material.id)}"
-                                style="border:1.5px solid var(--dw-border,#e5e7eb);border-radius:10px;background:var(--app-panel,#fff);overflow:hidden;cursor:pointer;transition:border-color .12s,box-shadow .12s;"
+                                style="border:1.5px solid var(--app-border);border-radius:10px;background:var(--app-panel-bg);overflow:hidden;cursor:pointer;transition:border-color .12s,box-shadow .12s;"
                             >
                                 <div style="height:44px;background:${color};${isTransparent ? `opacity:${opacityStr};` : ''}position:relative;">
                                     ${parseFloat(metalness) >= 0.7 ? '<div style="position:absolute;top:4px;right:5px;font-size:9px;background:rgba(0,0,0,.35);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700;">M</div>' : ''}
                                     ${isTransparent ? '<div style="position:absolute;top:4px;right:5px;font-size:9px;background:rgba(0,0,0,.35);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700;">T</div>' : ''}
                                 </div>
                                 <div style="padding:8px 9px;">
-                                    <div style="font-size:11px;font-weight:700;color:var(--app-text,#1a2035);line-height:1.3;margin-bottom:3px;">${escapeHtml(material.label)}</div>
-                                    <div style="display:flex;gap:6px;font-size:9px;color:var(--app-text-muted,#7a8aaa);">
+                                    <div style="font-size:11px;font-weight:700;color:var(--app-text);line-height:1.3;margin-bottom:3px;">${escapeHtml(material.label)}</div>
+                                    <div style="display:flex;gap:6px;font-size:9px;color:var(--app-text-muted);">
                                         <span>R ${roughness}</span>
                                         <span>·</span>
                                         <span>M ${metalness}</span>
@@ -156,9 +156,9 @@ export function mountMaterialLibrary(panel: HTMLElement): void {
 
     panel.innerHTML = `
         <div style="height:100%;display:flex;flex-direction:column;overflow:hidden;">
-            <div style="padding:12px 14px 10px;border-bottom:1px solid var(--dw-border,#e5e7eb);background:linear-gradient(180deg,rgba(212,88,10,.06),transparent);">
+            <div style="padding:12px 14px 10px;border-bottom:1px solid var(--app-border);background:linear-gradient(180deg,rgba(212,88,10,.06),transparent);">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                    <span style="font-size:15px;font-weight:800;color:var(--app-text,#1a2035);">BIM Material Library</span>
+                    <span style="font-size:15px;font-weight:800;color:var(--app-text);">BIM Material Library</span>
                     <span style="font-size:10px;background:rgba(212,88,10,.12);color:#D4580A;border-radius:99px;padding:2px 8px;font-weight:700;">${STANDARD_MATERIAL_LIBRARY.length} materials</span>
                     <button data-new-material title="Create a custom material" style="margin-left:auto;font-size:10px;font-weight:700;background:#D4580A;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;">+ New Material</button>
                     <button data-upload-material title="Create a material from an uploaded image (texture)" style="font-size:10px;font-weight:700;background:#fff;color:#D4580A;border:1px solid #D4580A;border-radius:6px;padding:4px 10px;cursor:pointer;">Upload Image</button>
@@ -169,8 +169,8 @@ export function mountMaterialLibrary(panel: HTMLElement): void {
                 </div>
                 <div data-create-form style="display:none;flex-direction:column;gap:8px;padding:10px;margin-bottom:8px;background:rgba(212,88,10,.06);border:1px solid rgba(212,88,10,.25);border-radius:8px;">
                     <div style="display:flex;gap:8px;align-items:center;">
-                        <input data-cf-name type="text" placeholder="Material name" style="flex:1;min-width:0;padding:6px 8px;border:1px solid var(--dw-border,#e5e7eb);border-radius:6px;font-size:12px;background:#fff;color:var(--app-text,#1a2035);" />
-                        <input data-cf-color type="color" value="#c8a96e" title="Base colour" style="width:38px;height:32px;border:1px solid var(--dw-border,#e5e7eb);border-radius:6px;background:#fff;cursor:pointer;padding:2px;" />
+                        <input data-cf-name type="text" placeholder="Material name" style="flex:1;min-width:0;padding:6px 8px;border:1px solid var(--app-border);border-radius:6px;font-size:12px;background:#fff;color:var(--app-text,#1a2035);" />
+                        <input data-cf-color type="color" value="#c8a96e" title="Base colour" style="width:38px;height:32px;border:1px solid var(--app-border);border-radius:6px;background:#fff;cursor:pointer;padding:2px;" />
                     </div>
                     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:10px;color:var(--app-text-muted,#7a8aaa);">
                         <label style="display:flex;align-items:center;gap:5px;">Roughness <input data-cf-rough type="range" min="0" max="1" step="0.05" value="0.6" style="width:80px;" /></label>
@@ -179,7 +179,7 @@ export function mountMaterialLibrary(panel: HTMLElement): void {
                         <label style="display:flex;align-items:center;gap:5px;">Opacity <input data-cf-opacity type="range" min="0.05" max="1" step="0.05" value="1" style="width:70px;" /></label>
                     </div>
                     <div style="display:flex;gap:8px;justify-content:flex-end;">
-                        <button data-cf-cancel style="font-size:10px;font-weight:700;background:#fff;color:var(--app-text-muted,#7a8aaa);border:1px solid var(--dw-border,#e5e7eb);border-radius:6px;padding:4px 12px;cursor:pointer;">Cancel</button>
+                        <button data-cf-cancel style="font-size:10px;font-weight:700;background:#fff;color:var(--app-text-muted,#7a8aaa);border:1px solid var(--app-border);border-radius:6px;padding:4px 12px;cursor:pointer;">Cancel</button>
                         <button data-cf-create style="font-size:10px;font-weight:700;background:#D4580A;color:#fff;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;">Create</button>
                     </div>
                 </div>
@@ -191,7 +191,7 @@ export function mountMaterialLibrary(panel: HTMLElement): void {
                     </div>
                     <button data-clear-selection style="background:none;border:none;cursor:pointer;color:var(--app-text-muted,#7a8aaa);font-size:14px;line-height:1;padding:2px;" title="Clear selection">×</button>
                 </div>
-                <input data-material-search type="search" placeholder="Search concrete, oak, marble, steel, glass..." style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--dw-border,#e5e7eb);border-radius:8px;font-size:12px;background:#fff;color:var(--app-text,#1a2035);outline:none;" />
+                <input data-material-search type="search" placeholder="Search concrete, oak, marble, steel, glass..." style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--app-border);border-radius:8px;font-size:12px;background:#fff;color:var(--app-text,#1a2035);outline:none;" />
             </div>
             <div style="flex:1;overflow:auto;padding:12px 14px;">
                 <div data-user-materials-section>${userMaterialsMarkup()}</div>
@@ -368,7 +368,7 @@ export function mountRenderMaterials(panel: HTMLElement): void {
                                 data-render-card
                                 data-search="${escapeHtml(`${material.label} ${material.category} ${material.id}`.toLowerCase())}"
                                 title="${escapeHtml(material.id)}"
-                                style="border:1.5px solid var(--dw-border,#e5e7eb);border-radius:10px;background:var(--app-panel,#fff);overflow:hidden;"
+                                style="border:1.5px solid var(--app-border);border-radius:10px;background:var(--app-panel-bg);overflow:hidden;"
                             >
                                 <div style="height:44px;background:${color};background:linear-gradient(135deg,${color},color-mix(in srgb,${color} 70%,#fff));position:relative;">
                                     <div style="position:absolute;bottom:4px;right:5px;font-size:9px;background:rgba(0,0,0,.4);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700;">HDR</div>
@@ -393,7 +393,7 @@ export function mountRenderMaterials(panel: HTMLElement): void {
 
     panel.innerHTML = `
         <div style="height:100%;display:flex;flex-direction:column;overflow:hidden;">
-            <div style="padding:12px 14px 10px;border-bottom:1px solid var(--dw-border,#e5e7eb);background:linear-gradient(180deg,rgba(212,88,10,.06),transparent);">
+            <div style="padding:12px 14px 10px;border-bottom:1px solid var(--app-border);background:linear-gradient(180deg,rgba(212,88,10,.06),transparent);">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
                     <span style="font-size:15px;font-weight:800;color:var(--app-text,#1a2035);">Render Material Library</span>
                     <span style="font-size:10px;background:rgba(212,88,10,.12);color:#D4580A;border-radius:99px;padding:2px 8px;font-weight:700;">${RENDER_MATERIAL_LIBRARY.length} materials</span>
@@ -401,7 +401,7 @@ export function mountRenderMaterials(panel: HTMLElement): void {
                 <div style="font-size:11px;color:var(--app-text-muted,#7a8aaa);margin-bottom:8px;line-height:1.5;">
                     High-fidelity PBR materials for WebGPU path-traced renders. These definitions use enhanced envMapIntensity and tighter roughness/metalness values for physically accurate light response.
                 </div>
-                <input data-render-search type="search" placeholder="Search concrete, steel, glass, wood..." style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--dw-border,#e5e7eb);border-radius:8px;font-size:12px;background:#fff;color:var(--app-text,#1a2035);outline:none;" />
+                <input data-render-search type="search" placeholder="Search concrete, steel, glass, wood..." style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--app-border);border-radius:8px;font-size:12px;background:#fff;color:var(--app-text,#1a2035);outline:none;" />
             </div>
             <div style="flex:1;overflow:auto;padding:12px 14px;">
                 ${categoryMarkup}
@@ -437,13 +437,13 @@ export function mountElementTypes(panel: HTMLElement): void {
                     const isBuiltIn = wallSystemTypeStore.isBuiltIn(t.id);
                     return `
                     <article data-type-row data-search="${escapeHtml(`wall types ${t.name} ${t.id} wall assembly`.toLowerCase())}"
-                        style="border:1px solid var(--dw-border,#e5e7eb);border-radius:10px;background:var(--app-panel,#fff);overflow:hidden;">
-                        <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--dw-border,#e5e7eb);">
+                        style="border:1px solid var(--app-border);border-radius:10px;background:var(--app-panel-bg);overflow:hidden;">
+                        <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--app-border);">
                             <div>
                                 <div style="font-size:12px;font-weight:700;color:var(--app-text,#1a2035);">${escapeHtml(t.name)}</div>
                                 <div style="font-size:10px;color:var(--app-text-muted,#7a8aaa);">${escapeHtml(t.id)} · ${t.layers.length} layers · ${formatMetres(t.totalThickness)}</div>
                             </div>
-                            <span style="font-size:10px;border:1px solid var(--dw-border,#e5e7eb);border-radius:999px;padding:2px 7px;color:var(--app-text-muted,#7a8aaa);white-space:nowrap;flex-shrink:0;">${isBuiltIn ? 'built-in' : 'custom'}</span>
+                            <span style="font-size:10px;border:1px solid var(--app-border);border-radius:999px;padding:2px 7px;color:var(--app-text-muted,#7a8aaa);white-space:nowrap;flex-shrink:0;">${isBuiltIn ? 'built-in' : 'custom'}</span>
                         </div>
                         <div style="padding:8px 12px;display:flex;flex-direction:column;gap:6px;">
                             ${t.layers.map((layer, li) => `
@@ -472,13 +472,13 @@ export function mountElementTypes(panel: HTMLElement): void {
             <div style="display:flex;flex-direction:column;gap:8px;">
                 ${doorTypes.map(t => `
                     <article data-type-row data-search="${escapeHtml(`door types ${t.name} ${t.id} ${t.category}`.toLowerCase())}"
-                        style="border:1px solid var(--dw-border,#e5e7eb);border-radius:10px;background:var(--app-panel,#fff);overflow:hidden;">
-                        <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--dw-border,#e5e7eb);">
+                        style="border:1px solid var(--app-border);border-radius:10px;background:var(--app-panel-bg);overflow:hidden;">
+                        <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--app-border);">
                             <div>
                                 <div style="font-size:12px;font-weight:700;color:var(--app-text,#1a2035);">${escapeHtml(t.name)}</div>
                                 <div style="font-size:10px;color:var(--app-text-muted,#7a8aaa);">${escapeHtml(t.id)} · ${escapeHtml(t.category)} · glazing ${t.glazingOpacity === 1 ? 'solid' : t.glazingOpacity.toFixed(1)}</div>
                             </div>
-                            <span style="font-size:10px;border:1px solid var(--dw-border,#e5e7eb);border-radius:999px;padding:2px 7px;color:var(--app-text-muted,#7a8aaa);white-space:nowrap;flex-shrink:0;">${t.isBuiltIn ? 'built-in' : 'custom'}</span>
+                            <span style="font-size:10px;border:1px solid var(--app-border);border-radius:999px;padding:2px 7px;color:var(--app-text-muted,#7a8aaa);white-space:nowrap;flex-shrink:0;">${t.isBuiltIn ? 'built-in' : 'custom'}</span>
                         </div>
                         <div style="padding:8px 12px;display:flex;flex-direction:column;gap:6px;">
                             <div style="display:flex;align-items:center;gap:8px;">
@@ -513,13 +513,13 @@ export function mountElementTypes(panel: HTMLElement): void {
             <div style="display:flex;flex-direction:column;gap:8px;">
                 ${winTypes.map(t => `
                     <article data-type-row data-search="${escapeHtml(`window types ${t.name} ${t.id} ${t.category}`.toLowerCase())}"
-                        style="border:1px solid var(--dw-border,#e5e7eb);border-radius:10px;background:var(--app-panel,#fff);overflow:hidden;">
-                        <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--dw-border,#e5e7eb);">
+                        style="border:1px solid var(--app-border);border-radius:10px;background:var(--app-panel-bg);overflow:hidden;">
+                        <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--app-border);">
                             <div>
                                 <div style="font-size:12px;font-weight:700;color:var(--app-text,#1a2035);">${escapeHtml(t.name)}</div>
                                 <div style="font-size:10px;color:var(--app-text-muted,#7a8aaa);">${escapeHtml(t.id)} · ${escapeHtml(t.category)}</div>
                             </div>
-                            <span style="font-size:10px;border:1px solid var(--dw-border,#e5e7eb);border-radius:999px;padding:2px 7px;color:var(--app-text-muted,#7a8aaa);white-space:nowrap;flex-shrink:0;">${t.isBuiltIn ? 'built-in' : 'custom'}</span>
+                            <span style="font-size:10px;border:1px solid var(--app-border);border-radius:999px;padding:2px 7px;color:var(--app-text-muted,#7a8aaa);white-space:nowrap;flex-shrink:0;">${t.isBuiltIn ? 'built-in' : 'custom'}</span>
                         </div>
                         <div style="padding:8px 12px;display:flex;flex-direction:column;gap:6px;">
                             <div style="display:flex;align-items:center;gap:8px;">
@@ -579,7 +579,7 @@ export function mountElementTypes(panel: HTMLElement): void {
                 <div style="display:flex;flex-direction:column;gap:6px;">
                     ${groupRows.map(row => `
                         <article data-type-row data-search="${escapeHtml(`${row.group} ${row.name} ${row.id} ${row.category}`.toLowerCase())}"
-                            style="padding:9px 12px;border:1px solid var(--dw-border,#e5e7eb);border-radius:8px;background:var(--app-panel,#fff);">
+                            style="padding:9px 12px;border:1px solid var(--app-border);border-radius:8px;background:var(--app-panel-bg);">
                             <div style="font-size:11px;font-weight:700;color:var(--app-text,#1a2035);">${escapeHtml(row.name)}</div>
                             <div style="font-size:10px;color:var(--app-text-muted,#7a8aaa);margin-top:2px;">${escapeHtml(row.category)} · ${escapeHtml(row.details)}</div>
                         </article>
@@ -593,7 +593,7 @@ export function mountElementTypes(panel: HTMLElement): void {
 
     panel.innerHTML = `
         <div style="height:100%;display:flex;flex-direction:column;overflow:hidden;">
-            <div style="padding:12px 14px 10px;border-bottom:1px solid var(--dw-border,#e5e7eb);background:linear-gradient(180deg,rgba(212,88,10,.06),transparent);">
+            <div style="padding:12px 14px 10px;border-bottom:1px solid var(--app-border);background:linear-gradient(180deg,rgba(212,88,10,.06),transparent);">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
                     <span style="font-size:15px;font-weight:800;color:var(--app-text,#1a2035);">Element Types</span>
                     <span style="font-size:10px;background:rgba(212,88,10,.12);color:#D4580A;border-radius:99px;padding:2px 8px;font-weight:700;">${totalCount} types</span>
@@ -601,7 +601,7 @@ export function mountElementTypes(panel: HTMLElement): void {
                 <div style="font-size:11px;color:var(--app-text-muted,#7a8aaa);margin-bottom:8px;line-height:1.5;">
                     Wall layers, door finishes, and window finishes have material pickers linked to the BIM Material Library. Custom types are editable; built-in types are read-only.
                 </div>
-                <input data-type-search type="search" placeholder="Search wall, door, window, stair, UC, roof..." style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--dw-border,#e5e7eb);border-radius:8px;font-size:12px;background:#fff;color:var(--app-text,#1a2035);outline:none;" />
+                <input data-type-search type="search" placeholder="Search wall, door, window, stair, UC, roof..." style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--app-border);border-radius:8px;font-size:12px;background:#fff;color:var(--app-text,#1a2035);outline:none;" />
             </div>
             <div style="flex:1;overflow:auto;padding:12px 14px;">
                 ${wallSection}

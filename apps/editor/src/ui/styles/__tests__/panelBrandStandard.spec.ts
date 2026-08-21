@@ -179,32 +179,27 @@ describe('§PANEL-BRAND-STANDARD — the Inspect and Data mode surfaces', () => 
         });
 
         /**
-         * The phantom BACKLOG — a NAMED list, never a bare number.
+         * CLOSED, 2026-08-21 — this was a shrink-only backlog of NINE names and
+         * it is now EMPTY, so this arm is hard-0 like the three above it.
          *
-         * MEASURED 2026-08-21: 62 references to 9 undeclared properties across
-         * 10 files in the Data workbench's per-sub-panel TypeScript. Unlike
-         * --app-green/--app-amber/--app-red, every one of these carries a
-         * fallback, so they DO render — the fallback simply IS the value, and
-         * those fallbacks are a divergent palette again (#e5e7eb, #f8fafc,
-         * #1e293b, rgba(59,130,246,.08)). Same defect class, lower blast radius.
+         * It existed for one run. The measurement was 62 references to 9
+         * undeclared properties across 10 files in the Data workbench's
+         * per-sub-panel TypeScript (--dw-border x30, --app-surface x14,
+         * --app-surface-2 x7, --app-panel x4, --app-surface-hover x2, --dw-bg
+         * x2, --app-hover, --dw-item-bg, --dw-purple). Unlike
+         * --app-green/--app-amber/--app-red, every one carried a fallback, so
+         * they DID render — the fallback simply WAS the value, and those
+         * fallbacks were a divergent palette again (#e5e7eb, #f8fafc, #1e293b,
+         * rgba(59,130,246,.08)). Each phantom's fallback is what identified the
+         * token it was reaching for; the mapping was read off them, not invented.
          *
-         * This is a NAME list, not a count, precisely so it cannot be satisfied
-         * by moving references between files or by renaming one phantom to
-         * another: a new undeclared name is a new entry and fails here. It is
-         * shrink-only — entries come off as they are fixed, and nothing may be
-         * added. Fixing all nine makes this the same hard-0 as the arms above.
+         * The list stays as an EMPTY array rather than being deleted, because
+         * the two assertions below are what make it shrink-only in BOTH
+         * directions: an unknown name fails, and a name listed here that is
+         * already gone ALSO fails. Adding an entry to silence a new phantom is
+         * therefore a visible, reviewable act — not a quiet baseline bump.
          */
-        const PHANTOM_BACKLOG: ReadonlyArray<string> = [
-            '--app-hover',
-            '--app-panel',
-            '--app-surface',
-            '--app-surface-2',
-            '--app-surface-hover',
-            '--dw-bg',
-            '--dw-border',
-            '--dw-item-bg',
-            '--dw-purple',
-        ];
+        const PHANTOM_BACKLOG: ReadonlyArray<string> = [];
 
         it('the panels TypeScript introduces no NEW undeclared custom property', () => {
             // The phantoms did not live in CSS at all — they were emitted from

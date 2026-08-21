@@ -48,12 +48,12 @@ const C = {
     amber:     '#D97706',
     red:       '#DC2626',
     slate:     '#64748B',
-    border:    'var(--dw-border,#E5E7EB)',
-    text:      'var(--app-text,#1a2035)',
-    textMid:   'var(--app-text-2,#5a6a85)',
-    textMuted: 'var(--app-text-muted,#7a8aaa)',
-    bg:        'var(--dw-bg,#FFFFFF)',
-    cardBg:    'var(--dw-item-bg,#F8F9FF)',
+    border:    'var(--app-border)',
+    text:      'var(--app-text)',
+    textMid:   'var(--app-text-2)',
+    textMuted: 'var(--app-text-muted)',
+    bg:        'var(--app-panel-bg)',
+    cardBg:    'var(--app-surface-sunken)',
 };
 
 // ── Building type → common room types ────────────────────────────────────────
@@ -237,7 +237,7 @@ export class PortfolioQueryPanel {
             width:100%;box-sizing:border-box;font-size:12px;padding:7px 10px;
             border:1px solid ${C.border};border-radius:6px;
             color:${C.text};background:${C.bg};
-            font-family:var(--app-font,-apple-system,sans-serif);
+            font-family:var(--app-font);
             margin-bottom:8px;
         `;
         this._nlInput.addEventListener('keydown', e => { if (e.key === 'Enter') this._runNLQuery(); });
@@ -454,9 +454,9 @@ export class PortfolioQueryPanel {
     private _selectStyle(): string {
         return `
             font-size:11px;padding:5px 8px;border-radius:6px;width:100%;
-            border:1px solid var(--dw-border,#E5E7EB);
-            background:var(--dw-bg,#fff);color:${C.text};cursor:pointer;
-            font-family:var(--app-font,-apple-system,sans-serif);
+            border:1px solid var(--app-border);
+            background:var(--app-panel-bg);color:${C.text};cursor:pointer;
+            font-family:var(--app-font);
         `;
     }
 
@@ -465,7 +465,7 @@ export class PortfolioQueryPanel {
             font-size:11px;font-weight:600;padding:6px 14px;border-radius:6px;
             border:1px solid ${colour};background:${colour};color:#fff;
             cursor:pointer;transition:opacity 0.12s;
-            font-family:var(--app-font,-apple-system,sans-serif);
+            font-family:var(--app-font);
         `;
     }
 }

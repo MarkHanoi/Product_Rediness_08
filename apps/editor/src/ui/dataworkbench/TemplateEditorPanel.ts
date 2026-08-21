@@ -75,8 +75,8 @@ export class TemplateEditorPanel {
         tabBar.style.cssText = [
             'display:flex',
             'align-items:center',
-            'border-bottom:1px solid var(--app-border-light,#eef1f8)',
-            'background:var(--app-surface,#fff)',
+            'border-bottom:1px solid var(--app-border-light)',
+            'background:var(--app-panel-bg)',
             'flex-shrink:0',
             'padding:0 8px',
             'gap:2px',
@@ -92,7 +92,7 @@ export class TemplateEditorPanel {
                 'padding:8px 10px',
                 'font-size:12px',
                 'font-weight:' + (active ? '700' : '500'),
-                'color:' + (active ? '#6600FF' : 'var(--app-text-muted,#7a8aaa)'),
+                'color:' + (active ? '#6600FF' : 'var(--app-text-muted)'),
                 'border-bottom:2px solid ' + (active ? '#6600FF' : 'transparent'),
                 'margin-bottom:-1px',
                 'transition:color .15s,border-color .15s',
@@ -144,7 +144,7 @@ export class TemplateEditorPanel {
             scroll.innerHTML = `
                 <div class="dw-placeholder" style="padding-top:32px;">
                     <div class="dw-placeholder-icon">📐</div>
-                    <div style="font-size:12px;text-align:center;max-width:200px;line-height:1.5;color:var(--app-text-muted,#7a8aaa)">
+                    <div style="font-size:12px;text-align:center;max-width:200px;line-height:1.5;color:var(--app-text-muted)">
                         No templates yet.<br>Click <strong>[+ New]</strong> to create one.
                     </div>
                 </div>
@@ -163,7 +163,7 @@ export class TemplateEditorPanel {
                     text-transform: uppercase;
                     letter-spacing: 0.05em;
                     color: ${SCOPE_COLOURS[scope] ?? '#9ca3af'};
-                    border-bottom: 1px solid var(--app-border-light,#eef1f8);
+                    border-bottom: 1px solid var(--app-border-light);
                     margin-top: 4px;
                 `;
                 groupHeader.textContent = SCOPE_LABELS[scope] ?? scope;
@@ -181,7 +181,7 @@ export class TemplateEditorPanel {
 
     private _renderLibraryContent(container: HTMLElement): void {
         container.innerHTML = `
-            <div style="padding:16px;text-align:center;color:var(--app-text-muted,#7a8aaa);font-size:12px;">
+            <div style="padding:16px;text-align:center;color:var(--app-text-muted);font-size:12px;">
                 Loading shared templates…
             </div>
         `;
@@ -196,7 +196,7 @@ export class TemplateEditorPanel {
                     container.innerHTML = `
                         <div class="dw-placeholder" style="padding-top:32px;">
                             <div class="dw-placeholder-icon">🌐</div>
-                            <div style="font-size:12px;text-align:center;max-width:220px;line-height:1.5;color:var(--app-text-muted,#7a8aaa)">
+                            <div style="font-size:12px;text-align:center;max-width:220px;line-height:1.5;color:var(--app-text-muted)">
                                 No public templates yet.<br>
                                 <span style="color:#6600FF;cursor:pointer;" id="lib-publish-hint">Publish one of your templates</span>
                                 to share it here.
@@ -235,7 +235,7 @@ export class TemplateEditorPanel {
         nameCol.style.cssText = 'flex:1;min-width:0;';
         nameCol.innerHTML = `
             <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(entry.name ?? 'Unnamed')}</div>
-            <div style="font-size:11px;color:var(--app-text-muted,#7a8aaa);">${escHtml(entry.code ?? '')}</div>
+            <div style="font-size:11px;color:var(--app-text-muted);">${escHtml(entry.code ?? '')}</div>
         `;
         row.appendChild(nameCol);
 
@@ -318,7 +318,7 @@ export class TemplateEditorPanel {
         nameCol.style.cssText = 'flex:1;min-width:0;';
         nameCol.innerHTML = `
             <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(t.name)}</div>
-            <div style="font-size:11px;color:var(--app-text-muted,#7a8aaa);">${escHtml(t.code)}${t.description ? ' — ' + escHtml(t.description.substring(0, 40)) : ''}</div>
+            <div style="font-size:11px;color:var(--app-text-muted);">${escHtml(t.code)}${t.description ? ' — ' + escHtml(t.description.substring(0, 40)) : ''}</div>
         `;
         row.appendChild(nameCol);
 
@@ -377,14 +377,14 @@ export class TemplateEditorPanel {
         toolbar.appendChild(backBtn);
 
         const title = document.createElement('span');
-        title.style.cssText = 'flex:1;font-size:12px;font-weight:700;color:var(--app-text,#1a2035);text-align:center;';
+        title.style.cssText = 'flex:1;font-size:12px;font-weight:700;color:var(--app-text);text-align:center;';
         title.textContent = this._editingId ? 'Edit Template' : 'New Template';
         toolbar.appendChild(title);
 
         const saveBtn = document.createElement('button');
         saveBtn.className = 'dw-toolbar-btn';
         saveBtn.textContent = '✓ Save';
-        saveBtn.style.cssText += 'background:var(--app-accent,#6600FF);color:#fff;border-color:var(--app-accent,#6600FF);';
+        saveBtn.style.cssText += 'background:var(--app-accent);color:#fff;border-color:var(--app-accent);';
         saveBtn.addEventListener('click', () => this._saveTemplate());
         toolbar.appendChild(saveBtn);
 
@@ -512,17 +512,17 @@ export class TemplateEditorPanel {
 
     private _buildReqCard(title: string, active: boolean, onToggle: () => void, content: HTMLElement | null): HTMLElement {
         const card = document.createElement('div');
-        card.style.cssText = 'border:1px solid var(--app-border,#dde3f0);border-radius:6px;margin-bottom:8px;overflow:hidden;';
+        card.style.cssText = 'border:1px solid var(--app-border);border-radius:6px;margin-bottom:8px;overflow:hidden;';
 
         const cardHeader = document.createElement('div');
         cardHeader.style.cssText = `
             display:flex;align-items:center;justify-content:space-between;
             padding:8px 10px;cursor:pointer;
-            background:${active ? 'var(--app-accent,#6600FF)11' : 'var(--app-panel-bg,#fff)'};
+            background:${active ? 'var(--app-accent)11' : 'var(--app-panel-bg)'};
         `;
 
         const cardTitle = document.createElement('span');
-        cardTitle.style.cssText = 'font-size:12px;font-weight:600;color:var(--app-text,#1a2035);';
+        cardTitle.style.cssText = 'font-size:12px;font-weight:600;color:var(--app-text);';
         cardTitle.textContent = title;
         cardHeader.appendChild(cardTitle);
 
@@ -537,7 +537,7 @@ export class TemplateEditorPanel {
 
         if (content) {
             const body = document.createElement('div');
-            body.style.cssText = 'padding:10px;border-top:1px solid var(--app-border-light,#eef1f8);';
+            body.style.cssText = 'padding:10px;border-top:1px solid var(--app-border-light);';
             body.appendChild(content);
             card.appendChild(body);
         }

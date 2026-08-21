@@ -143,18 +143,18 @@ export class PhysicsPanel {
         toolbar.className = 'dw-toolbar';
         toolbar.style.cssText = [
             'display:flex;align-items:center;gap:6px;padding:6px 8px;',
-            'border-bottom:1px solid var(--app-border,#e5e7eb);flex-shrink:0;flex-wrap:wrap;',
+            'border-bottom:1px solid var(--app-border);flex-shrink:0;flex-wrap:wrap;',
         ].join('');
 
         // Mode selector
         const modeLabel = document.createElement('span');
         modeLabel.textContent = 'Overlay:';
-        modeLabel.style.cssText = 'font-size:11px;color:var(--app-text-muted,#7a8aaa);';
+        modeLabel.style.cssText = 'font-size:11px;color:var(--app-text-muted);';
         toolbar.appendChild(modeLabel);
 
         const modeSelect = document.createElement('select');
         modeSelect.className = 'dw-toolbar-select';
-        modeSelect.style.cssText = 'font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--app-border,#dde3f0);background:var(--app-panel-bg,#fff);color:var(--app-text,#1a2035);cursor:pointer;';
+        modeSelect.style.cssText = 'font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--app-border);background:var(--app-panel-bg);color:var(--app-text);cursor:pointer;';
         [
             { value: 'off',      label: '— Off' },
             { value: 'thermal',  label: '🌡 Thermal' },
@@ -230,7 +230,7 @@ export class PhysicsPanel {
 
         // ── Status line ───────────────────────────────────────────────────────
         const status = document.createElement('div');
-        status.style.cssText = 'font-size:10px;color:var(--app-text-muted,#7a8aaa);padding:4px 10px;flex-shrink:0;';
+        status.style.cssText = 'font-size:10px;color:var(--app-text-muted);padding:4px 10px;flex-shrink:0;';
         status.textContent = 'No physics results yet — click ⚡ Compute all';
         this._statusEl = status;
         this._el.appendChild(status);
@@ -243,12 +243,12 @@ export class PhysicsPanel {
         table.style.cssText = 'width:100%;border-collapse:collapse;font-size:11px;';
 
         const thead = document.createElement('thead');
-        thead.innerHTML = `<tr style="background:var(--app-bg,#e8edf6);position:sticky;top:0;z-index:1;">
-            <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--app-border,#dde3f0);white-space:nowrap;color:var(--app-text-muted,#7a8aaa);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Room</th>
-            <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--app-border,#dde3f0);white-space:nowrap;color:var(--app-text-muted,#7a8aaa);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Type</th>
-            <th style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--app-border,#dde3f0);white-space:nowrap;color:var(--app-text-muted,#7a8aaa);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">🌡 Thermal</th>
-            <th style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--app-border,#dde3f0);white-space:nowrap;color:var(--app-text-muted,#7a8aaa);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">🔊 RT60</th>
-            <th style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--app-border,#dde3f0);white-space:nowrap;color:var(--app-text-muted,#7a8aaa);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">☀ DF%</th>
+        thead.innerHTML = `<tr style="background:var(--app-bg);position:sticky;top:0;z-index:1;">
+            <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--app-border);white-space:nowrap;color:var(--app-text-muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Room</th>
+            <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--app-border);white-space:nowrap;color:var(--app-text-muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Type</th>
+            <th style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--app-border);white-space:nowrap;color:var(--app-text-muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">🌡 Thermal</th>
+            <th style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--app-border);white-space:nowrap;color:var(--app-text-muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">🔊 RT60</th>
+            <th style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--app-border);white-space:nowrap;color:var(--app-text-muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">☀ DF%</th>
         </tr>`;
         table.appendChild(thead);
 
@@ -281,7 +281,7 @@ export class PhysicsPanel {
 
         const rooms = this._getRooms();
         if (rooms.length === 0) {
-            this._tableBody.innerHTML = `<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--app-text-muted,#7a8aaa);">No rooms in this project.</td></tr>`;
+            this._tableBody.innerHTML = `<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--app-text-muted);">No rooms in this project.</td></tr>`;
             return;
         }
 
@@ -294,10 +294,10 @@ export class PhysicsPanel {
         const result = this._getResult(room.id);
         const tr = document.createElement('tr');
         tr.dataset.roomId = room.id;
-        tr.style.cssText = 'border-bottom:1px solid var(--app-border,#f0f4f8);';
+        tr.style.cssText = 'border-bottom:1px solid var(--app-border);';
         tr.innerHTML = `
             <td style="padding:5px 8px;white-space:nowrap;font-weight:500;">${escHtml(room.name ?? room.id)}</td>
-            <td style="padding:5px 8px;color:var(--app-text-muted,#7a8aaa);white-space:nowrap;">${escHtml(room.occupancyType ?? '—')}</td>
+            <td style="padding:5px 8px;color:var(--app-text-muted);white-space:nowrap;">${escHtml(room.occupancyType ?? '—')}</td>
             <td style="padding:5px 8px;text-align:center;">${result ? thermalBadge(result)  : '<span style="color:#94a3b8;font-size:10px;">–</span>'}</td>
             <td style="padding:5px 8px;text-align:center;">${result ? acousticBadge(result) : '<span style="color:#94a3b8;font-size:10px;">–</span>'}</td>
             <td style="padding:5px 8px;text-align:center;">${result ? daylightBadge(result) : '<span style="color:#94a3b8;font-size:10px;">–</span>'}</td>

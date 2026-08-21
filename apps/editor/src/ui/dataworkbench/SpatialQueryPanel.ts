@@ -247,21 +247,21 @@ export class SpatialQueryPanel {
         presetBar.style.cssText = `
             display:flex;align-items:center;gap:6px;
             padding:8px 12px;
-            border-bottom:1px solid var(--app-border,#e5e7eb);
-            background:var(--app-surface,#fff);
+            border-bottom:1px solid var(--app-border);
+            background:var(--app-panel-bg);
             flex-shrink:0;
         `;
 
         const presetLabel = document.createElement('span');
-        presetLabel.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--app-text-muted,#7a8aaa);text-transform:uppercase;white-space:nowrap;';
+        presetLabel.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--app-text-muted);text-transform:uppercase;white-space:nowrap;';
         presetLabel.textContent = 'Presets';
         presetBar.appendChild(presetLabel);
 
         this._presetSel = document.createElement('select');
         this._presetSel.style.cssText = `
             flex:1;font-size:11px;padding:4px 6px;
-            border:1px solid var(--app-border,#e5e7eb);border-radius:4px;
-            background:var(--app-surface,#fff);color:var(--app-text,#1e293b);
+            border:1px solid var(--app-border);border-radius:4px;
+            background:var(--app-panel-bg);color:var(--app-text);
             cursor:pointer;
         `;
         this._rebuildPresetOptions();
@@ -312,12 +312,12 @@ export class SpatialQueryPanel {
         const builderWrap = document.createElement('div');
         builderWrap.style.cssText = `
             padding:10px 12px;
-            border-bottom:1px solid var(--app-border,#e5e7eb);
-            background:var(--app-surface-2,#f8fafc);
+            border-bottom:1px solid var(--app-border);
+            background:var(--app-surface-sunken);
         `;
 
         const hdr = document.createElement('div');
-        hdr.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--app-text-muted,#7a8aaa);text-transform:uppercase;margin-bottom:8px;';
+        hdr.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--app-text-muted);text-transform:uppercase;margin-bottom:8px;';
         hdr.textContent = 'Query Builder';
         builderWrap.appendChild(hdr);
 
@@ -338,9 +338,9 @@ export class SpatialQueryPanel {
         this._statusEl = document.createElement('div');
         this._statusEl.style.cssText = `
             padding:6px 12px;font-size:11px;
-            background:var(--app-surface-2,#f8fafc);
-            border-bottom:1px solid var(--app-border,#e5e7eb);
-            color:var(--app-text-muted,#7a8aaa);
+            background:var(--app-surface-sunken);
+            border-bottom:1px solid var(--app-border);
+            color:var(--app-text-muted);
         `;
         this._statusEl.textContent = 'Add conditions above and click Run Query.';
         this._root.appendChild(this._statusEl);
@@ -374,7 +374,7 @@ export class SpatialQueryPanel {
 
         // Join selector (hidden for first row)
         const joinSel = document.createElement('select');
-        joinSel.style.cssText = 'font-size:11px;padding:3px 4px;border:1px solid var(--app-border,#e5e7eb);border-radius:4px;background:var(--app-surface,#fff);color:var(--app-text,#1e293b);width:52px;';
+        joinSel.style.cssText = 'font-size:11px;padding:3px 4px;border:1px solid var(--app-border);border-radius:4px;background:var(--app-panel-bg);color:var(--app-text);width:52px;';
         if (index === 0) {
             joinSel.style.visibility = 'hidden';
         }
@@ -389,7 +389,7 @@ export class SpatialQueryPanel {
 
         // Field selector
         const fieldSel = document.createElement('select');
-        fieldSel.style.cssText = 'font-size:11px;padding:3px 4px;border:1px solid var(--app-border,#e5e7eb);border-radius:4px;background:var(--app-surface,#fff);color:var(--app-text,#1e293b);flex:1;';
+        fieldSel.style.cssText = 'font-size:11px;padding:3px 4px;border:1px solid var(--app-border);border-radius:4px;background:var(--app-panel-bg);color:var(--app-text);flex:1;';
         (Object.keys(FIELD_LABELS) as QueryField[]).forEach(f => {
             const o = document.createElement('option');
             o.value = f; o.textContent = FIELD_LABELS[f];
@@ -400,7 +400,7 @@ export class SpatialQueryPanel {
 
         // Op selector
         const opSel = document.createElement('select');
-        opSel.style.cssText = 'font-size:11px;padding:3px 4px;border:1px solid var(--app-border,#e5e7eb);border-radius:4px;background:var(--app-surface,#fff);color:var(--app-text,#1e293b);width:92px;';
+        opSel.style.cssText = 'font-size:11px;padding:3px 4px;border:1px solid var(--app-border);border-radius:4px;background:var(--app-panel-bg);color:var(--app-text);width:92px;';
         const refreshOps = () => {
             const isNum = NUMERIC_FIELDS.has(criterion.field);
             const allowed = isNum ? NUMERIC_OPS : TEXT_OPS;
@@ -422,7 +422,7 @@ export class SpatialQueryPanel {
         const valInput = document.createElement('input');
         valInput.type = 'text';
         valInput.placeholder = 'value…';
-        valInput.style.cssText = 'font-size:11px;padding:3px 6px;border:1px solid var(--app-border,#e5e7eb);border-radius:4px;background:var(--app-surface,#fff);color:var(--app-text,#1e293b);flex:1;outline:none;';
+        valInput.style.cssText = 'font-size:11px;padding:3px 6px;border:1px solid var(--app-border);border-radius:4px;background:var(--app-panel-bg);color:var(--app-text);flex:1;outline:none;';
         valInput.value = criterion.value;
         row.appendChild(valInput);
 
@@ -430,7 +430,7 @@ export class SpatialQueryPanel {
         const rmBtn = document.createElement('button');
         rmBtn.textContent = '✕';
         rmBtn.title = 'Remove condition';
-        rmBtn.style.cssText = 'font-size:11px;padding:2px 6px;border:1px solid var(--app-border,#e5e7eb);border-radius:4px;background:transparent;color:var(--app-text-muted,#7a8aaa);cursor:pointer;';
+        rmBtn.style.cssText = 'font-size:11px;padding:2px 6px;border:1px solid var(--app-border);border-radius:4px;background:transparent;color:var(--app-text-muted);cursor:pointer;';
         rmBtn.addEventListener('click', () => {
             const i = this._criteria.indexOf(criterion);
             if (i >= 0) this._criteria.splice(i, 1);
@@ -538,7 +538,7 @@ export class SpatialQueryPanel {
             empty.innerHTML = `
                 <div class="dw-placeholder-icon">🔍</div>
                 <div style="font-weight:700;font-size:13px;color:var(--app-text)">No results</div>
-                <div style="font-size:12px;color:var(--app-text-muted,#7a8aaa)">Try different criteria.</div>
+                <div style="font-size:12px;color:var(--app-text-muted)">Try different criteria.</div>
             `;
             this._resultsEl.appendChild(empty);
             return;
@@ -549,12 +549,12 @@ export class SpatialQueryPanel {
 
         const thead = document.createElement('thead');
         thead.innerHTML = `
-            <tr style="background:var(--app-surface-2,#f8fafc);border-bottom:2px solid var(--app-border,#e5e7eb);">
-                <th style="padding:6px 8px;text-align:left;color:var(--app-text-muted,#7a8aaa);font-weight:600;">Name</th>
-                <th style="padding:6px 8px;text-align:left;color:var(--app-text-muted,#7a8aaa);font-weight:600;">Occupancy</th>
-                <th style="padding:6px 8px;text-align:left;color:var(--app-text-muted,#7a8aaa);font-weight:600;">Level</th>
-                <th style="padding:6px 8px;text-align:right;color:var(--app-text-muted,#7a8aaa);font-weight:600;">Area (m²)</th>
-                <th style="padding:6px 8px;text-align:center;color:var(--app-text-muted,#7a8aaa);font-weight:600;width:54px;"></th>
+            <tr style="background:var(--app-surface-sunken);border-bottom:2px solid var(--app-border);">
+                <th style="padding:6px 8px;text-align:left;color:var(--app-text-muted);font-weight:600;">Name</th>
+                <th style="padding:6px 8px;text-align:left;color:var(--app-text-muted);font-weight:600;">Occupancy</th>
+                <th style="padding:6px 8px;text-align:left;color:var(--app-text-muted);font-weight:600;">Level</th>
+                <th style="padding:6px 8px;text-align:right;color:var(--app-text-muted);font-weight:600;">Area (m²)</th>
+                <th style="padding:6px 8px;text-align:center;color:var(--app-text-muted);font-weight:600;width:54px;"></th>
             </tr>
         `;
         table.appendChild(thead);
@@ -565,8 +565,8 @@ export class SpatialQueryPanel {
             const area = (room.computed?.area ?? 0).toFixed(2);
 
             const tr = document.createElement('tr');
-            tr.style.cssText = 'border-bottom:1px solid var(--app-border,#e5e7eb);cursor:pointer;transition:background 0.1s;';
-            tr.addEventListener('mouseenter', () => { tr.style.background = 'var(--app-surface-hover,rgba(102,0,255,0.04))'; });
+            tr.style.cssText = 'border-bottom:1px solid var(--app-border);cursor:pointer;transition:background 0.1s;';
+            tr.addEventListener('mouseenter', () => { tr.style.background = 'var(--app-wash-hover)'; });
             tr.addEventListener('mouseleave', () => { tr.style.background = ''; });
             // F.events.7 — pryzm-workbench-select migrated to runtime.events typed bus.
             tr.addEventListener('click', () => {
@@ -576,17 +576,17 @@ export class SpatialQueryPanel {
             const selectBtn = document.createElement('button');
             selectBtn.textContent = '→';
             selectBtn.title = 'Select in viewport';
-            selectBtn.style.cssText = 'font-size:10px;padding:2px 6px;border:1px solid var(--app-border,#e5e7eb);border-radius:3px;background:transparent;color:var(--dw-purple,#7c3aed);cursor:pointer;';
+            selectBtn.style.cssText = 'font-size:10px;padding:2px 6px;border:1px solid var(--app-border);border-radius:3px;background:transparent;color:var(--app-accent);cursor:pointer;';
             selectBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 window.runtime?.events?.emit('pryzm-workbench-select', { nodeId: room.id, nodeType: 'room' });
             });
 
             tr.innerHTML = `
-                <td style="padding:7px 8px;color:var(--app-text,#1e293b);font-weight:600;">${escHtml(room.name || '—')}</td>
-                <td style="padding:7px 8px;color:var(--app-text-muted,#7a8aaa);">${escHtml((room.occupancyType ?? '—').replace(/-/g, ' '))}</td>
-                <td style="padding:7px 8px;color:var(--app-text-muted,#7a8aaa);">${escHtml(levelName)}</td>
-                <td style="padding:7px 8px;text-align:right;color:var(--app-text,#1e293b);">${area}</td>
+                <td style="padding:7px 8px;color:var(--app-text);font-weight:600;">${escHtml(room.name || '—')}</td>
+                <td style="padding:7px 8px;color:var(--app-text-muted);">${escHtml((room.occupancyType ?? '—').replace(/-/g, ' '))}</td>
+                <td style="padding:7px 8px;color:var(--app-text-muted);">${escHtml(levelName)}</td>
+                <td style="padding:7px 8px;text-align:right;color:var(--app-text);">${area}</td>
                 <td style="padding:4px 8px;text-align:center;"></td>
             `;
             tr.lastElementChild!.appendChild(selectBtn);

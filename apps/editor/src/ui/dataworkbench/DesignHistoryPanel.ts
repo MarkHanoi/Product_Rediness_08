@@ -89,7 +89,7 @@ export class DesignHistoryPanel {
         this.runtime = runtime;
         this._el = container;
         this._root = document.createElement('div');
-        this._root.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow:hidden;font-family:var(--app-font,system-ui);';
+        this._root.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow:hidden;font-family:var(--app-font);';
         this._el.appendChild(this._root);
         this._buildDOM();
     }
@@ -108,7 +108,7 @@ export class DesignHistoryPanel {
         this._statsEl = document.createElement('div');
         this._statsEl.style.cssText = [
             'display:flex;gap:8px;padding:10px 12px 8px;',
-            'border-bottom:1px solid var(--app-border,#e2e8f0);',
+            'border-bottom:1px solid var(--app-border);',
             'flex-shrink:0;flex-wrap:wrap;',
         ].join('');
         this._root.appendChild(this._statsEl);
@@ -140,7 +140,7 @@ export class DesignHistoryPanel {
 
         this._scrubberLabelEl = document.createElement('div');
         this._scrubberLabelEl.style.cssText = [
-            'font-size:11px;color:var(--app-text-muted,#7a8aaa);',
+            'font-size:11px;color:var(--app-text-muted);',
             'margin-top:3px;text-align:center;',
         ].join('');
         scrubWrap.appendChild(this._scrubberLabelEl);
@@ -168,7 +168,7 @@ export class DesignHistoryPanel {
         // ── Sub-tabs ───────────────────────────────────────────────────────
         const subTabBar = document.createElement('div');
         subTabBar.style.cssText = [
-            'display:flex;gap:0;border-bottom:1px solid var(--app-border,#e2e8f0);',
+            'display:flex;gap:0;border-bottom:1px solid var(--app-border);',
             'flex-shrink:0;margin-top:4px;',
         ].join('');
 
@@ -219,7 +219,7 @@ export class DesignHistoryPanel {
         ].join('');
         chip.innerHTML = [
             `<span style="font-size:13px;font-weight:700;color:${color}">${value}</span>`,
-            `<span style="font-size:10px;color:var(--app-text-muted,#7a8aaa);text-transform:uppercase;letter-spacing:.04em">${label}</span>`,
+            `<span style="font-size:10px;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:.04em">${label}</span>`,
         ].join('');
         return chip;
     }
@@ -232,7 +232,7 @@ export class DesignHistoryPanel {
 
         if (sessions.length === 0) {
             const msg = document.createElement('div');
-            msg.style.cssText = 'font-size:11px;color:var(--app-text-muted,#7a8aaa);padding:4px 2px;';
+            msg.style.cssText = 'font-size:11px;color:var(--app-text-muted);padding:4px 2px;';
             msg.textContent = 'No sessions recorded yet. Make some changes to the model.';
             this._sessionListEl.appendChild(msg);
             return;
@@ -249,7 +249,7 @@ export class DesignHistoryPanel {
             'display:flex;align-items:center;gap:8px;padding:5px 8px;',
             'border-radius:6px;font-size:11px;cursor:pointer;',
             `background:${s.isCurrent ? '#6366f114' : 'transparent'};`,
-            `border:1px solid ${s.isCurrent ? '#6366f130' : 'var(--app-border,#e2e8f0)'};`,
+            `border:1px solid ${s.isCurrent ? '#6366f130' : 'var(--app-border)'};`,
         ].join('');
         card.title = 'Click to jump scrubber to this session';
 
@@ -263,12 +263,12 @@ export class DesignHistoryPanel {
         card.appendChild(badge);
 
         const meta = document.createElement('span');
-        meta.style.cssText = 'color:var(--app-text,#1a2035);flex:1;';
+        meta.style.cssText = 'color:var(--app-text);flex:1;';
         meta.textContent = fmt(s.startedAt);
         card.appendChild(meta);
 
         const counts = document.createElement('span');
-        counts.style.cssText = 'color:var(--app-text-muted,#7a8aaa);white-space:nowrap;';
+        counts.style.cssText = 'color:var(--app-text-muted);white-space:nowrap;';
         counts.textContent = `${s.mutationCount}m · ${s.edgeCount}e`;
         card.appendChild(counts);
 
@@ -382,8 +382,8 @@ export class DesignHistoryPanel {
     }
 
     private _updateSubTabStyles(): void {
-        const active = 'font-size:11px;padding:5px 12px;border:none;cursor:pointer;background:var(--app-border,#e2e8f0);color:var(--app-text,#1a2035);font-weight:600;flex:1;';
-        const inactive = 'font-size:11px;padding:5px 12px;border:none;cursor:pointer;background:transparent;color:var(--app-text-muted,#7a8aaa);flex:1;';
+        const active = 'font-size:11px;padding:5px 12px;border:none;cursor:pointer;background:var(--app-border);color:var(--app-text);font-weight:600;flex:1;';
+        const inactive = 'font-size:11px;padding:5px 12px;border:none;cursor:pointer;background:transparent;color:var(--app-text-muted);flex:1;';
 
         this._subTabMutBtn.style.cssText = this._activeSubTab === 'mutations' ? active : inactive;
         this._subTabDiffBtn.style.cssText = this._activeSubTab === 'diff' ? active : inactive;
@@ -409,13 +409,13 @@ export class DesignHistoryPanel {
         const muts = [...slice.mutationsUpTo].reverse().slice(0, 200);
 
         if (muts.length === 0) {
-            this._mutLogEl.innerHTML = `<div style="font-size:11px;color:var(--app-text-muted,#7a8aaa);padding:8px 2px">No mutations recorded up to this point.</div>`;
+            this._mutLogEl.innerHTML = `<div style="font-size:11px;color:var(--app-text-muted);padding:8px 2px">No mutations recorded up to this point.</div>`;
             return;
         }
 
         const total = slice.mutationsUpTo.length;
         const header = document.createElement('div');
-        header.style.cssText = 'font-size:10px;color:var(--app-text-muted,#7a8aaa);margin-bottom:4px;';
+        header.style.cssText = 'font-size:10px;color:var(--app-text-muted);margin-bottom:4px;';
         header.textContent = `${total} mutations up to ${fmt(this._scrubTs)}${total > 200 ? ' (showing latest 200)' : ''}`;
         this._mutLogEl.appendChild(header);
 
@@ -428,7 +428,7 @@ export class DesignHistoryPanel {
         const row = document.createElement('div');
         row.style.cssText = [
             'display:flex;align-items:center;gap:6px;padding:3px 0;',
-            'border-bottom:1px solid var(--app-border,#e2e8f0);font-size:11px;',
+            'border-bottom:1px solid var(--app-border);font-size:11px;',
         ].join('');
 
         const opDot = document.createElement('span');
@@ -436,17 +436,17 @@ export class DesignHistoryPanel {
         row.appendChild(opDot);
 
         const time = document.createElement('span');
-        time.style.cssText = 'color:var(--app-text-muted,#7a8aaa);flex-shrink:0;width:60px;';
+        time.style.cssText = 'color:var(--app-text-muted);flex-shrink:0;width:60px;';
         time.textContent = fmtShort(m.mutatedAt);
         row.appendChild(time);
 
         const type = document.createElement('span');
-        type.style.cssText = 'color:var(--app-text-muted,#9ca3af);flex-shrink:0;width:48px;font-size:10px;text-transform:uppercase;';
+        type.style.cssText = 'color:var(--app-text-muted);flex-shrink:0;width:48px;font-size:10px;text-transform:uppercase;';
         type.textContent = m.elementType;
         row.appendChild(type);
 
         const id = document.createElement('span');
-        id.style.cssText = 'color:var(--app-text,#1a2035);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;font-size:10px;';
+        id.style.cssText = 'color:var(--app-text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;font-size:10px;';
         id.textContent = m.elementId.slice(-12);
         id.title = m.elementId;
         row.appendChild(id);
@@ -476,7 +476,7 @@ export class DesignHistoryPanel {
         const unchanged = slice.activeEdges.filter(e => nowIds.has(e.id));
 
         const header = document.createElement('div');
-        header.style.cssText = 'font-size:10px;color:var(--app-text-muted,#7a8aaa);margin-bottom:6px;';
+        header.style.cssText = 'font-size:10px;color:var(--app-text-muted);margin-bottom:6px;';
         header.textContent = `Comparing relationships at ${fmt(this._scrubTs)} vs. now`;
         this._diffEl.appendChild(header);
 
@@ -490,7 +490,7 @@ export class DesignHistoryPanel {
 
         if (added.length === 0 && removed.length === 0) {
             const msg = document.createElement('div');
-            msg.style.cssText = 'font-size:11px;color:var(--app-text-muted,#7a8aaa);padding:8px 2px;';
+            msg.style.cssText = 'font-size:11px;color:var(--app-text-muted);padding:8px 2px;';
             msg.textContent = unchanged.length === 0
                 ? 'No relationship edges exist at this point or now.'
                 : 'No relationship changes between this point and now.';
@@ -542,7 +542,7 @@ export class DesignHistoryPanel {
             row.appendChild(src);
 
             const rel = document.createElement('span');
-            rel.style.cssText = 'color:var(--app-text-muted,#7a8aaa);flex-shrink:0;padding:0 3px;font-size:9px;';
+            rel.style.cssText = 'color:var(--app-text-muted);flex-shrink:0;padding:0 3px;font-size:9px;';
             rel.textContent = `—${e.type}→`;
             row.appendChild(rel);
 
@@ -557,7 +557,7 @@ export class DesignHistoryPanel {
 
         if (edges.length > 50) {
             const more = document.createElement('div');
-            more.style.cssText = 'font-size:10px;color:var(--app-text-muted,#7a8aaa);padding:2px 4px;';
+            more.style.cssText = 'font-size:10px;color:var(--app-text-muted);padding:2px 4px;';
             more.textContent = `…and ${edges.length - 50} more`;
             wrap.appendChild(more);
         }
@@ -571,8 +571,8 @@ export class DesignHistoryPanel {
         const h = document.createElement('div');
         h.style.cssText = [
             'font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;',
-            'color:var(--app-text-muted,#7a8aaa);padding:6px 12px 2px;flex-shrink:0;',
-            'border-top:1px solid var(--app-border,#e2e8f0);',
+            'color:var(--app-text-muted);padding:6px 12px 2px;flex-shrink:0;',
+            'border-top:1px solid var(--app-border);',
         ].join('');
         h.textContent = label;
         return h;

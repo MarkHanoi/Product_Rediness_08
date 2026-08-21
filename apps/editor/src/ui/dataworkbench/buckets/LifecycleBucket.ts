@@ -38,8 +38,8 @@ export function mountLifecyclePanels(
         lifecycleSlot.innerHTML = `
             <div class="dw-placeholder">
                 <div class="dw-placeholder-icon">⊘</div>
-                <div style="font-weight:600;font-size:13px;color:var(--app-text,#1a2035);margin-bottom:4px">Post-occupancy — not yet available</div>
-                <div style="font-size:12px;max-width:260px;text-align:center;line-height:1.6;color:var(--app-text-muted,#7a8aaa)">
+                <div style="font-weight:600;font-size:13px;color:var(--app-text);margin-bottom:4px">Post-occupancy — not yet available</div>
+                <div style="font-size:12px;max-width:260px;text-align:center;line-height:1.6;color:var(--app-text-muted)">
                     This surface is being ported to the lifecycle plugin (ADR-0052 §B.7).
                     Nothing is broken and no data is missing — the panel has not shipped yet.
                 </div>

@@ -42,24 +42,24 @@ export function mountTypeSchedule(
 
     panel.innerHTML = `
         <div style="height:100%;display:flex;flex-direction:column;overflow:hidden;">
-            <div style="padding:12px 16px 10px;border-bottom:1px solid var(--dw-border,#e5e7eb);
+            <div style="padding:12px 16px 10px;border-bottom:1px solid var(--app-border);
                         background:linear-gradient(180deg,rgba(12,122,110,.07),transparent);flex-shrink:0;">
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                    <span style="font-size:14px;font-weight:800;color:var(--app-text,#1a2035);">${escapeHtml(title)}</span>
+                    <span style="font-size:14px;font-weight:800;color:var(--app-text);">${escapeHtml(title)}</span>
                     <span style="font-size:10px;background:rgba(12,122,110,.12);color:${accentColor};border-radius:99px;
                                  padding:2px 9px;font-weight:700;">${data.rows.length} types</span>
-                    <span style="margin-left:auto;font-size:10px;color:var(--app-text-muted,#7a8aaa);">
+                    <span style="margin-left:auto;font-size:10px;color:var(--app-text-muted);">
                         ${data.columns.length} properties
                     </span>
                 </div>
                 <input data-ds-search type="search" placeholder="Search types…"
                        style="width:100%;box-sizing:border-box;margin-top:8px;padding:7px 10px;
-                              border:1px solid var(--dw-border,#e5e7eb);border-radius:8px;
-                              font-size:12px;background:#fff;color:var(--app-text,#1a2035);outline:none;"/>
+                              border:1px solid var(--app-border);border-radius:8px;
+                              font-size:12px;background:#fff;color:var(--app-text);outline:none;"/>
             </div>
             <div style="flex:1;overflow:auto;">
                 ${data.rows.length === 0 ? `
-                    <div style="padding:32px;text-align:center;color:var(--app-text-muted,#7a8aaa);font-size:12px;">
+                    <div style="padding:32px;text-align:center;color:var(--app-text-muted);font-size:12px;">
                         ${escapeHtml(emptyMsg)}
                     </div>
                 ` : `
@@ -67,11 +67,11 @@ export function mountTypeSchedule(
                         <thead>
                             <tr>
                                 ${data.columns.map(col => `
-                                    <th class="sched-th-resizable" style="background:var(--app-bg,#e8edf6);
-                                        color:var(--app-text,#1a2035);font-size:10px;font-weight:700;
+                                    <th class="sched-th-resizable" style="background:var(--app-bg);
+                                        color:var(--app-text);font-size:10px;font-weight:700;
                                         letter-spacing:.06em;text-transform:uppercase;
                                         padding:8px 10px;white-space:nowrap;border-bottom:2px solid rgba(12,122,110,.25);
-                                        border-right:1px solid var(--dw-border,#e5e7eb);text-align:left;position:sticky;top:0;z-index:1;">
+                                        border-right:1px solid var(--app-border);text-align:left;position:sticky;top:0;z-index:1;">
                                         <span class="sched-th-label">${escapeHtml(col)}</span>
                                     </th>`).join('')}
                             </tr>
@@ -81,9 +81,9 @@ export function mountTypeSchedule(
                                 <tr data-ds-row style="background:${ri % 2 === 0 ? '#fff' : 'rgba(12,122,110,.03)'};"
                                     data-search="${escapeHtml(row.join(' ').toLowerCase())}">
                                     ${row.map((cell, ci) => `
-                                        <td style="padding:7px 10px;border-bottom:1px solid var(--dw-border,#e5e7eb);
-                                            border-right:1px solid var(--app-border-light,#eef1f8);
-                                            color:${ci === 0 ? 'var(--app-text,#1a2035)' : 'var(--app-text-2,#5a6a85)'};
+                                        <td style="padding:7px 10px;border-bottom:1px solid var(--app-border);
+                                            border-right:1px solid var(--app-border-light);
+                                            color:${ci === 0 ? 'var(--app-text)' : 'var(--app-text-2)'};
                                             font-weight:${ci === 0 ? '700' : '400'};
                                             white-space:${ci === 0 ? 'nowrap' : 'normal'};
                                             max-width:${ci <= 2 ? '200px' : 'none'};
@@ -163,19 +163,19 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
             const metalness = typeof m.params.metalness === 'number' ? m.params.metalness.toFixed(2) : '—';
             const usage     = usageMap.get(m.id);
             const cells = [
-                `<td style="padding:7px 10px;border-bottom:1px solid var(--dw-border,#e5e7eb);border-right:1px solid var(--app-border-light,#eef1f8);font-weight:700;color:var(--app-text,#1a2035);white-space:nowrap;">${escapeHtml(m.label)}</td>`,
-                `<td style="padding:7px 10px;border-bottom:1px solid var(--dw-border,#e5e7eb);border-right:1px solid var(--app-border-light,#eef1f8);color:var(--app-text-2,#5a6a85);font-size:10px;">${escapeHtml(m.category)}</td>`,
-                `<td style="padding:7px 10px;border-bottom:1px solid var(--dw-border,#e5e7eb);border-right:1px solid var(--app-border-light,#eef1f8);">
+                `<td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);font-weight:700;color:var(--app-text);white-space:nowrap;">${escapeHtml(m.label)}</td>`,
+                `<td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);color:var(--app-text-2);font-size:10px;">${escapeHtml(m.category)}</td>`,
+                `<td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);">
                     <div style="display:flex;align-items:center;gap:6px;">
                         <div style="width:16px;height:16px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,.12);background:${escapeHtml(color)};"></div>
-                        <span style="font-size:9px;font-family:monospace;color:var(--app-text-muted,#7a8aaa);">${escapeHtml(color)}</span>
+                        <span style="font-size:9px;font-family:monospace;color:var(--app-text-muted);">${escapeHtml(color)}</span>
                     </div>
                 </td>`,
-                `<td style="padding:7px 10px;border-bottom:1px solid var(--dw-border,#e5e7eb);border-right:1px solid var(--app-border-light,#eef1f8);color:var(--app-text-2,#5a6a85);text-align:center;">${escapeHtml(roughness)}</td>`,
-                `<td style="padding:7px 10px;border-bottom:1px solid var(--dw-border,#e5e7eb);border-right:1px solid var(--app-border-light,#eef1f8);color:var(--app-text-2,#5a6a85);text-align:center;">${escapeHtml(metalness)}</td>`,
+                `<td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);color:var(--app-text-2);text-align:center;">${escapeHtml(roughness)}</td>`,
+                `<td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);color:var(--app-text-2);text-align:center;">${escapeHtml(metalness)}</td>`,
                 ...ELEMENT_CATS.map(cat => {
                     const assigned = usage?.has(cat) ?? false;
-                    return `<td style="padding:7px 10px;border-bottom:1px solid var(--dw-border,#e5e7eb);border-right:1px solid var(--app-border-light,#eef1f8);text-align:center;color:${assigned ? accentColor : '#c9d0dc'};font-size:13px;font-weight:${assigned ? '700' : '400'};">
+                    return `<td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);text-align:center;color:${assigned ? accentColor : '#c9d0dc'};font-size:13px;font-weight:${assigned ? '700' : '400'};">
                         ${assigned ? TICK : DASH}
                     </td>`;
                 }),
@@ -185,9 +185,9 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
         }).join('');
 
     const colHeaders = [...columns].map(col => `
-        <th style="background:var(--app-bg,#e8edf6);color:var(--app-text,#1a2035);font-size:10px;font-weight:700;
+        <th style="background:var(--app-bg);color:var(--app-text);font-size:10px;font-weight:700;
             letter-spacing:.06em;text-transform:uppercase;padding:8px 10px;white-space:nowrap;
-            border-bottom:2px solid rgba(12,122,110,.25);border-right:1px solid var(--dw-border,#e5e7eb);
+            border-bottom:2px solid rgba(12,122,110,.25);border-right:1px solid var(--app-border);
             text-align:left;position:sticky;top:0;z-index:1;">${escapeHtml(col)}</th>`).join('');
 
     let rowOffset = 0;
@@ -199,26 +199,26 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
             return `<tr><td colspan="${columns.length}" style="padding:4px 10px 2px;font-size:9px;font-weight:800;
                 letter-spacing:.1em;text-transform:uppercase;color:${accentColor};
                 background:rgba(12,122,110,.06);border-bottom:1px solid rgba(12,122,110,.15);">
-                ${escapeHtml(cat)} <span style="font-weight:400;color:var(--app-text-muted,#7a8aaa);">(${mats.length})</span>
+                ${escapeHtml(cat)} <span style="font-weight:400;color:var(--app-text-muted);">(${mats.length})</span>
             </td></tr>${catRows}`;
         }).join('');
 
     panel.innerHTML = `
         <div style="height:100%;display:flex;flex-direction:column;overflow:hidden;">
-            <div style="padding:12px 16px 10px;border-bottom:1px solid var(--dw-border,#e5e7eb);
+            <div style="padding:12px 16px 10px;border-bottom:1px solid var(--app-border);
                         background:linear-gradient(180deg,rgba(12,122,110,.07),transparent);flex-shrink:0;">
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                    <span style="font-size:14px;font-weight:800;color:var(--app-text,#1a2035);">Material Schedule</span>
+                    <span style="font-size:14px;font-weight:800;color:var(--app-text);">Material Schedule</span>
                     <span style="font-size:10px;background:rgba(12,122,110,.12);color:${accentColor};border-radius:99px;
                                  padding:2px 9px;font-weight:700;">${STANDARD_MATERIAL_LIBRARY.length} materials</span>
-                    <span style="font-size:10px;color:var(--app-text-muted,#7a8aaa);margin-left:auto;">
+                    <span style="font-size:10px;color:var(--app-text-muted);margin-left:auto;">
                         ✓ = used in a type &nbsp;·&nbsp; — = available but not yet used
                     </span>
                 </div>
                 <input data-ms-search type="search" placeholder="Search concrete, timber, glass, category…"
                        style="width:100%;box-sizing:border-box;margin-top:8px;padding:7px 10px;
-                              border:1px solid var(--dw-border,#e5e7eb);border-radius:8px;
-                              font-size:12px;background:#fff;color:var(--app-text,#1a2035);outline:none;"/>
+                              border:1px solid var(--app-border);border-radius:8px;
+                              font-size:12px;background:#fff;color:var(--app-text);outline:none;"/>
             </div>
             <div style="flex:1;overflow:auto;">
                 <table class="sched-table" style="width:100%;border-collapse:collapse;font-size:11px;">
@@ -243,23 +243,23 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
                 const color  = r[2];
                 const usage  = usageMap.get(STANDARD_MATERIAL_LIBRARY.find(m => m.label === r[0])?.id ?? '');
                 return `<tr data-ms-row style="background:${ri % 2 === 0 ? '#fff' : 'rgba(12,122,110,.025)'};">
-                    <td style="padding:7px 10px;border-bottom:1px solid var(--dw-border,#e5e7eb);border-right:1px solid var(--app-border-light,#eef1f8);font-weight:700;color:var(--app-text,#1a2035);white-space:nowrap;">${escapeHtml(r[0])}</td>
-                    <td style="padding:7px 10px;border-bottom:1px solid var(--dw-border,#e5e7eb);border-right:1px solid var(--app-border-light,#eef1f8);color:var(--app-text-2,#5a6a85);font-size:10px;">${escapeHtml(r[1])}</td>
-                    <td style="padding:7px 10px;border-bottom:1px solid var(--dw-border,#e5e7eb);border-right:1px solid var(--app-border-light,#eef1f8);">
+                    <td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);font-weight:700;color:var(--app-text);white-space:nowrap;">${escapeHtml(r[0])}</td>
+                    <td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);color:var(--app-text-2);font-size:10px;">${escapeHtml(r[1])}</td>
+                    <td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);">
                         <div style="display:flex;align-items:center;gap:6px;">
                             <div style="width:16px;height:16px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,.12);background:${escapeHtml(color)};"></div>
-                            <span style="font-size:9px;font-family:monospace;color:var(--app-text-muted,#7a8aaa);">${escapeHtml(color)}</span>
+                            <span style="font-size:9px;font-family:monospace;color:var(--app-text-muted);">${escapeHtml(color)}</span>
                         </div>
                     </td>
-                    <td style="padding:7px 10px;border-bottom:1px solid var(--dw-border,#e5e7eb);border-right:1px solid var(--app-border-light,#eef1f8);color:var(--app-text-2,#5a6a85);text-align:center;">${escapeHtml(r[3])}</td>
-                    <td style="padding:7px 10px;border-bottom:1px solid var(--dw-border,#e5e7eb);border-right:1px solid var(--app-border-light,#eef1f8);color:var(--app-text-2,#5a6a85);text-align:center;">${escapeHtml(r[4])}</td>
+                    <td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);color:var(--app-text-2);text-align:center;">${escapeHtml(r[3])}</td>
+                    <td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);color:var(--app-text-2);text-align:center;">${escapeHtml(r[4])}</td>
                     ${ELEMENT_CATS.map(cat => {
                         const assigned = usage?.has(cat) ?? false;
-                        return `<td style="padding:7px 10px;border-bottom:1px solid var(--dw-border,#e5e7eb);border-right:1px solid var(--app-border-light,#eef1f8);text-align:center;color:${assigned ? accentColor : '#c9d0dc'};font-size:13px;font-weight:${assigned ? '700' : '400'};">${assigned ? TICK : DASH}</td>`;
+                        return `<td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);text-align:center;color:${assigned ? accentColor : '#c9d0dc'};font-size:13px;font-weight:${assigned ? '700' : '400'};">${assigned ? TICK : DASH}</td>`;
                     }).join('')}
                 </tr>`;
             }).join('');
-        if (tbody) tbody.innerHTML = filteredRows || `<tr><td colspan="${columns.length}" style="padding:24px;text-align:center;color:var(--app-text-muted,#7a8aaa);font-size:12px;">No materials match "${escapeHtml(term)}"</td></tr>`;
+        if (tbody) tbody.innerHTML = filteredRows || `<tr><td colspan="${columns.length}" style="padding:24px;text-align:center;color:var(--app-text-muted);font-size:12px;">No materials match "${escapeHtml(term)}"</td></tr>`;
     });
 }
 

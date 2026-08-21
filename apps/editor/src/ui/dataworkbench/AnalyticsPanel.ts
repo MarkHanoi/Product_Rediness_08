@@ -79,7 +79,7 @@ export class AnalyticsPanel {
             } catch (e) {
                 this._root.innerHTML = '';
                 const err = document.createElement('div');
-                err.style.cssText = 'padding:20px;color:var(--app-status-error,#dc2626);font-size:0.8rem;font-family:var(--app-font,sans-serif);';
+                err.style.cssText = 'padding:20px;color:var(--app-status-error);font-size:0.8rem;font-family:var(--app-font);';
                 err.textContent = 'Chart.js failed to load. Run: npm install chart.js';
                 this._root.appendChild(err);
                 return this._root;
@@ -99,8 +99,8 @@ export class AnalyticsPanel {
         const spinner = document.createElement('div');
         spinner.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:10px;padding:40px 0;';
         spinner.innerHTML = `
-            <div style="width:28px;height:28px;border:3px solid var(--app-border,#dde3f0);border-top-color:var(--app-accent,#6600FF);border-radius:50%;animation:dw-spin 0.7s linear infinite;"></div>
-            <div style="font-size:12px;color:var(--app-text-muted,#7a8aaa);font-family:var(--app-font,sans-serif);">Loading analytics…</div>
+            <div style="width:28px;height:28px;border:3px solid var(--app-border);border-top-color:var(--app-accent);border-radius:50%;animation:dw-spin 0.7s linear infinite;"></div>
+            <div style="font-size:12px;color:var(--app-text-muted);font-family:var(--app-font);">Loading analytics…</div>
             <style>@keyframes dw-spin{to{transform:rotate(360deg)}}</style>
         `;
         this._root.appendChild(spinner);
@@ -227,7 +227,7 @@ export class AnalyticsPanel {
 
     private _buildSyncHeatmap(): HTMLElement {
         const wrapper = document.createElement('div');
-        wrapper.style.cssText = 'overflow-x:auto;border-radius:6px;border:1px solid var(--app-border,#dde3f0);';
+        wrapper.style.cssText = 'overflow-x:auto;border-radius:6px;border:1px solid var(--app-border);';
 
         const bm        = window.bimManager; // TODO(D.4): legacy bimManager — replace with runtime.scene.renderer / runtime.tools
         const hs        = window.hierarchyStore; // TODO(F.6.x): legacy hierarchyStore — replace with runtime.dataWorkbench.hierarchy store
@@ -243,12 +243,12 @@ export class AnalyticsPanel {
         // Header
         const thead = document.createElement('thead');
         const hRow  = document.createElement('tr');
-        hRow.style.background = 'var(--app-bg,#e8edf6)';
+        hRow.style.background = 'var(--app-bg)';
         const headerCells = ['Level', ...SYNC_STATES];
         headerCells.forEach((h, i) => {
             const th = document.createElement('th');
             th.textContent   = i === 0 ? h : h.replace('-', ' ');
-            th.style.cssText = `padding:5px 8px;text-align:${i === 0 ? 'left' : 'center'};border-bottom:1px solid var(--app-border,#dde3f0);color:${i === 0 ? 'var(--app-text,#1a2035)' : (SYNC_COLORS[h] ?? 'var(--app-text,#1a2035)')};font-weight:600;white-space:nowrap;font-family:var(--app-font,sans-serif);`;
+            th.style.cssText = `padding:5px 8px;text-align:${i === 0 ? 'left' : 'center'};border-bottom:1px solid var(--app-border);color:${i === 0 ? 'var(--app-text)' : (SYNC_COLORS[h] ?? 'var(--app-text)')};font-weight:600;white-space:nowrap;font-family:var(--app-font);`;
             hRow.appendChild(th);
         });
         thead.appendChild(hRow);
@@ -259,7 +259,7 @@ export class AnalyticsPanel {
         const syntheticLevels = levels.length ? levels : [{ id: '__all__', name: 'All' }];
         syntheticLevels.forEach((lvl: any, idx: number) => {
             const tr = document.createElement('tr');
-            tr.style.background = idx % 2 === 0 ? 'transparent' : 'var(--app-bg,#e8edf6)';
+            tr.style.background = idx % 2 === 0 ? 'transparent' : 'var(--app-bg)';
 
             const levelRooms = lvl.id === '__all__' ? rooms : rooms.filter((r: any) => r.levelId === lvl.id);
             const levelNodes = lvl.id === '__all__' ? nodes : nodes.filter((n: any) =>
@@ -268,14 +268,14 @@ export class AnalyticsPanel {
 
             const nameTd = document.createElement('td');
             nameTd.textContent   = lvl.name ?? lvl.id;
-            nameTd.style.cssText = 'padding:4px 8px;color:var(--app-text,#1a2035);font-weight:500;white-space:nowrap;border-bottom:1px solid var(--app-border-light,#eef1f8);font-family:var(--app-font,sans-serif);';
+            nameTd.style.cssText = 'padding:4px 8px;color:var(--app-text);font-weight:500;white-space:nowrap;border-bottom:1px solid var(--app-border-light);font-family:var(--app-font);';
             tr.appendChild(nameTd);
 
             SYNC_STATES.forEach(state => {
                 const count = levelNodes.filter((n: any) => n.syncState === state).length;
                 const td    = document.createElement('td');
                 td.textContent   = count > 0 ? String(count) : '—';
-                td.style.cssText = `padding:4px 8px;text-align:center;border-bottom:1px solid var(--app-border-light,#eef1f8);color:${count > 0 ? SYNC_COLORS[state] : 'var(--app-text-muted,#7a8aaa)'};font-weight:${count > 0 ? '700' : '400'};cursor:${count > 0 ? 'pointer' : 'default'};font-family:var(--app-font,sans-serif);`;
+                td.style.cssText = `padding:4px 8px;text-align:center;border-bottom:1px solid var(--app-border-light);color:${count > 0 ? SYNC_COLORS[state] : 'var(--app-text-muted)'};font-weight:${count > 0 ? '700' : '400'};cursor:${count > 0 ? 'pointer' : 'default'};font-family:var(--app-font);`;
                 if (count > 0) {
                     td.onclick = () => {
                         const matched = levelNodes.filter((n: any) => n.syncState === state);
@@ -393,14 +393,14 @@ export class AnalyticsPanel {
     private _buildSectionTitle(text: string): HTMLElement {
         const el = document.createElement('div');
         el.textContent   = text;
-        el.style.cssText = 'font-size:0.72rem;font-weight:700;color:var(--app-text-muted,#7a8aaa);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:-8px;font-family:var(--app-font,sans-serif);';
+        el.style.cssText = 'font-size:0.72rem;font-weight:700;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:-8px;font-family:var(--app-font);';
         return el;
     }
 
     private _chartWrap(height: number): HTMLElement {
         const wrap = document.createElement('div');
         // Light theme: white card background with subtle border — matches --app-panel-bg and --app-border
-        wrap.style.cssText = `position:relative;height:${height}px;background:var(--app-panel-bg,#ffffff);border-radius:var(--app-radius-sm,6px);padding:8px;border:1px solid var(--app-border,#dde3f0);box-shadow:var(--app-shadow-card,0 2px 10px rgba(30,50,120,0.07));`;
+        wrap.style.cssText = `position:relative;height:${height}px;background:var(--app-panel-bg);border-radius:var(--app-radius-sm);padding:8px;border:1px solid var(--app-border);box-shadow:var(--app-shadow-card);`;
         const canvas = document.createElement('canvas');
         wrap.appendChild(canvas);
         return wrap;

@@ -114,7 +114,7 @@ export class CompliancePanel {
         pdfBtn.className = 'dw-toolbar-btn';
         pdfBtn.textContent = '🖨 Export PDF';
         pdfBtn.title = 'Export compliance report as PDF';
-        pdfBtn.style.cssText = 'font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid var(--app-border,#e5e7eb);background:var(--app-surface,#fff);color:var(--app-text,#1e293b);cursor:pointer;';
+        pdfBtn.style.cssText = 'font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid var(--app-border);background:var(--app-panel-bg);color:var(--app-text);cursor:pointer;';
         pdfBtn.addEventListener('click', () => this._exportPdf(results));
         toolbar.appendChild(pdfBtn);
 
@@ -123,7 +123,7 @@ export class CompliancePanel {
         aiBtn.className = 'dw-toolbar-btn';
         aiBtn.textContent = '✦ Ask AI';
         aiBtn.title = 'Ask AI for specific element-level suggestions to fix compliance failures';
-        aiBtn.style.cssText = 'font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid var(--app-border,#e5e7eb);background:var(--app-surface,#fff);color:var(--app-text,#1e293b);cursor:pointer;';
+        aiBtn.style.cssText = 'font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid var(--app-border);background:var(--app-panel-bg);color:var(--app-text);cursor:pointer;';
         aiBtn.addEventListener('click', () => this._askAi(results, aiBtn));
         toolbar.appendChild(aiBtn);
 
@@ -131,7 +131,7 @@ export class CompliancePanel {
         const tierSelect = document.createElement('select');
         tierSelect.className = 'dw-toolbar-select';
         tierSelect.title = 'Filter by rule tier';
-        tierSelect.style.cssText = 'font-size:11px;padding:2px 4px;border-radius:4px;border:1px solid var(--app-border,#e5e7eb);background:var(--app-surface,#fff);color:var(--app-text,#1e293b);cursor:pointer;margin-left:auto;';
+        tierSelect.style.cssText = 'font-size:11px;padding:2px 4px;border-radius:4px;border:1px solid var(--app-border);background:var(--app-panel-bg);color:var(--app-text);cursor:pointer;margin-left:auto;';
         [
             { value: 'all', label: 'All tiers' },
             { value: '1',   label: 'Tier 1 only' },
@@ -147,7 +147,7 @@ export class CompliancePanel {
         const catSelect = document.createElement('select');
         catSelect.className = 'dw-toolbar-select';
         catSelect.title = 'Filter by category';
-        catSelect.style.cssText = 'font-size:11px;padding:2px 4px;border-radius:4px;border:1px solid var(--app-border,#e5e7eb);background:var(--app-surface,#fff);color:var(--app-text,#1e293b);cursor:pointer;';
+        catSelect.style.cssText = 'font-size:11px;padding:2px 4px;border-radius:4px;border:1px solid var(--app-border);background:var(--app-panel-bg);color:var(--app-text);cursor:pointer;';
         [
             { value: 'all',     label: 'All categories' },
             { value: 'spatial', label: 'Spatial / Code' },
@@ -291,8 +291,8 @@ export class CompliancePanel {
 
         const panel = document.createElement('div');
         panel.style.cssText = `
-            background:var(--app-surface,#fff);
-            border:1px solid var(--app-border,#e5e7eb);
+            background:var(--app-panel-bg);
+            border:1px solid var(--app-border);
             border-radius:10px;
             padding:20px 24px;
             max-width:440px;width:90%;
@@ -302,15 +302,15 @@ export class CompliancePanel {
 
         const title = document.createElement('div');
         title.textContent = '✦ AI Compliance Advisor';
-        title.style.cssText = 'font-weight:700;font-size:13px;margin-bottom:12px;color:var(--app-text,#1e293b);';
+        title.style.cssText = 'font-weight:700;font-size:13px;margin-bottom:12px;color:var(--app-text);';
 
         const body = document.createElement('div');
-        body.style.cssText = 'font-size:12px;line-height:1.6;white-space:pre-wrap;color:var(--app-text,#1e293b);max-height:320px;overflow-y:auto;';
+        body.style.cssText = 'font-size:12px;line-height:1.6;white-space:pre-wrap;color:var(--app-text);max-height:320px;overflow-y:auto;';
         body.textContent = text;
 
         const closeBtn = document.createElement('button');
         closeBtn.textContent = '✕';
-        closeBtn.style.cssText = 'position:absolute;top:10px;right:12px;background:none;border:none;font-size:14px;cursor:pointer;color:var(--app-text-muted,#7a8aaa);';
+        closeBtn.style.cssText = 'position:absolute;top:10px;right:12px;background:none;border:none;font-size:14px;cursor:pointer;color:var(--app-text-muted);';
         closeBtn.addEventListener('click', () => overlay.remove());
         overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
 
@@ -337,8 +337,8 @@ export class CompliancePanel {
         bar.className = 'dw-compliance-summary';
         bar.style.cssText = `
             display:flex;gap:12px;padding:8px 12px;
-            background:var(--app-surface-2,#f8fafc);
-            border-bottom:1px solid var(--app-border,#e5e7eb);
+            background:var(--app-surface-sunken);
+            border-bottom:1px solid var(--app-border);
             font-size:11px;font-weight:600;
         `;
 
@@ -369,7 +369,7 @@ export class CompliancePanel {
         div.innerHTML = `
             <div class="dw-placeholder-icon">✅</div>
             <div style="font-weight:700;font-size:13px;color:var(--app-text)">No violations found</div>
-            <div style="font-size:12px;max-width:220px;text-align:center;line-height:1.5;color:var(--app-text-muted,#7a8aaa)">
+            <div style="font-size:12px;max-width:220px;text-align:center;line-height:1.5;color:var(--app-text-muted)">
                 All ${this._totalRuleCount} compliance rules passed.<br>
                 Click Run All Checks to re-validate.
             </div>
@@ -391,13 +391,13 @@ export class CompliancePanel {
         // Header
         const thead = document.createElement('thead');
         thead.innerHTML = `
-            <tr style="background:var(--app-surface-2,#f8fafc);border-bottom:2px solid var(--app-border,#e5e7eb);">
+            <tr style="background:var(--app-surface-sunken);border-bottom:2px solid var(--app-border);">
                 <th style="width:24px;padding:6px 8px;text-align:center;"></th>
-                <th style="padding:6px 4px;text-align:left;color:var(--app-text-muted,#7a8aaa);font-weight:600;">Rule</th>
-                <th style="padding:6px 4px;text-align:left;color:var(--app-text-muted,#7a8aaa);font-weight:600;">Element</th>
-                <th style="padding:6px 4px;text-align:left;color:var(--app-text-muted,#7a8aaa);font-weight:600;">Message</th>
-                <th style="padding:6px 4px;text-align:left;color:var(--app-text-muted,#7a8aaa);font-weight:600;">Reg.</th>
-                <th style="padding:6px 4px;text-align:left;color:var(--app-text-muted,#7a8aaa);font-weight:600;">Suggestion</th>
+                <th style="padding:6px 4px;text-align:left;color:var(--app-text-muted);font-weight:600;">Rule</th>
+                <th style="padding:6px 4px;text-align:left;color:var(--app-text-muted);font-weight:600;">Element</th>
+                <th style="padding:6px 4px;text-align:left;color:var(--app-text-muted);font-weight:600;">Message</th>
+                <th style="padding:6px 4px;text-align:left;color:var(--app-text-muted);font-weight:600;">Reg.</th>
+                <th style="padding:6px 4px;text-align:left;color:var(--app-text-muted);font-weight:600;">Suggestion</th>
             </tr>
         `;
         table.appendChild(thead);
@@ -415,11 +415,11 @@ export class CompliancePanel {
     private _buildRow(result: ValidationResult): HTMLElement {
         const tr = document.createElement('tr');
         tr.style.cssText = `
-            border-bottom:1px solid var(--app-border,#e5e7eb);
+            border-bottom:1px solid var(--app-border);
             cursor:pointer;
             transition:background 0.1s;
         `;
-        tr.addEventListener('mouseenter', () => { tr.style.background = 'var(--app-surface-hover,rgba(102,0,255,0.04))'; });
+        tr.addEventListener('mouseenter', () => { tr.style.background = 'var(--app-wash-hover)'; });
         tr.addEventListener('mouseleave', () => { tr.style.background = ''; });
 
         tr.addEventListener('click', () => {
@@ -433,10 +433,10 @@ export class CompliancePanel {
 
         tr.innerHTML = `
             <td style="padding:7px 8px;text-align:center;font-size:13px;">${icon}</td>
-            <td style="padding:7px 4px;color:var(--app-text-muted,#7a8aaa);white-space:nowrap;font-family:monospace;font-size:10px;">${escHtml(result.ruleId)}</td>
+            <td style="padding:7px 4px;color:var(--app-text-muted);white-space:nowrap;font-family:monospace;font-size:10px;">${escHtml(result.ruleId)}</td>
             <td style="padding:7px 4px;color:${colour};font-weight:600;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="${escHtml(result.elementId)}">${escHtml(result.elementType)}</td>
-            <td style="padding:7px 4px;color:var(--app-text,#1e293b);line-height:1.4;max-width:200px;">${escHtml(result.message)}</td>
-            <td style="padding:7px 4px;color:var(--app-text-muted,#7a8aaa);font-size:10px;white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis;" title="${escHtml(result.regulation ?? '')}">${escHtml(result.regulation ?? '—')}</td>
+            <td style="padding:7px 4px;color:var(--app-text);line-height:1.4;max-width:200px;">${escHtml(result.message)}</td>
+            <td style="padding:7px 4px;color:var(--app-text-muted);font-size:10px;white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis;" title="${escHtml(result.regulation ?? '')}">${escHtml(result.regulation ?? '—')}</td>
             <td style="padding:7px 4px;color:#6366f1;font-size:10px;line-height:1.4;max-width:160px;">${escHtml(result.suggestion ?? '—')}</td>
         `;
 

@@ -258,7 +258,7 @@ export class DataSheetPanel {
             div.appendChild(this._buildReadField('Version', `v${template.version}`));
         } else {
             const noTemplate = document.createElement('div');
-            noTemplate.style.cssText = 'color:var(--app-text-muted,#7a8aaa);font-size:12px;margin-bottom:10px;font-style:italic;';
+            noTemplate.style.cssText = 'color:var(--app-text-muted);font-size:12px;margin-bottom:10px;font-style:italic;';
             noTemplate.textContent = 'No template assigned';
             div.appendChild(noTemplate);
         }
@@ -303,7 +303,7 @@ export class DataSheetPanel {
             div.appendChild(assignRow);
         } else {
             const hint = document.createElement('div');
-            hint.style.cssText = 'font-size:11px;color:var(--app-text-muted,#7a8aaa);margin-top:6px;';
+            hint.style.cssText = 'font-size:11px;color:var(--app-text-muted);margin-top:6px;';
             hint.textContent = `No ${node.type} templates available. Create one in the Templates tab.`;
             div.appendChild(hint);
         }
@@ -346,7 +346,7 @@ export class DataSheetPanel {
         const customKeys = Object.keys(pd.customProperties ?? {});
         if (customKeys.length > 0) {
             const header = document.createElement('div');
-            header.style.cssText = 'font-size:11px;font-weight:700;color:var(--app-text-muted,#7a8aaa);text-transform:uppercase;letter-spacing:0.04em;margin-top:10px;margin-bottom:6px;';
+            header.style.cssText = 'font-size:11px;font-weight:700;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-top:10px;margin-bottom:6px;';
             header.textContent = 'Custom Properties';
             div.appendChild(header);
 
@@ -430,7 +430,7 @@ export class DataSheetPanel {
             && !req.windowRequirements?.length && !req.finishRequirements?.length
             && !req.customRequirements?.length) {
             const empty = document.createElement('div');
-            empty.style.cssText = 'color:var(--app-text-muted,#7a8aaa);font-size:12px;font-style:italic;';
+            empty.style.cssText = 'color:var(--app-text-muted);font-size:12px;font-style:italic;';
             empty.textContent = 'No requirements defined in this template.';
             div.appendChild(empty);
         }
@@ -524,7 +524,7 @@ export class DataSheetPanel {
 
         if (rows.length === 0) {
             const empty = document.createElement('div');
-            empty.style.cssText = 'color:var(--app-text-muted,#7a8aaa);font-size:12px;font-style:italic;';
+            empty.style.cssText = 'color:var(--app-text-muted);font-size:12px;font-style:italic;';
             empty.textContent = 'No comparable requirements defined.';
             div.appendChild(empty);
             return div;
@@ -540,7 +540,7 @@ export class DataSheetPanel {
         ['Requirement', 'Expected', 'Actual', 'Portfolio', 'State', ''].forEach(h => {
             const th = document.createElement('th');
             th.textContent = h;
-            th.style.cssText = 'text-align:left;padding:4px 6px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--app-text-muted,#7a8aaa);border-bottom:1px solid var(--app-border,#dde3f0);letter-spacing:0.04em;';
+            th.style.cssText = 'text-align:left;padding:4px 6px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--app-text-muted);border-bottom:1px solid var(--app-border);letter-spacing:0.04em;';
             if (h === 'Portfolio') {
                 th.title = 'Anonymised cross-project benchmark (synthetic data seeded from NHS HTM, NDSS, BB98)';
                 th.style.color = '#6600FF';
@@ -561,7 +561,7 @@ export class DataSheetPanel {
         const tbody = table.createTBody();
         for (const row of rows) {
             const tr = tbody.insertRow();
-            tr.style.borderBottom = '1px solid var(--app-border-light,#eef1f8)';
+            tr.style.borderBottom = '1px solid var(--app-border-light)';
 
             const labelTd = tr.insertCell();
             labelTd.textContent = row.label;
@@ -569,7 +569,7 @@ export class DataSheetPanel {
 
             const expectedTd = tr.insertCell();
             expectedTd.textContent = row.expected;
-            expectedTd.style.cssText = 'padding:5px 6px;color:var(--app-text-2,#5a6a85);';
+            expectedTd.style.cssText = 'padding:5px 6px;color:var(--app-text-2);';
 
             const actualTd = tr.insertCell();
             actualTd.textContent = row.actual;
@@ -643,7 +643,7 @@ export class DataSheetPanel {
         overlay.innerHTML = `
             <div class="dw-dialog">
                 <div class="dw-dialog-title">Mark as Derived</div>
-                <div style="font-size:12px;color:var(--app-text-muted,#7a8aaa);margin-bottom:12px;">
+                <div style="font-size:12px;color:var(--app-text-muted);margin-bottom:12px;">
                     A derived deviation is an intentional departure from the template requirement.
                     Please provide a reason.
                 </div>

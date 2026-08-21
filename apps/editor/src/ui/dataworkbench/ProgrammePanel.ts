@@ -127,11 +127,11 @@ export class ProgrammePanel {
         this._totalEl = document.createElement('div');
         this._totalEl.style.cssText = `
             padding:8px 12px;
-            border-top:2px solid var(--app-border,#e5e7eb);
-            background:var(--app-surface-2,#f8fafc);
+            border-top:2px solid var(--app-border);
+            background:var(--app-surface-sunken);
             font-size:11px;font-weight:700;
             display:flex;gap:24px;
-            color:var(--app-text,#1e293b);
+            color:var(--app-text);
         `;
         this._root.appendChild(this._totalEl);
 
@@ -151,7 +151,7 @@ export class ProgrammePanel {
             empty.innerHTML = `
                 <div class="dw-placeholder-icon">📑</div>
                 <div style="font-weight:700;font-size:13px;color:var(--app-text)">No programme entries</div>
-                <div style="font-size:12px;color:var(--app-text-muted,#7a8aaa);max-width:220px;text-align:center;line-height:1.5">
+                <div style="font-size:12px;color:var(--app-text-muted);max-width:220px;text-align:center;line-height:1.5">
                     Click "+ Add Room Type" to define your room brief,<br>or import from CSV.
                 </div>
             `;
@@ -164,14 +164,14 @@ export class ProgrammePanel {
 
         const thead = document.createElement('thead');
         thead.innerHTML = `
-            <tr style="background:var(--app-surface-2,#f8fafc);border-bottom:2px solid var(--app-border,#e5e7eb);">
-                <th style="padding:6px 8px;text-align:left;color:var(--app-text-muted,#7a8aaa);font-weight:600;">Room Type</th>
-                <th style="padding:6px 8px;text-align:center;color:var(--app-text-muted,#7a8aaa);font-weight:600;">Req. Qty</th>
-                <th style="padding:6px 8px;text-align:right;color:var(--app-text-muted,#7a8aaa);font-weight:600;">Target m²</th>
-                <th style="padding:6px 8px;text-align:center;color:var(--app-text-muted,#7a8aaa);font-weight:600;">Designed</th>
-                <th style="padding:6px 8px;text-align:right;color:var(--app-text-muted,#7a8aaa);font-weight:600;">Avg m²</th>
-                <th style="padding:6px 8px;text-align:center;color:var(--app-text-muted,#7a8aaa);font-weight:600;">Δ</th>
-                <th style="padding:6px 8px;text-align:center;color:var(--app-text-muted,#7a8aaa);font-weight:600;width:32px;"></th>
+            <tr style="background:var(--app-surface-sunken);border-bottom:2px solid var(--app-border);">
+                <th style="padding:6px 8px;text-align:left;color:var(--app-text-muted);font-weight:600;">Room Type</th>
+                <th style="padding:6px 8px;text-align:center;color:var(--app-text-muted);font-weight:600;">Req. Qty</th>
+                <th style="padding:6px 8px;text-align:right;color:var(--app-text-muted);font-weight:600;">Target m²</th>
+                <th style="padding:6px 8px;text-align:center;color:var(--app-text-muted);font-weight:600;">Designed</th>
+                <th style="padding:6px 8px;text-align:right;color:var(--app-text-muted);font-weight:600;">Avg m²</th>
+                <th style="padding:6px 8px;text-align:center;color:var(--app-text-muted);font-weight:600;">Δ</th>
+                <th style="padding:6px 8px;text-align:center;color:var(--app-text-muted);font-weight:600;width:32px;"></th>
             </tr>
         `;
         table.appendChild(thead);
@@ -201,7 +201,7 @@ export class ProgrammePanel {
             totalActualGIA += rooms.reduce((s: number, r: any) => s + (r.computed?.area ?? 0), 0);
 
             const tr = document.createElement('tr');
-            tr.style.cssText = 'border-bottom:1px solid var(--app-border,#e5e7eb);';
+            tr.style.cssText = 'border-bottom:1px solid var(--app-border);';
 
             let deltaText = '—';
             let deltaColour = '#6b7280';
@@ -218,7 +218,7 @@ export class ProgrammePanel {
             const rmBtn = document.createElement('button');
             rmBtn.textContent = '✕';
             rmBtn.title = 'Remove entry';
-            rmBtn.style.cssText = 'font-size:10px;padding:1px 5px;border:1px solid var(--app-border,#e5e7eb);border-radius:3px;background:transparent;color:var(--app-text-muted,#7a8aaa);cursor:pointer;';
+            rmBtn.style.cssText = 'font-size:10px;padding:1px 5px;border:1px solid var(--app-border);border-radius:3px;background:transparent;color:var(--app-text-muted);cursor:pointer;';
             const entryId = entry.id;
             rmBtn.addEventListener('click', () => {
                 this._entries = this._entries.filter(e => e.id !== entryId);
@@ -226,11 +226,11 @@ export class ProgrammePanel {
             });
 
             tr.innerHTML = `
-                <td style="padding:7px 8px;color:var(--app-text,#1e293b);font-weight:600;">${entry.label || entry.occupancyType.replace(/-/g, ' ')}</td>
-                <td style="padding:7px 8px;text-align:center;color:var(--app-text,#1e293b);">${entry.requiredQty}</td>
-                <td style="padding:7px 8px;text-align:right;color:var(--app-text,#1e293b);">${entry.targetAreaM2.toFixed(1)}</td>
-                <td style="padding:7px 8px;text-align:center;color:var(--app-text,#1e293b);">${designedQty}</td>
-                <td style="padding:7px 8px;text-align:right;color:var(--app-text,#1e293b);">${designedQty > 0 ? avgArea.toFixed(1) : '—'}</td>
+                <td style="padding:7px 8px;color:var(--app-text);font-weight:600;">${entry.label || entry.occupancyType.replace(/-/g, ' ')}</td>
+                <td style="padding:7px 8px;text-align:center;color:var(--app-text);">${entry.requiredQty}</td>
+                <td style="padding:7px 8px;text-align:right;color:var(--app-text);">${entry.targetAreaM2.toFixed(1)}</td>
+                <td style="padding:7px 8px;text-align:center;color:var(--app-text);">${designedQty}</td>
+                <td style="padding:7px 8px;text-align:right;color:var(--app-text);">${designedQty > 0 ? avgArea.toFixed(1) : '—'}</td>
                 <td style="padding:7px 8px;text-align:center;color:${deltaColour};font-weight:600;">${deltaText}</td>
                 <td style="padding:4px 8px;text-align:center;"></td>
             `;
@@ -269,10 +269,10 @@ export class ProgrammePanel {
 
         const dialog = document.createElement('div');
         dialog.style.cssText = `
-            background:var(--app-surface,#fff);border-radius:10px;
+            background:var(--app-panel-bg);border-radius:10px;
             padding:20px 24px;min-width:320px;
             box-shadow:0 20px 40px rgba(0,0,0,0.2);
-            font-size:12px;color:var(--app-text,#1e293b);
+            font-size:12px;color:var(--app-text);
         `;
 
         const OCCUPANCY_TYPES = [

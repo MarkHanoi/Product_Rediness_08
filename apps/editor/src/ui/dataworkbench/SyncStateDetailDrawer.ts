@@ -448,7 +448,7 @@ class SyncStateDetailDrawer {
         dialog.appendChild(titleEl);
 
         const desc = document.createElement('div');
-        desc.style.cssText = 'font-size:12px;color:var(--app-text-muted,#7a8aaa);margin-bottom:12px;line-height:1.5;';
+        desc.style.cssText = 'font-size:12px;color:var(--app-text-muted);margin-bottom:12px;line-height:1.5;';
         desc.textContent = 'Record the reason why this deviation from the brief is accepted. This does not change the model — it records your decision.';
         dialog.appendChild(desc);
 
@@ -465,7 +465,7 @@ class SyncStateDetailDrawer {
 
         for (const check of failingChecks) {
             const row = document.createElement('label');
-            row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer;font-size:12px;color:var(--app-text,#dce3f4);';
+            row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer;font-size:12px;color:var(--app-text);';
 
             const cb = document.createElement('input');
             cb.type = 'checkbox';
