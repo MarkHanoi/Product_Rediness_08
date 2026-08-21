@@ -1541,3 +1541,167 @@ Stated so it is never read as coverage (C70 §7.1).
 - ⛔ It does **not** touch the three declared rivals on the §7 ARM C ledger, nor S22/S23's residue.
 - ⚠ It does **not** establish that adding rows improves what the founder sees — **§10.4 argues the
   opposite for the largest share**, and that honesty is the section's main contribution.
+
+---
+
+## §10.9 — ⭐ S28 IS BUILT, THE SHAPE IS AMENDED, AND ONE OF ITS TWO BLOCKERS TURNED OUT TO BE A DIFFERENT BLOCKER (2026-08-21)
+
+> **Stamp**: 2026-08-21 · **Lanes**: MAT-1 (record + resolver + wiring), MAT-2 (assets), MAT-3
+> (procedural) · **Rows**: L-1700 – L-1704, L-1720 – L-1724, L-1800.
+> **Commits**: `54071cd6` (L0 record), `b58500d7` (resolver + wiring + 16 rows), `e535246d`
+> (asset pipeline), `7af920ab` (procedural generators).
+> **Adds and AMENDS.** §10.2.c's `tiling` shape and §10.6's blocker statement are both corrected
+> below, in place, with the measurement that corrected them.
+
+### §10.9.a — The `tiling` shape is AMENDED: real-world METRES, not a repeat count
+
+§10.2.c proposed `tiling?: { repeatX, repeatY, rotation }`. **The shipped field is**
+
+```ts
+tiling?: { realWorldSizeM: readonly [number, number]; rotationDeg?: number }
+```
+
+⭐ **A repeat count is meaningless without the surface's size.** `repeatX: 4` is a 750 mm tile on a
+3 m wall and a 3 m tile on a 12 m wall: **the same material rendering as two different products**,
+which is **§2.3's defect re-created inside one material**. A real-world size is intrinsic to the
+PRODUCT; the repeat is DERIVED per surface by the adapter, which is exactly §3's division of labour.
+
+⚠ **It is also what makes the texture SHAREABLE, and that is not a separate benefit — it is the same
+fact.** In THREE, `repeat` lives on the TEXTURE, not the material. A surface-derived repeat would
+need one texture object per distinct surface size; `1 / realWorldSizeM` is a pure function of the
+material, so a hundred parquet floors share one texture and one GPU upload
+(§WEBGPU-HEAVY-SCENE-CRASH: per-element materials already defeated instancing here).
+
+⛔ **No `sheen` field was added.** §10.2.c is right that sheen is `roughness`, and `roughness` was
+already on the record. ⛔ **No `surfaces` field either** — §10.2.c's hard rule (an applicability
+facet ships WITH its filter or it is not authored) still binds, and no picker filters by it yet.
+**S25 is unchanged and still open.**
+
+### §10.9.b — ⭐ §10.6's BLOCKER IS DISCHARGED, AND IT WAS NOT THE BLOCKER IT NAMED
+
+§10.6 named the blocker as **the object-storage bucket**. Measured across the three lanes:
+
+- ⛔ **The bucket was never the blocker.** R2 `pryzm-assets` is live, `catalogAssetUrl` rewrites
+  logical paths, and `.webp` was already on the proxy's `CATALOG_ALLOWED_EXT`. MAT-2 published
+  **16 CC0 materials (216.8 MB → 47.0 MB)** with **no client change at all**.
+- ⛔ **The real blocker was the DECODER, and it is still there.** §10.6 and this lane's own brief
+  both reasoned from `.ktx2` being on the delivery allowlist. **Delivery and decode are different
+  facts**: there are **zero `KTX2Loader` references in `src`**, no Basis transcoder in `public/`,
+  and `persistence-client/src/codec/ktx2.ts` is a pass-through stub. We can serve a `.ktx2` and
+  cannot decode one. **WebP ships. KTX2 is UNBUILT and its blocker is named: the decoder.**
+- ⛔ **And one path silently 404s.** `resolveCatalogAssetUrl` rewrites **only** `/items/…`;
+  anything else is returned UNCHANGED, which in production never reaches the CDN. The L0 doc
+  example shipped as `/textures/…` — it would have 404'd, invisibly, on every material. The
+  resolver now REFUSES a non-`/items/` path with a named reason **before any request**.
+
+⭐ **The lesson, because this shape has now cost two lanes:** *an allowlist is a claim about
+DELIVERY. It says nothing about DECODE, and nothing about whether the URL you will actually send
+is the one it allows.* Both halves must be measured separately, by running the seam.
+
+### §10.9.c — ⭐ THE ANSWER HAS TWO HALVES, AND ONE OF THEM CANNOT 404
+
+`MATERIAL_CATALOG` is **245 rows**, of which **40 carry maps** (cite the gate, never this number):
+
+| half | n | source | can it fail? |
+|---|---:|---|---|
+| **file-backed** | 16 | ambientCG CC0, R2-hosted, WebP | 404 · CORS · decoder |
+| ⭐ **procedural** | 24 | `@pryzm/procedural-textures`, generated | **none of those — it is arithmetic** |
+
+The procedural half — herringbone, chevron, Hungarian point, Versailles, basket weave, metro,
+hexagon, mosaic, plank floors — **has no file, no bucket, no CORS and no decoder**. It is the half
+of the founder's *"wooden parquet materials, proper tiling floors"* that is reachable regardless of
+hosting. Its map values are **generator ids**, not paths: `MaterialResolver` forks on
+`isProceduralId` ahead of everything file-shaped.
+
+**Four of §10.3.a's five EMPTY families are closed**: parquet, carpet, external render/stucco,
+shingle. ⛔ **`fibre-cement cladding` remains at ZERO.**
+
+### §10.9.d — ⛔ THE FIELD §10.6 CALLED "HALF-BUILT" WAS DELETED, NOT POPULATED
+
+§10.6 recorded `matDef.textures` as read at seven sites and written by nothing, *"in the shape that
+flatters an estimate"*. **The obvious repair — populate it — is WRONG, and a watched RED proved it.**
+
+A `THREE.Texture` carries its `repeat`. A pre-resolved texture set is therefore only correct against
+a **known uv space**, and a material definition has no surface. Three of the seven readers
+re-material geometry with **no `uv` attribute at all**, where an attached map paints **texel (0,0)
+over the whole element** — neither the pattern nor the base colour.
+
+**So `StandardMaterialDef.textures` is DELETED** and replaced by `applyMaterialMaps(params, def,
+uvSpace)`: the caller must state what its own UVs mean, and a caller that cannot gets nothing plus a
+named reason. All eight readers converted. ⭐ **A field whose correct value depends on information
+it does not carry is not half-built; it is mis-shaped.**
+
+### §10.9.e — THE UV VERDICT, which is as much a REFUSAL as a fix
+
+| surface | uv today | maps? |
+|---|---|---|
+| ⭐ **slab / floor** | **METRES** (added by L-1703; it had NONE) | **YES** |
+| wall | 4 of 6 body arms emit no `uv`; the seam merge **DELETES** it | ⛔ **NO — named gap** |
+| roof | none | ⛔ **NO** |
+| curtain wall | 0..1 per panel, size not in scope at material time | ⛔ **NO** |
+
+⛔ **Walls are refused deliberately.** The wall material is built ONCE, before the body arm is
+chosen, so it cannot know which arm ran. Maps there would tile a wall WITH an opening differently
+from an otherwise identical wall WITHOUT one — **§2.3's defect, caused by nothing in the model**.
+**A visibly wrong pattern is worse than an honest flat colour.**
+
+⭐ **The uv space is a DECLARED STAMP** (`geometry.userData`), never a heuristic: floats cannot say
+whether they are metres or 0..1, and guessing from the bounding box is right until a 1 m slab makes
+the two indistinguishable. **Undeclared ⇒ refuse.** That default is what makes this migratable one
+builder at a time: every un-migrated surface keeps its honest flat colour and lights up the day its
+builder stamps, with no edit to any consumer.
+
+**Closing the wall gap = giving every wall body arm metre UVs.** That is a geometry slice, it is
+**S30**, and it is the single highest-value piece of remaining work in this section.
+
+### §10.9.f — The gate
+
+**`tools/ga-gate/check-material-maps-tiling.ts`** — BUILT, five arms, all hard-0, each watched-RED
+and observed to fire:
+
+- **ARM A** — maps imply a usable `tiling`. Calls L0's `materialMapsDefect()`, the **same predicate
+  the resolver uses**, so gate and runtime cannot disagree about "well-formed".
+- **ARM B** — every file-backed path starts with `/items/` and is not an absolute or `data:` URL.
+- **ARM C** — every file-backed path is in a format a **registered loader can decode**. Reads the
+  extension list out of `MaterialResolver.ts`'s source rather than keeping a rival copy.
+- **ARM D** — the file-backed rows agree with `textures.manifest.json`, compared as **SETS in both
+  directions**, never as a count or a byte-diff.
+- ⭐ **ARM E** — every `procedural:` source names a **LIVE generator**, and its tiling agrees with
+  the generator's own computed size; **and every generator has a row**. This is the arm that makes
+  the reserved scheme safe: a scheme with no generator is authored-but-unwired, and a generator with
+  no row is arithmetic nobody can reach.
+
+**NOT CHECKED, and never an inherited green** (C70 §7.1): that any map FILE exists in the bucket;
+that **CORS** permits the fetch (**L-578** — no Node check enforces it); that a declared real-world
+size matches the image; that any surface other than a slab carries metre UVs.
+
+### §10.9.g — What is proven AT THE MESH, and what is not
+
+⭐ **PROVEN AT THE MESH** (`packages/geometry-slab/__tests__/SlabRendersTexturedMaterialAtRealWorldScale.test.ts`,
+22 tests): a real record — file-backed **and** procedural — driven through the real projection into
+the real `SlabFragmentBuilder`, asserting the `THREE.Material` on a mesh **in the scene** carries the
+texture, at `1 / realWorldSizeM`, with the right colour space, shared across slabs, on geometry whose
+uv is in metres. Three watched REDs, **run and recorded**: the pre-lane code (no maps attached)
+fails 9 of them, including the founder claim.
+
+⛔ **NOT PROVEN**: that a pixel is correct on a GPU (no visual test exists); that the R2 objects
+resolve from a browser (CORS, L-578); that the 16 authored base colours match their maps' averages —
+they are **authored and say so**, because the WebPs are on R2 and cannot be measured in-repo.
+
+### §10.9.h — Slice states
+
+- ⭐ **S28 — BUILT**, and its blocker re-named (§10.9.b). `maps` + `tiling` on the record, the
+  `MaterialResolver` SPEC-MATERIALS-REPOSITORY §3.2 has specified since 2026-05-22, the render path
+  wired for slabs/floors, and 40 pattern rows.
+- **S24 — UNCHANGED and still open.** The combinatorial paint model needs no assets and was not
+  this lane's work.
+- **S25 (`surfaces` + its filter) — UNCHANGED and still open**, deliberately (§10.9.a).
+- **S26, S27 — UNCHANGED.**
+- ⭐ **S30 — NEW: metre UVs for every wall body arm.** §10.9.e. Until it lands, "wall finishes" means
+  colour, not pattern, and the code says so at the refusal site.
+- **S31 — NEW: the KTX2 decoder.** A `KTX2Loader` re-export in `packages/renderer-three/src/addons/`
+  plus a Basis transcoder served from `public/`. MAT-2's pipeline already emits KTX2 on a flag.
+  Until then WebP ships and `.ktx2` produces a NAMED refusal.
+- **S32 — NEW: `aoMap` needs a second uv set.** `ao` and `displacement` are authored on the records
+  (the products have them) and are neither bound nor FETCHED: `aoMap` samples THREE's `uv1`, which
+  **no geometry in this repository emits**, and `displacementMap` needs tessellation.

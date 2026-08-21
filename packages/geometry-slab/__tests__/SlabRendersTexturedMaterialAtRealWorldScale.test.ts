@@ -69,7 +69,7 @@ import {
     UV_NONE,
     uvSpaceOfGeometry,
 } from '@pryzm/core-app-model/material-resolver';
-import type { MaterialRecord } from '@pryzm/schemas/materials';
+import { MATERIAL_CATALOG, type MaterialRecord } from '@pryzm/schemas/materials';
 import { SlabFragmentBuilder } from '../src/SlabFragmentBuilder';
 import type { SlabData } from '../src/SlabTypes';
 
@@ -268,6 +268,73 @@ describe('⭐ THE GEOMETRY — the slab body carries uv, and the units are METRE
         // on the edge band, so this is a floor rather than an equality).
         expect(maxU).toBeGreaterThan(SLAB_W - 0.5);
         expect(maxV).toBeGreaterThan(SLAB_D - 0.5);
+    });
+});
+
+describe('⭐ PROCEDURAL PATTERNS — parquet with ZERO assets, at the mesh', () => {
+
+    // ⭐ These rows are the half of the founder request that cannot 404. The maps
+    // are GENERATOR IDS, not paths: MaterialResolver forks on `isProceduralId`
+    // ahead of everything file-shaped, so no URL, no bucket, no CORS and no
+    // decoder is involved. If the file-backed half is ever unreachable in
+    // production, THIS half still renders a herringbone floor.
+
+    const HERRINGBONE = MATERIAL_CATALOG.find(m => m.id === 'parquet-oak-herringbone')!;
+    const METRO = MATERIAL_CATALOG.find(m => m.id === 'tile-metro-white-subway')!;
+
+    it('the rows exist in the MASTER catalogue, not in a test literal', () => {
+        expect(HERRINGBONE).toBeDefined();
+        expect(METRO).toBeDefined();
+        expect(HERRINGBONE.maps?.color).toBe('procedural:parquet-oak-herringbone');
+    });
+
+    it('THE FOUNDER CLAIM, asset-free: an oak herringbone slab carries a real texture', () => {
+        const mat = stdMaterial(buildWith(HERRINGBONE)[0]!);
+        expect(mat.map).toBeInstanceOf(THREE.Texture);
+        expect(mat.normalMap).toBeInstanceOf(THREE.Texture);
+        expect(mat.roughnessMap).toBeInstanceOf(THREE.Texture);
+        // ⭐ Real pixels, generated — not a placeholder handle awaiting a fetch.
+        const img = (mat.map as THREE.DataTexture).image as { width: number; height: number; data: Uint8ClampedArray };
+        expect(img.width).toBeGreaterThan(64);
+        expect(img.data.length).toBe(img.width * img.height * 4);
+        // ...and not a blank field: a herringbone has staves and joints.
+        const distinct = new Set<number>();
+        for (let i = 0; i < img.data.length; i += 4 * 997) distinct.add(img.data[i]!);
+        expect(distinct.size).toBeGreaterThan(4);
+    });
+
+    it('NOTHING WAS FETCHED — the whole point of the procedural arm', () => {
+        buildWith(HERRINGBONE);
+        expect(fetched).toEqual([]);
+        expect(materialTextureDiagnostics()).toEqual([]);
+    });
+
+    it("the repeat is the GENERATOR-declared real-world size, absolute arithmetic", () => {
+        const mat = stdMaterial(buildWith(HERRINGBONE)[0]!);
+        // 70 x 350 mm staves tile at 0.7 m; the catalogue row says so and the
+        // generator computes it. Asserted as literal arithmetic, not by re-running
+        // proceduralTilingFor().
+        expect(HERRINGBONE.tiling!.realWorldSizeM[0]).toBe(0.7);
+        expect(mat.map!.repeat.x).toBeCloseTo(1 / 0.7, 10);
+    });
+
+    it('a metro tile and a herringbone tile at DIFFERENT densities', () => {
+        const herring = stdMaterial(buildWith(HERRINGBONE)[0]!);
+        const metro = stdMaterial(buildWith(METRO)[0]!);
+        expect(metro.map!.repeat.x).not.toBeCloseTo(herring.map!.repeat.x, 3);
+    });
+
+    it('colour space is right on a generated texture too', () => {
+        const mat = stdMaterial(buildWith(HERRINGBONE)[0]!);
+        expect(mat.map!.colorSpace).toBe(THREE.SRGBColorSpace);
+        expect(mat.normalMap!.colorSpace).toBe(THREE.NoColorSpace);
+        expect(mat.map!.wrapS).toBe(THREE.RepeatWrapping);
+    });
+
+    it('one generated texture SHARED across slabs — generation is paid once', () => {
+        const a = stdMaterial(buildWith(HERRINGBONE)[0]!);
+        const b = stdMaterial(buildWith(HERRINGBONE)[0]!);
+        expect(a.map).toBe(b.map);
     });
 });
 

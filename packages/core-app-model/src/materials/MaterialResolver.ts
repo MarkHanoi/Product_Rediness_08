@@ -73,6 +73,16 @@ import {
     type MaterialTiling,
 } from '@pryzm/schemas/materials';
 import { CATALOG_LOGICAL_PREFIX, isCatalogRehosted, resolveCatalogAssetUrl } from '../catalog/catalogAssetUrl.js';
+// ⭐ THE PROCEDURAL FORK. `@pryzm/procedural-textures` is L0 — no THREE, no DOM,
+// no I/O, no dependencies at all — and returns RGBA8 buffers. Turning those into
+// a GPU texture is this file's job, and that division is the package's own
+// stated design: "Turning those into a GPU texture is the renderer's job and
+// happens above". See the fork in `acquireTexture`.
+import {
+    getProceduralTexture,
+    isProceduralId,
+    describeProceduralGenerator,
+} from '@pryzm/procedural-textures';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UV SPACE — the question every call site MUST answer, because getting it wrong
@@ -258,13 +268,14 @@ for (const ext of RASTER_EXTENSIONS) {
  *
  * - lane MAT-2 registers `.ktx2` once the KTX2Loader addon and the Basis
  *   transcoder are deployed.
- * - A PROCEDURAL source (lane MAT-3) is deliberately NOT expressible here. An
- *   extension is a property of a FILE, and a generated texture has no file. The
- *   reserved shape for it is a `procedural:<generator-id>` scheme on the map
- *   path, resolved ahead of the extension lookup — and that branch is
- *   UNWRITTEN on purpose: a scheme with no generator behind it is exactly the
- *   authored-but-unwired defect this repo keeps producing. It ships in MAT-3's
- *   slice, WITH its generators, or it does not ship.
+ * - A PROCEDURAL source is NOT expressible here, and never will be: an extension
+ *   is a property of a FILE, and a generated texture has no file. It forks
+ *   AHEAD of this registry on `isProceduralId` — see `acquireTexture`. That
+ *   branch was RESERVED and deliberately unwritten while it had no generator
+ *   behind it (a scheme with no generator is the authored-but-unwired defect
+ *   this repo keeps producing); `@pryzm/procedural-textures` landed with 24
+ *   generators, so it is written now, WITH its consumer, exactly as the
+ *   reservation said it would be.
  */
 export function registerTextureLoader(extension: string, loader: TextureLoaderFn): void {
     LOADERS.set(extension.toLowerCase(), loader);
@@ -347,6 +358,16 @@ function acquireTexture(
     repeat: readonly [number, number],
     rotationRad: number,
 ): { texture: THREE.Texture } | { unavailable: string } {
+    // ⭐ THE PROCEDURAL FORK, ahead of everything file-shaped. A generated pattern
+    // has no URL, no extension and no bucket, so none of the checks below apply
+    // to it — and none of them would be MEANINGFUL applied to it. Zero assets
+    // means zero hosting risk: this arm cannot 404, cannot fail CORS and cannot
+    // be blocked on a decoder, which is why 24 parquet and tile patterns are
+    // reachable today while the file-shaped ones depend on a bucket.
+    if (isProceduralId(logicalPath)) {
+        return acquireProceduralTexture(logicalPath, channel, repeat, rotationRad);
+    }
+
     // ⛔ A path outside the catalogue prefix is returned UNCHANGED by the rewriter
     // — the "this is a drag payload, not a catalogue asset" branch — so in a
     // rehosted build it never reaches the CDN and 404s at fetch time. That failure
@@ -408,6 +429,86 @@ function acquireTexture(
     _textures.set(key, texture);
     return { texture };
 }
+
+/**
+ * The channel names `@pryzm/procedural-textures` emits, mapped to ours.
+ *
+ * ⚠ ITS `albedo` IS OUR `color`, AND THAT IS THE ONLY DIFFERENCE. Both names are
+ * standard; neither is wrong. The mapping is stated ONCE, here, rather than each
+ * call site knowing both vocabularies — which is how a rival vocabulary starts.
+ * A channel absent from this table is one the generators do not produce
+ * (`metalness`, `ao`, `displacement`): a NAMED refusal, never a blank texture.
+ */
+const PROCEDURAL_CHANNEL: Partial<Record<MaterialMapChannel, 'albedo' | 'normal' | 'roughness'>> = {
+    color: 'albedo',
+    normal: 'normal',
+    roughness: 'roughness',
+};
+
+/**
+ * Rasterise one channel of a procedural generator into a `THREE.DataTexture`.
+ *
+ * ⚠ `DataTexture`, not `TextureLoader`: the pixels already exist as an
+ * `Uint8ClampedArray`, so there is nothing to fetch or decode. That also makes
+ * this arm SYNCHRONOUS end to end — the texture is complete on the frame it is
+ * asked for, where a file-backed one is a handle whose pixels arrive later.
+ *
+ * ⚠ `flipY = false`. `DataTexture` defaults to it, and the generators rasterise
+ * in the same top-left origin the uv convention here expects; flipping would
+ * mirror a herringbone, which reads as a laying error rather than as a bug.
+ */
+function acquireProceduralTexture(
+    generatorId: string,
+    channel: MaterialMapChannel,
+    repeat: readonly [number, number],
+    rotationRad: number,
+): { texture: THREE.Texture } | { unavailable: string } {
+    const wanted = PROCEDURAL_CHANNEL[channel];
+    if (!wanted) {
+        return {
+            unavailable:
+                `generator '${generatorId}' produces albedo, normal and roughness only — ` +
+                `there is no '${channel}' channel to generate`,
+        };
+    }
+
+    const colourSpace = colourSpaceFor(channel);
+    const key = `${generatorId}|${channel}|${colourSpace}|${repeat[0]}|${repeat[1]}|${rotationRad}`;
+    const cached = _textures.get(key);
+    if (cached) return { texture: cached };
+
+    const set = getProceduralTexture(generatorId);
+    if (!set) {
+        // Unreachable while `isProceduralId` gates the fork, but a generator list
+        // that changed under us must be a NAMED state, not an exception.
+        return { unavailable: `'${generatorId}' is not a known procedural generator` };
+    }
+    const map = set[wanted];
+    const texture = new THREE.DataTexture(map.data, map.width, map.height, THREE.RGBAFormat);
+    texture.flipY = false;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.colorSpace = colourSpace;
+    texture.repeat.set(repeat[0], repeat[1]);
+    if (rotationRad !== 0) {
+        texture.center.set(0.5, 0.5);
+        texture.rotation = rotationRad;
+    }
+    texture.generateMipmaps = true;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.name = `${generatorId} @${channel}`;
+    texture.needsUpdate = true;
+
+    _textures.set(key, texture);
+    return { texture };
+}
+
+/**
+ * Every procedural generator this build can rasterise, for a picker or a probe.
+ * Re-exported so a UI needs one import rather than two vocabularies.
+ */
+export { describeProceduralGenerator, isProceduralId };
 
 /** The THREE textures for one material, by channel. Shared, never per element. */
 export type MaterialTextureSet = {
