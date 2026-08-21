@@ -645,29 +645,40 @@ export function buildInlineScaleOverlay(
     return bar;
 }
 
-// ── SC-11: Edit-in-Place ───────────────────────────────────────────────────
+// ── §SHEET-DBLCLICK-STAYS-ON-THE-SHEET (L-1866) — the RETURN half of SC-11 ──
 
-export function enterEditInPlace(
-    vpId:          string,
+/**
+ * Show the "← Return to Sheet" banner after the user has left a sheet to open a
+ * view in the main editor.
+ *
+ * ─── WHAT THIS REPLACED, AND WHAT WAS KEPT ─────────────────────────────────
+ * This was `enterEditInPlace(vpId, viewId, closeFn, activeSheetId)`, which did
+ * two jobs. One of them was BROKEN and one of them was GOOD, and they were
+ * welded together:
+ *
+ *   · BROKEN — it called `viewController.activate(viewId)`. `activate()` is
+ *     declared `(view: OBC.View | ViewMode)` where ViewMode is
+ *     `'3D' | 'Top' | 'Ceiling' | 'ceiling-plan' | 'Front' | 'Back' | 'Left' |
+ *     'Right'`. A ViewDefinition id such as `vd-sys-3d-1` is not a ViewMode and
+ *     never was; it survived only because the sole caller reached it for 3D
+ *     views, where the failure is invisible. That job now belongs to
+ *     `activateViewForEditing()`, which resolves the mode first and reports a
+ *     discriminated outcome.
+ *   · GOOD — the banner. A user who has been taken out of the sheet needs a way
+ *     back, and ESC / a button is it. Deleting the whole function to remove the
+ *     broken half would have removed this too, and left the new
+ *     "Open in main editor" button as a one-way door.
+ *
+ * So the function was SPLIT rather than deleted. It no longer activates
+ * anything, no longer closes anything, and no longer decides anything — the
+ * caller has already done all three by the time it runs.
+ */
+export function showReturnToSheetBanner(
     viewId:        string,
-    closeFn:       () => void,
     activeSheetId: string | null,
 ): void {
-    const vc = window.viewController; // TODO(D.4): replace with runtime.scene.viewController — Phase D.4
-    if (!vc || typeof vc.activate !== 'function') {
-        console.warn('[SheetEditorCommands] viewController.activate not available');
-        return;
-    }
-
     const viewDef = viewDefinitionStore.get(viewId);
     const sheetId = activeSheetId;
-
-    closeFn();
-    try {
-        vc.activate(viewId);
-    } catch (err) {
-        console.error('[SheetEditorCommands] activate() failed:', err);
-    }
 
     setTimeout(() => {
         const threeCanvas =
@@ -729,7 +740,7 @@ export function enterEditInPlace(
 
     const lbl = document.createElement('span');
     lbl.style.opacity = '0.65';
-    lbl.textContent   = 'Edit-in-Place:';
+    lbl.textContent   = 'Editing view:';
 
     const viewName = document.createElement('span');
     viewName.style.fontWeight = '600';
@@ -788,7 +799,7 @@ export function enterEditInPlace(
     document.addEventListener('keydown', escListener, { capture: true });
 
     console.log(
-        `[SheetEditorCommands] Edit-in-Place — vpId=${vpId} activated view="${viewDef?.name ?? viewId}" ` +
-        `from sheet="${sheetId}" — banner shown, ESC / Return button to go back`,
+        `[SheetEditorCommands] Return-to-sheet banner shown for view="${viewDef?.name ?? viewId}" ` +
+        `from sheet="${sheetId}" — ESC / Return button to go back`,
     );
 }

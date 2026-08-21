@@ -68,6 +68,7 @@ import {
     dispatchUpdateSheetField,
     showExportDialog,
     buildInlineScaleOverlay,
+    showReturnToSheetBanner,
 } from './SheetEditorCommands';
 import {
     buildSidebar,
@@ -1479,9 +1480,10 @@ export class SheetEditorPanel {
         }
         console.log(`[SheetEditorPanel] opened view ${viewId} in the main editor as mode ${outcome.mode}`);
         this.close();
-        // Remember where to come back to, matching the Edit-in-Place banner's
-        // contract with `window.sheetEditorPanel.open(...)`.
-        window.__sheetEditorPreviousSheet = sheetId; // TODO(F.6.5): panel-host registry bridge state — Phase F.6.5
+        // The button is a door, not a trapdoor: show the return banner so the
+        // user can get back to the sheet they left. `__sheetEditorPreviousSheet`
+        // is set by the banner itself, which owns the round trip.
+        showReturnToSheetBanner(viewId, sheetId);
     }
 
     /** Build the FocusOpts bag passed to the RendererBridge module. */
