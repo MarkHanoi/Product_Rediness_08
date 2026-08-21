@@ -35,6 +35,14 @@
 > **Gate**: `tools/ga-gate/check-material-single-source.ts` — BUILT at stamp time (§7). Its three arms
 > are named there together with the four axes it **cannot** decide.
 > **Changelog**:
+> · 2026-08-21 — **§10.11** (lane DIM46, L-3100..L-3105): the record gains **`carbon?`** — an
+> embodied-carbon factor and a density, each **INSEPARABLE from its citation**, and each carrying a
+> `verification` state that is a **separate fact from `source`**. **20 rows ship a factor and ~309
+> read NOT MEASURED**, which is the intended state and is now enforced by a test rather than by
+> discipline. **§1.1's "one record shape" was the binding constraint on the design**: the values are
+> authored in `carbonFactorTable.ts` and **merged onto the catalogue rows at module load**, because a
+> permanent `Record<materialId, factor>` beside the catalogue would have been the **seventh**
+> vocabulary this contract exists to prevent.
 > · 2026-08-21 — **§10.10** (lane MAT2, L-1900..L-1906): 84 rows — 20 microcements, 30 paints, 34
 > colour×sheen tiles — and the two things that had to be true first. **§10.2.b's paint verdict is
 > CORRECTED**: *"colour + roughness is the whole physical truth of paint"* was right about physics and
@@ -1897,3 +1905,101 @@ question, never a pick*) and a strict improvement, **not** a reachability loss.
   them at build time is the route to real tile patterns. ⛔ **MUST NOT** be closed by re-enabling the
   runtime flag.
 - **S25, S26, S27, S31, S32 — UNCHANGED.**
+
+
+---
+
+## §10.11 — ⭐ THE CARBON FACET: a number that cannot be written without its source (2026-08-21, lane DIM46)
+
+> **Slice:** 6D embodied carbon. **ADR:** [ADR-0351](../adrs/ADR-0351-4d-time-and-6d-carbon-are-built-and-neither-invents-a-number.md).
+> **Issue-log:** L-3100 … L-3105. **Commits:** `33dfda79`, `4e0ff9a8`.
+> **Files:** `packages/schemas/src/materials/materialCarbon.ts` (the vocabulary),
+> `carbonFactorTable.ts` (the 20 rows), `materialRecord.ts` (+`carbon?`), `materialCatalog.ts` (the merge).
+
+### §10.11.a — The field, and why it is ON the record
+
+`MaterialRecord` gains **`carbon?: MaterialCarbonFacts`** — `{ density?: DensityFact; carbonA1A3?: CarbonFactorFact }`.
+**OPTIONAL and ADDITIVE**, exactly as `maps`/`tiling` were (§10.9), so every one of the existing rows
+stays valid unchanged and the facet landed without rewriting the catalogue.
+
+**MUST**: the facet lives on the **record**, per §1.1. The VALUES are authored in a sibling file for
+legibility — a full citation does not fit on a catalogue line — and are **merged onto the rows in
+`MATERIAL_CATALOG`'s own `.map()` at module load**. A consumer reads `findMaterialRecord(id).carbon`
+and never learns that `carbonFactorTable.ts` exists.
+
+⛔ **MUST NOT**: keep a permanent `Record<materialId, factor>` beside the catalogue as the read
+surface. That is a **material-keyed table that is not the master**, i.e. the seventh vocabulary
+§0.2 counted six of — and unlike a colour copy it would rot silently, because a renamed material
+simply stops having carbon and nothing renders differently.
+
+⛔ **MUST NOT**: a factor keyed to an id that is not in `MATERIAL_CATALOG`. It applies to nothing,
+forever, and **nothing on the 6D surface ever looks wrong**. `carbonFactorOrphans()` names them and
+`packages/schemas/__tests__/materialCarbon.test.ts` asserts the set is empty.
+
+### §10.11.b — ⭐ `verification` is a SEPARATE FACT from `source`, and this is the ruling worth carrying
+
+**MUST**: every numeric fact carries `source`, `dataset`, `year`, `geography`, `provenance` **and**
+`verification`. There is no way to construct a `DensityFact` or a `CarbonFactorFact` without one —
+the type system does the work a review rule would otherwise have to do weekly.
+
+**MUST**: `verification` answers a different question from `source`. *Cited* means the row names a
+real published dataset and the row within it. *Checked* means a human re-opened that document and
+confirmed the figure. **Collapsing them is how a plausible number acquires authority it has not
+earned**, and a carbon figure is quoted in planning submissions, where nobody downstream can tell a
+measured cell from a plausible one.
+
+**Every factor PRYZM ships today is `UNVERIFIED_TRANSCRIPTION`.** The 6D surface states it in a red
+banner on every render and the CSV carries it in its own column, so it survives being pasted.
+
+⛔ **MUST NOT**: flip a row to `VERIFIED_AGAINST_SOURCE` without recording, in that row's own
+`source` string, **who** checked it, **when**, and against **which table or page**. A verification
+that cannot be re-checked is a stronger claim resting on nothing.
+
+### §10.11.c — ⛔ THE SEEDING PROHIBITION, and the test that enforces it
+
+**MUST NOT**: add a factor row that cannot state all five of — (a) dataset and edition, (b) the row
+within it, (c) geography, (d) scope, (e) **what the published row covers that the PRYZM material does
+not, or vice versa**. A row that cannot state all five stays NOT MEASURED, which is a true statement.
+
+**MUST NOT**: a default factor, a category fallback, or a "nearest material" lookup. §5's
+no-silent-fallback rule applies with more force here than to colour: a substituted colour is visibly
+wrong, a substituted carbon factor is invisibly wrong.
+
+**MUST NOT**: convert a per-kg factor to a per-m³ one by supplying a plausible density.
+`carbonPerCubicMetre()` returns **`NO_DENSITY`** instead. ⭐ Two rows — `insulation-mineral-wool` and
+`insulation-eps` — **ship a factor and no density ON PURPOSE**: mineral wool ranges 23–150 kg/m³ and
+EPS 15–35, so the density is a **specification decision, not a property of the material**. They
+exercise the refusal branch in production rather than only in a test.
+
+**The count is a ratio, and it is gated.** `SHIPPED_CARBON_FACTOR_COUNT` = **20** of
+`MATERIAL_CATALOG.length` (cite the constants, never these numbers). The test asserts the table stays
+under **a quarter** of the catalogue and that 200+ materials carry no factor — so *"complete the
+table with plausible values"* **fails a test rather than passing a review**. Rows deliberately
+withheld include `concrete-white`, `concrete-precast`, every coated/toughened/tinted glass row, every
+hardwood, all stone and all blockwork: the generic published figure does not describe them.
+
+### §10.11.d — The consumer, and what §1.1 bought
+
+`TakeoffLine.materialBreakdown` (L2) reports m³ **per material id — this contract's ids**, emitted by
+the take-off's own measurers. A **layered wall emits one row per layer**, because
+`WallSystemType.layers[]` already carries `{ thickness, materialId }` in this vocabulary. That is
+§1.1's payoff made concrete: the master being reachable and singular is what let a carbon engine be
+written with **no material lookup table of its own**.
+
+### §10.11.e — What is proven, and what is not
+
+**Proven:** the facet round-trips through `findMaterialRecord`; zero orphan keys; every shipped row
+carries a citation of real length, a real year, a geography and `UNVERIFIED_TRANSCRIPTION`; the three
+refusals (`NO_FACTOR` / `NO_DENSITY` / `UNKNOWN_MATERIAL`) each return a reason rather than a zero;
+a concrete slab reaches the hand-derived 1084.80 kgCO₂e.
+
+**NOT proven, and named rather than implied:**
+- **No shipped figure has been verified against its source document by a human.** That is the
+  largest caveat on every number this facet produces and it is §10.11.b's whole subject.
+- **The T2 `UserMaterialStore` does not yet carry `carbon`.** A user-created material has no factor
+  and no place to put one; the 6D surface's per-material override is a browser-local book, not the
+  T2 record. Closing that is a **persistence change**, and it is named here rather than half-done.
+- **No EPD or ÖKOBAUDAT import.** Factors arrive by hand, one material at a time.
+- **Whether real projects tag enough elements with `materialId` for 6D to cover a meaningful share
+  of their volume is UNMEASURED.** The gap ledger is built to answer it; nobody has run it on a real
+  project yet.

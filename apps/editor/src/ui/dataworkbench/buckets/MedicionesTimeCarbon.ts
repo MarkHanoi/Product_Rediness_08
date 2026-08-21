@@ -346,7 +346,7 @@ function renderTime(panel: HTMLElement, runtime: Runtime): void {
                     <h4 style="margin:0 0 8px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--app-text);">Tasks</h4>
                     ${resolved.length === 0
                         ? '<div style="font-size:11px;color:var(--app-text-muted);">No task yet.</div>'
-                        : `<div style="display:flex;flex-direction:column;gap:7px;">${resolved.map((r) => taskCard(r, atMs, state)).join('')}</div>`}
+                        : `<div style="display:flex;flex-direction:column;gap:7px;">${resolved.map((r) => taskCard(r, state)).join('')}</div>`}
                 </section>
             </div>
         </div>`;
@@ -354,9 +354,13 @@ function renderTime(panel: HTMLElement, runtime: Runtime): void {
     bindTime(panel, runtime, takeoff, schedule, state, totalDays);
 }
 
+/**
+ * One task row. Takes the SLICE rather than the instant: `state` already carries
+ * the answer `taskProgressAt(task, atMs)` would recompute, and asking the same
+ * question twice is how a card comes to disagree with the counts above it.
+ */
 function taskCard(
     r: ReturnType<typeof resolveTasks>[number],
-    atMs: number,
     state: ReturnType<typeof scheduleStateAt>,
 ): string {
     const finish = taskFinishDate(r.task);
@@ -505,7 +509,7 @@ function bindTime(
     panel.querySelector('[data-action="t-csv"]')?.addEventListener('click', () => {
         download(
             `pryzm-programme-${new Date().toISOString().slice(0, 10)}.csv`,
-            scheduleToCsv(schedule, resolveTasks(schedule, takeoff), scheduleCoverage(schedule, takeoff)),
+            scheduleToCsv(resolveTasks(schedule, takeoff), scheduleCoverage(schedule, takeoff)),
         );
     });
     panel.querySelector('[data-action="t-clear"]')?.addEventListener('click', () => {

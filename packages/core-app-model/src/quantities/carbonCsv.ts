@@ -22,7 +22,7 @@
 import type { CarbonResult } from './CarbonModel.js';
 import type { TakeoffResult } from './TakeoffTypes.js';
 import { UNIT_LABEL } from './TakeoffTypes.js';
-import type { ConstructionSchedule, ResolvedTask, ScheduleCoverage } from './ScheduleModel.js';
+import type { ResolvedTask, ScheduleCoverage } from './ScheduleModel.js';
 import { taskFinishDate } from '@pryzm/schemas/construction';
 
 function esc(v: string | number | null | undefined): string {
@@ -91,9 +91,16 @@ export function carbonToCsv(takeoff: TakeoffResult, carbon: CarbonResult): strin
   return rows.join('\r\n');
 }
 
-/** 4D as CSV — one row per task, then the coverage statement. */
+/**
+ * 4D as CSV — one row per task, then the coverage statement.
+ *
+ * ⚠ Takes the RESOLVED tasks, not the raw `ConstructionSchedule`. A raw task
+ * knows its line codes; only a resolved one knows the elements and quantities
+ * those codes reach in the CURRENT take-off, and which of them no longer resolve.
+ * Passing both would let a caller export a schedule and a resolution of a
+ * DIFFERENT schedule, which is a whole class of bug this signature cannot have.
+ */
 export function scheduleToCsv(
-  schedule: ConstructionSchedule,
   resolved: readonly ResolvedTask[],
   coverage: ScheduleCoverage,
 ): string {
