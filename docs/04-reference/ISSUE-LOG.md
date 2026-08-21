@@ -7817,7 +7817,7 @@ Driven through the real `performUndo()`, `buildUndoStoreMap()`, `applyRingBuffer
 
 **Two sibling defects in the same arm:**
 - `roof.setPitch` writes the L1 field name `pitch` onto a legacy record whose geometry field is
-  `slope` — `grep -rn '\.pitch' packages/geometry-roof/src/*.ts` → **0 matches**, and L1 is radians
+  `slope` — `grep -rn '\.pitch\b' packages/geometry-roof/src/*.ts` → **0 matches**, and L1 is radians
   while legacy is rise/run. One mutation, **zero diagnostics**.
 - A depth-2 patch for an **absent id** is silent, while the whole-element arm on the identical id
   warns.
