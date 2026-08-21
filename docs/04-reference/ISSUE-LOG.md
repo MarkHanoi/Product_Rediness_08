@@ -28683,3 +28683,322 @@ and ADR-0345 carry the correct words, and this note is the repair, because
 **The rule, for every lane:** a commit message containing backticks must be written through
 a **single-quoted heredoc** (`git commit -F -` fed by `<<'MSG'`), or the backticks dropped.
 Grep your own shell output for `command not found` before treating a commit as clean.
+
+### 🐛 L-2300 — `PlumbingFragmentBuilder` RELEASES NOTHING, AND REBUILDS ON EVERY EDIT
+
+`packages/geometry-plumbing/src/PlumbingFragmentBuilder.ts`. Measured, whole-file:
+`grep -c "dispose|scheduleGpuRelease|detachAndRelease"` → **0**, against
+`grep -cE "new THREE\.[A-Za-z]*Geometry\("` → **13**. `:47` `root.clear()` drops every child
+on each `updateFixture()`; `:319-326` `removeFixture()` detaches and does nothing else;
+`clearProjectGeometry():333` loops `removeFixture`, so the **project-switch sweep orphans
+every fixture too**. Live in production — constructed at `initBuilders.ts:636`, driven
+per-edit at `:665`/`:670`. Unbounded VRAM growth, 13 geometries per fixture per edit.
+
+⚠ It passes `casterReleaseChokepoint.test.ts` **trivially, by disposing nothing.** A ratchet
+that counts in-place disposes cannot see a builder that never disposes.
+
+### 🐛 L-2301 — THREE BUILDERS RELEASE *BEFORE* THEY DETACH (ADR-0297 L2(a) INVERSION)
+
+`LiftMeshBuilder.ts:183-190` disposes geometry AND material inside `group.traverse(...)`, then
+calls `this.scene.remove(group)` at `:190` — the subtree is live and parented while its
+GPU buffers are destroyed. `updateLift():101` calls it **on every mutation**, so this is the
+hot path, not teardown. Same shape: `DoorBuilder.ts:1372` (dispose) → `:1374` (detach),
+reached from `rebuild():512`; `FloorPanelBuilder.ts:170` (dispose) → `:171` (detach).
+
+⭐ **The proof this is a defect and not a house style is inside one package.**
+`CeilingPanelBuilder.ts:121` detaches, then `:124` `scheduleGpuRelease(root)`.
+`FloorPanelBuilder`, its sibling, imports no funnel at all.
+
+### 🐛 L-2302 — `BeamFragmentBuilder` USES THE PER-BUILDER MEMBERSHIP TEST ADR-0297 L1 NAMES BY TITLE
+
+`packages/geometry-beam/src/BeamFragmentBuilder.ts:625,629` —
+`if (mat && !_SHARED_MATERIALS.has(mat)) mat.dispose();`, where `_SHARED_MATERIALS` is a
+module-local `WeakSet` (`:62`). ADR-0297 `:48-49`: *"It is not in MY cache" is not evidence of
+exclusive ownership — it is only evidence of ignorance about the other caches.* Ownership must
+be recorded on the resource (`isSharedGpuResource`). Ordering is correct; the release is
+immediate rather than at a frame boundary, and it runs on every rebuild (`build():230-236`).
+
+### 🐛 L-2303 — FLOOR'S TWO CREATION PATHS DISAGREE ON A STEP THE CODE CALLS *MANDATORY*
+
+`CreateFloorCommand.ts:5-9` declares the order `① floorStore.add() ② bimManager.registerElement()
+③ elementRegistry.registerSemantic()` and honours all three at `:367/:368/:370`. The bus path —
+`initTools.ts:1961-2043` — does ① at `:1978` and ② at `:2034-2035`, and **never calls
+`registerSemantic`**. Host references themselves DO agree across the paths now
+(`hostSlabId`/`hostRoomId` at `:2009-2010`), so the historical finish-follows-wall defect is
+closed; the registration step is what survives. Consequences measured at
+`RemoteCommandDispatcher.ts:195` (the at-most-once catch-up guard is blind, so the create always
+replays), `WorldModelAdapter.ts:537` (the assistant sees `'unknown'`),
+`initRemoteElementSync.ts:116`. This is the readable instance of L-2315.
+
+### 🐛 L-2304 — ONE OF FIFTEEN ELEMENT-GEOMETRY PACKAGES HAS A REBUILD SKIP-KEY
+
+`for d in packages/geometry-*; do grep -rlE "_lastBuilt|_composeCacheKey|_geomVersionKey" $d/src; done`
+→ **`geometry-wall`: 4 files. Every other package: 0.**
+
+Two readings, both true. **Good:** the ⭐ stale-cache-key defect class has exactly ONE possible
+host in this repo, and the wall's key was verified complete — `WallFragmentBuilder.ts:208-213`
+folds `_renderVersion | joinHash | slabBaseOffset | levelDatum | rake | openingProfile`, and
+all three terms of `worldY = level.elevation + slabBaseOffset + wall.baseOffset` are in it.
+**Bad:** fourteen families rebuild unconditionally on every mutation (L-2308).
+
+⚠ **A hypothesis this lane formed and then FALSIFIED, recorded because the retraction is the
+finding.** `_versionForBuild():376-393` (the plan-view projection token) does NOT fold
+`_openingProfileTag`. That looked like a stale-plan defect. It is not:
+`WallStore.updateOpening():1334` bumps `_renderVersion` on every opening write, so both keys
+move together. **Not a defect. Do not log it.**
+
+### 🐛 L-2305 — THE PER-ELEMENT COLOUR TINT IS DEAD CODE IN FOUR BUILDERS, AND A COMMENT ASSERTS THE OPPOSITE
+
+```
+grep -rn "params.color === undefined" packages plugins src apps
+CurtainWallBuilder.ts:2181   if (cw.mullionColor && params.color === undefined) …
+CurtainWallBuilder.ts:2234   if (cw?.glazingColor && params.color === undefined) …
+RoofFragmentBuilder.ts:198   if (data.materialColor && params.color === undefined) …
+WallFragmentBuilder.ts:4811  } else if (wall?.materialColor && params.color === undefined) …
+```
+
+**All four guards are unreachable.** `params` is spread from `matDef.params`, and every
+`matDef` comes from `project()` at `materialLibrary.ts:76-79`, which sets
+`color: new THREE.Color(m.color)` unconditionally. `MaterialRecord.color` is a required
+non-optional `string` (`materialRecord.ts:63`), and a probe confirms it:
+**329 of 329 builtin catalogue rows carry a `color`; 0 do not.** All three builder material
+maps are built straight from `STANDARD_MATERIAL_LIBRARY` (`initUI.ts:2293`,
+`initBuilders.ts:596`, `WallTool.ts:281`), so no producer can supply a colourless def.
+
+⛔ **`WallFragmentBuilder.ts:4808-4810` asserts the opposite of what the code does**, verbatim:
+*"Honour the per-wall materialColor as a tint when set — lets the architect re-colour a
+'concrete-smooth' PBR wall to red."* It cannot.
+
+*User-visible:* set a colour on curtain-wall mullions/glazing, a roof, or a wall carrying a
+`materialId` and **nothing changes**. Reachable from chat — `AIService.ts:123` dispatches
+`UpdateAllCurtainWallsCommand({ mullionColor: val })` — so the assistant says "Done" over an
+unchanged render. Wall has an escape hatch (an authored side finish overrides at `:4810`);
+curtain-wall and roof have none. Slab is the honest fifth case: `SlabFragmentBuilder.ts:1673-1692`
+ignores `materialColor` outright rather than pretending. Separately, the caches at
+`CurtainWallBuilder.ts:2166`/`:2216` are keyed on the material id alone and are never
+invalidated, so even a live tint branch would return the previously-built material.
+
+### 🐛 L-2306 — 16 OF 16 ELEMENT SCHEMAS ARE ZOD DEFAULT-`strip`, FROM ONE DECLARATION
+
+`packages/schemas/src/base/BaseNode.ts:45` returns a bare `z.object({...})`, and
+`grep -rn "\.strict()|\.passthrough()|\.catchall(|z\.strictObject|z\.looseObject" packages/schemas/src`
+→ **0 matches**. **29** files call `defineElement`. Every family therefore deletes unknown keys
+in transit while `parse()` returns success. Two schema headers already record the consequence
+in their own words — `Roof.ts:91-94` and `Beam.ts:63-66`.
+
+This is **not a per-family fix**: it is one decision at `BaseNode.ts:45` (`.strict()` and fix
+the fallout, versus `.passthrough()` and gate the bridge), i.e. C84 §7's generated field map.
+
+### 🐛 L-2307 — FLOOR AND ROOM NEVER CALL `.parse()` AT ALL
+
+`.parse(` call counts under `plugins/<family>/src`, all sixteen families:
+wall 7, door 3, window 2, curtain-wall 4, ceiling 2, roof 1, column 2, slab 3, beam 2,
+handrail 1, lighting 1, furniture 3, stair 1, plumbing 1 — **floor 0, rooms 0**.
+
+`plugins/floor/src/handlers/CreateFloor.ts:155` lands the record with
+`} as unknown as FloorData;` onto the **legacy** type, and `plugins/floor/src/store.ts:17,20`
+confirms the store is keyed on the legacy shape — the only one of sixteen that is.
+`plugins/rooms/src/handlers/CreateRoom.ts:104` closes its payload with
+`readonly [k: string]: unknown;` — an index signature that admits any key **without a cast**,
+so no gate that counts casts can see it. These are the two families with no schema boundary
+between the UI and persistence.
+
+### 🐛 L-2308 — FOURTEEN OF FIFTEEN FAMILIES FULL-REBUILD ON EVERY PROPERTY CHANGE
+
+`LightingFragmentBuilder.update():476` is `this.remove(data.id); this.add(data);`.
+`LiftMeshBuilder.updateLift():101` calls `removeLift`. `BeamFragmentBuilder.build():230-236`
+removes and re-disposes. `PlumbingFragmentBuilder:47` calls `root.clear()`. Only
+`WallFragmentBuilder` short-circuits (`:815` against `_lastBuiltVersion`).
+
+Dragging a slider on any non-wall element re-allocates that element's entire geometry and
+material set **per input event**. Combined with L-2300/L-2301 the same edits also leak or
+free early, so the three compound rather than sitting side by side. **Sequence any fix after
+the GPU-lifetime repairs** — speeding up a leak makes it leak faster.
+
+### 🐛 L-2309 — PER-ELEMENT UNIQUE MATERIALS
+
+`new THREE.Mesh*Material(` sites per package, with the count of files carrying any shared
+cache: furniture 110/6, wall 28/1, **slab 26/0**, curtain-wall 19/4, **stair 14/0**,
+**plumbing 11/0**, handrail 9/1, **roof 8/0**, lighting 5/1, beam·door·window 4/0 each,
+**column 3/0**, **lift 2/0**.
+
+`SlabFragmentBuilder.ts:1693` and `RoofFragmentBuilder.ts:202` both construct a fresh
+`MeshStandardMaterial` per element on the resolved-`materialId` path with **no cache at all**.
+`WallFragmentBuilder.createWallMaterial()` returns a new material per call and
+`updateAllMaterials():5015-5021` calls it in a loop over every fragment. One draw call per
+element rather than per material — the instancing defeat, measured per family.
+
+### 🐛 L-2310 — HANDRAIL AND STAIR-RAILING INSTANCED PICKS RESOLVE A SYNTHETIC NON-ELEMENT ID. BOTH DEFAULT **ON**.
+
+`HandrailFragmentBuilder.ts:534` builds the instance id as the handrail id with a
+`#bal-<i>` suffix and passes it as the `elementId` argument; `:575` does the same with
+`#post-`. `StairRailingBuilder.ts:225` builds `<railingId>#m-<seq>` the same way.
+
+Root cause: `ElementInstanceBridge.register()` (`:128-135`) has **no `pickId` parameter at
+all** and forwards the id verbatim at `:149`; `InstancedElementRenderer` defaults
+`pickId: pickId ?? elementId` (`:363`). For column and beam the storage key *is* the element
+id, so the omission is invisible — for these two it is not. Defaults measured at
+`ElementInstanceBridge.ts:332-338`: `handrail: true`, `stairRailing: true`.
+
+Downstream, traced: `MarqueeSelectionTool.ts:295-302` reads
+`ud.getInstanceElementId(slot)` into `hits`, and `:321` returns them as the selection.
+*User-visible:* rubber-band across a balustrade or stair and the selection fills with
+`hr-…#bal-3`-shaped strings that `elementRegistry.registerRoot(handrail.id, root)`
+(`HandrailFragmentBuilder.ts:357`) never registered. The handrail itself is not selected.
+Stair railings register no hit-proxy either.
+
+⚠ The covering test does not exercise the builders — it calls the bridge with clean ids and
+asserts a prefix regex, which the synthetic id satisfies.
+
+### 🐛 L-2311 — `castShadow` IS FOLDED BY NO INSTANCING KEY AND IS HARD-FORCED TRUE
+
+`InstanceGroup.ts:87-88`, unconditional in the constructor:
+`this.mesh.castShadow = true; this.mesh.receiveShadow = true;`. No group key folds shadow
+state — `InstancedElementRenderer._hashGeometry:818` folds
+`elementType_levelId_idxCt_vtxCt_x0_y0_z0_material.uuid` and nothing else.
+`InstancedMeshCoalescer.ts:328` copies the flag from `sources[0]` across a merged group that
+may mix flags. An element with shadows off casts one the moment it qualifies for instancing.
+
+Also measured, same key: the geometry term is `.toFixed(3)` on the **first vertex only**
+(`:815-817`). Harmless for the bridges that pass unit primitives; `FurnitureInstanceBridge`
+and `WindowBuilder` pass real baked geometry, where 1 mm agreement on vertex 0 plus equal
+vertex and index counts is the entire collision guard.
+
+### 🐛 L-2312 — `LightingFragmentBuilder` DISPOSES GEOMETRY AND NEVER MATERIAL
+
+`:448-458` traverses and calls `mesh.geometry.dispose()` at `:456`. There is **no `material`
+branch in the function**, and `dispose():1836,1839` frees only the two caches. `update():476`
+is a full teardown per edit. Mostly benign because materials are pooled (`_matCache:99`,
+`_lensMatCache:207`) — **except** `:699-704`, one uncached `MeshStandardMaterial` per pendant
+inside `_buildPendant()`, dispatched per fixture at `:492`. That leaks per pendant per edit,
+forever. The file's own comment at `:1460` claims *"twenty new families add ZERO per-instance
+materials"*; `:699` contradicts it. 80 geometry-construction sites make this the largest
+allocation surface among the builders.
+
+### 🐛 L-2313 — `clearWallBaseY()` HAS ZERO PRODUCTION CALL SITES
+
+`packages/geometry-wall/src/WallVerticalDatum.ts:190`. Its own doc comment calls it a
+*"Test/project-teardown hook"*; `grep -rn clearWallBaseY` over `packages plugins src apps tests`
+→ **7 references, every one inside `__tests__`**, plus the definition. The project-teardown
+half does not exist. `_baseY` is a module-scope `Map` cleared only per-wall by
+`forgetWallBaseY` (`WallFragmentBuilder.ts:935`); `WallFragmentBuilder.dispose():5023` does not
+clear it.
+
+**Severity, honestly:** ids are `crypto.randomUUID()` (`CreateWallCommand.ts:60,197`), so I
+found no way to produce a cross-project stale read. The measured harm is unbounded growth
+across project switches plus a declared affordance with no implementation.
+
+### 🐛 L-2314 — `WallStore.update()` DROPS `openings` BEHIND A `console.warn`
+
+`packages/geometry-wall/src/WallStore.ts:786-789` — `console.warn(...)` then
+`delete safeUpdates.openings;`. The dedicated `addOpening`/`updateOpening`/`removeOpening` API
+exists and is the right route, so this is a guard rather than a hole — logged because **a
+`console.warn` is not a refusal**: the caller gets no signal, `update()` returns normally, and
+no gate reads the console. Separately the `updateWall()` whitelist (`:940-1000`) and the
+`restoreSnapshot()` whitelist (`:1022-1072`) differ — `_sourceBaseLine` is in the restore set
+and not the forward set — which is C84 EI-7a with a named field attached.
+
+### 🐛 L-2315 — THE BUS-TO-LEGACY MIRROR WRITES 28 STORE RECORDS AND MINTS **ONE** REGISTRY ENTRY
+
+`grep -n "elementRegistry\." apps/editor/src/engine/initTools.ts` returns exactly two lines:
+`:2345` (`registerSemanticOrReplace(ev.id, 'furniture')`) and `:2727`, which is a comment.
+
+One call, and it is furniture. The same file carries **28** store `.add(` sites — wall `:1232`,
+door `:1459`, window `:1503`, curtain-wall `:1586`, ceiling `:1668`, roof `:1745`, column
+`:1793`, slab `:1858`, beam `:1931`, floor `:1978`, handrail `:2121`, lighting `:2212`,
+furniture `:2289`. **Twelve of thirteen families enter the authoritative store with no
+`elementRegistry` entry**, so `getStoreType(id)` is `undefined` for all of them. The file
+concedes it for floor at `:1957-1959`. Sub-divergence: door `:1459` and window `:1503` register
+**neither** `viewDependencyTracker`, `bimManager` nor `elementRegistry` — the only two
+subscribers of thirteen with zero registration; lighting `:2219` calls `bimManager` but skips
+VDT. Cheapest high-coverage fix in this register: 13 call sites in one file, copying `:2345`.
+
+### 🐛 L-2316 — HANDRAIL, LIGHTING AND PLUMBING NEVER MINT A SEMANTIC REGISTRY ENTRY ON ANY CREATE PATH
+
+`grep -c elementRegistry` → **0** for `CreateHandrailCommand.ts`, `CreateLightingCommand.ts`
+and `CreatePlumbingFixtureCommand.ts` alike. Registration is deferred to **mesh-build time**:
+`HandrailFragmentBuilder.ts:353` (`registerSemantic`), `LightingFragmentBuilder.ts:421` and
+`PlumbingFragmentBuilder.ts:45` (**`registerRoot` only — neither ever calls `registerSemantic`
+at all**). An element that never meshes — hidden level, thrown build, headless run — is
+invisible to every registry consumer, and for lighting and plumbing `getStoreType()` is
+`undefined` *permanently, on every path*. The only site that ever registers a plumbing fixture
+semantically is the delete-**undo** path (`DeleteElementCommand.ts:1021`).
+
+### 🐛 L-2317 — 4 OF 46 PLUGIN `Create*` HANDLERS REFUSE WHEN THEY CANNOT REACH AUTHORITATIVE STATE
+
+`grep -rln "_UNREACHABLE" plugins/*/src/handlers/Create*.ts` → `CreateDoor`, `CreateSlab`,
+`CreateWall`, `CreateWindow`. `ls plugins/*/src/handlers/Create*.ts | wc -l` → **46**.
+
+The four are the correct shape — `CreateDoor.ts:149-155` returns
+`{ valid: false, reason: DOOR_CREATE_UNREACHABLE }` from `canExecute`, commented *"the payload
+is well-formed, and it STILL cannot reach authoritative state. Say so; never report success."*
+The pattern exists, is documented, is tested — and was applied to **four verbs**. The other 42
+write only the detached plugin DTO store and return success, including every `*.batch.create`
+twin of the four that are guarded.
+
+### 🐛 L-2318 — THE TWO `ProjectLoader` IMPLEMENTATIONS DISAGREE ABOUT LIGHTING
+
+`grep -c CreateLightingCommand` → **0** in `packages/persistence-client/src/loader/ProjectLoader.ts`,
+**3** in `apps/editor/src/engine/persistence/ProjectLoader.ts`. A project saved with lighting
+and reloaded through the persistence-client loader comes back with none.
+
+⭐ **This is C84 §1.2's defect one layer out.** That correction established *"the LOAD half
+exists and the SAVE half does not"* — and did not measure that **there are two load halves.**
+Fixing the missing arm is one file; deciding which loader ships is the real item.
+
+### 🐛 L-2319 — A SECOND `room.create` WRITING A DIFFERENT ROOM STORE, REGISTERING NOTHING
+
+`packages/stores/src/aggregate-commands/roomCreate.ts:108` — `roomStore.add(room)`;
+`grep -c "elementRegistry|registerElement"` over the file → **0**. It writes
+`AggregateRoomStore`, not the `room-topology` `RoomStore` the other eight room paths write, and
+is exported publicly at `packages/stores/src/index.ts:190`. I found **no in-repo consumer**
+beyond the re-exports — an unreached second answer to a question already answered (C84 EI-9),
+not a live defect today. Recorded so it is decided rather than discovered.
+
+### ⛔ L-2319a — RETRACTION: THE NAME-BASED CENSUS FAILED **INSIDE THE AUDIT WRITTEN TO FIND IT**
+
+This lane initially recorded that `CopyElementCommand`, `MirrorElementCommand` and
+`OffsetElementCommand` mint `elementRegistry` but **not** `bimManager.registerElement`, leaving
+copied walls out of `level.childrenIds` and defeating `DeleteLevelCommand`'s guard.
+
+**FALSE.** It rested on `grep -c "bimManager\.registerElement"` → 0. The receiver is a local
+alias:
+
+```
+CopyElementCommand.ts:132    const bimMgr = ctx.bimManager ?? window.bimManager;
+CopyElementCommand.ts:133    bimMgr?.registerElement?.(this.input.newId, source.levelId);
+MirrorElementCommand.ts:123  bimMgr?.registerElement?.(this.input.newId, source.levelId);
+OffsetElementCommand.ts:122  bimMgr?.registerElement?.(this.input.newId, source.levelId);
+```
+
+All three register. This is the same shape as the guard titled *"exactly one definition"* that
+passed against three copies because it grepped `SYNC_COLOURS` and missed `SYNC_COLORS` — and it
+is the **second** false positive this lane produced by name-matching (the first is the
+`_openingProfileTag` hypothesis, retracted in L-2304). **Grep the receiver, not the name.**
+
+**The residue, which is true and much smaller:** the wall arms write no `sitsOn` edge (only the
+furniture arm does, `CopyElementCommand.ts:175-182`). But `rebuildSemanticGraph.ts:203` derives
+`sitsOn` from each element's authoritative `levelId` on every load, and `childrenIds` IS
+populated in-session, so **both arms of the level-delete guard are covered and there is no
+reachable failure.** Not logged as a defect.
+
+### 📋 L-2319b — CLEAN NEGATIVES, RECORDED SO NO LANE RE-REPORTS THEM AS GAPS
+
+Per C84 EI-1b, a clean family must be recorded as clean.
+
+- **Wall's rebuild cache key is COMPLETE** (L-2304). Verified against the build, not the comment.
+- **Door and window hosting is DERIVED, not remembered.** `WindowBuilder.positionGroup():1107-1225`
+  derives centre from `hostedElementFrame(wallData, offset, width)`, Y from
+  `resolveWallBaseYOrLevel` + `hostedLeafCentreY`, heading from the same frame, and refuses
+  loudly with `SpatialAuthorityError` rather than defaulting to Y=0 (`:1131-1146`).
+  `DoorBuilder:714-720` matches. Rake shear comes from the one canonical predicate.
+- **`*.setMaterial` verbs are DECLARED REFUSALS, not dead verbs.**
+  `plugins/beam/src/handlers/SetBeamMaterial.ts:100-119` refuses in `canExecute` with a named,
+  actionable reason. Correct shape.
+- **`stair.create` having no plugin handler is DELIBERATE and documented** at
+  `plugins/stair/src/handlers/index.ts:18`, with the live bridge named
+  (`initBusHandlers.ts:2481`). Not a gap.
+- **Copy / Mirror / Offset registration is SOUND** — see L-2319a.
+
+⚠ Full matrix, per-axis totals, prioritised risk list and the explicit NOT-REACHED register:
+[ELEMENT-AND-BUILDER-PRODUCTION-READINESS-REGISTER](ELEMENT-AND-BUILDER-PRODUCTION-READINESS-REGISTER.md).
