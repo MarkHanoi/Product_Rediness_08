@@ -337,6 +337,89 @@ function recordFailure(path: string, reason: string): void {
 
 const _textures = new Map<string, THREE.Texture>();
 
+/**
+ * The SOURCE-owning textures, keyed `source|channel|colourSpace` — WITHOUT
+ * `repeat` or `rotation`.
+ *
+ * ⭐ §PROCEDURAL-COST (L-1821). `repeat` and `rotation` are properties of the
+ * `THREE.Texture` OBJECT, not of the pixels behind it. Folding them into the one
+ * cache key meant that asking for the same map at a second scale re-did the
+ * EXPENSIVE half — a second HTTP fetch for a file-backed map, and a second full
+ * rasterisation for a procedural one — to produce pixels byte-identical to the
+ * ones already in memory.
+ *
+ * So the cache is two levels now: this one owns the pixels (one fetch, one
+ * generation, one GPU `Source`), and `_textures` holds a cheap per-scale VIEW
+ * obtained with `.clone()`. A clone shares `.source` by reference, so the image
+ * that arrives late still reaches every view, and THREE uploads the source once.
+ */
+const _textureSources = new Map<string, THREE.Texture>();
+
+/**
+ * A per-scale VIEW of an already-owned texture.
+ *
+ * ⛔ Cloning rather than mutating is the whole correctness property: two surfaces
+ * wanting the same product at different real-world scales need two DIFFERENT
+ * `repeat` values on two DIFFERENT texture objects. Sharing one object and
+ * overwriting `repeat` would make the last caller win and silently rescale
+ * everything drawn before it.
+ */
+function viewOfTexture(
+    base: THREE.Texture,
+    key: string,
+    repeat: readonly [number, number],
+    rotationRad: number,
+): THREE.Texture {
+    const cached = _textures.get(key);
+    if (cached) return cached;
+
+    const texture = base.clone();
+    texture.repeat.set(repeat[0], repeat[1]);
+    if (rotationRad !== 0) {
+        // Rotate about the CENTRE of one repetition, not the uv origin: rotating
+        // about (0,0) also translates the pattern, which reads as a misalignment
+        // rather than as a rotation.
+        texture.center.set(0.5, 0.5);
+        texture.rotation = rotationRad;
+    }
+    // A clone starts at version 0 with a shared `source`; bumping it here is what
+    // makes an already-loaded (or already-generated) source upload for this view.
+    texture.needsUpdate = true;
+
+    _textures.set(key, texture);
+    return texture;
+}
+
+/**
+ * Is runtime procedural texture GENERATION enabled? ⛔ DEFAULT **OFF**.
+ *
+ * ⭐ §PROCEDURAL-COST (L-1820) — THE ESCAPE HATCH THE PREVIOUS DEPLOY DID NOT
+ * HAVE, and the reason it had to be rolled back rather than switched off.
+ *
+ * Generating one pattern is **~150–830 ms of BLOCKED MAIN THREAD** (measured on a
+ * fast desktop: 24 generators, 7397 ms total, mean ~308 ms, worst
+ * `parquet-oak-versailles` at 829 ms and 1536²). It is synchronous, analytic,
+ * per-pixel, and there is no yield in it — 1024² × 4 channels of field evaluation
+ * per set. A user who applies a handful of these materials stalls the editor for
+ * seconds with no progress and no cancel. The founder's demo project froze.
+ *
+ * With the flag OFF the fork returns a NAMED `unavailable` (C100 §5) and the
+ * material renders its AUTHORED base colour — which for these rows is the
+ * generator's own `surface.faceColor`, e.g. `#c8a96e` for oak herringbone. So the
+ * degradation is "a wood-coloured floor instead of a parquet-patterned one",
+ * never a white plane and never a hang.
+ *
+ * ⚠ THE MACHINERY IS INTACT, NOT REMOVED. `globalThis.__pryzmProceduralTexturesV1
+ * = true` turns it on for a session, which is how the patterns are demonstrated
+ * and how the tests drive it. The REAL fix is build-time generation published as
+ * ordinary file-backed WebP maps (see the lane report): that makes the runtime
+ * cost zero, at which point this switch stops mattering and can be deleted.
+ */
+export function isProceduralTextureGenerationEnabled(): boolean {
+    const g = globalThis as { __pryzmProceduralTexturesV1?: boolean };
+    return g.__pryzmProceduralTexturesV1 === true;
+}
+
 function colourSpaceFor(channel: MaterialMapChannel): string {
     // ⭐ The single most common PBR defect is a data map decoded as sRGB (or an
     // albedo decoded as linear). L0 owns the classification (`SRGB_MAP_CHANNELS`)
@@ -399,35 +482,34 @@ function acquireTexture(
     const cached = _textures.get(key);
     if (cached) return { texture: cached };
 
-    // ⛔ The URL is composed HERE and nowhere else — the record keeps its logical
-    // path so a persisted project survives a bucket move (L-570).
-    const url = resolveCatalogAssetUrl(logicalPath);
+    // §PROCEDURAL-COST (L-1821) — the SOURCE is keyed WITHOUT repeat/rotation, so
+    // a second surface asking for the same map at a different real-world scale
+    // reuses the ONE fetch instead of issuing a second request for identical bytes.
+    const sourceKey = `${logicalPath}|${channel}|${colourSpace}`;
+    let base = _textureSources.get(sourceKey);
+    if (!base) {
+        // ⛔ The URL is composed HERE and nowhere else — the record keeps its logical
+        // path so a persisted project survives a bucket move (L-570).
+        const url = resolveCatalogAssetUrl(logicalPath);
 
-    const texture = loader(
-        url,
-        (t) => {
-            // The image landed. THREE sets needsUpdate itself; re-asserting the
-            // sampler state is cheap and guards a loader that replaces the object.
-            t.needsUpdate = true;
-        },
-        (reason) => recordFailure(logicalPath, reason),
-    );
+        base = loader(
+            url,
+            (t) => {
+                // The image landed. THREE sets needsUpdate itself; re-asserting the
+                // sampler state is cheap and guards a loader that replaces the object.
+                t.needsUpdate = true;
+            },
+            (reason) => recordFailure(logicalPath, reason),
+        );
 
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.colorSpace = colourSpace;
-    texture.repeat.set(repeat[0], repeat[1]);
-    if (rotationRad !== 0) {
-        // Rotate about the CENTRE of one repetition, not the uv origin: rotating
-        // about (0,0) also translates the pattern, which reads as a misalignment
-        // rather than as a rotation.
-        texture.center.set(0.5, 0.5);
-        texture.rotation = rotationRad;
+        base.wrapS = THREE.RepeatWrapping;
+        base.wrapT = THREE.RepeatWrapping;
+        base.colorSpace = colourSpace;
+        base.name = `${logicalPath} @${channel}`;
+        _textureSources.set(sourceKey, base);
     }
-    texture.name = `${logicalPath} @${channel}`;
 
-    _textures.set(key, texture);
-    return { texture };
+    return { texture: viewOfTexture(base, key, repeat, rotationRad) };
 }
 
 /**
@@ -477,31 +559,48 @@ function acquireProceduralTexture(
     const cached = _textures.get(key);
     if (cached) return { texture: cached };
 
-    const set = getProceduralTexture(generatorId);
-    if (!set) {
-        // Unreachable while `isProceduralId` gates the fork, but a generator list
-        // that changed under us must be a NAMED state, not an exception.
-        return { unavailable: `'${generatorId}' is not a known procedural generator` };
+    // §PROCEDURAL-COST (L-1820) — the cost gate, and it sits AFTER the view cache
+    // so a texture already generated this session keeps working if the flag is
+    // turned off mid-session, and BEFORE `getProceduralTexture`, which is the call
+    // that blocks the main thread for ~150–830 ms.
+    if (!isProceduralTextureGenerationEnabled()) {
+        return {
+            unavailable:
+                `'${generatorId}' is a RUNTIME-GENERATED pattern and runtime generation is ` +
+                'DISABLED by default (§PROCEDURAL-COST L-1820): rasterising one set blocks the ' +
+                'main thread for ~150–830 ms, which froze the editor. The material renders its ' +
+                'authored base colour instead. Set `globalThis.__pryzmProceduralTexturesV1 = ' +
+                'true` to generate anyway.',
+        };
     }
-    const map = set[wanted];
-    const texture = new THREE.DataTexture(map.data, map.width, map.height, THREE.RGBAFormat);
-    texture.flipY = false;
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.colorSpace = colourSpace;
-    texture.repeat.set(repeat[0], repeat[1]);
-    if (rotationRad !== 0) {
-        texture.center.set(0.5, 0.5);
-        texture.rotation = rotationRad;
-    }
-    texture.generateMipmaps = true;
-    texture.minFilter = THREE.LinearMipmapLinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    texture.name = `${generatorId} @${channel}`;
-    texture.needsUpdate = true;
 
-    _textures.set(key, texture);
-    return { texture };
+    // The pixels are keyed WITHOUT repeat/rotation — those live on the texture
+    // object, not in the bitmap, and generating a second identical set to carry a
+    // different `repeat` is the expensive half done for nothing.
+    const sourceKey = `${generatorId}|${channel}|${colourSpace}`;
+    let base = _textureSources.get(sourceKey);
+    if (!base) {
+        const set = getProceduralTexture(generatorId);
+        if (!set) {
+            // Unreachable while `isProceduralId` gates the fork, but a generator list
+            // that changed under us must be a NAMED state, not an exception.
+            return { unavailable: `'${generatorId}' is not a known procedural generator` };
+        }
+        const map = set[wanted];
+        base = new THREE.DataTexture(map.data, map.width, map.height, THREE.RGBAFormat);
+        base.flipY = false;
+        base.wrapS = THREE.RepeatWrapping;
+        base.wrapT = THREE.RepeatWrapping;
+        base.colorSpace = colourSpace;
+        base.generateMipmaps = true;
+        base.minFilter = THREE.LinearMipmapLinearFilter;
+        base.magFilter = THREE.LinearFilter;
+        base.name = `${generatorId} @${channel}`;
+        base.needsUpdate = true;
+        _textureSources.set(sourceKey, base);
+    }
+
+    return { texture: viewOfTexture(base, key, repeat, rotationRad) };
 }
 
 /**
@@ -646,6 +745,11 @@ export function resolveMaterialTextures(
 export function disposeMaterialTextures(): void {
     for (const t of _textures.values()) t.dispose();
     _textures.clear();
+    // §PROCEDURAL-COST (L-1821) — the per-scale views share their `source` with the
+    // owning texture here, so the views' `dispose()` alone would leave the GPU
+    // source (and, for a generated pattern, a 4 MB buffer) reachable and unfreed.
+    for (const t of _textureSources.values()) t.dispose();
+    _textureSources.clear();
 }
 
 /** Number of live cached textures. For the instancing/memory assertions. */

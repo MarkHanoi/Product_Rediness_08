@@ -282,6 +282,16 @@ describe('⭐ PROCEDURAL PATTERNS — parquet with ZERO assets, at the mesh', ()
     const HERRINGBONE = MATERIAL_CATALOG.find(m => m.id === 'parquet-oak-herringbone')!;
     const METRO = MATERIAL_CATALOG.find(m => m.id === 'tile-metro-white-subway')!;
 
+    // ⚠ §PROCEDURAL-COST (L-1820) — runtime generation is DEFAULT OFF since the
+    // hotfix, because rasterising one set blocks the main thread for ~150–830 ms
+    // and froze the founder's demo. These tests are about what the generated
+    // pattern LOOKS like, so they turn it on explicitly. The default-off
+    // behaviour is asserted in its own block below — do not delete that block to
+    // make this one simpler; they are the two halves of the same decision.
+    const g = globalThis as { __pryzmProceduralTexturesV1?: boolean };
+    beforeEach(() => { g.__pryzmProceduralTexturesV1 = true; });
+    afterEach(() => { delete g.__pryzmProceduralTexturesV1; });
+
     it('the rows exist in the MASTER catalogue, not in a test literal', () => {
         expect(HERRINGBONE).toBeDefined();
         expect(METRO).toBeDefined();
@@ -335,6 +345,80 @@ describe('⭐ PROCEDURAL PATTERNS — parquet with ZERO assets, at the mesh', ()
         const a = stdMaterial(buildWith(HERRINGBONE)[0]!);
         const b = stdMaterial(buildWith(HERRINGBONE)[0]!);
         expect(a.map).toBe(b.map);
+    });
+
+    it('⭐ TWO SCALES REUSE ONE GENERATION — repeat lives on the TEXTURE, not the pixels', () => {
+        // §PROCEDURAL-COST (L-1821). The cache key used to fold `repeat` in, so
+        // asking for the same generator at a second real-world scale re-ran the
+        // ~380 ms rasterisation to produce byte-identical pixels. The two views
+        // must be DIFFERENT objects (they carry different repeats) that SHARE one
+        // source (the pixels were generated once).
+        const wide = { ...HERRINGBONE, id: 'h-wide', tiling: { realWorldSizeM: [0.7, 0.7] as const } };
+        const tight = { ...HERRINGBONE, id: 'h-tight', tiling: { realWorldSizeM: [0.35, 0.35] as const } };
+
+        const a = resolveMaterialTextures(wide as MaterialRecord, { kind: 'metres' });
+        const b = resolveMaterialTextures(tight as MaterialRecord, { kind: 'metres' });
+        if (a.state !== 'resolved' || b.state !== 'resolved') throw new Error('expected both resolved');
+
+        expect(a.textures.color!.repeat.x).toBeCloseTo(1 / 0.7, 10);
+        expect(b.textures.color!.repeat.x).toBeCloseTo(1 / 0.35, 10);
+        expect(a.textures.color).not.toBe(b.textures.color);
+        // ⭐ THE CLAIM: ONE generation behind two scales.
+        expect(a.textures.color!.source).toBe(b.textures.color!.source);
+        expect(a.textures.color!.image).toBe(b.textures.color!.image);
+    });
+});
+
+describe('⛔ §PROCEDURAL-COST (L-1820) — runtime generation is OFF BY DEFAULT, and the fallback is the AUTHORED COLOUR', () => {
+
+    // ⭐ THIS IS THE FOUNDER-SAFETY BLOCK. Generating one pattern set is
+    // ~150–830 ms of BLOCKED MAIN THREAD (measured: 24 generators, 7397 ms total
+    // on a fast desktop). A user applying a handful of these froze the editor with
+    // no progress and no cancel. So the default is OFF, and what a procedural row
+    // renders by default is its authored base colour — a wood-coloured floor, not
+    // a white one and not a hang.
+
+    const HERRINGBONE = MATERIAL_CATALOG.find(m => m.id === 'parquet-oak-herringbone')!;
+
+    it('the flag is OFF unless something sets it — no test may rely on ambient state', () => {
+        expect((globalThis as { __pryzmProceduralTexturesV1?: boolean }).__pryzmProceduralTexturesV1)
+            .toBeUndefined();
+    });
+
+    it('⭐ NO TEXTURE IS GENERATED, and the slab still renders its wood colour', () => {
+        const mat = stdMaterial(buildWith(HERRINGBONE)[0]!);
+        expect(mat.map).toBeFalsy();
+        expect(mat.normalMap).toBeFalsy();
+        expect(mat.roughnessMap).toBeFalsy();
+        // The authored colour is the generator's own faceColor — oak, #c8a96e.
+        // ⛔ NOT white: a frozen app is a broken product, a flat colour is a
+        // disappointment, and a WHITE plane would be a third, worse thing.
+        expect(mat.color.getHexString()).toBe('c8a96e');
+    });
+
+    it('the refusal is a NAMED state (C100 §5), not a silent blank', () => {
+        const res = resolveMaterialTextures(HERRINGBONE, { kind: 'metres' });
+        if (res.state !== 'resolved') throw new Error(`expected resolved, got ${res.state}`);
+        expect(res.textures.color).toBeUndefined();
+        expect(res.unavailable.length).toBeGreaterThan(0);
+        expect(res.unavailable[0]!.reason).toMatch(/DISABLED by default/);
+        expect(res.unavailable[0]!.reason).toMatch(/__pryzmProceduralTexturesV1/);
+    });
+
+    it('NOTHING IS FETCHED on the disabled path either', () => {
+        buildWith(HERRINGBONE);
+        expect(fetched).toEqual([]);
+    });
+
+    it('the kill switch is a TRUE switch — flipping it on produces the pattern', () => {
+        const g = globalThis as { __pryzmProceduralTexturesV1?: boolean };
+        try {
+            g.__pryzmProceduralTexturesV1 = true;
+            const mat = stdMaterial(buildWith(HERRINGBONE)[0]!);
+            expect(mat.map).toBeInstanceOf(THREE.Texture);
+        } finally {
+            delete g.__pryzmProceduralTexturesV1;
+        }
     });
 });
 
