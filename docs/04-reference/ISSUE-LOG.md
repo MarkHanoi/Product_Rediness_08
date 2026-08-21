@@ -28651,3 +28651,35 @@ section parser accepted the COMPUTED key in `push({ [field]: v })` and minted a 
 literally named **`window.field`**, which the matrix reported as a SILENT cell. Computed
 keys are skipped now; nothing real was lost (the same four splay sides are written by name
 two lines below).
+
+### 🐛 L-2214 — A THIRD SHELL-CORRUPTION SHAPE: BACKTICKS IN A `git commit -m "…"` MESSAGE **RUN AS COMMANDS**
+
+The corruption family already has two measured members — a literal BACKSPACE emitted by
+`\b` through a Python heredoc (L-909a) and literal NUL bytes making a source file
+`grep`-BINARY (L-2094, L-2207). Here is the third, hit by this lane on its own audit
+commit `7e1f07eb`:
+
+A commit message written as `git commit -m "… the `pitch` row …"` is a **double-quoted**
+bash string, so every backtick pair is **command substitution**. Bash printed
+
+```
+/usr/bin/bash: line 1: pitch: command not found
+/usr/bin/bash: line 1: slope: command not found
+/usr/bin/bash: line 1: mark: command not found
+```
+
+and committed the message **with those three words replaced by nothing**:
+
+- *"The roof-pitch query row read ␣ in RADIANS"* — should read `` `pitch` ``
+- *"Now ␣, spoken through atan"* — should read `` `slope` ``
+- *"L-2201 ␣ is the single most common silent property"* — should read `` `mark` ``
+
+⭐ **The failure is SILENT in the artefact.** The stderr lines scroll past, `git` reports
+success, and the commit reads as a slightly odd sentence rather than as damage — which is
+exactly why it is worth a log entry. The findings themselves are unharmed: the ISSUE-LOG
+and ADR-0345 carry the correct words, and this note is the repair, because
+⛔ `git commit --amend` reaches the SHARED index and is forbidden in a fleet.
+
+**The rule, for every lane:** a commit message containing backticks must be written through
+a **single-quoted heredoc** (`git commit -F -` fed by `<<'MSG'`), or the backticks dropped.
+Grep your own shell output for `command not found` before treating a commit as clean.
