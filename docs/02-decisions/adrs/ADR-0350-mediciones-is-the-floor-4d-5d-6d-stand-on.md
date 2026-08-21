@@ -1,6 +1,16 @@
 # ADR-0350 — *Mediciones* is the floor 4D, 5D and 6D stand on; two of the three are NOT BUILT, and the product says so
 
-- **Status:** Accepted
+- **Status:** Accepted — **§4 SUPERSEDED 2026-08-21 by
+  [ADR-0351](ADR-0351-4d-time-and-6d-carbon-are-built-and-neither-invents-a-number.md)** (lane
+  DIM46, same day). **4D and 6D are now BUILT.** §4's blocker list was verified rather than
+  inherited: **four of its six items were real, two were not** — 4D-4 ("no time axis in the
+  visibility system") named a missing SUBSYSTEM when what was missing was a CALLER, and 6D-4
+  (layer-level quantities) turned out to be the cheapest of the six to close because
+  `WallSystemType.layers[]` already carried `{ thickness, materialId }`.
+  **Everything outside §4 stands unchanged** — above all §2.1, that the take-off is the ONLY thing
+  4D/5D/6D may read. ADR-0351 depends on that ruling; it does not soften it.
+  §4.3's reasoning for refusing "6D as 5D with a different multiplier" was CORRECT AT THE TIME and
+  is not overturned: what changed is that a cited factor source now exists on the material record.
 - **Date:** 2026-08-21
 - **Lane:** DATA1
 - **Supersedes:** nothing. **Amends in place:**
@@ -71,12 +81,14 @@ A seventh `MEDICIONES` bucket, defaulting to **Take-off**:
 |---|---|---|
 | **Take-off** | **BUILT** | The BOQ: 8 chapters (EN + ES), per line a unit, a measured quantity, the element ids it measured, the measurement basis in words, approximation qualifiers, secondary measures, CSV export. |
 | **5D Cost** | **BUILT** | Rate + source per line, entered by the user or imported. Total + mandatory coverage sentence. |
-| **4D Time** | **NOT BUILT** | A panel that says NOT BUILT and names the four missing pieces. No timeline, no table. |
-| **6D Carbon** | **NOT BUILT** | A panel that says NOT BUILT and names the four missing pieces. No kgCO₂e figure. |
+| ~~**4D Time**~~ | ~~**NOT BUILT**~~ → **BUILT 2026-08-21** (ADR-0351) | Dated tasks against take-off line codes, a date scrubber that filters the viewport, and FOUR element sets — built / in-progress / not-started / **unscheduled**. Every duration USER-ENTERED and labelled so. |
+| ~~**6D Carbon**~~ | ~~**NOT BUILT**~~ → **BUILT 2026-08-21** (ADR-0351) | kgCO₂e A1–A3 per line and per chapter, from 20 cited factors on the material record, with a gap ledger naming every unmeasured m³. Every shipped factor flagged UNVERIFIED. |
 
-**The two unbuilt tabs are declared in the product, not hidden from it.** Hiding them would erase
-the only evidence that the capability is owed — the same ruling `LifecycleBucket` already carries
-for the Occupancy slot (§FIX-EMPTY-OCCUPANCY-SLOT, L-1285).
+**The two unbuilt tabs were declared in the product, not hidden from it.** Hiding them would have
+erased the only evidence that the capability was owed — the same ruling `LifecycleBucket` carries
+for the Occupancy slot (§FIX-EMPTY-OCCUPANCY-SLOT, L-1285). **That declaration did its job**: the
+founder read the badges, said *"I NEED ALL OF THAT PRESENT"*, and the panels' own "what is missing"
+lists were the specification the next lane built from. A hidden gap could not have been asked for.
 
 ### 2.3 — The opening deduction is computed by the code that cut the hole
 
@@ -149,6 +161,12 @@ membranes, render, plasterboard — and is the prerequisite for 6D (§4.3).
 ---
 
 ## 4 · What is NOT built, and exactly what it needs
+
+> ⚠ **THIS WHOLE SECTION IS SUPERSEDED — 2026-08-21, [ADR-0351](ADR-0351-4d-time-and-6d-carbon-are-built-and-neither-invents-a-number.md).**
+> It is kept, unedited below, because it is the specification 4D and 6D were built from and because
+> ADR-0351 §1 records **which two of its six items did not survive re-measurement**. Do not quote
+> it as current state. For what is still not true of 4D and 6D, read **ADR-0351 §8** — which is
+> longer than this section was.
 
 ### 4.1 — 4D (time / sequencing)
 

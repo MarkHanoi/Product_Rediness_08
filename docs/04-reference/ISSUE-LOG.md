@@ -31307,3 +31307,278 @@ app with it. Hit while writing L-3001's provenance block; caught by vitest at
 read `tokens.ts` **as text via `fs`** and passed clean; only the suite that *imports* the module
 failed. A file can be simultaneously green under every text-based guard and completely unloadable.
 The warning is now written into the block itself.
+
+---
+
+## §MEDICIONES-4D-6D — lane DIM46, 2026-08-21 (L-3100 … L-3121)
+
+> **The founder was told 4D and 6D are NOT BUILT. His reply: "I NEED ALL OF THAT PRESENT."**
+> Decision record: [ADR-0351](../02-decisions/adrs/ADR-0351-4d-time-and-6d-carbon-are-built-and-neither-invents-a-number.md).
+> Commits `33dfda79` (model + surfaces), `4e0ff9a8` (115 test cases).
+
+---
+
+### L-3100 — the material catalogue had NO carbon column, and the fix went ON the record, not beside it
+
+Re-checked field by field rather than inherited from ADR-0350 §4.2: `MaterialRecord` carried
+`color`, `metalness`, `roughness`, `opacity`, `transparent`, `textureUrl`, `maps`, `tiling`. **No
+carbon factor. No density.** So 6D's real work was the DATA MODEL, not a multiplier.
+
+`MaterialRecord` gains `carbon?: MaterialCarbonFacts` — optional and additive, exactly as
+`maps`/`tiling` were, so every existing catalogue row stays valid unchanged.
+
+⭐ **The values are merged ONTO the catalogue rows at module load, not held in a table beside it.**
+A permanent `Record<materialId, factor>` living next to `MATERIAL_CATALOG` would have been a
+**SEVENTH material vocabulary** — the exact defect C100 §1.1 exists to stop — and it would rot the
+first time a material was renamed. What a consumer reads is ONE record.
+
+---
+
+### L-3101 — ⭐ it is now IMPOSSIBLE to write a carbon number without writing where it came from
+
+There is no `value: number` anywhere in `materialCarbon.ts` that is not wrapped in a record carrying
+`source`, `dataset`, `year`, `geography`, `provenance` **and `verification`**. That is the type
+system doing work a review rule would otherwise have to do every week.
+
+**And `verification` is a SEPARATE FACT from `source`.** *Cited* and *checked* are different things,
+and collapsing them is how a plausible number acquires authority it has not earned. Every factor
+PRYZM ships is `UNVERIFIED_TRANSCRIPTION`: it names a real dataset and the row within it, and
+**nobody has re-opened that dataset inside this repository and confirmed the figure.** The 6D panel
+says so in a red banner every time it shows a total; the CSV carries the state in its own column so
+it survives being pasted into a spreadsheet.
+
+⛔ Flipping a row to `VERIFIED_AGAINST_SOURCE` requires recording, in that row's own `source`, WHO
+checked it, WHEN, and against WHICH table. A verification that cannot be re-checked is a stronger
+claim resting on nothing.
+
+---
+
+### L-3102 — 20 factors ship and ~309 materials read NOT MEASURED, and a TEST now enforces that ratio
+
+ICE Database v3.0 for the carbon factors and the timber/board densities; EN 1991-1-1 Annex A for the
+structural densities. Rows were deliberately **withheld** wherever the generic published figure does
+not describe the PRYZM material: `concrete-white` (white cement), `concrete-precast` (works
+manufacture + transport), every coated/toughened/tinted glass row, every hardwood, all stone, all
+blockwork.
+
+⭐ **The blanks are the correct output, not an omission.** A 6D surface showing 300 plausible figures
+and one real one is indistinguishable from one showing 301 real ones, and an architect cannot tell
+which cell they just pasted into a planning submission.
+
+**The seeding tripwire:** `materialCarbon.test.ts` asserts the table stays under a quarter of the
+catalogue and that 200+ materials carry no factor. *"Complete the table with plausible values"* now
+fails a test rather than passing a review. It also asserts **zero orphan keys** — a factor keyed to
+a material id that does not exist applies to nothing, forever, and nothing on the 6D surface would
+ever look wrong.
+
+---
+
+### L-3103 — ⭐ two rows ship a FACTOR AND NO DENSITY on purpose, and that is the honest shape
+
+`insulation-mineral-wool` (1.28 kgCO₂e/kg) and `insulation-eps` (3.29) carry a published per-kg
+factor and **no density** — because mineral wool ships anywhere from 23 to 150 kg/m³ and EPS from 15
+to 35. **The density is a SPECIFICATION DECISION, not a property of the material.** Choosing one
+would silently multiply every insulation line by a number nobody chose.
+
+So `carbonPerCubicMetre()` returns `NO_DENSITY`, the panel renders NOT MEASURED with the reason, and
+the user closes it by entering the density of the product they actually specified. These two rows
+exercise the refusal branch **in production**, not only in a test.
+
+---
+
+### L-3104 — a wall's carbon is measured PER LAYER, and the opening deduction flows into every layer
+
+ADR-0350 §4.2 called layer-level quantities *"the take-off's largest gap"* and a prerequisite for
+6D. It was the **cheapest** of its six blockers to close: `WallSystemType.layers[]` already carried
+`{ thickness, materialId }` for every layer.
+
+`TakeoffLine` gains `materialBreakdown: MaterialVolume[]`, emitted by the **existing** measurers —
+no second measurement engine, because two engines is how two numbers start disagreeing. A wall emits
+one row per layer at `netFaceArea × layerThickness`, using **the same net area the m² line reports**.
+
+⭐ Therefore the `openingOutline()` deduction that removes an arched window's TRUE outline from the
+wall area removes it from the insulation and the blockwork too. Pinned by test: a 12.5 mm
+plasterboard layer on a 5.0 × 3.0 m wall with a 0.9 × 2.1 m door measures **0.1639 m³**, and the test
+asserts it is **NOT 0.1875** — the figure a gross, whole-wall attribution would give while still
+"having a number".
+
+**A layer with no `materialId` contributes NOTHING** — not a share of its neighbour's material, and
+not a zero row. An air cavity is measured as absent.
+
+---
+
+### L-3105 — three NAMED refusals in 6D, and none of them is a zero
+
+`NO_FACTOR` · `NO_DENSITY` · `UNKNOWN_MATERIAL`, each carrying the volume it cost and the line codes
+it came from, in a gap ledger rendered under the total.
+
+Separately counted: **volume on lines that name NO material at all**. That is a different failure
+from "material with no factor" and has a different fix — *tag the element* versus *find a factor* —
+so it gets its own number and its own sentence.
+
+⚠ **The first version of the coverage statement got this wrong itself.** It printed *"NONE of it
+resolves to a carbon factor"* about volume that had never named a material. Caught by
+`CarbonModel.test.ts` before the founder saw it; the sentence builder now reports both gaps
+separately, always, and not only inside the branch where a total exists. **6D committed, in its own
+first draft, the exact conflation it exists to prevent.**
+
+---
+
+### L-3110 — 4D: `PhaseFilter` is NOT the schedule model, and no rival phase store was built
+
+The founder's boot log shows `Phase Filter Store initialized (built-ins seeded)`. Established what
+it models **before** adding anything:
+
+`PhaseFilter` is the **Revit DESIGN-phase filter** — `Existing` / `Demolition` / `New Construction` /
+`Future`, each with a per-view display status. It is **categorical**, carries **no dates and no
+durations**, and answers *"what does this VIEW draw?"*. A construction schedule answers *"on what
+DATE is this element built?"*.
+
+They coexist; neither derives from the other; `ConstructionTask` does not write
+`element.properties.phase`. ⛔ A future lane may not merge them "because both are called phase" — a
+design phase survives into the drawing set, a programme date does not, and merging them would make a
+demolition plan depend on a contractor's start date. The distinction is written into
+`schemas/src/construction/index.ts`, at the point where the mistake would be made.
+
+---
+
+### L-3111 — ⭐ a duration is USER-ENTERED, and the TYPE is what enforces it
+
+`TaskDurationSource` is a union with **exactly one member**, `'USER_ENTERED'`. A future author who
+wants to derive a duration from an output rate (m²/day) has to widen a union — a deliberate,
+reviewable act — rather than quietly assigning a number.
+
+PRYZM ships no output rates for the same reason it ships no prices. The new-task duration field is
+**EMPTY**, with no default, and refusing to add a task without one says why:
+
+> *"PRYZM ships no output rates (m²/day), so it cannot propose one for you — a figure it could not
+> cite would be a fabrication with a schedule bar attached."*
+
+**Pinned by a DOM test** that the field's `value` is `''`: a pre-filled `10` would satisfy every
+"is there an input?" check.
+
+---
+
+### L-3112 — a task points at TAKE-OFF LINE CODES, so the programme tracks the model
+
+`TakeoffLine.code` is already documented as a stable join key — it is what makes a 5D rate outlive a
+redraw. 4D reuses it. A task's element set is resolved from the LIVE take-off every time.
+
+Draw three more walls of a scheduled type and **they are already scheduled**. Delete one and it
+leaves. A line code the take-off no longer produces is **REPORTED**, not silently dropped — that
+means the model changed after the task was written, and a programme owner must see it.
+
+**This is why ADR-0350 §4's blocker "a phase field on every element" did not have to be closed to
+ship 4D.** Putting `taskId` on every element is a C67/C68 schema change AND a file-format change;
+the line-code join gets a working, model-tracking assignment with neither.
+
+---
+
+### L-3113 — ⛔ ADR-0350 §4 said "no time axis in the visibility system". It named a missing SUBSYSTEM when what was missing was a CALLER
+
+`composeRuntime` already registers `visibility.isolate.selection` / `visibility.reveal.all` on the
+bus and exposes `runtime.visibility.applyToScene` as the sanctioned scene projection. The 4D scrubber
+dispatches the command and calls the projection; **the panel never assigns `node.visible`** (P7).
+
+**No 12th visibility wave was minted.** Two of ADR-0350 §4's six blockers dissolved on contact with
+the code, and this was the expensive one to have believed — it is the
+[[bulk-vs-query-endpoint-false-refusals]] shape: a refusal about the wrong product. **A lane must
+re-measure a predecessor's blocker list, not quote it.**
+
+⚠ What that path inherits, stated up front: those handlers declare no store patch, so the time filter
+is **NOT undoable**, is per-view and session-only, and does not sync. The panel offers an explicit
+*"Show everything again"* rather than implying Ctrl+Z.
+
+---
+
+### L-3114 — ⭐ FOUR element sets, because UNSCHEDULED is not NOT-YET-BUILT
+
+`scheduleStateAt()` returns `built` / `inProgress` / `notStarted` / **`unscheduled`**, and the fourth
+is never folded into the third.
+
+> **An element no task covers is not "not yet built". It is UNKNOWN.**
+
+A scrubber that hides it is asserting a fact the programme does not contain. So unscheduled elements
+stay **visible** by default, the panel reports the count, and hiding them is an explicit opt-in whose
+caption says — in red — that the viewport is now showing a claim the programme does not support.
+
+[[context-data-honesty-family]] applied to time. ⛔ An implementation that collapses the two passes
+every *"does the filter hide things?"* test and is wrong about the building.
+
+---
+
+### L-3115 — in-progress work is drawn WHOLE, and the panel says so
+
+PRYZM does not model partial construction. A half-built wall is different geometry, not a
+transparency. An element in a task that has started but not finished is shown complete, and the
+caption states it rather than leaving a user to infer a precision that is not there.
+
+---
+
+### L-3116 — ⚠ `taskProgressAt` at MIDDAY of the finish day disagreed with its own docstring
+
+The docstring promised *"a scrubber sitting exactly on the finish date reads COMPLETE"*; at midday
+of the finish day it returned `IN_PROGRESS`. **Both answers are correct — they answer different
+questions.**
+
+Rather than pick one silently, `endOfDayMs()` became an exported L0 helper, the scrubber uses it
+instead of hand-rolling `+ MS_DAY - 1`, and the test asserts BOTH instants. **Hand-rolled
+day-boundary arithmetic at each call site is how one surface comes to disagree with another about
+whether the last day counts** — the classic scheduling off-by-one, invisible until someone counts
+days on a calendar.
+
+---
+
+### L-3117 — ⚠ HAZARD: `core-app-model` compiles with `strictNullChecks: false`, and will NOT narrow a discriminated union
+
+`if (!per.ok)` on a `{ ok: true } | { ok: false }` union produced
+*"Property 'reason' does not exist on type 'CarbonPerM3'"* — under the ROOT tsc (strict) it narrows
+fine, under `packages/core-app-model/tsconfig.json` it does not.
+
+Fixed with explicit type predicates `isCarbonGap` / `isCarbonMeasured` at L0, which narrow under
+**both** settings. ⭐ **An honest-refusal result shape has to survive the LOOSEST compiler in this
+repo, not only the strictest** — and the loosest is not the one the build runs.
+
+---
+
+### L-3118 — `notBuiltPanel()` was DELETED, not left unused
+
+Both tabs that used it now render real, cited answers. A generic "not built" template sitting in the
+file is an invitation to ship another authored-but-empty surface, so it is gone and
+`MedicionesBucket.ts`'s header says not to restore it.
+
+⭐ **The badges did their job before they died.** The founder read them, said *"I NEED ALL OF THAT
+PRESENT"*, and the panels' own "what is missing" lists were the specification the next lane built
+from. **A hidden gap could not have been asked for** — which is the strongest argument yet for
+§FIX-EMPTY-OCCUPANCY-SLOT's ruling that an owed capability is declared in the product.
+
+---
+
+### L-3119 — OPEN: the programme and the carbon overrides live in `localStorage`, not the project file
+
+Same shape as the 5D rate book, and **both panels say so on their own face**: this browser only, not
+in the project file, not synced to collaborators, not covered by undo.
+
+Closing it is a **file-format change**; putting `taskId` on an element is a **C67/C68 schema
+change**. Both are named as the next step rather than half-done — a persistence claim the code cannot
+honour is the same defect class as an invented factor.
+
+---
+
+### L-3120 — OPEN: `dependsOn` is RECORDED, NOT SOLVED
+
+Stored, displayed and exported. It drives nothing: no forward pass, no float, no critical path.
+Moving a predecessor moves nothing. A programme that silently re-plans is far worse than one that
+plainly does not, and a half-implemented CPM is the same defect shape as a fabricated output rate.
+Durations are **calendar** days — there is no working calendar, no weekends and no holidays, and no
+jurisdiction to take them from.
+
+---
+
+### L-3121 — OPEN: neither dimension has been exercised in a browser on a real project
+
+The DOM suite mounts the real panels over stubbed stores and reads the rendered text — stronger than
+a unit test, weaker than a founder clicking the tab. [[committed-is-not-reachable]]: **what is proven
+is that the panels render these answers over these stores, not that they render them over a real
+Barcelona project.** Also unproven: whether real projects carry `materialId` on enough elements for
+6D to cover a meaningful share of their volume. The gap ledger will say — it is built to.
