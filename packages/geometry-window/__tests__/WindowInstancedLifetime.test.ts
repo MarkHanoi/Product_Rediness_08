@@ -127,14 +127,26 @@ describe('§INSTANCE-WINDOWS — the shipped default', () => {
         drainGpuReleaseQueue();
     });
 
-    it('windows are ON by default; no other family is', () => {
-        // The whole point of naming families: flipping windows must not drag along
-        // five builders that have not been made safe.
+    it('window + handrail + stairRailing are ON by default; column and beam are NOT', () => {
+        // ⭐ THIS IS THE ONE PLACE THE SHIPPED PER-FAMILY DEFAULT IS PINNED (L-1852).
+        // It is asserted here, and NOWHERE else, because on 2026-08-21 two suites in
+        // two packages disagreed about `handrail` and the disagreement shipped: the
+        // census asserted ON and was green while this file asserted OFF and was RED.
+        // Every other suite must NAME the regime it drives (set the override itself)
+        // rather than read the default. If you flip a row in `_FAMILY_DEFAULTS`, this
+        // assertion is the one that must move with it.
+        //
+        // handrail + stairRailing restored ON 2026-08-21 (L-2150) once the
+        // §NAV-PICK-QUADRATIC amplifier was cured — 240 railings, 4920 → 250 draw
+        // calls and 2520 → 242 geometries. column/beam stay OFF: a column is one mesh
+        // (the win is ~1 draw call) and `beam`'s builder still frees in place on the
+        // mutation tick (ADR-0297 L2 (b) OPEN). Flip those with their delete-path
+        // tests, not with this one.
         expect(isElementInstancingEnabled('window')).toBe(true);
+        expect(isElementInstancingEnabled('handrail')).toBe(true);
+        expect(isElementInstancingEnabled('stairRailing')).toBe(true);
         expect(isElementInstancingEnabled('column')).toBe(false);
         expect(isElementInstancingEnabled('beam')).toBe(false);
-        expect(isElementInstancingEnabled('handrail')).toBe(false);
-        expect(isElementInstancingEnabled('stairRailing')).toBe(false);
 
         // The LEGACY unnamed call is untouched — still master-only, still default OFF.
         expect(isElementInstancingEnabled()).toBe(false);
@@ -148,7 +160,18 @@ describe('§INSTANCE-WINDOWS — the shipped default', () => {
     it('KILL SWITCH — per-family override turns ONLY windows off', () => {
         g.__pryzmElementInstancing = { window: false };
         expect(isElementInstancingEnabled('window')).toBe(false);
-        expect(isElementInstancingEnabled('handrail')).toBe(false);   // still its own default
+        expect(isElementInstancingEnabled('handrail')).toBe(true);    // still its own default
+        expect(isElementInstancingEnabled('column')).toBe(false);     // and so is this one
+    });
+
+    it('KILL SWITCH — a railing regression is one console line, no redeploy (L-2150)', () => {
+        // The back-out path named in `_FAMILY_DEFAULTS`. It is asserted rather than
+        // merely documented because "you can turn it off from the console" is the
+        // whole reason restoring the default is a safe trade.
+        g.__pryzmElementInstancing = { handrail: false, stairRailing: false };
+        expect(isElementInstancingEnabled('handrail')).toBe(false);
+        expect(isElementInstancingEnabled('stairRailing')).toBe(false);
+        expect(isElementInstancingEnabled('window')).toBe(true);      // untouched
     });
 
     it('per-family override BEATS the master flag', () => {

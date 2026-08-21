@@ -275,47 +275,66 @@ export type InstancedElementFamily =
  * not flip one on a reason — flip it on a number.
  */
 /**
- * ⚠ MITIGATION 2026-08-21 (§NAV-PICK-QUADRATIC, L-1850) — `handrail` and
- * `stairRailing` are back to **OFF**, and this is a MITIGATION, not a verdict on
- * instancing.
+ * ⭐ RESTORED 2026-08-21 (§NAV-PICK-QUADRATIC, L-2150, lane PERF1) — `handrail` and
+ * `stairRailing` are back **ON**, which is the exit condition `89dacf75` wrote for
+ * its own mitigation and the one ADR-0338 records under "Consequences / Good".
  *
- * `f80ed827` flipped both ON at 09:09 UK. The founder's demo project froze on the
- * two deploys after it and was fine on `a547eff2` (07:32 UK, both families OFF).
- * Flipping them ON multiplies the number of rows in
- * `InstancedElementRenderer._elements` by roughly the number of sub-parts per
- * railing — the census in `f80ed827` itself measures 240 railing elements
- * producing 4920 meshes, i.e. ~4920 instance ROWS where there were none.
+ * ── THE HISTORY, SO THIS ROW IS NOT FLIPPED AGAIN ON A REASON ────────────────
+ * `f80ed827` flipped both ON at 09:09 UK and the founder's demo froze. `89dacf75`
+ * flipped them back OFF at 11:08 as a MITIGATION. The freeze was never caused by
+ * instancing: `_createGroup` installed two pick closures that each answered a
+ * question about ONE group by walking the WHOLE of the module-level singleton's
+ * `_elements`, and `gpu-pick.ts _syncInstancedGroup` calls one per group and the
+ * other per occupied slot on the HOVER rAF — so a pass cost `G·N + N²` per
+ * pointermove. Instancing 240 railings adds ~4920 ROWS to `_elements`, so the
+ * flip multiplied N by ten and squared the cost. `50df40a5` cured it structurally
+ * with `_membersByGroup` (a write-time reverse index, not a cache).
  *
- * ⭐ That map is scanned QUADRATICALLY on every hover pick. `_createGroup`'s
- * `getOccupiedInstanceSlots()` and `getInstanceElementId()` each walked ALL of
- * `_elements`, and `gpu-pick.ts _syncInstancedGroup` calls the first once per
- * group and the second once per occupied slot — so one `syncPickScene()` cost
- * O(N²). MEASURED through the real renderer and the real closures:
+ * ── WHY IT IS SAFE NOW, RE-MEASURED ON THIS TREE, NOT TRANSCRIBED ────────────
+ * Driving the PRODUCTION closures in the PRODUCTION call pattern (the exact
+ * membership-signature loop from `gpu-pick.ts`), one full `syncPickScene()` pass:
  *
- *     N=1000 → 13.7 ms · N=2000 → 73.0 ms · N=4000 → 312.4 ms · N=6000 → 550.0 ms
+ *     N=  500 → 0.060 ms      N= 1000 → 0.139 ms      N= 2000 → 0.264 ms
+ *     N= 4000 → 0.173 ms      N= 6000 → 0.132 ms      N=12000 → 0.523 ms
  *
- * at ONE pass, and the hover rAF asks for a pass per pointermove. 312 ms of
- * blocked main thread per mouse movement IS "nothing can be done - is frozen".
+ * Against the BEFORE column ADR-0338 tabulates (N=6000 → 550 ms), that is the
+ * amplifier gone, not reduced: the curve is FLAT in N, and it stays flat at
+ * N=12000 — double the worst case the railing flip can reach. A 60 Hz frame is
+ * 16.7 ms; the pass is now ~1% of one frame at twice the load that broke the demo.
+ * Grep-verified alongside the timing: no `_elements` ITERATION remains in
+ * `InstancedElementRenderer` at all — only `get`/`set`/`delete`/`has`/`size`/
+ * `clear`. The quadratic cannot be reached from the pick path any more.
  *
- * The QUADRATIC is fixed separately (`InstancedElementRenderer`, same lane), and
- * with it gone these two families should go back ON — the 19.7x draw-call win is
- * real and the founder asked for it. They are left OFF here for exactly one
- * reason: the founder's own N has not been measured, so flipping them ON is the
- * EXPERIMENT that proves the trigger, and an experiment does not belong in a
- * shipped default while the demo is broken. Turn them on for a session with
+ * ── WHAT TURNING THESE ON BUYS, RE-MEASURED ON THIS TREE ─────────────────────
+ * `NavigationDrawCallCensus.spec.ts`, real builders → real `InstancedElementRenderer`
+ * → real `THREE.Scene`, 240 railing elements:
  *
- *     __pryzmElementInstancing.handrail = true
- *     __pryzmElementInstancing.stairRailing = true
+ *     OFF: 4920 draw calls · 4920 meshes · 480 materials · 2520 geometries
+ *     ON :  250 draw calls ·  250 meshes · 242 materials ·  242 geometries
  *
- * and reload. If the scene stays fluid, the quadratic was the whole story and
- * these two rows go back to `true` in the next commit.
+ * 19.7x fewer draw calls AND 10.4x fewer geometries — the second half matters
+ * because the founder asked about RAM, not only about frame rate.
+ *
+ * ⚠ THE RATIO IS NOT THE ABSOLUTE WIN. 19.7x is measured on a 240-railing census.
+ * A project's actual saving is bounded by how many railings it HAS, and that is
+ * per-project and unmeasured here. Do not quote 19.7x as a frame-rate promise.
+ *
+ * ── BACKING OUT COSTS NO REDEPLOY ────────────────────────────────────────────
+ * Per-family overrides beat this table (see `isElementInstancingEnabled`), so if
+ * a scene regresses, one console line and a reload restores the mitigation:
+ *
+ *     __pryzmElementInstancing.handrail = false
+ *     __pryzmElementInstancing.stairRailing = false
+ *
+ * ⛔ Do NOT flip a family here without the test that proves its delete path, and
+ * do not flip one on a reason — flip it on a number.
  */
 const _FAMILY_DEFAULTS: Readonly<Record<InstancedElementFamily, boolean>> = Object.freeze({
     window: true,
     column: false,
     beam: false,
-    handrail: false,
-    stairRailing: false,
+    handrail: true,
+    stairRailing: true,
 });
 
 /**

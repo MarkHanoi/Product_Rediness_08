@@ -68,7 +68,15 @@ function materialFromId(
     const params = { ...def.params, ...opts };
     const color = params.color instanceof THREE.Color ? `#${params.color.getHexString()}` : String(params.color ?? fallbackHex);
     const key = `lib:${materialId}:${color}:${JSON.stringify({ ...params, color })}`;
-    if (!_matCache.has(key)) _matCache.set(key, new THREE.MeshStandardMaterial(params));
+    // §ADR-0297-L1 (L-2151) — STAMP IT. This branch fed the SAME `_matCache` as `mat()`
+    // twelve lines above, which does stamp, so one cache handed out both owned and
+    // unowned materials depending on whether the caller passed a `materialId`. An
+    // unstamped material is not no-op'd by `safeDispose*`, so tearing down ONE wardrobe
+    // could dispose a material every other wardrobe still references — and the cache
+    // would go on handing back the dead handle for the rest of the session. The
+    // verbatim-identical `materialFromId` in the sibling `KitchenCabinetEngine` already
+    // stamps; this one was the odd branch out, not a deliberate exception.
+    if (!_matCache.has(key)) _matCache.set(key, markSharedGpuResource(new THREE.MeshStandardMaterial(params)));
     return _matCache.get(key)!;
 }
 

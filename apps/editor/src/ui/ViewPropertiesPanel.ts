@@ -302,7 +302,30 @@ export class ViewPropertiesPanel {
             this._restoreCutFillVisibility();
         }
 
-        world.scene.three.traverse((obj: any) => {
+        // §NAV-CUTFILL-DEAD-TRAVERSE (L-2152, lane PERF1, 2026-08-21) — DO NOT WALK THE
+        // WHOLE SCENE TO DO NOTHING.
+        //
+        // ⭐ Read the callback below before changing this guard: EVERY mutation it makes
+        // is inside its own `if (enabled)`. With `enabled === false` the traverse
+        // therefore has ZERO side effects — the restore was already done by
+        // `_restoreCutFillVisibility()` sixteen lines above — while still paying, per
+        // mesh in the scene: two `.toLowerCase()` allocations (one of them on a fresh
+        // `obj.name + parent.name` concat) and eight `String.includes` scans. The
+        // guard is behaviour-identical BY CONSTRUCTION, not by judgement.
+        //
+        // WHY IT MATTERS ON THE NAVIGATION CLOCK: this is not a rare path.
+        // `engineLauncher.ts` `updateInspector()` — the selection callback threaded into
+        // every tool — calls `viewPropertiesPanel.hide()` unconditionally, and `hide()`
+        // calls `updateCutFillStyle(false)`. So every element CLICK and every DESELECT
+        // ran a full O(scene) walk for a feature that is switched off. That is what the
+        // founder's log is showing when `[CutFill] Updating: enabled=false` repeats
+        // dozens of times, and it is ADR-0338's rule exactly: the cost of an
+        // interaction must be proportional to the ANSWER, not to the model.
+        //
+        // ⚠ The `if (enabled)` INSIDE the callback is deliberately left in place. It is
+        // now redundant given this guard, and it is the thing that makes this guard
+        // provably safe — delete one or the other, never both.
+        if (enabled) world.scene.three.traverse((obj: any) => {
             if (!obj.isMesh) return;
             const mesh = obj as THREE.Mesh;
 
