@@ -51,7 +51,6 @@ function throwingStore(): { getAll: () => Rec[] } {
   return { getAll: (): Rec[] => { throw new Error('store not ready'); } };
 }
 
-const W = globalThis as unknown as Record<string, unknown>;
 const TOUCHED = [
   'wallStore', 'roomStore', 'doorStore', 'windowStore', 'slabStore', 'floorStore',
   'ceilingStore', 'roofStore', 'columnStore', 'beamStore', 'stairStore', 'handrailStore',

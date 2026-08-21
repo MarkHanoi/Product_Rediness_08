@@ -304,14 +304,22 @@ export function renderChart(
     },
   };
 
-  const cfg: ChartConfiguration =
+  const labels = result.figures.map((f) => f.label);
+  const data = result.figures.map((f) => f.value);
+
+  // ⚠ The two configs are built SEPARATELY with explicit type parameters rather
+  // than as one `ChartConfiguration` union. Chart.js types `options` per chart
+  // type, and the un-parameterised alias widens to `keyof ChartTypeRegistry` —
+  // under which `cutout` (doughnut-only) is an excess property and the whole
+  // object is rejected. Two typed consts is the honest shape, not a cast.
+  const cfg: ChartConfiguration<'doughnut', number[], string> | ChartConfiguration<'bar', number[], string> =
     def.kind === 'donut'
       ? {
           type: 'doughnut',
           data: {
-            labels: result.figures.map((f) => f.label),
+            labels,
             datasets: [{
-              data: result.figures.map((f) => f.value),
+              data,
               backgroundColor: colours,
               borderColor: separator,
               borderWidth: 1.5, // the separator that stops two low-contrast fills touching
@@ -322,9 +330,9 @@ export function renderChart(
       : {
           type: 'bar',
           data: {
-            labels: result.figures.map((f) => f.label),
+            labels,
             datasets: [{
-              data: result.figures.map((f) => f.value),
+              data,
               backgroundColor: colours,
               borderColor: separator,
               borderWidth: 1,
