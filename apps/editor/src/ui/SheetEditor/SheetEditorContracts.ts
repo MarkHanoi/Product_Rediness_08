@@ -26,6 +26,20 @@ export const VIEW_TYPE_ICONS: Record<string, string> = {
     'walkthrough':    '▷',
 };
 
+// ── §SHEET-DROP-WHERE-THE-CURSOR-IS (L-1632) ───────────────────────────────
+
+/**
+ * MIME type carrying a ViewDefinition id across an HTML5 drag from the
+ * "Available Views" list onto the sheet canvas.
+ *
+ * Declared here, once, because a drag is a contract between two modules that
+ * never call each other: the producer is `SheetEditorSidebar.buildViewPickerEntry`
+ * and the consumer is `SheetEditorPanel._buildCanvas`. A string literal repeated
+ * in both is a contract that can drift silently — the drop would simply stop
+ * finding a payload and nothing would report why.
+ */
+export const VIEW_DRAG_MIME = 'application/x-pryzm-view-id';
+
 // ── Drag-state type ────────────────────────────────────────────────────────
 
 /** Internal state for the viewport drag gesture. */

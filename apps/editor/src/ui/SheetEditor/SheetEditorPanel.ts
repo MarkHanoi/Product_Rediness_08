@@ -48,9 +48,10 @@ import { panelManager } from '../PanelManager';
 
 // ── Wave 7 WS-B extracted modules ─────────────────────────────────────────
 import type { SidebarOpts, FocusOpts, VpFocusState } from './SheetEditorContracts';
-import { VIEW_TYPE_ICONS } from './SheetEditorContracts';
+import { VIEW_TYPE_ICONS, VIEW_DRAG_MIME } from './SheetEditorContracts';
 import {
     dispatchAddViewport,
+    dispatchMoveViewport,
     dispatchRemoveViewport,
     dispatchUpdateSheetField,
     showExportDialog,
@@ -73,6 +74,8 @@ import {
     buildFocusToolbar,
     attachFocusInteraction,
     drawAlignmentGuides,
+    composeSheetViewport,
+    mountCompositeViewport,
 } from './SheetEditorRendererBridge';
 
 // ── Panel class ────────────────────────────────────────────────────────────
@@ -146,6 +149,20 @@ export class SheetEditorPanel {
         // F.events.10 — svp:drawing-refreshed via runtime.events; payload IS the detail object,
         // so we synthesise a CustomEvent-compatible wrapper for onDrawingRefreshed.
         window.runtime?.events?.on('svp:drawing-refreshed', (payload: unknown) => {
+            // §SHEET-COMPOSITE-ON-SHEET (L-1630) — a projection landing is the
+            // moment a viewport stops being a placeholder and becomes the real
+            // drawing. That is a SWAP of the content node, not a repaint of one,
+            // so the thumbnail path below cannot perform it: it only ever pushed
+            // new pixels into an already-mounted <canvas>. Rebuild the canvas so
+            // the viewport re-composes and re-sizes to its true paper footprint.
+            const viewId = (payload as { viewId?: string } | undefined)?.viewId;
+            if (viewId && this._activeSheetId) {
+                const sheet = sheetStore.get(this._activeSheetId);
+                if (sheet && sheet.viewports.some(v => v.viewId === viewId)) {
+                    this._refreshCanvas(sheet);
+                    return;
+                }
+            }
             const syntheticEvt = { detail: payload } as unknown as Event;
             onDrawingRefreshed(syntheticEvt, this._activeSheetId, this._previewCanvases, renderThumbnail);
         });
@@ -534,9 +551,59 @@ export class SheetEditorPanel {
             const hint = document.createElement('div');
             hint.className  = 'sh-canvas-hint';
             hint.style.left = `${usableW / 2}px`;
-            hint.innerHTML  = 'No views placed<br><small>Use the view list on the right to add a view</small>';
+            hint.innerHTML  = 'No views placed<br><small>Drag a view from the list on the right onto the sheet</small>';
             canvas.appendChild(hint);
         }
+
+        // ── §SHEET-DROP-WHERE-THE-CURSOR-IS (L-1632): Mural-style placement ──
+        // The drop target is the PAPER, not the scroll area, so a view can only
+        // be placed somewhere that exists on the sheet.
+        //
+        // Paper coordinates are read from the canvas's own bounding rect rather
+        // than from `sf * zoom`. The canvas carries a CSS transform for pan and
+        // zoom, and `getBoundingClientRect()` already accounts for it, so this
+        // stays correct at any zoom and any pan — reconstructing the same number
+        // from the two state variables would be a second source of truth for the
+        // same fact, and the one that goes stale first.
+        canvas.addEventListener('dragover', (e: DragEvent) => {
+            if (!e.dataTransfer?.types?.includes(VIEW_DRAG_MIME)) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            canvas.classList.add('sh-canvas--drop-target');
+        });
+        canvas.addEventListener('dragleave', (e: DragEvent) => {
+            if (e.target === canvas) canvas.classList.remove('sh-canvas--drop-target');
+        });
+        canvas.addEventListener('drop', (e: DragEvent) => {
+            canvas.classList.remove('sh-canvas--drop-target');
+            const viewId = e.dataTransfer?.getData(VIEW_DRAG_MIME);
+            if (!viewId) return;
+            e.preventDefault();
+
+            const currentSheet = this._activeSheetId ? sheetStore.get(this._activeSheetId) : null;
+            const view = viewDefinitionStore.get(viewId);
+            if (!currentSheet || !view) {
+                console.warn(`[SheetEditorPanel] Drop ignored — no such view '${viewId}' or no active sheet`);
+                return;
+            }
+
+            const pt = this._dropPointToPaperMm(canvas, e.clientX, e.clientY, paperW, paperH);
+
+            // Centre the drawing on the cursor rather than pinning its corner
+            // there. "Drop it here" means the thing the user is looking at ends
+            // up under the pointer; anchoring a corner makes a large viewport
+            // land visibly away from where it was released. The size is the
+            // composed paper footprint — the same number the viewport will be
+            // rendered at — so the placement and the render agree.
+            const probe = composeSheetViewport({ viewId, scale: view.output?.scale ?? 50 });
+            const halfW = probe.resolved ? probe.widthMm  / 2 : 0;
+            const halfH = probe.resolved ? probe.heightMm / 2 : 0;
+
+            dispatchAddViewport(currentSheet, view, {
+                x: Math.max(0, pt.x - halfW),
+                y: Math.max(0, pt.y - halfH),
+            });
+        });
 
         for (const vp of sheet.viewports) {
             const vpEl = this._buildViewportEl(vp, sheet, sf, usableW, paperH * sf);
@@ -607,9 +674,13 @@ export class SheetEditorPanel {
                 for (const vpId of ids) {
                     const vp = currentSheet.viewports.find(v => v.id === vpId);
                     if (!vp) continue;
-                    (this.runtime?.bus as any)?.executeCommand('sheet.moveViewport', {
-                        sheetId, viewportId: vpId,
-                        newPosition: { x: vp.position.x + dx, y: vp.position.y + dy },
+                    // §SHEET-MOVE-DISPATCH-IS-DEAD (L-1633) — was
+                    // `(this.runtime?.bus as any)?.executeCommand(...)`, and
+                    // `this.runtime` is null on the shipped construction path,
+                    // so arrow-key nudge silently moved nothing.
+                    dispatchMoveViewport(sheetId, vpId, {
+                        x: vp.position.x + dx,
+                        y: vp.position.y + dy,
                     });
                 }
             }
@@ -670,6 +741,32 @@ export class SheetEditorPanel {
         return canvas;
     }
 
+    /**
+     * §SHEET-DROP-WHERE-THE-CURSOR-IS (L-1632) — screen point → paper millimetres.
+     *
+     * ⚠ THE Y AXIS FLIPS HERE, and that is not incidental. `SheetViewport.position`
+     * is measured from the paper's BOTTOM edge (the canvas builder computes
+     * `top = canvasH − y·sf − height`), while every DOM coordinate is measured
+     * from the top. A drop handler that forgets the flip places views mirrored
+     * about the sheet's horizontal centre-line — which reads as "the drop is
+     * ignored" for anything dropped in the lower half.
+     */
+    private _dropPointToPaperMm(
+        canvasEl: HTMLElement,
+        clientX:  number,
+        clientY:  number,
+        paperW:   number,
+        paperH:   number,
+    ): { x: number; y: number } {
+        const rect = canvasEl.getBoundingClientRect();
+        const fx = rect.width  > 0 ? (clientX - rect.left) / rect.width  : 0;
+        const fy = rect.height > 0 ? (clientY - rect.top)  / rect.height : 0;
+        return {
+            x: Math.max(0, Math.min(paperW, fx * paperW)),
+            y: Math.max(0, Math.min(paperH, (1 - fy) * paperH)),
+        };
+    }
+
     // ── Viewport element ───────────────────────────────────────────────────
 
     private _buildViewportEl(
@@ -681,8 +778,43 @@ export class SheetEditorPanel {
     ): HTMLElement {
         const view     = viewDefinitionStore.get(vp.viewId);
         const scale    = vp.scale ?? 50;
-        const vpWidth  = Math.max(80,  Math.min(usableW * 0.45, 200)) * sf;
-        const vpHeight = Math.max(60, vpWidth * 0.7);
+
+        // ── §SHEET-COMPOSITE-ON-SHEET (L-1630) ────────────────────────────
+        // Compose the REAL drawing first, because the viewport's paper size is
+        // a consequence of it. A drawing at 1:100 occupies its true millimetre
+        // footprint on the sheet; deriving the box from a fraction of the paper
+        // (what this did) is what made the placed view a thumbnail rather than a
+        // drawing — the linework was rescaled to fit a decorative card, so the
+        // stated scale was never the scale on screen.
+        //
+        // Composition is synchronous string work, so there is no frame to wait
+        // for and no async window in which the viewport shows a placeholder it
+        // does not need. That also makes the surface deterministically testable.
+        const composed = composeSheetViewport(vp);
+
+        const FOOTER_PX = 22;
+        let vpWidth:  number;
+        let vpHeight: number;
+
+        if (composed.resolved) {
+            vpWidth  = composed.widthMm  * sf;
+            vpHeight = composed.heightMm * sf + FOOTER_PX;
+            // Deliberately NOT clamped down to fit. Shrinking here would silently
+            // contradict the "1:N" printed in the viewport's own footer, and a
+            // drawing whose stated scale is a lie is worse than one that visibly
+            // does not fit — the remedy for the latter is the scale selector,
+            // which is one double-click away.
+            if (vpWidth > usableW || vpHeight > canvasH) {
+                console.warn(
+                    `[SheetEditorPanel] Viewport ${vp.id} is ${composed.widthMm.toFixed(0)}×` +
+                    `${composed.heightMm.toFixed(0)}mm at 1:${composed.scale} — larger than the ` +
+                    `usable sheet area. Choose a smaller scale to fit.`,
+                );
+            }
+        } else {
+            vpWidth  = Math.max(80,  Math.min(usableW * 0.45, 200)) * sf;
+            vpHeight = Math.max(60, vpWidth * 0.7);
+        }
 
         const posX = Math.max(10 * sf, Math.min(vp.position.x * sf, usableW - vpWidth - 10));
         const posY = Math.max(10 * sf, Math.min(canvasH - vp.position.y * sf - vpHeight, canvasH - vpHeight - 10));
@@ -713,7 +845,23 @@ export class SheetEditorPanel {
         const previewCanvas = document.createElement('canvas');
         previewCanvas.className = 'sh-viewport-preview';
         previewCanvas.width     = Math.round(vpWidth);
-        previewCanvas.height    = Math.round(vpHeight - 22);
+        previewCanvas.height    = Math.round(vpHeight - FOOTER_PX);
+
+        // §SHEET-COMPOSITE-ON-SHEET (L-1630) — when the real drawing composed,
+        // the raster surface is not merely hidden, it is NEVER MOUNTED. Leaving
+        // an unused <canvas> behind would keep `viewportPreviewRenderer` attached
+        // to it and keep repainting a blob nobody can see, and the next reader of
+        // this file would reasonably conclude the raster path is still the
+        // producer. Two producers is the bug; a dormant second producer is the
+        // bug waiting to be re-enabled.
+        const drawingHost = document.createElement('div');
+        drawingHost.className = 'sh-vp-drawing';
+        drawingHost.style.width  = `${Math.round(vpWidth)}px`;
+        drawingHost.style.height = `${Math.round(vpHeight - FOOTER_PX)}px`;
+
+        const hasComposite = composed.resolved
+            && mountCompositeViewport(drawingHost, composed);
+        const contentNode: HTMLElement = hasComposite ? drawingHost : previewCanvas;
 
         // SC-11: In focus mode this viewport gets a camera-transform container + SVG dim overlay
         const isFocused = this._vpFocusState?.vpId === vp.id;
@@ -726,7 +874,7 @@ export class SheetEditorPanel {
             camContainer.className   = 'sh-vp-cam-container';
             camContainer.style.transform =
                 `translate(${fstate.camOffset.x}px,${fstate.camOffset.y}px) scale(${fstate.camZoom})`;
-            camContainer.appendChild(previewCanvas);
+            camContainer.appendChild(contentNode);
 
             const svgNS = 'http://www.w3.org/2000/svg';
             const svgEl = document.createElementNS(svgNS, 'svg') as SVGSVGElement;
@@ -743,7 +891,7 @@ export class SheetEditorPanel {
             // Render any already-placed dim annotations via RendererBridge
             renderDimAnnotations(svgEl, previewCanvas.width, previewCanvas.height, fstate);
         } else {
-            contentEl.appendChild(previewCanvas);
+            contentEl.appendChild(contentNode);
         }
 
         vpEl.appendChild(contentEl);
@@ -779,8 +927,16 @@ export class SheetEditorPanel {
         });
         vpEl.appendChild(removeBtn);
 
-        // Attach preview renderer (TechnicalDrawing cache → thumbnail; else conventional)
-        if (view) {
+        // §SHEET-COMPOSITE-ON-SHEET (L-1630) — the raster ladder below is now the
+        // FALLBACK, entered only while the real drawing does not exist yet (no
+        // cached projection, or a projection with no measurable content). It is
+        // deliberately left intact: "the drawing has not been produced yet" and
+        // "the drawing is empty" are different facts and must not both render as
+        // a blank frame [context-data-honesty].
+        if (view && hasComposite) {
+            // Nothing to attach. No preview canvas is registered, so no raster
+            // renderer is subscribed to this viewport's invalidation events.
+        } else if (view) {
             this._previewCanvases.set(vp.id, { viewId: view.id, canvas: previewCanvas });
 
             if (viewTechnicalDrawingCache.has(view.id)) {
@@ -897,10 +1053,12 @@ export class SheetEditorPanel {
                 const dy  = (ev.clientY - this._dragging.startMouseY) / effectiveSf;
                 const newX = Math.max(0, this._dragging.startPosX + dx);
                 const newY = Math.max(0, this._dragging.startPosY - dy);
-                (this.runtime?.bus as any)?.executeCommand('sheet.moveViewport', {
-                    sheetId: sheet.id, viewportId: vp.id,
-                    newPosition: { x: newX, y: newY },
-                });
+                // §SHEET-MOVE-DISPATCH-IS-DEAD (L-1633) — this is the line the
+                // founder's "it doesn't stay in place" was made of. It read
+                // `(this.runtime?.bus as any)?.executeCommand(...)`; the panel is
+                // constructed with no runtime, so the whole expression evaluated
+                // to `undefined` and the drag was purely cosmetic.
+                dispatchMoveViewport(sheet.id, vp.id, { x: newX, y: newY });
                 vpEl.style.cursor = 'grab';
                 this._dragging    = null;
                 document.removeEventListener('mousemove', onMove);

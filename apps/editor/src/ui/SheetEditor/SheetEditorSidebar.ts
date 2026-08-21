@@ -17,7 +17,7 @@ import { UpdateViewportScaleCommand } from '@pryzm/command-registry';
 import { RemoveViewportFromSheetCommand } from '@pryzm/command-registry';
 import { sheetCommentStore } from '@pryzm/core-app-model';
 import type { SheetComment } from '@pryzm/core-app-model';
-import { VIEW_TYPE_ICONS } from './SheetEditorContracts';
+import { VIEW_TYPE_ICONS, VIEW_DRAG_MIME } from './SheetEditorContracts';
 import type { SidebarOpts } from './SheetEditorContracts';
 import { buildLayoutSection, buildDataPanelSection, buildIntentSection, buildRevisionFormEl } from './SheetEditorCommands';
 import DOMPurify from 'dompurify';
@@ -402,7 +402,7 @@ export function buildViewPickerEntry(
     entry.className = 'sh-view-entry' + (isPlaced ? ' sh-view-entry--placed' : '');
     entry.title     = isPlaced
         ? `${view.name} — already on this sheet`
-        : `Click to place ${view.name} on the sheet`;
+        : `Drag onto the sheet to place ${view.name}, or click to auto-place`;
 
     const icon = document.createElement('span');
     icon.className   = 'sh-view-entry-icon';
@@ -423,6 +423,30 @@ export function buildViewPickerEntry(
 
     if (!isPlaced) {
         entry.addEventListener('click', () => opts.addViewToSheet(sheet, view));
+
+        // §SHEET-DROP-WHERE-THE-CURSOR-IS (L-1632) — Mural-style placement.
+        // The click path is deliberately KEPT: dragging is the precise gesture,
+        // clicking is the fast one, and removing the fast one to add the precise
+        // one would be a net withdrawal of capability (C82 §1.1).
+        // `setAttribute`, not the `draggable` IDL property: the attribute is what
+        // the drag-and-drop algorithm and CSS attribute selectors both read, and
+        // it is the form that survives cloning and serialisation.
+        entry.setAttribute('draggable', 'true');
+        entry.addEventListener('dragstart', (e) => {
+            const dt = (e as DragEvent).dataTransfer;
+            if (!dt) return;
+            // A private MIME type is what makes the sheet canvas able to tell a
+            // view drag from any other drag that crosses it (a file drop, a text
+            // selection). `text/plain` is set as well so the drag has a sane
+            // payload if it lands outside the app.
+            dt.setData(VIEW_DRAG_MIME, view.id);
+            dt.setData('text/plain', view.name);
+            dt.effectAllowed = 'copy';
+            entry.classList.add('sh-view-entry--dragging');
+        });
+        entry.addEventListener('dragend', () => {
+            entry.classList.remove('sh-view-entry--dragging');
+        });
     }
 
     return entry;

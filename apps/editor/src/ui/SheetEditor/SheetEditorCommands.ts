@@ -11,6 +11,7 @@ import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import type { SheetDefinition, SheetViewport } from '@pryzm/core-app-model';
 import type { ViewDefinition } from '@pryzm/core-app-model';
 import { AddViewportToSheetCommand } from '@pryzm/command-registry';
+import { MoveViewportCommand } from '@pryzm/command-registry';
 import { RemoveViewportFromSheetCommand } from '@pryzm/command-registry';
 import { UpdateViewportScaleCommand } from '@pryzm/command-registry';
 import { UpdateSheetCommand } from '@pryzm/command-registry';
@@ -29,7 +30,21 @@ import type { DataPanel } from '@pryzm/core-app-model';
 
 // ── Core mutation dispatchers ──────────────────────────────────────────────
 
-export function dispatchAddViewport(sheet: SheetDefinition, view: ViewDefinition): void {
+/**
+ * Place a view on a sheet.
+ *
+ * §SHEET-DROP-WHERE-THE-CURSOR-IS (L-1632) — `position` is now an explicit
+ * argument. Without it the caller had no way to say WHERE, so every placement
+ * landed on a fixed 30 mm cascade off the sheet origin: the founder's
+ * "it works by selecting and being placed automatically somewhere".
+ * Omitting it preserves that cascade, which is still the right behaviour for a
+ * click (there is no cursor position to honour in a click on a list row).
+ */
+export function dispatchAddViewport(
+    sheet:    SheetDefinition,
+    view:     ViewDefinition,
+    position?: { x: number; y: number },
+): void {
     if (!window.__pryzmInitComplete) {
         console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: dispatchAddViewport');
         return;
@@ -44,12 +59,62 @@ export function dispatchAddViewport(sheet: SheetDefinition, view: ViewDefinition
         sheetId:    sheet.id,
         viewportId: `vp-${crypto.randomUUID()}`,
         viewId:     view.id,
-        position:   { x: 50 + offset, y: 100 + offset },
+        position:   position ?? { x: 50 + offset, y: 100 + offset },
         scale:      view.output?.scale ?? 50,
         viewType:   view.viewType,
     });
     mgr.execute(cmd, { source: 'HUMAN_DIRECT' });
-    console.log(`[SheetEditorCommands] Added view "${view.name}" to sheet "${sheet.sheetNumber}"`);
+    console.log(
+        `[SheetEditorCommands] Added view "${view.name}" to sheet "${sheet.sheetNumber}"` +
+        (position ? ` at (${position.x.toFixed(1)}, ${position.y.toFixed(1)})mm` : ' (auto-placed)'),
+    );
+}
+
+/**
+ * Move a placed viewport.
+ *
+ * §SHEET-MOVE-DISPATCH-IS-DEAD (L-1633) — THE ROOT CAUSE of the founder's
+ * "I can move the view but it doesn't stay in place".
+ *
+ * The panel had two `sheet.moveViewport` dispatch sites (drag mouse-up and
+ * arrow-key nudge) and both read `(this.runtime?.bus as any)?.executeCommand(…)`.
+ * `initUI.ts` constructs the panel as `new mod.SheetEditorPanel()` — no runtime
+ * argument — so `this.runtime` is `null`, and BOTH optional chains short-circuited to
+ * `undefined`. No command, no store write, no error, no log: the drag repainted
+ * `style.left/top` locally and the very next canvas rebuild read the unchanged
+ * store and snapped the viewport back.
+ *
+ * That is exactly [committed ≠ reachable]: the verb was routed
+ * (`initBusHandlers.ts` bridges `sheet.moveViewport` → `MoveViewportCommand`),
+ * the command was correct, the store method was correct — and the UI reached
+ * none of it. Optional chaining is what made it silent; a nullish bus should
+ * have been loud.
+ *
+ * This dispatcher is the ONE producer of the move verb for this panel and takes
+ * the same route its working siblings take (`dispatchRemoveViewport`,
+ * `SheetEditorSidebar`'s nudge buttons), which is also where the bus bridge
+ * lands anyway — `sheet.moveViewport`'s handler is `_cmExec(new
+ * MoveViewportCommand(…))`.
+ *
+ * Returns true when the command was dispatched, so callers can tell "moved" from
+ * "silently dropped" — the distinction this defect erased.
+ */
+export function dispatchMoveViewport(
+    sheetId:     string,
+    vpId:        string,
+    newPosition: { x: number; y: number },
+): boolean {
+    if (!window.__pryzmInitComplete) {
+        console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: dispatchMoveViewport');
+        return false;
+    }
+    const mgr = window.commandManager; // TODO(E.5.x): replace with runtime.bus.executeCommand — Phase E.5.x
+    if (!mgr) {
+        console.warn('[SheetEditorCommands] commandManager not available — viewport move dropped');
+        return false;
+    }
+    mgr.execute(new MoveViewportCommand(sheetId, vpId, newPosition), { source: 'HUMAN_DIRECT' });
+    return true;
 }
 
 export function dispatchRemoveViewport(sheetId: string, vpId: string): void {

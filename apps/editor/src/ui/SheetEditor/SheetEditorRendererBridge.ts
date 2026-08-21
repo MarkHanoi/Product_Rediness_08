@@ -17,6 +17,10 @@ import { viewportPreviewRenderer } from '@pryzm/core-app-model';
 import { viewportThumbnailRenderer } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { UpdateViewportScaleCommand } from '@pryzm/command-registry';
+// §SHEET-COMPOSITE-ON-SHEET (L-1630) — THE producer of "a view on a sheet".
+// Deliberately the subpath, not the root barrel: the root drags jsPDF, jszip,
+// pdfjs-dist and web-ifc, and the sheet editor is a lazily-loaded chunk.
+import { composeViewportSvg, type ComposedViewportSvg } from '@pryzm/file-format/sheets';
 import type { VpFocusState, FocusOpts } from './SheetEditorContracts';
 
 // ── SC-3: Grid overlay ────────────────────────────────────────────────────
@@ -36,6 +40,79 @@ export function drawGridOverlay(
     ctx.lineWidth   = 0.5;
     for (let x = 0; x < gc.width;  x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, gc.height); ctx.stroke(); }
     for (let y = 0; y < gc.height; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(gc.width, y); ctx.stroke(); }
+}
+
+// ── §SHEET-COMPOSITE-ON-SHEET (L-1630): the REAL view on the sheet ────────
+
+/** CSS class marking the composed vector drawing inside a sheet viewport. */
+export const COMPOSITE_SVG_CLASS = 'sh-vp-composite';
+
+/**
+ * Compose the real drawing for `vp` — the same composition the PDF/print
+ * exporters consume (C06 §13.3, one producer per surface).
+ *
+ * Thin, deliberate: this exists so the panel never reaches past the composer
+ * into `SVGCompositeRenderer` itself. The moment a second call site starts
+ * assembling its own viewBox, the sheet and the export begin to disagree again —
+ * which is precisely the defect L-1630 closes.
+ */
+export function composeSheetViewport(
+    vp: Pick<SheetViewport, 'viewId'> & { scale?: number },
+): ComposedViewportSvg {
+    return composeViewportSvg({
+        viewId: vp.viewId,
+        scale:  vp.scale ?? 100,
+    });
+}
+
+/**
+ * Mount a composed viewport SVG into `hostEl` as live vector DOM.
+ *
+ * ⚠ VECTOR, NOT A BIGGER BITMAP. The founder's complaint — "the view I place is
+ * NOT the real view … I need the real view, not an image" — is not solved by
+ * raising a thumbnail's pixel count. A 1:100 plan on A0 has to stay crisp under
+ * arbitrary zoom, and only real `<line>` elements do that. So the SVG is parsed
+ * and adopted into the document, never rasterised and never referenced through
+ * an `<img src="data:...">` (which would re-raster at paint time and, being a
+ * replaced element, would also be opaque to selection and hit-testing later).
+ *
+ * Returns false when there is nothing real to show, so the caller can fall back
+ * to the honest placeholder rather than mounting an empty frame.
+ */
+export function mountCompositeViewport(
+    hostEl:   HTMLElement,
+    composed: ComposedViewportSvg,
+): boolean {
+    if (!composed.resolved || !composed.svg) return false;
+
+    let svgEl: SVGSVGElement | null = null;
+    try {
+        const doc = new DOMParser().parseFromString(composed.svg, 'image/svg+xml');
+        if (doc.getElementsByTagName('parsererror').length > 0) return false;
+        const root = doc.documentElement;
+        if (!root || root.nodeName.toLowerCase() !== 'svg') return false;
+        svgEl = document.importNode(root, true) as unknown as SVGSVGElement;
+    } catch (err) {
+        console.warn('[SheetEditorRendererBridge] composite SVG parse failed:', err);
+        return false;
+    }
+
+    if (!svgEl) return false;
+
+    svgEl.classList.add(COMPOSITE_SVG_CLASS);
+    // The composer sizes in paper millimetres and the host box is already the
+    // millimetre box scaled to screen, so the SVG fills it 1:1. `meet` is kept
+    // as the safety net: if the two ever disagree the drawing letterboxes
+    // rather than silently distorting, and a distorted drawing is a wrong
+    // drawing, not a cosmetic defect.
+    svgEl.setAttribute('width',  '100%');
+    svgEl.setAttribute('height', '100%');
+    svgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    svgEl.style.display = 'block';
+
+    hostEl.querySelectorAll(`.${COMPOSITE_SVG_CLASS}`).forEach(el => el.remove());
+    hostEl.appendChild(svgEl);
+    return true;
 }
 
 // ── Background-projection helpers ─────────────────────────────────────────

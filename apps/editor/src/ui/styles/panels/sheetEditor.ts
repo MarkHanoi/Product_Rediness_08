@@ -508,13 +508,42 @@ export const SHEET_EDITOR_STYLES = `
         background:      #f8f9fb;
     }
 
-    /* The <canvas> element that the ViewportPreviewRenderer draws into */
+    /* The <canvas> element that the ViewportPreviewRenderer draws into.
+       §SHEET-COMPOSITE-ON-SHEET (L-1630): this is now the FALLBACK surface,
+       mounted only while no real drawing exists for the view. */
     .sh-viewport-preview {
         display:  block;
         width:    100%;
         height:   100%;
         position: absolute;
         inset:    0;
+    }
+
+    /* §SHEET-COMPOSITE-ON-SHEET (L-1630) — the real, vector drawing.
+       White ground because a technical drawing is ink on paper: the sheet is
+       what is being previewed, not the app's surface colour. */
+    .sh-vp-drawing {
+        position:   absolute;
+        inset:      0;
+        background: #ffffff;
+        overflow:   hidden;
+    }
+    .sh-vp-composite {
+        display: block;
+        width:   100%;
+        height:  100%;
+    }
+
+    /* §SHEET-DROP-WHERE-THE-CURSOR-IS (L-1632) — drag a view onto the paper */
+    .sh-view-entry[draggable="true"] {
+        cursor: grab;
+    }
+    .sh-view-entry--dragging {
+        opacity: 0.45;
+    }
+    .sh-canvas--drop-target {
+        outline:        2px dashed #6600FF;
+        outline-offset: -2px;
     }
 
     /* Footer strip at the bottom of each viewport card */
