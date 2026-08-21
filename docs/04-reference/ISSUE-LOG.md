@@ -25956,3 +25956,284 @@ any file this lane touched.**
    selection gate in this same file.
 
 ---
+
+---
+
+## L-1854, L-1862 … L-1868 — ✅ ROOT CAUSE MEASURED + FIXED: a viewport the founder could not reach, could not delete, could not steer, and could not print — 2026-08-21 (lane SHEET3, commits `89fafc3f`, `a1cdc93c`, `16783ca2`)
+
+Full decision record: **`docs/02-decisions/adrs/ADR-0340-a-sheet-viewport-is-navigable-but-not-selectable.md`**.
+
+The founder, on production `071a7b2c`:
+
+> "I placed a large east elevation that **I was not able to remove because I could not reach the
+> 'x' to close it** — if the user clicks delete it should go away. Then **the 3d is not sound — it
+> is not exactly what I have in the 3d view**. Also **when printing in PDF doesn't render** and I
+> am not able to change the scale. **When I select a view within the sheet I would like to be able
+> to navigate in the view like if I am in the main scene, still being in the sheet / view
+> interface — but now it brings me to the main pryzm view, which is NOT what I want.** […] also
+> **crop the view on demand as I do with the elevations in floor plan**."
+
+**Seven symptoms. TWO of them share one root cause, and one of the seven was not a defect at all.**
+
+---
+
+### L-1854 — ✅ FIXED: a **400 m datum rule** was measured as a **400 m building**
+
+His console read, on every rebuild:
+
+```
+[SheetEditorPanel] Viewport vp-c120c37b-… is 8020×415mm at 1:50
+                   — larger than the usable sheet area.
+```
+
+A0 is **1189 mm** wide. 8020 mm of paper at 1:50 is **401 m of world**, for a building whose own
+`cropRegion` was 8.1 m × 21.7 m. **Nothing in his model is 401 m.**
+
+**The 401 m is `LevelDatumLineBuilder.HALF_EXTENT`, which is 200.** That builder injects one
+horizontal rule per storey spanning ±200 m at the storey elevation, on layer `A-ANNO-LEVL`, and
+his log shows `Injected 7 datum line(s)`. 400 m + 2 × 0.5 m of padding, at 1:50, is **8040 mm** —
+his number, within the width of the façade itself. The vertical arm exists too:
+`SectionGridLineBuilder` does the same on `S-GRID` with `HALF_HEIGHT = 100`, i.e. **200 m
+vertically**; it was invisible only because his project has no grids.
+
+`LevelDatumLineBuilder`'s own comment asserts *"toDrawingSpace naturally clips to the drawing
+extent"*. **It does not — `toDrawingSpace` projects.** That sentence is the whole defect, and it
+had been true-looking for months because nothing measured it.
+
+**⚠ THE BUILDERS ARE NOT WRONG.** A datum rule that runs past the building is what a datum rule
+*is*. `TechnicalDrawingBounds.compute()` was wrong to measure drafting furniture as the subject of
+the drawing. Shrinking `HALF_EXTENT` was **considered and rejected**: it trades one magic number
+for another and is still wrong for any building wider than the guess.
+
+**The fix** discriminates by `userData.layer`, the only channel that survives OBC's
+`toDrawingSpace() → addProjectionLines()` hand-off (measured in `DrawingLayerIdentity.ts`, L-1600).
+A furniture-only drawing now returns `null`, exactly as an empty one does — *"no content"* and
+*"400 m wide"* are different facts.
+
+**It also inverts `compute()`'s two paths.** The primary path was `drawing.viewports` — a camera
+**frustum**, an upper bound on what *could* have been drawn, not a measurement of what *was*, and
+un-filterable by layer. `grep -rn 'viewports.create'` over `apps/ packages/ plugins/` → **0 call
+sites**, so nothing shipped changes; content simply wins if that ever changes.
+
+**REPRODUCED BEFORE FIXING.** The regression fixture prints
+`Viewport vp-1 is 8020×200mm at 1:50` — the founder's number, in a test.
+
+---
+
+### L-1862 — ✅ FIXED: the close control was **seven sheet-widths off-canvas**
+
+`.sh-viewport-remove { position:absolute; top:2px; right:3px }` is correct for a viewport that
+fits and catastrophic for one that does not. With `vpWidth > usableW`, `_buildViewportEl`'s clamp
+pins `posX` to `10 × sf` and the `✕` lands at `10·sf + 8020·sf`, with no scrollbar that reaches it.
+
+**Three guarantees now, in order of robustness:**
+
+1. **`Delete` / `Backspace`** removes the selection, from the canvas AND from the overlay, guarded
+   against `INPUT`/`TEXTAREA`/`SELECT`/`contentEditable` so a backspace in the scale field does not
+   destroy the viewport it is editing. **A key binding has no geometry.**
+2. **`✕ Remove from sheet (Del)`** in the properties panel, always on screen.
+3. The `✕` is pinned back onto the paper when the viewport overflows.
+
+**Only (1) and (2) are unconditional.** (3) is a positional argument, and positional arguments are
+defeated by the next oversized drawing — which is why it is third.
+
+**Also fixed, found on the way:** `_build()` installed document-level key listeners and removed
+them only on the Escape branch, so **every `_refresh()` stacked another copy** and a closed sheet
+still swallowed keystrokes.
+
+---
+
+### L-1863 — ⚠ **REFUTED: the scale dispatch was never broken.** The founder was right; the cause was not
+
+The brief suspected `UpdateViewportScaleCommand` was not reaching the store or the panel was not
+re-composing. **Measured: both work.** The sidebar `<select>` → command → `sheetStore` →
+`sd:sheet-updated` → `_refresh()` chain is intact, and the test that drives it passed **on the
+first run, before any change**.
+
+**What he actually experienced:** his viewport was 8020 mm. Changing 1:50 → 1:100 halves it to
+4010 mm — still three sheet-widths wide, still pinned to the same clamped corner, still with its
+inline scale bar off-canvas. **The scale changed; nothing he could see changed.** That is L-1854,
+wearing a different symptom.
+
+**Kept from this lead:** the panel now reports the **VIEW** and not only the placement — level,
+discipline, detail level, cut plane, view-wide crop state — read-only, because those belong to the
+`ViewDefinition` and editing them from one sheet would silently re-document every other sheet the
+view appears on.
+
+---
+
+### L-1864 — ✅ FIXED: crop existed **everywhere except where a user could ask for one**
+
+L-1840 landed `SheetViewport.crop` (drawing-space metres), `sheetStore.updateViewportCrop`,
+`SetViewportCropCommand` (undoable, refuses degenerate rects) and `ViewportSvgComposer`'s
+`cropWorldM` branch. **Nothing dispatched any of it** — [authored-but-unwired-is-the-bottleneck].
+
+Four numeric fields plus **"⛶ Crop to current view"**, which is a *copy* rather than a conversion:
+the navigated rect and `SheetViewport.crop` are the same four numbers in the same units. Clearing
+all four dispatches `null`, which is a **different operation** from cropping to everything — an
+uncropped viewport reframes itself as the drawing grows.
+
+**No fourth crop concept was invented.** The other three (`ViewDefinition.crop.region`, whose
+`region[0]` carries two incompatible meanings per L-1860; and `spatial.cropRegion`) are untouched.
+
+---
+
+### L-1865 — ✅ FIXED: `ViewportEditController` had **zero construction sites**, and the panel had a private rival
+
+Authored months ago with tests and a barrel export, never constructed anywhere in the repo. Meanwhile
+`SheetEditorPanel` carried `camOffset` / `camZoom` on `VpFocusState` — a second owner of the same
+fact, **discarded on every exit**, so the founder's pan was thrown away the moment he clicked
+another viewport.
+
+The controller now owns it. It stores **drawing metres**; the surface speaks **CSS pixels**; they
+convert by `pxPerWorldM = sf × 1000 / scaleDenom`, which is exact and drawing-independent. Metres
+are the authority because **a crop rectangle and a viewBox are both in metres**.
+
+**Two real bugs found while wiring it:**
+- `attachFocusInteraction` was deferred to the frame scheduler for **no benefit** — it only
+  registers listeners, and every measurement it makes happens inside a handler at event time. The
+  deferral was a window in which an activated viewport ignored the wheel, and it made the behaviour
+  unobservable to any test that does not drive a frame loop. Now synchronous.
+- The wheel handler derived its focal-point pan from the **requested** zoom ratio, not the
+  **granted** one. Parked at a zoom rail, the drawing crawls sideways on every tick for a zoom that
+  never happened. It now asks first and computes from what was granted.
+
+---
+
+### L-1866 — ✅ FIXED: double-click **teleported**, and only for 3D views
+
+Double-click branched on view type: 2D entered focus mode; `3d` / `render` / `walkthrough` called
+`enterEditInPlace()`, which **closes the sheet editor**. That is the exact branch behind *"it brings
+me to the main pryzm view, which is NOT what I want."*
+
+**The distinction that resolves this** (ADR-0340): navigating needs **no** element identity — it is
+a transform on a mounted node. Selecting elements **does**, and the composed SVG genuinely lacks
+it. So double-click activates navigation for every view type, and leaving the sheet is a **named
+button**.
+
+That button is **`activateViewForEditing()`'s first call site.** It was written this morning
+(L-1842) and shipped with **none** — `grep -rn activateViewForEditing` found the definition and
+nothing else — so the defective `enterEditInPlace()` path it was written to replace was still the
+only one running. `enterEditInPlace` called `viewController.activate(viewId)`, and `activate()`
+takes a `ViewMode` (`'3D' | 'Top' | 'Front' | …`), never a ViewDefinition id.
+
+---
+
+### L-1867 — ✅ FIXED: the PDF composed the **right drawing** and put it in the **wrong place**
+
+**⚠ THE LEAD WAS HALF RIGHT, AND THE HALF THAT WAS WRONG MATTERS.** The founder's console line
+`[PdfExportService] bbox-driven viewport for viewId=…` reads as though the PDF computes its own
+frame. **Measured: it does not.** `PdfExportService` **does** call `composeViewportSvg`. L-1630's
+one-producer claim is **TRUE for linework and TRUE for framing**; that log line is stale wording
+left over from the code that preceded it, and has been corrected to say `composed viewport`.
+
+**What is actually forked is the PAGE, not the drawing:**
+
+1. **`SheetViewport.position`: CENTRE vs CORNER.** `PdfExportService` read `position.x - vpW/2`;
+   `SheetEditorPanel` renders `left = position.x`, and its drop handler subtracts half the composed
+   size **precisely so the stored value is a corner**. `SheetDefinitionTypes` sided with the PDF —
+   and with **no writer in the product**. The PDF therefore placed every viewport off by half its
+   own size in both axes. **Corner wins**, because it is what every writer writes; the doc comment
+   was the wrong half and is corrected in place.
+2. **`cropWorldM` was silently dropped** at that call site, so a viewport cropped on the sheet
+   exported **uncropped and at a different size**. One producer, honoured by one of its two
+   consumers — the same divergence L-1630 existed to end.
+
+Both closed by moving the rule into the producer: **`viewportPaperRect()`** is now the one
+definition of where a viewport sits on the paper, and **`composeForPlacement()`** the one
+definition of how it is composed for placement.
+
+**AND `vd-sys-elev-west` at 8020 mm falls out of L-1854 at source** — the PDF's framing comes from
+`composeViewportSvg → TechnicalDrawingBounds.compute`. **One root cause, two symptoms.**
+
+`No TechnicalDrawing for viewId=vd-sys-3d-1` is **correct behaviour** — a 3D view has no vector
+drawing and never will. But the placeholder printed *"View not yet projected"*, which is true of an
+elevation and **false of a 3D view forever**. It now reads *"3D views have no vector drawing"*.
+
+---
+
+### L-1868 — ✅ FIXED: the 3D snapshot presented **exactly like a live frame**
+
+*"the 3d is not sound — it is not exactly what I have in the 3d view."*
+
+L-1843 made a hidden 3D viewport fall back to the last frame captured while the view was genuinely
+visible, which fixed a near-black box. **The fallback said nothing**, so a frame from a camera the
+founder had since orbited away from rendered identically to a live one. That is the same defect
+shape as the alpha-counting blank detector L-1843 removed — *"the renderer drew nothing"* and
+*"the renderer drew something"* having the same value — **one level up** [context-data-honesty].
+
+A capture cannot be made live from L2 `core-app-model` (P2 keeps THREE inside `renderer-three`, and
+re-rendering costs a frame per viewport on a surface nobody is looking at), so the honest move is
+not to hide the staleness but to **date it**: `snapshot · 4 min ago`, drawn into the raster so every
+consumer inherits it. `capturedAt` is a **required** parameter on the paint function, so a future
+third call site cannot default its way into presenting a snapshot as live.
+
+---
+
+### ⭐ STRUCTURAL: wiring one 147-line controller put `plugins/sheets` into the type program for the FIRST TIME
+
+`npx tsc --noEmit --skipLibCheck` gained **nine errors**, four of them in `plugins/plan-view`, in
+files that had **never been compiled**. Nothing in the root `tsconfig.json` include set
+(`src`, `apps/editor/src/{ui,engine,rendering,types}`) had ever imported `@pryzm/plugin-sheets`.
+
+**Root cause:** `view-source.ts` type-imports `sheet-editor-host.ts`, which **value-imports
+`@pryzm/plugin-plan-view`** — precisely what `view-source.ts`'s own header forbids in its first
+paragraph:
+
+> "The `plugins/sheets` package MUST NOT import from `plugins/plan-view` …"
+
+Three files also carried `import type { Disposer } from '@pryzm/plugin-sdk'`, which **the SDK does
+not export**. `EditCamera` and `Disposer` now live in a dependency-free leaf
+(`view-renderer/view-camera.ts`) and the controller has its own package subpath, so consuming it
+costs nothing.
+
+**🔴 NOT FIXED, recorded:** the rest of `plugins/sheets` still reaches `plugins/plan-view`, and
+`plugins/plan-view/src/PlanViewCanvasHost.ts` still imports the non-existent `Disposer`. Those
+surface the moment anything else imports the sheets barrel.
+
+---
+
+### ⚠ WHAT REMAINS UNPROVEN — read this before claiming the sheet works
+
+1. **NOTHING HERE WAS SEEN IN A BROWSER.** Every claim is from `vitest` under **happy-dom**, which
+   has **no layout engine**: `getBoundingClientRect()` returns zeroes. The remove-control geometry
+   is asserted from `style.left` / `style.width` **arithmetic**, not from rendered pixels. Pan and
+   zoom are asserted as a transform string changing, **not** as the drawing visibly moving.
+2. **THE PDF WAS NEVER GENERATED.** `viewportPaperRect` and `composeForPlacement` are pinned by
+   unit tests; `PdfExportService.exportSheet()` was **not executed** — it needs `jsPDF` + `svg2pdf`
+   in a real DOM. **"The PDF now places viewports correctly" is a DERIVATION, not a measurement.**
+   The founder opening one export is the only thing that closes it.
+3. **The `A-ANNO-LEVL` / `S-GRID` exclusion list is a NAMED LIST, not a rule.** A third
+   overspanning builder added later will reintroduce L-1854 in silence. There is no gate asserting
+   that every layer written by a `*LineBuilder` with a `HALF_*` constant is on it.
+4. **ELEMENT SELECTION INSIDE A VIEWPORT IS REFUSED, not deferred.** See ADR-0340. Delivering it
+   needs `SVGCompositeRenderer` to emit per-element groups, which needs the projection pipeline to
+   stop merging buffers — weighed against the performance those merges exist to provide.
+5. **`getVisibleWorldRect()` re-composes the viewport to read its origin.** Cheap today
+   (synchronous string work); on a large drawing, clicking "Crop to current view" pays a full
+   compose. Not measured.
+6. **The px↔metre conversion assumes the composed SVG fills its host box 1:1.** True today because
+   the host is sized from `composed.widthMm × sf`. `preserveAspectRatio="xMidYMid meet"` is the
+   safety net, and if it ever letterboxes, pan will drift relative to the cursor. Not asserted.
+
+### VERIFIED — foreground, actual output
+
+| Command | Result |
+|---|---|
+| `npx tsc --noEmit --skipLibCheck` (`NODE_OPTIONS=--max-old-space-size=6144`) | **0 errors** |
+| `npx vitest run` × 3 sheet specs | **26/26 passed** (9 of them RED before) |
+| `pnpm --filter @pryzm/plugin-sheets test` | **263/263 passed** (28 files) |
+| `pnpm --filter @pryzm/core-app-model exec vitest run src/presentation src/views/__tests__ src/drawing` | **380/380 passed** (45 files) |
+| `pnpm --filter @pryzm/file-format test` | **117/118** — the 2 failing suites are **PRE-EXISTING and unrelated**: `family-round-trip` (`ReferenceError: DOMMatrix is not defined`, from `pdfjs-dist` under Node) and `dxf-parser.adversarial`. Neither imports a file in this diff; the file-format diff is `export/sheets/**` only. |
+
+### 🚀 NEEDS BROWSER VERIFICATION — the founder's five one-line checks
+
+1. Open the sheet with the West Elevation. **The viewport should now fit the page**, and its `✕`
+   should be visible. → proves L-1854.
+2. Click it, press **Delete**. → proves L-1862.
+3. Change the scale in the right-hand panel. **It should visibly resize.** → proves L-1863 was a
+   symptom of L-1854, not its own defect.
+4. **Double-click it, then scroll and drag inside it.** The sheet must stay open and the drawing
+   must pan/zoom within its frame. → proves L-1865 + L-1866.
+5. **Export the PDF.** Viewports should sit where they sit on screen. → the only thing that can
+   close L-1867, which is currently a derivation.
