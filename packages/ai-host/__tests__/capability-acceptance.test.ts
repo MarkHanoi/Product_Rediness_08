@@ -771,8 +771,18 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
   },
   {
     // §GEN-CHAT-APARTMENT (RAC U5b.2, founder P0) — filling the drawn shell.
+    // §RAC-APARTMENT-IN-ROOM (L-1640..L-1644) — the ctx now carries the rooms
+    // snapshot the bridge injects in production, so the per-room phrasings
+    // resolve here the way they resolve live. The gate's family parser reads
+    // only selectionKind/scoped from this object, so the richer ctx is
+    // invisible to it (it has its own rooms fixture in gateCtx).
     id: 'generate-apartment-layout',
-    ctx: {},
+    ctx: {
+      rooms: [
+        { id: 'acc-room-1', name: 'Room 00-001', roomNumber: '00-001', levelId: 'L0', areaM2: 24 },
+        { id: 'acc-room-2', name: 'Room 00-002', roomNumber: '00-002', levelId: 'L0', areaM2: 18 },
+      ],
+    },
     phrasings: [
       'create an apartment with 2 bedrooms and 1 bathroom',
       'create a 3 bedroom apartment',
@@ -785,6 +795,12 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
       'Create 3 bedroom apparment',
       'create an apartment layout',
       'generate a 2 bedroom flat with an open-plan kitchen',
+      // §RAC-APARTMENT-IN-ROOM (rule 19.b) — the founder's SECOND literal,
+      // word order, "+", "opened kitchen" and both place phrases included.
+      'Create an apartment of 3 bedrooms with opened kitchen + living room and 2 en-suite bathrooms on room 00-001 in ground level',
+      'create a 2 bedroom apartment in ground level',
+      'create an apartment in room 001',
+      'create a 3 bedroom apartment with an en-suite in every bedroom',
     ],
   },
 ];
@@ -2283,24 +2299,28 @@ describe('§GEN-CHAT-APARTMENT — "create a 3 bedroom apartment" (the founder P
     expect(r.kind).toBe('commands');
     if (r.kind !== 'commands') return;
     expect(r.commands[0]!.type).toBe('generation.apartment');
-    expect(r.commands[0]!.payload).toEqual({ bedrooms: 3 });
+    // §RAC-APARTMENT-IN-ROOM / L-911 (2026-08-21) — a STATED bedroom count now
+    // rides with lockBedroomCount: the engine may not auto-grow a count the
+    // user spoke (the plate-density round-up and §ENVELOPE-FIT-GROWTH stay on
+    // only for UNSTATED programmes). These pins moved deliberately.
+    expect(r.commands[0]!.payload).toEqual({ bedrooms: 3, lockBedroomCount: true });
   });
 
   it('bedrooms, bathrooms and the programme flags all reach the payload', () => {
     const r = resolveUtterance('make a 3-bedroom apartment with 2 bathrooms', ctxOf());
     expect(r.kind).toBe('commands');
     if (r.kind !== 'commands') return;
-    expect(r.commands[0]!.payload).toEqual({ bedrooms: 3, bathrooms: 2 });
+    expect(r.commands[0]!.payload).toEqual({ bedrooms: 3, bathrooms: 2, lockBedroomCount: true });
 
     const e = resolveUtterance('create a 4 bedroom apartment with an en-suite', ctxOf());
     expect(e.kind).toBe('commands');
     if (e.kind !== 'commands') return;
-    expect(e.commands[0]!.payload).toEqual({ bedrooms: 4, masterEnSuite: true });
+    expect(e.commands[0]!.payload).toEqual({ bedrooms: 4, masterEnSuite: true, lockBedroomCount: true });
 
     const o = resolveUtterance('generate a 2 bedroom flat with an open-plan kitchen', ctxOf());
     expect(o.kind).toBe('commands');
     if (o.kind !== 'commands') return;
-    expect(o.commands[0]!.payload).toEqual({ bedrooms: 2, openPlanKitchenDining: true });
+    expect(o.commands[0]!.payload).toEqual({ bedrooms: 2, openPlanKitchenDining: true, lockBedroomCount: true });
   });
 
   it('the Confirm card says it fills the EXISTING shell — not a new building', () => {
