@@ -19,6 +19,7 @@
     "./views": "./src/views/index.ts",
     "./stores": "./src/stores/index.ts",
     "./schedules": "./src/schedules/index.ts",
+    "./quantities": "./src/quantities/index.ts",
     "./requirements": "./src/requirements/index.ts",
     "./templates": "./src/templates/index.ts",
     "./types": "./src/types/index.ts",

@@ -531,6 +531,24 @@ export type { ScheduleColumn, ScheduleDefinition } from './schedules/ScheduleReg
 export { ScheduleRegistry } from './schedules/ScheduleRegistry.js';
 export { ScheduleExtractor } from './schedules/ScheduleExtractor.js';
 
+// ── quantities/ — the *medición* read-model (lane DATA1, 2026-08-21) ──────────
+// Re-exported from the root barrel so `apps/editor` reaches it the same way it
+// already reaches ScheduleExtractor. The leaf subpath `@pryzm/core-app-model/quantities`
+// is also published for consumers that must avoid the root barrel at module load
+// (MEMORY §SCC: no barrel access at module load).
+export type {
+    QuantityUnit, TakeoffChapterId, TakeoffChapterDef, SecondaryMeasure,
+    TakeoffLine, CoverageState, CoverageRow, TakeoffResult,
+    TakeoffStores, RateEntry, RateBook, CostedLine, CostedTakeoff, CostSummary,
+    UnpricedReason, RateImportResult,
+} from './quantities/index.js';
+export {
+    UNIT_LABEL, TAKEOFF_CHAPTERS,
+    computeTakeoff, defaultTakeoffStores, wallBaselineLength, openingVoidArea,
+    applyRates, chapterSubtotals,
+    takeoffToCsv, costedTakeoffToCsv, rateBookToCsv, parseRateCsv,
+} from './quantities/index.js';
+
 export type {
     RequirementStatus,
     SpatialRequirements,
