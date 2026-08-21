@@ -3,7 +3,7 @@
  *
  * Layer:     L2 — packages/core-app-model
  * Contract:  C66 §1.1 · C84 EI-11 · C03 (read-model; this module MUTATES NOTHING)
- * ADR:       ADR-0344 §MEDICIONES
+ * ADR:       ADR-0350 §MEDICIONES
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * WHAT THIS IS, AND WHAT THE THING IT REPLACES WAS
@@ -863,7 +863,7 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
     { family: 'Foundations',             state: 'NOT_MEASURED', note: 'There is no foundation element family in the model.' },
     { family: 'Structural steel mass',   state: 'NOT_MEASURED', note: 'Columns and beams carry a free-text `material` field with no density, so kg cannot be derived. Requires a material→density table.' },
     { family: 'Reinforcement',           state: 'NOT_MEASURED', note: 'No rebar is modelled; concrete lines carry volume only.' },
-    { family: 'Insulation & membranes',  state: 'NOT_MEASURED', note: 'Wall/floor system-type LAYERS are modelled but are not yet broken out into per-layer m² lines. This is the single largest buildable gap — see ADR-0344 §4.' },
+    { family: 'Insulation & membranes',  state: 'NOT_MEASURED', note: 'Wall/floor system-type LAYERS are modelled but are not yet broken out into per-layer m² lines. This is the single largest buildable gap — see ADR-0350 §4.' },
     { family: 'Painting & decoration',   state: 'NOT_MEASURED', note: 'Partially covered by the room wall-finish line; a true paint take-off needs coat counts and a per-surface preparation spec.' },
     { family: 'Electrical & HVAC',       state: 'NOT_MEASURED', note: 'No electrical or HVAC distribution model exists in PRYZM.' },
     { family: 'Preliminaries & margin',  state: 'NOT_MEASURED', note: 'Site set-up, plant, overheads and profit are estimating inputs, not model quantities.' },

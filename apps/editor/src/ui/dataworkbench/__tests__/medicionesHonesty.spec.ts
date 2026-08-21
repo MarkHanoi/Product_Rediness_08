@@ -185,9 +185,9 @@ describe('4D and 6D — NOT BUILT, said in the product', () => {
 
     it('both name the ADR that records the decision', () => {
         mountTimePanel(panel);
-        expect(panel.textContent ?? '').toContain('ADR-0344');
+        expect(panel.textContent ?? '').toContain('ADR-0350');
         panel.innerHTML = '';
         mountCarbonPanel(panel);
-        expect(panel.textContent ?? '').toContain('ADR-0344');
+        expect(panel.textContent ?? '').toContain('ADR-0350');
     });
 });

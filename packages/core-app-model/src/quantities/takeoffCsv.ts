@@ -2,7 +2,7 @@
  * takeoffCsv — export a *medición* and import a rate book.
  *
  * Layer:    L2 — packages/core-app-model
- * ADR:      ADR-0344 §MEDICIONES
+ * ADR:      ADR-0350 §MEDICIONES
  *
  * The export carries the BASIS and the QUALIFIERS alongside every quantity, and
  * appends the COVERAGE table as a second block. A CSV that leaves the coverage

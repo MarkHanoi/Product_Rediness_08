@@ -1,4 +1,4 @@
-# ADR-0344 — *Mediciones* is the floor 4D, 5D and 6D stand on; two of the three are NOT BUILT, and the product says so
+# ADR-0350 — *Mediciones* is the floor 4D, 5D and 6D stand on; two of the three are NOT BUILT, and the product says so
 
 - **Status:** Accepted
 - **Date:** 2026-08-21
@@ -17,6 +17,11 @@
   same code), C86 §10.1 PR-1 (`openingOutline` is THE one outline producer), C03 (read-model, no
   mutation), C79 §5.2.0 / C71 §4.4 (absent ≠ empty), P6, P8.
 - **Issue-log:** L-2000 … L-2007.
+- **⚠ Numbering:** this ADR was drafted as 0343, renumbered to 0344 when the Analysis lane minted
+  `ADR-0343`, and renumbered again to **0350** when a third lane minted `ADR-0344` inside the same
+  hour. `ls adrs/ | sed …| uniq -d` shows **seven pre-existing duplicate ADR numbers** (0014, 0069,
+  0073, 0075, 0098, 0110, 0117) — "take the next number" does not survive a live fleet, and this
+  file is the eighth near-miss. **0350 was chosen with deliberate headroom, not sequentially.**
 - **Related:** **ADR-0343** (Analysis surface / composable widget model, a different lane, same
   day) records **L-2133** — the same "the tab called Quantities computes no quantity" finding,
   reached independently. That row was written while this lane's fix was in the working tree and
