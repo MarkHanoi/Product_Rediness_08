@@ -268,6 +268,51 @@ export function finishRefCandidates(ref: string): ResolvedFinish[] {
 }
 
 /**
+ * §FIX-LOOSE-ALIAS-DROPS-A-CATALOGUE-WORD (L-1880, lane RAC1, 2026-08-21) — every
+ * word the MASTER's own labels contain, derived once.
+ *
+ * ⭐ MEASURED, and it is the founder's sentence: he typed *"finish to wooden
+ * parquet"*. `finishRefCandidates('wooden parquet')` is **0** — no label contains
+ * "wooden" — so the phrase fell through to the loose alias arm, where
+ * `n.includes('wood')` is true for the `wood-oak` group and NOTHING else matched.
+ *
+ *     resolveFinishRef('wooden parquet')  ->  'wood-oak'      (measured, before)
+ *
+ * He asked for PARQUET and would have been given plain flat oak, reported as a
+ * success. That is §L960-WOOD-IS-A-SURFACE one notch milder: not a wrong KIND of
+ * product this time, but a SILENT NARROWING (C84 EI-2) of the one word that
+ * carried his whole ask. The catalogue holds thirteen rows whose label says
+ * "Parquet"; the answer given named none of them.
+ *
+ * ⛔ THE FIX IS NOT TO ADD 'wooden' AS AN ALIAS. That is the remember-don't-derive
+ * defect this file's own header convicts. The rule is structural: a LOOSE match
+ * may not ignore a word the CATALOGUE KNOWS. If the user said a word that appears
+ * in real material labels and the row we landed on carries it in neither its
+ * aliases nor its label, we matched on a fragment and dropped the ask — which is
+ * a question, never an answer.
+ */
+const CATALOGUE_WORDS: ReadonlySet<string> = new Set(
+  MATERIAL_CATALOG.flatMap((m) => tokens(m.label)),
+);
+
+/**
+ * Every catalogue word the user said that a candidate row does NOT account for.
+ *
+ * Empty ⇒ the row explains every catalogue-known word in the request. Non-empty
+ * ⇒ the match silently dropped part of the ask.
+ */
+function droppedCatalogueWords(
+  ref: string,
+  entry: { readonly aliases: readonly string[]; readonly finish: ResolvedFinish },
+): string[] {
+  const covered = new Set<string>([
+    ...tokens(entry.finish.name),
+    ...entry.aliases.flatMap((a) => tokens(a)),
+  ]);
+  return tokens(ref).filter((w) => CATALOGUE_WORDS.has(w) && !covered.has(w));
+}
+
+/**
  * Resolve a finish reference ("plaster", "limewash") to the library values.
  * Exact alias first, then unique-substring (ambiguity ⇒ null, never a
  * coin-flip — same ruling as resolveCatalogueRef). Returns null on a miss;
@@ -312,7 +357,13 @@ export function resolveFinishRef(ref: string): ResolvedFinish | null {
   // narrows the coin-flip rather than removing vocabulary.
   const visible = partial.filter((e) => !CONCEALED_CATEGORIES.has(e.category));
   const pool = visible.length > 0 ? visible : partial;
-  return pool.length === 1 ? pool[0]!.finish : null;
+  if (pool.length !== 1) return null;
+  // §FIX-LOOSE-ALIAS-DROPS-A-CATALOGUE-WORD (L-1880) — the loose arm matched on a
+  // FRAGMENT of what was asked for. "wooden parquet" landed on `wood-oak` through
+  // the alias 'wood' while dropping 'parquet', a word thirteen master labels carry.
+  // A single survivor is only an answer when it accounts for the whole ask.
+  if (droppedCatalogueWords(n, pool[0]!).length > 0) return null;
+  return pool[0]!.finish;
 }
 
 /** Canonical names for refusal copy (first alias of each group). */
@@ -345,6 +396,32 @@ export function finishRefusalCopy(ref: string | null): string {
       `${candidates.map((c) => c.name).join(', ')}. ` +
       `Say which one; nothing was changed.`
     );
+  }
+  // §FIX-LOOSE-ALIAS-DROPS-A-CATALOGUE-WORD (L-1880) — TEACH FROM THE WORD THAT
+  // DID LAND, rather than from a generic list of eight nicknames.
+  //
+  // The founder's *"wooden parquet"* matches NO label as a whole phrase, so the
+  // clause above cannot fire and the old copy fell through to "I don't know the
+  // finish …" followed by plaster, plasterboard, gypsum … — none of which is what
+  // he asked for, while the catalogue holds thirteen rows whose label literally
+  // says Parquet. A phrase the catalogue cannot match is still usually a phrase
+  // ONE of whose words it knows perfectly well; naming those rows is the
+  // difference between a refusal that teaches the vocabulary and one that hides
+  // it (U8.3, §CONTEXT-DATA-HONESTY).
+  if (candidates.length === 0) {
+    const perWord = tokens(ref)
+      .map((w) => ({ word: w, hits: finishRefCandidates(w) }))
+      .filter((r) => r.hits.length > 0)
+      .sort((a, b) => a.hits.length - b.hits.length)[0];
+    if (perWord !== undefined) {
+      const shown = perWord.hits.slice(0, 8).map((c) => c.name).join(', ');
+      const more = perWord.hits.length > 8 ? `, and ${perWord.hits.length - 8} more` : '';
+      return (
+        `I don't have a material called "${ref}". "${perWord.word}" names ` +
+        `${perWord.hits.length} of my ${total} materials — ${shown}${more}. ` +
+        `Say one of those exactly; nothing was changed.`
+      );
+    }
   }
   return (
     `I don't know the finish "${ref}". I know ${total} materials, including ` +

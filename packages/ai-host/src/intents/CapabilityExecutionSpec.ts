@@ -129,6 +129,11 @@ export type SpecDrivenIntentId =
   // and moves wall.thickness; this changes appearance only and never moves
   // the wall. Both remain correct for their own ask.
   | 'set-wall-side-finish'
+  // §FEAT-FLOOR-SURFACE-FINISH (L-1881) — the founder's "finish to wooden
+  // parquet". The FLOOR twin of 'set-wall-side-finish', and a separate spec
+  // rather than a shared one because a floor has no interior/exterior SIDE —
+  // that axis is the wall spec's whole organising principle.
+  | 'set-floor-finish'
   // §FEAT-CHAT-ROOM-OCCUPANCY — the founder's "a bathroom in room 001". The
   // FIRST fan-out spec (`fanOutPerId`): the vocabulary and the scope stage are
   // the template's, but the bus verb it drives is singular, so see that flag's
@@ -577,6 +582,72 @@ export const EXECUTION_SPECS: SpecTable = {
     },
     // NOT destructive — one undo entry, deletes nothing, moves nothing, and the
     // command reports "Set the … finish on N of M walls — K skipped".
+    destructive: false,
+  },
+
+  /**
+   * §FEAT-FLOOR-SURFACE-FINISH (L-1881) — "make all floors oak chevron" /
+   * "make the living room floor walnut herringbone" / (with a floor selected)
+   * "finish to wooden parquet".
+   *
+   * ONE finish table (`finishRef.ts`, shared with both wall grammars) — unknown
+   * names refuse by LISTING real options, never by guessing
+   * (§CONTEXT-DATA-HONESTY). Ambiguity is a QUESTION: "parquet" names thirteen
+   * real materials and the refusal names them, which is how the founder learns
+   * the catalogue instead of discovering next week that his building is the
+   * wrong colour.
+   *
+   * ⛔ The bus verb is `floor.setFinishBatch`, NOT `floor.setMaterial`. That one
+   * is a declared DEAD VERB (`plugins/floor/src/handlers/SetFloorMaterial.ts`
+   * refuses at `canExecute` — it writes a detached plugin DTO store nothing
+   * renders, exports or persists). Routing here would have reported success over
+   * a model nothing had touched.
+   *
+   * `spatialKinds` is `['level','room']`: a floor finish has no facade
+   * orientation any grammar here can produce, so the orientation arm is
+   * declined rather than silently resolved to the wrong ids.
+   */
+  'set-floor-finish': {
+    elementKind: 'floor',
+    busCommand: 'floor.setFinishBatch',
+    idsField: 'floorIds',
+    noSelectionReason:
+      'No floors are selected — select a floor, or say "make all floors oak chevron".',
+    mismatchPrefix: 'Floor finishes apply to floor finishes',
+    suggestions: [
+      'make all floors oak chevron',
+      'make the living room floor walnut herringbone',
+    ],
+    spatialAbility: 'change all floors, the floors on a level, or the floors in a room',
+    spatialKinds: ['level', 'room'],
+    resolveValue: (si) => {
+      // ONE refusal copy, stating the REAL vocabulary size and naming the
+      // candidates when the words matched several — or when they matched none as
+      // a phrase but one of the WORDS names real rows, which is exactly the
+      // founder's "wooden parquet" (L-1880).
+      const finish = si.finishRef === null ? null : resolveFinishRef(si.finishRef);
+      if (finish === null) {
+        return {
+          refusal: {
+            reason: finishRefusalCopy(si.finishRef),
+            suggestions: ['make all floors oak chevron'],
+          },
+        };
+      }
+      return {
+        payload: {
+          finish: {
+            materialId: finish.materialId,
+            materialColor: finish.materialColor,
+            materialName: finish.name,
+          },
+        },
+        summary: (scopeLabel, notesTail) =>
+          `Set the finish of ${scopeLabel} to ${finish.name}${notesTail}`,
+      };
+    },
+    // NOT destructive — one undo entry, deletes nothing, moves nothing, and the
+    // command reports "Set the finish … on N of M floors — K skipped".
     destructive: false,
   },
 

@@ -56,6 +56,10 @@ export { resolveCflOffsetAt } from './CeilingTypes.js';
 export {
     FLOOR_DEFAULTS, FLOOR_LAYER_COLORS, resolveFloorColor, resolveLayerColor,
     hexToRGB, hexToThreeColor, getPreviewStyle, getPlanFillStyle, floorColorCacheKey,
+    // §FEAT-FLOOR-SURFACE-FINISH (L-1882) — the ONE sentence describing what a
+    // floor finish can and cannot show in 3-D. Exported so the COMMAND that sets
+    // a finish and the BUILDER that draws one read the same words (C84 EI-8).
+    describeFloorFinishRenderLimit,
 } from './FloorColourSystem.js';
 
 export type { ValidationResult as FloorValidationResult, BoundingBox2D as FloorBoundingBox2D } from './FloorPolygonUtils.js';

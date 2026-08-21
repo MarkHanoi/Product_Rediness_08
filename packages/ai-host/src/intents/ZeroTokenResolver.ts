@@ -160,9 +160,12 @@ import {
 import { exampleColorNames, resolveColorRef } from './colorRef.js';
 // resolveFinishRef is the GRAMMAR's finish recognizer (word-window scan);
 // the refusal copy (exampleFinishNames) moved into CapabilityExecutionSpec.
-import { resolveFinishRef } from './finishRef.js';
+import { finishRefCandidates, resolveFinishRef } from './finishRef.js';
 // §FEAT-WALL-SIDE-FINISH — the per-side finish grammar, in its own pure module.
 import { parseWallSideFinishIntent, LAYER_NOUN, type WallSideFinishIntent } from './WallSideFinishIntent';
+// §FEAT-FLOOR-SURFACE-FINISH (L-1881) — the FLOOR twin, its own grammar for the
+// reason recorded in that file: a floor has no interior/exterior side.
+import { parseFloorFinishIntent, type FloorFinishIntent } from './FloorFinishIntent';
 import {
   isScopeError,
   type Compass4,
@@ -773,6 +776,14 @@ export type SemanticIntent =
    * because this union is spelled out literally (same as the dimension family).
    */
   | WallSideFinishIntent
+  /**
+   * §FEAT-FLOOR-SURFACE-FINISH (L-1881) — the founder's "finish to wooden
+   * parquet" (2026-08-21), which the product answered *"Floor surface finish
+   * isn't connected to chat yet"*. That refusal was honest; this is the route.
+   * Declared in FloorFinishIntent.ts and re-stated here only because this union
+   * is spelled out literally.
+   */
+  | FloorFinishIntent
   /**
    * §FEAT-WALL-COLOR-BATCH (ADR-0314) — "make all walls white".
    *
@@ -4212,6 +4223,20 @@ const matchAddWallLayer: Matcher = (text, ctx) => parseAddWallLayerIntent(text, 
 const matchWallSideFinish: Matcher = (text, ctx) =>
   parseWallSideFinishIntent(text, (r) => resolveFinishRef(r) !== null, ctx?.resolveWallSystemType, ctx);
 
+// §FEAT-FLOOR-SURFACE-FINISH (L-1881) — the floor twin. TWO predicates are
+// injected, and they are not the same question: `resolvesFinish` answers "is this
+// one material?", `namesFinish` answers "does the catalogue know this word at
+// all?". "parquet" is FALSE for the first (thirteen rows — an ambiguity is a
+// refusal, never a pick) and TRUE for the second, and it is the second that turns
+// the founder's word into a refusal LISTING the thirteen instead of a generic miss.
+const matchFloorFinish: Matcher = (text, ctx) =>
+  parseFloorFinishIntent(
+    text,
+    (r) => resolveFinishRef(r) !== null,
+    (r) => finishRefCandidates(r).length > 0,
+    ctx,
+  );
+
 // §FEAT-WINDOW-PARAMETRIC-CREATE (ADR-0315, founder ask #3) — "create a window
 // in the middle of every wall segment" / "create 2 windows in all the wall
 // segments" / "create a 1x2m window every 3 meters in the walls on the ground
@@ -4769,6 +4794,19 @@ const MATCHERS: readonly Matcher[] = [
   // to another is not a fix; the two owners of the word must be neighbours.
   matchAddWallLayer,
   matchWallSideFinish,
+  // §FEAT-FLOOR-SURFACE-FINISH (L-1881) — BESIDE the wall finish grammar, and
+  // BEFORE `matchMoveToLevel` / the catalogue families, for the same reason the
+  // wall pair sits here: "change all floors to oak chevron" carries a storey noun
+  // and a "to X" tail, which the type/level grammars downstream would read as a
+  // TYPE or a LEVEL reference and refuse with the wrong catalogue.
+  //
+  // ⛔ Safe in the other direction BY CONSTRUCTION, not by luck. This parser
+  // claims only a sentence that NAMES A MATERIAL the catalogue knows, so
+  // "finish this floor" (finish-apartment-chain, which owns the whole
+  // generate→furnish→light chain) and "change this floor to level 1"
+  // (move-to-level) are never claimed. Both are pinned as misses in
+  // floor-finish.test.ts.
+  matchFloorFinish,
   matchWallType,
   // Window types, same guards as wall types ("make all windows 1m wide" never
   // claimed); the word "windows"/"window type" keeps it off the wall grammars.

@@ -94,6 +94,9 @@ export * from './floors/RemoveFloorCommand';
 export * from './floors/UpdateFloorBoundaryCommand';
 export * from './floors/UpdateFloorCommand';
 export * from './floors/UpdateFloorLayersCommand';
+// §FEAT-FLOOR-SURFACE-FINISH (L-1881) — the chat-reachable floor finish route.
+export * from './floors/SetFloorFinishCommand';
+export * from './floors/floorFinishPattern';
 
 // ─── Furniture ────────────────────────────────────────────────────────────
 export * from './furniture/CreateAIElementCommand';

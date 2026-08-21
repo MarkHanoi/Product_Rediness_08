@@ -106,6 +106,46 @@ export function resolveFloorColor(
 }
 
 /**
+ * §FEAT-FLOOR-SURFACE-FINISH (L-1882) — THE ONE SENTENCE that says what a floor
+ * finish can and cannot show in the 3-D view.
+ *
+ * ⭐ MEASURED 2026-08-21 (lane RAC1), not inferred. Three independent facts stack,
+ * and each one on its own is sufficient:
+ *
+ *  1. **`FloorPanelBuilder` binds no texture maps at all.** `applyMaterialMaps()`
+ *     — the ONE adapter that attaches a `MaterialRecord.maps` set to a THREE
+ *     material — is called by `SlabFragmentBuilder`, `RoofFragmentBuilder`,
+ *     `WallFragmentBuilder` and `CurtainWallBuilder`. It is called by NO floor
+ *     path. The floor's whole material channel is `resolveFloorColor()` above,
+ *     which returns a hex.
+ *  2. **The 24 `procedural:` rows are switched OFF by default.**
+ *     `isProceduralTextureGenerationEnabled()` (MaterialResolver.ts) reads
+ *     `globalThis.__pryzmProceduralTexturesV1` and returns FALSE unless a session
+ *     sets it — §PROCEDURAL-COST (L-1820) rolled runtime generation back because
+ *     one pattern costs 150–830 ms of BLOCKED main thread.
+ *  3. **The 16 file-backed rows have no published assets.** They cite
+ *     `/items/textures/<id>/color.webp`; `public/items/textures/` DOES NOT EXIST
+ *     on disk, and `server.js:1774` serves an explicit 404 JSON for any `/items/*`
+ *     path it cannot find.
+ *
+ * So the honest statement is not "textures are coming" and it is certainly not
+ * silence. A floor finish today is a COLOUR plus a plank/tile GRID, both of which
+ * are real and both of which the user will see — and the pattern the material's
+ * own maps describe is not among them.
+ *
+ * ⛔ This is said in the SAME SENTENCE as "done", never as a separate note a UI
+ * may drop — the §L960-STEP3 ruling, which exists because a chat once announced a
+ * change the drawing did not carry.
+ */
+export function describeFloorFinishRenderLimit(): string {
+  return (
+    'the 3-D view paints a floor finish as its material COLOUR plus a plank/tile ' +
+    "grid — it does not bind the material's texture maps (FloorPanelBuilder has no " +
+    'map binding), so the photographic or procedural pattern itself will not appear'
+  );
+}
+
+/**
  * Returns the colour for a specific layer index.
  * Prioritises layer.materialColor → function default.
  */

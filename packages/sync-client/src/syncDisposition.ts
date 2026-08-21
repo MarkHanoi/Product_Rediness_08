@@ -233,6 +233,19 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
     kind: 'not-synced',
     reason: 'SEAM: same late-bound `wallIds: "all"` subject as wall.updateColorBatch.',
   },
+  // §FEAT-FLOOR-SURFACE-FINISH (L-1881) — the floor twin of wall.setSideFinishBatch,
+  // and it is not-synced for the IDENTICAL reason, stated in its own words rather
+  // than by reference: the subject is `floorIds: string[] | 'all'`, resolved INSIDE
+  // SetFloorFinishBatchCommand from `floorStore.getAll()`. Replicating the literal
+  // string "all" would mean a DIFFERENT set of floors on the receiving document,
+  // and enumerating it here would require an L3 adapter to read a store.
+  'floor.setFinishBatch': {
+    kind: 'not-synced',
+    reason:
+      'SEAM: late-bound `floorIds: "all"` subject, resolved inside ' +
+      'SetFloorFinishBatchCommand. Needs the handler to surface affectedElementIds ' +
+      'on the command record — plugins/floor handler change.',
+  },
   // §FEAT-BULK-DIMENSIONS (L-949) — "make all windows 2 meters height".
   // A DIFFERENT reason from its siblings, and it must not be conflated with
   // theirs: this verb's subject is ALWAYS an explicit `elementIds: string[]`
