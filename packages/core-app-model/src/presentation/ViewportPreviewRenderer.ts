@@ -98,7 +98,7 @@ class ViewportPreviewRenderer {
     private _last3dCapture: HTMLCanvasElement | null = null;
 
     /**
-     * §SHEET-3D-SNAPSHOT-IS-DATED (L-1868) — when `_last3dCapture` was taken,
+     * §SHEET-3D-SNAPSHOT-IS-DATED (L-1875) — when `_last3dCapture` was taken,
      * as `Date.now()`. `null` when there has never been one.
      *
      * The founder, 2026-08-21: *"the 3d is not sound — it is not exactly what I
@@ -320,7 +320,7 @@ class ViewportPreviewRenderer {
 
         // The live surface is unusable or blank. Fall back to the most recent
         // frame captured while it WAS usable, if we have one — and SAY that it
-        // is a snapshot, with its age. §SHEET-3D-SNAPSHOT-IS-DATED (L-1868).
+        // is a snapshot, with its age. §SHEET-3D-SNAPSHOT-IS-DATED (L-1875).
         const cached = this._last3dCapture;
         if (cached && cached.width > 0 && cached.height > 0) {
             this._paint3DCapture(ctx, viewDef, cached, w, h, this._last3dCaptureAt);
@@ -416,7 +416,7 @@ class ViewportPreviewRenderer {
     }
 
     /**
-     * §SHEET-3D-SNAPSHOT-IS-DATED (L-1868) — stamp the frame as a snapshot and
+     * §SHEET-3D-SNAPSHOT-IS-DATED (L-1875) — stamp the frame as a snapshot and
      * say how old it is.
      *
      * Age, not a wall-clock time, because the question the founder is actually

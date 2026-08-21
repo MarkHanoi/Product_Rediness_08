@@ -25959,7 +25959,7 @@ any file this lane touched.**
 
 ---
 
-## L-1854, L-1862 … L-1868 — ✅ ROOT CAUSE MEASURED + FIXED: a viewport the founder could not reach, could not delete, could not steer, and could not print — 2026-08-21 (lane SHEET3, commits `89fafc3f`, `a1cdc93c`, `16783ca2`)
+## L-1854, L-1862 … L-1866, L-1874, L-1875 — ✅ ROOT CAUSE MEASURED + FIXED: a viewport the founder could not reach, could not delete, could not steer, and could not print — 2026-08-21 (lane SHEET3, commits `89fafc3f`, `a1cdc93c`, `16783ca2`)
 
 Full decision record: **`docs/02-decisions/adrs/ADR-0340-a-sheet-viewport-is-navigable-but-not-selectable.md`**.
 
@@ -25974,6 +25974,21 @@ The founder, on production `071a7b2c`:
 > **crop the view on demand as I do with the elevations in floor plan**."
 
 **Seven symptoms. TWO of them share one root cause, and one of the seven was not a defect at all.**
+
+> ⚠ **NUMBERING NOTE — the same collision the ELEV1 block records, in the other direction.**
+> This lane's last two entries were authored as **L-1867** and **L-1868**, and commits
+> `16783ca2` and `36fb8f73` still say so in their subject lines. Lane **ELEV1 had already taken
+> both** — L-1867 for the superseded-projection leak (`78750bbb`) and L-1868…L-1869 for the
+> level-datum drag (`a4571e7e`) — so they were renumbered to **L-1874** and **L-1875** rather
+> than leave two entries sharing one id. **The commit subjects are the stale half; this block is
+> the id.** L-1862…L-1866 are unaffected.
+>
+> ⭐ Third recurrence of one shape in one session (SHEETS/ELEV1 at L-1854, ELEV1/SHEET3 here).
+> Concurrent lanes pick the next free number by reading a file that another lane is appending to
+> at the same moment, so *"the next free number"* is **not a readable fact** — it is a race.
+> Nothing allocates ids; that is the gap, not the discipline.
+
+
 
 ---
 
@@ -26119,7 +26134,7 @@ takes a `ViewMode` (`'3D' | 'Top' | 'Front' | …`), never a ViewDefinition id.
 
 ---
 
-### L-1867 — ✅ FIXED: the PDF composed the **right drawing** and put it in the **wrong place**
+### L-1874 — ✅ FIXED: the PDF composed the **right drawing** and put it in the **wrong place**
 
 **⚠ THE LEAD WAS HALF RIGHT, AND THE HALF THAT WAS WRONG MATTERS.** The founder's console line
 `[PdfExportService] bbox-driven viewport for viewId=…` reads as though the PDF computes its own
@@ -26152,7 +26167,7 @@ elevation and **false of a 3D view forever**. It now reads *"3D views have no ve
 
 ---
 
-### L-1868 — ✅ FIXED: the 3D snapshot presented **exactly like a live frame**
+### L-1875 — ✅ FIXED: the 3D snapshot presented **exactly like a live frame**
 
 *"the 3d is not sound — it is not exactly what I have in the 3d view."*
 
@@ -26236,4 +26251,168 @@ surface the moment anything else imports the sheets barrel.
 4. **Double-click it, then scroll and drag inside it.** The sheet must stay open and the drawing
    must pan/zoom within its frame. → proves L-1865 + L-1866.
 5. **Export the PDF.** Viewports should sit where they sit on screen. → the only thing that can
-   close L-1867, which is currently a derivation.
+   close L-1874, which is currently a derivation.
+
+### L-1880 — ⭐ `§UNDO-HISTORY-DROPDOWN` · the founder asked for one feature and it is two products
+
+> "Could do undo and redo have a mini arrow below the icon - and be able to see exactly what was
+> done and be able to undo and redo a specific thing in time? Review and check - architecturally
+> sound task." — 2026-08-21
+
+**"Undo a specific thing in time" has two readings, and the whole task turns on which one ships:**
+
+| | Meaning | Verdict |
+|---|---|---|
+| **(A)** Picking the 5th row undoes rows 1–5 | Revit / AutoCAD / every shipped CAD history palette | ⭐ **SHIPPED** |
+| **(B)** Undo row 3, KEEP rows 4 and 5 | selective / out-of-order undo | 🔴 **REFUSED** |
+
+**(B) is not "not done yet" — it is UNSOUND in this command model, on three independent
+mechanisms read out of the code, not assumed:**
+
+1. **The ring-buffer inverse is a positional ASSIGNMENT.** `PatchPair.inverse` carries literal
+   values captured at commit time. Replaying entry 3's inverse after 4 and 5 wrote the same path
+   **overwrites 4 and 5 with a value from before they existed**.
+2. **The legacy half is a WHOLE-STORE SNAPSHOT** (`createSnapshot()`, scoped to `affectedStores`).
+   Out of order it discards *every* later edit to *every* element in those stores.
+3. **Hosted elements make it undefined, not merely wrong.** Move a wall → host a door on it →
+   selectively un-move the wall: the door's host no longer exists where its record was written.
+   C03 §4.6 U-9 exists because a command's effects reach elements it does not name.
+
+**The refusal is VISIBLE, not implied by silence** — this is the part that would have been the
+real defect. The popover header says it in words; hovering row k marks rows 0…k so the scope is
+seen **before** the click; the tooltip reads *"Undo 5 steps — back to just before «Create wall»"*,
+never *"Undo «Create wall»"*. A single-row highlight would *look* like (B), which is why the
+highlight is a range. The header sentence is asserted by a test, so removing it fails a build
+rather than quietly re-implying a capability that would corrupt a model.
+
+Full reasoning + the ADR-0251 exit condition: **ADR-0341**.
+
+---
+
+### L-1881 — ⭐ REFUTED: "the undo stacks are private with no public read accessor" — half wrong, and the wrong half is a P6 hole
+
+The lane brief said `CommandManagerImpl`'s `history` / `redoStack` are *"private with no public
+read accessor, which is exactly why no UI can show them"*.
+
+**Measured: `getHistory(): HistoryEntry[]` EXISTS** (`CommandManagerImpl.ts:908`, pre-change) and
+returns `[...this.history]` — a fresh array holding **the same live `HistoryEntry` objects**, i.e.
+the live `Command` instances. A caller that takes one can call `.execute(ctx)` / `.undo(ctx)`
+**directly, out of band, with no dispatcher, no snapshot and no history bookkeeping.** That is a
+mutation path into model state that bypasses the command dispatcher entirely (**P6**), available
+to whoever asks.
+
+So the problem was never *"there is no accessor"*. It was **"the accessor that exists must never be
+given to a UI"** — which is a stronger reason to build a projection, not a weaker one. `redoStack`
+genuinely had nothing.
+
+**FIX** — both stacks now expose frozen, value-free views, and the two safety properties are
+ASSERTED, not assumed:
+- `RingBufferUndoStack.listEntries()` → scalars + `opPaths` (JSON Pointer strings, **no values**).
+  The gate serialises a row and asserts the payload marker is absent.
+- `CommandManager.getUndoHistoryView()` / `getRedoHistoryView()` → scalars only. The gate asserts
+  `row.execute` / `row.undo` are `undefined` **and contrasts it with `getHistory()[0].command.undo`,
+  which is still a function** — so the difference between the two accessors is pinned, not
+  described.
+
+`getHistory()` is left in place (it has non-UI callers) and is now documented as *not* the
+accessor a UI may use. 🔴 **Its remaining callers were not audited.**
+
+---
+
+### L-1882 — ⭐ a lookup table would have been a partial function; the labeller is a TRANSFORM
+
+Commands had **no human-readable name**: `packages/command-registry/src/types.ts` carried no
+`description` / `label` / `displayName`, only `CommandType` (`UPDATE_VIEWPORT_SCALE`,
+`SET_VIEW_CROP`, `MOVE_VIEWPORT`). A dropdown reading `UPDATE_VIEWPORT_SCALE` is not the feature
+that was asked for.
+
+**A UI-side lookup table was rejected on one property: it is a PARTIAL function.** Every command
+authored after the table is written falls through to the raw enum, and **nothing fails** — the
+dropdown degrades quietly, forever. That is the same shape as a gate that classifies by NAME
+(CLAUDE.md P4's `commandManager` finding), and the same reason
+`check-contract-index-equivalence` compares SETS rather than a count.
+
+**FIX — two sources, strict priority, total in combination:**
+1. `Command.describe?(): string` — **OPTIONAL**, new (C16 **CA-22**). The author states it in the
+   file that holds the payload; only a command can say *"Set wall height to 3.2 m"*. Optional
+   because a required member means editing ~200 command classes in one unreviewable commit.
+2. `describeCommandToken(token)` — a total transform over the token, used when (1) is absent
+   (which is **every command today**). `wall.create` → *Create wall* · `element.updateParameters`
+   → *Update element parameters* · `UPDATE_VIEWPORT_SCALE` → *Update viewport scale* ·
+   `quantum.entangleFoo` (never seen) → *Entangle quantum foo*.
+
+The noun goes **after the leading verb word**, not appended — appending gives "Update parameters
+element", which reads as machine output. `PatchPair` also gained an optional `commandType` stamped
+from `record.type`, which the bus already had in hand two lines above the push and dropped on the
+floor: without it a ring-buffer row could only ever say *"wall"*, a store key. **Label data only —
+nothing on the undo path reads it.**
+
+---
+
+### L-1883 — one row = one `performUndo()`, and the jump reports what it ACTUALLY did
+
+The list merges BOTH stacks with **the same predicates `performUndo` routes by** — U-10
+chronological order, U-8 twin collapse by `gestureId` + `targetIds ⊆ ringIds`, and
+absence-is-not-membership (**wall-clock proximity is NOT used**; C03 §4.6 U-10's amendment forbids
+it). A dual-dispatch twin is ONE row. §L-874 structural cascades are not separate rows — they
+revert with their gesture, so the row names the count instead (*"+2 related changes"*).
+
+That equivalence is the contract: **"jump to row k" is "press Ctrl+Z k+1 times"**, through THE
+single unified path (C03 §4.6 U-5 / P6). There is no second undo algorithm, and a spy assertion
+fails if one ever appears.
+
+**`undoThrough` does NOT trust the projection.** It stops at the first outcome that is not
+`'undone'` and returns `completed`, not `requested`. `performUndo` returns `'stranded'` for an
+entry whose stores have no adapter — a real state here, enumerated in `UNMAPPED_BUS_STORE_KEYS`
+(`structural`, `dimension`, `section`, `selection`, `sheet`, `schedule`, `view`, `active-view`).
+The HUD surfaces the shortfall: *"2 of 5 steps undone — stopped: no applyPatch adapter for
+store(s) [section]"*. Reporting `requested` would be the failure≠emptiness defect this repo has
+closed a dozen times, sitting in the undo path again.
+
+**Verification actually run, in the foreground:**
+`@pryzm/runtime-undo-stack` **3 files / 25 PASS** (10 new) ·
+`@pryzm/command-registry` `undoHistoryView.test.ts` **14/14 PASS** ·
+`@pryzm/editor` `undoHistoryTimeline.test.ts` **25/25 PASS** ·
+root-vitest `undoHistoryHud.spec.ts` **16/16 PASS** ·
+six pre-existing editor undo suites **63 PASS + 1 expected-fail** ·
+`@pryzm/command-bus` **11 files / 113 PASS** ·
+root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=0**.
+
+⚠ `@pryzm/command-registry`'s FULL suite is **7 files / 13 tests RED — and they are PRE-EXISTING,
+measured not assumed.** The two largest (`updateElementParameterRakePreflight`,
+`updateWallsSystemTypeBatch`) were re-run with this lane's two files reverted to HEAD:
+**identical 7 failures.** All 13 are wall-rake / system-type / junction-graph subjects; none touch
+undo. 96 of 103 files pass.
+
+---
+
+### L-1884 — 🔴 OPEN: what this change does NOT establish
+
+1. **🔴 NOT VERIFIED IN A BROWSER.** Everything above is unit + DOM assertions under happy-dom.
+   Nobody has opened the editor, drawn a wall, opened the caret and clicked row 3. **Owed; next
+   action.**
+2. **🔴 THE PROJECTED ORDER IS A PREVIEW, NOT A PROOF.** Two named divergence modes: (a) the real
+   U-8 shadow-drop predicate ALSO requires the elements to be already gone (`_elementExists`),
+   which is unknowable at preview time, so a drop can consume more legacy entries than the row
+   showed; (b) a stranded entry consumes no cursor. The jump measures each step, so the *count* is
+   honest — but in a mixed-stack session the **labels** beside a multi-step jump could name the
+   wrong rows.
+3. **🔴 `describe()` IS IMPLEMENTED BY ZERO COMMANDS.** The plumbing, the fallback and the
+   throw-safety are gated; the feature is unused. Every row today is a derived label. CA-22 is
+   OPTIONAL and stated as NOT-YET-TRUE as enforcement — deliberately: at ~200 command classes a
+   hard rule buys 200 perfunctory strings, which is worse than 200 honest derivations.
+4. **🔴 A DEEP JUMP IS UNMEASURED.** Each `performUndo()` runs its own `_withPausedObservers`
+   cycle, so a 40-step jump is 40 pause/resume cycles. No coalescing attempted, no timing taken.
+5. **🔴 `getHistory()`'s remaining callers were NOT audited.** It still hands out live `Command`
+   objects; it is documented, not removed.
+6. **🔴 THE POPOVER IS NOT KEYBOARD-NAVIGABLE.** It opens on click, closes on Escape and on an
+   outside click, and every row is a real `<button role="menuitem">` — but there is no arrow-key
+   roving focus and no `aria-activedescendant`. Not attempted, not claimed.
+7. **⚠ NUMBERING — this lane's implementation commit `b343e24b` names `L-1870..L-1873`, which is
+   WRONG.** L-1870 and L-1871 were claimed by two other lanes (`0a269756`, `ccae404a`) in the same
+   window. The correct block is **L-1880…L-1884**, recorded here; the subject line was not
+   rewritten because the commit is already on `main` and other lanes are building on it. Read this
+   block, not that subject. Third tag collision today — the L-number allocator is a shared mutable
+   counter with no lock.
+
+---

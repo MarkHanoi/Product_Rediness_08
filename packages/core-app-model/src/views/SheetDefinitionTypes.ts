@@ -66,7 +66,7 @@ export interface SheetViewport {
     /** Reference to the ViewDefinition being placed. */
     viewId:    string;
     /**
-     * §SHEET-PDF-PLACES-THE-VIEWPORT (L-1867) — the viewport's BOTTOM-LEFT
+     * §SHEET-PDF-PLACES-THE-VIEWPORT (L-1874) — the viewport's BOTTOM-LEFT
      * CORNER on the sheet canvas, in millimetres, measured from the paper's
      * left and bottom edges.
      *

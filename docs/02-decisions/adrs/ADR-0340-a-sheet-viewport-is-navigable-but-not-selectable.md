@@ -5,8 +5,8 @@
 - **Lane:** SHEET3
 - **Tags:** `§SHEET-VIEWPORT-ALWAYS-REMOVABLE` (L-1862) · `§SHEET-VIEWPORT-SCALE-IS-LIVE` (L-1863) ·
   `§SHEET-VIEWPORT-CROP-UI` (L-1864) · `§SHEET-NAVIGATE-INSIDE-THE-VIEWPORT` (L-1865) ·
-  `§SHEET-DBLCLICK-STAYS-ON-THE-SHEET` (L-1866) · `§SHEET-PDF-PLACES-THE-VIEWPORT` (L-1867) ·
-  `§SHEET-3D-SNAPSHOT-IS-DATED` (L-1868)
+  `§SHEET-DBLCLICK-STAYS-ON-THE-SHEET` (L-1866) · `§SHEET-PDF-PLACES-THE-VIEWPORT` (L-1874) ·
+  `§SHEET-3D-SNAPSHOT-IS-DATED` (L-1875)
 - **Contracts:** C06 §13.3 (one producer per surface) · C03 (commands are the only mutation path) ·
   P2 (single THREE owner) · P6
 - **Supersedes in part:** the `enterEditInPlace()` half of SC-11, and the double-click

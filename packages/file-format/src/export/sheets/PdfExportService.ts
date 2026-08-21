@@ -135,7 +135,7 @@ class PdfExportServiceImpl {
             // placed view and the exported view cannot disagree about linework
             // or size.
             //
-            // §SHEET-PDF-PLACES-THE-VIEWPORT (L-1867) — routed through
+            // §SHEET-PDF-PLACES-THE-VIEWPORT (L-1874) — routed through
             // `composeForPlacement` rather than calling the composer directly,
             // because this call site had SILENTLY DROPPED `cropWorldM`. A
             // viewport the founder cropped on the sheet exported uncropped and
@@ -168,7 +168,7 @@ class PdfExportServiceImpl {
                 );
             }
 
-            // ── §SHEET-PDF-PLACES-THE-VIEWPORT (L-1867) — BOTTOM-LEFT CORNER ──
+            // ── §SHEET-PDF-PLACES-THE-VIEWPORT (L-1874) — BOTTOM-LEFT CORNER ──
             //
             // This read `vp.position` as the viewport's CENTRE — `position.x -
             // vpW/2` — on the authority of a doc comment in
@@ -186,7 +186,7 @@ class PdfExportServiceImpl {
             const vpY = Math.max(BORDER_MARGIN, pH - rect.bottomMm - vpH);
 
             if (!drawing) {
-                // §SHEET-PDF-PLACES-THE-VIEWPORT (L-1867) — a 3D view has no
+                // §SHEET-PDF-PLACES-THE-VIEWPORT (L-1874) — a 3D view has no
                 // vector drawing and never will: `3d`, `render` and
                 // `walkthrough` are excluded from projection by design, so there
                 // is nothing for `SVGCompositeRenderer` to emit. Drawing an
@@ -333,7 +333,7 @@ class PdfExportServiceImpl {
         pdf.rect(x, y, w, h);
         pdf.setLineDashPattern([], 0);
 
-        // §SHEET-PDF-PLACES-THE-VIEWPORT (L-1867) — SAY WHICH ABSENCE THIS IS.
+        // §SHEET-PDF-PLACES-THE-VIEWPORT (L-1874) — SAY WHICH ABSENCE THIS IS.
         //
         // This always printed "View not yet projected", which is true for an
         // elevation whose projection has not run and FALSE for a 3D view, which

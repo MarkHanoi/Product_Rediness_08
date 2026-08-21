@@ -276,7 +276,7 @@ export function composeViewportSvg(
 }
 
 /**
- * §SHEET-PDF-PLACES-THE-VIEWPORT (L-1867) — THE ONE DEFINITION OF WHERE A
+ * §SHEET-PDF-PLACES-THE-VIEWPORT (L-1874) — THE ONE DEFINITION OF WHERE A
  * VIEWPORT SITS ON THE PAPER.
  *
  * ─── THE DEFECT ────────────────────────────────────────────────────────────

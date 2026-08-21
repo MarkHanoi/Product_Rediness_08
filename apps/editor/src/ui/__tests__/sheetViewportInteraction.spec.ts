@@ -1,5 +1,5 @@
 /**
- * §SHEET-VIEWPORT-INTERACTION (L-1854, L-1862..L-1868) — the sheet viewport as an
+ * §SHEET-VIEWPORT-INTERACTION (L-1854, L-1862..L-1866, L-1874, L-1875) — the sheet viewport as an
  * INTERACTIVE object: reachable, removable, scalable, croppable, navigable.
  *
  * THE FOUNDER'S REPORT (2026-08-21, production build 071a7b2c):
@@ -363,7 +363,7 @@ describe('§SHEET-NAVIGATE-INSIDE-THE-VIEWPORT (L-1865)', () => {
 
 // ── D. The PDF must place the viewport where the sheet put it ──────────────
 
-describe('§SHEET-PDF-PLACES-THE-VIEWPORT (L-1867)', () => {
+describe('§SHEET-PDF-PLACES-THE-VIEWPORT (L-1874)', () => {
     it('SheetViewport.position is the BOTTOM-LEFT CORNER, and the panel renders it there', () => {
         const vpEl = openWith(FACADE);
         const canvasEl = document.querySelector('.sh-canvas') as HTMLElement;
