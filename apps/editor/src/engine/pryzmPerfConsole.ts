@@ -534,6 +534,74 @@ export interface PryzmPerfReport {
     snapshot: PerfSnapshot;
 }
 
+/**
+ * §NAV-PICK-QUADRATIC (L-1850) — run the EXACT membership-signature loop that
+ * `packages/picking/src/gpu-pick.ts` `_syncInstancedGroup` (lines 1190-1201) runs
+ * on every hover rAF, and time it.
+ *
+ * ⛔ It calls the PRODUCTION closures (`getOccupiedInstanceSlots` /
+ * `getInstanceElementId`) on the LIVE scene's groups. It does not re-derive them,
+ * because a probe that re-implements what it measures is free to be fast while
+ * production is slow — which is exactly the failure mode this whole lane exists
+ * to correct. The only thing reproduced here is the CALL PATTERN.
+ *
+ * Warm pass first, then the measured one: the first touch of a Map after a GC is
+ * not the steady-state cost the user pays sixty times a second.
+ */
+function measurePickPass(): PryzmPickPassReport | null {
+    const scene =
+        safe(() => _sources.getScene?.() ?? null) ??
+        safe(() => g<{ scene?: { three?: TraversableLike } }>('world')?.scene?.three ?? null);
+    if (!scene) return null;
+
+    interface PickClosures {
+        getOccupiedInstanceSlots?: () => readonly number[];
+        getInstanceElementId?: (slot: number) => string | undefined;
+    }
+    const groups: PickClosures[] = [];
+    scene.traverse((o) => {
+        if (o.userData?.isInstancedGroup === true && o.isInstancedMesh === true) {
+            groups.push((o as { userData?: PickClosures }).userData ?? {});
+        }
+    });
+
+    const onePass = (): { instances: number; singletons: number; largest: number } => {
+        let instances = 0;
+        let singletons = 0;
+        let largest = 0;
+        for (const ud of groups) {
+            const occupied = ud.getOccupiedInstanceSlots?.() ?? [];
+            const getElemId = ud.getInstanceElementId;
+            const pairs: string[] = [];
+            if (getElemId !== undefined) {
+                for (const slot of occupied) {
+                    const eid = getElemId(slot);
+                    if (eid !== undefined) pairs.push(`${slot}\x1f${eid}`);
+                }
+            }
+            pairs.sort();
+            pairs.join('\x00');
+            instances += occupied.length;
+            if (occupied.length === 1) singletons++;
+            if (occupied.length > largest) largest = occupied.length;
+        }
+        return { instances, singletons, largest };
+    };
+
+    onePass();
+    const t0 = performance.now();
+    const { instances, singletons, largest } = onePass();
+    const passMs = performance.now() - t0;
+
+    return {
+        groups: groups.length,
+        singletonGroups: singletons,
+        instances,
+        largestGroup: largest,
+        passMs,
+    };
+}
+
 function buildReport(): PryzmPerfReport {
     const snap = perfSnapshot();
     // Scene: injected if the composition root offered one, else the published
@@ -1055,6 +1123,38 @@ export interface PryzmPerfApi {
     report(): PryzmPerfReport;
     /** The same data as a plain object, for inspection or copy-paste. */
     data(): PryzmPerfReport;
+    /**
+     * §NAV-PICK-QUADRATIC (L-1850) — measure ONE GPU-pick membership pass over the
+     * live scene, the way `gpu-pick.ts _syncInstancedGroup` does it on the hover rAF.
+     *
+     * ⭐ THIS IS THE PROBE THAT SETTLES THE FREEZE QUESTION, and it exists because
+     * the lane could measure the SHAPE of the cost in node but not the founder's
+     * own N. Run `pryzmPerf.pick()` with the project open. It prints:
+     *
+     *   · N   — total instanced registrations in the singleton (the number squared)
+     *   · G   — instanced groups, and how many hold exactly ONE member
+     *   · ms  — one full pass, i.e. the cost the main thread pays PER POINTERMOVE
+     *
+     * A reading above ~16 ms means the hover rAF cannot keep up and the scene will
+     * feel frozen; a reading in the single-digit ms means the pick path is NOT what
+     * is blocking and the search moves elsewhere. Either answer is progress, which
+     * is the point of shipping the probe rather than an opinion.
+     */
+    pick(): PryzmPickPassReport | null;
+}
+
+/** §NAV-PICK-QUADRATIC (L-1850) — one measured GPU-pick membership pass. */
+export interface PryzmPickPassReport {
+    /** Instanced groups walked. */
+    groups: number;
+    /** Groups holding exactly ONE instance — high counts mean dedup is failing. */
+    singletonGroups: number;
+    /** Occupied slots resolved across every group. This is N. */
+    instances: number;
+    /** Largest single group, by occupied slots. */
+    largestGroup: number;
+    /** Milliseconds for ONE full pass — the per-pointermove main-thread cost. */
+    passMs: number;
 }
 
 /**
@@ -1091,11 +1191,31 @@ export function installPryzmPerfConsole(): void {
         data(): PryzmPerfReport {
             return buildReport();
         },
+        pick(): PryzmPickPassReport | null {
+            const r = measurePickPass();
+            if (r === null) {
+                console.warn(
+                    '[§PRYZM-PERF] pick() — no scene reachable (window.world.scene.three). ' +
+                    'Open a project first.',
+                );
+                return null;
+            }
+            console.log(
+                `[§PRYZM-PERF] §NAV-PICK-QUADRATIC — ONE pick pass: ${r.passMs.toFixed(2)} ms · ` +
+                `N=${r.instances} instances · G=${r.groups} groups ` +
+                `(${r.singletonGroups} singleton, largest ${r.largestGroup}). ` +
+                `This is the main-thread cost PER POINTERMOVE. Above ~16 ms the hover ` +
+                `rAF cannot keep up.`,
+            );
+            return r;
+        },
     };
 
     (globalThis as unknown as { pryzmPerf?: PryzmPerfApi }).pryzmPerf = api;
     console.log(
-        '[§PRYZM-PERF] ready — window.pryzmPerf.on() → gesture → window.pryzmPerf.report()',
+        '[§PRYZM-PERF] ready — window.pryzmPerf.on() → gesture → window.pryzmPerf.report()\n' +
+        '[§PRYZM-PERF] freeze probe (L-1850) — window.pryzmPerf.pick() prints the ' +
+        'main-thread cost of ONE hover pick pass. Above ~16 ms is a frozen scene.',
     );
 }
 /* eslint-enable no-console */
