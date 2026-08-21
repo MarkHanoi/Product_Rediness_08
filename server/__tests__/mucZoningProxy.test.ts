@@ -13,6 +13,9 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import {
     selectContainingQualification,
+    disambiguateViaAmbQuTrames,
+    buildAmbQuUrl,
+    AMB_QU_LAYER,
     geometryContainsPoint,
     pointInRing,
     buildGetFeatureInfoUrl,
@@ -234,5 +237,121 @@ describe('§MUC-ZONING-PROXY handler', () => {
         // is the L-422 / L-467 failure, and here it would silently disable a rule pack.
         expect(r.headers['cache-control']).toContain('no-store');
         expect(r.headers['x-muc-cache']).toBe('MISS-UNRESOLVED');
+    });
+});
+
+/**
+ * §MUC-AMB-DISAMBIGUATION (L-1661) — the full-precision tie-break for rounded WMS geometry.
+ *
+ * THE MEASURED DEFECT (2026-08-21, raw bodies under
+ * `docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/findings/l1661/`): the WMS serialises
+ * GetFeatureInfo coordinates to ~4 decimals (≈ 10 m). At parcel 3634514DF3833D's own centroid the
+ * pixel returned clau `18` AND the city-wide `SX1` road MultiPolygon, BOTH "containing" the point
+ * in the rounded rings — so §MUC-ONE-CONTAINER-OR-REFUSE refused, and the card called a rounding
+ * artefact a source outage. The AMB `QU_Trames` layer (full precision, server-side containment)
+ * answers exactly one feature there: `CLAU_URB='18'`.
+ *
+ * The tie-break is CORROBORATION-ONLY: it may pick one of the MUC's own candidates, never
+ * introduce a clau the MUC did not return, and any doubt keeps the refusal.
+ */
+describe('§MUC-AMB-DISAMBIGUATION resolves rounded-geometry ambiguity via AMB QU_Trames', () => {
+    /** The defect shape: both candidates "contain" the point in rounded geometry. */
+    const P = { lat: 41.3981329, lon: 2.2054181 };
+    const ambiguousFc = {
+        features: [
+            feature('18', 'R4', square(P.lon, P.lat, 0.002), 'Ordenació en volumetria específica'),
+            feature('SX1', 'SX1', square(P.lon, P.lat, 0.01), 'Sistema viari: eixos estructurants'),
+        ],
+    };
+    const ambAnswer = (clau: string, n = 1) =>
+        JSON.stringify({
+            features: Array.from({ length: n }, () => ({
+                attributes: { CLAU_URB: clau, DESCRIP: 'x', CODI_INE: '08019' },
+            })),
+        });
+
+    /** Route the fake by host: sig.gencat.cat → WMS body, geoportal.amb.cat → AMB body. */
+    function routedFetch(wmsBody: string, ambBody: string | (() => never), onAmb?: (url: string) => void) {
+        return (async (url: string) => {
+            if (String(url).includes('geoportal.amb.cat')) {
+                onAmb?.(String(url));
+                if (typeof ambBody === 'function') ambBody();
+                return new Response(ambBody as string, { status: 200 });
+            }
+            return new Response(wmsBody, { status: 200 });
+        }) as unknown as typeof fetch;
+    }
+
+    it('THE DEFECT PARCEL: two rounded containers + AMB says clau 18 → resolves 18, stamped', async () => {
+        let ambUrl = '';
+        const fetchImpl = routedFetch(JSON.stringify(ambiguousFc), ambAnswer('18'), (u) => { ambUrl = u; });
+        const q = await fetchQualificationAtPoint(P.lat, P.lon, { fetchImpl });
+        expect(q).not.toBeNull();
+        expect(q!.clau).toBe('18');
+        expect((q as { disambiguatedBy?: string }).disambiguatedBy).toBe('amb-qu-trames-16');
+        // The AMB query filters by the candidates' own INE and asks the QU layer.
+        expect(ambUrl).toContain(`/${AMB_QU_LAYER}/query`);
+        expect(ambUrl).toContain('08019');
+    });
+
+    it('CORROBORATION-ONLY: an AMB clau the MUC did not return resolves NOTHING', async () => {
+        const fetchImpl = routedFetch(JSON.stringify(ambiguousFc), ambAnswer('13a'));
+        await expect(fetchQualificationAtPoint(P.lat, P.lon, { fetchImpl })).resolves.toBeNull();
+    });
+
+    it('refuses when the AMB answers more than one feature', async () => {
+        const fetchImpl = routedFetch(JSON.stringify(ambiguousFc), ambAnswer('18', 2));
+        await expect(fetchQualificationAtPoint(P.lat, P.lon, { fetchImpl })).resolves.toBeNull();
+    });
+
+    it('refuses on the ArcGIS 200-with-{error} envelope (a FAILURE, never an empty)', async () => {
+        const fetchImpl = routedFetch(
+            JSON.stringify(ambiguousFc),
+            JSON.stringify({ error: { code: 400, message: 'Invalid query' } }),
+        );
+        await expect(fetchQualificationAtPoint(P.lat, P.lon, { fetchImpl })).resolves.toBeNull();
+    });
+
+    it('refuses when the AMB call throws (outage keeps today\'s honest refusal)', async () => {
+        const fetchImpl = routedFetch(JSON.stringify(ambiguousFc), () => { throw new Error('offline'); });
+        await expect(fetchQualificationAtPoint(P.lat, P.lon, { fetchImpl })).resolves.toBeNull();
+    });
+
+    it('does NOT contact the AMB when the WMS already resolved one container', async () => {
+        let ambCalls = 0;
+        const oneContainer = {
+            features: [feature('13a', 'R2', square(P.lon, P.lat, 0.002), 'Densificació urbana intensiva')],
+        };
+        const fetchImpl = routedFetch(JSON.stringify(oneContainer), ambAnswer('13a'), () => { ambCalls++; });
+        const q = await fetchQualificationAtPoint(P.lat, P.lon, { fetchImpl });
+        expect(q!.clau).toBe('13a');
+        expect(ambCalls).toBe(0);
+    });
+
+    it('mixed-INE candidate sets are REAL ambiguity — no AMB query, no answer', async () => {
+        const mixed = {
+            features: [
+                feature('18', 'R4', square(P.lon, P.lat, 0.002)),
+                { ...feature('SX1', 'SX1', square(P.lon, P.lat, 0.01)), properties: { ...feature('SX1', 'SX1', square(P.lon, P.lat, 0.01)).properties, CODI_INE: '08101' } },
+            ],
+        };
+        let ambCalls = 0;
+        const fetchImpl = routedFetch(JSON.stringify(mixed), ambAnswer('18'), () => { ambCalls++; });
+        await expect(fetchQualificationAtPoint(P.lat, P.lon, { fetchImpl })).resolves.toBeNull();
+        expect(ambCalls).toBe(0);
+    });
+
+    it('buildAmbQuUrl asks for server-side containment with no geometry back', () => {
+        const url = buildAmbQuUrl(P.lat, P.lon, '08019');
+        expect(url).toContain('spatialRel=esriSpatialRelIntersects');
+        expect(url).toContain('returnGeometry=false');
+        expect(url).toContain('f=json');
+    });
+
+    it('disambiguateViaAmbQuTrames handles an empty candidate set without contacting the AMB', async () => {
+        let calls = 0;
+        const fetchImpl = (async () => { calls++; return new Response('{}', { status: 200 }); }) as unknown as typeof fetch;
+        await expect(disambiguateViaAmbQuTrames({ features: [] }, P.lon, P.lat, { fetchImpl })).resolves.toBeNull();
+        expect(calls).toBe(0);
     });
 });

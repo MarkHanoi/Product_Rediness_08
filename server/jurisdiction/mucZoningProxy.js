@@ -165,8 +165,15 @@ export function selectContainingQualification(featureCollection, lon, lat) {
     const features = Array.isArray(featureCollection?.features) ? featureCollection.features : [];
     const containing = features.filter((f) => geometryContainsPoint(f?.geometry, lon, lat));
     if (containing.length !== 1) return null;
+    return qualificationFromProperties(containing[0]?.properties ?? {});
+}
 
-    const p = containing[0]?.properties ?? {};
+/**
+ * Map one MUC feature's properties to the resolved-qualification payload, or `null` when the
+ * feature carries no municipal clau. Shared by `selectContainingQualification` (the one-container
+ * fast path) and §MUC-AMB-DISAMBIGUATION below, so the two paths cannot drift in shape.
+ */
+export function qualificationFromProperties(p) {
     const clau = typeof p.CODI_QUAL_AJUNT === 'string' ? p.CODI_QUAL_AJUNT.trim() : '';
     if (clau === '') return null; // a feature with no municipal code tells us nothing
 
@@ -184,6 +191,135 @@ export function selectContainingQualification(featureCollection, lon, lat) {
         source: 'muc-gencat',
         sourceLayer: MUC_QUAL_LAYER,
     };
+}
+
+// ── §MUC-AMB-DISAMBIGUATION (L-1661) — full-precision tie-break for rounded WMS geometry ──────
+//
+// THE DEFECT THIS CLOSES, measured live 2026-08-21 (raw bodies under
+// `docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/findings/l1661/`): the Generalitat WMS
+// serialises GetFeatureInfo GeoJSON coordinates to ~4 DECIMALS (≈ 8–11 m). Point-in-polygon against
+// that geometry is unreliable within ~10 m of any zone boundary — in BOTH directions. Parcel
+// 3634514DF3833D (Rambla del Poblenou 10) returned TWO features at its own centroid — clau `18`
+// AND the city-wide `SX1` road MultiPolygon (5,688 ring points, all rounded), BOTH "containing"
+// the point in the rounded geometry — so §MUC-ONE-CONTAINER-OR-REFUSE refused, and the card called
+// a rounding artefact a source outage. Its NEIGHBOUR (3634515DF3833D, same block, same clau 18)
+// happened to return one feature and resolved fine.
+//
+// THE FIX IS BETTER DATA, NOT A PREFERENCE RULE. Refusing ambiguity stays correct on rounded
+// geometry — picking "the non-road candidate" would be a coin-flip with a vocabulary. Instead,
+// when the WMS candidates are ambiguous we ask the AMB Refós `QU_Trames` plane (layer 16,
+// `qualificacio_refos_3857` — full-precision vectors, containment computed SERVER-side by ArcGIS,
+// no client point-in-polygon on rounded rings) which clau ACTUALLY contains the point, and accept
+// its answer ONLY as a tie-break: the resolved clau must be one the MUC itself returned as a
+// candidate at that pixel. Measured at the defect parcel: layer 16 answers exactly one feature,
+// `CLAU_URB='18'` — corroborating the clau-18 candidate and excluding SX1.
+//
+// FAIL-CLOSED, five ways: no candidates → null; candidates spanning ≠1 INE → null (the AMB WHERE
+// filter needs one municipality, and mixed-INE ambiguity is real ambiguity); AMB error / non-JSON /
+// ArcGIS 200-with-`{error}` / ≠1 feature → null; AMB clau empty → null; AMB clau matching ≠1 MUC
+// candidate → null. Every null keeps today's honest "unresolved" refusal. Non-AMB Catalunya is
+// unaffected structurally: the AMB service holds no polygons for those INEs → 0 features → null.
+//
+// ⚠ The AMB plane is the SAME dataset family the clau-18 OV path reads under SIG-3 — a published
+// transcription, here used only to corroborate WHICH published MUC candidate contains the point,
+// never to introduce a clau the MUC did not return.
+
+/** The keyless AMB Refós ArcGIS MapServer root (same service `bcnRefosOvProxy.js` reads). */
+export const AMB_QU_ENDPOINT =
+    'https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer';
+
+/** The Refós qualification layer — full-precision zone claus (`CLAU_URB`). */
+export const AMB_QU_LAYER = 16;
+
+/** Build the layer-16 point-intersect URL. `returnGeometry=false` — the SERVER does containment. */
+export function buildAmbQuUrl(lat, lon, ine) {
+    const qs = new URLSearchParams({
+        geometry: JSON.stringify({ x: lon, y: lat, spatialReference: { wkid: 4326 } }),
+        geometryType: 'esriGeometryPoint',
+        inSR: '4326',
+        spatialRel: 'esriSpatialRelIntersects',
+        where: `CODI_INE='${ine}'`,
+        outFields: 'CLAU_URB,DESCRIP,CODI_INE',
+        returnGeometry: 'false',
+        f: 'json',
+    });
+    return `${AMB_QU_ENDPOINT}/${AMB_QU_LAYER}/query?${qs.toString()}`;
+}
+
+/**
+ * Tie-break an ambiguous WMS candidate set against the full-precision AMB `QU_Trames` layer.
+ * Returns the winning candidate's qualification (stamped `disambiguatedBy`) or `null`. NEVER
+ * throws. See the §MUC-AMB-DISAMBIGUATION header for the fail-closed inventory.
+ */
+export async function disambiguateViaAmbQuTrames(featureCollection, lon, lat, deps = {}) {
+    const fetchImpl = deps.fetchImpl || fetch;
+    const timeoutMs = deps.timeoutMs || MUC_UPSTREAM_TIMEOUT_MS;
+
+    const features = Array.isArray(featureCollection?.features) ? featureCollection.features : [];
+    // Candidates = every returned feature that names a municipal clau. NOT filtered to the
+    // rounded-containment survivors: the rounding that over-includes a road polygon can equally
+    // under-include the true zone, so the tie-break considers everything the pixel returned.
+    const candidates = features
+        .map((f) => ({ f, clau: typeof f?.properties?.CODI_QUAL_AJUNT === 'string' ? f.properties.CODI_QUAL_AJUNT.trim() : '' }))
+        .filter((c) => c.clau !== '');
+    if (candidates.length === 0) return null;
+
+    const ines = [...new Set(candidates.map((c) => (typeof c.f?.properties?.CODI_INE === 'string' ? c.f.properties.CODI_INE.trim() : '')))];
+    if (ines.length !== 1 || ines[0] === '') return null;
+
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+        const res = await fetchImpl(buildAmbQuUrl(lat, lon, ines[0]), {
+            headers: {
+                Accept: 'application/json',
+                'User-Agent': 'PRYZM-MUC-Proxy/1.0 (+https://pryzm.fly.dev)',
+            },
+            signal: ctrl.signal,
+        });
+        if (!res.ok) {
+            console.warn(`[muc-proxy] §MUC-AMB-DISAMBIGUATION HTTP ${res.status} — refusal stands.`);
+            return null;
+        }
+        let json;
+        try {
+            json = JSON.parse(await res.text());
+        } catch {
+            console.warn('[muc-proxy] §MUC-AMB-DISAMBIGUATION non-JSON — refusal stands.');
+            return null;
+        }
+        // ArcGIS answers 200 WITH an `{error}` envelope on a malformed query — a FAILURE, never
+        // an empty (the same honesty rule `bcnRefosOvProxy.js` applies to layer 17).
+        if (json?.error) {
+            console.warn('[muc-proxy] §MUC-AMB-DISAMBIGUATION ArcGIS error envelope — refusal stands.');
+            return null;
+        }
+        const ambFeatures = Array.isArray(json?.features) ? json.features : [];
+        if (ambFeatures.length !== 1) {
+            console.warn(`[muc-proxy] §MUC-AMB-DISAMBIGUATION AMB answered ${ambFeatures.length} features (need exactly 1) — refusal stands.`);
+            return null;
+        }
+        const ambClau = typeof ambFeatures[0]?.attributes?.CLAU_URB === 'string' ? ambFeatures[0].attributes.CLAU_URB.trim() : '';
+        if (ambClau === '') return null;
+        const winners = candidates.filter((c) => c.clau === ambClau);
+        if (winners.length !== 1) {
+            console.warn(`[muc-proxy] §MUC-AMB-DISAMBIGUATION AMB clau '${ambClau}' matches ${winners.length} MUC candidates (need exactly 1) — refusal stands.`);
+            return null;
+        }
+        const qual = qualificationFromProperties(winners[0].f?.properties ?? {});
+        if (!qual) return null;
+        console.log(`[muc-proxy] §MUC-AMB-DISAMBIGUATION rounded-WMS ambiguity resolved → clau ${qual.clau} (corroborated by AMB QU_Trames layer ${AMB_QU_LAYER}).`);
+        return {
+            ...qual,
+            /** The tie-break provenance — the UI may cite it; the client parse ignores it safely. */
+            disambiguatedBy: 'amb-qu-trames-16',
+        };
+    } catch (err) {
+        console.warn('[muc-proxy] §MUC-AMB-DISAMBIGUATION failed — refusal stands:', err?.message ?? err);
+        return null;
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 // ── upstream ─────────────────────────────────────────────────────────────────
@@ -250,7 +386,13 @@ export async function fetchQualificationAtPoint(lat, lon, deps = {}) {
             console.warn('[muc-proxy] GetFeatureInfo returned non-JSON (service exception?) — unresolved.');
             return null;
         }
-        return selectContainingQualification(json, lon, lat);
+        const selected = selectContainingQualification(json, lon, lat);
+        if (selected) return selected;
+        // §MUC-AMB-DISAMBIGUATION (L-1661) — the one-container test just failed ON ROUNDED
+        // GEOMETRY (the WMS serialises ~4 decimals ≈ 10 m). Before answering "unresolved", ask
+        // the full-precision AMB QU_Trames plane which of the returned candidates actually
+        // contains the point. Fail-closed: any doubt keeps the refusal. See the section header.
+        return await disambiguateViaAmbQuTrames(json, lon, lat, { fetchImpl, timeoutMs });
     } catch (err) {
         console.warn('[muc-proxy] GetFeatureInfo failed:', err?.message ?? err);
         return null;
