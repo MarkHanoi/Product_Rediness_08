@@ -1,0 +1,20 @@
+{
+  "name": "@pryzm/procedural-textures",
+  "version": "0.1.0",
+  "description": "PRYZM L0 — parquet and tile PATTERNS generated in code. Zero assets, zero dependencies, no THREE, no DOM. Parameterised in real-world millimetres and declaring the real-world size of every tile it produces.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ci": "vitest run",
+    "samples": "tsx scripts/emit-samples.ts"
+  }
+}
