@@ -1095,3 +1095,449 @@ exercised; or that an executed `ProjectSerializer.serialize` writes the field (t
 proven by **source parity** over the real function body, because hand-building its ~20-store
 bundle would be the §FAKE-MORE-CAPABLE-THAN-REAL trap). The reload half **is** executed against
 the real command and the real store.
+
+---
+
+## §10 — THE FINISH TAXONOMY: measured census, target, gap, and the sequenced plan (2026-08-21)
+
+> **Stamp**: 2026-08-21 · **Lane**: MAT-R · **Rows**: L-1680 – L-1689.
+> **Founder's request, verbatim**: *"I want to be able to apply similar finishes than pascal have in
+> walls interiors — they have a lot of nice finishes… also please check the graphics — our WebGPU…
+> grab all the finishes — for roof — tiling — walls — parket… get all of them in the material
+> library C100 and accessible all via UI / RAC — all of theM!!"*
+> **Evidence**: [`PASCAL-FINISHES-RESEARCH.md`](../../04-reference/PASCAL-FINISHES-RESEARCH.md) —
+> a measured read of `github.com/pascalorg/editor` at `main` on 2026-08-21. ⛔ **That document's §0
+> licence rule binds every slice below.**
+> **Adds, corrects nothing.** §10 introduces no rule that contradicts §1–§9. Where it re-states a
+> measurement that §9 recorded, it cites the gate rather than §9's number, per §9.10.5.
+> ⚠ **This section is about the CATALOGUE'S CONTENT and its REACHABILITY. It is not a rendering
+> plan** — §10.4 states plainly which half of the founder's request this contract cannot deliver.
+
+### §10.0 — The answer in three lines
+
+1. ⭐ **We do not have fewer finishes than Pascal. We have 205 rows to their 114** — 80% more.
+2. ⛔ **But five finish families are LITERALLY EMPTY** — `shingle`, `parquet`, `carpet`, `external
+   render/stucco`, `fibre-cement cladding` — and `parquet` is the founder's *"parket"*, where Pascal
+   has eleven.
+3. ⛔ **And the majority of the visual gap he is pointing at is NOT the catalogue at all.** It is
+   ambient occlusion, which is **off in all four render tiers** by default. §10.4.
+
+### §10.1 — THE MEASURED CENSUS
+
+**Cite the gate, never this table** (§9.10.5). Measured 2026-08-21, commands quoted.
+
+```
+grep -a -c "source: 'builtin'" packages/schemas/src/materials/materialCatalog.ts   -> 205
+grep -c "^  { source:"          packages/schemas/src/materials/materialCatalog.ts   -> 205
+npx tsx -e "...MATERIAL_CATALOG.length, new Set(...id).size"                        -> 205 205
+npx tsx tools/ga-gate/check-material-single-source.ts   -> RC=0, "catalogue : 205 rows, 205 unique ids"
+```
+
+⚠ **TWO MEASUREMENT TRAPS, both found the hard way, both recorded so the next lane does not repay
+them.** These matter more than the number.
+
+1. ⛔ **`materialCatalog.ts` contains exactly ONE NUL byte** (offset 39955) — a *deliberate* sentinel
+   in `BY_ID.get(LEGACY_MATERIAL_ID_ALIASES[id] ?? '\0')`. **`grep -o` therefore reports
+   `Binary file … matches` and pipes `1` to `wc -l`.** Every count above uses **`grep -a`**. A lane
+   that omits `-a` will silently measure **1**. `iconv -f UTF-8 -t UTF-8` confirms the file is
+   otherwise valid UTF-8.
+2. ⛔ **§0.3's counting token does NOT apply to this file.** `grep -a -c 'params: {' materialCatalog.ts`
+   → **0**. `MaterialRecord` is **flat**; `params: {` is the shape of the *THREE projection*, not the
+   L0 master. ⭐ **§0.3 is the authority for the METHOD — "key on a token appearing exactly once per
+   entry" — and that method's correct token here is `source: 'builtin'`.** The advice was right; the
+   literal token had rotted, which is §0.3's own thesis applied to §0.3.
+
+⚠ **The catalogue's own header comment still says 204; the array holds 205** (`steel-grating`, minted
+by S14 on 2026-08-19). The header already forbids trusting itself: *"Cite `MATERIAL_CATALOG.length`,
+never a number from this comment."*
+
+**Records by category — all 17 declared categories are populated; there is no empty category:**
+
+| category | n | | category | n |
+|---|---:|---|---|---:|
+| Landscape & Ground | 33 | | Insulation | 8 |
+| Metal | 24 | | Gypsum & Plaster | 8 |
+| Wood | 17 | | **Paint & Coating** | **7** |
+| Stone | 15 | | Specialty Surfaces | 6 |
+| Concrete | 15 | | **Roofing** | **6** |
+| Masonry | 13 | | Membrane & Waterproofing | 6 |
+| Glass | 13 | | Fabric & Soft | 6 |
+| Ceramic & Tile | 10 | | | |
+| Timber Engineered | 9 | | **TOTAL** | **205** |
+| Plastic & Polymer | 9 | | | |
+
+⭐ **Read the distribution, not the total.** **Landscape & Ground (33) is our largest category and
+Roofing (6) is near our smallest** — an artefact of the geospatial lanes, not of a decision about
+what a building editor needs. **Glass (13) exceeds Roofing (6) plus Paint (7) combined.** The
+catalogue is shaped by which lane last touched it.
+
+**The gates, both green, both quoted:**
+
+```
+npx tsx tools/ga-gate/check-material-id-required.ts      -> RC=0
+[material-id-required] OK: ARM A colour-without-id 0/0 · ARM B unresolvable-ids 0/0 ·
+  ARM C unrouted-producers 7/7 · ARM D serializers-dropping-id 1/1 ·
+  ARM E ids-never-read-back 0/0 · ARM F runtime-records-without-id 3/3
+npx tsx tools/ga-gate/check-material-single-source.ts    -> RC=0  (3 declared rivals, each with a slice)
+```
+
+### §10.1.1 — ⭐ §9.5's DRIFT BLOCKER IS DISCHARGED, and that changes the fix order §9.6.c forced
+
+**§9.5 is the section that inverted the plan**: *"Therefore the wiring MUST NOT go first… every
+drifted id would correctly become `unresolved:<id>` and render magenta on real projects."*
+**Measured today, `ARM B unresolvable-ids 0/0`** — a hard zero against a **zero ceiling**, exactly
+what §9.8 S14 claimed when it closed.
+
+**Consequence, stated precisely, because it is easy to over-read:**
+
+- ✅ **§9.6.c step 1 (RECONCILE) is DONE.** The sequencing constraint that blocked wiring is spent.
+- ⛔ **That does NOT mean the wiring is done.** `ARM C unrouted-producers 7/7` — seven producers
+  (curtain-wall ×3, linear-structural, dimension, room, slab) still mint a key without the master
+  resolver, and `ARM F 3/3` (`lighting`, `plumbing`, `stair`) still carry no id on the runtime
+  record. **"The blocker is closed" and "the work is finished" are different sentences**, and §9's
+  entire history is lanes conflating them.
+- ⭐ **So §10's slices are UNBLOCKED on the reconciliation axis and may add rows freely** — a new
+  catalogue row cannot re-open ARM B, because ARM B measures *stored ids that resolve to nothing*,
+  and adding a row only ever makes more ids resolvable.
+
+### §10.2 — THE TARGET TAXONOMY
+
+Derived from the Pascal read (evidence doc §A) **intersected with what a BIM product must schedule
+and export**, which is a requirement Pascal does not carry at all. ⛔ **Taxonomy and parameter set
+only — no values, no assets, per the evidence doc's §0 rule.**
+
+**§10.2.a — The two axes we are missing, and they are not "more rows".**
+
+| axis | what it is | today | why it matters |
+|---|---|---|---|
+| ⭐ **SHEEN × COLOUR as independent axes** | a paint is (hue, sheen), and sheen is `roughness` | ⛔ **FUSED** — 5 paint rows = 5 fixed pairs | a user cannot ask for *"satin white"* or *"matte charcoal"*; **neither exists** |
+| ⭐ **PATTERN** | parquet, shingle, mosaic, brick bond are *geometry at texture scale* | ⛔ **inexpressible** — no map, no tiling field | one hex cannot be a herringbone floor. **This is the record-SHAPE ceiling** (§10.3.b) |
+
+**§10.2.b — Categories, with the parameter set each genuinely needs.** ⭐ **The right-hand column is
+the point of this table**: it says which families a *parametric* record can serve honestly and which
+are lying without a map.
+
+| category | target | today | parametric enough? |
+|---|---|---:|---|
+| **Paint & Coating** | hue families × sheen levels, combinatorial | 7 | ✅ **YES — colour + roughness is the whole physical truth of paint** |
+| **External Render / Stucco** | monocapa, pebbledash, roughcast, smooth render, tadelakt | ⛔ **0** | ✅ mostly — colour + high roughness; texture is a refinement, not a prerequisite |
+| **Roofing** | slate, natural + fibre-cement; clay/concrete tile; **shingle**; standing seam (zinc/copper/alu); membrane; thatch; green roof | 6 | ⚠ **base row yes, conviction needs a map** — courses are pattern |
+| **Wood — FLOOR products** | **parquet** (herringbone, chevron, basket, versailles), plank/board widths, engineered, end-grain | ⛔ **0 floor-designated** | ⛔ **NO — parquet IS pattern**; a row without a map is a brown rectangle |
+| **Ceramic & Tile** | floor vs wall designation, format, **mosaic**, **pool tile**, terracotta, zellige, quarry | 10, none designated | ⚠ mixed — plain tiles yes, mosaic/pattern no |
+| **Carpet & Soft Floor** | loop, cut pile, tile, sisal | ⛔ **0** | ✅ mostly — colour + very high roughness reads as carpet |
+| **Decking & Outdoor Timber** | softwood, hardwood, composite, grooved | 1 | ✅ base row yes |
+| **Cladding** | timber (shiplap/weatherboard/batten/open-joint), **fibre-cement**, metal panel, terracotta rainscreen | ≈1 | ⚠ profile is pattern |
+| **Stone / Masonry / Concrete / Metal / Glass** | — | 15/13/15/24/13 | ✅ **already adequate**; glass is our best-covered family |
+| **Worktops** | engineered quartz, granite, laminate, solid surface | 4 | ✅ adequate for now |
+
+**§10.2.c — The record-shape target, and what we deliberately do NOT adopt.**
+
+`MaterialRecord` today is **six scalars** (`color, metalness, roughness, opacity, transparent` +
+`id/label/category/source`) plus `textureUrl?`, **which zero of the 205 rows use**.
+
+**ADOPT (Pascal has these and we need them):**
+
+| field | why | blocked on |
+|---|---|---|
+| `sheen` **as an authored dimension** | so paint is (hue × sheen), not 5 frozen pairs — expressed *through* `roughness`, **not a new PBR lobe** | nothing ⭐ |
+| `surfaces?: MaterialSurface[]` | where a finish is appropriate — floor/wall/ceiling/roof/furniture/outdoor | nothing, **but see the warning below** |
+| `maps?: { albedo, normal, roughness, ao, metalness }` | pattern (§10.2.a) | ⛔ **asset hosting** (§10.6) |
+| `tiling?: { repeatX, repeatY, rotation }` | a map without a real-world scale is wallpaper, not a material | ⛔ ships with `maps` |
+
+⛔ **DO NOT ADOPT — Pascal's 20-field `mapProperties` wholesale.** `flipY`, `wrapS/T`, `side: number`,
+`normalScaleX/Y`, `lightMapIntensity` are **renderer state**, not material identity. Putting them at
+L0 breaches **P5 / C03 §1.2** and would make `MATERIAL_CATALOG` a THREE payload — the exact
+authority/projection collapse **§1.3** exists to prevent. **Renderer constants belong in the adapter
+(§3).**
+
+⚠ ⭐ **A HARD RULE, learned from Pascal's own defect (evidence §A.9): an applicability facet ships
+WITH its filter, in the SAME slice, or it is not authored.** Pascal authored `surfaces` on 65 of 114
+records and **their picker discards the prop that would filter by it** — you can paint roof shingles
+onto a worktop. That is §AUTHORED-BUT-UNWIRED with a year's authoring cost already sunk. **MUST NOT**:
+add `surfaces` to `MaterialRecord` in a slice that does not also make a picker honour it.
+
+⚠ **And a rule we already have that Pascal does not: §5 still governs.** Their resolution ladder
+silently falls back to white at three chained levels and has **no unresolved state in the type
+system** (evidence §A.8). ⛔ **MUST NOT** cite Pascal to relax §5.
+
+### §10.3 — THE GAP
+
+**§10.3.a — Empty and thin, measured against the live `MATERIAL_CATALOG`.**
+
+⛔ **LITERALLY ZERO**: `shingle` · `parquet` · `carpet` · `external render / stucco` ·
+`fibre-cement cladding`.
+
+⭐ **Two of these are commercially damaging, and neither is the one the founder named.**
+**External render/stucco = 0** — the most common external finish in the Spanish and Mediterranean
+markets our geospatial stack targets has **no record at all**, while we carry 13 masonry and 8 gypsum
+rows. **Carpet = 0** despite a whole `Fabric & Soft` category, which turns out to hold *furnishing*
+textiles (felt, bouclé, velvet, canvas, awning, acoustic panel) and no flooring.
+
+🟡 **THIN** — roof tile **2** · roof slate **2** (one of which is a `Stone` row) · standing-seam **2** ·
+terrazzo **2** · mosaic **1** (⛔ **no pool tile**) · decking **1** · timber cladding ≈**1** ·
+ceramic floor tile **4**, *none* floor-vs-wall designated · **hardwood/engineered floor: 0
+floor-designated rows** — our 26 wood/timber rows are **species and sheet goods** (`wood-oak`,
+`timber-plywood`), not floor products.
+
+⛔ **Roofing is 6 rows for an entire building system.**
+
+**§10.3.b — ⭐ The record SHAPE is the real ceiling, not the row count.**
+
+**ABSENT from `MaterialRecord`, each measured at zero occurrences**: `map` · `normalMap` ·
+`roughnessMap` · `aoMap` · `repeat`/`tiling`/`scale` · `anisotropy` · `clearcoat` · `emissive` ·
+`transmission` · `ior` · `sheen` · `acoustic{}` · `density` · `thermal` · `ifcClass`.
+
+⛔ **No number of new rows fixes a family that needs a map.** Parquet, shingle and mosaic are
+*pattern*. **This is why §10.7's first slice is deliberately the one family that needs no map at
+all**, and why the pattern families are sequenced behind a named hosting dependency rather than
+promised.
+
+⚠ **`acoustic{}` remains the specific blocker §4.5/§8.2 S9(b) named** — `PhysicsEngine.nrcFromName()`
+still derives NRC from prose. **Unchanged by this section, and §10 does not unblock it.**
+
+### §10.4 — ⛔ WHAT THE FOUNDER'S REQUEST DOES NOT DEPEND ON, STATED BEFORE THE PLAN
+
+The founder asked two things in one sentence — *"grab all the finishes"* **and** *"check the graphics
+— our WebGPU"*. **They have different owners, and the second is the bigger share of what he sees.**
+
+Measured (evidence doc §B): **on tone mapping (`ACESFilmicToneMapping`), exposure (0.9), colour space
+(sRGB), material class (`MeshStandardMaterial`), shadow type (`PCFShadowMap`) and even the
+procedural 64×32 gradient IBL, we are already at parity with Pascal** — in the IBL's case having
+independently built the same trick. **Anti-aliasing is parity at zero: neither product ships any.**
+
+⛔ **The gap is ambient occlusion, and it is not a scale degradation.**
+`SceneQualityTierManager.ts:169-217` — **`ssgi: false` and `traa: false` in ALL FOUR TIERS**,
+cinematic included, with a stated reason (§FIX-SSGI-DEFAULT-OFF-TRAA-SELECT-FLASH, founder L-59).
+Pascal runs **the same `three/addons/tsl/display/SSGINode.js`** with `enabled: true`, and answered
+the same instability by making the effect **cheap** — `giIntensity: 0` (AO only, no GI bounce),
+`sliceCount: 1`, `stepCount: 4`, `radius: 1`, then `DenoiseNode` at `radius 4`.
+
+> ⛔ **THEREFORE, AND THIS CONTRACT SAYS IT PLAINLY: a richer material catalogue will not make our
+> renders look like Pascal's.** The soft contact shading in both founder screenshots is an AO term we
+> switch off at every scale. **That is a C04 / render-lane decision and C100 MUST NOT be cited as
+> having addressed it.** Claiming otherwise would be precisely the over-claim §9 exists to correct.
+
+⭐ **What this contract's work DOES deliver, and why it is still worth doing:** an **authorable,
+nameable, schedulable, exportable** finish on every surface. **A colour cannot be scheduled (C28) or
+classified on export (C25); a named material can.** That is a BIM requirement, independent of frame
+quality — and it is the half the founder cannot get from a render lane.
+
+**Referred out, not owned here** (recorded so they are not lost): the missing **scene-referred grade**
+(Pascal: `contrast 1.05`, `saturation 1.1` before tone mapping; we have none), and the **achromatic
+IBL** — our gradient's stops are near-white (`ZENITH [0.92,0.95,1.00]`) against Pascal's chromatic
+cool-zenith/warm-horizon split, so **a horizontal and a vertical surface currently receive the same
+colour of light**. ⚠ Ours is a *stated trade*, not an oversight (`NeutralStudioEnvironment.ts:73-75`:
+*"a saturated blue zenith would tint every metal in the product blue"*) — **worth re-opening, C04's
+call, three numbers.**
+
+### §10.5 — THE THREE REACHABILITY PATHS, MEASURED — how a new row reaches a user
+
+The founder's *"accessible all via UI / RAC — all of theM!!"* is §6's obligation. **Measured today,
+the three paths are in very different states, and one of them is far better than anyone assumed.**
+
+**(a) THE 3-D RENDER PATH — partial, and the residue is named.**
+`ARM C 7/7` unrouted producers (curtain-wall ×3, linear-structural, dimension, room, slab);
+`ARM F 3/3` runtime records without the id (`lighting`, `plumbing`, `stair`); `ARM D 1/1`
+(`serializePlumbing`). ⭐ **A NEW CATALOGUE ROW NEEDS NO WORK HERE** — the resolver resolves any id in
+`MATERIAL_CATALOG`. The seven/three are *families that cannot carry any id*, new or old. **S22/S23
+already own them; §10 does not duplicate them.**
+
+**(b) THE UI PICKER — browse is DONE; assignment is uneven and the unevenness is honest.**
+- ✅ **Browse**: `MaterialsBucket.ts` (755 lines) shows all **205** with swatches, **search**, and
+  category grouping. ⭐ **We are ahead of Pascal here — their picker has no search box.**
+- ⚠ **Assign, per `MATERIAL_ROUTES` (`MaterialDispatch.ts`)**: **8 families commit an id**
+  (column, ceiling, floor, roof, curtainwall, wall, slab, furniture) · **2 are colour-only with a
+  declared reason** (room, handrail) · ⛔ **5 declared unsupported** (beam, stair, plumbing, lighting,
+  structural) — `dispatchSetMaterial` returns `false` rather than lying · **2 route to the SYSTEM
+  TYPE instead** (door, window, per C15). ⭐ **A dispatch table that refuses with a reason is §5's
+  spirit in the UI, and it should be preserved, not "fixed" into silent success.**
+- ⛔ **Layer swatch rows are read-only for identity.** `FloorPropertySection` / `SlabLayerSection` /
+  `WallLayerSection` / `CeilingPropertySection` **resolve** `layer.materialId` and display an
+  `UNRESOLVED_SWATCH` per §5 — but **offer no catalogue picker**; they write `materialColor` only, and
+  new layers are seeded with a hex, not an id. ⭐ **This is where the id/colour split is still being
+  re-created, one new layer at a time.**
+- ⛔ **`FurniturePropertySection`'s "Material" row is STILL read-only and STILL the four-value hint**
+  (`wood|metal|fabric|glass`), verified unchanged at `:151`. §9.10.6 **S19 stands.**
+
+**(c) ⭐ THE RAC PATH — the surprise, and it reorders the plan.**
+
+`packages/ai-host/src/intents/finishRef.ts` **derives from the master** (S5 done: `0` hex literals,
+confirmed by the gate) and resolves through **three arms in order**: an exact nickname over **39
+alias groups / 89 aliases**, then **`finishRefCandidates()` — a token-subset match against every one
+of the 205 master labels** — then a stopword-guarded loose substring.
+
+> ⭐ **THEREFORE A NEW CATALOGUE ROW IS CHAT-NAMEABLE THE MOMENT IT EXISTS, WITH NO EDIT TO THE
+> RESOLVER.** The file says so itself. **That is the single most valuable measured fact in §10**, and
+> it is what makes §10.7's first slice cheap: the language half is already built, and it is built the
+> way **C68 §5.d** requires — *the resolver owns the language, the master owns the values*.
+
+Guards worth preserving: `CONCEALED_CATEGORIES` (`Insulation`, `Membrane & Waterproofing` never
+answer a bare word — after *"…to wood"* returned **Insulation · Wood Fibre Board**), `GRAMMAR_STOPWORDS`
+(~50 words), and **ambiguity refuses and lists candidates rather than picking**.
+
+⛔ **But the CARRIER is the constraint, and §6.2's ruling is unchanged.** Of **16 `*Material` verbs**
+in the generated register: **13 REFUSES with `affectedStores: NONE`**, 3 LIVE — and two of those three
+are `rhino.setMaterial`/`resetMaterial` (a reference-model override) while `room.setMaterial` is
+**colour-only**. ⛔ **`wall.setMaterial` does not exist.** Of **53 registered chat capabilities**,
+**none assigns a master catalogue material to a general element** — chat cannot say *"make this
+column corten steel"*.
+
+⭐ **What IS live is the wall finish route**, and it is live on all four links as of today:
+`wall.setSideFinishBatch` **LIVE**, capability `set-wall-side-finish` with declared examples
+(*"make all inner finishes walls on the ground floor to plaster"*), plus `wall.addLayerBatch` LIVE.
+
+⚠ **CONCURRENT LANE — DO NOT DUPLICATE OR CONTRADICT.** Lane **FIN1** repaired this path **today**:
+`5cdee427` *"the finish reached the store and the builder — the REBUILD never ran"* (**L-1670**) —
+`WallRebuildCoordinator._flush`'s no-progress signature hashed geometry and `materialId` but **never
+`sideFinishes`**, so a finish-only batch was *"no progress"* by construction; a second gate,
+`_buildKey`, would have eaten it anyway. Fixed with one shared composer,
+`geometry-wall/src/WallPaintSignature.ts`. ⭐ **The third sighting of one founder sentence, and the
+first two fixes were real but sat behind gates that never let them run** — §THREE-INVALIDATION-GATES-IN-SERIES.
+**Further read-back work is uncommitted in FIN1's tree. §10 MUST NOT touch that path.**
+
+### §10.6 — ⛔ ASSET HOSTING IS A NAMED, UNSOLVED DEPENDENCY — not a hand-wave
+
+Every pattern family in §10.2.b depends on this, so it is stated as a blocker with an owner rather
+than assumed.
+
+- ⛔ **There is no `public/textures/`, zero `.ktx2`, zero `.basis`, zero PBR maps in the repo.**
+- ⛔ **`public/items` (~185 MB of GLB) is `.dockerignore`d out of the production image by design** —
+  *"they belong on object storage (Supabase Storage / CDN)… the catalog GLBs 404 in prod until
+  re-hosted. Tracker: OBJECT-STORAGE-GLB."* ⭐ **The furniture 404s the founder already knows about
+  and the texture question are THE SAME UNBUILT BUCKET.**
+- ⛔ **`SPEC-MATERIALS-REPOSITORY §3.2` is the normative plan** (a shared `MaterialResolver` + lazy
+  `TextureLoader`, maps keyed into the MaterialPool) **and it is unbuilt.**
+- ⚠ **The one live texture-ingest path is a decoy**: `MaterialsBucket.ts:240` writes a **base64
+  data-URL** into `UserMaterialStore`, rendered only as a **CSS `background-image` swatch** — ⛔ **it
+  never reaches a THREE material.** A user can "upload a texture" today and see it in the picker and
+  never on the model.
+
+⚠ ⭐ **And the consumer side is HALF-BUILT, which is worth knowing before anyone estimates this.**
+`matDef.textures.normal` / `.roughness` are **read at seven sites** (`WallFragmentBuilder.ts:4681`,
+`SlabFragmentBuilder.ts:1561`, `RoofFragmentBuilder.ts:179`, `CurtainWallBuilder.ts:2172,2219`,
+`CurtainWallInstanceManager.ts:228`, `initUI.ts:2392`) — and **`.textures` is written by nothing**:
+`materialLibrary.ts`'s `project()` returns `{ id, label, category, params }` with no `textures` key.
+**All seven reads resolve `undefined` on every element, every frame.** §COMMITTED-IS-NOT-REACHABLE,
+in the shape that flatters an estimate: the readers exist, so the work *looks* nearly done, and the
+producer, the loader, the cache and the bucket are all absent.
+
+**MUST**: any slice proposing texture maps names the bucket, the format (Pascal's answer is **KTX2 at
+512²** — 249 maps, GPU-compressed, transcoded through a loader), and the licence of every map, per
+the evidence doc's §0. **MUST NOT**: a slice ship `maps` on `MaterialRecord` while nothing can load
+them — that mints a field whose only possible value is "broken".
+
+### §10.7 — THE SLICES
+
+⛔ **Sequenced against §9.6.c as amended by §10.1.1** (reconciliation discharged; wiring residue owned
+by S22/S23) and against §10.6's hosting dependency. **Each names what it builds, what proves it, and
+what it deliberately does not do.** ⭐ **A first slice that ships REAL improvement with zero asset
+hosting is worth more than a complete taxonomy that cannot load.**
+
+---
+
+**⭐ S24 — THE COMBINATORIAL PAINT MODEL + THE THREE EMPTY PARAMETRIC FAMILIES. FIRST, and it needs
+NO assets, NO new command, NO new capability row, and NO record-shape change.**
+
+- **Builds**: `Paint & Coating` re-authored as **hue × sheen**, our own values — a designed
+  architectural palette (neutrals plus hue families, the *structure* Pascal validates: ~9 neutrals +
+  8 families × 3–5 steps) crossed with sheen expressed **through `roughness`** (matte / eggshell /
+  satin / gloss), which the record **already carries**. Plus the three empty families a parametric
+  record serves honestly: **external render/stucco**, **carpet**, and base **decking**.
+- ⭐ **Why it is first, and it is not arbitrary**: it is the **only** slice that reaches all three
+  §10.5 paths on day one with no new machinery. **(a)** the resolver resolves any id in the
+  catalogue; **(b)** `MaterialsBucket` reads `MATERIAL_CATALOG` and is already searchable;
+  **(c)** ⭐ **`finishRefCandidates()` makes every new label chat-nameable with zero resolver edits**,
+  through the `wall.setSideFinishBatch` carrier **that FIN1 repaired today**. *"Make all interior
+  walls sage green"* becomes a sentence that works, because the sentence machinery already works and
+  only the noun was missing.
+- **Proves**: `MATERIAL_CATALOG.length` rises with **0 duplicate ids**;
+  `check-material-single-source.ts` **stays RC=0** (no rival vocabulary, no literal in the
+  projection); `check-material-id-required.ts` **ARM B stays 0/0**; and — the only proof that matters —
+  ⭐ **an executed test driving a real chat utterance naming a NEW row through the real resolver into
+  `wall.setSideFinishBatch`, asserting the sideFinish on the WallStore record read back**, never a
+  `success: true` and never `finishRef` in isolation (§9.3's retraction is the precedent).
+- ⛔ **Deliberately does NOT**: add `maps`, `tiling` or `surfaces`; touch any producer, serializer or
+  bridge; touch `WallFragmentBuilder` or anything in FIN1's tree; change `MaterialRecord`; or claim
+  the render looks better (§10.4).
+- ⚠ **Honest limit, stated up front**: this reaches **walls** via the one live carrier. Other
+  families' `setMaterial` verbs still REFUSE (§10.5c). **A row that exists is not a row every family
+  can be given.**
+
+---
+
+**S25 — `surfaces` APPLICABILITY + ITS FILTER, IN ONE SLICE.**
+
+- **Builds**: `surfaces?: MaterialSurface[]` on `MaterialRecord` (`floor|wall|ceiling|roof|furniture|outdoor`)
+  **and** the `MaterialsBucket` / property-inspector filter that honours it, **in the same commit**.
+- **Proves**: a gate arm asserting **every record carrying `surfaces` is filtered by at least one
+  live surface** — i.e. the facet has a consumer. ⭐ **This arm exists specifically because Pascal
+  authored the facet on 65 records and wired nothing** (evidence §A.9).
+- ⛔ **Does NOT**: enforce applicability as a *refusal* — filtering a picker is a convenience;
+  refusing an authored assignment is a product decision nobody has taken.
+
+---
+
+**S26 — THE LAYER-SECTION PICKERS (closes the last id/colour re-creation site).**
+
+- **Builds**: a catalogue picker in `FloorPropertySection` / `SlabLayerSection` / `WallLayerSection` /
+  `CeilingPropertySection`, and **new layers seeded with a `materialId`, not a hex**.
+- **Proves**: a new layer created through the real UI path carries an id that resolves.
+- ⛔ **Does NOT**: migrate existing layers (that is data, and §9.10.2's 15/15 measurement shows the
+  transcriptions currently agree — a migration would be churn with a repaint risk).
+- ⚠ **Concurrent-lane**: `WallLayerSection` sits beside FIN1's territory. **§8.3 outranks convenience.**
+
+---
+
+**S27 — A REAL MATERIAL BATCH CARRIER, then the `material` value source and the family table.**
+
+- ⭐ **This is §8.2 S10, unchanged, and it remains the largest piece and the true answer to "via
+  RAC — all of theM".** §10 does not re-decide it; it re-states why it is still deferred and now
+  quantifies it: **13 of 16 `*Material` verbs REFUSE with `affectedStores: NONE`**, and none of the
+  53 capabilities assigns a catalogue material to a general element.
+- **Builds**: one real batch carrier reaching a RENDER/PERSIST store; then `material` in
+  `KNOWN_VALUE_SOURCES` resolving **through `finishRef.ts`** (⛔ never a second matcher — C68 §7.c);
+  then a `MaterialFamilies` table row per C67 §1.3's generator pattern, with declared examples,
+  `commandProof`, an acceptance family and an adversarial pin.
+- **Proves**: **C16 §5.1 CA-21** — an **executed read-back** from the authoritative store, plus gate
+  31 check **4b** executing every declared example.
+- ⛔ **Does NOT ship on a DTO store** (§6.2, C68 §5.a: *"presumed DEAD until proven otherwise —
+  right 13/13 times"*). ⚠ Enables *"apply oak parquet to the floor in room 00-001"* and *"make the
+  roof dark slate tile"* **as sentences**; whether they *look* right is S28's and §10.4's business.
+
+---
+
+**S28 — ⛔ TEXTURE MAPS. BLOCKED, with the blocker named, not estimated.**
+
+- **Blocked on §10.6**: the object-storage bucket (the same one that closes **OBJECT-STORAGE-GLB**),
+  `SPEC-MATERIALS-REPOSITORY §3.2`'s unbuilt `MaterialResolver` + lazy loader, a cache keyed on the
+  MaterialKey **including map URLs**, and ⛔ **a named licence for every map we ship**.
+- **Only then**: `maps` + `tiling` on `MaterialRecord`, and the pattern families — **parquet**,
+  **shingle**, **mosaic/pool tile**, floor-designated tile and wood, cladding profiles.
+- ⭐ **The one cheap thing available before the bucket**: `project()` already has seven waiting
+  consumers (§10.6) and writes no `textures` key. **Wiring the producer for a SINGLE hard-coded
+  bundled map would prove the whole chain end-to-end at near-zero cost** — and would convert
+  §10.6's "half-built" from a claim into a measurement. **Recommended as the de-risking probe, not
+  as the feature.**
+- ⛔ **Does NOT**: copy any file from `pascalorg/editor` (evidence §0.2).
+
+---
+
+**S29 — REFERRED OUT, NOT OWNED: the render-quality half of the founder's sentence.**
+
+⭐ **Recorded here so it is not lost between contracts**, and explicitly **not** a C100 slice:
+**AO on by default at a cheap configuration** (§10.4 — Pascal's `giIntensity: 0` / `sliceCount 1` /
+`stepCount 4` + denoise is an existence proof against our L-59 flicker finding), the **missing
+scene-referred grade**, the **achromatic IBL stops**, and **L-1513** (TRAA composites nothing).
+**C04's territory and a render lane's work.** ⛔ **C100 MUST NOT be cited as covering any of it.**
+
+### §10.8 — What §10 does NOT decide
+
+Stated so it is never read as coverage (C70 §7.1).
+
+- ⛔ It does **not** decide whether an unmaterialled wall should render light grey — **§9.9 and
+  §9.10.6 S20 left that open as the founder's call, and §10 does not take it.**
+- ⛔ It does **not** unblock the **acoustic facet** (§4.5, S9(b)); `nrcFromName()` still reads prose.
+- ⛔ It does **not** prove any row reaches a **pixel**. Every §10.5 claim is a code and gate reading.
+- ⛔ It does **not** touch the three declared rivals on the §7 ARM C ledger, nor S22/S23's residue.
+- ⚠ It does **not** establish that adding rows improves what the founder sees — **§10.4 argues the
+  opposite for the largest share**, and that honesty is the section's main contribution.
