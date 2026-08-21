@@ -46,7 +46,7 @@ const DEFAULT_TEMPLATES: Array<{ name: string; discipline: TemplateDiscipline; v
 export class ViewTemplateManagerPanel {
     /** Phase B (S73-WIRE) — runtime threaded by parent (added by widening — class had no explicit constructor). */
     public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
-    // §VIEW-TEMPLATE-PANEL-DISPATCH-IS-DEAD (L-1872) — ProjectBrowserPanel.ts:172
+    // §VIEW-TEMPLATE-PANEL-DISPATCH-IS-DEAD (L-1892) — ProjectBrowserPanel.ts:172
     // constructed this bare while its six sibling rail panels all forwarded
     // `this.runtime`, so `viewTemplate.create` / `viewTemplate.update` and the
     // defaults seeding dispatched into `undefined`. The class contained its own

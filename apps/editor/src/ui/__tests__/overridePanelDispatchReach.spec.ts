@@ -1,5 +1,5 @@
 /**
- * §OVERRIDE-PANEL-DISPATCH-IS-DEAD (L-1870) — REACHABILITY suite for OverridePanel.
+ * §OVERRIDE-PANEL-DISPATCH-IS-DEAD (L-1890) — REACHABILITY suite for OverridePanel.
  *
  * THE DEFECT THIS PINS
  * ────────────────────────────────────────────────────────────────────────────
@@ -106,7 +106,7 @@ describe('§OVERRIDE-PANEL-DISPATCH-IS-DEAD — the panel reaches a bus even whe
         expect(seen.some(d => d.name === 'vg.assignIntent')).toBe(false);
     });
 
-    it('§PER-CATEGORY-VIEW-VISIBILITY (L-1874) — unticking a category dispatches view.setCategoryVisibility', () => {
+    it('§PER-CATEGORY-VIEW-VISIBILITY (L-1894) — unticking a category dispatches view.setCategoryVisibility', () => {
         const panel = new OverridePanel();
         panel.open('view-cat');
 
@@ -138,7 +138,7 @@ describe('§OVERRIDE-PANEL-DISPATCH-IS-DEAD — the two production call sites pa
     // A source-level assertion, deliberately. The construction sites live in modules
     // whose full load graph (OBC, fragments, a World) cannot be instantiated under
     // happy-dom, so the reachable proof that they no longer call `new OverridePanel()`
-    // bare is to read them. This is the cheapest gate that would have caught L-1870.
+    // bare is to read them. This is the cheapest gate that would have caught L-1890.
     it('neither PlanViewManager nor ViewHeaderButtons constructs OverridePanel bare', async () => {
         const { readFileSync } = await import('node:fs');
         const { resolve } = await import('node:path');

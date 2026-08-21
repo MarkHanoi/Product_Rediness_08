@@ -169,11 +169,11 @@ export class ProjectBrowserPanel {
         // Phase B.15 (S73-WIRE) — forward the composed runtime so the
         // levels/grids sub-panels (B.15-LM, B.15-GM) receive the typed handle.
         this._levelsGridsPanel   = new LevelsGridsRailPanel(props, this.runtime);
-        // §VIEW-TEMPLATE-PANEL-DISPATCH-IS-DEAD (L-1872) — this was the ONE line in
+        // §VIEW-TEMPLATE-PANEL-DISPATCH-IS-DEAD (L-1892) — this was the ONE line in
         // this block that did not forward `this.runtime`, so creating, seeding and
         // renaming a view template all dispatched into `undefined`. Same shape as
         // §VIEW-INTENT-ASSIGN-DISPATCH-IS-DEAD (L-1860) and
-        // §OVERRIDE-PANEL-DISPATCH-IS-DEAD (L-1870).
+        // §OVERRIDE-PANEL-DISPATCH-IS-DEAD (L-1890).
         this._viewTemplatesPanel = new ViewTemplateManagerPanel(this.runtime);
         this._physicsPanel       = new PhysicsRailPanel(this.runtime);
         this._renderPanel        = new RenderRailPanel(renderProps, null as any);

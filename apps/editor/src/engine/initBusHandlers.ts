@@ -2374,7 +2374,7 @@ export function initBusHandlers(
             fn: (cmd) => { _cmExec(new HideElementInViewCommand(cmd.viewId, cmd.elementId)); },
         },
         {
-            // §PER-CATEGORY-VIEW-VISIBILITY (L-1874) — the founder's "click boolean
+            // §PER-CATEGORY-VIEW-VISIBILITY (L-1894) — the founder's "click boolean
             // for general visibility" (hide furniture in elevation). Writes ONE
             // view-scoped override for a whole element type / category rather than N
             // per-element ones, so it also covers elements created later.

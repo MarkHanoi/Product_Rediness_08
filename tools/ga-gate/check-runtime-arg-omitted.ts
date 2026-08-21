@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * §RUNTIME-ARG-OMITTED (L-1873) — the optional-runtime silent-death tripwire.
+ * §RUNTIME-ARG-OMITTED (L-1893) — the optional-runtime silent-death tripwire.
  *
  * THE DEFECT SHAPE
  * ────────────────────────────────────────────────────────────────────────────
@@ -22,8 +22,8 @@
  * This shape shipped FOUR times in a single day (2026-08-21):
  *   · L-1633  SheetEditor drag          — sheet moves dispatched nothing
  *   · L-1860  ViewPropertiesPanel       — assigning a view intent did nothing
- *   · L-1870  OverridePanel             — the ENTIRE V/G panel mutated nothing
- *   · L-1872  ViewTemplateManagerPanel  — template create/update did nothing
+ *   · L-1890  OverridePanel             — the ENTIRE V/G panel mutated nothing
+ *   · L-1892  ViewTemplateManagerPanel  — template create/update did nothing
  *
  * Each was ONE missing positional argument at a site where the handle was
  * already in lexical scope. Every one was found by a human reading code, after a
@@ -64,7 +64,7 @@ const LABEL = 'runtime-arg-omitted';
 
 /**
  * ARM A baseline — shrink-only. First reading 2026-08-21 (lane VIS1), taken
- * AFTER L-1870 / L-1872 were repaired: 21 bare construction sites remain.
+ * AFTER L-1890 / L-1892 were repaired: 21 bare construction sites remain.
  *
  * ⚠ 21 is a DEBT LEDGER, not a clean bill. Each entry is a surface that may be
  * silently doing nothing right now. Six were independently confirmed dead by

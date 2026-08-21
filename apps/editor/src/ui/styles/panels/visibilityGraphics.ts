@@ -145,7 +145,7 @@ export const VISIBILITY_GRAPHICS_STYLES = `
         gap: 8px;
     }
 
-    /* §PER-CATEGORY-VIEW-VISIBILITY (L-1874) — per-view category toggles.
+    /* §PER-CATEGORY-VIEW-VISIBILITY (L-1894) — per-view category toggles.
        Two columns so twelve categories stay scannable without scrolling the
        panel; the note explains the SCOPE, which is the part users get wrong
        (this hides in ONE view, not project-wide). */

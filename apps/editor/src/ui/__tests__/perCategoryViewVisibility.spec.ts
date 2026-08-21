@@ -1,5 +1,5 @@
 /**
- * §PER-CATEGORY-VIEW-VISIBILITY (L-1874) — the founder's per-category toggle,
+ * §PER-CATEGORY-VIEW-VISIBILITY (L-1894) — the founder's per-category toggle,
  * proven END TO END: real command → real store → real resolver.
  *
  * > *"I need to have somewhere a click boolean for general visibility — imagine

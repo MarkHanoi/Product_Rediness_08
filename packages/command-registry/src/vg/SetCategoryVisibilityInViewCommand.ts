@@ -1,5 +1,5 @@
 /**
- * §PER-CATEGORY-VIEW-VISIBILITY (L-1874) — hide or show a whole element category
+ * §PER-CATEGORY-VIEW-VISIBILITY (L-1894) — hide or show a whole element category
  * in ONE view, as an undoable, persisted, view-scoped INTENT OVERRIDE.
  *
  * THE GAP THIS CLOSES
@@ -19,7 +19,7 @@
  *     `graphicsRulesEngine.resolveStyle({ viewId, elementId, … })`, which walks
  *     `visibilityOverrides` and returns `opacity 0 / width 0` on a match.
  *   · PERSISTENCE and UNDO — the override lives on `ViewIntentInstance.
- *     localOverrides`, which round-trips in the project snapshot (L-1871) and
+ *     localOverrides`, which round-trips in the project snapshot (L-1891) and
  *     is restored by `restoreOverrideLayer`.
  *
  * The ONLY commands writing that layer were per-ELEMENT

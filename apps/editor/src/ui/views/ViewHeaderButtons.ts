@@ -62,7 +62,7 @@ export interface ViewHeaderButtonsHandle {
     syncIntentSelect: () => void;
 }
 
-// §OVERRIDE-PANEL-DISPATCH-IS-DEAD (L-1870) — takes the runtime the toolbar was
+// §OVERRIDE-PANEL-DISPATCH-IS-DEAD (L-1890) — takes the runtime the toolbar was
 // built with. It used to call `new OverridePanel()` with no argument, leaving
 // `this.runtime` null and every command the panel dispatches a silent no-op.
 function ensureUnifiedPanel(

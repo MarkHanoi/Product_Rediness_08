@@ -1,5 +1,5 @@
 /**
- * §DOC-SETTINGS-ROUND-TRIP (L-1871) — does the documentation-settings surface
+ * §DOC-SETTINGS-ROUND-TRIP (L-1891) — does the documentation-settings surface
  * actually survive save → close → reopen?
  *
  * THE QUESTION THIS ANSWERS

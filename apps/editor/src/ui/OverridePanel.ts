@@ -43,7 +43,7 @@ export class OverridePanel {
     public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
 
     constructor(runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null = null) {
-        // §OVERRIDE-PANEL-DISPATCH-IS-DEAD (L-1870) — BOTH construction sites called
+        // §OVERRIDE-PANEL-DISPATCH-IS-DEAD (L-1890) — BOTH construction sites called
         // `new OverridePanel()` with NO argument (PlanViewManager.ts:344,
         // ViewHeaderButtons.ts:66), so `this.runtime` was null and every one of the
         // NINE `this.runtime?.bus?.executeCommand(…)` sites below evaluated to
@@ -195,7 +195,7 @@ export class OverridePanel {
     }
 
     /**
-     * §PER-CATEGORY-VIEW-VISIBILITY (L-1874) — the founder's "click boolean for
+     * §PER-CATEGORY-VIEW-VISIBILITY (L-1894) — the founder's "click boolean for
      * general visibility": one checkbox per element category, scoped to THIS view.
      *
      * > *"imagine I don't want to see furniture elements in elevation — I need to
@@ -290,7 +290,7 @@ export class OverridePanel {
             this.runtime?.bus?.executeCommand('view.clearAllOverrides', { viewId: this.activeViewId });
             this.render();
         });
-        // §PER-CATEGORY-VIEW-VISIBILITY (L-1874) — one command per toggle, so each
+        // §PER-CATEGORY-VIEW-VISIBILITY (L-1894) — one command per toggle, so each
         // is its own undo entry and each syncs through the normal command path.
         this.panel.querySelectorAll<HTMLInputElement>('[data-action="cat-visible"]').forEach(box => {
             box.addEventListener('change', () => {
