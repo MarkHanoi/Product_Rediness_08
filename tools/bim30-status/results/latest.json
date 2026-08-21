@@ -1,12 +1,22 @@
 {
-  "generatedAtSha": "a296069d",
+  "generatedAtSha": "83192c66",
   "rowsParsed": 84,
   "counted": 82,
-  "measured": 54,
-  "carried": 27,
+  "measured": 62,
+  "carried": 19,
   "notDetermined": 1,
-  "closedOfMeasured": 43,
-  "ratchetBreaches": 3,
+  "closedOfMeasured": 47,
+  "ratchetBreaches": 11,
+  "overlayRegistered": [
+    "CO-05",
+    "CO-07",
+    "CO-10",
+    "GE-04",
+    "GE-05",
+    "GE-10",
+    "PV-05",
+    "PV-06"
+  ],
   "rows": [
     {
       "id": "GR-01",
@@ -15,9 +25,10 @@
       "gates": [
         "check-graph-write-coverage"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
-        "exit": 1,
+        "exit": 3,
         "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
         "gate": "check-graph-write-coverage"
       }
@@ -27,6 +38,7 @@
       "block": "Graph & topology",
       "declaredStatus": "n/a",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "n/a",
@@ -38,6 +50,7 @@
       "block": "Graph & topology",
       "declaredStatus": "n/a",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "n/a",
@@ -51,6 +64,7 @@
       "gates": [
         "check-topology-survives"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -65,9 +79,10 @@
       "gates": [
         "check-graph-write-coverage"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
-        "exit": 1,
+        "exit": 3,
         "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
         "gate": "check-graph-write-coverage"
       }
@@ -79,6 +94,7 @@
       "gates": [
         "check-graph-persistence"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -93,6 +109,7 @@
       "gates": [
         "check-graph-persistence"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -107,6 +124,7 @@
       "gates": [
         "check-graph-persistence"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -121,6 +139,7 @@
       "gates": [
         "check-graph-runtime-readback"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -135,6 +154,7 @@
       "gates": [
         "check-graph-persistence"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -149,6 +169,7 @@
       "gates": [
         "check-gate-residency"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -163,6 +184,7 @@
       "gates": [
         "check-move-propagation"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -177,6 +199,7 @@
       "gates": [
         "check-room-identity-survives-wall-move"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -191,9 +214,10 @@
       "gates": [
         "check-no-empty-means-unknown"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
-        "exit": 1,
+        "exit": 3,
         "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
         "gate": "check-no-empty-means-unknown"
       }
@@ -205,6 +229,7 @@
       "gates": [
         "check-source-verified-invariants"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -219,6 +244,7 @@
       "gates": [
         "check-graph-query-verbs"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -233,6 +259,7 @@
       "gates": [
         "check-ubg-snapshot-derived"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -247,6 +274,7 @@
       "gates": [
         "check-graph-runtime-readback"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -261,6 +289,7 @@
       "gates": [
         "check-propagation-reaches"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -275,6 +304,7 @@
       "gates": [
         "check-propagation-reaches"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -289,9 +319,10 @@
       "gates": [
         "check-prevstate-contract"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
-        "exit": 0,
+        "exit": 3,
         "summary": "[check-prevstate-contract] executed controls (an arm never watched failing is UNPROVEN):",
         "gate": "check-prevstate-contract"
       }
@@ -303,6 +334,7 @@
       "gates": [
         "check-propagation-reaches"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -317,6 +349,7 @@
       "gates": [
         "check-source-verified-invariants"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -331,6 +364,7 @@
       "gates": [
         "check-source-verified-invariants"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -345,6 +379,7 @@
       "gates": [
         "check-source-verified-invariants"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -359,6 +394,7 @@
       "gates": [
         "check-gate-residency"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -373,6 +409,7 @@
       "gates": [
         "check-propagation-trackers-reach"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 1,
@@ -387,6 +424,7 @@
       "gates": [
         "check-geometry-change-consumers"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -399,6 +437,7 @@
       "block": "Propagation & prevState",
       "declaredStatus": "OPEN",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "OPEN",
@@ -412,6 +451,7 @@
       "gates": [
         "check-geometry-change-consumers"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -426,6 +466,7 @@
       "gates": [
         "check-source-verified-invariants"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -440,9 +481,10 @@
       "gates": [
         "check-epsilon-policy"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
-        "exit": 1,
+        "exit": 3,
         "summary": "[check-epsilon-policy] executed controls (gates doc §2.2 — an arm never watched failing is UNPROVEN):",
         "gate": "check-epsilon-policy"
       }
@@ -454,6 +496,7 @@
       "gates": [
         "check-predicate-canonical"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 3,
@@ -468,6 +511,7 @@
       "gates": [
         "check-predicate-canonical"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 3,
@@ -479,22 +523,30 @@
       "id": "GE-04",
       "block": "Geometry determinism & tolerance",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-census-verified-invariants"
+      ],
+      "gateFromOverlay": true,
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: source re-measure of the four families"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-census-verified-invariants"
       }
     },
     {
       "id": "GE-05",
       "block": "Geometry determinism & tolerance",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-polygon-boolean-canonical"
+      ],
+      "gateFromOverlay": true,
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: `polygonBoolean.ts` + its oracle suite"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-polygon-boolean-canonical"
       }
     },
     {
@@ -502,6 +554,7 @@
       "block": "Geometry determinism & tolerance",
       "declaredStatus": "OPEN",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "OPEN",
@@ -515,6 +568,7 @@
       "gates": [
         "check-gate-residency"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -529,6 +583,7 @@
       "gates": [
         "check-cross-process-determinism"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -543,6 +598,7 @@
       "gates": [
         "check-refusal-identity"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 3,
@@ -554,11 +610,15 @@
       "id": "GE-10",
       "block": "Geometry determinism & tolerance",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-census-verified-invariants"
+      ],
+      "gateFromOverlay": true,
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: `SplitWall.ts` + the verb register"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-census-verified-invariants"
       }
     },
     {
@@ -568,6 +628,7 @@
       "gates": [
         "check-room-aabb-canonical"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -582,6 +643,7 @@
       "gates": [
         "check-triangulation-canonical"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 1,
@@ -596,6 +658,7 @@
       "gates": [
         "check-no-hidden-mock"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -610,6 +673,7 @@
       "gates": [
         "check-solver-is-real"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -624,6 +688,7 @@
       "gates": [
         "check-no-hidden-mock"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -636,6 +701,7 @@
       "block": "Constraint honesty",
       "declaredStatus": "OPEN, and correctly unauthorised",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "OPEN, and correctly unauthorised",
@@ -646,11 +712,15 @@
       "id": "CO-05",
       "block": "Constraint honesty",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-census-verified-invariants"
+      ],
+      "gateFromOverlay": true,
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: source re-measure"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-census-verified-invariants"
       }
     },
     {
@@ -660,6 +730,7 @@
       "gates": [
         "check-no-hidden-mock"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -671,11 +742,15 @@
       "id": "CO-07",
       "block": "Constraint honesty",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-census-verified-invariants"
+      ],
+      "gateFromOverlay": true,
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: source census"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-census-verified-invariants"
       }
     },
     {
@@ -685,6 +760,7 @@
       "gates": [
         "check-constraint-honesty"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -697,6 +773,7 @@
       "block": "Constraint honesty",
       "declaredStatus": "OPEN, correctly deferred",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "OPEN, correctly deferred",
@@ -707,11 +784,15 @@
       "id": "CO-10",
       "block": "Constraint honesty",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-census-verified-invariants"
+      ],
+      "gateFromOverlay": true,
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: source census of `provideLiveGraphSources` callers"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-census-verified-invariants"
       }
     },
     {
@@ -721,6 +802,7 @@
       "gates": [
         "check-gate-residency"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -735,6 +817,7 @@
       "gates": [
         "check-constraint-honesty"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -749,9 +832,10 @@
       "gates": [
         "check-provenance-not-invented"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
-        "exit": 1,
+        "exit": 3,
         "summary": "[check-provenance-not-invented] executed controls (C75 §6.2 — an arm never watched failing is UNPROVEN):",
         "gate": "check-provenance-not-invented"
       }
@@ -763,6 +847,7 @@
       "gates": [
         "check-provenance-coverage"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -777,9 +862,10 @@
       "gates": [
         "check-provenance-not-invented"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
-        "exit": 1,
+        "exit": 3,
         "summary": "[check-provenance-not-invented] executed controls (C75 §6.2 — an arm never watched failing is UNPROVEN):",
         "gate": "check-provenance-not-invented"
       }
@@ -791,6 +877,7 @@
       "gates": [
         "check-provenance-export-boundary"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -802,22 +889,30 @@
       "id": "PV-05",
       "block": "Provenance",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-provenance-slice-persisted"
+      ],
+      "gateFromOverlay": true,
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: the serializer's `provenance` slice + suite"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-provenance-slice-persisted"
       }
     },
     {
       "id": "PV-06",
       "block": "Provenance",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-element-confidence-declared"
+      ],
+      "gateFromOverlay": true,
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: schema census"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-element-confidence-declared"
       }
     },
     {
@@ -827,6 +922,7 @@
       "gates": [
         "check-gate-residency"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -841,6 +937,7 @@
       "gates": [
         "check-provenance-coverage"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -853,6 +950,7 @@
       "block": "Model truth, verbs & identity",
       "declaredStatus": "CLOSED",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "CLOSED",
@@ -866,10 +964,11 @@
       "gates": [
         "check-verb-register"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
-        "exit": 0,
-        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "exit": 1,
+        "summary": "• V4 5 UNKNOWN-liveness verb(s) on the baseline no longer qualify: beam.changeLevel, furniture.changeLevel, lighting.changeLevel, plumbing.changeLevel, sheet…",
         "gate": "check-verb-register"
       }
     },
@@ -880,10 +979,11 @@
       "gates": [
         "check-verb-register"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
-        "exit": 0,
-        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "exit": 1,
+        "summary": "• V4 5 UNKNOWN-liveness verb(s) on the baseline no longer qualify: beam.changeLevel, furniture.changeLevel, lighting.changeLevel, plumbing.changeLevel, sheet…",
         "gate": "check-verb-register"
       }
     },
@@ -892,6 +992,7 @@
       "block": "Model truth, verbs & identity",
       "declaredStatus": "OPEN *(moved UNPROVEN → OPEN, and NOT to closed)*",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "OPEN *(moved UNPROVEN → OPEN, and NOT to closed)*",
@@ -903,6 +1004,7 @@
       "block": "Model truth, verbs & identity",
       "declaredStatus": "UNPROVEN",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "UNPROVEN",
@@ -914,6 +1016,7 @@
       "block": "Model truth, verbs & identity",
       "declaredStatus": "OPEN",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "OPEN",
@@ -925,6 +1028,7 @@
       "block": "Model truth, verbs & identity",
       "declaredStatus": "OPEN",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "OPEN",
@@ -936,6 +1040,7 @@
       "block": "Model truth, verbs & identity",
       "declaredStatus": "CLOSED",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "CLOSED",
@@ -949,10 +1054,11 @@
       "gates": [
         "check-per-package-compile"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "NOT_DETERMINED",
-        "reason": "GATE_SKIPPED_SLOW",
-        "detail": "check-per-package-compile: --fast; re-run without it"
+        "reason": "GATE_TIMED_OUT",
+        "detail": "check-per-package-compile: >240s"
       }
     },
     {
@@ -962,10 +1068,11 @@
       "gates": [
         "check-xss-guards"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
-        "exit": 0,
-        "summary": "[xss-guards] ✅ no new unguarded HTML-sink interpolations. 547 baselined finding(s) across 142 file(s); 4661 files scanned.",
+        "exit": 3,
+        "summary": "[xss-guards] ❌ new unguarded HTML-sink interpolation(s) detected.",
         "gate": "check-xss-guards"
       }
     },
@@ -976,6 +1083,7 @@
       "gates": [
         "check-two-client-convergence"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -988,6 +1096,7 @@
       "block": "Collaboration",
       "declaredStatus": "OPEN",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "OPEN",
@@ -999,6 +1108,7 @@
       "block": "Collaboration",
       "declaredStatus": "CLOSED",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "CLOSED",
@@ -1012,6 +1122,7 @@
       "gates": [
         "check-conflict-surfacing"
       ],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
@@ -1024,6 +1135,7 @@
       "block": "Collaboration",
       "declaredStatus": "UNPROVEN",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "UNPROVEN",
@@ -1035,6 +1147,7 @@
       "block": "Certification & gates",
       "declaredStatus": "CLOSED",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "CLOSED",
@@ -1046,6 +1159,7 @@
       "block": "Certification & gates",
       "declaredStatus": "CLOSED",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "CLOSED",
@@ -1057,6 +1171,7 @@
       "block": "Certification & gates",
       "declaredStatus": "UNPROVEN, narrowed",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "UNPROVEN, narrowed",
@@ -1068,6 +1183,7 @@
       "block": "Certification & gates",
       "declaredStatus": "CLOSED *(moved UNPROVEN → CLOSED; see §0.2 — already true at the last stamp)*",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "CLOSED *(moved UNPROVEN → CLOSED; see §0.2 — already true at the last stamp)*",
@@ -1079,6 +1195,7 @@
       "block": "Certification & gates",
       "declaredStatus": "OPEN",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "OPEN",
@@ -1090,6 +1207,7 @@
       "block": "Certification & gates",
       "declaredStatus": "UNPROVEN",
       "gates": [],
+      "gateFromOverlay": false,
       "determination": {
         "kind": "CARRIED",
         "declared": "UNPROVEN",

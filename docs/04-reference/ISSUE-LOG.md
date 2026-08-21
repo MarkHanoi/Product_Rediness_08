@@ -30088,3 +30088,481 @@ executing* — except in L-2707, which is the one executed measurement here.
 **Cross-domain, not mine:** the `@thatopen/components` ratchet is **breached at 117/113** with 27 in
 `packages/core-app-model` — a packages-layer lane find; and the 214 UNKNOWN verbs from
 `check-verb-liveness` belong to whoever owns C69.
+
+## L-2800 … L-2814 — AUDIT LANE AUD-6: contract conformance across the per-element block and BIM 3.0 — 2026-08-21
+
+Founder, 2026-08-21: *"Check all the latest contracts from C84 to C100. … BIM 3.0 completion …
+**CHECK THE CODE — NOT THE DOCS.**"*
+
+**Deliverable:** [CONTRACT-CONFORMANCE-REGISTER](CONTRACT-CONFORMANCE-REGISTER.md) — a clause-level
+table over `C84` `C85`…`C99` `C100` and the BIM 3.0 block `C70`…`C83`, under four verdicts
+(CONFORMS / VIOLATED / UNENFORCED / UNMEASURED). **No code was written in this lane.** Every row
+cites code read at HEAD `83192c66` or a gate executed with its exit code. **21 gates were run.**
+
+⭐ **The register names its scope by ENUMERATION, never by a range.** `CLAUDE.md` records the
+contract range rotting through five recurrences, one of which demoted **C84 itself** below an ADR.
+A range in a filename or a header is the same defect with a shorter fuse.
+
+### ⭐ L-2800 — C84's OWN HEADLINE DEFECT #2 IS FALSE, AND THE MECHANISM IS A DUPLICATE FILENAME
+
+C84 §1 defect 2 reads: *"Lighting is never persisted. `grep -ci "lighting"` over
+`ProjectSerializer.ts` returns **0** … Every light the user places is destroyed on save."*
+
+**There are TWO files named `ProjectSerializer.ts` and TWO named `ProjectLoader.ts`:**
+
+```
+apps/editor/src/engine/persistence/ProjectSerializer.ts        lighting: 10
+apps/editor/src/engine/persistence/ProjectLoader.ts            lighting: 21
+packages/persistence-client/src/loader/ProjectSerializer.ts    lighting:  0
+packages/persistence-client/src/loader/ProjectLoader.ts        lighting:  0
+```
+
+**The production save path is the `apps/editor` copy** — `apps/editor/src/engine/initPersistence.ts:41`
+imports it and `:109` calls `ProjectSerializer.serialize(...)` as the save delegate. That copy
+carries `§PERSIST-LIGHTING` at `:1258-1263` and emits `lighting` at `:1344`.
+
+**Dated with git, not with a comment:**
+
+```
+lighting-serialize added in: 5c8c8791  2026-05-23
+C84 added in:               c0c144b2  2026-08-18
+git merge-base --is-ancestor 5c8c8791 c0c144b2  ->  0   (YES, ancestor)
+```
+
+**The fix predates the claim by 87 days.**
+
+**Why BOTH derivations measured 0.** C84 §0 records a "disagreement" — the four-audit sweep read
+*serializer 0, loader 0*; the Z8 draft read *serializer 0, loader 18* — and resolves it **in favour
+of Z8**. Both readings are reproducible **against different files**: the sweep's "0 and 0" is
+exactly `packages/persistence-client/`; Z8's "0 and 18" is the persistence-client serializer and
+the apps/editor loader. **Neither reading named its path.** C84 adjudicated a file-identity
+ambiguity as though it were a factual disagreement.
+
+⭐ **This is `CLAUDE.md`'s *"Name the gate you ran, or do not quote a number"* in its file-path
+form: NAME THE FILE YOU GREPPED.** It is also stale-**PESSIMISTIC** — the same shape as the P4
+bullet that said RED when the gate said GREEN, and the P7 bullet that was *"wrong, and wrong
+pessimistically"*. Recorded rather than quietly amended, per C84 §0's own rule that a merge hiding
+which side was wrong destroys the evidence.
+
+### ⭐ L-2801 — THE TWIN HAS ALREADY CAUSED A REGRESSION, IN THE OPPOSITE DIRECTION
+
+`apps/editor/src/engine/initPersistence.ts:88-94` says it in its own words:
+
+> *"…the AI audit log is destroyed on every reload — which is exactly the state PV-05 was recorded
+> closed in, **because the fix at `8cab70c1` landed on the persistence-client copy of
+> `ProjectSerializer` that this file does not import.**"*
+
+| # | direction | outcome |
+|---|---|---|
+| PV-05 | a **fix** landed on the dead twin | a row was recorded **CLOSED** while the product still lost data |
+| C84 §1.2 | a **measurement** read the dead twin | a contract recorded a **defect** the product had not had for 87 days |
+
+**One root: two files, one basename, and nothing declaring which is authoritative.** Two failures,
+opposite directions, zero detection.
+
+**Missing gate — `check-persistence-twin-authority.ts`:** assert exactly one
+`ProjectSerializer`/`ProjectLoader` pair is reachable from `initPersistence.ts`, and that any field
+the production copy persists is present in the twin or the twin is declared non-production at its
+head. Today `tools/ga-gate/check-material-id-required.ts:98` hard-codes a **single**
+`SERIALIZER_REL`, so its ARM D/E cannot see the twin at all.
+
+### ⭐ L-2802 — ALL NINE GATES C84 §5 NAMES FOR ELEMENT INTEGRITY ARE ABSENT AT HEAD
+
+`find . -name '<gate>*' -not -path '*/node_modules/*'` → **0** for every one:
+`check-element-authority` · `check-bridge-field-coverage` (C84 calls it *"the load-bearing one"*) ·
+`check-delete-symmetry` · `check-persistence-coverage` · `check-affected-stores` (C84: *"highest
+value single check"*) · `check-undo-store-coverage` · `check-emitter-has-consumer` ·
+`check-constant-copy-pinned` · `check-trigger-has-dispatcher`.
+
+C84 concedes *"nine of the eighteen invariants have no gate … C84 is therefore CANONICAL, not
+ACTIVE"* — but it lists the other nine as **TO BUILD**, and **none has been built**. The correct
+reading is **eighteen of eighteen are review judgements**, on a contract binding on every PR that
+touches an element family.
+
+### L-2803 — BOTH `[Z8]` TESTS MARKED "NOT ON `main`" ARE STILL NOT ON `main`
+
+C84 §5 rules: *"A row may read `EXISTS` only after the file is on `main`."* Three days on:
+`tests/parity/wall/stackAB-miter-parity.test.ts` → **ABSENT**;
+`apps/editor/__tests__/OneDeletePathAcrossSurfaces.test.ts` → **ABSENT**. EI-11 and EI-4a are gated
+by nothing. Independently confirmed: `git ls-files tests/parity/wall/` holds no `stackAB*` file.
+
+### ⭐ L-2804 — THE GATE BUG C84 §5 NAMED IS STILL THERE, AND ITS BLAST RADIUS IS NOW MEASURED
+
+`tools/ga-gate/check-verb-register.ts:135-139` — `TYPE_DECL_RE` is unchanged. Its anchor
+`(?:^|\n)\s*` requires `type` to be the first token on its line, so a **single-line** BridgeSpec is
+invisible. Measured in `apps/editor/src/engine/initBusHandlers.ts`:
+
+| measurement | count |
+|---|---|
+| single-line `{ type: '<dotted verb>'` entries | **1** |
+| …also carrying a `stores:` list on the same line (the gate's own STRICT evidence) | **1** |
+| declarations the regex CAN see | **94** |
+
+The one invisible declaration is **`initBusHandlers.ts:461`** — exactly the one C84 named:
+`{ type: 'stair.batch.create',   stores: ['stair']   },`. It sits in `__batchTypes`, whose loop
+skips already-registered types (`§OI-053`), so it **is** a dead second route. The gate now reports
+`SHADOWED: 1` — and that 1 is **`sheet.create`**, a different verb. **True count ≥ 2; the gate
+under-reports.** ⚠ C84's citation `initBusHandlers.ts:445` has ROTTED → **`:461`**.
+
+*A gate that under-detects converts unmeasured into a green tick — here, inside the gate whose job
+is to find shadows.*
+
+### ⭐ L-2805 — C84 §1 DEFECT 3 (PATH-DEPENDENT DELETE) CONFIRMED STILL LIVE, AND THE REFUSAL IS DISCARDED
+
+- `grep -n elementType apps/editor/src/engine/BimService.ts` → **0 matches**. `:183` constructs
+  `new DeleteElementCommand(id)` from `userData.id` alone.
+- `grep -ci lighting packages/command-registry/src/walls/DeleteElementCommand.ts` → **0**;
+  `grep -c roomStore` → **0**. No branch for either family.
+- The fall-through at **`:650`** is exact and **unrotted** — C84 §0's adjudication against Z8's
+  `:651` still holds.
+
+⭐ **And the refusal reaches nobody.** `BimService.ts` runs `manager.execute(command);` **without
+inspecting the result**, then calls `this.selectionManager.unselectAll()` unconditionally.
+`canExecute` does produce `Element ${id} not found in any store` — it is discarded.
+
+**User-visible:** select a light, a room, or a bare opening and press the delete **button** — the
+element stays, the selection clears, nothing is said. The same element deletes from the
+**keyboard**. C70 **L-INV-1** and **L-INV-3**.
+
+### L-2806 — `check-material-id-required` IS GREEN WHILE CARRYING ELEVEN REAL C100 VIOLATIONS
+
+**RC=0**, and the reason is that all eleven sit at baseline: ARM C **7/7** · ARM D **1/1** ·
+ARM F **3/3**. Green ≠ conformant. The named findings:
+
+- **ARM D** — `ProjectSerializer.ts serializePlumbing()` writes no `materialId`: *"the material
+  renders this session and is GONE after save/load (C100 §2.1: materialId is PERSIST-OR-LOSE)"*.
+- **ARM C** — `packages/geometry-kernel/src/producers/slab.ts` mints a `MaterialKey` without the
+  master resolver, so *"the stored materialId cannot reach the rendered colour (C100 §9)"*.
+- **ARM F** — `LightingTypes.ts`, `PlumbingTypes.ts`, `StairTypes.ts` declare **no** `materialId`
+  while their schemas do. The gate states the distinction exactly: *"'the serializer drops it' and
+  'there is no field to drop' are different defects with different fixes."*
+
+### ⭐ L-2807 — `check-material-single-source` PASSES PRECISELY WHERE THE DEFECTS ARE
+
+**RC=0**, *"PASS — one material vocabulary; the rivals are declared, not silent."* Its own output
+then says:
+
+> *"ARM A colour-without-id · ARM B a stored materialId that resolves to NOTHING · ARM C a producer
+> that mints a key without the master resolver · ARM D persistence round-trip. Those four were
+> listed here as NOT CHECKED and are **where every measured material loss in L-1038 lives**."*
+
+A gate whose four load-bearing arms are unimplemented, reporting PASS. This is the `SYNC_COLOURS`
+lesson (L-2130) without the spelling trick: **the gate is green because it did not look.**
+
+### L-2808 — FIVE BIM 3.0 ROWS DECLARE `CLOSED` AGAINST A RED GATE, AND FOUR HAVE SINCE GOT WORSE
+
+`tools/bim30-status/results/latest.json` (generated at `a296069d`, **766 commits stale** —
+`git rev-list --count a296069d..HEAD` → 766):
+
+| row | block | recorded exit | gate | AUD-6 re-run at HEAD |
+|---|---|---|---|---|
+| **GR-01** | Graph & topology | 1 | `check-graph-write-coverage` | **RC=3 — worse** |
+| **GR-05** | Graph & topology | 1 | `check-graph-write-coverage` | **RC=3 — worse** |
+| **PR-09** | Propagation & prevState | 1 | `check-propagation-trackers-reach` | not re-run |
+| **PV-01** | Provenance | 1 | `check-provenance-not-invented` | **RC=3 — worse** |
+| **PV-03** | Provenance | 1 | `check-provenance-not-invented` | **RC=3 — worse** |
+
+Four of five degraded from *at declared level* to *ratchet exceeded*. **The contradiction is live
+and widening.**
+
+### ⭐ L-2809 — THE DEFENSIBLE BIM 3.0 COMPLETION NUMBER IS 34 OF 82 (41 %), NOT 43 OF 82 (52 %)
+
+From the same artefact: `rowsParsed 84 · counted 82 · measured 54 · carried 27 · notDetermined 1 ·
+closedOfMeasured 43`.
+
+| category | rows | of 82 |
+|---|---|---|
+| **CLOSED and verified GREEN by an executed gate** | **34** | **41 %** |
+| CLOSED but its deciding gate exits NON-ZERO | 5 | 6 % |
+| measured, not declared closed | 15 | 18 % |
+| **CARRIED — "no deciding instrument declared"** | **27** | **33 %** |
+| not determined | 1 | 1 % |
+
+`closedOfMeasured` reads 43 only if the five red rows are not subtracted. ⭐ **The number that
+matters most is 27 CARRIED — a third of BIM 3.0 has no deciding instrument at all**, and C70 §2.2
+is explicit that the right entry then is **UNPROVEN**, which *"is neither a pass nor a fail — it is
+'nobody looked', and it must read differently from both."*
+
+Per block: **Certification & gates 0 of 6 measured** — the block that grades the graders is graded
+by nothing. **Model truth, verbs & identity 7 of 10 CARRIED. Collaboration 3 of 5 CARRIED** — the
+last is correct UNPROVEN-by-construction (no transport deployed, C70 §2.2 / K-INV-3).
+
+### L-2810 — GATE RC CENSUS AT HEAD: SEVEN OF TWENTY-ONE ARE IN BREACH OF THEIR OWN RATCHET
+
+**RC=0 (10):** `check-solver-is-real` · `check-constraint-honesty` · `check-provenance-coverage` ·
+`check-derived-not-authored` · `check-scene-graph` · `check-cross-process-determinism` ·
+`check-hosted-dual-write` · `check-material-single-source` · `check-material-id-required` ·
+`check-material-maps-tiling` · `check-verb-liveness`.
+**RC=1 (4):** `check-triangulation-canonical` · `check-property-rac-matrix` (**75 SILENT + 1
+EXECUTE-ONLY**) · `check-verb-register` (4 failures) · `check-geometry-ceiling`.
+**RC=3 (7):** `check-prevstate-contract` (2 vs 0) · `check-graph-write-coverage` (4 vs 0) ·
+`check-provenance-not-invented` (2 + STALE LEDGER) · `check-deterministic-regeneration` (STALE
+LEDGER) · `check-epsilon-policy` (**345 vs 318**) · `check-refusal-identity` ·
+`check-secrets-register` (13 vs 12 + `SECRETS-REGISTER.md` DRIFT).
+
+### ⭐ L-2811 — FOUR REQUIRED RELATIONSHIP FAMILIES ARE WRITE-ONLY (C70 C-INV-1)
+
+`check-graph-write-coverage` **RC=3**, 4 findings against a declared level of 0, **none on the
+ledger**. `hosts`, `boundedBy`, `connectedTo` and `contains` each have **no typed production
+reader** — *"write-only state nobody can query"*. The gate rejects the near-miss by name:
+*"an allowlist for a dynamic reader is not a typed reader (C71 §1.3)"*, citing
+`packages/ai-host/src/graph/GraphQueryService.ts:143, :145, :147, :148`.
+
+**This is the centre of the BIM 3.0 claim — the model records what bounds a room and nothing can
+ask it — and it is one of the rows the tracker declares CLOSED (L-2808).**
+
+### L-2812 — CORRECTION IN THE OPTIMISTIC DIRECTION: C70 §0's CASCADE DEFECT IS CLOSED, 4 OF 4
+
+C70 §0 states four typed cascade events have zero listeners. Re-measured:
+
+- `pryzm-dep-cascade` — **now has a real listener**, `apps/editor/src/engine/initDependencyCascade.ts:43`,
+  dispatched from `packages/core-app-model/src/DependencyResolver.ts:172`.
+- `pryzm-room-reval`, `pryzm-hosted-reval`, `pryzm-structural-cascade` — **DELETED with their
+  dispatch** on 2026-08-12; tombstoned at `DependencyResolver.ts:176-177`, removed from
+  `packages/event-bus/src/catalog.ts:230, :247, :251`. **addEventListener sites: 0. Dispatch sites:
+  0.** Deleting the emitter is the correct EI-13 close.
+
+Recorded with the same force as a pessimistic correction: C70 §0 reads worse than HEAD, and
+`CLAUDE.md`'s P4/P7 precedent makes stale-optimistic and stale-pessimistic the same defect class.
+
+### L-2813 — `setRebuildDispatcher` IS NEVER CALLED, AND TWO COMMENTS NAME A CALLER (EI-12)
+
+`packages/core-app-model/src/DependencyResolver.ts:196` — *"can be replaced by EngineBootstrap via
+`setRebuildDispatcher()`"* — and `:263-264` — *"Called by EngineBootstrap to replace the default
+window.CustomEvent dispatch."* Repo-wide `rg setRebuildDispatcher` → **2 hits: the declaration and
+its own comment. Zero callers.** The default window-CustomEvent path is what runs. C84 **EI-12**:
+a registered trigger must have a proven dispatcher.
+
+### L-2814 — `check-verb-liveness` PASSES WHILE ITS UNPROVEN SET GROWS (GROW-ONLY RATCHET)
+
+**RC=0**, *"all 7 baseline verbs still prove their write by an executed read-back."* But C84 §5
+recorded **PROVEN 7 / 326 · UNPROVABLE-NO-STORE 109 · UNKNOWN 210**; HEAD reads **PROVEN 7 ·
+UNPROVABLE 116 · UNKNOWN 214** — denominator **326 → 337**, proven **unchanged at 7**. A grow-only
+baseline permits the unproven set to expand indefinitely while the gate stays green. The gate says
+so itself: *"Neither is a pass; both are the work."*
+
+⚠ This also breaches **C70 §0.2** (*no document may restate a measured count*): C84 §5 restates
+`7 / 326 · 109 · 210`, and all three numbers have moved.
+
+### ⭐ L-2815 — A PIPE REPORTS `success: true` OVER NOTHING (C99 R8) — the worst row in this register
+
+`plugins/plumbing/src/handlers/CreatePlumbing.ts:39-53` returns `{ valid: true }`; `:55-80` writes
+the plugin DTO and returns `forward`/`inverse` → **`success: true`**. And **nothing consumes it**:
+`CommandEventBridge.ts:1030-1034` emits `plumbing.created`, but `grep "plumbing.created"` over
+`initTools.ts` + `initBusHandlers.ts` → **0 hits** (the `§FT-` bridges are HANDRAIL, LIGHTING and
+FURNITURE only). There is no CEB case for `plumbing.createFixture` either — `grep -n "plumbing"
+CommandEventBridge.ts` → 3 hits, all `plumbing.create`.
+
+**User-visible: the user draws a pipe and gets no error, no mesh, no plan symbol, and nothing on
+save.** C99 R8 requires `canExecute` to refuse **naming the mechanism**. This is precisely the
+state C84's governing sentence forbids — *"A refusal is a correct answer; a silently-wrong wall is
+not."*
+
+### ⭐ L-2816 — 16 TEXTURED MATERIALS 404 IN ANY BUILD WITHOUT `VITE_GLB_URL` (C100 §10.4)
+
+`npx tsx tools/texture-pipeline/verify-delivery.mts` → **RC=0**, *"16 material(s), 74 published map
+file(s) · ARM A 74/74 · ARM B 74/74 · **ARM C SKIPPED (no --base). Nothing is claimed about public
+serving.**"*
+
+The 74 `.webp` files exist **only** under `tools/texture-pipeline/out/dist/`. Measured:
+
+| served static root | `items/textures` |
+|---|---|
+| `public/items/textures` | **MISSING** |
+| `client/public/items/textures` | **MISSING** |
+| `dist/items/textures` | **MISSING** |
+
+`find public/items client/public/items -path '*textures*' -name '*.webp'` → **0**.
+`catalogAssetUrl.ts:108-112` returns `/items/…` **unchanged** when `VITE_GLB_URL` is unset.
+
+**User-visible: pick "Oak Parquet Plank" and get a flat colour.** Production delivery remains
+UNMEASURED — ARM C is skipped without `--base`, and CORS is establishable only in a browser (L-578).
+
+⚠ **The verifier's own disclaimer is STALE in the pessimistic direction**: it says *"No producer
+writes `MaterialRecord.maps` today."* `.maps` / `MaterialMaps` is now read in
+`SlabFragmentBuilder.ts`, `WallFragmentBuilder.ts:571`, `RoofFragmentBuilder.ts`,
+`CurtainWallBuilder.ts`, `FloorColourSystem.ts` — 24 files match.
+
+### ⭐ L-2817 — A GATE'S CLOSING SUMMARY AND A RESOLVER COMMENT BOTH CONTRADICT THE CODE TWELVE LINES AWAY
+
+All 24 procedural material patterns render as **flat colour by default**.
+`MaterialResolver.ts:418-421` gates generation on `globalThis.__pryzmProceduralTexturesV1 === true`;
+`:566-575` returns a named `unavailable` when unset. The reason is documented at `:394-406` —
+150–830 ms of blocked main thread per pattern; *"The founder's demo project froze."*
+
+**C100 §10.10 and S33 state this correctly. Two other artefacts state the opposite:**
+
+- `MaterialResolver.ts:444-450` — *"…24 parquet and tile patterns are **reachable today**…"*,
+  **twelve lines above** the code that makes them unreachable.
+- `check-material-maps-tiling.ts:204-205` — *"⭐ the procedural rows depend on NONE of the four
+  above… **They can only be wrong about SCALE**, which ARM E checks."* That is an asserted complete
+  disjunction, and it is **false**: they can be wrong in a fifth way the gate declares impossible.
+
+⭐ **The risk is not the flag — it is that the two artefacts a reader would trust most (the gate
+output and the source comment) both say the opposite of the contract, which is right.**
+
+### ⭐ L-2818 — `check-material-maps-tiling` ARM D IS ONE-DIRECTIONAL INSIDE THE COMMENT THAT CLAIMS BOTH
+
+`check-material-maps-tiling.ts:129-134` states: *"⚠ COMPARED AS SETS, **IN BOTH DIRECTIONS**… a row
+with no manifest entry is a path with no provenance, which is the licence problem MAT-2's whole
+pipeline exists to prevent."*
+
+**The code at `:140-157` iterates `manifest.materials` only. There is no loop over catalogue rows.**
+Latent today (16 manifest entries = 16 file-backed rows, sets equal); a hand-added file-backed row
+tomorrow is invisible.
+
+**And ARM D self-disables silently:** `if (existsSync(MANIFEST))` at `:136` with **no `else`** —
+rename or delete the manifest and ARM D reports nothing and the gate still passes, while every
+other missing input (`:56, :61, :68, :76, :81`) exits 2 MISCONFIGURED.
+
+⭐ Two further scope blind spots: **289 of 329 catalogue rows are outside ARMs B–E entirely**
+(`textured = MATERIAL_CATALOG.filter(hasAnyMap)`, `:87`), so C100 §10.3.b's original defect — *"a
+row without a map is a brown rectangle"* — has **no arm at all**.
+
+### ⭐ L-2819 — `check-material-id-required` ARM C SEES ONE DIRECTORY, AND REPRODUCES THE ERROR ITS OWN COMMENT DOCUMENTS
+
+`PRODUCER_DIR_REL = 'packages/geometry-kernel/src/producers'` (`:97`). ARM C therefore **cannot see
+any `geometry-*/src/*FragmentBuilder.ts` — the live editor render path.**
+
+⭐ The gate's own `BASELINE_D` comment (`:83`) records that this exact confusion already produced a
+wrong finding once: *"the C100 census measured the geometry-kernel producer that production
+furniture does not travel."* **The gate reproduces the measurement error it documents, and this is
+not in its NOT-CHECKED text.**
+
+So the 7 unrouted producers ARM C reports are real **on the bake path**; whether the live render
+path shares the defect is **UNMEASURED and unmeasurable by this gate**.
+
+Three more arms are weaker than they read:
+- ARM C's minter test `/asMaterialKey\(\s*\`/` (`:314`) needs a template literal **immediately**
+  after the paren — `asMaterialKey(k)` built on a prior line is invisible.
+- ARM C's `routed` test checks the **IMPORT, not the CALL** (`:318-320`) — a producer importing
+  `composeMaterialKey` for an unrelated slot while hard-coding its colour slot counts as routed.
+- ARM D's escape hatch `WHOLE_OBJECT_RE = /return\s+deepStrip\s*\(|Object\.(entries|keys)\s*\(/`
+  (`:467`) lets **any** `Object.keys(` anywhere in a serializer body prove it persists the id.
+- ARM F's pairing is a **hand-frozen table** (`:744`) that **pointed at a DEAD RIVAL**
+  (`core-app-model/src/stores/FurnitureTypes.ts` instead of the live
+  `geometry-furniture/src/FurnitureTypes.ts`) until L-1463 — the "third copy, different path" class,
+  already realised once inside this gate.
+
+⭐ ARM A's own comment (`:80`) is the general lesson, and it belongs in every gate review: *"the arm
+only became able to SEE those fields when its regex widened from `^\s{2,}materialId\s*:` to
+`[A-Za-z]*[Mm]aterialId` — **a gate that can only be satisfied by one field NAME is a gate dictating
+the data model.**"*
+
+### ⭐ L-2820 — C84 NAMES THE WRONG ROOT CAUSE FOR THE FURNITURE DEFECT; C97 §5.2 NAMES IT CORRECTLY
+
+C84 §1 defect 1 ends: *"**Four `as any` casts** at the dispatch sites are why `tsc` never saw it."*
+Measured at the five dispatch sites: **3 `as any` + 1 double-cast + 1 site with no cast at all.**
+
+| site | cast |
+|---|---|
+| `FurnitureDragDropHandler.ts:490` | `} as any)` ✅ |
+| `KitchenCabinetTool.ts:410` | `payload as any` ✅ |
+| `WardrobeCabinetTool.ts:384` | `payload as any` ✅ |
+| `FurniturePlanToolHandler.ts:412` | `as unknown as Record<string, unknown>` — **not `as any`** |
+| `CopyPlanToolHandler.ts:502-505` | **none at all** |
+
+⭐ **`CopyPlanToolHandler.ts:502-505` dispatches a full payload with NO cast** and type-checks purely
+on the `[k: string]: unknown` index signature at `commands.ts:755`. **Removing all four casts would
+surface nothing.** C97 §5.2 says exactly this — the index signature must go first.
+
+**A contract that names the WRONG root cause is worse than one that names none**: it aims the repair
+at a symptom, and the repair will be recorded as closing the defect.
+
+The defect itself is **CONFIRMED**: 0 of 7 dispatch sites send `catalogId` or `origin`;
+`Furniture.ts:82-115` defaults every target field so `parse` succeeds. It is **MASKED** by
+`§FT-FURNITURE` (`initTools.ts:2239-2351`), which rebuilds a legacy record from the original event
+fields — so a mesh appears and looks right, while the plugin DTO store fills with blanks. A latent
+migration landmine, not a visible bug.
+
+### L-2821 — THE `LoadResult.warnings` CHANNEL REACHES NO UI (C87 CW-P-D)
+
+An authored curtain-wall panel whose bounding grid lines moved between save and load is dropped.
+The report naming it **is built** — `ProjectLoader.ts:1499` (`'§L-1057 ' + describeLostOverride(l)`)
+pushed to `result.warnings` at `:1466` — and **`LoadResult.warnings` reaches no UI.** The only shell
+consumer, `apps/editor/src/ui/platform/PlatformVersionController.ts:420-426`, reads
+`result.errors`; the string `warnings` appears once in `apps/editor/src/ui/platform/` and it is
+`console.warn('…Load warnings:', result.errors)` at `:423`. The other four `loadAdapter.load()` call
+sites discard the result entirely.
+
+**User-visible: reload a project and an authored door panel in a façade is gone, with nothing on
+screen saying so.** C87 CW-P-D's own words: *"a silent catch is not acceptable."*
+
+### L-2822 — THREE RIVAL `STAIR_CONSTRAINTS`, AND THE PRIVATE ONE IS THE LIVE VALIDATOR (C98 N6)
+
+| # | site | shape |
+|---|---|---|
+| 1 | `packages/geometry-stair/src/StairTypes.ts:222` | 12 keys — what the authority reads (`StairGeometryLimits.ts:46`) |
+| 2 | `packages/core-app-model/src/stores/StairTypes.ts:194` | rival export, **10 keys — missing `MAX_TREAD_DEPTH` and `MAX_RISERS_PER_FLIGHT`** |
+| 3 | `packages/constraint-solver/src/stair-constraint-engine.ts:7-18` | **private, non-exported, inlined**; header says *"STAIR_CONSTRAINTS inlined to eliminate src/ dependency"*; plus a bare `0.220` literal at `:68` |
+
+**(3) is live** — reached from `UpdateStairFlightsCommand.ts:78`, `ChangeStairShapeCommand.ts:68`
+and `StairCommandPlan.ts:53`. ⭐ **The overlapping values agree today — which is exactly the
+coincidence N6 exists to stop.**
+
+Two consequences already realised:
+- **`UpdateStairParametersCommand`** does not import `checkStairGeometry` (its three mentions at
+  `:328, :330, :341` are inside a doc-comment on a different method); `canExecute` hand-tests
+  constants at `:127-131` and `:150-151` — **tread MINIMUM only. `MAX_TREAD_DEPTH` never appears in
+  the file.** *"Change the tread to 500 mm"* is written and reported as done against a 360 mm max.
+- **`UpdateElementParameterCommand.ts:892-908`** — `validateParameters(parameters, _elementType)`
+  **discards the element type** (underscore-prefixed, unused) and checks only `isNaN` and
+  positivity. The single-stair route enforces `MIN_WIDTH` 0.9 m. **The same ask spoken over three
+  stairs writes a 0.1 m stair and reports success** (C98 §L-1441.6.a).
+
+### L-2823 — CITATION ROT IS SYSTEMATIC, AND RE-MEASURING LINE NUMBERS DOES NOT FIX IT
+
+Across C85/C86/C87/C95/C96/C97/C98/C100 this lane re-measured 90+ AS-IS citations. **Roughly
+two-thirds had rotted.** The pattern is sharp enough to be a rule:
+
+- Citations into **plugin handler** files (small, one verb each) **held**: `MoveWall.ts:115`,
+  `CreateDoor.ts:154`, `CreateWindow.ts:98`, `MoveDoor.ts:109`, `MoveWindow.ts:108`,
+  `DeleteWall.ts:61`, `SetCurtainWallMaterial.ts:85`, all nine `affectedStores: []` wall handlers,
+  `material-bridge.ts:34-35`, and `DeleteElementCommand.ts:650`.
+- Citations into the four large integration files — `initTools.ts`, `ProjectSerializer.ts`,
+  `CommandManagerImpl.ts`, `performUndoRedo.ts` — and the big builders **rotted by 40–180 lines**,
+  ⭐ **including every one already re-measured on 2026-08-18/19.**
+
+Worst cases: `WallFragmentBuilder.ts:2332` is cited by **both** C85 and C86 as **one** `'WallPart'`
+site; it is **12 sites and none is at `:2332`**. C86 block-quotes `performUndoRedo.ts:345-351`
+**verbatim** — that text no longer exists in the file. C87 cites `ProjectSerializer.ts:655` for
+`gridSystem`; `:655` is now slab serialisation and `gridSystem` is at `:819`.
+
+⭐ **Re-measuring a line number in a file that moves 100 lines a week buys about one day.** The
+`§`-tag discipline C85 R-8 and C86 §10 both prescribe is the only citation form that survived — and
+**neither contract applies it to its own AS-IS tables.**
+
+### ⭐ L-2824 — TWELVE ROTS ARE PESSIMISTIC: THE CONTRACT DESCRIBES A DEFECT THAT IS ALREADY FIXED
+
+Beyond L-2800's lighting claim, this lane found these **closed defects still written as live**:
+
+| contract row | HEAD |
+|---|---|
+| C85 §5 row 12 + **DELTA #4** — `materialId` DROPPED (SILENT) at the bridge | **CLOSED.** `CommandEventBridge.ts:57` declares it, `:334` emits it, `initTools.ts:1273` consumes it. **A row ranked 4th of 20 in the contract's own delta list** |
+| C86 §7 **WO-U-3** — the `openings` ternary falls to `[]`, *"every opening is stripped"* | **CLOSED.** `elementUndoStoreAdapter.ts:588-597` refuses (`§EI-7b REFUSED`) and routes arrays to a hosted-aware reconciler |
+| C86 §11 **#21** — `OpeningSchema` carries *"neither `doorType` nor `windowType`"* | **CLOSED.** `WallDataSchema.ts:112-113` declares both; the header at `:76-101` explicitly retracts the claim |
+| C85 §8 — `buildWallRoomCascadeRule` has *"zero non-test call sites"* | **FALSE.** `plugins/cross/src/handlers/index.ts:47, :112` |
+| C98 §8.2 — `CreateStairCommand.ts:502` emits `bim-stair-railing-proposal`; *"three presses to undo one gesture"* | **CLOSED.** **No emitter exists**; `:659` says so itself; `:679-690`/`:747-762` run the railings inside the create's own `execute`/`undo`. The listener survives at `initTools.ts:2493-2514` as **dead code with no emitter** |
+| C84 **EI-7b**'s worked example (`{op:'replace', path:[id,'panels','length'], value:0}`) | **CLOSED.** `elementUndoStoreAdapter.ts:333, :363-371` truncates the array instead of assigning a number |
+| C100 §9.1 — *"no `materialId` EXISTS to lose — `door`, `window`"* | **FALSE.** `Door.ts:89-90` (`frameMaterialId`, `leafMaterialId`); `Window.ts:136-137` (`frameMaterialId`, `glassMaterialId`) |
+| C70 §0 — four cascade events have zero listeners | **CLOSED 4 of 4** — see L-2812 |
+
+⭐ **These are the dangerous rot.** A stale-optimistic row overstates the product; a
+**stale-pessimistic** row sends a repair lane at a defect that is already closed, and — worse —
+**discredits the rows in the same table that are still true.** `CLAUDE.md` records the same shape
+for P4 and P7. The rule that follows: **a fix must retire its contract row in the commit that
+lands it**, exactly as `gate-debt.json` requires of a paid ledger entry.
+
+### L-2825 — SUB-PARTS OF TWO ASSEMBLY FAMILIES ARE NOT INDIVIDUALLY ADDRESSABLE, AND NO CONTRACT SAYS THEY MUST BE
+
+`isSubElement` is set by `geometry-curtain-wall` (7 sites), `geometry-furniture` and
+`geometry-lighting` — and by **neither `packages/geometry-stair/src/` nor
+`packages/geometry-handrail/src/`** (`grep -rln` → empty). So handrail posts/balusters and stair
+treads/risers are **not individually addressable at HEAD**. Corroborated for landings by
+`legacyStoreUpdateSemantics.ts:201-215`: nothing calls `StairLandingStore.add()` in production, no
+handler declares `affectedStores: ['stairLanding']`, and the map entry was removed.
+
+⭐ **Only C87 states a MUST here (CW-Sel-1/2). C95 and C98 do not.** Recorded as a measurement, not
+a verdict — and as **a gap in the contracts, not only in the code**. C84 §6 mandates an identical
+structure across all fifteen per-element contracts precisely so that an axis one family gates
+cannot silently vanish from another.
