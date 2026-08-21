@@ -1,0 +1,225 @@
+{
+  "$comment": [
+    "THE DECLARED SOURCE LIST (L-1720). This file is DATA, reviewed in a diff — never a",
+    "hard-coded array inside a script, and never an ad-hoc download. `acquire.mjs` acquires",
+    "EXACTLY what is declared here and refuses anything that is not.",
+    "",
+    "LICENCE RULE (C100 §10.6 MUST, PASCAL-FINISHES-RESEARCH §0.2): every entry names a source",
+    "library whose licence is declared in `libraries` below and re-asserted at acquisition time.",
+    "NOTHING is sourced from github.com/pascalorg/editor — its 288 texture files carry zero",
+    "attribution and MIT does not cure unestablished provenance. We take the TAXONOMY only.",
+    "",
+    "realWorldSizeM (C100 §10.2.c `tiling`): the physical size of ONE texture tile, in metres.",
+    "A map without this is wallpaper, not a material. Two origins, and the difference is",
+    "recorded rather than hidden:",
+    "  'source-metadata' - leave realWorldSizeM null; acquire.mjs takes ambientCG's declared",
+    "                      dimensionX/dimensionY (centimetres) and converts. AUTHORITATIVE.",
+    "  'estimate'        - the source declares 0x0. The value below is a HUMAN ESTIMATE and is",
+    "                      stamped as such in the manifest. It must be declared HERE, in the",
+    "                      diff, so an estimate can never be mistaken for a measurement."
+  ],
+
+  "version": 1,
+  "logicalRoot": "/items/textures/",
+
+  "libraries": {
+    "ambientcg": {
+      "name": "ambientCG",
+      "homepage": "https://ambientcg.com",
+      "licence": "CC0-1.0",
+      "licenceName": "Creative Commons CC0 1.0 Universal",
+      "licenceUrl": "https://docs.ambientcg.com/license/",
+      "licenceVerifiedOn": "2026-08-21",
+      "licenceVerifiedQuote": "You can copy, modify, distribute and perform the assets, even for commercial purposes, all without asking permission.",
+      "attributionRequired": false,
+      "commercialUse": true,
+      "apiBase": "https://ambientcg.com/api/v2/full_json"
+    }
+  },
+
+  "$mapComment": [
+    "Canonical map names match MAT-1's declared MaterialRecord.maps shape:",
+    "  color, normal, roughness, metalness, ao, displacement",
+    "`normal` is always taken from the source's *NormalGL* file - three.js uses the OpenGL",
+    "green-up convention. Taking NormalDX inverts lighting on every sloped texel."
+  ],
+
+  "materials": [
+    {
+      "id": "wood-parquet-plank-043",
+      "label": "Parquet · Plank 043",
+      "category": "Wood",
+      "family": "parquet",
+      "surfaces": ["floor"],
+      "source": { "library": "ambientcg", "assetId": "WoodFloor043", "resolution": "2K", "format": "JPG" },
+      "realWorldSizeM": null,
+      "sizeOrigin": "source-metadata"
+    },
+    {
+      "id": "wood-parquet-light-modern-051",
+      "label": "Parquet · Light Modern Plank 051",
+      "category": "Wood",
+      "family": "parquet",
+      "surfaces": ["floor"],
+      "source": { "library": "ambientcg", "assetId": "WoodFloor051", "resolution": "2K", "format": "JPG" },
+      "realWorldSizeM": null,
+      "sizeOrigin": "source-metadata"
+    },
+    {
+      "id": "wood-parquet-plank-040",
+      "label": "Parquet · Plank 040",
+      "category": "Wood",
+      "family": "parquet",
+      "surfaces": ["floor"],
+      "source": { "library": "ambientcg", "assetId": "WoodFloor040", "resolution": "2K", "format": "JPG" },
+      "realWorldSizeM": null,
+      "sizeOrigin": "source-metadata"
+    },
+    {
+      "id": "wood-parquet-panel-057",
+      "label": "Parquet · Panel 057",
+      "category": "Wood",
+      "family": "parquet",
+      "surfaces": ["floor"],
+      "source": { "library": "ambientcg", "assetId": "WoodFloor057", "resolution": "2K", "format": "JPG" },
+      "realWorldSizeM": null,
+      "sizeOrigin": "source-metadata"
+    },
+
+    {
+      "id": "tile-chequer-cream-139",
+      "label": "Tile · Chequerboard Cream 139",
+      "category": "Ceramic & Tile",
+      "family": "floor-tile",
+      "surfaces": ["floor"],
+      "source": { "library": "ambientcg", "assetId": "Tiles139", "resolution": "2K", "format": "JPG" },
+      "realWorldSizeM": null,
+      "sizeOrigin": "source-metadata"
+    },
+    {
+      "id": "tile-rectangular-beige-141",
+      "label": "Tile · Rectangular Beige 141",
+      "category": "Ceramic & Tile",
+      "family": "floor-tile",
+      "surfaces": ["floor", "wall"],
+      "source": { "library": "ambientcg", "assetId": "Tiles141", "resolution": "2K", "format": "JPG" },
+      "realWorldSizeM": null,
+      "sizeOrigin": "source-metadata"
+    },
+    {
+      "id": "tile-marble-floor-074",
+      "label": "Tile · Marble Floor 074",
+      "category": "Ceramic & Tile",
+      "family": "floor-tile",
+      "surfaces": ["floor"],
+      "source": { "library": "ambientcg", "assetId": "Tiles074", "resolution": "2K", "format": "JPG" },
+      "realWorldSizeM": null,
+      "sizeOrigin": "source-metadata"
+    },
+    {
+      "id": "tile-mosaic-pool-hex-069",
+      "label": "Mosaic · Hexagon Pool Blue 069",
+      "category": "Ceramic & Tile",
+      "family": "mosaic",
+      "surfaces": ["floor", "wall"],
+      "$note": "C100 §10.3.a names mosaic at 1 row with NO pool tile as a measured thinness. This is the pool tile.",
+      "source": { "library": "ambientcg", "assetId": "Tiles069", "resolution": "2K", "format": "JPG" },
+      "realWorldSizeM": null,
+      "sizeOrigin": "source-metadata"
+    },
+
+    {
+      "id": "render-stucco-rough-001",
+      "label": "External Render · Rough Stucco 001",
+      "category": "Gypsum & Plaster",
+      "family": "external-render",
+      "surfaces": ["wall", "outdoor"],
+      "$note": "C100 §10.3.a: external render/stucco is at LITERALLY ZERO and is the commonest external finish in the Spanish/Mediterranean markets the geospatial stack targets.",
+      "source": { "library": "ambientcg", "assetId": "Plaster001", "resolution": "2K", "format": "JPG" },
+      "realWorldSizeM": [2.0, 2.0],
+      "sizeOrigin": "estimate",
+      "sizeEstimateBasis": "Source declares dimensionX/Y = 0. 2 m x 2 m is a conventional facade-render sample patch; the texture is stochastic (no repeating unit), so scale is a judgement of grain size, not of a module."
+    },
+    {
+      "id": "plaster-rough-white-003",
+      "label": "Plaster · Rough White 003",
+      "category": "Gypsum & Plaster",
+      "family": "internal-plaster",
+      "surfaces": ["wall", "ceiling"],
+      "source": { "library": "ambientcg", "assetId": "Plaster003", "resolution": "2K", "format": "JPG" },
+      "realWorldSizeM": [2.0, 2.0],
+      "sizeOrigin": "estimate",
+      "sizeEstimateBasis": "Source declares dimensionX/Y = 0. Stochastic internal plaster; 2 m x 2 m keeps the grain plausible at room scale."
+    },
+    {
+      "id": "plaster-smooth-grey-034",
+      "label": "Plaster · Smooth Light Grey 034",
+      "category": "Gypsum & Plaster",
+      "family": "internal-plaster",
+      "surfaces": ["wall", "ceiling"],
+      "source": { "library": "ambientcg", "assetId": "Concrete034", "resolution": "2K", "format": "JPG" },
+      "realWorldSizeM": null,
+      "sizeOrigin": "source-metadata"
+    },
+
+    {
+      "id": "carpet-wool-beige-016",
+      "label": "Carpet · Wool Beige 016",
+      "category": "Fabric & Soft",
+      "family": "carpet",
+      "surfaces": ["floor"],
+      "$note": "C100 §10.3.a: carpet is at LITERALLY ZERO despite a Fabric & Soft category that holds only furnishing textiles.",
+      "source": { "library": "ambientcg", "assetId": "Carpet016", "resolution": "2K", "format": "JPG" },
+      "realWorldSizeM": null,
+      "sizeOrigin": "source-metadata"
+    },
+    {
+      "id": "carpet-tile-red-015",
+      "label": "Carpet · Tile Red 015",
+      "category": "Fabric & Soft",
+      "family": "carpet-tile",
+      "surfaces": ["floor"],
+      "$note": "Source declares 40 x 40 cm - literally the contract carpet-tile module.",
+      "source": { "library": "ambientcg", "assetId": "Carpet015", "resolution": "2K", "format": "JPG" },
+      "realWorldSizeM": null,
+      "sizeOrigin": "source-metadata"
+    },
+
+    {
+      "id": "shingle-timber-weathered-013",
+      "label": "Shingle · Weathered Timber 013",
+      "category": "Roofing",
+      "family": "shingle",
+      "surfaces": ["roof", "wall", "outdoor"],
+      "$note": "C100 §10.3.a: shingle is at LITERALLY ZERO. Source is a siding/shingle asset; it serves both roof and vertical shingle cladding.",
+      "source": { "library": "ambientcg", "assetId": "WoodSiding013", "resolution": "2K", "format": "JPG" },
+      "realWorldSizeM": null,
+      "sizeOrigin": "source-metadata"
+    },
+    {
+      "id": "roof-tile-clay-012",
+      "label": "Roof Tile · Clay 012",
+      "category": "Roofing",
+      "family": "roof-tile",
+      "surfaces": ["roof"],
+      "source": { "library": "ambientcg", "assetId": "RoofingTiles012A", "resolution": "2K", "format": "JPG" },
+      "realWorldSizeM": null,
+      "sizeOrigin": "source-metadata"
+    },
+    {
+      "id": "roof-tile-clay-grey-015",
+      "label": "Roof Tile · Grey Clay 015",
+      "category": "Roofing",
+      "family": "roof-tile",
+      "surfaces": ["roof"],
+      "source": { "library": "ambientcg", "assetId": "RoofingTiles015A", "resolution": "2K", "format": "JPG" },
+      "realWorldSizeM": null,
+      "sizeOrigin": "source-metadata"
+    }
+  ],
+
+  "$knownGaps": [
+    "FIBRE-CEMENT CLADDING (C100 §10.3.a, at LITERALLY ZERO) is NOT in this list. Measured 2026-08-21: ambientCG returns zero results for 'fibre cement' and 'fiber cement'. Not acquirable from a CC0 library today; needs either a different CC0 source or MAT-3's procedural route. NAMED, not silently dropped.",
+    "PATTERN SUB-TYPE (herringbone vs chevron vs basketweave vs versailles) is NOT present in any source metadata field. Labels above are derived from the source's own displayName and tags, never invented. Assigning a pattern sub-type needs a HUMAN VISUAL PASS over the acquired colour maps."
+  ]
+}

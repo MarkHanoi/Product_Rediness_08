@@ -1,0 +1,203 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# r2-sync-textures.yml — publish the CC0 PBR texture set to Cloudflare R2 (L-1722)
+#
+# ⛔ THE SAME BUCKET AND THE SAME URL SCHEME AS THE GLB CATALOGUE. Textures publish
+# to `s3://pryzm-assets/items/textures/…`, INSIDE the `items/` prefix that
+# `r2-sync-items.yml` already owns. That is deliberate and it is the reason this
+# needed no client change at all:
+#   • `catalogAssetUrl.ts` rewrites anything under the logical `/items/` prefix to
+#     `VITE_GLB_URL`, so a texture path resolves through code that already exists.
+#   • `catalogAssetProxy.js` already allowlists `.webp` in `CATALOG_ALLOWED_EXT`, so
+#     the same-origin proxy route serves textures with no edit.
+# A second bucket or a second base URL would have meant a second rewriter, a second
+# CSP entry and a second CORS problem. Verified by `verify-delivery.mts` ARM A.
+#
+# ⭐ WHY THIS WORKFLOW RE-DERIVES THE BYTES INSTEAD OF SYNCING A COMMITTED FOLDER —
+# THE ONE REAL DIFFERENCE FROM r2-sync-items.yml. The GLB catalogue is committed to
+# the repo (317 tracked files), so that job syncs the checkout. The textures are NOT
+# committed: the acquired+compressed set is ~47 MB and would grow with every material,
+# and `public/items` already demonstrates the cost of that choice — ~185 MB of binaries
+# that must then be `.dockerignore`d back out of the image.
+#
+# Instead `textures.manifest.json` (committed, small) records a SHA-256 for every
+# source archive and every published file, so this job re-derives the bytes and PROVES
+# they are the same bytes the author reviewed:
+#   • acquire.mjs hard-stops if an upstream archive no longer matches its recorded hash
+#     (upstream re-authoring, or a corrupted download).
+#   • verify-delivery.mts ARM B hard-stops if the compressed output does not match the
+#     manifest, which is what catches encoder drift.
+# The manifest is the source of truth; the bytes are re-derivable AND verifiable.
+#
+# MANUAL ONLY, like the GLB sync. The set changes rarely.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Sync CC0 texture set to R2
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Comma-separated material ids to publish (blank = all declared).'
+        type: string
+        default: ''
+      dry_run:
+        description: 'Acquire, compress and verify — but upload nothing.'
+        type: boolean
+        default: false
+
+concurrency:
+  # Shares the `items/` prefix with r2-sync-items. Two writers against one prefix can
+  # interleave uploads, so they are serialised against each other by using one group.
+  group: r2-sync-items
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: acquire → compress → verify → s3://pryzm-assets/items/textures
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Fail fast if the R2 credentials are absent
+        if: ${{ inputs.dry_run != true }}
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          # Length-only — NEVER echo a credential.
+          missing=0
+          for n in R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY; do
+            v="${!n}"
+            if [ -z "$v" ]; then echo "::error::repo secret $n is not set"; missing=1;
+            else echo "$n present (${#v} chars)"; fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install the toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq unzip
+          # ⚠ sharp is installed STANDALONE, into a scratch directory, and is NOT added
+          # to the root package.json. `tools/*` is a pnpm workspace pattern, so a
+          # package.json under tools/texture-pipeline/ would add a workspace importer and
+          # break `pnpm install --frozen-lockfile` for every other lane in the tree.
+          # (Same pattern as terrain-bake.yml.) The version is PINNED because the encoder
+          # decides the output bytes, and the manifest records their hashes.
+          mkdir -p .texture-tools
+          cd .texture-tools
+          printf '{ "name": "pryzm-texture-tools", "private": true, "version": "0.0.0" }\n' > package.json
+          npm install --no-audit --no-fund --silent sharp@0.34.5
+          node -e "console.log('sharp', require('sharp').versions.vips)"
+
+      - name: Acquire from the declared CC0 sources
+        env:
+          NODE_PATH: .texture-tools/node_modules
+          ONLY: ${{ inputs.only }}
+        run: |
+          set -euo pipefail
+          ARGS=""
+          [ -n "$ONLY" ] && ARGS="--only $ONLY"
+          # The licence gate runs BEFORE any network call and refuses anything whose
+          # source library is not declared CC0. There is no flag to bypass it.
+          node tools/texture-pipeline/acquire.mjs $ARGS
+
+      - name: Compress to WebP
+        env:
+          NODE_PATH: .texture-tools/node_modules
+        run: node tools/texture-pipeline/compress.mjs
+
+      - name: Verify integrity BEFORE uploading (ARMs A + B)
+        env:
+          NODE_PATH: .texture-tools/node_modules
+        run: |
+          set -euo pipefail
+          # ARM A: the delivery seam accepts every key. ARM B: every compressed file
+          # matches the committed manifest's SHA-256 and decodes as a real WebP.
+          # ARM B failing here means the encoder drifted from what produced the manifest —
+          # publish nothing until that is understood.
+          npx tsx tools/texture-pipeline/verify-delivery.mts
+
+      - name: Show what is about to be published
+        run: |
+          echo "materials : $(node -e "console.log(require('./tools/texture-pipeline/textures.manifest.json').materials.length)")"
+          echo "files     : $(find tools/texture-pipeline/out/dist -type f | wc -l)"
+          echo "size      : $(du -sh tools/texture-pipeline/out/dist | cut -f1)"
+
+      - name: Sync to R2
+        if: ${{ inputs.dry_run != true }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          # R2 does not implement the aws CLI v2 default checksum/streaming behaviours;
+          # without these an upload fails with an opaque signature error.
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          # Same 1-year immutable policy as the GLB catalogue: these are
+          # addressed-by-path immutable assets, re-authored only under a new material id.
+          # ⚠ NO --delete. This prefix is re-derived from a manifest that a partial run
+          # (`--only`) may not cover, so a delete pass could remove live materials that
+          # this run simply did not build.
+          aws s3 sync tools/texture-pipeline/out/dist "s3://pryzm-assets/items/textures" \
+            --endpoint-url "$ENDPOINT" \
+            --no-progress \
+            --content-type "image/webp" \
+            --exclude "*" --include "*.webp" \
+            --cache-control "public, max-age=31536000, immutable"
+
+          # The manifest rides along so the bucket carries its own provenance record.
+          # Anyone auditing the bucket can read where every file came from and under
+          # what licence, without access to this repo.
+          aws s3 cp tools/texture-pipeline/textures.manifest.json \
+            "s3://pryzm-assets/items/textures/textures.manifest.json" \
+            --endpoint-url "$ENDPOINT" \
+            --content-type "application/json" \
+            --cache-control "public, max-age=300"
+
+          echo "── bucket after sync ──"
+          aws s3 ls "s3://pryzm-assets/items/textures/" --endpoint-url "$ENDPOINT" --recursive --summarize | tail -n 5
+
+      - name: Verify the published objects are publicly readable (ARM C)
+        if: ${{ inputs.dry_run != true }}
+        env:
+          NODE_PATH: .texture-tools/node_modules
+          PUBLIC_BASE: ${{ vars.VITE_GLB_URL || 'https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/items/' }}
+        run: |
+          set -euo pipefail
+          # Uploading and being publicly SERVED are two different facts — R2 buckets are
+          # private until a public domain is enabled. ARM C fetches EVERY published file
+          # and checks status, content-type, and that the delivered bytes hash to what
+          # the manifest says. That is stronger than the single-object probe the GLB
+          # workflow runs, and it costs one extra minute.
+          npx tsx tools/texture-pipeline/verify-delivery.mts --base "$PUBLIC_BASE"
+
+      - name: ⛔ What this workflow has NOT established
+        if: ${{ always() && inputs.dry_run != true }}
+        run: |
+          cat <<'NOTE'
+          ⛔ READ BEFORE REPORTING THIS AS "TEXTURES WORK".
+
+          1. CORS IS NOT TESTED HERE, AND CANNOT BE. Every check above runs in Node or
+             curl, and NONE of them enforce CORS. ISSUE-LOG L-578: the GLB catalogue had
+             a green upload, a green bundle proof, a green CSP and a green deploy while a
+             browser refused every asset — for four deploys. The bucket's CORS policy is
+             still unset (r2-cors.yml is committed and waiting on bucket-admin creds), so
+             the DIRECT r2.dev route is expected to be browser-refused. The same-origin
+             proxy route (/api/catalog/items/textures/…) is the one that works today.
+             Only a real browser tab establishes this either way.
+
+          2. NO TEXTURE REACHES A MATERIAL YET. MaterialRecord has no `maps` field and no
+             producer writes one (C100 §10.6). Publishing is necessary, not sufficient.
+             That seam is MAT-1's.
+          NOTE

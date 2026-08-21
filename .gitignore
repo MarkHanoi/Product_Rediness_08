@@ -60,3 +60,10 @@ tools/rac-conformance/runtime-harness/.liveness-output/
 .tmp-verbs-cap/
 .w2a-tmp/
 apps/bench/.run-output/
+
+# §TEXTURE-PIPELINE (L-1720) — acquired/compressed texture binaries.
+# The bytes live in R2, NOT in git; textures.manifest.json carries a SHA-256 for every
+# file, so the set stays verifiable without adding ~47MB of binaries to the repo.
+# (public/items already demonstrates the cost of the other choice: ~185MB of GLB that
+# must then be .dockerignore-d back out of the image.)
+tools/texture-pipeline/out/
