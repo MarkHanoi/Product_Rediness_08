@@ -46,7 +46,17 @@ const DEFAULT_TEMPLATES: Array<{ name: string; discipline: TemplateDiscipline; v
 export class ViewTemplateManagerPanel {
     /** Phase B (S73-WIRE) — runtime threaded by parent (added by widening — class had no explicit constructor). */
     public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
-    constructor(runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null = null) { this.runtime = runtime; }
+    // §VIEW-TEMPLATE-PANEL-DISPATCH-IS-DEAD (L-1872) — ProjectBrowserPanel.ts:172
+    // constructed this bare while its six sibling rail panels all forwarded
+    // `this.runtime`, so `viewTemplate.create` / `viewTemplate.update` and the
+    // defaults seeding dispatched into `undefined`. The class contained its own
+    // evidence that this was known: `_execDeleteTemplate` is the ONE method that
+    // guards on a missing bus and tells the user, three lines from siblings that
+    // fail silently. The `window.runtime` fallback below kills the CLASS rather
+    // than this instance — a future caller that forgets cannot re-kill it.
+    constructor(runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null = null) {
+        this.runtime = runtime ?? window.runtime ?? null;
+    }
 
     private _root: HTMLElement | null       = null;
     private _selectedTemplateId: string | null = null;
