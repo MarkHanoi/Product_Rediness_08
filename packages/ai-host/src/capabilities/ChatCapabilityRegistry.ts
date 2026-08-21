@@ -1824,7 +1824,12 @@ const CAPABILITIES: readonly ChatCapability[] = [
     examples: [
       'make all floors oak chevron',
       'make the living room floor walnut herringbone',
-      'set all floors on level 2 to marble',
+      // ⚠ NOT "to marble" (L-1889). It read fine and the coverage gate caught it:
+      // `check-chat-capability-coverage` proved the example REFUSED in its own
+      // acceptance context, because "marble" names FIVE master rows and an
+      // ambiguity is a question, never a pick. An example that does not work is a
+      // lie shipped in the UI copy — the refusal OFFERS these strings to the user.
+      'set all floors on level 2 to walnut herringbone',
     ],
   },
   {
