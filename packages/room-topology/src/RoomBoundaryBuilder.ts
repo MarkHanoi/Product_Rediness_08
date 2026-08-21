@@ -50,6 +50,16 @@ export class RoomBoundaryBuilder {
    */
   private _scopeCache: RoomData[] | null = null;
   private _batching = false;
+  /**
+   * §ROOM-VG-CATEGORY (L-1617) -- has the mode been read from the VG cascade yet?
+   *
+   * Without this, a project SAVED with "all white" would load and render in
+   * 'detection' until the user happened to switch views, because the only things
+   * that call syncFromViewIntent() are events. A stored determination that only
+   * appears after an unrelated interaction is indistinguishable, to the user,
+   * from not having been stored at all.
+   */
+  private _intentPrimed = false;
   private _rebuildingRooms = new Set<string>();
   private highlightOverrides: Map<string, string> = new Map();
   private _complianceStatus: Map<string, 'error' | 'warning'> = new Map();
@@ -194,6 +204,10 @@ export class RoomBoundaryBuilder {
    * to the detection palette.
    */
   private _fillFor(room: RoomData): string {
+    if (!this._intentPrimed) {
+      this._intentPrimed = true;
+      this._readViewIntent();
+    }
     return RoomColourSystem.resolveForMode(
       room,
       this.visualisationMode,
@@ -218,15 +232,28 @@ export class RoomBoundaryBuilder {
    * the same model resolved through two different VG view records.
    */
   syncFromViewIntent(): void {
-    let intent;
+    this._intentPrimed = true;
+    const intent = this._readIntentOrNull();
+    if (!intent) return;
+    this.setVisualisationMode(intent.mode, { uniformColour: intent.uniformColour });
+  }
+
+  /** Prime the mode WITHOUT repainting -- used on the very first paint. */
+  private _readViewIntent(): void {
+    const intent = this._readIntentOrNull();
+    if (!intent) return;
+    this.visualisationMode = intent.mode;
+    this._uniformColour = intent.uniformColour;
+  }
+
+  private _readIntentOrNull(): { mode: RoomVisualisationMode; uniformColour: string } | null {
     try {
-      intent = activeRoomColourIntent();
+      return activeRoomColourIntent();
     } catch (e) {
       // A resolution failure must not silently become "detection" -- say so.
       console.warn('[RoomBoundaryBuilder] room colour intent unresolved; leaving the current mode in place:', e);
-      return;
+      return null;
     }
-    this.setVisualisationMode(intent.mode, { uniformColour: intent.uniformColour });
   }
 
   private _refreshAllRoomColours(): void {

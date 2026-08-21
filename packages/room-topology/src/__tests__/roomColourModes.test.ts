@@ -37,6 +37,11 @@ import { RoomColourSystem, OCCUPANCY_PALETTE } from '../RoomColourSystem';
 import { RoomBoundaryBuilder } from '../RoomBoundaryBuilder';
 import { RoomStore } from '../RoomStore';
 import type { RoomData, RoomOccupancyType } from '../RoomTypes';
+import {
+    vgGovernanceStore,
+    ROOM_VG_CATEGORY,
+    setActiveRoomColourViewId,
+} from '@pryzm/core-app-model';
 
 const RAMP_START = '#FFEB3B'; // smallest room
 const RAMP_END   = '#4CAF50'; // largest room
@@ -245,5 +250,44 @@ describe('§ROOM-COLOUR-MODES — the mode reaches the RENDERED FILL (L-1612)', 
         store.add(extra);
         builder.updateRoom(extra);
         expect(hexOf(fill(IDS.noArea))).toBe(OCCUPANCY_PALETTE['stairwell'].toUpperCase());
+    });
+});
+
+describe('§ROOM-VG-CATEGORY — a project loads in the mode it was SAVED in (L-1617)', () => {
+    const VIEW = 'vd-room-boot';
+    const MODEL = 'model-default';
+
+    beforeEach(() => {
+        vgGovernanceStore.ensureModel(MODEL, MODEL);
+        vgGovernanceStore.ensureView(VIEW, VIEW, MODEL);
+        vgGovernanceStore.resetViewCategoryOverride(VIEW, ROOM_VG_CATEGORY);
+        vgGovernanceStore.resetModelCategoryOverride(MODEL, ROOM_VG_CATEGORY);
+        setActiveRoomColourViewId(null);
+    });
+
+    it('the FIRST paint already carries the stored mode — no view switch required', () => {
+        // This is the state right after ProjectLoader runs vgGovernanceStore
+        // .deserialize(): the mode is stored, and nothing has fired an event yet.
+        vgGovernanceStore.setViewCategoryOverride(VIEW, ROOM_VG_CATEGORY, { roomColourMode: 'uniform' });
+        setActiveRoomColourViewId(VIEW);
+
+        const store = new RoomStore();
+        store.attachEngine(
+            {} as never,
+            { getLevelById: (id: string) => (id === 'L1' ? { id: 'L1', elevation: 0, height: 2.7 } : undefined) } as never,
+        );
+        const scene = new THREE.Scene();
+        const builder = new RoomBoundaryBuilder(scene);
+        builder.attachDependencies({ roomStore: store });
+
+        const r = makeRoom(IDS.small, 'bedroom', 100, 0);
+        (r as { colour?: string }).colour = '#FF0000';
+        store.add(r);
+        builder.updateRoom(r);
+
+        const mesh = scene.children.find(o => o.name === `room-overlay-${IDS.small}`) as THREE.Mesh;
+        expect(hexOf(mesh)).toBe(WHITE);
+        setActiveRoomColourViewId(null);
+        vgGovernanceStore.resetViewCategoryOverride(VIEW, ROOM_VG_CATEGORY);
     });
 });
