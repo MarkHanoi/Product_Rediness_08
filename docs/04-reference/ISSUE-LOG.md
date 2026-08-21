@@ -26416,3 +26416,212 @@ undo. 96 of 103 files pass.
    counter with no lock.
 
 ---
+
+---
+
+## 2026-08-21 · lane VIS1 — visibility intents: persistence, the governance trap, and the fourth silent-dispatch recurrence
+
+> Founder, testing production `071a7b2c`: the plan-view visibility intent is *"sound, perfect"*.
+> Three gaps behind it. All ids in this block were authored as **L-1870..L-1874** and renumbered
+> to **L-1890..L-1894** — lanes UNDO1 and SHEETS had already taken that range (commit `76ad7704`).
+> **Third id collision of the session.**
+
+### L-1890 — ⭐ FIXED: the ENTIRE Visibility & Graphics panel dispatched into `undefined`
+
+> *"I am trying to change the fill colour of the slab in elevation — I go to view modifier and
+> change it — but it doesn't apply, why?"*
+
+`OverridePanel` (the V/G panel) routes **all nine** of its mutations through
+`this.runtime?.bus?.executeCommand(...)`. **Both** production construction sites built it bare:
+
+```
+apps/editor/src/engine/views/PlanViewManager.ts:344   new OverridePanel()
+apps/editor/src/ui/views/ViewHeaderButtons.ts:66      new OverridePanel()
+```
+
+so `this.runtime` was `null`, every optional chain short-circuited, and the intent picker,
+clear-override, clear-all and promote-to-intent **all mutated nothing** — plus the
+`vi:instance-updated` live-refresh subscription at `:52`. No throw, no log, no type error: the
+parameter is optional, so `?.` converts a wiring defect into silence.
+
+**Fixed at both call sites AND in the constructor** (`runtime ?? window.runtime ?? null`). The
+fallback is the half that kills the CLASS: the panel is a `window.overridePanel` singleton reached
+lazily from two modules, so a future third caller that forgets cannot silently re-kill it.
+
+**VERIFIED, foreground:** `overridePanelDispatchReach.spec.ts` **6/6**. **FALSIFIED first** —
+against the pre-fix constructor **2 of them fail**, including *"open() on an UNBOUND view
+dispatches vg.assignIntent"*. A reachability suite that passes against the defect measures nothing.
+
+### L-1860 — 🔴 THE MOST IMPORTANT FINDING: the fix for it was **NOT ON MAIN**
+
+The orchestrator's ViewPropertiesPanel repair was authored as commit `b7d0b491`. That commit is
+**not an ancestor of HEAD**:
+
+```
+git merge-base --is-ancestor b7d0b491 HEAD   ->  exit 1
+```
+
+It is **dangling**. The repair survived only as an **uncommitted working-tree edit**, so any
+checkout/reset/clean would have discarded it and **it would never have deployed**. The founder
+would have retested production, found the intent dropdown still dead, and had a commit hash in hand
+saying it was fixed. Re-landed as `f24ed090`.
+
+**The fix itself is correct** — verified, not assumed: `ViewPropertiesPanel(options?, runtime = null)`
+takes runtime in **positional slot 2**, which is the slot it is passed in; `engineLauncher`'s
+`runtime` is its own parameter (`:150`), non-null on the real boot path
+(`src/main.ts` `startEngine(runtimeRef.current)` `:346`, assigned `:419` after `composeRuntime()`);
+`vg.assignIntent` is a registered verb (`initBusHandlers.ts:2505`). It repairs **two** dead sites —
+the dispatch at `:719` and the subscription at `:72`.
+
+> ⚠ **A commit hash is not evidence that code is on main.** Check ancestry, not existence.
+
+### L-1891 — ✅ MEASURED: the documentation settings **DO** survive save → close → reopen
+
+The founder asked to *"make sure this is the case"*. Measured **per store**, because "settings
+persist" is exactly the blanket claim this repo has been wrong about before.
+
+| Store | In snapshot? | Restored? | Round-trips through JSON? |
+|---|---|---|---|
+| `visibilityIntentStore` (user intents, incl. slab fill colour) | ✅ `ProjectSerializer:1363` | ✅ `ProjectLoader:2004` | ✅ |
+| `viewIntentInstanceStore` (view→intent binding **and** local overrides) | ✅ `:1364` | ✅ `:2009` | ✅ |
+| `viewDefinitionStore` (crop region, view range, output scale/paper) | ✅ `:1361` | ✅ `:1993` | ✅ |
+| `visibilityIntentStore` — **SYSTEM intents** | ❌ **by design** | ❌ skipped (`!raw.isSystem`) | n/a |
+
+`documentationSettingsRoundTrip.spec.ts` **7/7**. Every case crosses a real
+`JSON.parse(JSON.stringify(...))` boundary — the load-bearing step, because
+`ViewDefinitionStore.serialize()` uses `structuredClone`, which preserves `Map`/`Set`/`Date` that
+JSON destroys. A walker also asserts no persisted view field is a `Map` or `Set`. **None is.**
+
+**Scope, stated honestly:** this measures the STORE layer plus source-level assertions on the
+serializer/loader legs. It does **NOT** prove the server round-trip.
+
+### L-1892 — ✅ FIXED: `ViewTemplateManagerPanel`, the same defect one row over
+
+`ProjectBrowserPanel.ts:172` was the **one line** in its block that did not forward `this.runtime`
+— its six sibling rail panels all do, under a comment reading *"thread the composed runtime to
+every rail sub-panel"*. Template create, update and defaults-seeding all dispatched into
+`undefined`. The class carried its own evidence that this was known: `_execDeleteTemplate` is the
+**only** method that guards on a missing bus and tells the user, three lines from siblings that
+fail silently.
+
+### L-1893 — ⭐ GATE: `check-runtime-arg-omitted.ts`
+
+This shape shipped **four times in one day** — L-1633 (sheet drag), L-1860 (intent assign),
+L-1890 (V/G panel), L-1892 (view templates) — each one missing positional argument at a site where
+the handle was already in lexical scope, each found by a human reading code after the founder
+reported a feature *"doing nothing"*.
+
+**RC=0**, 4780 files, 214 classes with an optional trailing `runtime` param, **ARM A = 21** bare
+construction sites, baselined shrink-only.
+
+> ⚠ **21 is a DEBT LEDGER, not a clean bill.** Six were independently confirmed dead by audit:
+> `PropertyPanel` (`PropertyPanelAdapter.ts:42` — whose sibling one line up carries an *"R4 fix:
+> inject runtime"* note, so the fix stopped at the adapter), `WorkspaceModeBar` +
+> `SaveUndoRedoHUD` (`DockingLayout.ts:180-181`), `AuditStack` (a module-load singleton whose own
+> `:424` TODO states the defect), `SheetEditorPanel` (`initUI.ts:847`, lane SHEET3), and the
+> `ToolsPanelController` → `CreateRailPanel` cascade (which degrades to the legacy `window.*Tool`
+> path rather than to nothing, which is why nobody noticed). They are left in the baseline because
+> they are other lanes' files.
+
+**Two defects in the gate itself were found and fixed BEFORE baselining** — both made it
+under-report, and a gate that under-detects converts *unmeasured* into a green tick:
+
+1. the param regex used `[^,)]*`, which **cannot span the `)` inside an inline
+   `import('@pryzm/runtime-composer/types')`** — the annotation nearly every one of these classes
+   uses. It reported **1** finding instead of **21**.
+2. `stripComments` deleted block comments outright, shifting every reported line number after a
+   file's first block comment (`PropertyPanelAdapter.ts:42` printed as `:28`).
+
+**Stated limits:** syntactic only — it cannot see a site that passes a variable which is `null` at
+that moment, nor a class **nothing constructs at all** (a separate and larger finding:
+`PropertyInspector`, the 18 `toolbar/*` classes and ~17 panels have **zero** production
+construction sites).
+
+### L-1894 — ✅ SHIPPED: per-category visibility, per view
+
+> *"I need to have somewhere a click boolean for general visibility — imagine I don't want to see
+> furniture elements in elevation."*
+
+**Every layer needed already existed except a writer.** `VisibilityOverride.targetKind` is
+`'element' | 'elementType' | 'category'`; `IntentRuleResolver.targetMatches()` **already honours
+all three**; plan/section/elevation already resolve their pen through that layer; it already
+persists and already undoes. Only per-**element** commands wrote it — so a category was
+expressible by the model, honoured by the resolver, and **reachable by nothing**.
+
+Added `SetCategoryVisibilityInViewCommand` + the `view.setCategoryVisibility` verb, and twelve
+category checkboxes in the V/G panel (the panel L-1890 had just brought back to life).
+
+- **P7:** routed through the override model, never `Object3D.visible`. A `.visible` toggle would be
+  UI state — invisible to the 2D views this request is *about*, absent from the snapshot, missing
+  from undo, and an ARM-B finding in `check-visibility-intent-not-ui.ts`.
+- **Not the intent editor's VISIBLE checkbox:** that is per element-type **per state** and edits the
+  INTENT, which is **shared by every view bound to it** — unticking furniture there hides it
+  *everywhere*. This writes a per-**view** override, which is the scope the founder described.
+- **"Show" REMOVES the override** rather than writing an opposite one: a default is not an override
+  (C09 §4.5.1).
+- **One row covers the whole type**, so it also applies to elements created *later* — which N
+  per-element overrides would not.
+
+**VERIFIED end to end, foreground, 10/10:** real command → real store → real resolver, nothing
+under test stubbed, asserted at the **pen** the 2D canvas resolves rather than at the command's
+return value. Controls that carry the weight: negative (hiding furniture leaves walls drawn), scope
+(does not leak to the plan view), undo, no duplicate rows on repeat toggles, and survival across
+serialize → JSON → deserialize.
+
+### ⭐ THE GOVERNANCE TRAP — the UI is honest, and the escape hatch is a WALL
+
+The founder's screenshot already warned him: *"You are editing **promo 02**, but this view is
+governed by **Architectural Documentation (Auto)**. Changes here will NOT affect it."* with a button
+*"Edit Architectural Documentation (Auto) instead"*.
+
+**That button leads nowhere.** `VisibilityIntentPanel.ts:691` sets `selectedIntentId = gov` and
+re-renders — selecting a **system** intent, which is **hard read-only**:
+`VisibilityIntentStore.update()` returns `null` for any system intent (`:72`), and every field in
+the panel renders `disabled`. So the offered action cannot succeed. This is
+[[refusing-half-needs-its-escape-hatch]]: a banner whose remedy is a dead end.
+
+The founder's full sequence, all three steps blocked:
+
+1. tried to assign `promo 02` to the view → **dead** (L-1860, and that fix was not even on main);
+2. edited `promo 02` anyway → correctly had no effect, and the banner said so;
+3. clicked *"Edit Architectural Documentation (Auto) instead"* → **read-only wall**.
+
+The real working path is the **Duplicate** button, which does bind the copy to the view in the same
+gesture (`duplicateIntent`, §FIX-INTENT-AUTHORING-DEAD-END L-779) — and it uses
+`window.commandManager`, so it was live throughout.
+
+### 🔴 OPEN — the banner needs a THIRD action, and it is NOT built
+
+Designed, not assumed, and deliberately **not shipped blind**:
+
+- **Offer "Assign *promo 02* to this view"** as the primary action when the selected intent is a
+  **user** intent and the view is governed by another. That is what the user is actually trying to
+  do — they opened the editor on the intent they want the view to use.
+- **Keep "Edit &lt;governing&gt;"** only when the governing intent is a **user** intent (editable).
+  When it is a system intent the correct offer is **"Duplicate &lt;governing&gt; and bind it to this
+  view"**, which is the one path that succeeds today.
+- ⚠ **The banner must not offer an action that the store will refuse.** The current button is
+  generated without consulting `visibilityIntentStore.isSystem(gov)`, which is the single check that
+  would have prevented it.
+
+**Not implemented this lane** — it changes the primary action of a governance affordance the founder
+is actively using, and it should be a deliberate decision rather than a same-turn assumption.
+
+### 🔴 OPEN / NOT ESTABLISHED
+
+1. **🔴 NOT browser-verified.** Every claim above is measured at the store / command / resolver
+   layer or at the source. The V/G category toggles and the re-landed intent dropdown are **not**
+   confirmed in a real browser against production.
+2. **🔴 The server round-trip is not measured.** L-1891 proves the STORE layer round-trips through
+   JSON; it does not prove the snapshot survives the server.
+3. **🔴 15 of the 21 ARM-A gate findings are unexamined.** Six were audited; the rest are named and
+   counted, nothing more.
+4. **🔴 The category list is curated, not derived.** Twelve hard-coded ids. An element type outside
+   that list has no quick toggle, and nothing warns that it is missing.
+5. **🔴 The final full-suite re-run was BLOCKED** by another lane's uncommitted syntax error
+   (`packages/core-app-model/src/stores/FloorColourSystem.ts:143` — an unescaped apostrophe in a
+   single-quoted string, LANE-Y/materials). Verification here completed **before** that appeared:
+   39/39 across five suites, root `tsc --noEmit --skipLibCheck` **EXIT 0**. The renumber that
+   followed is provably comment- and test-title-only.
+
+---
