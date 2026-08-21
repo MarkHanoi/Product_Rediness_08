@@ -265,6 +265,14 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       'set-stair-dimensions': ['stair'],
       'set-stair-type': ['stair'],
       'set-stair-railing-type': ['stair-railing'],
+      // §FEAT-WINDOW-REVEAL-RAC (L-3202 … L-3204) — five capabilities, ONE kind.
+      // The reveal is a property of the opening, so a literal is exactly right
+      // here: there is no register to drift against.
+      'set-reveal-projection': ['window'],
+      'set-reveal-splay': ['window'],
+      'set-reveal-splay-head': ['window'],
+      'set-reveal-splay-sill': ['window'],
+      'set-reveal-splay-jambs': ['window'],
       'move-to-level': [
         ...new Set(
           Object.values(LEVEL_CHANGE_VERBS).flatMap((s) => s.panelTypes.map(normalizeElementKind)),

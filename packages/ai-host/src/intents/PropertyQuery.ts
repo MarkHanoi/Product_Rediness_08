@@ -368,6 +368,73 @@ export const PROPERTY_QUERY_ROWS: readonly PropertyQueryRow[] = Object.freeze([
     field: 'slope',
     unit: 'gradient-as-degrees',
   },
+
+  // ── ⭐ §FEAT-WINDOW-REVEAL-RAC (L-3202 … L-3204) — THE READ HALF ────────────
+  //
+  // Five rows for five fields, and they are the clearest demonstration of this
+  // file's rule that the table has yet had: the founder asked for the reveal to
+  // be reachable, the WRITE capabilities landed in the same commit, and these
+  // rows do not restate a single element kind — `queryableKinds` reads `window`
+  // off each write twin at call time. If a reveal capability is ever narrowed or
+  // withdrawn, the matching question stops being answered in that same commit
+  // rather than becoming a claim the resolver refuses.
+  //
+  // ⚠ THE UNIT IS `degrees` FOR FOUR OF THE FIVE, AND IT IS THE STORE'S OWN.
+  // `WindowOpeningSchema` holds the splays in degrees — unlike `Roof.slope`
+  // above, which is a gradient and needs `atan` on the way out. That difference
+  // is exactly why `unit` is declared per ROW and never inferred from the type
+  // of the property: two angles in one file, stored two different ways.
+  //
+  // ⚠ TWO ROWS MIRROR ONE CAPABILITY (`set-reveal-splay-jambs` writes both
+  // jambs). That is legal and deliberate: the mirror rule constrains the KINDS a
+  // row may claim, not the arity of the write. Both rows therefore answer for
+  // exactly the kinds that capability can set, which is the property that makes
+  // the claim true.
+  {
+    id: 'reveal-projection',
+    capabilityId: 'set-reveal-projection',
+    noun: 'reveal projection',
+    synonyms: ['projection', 'reveal depth', 'reveal offset'],
+    adjectives: [],
+    field: 'revealProjection',
+    unit: 'metres',
+  },
+  {
+    id: 'reveal-splay-head',
+    capabilityId: 'set-reveal-splay-head',
+    noun: 'head splay',
+    synonyms: ['splay head', 'reveal splay head'],
+    adjectives: [],
+    field: 'revealSplayHead',
+    unit: 'degrees',
+  },
+  {
+    id: 'reveal-splay-sill',
+    capabilityId: 'set-reveal-splay-sill',
+    noun: 'sill splay',
+    synonyms: ['splay sill', 'reveal splay sill'],
+    adjectives: [],
+    field: 'revealSplaySill',
+    unit: 'degrees',
+  },
+  {
+    id: 'reveal-splay-jamb-left',
+    capabilityId: 'set-reveal-splay-jambs',
+    noun: 'left jamb splay',
+    synonyms: ['splay left jamb', 'left splay'],
+    adjectives: [],
+    field: 'revealSplayJambLeft',
+    unit: 'degrees',
+  },
+  {
+    id: 'reveal-splay-jamb-right',
+    capabilityId: 'set-reveal-splay-jambs',
+    noun: 'right jamb splay',
+    synonyms: ['splay right jamb', 'right splay'],
+    adjectives: [],
+    field: 'revealSplayJambRight',
+    unit: 'degrees',
+  },
 ]);
 
 const BY_ID: ReadonlyMap<string, PropertyQueryRow> = new Map(

@@ -1584,6 +1584,217 @@ const CAPABILITIES: readonly ChatCapability[] = [
       'make the overhang 300mm',
     ],
   },
+
+  // ── ⭐ §FEAT-WINDOW-REVEAL-RAC (L-3202 … L-3204) — THE WINDOW REVEAL ────────
+  //
+  // The founder was told the reveal fields are "not reachable by RAC at all".
+  // They were panel-only: `WindowSection` dispatches `UpdateWindowParameterCommand`
+  // through the commandManager directly, and NO bus command reaches that class —
+  // so there was no route for a sentence to take.
+  //
+  // These five ride `element.updateParameters`, and they may do so only because
+  // that carrier was repaired first (L-3200 / L-3202, commit 0fb1e9f9): it now
+  // READS BACK what landed instead of returning success off a void, and it now
+  // carries the C83 IMPOSSIBLE gate that previously lived only in the panel's
+  // command. Declaring these before that fix would have advertised a route which
+  // could store a zero-glazing window and call it done.
+  //
+  // The shared WRITE proof for all five. It is quoted once per entry because
+  // `proveCommandTargets` reads it per capability, but it is one claim: the
+  // reveal fields are on `WindowOpeningSchema`, `windowStore.update` merges and
+  // re-parses them, and `WindowRevealLeaf` builds from them.
+  {
+    id: 'set-reveal-projection',
+    description: 'push the window face proud of the wall, or recess it',
+    verbs: ['set', 'change', 'make'],
+    aliases: ['reveal projection', 'projection', 'reveal depth', 'reveal offset'],
+    refusalLabel: 'reveal projection',
+    targets: ['window'],
+    parameters: [
+      {
+        name: 'revealProjection',
+        description:
+          'how far the window face sits beyond the exterior wall face — SIGNED: negative recesses it into a deep-set reveal',
+        required: true,
+        valueSource: 'measurement',
+        example: '100mm',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'element.updateParameters',
+    probe: { intent: 'set-reveal-projection', value: 0.1 },
+    commandProof: [
+      {
+        file: UPDATE_ELEMENT_PARAMETER_FILE,
+        mustMention: ['window', 'windowStore.update'],
+        note: 'WRITE half: applyUpdate routes window to windowStore.update, which merges and re-parses through WindowOpeningSchema. The command now reads the record back and refuses when a field did not land (§PARAM-DROP-IS-A-REFUSAL), and it consults the C83 reveal gate before writing.',
+      },
+      {
+        file: 'packages/geometry-window/src/WindowReveal.ts',
+        mustMention: ['revealProjection', 'isRevealAuthored'],
+        note: 'READ half: resolveWindowReveal consumes revealProjection and isRevealAuthored keys the whole feature on it — the check the beam-height lie failed. WindowRevealLeaf builds the projecting box from the result.',
+      },
+    ],
+    examples: [
+      'set the reveal projection to 100mm',
+      'change the reveal projection to -50mm',
+      'set the window projection to 0.12m',
+    ],
+  },
+  {
+    id: 'set-reveal-splay',
+    description: 'splay all four sides of the window reveal',
+    verbs: ['set', 'change', 'make'],
+    aliases: ['reveal splay', 'splay', 'splay angle'],
+    refusalLabel: 'reveal splay',
+    targets: ['window'],
+    parameters: [
+      {
+        name: 'revealSplay',
+        description: 'the splay angle applied to head, sill and both jambs at once',
+        required: true,
+        valueSource: 'measurement',
+        example: '15 degrees',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'element.updateParameters',
+    probe: { intent: 'set-reveal-splay', value: 15 },
+    commandProof: [
+      {
+        file: UPDATE_ELEMENT_PARAMETER_FILE,
+        mustMention: ['window', 'checkWindowRevealAuthorability'],
+        note: 'WRITE half plus the refusal: all four splay fields arrive in ONE parameter set (one command, one undo step, matching the panel\'s "Splay all sides"), and checkWindowRevealAuthorability asks the C83 gate about the MERGED record before anything is written.',
+      },
+      {
+        file: 'packages/geometry-window/src/WindowReveal.ts',
+        mustMention: ['revealSplayHead', 'revealSplayJambLeft'],
+        note: 'READ half: the splay fields drive the wedge geometry and the glazing-area computation windowRevealRefusal refuses on.',
+      },
+    ],
+    examples: [
+      'set the reveal splay to 15 degrees',
+      'change the splay to 20',
+      'set the reveal splay to 0',
+    ],
+  },
+  {
+    id: 'set-reveal-splay-head',
+    description: 'splay the head of the window reveal',
+    verbs: ['set', 'change', 'make'],
+    aliases: ['head splay', 'splay head', 'reveal splay head'],
+    refusalLabel: 'head splay',
+    targets: ['window'],
+    parameters: [
+      {
+        name: 'revealSplayHead',
+        description: 'the splay angle at the top of the opening',
+        required: true,
+        valueSource: 'measurement',
+        example: '20 degrees',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'element.updateParameters',
+    probe: { intent: 'set-reveal-splay-head', value: 20 },
+    commandProof: [
+      {
+        file: UPDATE_ELEMENT_PARAMETER_FILE,
+        mustMention: ['window', 'windowStore.update'],
+        note: 'WRITE half: the single field reaches windowStore.update and is read back before success is reported.',
+      },
+      {
+        file: 'packages/geometry-window/src/WindowReveal.ts',
+        mustMention: ['revealSplayHead'],
+        note: 'READ half: the head splay is one of the four sides resolveWindowReveal builds a wedge for.',
+      },
+    ],
+    examples: [
+      'set the head splay to 20 degrees',
+      'change the reveal splay head to 10',
+    ],
+  },
+  {
+    id: 'set-reveal-splay-sill',
+    description: 'splay the sill of the window reveal',
+    verbs: ['set', 'change', 'make'],
+    aliases: ['sill splay', 'splay sill', 'reveal splay sill'],
+    refusalLabel: 'sill splay',
+    targets: ['window'],
+    parameters: [
+      {
+        name: 'revealSplaySill',
+        description: 'the splay angle at the bottom of the opening',
+        required: true,
+        valueSource: 'measurement',
+        example: '20 degrees',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'element.updateParameters',
+    probe: { intent: 'set-reveal-splay-sill', value: 20 },
+    commandProof: [
+      {
+        file: UPDATE_ELEMENT_PARAMETER_FILE,
+        mustMention: ['window', 'windowStore.update'],
+        note: 'WRITE half: the single field reaches windowStore.update and is read back before success is reported.',
+      },
+      {
+        file: 'packages/geometry-window/src/WindowReveal.ts',
+        mustMention: ['revealSplaySill'],
+        note: 'READ half: the sill splay is one of the four sides resolveWindowReveal builds a wedge for.',
+      },
+    ],
+    examples: [
+      'set the sill splay to 20 degrees',
+      'change the reveal splay sill to 10',
+    ],
+  },
+  {
+    id: 'set-reveal-splay-jambs',
+    // ⚠ BOTH jambs, together. The asymmetric ask ("splay the left jamb and leave
+    // the right") is a real detail and NO capability reaches it — recorded at
+    // L-3204 rather than implied by an alias that would then disappoint.
+    description: 'splay both jambs of the window reveal',
+    verbs: ['set', 'change', 'make'],
+    aliases: ['jamb splay', 'splay jambs', 'side splay'],
+    refusalLabel: 'jamb splay',
+    targets: ['window'],
+    parameters: [
+      {
+        name: 'revealSplayJambs',
+        description: 'the splay angle applied to BOTH jambs',
+        required: true,
+        valueSource: 'measurement',
+        example: '20 degrees',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'element.updateParameters',
+    probe: { intent: 'set-reveal-splay-jambs', value: 20 },
+    commandProof: [
+      {
+        file: UPDATE_ELEMENT_PARAMETER_FILE,
+        mustMention: ['window', 'checkWindowRevealAuthorability'],
+        note: 'WRITE half plus the refusal: both jamb fields arrive in one parameter set, and the C83 gate is asked about the merged record — two jambs that meet leave zero glazing, which is exactly the case this capability makes easiest to ask for.',
+      },
+      {
+        file: 'packages/geometry-window/src/WindowReveal.ts',
+        mustMention: ['revealSplayJambLeft', 'revealSplayJambRight'],
+        note: 'READ half: both jamb splays drive their wedges and the glazing-width computation the refusal is derived from.',
+      },
+    ],
+    examples: [
+      'set the jamb splay to 20 degrees',
+      'change the splay jambs to 15',
+    ],
+  },
+
   {
     id: 'set-wall-type',
     // §FEAT-CHAT-WALL-TYPE (2026-08-10) — the capability whose ABSENCE is the

@@ -70,11 +70,6 @@
     "window.glassOpacity",
     "window.mark",
     "window.openingProfile",
-    "window.revealProjection",
-    "window.revealSplayHead",
-    "window.revealSplayJambLeft",
-    "window.revealSplayJambRight",
-    "window.revealSplaySill",
     "window.rowRatios",
     "window.sill",
     "window.windowType"

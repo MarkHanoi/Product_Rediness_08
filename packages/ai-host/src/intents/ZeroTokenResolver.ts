@@ -3314,7 +3314,21 @@ const matchWidth: Matcher = (text) => {
 const matchProperty: Matcher = (text) => {
   const hit = matchPropertyUtterance(text);
   if (hit === null) return null;
-  return { intent: hit.id, value: toMeters(hit.raw, hit.unit) };
+  // §FEAT-WINDOW-REVEAL-RAC (L-3202) — the table declares WHAT KIND of quantity
+  // it captured; this line is where that declaration becomes a number.
+  //
+  // ⚠ `toMeters('15', undefined)` is 15 METRES. Before the reveal splays there
+  // was no angle in this vocabulary and the conversion could be unconditional;
+  // routing an angle through it would have sent "set the jamb splay to 15" to
+  // the command as 15 — read by the C83 gate as 15° only by coincidence, and by
+  // any millimetre-suffixed phrasing as 0.015. The measure is read from the
+  // entry, never guessed from the unit suffix (an angle's suffix is optional).
+  return {
+    intent: hit.id,
+    value: hit.measure === 'angle'
+      ? parseFloat(hit.raw.replace(',', '.'))
+      : toMeters(hit.raw, hit.unit),
+  };
 };
 
 // §FEAT-CHAT-SYMMETRY — roof pitch, spoken in degrees.

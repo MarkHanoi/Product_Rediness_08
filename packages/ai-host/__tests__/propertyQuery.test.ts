@@ -205,7 +205,20 @@ describe('the value reaches the sentence, in the unit a human uses', () => {
       .filter((r) => r.unit !== 'metres')
       .map((r) => `${r.id}:${r.unit}`)
       .sort();
-    expect(nonMetric).toEqual(['rake-angle:degrees', 'roof-pitch:gradient-as-degrees']);
+    // §FEAT-WINDOW-REVEAL-RAC (L-3202 … L-3204) — the four reveal splays join
+    // the census, and they join it as `degrees` because `WindowOpeningSchema`
+    // stores them that way. THREE storage conventions for an angle now coexist
+    // in one table (`rakeAngleDeg` degrees, `slope` a gradient, the splays
+    // degrees), which is the strongest possible argument for the per-row `unit`
+    // this assertion protects.
+    expect(nonMetric).toEqual([
+      'rake-angle:degrees',
+      'reveal-splay-head:degrees',
+      'reveal-splay-jamb-left:degrees',
+      'reveal-splay-jamb-right:degrees',
+      'reveal-splay-sill:degrees',
+      'roof-pitch:gradient-as-degrees',
+    ]);
   });
 
   it('a rake angle is already in degrees — read back verbatim, never converted twice', () => {

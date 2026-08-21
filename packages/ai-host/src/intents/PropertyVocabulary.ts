@@ -76,13 +76,45 @@ export type PropertyDrivenIntentId =
   // §PROP-OVERHANG (RAC VERBS-CAP) — the roof eave. See the entry for why this
   // is the ONE roof dimension the geometry proves, and why `ridgeOffset` and
   // `fascia` are deliberately absent.
-  | 'set-overhang';
+  | 'set-overhang'
+  // ⭐ §FEAT-WINDOW-REVEAL-RAC (L-3202 … L-3204) — the founder asked for the
+  // window reveal by name. Five panel controls, five table entries, and the
+  // FIRST entries in this vocabulary whose measure is an ANGLE rather than a
+  // length — see `measure` on PropertyEntry.
+  | 'set-reveal-projection'
+  | 'set-reveal-splay'
+  | 'set-reveal-splay-head'
+  | 'set-reveal-splay-sill'
+  | 'set-reveal-splay-jambs';
 
-/** Every property intent carries exactly one measured value, in metres. */
+/**
+ * Every property intent carries exactly one measured value.
+ *
+ * ⚠ THE UNIT IS THE ENTRY'S, NOT THIS TYPE'S. Until §FEAT-WINDOW-REVEAL-RAC every
+ * member of this vocabulary was a length and this comment read "in metres"; the
+ * reveal splays are DEGREES. The resolver converts per `PropertyEntry.measure`,
+ * so a value here is always in the entry's own declared unit and never in an
+ * assumed one.
+ */
 export interface PropertyIntent {
   readonly intent: PropertyDrivenIntentId;
   readonly value: number;
 }
+
+/**
+ * ⭐ WHAT KIND OF QUANTITY A PROPERTY IS — and therefore how its digits are read
+ * and how they are spoken back.
+ *
+ * `'length'` is the historical default and every pre-existing entry keeps it
+ * implicitly, so no existing property's grammar or refusal copy moves.
+ *
+ * The distinction is not cosmetic. `toMeters('15', undefined)` is 15 METRES; a
+ * splay of "15" is 15 DEGREES. Had the reveal entries been added without this
+ * axis they would have arrived at the command as 15 m of angle — the same class
+ * of defect as the roof-pitch query row that read `pitch`/radians off the L0
+ * schema while the write lands `slope`/gradient on the geometry record.
+ */
+export type PropertyMeasure = 'length' | 'angle';
 
 // ─── The spec ────────────────────────────────────────────────────────────────
 
@@ -131,8 +163,19 @@ export interface PropertyEntry {
    * existing property's bound moves.
    */
   readonly zeroValid?: boolean;
+  /**
+   * The quantity this property is. Omitted means `'length'`, which is what every
+   * entry written before §FEAT-WINDOW-REVEAL-RAC is — so the default is the
+   * historical behaviour rather than a new assumption.
+   */
+  readonly measure?: PropertyMeasure;
   /** The routes, in order; the first route claiming a kind serves it. */
   readonly routes: readonly PropertyRoute[];
+}
+
+/** The entry's measure, with the historical default applied in ONE place. */
+export function measureOf(entry: PropertyEntry): PropertyMeasure {
+  return entry.measure ?? 'length';
 }
 
 // ─── The table ───────────────────────────────────────────────────────────────
@@ -410,6 +453,182 @@ export const PROPERTY_VOCABULARY: Readonly<Record<PropertyDrivenIntentId, Proper
     ],
   },
 
+  // ── ⭐ §FEAT-WINDOW-REVEAL-RAC (L-3202 … L-3204) — THE WINDOW REVEAL ───────
+  //
+  // The founder's ask, relayed verbatim: the reveal fields are "not reachable by
+  // RAC at all". They were panel-only, and lane WIN1 recorded WHY it would not
+  // wire them (L-1923): `element.updateParameters` "would have silently dropped
+  // it" through `WallStore.updateWindow`'s four-field whitelist.
+  //
+  // ⭐ THAT WAS RE-MEASURED BEFORE ANY OF THESE ROWS WERE WRITTEN, and it does
+  // not hold. `WindowOpeningSchema` carries all five reveal fields, so
+  // `windowStore.update` keeps them; the four-field list is the projection onto
+  // `wall.openings[]`, and the reveal geometry is built from the WINDOW record,
+  // which never travels through it. Probed against the real stores,
+  // `{revealProjection: 0.25}` lands on `windowStore.getById(...)`. The
+  // assertions are `paramDropIsARefusal.test.ts` §B.
+  //
+  // TWO REAL DEFECTS WERE FOUND IN ITS PLACE, and BOTH are fixed on the carrier
+  // these rows use before any row was allowed to claim it (L-3200 / L-3202,
+  // commit 0fb1e9f9) — which is the whole reason this table may name it:
+  //   1. an unknown field was DROPPED BY ZOD and reported as success. There is
+  //      now a read-back that counts records, not calls.
+  //   2. `element.updateParameters` BYPASSED the C83 IMPOSSIBLE gate, so a
+  //      degenerate splay stored happily and reported success. The gate is now
+  //      on that path too.
+  //
+  // BOTH HALVES OF THE HONESTY BAR, for all five rows:
+  //   1. FIELD EXISTS + WRITE LANDS — `WindowOpeningSchema` declares every one
+  //      (`WindowTypes.ts:79` ff) and `windowStore.update` merges and re-parses.
+  //   2. THE GEOMETRY READS IT — `WindowReveal.resolveWindowReveal` consumes all
+  //      five, `isRevealAuthored` keys the whole feature on them, and
+  //      `WindowRevealLeaf` builds the boxes and wedges from the result. It is
+  //      not a field nothing reads.
+  //
+  // ⚠ NO `max` IS DECLARED, and that is deliberate rather than an omission.
+  // `MAX_REVEAL_SPLAY_DEG` lives in `@pryzm/geometry-window`, which this package
+  // does not depend on. Transcribing `85` here would mint a second source of
+  // truth for a bound this layer does not own (C65 §3.5) — the exact fault
+  // `set-overhang` records for the roof. The command's own C83 gate is the
+  // authority, and it refuses with BOTH numbers.
+
+  /**
+   * §PROP-REVEAL-PROJECTION — "set the reveal projection to 100mm".
+   *
+   * SIGNED, and this is the one place the sign carries real meaning: positive
+   * pushes the window's outer face proud of the authored EXTERIOR wall face,
+   * negative RECESSES it into a deep-set reveal. `WindowTypes.ts:71` says so on
+   * the field itself. A positivity gate here would refuse half the detail.
+   *
+   * ZERO IS VALID — a flush face is the default and an ordinary thing to ask
+   * back for after trying a projection.
+   */
+  'set-reveal-projection': {
+    id: 'set-reveal-projection',
+    property: 'reveal projection',
+    synonyms: ['projection', 'reveal depth', 'reveal offset', 'window projection'],
+    adjectives: [],
+    label: 'reveal projection',
+    signed: true,
+    zeroValid: true,
+    measure: 'length',
+    routes: [
+      {
+        kinds: ['window'],
+        busCommand: 'element.updateParameters',
+        payload: generic('revealProjection'),
+      },
+    ],
+  },
+
+  /**
+   * §PROP-REVEAL-SPLAY — "set the reveal splay to 15 degrees". ALL FOUR SIDES in
+   * ONE command, which is the panel's own "Splay all sides" control and
+   * therefore one undo step rather than four.
+   *
+   * ⚠ THE SUMMARY SAYS "all four sides" IN AS MANY WORDS. A user who asked for
+   * "the splay" and got four fields written must be able to see that from the
+   * transcript; the per-side rows below exist so the narrower ask is not a miss.
+   */
+  'set-reveal-splay': {
+    id: 'set-reveal-splay',
+    property: 'reveal splay',
+    synonyms: ['splay', 'splay angle', 'reveal splay angle'],
+    adjectives: [],
+    label: 'reveal splay (all four sides)',
+    signed: false,
+    zeroValid: true,
+    measure: 'angle',
+    routes: [
+      {
+        kinds: ['window'],
+        busCommand: 'element.updateParameters',
+        payload: (elementId, elementType, value) => ({
+          elementId,
+          elementType,
+          parameters: {
+            revealSplayHead: value,
+            revealSplaySill: value,
+            revealSplayJambLeft: value,
+            revealSplayJambRight: value,
+          },
+        }),
+      },
+    ],
+  },
+
+  /** §PROP-REVEAL-SPLAY-HEAD — the top of the void, splayed alone. */
+  'set-reveal-splay-head': {
+    id: 'set-reveal-splay-head',
+    property: 'head splay',
+    synonyms: ['splay head', 'reveal splay head', 'head reveal splay'],
+    adjectives: [],
+    label: 'head splay',
+    signed: false,
+    zeroValid: true,
+    measure: 'angle',
+    routes: [
+      {
+        kinds: ['window'],
+        busCommand: 'element.updateParameters',
+        payload: generic('revealSplayHead'),
+      },
+    ],
+  },
+
+  /** §PROP-REVEAL-SPLAY-SILL — the bottom of the void, splayed alone. */
+  'set-reveal-splay-sill': {
+    id: 'set-reveal-splay-sill',
+    property: 'sill splay',
+    synonyms: ['splay sill', 'reveal splay sill', 'sill reveal splay'],
+    adjectives: [],
+    label: 'sill splay',
+    signed: false,
+    zeroValid: true,
+    measure: 'angle',
+    routes: [
+      {
+        kinds: ['window'],
+        busCommand: 'element.updateParameters',
+        payload: generic('revealSplaySill'),
+      },
+    ],
+  },
+
+  /**
+   * §PROP-REVEAL-SPLAY-JAMBS — BOTH jambs, together.
+   *
+   * ⚠ A SYMMETRIC PAIR, and the asymmetric ask is NOT served. "Splay the left
+   * jamb to 20 and leave the right" is a real detail (a window turning a
+   * corner), and no row here reaches it: this one writes both. Stated rather
+   * than quietly approximated — the panel offers the two independently, so this
+   * is a genuine shortfall, recorded at L-3204 instead of implied.
+   */
+  'set-reveal-splay-jambs': {
+    id: 'set-reveal-splay-jambs',
+    property: 'jamb splay',
+    synonyms: ['splay jambs', 'jamb reveal splay', 'reveal splay jambs', 'side splay'],
+    adjectives: [],
+    label: 'jamb splay (both jambs)',
+    signed: false,
+    zeroValid: true,
+    measure: 'angle',
+    routes: [
+      {
+        kinds: ['window'],
+        busCommand: 'element.updateParameters',
+        payload: (elementId, elementType, value) => ({
+          elementId,
+          elementType,
+          parameters: {
+            revealSplayJambLeft: value,
+            revealSplayJambRight: value,
+          },
+        }),
+      },
+    ],
+  },
+
   // ── NOT ADDED, and the reason is the point of this table ──────────────────
   //
   // `gridXSpacing` / `gridYSpacing` were the obvious fifth and sixth entries —
@@ -467,6 +686,16 @@ export function routeFor(entry: PropertyEntry, kind: string): PropertyRoute | nu
  *  to the captured groups. */
 const LEN_SRC = String.raw`(-?\d+(?:[.,]\d+)?)\s*(millimet(?:er|re)s?|centimet(?:er|re)s?|met(?:er|re)s?|mm|cm|m)?\b`;
 
+/**
+ * §FEAT-WINDOW-REVEAL-RAC — the ANGLE source, byte-compatible in SHAPE with
+ * `LEN_SRC`: group 1 is the digits, group 2 the (here always undefined) unit, so
+ * `matchPropertyUtterance` reads both measures through one pair of indices and
+ * the caller never has to know which it got. The degree suffix is optional and
+ * non-capturing, mirroring the resolver's own `DEG_SRC` for roof pitch — one
+ * spelling of "how a chat says an angle", not two.
+ */
+const ANG_SRC = String.raw`(-?\d+(?:[.,]\d+)?)()\s*(?:°|deg|degs|degree|degrees)?`;
+
 function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -482,33 +711,71 @@ const COMPILED: readonly CompiledProperty[] = allPropertyEntries().map((entry) =
     .map((k) => escapeRe(k.replace('-', ' ')))
     .concat(['selected']);
   const nounGroup = `(?:${nouns.map((n) => ` ${n}`).join('|')})?`;
-  const propGroup = [entry.property, ...entry.synonyms].map(escapeRe).join('|');
+  // ⚠ LONGEST NOUN FIRST. "splay" is a suffix of "head splay", and alternation
+  // is first-match-wins, so an unsorted group would let the generic `splay` row
+  // claim the first half of "…head splay…" and then fail on the remainder —
+  // turning a specific ask into a MISS rather than into the wrong property.
+  // Sorting makes the specific spelling win outright. Same discipline
+  // `PropertyQuery.COMPILED_BY_SPECIFICITY` applies across rows.
+  const propGroup = [entry.property, ...entry.synonyms]
+    .slice()
+    .sort((a, b) => b.length - a.length)
+    .map(escapeRe)
+    .join('|');
+  const SRC = measureOf(entry) === 'angle' ? ANG_SRC : LEN_SRC;
   return {
     id: entry.id,
     named: new RegExp(
       `^(?:set|change|make)(?: the)?${nounGroup} (?:${propGroup})` +
-      `(?: of (?:this|the selection))?(?: to)? ${LEN_SRC}$`,
+      `(?: of (?:this|the selection))?(?: to)? ${SRC}$`,
     ),
     adjectival: entry.adjectives.length === 0
       ? null
       : new RegExp(
-          `^make (?:this|the selection) ${LEN_SRC} ` +
+          `^make (?:this|the selection) ${SRC} ` +
           `(?:${entry.adjectives.map(escapeRe).join('|')})$`,
         ),
   };
 });
 
 /**
+ * ⚠ SPECIFICITY ORDER ACROSS ROWS, not just within one. `set-reveal-splay`'s
+ * noun "reveal splay" and `set-reveal-splay-head`'s "reveal splay head" both
+ * begin the same way; the patterns are `^…$`-anchored so a wrong claim is not
+ * possible, but iterating longest-noun-first means the specific row is TRIED
+ * first and the generic one never has to be excluded by luck. This is the same
+ * guarantee `PropertyQuery` states for "sill height" vs "height".
+ */
+const COMPILED_BY_SPECIFICITY: readonly CompiledProperty[] = [...COMPILED].sort((a, b) => {
+  const na = PROPERTY_VOCABULARY[a.id].property.length;
+  const nb = PROPERTY_VOCABULARY[b.id].property.length;
+  return nb - na;
+});
+
+/**
  * The ONE property matcher. Returns the captured measurement as `[value, unit]`
- * so the caller applies the resolver's single unit authority; null when no
+ * plus the entry's MEASURE, so the caller applies the resolver's single unit
+ * authority for a length and reads degrees as degrees for an angle; null when no
  * property in the vocabulary claims the text.
  */
 export function matchPropertyUtterance(
   text: string,
-): { readonly id: PropertyDrivenIntentId; readonly raw: string; readonly unit: string | undefined } | null {
-  for (const c of COMPILED) {
+): {
+  readonly id: PropertyDrivenIntentId;
+  readonly raw: string;
+  readonly unit: string | undefined;
+  readonly measure: PropertyMeasure;
+} | null {
+  for (const c of COMPILED_BY_SPECIFICITY) {
     const m = c.named.exec(text) ?? c.adjectival?.exec(text) ?? null;
-    if (m !== null) return { id: c.id, raw: m[1]!, unit: m[2] };
+    if (m !== null) {
+      return {
+        id: c.id,
+        raw: m[1]!,
+        unit: m[2] === '' ? undefined : m[2],
+        measure: measureOf(PROPERTY_VOCABULARY[c.id]),
+      };
+    }
   }
   return null;
 }
@@ -521,8 +788,16 @@ function round3(v: number): number {
   return Math.round(v * 1000) / 1000;
 }
 
-function fmt(n: number): string {
-  return `${round3(n)} m`;
+/**
+ * How a value is SPOKEN back, in the entry's own unit.
+ *
+ * ⚠ This took an `entry` argument in §FEAT-WINDOW-REVEAL-RAC because it used to
+ * append " m" unconditionally. A refusal reading "a jamb splay of 85 m is above
+ * the maximum" would have been a true refusal wearing a false unit — the kind of
+ * sentence that sends a user to change the wrong number.
+ */
+function fmt(n: number, entry: PropertyEntry): string {
+  return measureOf(entry) === 'angle' ? `${round3(n)}°` : `${round3(n)} m`;
 }
 
 /**
@@ -573,8 +848,8 @@ export function applyPropertyIntent(
   if (!entry.signed && (entry.zeroValid === true ? value < 0 : value <= 0)) {
     return refuse(
       entry.zeroValid === true
-        ? `A ${entry.label} of ${fmt(value)} is not valid — it cannot be negative.`
-        : `A ${entry.label} of ${fmt(value)} is not valid — it must be positive.`,
+        ? `A ${entry.label} of ${fmt(value, entry)} is not valid — it cannot be negative.`
+        : `A ${entry.label} of ${fmt(value, entry)} is not valid — it must be positive.`,
     );
   }
   for (const s of ctx.selection) {
@@ -589,14 +864,14 @@ export function applyPropertyIntent(
     }
     if (route.min !== undefined && value < route.min) {
       return refuse(
-        `A ${normalizeElementKind(s.elementType)} ${entry.label} of ${fmt(value)} is below the ` +
-        `${fmt(route.min)} minimum${route.boundsAuthority !== undefined ? ` (${route.boundsAuthority})` : ''}.`,
+        `A ${normalizeElementKind(s.elementType)} ${entry.label} of ${fmt(value, entry)} is below the ` +
+        `${fmt(route.min, entry)} minimum${route.boundsAuthority !== undefined ? ` (${route.boundsAuthority})` : ''}.`,
       );
     }
     if (route.max !== undefined && value > route.max) {
       return refuse(
-        `A ${normalizeElementKind(s.elementType)} ${entry.label} of ${fmt(value)} is above the ` +
-        `${fmt(route.max)} maximum${route.boundsAuthority !== undefined ? ` (${route.boundsAuthority})` : ''}.`,
+        `A ${normalizeElementKind(s.elementType)} ${entry.label} of ${fmt(value, entry)} is above the ` +
+        `${fmt(route.max, entry)} maximum${route.boundsAuthority !== undefined ? ` (${route.boundsAuthority})` : ''}.`,
       );
     }
   }
@@ -611,8 +886,8 @@ export function applyPropertyIntent(
     kind: 'commands',
     intent: si.intent,
     summary: n > 1
-      ? `Set ${n} selected elements' ${entry.label} to ${fmt(value)}`
-      : `Set the selected ${normalizeElementKind(first.elementType)}'s ${entry.label} to ${fmt(value)}`,
+      ? `Set ${n} selected elements' ${entry.label} to ${fmt(value, entry)}`
+      : `Set the selected ${normalizeElementKind(first.elementType)}'s ${entry.label} to ${fmt(value, entry)}`,
     commands,
     destructive: false,
   };

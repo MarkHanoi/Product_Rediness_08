@@ -569,6 +569,59 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
       'make the overhang 300mm',
     ],
   },
+  // ── ⭐ §FEAT-WINDOW-REVEAL-RAC (L-3202 … L-3204) — the window reveal ────────
+  //
+  // The founder was told these were "not reachable by RAC at all". Each family
+  // below is the sentence that now reaches the panel control of the same name.
+  //
+  // ⚠ THE ANGLE PHRASINGS ARE THE POINT OF THE `measure` AXIS. "set the jamb
+  // splay to 20" and "…to 20 degrees" must both arrive as TWENTY, not as 20
+  // metres and not as 0.02 — every other member of this vocabulary is a length
+  // and `toMeters` would have read them that way.
+  {
+    id: 'set-reveal-projection',
+    ctx: sel('window'),
+    phrasings: [
+      'set the reveal projection to 100mm',
+      'change the reveal projection to -50mm',
+      'set the window projection to 0.12m',
+      'set the reveal depth to 80mm',
+    ],
+  },
+  {
+    id: 'set-reveal-splay',
+    ctx: sel('window'),
+    phrasings: [
+      'set the reveal splay to 15 degrees',
+      'change the splay to 20',
+      'set the reveal splay to 0',
+      'set the splay angle to 12°',
+    ],
+  },
+  {
+    id: 'set-reveal-splay-head',
+    ctx: sel('window'),
+    phrasings: [
+      'set the head splay to 20 degrees',
+      'change the reveal splay head to 10',
+    ],
+  },
+  {
+    id: 'set-reveal-splay-sill',
+    ctx: sel('window'),
+    phrasings: [
+      'set the sill splay to 20 degrees',
+      'change the reveal splay sill to 10',
+    ],
+  },
+  {
+    id: 'set-reveal-splay-jambs',
+    ctx: sel('window'),
+    phrasings: [
+      'set the jamb splay to 20 degrees',
+      'change the splay jambs to 15',
+    ],
+  },
   {
     id: 'set-roof-pitch',
     ctx: sel('roof'),
