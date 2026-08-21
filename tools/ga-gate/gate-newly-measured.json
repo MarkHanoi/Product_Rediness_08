@@ -636,7 +636,7 @@
       "gate": "check-dependent-adapts-on-host-move.ts",
       "runner": "ga-gate",
       "addedAt": "2026-08-21",
-      "builtBy": "L-2090..L-2093 - lane PROP1 - ADR-0343 - founder ask 2026-08-21: “elements should propagate when one moves, all contexts; audit all elements against this principle”",
+      "builtBy": "L-2090..L-2093 - lane PROP1 - ADR-0344 - founder ask 2026-08-21: “elements should propagate when one moves, all contexts; audit all elements against this principle”",
       "firstReading": "exit 1 DECLARED-LEVEL at a ledger pinned to THIS reading - 64 matrix cells, 19 PROPAGATES / 6 REFUSES / 39 SILENT; 259 production files read while resolving evidence. ARM A 19/19 (every PROPAGATES cell's wiring evidence still resolves), ARM B 6/6 (every REFUSES string still exists), ARM C 39 SILENT cells, each named. All four floors met.",
       "pinnedTo": "tools/rac-conformance/certification/gates/host-move-propagation-matrix.json - `declaredSilent`, a NAMED shrink-only list, never a bare integer: the subject is 64 concurrently-edited cells and a count alone could not tell 'furniture x wall was fixed' from 'beam x slab regressed'.",
       "negativeControl": "EXECUTED before the ledger was trusted (C74 6.2). The 'floor finish x wall' cell's marker `new FloorHostDependencyTracker(` was temporarily replaced with a symbol that does not exist; the gate went RC=3 'REGRESSED-TO-SILENT: floor finish x wall', 40 findings vs 39. Restored, RC=1 at 39. ARM A discriminates - it is not reading its own ledger back to itself.",

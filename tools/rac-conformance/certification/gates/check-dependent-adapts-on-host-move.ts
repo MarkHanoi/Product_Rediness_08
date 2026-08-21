@@ -6,7 +6,7 @@
 //     "Elements should propagate when one moves — all contexts. Please audit all
 //      elements against this principle."
 //
-// The audit is ADR-0343's matrix (`docs/02-decisions/adrs/`). This gate is the
+// The audit is ADR-0344's matrix (`docs/02-decisions/adrs/`). This gate is the
 // thing that keeps the matrix from rotting, because a matrix in prose decays and
 // this repository's own history is the proof — C72 §5.1 asserted
 // `RECONCILABLE_TYPES` had "zero consumers" for six days after it acquired one,

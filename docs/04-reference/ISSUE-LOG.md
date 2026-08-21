@@ -28286,3 +28286,152 @@ then wrap the sequence. Not done here, and stated rather than silently absorbed.
 - **Per-layer quantities do not exist**, which is why insulation, membranes, render and plasterboard
   are all NOT_MEASURED, and why 6D is blocked twice over. Named as the largest buildable gap in
   ADR-0350 §3.
+
+---
+
+## L-2090 … L-2094 — ✅ FIXED (one cell) + 📋 AUDITED (64 cells): "elements should propagate when one moves" — and an EMPTY DEPENDENT SET was returning SILENTLY — 2026-08-21 (lane PROP1, commits `b5b276b7`, `e2a615c1`)
+
+> **Founder, production `071a7b2c`:** *"Check this bug — as per the concept of BIM 3.0 check all
+> contracts from C70 to C83. **Elements should propagate when one moves — all contexts.** Please
+> **audit all elements against this principle** — and document, review, plan and fix whatever is
+> needed. In this case: ground level — **the floor finish did not adapt to the change**."*
+>
+> **Narrative + full matrix: `ADR-0344`. Binding rule: `C72 §9`, `C84 §EI-PROP`.
+> Ledger a gate reads: `tools/rac-conformance/certification/gates/host-move-propagation-matrix.json`.**
+
+### ⭐ L-2090 — FIXED: the floor finish neither followed NOR refused, and the silence was the defect
+
+He moved `wall_01M0D7Z3SGD4FGPGRNZH12K6PG` (`WA-00-006`, Ground, 19.444 m). His log shows the
+cascade doing four things and not doing a fifth: five hosted windows re-seated, the room boundary
+invalidated, the room re-detected, the room tag refreshed, the re-weld considered and correctly a
+no-op — **and it SAID so**. The floor finish: **not one console line**.
+
+**ROOT CAUSE — a DATA defect, not a missing feature.** All the machinery exists and works.
+`FinishHostDependencyTracker` is constructed in production, subscribes to the real `WallStore` with
+the §STEP7 `prevState` third argument, re-projects through the real `reprojectFinishBoundary`, and
+writes back through `UpdateFloorBoundaryCommand`. It indexes by `sketch.outerLoop` host-reference
+edges — and **three floor-creation paths exist, of which exactly ONE mints them**:
+
+| path | mints host references? |
+|---|---|
+| `packages/command-registry/src/floors/CreateFloorCommand.ts` `_buildBoundarySketch` | **YES** |
+| `plugins/floor/src/handlers/CreateFloor.ts:137` (bus verb `floor.create`) | **NO** — `boundingWallIds: []`, no `sketch` key at all |
+| `apps/editor/src/engine/initTools.ts` §P3.2-FL bus→legacy mirror | **NO** — and this is the record that reaches the store the tracker watches |
+
+Then:
+
+```ts
+const dependents = this.graph.get(wall.id);
+if (!dependents || dependents.size === 0) return;      // no log, no verdict, nothing
+```
+
+⭐ **TWO DIFFERENT FACTS ARRIVED AS ONE VALUE:** *"this wall bounds no finish"* (fine) and *"every
+finish it bounds was created by a path that records no relationship"* (a defect). That is
+`NO-EMPTY-MEANS-UNKNOWN` (C78 §1.4) — the same shape this log has recorded in envelope data,
+context data, `GetCapabilities` inventories and store reads — **arriving in the propagation layer.**
+
+**THE FIX (`b5b276b7`), two halves, because either alone is theatre:**
+
+1. **HONESTY.** `registerRecord` now COUNTS the finishes it can attribute to nothing, and **every
+   exit from the wall-move path prints** — `RELATIONSHIP_NOT_RECORDED`, `STALE_DERIVED_STATE`, or
+   *"checked N unattributed floor(s) on level L — none is bounded by it"*. **No silent exit is left.**
+2. **REPAIR (§FINISH-FOLLOW-LATE-ATTRIBUTION).** An injected hook re-attributes an unattributed
+   finish against the **ONE wall that moved, in its PRE-MOVE state**, re-projects, and writes back
+   as a `STRUCTURAL_CASCADE` child — **ONE undo** (C81). It fixes records **already on disk**,
+   which no creation-path fix can, and the founder's project is full of them.
+
+**Not the C79 §2.2 proximity search:** the candidate set is a **SINGLETON**, so the question is
+*"did THIS wall bound this edge?"*, not *"which wall bounds it?"*; `ambiguous` is unreachable by
+construction. Scoped to the moved wall's storey; UNKNOWN on either side declines rather than guesses.
+The attribution runs `buildRoomFinishBoundarySketch` — **the same builder creation uses** (C79 §7.4)
+— with the dependency INVERTED at the composition root rather than duplicated into the package.
+
+**Executed:** 6 specs, **4 negative controls** — no hook → 22.04 m² **and a printed report** (both
+halves watched); a non-bounding same-storey wall → nothing attributed **and said so**; another
+storey → nothing; an already-attributed record → never re-attributed.
+
+### ⛔ L-2091 — OPEN: the two creation paths still mint no relationship at all
+
+The repair fixes the *follow*. It does not fix the *record* until a wall actually moves — so a
+schedule, an IFC export or a `boundingWallIds` read on a never-moved finish still sees `[]`, which
+is C79 §7.1's named anti-pattern surviving in two of three paths after being fixed in the third.
+`plugins/floor`'s handler has no wall or room store in its `HandlerContext` (a composition change);
+the `initTools.ts` mirror **can** be fixed cheaply and should be first. Recorded in C89.
+
+### 📋 L-2092 — the AUDIT: 64 cells, 19 PROPAGATES · 6 REFUSES · **39 SILENT**
+
+Every (dependent family × moving host) cell read in source at HEAD. **The founder's principle is
+not one bug — it is the dominant shape across the matrix.** Full table with per-cell evidence in
+ADR-0344 §4. The gate `check-dependent-adapts-on-host-move` (registered in `run-all.ts`) reads the
+ledger in **both directions** and exits 3 on a new SILENT cell, a paid-but-unstruck one, **or a
+PROPAGATES cell whose wiring evidence stops resolving**.
+
+**The ⛔ cells grouped by WHY — the grouping IS the plan:**
+
+1. **The relationship cannot be expressed at all.** `FurnitureData` has no `wallId`/`hostId`/
+   `roomId`; `PlumbingFixtureData` none; `CurtainWallTypes` declares no host wall;
+   `HandrailData.hostKind` is `'stair' | 'slab'` and **cannot be `'wall'`**. ⭐ *A wardrobe cannot
+   record the wall it stands against.* Nothing propagates along an edge the data model cannot hold.
+2. **The relationship exists and NOTHING READS IT** (C70 §4.2). `BeamData.startSupportId` /
+   `startSupportType: 'wall'` is written by `AssignBeamSupportsCommand` and read by the AI
+   read-model and the rule engine. **No mover reads it.**
+3. **AUTHORED-BUT-UNWIRED — handrail × stair, the clearest case in the repo.**
+   `buildStairHandrailCascadeRule` is fully written and synthesises `handrail.recompute` on
+   `stair.move`. Its only caller is `registerCrossHandlers`, which has **zero production callers**,
+   and `new CascadeRunner()` appears **only in test files** repo-wide. `MoveStairCommand`'s
+   `affectedStores` does not name `handrail`. **Deleting a stair orphan-cleans its handrails;
+   moving one does nothing.**
+4. ⭐ **A handler that EARLY-RETURNS WITH NO LOG — the most dangerous shape here, because it reads
+   as handled.** `lighting`, `plumbing`, `ceiling`, `floor` and `standalone opening` ids are all
+   *delivered* to the level-rebuild callback and dropped at
+   `initWallLevelSubscribers.ts:51-52` — `const wall = store.getById(id); if (wall) {` — **no
+   `else`, no line.** `window.openingStore` is populated and reachable; it simply is not probed.
+   **This is the cheapest high-value fix left in the matrix**: add the missing stores to
+   `SpatialAuthority`'s probe list and five SILENT cells become five REFUSES cells, inheriting the
+   existing named `DETERMINED-STRANDED` refusal, for about five lines.
+5. **PARTIAL adaptation misread as adaptation — the room tag.** `populate()` IS reached on a wall
+   move, and the refresh writes **only `parameters`**, so the label and area update while the
+   **anchor strands at the old centroid**. The tag is bound to a baked point ref and
+   `AnnotationDependencyGraph` explicitly skips point refs — it is not in the associativity index
+   at all. Classified SILENT deliberately: *the thing the user is looking at did not adapt.*
+6. **No graph edge is ever minted.** The `SemanticGraph`'s closed union has 26 kinds; **13 have
+   zero production writers**. Annotations, dimensions, room tags, ceilings and floors have **no
+   creating `addRelationship` call anywhere** — only undo-restores. Even a working generic cascade
+   could not reach them.
+
+### ⚠ L-2093 — three CROSS-CUTTING findings, and one stale contract line
+
+- **There is no registry mapping element kind → cascade handler.** All **eight** trackers are
+  hand-wired (five in `initTools.ts`, two in `initBuilders.ts`, plus `RoomFinishSyncService`), so a
+  family's absence is invisible: nothing enumerates what *should* be there.
+- **`STRUCTURAL_CASCADE` has exactly three production sites**, and two ✅ cells are outside them:
+  `SlabDependencyTracker` writes **directly to the store** (a P6 breach), and
+  `RoofDependencyTracker` dispatches its command **without `source` metadata**, so **a roof
+  following a wall costs the user a SECOND undo** (C81). Deferred to the slab / roof lanes — both
+  files are in other lanes today.
+- **C72 §5.1 was STALE and is corrected in place.** *"`RECONCILABLE_TYPES` … is exported and has
+  zero consumers"* is **FALSE at HEAD**: it is narrowed to `['Wall','Slab']` and has one production
+  consumer (`isReconcilable` ← `classifyForReconcile` ← the reconcile listener), with
+  `check-source-verified-invariants` (SV3 · PR-07) now *requiring* it. ⭐ **The behavioural half —
+  only walls and slabs re-elevate — remains TRUE**, so a reader who checks only the consumer count
+  marks this closed and ships the bug. `BIM30-IMPLEMENTATION-ROADMAP.md` still carries the stale
+  sentence at two line numbers.
+- ⭐ **The gate caught its own ledger's hand-typed header.** It was written *"52 cells / 27
+  SILENT"*; the first run read **64 / 39**. Recorded in the ledger rather than quietly corrected —
+  *"the prose number was transcribed instead of counted"* is this repo's most-logged defect shape,
+  and it happened **inside the artefact built to stop it**.
+
+### 🐛 L-2094 — FIXED, found in passing: two literal NUL bytes made a production source file INVISIBLE to `grep`
+
+`packages/geometry-roof/src/roofRecomputeVerdict.ts` contained **two 0x00 bytes**, written where
+`.join('\u0000')` was meant. The string value is identical at runtime — **but `grep -rn` classifies
+the file as BINARY and prints `Binary file … matches` instead of the line, and every audit sweep
+that pipes through `grep -v` silently loses it.** This lane hit it while enumerating
+`wallStore.subscribe` sites: the roof verdict file showed as a binary match and would have been
+dropped by any script filtering that output.
+
+This is the **escape-corruption-through-a-heredoc** hazard in its measured form — the text looks
+right in a diff and in an editor. Replaced with the `\u0000` escape (same value, plain ASCII
+source); `packages/geometry-roof` **160/160 tests pass** after the repair, and `grep` now reads the
+file as text. ⭐ **Grep your own output for `0x00` / `0x08` before committing anything written
+through a shell heredoc.**

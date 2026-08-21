@@ -592,3 +592,77 @@ REACHABILITY, never of the field map.)*
   floor record, so they plausibly do — **plausibly is not measured**. If they do not, a project with
   a stair reopens with its finish solid. Filed as C98 §13 DELTA #22.
 - **Whether the plan projector draws the hole.** Only the 3-D `FloorPanelBuilder` path was measured.
+
+---
+
+## §FINISH-FOLLOW-LATE-ATTRIBUTION — a finish whose relationship was NEVER RECORDED still follows (L-2090, lane PROP1, 2026-08-21)
+
+> Governing: **C72 §9** (adapt or refuse, never silent) · **C79 §5** (the five recompute states) ·
+> **C78 §1.4** (`NO-EMPTY-MEANS-UNKNOWN`) · **C84 §EI-PROP** · **ADR-0344**.
+> Applies **identically to C88** — C79 §7.4 forbids the two finish families diverging, and the
+> repair is wired to both from the same hook.
+
+**The founder's defect, 2026-08-21.** A wall move (`WA-00-006`, Ground, 19.444 m) re-seated five
+hosted windows, invalidated and re-detected the room, refreshed the room tag, and considered the
+re-weld — and the floor finish neither followed nor refused. **Not one console line.**
+
+**Root cause, measured — a DATA defect, not a missing feature.** `FinishHostDependencyTracker`
+indexes by `sketch.outerLoop` host-reference edges. **Three floor-creation paths exist; exactly
+one mints them.** `CreateFloorCommand._buildBoundarySketch` does. `plugins/floor/src/handlers/
+CreateFloor.ts` (the bus verb `floor.create`) writes `boundingWallIds: []` and **no `sketch` key
+at all**, and the §P3.2-FL bus→legacy mirror in `apps/editor/src/engine/initTools.ts` — the
+record that actually reaches the store the tracker watches — does the same. A finish created by
+either is **structurally incapable of following a wall**, and `onWallUpdated` returned on an empty
+dependent set with **no output**, making *"this wall bounds no finish"* and *"every finish it
+bounds records no relationship"* the same value.
+
+> **§F-LA.1 — MUST.** `registerRecord` COUNTS the finishes it can attribute to nothing, and every
+> exit from the wall-move path REPORTS: `RELATIONSHIP_NOT_RECORDED` when nothing can be done,
+> `STALE_DERIVED_STATE` on a missing `prevState` (C72 §3.5), or *"checked N unattributed
+> floor(s) on level L — none is bounded by it"* when it looked and found nothing. **There is no
+> silent exit in that method, and none may be reintroduced.**
+
+> **§F-LA.2 — MUST.** An unattributed finish is re-attributed **against the ONE wall that moved,
+> in its PRE-MOVE state**, and then re-projected and written back through
+> `UpdateFloorBoundaryCommand` with `{ source: 'STRUCTURAL_CASCADE' }` — **ONE undo** (C81).
+> This REPAIRS records already on disk, which no creation-path fix can.
+
+> **§F-LA.3 — why this is NOT the proximity search C79 §2.2 forbids.** §2.2's own distinction is
+> not *whether geometry is consulted* but whether the **candidate set is closed by construction**.
+> Here it is a **SINGLETON** — the wall the user just moved — so the question asked is *"did THIS
+> wall bound this edge?"*, never the forbidden *"which wall bounds it?"*. `ambiguous` is
+> **unreachable**: `_attributeEdge` reports it only when two DIFFERENT candidates satisfy one
+> edge. Two finishes on opposite faces of one wall both matching is the CORRECT answer, not a
+> collision — both are bounded by it. Scoped to the moved wall's storey; an UNKNOWN storey on
+> either side **declines rather than guesses**.
+
+> **§F-LA.4 — MUST.** The late attribution runs `buildRoomFinishBoundarySketch` — **the same
+> builder creation uses** (C79 §7.4, no per-path divergence). The dependency is INVERTED at the
+> composition root (`apps/editor/src/engine/finishLateAttribution.ts` fills a hook the tracker
+> declares) rather than duplicated into `@pryzm/finish-host-tracker`. A second copy of
+> `_attributeEdge` would be two implementations of one relationship, each green against its own
+> tests.
+
+> **§F-LA.5 — MUST NOT.** A recorded host reference may never be overwritten by a re-derived one.
+> The tracker offers the hook only members of its `unattributed` index, and the hook re-checks.
+
+**Executed:** `apps/editor/src/engine/__tests__/finishFollowsWallWithNoRecordedRelationship.spec.ts`
+— 6 specs, **4 negative controls** (no hook → 22.04 m² AND a printed report; a non-bounding
+same-storey wall → nothing attributed and said so; another storey → nothing; an already-attributed
+record → never re-attributed).
+
+### ⛔ STANDING DEFECT, not closed by this section (L-2091)
+
+**The two creation paths still mint no `sketch` and no `boundingWallIds`.** The late attribution
+repairs the *follow*; it does not repair the *record* until a wall actually moves, so a schedule,
+an IFC export or a `boundingWallIds` read on a never-moved finish still sees `[]` — which is C79
+§7.1's named anti-pattern. Owner: the next finish lane. `plugins/floor`'s handler has no wall or
+room store in its `HandlerContext`, so giving it one is a composition change; the `initTools.ts`
+mirror can be fixed cheaply and should be first.
+
+### ⛔ NOT MEASURED by this lane
+
+- **floor finish × slab** and **floor finish × level** remain **SILENT** on the ADR-0344 ledger. A
+  finish is seated on its slab at creation and re-seated only when the FINISH changes — never when
+  the slab moves; and `floorStore` is not among `SpatialAuthority`'s probed stores, so a floor id
+  on a re-elevated level is delivered fail-open and dropped with no log.

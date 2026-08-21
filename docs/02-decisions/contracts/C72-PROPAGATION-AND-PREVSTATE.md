@@ -282,6 +282,87 @@ outlive their reason**.
 > **§5.2 — MUST NOT.** A whitelist, registry or ledger may be exported without a consumer.
 > It is the §0.1 hazard in its purest form: it reads as coverage and is an opinion.
 
+> ⛔ **§5.1 CORRECTED 2026-08-21 (lane PROP1) — HALF OF IT IS NOW FALSE, and the half that
+> survives is the one that matters. Read both.**
+>
+> The claim *"It is exported and has zero consumers anywhere in the repository"* is **FALSE at
+> HEAD**. `RECONCILABLE_TYPES` (`packages/core-app-model/src/SpatialAuthority.ts`) has been
+> **narrowed to exactly `['Wall', 'Slab']`** — the list of thirteen is gone, its history written
+> out in the file — and it **has one production consumer**: `isReconcilable()` ←
+> `classifyForReconcile()` ← the live reconcile listener. The gate
+> `tools/rac-conformance/certification/gates/check-source-verified-invariants.ts` (SV3 · PR-07)
+> now *requires* that consumer, so the tree and the gate agree. **`docs/03-execution/plans/
+> BIM30-IMPLEMENTATION-ROADMAP.md` still carries the stale sentence at two line numbers.**
+>
+> ⭐ **THE BEHAVIOURAL HALF IS UNCHANGED AND STILL BINDING:** the level-elevation reconcile
+> rebuilds **walls** (per delivered id) and **slabs** (per level query) and **nothing else**.
+> What changed is that the shortfall is now **ANNOUNCED** rather than silent — the seven other
+> kinds classify `DETERMINED-STRANDED` with a named reason, and the roof's shortfall reaches the
+> **user** as a toast. That is §5.1's exit route taken honestly: *narrowing a claim to the truth
+> is a fix.* A reader who checks only the consumer count marks this closed and ships the bug.
+
+---
+
+## §9 — The host-move matrix: ADAPT or REFUSE, never SILENT
+
+> **Added 2026-08-21 (lane PROP1) from the founder's ask — *"elements should propagate when one
+> moves, all contexts; audit all elements against this principle"*. The narrative form, the full
+> 64-cell matrix with per-cell evidence, and the deferral plan are **ADR-0344**. This section is
+> the binding rule and the pointer; it does not restate the matrix, because a matrix restated in
+> prose is a matrix that rots (§0.1, and §5.1's own correction two paragraphs up).**
+
+> **§9.1 — MUST.** When a host element moves, every dependent family with a relationship to it
+> reaches exactly one of two terminal states, and the product can say which:
+> **PROPAGATES** — adapted, through a **command** (P6), composed into the spawning gesture as a
+> `STRUCTURAL_CASCADE` child so the user pays **ONE undo** (C81); or
+> **REFUSES** — not adapted, and the product says so **by name**, with a reason from a closed
+> vocabulary and, where geometry is involved, **both numbers** (C74 · C79 §5.2.2).
+
+> **§9.2 — MUST NOT.** **SILENT** — neither adapting nor refusing — is not a permitted third
+> state. An early `return` on an empty dependent set, an `if (x) { … }` with no `else`, a
+> fail-open classification delivered to a consumer that drops it: each makes *"nothing to do"* and
+> *"never wired"* the same value, which is C78 §1.4 in the propagation layer. **This is the
+> defect the founder reported on 2026-08-21**: a 19.444 m wall move re-seated five openings,
+> re-detected the room and refreshed its tag, and the floor finish neither followed nor refused —
+> `FinishHostDependencyTracker.onWallUpdated` returned on `dependents.size === 0` with no output.
+
+> **§9.3 — MUST.** *Reducing a cell from SILENT to REFUSES is a legitimate and often the correct
+> fix.* A lane that cannot build the adaptation closes the defect by building the refusal. Several
+> cells **should** refuse rather than adapt: C83's `IMPOSSIBLE / INADVISABLE / FINE` split and the
+> founder's standing *"always ASK, never auto-edit"* direction mean a column whose slab moves 3 m
+> asks rather than teleports.
+
+> **§9.4 — MUST.** The matrix is a **ledger a gate reads**, never prose:
+> `tools/rac-conformance/certification/gates/host-move-propagation-matrix.json`, checked by
+> `check-dependent-adapts-on-host-move.ts` (registered in `run-all.ts`). It is checked in **both
+> directions** — a PROPAGATES cell whose wiring evidence stops resolving is a **regression to
+> silent** counted on top of the ledger; a SILENT cell whose defect is gone is **stale** and exits
+> 3. **First reading 2026-08-21: 64 cells — 19 PROPAGATES · 6 REFUSES · 39 SILENT.** *Read the
+> gate, never this number.*
+
+> **§9.5 — MUST.** A propagation channel is not a substitute for a relationship. Six of the
+> SILENT cells cannot be wired at all because the data model holds no edge to walk —
+> `FurnitureData` carries no `wallId`/`hostId`/`roomId`, `PlumbingFixtureData` none,
+> `CurtainWallTypes` no host wall, `HandrailData.hostKind` cannot be `'wall'`. **Nothing
+> propagates along an edge that cannot be recorded**, and a plan that schedules the subscriber
+> before the field is the authored-but-unwired hazard one level up.
+
+> **§9.6 — the three cross-cutting findings, recorded here because they are structural, not
+> per-cell:**
+> (a) **There is no registry mapping element kind → cascade handler.** All eight trackers are
+> hand-wired (five in `initTools.ts`, two in `initBuilders.ts`, plus `RoomFinishSyncService`),
+> so a family's absence is invisible — nothing enumerates what *should* be there.
+> (b) **The generic cascade is not a fallback for any cell.** `initDependencyCascade` routes
+> `sitsOn`/`supports` only and drops priorities 2–5 *by design* (§2.4 — double-routing the
+> bespoke pairs would double-rebuild).
+> (c) **`STRUCTURAL_CASCADE` has three production sites.** `SlabDependencyTracker` writes
+> **directly to the store** (a P6 breach) and `RoofDependencyTracker` dispatches **without
+> `source` metadata**, so a roof following a wall costs the user a **second undo** (C81).
+
+> **§9.7 — exit condition.** `declaredSilent` reaches `[]` when **every** cell is PROPAGATES or
+> REFUSES. It is **not** "everything propagates" — a cell closed by building an honest refusal
+> counts fully.
+
 ---
 
 ## §6 — The gates

@@ -4,7 +4,7 @@
     "",
     "SUBJECT: the founder's principle, 2026-08-21 — 'elements should propagate when one",
     "moves, all contexts'. One cell per (dependent family, moving host), one verdict per",
-    "cell: PROPAGATES, REFUSES, or SILENT. The narrative form is ADR-0343.",
+    "cell: PROPAGATES, REFUSES, or SILENT. The narrative form is ADR-0344.",
     "",
     "PINNED 2026-08-21 (lane PROP1) AT THE FIRST MEASURED READING — 64 cells,",
     "19 PROPAGATES / 6 REFUSES / 39 SILENT. Every PROPAGATES and REFUSES marker in this",
@@ -121,7 +121,7 @@
       "dependent": "slab",
       "host": "wall",
       "verdict": "PROPAGATES",
-      "note": "Two live paths: SlabDependencyTracker re-resolves the region sketch, and SlabWallConnectivityService dispatches CascadeWallBaselineCommand as a STRUCTURAL_CASCADE. The tracker's own write-back is a direct store write, not a command — see ADR-0343 §P6 shortfall.",
+      "note": "Two live paths: SlabDependencyTracker re-resolves the region sketch, and SlabWallConnectivityService dispatches CascadeWallBaselineCommand as a STRUCTURAL_CASCADE. The tracker's own write-back is a direct store write, not a command — see ADR-0344 §P6 shortfall.",
       "probe": [
         { "path": "packages/geometry-slab/src/SlabDependencyTracker.ts", "pattern": "wallStore.subscribe", "expect": "present" },
         { "path": "packages/geometry-slab/src/SlabWallConnectivityService.ts", "pattern": "STRUCTURAL_CASCADE", "expect": "present" },
@@ -161,7 +161,7 @@
       "dependent": "roof",
       "host": "wall",
       "verdict": "PROPAGATES",
-      "note": "RoofDependencyTracker re-asks the region question at the stored anchor and writes UpdateRoofBoundaryCommand. NOTE: dispatched WITHOUT source metadata, so a roof follow costs a SECOND undo — ADR-0343 §P6 shortfall.",
+      "note": "RoofDependencyTracker re-asks the region question at the stored anchor and writes UpdateRoofBoundaryCommand. NOTE: dispatched WITHOUT source metadata, so a roof follow costs a SECOND undo — ADR-0344 §P6 shortfall.",
       "probe": [
         { "path": "packages/geometry-roof/src/RoofDependencyTracker.ts", "pattern": "wallStore.subscribe", "expect": "present" },
         { "path": "apps/editor/src/engine/initTools.ts", "pattern": "new RoofDependencyTracker(", "expect": "present" }

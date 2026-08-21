@@ -256,6 +256,46 @@ that succeeds from the keyboard and fails from the button is a violation.
 > store by the same route. A second surface may not construct its own command, apply its own routing,
 > or read a different field set.
 
+### EI-PROP — WHEN A HOST MOVES, THE DEPENDENT ADAPTS OR REFUSES BY NAME
+
+> **Added 2026-08-21 (lane PROP1), from the founder's ask: *"elements should propagate when one
+> moves — all contexts. Audit all elements against this principle."* The governing contract is
+> **C72 §9**; the 64-cell matrix and its evidence are **ADR-0344**; the ledger a gate reads is
+> `tools/rac-conformance/certification/gates/host-move-propagation-matrix.json`.**
+
+EI-4 and EI-5 make **delete** symmetric across stores. **Move has no equivalent rule**, and the
+measurement says it needed one: of 64 (dependent family × moving host) cells, **39 are SILENT** —
+the dependent neither adapts nor says why. A create/delete pair that is perfectly symmetric and a
+move that strands the dependent are the same integrity defect at different verbs.
+
+> **EI-PROP-a (NORMATIVE).** A PR that **adds an element family**, or that **adds a host
+> relationship to an existing one**, MUST state that family's row in the host-move matrix. A new
+> family whose dependents fall SILENT arrives as a **declared finding on the ledger**, never as
+> silence. The three verdicts are C72 §9.1's: **PROPAGATES** (adapted through a command,
+> composed as a `STRUCTURAL_CASCADE` child so it costs ONE undo — C81), **REFUSES** (not adapted,
+> said by name with a reason and, for geometry, both numbers — C74), or **SILENT** (a finding).
+
+> **EI-PROP-b (NORMATIVE).** *An honest refusal is a valid answer, and for a whole class of cells
+> it is the TARGET state.* C83's `IMPOSSIBLE / INADVISABLE / FINE` split and the founder's
+> standing *"always ASK, never auto-edit"* direction mean that adapting is not always correct.
+> **Reducing a cell from SILENT to REFUSES closes the defect fully.**
+
+> **EI-PROP-c (NORMATIVE) — the shape to copy, and the shape to never ship.**
+> The reference implementation is the level-elevation reconcile: seven element kinds do **not**
+> re-elevate, and each classifies `DETERMINED-STRANDED` with a named reason
+> (`SpatialAuthority.classifyForReconcile`), with the roof's shortfall reaching the **user** as a
+> toast rather than the console. The shape to never ship is
+> `initWallLevelSubscribers.ts:51-52` — `const wall = store.getById(id); if (wall) { … }`, **no
+> `else`, no log** — which silently drops the lighting, plumbing, ceiling, floor and standalone-
+> opening ids that were *delivered to it*. ⭐ **A handler that early-returns without a line is
+> worse than no handler: it reads as coverage.**
+
+> **EI-PROP-d (NORMATIVE).** A propagation channel is not a substitute for a relationship. Six
+> SILENT cells cannot be wired at all because the record holds no edge to walk — `FurnitureData`
+> carries no `wallId`/`hostId`/`roomId`, `PlumbingFixtureData` none, `CurtainWallTypes` no host
+> wall, `HandrailData.hostKind` cannot be `'wall'`. **The per-element contract owns the field
+> before any lane owns the subscriber** (C97, C99, C87, C95 respectively).
+
 ### EI-5 — CREATE AND DELETE MUST BE SYMMETRIC ACROSS STORES
 
 Whatever a create writes, the matching delete MUST remove — from every store it wrote.

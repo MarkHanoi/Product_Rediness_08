@@ -568,7 +568,7 @@ const GATES: Gate[] = [
   { name: 'graph-query-verbs (GR-16 · C70 D-INV-1/3)',           script: '../rac-conformance/certification/gates/check-graph-query-verbs.ts' },
   { name: 'ubg-snapshot-derived (GR-17 · C71 §4 · C70 I-INV-2)', script: '../rac-conformance/certification/gates/check-ubg-snapshot-derived.ts' },
   { name: 'geometry-change-consumers (PR-10 · PR-12 · C72 §1.1)',  script: '../rac-conformance/certification/gates/check-geometry-change-consumers.ts' },
-  // §HOST-MOVE-PROPAGATION-MATRIX (2026-08-21, lane PROP1, ADR-0343) — the founder's
+  // §HOST-MOVE-PROPAGATION-MATRIX (2026-08-21, lane PROP1, ADR-0344) — the founder's
   // principle, one cell per (dependent family, moving host): "elements should propagate
   // when one moves — ALL contexts." PROPAGATES and REFUSES are both acceptable answers;
   // SILENT is the finding, because a dependent that neither adapts nor says why makes
@@ -579,7 +579,7 @@ const GATES: Gate[] = [
   // check-propagation-trackers-reach (certify; door/window/cascade-delete/room-topology)
   // and the vitest spec finishFollowsWallWithNoRecordedRelationship.spec.ts; this gate
   // holds the ~50 cells that NOTHING drives, which is precisely why they rot.
-  { name: 'dependent-adapts-on-host-move (C72 · C78 §1.4 · ADR-0343)', script: '../rac-conformance/certification/gates/check-dependent-adapts-on-host-move.ts' },
+  { name: 'dependent-adapts-on-host-move (C72 · C78 §1.4 · ADR-0344)', script: '../rac-conformance/certification/gates/check-dependent-adapts-on-host-move.ts' },
   // §BIM30-CARRIED-ROWS, second batch (2026-08-18) — the GE/CO/PV half. Eight more
   // register rows whose deciding instrument was the phrase "source census" /
   // "source re-measure" / a pair of filenames, and which `bim30-status` therefore

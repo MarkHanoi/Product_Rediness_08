@@ -413,7 +413,7 @@ export function classifyRoofRecompute(input: ClassifyRoofRecomputeInput): RoofRe
     // ── 4 · regenerated — see the header: not producible by a baseline move ──
     const sameHosts =
         recordedHostIds.length === boundingWallIds.length &&
-        [...recordedHostIds].sort().join(' ') === [...boundingWallIds].sort().join(' ');
+        [...recordedHostIds].sort().join('\u0000') === [...boundingWallIds].sort().join('\u0000');
     if (ring.length !== previousRing.length || !sameHosts) {
         return {
             roofId, state: 'regenerated', numbers, footprint: stored, boundingWallIds,

@@ -551,3 +551,31 @@ ceiling below that level's deck as surely as it pierces the deck itself.
 
 ⛔ **NOT MEASURED by this lane:** whether `holeElements` survive save/load, and whether the reflected
 ceiling plan draws the hole. Only the 3-D builder path was measured.
+
+---
+
+## §FINISH-FOLLOW-LATE-ATTRIBUTION — the ceiling half (L-2090, lane PROP1, 2026-08-21)
+
+> **The normative text is C89 §FINISH-FOLLOW-LATE-ATTRIBUTION and it applies to ceilings VERBATIM.**
+> It is referenced rather than restated deliberately: C79 §3.4 made the two families' edge shapes
+> byte-identical precisely so ONE consumer could serve both, and §7.4 forbids letting them drift.
+> Two copies of this rule would be the drift.
+
+Governing: **C72 §9** · **C79 §5 / §7.4** · **C78 §1.4** · **C84 §EI-PROP** · **ADR-0344**.
+
+**What is true for the ceiling specifically:** `CeilingHostDependencyTracker` takes the SAME
+`attributeLate` hook as its floor twin, wired from the same block in
+`apps/editor/src/engine/initTools.ts`, writing back through `UpdateCeilingBoundaryCommand` with
+`{ source: 'STRUCTURAL_CASCADE' }`. A repair wired to one family and not the other IS the
+divergence §7.4 names, which is why the hook was added to both in one commit (`b5b276b7`).
+
+### ⛔ NOT MEASURED by this lane
+
+- The executed spec drives the **floor** binding. The ceiling binding is proven by
+  `apps/editor/src/engine/__tests__/finishHostTrackerWiring.spec.ts` for the *recorded-sketch*
+  case only; **the ceiling's late-attribution path is wired and structurally identical, and it is
+  not separately executed.** Stated rather than implied.
+- **ceiling × slab**, **ceiling × level** and **ceiling × room boundary** are all **SILENT** on the
+  ADR-0344 ledger. `RoomFinishSyncService` listens to `bim-room-updated` but writes only
+  `finishSpec` — material and colour — and early-returns with no log; no boundary or sketch
+  re-derivation exists on that path.
