@@ -63,6 +63,11 @@ import { viewIntentInstanceStore } from '@pryzm/core-app-model';
 // §L-391-R-B — the session JWT the sync server verifies on the WS upgrade.
 import { getStoredToken } from '@pryzm/core-app-model';
 import '../ui/inspect/AuditStack';
+// §ANALYSIS-SURFACE (ADR-0343 · L-3010) — the F4 mode's right-hand half. Mounted
+// exactly as AuditStack is: a module-load singleton that self-appends to
+// document.body and shows itself on `pryzm-workspace-mode` === 'analysis'.
+// Side-effect import, because nothing else needs to hold a reference to it.
+import '../ui/analysis/AnalysisSurface';
 import '../ui/data/DataCommandCenter';
 import { registerWallPerfBench } from './WallPerfBench';
 import { registerWallHandlers } from '@pryzm/plugin-wall';

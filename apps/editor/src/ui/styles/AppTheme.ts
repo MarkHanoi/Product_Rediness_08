@@ -68,6 +68,10 @@ import { DISCIPLINE_ACCORDION_STYLES } from './panels/disciplineAccordion';
 import { DOCKING_SYSTEM_STYLES, VIEW_CUBE_STYLES } from './panels/dockingSystem';
 import { PREVIEW_LAYER_STYLES } from './panels/previewLayer';
 import { AUTONOMOUS_AUDITOR_STYLES } from './panels/autonomousAuditor';
+// §ANALYSIS-SURFACE (ADR-0343 · L-3010) — the F4 mode's right-hand half.
+// Injected AFTER DESIGN_TOKENS like every other panel sheet, which is the
+// premise §PANEL-BRAND-STANDARD ARM B stands on.
+import { ANALYSIS_SURFACE_STYLES } from './panels/analysisSurface';
 import { SURH_STYLES } from '../SaveUndoRedoHUD';
 import { VTB_STYLES } from '../views/ViewTabBar';
 import { APP_TOAST_STYLES } from './panels/appToast';
@@ -214,6 +218,7 @@ export function injectAppTheme(): void {
         + INTENT_SPINE_STYLES
         + PREVIEW_LAYER_STYLES
         + AUTONOMOUS_AUDITOR_STYLES
+        + ANALYSIS_SURFACE_STYLES
         + SURH_STYLES
         + VTB_STYLES
         + APP_TOAST_STYLES

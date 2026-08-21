@@ -347,7 +347,10 @@ export const DESIGN_TOKENS = `
            because "asserting CVD-safety without simulating it is a hypothesis
            wearing the confidence of a measurement". It is named here because the
            simulation was RUN — see the numbers below, and the guard that re-runs
-           them at `__tests__/chartPalette.spec.ts`.
+           them at __tests__/chartPalette.spec.ts.
+           (⚠ No backticks anywhere in this block: DESIGN_TOKENS is itself a
+           template literal, so one backtick in a comment ends the string and the
+           whole theme fails to parse. Found the hard way, 2026-08-21.)
 
            ⚠ THIS IS A DELIBERATE, ARGUED EXCEPTION TO WHITE + PURPLE, NOT A
            RELAXATION OF IT. ADR-0343 §D.5.4: a purple-monochrome categorical

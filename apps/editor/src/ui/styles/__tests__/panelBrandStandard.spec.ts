@@ -47,6 +47,14 @@ const STYLES = join(REPO, 'apps/editor/src/ui/styles');
 /** The Data mode surface (F3) and the Inspect mode surface (F2). */
 const DATA_SHEET = join(STYLES, 'panels/dataWorkbench.ts');
 const INSPECT_DIR = join(STYLES, 'panels/autonomous-auditor');
+/**
+ * The Analysis mode surface (F4) — ADR-0343 §D.5.8 / SPEC §6.2 make adding it
+ * here BINDING on the commit that creates the sheet. ARM A globs a directory,
+ * so a sheet dropped into `autonomous-auditor/` is caught automatically; this
+ * one sits beside `dataWorkbench.ts` in `panels/` and had to be named by hand,
+ * which is exactly the failure mode the SPEC anticipated.
+ */
+const ANALYSIS_SHEET = join(STYLES, 'panels/analysisSurface.ts');
 const TOKENS = join(STYLES, 'tokens.ts');
 
 function read(p: string): string {
@@ -55,7 +63,10 @@ function read(p: string): string {
 
 /** Every stylesheet that composes the two mode surfaces. Directory-globbed. */
 function modeSurfaceSheets(): Array<{ label: string; path: string; src: string }> {
-    const out = [{ label: 'panels/dataWorkbench.ts', path: DATA_SHEET, src: read(DATA_SHEET) }];
+    const out = [
+        { label: 'panels/dataWorkbench.ts', path: DATA_SHEET, src: read(DATA_SHEET) },
+        { label: 'panels/analysisSurface.ts', path: ANALYSIS_SHEET, src: read(ANALYSIS_SHEET) },
+    ];
     for (const f of readdirSync(INSPECT_DIR).sort()) {
         if (!f.endsWith('.ts')) continue;
         const p = join(INSPECT_DIR, f);
@@ -124,9 +135,11 @@ describe('§PANEL-BRAND-STANDARD — the Inspect and Data mode surfaces', () => 
             const tokensAt = theme.indexOf('scaleCssText(DESIGN_TOKENS');
             const dataAt = theme.indexOf('DATA_WORKBENCH_STYLES', tokensAt);
             const auditAt = theme.indexOf('AUTONOMOUS_AUDITOR_STYLES', tokensAt);
+            const analysisAt = theme.indexOf('ANALYSIS_SURFACE_STYLES', tokensAt);
             expect(tokensAt).toBeGreaterThan(-1);
             expect(dataAt).toBeGreaterThan(tokensAt);
             expect(auditAt).toBeGreaterThan(tokensAt);
+            expect(analysisAt).toBeGreaterThan(tokensAt);
         });
     });
 
@@ -213,6 +226,10 @@ describe('§PANEL-BRAND-STANDARD — the Inspect and Data mode surfaces', () => 
                 'apps/editor/src/ui/dataworkbench',
                 'apps/editor/src/ui/dataworkbench/buckets',
                 'apps/editor/src/ui/data',
+                // §ANALYSIS-SURFACE (L-3010). Its TypeScript emits inline style
+                // strings too — swatches, treemap tiles — which is the exact path
+                // the nine phantoms took past a stylesheet-only scan.
+                'apps/editor/src/ui/analysis',
             ];
             const unknown: string[] = [];
             const stillPresent = new Set<string>();
