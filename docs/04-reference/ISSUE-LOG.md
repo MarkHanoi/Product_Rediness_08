@@ -25030,3 +25030,361 @@ the real store, asserts **both real gate functions** move, then reads the colour
 the renderer. **A store-write assertion would have passed on the broken build.**
 
 ---
+
+---
+
+## L-1700 … L-1705 — ✅ SHIPPED: the L0 record could not express a PATTERN, and the resolver SPEC §3.2 specified in May did not exist — 2026-08-21 (lane MAT-1, commits `54071cd6`, `b58500d7`, `08296995`)
+
+Founder: *"they have really nice wooden parquet materials, proper tiling floors, etc… they have all wall
+finishes etc.. I want them all."*
+
+⭐ **THE ORCHESTRATOR'S OWN SUMMARY WAS THE FIRST DEFECT, AND THE FOUNDER CAUGHT IT.** A research lane
+reported *"we ship 205 finishes to their 114"* and that was relayed as reassurance. **It counted ROWS,
+not CAPABILITY.** Measured: `MaterialRecord` carried **six scalars, no maps, no tiling, no real-world
+size**; `StandardMaterialDef.textures` was declared and **`project()` never populated it** (seven read
+sites resolving `undefined`); the `MaterialResolver` that SPEC-MATERIALS-REPOSITORY §3.2 specified in
+**May** did not exist; and **zero PBR maps existed in the repo**. On the founder's actual subject —
+parquet, tiling, wall finishes — we were **behind, not ahead**. Same family as
+[[authored-but-unwired-is-the-bottleneck]]; the lesson is that a COUNT is not a CAPABILITY and a
+reassuring metric is the easiest kind to publish.
+
+- **L-1700 `§MATERIAL-MAPS-AND-TILING`** — the L0 record gains `maps?: MaterialMaps` (colour · normal ·
+  roughness · metalness · ao · displacement, each a **logical path**, never a CDN URL) and
+  `tiling?: { realWorldSizeM: readonly [number, number]; rotationDeg? }`.
+  ⭐ **C100 §10.2.c's proposed `{repeatX, repeatY}` was AMENDED, and the reason is the whole point of
+  the field:** a repeat count is meaningless without the surface size — `repeatX: 4` is a **750 mm tile
+  on a 3 m wall and a 3 m tile on a 12 m wall**, i.e. *one material rendering as two products*, which is
+  §2.3's defect inside a single record. Real-world metres is also what makes the texture **shareable**:
+  `repeat` lives on the `THREE.Texture`, so a surface-derived repeat needs one texture per distinct
+  surface size, while `1/realWorldSizeM` is a pure function of the material.
+  ⛔ **No `sheen`** (C100 §10.2.c: sheen IS `roughness`, already carried — a rival field would have been
+  a second spelling). ⛔ **No `surfaces`** (a facet must ship with its filter; that is S25).
+- **L-1701** — the resolver, at L2 beside the derived projection it feeds. **P2 satisfied the way
+  `materialLibrary.ts` already satisfies it** (`import * as THREE from '@pryzm/renderer-three/three'`,
+  a path `check-three-imports.ts` explicitly lists as compliant) — ⭐ **no new exception invented, gate
+  stays hard-0.** `resolveCatalogAssetUrl` was **MOVED L7→L2, not re-implemented**, so textures and
+  catalogue GLBs share ONE seam (C100 §10.6 records they are the same bucket); `apps/editor` keeps a
+  re-export shim.
+- **L-1702 — ⛔ THE FIELD THE BRIEF ASKED FOR WAS DELETED, AND THE RED IS WHY.** The first cut populated
+  `StandardMaterialDef.textures` as instructed. **The RED showed the lane's own test passing with the
+  producer disabled** — because a pre-resolved texture carries a `repeat` that is only correct against a
+  KNOWN uv space, and **three of the seven readers re-material geometry with no `uv` attribute at all**,
+  where a map paints texel (0,0) over the entire element. Replaced by
+  `applyMaterialMaps(params, def, uvSpace)`: **the caller must state what its own UVs mean.** All eight
+  readers converted. ⭐ *A test that passes with its subject disabled is the [[fake-more-capable-than-real]]
+  shape — the brief was wrong and the measurement said so.*
+- **L-1703 — the UV verdict, and the REFUSALS are the load-bearing half.**
+
+  | surface | uv space | maps |
+  |---|---|---|
+  | **slab / floor** | **METRES — added; it had NONE** | ✅ |
+  | wall | 4 of 6 body arms emit no uv; the seam merge *deletes* it | ⛔ refused |
+  | roof | none | ⛔ refused |
+  | curtain wall | 0..1, size unknown at material time | ⛔ refused |
+
+  ⭐ **Walls are refused DELIBERATELY**: the material is built once, *before* the body arm is chosen, so
+  maps would tile a wall containing an opening differently from an identical wall without one. The uv
+  space is a **declared stamp** in `geometry.userData`, never a heuristic — **undeclared ⇒ refuse**, so
+  every un-migrated surface keeps its honest flat colour and lights up the day its builder stamps.
+  **So "wall finishes" means COLOUR, not pattern, until S30 lands.** Stated rather than glossed.
+- **L-1704 / L-1705 — the catalogue: 205 → 245 rows, 40 carrying maps.** 16 file-backed rows generated
+  from MAT-2's provenance manifest, and **24 PROCEDURAL rows** through the reserved `procedural:` fork,
+  wired only once MAT-3's generators existed (C67 rule 18.a — the channel and its consumer land
+  together). ⭐ **The procedural 24 CANNOT 404, CANNOT fail CORS, and CANNOT be blocked on a decoder** —
+  they are the half of this work that is unconditionally reachable. Four of C100 §10.3.a's five empty
+  families closed; **fibre-cement cladding remains at 0**.
+
+⭐ **The invalidation answer was NOT what the brief predicted.** The brief warned this would need
+`composeWallPaintSignature` extended (per L-1670, same day). Measured: that signature **already folds
+`materialId`**, and maps/tiling hang off material IDENTITY, not the wall record — so a material swap
+already invalidates correctly and **no third key was needed**. FIN1's `5cdee427` was read before
+concluding, and nothing in its tree was touched.
+
+**Also fixed in passing:** six hand-written copies of one material-def type, each declaring the dead
+`textures?` member (collapsed to one); two `Map<string, any>` seams; and `ao`/`displacement` are no
+longer *fetched* (~1.5 MB per material) because **nothing can bind them** — `aoMap` needs a second uv
+set and zero `uv1`/`uv2` occurrences exist outside `node_modules`.
+
+Gates all run with RC observed: new `check-material-maps-tiling` **RC=0** (five arms, hard-0, each
+watched-RED and observed to fire) · `check-material-single-source` **RC=0** · `check-material-id-required`
+**RC=0** · `check-domain-purity` **RC=0** · `check-three-imports` **RC=0** · root `tsc` **RC=0** ·
+`pnpm --frozen-lockfile` **RC=0**. Proven **AT THE MESH** (22 tests: real record → real `project()` →
+real `SlabFragmentBuilder` → `mesh.material.map` read off the scene graph), with three watched REDs
+**run, not asserted** — including the pre-lane code failing 9.
+
+**NAMED AND UNBUILT:** **S30** metre UVs for every wall body arm (*the highest-value remaining piece*);
+**S31** the KTX2 decoder; **S32** a second uv set for `aoMap`; **S25** `surfaces`. **CORS (L-578) is
+unverified by anything this lane ran** — the procedural half is unaffected, the file-backed half is not.
+
+---
+
+## L-1720 … L-1724 — ✅ SHIPPED: 16 CC0 PBR materials with a provenance manifest — and KTX2 turns out to be UNDECODABLE — 2026-08-21 (lane MAT-2, commit `e535246d`)
+
+⛔ **THE LICENCE FINDING IS THE FRAME, NOT A FOOTNOTE.** The reference product's repo is MIT, but its
+**288 texture files / 16.9 MB carry ZERO attribution** — no CREDITS, NOTICE, or per-directory README
+across a complete tree walk. **MIT covers what the authors had the right to license; it is not a
+warranty over third-party binaries.** Verdict: **taxonomy and parameter set only; author our own
+values, source our own maps.** ⭐ **The gate is MECHANICAL, not documentary**: the acquirer runs a
+licence check **before any network call** and refuses any library not on an explicit CC0 allowlist.
+**No bypass flag exists.** Sources used: ambientCG (**CC0-1.0**, verified at its licence page,
+2026-08-21) and Poly Haven (CC0, verified, not yet drawn on).
+
+**16 materials, all founder-named families**: parquet ×4 · floor tile ×3 · pool mosaic ×1 ·
+plaster/external render ×3 · carpet ×2 · shingle ×1 · roof tile ×2. **216.8 MB → 47.0 MB (22%).**
+
+⭐ **REAL-WORLD SIZES ARE SOURCE-DECLARED, NOT GUESSED** — ambientCG publishes physical dimensions, so
+**14 of 16** carry an authoritative tile size (parquet 1.3 × 0.65 m; carpet tile 0.4 × 0.4 m — literally
+the contract module; mosaic 0.6 × 0.6 m). The other two carry an **explicit estimate with its basis in
+the diff**, and the acquirer **FAILS rather than inventing one**. *A texture without its true size is
+wood-grain wallpaper, not parquet.*
+
+⭐ **THE BRIEF'S PREMISE WAS WRONG AND THE LANE CORRECTED IT.** The orchestrator asserted that `.ktx2`
+appearing in `CATALOG_ALLOWED_EXT` meant textures were "already permitted through the delivery path".
+**Delivery yes; DECODING no** — zero `KTX2Loader` references anywhere in `src`, and
+`packages/persistence-client/src/codec/ktx2.ts` is a **stub that returns the input unchanged**. The gap
+is **not** a missing CI binary; it is the client decoder. **WebP ships**; `--ktx2` emits the moment a
+decoder exists.
+
+**Three self-caught measurement defects, each corrected rather than tuned away:** `nearLossless` on
+normal maps cost **5.7×** (1.37 MB vs 0.24 MB) for precision no shading model uses; constant-map folding
+by global stdev **flattened four real tile/parquet NORMAL maps and one roof COLOUR map** (a tile normal
+is a flat field plus *sparse* grout lines, so global stdev stays low — now tests the *fraction* of
+deviating pixels, measured separation 0.065% vs 2.2–15%, and is deliberately biased toward publishing);
+and a partial re-acquire **silently dropped a stage's output**, making the probe check **69 files
+instead of 74 and still report green**.
+
+**Storage: R2, not git** — the manifest's SHA-256s give the integrity guarantee that committing 47 MB
+would have, at zero repo weight; `out/` is gitignored and `.dockerignore`-covered (**verified to
+match**, because a past defect had `**/build` also matching the SOURCE dir `scripts/build/`).
+
+⛔ **NOT PROVEN: CORS.** *"No Node or curl check enforces it"* — L-578 cost **four deploys** on exactly
+this, with upload, bundle-proof, CSP and deploy all green while every asset was refused. **Nothing is
+uploaded** (the workflow is manual-dispatch and needs the founder). **Fibre-cement returns zero results
+on ambientCG** — recorded as a known gap, not silently dropped.
+
+---
+
+## L-1800 … L-1804 — ✅ SHIPPED: 24 parquet and tile PATTERNS generated in code, zero assets — 2026-08-21 (lane MAT-3, commits `8da69fd6`, `12321521`, `7af920ab`)
+
+⭐ **THE SPLIT THAT MAKES THIS SOUND:** a parquet or tile floor is **two separable things** — a
+**pattern** (herringbone, chevron, Hungarian point, basket weave, Versailles, bond, hexagon), which is
+exact geometry, parametric, and **looks WRONG when photographed and tiled** because the user resizes the
+module (600×600 vs 300×600 and a photo bakes one size in permanently); and a **character** (wood grain,
+stone veining, carpet pile, stucco), which is stochastic and which **no rule generates**. **Procedural
+owns the layout; photography owns the character; the strongest answer is hybrid.** Both MAT-2 and MAT-3
+reached this independently.
+
+**Architecture: (a) CPU generation, and NOT by preference.** (b) shader/node-material was **rejected on
+measurement** — the editor runs **both WebGL and WebGPU** and a node graph is not one object across
+both, and **P2** confines `import * as THREE` to `packages/renderer-three/`, so a GPU generator could
+not sit at a low layer at all. (c) build-time was **rejected because it hands the blocker back** to
+asset hosting. (a) is asset-free, backend-agnostic, deterministic, generated once and cached.
+**Honest weakness stated: resolution is baked**, so a close-up can look soft — a texel budget, not an
+architecture. Implemented as **per-pixel analytic field evaluation, not a canvas drawing API**, so the
+pure core touches no DOM; a test asserts the package **imports nothing outside itself**.
+
+**24 generators, every dimension a real product size in millimetres** — 12 parquet (herringbone
+70×350 / 70×280 / 100×500 · chevron 45° · Hungarian point 60° · basket weave · **Versailles 900 mm** ·
+engineered boards at ⅓/½/¼ bond) and 12 tile (porcelain 600 · marble · slate half-bond · metro
+subway/third/**herringbone** · terracotta basket weave · hexagon 200/100 · cement · mosaic 50).
+**Full PBR — albedo + normal + roughness, never colour alone.** Two refusals **quoting both numbers**
+(herringbone rejects a non-integer L:W ratio, with the lattice derivation in-file; basket weave rejects
+a non-square bundle).
+
+**Seamlessness proven three ways — and the honesty about the weak arm is the point.** ARM A: exact
+tiling (`overlapPx === 0`, rasterised coverage matches the **analytic polygon area**). ARM B: the weak
+arm — ⭐ **a COMMITTED test measures ARM B failing to notice a genuinely broken texture** (a broken crop
+scores 0.757, inside tolerance). ARM C: crossing the wrap never jumps mid-piece to a *different* piece;
+zero breaks on all 24. ⭐⭐ **A FOURTH ARM WAS WRITTEN, MEASURED VACUOUS, AND DELETED** — origin-shift
+equivariance passes for *every* layout because the rasteriser writes through a modulo, so it proves the
+writer is toroidal and **nothing about the pattern**. **Documented in the test file so nobody re-adds it
+as proof.** Same family as [[probe-can-be-wrong-three-ways]].
+
+⛔ **No test establishes that any floor LOOKS GOOD** — stated plainly. 96 sample PNGs were emitted for
+the founder to eyeball (script re-runnable; **no binaries committed**).
+
+**Caught its own rival spelling:** it had shipped `proc:` where MAT-1's resolver reserved
+`procedural:` — *"a rival spelling for one concept"* — and renamed it verbatim, with a test asserting
+the prefix IS that string.
+
+**Named, not built:** Versailles is **stylised**, not a measured Château panel (said in the file header,
+not left to be discovered in a render); repetition is bounded by cell size; **fibre-cement is plausibly
+serveable by this machinery** and is flagged, not scope-crept.
+
+---
+
+## L-1740 … L-1744 — ✅ FIXED: the Inspect and Data panels referenced NINE PHANTOM TOKENS and rendered NEON — 2026-08-21 (lane UI1, commits `ad5d1358`, `67e61403`, `c237a89d`)
+
+Founder: *"the inspect and data sections don't follow the correct PRYZM ui standards — they need to be
+more elegant and following the exactly colours."*
+
+⭐ **THIS WAS NOT A TASTE PROBLEM.** `--app-green`, `--app-amber`, `--app-red` were referenced **11
+times and declared NOWHERE**, falling through to **`#00ff88` / `#ffee00` / `#ff3344` with black text**.
+The guard then found **nine more phantoms across 62 references**. Those panels were painting colours
+nobody chose.
+
+**L-1740 — the brand authority EXISTS** (`apps/editor/src/ui/styles/tokens.ts`, injected as the FIRST
+string into the same `<style>` element as every panel sheet, so `:root` is always defined before any
+panel rule is read). ⭐ **That fact is what turns the whole audit from taste into measurement.** Both
+panels routed around it.
+
+**L-1741 — the divergence, measured:** raw literals **190 hex + 34 rgba** in the Data panel, **27 + 33**
+in the audit stack, **21 + 29** across five more sheets — **all now 0**. Dead `var(--token, #hex)`
+fallbacks: **164 in CSS + 317 in TS**. ⭐ **Five CONTRADICTED their own token** — `--app-border` carried
+`#e2e8f0` ×18 *beside* `#dde3f0` ×10, and had **six rival fallbacks**; `--app-text` had four, **two of
+them light text**. They were **removed, not corrected**: a fallback that disagrees with its token is a
+second source of truth. Also found: four rival palettes (Tailwind slate, a blue, a purple, a cyan),
+**black shadows in a product whose brand says no black**, dark-theme islands in a white product, a
+legend whose swatch **did not match its own colour scale**, and text at **3.19:1** where AA needs 4.5.
+
+Two consequences worth naming: a close button and its `:hover` differed **only** in which fallback they
+named — **the hover was a no-op**; and one token was read by CSS and **written by nobody**.
+
+⭐ **TWO SELF-CORRECTIONS, both retained:** the lane retracted its own mid-run claim that the phantoms
+*"render as transparent"* — they render, in the wrong palette — noting it *"said it before verifying"*.
+And it **declined to apply L-1604's `min-height: 0` fix** because both panels already satisfy the
+condition another way (every column-flex link declares `overflow`, which per Flexbox §4.5 already zeroes
+the automatic minimum): *"writing it would have been a no-op dressed as a fix."* **Reported, not
+'fixed'.**
+
+⚠ **What the assertions prove and CANNOT:** they read **shipped CSS and TypeScript as text**. happy-dom
+does no layout and paints nothing, so **nothing here measures a rendered colour, a contrast ratio, or a
+scroll height** — said at the top of the spec, not dressed up. The guard's ARM C resolves *references
+against declarations*, so **a rename cannot satisfy it** (the recorded defect where a gate classifying
+by NAME is satisfied by RENAMING).
+
+**Found, not fixed:** the `dw-` prefix is claimed by **two subsystems** (zero collisions *today*,
+measured); **~500 bare literals remain** in Data sub-panel TS, much of it chart encoding — named so it
+is not mistaken for done; and `--app-text-muted` is **3.47:1 on white**, under AA, but it is a
+product-wide token and changing it is a global decision.
+
+---
+
+## L-1760 … L-1763 — ✅ FIXED: the 3-D section button was NEVER MISSING — it was cutting nothing, on a renderer that stopped drawing — 2026-08-21 (lane SECT1, commits `7dbc0685`, `1fa7993a`)
+
+Founder: *"add a button in the bottom bar to create sections in 3d? we implemented that back ago while
+using WebGL — I know you can't create reliable 3d sections in WebGPU."*
+
+⭐ **THE FEATURE IS AUTHORED, WIRED AND REACHABLE, AND HAS BEEN SINCE THE REPO'S FIRST COMMIT.**
+`packages/input-host/src/SectionBoxTool.ts` (one commit in the entire history, byte-identical since,
+**zero tests ever**), instantiated in `initUI.ts`, rendered as a real **"Section Box"** button in the
+bottom bar. **This is not authored-but-unwired — it is worse and more interesting: reachable,
+clickable, and cutting nothing.**
+
+**L-1761 — the founder is RIGHT about the symptom and WRONG about the cause, and the two demand
+completely different fixes.** The claim was *"unreliable on WebGPU"*; the measured answer is
+**"unwired, twice over"**:
+1. **It was handed a renderer that does not draw.** The bar resolved the OBC `PostproductionRenderer`,
+   which boot phase 5 puts in MANUAL mode with its render trigger removed — **it never renders again**.
+   The live renderer is a different object. This is the mechanism **L-1486** measured and left OPEN.
+2. **On the Phase-5 backends there is NO renderer clipping API at all.** Measured directly against
+   `three@0.183.2`, not inferred: the base `Renderer` (of `WebGPURenderer`, used for **both** `'webgpu'`
+   **and** `'webgl-fallback'`) has **no `clippingPlanes`, no `localClippingEnabled`**, and **never reads
+   `material.clippingPlanes`**. Clipping there flows **only** through `THREE.ClippingGroup` scene
+   objects, which this repo uses **nowhere**.
+
+⭐ **THEREFORE "just point it at the live renderer" IS NOT THE FIX** — it would write a property nothing
+reads, **trading one silent no-op for another**. Flagged explicitly because it is the obvious-looking
+fix and it is wrong. The tool's own header claimed per-material clipping was "the WebGPU path"; **it
+never was**, so the only thing running was a per-mesh visibility cull — **hiding whole meshes rather
+than cutting them**, and making a straddling wall vanish entirely. **That is what "unreliable" actually
+was.** The founder's memory is correct: `'webgl-only'` is a genuine `WebGLRenderer` and honours the
+global clip set.
+
+**Architectural decision: a VIEW concern, not a command.** It mutates no element, parameter or topology
+— only `renderer.clippingPlanes` — the same class as camera and level-explode, **so no bus verb and
+correctly no undo entry** (P6 governs *model* mutation). ⚠ There IS a real persisted rival:
+`ViewSectionBox` on `ViewDefinition`, whose `setSectionBox()` is documented as *"called by
+`SetViewSectionBoxCommand.execute()`"* — **that command does not exist and the setter has zero
+callers**. The lane did not persist, so it did not need it, and **did not mint a rival**. **One plane,
+not a box** — the six-plane concept has no writer and no renderer support. **L-1764 RAC capability NOT
+declared**, because no verb was added and C67 rule 10 forbids fictional capabilities.
+
+**Shipped:** a capability resolver that **probes the renderer object rather than comparing backend
+names** (⭐ `'webgl-fallback'` *says* WebGL and *is* a WebGPURenderer — different facts), rendering the
+control **disabled, marked, and stating why**, naming the remedy the founder can act on. Also **dropped
+`localClippingEnabled = true`** — banned here because it triggers an up-to-**15-second** all-material
+shader recompile — and **removed the visibility fallback that made failure and success render
+identically** (C84 EI-1b).
+
+⚠ **Not proven: that pixels are cut on a GPU.** The strongest claim made is *"the live renderer's global
+clip slot was set."*
+
+**Named, not fixed:** ⭐ **the same dead-renderer defect afflicts `_applyWallCutawayClipping` ("Wall Low
+Height") and `SectionViewService`** — both write the renderer that stopped drawing, so **Wall Low Height
+is broken the same way**. The clip surface has **five producers and no owner** (C06 §13.3). And
+`docs/04-reference/geospatial/pryzm-3d-geospatial-capabilities.md:104` **is false** — it claims
+section/clipping is "NOT YET BUILT / PLANNED"; the auditor grepped the render pipeline while the tool
+lives in `packages/input-host`.
+
+---
+
+## L-1780 … L-1782 — ✅ FIXED: railings were 4920 draw calls where they should be 250 — the per-family switch existed and NO BUILDER WAS ASKING IT — 2026-08-21 (lane PERF1, commits `5b845a53`, `f80ed827`, `a6e9fd2d`)
+
+Founder: *"check all elements are now instanced (railings stairs…) I want to navigate flowing… 2000 and
+3000 elements."*
+
+⭐ **THE SUSPICION WAS RIGHT AND THE CAUSE WAS NARROWER THAN EXPECTED. Instancing was not broken — four
+of the five builders were asking the wrong question.** `_FAMILY_DEFAULTS` has had declared per-family
+rows for `handrail`/`stairRailing`/`column`/`beam` for months. Those four builders called
+`isElementInstancingEnabled()` **with no argument** — the legacy master-only overload — so **their rows
+were consulted by nobody**, and setting the handrail flag moved the draw-call count by **zero**. Only
+`WindowBuilder` named its family.
+
+**Before / after, real builders, 240 railing elements:**
+
+| | draw calls | meshes | geometries | materials |
+|---|---|---|---|---|
+| BEFORE | **4920** | 4920 | 2520 | 480 |
+| AFTER | **250** | 250 | 242 | 242 |
+
+**19.7× collapse, 4670 draw calls removed.** Per-element cost measured: one 2 m baluster handrail =
+**23 meshes / 3 materials**; a 31-segment circular run = **279 meshes / 93 materials**. Railings average
+**~20.5 meshes per element** against a scene-wide ~15 — **this one family accounted for the mesh
+budget.**
+
+⭐ **CPU vs GPU, settled: unambiguously CPU / draw-call bound.** `drawCalls=7589` against
+`triangles=470396` is **62 triangles per draw call**. A GPU-bound scene has millions of triangles behind
+few calls; **62 tris/call means the GPU is idle waiting for submissions.**
+
+**Three fixes NOT in the brief, each a defect the lane found itself:**
+- ⭐ **`§NAV-TYPE-IN-GROUP-KEY` — a regression this lane would otherwise have SHIPPED.** `_createGroup`
+  claimed *"geometry+material+levelId ⇒ one element type"*. **Measured false:** six handrail and six
+  stair-railing balusters produced **ONE** group, because `SharedMaterialCache` correctly dedups
+  look-alike materials. Instanced meshes expose no per-element `userData.id`, so isolate addresses
+  aggregates by `(levelId, elementType)` — **one stamp over two families means "hide stair railings"
+  hides handrails too.** `elementType` is now in the key; **cost: zero.**
+- **The perf console's own flag row could lie**, in exactly the way its comment promised it could not —
+  printing `handrail: false` while the builder was instancing.
+- ⭐ **`FrameProfiler` reported only an AVERAGE, and an average provably cannot see a hitch**: 58 frames
+  @8 ms + 2 @120 ms averages 11.7 ms / 60 fps and reads **healthier** than a steady 40 fps that feels
+  better. Added `worst`, `p95`, `hitches=n/total`.
+
+⭐ **TWICE THE LANE'S OWN INSTRUMENT WAS WRONG AND THE CORRECTION WAS KEPT.** Its first leak probe
+counted materials in the **live** scene (5→5, 50→50, *"linear, therefore blocking"*) — **that measures
+how many railings exist, not the leak**; the leak is what survives **deletion** (measured: **constant**,
+returned at project close), which **retired the `stairRailing` blocker**. And its p95 test **failed, and
+the code was right** — 2 stalls in 60 frames is 3.3%, so p95 sits inside the fast frames. **"Add p95"
+would have been a second instrument giving a second false all-clear.** That blindness is now an
+assertion, not a comment.
+
+**Selection/visibility regression proof (8 tests through the REAL `applyIsolate`/`applyLevelVisibility`):**
+16 slots across 2 families × 2 levels resolve to their own element id; hide-level hits both families
+there and neither elsewhere; isolate-by-type leaves the sibling family untouched. Kill switch preserved
+and asserted. *This matters because instancing previously broke GPU picking and level isolate.*
+
+⭐ **OI-058 (Scene Registry) — the recommendation is DON'T spend the navigation budget on it.** The 8
+traverses ADR-0336 names are **per-operation** (hide/isolate/reset), not per-frame; the frustum
+traverse is debounced and change-gated; **`UnifiedFrameLoop` contains ZERO traverses** and none of the
+per-frame tick listeners traverse. **It is real and worth doing for hide/isolate responsiveness — it is
+NOT the "flowing navigation" bottleneck.**
+
+⚠ **The honest caveat: 19.7× is a SUBMISSION count on a synthetic 240-element scene, not a measured
+frame time on the founder's project.** The instruments to get one ship with it
+(`__pryzmFrameProfile = true` → orbit → `[FrameProfiler]`; `pryzmPerf.report()`).
+**The 7589-vs-3906 ~2× gap remains UNATTRIBUTED** (the attribution is built — a ~2× gap = the shadow
+pass re-submitting the 995 casters — but not run on his machine). **No camera-motion work stand-down
+exists**: `beginMotion`/`endMotion` exist but `isInMotion()` **has no consumer that sheds work**, and
+coverage is PlanView/SplitView only, **not the main 3-D view**. That is its own lane.
+
+---
