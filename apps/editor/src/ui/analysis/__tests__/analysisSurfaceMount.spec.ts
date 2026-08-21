@@ -134,15 +134,34 @@ describe('§ANALYSIS-MOUNT — the workspace-mode event drives it', () => {
     expect(el.textContent).toContain('LOWER BOUND');
   });
 
-  it('⛔ the refusal card renders NOT BUILT and names its missing model', () => {
+  it('⛔ the refusal card renders NOT BUILT and names its missing model', async () => {
     const el = document.getElementById('anl-surface')!;
+    // §ANALYSIS-TABS (L-3304) — `change-table` moved to the "Areas & change"
+    // tab, and only the ACTIVE tab computes, so it is deliberately NOT on screen
+    // at mount. The tab must be selected first. This assertion was kept and
+    // re-aimed rather than deleted: what it checks (a refusal card renders its
+    // named missing model and NO figure) is unchanged by the tabbing.
+    const areasTab = el.querySelector<HTMLButtonElement>('.anl-tab[data-tab="areas"]');
+    expect(areasTab, 'the Areas tab is missing from the tab strip').not.toBeNull();
+    areasTab!.click();
+    await new Promise((r) => setTimeout(r, 0));
+
     const card = el.querySelector('[data-widget="change-table"]');
-    expect(card, 'the NOT BUILT change table is not in the default layout').not.toBeNull();
+    expect(card, 'the NOT BUILT change table is not on the Areas tab').not.toBeNull();
     expect(card!.querySelector('.anl-badge--err')?.textContent).toBe('NOT BUILT');
     expect(card!.textContent).toContain('Stable element ids across saved versions');
     // ⛔ It must render no figure at all — not a zero, not a dash.
     expect(card!.querySelector('.anl-kpi-value')).toBeNull();
     expect(card!.querySelector('canvas')).toBeNull();
+
+    // ⚠ RESTORE. The active tab is PERSISTED (that is the feature — reopen the
+    // surface and you are where you left it), so a test that switches tabs and
+    // walks away has mutated shared state for every test after it in this file.
+    // Leaving it un-restored is how the two sibling assertions below started
+    // failing on a change that did not touch them.
+    const overviewTab = el.querySelector<HTMLButtonElement>('.anl-tab[data-tab="overview"]');
+    overviewTab!.click();
+    await new Promise((r) => setTimeout(r, 0));
   });
 
   it('a level bar carries the resolved level NAME, not a raw id', () => {

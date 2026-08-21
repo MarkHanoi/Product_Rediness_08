@@ -151,6 +151,8 @@ export interface GraphProjection {
   readonly liveness: UbgLiveness | null;
   /** ⛔ false ⇒ counts are a lower bound OR the graph's freshness is unknown. */
   readonly complete: boolean;
+  /** Why `complete` is false — one sentence per cause. Empty when complete. */
+  readonly incompleteReason: readonly string[];
 }
 
 interface GraphWindow {
@@ -239,6 +241,7 @@ export function projectGraph(): GraphProjection {
           truncated: false,
           liveness,
           complete: false,
+          incompleteReason: ['the Unified Building Graph was not reachable — no relationship figure on this tab was computed'],
         };
       }
 
@@ -317,6 +320,15 @@ export function projectGraph(): GraphProjection {
         // or a graph whose freshness we cannot vouch for. The surface renders
         // "≥ N" off this flag, so conflating the two would understate the doubt.
         complete: !truncated && fresh,
+        // §ANALYSIS-INCOMPLETE-REASON (L-3303) — say WHICH. Neither of these is
+        // an unreadable source, and the status strip used to report both as
+        // "0 declared source(s) unreadable", which reads as self-refuting.
+        incompleteReason: [
+          ...(truncated
+            ? [`the graph was drawn to a ${GRAPH_NODE_CAP}-node cap and holds ${allNodes.length}`]
+            : []),
+          ...(fresh ? [] : [`graph freshness is "${liveness?.freshness ?? 'unknown'}" — it may be behind the model`]),
+        ],
       };
     },
   );

@@ -51,10 +51,10 @@ import { withHandlerSpan } from '@pryzm/plugin-sdk';
 
 import { onRuntimeEvent } from '../../engine/runtimeEventBridge';
 
-import type { AnalysisResult, AnalysisWidgetDef } from './AnalysisTypes';
+import { ANALYSIS_TABS, type AnalysisResult, type AnalysisTabId, type AnalysisWidgetDef } from './AnalysisTypes';
 import { invalidateAnalysisReadModel, runQuery, censusSourceTable } from './analysisReadModel';
-import { loadLayout, saveLayout, type AnalysisLayout } from './analysisLayout';
-import { DEFAULT_LAYOUT, WIDGET_CATALOGUE, widgetById } from './widgetCatalogue';
+import { defaultLayout, loadLayout, saveLayout, type AnalysisLayout } from './analysisLayout';
+import { WIDGET_CATALOGUE, widgetById } from './widgetCatalogue';
 import {
   completenessStrip,
   renderChart,
@@ -75,6 +75,8 @@ export class AnalysisSurface {
   private _el!: HTMLElement;
   private _grid!: HTMLElement;
   private _status!: HTMLElement;
+  private _tabBar!: HTMLElement;
+  private _tabLede!: HTMLElement;
   private _visible = false;
   private _chartjs: ChartJS | null = null;
   private _chartLoadFailed = false;
@@ -131,6 +133,20 @@ export class AnalysisSurface {
     header.append(titleWrap, actions);
     panel.appendChild(header);
 
+    // ── Tab strip ───────────────────────────────────────────────────────────
+    // §ANALYSIS-TABS (L-3304). Sits ABOVE the status strip deliberately: the
+    // strip reports the tab beneath it, so it must read as belonging to the
+    // selected tab rather than to the surface as a whole.
+    this._tabBar = document.createElement('div');
+    this._tabBar.className = 'anl-tabs';
+    this._tabBar.setAttribute('role', 'tablist');
+    this._tabBar.setAttribute('aria-label', 'Analysis sections');
+    panel.appendChild(this._tabBar);
+
+    this._tabLede = document.createElement('div');
+    this._tabLede.className = 'anl-tab-lede';
+    panel.appendChild(this._tabLede);
+
     // ── Status strip ────────────────────────────────────────────────────────
     this._status = document.createElement('div');
     this._status.className = 'anl-status';
@@ -147,11 +163,17 @@ export class AnalysisSurface {
     addBtn.addEventListener('click', () => this._togglePicker());
     refreshBtn.addEventListener('click', () => { invalidateAnalysisReadModel(); void this.refresh(); });
     resetBtn.addEventListener('click', () => {
-      this._layout = { version: 1, widgets: [...DEFAULT_LAYOUT] };
+      // Resets EVERY tab, and lands on Overview. A reset that silently spared
+      // the tabs the user could not see would leave the dashboard in a state no
+      // single action produced.
+      this._layout = defaultLayout();
       saveLayout(this._layout);
+      this._buildTabs();
       void this.refresh();
     });
     provBtn.addEventListener('click', () => this._toggleProvenance());
+
+    this._buildTabs();
   }
 
   private _headerButton(id: string, label: string, title: string): HTMLButtonElement {
@@ -209,6 +231,7 @@ export class AnalysisSurface {
     this._visible = true;
     this._el.classList.add('anl-surface--visible');
     this._layout = loadLayout(); // a project switch may have changed it
+    this._buildTabs();
     void this.refresh();
   }
 
@@ -244,39 +267,50 @@ export class AnalysisSurface {
     const t0 = Date.now();
     let unreachableAcross = 0;
     let anyIncomplete = false;
+    const reasonsAcross: string[] = [];
 
     // P8 — one span per dashboard mount. The attribute set is bounded by the
     // closed widget-kind union and the layout length, never by a model value.
     withHandlerSpan(
       'pryzm.analysis.surface.render',
-      { 'pryzm.surface': 'analysis', 'pryzm.analysis.widgets': this._layout.widgets.length },
+      {
+        'pryzm.surface': 'analysis',
+        'pryzm.analysis.widgets': this._activeWidgetIds().length,
+        'pryzm.analysis.active_tab': this._layout.activeTab,
+      },
       () => {
-        for (const id of this._layout.widgets) {
+        // ⭐ ONLY THE ACTIVE TAB COMPUTES. This is the half of §ANALYSIS-TABS
+        // that is not cosmetic: `material-*` and `chapter-volume` declare
+        // `O(n·m)` and every one of them used to run on every refresh, whether
+        // or not the reader had asked a quantity question. A tab the user is not
+        // looking at is now not a scan.
+        for (const id of this._activeWidgetIds()) {
           const def = widgetById(id);
           if (!def) { this._grid.appendChild(this._card(null, id, (host) => renderUnknownWidget(host, id))); continue; }
-          const { card, incomplete, unreachable } = this._renderWidget(def);
+          const { card, incomplete, unreachable, reasons } = this._renderWidget(def);
           this._grid.appendChild(card);
           anyIncomplete = anyIncomplete || incomplete;
           unreachableAcross = Math.max(unreachableAcross, unreachable);
+          for (const r of reasons) if (!reasonsAcross.includes(r)) reasonsAcross.push(r);
         }
       },
     );
 
-    if (this._layout.widgets.length === 0) {
+    if (this._activeWidgetIds().length === 0) {
       const empty = document.createElement('div');
       empty.className = 'anl-empty anl-empty--page';
       empty.textContent =
-        'This dashboard has no widgets. That is your arrangement, not a failure — press “Add widget” to compose one.';
+        'This tab has no widgets. That is your arrangement, not a failure — press “Add widget” to compose one.';
       this._grid.appendChild(empty);
     }
 
-    this._setStatus(Date.now() - t0, anyIncomplete, unreachableAcross);
+    this._setStatus(Date.now() - t0, anyIncomplete, unreachableAcross, reasonsAcross);
   }
 
   private async _renderSelectionWidgets(): Promise<void> {
     // Only the selection-scoped cards redraw. Everything else is unchanged by a
     // selection, and redrawing it would be work with no output difference.
-    for (const id of this._layout.widgets) {
+    for (const id of this._activeWidgetIds()) {
       const def = widgetById(id);
       if (!def || def.refresh !== 'on-selection') continue;
       const old = this._grid.querySelector(`[data-widget="${CSS.escape(id)}"]`);
@@ -286,12 +320,12 @@ export class AnalysisSurface {
     }
   }
 
-  private _renderWidget(def: AnalysisWidgetDef): { card: HTMLElement; incomplete: boolean; unreachable: number } {
+  private _renderWidget(def: AnalysisWidgetDef): { card: HTMLElement; incomplete: boolean; unreachable: number; reasons: readonly string[] } {
     if (def.notBuilt) {
-      return { card: this._card(def, def.id, (host) => renderNotBuilt(host, def.notBuilt!)), incomplete: false, unreachable: 0 };
+      return { card: this._card(def, def.id, (host) => renderNotBuilt(host, def.notBuilt!)), incomplete: false, unreachable: 0, reasons: [] };
     }
     if (!def.query) {
-      return { card: this._card(def, def.id, (host) => renderUnknownWidget(host, def.id)), incomplete: false, unreachable: 0 };
+      return { card: this._card(def, def.id, (host) => renderUnknownWidget(host, def.id)), incomplete: false, unreachable: 0, reasons: [] };
     }
 
     let result: AnalysisResult;
@@ -313,6 +347,7 @@ export class AnalysisSurface {
         }),
         incomplete: true,
         unreachable: 0,
+        reasons: [],
       };
     }
 
@@ -342,7 +377,7 @@ export class AnalysisSurface {
       host.appendChild(this._provenanceFoot(def, result));
     }, result);
 
-    return { card, incomplete: !result.complete, unreachable: result.unreachable.length };
+    return { card, incomplete: !result.complete, unreachable: result.unreachable.length, reasons: result.incompleteReason };
   }
 
   /**
@@ -421,16 +456,44 @@ export class AnalysisSurface {
 
   // ── Composition ─────────────────────────────────────────────────────────────
 
+  /** Every widget id placed anywhere, across all tabs. */
+  private _allPlacedIds(): readonly string[] {
+    return ANALYSIS_TABS.flatMap((t) => this._layout.tabs[t.id] ?? []);
+  }
+
+  /**
+   * Remove from EVERY tab, not just the active one.
+   *
+   * The `×` the user clicked is on a card they can see, so removing it from the
+   * active tab alone would be enough for that click — but a v1 arrangement could
+   * have placed the same id twice, and leaving the duplicate would make the
+   * button look broken the next time that tab was opened.
+   */
   private _removeWidget(id: string): void {
-    this._layout = { version: 1, widgets: this._layout.widgets.filter((w) => w !== id) };
+    const tabs = {} as Record<AnalysisTabId, readonly string[]>;
+    for (const t of ANALYSIS_TABS) tabs[t.id] = (this._layout.tabs[t.id] ?? []).filter((w) => w !== id);
+    this._layout = { ...this._layout, tabs };
     saveLayout(this._layout);
+    this._buildTabs();
     void this.refresh();
   }
 
+  /**
+   * Add to the tab the user is looking at — NOT to the widget's catalogue tab.
+   *
+   * ⭐ The catalogue tab is the DEFAULT placement, not a constraint. A reader who
+   * opens Quantities, presses "Add widget" and picks the level bar wants it on
+   * Quantities; silently filing it under Overview would make the button appear
+   * to do nothing. The catalogue's `tab` still decides where a widget starts and
+   * where a migrated v1 id lands.
+   */
   private _addWidget(id: string): void {
-    if (this._layout.widgets.includes(id)) return;
-    this._layout = { version: 1, widgets: [...this._layout.widgets, id] };
+    if (this._allPlacedIds().includes(id)) return;
+    const active = this._layout.activeTab;
+    const tabs = { ...this._layout.tabs, [active]: [...(this._layout.tabs[active] ?? []), id] };
+    this._layout = { ...this._layout, tabs };
     saveLayout(this._layout);
+    this._buildTabs();
     this._pickerOpen = false;
     this._el.querySelector('.anl-picker')?.remove();
     void this.refresh();
@@ -451,6 +514,7 @@ export class AnalysisSurface {
     const note = document.createElement('p');
     note.className = 'anl-picker-note';
     note.textContent =
+      `Adds to the “${ANALYSIS_TABS.find((t) => t.id === this._layout.activeTab)?.label ?? ''}” tab. ` +
       'Widgets marked NOT BUILT are in this list on purpose: they name the model PRYZM does not have yet, ' +
       'so the gap is visible here rather than only in a document.';
     picker.appendChild(note);
@@ -459,7 +523,7 @@ export class AnalysisSurface {
       const row = document.createElement('button');
       row.type = 'button';
       row.className = 'anl-picker-row';
-      row.disabled = this._layout.widgets.includes(w.id);
+      row.disabled = this._allPlacedIds().includes(w.id);
 
       const label = document.createElement('span');
       label.className = 'anl-picker-label';
@@ -523,15 +587,99 @@ export class AnalysisSurface {
     this._el.appendChild(box);
   }
 
+  // ── Tabs ────────────────────────────────────────────────────────────────────
+
+  /** Widget ids on the tab currently being read. */
+  private _activeWidgetIds(): readonly string[] {
+    return this._layout.tabs[this._layout.activeTab] ?? [];
+  }
+
+  private _buildTabs(): void {
+    this._tabBar.replaceChildren();
+    for (const t of ANALYSIS_TABS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'anl-tab' + (t.id === this._layout.activeTab ? ' anl-tab--active' : '');
+      b.dataset.tab = t.id;
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', String(t.id === this._layout.activeTab));
+      b.append(document.createTextNode(t.label));
+
+      // The count is the ARRANGEMENT's, not the catalogue's — it must track what
+      // the user actually put on the tab, including zero.
+      const n = this._layout.tabs[t.id]?.length ?? 0;
+      const chip = document.createElement('span');
+      chip.className = 'anl-tab-count';
+      chip.textContent = String(n);
+      b.appendChild(chip);
+
+      // ⛔ A tab whose every widget is a refusal card is labelled as such HERE,
+      // on the tab, not only inside it. Otherwise the reader pays a click to
+      // discover there is nothing to read, and reads the tab as broken rather
+      // than as a declared boundary.
+      const ids = this._layout.tabs[t.id] ?? [];
+      const built = ids.filter((id) => { const d = widgetById(id); return d != null && d.notBuilt == null; });
+      if (n > 0 && built.length === 0) {
+        const nb = document.createElement('span');
+        nb.className = 'anl-tab-nb';
+        nb.textContent = 'NOT BUILT';
+        b.appendChild(nb);
+      }
+
+      b.addEventListener('click', () => this._setActiveTab(t.id));
+      this._tabBar.appendChild(b);
+    }
+    const lede = ANALYSIS_TABS.find((t) => t.id === this._layout.activeTab);
+    this._tabLede.textContent = lede?.lede ?? '';
+  }
+
+  private _setActiveTab(id: AnalysisTabId): void {
+    if (id === this._layout.activeTab) return;
+    this._layout = { ...this._layout, activeTab: id };
+    saveLayout(this._layout);
+    this._buildTabs();
+    void this.refresh();
+  }
+
+  /** The tab currently being read. Read by the spec, not by the UI. */
+  get activeTab(): AnalysisTabId {
+    return this._layout.activeTab;
+  }
+
   // ── Status ──────────────────────────────────────────────────────────────────
 
-  private _setStatus(ms: number, incomplete: boolean, unreachable: number): void {
+  /**
+   * §ANALYSIS-INCOMPLETE-REASON (L-3303) + §ANALYSIS-TABS (L-3304).
+   *
+   * Two defects are fixed here and they are independent:
+   *
+   *  1. The strip used to derive its REASON from `unreachable`, which is only
+   *     one of three causes of `complete:false`. With a truncated graph it read
+   *     *"⚠ 0 declared source(s) unreadable, so totals … are LOWER BOUNDS"* —
+   *     a warning that refutes itself in its own first clause and teaches the
+   *     reader to discount the one strip that must never be discounted. It now
+   *     prints the reasons the PRODUCERS gave, verbatim.
+   *  2. It used to say "on this dashboard". Only the active tab is computed, so
+   *     it cannot speak for tabs it did not read — and silently narrowing the
+   *     scope of a trust claim while keeping its wording is exactly the
+   *     overstatement this surface exists to refuse. It says "on this tab".
+   */
+  private _setStatus(ms: number, incomplete: boolean, unreachable: number, reasons: readonly string[]): void {
     this._status.replaceChildren();
     this._status.className = `anl-status${incomplete ? ' anl-status--warn' : ''}`;
+    const tab = ANALYSIS_TABS.find((t) => t.id === this._layout.activeTab)?.label ?? 'this tab';
     const text = document.createElement('span');
-    text.textContent = incomplete
-      ? `Rendered in ${ms} ms — ⚠ ${unreachable} declared source(s) unreadable, so totals on this dashboard are LOWER BOUNDS.`
-      : `Rendered in ${ms} ms — every declared source read.`;
+    if (!incomplete) {
+      text.textContent = `Rendered in ${ms} ms — every declared source read on ${tab}.`;
+    } else if (reasons.length > 0) {
+      text.textContent = `Rendered in ${ms} ms — ⚠ totals on ${tab} are LOWER BOUNDS: ${reasons.join(' · ')}`;
+    } else {
+      // A producer flipped `complete:false` and gave no reason. Say THAT, rather
+      // than inventing the unreadable-source sentence that was wrong before.
+      text.textContent =
+        `Rendered in ${ms} ms — ⚠ totals on ${tab} are LOWER BOUNDS` +
+        (unreachable > 0 ? `: ${unreachable} declared source(s) unreadable.` : ', and no widget said why. Treat every figure here as a floor.');
+    }
     this._status.appendChild(text);
     const layoutNote = document.createElement('span');
     layoutNote.className = 'anl-status-note';

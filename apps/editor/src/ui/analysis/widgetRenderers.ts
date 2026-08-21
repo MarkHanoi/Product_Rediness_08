@@ -141,8 +141,13 @@ export function completenessStrip(result: AnalysisResult): HTMLElement | null {
     el(
       'span',
       'anl-strip-text',
-      `Incomplete — ${result.unreachable.length} source(s) could not be read, so every total here is a LOWER BOUND: ` +
-        result.unreachable.join(', '),
+      // §ANALYSIS-INCOMPLETE-REASON (L-3303) — the producer's own words. This
+      // string used to be built from `unreachable.length` alone, so a truncated
+      // or stale GRAPH card announced "0 source(s) could not be read", which is
+      // both false and self-refuting.
+      result.incompleteReason.length > 0
+        ? `Incomplete — every total here is a LOWER BOUND: ${result.incompleteReason.join(' · ')}`
+        : 'Incomplete — every total here is a LOWER BOUND, and the source named no cause.',
     ),
   );
   return strip;
@@ -241,8 +246,9 @@ export function renderKpi(host: HTMLElement, result: AnalysisResult): void {
       el(
         'p',
         'anl-note',
-        'The headline reads “≥” because at least one declared store could not be read. A count over a partial ' +
-          'scan is a floor, and printing it as a total is the single most likely silent undercount on this surface.',
+        'The headline reads “≥” because this figure is a floor, not a total: ' +
+          (result.incompleteReason.join(' · ') || 'the source did not say why') +
+          '. Printing a partial scan as a total is the single most likely silent undercount on this surface.',
       ),
     );
   }

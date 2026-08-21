@@ -170,6 +170,24 @@ export interface AnalysisResult {
    * this surface.
    */
   readonly complete: boolean;
+  /**
+   * ⭐ WHY `complete` is false — one sentence per cause, EMPTY when complete.
+   *
+   * §ANALYSIS-INCOMPLETE-REASON (L-3303). This field exists because the surface
+   * used to derive the reason from `unreachable.length` and print it regardless:
+   * with a truncated graph the status strip read *"⚠ 0 declared source(s)
+   * unreadable, so totals on this dashboard are LOWER BOUNDS"* — a warning that
+   * refutes itself in its own first clause. `complete:false` has THREE distinct
+   * causes here and only one of them is an unreadable source; the other two are
+   * a graph draw capped at `GRAPH_NODE_CAP` and a graph whose freshness cannot be
+   * vouched for. A reader who checks the named source, finds it readable, and
+   * concludes the warning is noise has been taught to ignore the one strip on
+   * this surface that must never be ignored.
+   *
+   * ⛔ Non-empty ⇔ `complete === false`. A producer that flips the flag without
+   * saying why has reintroduced the defect.
+   */
+  readonly incompleteReason: readonly string[];
   /** Milliseconds the executor spent. Reported, never used to decide anything. */
   readonly elapsedMs: number;
 }
@@ -204,8 +222,50 @@ export type AnalysisWidgetKind =
  */
 export type AnalysisRefresh = 'manual' | 'on-commit' | 'on-selection';
 
+/**
+ * The dashboard's top-level sections. §ANALYSIS-TABS (L-3304).
+ *
+ * ⭐ The founder's report was *"the content of the analysis is too much for a
+ * tab"* — sixteen widgets on one scroll, five of them refusal cards. Tabs are
+ * the fix, but they carry a hazard worth naming ON THE TYPE: splitting a
+ * dashboard SEPARATES EVERY FIGURE FROM THE CARD THAT QUALIFIES IT. The
+ * `takeoff-coverage` widget's own subtitle reads *"Not optional chrome. Every
+ * quantity figure on this surface is read against this card."* Put it behind a
+ * tab nobody opens and every remaining number becomes an unqualified total —
+ * which is the overstatement the whole surface was built to refuse.
+ *
+ * So the grouping is BY THE QUESTION ASKED, and each tab keeps the coverage
+ * evidence for its OWN figures inside it. The pinned status strip carries the
+ * trust state of the tab being read and says "on this tab" in words, because it
+ * cannot speak for tabs it did not compute.
+ *
+ * ⛔ Not an open string: the OTel attribute set is bounded by this union, the
+ * same cardinality argument the widget-kind union carries above.
+ */
+export type AnalysisTabId = 'overview' | 'quantities' | 'relationships' | 'areas';
+
+export interface AnalysisTabDef {
+  readonly id: AnalysisTabId;
+  readonly label: string;
+  /** One line: the question this tab answers. Rendered under the tab strip. */
+  readonly lede: string;
+}
+
+export const ANALYSIS_TABS: readonly AnalysisTabDef[] = Object.freeze([
+  { id: 'overview',      label: 'Overview',      lede: 'What is in this model — counts, by family, by storey, by type.' },
+  { id: 'quantities',    label: 'Quantities',    lede: 'How much of it — measured take-off, and what the take-off does not measure.' },
+  { id: 'relationships', label: 'Relationships', lede: 'How it is connected — the Unified Building Graph and which edge families are real.' },
+  { id: 'areas',         label: 'Areas & change', lede: 'Area standards, unit mix and version diff. Every widget here is NOT BUILT and says why.' },
+]);
+
+export function analysisTabById(id: string): AnalysisTabDef | undefined {
+  return ANALYSIS_TABS.find((t) => t.id === id);
+}
+
 export interface AnalysisWidgetDef {
   readonly id: string;
+  /** Which tab this widget belongs to. Every widget declares one — see AnalysisTabId. */
+  readonly tab: AnalysisTabId;
   readonly kind: AnalysisWidgetKind;
   readonly title: string;
   /** One line under the title. Says what the widget measures, not what it is. */

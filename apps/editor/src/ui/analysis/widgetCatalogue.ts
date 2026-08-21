@@ -27,13 +27,14 @@
  * writes (P6) — one frozen table.
  */
 
-import type { AnalysisWidgetDef } from './AnalysisTypes';
+import { ANALYSIS_TABS, type AnalysisTabId, type AnalysisWidgetDef } from './AnalysisTypes';
 
 // ── T1 / T2 — widgets with a real substrate ───────────────────────────────────
 
 const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   {
     id: 'element-count',
+    tab: 'overview',
     kind: 'kpi',
     title: 'Elements in this model',
     subtitle: 'Counted across the declared census table. Reads "≥ N" if any store was unreachable.',
@@ -44,6 +45,7 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   },
   {
     id: 'category-donut',
+    tab: 'overview',
     kind: 'donut',
     title: 'Category report',
     subtitle: 'Element count by family. Click a slice to select those elements.',
@@ -56,6 +58,7 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   },
   {
     id: 'level-bar',
+    tab: 'overview',
     kind: 'bar',
     title: 'Elements by level',
     subtitle: 'Grouped by storey. Elements with no level are a named bar, never dropped.',
@@ -66,6 +69,7 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   },
   {
     id: 'type-table',
+    tab: 'overview',
     kind: 'table',
     title: 'Family / type report',
     subtitle: 'Count by resolved type. An element with no type is `Untyped` — its own row, never folded in.',
@@ -76,6 +80,7 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   },
   {
     id: 'selection-breakdown',
+    tab: 'overview',
     kind: 'donut',
     title: 'Selection breakdown',
     subtitle: 'Composition of what is selected right now. Empty selection is an empty state, not a zeroed chart.',
@@ -86,6 +91,7 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   },
   {
     id: 'material-area',
+    tab: 'quantities',
     kind: 'table',
     title: 'Quantity take-off — area (m²)',
     subtitle: 'Real, element-traceable, net of openings. Every row states its measurement rule.',
@@ -96,6 +102,7 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   },
   {
     id: 'material-treemap',
+    tab: 'quantities',
     kind: 'treemap',
     title: 'Material map — area (m²)',
     subtitle: 'Area encodes m². ⛔ One unit per map: mixing m² with m³ would make the rectangles a lie.',
@@ -106,6 +113,7 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   },
   {
     id: 'chapter-volume',
+    tab: 'quantities',
     kind: 'bar',
     title: 'Volume by chapter (m³)',
     subtitle: 'Σ of the m³ take-off lines per capítulo. m² and m lines are excluded, not converted.',
@@ -116,6 +124,7 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   },
   {
     id: 'linear-length',
+    tab: 'quantities',
     kind: 'table',
     title: 'Linear quantities (m)',
     subtitle: 'Take-off lines measured in metres — handrails, skirtings, linear runs.',
@@ -126,6 +135,7 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   },
   {
     id: 'counted-items',
+    tab: 'quantities',
     kind: 'table',
     title: 'Counted items (ud)',
     subtitle: 'Families present and counted but with no area, volume or length derived.',
@@ -147,6 +157,7 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   // "what relates to what", never "how many walls are there".
   {
     id: 'relationship-graph',
+    tab: 'relationships',
     kind: 'graph',
     title: 'Relationship graph',
     subtitle:
@@ -167,6 +178,7 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   },
   {
     id: 'relationship-coverage',
+    tab: 'relationships',
     kind: 'coverage',
     title: 'Relationship coverage — which edge families are real',
     subtitle:
@@ -184,6 +196,7 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   },
   {
     id: 'relationship-table',
+    tab: 'relationships',
     kind: 'table',
     title: 'Relations by family',
     subtitle: 'Edge count per typed relation. Click a row to select every element that participates in it.',
@@ -200,6 +213,7 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   },
   {
     id: 'takeoff-coverage',
+    tab: 'quantities',
     kind: 'coverage',
     title: 'Coverage — what is measured, and what is not',
     subtitle: '⭐ Not optional chrome. Every quantity figure on this surface is read against this card.',
@@ -215,6 +229,7 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
 const NOT_BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   {
     id: 'change-table',
+    tab: 'areas',
     kind: 'not-built',
     title: 'Change table — Type / Previous / Current / Δ',
     subtitle: 'Needs version-to-version element identity, which does not exist.',
@@ -240,6 +255,7 @@ const NOT_BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   },
   {
     id: 'gfa-nia',
+    tab: 'areas',
     kind: 'not-built',
     title: 'GFA / NIA and the GEA : NIA ratio',
     subtitle: 'Blocked on one decision: which measured-area standard PRYZM adopts.',
@@ -265,6 +281,7 @@ const NOT_BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   },
   {
     id: 'sia-416',
+    tab: 'areas',
     kind: 'not-built',
     title: 'SIA 416 surface table and ratio gauges',
     subtitle: 'Zero occurrences of SIA anywhere in this repository — checked, not assumed.',
@@ -289,6 +306,7 @@ const NOT_BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   },
   {
     id: 'unit-mix',
+    tab: 'areas',
     kind: 'not-built',
     title: 'Unit mix / bedroom distribution',
     subtitle: 'Bedroom counts are derivable. The unit that groups rooms into a dwelling is not.',
@@ -313,6 +331,7 @@ const NOT_BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
   },
   {
     id: 'tenure',
+    tab: 'areas',
     kind: 'not-built',
     title: 'Tenure distribution / affordable mix',
     subtitle: 'Tenure has no model anywhere in this repository. It is authored data, and it does not exist.',
@@ -346,23 +365,35 @@ export const WIDGET_CATALOGUE: readonly AnalysisWidgetDef[] = Object.freeze([...
  * honesty is visible on first open rather than discoverable only by adding a
  * widget. The other four refusals are in the picker.
  */
-export const DEFAULT_LAYOUT: readonly string[] = Object.freeze([
-  'element-count',
-  'category-donut',
-  'level-bar',
-  'material-area',
-  'material-treemap',
-  'takeoff-coverage',
-  'selection-breakdown',
-  'type-table',
-  // ⭐ The relational pair, on the default dashboard rather than hidden in the
-  // picker: the founder asked for this diagram by screenshot, and its coverage
-  // card ships beside it because a graph that shows four edge families and stays
-  // silent about the six it cannot show is a claim about the building.
-  'relationship-graph',
-  'relationship-coverage',
-  'change-table',
-]);
+/**
+ * The default arrangement, PER TAB. §ANALYSIS-TABS (L-3304).
+ *
+ * ⛔ Order within a tab is the render order; a widget absent from every list is
+ * in the picker, not on the dashboard. `DEFAULT_LAYOUT` below is retained as the
+ * flat concatenation because the v1→v2 layout migration and two tests read it —
+ * it is DERIVED from this table, never maintained beside it.
+ */
+export const DEFAULT_TAB_LAYOUT: Readonly<Record<AnalysisTabId, readonly string[]>> = Object.freeze({
+  overview: Object.freeze(['element-count', 'category-donut', 'level-bar', 'type-table', 'selection-breakdown']),
+  // ⭐ `takeoff-coverage` sits WITH the quantity figures it qualifies, not on a
+  // tab of its own. Its subtitle says every quantity on this surface is read
+  // against it; a coverage card one click away from the numbers it bounds is a
+  // coverage card that has stopped working.
+  quantities: Object.freeze(['material-area', 'material-treemap', 'takeoff-coverage', 'chapter-volume', 'linear-length', 'counted-items']),
+  // Same rule: the graph ships beside the card naming the six edge families it
+  // cannot draw.
+  relationships: Object.freeze(['relationship-graph', 'relationship-coverage', 'relationship-table']),
+  // Every widget here is NOT BUILT, and that is why they are together: a refusal
+  // card scattered among working figures reads as a broken widget, whereas four
+  // of them under a tab whose own lede says so reads as a declared boundary.
+  // This tab is also where the founder's IPMS/RICS/SIA decision lands.
+  areas: Object.freeze(['gfa-nia', 'sia-416', 'unit-mix', 'tenure', 'change-table']),
+});
+
+/** Flat order across every tab. DERIVED — do not hand-maintain. */
+export const DEFAULT_LAYOUT: readonly string[] = Object.freeze(
+  ANALYSIS_TABS.flatMap((t) => [...DEFAULT_TAB_LAYOUT[t.id]]),
+);
 
 export function widgetById(id: string): AnalysisWidgetDef | undefined {
   return WIDGET_CATALOGUE.find((w) => w.id === id);

@@ -42,14 +42,71 @@
 
 import { withHandlerSpan } from '@pryzm/plugin-sdk';
 
-import { DEFAULT_LAYOUT, widgetById } from './widgetCatalogue';
+import { ANALYSIS_TABS, type AnalysisTabId } from './AnalysisTypes';
+import { DEFAULT_TAB_LAYOUT, widgetById } from './widgetCatalogue';
 
 const LS_PREFIX = 'pryzm.analysis.layout.';
 
 export interface AnalysisLayout {
+  readonly version: 2;
+  /** Widget ids in render order, PER TAB. May contain ids this build does not know. */
+  readonly tabs: Readonly<Record<AnalysisTabId, readonly string[]>>;
+  /** The tab the user was last on. Restored on reopen. */
+  readonly activeTab: AnalysisTabId;
+}
+
+/** The shape written by builds before §ANALYSIS-TABS. Read-only, never written. */
+interface AnalysisLayoutV1 {
   readonly version: 1;
-  /** Widget ids in render order. May contain ids this build does not know. */
   readonly widgets: readonly string[];
+}
+
+/**
+ * What comes back off `localStorage` or a snapshot: UNTRUSTED JSON that may be
+ * either version, or neither.
+ *
+ * ⛔ NOT `Partial<AnalysisLayout & AnalysisLayoutV1>`. That intersects
+ * `version: 2` with `version: 1`, which is `never`, which makes the whole
+ * object `never` — so every field read off it is an error and, worse, a
+ * narrowing that LOOKED like it typed the parse actually typed nothing. Every
+ * field here is `unknown` because that is what a JSON.parse result is, and it
+ * forces the checks below to be real ones.
+ */
+interface StoredLayoutShape {
+  version?: unknown;
+  widgets?: unknown;
+  tabs?: unknown;
+  activeTab?: unknown;
+}
+
+function defaults(): AnalysisLayout {
+  const tabs = {} as Record<AnalysisTabId, readonly string[]>;
+  for (const t of ANALYSIS_TABS) tabs[t.id] = [...DEFAULT_TAB_LAYOUT[t.id]];
+  return { version: 2, tabs, activeTab: 'overview' };
+}
+
+/**
+ * Migrate a v1 flat arrangement into tabs. §ANALYSIS-TABS (L-3304).
+ *
+ * ⛔ NOTHING IS DROPPED, including ids this build has no widget for — the rule
+ * this module already carried ("a dropped widget is a lost decision") does not
+ * get weaker because the container changed shape. A known id goes to its
+ * catalogue tab; an UNKNOWN id cannot be placed by lookup, so it goes to
+ * `overview` and renders there as a named placeholder. Putting it nowhere would
+ * silently discard an arrangement the user made, which is the one outcome this
+ * function exists to prevent.
+ *
+ * ⚠ A v1 layout cannot express which tab was active, so the migration lands on
+ * `overview`. That is a real answer, not a guess about the user's intent.
+ */
+export function migrateV1(v1: AnalysisLayoutV1): AnalysisLayout {
+  const tabs = {} as Record<AnalysisTabId, string[]>;
+  for (const t of ANALYSIS_TABS) tabs[t.id] = [];
+  for (const id of v1.widgets) {
+    const def = widgetById(id);
+    (tabs[def?.tab ?? 'overview'] ??= []).push(id);
+  }
+  return { version: 2, tabs, activeTab: 'overview' };
 }
 
 function keyFor(projectId: string | null): string {
@@ -70,25 +127,55 @@ export function loadLayout(projectId: string | null = currentProjectId()): Analy
   return withHandlerSpan('pryzm.analysis.layout.load', { 'pryzm.surface': 'analysis' }, () => {
     try {
       const raw = localStorage.getItem(keyFor(projectId));
-      if (!raw) return { version: 1, widgets: [...DEFAULT_LAYOUT] };
-      const parsed = JSON.parse(raw) as Partial<AnalysisLayout>;
-      const widgets = Array.isArray(parsed.widgets)
-        ? parsed.widgets.filter((w): w is string => typeof w === 'string')
-        : null;
-      // An empty stored array is a REAL arrangement — the user removed every
-      // widget — and must not silently become the default again.
-      return widgets ? { version: 1, widgets } : { version: 1, widgets: [...DEFAULT_LAYOUT] };
+      if (!raw) return defaults();
+      const parsed = JSON.parse(raw) as StoredLayoutShape;
+
+      // A v1 arrangement in storage is the COMMON case on the first run after
+      // this change, not an edge case — every existing user has one.
+      if (Array.isArray(parsed.widgets)) {
+        return migrateV1({
+          version: 1,
+          widgets: (parsed.widgets as unknown[]).filter((w): w is string => typeof w === 'string'),
+        });
+      }
+
+      const stored = parsed.tabs as Record<string, unknown> | null | undefined;
+      if (stored == null || typeof stored !== 'object') return defaults();
+      const tabs = {} as Record<AnalysisTabId, readonly string[]>;
+      for (const t of ANALYSIS_TABS) {
+        const list = stored[t.id];
+        // ⛔ An empty stored array is a REAL arrangement — the user removed every
+        // widget from that tab — and must not silently become the default again.
+        // `undefined` is the different answer "this tab was never stored", which
+        // happens when a build adds a tab, and THAT takes the default.
+        tabs[t.id] = Array.isArray(list)
+          ? list.filter((w): w is string => typeof w === 'string')
+          : [...DEFAULT_TAB_LAYOUT[t.id]];
+      }
+      const active = ANALYSIS_TABS.some((t) => t.id === parsed.activeTab)
+        ? (parsed.activeTab as AnalysisTabId)
+        : 'overview';
+      return { version: 2, tabs, activeTab: active };
     } catch {
-      return { version: 1, widgets: [...DEFAULT_LAYOUT] };
+      return defaults();
     }
   });
+}
+
+/** The default arrangement, for the surface's reset action. */
+export function defaultLayout(): AnalysisLayout {
+  return defaults();
 }
 
 /** Persist a layout. Failure is reported, never swallowed into a false success. */
 export function saveLayout(layout: AnalysisLayout, projectId: string | null = currentProjectId()): boolean {
   return withHandlerSpan(
     'pryzm.analysis.layout.save',
-    { 'pryzm.surface': 'analysis', 'pryzm.analysis.widgets': layout.widgets.length },
+    {
+      'pryzm.surface': 'analysis',
+      'pryzm.analysis.widgets': ANALYSIS_TABS.reduce((n, t) => n + layout.tabs[t.id].length, 0),
+      'pryzm.analysis.active_tab': layout.activeTab,
+    },
     () => {
       try {
         localStorage.setItem(keyFor(projectId), JSON.stringify(layout));
@@ -115,9 +202,21 @@ export function serialize(projectId: string | null = currentProjectId()): Analys
 /** Rehydrate from a snapshot. ⚠ The other half of the L-3007 seam. */
 export function hydrate(data: unknown, projectId: string | null = currentProjectId()): boolean {
   return withHandlerSpan('pryzm.analysis.layout.hydrate', { 'pryzm.surface': 'analysis' }, () => {
-    const d = data as Partial<AnalysisLayout> | null | undefined;
-    if (!d || !Array.isArray(d.widgets)) return false;
-    return saveLayout({ version: 1, widgets: d.widgets.filter((w): w is string => typeof w === 'string') }, projectId);
+    const d = data as StoredLayoutShape | null | undefined;
+    if (!d) return false;
+    // Accepts BOTH shapes: a snapshot written by an older build carries v1.
+    if (Array.isArray(d.widgets)) {
+      return saveLayout(migrateV1({ version: 1, widgets: (d.widgets as unknown[]).filter((w): w is string => typeof w === 'string') }), projectId);
+    }
+    const dt = d.tabs as Record<string, unknown> | null | undefined;
+    if (dt == null || typeof dt !== 'object') return false;
+    const tabs = {} as Record<AnalysisTabId, readonly string[]>;
+    for (const t of ANALYSIS_TABS) {
+      const list = dt[t.id];
+      tabs[t.id] = Array.isArray(list) ? list.filter((w): w is string => typeof w === 'string') : [...DEFAULT_TAB_LAYOUT[t.id]];
+    }
+    const active = ANALYSIS_TABS.some((t) => t.id === d.activeTab) ? (d.activeTab as AnalysisTabId) : 'overview';
+    return saveLayout({ version: 2, tabs, activeTab: active }, projectId);
   });
 }
 
@@ -126,5 +225,5 @@ export function hydrate(data: unknown, projectId: string | null = currentProject
  * placeholders — never removed, because a dropped widget is a lost decision.
  */
 export function unknownWidgetIds(layout: AnalysisLayout): readonly string[] {
-  return layout.widgets.filter((id) => widgetById(id) === undefined);
+  return ANALYSIS_TABS.flatMap((t) => layout.tabs[t.id]).filter((id) => widgetById(id) === undefined);
 }

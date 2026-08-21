@@ -537,4 +537,90 @@ export const ANALYSIS_SURFACE_STYLES = `
   display: inline-block;
   flex: 0 0 auto;
 }
+
+/* -- Tab strip §ANALYSIS-TABS (L-3304) --------------------------------------
+   Sixteen widgets on one scroll was the founder's report. The strip sits between
+   the header and the status line because the status line reports the TAB, not
+   the surface -- putting it above would make it read as a claim about all four.
+   NO BACKTICKS IN THIS BLOCK: it lives inside a template literal, and a backtick
+   in a CSS comment terminates the literal mid-file. That is what broke this file
+   on the first attempt, and it is the same trap that ate two commit messages
+   earlier in this session. */
+.anl-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-bg);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.anl-tabs::-webkit-scrollbar { display: none; }
+
+.anl-tab {
+  appearance: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px 8px;
+  font-family: var(--app-font);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--app-text-muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+  transition: color 0.13s, border-color 0.13s;
+}
+.anl-tab:hover { color: var(--app-text); }
+.anl-tab--active {
+  color: var(--app-accent);
+  border-bottom-color: var(--app-accent);
+}
+
+.anl-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  background: var(--app-wash-hover);
+  color: var(--app-text-muted);
+}
+.anl-tab--active .anl-tab-count {
+  background: color-mix(in srgb, var(--app-accent) 14%, transparent);
+  color: var(--app-accent);
+}
+
+/* A tab on which EVERY widget is a refusal card says so before it is opened. */
+.anl-tab-nb {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--app-warn, #b45309) 13%, transparent);
+  color: var(--app-warn, #b45309);
+}
+
+.anl-tab-lede {
+  padding: 8px 14px 0;
+  font-family: var(--app-font);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--app-text-muted);
+  flex-shrink: 0;
+}
+
 `;

@@ -533,6 +533,7 @@ export function runQuery(query: AnalysisQuery, selectedIds: readonly string[] = 
           computedAt: Date.now(),
           computedOverCount: g.totalNodes,
           complete: g.complete,
+          incompleteReason: g.incompleteReason,
           elapsedMs: Date.now() - t0,
         };
         return result;
@@ -579,6 +580,14 @@ export function runQuery(query: AnalysisQuery, selectedIds: readonly string[] = 
         computedAt: Date.now(),
         computedOverCount: over,
         complete,
+        // §ANALYSIS-INCOMPLETE-REASON (L-3303). For census and take-off the ONE
+        // cause is an unreadable source, so the reason names the stores by name —
+        // "the wall store was not published" is checkable; "0 sources" is not.
+        incompleteReason: complete
+          ? []
+          : unreachable.length > 0
+            ? [`${unreachable.length} declared source(s) could not be read: ${unreachable.join(', ')}`]
+            : ['the source reported an incomplete read but named no unreadable store'],
         elapsedMs: Date.now() - t0,
       };
       if (cacheable) _queryCache.set(query.id, result);
