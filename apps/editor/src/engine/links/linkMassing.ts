@@ -67,7 +67,16 @@ export interface LinkMassingResult {
     readonly elementsConsidered: number;
 }
 
-/** Anything with a `levelId` and a way to contribute XZ extent. */
+/**
+ * Anything with a `levelId` and a way to contribute XZ extent.
+ *
+ * ⚠ TWO POINT CONVENTIONS REACH THIS FILE, AND CONFLATING THEM WAS §L-3151.
+ * `ProjectSerializer` emits Vec3 `{x,y,z}` for placements (`stripVec3`, :541) and
+ * Vec2 `{x,y}` for PLAN OUTLINES (`stripVec2`, :555) — and in a Vec2 the `y` IS
+ * the plan Z. A reader that takes `p.z` off a slab polygon gets `undefined` on
+ * every point, drops them all, and draws the building smaller than it is. So the
+ * two conventions get two accessors below, not one that guesses.
+ */
 interface Pt { x?: unknown; y?: unknown; z?: unknown }
 
 /** Below this a band is a plane, not a volume, and is dropped rather than clamped. */
@@ -75,6 +84,12 @@ const MIN_BAND_EXTENT_M = 1e-3;
 
 /** Default storey height used only when a level declares none. Named, not magic. */
 const FALLBACK_LEVEL_HEIGHT_M = 3.0;
+
+/**
+ * The keys under which the serializer emits a PLAN OUTLINE, top-level or nested
+ * under `footprint`. One list, read at both sites, so the two cannot drift.
+ */
+const PLAN_OUTLINE_KEYS = ['polygon', 'points', 'boundary', 'outline'] as const;
 
 function num(v: unknown): number | null {
     return typeof v === 'number' && Number.isFinite(v) ? v : null;
@@ -88,15 +103,42 @@ class Extent {
     maxZ = Number.NEGATIVE_INFINITY;
     count = 0;
 
-    addPoint(p: Pt | null | undefined): void {
-        if (p == null || typeof p !== 'object') return;
-        const x = num((p as Pt).x);
-        const z = num((p as Pt).z);
-        if (x === null || z === null) return;
+    /**
+     * Fold a Vec3 PLACEMENT — `{x, y, z}`, where `y` is elevation and `z` is plan
+     * depth. Used for `position` (columns, slabs) and wall baselines.
+     *
+     * Strict about `z`: on a placement, a missing `z` genuinely means "no plan
+     * depth was recorded", and borrowing `y` would silently substitute an
+     * ELEVATION for a plan coordinate. Returns whether the point was accepted, so
+     * `contributingElements` can count what actually shaped the band (§L-3153).
+     */
+    addPoint(p: Pt | null | undefined): boolean {
+        if (p == null || typeof p !== 'object') return false;
+        return this._fold(num((p as Pt).x), num((p as Pt).z));
+    }
+
+    /**
+     * Fold a PLAN-OUTLINE vertex — a slab/roof footprint point, which the
+     * serializer emits as Vec2 `{x, y}` (`stripVec2`, `ProjectSerializer.ts:555`)
+     * where `y` IS the plan Z.
+     *
+     * `z ?? y` is correct for BOTH shapes and is why this is one accessor rather
+     * than two: a Vec3 outline point has a real `z` and uses it; a Vec2 has none
+     * and falls through to `y`. §L-3151.
+     */
+    addPlanPoint(p: Pt | null | undefined): boolean {
+        if (p == null || typeof p !== 'object') return false;
+        const q = p as Pt;
+        return this._fold(num(q.x), num(q.z) ?? num(q.y));
+    }
+
+    private _fold(x: number | null, z: number | null): boolean {
+        if (x === null || z === null) return false;
         if (x < this.minX) this.minX = x;
         if (x > this.maxX) this.maxX = x;
         if (z < this.minZ) this.minZ = z;
         if (z > this.maxZ) this.maxZ = z;
+        return true;
     }
 
     /** Count ELEMENTS, not points — the report says "how much of the model did I see". */
@@ -132,31 +174,71 @@ function asArray(v: unknown): readonly Record<string, unknown>[] {
 /**
  * Fold one element's geometry into its level's extent.
  *
- * Handles the three shapes the serializer actually emits, in the order of how much
- * of a building they describe:
- *   · `baseLine: [Vec3, Vec3]`  — walls (`ProjectSerializer.ts:394-397 stripBaseline`)
- *   · `polygon` / `points` / `boundary`: Vec3[] — slabs, roofs, floors
- *   · `position: Vec3`          — columns and other point-placed elements
+ * ⚠ THIS COMMENT USED TO BE WRONG, AND THE CODE MATCHED THE COMMENT (§L-3151/2).
+ * It said `polygon` was `Vec3[]`. It is not: `serializeSlab` emits
+ * `polygon: s.polygon.map(stripVec2)` — **Vec2 `{x, y}`** — and in a Vec2 the `y`
+ * IS the plan Z. Reading `p.z` off it yielded `undefined` for every vertex, so a
+ * slab contributed nothing and a slab-only level (a podium, a plinth, a roof
+ * terrace) produced NO massing band at all. The linked building simply rendered
+ * smaller than it is, plausibly, with no error — the silent mis-alignment class
+ * ADR-0346 D4 exists to refuse.
+ *
+ * The four shapes the serializer ACTUALLY emits, measured 2026-08-21:
+ *   · `baseLine: [Vec3, Vec3]` — walls        (`ProjectSerializer.ts:560-563`)
+ *   · `polygon: Vec2[]`        — slabs        (`:757`, via `stripVec2` `:555-558`)
+ *   · `footprint: { polygon: Vec2[], centroid }` — roofs, **NESTED** (`:847-852`)
+ *   · `position: Vec3`         — columns, slabs (`:780`, `:756`)
+ *
+ * A roof carries NO top-level `position` and no top-level `polygon` unless one was
+ * authored, which is why the nested branch is load-bearing rather than defensive.
  */
 function foldElement(el: Record<string, unknown>, extent: Extent): void {
-    let touched = false;
+    // §L-3153 — `accepted`, not `touched`. The old flag was set whenever a geometry
+    // KEY existed, so an element whose every point was rejected still counted as
+    // having shaped the band. A diagnostic that cannot be wrong cannot be trusted
+    // ([[probe-can-be-wrong-three-ways]]).
+    let accepted = false;
 
+    // Walls: `baseLine: [Vec3, Vec3]` (`ProjectSerializer.ts:560-563`).
     const baseLine = el['baseLine'];
     if (Array.isArray(baseLine)) {
-        for (const p of baseLine) { extent.addPoint(p as Pt); touched = true; }
+        for (const p of baseLine) { if (extent.addPoint(p as Pt)) accepted = true; }
     }
 
-    for (const key of ['polygon', 'points', 'boundary', 'outline'] as const) {
+    // Slabs / roofs / floors: plan outlines. Vec2 OR Vec3 — `addPlanPoint` reads both.
+    for (const key of PLAN_OUTLINE_KEYS) {
         const poly = el[key];
         if (Array.isArray(poly)) {
-            for (const p of poly) { extent.addPoint(p as Pt); touched = true; }
+            for (const p of poly) { if (extent.addPlanPoint(p as Pt)) accepted = true; }
         }
     }
 
-    const pos = el['position'];
-    if (pos != null && typeof pos === 'object') { extent.addPoint(pos as Pt); touched = true; }
+    // §L-3152 — roofs nest their outline: `footprint: { polygon, centroid }`
+    // (`serializeRoof`, `ProjectSerializer.ts:847-852`). A roof also carries NO
+    // top-level `position`, so before this branch a roof contributed NOTHING and a
+    // roof-only level was reported "skipped" — the linked building lost its top.
+    const footprint = el['footprint'];
+    if (footprint != null && typeof footprint === 'object') {
+        const fp = footprint as Record<string, unknown>;
+        for (const key of PLAN_OUTLINE_KEYS) {
+            const poly = fp[key];
+            if (Array.isArray(poly)) {
+                for (const p of poly) { if (extent.addPlanPoint(p as Pt)) accepted = true; }
+            }
+        }
+        // A footprint with only a centroid still says WHERE the roof is, even though
+        // one point alone cannot make a band real. Folded so it can combine with
+        // siblings on the same level rather than being discarded.
+        if (extent.addPlanPoint(fp['centroid'] as Pt)) accepted = true;
+    }
 
-    if (touched) extent.noteElement();
+    // Columns and other point-placed elements: `position: Vec3`.
+    const pos = el['position'];
+    if (pos != null && typeof pos === 'object') {
+        if (extent.addPoint(pos as Pt)) accepted = true;
+    }
+
+    if (accepted) extent.noteElement();
 }
 
 /**
