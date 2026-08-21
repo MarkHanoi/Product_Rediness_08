@@ -22,6 +22,7 @@ import { UpdateViewportScaleCommand } from '@pryzm/command-registry';
 // pdfjs-dist and web-ifc, and the sheet editor is a lazily-loaded chunk.
 import { composeViewportSvg, type ComposedViewportSvg } from '@pryzm/file-format/sheets';
 import type { VpFocusState, FocusOpts } from './SheetEditorContracts';
+import type { SheetProjectionStatus } from './SheetProjectionOrchestrator';
 
 // ── SC-3: Grid overlay ────────────────────────────────────────────────────
 
@@ -183,20 +184,41 @@ export function renderThumbnail(
 }
 
 /**
- * Draws a "Projecting…" placeholder on `canvas` while a background
- * EdgeProjector projection is in flight.
+ * Draws the projection state of a sheet viewport that has no drawing yet.
+ *
+ * ⚠ §SHEET-INACTIVE-VIEW-NEVER-PROJECTS (L-1841) — this function used to take
+ * no state at all. It unconditionally painted *"Generating projection…"* over a
+ * progress bar hard-coded to **40%** (`fillRect(…, w * 0.7 * 0.4, 3)`) — a
+ * number that came from nowhere, tracked nothing, and could never advance. It
+ * was called for EVERY projectable viewport without a cached drawing, including
+ * the overwhelmingly common case where no projection had been requested and
+ * none ever would be. That is the founder's frozen bar, and it is
+ * [context-data-honesty] exactly: "not requested", "in flight" and "failed"
+ * rendered as the same pixels.
+ *
+ * The progress bar is now drawn ONLY for `'in-flight'`, and even then as an
+ * INDETERMINATE track rather than a fake percentage — nothing here can measure
+ * projection progress, so nothing here may imply it. Every terminal state gets
+ * its own words and its own colour, and no bar at all.
  */
-export function drawProjectingState(canvas: HTMLCanvasElement, viewType: string): void {
+export function drawProjectingState(
+    canvas:   HTMLCanvasElement,
+    viewType: string,
+    status:   SheetProjectionStatus,
+): void {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const w = canvas.width;
     const h = canvas.height;
 
-    ctx.fillStyle = '#f4f7fb';
+    // Terminal-negative states get a distinct wash so they do not read as
+    // "nearly done" at a glance on a busy sheet.
+    const isProblem = status === 'failed' || status === 'unavailable';
+    ctx.fillStyle = isProblem ? '#fdf6f6' : '#f4f7fb';
     ctx.fillRect(0, 0, w, h);
 
-    ctx.strokeStyle = '#d5dce8';
+    ctx.strokeStyle = isProblem ? '#eccfcf' : '#d5dce8';
     ctx.lineWidth   = 0.5;
     const step = 16;
     for (let x = -h; x < w + h; x += step) {
@@ -208,19 +230,49 @@ export function drawProjectingState(canvas: HTMLCanvasElement, viewType: string)
 
     const iconText = viewType === 'elevation' ? '↕' : viewType === 'section' ? '✂' : '⊞';
     ctx.font          = `${Math.round(h * 0.28)}px sans-serif`;
-    ctx.fillStyle     = '#b0bdc8';
+    ctx.fillStyle     = isProblem ? '#e0b4b4' : '#b0bdc8';
     ctx.textAlign     = 'center';
     ctx.textBaseline  = 'middle';
     ctx.fillText(iconText, w / 2, h * 0.42);
 
-    ctx.font      = `${Math.max(9, Math.round(h * 0.1))}px sans-serif`;
-    ctx.fillStyle = '#8898aa';
-    ctx.fillText('Generating projection…', w / 2, h * 0.64);
+    let label: string;
+    let labelColor: string;
+    switch (status) {
+        case 'in-flight':
+            label = 'Generating projection…'; labelColor = '#8898aa'; break;
+        case 'no-geometry':
+            label = 'Nothing visible in this view'; labelColor = '#8898aa'; break;
+        case 'unavailable':
+            label = 'Projection unavailable'; labelColor = '#b4564f'; break;
+        case 'failed':
+            label = 'Projection failed'; labelColor = '#b4564f'; break;
+        case 'ready':
+            // The drawing landed between the request and this paint. The next
+            // canvas rebuild composes it; say nothing misleading meanwhile.
+            label = 'Loading drawing…'; labelColor = '#8898aa'; break;
+        default:
+            label = 'No drawing for this view'; labelColor = '#8898aa'; break;
+    }
 
-    ctx.fillStyle = '#c4d4e8';
-    ctx.fillRect(w * 0.15, h - 6, w * 0.7, 3);
-    ctx.fillStyle = '#4b7cf3';
-    ctx.fillRect(w * 0.15, h - 6, w * 0.7 * 0.4, 3);
+    ctx.font      = `${Math.max(9, Math.round(h * 0.1))}px sans-serif`;
+    ctx.fillStyle = labelColor;
+    ctx.fillText(label, w / 2, h * 0.64);
+
+    // A bar ONLY while work is genuinely in flight, and indeterminate: a track
+    // with a fixed-width shuttle whose position is derived from the clock, so
+    // it never claims a completion fraction it cannot know.
+    if (status === 'in-flight') {
+        const trackX = w * 0.15;
+        const trackW = w * 0.7;
+        ctx.fillStyle = '#c4d4e8';
+        ctx.fillRect(trackX, h - 6, trackW, 3);
+
+        const shuttleW = trackW * 0.25;
+        const phase    = (Date.now() % 1800) / 1800;              // 0‥1
+        const travel   = (trackW - shuttleW) * (phase < 0.5 ? phase * 2 : (1 - phase) * 2);
+        ctx.fillStyle  = '#4b7cf3';
+        ctx.fillRect(trackX + travel, h - 6, shuttleW, 3);
+    }
 }
 
 // ── SC-11: Dimension annotations ──────────────────────────────────────────

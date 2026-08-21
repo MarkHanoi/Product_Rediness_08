@@ -167,6 +167,20 @@ export class SheetEditorPanel {
             onDrawingRefreshed(syntheticEvt, this._activeSheetId, this._previewCanvases, renderThumbnail);
         });
 
+        // §SHEET-INACTIVE-VIEW-NEVER-PROJECTS (L-1841) — `svp:drawing-refreshed`
+        // fires ONLY when a projection SUCCEEDS. A request that ends in
+        // 'no-geometry', 'unavailable' or 'failed' emits nothing, so without
+        // this subscription the viewport would keep the in-flight placeholder it
+        // was painted with and the founder's frozen bar would survive the fix.
+        // A terminal outcome is news, and the surface has to hear it.
+        sheetProjectionOrchestrator.onStatusChanged((viewId) => {
+            if (!this._activeSheetId) return;
+            const sheet = sheetStore.get(this._activeSheetId);
+            if (sheet && sheet.viewports.some(v => v.viewId === viewId)) {
+                this._refreshCanvas(sheet);
+            }
+        });
+
         // Live refresh on store events
         window.addEventListener('sd:sheet-created', (e: Event) => {
             const id = (e as CustomEvent).detail?.sheetId;
@@ -944,11 +958,28 @@ export class SheetEditorPanel {
             } else {
                 const isPlan       = ['plan', 'ceiling-plan', 'structural-plan'].includes(view.viewType);
                 const isProjectable = ['elevation', 'section', 'detail'].includes(view.viewType);
+
+                // §SHEET-INACTIVE-VIEW-NEVER-PROJECTS (L-1841) — REQUEST AT THE
+                // POINT OF CONSUMPTION. `orchestrate()` runs only in `open()`,
+                // over the viewports that existed at that instant, so a view
+                // DROPPED ONTO AN ALREADY-OPEN SHEET was never asked for — the
+                // founder's East Elevation, added after `Opened sheet:…`, and
+                // the reason its placeholder never resolved. A viewport being
+                // rendered is the honest trigger: if it is on screen, it has
+                // asked. `requestFor` is idempotent and de-duplicates by
+                // (viewId, cache generation), so the per-refresh call is cheap
+                // and the projector is hit at most once per invalidation.
+                const projStatus = isProjectable
+                    ? sheetProjectionOrchestrator.requestFor(view.id)
+                    : 'not-projectable';
+
                 getFrameScheduler().scheduleOnce('sheet-editor-attach-preview', () => {
                     if (isPlan) {
                         viewportPreviewRenderer.attach(view, previewCanvas);
                     } else if (isProjectable) {
-                        drawProjectingState(previewCanvas, view.viewType);
+                        // Renders the REAL status — in-flight, no-geometry,
+                        // unavailable or failed — never a fixed 40% bar.
+                        drawProjectingState(previewCanvas, view.viewType, projStatus);
                     } else {
                         viewportPreviewRenderer.attach(view, previewCanvas);
                     }

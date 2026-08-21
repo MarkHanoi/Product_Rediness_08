@@ -64,6 +64,14 @@ class ViewportPreviewRenderer {
     private readonly _registry = new Map<string, Set<HTMLCanvasElement>>();
     private readonly _viewDefs = new Map<string, ViewDefinition>();
     private _3dRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+    /**
+     * §SHEET-3D-CAPTURE-IS-NOT-A-DRAWING (L-1842) — last frame captured while
+     * the live 3D surface genuinely had content. Used while that surface is
+     * hidden (sheet editor open ⇒ container `display:none` ⇒ the render pass is
+     * refused, L-1470). Downscaled to ≤512px wide; one shared canvas, since
+     * every 3D viewport captures the same renderer.
+     */
+    private _last3dCapture: HTMLCanvasElement | null = null;
 
     constructor() {
         this._bindEvents();
@@ -203,6 +211,51 @@ class ViewportPreviewRenderer {
         }
     }
 
+    /**
+     * §SHEET-3D-CAPTURE-IS-NOT-A-DRAWING (L-1842) — a 3D viewport on a sheet is
+     * a RASTER capture of the live renderer, and it is the only viewport kind
+     * that is. Plan / elevation / section resolve to real vector linework via
+     * the TechnicalDrawing + `ViewportSvgComposer` path; there is no edge
+     * projection for `3d` / `render` / `walkthrough` (`SheetProjectionOrchestrator`
+     * excludes them by design), so this method cannot produce, and must not
+     * imply, drawing parity with the plan.
+     *
+     * ⚠ THE FOUNDER'S NEAR-BLACK NAVY BOX. Two faults compounded:
+     *
+     *  1. **The blank-detector counted ALPHA.** The probe walked the raw RGBA
+     *     bytes and accepted the frame on `data[i] > 0` for ANY index —
+     *     including every 4th byte, the alpha channel. A fully opaque BLACK
+     *     canvas has alpha 255 in every pixel, so `hasContent` was `true` for an
+     *     image with no content whatsoever. It could only ever have returned
+     *     false for a fully TRANSPARENT surface. That is
+     *     [context-data-honesty] in its purest form: "the renderer drew
+     *     nothing" and "the renderer drew something" had the same value.
+     *  2. **`#0f1520` is the navy.** Having accepted the blank frame, the code
+     *     filled the viewport with `#0f1520` and drew the empty capture over
+     *     it. The founder was looking at this literal constant.
+     *
+     * The upstream cause of the blankness is real and already diagnosed:
+     * while the sheet editor is open the 3D container is `display:none`, so
+     * `renderer-three` refuses the pass (§SURFACE-WITH-NO-AREA-REFUSES-THE-PASS,
+     * L-1470) and the framebuffer is incomplete. Note the CANVAS ELEMENT keeps
+     * its non-zero `width`/`height` backing store — only the drawing surface is
+     * unusable — which is exactly why the `src.width > 0` guard above did not
+     * catch it either.
+     *
+     * WHY A CACHED CAPTURE, and not an offscreen re-render: re-rendering the
+     * scene into a correctly-sized offscreen target from HERE would require a
+     * renderer handle and a render pass from L2 `core-app-model`, which owns
+     * neither — P2 keeps THREE inside `@pryzm/renderer-three`, and this module
+     * is a read-only presenter (C01 §2). Re-rendering also costs a full frame
+     * per viewport per refresh, on a surface the user is not looking at. So we
+     * keep the LAST CAPTURE TAKEN WHILE THE 3D VIEW WAS GENUINELY VISIBLE and
+     * present that: it is by construction "what you get once you open the view
+     * itself", because it is literally a frame from when the view was open.
+     *
+     * And when there is no such frame — the user has never opened the 3D view
+     * this session — we say so, in words. A black rectangle presented as the
+     * view is the same lie as a bitmap presented as a drawing.
+     */
     private _render3DCapture(
         ctx:     CanvasRenderingContext2D,
         viewDef: ViewDefinition,
@@ -213,48 +266,138 @@ class ViewportPreviewRenderer {
         const obcCanvas       = (window as any).obcRendererCanvas as HTMLCanvasElement | undefined;
         const src: HTMLCanvasElement | undefined = pryzmCanvas ?? obcCanvas;
 
-        if (src && src.width > 0 && src.height > 0) {
-            let hasContent = false;
-            try {
-                const tmpCanvas = document.createElement('canvas');
-                const sw = Math.min(32, src.width);
-                const sh = Math.min(32, src.height);
-                const sx = Math.max(0, Math.floor((src.width  - sw) / 2));
-                const sy = Math.max(0, Math.floor((src.height - sh) / 2));
-                tmpCanvas.width  = sw;
-                tmpCanvas.height = sh;
-                const tmpCtx = tmpCanvas.getContext('2d')!;
-                tmpCtx.drawImage(src, sx, sy, sw, sh, 0, 0, sw, sh);
-                const { data } = tmpCtx.getImageData(0, 0, sw, sh);
-                for (let i = 0; i < data.length; i++) {
-                    if ((data[i] ?? 0) > 0) { hasContent = true; break; }
-                }
-            } catch {
-                hasContent = true;
-            }
-
-            if (hasContent) {
-                ctx.fillStyle = '#0f1520';
-                ctx.fillRect(0, 0, w, h);
-
-                const srcAspect = src.width / src.height;
-                const dstAspect = w / h;
-                let dw = w, dh = h, dx = 0, dy = 0;
-                if (srcAspect > dstAspect) {
-                    dh = w / srcAspect;
-                    dy = (h - dh) / 2;
-                } else {
-                    dw = h * srcAspect;
-                    dx = (w - dw) / 2;
-                }
-
-                ctx.drawImage(src, dx, dy, dw, dh);
-                this._drawViewTypeBadge(ctx, viewDef.viewType, w, h);
-                return;
-            }
+        if (src && src.width > 0 && src.height > 0 && this._surfaceHasContent(src)) {
+            this._remember3DCapture(src);
+            this._paint3DCapture(ctx, viewDef, src, w, h);
+            return;
         }
 
-        this._renderPlaceholder(ctx, viewDef, w, h);
+        // The live surface is unusable or blank. Fall back to the most recent
+        // frame captured while it WAS usable, if we have one.
+        const cached = this._last3dCapture;
+        if (cached && cached.width > 0 && cached.height > 0) {
+            this._paint3DCapture(ctx, viewDef, cached, w, h);
+            return;
+        }
+
+        this._render3DUnavailable(ctx, viewDef, w, h);
+    }
+
+    /**
+     * True only if the surface carries actual COLOUR.
+     *
+     * Alpha is deliberately skipped (`i % 4 === 3`): an opaque black frame has
+     * alpha 255 everywhere and would otherwise pass as content — the bug this
+     * replaces. A cross-origin/tainted surface throws on `getImageData`; we
+     * treat that as content, because refusing to show a frame we merely cannot
+     * INSPECT would be its own false negative.
+     */
+    private _surfaceHasContent(src: HTMLCanvasElement): boolean {
+        try {
+            const sw = Math.min(32, src.width);
+            const sh = Math.min(32, src.height);
+            const sx = Math.max(0, Math.floor((src.width  - sw) / 2));
+            const sy = Math.max(0, Math.floor((src.height - sh) / 2));
+            const tmpCanvas = document.createElement('canvas');
+            tmpCanvas.width  = sw;
+            tmpCanvas.height = sh;
+            const tmpCtx = tmpCanvas.getContext('2d');
+            if (!tmpCtx) return true;
+            tmpCtx.drawImage(src, sx, sy, sw, sh, 0, 0, sw, sh);
+            const { data } = tmpCtx.getImageData(0, 0, sw, sh);
+            for (let i = 0; i < data.length; i++) {
+                if (i % 4 === 3) continue;              // skip alpha
+                if ((data[i] ?? 0) > 8) return true;    // >8 tolerates codec noise
+            }
+            return false;
+        } catch {
+            return true;
+        }
+    }
+
+    /** Keep a downscaled copy of a known-good frame for use while 3D is hidden. */
+    private _remember3DCapture(src: HTMLCanvasElement): void {
+        try {
+            const maxW  = 512;
+            const scale = Math.min(1, maxW / src.width);
+            const cw    = Math.max(1, Math.round(src.width  * scale));
+            const ch    = Math.max(1, Math.round(src.height * scale));
+            const store = this._last3dCapture ?? document.createElement('canvas');
+            if (store.width !== cw)  store.width  = cw;
+            if (store.height !== ch) store.height = ch;
+            const sctx = store.getContext('2d');
+            if (!sctx) return;
+            sctx.clearRect(0, 0, cw, ch);
+            sctx.drawImage(src, 0, 0, cw, ch);
+            this._last3dCapture = store;
+        } catch {
+            /* a failed remember must never break the paint */
+        }
+    }
+
+    /** Aspect-preserving letterbox blit of `src` into the viewport. */
+    private _paint3DCapture(
+        ctx:     CanvasRenderingContext2D,
+        viewDef: ViewDefinition,
+        src:     HTMLCanvasElement,
+        w:       number,
+        h:       number,
+    ): void {
+        ctx.fillStyle = '#0f1520';
+        ctx.fillRect(0, 0, w, h);
+
+        const srcAspect = src.width / src.height;
+        const dstAspect = w / h;
+        let dw = w, dh = h, dx = 0, dy = 0;
+        if (srcAspect > dstAspect) {
+            dh = w / srcAspect;
+            dy = (h - dh) / 2;
+        } else {
+            dw = h * srcAspect;
+            dx = (w - dw) / 2;
+        }
+
+        ctx.drawImage(src, dx, dy, dw, dh);
+        this._drawViewTypeBadge(ctx, viewDef.viewType, w, h);
+    }
+
+    /**
+     * Honest empty state for a 3D viewport with no frame available.
+     *
+     * Deliberately LIGHT, not the `#0f1520` navy: the whole defect was a dark
+     * rectangle that looked like a rendered scene. This must not be mistakable
+     * for one.
+     */
+    private _render3DUnavailable(
+        ctx:     CanvasRenderingContext2D,
+        viewDef: ViewDefinition,
+        w:       number,
+        h:       number,
+    ): void {
+        ctx.fillStyle = '#f4f7fb';
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.strokeStyle = '#d5dce8';
+        ctx.lineWidth   = 0.5;
+        for (let x = -h; x < w + h; x += 16) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x + h, h);
+            ctx.stroke();
+        }
+
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+
+        ctx.font      = `${Math.round(h * 0.26)}px sans-serif`;
+        ctx.fillStyle = '#b0bdc8';
+        ctx.fillText('⬢', w / 2, h * 0.40);
+
+        ctx.font      = `${Math.max(9, Math.round(h * 0.1))}px sans-serif`;
+        ctx.fillStyle = '#8898aa';
+        ctx.fillText('Open the 3D view to capture it', w / 2, h * 0.66);
+
+        this._drawViewTypeBadge(ctx, viewDef.viewType, w, h);
     }
 
     private _drawViewTypeBadge(

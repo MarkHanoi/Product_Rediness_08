@@ -79,6 +79,26 @@ function useEdgeProjectorNative(): boolean {
 export type ViewType = 'perspective' | 'orthographic';
 
 /**
+ * §SHEET-INACTIVE-VIEW-NEVER-PROJECTS (L-1841) — the outcome of a background
+ * projection request. Every branch of `requestBackgroundProjection()` maps to
+ * exactly one of these, so no branch can return silently.
+ *
+ * TERMINAL-NEGATIVE outcomes ('no-projector' | 'no-view' | 'no-geometry' |
+ * 'failed') mean *no drawing will appear without a change in the world*. A
+ * consumer must NOT show a progress indicator for them.
+ * 'superseded' means a NEWER generation is already in flight — the consumer
+ * should keep waiting, because that newer request will report for itself.
+ */
+export type ProjectionOutcome =
+    | 'projected'     // ran, produced a drawing, cache updated, event emitted
+    | 'cached'        // a drawing already existed; nothing to do
+    | 'superseded'    // a newer projection generation won the race
+    | 'no-projector'  // EdgeProjectorService not wired on this controller
+    | 'no-view'       // no such ViewDefinition
+    | 'no-geometry'   // projectable, but nothing in the scene falls in this view
+    | 'failed';       // the projector threw
+
+/**
  * ViewState tracks the current view activation state
  */
 interface ViewState {
@@ -613,19 +633,35 @@ export class ViewController implements IViewController {
      * manually open every view first.
      *
      * If the view already has a cached drawing, the call is a no-op.
-     * On completion, 'svp:drawing-refreshed' is dispatched on window so the
-     * sheet editor can re-render the affected thumbnail.
+     * On success, 'svp:drawing-refreshed' is emitted so the sheet editor can
+     * re-compose the affected viewport.
+     *
+     * ⚠ §SHEET-INACTIVE-VIEW-NEVER-PROJECTS (L-1841) — this method USED TO
+     * RETURN `void`, and it has FIVE distinct non-success outcomes: no
+     * projector service, no such ViewDefinition, already cached, nothing to
+     * project, and the projector threw. Four of those five returned silently
+     * and the fifth only reached `console.error`. The sheet editor, which is
+     * the only caller, therefore could not tell "a projection is running" from
+     * "a projection will never run" — so it painted a *"Generating projection…"*
+     * placeholder with a hard-coded 40% progress bar and left it there forever.
+     * That is [context-data-honesty]: failure and in-flight had the same value.
+     *
+     * The outcome is now RETURNED, as a promise that resolves to a discriminated
+     * `ProjectionOutcome`, so a consumer can render the truth. The promise
+     * NEVER rejects — a rejection would just recreate the silent path, since the
+     * old caller ignored the return entirely.
      *
      * @param viewId  ViewDefinition.id to project.
+     * @returns the outcome; resolves, never rejects.
      */
-    requestBackgroundProjection(viewId: string): void {
-        if (!this._edgeProjectorService) return;
+    async requestBackgroundProjection(viewId: string): Promise<ProjectionOutcome> {
+        if (!this._edgeProjectorService) return 'no-projector';
 
         const viewDef = viewDefinitionStore.get(viewId);
-        if (!viewDef) return;
+        if (!viewDef) return 'no-view';
 
         // Skip if already cached
-        if (viewTechnicalDrawingCache.has(viewId)) return;
+        if (viewTechnicalDrawingCache.has(viewId)) return 'cached';
 
         const fragmentsMgr = this._components.get(OBC.FragmentsManager);
         const allModels = fragmentsMgr.list.size > 0 ? Array.from(fragmentsMgr.list.values()) : [];
@@ -635,16 +671,19 @@ export class ViewController implements IViewController {
             ? nativeElementMeshExporter.exportForView(viewDef)
             : [];
 
-        if (models.length === 0 && nativeGroups.length === 0) return;
+        // Nothing in the scene falls inside this view — a real, terminal answer,
+        // not a pending one. The view is projectable; there is simply no geometry.
+        if (models.length === 0 && nativeGroups.length === 0) return 'no-geometry';
 
         const projectionGen = viewTechnicalDrawingCache.beginProjection(viewId);
-        this._edgeProjectorService.project(viewDef, models, nativeGroups).then(drawing => {
+        try {
+            const drawing = await this._edgeProjectorService.project(viewDef, models, nativeGroups);
             const accepted = viewTechnicalDrawingCache.setIfCurrent(viewId, projectionGen, drawing);
             if (!accepted) {
                 try { drawing.onDisposed.trigger(); } catch { /* */ }
                 // §G1-T3 — disposeProxies: true disposes non-shared proxy geometries.
                 nativeElementMeshExporter.releaseGroups(nativeGroups, { disposeProxies: true });
-                return;
+                return 'superseded';
             }
             // Inject VG overrides if applicable
             const vgApplicator = window.vgSceneApplicator;
@@ -659,10 +698,12 @@ export class ViewController implements IViewController {
             // Notify listeners (e.g. SheetEditorPanel) that the drawing is ready
             window.runtime?.events?.emit('svp:drawing-refreshed', { viewId }); // F.events.10
             console.log(`[ViewController] Background projection complete for viewId=${viewId} (${viewDef.viewType})`);
-        }).catch(err => {
+            return 'projected';
+        } catch (err) {
             nativeElementMeshExporter.releaseGroups(nativeGroups, { disposeProxies: true });
             console.error(`[ViewController] Background projection failed for viewId=${viewId}:`, err);
-        });
+            return 'failed';
+        }
     }
 
     /**
