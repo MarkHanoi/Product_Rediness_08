@@ -38,7 +38,7 @@ eight principles. A large share of what looks green below is UNENFORCED, not CON
 
 | contract | CONFORMS | VIOLATED | UNENFORCED | UNMEASURED | rotted citations found |
 |---|---|---|---|---|---|
-| **C84** ELEMENT INTEGRITY | 1 | 6 | **9** | 4 | 1 (+1 delegated to PROP1) |
+| **C84** ELEMENT INTEGRITY | 1 | 7 | **9** | 4 | 1 (+1 delegated to PROP1) |
 | **C85** WALL | 17 | **18** | 4 | 8+ | ~20 line-rot · **4 pessimistic** |
 | **C86** WALL.OPENING | 14 | **14** | 4 | 6+ | ~12 line-rot · **3 pessimistic** |
 | **C87** CURTAIN WALL | 11 | 4 | 2 | 13 | 4 |
@@ -257,6 +257,51 @@ It sits in `__batchTypes`, and the loop below it skips types already registered 
 | **EI-11** user-visible and exported must be the same code | UNENFORCED | named pin `stackAB-miter-parity.test.ts` **not on `main`** (§2.2) |
 | **EI-12** a registered trigger must have a proven dispatcher | **VIOLATED** | `packages/core-app-model/src/DependencyResolver.ts:196` and `:263-264` both state `setRebuildDispatcher()` is *"Called by EngineBootstrap"*. Repo-wide `rg setRebuildDispatcher` → **2 hits: the declaration and its own comment. Zero callers.** The default window-CustomEvent path is what actually runs; the comment names a caller that does not exist |
 | **EI-13** an emitter with no consumer is a declared gap | **CONFORMS** | §4.1 — three unconsumed cascade events were DELETED with their dispatch and tombstoned at `DependencyResolver.ts:176-177`; the fourth gained a real listener |
+| **EI-8 / EI-9** one vocabulary, one answer per question — `elementCount` | **VIOLATED** | §2.6 — **three rival formulas over three different family sets**, all live |
+
+### 2.6 ⭐ EI-6 is BETTER than C84 says — and the count that describes it has THREE rival formulas
+
+**The persistence half is good news, recorded because a pessimistic register is as wrong as an
+optimistic one.** `apps/editor/src/engine/persistence/ProjectSerializer.ts:1335-1352` emits **all
+fifteen families** — `walls, windows, doors, slabs, columns, stairs, beams, curtainWalls, roofs,
+furniture, handrails, plumbing, openings, rooms, lighting`, plus `ceilings` and `floors`. C84's
+EI-6 case rested on the lighting claim, which §1 refutes.
+
+**But `elementCount` — the field `ProjectLoader.ts:317` calls *"the canonical field"* — is computed
+three different ways over three different family sets:**
+
+| # | site | families summed | omits |
+|---|---|---|---|
+| 1 | `ProjectSerializer.ts:1330-1333` | **14** | **`windows`, `doors`, `openings`** |
+| 2 | `MigrationEngine.ts:85-89` | **10** | + `ceilings`, `floors`, `rooms`, `lighting` |
+| 3 | `ProjectLoader.ts:331-338` (`snapshotHasElements`) | **17** (incl. `grids`) | `openings` |
+
+**Three formulas, three denominators, one subject** — `CLAUDE.md`'s *"three rival `commandManager`
+counters … Name the gate you ran, or do not quote a number"*, in the persistence layer.
+
+They are consumed for **different decisions**, which is what makes the disagreement load-bearing:
+
+- **#1** rides the streaming header (`SnapshotStreaming.ts:222, :363`) and is shown to the user —
+  `ProjectLoader.ts:375`: `Loading "${snapshot.projectName}" (${snapshot.elementCount} elements)`.
+- **#2** backfills a missing count during migration, so an older snapshot is re-stamped with a
+  count **four families smaller** than #1 would give it.
+- **#3** gates the chunked load path (`§FIX-EMPTY-LOAD-HANG`).
+
+**CERTAIN consequence:** the element count shown to the user, and carried in the streaming header,
+**undercounts the model by every window, door and opening in it.**
+
+**LATENT trap, stated as latent because I did not prove it reachable:** `snapshotHasElements`
+short-circuits — `if (typeof ec === 'number') return ec > 0;` — **before** its own 17-family
+fallback. A snapshot whose only content is windows/doors/openings would carry `elementCount: 0`
+from #1 and be treated as empty. In practice doors and windows are hosted in walls, so `walls > 0`
+and the branch is unlikely; **I did not establish a real project that reaches it.** What I did
+establish is that **the test suite does not cover it**: `emptyLoadSkipsChunk.test.ts:39` asserts
+`snapshotHasElements({ doors: [{id:'d1'}], windows: [] })` is `true`, but that case has **no
+`elementCount` key**, so it exercises the fallback and never the short-circuit.
+
+**Missing gate — a one-line arm inside `check-persistence-coverage.ts` (§2.1, absent):** assert the
+three formulas sum the same family set, derived from the snapshot's own emitted keys rather than
+hand-listed in three places.
 | **§6** the per-element structure is MANDATORY and IDENTICAL across all fifteen | see §3 | measured by the C88–C94 sub-lane |
 
 **C84 totals — CONFORMS 1 · VIOLATED 6 · UNENFORCED 9 · UNMEASURED 4 · delegated 1.**

@@ -29889,7 +29889,7 @@ improvement. If it comes back flat, row #1 is over-ranked and this ledger must s
 
 ---
 
-## L-2700 … L-2712 — lane AUD-5 (PLUGINS, SDK & EXTERNAL API) — 2026-08-21
+## L-2700 … L-2721 — lane AUD-5 (PLUGINS, SDK & EXTERNAL API) — 2026-08-21
 
 Companion document: `docs/04-reference/PLUGIN-SDK-AND-EXTERNAL-API-READINESS-REGISTER.md`.
 Every number below was produced by running the gate or the scan on this tree today. Read the gate,
@@ -30566,3 +30566,207 @@ handler declares `affectedStores: ['stairLanding']`, and the map entry was remov
 a verdict — and as **a gap in the contracts, not only in the code**. C84 §6 mandates an identical
 structure across all fifteen per-element contracts precisely so that an axis one family gates
 cannot silently vanish from another.
+
+### 🐛 L-2713 — **THE ANSWER TO "IS THE API READY FOR EXTERNALS": THERE IS NO CREDENTIAL AN EXTERNAL DEVELOPER CAN OBTAIN**
+
+`server.js` + `server/**` expose **158 live routes**. Authentication is **Bearer JWT only** — HS256
+over `SESSION_SECRET`, `TOKEN_EXPIRY = '30d'` (`server/authStore.js:29`), minted only at
+signup/signin/OAuth-callback (`authStore.js:99,135,183,219`). **Zero cookies.**
+
+**No API key. No personal access token. No OAuth2 authorization server.** There is no
+`/oauth/authorize`, no `/oauth/token`, no `code_challenge` handling anywhere in `server.js` or
+`server/**`. `server/oauthService.js` is login-*with*-Google/Microsoft for PRYZM's own users — the
+opposite direction. **No scopes**: the JWT carries `sub` + `email`, every token is full-account, and
+there is no scope claim or scope check in the deployed server.
+⭐ **An external developer's only path to a credential is to POST a user's email and password to
+`/api/auth/signin` (`server.js:1946`) and hold a 30-day, unscoped, full-account JWT.** That is not
+an external API; it is credential sharing. Everything else in the AUD-5 register is downstream of
+this one fact.
+
+### 🐛 L-2714 — `packages/oauth2-pkce/` IS DEAD CODE, AND THE PUBLISHED DOCS DECLARE IT THE SOLE AUTH MECHANISM
+
+`apps/docs-site/src/content/docs/api/auth.md:7-10`, verbatim: *"The PRYZM Public API uses **OAuth2
+with PKCE** (RFC 7636) as its **sole** authentication mechanism. There are no API keys, no client
+secrets, no HTTP Basic Auth …"* — plus three declared scopes at `auth.md:35-38`.
+**`grep -rl "@pryzm/oauth2-pkce"` over `apps/ packages/ server/ server.js` returns exactly one
+path: `packages/oauth2-pkce/src/index.ts` itself.** `server.js:446-447` says the opposite in a
+comment: *"the OAuth2 grant flow is explicitly deferred to S65; the Bearer/PAT path is the 3A-draft
+contract."*
+
+### 🐛 L-2715 — 0 OF THE 12 DOCUMENTED PATHS EXIST; 0 OF THE 158 LIVE ROUTES ARE DOCUMENTED
+
+`packages/api-spec/openapi.yaml` declares **12 paths** (`/projects/{id}/export.pryzm`,
+`/projects/import`, `/ai/workflows*`, `/admin/ai-spend`, `/admin/overrides*`, `/formulas*`,
+`/projects/{id}/stream`, `/awareness`). **None of them exists in `server.js` or `server/**`** — they
+belong to `apps/api-gateway`, **the app that is not deployed** (L-2710). Against production they
+fall through to the SPA catch-all (`server.js:5949`) and return `index.html`.
+`server/aiPublicApiRoutes.js:85` returns `docsUrl: '/api/v1/docs'` in **every 401 body**; that route
+does not exist either and also returns HTML. **No client SDK, no Postman collection, no served docs
+endpoint.**
+⭐ **This is worse than having no documentation** — an integrator building against the published docs
+fails at request one and cannot tell whether the fault is theirs.
+
+### 🐛 L-2716 — `authMiddleware` IS FAIL-OPEN, so the GREEN write-route gate does NOT say what it looks like it says
+
+`server.js:787-905` has two terminal branches and **neither returns 401**:
+`:898-899` *"Token present but invalid — treat as anonymous"* → `req.auth = {userId:'anonymous',…}; return next();`
+`:903-904` no token → same.
+It is an **identity-population** middleware, not a gate. Real rejection happens per route in
+`_httpRequireAccess` (`server.js:959-965`), `requireBearer` (`server/aiPublicApiRoutes.js:80-89`)
+and `requireSnapshot` (`server/api/v1/routes.js`).
+⭐ **Therefore `check-write-route-auth`'s "40 behind authMiddleware" means the middleware RAN on 40
+routes, not that 40 routes reject an anonymous caller.** The gate does not assert the second thing
+and neither did this lane — **whether each of the 40 also carries a per-route rejection is
+UNMEASURED, and it is the largest blank in the AUD-5 register, sitting directly under a green gate.**
+Coverage across all 158: **105 apply an auth middleware, 53 do not** (22 jurisdiction, 3
+context-delivery, 28 in `server.js`). `GET /api/v1/diagnostic` (`server/api/v1/routes.js:142`) is
+anonymous-readable with no 401 guard and returns DB-configuration probes plus **raw PostgreSQL error
+strings**.
+
+### 🐛 L-2717 — THE REVOCATION LIST FAILS OPEN, AND CACHES THE LIE FOR AN HOUR
+
+`server.js:5879-5895`:
+```js
+let crl = { revokedPublisherKeysB64: [], revokedPluginIdAtVersion: [], issuedAt: … };
+try { … if (pool) crl = await fetchRevocationList(pool); }
+catch { /* DB unavailable — return empty CRL */ }
+res.setHeader('Cache-Control', 'public, max-age=3600');
+res.json(crl);
+```
+⭐ **A CRL that answers "nothing is revoked" when it cannot reach the database is
+§CONTEXT-DATA-HONESTY on a security control — failure and "nothing revoked" are the same value** —
+and it is then cached for 3600 s. Two siblings share the shape: `GET …/purchase-status`
+(`:5720-5722` → `purchased:false` on DB error) and `GET …/reviews` (`:5805-5808` → empty 200, a
+success-shaped failure).
+
+### 🐛 L-2718 — ALL 12 MARKETPLACE ROUTES HAVE NO RATE LIMITER; THE TWO MAIN LIMITERS ARE DEV-DISABLED
+
+`server.js:374` — `app.use('/api', globalLimiter)`. **`/marketplace/api/*` does not start with
+`/api`**, so none of the 12 marketplace routes (`server.js:5094–5895`) is covered by any limiter,
+including the unauthenticated `GET /marketplace/api/plugins`, `/plugins/:id`, `/plugins/:id/reviews`
+and `/revocations.json`.
+Additionally `globalLimiter` (15 min / 2000) and `apiLimiter` (60 s / 600) carry
+`skip: SKIP_IN_DEV` (`server/rateLimiter.js:58,74`) with `SKIP_IN_DEV = () => !IS_PROD` (`:21`) —
+**both are off outside production**, so no non-prod environment can reproduce a limit.
+Also: `@pryzm/rate-limit` is declared at root `package.json:215` and the package exists, but
+`grep -rn "@pryzm/rate-limit" server/ server.js` → **0 hits**. The production BFF uses
+`express-rate-limit` instead; the workspace package serves only the two undeployed apps.
+
+### L-2719 — `server.js` measured on the remaining axes
+
+**Versioning: 33 / 158 versioned (20.9 %)** — `/api/v1/*` 24, `/api/v1/families/*` 4, `/v1/ai/*` 5.
+All 27 `/api/projects/*`, all 12 `/marketplace/api/*`, all 13 `/api/ai/*`, all 22 jurisdiction routes
+are **unversioned**; and the two v1 namespaces are inconsistent (`/api/v1/…` vs `/v1/ai/…`).
+**Input validation: 5 of 53 body-accepting routes (9.4 %)**, against **52 raw `req.body` reads**;
+Zod is imported in exactly 3 non-test server files (`server.js:101`,
+`server/aiPublicApiRoutes.js:40`, `server/api/v1/routes.js:45`).
+**Error contract:** a central handler exists (`server.js:5985-6034`) and mints an `errorId`
+(`:6013`) — but there are **5 distinct JSON shapes + 7 non-JSON responses**, `code` appears on only
+**38 of 247** 4xx/5xx bodies, and casing is split (`SCREAMING_SNAKE` at `:5282` vs `lower_snake` at
+`server/errors.js:29`). **A client cannot switch on `code`.** `server.js:1010` returns prose that
+**names environment variables**: `'No AI upstream configured: set CF_WORKER_URL or ANTHROPIC_API_KEY'`.
+**Observability: 0 HTTP spans, 0 request IDs, 0 structured logs.**
+`grep -nE "opentelemetry|getTracer|startSpan" server.js` → 0; `server/telemetry.js:41-42` no-ops
+unless `PRYZM_TRACING` is set, and its OTLP block (`:48-110`) registers only a `BatchSpanProcessor`
+with **no HTTP auto-instrumentation** — `@opentelemetry/sdk-node` is **not installed** (`:104-108`
+documents this). `grep -inE "requestId|x-request-id|correlationId" server.js` → 0. The only
+correlation key is the `errorId` minted **at failure time**, so successful requests cannot be
+correlated at all.
+**CORS:** `server.js:370-371` + `server/corsPolicy.js`. In production with `ALLOWED_ORIGIN` unset,
+`getAllowedOrigins()` returns `[]` — **deny-all** (`corsPolicy.js:35-41`). Set, it is a **static env
+allowlist** with `credentials: true` (`:51-59`) — no dynamic origin callback, no per-client
+registration, so every third-party origin must be hand-added and the server restarted, and
+`Access-Control-Allow-Origin: *` can never be emitted in production. **This is a partner-integration
+model, not a public API.** *(UNMEASURED: whether the deployed instance sets it — runtime secret;
+`fly.toml:13` names it only in a comment.)*
+⚠ **`GET /embed` (`server.js:4967`) is unauthenticated, strips `X-Frame-Options` and sets
+`frame-ancestors *` so *"any third-party site can embed this route in an iframe"* (`:4974`) — and
+takes `?token=` in the QUERY STRING (`:4969`).** A JWT in a URL lands in referrer headers, proxy logs
+and browser history. `x-internal-secret` — the header gating `/api/auth/set-plan` — is in the CORS
+`allowedHeaders` list (`corsPolicy.js:56`).
+
+### L-2720 — Legacy on the deployed surface: 2 orphan routers, 4 zero-caller routes, 2 duplicated families
+
+**No route carries a `@deprecated` marker** — every finding below is by call graph, not by comment.
+- **2 orphan routers, never mounted:** `server/jurisdiction/mucZoningProxy.js:456-457` (`mucRouter`)
+  and `server/jurisdiction/mucInstrumentProxy.js:495-496` (`mucInstrumentRouter`);
+  `server/jurisdiction/index.js:224-225` registers the handlers directly instead.
+- **4 zero-caller routes:** `GET /api/auth/plan` (`server.js:1822`), `GET /api/me/plan` (`:2850`),
+  `POST /api/auth/set-plan` (`:1834`), `POST /api/import/dwg` (`:2676`) — no caller in `apps/`,
+  `src/` or `plugins/`. ⭐ **The first two are the same question asked twice and NEITHER has a
+  caller.** `/api/ai/cache/{lookup,store}` (`:1668`, `:1695`) is reached only from
+  `packages/ai-host/src/AiResponseCache.ts`, never from the editor UI.
+- **Duplicated project CRUD, both live, neither deprecated:** `server.js:2891/2972/3165/3236`
+  `/api/projects` (called from **11** editor files) vs `server/api/v1/routes.js:482/495/512/538`
+  `/api/v1/projects` (called from 2) — and `apps/editor/src/ui/platform/ProjectHub.ts` calls
+  **BOTH**. C84 EI-9 on the most-used route family in the product.
+- **Duplicated AI surface:** 6× `/api/ai/*` advise/parse (`server.js:1085–1537`) vs
+  `/v1/ai/{query,generate,validate}` (`server/aiPublicApiRoutes.js:318/327/336`).
+- **`GET /marketplace/api/plugins/:id/versions` (`server.js:5158`) is LIVE but SYNTHETIC** — its own
+  comment at `:5156` says *"no separate versions table yet"*; it always returns exactly one element
+  built from the plugin row (`:5178-5186`) with `revokedAt` hardcoded `null`.
+- **`REFERENCE_PLUGINS_SEED`** (4 hardcoded plugins, every one `downloads: 0, rating: 5.0`,
+  `server.js:~5030-5091`) is what `GET /marketplace/api/plugins` serves whenever `getPgPool()` is
+  null (`:5103`).
+- **Stale tables: NONE.** All 8 referenced tables are created in `server/dbMigrate.js`.
+- **`apps/marketplace` vs `apps/marketplace-web`** — two front-ends on the same `/marketplace/api`
+  base, both `private:true`, **neither in `vite.config.ts` nor any workflow file**.
+
+### L-2721 — Marketplace signing: a fourth hole, and a hand-copy nothing pins
+
+Adds to L-2712. `server/pluginSigningService.js:35-46` **re-implements `canonicalJSONStringify`** as
+an explicit hand-copy of `packages/plugin-sdk/src/canonical-json.ts` — stated in its own header
+(`:5-8, :27-29`). **Nothing pins the two implementations to each other.** A divergence produces
+silent verification FAILURES on valid bundles — the refusing direction, which is the safe one, but
+it would present as "the marketplace rejects my correctly-signed plugin" with no way to tell why.
+Also: `POST …/install` (`server.js:5417`) returns only a `bundleUrl` plus instructions text
+(`:5515-5526`) — **it does not serve the bundle**, so nothing downstream can verify the self-declared
+`bundleSha256` either.
+
+### ⭐ L-2826 — EI-6 IS BETTER THAN C84 SAYS, AND THE COUNT THAT DESCRIBES IT HAS THREE RIVAL FORMULAS
+
+**The good news first, because a pessimistic register is as wrong as an optimistic one.**
+`apps/editor/src/engine/persistence/ProjectSerializer.ts:1335-1352` emits **all fifteen families** —
+`walls, windows, doors, slabs, columns, stairs, beams, curtainWalls, roofs, furniture, handrails,
+plumbing, openings, rooms, lighting`, plus `ceilings` and `floors`. C84's EI-6 case rested on the
+lighting claim, and L-2800 refutes it. **`check-persistence-coverage.ts` would pass today.**
+
+**But `elementCount` — the field `ProjectLoader.ts:317` calls *"the canonical field"* — is computed
+THREE different ways over THREE different family sets:**
+
+| # | site | families summed | omits |
+|---|---|---|---|
+| 1 | `ProjectSerializer.ts:1330-1333` | **14** | **`windows`, `doors`, `openings`** |
+| 2 | `MigrationEngine.ts:85-89` | **10** | + `ceilings`, `floors`, `rooms`, `lighting` |
+| 3 | `ProjectLoader.ts:331-338` (`snapshotHasElements`) | **17** (incl. `grids`) | `openings` |
+
+⭐ **Three formulas, three denominators, one subject** — CLAUDE.md's *"three rival `commandManager`
+counters … Name the gate you ran, or do not quote a number"*, reappearing in the persistence layer.
+
+They are consumed for **different decisions**, which is what makes the disagreement load-bearing:
+
+- **#1** rides the streaming header (`SnapshotStreaming.ts:222, :363`) and is shown to the user —
+  `ProjectLoader.ts:375`: ``Loading "${snapshot.projectName}" (${snapshot.elementCount} elements)``.
+- **#2** backfills a missing count during migration, re-stamping an older snapshot with a count
+  **four families smaller** than #1 would give it.
+- **#3** gates the chunked load path (`§FIX-EMPTY-LOAD-HANG`).
+
+**CERTAIN consequence:** the element count shown to the user, and carried in the streaming header,
+**undercounts the model by every window, door and opening in it.**
+
+**LATENT trap — stated as latent because I did NOT prove it reachable.** `snapshotHasElements`
+short-circuits — `if (typeof ec === 'number') return ec > 0;` — **before** its own 17-family
+fallback. A snapshot whose only content is windows/doors/openings would carry `elementCount: 0`
+from #1 and be treated as empty. In practice doors and windows are hosted in walls, so `walls > 0`
+and the branch is unlikely; **I did not establish a real project that reaches it.**
+
+⭐ **What I DID establish is that the test suite does not cover it.**
+`apps/editor/__tests__/emptyLoadSkipsChunk.test.ts:39` asserts
+`snapshotHasElements({ doors: [{ id: 'd1' }], windows: [] })` is `true` — but that fixture has **no
+`elementCount` key**, so it exercises the fallback and **never the short-circuit**. The one test
+that names doors proves the branch that cannot fail.
+
+**Missing gate — a one-line arm inside `check-persistence-coverage.ts` (L-2802, absent):** assert
+the three formulas sum the same family set, **derived from the snapshot's own emitted keys** rather
+than hand-listed in three places. A hand-listed family set in three files is the same defect as a
+hand-listed contract range in three documents.
