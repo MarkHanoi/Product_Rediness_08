@@ -25563,3 +25563,181 @@ asked for: `docs/02-decisions/adrs/ADR-0338-interaction-cost-is-proportional-to-
 axes).
 
 ---
+
+## L-1858 … L-1861 — ✅ ROOT CAUSE MEASURED + FIXED: "East elevation shows the wrong side" — three producers disagreed about ONE frame — 2026-08-21 (lane ELEV1, commit `e0e13f6d`)
+
+**Founder, testing production build `071a7b2c`:**
+
+> **1.1** "the elevation works great - but why there is a line staying static pointing to the
+> wrong place — everything works on south and north elevation - just this section line."
+>
+> **1.2** "East and west however dont work as expected: i am opening east elevation and it is
+> showing me the wrong side? or definitely not correct scope. I move the elevation and projectors
+> good in the center - but the sides are off - and the 'crop' is not present."
+
+Three defects, one theme: **several producers of one surface, none of them the owner** (C06 §13.3).
+Full decision record: **`docs/02-decisions/adrs/ADR-0339-an-elevation-is-named-for-the-facade-it-shows.md`**.
+
+> ⚠ **NUMBERING NOTE.** These were authored as **L-1854 … L-1857** and the code commit
+> `e0e13f6d` still says so in its subject line. Lane SHEETS took **L-1854** for
+> `§SHEET-BOUNDS-EXCLUDE-FURNITURE` (commit `89fafc3f`) in the same session, so this block
+> was renumbered to **L-1858 … L-1861** rather than leave two entries sharing one id.
+> **The commit subject is the stale half; this block is the id.**
+
+
+---
+
+### L-1858 — ✅ FIXED: **EAST AND WEST WERE SWAPPED** in the default-elevation seed table
+
+`DEFAULT_ELEVATION_VIEWS` mapped `East → elevationRight (+1,0,0)` and `West → elevationLeft
+(−1,0,0)`. The camera and the plan mark both sit at `−direction`, so direction `+X` puts the
+viewer at `−X` and draws the **west** façade under a tab labelled *East Elevation*.
+
+**The four-row table applied TWO DIFFERENT NAMING RULES.** The Z rows named the view for the
+façade it SHOWS (South = viewer at +Z, looking −Z ✓ — the row the founder confirms works). The X
+rows named it for the direction it LOOKS IN. That inconsistency *inside one table* is exactly why
+N/S worked and E/W did not.
+
+**Origin — the doc-comments on the presets themselves were inverted:**
+
+```ts
+/** Left elevation — looking along -X (west face). */    // ← shows the EAST face
+/** Right elevation — looking along +X (east face). */   // ← shows the WEST face
+```
+
+The `elevationFront`/`elevationBack` comments were correct. The table was wired to match the wrong
+pair.
+
+**⭐ CORROBORATED — two independent producers were already right, and this table contradicted
+both.** Three producers, one subject; the one that seeds the founder's `vd-sys-elev-*` was alone:
+
+| Producer | East Elevation | |
+|---|---|---|
+| `apps/editor/src/engine/initUI.ts` (`generateElevations`) | direction `(−1,0,0)`, camera at `+distance` on X | ✓ |
+| `packages/ai-host/src/workflows/houseLayout/buildingElevations.ts` | `direction: 'E'`, `facing: {x:−1,z:0}`, anchor at `maxX + offset` | ✓ |
+| `packages/core-app-model/src/views/DefaultViewsManager.ts` | direction `(+1,0,0)`, mark at `−24` on X | ✗ |
+
+**FIX** — swapped the two rows; corrected both doc-comments in place. The preset **vectors are
+untouched**: `elevationLeft`/`elevationRight` correctly name the *axis sign*, and other callers
+resolve presets by name. The compass mapping belongs to the one caller that names a compass
+direction. The frame itself is now **derived, not asserted**, in a block comment above
+`VIEW_PROJECTION_DIRECTIONS`: from `PlanViewService.getViewConfig('top')` (`up = (0,0,−1)`,
+`right = (1,0,0)`) ⇒ **−Z = NORTH, +X = EAST**.
+
+**⭐ THE HALF THAT WOULD HAVE MADE THIS A NON-FIX — [committed-is-not-reachable].**
+`ensureDefaultViews()` creates each elevation **only `if (!viewDefinitionStore.has(elev.id))`** and
+skips existing marks. Correcting the seed table alone fixes only projects that **do not exist
+yet** — not the founder's live one. Added `_repairDefaultElevationOrientation()`, idempotent, run
+after the mark top-up. It re-points stale system elevations and their plan marks, and **refuses to
+overwrite user intent**: a mark's anchor is re-seeded only when it still sits at
+`−oldDir × ELEV_MARK_RADIUS_M` (the old direction is read off the mark's own stored
+`facingDirection`, so no legacy table is hard-coded); a mark the founder has MOVED keeps its anchor
+and has only its facing corrected, and the log line says which branch ran.
+
+---
+
+### L-1859 — ✅ FIXED: ONE far-clip quantity had **TWO magic fallbacks** — 200 in the projector, 8 in the handle
+
+| Site | Fallback |
+|---|---|
+| `EdgeProjectorService.resolveClipRange()` | `?? viewRange.farOffset ?? `**`200`** |
+| `PlanViewInteraction._resolveSectionVolumeForDrag()` | `?? viewRange.farOffset ?? `**`8`** |
+| `PlanViewAnnotationRenderer` (×3) | `?? `**`8`** |
+
+An untouched elevation **projected** at 200 m (correct — the whole building) but **drew its depth
+handle at 8 m**. Default marks are seeded 24 m out (`ELEV_MARK_RADIUS_M`), so the handle sat **16 m
+short of the origin** and could never reach the model — and the instant it was touched,
+`_applyScopeDragFromPointer` **committed** 8 m into `crop.farClip.offset`, collapsing the
+projector's far from 200 → 8 and slicing the building to a slab. That is the founder's
+**"Depth 8.00 m" → "Depth 0.47 m"**, and his console's `far=2.857`.
+
+**PARTIAL REFUTATION of the lane brief's Lead 1.** The brief proposed that `far` being *derived
+from the crop depth is itself the defect* and that `far` should be independent of the crop. **It is
+not the defect.** `crop.farClip.offset` IS the far-clip control (Revit's "Far Clip Offset") and the
+plan "Depth" handle is its plan-view affordance — one concept, correctly named. The defect is that
+**its DEFAULT was owned twice with different magnitudes**.
+
+**FIX** — one expression, `resolveElevationFarDepth(viewDef, fallback)`, in `@pryzm/core-app-model`,
+with two **named** fallbacks for two genuinely different questions:
+`UNCLIPPED_ELEVATION_FAR_DEPTH_M` (200 — "nothing stored, clip nothing") and
+`DEFAULT_ELEVATION_SCOPE_DEPTH_M` (40 — "nothing stored, where do we DRAW the grab handle"). All
+five call sites route through it. ⚠ **40 is a documented STAND-IN**, not a derivation: the honest
+value is the distance to the far side of the model bbox, which neither the L3 renderer nor the plan
+interaction can read today. It **overshoots** on purpose — too far shows the whole building, too
+near silently slices it. *Exit condition: derive from model bounds, delete the constant.*
+
+---
+
+### L-1860 — ✅ FIXED: the static mis-pointing line — `crop.region[0]` carries **two incompatible meanings**
+
+`ViewCropSettings.region[0]` is read two ways, discriminated by **the presence of an unrelated
+field** (`spatial.sectionVolume`):
+
+- **WITH `sectionVolume`** → **ABSOLUTE world-H**. Written by `_applyScopeDragFromPointer` and
+  `CreateElevationMarkCommand`; read by `PlanViewCanvas._resolveCropCanvasBounds`.
+- **WITHOUT** → **SIGNED PERPENDICULAR OFFSET** from the mark anchor. Read by
+  `_elevationCropFrame` and `_computeElevationScope`.
+
+`_renderElevationCutLine` called `_computeElevationScope` **directly** — the OFFSET reading —
+unconditionally, while the drag that had just written the value used the ABSOLUTE one. Adding an
+absolute coordinate to the anchor displaces the line **by the anchor's own H**. Reproduced from the
+founder's own console (`cropRegion=[-15.69,-5.84 → 0.15,-2.89]`):
+
+```
+anchor H         = (-15.69 + 0.15) / 2 = -7.77
+offset reading   = -23.46 … -7.62      ← what was drawn
+absolute reading = -15.69 …  0.15      ← the crop rectangle + the projector
+displacement     = -7.77 m             ← exactly the anchor
+width            = IDENTICAL
+```
+
+**Same width, wrong place** — which is why it read as a correct line that simply refused to move,
+rather than as corrupt geometry. It hid because the two readings **coincide exactly when the
+anchor's H is 0**, and two of the four default marks are seeded at H = 0.
+
+**Lane brief's Lead 3 was RIGHT in essence** ("two producers of one truth"), but the concrete root
+is this encoding collision, not a stale copy of the direction.
+
+**FIX** — `_renderElevationCutLine` routes through `_scopeWorld`, THE producer, which prefers
+`sectionVolume` and falls back to the offset reading only where that reading is correct. ⚠ **The
+dual encoding is NOT unified** — that needs a snapshot migration and its own lane. It is now
+recorded as a named hazard on `ViewCropSettings.region`. **Do not add a third encoding.**
+
+---
+
+### L-1861 — 🔴 OPEN: what this change does NOT establish
+
+1. **🔴 NOT VERIFIED IN A BROWSER.** The swap, the migration and the cut-line fix are proven by
+   unit assertions and three-way producer agreement — **not** by opening East Elevation on a real
+   model. **This verification is owed and is the next action.**
+2. **🔴 "the crop is not present" is only HALF addressed.** Default elevation views ship with **no
+   `crop` at all** — `DefaultViewsManager` writes `spatial.projectionDirection` and nothing else —
+   so `_applyCropClip` returns false and no crop rectangle is drawn, **for all four, including
+   South**. L-1859 makes the depth handle *reachable* so a crop can be created; it does not seed
+   one. Seeding a model-derived crop + sectionVolume is open.
+3. **🔴 DEFERRED, stated as such — the crop-drag projection cost (lane brief's Lead 4).** Every
+   drag frame still re-projects **359 groups in 90 chunks**, with 20+ consecutive
+   `§PERF-PROJECTION-CANCEL-SUPERSEDED — abandoning after 4/359 group(s)`. Untouched, deliberately,
+   to keep this change to the three correctness defects.
+4. **⭐ REFUTED — the lane brief's Lead 2 (`absZ >= absX` in the ViewMode resolvers) is NOT the
+   defect.** There are **four** copies of that resolver — `ViewsRailPanel._resolveElevationDirection`,
+   `PlanViewInteraction._resolveElevationObcMode` (the brief counted three and missed this one),
+   `LeftNavRail`'s table, and `activateViewForEditing.resolveDirectionalMode`. **Measured: all four
+   agree with each other AND with `PlanViewService.getViewConfig` end-to-end**
+   (`Front→(0,0,−1)`, `Back→(0,0,1)`, `Left→(−1,0,0)`, `Right→(1,0,0)`). There is no sign or axis
+   flip in that chain. They remain a latent hazard — four copies of one rule — but they were not
+   today's bug and were **not touched**.
+5. **🔴 `ai-host/buildingElevations.ts` uses the OPPOSITE Z convention** — "North = the +Z façade",
+   `facing (0,0,−1)` — from `DefaultViewsManager` and `initUI`, which both put north at **−Z**. It
+   agrees with them on E/W (which is what corroborates L-1858), so its **N/S rows look wrong** under
+   the derived frame. **Not investigated, not changed.** It drives the house-layout documentation
+   set, not the founder's `vd-sys-elev-*` path.
+6. **🔴 The migration's user-moved-mark branch has no test** driving a genuinely moved mark. The
+   logic is guarded and logged; it is not proven.
+
+**Verification actually run, in the foreground:** new `elevationScopeFrame.test.ts` **13/13 PASS** ·
+`@pryzm/core-app-model` `src/views` **27 files / 194 PASS** · `@pryzm/editor` elevation + view tests
+**7 files / 58 PASS (1 expected-fail)** · root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc
+--noEmit --skipLibCheck` **RC=0**.
+
+---
