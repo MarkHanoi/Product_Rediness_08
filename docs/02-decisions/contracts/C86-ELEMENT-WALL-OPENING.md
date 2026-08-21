@@ -1290,6 +1290,55 @@ pay.
 - **WO-G-6 (§10.1 PR-8, EI-9).** The opening's bounding box is `width × height` for **every**
   profile. ⛔ No `radius` / `diameter` field may be added alongside them.
 
+### 10.2 — THE REVEAL AXIS (§FEAT-WINDOW-REVEAL, ADR-0342, L-1920 … L-1929, lane WIN1 2026-08-21)
+
+Founder, 2026-08-21, twice within minutes: *"the possibility to **extrude outside the façade** — a
+new attribute in the Properties panel, like frame width but **offset wide**"* and *"the frame
+basically has **angles inwards** — the **angle, which will define the size of the glass**; and the
+**side** of the windows (top / bottom / left / right / all / multiple)"*.
+
+Five persisted fields on **`Window`** (L0) and **`WindowOpening`** (runtime), all defaulting to `0`:
+`revealProjection` (signed metres) and `revealSplayHead` / `revealSplaySill` / `revealSplayJambLeft`
+/ `revealSplayJambRight` (degrees, `0 … 85`).
+
+- **WO-G-7 — ONE MODEL, NEVER TWO.** `packages/geometry-window/src/WindowReveal.ts` is the **only**
+  producer of the outer plane, the reveal run, the glazing plane and the four insets. ⛔ **No
+  consumer may re-derive any of them.** The projection and the splay are two parameters of ONE
+  model precisely because each, modelled alone, must place the glazing plane — and two placements
+  is the §10.1 PR-1 defect ("the wall cut a circle and the frame drew a rectangle") in a new axis.
+- **WO-G-8 — THE EXTERIOR IS AN AUTHORED AXIS, AND IT IS `−Z` IN THE HOSTED FRAME.** Derived from
+  `WallLayerFootprint2D.buildWallLayerBands` (authored stack **exterior-first** from `−total/2`
+  along `leftPerp(dir)`) and `hostedElementFrame`'s `rotationY = −angleY`. Stated once as
+  `WindowReveal.EXTERIOR_LOCAL_Z`. ⛔ **No arm may infer an exterior from winding order, vertex
+  normals or camera direction** — `WallSideFinishResolver`'s header forbids exactly that for a
+  persisted assignment, and a projecting box is as persisted as a finish. ⛔ **No second notion of
+  "the outside face" may be introduced.**
+- **WO-G-9 — THE ANGLE IS AUTHORED; THE GLASS SIZE IS DERIVED.** `wG = w − (i_L + i_R)`,
+  `hG = h − (i_head + i_sill)`, `i_s = (t/2)·tan θ_s`. ⛔ A UI or a verb **MUST NOT** offer glazing
+  dimensions as a second independent input beside the angles (EI-3: one quantity, one author).
+- **WO-G-10 — THE SIDES ARE FOUR NAMED SCALARS.** head / sill / jambLeft / jambRight, in
+  construction vocabulary. ⛔ **MUST NOT** be collapsed into one scalar plus a mode enum: *"all"* and
+  *"multiple"* are a SELECTION over the four, and a mode cannot express "head and left jamb only".
+  `jambLeft` is local `−X` and `jambRight` local `+X` — **stated, never defined as "left as seen
+  from outside"**, which flips with the reader's position.
+- **WO-G-11 — DEFAULT 0 IS A BYTE-IDENTITY OBLIGATION (C84 EI-2).** `isRevealAuthored()` is the ONE
+  predicate; an unauthored record MUST reach the pre-existing code path, not a reconstruction that
+  agrees. Enforced by the existing SHA-256 pin `StraightHostLeafByteIdentical.test.ts`.
+- **WO-G-12 — THE WALL'S VOID IS UNCHANGED.** The reveal is FRAME geometry hosted inside the
+  straight `width × height` cut. ⛔ No reveal field may reach a wall-body arm; this is what makes
+  layered, raked and plain hosts need no per-case handling.
+- **WO-G-13 — REFUSED HOSTS, and the symbol MUST refuse with the builder.** Curved hosts and
+  non-rectangular profiles build no reveal (L-1928 / L-1929). ⛔ The plan symbol MUST key its
+  exclusion on the SAME predicate the builder does; a gate and a builder that each decide
+  independently is how one starts drawing what the other cannot carry.
+
+**🔴 NOT MEASURED for this axis** — recorded here rather than in a commit message: the **elevation**
+producer cannot express it at all (it reads `wall.openings[]`, which does not carry these fields,
+and sets every point out on one flat plane — L-1925); **RAC is not wired** (L-1923 — the obvious
+`element.updateParameters` seam would drop the fields through `WallStore.updateWindow`'s four-field
+whitelist while returning success); **boundary / neighbour / balcony validity is not checked**
+(L-1927).
+
 ---
 
 ## 11. THE DELTA
@@ -1338,6 +1387,9 @@ pay.
 | **R-11** | A **curved** wall REFUSES any non-rectangular opening profile, permanently | §10.1 PR-5 | ⛔ **OWED — the profile axis is a RULING, not code.** When built it MUST name host + reason + alternative. The reason is structural and will not change: the bands are sliced in ARC-LENGTH space |
 | **R-12** | A `circular` profile whose `width ≠ height` REFUSES at the schema | §10.1 PR-8 | ⛔ **OWED.** This is what makes "no `radius` field" safe rather than lossy — without it, `width`/`height`/`profile` mint a nonsense state nothing refuses |
 | **R-13** | The **single-volume CSG** arm is **not** available to serve a new profile | §10.1 Consequence 1, R-6, [C85 §12 R-8](C85-ELEMENT-WALL.md) | ✅ **DECLARED HERE.** Recorded so the next reader knows option (c) was measured and rejected, not overlooked |
+| **R-14** | A **reveal splay steep enough that the two reveals MEET** refuses, naming **both** the angle asked for **and** the dimension that makes it degenerate — and refuses on a `width`/`height` shrink that makes an already-authored splay degenerate | §10.2 WO-G-9, [C83](C83-SPATIAL-VALIDITY-AND-DESIGN-LOGIC.md); `WindowReveal.windowRevealRefusal`, consulted by `UpdateWindowParameterCommand` | ✅ **BUILT** (L-1922, `12d2b8be`). ⛔ **MUST NOT be "fixed" into a silent clamp** — a clamped reveal ships a window whose glazing is invisible and whose panel reports success, which from the user's side is indistinguishable from one that worked. The **INADVISABLE** tier is separated and only SAID, on `result.info` |
+| **R-15** | A **recess deeper than the wall's outer half** refuses, naming the recess **and** the wall thickness | §10.2; `windowRevealRefusal` | ✅ **BUILT.** Past `−t/2` the glazing plane leaves the wall and there is nothing for the reveal to run in |
+| **R-16** | A reveal on a **curved host** or a **non-rectangular profile** is **not built at all** — and the plan symbol carries the SAME exclusion, keyed the same way | §10.2 WO-G-13, L-1928 / L-1929 | ⚠ **SILENT TODAY — DECLARED HERE, NOT YET A REFUSAL.** The geometry correctly declines (a re-seated member would lean out of its own hole while reporting success), but **nothing tells the user**. ⛔ **OWED:** a C16 CA-18 refusal naming host + reason + alternative, exactly as R-11 owes for the profile axis |
 
 ### Explicitly NOT REFUSED, and that is the finding
 
