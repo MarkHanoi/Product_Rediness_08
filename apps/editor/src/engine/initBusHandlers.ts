@@ -140,6 +140,10 @@ import {
   DeleteViewDefinitionCommand,
   CreateViewDefinitionCommand,
   AddViewportToSheetCommand,
+  // L-1590 - the sheet.create bridge. The command has existed in command-registry
+  // since S37; what was missing was any bus route to it, so every Create Sheet click
+  // reached CommandBusError.
+  CreateSheetCommand,
   // §P2.3: CreateWallOpeningCommand removed — wall.opening.create is now handled
   //         by WallOpeningLegacyAdapterHandler registered via registerWallHandlers().
   SetDerivationCommand,
@@ -2532,6 +2536,38 @@ export function initBusHandlers(
             stores: [] as const,
             validate: (cmd: any) => (!cmd.sheetId || !cmd.viewId ? 'sheetId and viewId are required' : null),
             fn: (cmd: any) => { _cmExec(new AddViewportToSheetCommand(cmd)); },
+        },
+        // ── L-1590 §SHEET-CREATE-HAS-NO-ROUTE ────────────────────────────────
+        //
+        // Founder 2026-08-20: "I am not able to create sheets", with
+        // `CommandBusError: no handler registered for: sheet.create`.
+        //
+        // ⭐ Nothing was missing except the ROUTE. `CreateSheetCommand`
+        // (command-registry/views) has existed since S37 and writes the
+        // authoritative `core-app-model` sheetStore; `SheetsRailPanel` has
+        // dispatched `sheet.create` all along. There was simply no bridge
+        // between them, so ten of the twelve sheet verbs were unreachable
+        // while `sheet.addViewport` and `sheet.moveViewport` worked — which is
+        // why sheets looked half-alive rather than absent.
+        //
+        // ⛔ NOT registered via `plugins/sheets`' `registerSheetHandlers()`,
+        // which has ZERO production callers and is pinned that way by
+        // `plugins/sheets/__tests__/addViewportShadow.test.ts`. That arm writes
+        // a DETACHED DTO state; §FIX-SHEET-ADDVIEWPORT-SHADOW (MT-03) already
+        // declared THIS bridge the authority for exactly that reason and
+        // deleted the rival. Registering the plugin set here would re-mint the
+        // shadow store that finding removed — the same C06 §13.3 breach, one
+        // command over. The plugin handler stays unregistered ON PURPOSE.
+        {
+            type: 'sheet.create',
+            stores: [] as const,
+            validate: (cmd: any) => (
+                !cmd.id?.trim()          ? 'id is required'          :
+                !cmd.sheetNumber?.trim() ? 'sheetNumber is required' :
+                !cmd.name?.trim()        ? 'name is required'        :
+                null
+            ),
+            fn: (cmd: any) => { _cmExec(new CreateSheetCommand(cmd)); },
         },
 
         // ── E.5.6: wall openings ──────────────────────────────────────────────

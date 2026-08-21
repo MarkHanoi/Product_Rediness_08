@@ -24571,3 +24571,79 @@ remaining gap is not mistaken for closed.
 Root `tsc` RC=0, 0 errors.
 
 ---
+
+---
+
+## L-1590 — ✅ FIXED: `sheet.create` had no ROUTE — ten of twelve sheet verbs were unreachable — 2026-08-20
+
+Founder: *"I am not able to create sheets"*, with
+
+```
+CommandBusError: no handler registered for: sheet.create
+    at S_e._executeCreateSheet (engineLauncher…:4392:3173)
+```
+
+⭐ **Nothing was missing except the route.** `CreateSheetCommand`
+(`packages/command-registry/src/views/CreateSheetCommand.ts`) has existed since S37, writes the
+authoritative `core-app-model` `sheetStore`, and validates id/name/sheetNumber. `SheetsRailPanel` has
+dispatched `sheet.create` with `{ id, sheetNumber, name }` all along — **a payload that matches
+`CreateSheetParams` exactly.** There was simply no bridge between them.
+
+**Why it looked half-alive rather than absent:** `sheet.addViewport` and `sheet.moveViewport` DO have
+bridges in `initBusHandlers.ts` (:2531, :2728). The other **ten** verbs — `create`, `delete`,
+`rename`, `reorder`, `removeViewport`, `setViewportScale`, `setTitleBlock`, `setSheetMetadata`,
+`addWidget`, `removeWidget` — had none.
+
+⛔ **The fix is deliberately NOT `registerSheetHandlers()`.** That function has **zero production
+callers**, and `plugins/sheets/src/handlers/index.ts` says so in its own comment — because
+§FIX-SHEET-ADDVIEWPORT-SHADOW (MT-03) already found that the plugin arm **writes a detached DTO
+state**, declared this bridge the authority, and deleted the rival rather than commenting it out.
+The state is pinned by `plugins/sheets/__tests__/addViewportShadow.test.ts` and
+`apps/editor/__tests__/SheetAddViewportReachesSheetStore.test.ts`. **Registering the plugin set would
+re-mint the shadow store that finding removed** — the same C06 §13.3 breach, one command over. The
+plugin handler stays unregistered ON PURPOSE, and this entry exists so the next reader does not
+"fix" it by wiring the obvious-looking thing.
+
+---
+
+## L-1591 — ✅ FIXED: the panel logged "Created Sheet" BEFORE the dispatch that failed — 2026-08-20
+
+The founder's console shows both lines, in this order:
+
+```
+[SheetsRailPanel] Created Sheet: A01-001 — Ground Floor - General Arrangment id=sheet-db93…
+CommandBusError: no handler registered for: sheet.create
+```
+
+**Nothing was created.** `console.log('Created Sheet: …')` sat *after* the dispatch but **outside the
+promise**, so it ran synchronously and the rejection printed underneath it.
+
+⭐ A log that announces an outcome it has not observed is the L-1515 family — reporting the input to
+a decision as its outcome — but **worse here, because it contradicts the error printed beside it**
+and leaves the user to decide which of the two to believe. The success line now fires in `.then()`,
+and a failure prints `Sheet NOT created:` with the error.
+
+---
+
+## L-1592 — ⛔ OPEN (NOT BUILT, scoped): sheets have no RAC surface, and no auto-dimension / auto-tag — 2026-08-20
+
+Founder's target sentences:
+
+> *"Create Sheet: A01-001 — Ground Floor - General Arrangment", then place view called "Ground" and
+> center it in the sheet"* · *"… and create auto dimentions and auto tag"*
+
+**Measured state:**
+- **RAC: NOT BUILT.** `packages/ai-host` has **no sheet capability and no sheet intent**.
+  `ChatCommandClassification.ts:166` lists `sheet.create` / `sheet.addViewport` — but that is a
+  **write-classification table for permissions**, not a resolver. No sentence reaches a sheet verb.
+  A sheet request today is a stage-(a) MISS, exactly as the stair sentences were before L-1540.
+- **View placement:** `sheet.addViewport` IS routed (bridge at `initBusHandlers.ts:2531` →
+  `AddViewportToSheetCommand`). **"Center it in the sheet" is NOT established** — that is a
+  placement/extent computation against the sheet's paper size, and no such verb was found.
+- **Auto-dimension / auto-tag on a sheet: NOT BUILT.** Not investigated further than establishing
+  absence — do not read this line as a survey of what would be required.
+
+Logged as scope rather than attempted, so "sheets work now" is not mistaken for "the founder's
+sentences work now". L-1590 makes the **UI** path work; it does nothing for language.
+
+---

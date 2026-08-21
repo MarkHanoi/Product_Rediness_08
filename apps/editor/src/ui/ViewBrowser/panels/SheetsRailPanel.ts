@@ -243,10 +243,28 @@ export class SheetsRailPanel {
         // CreateSheetHandler (plugins/sheets/src/handlers/CreateSheet.ts, type='sheet.create')
         // is a real handler — commandManager removed.
         const id = `sheet-${crypto.randomUUID()}`;
-        window.runtime?.bus?.executeCommand('sheet.create', { id, sheetNumber, name })
-            ?.catch(console.error)
-            ?? console.warn('[SheetsRailPanel] runtime.bus not available — sheet creation skipped');
-        console.log(`[SheetsRailPanel] Created Sheet: ${sheetNumber} — ${name} id=${id}`);
+        const bus = window.runtime?.bus;
+        if (!bus) {
+            console.warn('[SheetsRailPanel] runtime.bus not available — sheet creation skipped');
+            return;
+        }
+        // ⚠ L-1591 §SHEET-CREATE-LOG-LIED — this line used to sit AFTER the dispatch,
+        // OUTSIDE the promise, so it printed "Created Sheet: …" synchronously and then the
+        // rejection printed underneath it. The founder's console shows both, in that order:
+        // a success line, then `CommandBusError: no handler registered for: sheet.create`.
+        // Nothing was created. A log that announces an outcome it has not yet observed is
+        // the same class of defect as a gate reporting the input to a decision as its outcome
+        // (L-1515) — and here it is worse, because it contradicts the error beside it and the
+        // user has to know which of the two to believe.
+        void bus.executeCommand('sheet.create', { id, sheetNumber, name })
+            .then(() => {
+                console.log(`[SheetsRailPanel] Created Sheet: ${sheetNumber} — ${name} id=${id}`);
+            })
+            .catch((err: unknown) => {
+                console.error(
+                    `[SheetsRailPanel] Sheet NOT created: ${sheetNumber} — ${name}`, err,
+                );
+            });
     }
 
     private _buildSheetRegisterPanel(): HTMLElement {
