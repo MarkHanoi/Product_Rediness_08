@@ -205,6 +205,27 @@ export interface ApartmentProgram {
     openPlanKitchenDining: boolean;
     livingRoom: boolean;
     entranceHall: boolean;
+    /** §RAC-APARTMENT-IN-ROOM (L-1642, 2026-08-21) — how many bedrooms get their
+     *  OWN en-suite, paired one-per-bedroom in mint order (bedIds[0..N-1], the
+     *  master first). Optional; ABSENT ⇒ the legacy behaviour byte-for-byte:
+     *  exactly one en-suite iff {@link masterEnSuite}, paired to the master.
+     *  Clamped to [0, bedrooms] in the bubble graph (an en-suite pairs 1:1 with a
+     *  bedroom — §ENSUITE-1TO1). Any value ≥ 1 makes the FIRST bedroom a master
+     *  (the ensuite type rule reaches it there), exactly as masterEnSuite does.
+     *  Rides the SAME per-instance `ProgramRoom.ensuiteHostId` machinery the
+     *  §SUITE-WITHIN-PARENT hotel-suite mode uses — never a global rule change
+     *  (see the §BEDROOM-ENSUITE-2DOOR doctrine block in programRules.ts). */
+    enSuiteCount?: number;
+    /** §RAC-APARTMENT-IN-ROOM (L-1643, 2026-08-21) — the TRUE fused open-plan ask
+     *  ("open kitchen + living room"): mint ONE `open_plan` great room (the
+     *  first-class RoomType programRules.ts:739 fully specifies) INSTEAD OF the
+     *  separate living / kitchen / dining rooms, wired per its accessFrom
+     *  ['hall','corridor']. DISTINCT from {@link openPlanKitchenDining}, which
+     *  keeps three rooms and merely opens the LIVING↔DINING threshold
+     *  (§KITCHEN-DISTINCT re-interpretation). Optional; ABSENT / false ⇒
+     *  byte-identical legacy minting. types.ts:19-22 promised "a future brief may
+     *  ask for one" — this is that brief field. */
+    openPlanKitchenLiving?: boolean;
     /** §DIAG-MERGE-DIVIDER (tracker §57.3, 2026-06-11) — whether the LIVING room
      *  shares an OPEN (wall-less) threshold with the dining zone (the "lounge-diner"
      *  pattern). Optional; ABSENT or `true` → the legacy behaviour: when
@@ -507,6 +528,26 @@ export interface ApartmentGenerateLayoutPayload {
      *  orientation (windows prefer the sun-facing façade). Read from
      *  `siteModelStore.getLocation().latitude`; omitted ⇒ pure-length placement. */
     siteLatitudeDeg?: number;
+    /** §RAC-APARTMENT-IN-ROOM (L-1644, 2026-08-21) — a room-scoped run: the target
+     *  ROOM's wall-CENTRELINE boundary ring (closed, world-XZ metres — the
+     *  RoomData.boundary.polygon contract). When present with ≥3 vertices the
+     *  shell reader synthesises the shell from THESE edges instead of resolving
+     *  `shellWallIds` against the wall store — the room's bounding walls already
+     *  exist and must never be re-created, so they enter as geometry, not as
+     *  store ids. The centreline ring (not the inner face) is deliberate:
+     *  `analyseShell`'s contract is wall baseLines, which ARE centrelines, so the
+     *  engine's own net-area / inset semantics land partitions inside the inner
+     *  face exactly as they do for a whole-level shell; feeding an already-inset
+     *  ring would inset twice. `shellWallIds` then carries the synthetic
+     *  `room-ring-N` edge ids (≥3 by the RoomBoundary min-3-vertex contract). */
+    shellRingWorld?: Array<{ x: number; z: number }>;
+    /** §RAC-APARTMENT-IN-ROOM / L-911 (2026-08-21) — the user STATED the bedroom
+     *  count in the sentence, so it is exact: suppresses the ~130 m²/bedroom
+     *  plate-density round-up, the §ENVELOPE-FIT-GROWTH auto-growth AND the
+     *  §BEDROOM-AUTO-ITERATE retry (a stated count is never silently adjusted —
+     *  the envelope refusal then names both numbers instead). Absent ⇒ every
+     *  existing caller is byte-identical (growth stays on). */
+    lockBedroomCount?: boolean;
     program: ApartmentProgram;
     constraints: ApartmentConstraints;
     options: { count: number; scoringWeights: ScoringWeights };

@@ -99,6 +99,9 @@ export function createApartmentLayoutImpl(deps: ApartmentLayoutDeps): WorkflowIm
                 // defaults (identity). The D-TGL path consumes it; the AI path
                 // ignores it.
                 ...(payload.tuning ? { tuning: payload.tuning } : {}),
+                // §RAC-APARTMENT-IN-ROOM / L-911 — a STATED bedroom count is exact:
+                // suppresses density round-up, envelope growth and auto-iterate.
+                ...(payload.lockBedroomCount === true ? { lockBedroomCount: true } : {}),
             },
             deps.relay,
             // Build opts conditionally — passing `model: undefined` violates

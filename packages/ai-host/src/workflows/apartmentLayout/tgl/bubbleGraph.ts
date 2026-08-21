@@ -329,12 +329,20 @@ export function buildBubbleGraph(
     };
 
     const entryId = program.entranceHall ? push('hall', 'Entrance Hall', false) : null;
-    const livingId = program.livingRoom ? push('living', 'Living Room', false) : null;
+    // §RAC-APARTMENT-IN-ROOM (L-1643, 2026-08-21) — the TRUE fused open-plan ask
+    // ("open kitchen + living"): ONE `open_plan` great room (programRules.ts:739,
+    // the first-class type that had ZERO minters) INSTEAD OF separate living /
+    // kitchen / dining. Gated on includeKitchen !== false so a house-upper
+    // storey programme (no kitchen by SPEC-CASA §3) can never fuse one in.
+    // Absent/false ⇒ the three mints below are byte-identical legacy.
+    const openPlanFused = program.openPlanKitchenLiving === true && program.includeKitchen !== false;
+    const openPlanId = openPlanFused ? push('open_plan', 'Open-plan Kitchen + Living', false) : null;
+    const livingId = !openPlanFused && program.livingRoom ? push('living', 'Living Room', false) : null;
     // §A.21.x-KITCHEN — kitchen only when the program wants one. Absent/true →
     // kitchen (apartment default, unchanged). false → no kitchen (house upper
     // storeys). `link()` no-ops on a null id, so the kitchen links below are safe.
-    const kitchenId = program.includeKitchen === false ? null : push('kitchen', 'Kitchen', false);
-    const diningId = program.openPlanKitchenDining ? push('dining', 'Dining', false) : null;
+    const kitchenId = openPlanFused || program.includeKitchen === false ? null : push('kitchen', 'Kitchen', false);
+    const diningId = !openPlanFused && program.openPlanKitchenDining ? push('dining', 'Dining', false) : null;
 
     // §HOUSE-GROUND-PUBLIC-SET (A.21.D28 #4, 2026-06-11) — optional public/service
     // ground-floor rooms (study, utility). Minted from the program flags exactly like
@@ -357,10 +365,23 @@ export function buildBubbleGraph(
         : Math.max(0, Math.floor(program.bathrooms));
     const corridorId = beds + baths > 0 ? push('corridor', 'Corridor', false) : null;
 
+    // §RAC-APARTMENT-IN-ROOM (L-1642, 2026-08-21) — the STATED en-suite count,
+    // clamped to [0, beds]: an en-suite pairs 1:1 with a bedroom (§ENSUITE-1TO1),
+    // so a count above the bedroom count can never mint an orphan. null ⇒ the
+    // field was absent ⇒ every legacy path below is byte-identical.
+    const requestedEnsuites: number | null =
+        typeof program.enSuiteCount === 'number' && Number.isFinite(program.enSuiteCount)
+            ? Math.max(0, Math.min(beds, Math.floor(program.enSuiteCount)))
+            : null;
+    // Any stated en-suite makes the FIRST bedroom a master (the ensuite type rule
+    // reaches it there — ensuite.accessFrom is ['master']), exactly as
+    // masterEnSuite always has; non-master hosts ride the per-instance
+    // `ensuiteHostId` override (§BEDROOM-ENSUITE-2DOOR), never a rule change.
+    const masterFirst = program.masterEnSuite || (requestedEnsuites !== null && requestedEnsuites >= 1);
     const bedIds: string[] = [];
     for (let i = 0; i < beds; i++) {
-        const isMaster = i === 0 && program.masterEnSuite;
-        bedIds.push(push(isMaster ? 'master' : 'bedroom', isMaster ? 'Master Bedroom' : `Bedroom ${i + (program.masterEnSuite ? 0 : 1)}`, true));
+        const isMaster = i === 0 && masterFirst;
+        bedIds.push(push(isMaster ? 'master' : 'bedroom', isMaster ? 'Master Bedroom' : `Bedroom ${i + (masterFirst ? 0 : 1)}`, true));
     }
     // §SUITE-WITHIN-PARENT — mint the ensuite(s). OFF (legacy): exactly ONE ensuite, paired
     // to bed[0] (the master), iff masterEnSuite — BYTE-IDENTICAL. ON (suite mode): one ensuite
@@ -370,7 +391,12 @@ export function buildBubbleGraph(
     // corridor. The ensuite name carries its host's number so the modal reads "En-suite 2" etc.
     const ensuiteHosts: string[] = suiteMode
         ? bedIds.slice()                                          // every bedroom is a suite
-        : (program.masterEnSuite && beds > 0 && bedIds[0] ? [bedIds[0]] : []);
+        // §RAC-APARTMENT-IN-ROOM (L-1642) — a STATED count pairs the first N
+        // bedrooms (master first) with their own ensuite, per-instance
+        // `ensuiteHostId` exactly as suite mode does. null ⇒ legacy byte-identical.
+        : requestedEnsuites !== null
+            ? bedIds.slice(0, requestedEnsuites)
+            : (program.masterEnSuite && beds > 0 && bedIds[0] ? [bedIds[0]] : []);
     let suiteEnsuiteCount = 0;
     for (let hi = 0; hi < ensuiteHosts.length; hi++) {
         const hostId = ensuiteHosts[hi]!;
@@ -559,6 +585,12 @@ export function buildBubbleGraph(
     // boundary like between kitchen and living). Without the boundary line they'd
     // collapse into one merged room (the 421 m² "Living Room" defect).
     link(entryId, livingId, 'open');
+    // §RAC-APARTMENT-IN-ROOM (L-1643) — the fused great room takes the living
+    // room's place at the entrance: the SAME hall↔social 'open' threshold (P4
+    // still emits the RoomBoundingLine, so detection keeps the two spaces
+    // separate). open_plan.accessFrom includes 'hall' (pref 1.0). No-op when
+    // openPlanId is null (the legacy path).
+    link(entryId, openPlanId, 'open');
     // Corridor is a DISTINCT circulation room (door from the hall), not merged into
     // the open public zone — so the layout reads as rooms-off-a-corridor.
     link(entryId, corridorId, 'door');
@@ -594,7 +626,10 @@ export function buildBubbleGraph(
         link(livingId, diningId, 'door');
     }
     // Private zone hangs off the corridor (or the hall when there's no corridor).
-    const spine = corridorId ?? entryId ?? livingId;
+    // §RAC-APARTMENT-IN-ROOM (L-1643) — the fused great room is the last-resort
+    // spine exactly as the living room was (open_plan.accessFrom includes
+    // 'corridor', and a hall-less studio's private rooms must hang off SOMETHING).
+    const spine = corridorId ?? entryId ?? livingId ?? openPlanId;
     // §HOUSE-GROUND-PUBLIC-SET (A.21.D28 #4, 2026-06-11) — the study + utility hang off
     // the SAME spine (a 'door' edge), so the corridor carve/comb reaches them just like
     // a bedroom and they never seal. study.accessFrom + utility.accessFrom both include

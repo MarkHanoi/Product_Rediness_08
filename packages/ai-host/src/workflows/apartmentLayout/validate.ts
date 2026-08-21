@@ -83,7 +83,26 @@ export function validateLayout(
     if (program.masterEnSuite && countType('ensuite') < 1) {
         failures.push('program requires a master en-suite but none is present');
     }
-    if (program.livingRoom && countType('living') < 1) {
+    // §RAC-APARTMENT-IN-ROOM (L-1642) — a STATED en-suite count must be met
+    // (clamped to the bedroom count, an ensuite pairs 1:1 with a bedroom).
+    if (typeof program.enSuiteCount === 'number' && program.enSuiteCount > 0) {
+        const wanted = Math.min(program.enSuiteCount, Math.max(program.bedrooms, bedrooms));
+        if (countType('ensuite') < wanted) {
+            failures.push(`only ${countType('ensuite')} en-suite(s) — program requires ${wanted} (one per bedroom, master first)`);
+        }
+    }
+    // §RAC-APARTMENT-IN-ROOM (L-1643) — the fused great room REPLACES the
+    // separate social rooms: require the open_plan room and reject a split
+    // kitchen/living/dining trio (an option that ignored the fuse must not pass
+    // as "close enough" — that is the scope-widening this lane exists to stop).
+    if (program.openPlanKitchenLiving === true) {
+        if (countType('open_plan') < 1) {
+            failures.push('program requires ONE open-plan kitchen+living great room (type "open_plan") but none is present');
+        }
+        if (countType('kitchen') + countType('living') + countType('dining') > 0) {
+            failures.push('program fuses kitchen+living+dining into one open_plan room — separate kitchen/living/dining rooms must not appear');
+        }
+    } else if (program.livingRoom && countType('living') < 1) {
         failures.push('program requires a living room but none is present');
     }
 

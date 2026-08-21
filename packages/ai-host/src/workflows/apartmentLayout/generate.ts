@@ -73,6 +73,13 @@ export interface GenerateLayoutInput {
      *  SAME way `siteLatitudeDeg` (the climate factor) does. Absent / unknown ⇒ no
      *  bias (byte-identical window emission). The AI path ignores it. */
     style?: string;
+    /** §RAC-APARTMENT-IN-ROOM / L-911 (2026-08-21) — the user STATED the bedroom
+     *  count, so it is exact. Threads to D-TGL's `lockBedroomCount` (suppressing
+     *  the plate-density round-up + §ENVELOPE-FIT-GROWTH) AND suppresses this
+     *  orchestrator's own §BEDROOM-AUTO-ITERATE: a stated count is never silently
+     *  adjusted — an inadmissible envelope refuses naming BOTH numbers instead.
+     *  Absent ⇒ every existing caller byte-identical. */
+    lockBedroomCount?: boolean;
 }
 
 export interface GenerateLayoutResult {
@@ -97,10 +104,20 @@ export function buildLayoutPrompt(
     const lines = [
         `SHELL: net area ${shell.netAreaM2.toFixed(1)} m², ${shell.widthM.toFixed(1)} m × ${shell.depthM.toFixed(1)} m.`,
         `FACES: ${faces}.`,
-        `PROGRAM: ${program.bedrooms} bedroom(s)${program.masterEnSuite ? ' (master en-suite)' : ''}, ` +
+        `PROGRAM: ${program.bedrooms} bedroom(s)` +
+            // §RAC-APARTMENT-IN-ROOM (L-1642) — a stated en-suite count outranks the
+            // single master flag; one ensuite per bedroom, master first.
+            `${typeof program.enSuiteCount === 'number' && program.enSuiteCount > 0
+                ? ` (${program.enSuiteCount} en-suite(s), one per bedroom starting at the master)`
+                : program.masterEnSuite ? ' (master en-suite)' : ''}, ` +
             `${program.bathrooms} bathroom(s)` +
-            `${program.openPlanKitchenDining ? ', open-plan kitchen+dining' : ', kitchen, dining'}` +
-            `${program.livingRoom ? ', living room' : ''}${program.entranceHall ? ', entrance hall' : ''}.`,
+            // §RAC-APARTMENT-IN-ROOM (L-1643) — the fused great room REPLACES the
+            // separate social rooms; the validator rejects options that split it.
+            `${program.openPlanKitchenLiving === true
+                ? ', one OPEN-PLAN kitchen+living+dining great room (room type "open_plan") — NO separate kitchen, living or dining rooms'
+                : `${program.openPlanKitchenDining ? ', open-plan kitchen+dining' : ', kitchen, dining'}` +
+                  `${program.livingRoom ? ', living room' : ''}`}` +
+            `${program.entranceHall ? ', entrance hall' : ''}.`,
         `CONSTRAINTS: min corridor ${constraints.minCorridorWidth} mm, wall thickness ${constraints.wallThickness} mm, ` +
             `floor-to-ceiling ${constraints.floorToCeiling} mm.`,
         'OUTPUT: a JSON array of layout options. JSON only.',
@@ -236,6 +253,8 @@ export async function generateLayoutOptions(
             input.tuning,
             undefined,      // residualExcludeRectsWorld
             input.style,    // ST.5 — glazing-size bias
+            undefined, undefined,        // keepOutRectsLayout / residualExcludeRectsLayout
+            input.lockBedroomCount,      // §RAC-APARTMENT-IN-ROOM / L-911 — stated counts are exact
         );
         if (deterministic.length > 0) {
             return { options: deterministic, status: 'ok', attempts: attempt, reason: 'AI unavailable — deterministic D-TGL offline layout' };
@@ -264,7 +283,11 @@ export async function generateLayoutOptions(
         let bedrooms = originalBedrooms;
         let envelope = validateApartmentEnvelope({ bedrooms, grossAreaM2: programNet });
 
-        if (!envelope.admissible) {
+        // §RAC-APARTMENT-IN-ROOM / L-911 (2026-08-21) — a STATED bedroom count is
+        // never auto-iterated: the envelope refusal below then reaches the user
+        // carrying the engine's own numbers (shell area vs the stated count's
+        // band) instead of a silently different apartment.
+        if (!envelope.admissible && input.lockBedroomCount !== true) {
             // Determine the iteration direction from the FIRST envelope
             // rejection — never flip mid-loop (avoids oscillation between
             // grossMin↔grossMax which shouldn't be possible per the

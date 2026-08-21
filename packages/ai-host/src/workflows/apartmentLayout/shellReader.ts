@@ -45,6 +45,18 @@ export function createStoreShellReader(
     deps: ShellReaderDeps,
 ): (payload: ApartmentGenerateLayoutPayload) => ShellAnalysis {
     return function readShell(payload: ApartmentGenerateLayoutPayload): ShellAnalysis {
+        // §RAC-APARTMENT-IN-ROOM (L-1644, 2026-08-21) — a room-scoped run: the
+        // shell comes from the target room's boundary ring, NOT from the wall
+        // store. The room's bounding walls already exist (and may extend past
+        // the room, bound other rooms, or be interior), so resolving them by id
+        // would rebuild the WRONG perimeter; the ring is the exact room shape.
+        if (Array.isArray(payload.shellRingWorld) && payload.shellRingWorld.length >= 3) {
+            return analyseRoomRing(
+                payload.shellRingWorld,
+                payload.windowSpansWorld ?? [],
+                payload.doorSpansWorld ?? [],
+            );
+        }
         const walls: ShellWallInput[] = [];
         const windowCountByWall: Record<string, number> = {};
         const orientationByWall: Record<string, Compass> = {};
@@ -76,4 +88,100 @@ export function createStoreShellReader(
 
         return analyseShell(walls, { entranceWallId, windowCountByWall, orientationByWall });
     };
+}
+
+// ─── §RAC-APARTMENT-IN-ROOM (L-1644, 2026-08-21) — the room-ring shell ───────
+//
+// A room-scoped generate has no store walls of its own: the room's boundary
+// polygon (wall-centreline ring, closed CCW world-XZ — the RoomData contract)
+// IS the shell. Each ring edge becomes a synthetic `room-ring-N` ShellWallInput
+// whose baseLine is the edge, so `analyseShell`'s 50 mm chaining walk closes
+// trivially (the ring is already chained). PURE — exported so the engine test
+// can drive the identical path the workflow drives.
+//
+// Window/door spans on the room's REAL bounding walls inform the analysis:
+//   • each window span's midpoint is credited to its nearest ring edge, so the
+//     face light classification (best-light / blind) sees the room's real glass;
+//   • the FIRST door span picks the entrance edge (the room's existing door is
+//     where circulation arrives), else edge 0 — the same fallback the store
+//     reader uses when the entrance door cannot be matched.
+
+/** Distance from a point to a segment (world-XZ metres). Exported for the
+ *  room-scope payload builder, so span-to-ring proximity uses the SAME metric
+ *  the ring analysis uses. */
+export function pointToSegment(
+    p: { x: number; z: number },
+    a: { x: number; z: number },
+    b: { x: number; z: number },
+): number {
+    const dx = b.x - a.x, dz = b.z - a.z;
+    const l2 = dx * dx + dz * dz;
+    if (l2 < 1e-12) return Math.hypot(p.x - a.x, p.z - a.z);
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.z - a.z) * dz) / l2));
+    return Math.hypot(p.x - (a.x + t * dx), p.z - (a.z + t * dz));
+}
+
+/**
+ * The ONE derivation of ring → synthetic shell walls, shared by the analysis
+ * below and the payload builder (`roomScopePayload.ts`) so the two can never
+ * disagree about which edges exist or how they are named. Drops a trailing
+ * duplicate of the first vertex (a closed ring) and sub-50 mm degenerate edges.
+ */
+export function roomRingEdges(
+    ring: ReadonlyArray<{ x: number; z: number }>,
+): ShellWallInput[] {
+    const pts = ring.slice();
+    if (pts.length >= 2) {
+        const f = pts[0]!, l = pts[pts.length - 1]!;
+        if (Math.hypot(f.x - l.x, f.z - l.z) < 0.05) pts.pop();
+    }
+    const walls: ShellWallInput[] = [];
+    for (let i = 0; i < pts.length; i++) {
+        const a = pts[i]!;
+        const b = pts[(i + 1) % pts.length]!;
+        if (Math.hypot(b.x - a.x, b.z - a.z) < 0.05) continue;   // degenerate edge
+        walls.push({
+            id: `room-ring-${i}`,
+            baseLine: [{ x: a.x, z: a.z }, { x: b.x, z: b.z }],
+        });
+    }
+    return walls;
+}
+
+/** Analyse a room's boundary ring as an apartment shell. Pure + deterministic. */
+export function analyseRoomRing(
+    ring: ReadonlyArray<{ x: number; z: number }>,
+    windowSpansWorld: ReadonlyArray<{ a: { x: number; z: number }; b: { x: number; z: number } }>,
+    doorSpansWorld: ReadonlyArray<{ a: { x: number; z: number }; b: { x: number; z: number } }>,
+): ShellAnalysis {
+    const walls = roomRingEdges(ring);
+
+    const nearestWallId = (p: { x: number; z: number }): string | '' => {
+        let best = '';
+        let bestD = Number.POSITIVE_INFINITY;
+        for (const w of walls) {
+            const d = pointToSegment(p, w.baseLine[0], w.baseLine[1]);
+            if (d < bestD) { bestD = d; best = w.id; }
+        }
+        return best;
+    };
+    const mid = (s: { a: { x: number; z: number }; b: { x: number; z: number } }): { x: number; z: number } =>
+        ({ x: (s.a.x + s.b.x) / 2, z: (s.a.z + s.b.z) / 2 });
+
+    const windowCountByWall: Record<string, number> = {};
+    for (const s of windowSpansWorld) {
+        const id = nearestWallId(mid(s));
+        if (id !== '') windowCountByWall[id] = (windowCountByWall[id] ?? 0) + 1;
+    }
+
+    // The room's existing door is where circulation arrives — the entrance side.
+    const firstDoor = doorSpansWorld[0];
+    const entranceWallId = firstDoor !== undefined
+        ? (nearestWallId(mid(firstDoor)) || (walls[0]?.id ?? ''))
+        : (walls[0]?.id ?? '');
+
+    const orientationByWall: Record<string, Compass> = {};
+    for (const w of walls) orientationByWall[w.id] = null;
+
+    return analyseShell(walls, { entranceWallId, windowCountByWall, orientationByWall });
 }
