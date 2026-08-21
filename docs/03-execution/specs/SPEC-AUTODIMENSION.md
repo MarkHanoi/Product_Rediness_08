@@ -237,3 +237,183 @@ Target **O(n log n)** overall (n=walls, m=openings). The as-shipped `detectJunct
 ## §11 — Migration
 
 This SPEC is DRAFT. It supersedes the intelligence-free `produceDimensions` per-element / set-out modes (which remain as rank-5 fallbacks, unchanged in signature). No `DimensionString` schema change. Open items gating P1 (spike §18): (Q1) the `dimension.createMany` batch verb for one-undo; (Q2) P1 in-package `buildPureWallGraph` mirror vs fast-tracking the P4 pure `planar-topology` lift; (Q3) face-outer vs centreline datum for exact outer-face dims (resolved via the existing `face-outer`/`face-inner` anchors). When resolved, amend this SPEC in place (do not fork).
+
+---
+
+## §12 — THE GA DRAFTING STANDARD (founder-authored, 2026-08-20) — NORMATIVE
+
+> ⭐ **This section is the ACCEPTANCE STANDARD for the plan engine, authored by the founder and
+> captured verbatim in intent.** §1–§11 describe the *machinery*; §12 describes **what a correct
+> drawing looks like**, which the machinery has never been measured against. Where §12 and an
+> earlier section disagree about output, **§12 wins** and the earlier section is the thing to change.
+>
+> It is written for a **General Arrangement (GA)** plan to professional architectural documentation
+> standards (RIBA / ISO / NATSPEC-style), i.e. the drawing an experienced architectural technician
+> would hand over — not a model view with numbers on it.
+
+### §12.0 — The core principle
+
+**Treat the drawing as a COMMUNICATION DOCUMENT, not a model view.** Prioritise clarity over
+completeness. **Every annotation must justify its existence**; if an annotation reduces readability,
+relocate or remove it.
+
+The reader must be able to understand, within a few seconds: **building form · structural layout ·
+room organisation · openings · critical construction dimensions.**
+
+### §12.1 — Annotation priority (never let a lower rank interfere with a higher one)
+
+| Rank | Element |
+|---|---|
+| 1 | Walls, doors, windows |
+| 2 | Gridlines |
+| 3 | Overall dimensions |
+| 4 | Structural dimensions |
+| 5 | Opening dimensions |
+| 6 | Room tags |
+| 7 | Door tags |
+| 8 | Window tags |
+| 9 | Internal dimensions |
+| 10 | Furniture |
+
+### §12.2 — Exterior dimensions — THREE strings, always outside
+
+**Always dimension from the outside wherever possible.** Three continuous strings around the
+perimeter:
+
+| String | Content | Offset from external wall |
+|---|---|---|
+| **1 (outermost)** | Overall building width; overall building length | **1200 mm** |
+| **2** | Structural walls; external wall offsets; major façade breaks | **800 mm** |
+| **3 (innermost)** | Door locations; window locations; pilasters; curtain-wall starts and ends | **400 mm** |
+
+⛔ **Never place these strings inside the building.** Align them continuously; **avoid fragmented
+chains.**
+
+### §12.3 — Interior dimensions — ONLY construction-critical
+
+**Allowed:** corridor widths · stair widths · bathroom layouts · kitchen runs · critical clearances ·
+structural wall spacing.
+
+⛔ **Avoid:** duplicate dimensions · every room edge · cosmetic dimensions.
+
+**Maximum ONE width and ONE length per room**, unless construction genuinely requires more.
+
+### §12.4 — Diagonal and curved façades
+
+For angled walls dimension **endpoints, overall segment length, angle, and radius if curved**.
+⛔ **Never create chains of short diagonal dimensions.** Prefer orthogonal reference dimensions taken
+from grids.
+
+### §12.5 — Room tags
+
+Contain **room name · room number · area (optional)**. Placed at the **room centroid**, at least
+**300 mm from walls**, avoiding doors and furniture, and **kept horizontal**.
+
+If blocked: **search outward in a spiral every 150 mm and stop at the first collision-free
+position.**
+
+### §12.6 — Door tags
+
+**Outside the swing arc**, **200–400 mm** offset, **on a consistent side throughout the drawing**.
+⛔ Never inside the swing, over walls, or over dimensions.
+
+### §12.7 — Window tags
+
+**Outside the wall face**, **aligned with neighbouring window tags**, offset consistently.
+Curtain walls: **tag the assembly**, not each panel, unless individual panels are required.
+
+### §12.8 — Stairs
+
+Include **UP arrow, stair width, direction**. Avoid excessive landing dimensions.
+
+### §12.9 — Collision resolution (a strict order, not a heuristic)
+
+Annotations must never overlap walls, doors, windows, dimensions, room tags or other tags. When two
+collide, resolve in this order:
+
+1. **Dimensions stay fixed.**
+2. **Room tags move.**
+3. **Door tags rotate around their host.**
+4. **Window tags shift along the wall.**
+5. **Furniture never wins.**
+
+### §12.10 — Alignment — humans read ordered bands
+
+Align nearby tags · snap dimensions into continuous horizontal or vertical lines · maintain even
+spacing · preserve consistent offsets. ⛔ **No "floating" annotations.**
+
+### §12.11 — Lineweight hierarchy
+
+| Element | Weight |
+|---|---|
+| Cut walls | Heavy |
+| Structure | Heavy |
+| Doors | Medium |
+| Windows | Medium |
+| Furniture | Light |
+| Dimensions | Thin |
+| Tags | Thin |
+| Room fills | Very light |
+
+⛔ **Annotations must never visually overpower cut walls.**
+
+### §12.12 — The optimisation pass (run to fixpoint)
+
+After placing everything: detect overlaps → remove duplicate dimensions → straighten dimension
+chains → align tags → push dimensions outward where possible → verify room labels remain readable →
+ensure no annotation crosses a door swing → ensure diagonal façades remain uncluttered.
+**Repeat until no further readability improvement is possible.**
+
+### §12.13 — Expected result
+
+Clean perimeter dimension strings · minimal internal dimensions · centred room tags · consistent tag
+offsets · no overlapping annotations · strong wall hierarchy · readable diagonal façades · balanced
+white space · **immediate comprehension within a few seconds of viewing.**
+
+---
+
+## §13 — MEASURED GAP against §12 (2026-08-20) — what the engine does NOT yet do
+
+Recorded so §12 is not mistaken for a description of current behaviour. Evidence: the founder's
+GA screenshot of a real 12-room plate, plus
+`[auto-dimension] §FEAT-AUTODIMENSION-P1 coverage: … warnings: Array(34)`.
+
+**What already exists and is sound — do NOT rebuild it:**
+`packages/auto-dimension/src/tiers.ts` implements a **tier model** whose rule is exactly §12.2's
+spirit: every cardinal string is positioned relative to the **building's footprint bbox**, never to
+the wall it happens to measure, so tiers stack outward and stay outside on L-plans, notches and
+courtyards (§FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST, L-281). `perimeter.ts`, `placement.ts`,
+`planners.ts`, `conflicts.ts` and `openings.ts` are the corresponding stages.
+
+**The gaps, in the order they damage the drawing:**
+
+1. ⛔ **§12.3 is not implemented at all — this is the dominant defect.** The screenshot shows
+   ~15 interior dimensions on one plate (2016, 2661, 5393, 3317, 2225, 5443, 2563, 2180, 2609,
+   4076 mm …), i.e. **every room edge**, which §12.3 explicitly forbids. There is no
+   construction-critical filter and no one-width-one-length-per-room cap.
+2. ⛔ **§12.2's three NAMED strings with fixed 1200/800/400 offsets do not exist.** The tier model
+   is *relative* (`gap · (tier+1)`, scale-aware per C24). §12 asks for **named strings with
+   declared content and absolute millimetre offsets** — a different, stricter contract.
+3. ⛔ **§12.1's priority table has no representation.** `conflicts.ts` resolves collisions, but not
+   against a declared 10-rank order, so a room tag can currently lose to furniture.
+4. ⛔ **§12.9's resolution ORDER is not encoded** (dimensions fixed → room tags move → door tags
+   rotate → window tags shift → furniture never wins).
+5. ⛔ **§12.5's spiral search (150 mm steps, ≥300 mm from walls) is not implemented** —
+   `RoomTagAutoPopulator` places at centroid and does not search on collision.
+6. ⛔ **§12.10 alignment/banding does not exist.** Nothing snaps tags into bands or enforces even
+   spacing, which is why the screenshot reads as scattered rather than drafted.
+7. ⛔ **§12.12's fixpoint optimisation pass does not exist.** Stage-8 emits *warnings*
+   (`AutoDimReport.warnings`, 34 of them on this plate) and **stops** — it reports unreadability
+   rather than resolving it.
+8. 🟡 **§12.4 diagonal handling is unverified.** The plate has two angled façades and a curved bay;
+   whether short diagonal chains are being emitted was not measured.
+
+⭐ **The shape of the gap:** the engine has a sound *placement geometry* layer and no *editorial*
+layer. §12 is almost entirely editorial — what to say, what to leave out, and what to move when two
+things want the same space. That is why the output is geometrically defensible and still unreadable.
+
+⚠ **Warnings are not a substitute for the optimisation pass.** 34 warnings on one plate is the
+engine correctly noticing it produced an unreadable drawing and shipping it anyway. §12.12 is the
+missing half.
+
+---
