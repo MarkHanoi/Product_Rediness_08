@@ -306,7 +306,32 @@ describe('L-947 §FIX-SNAPSHOT-SCOPE-MATCHES-WRITE — the snapshot scope must n
 
 /** A store that records every write against the StoreKey it is registered under. */
 function makeRecorder(key: string, written: Set<string>) {
-    const rec = { id: 'e-1', wallId: 'w1', height: 3, properties: {} };
+    const rec: Record<string, unknown> = { id: 'e-1', wallId: 'w1', height: 3, properties: {} };
+    // ⭐ §PARAM-DROP-IS-A-REFUSAL (L-3200) — THE WRITE MUST ACTUALLY PERSIST.
+    //
+    // These three mutators used to be `{ written.add(key); }` — they recorded that a
+    // write happened and threw the values away. That was invisible while the command
+    // reported success straight off `applyUpdate`, and it became visible the moment the
+    // command started READING BACK what landed: eighteen of these twenty arms began
+    // failing with "materialColor did not land", because on this fake it genuinely
+    // did not.
+    //
+    // That is the `fake-more-capable-than-real` defect INVERTED, and it is just as
+    // misleading — a stand-in that accepts a call and keeps nothing cannot tell a
+    // working store from a dropping one. Merging the patch is what a real store does
+    // (`WallStore.update`, `SlabStore.update`, `HandrailStore.update` all merge or
+    // replace), so this makes the fake MORE faithful, not more permissive.
+    //
+    // ⚠ The arm's own subject is UNCHANGED: `written.add(key)` still records which
+    // store received the write, which is the whole assertion below.
+    const merge = (_id: string, updates: unknown) => {
+        written.add(key);
+        if (updates !== null && typeof updates === 'object') {
+            for (const [k, v] of Object.entries(updates as Record<string, unknown>)) {
+                rec[k] = v;
+            }
+        }
+    };
     return {
         __key: key,
         getById: (_id: string) => rec,
@@ -318,9 +343,9 @@ function makeRecorder(key: string, written: Set<string>) {
         clear() { /* snapshot restore */ },
         add() { /* snapshot restore */ },
         remove() { /* noop */ },
-        update() { written.add(key); },
-        updateDoor() { written.add(key); },
-        updateWindow() { written.add(key); },
+        update: merge,
+        updateDoor: merge,
+        updateWindow: merge,
     };
 }
 

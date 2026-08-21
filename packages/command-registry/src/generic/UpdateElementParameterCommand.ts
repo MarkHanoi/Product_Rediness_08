@@ -31,6 +31,11 @@ import { resolveElementRebuildDescriptor, isGeometryAffectingChange } from './El
 // §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812/L-814) — the SINGLE rake gate, shared with
 // WallDataSchema / WallStore.update / WallStore.addOpening / UpdateWallSystemTypeCommand.
 import { rakeAuthorability, profileAuthorability, wallOccupancyStore } from '@pryzm/geometry-wall';
+// ⭐ §PARAM-DROP-IS-A-REFUSAL / §FEAT-WINDOW-REVEAL-RAC (L-3200 · L-3202) — the C83
+// IMPOSSIBLE gate for a window reveal, IMPORTED rather than restated. It is the exact
+// function `UpdateWindowParameterCommand` consults and the exact one `WindowRevealLeaf`
+// builds to; a second spelling here would be a second authority for one rule.
+import { windowRevealRefusal, isRevealAuthored } from '@pryzm/geometry-window';
 // §REFUSAL-IDENTITY (GE-09, C58 §1.13.8) — the ONE renderer for a refusal arriving
 // from a validator this command orchestrates but does not own (`validateParameters`,
 // `rakeAuthorability`). A stated reason passes VERBATIM; a silent validator is NAMED
@@ -282,7 +287,64 @@ export class UpdateElementParameterCommand implements Command {
         const heightCheck = this.checkWallHeightOpeningFit(_context);
         if (heightCheck) return heightCheck;
 
+        // ⭐ §FEAT-WINDOW-REVEAL-RAC (L-3202) — the C83 IMPOSSIBLE gate, on the GENERIC
+        // path, and it is a MEASURED hole rather than a precaution.
+        //
+        // Probed 2026-08-21 against the real stores: `element.updateParameters` carrying
+        // `{revealSplayJambLeft: 85, revealSplayJambRight: 85}` on a 1.2 m window returned
+        // `success: true` and STORED both values. `UpdateWindowParameterCommand` refuses
+        // that exact patch — two reveals that meet leave the glazing with zero area — but
+        // its gate lives only in that command, which NO bus route reaches. So the panel was
+        // guarded and every other writer (chat, collaboration replay, the property
+        // inspector) was not. That is worse than a dropped field: it writes a window with
+        // invisible glazing and reports success, which from the user's side is
+        // indistinguishable from one that worked.
+        //
+        // Same gate, same seam, same idiom as the rake and profile pre-flights above.
+        const revealCheck = this.checkWindowRevealAuthorability(_context);
+        if (revealCheck) return revealCheck;
+
         return { ok: true };
+    }
+
+    /**
+     * §FEAT-WINDOW-REVEAL-RAC (L-3202) — returns a refusal when the MERGED window would
+     * carry a degenerate reveal, or `null` when there is nothing to refuse.
+     *
+     * ⚠ ASKED ABOUT THE MERGED RECORD, NEVER THE PATCH — the same reasoning
+     * `UpdateWindowParameterCommand._resolveRevealRefusal` documents: splay angles and the
+     * opening's own size compose, so "set the left jamb to 40°" is fine on a 1.8 m window
+     * and degenerate on a 0.4 m one. `width` / `height` are therefore in the trigger set:
+     * SHRINKING a window can make an already-authored splay degenerate, and a gate keyed
+     * only on the reveal fields would let that through the back door.
+     *
+     * ⚠ NO HOST WALL, OR NO REVEAL AUTHORED ⇒ SKIPPED, NOT FAILED. The reveal run is half
+     * the wall thickness, so with no wall there is no run and no measurable question.
+     * Refusing on a missing lookup is the refusal-without-an-escape-hatch shape L-942
+     * records.
+     */
+    private checkWindowRevealAuthorability(context: CommandContext): CommandValidationResult | null {
+        if (this.input.elementType?.toLowerCase().trim() !== 'window') return null;
+        const patch = this.input.parameters ?? {};
+        const REVEAL_TRIGGERS = [
+            'revealProjection', 'revealSplayHead', 'revealSplaySill',
+            'revealSplayJambLeft', 'revealSplayJambRight',
+            'width', 'height',
+        ];
+        if (!REVEAL_TRIGGERS.some(k => k in patch)) return null;
+
+        const current = windowStore.getById?.(this.input.elementId);
+        if (!current) return null;
+        const merged = { ...current, ...patch };
+        if (!isRevealAuthored(merged as never)) return null;
+
+        const wallStore = (context?.stores as { wallStore?: { getById?(id: string): unknown } } | undefined)?.wallStore;
+        const wall = wallStore?.getById?.((current as { wallId: string }).wallId) as { thickness?: number } | undefined;
+        const thickness = wall?.thickness;
+        if (typeof thickness !== 'number' || !(thickness > 0)) return null;
+
+        const reason = windowRevealRefusal(merged as never, thickness);
+        return reason ? { ok: false, reason } : null;
     }
 
     /**
@@ -487,11 +549,152 @@ export class UpdateElementParameterCommand implements Command {
             };
         }
 
+        // §FEAT-WINDOW-REVEAL-RAC (L-3202) — DEFENCE IN DEPTH, deliberately duplicated
+        // from `canExecute`. `_cmExec` runs commands through the manager (which does call
+        // `canExecute`), but this class is also constructed and `execute`d directly — by
+        // `undo()` two methods down, by the bus handler's replay path and by tests. A gate
+        // reachable only through the optional pre-flight is the shape that let the panel be
+        // guarded while every other writer was not, which is the very hole this closes.
+        const revealRefusal = this.checkWindowRevealAuthorability(context);
+        if (revealRefusal) {
+            return {
+                success: false,
+                affectedElementIds: [],
+                info: [childRefusalText(
+                    revealRefusal.reason,
+                    'UpdateElementParameterCommand.checkWindowRevealAuthorability',
+                    `${elementType}/${elementId}`,
+                )],
+            };
+        }
+
         this.applyUpdate(store, elementType, elementId, parameters, context);
+
+        // ─── ⭐ §PARAM-DROP-IS-A-REFUSAL (L-3200) — THE READ-BACK ────────────────────
+        //
+        // This command used to `return { success: true }` the instant `applyUpdate`
+        // returned. `applyUpdate` returns `void`, so that success claim was derived from
+        // NOTHING — it said only "no exception was thrown".
+        //
+        // ⛔ MEASURED 2026-08-21, not inferred. `element.updateParameters` carrying
+        // `{ totallyNotAField: 7 }` on a real window returned `success: true` and the
+        // authoritative record did not gain the field: `WindowStore.update` validates the
+        // merged record through `WindowOpeningSchema.safeParse` and writes `result.data`,
+        // and a Zod object STRIPS unknown keys by default. Same for `DoorStore`. So any
+        // caller — chat, collaboration replay, a plugin — could name a field the schema
+        // does not carry and be told it worked.
+        //
+        // That is L-995 / L-1670 in a third costume, and the cure is the one those two
+        // established: COUNT RECORDS, NOT CALLS (C67 rule 12 · C16 CA-21 ·
+        // §WALL-FINISH-READBACK).
+        //
+        // ⭐ AND IT MUST READ THE AUTHORITY, NOT THE MIRROR — this is the whole reason the
+        // check needs `readBackRecord` rather than the `element` it already has. Probed on
+        // the same window: after the junk write, `WallStore.getWindow()` (the mirror
+        // `updateWindow` keeps with a plain spread) **held `totallyNotAField: 7`**, while
+        // `windowStore.getById()` did not. A read-back pointed at the mirror would have
+        // certified the drop as a success — a fake more capable than the real thing,
+        // exactly as `L960SideFinishDisclosure.test.ts`'s permissive stub was.
+        const dropped = this.readBackDroppedKeys(elementType, elementId, store, context);
+        if (dropped.length > 0) {
+            const requested = Object.keys(parameters).length;
+            const detail =
+                `${dropped.length} of ${requested} parameter(s) did not land on the stored ` +
+                `${elementType} record: ${dropped.join(', ')}. The store accepted the call and ` +
+                `discarded the field, so "done" here would be a claim about a call, not about ` +
+                `the model.`;
+            if (dropped.length === requested) {
+                // NOTHING landed. A success would be a pure fiction.
+                return {
+                    success: false,
+                    affectedElementIds: [],
+                    info: [childRefusalText(
+                        detail,
+                        'UpdateElementParameterCommand.readBack',
+                        `${elementType}/${elementId}`,
+                    )],
+                };
+            }
+            // PARTIAL — what landed is real and must stay undoable, so the write is NOT
+            // rolled back; the shortfall is NAMED instead of averaged away. Same
+            // disposition `SetWallSideFinishCommand` gives a skipped wall.
+            console.warn(`[UpdateElementParameterCommand] ${detail}`);
+            return { success: true, affectedElementIds: [elementId], info: [detail] };
+        }
 
         console.log(`[UpdateElementParameterCommand] Updated ${elementType}/${elementId}`, parameters);
 
         return { success: true, affectedElementIds: [elementId] };
+    }
+
+    /**
+     * §PARAM-DROP-IS-A-REFUSAL (L-3200) — the requested keys that are NOT on the
+     * authoritative record after the write.
+     *
+     * ⚠ PRESENCE, NOT EQUALITY, and the difference is load-bearing. Several legitimate
+     * writes land a DIFFERENT value than was asked for — `_clampPatchToWall` pulls a
+     * too-wide window back inside its host, `_resolveProfilePatch` squares a circular
+     * opening. Comparing values would report those as failures and turn a working feature
+     * into a refusal. A key the store dropped, by contrast, is simply absent.
+     *
+     * ⚠ AN EXPLICIT `undefined` IS NEVER COUNTED. Passing `{ x: undefined }` is how a
+     * caller UNSETS a field (and how `undo()` replays a previously-absent value), so an
+     * absent key afterwards is the intended outcome rather than a drop.
+     */
+    private readBackDroppedKeys(
+        elementType: string,
+        elementId: string,
+        store: any,
+        context: CommandContext,
+    ): string[] {
+        const parameters = this.input.parameters ?? {};
+        const after = this.readBackRecord(elementType, elementId, store, context);
+        // No readable record ⇒ NOTHING IS CLAIMED. Reporting every key as dropped because
+        // the read failed would collapse "unreadable" into "absent" — the two facts this
+        // repository keeps re-merging (§CONTEXT-DATA-HONESTY).
+        if (after === null || typeof after !== 'object') return [];
+
+        const dropped: string[] = [];
+        for (const [key, value] of Object.entries(parameters)) {
+            if (value === undefined) continue;
+            if (!this.recordCarriesPath(after, key)) dropped.push(key);
+        }
+        return dropped;
+    }
+
+    /**
+     * The record the WRITE's own authority holds — never the mirror.
+     *
+     * For `window` / `door` the generic path writes BOTH the host wall's opening mirror
+     * and the rich barrel store, and only the barrel validates. For every other type the
+     * routed store is the authority and `getElement` already reads it.
+     */
+    private readBackRecord(
+        elementType: string,
+        elementId: string,
+        store: any,
+        context: CommandContext,
+    ): unknown {
+        const t = (elementType ?? '').toLowerCase().trim();
+        if (t === 'window') return windowStore.getById?.(elementId) ?? null;
+        if (t === 'door') return doorStore.getById?.(elementId) ?? null;
+        return this.getElement(store, elementType, elementId, context) ?? null;
+    }
+
+    /**
+     * Does the record carry this parameter key? Dotted keys (`properties.material`, the
+     * stair branch's idiom) are walked, because `applyUpdate` expands them before the
+     * store write and a flat `hasOwnProperty` would report every one of them as dropped.
+     */
+    private recordCarriesPath(record: unknown, key: string): boolean {
+        const segments = key.split('.');
+        let node: any = record;
+        for (const segment of segments) {
+            if (node === null || typeof node !== 'object') return false;
+            if (!Object.prototype.hasOwnProperty.call(node, segment)) return false;
+            node = node[segment];
+        }
+        return true;
     }
 
     undo(context: CommandContext): CommandResult {
