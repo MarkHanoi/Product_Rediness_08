@@ -30768,3 +30768,311 @@ that names doors proves the branch that cannot fail.
 the three formulas sum the same family set, **derived from the snapshot's own emitted keys** rather
 than hand-listed in three places. A hand-listed family set in three files is the same defect as a
 hand-listed contract range in three documents.
+
+---
+
+## L-3050 … L-3060 — LANE LOAD1 (PROJECT OPEN): the load has been **unmeasurable by construction**, and one `if` is why — 2026-08-21
+
+> **Founder's report:** *"LAST DEPLOYMENT TEST TOOK TOO LONG TO OPEN"*, on
+> `proj-1787150674754-fe43bbbc18c5` (259 elements imported / 326 in scene, 7 levels, 59 walls,
+> 105 windows, 137 handrails, 17 rooms).
+>
+> | build | `element_import` | `total` |
+> |---|---|---|
+> | earlier 2026-08-21 | 31 880.8 ms | 32 051.3 ms |
+> | **`main-DiSnOtLe`** | **47 168.2 ms** | **47 397.8 ms** |
+>
+> **Scope:** project open only. The frame loop is AUD-3's (L-2500…L-2512) and PERF1's.
+> **Method:** every claim below carries a number or is labelled UNMEASURED.
+
+---
+
+### ⭐ L-3051 — every `§LOAD-PHASE` line on a 47 s load printed `elapsed=0.0ms`, and the mechanism is one `if` — **FIXED**
+
+AUD-3 recorded the symptom (*"the phases are not being timed at all, only the running total"*).
+This is the cause, read out of `apps/editor/src/engine/persistence/ProjectLoader.ts`:
+
+```ts
+const __phase = (name: string) => {
+    const now = performance.now();
+    if (__phase_starts[name] !== undefined) {        // ← always undefined
+        __phase_ms[name] = now - __phase_starts[name]!;
+    }
+    …
+    __phase_starts[name] = now;                       // ← written AFTER the read
+};
+```
+
+There are exactly **five** phase names — `setup`, `hydrate`, `event_flush`, `wall_rebuild_flush`,
+`redetect_sweep` — and **each fires exactly once per load**. So `__phase_starts[name]` was *always*
+`undefined` at the moment it was read, `__phase_ms[name]` was **never assigned**, and every line
+printed the `?? 0` fallback. `PHASE_TIMINGS` then read
+`setup=0.0ms hydrate=0.0ms event_flush=0.0ms` beside its own `total=47397.8ms`.
+
+**A phase is the span since the PREVIOUS boundary, not since the previous call bearing the same
+name.** Fixed with a rolling boundary cursor (`1b6c1bc1`).
+
+⚠ **This is the [[fake-more-capable-than-real]] shape applied to an instrument**: the timer looked
+like a per-phase timer, was quoted as one by two lanes, and measured nothing. Note the direction of
+the error — it did not report a *wrong* number, it reported **zero**, which reads as "this phase is
+free" rather than as "this phase is unmeasured".
+
+---
+
+### ⭐ L-3050 — the element import was ONE opaque bucket; it is now **20 named steps** — FIXED
+
+`ImportProjectCommand._orchestrate` is 20 ordered steps and had **no** internal timing.
+`ImportProjectStats` now carries `stepMs` / `stepN`; the command closes-and-opens a named step at
+each boundary — `clear, levels, grids, columns, door_window_records, walls, slabs, ceilings, floors,
+slab_openings, stairs, furniture, roofs, handrails, plumbing, lighting, curtain_walls, beams, rooms,
+room_bounding_lines` — **and closes the last one on both exits**, because an unclosed step reports
+0 ms, which is L-3051 again.
+
+`ProjectLoader` prints `§LOAD-IMPORT-STEPS <step>=<ms>/n=<count> …`, sorted heaviest-first.
+Cost: 20 `performance.now()` calls and one `console.log` per load.
+
+---
+
+### L-3052 — `§LOAD-WATCHDOG` named a phase that **cannot be the answer** — FIXED
+
+`current phase="setup" stuck for 38.5s` is literally true and diagnostically worthless: `setup` is
+the boundary immediately **before** the element import, so **all 20 import steps report as
+"setup"**. The line says only "the load has not reached `hydrate`", which was never in doubt.
+
+The command now pushes each step as it OPENS (new `onStep` option) and the watchdog names it:
+`import step="handrails" (n=137) running for 12.4s`.
+
+---
+
+### L-3053 — `element_import` did not measure the element import
+
+`__mark_last` is initialised at the top of the instrumentation block, so the bucket also contained
+the watchdog install, the autosave-suppress open, the topology-observer pause, the wall-rebuild
+pause, `storeEventBus.beginBatch()` and the path select. **`element_import=47168.2ms` never meant
+"the import took 47.2 s".** A new `load_setup` mark carries that prologue.
+
+⚠ **And the checksum verify is outside `total` altogether** — `verifySnapshotChecksum(snapshot)`
+runs at `:385-401`, *before* `__t_load_start` at `:413`. So is the decompress + `JSON.parse` of the
+16.6 MB payload (AUD-3 L-2508: ~95 % of it is `TemporalGraph` mutations, now 22 255 of them).
+**None of that is in the 47 397.8 ms the founder sees printed.** His felt open time is ≥ that.
+
+---
+
+### ⭐ L-3054 — the load is COMPUTE + WAITING, and only compute was ever measured — FIXED
+
+Two defects in one counter:
+
+1. **The frame windows were invisible.** `_maxGapMs` times the *synchronous chunk between* yields.
+   Time spent **inside** `yieldForProgress` — parked waiting for the frame bus to deliver the next
+   frame — was never recorded. That matters because the frame the loader waits for is drawn by a
+   viewport rendering the half-built scene: **if a frame costs 500 ms, every yield costs 500 ms**,
+   and a load with 30 yields pays 15 s for waiting alone with zero of it in any counter.
+2. **The final chunk was never timed at all.** `_maxGapMs` was only updated at the *top* of
+   `yieldFrame`, so everything after the generator's last `yield` — which includes `rooms` and
+   `room_bounding_lines` — was outside every timer.
+
+New line: `§LOAD-YIELD-WAIT compute=… waiting=… yields=… avgWait=… maxWait=… maxChunk=…`.
+**If waiting dominates, the fix is the frame loop or the yield cadence, not the import.**
+
+---
+
+### ⭐ L-3055 — **REFUTED:** restoring railing instancing is **not** the +15 s — MEASURED
+
+The strongest available theory for the regression, and it does not survive measurement.
+`46b14397` (2026-08-21 15:04 UK) restored `__pryzmElementInstancing.{handrail,stairRailing}` to ON.
+That is co-timed with the two builds, it explains the founder's mesh count falling **3898 → 1843**,
+and it explains the new `[C13 VIOLATION] scene.foreignElement×37` naming instanced stair-railing
+groups (up from ×26). Handrails are his **largest single family — 137 of 259 elements**.
+
+**MEASURED** (`packages/geometry-handrail/src/__tests__/HandrailLoadBuildCost.spec.ts`, new, 2/2
+pass) — the REAL `HandrailFragmentBuilder` through the REAL `InstancedElementRenderer` +
+`ElementInstanceBridge` into a REAL `THREE.Scene`, at his exact N, same scene both regimes:
+
+```
+OFF: 137 handrails in  42.4 ms  (0.31 ms/element)  → 3151 meshes, 3151 draw calls
+ON : 137 handrails in  98.5 ms  (0.72 ms/element)  →  151 meshes,  151 draw calls
+DELTA: +56.2 ms  (2.33×)
+SCALING (ON): per-element cost at N=200 / N=50 = 1.01×  — LINEAR. No quadratic.
+```
+
+**56 ms is 0.4 % of the 15 317 ms regression.** Building all 137 handrails costs ~0.1 s of a
+47.2 s import on **either** regime.
+
+⛔ **Bounds, stated:** CPU only — no GPU upload, no shader compile, no PSO build — so this is a
+**lower bound**. But instancing ON uploads **20× fewer meshes**, so the GPU half of the comparison
+favours ON, not OFF. And it does not measure the 41-event DOM fan-out each `bim-handrail-added`
+triggers in the app; that is `initScene`'s cost, not the builder's (see L-3056).
+
+**Verdict: handrail geometry building is not the bottleneck, and instancing is not the regression.**
+
+---
+
+### L-3056 — the per-add shadow-flag pass had **one** of the two guards its sibling has — FIXED, with its escape hatch
+
+`initScene._debouncedGeomAdded` was gated on `batchCoordinator.isBatching` **and nothing else**. The
+sibling handler ~1000 lines above reads `shouldDeferPerAddGeometryPass(batchCoordinator.isBatching)`
+— which consults **both** `isBatching` and `isProjectLoadActive()` — and states the measured fact
+that makes the difference matter: *"During a load, `isBatching` is FALSE while `loadActive` is
+TRUE."* So the guard that was present gates **nothing** during a load.
+
+It is armed on all **41** `GEOMETRY_CASTER_MUTATION_EVENTS`; **18 of those arm only this one**
+(`bim-door-added`, `bim-window-added`, `bim-opening-added`, `bim-handrail-added`,
+`bim-plumbing-added`, …). Body: a full `scene.traverse()` with per-mesh `userData` reads, a
+`toLowerCase()`, three `.includes()` scans, a first-sight `computeBoundingSphere()` and
+`castShadow`/`receiveShadow` writes against a live renderer.
+
+⭐ **THE PASS IS MOVED, NOT DROPPED.** Nothing else sets shadow flags on a restored project — the
+post-batch call site was deleted by `§FIX-POST-BATCH-SHADOW` and its tombstone is in the file. A
+guard whose "yes" branch simply stops doing the work would ship a shadowless project, which is
+[[refusing-half-needs-its-escape-hatch]] exactly. A one-shot now runs the pass **once** at load end,
+on **either** of two independent "load is over" signals: `pryzm-project-loaded` (runtime bus,
+successful loads only) and `pryzm-load-suppress-end` (window, dispatched by `ProjectLoader` on
+**every** exit including a cancelled or failed load). Idempotent via the counter.
+
+⛔ **SIZE UNKNOWN AND NOT CLAIMED.** The 14 950 ms that circulates for this mechanism was measured
+for the **deleted** post-batch call site (AUD-3 §4.3 established this and refused to carry it; so
+does this row). The 100 ms debounce is cleared by every subsequent event, so the number of passes
+that actually fired during a load is between 1 and one-per-100 ms and **has never been counted**.
+**So the fix carries its own counter:** the one-shot prints how many events it stood in for and how
+long the single pass took. The next load reports the saving; no lane asserts it.
+
+---
+
+### L-3057 — `CreateWallCommand`'s per-wall deep clone, guarded — and **deliberately narrower** than the precedent 200 lines above it
+
+AUD-3 L-2504 / ledger §4.2 in full. `_neighbourSnapshot = ctx.stores.wallStore.getAll()…` runs per
+wall; `WallStore.getAll()` is the **only** `getAll()` in the repo that deep-clones (`SlabStore`'s own
+comment: *"O(N) array construction only, no per-element deep clone"*), so restoring N walls costs
+`N(N−1)/2` clones. It is read **only** by `undo()`; the PROJECT_LOAD path pushes no undo entry and
+`clearHistory()` runs at the end of every load regardless.
+
+⚠ **Guarded on `__pryzmProjectLoadActive` ONLY.** The C83 gate 200 lines above, in the same method,
+also suppresses on `__pryzmBuildingGenActive` — this one does not, because **only the load path has
+a written, checkable guarantee that no undo entry is pushed**. A generated building is undoable from
+the founder's seat; widening this needs that guarantee established first. It is not established
+here, so it is not claimed here.
+
+⚠ **AT HIS N IT IS SMALL — 59 walls is 1 711 clones — and this is NOT the fix for his 47 s load.**
+Taken because it removes a quadratic before the model grows into it, at one guard line.
+
+---
+
+### ⭐ L-3058 — **NOT ATTRIBUTED, and this is the headline.** 47.2 s of the 47.4 s is *inside the element import*, and no artefact in this repo can say which step
+
+`element_import = 47 168.2 ms` against `total = 47 397.8 ms` leaves **229.6 ms** for `migrations`,
+`nonelement_stores`, `hydrate`, `event_flush`, `wall_rebuild_flush` and `redetect_sweep`
+**combined**. Read with L-3053 (the bucket begins before the import), the load is:
+
+> **the prologue plus the chunked element drain — 259 elements at ~182 ms each — and everything
+> after it is noise.**
+
+Two consequences worth stating plainly:
+
+- **The `§AUTO-WEBGL-HEAVY` WebGPU→WebGL swap is NOT the delta.** `SWAP_MESH_THRESHOLD = 1000`
+  (`apps/editor/src/rendering/autoWebGLHeavyScene.ts`) and it is triggered from
+  `batchCoordinator.setGpuCompileStartCallback` — i.e. inside `event_flush`, in the 229.6 ms tail.
+  Both builds cleared the threshold (3898 and 1843 meshes), so it fired in **both**. Its cost is
+  real and unmeasured, but it is **bounded by the tail** and cannot be the +15 s.
+- **`[IntentStylePrewarmer] Pre-warmed 2856 style slots in 12.82ms`** is 0.03 % of the load. Closed.
+
+**What I could NOT do:** run a browser. Every remaining candidate — the per-element `window`
+CustomEvent fan-out (AUD-3 §4.4), the shadow pass of L-3056, the frame-bus waiting of L-3054 — is
+measurable only in the live app. **The instruments now exist; the reading does not.**
+
+⭐ **AND THE FOUNDER CAN GET THE READING TODAY, ON THE CURRENTLY DEPLOYED BUILD, WITH NO REDEPLOY.**
+`WallStore`, `HandrailStore` et al. fire `bim-*-added` synchronously through `DOMEventBus` →
+`window.dispatchEvent`, and **no batch, no `isBatching` and no load flag covers that channel**
+(AUD-3 §4.4). So wrapping `window.dispatchEvent` times the entire unguarded per-element fan-out:
+
+```js
+(() => {
+  const orig = window.dispatchEvent.bind(window);
+  const stats = Object.create(null); window.__pryzmEvtStats = stats;
+  window.dispatchEvent = function (ev) {
+    const t = ev && ev.type;
+    if (typeof t !== 'string' || !(t.startsWith('bim-') || t.startsWith('pryzm-'))) return orig(ev);
+    const t0 = performance.now();
+    try { return orig(ev); }
+    finally {
+      const d = performance.now() - t0;
+      const s = stats[t] || (stats[t] = { n: 0, ms: 0, max: 0 });
+      s.n++; s.ms += d; if (d > s.max) s.max = d;
+    }
+  };
+  window.__pryzmEvtReport = () => {
+    const rows = Object.keys(stats).map(k => ({
+      event: k, calls: stats[k].n,
+      totalMs: +stats[k].ms.toFixed(1),
+      avgMs: +(stats[k].ms / stats[k].n).toFixed(2),
+      maxMs: +stats[k].max.toFixed(1),
+    })).sort((a, b) => b.totalMs - a.totalMs);
+    console.table(rows.slice(0, 25));
+    console.log('TOP-LEVEL SUM ms =', rows.reduce((a, r) => a + r.totalMs, 0).toFixed(1));
+  };
+  console.log('[evt-probe] ARMED — now open the project, then run window.__pryzmEvtReport()');
+})();
+```
+
+**Run it in the console BEFORE opening the project, open the project, then call
+`window.__pryzmEvtReport()`.**
+
+**What each outcome proves.**
+- A single `bim-*-added` row with `totalMs` in the **tens of thousands** ⇒ the load is the DOM
+  fan-out, and the listener audit (L-3059) is the whole fix. `avgMs` × `calls` names the family.
+- Every row **small** and the sum far below 47 000 ms ⇒ the cost is **not** in the event channel;
+  it is in the sub-command bodies themselves, and `§LOAD-IMPORT-STEPS` (L-3050) is the next read.
+- `pryzm-load-progress` / watchdog rows dominating ⇒ the load is **waiting**, not working — read
+  `§LOAD-YIELD-WAIT` (L-3054) next.
+
+⚠ **Read it honestly: nested dispatches double-count.** An event fired *inside* a listener adds its
+own time to its parent's row as well as its own, so rows do not sum to wall-clock and the "TOP-LEVEL
+SUM" is an **upper bound**. It is a ranking instrument, not a budget.
+
+---
+
+### L-3059 — **six** listeners on `bim-window-added`, and **not one** consults a load flag
+
+Extends AUD-3 §4.4's table with the family the founder has **105** of. Measured
+`grep -c "isProjectLoadActive|__pryzmProjectLoadActive|isBatching"` on each of the six non-test
+files that listen for `bim-window-added`:
+
+| listener | file | guard hits |
+|---|---|---|
+| `reEnforceConstraints` | `apps/editor/src/engine/registerTransformDragHandler.ts:742` | **0** |
+| `HierarchyTreePanel` re-render | `apps/editor/src/ui/dataworkbench/HierarchyTreePanel.ts:1333` | **0** |
+| `ElementTypeSelectorZone` | `apps/editor/src/ui/inspect/audit/ElementTypeSelectorZone.ts:95` | **0** |
+| `LivingGraphOverlay` | `apps/editor/src/ui/living-graph/LivingGraphOverlay.ts:115` | **0** |
+| `SaveOrchestrator` | `apps/editor/src/ui/platform/SaveOrchestrator.ts:79` | **0** |
+| `SchedulePanel` | `apps/editor/src/ui/SchedulePanel/SchedulePanel.ts:39` | **0** |
+| `invalidateSelectableCache` | `packages/input-host/src/SelectionManager.ts:1035` | **0** — but the body is **O(1)**, three field writes, and is fine |
+
+⚠ **"Zero guard hits" is NOT "expensive".** `SelectionManager` is in the table precisely to show
+that the grep does not decide the verdict — its body is genuinely cheap, and `SaveOrchestrator`
+suppresses via a different mechanism (AUD-3 §6.1 measured that arm as **correct**). What the row
+establishes is that **the population is unaudited**, and that several of these are full re-renders
+or full re-extractions whose cost is **mount-dependent** — i.e. a load can be seconds slower purely
+because a panel is open, and nothing in the log would say so.
+**UNMEASURED. Do not budget it. Rank it with the L-3058 probe first.**
+
+---
+
+### L-3060 — a `window`-channel `pryzm-project-loaded` listener that can never fire
+
+`initScene`'s `_envCatcherVisEvents` list registers `scheduleCatcherVisibilityUpdate` on the
+**window DOM event** `'pryzm-project-loaded'`. Measured: the only emitters repo-wide are
+`PlatformShell.ts:205,211,399` and `PlatformVersionController.ts:418`, and **all four go through
+`window.runtime?.events?.emit(...)`, never `window.dispatchEvent`**. So the ground-catcher
+visibility refresh that this list exists to trigger at load end **does not run at load end**; it
+runs only when one of the ten `bim-*-added` siblings fires.
+
+Not a load-perf defect — a *dead arm*, found while wiring L-3056's escape hatch, and recorded so the
+next reader does not assume the two channels are interchangeable. **They are not**, and this repo
+now has three of these (`bim-railing-*` with zero emitters, `bim-column-*` / `bim-beam-*` with zero
+emitters — `SelectionManager.ts` documents both).
+
+---
+
+**Artefacts:** `1b6c1bc1` (instrumentation) · `68724847` (guards + benchmark).
+**Ledger:** [APPLICATION-PERFORMANCE-LEDGER §4](APPLICATION-PERFORMANCE-LEDGER.md) — AUD-3's
+decomposition of the 31.9 s, which this lane corrects (§4.1's *"three timers, two of which measure
+the wrong thing"* is understated: the third measured **nothing**).

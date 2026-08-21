@@ -351,6 +351,35 @@ closed.**
 
 ### §4.1 — The load is 17 phases and **three timers**, two of which measure the wrong thing
 
+> ⭐ **CORRECTED 2026-08-21 (lane LOAD1, L-3051) — the heading is UNDERSTATED. The third timer
+> measured NOTHING, and it is the one whose output both lanes quoted.**
+>
+> `__phase(name)` computed `if (__phase_starts[name] !== undefined) __phase_ms[name] = now -
+> __phase_starts[name]` and wrote `__phase_starts[name] = now` *after* the read. There are exactly
+> **five** phase names and **each fires exactly once per load**, so the key was ALWAYS undefined
+> when it was read, `__phase_ms[name]` was NEVER assigned, and every `§LOAD-PHASE` line printed the
+> `?? 0` fallback. The founder's 47 397.8 ms load printed
+> `PHASE_TIMINGS setup=0.0ms hydrate=0.0ms event_flush=0.0ms`. **Only `total=` was ever real.**
+>
+> Note the direction of the failure: it did not report a *wrong* number, it reported **zero** — which
+> reads as *"this phase is free"* rather than *"this phase is unmeasured"*. FIXED in `1b6c1bc1`
+> (rolling boundary cursor), together with:
+> - **`§LOAD-IMPORT-STEPS` (L-3050)** — the `element_import` bucket is now 20 named steps with
+>   per-step ms and element count, printed heaviest-first.
+> - **`§LOAD-YIELD-WAIT` (L-3054)** — COMPUTE vs WAITING split. `_maxGapMs` never timed the time
+>   spent *inside* `yieldForProgress`, so a load parked behind a slow frame bus was invisible; and
+>   it was only updated at the TOP of `yieldFrame`, so everything after the generator's LAST yield
+>   (rooms, room bounding lines) was outside every timer.
+> - **the watchdog (L-3052)** now names the running import step, not the last completed boundary —
+>   `setup` is the boundary *before* the import, so all 20 steps reported as `"setup"`.
+> - **`load_setup` (L-3053)** — `element_import` began at the top of the instrumentation block, so
+>   it also contained the watchdog install, the pauses, `beginBatch()` and the path select.
+>   **`element_import=47168.2ms` never meant "the import took 47.2 s".**
+>
+> ⚠ **And the checksum verify + the decompress/JSON.parse of the 16.6 MB payload are outside
+> `total` ALTOGETHER** — `verifySnapshotChecksum` runs at `:385-401`, before `__t_load_start` at
+> `:413`. The founder's felt open time is **≥** the number the loader prints.
+
 `apps/editor/src/engine/persistence/ProjectLoader.ts` is 2 853 lines. `__mark(name)` (`:469-473`)
 accumulates **`now - __mark_last`** — *everything since the previous mark* — and there are only
 **three marks in 1 700 lines of body.**
@@ -467,6 +496,21 @@ subsequent event. During a chunked import the next chunk resumes ~16 ms later an
 The pass fires only when a **≥100 ms gap with no geometry event** opens. Upper bound `loadMs / 100`;
 **the realistic figure could be 1**, and nothing in this repo has measured it.
 
+> ⭐ **UPDATE 2026-08-21 (lane LOAD1, L-3056) — the guard is IN, with its escape hatch.**
+> `_debouncedGeomAdded` now returns early on `isProjectLoadActive()`. **The pass is MOVED, not
+> dropped**: nothing else sets shadow flags on a restored project (the post-batch call site below is
+> deleted), so a one-shot runs it EXACTLY ONCE at load end on either of two independent "load is
+> over" signals — `pryzm-project-loaded` (runtime bus, successful loads) and
+> `pryzm-load-suppress-end` (window, dispatched by `ProjectLoader` on EVERY exit including a
+> cancelled or failed load). The early return sits BEFORE `_armWallCommitShadowFreeze()`
+> deliberately: arming with no debounce callback to release it would latch
+> `setShadowReallocFrozen(true)` for the session.
+>
+> ⛔ **The size is STILL not claimed**, exactly as this section insists. **The fix carries its own
+> counter** — the one-shot prints how many caster-mutation events it stood in for and how long the
+> single pass took, so the next load reports the saving instead of a lane asserting it. That closes
+> §10.5 without needing `pryzmPerf`.
+
 ⭐ **The 14 950 ms is misattributed.** `initScene.ts:3105-3111`, verbatim:
 
 > `//   pascalSceneLighting.onGeometryAdded(scene) is NO LONGER called here.`
@@ -555,7 +599,16 @@ Only **walls, slabs, furniture and curtain walls** chunk internally.
 Never yield, and are the heaviest per-element geometry in the file:
 - **Stairs** (`:859-983`) — per-tread mesh build
 - **Handrails** (`:1035-1057`) — per-baluster meshes; C95 §15.5 measures **279 meshes / 93 materials
-  for ONE 31-segment run**
+  for ONE 31-segment run**. ⭐ **BUT NOW MEASURED FOR WALL-CLOCK, and it is small** — lane LOAD1,
+  L-3055, `packages/geometry-handrail/src/__tests__/HandrailLoadBuildCost.spec.ts`, driving the REAL
+  builder through the REAL `InstancedElementRenderer` into a REAL `THREE.Scene` at the founder's
+  exact N=137: **instancing OFF 42.4 ms** (0.31 ms/el, 3151 meshes) · **instancing ON 98.5 ms**
+  (0.72 ms/el, 151 meshes) · per-element cost **LINEAR** (N=200 / N=50 = **1.01×**). CPU only, so a
+  lower bound — but ON uploads 20× fewer meshes, so the GPU half favours ON.
+  **All 137 handrails cost ~0.1 s of a 47.2 s import on either regime**, which REFUTES "restoring
+  railing instancing (`46b14397`) caused the 32 s → 47 s regression" as an explanation for the
+  +15 s (it does explain the founder's mesh count falling 3898 → 1843, and the new
+  `scene.foreignElement×37`).
 - **Lighting** (`:1086-1122`) — each `PointLight` triggers a shader-permutation rebuild
 - plus levels, grids, columns, ceilings, floors, standalone openings, roofs, plumbing, beams, rooms
 
@@ -1159,7 +1212,7 @@ measured, magnitude projected · 🔴 asserted, needs the founder's probe. *Blas
 |---|---|---|---|---|---|---|
 | **1** | **Bail `OutlineNode.updateBefore` when the selection has been empty for ≥1 frame** (both nodes) | **every frame** | **4 scene-graph walks + 7 796 object submissions + 14 quad passes + 20 RT switches per frame — 67 % of everything submitted on an idle WebGPU frame** | 🟢 | **LOW** — a supported `return false` in three's own dispatcher; touches no material, no shader, no pipeline layout. **Not** the `localClippingEnabled` recompile class. | §1 |
 | **2** | **Split the `EdgeProjectorService` cache by stage** — world-space merged `EdgesGeometry` on `(elementId, version)`; classified geometry on `(elementId, version, clipSignature)` | **every crop-drag frame (12.5 Hz)** | **4 958 ms → 187 ms per crop step (26×), up to 228×; 99.6 % of the recomputed work is provably identical** | 🟢 | MED — a cache-key change inside one file; correctness is testable by comparing output linework | §5.2 |
-| **3** | **Guard `CreateWallCommand.ts:446` `_neighbourSnapshot` on `__pryzmProjectLoadActive` / `__pryzmBuildingGenActive`** | **load + generation** | **`N(N−1)/2` deep clones removed — projected 3.3-20 s at 2 000-3 000 walls** | 🟡 | **LOWEST OF ALL** — one line, and the identical guard already exists 200 lines above at `:245`. The snapshot is read only by `undo()`, and load pushes no undo. | §4.2, §4.4b |
+| **3** | ✅ **DONE 2026-08-21 (LOAD1, L-3057, `68724847`) — guarded on `__pryzmProjectLoadActive` ONLY, NOT on `__pryzmBuildingGenActive`: only the load path has a written guarantee that no undo entry is pushed, and a generated building IS undoable. At the founder's 59 walls this is 1 711 clones — SMALL; it is taken to remove a quadratic before the model grows into it, not as a fix for his 47 s load.** ~~Guard `CreateWallCommand.ts:446` `_neighbourSnapshot` on `__pryzmProjectLoadActive` / `__pryzmBuildingGenActive`~~ | **load + generation** | **`N(N−1)/2` deep clones removed — projected 3.3-20 s at 2 000-3 000 walls** | 🟡 | **LOWEST OF ALL** — one line, and the identical guard already exists 200 lines above at `:245`. The snapshot is read only by `undo()`, and load pushes no undo. | §4.2, §4.4b |
 | **4** | **`WallStore.addMany()`** — build `siblings[]` once, run `deriveJoinIntent` + `retreatOntoHostFaces` against an incremental index | **generation + load** | **368 ms per 1 000 walls, quadratic — grows as N²** | 🟢 | MED — join semantics must be preserved; `CurtainWallStore.addMany()` is the in-repo precedent | §7.2 |
 | **5** | **Move `<script src="/cesium/Cesium.js">` off the critical path** — `defer`, or drop `vite-plugin-cesium` and dynamic-`import()` Cesium from `CesiumViewport` | **every page load, incl. the marketing landing page** | **5.9 MB raw / 1.73 MB gzip of parser-blocking script removed from above the skeleton** | 🟢 | MED — must verify the Cesium global is still present when `CesiumViewport` mounts; the `vendor-cesium` chunk it *should* have used is dead code today | §8.1 |
 | **6** | **Bound `TemporalGraph._mutations`** — the 200 000 cap at `TemporalGraph.ts:71` is warn-only | **every save, every version** | **~95 % of a 16.6 MB snapshot; up to 1 018 MB stored at the cap; storage is O(n²) in log length** | 🟢 | MED-HIGH — trimming an append-only log is a **data** decision (what history may be dropped?), not only a perf one. Needs a policy, not just a `splice`. | §6.2 |
@@ -1167,12 +1220,12 @@ measured, magnitude projected · 🔴 asserted, needs the founder's probe. *Blas
 | **8** | **Open the generation coalesce window in `HouseLayoutExecutor`** (one call, mirroring `ResidentialBuildingExecutor.ts:808`) **and call `endGenerationResolveCoalesce()` explicitly** | house/building generation | **~2 cold `resolveLevel` × ~0.5 s per 1 000-wall level, plus a fixed 1.5 s dead-wait per generation** | 🟢 | LOW — one call site each | §7.3 |
 | **9** | **Evict `VersionCacheStore._versionMirror` + `_versionBlobCache` on project switch** | session-long | **Σ over ALL projects of a 20-version compressed history, ×2, held for the session** (13.2 MB history ⇒ ~26 MB, per project) | 🟢 (mechanism) / 🔴 (bytes) | **LOW** — the pattern already exists twice in-repo (`EdgeProjectorService.clearCwProjectionCache()`, `NativeElementMeshExporter.clearCache()`) | §6.3, §10.7 |
 | **10** | **Reconcile the two crop cache policies** (`computeClipSignature` vs NME `cropKey`) and move `exportForView` **inside** the supersede check | crop drag | one of the two caches is **always 100 % cold**; a cancelled pass pays `exportForView` in full | 🟢 | MED — needs both owners in the room | §5.4 |
-| **11** | **Gate `_debouncedGeomAdded` on `isProjectLoadActive()`** (use the existing `shouldDeferPerAddGeometryPass`) | load | **UNKNOWN — could be 1 full-scene walk, could be tens.** ⛔ The 14 950 ms belongs to a deleted call site. | 🔴 | **LOWEST** — reuse the sibling's one-line guard | §4.3, §10.5 |
+| **11** | ✅ **DONE 2026-08-21 (LOAD1, L-3056, `68724847`)** — gated on `isProjectLoadActive()`, **and the pass is MOVED not dropped**: a one-shot runs it once at load end on either `pryzm-project-loaded` or `pryzm-load-suppress-end`, because nothing else sets shadow flags on a restored project. **The fix carries its own counter**, so the next load prints the saving rather than a lane claiming it. | load | **UNKNOWN — could be 1 full-scene walk, could be tens.** ⛔ The 14 950 ms belongs to a deleted call site. | 🔴 | **LOWEST** — reuse the sibling's one-line guard | §4.3, §10.5 |
 | **12** | **`.off()` the 260 discarded `runtime.events.on()` subscriptions**, starting with the panels that subscribe to `pryzm-project-switch` | project switch, repeated | 260 `.on(` against **8** `.off(`, and all 8 are maplibre | 🟢 (count) / 🔴 (heap) | MED — 63 files; do the switch-listening panels first | §8.5, §10.9 |
 | **13** | **Give `closeProject()` a real teardown** | project close | **frees nothing today** — builders, scene roots, Canvas2D surfaces survive a close | 🟢 (code) / 🔴 (bytes) | HIGH — lifecycle change; ⚠ **cross-domain**, belongs to whoever owns `ProjectLifecycleController` | §8.6 |
 | **14** | **Chunk the 16 non-yielding import steps** — stairs, handrails and lighting are the heaviest per-element geometry in the file and none of them yields | load | removes synchronous blocks of unknown size; **makes the load interruptible, which is the felt fix** | 🟡 | MED | §4.5 |
 | **15** | **Read `info.render.drawCalls`, not `info.render.calls`**, in both perf readers; label the backend | instrument | **no runtime saving — it makes every future measurement true** | 🟢 | **LOWEST** — two field names | §2 |
-| **16** | **Split `element_import` per step; re-seat the two mislabelled `__mark` boundaries** | instrument | **no runtime saving — it is what turns 29 s of dark into a ranked list** | 🟢 | LOW | §4.1 |
+| **16** | ✅ **DONE 2026-08-21 (LOAD1, L-3050…L-3054, `1b6c1bc1`)** — 20 named steps (`§LOAD-IMPORT-STEPS`), `load_setup` re-seat, watchdog names the RUNNING step, `§LOAD-YIELD-WAIT` compute-vs-waiting split, and the `§LOAD-PHASE` `elapsed=0.0ms` defect (L-3051) fixed — **that last one was not in this table because nobody had read the `if`**. | instrument | **no runtime saving — it is what turns 29 s of dark into a ranked list** | 🟢 | LOW | §4.1 |
 | **17** | **Skip the redundant `WallDataAddSchema.safeParse` for bus-originated walls; drop the per-element `console.log` at `initTools.ts:1288`** | creation | 98 ms per 1 000 walls + N console writes | 🟢 | LOW | §7.5, §7.1 |
 | **18** | **`WallRebuildCoordinator.ts:1851` → `getByLevel()`** instead of `getAll().filter()`; sweep the other 60+ sites | flush, per level | a whole-project deep clone per level per flush | 🟢 | MED at scale (60+ sites); LOW for the one site | §7.7 |
 | **19** | **Make `_outlinesActive` actually suppress at render time** (fold into #1's bail) | view switch | the guard at `RenderPipelineManager.ts:1283-1310` **suppresses nothing today** | 🟢 | LOW — subsumed by #1 | §1.6 |
