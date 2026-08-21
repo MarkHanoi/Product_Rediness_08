@@ -226,6 +226,71 @@ export function resolveIntentStyle(
     return appearance;
 }
 
+/**
+ * §ELEVATION-POCHE-IS-INTENT-DECLARED (L-1601) — did THIS VIEW TYPE declare the cut
+ * fill, or is the resolved fill merely inherited from the intent's base element rules?
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHY THE QUESTION IS NOT "IS THERE A CUT FILL?"
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Every system intent seeds a cut fill on its BASE element rules — Architectural
+ * Documentation carries slab `#dcdcdc` and wall `#c9c9c9`, the `ISO_CUT_LAYER_TO_POCHE_FILL`
+ * tones. Those are PLAN poché values. An elevation that merely asked "does the resolved
+ * cut appearance have a fill?" would answer YES for every category in every project and
+ * paint the whole façade grey — which is §FIX-ELEVATION-POCHE (L-119) happening again,
+ * in a lighter colour. MEASURED: the first cut of this change did exactly that, and this
+ * predicate is what the failing arm forced.
+ *
+ * The question that makes elevation poché safe is narrower and is exactly the founder's
+ * action: *did someone declare a cut fill FOR ELEVATIONS* — a View Modifiers row, or an
+ * elevation view-type profile?
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHY IT RESOLVES TWICE INSTEAD OF INSPECTING THE INTENT
+ * ─────────────────────────────────────────────────────────────────────────────
+ * `resolveIntentStyle` reaches a view-type contribution through a five-step fallback
+ * ladder (`viewTypeProfiles[vt].elementRules[type]` → the `structural-` strip → the
+ * `ifc-element` bucket → the last dash-segment → `__default__`) and THEN a
+ * `viewTypeModifiers` scan with its own `stateTransform` merge. Re-implementing that
+ * ladder here would be an eighth hand-copied answer to a question this codebase has
+ * already been bitten by copying — the whole of L-1600 was seven copies of "which layer
+ * is this line on", one of which had silently drifted.
+ *
+ * So it asks the SAME resolver twice: once for the real view type, once for a sentinel
+ * that no profile key and no `modifier.viewType` can match. If the resolved cut fill
+ * differs, the view type contributed it. The ladder cannot drift from itself.
+ */
+export function viewTypeDeclaresCutFill(
+    intentInstance: ViewIntentInstance,
+    intent: VisibilityIntent,
+    elementType: string,
+    viewType: string,
+    target: Partial<IntentResolveTarget> = {},
+    viewPurpose?: string,
+): boolean {
+    // A view type no `viewTypeProfiles` key and no `modifier.viewType` can equal.
+    const SENTINEL_VIEW_TYPE = ' __no-view-type__';
+
+    const withViewType = resolveIntentStyle(
+        intentInstance, intent, elementType, 'cut', viewType, target, viewPurpose,
+    );
+    if (!withViewType.visible) return false;
+    if (withViewType.fill.style === 'none') return false;
+
+    const withoutViewType = resolveIntentStyle(
+        intentInstance, intent, elementType, 'cut', SENTINEL_VIEW_TYPE, target, viewPurpose,
+    );
+
+    // A difference in ANY fill field is a view-type contribution: turning a fill ON
+    // (`style` none → solid), recolouring it, or changing its opacity are all decisions
+    // someone made about THIS view type.
+    return withViewType.fill.style   !== withoutViewType.fill.style
+        || withViewType.fill.colour  !== withoutViewType.fill.colour
+        || withViewType.fill.opacity !== withoutViewType.fill.opacity
+        || (withViewType.fill as { pattern?: string }).pattern
+             !== (withoutViewType.fill as { pattern?: string }).pattern;
+}
+
 export function resolveSurface3D(
     intentInstance: ViewIntentInstance,
     intent: VisibilityIntent,

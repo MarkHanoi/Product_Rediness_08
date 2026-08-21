@@ -18,8 +18,15 @@
  *   • `depthProjected` — orthographic depth projection (elevation / section).
  *   • `planFamily`     — top-down plan-family view (plan / rcp / structural / detail).
  *
- * The crucial invariant: an ELEVATION has `cut: false, poche: false` — it is a
- * pure projection of a face and must emit ONLY `:proj` / `:beyond` linework.
+ * ⚠ CORRECTED §ELEVATION-POCHE-IS-INTENT-DECLARED (L-1601). This read: "The crucial
+ * invariant: an ELEVATION has `cut: false, poche: false` — it is a pure projection of
+ * a face and must emit ONLY `:proj` / `:beyond` linework." The SECOND half had already
+ * been false for months: §ELEV-LINEWEIGHT (L-182) makes EdgeProjectorService emit a
+ * `:cut` layer for elevations too, for geometry the elevation plane is drawn THROUGH,
+ * so the heavy cut pen can establish the weight hierarchy. An elevation therefore has
+ * a cut band; what it does NOT have is an unconditional solid fill for it. `poche` is
+ * now true for elevation and gated by `pocheRequiresExplicitIntent` — read that
+ * field's doc, it carries the L-119 history the flat `false` was standing in for.
  *
  * Contract compliance:
  *   §05 — Pure data classifier. No DOM, no THREE, no I/O, no store reads.
@@ -41,6 +48,26 @@ import type { OcclusionDisposition, BeyondLineStyle } from '../drawing/DrawingZo
 export interface ViewScope {
     /** Solid cut fills (poché) are rendered for this view. */
     poche: boolean;
+    /**
+     * §ELEVATION-POCHE-IS-INTENT-DECLARED (L-1601) — when true, this view pochés ONLY
+     * where the bound INTENT explicitly declares a cut fill for (viewType × category).
+     * The `ISO_CUT_LAYER_TO_POCHE_FILL` default and the VG template seed are NOT
+     * fallbacks here; absent an explicit intent fill, nothing is painted.
+     *
+     * This is what makes elevation poché safe. §FIX-ELEVATION-POCHE (L-119) disabled it
+     * outright because it "painted every façade cut layer solid black over the
+     * linework" — that black is `POCHE_CONSTRUCTION_DOCS_FILL` / the ISO default
+     * arriving as a FALLBACK for a band that, at the time, held the whole façade.
+     * §ELEV-LINEWEIGHT (L-182) later narrowed the elevation `:cut` band to "only
+     * geometry the plane actually slices", but the poché gate was never revisited —
+     * so the founder's elevation CUT fill setting had nothing to drive.
+     *
+     * Requiring an EXPLICIT intent fill means the L-119 failure cannot recur by
+     * default: an elevation whose intent declares no cut fill paints exactly what it
+     * paints today, byte for byte. The user's own decision is the only thing that can
+     * turn it on — which is precisely what the founder asked for.
+     */
+    pocheRequiresExplicitIntent: boolean;
     /**
      * The view has a section CUT plane whose intersection is drawn as heavy
      * `:cut` linework and (when poché is on) filled. FALSE for elevations —
@@ -106,7 +133,11 @@ const _PLAN_FAMILY_TYPES: ReadonlySet<string> = new Set<string>([
 ]);
 
 const _ELEVATION_SCOPE: ViewScope = Object.freeze({
-    poche: false, cut: false, depthProjected: true, planFamily: false,
+    // §ELEVATION-POCHE-IS-INTENT-DECLARED (L-1601) — `poche` is now TRUE, but gated:
+    // see `pocheRequiresExplicitIntent`. `cut` stays FALSE — it selects
+    // EdgeProjectorService's SECTION routing branch, and the elevation branch (L-182)
+    // already emits its own `:cut` linework for geometry the plane genuinely slices.
+    poche: true, pocheRequiresExplicitIntent: true, cut: false, depthProjected: true, planFamily: false,
     // L-190: set-back geometry on a façade reads DASHED, not deleted — the viewer wants to
     // see the recessed wing behind the front plane.
     occlusionDisposition: 'demote' as const,
@@ -114,20 +145,20 @@ const _ELEVATION_SCOPE: ViewScope = Object.freeze({
     beyondLineStyle: 'dashed' as const,
 });
 const _SECTION_SCOPE: ViewScope = Object.freeze({
-    poche: true, cut: true, depthProjected: true, planFamily: false,
+    poche: true, pocheRequiresExplicitIntent: false, cut: true, depthProjected: true, planFamily: false,
     occlusionDisposition: 'remove' as const,
     // L-290 (founder, explicit): a section's geometry behind the cut plane reads DASHED.
     beyondLineStyle: 'dashed' as const,
 });
 const _PLAN_SCOPE: ViewScope = Object.freeze({
-    poche: true, cut: true, depthProjected: false, planFamily: true,
+    poche: true, pocheRequiresExplicitIntent: false, cut: true, depthProjected: false, planFamily: true,
     occlusionDisposition: 'remove' as const,
     // L-290: PLAN KEEPS BEYOND SOLID. The founder's stair — its lower run is DELIBERATELY SHOWN
     // and is not behind anything. This line is L-277, and L-290 must not touch it.
     beyondLineStyle: 'solid' as const,
 });
 const _NON_TECHNICAL_SCOPE: ViewScope = Object.freeze({
-    poche: false, cut: false, depthProjected: false, planFamily: false,
+    poche: false, pocheRequiresExplicitIntent: false, cut: false, depthProjected: false, planFamily: false,
     occlusionDisposition: 'remove' as const,
     beyondLineStyle: 'solid' as const,
 });

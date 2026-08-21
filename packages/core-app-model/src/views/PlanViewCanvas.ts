@@ -65,7 +65,7 @@ import { getHatchPattern } from '../drawing/HatchPatternLibrary';
 // Contract 25a Phase 3 — Intent stores for appearance resolution
 import { visibilityIntentStore } from '../presentation/VisibilityIntentStore';
 import { viewIntentInstanceStore } from '../presentation/ViewIntentInstanceStore';
-import { resolveIntentStyle } from '../presentation/IntentRuleResolver';
+import { resolveIntentStyle, viewTypeDeclaresCutFill } from '../presentation/IntentRuleResolver';
 import { getDefaultSystemIntentId } from '../presentation/SystemIntents';
 import { floorPlanUnderlayRef } from './FloorPlanUnderlayRef';
 // Phase L — Lighting plan symbol overlay (placed fixtures)
@@ -388,8 +388,12 @@ export class PlanViewCanvas {
         // §FIX-ELEVATION-POCHE (L-119) — only CUT-family views (plan / section) get
         // poché solid fills. Elevations are pure line drawings; running the poché pass
         // for them painted every façade cut layer solid black over the linework.
-        if (resolveViewScope(this._viewType).poche) {
-            this._renderPocheFills(ctx, drawing, viewDef);
+        // §ELEVATION-POCHE-IS-INTENT-DECLARED (L-1601) — elevations now reach this pass
+        // too, but with `pocheRequiresExplicitIntent`, so they paint ONLY where the bound
+        // intent declares a cut fill for (elevation × category). See ViewScope.
+        const _pocheScope = resolveViewScope(this._viewType);
+        if (_pocheScope.poche) {
+            this._renderPocheFills(ctx, drawing, viewDef, _pocheScope.pocheRequiresExplicitIntent);
         }
 
         (drawing as any).three?.traverse?.((child: THREE.Object3D) => {
@@ -1849,6 +1853,15 @@ export class PlanViewCanvas {
         // ── Poche polygons (Stage 7a) ─────────────────────────────────────────
         // §FIX-ELEVATION-POCHE (L-119) — same CUT-view gate as the main render()
         // path: elevations are line drawings and must never receive solid fills.
+        //
+        // ⚠ §ELEVATION-POCHE-IS-INTENT-DECLARED (L-1601) — this method and its sibling
+        // `scheduleWorkerRender()` have NO CALLERS. Measured 2026-08-21:
+        // `grep -rn 'renderFromPipelineResult\|scheduleWorkerRender' apps packages plugins`
+        // → the declarations here and two doc comments, nothing else. The worker poché
+        // path is authored-but-unwired, so the L-1601 gate is deliberately NOT duplicated
+        // into it — that would be a second, untested fill painter making a decision the
+        // live path already makes. Whoever wires this must route it through the same
+        // `pocheRequiresExplicitIntent` answer rather than re-deriving one here.
         if (result.polygons.length > 0 && resolveViewScope(this._viewType).poche) {
             ctx.save();
             ctx.setLineDash([]);
@@ -2385,7 +2398,18 @@ export class PlanViewCanvas {
         }
     }
 
-    private _renderPocheFills(ctx: CanvasRenderingContext2D, drawing: object, viewDef?: ViewDefinition): void {
+    /**
+     * @param requireExplicitIntentFill §ELEVATION-POCHE-IS-INTENT-DECLARED (L-1601) —
+     *   when true, the ISO default and the VG template seed are NOT fallbacks: a region
+     *   is filled ONLY if the bound intent explicitly declares a cut fill for it. This
+     *   is what lets an elevation poché at all without recreating L-119's black façade.
+     */
+    private _renderPocheFills(
+        ctx: CanvasRenderingContext2D,
+        drawing: object,
+        viewDef?: ViewDefinition,
+        requireExplicitIntentFill = false,
+    ): void {
         const polygons: PochePolygon[] = [];
 
         // Phase 3 §3.2 — Resolve intent instance once for this render pass.
@@ -2474,7 +2498,30 @@ export class PlanViewCanvas {
             if (intentHidesElement) return;
             // ──────────────────────────────────────────────────────────────────────
 
-            const baseFill = intentFillColour ?? resolved?.fillColor ?? ISO_CUT_LAYER_TO_POCHE_FILL[baseLayer];
+            // §ELEVATION-POCHE-IS-INTENT-DECLARED (L-1601) — the fallback ladder is the
+            // whole of L-119's black façade. `resolved.fillColor` is NOT a user decision
+            // either: `VgCanvasStyleResolver` deliberately passes `fillColor` through
+            // UNGATED by `overriddenProps` (see its header), so it always carries the
+            // built-in template's colour. On a `requireExplicitIntentFill` view, only the
+            // intent's own declared cut fill may paint.
+            // §ELEVATION-POCHE-IS-INTENT-DECLARED (L-1601) — on a `requireExplicitIntentFill`
+            // view the fill must have been declared FOR THIS VIEW TYPE. Merely having a
+            // resolved cut fill is not enough: every system intent seeds plan poché tones
+            // (slab #dcdcdc, wall #c9c9c9) on its BASE element rules, so an inherited fill
+            // would paint the whole façade grey — L-119, in a lighter colour. Measured:
+            // that is exactly what the first cut of this change did.
+            const _viewTypeDeclaresFill = requireExplicitIntentFill
+                ? (!!_intent && !!_virtInstance && !!vgCat && viewTypeDeclaresCutFill(
+                    _virtInstance as Parameters<typeof viewTypeDeclaresCutFill>[0],
+                    _intent, vgCat, viewDef?.viewType ?? this._viewType,
+                    { elementType: vgCat, category: vgCat },
+                ))
+                : true;
+            if (!_viewTypeDeclaresFill) return;
+
+            const baseFill = requireExplicitIntentFill
+                ? intentFillColour
+                : (intentFillColour ?? resolved?.fillColor ?? ISO_CUT_LAYER_TO_POCHE_FILL[baseLayer]);
             if (!baseFill) return;
 
             // ── §FEAT-WALL-POCHE-FILL-BY-INTENT (L-261) — LAYERED WALL: ONE TONE PER LAYER ──

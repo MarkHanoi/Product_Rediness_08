@@ -78,6 +78,8 @@ export {
     normaliseIfcUserDataType,
     appearanceToPenStyle,
     resolveIntentStyle,
+    // §ELEVATION-POCHE-IS-INTENT-DECLARED (L-1601)
+    viewTypeDeclaresCutFill,
     resolveSurface3D,
     resolveSurface3DExplicit,
     resolveWithInheritance,
