@@ -27430,3 +27430,209 @@ grid with `#ff00ff` so a lost drawing buffer reads as INVALID rather than as "th
   `this.shadow.map = shadowMap` (`:564`); it never reads a pre-existing `shadow.map`. **The diagnostic
   should print non-minifiable facts** (`isRenderTarget`, `texture.isDepthTexture`, `width/height`)
   instead of `constructor.name`. Not done here.
+
+---
+
+## L-2130 … L-2138 — SCOPING LANE ANLZ1: the Analysis surface, and nine things measured on the way there — 2026-08-21
+
+Founder, 2026-08-21: *"I would like also in Inspect to have data graphs — really nicely done with the
+graphics, the structure and logic of Speckle. This is a big feature and maybe should even be another
+tab — Analysis? like Inspect (half mode). Scope it correctly — contracts, specs, ADRs. Amazing
+colours, amazing performance. Probably the Living Graph and Building Graph should be there also — now
+in the GIS tab (incorrect) — it should really be like PowerBI."*
+
+**Deliverables:** [ADR-0343](../02-decisions/adrs/ADR-0343-analysis-surface-and-composable-widget-model.md)
+· [SPEC-ANALYSIS-SURFACE-AND-WIDGETS](../03-execution/specs/SPEC-ANALYSIS-SURFACE-AND-WIDGETS.md).
+**No code was written in this lane.** Every row below was measured at HEAD and re-verified by hand
+before being written; two claims in the ADR are marked NOT MEASURED and are not repeated here as facts.
+
+### ⭐ L-2130 — A THIRD copy of the sync-state colour table, and the guard misses it on ONE LETTER
+
+`L-1742` consolidated the sync-state colour mapping into `apps/editor/src/ui/dataworkbench/syncStateColours.ts`
+because it *"was written out TWICE, byte-identical, in DataSheetPanel.ts and HierarchyTreePanel.ts"*.
+
+**There is a third copy, in the same directory, and it is the one that paints the charts.**
+`apps/editor/src/ui/dataworkbench/AnalyticsPanel.ts:31-38` declares its own table over the same six
+states, in raw hex, and the file imports nothing from `syncStateColours.ts`:
+
+```
+const SYNC_COLORS: Record<string, string> = {
+    synced: '#22c55e', conflict: '#ef4444', derived: '#f97316',
+    partial: '#eab308', 'planned-only': '#94a3b8', 'no-template': '#475569',
+};
+```
+
+⭐ **The guard passes, and the reason is a single letter.** `panelBrandStandard.spec.ts:281-290`, the
+assertion titled *"the sync-state colour table has exactly one definition"*, globs the directory and
+filters on `/const\s+SYNC_COLOURS/` — **British spelling**. The rival is `SYNC_COLORS` — **American**.
+The filter matches nothing, `expect(copies).toEqual([])` passes, and the second half of the assertion
+only checks that `syncStateColours.ts` *exists*.
+
+**This is the exact defect shape CLAUDE.md records for the three rival `commandManager` counters: a
+gate that classifies by NAME is satisfied by a rename — here, by a spelling.** The fix is to key the
+assertion on the six state STRINGS (which are the semantic content) rather than on an identifier, and
+to make `AnalyticsPanel` read `syncStateColour()`. `derived` is the loudest divergence: the canonical
+table maps it to `var(--app-accent)` and says so — *"an AUTHORED override — brand purple, not
+orange"* — while the rival paints it `#f97316`, orange.
+
+Also in that file and unmeasured by the guard: `CHART_COLORS` (`:48-57`), eight literals whose own
+comment claims they are *"matched to design tokens"*. They are hex, not `var(--…)`, so nothing can
+hold them to it.
+
+### ⭐ L-2131 — THE UNIFIED BUILDING GRAPH IS STALE BY CONSTRUCTION, AND THE STRATEGY DOC SAYS OTHERWISE
+
+`STR-14 §3` describes the UBG as *"Incrementally maintained off the StoreEventBus (we already fire
+per-element events)"*. **Nothing does this.**
+
+Measured: `window.__pryzmBuildingGraph` is written in exactly one place —
+`apps/editor/src/engine/buildBuildingGraph.ts:853-855`, inside the `window.pryzmBuildBuildingGraph()`
+hook, which **rebuilds the whole graph from every source on each call**. Its production callers are:
+
+* `apps/editor/src/ui/graph/BuildingGraphOverlay.ts:366-367`
+* `apps/editor/src/ui/living-graph/LivingGraphOverlay.ts:770, 773, 905`
+
+and nothing else. `apps/editor/src/ui/layout/installLiveGraphWiring.ts` — the file whose header calls
+these *"load-bearing production capabilities"* — makes four install calls
+(`provideLiveGraphSources`, `installBuildBuildingGraph`, `installBuildingGraphOverlay`,
+`installLivingGraphOverlay`) and **subscribes to no store event at all**.
+
+**So the UBG holds the model as it stood the last time somebody opened a graph overlay.** Between
+opens it is arbitrarily old, and its shape carries no timestamp saying so. That is tolerable for an
+overlay the user just opened; it is **not** tolerable for a dashboard the user leaves on screen, which
+is why ADR-0343 §D.7 makes StoreEventBus maintenance a **binding precondition** of moving the graphs
+out of the GIS tab rather than a follow-up to it.
+
+⚠ Not established: whether an incremental projection is cheap here. The five adapters read whole
+snapshots; making them incremental is real work, not a subscription.
+
+### ⭐ L-2132 — `ElementStore.getState()` RETURNS A LOWER BOUND, AND ITS TYPE SAYS `ReadonlyMap`
+
+`packages/stores/src/ElementStore.ts` is capacity-bounded with LRU eviction to IndexedDB —
+`:141` `capacity: options.capacity ?? 50_000`. Its own doc comment, `:157-158`:
+
+> *"Returns a ReadonlyMap view of the IN-MEMORY (LRU-resident) elements. Elements evicted to
+> IndexedDB are NOT present here."*
+
+**Any aggregate computed by iterating it is an undercount once eviction has occurred, and the returned
+value is indistinguishable from a complete one.** `size()` (`:168`) is documented honestly —
+*"Number of elements currently resident in the LRU cache"* — but a caller counting a `ReadonlyMap`
+has no signal at all.
+
+This is [[context-data-honesty-family]] at the substrate: **a truncated scan and a true count are the
+same value.** It is the single most likely silent-undercount path for any dashboard, which is why
+ADR-0343 §D.4 forbids widgets from reaching `getState()` and SPEC §2 requires a `complete: boolean`
+in every widget result, rendered as `>= N` when false.
+
+⚠ **NOT established: whether eviction actually fires in practice.** The default capacity is 50 000 and
+the founder's projects are far smaller. **The defect is that the value cannot tell you either way** —
+not a claim that it is currently wrong.
+
+### L-2133 — THE TAB CALLED "QUANTITIES" COMPUTES NO QUANTITY
+
+`DataWorkbench.ts:146` declares `{ id: 'quantity-schedules', label: 'Quantities', icon: '∑' }` under
+AUDIT. Its implementation, `apps/editor/src/ui/dataworkbench/buckets/AuditBucket.ts:41-93`, imports
+only `scheduleStore` and `viewTemplateStore`, and renders **schedule DEFINITIONS** — `schedule.name`,
+`schedule.scheduleType`, and `schedule.fields.join(', ')`. Its heading reads *"Schedule of
+Quantities"*. **No quantity is computed or displayed**; its only button opens the visibility-intent
+panel.
+
+Meanwhile `packages/core-app-model/src/quantities/QuantityTakeoff.ts` is an **879-line take-off engine**
+with `computeTakeoff()` at `:395`, 286 lines of tests, a coverage model and a CSV exporter.
+
+⭐ **This is [[authored-but-unwired-is-the-bottleneck]] with a label on top of it.** A tab named
+"Quantities" that shows the *names of fields* is worse than an absent tab, because it answers the
+question the founder would ask before he asks it.
+
+**Being closed, concurrently, by lane DATA1** — an untracked `buckets/MedicionesBucket.ts` calling
+`computeTakeoff()` at `:202`/`:304` and a seventh `mediciones` bucket (L-2003) were in the working
+tree while this was written. **This row is about the tab that is already named "Quantities"**, which
+is a different surface and, as measured, unchanged.
+
+### L-2134 — `chart.js` IS DECLARED IN THE ROOT MANIFEST AND CONSUMED BY `apps/editor` BY HOISTING
+
+`chart.js: "^4.5.1"` appears once in the workspace, at the root `package.json:255`.
+`apps/editor/package.json` declares **zero** chart dependencies, yet
+`apps/editor/src/ui/dataworkbench/AnalyticsPanel.ts:27,77` imports it and lazy-loads it. It resolves
+only because pnpm's hoisting happens to place it where the editor can see it.
+
+Its failure mode is already written into the file — `:83` renders *"Chart.js failed to load. Run: npm
+install chart.js"* to the user. **Fix the manifest before a second consumer is added**, which the
+Analysis surface would be (SPEC §5).
+
+### L-2135 — THREE PURPLE RAMPS AND A RIVAL PURPLE, IN A PRODUCT WITH ONE ACCENT
+
+The product has one accent, `--app-accent #6600FF` (`tokens.ts:46`), and `tokens.ts:276-277` states
+that adding a value there is *"the ONLY sanctioned way to introduce a colour to a panel"*. Measured,
+there are three independent purple ramps and one rival purple:
+
+| Ramp | Where | Stops |
+|---|---|---|
+| `DISCOVERY_RAMP` | `apps/editor/src/ui/inspect/audit/heatRamp.ts:28-33` | `rgb(216,203,255)` → `#6600FF` |
+| `WIND_BAND_COLORS` | `apps/editor/src/ui/geospatial/FormaSiteAnalysisControls.ts:87-90` | `#d9cffb #b79bf6 #9569f0 #7a3eea #6600FF #4b00bf` |
+| `--app-gradient` | `apps/editor/src/ui/styles/tokens.ts:33` | `#8B5CF6` → `#6600FF` |
+
+Plus `GHOST_COLOR = '#9333ea'` in `apps/editor/src/ui/dataworkbench/DataVisualizerService.ts:124`,
+commented *"purple-600"* — **the exact hue `tokens.ts:260` names as a defect**: *"a rival purple
+(rgba(147,51,234,.90) — Tailwind purple-600, NOT #6600FF)"*.
+
+`DISCOVERY_RAMP` is already `§DISCOVERY-RAMP-IS-ONE` for the Inspect surface. **The correct move is to
+promote it into `tokens.ts` as the product's sequential role and have the others read it — not to mint
+a fourth for Analysis.**
+
+### L-2136 — `ScheduleExtractor` TURNS "NO AREA" INTO THE STRING `"0.00"`
+
+`packages/core-app-model/src/schedules/ScheduleExtractor.ts:238`:
+
+```
+grossArea: (r.computed?.area ?? 0).toFixed(2),
+```
+
+Two defects in one expression. **`?? 0` collapses absence into zero** — a room whose area has not been
+computed is reported as a room of zero square metres, and the two are then indistinguishable
+downstream. **`.toFixed(2)` then stringifies it**, so every consumer must re-parse, and the unit is
+carried nowhere. The same shape repeats at `:81-83`, `:111`, `:139`, `:165`, `:239`, `:549-550`,
+`:733-734`.
+
+This is why SPEC §4.2 marks the room/area schedule widget **T3 rather than T1**: the data appears to
+be right there, and reading it would launder an unknown into a measurement.
+
+### L-2137 — THE CATEGORICAL PALETTE THE PRODUCT NEEDS ALREADY EXISTS, AD HOC, IN ONE FILE
+
+`apps/editor/src/ui/dataworkbench/DataVisualizerService.ts:76-122` declares `OCCUPANCY_COLORS`, **37
+raw hex values** grouped by comment into Residential / Office / Retail / Healthcare / Education /
+Hospitality / Circulation — blues, ambers, greens, stones. It is a real categorical scale, it is the
+only one in the product, it is token-backed nowhere, and it is invisible to
+`panelBrandStandard.spec.ts` because that guard checks **CSS custom-property references**, not hex
+literals in a lookup table.
+
+The same file also holds `SYNC_STATE_COLORS` (`:57-64`) and `COMPLIANCE_COLORS` (`:66-73`) — bringing
+the count of rival sync-state colour tables to **four** (with L-2130 and `syncStateColours.ts`).
+
+`tokens.ts` has **no** `--chart-*` and no series-indexed set of any kind; its only multi-hue groups are
+role-named (status, CDE state, VG badge/dot). **A categorical scale must be minted, and these 37 are
+the requirements document for it.**
+
+### L-2138 — `SemanticGraphManager` INDEXES BY ELEMENT, NOT BY RELATION TYPE
+
+`packages/core-app-model/src/SemanticGraph.ts:585-587` keeps `_rels: Map<string, Relationship>` plus
+`_bySource` and `_byTarget` id-set indices. Lookup **by element** is indexed. Lookup **by relation
+type** is not: `getRelationships(elementId, type?)` (`:1516`) walks the element's own id set and
+filters on `rel.type`, and there is no whole-graph accessor other than `getAll()` (`:1649`).
+
+So *"every `boundedBy` edge in the model"* is an O(n) scan. Perfectly fine at project scale, and
+recorded only because a relational dashboard makes exactly that query, and it would otherwise be
+**assumed** indexed because everything next to it is.
+
+### What is NOT established by this lane
+
+* **No code was run.** No gate, no test, no bench. Every figure is read from source at HEAD.
+* **Nothing here measures a rendered colour or a contrast ratio.** The palette findings are read as
+  text, exactly as `panelBrandStandard.spec.ts` says of itself.
+* **The founder's project size (259 elements / 4,760 meshes) was reported to this lane, not measured
+  by it**, and is treated as the shape of a first bench, not as evidence. Per C66 §1.1 every widget
+  row in the SPEC is **CLAIMED**.
+* **`@pryzm/solar-analysis` was not opened.** SPEC row W26 is marked UNVERIFIED rather than tiered.
+* **Whether LRU eviction ever fires in practice (L-2132) was not measured** — only that the value
+  cannot tell you.
+* **The surface decision was NOT validated against a running build.** It rests on reading
+  `WorkspaceController.ts`, `WorkspaceModeBar.ts`, `RailPanelController.ts` and `DataWorkbench.ts`.

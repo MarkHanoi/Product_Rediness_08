@@ -1,6 +1,13 @@
 # Specs — per-system normative specifications
 
-> 82 spec files (39 numbered SPEC-NN + 43 special-named) + 1 legacy PLAN. One per major capability. Numbered `SPEC-NN-<TOPIC>.md`.
+> ⚠ **Re-measured 2026-08-21 (lane ANLZ1): 98 spec files — 43 numbered `SPEC-NN` + 55 special-named
+> — plus 1 legacy `PLAN-*`.** This line read *"82 spec files (39 numbered + 43 special-named)"*, and
+> the "Reconciled 2026-07-16" note below still carries that stale trio. **Both halves were wrong and
+> the special-named count was wrong by 12.** This is the count-rot shape CLAUDE.md records against
+> the contract range: a hand-copied census that nobody re-runs. **Re-run it, never re-transcribe it:**
+> `ls docs/03-execution/specs/ | grep -c '^SPEC-'` → **98** ·
+> `ls docs/03-execution/specs/ | grep -cE '^SPEC-[0-9]'` → **43**. Highest numbered is **SPEC-50**.
+> The §2 table below is the authority; this line is a convenience and it has rotted twice.
 > **Updated 2026-08-14**: **SPEC-50-RIBBON-HANDLER-BACKLOG** minted (the per-toolbar handler
 > backlog surfaced by the founder's ribbon mount decision, ADR-0326/C82 — explicitly a BACKLOG,
 > NOT A PROMISE; every count cited from the H6 census `ae659c96`). Highest numbered is now
@@ -115,6 +122,7 @@ All spec files, sorted by filename. Numbered `SPEC-NN` (gaps: 14, 16–20, 22, 2
 | `SPEC-49-CIRCULATION-INTEGRITY` | [SPEC-49 — Circulation Integrity (generator output quality)](./SPEC-49-CIRCULATION-INTEGRITY.md) |
 | `SPEC-50-RIBBON-HANDLER-BACKLOG` | [SPEC-50 — Ribbon Handler Backlog (a backlog, not a promise)](./SPEC-50-RIBBON-HANDLER-BACKLOG.md) |
 | `SPEC-ACCESS-GRAPH-AND-SPATIAL-GRAMMAR` | [SPEC — Access Graph & Spatial Grammar (residential generative layout)](./SPEC-ACCESS-GRAPH-AND-SPATIAL-GRAMMAR.md) |
+| `SPEC-ANALYSIS-SURFACE-AND-WIDGETS` | [SPEC — Analysis Surface & Widget Catalogue](./SPEC-ANALYSIS-SURFACE-AND-WIDGETS.md) |
 | `SPEC-APARTMENT-LAYOUT-GENERATOR` | [SPEC — Apartment Layout Generator (`apartment.generate-layout`) · the "50 + 1" capstone](./SPEC-APARTMENT-LAYOUT-GENERATOR.md) |
 | `SPEC-ARCHITECTURAL-PROGRAM-RULES` | [SPEC — Architectural Program Rules (the room rule database)](./SPEC-ARCHITECTURAL-PROGRAM-RULES.md) |
 | `SPEC-AUTODIMENSION` | [SPEC-AUTODIMENSION — Deterministic AutoDimension Engine](./SPEC-AUTODIMENSION.md) |

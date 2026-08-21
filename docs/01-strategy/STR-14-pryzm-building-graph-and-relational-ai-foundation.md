@@ -41,7 +41,24 @@ A thin **L2/L3 `@pryzm/building-graph` package** that does NOT replace the speci
 
 - **Nodes:** every BIM entity (Site, Building, Level, Unit, Room, Wall, Door, Window, Furniture, System…) + abstract nodes (Zone, Circulation path) — keyed by the existing element ids. Node = `{ id, kind, props, refs }`.
 - **Edges (typed, directed):** `bounds`, `adjacentTo`, `connectsTo` (door/opening), `circulatesVia`, `hostedIn` (door-in-wall), `servesZone`, `derivesFrom` (SemanticGraph), `dependsOn` (DependencyResolver), `precededBy` (TemporalGraph), `violates` (ConstraintEngine). Edge = `{ from, to, type, weight, evidence }`.
-- **Built by adapters** over the existing services (TopologyLayer→bounds/adjacent, RoomGraphService→connectsTo, SemanticGraph→derivesFrom, DependencyResolver→dependsOn, ConstraintEngine→violates, D-TGL→circulation/sightline). Incrementally maintained off the StoreEventBus (we already fire per-element events).
+- **Built by adapters** over the existing services (TopologyLayer→bounds/adjacent, RoomGraphService→connectsTo, SemanticGraph→derivesFrom, DependencyResolver→dependsOn, ConstraintEngine→violates, D-TGL→circulation/sightline). ~~Incrementally maintained off the StoreEventBus (we already fire per-element events).~~
+
+  > ⚠ **CORRECTED 2026-08-21 (lane ANLZ1, ISSUE-LOG L-2131) — the struck clause describes maintenance
+  > that WAS NEVER BUILT, and it is load-bearing for anything that reads the graph.** Measured at HEAD:
+  > `window.__pryzmBuildingGraph` is written in exactly one place —
+  > `apps/editor/src/engine/buildBuildingGraph.ts:853-855`, inside `window.pryzmBuildBuildingGraph()`,
+  > which **rebuilds the whole graph from every source on each call**. Its only production callers are
+  > the two graph overlays (`ui/graph/BuildingGraphOverlay.ts:366-367`,
+  > `ui/living-graph/LivingGraphOverlay.ts:770,773,905`). `ui/layout/installLiveGraphWiring.ts` makes
+  > four install calls and **subscribes to no store event at all**.
+  >
+  > **The UBG is therefore STALE BY CONSTRUCTION** — it holds the model as it stood the last time
+  > somebody opened a graph overlay, and its shape carries no timestamp saying so. That is tolerable
+  > for an overlay the user just opened and **not** tolerable for anything left on screen, which is
+  > why [ADR-0343](../02-decisions/adrs/ADR-0343-analysis-surface-and-composable-widget-model.md) §D.7
+  > makes StoreEventBus maintenance a **binding precondition** of hosting the graphs on the Analysis
+  > surface. Adapters that read whole snapshots do not become incremental by being subscribed —
+  > **that is the real work, and it is unstarted.**
 - **One query surface** (`ubg.query(...)`, `ubg.neighbors(id, edgeType)`, `ubg.subgraph(roomId)`) that SemanticQueryEngine + the AI host + the visual overlay all consume. Pure, P5-safe core; spans per P8.
 - **Serialisable** → persists in the `.pryzm` snapshot + exports as the relational view alongside IFC (the "shared language" artifact).
 
