@@ -31582,3 +31582,159 @@ a unit test, weaker than a founder clicking the tab. [[committed-is-not-reachabl
 is that the panels render these answers over these stores, not that they render them over a real
 Barcelona project.** Also unproven: whether real projects carry `materialId` on enough elements for
 6D to cover a meaningful share of their volume. The gap ledger will say — it is built to.
+
+---
+
+### L-3150 — LINK MODEL: the inherited engine was never RUN, and running it broke it
+
+Lane LINK1 wrote 2 347 lines of linked-model engine (ADR-0346) and died before executing one of
+them; its own §11 was titled *"UNPROVEN"*. Lane LINK2 ran it first, before building the UI on top
+([[committed-is-not-reachable]]), against fixtures **copied from the PRODUCER**
+(`ProjectSerializer.ts`, cited by `file:line`) rather than written to match the consumer — C13 §7.4
+rule 1, and the reason this found real defects instead of confirming the code against itself
+([[fake-more-capable-than-real]]).
+
+**First reading: 20 of 24 passed, 4 FAILED.** The core — the C83 anchor decision, the store
+round-trip, the C13 host-mismatch drop, the cost arithmetic — was sound. `foldElement` was not.
+
+### ⚠ L-3151 — a linked building rendered SMALLER than it is, plausibly, with no error
+
+`serializeSlab` emits `polygon: s.polygon.map(stripVec2)` — **Vec2 `{x, y}` where `y` IS the plan
+Z** (`ProjectSerializer.ts:757`, `stripVec2` at `:555`). `deriveLinkMassing.foldElement` read
+`p.z`, got `undefined` on every vertex, and rejected all of them. A level whose only geometry is a
+slab — a podium, a plinth, a roof terrace — produced **no massing band** and was reported as
+"skipped".
+
+**This is worse than a refusal.** The link rendered, it was measurable, and it was wrong — the exact
+silent mis-alignment ADR-0346 D4 exists to refuse. A user would dimension to it.
+
+⚠ **The doc comment above the function ASSERTED the wrong shape** — *"`polygon` / `points` /
+`boundary`: Vec3[]"* — and the code faithfully matched the comment. Corrected in place with the four
+shapes the serializer actually emits, each cited by line, because the next reader will trust that
+comment exactly as much as the last one did.
+
+**Fix:** two point accessors, not one that guesses. `addPoint` stays strict about `z` for Vec3
+**placements** (borrowing `y` there would substitute an ELEVATION for a plan coordinate);
+`addPlanPoint` reads `z ?? y`, correct for Vec2 and Vec3 outlines alike.
+
+### L-3152 — roofs contributed NOTHING to a linked model's massing
+
+`serializeRoof` **nests** the outline under `footprint: { polygon, centroid }`
+(`ProjectSerializer.ts:847-852`) and emits no top-level `position`. `foldElement` read only
+top-level keys, so every roof was invisible and a roof-only level lost the building's top. Fixed
+with a nested-`footprint` branch reading the same `PLAN_OUTLINE_KEYS` list, so the two sites cannot
+drift.
+
+### L-3153 — `contributingElements` counted elements it had REJECTED
+
+The flag was set whenever a geometry **key** existed, not when a **point** was accepted — so the
+diagnostic reported "8 elements shaped this band" about a band nothing shaped. A probe that cannot
+be wrong cannot be trusted ([[probe-can-be-wrong-three-ways]]). **24/24 green after all three.**
+
+### L-3154 — the C83 verdict could not be shown BEFORE the link was created
+
+`resolveLink` needs a `LinkedModelRef`; a ref needs an `anchor`; an anchor needs the **source's**
+site origin — which lives inside a snapshot only `resolveLink` knew how to fetch. So the placement
+verdict was only knowable **after** the link existed, i.e. after the decision it exists to inform.
+ADR-0346 D4 says PRYZM always ASKS, and a question asked afterwards is not asking.
+
+**Fix:** `fetchSourceVersion` extracted; `probeLinkSource()` reads a candidate ONCE up front —
+origin, version, element count, band count, draw calls. Both entry points share the one fetch, so
+the dialog cannot promise a placement the renderer then refuses.
+
+### L-3155 — three server branches, TWO casings, and the wrong value won
+
+`/api/projects/:id/versions` returns raw rows (`created_at`, `element_count`) on the Supabase and
+Postgres paths, but the in-memory fallback re-maps to `timestamp` / `elementCount`
+(`server.js:3455`). The gateway read only snake_case, so in a no-database session every version
+showed **no date and "0 elements"** — a **wrong** value, not a missing one, in the list where the
+user chooses what to pin to. Both casings now read.
+
+### L-3156 / L-3157 / L-3158 — the panel, and its ROUTE
+
+`apps/editor/src/ui/links/LinkedModelsPanel.ts`, reached from **Project Browser → GIS/Site tab →
+"Linked Models"**. That tab because **the parcel is the anchor**: placement derives from both
+projects' `SiteModel.location`, authored in that very tab.
+
+The panel writes no store (every mutation is `bus.executeCommand` on one of the four link verbs,
+P6), touches no THREE object and flips no `.visible` (P7/C25 — visibility is the persisted `display`
+intent), and computes no placement of its own (`linkedModelsViewModel` renders the **same**
+`resolveLinkAnchor` the handler validates with).
+
+⚠ **The reachability suite is two-armed and says what each arm can and cannot prove.** ARM A is a
+**real import** — it catches a module-load throw or a renamed export, which a grep cannot. ARM B is a
+**source-level** check of the call site — labelled as such, because L-3013 is the record of two
+text-based guards passing clean while only the suite that *imported* the file failed. The door
+exists (B) and it opens (A); neither alone would do.
+
+### ⚠ L-3159 / L-3160 — a UI panel could not be IMPORTED in 120 seconds
+
+Writing that reachability test found what the panel hid: `await import('../LinkedModelsPanel')` did
+not complete inside **120 s**, with the entire command registry loading behind it.
+
+**The first diagnosis was WRONG and is recorded as wrong.** THREE looked like the culprit —
+`linkedModelController` imported `LinkedModelSceneRenderer` (an `import * as THREE` consumer) as a
+**value** while only ever using it as a **type**. That edge is real and is now `import type`
+(L-3159), so a UI panel no longer carries a module edge to a THREE consumer — the shape of
+[[server-safe-entry-can-import-browser-ui]]. **But it did not fix the timeout**, and the comment
+says so rather than taking credit.
+
+**The real cause (L-3160):** `resolveActiveProjectId` — two runtime field reads and one window
+global, needing nothing from the UI — was **defined inside `ui/site/siteDispatch.ts`**, a large
+dispatch surface. Anything wanting the active project id paid for the command graph behind it. And
+**four ENGINE modules were paying it**: `initUI.ts:68`, `ViewController.ts:54`,
+`mountedDrawingScope.ts:73`, `linkedModelScope.ts:65` — the last two being **C13 project-scope
+OWNERS reaching UP into an L7 UI module** to answer *"whose state am I holding?"*.
+
+Measured per module, cold: `linkedModelController` **17.7 s**, `siteDispatch` **9.0 s**,
+`LinkedModelStore` ~0 s, `linkedModelsViewModel` ~0 s.
+
+**Fix:** definition moved to `engine/project/activeProjectId.ts`; `siteDispatch` **imports and
+re-exports** it, so all eleven call sites keep working unchanged. ⛔ **Not duplicated** —
+`mountedDrawingScope.ts:89` already records that *"a second, quietly-divergent copy of this lookup
+is how attribution rots"*. **Result: >120 s (timeout) → 23 s.**
+
+⚠ A follow-on caught only by the **root tsc**: `siteDispatch` had **two internal callers** of the
+function it re-exported, and `export { … } from` creates no local binding. The re-export
+type-checked from outside while the inside was broken.
+
+### L-3161 — "Following latest" did not say WHEN, and the answer was "never, until you reopen"
+
+ADR-0346 D5 decided PINNED vs LATEST. It did **not** decide what `latest` means **in time**, and the
+inherited behaviour was: re-resolve on project open, on any link change, and never again. It does
+not poll. True, and stated nowhere — the worst of the three options, since a user reading *"Following
+latest save"* would reasonably expect a colleague's save to appear.
+
+**DECIDED:** `latest` re-resolves on project open and on an **explicit Refresh**; it does not poll
+and never mutates under the user mid-session. Because (1) D5's own argument — a coordination datum
+moving unseen makes every dimension drawn to it silently wrong — does not stop applying because the
+user chose `latest`; (2) polling costs a timer per link and an API read per interval on a scene the
+founder already reports as heavy, and the frame budget has ONE owner (P3); (3) a refresh the user
+performs is one the user can attribute. Shipped with a `Refresh` control, which is **also the retry
+path** for `SOURCE_UNREACHABLE` / `MISSING_LINK_VERSION` — both keep the link.
+
+### ⚠ L-3162 — an ADR delegated its two key sections to a SPEC that did not exist
+
+ADR-0346 §9 read *"See SPEC-LINKED-MODELS §9 for the landed/deferred split"* and §10 read *"Named in
+SPEC §10."* **`docs/03-execution/specs/SPEC-LINKED-MODELS.md` did not exist.** So the landed/deferred
+split — the one record telling a reader which half of a half-built feature is real — was recorded
+**nowhere**, while two documents pointed at each other.
+
+The citation had reached the **product surface**: `link.setDisplay`'s refusal for the unbuilt
+detailed mode ends *"See SPEC-LINKED-MODELS §10."* (`linkBusHandlers.ts:252`) — shown to a **user**,
+naming a document that could not be opened. Measured: **4 citations, 0 files.**
+
+The SPEC now exists and carries the split. ⚠ Note the structural gap: `contracts/**` has a gate for
+exactly this shape (`tools/ga-gate/check-contract-cited-paths.ts`, L-960 — 1 528 citations, 491
+unresolved), and **ADRs and SPECs have no equivalent**, which is why this went unnoticed. A gate
+over `docs/02-decisions/adrs/**` and `docs/03-execution/specs/**` is the obvious follow-up and is
+**not** built.
+
+### L-3163 — UNPROVEN, and the largest one: no browser has ever rendered a linked model
+
+Recorded here rather than left implicit. `LinkedModelSceneRenderer` has **never been observed
+mounting geometry in a running editor** by any lane. The renderer, its four picking opt-outs, the
+translucent violet massing appearance, and the C13 audit's `scene.linkedModel` arm are all **argued
+from code, not seen**. Route shapes were read from `server.js` and matched by inspection; no lane
+has fetched another project's snapshot and drawn it. A single browser session closes most of this,
+and until one does, SPEC §11 is the honest statement of what this feature is.

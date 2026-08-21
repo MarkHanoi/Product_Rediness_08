@@ -459,17 +459,60 @@ store at all* (D1).
 See [SPEC-LINKED-MODELS](../../03-execution/specs/SPEC-LINKED-MODELS.md) §9 for the landed/deferred
 split, stated per item.
 
+> ⚠ **Corrected 2026-08-21 (lane LINK2) — THAT SPEC DID NOT EXIST WHEN THIS LINE WAS WRITTEN.**
+> This section and §10 both delegated to a file that was never created, so the landed/deferred split —
+> the one record that tells a reader which half of a half-built feature is real — was recorded
+> **nowhere**, while two documents pointed at each other. The citation had also reached the
+> **product surface**: `link.setDisplay`'s refusal for the unbuilt detailed mode ends *"See
+> SPEC-LINKED-MODELS §10."* (`linkBusHandlers.ts:252`) — shown to a **user**, naming a document that
+> could not be opened. Measured: **4 citations, 0 files.** The SPEC now exists and carries the split.
+> Recorded as **L-3162**; note that `contracts/**` has a gate for exactly this
+> (`check-contract-cited-paths.ts`, L-960) and **ADRs/SPECs do not**, which is why it went unseen.
+
 ## 10 · Deferred, by name
 
 Named in SPEC §10. Nothing in this ADR should be read as claiming a deferred item works.
 
 ## 11 · UNPROVEN — read this before quoting anything above
 
-- **Per-frame draw-call cost of a link was NOT measured in a browser by this lane.** The
-  structural mesh-count bound in D6 is arithmetic, not a frame reading, and L-2502 shows the
-  console figure this repo has been quoting is cumulative, not per-frame.
+> ⚠ **Rewritten 2026-08-21 by lane LINK2, which RAN the slice this ADR describes.**
+> The engine landed here had **never been executed** — not one line. Running it first, before
+> building anything on top ([[committed-is-not-reachable]]), against fixtures copied from the
+> PRODUCER (`ProjectSerializer.ts`, cited by line) per C13 §7.4 rule 1: **20 of 24 passed, 4 FAILED.**
+> The core was sound. `foldElement` was not, in three ways, all of them the same shape — **a wrong
+> answer that looks right**:
+>
+> - **L-3151** — slab polygons are Vec2 `{x, y}` where `y` **is** the plan Z (`stripVec2`,
+>   `ProjectSerializer.ts:555`; emitted at `:757`). The consumer read `p.z`, got `undefined`, and
+>   dropped **every vertex**. A slab-only level — a podium, a plinth, a roof terrace — produced no
+>   band and was reported "skipped". **The linked building rendered smaller than it is, plausibly,
+>   with no error** — precisely the silent mis-alignment D4 exists to refuse.
+> - **L-3152** — roofs nest their outline under `footprint: { polygon, centroid }` (`:847-852`) and
+>   carry no top-level `position`. The consumer read only top-level keys, so **roofs contributed
+>   nothing at all** and a roof-only level lost the building's top.
+> - **L-3153** — `contributingElements` counted elements whose every point had been rejected.
+>
+> The doc comment above `foldElement` **asserted** the wrong shape (*"polygon … Vec3[]"*) and the
+> code faithfully matched it. Both are corrected in place. **24/24 green.**
+
+**What is now landed, wired and measured** is enumerated in SPEC §9 — including the UI panel, its
+route from the Project Browser's GIS tab, the pre-create source probe (**L-3154**) that closes the
+anchor↔ref circle so the C83 verdict can be shown **before** the link is created, and the
+`latest`-is-not-live decision (**L-3161**) that D5 left open.
+
+**What remains genuinely unproven, stated so nobody quotes it as working:**
+
+- **NO BROWSER VERIFICATION. This is the largest open item.** `LinkedModelSceneRenderer` has never
+  been observed mounting geometry in a running editor by any lane. The renderer, the four picking
+  opt-outs, the violet massing appearance, and the audit's `scene.linkedModel` arm are all **argued
+  from code, not seen**. A single browser session closes most of this.
+- **The end-to-end create → fetch → render path has not been run against a live server.** Route
+  shapes were read from `server.js` and matched by inspection only.
+- **Per-frame draw-call cost of a link was NOT measured in a browser.** The structural mesh-count
+  bound in D6 is arithmetic, and L-2502 shows the console figure this repo has been quoting is
+  cumulative, not per-frame. The panel therefore reports the **computed structural** cost and
+  claims nothing about frame time.
 - **Source-snapshot fetch + massing-build latency is UNMEASURED.**
-- **Plan / elevation / section projection of a linked model is NOT built** (SPEC §10) — the
-  linework projection pipeline had two leak defects today and this lane did not add a third by
-  guessing.
+- **`hostProjectId` agreement between save and restore is UNVERIFIED at runtime** — see SPEC §11.
+- **Plan / elevation / section projection of a linked model is NOT built** (SPEC §10.3).
 - **Cross-user linking does not work** (L-2901) and no code here changes that.
