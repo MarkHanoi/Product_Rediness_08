@@ -101,6 +101,8 @@ import {
     drawingZoneFromLayerName,
     siblingZoneLayer,
 } from './DrawingZone';
+// §VG-LAYER-IDENTITY-IS-THE-ONLY-SURVIVOR (L-1600) — the ONE layer-identity authority.
+import { composeLayerTag } from './DrawingLayerIdentity';
 
 // ─── Occluder extraction ──────────────────────────────────────────────────────
 
@@ -514,7 +516,10 @@ export function applyOcclusion(
             // No depth stamp ⇒ +Infinity ⇒ every occluder counts as nearer. This is exactly
             // the v2 plan/section behaviour and keeps an unstamped drawing correct.
             depth:     nodeDepth(child) ?? Infinity,
-            layerName: (child.userData?.layerName ?? child.name ?? '') as string,
+            // §VG-LAYER-IDENTITY-IS-THE-ONLY-SURVIVOR (L-1600) — was a TWO-key variant
+            // (`layerName ?? name`) that could not see `userData.layer`, the only key OBC
+            // guarantees. Symbol-builder linework was therefore invisible to occlusion too.
+            layerName: composeLayerTag(child),
         });
     });
 

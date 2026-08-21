@@ -224,3 +224,14 @@ export {
     openingElevationSymbolBuilder,
     suppressSymbolisedElementLinework,
 } from './OpeningElevationSymbolBuilder.js';
+
+// §VG-LAYER-IDENTITY-IS-THE-ONLY-SURVIVOR (L-1600) — the ONE producer of "which layer
+// is this line on, and whose VG category is that?" (C06 §13.3). Seven hand-copied
+// answers were consolidated here; see the module header for the measurement.
+export type { LayerTaggedObject } from './DrawingLayerIdentity.js';
+export {
+    ISO_LAYER_TO_VG_CATEGORY,
+    composeLayerTag,
+    vgCategoryForLayer,
+    baseIsoLayerForTag,
+} from './DrawingLayerIdentity.js';

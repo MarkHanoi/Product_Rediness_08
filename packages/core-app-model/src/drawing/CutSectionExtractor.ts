@@ -11,6 +11,8 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { PocheFillBuilder, type PochePolygon } from '../views/PocheFillBuilder';
 import { resolvePocheFill } from './PocheFillTable';
+// §VG-LAYER-IDENTITY-IS-THE-ONLY-SURVIVOR (L-1600) — the ONE layer-identity authority.
+import { composeLayerTag } from './DrawingLayerIdentity';
 
 export interface CutPocheResult {
     points: string;
@@ -40,12 +42,7 @@ export function extractCutPoches(
         const geom = child.geometry;
         if (!geom) return;
 
-        const layerTag = [
-            child.userData?.layerName,
-            child.name,
-            child.parent?.userData?.layerName,
-            child.parent?.name,
-        ].filter(Boolean).join(' ');
+        const layerTag = composeLayerTag(child);
 
         if (!/:cut$/i.test(layerTag)) return;
 

@@ -15,6 +15,8 @@ import { viewDefinitionStore } from './ViewDefinitionStore';
 import { resolveViewScope, resolveBeyondLineStyle } from './ViewScope';
 // Contract 23 §8 — pen weight table (zone/category helpers)
 import { categoryFromFlags } from '../drawing/PenWeightTable';
+// §VG-LAYER-IDENTITY-IS-THE-ONLY-SURVIVOR (L-1600) — the ONE layer-identity authority.
+import { composeLayerTag, vgCategoryForLayer, baseIsoLayerForTag } from '../drawing/DrawingLayerIdentity';
 // §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) / C09 §4.6 — the four-zone classifier.
 import { drawingZoneFromLayerName, penZoneOf, BEYOND_DASH_PX } from '../drawing/DrawingZone';
 
@@ -44,6 +46,8 @@ import { graphicsRulesEngine } from '../drawing/GraphicsRulesEngine';
 import { ISO_CUT_LAYER_TO_POCHE_FILL, resolveWallLayerPocheFill } from '../drawing/PocheFillTable';
 // Contract 23 §9 (Day 9) — VGGovernanceStore view overrides → GraphicsRulesEngine injection
 import { vgGovernanceStore } from '../presentation/VGGovernanceStore';
+// §ROOM-VG-CATEGORY (L-1610) -- the room colour mode is a per-view VG override.
+import { resolveRoomColourIntent, getRoomColourModelId } from '../presentation/RoomColourIntent';
 // §FEAT-PLAN-MULTISELECT — full multi-select set for the plan selection glow.
 import { selectionBus } from '../SelectionBus';
 // Contract 23 §14 — Worker Thread Pipeline (Stage 1)
@@ -82,21 +86,16 @@ export const MINIMUM_PLAN_VIEW_CANVAS_FRUSTUM = 3;
 // worker-result renderer) each re-derived the scale AND the floor from `devicePixelRatio`, and
 // each got the floor wrong in the same way. There is now ONE resolver, and nobody re-derives it.
 
-const ISO_LAYER_TO_VG_CATEGORY: Readonly<Record<string, string>> = {
-    'A-WALL': 'wall',
-    'A-FLOR': 'slab',
-    'A-COLS': 'column',
-    'A-BEAM': 'beam',
-    'A-DOOR': 'door',
-    'A-GLAZ': 'window',
-    'A-STRS': 'stair',
-    'A-ROOF': 'roof',
-    'A-FURN': 'furniture',
-    'A-PLMB': 'plumbing',
-    'A-CEIL': 'ceiling',
-    'A-GRID': 'grid',
-    'A-LEVL': 'level',
-};
+/**
+ * §VG-LAYER-IDENTITY-IS-THE-ONLY-SURVIVOR (L-1600) — the map, the tag composition and
+ * the family match all moved to `../drawing/DrawingLayerIdentity`, the ONE producer
+ * (C06 §13.3). This file previously owned a private copy of the map AND a private
+ * `_vgCategoryForLayer()`; a SECOND copy of both lived in
+ * `apps/editor/src/engine/views/plan-canvas/PlanViewVGApplicator.ts` and had already
+ * DRIFTED — it gained the ISO hyphen sub-layer arm (`A-GLAZ-CUT`) on 2026-05-22 and
+ * this copy never did, so the renderer could not classify a single door, window or
+ * furniture symbol. See that module's header for the full measurement.
+ */
 
 // ISO_CUT_LAYER_TO_POCHE_FILL is imported from ../drawing/PocheFillTable (Contract 23 §3)
 
@@ -400,12 +399,7 @@ export class PlanViewCanvas {
 
             child.updateWorldMatrix(true, false);
             const mat = child.matrixWorld;
-            const layerTag = [
-                child.userData?.layerName,
-                child.name,
-                child.parent?.userData?.layerName,
-                child.parent?.name,
-            ].filter(Boolean).join(' ');
+            const layerTag = composeLayerTag(child);
             // §DOOR-WINDOW-PLAN-FRAME (2026-05-22): accept BOTH the legacy
             // colon convention (`A-WALL:cut`) and the hyphenated ISO sub-layer
             // convention emitted by the hosted-element symbol builders
@@ -2354,14 +2348,25 @@ export class PlanViewCanvas {
 
             if (!rooms || rooms.length === 0) return;
 
+            // §ROOM-VG-CATEGORY (L-1612) -- the plan canvas used the MODE-LESS
+            // `RoomColourSystem.resolve(room)`, so no colour mode could ever reach
+            // the drawing the founder is actually looking at. The intent is resolved
+            // ONCE per pass, against THIS view, and the ramp scope is the rooms in
+            // this pass -- so "by size" means "by size on this level", not globally.
+            const intent = resolveRoomColourIntent(getRoomColourModelId(), this._lastViewId ?? undefined);
+            if (!intent.visible) return;
+            const vgAlpha = 1 - Math.max(0, Math.min(100, intent.transparency)) / 100;
+
             for (const room of rooms) {
                 const polygon = room.boundary?.polygon;
                 if (!polygon || polygon.length < 3) continue;
 
-                const color   = RoomColourSystem.resolve(room);
+                const color   = RoomColourSystem.resolveForMode(
+                    room, intent.mode, rooms, { uniformColour: intent.uniformColour },
+                );
                 const opacity = RoomColourSystem.resolveOpacity(room);
                 ctx.save();
-                ctx.globalAlpha = opacity * 0.7; // plan view is slightly more transparent than 3D
+                ctx.globalAlpha = opacity * 0.7 * vgAlpha; // plan view is slightly more transparent than 3D
                 ctx.fillStyle = color;
                 ctx.beginPath();
                 const p0 = this.worldToScreen(polygon[0].x, polygon[0].z);
@@ -2403,12 +2408,7 @@ export class PlanViewCanvas {
             const posAttr = child.geometry?.getAttribute('position') as THREE.BufferAttribute | undefined;
             if (!posAttr || posAttr.count < 6) return;
 
-            const layerTag = [
-                child.userData?.layerName,
-                child.name,
-                child.parent?.userData?.layerName,
-                child.parent?.name,
-            ].filter(Boolean).join(' ');
+            const layerTag = composeLayerTag(child);
             if (!/:cut$/i.test(layerTag)) return;
 
             const baseLayer = this._baseIsoLayer(layerTag);
@@ -2624,12 +2624,13 @@ export class PlanViewCanvas {
         ctx.stroke();
     }
 
+    /**
+     * §VG-LAYER-IDENTITY-IS-THE-ONLY-SURVIVOR (L-1600) — delegates to the ONE producer.
+     * The body used to be a private copy that lacked the ISO hyphen sub-layer arm, so
+     * `A-GLAZ-CUT` / `A-DOOR-PROJ` / `A-FURN-SHADOW` all resolved to a null category.
+     */
     private _vgCategoryForLayer(layerTag: string): string | null {
-        const tag = layerTag.trim();
-        for (const [prefix, category] of Object.entries(ISO_LAYER_TO_VG_CATEGORY)) {
-            if (tag === prefix || tag.startsWith(`${prefix}:`) || tag.includes(` ${prefix}`)) return category;
-        }
-        return null;
+        return vgCategoryForLayer(layerTag);
     }
 
     /**
@@ -2726,12 +2727,9 @@ export class PlanViewCanvas {
         }
     }
 
+    /** §VG-LAYER-IDENTITY-IS-THE-ONLY-SURVIVOR (L-1600) — delegates to the ONE producer. */
     private _baseIsoLayer(layerTag: string): string | null {
-        const tag = layerTag.trim();
-        for (const prefix of Object.keys(ISO_CUT_LAYER_TO_POCHE_FILL)) {
-            if (tag === prefix || tag.startsWith(`${prefix}:`) || tag.includes(` ${prefix}`)) return prefix;
-        }
-        return null;
+        return baseIsoLayerForTag(layerTag, Object.keys(ISO_CUT_LAYER_TO_POCHE_FILL));
     }
 
     private _computeDrawingFootprintBounds(drawing: any): { minH: number; maxH: number; minV: number; maxV: number } | null {

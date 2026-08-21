@@ -15,6 +15,8 @@ import type * as OBC from '@thatopen/components';
 import { graphicsRulesEngine } from './GraphicsRulesEngine';
 import type { PipelineRequest, PipelineResult, WorkerOutboundMessage, PipelineElementBatch, SerializedRule } from './DrawingPipelineTypes';
 import { lookupElementUUID } from '../views/DrawingSelectionIndex';
+// §VG-LAYER-IDENTITY-IS-THE-ONLY-SURVIVOR (L-1600) — the ONE layer-identity authority.
+import { composeLayerTag } from './DrawingLayerIdentity';
 
 const DEFAULT_POCHE_FILLS: Record<string, string> = {
     'A-WALL': '#1a1a1a',
@@ -159,12 +161,7 @@ export class DrawingPipelineOrchestrator {
             child.updateWorldMatrix(true, false);
             const mat = child.matrixWorld;
 
-            const layerTag = [
-                child.userData?.layerName,
-                child.name,
-                child.parent?.userData?.layerName,
-                child.parent?.name,
-            ].filter(Boolean).join(' ');
+            const layerTag = composeLayerTag(child);
 
             const elementId = (
                 lookupElementUUID(drawing as object, child)

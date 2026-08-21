@@ -6,19 +6,30 @@ import { visibilityIntentStore } from '@pryzm/core-app-model/presentation';
 import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
 import { resolveIntentStyle } from '@pryzm/core-app-model/presentation';
 import { getDefaultSystemIntentId } from '@pryzm/core-app-model/presentation';
+import { resolveRoomColourIntent, getRoomColourModelId, getActiveRoomColourViewId } from '@pryzm/core-app-model/presentation';
 import { ISO_CUT_LAYER_TO_POCHE_FILL } from '@pryzm/core-app-model/drawing';
 import type { ViewDefinition } from '@pryzm/core-app-model';
 import type { PlanViewCanvasStyle } from './PlanViewCanvasTypes';
 import { planViewVGApplicator } from './PlanViewVGApplicator';
+// §VG-LAYER-IDENTITY-IS-THE-ONLY-SURVIVOR (L-1600) — the ONE layer-identity authority.
+import { composeLayerTag } from '@pryzm/core-app-model/drawing';
 
 type WorldToScreen = (h: number, v: number) => { sx: number; sy: number };
 type StyleResolver = (category: string, layerTag: string) => PlanViewCanvasStyle | null;
 
 export class PlanViewFillRenderer {
+    /**
+     * §ROOM-VG-CATEGORY (L-1612) -- resolves the room colour mode from the `room`
+     * VG category exactly as `PlanViewCanvas._renderRoomFills()` does. These two
+     * are duplicate painters of the same rooms; leaving this one on the MODE-LESS
+     * `RoomColourSystem.resolve()` would make it a silent rival that shows the old
+     * palette wherever it is the live one.
+     */
     renderRoomFills(
         ctx: CanvasRenderingContext2D,
         worldToScreen: WorldToScreen,
         levelId: string | null,
+        viewId?: string,
     ): void {
         // window.roomStore typed in src/global-window.d.ts (P4-compliant).
         const roomStore = window.roomStore; // TODO(TASK-08)
@@ -26,13 +37,20 @@ export class PlanViewFillRenderer {
         try {
             const rooms: any[] = levelId ? roomStore.getByLevel(levelId) : roomStore.getAll();
             if (!rooms || rooms.length === 0) return;
+            const intent = resolveRoomColourIntent(
+                getRoomColourModelId(), viewId ?? getActiveRoomColourViewId() ?? undefined,
+            );
+            if (!intent.visible) return;
+            const vgAlpha = 1 - Math.max(0, Math.min(100, intent.transparency)) / 100;
             for (const room of rooms) {
                 const polygon = room.boundary?.polygon;
                 if (!polygon || polygon.length < 3) continue;
-                const color   = RoomColourSystem.resolve(room);
+                const color   = RoomColourSystem.resolveForMode(
+                    room, intent.mode, rooms, { uniformColour: intent.uniformColour },
+                );
                 const opacity = RoomColourSystem.resolveOpacity(room);
                 ctx.save();
-                ctx.globalAlpha = opacity * 0.7;
+                ctx.globalAlpha = opacity * 0.7 * vgAlpha;
                 ctx.fillStyle = color;
                 ctx.beginPath();
                 const p0 = worldToScreen(polygon[0].x, polygon[0].z);
@@ -77,12 +95,7 @@ export class PlanViewFillRenderer {
             const posAttr = child.geometry?.getAttribute('position') as THREE.BufferAttribute | undefined;
             if (!posAttr || posAttr.count < 6) return;
 
-            const layerTag = [
-                child.userData?.layerName,
-                child.name,
-                child.parent?.userData?.layerName,
-                child.parent?.name,
-            ].filter(Boolean).join(' ');
+            const layerTag = composeLayerTag(child);
             if (!/:cut$/i.test(layerTag)) return;
 
             const baseLayer = planViewVGApplicator.baseIsoLayer(layerTag);

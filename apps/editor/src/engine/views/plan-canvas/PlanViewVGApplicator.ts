@@ -2,54 +2,37 @@ import type { ViewDefinition } from '@pryzm/core-app-model';
 import type { PenStyle } from '@pryzm/core-app-model/drawing';
 import { graphicsRulesEngine } from '@pryzm/core-app-model/drawing';
 import { vgGovernanceStore } from '@pryzm/core-app-model';
-import { ISO_CUT_LAYER_TO_POCHE_FILL } from '@pryzm/core-app-model/drawing';
+import { ISO_CUT_LAYER_TO_POCHE_FILL, vgCategoryForLayer, baseIsoLayerForTag } from '@pryzm/core-app-model/drawing';
 
-export const ISO_LAYER_TO_VG_CATEGORY: Readonly<Record<string, string>> = {
-    'A-WALL': 'wall',
-    'A-FLOR': 'slab',
-    'A-COLS': 'column',
-    'A-BEAM': 'beam',
-    'A-DOOR': 'door',
-    'A-GLAZ': 'window',
-    'A-STRS': 'stair',
-    'A-ROOF': 'roof',
-    'A-FURN': 'furniture',
-    'A-PLMB': 'plumbing',
-    'A-CEIL': 'ceiling',
-    'A-GRID': 'grid',
-    'A-LEVL': 'level',
-};
+/**
+ * §VG-LAYER-IDENTITY-IS-THE-ONLY-SURVIVOR (L-1600) — THE DRIFTED DUPLICATE, RETIRED.
+ *
+ * This module used to own a SECOND copy of `ISO_LAYER_TO_VG_CATEGORY` and a SECOND
+ * `vgCategoryForLayer()`. The two copies had already diverged, and in the worst
+ * possible direction: on 2026-05-22 §DOOR-WINDOW-PLAN-FRAME added the ISO hyphen
+ * sub-layer arm (`A-DOOR-CUT`, `A-GLAZ-PROJ`) to THIS copy — the one nothing on the
+ * render path calls — and never to `PlanViewCanvas`'s copy, which is the one that
+ * paints. The fix was authored, committed, and reached no user: for three months the
+ * renderer could not classify a single door, window or furniture plan symbol.
+ *
+ * `ISO_LAYER_TO_VG_CATEGORY` is re-exported here ONLY so existing importers keep
+ * resolving; it is the one from `@pryzm/core-app-model/drawing`, not a copy.
+ */
+export { ISO_LAYER_TO_VG_CATEGORY } from '@pryzm/core-app-model/drawing';
 
 export class PlanViewVGApplicator {
+    /** §VG-LAYER-IDENTITY-IS-THE-ONLY-SURVIVOR (L-1600) — delegates to the ONE producer. */
     vgCategoryForLayer(layerTag: string): string | null {
-        const tag = layerTag.trim();
-        for (const [prefix, category] of Object.entries(ISO_LAYER_TO_VG_CATEGORY)) {
-            // §DOOR-WINDOW-PLAN-FRAME (2026-05-22): also match the hyphenated ISO
-            // sub-layer convention (`A-DOOR-CUT`, `A-GLAZ-PROJ`, …) emitted by the
-            // hosted-element symbol builders. Previously only the exact tag, the
-            // `prefix:` colon form, and the space-delimited form matched, so the
-            // `-CUT`/`-PROJ` sub-layers resolved to a null VG category — orphaning
-            // them from per-category visibility + graphic overrides.
-            if (
-                tag === prefix ||
-                tag.startsWith(`${prefix}:`) ||
-                tag.startsWith(`${prefix}-`) ||
-                tag.includes(` ${prefix}`)
-            ) return category;
-        }
-        return null;
+        return vgCategoryForLayer(layerTag);
     }
 
     vgCategoryFromZoneCategory(layerTag: string): string | null {
         return this.vgCategoryForLayer(layerTag);
     }
 
+    /** §VG-LAYER-IDENTITY-IS-THE-ONLY-SURVIVOR (L-1600) — delegates to the ONE producer. */
     baseIsoLayer(layerTag: string): string | null {
-        const tag = layerTag.trim();
-        for (const prefix of Object.keys(ISO_CUT_LAYER_TO_POCHE_FILL)) {
-            if (tag === prefix || tag.startsWith(`${prefix}:`) || tag.includes(` ${prefix}`)) return prefix;
-        }
-        return null;
+        return baseIsoLayerForTag(layerTag, Object.keys(ISO_CUT_LAYER_TO_POCHE_FILL));
     }
 
     syncViewOverrides(viewDef: ViewDefinition): void {
