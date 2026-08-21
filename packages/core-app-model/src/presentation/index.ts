@@ -197,3 +197,6 @@ export type { VisibilityRuleEngineImpl } from './VisibilityRuleEngine.js';
 export { visibilityRuleEngine } from './VisibilityRuleEngine.js';
 
 export { VGSceneApplicator } from './VGSceneApplicator.js';
+
+// §VIEW-MODIFIER-KEY-IS-UNIQUE (L-1602) — one row per (viewType, elementType).
+export { normaliseViewTypeModifiers, findViewTypeModifierIndex } from './ViewTypeModifierNormaliser.js';

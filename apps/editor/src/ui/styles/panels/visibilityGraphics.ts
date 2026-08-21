@@ -260,15 +260,41 @@ export const VISIBILITY_GRAPHICS_STYLES = `
         cursor: not-allowed;
     }
 
+    /* §PANEL-SECTIONS-MUST-BE-REACHABLE (L-1604) — THE FOUNDER COULD NOT SCROLL.
+       *"in the Elevation Section/ view modifiers - i can not scroll down to check
+       other elements"* — content clipped, no scrollbar.
+
+       ROOT CAUSE, and .vi-editor was never the culprit: it has had
+       overflow-y: auto all along. It could never USE it, because nothing above it
+       bounded its height.
+
+         .vg-panel   max-height: calc(100vh - 80px); display:flex; overflow:hidden;  ✅ bounded
+         .vi-shell   a FLEX ITEM of .vg-panel with min-height: 440px and no
+                     min-height: 0. A flex item defaults to min-height: auto, so it
+                     REFUSES to shrink below its content: it grew past the bounded panel
+                     and .vg-panel's overflow: hidden sheared the bottom off.
+         .vi-main    flex column, also missing min-height: 0 — same failure again.
+         .vi-editor  overflow-y: auto, but handed an unbounded height, so no scrollbar.
+
+       An overflow: auto on a box that is never constrained is decoration. The fix is
+       the min-height: 0 chain that lets the constraint reach it. The explicit height on
+       .vi-panel replaces the job min-height: 440px was doing (keeping the panel tall
+       enough to be usable) without re-introducing an unshrinkable floor.
+
+       This makes ALL FOUR tabs reachable — Element Rules, View Modifiers, Purpose
+       Modifiers and View Range all render inside .vi-editor. */
     .vi-panel {
         width: 860px;
+        height: min(720px, calc(100vh - 80px));
     }
 
     .vi-shell {
         display: grid;
         grid-template-columns: 250px 1fr;
-        min-height: 440px;
         background: var(--app-bg);
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
     }
 
     .vi-sidebar {
@@ -278,6 +304,9 @@ export const VISIBILITY_GRAPHICS_STYLES = `
         display: flex;
         flex-direction: column;
         gap: 8px;
+        /* L-1604 — bound the column so the intent list below can actually scroll. */
+        min-height: 0;
+        overflow: hidden;
     }
 
     .vi-intent-list {
@@ -285,6 +314,9 @@ export const VISIBILITY_GRAPHICS_STYLES = `
         flex-direction: column;
         gap: 6px;
         overflow-y: auto;
+        /* L-1604 — without these the list grows and the sidebar clips it. */
+        flex: 1 1 auto;
+        min-height: 0;
     }
 
     .vi-intent-row {
@@ -310,6 +342,9 @@ export const VISIBILITY_GRAPHICS_STYLES = `
         display: flex;
         flex-direction: column;
         min-width: 0;
+        /* L-1604 — the second unshrinkable box in the chain. */
+        min-height: 0;
+        overflow: hidden;
     }
 
     .vi-toolbar {
@@ -361,6 +396,40 @@ export const VISIBILITY_GRAPHICS_STYLES = `
     .vi-editor {
         padding: 12px;
         overflow-y: auto;
+        /* L-1604 — overflow-y: auto was already here and was NEVER the problem; it
+           needs a bounded height to act on, which these two lines finally give it. */
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+
+    /* §GOVERNING-INTENT-IS-NAMED (L-1603) — the intent the active view actually uses. */
+    .vi-intent-row--governing {
+        border-color: var(--app-accent);
+        background: rgba(102, 0, 255, 0.05);
+    }
+
+    .vi-governs-badge {
+        display: block;
+        margin-top: 4px;
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        color: var(--app-accent);
+    }
+
+    .vi-warn-banner {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 10px 12px 0;
+        padding: 8px 10px;
+        border: 1px solid #e0a800;
+        border-radius: 8px;
+        background: #fff8e1;
+        color: #6b5200;
+        font-size: 11px;
+        line-height: 1.45;
     }
 
     .vi-grid {

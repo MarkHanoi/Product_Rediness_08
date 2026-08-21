@@ -1,5 +1,8 @@
 import { apiFetch } from '@pryzm/core-app-model';
 import { visibilityIntentStore } from '@pryzm/core-app-model/presentation';
+// §GOVERNING-INTENT-IS-NAMED (L-1603) / §VIEW-MODIFIER-KEY-IS-UNIQUE (L-1602)
+import { viewIntentInstanceStore, getDefaultSystemIntentId } from '@pryzm/core-app-model/presentation';
+import { normaliseViewTypeModifiers, findViewTypeModifierIndex } from '@pryzm/core-app-model/presentation';
 import { cloneDefaultElementGraphicsRules } from '@pryzm/core-app-model';
 import type { ElementState, ElementStateAppearance, PurposeModifier, VisibilityIntent, ViewTypeModifier } from '@pryzm/core-app-model';
 import { CreateVisibilityIntentCommand } from '@pryzm/command-registry';
@@ -99,6 +102,26 @@ export class VisibilityIntentPanel {
         window.addEventListener('vi:intent-deleted', () => this.render());
     }
 
+    /**
+     * §GOVERNING-INTENT-IS-NAMED (L-1603) — which intent actually GOVERNS `viewId`?
+     *
+     * The founder's right rail said South Elevation was governed by "Architectural
+     * Documentation (Auto) · system, used by 11 views" while the panel had
+     * "Architectural Documentation Promo" SELECTED for editing. Their edits went to
+     * Promo; the view consumed Auto. "Nothing changed" was the truthful outcome of an
+     * editor that never said which of the two it was pointed at.
+     *
+     * `open()` used to fall back to `intents[0]` — the first row in the list, which is
+     * an arbitrary function of creation order and has nothing to do with the view the
+     * user opened the editor FROM.
+     */
+    private governingIntentIdFor(viewId: string | null): string | null {
+        if (!viewId) return null;
+        const bound = viewIntentInstanceStore.get(viewId)?.intentId;
+        const resolved = bound ?? getDefaultSystemIntentId();
+        return resolved && visibilityIntentStore.has(resolved) ? resolved : null;
+    }
+
     open(intentId?: string, viewId?: string | null): void {
         // §FIX-INTENT-AUTHORING-DEAD-END (L-779) — see `contextViewId`.
         this.contextViewId = viewId ?? null;
@@ -111,7 +134,13 @@ export class VisibilityIntentPanel {
         }
 
         const intents = visibilityIntentStore.getAll();
-        this.selectedIntentId = intentId && visibilityIntentStore.has(intentId) ? intentId : (this.selectedIntentId ?? intents[0]?.id ?? null);
+        // §GOVERNING-INTENT-IS-NAMED (L-1603) — precedence: an EXPLICIT intentId from the
+        // caller, then the intent that GOVERNS the view we were opened from, then whatever
+        // was last selected, and only then the arbitrary first row.
+        const governing = this.governingIntentIdFor(this.contextViewId);
+        this.selectedIntentId = (intentId && visibilityIntentStore.has(intentId))
+            ? intentId
+            : (governing ?? this.selectedIntentId ?? intents[0]?.id ?? null);
         panelManager.notifyOpened(PANEL_ID);
         this.panel.style.display = 'flex';
         this.render();
@@ -131,6 +160,9 @@ export class VisibilityIntentPanel {
         if (this.panel.style.display === 'none') return;
         const intents = visibilityIntentStore.getAll();
         const selected = this.selectedIntentId ? visibilityIntentStore.get(this.selectedIntentId) : intents[0];
+        // §GOVERNING-INTENT-IS-NAMED (L-1603) — marked in the list so "which one am I
+        // editing, and is it the one that matters?" is answerable at a glance.
+        const governingId = this.governingIntentIdFor(this.contextViewId);
         if (selected && !selected.elementRules[this.selectedElementType]) {
             this.selectedElementType = Object.keys(selected.elementRules)[0] ?? '__default__';
         }
@@ -145,8 +177,9 @@ export class VisibilityIntentPanel {
                     <button class="vi-btn vi-btn--primary" data-action="new-intent">New Intent</button>
                     <div class="vi-intent-list">
                         ${intents.map(intent => `
-                            <button class="vi-intent-row ${intent.id === selected?.id ? 'vi-intent-row--active' : ''}" data-intent-id="${this.escape(intent.id)}">
+                            <button class="vi-intent-row ${intent.id === selected?.id ? 'vi-intent-row--active' : ''} ${intent.id === governingId ? 'vi-intent-row--governing' : ''}" data-intent-id="${this.escape(intent.id)}">
                                 ${this.escape(intent.name)}${intent.isSystem ? ' · system' : ''}
+                                ${intent.id === governingId ? '<span class="vi-governs-badge" title="This is the intent the view you opened this editor from actually uses. Edits to any OTHER intent will not change that view.">GOVERNS THIS VIEW</span>' : ''}
                             </button>
                         `).join('')}
                     </div>
@@ -176,6 +209,18 @@ export class VisibilityIntentPanel {
                 editable copy${this.contextViewId ? ' — the copy is bound to this view automatically' : ''}.
                 ${this.contextViewId ? '' : '<br>You opened this editor without a view, so a copy will not be bound to anything; open it from a view’s Properties spine to bind it.'}
             </div>` : ''}
+            ${(() => {
+                // §GOVERNING-INTENT-IS-NAMED (L-1603) — the founder edited "Promo" while
+                // the view used "Auto". Say so, at the point of editing, unmissably.
+                const _gov = this.governingIntentIdFor(this.contextViewId);
+                if (!_gov || _gov === intent.id) return '';
+                const _govName = visibilityIntentStore.get(_gov)?.name ?? _gov;
+                return `<div class="vi-warn-banner">
+                    You are editing <strong>${this.escape(intent.name)}</strong>, but this view is
+                    governed by <strong>${this.escape(_govName)}</strong>. Changes here will NOT
+                    affect it. <button class="vi-btn" data-action="select-governing">Edit ${this.escape(_govName)} instead</button>
+                </div>`;
+            })()}
             <div class="vi-tabbar">
                 <button class="vi-tab ${this.activeTab === 'rules' ? 'vi-tab--active' : ''}" data-tab="rules">Element Rules</button>
                 <button class="vi-tab ${this.activeTab === 'modifiers' ? 'vi-tab--active' : ''}" data-tab="modifiers">View Modifiers</button>
@@ -642,6 +687,11 @@ export class VisibilityIntentPanel {
         });
         if (!intent) return;
         this.panel.querySelector('[data-action="duplicate-intent"]')?.addEventListener('click', () => this.duplicateIntent(intent));
+        // §GOVERNING-INTENT-IS-NAMED (L-1603) — one click from the warning to the right intent.
+        this.panel.querySelector('[data-action="select-governing"]')?.addEventListener('click', () => {
+            const gov = this.governingIntentIdFor(this.contextViewId);
+            if (gov) { this.selectedIntentId = gov; this.render(); }
+        });
         this.panel.querySelectorAll<HTMLElement>('[data-state]').forEach(btn => {
             btn.addEventListener('click', (ev) => {
                 const target = btn.dataset.state as ElementState;
@@ -736,8 +786,28 @@ export class VisibilityIntentPanel {
             });
         });
         this.panel.querySelector('[data-action="add-modifier"]')?.addEventListener('click', () => {
-            const next = [...(intent.viewTypeModifiers ?? []), { viewType: 'plan', statePatch: {} }];
-            this.updateIntent(intent, { viewTypeModifiers: next as ViewTypeModifier[] });
+            // §VIEW-MODIFIER-KEY-IS-UNIQUE (L-1602) — add for the view type the user is
+            // LOOKING AT (the tab filter), not a hardcoded 'plan' they would then have to
+            // change; and never mint a second row for a key that already has one — that
+            // ambiguity is the whole defect (the resolver merges both, last wins, while
+            // the panel lets you edit either).
+            const _addViewType = this.activeViewType === '__all__' ? 'plan' : this.activeViewType;
+            const _existing = findViewTypeModifierIndex(intent.viewTypeModifiers, _addViewType, undefined);
+            if (_existing >= 0) {
+                console.warn(
+                    `[VisibilityIntentPanel] §VIEW-MODIFIER-KEY-IS-UNIQUE (L-1602) — a modifier ` +
+                    `for (${_addViewType}, all element types) already exists at index ${_existing}; ` +
+                    `revealing it instead of adding a duplicate.`,
+                );
+                this.activeViewType = _addViewType;
+                this.render();
+                return;
+            }
+            const next = normaliseViewTypeModifiers([
+                ...(intent.viewTypeModifiers ?? []),
+                { viewType: _addViewType, statePatch: {} } as ViewTypeModifier,
+            ]);
+            this.updateIntent(intent, { viewTypeModifiers: next });
         });
         this.panel.querySelectorAll<HTMLElement>('[data-action="delete-modifier"]').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -1090,6 +1160,19 @@ export class VisibilityIntentPanel {
     }
 
     private updateIntent(intent: VisibilityIntent, patch: Partial<VisibilityIntent>): void {
+        // §VIEW-MODIFIER-KEY-IS-UNIQUE (L-1602) — the write boundary is the choke point.
+        // `updateModifier()` edits BY INDEX, so a user who renames one row's elementType
+        // onto another's key creates the duplicate without ever pressing "Add". Normalising
+        // here catches every path, including data already stored with duplicates, and it
+        // MERGES rather than drops (see the normaliser) so nothing authored is lost.
+        //
+        // ⚠ This panel is the authoring surface (initUI.ts: "the master
+        // VisibilityIntentPanel [is one of] the only authoring surfaces"), but the truly
+        // universal choke point is `UpdateVisibilityIntentCommand`. Anyone adding a second
+        // writer must normalise there instead of copying this block.
+        if (patch.viewTypeModifiers) {
+            patch = { ...patch, viewTypeModifiers: normaliseViewTypeModifiers(patch.viewTypeModifiers) };
+        }
         const cm = window.commandManager; // TODO(E.5.x): legacy commandManager — replace with runtime.bus.executeCommand(name, payload)
         cm?.execute?.(new UpdateVisibilityIntentCommand(intent.id, patch as any), { source: 'HUMAN_DIRECT' });
         const updated = visibilityIntentStore.get(intent.id);
