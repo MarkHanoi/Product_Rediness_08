@@ -1,10 +1,12 @@
 # SPEC — Analysis Surface & Widget Catalogue
 
-**Status.** DRAFT (2026-08-21, lane ANLZ1). Nothing here is built.
+**Status.** ⭐ **PARTIALLY IMPLEMENTED (2026-08-21, lane ANLZ2).** Was *"DRAFT — nothing here is built"*; that line is now false and is corrected in place rather than left to rot. **Built:** the `analysis` workspace mode (F4), the mode registry §D.1 made a precondition, the categorical palette §6 required, the query-descriptor substrate, eleven widgets, and five T3 rows shipping as REFUSALS. **Not built, and named:** the O(Δ) read model (L-3004), snapshot-persisted layouts (L-3007), the UBG maintenance §4.3 depends on entirely (L-2131) and therefore the three relational widgets W12–W15, and W26/W27. Per-row state is in the catalogue below. **Read the code and [ISSUE-LOG L-3000…L-3013](../../04-reference/ISSUE-LOG.md), not this line.**
+**Implemented at.** `apps/editor/src/ui/analysis/` · sheet `apps/editor/src/ui/styles/panels/analysisSurface.ts` · commits `76d81209`, `bf80949e`, `4205c5c9`, `b9cd03a9`.
 **Governed by.** [ADR-0343](../../02-decisions/adrs/ADR-0343-analysis-surface-and-composable-widget-model.md) — the surface, widget model, query substrate, colour doctrine and honesty rules. **This SPEC does not restate those decisions; it enumerates the catalogue that follows from them.**
 **Contracts.** [C27 §6](../../02-decisions/contracts/C27-BIM3-INSPECT-MODEL.md) (this SPEC is its delivery), [C10 §1](../../02-decisions/contracts/C10-PERFORMANCE-AND-OBSERVABILITY.md), [C66 §1.1](../../02-decisions/contracts/C66-CONCURRENCY-AND-SCALE.md), [C06](../../02-decisions/contracts/C06-UI-SHELL-AND-TOOLS.md), [C05](../../02-decisions/contracts/C05-PERSISTENCE-AND-FILE-FORMAT.md), [C03](../../02-decisions/contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md).
-**Owner (planned).** `apps/editor/src/ui/analysis/`. CSS prefix **`anl-`** (to be claimed in C06's prefix table before first commit).
-**Issue log.** L-2130 … L-2138.
+**Owner.** `apps/editor/src/ui/analysis/` — built. CSS prefix **`anl-`**, claimed in the sheet's own header (`ui/styles/panels/analysisSurface.ts`) and in `AnalysisSurface.ts`, which is where every other prefix in this repo is claimed.
+> ⚠ **This line used to say the prefix would be claimed in "C06's prefix table". THERE IS NO SUCH TABLE.** Measured 2026-08-21, lane ANLZ2: `grep -n "prefix" docs/02-decisions/contracts/C06-UI-SHELL-AND-TOOLS.md` → **0 hits** across 969 lines; `wmb-`, `aud-`, `dw-` → 0 hits each. The convention this repo actually follows is a `CSS prefix:` line in the owning file's header. Recorded rather than silently satisfied — minting a new section inside a governing contract is not this lane's remit, and a SPEC instruction pointing at an artefact that does not exist is the defect shape CLAUDE.md keeps logging.
+**Issue log.** Scoping: L-2130 … L-2138 (ANLZ1). Implementation: **L-3000 … L-3013** (ANLZ2).
 
 ---
 
@@ -169,7 +171,8 @@ adopts.** They are enumerated so the gap is named per widget rather than as one 
 | Chrome / accent | `--app-accent` `#6600FF` (`tokens.ts:46`) | exists |
 | Sequential ramp | `DISCOVERY_RAMP` `rgb(216,203,255)` → `#6600FF` (`ui/inspect/audit/heatRamp.ts:28-33`) | **exists — promote into `tokens.ts`; do not mint a fourth ramp** (L-2135) |
 | Diverging (Δ) | `--app-status-error-ink` `#b91c1c` → `--app-border` `#dde3f0` → `--app-status-success-ink` `#15803d` (`tokens.ts:334-342`) | exists |
-| **Categorical, 8 series** | `--app-cat-1 … --app-cat-8` | ⛔ **DOES NOT EXIST — must be minted** |
+| **Categorical, 8 series** | `--app-cat-1 … --app-cat-8` | ✅ **MINTED 2026-08-21 (L-3001)** — brand accent + Okabe-Ito with its `#0072B2` replaced by `#005F73`. CVD-simulated BEFORE commit (Machado 2009 severity 1.0, pairwise CIEDE2000): global floor **ΔE00 11.13** under tritanopia. Guard `ui/styles/__tests__/chartPalette.spec.ts` re-derives it from the shipped tokens on every run. |
+| **Categorical neutral** | `--app-cat-unassigned` | ✅ **MINTED (L-3001)** — NOT in the rotation. `unassigned` / `untyped` / `unmeasured` always take it, whatever their index, so absence cannot borrow a category's identity. |
 
 **Binding on the commit that mints the categorical scale:**
 

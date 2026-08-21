@@ -31076,3 +31076,234 @@ emitters — `SelectionManager.ts` documents both).
 **Ledger:** [APPLICATION-PERFORMANCE-LEDGER §4](APPLICATION-PERFORMANCE-LEDGER.md) — AUD-3's
 decomposition of the 31.9 s, which this lane corrects (§4.1's *"three timers, two of which measure
 the wrong thing"* is understated: the third measured **nothing**).
+
+---
+
+## L-3000 … L-3013 — LANE ANLZ2: the Analysis surface, BUILT — and what it deliberately refuses to draw — 2026-08-21
+
+**Trigger.** Founder, 2026-08-21: *"DID YOU DEPLOY THE ANALYTIC GRAPHS I REQUESTED? CAN'T SEE."*
+Lane ANLZ1 had scoped the work into [ADR-0343](../02-decisions/adrs/ADR-0343-analysis-surface-and-composable-widget-model.md)
+and [SPEC-ANALYSIS-SURFACE-AND-WIDGETS](../03-execution/specs/SPEC-ANALYSIS-SURFACE-AND-WIDGETS.md)
+and shipped **no product**. This lane implemented it.
+**Artefacts:** `76d81209` (mode registry) · `bf80949e` (palette) · `4205c5c9` (the surface) · `b9cd03a9` (tsc).
+
+---
+
+### ✅ L-3000 — the workspace-mode list was written out FIVE times, so a fourth mode was five hand-edits
+
+ADR-0343 §D.1 made converting it a **binding precondition** of the Analysis mode — *"if that
+conversion is not done, this decision has made the shell worse."* Measured at HEAD before the change:
+
+| # | Site | What it held |
+|---|---|---|
+| 1 | `WorkspaceController.ts:32` | `export type WorkspaceMode = 'author' \| 'inspect' \| 'data'` |
+| 2 | `WorkspaceController.ts:517-519` | three `if (e.key === 'F1'…)` statements |
+| 3 | `WorkspaceController.ts:120-150` | a per-mode switch that also set canvas geometry |
+| 4 | `WorkspaceModeBar.ts:48-78` | a SECOND copy of the list, as a local array literal |
+| 5 | `ViewCube.ts:193` | `(mode === 'inspect' \|\| mode === 'data') ? 'none' : ''` |
+
+⭐ **Site 5 is why this mattered rather than merely being untidy.** The ViewCube is anchored
+`right: 80px`, so the real rule is *"hide whenever the canvas does not own the right edge"* — but it
+was written as a list of two mode NAMES, and a fourth half-mode falls straight out of a list. It now
+reads `getWorkspaceMode(mode)?.canvas`.
+
+**FIXED** — `apps/editor/src/ui/platform/workspaceModes.ts`, a frozen table of
+`{id,label,title,shortcut,canvas,icon}` + three pure lookups. The union is **derived** from the
+table. `restoreFromStorage()` now validates against it instead of casting, so a stale localStorage
+value naming a retired mode can no longer put the shell into a mode nothing lays out.
+**Guard:** `ui/platform/__tests__/workspaceModeRegistry.spec.ts`, 8 assertions, GREEN. ARM 2 is
+rename-proof: it asserts `WorkspaceModeBar` contains **no string literal equal to any registry id**.
+
+---
+
+### ✅ L-3001 — there was no categorical chart palette, and ADR-0343 §U.2 refused to name one unmeasured
+
+§U.2: *"asserting CVD-safety without simulating it is precisely the defect this document exists to
+prevent."* The de-facto categorical palette in the product was **37 raw hexes in one file**
+(`DataVisualizerService.ts:76-122`).
+
+**MINTED, after simulating.** `--app-cat-1 … --app-cat-8` + `--app-cat-unassigned` in `tokens.ts`.
+Series 1 is the brand accent; 2–8 are Okabe-Ito (Wong, *Nature Methods* 8:441, 2011) with **one
+substitution**: its `#0072B2` blue → `#005F73`.
+
+⭐ **The substitution is the measurement doing work.** Okabe-Ito unmodified, with brand purple as
+series 1, floors at **ΔE00 10.20 under protanopia** — `#6600FF` simulates to `#005fff` and `#0072B2`
+to `#5375b5`. The brand occupies the blue-violet slot, so the palette's own blue had to move. The
+swap lifted the global floor to **11.13**.
+
+Method: Machado/Oliveira/Fernandes (2009) severity-1.0 matrices in **linear** sRGB, pairwise
+**CIEDE2000** over CIE Lab (D65).
+
+| | min ΔE00 | closest pair |
+|---|---|---|
+| normal | 21.72 | cat-2 vs cat-8 |
+| deuteranopia | 11.52 | cat-2 vs cat-8 |
+| protanopia | 14.07 | cat-4 vs cat-6 |
+| **tritanopia** | **11.13** | cat-2 vs cat-6 ← the global floor |
+
+⚠ **The pale yellow `#F0E442` is load-bearing, not an oversight.** It is 1.32:1 on white. Every
+darker yellow tested to fix that COLLAPSED the scale by folding into the orange family under
+dichromacy: `#D9C400` → floor 4.78, `#A38B00` → 1.24, `#B8A400` → **1.01**. Its *lightness* is the
+separating channel. Four of the eight are under 3:1 on white, so `tokens.ts` states the consequence
+at the point of use: **every fill carries a label and a 1px separator; colour is never the only
+channel** (SC 1.4.1).
+
+The neutral was checked too — the greys that *read* as muted collapse into cat-6 under deuteranopia
+(`#9AA6BC` ΔE00 5.34, `#7A8AAA` **0.73**). `#C4CDE0` keeps the floor at 11.13 and is already the
+product's scrollbar grey.
+
+**Guard:** `ui/styles/__tests__/chartPalette.spec.ts` — 8 assertions, GREEN. It **re-derives the
+simulation from the shipped token values on every run**, no baseline, no allowlist; the failure
+message names the closest pair. Floor set at 10.0, *below* today's 11.13 — a floor, not a pin.
+
+---
+
+### L-3002 — a widget reads a QUERY DESCRIPTOR, never a store
+
+`AnalysisQuery` is data — `{id, source, groupBy, measure, unit, cost}`. Three consequences, and the
+third is the one that matters: cost is inspectable **before** the query runs; identical `id`s are
+computed **once** (the element-count KPI and the category donut share one census — asserted by
+reference equality); and a widget **cannot** reach past the read model into `ElementStore.getState()`
+and silently undercount (L-2132), because it holds no handle to reach with.
+`CoverageState` is **re-exported verbatim** from `TakeoffTypes.ts` — two honesty vocabularies is zero
+honesty vocabularies.
+
+---
+
+### L-3003 — the analysis read model, and its DECLARED denominator
+
+`ui/analysis/analysisReadModel.ts`. A census over an explicitly declared table of **18 element
+stores**, projecting the axes `category`, `level`, `type`, plus take-off passthrough for `chapter`
+and `unit`.
+
+⭐ **The source table is DECLARED, not discovered.** A census that finds its own sources by iterating
+`window` cannot report which one it failed to find — an absent store is indistinguishable from a
+store that was never in the list. Declaring it is what makes *"the roof store was not published"* a
+reportable state. The surface's ⓘ button renders the table, so the product **shows** its denominator
+rather than asserting one.
+
+⛔ An axis the model does not project **throws** rather than returning empty: an empty result renders
+as *"no data"*, which is the invented-aggregate failure (§D.6 H3) wearing a shrug.
+
+---
+
+### ⛔ L-3004 — OPEN: the read model is a CACHED FULL PROJECTION, not the O(Δ) model §D.4 specifies
+
+ADR-0343 §D.4 specifies *"StoreEventBus-driven, O(Δ) on mutation, O(1) on lookup, serialisable."*
+**What shipped is one O(n) scan across the declared table, memoised until invalidated.** Lookup after
+the scan is O(1); the scan re-runs on every invalidation. **The O(Δ) maintenance is NOT BUILT.**
+
+Stated at the top of the module rather than buried, because the difference is exactly the kind of
+thing that gets restated later as *"the read model"* and then relied on for a budget it cannot hold.
+What it does satisfy: the descriptor indirection, one-computation sharing, declared cost, and
+unreachable ≠ empty ≠ zero end to end.
+
+Mitigations shipped in place of the missing property: nothing recomputes while the surface is hidden;
+mutation listeners debounce at 350 ms; take-off widgets are `refresh: 'manual'`, so an **O(n·m)** scan
+never runs because a wall moved.
+
+---
+
+### L-3005 — five widgets ship as REFUSALS that name the model PRYZM does not have
+
+Not omitted — **present in the picker and, for one of them, in the default layout**, so the gap is
+visible in the product where the decision gets made rather than only in a document. Same shape lane
+DATA1's 4D/6D tabs ship.
+
+| Widget | The named gap |
+|---|---|
+| **Change table** | Version-to-version element identity does not exist. `ComparisonEngine.getDeltaMap()` compares planned vs actual; `temporalGraphManager` is a **session** log. Titling a session log "version history" is the wrong number under the right title. |
+| **GFA / NIA · GEA:NIA** | No measured-area standard is adopted (**ADR-0343 §U.3, OPEN**). IPMS, RICS CoMP and SIA 416 disagree about shafts, external walls, balconies and plant, so one model has several all-correct GFAs. `targetGFA` is a **target**. H3: a ratio needs BOTH operands MEASURED. |
+| **SIA 416 table + gauges** | **Zero `SIA` occurrences in this repo** — checked, not assumed. No space carries an SU/SP/SD/SC/SI category. Four confident dials over a standard never implemented. |
+| **Unit mix** | Bedrooms are derivable; the **unit that groups rooms into a dwelling is not persisted**. The generator knows it at generation time and the model does not keep it. ⭐ The smallest gap here — one entity, not a standard. |
+| **Tenure** | **No model anywhere.** Not derivable from geometry, rooms or program. Authored data with no field to author it into, and a jurisdiction-specific vocabulary. |
+
+---
+
+### L-3006 / ⛔ L-3007 — dashboard layouts persist in `localStorage`, NOT in the `.pryzm` file
+
+SPEC §7 is explicit that layouts are project content and belong in the C05 snapshot. **They are
+browser-local, keyed by project id, and the surface says so on its own face** — in the ⓘ sheet and in
+the status strip.
+
+**The reason is measured, not a shortcut.** The snapshot has two legs: the write leg in
+`ProjectSerializer.ts` and the **read** leg at `ProjectLoader.ts:1118` (where `semanticTags` is
+rehydrated — the shape this field would copy). `ProjectLoader.ts` was owned by a concurrent lane in
+this session, and **a field written on save but dropped on load is strictly worse than a
+browser-local one: it looks persistent and silently is not.**
+
+`serialize()` / `hydrate()` are the seam and exist now, unwired, so the move is two call sites rather
+than a rewrite. ⛔ **L-3007 stays OPEN until they are wired.**
+
+⛔ A layout naming a widget the build does not have is **never dropped** — it renders a named
+placeholder, because a dropped widget is a lost decision.
+
+---
+
+### L-3008 — a squarified treemap, written rather than depended on
+
+SPEC §5 measured that **no** treemap renderer exists in the workspace and Chart.js core has no
+treemap type. ~100 lines of Bruls/Huizing/van Wijk (2000) against a new dependency that would desync
+`pnpm-lock.yaml` for every other agent in this tree. ⛔ A non-positive value has **no area**, so it is
+**omitted and reported** rather than drawn as a sliver — otherwise the rectangles sum to less than
+the stated total with nothing on screen explaining the difference.
+
+---
+
+### L-3009 / L-3010 / L-3011 — the renderers, the surface, and the guard
+
+**L-3009** — one rendering idiom, picked once (SPEC §5): **Chart.js**, via the same lazy
+`await import('chart.js')` that `AnalyticsPanel.ts:77` uses. No fifth `createElementNS` approach.
+Chart.js `animation: false` — ⛔ **P3**: a dashboard must never be the reason a frame is dropped, and
+an animating chart is a rAF loop by another name. Model-derived strings reach the DOM via
+`textContent` only (§DW-MATERIAL-COLOR-XSS, L-407); the single `innerHTML` takes authored constants.
+
+**L-3010** — `#anl-surface`, fixed right 50%, mounted exactly as `#aud-stack` is for Inspect, shown
+on `pryzm-workspace-mode === 'analysis'`. ⭐ **Every figure is click-through** — slice, bar, legend
+row, table row and treemap tile all dispatch their element ids on the selection bus. That is the
+whole reason this is a MODE and not a DataWorkbench bucket (§D.1 reason 2: in `data` mode the canvas
+is `display:none`, so a dashboard there cannot highlight what it describes).
+
+**L-3011** — `ui/analysis/__tests__/analysisHonesty.spec.ts`, **32 assertions, GREEN**, driven
+through the real read model with structural store doubles. The lead assertion puts *"empty store"*
+and *"absent store"* through the same code and proves they produce different states — the
+§C78-U-INV-4 defect shape. Also pinned: level bars **SUM** to the headline (so `unassigned` cannot be
+silently dropped), type keys are family-namespaced (so a wall type and a room type sharing an id
+string cannot merge into an invented category), selected ids no store claims are **reported**, and
+absence keys always take the neutral colour whatever their index.
+
+---
+
+### ⛔ L-3012 — `bim-engine-ready` has ZERO emitters; `DockingLayout.ts:162` waits on it forever
+
+Found while checking the Analysis surface's boot ordering. `grep -rn "bim-engine-ready"` over `apps`
+and `src` → **exactly ONE hit, and it is a listener**: `DockingLayout.ts:162`, the fallback arm that
+injects the seven operation tools (`JoinTool`, `CutTool`, `MirrorTool`, `CopyPasteTool`, `ScaleTool`,
+`OffsetTool`, `ReferenceEditTool`) into the contextual edit bar when `window.commandManager` is not
+yet available at layout time. **Nothing anywhere dispatches the event**, so that fallback has never
+run and the tools are injected only on the eager path.
+
+Not this lane's to fix, and **not measured** as to whether the eager path always wins — recorded so
+the next reader does not assume the fallback is live. This is the fourth dead-event arm in the log
+(`bim-railing-*`, `bim-column-*`, `bim-beam-*`, and L-3060's `pryzm-project-loaded`).
+
+**ANLZ2's own ordering was verified rather than assumed** and is now pinned by a guard:
+`flushRuntimeEventListeners()` (engineLauncher.ts:1053) runs **before**
+`workspaceController.restoreFromStorage()` (:1056), which is what makes the deferred
+`pryzm-workspace-mode` subscription live in time for a user whose saved mode is `analysis`. If that
+order ever inverts, such a user gets a canvas at 50% and **no panel beside it** — the whole feature
+silently absent with every unit test still green.
+
+---
+
+### ⚠ L-3013 — HAZARD: one backtick in a `tokens.ts` comment kills the entire theme
+
+`DESIGN_TOKENS` is itself a template literal. A single backtick inside a comment **inside** that
+literal terminates the string, and `tokens.ts` fails to parse — taking every panel stylesheet in the
+app with it. Hit while writing L-3001's provenance block; caught by vitest at
+`tokens.ts:350:20 — Expected ";" but found "__tests__"`.
+
+⚠ **Note which arms did NOT catch it.** `chartPalette.spec.ts` and `panelBrandStandard.spec.ts` both
+read `tokens.ts` **as text via `fs`** and passed clean; only the suite that *imports* the module
+failed. A file can be simultaneously green under every text-based guard and completely unloadable.
+The warning is now written into the block itself.
