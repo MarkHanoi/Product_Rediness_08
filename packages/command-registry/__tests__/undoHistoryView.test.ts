@@ -1,4 +1,4 @@
-// §UNDO-HISTORY-DROPDOWN (ADR-0340) — gate for `CommandManager.getUndoHistoryView()`
+// §UNDO-HISTORY-DROPDOWN (ADR-0341) — gate for `CommandManager.getUndoHistoryView()`
 // / `getRedoHistoryView()` and the optional `Command.describe()` (C16 CA-22).
 //
 // WHY A SECOND ACCESSOR EXISTS ALONGSIDE `getHistory()`

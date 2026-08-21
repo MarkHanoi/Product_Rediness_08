@@ -137,6 +137,8 @@ Both paths MUST satisfy the §5 invariants. The doctrines (§2) are backend-inde
 
 Every create command MUST satisfy CA-1…CA-11 + CA-13 + CA-14 + CA-16; batch adds CA-12; serialisable/syncable adds CA-15. **`CA-17`…`CA-21` (§5.1) bind EVERY command of EVERY kind in §3, including update, delete, transform and non-geometry verbs** — the five defects that produced them were all non-create verbs.
 
+> ⚠ **`CA-22` (§5.2) is OPTIONAL and binds nothing** — the heading above says "`CA-1` … `CA-21` — binding" for that reason, and the range in it MUST NOT be widened to `CA-22` without a gate to widen it *to*. The rot shape this repo keeps re-minting (CLAUDE.md's five contract-range recurrences) is a range written as a literal that outlives the fact it described; here the range is narrower than the numbering ON PURPOSE. Read §5.2's own NOT-YET-TRUE box, never this line.
+
 - **CA-1 — Type registration.** Add the type to the canonical registry (bus `commands.ts`, or `CommandType` enum for legacy). No magic-string dispatch.
 - **CA-2 — Deterministic, stable IDs.** Pre-generate element ids in the tool/handler entry, not deep inside `execute()`. Ids MUST be **identical across redo** (e.g. `wall-slab-${cmdId}-${i}`), and ifcGuid pre-generated and stable (so IFC export is stable across undo/redo). C11 §11.4/§11.5.
 - **CA-3 — `canExecute` validation.** Validate domain invariants **before any mutation**: referenced level(s) exist, payload in bounds, no duplicate id, geometry non-degenerate (e.g. `signedAreaXZ` ≠ 0, min length/width). Fail with a `reason`; never silently succeed. (Throw a typed `DomainError` on the bus path.)
@@ -237,6 +239,42 @@ defect. §5.1 generalises that sentence from one family to every family.
   *"no-ops (does not throw)"* is a passing proof that the verb does nothing. Where the read-back
   cannot run without a browser, the honest verdict is **UNPROVEN** with the expected live path named
   — never PASS (ISSUE-LOG §9.6).
+
+### §5.2 — `CA-22` — human-readable command label (**OPTIONAL — NOT-YET-TRUE as enforcement**), added 2026-08-21
+
+> Added by **ADR-0341** (lane UNDO1, L-1880…L-1884) for the undo/redo history dropdown. It is
+> stated here at the authoring tier because the label belongs to the command author, not to a UI —
+> but it is **OPTIONAL and gated by nothing**, and this heading says so rather than joining the
+> CA-1…CA-21 list and implying otherwise.
+
+- **CA-22 — A COMMAND MAY NAME WHAT IT DID, IN THE USER'S WORDS.** A command MAY implement
+  `describe(): string`, returning a one-line present-tense sentence naming what it did, with real
+  names, numbers and units — `"Set wall height to 3.2 m"`, `"Move 3 walls"` (the C67 §4.6 honesty
+  invariants apply to it exactly as to a refusal). It MUST be **pure**, MUST NOT throw, MUST NOT
+  read stores (it is called while a menu renders, possibly long after the command executed), and
+  it carries **no undo semantics whatsoever** — nothing in `performUndoRedo` or
+  `CommandManager.undo()` reads it.
+
+  **WHY IT IS OPTIONAL, AND WHY THAT IS NOT A GAP.** A command with no `describe()` is never
+  *unnamed*: `describeCommandToken(type)`
+  (`apps/editor/src/engine/undo/undoHistoryTimeline.ts`) derives a label from the type token and
+  is a **TOTAL transform**, not a lookup table — `wall.create` → *Create wall*,
+  `UPDATE_VIEWPORT_SCALE` → *Update viewport scale*, and a token never seen before still yields a
+  sentence. A UI-side lookup TABLE was rejected precisely because it is a *partial* function:
+  every command authored after it falls through to the raw enum and **nothing fails**. A thrown or
+  empty `describe()` is treated as absent and falls back to the derivation (`_safeDescribe`), so
+  an author's bug degrades one label, never the toolbar.
+
+  **NOT-YET-TRUE as enforcement, deliberately.** There is no gate requiring `describe()`, and at
+  ~200 legacy command classes a repo-wide hard rule would be satisfied by 200 perfunctory strings
+  — which is worse than 200 honest derivations, because a perfunctory string *displaces* the
+  derivation while adding nothing. **Implemented by ZERO commands today** (measured 2026-08-21):
+  the plumbing, the fallback and the throw-safety are gated
+  (`packages/command-registry/__tests__/undoHistoryView.test.ts`); the feature they enable is
+  unused.
+  *Exit condition:* once the highest-traffic families (wall, slab, door, window, level) carry
+  `describe()`, promote CA-22 to a **shrink-only ratchet over that named set** — never to a
+  repo-wide hard-0 in one step.
 
 **Applicability.** CA-17…CA-21 bind every §3 kind. For a **non-geometry / semantic** verb the
 authoritative reader is its own canonical store plus PERSIST — the ledger/derived-store exclusion of

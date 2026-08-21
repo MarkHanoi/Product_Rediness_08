@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 //
-// §UNDO-HISTORY-DROPDOWN (ADR-0340) — gate for the undo/redo history projection
+// §UNDO-HISTORY-DROPDOWN (ADR-0341) — gate for the undo/redo history projection
 // and the sequential jump (reading A).
 //
 // WHAT THIS SUITE IS FOR, AND WHAT IT DELIBERATELY DOES NOT CLAIM.
@@ -14,7 +14,7 @@
 //      that did not revert, reporting `completed`, not `requested`.
 //   4. NOT PROVEN HERE: that the projected order equals the order a real session
 //      reverts in. That needs a browser with both stacks live; the module's own
-//      header states the two divergence modes. See ISSUE-LOG L-1873.
+//      header states the two divergence modes. See ISSUE-LOG L-1883.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {

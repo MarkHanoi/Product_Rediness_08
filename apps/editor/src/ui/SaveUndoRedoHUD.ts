@@ -11,7 +11,7 @@
  * Dispatches pryzm-hub-action { action:'save' } for Save.
  * Uses commandManager for Undo / Redo.
  *
- * §UNDO-HISTORY-DROPDOWN (ADR-0340) — each of Undo and Redo now carries a caret
+ * §UNDO-HISTORY-DROPDOWN (ADR-0341) — each of Undo and Redo now carries a caret
  * that opens a list of recent actions in plain language (the Revit / AutoCAD
  * history palette the founder asked for).
  *
@@ -86,7 +86,7 @@ export const SURH_STYLES = `
     flex-shrink: 0;
 }
 
-/* ── §UNDO-HISTORY-DROPDOWN (ADR-0340) — caret + history popover ──────────
+/* ── §UNDO-HISTORY-DROPDOWN (ADR-0341) — caret + history popover ──────────
    Every custom property below is declared in styles/tokens.ts. Checked
    against that file rather than assumed: §PANEL-BRAND-STANDARD (L-1740..
    L-1744) found nine phantom tokens in sibling panels rendering as neon,
@@ -261,14 +261,14 @@ const REDO_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
     <path d="M20.49 12A9 9 0 1 1 19 5.07"/>
 </svg>`;
 
-// §UNDO-HISTORY-DROPDOWN (ADR-0340) — the "mini arrow below the icon".
+// §UNDO-HISTORY-DROPDOWN (ADR-0341) — the "mini arrow below the icon".
 const CARET_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
     <polyline points="6 9 12 15 18 9"/>
 </svg>`;
 
 // Phase B.9 (S73-WIRE) — runtime threading per S72 §16.2 row B.9.
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
-// §UNDO-HISTORY-DROPDOWN (ADR-0340) — the read-only projection of BOTH undo
+// §UNDO-HISTORY-DROPDOWN (ADR-0341) — the read-only projection of BOTH undo
 // stacks and the sequential jump. Static import (this is L7 → L7); the undo
 // path itself stays dynamically imported below, unchanged.
 import {
@@ -325,7 +325,7 @@ export class SaveUndoRedoHUD {
             void import('../engine/undo/performUndoRedo.js').then(m => m.performRedo());
         });
 
-        // §UNDO-HISTORY-DROPDOWN (ADR-0340) — the caret sits BESIDE its button so
+        // §UNDO-HISTORY-DROPDOWN (ADR-0341) — the caret sits BESIDE its button so
         // the plain click keeps its existing single-step meaning. Splitting the
         // control this way is deliberate: making the button itself open a menu
         // would have taken Ctrl+Z's mouse equivalent away from the founder.
@@ -355,7 +355,7 @@ export class SaveUndoRedoHUD {
         document.addEventListener('keydown', this._onDocKeyDown, true);
     }
 
-    // ── §UNDO-HISTORY-DROPDOWN (ADR-0340) — the history popover ──────────────
+    // ── §UNDO-HISTORY-DROPDOWN (ADR-0341) — the history popover ──────────────
 
     private readonly _undoCaret: HTMLButtonElement;
     private readonly _redoCaret: HTMLButtonElement;

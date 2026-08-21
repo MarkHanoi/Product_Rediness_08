@@ -1,4 +1,4 @@
-// §UNDO-HISTORY-DROPDOWN (ADR-0340) — DOM gate for the undo/redo caret + history
+// §UNDO-HISTORY-DROPDOWN (ADR-0341) — DOM gate for the undo/redo caret + history
 // popover on `SaveUndoRedoHUD`.
 //
 // WHAT THIS PINS. The founder asked for a caret beside undo/redo that lists what
@@ -14,7 +14,7 @@
 //
 // The fourth — that k+1 `performUndo()` calls revert the right k+1 things in a
 // live session — is `undoHistoryTimeline.test.ts`'s job and, at the browser
-// level, is UNPROVEN (ISSUE-LOG L-1873).
+// level, is UNPROVEN (ISSUE-LOG L-1883).
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 

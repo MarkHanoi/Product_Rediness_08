@@ -1,4 +1,4 @@
-// §UNDO-HISTORY-DROPDOWN (ADR-0340) — gate for `RingBufferUndoStack.listEntries()`.
+// §UNDO-HISTORY-DROPDOWN (ADR-0341) — gate for `RingBufferUndoStack.listEntries()`.
 //
 // THE DEFECT THIS ACCESSOR CLOSES. `_entries` and `_cursor` were private and the
 // only readers were `current()` / `peek()` — the TOP of each direction. A UI

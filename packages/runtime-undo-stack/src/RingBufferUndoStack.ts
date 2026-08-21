@@ -83,7 +83,7 @@ export interface PatchPair {
    */
   readonly gestureId?: string;
   /**
-   * §UNDO-HISTORY-DROPDOWN (ADR-0340) — the bus verb that minted this entry
+   * §UNDO-HISTORY-DROPDOWN (ADR-0341) — the bus verb that minted this entry
    * (`record.type`, e.g. `wall.create`), stamped by `CommandBus.executeCommand`
    * at push time.
    *
@@ -105,7 +105,7 @@ export interface PatchPair {
 }
 
 /**
- * §UNDO-HISTORY-DROPDOWN (ADR-0340) — an IMMUTABLE, SERIALISABLE view of one
+ * §UNDO-HISTORY-DROPDOWN (ADR-0341) — an IMMUTABLE, SERIALISABLE view of one
  * ring-buffer entry, for read-only consumers (the undo/redo history dropdown).
  *
  * WHY A VIEW AND NOT THE `PatchPair`. `listEntries()` must not hand a UI the
@@ -251,7 +251,7 @@ export class RingBufferUndoStack implements UndoStackBackend {
   }
 
   /**
-   * §UNDO-HISTORY-DROPDOWN (ADR-0340) — a READ-ONLY, FROZEN projection of every
+   * §UNDO-HISTORY-DROPDOWN (ADR-0341) — a READ-ONLY, FROZEN projection of every
    * entry in the buffer, oldest first, each tagged with whether it is currently
    * undone (above the cursor).
    *

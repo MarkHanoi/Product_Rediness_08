@@ -356,6 +356,39 @@ shadow-dropped legacy command used to do.
   > deletes elements. **Wall-clock proximity MUST NOT be used to infer gesture membership.**
   > `_SAME_GESTURE_WINDOW_MS` is deleted; a reintroduced clock is a regression against the
   > BOUNDARY pin in `undoGestureOrdering.test.ts`.
+- **U-11 (READING the stacks — added 2026-08-21, ADR-0341, lane UNDO1).** A consumer that needs to
+  DISPLAY undo state (the history dropdown) MUST read it through the **frozen, value-free
+  projections** — `RingBufferUndoStack.listEntries()` and
+  `CommandManager.getUndoHistoryView()` / `getRedoHistoryView()` — and MUST NOT read
+  `CommandManager.getHistory()`.
+  **WHY:** `getHistory()` returns a *shallow* copy holding the **live `Command` instances**. A
+  caller that takes one can invoke `.execute(ctx)` / `.undo(ctx)` directly — out of band, with no
+  dispatcher, no snapshot and no history bookkeeping — which is a mutation path into model state
+  that bypasses the command dispatcher entirely (**P6**). The lane brief for ADR-0341 asserted
+  these stacks had *"no public read accessor"*; the measured truth was worse than the claim, and
+  is why the fix is a projection rather than a getter. `getHistory()` is retained for its non-UI
+  callers and is **not** deprecated here — 🔴 those callers are UNAUDITED.
+  **The projections carry NO patch values and NO route back to a `Command`**, asserted by
+  `packages/runtime-undo-stack/__tests__/ring-buffer-list-entries.test.ts` and
+  `packages/command-registry/__tests__/undoHistoryView.test.ts`.
+  **A COLLABORATOR'S ACTION MUST NEVER APPEAR IN SUCH A PROJECTION — and the projection MUST NOT
+  be where that is enforced.** The exclusion belongs at the PUSH (U-1 / §UNDO-REMOTE-ORIGIN,
+  `CommandManagerImpl.execute()`), which is the copy the two-client certification harness measured.
+  A second filter in a display layer would be the weaker copy of a rule that already has an
+  authoritative one.
+- **U-12 (MULTI-STEP undo — added 2026-08-21, ADR-0341).** "Jump back N steps" MUST be **N
+  sequential `performUndo()` calls** (U-5), never a bulk cursor move, never a direct store write.
+  It MUST **stop at the first outcome that is not `'undone'`** and report the number of steps that
+  actually completed — `'stranded'` (C03 §4.8) reverts nothing while consuming nothing, so a loop
+  that ignored the outcome would report N steps for zero work.
+  **SELECTIVE / OUT-OF-ORDER UNDO (undo entry 3, keep 4 and 5) IS NOT SUPPORTED AND MUST NOT BE
+  OFFERED**, in the UI or in an API, while the two-backend model of §4.3 stands. `PatchPair.inverse`
+  is a positional assignment of values captured at commit time, and Path-A's inverse is a
+  whole-store snapshot: replaying either out of order **overwrites the later edits** instead of
+  removing the chosen one, and for hosted elements (C15, U-9) the result is undefined rather than
+  merely wrong. A UI that lists entries MUST make the sequential scope visible before the click.
+  *Exit condition:* ADR-0251's single timeline over a single store with derived geometry — at which
+  point selective undo becomes a question that can be asked.
 
 ### §4.7 — Status (OI-054) — RESOLVED, with scoped follow-ups
 

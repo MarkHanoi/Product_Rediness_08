@@ -129,7 +129,7 @@ export interface HistoryEntry {
 }
 
 /**
- * §UNDO-HISTORY-DROPDOWN (ADR-0340) — an IMMUTABLE, SERIALISABLE view of one
+ * §UNDO-HISTORY-DROPDOWN (ADR-0341) — an IMMUTABLE, SERIALISABLE view of one
  * legacy history entry, for read-only consumers (the undo/redo dropdown).
  *
  * WHY THIS EXISTS RATHER THAN `getHistory()`. `getHistory()` already returns a
@@ -175,7 +175,7 @@ export interface LegacyHistoryEntryView {
 }
 
 /**
- * §UNDO-HISTORY-DROPDOWN (ADR-0340) — `describe()`, defensively.
+ * §UNDO-HISTORY-DROPDOWN (ADR-0341) — `describe()`, defensively.
  *
  * A command author's `describe()` runs while a menu is being rendered, possibly
  * long after the command executed and against a context that has moved on. A
@@ -997,7 +997,7 @@ export class CommandManager {
     }
 
     /**
-     * §UNDO-HISTORY-DROPDOWN (ADR-0340) — the undo history as FROZEN, LIVE-OBJECT-FREE
+     * §UNDO-HISTORY-DROPDOWN (ADR-0341) — the undo history as FROZEN, LIVE-OBJECT-FREE
      * rows, oldest first. `[length - 1]` is what the next `undo()` would revert.
      *
      * THIS IS THE ACCESSOR A UI MAY USE. `getHistory()` above hands out the live
@@ -1026,7 +1026,7 @@ export class CommandManager {
     }
 
     /**
-     * §UNDO-HISTORY-DROPDOWN (ADR-0340) — the redo stack as frozen rows, in
+     * §UNDO-HISTORY-DROPDOWN (ADR-0341) — the redo stack as frozen rows, in
      * STACK order (oldest push first). `[length - 1]` is what the next `redo()`
      * would re-apply. Mirror of {@link getUndoHistoryView}; same guarantees.
      */

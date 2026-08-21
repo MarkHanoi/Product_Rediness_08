@@ -608,7 +608,7 @@ export class CommandBus {
               // top entry (`CommandMetadata.gestureId`) to recognise a
               // dual-dispatch twin by identity instead of by clock proximity.
               gestureId,
-              // §UNDO-HISTORY-DROPDOWN (ADR-0340) — WHAT the user did, in the
+              // §UNDO-HISTORY-DROPDOWN (ADR-0341) — WHAT the user did, in the
               // one vocabulary that distinguishes create from delete from move
               // within the same store. `affectedStores` can only ever say
               // "wall"; `record.type` says `wall.create`, and it was already in

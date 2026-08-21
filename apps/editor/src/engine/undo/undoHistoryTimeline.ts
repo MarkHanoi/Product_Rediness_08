@@ -1,7 +1,7 @@
 // undoHistoryTimeline — the READ-ONLY projection of PRYZM's undo state, and the
 // multi-step jump that the undo/redo history dropdown drives.
 //
-// §UNDO-HISTORY-DROPDOWN (ADR-0340 · C03 §4.5–4.8 · C16 §5 CA-22 · P6)
+// §UNDO-HISTORY-DROPDOWN (ADR-0341 · C03 §4.5–4.8 · C16 §5 CA-22 · P6)
 //
 // ─────────────────────────────────────────────────────────────────────────────
 // WHAT THE FOUNDER ASKED FOR, AND WHICH OF THE TWO READINGS THIS IS
