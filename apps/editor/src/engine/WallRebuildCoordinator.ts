@@ -674,14 +674,34 @@ export class WallRebuildCoordinator {
         let _delay = 0;
         for (const [levelId, ids] of restoredByLevel) {
             const _ids = ids.slice();
+            this._joinDeferAttempts.set(levelId, 0);
             getFrameScheduler().scheduleOnce(
                 `wall-join-load-skip-deferred-resolve-${levelId}-${_delay++}`,
                 () => {
-                    try { this._rebuildWalls(_ids); }
+                    try {
+                        // §WALL-JOIN-LOAD-DEFER-FIRED (L-1951) — the MIDDLE of the three
+                        // states. "Scheduled" (§WALL-JOIN-LOAD-SKIP) and "completed"
+                        // (§WALL-JOIN-LOAD-DEFER-DONE) each had a line; FIRING had none, so
+                        // the only evidence the deferral had actually run was a generic
+                        // `§A.21.D28 rebuildWalls — re-queued N wall(s)` that does not even
+                        // name the level. Diagnosing L-1950 from a production log turned on
+                        // matching those counts back to levels by hand. Three states, three
+                        // lines, each naming its level — never make an absence carry meaning.
+                        console.log(
+                            `[WallRebuildCoordinator] §WALL-JOIN-LOAD-DEFER-FIRED — level ${levelId}: ` +
+                            `deferred post-restore join resolve FIRING for ${_ids.length} restored wall(s) ` +
+                            `— expect §WALL-JOIN-LOAD-DEFER-DONE for this level within a frame.`,
+                        );
+                        this._rebuildWalls(_ids);
+                    }
                     catch (err) {
-                        this._joinUnresolvedLevels.delete(levelId);
                         console.warn(`[WallRebuildCoordinator] §WALL-JOIN-LOAD-SKIP deferred resolve for level ${levelId} failed (non-fatal):`, err);
                     }
+                    // Armed AFTER the attempt, whether or not it threw: the repair ladder's
+                    // job is to make the deferral LAND, and a throw is one of the ways it
+                    // does not. (This used to clear the level's unjoined mark on throw,
+                    // which silenced the watchdog for the one case it exists to catch.)
+                    this._armJoinDeferRepair(levelId, _ids);
                 },
                 'post-render',
             );
@@ -710,6 +730,83 @@ export class WallRebuildCoordinator {
     /** §WALL-JOIN-LOAD-DEFER-WATCHDOG (L-1490) — generous: the deferral needs a frame or
      *  two, but a 20 s chunked load of a large building can starve it far longer. */
     private static readonly _JOIN_DEFER_WATCHDOG_MS = 30_000;
+
+    /**
+     * §WALL-JOIN-LOAD-DEFER-REPAIR (L-1951, founder 2026-08-21) — make the deferral LAND,
+     * instead of reporting that it did not.
+     *
+     * The L-1490 watchdog was a strict improvement on silence, but it is still only a
+     * REPORTER: at +30 s it prints an error naming the levels whose walls are on screen
+     * square-capped, and then the user goes on looking at square-capped walls until they
+     * create an element. A promise the user can see broken on every project open must not
+     * be best-effort — the founder should never be the retry mechanism.
+     *
+     * So a level that is still marked `_joinUnresolvedLevels` after the frames the
+     * deferral needs is RE-DRIVEN, up to `_JOIN_DEFER_MAX_ATTEMPTS` times, each attempt
+     * logged with its level and attempt number. The mark is one-shot and is cleared by
+     * `_flush` the instant that level's resolve completes, so a landed resolve stops the
+     * ladder on its next tick; nothing here can loop.
+     *
+     * Deliberately agnostic about WHY the first attempt did not land — this arms after a
+     * throw, after a swallowed flush, and after a frame slot that never came, because all
+     * three present identically to the user and the repair is the same in every case.
+     *
+     * The cancellers are held so `_resetState()` (C13 project switch) can drop them:
+     * level ids are commonly reused across projects (`L0`…), so a stale timer that
+     * survived a switch would re-drive a resolve against project B's level of the same
+     * name — the exact class of cross-project leak `_lastFlushLevelSig` was caught in.
+     */
+    private static readonly _JOIN_DEFER_REPAIR_MS = 2_000;
+    private static readonly _JOIN_DEFER_MAX_ATTEMPTS = 3;
+    private _joinDeferAttempts = new Map<string, number>();
+    private _joinDeferRepairCancels = new Set<DeferWorkCanceller>();
+
+    private _armJoinDeferRepair(levelId: string, ids: readonly string[]): void {
+        let cancel: DeferWorkCanceller | null = null;
+        cancel = deferWork(() => {
+            if (cancel) this._joinDeferRepairCancels.delete(cancel);
+            // Landed (or the project went away, which clears the mark) → nothing to do.
+            if (!this._joinUnresolvedLevels.has(levelId)) return;
+
+            // Every wall gone (deleted, or a project switch that did not clear the mark)
+            // → there is no join left to resolve; retiring the mark is the honest answer,
+            // not a retry that can never succeed.
+            const store = this._wallTool?.getWallStore?.();
+            const live = store ? ids.filter(id => !!store.getById(id)) : [];
+            if (live.length === 0) {
+                this._joinUnresolvedLevels.delete(levelId);
+                console.warn(
+                    `[WallRebuildCoordinator] §WALL-JOIN-LOAD-DEFER-REPAIR — level ${levelId}: ` +
+                    `none of the ${ids.length} restored wall(s) are in the store any more; ` +
+                    `retiring the unjoined mark (nothing left to resolve).`,
+                );
+                return;
+            }
+
+            const attempt = (this._joinDeferAttempts.get(levelId) ?? 0) + 1;
+            this._joinDeferAttempts.set(levelId, attempt);
+            if (attempt > WallRebuildCoordinator._JOIN_DEFER_MAX_ATTEMPTS) {
+                console.error(
+                    `[WallRebuildCoordinator] §WALL-JOIN-LOAD-DEFER-REPAIR — level ${levelId}: ` +
+                    `GIVING UP after ${WallRebuildCoordinator._JOIN_DEFER_MAX_ATTEMPTS} re-drive attempt(s). ` +
+                    `Its ${live.length} wall(s) are on screen with SQUARE end caps and will stay that way ` +
+                    `until an edit on this level triggers a whole-level resolve. Send the lines above this one.`,
+                );
+                return;
+            }
+
+            console.warn(
+                `[WallRebuildCoordinator] §WALL-JOIN-LOAD-DEFER-REPAIR — level ${levelId}: still UNJOINED ` +
+                `${WallRebuildCoordinator._JOIN_DEFER_REPAIR_MS}ms after the deferred resolve fired ` +
+                `(no §WALL-JOIN-LOAD-DEFER-DONE). Re-driving the whole-level resolve over ${live.length} wall(s) ` +
+                `— attempt ${attempt}/${WallRebuildCoordinator._JOIN_DEFER_MAX_ATTEMPTS}.`,
+            );
+            try { this._rebuildWalls(live); }
+            catch (err) { console.warn(`[WallRebuildCoordinator] §WALL-JOIN-LOAD-DEFER-REPAIR re-drive threw for level ${levelId}:`, err); }
+            this._armJoinDeferRepair(levelId, live);
+        }, WallRebuildCoordinator._JOIN_DEFER_REPAIR_MS);
+        this._joinDeferRepairCancels.add(cancel);
+    }
 
     private _resume(): void {
         this._wallRebuildPaused = false;
@@ -775,6 +872,13 @@ export class WallRebuildCoordinator {
         this._lastFlushLevelSig.clear();
         this._flushBurst.clear();
         this._joinUnresolvedLevels.clear();
+        // §WALL-JOIN-LOAD-DEFER-REPAIR (L-1951) — drop project A's pending re-drive timers.
+        // Level ids are routinely reused across projects (`L0`…), so a surviving timer would
+        // re-drive a whole-level resolve against project B's identically-named level. Same
+        // C13 argument as `_lastFlushLevelSig` directly above.
+        for (const c of this._joinDeferRepairCancels) { try { c(); } catch { /* ignore */ } }
+        this._joinDeferRepairCancels.clear();
+        this._joinDeferAttempts.clear();
         console.log('[WallRebuildCoordinator] C13 resetWallRebuildState() — wall pipeline clean for project switch');
     }
 
@@ -1877,6 +1981,14 @@ export class WallRebuildCoordinator {
                 // the last build, so `buildWall` was elided. On the founder's edit (drag
                 // ONE wall on a plate of N) this is N − (the handful that actually moved).
                 let _skippedCleanWalls = 0;
+                // §WALL-JOIN-LOAD-MULTILEVEL (L-1950) — walls this iteration rebuilt with
+                // `joinData = null`, i.e. SQUARE-CAPPED. The completion line used to fold
+                // these into one total and call the whole lot "rebuilt with mitred caps",
+                // which is how a level reporting `6 wall(s) on level … 59 wall(s) rebuilt
+                // with mitred caps` read as success while 53 of the 59 had just been
+                // square-capped. Counted and reported separately: a log that averages a
+                // mitre and a square cap into one number cannot report this defect.
+                let _nullJoinRebuilds = 0;
 
                 adjustments.forEach((adjustment: JoinData & { baseLine: [THREE.Vector3, THREE.Vector3] }, wallId: string) => {
                     const _adjBL = adjustment.baseLine;
@@ -2265,6 +2377,7 @@ export class WallRebuildCoordinator {
                             try {
                                 builder.updateWall(fresh, null, resolveOpeningRenderMap(fresh, store), slabOff);
                                 _rebuiltWallIds.add(wallId);
+                                _nullJoinRebuilds++;
                             } catch (err) {
                                 console.error(`[WallRebuildCoordinator] §WALL-AUDIT-2026-C1: updateWall (isolated) failed for wall "${wallId}" — continuing.`, err);
                             }
@@ -2284,6 +2397,7 @@ export class WallRebuildCoordinator {
                             try {
                                 builder.updateWall(fresh, null, resolveOpeningRenderMap(fresh, store), slabOff);
                                 _rebuiltWallIds.add(w.id);
+                                _nullJoinRebuilds++;
                             } catch (err) {
                                 console.error(`[WallRebuildCoordinator] §WALL-AUDIT-2026-C1: updateWall (stale-join) failed for wall "${w.id}" — continuing.`, err);
                             }
@@ -2421,10 +2535,13 @@ export class WallRebuildCoordinator {
                 // count it resolved, because the previous design announced only its INTENT
                 // and a silent deferral is indistinguishable from one that never happened.
                 if (this._joinUnresolvedLevels.delete(levelId)) {
+                    this._joinDeferAttempts.delete(levelId);
                     console.log(
                         `[WallRebuildCoordinator] §WALL-JOIN-LOAD-DEFER-DONE — level ${levelId}: ` +
                         `deferred post-restore join resolve COMPLETED (${levelWalls.length} wall(s) on level, ` +
-                        `${adjustments.size} join adjustment(s), ${_rebuiltWallIds.size} wall(s) rebuilt with mitred caps).`,
+                        `${adjustments.size} join adjustment(s), ${_rebuiltWallIds.size - _nullJoinRebuilds} wall(s) ` +
+                        `rebuilt WITH mitred caps, ${_nullJoinRebuilds} rebuilt UNJOINED — a wall with no neighbour ` +
+                        `on its level is correctly square-capped; a whole level here is the L-1950 defect).`,
                     );
                 }
             } finally {

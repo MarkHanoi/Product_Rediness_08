@@ -180,3 +180,49 @@ describe('§WALL-JOIN-LOAD-MULTILEVEL (L-1950) — a multi-level restore must le
         expect(bad).toEqual([]);
     });
 });
+
+describe('§WALL-JOIN-LOAD-DEFER-REPAIR (L-1951) — the deferral must LAND, not report that it did not', () => {
+    beforeEach(() => { _resetFrameSchedulerForTest(); _seq = 0; vi.useFakeTimers(); });
+    afterEach(() => {
+        vi.useRealTimers();
+        _resetFrameSchedulerForTest();
+        delete (window as unknown as { __wallRebuildControl?: unknown }).__wallRebuildControl;
+        delete (window as unknown as { __engineTeardown?: unknown }).__engineTeardown;
+        (globalThis as unknown as { __pryzmWallRestoreFlush?: boolean }).__pryzmWallRestoreFlush = false;
+        vi.restoreAllMocks();
+    });
+
+    /**
+     * The first deferred flush is LOST — modelled by `resolveLevel` throwing once, which is
+     * a real reachable path: `_flush` clears `_pendingWallEvents` into a local `batch`
+     * BEFORE the per-level loop, the loop body has no per-level catch, and the throw
+     * escapes into `FrameScheduler`'s listener try/catch. The 8 queued wall events are gone
+     * and nothing re-queues them, so before L-1951 the walls stayed square-capped until the
+     * user created an element — with the L-1490 watchdog printing an error at +30 s and
+     * repairing nothing.
+     */
+    it('a LOST first attempt is re-driven, and every wall ends mitred without any user action', () => {
+        const h = boot(['L0', 'L1']);
+
+        // ONE throw, then the real resolver again — `mockImplementationOnce` stacks on top
+        // of the delegating implementation `boot()` installed, so the retry sees real math.
+        h.spy.mockImplementationOnce((() => {
+            throw new Error('injected: the first deferred flush is lost');
+        }) as never);
+
+        h.fake.pumpFrames(5);
+        const afterLoss = unmitred(h);
+        // Precondition of the test: the first attempt really was lost.
+        expect(afterLoss.length).toBe(8);
+
+        // The repair ladder's first rung.
+        vi.advanceTimersByTime(2_100);
+        h.fake.pumpFrames(5);
+
+        const bad = unmitred(h);
+        // eslint-disable-next-line no-console
+        console.log(JSON.stringify({ unmitredAfterLoss: afterLoss.length, unmitredAfterRepair: bad.length }, null, 1));
+        h.spy.mockRestore();
+        expect(bad).toEqual([]);
+    });
+});
