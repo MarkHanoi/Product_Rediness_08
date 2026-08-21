@@ -1281,44 +1281,20 @@ export function resolveSiteContext(
 }
 
 /**
- * Resolve the active project id from the most-reliable source available.
- * Order: `runtime.audit.projectId` → `runtime.projectContext.projectId` →
- * `window.__pendingProjectId` → `window.projectContext.projectId`. The Site id is
- * deterministic (`site_<projectId>`), so this MUST be consistent everywhere a Site
- * is created or read — using a different source per call site produces two Sites
- * and the climate dataset keys to the wrong one (§A.21.D39(#7)).
+ * §LINK-ACTIVE-PID-EXTRACT (L-3160) — RE-EXPORT, not a definition.
  *
- * §A.21.D40(#6) — DEAD-BRANCH FIX. The D39 fallback read `window.projectContext.projectId`,
- * but on the editor `window.projectContext` is the `@pryzm/core-app-model`
- * `ProjectContext` (it only exposes `activeLevelId` + `editorMode` — there is NO
- * `projectId` field), so that branch was ALWAYS `undefined` and the generate-house →
- * Forma flow (audit + runtime.projectContext both empty for a tick) still resolved
- * null → no Site → empty wind rose. The legacy `window.__pendingProjectId` global
- * (set by ProjectHub.openProject before/around the runtime audit lands) is the one
- * that IS populated on that flow, so it is the real fallback. The field-less
- * `window.projectContext.projectId` read is kept LAST purely as a future-proof
- * no-op (harmless if a projectId field is ever added there).
+ * `resolveActiveProjectId` now lives at `engine/project/activeProjectId.ts`. It was
+ * moved because FOUR ENGINE modules imported this UI module for it alone — including
+ * two C13 project-scope owners, which is the wrong direction — and because pulling
+ * `siteDispatch`'s graph for a two-field runtime read is expensive enough to make a
+ * real `await import(...)` of a dependent panel exceed a 120 s budget under vitest.
+ *
+ * It is re-exported here so all eleven existing call sites keep working unchanged.
+ * The doc comment, including the §A.21.D39/D40 history, moved WITH the function —
+ * that history is the reason the fallback order is what it is, and splitting it from
+ * the code would strand it.
  */
-export function resolveActiveProjectId(rt: PryzmRuntime): string | null {
-    const auditPid = rt.audit?.projectId;
-    if (typeof auditPid === 'string' && auditPid.length > 0) return auditPid;
-    const ctxPid = rt.projectContext?.projectId;
-    if (typeof ctxPid === 'string' && ctxPid.length > 0) return ctxPid;
-    try {
-        const win = window as unknown as {
-            __pendingProjectId?: string | null;
-            projectContext?: { projectId?: string | null };
-        };
-        // The global ProjectHub sets when opening a project — populated on the
-        // house demo flow even when the runtime audit/context race empty.
-        const pendingPid = win.__pendingProjectId;
-        if (typeof pendingPid === 'string' && pendingPid.length > 0) return pendingPid;
-        // Future-proof no-op (core-app-model ProjectContext has no projectId today).
-        const winPid = win.projectContext?.projectId;
-        if (typeof winPid === 'string' && winPid.length > 0) return winPid;
-    } catch { /* no window / no globals */ }
-    return null;
-}
+export { resolveActiveProjectId } from '../../engine/project/activeProjectId';
 
 /**
  * Ensure a Site exists for the active project, returning its id. Idempotent —

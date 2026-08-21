@@ -27,7 +27,37 @@
 import type { LinkedModelRef, LinkedModelId } from '@pryzm/schemas';
 import { linkedModelStore, LINKED_MODELS_CHANGED_EVENT } from './LinkedModelStore';
 import { resolveLink, type LinkResolution } from './linkSourceGateway';
-import { LinkedModelSceneRenderer } from './LinkedModelSceneRenderer';
+// §LINK-CONTROLLER-THREE-FREE (L-3159) — `import type`, not `import`.
+//
+// The renderer is only ever used HERE as a type: a field, a parameter, and calls
+// to its instance methods. Importing it as a VALUE made this module — and every
+// consumer of it, including the UI panel — carry a module edge to
+// `LinkedModelSceneRenderer` and through it to `import * as THREE`, for a binding
+// never evaluated at runtime. A UI panel is not a THREE consumer and should not
+// become one by accident: the same shape as
+// [[server-safe-entry-can-import-browser-ui]], where a barrel import dragged a
+// browser UI dependency into the SERVER bundle.
+//
+// ⚠ HONEST ABOUT WHAT THIS DID AND DID NOT FIX. It was made while chasing a 10 s
+// import timeout in the reachability suite, and IT DID NOT FIX THAT. Measured
+// per-module, cold:
+//
+//     linkedModelController   17.7 s   ← after this change
+//     ui/site/siteDispatch     9.0 s
+//     LinkedModelStore         ~0 s
+//     linkedModelsViewModel    ~0 s
+//
+// The controller's remaining weight is `@pryzm/core-app-model`, reached through
+// `linkSourceGateway`'s `apiFetch` — not THREE. THREE was the first guess and it
+// was WRONG; the actual fix was extracting `resolveActiveProjectId` out of
+// `ui/site/siteDispatch` (§LINK-ACTIVE-PID-EXTRACT, L-3160), which took the panel's
+// reachability suite from >120 s to 23 s. This edge is recorded as worth removing
+// on its own merits — a UI panel should not carry a module edge to a THREE
+// consumer — and NOT as the thing that fixed the timeout, because it was not.
+//
+// The renderer instance still arrives at `install()` from `initScene`, which IS
+// the THREE owner. Nothing about the wiring changes; only the module edge does.
+import type { LinkedModelSceneRenderer } from './LinkedModelSceneRenderer';
 import { linkMassingCost } from './linkMassing';
 
 export type LinkStatusKind = 'resolving' | 'shown' | 'hidden' | 'refused';

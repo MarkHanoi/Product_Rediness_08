@@ -54,7 +54,11 @@
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import type { LinkGeoOrigin, LinkPin, LinkedModelRef } from '@pryzm/schemas';
 import { makeDraggable } from '../makeDraggable';
-import { resolveActiveProjectId } from '../site/siteDispatch';
+// §LINK-ACTIVE-PID-EXTRACT (L-3160) — the LIGHT module, not `site/siteDispatch`.
+// The resolver is two runtime field reads and a window global; importing it from
+// the dispatch surface pulled the command graph behind it and made a real
+// `await import(...)` of this panel exceed a 120 s budget under vitest.
+import { resolveActiveProjectId } from '../../engine/project/activeProjectId';
 import {
     LINKED_MODELS_CHANGED_EVENT,
     linkedModelStore,

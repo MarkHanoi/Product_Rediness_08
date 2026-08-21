@@ -62,7 +62,12 @@
 
 import { projectScopeRegistry, registerProjectScopeProbe } from '@pryzm/core-app-model';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
-import { resolveActiveProjectId } from '../../ui/site/siteDispatch';
+// §LINK-ACTIVE-PID-EXTRACT (L-3160) — this is a C13 project-scope OWNER with
+// module-scope registration side effects, and it was importing an L7 UI module to
+// answer "whose state am I holding?". The resolver needs nothing from the UI, so
+// it now lives in the engine and this edge points sideways instead of up. Still
+// the ONE canonical resolver — never a second copy (see this file's header).
+import { resolveActiveProjectId } from '../project/activeProjectId';
 
 /** What the module remembers about one mounted link. No THREE types (P2). */
 interface MountedLinkRecord {
