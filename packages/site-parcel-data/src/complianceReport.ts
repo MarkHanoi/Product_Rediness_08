@@ -70,6 +70,10 @@ const CONSTRAINT_ORDER: readonly DerivationConstraint[] = [
     // ADR-0271 — immediately after the depth it explains. A constructed depth read without its
     // binding looks like a figure the ordinance stated, which is the one thing it is not.
     'alignment.depthBinding',
+    // §BCN-OV-CONFIDENCE (L-1660) — leads for the same reason the depth rows do: on an
+    // explicit-area parcel the published footprint IS the governing rule, and this row names
+    // the fact that the envelope was clipped to it (vs covering the whole plot).
+    'explicitArea.footprintBinding',
     'alignment.offset',
     'alignment.sideTreatment',
     // §L-590b / ADR-0273 — the tier rows lead for the same reason the alignment rows do: on an
@@ -100,6 +104,8 @@ const LABELS: Record<DerivationConstraint, string> = {
     // citation points at, so a user checking the source can find the clause.
     'alignment.depth': 'Buildable depth (profundidad edificable)',
     'alignment.depthBinding': 'Depth determined by',
+    // §BCN-OV-CONFIDENCE (L-1660) — the explicit-area analogue of "Depth determined by".
+    'explicitArea.footprintBinding': 'Footprint determined by',
     'alignment.offset': 'Offset from alignment (alineación)',
     'alignment.sideTreatment': 'Lateral boundaries',
     // §L-590b / ADR-0273. "of the block" is IN the label, not only in the citation: the whole
@@ -137,6 +143,18 @@ const SIDE_TREATMENT_TEXT: Record<string, string> = {
  * right clause. `min-floor` in particular is a warning, not a result — it means the Art. 242.2
  * construction wanted LESS than the ordinance floor, so the floor is what governs.
  */
+/**
+ * §BCN-OV-CONFIDENCE (L-1660) — human wording for the explicit-area `footprintBinding` tokens.
+ * Both name the SAME source of authority (the ordinance's own per-site ordering, published as
+ * geometry); they differ in whether the published shape actually bit into this parcel.
+ */
+const FOOTPRINT_BINDING_TEXT: Record<string, string> = {
+    'clipped-to-published-footprint':
+        'The published per-site ordering (the plan publishes the buildable footprint as geometry; the envelope is the parcel ∩ that footprint)',
+    'footprint-covers-parcel':
+        'The published per-site ordering — its footprint covers this parcel entirely, so the whole plot is buildable',
+};
+
 const DEPTH_BINDING_TEXT: Record<string, string> = {
     'interior-ratio': 'The interior free-space rule (≥30% of the block, PGM Art. 242.2)',
     'max-cap': 'The ordinance depth cap (30 m) — the block is deep enough that the free-space rule did not bind',
@@ -156,6 +174,8 @@ export function formatConstraintValue(
         if (constraint === 'alignment.sideTreatment') return SIDE_TREATMENT_TEXT[value] ?? value;
         // ADR-0271 — same reason: `interior-ratio` is a token, not a legal statement.
         if (constraint === 'alignment.depthBinding') return DEPTH_BINDING_TEXT[value] ?? value;
+        // §BCN-OV-CONFIDENCE (L-1660) — same reason again for the explicit-area binding tokens.
+        if (constraint === 'explicitArea.footprintBinding') return FOOTPRINT_BINDING_TEXT[value] ?? value;
         return value;
     }
     if (typeof value === 'number') {

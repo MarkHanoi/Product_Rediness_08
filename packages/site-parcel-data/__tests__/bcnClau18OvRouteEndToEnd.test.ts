@@ -9,7 +9,7 @@
 // dispatch branch — and it rendered NOTHING, for a reason no unit test could see: the same-origin
 // route `/api/bcn-refos/ov` DID NOT EXIST. Every existing test injected `fetchImpl`, so every
 // existing test passed while the production path was dead. This test therefore refuses to inject a
-// fetch: it stands up a real `node:http` server, mounts the real `server/bcnRefosOvProxy.js`
+// fetch: it stands up a real `node:http` server, mounts the real `server/jurisdiction/bcnRefosOvProxy.js`
 // handler on the real path, and lets `resolveBcnRefosOV` use real `globalThis.fetch`.
 //
 // ⇒ **DELETE THE ROUTE AND THIS TEST FAILS.** That is asserted explicitly (`ROUTE REMOVED`), and it
@@ -56,7 +56,7 @@ import type { Pt, ParcelEdgeClassification, ZoningRecord } from '@pryzm/schemas'
 // @ts-expect-error TS7016 — `server/` is plain BFF JavaScript with no declaration file, and giving it
 // one would mean type-owning the server from a client package. The reach is deliberate (see above);
 // the `any` is contained to this import and the assertions below still type-check the contract.
-import { makeBcnRefosOvHandler, __resetBcnRefosCache } from '../../../server/bcnRefosOvProxy.js';
+import { makeBcnRefosOvHandler, __resetBcnRefosCache } from '../../../server/jurisdiction/bcnRefosOvProxy.js';
 
 // ── REAL captured layer-17 fixture (outSR=4326 ⇒ [lon, lat], ArcGIS closing vertex repeated) ──
 const REAL_OV_FEATURE = {

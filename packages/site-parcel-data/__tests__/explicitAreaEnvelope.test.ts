@@ -147,3 +147,76 @@ describe('C58 §2.2 KG-4 — explicit-area zones END-TO-END through the engine',
         expect(JSON.stringify(solve(FOOTPRINT))).toBe(JSON.stringify(solve(FOOTPRINT)));
     });
 });
+
+/**
+ * §BCN-OV-CONFIDENCE (L-1660) — the tier is ENGINE-stamped off the caller's declaration.
+ *
+ * The clau-18 OV determination (published per-site footprint + published PLANTES + cited
+ * Art. 327.2 conversion + parcel ∩ footprint clip) is the ladder's own `block-constructed`
+ * definition — "real inputs + accepted rule + constructed geometry" — but the engine cannot see
+ * WHICH kind of ring it was handed, so the caller DECLARES it (`explicitAreaAuthority`,
+ * SIG-5-backed). The two invariants that matter:
+ *   1. DECLARED + solved → `block-constructed` + a citable `explicitArea.footprintBinding` row.
+ *   2. UNDECLARED → byte-identical to before the field existed. Madrid NZ-1's and NL's
+ *      `estimated-ruleset` tiers are recorded DECISIONS; this flag must not disturb them.
+ */
+describe('§BCN-OV-CONFIDENCE (L-1660) — declared published-site-ordering footprints', () => {
+    function solveDeclared(footprint: ReadonlyArray<Pt> | null | undefined) {
+        return computeBuildableEnvelope({
+            parcelRing: PARCEL,
+            edgeClassifications: EDGES,
+            zoning: record(),
+            rulePack: EXPLICIT_PACK,
+            explicitAreaFootprint: footprint,
+            explicitAreaAuthority: 'published-site-ordering',
+        });
+    }
+
+    it('stamps block-constructed and emits the footprintBinding row when DECLARED and solved', () => {
+        const env = solveDeclared(FOOTPRINT);
+        expect(env.status).toBe('ok');
+        expect(env.confidence).toBe('block-constructed');
+        const row = env.derivation.find((d) => d.constraint === 'explicitArea.footprintBinding');
+        expect(row).toBeDefined();
+        expect(row!.value).toBe('clipped-to-published-footprint');
+        expect(row!.fieldProvenance).toBe('published-structured');
+    });
+
+    it('names footprint-covers-parcel when the published ordering covers the whole plot', () => {
+        const covering: Pt[] = [
+            { x: -5, z: -5 }, { x: 35, z: -5 }, { x: 35, z: 45 }, { x: -5, z: 45 },
+        ];
+        const env = solveDeclared(covering);
+        expect(env.status).toBe('ok');
+        expect(env.confidence).toBe('block-constructed');
+        const row = env.derivation.find((d) => d.constraint === 'explicitArea.footprintBinding');
+        expect(row!.value).toBe('footprint-covers-parcel');
+    });
+
+    it('the "Estimated envelope — verify" caveat does NOT ride a block-constructed determination', () => {
+        // §L-572's latent-contradiction rule: the caveat is keyed on the FINAL tier, so a
+        // constructed envelope must not carry the estimated boilerplate its badge contradicts.
+        const env = solveDeclared(FOOTPRINT);
+        expect(env.caveats.some((c) => /Estimated envelope/i.test(c))).toBe(false);
+    });
+
+    it('UNDECLARED stays estimated-ruleset with NO binding row (Madrid NZ-1 / NL regression guard)', () => {
+        const env = solve(FOOTPRINT);
+        expect(env.confidence).toBe('estimated-ruleset');
+        expect(env.derivation.some((d) => d.constraint === 'explicitArea.footprintBinding')).toBe(false);
+    });
+
+    it('a DECLARED but UNSOLVED clip (no overlap) refuses without a row and without the tier', () => {
+        const disjoint: Pt[] = [
+            { x: 100, z: 100 }, { x: 130, z: 100 }, { x: 130, z: 120 }, { x: 100, z: 120 },
+        ];
+        const env = solveDeclared(disjoint);
+        expect(env.status).toBe('degenerate');
+        expect(env.confidence).not.toBe('block-constructed');
+        expect(env.derivation.some((d) => d.constraint === 'explicitArea.footprintBinding')).toBe(false);
+    });
+
+    it('remains DETERMINISTIC with the declaration (C58 §1.1)', () => {
+        expect(JSON.stringify(solveDeclared(FOOTPRINT))).toBe(JSON.stringify(solveDeclared(FOOTPRINT)));
+    });
+});

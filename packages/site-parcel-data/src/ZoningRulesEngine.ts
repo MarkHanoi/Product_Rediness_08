@@ -94,6 +94,24 @@ export interface ComputeBuildableEnvelopeInput {
      * single-ring field could represent none of them.
      */
     readonly explicitAreaFootprintParts?: ReadonlyArray<ExplicitAreaPart> | null;
+    /**
+     * §BCN-OV-CONFIDENCE (L-1660) — the CALLER's declaration that the supplied explicit-area
+     * footprint is the ordinance's own PER-SITE ordering published as geometry (the AMB Refós
+     * `OV_Trames` volumetric footprint, under the recorded L-449 vintage acceptance SIG-3 and the
+     * SIG-5 tier authorisation) — as opposed to a zone extent (NL *bestemmingsvlak*, L-630) or a
+     * ring whose attached numeric semantics are discretionary (Madrid NZ-1, whose
+     * `estimated-ruleset` tier is a recorded DECISION this flag must not disturb).
+     *
+     * When declared AND the explicit-area clip succeeds, the engine emits an
+     * `explicitArea.footprintBinding` derivation row, and §L-572 stamps `block-constructed` off
+     * that row — real inputs + accepted rule + constructed geometry, the ladder's own definition
+     * (`ProvenanceFlags.ts`). ⚠ Like `blockRing`, this labels the RULE, not the INPUT: the engine
+     * cannot verify the declaration; the recorded sign-off rides with the caller
+     * (`jurisdictions/es/es-ct/08019-barcelona/sources/VERIFICATION.md`).
+     *
+     * Absent / null → byte-identical behaviour to before this field existed, for every caller.
+     */
+    readonly explicitAreaAuthority?: 'published-site-ordering' | null;
 }
 
 /** A single numeric field resolution (C58 §1.2 priority order). */
@@ -882,6 +900,28 @@ export function computeBuildableEnvelope(
                                     : 'Buildable envelope clipped to the published footprint ' +
                                       '(explicit-area, ADR-0270).',
                             );
+                            // §BCN-OV-CONFIDENCE (L-1660) — the footprint-binding row, emitted ONLY
+                            // under the caller's `published-site-ordering` declaration (see the
+                            // input's docstring). Its presence is the fact §L-572 stamps
+                            // `block-constructed` from, exactly as `alignment.depthBinding` is for
+                            // the Art. 242.2 construction. Undeclared callers (Madrid NZ-1, NL
+                            // bouwvlak) get byte-identical output to before — their tiers are
+                            // recorded DECISIONS, not omissions. The dedicated `explicitArea.*`
+                            // P4-parity row for the UNDECLARED case remains the open WIRING TODO.
+                            if (input.explicitAreaAuthority === 'published-site-ordering') {
+                                derivation.push({
+                                    constraint: 'explicitArea.footprintBinding',
+                                    value: solved.footprintCoversParcel
+                                        ? 'footprint-covers-parcel'
+                                        : 'clipped-to-published-footprint',
+                                    zoneCode: zoning.zoneCode,
+                                    // `source` names the pack/provider; the caller's declaration is
+                                    // what asserts the ring is the published per-site ordering.
+                                    source,
+                                    fieldProvenance: 'published-structured',
+                                    ordinanceRef,
+                                });
+                            }
                             if (solved.partsConsidered > 1) {
                                 // ⚠ SAY THAT THE OTHER PARTS WERE NOT LOST. A user looking at a plan
                                 // drawing with five building fields, next to an envelope showing one,
@@ -1136,7 +1176,16 @@ export function computeBuildableEnvelope(
         if (
             status === 'ok' &&
             confidence === 'estimated-ruleset' &&
-            derivation.some((d) => d.constraint === 'alignment.depthBinding')
+            // §BCN-OV-CONFIDENCE (L-1660) — the explicit-area footprint binding is the SAME legal
+            // shape as the depth binding: a construction from real published inputs under an
+            // accepted, cited rule. The row exists only when the caller DECLARED the footprint a
+            // published per-site ordering (see `explicitAreaAuthority`), so undeclared
+            // explicit-area callers (Madrid NZ-1, NL) keep `estimated-ruleset` untouched.
+            derivation.some(
+                (d) =>
+                    d.constraint === 'alignment.depthBinding' ||
+                    d.constraint === 'explicitArea.footprintBinding',
+            )
         ) {
             confidence = 'block-constructed';
         }

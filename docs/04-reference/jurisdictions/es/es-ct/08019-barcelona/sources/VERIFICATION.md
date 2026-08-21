@@ -13,6 +13,50 @@
 
 ---
 
+## SIG-5 · ✍ **RECORDED 2026-08-21** · clau 18 OV — tier `block-constructed` for table-exact determinations
+
+| | |
+|---|---|
+| **Verifier** | Founder (repo owner) — live demo-session instruction, recorded by lane BCN1 (L-1660) |
+| **Date** | 2026-08-21 |
+| **Axis** | ENVELOPE |
+| **Artefact** | `ZoningRulesEngine.ts` §L-572 stamp + `explicitAreaAuthority: 'published-site-ordering'` on the §BCN-CLAU18-OV dispatch (`siteDispatch.ts`) |
+| **Source** | The SAME source SIG-3 signed — AMB *Refós de Planejament* `OV_Trames` — no new source is accepted here |
+
+**THE INSTRUCTION, VERBATIM (founder, demo session 2026-08-21):** *«for my demo - check this
+cadastral parcel specifically in barcelona - it says estimated - but i am sure the data exists -
+read jurisdictions etc and make this parcel sound for the demo»* (parcel 3634515DF3833D, CL Perelló
+60 — resolving clau 18 OV, PLANTES B+4, gate CERTIFIED, yet badged "Estimated" with a "Default rule
+pack" caption). Read together with the standing 2026-08-03 gate-publication authorisation ("flip
+gates where ONLY the gate blocks; does not supersede missing legal authority").
+
+**WHY THIS IS A TIER CORRECTION, NOT A PROMOTION-BY-RENAMING:** SIG-3 pinned the tier at
+`estimated-ruleset` while its stated premise was an *uncertified vintage* — a premise SIG-3 itself
+then closed by being signed. The ladder's own definition (`ProvenanceFlags.ts`) places "real inputs
++ accepted rule + constructed geometry — NOT an official municipal certificate" at
+`block-constructed`; the OV determination (published per-site footprint + published PLANTES +
+cited Art. 327.2 conversion + parcel ∩ footprint clip) is that definition. The card meanwhile
+rendered three false statements ("Estimated", "Default rule pack — real DK/ES zoning coming",
+"vintage UNCERTIFIED") about a determination whose every input is real and cited.
+
+**AUTHORISES:** rendering the clau-18 OV determination at **`block-constructed`** — ONLY where the
+OV footprint clip succeeded AND the PLANTES→metres conversion is **table-exact** under the
+Art. 327.2 storey table. The Refós re-edition caveat and the floors→metres-convention caveat stay
+in the caveats/provenance rows (mirroring R1's treatment of the 13a construction).
+
+**DOES NOT AUTHORISE:**
+- `structured` or `authoritative` — the metre height is still a convention applied to a floor
+  count, and the Refós is still a re-edition (`block-constructed` < `structured` is load-bearing);
+- the EXTRAPOLATED conversion basis (floor count beyond the table's range) — stays
+  `estimated-ruleset`, with the height row honestly `estimated`;
+- any change to the 73.6 % refusal share, to other claus, or to the PACK seed
+  (`defaultConfidence: 'estimated-ruleset'` — a pack cannot self-certify);
+- removing the vintage caveat from the rows.
+
+**Reversal:** one line — stop passing `explicitAreaAuthority` on the §BCN-CLAU18-OV dispatch.
+
+---
+
 ## SIG-4 · ✍ **SIGNED 2026-08-02** · clau 22a — publish framework, exclude delegated plans
 
 | | |
@@ -107,7 +151,9 @@ volumetric ordering — and the AMB publishes those orderings as queryable geome
 **DOES NOT AUTHORISE:**
 - the other **73.6 %** of clau-18 land — those keep the **cited Art. 306 refusal**;
 - any other clau (the dispatch branch is guarded to clau exactly `'18'`);
-- promoting the confidence tier above `estimated-ruleset`;
+- promoting the confidence tier above `estimated-ruleset` — ⚠ **narrowly superseded by SIG-5
+  (2026-08-21)**: `block-constructed` is authorised for table-exact determinations only; everything
+  else in this bullet stands;
 - treating the metre height as sourced — **`PLANTES` is a STOREY COUNT** (`"B+7"`), converted to metres
   through PGM **Art. 327.2**, and that conversion is cited, not assumed.
 

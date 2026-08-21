@@ -37,9 +37,10 @@
 // The Refós is a *transcripció gràfica i alfanumèrica* — a re-edition with a provenance ceiling. The
 // spike's honest ceiling revision (48 % MIN / ~58 % LIKELY) is **conditional on L-449 certifying the
 // Refós vintage/authority**, exactly like Córdoba's OCR pack. `BCN_REFOS_OV_CERTIFIED` is that gate,
-// DEFAULT OFF: while false, clau 18 keeps its existing cited refusal and this resolver renders
-// nothing. When a human signs off, the dispatcher may render — and even then only at
-// `estimated-ruleset` (a constructed envelope, NEVER `structured`), with a caveat naming the AMB
+// (SIGNED — SIG-3, 2026-08-01): while false, clau 18 keeps its existing cited refusal and this
+// resolver renders nothing. With the signature, the dispatcher renders at `block-constructed` for
+// table-exact conversions (SIG-5, §BCN-OV-CONFIDENCE L-1660) and `estimated-ruleset` for
+// extrapolated ones — a constructed envelope, NEVER `structured` — with a caveat naming the AMB
 // Refós source + vintage. A wrong-vintage transcription passes a gate as easily as a right one
 // (the L-526 trap), so an absent number is the correct default and a confident one is the hazard.
 //
@@ -86,7 +87,9 @@ const tracer = trace.getTracer('pryzm.zoning');
  *
  * **WHAT IT DOES NOT AUTHORISE** — the other **73.6 %** of clau-18 land (they keep the cited PGM
  * Art. 306 refusal); any other clau (the dispatch branch is guarded to clau exactly `'18'`); promoting
- * the confidence tier; or treating the metre height as sourced — **`PLANTES` is a STOREY COUNT**
+ * the confidence tier (⚠ narrowly superseded by **SIG-5**, 2026-08-21: `block-constructed` for
+ * TABLE-EXACT determinations only — see `sources/VERIFICATION.md`); or treating the metre height as
+ * sourced — **`PLANTES` is a STOREY COUNT**
  * (`"B+7"`), converted through PGM Art. 327.2, and that conversion is cited, not assumed.
  *
  * **LIMITS ACCEPTED AT SIGNING** (SIG-3, both recorded rather than papered over):
@@ -109,10 +112,11 @@ export const BCN_REFOS_OV_CERTIFIED: boolean = true;
 export const BCN_REFOS_OV_RING_REF = 'bcn-refos-ov:plantes/amb-v2024' as const;
 
 /**
- * The same-origin proxy route the browser would call (never geoportal.amb.cat directly — C57 CSP).
- * ⚠ NOT YET WIRED server-side (like Madrid's `/api/madrid/condiciones`). Documented here so the day
- * it lands this is the one constant to point at it; until then the fetch fails and the resolver
- * refuses `endpoint-unreachable` — the correct state while `BCN_REFOS_OV_CERTIFIED` is off anyway.
+ * The same-origin proxy route the browser calls (never geoportal.amb.cat directly — C57 CSP).
+ * WIRED server-side: `server/jurisdiction/index.js` mounts `bcnRefosOvHandler` on this path (the
+ * §BCN-CLAU18-OV e2e test mounts the same real handler). This docstring used to say "NOT YET
+ * WIRED … the correct state while `BCN_REFOS_OV_CERTIFIED` is off anyway" — both halves went
+ * stale: the route is live and the gate is SIGNED (SIG-3, 2026-08-01).
  */
 export const BCN_REFOS_OV_PATH = '/api/bcn-refos/ov';
 
