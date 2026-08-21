@@ -10,14 +10,36 @@
  *                     normal. The hover highlight stays parked on the cut
  *                     surface so the cut location is always visible.
  *
- * Clipping is applied two ways in parallel:
- *   (a) renderer.clippingPlanes (global) for WebGL paths
- *   (b) per-material mat.clippingPlanes for the WebGPU node pipeline used
- *       by this app — the same path the wall-cutaway and Z-Slicer rely on.
+ * ── CLIPPING MECHANISM — §SECTION-3D-CAPABILITY (L-1760..L-1762, 2026-08-21) ──
  *
- * If neither path produces a visible cut we fall back to per-mesh visibility
- * culling (any mesh whose centre lies on the clipped side is hidden) so the
- * user always sees something happen on click.
+ * ONE mechanism: `renderer.clippingPlanes` on the LIVE renderer, which must be
+ * a genuine `THREE.WebGLRenderer`. The caller establishes both preconditions
+ * with `resolveSectionClipCapability()` and does not enable this tool otherwise.
+ *
+ * This header previously described three parallel paths — global planes,
+ * per-material planes "for the WebGPU node pipeline", and a per-mesh visibility
+ * cull "so the user always sees something happen on click". Measured against
+ * `three@0.183.2`, only the first was ever real, and it was aimed at the wrong
+ * object:
+ *
+ *   • The renderer passed in was `world.renderer.three`, the OBC
+ *     PostproductionRenderer — which Phase 5 silences and which never renders
+ *     again. Both plane writes landed on a dead object (ISSUE-LOG L-1486).
+ *   • Per-material planes are NOT a WebGPU path. `three/src/renderers/common/
+ *     Renderer.js` (the base of `WebGPURenderer`, used for BOTH the 'webgpu'
+ *     and 'webgl-fallback' backends) never reads `material.clippingPlanes` and
+ *     has no `clippingPlanes` / `localClippingEnabled` property at all. WebGPU
+ *     clipping flows ONLY through `THREE.ClippingGroup` scene objects, which
+ *     this repo does not use.
+ *   • So on every Phase-5 backend the only path that did anything was the
+ *     visibility cull — hiding whole meshes instead of cutting them. That is
+ *     what made the feature look UNRELIABLE rather than UNAVAILABLE, and it is
+ *     the C84 EI-1b defect: failure and success rendering as the same value.
+ *
+ * A WebGPU section is therefore a real, separate piece of work (reparent the
+ * model under a `ClippingGroup`, owned by `packages/renderer-three` under P2) —
+ * NOT a matter of pointing this tool at `window.pryzmRenderer`. Doing only that
+ * would swap one silent no-op for another.
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
@@ -41,9 +63,6 @@ export class SectionBoxTool {
     private _origin = new THREE.Vector3();          // current cut origin
     private _origAtPlace = new THREE.Vector3();     // origin at click time
 
-    // ── Per-material backup so we can restore on disable ────────────────
-    private _matBackup: Map<THREE.Material, THREE.Plane[] | null> = new Map();
-    private _hiddenMeshes: Set<THREE.Mesh> = new Set();    // fallback culling
 
     // ── Indicator (purple face quad) ────────────────────────────────────
     private _indicator: THREE.Group | null = null;
@@ -116,29 +135,16 @@ export class SectionBoxTool {
             this._container.style.cursor = '';
         }
 
-        // Restore every material we touched.
+        // §SECTION-3D-CAPABILITY (L-1761) — nothing per-material to restore and
+        // no culled meshes to un-hide: this tool no longer writes either (see
+        // `_applyPlane`). Clearing the one renderer-level slot is the whole
+        // teardown.
         //
-        // 3D-VIEW-AUDIT-2026 §F15 — was `original ?? []`, which permanently
-        // converted any material whose pre-section state was `clippingPlanes = null`
-        // into `clippingPlanes = []`.  In Three.js these are NOT equivalent:
-        //   • `null`  — material participates in the renderer's GLOBAL clipping set
-        //               (`renderer.clippingPlanes`).
-        //   • `[]`    — material is ISOLATED from clipping entirely.
-        // The bug therefore silently disabled global clipping (used by the V07
-        // SectionViewService) on every material the SectionBoxTool ever touched.
-        // This is the sibling of V07 §F15.1 (already fixed in SectionViewService).
-        this._matBackup.forEach((original, mat) => {
-            try {
-                (mat as any).clippingPlanes = original ?? null;
-                mat.needsUpdate = true;
-            } catch { /* ignore */ }
-        });
-        this._matBackup.clear();
-
-        // Restore meshes that were culled as a visual fallback
-        this._hiddenMeshes.forEach(m => { m.visible = true; });
-        this._hiddenMeshes.clear();
-
+        // ⚠ That slot is SHARED with `LevelClipPlaneCache` (plan-view level
+        // cuts) and with `ViewController._clearClipping()`. Clearing it here is
+        // correct while the section is the last writer, but the surface has five
+        // producers and no owner — C06 §13.3. Recorded as the open half of
+        // L-1762; do not add a sixth writer.
         if (this._renderer) {
             this._renderer.clippingPlanes = [];
         }
@@ -579,74 +585,40 @@ export class SectionBoxTool {
         const c = this._normal.dot(this._origin);
         const plane = new THREE.Plane(n, c);
 
-        this._renderer.localClippingEnabled = true;
+        // §SECTION-3D-CAPABILITY (L-1761) — RENDERER-LEVEL PLANES ONLY.
+        //
+        // The caller guarantees `_renderer` is the LIVE renderer and that it is
+        // a genuine THREE.WebGLRenderer (see the class header). On that renderer
+        // the global `clippingPlanes` set clips every material with no shader
+        // permutation per material — which is the whole reason LevelClipPlaneCache
+        // exists, and the reason the two writes this used to make are now gone:
+        //
+        //   ⛔ `localClippingEnabled = true` — BANNED (QF-1 / LevelClipPlaneCache):
+        //      it forces EVERY material in the scene to recompile its shader with
+        //      the CLIPPING_PLANES variant — measured at up to 15 SECONDS on a
+        //      20-level model. `ViewController` and `LevelClipPlaneCache` both
+        //      re-assert it to false; this tool was the last writer of `true`.
+        //   ⛔ per-material `mat.clippingPlanes` — pointless AND expensive: with
+        //      renderer-level planes it adds nothing, it carries `needsUpdate` on
+        //      every material (the same recompile), and on the Phase-5 backends
+        //      the live renderer never reads it at all.
+        //
+        // Removing the per-material path also retires the §F15 hazard that used
+        // to live here (restoring `[]` where the original was `null` isolated a
+        // material from global clipping forever): nothing is stamped, so nothing
+        // needs restoring, and the bug is now unreachable rather than guarded.
         this._renderer.clippingPlanes = [plane];
 
-        // Per-material apply
-        let meshCount = 0;
-        let matCount  = 0;
-        let firstMat  = '';
-        this._scene.traverse(o => {
-            if (!this._isCuttable(o)) return;
-            const mesh = o as THREE.Mesh;
-            meshCount++;
-            const mats: THREE.Material[] = Array.isArray(mesh.material)
-                ? mesh.material
-                : (mesh.material ? [mesh.material] : []);
-            mats.forEach(mat => {
-                if (!mat) return;
-                if (!firstMat) firstMat = (mat as any).constructor?.name ?? 'unknown';
-                if (!this._matBackup.has(mat)) {
-                    const orig = (mat as any).clippingPlanes as THREE.Plane[] | undefined;
-                    this._matBackup.set(mat, orig ? orig.slice() : null);
-                }
-                (mat as any).clippingPlanes = [plane];
-                (mat as any).clipShadows    = true;
-                mat.needsUpdate = true;
-                matCount++;
-            });
-        });
-
-        // Visual fallback: hide any mesh whose AABB centre is on the cut
-        // (camera-side) of the plane. Restore previously-hidden meshes whose
-        // centre is now back on the kept side. This guarantees the user sees
-        // SOMETHING change immediately on click, even if the WebGPU pipeline
-        // ignores material clipping for whatever reason.
-        const box = new THREE.Box3();
-        const centre = new THREE.Vector3();
-        const previouslyHidden = new Set(this._hiddenMeshes);
-        this._hiddenMeshes.clear();
-        this._scene.traverse(o => {
-            const isOurs = (o as any).userData?.isSectionBoxGizmo;
-            if (isOurs) return;
-            // Restore any previously-hidden mesh by default
-            if (previouslyHidden.has(o as any)) (o as THREE.Mesh).visible = true;
-            if (!(o instanceof THREE.Mesh)) return;
-            if (!o.geometry) return;
-            // Use bounding box of the geometry
-            if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-            box.copy(o.geometry.boundingBox!).applyMatrix4(o.matrixWorld);
-            box.getCenter(centre);
-            // Distance from centre to plane in plane.normal direction
-            // plane.distanceToPoint > 0 means kept side
-            const d = plane.distanceToPoint(centre);
-            if (d < -0.05) {
-                // Centre clearly on the clipped side — hide it.
-                if (o.visible && !previouslyHidden.has(o)) {
-                    // Was visible before our culling — record so we restore later
-                    o.visible = false;
-                    this._hiddenMeshes.add(o);
-                } else if (previouslyHidden.has(o)) {
-                    o.visible = false;
-                    this._hiddenMeshes.add(o);
-                }
-            }
-        });
-
-        console.log(
-            `[SectionBoxTool] cut applied: meshes=${meshCount} mats=${matCount} ` +
-            `firstMat=${firstMat} hiddenFallback=${this._hiddenMeshes.size}`,
-        );
+        // ⛔ NO VISIBILITY FALLBACK. This used to hide every mesh whose AABB
+        // centre sat on the cut side "so the user always sees SOMETHING happen
+        // on click". That is exactly the failure C84 EI-1b forbids — it made a
+        // FAILED cut and a SUCCESSFUL cut render as the same thing, which is why
+        // the feature was remembered as "unreliable" rather than "unavailable".
+        // It was also wrong where clipping worked: a wall straddling the plane
+        // whose centre fell past it VANISHED WHOLE instead of being sliced.
+        // Availability is now decided up front by resolveSectionClipCapability()
+        // and disclosed on the button; when we get here, clipping really works.
+        console.log('[SectionBoxTool] cut applied via renderer-level clip plane');
 
         this._requestRender();
     }

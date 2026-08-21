@@ -15,6 +15,10 @@ import { resolveActiveSlabDrawMode } from '@app/engine/views/plantools/activeSla
 import { resolveSlabReentryMode } from '@app/engine/views/plantools/activeSlabFamilyMode';
 import { resolveLevelIsolation } from '../../engine/inspect/LevelIsolationResolver';
 import { resolveNightBackground } from '../../engine/inspect/NightModeBackgroundResolver';
+import {
+    resolveSectionClipCapability,
+    type SectionClipCapability,
+} from '../../engine/inspect/SectionClipCapabilityResolver';
 // §FIX-LIGHT-NIGHT-CONTRIBUTION — the role stamped on artificial fixture lights,
 // which the environment dimmer below must skip.
 import { FIXTURE_LIGHT_ROLE } from '@pryzm/core-app-model';
@@ -901,7 +905,51 @@ export class BottomActionMenu {
         this._render();
     }
 
+    /**
+     * §SECTION-3D-CAPABILITY (L-1760/L-1761) — the renderer that ACTUALLY DRAWS.
+     *
+     * ⛔ Do NOT reduce this to `window.world.renderer.three`. That is the OBC
+     * `PostproductionRenderer`, which Phase 5 puts in `RendererMode.MANUAL` with
+     * postproduction off and which then **never renders again** — writing clip
+     * planes to it is a silent no-op, and that is precisely why the section box
+     * stopped cutting (ISSUE-LOG L-1486, measured OPEN 2026-08-20).
+     *
+     * `window.pryzmRenderer` is published ONLY when Phase 5 activates
+     * (`initScene.ts`); when Phase 5 aborts at boot, OBC is retained and IS the
+     * live renderer. So this fallback chain names the live renderer in every
+     * configuration, boot or post-live-swap.
+     */
+    private _liveRenderer(): THREE.WebGLRenderer | undefined {
+        return (window.pryzmRenderer // TODO(D.4): replace with runtime.scene.renderer — Phase D.4
+            ?? window.world?.renderer?.three
+            ?? window.renderer) as THREE.WebGLRenderer | undefined;
+    }
+
+    /**
+     * §SECTION-3D-CAPABILITY (L-1761) — can the live renderer cut a 3-D section?
+     *
+     * Re-resolved on every render rather than cached, because the backend is
+     * live-swappable (`window.pryzmSwapRendererBackend`) and a cached verdict
+     * would outlive the renderer it described — the L-1486 defect class.
+     */
+    private _sectionCapability(): SectionClipCapability {
+        return resolveSectionClipCapability({
+            liveRenderer: this._liveRenderer(),
+            backend: window.pryzmRendererBackend ?? null,
+        });
+    }
+
     private _toggleSectionBox(): void {
+        // C06 §13.5 defence in depth — the disabled button attaches no click
+        // listener, so this can only be reached programmatically or if the
+        // backend swapped between render and click. Refuse, and say why.
+        const capability = this._sectionCapability();
+        if (!capability.available) {
+            console.warn('[BottomActionMenu] §SECTION-3D — refused:', capability.reason);
+            this._sectionBoxActive = false;
+            this._render();
+            return;
+        }
         console.log('[BottomActionMenu] section box clicked, active=', this._sectionBoxActive);
         this._sectionBoxActive = !this._sectionBoxActive;
         const tool = window.sectionBoxTool; // TODO(D.4): replace with runtime.tools.sectionBox — Phase D.4
@@ -917,7 +965,7 @@ export class BottomActionMenu {
                    ?? window.bimWorld // TODO(D.4): replace with runtime.scene.world — alias removed in D.4 — Phase D.4
                    ?? window.selectionManager?.world; // TODO(D.13): replace with runtime.picking.select — Phase D.13
             const scene    = this._getScene() as THREE.Scene | null;
-            const renderer = (w?.renderer?.three ?? window.renderer) as THREE.WebGLRenderer | undefined; // TODO(D.4): replace with runtime.scene.renderer — Phase D.4
+            const renderer = this._liveRenderer();
             const camera   = (w?.camera?.three   ?? window.selectionManager?.camera?.three) as THREE.Camera | undefined; // TODO(D.13): replace with runtime.picking.select — Phase D.13
             const container = window.viewportContainer as HTMLElement | null; // TODO(D.4): replace with runtime.scene.viewportContainer — Phase D.4
             console.log('[BottomActionMenu] section box context', { hasWorld: !!w, hasRenderer: !!renderer, hasScene: !!scene, hasCamera: !!camera, hasContainer: !!container, hasTool: !!tool, hasEnable: typeof tool?.enable });
@@ -946,6 +994,26 @@ export class BottomActionMenu {
     }
 
     private _toggleCamera(): void {
+        // §SECTION-3D-CAPABILITY (L-1762) — a view switch runs
+        // `ViewController._clearClipping()`, which assigns
+        // `renderer.clippingPlanes = []`. That silently destroys an active
+        // section cut while this menu still painted the button amber "On", so
+        // the control asserted a cut that no longer existed. Clear the cut
+        // through the tool so the state and the renderer agree.
+        //
+        // ⚠ KNOWN GAP (L-1762): this covers the bottom-bar camera toggle only.
+        // Other routes into `ViewController.activate()` — the View Browser rail
+        // and the ViewCube — wipe the planes without passing through here and
+        // can still strand the flag. The durable fix is for the clip surface to
+        // have ONE owner that broadcasts (C06 §13.3); recorded, not taken here.
+        if (this._sectionBoxActive) {
+            this._sectionBoxActive = false;
+            try {
+                window.sectionBoxTool?.disable?.(); // TODO(D.4): replace with runtime.tools.sectionBox — Phase D.4
+            } catch (e) {
+                console.warn('[BottomActionMenu] §SECTION-3D — disable on view switch failed:', e);
+            }
+        }
         this._is2D = !this._is2D;
         const mode = this._is2D ? 'Top' : '3D';
         const vc = window.viewController; // TODO(D.4): replace with runtime.scene.viewController — Phase D.4
@@ -954,7 +1022,27 @@ export class BottomActionMenu {
         this._render();
     }
 
-    private _makeBtn(opts: { cls?: string; title?: string; svg: string; badge?: string; onClick: () => void }): HTMLButtonElement {
+    /**
+     * §SECTION-3D-CAPABILITY (L-1762) — `disabled` renders the control as an
+     * honestly-dead action per **C06 §13.5**: marked, carrying its stated reason
+     * in the tooltip, and NOT clickable. The click listener is not attached at
+     * all (belt and braces alongside `btn.disabled`), so a disabled control can
+     * never reach a handler.
+     *
+     * ⚠ The dimming is INLINE and not a `.bam-btn:disabled` rule, deliberately:
+     * `apps/editor/src/ui/styles/panels/drawingHuds.ts` owns `.bam-btn` and is
+     * being restyled by a sibling lane (UI1). Adding the shared rule there is
+     * the right long-term home — see the note in the L-1762 report — but doing
+     * it from here would collide with a live restyle for no functional gain.
+     */
+    private _makeBtn(opts: {
+        cls?: string;
+        title?: string;
+        svg: string;
+        badge?: string;
+        disabled?: boolean;
+        onClick: () => void;
+    }): HTMLButtonElement {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'bam-btn bam-icon-lucide' + (opts.cls ? ' ' + opts.cls : '');
@@ -965,6 +1053,14 @@ export class BottomActionMenu {
             span.className = 'bam-shortcut';
             span.textContent = opts.badge;
             btn.appendChild(span);
+        }
+        if (opts.disabled) {
+            btn.disabled = true;
+            btn.classList.add('bam-btn--unavailable');
+            btn.setAttribute('aria-disabled', 'true');
+            btn.style.opacity = '0.38';
+            btn.style.cursor = 'not-allowed';
+            return btn;
         }
         btn.addEventListener('click', opts.onClick);
         return btn;
@@ -1083,10 +1179,20 @@ export class BottomActionMenu {
             title: 'Reset view controls',
             onClick: () => { this._resetView(); },
         }));
+        // §SECTION-3D-CAPABILITY (L-1762) — the 3-D section cut. Rendered from a
+        // capability verdict, never unconditionally: on the WebGPU backends the
+        // live renderer has no clipping API, and a button that looks live while
+        // cutting nothing is the C06 §13.5 defect ("a dead button that looked
+        // alive is its own bug"). C84 EI-1b — "nothing happened" and "not
+        // available, because X" must not render as the same thing.
+        const sectionCap = this._sectionCapability();
         viewWrap.appendChild(this._makeBtn({
             svg: ICONS.sectionBox,
-            title: this._sectionBoxActive ? 'Section Box: On — click to disable' : 'Section Box',
-            cls: this._sectionBoxActive ? 'bam-mode-active-amber' : '',
+            title: !sectionCap.available
+                ? sectionCap.reason!
+                : (this._sectionBoxActive ? 'Section: On — click to clear the cut' : 'Section — cut the 3D model at a face'),
+            cls: this._sectionBoxActive && sectionCap.available ? 'bam-mode-active-amber' : '',
+            disabled: !sectionCap.available,
             onClick: () => this._toggleSectionBox(),
         }));
         row.appendChild(viewWrap);
