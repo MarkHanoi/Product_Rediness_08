@@ -109,6 +109,10 @@ export { parseWallTypeIntent } from './intents/ZeroTokenResolver.js';
 // L-911 — the apartment default the chat QUOTES, exported so the editor can
 // pin it against the DEFAULT_PROGRAM the engine actually uses.
 export { APARTMENT_STATED_DEFAULT } from './intents/ZeroTokenResolver.js';
+// §RAC-APARTMENT-IN-ROOM (L-1640) — THE room-number ladder, shared with the
+// editor bridge (one implementation, two consumers — the L-1201 lift pattern).
+export { matchRoomsByNumber, resolveSingleRoomRef, describeRoomRow } from './intents/roomNumberMatch.js';
+export type { RoomNumberRow, RoomNumberMatch, SingleRoomResolution } from './intents/roomNumberMatch.js';
 // ADR-0315 U3 — the canonical scope representation + the injected resolver's
 // result contract (F1/F2).
 export { isScopeError } from './intents/ScopeDescriptor.js';
@@ -388,7 +392,10 @@ export {
   polygonAreaM2,
   classifyPerimeter,
 } from './workflows/apartmentLayout/shellAnalysis.js';
-export { createStoreShellReader } from './workflows/apartmentLayout/shellReader.js';
+export { createStoreShellReader, analyseRoomRing, roomRingEdges } from './workflows/apartmentLayout/shellReader.js';
+// §RAC-APARTMENT-IN-ROOM (L-1644) — the room-scoped payload builder (pure).
+export { buildRoomScopedLayoutPayload, SPAN_ON_RING_M } from './workflows/apartmentLayout/roomScopePayload.js';
+export type { BuildRoomScopedPayloadInput, RoomScopeWall, RoomScopedPayloadResult } from './workflows/apartmentLayout/roomScopePayload.js';
 // A.21.D29 #3 — main-entrance door resolver for the generated house (pure).
 export {
   resolveEntranceDoor,

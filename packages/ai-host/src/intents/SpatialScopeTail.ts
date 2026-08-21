@@ -230,6 +230,29 @@ export function parseTrailingSpatialScope(
   text: string,
   ctx: ResolverContext | undefined,
 ): SpatialTailReading {
+  return matchTrailingSpatialScope(text, ctx)?.reading ?? { kind: 'none' };
+}
+
+/** A trailing place phrase WITH its position, so a grammar that must consume
+ *  the phrase (strip it before its own guards run) can do so without writing a
+ *  place regex of its own — C67 §4 rule 16's "one shared parser" applied to
+ *  consumption as well as reading. `start` is the index of the preposition. */
+export interface TrailingScopeMatch {
+  readonly reading: Exclude<SpatialTailReading, { kind: 'none' }>;
+  readonly start: number;
+}
+
+/**
+ * §RAC-APARTMENT-IN-ROOM (L-1641, 2026-08-21) — the span-returning core of
+ * `parseTrailingSpatialScope`, extracted so the apartment grammar can STRIP a
+ * matched place phrase ("…on room 00-001 in ground level") and re-scan the
+ * remainder for a second one. Behaviour of the reading is byte-identical: same
+ * right-to-left scan, same anchored tail, same classifier.
+ */
+export function matchTrailingSpatialScope(
+  text: string,
+  ctx: ResolverContext | undefined,
+): TrailingScopeMatch | null {
   const scan = new RegExp(`\\b${SPATIAL_PREPOSITION_SRC}\\s`, 'g');
   const starts: number[] = [];
   let m: RegExpExecArray | null;
@@ -242,9 +265,9 @@ export function parseTrailingSpatialScope(
     const hit = tail.exec(text.slice(starts[i]!));
     if (hit === null) continue;
     const reading = readSpatialTail(hit[1], joinTailPhrase(hit[2], hit[3]), ctx);
-    if (reading.kind !== 'none') return reading;
+    if (reading.kind !== 'none') return { reading, start: starts[i]! };
   }
-  return { kind: 'none' };
+  return null;
 }
 
 /** Strip a trailing level noun from a level query — the ONE place that knows

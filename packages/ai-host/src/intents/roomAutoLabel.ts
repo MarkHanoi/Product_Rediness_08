@@ -44,6 +44,11 @@ export interface RoomLabelRow {
   readonly name?: string;
   readonly roomNumber?: string;
   readonly levelId?: string;
+  /** §RAC-APARTMENT-IN-ROOM (L-1644) — net floor area (m²) when the snapshot
+   *  carries it (the bridge reads RoomData.computed.area). Optional and
+   *  read only by Confirm-card copy — absent means the sentence simply omits
+   *  the area, never invents one. */
+  readonly areaM2?: number;
 }
 
 /** One command of the planned fan-out (mirrors BusCommandRef structurally —

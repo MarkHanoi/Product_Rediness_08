@@ -1199,7 +1199,9 @@ function classify(
   // and de-punctuated the text; the noun matcher carries the spelling
   // tolerance, so a typo reaches the capability instead of the "I'm not sure
   // how to help with that yet" dead end the founder hit.
-  const aptLayout = parseApartmentLayoutIntent(n.plain);
+  // §RAC-APARTMENT-IN-ROOM — ctx threads through so the place phrase reads the
+  // SAME way on both paths (the ONE-parser rule; HERE-phrases need levels).
+  const aptLayout = parseApartmentLayoutIntent(n.plain, ctx);
   if (aptLayout !== null) {
     push({
       intent: 'generate-apartment-layout',

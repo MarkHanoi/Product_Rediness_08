@@ -49,6 +49,11 @@ import {
     // proved this arm returned [] for every level of every project.
     resolveLevelScopeByHost,
     isHostDerivedKind,
+    // §RAC-APARTMENT-IN-ROOM (L-1640) — the room-number ladder LIFTED into the
+    // shared layer (one implementation, two consumers). The local copy this
+    // file carried is deleted; behaviour is byte-identical by import.
+    matchRoomsByNumber,
+    describeRoomRow,
     type LevelBearingRow,
     type ConversationContext,
     type PlanReport,
@@ -217,93 +222,6 @@ interface RoomRefRow {
     readonly name?: string;
     readonly roomNumber?: string;
     readonly boundingWallIds?: string[];
-}
-
-/** How a room is spoken back to the user: number first, name in support. */
-function describeRoomRow(room: RoomRefRow): string {
-    const number = typeof room.roomNumber === 'string' ? room.roomNumber.trim() : '';
-    const name = typeof room.name === 'string' ? room.name.trim() : '';
-    if (number.length > 0 && name.length > 0) return `${number} (${name})`;
-    return number.length > 0 ? number : name;
-}
-
-/** Digits only — "00-001" and "001" share the tail "1" once leading zeros go. */
-function numericTail(raw: string): string {
-    const digits = raw.replace(/\D+/g, '');
-    return digits.replace(/^0+/, '');
-}
-
-type RoomNumberMatch =
-    | { readonly kind: 'matched'; readonly rooms: readonly RoomRefRow[] }
-    | { readonly kind: 'ambiguous'; readonly error: string };
-
-/**
- * Match a spoken room reference against the unique NUMBER column.
- *
- * Also splits a multi-room reference ("002 and 003") — but ONLY after the whole
- * string fails, so no existing single-reference behaviour changes. A part that
- * resolves to nothing collapses the whole match rather than silently acting on
- * the subset the user did not ask for alone.
- */
-function matchRoomsByNumber(rawRef: string, rooms: readonly RoomRefRow[]): RoomNumberMatch {
-    const ref = rawRef.trim().replace(/^rooms?\s+/i, '').trim();
-    if (ref.length === 0 || rooms.length === 0) return { kind: 'matched', rooms: [] };
-
-    const single = (needle: string): RoomNumberMatch => {
-        const key = needle.trim().replace(/^rooms?\s+/i, '').trim().toLowerCase();
-        if (key.length === 0) return { kind: 'matched', rooms: [] };
-        const numberOf = (r: RoomRefRow): string =>
-            (typeof r.roomNumber === 'string' ? r.roomNumber : '').trim().toLowerCase();
-        // Tier 1 — the number, exactly as shown in the schedule.
-        // Tier 2 — the trailing segment ("001" for "00-001"), the form the
-        //          founder actually types.
-        // Tier 3 — digits with leading zeros dropped ("1" ≡ "001" ≡ "00-001").
-        const tiers: ((r: RoomRefRow) => boolean)[] = [
-            (r) => numberOf(r).length > 0 && numberOf(r) === key,
-            (r) => {
-                const n = numberOf(r);
-                if (n.length === 0) return false;
-                const segments = n.split(/[-_.\s/]+/);
-                return segments[segments.length - 1] === key;
-            },
-            (r) => {
-                const n = numericTail(numberOf(r));
-                const k = numericTail(key);
-                return n.length > 0 && k.length > 0 && n === k;
-            },
-        ];
-        for (const tier of tiers) {
-            const hits = rooms.filter(tier);
-            if (hits.length === 1) return { kind: 'matched', rooms: hits };
-            if (hits.length > 1) {
-                return {
-                    kind: 'ambiguous',
-                    error:
-                        `"${needle.trim()}" matches ${hits.length} rooms — ` +
-                        `${hits.map((r) => describeRoomRow(r) || r.id).join(', ')}. ` +
-                        `Nothing was changed; say the full room number so I change the right one.`,
-                };
-            }
-        }
-        return { kind: 'matched', rooms: [] };
-    };
-
-    const whole = single(ref);
-    if (whole.kind === 'ambiguous' || whole.rooms.length > 0) return whole;
-
-    // Multi-reference: "002 and 003", "002, 003 and 004".
-    const parts = ref.split(/\s*(?:,|\band\b|&|\+)\s*/i).map((p) => p.trim()).filter((p) => p.length > 0);
-    if (parts.length < 2) return { kind: 'matched', rooms: [] };
-    const collected: RoomRefRow[] = [];
-    for (const part of parts) {
-        const hit = single(part);
-        if (hit.kind === 'ambiguous') return hit;
-        // All-or-nothing: acting on the parts that happened to resolve would be
-        // doing a fraction of the ask without saying so.
-        if (hit.rooms.length === 0) return { kind: 'matched', rooms: [] };
-        for (const r of hit.rooms) if (!collected.some((c) => c.id === r.id)) collected.push(r);
-    }
-    return { kind: 'matched', rooms: collected };
 }
 
 /**
@@ -1053,10 +971,13 @@ async function buildContext(): Promise<ResolverContext> {
     // pure). Read off the SAME legacy store the room arm resolves against.
     // Unreadable ⇒ omitted ⇒ the capability degrades to occupancy-only —
     // never a rename claimed on data nobody read (§CONTEXT-DATA-HONESTY).
-    let roomsSnapshot: readonly { id: string; name?: string; roomNumber?: string; levelId?: string }[] | null = null;
+    let roomsSnapshot: readonly { id: string; name?: string; roomNumber?: string; levelId?: string; areaM2?: number }[] | null = null;
     try {
         const roomStore = storeRegistry.getStoreForType('room') as unknown as {
-            getAll?: () => Array<{ id: string; name?: string; roomNumber?: string; levelId?: string }>;
+            getAll?: () => Array<{
+                id: string; name?: string; roomNumber?: string; levelId?: string;
+                computed?: { area?: number };
+            }>;
         } | undefined;
         const all = roomStore?.getAll?.();
         if (Array.isArray(all)) {
@@ -1065,6 +986,11 @@ async function buildContext(): Promise<ResolverContext> {
                 ...(typeof r.name === 'string' ? { name: r.name } : {}),
                 ...(typeof r.roomNumber === 'string' ? { roomNumber: r.roomNumber } : {}),
                 ...(typeof r.levelId === 'string' ? { levelId: r.levelId } : {}),
+                // §RAC-APARTMENT-IN-ROOM (L-1644) — the room's computed net area
+                // (m²) so the apartment Confirm card can name it. Absent when the
+                // store does not carry it — the copy then omits the area rather
+                // than inventing one.
+                ...(typeof r.computed?.area === 'number' ? { areaM2: r.computed.area } : {}),
             }));
         }
     } catch (err) {

@@ -261,6 +261,18 @@ export class ApartmentLayoutController {
 export interface RequestApartmentLayoutResult {
     readonly ok: boolean;
     readonly reason?: string;
+    /** §RAC-APARTMENT-IN-ROOM (L-1644) — the ENGINE's own outcome, read
+     *  loud-fail-soft off the workflow's json preview. `status: 'rejected'`
+     *  carries the engine's own reason (envelope band, degenerate perimeter,
+     *  …) so a chat caller can put the REAL sentence on the transcript instead
+     *  of claiming the picker opened. Absent when the submit result carried no
+     *  parseable preview (older paths) — absence is "not measured", never
+     *  "ok". */
+    readonly engine?: {
+        readonly status: 'ok' | 'rejected';
+        readonly reason?: string;
+        readonly optionCount?: number;
+    };
 }
 
 /** Minimal structural view of the AiPlane the trigger submits through. */
@@ -295,14 +307,27 @@ export async function requestApartmentLayout(
         if (!payload.shellWallIds || payload.shellWallIds.length < 3) {
             return { ok: false, reason: 'Need at least 3 exterior shell walls on the active level' };
         }
-        await plane.submit({
+        const submitted = await plane.submit({
             workflow: 'apartment-layout-generate',
             projectId: ctx.projectId ?? 'local-apartment-layout',
             actorId: ctx.actorId ?? 'local',
             plan: 'team',
             input: payload,
         });
-        return { ok: true };
+        // §RAC-APARTMENT-IN-ROOM (L-1644) — read the engine outcome off the
+        // json preview, loud-fail-soft: an unparseable result leaves `engine`
+        // absent (not measured), never a fabricated 'ok'.
+        const data = (submitted as {
+            preview?: { data?: { status?: unknown; reason?: unknown; options?: unknown } };
+        } | null)?.preview?.data;
+        const engine = data !== undefined && (data.status === 'ok' || data.status === 'rejected')
+            ? {
+                status: data.status === 'ok' ? ('ok' as const) : ('rejected' as const),
+                ...(typeof data.reason === 'string' ? { reason: data.reason } : {}),
+                ...(Array.isArray(data.options) ? { optionCount: data.options.length } : {}),
+              }
+            : undefined;
+        return { ok: true, ...(engine !== undefined ? { engine } : {}) };
     } catch (err) {
         console.warn('[requestApartmentLayout] failed (non-fatal):', err);
         return { ok: false, reason: String(err) };

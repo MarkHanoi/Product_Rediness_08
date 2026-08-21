@@ -14,6 +14,8 @@ import {
     determinePayloadWalls,
     DEFAULT_PROGRAM,
     DEFAULT_CONSTRAINTS,
+    DEFAULT_WEIGHTS,
+    DEFAULT_OPTION_COUNT,
     type PayloadWallsRefusal,
 } from './layoutRequestPayload.js';
 import { resolveApartmentBrief } from './briefToProgram.js';
@@ -22,7 +24,7 @@ import { getActiveScoringWeights, getActiveEngineTuning } from './activeDesignPa
 import { getRoomAreaOverrides } from './activeRoomAreaOverrides.js';
 import { getRoomTypeOverrides } from './activeRoomTypeOverrides.js';
 import { getCurrentSiteOrigin } from '../site/siteDispatch.js';
-import { relationshipUndeterminedLabel } from '../relationshipDetermination.js';
+import { relationshipUndeterminedLabel, relationshipArrayOrUnknown } from '../relationshipDetermination.js';
 
 /** A typed gather refusal (C78 §8.1 vocabulary) handed to `onUndetermined`. */
 export type GatherLayoutRefusal = PayloadWallsRefusal;
@@ -184,4 +186,160 @@ export function gatherLayoutPayload(
     if (tuning) payload.tuning = tuning;
 
     return payload;
+}
+
+// ─── §RAC-APARTMENT-IN-ROOM (L-1644, 2026-08-21) — the ROOM-scoped gather ────
+//
+// "Create an apartment … on room 00-001": the shell is the target room's
+// boundary ring, not the level's exterior walls. This glue reads the canonical
+// room store row + the room's REAL bounding walls (for opening spans, GR-10
+// honesty included) and defers to the pure, node-tested
+// `buildRoomScopedLayoutPayload` (@pryzm/ai-host) — which records the ring
+// (centreline, deliberately — see its header) on `payload.shellRingWorld` so
+// the workflow's shell reader synthesises the shell from geometry and the
+// room's existing walls are NEVER re-created or re-resolved by id.
+
+import { buildRoomScopedLayoutPayload, type RoomScopeWall } from '@pryzm/ai-host';
+
+/** The canonical room row this gather reads (room-topology RoomStore shape). */
+interface RoomRecordLike {
+    id: string;
+    levelId: string;
+    name?: string;
+    roomNumber?: string;
+    boundary?: { polygon?: ReadonlyArray<{ x: number; z: number }> };
+    boundingWallIds?: ReadonlyArray<string>;
+    computed?: { area?: number };
+}
+
+export type RoomGatherResult =
+    | {
+        readonly kind: 'payload';
+        readonly payload: ApartmentGenerateLayoutPayload;
+        readonly room: { readonly id: string; readonly levelId: string; readonly label: string; readonly areaM2?: number };
+      }
+    | { readonly kind: 'refusal'; readonly reason: string };
+
+/**
+ * Build the room-scoped generate payload for `roomId` from the live stores.
+ * Every failure is a NAMED refusal (C84 EI-1b) — a vanished room, a degenerate
+ * boundary and an unrecorded opening set are three different sentences.
+ */
+export function gatherRoomLayoutPayload(
+    roomId: string,
+    programOverride?: Partial<ApartmentProgram>,
+    opts?: { readonly lockBedroomCount?: boolean },
+): RoomGatherResult {
+    const roomStore = storeRegistry.getStoreForType('room') as unknown as
+        | { getById?(id: string): RoomRecordLike | undefined | null }
+        | undefined;
+    const room = roomStore?.getById?.(roomId) ?? null;
+    if (room === null || room === undefined) {
+        return {
+            kind: 'refusal',
+            reason: `that room no longer exists in the room store — re-detect rooms and ask again. Nothing was changed.`,
+        };
+    }
+    const label = (room.roomNumber ?? '').trim().length > 0
+        ? `room ${room.roomNumber}`
+        : `room ${room.id}`;
+    const polygon = room.boundary?.polygon ?? [];
+    if (polygon.length < 3) {
+        return {
+            kind: 'refusal',
+            reason:
+                `${label} has no usable boundary polygon (${polygon.length} vertices recorded) — ` +
+                `the layout engine needs a closed room shape. Nothing was changed.`,
+        };
+    }
+
+    // The room's REAL bounding walls — read for their OPENING spans only (the
+    // pure builder filters spans to the ring; walls beyond the ring, or walls
+    // missing from the store, contribute nothing and are never re-created).
+    const wallStore = storeRegistry.getStoreForType('wall') as unknown as
+        | { getById?(id: string): WallRecord | undefined | null }
+        | undefined;
+    const boundingWalls: RoomScopeWall[] = [];
+    const unrecorded: string[] = [];
+    for (const wallId of room.boundingWallIds ?? []) {
+        const w = wallStore?.getById?.(wallId);
+        if (w === null || w === undefined) continue;      // wall gone — no spans from it
+        // GR-10 / C75 §1.4 — an ABSENT opening set is not an empty one: a
+        // partition could be punched into an opening nobody recorded.
+        const openings = relationshipArrayOrUnknown<NonNullable<WallRecord['openings']>[number]>(w.openings);
+        if (openings === null) { unrecorded.push(wallId); continue; }
+        const bl = w.baseLine;
+        boundingWalls.push({
+            id: wallId,
+            ...(bl && bl.length >= 2
+                ? { baseLine: [{ x: bl[0]!.x, z: bl[0]!.z }, { x: bl[1]!.x, z: bl[1]!.z }] as const }
+                : {}),
+            openings: openings.map(o => ({
+                type: o.type,
+                ...(typeof o.elementId === 'string' ? { elementId: o.elementId } : {}),
+                ...(typeof o.offset === 'number' ? { offset: o.offset } : {}),
+                ...(typeof o.width === 'number' ? { width: o.width } : {}),
+            })),
+        });
+    }
+    if (unrecorded.length > 0) {
+        return {
+            kind: 'refusal',
+            reason:
+                `the opening set of ${unrecorded.length} of ${label}'s bounding wall(s) was never ` +
+                `recorded ([${unrecorded.join(', ')}]) — generating against a guess could put a ` +
+                `partition through an opening nobody measured. Nothing was changed.`,
+        };
+    }
+
+    // §INTERIOR-HEIGHT-MATCH — partitions match the room's own walls.
+    let heightMm = 0;
+    for (const wallId of room.boundingWallIds ?? []) {
+        const w = wallStore?.getById?.(wallId);
+        if (w && typeof w.height === 'number' && w.height > 0) {
+            heightMm = Math.max(heightMm, Math.round(w.height * 1000));
+        }
+    }
+    const constraints = heightMm > 0
+        ? { ...DEFAULT_CONSTRAINTS, floorToCeiling: heightMm }
+        : DEFAULT_CONSTRAINTS;
+
+    // O.12.c — the SAME program resolution order as the level gather.
+    const override = programOverride
+        ?? resolveApartmentBrief(getActiveBriefMetadata('apartment')).programOverride;
+    const program: ApartmentProgram = { ...DEFAULT_PROGRAM, ...override };
+    const scoringWeights = getActiveScoringWeights() ?? undefined;
+
+    const built = buildRoomScopedLayoutPayload({
+        levelId: room.levelId,
+        roomPolygon: polygon,
+        boundingWalls,
+        program,
+        constraints,
+        count: DEFAULT_OPTION_COUNT,
+        scoringWeights: scoringWeights ?? DEFAULT_WEIGHTS,
+        ...(opts?.lockBedroomCount === true ? { lockBedroomCount: true } : {}),
+    });
+    if (built.kind === 'refusal') {
+        return { kind: 'refusal', reason: `${label}: ${built.reason}` };
+    }
+
+    // A.21.D6 / A.25.3 — the same site + tuning stamps as the level gather.
+    const origin = getCurrentSiteOrigin();
+    if (origin && Number.isFinite(origin.lat) && (origin.lat !== 0 || origin.lon !== 0)) {
+        built.payload.siteLatitudeDeg = origin.lat;
+    }
+    const tuning = getActiveEngineTuning();
+    if (tuning) built.payload.tuning = tuning;
+
+    return {
+        kind: 'payload',
+        payload: built.payload,
+        room: {
+            id: room.id,
+            levelId: room.levelId,
+            label,
+            ...(typeof room.computed?.area === 'number' ? { areaM2: room.computed.area } : {}),
+        },
+    };
 }

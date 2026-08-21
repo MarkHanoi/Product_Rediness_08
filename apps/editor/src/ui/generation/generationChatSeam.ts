@@ -44,12 +44,26 @@ export interface GenerationBuildingPayload {
     readonly roofKind?: 'flat' | 'gable' | 'hip';
 }
 
-/** The `generation.apartment` payload the resolver emits (§GEN-CHAT-APARTMENT). */
+/** The `generation.apartment` payload the resolver emits (§GEN-CHAT-APARTMENT
+ *  + §RAC-APARTMENT-IN-ROOM L-1640..L-1644). */
 export interface GenerationApartmentPayload {
     readonly bedrooms?: number;
     readonly bathrooms?: number;
     readonly masterEnSuite?: boolean;
     readonly openPlanKitchenDining?: boolean;
+    /** L-1642 — bedrooms that get their own en-suite (paired master-first). */
+    readonly enSuiteCount?: number;
+    /** L-1643 — ONE fused open-plan kitchen+living great room. */
+    readonly openPlanKitchenLiving?: boolean;
+    /** L-911 — the bedroom count was STATED; it is exact all the way down. */
+    readonly lockBedroomCount?: boolean;
+    /** L-1644 — the target room, RESOLVED by the Confirm-time ladder (id is
+     *  authoritative; number/name ride for honest transcript copy). */
+    readonly roomId?: string;
+    readonly roomNumber?: string;
+    readonly roomName?: string;
+    /** L-1641 — the level the user named (resolver-verified == active). */
+    readonly levelId?: string;
 }
 
 const REPORT_EVENT = 'pryzm-generation-report';
@@ -212,13 +226,39 @@ export async function runGenerationApartment(cmd: GenerationApartmentPayload): P
         return;
     }
     try {
+        // §RAC-APARTMENT-IN-ROOM (L-1641) — re-verify a STATED level at dispatch
+        // time. The resolver proved it equals the active level at Confirm; the
+        // user may have switched since, and the executor builds on the level
+        // being VIEWED — silently building the confirmed plan on a different
+        // floor would be the exact scope drift this lane exists to stop.
+        if (typeof cmd.levelId === 'string' && cmd.levelId.length > 0) {
+            const { resolveActiveLevelId } = await import('../apartment-layout/activeLevel.js');
+            const active = resolveActiveLevelId();
+            if (active !== cmd.levelId) {
+                emitReport(false, [
+                    `you've switched levels since confirming — the layout was confirmed for the level ` +
+                    `you were viewing. Switch back and ask again. Nothing was changed.`,
+                ]);
+                return;
+            }
+        }
         const { generateApartmentLayoutForChat } = await import('../apartment-layout/apartmentLayoutTrigger.js');
-        const res = await generateApartmentLayoutForChat(rt, {
-            ...(typeof cmd.bedrooms === 'number' ? { bedrooms: cmd.bedrooms } : {}),
-            ...(typeof cmd.bathrooms === 'number' ? { bathrooms: cmd.bathrooms } : {}),
-            ...(cmd.masterEnSuite === true ? { masterEnSuite: true } : {}),
-            ...(cmd.openPlanKitchenDining === true ? { openPlanKitchenDining: true } : {}),
-        });
+        const res = await generateApartmentLayoutForChat(
+            rt,
+            {
+                ...(typeof cmd.bedrooms === 'number' ? { bedrooms: cmd.bedrooms } : {}),
+                ...(typeof cmd.bathrooms === 'number' ? { bathrooms: cmd.bathrooms } : {}),
+                ...(cmd.masterEnSuite === true ? { masterEnSuite: true } : {}),
+                ...(cmd.openPlanKitchenDining === true ? { openPlanKitchenDining: true } : {}),
+                // §RAC-APARTMENT-IN-ROOM — the two program gaps, now real fields.
+                ...(typeof cmd.enSuiteCount === 'number' ? { enSuiteCount: cmd.enSuiteCount } : {}),
+                ...(cmd.openPlanKitchenLiving === true ? { openPlanKitchenLiving: true } : {}),
+            },
+            {
+                ...(typeof cmd.roomId === 'string' && cmd.roomId.length > 0 ? { roomId: cmd.roomId } : {}),
+                ...(cmd.lockBedroomCount === true ? { lockBedroomCount: true } : {}),
+            },
+        );
         emitReport(res.ok, res.ok ? res.report : [res.reason]);
     } catch (err) {
         console.error('[gen-chat-seam] generation.apartment threw:', err);

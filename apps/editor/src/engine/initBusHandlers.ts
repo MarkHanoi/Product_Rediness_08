@@ -2922,9 +2922,17 @@ export function initBusHandlers(
             type: 'generation.apartment',
             validate: (cmd: any) => {
                 const b = cmd?.bedrooms;
-                return b === undefined || (Number.isInteger(b) && b >= 1)
-                    ? null
-                    : 'bedrooms, when given, must be a whole number ≥ 1';
+                if (!(b === undefined || (Number.isInteger(b) && b >= 1))) {
+                    return 'bedrooms, when given, must be a whole number ≥ 1';
+                }
+                // §RAC-APARTMENT-IN-ROOM (L-1642) — the en-suite count pairs
+                // 1:1 with bedrooms; the resolver already refused count >
+                // stated bedrooms, this is the bus-level floor.
+                const e = cmd?.enSuiteCount;
+                if (!(e === undefined || (Number.isInteger(e) && e >= 0))) {
+                    return 'enSuiteCount, when given, must be a whole number ≥ 0';
+                }
+                return null;
             },
             run: async (cmd: any) => {
                 const m = await import('../ui/generation/generationChatSeam.js');

@@ -612,6 +612,17 @@ function gateCtx(
       { id: 'L2', name: 'Level 2', elevation: 6 },
     ],
     activeLevelId: 'L0',
+    // §RAC-APARTMENT-IN-ROOM (L-1640, 2026-08-21) — the ROOMS snapshot
+    // (ResolverContext.rooms) the bridge injects in production. The gate ctx
+    // previously omitted this service entirely, so any example addressing a
+    // room by its Room Schedule NUMBER ("on room 00-001") could only ever be
+    // REFUSED here — measuring the harness, not the capability (the same
+    // finding that added GATE_STUB_SCOPE). Two numbered rooms on the active
+    // level, mirroring the level fixture above.
+    rooms: [
+      { id: 'gate-room-1', name: 'Room 00-001', roomNumber: '00-001', levelId: 'L0', areaM2: 24 },
+      { id: 'gate-room-2', name: 'Room 00-002', roomNumber: '00-002', levelId: 'L0', areaM2: 18 },
+    ],
     mintId: () => `gate-mint-${++gateSeq}`,
     ...(resolveScope === undefined ? {} : { resolveScope }),
   } as ResolverContext;

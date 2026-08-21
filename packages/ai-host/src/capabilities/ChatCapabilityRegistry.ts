@@ -2550,7 +2550,18 @@ const CAPABILITIES: readonly ChatCapability[] = [
     // the active level with an ApartmentProgram (bedrooms / bathrooms /
     // en-suite / open-plan), through the SAME shared trigger both existing
     // entry points use — one pipeline, one shell read, one options modal.
-    description: 'lay out an apartment inside the walls already drawn on this level',
+    // §RAC-APARTMENT-IN-ROOM (L-1640..L-1644, 2026-08-21) — extended with the
+    // founder's per-room ask: "…on room 00-001 in ground level". The place
+    // phrase reads through SpatialScopeTail (C67 §4 rule 16); the room resolves
+    // through the shared roomNumberMatch ladder (number column first, ambiguity
+    // refuses naming candidates); a room-scoped run synthesises the shell from
+    // the room's boundary ring (shellRingWorld) so its REAL walls are never
+    // re-created. `scopeModes` stays undeclared DELIBERATELY: the declared-mode
+    // contract (check 5c) requires ctx.resolveScope dispatch semantics, and
+    // this capability resolves its scope inside the intent + arm — the
+    // generate-room-finishes precedent. Reach stays out of the undeclared-reach
+    // ratchet because the arm never calls ctx.resolveScope.
+    description: 'lay out an apartment inside the walls already drawn — the whole level, or one room by its number',
     verbs: ['generate', 'create', 'make', 'lay out', 'plan', 'design'],
     aliases: ['apartment', 'apartment layout', 'flat', 'bedroom apartment'],
     // targets:'global' — the layout engine reads the LEVEL's exterior shell,
@@ -2579,11 +2590,41 @@ const CAPABILITIES: readonly ChatCapability[] = [
         valueSource: 'user-text',
         example: 'with an en-suite',
       },
+      {
+        name: 'en-suite count',
+        description: 'how many bedrooms get their own en-suite, paired one per bedroom master-first ("2 en-suite bathrooms", "an en-suite in every bedroom")',
+        required: false,
+        valueSource: 'measurement',
+        example: '2 en-suite bathrooms',
+      },
+      {
+        name: 'open kitchen + living',
+        description: 'fuse kitchen, living and dining into ONE open-plan great room ("opened kitchen + living room")',
+        required: false,
+        valueSource: 'user-text',
+        example: 'opened kitchen + living room',
+      },
+      {
+        name: 'room',
+        description: 'lay out inside ONE room, addressed by its Room Schedule NUMBER ("on room 00-001"); ambiguous or unknown numbers refuse listing the real ones',
+        required: false,
+        valueSource: 'project-rooms',
+        example: 'on room 00-001',
+      },
+      {
+        name: 'level',
+        description: 'the level to lay out on — must be the level being viewed ("in ground level"); a different level refuses naming the switch',
+        required: false,
+        valueSource: 'project-levels',
+        example: 'in ground level',
+      },
     ],
     scope: 'global',
     // Generating a whole plan into the drawn shell is consequential — the
-    // Confirm card states bedrooms/bathrooms and that it fills the EXISTING
-    // shell, so nobody confirms it thinking they asked for a new building.
+    // Confirm card states bedrooms/bathrooms/en-suites, the room (number +
+    // name + area) or level, every unstated default (L-911), and that it fills
+    // EXISTING walls, so nobody confirms it thinking they asked for a new
+    // building or a different room.
     destructive: true,
     busCommand: 'generation.apartment',
     probe: {
@@ -2592,6 +2633,9 @@ const CAPABILITIES: readonly ChatCapability[] = [
       bathrooms: null,
       masterEnSuite: false,
       openPlanKitchenDining: false,
+      enSuiteCount: null,
+      openPlanKitchenLiving: false,
+      scope: null,
     },
     // Source-anchored: the chat reaches the layout engine through the SAME
     // shared trigger module the AI-panel leaf and the console command use.
@@ -2607,6 +2651,13 @@ const CAPABILITIES: readonly ChatCapability[] = [
       'generate a 2 bed apartment in this shell',
       'make a 3-bedroom apartment with 2 bathrooms',
       'create a 4 bedroom apartment with an en-suite',
+      // §RAC-APARTMENT-IN-ROOM (rule 19.b) — the founder's LITERAL sentence,
+      // word order, "+", and "opened kitchen" included. A paraphrase that
+      // happens to work is not acceptance evidence.
+      'Create an apartment of 3 bedrooms with opened kitchen + living room and 2 en-suite bathrooms on room 00-001 in ground level',
+      'create a 2 bedroom apartment in ground level',
+      'create an apartment in room 001',
+      'create a 3 bedroom apartment with an en-suite in every bedroom',
     ],
   },
   {

@@ -10,7 +10,7 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { ApartmentProgram } from '@pryzm/ai-host';
 import { ApartmentLayoutController, requestApartmentLayout } from './ApartmentLayoutController.js';
 import { ApartmentLayoutExecutor } from './ApartmentLayoutExecutor.js';
-import { gatherLayoutPayload, type GatherLayoutRefusal } from './gatherLayoutPayload.js';
+import { gatherLayoutPayload, gatherRoomLayoutPayload, type GatherLayoutRefusal } from './gatherLayoutPayload.js';
 import { relationshipUndeterminedLabel } from '../relationshipDetermination.js';
 import { resolveActiveLevelId } from './activeLevel.js';
 import { generateApartmentFromScratch, type ApartmentFromScratchOptions } from './apartmentFromScratch.js';
@@ -116,6 +116,12 @@ export type ApartmentLayoutChatResult =
 export async function generateApartmentLayoutForChat(
     runtimeArg: PryzmRuntime | null | undefined,
     programOverride: Partial<ApartmentProgram>,
+    // §RAC-APARTMENT-IN-ROOM (L-1644) — the chat's scope + exactness options.
+    // `roomId` switches the gather to the room's boundary ring; the resolver
+    // already verified the room is on the active level, and this path
+    // RE-verifies against the live store (records drift between Confirm and
+    // dispatch). `lockBedroomCount` rides with a STATED bedroom count (L-911).
+    opts?: { readonly roomId?: string; readonly lockBedroomCount?: boolean },
 ): Promise<ApartmentLayoutChatResult> {
     const rt = (runtimeArg ?? (window.runtime as unknown as PryzmRuntime | undefined)) ?? undefined;
     const toast = (message: string, severity: 'info' | 'success' | 'error'): void => {
@@ -131,22 +137,54 @@ export async function generateApartmentLayoutForChat(
             return { ok: false, reason: 'the AI runtime is stale — restart the dev server (npm run dev) and reload.' };
         }
 
-        // GR-10 / C75 §1.4 — surface a gather refusal as its own reason; it is
-        // not "draw more walls".
-        let gatherRefusal: GatherLayoutRefusal | null = null;
-        const payload = gatherLayoutPayload(lid, programOverride, (r) => { gatherRefusal = r; });
-        if (gatherRefusal !== null) {
-            return { ok: false, reason: relationshipUndeterminedLabel(gatherRefusal) };
-        }
-        const wallCount = payload?.shellWallIds.length ?? 0;
-        if (!payload || wallCount < 3) {
-            return {
-                ok: false,
-                reason:
-                    `there is no closed shell on this level to lay out — I found ${wallCount} exterior wall` +
-                    `${wallCount === 1 ? '' : 's'} and need at least 3. Draw the walls first, ` +
-                    `or say "generate a 2-storey house" and I'll build the shell too.`,
-            };
+        let payload: ReturnType<typeof gatherLayoutPayload>;
+        let whereLabel: string;
+        if (typeof opts?.roomId === 'string' && opts.roomId.length > 0) {
+            // ── ROOM scope — the room's boundary ring is the shell. ─────────
+            const gathered = gatherRoomLayoutPayload(opts.roomId, programOverride, {
+                ...(opts.lockBedroomCount === true ? { lockBedroomCount: true } : {}),
+            });
+            if (gathered.kind === 'refusal') {
+                return { ok: false, reason: gathered.reason };
+            }
+            // Re-verify the level at dispatch time: the user may have switched
+            // levels between Confirm and now, and the executor builds on the
+            // ACTIVE level (its own resolveActiveLevel read).
+            if (gathered.room.levelId !== lid) {
+                return {
+                    ok: false,
+                    reason:
+                        `${gathered.room.label} is not on the level you're viewing any more — ` +
+                        `switch back to its level and ask again. Nothing was changed.`,
+                };
+            }
+            payload = gathered.payload;
+            whereLabel = `inside ${gathered.room.label}` +
+                (typeof gathered.room.areaM2 === 'number'
+                    ? ` (${Math.round(gathered.room.areaM2 * 10) / 10} m²)` : '');
+        } else {
+            // ── LEVEL scope (the legacy whole-level path). ──────────────────
+            // GR-10 / C75 §1.4 — surface a gather refusal as its own reason; it
+            // is not "draw more walls".
+            let gatherRefusal: GatherLayoutRefusal | null = null;
+            payload = gatherLayoutPayload(lid, programOverride, (r) => { gatherRefusal = r; });
+            if (gatherRefusal !== null) {
+                return { ok: false, reason: relationshipUndeterminedLabel(gatherRefusal) };
+            }
+            const wallCount = payload?.shellWallIds.length ?? 0;
+            if (!payload || wallCount < 3) {
+                return {
+                    ok: false,
+                    reason:
+                        `there is no closed shell on this level to lay out — I found ${wallCount} exterior wall` +
+                        `${wallCount === 1 ? '' : 's'} and need at least 3. Draw the walls first, ` +
+                        `or say "generate a 2-storey house" and I'll build the shell too.`,
+                };
+            }
+            // §RAC-APARTMENT-IN-ROOM / L-911 — a stated count is exact on the
+            // level path too.
+            if (opts?.lockBedroomCount === true) payload.lockBedroomCount = true;
+            whereLabel = `inside the ${wallCount}-wall shell on this level`;
         }
 
         _controller.attach(rt); // idempotent
@@ -157,18 +195,33 @@ export async function generateApartmentLayoutForChat(
         if (!r.ok) {
             return { ok: false, reason: r.reason ?? 'the layout engine refused without a reason.' };
         }
+        // §RAC-APARTMENT-IN-ROOM (C84 EI-1b) — the ENGINE's own verdict. A
+        // rejected run must never read as "the picker opens": the refusal names
+        // the engine's real reason (envelope band, degenerate perimeter, …).
+        if (r.engine?.status === 'rejected') {
+            return {
+                ok: false,
+                reason: r.engine.reason ?? 'the layout engine rejected this shape without a reason.',
+            };
+        }
         const p = payload.program;
         const asked = [
             `${p.bedrooms} bedroom${p.bedrooms === 1 ? '' : 's'}`,
             `${p.bathrooms} bathroom${p.bathrooms === 1 ? '' : 's'}`,
-            ...(p.masterEnSuite === true ? ['a master en-suite'] : []),
-            ...(p.openPlanKitchenDining === true ? ['an open-plan kitchen/dining'] : []),
+            ...(typeof p.enSuiteCount === 'number' && p.enSuiteCount > 0
+                ? [`${p.enSuiteCount} en-suite${p.enSuiteCount === 1 ? '' : 's'}`]
+                : p.masterEnSuite === true ? ['a master en-suite'] : []),
+            ...(p.openPlanKitchenLiving === true
+                ? ['an open-plan kitchen + living great room']
+                : p.openPlanKitchenDining === true ? ['an open-plan kitchen/dining'] : []),
         ].join(', ');
+        const countLabel = typeof r.engine?.optionCount === 'number'
+            ? `the layout picker opens with the ${r.engine.optionCount} option${r.engine.optionCount === 1 ? '' : 's'} the engine found`
+            : 'the layout picker opens with the options the engine finds';
         return {
             ok: true,
             report: [
-                `Laying out ${asked} inside the ${wallCount}-wall shell on this level — ` +
-                `the layout picker opens with the options the engine finds, and anything it has to ` +
+                `Laying out ${asked} ${whereLabel} — ${countLabel}, and anything it has to ` +
                 `drop is named there with its reason.`,
             ],
         };

@@ -136,7 +136,16 @@ import {
   SPATIAL_TAIL_SRC,
   readSpatialTail,
   joinTailPhrase,
+  // §RAC-APARTMENT-IN-ROOM (L-1641) — the span-returning trailing matcher, so
+  // the apartment grammar can CONSUME its place phrase(s) through the ONE
+  // shared parser instead of writing a fifth spelling of the tail.
+  matchTrailingSpatialScope,
 } from './SpatialScopeTail.js';
+// §RAC-APARTMENT-IN-ROOM (L-1640) — THE room-number ladder (number tiers
+// strictest-first, whole-name fallback with an ambiguity guard), shared with
+// the editor bridge. Names drift from numbers (founder-observed), so display
+// names never decide alone.
+import { resolveSingleRoomRef, describeRoomRow } from './roomNumberMatch.js';
 // RAC U7.1 — the property vocabulary: a chat-drivable panel field is a TABLE
 // ENTRY in PropertyVocabulary.ts (noun + synonyms, the kinds that really accept
 // it, the live route per kind, bounds), executed by the ONE generic property arm
@@ -1080,6 +1089,22 @@ export type SemanticIntent =
       readonly masterEnSuite: boolean;
       /** "open-plan kitchen/living". */
       readonly openPlanKitchenDining: boolean;
+      /** §RAC-APARTMENT-IN-ROOM (L-1642) — "2 en-suite bathrooms" / "two
+       *  en-suites"; 'each-bedroom' for "an en-suite in every bedroom". null
+       *  when unstated (the legacy masterEnSuite boolean then governs). */
+      readonly enSuiteCount: number | 'each-bedroom' | null;
+      /** §RAC-APARTMENT-IN-ROOM (L-1643) — "open(ed) kitchen + living" — the
+       *  TRUE fused great room, distinct from openPlanKitchenDining. */
+      readonly openPlanKitchenLiving: boolean;
+      /** §RAC-APARTMENT-IN-ROOM (L-1640/L-1641/L-1644) — where to generate.
+       *  Read ONLY through SpatialScopeTail (C67 §4 rule 16). null = the
+       *  active level's exterior shell (the legacy whole-level behaviour).
+       *  A room scope may carry the level qualifier the founder speaks with
+       *  it ("on room 00-001 in ground level"). */
+      readonly scope:
+        | { readonly kind: 'room'; readonly roomRef: string; readonly levelQuery?: string }
+        | { readonly kind: 'level'; readonly levelQuery: string }
+        | null;
     }
   /**
    * §GEN-ROOMS (RAC U5c.1) — the ROOM-SCALE engines by sentence: "furnish all
@@ -1294,6 +1319,22 @@ export function findLevel(
       const nm = l.name.toLowerCase();
       return nm === `level ${q}` || nm === `l${q}` || nm.endsWith(` ${q}`);
     });
+  }
+  // §RAC-APARTMENT-IN-ROOM (L-1641) — "ground" is a STOREY NAME (the same
+  // SpatialScopeTail vocabulary that classifies "the ground floor" as a level):
+  // resolve it by ELEVATION — exactly 0, else the lowest non-negative — the
+  // convention RoomNumbering already encodes (prefix 00 = the elevation-sorted
+  // ground). Level NAMES often stay "Level 0" while people say "ground", so a
+  // name-only lookup refused a level every project has. Runs only after every
+  // exact route failed, so it can only turn a miss into a hit.
+  if (q === 'ground' || q === 'ground floor' || q === 'ground level' || q === 'the ground floor') {
+    const withElev = levels.filter((l) => typeof l.elevation === 'number');
+    const atZero = withElev.find((l) => Math.abs(l.elevation!) < 1e-6);
+    if (atZero !== undefined) return atZero;
+    const nonNeg = withElev
+      .filter((l) => l.elevation! >= 0)
+      .sort((a, b) => a.elevation! - b.elevation!);
+    if (nonNeg.length > 0) return nonNeg[0];
   }
   // §FIX-SCOPE-TAIL-ONE-PARSER (L-1201) — LAST RESORT ONLY. The shared scope
   // tail hands the level phrase over WHOLE ("the ground floor", "2 floor")
@@ -2544,6 +2585,150 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
           suggestions: ['create a 3 bedroom apartment with 2 bathrooms'],
         };
       }
+      // §RAC-APARTMENT-IN-ROOM (L-1642) — the stated en-suite count is a PURE
+      // ruling: whole, non-negative, and never above a STATED bedroom count
+      // (an en-suite pairs 1:1 with a bedroom — the refusal carries BOTH
+      // numbers, founder doctrine). 'each-bedroom' resolves to the stated
+      // count, or to the DEFAULT programme's when none was stated (and the
+      // default is then locked and NAMED, so the distributive stays exact).
+      if (typeof si.enSuiteCount === 'number' && (!Number.isInteger(si.enSuiteCount) || si.enSuiteCount < 0)) {
+        return {
+          kind: 'refusal', intent: 'generate-apartment-layout',
+          reason: `${si.enSuiteCount} is not an en-suite count I can plan — I need a whole number.`,
+          suggestions: ['create a 3 bedroom apartment with 2 en-suite bathrooms'],
+        };
+      }
+      const enSuiteCount: number | null = si.enSuiteCount === 'each-bedroom'
+        ? (si.bedrooms ?? APARTMENT_STATED_DEFAULT.bedrooms)
+        : si.enSuiteCount;
+      if (enSuiteCount !== null && si.bedrooms !== null && enSuiteCount > si.bedrooms) {
+        return {
+          kind: 'refusal', intent: 'generate-apartment-layout',
+          reason:
+            `you asked for ${enSuiteCount} en-suites across ${si.bedrooms} bedrooms — an en-suite ` +
+            `pairs one-to-one with a bedroom, so ${si.bedrooms} bedroom${si.bedrooms === 1 ? '' : 's'} ` +
+            `can host at most ${si.bedrooms}. Nothing was changed.`,
+          suggestions: [`create a ${enSuiteCount} bedroom apartment with ${enSuiteCount} en-suites`],
+        };
+      }
+
+      // §RAC-APARTMENT-IN-ROOM (L-1640/L-1641/L-1644) — resolve the stated
+      // scope BEFORE the Confirm card, so consent is to the REAL room/level by
+      // its real number and name, and every miss refuses quoting the project's
+      // own labels (C67 §4 rule 6). The scope may arrive as a gate-injected
+      // descriptor of another kind — refused by name, never absorbed.
+      const sc = si.scope as
+        | { kind?: string; roomRef?: string; levelQuery?: string }
+        | null;
+      const levelName = (id: string | undefined): string =>
+        ctx.levels.find((l) => l.id === id)?.name ?? 'an unknown level';
+      const levelNames = ctx.levels.map((l) => l.name).join(', ');
+      const resolveStatedLevel = (q: string):
+        | { level: ResolverLevel }
+        | { refusal: Extract<SemanticApplication, { kind: 'refusal' }> } => {
+        const level = findLevel(q, ctx.levels);
+        if (level === undefined) {
+          return {
+            refusal: {
+              kind: 'refusal', intent: 'generate-apartment-layout',
+              reason: `I can't find a level "${q}" — the levels here are: ${levelNames}. Nothing was changed.`,
+              suggestions: [],
+            },
+          };
+        }
+        if (ctx.activeLevelId !== undefined && level.id !== ctx.activeLevelId) {
+          return {
+            refusal: {
+              kind: 'refusal', intent: 'generate-apartment-layout',
+              reason:
+                `the apartment engine lays out on the level you're viewing — you're on ` +
+                `"${levelName(ctx.activeLevelId)}" and ${level.name} is a different level. ` +
+                `Switch to ${level.name} and ask again. Nothing was changed.`,
+              suggestions: [],
+            },
+          };
+        }
+        return { level };
+      };
+
+      let targetRoom: { id: string; roomNumber?: string; name?: string; levelId?: string; areaM2?: number } | null = null;
+      let targetLevelId: string | null = null;
+      if (sc !== null && sc.kind === 'level' && typeof sc.levelQuery === 'string') {
+        const r = resolveStatedLevel(sc.levelQuery);
+        if ('refusal' in r) return r.refusal;
+        targetLevelId = r.level.id;
+      } else if (sc !== null && sc.kind === 'room' && typeof sc.roomRef === 'string') {
+        if (ctx.rooms === undefined) {
+          // §1.1 property 2 — an absent service refuses honestly, never widens.
+          return {
+            kind: 'refusal', intent: 'generate-apartment-layout',
+            reason:
+              `I can't look up rooms in this context, so I can't lay out "${sc.roomRef}" safely. ` +
+              `Nothing was changed.`,
+            suggestions: [],
+          };
+        }
+        const hit = resolveSingleRoomRef(sc.roomRef, ctx.rooms);
+        if (hit.kind === 'ambiguous') {
+          return { kind: 'refusal', intent: 'generate-apartment-layout', reason: hit.error, suggestions: [] };
+        }
+        if (hit.kind === 'none') {
+          const labels = ctx.rooms
+            .map((r) => describeRoomRow(r))
+            .filter((n) => n.length > 0)
+            .slice(0, 8);
+          return {
+            kind: 'refusal', intent: 'generate-apartment-layout',
+            reason: labels.length === 0
+              ? `There are no rooms in this project yet — detect rooms first. Nothing was changed.`
+              : `I can't find a room "${sc.roomRef}". The rooms here are: ${labels.join(', ')}. Nothing was changed.`,
+            suggestions: [],
+          };
+        }
+        targetRoom = hit.room;
+        // A level said WITH the room must be the room's own level.
+        if (typeof sc.levelQuery === 'string') {
+          const r = resolveStatedLevel(sc.levelQuery);
+          if ('refusal' in r) return r.refusal;
+          if (targetRoom.levelId !== undefined && targetRoom.levelId !== r.level.id) {
+            return {
+              kind: 'refusal', intent: 'generate-apartment-layout',
+              reason:
+                `room ${targetRoom.roomNumber ?? targetRoom.id} is on "${levelName(targetRoom.levelId)}", ` +
+                `not "${r.level.name}". Nothing was changed.`,
+              suggestions: [],
+            };
+          }
+          targetLevelId = r.level.id;
+        }
+        // The engine builds on the level being viewed — a room elsewhere needs
+        // the switch first (the generate-room-finishes granularity precedent:
+        // refuse naming the gap, never silently widen or hop levels).
+        if (
+          targetRoom.levelId !== undefined && ctx.activeLevelId !== undefined &&
+          targetRoom.levelId !== ctx.activeLevelId
+        ) {
+          return {
+            kind: 'refusal', intent: 'generate-apartment-layout',
+            reason:
+              `room ${targetRoom.roomNumber ?? targetRoom.id} is on "${levelName(targetRoom.levelId)}" and ` +
+              `you're viewing "${levelName(ctx.activeLevelId)}" — the apartment engine lays out on the ` +
+              `level you're viewing. Switch to ${levelName(targetRoom.levelId)} and ask again. ` +
+              `Nothing was changed.`,
+            suggestions: [],
+          };
+        }
+        targetLevelId = targetLevelId ?? targetRoom.levelId ?? ctx.activeLevelId ?? null;
+      } else if (sc !== null) {
+        return {
+          kind: 'refusal', intent: 'generate-apartment-layout',
+          reason:
+            `I can lay an apartment out over the whole level, on one level by name, or inside one ` +
+            `room by its number — not that scope. Nothing was changed.`,
+          suggestions: ['create a 3 bedroom apartment in room 001'],
+        };
+      }
+
       // L-911 (C78 §1.2b) — an UNSTATED count is a default, and a default
       // presented as the user's request is failure-as-emptiness in the intent
       // layer. "the default programme" alone does not let anyone SEE what was
@@ -2553,21 +2738,41 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         ? `${si.bedrooms}-bedroom`
         : `apartment with the DEFAULT programme (${APARTMENT_STATED_DEFAULT.bedrooms} bedrooms, ` +
           `${APARTMENT_STATED_DEFAULT.bathrooms} bathroom) — say how many bedrooms you want and I'll use that instead`;
+      // L-911 — the shared-bathroom default is NAMED when bedrooms were stated
+      // but bathrooms were not (before this, an unstated bathroom count rode
+      // silently on a stated-bedroom sentence).
       const bathLabel = si.bathrooms !== null
         ? `, ${si.bathrooms} bathroom${si.bathrooms === 1 ? '' : 's'}`
-        : '';
+        : si.bedrooms !== null
+          ? `, ${APARTMENT_STATED_DEFAULT.bathrooms} shared bathroom (the default — say a number to change it)`
+          : '';
       const extras = [
-        ...(si.masterEnSuite ? ['a master en-suite'] : []),
-        ...(si.openPlanKitchenDining ? ['an open-plan kitchen/dining'] : []),
+        ...(enSuiteCount !== null && enSuiteCount > 0
+          ? [`${enSuiteCount} en-suite bathroom${enSuiteCount === 1 ? '' : 's'} (one per bedroom, master first)`]
+          : si.masterEnSuite ? ['a master en-suite'] : []),
+        ...(si.openPlanKitchenLiving
+          ? ['an open-plan kitchen + living (ONE fused great room — no separate kitchen or living room)']
+          : si.openPlanKitchenDining ? ['an open-plan kitchen/dining'] : []),
       ];
       const extraLabel = extras.length > 0 ? `, with ${extras.join(' and ')}` : '';
-      // The stated contract: this FILLS the shell that is already drawn. It
-      // does not draw walls, does not add levels, and does not touch anything
-      // outside the active level's exterior shell.
+      // The stated contract: this FILLS what is already drawn. Room scope names
+      // the room by NUMBER + name + area and says what happens to its contents;
+      // level scope names the level; the default is the active level's shell.
+      const whereLabel = targetRoom !== null
+        ? ` inside room ${targetRoom.roomNumber ?? targetRoom.id}` +
+          `${targetRoom.name !== undefined && targetRoom.name.length > 0 ? ` ("${targetRoom.name}")` : ''}` +
+          `${typeof targetRoom.areaM2 === 'number' ? `, ${Math.round(targetRoom.areaM2 * 10) / 10} m²` : ''}` +
+          ` on ${levelName(targetLevelId ?? undefined)} — the room's existing walls are KEPT and its open ` +
+          `area is subdivided into the new plan; anything already inside it (furniture, partitions) is ` +
+          `built around, not removed`
+        : targetLevelId !== null
+          ? ` inside the walls already drawn on ${levelName(targetLevelId)} (the level you're viewing) — ` +
+            `it fills the EXISTING shell (no new building, nothing outside the shell changes)`
+          : ` inside the walls already drawn on this level — it fills the EXISTING shell (no new building, ` +
+            `nothing outside the shell changes)`;
       const summary =
-        `Lay out ${si.bedrooms !== null ? 'a ' : 'an '}${bedLabel}${bathLabel}${extraLabel} ` +
-        `inside the walls already drawn on this level — it fills the EXISTING shell (no new building, ` +
-        `nothing outside the shell changes). If there is no closed shell yet, I'll say so rather than guess.`;
+        `Lay out ${si.bedrooms !== null ? 'a ' : 'an '}${bedLabel}${bathLabel}${extraLabel}` +
+        `${whereLabel}. If the shape can't take this programme, I'll say so rather than guess.`;
       return {
         kind: 'commands', intent: 'generate-apartment-layout',
         summary,
@@ -2576,8 +2781,20 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
           payload: {
             ...(si.bedrooms !== null ? { bedrooms: si.bedrooms } : {}),
             ...(si.bathrooms !== null ? { bathrooms: si.bathrooms } : {}),
-            ...(si.masterEnSuite ? { masterEnSuite: true } : {}),
-            ...(si.openPlanKitchenDining ? { openPlanKitchenDining: true } : {}),
+            ...(si.masterEnSuite || (enSuiteCount !== null && enSuiteCount > 0) ? { masterEnSuite: true } : {}),
+            ...(si.openPlanKitchenDining && !si.openPlanKitchenLiving ? { openPlanKitchenDining: true } : {}),
+            ...(enSuiteCount !== null ? { enSuiteCount } : {}),
+            ...(si.openPlanKitchenLiving ? { openPlanKitchenLiving: true } : {}),
+            // L-911 — a stated bedroom count is exact all the way down.
+            ...(si.bedrooms !== null ? { lockBedroomCount: true } : {}),
+            ...(targetRoom !== null
+              ? {
+                  roomId: targetRoom.id,
+                  ...(targetRoom.roomNumber !== undefined ? { roomNumber: targetRoom.roomNumber } : {}),
+                  ...(targetRoom.name !== undefined ? { roomName: targetRoom.name } : {}),
+                }
+              : {}),
+            ...(targetLevelId !== null ? { levelId: targetLevelId } : {}),
           },
         }],
         // Generating a whole plan is consequential — Confirm card first.
@@ -4263,8 +4480,29 @@ const APT_BUILDING_RE = /\b(?:buildings?|blocks?|towers?|complex|storeys?|stor(?
 // noun. Same shape for bathrooms ("bathrom", "bath rooms").
 const APT_BEDROOMS_RE = /(?:^|\s)(\d{1,2}|one|two|three|four|five|six|seven|eight)[\s-]?bed(?:\s?r\w{0,5})?s?\b/;
 const APT_BATHROOMS_RE = /(?:^|\s)(\d{1,2}|one|two|three|four|five|six)[\s-]?bath(?:\s?r\w{0,5})?s?\b/;
-const APT_ENSUITE_RE = /\ben[\s-]?suite\b/;
+const APT_ENSUITE_RE = /\ben[\s-]?suites?\b/;
 const APT_OPENPLAN_RE = /\bopen[\s-]?plan\b/;
+// §RAC-APARTMENT-IN-ROOM (L-1642) — "2 en-suite bathrooms" / "two en-suites".
+// The count sits IMMEDIATELY before the en-suite noun, so "3 bedroom … 2
+// en-suite" can never cross-read. Note APT_BATHROOMS_RE cannot fire on
+// "2 en-suite bathrooms" (no digit directly before "bath") — the en-suites ARE
+// the stated wet rooms; the shared-bathroom count stays a NAMED default.
+const APT_ENSUITE_COUNT_RE = /(?:^|\s)(\d{1,2}|one|two|three|four|five|six|seven|eight)[\s-]?en[\s-]?suites?\b/;
+// "an en-suite in/for every bedroom" — distributive: one per bedroom.
+const APT_ENSUITE_EVERY_RE = /\ben[\s-]?suites?\s+(?:in|for|to)\s+(?:every|each|all)\s+bed/;
+// §RAC-APARTMENT-IN-ROOM (L-1643) — the TRUE fused ask, both word orders, the
+// founder's "+" spelling included ("opened kitchen + living room").
+const APT_OPEN_KL_RE =
+  /\bopen(?:ed)?(?:[\s-]?plan)?[\s-]+(?:kitchen\s*(?:\+|and|&|\/|with|,)?\s*living(?:\s?room)?|living(?:\s?room)?\s*(?:\+|and|&|\/|with|,)?\s*kitchen)\b/;
+// A "place" capture that is not a place: distributives ("every bedroom"),
+// self-references to the shell being filled, and bare here-words. These strip
+// silently (the sentence stays claimed with no scope) — they name the DEFAULT
+// target, not a different one, so this is not a widen (C68 §7.d).
+const APT_SCOPE_NOT_A_PLACE_RE =
+  /^(?:(?:this|that|the|my|our)\s+)?(?:shells?|apartments?|flats?|units?|plans?|walls?)$|^(?:every|each|all)\b|^(?:it|here|there)$/;
+// Building words inside a claimed "place" mean the sentence is about a NEW
+// building envelope — never claimed here (it belongs to generate-building).
+const APT_PLACE_BUILDING_RE = /\b(?:buildings?|blocks?|towers?|complex)\b/;
 
 /**
  * L-911 — the programme the EDITOR falls back to when the sentence names no
@@ -4278,16 +4516,56 @@ export const APARTMENT_STATED_DEFAULT = { bedrooms: 2, bathrooms: 1 } as const;
 
 /** Parse an apartment-layout sentence into the semantic intent — SHARED by the
  *  tier-0 grammar and the NL classifier. Returns null (a miss) when no
- *  apartment noun appears, or when the sentence is about a BUILDING. */
+ *  apartment noun appears, or when the sentence is about a BUILDING.
+ *
+ *  §RAC-APARTMENT-IN-ROOM (L-1640/L-1641, 2026-08-21) — trailing place phrases
+ *  ("on room 00-001", "in ground level", or both) are read AND CONSUMED through
+ *  the ONE shared SpatialScopeTail parser (C67 §4 rule 16) BEFORE the building
+ *  guard runs — the old guard counted floors?/levels?/storeys? as building
+ *  words, so "…in ground level" killed the whole parse, and a room qualifier
+ *  was silently dropped (the rule-6/16 scope-widening this closes). The guard's
+ *  real job survives on the REMAINDER: "generate a 3-storey apartment building"
+ *  still declines here and stays generate-building's sentence. */
 export function parseApartmentLayoutIntent(
   text: string,
+  ctx?: ResolverContext,
 ): Extract<SemanticIntent, { intent: 'generate-apartment-layout' }> | null {
   if (!APT_VERB_RE.test(text)) return null;
   if (!APT_NOUN_RE.test(text)) return null;
-  if (APT_BUILDING_RE.test(text)) return null;
+
+  // Read up to TWO trailing place phrases (room + level, either order).
+  let rest = text;
+  let roomRef: string | null = null;
+  let levelQuery: string | null = null;
+  for (let i = 0; i < 2; i++) {
+    const m = matchTrailingSpatialScope(rest, ctx);
+    if (m === null) break;
+    // Rule 16: a NAMED place that cannot become a scope declines the grammar —
+    // never a silent fall-back to the whole level.
+    if (m.reading.kind === 'unusable') return null;
+    const scope = m.reading.scope;
+    const before = rest.slice(0, m.start).trim();
+    if (scope.kind === 'room') {
+      const ref = scope.roomRef.trim();
+      if (APT_SCOPE_NOT_A_PLACE_RE.test(ref)) { rest = before; continue; }
+      if (APT_PLACE_BUILDING_RE.test(ref)) return null;
+      if (roomRef !== null) return null;         // two room phrases — not claimable
+      roomRef = ref;
+    } else if (scope.kind === 'level') {
+      if (levelQuery !== null) return null;      // two level phrases — not claimable
+      levelQuery = scope.levelQuery;
+    } else {
+      return null;                               // an unexpected scope kind — decline
+    }
+    rest = before;
+  }
+
+  // Building words in the REMAINDER (a storey count, "apartment building")
+  // belong to `generate-building` — the guard's original job, intact.
+  if (APT_BUILDING_RE.test(rest)) return null;
   // Element-level asks are someone else's sentence ("make the apartment walls
   // white", "create a window in the apartment").
-  if (GEN_ELEMENT_NOUN_RE.test(text)) return null;
+  if (GEN_ELEMENT_NOUN_RE.test(rest)) return null;
   // "make" claims only the creation shape — "make the apartment white" is a
   // colour ask, not a generation ask (the matchGenerateBuilding rule verbatim).
   if (/^make\b/.test(text) && !/^make (?:me )?(?:a|an|another|new|\d)/.test(text)) return null;
@@ -4297,16 +4575,30 @@ export function parseApartmentLayoutIntent(
     const w = m[1]!;
     return /^\d+$/.test(w) ? Number(w) : (GEN_STOREY_WORDS[w] ?? null);
   };
+  // "an en-suite in every bedroom" — tested on the FULL text because the
+  // distributive tail ("in every bedroom") was consumed by the scope reader.
+  const enSuiteCount: number | 'each-bedroom' | null = APT_ENSUITE_EVERY_RE.test(text)
+    ? 'each-bedroom'
+    : num(APT_ENSUITE_COUNT_RE.exec(rest));
+  const openPlanKitchenLiving = APT_OPEN_KL_RE.test(rest);
   return {
     intent: 'generate-apartment-layout',
-    bedrooms: num(APT_BEDROOMS_RE.exec(text)),
-    bathrooms: num(APT_BATHROOMS_RE.exec(text)),
-    masterEnSuite: APT_ENSUITE_RE.test(text),
-    openPlanKitchenDining: APT_OPENPLAN_RE.test(text),
+    bedrooms: num(APT_BEDROOMS_RE.exec(rest)),
+    bathrooms: num(APT_BATHROOMS_RE.exec(rest)),
+    masterEnSuite: APT_ENSUITE_RE.test(rest) || enSuiteCount !== null,
+    // The fused great room subsumes the dining-merge toggle — never both.
+    openPlanKitchenDining: APT_OPENPLAN_RE.test(rest) && !openPlanKitchenLiving,
+    enSuiteCount,
+    openPlanKitchenLiving,
+    scope: roomRef !== null
+      ? { kind: 'room', roomRef, ...(levelQuery !== null ? { levelQuery } : {}) }
+      : levelQuery !== null
+        ? { kind: 'level', levelQuery }
+        : null,
   };
 }
 
-const matchApartmentLayout: Matcher = (text) => parseApartmentLayoutIntent(text);
+const matchApartmentLayout: Matcher = (text, ctx) => parseApartmentLayoutIntent(text, ctx);
 
 // ─── §GEN-ROOMS / §GEN-CHAIN (RAC U5c) — the room-scale grammar ──────────────
 //
