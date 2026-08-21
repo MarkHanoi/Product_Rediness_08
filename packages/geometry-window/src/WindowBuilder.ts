@@ -6,6 +6,11 @@ import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-sched
 import { windowStore } from './WindowStore';
 import { windowSystemTypeStore } from './WindowSystemTypeStore';
 import { resolveWindowDimensions, DEFAULT_WINDOW_DIMENSIONS } from './WindowDimensions';
+// ⭐ §FEAT-WINDOW-REVEAL (L-1920 … L-1929) — THE ONE reveal model. This builder is a
+// CONSUMER of it, never a second author: the outer lip, the glazing plane and the four
+// splay insets are all read from `resolveWindowReveal`, so the 3D leaf and the plan symbol
+// cannot disagree about where the glass sits. Nothing below re-derives `-t/2 - p`.
+import { resolveWindowReveal, type ResolvedWindowReveal } from './WindowReveal';
 import { WindowOpening } from './WindowTypes';
 // ⭐ C100 §2.1 / S17 — the window's material ladder. The builder is the RENDERING
 // authority (this file's own §MAT-WINDOW-PLAN-PARITY header says so), so it must
@@ -92,6 +97,7 @@ const _unitBox = new THREE.BoxGeometry(1, 1, 1);
  * generator… the tag belongs on the builder, not the allowlist."*
  */
 type WindowPartRole =
+    | 'windowReveal'    // §FEAT-WINDOW-REVEAL — a SPLAYED reveal plane (head / sill / jamb)
     | 'windowFrame'     // the outer frame members (head, cill, jambs)
     | 'windowMullion'   // vertical column divider — the meeting stile between panes
     | 'windowTransom'   // horizontal row divider
@@ -109,6 +115,82 @@ function addBox(
 ): void {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
     mesh.position.set(x, y, z);
+    mesh.userData.role = role;
+    parent.add(mesh);
+}
+
+/**
+ * §FEAT-WINDOW-REVEAL (L-1920 … L-1929) — A SPLAYED REVEAL, AS A TRIANGULAR PRISM.
+ *
+ * ⭐ **WHY A PRISM AND NOT A ROTATED BOX.** A splayed reveal is the wedge of solid between
+ * the void's straight edge and the raking face that runs back to the smaller glazing
+ * rectangle. Its cross-section is a genuine triangle — outer void edge, inner glazing
+ * edge, and the straight return that closes them — so a triangle is what is built. A
+ * rotated box would need its own length, its own thickness and its own two mitres kept in
+ * agreement with the frame, which is three more numbers to disagree about.
+ *
+ * `section` is the triangle in the (across-the-member, across-the-wall) plane: `[a, z]`
+ * where `a` is **y** for a member running along **x** (head, sill) and **x** for one
+ * running along **y** (the jambs). The prism is extruded from `from` to `to` along `axis`.
+ *
+ * ⛔ **THE WINDING IS MEASURED, NOT ASSUMED.** Getting a hand-written triangle list's
+ * orientation wrong renders the whole solid inside-out under `FrontSide` — and it renders
+ * *plausibly*, as a dark hole, which is the worst kind of wrong. So the signed volume of
+ * the finished soup is computed and every face flipped when it comes out negative. Six
+ * vertices; the check costs nothing and removes a whole class of "looks fine in the test,
+ * black on screen" defect.
+ *
+ * Non-indexed on purpose: `computeVertexNormals()` then produces FLAT faces, which is what
+ * a splayed reveal is — the founder's photo reads the way it does precisely because each
+ * reveal is one flat plane catching the light.
+ */
+function addTriPrism(
+    parent: THREE.Object3D,
+    material: THREE.Material,
+    axis: 'x' | 'y',
+    from: number,
+    to: number,
+    section: readonly [readonly [number, number], readonly [number, number], readonly [number, number]],
+    role: WindowPartRole,
+): void {
+    const pt = (t: number, i: number): [number, number, number] => {
+        const [a, z] = section[i]!;
+        return axis === 'x' ? [t, a, z] : [a, t, z];
+    };
+    // 0,1,2 = the near cap; 3,4,5 = the far cap.
+    const v: Array<[number, number, number]> = [
+        pt(from, 0), pt(from, 1), pt(from, 2),
+        pt(to, 0),   pt(to, 1),   pt(to, 2),
+    ];
+    const tris: Array<[number, number, number]> = [
+        [0, 1, 2], [3, 5, 4],                       // caps
+        [0, 1, 4], [0, 4, 3],                       // side a
+        [1, 2, 5], [1, 5, 4],                       // side b
+        [2, 0, 3], [2, 3, 5],                       // side c
+    ];
+    // Signed volume of the closed soup: Σ v0 · (v1 × v2) / 6. Negative ⇒ inward normals.
+    let vol = 0;
+    for (const [i, j, k] of tris) {
+        const a = v[i]!, b = v[j]!, c = v[k]!;
+        vol += a[0] * (b[1] * c[2] - b[2] * c[1])
+             - a[1] * (b[0] * c[2] - b[2] * c[0])
+             + a[2] * (b[0] * c[1] - b[1] * c[0]);
+    }
+    const flip = vol < 0;
+
+    const pos = new Float32Array(tris.length * 9);
+    let o = 0;
+    for (const t of tris) {
+        const [i, j, k] = flip ? [t[0], t[2], t[1]] : t;
+        for (const idx of [i, j, k]) {
+            const p = v[idx]!;
+            pos[o++] = p[0]; pos[o++] = p[1]; pos[o++] = p[2];
+        }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.computeVertexNormals();
+    const mesh = new THREE.Mesh(geo, material);
     mesh.userData.role = role;
     parent.add(mesh);
 }
@@ -720,6 +802,11 @@ export class WindowBuilder {
 
         // Use wall thickness so the frame fully spans the void (no exposed cut edges).
         const frameDepth = (wallData.thickness ?? 0.2) + 0.02;
+        // ⭐ §FEAT-WINDOW-REVEAL (L-1920 … L-1929) — the founder's projecting box and his
+        // per-side splay, resolved ONCE, here, from the SAME host thickness the frame depth
+        // above is derived from. `active` is false for every window authored before today,
+        // and every branch below then takes literally its previous path.
+        const reveal = resolveWindowReveal(win, wallData.thickness ?? 0.2);
         // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — ask the SHARED resolver what detail this
         // window is wanted at in the 3D view, and remember it so a later intent change can
         // trigger exactly the rebuilds it affects (and no others).
@@ -746,7 +833,7 @@ export class WindowBuilder {
             // curved window's userData is untouched.
             group.userData = Object.freeze({ ...group.userData, curvedLeafRefusal: _leafRefusal });
         }
-        const mats = this.buildVisuals(win, group, frameDepth, vgStyle, wallData.levelId ?? 'default', lod, arc);
+        const mats = this.buildVisuals(win, group, frameDepth, vgStyle, wallData.levelId ?? 'default', lod, arc, reveal);
         this.windowMaterials.set(win.id, mats);
         this.positionGroup(win, group, wallData);
 
@@ -790,9 +877,24 @@ export class WindowBuilder {
         // ⭐ The predicate is `isProfiledOpening`, the SAME call `buildVisuals` branches on — not a
         // restatement of its condition. A gate and a builder that each decide "is this profiled?"
         // separately is how one starts drawing what the other cannot carry.
+        //
+        // ⭐ §FEAT-WINDOW-REVEAL (L-1920 … L-1929) — ⛔ A WINDOW WITH AN AUTHORED REVEAL IS
+        // EXCLUDED, FOR THE **THIRD** INSTANCE OF EXACTLY THE MECHANISM NAMED TWICE ABOVE.
+        // A splay plate is a hand-built `BufferGeometry` (`addTriPrism`) and has no
+        // `.parameters`, so `_convertGroupToInstances` would hit its `?? 1` guards and render
+        // every splayed reveal as a 1 m cube. Windows are the one family whose instancing is
+        // DEFAULT-ON (L-1180), so this is the DEFAULT path, not an edge case — the same trap
+        // §OPENING-PROFILE-FRAME records one paragraph up, and the reason it is worth writing
+        // down a third time is that all three were found by reading that paragraph.
+        //
+        // ⚠ A PROJECTION-ONLY window (no splay) builds nothing but boxes and would in fact
+        // convert correctly. It is excluded anyway: `isRevealAuthored` is the ONE predicate
+        // the schema, the command and the panel all consult, and splitting it here into "the
+        // half that instances" would mint a second definition of "has a reveal" whose drift
+        // shows up as a 1 m cube months later. Cost is one draw call per projecting window.
         const _hostRaked = rakeShearPerMetre((wallData as { rakeAngleDeg?: number }).rakeAngleDeg) !== 0;
         const _profiled = !arc && isProfiledOpening(win.openingProfile, win.width, win.height);
-        if (this._instancingActive() && !_hostRaked && !arc && !_profiled) {
+        if (this._instancingActive() && !_hostRaked && !arc && !_profiled && !reveal.active) {
             this._convertGroupToInstances(win, group, wallData.levelId);
         }
 
@@ -1238,7 +1340,7 @@ export class WindowBuilder {
      * default). There is not one literal below. A richer HARDCODED window would be the same
      * bug at higher resolution (ADR-121 §4.4).
      */
-    private buildVisuals(win: WindowOpening, group: THREE.Group, wallFrameDepth?: number, vgStyle?: VGStyle, levelId = 'default', lod: DetailLevel = 'fine', arc: LeafArc | null = null): THREE.Material[] {
+    private buildVisuals(win: WindowOpening, group: THREE.Group, wallFrameDepth?: number, vgStyle?: VGStyle, levelId = 'default', lod: DetailLevel = 'fine', arc: LeafArc | null = null, reveal?: ResolvedWindowReveal): THREE.Material[] {
         const mats: THREE.Material[] = [];
         const { width: w, height: h, frameThickness: ft } = win;
         // Use the wall-derived depth when provided so the frame spans the full void.
@@ -1313,20 +1415,65 @@ export class WindowBuilder {
         // terminates its bands on. Their end caps are radial for the same reason the
         // void's jambs are, so frame and reveal meet on ONE plane rather than two
         // that nearly agree.
+        // ── ⭐ §FEAT-WINDOW-REVEAL (L-1920 … L-1929) — THE FOUNDER'S BOX AND HIS SPLAY ──
+        //
+        // Six derived quantities, ALL read from the one model in `WindowReveal.ts`. Nothing
+        // here re-derives `-t/2 - p`, an inset, or a glazing plane.
+        //
+        // ⛔ **WHEN NOTHING IS AUTHORED, EVERY ONE OF THEM IS THE IDENTITY** — `fw = w`,
+        // `fh = h`, `cx = cy = zg = 0`, `memberDepth = fd`, `memberZ = 0` — so every
+        // expression below is character-for-character the expression that was here before
+        // this feature, evaluated on the same numbers. That is the byte-identity guarantee
+        // (C84 EI-2), and it is why this is a parameterisation rather than a second arm.
+        //
+        // ⛔ **A CURVED HOST IS EXCLUDED, DELIBERATELY, AND IT IS A REFUSAL NOT AN
+        // OVERSIGHT.** `addSeatedBox`/`addSweptBox` re-seat a member onto the host arc from
+        // its group-local `(x, z)`; the reveal moves members in `z`, so a curved host would
+        // re-seat them onto the WRONG station and render a box that leans out of its own
+        // hole while reporting success. That is the silently-wrong geometry ADR-0310 refused
+        // the whole case to avoid, and it is the same answer `openingOutlineLocal` gives one
+        // screen above (*"a curved wall cannot carry a non-rectangular void at all"*).
+        // Reveal on a curved host needs per-station reveal frames, not a fixup here.
+        // Named as an unbuilt gap: L-1928.
+        const rev = (reveal && reveal.active && !arc) ? reveal : null;
+        /** Frame rectangle — the GLAZING rectangle when splayed, the void otherwise. */
+        const fw = rev?.hasSplay ? rev.glazingWidth  : w;
+        const fh = rev?.hasSplay ? rev.glazingHeight : h;
+        /** Glazing-plane centre offset — non-zero only when the two opposite splays differ. */
+        const cx = rev ? rev.glazingCentreX : 0;
+        const cy = rev ? rev.glazingCentreY : 0;
+        /** The glazing plane. `0` — the wall centre-plane — when nothing is authored. */
+        const zg = rev ? rev.zGlazing : 0;
+        // The frame member spans from its FRONT face to the wall's inner side. Splayed, the
+        // frame sits at the BACK of the reveal (which is where a joiner puts it — the splay
+        // is the reveal, the frame is behind it); unsplayed it starts at the box's outer lip,
+        // which for a projection of 0 is exactly `-fd/2`, i.e. unchanged.
+        const _fz0 = rev ? (rev.hasSplay ? rev.zGlazing : rev.zOuterFace - 0.01) : -fd / 2;
+        const _fz1 = fd / 2;
+        const memberDepth = _fz1 - _fz0;
+        const memberZ     = (_fz0 + _fz1) / 2;
+
         // Head
-        addSweptBox(group, frameMat, arc, w, ft, fd, 0,  h / 2 - ft / 2, 0, 'windowFrame');
+        addSweptBox(group, frameMat, arc, fw, ft, memberDepth, cx,  cy + fh / 2 - ft / 2, memberZ, 'windowFrame');
         // Cill
-        addSweptBox(group, frameMat, arc, w, ft, fd, 0, -h / 2 + ft / 2, 0, 'windowFrame');
+        addSweptBox(group, frameMat, arc, fw, ft, memberDepth, cx,  cy - fh / 2 + ft / 2, memberZ, 'windowFrame');
         // Left jamb (between head and cill)
-        const sideH = h - 2 * ft;
-        addSeatedBox(group, frameMat, arc, ft, sideH, fd, -(w / 2 - ft / 2), 0, 0, 'windowFrame');
+        const sideH = fh - 2 * ft;
+        addSeatedBox(group, frameMat, arc, ft, sideH, memberDepth, cx - (fw / 2 - ft / 2), cy, memberZ, 'windowFrame');
         // Right jamb
-        addSeatedBox(group, frameMat, arc, ft, sideH, fd,  (w / 2 - ft / 2), 0, 0, 'windowFrame');
+        addSeatedBox(group, frameMat, arc, ft, sideH, memberDepth, cx + (fw / 2 - ft / 2), cy, memberZ, 'windowFrame');
+
+        // ── The SPLAYED REVEAL PLANES ──────────────────────────────────────
+        //
+        // One wedge per side that actually has an angle. A side with `θ = 0` has `inset = 0`,
+        // its triangle is degenerate, and it emits NOTHING — which is what makes "a raking
+        // head with square jambs" (his photo) a two-plate window rather than a special case.
+        if (rev?.hasSplay) this._addRevealSplays(group, frameMat, w, h, fw, fh, cx, cy, rev);
 
         // ── Glazing area ───────────────────────────────────────────────────
         // Inner area available for glass and dividers
-        const innerW = w - 2 * ft;
-        const innerH = h - 2 * ft;
+        const innerW = fw - 2 * ft;
+        const innerH = fh - 2 * ft;
 
         // ── COARSE (LOD 100) — THE MASSING WINDOW ──────────────────────────
         //
@@ -1339,7 +1486,8 @@ export class WindowBuilder {
             addSweptBox(
                 group, glassMat, arc,
                 Math.max(innerW, 0.01), Math.max(innerH, 0.01), dims.glazingThickness,
-                0, 0, 0, 'windowGlazing',
+                // §FEAT-WINDOW-REVEAL — `cx`/`cy`/`zg` are 0 for every unauthored window.
+                cx, cy, zg, 'windowGlazing',
             );
             return mats;
         }
@@ -1369,7 +1517,7 @@ export class WindowBuilder {
             colX += colWidths[c] ?? 0;
             if (c < nCols - 1) {
                 // §FEAT-CURVED-WINDOW-LEAF — a MULLION is vertical: straight, re-seated.
-                addSeatedBox(group, frameMat, arc, cdt, innerH, dividerDepth, colX - cdt / 2, 0, 0, 'windowMullion');
+                addSeatedBox(group, frameMat, arc, cdt, innerH, dividerDepth, cx + colX - cdt / 2, cy, zg, 'windowMullion');
             }
         }
 
@@ -1383,7 +1531,7 @@ export class WindowBuilder {
                 if (r < nRows - 1) {
                     // §FEAT-CURVED-WINDOW-LEAF — a TRANSOM is horizontal: it traverses
                     // the arc and is swept, exactly like the head and cill.
-                    addSweptBox(group, frameMat, arc, cw, rdt, dividerDepth, colX + cw / 2, rowY - rdt / 2, 0, 'windowTransom');
+                    addSweptBox(group, frameMat, arc, cw, rdt, dividerDepth, cx + colX + cw / 2, cy + rowY - rdt / 2, zg, 'windowTransom');
                 }
             }
             colX += cw;
@@ -1435,11 +1583,11 @@ export class WindowBuilder {
                         // The four sash members, mitred around the cell.
                         // §FEAT-CURVED-WINDOW-LEAF — head/cill rails SWEEP, stiles are
                         // vertical rulings and stay straight.
-                        addSweptBox(group, frameMat, arc, cellW, st, sd, paneCX, paneCY + cellH / 2 - st / 2, 0, 'windowSash');
-                        addSweptBox(group, frameMat, arc, cellW, st, sd, paneCX, paneCY - cellH / 2 + st / 2, 0, 'windowSash');
+                        addSweptBox(group, frameMat, arc, cellW, st, sd, cx + paneCX, cy + paneCY + cellH / 2 - st / 2, zg, 'windowSash');
+                        addSweptBox(group, frameMat, arc, cellW, st, sd, cx + paneCX, cy + paneCY - cellH / 2 + st / 2, zg, 'windowSash');
                         const sashSideH = Math.max(cellH - 2 * st, 0.001);
-                        addSeatedBox(group, frameMat, arc, st, sashSideH, sd, paneCX - cellW / 2 + st / 2, paneCY, 0, 'windowSash');
-                        addSeatedBox(group, frameMat, arc, st, sashSideH, sd, paneCX + cellW / 2 - st / 2, paneCY, 0, 'windowSash');
+                        addSeatedBox(group, frameMat, arc, st, sashSideH, sd, cx + paneCX - cellW / 2 + st / 2, cy + paneCY, zg, 'windowSash');
+                        addSeatedBox(group, frameMat, arc, st, sashSideH, sd, cx + paneCX + cellW / 2 - st / 2, cy + paneCY, zg, 'windowSash');
 
                         // The glass now sits in the sash's clear sight line…
                         glassW = Math.max(cellW - 2 * st, 0.01);
@@ -1454,8 +1602,8 @@ export class WindowBuilder {
                             const beadZ = dims.glazingThickness / 2 + bead / 2;
                             // §FEAT-CURVED-WINDOW-LEAF — both beads are horizontal, and
                             // they sit against the glass, so they must bow with it.
-                            addSweptBox(group, frameMat, arc, glassW, bead, bead, paneCX, paneCY + glassH / 2 - bead / 2, beadZ, 'windowBead');
-                            addSweptBox(group, frameMat, arc, glassW, bead, bead, paneCX, paneCY - glassH / 2 + bead / 2, beadZ, 'windowBead');
+                            addSweptBox(group, frameMat, arc, glassW, bead, bead, cx + paneCX, cy + paneCY + glassH / 2 - bead / 2, zg + beadZ, 'windowBead');
+                            addSweptBox(group, frameMat, arc, glassW, bead, bead, cx + paneCX, cy + paneCY - glassH / 2 + bead / 2, zg + beadZ, 'windowBead');
                         }
                     }
                 }
@@ -1467,7 +1615,7 @@ export class WindowBuilder {
                 // curved host the pane is swept along the wall's OWN centreline
                 // stations, so pane and reveal share their tessellation and cannot
                 // disagree at the edge where they meet.
-                addSweptBox(group, glassMat, arc, glassW, glassH, dims.glazingThickness, paneCX, paneCY, 0, 'windowGlazing');
+                addSweptBox(group, glassMat, arc, glassW, glassH, dims.glazingThickness, cx + paneCX, cy + paneCY, zg, 'windowGlazing');
 
                 rowY += rh;
             }
@@ -1478,6 +1626,78 @@ export class WindowBuilder {
         this._addSillBoard(win, group, dims, fd, levelId, mats, arc);
 
         return mats;
+    }
+
+    /**
+     * ⭐ §FEAT-WINDOW-REVEAL (L-1920 … L-1929) — THE FOUR SPLAYED REVEAL PLANES.
+     *
+     * The founder: *"another window type where the frame basically has angles inwards — the
+     * angle, which will define the size of the glass; and the side of the windows (top /
+     * bottom / left / right / all / multiple)."*
+     *
+     * **ONE WEDGE PER SIDE, AND ONLY FOR SIDES THAT HAVE AN ANGLE.** Each is the solid
+     * between the void's straight edge (full `w × h`, on the box's outer plane) and the
+     * glazing rectangle's edge (inset, on the glazing plane). A side with `θ = 0` has
+     * `inset = 0`, so its outer and inner edges coincide, its triangle is degenerate, and it
+     * is skipped — which is exactly how *"multiple"* falls out for free: a raking head over
+     * square jambs is one plate, not a mode.
+     *
+     * ⛔ Nothing here re-derives an inset or a plane. `rev` came from `resolveWindowReveal`
+     * and every number below is read off it; the angle appears in this method exactly zero
+     * times, because trigonometry in two places is trigonometry that will disagree.
+     *
+     * ⚠ THE CORNERS ARE MITRE-FREE, AND THAT IS A STATED SIMPLIFICATION. Adjacent wedges
+     * span the FULL void edge, so two splayed neighbours interpenetrate in the corner rather
+     * than meeting on a mitre line. They are one material and one solid union, so it reads
+     * correctly; a true mitre needs the corner solved as an intersection of the two reveal
+     * planes and is named in L-1929 rather than approximated silently.
+     */
+    private _addRevealSplays(
+        group: THREE.Group,
+        frameMat: THREE.Material,
+        w: number, h: number,
+        fw: number, fh: number,
+        cx: number, cy: number,
+        rev: ResolvedWindowReveal,
+    ): void {
+        const zO = rev.zOuterFace;   // the void edge lives here — the box's outer lip
+        const zG = rev.zGlazing;     // …and the glazing edge here
+        const EPS = 1e-6;
+
+        // HEAD — runs along x, section in (y, z).
+        if (rev.inset.head > EPS) {
+            addTriPrism(group, frameMat, 'x', -w / 2, w / 2, [
+                [ h / 2,            zO],   // void top edge, at the outer plane
+                [ cy + fh / 2,      zG],   // glazing top edge, inset, at the glazing plane
+                [ h / 2,            zG],   // the return that closes the wedge
+            ], 'windowReveal');
+        }
+        // SILL — the head's mirror in y.
+        if (rev.inset.sill > EPS) {
+            addTriPrism(group, frameMat, 'x', -w / 2, w / 2, [
+                [-h / 2,            zO],
+                [ cy - fh / 2,      zG],
+                [-h / 2,            zG],
+            ], 'windowReveal');
+        }
+        // LEFT JAMB — runs along y, section in (x, z). "Left" is local −X, the SAME left
+        // `buildVisuals` names its own left jamb by; see `REVEAL_SIDE_LABEL`'s note on why
+        // it is not defined as "left seen from outside".
+        if (rev.inset.jambLeft > EPS) {
+            addTriPrism(group, frameMat, 'y', -h / 2, h / 2, [
+                [-w / 2,            zO],
+                [ cx - fw / 2,      zG],
+                [-w / 2,            zG],
+            ], 'windowReveal');
+        }
+        // RIGHT JAMB — local +X.
+        if (rev.inset.jambRight > EPS) {
+            addTriPrism(group, frameMat, 'y', -h / 2, h / 2, [
+                [ w / 2,            zO],
+                [ cx + fw / 2,      zG],
+                [ w / 2,            zG],
+            ], 'windowReveal');
+        }
     }
 
     /**

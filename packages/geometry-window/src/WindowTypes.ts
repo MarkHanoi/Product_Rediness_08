@@ -52,6 +52,36 @@ export const WindowOpeningSchema = z.object({
     frameDepth:     z.number().positive().default(0.07),
     frameColor:     z.string().default('#e8e8e8'),
 
+    /**
+     * ⭐ §FEAT-WINDOW-REVEAL (L-1920 … L-1929) — THE REVEAL AXIS, on the RUNTIME record.
+     *
+     * ⛔ **THESE FIVE KEYS ARE NOT OPTIONAL POLISH — WITHOUT THEM THE REVEAL IS DELETED
+     * ON EVERY LOAD.** The `openingProfile` warning forty lines above states the rule and
+     * it applies verbatim: `WindowStore.add` does
+     * `Object.freeze({ ...WindowOpeningSchema.safeParse(w).data })`, and **Zod STRIPS keys
+     * the schema does not declare.** A field the panel writes and this schema does not name
+     * survives exactly as long as the session. Declared here BEFORE the feature ships,
+     * which is the whole lesson of that comment.
+     *
+     * The L0 twin is `packages/schemas/src/elements/Window.ts` and carries the full
+     * reasoning; the MODEL is `WindowReveal.ts` and is the only place these are
+     * interpreted. Three files, one meaning — the record does not re-derive geometry and
+     * the geometry does not invent a field.
+     *
+     * `revealProjection` is SIGNED (positive = out past the wall's authored EXTERIOR face;
+     * negative = recessed), so it is deliberately not `.positive()` like its neighbours.
+     * The four angles are DEGREES per side, in construction vocabulary.
+     *
+     * Every default is 0 ⇒ every window persisted before today parses to "no reveal
+     * authored", `isRevealAuthored()` returns false, and `WindowBuilder` /
+     * `WindowPlanSymbolBuilder` take their existing code paths untouched.
+     */
+    revealProjection:      z.number().default(0),
+    revealSplayHead:       z.number().min(0).max(85).default(0),
+    revealSplaySill:       z.number().min(0).max(85).default(0),
+    revealSplayJambLeft:   z.number().min(0).max(85).default(0),
+    revealSplayJambRight:  z.number().min(0).max(85).default(0),
+
     // §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) — the two dimensions an LOD-300 plan
     // symbol needs and the record did not carry. OPTIONAL (no default) so existing
     // persisted windows are untouched: `resolveWindowDimensions()` then falls

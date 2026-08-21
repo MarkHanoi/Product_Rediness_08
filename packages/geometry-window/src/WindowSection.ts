@@ -12,7 +12,14 @@
  */
 
 import { windowStore } from './WindowStore';
-import { OPENING_PROFILE_KINDS, OPENING_PROFILE_LABELS, SEGMENTAL_RISE_RATIO } from '@pryzm/geometry-wall';
+import { OPENING_PROFILE_KINDS, OPENING_PROFILE_LABELS, SEGMENTAL_RISE_RATIO, wallStore } from '@pryzm/geometry-wall';
+// ⭐ §FEAT-WINDOW-REVEAL (L-1920 … L-1929) — the panel READS the model, it does not restate
+// it. The derived glass size shown below is `resolveWindowReveal`'s answer, not a second
+// piece of trigonometry that would drift from the geometry the user is looking at.
+import {
+    resolveWindowReveal, windowRevealRefusal, REVEAL_SIDES, REVEAL_SIDE_LABEL,
+    REVEAL_SPLAY_FIELD, MAX_REVEAL_SPLAY_DEG,
+} from './WindowReveal';
 import { WindowOpening } from './WindowTypes';
 import { UpdateWindowParameterCommand } from '@pryzm/command-registry';
 import { injectDwStyles } from '@pryzm/geometry-door';
@@ -162,6 +169,89 @@ function makeNumberInput(current: number, min: number, max: number, step: number
 }
 
 /**
+ * ⭐ §FEAT-WINDOW-REVEAL (L-1920 … L-1929) — the reveal rows.
+ *
+ * Kept as one function so the projection and the splay stay visually adjacent in the panel:
+ * they are one model with two parameters, and separating them in the UI would invite the
+ * user to think of them as unrelated, which is precisely the mistake the model exists to
+ * prevent.
+ *
+ * ⚠ THE HOST WALL'S THICKNESS IS REQUIRED to say anything about the glass, because the
+ * reveal run is half of it. When the wall cannot be resolved the readout says so instead of
+ * printing a number derived from a guessed thickness — §NO-EMPTY-MEANS-UNKNOWN, and L-127's
+ * rule that a symbol never invents a dimension applies just as hard to a panel.
+ */
+function appendRevealFields(body: HTMLElement, windowId: string, win: WindowOpening): HTMLElement {
+    const wall = wallStore.getById?.(win.wallId) as { thickness?: number } | undefined;
+    const thickness = typeof wall?.thickness === 'number' && wall.thickness > 0 ? wall.thickness : null;
+
+    // A read-only line that re-derives itself from the STORE after every dispatch, so what it
+    // reports is the record that actually landed — never the value the input was set to.
+    const readout = document.createElement('div');
+    readout.className = 'dw-label';
+    readout.style.cssText = 'grid-column:1/-1;opacity:0.75;font-size:11px;line-height:1.45;';
+    const refreshReadout = (): void => {
+        const now = windowStore.getById(windowId);
+        if (!now) { readout.textContent = ''; return; }
+        if (thickness === null) {
+            readout.textContent =
+                'Glass size is not shown: this window’s host wall could not be read, and the '
+                + 'reveal depth is half the wall thickness. No thickness, no derivable answer.';
+            return;
+        }
+        const r = resolveWindowReveal(now as never, thickness);
+        const refusal = windowRevealRefusal(now as never, thickness);
+        readout.textContent = refusal
+            ? `⛔ ${refusal}`
+            : `Reveal depth ${r.run.toFixed(3)} m · glass `
+              + `${r.glazingWidth.toFixed(3)} × ${r.glazingHeight.toFixed(3)} m`
+              + (r.hasProjection
+                  ? ` · outer face ${Math.abs(r.projection).toFixed(3)} m `
+                    + `${r.projection > 0 ? 'proud of' : 'behind'} the exterior wall face`
+                  : '');
+    };
+
+    const push = (patch: Partial<WindowOpening>): void => {
+        dispatch(windowId, patch);
+        refreshReadout();
+    };
+
+    // ── 1. THE PROJECTION — his *"like frame width but offset wide"* ──────────────
+    //
+    // SIGNED, and the range says so on screen: negative recesses the window into a deep-set
+    // reveal, which is the same detail read from the other direction and costs nothing extra
+    // once the model is signed. The lower bound is the schema's; the GEOMETRIC bound (a
+    // recess deeper than the wall's outer half) is the command's refusal, because it depends
+    // on the host wall and an input's `min` attribute cannot know it.
+    body.appendChild(makeField('Projection (m)',
+        makeNumberInput(win.revealProjection ?? 0, -1, 2, 0.01, v => push({ revealProjection: v }))
+    ));
+
+    // ── 2. THE SPLAY — one input per side, plus "all sides" ───────────────────────
+    for (const side of REVEAL_SIDES) {
+        const field = REVEAL_SPLAY_FIELD[side];
+        body.appendChild(makeField(`Splay ${REVEAL_SIDE_LABEL[side]} (°)`,
+            makeNumberInput(
+                (win[field] as number | undefined) ?? 0,
+                0, MAX_REVEAL_SPLAY_DEG, 1,
+                v => push({ [field]: v } as Partial<WindowOpening>),
+            )
+        ));
+    }
+    // ONE dispatch ⇒ ONE undo step. See the block comment at the call site.
+    body.appendChild(makeField('Splay all sides (°)',
+        makeNumberInput(0, 0, MAX_REVEAL_SPLAY_DEG, 1, v => push({
+            revealSplayHead: v, revealSplaySill: v,
+            revealSplayJambLeft: v, revealSplayJambRight: v,
+        }))
+    ));
+
+    refreshReadout();
+    body.appendChild(readout);
+    return readout;
+}
+
+/**
  * Builds the window parameters section element.
  * Returns null if the window is not found in WindowStore.
  *
@@ -248,6 +338,29 @@ export function buildWindowSection(windowId: string): HTMLElement | null {
             v => dispatch(windowId, { openingProfile: v as never })
         )
     ));
+
+    // ── ⭐ §FEAT-WINDOW-REVEAL (L-1920 … L-1929) — THE FOUNDER'S TWO ASKS, ONE BLOCK ──
+    //
+    // *"I want for all window types to have the possibility to extrude outside the façade —
+    //   a new attribute in the Properties panel, like frame width but offset wide"*
+    // *"…another window type where the frame basically has angles inwards — the angle, which
+    //   will define the size of the glass; and the side of the windows (top / bottom / left /
+    //   right / all / multiple)"*
+    //
+    // ⭐ **THE ANGLE IS AUTHORED; THE GLASS SIZE IS SHOWN, READ-ONLY.** He said the angle
+    // *"will define the size of the glass"*, so glass size is the CONSEQUENCE and must never
+    // become a second input — two fields that each claim to set the same quantity drift apart
+    // by their first rounding. The readout below is `resolveWindowReveal`'s own output.
+    //
+    // ⭐ **FOUR INDEPENDENT SIDES PLUS AN "ALL SIDES" ROW.** That is literally *"all /
+    // multiple"*: "multiple" is two of the four fields set, and needs no mode. "All" is a
+    // convenience that writes all four in ONE dispatch, i.e. one command and one undo step —
+    // four dispatches would give him four presses of Ctrl+Z for one gesture.
+    //
+    // ⛔ Labels are TOP/BOTTOM/LEFT/RIGHT because that is what he asked for; the STORED names
+    // are head/sill/jamb because that is the construction vocabulary and what the drawings,
+    // schedules and RAC use. `REVEAL_SIDE_LABEL` owns the mapping, once.
+    appendRevealFields(body, windowId, win);
 
     body.appendChild(makeField('Frame Color',
         makeColorPicker(win.frameColor, v => dispatch(windowId, { frameColor: v }))

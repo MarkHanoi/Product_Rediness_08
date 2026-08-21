@@ -74,6 +74,10 @@ import { vgGovernanceStore } from '@pryzm/visibility';
 // §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) / L-127 — the ONE dimension authority the
 // 3D builder also reads, so plan symbol ≡ placed window.
 import { resolveWindowDimensions, DEFAULT_WINDOW_DIMENSIONS } from './WindowDimensions';
+// ⭐ §FEAT-WINDOW-REVEAL (L-1920 … L-1929) — THE SAME model the 3-D leaf is built from.
+// The symbol does not re-derive an outer plane, a glazing plane or an inset; if it did,
+// the plan and the model would be two answers, which is L-127's whole subject.
+import { resolveWindowReveal } from './WindowReveal';
 // §FIX-HOSTED-PLAN-SYMBOL-ON-CURVED-HOST (2026-08-09) — the ONE hosted-element
 // resolver. `WindowBuilder.positionGroup` calls exactly this function to place the
 // 3-D window; the plan symbol now calls it too, so the two cannot disagree about
@@ -264,7 +268,38 @@ export class WindowPlanSymbolBuilder {
         // The glazing is CAPTURED IN THE REBATE, so it spans past the clear opening
         // by exactly the rebate depth. This is a DIMENSION (true at every LOD), not
         // a draughting choice — which is why it is computed here, once.
-        const glazHalf  = framed ? clearHalf + rebate : halfW;
+        const glazHalf0 = framed ? clearHalf + rebate : halfW;
+
+        // ── ⭐ §FEAT-WINDOW-REVEAL (L-1920 … L-1929, founder 2026-08-21) ────────
+        //
+        // THE PLAN IS NOT A FREE RIDE, AND MEASURING THAT WAS THE POINT. `WindowBuilder`
+        // stamps `skipInPlan: true` on every window mesh (its own header explains why), so
+        // in plan the window IS this symbol and nothing else: a projecting box built in 3D
+        // appears in plan only if this file draws it. Section is the opposite — it is raw
+        // mesh edge projection and picks the new solids up for free. Elevation is a third
+        // answer again, and it is a GAP (L-1925): its producer is fed `wall.openings[]`,
+        // which does not carry these fields, and sets every point out on ONE flat plane.
+        //
+        // `n` and the reveal model's local `z` are THE SAME AXIS — both are the host's
+        // `leftPerp` normal (`WallArcParam.stationFrame`: `nx = -tz, nz = tx`; and
+        // `hostedElementFrame` rotates the 3-D group by `-angleY`, which maps its local +Z
+        // onto that same vector). So a `z` from `resolveWindowReveal` is used here as an `n`
+        // with NO conversion, and there is deliberately no conversion function to get wrong.
+        const _rev   = resolveWindowReveal(win as never, wallThickness);
+        // A curved host is excluded here for the SAME reason `WindowBuilder` excludes it —
+        // the reveal displaces members across the wall and a curved station would re-seat
+        // them onto the wrong normal. Parity by construction: if the 3-D leaf does not build
+        // the box, the symbol must not draw one (L-1928).
+        const _revOn = _rev.active && !(wallData as { curve?: unknown }).curve;
+        /** Across-wall position of the GLAZING plane. `0` — the wall centre — when unauthored. */
+        const nGlaz  = _revOn ? _rev.zGlazing : 0;
+        /** Along-wall shift of the glazing, non-zero only when the two jamb splays differ. */
+        const sGlaz  = _revOn ? _rev.glazingCentreX : 0;
+        // Splaying the jambs narrows the pane, and the plan glazing line is the pane. The
+        // two ends then land at `-halfW + insetLeft` and `+halfW - insetRight` exactly.
+        const glazHalf  = (_revOn && _rev.hasSplay)
+            ? Math.max(0.001, glazHalf0 - (_rev.inset.jambLeft + _rev.inset.jambRight) / 2)
+            : glazHalf0;
 
         // ── Segment accumulators (separated by pen role) ─────────────────────
         const cutPositions:  number[] = [];   // frame cut profile   → A-GLAZ-CUT  (medium)
@@ -472,13 +507,52 @@ export class WindowPlanSymbolBuilder {
 
         for (const [a, b] of glazRuns) {
             if (b - a <= 0) continue;   // a post wider than its own pane: draw no glass
+            // §FEAT-WINDOW-REVEAL — the pane rides OUT with the box and IN with the splay.
+            // `sGlaz`/`nGlaz` are both 0 for every window authored before this feature, so
+            // these three lines are arithmetically the lines that were here.
             if (lod === 'coarse' || glazThick <= 0) {
-                runSeg(projPositions, a, b, 0);
+                runSeg(projPositions, a + sGlaz, b + sGlaz, nGlaz);
             } else {
                 for (const n of [-halfGlaz, +halfGlaz]) {
-                    runSeg(projPositions, a, b, n);
+                    runSeg(projPositions, a + sGlaz, b + sGlaz, n + nGlaz);
                 }
             }
+        }
+
+        // ── ⭐ §FEAT-WINDOW-REVEAL — THE BOX AND THE SPLAY, IN PLAN ─────────────
+        //
+        // CUT pen, not projection: the plan cut plane passes through the window, so it
+        // passes through the box — the box is CUT, exactly like the frame members are. A
+        // projecting solid drawn with the thin projection pen would read as something seen
+        // BELOW the cut, which is what the sill board is and what this is not.
+        //
+        // The sill board three blocks down is the existence proof that this builder can
+        // draw outside the thickness band: it already runs to `halfThk + sillDepth`, and
+        // `host.at`/`host.run` clamp neither argument.
+        if (_revOn) {
+            const nLip = _rev.zOuterFace;      // the box's outer lip (−halfThk when p = 0)
+            // 1. THE BOX. Its outer lip along the wall, plus a return at each jamb back to
+            //    the wall face. Skipped when the projection is 0 — a splay-only window has
+            //    no box, and drawing a line on top of the wall face would double the pen.
+            if (Math.abs(_rev.projection) > 1e-6) {
+                runSeg(cutPositions, -halfW, +halfW, nLip);
+                for (const sign of [-1, 1]) {
+                    cutSeg(at(sign * halfW, -halfThk), at(sign * halfW, nLip));
+                }
+            }
+            // 2. THE SPLAYED JAMBS — the angled reveal line the founder's photo reads by.
+            //    From the void edge on the outer plane to the glazing edge on the glazing
+            //    plane. A jamb with no angle has zero inset and emits nothing.
+            if (_rev.inset.jambLeft > 1e-6) {
+                cutSeg(at(-halfW, nLip), at(-halfW + _rev.inset.jambLeft, nGlaz));
+            }
+            if (_rev.inset.jambRight > 1e-6) {
+                cutSeg(at(+halfW, nLip), at(+halfW - _rev.inset.jambRight, nGlaz));
+            }
+            // ⚠ A splayed HEAD or SILL is invisible in plan BY CONSTRUCTION — it rakes in
+            //    the vertical plane, which a plan cut does not see. That is correct
+            //    draughting, not a missing feature, and it is why the elevation gap
+            //    (L-1925) matters more for this half of the founder's ask than plan does.
         }
 
         // ── 6. THE SILL / BOARD (fine only; thin pen) ────────────────────────

@@ -80,3 +80,26 @@ export { WindowPlanSymbolBuilder, windowPlanSymbolBuilder } from './WindowPlanSy
 // refusing what the geometry builds — shipped and were caught on 2026-08-18; a
 // shared gate is the only thing that closes it.
 export { leafArc, curvedLeafRefusal, sweptBoxGeometry, arcSeat, type LeafArc } from './CurvedLeafGeometry';
+
+// ── ⭐ §FEAT-WINDOW-REVEAL (L-1920 … L-1929, founder 2026-08-21) ─────────────
+// THE ONE reveal model — the projecting box AND the per-side splay, computed in one
+// place so the 3D leaf, the plan symbol, the command's validation and the panel's
+// derived readout cannot hold four opinions about where the glazing plane is.
+// `windowRevealRefusal` is exported for the same reason `curvedLeafRefusal` above is:
+// so the panel and the command IMPORT the gate the geometry obeys instead of
+// restating its condition — both directions of that mismatch have already shipped here.
+export {
+    resolveWindowReveal,
+    windowRevealRefusal,
+    windowRevealAdvisory,
+    isRevealAuthored,
+    EXTERIOR_LOCAL_Z,
+    REVEAL_SIDES,
+    REVEAL_SIDE_LABEL,
+    REVEAL_SPLAY_FIELD,
+    MAX_REVEAL_SPLAY_DEG,
+    type RevealSide,
+    type RevealSplayField,
+    type ResolvedWindowReveal,
+    type WindowRevealSource,
+} from './WindowReveal';

@@ -5,6 +5,12 @@ import {
 import { windowStore } from '@pryzm/geometry-window';
 import { WindowOpening, WindowOpeningSchema } from '@pryzm/geometry-window';
 import { wallOccupancyStore } from '@pryzm/geometry-wall';
+// ⭐ §FEAT-WINDOW-REVEAL (L-1920 … L-1929) — C83's IMPOSSIBLE gate and its INADVISABLE
+// advisory, IMPORTED rather than restated, for the same reason `curvedLeafRefusal` is
+// exported from that package: both directions of a panel/geometry mismatch shipped here on
+// 2026-08-18, and a shared gate is the only thing that closes it. The command consults the
+// exact function the builder's geometry obeys.
+import { windowRevealRefusal, windowRevealAdvisory, isRevealAuthored } from '@pryzm/geometry-window';
 // §OPENING-PROFILE (L-1252) — the ONE gate the builders obey, so the panel's refusal and
 // the geometry cannot disagree about which hosts can carry a curved void.
 import { openingProfileRefusal, isRectangularProfile } from '@pryzm/geometry-wall';
@@ -102,6 +108,22 @@ export class UpdateWindowParameterCommand implements Command {
             return { success: false, affectedElementIds: [], info: [_profilePatch] };
         }
 
+        // ── ⭐ §FEAT-WINDOW-REVEAL (L-1920 … L-1929) — C83, ON THE MUTATION PATH ────
+        //
+        // The founder's standing direction separates IMPOSSIBLE from INADVISABLE from FINE
+        // and forbids auto-editing. A splay steep enough that the two reveals MEET leaves the
+        // glazing with zero area — IMPOSSIBLE — and the refusal names BOTH the angle and the
+        // dimension that makes it degenerate, so the user knows which of the two to change.
+        //
+        // ⛔ IT REFUSES; IT DOES NOT CLAMP. A silently-clamped reveal produces a window whose
+        // glazing is invisible and whose Properties panel reports success — from the user's
+        // side, indistinguishable from one that worked. `success: false` carrying the reason
+        // is what lets the panel surface it, exactly as the profile refusal above does.
+        const _revealRefusal = this._resolveRevealRefusal(context, current, _profilePatch);
+        if (_revealRefusal) {
+            return { success: false, affectedElementIds: [], info: [_revealRefusal] };
+        }
+
         const patch = this._clampPatchToWall(context, current, _profilePatch);
 
         if (!this.prevCapturedAtExecute) {
@@ -115,7 +137,11 @@ export class UpdateWindowParameterCommand implements Command {
 
         windowStore.update(this.windowId, patch);
         this._syncWallStore(context, patch);
-        return { success: true, affectedElementIds: [this.windowId] };
+        // §FEAT-WINDOW-REVEAL — an INADVISABLE reveal SUCCEEDS AND SAYS SO. `_revealAdvisory`
+        // is null on every other edit, so no existing path gains an `info` line.
+        return this._revealAdvisory
+            ? { success: true, affectedElementIds: [this.windowId], info: [this._revealAdvisory] }
+            : { success: true, affectedElementIds: [this.windowId] };
     }
 
     undo(context: CommandContext): CommandResult {
@@ -135,6 +161,62 @@ export class UpdateWindowParameterCommand implements Command {
             payload: { windowId: this.windowId, patch: this.patch, prev: this.prev },
             version: 2,
         };
+    }
+
+    /**
+     * §FEAT-WINDOW-REVEAL — the INADVISABLE note for the edit currently executing, or null.
+     * Set by {@link _resolveRevealRefusal}; read once by `execute`.
+     */
+    private _revealAdvisory: string | null = null;
+
+    /**
+     * ⭐ §FEAT-WINDOW-REVEAL (L-1920 … L-1929) — the C83 IMPOSSIBLE gate for a reveal edit.
+     *
+     * Returns the refusal, or `null`. A patch touching none of the trigger fields returns
+     * `null` immediately, so every pre-existing edit reaches exactly its previous code.
+     *
+     * ⚠ **THE GATE IS ASKED ABOUT THE MERGED RECORD, NEVER ABOUT THE PATCH.** Splay angles
+     * and the opening's own size compose: "set the left jamb to 40°" is fine on a 1.8 m
+     * window and degenerate on a 0.4 m one, and a patch carrying only the angle cannot be
+     * judged alone. This is the same reason `canExecute` parses `{...current, ...patch}`.
+     *
+     * ⚠ **AND THAT IS WHY `width` / `height` ARE IN THE TRIGGER SET.** SHRINKING a window
+     * can make an already-authored splay degenerate. A gate keyed only on the reveal fields
+     * would pass that edit and produce the zero-glass window by the back door — the same
+     * class of hole as validating a patch instead of a record.
+     *
+     * ⚠ **NO HOST WALL ⇒ SKIPPED, NOT FAILED.** The reveal run is half the wall thickness,
+     * so with no wall there is no run and no measurable question. Refusing on a missing
+     * lookup is the refusal-without-an-escape-hatch shape L-942 records.
+     */
+    private _resolveRevealRefusal(
+        context: CommandContext,
+        current: WindowOpening,
+        patch: Partial<WindowOpening>,
+    ): string | null {
+        const REVEAL_TRIGGERS = [
+            'revealProjection', 'revealSplayHead', 'revealSplaySill',
+            'revealSplayJambLeft', 'revealSplayJambRight',
+            'width', 'height',
+        ] as const;
+        if (!REVEAL_TRIGGERS.some(k => k in patch)) return null;
+
+        const merged = { ...current, ...patch } as WindowOpening;
+        if (!isRevealAuthored(merged as never)) return null;
+
+        const wall = context.stores?.wallStore?.getById?.(current.wallId);
+        const thickness = (wall as { thickness?: number } | undefined)?.thickness;
+        if (typeof thickness !== 'number' || !(thickness > 0)) return null;
+
+        const refusal = windowRevealRefusal(merged as never, thickness);
+        if (refusal) return refusal;
+
+        // INADVISABLE is CARRIED, never enforced — stashed so `execute` can put it on the
+        // successful result's `info`. "Always ASK, never auto-edit": this is the ASK's raw
+        // material. 🔴 The affordance that turns it into an actual QUESTION (a confirm card,
+        // the way a destructive capability gets one) is NOT built — L-1927.
+        this._revealAdvisory = windowRevealAdvisory(merged as never, thickness);
+        return null;
     }
 
     /**
