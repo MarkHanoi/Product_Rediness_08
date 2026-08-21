@@ -20,6 +20,7 @@ import {
     FinishHostDependencyTracker,
     type FinishBoundaryCommandFactory,
     type FinishCommandManagerRef,
+    type FinishLateAttribution,
     type FinishStoreLike,
     type WallStoreRef,
 } from './FinishHostDependencyTracker';
@@ -51,6 +52,8 @@ export class FloorHostDependencyTracker extends FinishHostDependencyTracker<Floo
         geometry: FinishGeometryServices,
         commandManagerRef: FinishCommandManagerRef,
         makeBoundaryCommand?: FinishBoundaryCommandFactory,
+        /** §FINISH-FOLLOW-LATE-ATTRIBUTION (L-2090) — see the base class. */
+        attributeLate?: FinishLateAttribution<FloorData>,
     ) {
         super(
             'floor',
@@ -66,6 +69,7 @@ export class FloorHostDependencyTracker extends FinishHostDependencyTracker<Floo
             geometry,
             commandManagerRef,
             makeBoundaryCommand,
+            attributeLate,
         );
     }
 }

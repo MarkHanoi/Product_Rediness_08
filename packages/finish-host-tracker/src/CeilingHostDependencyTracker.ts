@@ -18,6 +18,7 @@ import {
     FinishHostDependencyTracker,
     type FinishBoundaryCommandFactory,
     type FinishCommandManagerRef,
+    type FinishLateAttribution,
     type FinishStoreLike,
     type WallStoreRef,
 } from './FinishHostDependencyTracker';
@@ -45,6 +46,10 @@ export class CeilingHostDependencyTracker extends FinishHostDependencyTracker<Ce
         geometry: FinishGeometryServices,
         commandManagerRef: FinishCommandManagerRef,
         makeBoundaryCommand?: FinishBoundaryCommandFactory,
+        /** §FINISH-FOLLOW-LATE-ATTRIBUTION (L-2090) — see the base class. Ceiling
+         *  and floor take the SAME hook: C79 §7.4 forbids letting the two finish
+         *  families diverge, and a repair wired to one only is exactly that. */
+        attributeLate?: FinishLateAttribution<CeilingData>,
     ) {
         super(
             'ceiling',
@@ -60,6 +65,7 @@ export class CeilingHostDependencyTracker extends FinishHostDependencyTracker<Ce
             geometry,
             commandManagerRef,
             makeBoundaryCommand,
+            attributeLate,
         );
     }
 }

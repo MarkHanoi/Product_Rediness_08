@@ -53,6 +53,7 @@ export {
     type FinishBoundaryWritePayload,
     type FinishBoundaryCommandFactory,
     type FinishTrackerEventNames,
+    type FinishLateAttribution,
 } from './FinishHostDependencyTracker';
 
 export { FloorHostDependencyTracker, floorHostReferenceEdges } from './FloorHostDependencyTracker';

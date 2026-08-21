@@ -97,6 +97,10 @@ import {
     type FinishBoundaryWritePayload,
 } from '@pryzm/finish-host-tracker';
 import { UpdateFloorBoundaryCommand, UpdateCeilingBoundaryCommand, UpdateRoofBoundaryCommand } from '@pryzm/command-registry';
+// §FINISH-FOLLOW-LATE-ATTRIBUTION (L-2090) — extracted rather than inlined here
+// for the reason `beamCreatedMirror` was: a closure in this file needs a THREE
+// world and twenty stores to run one line, so no suite can execute it.
+import { attributeFinishAgainstMovedWall } from './finishLateAttribution';
 import { roofRecordFromCreatedEvent } from './roofCreatedMirror';
 import { beamRecordFromCreatedEvent } from './beamCreatedMirror';
 import { curtainWallRecordFromCreatedEvent } from './curtainWallCreatedMirror';
@@ -931,6 +935,21 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         resolver: WallFaceResolver,
         intersector: SketchLoopIntersector,
     };
+    //
+    // §FINISH-FOLLOW-LATE-ATTRIBUTION (L-2090) — the SIXTH argument, and the
+    // founder's 2026-08-21 defect. The trackers index by `sketch.outerLoop`
+    // host-reference edges, and only ONE of the three floor creation paths in
+    // this tree mints them: `plugins/floor/src/handlers/CreateFloor.ts:137` and
+    // the §P3.2-FL bus→legacy mirror further down THIS file both write
+    // `boundingWallIds: []` and no `sketch` at all (L-2091). A finish created
+    // either way was structurally incapable of following a wall, and the tracker
+    // said NOTHING about it — `onWallUpdated` returned on an empty dependent set
+    // with no log, so "this wall bounds no finish" and "every finish it bounds
+    // was created by a path that records no relationship" were the same value.
+    // This hook is the repair for records already on disk; it re-attributes them
+    // against the ONE wall that moved, in its pre-move state, using the SAME
+    // builder creation uses (C79 §7.4). See `finishLateAttribution.ts` for why
+    // the dependency is inverted rather than imported into the tracker package.
     const floorHostDependencyTracker = new FloorHostDependencyTracker(
         floorStore, wallTool.getWallStore(), finishGeometryServices, commandManagerRef,
         // Payloads map 1:1 (C79 §3.4 byte-identical shapes); only the id key
@@ -943,6 +962,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             outerLoopEdges: payload.outerLoopEdges,
             cause: payload.cause,
         }),
+        attributeFinishAgainstMovedWall,
     );
     floorHostDependencyTracker.bootstrap();
     const ceilingHostDependencyTracker = new CeilingHostDependencyTracker(
@@ -954,6 +974,9 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             outerLoopEdges: payload.outerLoopEdges,
             cause: payload.cause,
         }),
+        // Same hook, both families — C79 §7.4 forbids letting floor and ceiling
+        // diverge, and a repair wired to one only is precisely that divergence.
+        attributeFinishAgainstMovedWall,
     );
     ceilingHostDependencyTracker.bootstrap();
 

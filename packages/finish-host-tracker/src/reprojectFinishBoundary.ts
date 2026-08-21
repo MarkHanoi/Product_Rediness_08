@@ -102,6 +102,22 @@ export interface WallSnapshotLike {
     id: string;
     baseLine: ReadonlyArray<{ x: number; y?: number; z: number }>;
     thickness?: number;
+    /**
+     * §FINISH-FOLLOW-LATE-ATTRIBUTION (L-2090) — OPTIONAL, and read by nothing in
+     * this module. It exists so `FinishHostDependencyTracker` can scope its
+     * late-attribution candidate scan to ONE storey without widening its own
+     * surface: attributing a first-floor finish to a ground-floor wall is exactly
+     * the wrong-host failure C79 §2.3 forbids. Absent ⇒ the tracker declines to
+     * scope, and therefore declines to attribute (see `lateAttributionPass`).
+     */
+    levelId?: string;
+    /**
+     * §FINISH-FOLLOW-LATE-ATTRIBUTION — the quadratic-Bézier arc metadata a CURVED
+     * wall carries (`WallCurve`). Also unread here; it travels so the injected
+     * attributor can refuse a curved host rather than attribute an arc to a chord
+     * (C79 §2.5 — curved fallback is PERMANENT).
+     */
+    curve?: { control: { x: number; z: number; y?: number }; segments?: number };
 }
 
 export interface ReprojectFinishBoundaryInput {

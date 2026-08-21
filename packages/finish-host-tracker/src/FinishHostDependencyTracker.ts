@@ -78,7 +78,54 @@ export interface FinishRecordLike {
     sketch?: {
         outerLoop: { edges: FinishSketchEdgeLike[] };
     };
+    /** §FINISH-FOLLOW-LATE-ATTRIBUTION (L-2090) — used ONLY to scope the
+     *  late-attribution candidate scan to the moved wall's storey. */
+    levelId?: string;
 }
+
+/**
+ * §FINISH-FOLLOW-LATE-ATTRIBUTION (L-2090) — attribute a finish's ALREADY-STORED
+ * ring against the PRE-MOVE snapshot of the ONE wall that just moved.
+ *
+ * ── WHY THIS EXISTS, measured ────────────────────────────────────────────────
+ * The graph this tracker maintains is built from `sketch.outerLoop` host-reference
+ * edges. Only ONE of the three floor-creation paths in the tree mints them
+ * (`CreateFloorCommand._buildBoundarySketch`). The bus verb handler
+ * (`plugins/floor/src/handlers/CreateFloor.ts:137`) and the §P3.2-FL bus→legacy
+ * mirror in `apps/editor/src/engine/initTools.ts` both write
+ * `boundingWallIds: []` and NO `sketch` at all. A finish created either way is
+ * STRUCTURALLY INCAPABLE of following a wall, and — before this hook — the
+ * tracker's `onWallUpdated` returned on an empty dependent set with no log.
+ * Not a refusal: SILENCE. That is the defect class C78 §1.4 names
+ * (failure-as-emptiness) and the one the founder reported on 2026-08-21.
+ *
+ * ── WHY IT IS NOT THE §2.2 PROXIMITY SEARCH C79 FORBIDS ──────────────────────
+ * C79 §2.2 forbids re-deriving attribution "by proximity, nearest-neighbour
+ * search, coordinate matching, or any other after-the-fact geometric query",
+ * because an OPEN candidate set is where a wrong `hostId` comes from (§2.3).
+ * The candidate set here is a SINGLETON — the wall that moved — so the question
+ * is not the forbidden *"which wall bounds this edge?"* but the answerable
+ * *"did THIS wall bound this edge?"*. `ambiguous` is unreachable by
+ * construction; there is no second candidate to be confused with. Two finishes
+ * on OPPOSITE faces of the same wall both matching is the correct answer, not a
+ * collision: both are bounded by it.
+ *
+ * ── THE STANDING LIMIT, stated rather than hidden ────────────────────────────
+ * This is a REPAIR for records whose relationship was never recorded. It is NOT
+ * a substitute for recording it at creation, and it MUST NOT be consulted for a
+ * record that already carries host references — the tracker only ever offers it
+ * records in `unattributed`. Returning `null` is the honest answer and is
+ * REPORTED as `RELATIONSHIP_NOT_RECORDED`, never absorbed.
+ *
+ * @returns the outer-loop edge list, index-aligned with `rec.boundary.polygon`,
+ *          in which the edges this wall produced are `hostReference` and every
+ *          other edge is `freeLine`; or `null` when no edge attributes to it (or
+ *          the storey cannot be scoped, or the host is curved).
+ */
+export type FinishLateAttribution<T extends FinishRecordLike> = (
+    rec: T,
+    prevWall: WallSnapshotLike,
+) => FinishSketchEdgeLike[] | null;
 
 export interface FinishStoreLike<T extends FinishRecordLike> {
     getById(id: string): T | undefined;
@@ -147,6 +194,21 @@ export interface FinishTrackerEventNames {
 export class FinishHostDependencyTracker<T extends FinishRecordLike> {
     /** wallId → elementIds whose sketch outer loop references it */
     private graph = new Map<string, Set<string>>();
+    /**
+     * §FINISH-FOLLOW-LATE-ATTRIBUTION (L-2090) — elementIds that are KNOWN to the
+     * tracker and attributed to NO wall, i.e. `hostEdgesOf()` returned `null` (no
+     * sketch) or `[]` (a recorded loop with no host edge). Maintained by exactly
+     * the same `registerRecord`/`unregisterRecord` lifecycle as `graph`, so it can
+     * never drift from it.
+     *
+     * WHY IT IS A SECOND INDEX AND NOT A SCAN. Before this, a finish that
+     * attributed to nothing left NO trace anywhere in this class — `registerRecord`
+     * returned, and `onWallUpdated` returned on an empty dependent set. The
+     * population that the follow could not serve was invisible to the follow.
+     * Holding it costs one Set and makes the shortfall COUNTABLE, which is the
+     * precondition for reporting it (C78 §1.4).
+     */
+    private unattributed = new Set<string>();
     private unsubscribeWall?: () => void;
     private windowListeners: Array<[string, (e: Event) => void]> = [];
 
@@ -159,6 +221,12 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
         private readonly geometry: FinishGeometryServices,
         private readonly commandManagerRef: FinishCommandManagerRef,
         private readonly makeBoundaryCommand?: FinishBoundaryCommandFactory,
+        /** §FINISH-FOLLOW-LATE-ATTRIBUTION (L-2090). Injected at the composition
+         *  root, exactly like `makeBoundaryCommand`, so this package keeps its
+         *  two-dependency surface and the ONE shared attribution builder stays the
+         *  ONE (C79 §7.4 — no per-path divergence). ABSENT ⇒ the pass does not
+         *  run and the shortfall is still REPORTED; it is never silent either way. */
+        private readonly attributeLate?: FinishLateAttribution<T>,
     ) {
         // §FINISH-TRACKER-EVENT-SHAPE — see the class doc. `{ id }` is the shape
         // the store sends TODAY; the record shape is tolerated so another emitter
@@ -232,7 +300,13 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
         const hostEdges = this.hostEdgesOf(rec);
         // No sketch → nothing recorded to index. Distinct from a recorded sketch
         // with zero host edges, which also indexes nothing but was CHECKED.
-        if (hostEdges === null) return;
+        // §FINISH-FOLLOW-LATE-ATTRIBUTION — BOTH are now COUNTED rather than
+        // dropped: an element attributed to no wall is the population the follow
+        // cannot serve, and it must be visible to the follow to be reported.
+        if (hostEdges === null || hostEdges.length === 0) {
+            this.unattributed.add(rec.id);
+            return;
+        }
         for (const edge of hostEdges) {
             if (!this.graph.has(edge.hostId)) this.graph.set(edge.hostId, new Set());
             this.graph.get(edge.hostId)!.add(rec.id);
@@ -241,6 +315,7 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
 
     private unregisterRecord(elementId: string): void {
         this.graph.forEach((ids) => ids.delete(elementId));
+        this.unattributed.delete(elementId);
     }
 
     /** Build the initial dependency graph from all existing records — the wiring-
@@ -305,7 +380,6 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
         if (this.isRevertReplay()) return;
 
         const dependents = this.graph.get(wall.id);
-        if (!dependents || dependents.size === 0) return;
 
         // §FINISH-TRACKER-REENTRANT-SET — iterate a SNAPSHOT, never the live Set.
         // The write below re-enters this tracker: store.update() emits
@@ -317,7 +391,7 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
         // heap at ~2 GB. The event path being LIVE is the whole point of this
         // tracker (it is the slab defect it exists to not repeat), so the fix is
         // here, at the iteration, not by muting the listener.
-        for (const elementId of [...dependents]) {
+        for (const elementId of [...(dependents ?? [])]) {
             const rec = this.store.getById(elementId);
             if (!rec?.sketch) {
                 console.warn(
@@ -339,6 +413,123 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
             });
 
             this.reportAndWrite(rec, wall.id, result);
+        }
+
+        // §FINISH-FOLLOW-LATE-ATTRIBUTION (L-2090) — THE FOUNDER'S DEFECT.
+        // The pass below runs whether or not the recorded loop above found
+        // anything, because the two populations are disjoint by construction
+        // (`registerRecord` puts an element in `graph` OR in `unattributed`,
+        // never both). A finish created by the bus verb or the §P3.2-FL mirror
+        // carries no sketch and lands in the second one.
+        this.lateAttributionPass(wall, prevState);
+    }
+
+    // ── §FINISH-FOLLOW-LATE-ATTRIBUTION — the repair, and the report ─────────
+
+    /**
+     * Offer every finish that is attributed to NO wall to the injected
+     * late-attributor, scoped to the moved wall's storey, and re-project the ones
+     * it claims.
+     *
+     * ⭐ THE RULE THIS ENFORCES, and the whole reason it exists: **an empty
+     * dependent set is a MEASUREMENT, not a verdict.** `onWallUpdated` used to
+     * `return` on `dependents.size === 0` with no output at all, so
+     *   (a) "this wall bounds no finish" and
+     *   (b) "every finish this wall bounds was created by a path that records no
+     *        relationship"
+     * were THE SAME VALUE — silence. That is the failure-as-emptiness defect
+     * (C78 §1.4 · §CONTEXT-DATA-HONESTY), and it is what the founder saw on
+     * 2026-08-21: a wall moved 19.444 m of Ground-floor baseline, the openings
+     * re-seated, the room re-detected, the room tag refreshed — and the floor
+     * finish neither followed NOR refused. Nothing at all was printed about it.
+     *
+     * Every exit from this method now prints, or writes. There is no silent one.
+     */
+    private lateAttributionPass(wall: WallSnapshotLike, prevState?: WallSnapshotLike): void {
+        if (this.unattributed.size === 0) return; // nothing unattributed: not a shortfall.
+
+        // Scope to the moved wall's storey. Attributing a first-floor finish to a
+        // ground-floor wall is the wrong-host failure C79 §2.3 forbids, and
+        // `FinishHostDependencyTracker` keys on `hostId` alone and consults no
+        // level (the hazard `CreateFloorPayload.hostReferences` documents).
+        // UNKNOWN on either side is NOT "same level" — it is unscopable, and an
+        // unscopable candidate is dropped rather than guessed at.
+        const candidates: T[] = [];
+        let unscopable = 0;
+        for (const elementId of [...this.unattributed]) {
+            const rec = this.store.getById(elementId);
+            if (!rec) continue;
+            if (!wall.levelId || !rec.levelId) { unscopable++; continue; }
+            if (wall.levelId !== rec.levelId) continue;
+            candidates.push(rec);
+        }
+
+        if (candidates.length === 0) {
+            if (unscopable > 0) {
+                console.warn(
+                    `[${this.constructorName()}] §C79-5.2 undetermined (RELATIONSHIP_NOT_RECORDED): ` +
+                    `${unscopable} ${this.kind}(s) attribute to no wall and carry no storey to scope against ` +
+                    `(wall "${wall.id}" levelId=${wall.levelId ?? 'UNKNOWN'}) — not offered for late attribution.`
+                );
+            }
+            return;
+        }
+
+        if (!this.attributeLate) {
+            console.warn(
+                `[${this.constructorName()}] §C79-5.2 undetermined (RELATIONSHIP_NOT_RECORDED): ` +
+                `wall "${wall.id}" moved and ${candidates.length} ${this.kind}(s) on level ` +
+                `"${wall.levelId}" attribute to NO wall — no late-attributor is wired, so whether ` +
+                `they are bounded by it is UNMEASURED, not "no".`
+            );
+            return;
+        }
+
+        // C72 §3.5 — prevState is never reconstructed from the store. The store
+        // holds the MOVED wall; attributing the old ring against the new
+        // centreline would diff a value against itself and report "no match".
+        if (!prevState) {
+            console.warn(
+                `[${this.constructorName()}] §C79-5.2 undetermined (STALE_DERIVED_STATE): ` +
+                `wall "${wall.id}" moved without a pre-mutation snapshot (C72 §3.1 no-prevState) — ` +
+                `${candidates.length} unattributed ${this.kind}(s) could not be tested against it.`
+            );
+            return;
+        }
+
+        let attributed = 0;
+        for (const rec of candidates) {
+            const edges = this.attributeLate(rec, prevState);
+            if (!edges) continue;
+            attributed++;
+            // AUDIBLE ON PURPOSE. A late attribution is a REPAIR of a record whose
+            // relationship should have been minted at creation (C79 §7.1). It is
+            // correct behaviour and a standing data defect at the same time, and
+            // the line is what makes the second one countable.
+            console.warn(
+                `[${this.constructorName()}] §FINISH-FOLLOW-LATE-ATTRIBUTION: ${this.kind} "${rec.id}" ` +
+                `carried NO recorded host reference and IS bounded by moved wall "${wall.id}" — ` +
+                `attributing now against the pre-move centreline alone (singleton candidate set, ` +
+                `C79 §2.2-compliant) and re-projecting. Its creation path recorded no relationship.`
+            );
+            const result = reprojectFinishBoundary({
+                edges,
+                movedWallId: wall.id,
+                prevWall: prevState,
+                resolveHostSegmentXZ: (edge) => resolveFinishHostEdgeXZ(this.geometry.resolver, edge),
+                intersector: this.geometry.intersector,
+            });
+            this.reportAndWrite(rec, wall.id, result);
+        }
+
+        if (attributed === 0) {
+            // "Checked, and none of them touch this wall" — a DIFFERENT fact from
+            // the silence this method replaces, and the whole point of printing it.
+            console.log(
+                `[${this.constructorName()}] §FINISH-FOLLOW-LATE-ATTRIBUTION: wall "${wall.id}" moved; ` +
+                `checked ${candidates.length} unattributed ${this.kind}(s) on level "${wall.levelId}" — ` +
+                `none is bounded by it.`
+            );
         }
     }
 
@@ -480,6 +671,18 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
         }
         this.windowListeners = [];
         this.graph.clear();
+        this.unattributed.clear();
+    }
+
+    /**
+     * §FINISH-FOLLOW-LATE-ATTRIBUTION — the SHORTFALL, readable. How many known
+     * finishes attribute to no wall at all, i.e. how much of this family the
+     * recorded-relationship follow cannot serve. Exposed so a gate or a diagnostic
+     * can assert on it instead of inferring it from console output (C78 §1.4 — a
+     * number that is not readable is a number nobody can ratchet).
+     */
+    unattributedCount(): number {
+        return this.unattributed.size;
     }
 
     private constructorName(): string {
