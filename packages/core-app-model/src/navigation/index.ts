@@ -16,6 +16,10 @@ export { computeFitPose, boundsVisibleToCamera, boundsFramedByCamera, shouldPers
 // reaching the DEFAULT-FRAMING path (L-378 guarded only the saved pose).
 export { GLOBE_SCALE_LIMIT_M, isGlobeScalePosition, isGlobeScaleBounds, MAX_BIM_NEAR_M, boundsFromSiteRing } from './cameraFraming.js';
 export type { DepartingCameraContext, GroundPointXZ } from './cameraFraming.js';
+// §CAM-NEAR-SCALES-WITH-STANDOFF (L-2070) — L-747 capped `near` at 0.1 m; 0.1 m is
+// still a clip plane and `controls.minDistance` guards the TARGET, not geometry.
+export { NEAR_INSPECT_M, NEAR_RAMP_STANDOFF_M, MAX_DEPTH_RATIO, nearForStandoff, standoffFromBounds, applyAdaptiveNearPlane, installAdaptiveNearPlane } from './adaptiveNearPlane.js';
+export type { AdaptiveNearPlaneBinding, AdaptiveNearControlsLike } from './adaptiveNearPlane.js';
 export { FirstPersonController } from './FirstPersonController.js';
 export type { KeyboardOrbitCamera } from './KeyboardOrbitPlugin.js';
 export { KeyboardOrbitPlugin } from './KeyboardOrbitPlugin.js';

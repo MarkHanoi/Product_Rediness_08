@@ -254,6 +254,10 @@ export type { DepartingCameraContext, GroundPointXZ } from './navigation/cameraF
 // §CAM-BIM-SCALE-BOUNDS (L-744) — L-378 guarded the SAVED pose; this guards the
 // COMPUTED one, so an empty slot cannot fall back to a globe-scale default framing.
 export { GLOBE_SCALE_LIMIT_M, isGlobeScalePosition, isGlobeScaleBounds, MAX_BIM_NEAR_M, boundsFromSiteRing } from './navigation/cameraFraming.js';
+// §CAM-NEAR-SCALES-WITH-STANDOFF (L-2070) — the near plane scales with the camera's
+// standoff from the model, so a wall at arm's length is not clipped away.
+export { NEAR_INSPECT_M, NEAR_RAMP_STANDOFF_M, MAX_DEPTH_RATIO, nearForStandoff, standoffFromBounds, applyAdaptiveNearPlane, installAdaptiveNearPlane } from './navigation/adaptiveNearPlane.js';
+export type { AdaptiveNearPlaneBinding, AdaptiveNearControlsLike } from './navigation/adaptiveNearPlane.js';
 export { FirstPersonController } from './navigation/FirstPersonController.js';
 export type { KeyboardOrbitCamera } from './navigation/KeyboardOrbitPlugin.js';
 export { KeyboardOrbitPlugin } from './navigation/KeyboardOrbitPlugin.js';

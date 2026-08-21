@@ -61,6 +61,10 @@ import { WallEdgeVisibilityService } from '@app/ui/WallEdgeVisibilityService';
 import { initParcelBoundarySceneRenderer } from '@app/ui/site/ParcelBoundarySceneRenderer';
 import { installSiteProjectScope } from '@app/ui/site/siteProjectScope';
 import { ProjectContext, projectContext } from '@pryzm/core-app-model';
+// §CAM-NEAR-SCALES-WITH-STANDOFF (L-2070) — the perspective near plane scales with
+// the camera's standoff from the model, so a wall at arm's length is not clipped.
+import { installAdaptiveNearPlane } from '@pryzm/core-app-model';
+import type { AdaptiveNearControlsLike } from '@pryzm/core-app-model';
 // ViewportPathTracer is dynamically imported on first activation — see
 // `_ensureViewportPathTracer()` below. Statically importing it would pull
 // `three-gpu-pathtracer` (~150 KB) into the EngineBootstrap chunk for every
@@ -430,6 +434,45 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         clear: () => sceneBoundsCache.invalidate(),
     });
     // ── End SceneBoundsCache ──────────────────────────────────────────────────
+
+    // ── §CAM-NEAR-SCALES-WITH-STANDOFF (L-2070) — adaptive perspective near plane ──
+    //
+    // FOUNDER (2026-08-21, prod 071a7b2c, WebGL): *"when I zoom in — sometimes too much
+    // (not even to a wall) — the window disappears."* Screenshot: the wall is a flat
+    // white/grey field with two window-shaped rectangles floating in it and the green
+    // ground showing through them.
+    //
+    // That is NEAR-PLANE CLIPPING against a DoubleSide wall: the near face is discarded,
+    // the far face of the same solid still draws (hence a flat field, not a hole), the
+    // opening shows the ground, and the glass at mid-thickness survives as a rectangle.
+    //
+    // L-747 capped `near` at MAX_BIM_NEAR_M = 0.1 m and that fixed the 14 m catastrophe.
+    // It did not fix this: 0.1 m is still a clip plane, and NOTHING stops the eye getting
+    // closer than 0.1 m to a surface. `BimWorld` arms `controls.minDistance = 0.2`, but
+    // camera-controls measures that to the ORBIT TARGET, not to geometry — orbiting a
+    // target inside a room sweeps the eye through the walls, and dollying toward a target
+    // 15 m away crosses the façade with `distance` still ~15.
+    //
+    // So `near` is keyed on the camera's standoff from the MODEL BOUNDS (0 when inside):
+    // 1 cm touching, ramping to today's 0.1 m by 20 m out. Aerial and site-scale viewing
+    // are bit-for-bit unchanged.
+    //
+    // P3 — no rAF is added here. It binds to camera-controls events the existing frame
+    // scheduler already drives. Orthographic plan/elevation/section cameras are left
+    // untouched (their near is -1000, a signed range, not a metric standoff).
+    //
+    // ⚠ The bounds include site/context geometry, so standing 100 m from a building on a
+    // wide terrain still reports standoff ≈ 0 and keeps the small near. That errs toward
+    // NOT clipping, which is the direction C04 chose at L-747.
+    installAdaptiveNearPlane({
+        // A thunk, not a captured reference: OBC's OrthoPerspectiveCamera REPLACES
+        // world.camera.three on a projection change (see the projection.set() comment
+        // further down this file).
+        getCamera: () => world.camera.three,
+        getModelBounds: () => sceneBoundsCache.getBounds(),
+        controls: world.camera.controls as unknown as AdaptiveNearControlsLike,
+    });
+    // ── End §CAM-NEAR-SCALES-WITH-STANDOFF ───────────────────────────────────
 
     // ── Phase 2 Performance: FrameCoordinator ────────────────────────────────
     // Created here (outside the RPM try block) so it is available to both
