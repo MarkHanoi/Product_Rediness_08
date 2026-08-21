@@ -341,7 +341,9 @@ export class PlanViewManager implements IPlanViewManager {
         vgBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="3"/><path d="M1 7c1.5-4 9.5-4 12 0-2.5 4-10.5 4-12 0Z"/></svg><span>V/G</span>`;
         vgBtn.addEventListener('click', () => {
             if (!this._viewDef) return;
-            if (!window.overridePanel) window.overridePanel = new OverridePanel();
+            // §OVERRIDE-PANEL-DISPATCH-IS-DEAD (L-1870) — was `new OverridePanel()`,
+            // with no runtime, so every command the panel dispatches was a no-op.
+            if (!window.overridePanel) window.overridePanel = new OverridePanel(window.runtime ?? null);
             window.overridePanel.toggle(this._viewDef.id);
         });
         // Re-use the existing customised-state indicator on this single button.

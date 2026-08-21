@@ -43,7 +43,23 @@ export class OverridePanel {
     public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
 
     constructor(runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null = null) {
-        this.runtime = runtime;
+        // §OVERRIDE-PANEL-DISPATCH-IS-DEAD (L-1870) — BOTH construction sites called
+        // `new OverridePanel()` with NO argument (PlanViewManager.ts:344,
+        // ViewHeaderButtons.ts:66), so `this.runtime` was null and every one of the
+        // NINE `this.runtime?.bus?.executeCommand(…)` sites below evaluated to
+        // `undefined`. The entire per-view Visibility & Graphics panel — intent
+        // picker, clear-override, clear-all, promote-to-intent — mutated NOTHING,
+        // silently, because `?.` turns a wiring defect into a no-op instead of a
+        // throw. Same shape as §VIEW-INTENT-ASSIGN-DISPATCH-IS-DEAD (L-1860) and
+        // §SHEET-MOVE-DISPATCH-IS-DEAD (L-1633).
+        //
+        // The `window.runtime` fallback is deliberate and is the part that kills the
+        // CLASS rather than this one instance: the panel is a `window.overridePanel`
+        // SINGLETON reached lazily from two different modules, so a future third call
+        // site that forgets the argument cannot silently re-kill it. `window.runtime`
+        // is written by engineLauncher.ts:160 during boot and both call sites are
+        // click-driven, so it is populated long before construction.
+        this.runtime = runtime ?? window.runtime ?? null;
         this.panel = document.createElement('div');
         this.panel.className = 'vg-panel ov-panel';
         this.panel.style.display = 'none';

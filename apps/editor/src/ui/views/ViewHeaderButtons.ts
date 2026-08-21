@@ -62,8 +62,13 @@ export interface ViewHeaderButtonsHandle {
     syncIntentSelect: () => void;
 }
 
-function ensureUnifiedPanel(): OverridePanel {
-    if (!window.overridePanel) window.overridePanel = new OverridePanel();
+// §OVERRIDE-PANEL-DISPATCH-IS-DEAD (L-1870) — takes the runtime the toolbar was
+// built with. It used to call `new OverridePanel()` with no argument, leaving
+// `this.runtime` null and every command the panel dispatches a silent no-op.
+function ensureUnifiedPanel(
+    runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null = null,
+): OverridePanel {
+    if (!window.overridePanel) window.overridePanel = new OverridePanel(runtime ?? window.runtime ?? null);
     return window.overridePanel as OverridePanel;
 }
 
@@ -139,7 +144,7 @@ export function buildViewHeaderToolbar(opts: ViewHeaderButtonsOptions, runtime: 
     vgBtn.className = 'svp-pv-btn';
     vgBtn.title = 'Visibility & Graphics — Intent, overrides, isolate';
     vgBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="3"/><path d="M1 7c1.5-4 9.5-4 12 0-2.5 4-10.5 4-12 0Z"/></svg><span>V/G</span>`;
-    vgBtn.addEventListener('click', () => ensureUnifiedPanel().toggle(opts.viewId));
+    vgBtn.addEventListener('click', () => ensureUnifiedPanel(runtime).toggle(opts.viewId));
 
     function syncVgBtn(): void {
         vgBtn.classList.toggle('svp-pv-btn--active', isCustomised(opts.viewId));
