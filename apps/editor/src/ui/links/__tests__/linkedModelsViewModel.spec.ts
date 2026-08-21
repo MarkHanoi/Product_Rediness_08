@@ -147,6 +147,25 @@ describe('§LINK-UX-PROOF · a row makes the PIN-vs-LIVE choice visible (ADR-034
         // An undeclared version choice is not defensible — so the row declares it.
         expect(r.versionLine).toContain('Autosave 19:04');
     });
+
+    /**
+     * §LINK-LATEST-IS-NOT-LIVE (L-3161). `latest` re-resolves on project open and
+     * on an explicit Refresh; it does NOT poll. A row saying only "Following latest
+     * save" would leave a user expecting a colleague's save to appear on its own —
+     * a reasonable reading, and the wrong one. So the row states WHEN.
+     */
+    it('a follow-latest link states WHEN it updates, not just that it follows', () => {
+        const r = presentLinkRow(
+            ref({ pin: { mode: 'latest', lastResolvedVersionId: 'v-9' } }),
+            status(),
+        );
+        expect(r.versionLine).toContain('Refresh');
+        expect(r.versionLine).toContain('open');
+    });
+
+    it('a PINNED link makes no refresh promise — it is pinned, that is the point', () => {
+        expect(presentLinkRow(ref(), status()).versionLine).not.toContain('Refresh');
+    });
 });
 
 describe('§LINK-UX-PROOF · shown / hidden / refused / resolving are FOUR states', () => {

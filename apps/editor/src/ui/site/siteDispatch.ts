@@ -1293,8 +1293,15 @@ export function resolveSiteContext(
  * The doc comment, including the §A.21.D39/D40 history, moved WITH the function —
  * that history is the reason the fallback order is what it is, and splitting it from
  * the code would strand it.
+ *
+ * ⚠ It is IMPORTED as well as re-exported: this module has its own internal
+ * callers (`noteSiteDispatchOwner`, and the GIS context resolver), and a bare
+ * `export { … } from` creates no local binding for them. A re-export that
+ * type-checks from outside while leaving the inside broken is exactly the kind of
+ * half-move worth naming.
  */
-export { resolveActiveProjectId } from '../../engine/project/activeProjectId';
+import { resolveActiveProjectId } from '../../engine/project/activeProjectId';
+export { resolveActiveProjectId };
 
 /**
  * Ensure a Site exists for the active project, returning its id. Idempotent —

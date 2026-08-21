@@ -369,7 +369,11 @@ function renderRow(ref: LinkedModelRef, row: ReturnType<typeof presentLinkRow>):
 
     // Pin ⇄ latest. The choice is one click and always visible, per D5's rule that
     // an undeclared version choice is not defensible.
-    if (ref.pin.mode === 'pinned') {
+    // Capture the pin BEFORE the closures below. TypeScript discards narrowing of a
+    // property access (`ref.pin`) inside a nested function, so `pin.mode === 'latest'`
+    // has to be established on a local const or the discriminated union stays wide.
+    const pin = ref.pin;
+    if (pin.mode === 'pinned') {
         bar.appendChild(button('Follow latest', 'quiet', () => {
             const err = dispatch('link.setPin', {
                 linkId: ref.id, pin: { mode: 'latest', lastResolvedVersionId: null },
@@ -379,7 +383,7 @@ function renderRow(ref: LinkedModelRef, row: ReturnType<typeof presentLinkRow>):
     } else {
         bar.appendChild(button('Pin this version', 'quiet', () => {
             const status = linkedModelController.getStatus(ref.id);
-            const vid = ref.pin.lastResolvedVersionId;
+            const vid = pin.lastResolvedVersionId;
             if (vid == null) {
                 // Refuse with the reason rather than pinning to a guess. Pinning to
                 // "whatever we happen to be showing" when we do not know what that is
@@ -399,6 +403,17 @@ function renderRow(ref: LinkedModelRef, row: ReturnType<typeof presentLinkRow>):
             if (err !== null) flash(err);
         }));
     }
+
+    // §LINK-LATEST-IS-NOT-LIVE (L-3161) — the explicit re-read. This is what
+    // `Following latest` actually means in time, and it is also the RETRY for a
+    // link that refused: SOURCE_UNREACHABLE and MISSING_LINK_VERSION both keep the
+    // link, so both become resolvable again without unlinking and relinking.
+    //
+    // Not a bus dispatch: it mutates no persisted state, so there is no verb to
+    // call (P6 governs mutations). It re-reads and redraws.
+    bar.appendChild(button('Refresh', 'quiet', () => {
+        void linkedModelController.refreshLink(ref.id);
+    }));
 
     bar.appendChild(button('Unlink', 'quiet', () => {
         const err = dispatch('link.remove', { linkId: ref.id });

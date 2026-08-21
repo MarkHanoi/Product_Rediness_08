@@ -167,7 +167,14 @@ export function presentLinkRow(ref: LinkedModelRef, status: LinkStatus | null): 
         ? `Pinned to ${ref.pin.versionLabel ?? status?.versionLabel ?? ref.pin.versionId}`
         // LATEST is a declared opt-in, and the row says so in words rather than
         // leaving the user to infer it from a missing label.
-        : `Following latest save${status?.versionLabel ? ` — showing ${status.versionLabel}` : ''}`;
+        //
+        // §LINK-LATEST-IS-NOT-LIVE (L-3161) — and it says WHEN, too. `latest`
+        // re-resolves on project open and on an explicit Refresh; it does not poll
+        // and never changes under the user mid-session. A row reading only
+        // "Following latest save" would leave a user expecting a colleague's save to
+        // appear on its own, which is not what happens.
+        : `Following latest${status?.versionLabel ? ` — showing ${status.versionLabel}` : ''}`
+          + ' · updates on open or Refresh';
 
     const anchorLine = ref.anchor.mode === 'shared-geo-origin'
         ? (ref.anchor.separationM === null

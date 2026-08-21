@@ -156,6 +156,48 @@ class LinkedModelController {
         return total;
     }
 
+    /**
+     * Re-read ONE link from its source and redraw it. Safe to call repeatedly.
+     *
+     * ── §LINK-LATEST-IS-NOT-LIVE (L-3161) — THE DECISION ADR-0346 D5 LEFT OPEN ──
+     *
+     * D5 decided PINNED-vs-LATEST. It did NOT decide what `latest` means in time,
+     * and the honest reading of the code as inherited was: a `latest` link
+     * re-resolves when the project opens, when any link changes, and never again.
+     * It does not poll. That was true but nowhere stated, which is the worst of the
+     * three options — a user reading "Following latest save" would reasonably expect
+     * their colleague's save to appear, and it would not.
+     *
+     * **DECIDED: `latest` re-resolves on project open and on an EXPLICIT refresh.
+     * It does not poll, and it never mutates under the user's hands mid-session.**
+     * Three reasons, in order of weight:
+     *
+     *   1. A linked model is a COORDINATION DATUM. D5's own argument — if the source
+     *      moves without the host's author knowing, every dimension drawn to it is
+     *      silently wrong — does not stop applying because the user chose `latest`.
+     *      `latest` should mean "I will take the newest when I ask", not "rewrite my
+     *      reference plane while I am dimensioning to it".
+     *   2. Polling costs a timer per link and an API read per interval, on a scene
+     *      the founder already reports as heavy. The frame budget has ONE owner
+     *      (P3) and this would not be it.
+     *   3. A refresh the user performs is a refresh the user can attribute. A
+     *      background one turns "the linked model moved" into an unanswerable
+     *      question.
+     *
+     * This is also the retry path for a link that refused: `SOURCE_UNREACHABLE` and
+     * `MISSING_LINK_VERSION` both keep the link and both become resolvable again
+     * without unlinking and relinking.
+     *
+     * Not a bus verb, deliberately: it mutates no persisted state (P6 governs
+     * mutations, and this changes no `LinkedModelRef`). It re-reads a cache and
+     * redraws — the same category as a repaint.
+     */
+    async refreshLink(linkId: string): Promise<void> {
+        const ref = linkedModelStore.get(linkId);
+        if (ref === undefined) return;
+        await this.syncOne(ref);
+    }
+
     /** Re-resolve and redraw every link. Safe to call repeatedly. */
     async syncAll(): Promise<void> {
         const refs = linkedModelStore.getAll();
