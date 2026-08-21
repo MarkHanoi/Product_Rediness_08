@@ -802,6 +802,29 @@ export class ProjectBrowserPanel {
                 .catch((err) => console.error('[GIS] open site inspector failed:', err));
         }));
 
+        // §LINK-MODEL-REACHABILITY (L-3157 · ADR-0346) — LINKED MODELS.
+        //
+        // Placed here, in the GIS/Site tab, because the PARCEL IS THE ANCHOR: a
+        // link's placement is derived from the two projects' `SiteModel.location`
+        // (C19 §1.3), which is authored in this very tab. A user who has just set
+        // the site is one click from linking another project against it — and the
+        // C83 verdict the panel shows is a statement about that datum.
+        //
+        // It follows the same module-import dispatch as Site Inspector above, and
+        // for the same recorded reason (the action registry resolves `window.pryzm*`
+        // entry points, not module exports). ⚠ The note above this one is why this
+        // line exists AT ALL rather than being left for later: `openSiteInspectorPanel`
+        // was a fully-built panel with one caller in a class never instantiated, and
+        // was unreachable for months. Lane LINK1 built 2 347 lines of linked-model
+        // engine and died before wiring a single entry point to it
+        // ([[committed-is-not-reachable]]). A `ProjectBrowserPanel` spec asserts this
+        // button exists, so the route cannot silently disappear again.
+        root.appendChild(makeBtn('🔗', 'Linked Models', () => {
+            void import('../links/LinkedModelsPanel')
+                .then((m) => m.openLinkedModelsPanel(this.runtime))
+                .catch((err) => console.error('[GIS] open linked models failed:', err));
+        }));
+
         // Gizmo controls
         const gizmoHdr = document.createElement('div');
         gizmoHdr.style.cssText = [

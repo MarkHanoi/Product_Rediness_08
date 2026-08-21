@@ -104,6 +104,19 @@ export default defineConfig({
       // states, and a widget that renders one as another is the defect this
       // surface exists to not commit.
       'apps/editor/src/ui/analysis/__tests__/**/*.spec.ts',
+      // §LINK-UX-PROOF (L-3156/L-3158 · ADR-0346): the LINKED MODEL read model —
+      // the C83 placement presentation and the per-link row. A linked model that
+      // lands quietly in the wrong place renders, measures and lies, so the three
+      // verdicts must reach the user as three visibly different things and each
+      // refusal must carry its escape hatch. These pin that, plus the honesty
+      // boundaries the panel is built on: null never collapsing to 0, and
+      // hidden / empty / failed / resolving never rendering as one another.
+      //
+      // ⚠ ADDED IN LOCK-STEP WITH THE FILES, not after — §L-851 is the record of
+      // 72 spec files and 1 433 cases that sat unselected because a pattern was
+      // written for a tree that had moved. A suite this config does not select
+      // does not exist, and "never ran" and "passed" print the same value.
+      'apps/editor/src/ui/links/__tests__/**/*.spec.ts',
       // §XSS-SINK-SCAN (L-407): the GA-gate HTML-sink classifier + the repo-wide
       // ratchet assertion. Pure Node (fs + string analysis); lives here because
       // `test:root` is the only suite CI runs over non-package tooling.
