@@ -31,6 +31,7 @@ import {
   type InspectElementType,
   ELEMENT_TYPE_LABELS,
   ELEMENT_TYPE_ICONS,
+  meshTypeForCategory,
   rebuildAttributeDropdown,
   rebuildDropdown,
 } from './audit/ElementTypeSelectorZone';
@@ -189,7 +190,15 @@ export class AuditStack {
       );
       this._renderContent();
       // F.events.6 — pryzm-inspect-element-type migrated to runtime.events typed bus.
-      this.runtime?.events?.emit('pryzm-inspect-element-type', { elementType: this._activeElementType });
+      // L-2032 — 'rooms' stays the literal the coordinator branches on; every other
+      // category sends the BUILDER's `userData.elementType`, because the 3D lens
+      // matches on that and used to guess it by de-pluralising the UI id (correct
+      // for `walls`, silently wrong for `curtainWalls` / `furniture` / `lighting`).
+      this.runtime?.events?.emit('pryzm-inspect-element-type', {
+        elementType: this._activeElementType === 'rooms'
+          ? 'rooms'
+          : meshTypeForCategory(this._activeElementType),
+      });
     });
 
     elementSelector.appendChild(selectorLabel);

@@ -39,6 +39,31 @@
  *             false (skip) for any mesh whose ancestor Group is a door or window.
  *   Files:    _applyGhostToNonRoomMesh() — line ~425
  *
+ *   ⚠ SUPERSEDED 2026-08-21 — §INSPECT-OPENINGS-PARTICIPATE (L-2030), lane INSP1.
+ *   Fix 2's REMEDY was wrong even though its SYMPTOM was real. `return false`
+ *   means "apply no ghost material at all", so it did not make doors and windows
+ *   subtler — it removed them from the lens entirely, leaving them the ONLY
+ *   families in the model still wearing their authored, fully opaque materials
+ *   while every other surface became 4–10% translucent. That is the founder's
+ *   report of 2026-08-21 (production 071a7b2c, WebGL): *"in Inspect mode, some
+ *   windows render in black … clearly not part of the colour mapping."*
+ *   The symptom Fix 2 named is now handled by WEIGHT rather than by exclusion:
+ *   an opening's sub-meshes ghost at GHOST_OPENING_OPACITY and get NO cyan edge
+ *   overlay, so a twelve-part window accumulates to about a wall's alpha instead
+ *   of three times it. See `ghostParticipation.ts` for the arithmetic.
+ *
+ * Fix 4 — Invisible hit-proxies were being made visible (L-2031, 2026-08-21):
+ *   Symptom:  A window-sized translucent box appears around every window when an
+ *             element type is focused in the INSPECT panel.
+ *   Root cause: The instanced paths (WindowBuilder._convertGroupToInstances and
+ *             the wall/column equivalents) leave ONE invisible selection proxy
+ *             per element — `userData.role = 'hit-proxy'`, MeshBasicMaterial with
+ *             `colorWrite:false`. `applyGhostWithFocus()` → `_applyClearWorldGhost()`
+ *             replaced that material with a visible MeshPhongMaterial.
+ *   Fix:      `resolveGhostRole()` returns 'skip-hit-proxy' and both ghost entry
+ *             points honour it. A mesh whose entire contract is "never drawn" is
+ *             never a ghost subject.
+ *
  * Fix 3 — ACTUAL uZoom crash root cause (SimpleGrid ShaderMaterial replacement):
  *   Symptom:  Same uZoom crash — moving the camera in Inspect mode throws
  *             "Cannot read properties of undefined (reading 'uZoom')"
@@ -89,6 +114,18 @@ import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-sched
 import { DeltaMap, DeltaEntry } from '@pryzm/core-app-model';
 import { assetCatalogStore } from '@pryzm/core-app-model';
 import { onRuntimeEvent } from '../runtimeEventBridge';
+// §INSPECT-OPENINGS-PARTICIPATE (L-2030) — the ghost role is a PURE decision and
+// lives in its own THREE-free leaf module so a headless test can drive it. See
+// that file's header for why the old "skip every door/window sub-mesh" branch
+// produced the founder's opaque windows, and for the per-ELEMENT ghost weight
+// that replaces it without re-introducing the bright-blob defect it was fixing.
+import {
+  resolveGhostRole,
+  ghostOpacityForRole,
+  HIT_PROXY_ROLE,
+  GHOST_STRUCTURAL_OPACITY as GHOST_STRUCTURAL_OPACITY_SHARED,
+  type GhostSubject,
+} from './ghostParticipation';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -102,8 +139,13 @@ export type InspectLens =
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const GHOST_STRUCTURAL_OPACITY    = 0.10;
-const GHOST_NON_STRUCTURAL_OPACITY = 0.04;
+// §INSPECT-OPENINGS-PARTICIPATE (L-2030) — the three ghost opacities (structural,
+// non-structural, opening) are declared TOGETHER in ghostParticipation.ts, because
+// they only mean anything in proportion to each other; splitting them across two
+// files is how the opening weight would silently drift. `ghostOpacityForRole()`
+// serves the non-structural and opening values; only the structural one is still
+// named here, by the edge-overlay branch.
+const GHOST_STRUCTURAL_OPACITY     = GHOST_STRUCTURAL_OPACITY_SHARED;
 const GHOST_EDGE_COLOR            = 0x00e5ff; // cyan LineSegments on structural
 const GHOST_STRUCTURAL_COLOR      = 0xc0e0ff;
 
@@ -463,50 +505,54 @@ export class DiagnosticMaterialManager {
   // ── Shared ghost helper ────────────────────────────────────────────────────
 
   /**
-   * Applies the §1.1 structural ghost base to a mesh (structural or non-structural).
-   * Adds cyan LineSegments overlay for structural elements.
-   * Returns true if the mesh was ghost-treated, false if it was skipped (room mesh).
-   *
-   * GHOST-PROFILE FIX: Door and window sub-meshes (frame, leaf, hinges, handles,
-   * glazing) carry no elementType on the mesh itself — it lives on their parent
-   * THREE.Group.  Without the ancestor check below, every child mesh is classified
-   * as non-structural and receives the 4% white ghost material, producing clearly
-   * visible ghost profiles in Inspect mode.  Walking the parent chain and bailing
-   * out on 'door' or 'window' prevents this entirely.
+   * §INSPECT-OPENINGS-PARTICIPATE (L-2030) — build the plain-data GhostSubject
+   * that `resolveGhostRole` decides on. Every THREE-specific read lives here;
+   * the decision itself is pure and separately tested.
    */
-  private _applyGhostToNonRoomMesh(obj: THREE.Mesh): boolean {
-    const ud = obj.userData;
-    if (ud.isRoomVolume || ud.isRoomOverlay) return false;
-
-    // ── SHADER-MATERIAL GUARD (uZoom crash fix) ────────────────────────────
-    // OBC's SimpleGrid uses a THREE.ShaderMaterial whose uniforms include `uZoom`.
-    // SimpleGrid exposes a `get material() { return this.three.material; }` getter.
-    // If we replace gridMesh.material with MeshPhongMaterial, the getter returns
-    // the new material, and camera-controls' `updateZoom` event handler then reads
-    // `this.material.uniforms.uZoom` — but MeshPhongMaterial has no `uniforms`
-    // property, so `undefined.uZoom` throws on every camera move.
-    //
-    // Guard: never ghost any mesh whose current material is a ShaderMaterial.
-    // All legitimate BIM geometry (walls, slabs, doors, rooms) uses Standard/
-    // Phong/Basic materials — only system-level meshes (grid) use ShaderMaterial.
+  private _ghostSubject(obj: THREE.Mesh): GhostSubject {
+    const ud = obj.userData ?? {};
     const meshMat = Array.isArray(obj.material) ? obj.material[0] : obj.material;
-    if (meshMat instanceof THREE.ShaderMaterial) return false;
 
-    // Skip sub-meshes that belong to door or window groups.
-    // DoorBuilder / WindowBuilder place all geometry as children of a THREE.Group
-    // whose userData.elementType is 'door'/'window'.  The child meshes themselves
-    // carry no elementType, so without this check they would be ghost-treated.
+    const ancestorTypes: (string | null)[] = [];
     let ancestor: THREE.Object3D | null = obj.parent;
     while (ancestor) {
-      const aType = ((ancestor.userData?.elementType ?? '') as string).toLowerCase();
-      if (aType === 'door' || aType === 'window') return false;
+      const raw = (ancestor.userData?.elementType ?? ancestor.userData?.type ?? null) as string | null;
+      ancestorTypes.push(raw ? raw.toLowerCase() : null);
       ancestor = ancestor.parent;
     }
 
-    const type = ((ud.type ?? ud.elementType ?? '') as string).toLowerCase();
-    const isStructural = ['slab', 'column', 'wall'].some(t => type.includes(t));
+    const selfRaw = (ud.type ?? ud.elementType ?? null) as string | null;
+    return {
+      selfType:         selfRaw ? selfRaw.toLowerCase() : null,
+      ancestorTypes,
+      role:             (ud.role ?? null) as string | null,
+      isRoom:           !!(ud.isRoomVolume || ud.isRoomOverlay),
+      isShaderMaterial: meshMat instanceof THREE.ShaderMaterial,
+    };
+  }
 
-    if (isStructural) {
+  /**
+   * Applies the §1.1 ghost base to a mesh (structural, opening, or non-structural).
+   * Adds the cyan LineSegments overlay for structural elements only.
+   * Returns true if the mesh was ghost-treated, false if it was skipped.
+   *
+   * ── §INSPECT-OPENINGS-PARTICIPATE (L-2030), 2026-08-21 ────────────────────
+   * ⛔ This method used to `return false` — NO GHOST AT ALL — for every mesh
+   * under a door or window group. That made doors and windows the ONLY families
+   * keeping their AUTHORED opaque materials in Inspect, which is the founder's
+   * *"some windows render in black … clearly not part of the colour mapping"*.
+   * They now participate, at a per-ELEMENT ghost weight rather than a per-MESH
+   * one, so the twelve sub-boxes of a `fine`-LOD window do not accumulate into
+   * the bright blob the old blanket skip was (over-)correcting for. The full
+   * argument, the arithmetic, and the ShaderMaterial / hit-proxy guards are in
+   * `ghostParticipation.ts`.
+   */
+  private _applyGhostToNonRoomMesh(obj: THREE.Mesh): boolean {
+    const role = resolveGhostRole(this._ghostSubject(obj));
+    const opacity = ghostOpacityForRole(role);
+    if (opacity === null) return false; // room / ShaderMaterial / hit-proxy
+
+    if (role === 'structural') {
       this._applyToMesh(obj, new THREE.MeshPhongMaterial({
         color:       GHOST_STRUCTURAL_COLOR,
         opacity:     GHOST_STRUCTURAL_OPACITY,
@@ -533,9 +579,13 @@ export class DiagnosticMaterialManager {
       lines.scale.copy(wScale);
       this._addOverlay(lines);
     } else {
+      // 'opening' and 'non-structural' differ ONLY in accumulated weight — an
+      // opening is many stacked sub-boxes, a wall is one or two. No cyan edge
+      // overlay here: twelve EdgesGeometry outlines per window IS the "ghost
+      // profile" artefact the old blanket skip was reacting to.
       this._applyToMesh(obj, new THREE.MeshPhongMaterial({
         color:       0xffffff,
-        opacity:     GHOST_NON_STRUCTURAL_OPACITY,
+        opacity,
         transparent: true,
         side:        THREE.DoubleSide,
         depthWrite:  false,
@@ -1040,6 +1090,9 @@ export class DiagnosticMaterialManager {
       ? mat.some(m => m instanceof THREE.ShaderMaterial)
       : mat instanceof THREE.ShaderMaterial;
     if (isSM) return;
+    // L-2031 — an invisible selection proxy (colorWrite:false) is never a ghost
+    // subject; ghosting it turns a raycast helper into a visible box.
+    if (mesh.userData?.role === HIT_PROXY_ROLE) return;
     this._applyToMesh(mesh, new THREE.MeshPhongMaterial({
       color:       0xffffff,
       opacity:     0.06,
@@ -1062,6 +1115,8 @@ export class DiagnosticMaterialManager {
         ? mat.some(m => m instanceof THREE.ShaderMaterial)
         : mat instanceof THREE.ShaderMaterial;
       if (isSM) return;
+      // L-2031 — never surface an invisible selection proxy.
+      if (obj.userData?.role === HIT_PROXY_ROLE) return;
       const resolved = this._resolveElementType(obj);
       if (!resolved) {
         this._applyClearWorldGhost(obj);
@@ -1098,6 +1153,10 @@ export class DiagnosticMaterialManager {
         ? mat.some(m => m instanceof THREE.ShaderMaterial)
         : mat instanceof THREE.ShaderMaterial;
       if (isSM) return;
+      // L-2031 — the hit-proxy resolves to its element's id via the ancestor
+      // walk, so without this it would take the heat colour at opacity 0.9 and
+      // paint a solid box over the very element it exists to let you click.
+      if (obj.userData?.role === HIT_PROXY_ROLE) return;
       const id = this._resolveElementId(obj);
       if (!id) return;
       const color = colorById.get(id);

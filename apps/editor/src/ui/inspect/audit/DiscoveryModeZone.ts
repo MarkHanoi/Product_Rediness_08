@@ -26,6 +26,8 @@ import {
   type AttrOption,
   type InspectElementType,
   getActiveAttrOption,
+  buildAttributeMapping,
+  renderAttributeRefusal,
 } from './ElementTypeSelectorZone';
 
 // ── State bag consumed by discovery zone ──────────────────────────────────────
@@ -55,6 +57,28 @@ export function getAllRooms(): Array<{ id: string; label: string; area: number; 
   }
 }
 
+/**
+ * ⚠ RETIRED AS A LADDER — §INSPECT-ONE-ATTRIBUTE-LADDER (L-2033), 2026-08-21.
+ *
+ * ⛔ THE DEFECT THIS CLOSES, measured 2026-08-21. This function was the SECOND
+ * room-attribute extractor in the Inspect panel. The dropdown the user CHOOSES
+ * from was built from `ELEMENT_ATTRIBUTES.rooms` (21 attributes); the list the
+ * user READS was rendered by this switch (8 keys). So THIRTEEN of the twenty-one
+ * room attributes were selectable and unreachable: pick "Slab Count", "Openings",
+ * "Rooms Above" or "All Contents" and every row printed '—' under a full
+ * Low→High ramp — the panel's own key asserting a mapping that did not exist.
+ *
+ * The two also DISAGREED where they overlapped: `ELEMENT_ATTRIBUTES.rooms`
+ * resolves Clear Height as `computed.clearHeight ?? boundary.height`, this
+ * switch read only `boundary.height`. Same label, same panel, two answers.
+ *
+ * `renderDiscoveryMode` now calls the ONE ladder — `getActiveAttrOption(type,
+ * key).extract` — so choosing an attribute and reading it are the same fact.
+ * This function is kept ONLY because it is exported and covered by existing
+ * specs; it must not acquire a caller inside this file again.
+ *
+ * @deprecated Use `getActiveAttrOption(type, key)?.extract(record)`.
+ */
 export function extractRoomAttrValue(r: any, key: string): number | null {
   switch (key) {
     case 'area':           return typeof r.computed?.area === 'number'      ? r.computed.area      : null;
@@ -136,12 +160,25 @@ export function renderDiscoveryMode(contentZone: HTMLElement, state: DiscoveryMo
   const attrKey   = attrOpt?.key ?? 'area';
   const isNumeric = attrOpt?.numeric !== false;
 
+  // §INSPECT-ONE-ATTRIBUTE-LADDER (L-2033) — the ONE ladder. This used to call
+  // `extractRoomAttrValue`, a rival 8-key switch beside a 21-attribute dropdown;
+  // see that function's header for what the other thirteen looked like.
   const attrValues: number[] = [];
   const roomAttrMap = new Map<string, number | null>();
   for (const r of rawRooms) {
-    const v = isNumeric ? extractRoomAttrValue(r, attrKey) : null;
+    const raw = (isNumeric && attrOpt) ? attrOpt.extract(r) : null;
+    const v = (typeof raw === 'number' && Number.isFinite(raw)) ? raw : null;
     roomAttrMap.set(r.id, v);
     if (v != null) attrValues.push(v);
+  }
+
+  // §CONTEXT-DATA-HONESTY (L-2034) — an attribute nobody can measure must not
+  // render a Low→High ramp over a column of dashes. Refuse, name the number,
+  // and say UNKNOWN rather than letting it read as "all values are zero".
+  if (isNumeric && attrValues.length === 0) {
+    const mapping = buildAttributeMapping(state.activeElementType, attrKey);
+    renderAttributeRefusal(contentZone, mapping);
+    return;
   }
 
   const maxVal   = attrValues.length ? Math.max(...attrValues) : 1;

@@ -33,10 +33,13 @@ import { AutoRemediateCommand } from '@pryzm/core-app-model';
 import {
   type InspectElementType,
   ELEMENT_TYPE_LABELS,
-  ELEMENT_ATTRIBUTES,
   attributeHeatColor,
-  storeKeyForType,
   buildHeatmapData,
+  buildAttributeMapping,
+  renderAttributeRefusal,
+  resolveCategoryAttributes,
+  readCategoryRecords,
+  meshTypeForCategory,
 } from './ElementTypeSelectorZone';
 
 // ── Filter category labels ────────────────────────────────────────────────────
@@ -410,36 +413,51 @@ export function onGlobalFix(state: AuditGridState): void {
 // ── Polymorphic Matrix (non-room element types) ───────────────────────────────
 
 export function renderPolymorphicMatrix(contentZone: HTMLElement, state: AuditGridState): void {
-  const type     = state.activeElementType;
-  const storeKey = storeKeyForType(type);
-  const store    = ((window as unknown as Record<string, any>))[storeKey]; // TODO(E.<family>.S)
-  const schema   = ELEMENT_ATTRIBUTES[type] ?? [];
+  const type = state.activeElementType;
+  // §INSPECT-EVERY-CATEGORY (L-2032) — ONE store reach (`readCategoryRecords`) and
+  // curated ∪ derived attributes, so a family with no hand-written descriptor row
+  // is still fully inspectable by whatever its records actually measure.
+  const schema = resolveCategoryAttributes(type);
 
   const subHeader = document.createElement('div');
   subHeader.className = 'aud-audit-subheader';
   subHeader.innerHTML = `<span class="aud-audit-badge">◈ INSPECT</span><span class="aud-audit-subtitle">${ELEMENT_TYPE_LABELS[type]} — measured properties</span>`;
   contentZone.appendChild(subHeader);
 
-  if (!store?.getAll) {
+  const records = readCategoryRecords(type);
+
+  // §CONTEXT-DATA-HONESTY (L-2034) — "the store could not be read" and "the model
+  // holds none of these" are DIFFERENT facts and used to print the same sentence.
+  if (records === null) {
     const empty = document.createElement('div');
     empty.className = 'aud-discovery-empty';
-    empty.textContent = `No ${ELEMENT_TYPE_LABELS[type].toLowerCase()} in model.`;
+    empty.dataset.refusalStatus = 'no-store';
+    empty.textContent =
+      `⌀ ${ELEMENT_TYPE_LABELS[type]} cannot be read in this session — ` +
+      `this is UNKNOWN, not "none in model".`;
     contentZone.appendChild(empty);
     return;
   }
 
-  let elements: any[];
-  try { elements = Array.from(store.getAll()); } catch { elements = []; }
+  const elements: any[] = records;
 
   if (elements.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'aud-discovery-empty';
-    empty.textContent = `No ${ELEMENT_TYPE_LABELS[type].toLowerCase()} found.`;
+    empty.dataset.refusalStatus = 'no-elements';
+    empty.textContent = `No ${ELEMENT_TYPE_LABELS[type].toLowerCase()} in the model.`;
     contentZone.appendChild(empty);
     return;
   }
 
-  const activeDesc    = schema.find(a => a.key === state.activeAttributeKey);
+  const activeDesc = schema.find(a => a.key === state.activeAttributeKey);
+
+  // The ramp is a CLAIM that the colours below encode a value. When nothing
+  // carries one, say so instead of drawing the claim over a column of dashes.
+  if (activeDesc?.numeric) {
+    const mapping = buildAttributeMapping(type, activeDesc.key);
+    if (mapping.status !== 'mapped') renderAttributeRefusal(contentZone, mapping);
+  }
   const numericVals: number[] = [];
   const elemValMap    = new Map<string, number | string | null>();
   for (const el of elements) {
@@ -489,7 +507,14 @@ export function renderPolymorphicMatrix(contentZone: HTMLElement, state: AuditGr
       state.attributeDropdown.value = desc.key;
       const heatmap = buildHeatmapData(type, desc.key);
       // F.events.6 — pryzm-inspect-attribute-focus migrated to runtime.events typed bus.
-      window.runtime?.events?.emit('pryzm-inspect-attribute-focus', { elementType: type, attributeKey: desc.key, heatmap });
+      // L-2032 — the 3D lens matches on the BUILDER's `userData.elementType`, not on
+      // the UI category id. It used to guess it by stripping a trailing 's', which is
+      // right for `walls → wall` and wrong for every hyphenated or irregular family
+      // (`curtainWalls`, `furniture`, `lighting`, `stairRailings`) — those focused
+      // nothing, silently. `meshTypeForCategory` states it.
+      window.runtime?.events?.emit('pryzm-inspect-attribute-focus', {
+        elementType: meshTypeForCategory(type), attributeKey: desc.key, heatmap,
+      });
       state.onRenderContent();
     });
     headerRow.appendChild(th);
