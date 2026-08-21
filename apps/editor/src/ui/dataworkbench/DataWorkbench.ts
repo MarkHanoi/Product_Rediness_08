@@ -70,6 +70,12 @@ import { mountMaterialLibrary,
          mountRenderMaterials,
          mountElementTypes }                 from './buckets/MaterialsBucket';
 import { mountLifecyclePanels }              from './buckets/LifecycleBucket';
+// §MEDICIONES (L-2003) — the founder's "4D / 5D / 6D for cost in Data", and the
+// take-off they must stand on. Two of the four tabs are NOT BUILT and say so.
+import { mountTakeoffPanel,
+         mountCostPanel,
+         mountTimePanel,
+         mountCarbonPanel }                  from './buckets/MedicionesBucket';
 import { mountMaterialSchedule,
          mountTypeSchedule,
          wallTypeRows, doorTypeRows, windowTypeRows,
@@ -89,11 +95,12 @@ type TabId =
     | 'nl-query' | 'design-history' | 'physics' | 'generative'
     | 'portfolio' | 'lifecycle' | 'visibility-intent'
     | 'materials-library' | 'render-materials' | 'element-types' | 'quantity-schedules'
+    | 'mz-takeoff' | 'mz-cost' | 'mz-time' | 'mz-carbon'
     | 'data-materials' | 'data-wall-types' | 'data-door-types' | 'data-window-types'
     | 'data-floor-types' | 'data-slab-types' | 'data-column-types' | 'data-beam-types'
     | 'data-stair-types';
 
-type BucketId = 'strategize' | 'audit' | 'validate' | 'materials-bucket' | 'lifecycle-bucket' | 'data-schedules';
+type BucketId = 'strategize' | 'audit' | 'validate' | 'materials-bucket' | 'lifecycle-bucket' | 'data-schedules' | 'mediciones';
 
 interface SubTabDef { id: TabId; label: string; icon: string; }
 
@@ -143,7 +150,12 @@ const BUCKETS: BucketDef[] = [
         defaultTab: 'hierarchy',
         subTabs: [
             { id: 'hierarchy',          label: 'Hierarchy',  icon: '⬡' },
-            { id: 'quantity-schedules', label: 'Quantities', icon: '∑' },
+            /* §AUDIT-QUANTITIES-MEASURED-NOTHING (L-2000) — this pill read
+               "Quantities" while the panel behind it rendered schedule
+               DEFINITIONS (a name, a type, a list of column ids) and computed
+               nothing. The label now matches the panel; the measured quantities
+               live in the MEDICIONES bucket. */
+            { id: 'quantity-schedules', label: 'Schedules',  icon: '▤' },
             { id: 'spatial-query',      label: 'Spatial',    icon: '⊕' },
             { id: 'visibility-intent',  label: 'Intent',     icon: '◐' },
             { id: 'nl-query',           label: 'AI Query',   icon: '✦' },
@@ -202,6 +214,25 @@ const BUCKETS: BucketDef[] = [
             { id: 'data-column-types', label: 'Columns',   icon: '│' },
             { id: 'data-beam-types',   label: 'Beams',     icon: '─' },
             { id: 'data-stair-types',  label: 'Stairs',    icon: '⋮' },
+        ],
+    },
+    /* §MEDICIONES (L-2003) — the seventh bucket. `mediciones` is the Spanish
+       construction term for the measured schedule of work a cost estimate is
+       built from, and it is the founder's own vocabulary; it is NOT a synonym
+       for "measurements". 4D and 5D are both LAYERS ON THE TAKE-OFF, which is
+       why all four live in one bucket and why Take-off is the default tab: if
+       the take-off is not real, 4D and 5D are fiction with a unit in front. */
+    {
+        id: 'mediciones',
+        label: 'MEDICIONES',
+        icon: '∑',
+        accentColor: 'var(--app-accent)',
+        defaultTab: 'mz-takeoff',
+        subTabs: [
+            { id: 'mz-takeoff', label: 'Take-off',  icon: '∑' },
+            { id: 'mz-cost',    label: '5D Cost',   icon: '€' },
+            { id: 'mz-time',    label: '4D Time',   icon: '◷' },
+            { id: 'mz-carbon',  label: '6D Carbon', icon: '◍' },
         ],
     },
 ];
@@ -290,6 +321,13 @@ export class DataWorkbench implements IDataWorkbench {
         this._nlQueryPanel.refresh();
         this._designHistoryPanel.refresh();
         rebuildAllDataSchedules(this._panels);
+        // §L-2004 — this panel reads scheduleStore, which a project LOAD reseeds.
+        // It was mounted once in _buildContentArea() and never rebuilt, so after
+        // loading a second project it still showed the first project's schedule
+        // definitions.
+        mountQuantitySchedules(this._panels.get('quantity-schedules')!, (tab) => this._navigateToTab(tab as TabId));
+        if (this._activeTab === 'mz-takeoff') mountTakeoffPanel(this._panels.get('mz-takeoff')!, this.runtime);
+        if (this._activeTab === 'mz-cost')    mountCostPanel(this._panels.get('mz-cost')!, this.runtime);
     }
 
     // ── Navigate to a specific tab (auto-selects the right bucket) ─────────────
@@ -395,6 +433,7 @@ export class DataWorkbench implements IDataWorkbench {
             'data-materials', 'data-wall-types', 'data-door-types', 'data-window-types',
             'data-floor-types', 'data-slab-types', 'data-column-types', 'data-beam-types',
             'data-stair-types',
+            'mz-takeoff', 'mz-cost', 'mz-time', 'mz-carbon',
         ];
 
         for (const id of allTabIds) {
@@ -443,7 +482,7 @@ export class DataWorkbench implements IDataWorkbench {
 
         // AUDIT — AuditBucket.ts
         mountVisibilityIntentAccess(this._panels.get('visibility-intent')!);
-        mountQuantitySchedules(this._panels.get('quantity-schedules')!);
+        mountQuantitySchedules(this._panels.get('quantity-schedules')!, (tab) => this._navigateToTab(tab as TabId));
 
         // MATERIALS — MaterialsBucket.ts
         mountMaterialLibrary(this._panels.get('materials-library')!);
@@ -460,6 +499,12 @@ export class DataWorkbench implements IDataWorkbench {
         mountTypeSchedule(this._panels.get('data-column-types')!, 'Column Types (UC)', columnTypeRows());
         mountTypeSchedule(this._panels.get('data-beam-types')!,   'Beam Types (UB)',   beamTypeRows());
         mountTypeSchedule(this._panels.get('data-stair-types')!,  'Stair Types',       stairTypeRows());
+
+        // MEDICIONES — MedicionesBucket.ts. The two BUILT tabs are re-rendered on
+        // every visit by _showActiveContent(); the two NOT-BUILT tabs are static
+        // and are mounted once here.
+        mountTimePanel(this._panels.get('mz-time')!);
+        mountCarbonPanel(this._panels.get('mz-carbon')!);
 
         this._rebuildSubTabBar();
     }
@@ -623,6 +668,23 @@ export class DataWorkbench implements IDataWorkbench {
 
         if (this._activeBucket === 'data-schedules' && !isAuditHierarchy) {
             rebuildActiveDataSchedule(this._panels, this._activeTab);
+        }
+
+        /* §MEDICIONES-RECOMPUTE-ON-VISIT (L-2004) — a quantity is a SNAPSHOT of
+           the model at the instant it was measured, so it is re-measured on
+           every visit to the tab. Mounting once at construction (which is what
+           AUDIT › Quantities did, and what L-2004 fixes) means the first edit
+           after opening the workbench silently invalidates the panel while it
+           keeps displaying the old numbers. A stale quantity is worse than an
+           absent one: it is still signable. */
+        if (!isAuditHierarchy && this._activeTab === 'mz-takeoff') {
+            mountTakeoffPanel(this._panels.get('mz-takeoff')!, this.runtime);
+        }
+        if (!isAuditHierarchy && this._activeTab === 'mz-cost') {
+            mountCostPanel(this._panels.get('mz-cost')!, this.runtime);
+        }
+        if (!isAuditHierarchy && this._activeTab === 'quantity-schedules') {
+            mountQuantitySchedules(this._panels.get('quantity-schedules')!, (tab) => this._navigateToTab(tab as TabId));
         }
     }
 

@@ -36,9 +36,19 @@ export function mountVisibilityIntentAccess(panel: HTMLElement): void {
     });
 }
 
-// ── Quantity Schedules panel ───────────────────────────────────────────────────
+// ── Schedule definitions panel (AUDIT › Quantities) ──────────────────────────
 
-export function mountQuantitySchedules(panel: HTMLElement): void {
+/**
+ * Render the schedule DEFINITIONS and the view templates.
+ *
+ * @param onNavigate  Routes the user to another workbench tab. Supplied by the
+ *                    shell because this module must not import DataWorkbench
+ *                    (import cycle) — see DWHelpers' note on the same rule.
+ */
+export function mountQuantitySchedules(
+    panel: HTMLElement,
+    onNavigate?: (tabId: string) => void,
+): void {
     scheduleStore.seedDefaultSchedules();
     const schedules = scheduleStore.getAll();
     const templates = viewTemplateStore.getAll();
@@ -46,12 +56,24 @@ export function mountQuantitySchedules(panel: HTMLElement): void {
     panel.innerHTML = `
         <div style="height:100%;display:flex;flex-direction:column;overflow:hidden;">
             <div style="padding:14px 16px;border-bottom:1px solid var(--app-border);">
-                <div style="font-size:15px;font-weight:800;color:var(--app-text);">Schedule of Quantities</div>
-                <div style="font-size:11px;line-height:1.6;color:var(--app-text-muted);margin-top:4px;">Built-in quantity schedule definitions for architecture, structure, interiors, MEP, materials, and project outputs.</div>
+                <div style="font-size:15px;font-weight:800;color:var(--app-text);">Schedule definitions</div>
+                <div style="font-size:11px;line-height:1.6;color:var(--app-text-muted);margin-top:4px;">
+                    The column sets each built-in schedule renders — architecture, structure, interiors, MEP, materials
+                    and project outputs. <strong>These are definitions, not quantities:</strong> nothing on this tab is
+                    measured from your model.
+                </div>
             </div>
             <div style="flex:1;overflow:auto;padding:14px 16px;display:flex;flex-direction:column;gap:14px;">
+                <div style="padding:11px 13px;border:1px solid var(--app-accent);border-radius:10px;background:rgba(102,0,255,.05);">
+                    <div style="font-size:12px;font-weight:700;color:var(--app-text);margin-bottom:4px;">Looking for measured quantities?</div>
+                    <div style="font-size:11px;line-height:1.65;color:var(--app-text-muted);margin-bottom:9px;">
+                        The <em>medición</em> — real quantities taken off your model, net of openings, traceable to the
+                        elements they measured — lives in the <strong>MEDICIONES</strong> bucket, together with 5D cost.
+                    </div>
+                    <button type="button" class="dw-toolbar-btn" data-action="open-mediciones">Open MEDICIONES › Take-off</button>
+                </div>
                 <section>
-                    <h4 style="margin:0 0 8px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--app-text);">Quantity Schedules</h4>
+                    <h4 style="margin:0 0 8px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--app-text);">Schedule definitions</h4>
                     <div style="display:flex;flex-direction:column;gap:8px;">
                         ${schedules.map(schedule => `
                             <article style="padding:10px;border:1px solid var(--app-border);border-radius:10px;background:var(--app-panel-bg);">
@@ -59,7 +81,7 @@ export function mountQuantitySchedules(panel: HTMLElement): void {
                                     <div style="font-size:12px;font-weight:700;color:var(--app-text);">${escapeHtml(schedule.name)}</div>
                                     <span style="font-size:10px;color:var(--app-text-muted);white-space:nowrap;">${escapeHtml(schedule.scheduleType)}</span>
                                 </div>
-                                <div style="font-size:10px;color:var(--app-text-muted);margin-top:6px;line-height:1.5;">Fields: ${escapeHtml(schedule.fields.join(', '))}</div>
+                                <div style="font-size:10px;color:var(--app-text-muted);margin-top:6px;line-height:1.5;">Columns: ${escapeHtml(schedule.fields.join(', '))}</div>
                             </article>
                         `).join('')}
                     </div>
@@ -87,6 +109,9 @@ export function mountQuantitySchedules(panel: HTMLElement): void {
         </div>
     `;
 
+    panel.querySelector('[data-action="open-mediciones"]')?.addEventListener('click', () => {
+        onNavigate?.('mz-takeoff');
+    });
     panel.querySelector('[data-action="open-quantity-visibility"]')?.addEventListener('click', () => {
         window.visibilityIntentPanel?.open?.(); // TODO(F.6.5): panel-host registry bridge — destruction in F.6.5 — Phase F.6.5
     });
