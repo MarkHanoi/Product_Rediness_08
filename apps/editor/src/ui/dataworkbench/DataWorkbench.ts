@@ -374,10 +374,19 @@ export class DataWorkbench implements IDataWorkbench {
             btn.title      = bucket.label;
             btn.setAttribute('aria-label', bucket.label);
             btn.style.setProperty('--bucket-color', bucket.accentColor);
-            btn.innerHTML = `
-                <span class="dw-bucket-icon">${bucket.icon}</span>
-                <span class="dw-bucket-label">${bucket.label}</span>
-            `;
+            /* §DW-RAIL-ICON-ONLY (L-3301) — was icon + a 7.5px uppercase label
+               clamped to `max-width: 44px`. "MEDICIONES", "LIFECYCLE",
+               "MATERIALS", "VALIDATE" and "STRATEGY" all overflow it, so FIVE OF
+               SEVEN rendered as "MEDICI…". A label that is always elided is not a
+               label — it is noise occupying the space that would have made the
+               icon legible.
+
+               Icon-only with a hover tooltip is not a new invention here: it is
+               what the main app rail does, and what `.dw-rail-btn::after` in this
+               panel's OWN stylesheet has always done. `title` and `aria-label` are
+               set above, so the name is still reachable by pointer and by screen
+               reader; only the always-broken visual copy is gone. */
+            btn.innerHTML = `<span class="dw-bucket-icon">${bucket.icon}</span>`;
             btn.addEventListener('click', () => this._switchBucket(bucket.id));
             this._bucketRailEl.appendChild(btn);
         }
@@ -623,8 +632,30 @@ export class DataWorkbench implements IDataWorkbench {
         }
 
         if (this._bucketHeaderEl) {
-            const accent = bucket.accentColor;
-            this._bucketHeaderEl.style.background = `linear-gradient(135deg, ${accent}cc 0%, ${accent} 100%)`;
+            /* §DW-HEADER-TRANSPARENT (L-3300) — THE WHITE BAND AT THE TOP OF THE
+               DATA PANEL WAS THIS LINE:
+
+                   style.background =
+                     `linear-gradient(135deg, ${accent}cc 0%, ${accent} 100%)`
+
+               `accentColor` used to be a HEX literal, where `+ 'cc'` is a valid
+               8-digit alpha. Every bucket was later unified onto the TOKEN
+               `var(--app-accent)`, and `var(--app-accent)cc` is not a colour: after
+               substitution it is two tokens, so the stop is malformed.
+
+               ⛔ An inline `var()` that resolves to garbage does NOT fall back to
+               the stylesheet. It is "invalid at computed-value time", which for a
+               non-inherited property means the INITIAL value — `transparent`. The
+               sheet's own `background: var(--app-gradient)` never got a turn.
+               Header transparent + `color: var(--app-on-accent)` (#ffffff) = white
+               text on white: a 44px band that looks like a layout gap and is
+               actually the bucket title, invisible.
+
+               The fix is to delete the override, not to repair it. The stylesheet
+               already declares the gradient, and every bucket now declares the
+               same accent — so a per-bucket inline colour is a second copy of a
+               token with no second value, which is the defect the comment beside
+               `--bucket-header-bg` in the sheet already records. */
             this._bucketHeaderEl.innerHTML = `
                 <div class="dw-bucket-header-left">
                     <span class="dw-bucket-header-icon">${bucket.icon}</span>

@@ -801,7 +801,7 @@ export const DATA_WORKBENCH_STYLES = `
 
 /* ── Bucket Rail (replaces legacy dw-rail) ─────────────────────────────────── */
 .dw-bucket-rail {
-  width: 56px;
+  width: 48px;
   flex-shrink: 0;
   background: var(--app-bg);
   border-right: 1px solid var(--app-border);
@@ -817,8 +817,8 @@ export const DATA_WORKBENCH_STYLES = `
 .dw-bucket-rail::-webkit-scrollbar { display: none; }
 
 .dw-bucket-btn {
-  width: 44px;
-  height: 54px;
+  width: 40px;
+  height: 40px;
   border-radius: 10px;
   border: none;
   background: none;
@@ -849,29 +849,45 @@ export const DATA_WORKBENCH_STYLES = `
   top: 50%;
   transform: translateY(-50%);
   width: 3px;
-  height: 28px;
+  height: 22px;
   background: var(--bucket-color, var(--app-accent));
   border-radius: 0 3px 3px 0;
 }
 .dw-bucket-icon {
-  font-size: 18px;
+  font-size: 19px;
   line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.dw-bucket-label {
-  font-size: 7.5px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  line-height: 1;
+/* §DW-RAIL-ICON-ONLY (L-3301) — '.dw-bucket-label' DELETED, not restyled.
+   It was 'font-size: 7.5px' clamped to 'max-width: 44px', which elides five of
+   the seven bucket names. Widening the rail to fit "MEDICIONES" at a legible
+   size costs ~70px of a panel the founder already reports as too cramped, so
+   the label moves to a tooltip — the pattern '.dw-rail-btn::after' in this same
+   sheet has used since the legacy rail. Same markup contract: 'content:
+   attr(title)', and the button sets 'title' + 'aria-label'. */
+.dw-bucket-btn::after {
+  content: attr(title);
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--app-text);
+  color: var(--app-on-accent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 4px 8px;
+  border-radius: 5px;
   white-space: nowrap;
-  overflow: hidden;
-  max-width: 44px;
-  text-overflow: ellipsis;
-  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.13s;
+  z-index: 9999;
+  box-shadow: var(--app-shadow-hud);
 }
+.dw-bucket-btn:hover::after { opacity: 1; }
 
 /* ── Lifecycle Header (replaces legacy dw-content-header) ─────────────────── */
 .dw-content-header--lifecycle {

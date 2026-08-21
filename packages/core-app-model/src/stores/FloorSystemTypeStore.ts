@@ -26,7 +26,7 @@ const BUILT_IN_TYPES: Omit<FloorSystemType, 'isBuiltIn'>[] = [
     zoneTypes: ['dry', 'wet'],
     totalThickness: 0.075,
     layers: [
-      { name: 'Porcelain Tile', function: 'finish', thickness: 0.010, materialColor: '#C8C0B8' },
+      { name: 'Porcelain Tile', function: 'finish', thickness: 0.010, materialId: 'tile-porcelain-600-stack', materialColor: '#C8C0B8' },
       { name: 'Tile Adhesive', function: 'adhesive', thickness: 0.005, materialColor: '#A8A8A8' },
       { name: 'Sand-Cement Screed', function: 'screed', thickness: 0.060, materialColor: '#D0CABC' },
     ],
@@ -41,7 +41,7 @@ const BUILT_IN_TYPES: Omit<FloorSystemType, 'isBuiltIn'>[] = [
     zoneTypes: ['dry'],
     totalThickness: 0.080,
     layers: [
-      { name: 'Marble Tile', function: 'finish', thickness: 0.020, materialColor: '#E8E0D0' },
+      { name: 'Marble Tile', function: 'finish', thickness: 0.020, materialId: 'tile-marble-600-stack', materialColor: '#E8E0D0' },
       { name: 'Tile Adhesive', function: 'adhesive', thickness: 0.005, materialColor: '#A8A8A8' },
       { name: 'Sand-Cement Screed', function: 'screed', thickness: 0.055, materialColor: '#D0CABC' },
     ],
@@ -195,6 +195,33 @@ const BUILT_IN_TYPES: Omit<FloorSystemType, 'isBuiltIn'>[] = [
   },
 
   // ── Premium Floor Finishes ─────────────────────────────────────────────────
+  //
+  // §FLOOR-TYPE-NAMES-A-PATTERN (L-3302) — six finish layers now name a
+  // PATTERN-BEARING material id from `@pryzm/schemas` MATERIAL_CATALOG instead of
+  // a flat one. Measured before the change: this file contained ZERO references
+  // to any of the 24 procedural rows, so "Oak Herringbone Parquet" resolved to
+  // `wood-oak` — a single brown hex — and `floorPatternForMaterialLabel()`, which
+  // derives the plank/tile grid from the MATERIAL's label and not the TYPE's name,
+  // read "Oak" and correctly returned no figure. A type whose name promises
+  // herringbone drew no herringbone, and nothing in the pipeline was broken: the
+  // two halves had simply never been introduced.
+  //
+  // ⚠ WHAT THIS DOES **NOT** DO, stated here rather than in a release note:
+  // it does not put a parquet texture on the floor. `describeFloorFinishRenderLimit()`
+  // in FloorColourSystem.ts names three stacked reasons, each sufficient on its own —
+  // `FloorPanelBuilder` calls `applyMaterialMaps()` nowhere; procedural generation is
+  // OFF by default (§PROCEDURAL-COST L-1820 — 150-830 ms of BLOCKED main thread per
+  // pattern); and the file-backed rows have no published assets. What the user gains
+  // is the correct COLOUR and a correct plank/tile GRID at the real plank size.
+  // That is a real, visible change and it is less than the material describes.
+  //
+  // ⛔ Only mappings that are a TRUE reading of the type's own name were made.
+  // "Solid Oak Board (75mm)" and "Engineered Timber Board" were left alone: the
+  // nearest presets are 189 mm and 120 mm planks, and drawing a 189 mm grid on a
+  // 75 mm board is an invented dimension, which is worse than no figure.
+  // "Smoked Oak Chevron Parquet" is the one INEXACT mapping and is flagged as such —
+  // there is no smoked-oak chevron preset, so it takes the oak chevron grid (the
+  // figure is right, the wood is not) and keeps its own espresso materialColor.
 
   {
     id: 'floor-finish-oak-herringbone',
@@ -205,7 +232,7 @@ const BUILT_IN_TYPES: Omit<FloorSystemType, 'isBuiltIn'>[] = [
     totalThickness: 0.031,
     tags: ['parquet', 'herringbone', 'premium', 'residential'],
     layers: [
-      { name: 'Solid Oak Parquet (Herringbone)', function: 'finish',     thickness: 0.022, materialId: 'wood-oak',             materialColor: '#C49A54', roughness: 0.55 },
+      { name: 'Solid Oak Parquet (Herringbone)', function: 'finish',     thickness: 0.022, materialId: 'parquet-oak-herringbone',             materialColor: '#C49A54', roughness: 0.55 },
       { name: 'Parquet Adhesive',                function: 'adhesive',   thickness: 0.003, materialColor: '#B8B0A0' },
       { name: 'Acoustic Rubber Underlay',         function: 'insulation', thickness: 0.006, materialColor: '#D4CCB8', acousticImpactRating: 19 },
     ],
@@ -221,7 +248,7 @@ const BUILT_IN_TYPES: Omit<FloorSystemType, 'isBuiltIn'>[] = [
     totalThickness: 0.029,
     tags: ['parquet', 'chevron', 'smoked', 'luxury'],
     layers: [
-      { name: 'Smoked Oak Parquet (Chevron)', function: 'finish',     thickness: 0.020, materialId: 'wood-oak-smoked',     materialColor: '#6B523A', roughness: 0.50 },
+      { name: 'Smoked Oak Parquet (Chevron)', function: 'finish',     thickness: 0.020, materialId: 'parquet-oak-chevron-45',     materialColor: '#6B523A', roughness: 0.50 },
       { name: 'Parquet Adhesive',              function: 'adhesive',   thickness: 0.003, materialColor: '#A8A098' },
       { name: 'Acoustic Rubber Underlay',      function: 'insulation', thickness: 0.006, materialColor: '#D0C8B8', acousticImpactRating: 19 },
     ],
@@ -237,7 +264,7 @@ const BUILT_IN_TYPES: Omit<FloorSystemType, 'isBuiltIn'>[] = [
     totalThickness: 0.033,
     tags: ['parquet', 'herringbone', 'walnut', 'premium'],
     layers: [
-      { name: 'Walnut Parquet (Herringbone)', function: 'finish',     thickness: 0.022, materialId: 'wood-walnut',         materialColor: '#5C3D22', roughness: 0.45 },
+      { name: 'Walnut Parquet (Herringbone)', function: 'finish',     thickness: 0.022, materialId: 'parquet-walnut-herringbone',         materialColor: '#5C3D22', roughness: 0.45 },
       { name: 'Parquet Adhesive',             function: 'adhesive',   thickness: 0.003, materialColor: '#A09080' },
       { name: 'Acoustic Rubber Underlay',     function: 'insulation', thickness: 0.008, materialColor: '#D0C8B8', acousticImpactRating: 21 },
     ],
@@ -253,7 +280,7 @@ const BUILT_IN_TYPES: Omit<FloorSystemType, 'isBuiltIn'>[] = [
     totalThickness: 0.025,
     tags: ['engineered', 'scandi', 'wide-plank', 'whitewash'],
     layers: [
-      { name: 'Whitewashed Engineered Oak', function: 'finish',     thickness: 0.020, materialId: 'wood-oak-whitewashed', materialColor: '#D8CDB8', roughness: 0.62 },
+      { name: 'Whitewashed Engineered Oak', function: 'finish',     thickness: 0.020, materialId: 'floor-oak-plank-wide', materialColor: '#D8CDB8', roughness: 0.62 },
       { name: 'Foam Acoustic Underlay',     function: 'insulation', thickness: 0.005, materialColor: '#E0D8C8', acousticImpactRating: 15 },
     ],
     ifcTypeName: 'FLOORING',
