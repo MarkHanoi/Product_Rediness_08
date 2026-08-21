@@ -27277,7 +27277,10 @@ directly**: the three render as three distinct `data-state` values and three dis
 ### What was RUN, and its actual output
 
 - `npx vitest run apps/editor/src/ui/site/__tests__/envelopeCardSections.spec.ts` → **40/40 passed**
-  (13 new). It went **RED first at 3 failed / 37 passed** — one of those three was a **pre-existing
+  (**14** new — this line and commit `4e9d3e2e`'s message both first said *13*, transcribed rather
+  than counted; `git show 4e9d3e2e -- <spec> | grep -c '^+    it('` → **14**, `grep -c '    it('` →
+  **40**. Small, and exactly the shape this file keeps recording: **count it, do not remember it**).
+  It went **RED first at 3 failed / 37 passed** — one of those three was a **pre-existing
   L-1654 source pin** that grepped `GISAreaLayout.ts` for a literal my change had legitimately moved
   into the pure module. It was **updated to follow the fact through the builder, not deleted**.
 - `npx vitest run --root apps/editor --config vitest.config.ts envelopeDeterminationHydration
