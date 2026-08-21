@@ -110,12 +110,38 @@ const FILTER_PRESETS: Array<{ id: string; label: string; match: (node: any) => b
     },
 ];
 
+/** L-2006 -- a rejection is rendered to the user, so it must be a readable string. */
+function describeError(e: unknown): string {
+    if (e instanceof Error) return e.message;
+    if (typeof e === 'string') return e;
+    try { return JSON.stringify(e); } catch { return String(e); }
+}
+
+/** L-2006 -- level names and bus error text reach innerHTML; both can carry markup. */
+function escapeHtml(value: unknown): string {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 export class HierarchyTreePanel implements HierarchyTreeActionHost {
     private _container: HTMLElement;
     private _root!: HTMLElement;
     private _expanded = new Set<string>();
     private _selectedId: string | null = null;
     dialogEl: HTMLElement | null = null;
+
+    /* §HIERARCHY-AUTOSETUP-SILENT-PARTIAL (L-2006) — the outcome of the last
+       "Generate hierarchy" run, rendered at the top of the panel. Before this
+       existed, every failure in the 2 + N command chain was swallowed into a
+       `console.warn` the user never sees, and the banner had ALREADY been
+       dismissed, so a half-created hierarchy (a site with no building) was
+       indistinguishable from a user who dismissed the prompt. */
+    private _autoSetupOutcome:
+        | { kind: 'running' }
+        | { kind: 'ok';     created: number; levels: number }
+        | { kind: 'failed'; step: string; detail: string; created: number }
+        | null = null;
 
     // ── Filter state ──────────────────────────────────────────────────────
     private _filterTerm = '';
@@ -162,9 +188,16 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
             return;
         }
 
+        // §L-2006 — the outcome of the last auto-setup, if there was one. Rendered
+        // FIRST so a failure is the top thing in the panel, not a console line.
+        if (this._autoSetupOutcome) this._root.appendChild(this._buildAutoSetupOutcome());
+
         // Auto-setup banner — Phase 11: show only when no hierarchy AND at least 1 BimManager level exists
         const _bannerLevels = window.bimManager?.getLevels?.() ?? []; // TODO(D.4): legacy bimManager — replace with runtime.scene.renderer / runtime.tools
-        if (hs.count() === 0 && _bannerLevels.length > 0 && !sessionStorage.getItem('pryzm-hierarchy-setup-dismissed')) {
+        const _bannerShown = hs.count() === 0
+            && _bannerLevels.length > 0
+            && !sessionStorage.getItem('pryzm-hierarchy-setup-dismissed');
+        if (_bannerShown) {
             this._root.appendChild(this._buildBanner());
         }
 
@@ -201,10 +234,20 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
         const sites: SiteData[] = hs.getSites();
 
         if (sites.length === 0 && hs.count() === 0) {
+            /* §HIERARCHY-EMPTY-STATE-CONTRADICTS-BANNER (L-2005) — this read
+               "No hierarchy yet. Click [+ Site] to start." UNCONDITIONALLY,
+               including while the auto-setup banner was on screen four rows
+               above offering to build the whole thing from the project's own
+               levels. The founder's screenshot is exactly that: two different
+               calls to action, and the one in larger type points at the SLOWER
+               path. The empty state now defers to the banner when the banner is
+               showing, and only names [+ Site] when it is the real next step. */
             const empty = document.createElement('div');
             empty.className = 'dw-placeholder';
             empty.style.paddingTop = '32px';
-            empty.innerHTML = '<div class="dw-placeholder-icon">🏗</div><div style="font-size:12px;text-align:center;max-width:200px;line-height:1.5;color:var(--app-text-muted)">No hierarchy yet.<br>Click <strong>[+ Site]</strong> to start.</div>';
+            empty.innerHTML = _bannerShown
+                ? '<div class="dw-placeholder-icon">🏗</div><div style="font-size:12px;text-align:center;max-width:230px;line-height:1.6;color:var(--app-text-muted)">No hierarchy yet.<br>Use <strong>Generate hierarchy</strong> above to build one from this project’s levels, or <strong>[+ Site]</strong> to start by hand.</div>'
+                : '<div class="dw-placeholder-icon">🏗</div><div style="font-size:12px;text-align:center;max-width:200px;line-height:1.5;color:var(--app-text-muted)">No hierarchy yet.<br>Click <strong>[+ Site]</strong> to start.</div>';
             scroll.appendChild(empty);
         } else {
             for (const site of sites) {
@@ -1092,9 +1135,15 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
         const dismissBtn = banner.querySelector('#dw-dismiss-btn') as HTMLButtonElement;
 
         setupBtn.addEventListener('click', () => {
-            this._runAutoSetup(levels);
-            sessionStorage.setItem('pryzm-hierarchy-setup-dismissed', '1');
-            this._render();
+            /* §HIERARCHY-AUTOSETUP-SILENT-PARTIAL (L-2006) — the dismissal used to
+               be written HERE, synchronously, before a single command had
+               resolved. So the banner vanished, the panel re-rendered empty, and
+               if any step then failed the user was left with the empty state, no
+               banner, no error and a console.warn they never saw. The dismissal
+               now happens on SUCCESS, inside _runAutoSetup. */
+            setupBtn.disabled = true;
+            setupBtn.textContent = 'Generating…';
+            void this._runAutoSetup(levels);
         });
 
         dismissBtn.addEventListener('click', () => {
@@ -1105,47 +1154,149 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
         return banner;
     }
 
-    // ── Auto-setup ─────────────────────────────────────────────────────────
+    // Auto-setup --------------------------------------------------------------
 
-    private _runAutoSetup(levels: any[]): void {
+    /**
+     * Build a default site -> building -> level hierarchy from the project's own
+     * BIM levels.
+     *
+     * SECTION HIERARCHY-AUTOSETUP-SILENT-PARTIAL (L-2006). This was previously a
+     * chain of `.then()`s in which EVERY step caught its own rejection into a
+     * `console.warn` and continued. The consequences, all reachable:
+     *   - site created, building failed -> a site with no building, no message;
+     *   - building created, 3 of 7 levels failed -> a partial hierarchy that
+     *     looks deliberate;
+     *   - `runtime.bus` absent -> one console.warn and a silent no-op button.
+     * It is now awaited end-to-end, stops at the first failure, and reports the
+     * outcome INTO THE PANEL either way.
+     *
+     * UNDO GRANULARITY, stated rather than implied: each node is a separate undo
+     * entry, so undoing a 7-level generation is 9 steps. Collapsing it into one
+     * CompositeCommand needs `commandManager.beginGenerationBatch()`, whose only
+     * precedent reaches it through a window cast; that is deliberately NOT done
+     * here and is logged as L-2007 instead of being smuggled in.
+     */
+    private async _runAutoSetup(levels: any[]): Promise<void> {
         const bus = (this.runtime?.bus as any);
-        if (!bus) { console.warn('[HierarchyTreePanel] runtime.bus not available'); return; }
+        if (!bus || typeof bus.executeCommand !== 'function') {
+            this._autoSetupOutcome = {
+                kind: 'failed',
+                step: 'command bus',
+                detail: 'The command bus is not available, so nothing could be created. Reload the project and try again.',
+                created: 0,
+            };
+            this._render();
+            return;
+        }
 
-        const hs = window.hierarchyStore; // TODO(F.6.x): legacy hierarchyStore — replace with runtime.dataWorkbench.hierarchy store
-        if (!hs) return;
+        const hs = window.hierarchyStore; // TODO(F.6.x): legacy hierarchyStore
+        if (!hs) {
+            this._autoSetupOutcome = {
+                kind: 'failed',
+                step: 'hierarchy store',
+                detail: 'The hierarchy store is not available, so nothing could be created.',
+                created: 0,
+            };
+            this._render();
+            return;
+        }
+
+        this._autoSetupOutcome = { kind: 'running' };
+        let created = 0;
 
         const siteId = crypto.randomUUID();
-        // Phase B (S78-WIRE) — projectName via runtime.projectContext when available.
+        // Phase B (S78-WIRE) -- projectName via runtime.projectContext when available.
         const siteName = this.runtime?.projectContext.projectName
             ?? (globalThis as { platformShell?: { currentProjectName?: string } }).platformShell?.currentProjectName
             ?? 'Site A';
 
-        bus.executeCommand('hierarchy.createSite', { id: siteId, name: siteName })
-            .then(() => this._runAutoSetupBuilding(siteId, levels, bus))
-            .catch((e: any) => console.warn('[HierarchyTreePanel] auto-setup site failed', e));
-    }
-
-    private _runAutoSetupBuilding(siteId: string, levels: any[], bus?: any): void {
-        const _bus = bus ?? (this.runtime?.bus as any);
-        if (!_bus) return;
+        try {
+            await bus.executeCommand('hierarchy.createSite', { id: siteId, name: siteName });
+            created++;
+        } catch (e) {
+            this._autoSetupOutcome = { kind: 'failed', step: `site "${siteName}"`, detail: describeError(e), created };
+            this._render();
+            return;
+        }
 
         const buildingId = crypto.randomUUID();
-        _bus.executeCommand('hierarchy.createBuilding', { id: buildingId, siteId, name: 'Building 1' })
-            .then(() => {
-                const levelPromises = levels.map((level) => {
-                    const levelId = crypto.randomUUID();
-                    return _bus.executeCommand('hierarchy.createLevel', {
-                        id: levelId,
-                        buildingId,
-                        bimLevelId: level.id,
-                        name: level.name ?? `Level ${level.id}`,
-                        levelNumber: level.elevation != null ? String(Math.round(level.elevation)) : undefined,
-                    }).catch((e: any) => console.warn('[HierarchyTreePanel] auto-setup level failed', e));
+        try {
+            await bus.executeCommand('hierarchy.createBuilding', { id: buildingId, siteId, name: 'Building 1' });
+            created++;
+        } catch (e) {
+            this._autoSetupOutcome = { kind: 'failed', step: 'building', detail: describeError(e), created };
+            this._render();
+            return;
+        }
+
+        // Levels are created SEQUENTIALLY rather than with Promise.all: the
+        // previous parallel map made "which level failed" unanswerable, and the
+        // answer is the only useful part of the failure.
+        let levelsCreated = 0;
+        for (const level of levels) {
+            const levelId = crypto.randomUUID();
+            const levelName = level.name ?? `Level ${level.id}`;
+            try {
+                await bus.executeCommand('hierarchy.createLevel', {
+                    id: levelId,
+                    buildingId,
+                    bimLevelId: level.id,
+                    name: levelName,
+                    levelNumber: level.elevation != null ? String(Math.round(level.elevation)) : undefined,
                 });
-                return Promise.all(levelPromises);
-            })
-            .then(() => this._render())
-            .catch((e: any) => console.warn('[HierarchyTreePanel] auto-setup building failed', e));
+                created++;
+                levelsCreated++;
+            } catch (e) {
+                this._autoSetupOutcome = { kind: 'failed', step: `level "${levelName}"`, detail: describeError(e), created };
+                this._render();
+                return;
+            }
+        }
+
+        // Only NOW is the prompt answered -- dismissing it before this point is
+        // what made a partial failure look like a dismissal.
+        sessionStorage.setItem('pryzm-hierarchy-setup-dismissed', '1');
+        this._autoSetupOutcome = { kind: 'ok', created, levels: levelsCreated };
+        this._render();
+    }
+
+    /** The result strip for the last auto-setup run -- success or failure, in the panel. */
+    private _buildAutoSetupOutcome(): HTMLElement {
+        const o = this._autoSetupOutcome!;
+        const el = document.createElement('div');
+        el.className = 'dw-setup-banner';
+
+        if (o.kind === 'running') {
+            el.innerHTML = '<div style="font-size:11px;line-height:1.5;">Generating hierarchy&hellip;</div>';
+            return el;
+        }
+
+        if (o.kind === 'ok') {
+            el.innerHTML = `
+                <div style="font-weight:700;font-size:12px;margin-bottom:4px;">&check; Hierarchy created</div>
+                <div style="font-size:11px;line-height:1.5;margin-bottom:8px;">
+                    ${o.created} node${o.created === 1 ? '' : 's'}: 1 site, 1 building and
+                    ${o.levels} level${o.levels === 1 ? '' : 's'} mapped to this project's BIM levels.
+                    Each node is its own undo step, so undoing this is ${o.created} presses.
+                </div>
+                <div style="display:flex;gap:6px;"><button class="dw-toolbar-btn" id="dw-outcome-dismiss">Dismiss</button></div>`;
+        } else {
+            el.innerHTML = `
+                <div style="font-weight:700;font-size:12px;margin-bottom:4px;color:#B3261E;">Hierarchy generation stopped</div>
+                <div style="font-size:11px;line-height:1.55;margin-bottom:6px;">
+                    It failed while creating the <strong>${escapeHtml(o.step)}</strong>.
+                    ${o.created} node${o.created === 1 ? ' was' : 's were'} created before that and ${o.created === 1 ? 'is' : 'are'} still here &mdash;
+                    the hierarchy is <strong>incomplete</strong>, not empty. Undo them, or finish by hand with [+ Site] / [+ Building] / [+ Level].
+                </div>
+                <div style="font-size:10px;line-height:1.5;color:var(--app-text-muted);margin-bottom:8px;font-family:ui-monospace,Menlo,Consolas,monospace;">${escapeHtml(o.detail)}</div>
+                <div style="display:flex;gap:6px;"><button class="dw-toolbar-btn" id="dw-outcome-dismiss">Dismiss</button></div>`;
+        }
+
+        el.querySelector('#dw-outcome-dismiss')?.addEventListener('click', () => {
+            this._autoSetupOutcome = null;
+            this._render();
+        });
+        return el;
     }
 
     // ── Add / dialog actions (delegated to HierarchyTreeAddActions) ─────────
