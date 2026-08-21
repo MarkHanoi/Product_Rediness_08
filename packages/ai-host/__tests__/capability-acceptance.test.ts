@@ -81,6 +81,22 @@ const sel = (elementType: string, elementId = `${elementType}-1`) => ({
   selection: [{ elementId, elementType }],
 });
 
+/**
+ * §FEAT-RAC-PROPERTY-QUERY (L-2210) — a selection PLUS a readable record.
+ *
+ * A named helper rather than an inline object literal on purpose: the GA gate
+ * reads this file as literal text (`tools/ga-gate/lib/acceptanceCorpus.ts`) and
+ * recognises a family's selection only in the `ctx: helper('kind')` shape. An
+ * object literal here would make the gate believe the family declares NO
+ * selection and report every example as "refused: nothing is selected" — the
+ * harness measuring itself, which is the same finding that added
+ * `GATE_STUB_SCOPE` and the rooms fixture to that gate.
+ */
+const readable = (elementType: string, value = 3.2) => ({
+  ...sel(elementType),
+  readProperty: () => ({ ok: true as const, value }),
+});
+
 /** Resolve through the FULL ladder the bridge uses: the §PLAN compound stage
  *  (which stands aside for every ordinary sentence), then tier 0/1, then NL. */
 function resolveFull(utterance: string, ctx: ResolverContext): ZeroTokenResolution {
@@ -330,6 +346,34 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
       'list the hidden elements',
       'am I in isolation mode?',
       'what levels are visible',
+    ],
+  },
+  {
+    // §FEAT-RAC-PROPERTY-QUERY (L-2210) — the second read-only capability.
+    //
+    // ⭐ TWO OF THESE PHRASINGS WERE PINNED IN THE ADVERSARIAL BLOCK BELOW AND
+    // MOVED HERE, DELIBERATELY. "how tall is the selected wall?" and "what is
+    // the height of this wall?" were listed as sentences that must produce "no
+    // command and no local action" — and the reason given was that a QUESTION
+    // must never RESIZE anything. That reason is intact and still enforced: the
+    // block's `mutating()` predicate now excludes the read-only `'answer'`
+    // action explicitly (see its comment), so a question that ANSWERS passes and
+    // a question that dispatches still fails. What changed is that there is now
+    // an answer to give; before this capability the correct outcome for these
+    // two sentences was silence, and silence was never the goal.
+    id: 'property-query',
+    // A READABLE record, so the phrasings exercise the real read arm rather than
+    // the honest "cannot read" fallback (both are non-refusals; this one also
+    // proves the value reaches the sentence).
+    ctx: readable('wall'),
+    phrasings: [
+      'how tall is this wall',
+      'how tall is the selected wall?',
+      'what is the height of this wall?',
+      'how thick is the selected wall',
+      'what is the base offset of this wall',
+      'tell me the height of this wall',
+      'the thickness of this wall',
     ],
   },
   {
@@ -1277,7 +1321,27 @@ describe('multi-selection semantics (ADR-0314)', () => {
 // ─── Adversarial: command-shaped but must NOT mutate ─────────────────────────
 
 describe('adversarial — command-shaped utterances that must never mutate', () => {
-  const mutating = (r: ZeroTokenResolution): boolean => r.kind === 'commands' || r.kind === 'local';
+  /**
+   * ⭐ §FEAT-RAC-PROPERTY-QUERY (L-2210) — `'answer'` IS EXCLUDED, AND THE
+   * NARROWING IS THE POINT OF THE PREDICATE, NOT A HOLE IN IT.
+   *
+   * This block exists to prove that a sentence which is command-SHAPED never
+   * MUTATES. `kind: 'local'` was a sound proxy for "mutates" while every local
+   * action changed something — undo, redo, setActiveLevel, applyVisibilityIntent,
+   * activateTool all do. `'answer'` does not: `ZeroTokenResolver.ts` declares it
+   * as the READ-ONLY class (§GATE-QUERYENGINE-READ-ONLY) and the bridge's whole
+   * handling of it is `case 'answer': break;`
+   * (`apps/editor/src/ui/ai/ZeroTokenChatBridge.ts:1651`) — no dispatch, no store
+   * write, no view change.
+   *
+   * So the predicate is narrowed to what it always meant. A question that
+   * ANSWERS passes; a question that dispatches ANYTHING still fails, which is
+   * the property every row below was written to defend. Note that the negation
+   * and hypothetical rows are unaffected either way: they are stopped one rung
+   * earlier by `nonImperativeReason`, before any grammar sees them.
+   */
+  const mutating = (r: ZeroTokenResolution): boolean =>
+    r.kind === 'commands' || (r.kind === 'local' && r.action !== 'answer');
 
   it.each([
     // Negations.
@@ -1291,6 +1355,12 @@ describe('adversarial — command-shaped utterances that must never mutate', () 
     'what if we changed all walls to interior partition?',
     'maybe I should set the height to 3m',
     // Questions.
+    // ⭐ §FEAT-RAC-PROPERTY-QUERY (L-2210) — KEPT HERE ON PURPOSE even though the
+    // first two now ALSO appear in the `property-query` acceptance family above.
+    // The two facts are different and both matter: the family proves the
+    // question is ANSWERED, and these rows prove that answering it still
+    // dispatches nothing. A capability that answers by resizing would pass the
+    // family and fail here, which is exactly the separation this block is for.
     'how tall is the selected wall?',
     'what is the height of this wall?',
     'is this wall 3m tall?',

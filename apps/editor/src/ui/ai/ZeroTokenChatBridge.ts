@@ -83,6 +83,10 @@ import { batchCoordinator, selectionBus, storeRegistry } from '@pryzm/core-app-m
 import { resolveWallSystemTypeRef } from '@pryzm/command-registry';
 import { resolveActiveLevelId } from '../apartment-layout/activeLevel';
 import { resolveRoomWallScope } from './roomWallScope.js';
+// §FEAT-RAC-PROPERTY-QUERY (L-2210) — the ONE reader behind "how tall is this
+// wall?". Kept in its own module rather than inlined here so the capability's
+// `commandProof` can name a file whose whole job is the read.
+import { chatPropertyReader } from './chatPropertyReader.js';
 
 // ─── Minimal window facets (P4: typed casts, no `(window as any)`) ───────────
 
@@ -1015,6 +1019,14 @@ async function buildContext(): Promise<ResolverContext> {
         // entirely when NOTHING was readable, so the absent case is byte-for-byte
         // today's behaviour and this change can only add resolution, never remove it.
         ...(catalogues !== null ? { catalogues } : {}),
+        // §FEAT-RAC-PROPERTY-QUERY (L-2210) — the READ half of the founder's ask.
+        // Injected UNCONDITIONALLY: the reader itself resolves the authoritative
+        // store per call and returns a NAMED outcome when it cannot
+        // ('no-such-element' / 'field-absent'), so there is no state in which
+        // omitting the key would be more honest than supplying it. Omission means
+        // "this chat context cannot read properties at all", which is true only
+        // for a headless caller that never sets it.
+        readProperty: chatPropertyReader,
         // level.add call-site convention (ProjectTreeSection): `L${Date.now()}`.
         // §PLAN (RAC U6) — plus a per-call counter, because a plan can mint two
         // levels inside the same millisecond ("add a level at 9 m, then add one

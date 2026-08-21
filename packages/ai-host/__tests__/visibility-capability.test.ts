@@ -239,11 +239,19 @@ describe('the registry: readOnly is the safety opt-in, and the class is declared
   });
 
   it('absent readOnly means MUTATING — no capability relies on a default', () => {
-    // The inversion pinned: nothing except visibility-query declares readOnly,
-    // and every OTHER capability is treated as mutating (same direction as
+    // The inversion pinned: only the DECLARED read-only capabilities carry the
+    // flag, and every OTHER capability is treated as mutating (same direction as
     // QueryPattern.readOnly in QueryEngine — safety is opt-in).
+    //
+    // §FEAT-RAC-PROPERTY-QUERY (L-2210) — `property-query` joined
+    // `visibility-query` as the second member. The list is written as a SET, not
+    // as a count, and it is deliberately still a hand-written literal: a
+    // capability acquiring `readOnly: true` must be a conscious act, because the
+    // flag is what lets a sentence bypass the "questions never execute" rung.
+    // The obligations that make the flag safe are asserted in the test above and
+    // hold for both members.
     const readOnly = allChatCapabilities().filter((c) => c.readOnly === true).map((c) => c.id);
-    expect(readOnly).toEqual(['visibility-query']);
+    expect([...readOnly].sort()).toEqual(['property-query', 'visibility-query']);
   });
 
   it('the three mutating visibility capabilities declare the local dispatch action and say "view-only"', () => {

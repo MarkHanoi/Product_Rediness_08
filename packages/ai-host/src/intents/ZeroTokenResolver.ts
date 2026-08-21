@@ -59,6 +59,19 @@ import { resolveOccupancyRef } from './roomOccupancyRef.js';
 // dependency runs ONE way (this file → VisibilityIntents); that module
 // imports only TYPES back, so there is no load-order cycle.
 import { applyVisibilityIntent, asVisibilityIntent } from './VisibilityIntents.js';
+// §FEAT-RAC-PROPERTY-QUERY (L-2210) — the READ half of "all dims and properties
+// should be queryable AND executable". Same seam as VisibilityIntents: the value
+// dependency runs ONE way (this file → PropertyQuery), which imports only TYPES
+// back, so there is no load-order cycle. Its element-kind lists are not its own
+// either — every row reads them off the mirrored EXECUTE capability's `targets`,
+// so a property the chat can SET is a property the chat can REPORT, by
+// construction rather than by two tables agreeing.
+import {
+  applyPropertyQuery,
+  asPropertyQueryIntent,
+  matchPropertyQuery,
+  type PropertyReader,
+} from './PropertyQuery.js';
 // §L-1032 — the LEVEL-CHANGE family module, on exactly the same seam as
 // VisibilityIntents: the value dependency runs ONE way (this file → that
 // module), which imports only TYPES back, so there is no load-order cycle. Its
@@ -280,6 +293,23 @@ export interface ResolverContext {
    * different values). The resolver READS this and never writes anything.
    */
   readonly visibility?: VisibilityIntentSnapshot;
+  /**
+   * §FEAT-RAC-PROPERTY-QUERY (L-2210) — the injected AUTHORITATIVE-STORE READER
+   * behind "how tall is this wall?".
+   *
+   * It reads the SAME record the matching write lands in, by the SAME field
+   * name, which is the only thing that makes an answer a claim about what the
+   * user will see rather than about a parallel copy. (This repository holds two
+   * record worlds per family — the L0 Zod schema re-exported as the plugin DTO,
+   * and the geometry / core-app-model record the fragment builders, the IFC
+   * exporter and persistence actually read. `initBusHandlers.ts:1160-1168`
+   * records what happens when a write picks the wrong one.)
+   *
+   * ABSENT means UNREADABLE and the answer says so — never conflated with "no
+   * value" and never with 0 (§CONTEXT-DATA-HONESTY). The resolver READS this and
+   * never writes anything.
+   */
+  readonly readProperty?: PropertyReader;
 }
 
 /** What the read-only visibility capability may truthfully report about the
@@ -610,6 +640,12 @@ export type SemanticIntent =
   | { readonly intent: 'reveal-all'; readonly onlySelection?: true }
   /** §GATE-QUERYENGINE-READ-ONLY — the read-only visibility question. */
   | { readonly intent: 'visibility-query'; readonly topic: 'hidden' | 'levels' }
+  /** §FEAT-RAC-PROPERTY-QUERY (L-2210) — the read-only DIMENSION question. The
+   *  second member of the read-only class, and the one the founder's "all dims
+   *  and properties should be QUERYABLE" names. `property` is a
+   *  `PROPERTY_QUERY_ROWS` id; the row's element kinds are the mirrored EXECUTE
+   *  capability's `targets`, so ask-ability and set-ability are ONE claim. */
+  | { readonly intent: 'property-query'; readonly property: string }
   | { readonly intent: 'set-height'; readonly value: number }
   | { readonly intent: 'set-thickness'; readonly value: number }
   /** §FEAT-CHAT-SYMMETRY (2026-08-10) — ONE width intent for every element kind
@@ -1427,6 +1463,13 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
   // property vocabulary: a family, not four new hand-written case arms).
   const vis = asVisibilityIntent(si);
   if (vis !== null) return applyVisibilityIntent(vis, ctx);
+  // §FEAT-RAC-PROPERTY-QUERY (L-2210) — the read-only property family, routed
+  // the same way and for the same two reasons: it is a TABLE, not a case arm
+  // (the hand-written arm count is already over its declared ratchet), and the
+  // whole family shares one executor. It mutates NOTHING — `action: 'answer'`,
+  // which the bridge answers with `break`.
+  const pq = asPropertyQueryIntent(si);
+  if (pq !== null) return applyPropertyQuery(pq, ctx);
   // §L-1032 — the level-change family, routed the same way and for the same
   // reason. `findLevel` is passed IN so the value dependency stays one-way; it
   // is this file's own function, so a level name means exactly what it means to
@@ -3154,6 +3197,15 @@ const matchRevealAll: Matcher = (text) => {
   return null;
 };
 
+// §FEAT-RAC-PROPERTY-QUERY (L-2210) — the read-only DIMENSION question. The
+// grammar itself is generated from `PROPERTY_QUERY_ROWS`, so a new queryable
+// property costs ZERO lines here (the same discipline the delete, dimension and
+// catalogue families already ride).
+const matchPropertyQueryIntent: Matcher = (text) => {
+  const property = matchPropertyQuery(text);
+  return property === null ? null : { intent: 'property-query', property };
+};
+
 const matchVisibilityQuery: Matcher = (text) => {
   const TAIL = String.raw`(?: right now| here| in (?:this|the) view| currently)?`;
   if (
@@ -4747,6 +4799,12 @@ const MATCHERS: readonly Matcher[] = [
   // The read-only query runs FIRST of the four: it claims only interrogative
   // shapes no imperative matcher wants.
   matchVisibilityQuery,
+  // §FEAT-RAC-PROPERTY-QUERY (L-2210) — BESIDE matchVisibilityQuery, and for the
+  // identical reason stated three lines above: it claims ONLY interrogative and
+  // bare-noun shapes that carry NO measurement, so no imperative matcher wants
+  // them and it cannot nibble at one. "make this wall 3m tall" has a number and
+  // is therefore unclaimable here by construction, not by ordering luck.
+  matchPropertyQueryIntent,
   matchHideSelection,
   matchIsolateSelection,
   matchRevealAll,

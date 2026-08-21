@@ -164,6 +164,18 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       'hide-selection': [...PROBE_ELEMENT_KINDS],
       'isolate-selection': [...PROBE_ELEMENT_KINDS],
       'set-height': [...GENERIC_PARAMETER_TARGETS.filter((k) => k !== 'beam'), 'ceiling'],
+      // ⭐ §FEAT-RAC-PROPERTY-QUERY (L-2210) — IDENTICAL to `set-height`'s row,
+      // and the equality is the claim being pinned, not a coincidence.
+      //
+      // `property-query`'s probe asks for the `height` row, so proof 1 compares
+      // it against `set-height`'s kinds — which is precisely the invariant the
+      // whole feature rests on: **a property the chat can SET is a property the
+      // chat can REPORT.** Written as a separate literal here (rather than
+      // aliased) so that a future edit which widens one and not the other goes
+      // red with the two lines side by side. The per-ROW reach of the wider
+      // family (sill height on windows, depth on beams, …) is not this row's
+      // subject and is proven by execution in propertyQuery.test.ts.
+      'property-query': [...GENERIC_PARAMETER_TARGETS.filter((k) => k !== 'beam'), 'ceiling'],
       'set-thickness': ['wall', 'slab', 'roof'],
       // RAC U7.1 — column / beam / furniture joined as metadata only.
       'set-width': ['door', 'window', 'stair', 'column', 'beam', 'furniture'],

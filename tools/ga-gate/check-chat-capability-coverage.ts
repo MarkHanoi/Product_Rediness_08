@@ -624,6 +624,14 @@ function gateCtx(
       { id: 'gate-room-2', name: 'Room 00-002', roomNumber: '00-002', levelId: 'L0', areaM2: 18 },
     ],
     mintId: () => `gate-mint-${++gateSeq}`,
+    // §FEAT-RAC-PROPERTY-QUERY (L-2210) — the property READER the bridge injects
+    // in production. Without it every read-only property example could only ever
+    // be answered "I cannot read element properties in this chat context", which
+    // measures the HARNESS and not the capability — the same finding that added
+    // GATE_STUB_SCOPE and the rooms fixture above. A fixed value is enough: the
+    // question this gate asks is whether the sentence REACHES the capability,
+    // and the value's correctness is propertyQuery.test.ts's subject.
+    readProperty: () => ({ ok: true as const, value: 2.5 }),
     ...(resolveScope === undefined ? {} : { resolveScope }),
   } as ResolverContext;
 }
@@ -657,8 +665,30 @@ function intentOf(r: ZeroTokenResolution): string | null {
   return r.kind === 'commands' || r.kind === 'local' || r.kind === 'refusal' ? r.intent : null;
 }
 
+/**
+ * ⭐ §FEAT-RAC-PROPERTY-QUERY (L-2210) — `'answer'` IS EXCLUDED, and the
+ * narrowing restores what this predicate always MEANT.
+ *
+ * The adversarial corpus proves that a command-SHAPED sentence never MUTATES.
+ * `kind: 'local'` was a sound proxy while every local action changed something —
+ * undo, redo, setActiveLevel, applyVisibilityIntent and activateTool all do.
+ * `'answer'` does not: `ZeroTokenResolver.ts` declares it the READ-ONLY class
+ * (§GATE-QUERYENGINE-READ-ONLY) and the bridge's entire handling of it is
+ * `case 'answer': break;` (`apps/editor/src/ui/ai/ZeroTokenChatBridge.ts`) — no
+ * dispatch, no store write, no view change. `visibility-query` has ridden that
+ * action since 2026-08-11; it simply never appeared in this corpus.
+ *
+ * ⛔ THIS IS NOT A RELAXATION. A question that dispatches anything still fails,
+ * which is the property every corpus row was written to defend — including
+ * "highlight walls taller than 3m", the measured P0 where a READ-ONLY question
+ * silently RESIZED GEOMETRY. That row resolves to a MISS, not to an answer, and
+ * would still fail if it ever reached `set-height`. The mirror of this predicate
+ * lives in the suite itself (`capability-acceptance.test.ts`), narrowed in the
+ * same commit for the same reason, so the gate and the suite cannot disagree
+ * about what "mutates" means.
+ */
 function mutates(r: ZeroTokenResolution): boolean {
-  return r.kind === 'commands' || r.kind === 'local';
+  return r.kind === 'commands' || (r.kind === 'local' && r.action !== 'answer');
 }
 
 const CORPUS = readAcceptanceCorpus(ACCEPTANCE_SPEC);

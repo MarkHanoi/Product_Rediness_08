@@ -330,6 +330,22 @@ export const GENERIC_PARAMETER_TARGETS: readonly string[] = [
   'furniture', 'handrail', 'window', 'door',
 ];
 
+/**
+ * §FEAT-RAC-PROPERTY-QUERY (L-2210) — `set-height`'s proven kind list, named
+ * ONCE because TWO capabilities must agree on it exactly.
+ *
+ * `property-query`'s `probe` asks for the `height` row, so proof 1
+ * (`refusal ⟺ kind ∉ targets`) compares it against precisely this set. Written
+ * twice it would drift, and the drift would surface as a probe failure blaming
+ * the wrong capability. `-beam` is the L-949 finding (`BeamData` has width and
+ * depth and NO height — see this file's header); `+ceiling` is the one kind the
+ * generic parameter command routes that is not in the base list.
+ */
+const SET_HEIGHT_TARGETS: readonly string[] = Object.freeze([
+  ...GENERIC_PARAMETER_TARGETS.filter((k) => k !== 'beam'),
+  'ceiling',
+]);
+
 const UPDATE_ELEMENT_PARAMETER_FILE =
   'packages/command-registry/src/generic/UpdateElementParameterCommand.ts';
 
@@ -648,6 +664,68 @@ const CAPABILITIES: readonly ChatCapability[] = [
     examples: ['what is hidden', 'which elements are hidden in this view', 'what levels are visible'],
   },
   {
+    id: 'property-query',
+    // ⭐ §FEAT-RAC-PROPERTY-QUERY (L-2210) — the SECOND read-only capability, and
+    // the half of the founder's ask that had no implementation at all:
+    // *"All dims and properties of all elements should be QUERYABLE and
+    // executable by RAC."*
+    //
+    // Before this row, EVERY property question ended at the generic miss string.
+    // Measured 2026-08-21: `LocalNaturalLanguageResolver.ts:1428` turns every
+    // interrogative into a miss BY DESIGN, `QueryEngine`'s six read-only blocks
+    // (:416 :429 :448 :475 :506 :526) answer counts and lists and never a
+    // property value, and `LlmPlanner`'s entire legal output space is
+    // `allChatCapabilities()` — all executions. The one engine that CAN read the
+    // model, `SemanticQueryEngine`, is imported by exactly one surface
+    // (`apps/editor/src/ui/dataworkbench/NLQueryPanel.ts:165`) and the chat is
+    // not it.
+    //
+    // ⛔ THE TARGETS ARE `set-height`'s, NOT THE FAMILY'S UNION, AND THAT IS
+    // DELIBERATE. `probe` asks for the `height` row, and proof 1 asserts
+    // `refusal ⟺ kind ∉ targets` FOR THE PROBE. Declaring the union would make
+    // this capability claim `beam` (which `set-depth` serves and `set-height`
+    // does not) and the probe would correctly refuse it — a declared target the
+    // guard rejects, which is the ElementCapabilities lie. Per-row reach is
+    // proven instead by `PROPERTY_QUERY_ROWS`, whose kinds are READ OFF the
+    // mirrored capability at call time (`queryableKinds`), and asserted row by
+    // row in `propertyQueryMirrorsExecute.test.ts`.
+    description:
+      'report a dimension or property of the selected element — height, width, thickness, sill height, depth, length, base offset, riser height, tread depth, overhang, mullion size, panel thickness, baluster spacing, baluster width, room height offset, roof pitch',
+    verbs: ['what', 'how', 'tell', 'show'],
+    aliases: ['how tall', 'how wide', 'how thick', 'how long', 'how deep'],
+    targets: SET_HEIGHT_TARGETS,
+    parameters: [],
+    readOnly: true,
+    scope: 'selection',
+    destructive: false,
+    busCommand: null,
+    localAction: 'answer',
+    probe: { intent: 'property-query', property: 'height' },
+    commandProof: {
+      // Proof 2 for a READ is not a command — it is the reader, and the thing
+      // worth proving is that it reads the AUTHORITATIVE record rather than a
+      // parallel copy. `initBusHandlers.ts:1160-1168` records what the parallel
+      // copy costs: every `<family>.setMaterial` writes a fresh plugin DTO store
+      // that nothing renders, exports or persists.
+      file: 'apps/editor/src/ui/ai/chatPropertyReader.ts',
+      mustMention: ['storeRegistry', 'getStoreForType', 'field'],
+      note:
+        'The editor bridge builds the reader from the SAME storeRegistry the fragment builders and the exporter resolve through, keyed by the SAME field name the matching write sets — so an answer is a claim about the record the user sees, never about the plugin DTO twin.',
+    },
+    // ⛔ WALL-ONLY, and NOT because the capability is. `examples` are executed by
+    // `check-chat-capability-coverage` against the ONE selection the acceptance
+    // family declares, so an example naming a window would be refused BY KIND in
+    // a wall context and counted as a broken example — the harness measuring
+    // itself. The family's real per-kind reach ("what is the sill height of this
+    // window") is proven where a per-kind context exists, in propertyQuery.test.ts.
+    examples: [
+      'how tall is this wall',
+      'how thick is the selected wall',
+      'what is the base offset of this wall',
+      'tell me the height of this wall',
+    ],
+  },
+  {
     id: 'activate-placement',
     // §FEAT-CHAT-TOOL-ACTIVATION (L-906, founder-urgent) — "create a bed"
     // activates the SAME placement tool the Create palette button does, mouse
@@ -788,7 +866,7 @@ const CAPABILITIES: readonly ChatCapability[] = [
     // reproduced inside the chat by a proof that pinned STORE ROUTING and not
     // FIELD EXISTENCE. The honest answer is a refusal that offers the property
     // a beam really has, which `set-depth` now provides.
-    targets: [...GENERIC_PARAMETER_TARGETS.filter((k) => k !== 'beam'), 'ceiling'],
+    targets: SET_HEIGHT_TARGETS,
     parameters: [
       {
         name: 'height',

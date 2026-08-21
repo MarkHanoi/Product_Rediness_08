@@ -192,6 +192,26 @@ export type {
 // specs; the bridge itself reads `placement` off the resolution union).
 export { parsePlacementRef, applyActivatePlacement } from './intents/PlacementActivation.js';
 export type { PlacementLocalDispatch } from './intents/PlacementActivation.js';
+// §FEAT-RAC-PROPERTY-QUERY (L-2210) — the READ half of "all dims and properties
+// should be queryable AND executable". The editor supplies the ONE reader
+// (`apps/editor/src/ui/ai/chatPropertyReader.ts`) against this shape; the table
+// and its grammar stay pure and are exported for the gate and the specs.
+export {
+  PROPERTY_QUERY_ROWS,
+  allPropertyQueryRows,
+  applyPropertyQuery,
+  asPropertyQueryIntent,
+  matchPropertyQuery,
+  propertyQueryRow,
+  queryableKinds,
+} from './intents/PropertyQuery.js';
+export type {
+  PropertyQueryIntent,
+  PropertyQueryRow,
+  PropertyQueryUnit,
+  PropertyReadOutcome,
+  PropertyReader,
+} from './intents/PropertyQuery.js';
 export { AiBus } from './AiBus.js';
 export type { AiBusEvent, AiBusEventKind, AiBusListener, AiBusOptions } from './AiBus.js';
 export { WorkflowRegistry } from './WorkflowRegistry.js';
