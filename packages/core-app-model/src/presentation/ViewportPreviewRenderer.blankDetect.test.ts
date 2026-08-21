@@ -1,4 +1,4 @@
-// §SHEET-3D-CAPTURE-IS-NOT-A-DRAWING (L-1842)
+// §SHEET-3D-CAPTURE-IS-NOT-A-DRAWING (L-1843)
 //
 // The founder: a {3D} viewport on a sheet rendered as a "near-black navy box".
 //
@@ -32,7 +32,7 @@ function pixels(n: number, r: number, g: number, b: number, a: number): Uint8Cla
     return out;
 }
 
-describe('§SHEET-3D-CAPTURE-IS-NOT-A-DRAWING — blank detection (L-1842)', () => {
+describe('§SHEET-3D-CAPTURE-IS-NOT-A-DRAWING — blank detection (L-1843)', () => {
     it('REGRESSION: an OPAQUE BLACK frame is NOT content', () => {
         // The exact bug. Alpha=255 everywhere; the old predicate returned true.
         expect(rgbaHasColour(pixels(1024, 0, 0, 0, 255))).toBe(false);

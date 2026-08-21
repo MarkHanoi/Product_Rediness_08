@@ -54,7 +54,7 @@ const VIEW_3D_TYPES   = new Set(['3d', 'walkthrough', 'render']);
 const PREVIEW_PADDING = 10;
 
 /**
- * §SHEET-3D-CAPTURE-IS-NOT-A-DRAWING (L-1842) — does this RGBA buffer carry any
+ * §SHEET-3D-CAPTURE-IS-NOT-A-DRAWING (L-1843) — does this RGBA buffer carry any
  * actual COLOUR?
  *
  * Exported as a pure function purely so the defect it replaces can be pinned by
@@ -89,7 +89,7 @@ class ViewportPreviewRenderer {
     private readonly _viewDefs = new Map<string, ViewDefinition>();
     private _3dRefreshTimer: ReturnType<typeof setTimeout> | null = null;
     /**
-     * §SHEET-3D-CAPTURE-IS-NOT-A-DRAWING (L-1842) — last frame captured while
+     * §SHEET-3D-CAPTURE-IS-NOT-A-DRAWING (L-1843) — last frame captured while
      * the live 3D surface genuinely had content. Used while that surface is
      * hidden (sheet editor open ⇒ container `display:none` ⇒ the render pass is
      * refused, L-1470). Downscaled to ≤512px wide; one shared canvas, since
@@ -236,7 +236,7 @@ class ViewportPreviewRenderer {
     }
 
     /**
-     * §SHEET-3D-CAPTURE-IS-NOT-A-DRAWING (L-1842) — a 3D viewport on a sheet is
+     * §SHEET-3D-CAPTURE-IS-NOT-A-DRAWING (L-1843) — a 3D viewport on a sheet is
      * a RASTER capture of the live renderer, and it is the only viewport kind
      * that is. Plan / elevation / section resolve to real vector linework via
      * the TechnicalDrawing + `ViewportSvgComposer` path; there is no edge
