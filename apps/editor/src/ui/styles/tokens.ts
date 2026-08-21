@@ -340,6 +340,68 @@ export const DESIGN_TOKENS = `
         --app-status-error-bg:      #fef2f2;
         --app-status-error-line:    #fca5a5;
         --app-status-error-ink:     #b91c1c;
+
+        /* ── §CHART-CATEGORICAL-SCALE (L-3001 · ADR-0343 §D.5 · SPEC §6) ──
+           The categorical chart palette. Eight SERIES colours plus one named
+           neutral. This is the scale ADR-0343 §U.2 deliberately left unnamed,
+           because "asserting CVD-safety without simulating it is a hypothesis
+           wearing the confidence of a measurement". It is named here because the
+           simulation was RUN — see the numbers below, and the guard that re-runs
+           them at `__tests__/chartPalette.spec.ts`.
+
+           ⚠ THIS IS A DELIBERATE, ARGUED EXCEPTION TO WHITE + PURPLE, NOT A
+           RELAXATION OF IT. ADR-0343 §D.5.4: a purple-monochrome categorical
+           scale CANNOT be colour-blind-safe. Separating eight series under
+           deuteranopia, protanopia and tritanopia needs variation in lightness
+           AND hue; a single-hue ramp gives lightness only. SC 1.4.1 wins over
+           brand monochrome when colour is ENCODING rather than DECORATING —
+           which is the distinction §D.5 draws between this block and
+           §DATA-BUCKET-ACCENT-IS-ONE (which collapsed six DECORATIVE hues to
+           one). Chrome on the Analysis surface is still --app-accent on white.
+
+           PROVENANCE: series 1 is the brand accent. Series 2-8 are the
+           Okabe-Ito palette (Wong, Nature Methods 8:441, 2011) with ONE
+           substitution: its #0072B2 blue became #005F73, because under
+           protanopia #0072B2 simulates to #5375b5 and #6600FF simulates to
+           #005fff — ΔE00 10.20, the tightest pair in the set. The substitution
+           lifted the global floor to 11.13. That was measured, not guessed.
+
+           MEASURED 2026-08-21 — Machado/Oliveira/Fernandes (2009) severity-1.0
+           simulation in linear sRGB, pairwise CIEDE2000 over CIE Lab (D65):
+             normal   min ΔE00 21.72
+             deuteran min ΔE00 11.52   (cat-2 vs cat-8)
+             protan   min ΔE00 14.07   (cat-4 vs cat-6)
+             tritan   min ΔE00 11.13   (cat-2 vs cat-6)  ← the global floor
+           L* spread 36.8 … 89.1, so lightness is a real second channel.
+
+           ⛔ COLOUR IS NEVER THE ONLY CHANNEL (SC 1.4.1). Measured contrast on
+           white: cat-1 6.98:1 · cat-7 7.28:1 · cat-5 3.87:1 · cat-3 3.42:1 ·
+           cat-6 3.06:1 · cat-4 2.31:1 · cat-2 2.25:1 · cat-8 1.32:1. Four of
+           the eight are under 3:1 against white, and cat-8 is 1.32:1 — its
+           lightness is exactly what makes the CVD floor work (every darker
+           yellow tested collapsed into the orange family: #B8A400 dropped the
+           floor to 1.01). So a fill in these colours MUST carry a 1px
+           --app-panel-bg separator and a text label or legend entry. A slice
+           identified by hue alone is a defect, not a style choice.
+
+           ⛔ Do NOT extend this to --app-cat-9. Eight is where the floor stops
+           clearing 10. A ninth series is a "+N others" bucket, not a colour. */
+        --app-cat-1:                #6600FF;
+        --app-cat-2:                #E69F00;
+        --app-cat-3:                #009E73;
+        --app-cat-4:                #56B4E9;
+        --app-cat-5:                #D55E00;
+        --app-cat-6:                #CC79A7;
+        --app-cat-7:                #005F73;
+        --app-cat-8:                #F0E442;
+        /* NOT part of the rotation. "unassigned" / "untyped" is a real answer
+           and must never be mistaken for a category — SPEC §4.1 W2/W3 require
+           it as its own named slice, never folded into the largest. Same value
+           as --app-scrollbar-thumb, declared separately because this is a ROLE.
+           Verified NOT to degrade the scale: adding it keeps the global floor at
+           11.13 (the greys that read as "muted" — #9AA6BC, #7A8AAA — collapse
+           into cat-6 under deuteranopia at ΔE00 5.34 and 0.73). */
+        --app-cat-unassigned:       #C4CDE0;
     }
 
     /* ── Global typography baseline (§05 §2.3 Rule 6) ────────────────────── */
