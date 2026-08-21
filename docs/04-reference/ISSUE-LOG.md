@@ -26426,6 +26426,191 @@ undo. 96 of 103 files pass.
 > to **L-1890..L-1894** — lanes UNDO1 and SHEETS had already taken that range (commit `76ad7704`).
 > **Third id collision of the session.**
 
+### L-1885 — ⛔ ID COLLISION: lane RAC1 was allocated **L-1880..L-1889** and **L-1880..L-1884 were already on disk**
+
+Recorded first, because it is another recurrence of the defect this repository keeps re-producing,
+and the previous ones were all in a different file.
+
+**Measured 2026-08-21, at the moment of writing:** `grep -n '^### L-18' ISSUE-LOG.md` → **L-1875**,
+then **L-1880..L-1884** (lane UNDO1, `§UNDO-HISTORY-DROPDOWN`), then **L-1890..L-1894** (lane VIEWS).
+RAC1's allocated block **L-1880..L-1889** overlaps UNDO1's five rows entirely.
+
+⚠ **Two RAC1 commits already cite the colliding ids and were NOT rewritten** — `408a6c5e` cites
+*L-1880..L-1883* and `c0cfdf59` cites *L-1881..L-1886*. Amending them was refused: `git commit --amend`
+reaches the SHARED index and swept a foreign lane's staged file into another lane's commit earlier
+the same day. **A wrong id in a commit subject is recoverable; a lost file is not.** So the commits
+stand and this row is the correction — read the ISSUE-LOG ids, not the commit subjects, and treat
+RAC1's *L-1880..L-1884* citations as meaning *the floor-finish work recorded in L-1886..L-1889 below*.
+
+**Independent evidence that the ALLOCATION, not the reading, was wrong:** commit `76ad7704`
+(*"renumber — lanes UNDO1 and SHEETS already owned L-1870..L-1875"*) is a DIFFERENT lane recording the
+SAME collision shape hours earlier, and its own fix was to renumber into 1890+. The allocator handed
+RAC1 a block that renumber had already consumed.
+
+⭐ **AND THAT SAME COMMIT SWEPT A FOREIGN FILE.**
+`git log -S SET_FLOOR_FINISH -- packages/command-registry/src/types.ts` → **76ad7704**, a *docs*
+commit. That is RAC1's uncommitted enum edit, committed by another lane's `git add`. Nothing was
+lost this time; the mechanism that could lose it is unchanged.
+
+---
+
+### L-1886 — ⭐ ROOT CAUSE: *"finish to wooden parquet"* — the refusal was HONEST, and the vocabulary behind it was worse than the gap
+
+> "How can I use one of the newly floor finishes created? I tried this in RAC: **finish to wooden
+> parquet** — PRYZM AI: *Floor surface finish isn't connected to chat yet. I can change floor level.*"
+> — founder, 2026-08-21, production `071a7b2c`
+
+**The refusal was not a bug.** `capabilityGapRefusal` generated it because the topic table said so,
+and the topic table was RIGHT: there was no route. `floor.setMaterial` exists but is a **DECLARED
+DEAD VERB** — `plugins/floor/src/handlers/SetFloorMaterial.ts` returns `{valid:false}` from
+`canExecute` (§FIX-DEAD-VERB-REFUSE) because it writes a detached plugin DTO store that no renderer,
+no 2-D projector, no IFC exporter and no persistence path reads.
+
+⭐ **BUT THE MORE INTERESTING DEFECT WAS BEHIND THE REFUSAL, NOT IN IT.** Measured before this lane:
+
+```
+resolveFinishRef('wooden parquet')  ->  'wood-oak'      (Wood · Oak (Light))
+```
+
+No master label contains the word *"wooden"*, so the phrase fell past the catalogue arm into the
+LOOSE ALIAS arm, where `'wooden parquet'.includes('wood')` is true for exactly one group. **Had the
+capability merely been published, he would have asked for parquet, been given plain flat oak, and
+been told it worked** — §L960-WOOD-IS-A-SURFACE one notch milder, and a silent narrowing (C84 EI-2)
+of the single word that carried his whole ask. Thirteen master rows have *"Parquet"* in their label;
+the answer named none of them.
+
+**Two fixes, at two layers, both structural rather than a blocklist:**
+
+1. **`finishRef.ts` — a loose alias match may not DROP a word the catalogue knows.** `CATALOGUE_WORDS`
+   is derived from the master's own labels; a single surviving candidate that accounts for only part
+   of the request is an ambiguity, not an answer. Vocabulary was not deleted: `wood` → oak,
+   `wood fibre insulation` → the insulation, and `oak chevron` → the chevron all still resolve.
+2. **The grammar — when the user wrote "to X", X is taken WHOLE or refused whole.** The
+   shrinking-window scan may not reach INSIDE a named value. Found only by testing his exact sentence:
+   with the scan enabled after a connector it tried `wooden parquet` (no match) and then the ONE-WORD
+   span `wooden`, and shipped oak.
+
+The refusal now **teaches** instead of listing eight nicknames he did not ask for: *"I don't have a
+material called \"wooden parquet\". \"parquet\" names 13 of my 245 materials — Parquet · Oak
+Herringbone, Parquet · Walnut Herringbone, …"*
+
+---
+
+### L-1887 — 🔴 THE HEADLINE: **no floor material renders as a texture, and three independent mechanisms each guarantee it**
+
+⚠ **This is the finding that matters most, and it is bigger than the lane brief anticipated.** The
+brief expected the 16 file-backed rows to 404 while the 24 `procedural:` ones *"cannot"*. Measured,
+**all 40 are dark for a floor, and one of the three reasons has nothing to do with either**:
+
+1. ⭐ **`FloorPanelBuilder` binds NO texture maps AT ALL.** `applyMaterialMaps()` — the one adapter
+   that attaches a `MaterialRecord.maps` set to a THREE material — is called by `SlabFragmentBuilder`,
+   `RoofFragmentBuilder`, `WallFragmentBuilder` and `CurtainWallBuilder`, and by **no floor path**
+   (`grep -rn applyMaterialMaps packages/geometry-slab/src` returns `SlabFragmentBuilder.ts:1689`
+   only). A floor's entire material channel is `resolveFloorColor()`, which returns a **hex**. So even
+   with perfect assets and the flag on, a floor is a flat colour.
+2. **Runtime procedural generation defaults OFF.** `isProceduralTextureGenerationEnabled()`
+   (`MaterialResolver.ts`) reads `globalThis.__pryzmProceduralTexturesV1` and returns FALSE unless a
+   session sets it — §PROCEDURAL-COST (L-1820) rolled it back because one pattern is 150–830 ms of
+   BLOCKED main thread. **This REFUTES "the 24 procedural ones cannot 404":** they cannot 404, and
+   they do not draw either. Not-404 and rendered are different facts.
+3. **The 16 file-backed rows have no published assets.** They cite `/items/textures/<id>/color.webp`;
+   **`public/items/textures/` does not exist on disk**, and `server.js:1774` serves an explicit 404
+   JSON for any `/items/*` path it cannot find. `tools/texture-pipeline/textures.manifest.json`
+   describes those exact files — so the pipeline exists and has evidently **never been run into
+   `public/`**.
+
+**What the capability therefore delivers, honestly:** the material's **COLOUR** plus the **plank/tile
+GRID** (`_buildTileGridOverlay` — real geometry, real pixels), with the grid **derived from the
+material's own label** so a herringbone reads differently from a 600 mm tile. That is a visible,
+undoable, persisted change — and it is **not the photographic parquet he pictured**.
+`describeFloorFinishRenderLimit()` is the ONE sentence that says so, and it rides the success
+sentence itself (§L960-STEP3), never a separate line a UI may drop.
+
+**Exit condition (NOT done here, and deliberately not started):** wiring `applyMaterialMaps` into
+`FloorPanelBuilder` while both map sources are dark would add a branch that cannot be verified to
+draw anything — the dead-branch anti-pattern this repository has convicted repeatedly. The order is
+**(a)** run the texture pipeline into `public/items/textures/` (or move it to object storage, per
+`furniture-glb-404-object-storage`), **(b)** publish the 24 procedural patterns as build-time WebP so
+the runtime flag stops mattering, **(c)** THEN bind maps on the floor and prove it with a render.
+
+---
+
+### L-1888 — ⚠ THE STATED FALLBACK IS HALF FALSE: the floor Properties panel *does* list the new rows, and its pick is *masked*
+
+The refusal told the founder to *"set them in the Properties panel"*. **Checked, because a refusal
+whose alternative does not exist is a regression with a contract citation attached**
+(§REFUSING-HALF-NEEDS-ITS-ESCAPE-HATCH). Three separate answers, not one:
+
+| Claim | Verdict |
+|---|---|
+| The dropdown lists the new parquet/tile rows | ✅ **TRUE** — built from `STANDARD_MATERIAL_LIBRARY`, which derives from `MATERIAL_CATALOG` |
+| Picking one changes the floor | ⚠ **USUALLY NOT** |
+| The Colour Override works | ❌ **FALSE** — it wrote a field nothing reads |
+
+**Measured** against `resolveFloorColor` with the real catalogue hexes injected:
+
+```
+auto-generated floor + panel materialId 'parquet-oak-herringbone'  ->  #E2D6BE   (the OLD colour)
+bare floor           + panel materialId 'parquet-oak-herringbone'  ->  #c8a96e   (the material)
+```
+
+`resolveFloorColor` ranks `colour` → `finishSpec.finishColor` → `materialId`, and **every
+auto-generated floor carries a `finishSpec.finishColor`** (`CreateFloorsByRoomTypeCommand` →
+`floorFinish.ts`). So on the floors a user actually has, the panel's material pick is a **silent
+no-op**. Separately, `MaterialDispatch`'s floor route declared no `colorField`, so its default
+`materialColor` wrote a key `FloorData` does not declare and `resolveFloorColor` never reads —
+**FIXED** to `colour`, the field that resolver reads first.
+
+🔴 **The masking half is NOT fixed, and deliberately not half-fixed.** Making the panel write the
+whole finish means routing it through `SetFloorFinishBatchCommand`, whose payload is
+`{floorIds, finish}` — a shape the `MATERIAL_ROUTES` table (`{id, updates}` / flat) cannot express.
+The measurement is documented at the route itself so the next reader inherits it rather than
+rediscovering it.
+
+---
+
+### L-1889 — ✅ SHIPPED: `set-floor-finish` → `floor.setFinishBatch` → the geometry `FloorStore`
+
+Mirrors the proven wall precedent end to end rather than inventing a second shape: grammar
+(`FloorFinishIntent.ts`, SHARING `LAYER_NOUN`, `SpatialScopeTail` and `finishRef.ts` rather than
+re-spelling any of them — a fourth hand-written spatial tail is exactly what L-1201/L-1261 retired)
+→ `CapabilityExecutionSpec` table entry → registry entry → bus verb → `SetFloorFinishBatchCommand`.
+
+**What it writes, and why it is the WHOLE finish rather than an id:** `materialId` **plus**
+`finishSpec.{finishMaterialId, finishColor, finishPattern, materialName}`, with `finishSpec` MERGED
+— not replaced, because `FloorStore.update` does `Object.assign`, which would silently drop
+`exposedScreed`, `jointWidth` and `coveSkirting` — and the per-instance `colour` override cleared
+**undoably and disclosed**, because it outranks everything else in `resolveFloorColor` and leaving it
+would mask the very change the user asked for.
+
+**§FLOOR-FINISH-READBACK** — the count is RECORDS, never successful calls (C67 rule 12, C16 CA-21),
+adopted from L-1670 rather than re-derived. The non-vacuity guard is the point of the test: the same
+command is driven against a **dropping** store and required to report **0 of 3**, so deleting the
+read-back fails a test instead of printing "3 of 3 — Done" over an untouched model.
+
+**The claim rule is what keeps the neighbours safe:** a MATERIAL must be named, which is why
+*"finish this floor"* still reaches `finish-apartment-chain` (the whole generate→furnish→light chain,
+same verb, same noun) and *"change this floor to level 1"* still reaches `move-to-level`. Both pinned
+as misses.
+
+**Refusals reconciled, not tripled** — the founder met TWO different sentences naming TWO different
+fallbacks. `'floor'` now joins `'wall'` in the `surface finish` and `material` topics' `excludeKinds`
+(a missed sentence falls through as an honest MISS, never a confident denial — the L-1032 ruling),
+and both `CHAT_UNAVAILABLE` rows carry their measured reason instead of the shared boilerplate.
+**SLAB, ROOF and ROOM stay refused**: their finish really has no chat route, and floor-vs-slab is a
+decision, not a coin-flip (`CatalogueFamilies.ts`).
+
+**Verified in the FOREGROUND:** `floor-finish.test.ts` **23/23** (drives the REAL ladder —
+`resolveCompoundUtterance` → `resolveUtterance` → `resolveNaturalLanguage` — never a hand-built
+intent, because §COMMITTED-IS-NOT-REACHABLE), `L1883FloorFinishReadBack.test.ts` **22/22**, and the
+four suites this change could disturb (`wall-side-finish`, `L998BareWallFinishRoutes`,
+`chat-capability-registry`, `capability-acceptance`) — **394 tests, all green**.
+
+🔴 **NOT established:** that the founder sees parquet. See **L-1887** — he sees an oak-coloured floor
+with a herringbone grid, and the reply says exactly that in the same sentence as "Set the finish".
+
+---
+
 ### L-1890 — ⭐ FIXED: the ENTIRE Visibility & Graphics panel dispatched into `undefined`
 
 > *"I am trying to change the fill colour of the slab in elevation — I go to view modifier and
