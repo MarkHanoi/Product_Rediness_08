@@ -27953,3 +27953,336 @@ for the rest of the session: room volumes stayed ghosted and the room heat map n
 * **Rooms are still the only category with a Discovery surface.** Non-room categories render the
   polymorphic matrix. That is a real surface with heat bars and it is now honest, but it is not the
   same affordance, and no decision was taken here about whether it should be.
+
+---
+
+### L-2070 — ✅ FIXED: the wall vanished at arm's length. `near = 0.1` is still a clip plane, and `minDistance` guards the TARGET
+
+**FOUNDER (2026-08-21, production `071a7b2c`, WebGL):** *"Lately when I zoom in — sometimes
+too much (not even to a wall) — the window disappears."* Screenshot: the wall surface is a
+flat white/grey field, two window-shaped rectangles float in it, and the green ground plane
+shows through them. The selected-element panel names a real window (`WN033`, host
+`WA-01-003`, sill 0.1 m) — the element exists; it is not drawn correctly.
+
+**Mechanism: NEAR-PLANE CLIPPING.** Established by arithmetic on real `three` cameras, not
+by a browser repro (see NOT ESTABLISHED, below).
+
+The screenshot is only diagnosable once you know PRYZM walls are **DoubleSide**
+(`WallFragmentBuilder:3708` for band materials, `:2373` for curved walls — its own comment
+says why: *"DoubleSide prevents back-face culling making the wall appear transparent when
+viewed from inside"*). A wall is a SOLID with two drawable faces. Eye 5 cm from one face of
+a 0.3 m wall:
+
+| what | view depth | with `near = 0.1` |
+|---|---|---|
+| wall near face | 0.05 m | **CLIPPED** |
+| wall far face | 0.35 m | draws → the **flat white/grey field** |
+| window opening | (a hole through both faces) | shows the **ground beyond** |
+| window glass / frame | ~0.15 m | draws → the **floating rectangles** |
+
+Every element of his picture, accounted for.
+
+**Why L-747 did not already cover this.** L-747 capped `near` at `MAX_BIM_NEAR_M = 0.1` to
+stop a globe-scale `far` producing a 14 m near plane. It fixed the catastrophe and left the
+residual: **0.1 m is still a clip plane, and nothing stops the eye reaching a surface**.
+
+⭐ **`controls.minDistance = 0.2` does NOT prevent this, and is not broken.**
+camera-controls measures `minDistance` from the eye to the **ORBIT TARGET**, not to
+geometry. Three ordinary things put the eye inside 0.1 m of a wall with the constraint
+fully satisfied: (1) orbiting a target inside a room sweeps the eye around a 0.2 m sphere
+that passes through the walls; (2) dollying toward a target 15 m away crosses the façade
+with `distance` still ≈ 15 — **so an "adaptive near keyed on `controls.distance`" would NOT
+have fixed this**, which is the substitution that looks equivalent and is not; (3) level
+explode moves geometry 10 m per level into a stationary camera.
+
+**FIX (`2fec1135`, `8f8d25e5`) — §CAM-NEAR-SCALES-WITH-STANDOFF.** `near` is derived from
+**standoff**: the eye's distance to the model's world AABB, `0` when inside. `0.01 m` at
+standoff 0, ramping linearly to today's `0.1 m` by 20 m out; orthographic plan/elevation/
+section cameras untouched (their `near = -1000` is a signed range, not a metric standoff).
+`packages/core-app-model/src/navigation/adaptiveNearPlane.ts`, bound in `initScene.ts` to
+camera-controls events the existing scheduler already drives (**P3: no rAF added**).
+Contract: **C04 §CAM-NEAR**.
+
+**RIVAL HYPOTHESES, ELIMINATED — by measurement, not preference:**
+
+| hypothesis | verdict | how |
+|---|---|---|
+| **back-face culling** | ⛔ **IMPOSSIBLE** | walls are `DoubleSide` by construction, with a source comment stating that is exactly why |
+| **depth-precision dropout** | ⛔ **IMPOSSIBLE at close range** | a fixed-point depth buffer is FINEST at the near plane: at 0.2 m the quantum is **24 nanometres** (24-bit, near 0.1, far 2000) |
+| **`FrustumCullingService`** | 🟡 not a candidate, **reasoned not measured** | `Frustum.intersectsSphere` cannot cull a sphere CONTAINING the eye; no live bounding sphere was inspected |
+| **`LevelScoped3DCullingService` massing escalation** | 🟡 not implicated by arithmetic | `isHeavyModel` needs (≥15 levels AND ≥1000 **elements**) OR ≥4000 **elements**; his `sceneMeshes=3898` is a MESH count — **his element count was not measured** |
+| **explode-only** | ⛔ **NO** | the RED test clips a wall at 5 cm with no explode at all. Explode is an aggravator (L-2071), not the mechanism |
+
+**PROOF (19 tests, `adaptiveNearPlane.test.ts`, all green).** Asserted through the hardware
+clip condition `-w ≤ z ≤ w` on real `THREE.PerspectiveCamera` + a real 0.3 m wall — **not**
+at a config value (`[[committed-is-not-reachable]]`). RED pinned first: at `near = 0.1`,
+**0 of 25** sampled points on the wall face survive from 5 cm; after the policy, **25 of
+25**.
+
+**COST, MEASURED — and the first version of this line was WRONG.** The module header
+claimed *"10× coarser is still under a centimetre"*; the test that pinned it FAILED at
+**0.0596**. Real figures at 100 m from the eye (24-bit, far 2000): **5.96 mm → 59.6 mm**.
+Six centimetres. Confined to standoff < 20 m; beyond the ramp the near plane is
+byte-identical to production and the cost is exactly zero. Header and C04 §CAM-NEAR.4 now
+carry the measurement.
+
+🔴 **NOT ESTABLISHED — do not read this row as more than it says:**
+1. **No browser run.** The screenshot was not reproduced. The attribution accounts for
+   every element of the picture but rests on arithmetic. **The decisive check is one line
+   in his console at the moment the wall disappears:** `window.threeCamera.near`,
+   `window.threeCamera.far`, and the eye→target distance from `window.world.camera.controls`.
+   If `near` reads 0.1 and the eye is < 0.1 m from the façade, this is confirmed; if `near`
+   reads something else, this row is wrong and the number will say so.
+2. **This is a 10× narrowing, NOT a guarantee.** Nothing constrains the eye's distance to
+   geometry. The failure window shrinks from "within 10 cm" to "within 1 cm". A guarantee
+   needs camera–geometry collision. ⛔ Do not say "clipping is fixed".
+3. **Both backends were exercised only through the shared camera object.** The policy sets
+   `near` on `world.camera.three`, which both the OBC renderer and the PRYZM renderer bind
+   to (`initScene:3831`, `:4819`) — so it is backend-independent **by construction**, but
+   **no WebGPU or WebGL run was taken**.
+
+| Area | Verdict | Maps to |
+|---|---|---|
+| Camera — C04 §CAM-NEAR | **FIXED** `2fec1135` + `8f8d25e5` | C04 §CAM-NEAR.1–.4 |
+
+---
+
+### L-2071 — ✅ FIXED: level explode moves every root up to 10 m and told the scene-bounds cache NOTHING
+
+**MEASURED:** `grep -n 'invalidate|__sceneBoundsCache|model-updated|dispatchEvent'
+apps/editor/src/engine/inspect/LevelExplodeController.ts` → **zero hits**. The controller
+writes `root.position.y` for every level group (`_tick`, `_applyMode`, `deactivate`) and
+fires **none** of `SceneBoundsCache`'s seven `INVALIDATING_EVENTS`.
+
+**Consequence:** while the model is exploded, every consumer of those bounds reads the
+**un-exploded** stack — default framing, Fit All, and the near-plane standoff policy landed
+at L-2070, which then reports a LARGER standoff than the truth, i.e. **less** protection
+from clipping, in exactly the mode the founder had active (`§LEVEL-STACK exploded: offset
+roots per level`, `level-explode offset=10.0000`).
+
+**FIX (`ab07808f`):** invalidate at the animation **settle** point (`allSettled`) and on
+`deactivate()`. Deliberately **not** per tick — `getBounds()` rebuilds by full scene
+traversal, so a per-frame invalidation would traverse the scene on every frame of the lift.
+
+🔴 **NOT ESTABLISHED:** the bounds are still stale *during* the ~1 s lift animation, and
+the framing/Fit-All consequences of the pre-existing staleness were not surveyed.
+
+| Area | Verdict | Maps to |
+|---|---|---|
+| Camera / Inspect — C04 §CAM-NEAR.5 | **FIXED** `ab07808f` | C04 §CAM-NEAR.5 |
+
+---
+
+### L-2072 — 🔴 OPEN, NOT INVESTIGATED: the GPU pick reports distances at the FAR PLANE in a close-up view
+
+**FOUNDER LOG (2026-08-21, same session):**
+`[PickResolver] §97 click hit type=Window … dist=1874.23` and `dist=222.34`, in a view
+where the camera is metres from the façade.
+
+**What the arithmetic says.** Inverting the perspective depth for `near = 0.1, far = 2000`:
+a reported 1874.23 m corresponds to a packed window depth of **0.9999**, and 222.34 m to
+**0.9996**. Both are essentially **at the far plane**, and they differ by ~3e-4 — far above
+the 32-bit `packDepthToRGBA` quantum, so **this is not quantisation**. Something in
+`GpuPickStrategy.readDepthResult` (`packages/picking/src/gpu-pick.ts:736` — it unpacks
+`packDepthToRGBA` output, converts to NDC, and unprojects) is resolving near-far for
+geometry that is metres away.
+
+`distance` feeds pick ORDERING and the hosted-opening priority epsilon
+(`packages/picking/src/hostedPickPriority.ts:81`), so a wrong value is not cosmetic.
+
+⚠ **Interaction with L-2070:** a smaller `near` makes the perspective depth curve steeper.
+It does not cause this, but this path must be re-read before its distances are trusted.
+
+**NOT investigated in this lane.** Candidates not yet excluded: the depth pass rendering
+with a different camera/target size than the readback pixel assumes; `this.pickScene`
+containing the site/ground geometry rather than the clicked element; the classic
+`webgl-only` backend's `logarithmicDepthBuffer: true` (`WebGLRendererAdapter.ts:94`)
+changing the stored depth encoding under a reconstruction that assumes standard NDC.
+
+| Area | Verdict | Maps to |
+|---|---|---|
+| Picking — C04 §3.2 | **OPEN** | C04 §CAM-NEAR.6 |
+
+
+### ⭐ L-2000 — THE TAB NAMED "QUANTITIES" RENDERED THE NAMES OF COLUMNS
+
+`DataWorkbench.ts` declared `{ id: 'quantity-schedules', label: 'Quantities', icon: '∑' }` under
+AUDIT. Behind it, `buckets/AuditBucket.ts:mountQuantitySchedules` imported exactly two things —
+`scheduleStore` and `viewTemplateStore` — and rendered `scheduleStore.getAll()`: for each schedule a
+`name`, a `scheduleType`, and `schedule.fields.join(', ')`. Its own heading read **"Schedule of
+Quantities"**. Its only button called `window.visibilityIntentPanel.open()` — the *Intent Visibility
+Settings* panel, an unrelated surface.
+
+**Not one quantity was computed anywhere on it.** The `Fields: id, type, length, height, …` line an
+architect would read as a schedule is the list of COLUMN IDS the schedule *would* have if something
+rendered it.
+
+⚠ **Independently found the same day by the Analysis lane and logged as L-2133.** That row was
+written while this lane's fix was already in the working tree and says so; it correctly records the
+tab as unchanged *as it measured it*. It is changed now. Two lanes reaching the same finding from
+opposite directions is the strongest available evidence the defect was real and load-bearing.
+
+**FIXED:** the pill now reads **Schedules**, the panel states *"These are definitions, not
+quantities: nothing on this tab is measured from your model"*, and it links to MEDICIONES ›
+Take-off. The definitions list is KEPT — it is the schedule column config and is genuinely useful;
+what was wrong was the name and the absence of anywhere to go for a real number.
+
+### L-2001 — THE WALLS SCHEDULE HAS NO AREA COLUMN, SO NO WALL AREA EXISTED AT ALL
+
+`ScheduleExtractor` DOES read the element stores, and it is element-traceable. But it emits
+PER-ELEMENT rows for a schedule view: it never sums and never carries a unit. Measured:
+
+```
+ScheduleRegistry 'Walls Schedule'.columns
+  = id · type · length · height · thickness · level · roomSideA · roomSideB
+```
+
+**There is no area column.** Not a gross one, not a net one. So across the whole product there was
+no wall area of any kind, and therefore no opening deduction to get wrong — the m² that every
+masonry, render, plasterboard, insulation and paint line in a *medición* is measured in simply did
+not exist. Floors/rooms/roofs/ceilings/slabs did carry areas, per element, unsummed.
+
+### L-2002 — `QuantityToolbar` DECLARES TEN TAKE-OFF BUTTONS AND IS CONSTRUCTED NOWHERE
+
+`apps/editor/src/ui/toolbar/QuantityToolbar.ts` declares ten buttons — material takeoff, element
+count, area, volume, filter, schedule, CSV, Excel, IFC, print — each with a `commandType`.
+
+- `grep -rl QuantityToolbar` over `.ts` → **4 files**: the class, its own spec,
+  `packages/command-bus/src/commands.ts` (the type declarations), and the command-bus barrel.
+  **It is never instantiated by the application.**
+- `grep -rl 'quantity-material-takeoff|quantity-area-calculate|quantity-export-csv'` → **3 files**:
+  the same three. **No handler is registered for any of the ten command types.**
+
+[[authored-but-unwired-is-the-bottleneck]] and [[committed-is-not-reachable]] in one artefact: a
+toolbar whose spec passes, whose types are published, and which no user can reach. Left in place
+rather than deleted — but nothing in it was reused, because a button whose command has no handler
+is a slower way to write a stub. **Deleting it, or wiring it to `computeTakeoff()`, is open.**
+
+### ⭐ L-2003 — WHAT SHIPPED: `computeTakeoff()`, AND WHY THE ORDER OF WORK WAS THE ARCHITECTURE
+
+`packages/core-app-model/src/quantities/` (L2, read-model, mutates nothing, dispatches no command,
+needs no undo entry): `TakeoffTypes` · `QuantityTakeoff` · `CostModel` · `takeoffCsv` + barrel, and
+`buckets/MedicionesBucket.ts` mounting four tabs in a seventh **MEDICIONES** bucket.
+
+**5D is a layer on quantities and 4D is a layer on quantities.** So the take-off was built first and
+is the only thing the other dimensions may read.
+
+The measurement worth quoting: **a wall's opening deduction is computed by `openingOutline()` —
+THE one outline producer (C86 §10.1 PR-1), the same function that CUTS THE MESH** — integrated by
+`outlineSignedArea()`. Measured on the fixtures:
+
+| Void | Deducted | Bounding box | Ideal |
+|---|---|---|---|
+| round-arch 1.0 × 2.0 m | **1.8907 m²** | 2.0000 m² | 1.8927 m² |
+| circular ⌀ 1.0 m | **0.7814 m²** | 1.0000 m² | 0.7854 m² |
+
+Both sit **just under** the ideal because the producer returns the TESSELLATED polyline — the
+inscribed polygon. **That is the right answer, not a defect:** it is the area of the hole that was
+actually cut. A take-off returning the ideal would disagree with the model it claims to measure
+(C84 EI-11). Curved walls are measured along the tessellated arc — **4.5911 m** vs a 4.0000 m chord
+on the fixture, so a chord under-measures 12.9 % on one wall.
+
+**Two prohibitions encoded in TYPES, not in review comments:**
+
+1. A family that cannot be measured emits **no line** and a `NOT_MEASURED` coverage row with a
+   reason. There is no `quantity: 0` fallback and no code path to one. `unreadableStores` keeps
+   "the store was not reachable" apart from "the store was read and is empty".
+2. An unpriced line is `rate: null` / `amount: null`, **never `0`**. The total sums only priced
+   lines and is returned inseparably from a `coverageStatement` generated in L2 — so a second UI
+   cannot render the total without the sentence saying what it excludes. A rate quoted in the wrong
+   unit is **refused, not converted**.
+
+**PRYZM ships ZERO rates and ZERO carbon factors, and there is no code path that could produce
+one.** A cost figure gets believed and quoted; a plausible total not derived from a sourced rate is
+worse than no total, because it survives being copied into a document.
+
+### L-2004 — TWO DATA PANELS WERE MOUNTED ONCE AT CONSTRUCTION AND NEVER REBUILT
+
+`DataWorkbench._buildContentArea()` calls `mountQuantitySchedules()` exactly once, at construction.
+`refresh()` — which a project LOAD triggers — rebuilt the nine DATA schedules and every panel class,
+but **not** that one. `scheduleStore.seedDefaultSchedules()` is re-invoked on project load, so after
+opening a second project the panel still displayed the first project's definitions.
+
+It now rebuilds on visit and inside `refresh()`. The two MEDICIONES measuring tabs re-measure on
+**every visit** for the same reason, stated in the code: *a quantity is a snapshot of the model at
+the instant it was measured, and a stale quantity is worse than an absent one because it is still
+signable.*
+
+### L-2005 — THE EMPTY STATE CONTRADICTED THE BANNER FOUR ROWS ABOVE IT
+
+The founder's screenshot shows both at once: an auto-setup banner offering *"Your project has 7
+floor levels and 17 rooms. Create a default site and building structure automatically?"* with a
+**Generate hierarchy** button — and below it, in larger type, *"No hierarchy yet. Click **[+ Site]**
+to start."*
+
+`HierarchyTreePanel._render()` appended the banner conditionally and the empty state
+**unconditionally**. Two calls to action, and the more prominent one points at the slower path —
+placing seven levels by hand instead of pressing one button.
+
+**FIXED:** the empty state now defers to the banner while the banner is showing (*"Use **Generate
+hierarchy** above to build one from this project's levels, or **[+ Site]** to start by hand"*), and
+only names `[+ Site]` alone when that is genuinely the next step.
+
+### ⭐ L-2006 — "GENERATE HIERARCHY" DISMISSED ITS OWN PROMPT BEFORE THE WORK, THEN SWALLOWED THE FAILURE
+
+The button's handler read:
+
+```ts
+setupBtn.addEventListener('click', () => {
+    this._runAutoSetup(levels);                                     // fire-and-forget
+    sessionStorage.setItem('pryzm-hierarchy-setup-dismissed', '1'); // ← BEFORE anything resolved
+    this._render();
+});
+```
+
+and `_runAutoSetup` was a chain of 2 + N `.then()`s in which **every** step caught its own rejection
+into a `console.warn` and continued — the levels via `Promise.all`, so a failure could not even name
+*which* level.
+
+Every one of these was reachable and produced **no visible difference**:
+
+- site created, building failed → a site with no building, no message;
+- building created, 3 of 7 levels failed → a partial hierarchy that looks deliberate, because the
+  banner offering to build it is already gone;
+- `runtime.bus` absent → one `console.warn`, and a button indistinguishable from one that worked.
+
+⭐ **A half-created hierarchy and a user who dismissed the prompt rendered IDENTICALLY.**
+[[context-data-honesty-family]] at the interaction layer: failure and "the user said no" were the
+same value, and the prompt that could have told them apart had already deleted itself.
+
+**FIXED:** awaited end-to-end; stops at the FIRST failure; levels created **sequentially** because
+*which* level failed is the only useful part of a failure; the prompt is dismissed **on success
+only**; and the outcome is rendered INTO the panel either way — on success naming what was created,
+on failure naming the step, the error text, and how many nodes exist already (*"the hierarchy is
+incomplete, not empty"*).
+
+### L-2007 — OPEN: ONE BUTTON, NINE UNDO PRESSES
+
+`hierarchy.createSite` / `createBuilding` / `createLevel` all implement `undo()`, so "Generate
+hierarchy" IS reversible — as **2 + N separate undo entries**. For the founder's 7 levels that is
+**9 presses to undo one click**. The success strip now says so rather than letting him discover it.
+
+`CommandManagerImpl` already has `beginGenerationBatch()` / `endGenerationBatch()`, which collapse a
+generation into ONE `CompositeCommand` (C16 §8.6) — but its only precedent
+(`buildingGenerationLifecycle.ts:114`) reaches it through
+`(window as unknown as { commandManager?: … })`, a cast into a `window` slot whose declared type in
+`globals.d.ts` carries only `executeCommand`. `npm run check:commandmanager` is **already RC=1 at
+139/136** before this lane touched anything. **Adding a tenth reference to make a nicety work was
+declined**; the correct fix is to widen the `globals.d.ts` slot at source (§P4-CAST-AT-SOURCE) and
+then wrap the sequence. Not done here, and stated rather than silently absorbed.
+
+### What this lane did NOT establish
+
+- **Nothing ran in a browser against the founder's project.** The four panels are asserted at the
+  DOM under happy-dom over stubbed stores whose SHAPES are the real ones. *"It renders correctly in
+  his 7-level, 17-room project"* is a claim this lane cannot make.
+- **`ScheduleExtractor` is untouched.** It still emits per-element rows with no wall area (L-2001).
+  The take-off is a second reader of the same stores rather than a repair of the first — deliberate,
+  because the schedule VIEW and a BOQ are different documents, but it does mean two code paths now
+  measure floors. **If they ever disagree, `computeTakeoff()` is the one with a test.**
+- **Roof areas are PLAN areas** and handrail lengths are PLAN lengths. Both are stated in the
+  coverage table; neither is slope- or rake-developed, so both under-measure a pitched roof and a
+  raking balustrade. Correct-looking numbers that are systematically low.
+- **Per-layer quantities do not exist**, which is why insulation, membranes, render and plasterboard
+  are all NOT_MEASURED, and why 6D is blocked twice over. Named as the largest buildable gap in
+  ADR-0344 §3.

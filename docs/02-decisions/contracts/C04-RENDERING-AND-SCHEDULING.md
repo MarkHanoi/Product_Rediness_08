@@ -1008,3 +1008,136 @@ reintroduce the phantom that §WALL-AUDIT-2026-W7's guard exists to prevent.
   covers them all, but **only windows were measured**.
 - Memory cost of preallocating 512 slots in a shard that ends up holding three instances
   (32 KB of matrix buffer per shard, believed negligible, **not** measured).
+
+---
+
+## §CAM-NEAR — the perspective near plane SCALES WITH STANDOFF (NORMATIVE, added 2026-08-21, lane CAM1, L-2070..L-2072)
+
+### §CAM-NEAR.1 — RULE: `near` is derived from the camera's standoff from the model, never fixed
+
+**FOUNDER EVIDENCE (2026-08-21, production `071a7b2c`, WebGL):** *"Lately when I zoom in —
+sometimes too much (not even to a wall) — the window disappears."* Screenshot: the wall
+surface is a **flat white/grey field**, two window-shaped rectangles float in it, and the
+green ground plane shows through them. The selected-element panel names a real window
+(`WN033`, host `WA-01-003`), so the element exists — it is simply not drawn correctly.
+
+**This is the L-747 defect one order of magnitude smaller, and L-747's fix did not reach
+it.** L-747 capped `near` at `MAX_BIM_NEAR_M = 0.1` to stop a globe-scale `far` producing a
+14 m near plane. **0.1 m is still a clip plane**, and nothing constrained the eye's
+distance to geometry:
+
+> **`controls.minDistance` measures the eye to the ORBIT TARGET, not to geometry.**
+> `BimWorld` arms `minDistance = 0.2` with `infinityDolly = false`, and BOTH are working as
+> designed. Orbiting a target inside a room sweeps the eye around a 0.2 m sphere that
+> passes through every wall, floor and ceiling of that room; dollying toward a target 15 m
+> away crosses the façade with `distance` still ≈ 15. ⛔ **Do not answer a clipping report
+> by raising `minDistance`** — it is not the quantity that governs clipping.
+
+**The rule.** For a PERSPECTIVE camera, `near` is a function of **standoff** — the distance
+from the eye to the model's world AABB, which is `0` whenever the eye is inside the
+building:
+
+| standoff | `near` |
+|---|---|
+| 0 (inside / touching) | `NEAR_INSPECT_M` = **0.01 m** |
+| ≥ `NEAR_RAMP_STANDOFF_M` = 20 m | `MAX_BIM_NEAR_M` = **0.1 m** — byte-identical to production |
+| in between | linear |
+
+Authority: `packages/core-app-model/src/navigation/adaptiveNearPlane.ts`, bound to the
+existing camera-controls events in `apps/editor/src/engine/initScene.ts`.
+
+⚠ **STANDOFF, not target distance.** Keying on `controls.distance` looks equivalent and is
+not: it leaves `distance ≈ 15` at the exact moment the eye is 5 cm from the façade, so a
+target-keyed rule reproduces the defect. This is the one substitution to refuse on sight.
+
+⚠ **ORTHOGRAPHIC CAMERAS ARE OUT OF SCOPE and MUST stay out.** Plan / elevation / section
+run `near = -1000, far = 1000` — a signed range meaning "in front of and behind the eye",
+not a metric standoff. Applying this policy there moves `near` from -1000 to +0.01 and
+clips away the whole drawing.
+
+### §CAM-NEAR.2 — the DoubleSide wall is why it reads as a flat field, not a hole
+
+Worth recording because the screenshot is diagnosable only with this fact.
+`WallFragmentBuilder` sets `side = THREE.DoubleSide` on wall band materials (`:3708`, and
+`:2373` for curved walls), with its own comment saying why — *"DoubleSide prevents
+back-face culling making the wall appear transparent when viewed from inside"*. A wall is
+therefore a SOLID with two drawable faces. Eye 5 cm from one face of a 0.3 m wall: the near
+face is at view-depth 0.05 and is **clipped**; the far face is at 0.35 and **still draws**,
+as a flat evenly-lit field exactly where the wall was; the window OPENING is a hole through
+both faces and shows the ground beyond; the glass at mid-thickness (~0.15 m) survives as a
+floating rectangle. Every element of the picture, accounted for.
+
+**⛔ Corollary: BACK-FACE CULLING IS NOT AVAILABLE as an explanation for a missing PRYZM
+wall.** It was a listed hypothesis for this report and it is excluded by construction.
+
+### §CAM-NEAR.3 — DEPTH PRECISION is not a candidate for close-range dropout
+
+A fixed-point depth buffer is at its **finest** near the near plane. Measured
+(`adaptiveNearPlane.test.ts`, 24-bit, `far = 2000`): at a view distance of **0.2 m** the
+depth quantum is **24 nanometres** at `near = 0.1`. z-fighting cannot delete a surface
+there. ⛔ Do not answer a *"geometry vanishes when I get close"* report with a
+logarithmic-depth-buffer proposal until the near plane has been read.
+
+### §CAM-NEAR.4 — the cost, MEASURED, and where it is confined
+
+| view distance | `near = 0.1` (today) | `near = 0.01` (this rule) |
+|---|---|---|
+| 0.2 m | 24 nm | 240 nm |
+| 100 m | **5.96 mm** | **59.6 mm** |
+
+⚠ **~6 cm at 100 m, not "under a centimetre".** The module header first claimed the latter
+and the test that pinned it FAILED. Distant coplanar surfaces can z-fight more — **and only
+while the eye is within 20 m of the model**; beyond the ramp the near plane is
+byte-identical to production and the cost is exactly zero. `MAX_DEPTH_RATIO = 2e5` stops a
+widened `far` compounding it, and the classic `webgl-only` backend already builds its
+renderer with `logarithmicDepthBuffer: true` (`WebGLRendererAdapter.ts:94`, the repo's only
+one), whose distribution is far more uniform than the figures above.
+
+L-747's doctrine decides the trade and is unchanged: *"a precision heuristic may never clip
+the model … clipping is a loss of the geometry the user is actually looking at."*
+
+### §CAM-NEAR.5 — §EXPLODE-MOVES-THE-BOUNDS (L-2071)
+
+`LevelExplodeController` writes `root.position.y` for every level group and — measured —
+never invalidated `SceneBoundsCache` and fired none of its seven `INVALIDATING_EVENTS`.
+Every consumer of those bounds therefore read the **un-exploded** stack while the model was
+exploded: default framing, Fit All, and §CAM-NEAR itself. Now invalidated at the animation
+**settle** point and on `deactivate()` — not per tick, because `getBounds()` rebuilds by
+full scene traversal.
+
+### §CAM-NEAR.6 — NOT MEASURED / open — read before quoting this section
+
+- **No browser run was taken.** Every figure here comes from headless tests driving real
+  `three` cameras and real geometry. The founder's screenshot has **not** been reproduced in
+  a browser, and the near-plane attribution — though it accounts for every element of the
+  picture — rests on that arithmetic, not on an observed repro. The decisive browser check
+  is one line in his console at the moment the wall disappears:
+  `window.threeCamera.near`, `window.threeCamera.far`, and the eye→target distance from
+  `window.world.camera.controls`.
+- **This rule does NOT guarantee freedom from clipping.** Nothing constrains the eye's
+  distance to geometry; the clip plane is 10× smaller, so the failure window narrows from
+  "within 10 cm" to "within 1 cm". A guarantee needs camera–geometry collision (a depth
+  probe or swept query per frame). ⛔ Do not describe §CAM-NEAR as *"clipping is fixed"*.
+- **The bounds include site/context geometry.** Standing 100 m from a building on a wide
+  terrain still reports standoff ≈ 0 and keeps the small `near`. That errs toward NOT
+  clipping, which is the direction this contract chose — but it means the depth cost in
+  §CAM-NEAR.4 applies more often than *"only when nose-to-wall"* suggests.
+- **Frustum culling was reasoned about, not measured.** `THREE.Frustum.intersectsSphere`
+  cannot cull a sphere that CONTAINS the eye, so `FrustumCullingService` is not a candidate
+  for this symptom unless a bounding sphere is not merely stale but wildly wrong. **No live
+  bounding sphere was inspected.**
+- **`LevelScoped3DCullingService` massing escalation is not implicated by arithmetic**:
+  `isHeavyModel` needs (≥ 15 levels AND ≥ 1000 **elements**) OR ≥ 4000 **elements**, and the
+  founder's `sceneMeshes=3898` is a MESH count, not an element count (see §1.4). **His
+  element count was not measured.**
+- **⭐ SEPARATE, UNEXPLAINED, NOT FIXED — L-2072: the GPU pick reports implausible
+  distances.** His log carries `[PickResolver] §97 click hit type=Window … dist=1874.23`
+  and `dist=222.34` in a close-up view. Working the perspective depth backwards
+  (`near = 0.1`, `far = 2000`), those correspond to packed depths of **0.9999** and
+  **0.9996** — both essentially AT the far plane, and separated by ~3e-4, far above the
+  32-bit packing quantum, so this is **not** quantisation.
+  `GpuPickStrategy.readDepthResult` (`packages/picking/src/gpu-pick.ts:736`) unpacks
+  `packDepthToRGBA` output and unprojects it; something in that path resolves near-far for
+  geometry that is metres away. §CAM-NEAR neither causes nor fixes it — but a smaller
+  `near` makes the perspective depth curve steeper, so this path must be re-read before it
+  is trusted.
