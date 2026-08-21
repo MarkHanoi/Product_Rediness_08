@@ -125,6 +125,44 @@ export class InstancedElementRenderer {
     private _obbByGroup: Map<string, Map<number, InstanceObb>> = new Map();
 
     /**
+     * §NAV-PICK-QUADRATIC (L-1850) — groupKey → (slot → pickId). THE REVERSE INDEX
+     * THAT MAKES THE GPU PICK PATH LINEAR.
+     *
+     * ⭐ WHY IT EXISTS, MEASURED. `_createGroup` installs two closures on every
+     * group — `getOccupiedInstanceSlots()` and `getInstanceElementId(slot)` — and
+     * BOTH used to answer by walking the WHOLE of `_elements`. That map belongs to
+     * a MODULE-LEVEL SINGLETON (`instancedElementRenderer`), so it holds every
+     * instanced registration in the project at once: windows, walls, furniture,
+     * columns, beams, railings. `gpu-pick.ts _syncInstancedGroup` calls the first
+     * ONCE PER GROUP and the second ONCE PER OCCUPIED SLOT, so one
+     * `syncPickScene()` pass cost `G·N + N²` — and `SelectionManager` asks for a
+     * pass on the HOVER rAF, i.e. as fast as the user can move the mouse.
+     *
+     * Driven through this renderer and these closures, running the exact
+     * membership-signature loop from `gpu-pick.ts:1190-1201`:
+     *
+     *     N=500  →   7.9 ms      N=1000 →  13.7 ms
+     *     N=2000 →  73.0 ms      N=4000 → 312.4 ms      N=6000 → 550.0 ms
+     *
+     * A clean quadratic, and 312 ms of blocked main thread per pointermove is not
+     * a stutter — it is the founder's "nothing can be done - is frozen".
+     *
+     * ⚠ THE QUADRATIC WAS ALWAYS HERE; WHAT CHANGED WAS N. `f80ed827` flipped
+     * `handrail` + `stairRailing` ON by default, and its own census measures 240
+     * railing elements as 4920 meshes — 4920 new ROWS in `_elements`. Squaring a
+     * number you have just multiplied by ten is a hundredfold cost. That is why a
+     * latent defect became a broken demo on one commit, and it is why the fix is
+     * HERE and not in the flag: any future family flip would re-detonate it.
+     *
+     * ⛔ This index is not a cache and must never be rebuilt lazily — it is written
+     * at exactly the five sites that write `_elements` (register-commit,
+     * register-evict, `unregister`, `_removeGroup`, `clear`), the same five that
+     * already maintain `_obbByGroup`. A sixth writer of `_elements` that forgets
+     * this map is a pick that resolves the wrong element, so keep the two adjacent.
+     */
+    private _membersByGroup: Map<string, Map<number, string>> = new Map();
+
+    /**
      * §INSTANCE-GROUP-SPILL (L-1400) — baseKey → ordered list of EFFECTIVE group
      * keys (its shards). A key with a single shard has a one-entry chain whose only
      * member IS the base key, so the single-group case is byte-identical to the
@@ -237,6 +275,9 @@ export class InstancedElementRenderer {
                 prevGroup.removeInstance(elementId);
                 // §SELECT-INSTANCED-PICK (FIX #5) - release the old slot's OBB too.
                 this._obbByGroup.get(prev.groupKey)?.delete(prev.slot);
+                // §NAV-PICK-QUADRATIC (L-1850) — and release its membership row, or
+                // the pick path resolves a slot the element no longer occupies.
+                this._membersByGroup.get(prev.groupKey)?.delete(prev.slot);
                 if (prevGroup.activeCount === 0) {
                     this._removeGroup(prev.groupKey, prevGroup);
                 }
@@ -330,6 +371,13 @@ export class InstancedElementRenderer {
             if (obbStore) {
                 obbStore.set(slot, this._computeInstanceObb(group.mesh.geometry, matrix));
             }
+
+            // §NAV-PICK-QUADRATIC (L-1850) — the membership row the pick closures
+            // read. Written here, beside the OBB, because these are the same fact
+            // ("slot S of group K is element E") and splitting them is how one of
+            // them gets forgotten. Idempotent: the in-place re-register path (a)
+            // lands on the same (targetKey, slot) and simply rewrites it.
+            this._membersByGroup.get(targetKey)?.set(slot, pickId ?? elementId);
         }
     }
 
@@ -356,31 +404,36 @@ export class InstancedElementRenderer {
         // We expose a live reference; the InstanceGroup._idToSlot map is
         // private, so we provide a slot→id array rebuilt on demand.
         // We use a lazy getter so the array stays in sync.
-        group.mesh.userData.getInstanceElementId = (slotIndex: number): string | undefined => {
-            for (const [, record] of this._elements.entries()) {
-                if (record.groupKey === key && record.slot === slotIndex) {
-                    // §FURNITURE-MULTIPART-INSTANCING — return the pick id, NOT the
-                    // storage key. For walls/columns pickId === storage key; for a
-                    // multi-material furniture part it is the real furniture id, so
-                    // selecting any part resolves to the one furniture element.
-                    return record.pickId;
-                }
-            }
-            return undefined;
-        };
+        //
+        // §NAV-PICK-QUADRATIC (L-1850) — BOTH closures below now read ONE
+        // per-group membership map instead of scanning the singleton's whole
+        // `_elements`. See `_membersByGroup` for the measurement that forced it:
+        // `gpu-pick.ts _syncInstancedGroup` calls `getOccupiedInstanceSlots()` once
+        // per group and `getInstanceElementId()` once per occupied slot, on the
+        // HOVER rAF, so the old O(N) bodies made one pick pass O(N²) — 312 ms of
+        // blocked main thread at N=4000.
+        //
+        // ⛔ The map is captured by REFERENCE, not copied, so a group registered
+        // after this closure was built is still visible to it. Do not "optimise"
+        // this into a snapshot.
+        const members = new Map<number, string>();
+        this._membersByGroup.set(key, members);
+
+        // §FURNITURE-MULTIPART-INSTANCING — the map stores the PICK id, NOT the
+        // storage key. For walls/columns pickId === storage key; for a
+        // multi-material furniture part it is the real furniture id, so selecting
+        // any part resolves to the one furniture element. Unchanged meaning, O(1)
+        // instead of O(N).
+        group.mesh.userData.getInstanceElementId = (slotIndex: number): string | undefined =>
+            members.get(slotIndex);
         // §SELECT-INSTANCED-PICK (FIX #1) — enumerate every OCCUPIED instance
         // slot in this group so the GPU pick strategy can paint a DISTINCT pick
         // colour per instance. The group itself carries a single synthetic
         // userData.id (stamped below) ONLY so the ElementRegistry includes it;
         // the FINAL resolved selection is always the per-instance element id
         // returned by getInstanceElementId(slot) — never the group id.
-        group.mesh.userData.getOccupiedInstanceSlots = (): readonly number[] => {
-            const slots: number[] = [];
-            for (const [, record] of this._elements.entries()) {
-                if (record.groupKey === key) slots.push(record.slot);
-            }
-            return slots;
-        };
+        group.mesh.userData.getOccupiedInstanceSlots = (): readonly number[] =>
+            Array.from(members.keys());
         // §SELECT-INSTANCED-PICK (FIX #5) — per-instance OBB store + accessor.
         const obbStore = new Map<number, InstanceObb>();
         this._obbByGroup.set(key, obbStore);
@@ -496,6 +549,9 @@ export class InstancedElementRenderer {
         this._elements.delete(elementId);
         // §SELECT-INSTANCED-PICK (FIX #5) — drop the freed slot's OBB.
         this._obbByGroup.get(record.groupKey)?.delete(record.slot);
+        // §NAV-PICK-QUADRATIC (L-1850) — and its membership row, so a freed slot
+        // reused by a different element cannot resolve to the dead one.
+        this._membersByGroup.get(record.groupKey)?.delete(record.slot);
 
         // Remove empty groups to free GPU memory.
         if (group && group.activeCount === 0) {
@@ -613,6 +669,13 @@ export class InstancedElementRenderer {
             this._removeGroup(key, group);
         }
         this._elements.clear();
+        // §NAV-PICK-QUADRATIC (L-1850) — `_removeGroup` above already emptied and
+        // dropped each key, but empty anything that survived it before dropping the
+        // outer map: the closures hold their Map by reference, so an entry that
+        // reaches here still populated is a pick resolving an element from the
+        // PREVIOUS project.
+        for (const members of this._membersByGroup.values()) members.clear();
+        this._membersByGroup.clear();
         // §INSTANCE-GROUP-SPILL (L-1400) — shard chains, ordinals and the
         // report-once ledger are all scene-scoped; a new project starts at shard 0
         // and is entitled to its own spill report.
@@ -640,6 +703,18 @@ export class InstancedElementRenderer {
         this._groups.delete(key);
         // §SELECT-INSTANCED-PICK (FIX #5) — drop the whole group's OBB store.
         this._obbByGroup.delete(key);
+        // §NAV-PICK-QUADRATIC (L-1850) — and the whole group's membership store.
+        //
+        // ⛔ CLEAR THE MAP, THEN DROP THE HANDLE — in that order, and never only the
+        // second. The two closures capture this Map BY REFERENCE, so deleting the
+        // registry entry alone leaves them fully able to answer for a group that has
+        // been disposed and taken off the scene. The OLD O(N) bodies read
+        // `_elements`, which `clear()` empties, so they went quiet by accident; the
+        // index does not, and this test caught it answering 'a' after `clear()`.
+        // A pick resolving an element from a torn-down group is exactly the stale
+        // resolution §SELECT-INSTANCED-PICK exists to prevent.
+        this._membersByGroup.get(key)?.clear();
+        this._membersByGroup.delete(key);
 
         // §INSTANCE-GROUP-SPILL (L-1400) — take the dead shard out of its chain so
         // the shard walk in register() does not keep probing a key with no group.

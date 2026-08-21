@@ -315,8 +315,23 @@ describe('§NAV-SMOOTHNESS L-1780 — per-family draw-call census (railings + st
             expect(killed.census.instancedGroups).toBe(0);
         });
 
-        it('⭐ the SHIPPED DEFAULT (no flags set at all) instances both families', () => {
+        it('⭐ the SHIPPED DEFAULT (no flags set at all) is what the founder actually gets', () => {
             // The founder sets no globals. This is what he actually gets.
+            //
+            // ⚠ CORRECTED 2026-08-21 (§NAV-PICK-QUADRATIC, L-1850). This test used to
+            // be named "…instances both families" and asserted instancedGroups > 0.
+            // The MITIGATION put handrail + stairRailing back to OFF, so it now
+            // records ZERO instanced groups — and that is the honest current answer,
+            // not a regression in this census.
+            //
+            // ⛔ AND THIS TEST IS NOT THE PLACE THE DEFAULT IS PINNED. Two suites in
+            // two packages both hard-coded the shipped default and nothing made them
+            // agree: at 9ebaae47 THIS one was green with `handrail: true` while
+            // geometry-window/__tests__/WindowInstancedLifetime.test.ts:136 asserted
+            // `false` and was RED — an unnoticed contradiction that shipped. The
+            // default is pinned in ONE place, that file's "windows are ON by default;
+            // no other family is". Here we only PRINT it, so this census can never
+            // again be the thing that has to be edited when a flag moves.
             delete g.__pryzmElementInstancingV1;
             delete g.__pryzmElementInstancing;
             const shipped = buildScene(4, 4);
@@ -325,7 +340,7 @@ describe('§NAV-SMOOTHNESS L-1780 — per-family draw-call census (railings + st
                 `[census] SHIPPED DEFAULT: ${shipped.census.drawCalls} draw calls, ` +
                 `${shipped.census.instancedGroups} instanced groups`,
             );
-            expect(shipped.census.instancedGroups).toBeGreaterThan(0);
+            expect(shipped.census.drawCalls).toBeGreaterThan(0);
         });
     });
 
@@ -334,20 +349,24 @@ describe('§NAV-SMOOTHNESS L-1780 — per-family draw-call census (railings + st
             const STAIRS = 60;      // 120 railings
             const HANDRAILS = 120;
 
-            // ── BEFORE: the pre-§NAV-SMOOTHNESS regime, requested EXPLICITLY.
-            //    ⚠ This used to be `delete __pryzmElementInstancingV1` — "the shipped
-            //    default". Since L-1781 the shipped default INSTANCES these families,
-            //    so leaving it as an absence of flags would have quietly turned this
-            //    before/after into an after/after comparing 250 with 250 and reporting
-            //    a 1.0x "win". The BEFORE arm must now NAME the old regime.
+            // ⭐ BOTH ARMS NAME THEIR REGIME. NEITHER READS THE DEFAULT.
+            //
+            // ⚠ CORRECTED TWICE, THE SAME WAY, AND THAT IS THE LESSON. The BEFORE arm
+            // originally read `delete __pryzmElementInstancingV1` — "the shipped
+            // default" — and L-1781 flipping the default silently turned this
+            // before/after into an after/after reporting a 1.0x "win". L-1781 fixed
+            // the BEFORE arm and left the AFTER arm reading the default, so L-1850
+            // flipping it BACK broke this test in the mirror-image way. A comparison
+            // with one leg tied to a mutable default is a comparison that lies
+            // whenever that default moves — in EITHER direction. Both legs are named
+            // now, so this census measures instancing, not policy.
             g.__pryzmElementInstancing = { handrail: false, stairRailing: false };
             const before = buildScene(STAIRS, HANDRAILS);
-            print('BEFORE (pre-L-1781 — fragment path)', before.census, before.elements);
+            print('BEFORE (fragment path — instancing OFF)', before.census, before.elements);
 
-            // ── AFTER: the shipped default as of L-1781.
-            delete g.__pryzmElementInstancing;
+            g.__pryzmElementInstancing = { handrail: true, stairRailing: true };
             const after = buildScene(STAIRS, HANDRAILS);
-            print('AFTER  (shipped default — instanced)', after.census, after.elements);
+            print('AFTER  (instanced — instancing ON)', after.census, after.elements);
 
             const saved = before.census.drawCalls - after.census.drawCalls;
             const ratio = before.census.drawCalls / Math.max(1, after.census.drawCalls);
@@ -365,6 +384,11 @@ describe('§NAV-SMOOTHNESS L-1780 — per-family draw-call census (railings + st
         });
 
         it('records the MATERIAL axis — dedup must keep group count sub-linear in elements', () => {
+            // ⚠ NAMES ITS REGIME (L-1850). Its subject is SharedMaterialCache dedup,
+            // which is only observable when the families instance — so it must ask
+            // for instancing rather than inherit whatever the default happens to be
+            // this week. Under the OFF default it was measuring 0 groups against 0.
+            g.__pryzmElementInstancing = { handrail: true, stairRailing: true };
             const small = buildScene(10, 20);
             const large = buildScene(40, 80);
 
