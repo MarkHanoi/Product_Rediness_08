@@ -631,6 +631,25 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
     ],
   },
   {
+    // §FEAT-FLOOR-SURFACE-FINISH (L-1881) — the floor twin of set-wall-side-finish.
+    // The founder's own bare sentence ("finish to wooden parquet") is NOT here on
+    // purpose: it is a REFUSAL by design — "wooden parquet" names no single
+    // material and the honest answer lists the thirteen Parquet rows — and this
+    // suite asserts acceptance, never refusal. It is pinned in floor-finish.test.ts
+    // where the refusal's CONTENT can be asserted rather than merely its absence.
+    id: 'set-floor-finish',
+    ctx: scopedSel('floor'),
+    scoped: true,
+    phrasings: [
+      'make all floors oak chevron',
+      'change all floors to oak chevron',
+      'set all floors on level 2 to walnut herringbone',
+      'make the living room floor oak chevron',
+      'lay oak chevron on all floors',
+      'Could you make all floors oak chevron, please?',
+    ],
+  },
+  {
     id: 'set-wall-rake',
     ctx: scopedSel('wall'),
     scoped: true,

@@ -110,7 +110,24 @@ const MATERIAL_ROUTES: Readonly<Record<string, FamilyMaterialRoute>> = {
   // ── Live: `<family>.update` → legacy UpdateXCommand → geometry store → rebuild ──
   column:      { command: 'column.update',          idField: 'id',        shape: 'updates', supportsColor: true },
   ceiling:     { command: 'ceiling.update',         idField: 'ceilingId', shape: 'updates', supportsColor: true },
-  floor:       { command: 'floor.update',           idField: 'floorId',   shape: 'updates', supportsColor: true },
+  // §FEAT-FLOOR-SURFACE-FINISH (L-1884, lane RAC1 2026-08-21) — `colorField` was
+  // MISSING here, and its default is `materialColor`. MEASURED: `FloorData` has no
+  // `materialColor` field and `resolveFloorColor` (FloorColourSystem.ts) never
+  // reads one, so the inspector's Colour Override for a floor wrote an undeclared
+  // key onto the record, `Object.assign` copied it, and NOTHING resolved it — the
+  // §FIX-MATERIAL-REACHES-RECORD defect one field deeper. A floor's own colour
+  // override is `colour`, which is the FIRST branch of that resolver.
+  //
+  // ⚠ THE `materialId` HALF IS STILL PARTIALLY MASKED, and this line does not fix
+  // that: `resolveFloorColor` ranks `colour` → `finishSpec.finishColor` →
+  // `materialId`, and every auto-generated floor carries a `finishSpec.finishColor`
+  // (CreateFloorsByRoomTypeCommand → floorFinish.ts). Measured on such a floor,
+  // picking `Parquet · Oak Herringbone` resolves to the OLD `#E2D6BE`, not the
+  // material's `#c8a96e`. Chat's `floor.setFinishBatch` writes the WHOLE finish and
+  // does not have that problem; making the panel do the same means routing it
+  // through that command, which is a bigger change than a route-table field and is
+  // logged as L-1884 rather than half-done here.
+  floor:       { command: 'floor.update',           idField: 'floorId',   shape: 'updates', supportsColor: true, colorField: 'colour' },
   roof:        { command: 'roof.update',            idField: 'id',        shape: 'updates', supportsColor: true },
   curtainwall: { command: 'wall.updateCurtainWall', idField: 'id',        shape: 'updates', supportsColor: true },
 

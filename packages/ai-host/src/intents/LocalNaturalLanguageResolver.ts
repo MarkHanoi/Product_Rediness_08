@@ -67,7 +67,10 @@ import { parseDimensionScopedIntent } from './DimensionFamilies.js';
 // §FEAT-WALL-SIDE-FINISH — the SAME parser tier-0 uses, so the two tiers can
 // never disagree about what a finish sentence means (the discipline above).
 import { parseWallSideFinishIntent } from './WallSideFinishIntent.js';
-import { resolveFinishRef } from './finishRef.js';
+// §FEAT-FLOOR-SURFACE-FINISH (L-1881) — the floor twin, on the SAME two tiers as
+// the wall grammar so tier-0 and tier-1 can never disagree about a sentence.
+import { parseFloorFinishIntent } from './FloorFinishIntent.js';
+import { finishRefCandidates, resolveFinishRef } from './finishRef.js';
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -1118,6 +1121,26 @@ function classify(
       confidence: 0.96,
       evidence: ['verb:finish', 'noun:wall', `side:${wallSideFinish.side}`, `scope:${scopeTag(wallSideFinish.scope)}`],
       si: wallSideFinish,
+    });
+  }
+
+  // §FEAT-FLOOR-SURFACE-FINISH (L-1881) — the floor twin, at the SAME 0.96 the
+  // wall finish carries. The two cannot both claim a sentence: the wall grammar
+  // requires the word "wall(s)" and this one refuses it outright, so their
+  // confidences never compete — they are equal because neither outranks the
+  // other, not because a tie-break was needed.
+  const floorFinish = parseFloorFinishIntent(
+    n.plain,
+    (r) => resolveFinishRef(r) !== null,
+    (r) => finishRefCandidates(r).length > 0,
+    ctx,
+  );
+  if (floorFinish !== null) {
+    push({
+      intent: 'set-floor-finish',
+      confidence: 0.96,
+      evidence: ['verb:finish', 'noun:floor', `scope:${scopeTag(floorFinish.scope)}`],
+      si: floorFinish,
     });
   }
 

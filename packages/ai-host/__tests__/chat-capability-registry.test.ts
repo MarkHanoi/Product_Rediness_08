@@ -224,6 +224,10 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       // families. One kind each, by construction: a family's scope resolves
       // through `{kind:'all', elementKind}` and its carrier addresses that kind
       // and no other.
+      // §FEAT-FLOOR-SURFACE-FINISH (L-1881) — floor-only, by construction: the
+      // grammar REFUSES any sentence naming another family's noun, because
+      // floor-vs-slab is a decision and not a coin-flip (CatalogueFamilies.ts).
+      'set-floor-finish': ['floor'],
       'set-wall-dimensions': ['wall'],
       'set-window-dimensions': ['window'],
       'set-door-dimensions': ['door'],

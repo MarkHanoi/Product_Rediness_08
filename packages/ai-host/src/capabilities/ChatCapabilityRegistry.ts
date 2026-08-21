@@ -1772,6 +1772,62 @@ const CAPABILITIES: readonly ChatCapability[] = [
     ],
   },
   {
+    id: 'set-floor-finish',
+    // §FEAT-FLOOR-SURFACE-FINISH (L-1881) — the founder's "finish to wooden
+    // parquet" (2026-08-21), which the product answered *"Floor surface finish
+    // isn't connected to chat yet. I can change floor level."*
+    //
+    // That refusal was HONEST — `floor.setMaterial` is a DECLARED DEAD VERB
+    // (`plugins/floor/src/handlers/SetFloorMaterial.ts` refuses at `canExecute`:
+    // it writes a detached plugin DTO store nothing renders, exports or
+    // persists). So the capability had to be BUILT, not merely published, and it
+    // rides a NEW verb — `floor.setFinishBatch` → SetFloorFinishBatchCommand →
+    // the geometry `FloorStore` — rather than resurrecting the dead one.
+    //
+    // ⚠ WHAT THIS CAPABILITY CAN AND CANNOT SHOW, measured 2026-08-21 and stated
+    // in the command's own success sentence rather than hidden here:
+    // `FloorPanelBuilder` calls `applyMaterialMaps` NOWHERE (the slab, roof, wall
+    // and curtain-wall builders all do), so a floor renders its material's flat
+    // COLOUR plus the plank/tile grid overlay — never the material's texture
+    // maps. Both of the maps sources are separately dark as well: runtime
+    // procedural generation defaults OFF (§PROCEDURAL-COST L-1820) and
+    // `public/items/textures/` does not exist, so the 16 file-backed rows 404.
+    // The capability is real and visible; the photographic pattern is not part of
+    // what it delivers, and saying so is the L-960 rule.
+    description: 'change the surface finish material of floor finishes',
+    verbs: ['make', 'change', 'set', 'finish', 'lay'],
+    aliases: ['floor finish', 'floor material', 'flooring', 'parquet', 'floor covering'],
+    refusalLabel: 'floor finish',
+    targets: ['floor'],
+    parameters: [
+      {
+        name: 'finish',
+        description: 'the finish, by name (oak chevron, walnut herringbone, marble …)',
+        required: true,
+        valueSource: 'finish',
+        example: 'oak chevron',
+      },
+    ],
+    scope: 'all',
+    scopeModes: ['all', 'selection', 'level', 'room'],
+    destructive: false,
+    busCommand: 'floor.setFinishBatch',
+    // scope:'selection' deliberately — the anti-ElementCapabilities guard probes
+    // by SELECTING each kind, and an 'all' probe never reaches the selection
+    // gate, so it would 'accept' every kind and declare a lie.
+    probe: { intent: 'set-floor-finish', finishRef: 'oak chevron', scope: 'selection' },
+    commandProof: {
+      file: 'packages/command-registry/src/floors/SetFloorFinishCommand.ts',
+      mustMention: ['floorStore', 'floorCarriesFinish'],
+      note: "_resolveFloorIds reads ctx.stores.floorStore and nothing else, so the command's reachable set is floor finishes only; per floor it writes materialId AND finishSpec through the geometry FloorStore (which emits bim-floor-updated and rebuilds the panel), then RE-READS the record and asks floorCarriesFinish whether the value really landed — the count is records, never successful calls.",
+    },
+    examples: [
+      'make all floors oak chevron',
+      'make the living room floor walnut herringbone',
+      'set all floors on level 2 to marble',
+    ],
+  },
+  {
     id: 'add-wall-layer',
     // §FEAT-WALL-LAYER-ADD-BATCH (ADR-0315, founder ask #2) — "add a 10mm
     // plaster finish to the inner side of the selected wall". Rides
@@ -2860,8 +2916,30 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   // Appearance. The founder's most likely next ask, so it is declared rather
   // than silently missing — `capabilityGapRefusal` names these topics in the
   // refusal it generates.
-  ['ceiling.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
-  ['floor.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
+  // ⭐ §FEAT-FLOOR-SURFACE-FINISH (L-1884, 2026-08-21) — THESE TWO ROWS WERE THE
+  // SECOND HALF OF THE FOUNDER'S REFUSAL, AND THEY NAMED A ROUTE THAT DOES NOT
+  // WORK THE WAY THEY CLAIM. Both used to read, identically, *"Materials are not
+  // connected to chat yet — set them in the Properties panel."*
+  //
+  // Two different sentences answered one ask (the other is
+  // `capabilityGapRefusal`'s generated *"Floor surface finish isn't connected to
+  // chat yet"*), and they pointed at DIFFERENT fallbacks. Worse, the fallback the
+  // panel offers for a FLOOR is measurably partial — see the floor row.
+  //
+  // ⛔ NEITHER VERB IS RETIRED. `check-chat-capability-coverage.ts` requires every
+  // name cited by a refusal to be a REGISTERED bus command, and both are; and
+  // `floor.setMaterial`'s own handler refuses by declaration
+  // (§FIX-DEAD-VERB-REFUSE) so a third dispatcher gets a reason rather than a lie.
+  ['ceiling.setMaterial', 'Writes a detached plugin DTO store nothing renders (§FIX-MATERIAL-DEAD-DISPATCH). The Properties panel routes a ceiling material to ceiling.update instead, which reaches the geometry record; chat has no ceiling-finish grammar yet.'],
+  // MEASURED 2026-08-21 (lane RAC1): the panel route for a floor is `floor.update`
+  // with `{materialId, materialColor}`. `materialColor` is a field FloorData does
+  // not declare and `resolveFloorColor` never reads — DEAD. And `materialId` sits
+  // BELOW `floor.colour` and `finishSpec.finishColor` in that resolver's chain, so
+  // on any auto-generated floor (all of which carry a finishColor) the panel's
+  // material pick resolves to the OLD colour: `#E2D6BE` where the chosen material
+  // is `#c8a96e`. Chat's own route writes the whole finish and does not have that
+  // problem, which is why it is named here as the live alternative (C16 CA-18).
+  ['floor.setMaterial', 'Writes a detached plugin DTO store nothing renders (§FIX-MATERIAL-DEAD-DISPATCH) — say "make all floors oak chevron"; chat drives floor.setFinishBatch, which writes materialId AND finishSpec to the geometry FloorStore. (The Properties panel Material dropdown reaches floor.update, but its value is masked by finishSpec.finishColor on any floor that has one — L-1884).'],
   ['furniture.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
   ['handrail.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
   ['curtain-wall.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],

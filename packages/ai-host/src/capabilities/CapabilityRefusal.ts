@@ -461,6 +461,14 @@ const UNCONNECTED_TOPICS: readonly UnconnectedTopic[] = [
     label: 'material',
     match: /\b(?:material|materials|texture|textures|brickwork)\b/,
     commands: ['slab.setMaterial', 'roof.setMaterial', 'room.setMaterial'],
+    // §FEAT-FLOOR-SURFACE-FINISH (L-1884, 2026-08-21) — a FLOOR's material is now
+    // live (`set-floor-finish` → `floor.setFinishBatch` → the geometry FloorStore),
+    // so this topic must stop denying it. Leaving it would recreate
+    // §FIX-BARE-FINISH-SELF-CONTRADICTS exactly: `describeCapabilitiesFor('floor')`
+    // is GENERATED from the registry and now says "floor finish", so the refusal
+    // would advertise the capability it was refusing, in its own sentence.
+    // Every OTHER kind's material remains a real gap and is untouched.
+    excludeKinds: ['floor'],
   },
   {
     // §FIX-BARE-FINISH-SELF-CONTRADICTS (L-998) — the finish vocabulary, which for
@@ -485,7 +493,18 @@ const UNCONNECTED_TOPICS: readonly UnconnectedTopic[] = [
     label: 'surface finish',
     match: /\b(?:finish|finishes|render|cladding)\b/,
     commands: ['slab.setMaterial', 'roof.setMaterial', 'room.setMaterial'],
-    excludeKinds: ['wall'],
+    // §FEAT-FLOOR-SURFACE-FINISH (L-1884) — 'floor' JOINS 'wall' here, and for the
+    // identical reason. The founder's *"finish to wooden parquet"* produced THIS
+    // topic's sentence ("Floor surface finish isn't connected to chat yet"); it was
+    // TRUE when he typed it and is FALSE now. A floor-finish sentence the grammar
+    // misses must fall through as a MISS — better an honest "I'm not sure" than a
+    // confident denial of something the chat can do (the L-1032 ruling).
+    //
+    // ⚠ SLAB, ROOF and ROOM are deliberately NOT excluded: their finish really has
+    // no chat route, and floor-vs-slab is the disambiguation `CatalogueFamilies.ts`
+    // records as a decision rather than a coin-flip. Vocabulary is moved, never
+    // deleted (RAC free-form doctrine).
+    excludeKinds: ['wall', 'floor'],
   },
   {
     // §L-1032 — NARROWED (not excluded), 2026-08-19.

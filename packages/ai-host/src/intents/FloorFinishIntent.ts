@@ -167,39 +167,78 @@ export function parseFloorFinishIntent(
     //    (The other half of that defect is fixed in `finishRef.ts` itself, where a
     //    loose alias match may no longer DROP a word the catalogue knows.)
     let finishRef: string | null = null;
-    const tail = /\b(?:to|into|as|in|with|using|finish(?:es|ed|ing)?)\s+(?:the\s+)?([a-z][a-z-]*(?:\s+[a-z][a-z-]*){0,3})\s*$/i.exec(t.trim());
+    let named: string | null = null;
+
+    // The leading `^.*` is GREEDY on purpose — the same device the wall grammar
+    // uses. Without it, leftmost-first matching anchors on the FIRST connector,
+    // and the founder's "FINISH to wooden parquet" captures "to wooden parquet"
+    // as the material name. Greedy means the LAST connector wins.
+    const TAIL_RE = new RegExp(
+        String.raw`^.*\b(?:to|into|as|in|with|using|finish(?:es|ed|ing)?)\s+(?:the\s+)?` +
+        String.raw`([a-z][a-z-]*(?:\s+[a-z][a-z-]*){0,3})\s*$`,
+        'i',
+    );
+    const tail = TAIL_RE.exec(t.trim());
     const rawTail = tail?.[1]?.trim().toLowerCase();
-    if (rawTail !== undefined && rawTail.length > 0 && !FLOOR_NOUN.test(rawTail)) {
-        if (resolvesFinish(rawTail) || namesFinish(rawTail)) finishRef = rawTail;
-    }
-    if (finishRef === null) {
+    const usableTail = rawTail !== undefined && rawTail.length > 0 && !FLOOR_NOUN.test(rawTail)
+        ? rawTail
+        : null;
+
+    if (usableTail !== null) {
+        // ⭐⭐ WHEN THE USER WROTE "to X", X IS THE WHOLE NAME — AND THE SCAN MUST
+        //    NOT REACH INSIDE IT. Measured 2026-08-21 on the founder's own
+        //    sentence, with the scan still enabled here:
+        //
+        //      "finish to wooden parquet"
+        //        → the shrinking-window scan tried 'wooden parquet' (no match),
+        //          then the ONE-WORD span 'wooden', and
+        //          `resolveFinishRef('wooden')` returns **Wood · Oak (Light)**
+        //          (the loose alias arm: 'wooden'.includes('wood'))
+        //        → set-floor-finish, finish = plain flat oak, reported as SUCCESS.
+        //
+        //    He asked for PARQUET. Answering with the one word of his phrase that
+        //    happened to alias to something is a SILENT NARROWING (C84 EI-2) — the
+        //    §L960-WOOD-IS-A-SURFACE shape, and the reason `finishRef.ts` now
+        //    refuses a loose match that drops a catalogue word. This is the same
+        //    ruling one layer up: a named value is taken WHOLE or refused whole.
+        if (resolvesFinish(usableTail) || namesFinish(usableTail)) named = usableTail;
+        // Carried either way so the refusal can QUOTE what the user actually
+        // typed ("I don't have a material called \"wooden parquet\"") instead of
+        // the strictly weaker "tell me which finish".
+        finishRef = usableTail;
+    } else {
+        // No connector: the name is somewhere in the sentence. Shrinking-window
+        // scan, longest span first, so word order never matters — "make all
+        // floors oak chevron" and "oak chevron on all floors" reach the same span.
         const words = t.split(/[^a-z-]+/i).filter((w) => w.length > 2);
         outer:
         for (let span = 3; span >= 1; span--) {
             for (let i = 0; i + span <= words.length; i++) {
                 const candidate = words.slice(i, i + span).join(' ').toLowerCase();
                 if (resolvesFinish(candidate) || namesFinish(candidate)) {
+                    named = candidate;
                     finishRef = candidate;
                     break outer;
                 }
             }
         }
     }
-    // ── THE UNRECOGNISED TAIL. When neither arm found anything the catalogue
-    //    knows, carry the words the user actually typed so the refusal can QUOTE
-    //    them ("I don't have a material called \"unobtainium\"") instead of the
-    //    strictly weaker "tell me which finish". This never widens the claim:
-    //    `named` below, not this, is what the claim rule tests.
-    const named = finishRef;
-    if (finishRef === null && rawTail !== undefined && rawTail.length > 0 && !FLOOR_NOUN.test(rawTail)) {
-        finishRef = rawTail;
-    }
 
     // ── THE CLAIM RULE. A material must be NAMED — that is the only thing that
     //    separates this from `finish-apartment-chain`, which owns "finish this
     //    floor" and runs an entire generation chain. Naming a material is
     //    unambiguous evidence of a finish ask; the floor NOUN alone is not.
-    if (named === null) return null;
+    //
+    // ⭐ A CONNECTOR TAIL WHOSE *WORDS* NAME REAL ROWS ALSO CLAIMS, and that arm
+    //   is what makes the founder's sentence answerable at all. "wooden parquet"
+    //   matches no label as a phrase, so `named` is null — but "parquet" names
+    //   THIRTEEN master rows, so the ask is unmistakably a finish ask and the
+    //   honest answer is a refusal that LISTS them, never a miss that falls
+    //   through to an LLM production has not got (U8.3 teach-don't-just-say-no).
+    const tailNamesSomething =
+        usableTail !== null
+        && usableTail.split(/\s+/).some((w) => w.length > 2 && namesFinish(w));
+    if (named === null && !tailNamesSomething) return null;
     // ── ...and the sentence must be ABOUT floors. Either it says so, or the live
     //    selection does. The second arm is what makes the founder's bare "finish
     //    to wooden parquet" work with a floor selected, and what stops it claiming

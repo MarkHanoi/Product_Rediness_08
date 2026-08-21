@@ -1303,6 +1303,14 @@ export const BATCH_REPORT_EVENTS: Readonly<Record<string, string>> = {
         // exact defect the union above was built to remove, escaping through a
         // missing table row rather than through a missing state.
         'wall.setSideFinishBatch': 'pryzm-wall-side-finish-batch-report',
+        // §FEAT-FLOOR-SURFACE-FINISH (L-1881) — the floor twin. Registered in the
+        // SAME breath as the handler that broadcasts it: L-996 exists because a
+        // handler shipped its real report onto an event nobody subscribed to, and
+        // `executeSlice` then printed the resolver's PLANNED summary plus "Done"
+        // for 17-of-17, 0-of-17 and never-ran alike. `batchReportEventsCompleteness`
+        // derives the required key set from the handlers themselves and goes RED if
+        // this row is missing.
+        'floor.setFinishBatch': 'pryzm-floor-finish-batch-report',
         // §FIX-SIDEFINISH-REPORT-UNHEARD (L-996) — the same omission, measured
         // across the whole table rather than patched for the one verb the founder
         // hit. `slab.updateSystemTypeBatch` and `ceiling.updateSystemTypeBatch`
