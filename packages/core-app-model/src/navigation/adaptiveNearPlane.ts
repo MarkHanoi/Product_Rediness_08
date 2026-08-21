@@ -62,13 +62,29 @@
  *
  * ## The cost, stated honestly
  *
- * A smaller `near` is a WORSE depth-buffer distribution. At `near = 0.01` and `far = 2000`
- * the ratio is 2e5 (today: 2e4), i.e. ~10× coarser depth quantisation on distant coplanar
- * surfaces — and only while the eye is within 20 m of the model, which is precisely when
- * the distant geometry is least important. `MAX_DEPTH_RATIO` bounds it so a large `far`
- * cannot compound the loss. C04's own doctrine, written at L-747, decides the trade:
- * *"a precision heuristic may never clip the model … clipping is a loss of the geometry
- * the user is actually looking at. We take the artefact."*
+ * A smaller `near` is a WORSE depth-buffer distribution, and the number is MEASURED, not
+ * estimated (`adaptiveNearPlane.test.ts`, 24-bit fixed-point depth, `far = 2000`, context
+ * geometry 100 m from the eye):
+ *
+ *   | near   | depth quantum at 100 m |
+ *   |--------|------------------------|
+ *   | 0.1 m  | **5.96 mm**  (today)   |
+ *   | 0.01 m | **59.6 mm**  (this)    |
+ *
+ * ⚠ That is ~6 cm, not "under a centimetre". This paragraph first CLAIMED under a
+ * centimetre and the test that pinned it FAILED. The prose was optimistic; the arithmetic
+ * was not. Distant coplanar surfaces can therefore z-fight more — and only while the eye
+ * is within `NEAR_RAMP_STANDOFF_M` of the model. Beyond the ramp the near plane is
+ * byte-identical to production and the cost is exactly zero.
+ *
+ * Two things bound it further: `MAX_DEPTH_RATIO` stops a widened `far` compounding the
+ * loss, and the classic `webgl-only` backend already constructs its renderer with
+ * `logarithmicDepthBuffer: true` (`WebGLRendererAdapter.ts:94`, the repo's only one),
+ * whose depth distribution is far more uniform than the fixed-point figures above.
+ *
+ * C04's own doctrine, written at L-747, decides the trade: *"a precision heuristic may
+ * never clip the model … clipping is a loss of the geometry the user is actually looking
+ * at. We take the artefact."*
  *
  * ## What this module does NOT do — read before trusting it
  *
