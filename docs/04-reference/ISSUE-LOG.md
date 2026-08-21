@@ -31969,12 +31969,12 @@ reasoning is written into `gisActionRegistry.ts` at the point of removal so it c
   Its reader arm credits only a closed 3-entry `DEDICATED_READERS` map, while `SemanticGraphManager`
   ships ≥8 typed family readers with production consumers. That is a separate lane's fix; this lane
   did not touch the gate.
-* **Two root-`tsc` errors exist at HEAD and are NOT this lane's** —
-  `ui/dataworkbench/buckets/MedicionesTimeCarbon.ts:359` and
-  `packages/core-app-model/src/quantities/carbonCsv.ts:96`, both `TS6133` unused-variable, both from
-  lane DIM46's commits `33dfda79`/`4e0ff9a8`, both in files this lane was forbidden to touch. **They
-  will hard-fail the Fly build** ([[build-uses-stricter-root-tsc]]). Verified none of this lane's 18
-  files appear in either commit.
+* ~~**Two root-`tsc` errors exist at HEAD and are NOT this lane’s**~~ ⚠ **CORRECTED, same session.**
+  They did exist — `MedicionesTimeCarbon.ts:359` and `carbonCsv.ts:96`, both `TS6133`, both from lane
+  DIM46 — and **lane DIM46 fixed them while this lane was working.** Re-run at close:
+  `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **exit 0, zero errors.**
+  Recorded rather than deleted because the first reading was TRUE WHEN TAKEN and false 40 minutes
+  later — which is the argument for re-running the command instead of quoting this line.
 
 ---
 
@@ -32141,3 +32141,69 @@ the four the builder reads from the record and is the only one a capability coul
 * **No property-granular refusal was added.** RAC3 deferred it because a refusal table no grammar
   claims is authored-but-unwired; that reasoning still holds and this lane did not build the grammar
   half either, so shipping the table alone was declined rather than half-done.
+
+### ⭐ L-3260 — TEN source files were BINARY to grep, and the repo's whole method is grep
+
+Follow-on from **L-3250b**, which found four raw `0x00` bytes in
+`packages/building-graph/src/BuildingGraph.ts` and fixed *that one file*. The repo-wide sweep that
+would have found the others **timed out and returned nothing**, so the question was left open rather
+than answered. It is answered now.
+
+**MEASURED:** a byte-level walk of **7 946 source files** (`.ts/.tsx/.js/.mjs/.cjs` under `packages
+apps plugins src server tools`, excluding `node_modules`/`dist`/`build`/`coverage`). **Ten** carried a
+raw `0x00`; **zero** carried a backspace.
+
+⛔ **WHY THIS IS NOT COSMETIC.** A file containing a raw NUL is **BINARY to grep and ripgrep**.
+`rg somePattern file.ts` returns `binary file matches` and **no lines** — it does not error, it does
+not warn, the file is *silently absent from the result set*.
+
+This repository's entire governance method is *"re-measure, never re-transcribe"*: CLAUDE.md is a
+sequence of instructions to re-run grep commands, and its correction notices exist precisely because
+hand-copied numbers rot. **Every one of those sweeps was silently skipping these ten files.** That is
+also how L-3250b was found — a routine grep for the `BuildingGraph` class body returned
+`binary file matches` instead of the class.
+
+**None of the ten was corruption.** Every occurrence is a deliberate NUL used as a separator or
+sentinel *inside a string literal*, written as a literal byte instead of the ` ` escape. Each
+context was read before it was touched.
+
+| file | what the NUL is |
+|---|---|
+| `apps/editor/__tests__/compressWorkerCodec.test.ts` | lossless round-trip fixture |
+| `apps/editor/src/ui/apartment-layout/activeRoomAdjacencyOverrides.ts` | room-pair map key |
+| `apps/editor/src/ui/canvas/ConsequenceReportView.ts` | `elementId`\|`metric` map key |
+| `packages/core-app-model/src/presentation/IntentRuleResolver.ts` | `SENTINEL_VIEW_TYPE` |
+| `packages/file-format/__tests__/dxf-parser.adversarial.test.ts` | "binary-ish noise" fixture |
+| `packages/schemas/src/materials/materialCatalog.ts` | never-matching alias miss |
+| `packages/site-parcel-data/__tests__/valenciaAlineaciones.test.ts` | adversarial input row |
+| `packages/site-parcel-data/src/rulepacks/esMadridSpacmAmbitoJoin.ts` | `cd`\|`name` join key |
+| `tools/depth-lexeme-reprobe/v2-valencia-regex-delta.mjs` | extraction-failure marker |
+| `tools/ga-gate/lib/sourceScan.ts` | `EOL_SENTINEL` (×2) |
+
+**Fix:** the ` ` escape — **byte-identical at runtime**, pure ASCII on disk, greppable. UTF-8
+safe by construction (`0x00` never appears inside a multi-byte sequence, so replacing that byte cannot
+touch an em-dash or a CJK character). Verified after: all ten contain **0** NUL bytes and still decode
+as valid UTF-8, and a **full re-sweep of the same 7 946 files reports ZERO remaining**.
+
+⭐ **The best one is `tools/ga-gate/lib/sourceScan.ts`.** Its `EOL_SENTINEL` carried the comment
+*"Cannot occur in TypeScript source; used only as a lexer probe"* — **falsified by ten files in this
+very repo, one of which was that file.** A source-scanning gate library that was itself invisible to
+source scanning. Comment corrected in place; the sentinel is compound (NUL + text + NUL) so it was
+never actually at risk of collision, and that is now *stated* rather than assumed.
+
+⚠ **While writing that correction I reintroduced a raw NUL into the very comment describing the
+fix** — shell/Python escaping collapsed the literal. It was caught by **re-running the byte check**,
+not by reading the diff (whose `cat -v` render was itself misleading). That is the whole argument for
+checking bytes rather than trusting a rendering. Fixed with explicit byte construction and re-verified.
+
+**Pre-existing failures, PROVEN not this lane's — A/B tested, not assumed:**
+
+* `packages/schemas` — 3 failures (`water` defaults; `ViewTemplateSchema` `'fine'` vs `'medium'`).
+  Neither test imports materials, and the 1-line escape was the **only** uncommitted change in that
+  package.
+* `tools/ga-gate` — 4 failures (`otelSpanCoverage` ×3, `xssSinkScan` ×1). **Isolated by restoring
+  HEAD's `sourceScan.ts` and re-running: IDENTICAL 4 failures.**
+* `check-otel-spans` **RC=3** — Zone B **58 uninstrumented of 76** against a shrink-only baseline of
+  **52**, naming **6 NEW** files. **All six are `packages/command-registry/src/**` and none is this
+  lane's.** ⚠ CLAUDE.md records this as *"54 of 70 … 2 new files"* — **it has grown today**; re-run
+  the gate, do not quote that line.
