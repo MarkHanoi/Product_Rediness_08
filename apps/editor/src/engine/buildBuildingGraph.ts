@@ -210,7 +210,42 @@ const REBUILT_EVENT = 'pryzm:building-graph-rebuilt' as const;
 
 // ── Extractors: live service → plain inputs.ts snapshot ───────────────────────
 
-/** Aggregate per-element adjacency into one de-duplicated topology snapshot. */
+/**
+ * Aggregate per-element adjacency into one de-duplicated topology snapshot.
+ *
+ * ⚠ **CORRECTED 2026-08-21 (lane UBG1, L-3254) — the emitted edge DIRECTION used
+ * to depend on the order `elementIds` happened to arrive in.**
+ *
+ * Both `AdjacencyRelationship` kinds are SYMMETRIC spatial predicates
+ * (`adjacentTo` — the two share a face within tolerance; `intersects` — their
+ * bounds overlap). `TopologyLayer` reports each pair from BOTH endpoints, so
+ * this function de-dups on a canonical key `min(a,b)|max(a,b)|kind` and keeps
+ * whichever orientation it saw FIRST. That made the direction a function of scan
+ * order, and scan order came from `resolveElementIds()` — so:
+ *
+ *   • two rebuilds of the SAME model could emit `wall→room` or `room→wall`;
+ *   • an incremental delta, which necessarily scans a neighbourhood rather than
+ *     the whole universe, could not converge on the rebuild's answer even when
+ *     it had derived exactly the same facts.
+ *
+ * The second is how it was found — `ubgDeltaConvergence.test.ts` ARM 1/ARM 4
+ * failed on direction while the edge SET was identical.
+ *
+ * ⭐ The fix is to emit in the same canonical order the dedup key already
+ * computes. Nothing is lost: the underlying predicate is symmetric, so there was
+ * never a directed fact here to preserve — only an arbitrary one to stop
+ * varying. The projection is now scan-order independent, which is what
+ * `BuildingGraph`'s own header already CLAIMED ("projections and the overlay
+ * render deterministically").
+ *
+ * ⚠ SEPARATE, NOT FIXED HERE, AND WORTH SAYING OUT LOUD: `intersects` is
+ * projected to the UBG edge type `bounds`, whose documented meaning is *"A
+ * spatially bounds B (wall bounds room)"* — a DIRECTED containment claim. It is
+ * derived from a symmetric overlap test, so it never carried that meaning at any
+ * point in this file's history. Canonicalising makes that pre-existing fact
+ * legible rather than introducing it. Giving `bounds` a real direction needs a
+ * containment test in `TopologyLayer`, not a change here (L-3255).
+ */
 export function extractTopologySnapshot(
   topology: TopologyLayerLike,
   elementIds: ReadonlyArray<string>,
@@ -227,13 +262,15 @@ export function extractTopologySnapshot(
     }
     for (const rel of rels) {
       if (!rel || !rel.sourceId || !rel.targetId) continue;
-      // De-dup the symmetric pair so re-projection is stable (a|b == b|a).
+      // Canonical orientation for the symmetric pair — the SAME ordering the
+      // dedup key uses, so the emitted edge no longer depends on scan order.
       const a = rel.sourceId;
       const b = rel.targetId;
-      const key = a < b ? `${a}|${b}|${rel.kind}` : `${b}|${a}|${rel.kind}`;
+      const [from, to] = a < b ? [a, b] : [b, a];
+      const key = `${from}|${to}|${rel.kind}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      relationships.push({ sourceId: rel.sourceId, targetId: rel.targetId, kind: rel.kind });
+      relationships.push({ sourceId: from, targetId: to, kind: rel.kind });
     }
   }
   return kindOf ? { relationships, kindOf } : { relationships };
@@ -771,23 +808,81 @@ interface SceneLike {
   children?: ReadonlyArray<{ userData?: { id?: string; isPreview?: boolean; isHelper?: boolean } }>;
 }
 
+/** An element store that can enumerate its records. Every `window.*Store` has this. */
+interface EnumerableStoreLike {
+  getAll?: () => ReadonlyArray<{ id?: string }> | undefined;
+}
+
+/**
+ * The `window` slots the twelve element stores register themselves on
+ * (`initBuilders.ts` / `initTools.ts` / `engineLauncher.ts`). This is the id
+ * universe the topology adapter needs, because `TopologyLayer` is keyed PER
+ * ELEMENT and cannot enumerate itself.
+ */
+const ELEMENT_STORE_SLOTS = [
+  'wallStore', 'doorStore', 'windowStore', 'roomStore', 'slabStore', 'floorStore',
+  'ceilingStore', 'roofStore', 'stairStore', 'columnStore', 'beamStore', 'furnitureStore',
+] as const;
+
+/**
+ * The element-id universe whose topology adjacency we project.
+ *
+ * ⚠ **CORRECTED 2026-08-21 (lane UBG1, L-3253) — this function returned `[]` in
+ * production, every time, since it was written.**
+ *
+ * It read `window.pryzmScene ?? window.__pryzmScene`. MEASURED at HEAD:
+ * `grep -rn pryzmScene` over `apps/`, `packages/` and `src/` returns the two
+ * lines below that READ it, plus `pryzmSceneFrame` (an unrelated GLB userData
+ * key in `packages/file-format`). **Nothing anywhere assigns `window.pryzmScene`
+ * or `window.__pryzmScene`.**
+ *
+ * The consequence was silent and total: `buildBuildingGraph` gates the topology
+ * adapter on `services.elementIds.length > 0`, so with an empty universe the
+ * adapter never ran, and **`bounds` and topology-`adjacentTo` were never emitted
+ * in production** — two of the UBG's ten edge types, and the entire SPATIAL half
+ * of the graph. `TopologyLayer` itself is live and correct; the id list handed
+ * to it was empty. The failure reads exactly like "this building has no
+ * adjacencies", which is a plausible answer, which is why it survived.
+ *
+ * This is [[authored-but-unwired-is-the-bottleneck]] and
+ * [[context-data-honesty-family]] in one function: the failure value and the
+ * empty value were the same value.
+ *
+ * The scene read is KEPT as the first source (it is exact when present, and
+ * excludes previews/helpers) and the element stores are the fallback. Ids are
+ * de-duplicated and order-stable so the projection stays deterministic.
+ */
 function resolveElementIds(): string[] {
-  // Best-effort: read element ids off the live THREE scene if exposed. This is
-  // intentionally loose — absent ⇒ topology adapter is skipped (guarded by the
-  // caller).
   const w = (typeof window !== 'undefined' ? window : undefined) as
-    | { pryzmScene?: SceneLike; __pryzmScene?: SceneLike }
+    | ({ pryzmScene?: SceneLike; __pryzmScene?: SceneLike } & Record<string, unknown>)
     | undefined;
+
+  // 1. The live THREE scene, if any surface ever exposes it. Exact — it can tell
+  //    a preview/helper from a real element, which a store cannot.
   const scene = w?.pryzmScene ?? w?.__pryzmScene;
-  const children = scene?.children ?? [];
   const ids: string[] = [];
-  for (const child of children) {
+  for (const child of scene?.children ?? []) {
     const id = child?.userData?.id;
     if (!id) continue;
     if (child.userData?.isPreview || child.userData?.isHelper) continue;
     ids.push(id);
   }
-  return ids;
+  if (ids.length > 0) return uniqueStrings(ids);
+
+  // 2. The element stores. This is the leg that actually fires today.
+  for (const slot of ELEMENT_STORE_SLOTS) {
+    const store = w?.[slot] as EnumerableStoreLike | undefined;
+    let records: ReadonlyArray<{ id?: string }> | undefined;
+    try {
+      records = store?.getAll?.();
+    } catch {
+      continue; // one mis-shaped store must not empty the whole universe
+    }
+    for (const rec of records ?? []) {
+      if (typeof rec?.id === 'string' && rec.id.length > 0) ids.push(rec.id);
+    }
+  }
+  return uniqueStrings(ids);
 }
 
 // The semantic graph manager + AI validation service are real editor singletons

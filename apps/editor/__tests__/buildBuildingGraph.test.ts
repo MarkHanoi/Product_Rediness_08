@@ -108,7 +108,17 @@ describe('buildBuildingGraph — full projection', () => {
     expect(g.getNode('rule:min-area')?.kind).toBe('rule');
 
     // specific projected edges
-    expect(g.query({ edgeType: 'bounds' }).edges[0]).toMatchObject({ from: 'w1', to: 'living' });
+    //
+    // ⚠ UPDATED 2026-08-21 (lane UBG1, L-3254). This asserted `w1 → living`.
+    // Both `AdjacencyRelationship` kinds are SYMMETRIC spatial predicates and
+    // `extractTopologySnapshot` kept whichever orientation it happened to scan
+    // FIRST — so this assertion was pinning an artefact of `elementIds` order,
+    // not a fact about the model. Two rebuilds of the same model could disagree,
+    // and an incremental delta (which scans a neighbourhood, not the universe)
+    // could never converge on it. The extractor now emits the canonical
+    // orientation the dedup key already computed, so the direction is stable:
+    // `living` < `w1`. Nothing is lost — there was no directed fact here.
+    expect(g.query({ edgeType: 'bounds' }).edges[0]).toMatchObject({ from: 'living', to: 'w1' });
     expect(g.query({ edgeType: 'connectsTo' }).edges[0]).toMatchObject({
       from: 'living',
       to: 'kitchen',
