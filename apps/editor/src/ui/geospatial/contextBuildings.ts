@@ -17,6 +17,8 @@ import { pointInRingEvenOdd } from '@pryzm/geometry-kernel';
 // §CTX-RING-SANITIZE (L-663) — repair near-duplicate/near-collinear vertices BEFORE a ring reaches
 // Cesium's earcut-based triangulator. See contextRingGeometry.ts header for the full defect trace.
 import { sanitizeRing } from './contextRingGeometry';
+// §CTX-HEIGHT-ADOPTION (L-1663) — per-building cadastral floor-count adoptions (§DEMO-PATCH).
+import { applyContextHeightAdoptions } from './contextHeightAdoptions';
 //
 // WHY THIS EXISTS
 // ---------------
@@ -810,6 +812,9 @@ export function overpassToCollection(elements: OverpassElement[]): ContextBuildi
             }
         }
     }
+    // §CTX-HEIGHT-ADOPTION (L-1663) — same adoption as the tile path (source-parity: the two
+    // producers must not disagree about a building's height). Never overrides tagged data.
+    applyContextHeightAdoptions(features);
     return { type: 'FeatureCollection', features };
 }
 
@@ -862,6 +867,9 @@ export function tilesToCollection(tileFeatures: readonly ContextTileFeature[]): 
             });
         }
     }
+    // §CTX-HEIGHT-ADOPTION (L-1663) — adopt real cadastral floor counts where the tiles carry no
+    // usable height (never overrides tagged / measured-lidar). §DEMO-PATCH; see the module header.
+    applyContextHeightAdoptions(features);
     return { type: 'FeatureCollection', features };
 }
 
