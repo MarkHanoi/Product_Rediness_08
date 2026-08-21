@@ -35,6 +35,13 @@
 > **Gate**: `tools/ga-gate/check-material-single-source.ts` — BUILT at stamp time (§7). Its three arms
 > are named there together with the four axes it **cannot** decide.
 > **Changelog**:
+> · 2026-08-21 — **§10.10** (lane MAT2, L-1900..L-1906): 84 rows — 20 microcements, 30 paints, 34
+> colour×sheen tiles — and the two things that had to be true first. **§10.2.b's paint verdict is
+> CORRECTED**: *"colour + roughness is the whole physical truth of paint"* was right about physics and
+> **false about the renderer** — both wall arms drew every material at one fixed sheen, so §10.2.a's
+> SHEEN axis was unrenderable until L-1905 wired it. And **§10.10.c mints a naming rule**: *a
+> material's LABEL is a claim, and it may carry a property only where some surface can display it* —
+> which is why not one of the 84 names a size, a bond, a grout joint or a RAL code.
 > · 2026-08-18 — created, on a founder request (§0), after a census found **eight** live vocabularies
 > for one concept — three more than the brief named — and established that four of them share **one
 > mechanical cause** (§0.1), not four
@@ -1705,3 +1712,188 @@ they are **authored and say so**, because the WebPs are on R2 and cannot be meas
 - **S32 — NEW: `aoMap` needs a second uv set.** `ao` and `displacement` are authored on the records
   (the products have them) and are neither bound nor FETCHED: `aoMap` samples THREE's `uv1`, which
   **no geometry in this repository emits**, and `displacementMap` needs tessellation.
+
+---
+
+## §10.10 — ⭐ THE RANGE, THE SHEEN THAT WAS NOT RENDERING, AND THE NAME THAT MAY NOT LIE (2026-08-21)
+
+> **Stamp**: 2026-08-21 · **Lane**: MAT2 · **Issues**: L-1900..L-1905.
+> **Founder request, verbatim**: *"It works but I need way more: I need **20 microcement colours** —
+> from red, blue, green, dark grey… many greys, all possible colours like: 'make all walls on level 2
+> interior finish **ambar** microcement' / 'make all walls on level 2 interior finish **Blue pastel
+> paint**' (also **30 different colour paints**). I want also **30+ types of tiles for kitchen and
+> toilets** — with different sizes, colours, shine finishes, etc…"*
+> ⚠ **This section CORRECTS §10.2.b and completes the first of §10.2.a's two axes.**
+
+### §10.10.a — What landed
+
+| family | before | added | after | id prefix |
+|---|---:|---:|---:|---|
+| Microcement | **1** | **20** | 21 | `coating-microcement-*` |
+| Paint | 4 | **30** | 34 | `paint-*` |
+| Ceramic tile (colour × sheen) | 26 | **34** | 60 | `tile-{gloss,satin,matt}-*` |
+| **`MATERIAL_CATALOG` total** | **245** | **84** | **329** | — |
+
+⚠ **Cite `MATERIAL_CATALOG.length`, never this table** (§0.3's rule). The table records the MOVE and
+the reason; the array records the count.
+
+⭐ **§10.2.a's first axis — SHEEN × COLOUR — is now UNFUSED for paint and tile.** The tiles ship as
+three declared sheen bands (**gloss 0.06 · satin 0.35 · matt 0.80**) across the colour range, which is
+what makes *"navy gloss"* and *"anthracite matt"* nameable at all. §10.2.a's second axis, **PATTERN**,
+is untouched here and stays blocked on **S30** (§10.10.f).
+
+### §10.10.b — ⛔ §10.2.b's PAINT VERDICT WAS TRUE ABOUT PHYSICS AND FALSE ABOUT THE RENDERER
+
+§10.2.b rates **Paint & Coating** *"✅ **YES** — colour + roughness is the whole physical truth of
+paint"*, blocked on *"nothing ⭐"*. The physics half is right. **The renderer half was never checked,
+and it was false for walls.** Measured at `9d3b16b3`, both arms of the wall finish path:
+
+```
+instanced arm   new THREE.MeshStandardMaterial({ color })            -> roughness 1.0 (THREE default)
+layered band    new THREE.MeshStandardMaterial({ color: matColor,
+                                                 roughness: 0.85, ... })  -> HARD-CODED, every material
+```
+
+Neither arm *could* have carried sheen: `resolveWholeBodyFinishColor` **returns a `string`**, so a
+material's `roughness`/`metalness` had nowhere to travel. `WallSideFinish` has carried `materialId`
+all along — **the value was present at the store and discarded one call before the pixel**, which is
+**§9.1's shape inside the one family §9.1 records as WORKING**. ⭐ *"The family resolves"* and *"the
+family renders every property it resolves"* are different claims, and §9.1 flattened them.
+
+**Fixed by L-1905** (`WallSideFinishResolver.resolveWholeBodyFinishShine` /
+`resolveLayerRenderFinishShine`, consumed by both arms). Two properties are worth recording, because
+each was a way to get it wrong:
+
+- ⭐ **Colour and sheen are read off the SAME ROW.** The colour rule picks a *side* (exterior wins,
+  then interior) by testing `materialColor`. Had sheen repeated that test independently, a wall could
+  render **one material's colour with another material's sheen** — a defect with no name and no
+  reproduction. `pickWholeBodyFinish` answers *"which finish paints this surface?"* **once** and both
+  legs consume it (**C84 EI-8**).
+- ⛔ **The instance cache key had to grow with it.** `_instanceMaterialCache` was **colour-keyed**, so
+  `Ceramic Tile · Navy Gloss` and `Paint · Deep Navy` — near the same hue, opposite sheens — would
+  have **collided**, and the second wall would silently have rendered the first's material. *A cache
+  key narrower than the values it caches is not a cache; it is a silent overwrite.* Verified before
+  widening it that `renderer-three`'s `materialInstanceSignature` folds `roughness` and `metalness`
+  into `SCALAR_KEYS`, so `dedupInstanceMaterial` does not re-merge them one layer further down.
+
+**MUST**: any future family that wires a `materialId` to the screen states **which properties travel**
+and which are dropped. *"Material renders"* is not a verdict; it is a list.
+
+### §10.10.c — ⛔ THE NAMING RULE: a name may not describe what the renderer cannot draw
+
+> **A material's LABEL is a claim. It may carry a property only where some surface in this product can
+> display that property. A size, a bond or a grout joint in a name that paints a flat rectangle is a
+> lie in the catalogue, and it is indistinguishable from a working feature until a founder looks at a
+> wall.**
+
+Applied to this lane's 84 rows, and each exclusion is measured, not stylistic:
+
+| excluded from the name | the measurement that forces it |
+|---|---|
+| **size** (`600 × 600`, `200 × 100`) | `WallFragmentBuilder.ts` calls `applyMaterialMaps(params, matDef, uvSpaceOfGeometry(null))` — **literally `null`** → `UV_NONE` → `resolveMaterialTextures` returns `state: 'no-uvs'` and writes **no slot** |
+| **bond / grout / herringbone / mosaic** | the same mechanism — a pattern is a MAP |
+| **RAL / NCS code** | a RAL code is a **PROCUREMENT** claim; we cannot verify a hex against a physical standard, and a wrong RAL number is an **ordering error**, not a rendering error |
+
+⚠ **This does NOT retro-condemn the 13 rows §10.9 shipped** whose labels *do* carry a size
+(`Tile · Porcelain 600 × 600, stack bond, 3 mm grout`). Those are **map-bearing** and render that size
+correctly on a **slab**, whose builder passes `UV_METRES`. ⭐ **The lie is surface-relative, and that
+is precisely why it is dangerous**: the same row is honest on a floor and mute on a wall. What
+§10.10.c forbids is a name whose claim **no** surface can honour.
+
+⛔ **And no row in this lane carries `maps`.** A map here would be authored, shipped, fetched and then
+refused by the adapter — cost with no pixel. **MUST**: these rows gain maps in the **same commit** as
+S30, never before.
+
+⛔ **Runtime procedural generation was NOT switched on to close this.** It stays off
+(`globalThis.__pryzmProceduralTexturesV1`) because §PROCEDURAL-COST (L-1820) measured **150–830 ms of
+blocked main thread per pattern** and it froze the founder's demo. Build-time generation is the sound
+route and is **S33** (§10.10.f), not a flag flip.
+
+⭐ **THREE INDEPENDENT MECHANISMS SIT BETWEEN A CATALOGUE ROW AND A DRAWN PATTERN ON A WALL, and
+each alone is sufficient.** Recorded together because fixing any ONE of them changes nothing, which
+is the §THREE-INVALIDATION-GATES-IN-SERIES shape and the reason a single "turn on textures" task
+would have failed and looked inexplicable:
+
+| # | mechanism | measured |
+|---|---|---|
+| 1 | **The wall body declares no uv space** | `uvSpaceOfGeometry(null)` → `UV_NONE` → `state: 'no-uvs'`, no slot written. **S30.** |
+| 2 | **The 24 `procedural:` rows do not GENERATE** | the flag is off by deliberate rollback; they *cannot 404*, and they also *do not draw*. **S33.** |
+| 3 | **The 17 `/items/textures/…` rows have no bytes on this server** | `public/items/` exists, **`public/items/textures/` does not**; `server.js` mounts an explicit 404 for any unmatched `/items/*`. `tools/texture-pipeline/textures.manifest.json` describes exactly those files — **the pipeline has never been run into `public/`.** |
+
+⚠ **Mechanism 3 is scoped to what was measured: this repository's `public/`.** Whether the
+configured object-storage base serves them in production is a **separate question and was NOT
+measured here** — `resolveCatalogAssetUrl` exists precisely so the two can differ (§10.9.b). ⛔ It is
+therefore **not** evidence that the R2 route is broken; it is evidence that *the local one is not a
+route at all*, and that a developer who sees a flat wall has three candidate causes, not one.
+
+### §10.10.d — WHAT IS PROVEN, AND WHAT IS STILL NOT
+
+✅ **PROVEN, by tests that drive the real code:**
+
+- Both founder sentences resolve **end-to-end through the real zero-token ladder** to the **row id** —
+  *"…finish ambar microcement"* → `coating-microcement-amber`, *"…finish Blue pastel paint"* →
+  `paint-pastel-blue`. Asserted as **ids**, never as "not null": a "not null" assertion would have
+  passed while amber quietly answered with warm grey.
+- **Every one of the 329 rows is uniquely nameable by its own label** — an invariant over the whole
+  master, not over this lane's rows.
+- A gloss tile and a matt paint of near-identical hue now resolve to **different material state**, at
+  the master's own values.
+- A map-bearing row attaches **nothing** on a wall and **is not refused** at `UV_METRES`, so the gap is
+  the **wall's geometry**, not the material.
+
+⛔ **NOT PROVEN, and not claimed:**
+
+- **No pixel was measured.** There is no visual test; the assertions stop at the constructed material
+  and at the resolver. §9.6.c's *"real DTO through the real producer into the real bridge"* is met for
+  the resolver legs and **not** for a rendered frame.
+- **Nothing is proven about a wall PATTERN**, and nothing here moves S30.
+- **Colour fidelity is AUTHORED.** The 84 hexes are architectural pigment approximations chosen by
+  eye. They are **not** measured against any physical standard — which is exactly why §10.10.c forbids
+  a RAL number: the row is honest about being an approximation only so long as it does not cite a code.
+- **Persistence round-trip of these ids is untested here** (§7.1's fourth unproven axis, unchanged).
+
+### §10.10.e — REACHABILITY WAS DERIVED, NOT AUTHORED — and that is the finding
+
+⭐ **Not one of the 84 rows needed an alias to become chat-nameable.** `finishRef.finishRefCandidates`
+matches the **master's own labels by token subset** (L-1262), so a new row is reachable from chat with
+**no edit in `ai-host` at all**. This lane is the first test of that property at scale and it held:
+**0** existing rows lost their own label, **0** new rows were un-nameable.
+
+⚠ **It was not free, and the cost was paid up-front rather than discovered.** An exhaustive
+**1-and-2-token sweep** over every existing label (**1 536** phrases) was run through the real matcher
+**before** the rows were committed. It found **four** collisions, renamed rather than shipped:
+`Black Gloss` → `Obsidian Gloss`, `Cement Grey Matt` → `Cement Matt`, `Warm Grey Matt` → `Stone Matt`,
+`Plaster Pink Matt` → `Almond Matt`.
+
+**MUST**: a future range runs that sweep before committing. **Two rows whose labels tokenise
+identically make BOTH unreachable, not one** — the failure is silent and it is not local to the new
+row. The invariant is now a permanent test (`L1900MaterialRangeReachableFromChat.test.ts`).
+
+⭐ **The sweep also found something better than a collision: eleven phrases that resolved UNIQUELY and
+WRONGLY.** `"pink"` resolved to **`Plasterboard · Fire Rated Pink`**, `"yellow"` to
+**`Brick · London Stock Yellow`**, `"navy"` to **`Fabric · Velvet Navy`**. Those are
+§L960-WOOD-IS-A-SURFACE — a *buried or unrelated* product answering a colour word because nothing else
+could. They are now **named questions listing real paints**, which is C68's ruling (*an ambiguity is a
+question, never a pick*) and a strict improvement, **not** a reachability loss.
+
+### §10.10.f — SLICE STATES
+
+- ⭐ **S24 — DISCHARGED BY ENUMERATION, and the deviation is deliberate.** S24 asked for a
+  *combinatorial* paint model (hue × sheen, generated). It shipped as **84 explicit rows** instead.
+  **Reason**: a generated id is an id with no row, and **§1.1** requires ONE enumerable vocabulary in
+  ONE home — the chat matcher, the picker and the exhaustive-uniqueness invariant all key on the
+  **labels of real rows**. A generator would have minted a second, implicit vocabulary alongside the
+  master, which is the defect this contract exists to prevent. **MUST NOT** re-open S24 as a generator
+  without answering that.
+- ⭐ **L-1905 — BUILT.** The finish's `roughness`/`metalness` reach both wall arms (§10.10.b).
+- **S30 — UNCHANGED, and now load-bearing for the founder's word "sizes".** Metre UVs for every wall
+  body arm. Measured cause, unchanged: the wall body has **six** geometry constructors, **four** emit
+  no `uv` attribute (`MiterPrismBuilder`, the LAYERED grid punch, the curved builder, the CSG
+  single-volume bridge) and one **DELETES** `uv` during the seam merge; only the hole-extrude arm
+  carries metre UVs. ⛔ **It is a geometry slice, not a materials slice**, and this lane declined it on
+  that measurement rather than attempting it inside a catalogue change.
+- **S33 — NEW: BUILD-TIME procedural texture generation.** The 24 `procedural:` patterns exist and
+  cannot 404, but runtime generation is **off** at ~308 ms of blocked main thread per material. Baking
+  them at build time is the route to real tile patterns. ⛔ **MUST NOT** be closed by re-enabling the
+  runtime flag.
+- **S25, S26, S27, S31, S32 — UNCHANGED.**

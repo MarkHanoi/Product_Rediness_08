@@ -26810,3 +26810,377 @@ is actively using, and it should be a deliberate decision rather than a same-tur
    followed is provably comment- and test-title-only.
 
 ---
+
+### L-1900..L-1902 — ✅ SHIPPED: 84 new finishes — 20 microcements, 30 paints, 34 tiles
+
+> "It works but I need way more: I need **20 microcement colours** — from red, blue, green, dark
+> grey… many greys, all possible colours like: *'make all walls on level 2 interior finish ambar
+> microcement'* / *'make all walls on level 2 interior finish Blue pastel paint'* (also **30
+> different colour paints**). I want also **30+ types of tiles for kitchen and toilets** — with
+> different sizes, colours, shine finishes, etc…" — founder, 2026-08-21
+
+**The gap was exactly what he said it was.** Measured before writing a row: `MATERIAL_CATALOG` held
+**one** microcement (`paint-microcement-warm-grey`) and **four** paints. **245 rows → 329.**
+
+| family | before | added | after |
+|---|---:|---:|---:|
+| Microcement (`coating-microcement-*`) | **1** | **20** | 21 |
+| Paint (`paint-*`) | 4 | **30** | 34 |
+| Ceramic tile, colour × sheen (`tile-{gloss,satin,matt}-*`) | 26 | **34** | 60 |
+
+⭐ **NOT ONE ROW NEEDED AN ALIAS.** `finishRefCandidates` matches the master's own labels by token
+subset (L-1262), so a new row is chat-nameable with **no edit in `ai-host`**. This is the first test
+of that property at scale, and it held.
+
+⚠ **The cost was paid up-front.** An exhaustive **1-and-2-token sweep over 1 536 phrases** was run
+through the real matcher *before* committing. It found **four** collisions, renamed rather than
+shipped: `Black Gloss`→`Obsidian Gloss`, `Cement Grey Matt`→`Cement Matt`, `Warm Grey Matt`→`Stone
+Matt`, `Plaster Pink Matt`→`Almond Matt`. **Two rows whose labels tokenise identically make BOTH
+unreachable, not one** — silent, and not local to the new row.
+
+⭐ **The sweep found something better than a collision: eleven phrases that resolved UNIQUELY and
+WRONGLY.** `"pink"` → **`Plasterboard · Fire Rated Pink`**; `"yellow"` → **`Brick · London Stock
+Yellow`**; `"navy"` → **`Fabric · Velvet Navy`**. §L960-WOOD-IS-A-SURFACE: a buried or unrelated
+product answering a colour word because nothing else could. They are now named questions listing real
+paints — an ambiguity is a question, never a pick.
+
+⛔ **NO SIZE, NO BOND, NO GROUT, NO RAL CODE IN ANY NAME.** See **L-1906**. Contract: **C100 §10.10**.
+
+### L-1903 — ⭐ FIXED: `§FIX-AMBAR-IS-AMBER` — the founder types Spanish, and the matcher did not
+
+He typed **"ambar microcement"**. Measured on the real resolver *with* `Coating · Microcement Amber`
+already in the master:
+
+```
+resolveFinishRef('ambar microcement')  ->  null
+```
+
+No catalogue label contains "ambar", so `finishRefCandidates` scored **0**; the loose alias arm then
+matched `n.includes('microcement')` while **dropping the one word that carried his whole ask**.
+`droppedCatalogueWords` (L-1880) correctly refused it. **The refusal is right; the miss is not.**
+
+⛔ **NOT fixed with an alias per colour.** "ambar" is not a synonym for one material — it is the
+Spanish word for a **colour**, and he builds in Barcelona. The equivalence is stated **once, at word
+level** (`WORD_EQUIVALENTS`) and applied inside `tokens()`.
+
+⭐ **Applying it in `tokens()` makes it SYMMETRIC**, and that is the design point: the same function
+tokenises the catalogue's labels and the user's phrase, and `CATALOGUE_WORDS` derives from it. A map
+applied only to the query would have made `droppedCatalogueWords` fire on words the catalogue
+demonstrably knows.
+
+⚠ **No stemmer, and no blind `-s` stripper** — that turns "glass" into "glas" and "moss" into "mos".
+Eleven family plurals are listed because the cost of listing them is bounded and a stemmer's is not.
+
+It also closed a gap nobody had filed: the master spells **one sheen two ways** (`Paint · Matte
+White`, `Ceramic Tile · Grey Matt`), so **"matt white" missed a row the picker prints**.
+
+### L-1904 — ⛔ FIXED (and it was RED before this lane opened): a serial number outvoted a canonical name
+
+`L998BareWallFinishRoutes.test.ts` was **already failing** at the commit this lane inherited.
+The founder's shipped L-998 sentence *"change wall finish to plaster white"* resolved to
+`Plaster · Rough White 003` instead of `Plaster · Skim Coat (Painted)`. Counted over three catalogue
+states by one script:
+
+| catalogue state | rows | `"plaster white"` | resolves to |
+|---|---:|---:|---|
+| before `b58500d7` | 205 | **0 hits** | `gypsum-skim` ✅ |
+| at `408a6c5e` (inherited) | 245 | 1 hit | `plaster-rough-white-003` ⛔ |
+| now | 329 | 1 hit | *(fixed at the language layer)* ✅ |
+
+**Mechanism:** `b58500d7` added `Plaster · Rough White 003` — the **first** master label carrying both
+words — so a **two-word** span started matching, and in the shrinking-window scan a longer span always
+beats a shorter one. The founder asking for white plaster got a **rough external render with a
+texture-pack serial number in its name**, reported as success. ⚠ Nothing about the two-word span is
+wrong; what is wrong is that an obscure serialised row silently outranked the **canonical** one —
+§L960-WOOD-IS-A-SURFACE with the roles reversed.
+
+⛔ **Not fixed by renaming `plaster-rough-white-003`** — it is a real, map-bearing product and its name
+is accurate. Fixed where the repository already rules such things belong: the **language layer**
+(arm 1), which "wins outright" by design precisely so a canonical nickname cannot be outvoted by row
+count. The serialised row stays nameable by its own full label.
+
+### L-1905 — ⭐ FIXED: `§WALL-FINISH-SHINE-RENDERS` — the brief said shine already rendered; it did not
+
+**This lane was handed a render table asserting, as settled, that a wall finish renders colour AND
+shine** — *"✅ yes — also scalars, no textures needed"*. **The refutation is two lines of the builder**,
+measured at `9d3b16b3`:
+
+```
+instanced arm   new THREE.MeshStandardMaterial({ color })              -> roughness 1.0 (THREE default)
+layered band    new THREE.MeshStandardMaterial({ color: matColor,
+                                                 roughness: 0.85, ... })  -> HARD-CODED, every material
+```
+
+Neither arm *could* have carried sheen: `resolveWholeBodyFinishColor` **returns a `string`**, so the
+material's `roughness`/`metalness` had nowhere to travel. **`WallSideFinish` has carried `materialId`
+all along** — the value was present at the store and thrown away one call before the pixel. That is
+**C100 §9.1's shape inside the one family §9.1 records as WORKING**: *"the family resolves"* and *"the
+family renders every property it resolves"* are different claims, and §9.1 flattened them.
+
+**The visible cost:** `Ceramic Tile · Navy Gloss` and `Paint · Deep Navy` are near the same hue and are
+**different products** — a wet glaze and a chalky emulsion. They rendered identically. **34 tiles whose
+whole differentiator is sheen would have shipped as 34 flat rectangles with "Gloss" in their names.**
+
+Two properties, because each was a way to get the fix wrong:
+
+- ⭐ **Colour and sheen are read off the SAME ROW.** The colour rule picks a *side* by testing
+  `materialColor`; had sheen repeated that test independently, a wall could render **one material's
+  colour with another material's sheen** — a defect with no name and no reproduction.
+  `pickWholeBodyFinish` answers it once (C84 EI-8).
+- ⛔ **The instance cache key had to grow with it.** `_instanceMaterialCache` was **colour-keyed**, so
+  those two navies would have **collided** and the second wall would have rendered the first's
+  material. *A cache key narrower than the values it caches is not a cache; it is a silent overwrite.*
+  Verified before widening it that `materialInstanceSignature` folds `roughness`/`metalness` into
+  `SCALAR_KEYS`, so `dedupInstanceMaterial` does not re-merge them one layer down.
+
+`null` means **leave it alone**, never a substituted scalar: a wall with no finish, and a wall with a
+drifted `materialId`, are both byte-identical to before (C100 §5).
+
+### L-1906 — ⛔ OPEN, NAMED: a wall cannot draw a PATTERN or a SIZE, and no name in this range claims one
+
+**The founder asked for tiles "with different sizes".** He cannot have them on a **wall** yet, and the
+honest half of this lane is that no row pretends otherwise.
+
+`WallFragmentBuilder.ts` calls `applyMaterialMaps(params, matDef, uvSpaceOfGeometry(null))` —
+**literally `null`** — so every wall resolves `UV_NONE`, `resolveMaterialTextures` returns
+`state: 'no-uvs'`, and **no texture slot is written**. A row called `Tile · Metro 200 × 100` paints a
+**flat** wall.
+
+**The rule this establishes (C100 §10.10.c):**
+
+> A material's LABEL is a claim. It may carry a property only where some surface in this product can
+> display that property.
+
+So none of the 84 rows names a size, a bond, a grout joint, a pattern word or a RAL/NCS code — the last
+because a RAL code is a **procurement** claim we cannot verify against a physical standard, and a wrong
+RAL number is an **ordering error**, not a rendering error. Pinned by test.
+
+⚠ **This does NOT retro-condemn the 13 rows L-1705 shipped** whose labels do carry a size. Those are
+**map-bearing** and render correctly on a **slab** (`UV_METRES`). ⭐ **The lie is surface-relative** —
+the same row is honest on a floor and mute on a wall — which is exactly what makes it dangerous.
+
+⭐ **THREE INDEPENDENT MECHANISMS sit between a catalogue row and a drawn pattern on a wall, and each
+alone is sufficient.** Recorded together because **fixing any ONE changes nothing** — the
+§THREE-INVALIDATION-GATES-IN-SERIES shape, and the reason a single "turn on textures" task would have
+failed and looked inexplicable:
+
+| # | mechanism | measured | slice |
+|---|---|---|---|
+| 1 | the wall body **declares no uv space** | `uvSpaceOfGeometry(null)` → `UV_NONE` → `state:'no-uvs'`, no slot written | **S30** |
+| 2 | the 24 `procedural:` rows **do not GENERATE** | flag off by deliberate rollback (§PROCEDURAL-COST L-1820, **150–830 ms** blocked main thread per pattern). They *cannot 404* — and they also *do not draw* | **S33** |
+| 3 | the 17 `/items/textures/…` rows **have no bytes on this server** | `public/items/` exists, **`public/items/textures/` does not**; `server.js` mounts an explicit 404 for unmatched `/items/*`. `tools/texture-pipeline/textures.manifest.json` describes exactly those files — the pipeline has **never been run into `public/`** | — |
+
+⚠ **Mechanism 3 is scoped to what was measured: this repository's `public/`.** Whether the configured
+object-storage base serves them **in production was NOT measured here** — `resolveCatalogAssetUrl`
+exists precisely so the two can differ. ⛔ Not evidence the R2 route is broken; evidence that the
+**local** one is not a route at all, and that a flat wall has **three** candidate causes, not one.
+
+**Blockers, both named and neither attempted here:**
+
+- **C100 S30 — metre UVs on every wall body arm.** The wall body has **six** geometry constructors:
+  **four** emit no `uv` at all (`MiterPrismBuilder`, the LAYERED grid punch, the curved builder, the
+  CSG single-volume bridge) and one **DELETES** `uv` during the seam merge. Only the hole-extrude arm
+  carries metre UVs today. ⛔ **A geometry slice, not a materials slice.**
+- **C100 S33 — BUILD-TIME procedural generation.** ⛔ **MUST NOT** be closed by re-enabling the runtime
+  flag.
+
+## L-1920 … L-1929 — ✅ SHIPPED (3D + plan + panel + command) · 🔴 OPEN (elevation, RAC): the window REVEAL — a projecting box and per-side splayed reveals — 2026-08-21 (lane WIN1, commit `12d2b8be`)
+
+The founder asked for two things minutes apart:
+
+> "I want for all window types to have the possibility to **extrude outside the façade** — a new
+> attribute in the Properties panel, like frame width but **offset wide** … For **all wall types**."
+
+> "Also … another window type where the frame basically has **angles inwards** — the user, by a
+> property in the Properties panel **and by RAC**, should be able to control **the angle, which will
+> define the size of the glass**; and **the side of the windows (top / bottom / left / right / all /
+> multiple)**."
+
+Design: **ADR-0342**. Model: `packages/geometry-window/src/WindowReveal.ts`.
+
+### L-1920 — ⭐ THEY ARE ONE FEATURE, AND BUILDING THEM AS TWO WOULD HAVE MINTED TWO GLAZING PLANES
+
+Both asks answer *"where does the reveal run between the wall face and the glazing plane?"*. Each,
+modelled alone, has to decide where the glass sits — so two models means two answers, and the first
+edit that used both would put the pane in one place and the splay's vanishing point in another.
+
+`WindowReveal.ts` is the one model: five authored scalars in; one outer plane, one glazing plane,
+four insets and a derived glazing rectangle out. **Four consumers** — the 3-D leaf, the plan symbol,
+the command's validation, the panel's readout — **and none re-derives any of it.**
+
+```
+zOuter = −t/2 − p     R = t/2     zGlaz = zOuter + R = −p     i_s = R·tan(θ_s)
+wG = w − (i_left + i_right)       hG = h − (i_head + i_sill)
+```
+
+`R` is held at `t/2` rather than growing with `p` **so the two parameters compose instead of
+interfere**: deepening the box must not shrink the pane, or one attribute silently redefines
+another. Pinned by test. Both of his photos then fall out of the one rule — photo 1 is `p>0, θ=0`;
+photo 2 is `p=0, θ>0`.
+
+### L-1921 — ⭐ "WHICH WAY IS OUTSIDE" HAD NO ANSWER IN THIS CODEBASE. IT HAS EXACTLY ONE NOW.
+
+A projecting box needs a direction, and `WallSideFinishResolver`'s header **refuses** to supply one:
+*"Nothing in this module infers a side from winding order, vertex normals or camera direction … Where
+a request genuinely needs the geometric mapping, this module REFUSES."* So it was measured:
+
+- `WallLayerFootprint2D.buildWallLayerBands` lays the authored stack **exterior-first** from
+  `−total/2` along `leftPerp(dir)` ⇒ the exterior band is at the most NEGATIVE lateral coordinate.
+- `WallArcParam.stationFrame` returns `n = (−tz, tx)` = `leftPerp`, and `hostedElementFrame` rotates a
+  hosted group by `−angleY`, mapping its local **+Z** onto that same vector.
+
+⇒ **The exterior is local `−Z`.** Stated ONCE as `WindowReveal.EXTERIOR_LOCAL_Z`. **No second notion
+of the outside face was introduced**, which was an explicit constraint on this lane.
+
+### L-1922 — ⭐ C83: the splays MEETING is IMPOSSIBLE, and it is REFUSED naming BOTH numbers
+
+At a large enough angle over a deep enough reveal the two splays meet and the glazing area reaches
+**zero**. `windowRevealRefusal` refuses it, quoting **the angle asked for AND the dimension that
+makes it degenerate** — a refusal that says only "too big" leaves the user guessing which of the two
+to change.
+
+⛔ **It refuses; it does not clamp.** A silently-clamped reveal produces a window whose glazing is
+invisible and whose Properties panel reports success. From the user's side that is indistinguishable
+from a window that worked, which is the whole reason C83 forbids the silent fix.
+
+⭐ **`width` / `height` are in the trigger set, and that is the non-obvious half.** SHRINKING a window
+can make an ALREADY-AUTHORED splay degenerate. A gate keyed only on the five reveal fields would
+have passed that edit and produced the zero-glass window through the back door — the same shape as
+validating a patch instead of a record.
+
+**INADVISABLE is separated and merely SAID** (deep cantilever; under half the opening left as glass),
+carried on the successful result's `info`. Never enforced.
+
+### L-1923 — 🔴 OPEN: RAC IS NOT WIRED, AND THE CHEAP SEAM WOULD HAVE LIED
+
+He asked for RAC explicitly. **It is not wired.** Refusing was the correct answer, and here is why
+rather than a shrug:
+
+⛔ **`element.updateParameters` — the seam `set-sill-height` uses — WOULD HAVE SILENTLY DROPPED IT.**
+It routes through `WallStore.updateWindow`, which copies **exactly four fields** onto
+`wall.openings[]`: width, height, sillHeight, offset. A reveal field would be discarded **while the
+call still returned success**, and the chat would have reported "done" over a model nothing had
+touched. That is L-995 verbatim, and L-1670 exists because it already shipped once.
+
+Doing it properly is a dedicated batch verb `window.setRevealBatch` with an executed read-back that
+counts **RECORDS, not calls** (C67 rule 12 / C16 CA-21). The checklist, so the next lane starts from
+a plan:
+
+1. `SetWindowRevealBatchCommand` (command-registry) + `CommandType` + read-back against
+   `windowStore`, skips named and subtracted from the count, undo children retained regardless.
+2. `plugins/window/src/handlers/SetWindowRevealBatch.ts` + the handlers barrel.
+3. `syncDisposition.ts` row + `ZeroTokenChatBridge` report topic.
+4. Pure grammar module `WindowRevealIntent.ts` — `parseFilterClauses` + `parseInlineSpatialPhrase`,
+   never a hand-written spatial tail (L-1261 records what that costs).
+5. `matchWindowReveal` in `ZeroTokenResolver.MATCHERS` (order-sensitive) **and** a `push()` in
+   `LocalNaturalLanguageResolver.classify()` — one grammar, two entry points.
+6. `CapabilityExecutionSpec` row + `SpecDrivenIntentId` (zero new resolver arms, C67 rule 5) and a
+   `ChatCapability` with `probe`, `commandProof` and `examples`.
+7. The read-back test **with a DROPPING-STORE non-vacuity twin** (`L1670SideFinishReadBack.test.ts`).
+
+### L-1924 — ⚠ FOUR `WindowPlanSymbolBuilder.detailLevel` TESTS ARE RED, AND THEY WERE RED BEFORE THIS LANE
+
+`__tests__/WindowPlanSymbolBuilder.detailLevel.test.ts` fails 4 assertions (expects 4 / 6 / 14 cut
+segments, gets 6 / 8 / 16). **This lane did not cause it, and that was PROVEN rather than argued:**
+the same fixtures were run against `git show HEAD:…/WindowPlanSymbolBuilder.ts` alongside the
+modified file in one process. Both emit **identical** counts — coarse `6/1`, medium `8/2`, fine
+`16/5`. The diff also deletes only three lines, none of them in the frame-face-line block.
+
+The cause is **§FIX-WINDOW-SYMBOL-FRAME-BRIDGE (L-289)**: the face lines were changed from 2
+full-width spans to 4 per-member spans, and the test's arithmetic (`2 jamb ticks + 2 frame face
+lines`) was never updated. Left for the owner of that fix — silently re-baselining another lane's
+assertion is how a real regression gets absorbed.
+
+### L-1925 — 🔴 OPEN: THE ELEVATION CANNOT SHOW THE REVEAL, AND THE REASON IS STRUCTURAL
+
+The three drawing views answer this feature three different ways, and all three were measured rather
+than assumed:
+
+| view | mechanism | reveal |
+|---|---|---|
+| **Section** | raw mesh edge projection — **there is no window section symbol producer at all** | ✅ free |
+| **Plan** | symbol-only; `WindowBuilder` stamps `skipInPlan: true` on every window mesh | ✅ built this lane |
+| **Elevation** | symbol-only, and the mesh is **suppressed** for any opening whose symbol emitted | 🔴 **cannot** |
+
+`OpeningElevationSymbolBuilder` iterates **walls** and reads `wall.openings[]` — a generic `Opening`
+carrying exactly `{id, type, offset, width, height, sillHeight, elementId, doorType, windowType,
+openingProfile}`. The window store is never consulted, **so a new field on `WindowOpening` cannot
+reach it.** And `OpeningElevationSymbol.toWorld` sets every point out on ONE flat plane
+(`perp = face + k·y`) — there is no depth axis for a projecting box or a splayed reveal to occupy.
+
+⚠ It is worse than "absent": because the elevation **deletes** raw linework for openings whose symbol
+emitted, the new 3-D solids are removed there too. Closing this needs three coordinated changes
+(the `Opening` record, `ElevationSymbolOpening`, and `toWorld`) and is its own lane. The same file
+already concedes a sibling shortfall — its frame inset is a hard-wired **60 mm literal** because the
+real `frameWidth` is not passed either.
+
+In plan, a splayed **head or sill** is invisible **by construction** — it rakes in the vertical
+plane, which a plan cut does not see. That is correct draughting, not a gap; it is why the elevation
+gap matters more for the splay half of his ask than the plan work does.
+
+### L-1926 — ⚠ FOUND IN PASSING: THE SILL BOARD'S COMMENT CONTRADICTS THE MEASURED EXTERIOR AXIS
+
+`WindowBuilder._addSillBoard` places the board at local **+Z** with the comment *"Sill protrudes from
+bottom of window toward exterior (positive Z in group space)"*, and `WindowPlanSymbolBuilder` draws
+it at `n = +halfThk + sillDepth` to match. By the authored layer convention measured in L-1921,
+**+Z is the INTERIOR.**
+
+3-D and plan **agree with each other**, so nothing is visibly broken today — they are consistently on
+the same side, and that side is the one the layer stack calls interior. **Left untouched:** moving
+the board is a visible change to every window in every existing project, it is not this lane's ask,
+and it must not ride in on one. Recorded so the next reader does not trust the comment.
+
+### L-1927 — 🔴 NOT BUILT: boundary / neighbour / balcony validity, and the ASK affordance
+
+C83 asks whether a projection crosses a **property boundary**, enters a **neighbouring element**, or
+oversails a **balcony**. **None of that is checked.** It needs parcel geometry (C19/C57) and the
+element index, neither reachable from an L1 geometry package.
+
+What ships instead is honest rather than silent: a projection ≥ 0.6 m produces an advisory that says
+in as many words that PRYZM *"does not check it against the property boundary, a balcony or a
+neighbouring element — that check is not built (L-1927)"*. The founder's direction is **always ASK,
+never auto-edit**; the advisory is the ASK's raw material, but **the affordance that turns it into an
+actual question (a confirm card) is not built either.** Today it is a line on `result.info`.
+
+### L-1928 — 🔴 A CURVED HOST BUILDS NO REVEAL — refused, not overlooked
+
+`addSeatedBox` / `addSweptBox` re-seat a member onto the host arc from its group-local `(x, z)`. The
+reveal displaces members in `z`, so a curved host would re-seat them onto the **wrong station** and
+render a box leaning out of its own hole **while reporting success** — the silently-wrong geometry
+ADR-0310 refused the whole case to avoid. Same answer `openingOutlineLocal` gives for a
+non-rectangular void on an arc. Pinned by test. Needs per-station reveal frames, not a fixup.
+
+⛔ **The plan symbol carries the SAME exclusion, keyed the same way**, so the symbol can never draw a
+box the 3-D leaf did not build. A gate and a builder that each decide independently is how one starts
+drawing what the other cannot carry.
+
+### L-1929 — 🔴 OPEN: non-rectangular openings, and the un-mitred corner
+
+- **Arched and circular openings get no reveal.** They take `_buildProfiledVisuals`, which returns
+  before the reveal code. A ring-shaped splay is a real detail and a real piece of work.
+- **Splay corners are not mitred.** Adjacent wedges span the full void edge, so two splayed
+  neighbours interpenetrate in the corner rather than meeting on a mitre line. One material, one
+  solid union, so it reads correctly — but a true mitre needs the corner solved as the intersection
+  of the two reveal planes. **Named rather than approximated silently.**
+- **The sill board does not travel with the box** and is not clipped by a splayed sill.
+
+### ⭐ What IS established, and what is NOT
+
+**Established, measured in the foreground:**
+- `geometry-window` — **152 passed / 4 failed**, and the 4 are L-1924's pre-existing failures.
+- **Byte-identity is enforced by an EXISTING SHA-256 pin**, not by a new claim:
+  `StraightHostLeafByteIdentical.test.ts` hashes every vertex and world matrix of the unauthored
+  straight-host leaf and **passes unchanged**.
+- 26 new assertions across `WindowRevealModel` (the maths, plus a non-vacuity control beside every
+  refusal) and `WindowRevealLeaf` (the maths **reaching meshes**, read off a real scene graph after a
+  real `rebuild()` — never a pure function's return).
+- Layered-wall parity is asserted, not assumed: same total thickness ⇒ same solid, to 1 µm.
+
+**🔴 NOT established:**
+1. **Nothing here is browser-verified.** Every claim is measured at the model, builder, symbol or
+   command layer.
+2. **The panel rows are not exercised by a test.** `WindowSection` has no suite; the dispatch path
+   is inherited from the rows beside it.
+3. **RAC (L-1923) and elevation (L-1925) are not built.**
+4. **The plan linework is asserted only as segment counts and endpoints in the builder**, not as a
+   rendered drawing or a PDF.
