@@ -22,6 +22,8 @@
 // this work's largest risk, and C84 §4.6 records that it was avoided by measurement
 // rather than by care.
 
+import type { MaterialMaps, MaterialTiling } from './materialMaps.js';
+
 /** C84 §1.1 — the built-in category vocabulary. */
 export type MaterialCategory =
   | 'Ceramic & Tile'
@@ -69,4 +71,21 @@ export interface MaterialRecord {
   /** Uploaded texture (data-URL or asset path). T2 only today. */
   readonly textureUrl?: string;
   readonly source: 'builtin' | 'user';
+
+  // ── §MATERIAL-MAPS-AND-TILING (L-1700) — C100 §10.2.c / §10.9 ─────────────
+  // Both fields are OPTIONAL and ADDITIVE: every one of the existing rows stays
+  // valid unchanged, which is why this facet could land without touching the
+  // catalogue. See `materialMaps.ts` for the full rationale — in particular why
+  // the scale is a REAL-WORLD SIZE IN METRES and not a UV repeat count.
+  //
+  // ⛔ THEY ARE A PAIR. A record carrying `maps` MUST carry a usable `tiling`;
+  // `materialMapsDefect()` is the one spelling of that rule and
+  // `tools/ga-gate/check-material-maps-tiling.ts` enforces it. A texture with no
+  // scale is wallpaper — the same product reading as a different product on every
+  // surface it lands on.
+
+  /** PBR texture maps, as LOGICAL asset paths. Never a CDN URL (see the type). */
+  readonly maps?: MaterialMaps;
+  /** Real-world footprint of one repetition of `maps`. Required whenever `maps` is set. */
+  readonly tiling?: MaterialTiling;
 }
