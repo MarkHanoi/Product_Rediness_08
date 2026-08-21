@@ -29002,3 +29002,321 @@ Per C84 EI-1b, a clean family must be recorded as clean.
 
 ⚠ Full matrix, per-axis totals, prioritised risk list and the explicit NOT-REACHED register:
 [ELEMENT-AND-BUILDER-PRODUCTION-READINESS-REGISTER](ELEMENT-AND-BUILDER-PRODUCTION-READINESS-REGISTER.md).
+
+---
+
+## L-2400 … L-2425 — THE MUTATION SPINE: COMMANDS, STORES, BUS — 2026-08-21 (lane AUD-2, READ-ONLY audit)
+
+**Full evidence, matrices and denominators:** `docs/04-reference/MUTATION-SPINE-COMMANDS-AND-STORES.md`.
+Every row below carries `file:line`. **Nothing in this lane was fixed — this is a measurement pass.**
+No source file was changed and no gate baseline was moved.
+
+⭐ **The one sentence:** the spine's problem is not that legacy code exists — it is that
+**success is reported for writes that did not land**, at six independent seams.
+
+### Commands
+
+### L-2400 — 🔴 OPEN: **65 of 279 command `undo()` implementations CANNOT report failure**
+
+They do mutating work and contain `success: true` with **no `success:false` path and no conditional
+success expression**. Of the 65, **31** loop over child commands' `undo()`, and **24 of those 31 read
+`r.success` and then discard it** — using it to filter `affectedElementIds` while the aggregate
+return stays hard-coded `true`. The boolean is load-bearing: `CommandManagerImpl.ts:913`
+(`if (result.success) this.redoStack.push(entry)`) and `:873` pops the entry *before* asking, so a
+hard `false` destroys the entry from both stacks and a hard `true` always offers Redo. Largest:
+`walls/DeleteElementCommand.ts:653` — a **383-line** undo whose only terminal return is
+`{ success: true }` at `:1034`. ⭐ **This is L-1670 with the fix applied to only one half:** the
+`execute()` side of `walls/UpdateWallsSystemTypeBatchCommand.ts:292-322` is exemplary
+(`Changed N of M`, grouped skip reasons, 3 OTel attributes, `success: changed > 0`) while its
+`undo()` at `:333-344` is the defect.
+
+### L-2401 — 🔴 OPEN: **`CompositeCommand` — the one-undo mechanism — is unconditionally `true` in BOTH directions**
+
+`composite/CompositeCommand.ts`. This is what `CommandManagerImpl.endGenerationBatch()` (`:1143-1152`)
+wraps a whole building generation into as ONE history entry. Three defects in twelve lines:
+`execute()` reads `r.success === false`, logs it, returns `true` anyway (`:110`→`:117`); `undo()`
+**never reads `r.success` at all** and swallows throws (`:133`); both `info` strings count
+`this.children.length` — commands **attempted**, never landed (`:117`, `:137`).
+**Consequence:** generate a building, Ctrl+Z, and if any child fails to revert the user is told it
+was undone, half the building remains, and Redo is offered for a state never reached.
+**Fix:** `success: failures === 0` plus an "undone of attempted" info string — ~6 lines.
+
+### L-2402 — 🔴 OPEN: **`CreateMultipleLevelsCommand` is on the undo stack and its undo is a stub**
+
+`levels/CreateMultipleLevelsCommand.ts:84-86` returns `{ success:false, info:["Undo not implemented
+for batch level creation"] }`, and `nonUndoable` is **not declared** (`:14-19`), so
+`CommandManagerImpl.ts:493` pushes it. Ctrl+Z pops it, gets `false`, and the entry is gone — levels
+remain, only a `console.log`. ⭐ **This is the mechanism behind the separately-reported "9 presses for
+7 levels".** Second defect, same file: `:80` reports *"Successfully created {payload.count} levels"* —
+the **requested** count — while `:57` silently skips failures; and `CreatePlanViewCommand`'s result at
+`:64` is never checked at all.
+
+### L-2403 — 🔴 OPEN: **`ClearProjectCommand.undo()` returns false and the class does not declare `nonUndoable`**
+
+`project/ClearProjectCommand.ts:288-291`. The header (`:9-11`) asserts it is *"always issued as part
+of a LoadProjectSnapshot sequence"* — **a hypothesis the class does not encode**; the declaration
+block `:43-48` has no `nonUndoable`. Only the `isLoad` arm of `CommandManagerImpl.ts:493` keeps it
+off the stack. It clears **ten** stores. **Fix: one line.**
+
+### L-2404 — 🔴 OPEN: **commands reporting an INPUT count as an OUTCOME**
+
+`slabs/UpdateAllSlabsCommand.ts:61` (counts `slabStore.update()` **calls** — the store method returns
+`void`; `geometry-slab/src/SlabStore.ts:259-262` is `if (slab) {…}` with no `else`) ·
+`stair/UpdateStairFlightsCommand.ts:114` (input payload length) ·
+`walls/CreateWindowsOnWallsCommand.ts:136`, `walls/CreateWallsOnAllSlabsCommand.ts:279`,
+`curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:666` (second number is INPUT hosts).
+⭐ **The general rule:** a store `update()` returning `void` makes call-counting the only thing a
+caller *can* do. The readback defect lives in the store signature, not the command.
+
+### L-2405 — 🟡 OPEN (LOW): **`describe()` is specified in 21 lines and implemented ZERO times**
+
+`types.ts:640-660` argues at length (ADR-0341, C16 §5 `CA-22`) that a UI-side lookup table was
+rejected because *"it degrades silently to the raw enum … and nothing fails"*. Measured: a repo-wide
+search for a `describe():` method declaration returns **1 hit, an unrelated interface at
+`apps/editor/src/ui/layout/GISAreaLayout.ts:95`**. **0 of 279.** The undo-history dropdown therefore
+renders the derived fallback for 100% of entries — precisely the outcome the note was written to
+prevent.
+
+### L-2406 — 🔴 OPEN: **170 of 288 command types have NO remote-replay factory**
+
+`apps/editor/src/engine/CommandRegistry.ts:217` holds **119** factories; `create()` (`:496-505`)
+returns `null` otherwise and `RemoteCommandDispatcher.ts:337-343` then logs
+`console.info(… '— toast-only')` and **discards the remote command**. Missing include **`COMPOSITE`**
+(whole-building generation), `IMPORT_PROJECT`, every `*_SYSTEM_TYPE_BATCH`, all 8 `VG_*`, all 11 sheet
+commands, all 9 view-template commands, `DETECT_ALL_ROOMS`, `JOIN_WALLS`, `CUT_WALL`, `MIRROR_ELEMENT`.
+⚠ **Stated precisely: this is the legacy replay path only.** The bus path has its own register,
+`packages/sync-client/src/syncDisposition.ts` — **330 dispositions, 201 `not-synced`, 129
+`element-property`**. Two independent measurements, same direction: **most of the mutation surface
+does not reach a collaborator.** **C66 §1 must not describe multi-user editing as supported on this
+evidence.** ⛔ **The cross-join of the 170 against the 330 was NOT done — this row establishes no
+per-family verdict.**
+
+### L-2407 — 🟡 OPEN (LOW, latent): **`affectedStores: []` means "snapshot ALL stores"**
+
+`CommandManagerImpl.ts:694` — `command.affectedStores && length > 0 ? new Set(…) : null`, and `null`
+is the all-stores path. An author writing `[]` to mean *"I touch nothing"* gets the most expensive
+snapshot. Only `AddObjectCommand` declares `[]` today and it never reaches this manager.
+
+### L-2408 — 🟡 OPEN (MEDIUM): **the create verbs were hardened ASYMMETRICALLY**
+
+`wall.create` (`plugins/wall/src/handlers/CreateWall.ts:114-127`) and `slab.create`
+(`plugins/slab/src/handlers/CreateSlab.ts:126`) got a **three-valued runtime probe** —
+`authoritativeWallStoreRefusal()` returns `null` when the store is engine-attached, so in the browser
+they reach `valid: true`. **`door.create` (`CreateDoor.ts:149`) and `window.create`
+(`CreateWindow.ts:93`) got a flat unconditional refusal** under the identical `§FIX-CREATE-LIVENESS-LIE`
+tag. Nothing records why the probe was not applied to them.
+⭐ **Recorded because my own first scan got this wrong**: a regex matched `return WALL_CREATE_UNREACHABLE;`
+at `CreateWall.ts:126` and called `wall.create` dead. It is the tail of the *helper*, not of
+`canExecute`. **A pattern match is a hypothesis until you read the enclosing function.**
+
+### L-2409 — 🔴 OPEN: **the entire cross-element cascade layer is AUTHORED AND UNWIRED**
+
+`plugins/cross/src/slab-wall.ts:155-200` synthesises `wall.transform` so walls pinned to a slab follow
+it; its comment `:157-159` claims `TransformWallHandler` accepts the payload — **stale**,
+`TransformWall.ts:375` unconditionally refuses. **But it never runs:** a repo-wide search for
+`registerCrossHandlers` / `new CascadeRunner` finds all callers in
+`plugins/cross/__tests__/handlers.test.ts` and `packages/command-bus/__tests__/cascade*.test.ts`.
+**ZERO production callers.**
+**Consequence:** move a slab / change its base offset / change its thickness → pinned walls **do not
+follow**; same for room boundaries after a wall edit and handrails after a stair move. (Independently
+recorded at `tools/rac-conformance/certification/gates/host-move-propagation-matrix.json:532` as
+*"AUTHORED-BUT-UNWIRED, and the clearest case in the repo"*.) **Do NOT simply wire it** — its target
+verb refuses.
+
+### L-2410 — 🟡 OPEN (LOW, latent): **`getHistory()` hands out live `Command` instances**
+
+`CommandManagerImpl.ts:995-997` returns `[...this.history]`; the class doc `:135-145` states the P6
+hazard verbatim. Frozen alternatives exist (`getUndoHistoryView()` `:1018`, `getRedoHistoryView()`
+`:1043`). **Measured: exactly ONE production caller** — `packages/ai-host/src/AmbientIntelligence.ts:281,292`,
+which reads constructor names only and never invokes `.execute`/`.undo`. All other callers are tests.
+**The escape is real; nothing abuses it today.**
+
+### L-2411 — 🔴 OPEN: **the legacy `UndoManager` is a one-way sink that leaks**
+
+`apps/editor/src/engine/BimService.ts:28-30` says the legacy `UndoManager` is *"no longer referenced
+here"* — **true for that file, false for the app**. Three production `add()` calls:
+`initFurnitureInteraction.ts:42`, `:71`, `initUI.ts:2646`. ⭐ **There is no `undoManager.undo()` or
+`.redo()` call anywhere in the repository** — all four Ctrl+Z entry points route to
+`performUndoRedo.ts`. So (a) **furniture placement and non-BIM deletes are silently NOT undoable**,
+and (b) `private history: Command[]` (`UndoManager.ts:25`) grows for the whole session holding strong
+references to THREE `Object3D`s — **an unbounded retained-object leak.**
+
+### L-2412 — 🟡 OPEN (LOW): **two incompatible types named `Command` exported from one barrel**
+
+`types.ts:611` (4-method contract, 279 implementors) vs `UndoManager.ts:3-6` (local 2-method
+interface, no context arg). Both exported from `packages/command-registry/src/index.ts:440`.
+⭐ This repo has already been burned by name-based gates (`SYNC_COLOURS` / `SYNC_COLORS`); a duplicated
+*type* name is the same hazard one level up. **Fix: rename the local one to `SceneCommand`.**
+
+### Legacy / API
+
+### L-2413 — 🔴 OPEN: **`apiFetch` exists THREE times, diverged, and the timeout fix is in the copy the app does NOT use**
+
+`packages/persistence-client/src/apiFetch.ts` (103 L) has a 30 s `AbortController` +
+`NetworkTimeoutError`, documented at `:55-61`: *"Without this every apiFetch caller (project load,
+catch-up replay, visibility-intent sync, etc.) hung indefinitely on a stalled server connection,
+leaving the UI permanently 'loading' with no feedback."* **It has ONE importer.** The **66-line
+untimed** `packages/core-app-model/src/apiFetch.ts` has **~20**, including `initUI.ts:41`,
+`initCollaboration.ts:45`, `ServerSyncQueue.ts:26`, `ProjectHub.ts:40`, `thumbnailUpload.ts:27` —
+**the exact callers the fix note names**. `packages/protocol/src/apiFetch.ts` (68 L) has none. A
+**fourth** local copy sits at `packages/ai-host/src/rooms/RoomAIAssistant.ts:38`.
+
+### L-2414 — 🟡 OPEN: **three rival project-restore paths, two reachable**
+
+`packages/persistence-client/src/loader/ProjectLoader.ts` (1633 L, **no production importer**) ·
+`apps/editor/src/engine/persistence/ProjectLoader.ts` (2853 L, **legacy, still reachable** via
+`initPersistence.ts:43` whenever `_useImportCommandPath()` `:2794` is false) ·
+`command-registry/src/project/ImportProjectCommand.ts` (default). Six files duplicated between the two
+directories; by `cmp`: `ProjectLoader`, `ProjectSerializer` (1561 vs 986) and `SnapshotStreaming`
+**DIVERGED**; `MigrationEngine`, `GeometryCacheStore`, `ViewTemplateToIntentMigration` identical. The
+app loader's own header `:165-177` closes: *"Three copies of one rule is itself the C11 §5.4 defect …
+If you edit one, edit all three."*
+
+✅ **Measured CLEAN, and worth recording as such:** `server.js` declares **72** `/api` routes and a
+sweep for `legacy|deprecated|no longer|superseded|back-compat|old path` finds **no legacy or
+deprecated route mounted** (the one route-shaped hit, `/api/auth/me` at `:1989`, is an intentional
+alias). The server API is the one part of this domain that came back clean.
+
+### Stores
+
+### L-2415 — 🟡 OPEN (LOW): **"37 registered stores" is a CEILING, and `initStores.ts`'s own comment is stale**
+
+`initStores.ts:101-134` registers **21 unconditional + 4 conditional = 25 max**; a further **12**
+arrive as **module-load side effects** of `@pryzm/core-app-model` and would be present even if
+`registerAllStores()` never ran. 25 + 12 = 37 — matching the logged number — but **33 if the four
+optional stores are absent**. `initStores.ts:4` and `:95` both say *"all 21 element stores"*.
+⛔ `composeRuntime.ts:1577` registers under a **dynamic key**, invisible to grep — UNMEASURED.
+
+### L-2416 — 🔴 OPEN: **TWO new PROVEN dead writes (ceiling, curtain wall) and one silently-dropped field (furniture)**
+
+The reported **floor** case is **already FIXED** (`MaterialDispatch.ts:130` `colorField:'colour'`);
+the defect moved next door.
+
+* **CEILING** — `MaterialDispatch.ts:112` has no `colorField` and no `supportsMaterialId:false`, so
+  `:317`/`:322` write **`materialColor` + `materialId`**; they land via
+  `CeilingStore.ts:193 Object.assign(clone, updates)`. **`CeilingData` (`CeilingTypes.ts:175-211`)
+  declares NEITHER key**, and `getSoffitColor` / `getPlanFillColor` (`CeilingColourSystem.ts:35-46`)
+  read **`ceiling.colour`**.
+* **CURTAIN WALL** — `MaterialDispatch.ts:132`, landing via `CurtainWallStore.ts:365-370`.
+  **`CurtainWallData` (`CurtainWallTypes.ts:18-85`) declares `mullionColor` / `glazingColor` /
+  `mullionMaterialId` / `glazingMaterialId` — no `materialColor`, no `materialId`;** a search for
+  `materialColor` across `packages/geometry-curtain-wall/src` returns **0 hits**.
+* **FURNITURE** — `MaterialDispatch.ts:149` sends `materialId`; `UpdateFurnitureParametersCommand`'s
+  payload (`:10-33`) has no such field and its `newData` (`:65-95`) never copies it.
+  `dispatchSetMaterial` returns **`true`**.
+
+**Consequence:** the inspector repaints the mesh live so the user sees it apply; the key is serialised
+and resolved by nothing — **it evaporates on rebuild or reload.**
+⚠ **The irony:** `initBusHandlers.ts:981-982` re-bridged `wall.updateCurtainWall` *specifically* so
+`MaterialDispatch` would reach the record. **It reaches the record. The record has no field for it.**
+⛔ **This is a STATIC proof.** A dispatch-then-read-back probe does not exist — **ship it before the fix.**
+
+### L-2417 — 🟡 OPEN: **`floor.updateLayers` is a handler nothing dispatches, with no refusal**
+
+`plugins/floor/src/handlers/UpdateFloorLayers.ts:29-58` patches the detached DTO store. Its documented
+dispatcher (header `:3`) now sends `element.changeType` instead
+(`PropertyPanelTypeSelector.ts:110,135`, §FIX-FLOOR-TYPE-SWAP / L-106). A repo-wide search for
+`executeCommand('floor.updateLayers'` returns **0 matches**. Its sibling `floor.setMaterial` was given
+the loud refusal; this one was not.
+
+### L-2418 — 🔴 OPEN: **`IsolationStateStore` is constructed THREE times independently**
+
+`createIsolationStateStore()` (`packages/stores/src/IsolationStateStore.ts:203`) returns a **fresh
+store per call**; production calls it at `ui/inspect/InspectPanel.ts:132`,
+`ui/living-graph/livingGraphSelection.ts:336`, `ui/dev/modelTreeTestModal.ts:183`. **Nothing syncs
+them.** Isolating from Inspect and from the Living Graph are two disjoint states over the same meshes;
+exiting isolation in one does not clear the other.
+
+### L-2419 — 🟡 OPEN: **10+ production stores are in NEITHER the snapshot NOR the restore**
+
+No key exists in `ProjectSerializer.ts`'s 64 for: **`ApartmentStore`, `BuildingStore`, `LevelStore`**
+(C20 aggregates, built `composeRuntime.ts:1031,1032,1040`), **`ClimateStore`, `FamilyRegistryStore`,
+`ApartmentParametersStore`, `RoomParametersStore`, `ProjectOriginStore`, `AiApprovalQueueStore`,
+`LayoutOptionsStore`, `DataStore`, `DrawingSetStore`, `IsolationStateStore`** — every one constructed
+in production, every one lost on reload. Whether each loss is correct (ephemeral) or a defect
+(authored intent) is a **per-store contract question this lane did not resolve**; **`ProjectOriginStore`
+and `ClimateStore` are the least defensible** — a project datum and a climate binding are not session
+state.
+
+⭐ Also recorded here: **`ElementStore` (the LRU-bounded store of L-2132) has ZERO production
+instantiations.** The type defect is real (`ElementStore.ts:163` types `getState()` as `ReadonlyMap`
+while `LRUElementMap.ts:170-172` evicts at a cap of 50 000) **and it can undercount nothing, because
+nothing constructs it.** Production uses the **unbounded** `Store.ts:50`; **107 `.getState()`
+production call sites, none on the bounded class.** ADR-0343 §D.4's ban on widgets reaching
+`getState()` currently enforces against a class with no instances.
+
+### Bus
+
+### L-2420 — 🔴 OPEN: **`docs/04-reference/API-VERB-REGISTER.md` is stale on EVERY headline number and its gate is RED**
+
+`npx tsx tools/ga-gate/check-verb-register.ts` → **RC=1**, 4 failures. Code: **340** verbs / **133**
+LIVE / **37** REFUSES / **1** SHADOWED / **169** UNKNOWN / 1307 files / 2 sync-undeclared / 6
+chat-undeclared. Doc: 337 / 127 / — / 0 / 173 / 1285 / 0 / 4. Three registered commands have no row
+(`floor.setFinishBatch`, `room.setColourMode`, `view.setCategoryVisibility`). **Do not cite the doc.**
+⭐ **`REFUSES : 37` independently confirms the 35 terminal-refusal handlers this lane read by hand
+plus the 2 room verbs it missed** — two methods, two sources, one number.
+Also: **207 of 340 verbs have NO/UNKNOWN authoritative store** and **169 are UNKNOWN-liveness** — by
+the gate's own definition nobody has proven whether they reach authoritative state.
+
+### L-2421 — 🔴 OPEN — **HIGHEST-LEVERAGE SINGLE FIX: `_cmExec` declares `: void` and 89 of 90 call sites discard a refusal that is already correct**
+
+`apps/editor/src/engine/initBusHandlers.ts:611`. The file's own comment `:634-645`:
+*"`CommandManagerImpl.execute()` DOES refuse an absent target correctly … RETURNS
+`{ success:false, affectedElementIds: [], info:[reason] }` … `_cmExec` above declares `: void` and
+drops that object on the floor — so a bridge calling it reports success for a command the legacy layer
+just refused BY NAME."* **Measured: `_cmExec(` → 90 occurrences, 1 the definition ⇒ 89 call sites;
+`_cmExecOrRefuse(` → 1 call site (`roof.update`, `:930`).** `element.updateParameters` and
+`element.updateMark` are both on the 89. **The refusal already exists, is already correct, and is
+thrown away at one function.** Stage the migration and count newly-surfaced refusals per batch.
+
+### L-2422 — 🟡 OPEN: **73 of 78 bus bridges contribute NO undo patch**
+
+Only **5 of 78** declare `undoPatch`; the rest return `{forward:[],inverse:[]}` →
+`isEmptyPatchRecord` (`CommandBus.ts:577`) → `skipRingBuffer` → **never pushed to the ring buffer**.
+Their undo depends entirely on the legacy stack. Bridge inventory: **78** `(bridge)`-logged verbs
+(table `initBusHandlers.ts:915`, registered `:2838-2844`), **57 THIN / 21 THICK**, plus 1 batch stub,
+2 project-origin, 4 generation and 3 delegated graph verbs = **88 in `initBusHandlers`**.
+Boot order measured: `initBusHandlers` runs at `engineLauncher.ts:543` **before** every plugin barrel
+(`:613-727`) and each loop guards with `registry?.has?.(type)` — **on a duplicate verb the bridge
+wins, not the plugin.**
+
+### L-2423 — 🟡 OPEN (GATE DEFECT, not a code defect): **the verb gate's one SHADOWED verdict is inverted**
+
+The gate reports `sheet.create` shadowed *by* `initBusHandlers.ts:2202`. Measured:
+`registerSheetHandlers` has **zero production callers** and the bridge registers first — so the
+**bridge at `:2582` is live** and **`plugins/sheets/src/handlers/index.ts:17` is the dead one**, which
+the bridge's own comment `:2573-2580` states deliberately. The gate's static
+two-sites-then-plugin-wins inference does not hold here.
+
+### L-2424 — 🔴 OPEN: **`element.changeType` has SEVEN branches that warn and then report SUCCESS**
+
+`initBusHandlers.ts:1526-2205`. Each is `console.warn(…); return;` inside `fn`, so the wrapper returns
+empty patches and **the bus promise resolves**: `:1928`, `:1973` (railing type), `:2037` (lighting
+type), `:2084` (curtain wall type), `:2109` (curtain wall absent), and `:2204` — **the terminal
+fall-through**, *"no change-type route for elementType=… — ignored."* The routed set is 16
+`if (elType === …)` branches, so **every unlisted element type reaches `:2204` and succeeds** — a
+switch with no `default:` falling through to success.
+⭐ **The same author fixed the identical shape one verb over, by THROWING, at `:1315-1319`**
+(`wall.updateDimensions`, §FIX-S4-VOICE-ABSENT-TARGET). The fix was applied to one verb, not this one.
+
+### L-2425 — 🔴 OPEN: **`SetAllWallsWidthCommand` counts nothing at all**
+
+`walls/SetAllWallsWidthCommand.ts:58-60` calls `ctx.stores.wallStore.updateWall(nextState)` — which
+returns `void` and routes through the 14-field `updateWall` whitelist (`WallStore.ts:940-1001`) —
+then `affected.push(id)` **unconditionally**, and `:64-69` returns `{ success: true }`. **No success
+check, not even `r.success`.**
+⭐ **The reference implementation already exists in this repo:**
+`walls/SetWallSideFinishCommand.ts:365-379` **re-reads the record** and asks `resolveWallSideFinish`
+whether the value landed, not counting walls that failed. Seven siblings still check the child's
+**return value** rather than reading back: `UpdateWallsColorBatchCommand.ts:179`,
+`UpdateWallsSystemTypeBatchCommand.ts:279`, `UpdateWallsRakeBatchCommand.ts:257`,
+`AddWallLayerBatchCommand.ts:242`, `UpdateWindowsSystemTypeBatchCommand.ts:199`,
+`UpdateCeilingsSystemTypeBatchCommand.ts:226`, `CreateWindowsParametricBatchCommand.ts:313`.
+
+**⛔ WHAT THIS PASS DID NOT REACH** — the 169 UNKNOWN-liveness verbs and the 207 verbs with
+NO/UNKNOWN authoritative store (the largest unmeasured area); the cross-join of L-2406's 170 against
+`syncDisposition`'s 330; 13 of the 21 THICK bridges; the 22 plugin DTO stores individually;
+`ifcImports` restore; `CommandProposalStore` / `PatchSnapshot` / `StableCreatedId`; ~35
+`command-registry` subdirectories un-swept for whitelists. **No runtime execution of any kind was
+performed** — no browser, no `tsc`, no build. "Reachable" means *an import/registration edge exists*,
+never *observed executing*. Full blanks list in §13 of the companion document.
