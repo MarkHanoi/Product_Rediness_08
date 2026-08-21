@@ -27,6 +27,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve, join } from 'node:path';
 
 import {
   getCensus,
@@ -378,5 +380,55 @@ describe('§ANALYSIS-COLOUR — absence never borrows a category colour', () => 
       expect(c).not.toBe('var(--app-cat-unassigned)');
       expect(c).toMatch(/^var\(--app-cat-[1-8]\)$/);
     }
+  });
+});
+
+describe('§ANALYSIS-REACHABILITY — committed is not the same as reachable', () => {
+  // MEMORY §committed-is-not-reachable: four fixes in one session ran nowhere.
+  // These are SHIPPED-TEXT assertions — they cannot prove the panel appears, and
+  // are not dressed up as if they could. What they DO pin is the wiring that,
+  // if it silently reverted, would leave a fully-tested surface that never
+  // mounts — which is the exact failure mode that memory records.
+  const REPO = resolve(__dirname, '../../../../../..');
+  const read = (p: string): string => readFileSync(join(REPO, p), 'utf8');
+
+  it('engineLauncher side-effect imports the surface, or nothing ever constructs it', () => {
+    expect(read('apps/editor/src/engine/engineLauncher.ts')).toContain("import '../ui/analysis/AnalysisSurface'");
+  });
+
+  it("⭐ the runtime-event flush runs BEFORE restoreFromStorage — the ordering the mode listener depends on", () => {
+    // AnalysisSurface is a module-load singleton, so its subscription is QUEUED
+    // by onRuntimeEvent() and only applies at flushRuntimeEventListeners().
+    // restoreFromStorage() is what emits `pryzm-workspace-mode` at boot for a
+    // user whose saved mode is `analysis`. If restore ever moved AHEAD of the
+    // flush, that user would land in analysis mode with a canvas at 50% and NO
+    // panel beside it — the whole feature, silently absent, with every unit
+    // test still green. Measured at HEAD: flush 1053, restore 1056.
+    const src = read('apps/editor/src/engine/engineLauncher.ts');
+    const flushAt = src.indexOf('flushRuntimeEventListeners()');
+    const restoreAt = src.indexOf('workspaceController.restoreFromStorage()');
+    expect(flushAt).toBeGreaterThan(-1);
+    expect(restoreAt).toBeGreaterThan(-1);
+    expect(flushAt, 'restoreFromStorage now runs BEFORE the flush — the Analysis panel will not appear at boot')
+      .toBeLessThan(restoreAt);
+  });
+
+  it('the analysis mode is in the registry with a half canvas, or the panel covers a hidden viewport', () => {
+    const modes = read('apps/editor/src/ui/platform/workspaceModes.ts');
+    expect(modes).toContain("id: 'analysis'");
+    expect(/id: 'analysis',[\s\S]{0,400}?canvas: 'half'/.test(modes)).toBe(true);
+  });
+
+  it('WorkspaceController lays out the analysis mode explicitly', () => {
+    // The canvas half is registry-driven; the workbench half is a per-mode
+    // branch, and a mode missing from that switch keeps the DataWorkbench in
+    // whatever state the previous mode left it.
+    expect(read('apps/editor/src/ui/WorkspaceController.ts')).toContain("case 'analysis':");
+  });
+
+  it('the anl- stylesheet is concatenated into the injected theme', () => {
+    const theme = read('apps/editor/src/ui/styles/AppTheme.ts');
+    expect(theme).toContain("from './panels/analysisSurface'");
+    expect(theme).toContain('+ ANALYSIS_SURFACE_STYLES');
   });
 });

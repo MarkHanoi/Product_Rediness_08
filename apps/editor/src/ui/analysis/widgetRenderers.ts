@@ -348,7 +348,21 @@ export function renderChart(
           },
         };
 
-  charts.push(new chartjs.Chart(canvas, cfg));
+  try {
+    charts.push(new chartjs.Chart(canvas, cfg));
+  } catch (e) {
+    // ⛔ A CHART THAT CANNOT BE CONSTRUCTED MUST NOT TAKE THE DASHBOARD DOWN.
+    // `new Chart()` needs a live 2-D context; a browser that refuses one (GPU
+    // fallback exhausted, a hardened context policy, an offscreen host) throws
+    // HERE, synchronously, in the middle of building the card — and without this
+    // guard that exception escapes `refresh()` and every widget AFTER this one
+    // in the layout silently never mounts. The figures are already computed and
+    // already true, so the honest degradation is to render them as a table.
+    console.warn('[analysis] chart could not be constructed; rendering the same figures as a table.', e);
+    canvasWrap.remove();
+    renderTable(host, def, result);
+    return;
+  }
   legend(host, result.figures, total);
 }
 
