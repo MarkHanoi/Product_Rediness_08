@@ -24647,3 +24647,386 @@ Logged as scope rather than attempted, so "sheets work now" is not mistaken for 
 sentences work now". L-1590 makes the **UI** path work; it does nothing for language.
 
 ---
+
+---
+
+## L-1600 … L-1604 — ✅ FIXED: the view-intent panel could not reach ANY plan symbol, and three ways the panel MISLED the founder — 2026-08-21 (lane VG1, commits `861fd766`, `5b564ae2`, `4970eb04`)
+
+Founder: *"View intent panel works relatively good for walls — but not other elements"* and, later,
+*"the elevation view intent setting doesn't seem to be wired … I changed the CUT fill colour for slab
+and walls and nothing changed … also I cannot scroll down to check other elements."*
+
+⭐ **BOTH candidate root causes in the brief were REFUTED BY MEASUREMENT.** The brief proposed (a) two
+rival layer-naming conventions (`A-GLAZ-CUT` vs `A-WALL:cut`) and (b) per-object materials bypassing
+the layer. Measured against `@thatopen/components` 3.4.6:
+
+- `toDrawingSpace(seg, drawing)` returns a **brand-new `THREE.LineSegments`** — the builder's
+  `userData` and its material are **dropped**. `DrawingLayers.assign()` then does
+  `object.material = layer.material`. So **(b) is impossible**: per-object materials do not bypass the
+  layer, *the layer destroys them*.
+- **(a) does not fix the bug either.** `A-FURN`/`A-STRS`/`A-ROOF`/`A-PLMB` already matched the VG map
+  exactly, and furniture was still ungoverned. Renaming would also have silently dropped every
+  hyphen-keyed entry in `SVGCompositeRenderer.ISO_LINE_WEIGHTS` to the default export weight. The two
+  conventions are **not rivals**: `A-GLAZ-CUT` is an ISO 13567 sub-layer, `A-WALL:cut` is PRYZM's zone
+  marker.
+
+- **L-1600 `§VG-LAYER-IDENTITY-IS-THE-ONLY-SURVIVOR`** — the real cause. `PlanViewCanvas` composed its
+  `layerTag` from `layerName | name | parent.*`. `userData.layerName` is stamped by exactly **two**
+  producers (`EdgeProjectorService`, `OpeningElevationSymbolBuilder`) and by **none of the fourteen
+  plan symbol builders**. The tag was `""`, the category `null`, the resolver never consulted, and the
+  fallback painted everything as `'projection'`. **Walls "worked relatively good" because the bulk of
+  wall linework comes from EPS, which stamps.** Fixed by reading `userData.layer` — the key OBC
+  guarantees on every line and the one `SVGCompositeRenderer` has always read first. **Seven**
+  hand-copied answers to *"which layer is this line on"* collapsed into one `DrawingLayerIdentity.ts`
+  (C06 §13.3). The duplicate had already drifted: §DOOR-WINDOW-PLAN-FRAME added the hyphen arm to
+  `PlanViewVGApplicator` — the copy nothing on the render path calls — and never to the one that paints.
+  RED 14 failed / 9 passed → GREEN 23/23, driving real `PlanViewCanvas.render()` and asserting
+  `ctx.strokeStyle`. ⭐ **The 9 that passed at HEAD are exactly the producers that stamp `layerName`** —
+  the founder's report reproduced as a discriminating test.
+- **L-1601 `§ELEVATION-POCHE-IS-INTENT-DECLARED`** — elevation CUT fill. Not a command failure (the
+  founder's console proves the write lands). `_ELEVATION_SCOPE.poche` was `false` per L-119 ("painted
+  every façade solid black"), but **L-182 later narrowed the elevation `:cut` band to only geometry the
+  plane slices**. ⭐ **A stale guard outliving its reason** — the same shape as §L-942 and the L-1587
+  family. Now only a fill the intent declares *for the elevation view type* may paint. ⚠ The first cut
+  **reintroduced L-119 and the test caught it**: system intents seed plan poché on base element rules,
+  which elevation inherited.
+- **L-1602 `§VIEW-MODIFIER-KEY-IS-UNIQUE`** — the founder's screenshot showed **two identical
+  `elevation/slab` rows**. `viewTypeModifiers` is an **unkeyed array**; the resolver merges every match
+  in array order (last wins) while the panel edits **by index** — a 50% chance of editing the loser.
+  Normalisation at the write boundary **merges, never drops**.
+- **L-1603 `§GOVERNING-INTENT-IS-NAMED`** — `open()` fell back to `intents[0]`, so the founder was
+  editing *Architectural Documentation Promo* while South Elevation was governed by
+  *Architectural Documentation (Auto)*. Now prefers the governing intent and badges it
+  **GOVERNS THIS VIEW**. ⭐ **And the founder's suspicion about system intents was correct:**
+  `persistIntent()` returns early on `intent.isSystem` — a system intent is **read-only and edits never
+  survive reload**, which nothing on screen said.
+- **L-1604 `§PANEL-SECTIONS-MUST-BE-REACHABLE`** — the scroll defect. `.vi-editor` always had
+  `overflow-y: auto` and **could never use it**: its flex ancestors lacked `min-height: 0`, so they
+  refused to shrink and were sheared off. All four tabs render inside `.vi-editor`, so all become
+  reachable together. ⚠ The assertions read the **shipped CSS text** and say so in the test — happy-dom
+  does no layout; this is weaker than a `scrollHeight` probe and is labelled rather than dressed up.
+
+**NOT fixed, named:** `handrail` is **ungovernable** — EPS routes `Handrail`/`HandrailPart`/
+`stair-railing` all to `A-STRS`, and VG maps both `stair` and `handrail` there, so they are
+indistinguishable at paint time. The fix is a routing change to `A-STRS-HRAL`, but it changes **the DXF
+layer emitted for every railing** — an export-visible trade not made behind a styling fix. Pinned by a
+test.
+
+---
+
+## L-1610 … L-1617 — ✅ FIXED: rooms are a VG CATEGORY, and the colour mode reaches plan AND the 3-D scene — 2026-08-21 (lane ROOM1, commits `44cc9cc0`, `fb251d19`)
+
+Founder: *"the moment the rooms are colour coded — seems randomly. I want a category for rooms, and the
+user can colour code by room type, size, or colour defined — all white … for all view types."*
+
+⭐ **The capability was authored, reachable, and still incapable of holding an answer.**
+`RoomColourSystem.resolveForMode()` existed with `occupancy`/`area`/`custom`; `RoomBoundaryBuilder.
+setVisualisationMode()` and a "Colour by" button row existed too. But the row wrote
+`window.roomBoundaryBuilder.setVisualisationMode()` — **a direct UI→builder write (P6 breach)** — the
+mode lived only as a field on one builder instance, nothing persisted it, and `_doUpdateRoom()`
+repainted with the **mode-less** `resolve()`, so **any room edit reverted the whole level**. The plan
+canvas never consulted a mode at all. See [[authored-but-unwired-is-the-bottleneck]].
+
+- **`room` is now a first-class VG category** carrying `roomColourMode` on `VGCategoryStyle`, with a
+  `room` row in all four built-in templates (all shipping `detection`, so behaviour is unchanged until
+  the user picks).
+- **New mode `uniform` ("all white")**, which **beats per-room overrides** — an all-white that leaves
+  coloured rooms coloured is not all white.
+- **Persistence is per view with a per-model project default**, on the `room` VG category — because the
+  mode is a **graphic override, not a room property**: a room plan coloured by type and an all-white
+  presentation elevation are the same model styled twice. VG's cascade already serialises into the
+  project snapshot, so this needed **no new store, schema, or persistence code**.
+- Bus verb `room.setColourMode` → command → handler, with an explicit **This view / Whole project**
+  scope selector and a **refusal** (not a silent project-wide write) when scope is "view" with no
+  active view.
+- **Two latent bugs fixed:** (1) `(room.computed?.area ?? 0 - minA)` — `??` binds looser than `-`, so
+  every room clamped to `t=1` and **the smallest room painted as the largest**; (2) a P4 breach
+  (`(window as any).syncStateEngine`) deleted — the diff is **net −1 cast**.
+- **L-1617** — found while wiring: a project *saved* in "all white" **loaded in `detection`** until an
+  unrelated view switch, because only events read the stored mode.
+
+RED 9 failed / 2 passed → GREEN 12/12; plan-drawing wiring RED 6 failed / 1 passed → GREEN 7/7,
+asserting `ctx.fillStyle` captured at each `fill()` on the real canvas.
+
+**NOT done, named:** **2-D elevation/section drawings render no room region at all** (`isPlanLike`
+gate). Rooms *are* mode-driven in elevation/section/3-D via the room **volume meshes**, but a room poché
+in a vertical 2-D drawing needs a room-volume/cut-plane intersection producer that does not exist. ⛔ A
+bounding rectangle would put a room wash where the cut does not pass through the room — an
+**overstatement, not a feature**. Also: `SetRoomColourModeCommand` implements `undo()` correctly but
+**nothing puts it on a stack** — `SetVGCategoryStyleCommand` has **zero non-test call sites**, so *no*
+VG category change in this repo is undoable today. That state was followed rather than a rival undo
+path minted for one category.
+
+---
+
+## L-1620 … L-1622 — ✅ FIXED: the auto-dimension engine had placement geometry and NO EDITORIAL LAYER — 2026-08-21 (lane DIM1, commits `5c5f270a`, `e3f70a6c`)
+
+Founder authored a full **GA drafting standard** (SPEC-AUTODIMENSION §12). Measured on a twelve-room GA
+plate reproducing the shipped generator topology:
+
+| | HEAD | after |
+|---|---|---|
+| **INTERIOR dimensions** | **36** | **4** |
+| **`report.warnings`** | **51** | **0** |
+| exterior dimensions | 35 | **35 — unchanged** |
+
+The four survivors are exactly §12.3's allow-list: corridor width 1700, stair width 1200, WC layout
+1200 × 1800 — pinned as assertions, not prose.
+
+⭐ **The root is a CLASSIFICATION defect, not a filter threshold.** L-268's rule — one outer face per
+connected component — is right for two buildings on a site and **wrong for a partition loop inside a
+shell, which it also called a building and dimensioned in full**. Deleting interior strings without
+fixing this would also have deleted a genuine second building in a courtyard.
+
+⭐ **§12.3 was failing in BOTH directions at once.** The plate carried 36 interior dimensions and **not
+one was a corridor width**. A filter cannot keep a dimension that was never proposed — so the planner
+now plans the allow-list and the filter removes everything else.
+
+⭐ **QA-2 was a false-warning factory — 42 of the 51.** It fed rank-4 opening *location* dims (nested
+from the run datum, overlapping **by construction**) into the chain-partition check, and merged the wall
+chain with the opening chain — different chains (§12.2 strings 2 and 3). Both narrowings are of the
+**input**, not the rule; an honesty test deletes a façade wall and asserts a real `chain-gap` still fires.
+
+**§12.4 measured, as asked:** straight angled façades **HOLD** (one aligned length each; `splitRuns`
+merges collinear edges). **The curved bay VIOLATES §12.4** — tessellated chords each exceed the 15°
+gate, emitting a chain 1562 · 1077 · 1077 · 1562. ⛔ **Not fixed, deliberately:** the remedy is arc
+recovery + a `radius` string; dropping the chords without it **trades a readability defect for an
+incompleteness defect**. Pinned by an explicit test so it cannot be mistaken for compliance.
+
+**NOT implemented, all listed per-clause in SPEC §13.3:** §12.2's three *named* strings at fixed
+1200/800/400 mm (the tier model stays relative and scale-aware per C24); §12.5's spiral search; §12.6/
+§12.7 tag rules; §12.8's UP arrow; §12.10 tag banding; §12.11 lineweights; **§12.12's tag half** (this
+package emits no tags — the `apps/editor` populators must call `gaPriority.ts` rather than invent a
+second order); and §12.3's "kitchen runs" / "structural wall spacing", which need programme semantics
+the engine is not given.
+
+---
+
+## L-1630 … L-1633 — ✅ FIXED: the view placed on a sheet was an image, and the on-sheet renderer COULD NOT SUCCEED — 2026-08-21 (lane SHEET1, commits `fdb344c0`, `8755222c`)
+
+Founder: *"the view that I place is not the real view … I need the real view, not an image … PDF
+creation works perfect and actually renders the true view … ELEVATION VIEWS STRUGGLE TO EVEN RENDER."*
+
+⭐ **The founder's own evidence was the diagnosis: the PDF was right and the sheet was wrong, in the
+same session, for the same view.** Two producers, and the on-sheet one is not merely lower-fidelity —
+**`ViewportThumbnailRenderer` cannot succeed at all**, with two independent fatal bugs:
+
+1. It calls `root.traverse()` on the `TechnicalDrawing` itself. An OBC `TechnicalDrawing` is **not** a
+   `THREE.Group` — it wraps one at `.three`. The founder's prod log is exactly this:
+   *"received non-traversable object, skipping"*.
+2. `_computeBounds` reads `positions[i]`/`positions[i+1]` — **X and Y**. Drawing space is **X
+   horizontal, Z vertical, Y ≡ 0**. The Y extent is 0 and it returns `null` **even if (1) were fixed**.
+
+`null` → fallthrough to a preview renderer whose plan branch draws wall outlines from the element
+store. **That is the crude blob.**
+
+- **L-1631 elevations — SAME root cause, worse symptom.** For a non-plan non-3D view the fallback is
+  `_renderPlaceholder`: a dark rectangle with the view name. ⭐ **"Elevation projection is broken" is
+  REFUTED** — projection is healthy (359 groups / 75 ISO layers in the founder's own log). The loss is
+  entirely between the drawing cache and the sheet consumer.
+  **Also refuted:** the orchestrator's suspicion of wrong-view wiring. Adding an elevation fires a full
+  canvas rebuild, so the already-placed plan's `viewId` appears in the error lines. Not miswiring.
+- **L-1633 "it doesn't stay in place"** — the verb was **fully routed** (`initBusHandlers` →
+  `MoveViewportCommand` → `sheetStore.moveViewport`). ⭐ **The UI never reached any of it.** Both
+  dispatch sites read `(this.runtime?.bus as any)?.executeCommand(...)`, and `initUI.ts:845` constructs
+  the panel **with no runtime argument** — `this.runtime` is `null`, the whole expression is
+  `undefined`. No command, no error, no log. **Optional chaining made it silent.** The drag repainted
+  `style.left/top` and the next rebuild snapped it back.
+- **L-1630 the architecture call — extract, because the EXPORT half was itself already written twice.**
+  `PdfExportService` was bbox-driven and correct; `SheetExportService.exportToPrint` hard-coded
+  `originX/originZ = 0` and framed the drawing about the world origin. **Two copies is how the third
+  gets written.** `composeViewportSvg()` is now the only thing that knows how a cached drawing becomes
+  a scaled, framed SVG; PDF, print and the sheet editor all call it. **C06 §13.3 satisfied by
+  subtraction.** The viewport's paper size now comes from the composed millimetre footprint, so
+  **"1:100" is finally the scale on screen**. Exposed via a `"./sheets"` subpath, not the root barrel
+  (which drags jsPDF/jszip/pdfjs-dist/web-ifc) — **no dependency change, lockfile untouched**.
+
+RED 5/5 then 4/5 (both halves, reverted independently) → GREEN 10/10, mounting the real panel against
+real stores. ⭐ **The fidelity spec asserts an EQUALITY — on-sheet linework == export linework — so a
+bitmap or a third renderer fails by construction.**
+
+**Open, for routing:** `ViewportThumbnailRenderer` now has **zero production consumers** and two bugs
+(recommend deletion); elevation **annotation** coordinates are wrong in the shared producer
+(`(x, z)` mapping vs `y`-carried datum heights — pre-existing, affects the PDF identically);
+`vp.position` means **bottom-left corner** in the editor and **centre** in the PDF, so sheet layout and
+PDF layout differ — worth its own lane; `initUI.ts:845` giving the panel no runtime also leaves
+title-block wiring dead.
+
+---
+
+## L-1640 … L-1645 + L-911 — ✅ SHIPPED: "an apartment of 3 bedrooms with opened kitchen + living and 2 en-suites on room 00-001 in ground level" — 2026-08-21 (lane APT1, commits `4823f74f`, `34b47149`, `6ed9cc89`)
+
+Founder: *"given a room, I want to be able to say via RAC: 'Create an apartment of 3 bedrooms with
+opened kitchen + living room and 2 en-suite bathrooms on room 00-001 in ground level' … most of it is
+wired."* They were right: the deterministic engine, the programme rules and the one-undo batch path all
+existed. **The join did not.**
+
+- **L-1640 `§RAC-APARTMENT-IN-ROOM`** — ⭐ *"create an apartment in room 001"* was **CLAIMED and the
+  room SILENTLY DROPPED**: `room` is not in the generation noun set and the intent had no room field,
+  so the sentence generated **over the whole active level**. That is precisely the scope-widening C67
+  rules 6/16 forbid — a wrong answer delivered confidently. The number ladder was **lifted** out of
+  `ZeroTokenChatBridge` into `intents/roomNumberMatch.ts`; the bridge imports it (one implementation,
+  two consumers).
+- **L-1641** — `APT_BUILDING_RE` listed `floors?|levels?|storeys?` as building-guard words, so
+  *"…in ground level"* made the parser return `null` — **the sentence missed entirely**. Place phrases
+  are now read **and consumed** through the one shared `SpatialScopeTail` parser (C67 rule 16 — never a
+  new place regex), then the building guard runs on the remainder.
+  *"generate a 3-storey apartment building"* still declines here (pinned).
+- **L-1642 en-suite count** — `masterEnSuite` is a **boolean**: exactly one en-suite, hard-coded to
+  `bedIds[0]`. The **per-instance machinery already existed** (`ensuiteHostId`, §BEDROOM-ENSUITE-2DOOR,
+  the §ENSUITE-1TO1 door-exclusivity gate). Extended to `bedIds[0..N-1]`, clamped to bedrooms. ⛔
+  Type-level `ensuite.accessFrom` / `bedroom.maxDoors` deliberately **untouched** — loosening them
+  reintroduces the shared-en-suite and bedroom-through-bedroom anti-patterns the rules DB documents.
+- **L-1643 open kitchen + living** — `openPlanKitchenDining` merges kitchen+**dining**, not living. The
+  fused `open_plan` room type was **fully specified and minted by nothing**. Now minted instead of
+  separate kitchen/living/dining; the validator rejects options that split it.
+- **L-1644 room-scoped entry** — seam **(b)** (synthesise the shell from the room's boundary) chosen
+  over **(a)** (reuse `boundingWallIds`) **with a stated reason**: a bounding wall may bound *other*
+  rooms, giving the wrong perimeter, and the exterior-filter drops interior walls. Ring = **centreline**,
+  not inner face — `analyseShell`'s contract is baselines, and the inner face would inset twice.
+- **L-1645** — `findLevel` could not resolve *"ground"*; now resolves by elevation, last-resort only.
+- **L-911 closed as a side-effect** — `lockBedroomCount` existed at the bubble graph with **no payload
+  threading**, so stated counts were a floor, not a promise. Now threaded end-to-end.
+
+20/20 new tests, RED-first (**9 of 18 failed** on the pre-change tree, including both defects). Root
+`tsc` RC=0. **Gate 31 red only on other lanes' ratchets** — all four new declared examples, including
+the founder's literal sentence, executed clean through check 4b.
+
+⚠ **ONE HONEST LIMIT, and it is the founder's own room.** The full programme **declines on their
+~106 m² Room 00-001** — not the envelope (the 3-bed band is 85–160 m²) but **packing**: the engine
+hands the great room a 2.08 × 9.22 m strip (19.16 m² < the 20 m² minimum) and drops it. **The chat
+refuses with the engine's own reason and never claims a build.** Recorded as a limit with a sibling
+test showing the same programme builds on a larger ring — [[context-data-honesty-family]].
+
+---
+
+## L-1650 … L-1656 — ✅ FIXED: the buildability card's sections were two folds deep, one arm was UNREACHABLE, and the determination did not survive reload — 2026-08-21 (lane GIS3, commits `a54a49fd`, `a547eff2`)
+
+Founder: *"we had two more sections — important — fully wired: 'DESIGNED vs PERMITTED' … how is this
+measured … full site + ordinance limits + massing potential … per storey. This panel exists — wire them
+all with unfoldable sections"*, and separately: *"the parcel data should be accessible not only on
+site-view but also on the PRYZM main scene — present."*
+
+**Three stacked causes, none of them a missing feature:**
+1. **Nesting.** The capacity comparison *and* the full-site block sat behind ONE `Site data & capacity`
+   disclosure — and the site block is itself a `<details>`. The founder's sections were **two folds deep**.
+2. ⭐ **An UNREACHABLE arm, not a folded one.** "How these were measured" rendered only behind
+   `measurement.caveats.length > 0`. A nothing-authored project legitimately yields `caveats: []`, so in
+   the founder's exact repro **that section could not render at all**. The L-1587 family again: a
+   diminished arm reached for a reason nobody had named.
+3. ⭐ **Failure ≡ emptiness.** The measurement join's `catch` returned `''`, so a measurement *failure*
+   and "nothing to compare" produced **the identical absent section** — C84 EI-1b, verbatim.
+
+- **L-1651** — four first-class folds: Designed vs permitted · How these were measured · Full site &
+  massing data · Why these numbers?. Default-collapsed; each `<summary>` carries **the fact** (the
+  verdict headline, not a bare label).
+- **L-1652** — five distinct `data-state`s: `join-failed`, `nothing-authored`, `unmeasurable`,
+  `measure-failed`, `rendered`. **No zeros, no pass, no silence.**
+- **L-1654 persistence** — `BuildableDeterminationRecord {envelope, determinedAtIso}` on the parcel,
+  written by the same `site.updateZoning` call that persists the ring (P6), **refusals included**;
+  hydrated on load, session-solved still wins. ⭐ Hydrated cards wear a **"Stored determination · date"**
+  banner — *a stored snapshot presented as fresh would fabricate recency*. Old projects hydrate to
+  `null` and now **say they predate stored determinations** rather than implying loss.
+- **L-1655 — ⛔ THE REGRESSION THIS LANE CAUSED, AND FIXED.** `BuildableDeterminationRecordSchema`
+  embeds the strict envelope schema, whose refusal refinement demanded `refusal !== null` **iff**
+  `status === 'not-applicable'` — **stale since §L-574 made `'none'`+refusal legal**. Every `'none'`
+  refusal therefore invalidated the *entire* `site.updateZoning` payload and the command soft-rejected,
+  **dropping `jurisdictionRef`/`zoneCode`/setbacks on the refusal path**. Caught by the §L-663 guard
+  (5 failed / 4 passed) and confirmed independently by the orchestrator before deploy.
+  ⭐ **Nothing had ever *parsed* a constructed envelope until L-1654 began persisting one — the schema
+  had been wrong and unread since L-574.** The commit surfaced a latent defect rather than inventing one.
+  ⭐ **And the principle it violated is the product's own:** *a refusal is a DETERMINATION and must
+  persist exactly like a positive one* — otherwise the card cannot distinguish *"we refused, here is
+  why"* from *"nothing happened"*. Fixed in two layers: the refinement corrected to the real allow-list,
+  **and** structurally — an additive optional field **must never veto a pre-existing command**, so the
+  record is validated up front and a failure lets the zoning write proceed without it, clearing with an
+  explicit `null`. GREEN 9/9; the `:345` timeout was the same soft-reject stalling an awaited
+  continuation (82.6 s → 8.1 s), not a second defect.
+- **L-1656** — the OV mis-citation handed over by BCN1 (below), wired as a **pure exported resolver**
+  so both arms are assertable, with five assertions including *"the OV arm must not contain 242.2"*.
+
+---
+
+## L-1660 … L-1663 — ✅ SOLVED: both Barcelona demo parcels carry a REAL determination; the "no zone" was a 10-METRE ROUNDING ARTEFACT — 2026-08-21 (lane BCN1, commits `b88e7885`, `96cac44a`, `9eb5455e`, `ea04f74a`, `e7045f75`)
+
+Founder, preparing a demo: *"it says estimated — but I am sure the data exists"* (CL PERELLO 60), and
+*"the two next should have real heights — they are wireframe"* (RB POBLENOU 10 + neighbours).
+
+- **L-1660 `§BCN-OV-CONFIDENCE` — the card was rendering THREE FALSE STATEMENTS about a real cited
+  construction.** Not one bug: (a) the OV dispatch hard-coded `estimated-ruleset` and stamped the height
+  row `fieldProvenance:'estimated'`, so the weakest-row rule forced the "Estimated" badge; (b) the
+  *"Default rule pack — real DK/ES zoning coming"* line keys on that same scalar — **false for an
+  AMB-Refós construction**; (c) the pack's `ordinanceRef` still said *"vintage UNCERTIFIED (L-449
+  gate)"* — **stale since the founder signed SIG-3 on 2026-08-01**. ⭐ The empty `clau=` in the log is
+  **not** a downgrade trigger: the OV layer's `CLAU` attribute is genuinely empty while `CLAU_URB='18'`
+  is populated — display-only. Now **`block-constructed`**, the ladder's own definition ("real inputs +
+  accepted rule + constructed geometry — not an official certificate"), **stamped by the engine** off a
+  new derivation row, and **only when the Art. 327.2 conversion is table-exact**; extrapolated stays
+  `estimated-ruleset`. Madrid NZ-1 and NL are **byte-identical** (regression-tested). Authorisation
+  recorded as **SIG-5** quoting the founder verbatim; reversal is one line.
+- **L-1661 `§MUC-AMB-DISAMBIGUATION` — ⭐ THE HEADLINE FINDING.** RB POBLENOU 10 is **clau 18**, and the
+  **same OV polygon** (OBJECTID 26824, `PLANTES='B+4'`, expedient 1992/002796) covers **both** parcels.
+  **Not 22@, not a data gap, not an outage.** The Generalitat WMS serialises GetFeatureInfo geometry to
+  **~4 decimals (≈10 m)**. At this parcel's centroid the rounded Rambla del Poblenou road MultiPolygon
+  **bleeds over the parcel**, so both clau 18 and SX1 "contain" the point → the one-container-or-refuse
+  rule refused → the card said *"Temporarily unavailable"*, **the wrong sentence: the zone WAS returned,
+  twice.** ⭐ **The neighbour resolved only because the rounding fell the other way.** Fixed by
+  tie-breaking against the full-precision AMB plane, accepted **only as corroboration of one of the
+  MUC's own candidates**, fail-closed five ways. Raw endpoint bodies saved in-repo so the finding is
+  reproducible.
+- **L-1662 the demo fallback — VOID.** The founder authorised adopting the neighbour's height; it is not
+  needed. The parcel carries **its own** real determination from the same published ordering.
+- **L-1663 `§CTX-HEIGHT-ADOPTION`** — the wireframe neighbours. The baked tiles carry no height for
+  block 36345, so both extruded at the fabricated 9 m default (L-647 ghost treatment). **Real data
+  exists:** Catastro INSPIRE BU parts give **6 floors above ground on both parcels**. Adopted as
+  **`derived-levels`** (real storeys × 3.2 m) with a citable source; **never overrides tagged/measured
+  tile data**. Marked **§DEMO-PATCH** — the general fix is the existing Catastro join in the context
+  bake plus a Barcelona re-bake and R2 publish (founder-gated), TODO recorded.
+
+**Open:** if disambiguation itself fails, the card still says *"Temporarily unavailable"* — the
+provider-level **outage-vs-empty** split remains the known TODO in `zoneRefusal.ts`.
+
+---
+
+## L-1670 — ✅ FIXED: "Set the interior finish on 59 of 59 walls" — and THE REBUILD NEVER RAN — 2026-08-21 (lane FIN1, commits `5cdee427`, `01ac6078`)
+
+Founder: *"Why did 'Make all interior finish wall white paint' not work?"* — chat replied
+*"Set the interior finish Paint · Matte White on 59 of 59 walls. Undo with Ctrl+Z."* and nothing changed
+on screen.
+
+⭐ **THE THREE AXES, SEPARATED** — [[verification-dispatch-rendering-three-milestones]]:
+
+1. **STORE — LIVE, not a dead DTO store.** The command writes `WallData.sideFinishes` on the same
+   `WallStore` the fragment builders read. **This is *not* the ADR-0314 `setMaterial`/`bulkSetVisuals`
+   disease** — the handler's own header says it bridges to the legacy path precisely to avoid the
+   plugin's detached DTO store. No store change was needed.
+2. **RENDER — consumption ALREADY EXISTED; the INVALIDATION KEYS were the defect.** Since L-960 both
+   builder arms consume finishes. Two cache keys in series ignored paint:
+   `_levelWallSig`, the no-progress gate, **hashed only geometry** — so a finish-only edit was
+   *"no progress" by construction* and the entire rebuild **returned at the top**: no classify, no
+   resolve, no build, **no pixels**. Had that passed, `_buildKey` — documented as *"a content key over
+   EVERY input `buildWall` consumes"* — folded **none of them** and would have skipped all 59 as clean.
+   ⭐ **The recorded [[three-invalidation-gates-in-series]] shape**, so the fix is **one shared
+   `composeWallPaintSignature` folded into BOTH in one commit** — not two hand-maintained lists.
+   ⛔ Deliberately **not** folded into the cross-session **geometry** hash: paint changes the material,
+   not the mesh, and folding it would invalidate persisted geometry buffers for a colour change.
+   ⭐ **Why the founder's console showed only 3 meshes touched for a 59-wall change: the wall flush never
+   ran at all.** The slab/lighting lines were unrelated collateral from other subscribers.
+3. **READ-BACK — the store was right, the SENTENCE was not measured.** *"59 of 59"* counted successful
+   **calls**, never records: the child returns `{success:true}` the moment `updateWall()` returns, and
+   that method **drops un-whitelisted fields silently while still succeeding**. ⭐ **So the sentence was
+   true about the store, and structurally incapable of noticing an L-995-class regression — the same
+   words would print over a model nothing had touched.** Now measured: re-read the record, ask the
+   shipped resolver (not a second spelling), and any wall that fails is **not counted and is named as a
+   skip**. C67 rule 12. The undo child is retained regardless, so a partial write stays revertible.
+
+**Scope, disclosed:** interior *slot* only — but on a **single-layer wall both faces are one surface**,
+so the whole body paints. Pre-existing, disclosed in the success sentence; genuine per-face painting
+needs ≥2 layers and is **deferred, not hidden**. **Undo restores the visual** (store, both gates and the
+mesh material all revert — asserted). Textures still deferred; flat catalogue colour only.
+
+⭐ **Proven at the MESH, which is the acceptance bar** — the chain test drives the real command against
+the real store, asserts **both real gate functions** move, then reads the colour the real builder hands
+the renderer. **A store-write assertion would have passed on the broken build.**
+
+---
