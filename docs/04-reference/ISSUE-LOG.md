@@ -36539,3 +36539,46 @@ run. These are **not**:
    also the one claim above where a partial fix could look like a full one.
 4. **That the *"1.8 s blank"* and the *"angular shapes"* are unchanged.** They were not touched
    (L-4517, L-4518). They were also not re-measured.
+
+---
+
+### L-4520 — ⭐ `git add <paths>` DOES NOT SCOPE `git commit`, and it cost a red HEAD
+
+Recorded because it is a **fleet-wide** hazard in this shared working tree, not a defect in any
+subsystem, and because it happened to a lane that was being careful.
+
+**What happened.** ELEV12 staged exactly seven paths (`git add` on each) and ran `git commit -F -`.
+The resulting commit `170312a4` contains **eight** entries — the eighth being
+`R100 apps/editor/src/ui/views/ViewTemplateManagerPanel.ts → VisibilityIntentManagerPanel.ts`, a
+rename belonging to a **different, live lane** that had already staged it and not yet committed.
+
+`git commit` without pathspecs commits **the whole index**, not "what you just added". A sibling
+lane's staged work is in that index. In a single shared working tree — which is how this fleet runs —
+that is not an edge case, it is the default.
+
+**The consequence was not cosmetic.** At the moment of the commit the sibling's rename was applied but
+`ProjectBrowserPanel.ts` still imported the old path, so HEAD carried
+`error TS2307: Cannot find module '../views/ViewTemplateManagerPanel'` — **a red root gate on `main`,
+landed by a lane whose own files were green.** ELEV12's own `tsc` run had passed minutes earlier, on a
+tree that did not yet contain the sibling's rename. A green gate is a measurement of a MOMENT, and in
+a shared tree the moment expires.
+
+**The mitigations, in order of strength:**
+
+1. **`git commit <paths> -F -`** — pathspecs on `commit` bypass the index entirely and commit only
+   those paths. This is the form to use here, and it is what this row exists to propagate.
+2. **`git diff --cached --name-only` immediately before committing** — read the index, do not assume
+   it. One command, and it would have caught this.
+3. **Re-run the root gate AFTER staging, not before** — or accept that the number is stale.
+
+Related, and the reason this is not merely tidiness: [[multi-agent-shared-tree-collisions]] already
+established *"⛔ NEVER `git stash` — the stack is GLOBAL across worktrees"*. This is the same class of
+fact about a **second** global git surface: **the index is shared too.**
+
+**Not repaired by this lane, deliberately.** The dangling import resolved on its own within minutes —
+the sibling lane was mid-rename and wrote the corrected import itself. Editing their file to "fix"
+HEAD would have raced their next write for no gain. Residual at hand-off:
+`apps/editor/src/ui/views/VisibilityIntentManagerPanel.ts:675,689` — two `TS2345` errors
+(`VisibilityIntent` not assignable to `Record<string, unknown>`), **entirely inside that lane's
+in-flight file**, which ELEV12 did not author and does not own. Named so it is not mistaken for
+fallout from L-4500..L-4519.
