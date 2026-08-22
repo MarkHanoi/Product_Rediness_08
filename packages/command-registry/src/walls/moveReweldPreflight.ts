@@ -318,9 +318,19 @@ function _previewMoveReweld(
         if (partnerIds.length === 0) return EMPTY;
 
         // §C83 §10.6 — index the stored discriminator by partner id. Empty when
-        // the caller supplied none (or when the level-scan fallback ran), and
-        // that emptiness IS the pre-§10.6 branch: no entry ⇒ no junctionType ⇒
-        // `isMutualCorner` false ⇒ nothing follows.
+        // the caller supplied none (or when the level-scan fallback ran).
+        //
+        // ⚠ CORRECTED 2026-08-22 (lane WALL8, ISSUE-LOG L-4110). This comment
+        // continued: *"and that emptiness IS the pre-§10.6 branch: no entry ⇒ no
+        // junctionType ⇒ `isMutualCorner` false ⇒ nothing follows."* That has been
+        // FALSE since `55a2eda3` (2026-08-17, founder-directed, C83 §10.6.3 #1
+        // amended in the same commit): with no stored record `isMutualCorner`
+        // MEASURES the degree and follows at 2. MEASURED at the gate 2026-08-22 on
+        // a closed perimeter with joinedTo edges but no discriminator —
+        // `allowed=true, incumbentBreach=false, entries=[w-east:mutual-corner,
+        // w-west:mutual-corner]`. An empty map is therefore "no stored answer",
+        // NOT "no follow"; the L-922 guard is the DEGREE (stored or measured
+        // ≥ 3 never follows), never the emptiness of this map.
         const junctionById = new Map<string, { junctionType?: 'L' | 'T' | 'Y' | 'X' | 'N-WAY'; junctionDegree?: number }>();
         if (input.junctions && input.joinedWallIds && input.joinedWallIds.length > 0) {
             for (const j of input.junctions) junctionById.set(j.wallId, j);

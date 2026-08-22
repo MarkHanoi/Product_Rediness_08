@@ -364,11 +364,26 @@ export class WallMoveReweldService {
         //
         // ⚠ Populated ONLY on the `joinedTo-graph` arm. The level-scan fallback
         // resolved its partners geometrically and the graph refused to answer
-        // for this wall, so there is no junction record to read — and §10.6.3 #1
-        // is explicit that absent metadata must take the pre-§10.6 branch
-        // byte-identically. Leaving this map empty is how that is enforced: a
-        // partner with no entry gets no `junctionType`, and `isMutualCorner`
-        // reads false. Do not "helpfully" re-derive it here.
+        // for this wall, so there is no junction record to read.
+        //
+        // ⚠⚠ CORRECTED 2026-08-22 (lane WALL8, ISSUE-LOG L-4110/L-4111). This
+        // comment continued: *"and §10.6.3 #1 is explicit that absent metadata
+        // must take the pre-§10.6 branch byte-identically. Leaving this map empty
+        // is how that is enforced: a partner with no entry gets no
+        // `junctionType`, and `isMutualCorner` reads false."* **That has been
+        // FALSE since `55a2eda3`** (2026-08-17, founder-directed): with no stored
+        // record `isMutualCorner` MEASURES the degree and follows at 2. An empty
+        // map enforces nothing any more.
+        //
+        // ⛔ AND THIS ARM IS THE ONE WHERE THAT MATTERS MOST — L-4111, OPEN, not
+        // changed here. On the graph arm the partner set is the graph's own
+        // answer, so a measured degree of 2 confirms a join the graph already
+        // asserted. On THIS arm the partner set is EVERY WALL ON THE LEVEL and
+        // the graph asserted nothing, so the measured degree is the only thing
+        // between a move and a follow on a wall nobody ever said was joined.
+        // Narrowing that is a C83 §10.6.3 question for the founder, not a lane's
+        // to decide, and widening it is worse. Do not "helpfully" re-derive the
+        // junction TYPE here either way — §10.6.3 #2 is unchanged.
         const junctionById = new Map<string, { junctionType?: 'L' | 'T' | 'Y' | 'X' | 'N-WAY'; junctionDegree?: number }>();
         if (q.ok && q.junctions) {
             for (const j of q.junctions) junctionById.set(j.wallId, j);

@@ -34221,3 +34221,310 @@ clears the ANALYSIS title; that no `+ Grid` pill appears inside a panel; that th
 now reads as occupied; and that hiding the empty total bar removed the strip he saw rather than
 merely a strip.
 
+
+---
+
+## Lane WALL8 — 2026-08-22 — "I moved a wall and the scene got compromised" (L-4100 … L-4115)
+
+> **Allocated L-4100–L-4140; L-4116–L-4140 unused.**
+
+### L-4100 — ⛔ FIXED (root cause): the RING-BUFFER leg of the undo ran with `isReverting() === false`, so **every Ctrl+Z minted a fresh forward cascade**
+
+**Founder, 2026-08-21:** *"I moved the walls — the BIM 3.0 process worked and moved the slab and
+adjacent walls too. But then I used the new undo dropdown, clicked **two steps back**, and the
+adjacent walls did NOT move."*
+
+**The forward cascade was never the defect. The undo was.**
+
+`CommandManagerImpl._reverting` — the L-874 latch that tells `WallMoveReweldService` and
+`SlabWallConnectivityService` *"the write you are watching is a REPLAY, not a gesture"* — is
+incremented **only inside `CommandManager.undo()` / `redo()`**
+(`packages/command-registry/src/CommandManagerImpl.ts:868`). `performUndo()` is **RING-BUFFER
+FIRST** (`apps/editor/src/engine/undo/performUndoRedo.ts`), and that leg never enters those
+methods. A ring-buffer inverse patch reaches the store as a plain
+`store.update(id, { baseLine })` — the field branch of
+`apps/editor/src/engine/undo/elementUndoStoreAdapter.ts` — which is **byte-indistinguishable from a
+user drag** to every subscriber. Both services gate on exactly that flag, so both read the UNDO as a
+MOVE and dispatched a **new forward cascade**: history entries minted *while the undo was still
+running*, and the redo stack wiped.
+
+**L-874 fixed this — for one of the two legs.** The ring-buffer leg is the one it never covered, and
+it is the one tried first.
+
+**FIX:** `CommandManager.beginExternalRevert()` / `endExternalRevert()` — the same depth-counted
+`_reverting` counter, raised by `performUndoRedo._withPausedObservers`, which already wraps exactly
+and only `applyRingBufferSide`, on **both** directions. Best-effort (an absent method skips it and
+never blocks the undo), floors at 0, unwound in a `finally`. **A latch stuck RAISED would silence
+every structural cascade for the rest of the session — a worse defect than the one closed — so that
+is pinned by its own arm.**
+
+Commit `723a7dcf`.
+
+### L-4101 — ⭐ the history-dropdown jump is the **AMPLIFIER**, not a second bug
+
+`undoThrough(rowIndex)` (`apps/editor/src/engine/undo/undoHistoryTimeline.ts:469`) is
+`rowIndex + 1` **sequential `performUndo()` calls** — correct by construction, and that is precisely
+what makes L-4100 catastrophic rather than merely wrong:
+
+* **step 1** (ring buffer) reverts the subject **and mints a fresh cascade** onto the cm stack;
+* **step 2** then undoes **that** cascade — whose captured "before" is the partner's **DISPLACED**
+  pose — putting the partners back where the move had left them;
+* the **original** gesture entry is never reached at all.
+
+Both steps report success, so the HUD prints `requested 2, completed 2` and is not lying about
+anything it can see. **The undo stack GROWS while it is being consumed**, and no step count computed
+before the jump can survive that.
+
+### L-4102 — every line of the founder's console is now accounted for (nothing left unexplained)
+
+| his line | what it actually was |
+|---|---|
+| `[Undo] ring-buffer applied — ids: …59B  shadow-dropped cm entries: 0` | correct and expected: a MOVE does not remove the wall, so `dropEntriesForTargets` (which drops only entries whose targets are **all gone**) can never retire the twin. Independently measured as **WA-1 B**. |
+| `[CommandManager] UNDO: CASCADE_WALL_BASELINE (history remaining: 1)` | ⭐ **that is the cascade step 1 had just minted.** The `remaining: 1` is the ORIGINAL gesture entry, still standing, never reverted. |
+| the SECOND forward `EXECUTE: CASCADE_WALL_BASELINE`, window offsets reversed `4.544 → 2.578`, `2 baseline re-seat(s)`, **`NO subject entry`** | the treadmill cascade itself. It re-welded the partners toward the *just-restored* subject, which is why the offsets run backwards; and it needed **no subject entry** because the subject was already exactly where it had to be. |
+| `[SaveUndoRedoHUD] undo jump — requested 2, completed 2` | true, and useless: both steps did succeed — at doing this. |
+
+**`ENTRY EMITTED` vs `NO SUBJECT ENTRY`** — the coordinator's named discriminator — is
+`summariseSubjectSeat` (`packages/geometry-wall/src/WallMoveReweldService.ts:279`) reporting whether
+the **subject's own** corners needed re-seating. It is a **symptom marker of the treadmill, not a
+cause**: the forward gesture re-seats the subject (`entry emitted`, 3 re-seats), the undo-triggered
+cascade does not (`NO subject entry`, 2 re-seats).
+
+### L-4103 — the two hypotheses the log supported were **BOTH REFUTED**, and the refutations are the useful part
+
+The coordinator named two and said they had opposite fixes. Neither is it:
+
+* **"the cascade undo RECOMPUTES against an already-reverted subject"** — **REFUTED by reading the
+  code.** `CascadeWallBaselineCommand.undo()`
+  (`packages/command-registry/src/walls/CascadeWallBaselineCommand.ts`) calls
+  `wallStore.restoreSnapshot(snap)` on full `WallData` snapshots captured in `execute()` **Phase 1,
+  before any mutation**. It restores; it does not recompute. Ordering cannot corrupt it.
+* **"the store was restored and the partner MESHES were never rebuilt"** — **REFUTED by
+  measurement.** The regression test reads the partner's `baseLine` **back out of the store** after
+  the two steps. Before the fix it read `[0.1,3] → [9.9,3]` — **displaced**. No rebuild could have
+  saved that. It is the store, not the render.
+
+**A third mechanism, which neither hypothesis contains:** a *new* cascade minted mid-jump, whose own
+undo is faithful to a "before" that is already wrong.
+
+### L-4104 — the defect had **already been measured** and nothing acted on the measurement
+
+`packages/command-registry/__tests__/WA1MoveTransactionAtomicity.measure.test.ts` (L-1110) is a
+`.measure.` file: it **prints** the break and asserts nothing about fixing it. Re-run 2026-08-22,
+**6/6 green while documenting the bug**:
+
+```
+[WA-1 C] isReverting() during a ring-buffer undo = false;
+         cm history: 1 -> 3 (+2 entry/entries minted BY the undo write); canRedo = false
+[WA-1 D] pose after Ctrl+Z #1 === pre-move pose ? true
+[WA-1 D] pose after Ctrl+Z #2 === pre-move pose ? false
+[WA-1 D] after #2 : [… ["ip",[0.1,3],[9.9,3]]]      ← the partner, RE-DISPLACED
+```
+
+⭐ **A green `.measure.` suite is not evidence of health.** This one named the founder's 2026-08-21
+report a week early, in the words he would use, and its greenness is what made it invisible. The new
+file `ringBufferUndoRevertLatch.test.ts` converts each of those readings into an **assertion** —
+ARM 1 pins the defect *unlatched*, so it cannot go green by the fixture drifting away from the bug.
+
+### L-4105 — a second, independent consequence of the same root: **Ctrl+Z then Ctrl+Y could not restore the move**
+
+`CommandManagerImpl` clears `redoStack` on every non-cascade history push. The cascade minted by the
+undo write is **top-level** (no enclosing `execute()`), so it took that branch and **wiped redo**.
+Measured `canRedo = false` immediately after a ring-buffer undo. The latch closes this too, and
+ARM 2 pins it.
+
+### L-4106 — 🟡 OPEN: `_cmEntryIsNewer` breaks a **timestamp tie in favour of the ring buffer**
+
+`performUndoRedo.ts:181` — `if (typeof cmTime !== 'number' || cmTime <= pairTime) return false;`.
+A move and its cascade are stamped in the same drag-end tick and `Date.now()` is millisecond-
+resolution, so `cmTime === pairTime` is reachable and routes the **older** entry first.
+**NOT CHANGED HERE**: with L-4100 fixed the observed corruption no longer depends on it, and
+flipping a tie-break inside the cross-stack ordering rule without a fixture that produces the tie is
+how L-690/L-691 were caused. Wants its own lane and a deterministic clock in the harness.
+
+### L-4107 — ⚠ the `§L-942-UNBLOCK` incumbent report is **console-only**, and it is the one report that matters
+
+`wallPlacementGate.ts` speaks to the user (`chatSay`) for `§L-1571-UNREPAIRED-JUNCTION` and for
+`§L-990` pre-existing crossings — but the **permitted incumbent breach**, the arm that actually
+re-baselines somebody else's wall, is a bare `console.warn`. The gate's own header opens with the
+rule this violates: *"a rule that computes a perfect verdict and speaks only to `console.warn` has
+not shipped."* `b9f9d3b2`'s bargain was *"let it through **AND TELL THEM**"*; half of it is on a
+surface no user reads. **NOT CHANGED HERE** — it is a user-facing message change on the gate lane
+SHELL7 is adjacent to, and the founder's actual report turned out to be the undo, not the gate.
+
+### L-4108 — ⛔ the brief's diagnosis of the red test was WRONG, and the correction matters
+
+The lane brief stated the failure was `expect(res.blocked).toBe(false)` at **line 369** — *"the gate
+IS blocking"*. **Measured:** `npx vitest run apps/editor/src/engine/__tests__/wallMoveGateMutualCorner.spec.ts`
+→ **1 failed | 2 passed**, and the failing assertion is at **line 403**:
+
+```
+AssertionError: expected true to be false
+ ❯ apps/editor/src/engine/__tests__/wallMoveGateMutualCorner.spec.ts:403:33
+   403|     expect(call.result.allowed).toBe(false);
+```
+
+`res.blocked` is **`false`** and that assertion **passes**. ⭐ **The gate does not block the founder's
+gesture at all** — not on the policy arm, not on the absent-discriminator arm. The failing fact is
+the opposite one: the pre-flight **ALLOWS** and **follows**. Every "the gate is refusing him" reading
+downstream of the brief is void.
+
+### L-4109 — the founder's ORIGINAL question, answered: is the move silently half-applying?
+
+**No, and the console line that would have settled it in one look is named here so it can be asked
+for next time.** For an allowed move the gate emits **nothing at all** — no warn, no `chatSay` — so
+"it worked" and "it followed two neighbours you did not select" print identically. The line that
+discriminates is the service's own, which his log did contain:
+
+```
+[WallMoveReweldService] §MOVE-REWELD-DISPATCH: moved wall <id> → N partner(s) via <source>
+   → M baseline re-seat(s) [ids…], R junction(s) refused, K not-applicable | subject: … | partners accounted N/N
+```
+
+**`via joinedTo-graph` vs `via level-scan (graph refused: …)` is the single most valuable token in
+it**, and `M baseline re-seat(s) [ids]` names exactly which walls moved that he did not touch.
+
+### L-4110 — ⛔ FIXED (contract): **C83 §10.6.3 and §10.6.5 carried OPPOSITE answers to the same question for five days**
+
+`55a2eda3` (2026-08-17 **11:53**, founder-directed) amended §10.6.3 #1 from *"absent metadata ⇒ DO
+NOT FOLLOW"* to **"absent record ⇒ MEASURE the degree"**, and shipped `measureJunctionDegree` in
+`packages/geometry-wall/src/WallMoveReweld.ts`. It did **not** update **§10.6.5**, whose third
+mandatory-test bullet still read *"an absent-metadata case takes the pre-§10.6 branch
+byte-identically."* A section that contradicts itself cannot be cited by either side.
+
+**Four artefacts were left asserting the superseded rule**, all corrected in place (comments and
+contract text only — **zero non-comment lines changed**, verified by
+`git diff -U0 … | grep -vE '^[+-]\s*(\*|//|/\*\*|\*/)'` printing nothing):
+
+* `C83 §10.6.5` bullet 3 — corrected, with the measurement and the surviving §10.6.3 #2 restated;
+* `WallMoveReweld.ts` `MoveReweldPartner.junctionType` doc — said **ABSENT ⇒ DO NOT FOLLOW**,
+  **70 lines above the code that measures and follows**;
+* `moveReweldPreflight.ts` — *"that emptiness IS the pre-§10.6 branch … nothing follows"*;
+* `WallMoveReweldService.ts` — *"leaving this map empty is how that is enforced"*.
+
+### L-4111 — 🟡 OPEN (founder): the amendment's safety argument is **not established for the LEVEL-SCAN arm**
+
+`55a2eda3`'s argument is *"[the measurement] cannot disagree with a stored record because it never
+runs when one exists."* That holds on the **`joinedTo`-graph** arm, where the partner set is the
+graph's own answer and a measured degree of 2 merely confirms a join the graph asserted.
+
+It is **not** established on the **level-scan fallback**
+(`WallMoveReweldService.onWallUpdated`, taken whenever the graph **refuses** to answer), where the
+partner set is **every wall on the level** and the graph asserted nothing. There, the measured
+degree is the *only* thing between a move and a follow on a wall nobody ever recorded as joined —
+and that arm's own comment still claimed the follow was impossible.
+
+**Not changed by this lane** (narrowing it is a §10.6.3 question for the founder; widening it is
+worse). The comment is corrected so the next reader is not misled about which arm they are in.
+
+### L-4112 — 🟡 OPEN (founder decision, C83 §10.6.3): **the question the red test calls open was CLOSED on 2026-08-17**
+
+*Presented, not decided. Both branches, with their cost.*
+
+**(a) ABSENT ⇒ MEASURE-AND-FOLLOW — what ships today, and what the founder directed.** The degree is
+counted from the geometry (`measureJunctionDegree`) whenever no discriminator is stored, and a
+2-wall corner follows exactly as a stored `junctionDegree: 2` would. **Cost:** production `joinedTo`
+edges frequently carry no metadata, so this is the *normal* path, not an edge case — every unflushed
+project moves walls under a measured rule rather than a recorded one. The **L-922 guard is unchanged
+and was re-measured**: degree ≥ 3 never follows, stored or measured. **Benefit:** it is the only
+thing that makes the founder's own report go away — *"only when the wall surpasses the vertex it
+corrupts"*: dragging a perimeter wall PAST a neighbour's far end requires that neighbour to lengthen,
+which the pre-amendment rule refused on every gesture, on a perimeter that had no stored
+discriminator to appeal to.
+
+**(b) ABSENT ⇒ REFUSE (revert `55a2eda3`).** A missing discriminator is *"I could not determine"* and
+never *"L"* (C70 L-INV-1), so no follow is authorised without a stored record. **Cost:** the founder's
+build returns to a state where **a perimeter cannot close its corner outward at all**, on the single
+most common gesture in a BIM tool, until whatever writes `joinedTo` metadata has flushed over the
+level — which is *not* merely the first few seconds of a session, it is any session where that writer
+never ran. **Benefit:** absence is never read as permission anywhere on the path, which is the
+invariant the whole `§CONTEXT-DATA-HONESTY` family exists to protect, and the one thing (a)
+genuinely spends.
+
+**MEASURED 2026-08-22 at the gate**, so the choice is made against numbers rather than prose. ARM 3's
+fixture (closed 6×4 perimeter, `joinedTo` edges present, **no** `junctionType`, **no**
+`junctionDegree`), read off the real `previewMoveReweld` return:
+
+```
+allowed = true · incumbentBreach = false · reason = undefined
+entries = [{ w-east: 'mutual-corner' }, { w-west: 'mutual-corner' }]
+```
+
+and, in the same run, the **byte-identical** fixture with `T`/degree-3:
+
+```
+allowed = false · incumbentBreach = true · reason = 'INCUMBENT_EXTENSION_REQUIRED' · entries = []
+```
+
+### L-4113 — ⭐ **the red test's EXPECTATION is what is wrong, not the production behaviour** — and it is left RED on purpose
+
+Answering the brief's third question directly. `wallMoveGateMutualCorner.spec.ts` ARM 3 is a
+**faithful implementation of C83 §10.6.5 bullet 3** — the clause `55a2eda3` forgot to amend
+(L-4110). Its three failing assertions measure a rule the founder replaced; the L-922 control in the
+same file still passes, so nothing regressed.
+
+Its own header says the disagreement is *"the open §10.6.3 #1-vs-#2 question … a C83 amendment for
+the founder, not something to settle by editing a test."* **It was not open.** The re-scope was
+written against `b9f9d3b2` (11:34) and missed `55a2eda3` (11:53) — **nineteen minutes**, one commit,
+the same one-commit blindness it was itself correcting one arm above.
+
+**NOT GREENED.** Re-scoping a founder control is a founder decision — `b9f9d3b2`'s own note says
+so — and the brief forbade it. What the lane did instead: recorded the correction *in the arm*, with
+the measured values and the two ways to close it (confirm ⇒ re-scope the three lines and keep the
+rest; reverse ⇒ revert `55a2eda3` and accept the report it was made for).
+
+### L-4114 — `§FINISH-FOLLOW-LATE-ATTRIBUTION` is **NOT implicated** in this report
+
+Named in the brief as a possible contributor. It fires because a floor finish *"carried NO recorded
+host reference"* and is attributed at move time against the pre-move centreline — a **creation-path**
+gap in the finish, on the **forward** leg. The founder's defect is on the **undo** leg and its
+subject is wall **baselines in the wall store**, which the regression test reads directly.
+**Refuted as a cause here**, and recorded rather than deleted.
+
+### L-4115 — TEST COUNTS, BEFORE AND AFTER, MEASURED THE SAME WAY
+
+* `npx vitest run --root packages/command-registry __tests__/ringBufferUndoRevertLatch.test.ts`
+  → **NEW file, 6/6 green** (ARM 1 defect-pin · ARM 2 fix · ARM 3 founder-level pose · ARM 4 latch).
+* `npx vitest run --root apps/editor __tests__/performUndoRedo.test.ts` → **24/24 green**
+  (**20 pre-existing, unchanged** + 4 new §L-4101 arms). This is the
+  `committed ≠ reachable` half: the store-layer file proves the latch *works*, these prove
+  `performUndo`/`performRedo` actually *raise* it, **at the instant the patch hits the store** — a
+  latch raised after the write is no latch at all.
+* `npx vitest run --root packages/command-registry __tests__/WA1MoveTransactionAtomicity.measure.test.ts`
+  → **6/6**, before and after. Deliberately unchanged: it is the pre-fix measurement of record.
+* `npx vitest run --root packages/geometry-wall` → **1069 passed / 1 failed** (107 files).
+  The single red is `WJ1MovePropagateRecompute.measure.test.ts › ⭐ THE NON-VACUITY GUARD`
+  (*"plain VERTICAL (control): the un-propagated move leaves a gap: expected 0 to be greater than
+  0.1"*). **PRE-EXISTING and provably not this lane's**: the lane's entire diff under
+  `packages/geometry-wall/src` is **zero non-comment lines** — verified with
+  `git diff -U0 -- packages/geometry-wall | grep -E '^[+-]' | grep -vE '^[+-]\s*(\*|//|/\*\*|\*/)'`,
+  which printed nothing. TypeScript comments cannot change runtime behaviour.
+* `apps/editor/src/engine/__tests__/wallMoveGateMutualCorner.spec.ts` → **1 failed | 2 passed**,
+  before and after, at line **403** (L-4108). Left red on purpose (L-4113).
+* **Root gate:** `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=0**,
+  run before every commit.
+
+⚠ **ON THE BRIEF'S "53 red across 21 files" BASELINE:** the lane did **not** reproduce or inherit
+that number. It was measured by another lane with a different command against
+`apps/editor/vitest.config.ts`, whose `include` is `['__tests__/**/*.test.ts','src/**/*.test.ts']` —
+which **does not claim** `apps/editor/src/engine/__tests__/**/*.spec.ts` at all (the ROOT
+`vitest.config.ts` does). **Two configs, two denominators**; quoting one against the other is the
+L-812 shape. Every figure above names the exact command that produced it.
+
+### NOT VERIFIED WITHOUT A BROWSER — stated in full
+
+Everything below is reasoned from source or proven at the store layer, and **none of it was seen on
+screen**:
+
+* that the founder's two-step jump now leaves the adjacent walls back where they started **on his
+  model** (proven on an 8×6 shell + mid-span interior, through the real services and the real
+  commands, reading baselines out of the store — *not* through the live ring buffer, which is an
+  `apps/editor` construct the store-layer harness cannot instantiate; the raising of the latch is
+  proven separately in `apps/editor/__tests__/performUndoRedo.test.ts`);
+* that the partner **meshes** repaint after the corrected undo (this lane established the STORE is
+  now right; a rebuild-dispatch defect on top would look identical and is not excluded);
+* that no *other* consumer relied on `isReverting()` reading false during a ring-buffer apply
+  (grepped: `WallMoveReweldService`, `SlabWallConnectivityService`, `FinishHostDependencyTracker` —
+  all three want it TRUE during a replay; none is made worse);
+* anything about the 3D gizmo drag-end path beyond that it funnels through the same `gateWallMove`
+  (`registerTransformDragHandler.ts:192`) as the plan drag (`MovePlanToolHandler.ts:485`).

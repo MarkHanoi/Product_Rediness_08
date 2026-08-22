@@ -104,13 +104,35 @@ export interface MoveReweldPartner {
      * picture (which is exactly why `classifyWeldAuthorship` folds them into one
      * verdict).
      *
-     * **ABSENT ⇒ DO NOT FOLLOW** (§10.6.3 #1). The level-scan fallback resolves
-     * partners geometrically and carries no junction metadata; in that state the
-     * engine must behave byte-identically to its pre-§10.6 self. A missing
-     * discriminator is *"I could not determine"*, never *"L"* (C70 L-INV-1).
+     * ⚠ **CORRECTED 2026-08-22 (lane WALL8, ISSUE-LOG L-4110) — THIS PARAGRAPH
+     * DESCRIBED BEHAVIOUR THE CODE 70 LINES BELOW NO LONGER HAS.** It read:
+     *
+     * > *"**ABSENT ⇒ DO NOT FOLLOW** (§10.6.3 #1). The level-scan fallback
+     * > resolves partners geometrically and carries no junction metadata; in that
+     * > state the engine must behave byte-identically to its pre-§10.6 self. A
+     * > missing discriminator is «I could not determine», never «L» (C70
+     * > L-INV-1)."*
+     *
+     * `55a2eda3` (2026-08-17, founder-directed, C83 §10.6.3 #1 AMENDED in the
+     * same commit) replaced that with **ABSENT ⇒ MEASURE**: see `isMutualCorner`
+     * below, which falls through to `measureJunctionDegree` when no record
+     * exists. The founder's report is the reason — *"only when the wall surpasses
+     * the vertex it corrupts"*: production `joinedTo` edges frequently carry no
+     * metadata, so a perimeter dragged PAST a neighbour's far end could not close
+     * its corner on any gesture.
+     *
+     * **ABSENT ⇒ MEASURE the degree** (§10.6.3 #1 as amended). Present ⇒ the
+     * stored record wins and the measurement never runs. C70 L-INV-1 is not
+     * weakened: the amendment removes the NEED to say *"I could not determine"*
+     * by measuring the thing that was missing, rather than guessing it. §10.6.3
+     * #2 stands unchanged — the MUTUAL-vs-TERMINATING distinction may still never
+     * be re-derived from geometry, and degree is a participant COUNT, not a
+     * category read off a shape.
      */
     junctionType?: 'L' | 'T' | 'Y' | 'X' | 'N-WAY';
-    /** §10.6 condition 1's second half. Absent ⇒ do not follow. See above. */
+    /** §10.6 condition 1's second half, and the ONLY half `isMutualCorner` keys
+     *  on (the letter is redundant with it — `55a2eda3`). Absent ⇒ MEASURED, not
+     *  refused; see the corrected note above. */
     junctionDegree?: number;
 }
 

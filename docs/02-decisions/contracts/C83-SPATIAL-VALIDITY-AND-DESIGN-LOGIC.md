@@ -1316,7 +1316,48 @@ Every fix claiming §10.6 asserts, at the **STORED** layer:
   mutual `L`/degree-2 pair; **and**
 - a `T`/degree-3 interior↔perimeter pair in the **same** fixture is **byte-identical** before and
   after — the L-922 control, which must be present or the L-922 regression is unguarded; **and**
-- an absent-metadata case takes the pre-§10.6 branch byte-identically.
+- an absent-metadata case is resolved by **MEASURING the degree** (§10.6.3 #1 as amended
+  2026-08-17), and follows on a measured degree of 2 exactly as a stored `junctionDegree: 2`
+  would — the stored and measured arms must not be assertable apart.
+
+  > ⚠ **CORRECTED 2026-08-22 (lane WALL8, ISSUE-LOG L-4110). This bullet read
+  > *"an absent-metadata case takes the pre-§10.6 branch byte-identically"* — the rule
+  > **§10.6.3 #1 superseded in the same commit that amended it** (`55a2eda3`, 2026-08-17
+  > 11:53, founder-directed). §10.6.3 and §10.6.5 therefore carried OPPOSITE ANSWERS to the
+  > same question for five days, and a section that contradicts itself cannot be cited by
+  > either side.**
+  >
+  > This was not a harmless staleness. `apps/editor/src/engine/__tests__/wallMoveGateMutualCorner.spec.ts`
+  > ARM 3 implements the OLD bullet faithfully and has been **RED ever since**, and its own
+  > header instructs the reader that the disagreement is *"the open §10.6.3 #1-vs-#2 question
+  > … a C83 amendment for the founder, not something to settle by editing a test."* **It was
+  > not open.** The founder had answered it 19 minutes after the decision that arm HAD been
+  > re-scoped to (`b9f9d3b2`, 11:34), and the re-scope missed it by one commit. Correcting
+  > this bullet decides nothing new — it propagates the founder's own ratified amendment to
+  > the clause the amendment did not reach.
+  >
+  > **MEASURED 2026-08-22 at the gate**, ARM 3's fixture (closed 6×4 perimeter, `joinedTo`
+  > edges present, NO `junctionType` and NO `junctionDegree` on any edge), read off
+  > `previewMoveReweld`'s real return value:
+  > `allowed=true · incumbentBreach=false · reason=undefined ·
+  > entries=[{w-east:mutual-corner},{w-west:mutual-corner}]`.
+  > The **L-922 guard is intact and was re-measured in the same run**: the byte-identical
+  > fixture with `T`/degree-3 still gives
+  > `allowed=false · incumbentBreach=true · reason=INCUMBENT_EXTENSION_REQUIRED · entries=[]`.
+  >
+  > **§10.6.3 #2 is untouched by this correction** and still forbids re-deriving the
+  > MUTUAL-vs-TERMINATING distinction from geometry. Degree is a count of participants, not
+  > a category read off a shape.
+  >
+  > ⛔ **WHAT REMAINS GENUINELY OPEN, and is NOT settled here** — see ISSUE-LOG L-4111. The
+  > amendment's safety argument ("it cannot disagree with a stored record because it never
+  > runs when one exists") holds for the `joinedTo`-graph arm, where the partner set is the
+  > graph's answer. It is **not established for the LEVEL-SCAN fallback**
+  > (`WallMoveReweldService.onWallUpdated`, taken whenever the graph REFUSES to answer),
+  > where the partner set is *every wall on the level* and the measured degree is the only
+  > thing standing between a move and a follow on a wall the graph never named as joined.
+  > That arm's own comment still asserts the pre-amendment rule and is therefore describing
+  > behaviour the code no longer has.
 
 #### §10.6.6 — Residency and status
 

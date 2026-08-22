@@ -387,6 +387,51 @@ describe('§C83-10.6.3 #1 at the GATE — absent discriminator does NOT follow',
     // below now fail, that is NOT this decision: it is the open §10.6.3 #1-vs-#2
     // question (does an absent discriminator get MEASURED and followed?), which is
     // a C83 amendment for the founder, not something to settle by editing a test.
+    //
+    // ══════════════════════════════════════════════════════════════════════════
+    // ⚠⚠ THE PARAGRAPH ABOVE IS WRONG, AND IS KEPT VERBATIM BECAUSE **HOW** IT IS
+    //    WRONG IS THE FINDING (lane WALL8, 2026-08-22 · ISSUE-LOG L-4110).
+    // ══════════════════════════════════════════════════════════════════════════
+    // *"the OPEN §10.6.3 #1-vs-#2 question … a C83 amendment for the founder"* —
+    // **it was not open.** The founder answered it in `55a2eda3`, 2026-08-17
+    // **11:53**, quoting his own report in the commit body and amending C83
+    // §10.6.3 #1 in the same commit: **ABSENT ⇒ MEASURE the degree, and follow at
+    // 2.** The re-scope note above was written against `b9f9d3b2` (11:34) and
+    // missed the decision that landed **nineteen minutes later** — the SAME
+    // one-commit blindness it was itself correcting one arm up, one commit apart.
+    //
+    // ⭐ WHY THIS ARM IS STILL RED AND IS DELIBERATELY NOT GREENED HERE. Three
+    // assertions below implement the SUPERSEDED rule. Re-scoping a founder control
+    // is a founder decision — `b9f9d3b2`'s own note says so — and this lane will
+    // not make it by editing the file, which is exactly what the ARM 2 note above
+    // forbids. What the lane CAN do is remove the excuse for leaving it red: the
+    // question is closed, the contract now says so in ONE voice (C83 §10.6.5's
+    // third bullet said the opposite of §10.6.3 for five days — corrected in
+    // place), and the values are measured rather than guessed.
+    //
+    // MEASURED 2026-08-22 on THIS fixture, off the real `previewMoveReweld`
+    // return, with these three assertions temporarily removed so the run reached
+    // the end:
+    //   allowed = true · incumbentBreach = false · reason = undefined
+    //   entries = [{ w-east: 'mutual-corner' }, { w-west: 'mutual-corner' }]
+    // and, in the SAME run, the byte-identical T/degree-3 fixture (ARM 2):
+    //   allowed = false · incumbentBreach = true ·
+    //   reason = 'INCUMBENT_EXTENSION_REQUIRED' · entries = []
+    // ⇒ **the L-922 guard is intact.** The three lines below are measuring a rule
+    // the founder replaced, not a regression.
+    //
+    // TO CLOSE THIS ARM (founder's call, both ways stated plainly):
+    //  · CONFIRM the amendment ⇒ re-scope the three lines to `allowed=true`,
+    //    `incumbentBreach=false`, and roles `mutual-corner` — and KEEP every other
+    //    assertion, because "the partners resolved from the graph" and "no
+    //    junctionType/Degree was stamped" are still the things that make this a
+    //    control rather than a copy of ARM 1.
+    //  · REVERSE it ⇒ revert `55a2eda3`, and accept the report it was made for:
+    //    a perimeter wall dragged PAST a neighbour's far end cannot close its
+    //    corner on any gesture, because production `joinedTo` edges frequently
+    //    carry no discriminator at all.
+    // ⛔ There is no third option in which this file is edited to green without
+    // one of those two happening first.
     expect(res.blocked).toBe(false);
     expect(res.skipped).toBeUndefined();
     expect(res.verdict?.valid).toBe(true);
