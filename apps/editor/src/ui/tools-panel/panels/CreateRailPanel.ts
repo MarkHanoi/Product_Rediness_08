@@ -38,6 +38,10 @@ import * as PryzmIcons from '../../icons/PryzmIcons';
 import { FurnitureSidePanel } from '../../furniture-carousel/FurnitureSidePanel';
 import { buildLightingPanel } from './CreateRailPanelLighting';
 import { shortcutForTool, formatTooltip } from './creationToolShortcuts';
+// §AUTHORING-CONTEXT-GATE (L-5102) — the second live element-creation shortcut
+// layer reads the SAME predicate as the first. Before this it gated on
+// `getLevels().length > 0`, which answers a different question (see below).
+import { refuseElementAuthoring } from '../../layout/elementAuthoringContext';
 // LANDSCAPE-CATALOGUE (L-1380) - one derived source, both create surfaces.
 import { buildTreeCreateItems, buildPottedPlantCreateItems } from '../../create/landscapeCreateItems';
 
@@ -181,6 +185,22 @@ export class CreateRailPanel {
     }
 
     private _tryFireShortcut(e: KeyboardEvent): void {
+        // §AUTHORING-CONTEXT-GATE (L-5102) — ⭐ the same predicate the two-letter
+        // layer asks. It is deliberately asked BESIDE the level check, not
+        // instead of it: they are two different propositions and collapsing them
+        // would lose one.
+        //
+        //   · `elementAuthoringAvailability()` — "is this a context where BIM
+        //     elements can be authored at all?" (no, during guided setup).
+        //   · `getLevels().length > 0` — "does this model have somewhere to put
+        //     one?" A level-less canvas is a real, separate refusal.
+        //
+        // The level check ALONE was the gap: it is a PROXY for "a model exists",
+        // and a proxy that another layer did not copy. That divergence — one
+        // layer gating on levels, one gating on nothing — is exactly what the
+        // founder's 'WA' report surfaced.
+        if (refuseElementAuthoring('CreateRailPanel shortcut')) return;
+
         const hasLevels = this._props.bimManager.getLevels().length > 0;
         if (!hasLevels) return;
 

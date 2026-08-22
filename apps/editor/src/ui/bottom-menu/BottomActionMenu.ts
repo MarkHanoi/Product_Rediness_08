@@ -29,6 +29,10 @@ import {
 // which the environment dimmer below must skip.
 import { FIXTURE_LIGHT_ROLE } from '@pryzm/core-app-model';
 import { relationshipArrayOrUnknown } from '../relationshipDetermination';
+// §AUTHORING-CONTEXT-GATE (L-5100) — the ONE predicate. See the module header for
+// why this is not an `if (onboarding)` written here, and for the measurement that
+// this layer previously had NO context gate at all.
+import { refuseElementAuthoring } from '../layout/elementAuthoringContext';
 
 export type BAMLevelMode = 'stacked' | 'exploded' | 'solo';
 export type BAMWallCutMode = 'cutaway' | 'up' | 'down';
@@ -300,6 +304,31 @@ export class BottomActionMenu {
             if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
             if (e.ctrlKey || e.metaKey || e.altKey) return;
             const letter = e.key.toUpperCase();
+
+            // §AUTHORING-CONTEXT-GATE (L-5100) — ⭐ ONE gate, for all seven combos
+            // and both singles, consulted AT GESTURE TIME.
+            //
+            // Placement matters twice over:
+            //   · AFTER the relevance test, so an ordinary keystroke that this
+            //     layer would have ignored anyway does not log a refusal. A gate
+            //     that narrates every key press is a gate nobody reads.
+            //   · BEFORE any dispatch AND before `_pendingKey` is armed, so a
+            //     half-typed combo cannot survive into a context where its second
+            //     letter would complete it.
+            //
+            // ⛔ Do NOT move this into the seven `COMBOS` closures. Per-tool guards
+            // are the hand-copy this predicate exists to delete — the founder's
+            // report is what a per-layer `if` produced, and `CreateRailPanel` had
+            // a DIFFERENT one. See `elementAuthoringContext.ts`.
+            const relevant =
+                this._pendingKey !== null || comboStarters.has(letter) || letter in SINGLE;
+            if (relevant && refuseElementAuthoring('BottomActionMenu shortcut')) {
+                // Drop any armed prefix too: leaving it latched would let the
+                // combo complete the moment the phase flipped.
+                this._clearPending(false);
+                return;
+            }
+
             if (this._pendingKey !== null) {
                 const combo = this._pendingKey + letter;
                 if (combo in COMBOS) {
@@ -344,6 +373,18 @@ export class BottomActionMenu {
     }
 
     private _activateStructureTool(id: StructureToolId): void {
+        // §AUTHORING-CONTEXT-GATE (L-5101) — the SAME predicate at the SINGLE
+        // funnel every activation route passes through (keyboard combo, menu
+        // click, restore-on-render). This is a second CONSULTATION of one
+        // predicate, not a second predicate: the shortcut gate above stops the
+        // key, this stops everything else, and both read one function.
+        //
+        // It matters because the keydown listener is bound to `window` at
+        // construction and is therefore live whether or not this menu is on
+        // screen — so "the bar is hidden during onboarding" was never the
+        // protection it looked like.
+        if (refuseElementAuthoring(`BottomActionMenu activate:${id}`)) return;
+
         const { toolManager, service } = this._props;
         this._selectedTool = id;
         window.localStorage?.setItem(TOOL_STORAGE_KEY, id);

@@ -54,6 +54,9 @@
  */
 
 import type { CreationMode } from '@app/engine/views/plantools/elementCreationMatrix';
+// §AUTHORING-CONTEXT-GATE (L-5103) — see `show()` for why the bar asks the
+// predicate itself rather than trusting that nothing could have activated a tool.
+import { refuseElementAuthoring } from './layout/elementAuthoringContext';
 
 export interface DrawingModeBarOptions {
     /** Bar prefix label, e.g. 'Mode:', 'Floor:', 'Slab:'. */
@@ -80,7 +83,25 @@ export class DrawingModeBar {
     private opts: DrawingModeBarOptions | null = null;
 
     show(opts: DrawingModeBarOptions): void {
+        // ⛔ §AUTHORING-CONTEXT-GATE (L-5103) — the founder's second sentence:
+        // *"make sure the stray mode strip cannot render in that context at
+        // all"*. Blocking activation (L-5100/L-5101/L-5102) is the ROOT fix and
+        // should mean no bar is ever asked for here; this is the arm that makes
+        // "cannot render" true rather than merely consequent.
+        //
+        // It is one line at the ONE constructor of the `.wdh-bar` strip — this
+        // component replaced the four per-tool HUD copies, so gating it here
+        // covers wall, curtain wall, slab, floor and ceiling in a single place
+        // instead of five.
+        //
+        // `dismiss()` runs FIRST and unconditionally: if the phase flips back to
+        // onboarding while a bar is up (a second project started in the same
+        // session re-arms `onboarding-globe` via `resetAppPhaseForNewProject()`),
+        // the next `show()` must take the old strip DOWN, not leave it stranded
+        // on the parcel map with no owner.
         this.dismiss();
+        if (refuseElementAuthoring('DrawingModeBar.show')) return;
+
         this.opts = opts;
 
         const bar = document.createElement('div');
