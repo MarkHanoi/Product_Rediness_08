@@ -293,12 +293,21 @@ enumerates the block).
 Conflict resolution order (strongest first): `docs/01-strategy/STR-03-engineering-vision.md` →
 `docs/01-strategy/STR-04-architecture.md` → **the C01–C100 contract suite** (as enumerated by
 `docs/02-decisions/contracts/README.md` — **defer to it, not to this range**) → ADRs
-(`docs/02-decisions/adrs/`, **268** files) → SPECs (`docs/03-execution/specs/`, **96** files). **When code disagrees with a contract, the code is
+(`docs/02-decisions/adrs/`, **285** files) → SPECs (`docs/03-execution/specs/`, **101** files). **When code disagrees with a contract, the code is
 wrong** — fix the code, or raise a superseding ADR; never write a new `*-AUDIT.md` derivative doc.
 Edit the canonical `C0N-*.md` in place. Current migration status:
 `docs/03-execution/plans/master-execution-tracker.md`.
 
-> Counts measured **2026-08-18** · `ls docs/02-decisions/adrs/ADR-*.md | wc -l` → **268** ·
-> `find docs -name 'SPEC-*.md' | wc -l` → **96**. *(They read 251 and 92 on 2026-08-11. Run the
-> commands — these two have each been wrong at least twice.)* **The SPEC path was also wrong**: this file said
+> Counts re-measured **2026-08-22** (lane VIEWDOC20) · `ls docs/02-decisions/adrs/ADR-*.md | wc -l`
+> → **285** · `find docs -name 'SPEC-*.md' | wc -l` → **101** ·
+> `ls docs/02-decisions/contracts/ | grep -c '^C[0-9]'` → **102**.
+> *(They read 268 / 96 / 100 on 2026-08-18, and 251 / 92 on 2026-08-11. **Run the commands** — these
+> have now each been wrong at least three times, which is the point of the instruction, not a
+> footnote to it.)* **The SPEC path was also wrong** in an earlier revision: this file said
 > `reference/specs/`, which does not exist; specs live at `docs/03-execution/specs/`.
+>
+> ⭐ **The contract count moved because C101 (Annotation) and C102 (View & Sheet Integrity) were
+> minted 2026-08-21.** `check-contract-index-equivalence.ts` compares the file SET against
+> `contracts/README.md`'s row SET in both directions and is the authority — **read the gate, never
+> this paragraph.** A count can be right while the range is wrong; that failure has its own
+> correction box above.
