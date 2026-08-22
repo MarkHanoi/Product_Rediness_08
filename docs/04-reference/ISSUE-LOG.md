@@ -39690,3 +39690,292 @@ Generalises the same shape as [[multi-agent-shared-tree-collisions]].
   matching '`) when the payload contained backticks inside a quoted delimiter. The `cat > file <<'EOF'`
   idiom is not safe for this repo's comment style; the file simply did not exist afterwards. **Check
   the file exists after a heredoc write, or use the editor tool.**
+
+---
+
+## §FIX-PLAN-TOOL-POINTER-UNREACHABLE + §FIX-LIFT-UNREACHABLE — L-7000..L-7080 (lane TOOLS34, 2026-08-22)
+
+> **The founder, verbatim:** *"**Balcony** doesn't preview on wall — and I could not create it. /
+> **Swimming pool** I did not have the mode tool (I need different [modes] to the wall modes — but
+> did not appear) and I created a few lines but the creation did not trigger. / **Lift** — it should
+> be under Architecture, but could not see it!"*
+>
+> Three compounds, shipped on three consecutive days, each with a reachability test that passed, and
+> **all three unusable by a person.**
+
+### L-7000 — ⭐ THE HANDLERS WERE NEVER THE DEFECT. The pointer never arrived, and nothing said so.
+
+**Measured first (C01 §6 rule 6), and it refutes half the briefed diagnosis.**
+
+`pointerReachesArmedHandler.spec.ts` ARM A starts at the REAL palette call
+(`activatePlanOnlyToolOrExplain`), attaches the REAL `SvpPlanToolOverlay` to a canvas and dispatches
+REAL DOM `MouseEvent`s. **First run, before any fix: GREEN.** `armedSurfaces: 1`, `isPlacing(): true`,
+and one synthetic `mousedown` produced exactly one `balcony.create`. The handler, the overlay, the
+snap path and the screen→world transform all worked.
+
+⭐ **So what happened to the founder is:** the balcony armed on the **split-view PLAN pane** (his
+console says `[SvpPlanToolOverlay] Handler activated: balcony`, never `[PlanViewToolOverlay]`) while
+he clicked in the **3-D viewport** (`[PickResolver] … strategy=gpu-pick`, `[WallTransform] gizmo
+aligned` — both from `packages/input-host/src/SelectionManager.ts`, the 3-D picker). A plan-only tool
+cannot see a click that lands in the 3-D viewport, ever, and **nothing on screen told him which pane
+owned the tool.**
+
+⚠ **The brief's hypothesis 2 — "selection wins the event; both are listening and the pick path
+consumes the click first" — is REFUTED AS STATED.** `SvpPlanToolOverlay._onMouseDown` binds to the
+SVP canvas and `SelectionManager` to the 3-D canvas: **exactly one of them sees any given click.**
+They never race. Its second sentence, *"a tool being armed must suppress ordinary selection"*, is
+right — but by a different mechanism, recorded as L-7003.
+
+### L-7001 — the repeated `Handler activated: balcony` (x11, x8, x5 …): cause (a), no idempotence
+
+`setActiveTool()` on **both** overlays unconditionally did `_deactivateHandler(); _activateHandler()`.
+Re-arming the tool that was already armed therefore tore the handler down and rebuilt it — logging a
+fresh activation, and **discarding any in-progress stroke**. A user who clicks the palette row again
+to check it "took" was destroying their own half-drawn pool outline.
+
+**FIXED** — a same-tool re-arm is now a no-op in `SvpPlanToolOverlay.setActiveTool` and
+`PlanViewToolOverlay.setActiveTool`. Pinned by ARM D-3: two vertices, a second palette click, a third
+vertex, and the committed boundary still has **3** points.
+
+### L-7002 — ⛔ THE SERIOUS ONE: a ToolManager notification SILENTLY DISARMED the plan-only tool
+
+Both overlays subscribe to `toolManager` and the subscription unconditionally re-armed to **its**
+tool. A plan-only tool (`pool`, `balcony`) has **no `TOOL_MANAGER_TOOL_KEYS` entry by design**, so
+the ToolManager can neither own it nor know it is armed — and `'none'` from the ToolManager means
+*"the TOOLMANAGER has no tool"*, which is already true and says nothing about the overlay.
+
+**MEASURED RED before the guard:**
+
+```
+isPlacing() -> true   ·   notify('none')   ·   isPlacing() -> FALSE
+```
+
+`deactivateAll()` fires on every Escape and from half the UI. **The tool put itself away with nothing
+on screen changing, and the user's next click did nothing.** That is cause (b) of the x11 activation
+count: a person re-arming a tool that keeps disarming itself.
+
+**FIXED** — a `_programmaticTool` flag on both overlays; a ToolManager `'none'` is ignored while the
+active tool was armed programmatically. Deliberately narrow: a notification naming a **real** tool
+still takes over (ARM D-2 pins that it does).
+
+### L-7003 — an armed plan-only tool did NOT suppress 3-D selection
+
+`ToolManager.activateTool` disables selection for every 3-D tool (`selectionManager.setEnabled(false)`,
+`ToolManager.ts:551`). A plan-only tool is armed by the **overlay** and never reaches the ToolManager,
+so it was the one armed create tool that left the 3-D viewport selecting — which is exactly the
+`[WallTransform] gizmo aligned` line in the founder's console.
+
+**FIXED** in the plan-only session. **STATUS: closed.**
+
+### L-7004 — ⚠ the fix for L-7003 would have OPENED a pool defect; the snapshot ships with it
+
+`setEnabled(false)` calls `unselectAll()` on the way down, and `PoolPlanToolHandler` uses an
+explicitly-selected slab as its host **override** when geometry cannot settle it. Suppressing
+selection without preserving that id would have traded the gizmo defect for a pool host defect.
+
+**FIXED** — `armedSelectionSnapshot.ts` captures the selected id immediately **before** the
+suppression (the order is load-bearing) and the pool consults it as its last fallback. This is
+`ToolsAreaLayout`'s `_bySlabCapture` pattern, reused rather than re-derived. **STATUS: closed.**
+
+### L-7005 — ⛔ `pryzm:toast` HAS NO SUBSCRIBER. Every refusal on that channel is unreadable.
+
+```
+rg "on\('pryzm:toast'" --glob '**/*.ts'   ->  0 matches
+rg "'pryzm:toast'"     --glob '**/*.ts'   ->  40+ matches, ALL EMITTERS
+```
+
+The typed event is declared (`runtime-composer/src/types.ts:2055`, *"Replaces the TASK-15
+`pryzm:toast` CustomEvent"*) and forty-odd sites emit it, so the channel **reads as live at every
+call site and is dead at the far end.** `activatePlanOnlyTool`'s own header called `console.warn`
+*"a refusal nobody reads"* and then moved to a channel nobody **can** read — strictly worse, because
+it looks fixed.
+
+**FIXED for this lane's call sites** — routed through `runtime.toasts.show(...)`, the live slot
+`buildToastsSlot()` renders and `initUI.ts` already uses; the `pryzm:toast` emit is kept as a compat
+signal, never the only leg.
+
+⛔ **OPEN, REPO-WIDE:** the other ~40 emitters are still writing to a dead channel. This includes
+apartment-layout, ceiling-layout, documentation, autoDimension, ProjectLoader and the 3-D transform
+drag handler. **Someone must either subscribe `pryzm:toast` to `runtime.toasts` at the composition
+root, or migrate the call sites.** One line at the root would close all forty; that is L-7007.
+
+### L-7006 — the `drawingModeBar` suite had been RED since `2ec277aa`, and it is 14 assertions
+
+Measured with the file run **entirely alone**, at HEAD and at HEAD~1: **14 of 16 cases failing**,
+every one with the bar rendering **zero pills**. Neither the bar nor the assertions are at fault:
+§AUTHORING-CONTEXT-GATE (L-5100) added `if (refuseElementAuthoring(...)) return;` to
+`DrawingModeBar.show()`, which refuses while `appPhase()` is `'onboarding-globe'` — **the default**.
+
+⭐ **The gate is right and the suite was stale**, so the fix is one `setAppPhase('canvas')` in the
+suite. Loosening the gate would re-open the founder's L-5100 report (*"'WA' drew a wall on the parcel
+map"*). **16/16 green.** The real defect is that fourteen assertions about the ONE control every
+drawing tool shares went dark and nobody saw it — §L-851's never-ran/passed collapse, smaller scale.
+
+### L-7007 — OPEN: nothing bridges `pryzm:toast` to `runtime.toasts`
+
+See L-7005. Scoped as a one-line subscription at the composition root; **not** taken in this lane
+because `composeRuntime` is P1 territory and a repo-wide notification change deserves its own blast
+radius. Until it lands, treat a `pryzm:toast` emit as **a log line, not a user-facing refusal.**
+
+---
+
+### L-7010 — the pool's mode strip was **ABSENT**, not broken
+
+*"I did not have the mode tool ... I need different [modes] to the wall modes — but did not appear."*
+
+**Measured:** `setActivePoolDrawMode` and `setActiveBalconyDrawMode` each had **ZERO production
+writers** — the definitions, the handlers' reads, and nothing else. So:
+
+- `activePoolDrawMode.ts` declared **six** modes (linear / ortho / curved + rectangular / circular /
+  elliptical, composed from the two existing `@pryzm/geometry-slab` unions);
+- `PoolPlanToolHandler` had a live arm for **all six**, including the closed-loop generator;
+- `ELEMENT_CREATION_MATRIX` declared them for a bar to render;
+- **and nothing on any screen could select one.**
+
+`ToolsAreaLayout` mounts a `DrawingModeBar` for slab, railing and stair-path only, and the pool and
+balcony are not activated through `service.activate*`, so they were never going to acquire one there.
+This is the `creationShapes()`-with-no-callers shape PERF13 measured on the stair, one family over —
+[[authored-but-unwired-is-the-bottleneck]] again.
+
+**FIXED** — the plan-only **session** mounts the shared `DrawingModeBar`, driven by
+`creationModes(tool)` (the same declaration the matrix spec asserts against, never a re-typed list),
+with `onSelect` writing **only** the shared store so a switch mid-draw keeps the vertices already
+placed. ARM C pins the pills against the declaration, pins every accelerator unique within a strip
+(the `L` = Linear vs `L` = L-shape hazard, one family over), and pins that picking *Circular* reaches
+the **click path** — two clicks, a generated ring of >8 vertices, no double-click.
+
+### L-7011 — *"I created a few lines but the creation did not trigger"* — the two readings
+
+With no mode strip the pool was permanently in `linear`, which **closes on a double-click or Enter**.
+The overlay hint says so (`Linear · Dbl-click or Enter to close pool`), so this is a discoverability
+failure rather than a broken commit — ARM A-2 proves three clicks + a double-click produce exactly one
+`pool.create` with the slab under them as host. ⚠ It is also fully explained by L-7002: if a
+ToolManager notification disarmed the tool between his clicks, later clicks reached nothing at all.
+**Both were real; both are closed.** Kept as one row because the evidence does not separate them.
+
+---
+
+### L-7020 — the LIFT: **three different verdicts on three surfaces**, and only one was "absent"
+
+⛔ **C01 §6 rule 6 — ABSENT and UNREACHABLE have opposite fixes.** Measured 2026-08-22:
+
+| surface | verdict | evidence |
+|---|---|---|
+| `CreateRailPanel.ts` | **ABSENT** | `rg -n "lift" …/CreateRailPanel.ts` → **0 hits** |
+| `CreatePanelLayout.ts` | **UNREACHABLE-BY-SEARCH** | a row at `:300`, under **Structure**, not Architecture |
+| the command it drove | **WRONG OBJECT** | `toolManager.activateLift?.()` → legacy massing `CreateVerticalCirculationCommand`, **not** `lift.create` (already recorded at `PluginRegistry.ts:465`, L-5709) |
+
+That split is the **L-1380 defect** — two live create surfaces, a capability added to one — plus the
+pool's axis 3. `elementCreationMatrix` had already named it: *"A lift is a placed footprint like a
+column — plan is the NATURAL surface for it. This is the clearest violation of the founder's
+principle in the matrix and the highest-value next fix."*
+
+**FIXED** — `LiftPlanToolHandler` (the plan route to the **C104 compound**), registered in the ONE
+shared registry so **both** plan surfaces get it, plus an **Architecture** row on **both** live create
+surfaces. The Structure row is **removed**, not left as a second rival "Lift": two palette words for
+two different objects is worse than one word in the wrong section.
+
+### L-7021 — `createId('lift')` was a TYPE ERROR: the L0 id vocabulary had no lift
+
+`ElementType` carried `pool`, `water` and `balcony` and never gained `lift`/`liftPart`, so the ONE id
+factory could not mint the ONE id the compound needs; a caller's only options were a hand-built string
+(a second vocabulary — C84 EI-8) or a cast. `liftReachableThroughComposedRuntime.test.ts` anticipated
+this and named it **L-5711**. **PROMOTED** — `LiftId` / `LiftPartId` in
+`packages/schemas/src/types/Id.ts`.
+
+⚠ **`LiftId` is deliberately NOT merged with `VerticalCirculationId`.** That brand belongs to the
+LOD-200 **massing** lift the batch executors create — a different store, a different record, a
+different level of detail (`LiftCompoundTypes.ts` explains why both exist). Collapsing them would let
+a massing shaft be handed to a command expecting a compound.
+
+### L-7022 — the lift's storey question, answered in the payload rather than in a modal
+
+`CreateLiftHandler.canExecute` refuses an empty `servedLevels` — *"the storey question has no valid
+empty answer"* — and creates one landing door per entry. A plan tool cannot open a modal per click, so
+the rule is **the active level and every level above it**, and it is on the overlay hint BEFORE the
+click (`serves N storeys from this level up`). A level whose slab cannot be resolved gets the key
+**omitted**, never `undefined` and never a guess: `canExecute` refuses a `slabId` naming a slab the
+store does not have, so a guess would become a refusal several steps later.
+
+### L-7023 — no mode strip for the lift, and that is a decision, not an omission
+
+The only axis that varies is the enclosure (`wall-hosted` vs `standalone-glass`), and
+`LiftCompoundSchema` **refuses `wall-hosted` without a `hostWallId`**. A "wall-hosted" pill with no
+wall under the cursor would be a control reporting a capability the payload cannot carry — C84 EI-3,
+and §FIX-STAIR-SHAPE-DESYNC's exact defect. The cursor decides (a wall within 1.5 m — the balcony's
+and the door's reach verbatim) and **the hint names which enclosure the next click will place**.
+
+### L-7040 — OPEN: the lift's 3-D arm and its plan arm still create DIFFERENT THINGS
+
+`ToolManager.activateLift` drives `CreateVerticalCirculationCommand` (LOD-200 massing); the plan arm
+drives `lift.create` (the C104 compound). The palette now offers **only** the compound, and the
+massing command keeps its real callers — the residential and office batch executors. Collapsing the
+3-D activator onto `lift.create` is the remaining work, and it is what would let `views: ['plan','3d']`
+mean one object in both views. **Named on the matrix row rather than implied.**
+
+### L-7041 — OPEN (inherited): `ChatCommandClassification` classifies `lift.create` / `balcony.create`
+### / `pool.create` class B, so the AI chat route refuses all three. Same row as L-5206/L-5609/L-5710.
+
+### L-7050 — OPEN (found in passing, NOT this lane's subject): `grid` drops its activation mode
+
+`planAutoModeReachability.spec.ts` CENSUS is RED at HEAD and at HEAD~1:
+*"grid (declares 3 modes, activator arity 0)"*. That is L-918's family — an activator declared
+`() => service.activateX()` swallows the mode argument — with a fourth member nobody has closed.
+`single` / `rectangular` / `radial` are all reachable through the shared `DrawingModeBar`, so this is
+LATENT rather than the founder's defect, and it is recorded here so the next reader does not
+rediscover it as a surprise.
+
+### L-7080 — gate readings at lane close (readings, with a timestamp — never states)
+
+- `npx vitest run apps/editor/src/engine/views/plantools/__tests__/pointerReachesArmedHandler.spec.ts`
+  → **16/16 PASS** (ARM A ×3 · B ×3 · C ×3 · D ×3 · E ×3 · F ×1).
+- `… pointerReachesArmedHandler + elementCreationMatrix + drawingModeBar` → **3 files / 176 PASS.**
+- `apps/editor` — `liftReachableThroughComposedRuntime` + `poolReachableThroughComposedRuntime`
+  → **21/21 PASS** (the C104/ADR-0124 compounds still dispatch through the real composition root).
+- root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=0**, zero
+  errors repo-wide at the moment of reading. ⚠ It read **RC=2** before the L-7021 promotion, with all
+  six errors in this lane's own files — which is the gate doing its job, and the reason the L0 id gap
+  was found at all.
+- ⚠ **PRE-EXISTING, measured at HEAD~1 with this lane's six changed files reverted and restored, so
+  it is a baseline and not an alibi:** the same **21 cases in 5 plantools spec files** fail
+  identically — `drawingModeBar` (**now fixed**, L-7006), `planAutoModeReachability` (L-7050),
+  `stairByWalls`, `stairCreationModes` (a `FrameScheduler` duplicate-id **isolation bug in the spec
+  itself**) and `stairPlanCreation`. `@pryzm/schemas` likewise fails **3** cases (water round-trip,
+  view-template) with and without this lane's `Id.ts` change.
+- ⚠ **`cat > file <<'EOF'` is not safe for this repo's comment style** — a heredoc carrying backticks
+  inside a quoted delimiter died with `unexpected EOF while looking for matching '` and wrote
+  **nothing**. Corroborates L-6625's identical finding from lane ANLX31 the same day. Write the
+  payload with the editor tool and append it with a script.
+
+### L-7060 — ⛔ OPEN: **C103 DOES NOT EXIST, and five source files cite it**
+
+```
+ls docs/02-decisions/contracts/ | grep -E '^C10[0-9]'
+  ->  C100  C101  C102  C104          (no C103)
+```
+
+`BalconyPlanToolHandler.ts`, `activeBalconyPlacement.ts`, `activatePlanOnlyTool.ts`,
+`elementCreationMatrix.ts` and `packages/schemas/src/types/Id.ts` all cite **C103 §7 / §8**, and
+**C104 is written as an extension of it**. C104 §0.2 flagged the forward reference honestly at mint
+time — *"C103 is being minted in the same session by lane BALC21"* — and **it never landed**. The
+balcony shipped (`baf36857`); the contract did not.
+
+⚠ **`check-contract-index-equivalence.ts` CANNOT SEE THIS.** RC=0, arms B/C/D clean. C103 is absent
+from the files **and** from `contracts/README.md`'s row set, so there is neither a file without a row
+(arm A) nor a row without a file (arm B). ⭐ **A contract that is cited by code and exists nowhere is
+invisible to both arms of the equivalence gate** — the gate compares two sets and a phantom is in
+neither. That is the C68 §6.3-G9 shape (`ADR-0315` cited by four artefacts, absent from disk) one
+layer up.
+
+⛔ **Do NOT close this by deleting the citations** — they name the right home for a real clause (the
+generic COMPOUND model that balcony, pool and lift all extend). **The fix is to mint C103**, and it
+was not taken here because this lane had no subject-matter mandate for the generic compound model and
+minting a thin one would be worse than the gap. C104 §0.2 records the same, in place.
+
+### L-7061 — OPEN: the lift's L0 promotion is HALF done, deliberately
+
+`LiftId` / `LiftPartId` are branded L0 ids (L-7021, closed). `LiftCompoundSchema` / `LiftPartSchema`
+are **not** in `packages/schemas/src/elements/` and not in `SCHEMA_REGISTRY` — they still live in
+`packages/geometry-lift/`. The split is deliberate: id brands are additive and cannot break a
+consumer, whereas moving the Zod schemas changes **what validates a persisted project**, which is a
+C47 format question and deserves its own blast radius. Recorded in C104 §11 in place.

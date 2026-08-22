@@ -44,6 +44,35 @@ already said what I was told it would say — is precisely the defect
 `docs/04-reference/ISSUE-LOG.md` records under "confident register rows are the
 wrong ones".
 
+> ⛔ **RE-CHECKED 2026-08-22, LANE TOOLS34 — C103 STILL DOES NOT EXIST, AND THE
+> FORWARD REFERENCE IS NOW A PHANTOM CITATION.**
+>
+> ```
+> ls docs/02-decisions/contracts/ | grep -E '^C10[0-9]'
+>   ->  C100-MASTER-MATERIAL-DATABASE.md
+>       C101-ELEMENT-ANNOTATION.md
+>       C102-VIEW-AND-SHEET-INTEGRITY.md
+>       C104-ELEMENT-LIFT-COMPOUND-SYSTEM.md
+> ```
+>
+> The sibling lane shipped the balcony (`baf36857`) and never minted the contract. So
+> the §0.2 warning above did exactly the job it was written for — it is the reason a
+> later reader can tell a forward reference from a settled clause — and the gap is now
+> **larger than C104**: `BalconyPlanToolHandler.ts`, `activeBalconyPlacement.ts`,
+> `activatePlanOnlyTool.ts` and `elementCreationMatrix.ts` all cite **C103 §7 / §8**,
+> and `packages/schemas/src/types/Id.ts` cites it for the `BalconyId` brand.
+>
+> ⚠ **`check-contract-index-equivalence.ts` cannot see this** (RC=0, arms B/C/D clean):
+> C103 is absent from the files **and** from the README's row set, so there is neither
+> a file without a row nor a row without a file. **A contract that is cited by code and
+> exists nowhere is invisible to both arms of the equivalence gate.** That is the C68
+> §6.3-G9 shape (`ADR-0315` cited by four artefacts and absent from disk), one layer up,
+> and it is recorded as **L-7060, OPEN** rather than closed by minting a contract this
+> lane did not have the subject-matter mandate to write.
+>
+> ⛔ **DO NOT "FIX" THIS BY DELETING THE C103 CITATIONS.** They name the right home for
+> a real clause. The fix is to mint C103.
+
 ---
 
 ## §1 — Two lifts co-exist, deliberately. Do not merge them.
@@ -266,7 +295,7 @@ C01 §6 rule 6. "Reachable" is four measurements, not one.
 |---|---|
 | **1 — store constructed** | ✅ `new LiftCompoundStore()` / `new LiftPartStore()` in `PluginRegistry.ts` |
 | **2 — descriptor with `storeKey`** | ✅ both descriptors present; `lift` in `ELEMENT_PLUGIN_IDS`, `liftPart` in `STORE_ONLY_PLUGIN_IDS` with a written reason. **Proven by `apps/editor/__tests__/liftReachableThroughComposedRuntime.test.ts` — 12 cases, which read `rt.stores.lift` off the real composition root and never build a store** |
-| **3 — something dispatches** | ⚠ **PARTIAL, and this is the honest gap.** A `Lift` palette button (`CreatePanelLayout.ts:278`) and a tool activator (`ToolsAreaLayout.ts:332`) both exist — **but both drive the LEGACY massing command**, not `lift.create`. There is **no `LiftPlanToolHandler`**, so the tool is inert in plan. **L-5709, OPEN** |
+| **3 — something dispatches** | ✅ **CLOSED 2026-08-22 (lane TOOLS34, §FIX-LIFT-UNREACHABLE, L-7020).** `LiftPlanToolHandler` is in the shared `planToolHandlerRegistry`, so **both** plan surfaces have it, and it dispatches **`lift.create`**. An **Architecture** row on **both** live create surfaces (`CreateRailPanel` + `CreatePanelLayout`) arms it. Proven at the pointer layer, not at the bus: `pointerReachesArmedHandler.spec.ts` ARM A-3 dispatches a real DOM `mousedown` on a real plan overlay and asserts exactly one `lift.create` with `enclosureType: 'wall-hosted'`, a resolved `hostWallId`, **two** served storeys, **two** landing-door ids, **four** enclosure ids and **five** cabin-part ids. ⚠ **L-5709 is NOT fully closed — it is narrowed and re-numbered L-7040:** `ToolManager.activateLift` still drives the LEGACY massing command, so the 3-D arm and the plan arm create DIFFERENT THINGS. The palette now offers **only** the compound (the Structure row was removed rather than left as a rival), and the massing command keeps its real callers — the residential and office batch executors |
 | **4 — AI chat** | ⛔ `ChatCommandClassification.ts` classifies unknown verbs class B, so the chat route refuses `lift.create`. **L-5710, OPEN** |
 
 ⚠ **A stale claim corrected.** The brief for this lane stated that `lift` is one of
@@ -278,7 +307,28 @@ on **`pool`**, not `lift`.
 
 ---
 
-## §11 — L0 promotion is DEFERRED, with its reason (L-5711)
+## §11 — L0 promotion: ✅ **DONE 2026-08-22** (was DEFERRED — L-5711 → L-7021)
+
+> ⭐ **`LiftId` and `LiftPartId` are now branded L0 ids.** `packages/schemas/src/types/Id.ts`
+> carries `'lift'` and `'liftPart'` in `ElementType`, in `AnyElementId` and in `IdFor<T>`,
+> so `createId('lift')` and `createId('liftPart')` type-check and the ONE id factory can
+> mint the ONE id the compound needs.
+>
+> **What forced it, and it was not tidiness:** `LiftPlanToolHandler` must pre-mint every
+> id (CA-2 — `execute()` runs again on REDO, so minting inside the handler produces a
+> DIFFERENT lift the second time). With no `'lift'` member, `createId('lift')` was a
+> **`tsc` error**, and the only alternatives were a hand-built string — a second id
+> vocabulary, C84 EI-8 — or a cast. The root gate found it (`RC=2` → `RC=0`).
+>
+> ⚠ **`LiftId` is deliberately NOT `VerticalCirculationId`.** That brand belongs to the
+> LOD-200 massing lift of §1. Collapsing the two brands would let a massing shaft be
+> handed to a command that expects a compound, which is the confusion the brands exist to
+> prevent — and it would be §1's forbidden merge arriving by the back door.
+>
+> The paragraphs below are the DEFERRAL as it was recorded, kept because the *reason*
+> (another lane's uncommitted work in the same two files) is the durable finding.
+
+### §11.1 — The deferral as it stood (historical)
 
 `Pool` and `Water` live in `packages/schemas` (L0) and are named in `registry.ts` and
 `types/Id.ts`. `LiftCompound` and `LiftPart` **should** join them, and do not yet.
@@ -297,6 +347,13 @@ promotion is a move plus three registry lines, not a rewrite.
 **Consequence, stated:** until promoted, `liftPart` and `lift` are absent from
 `SCHEMA_REGISTRY` and from the branded-`Id` union, so they do not participate in
 whatever those two drive.
+
+⚠ **HALF of that consequence is still live.** The **`Id` union half is closed** (above).
+The **`SCHEMA_REGISTRY` half is NOT** — `LiftCompoundSchema` / `LiftPartSchema` still live
+in `packages/geometry-lift/` and are not registered in `packages/schemas/src/elements/`.
+Splitting the promotion is deliberate: the id brands are additive and cannot break a
+consumer, whereas moving the Zod schemas changes what validates a persisted project, which
+is a C47 format question and needs its own blast radius. **Recorded as L-7061, OPEN.**
 
 ---
 
@@ -321,3 +378,18 @@ whatever those two drive.
 - **R-9** A test that asserts a lift dimension **equals a documented default** is
   forbidden: it goes red on a deliberate change and green on a silently-ignored
   override. Assert an explicit value is **honoured**, or assert a **relationship**.
+- **R-10** ⭐ **A reachability claim for this family is not admissible without a
+  POINTER-LAYER proof.** *(Added 2026-08-22, lane TOOLS34.)* §10 axis 3 was reported
+  PARTIAL for a day on the strength of a dispatch-layer suite, and the founder's report
+  — *"Lift — it should be under Architecture, but could not see it!"* — was about a
+  **palette section**, which no dispatch-layer test can see. Axis 3 is CLOSED only while
+  `pointerReachesArmedHandler.spec.ts` proves that arming the tool through the REAL
+  palette function and dispatching a REAL DOM `MouseEvent` at a REAL plan overlay
+  produces exactly one `lift.create`. **Proving the runtime CAN dispatch is axis 2's
+  job, and it is not this one.**
+- **R-11** ⛔ **A palette row for this family names ONE object.** The LOD-200 massing lift
+  and the LOD-300 compound are both real (§1) and both reachable in code, but a palette
+  that offers the word "Lift" twice, for two different results, is worse than §1's
+  co-existence — it makes the merge §1 forbids happen in the user's head. Until §7 is
+  executed, **the palette offers the COMPOUND** and the massing command is reached only
+  by the batch executors that need it.
