@@ -14,7 +14,7 @@ import { viewDefinitionStore } from './ViewDefinitionStore';
 // ViewScope.poche is false for elevation/3d, so the façade is never painted black.
 import { resolveViewScope, resolveBeyondLineStyle } from './ViewScope';
 // Contract 23 §8 — pen weight table (zone/category helpers)
-import { categoryFromFlags } from '../drawing/PenWeightTable';
+import { penCategoryForLayerTag } from '../drawing/PenWeightTable';
 // §VG-LAYER-IDENTITY-IS-THE-ONLY-SURVIVOR (L-1600) — the ONE layer-identity authority.
 import { composeLayerTag, vgCategoryForLayer, baseIsoLayerForTag } from '../drawing/DrawingLayerIdentity';
 // §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) / C09 §4.6 — the four-zone classifier.
@@ -422,16 +422,6 @@ export class PlanViewCanvas {
             // "far" therefore rendered as "hidden". The zone now comes from the canonical
             // `DrawingZone` classifier and all four zones reach the pen table.
             const _zone = drawingZoneFromLayerName(layerTag) ?? 'projection';
-            const isWall = /A-WALL|wall/i.test(layerTag);
-            const isDoor = /A-DOOR|door/i.test(layerTag);
-            const isSlab = /A-FLOR|slab/i.test(layerTag);
-            const isCol = /A-COLS|column|beam/i.test(layerTag);
-            const isStair = /A-STRS|stair/i.test(layerTag);
-            const isRoof = /A-ROOF|roof/i.test(layerTag);
-            const isCeiling = /A-CEIL|ceiling/i.test(layerTag);
-            const isFurniture = /A-FURN|furniture/i.test(layerTag);
-            const isHandrail = /A-HRAL|handrail/i.test(layerTag);
-            const isWindow = /A-GLAZ|window/i.test(layerTag);
 
             const vgCat = this._vgCategoryForLayer(layerTag);
             let vgEdge: string | null = null;
@@ -446,7 +436,7 @@ export class PlanViewCanvas {
             // style entry point.  It layers view/element overrides on top of the
             // locked SYSTEM_PEN_TABLE values from PenWeightTable.resolvePen().
             const _penZone     = penZoneOf(_zone);
-            const _penCategory = categoryFromFlags({ isWall, isDoor, isSlab, isCol, isStair, isRoof, isCeiling, isFurniture, isHandrail, isWindow });
+            const _penCategory = penCategoryForLayerTag(layerTag);
             const _elementId   = child.userData?.elementUUID as string | undefined;
             // §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — the THIRD pen axis, read from the
             // stamp `EdgeProjectorService` put on this LineSegments. It is the element TYPE's
@@ -1411,6 +1401,13 @@ export class PlanViewCanvas {
         let bestId: string | null = null;
         let bestDist = thresholdPx;
 
+        // §HIDDEN-IS-NOT-PICKABLE (L-3902) — resolved ONCE for the whole traverse. The
+        // view's own `viewType` is preferred over the canvas's mode so a pane showing a
+        // section resolves the section's pen chain, exactly as `render()` does.
+        const _hitViewId   = this._lastViewId ?? undefined;
+        const _hitViewType = (_hitViewId ? viewDefinitionStore.get(_hitViewId)?.viewType : undefined)
+            ?? this._viewType;
+
         (drawing as any).three?.traverse?.((child: THREE.Object3D) => {
             if (!(child instanceof THREE.LineSegments)) return;
             const posAttr = child.geometry?.getAttribute('position') as THREE.BufferAttribute | undefined;
@@ -1428,6 +1425,10 @@ export class PlanViewCanvas {
                 ?? child.parent?.userData?.elementId
             ) as string | undefined;
             if (!id) return;
+
+            // §HIDDEN-IS-NOT-PICKABLE (L-3902) — a line the bound intent (or VG) hides is
+            // not on screen, so it must not be selectable. Same predicate `render()` uses.
+            if (!this._lineIsDrawn(child, _hitViewType, _hitViewId)) return;
 
             child.updateWorldMatrix(true, false);
             const mat = child.matrixWorld;
@@ -2678,6 +2679,60 @@ export class PlanViewCanvas {
      */
     private _vgCategoryForLayer(layerTag: string): string | null {
         return vgCategoryForLayer(layerTag);
+    }
+
+    /**
+     * §HIDDEN-IS-NOT-PICKABLE (L-3902) — IS THIS LINE ACTUALLY ON SCREEN?
+     *
+     * ─────────────────────────────────────────────────────────────────────────────
+     * THE DEFECT THIS CLOSES
+     * ─────────────────────────────────────────────────────────────────────────────
+     * `render()` drops a line from the drawing in TWO independent ways:
+     *   1. VG says the category is off — `resolved.visible === false`;
+     *   2. the bound VISIBILITY INTENT hides it — `appearanceToPenStyle()` returns
+     *      `{ widthMm: 0, opacity: 0 }` for an invisible appearance, so the composed
+     *      pen arrives with `opacity === 0` and the stroke paints nothing.
+     *
+     * `hitTest()` applied NEITHER. It traversed every `LineSegments` in the drawing,
+     * took the first `DrawingSelectionIndex` id inside the pixel threshold and returned
+     * it — so a category the user had switched OFF in the Visibility Intent panel stayed
+     * fully CLICKABLE. Click blank paper, select the bed that is not drawn; drag it, and
+     * an invisible element moves. MEASURED for BOTH `A-FURN` (symbol-injector output)
+     * and `A-WALL:cut` (EdgeProjectorService output) — this was never furniture-specific,
+     * which is why the fix is here and not in any injector.
+     *
+     * ─────────────────────────────────────────────────────────────────────────────
+     * WHY IT IS ONE PREDICATE AND NOT AN `if` COPIED INTO `hitTest`
+     * ─────────────────────────────────────────────────────────────────────────────
+     * "What is drawn" and "what can be picked" must be the SAME sentence or they drift
+     * apart again the first time either is edited — the divergence this file's own
+     * `_vgCategoryForLayer` header records. Both callers now go through this one method
+     * and through `penCategoryForLayerTag()` (PenWeightTable), so a change to either
+     * authority moves the pointer and the pixels together.
+     *
+     * NOTE ON `opacity` VS `widthMm`: visibility is keyed on OPACITY ALONE, exactly as
+     * `render()` does it. `ctx.lineWidth` is floored at one device pixel (`hairline`), so
+     * a `widthMm: 0` pen still lays down a hairline — it is `ctx.globalAlpha = 0` that
+     * makes a hidden line invisible. Keying on width here would make pickability disagree
+     * with the screen for any zero-width-but-visible pen.
+     */
+    private _lineIsDrawn(child: THREE.Object3D, viewType: string, viewId: string | undefined): boolean {
+        const layerTag = composeLayerTag(child);
+
+        const vgCat = this._vgCategoryForLayer(layerTag);
+        if (vgCat && this._styleResolver) {
+            const resolved = this._styleResolver(vgCat, layerTag);
+            if (resolved && !resolved.visible) return false;
+        }
+
+        const zone = drawingZoneFromLayerName(layerTag) ?? 'projection';
+        const pen = graphicsRulesEngine.resolveStyle(penZoneOf(zone), penCategoryForLayerTag(layerTag), {
+            viewId,
+            elementId: child.userData?.elementUUID as string | undefined,
+            viewType,
+            elementFunction: elementFunctionFrom(child.userData?.[ELEMENT_FUNCTION_KEY]),
+        });
+        return pen.opacity > 0;
     }
 
     /**

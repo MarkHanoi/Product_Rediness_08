@@ -359,3 +359,46 @@ export function categoryFromFlags(flags: {
     if (flags.isFurniture) return 'furniture';
     return 'projection'; // safe fallback — generic projected geometry
 }
+
+/**
+ * §HIDDEN-IS-NOT-PICKABLE (L-3902) — the ISO-13567 pen category of a composed layer tag.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHY THIS EXISTS RATHER THAN A SECOND COPY OF THE TEN REGEXES
+ * ─────────────────────────────────────────────────────────────────────────────
+ * The ten `/A-WALL|wall/i`-style tests used to live INLINE in
+ * `PlanViewCanvas.render()`, feeding `categoryFromFlags()` — and nowhere else could
+ * reach them. `PlanViewCanvas.hitTest()` needed exactly the same answer to decide
+ * whether a line the intent HID may still be clicked, and the obvious move was to
+ * paste the block a second time.
+ *
+ * This repo has already paid for that shape more than once: `vgCategoryForLayer()`
+ * existed twice and the copies DRIFTED (one lacked the ISO hyphen sub-layer arm, so
+ * `A-GLAZ-CUT` / `A-FURN-SHADOW` resolved to a null category — see
+ * `DrawingLayerIdentity.ts`), and L-1600 was seven hand-copied answers to "which layer
+ * is this line on", one of which had silently gone wrong. A second copy of the pen
+ * category would have gone the same way: `render()` and `hitTest()` would disagree
+ * about what a line IS, which is precisely how "hidden but still selectable" is born.
+ *
+ * So the derivation is ONE function, and both callers ask it. `categoryFromFlags()` is
+ * kept as-is — it is the flags-shaped entry point other callers already use — and this
+ * is the tag-shaped entry point layered directly on top of it, so the two can never
+ * answer differently.
+ *
+ * Pure: no DOM, no THREE, no store reads. P8 note: same "pure hot-path classifier, no
+ * span" precedent as `categoryFromFlags` / `drawingZoneFromLayerName`.
+ */
+export function penCategoryForLayerTag(layerTag: string): string {
+    return categoryFromFlags({
+        isWall:      /A-WALL|wall/i.test(layerTag),
+        isDoor:      /A-DOOR|door/i.test(layerTag),
+        isSlab:      /A-FLOR|slab/i.test(layerTag),
+        isCol:       /A-COLS|column|beam/i.test(layerTag),
+        isStair:     /A-STRS|stair/i.test(layerTag),
+        isRoof:      /A-ROOF|roof/i.test(layerTag),
+        isCeiling:   /A-CEIL|ceiling/i.test(layerTag),
+        isFurniture: /A-FURN|furniture/i.test(layerTag),
+        isHandrail:  /A-HRAL|handrail/i.test(layerTag),
+        isWindow:    /A-GLAZ|window/i.test(layerTag),
+    });
+}
