@@ -33783,3 +33783,200 @@ name rather than quietly approximated.**
   absent from print, title block populated, handles draggable — are **argued from tests, not
   observed on screen**, and the 3D-in-PDF path in particular depends on a capture existing, which
   requires opening the 3D view once in a real session.
+
+## L-3900 … L-3904 — LANE VIEW6: **the census was right and the diagnosis was wrong** — 15 symbol injectors ignore intent, and NOT ONE of the three reports was caused by that — 2026-08-22 (commits `5762a49a`, `06215eb0`, `dd23489e`)
+
+Three founder reports on Visibility Intent (`promo 02` → Element Rules) not reaching the drawing.
+The brief arrived with a measured hypothesis and an instruction to verify it rather than inherit it
+(C01 §6 rule 6, which cuts both ways). **Verifying it is what this lane is for**: the census was
+CONFIRMED and is nearly four times the size reported — and the mechanism it was offered as an
+explanation for is **REFUTED**. The real defect was next door, and it was never furniture-specific.
+
+### L-3900 — the census, CONFIRMED and WIDENED: **15 symbol injectors, 0 honour visibility intent**
+
+The brief named four (`Bed`, `Chair`, `Kitchen`, `Wardrobe`) and asked for the full census before
+any fix. Measured 2026-08-22, the brief's own grep, run over every `*SymbolBuilder*` /
+`*SymbolTechnicalDrawingBridge*` file in the repo:
+
+```
+find . -path ./node_modules -prune -o -name '*SymbolBuilder*' -print
+                            -o -name '*SymbolTechnicalDrawingBridge*' -print
+  → 15 production files (+3 test files)
+
+for f in <those 15>; do grep -icE "visibilityIntent|isVisible|categoryVisible|vgOverride" $f; done
+  → 0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+```
+
+`OpeningElevationSymbolBuilder` · `ColumnPlanSymbolBuilder` · `DoorPlanSymbolBuilder` ·
+`BedPlanSymbolBuilder` · `ChairPlanSymbolBuilder` · `KitchenPlanSymbolBuilder` ·
+`SofaPlanSymbolBuilder` · `TreePlanSymbolBuilder` · `WardrobePlanSymbolBuilder` ·
+`PlumbingElevationSymbolBuilder` · `PlumbingPlanSymbolBuilder` · `RoofSlopeSymbolBuilder` ·
+`StairSymbolTechnicalDrawingBridge` · `WallLayerPlanSymbolBuilder` · `WindowPlanSymbolBuilder`.
+
+**0 of 15.** Each gates on `levelId` and its own element store, nothing else. The brief's instinct
+that a per-family fix would be the sixth hand-copy was right, and the denominator was 15, not 4.
+
+### L-3901 — ⚠ **REFUTED — this census does NOT explain reports (2) and (3).** Hide and line colour DO reach an injected symbol
+
+The brief's mechanism: *"hiding furniture removes its PROJECTED EDGES while the SYMBOL still injects
+unconditionally, and the line colour reaches the projection layers through `VGSceneApplicator` while
+the symbols land on their own layers."* **Measured at the canvas, and it is not what happens.**
+
+Two supporting claims fall first:
+
+* **The builders' own material is irrelevant.** `BedPlanSymbolBuilder` hard-codes
+  `new THREE.LineBasicMaterial({ color: 0x000000 })`. `OBC.TechnicalDrawing.toDrawingSpace()` +
+  `addProjectionLines()` **discard it** — `DrawingLayers.assign()` overwrites
+  `object.material = layer.material` and returns a fresh object with empty `userData`. The
+  positive control in `viewIntentGovernsEveryCategory.test.ts` asserts the survivor is exactly
+  `{ layer: 'A-FURN' }`. The **layer NAME is the only channel that survives**, and symbols and
+  projected edges therefore arrive at the canvas indistinguishable.
+* **VG does not shadow the intent colour.** That was true and was fixed by
+  §FIX-VISIBILITY-INTENT-AUTHORITY (**L-776**): `VgCanvasStyleResolver` now reports `edgeColor` /
+  `lineWeight` **only** where `overriddenProps` records a real human override, so `vgEdge` is
+  `null` and `ctx.strokeStyle = vgEdge ?? _pen.color` falls through to the pen — which carries the
+  intent at `RULE_PRIORITY_INTENT = 1000` via `graphicsRulesEngine._intentRules()`.
+
+⛔ **The measurement that settles it.** `viewIntentGovernsEveryCategory.test.ts` is GREEN (23/23) but
+drives the **VG governance store** — a different store on a different tier, so it scores 1.000 even
+if the intent tier is dead. A new suite drives the **Visibility Intent** store and nothing else,
+ending at `ctx.strokeStyle` / `ctx.globalAlpha` on a line stamped exactly as OBC leaves an
+injector's output:
+
+`apps/editor/__tests__/visibilityIntentGovernsSymbolInjectors.test.ts` — for `A-FURN` (symbol
+injectors) **and** `A-WALL:cut` (EdgeProjectorService), positive control · **line colour** ·
+**hide**. All GREEN at HEAD *before* any fix. The intent's furniture line colour reaches the stroke;
+an intent hide paints nothing (`appearanceToPenStyle` → `opacity: 0`).
+
+**So the founder's "maybe because is symbol elements?" and the brief's elaboration of it are both
+wrong about the STROKE.** Recorded, not deleted — the census (L-3900) is real, and its actual cost
+is L-3902/L-3903 below.
+
+### L-3902 — ✅ FIXED — the defect that WAS there: **a hidden category was still fully clickable**
+
+`PlanViewCanvas.render()` drops a hidden line twice (VG `resolved.visible`, then the intent's
+alpha-0 pen). **`hitTest()` applied NEITHER.** It traversed every `LineSegments`, took the first
+`DrawingSelectionIndex` id inside the pixel threshold and returned it. So a category switched off in
+the Visibility Intent panel stayed **fully selectable**: click blank paper, select the bed that is
+not drawn, drag it, and an invisible element moves.
+
+**MEASURED for `A-FURN` AND `A-WALL:cut`** — both RED before the fix, both GREEN after. **This was
+never furniture-specific**, which is why the fix is in the canvas and not in any injector.
+
+The fix is **one predicate, not an `if` copied into `hitTest`**: "what is drawn" and "what can be
+picked" must be the same sentence or they drift the first time either is edited — this file's own
+`_vgCategoryForLayer` header records that exact divergence (a duplicate that lost the ISO hyphen
+sub-layer arm, so `A-GLAZ-CUT` / `A-FURN-SHADOW` resolved to a null category), and L-1600 was seven
+hand-copied answers to "which layer is this line on", one silently wrong.
+
+* `penCategoryForLayerTag()` (`PenWeightTable.ts`) — the ten inline category regexes lifted out of
+  `render()` into one pure exported function layered directly on `categoryFromFlags()`, so the two
+  can never answer differently.
+* `PlanViewCanvas._lineIsDrawn()` — the VG + intent visibility decision, now consulted by the pointer.
+
+Visibility is keyed on **opacity alone**, exactly as `render()` does it: `ctx.lineWidth` is floored
+at one device pixel, so a `widthMm: 0` pen still lays down a hairline — it is `globalAlpha = 0` that
+hides a line. Keying on width would make pickability disagree with the screen.
+
+### L-3903 — ✅ FIXED — the census closed at **ONE SEAM**, and stated honestly as a downstream fix
+
+`makeSymbolInjectionGate(viewId, viewType)` (`packages/core-app-model/src/presentation/SymbolInjectionGate.ts`)
+resolves the bound intent once and memoises per family. It is constructed in `EdgeProjectorService`,
+which already invokes all fifteen injectors from one contiguous region — **the builders stay dumb
+and the CALLER decides.** Fifteen in-builder guards would be fifteen chances to drift and would push
+a DOMAIN concept (**P7**: intent is not UI state, and it is not geometry either) into
+`packages/geometry-*`, which exist to do geometry maths.
+
+* It asks `resolveIntentStyle`, **not** `isElementTypeFullyHidden`. The latter reads the intent's
+  element rules only, while the founder's own per-category toggle (**L-1894**,
+  `SetCategoryVisibilityInViewCommand`) writes a `visibilityOverride` onto the view **instance**,
+  where `isolateActive` also lives. Using it would leave the panel's own switch unable to gate
+  injection — the defect, not the fix.
+* **FAILS OPEN by construction** — unbound view, missing intent, resolver throw and empty type all
+  return `true`. A gate that failed closed would silently delete authored linework from a drawing
+  whenever intent resolution had a bad day, which is strictly worse than what it replaces.
+  **Absence of a decision is not a hide.**
+* The elevation opening builder is gated by wrapping the **whole block** rather than substituting an
+  empty `InjectResult`. A hand-built stand-in would have to claim a `diagnosis` it never measured,
+  and [[fake-more-capable-than-real]] — a fake assembled from the type's own header cannot falsify
+  that header. Skipping the block means `suppressSymbolisedElementLinework` never runs either, so
+  every opening keeps its projected wireframe: exactly the un-symbolised fallback the suppression is
+  already designed around.
+
+⛔ **This is NOT the fix for "hidden furniture still renders"** (see L-3901) and must not be read as
+confirming it. What unconditional injection actually costs is everything **downstream of the
+canvas**, where no alpha is applied: the drawing carries geometry for a switched-off category,
+`registerSegmentUUID` indexes it for selection, and the work is redone every re-projection for
+linework that cannot be seen.
+
+### L-3904 — ⚠ REFUTED, then DISCLOSED — elevation **does** produce fill regions; the gate is `viewTypeDeclaresCutFill`
+
+Report (1): slab → `cut` → FILL STYLE `poche`, FILL COLOUR grey. Plan honours it; elevation does not.
+The brief instructed: measure whether elevation produces fill regions at all before touching
+styling, and expected the answer *"edges, not faces — NOT BUILT"*. **It produces them.**
+
+* `EdgeProjectorService` **does** emit a `:cut` band for elevations — §ELEV-LINEWEIGHT (**L-182**),
+  for geometry the elevation plane is drawn THROUGH.
+* `_ELEVATION_SCOPE.poche === true` and `PlanViewCanvas._renderPocheFills()` **does** run for
+  elevations — §ELEVATION-POCHE-IS-INTENT-DECLARED (**L-1601**). `ViewScope.ts` carries its own
+  correction notice saying the old *"an elevation has `poche: false`"* line had been false for months.
+* `apps/editor/__tests__/elevationCutPocheIsIntentDeclared.test.ts` drives the real canvas and
+  asserts on `ctx.fill()` — **5/5 GREEN**. Elevation cut poché **works**.
+
+The real mechanism is the gate. Elevation poché requires `viewTypeDeclaresCutFill()`: the fill must
+be declared **for the elevation view type** — a **View Modifiers** row. A fill on the intent's BASE
+element rules, which is what the **Element Rules** tab writes, is deliberately not enough, because
+every system intent seeds plan poché tones there (slab `#dcdcdc`, wall `#c9c9c9`) and honouring an
+inherited fill would paint the whole façade grey — §FIX-ELEVATION-POCHE (**L-119**) again in a
+lighter colour. L-1601's own header records that its first cut did exactly that.
+
+**So this is neither a styling bug nor an unbuilt feature. It is a control that accepts a value
+which, for one whole view family, nothing can ever draw — and said nothing.** The escape hatch
+already existed and was simply never NAMED where the user setting the value would see it
+([[refusing-half-needs-its-escape-hatch]]: a gate whose "yes" branch is unreachable from the UI is a
+regression with a contract citation attached).
+
+**Shipped:** a note on the Element Rules appearance form, scoped to the `cut` state only — on
+`projection` / `beyond` / `hidden` the sentence would be false, and a note that is sometimes wrong is
+worse than no note. It **names** the View Modifiers tab rather than merely refusing.
+
+### NOT DONE, DELIBERATELY
+
+* **The Element Rules cut fill is still stored and still inert for elevations.** Making it paint
+  reinstates L-119; auto-writing a View Modifiers row on the user's behalf forges a decision he did
+  not make. **Both need a founder call** — the disclosure is what is safe to ship today.
+* **The three performance items in the founder's log were RECORDED, NOT MEASURED by this lane** —
+  `§PROBE-PLAN-BLANK-WINDOW blankMs=3090.1 / maxMs=5140.4`, `§PERF-PROJECTION-CANCEL-SUPERSEDED`
+  firing dozens of times per crop drag, and elevation exporting all 380 elements across 7 levels
+  (`No levelId`) on every re-projection. This lane spent its budget on the three correctness
+  reports and did **not** determine whether `§FIX-PLAN-BLANK-STALEGEN` reaches the blank-window path.
+  Stating them as unmeasured rather than guessing.
+* **The `handrail` collision is still PINNED, not fixed** (pre-existing, `viewIntentGovernsEveryCategory.test.ts`).
+  `handrail` and `stair` both route to `A-STRS`, the layer name is the only surviving channel, so the
+  panel's handrail row changes nothing. The fix is EXPORT-visible (a new `A-STRS-HRAL` sub-layer) and
+  must be taken deliberately.
+
+### TEST COUNTS — BEFORE AND AFTER, MEASURED THE SAME WAY
+
+* **New:** `apps/editor/__tests__/visibilityIntentGovernsSymbolInjectors.test.ts` **16/16** ·
+  `apps/editor/src/ui/__tests__/elevationPocheDisclosure.spec.ts` **4/4**.
+* **Unmoved:** `viewIntentGovernsEveryCategory.test.ts` **23/23** ·
+  `elevationCutPocheIsIntentDeclared.test.ts` **5/5**.
+* **Root gate:** `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=0**,
+  run after every commit.
+* ⚠ **The full `@pryzm/editor` suite is 53 red across 21 files — and that is PRE-EXISTING.** Not
+  assumed: the six touched source files were reverted to the session-start commit `10e300e5` with
+  `git checkout 10e300e5 -- <paths>` and the same 21 files re-run → **18 + 35 = 53 failures, the
+  identical set** (Cesium viewport, marketing pages, GIS/site capture, wall-move, curtain wall,
+  handrail parity — no drawing/plan/intent file among them). Restored with `git checkout HEAD --`.
+  **Zero regressions introduced.** Note this is a *different and larger* set than the 3 reds the
+  brief named in `apps/editor/src/engine/__tests__` (`mt05StoreIdentityHeap` ×2,
+  `wallMoveGateMutualCorner` ×1), which live under the ROOT vitest config.
+
+### NOT VERIFIED IN A BROWSER
+
+**Nothing in this lane was observed on screen.** Every claim above is a source measurement, a grep
+with its command written down, or a test result. Specifically unverified by eye: that a hidden
+furniture category is now unclickable in a real plan pane; that the elevation note renders legibly in
+the panel; and that skipping injection for a hidden family produces no visible change to any drawing
+the founder currently has open.
