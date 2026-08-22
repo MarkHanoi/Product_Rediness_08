@@ -544,3 +544,140 @@ describe('buildUndoStoreMap — coverage of every create-handler affectedStores 
       + 'or record the key in EXPECTED_UNCOVERED with the reason.').toEqual([]);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §L-4101 — THE REVERT LATCH AROUND THE RING-BUFFER LEG
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// FOUNDER, 2026-08-21: *"I moved the walls — the BIM 3.0 process worked and
+// moved the slab and adjacent walls too. But then I used the new undo dropdown,
+// clicked two steps back, and the adjacent walls did NOT move."*
+//
+// `CommandManagerImpl._reverting` is incremented ONLY inside its own
+// `undo()`/`redo()`. The RING-BUFFER leg — the one this module tries FIRST —
+// never enters those, so `commandManager.isReverting()` read **false** while an
+// inverse patch landed in the stores. `WallMoveReweldService` and
+// `SlabWallConnectivityService` both gate on exactly that flag, so both read the
+// undo as a fresh drag and dispatched a NEW FORWARD CASCADE onto the history —
+// which the jump's own NEXT step then undid, restoring the partners to their
+// DISPLACED pose. Measured at the store layer, with the real services, in
+// `packages/command-registry/__tests__/ringBufferUndoRevertLatch.test.ts`.
+//
+// ⭐ WHAT THESE ARMS ADD THAT THAT FILE CANNOT: that `performUndo()` /
+// `performRedo()` REALLY RAISE IT, around the patch apply, on both directions.
+// The store-layer file proves the latch WORKS; without these arms nothing proves
+// it is ever CALLED — which is the [[committed-is-not-reachable]] gap that made
+// L-942 ship broken twice, at this exact seam.
+describe('performUndoRedo — §L-4101 revert latch around the ring-buffer leg', () => {
+  beforeEach(() => {
+    __resetUndoRestoreSnapshots();
+    delete (window as any).runtime;
+    delete (globalThis as any).commandManager;
+    delete (window as any).wallStore;
+  });
+
+  /** A commandManager stub with the REAL depth-counted latch semantics, and a
+   *  store that records what `isReverting()` said AT THE MOMENT OF THE WRITE —
+   *  which is the only instant that matters, because that is when the wall-store
+   *  subscribers run. */
+  function makeLatchProbe() {
+    let reverting = 0;
+    const seenDuringWrite: boolean[] = [];
+    const cm = {
+      ...makeCommandManager([]),
+      isReverting: () => reverting > 0,
+      beginExternalRevert: vi.fn(() => { reverting++; }),
+      endExternalRevert: vi.fn(() => { reverting = Math.max(0, reverting - 1); }),
+    };
+    const map = new Map<string, any>();
+    const store = {
+      map,
+      add(e: any) { seenDuringWrite.push(reverting > 0); map.set(e.id, e); },
+      remove(id: string) { seenDuringWrite.push(reverting > 0); map.delete(id); },
+      getById(id: string) { return map.get(id) ?? undefined; },
+      update(id: string, u: any) {
+        seenDuringWrite.push(reverting > 0);
+        const e = map.get(id); if (e) map.set(id, { ...e, ...u });
+      },
+    };
+    return { cm, store, seenDuringWrite, depth: () => reverting };
+  }
+
+  /** A baseline-field inverse patch — the exact op shape a wall MOVE produces
+   *  (`['wallId','baseLine']`), not the whole-element create/remove shape the
+   *  other suites in this file use. The founder's gesture is a MOVE. */
+  function baselineMovePair(): Pair {
+    return {
+      forward: { ops: [{ op: 'replace', path: `/${WALL_ID}/baseLine`, value: [{ x: 10, y: 0, z: 0 }, { x: 10, y: 0, z: 6 }] }] },
+      inverse: { ops: [{ op: 'replace', path: `/${WALL_ID}/baseLine`, value: [{ x: 8, y: 0, z: 0 }, { x: 8, y: 0, z: 6 }] }] },
+      affectedStores: ['wall'],
+    };
+  }
+
+  it('UNDO: isReverting() is TRUE at the instant the inverse patch hits the store', () => {
+    const { cm, store, seenDuringWrite, depth } = makeLatchProbe();
+    store.add({ id: WALL_ID, type: 'wall', levelId: 'L0', baseLine: [{ x: 10, y: 0, z: 0 }, { x: 10, y: 0, z: 6 }] });
+    seenDuringWrite.length = 0;                       // the seed write is not the subject
+    install(makeRingBuffer(baselineMovePair()), cm, store);
+
+    const outcome = performUndo();
+
+    expect(outcome.status).toBe('undone');
+    expect(cm.beginExternalRevert).toHaveBeenCalledTimes(1);
+    // ⭐ THE ASSERTION. Not "begin was called" — that a store write happened
+    // WHILE the latch was up. A latch raised after the write is no latch at all.
+    expect(seenDuringWrite.length).toBeGreaterThan(0);
+    expect(seenDuringWrite.every(Boolean)).toBe(true);
+    // …and it came back down, or every later gesture would silently stop cascading.
+    expect(cm.endExternalRevert).toHaveBeenCalledTimes(1);
+    expect(depth()).toBe(0);
+    expect(cm.isReverting()).toBe(false);
+  });
+
+  it('REDO: the same guarantee on the forward replay', () => {
+    const { cm, store, seenDuringWrite, depth } = makeLatchProbe();
+    store.add({ id: WALL_ID, type: 'wall', levelId: 'L0', baseLine: [{ x: 10, y: 0, z: 0 }, { x: 10, y: 0, z: 6 }] });
+    const rb = makeRingBuffer(baselineMovePair());
+    install(rb, cm, store);
+
+    performUndo();
+    seenDuringWrite.length = 0;
+    (cm.beginExternalRevert as any).mockClear();
+    (cm.endExternalRevert as any).mockClear();
+
+    const outcome = performRedo();
+
+    expect(outcome.status).toBe('redone');
+    expect(seenDuringWrite.length).toBeGreaterThan(0);
+    expect(seenDuringWrite.every(Boolean)).toBe(true);
+    expect(depth()).toBe(0);
+  });
+
+  it('a commandManager WITHOUT the methods still undoes — the latch is best-effort, never a gate', () => {
+    // Back-compat, and it is load-bearing: `_cm()` reads a global that a headless
+    // harness or an older bundle may populate with an object that has no such
+    // methods. Refusing to undo because a latch is unavailable would trade a
+    // wrong-state defect for a dead keypress.
+    const store = makeStore();
+    store.add({ id: WALL_ID, type: 'wall', levelId: 'L0' });
+    const cm = makeCommandManager([]);                 // no begin/endExternalRevert
+    install(makeRingBuffer(wallPair()), cm, store);
+
+    const outcome = performUndo();
+
+    expect(outcome.status).toBe('undone');
+    expect(store.map.has(WALL_ID)).toBe(false);
+  });
+
+  it('a THROW inside the patch apply still lowers the latch (a stuck latch silences every cascade)', () => {
+    const { cm, store, depth } = makeLatchProbe();
+    store.add({ id: WALL_ID, type: 'wall', levelId: 'L0', baseLine: [{ x: 10, y: 0, z: 0 }, { x: 10, y: 0, z: 6 }] });
+    store.update = () => { throw new Error('applyPatch exploded'); };
+    install(makeRingBuffer(baselineMovePair()), cm, store);
+
+    performUndo();       // applyRingBufferSide catches per-store; the latch must still unwind
+
+    expect(depth()).toBe(0);
+    expect(cm.isReverting()).toBe(false);
+  });
+});

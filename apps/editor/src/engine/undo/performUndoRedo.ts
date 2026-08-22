@@ -101,6 +101,10 @@ interface CommandManagerLike {
   peekUndoTargetIds?(): readonly string[];
   /** §UNDO-GESTURE-ID — the gesture that produced the top undo entry, or null. */
   peekUndoGestureId?(): string | null;
+  /** §L-4101 — raise/lower `isReverting()` around the RING-BUFFER leg, which
+   *  `CommandManager.undo()`/`redo()` cannot reach. See `_withPausedObservers`. */
+  beginExternalRevert?(): void;
+  endExternalRevert?(): void;
 }
 
 /**
@@ -511,11 +515,63 @@ function _idsOf(pair: PatchPair | null | undefined): string[] {
  * CommandManagerImpl._withPausedObservers so the invariant is identical on both
  * the ring-buffer and commandManager paths.
  */
+/**
+ * §L-4101 — ⭐ AND IT RAISES THE REVERT LATCH, which is the half L-874 missed.
+ *
+ * ── THE DEFECT, MEASURED BEFORE IT WAS FIXED ─────────────────────────────────
+ * `CommandManagerImpl._reverting` is incremented ONLY inside its own
+ * `undo()`/`redo()`. The RING-BUFFER leg — the one this algorithm tries FIRST —
+ * never enters those, so `commandManager.isReverting()` reads **false** while an
+ * inverse patch lands in the stores. `elementUndoStoreAdapter` applies a
+ * `['wallId','baseLine']` inverse op as a plain `store.update(id, { baseLine })`,
+ * which is byte-indistinguishable from a fresh user drag to every subscriber.
+ * `WallMoveReweldService.onWallUpdated` and `SlabWallConnectivityService` both
+ * gate on exactly that flag — so both treated the undo as a MOVE and dispatched
+ * a **new FORWARD cascade**, minting history entries *while the undo was still
+ * running* and wiping the redo stack.
+ *
+ * MEASURED (`packages/command-registry/__tests__/WA1MoveTransactionAtomicity.measure.test.ts`,
+ * L-1110 §C/§D — re-run 2026-08-21, 6/6 green while DOCUMENTING the break):
+ *
+ *     [WA-1 C] isReverting() during a ring-buffer undo = false;
+ *              cm history: 1 -> 3 (+2 entry/entries minted BY the undo write); canRedo = false
+ *     [WA-1 D] pose after Ctrl+Z #1 === pre-move pose ? true
+ *     [WA-1 D] pose after Ctrl+Z #2 === pre-move pose ? false
+ *
+ * ⭐ AND THE HISTORY-DROPDOWN JUMP IS THE AMPLIFIER, not a separate bug.
+ * `undoThrough(n)` is `n+1` sequential `performUndo()` calls. Step 1 (ring
+ * buffer) minted a fresh cascade; step 2 then undid THAT cascade — whose
+ * captured "before" is the partner's DISPLACED pose — so the partners were put
+ * back where the move had left them and the ORIGINAL cascade entry was never
+ * reached. Both steps reported success; the HUD printed `requested 2,
+ * completed 2`. Founder, 2026-08-21: *"I used the new undo dropdown, clicked two
+ * steps back, and the adjacent walls did NOT move."*
+ *
+ * ⚠ WHY SILENCING THE SERVICES HERE IS CORRECT AND NOT A DROPPED CONSEQUENCE:
+ * the forward cascade is ALREADY on the commandManager stack as its own entry
+ * (or as a `structuralChild` of the mover's entry — §L-874-ONE-UNDO). Reverting
+ * it is that entry's job. A cascade recomputed during a revert is a SECOND
+ * answer to a question the history already answered, and it answers it against a
+ * half-reverted world. This is verbatim the argument `CommandManagerImpl`'s
+ * `_reverting` doc makes for the leg it already covers.
+ *
+ * Best-effort and depth-counted: an absent `commandManager` (headless/test) just
+ * skips it, and the `finally` below is what guarantees a throw inside the patch
+ * apply cannot strand the latch raised.
+ */
 function _withPausedObservers(label: 'UNDO' | 'REDO', body: () => void): void {
   type WallControl = { pause?: () => void; resumeAndFlush?: () => void };
   type TopologyControl = { pause?: () => void; resume?: () => void };
   const wallControl = (window as { __wallRebuildControl?: WallControl }).__wallRebuildControl;
   const topology    = (window as { roomTopologyObserver?: TopologyControl }).roomTopologyObserver;
+  const cm          = _cm();
+  // Recorded so the `finally` lowers the latch ONLY if this call raised it —
+  // otherwise an absent method on one side and a present one on the other could
+  // drive the counter negative (it floors at 0 there, but the asymmetry would be
+  // silent, and a silently-disarmed latch is the defect this closes).
+  let latched = false;
+  try { cm?.beginExternalRevert?.(); latched = typeof cm?.beginExternalRevert === 'function'; }
+  catch (err) { console.warn(`[Undo] §L-4101 ${label}: beginExternalRevert() failed — structural services are NOT latched for this replay`, err); }
   try { wallControl?.pause?.(); } catch (err) { console.warn(`[Undo] §56 ${label}: wallControl.pause() failed`, err); }
   try { topology?.pause?.(); }    catch (err) { console.warn(`[Undo] §56 ${label}: topology.pause() failed`, err); }
   try {
@@ -523,6 +579,12 @@ function _withPausedObservers(label: 'UNDO' | 'REDO', body: () => void): void {
   } finally {
     try { wallControl?.resumeAndFlush?.(); } catch (err) { console.warn(`[Undo] §56 ${label}: wallControl.resumeAndFlush() failed`, err); }
     try { topology?.resume?.(); }            catch (err) { console.warn(`[Undo] §56 ${label}: topology.resume() failed`, err); }
+    // LAST, and after the observer flush: the rebuild flush is a RENDER pass, not
+    // a model mutation, so it must not be the thing that re-arms the services.
+    if (latched) {
+      try { cm?.endExternalRevert?.(); }
+      catch (err) { console.error(`[Undo] §L-4101 ${label}: endExternalRevert() threw — the revert latch may be STUCK RAISED, which silences structural cascades for the rest of the session`, err); }
+    }
   }
 }
 

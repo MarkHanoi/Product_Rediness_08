@@ -869,6 +869,50 @@ export class CommandManager {
     private _reverting = 0;
     isReverting(): boolean { return this._reverting > 0; }
 
+    /**
+     * §L-4101 — THE RING-BUFFER HALF OF THE SAME LATCH, which L-874 never had.
+     *
+     * ⚠ READ THE `_reverting` DOC ABOVE FIRST: it describes this exact defect and
+     * fixes it for ONE of the two undo legs. `_reverting` is incremented ONLY
+     * inside `undo()` / `redo()` below, so it is raised for the commandManager
+     * leg and is **false for the ring-buffer leg** — and the ring-buffer leg is
+     * the FIRST one `performUndo` tries (`performUndoRedo.ts`, "RING-BUFFER
+     * FIRST"). A ring-buffer inverse patch reaches the wall store as a plain
+     * `store.update(id, { baseLine })` through `elementUndoStoreAdapter`, which is
+     * byte-indistinguishable from a fresh user move to every subscriber.
+     *
+     * MEASURED, and it was measured BEFORE this method existed —
+     * `WA1MoveTransactionAtomicity.measure.test.ts` (L-1110) §C/§D, re-run
+     * 2026-08-21, 6/6 green while DOCUMENTING the break:
+     *   [WA-1 C] isReverting() during a ring-buffer undo = false;
+     *            cm history: 1 -> 3 (+2 entries minted BY the undo write); canRedo = false
+     *   [WA-1 D] pose after Ctrl+Z #1 === pre-move pose ? true
+     *   [WA-1 D] pose after Ctrl+Z #2 === pre-move pose ? false   ← the partner re-displaced
+     *
+     * That is the founder's 2026-08-21 report verbatim — *"I used the undo
+     * dropdown, clicked two steps back, and the adjacent walls did NOT move"* —
+     * because step 1 (ring buffer) silently MINTED a fresh forward cascade onto
+     * this history, and step 2 then undid THAT cascade, whose captured "before"
+     * is the partner's DISPLACED pose. Two steps, both reporting success, and the
+     * original cascade never reverted at all.
+     *
+     * Depth-counted and paired in a `finally` by the one caller
+     * (`performUndoRedo._withPausedObservers`) so a throw inside the patch apply
+     * cannot strand the latch raised — a stuck latch would silence every
+     * structural cascade for the rest of the session, which is a worse defect
+     * than the one this closes.
+     *
+     * ⛔ NOT a general-purpose "suppress everything" switch. It means exactly what
+     * `isReverting()` has always meant: *the mutation you are watching is a REPLAY
+     * of recorded history, and the history holds its own entry for the
+     * consequence you are about to compute.* Do not raise it around a forward
+     * gesture.
+     */
+    beginExternalRevert(): void { this._reverting++; }
+    /** Pair of {@link beginExternalRevert}. Floors at 0 — an unbalanced end must
+     *  not drive the counter negative and permanently disarm the latch. */
+    endExternalRevert(): void { this._reverting = Math.max(0, this._reverting - 1); }
+
     undo(): CommandResult | null {
         const entry = this.history.pop();
         if (!entry) {
