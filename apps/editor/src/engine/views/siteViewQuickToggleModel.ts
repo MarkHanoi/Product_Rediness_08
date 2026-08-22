@@ -138,7 +138,7 @@ export interface SiteViewSplitAction {
 export type SiteViewGlobeFraming = 'site' | 'world';
 
 /**
- * ⭐ THE `🌐 3D Globe` AFFORDANCE — modelled BESIDE the segments, exactly like
+ * ⭐ THE `⊕ 3D Globe` AFFORDANCE — modelled BESIDE the segments, exactly like
  * `SiteViewSplitAction`, and for the same reason: it is an ACTION, not a view.
  *
  * ⛔ IT IS NOT A SEGMENT AND CANNOT BECOME ONE. `segments` is DERIVED from
