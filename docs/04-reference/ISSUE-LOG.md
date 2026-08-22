@@ -37658,3 +37658,172 @@ projects.
 
 ⛔ **Until then, do NOT "clean up the duplication" between the two lift records** —
 C104 §1 and R-8. **Verdict: OPEN.**
+
+---
+
+## §SEQUENCE-GRAPH — the 4D sequence as a dependency graph (lane SEQ27, 2026-08-22)
+
+Founder: *"Could you create also a tab for **6d graph of execution**? like a **mind map** but for
+**activity execution in time**?"* — with a radial Mural mind map attached.
+See **[ADR-0355](../02-decisions/adrs/ADR-0355-the-execution-graph-is-a-dag-not-a-programme.md)**
+and **[C37 §5.7](../02-decisions/contracts/C37-SCHEDULE-4D.md)**.
+
+### L-6300 — the request names two things that do not exist, and they fail in OPPOSITE directions
+
+**"6D" is already Carbon** (`DataWorkbench.ts:234-237` — Take-off / 5D Cost / 4D Time / **6D
+Carbon**), and the content described is unambiguously the **4D** sequence. **"in time" is the one
+thing this data does not have** — `deriveConstructionSequence` refuses durations and dates in
+writing, on every render.
+
+Neither could be silently interpreted. Built as a **view mode inside 4D Time**, named
+**"Execution graph"**. **Verdict: CLOSED — ADR-0355 §1, §3.**
+
+### L-6301 — `ADR-0353 §3` was never an amendment to the sequence module; TWO LANES MINTED 0353
+
+`ConstructionSequence.ts`'s header and `quantities/index.ts` both cited *"ADR-0351 §4D, AMENDED IN
+PLACE by ADR-0353 §3"*. **Both halves false.** ADR-0351 has **no `§4D` heading** (its 4D material is
+§8's `4D-1`…`4D-6` rows; measured `grep -n '^## ' ADR-0351-*.md`). ADR-0353 is *"A reflected ceiling
+plan is PLAN-HANDED"* (lane VIEWDOC20, **same day**); measured
+`grep -ci 'sequence|duration|output rate|constructab' ADR-0353-*.md` → **1**, incidental.
+
+The sequence lane's amendment **never got a number at all**. ADR-0355 is that missing amendment;
+both citations repointed. ⚠ The wrong citation was *plausible* — right format, right era — which is
+why it survived. **Cite by measurement, not by adjacency in time. Verdict: CLOSED.**
+
+### L-6302 — a Gantt was the obvious build and would have been the defect
+
+A timeline's primary axis is the one quantity this model does not have. ADR-0351 §8 4D-3 already
+names the shape: *"a half-implemented CPM is the same defect shape as a fabricated output rate."*
+Built a **DAG**. **Verdict: CLOSED.**
+
+### L-6303 — ⭐ A LEFT-TO-RIGHT DAG WOULD HAVE SMUGGLED A TIME AXIS IN THROUGH THE LAYOUT
+
+The most valuable finding of this lane. A left-to-right layered graph has an **unlabelled horizontal
+axis along which work visibly advances**, and every construction professional reads that as TIME
+whatever the caption says. That is a fabricated quantity introduced by **LAYOUT rather than by
+arithmetic** — it passes every test that looks for invented *numbers*, because it invents none.
+
+**A radial layout has no horizontal axis at all.** So the mind map the founder asked for is also the
+only layout that cannot quietly grow a time axis. **Verdict: CLOSED — ADR-0355 §4.**
+
+### L-6304 — node radius must be CONSTANT, or the honesty marker vanishes
+
+Sizing nodes by measured quantity is the natural graph idiom. Here it is **banned**: the
+`SUBSTRUCTURE` activity measures nothing *deliberately* (a programme that silently omits foundations
+reads as complete), so a quantity-sized node would render **the single most important honesty marker
+on the drawing as a dot of radius zero** — deleting a founder-ratified refusal via a styling choice.
+Encoded as a dashed red ring instead, and the test asserts it is the **largest** node, not the
+smallest. **Verdict: CLOSED.**
+
+### L-6305 — the refusals are a FIELD on the read model, not a template literal
+
+`SequenceGraph.refusals` is data. A caveat that lives only in markup is one refactor away from
+deletion, and this lane's whole risk was a second view dropping the first view's hard-won caveats.
+`sequenceGraphTimeClaims()` goes red if the array is emptied. **Verdict: CLOSED.**
+
+### L-6306 — a test asserted "critical path appears only in the refusals div" and went RED against the TEST
+
+The phrase also occurs in the sequence's **own** `coverageStatement`, rendered above the switch,
+which is *itself* a refusal (*"Nothing here is a forward pass, a float or a critical path"*). **Two
+refusals is not a defect.** Re-aimed at the real invariant: the phrase is never an **affordance**
+(no control offers it) and every occurrence is negated. **Verdict: CLOSED — corrected, not deleted.**
+
+### L-6307 — a test banned the word "days" from the drawing; keeping it green would have deleted the refusal
+
+`durationNote` **is** the refusal and contains *"the number of days is the one input only you can
+source"*. Banning the word would have removed a founder-ratified sentence to satisfy an assertion —
+exactly backwards. Re-aimed at what must never appear: a **computed** quantity of time, i.e. a
+number attached to a day/week/month, or a date. **Verdict: CLOSED — corrected, not deleted.**
+
+### L-6310 — unmeasured trades are NAMED, never drawn as zero-weight nodes
+
+An empty node says *"this work takes no doing"*. An absence says *"PRYZM does not measure this"*.
+Opposite meanings; only the second is true. `SequenceGraph.absentTrades` carries them and the panel
+prints them above the picture. **Verdict: CLOSED.**
+
+### L-6312 — depth is DEPENDENCY DEPTH and the rings say so in words
+
+Longest-path layering counts hops, not time. Two nodes on one ring are **not simultaneous**. The
+ring note states this explicitly (*"not weeks, dates or phases"*) because the layout alone cannot
+carry the distinction. **Verdict: CLOSED.**
+
+### L-6320 — ⛔ THE SHARED RENDERER COULD NOT DRAW THIS GRAPH; the seam is SPECIFIED, not negotiated
+
+`analysis/nodeLinkSvg.ts` is the repo's ONE shared node-link renderer (L-3256) and was read in full
+first. **Three of its four parts ARE reused by direct import** — `SeriesFocus` + `markSeries` (one
+definition of "dormant"; its CSS is already global via `AppTheme.ts:225`), `seriesColour` (no colour
+minted by this lane), and its accessibility conventions.
+
+`renderNodeLink()` **itself** cannot draw this graph, for four independent measured reasons:
+it calls `forceLayout()` **unconditionally at `:219`** with no seam to inject positions (and a force
+layout would destroy the rank ordering that is the only real information here); its edges are
+**straight**; its edges are **undirected**; and it has **no edge label** — while the edge *reason* is
+the most valuable thing on this drawing.
+
+⭐ **The collapsing seam is small:** an optional `positions?: ReadonlyMap<string,{x,y}>` that
+short-circuits the `forceLayout` call, plus `edgeShape?: 'line'|'curve'` and
+`edgeLabel?: (e) => string`. Then `SequenceGraphView.drawGraph()` becomes a call into it and ~120
+lines here are deleted.
+
+⚠ **It was NOT agreed with the analysis lane.** `SendMessage` to `GRAPH26` returned *"No agent named
+'GRAPH26' is reachable"*, and no `ListAgents` tool existed in this lane's toolset to find the real
+name. **Verdict: OPEN — owner of `apps/editor/src/ui/analysis/` to accept or reject the seam.**
+⛔ Not licence for a third renderer.
+
+### L-6321 — the Analysis node cap does NOT transfer to this surface
+
+`analysis/graphReadModel.ts:42` caps its card because an **O(n²)** force layout hairballs above a few
+dozen nodes. This layout is a single-pass radial tidy tree — **O(n) after a sort** — over ~37 nodes.
+**No cap here, and none inherited.** Recorded so a later reader does not import a limit that never
+applied. **Verdict: CLOSED.**
+
+### L-6322 — ten build stages against an eight-colour floor
+
+`BUILD_STAGES` has **10** members; the categorical scale has **8**, and `tokens.ts:465` forbids a
+ninth (*"Eight is where the floor stops clearing 10"*) — a **measured** CVD floor (global min ΔE00
+**11.13**), not a preference. Stages beyond the eighth *present* one take the named neutral and the
+legend says so in words; colour is never the only channel, since every node is labelled.
+⛔ **Do not "fix" this by adding `--app-cat-9`. Verdict: CLOSED (constrained).**
+
+### L-6330 — ⚠ NOT PROVEN: 37 nodes on screen, and the colour-overflow branch
+
+The DOM suite mounts the real panel and reads rendered DOM, but its fixture yields **3 activities**
+and **3 stages**. The founder's model yields **37 activities**. **Label collision on the outer rings
+at 37 nodes has NOT been observed by this lane**, and the 8-colour overflow branch has **not been
+seen on screen** because three stages never reach it. Both are code paths that exist and are
+unit-visible; neither is a verified rendering. **Verdict: OPEN — needs one founder click.**
+
+### L-6340 — ⚠ `check-contract-cited-paths` is RED at 493/490, and it was ALREADY RED before this lane touched anything
+
+Measured 2026-08-22 while adding [C37 §5.7](../02-decisions/contracts/C37-SCHEDULE-4D.md):
+
+```
+npx tsx tools/ga-gate/check-contract-cited-paths.ts
+  -> RC=3   UNRESOLVED (arm A) : 493  (baseline 490)
+```
+
+⭐ **The lane proved this was NOT its own doing rather than assuming it either way.** The working
+copy of `C37-SCHEDULE-4D.md` was set aside, the file restored from `HEAD` with
+`git show HEAD:… > …`, the gate re-run, and the file put back:
+
+```
+AT-HEAD (this lane's §5.7 absent)  -> RC=3   UNRESOLVED (arm A) : 493  (baseline 490)
+WITH §5.7                          -> RC=3   UNRESOLVED (arm A) : 493  (baseline 490)
+```
+
+**Identical. This lane's contract edit adds ZERO unresolved citations** — every path it cites
+(`apps/editor/src/ui/dataworkbench/buckets/`,
+`packages/core-app-model/src/quantities/SequenceGraph.ts`, the ADR-0355 link) resolves on disk, and
+none of them appears anywhere in the gate's `--list` output.
+
+The three over baseline are **pre-existing**, and the most recent commit to touch
+`docs/02-decisions/contracts/` is `fce90ec4` (C104 + ADR-0354, the lift compound lane). ⛔ **The
+baseline was NOT raised** — §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7) forbids it, and absorbing another
+lane's three would also destroy the evidence of who introduced them.
+
+⚠ Note for whoever fixes it: the gate's own header comment says the baseline was pinned at **491**
+(`§CITED-PATH-BASELINE`, line 91) while `BASELINE_UNRESOLVED` is **490** (line 105). **The prose and
+the constant disagree by one.** That is a third number in a file whose whole job is to hold one, and
+it should be reconciled in the same edit — not by moving the constant to match the prose.
+
+**Verdict: OPEN — not this lane's to fix; owner of `fce90ec4` / the contract-gate owner.**

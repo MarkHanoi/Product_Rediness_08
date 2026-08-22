@@ -344,6 +344,56 @@ OPEN Q (§B) — see Open Questions.
 
 Per [C18](C18-ELEMENT-PREVIEW-VISUAL-CONTRACT.md), no preview applies to scheduling actions (no geometry creation). However, the timeline scrubber-induced visibility changes are NOT considered preview — they are committed visibility intent updates per P7.
 
+### §5.7 — The DERIVED SEQUENCE GRAPH — SHIPPED, and it is a DAG, not a timeline
+
+**Added 2026-08-22, lane SEQ27. Governed by
+[ADR-0355](../adrs/ADR-0355-the-execution-graph-is-a-dag-not-a-programme.md); issue log L-6300…L-6330.**
+
+⚠ **READ THIS BEFORE §5.1.** §5.1–§5.6 above describe a **PLANNED** `SchedulePanel` with a Gantt, a
+scrubber and a critical-path toggle. **None of it is built.** What ships today is the MEDICIONES
+`4D Time` tab (ADR-0351) plus the sequence graph specified here. §1.8 ("Critical path is
+deterministic") is **NOT SATISFIED and is not claimed to be** — see ADR-0351 §8 4D-3.
+
+**Location.** `apps/editor/src/ui/dataworkbench/buckets/` — `SequenceGraphView.ts` (the view) over
+`packages/core-app-model/src/quantities/SequenceGraph.ts` (the L2 read model). It is a **VIEW MODE**
+inside `4D Time` (`List` | `Execution graph`), **not a tab**: `6D` on this bucket's tab bar is
+already **Carbon**, and one read model behind two tabs is how two surfaces come to disagree.
+⛔ **`List` remains the default.**
+
+**§5.7.1 — INVARIANT: this drawing has no time axis, and no layout may imply one.**
+
+A `SequencedActivity` has no duration and no date, by ADR-0351 §8 4D-5. Therefore:
+
+1. ⛔ **No time axis, no time scale, and no coordinate derived from a duration.**
+   `SequenceGraph.timeAxis` is `null` and MUST remain so.
+2. ⛔ **No horizontal layered layout.** An unlabelled horizontal axis along which work advances
+   reads as TIME to every construction professional, whatever the caption says — a fabricated
+   quantity introduced through **layout** rather than arithmetic. **The layout is RADIAL** and
+   distance from the centre is **dependency depth**, labelled as such on the panel.
+3. ⛔ **Node size MUST NOT encode measured quantity.** The `SUBSTRUCTURE` activity measures nothing
+   deliberately; a quantity-sized node would render that honesty marker at radius zero.
+   `MEASURES NOTHING` is encoded as a dashed red ring.
+4. ⛔ **Unmeasured trades are NAMED, never drawn** — not even as zero-weight nodes. An empty node
+   says *"this work takes no doing"*; the true statement is *"PRYZM does not measure this"*.
+5. ⛔ **No float and no critical path** may be computed, displayed, or offered as a control.
+
+**§5.7.2 — The refusals are DATA, not markup.** `SequenceGraph.refusals` is a field on the read
+model and every surface rendering the graph MUST print it. A caveat that lives only in a template is
+one refactor away from deletion.
+
+**§5.7.3 — The edge carries its REASON.** Every dependency edge MUST expose the engine's own
+`dependencyReasons` string. The graph exists to make the *reasoning* visible, not merely the arrows.
+
+**§5.7.4 — Gate.** `sequenceGraphTimeClaims(graph, seq)` MUST return `[]`. It is the sibling of
+`activitiesWithAFabricatedDuration()` and checks three independent failures: an axis appearing, an
+activity acquiring a duration, and the refusals being stripped from the payload the view is handed.
+
+**§5.7.5 — Rendering.** Pure SVG in the DOM. No canvas, no THREE (P2), no `requestAnimationFrame`
+(P3), no GPU path — so nothing here degrades on a WebGL-only device, because nothing here uses the
+GPU. Colour comes from the shared eight-value CVD scale; ⛔ **`--app-cat-9` MUST NOT be minted**
+(`tokens.ts:465`), and stages beyond the eighth present one take the named neutral with the legend
+saying so.
+
 ---
 
 ## §6 — Tests / CI gates
