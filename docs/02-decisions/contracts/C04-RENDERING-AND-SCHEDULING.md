@@ -1151,3 +1151,257 @@ full scene traversal.
   geometry that is metres away. §CAM-NEAR neither causes nor fixes it — but a smaller
   `near` makes the perspective depth curve steeper, so this path must be re-read before it
   is trusted.
+
+---
+
+## §PROJECTION-SCHEDULING — a long-running projection is a SCHEDULING problem with three separable decisions (NORMATIVE, added 2026-08-22, lane EPS19, L-5400..L-5410)
+
+**Subject.** `EdgeProjectorService.project()` — the drawing projector that turns 3D scene
+geometry into the 2D `OBC.TechnicalDrawing` for every plan, RCP, section and elevation.
+It is the longest-running task in the client: on the founder's model
+(**3,641 elements / 36,666 meshes**) a full pass processes **365 native mesh groups**.
+
+### §PS.1 — RULE: the three per-group decisions are INDEPENDENT and MUST be expressed separately
+
+Every group boundary in a chunked projection answers three questions:
+
+| # | Question | Answer depends on |
+|---|---|---|
+| 1 | do I yield a frame after each **layer**? | the **group's** cost profile |
+| 2 | do I yield a frame after this **group**? | how many work-groups since the last yield |
+| 3 | may I **abandon** this pass? | whether a newer generation exists |
+
+**They MUST NOT be nested inside one another.** They have different inputs, different
+safety conditions, and different correct cadences.
+
+> ⚠ **This rule is written because all three were one expression, and two of them were
+> therefore unreachable.** The loop ended:
+>
+> ```ts
+> if (!_hasCWElements && _chunkGroupIdx % CHUNK_SIZE === 0) {
+>     await yield;
+>     if (_chunkGroupIdx < nativeMeshGroups.length && isSuperseded?.()) throw …;
+> }
+> ```
+>
+> `_hasCWElements` was **batch-wide** — `nativeMeshGroups.some(g => elementType === 'curtainwall')`.
+> **One curtain wall anywhere in the model made the guard false for the entire pass, so
+> question 3 was never asked**: a superseded projection computed all 365 groups and handed
+> back a drawing `setIfCurrent()` immediately threw away (**L-5400**).
+
+**What makes a boundary safe to abandon is the per-group `finally` that disposes temp
+geometries — NOT the yield.** A cancellation check may therefore be placed at any group
+boundary, including one that did not yield. Conflating the two is what made L-5400
+invisible for months.
+
+The three decisions live in **`apps/editor/src/engine/views/projectionChunkPolicy.ts`** —
+pure, no THREE, no OBC, no DOM — and the projector and its tests call the SAME functions.
+
+> ⭐ **The prior test could not have caught this, and the reason is a rule of its own.**
+> `apps/editor/__tests__/projectionCancellation.test.ts` asserted the cancellation contract
+> against a **hand-written model** of the loop — and the model had no curtain-wall term, so
+> it could not express, let alone falsify, the branch that disabled the feature.
+> **A fake built from the header cannot falsify the header.** Extract the policy; test the
+> policy the code calls.
+
+### §PS.2 — RULE: a per-element cost profile MUST be resolved per element, never per batch
+
+A yield strategy calibrated to an expensive element type must be applied to **that
+element**, not to every element that shares a pass with it.
+
+> ⚠ **Measured, L-5401.** The per-layer yield (`await scheduleOnce('eps-cw-layer-yield')`,
+> introduced for curtain walls whose groups cost 160–220 ms) was gated on the same
+> batch-wide `_hasCWElements`. Its own comment costed the DESIGN — *"17 CW groups × 3 layers
+> avg = 51 extra rAF ticks ≈ +816 ms"* — but the CODE charged every group.
+>
+> **The ledger** (`estimateFrameYields()`, asserted in
+> `apps/editor/__tests__/projectionChunkPolicy.test.ts`): 365 groups, ~2.4 layers/group, 17
+> of them curtain walls. One display frame is ~16.7 ms of **calendar** time at 60 Hz.
+>
+> | | frame yields | calendar time, one pass |
+> |---|---|---|
+> | batch-wide (before) | **876** | **~14.6 s** |
+> | per-group (after) | **128** | **~2.1 s** |
+> | model with **no** curtain wall | 91 → 91 | unchanged |
+> | **all**-curtain-wall batch | 41 → 41 | unchanged |
+>
+> Uncancellable, on every crop-drag frame, while the founder navigates with a plan pane open.
+
+The projection summary log now reports **frame yields spent**, split per-layer vs per-chunk.
+A chunk count derived from a batch-wide constant is not the number anyone feels.
+
+### §PS.3 — RULE: two counters that count different things MUST NOT be compared
+
+> ⚠ **Measured, L-5404.** `_chunkGroupIdx` counts groups that ran the **full pipeline** — a
+> cache HIT `continue`s before it is incremented. `nativeMeshGroups.length` counts **every**
+> group. The §FIX-PLAN-GEN-SELF-SUPERSEDE (L-705) "work remains" guard compared them:
+> `_chunkGroupIdx < nativeMeshGroups.length`. On any warm-cache pass the left side can never
+> reach the right, so *"work remains"* stayed TRUE after the final group and a **complete**
+> drawing became cancellable — L-705's inverted waste, re-opened through the cache-hit
+> `continue`, by a comparison between incommensurable denominators.
+
+### §PS.4 — RULE: every driver that opens a projection generation MUST hand the predicate down
+
+A call site that calls `beginProjection()` / `beginSwap()` and later asks `setIfCurrent()`
+has already declared that its pass can be overtaken. It **MUST** pass the `isSuperseded`
+predicate to `project()`, and **MUST** branch on `isProjectionSuperseded(err)` before
+treating a rejection as a failure.
+
+> ⚠ **Measured, L-5402.** Seven call sites reach `project()`. Five passed the predicate;
+> `ViewController.ts:680` (`requestBackgroundProjection`) and `ViewController.ts:2266` (the
+> **elevation** driver — the pane the founder keeps open while he navigates) did not — while
+> both opened a generation and both interrogated `setIfCurrent`, one of them literally
+> returning the string `'superseded'`.
+
+**Cancellation is an outcome, not a failure.** A driver that logs `console.error` on a
+cancelled pass turns a working optimisation into console noise the founder reads as a bug;
+a driver whose outcome union already contains `'superseded'` must not report `'failed'`.
+
+### §PS.5 — Visual neutrality (the founder's standing constraint)
+
+Every rule in this section is a **scheduling** rule. A yield changes WHEN work happens,
+never WHAT: group geometry is read from proxies exported before the pass begins, so **fewer
+yields means fewer opportunities for mid-pass mutation, not more.** A cancellation only
+abandons a pass whose drawing `setIfCurrent()` was already guaranteed to reject.
+
+**A change under this section that alters output is not a perf change — it is a correctness
+change, and it needs a test.**
+
+### §PS.6 — The orchestration map (descriptive, measured 2026-08-22)
+
+Who decides a view is stale, who schedules the recompute, who cancels an in-flight one, who
+owns the result:
+
+| Trigger | Owner | Coalescing | Cancels? |
+|---|---|---|---|
+| `vd:view-updated` (crop, scope, level, view range, underlay, rename — **15** dispatch sites in `ViewDefinitionStore`) | `PlanViewManager._onViewUpdated` | **frame bus, 1/frame** (`queueLowPriority`, §PERF-ELEV-CROP-DRAG-FLOW L-222) | yes |
+| `projection-stale` (any element mutation, via `ViewTechnicalDrawingCache`) | `PlanViewManager._onProjectionStale` | 30 ms trailing timer; then incremental graft (L-65) or double-buffered reproject (L-706) | yes |
+| view activation | `ViewController.activate` / `requestBackgroundProjection` | none | **yes, since L-5402** |
+| `viewDependencyTracker.forceReproject` | `initScene.ts:1507` | none | via the driver it lands on |
+
+**⭐ CAMERA NAVIGATION TRIGGERS NONE OF THEM.** `SplitViewManager`'s `vd:view-updated`
+handler sets `_lastRender = 0` (repaint) and does **not** reproject;
+`PlanViewManager._onWheel` / `_onMouseDown` only `beginMotion()` / `endMotion()` on the
+frame scheduler. So *"the plan pane re-projects while I orbit"* is **REFUTED**. The
+navigation cost is indirect: a projection kicked by an edit or a crop drag **competes** with
+navigation for the main thread, and before L-5400/L-5401 it did so for ~14.6 s per pass with
+no way to stop it.
+
+**P3 holds in `apps/editor/src/engine/views/`**: `grep -rn "requestAnimationFrame"
+apps/editor/src/engine/views/ --include=*.ts` → **6 hits, every one a comment**. Every yield
+and every drag coalescer goes through `getFrameScheduler()`. The `setTimeout` sites are DOM
+concerns (badge fade, pane-resize notify, dismiss handler) plus two `endMotion` debounces and
+the 30 ms stale-coalescer above — **no rival frame loop**.
+
+### §PS.7 — The worker: `DrawingPipelineOrchestrator` is REACHABLE and UNREACHED
+
+`packages/core-app-model/src/drawing/DrawingPipelineWorker.ts` (543 lines) + its
+`DrawingPipelineOrchestrator` (232 lines) implement Contract 23 §14 stages 1–6 off-thread.
+
+**Measured 2026-08-22** — `grep -rn "scheduleWorkerRender\|renderFromPipelineResult\|submitJob"
+apps/ packages/ plugins/ src/`: the only entry points are `PlanViewCanvas.scheduleWorkerRender()`
+and `PlanViewCanvas.renderFromPipelineResult()`, and **both have no callers** — declarations
+and doc comments only. The module is **exported through two barrels** (`drawing/index.ts`,
+`core-app-model/index.ts`), so this is **UNREACHED, not ABSENT**; the two have opposite fixes
+and a barrel gap has made live exports look non-existent in this repo before (C01 §6 rule 6).
+
+Already recorded at `PlanViewCanvas.ts:1928` as **§ELEVATION-POCHE-IS-INTENT-DECLARED
+(L-1601)**. **Not re-litigated by this lane, and deliberately not wired**: the worker path
+carries a second, untested poché painter that would re-derive a decision the live path already
+makes through `pocheRequiresExplicitIntent`. Whoever wires it must route through that same
+answer. ADR-0205 (worker-pool policy) governs.
+
+⇒ **For every view type — plan, RCP, section, elevation — projection today runs entirely on
+the main thread.** §PS.1–§PS.4 are the whole of the scheduling relief that exists.
+
+### §PS.8 — The layer verdict: `EdgeProjectorService` STAYS at L7, and the reason is its CONSUMERS
+
+The question — *"is a 4,106-line geometry projector at L7 a package wearing an app's
+address?"* — has two halves, and they give opposite answers.
+
+**Its DEPENDENCIES say it could be a package.** Measured 2026-08-22:
+
+| import | layer |
+|---|---|
+| `@pryzm/renderer-three` (+ `/three`), `@pryzm/frame-scheduler` | **L1** |
+| `@pryzm/core-app-model` (12 sites) + `/presentation`, 8 × `@pryzm/geometry-*` | **L2** |
+| `@pryzm/plugin-annotations` (**2 sites**, both `annotationStore.getAll().find(…)` for the linked section/elevation mark) | **L6** |
+| `@thatopen/components`, `@thatopen/fragments` | external |
+
+Only **one** upward edge would block extraction, and it is two call sites behind a nameable
+seam (*"resolve the annotation this view is linked to"*).
+
+**Its CONSUMERS say nothing needs it to move.** `grep -rn "EdgeProjectorService" apps/
+packages/ plugins/ src/` → **zero importers outside `apps/editor`**, and all four runtime
+importers (`ViewController`, `initScene`, `PlanViewManager`, `SectionViewService`) are
+**type-only**; the single value import is the deliberate lazy `import()` in `initScene` that
+Phase 6 depends on.
+
+> ⚠ **REFUTED HYPOTHESIS, recorded rather than deleted.** The premise was that *"sheets, PDF
+> export, the marketplace app and a headless exporter can only reach it by importing an
+> app."* **They do not try.** `plugins/sheets` refuses renderer imports **by design** and
+> takes a `ViewSource` **callback** registered by the composition root (`view-source.ts`
+> header; `apps/editor/src/ui/SheetEditor/SheetProjectionOrchestrator.ts` is the registrar).
+> `packages/file-format` consumes `viewTechnicalDrawingCache` — the **result**, at L2 — not
+> the producer.
+
+**⭐ THE DECOUPLING SEAM ALREADY EXISTS, AND IT IS THE RESULT, NOT THE PRODUCER.** Any
+surface that needs projected linework obtains a finished `TechnicalDrawing` from
+`ViewTechnicalDrawingCache` (L2) or paints through a registered `ViewSource` callback. That
+is the composition-root pattern working as designed.
+
+**RULE (normative).** `EdgeProjectorService` stays in `apps/editor` until a consumer outside
+`apps/editor` genuinely needs to *produce* a projection. Extraction is then gated on, in
+order: (1) invert the `@pryzm/plugin-annotations` edge into an injected linked-annotation
+resolver; (2) choose the OBC-owning host package — `core-app-model` already carries 28
+`@thatopen/components` imports and is the only credible candidate; (3) re-establish the
+Phase 6 lazy-load boundary, which today is a file-path `import()` inside the app.
+
+⛔ **A 4,000-line move performed for an address is not an improvement.** Scoped out
+deliberately, with the cost measured above so the next reader inherits the measurement
+rather than the question.
+
+> **Gate reading, for the record.** `npx tsx tools/ga-gate/check-layer-boundaries.ts` →
+> **RC=3** on 2026-08-22 (15 unclassified packages vs baseline 13; 118 banned third-party
+> imports vs baseline 113). **Not this lane's doing, proved rather than asserted:**
+> `git show <the four EPS19 commits> -- '*.ts' | grep -cE "^\+.*@thatopen"` → **0**, and
+> EPS19 added no `package.json`. **Read the gate, not this box.**
+
+### §PS.9 — Plan-family view-type membership has FOUR answers in one file (L-5405, OPEN)
+
+`EdgeProjectorService.ts` holds four independent answers to *"which views are plan-like"*:
+
+| site | set |
+|---|---|
+| `isPlanView` | `PLAN_VIEW_TYPES` = {plan, ceiling-plan, structural-plan} |
+| `PLAN_SYMBOL_INJECTION_VIEW_TYPES` | {plan, **detail**, structural-plan} |
+| `resolveClipRange` branches | elevation\|section / ceiling-plan / default |
+| `getDirectionForView` switch | plan\|structural-plan / ceiling-plan / elevation / section / default |
+
+…against `resolveViewScope(vt).planFamily` at L2 = {plan, ceiling-plan, structural-plan,
+detail}. **The first is now derived from `PLAN_VIEW_TYPES` and cannot drift; the other three
+are named and asserted but NOT reconciled.** The symbol set's difference is legitimate —
+*"which views draw floor symbols"* is a different question from *"which views have a
+horizontal cut plane"* — but it must be a **named** difference, not an unnoticed one
+(§RCP-HAS-NO-SWING-ARC, L-5407). Reconciling `'detail'` needs measurement on detail views
+this lane did not take.
+
+### §PS.10 — NOT MEASURED, and NOT CLAIMED
+
+- **Nothing in this section was verified in a browser.** The §PS.2 ledger is arithmetic over
+  a measured yield RULE and measured group/layer counts, not a wall-clock capture of the
+  founder's session. **The felt improvement is projected, not observed.**
+- **`nativeElementMeshExporter.exportForView()` still runs OUTSIDE the supersede check** — a
+  cancelled pass pays the export in full. Logged as **L-2507** (lane AUD-3); not
+  re-litigated here.
+- **The per-element projection cache key is content-derived and correct**: `(elementId,
+  viewId) → {version, clipSignature, layers}`, where `version` is stamped by the fragment
+  builder on every rebuild and `clipSignature` (L-202) folds in every clip input the cached
+  drawing-space geometry was classified against. Same crop → hit; changed crop → miss.
+  **What is NOT covered is that `version` tracks element GEOMETRY only** — it does not encode
+  a material or intent change. Correct today, because neither affects drawing-space geometry;
+  it would break silently if either ever did.
+- **The 4,106-line `project()` body was not split.** Its 1,635-line `project()` method is a
+  real cleanliness finding, but the only seams this lane could NAME with measurement were the
+  scheduling policy (extracted) and the plan-family depth function (extracted). Splitting the
+  rest without a named seam was declined.
