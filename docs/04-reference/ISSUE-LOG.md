@@ -32421,6 +32421,14 @@ stated in the document and enforced by nothing. Both replaced with the two ASCII
 - **The top strip is INSP3's and was left alone.** Mode bar + "Ground Floor" + "Level: Ground" + Grid
   + IFC + V/G + INTENT + "promo 02" + Range in one row. Observed, not touched.
 - **L-3300 … L-3302 have code (`f48d11d7`) but no ISSUE-LOG entry.** Not backfilled here.
+- ⚠ **DISCLOSURE — this lane’s docs commit `25692e51` swept in another lane’s work.** `git add`
+  stages a WHOLE FILE, and lane **WIN5**’s `## L-3400 … L-3423` entry was sitting uncommitted in
+  this shared tree when DATA3 staged the log. **484 added lines, of which DATA3’s own entry is 213.**
+  Nothing was lost or duplicated — WIN5 committed the remainder in `3ff6c475` — but the attribution
+  in `25692e51` is wrong and cannot be repaired (⛔ no `--amend`, ⛔ no `git stash`: the stash stack
+  is GLOBAL across worktrees). ⭐ **[[multi-agent-shared-tree-collisions]] exactly: agents commit
+  scoped CODE and the orchestrator owns the shared docs.** A lane that must append to a 4.2 MB file
+  every other lane is also appending to has no way to stage only its own hunk non-interactively.
 
 
 ---
