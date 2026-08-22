@@ -114,6 +114,11 @@ import { frameObject }             from '@pryzm/core-app-model';
 import { SectionBoxTool }          from '@pryzm/input-host';
 import { installShortcutCheatSheet } from '@app/ui/ShortcutCheatSheet';
 import { inlineLabelEditor }        from '@app/ui/InlineLabelEditor';
+// §DBLCLICK-ZOOM-EVERY-FAMILY (L-3540) — the ONE declared element-family table
+// (§INSPECT-EVERY-CATEGORY, L-2032). Imported so the dblclick-to-frame allowlist
+// is DERIVED from it rather than being a fifteenth hand-written copy of "the
+// element families". Type-only data, no DOM/THREE reach.
+import { INSPECT_CATEGORIES } from '@app/ui/inspect/audit/inspectCategories';
 // §FIX-DIMENSION-FIRST-CLASS-SELECTABLE-L173 — a plan-view dimension/annotation is a
 // first-class SELECTABLE element (ADR-0119 subsystem annotationStore), so keyboard
 // Delete/Backspace must be able to remove it via the annotation.delete command (P6),
@@ -2738,10 +2743,46 @@ export async function initUI(p: UIParams): Promise<void> {
     //
     const caster = components.get(OBC.Raycasters).get(world);
 
-    const SEMANTIC_TYPES_FOR_ZOOM = new Set([
-        'wall', 'slab', 'floor', 'ceiling', 'door', 'window',
-        'curtain-wall', 'curtainwall', 'furniture', 'column',
-        'roof', 'ifc-element', 'ifc-model', 'beam',
+    // ── §DBLCLICK-ZOOM-EVERY-FAMILY (L-3540), founder 2026-08-22 ──────────────
+    //
+    // ⚠ FIRST, THE MEASUREMENT, because the request was *"double-click an element
+    // → zoom to it"* and C01 §6 rule 6 says "X does not exist" is a claim that
+    // must be greped for. **IT EXISTS AND IT SHIPPED.** The handler below has
+    // framed the main viewport on double-click since before the split-view work;
+    // `§SVP-DBLCLICK-FRAME` (SplitViewManager.ts:1676) was written as the PLAN-pane
+    // analogue of it, and both call the SAME primitive — `frameObject()` from
+    // `@pryzm/core-app-model/navigation/CameraFramingUtils`, whose own header calls
+    // its `minDist 2.5 / dimMult 1.5` defaults "the double-click contract".
+    // `SelectionManager.ts:1419-1430` even records DELETING its rival dblclick
+    // listener so this one could run. NO SECOND CAMERA-FIT WAS WRITTEN HERE, and
+    // none was needed.
+    //
+    // ⛔ WHAT WAS ACTUALLY WRONG IS THIS SET. It is a hand-written allowlist of
+    // element families, and a hand-written family list in this repo has failed the
+    // same way at least twice before — `ELEMENT_TYPE_LABELS` shipped SIX of twenty
+    // families until §INSPECT-EVERY-CATEGORY (L-2032) counted them. Measured
+    // against `INSPECT_CATEGORIES` (2026-08-22), the fourteen entries here were
+    // missing NINE real families: rooms, stairs, stair-railings, handrails, lifts,
+    // openings, curtain-panels, lighting, plumbing. Double-clicking any of them
+    // fell through to `target` — the direct SCENE CHILD — and framed a whole level
+    // group instead of the element, which reads to a user as "zoom does nothing
+    // useful here". Silently.
+    //
+    // ⭐ SO IT IS NO LONGER HAND-WRITTEN. The set is DERIVED from the one declared
+    // family table (`inspectCategories.ts`), which `__tests__/InspectCategoryCoverage.test.ts`
+    // already fails CI over when a new `window.<x>Store` family appears with
+    // neither a category row nor a written exclusion. A family added to PRYZM is
+    // therefore double-clickable by construction — the coverage guard that exists
+    // for the Inspect dropdown now guards the camera too, at zero extra cost.
+    //
+    // The three literals below are NOT element families and cannot come from that
+    // table: `ifc-element` / `ifc-model` are imported federation nodes, and
+    // `curtainwall` is a legacy un-hyphenated spelling of `curtain-wall` that some
+    // older records still carry. They are listed explicitly, with the reason.
+    const SEMANTIC_TYPES_FOR_ZOOM = new Set<string>([
+        ...INSPECT_CATEGORIES.map(c => c.meshType),
+        'ifc-element', 'ifc-model',
+        'curtainwall',
     ]);
 
     // ── §ROOM-LABEL-EDIT (2026-05-23) — double-click a room label → inline edit ──

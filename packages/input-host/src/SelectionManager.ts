@@ -24,6 +24,10 @@ import { bumpPerf, PERF_KEYS } from '@pryzm/frame-scheduler';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import type { TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { elementRegistry as bimElementRegistry } from '@pryzm/core-app-model/element-registry';
+// §SELECT-SURVIVES-THE-REBUILD (L-3530) — the pure decision behind the re-resolve
+// miss branch. Separated so the thing that was WRONG (the inference, not the
+// drawing) is unit-testable without standing up a world + canvas.
+import { decideReresolveFate } from './reresolveFate';
 // §FIX-PICK-CACHE-STORE-BUS (L-1194) — the family-agnostic store channel every
 // ElementStore must publish through (§3.5). Replaces enumerating DOM event names.
 import { storeEventBus } from '@pryzm/core-app-model';
@@ -355,6 +359,23 @@ export class SelectionManager implements ISelectionManager {
     private _selectableCache: THREE.Object3D[] | null = null;
     /** §FIX-ELEMENT-REBIND-ON-ROOT-SWAP — disposer for the elementRegistry subscription. */
     private _rootSwapUnsub: (() => void) | null = null;
+
+    /**
+     * §SELECT-SURVIVES-THE-REBUILD (L-3530) — bounded retry budget for
+     * `_reresolveSelectionAfterRebuild`, keyed by element id so a retry budget
+     * spent on one element can never suppress the first attempt for the next.
+     */
+    private _reresolveRetry: { id: string; n: number } | null = null;
+
+    /**
+     * How many times a re-resolve may retry before concluding the registration is
+     * orphaned. 4 × 50 ms ≈ 200 ms — comfortably more than the couple of frames a
+     * `pre-render` build-queue drain needs, and far less than a user would read as
+     * "stuck". Not a tuning knob: raising it hides orphaned registrations, and
+     * lowering it re-opens the race.
+     */
+    private static readonly RERESOLVE_MAX_RETRIES = 4;
+    private static readonly RERESOLVE_RETRY_MS = 50;
 
     // Sprint F-2.0 §E2: pluggable highlight bounds registry — plugins call
     // `selectionManager.boundsRegistry.register(type, builderFn)` at startup.
@@ -843,11 +864,85 @@ export class SelectionManager implements ISelectionManager {
         const fresh = this._resolveLiveObjectById(updatedId);
 
         if (!fresh) {
-            // Element no longer in the scene (e.g. undo-of-create removed it) —
-            // drop the selection entirely so nothing dangles.
-            this.unselectAll();
+            // ── §SELECT-SURVIVES-THE-REBUILD (L-3530), founder 2026-08-22 ─────
+            //
+            // ⛔ THIS BRANCH USED TO READ, IN FULL:
+            //      // Element no longer in the scene (e.g. undo-of-create removed it)
+            //      this.unselectAll();
+            //
+            // ⭐ AND "NO LIVE MESH FOR THIS ID" IS NOT "THE ELEMENT IS GONE". They
+            // are two facts with the SAME VALUE at this line, and the old code read
+            // the second from the first. That is [[context-data-honesty-family]]
+            // exactly — failure and empty are the same value — and it deselects a
+            // perfectly live wall.
+            //
+            // MEASURED, the race: `_resolveLiveObjectById` only returns objects
+            // whose parent chain reaches the scene root (its own docblock: *"Only
+            // returns objects that are actually attached to the scene graph"*). The
+            // caller defers by `setTimeout(…, 0)` "so the builder's scene.remove(old)
+            // + scene.add(new) has settled" — but for the `onRootSwapped` trigger
+            // that assumption is stated and then contradicted three lines later:
+            // *"Builders register the root BEFORE scene.add()"*. A builder that
+            // registers on one tick and attaches on a later FRAME (the build queue
+            // drains from `getFrameScheduler().schedule('pre-render', …)`) is
+            // therefore observed here as ABSENT, and the selection is dropped.
+            //
+            // That is the founder's *"highlights for about a second, then the
+            // highlight is lost"*: select a wall → `bim-selection-changed` →
+            // `wallTransformController.activateFor` → the wall is re-queued and
+            // rebuilt → `bim-wall-updated` → this runs before the mesh is back.
+            //
+            // THE FIX ASKS THE DOMAIN, NOT THE SCENE. `elementRegistry` is, by its
+            // own header, *"the SINGLE SOURCE OF TRUTH for what scene roots are
+            // placed BIM elements"*; `getStoreType()` survives the transient
+            // `unregisterRoot()` + `registerRoot()` pair a stair-shaped rebuild
+            // performs, and is cleared only by a REAL `unregister()`. So:
+            //   · the domain still knows this id  ⇒ the mesh is LATE, not gone.
+            //     Keep the selection and the highlight, and retry.
+            //   · the domain has forgotten it     ⇒ it really was removed (the
+            //     undo-of-create case this branch was written for). Deselect.
+            //
+            // ⚠ THE RETRY IS BOUNDED AND SAYS SO WHEN IT GIVES UP. An unbounded
+            // retry would hold a selection on an element that will never come back;
+            // a silent give-up would restore the very ambiguity L-3531 removes.
+            const attempt = this._reresolveRetry?.id === updatedId
+                ? this._reresolveRetry.n
+                : 0;
+            const fate = decideReresolveFate({
+                domainKnowsId:
+                    bimElementRegistry.getStoreType(updatedId) !== undefined
+                    || bimElementRegistry.getRoot(updatedId) !== undefined,
+                attemptsSoFar: attempt,
+                maxRetries: SelectionManager.RERESOLVE_MAX_RETRIES,
+            });
+
+            if (fate === 'retry') {
+                this._reresolveRetry = { id: updatedId, n: attempt + 1 };
+                setTimeout(
+                    () => this._reresolveSelectionAfterRebuild(updatedId),
+                    SelectionManager.RERESOLVE_RETRY_MS,
+                );
+                return; // selection + highlight SURVIVE
+            }
+
+            this._reresolveRetry = null;
+            if (fate === 'deselect-orphan') {
+                console.warn(
+                    `[§SELECT-SURVIVES-THE-REBUILD] id=${updatedId} is still registered in `
+                    + 'elementRegistry but no scene-attached mesh appeared after '
+                    + `${SelectionManager.RERESOLVE_MAX_RETRIES} retries over `
+                    + `~${SelectionManager.RERESOLVE_MAX_RETRIES * SelectionManager.RERESOLVE_RETRY_MS}ms `
+                    + '— deselecting. This is an ORPHANED REGISTRATION (registered root, never '
+                    + 'attached), not a normal removal.',
+                );
+                this.unselectAll('reresolve-timed-out-orphan-registration');
+                return;
+            }
+            this.unselectAll('reresolve-element-removed-from-domain');
             return;
         }
+        // Resolved — drop any in-flight retry budget for this id.
+        this._reresolveRetry = null;
 
         const freshRoot = this.findSelectableRoot(fresh) ?? fresh;
         if (freshRoot === sel && this._isAttachedToScene(sel)) {
@@ -957,7 +1052,7 @@ export class SelectionManager implements ISelectionManager {
     setEnabled(enabled: boolean) {
         this.enabled = enabled;
         if (!enabled) {
-            this.unselectAll();
+            this.unselectAll('tool-activated-selection-disabled');
             // Reset hover cursor so it doesn't stay as 'pointer' while a tool is active
             this.domElement.style.cursor = '';
             this._lastHoveredUuid = null;
@@ -1241,7 +1336,7 @@ export class SelectionManager implements ISelectionManager {
                             else                    commandManager.execute(new DeleteLightingCommand(id));
                         }
                     }
-                    this.unselectAll();
+                    this.unselectAll('delete-key');
                 }
             }
 
@@ -1370,7 +1465,7 @@ export class SelectionManager implements ISelectionManager {
                         if (typeof globalUnselect === 'function') {
                             globalUnselect();
                         } else {
-                            this.unselectAll();
+                            this.unselectAll('escape-key');
                         }
                         // §MULTI-SELECT-SHIFT (L-1550) — Escape clears the whole SET.
                         // `unselectAll()` drops `selectedObject` (the primary) and the
@@ -1931,7 +2026,7 @@ export class SelectionManager implements ISelectionManager {
                         detail: { worldPoint: { x: _wp.x, y: _wp.y, z: _wp.z }, elementId: null, elementType: null },
                     }));
                     if (window.__underlayHit) return;
-                    this.unselectAll();
+                    this.unselectAll('click-gpu-pick-miss');
                     return;
                 }
             } catch (err) {
@@ -1977,7 +2072,7 @@ export class SelectionManager implements ISelectionManager {
             // FloorPlanUnderlayTool sets window.__underlayHit = true and clears it
             // in the next animation frame, bridging the mousedown → click gap.
             if (window.__underlayHit) return;
-            this.unselectAll();
+            this.unselectAll('click-bvh-fallback-no-hits');
             return;
         }
 
@@ -1987,7 +2082,7 @@ export class SelectionManager implements ISelectionManager {
             .filter(item => item.root !== null);
 
         if (validHits.length === 0) {
-            this.unselectAll();
+            this.unselectAll('click-bvh-hits-no-selectable-root');
             return;
         }
 
@@ -2155,7 +2250,7 @@ export class SelectionManager implements ISelectionManager {
         }
         if (this.selectedObject === obj && elementIdOverride === undefined) return;
 
-        this.unselectAll();
+        this.unselectAll('about-to-select-something-else');
         this.selectedObject = obj;
 
         // §SELECT-INSTANCED-PICK (FIX #5) — pass the per-instance element id so the
@@ -2669,7 +2764,48 @@ export class SelectionManager implements ISelectionManager {
     }
 
 
-    unselectAll() {
+    /**
+     * §SELECT-CLEARED-SAYS-WHY (L-3531, founder 2026-08-22) — the deselect probe.
+     *
+     * ── ⛔ WHY A REASON PARAMETER IS THE FIRST THING THIS DEFECT NEEDED ────────
+     *
+     * Founder: *"click a wall, it highlights for about a second, then the
+     * highlight is lost."*
+     *
+     * MEASURED 2026-08-22 — `unselectAll()` has **eighteen** call sites that can
+     * fire on or shortly after a click, across seven files, and they emit a
+     * BYTE-IDENTICAL `bim-selection-changed { object: null }`. Among them:
+     * `_reresolveSelectionAfterRebuild` (a rebuild the selection did not survive),
+     * `setEnabled(false)` (reached from `ToolManager.activateTool` AFTER two
+     * `await`s, i.e. an unbounded delay), three separate pick-miss branches inside
+     * `performSelection`, `ViewController.activate` (every view switch), and
+     * `select()` itself, which calls `unselectAll()` on EVERY successful selection
+     * so a null always precedes the object.
+     *
+     * ⭐ SO "THE HIGHLIGHT DISAPPEARED" HAD EXACTLY ONE OBSERVABLE FORM FOR
+     * EIGHTEEN DIFFERENT CAUSES, five of which are correct behaviour. That is the
+     * `context-data-honesty-family` rule at the interaction layer — and it is why
+     * the FIRST change here is the probe, not the fix
+     * ([[context-data-honesty-family]]: ship the probe before the fix).
+     *
+     * `reason` is OPTIONAL so the ~14 external callers
+     * (engineLauncher, ViewController, initUI, initTools, BimService,
+     * ContextualEditBar, SlabPickWallsController, deleteIfcElement, SelectionBus)
+     * compile and behave unchanged; they report as 'unspecified', which is itself
+     * information — it says the clear came from outside this class.
+     *
+     * ⚠ THE LOG IS DELIBERATELY UNCONDITIONAL. A deselect is a user-visible state
+     * change that happens a few times a minute, not a per-frame event, so it does
+     * not need `warnHot` throttling — and throttling it would reintroduce exactly
+     * the ambiguity it exists to remove.
+     */
+    unselectAll(reason: string = 'unspecified') {
+        if (this.selectedObject) {
+            console.log(
+                `[§SELECT-CLEARED] reason=${reason} id=${String(this.selectedObject.userData?.id ?? 'n/a')} `
+                + `type=${String(this.selectedObject.userData?.elementType ?? this.selectedObject.userData?.type ?? 'n/a')}`,
+            );
+        }
         // §FIX-ESC-DESELECT-ELEVATION (L-125) — the plan-view section/elevation MARK
         // selection (its marker highlight AND crop-gizmo scope handles) is tracked in
         // `window.__pryzmSelectedAnnotationId`, which PlanViewAnnotationRenderer reads via
