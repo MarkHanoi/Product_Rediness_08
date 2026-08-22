@@ -12,6 +12,36 @@
 
 > The drawing engine is what wins or loses D8 (desktop-CAD documentation parity). This spec defines the vector primitive layer, the three back-ends (Canvas2D for screen, SVG for in-browser export, native PDF for high-fidelity print), the view template / view-range / view-filter model, hidden-line classification, and the label-placement strategy.
 
+> ## ⚠ CORRECTED 2026-08-22 (lane VIEWDOC20) — READ THIS BEFORE ANY SECTION BELOW
+>
+> **This document is a DESIGN BRIEF from 2026-04-27 that has been carrying the status line
+> `Active — normative` while describing a layout that was not built.** Measured 2026-08-22:
+> **6 repo paths cited · 1 resolves · 5 do not.** Four separate claims below were false against the
+> code, and one of them — §6's RCP line — **instructed the reader to introduce a defect**.
+>
+> **For what the pipeline ACTUALLY is, read
+> [SPEC-51 — View Generation Pipeline](SPEC-51-VIEW-GENERATION-PIPELINE.md)**, which carries the
+> measured module map, the view-type × stage authority table, and the normative RCP contract.
+> **This file remains the record of the intended DESIGN**; where the two disagree about what
+> exists, SPEC-51 is measured and this file is not.
+>
+> Corrections applied in place, each marked at its section: **§1** (module paths + the L2/L7
+> altitude finding), **§3** (two of three back-ends are typed stubs that throw, and the working
+> exporters bypass the architecture), **§6** (the RCP line was wrong on all three counts — now
+> governed by [ADR-0353](../../02-decisions/adrs/ADR-0353-a-reflected-ceiling-plan-is-plan-handed.md)),
+> **§10** (zero of the six named spans exist), **§13** (two of three cross-references do not
+> resolve).
+>
+> **§4.2's cache claim was CHECKED and is NOT corrected** — it says *"cached per
+> `(viewId, elementId, analyticHash)` in an L3 projection"* and **cites no path**, so there is
+> nothing to falsify. (ADR-0216 *does* cite `packages/scene-cache/` for this, and that package does
+> not exist — the correction belongs there, and is made there, not here.) **Recorded so a later
+> reader does not mistake an unchecked section for a checked one.**
+>
+> ⭐ **Nothing in this file was deleted to make it look correct.** Every original claim is still
+> visible with its correction beside it, because a spec silently edited to match the code loses the
+> record of what was intended and never built — which is the more expensive fact.
+
 ---
 
 ## §1 Architecture overview
@@ -27,12 +57,30 @@
 ```
 
 - **L4 kernel** produces analytic geometry per element (centerline, boundary).
-- **Edge-projection module** (in `packages/geometry-kernel/edge-projection/`) classifies primitives into Cut, Beyond, Hidden, Symbolic per a view definition.
-- **Drawing-primitive layer** (`packages/drawing-primitives/`) is the **single vector model**: lines, polygons, arcs, hatches, text, symbols. All three back-ends consume it.
+- **Edge-projection module** (in ~~`packages/geometry-kernel/edge-projection/`~~ → **`packages/geometry-kernel/src/edge-projection.ts` — a FILE, not a directory**) classifies primitives into Cut, Beyond, Hidden, Symbolic per a view definition.
+- **Drawing-primitive layer** (`packages/drawing-primitives/`) is the **single vector model**: lines, polygons, arcs, hatches, text, symbols. ~~All three back-ends consume it.~~ **→ see the §3 correction: one back-end consumes it; two throw; the working exporters bypass it.**
 - **View definition** carries the camera + clip + scale + view template + filters + per-element overrides.
-- **Renderers** are plug-replaceable; same primitives → three outputs.
+- ~~**Renderers** are plug-replaceable; same primitives → three outputs.~~ **→ NOT TRUE TODAY, see §3.**
 
 ADR-0216 ratifies this architecture before S29.
+
+> ### ⚠ §1 CORRECTED 2026-08-22 — the diagram's ALTITUDES are wrong, not just its paths
+>
+> The diagram places projection at **L4 (kernel)**. Measured: the projector that actually runs is
+> **`apps/editor/src/engine/views/EdgeProjectorService.ts` — 4,106 lines, at L7**, the top layer of
+> `CLAUDE.md`'s measured table. There are **four** loci, not one (SPEC-51 §1.2):
+>
+> | Locus | Path | Layer |
+> |---|---|---|
+> | A | `packages/geometry-kernel/src/edge-projection.ts` (273 ln, *"CLASSIFIER only"*, plan-only) | L2 |
+> | B | `packages/geometry-kernel/src/hidden-line/` | L2 |
+> | C | `packages/core-app-model/src/drawing/**` | L2 |
+> | D | **`apps/editor/src/engine/views/EdgeProjectorService.ts` (4,106 ln)** | **L7** |
+>
+> ⭐ **`tools/ga-gate/check-layer-boundaries.ts` raises nothing for locus D, and that is not
+> absolution.** L7 → L2 is a *downward* import and therefore legal. The debt is that projection —
+> a kernel concern this spec correctly identified as L4 — **lives in the application**. A legal
+> import can still be a misplacement, and no gate in this repo measures altitude-of-concern.
 
 ---
 
@@ -103,6 +151,38 @@ Each is a vector path stored once and instanced.
 ---
 
 ## §3 Back-ends
+
+> ### ⛔ §3 CORRECTED 2026-08-22 — ONE of the three back-ends renders. TWO THROW. And the real
+> ### exporters do not use this architecture at all.
+>
+> **The four package paths §3.1–§3.4 name do not exist.** All back-ends were consolidated into
+> `packages/drawing-primitives/src/backends/`. **Correcting the paths alone would make them resolve
+> while ratifying a false claim**, so the state of each is recorded here:
+>
+> | §  | Cited path | Reality | Renders? |
+> |---|---|---|---|
+> | 3.1 | `packages/drawing-canvas2d/` | `packages/drawing-primitives/src/backends/canvas2d.ts` (5,636 B) | ✅ **yes** |
+> | 3.2 | `packages/drawing-svg/` | `…/backends/svg.ts` — **966 B, `// SVG backend — TYPED STUB`**, `sprintMarker = 'S55'` | ⛔ **throws `BackendNotImplementedError`** |
+> | 3.3 | `packages/drawing-pdf/` | `…/backends/pdf.ts` — **688 B, `// PDF backend — TYPED STUB`**, `sprintMarker = 'S37'` | ⛔ **throws** |
+> | 3.4 | `packages/drawing-dxf/` | no such back-end exists | ⛔ **absent from the registry** |
+>
+> **A fourth back-end this spec never mentions exists: `…/backends/print-canvas.ts`.**
+>
+> ⭐ **THE ARCHITECTURAL FINDING.** SVG, PDF and DXF export all *work* in the product — but through
+> a **second, parallel, sheet-level path that never touches the primitive stream**:
+> `packages/drawing-primitives/src/sheet/SheetToSvg.ts` (9,241 B) + `SheetWithContentToSvg.ts` +
+> `ViewportToSvg.ts` · `packages/pdf-export/src/SheetToPdf.ts` (512 ln) ·
+> `packages/file-format/src/export/sheets/PdfExportService.ts` (554 ln) ·
+> `packages/file-format/src/export/sheets/DxfExportService.ts` (421 ln). These consume a `Sheet`,
+> not a `PrimitiveStream`.
+>
+> **So §1's invariant — *"same primitives → three outputs"* — is not merely unbuilt. It is bypassed
+> by a working rival.** Parity between screen, SVG, PDF and DXF is therefore **not guaranteed by
+> construction**, which is the single property this section exists to provide. The `backends/`
+> registry is a fossil. See SPEC-51 §3.2 (L-5506, L-5507).
+>
+> **Everything below in §3 is the INTENDED design and is retained as such. Read it as a target,
+> not as a description.**
 
 ### §3.1 Canvas2D back-end (`packages/drawing-canvas2d/`)
 - Screen-only. Used by plan view and section/elevation viewports.
@@ -209,8 +289,30 @@ type ViewRange = {
 ```
 
 - Default Plan: cut at Level + 1.2 m, top at Level + 2.4 m, bottom at Level − 0.3 m.
-- Default RCP: cut at Level + 2.4 m looking down, mirrored.
+- ~~Default RCP: cut at Level + 2.4 m looking down, mirrored.~~ **⛔ WRONG ON ALL THREE COUNTS — corrected below.**
 - Cut-plane stability across edits: when a level changes elevation, view ranges re-compute deterministically; existing views do not "drift."
+
+> ### ⛔ §6 CORRECTED 2026-08-22 — this was the ONLY sentence in the live corpus stating RCP
+> ### semantics, and it instructed the reader to INTRODUCE a defect
+>
+> Governed now by **[ADR-0353](../../02-decisions/adrs/ADR-0353-a-reflected-ceiling-plan-is-plan-handed.md)**
+> and specified by **[SPEC-51 §4](SPEC-51-VIEW-GENERATION-PIPELINE.md)** (V-RCP-1 … V-RCP-4).
+>
+> | Claim | Reality (measured 2026-08-22) |
+> |---|---|
+> | "cut at Level + **2.4 m**" | The code reads **`level.elevation + level.height`** — a level property, never a constant (`EdgeProjectorService.ts:4045-4058`). The band is `near = ceiling`, `far = near + 0.5`. A level not 2.4 m tall makes the constant wrong for that level. |
+> | "looking **down**" | The code projects **UP**: `ceilingPlan: { x: 0, y: **1**, z: 0 }` (`ViewDefinitionTypes.ts:224`); the union member's own comment reads *"Reflected Ceiling Plan — **looking upward**"* (`:57`). **An RCP looks up — that is what makes it reflected.** |
+> | "**mirrored**" | **No geometric mirror exists, and none may be added.** `rg -i "\bmirror" apps/editor/src/engine/views/` → 189 hits, **every one the English sense** ("mirrors X"). |
+>
+> ⭐ **The reflection is already implicit in the coordinate mapping.** Plan-family projection maps
+> world `(X, Z)` → drawing `(x, y)` and drops Y, which is handedness-preserving from above *or*
+> below; the direction vector governs clip and face-facing, not the 2-D basis. **Adding a mirror
+> would be a DOUBLE flip** — an RCP with east on the left, the classic RCP bug, which looks
+> plausible on a symmetric plan and is caught late. An engineer implementing this line faithfully
+> would have shipped it.
+>
+> **The code was right and nothing said so.** That is why ADR-0353 exists: a correct-but-unwritten
+> behaviour is one refactor from being wrong, especially when the only document says otherwise.
 
 ---
 
@@ -280,6 +382,30 @@ Filters compose: order matters (top filter wins). UX: drag-to-reorder; per-view 
 ---
 
 ## §10 OpenTelemetry instrumentation
+
+> ### ⛔ §10 CORRECTED 2026-08-22 — ZERO of these six spans exist in the codebase
+>
+> ```
+> rg "drawing\.(edge-projection\.run|classify\.hidden|canvas2d\.frame|export\.(svg|pdf|dxf))"
+> ```
+> → **7 hits, ALL of them documentation**: the six lines below declaring them, and
+> `ADR-0216:111` repeating one. **Zero in `apps/`, `packages/`, `plugins/`, `src/`, `server/`,
+> `tools/`.** Independently: `rg "startSpan|withSpan|tracer\.|startActiveSpan"
+> packages/core-app-model/src/drawing` → **1** occurrence, in `DetailLevelResolver.ts`, which is
+> not one of the six.
+>
+> ⚠ **A `grep` returning nothing is a hypothesis** (C01 §6 rule 6). This one was confirmed by the
+> hits it *did* return — all six names resolve, and every resolution is in a `.md` file. **These
+> spans are ABSENT, not unreachable.**
+>
+> This is the **L-809 defect shape**: a document marked `Active — normative` describing
+> instrumentation that does not exist. It sits inside P8's *"every new exported function must add
+> ≥1 span"*, whose gate (`tools/ga-gate/check-otel-spans.ts`) is three-zone and whose **Zone C
+> prints a census and gates nothing** — which is exactly how six named spans stayed absent for
+> sixteen weeks with no gate noticing. See SPEC-51 §3.3 (L-5508).
+>
+> **The list below is retained as the instrumentation TARGET.** It is not a description.
+
 - `drawing.edge-projection.run` — input `(viewId, elementCount)`; output `(primitiveCount, durationMs)`.
 - `drawing.classify.hidden` — input `(viewId, elementCount)`; output `(durationMs)`.
 - `drawing.canvas2d.frame` — input `(viewId, primitiveCount)`; output `(durationMs)`.
@@ -311,8 +437,21 @@ Filters compose: order matters (top filter wins). UX: drag-to-reorder; per-view 
 ---
 
 ## §13 Cross-references
+
+> ### ⚠ §13 CORRECTED 2026-08-22 — two of these three do not resolve
+>
+> - `CONFLICT-ANALYSIS.md` — **ABSENT.** `find docs -name 'CONFLICT-ANALYSIS.md'` → nothing.
+> - `phases/PHASE-2B-Q2-M16-M18-PLAN-VIEW.md` — **ABSENT** at that path or any other.
+> - `12-VISIBILITY-INTENT-SYSTEM-CONTRACT.md` (cited below as "legacy") — **ABSENT.** The live
+>   owner of visibility intent is **[C09 §4](../../02-decisions/contracts/C09-AI-AND-VISIBILITY-INTENT.md)**.
+> - `adrs/ADR-0216-drawing-engine-architecture.md` — ✅ resolves.
+>
+> **Add: [SPEC-51 — View Generation Pipeline](SPEC-51-VIEW-GENERATION-PIPELINE.md)** — the measured
+> map, the view-type × stage authority table, and the normative RCP contract.
+
 - Layer placement: `08-VISION §4` (L5 renderer + L4 kernel).
-- Conflict mapping: `CONFLICT-ANALYSIS.md §3.10`, §3.11.
-- Phase deliverables: `phases/PHASE-2B-Q2-M16-M18-PLAN-VIEW.md`, `phases/PHASE-2C-Q3-M19-M21-SHEETS-SCHEDULES.md`.
+- Conflict mapping: `CONFLICT-ANALYSIS.md §3.10`, §3.11. **← ABSENT, see box above**
+- Phase deliverables: `phases/PHASE-2B-Q2-M16-M18-PLAN-VIEW.md`, `phases/PHASE-2C-Q3-M19-M21-SHEETS-SCHEDULES.md`. **← ABSENT, see box above**
 - ADR: `adrs/ADR-0216-drawing-engine-architecture.md`.
+- **Pipeline as-built + RCP contract: [`SPEC-51-VIEW-GENERATION-PIPELINE.md`](SPEC-51-VIEW-GENERATION-PIPELINE.md); RCP handedness: [`ADR-0353`](../../02-decisions/adrs/ADR-0353-a-reflected-ceiling-plan-is-plan-handed.md).**
 - Visibility-Intent rule matrix: legacy `02-decisions/contracts/12-VISIBILITY-INTENT-SYSTEM-CONTRACT.md` is the *what*; placement of those rules into the new layer model is owned by ADR-0215.
