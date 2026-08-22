@@ -488,6 +488,11 @@ export class DoorBuilder {
         for (const id of ids) {
             const task = this._pendingBuilds.get(id)!;
             this._pendingBuilds.delete(id);
+            // ⭐ §FIX-ORPHANED-HOSTED-MESH (L-3400) — a record that has vanished from the
+            // store never becomes geometry. The door twin of the window guard; see
+            // WindowBuilder._drainBuildQueue for why this is a SECOND arm and not a
+            // restatement of the queue-cancel in dispose().
+            if (!doorStore.has(id)) continue;
             try {
                 this.rebuild(task.door, task.prev);
             } catch (err) {
@@ -1365,6 +1370,18 @@ export class DoorBuilder {
     }
 
     private dispose(id: string): void {
+        // ⭐ §FIX-ORPHANED-HOSTED-MESH (L-3400, founder 2026-08-22) — the DOOR half of the
+        // window defect, fixed in the same breath because ADD_OPENING serves both families
+        // and the mechanism is character-for-character the same one. See
+        // WindowBuilder.dispose for the measured trace; in short, 'add' enqueues a build for
+        // a LATER frame, a 'remove' arriving first disposes nothing (doorGroups is still
+        // empty), and the queue then builds a group for a record that no longer exists —
+        // an object in the SCENE and in NO STORE, selectable and undeletable.
+        //
+        // ⛔ clearProjectGeometry() twelve lines above already clears _pendingBuilds before
+        // disposing. The project-clear path knew; the per-element path did not.
+        this._pendingBuilds.delete(id);
+
         const group = this.doorGroups.get(id);
         if (group) {
             group.traverse(obj => {

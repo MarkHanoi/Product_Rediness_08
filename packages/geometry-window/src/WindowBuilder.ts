@@ -695,6 +695,22 @@ export class WindowBuilder {
         for (const id of ids) {
             const task = this._pendingBuilds.get(id)!;
             this._pendingBuilds.delete(id);
+            // ⭐ §FIX-ORPHANED-HOSTED-MESH (L-3400) — THE SECOND ARM, and it is not the same
+            // arm as dispose()'s queue-cancel above.
+            //
+            // dispose() closes the path we MEASURED (a store 'remove' that races a queued
+            // build). This closes the CLASS: any future route that drops a window record
+            // WITHOUT emitting 'remove' — a store cleared field-by-field, a level teardown, a
+            // failed-execute snapshot rollback — would mint the same orphan again, and the
+            // orphan is unusually expensive because the user can SELECT it and cannot delete
+            // it. This is the moment the record becomes meshes (the rebuild() header states
+            // that rule for authority; it holds for EXISTENCE too), so this is where the
+            // question belongs.
+            //
+            // Deliberately silent, not warned: on the founder's path this is the SECOND
+            // guard to fire and the first one already handled it, so a warn here would be
+            // noise on a correctly-handled undo.
+            if (!windowStore.has(id)) continue;
             try {
                 this.rebuild(task.win, task.prev);
             } catch (err) {
@@ -1876,6 +1892,40 @@ export class WindowBuilder {
     }
 
     private dispose(id: string): void {
+        // ⭐ §FIX-ORPHANED-HOSTED-MESH (L-3400, founder 2026-08-22) — A CANCELLED BUILD MUST
+        // BE CANCELLED IN THE QUEUE, NOT ONLY IN THE SCENE.
+        //
+        // MEASURED, from the founder's own console: undo of ADD_OPENING removed the store
+        // record and unregistered the element, and the window stayed in the 3-D view —
+        // selectable, absent from plan, and REFUSED by delete
+        // (*"Element ... not found in any store"*). Three symptoms, one mechanism:
+        //
+        //   1. windowStore.add()    -> subscribe 'add'    -> _enqueue()  (a LATER frame)
+        //   2. Ctrl+Z               -> subscribe 'remove' -> dispose()   -> NO-OP, because
+        //      nothing has been built yet: windowGroups has no entry for this id.
+        //   3. the pre-render tick  -> _drainBuildQueue() -> rebuild(task.win) -> a group
+        //      IS created and added to the scene, for a record that no longer exists.
+        //
+        // The result is an object in the SCENE and in NO STORE. That is exactly the set of
+        // facts the founder reported: 3-D shows it (the scene object is real), plan does not
+        // (plan projection is registry/store-driven), and DeleteElementCommand.canExecute
+        // correctly refuses it — leaving him an element he can select and cannot remove
+        // ([[refusing-half-needs-its-escape-hatch]]).
+        //
+        // ⛔ THE CORRECT ORDERING WAS ALREADY IN THIS FILE, TEN LINES ABOVE, AND WAS NOT
+        // CARRIED DOWN: clearProjectGeometry() clears _pendingBuilds BEFORE it disposes.
+        // The project-clear path knew a pending task outlives the thing it builds; the
+        // per-element path did not. One line closes it, and it is placed FIRST so no early
+        // return below can skip it.
+        //
+        // Idempotent and safe on the rebuild path: _drainBuildQueue already deletes the id
+        // before calling rebuild(), which then calls dispose() — a second delete is a no-op.
+        //
+        // The DOOR carries the identical shape and is fixed in the same breath
+        // (DoorBuilder.dispose) — ADD_OPENING serves both families, so a fix to one would
+        // have left the founder's defect live under the other name.
+        this._pendingBuilds.delete(id);
+
         // §INSTANCE-WINDOWS — release any GPU instance slots this window owns
         // BEFORE tearing down its group. No-op when the window was on the
         // individual-mesh path (map has no entry).
