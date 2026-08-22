@@ -360,12 +360,61 @@ export class VisibilityIntentPanel {
                 </div>
                 <div class="vi-label">Fill opacity</div>
                 <input class="vi-input" type="number" min="0" max="1" step="0.05" data-appearance="fill.opacity" value="${fmt('fill.opacity', appearance.fill.opacity)}" ${placeholder('fill.opacity')} ${disabled ? 'disabled' : ''}>
+                ${this.renderElevationPocheNote()}
                 <div class="vi-label">Symbolic rule</div>
                 <input class="vi-input" data-appearance="symbolicRule" value="${v('symbolicRule') ? '' : this.escape(appearance.symbolicRule ?? '')}" ${placeholder('symbolicRule')} ${disabled ? 'disabled' : ''}>
             </div>
             ${this.render3DSurfaceSection(appearance, disabled, v, fmt, placeholder, selectedAttr, checkboxAttr)}
             </div>
         `;
+    }
+
+    /**
+     * §ELEVATION-POCHE-NEEDS-A-VIEW-TYPE-ROW (L-3904) — SAY THAT THIS FILL CANNOT
+     * REACH AN ELEVATION, ON THE CONTROL THAT STORES IT.
+     *
+     * ─────────────────────────────────────────────────────────────────────────────
+     * THE DEFECT THIS DISCLOSES (it is not fixed here — it is DECLARED)
+     * ─────────────────────────────────────────────────────────────────────────────
+     * The founder set slab -> cut -> FILL STYLE poche, FILL COLOUR grey on THIS tab and
+     * reported: plan honours it, elevation does not. Measured, and both halves are
+     * working as built:
+     *
+     *   • Elevation DOES emit a `:cut` band (§ELEV-LINEWEIGHT / L-182) and the poché
+     *     pass DOES run for elevations (`_ELEVATION_SCOPE.poche === true`, L-1601). So
+     *     "elevation produces no fill regions" is FALSE — it produces them.
+     *   • But elevation poché is gated on `viewTypeDeclaresCutFill()`: the fill must
+     *     have been declared FOR THE ELEVATION VIEW TYPE. A fill on the intent's BASE
+     *     element rules — which is what this tab writes — is deliberately NOT enough.
+     *
+     * That gate is not a bug. Every system intent seeds plan poché tones on its base
+     * rules (slab #dcdcdc, wall #c9c9c9), so honouring an inherited fill would paint
+     * the whole façade grey — §FIX-ELEVATION-POCHE (L-119) all over again, in a lighter
+     * colour. L-1601 measured exactly that on its first cut.
+     *
+     * What IS a defect is that this control accepts the value and says nothing. A
+     * control that stores a value nothing can draw is a lie, and the user's only
+     * available reading is "the software is broken". The escape hatch already exists —
+     * a View Modifiers row scoped to `viewType: elevation`, which is the path
+     * `elevationCutPocheIsIntentDeclared.test.ts` drives and proves GREEN. It was simply
+     * never NAMED anywhere the user setting a cut fill would see it.
+     *
+     * So the note is shown only on the `cut` state, where it is the whole truth, and it
+     * names the tab that does work rather than merely refusing.
+     */
+    private renderElevationPocheNote(): string {
+        if (this.selectedState !== 'cut') return '';
+        return `
+            <div class="vi-label"></div>
+            <div style="grid-column:2 / -1;font-size:11px;line-height:1.45;opacity:0.78;
+                        border-left:2px solid rgba(102,0,255,0.55);padding:4px 0 4px 8px;margin-top:2px;">
+                <strong>Plan and section only.</strong>
+                An elevation paints a cut fill only where one is declared for the
+                <em>elevation</em> view type &mdash; add a row on the
+                <strong>View Modifiers</strong> tab. A fill set here is inherited plan
+                poch&eacute;, and honouring it in elevation would flood the whole
+                fa&ccedil;ade with tone.
+            </div>`;
     }
 
     /**
