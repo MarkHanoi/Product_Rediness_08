@@ -206,11 +206,20 @@ function dblClick(worldX: number, worldZ: number): void {
 }
 
 /** Every command type the bus was asked for, in order. */
-const dispatched = (): string[] => bus.executeCommand.mock.calls.map((c) => String(c[0]));
+const dispatched = (): string[] => busCalls().map((c) => String(c[0]));
+
+/**
+ * The recorded calls, widened to `unknown[]`.
+ *
+ * ⚠ `vi.fn(async () => …)` over a ZERO-ARGUMENT lambda types `mock.calls` as `[][]`,
+ * so `c[0]` is a tuple-index error rather than `unknown`. The bus really is called with
+ * `(type, payload)`; this one cast states that at the seam instead of at four call sites.
+ */
+const busCalls = (): unknown[][] => bus.executeCommand.mock.calls as unknown as unknown[][];
 
 /** The one payload dispatched for `type`, or `undefined`. */
 const payloadFor = (type: string): Record<string, unknown> | undefined =>
-    bus.executeCommand.mock.calls.find((c) => c[0] === type)?.[1] as Record<string, unknown> | undefined;
+    busCalls().find((c) => c[0] === type)?.[1] as Record<string, unknown> | undefined;
 
 describe('§FIX-PLAN-TOOL-POINTER-UNREACHABLE — a pointer event reaches the ARMED handler', () => {
     beforeAll(() => {
@@ -221,7 +230,10 @@ describe('§FIX-PLAN-TOOL-POINTER-UNREACHABLE — a pointer event reaches the AR
         viewDefinitionStore.create({
             id: VIEW_ID,
             name: 'Pointer probe',
-            viewType: 'floor-plan',
+            // ⚠ `'plan'`, not `'floor-plan'`. `ViewType` (ViewDefinitionTypes.ts:49)
+            // has no `'floor-plan'` member; the store would hold a view the overlay's
+            // `viewPlaneFromDefinition` cannot classify.
+            viewType: 'plan',
             spatial: { levelId: 'level-1' },
         });
     });

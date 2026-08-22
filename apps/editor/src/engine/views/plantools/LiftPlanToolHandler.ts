@@ -206,7 +206,7 @@ export class LiftPlanToolHandler implements PlanToolHandler {
       servedLevels: served,
       enclosureIds: Array.from({ length: ENCLOSURE_SIDE_COUNT }, () => createId('wall')),
       landingDoorIds: served.map(() => createId('door')),
-      cabinPartIds: LIFT_PART_CYCLE_ORDER.map(() => createId('liftpart')),
+      cabinPartIds: LIFT_PART_CYCLE_ORDER.map(() => createId('liftPart')),
     };
 
     // ONE dispatch = ONE undo entry across all SIX stores (C16 §8.6 B-6). The handler

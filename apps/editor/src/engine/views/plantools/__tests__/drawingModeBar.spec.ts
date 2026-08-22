@@ -1,5 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { DrawingModeBar } from '@app/ui/DrawingModeBar';
+// §FIX-DRAWING-MODE-BAR-SPEC-DARK (L-7006) — see the `beforeAll` below.
+import { setAppPhase } from '@app/ui/layout/panelDefaults';
 import { creationModes } from '../elementCreationMatrix';
 import {
     setActiveSlabDrawMode,
@@ -23,6 +25,37 @@ import { BoundaryPathAuthor } from '@pryzm/geometry-slab';
  */
 describe('§FEAT-PERSISTENT-MODE-BAR — the wall\'s control, on slab/floor/ceiling', () => {
     let bar: DrawingModeBar;
+
+    /**
+     * ⚠ §FIX-DRAWING-MODE-BAR-SPEC-DARK (L-7006) — THIS SUITE WAS RED, AND HAD BEEN
+     * SINCE `2ec277aa` (§AUTHORING-CONTEXT-GATE, L-5100..L-5106) SHIPPED.
+     *
+     * MEASURED 2026-08-22, at that commit and at HEAD, with this file run entirely
+     * alone: **14 of its 16 cases failing**, every one of them with the bar rendering
+     * ZERO pills — `expect([]).toEqual(['linear','ortho','curved', …])`.
+     *
+     * The cause is neither the bar nor this suite's assertions. `DrawingModeBar.show()`
+     * gained one line — `if (refuseElementAuthoring('DrawingModeBar.show')) return;` —
+     * which refuses while `appPhase()` is `'onboarding-globe'`, and
+     * `onboarding-globe` is the DEFAULT (`panelDefaults.ts:473`). A test process that
+     * never reaches the canvas therefore never gets a bar, and every pill assertion
+     * reads empty.
+     *
+     * ⭐ THE GATE IS RIGHT AND THE SUITE WAS STALE — the fix belongs HERE, not in the
+     * component. In production the phase latches to `'canvas'` the moment the user
+     * arrives at the BIM canvas, which is the only place a mode strip can be asked for;
+     * loosening the gate to make a test pass would re-open the founder's L-5100 report
+     * ("'WA' drew a wall on the parcel map").
+     *
+     * ⛔ AND THE REAL DEFECT IS THAT NOBODY SAW IT. Fourteen assertions about the ONE
+     * control every drawing tool shares went dark and stayed green-by-absence in
+     * whatever run last looked. That is the `never ran` / `passed` collapse §L-851
+     * records at 1 433 cases, at a smaller scale — and it is why this note states the
+     * measurement rather than just adding the line.
+     */
+    beforeAll(() => {
+        setAppPhase('canvas');
+    });
 
     beforeEach(() => {
         document.body.innerHTML = '';

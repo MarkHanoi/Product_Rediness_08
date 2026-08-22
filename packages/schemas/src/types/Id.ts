@@ -74,6 +74,38 @@ export type ProjectOriginId = Id<'projectOrigin'>;
  * as `never`).
  */
 export type OpeningId     = Id<'opening'>;
+/**
+ * §FEAT-LIFT-COMPOUND-SYSTEM (L-5711, promoted 2026-08-22 by §FIX-LIFT-UNREACHABLE
+ * L-7021) — the lift COMPOUND parent (C104, extending C103).
+ *
+ * A lift OWNS its members — the shaft ENCLOSURE sides, one landing DOOR per served
+ * storey, and the five LOD-300 CABIN parts — through the L0 `parentId` /
+ * `childrenIds` fields, the same ownership mechanism `pool` (ADR-0124 §3) and
+ * `balcony` (C103) use.
+ *
+ * ⚠ NOT `VerticalCirculationId`, AND THE TWO MUST NOT BE MERGED. That brand belongs to
+ * the LOD-200 MASSING lift the residential/office batch executors create through
+ * `CreateVerticalCirculationCommand` — a different store, a different record, a
+ * different level of detail. `LiftCompoundTypes.ts` explains why both exist;
+ * collapsing the brands would let a massing shaft be handed to a command that expects
+ * a compound, which is precisely the confusion the brands exist to prevent.
+ *
+ * ⭐ THIS IS THE PROMOTION `liftReachableThroughComposedRuntime.test.ts` ANTICIPATED —
+ * its ids are minted "in the same shape so a later L0 promotion (L-5711) does not have
+ * to rewrite this file". Until now `createId('lift')` was a type error, so the ONE id
+ * factory could not mint the ONE id the compound needs, and a caller's only options
+ * were a hand-built string (a second vocabulary — C84 EI-8) or a cast.
+ */
+export type LiftId        = Id<'lift'>;
+/**
+ * §FEAT-LIFT-COMPOUND-SYSTEM (L-5711 / L-7021) — one LOD-300 lift CABIN part.
+ *
+ * The five kinds are `LIFT_PART_CYCLE_ORDER` (structure, wall finish, floor, ceiling,
+ * door). A cabin part is created and destroyed ONLY as part of a lift compound (C104
+ * §2) — `lift.create` owns the only write path, which is why `PluginRegistry` gives
+ * the `liftPart` store NO handlers of its own.
+ */
+export type LiftPartId    = Id<'liftPart'>;
 /** §P3.2-FL: Floor finish element.  Added in ELEMENT-OPERATIONS-IMPL-PLAN-2026-05-17. */
 export type FloorId       = Id<'floor'>;
 /**
@@ -113,6 +145,8 @@ export type ElementType =
   | 'pool'
   | 'water'
   | 'balcony'
+  | 'lift'
+  | 'liftPart'
   | 'opening'
   | 'floor'
   | 'section';
@@ -124,7 +158,7 @@ export type AnyElementId =
   | RoomId | FurnitureId | AnnotationId | DimensionId | SheetId
   | ScheduleId | ViewId | ProjectId
   | StructuralId | LightingId | PlumbingId | ProjectOriginId
-  | PoolId | WaterId | BalconyId
+  | PoolId | WaterId | BalconyId | LiftId | LiftPartId
   | OpeningId | FloorId | SectionId;
 
 /** Map element-type discriminator → typed ID. */
@@ -157,6 +191,8 @@ export type IdFor<T extends ElementType> =
   T extends 'pool'        ? PoolId        :
   T extends 'water'       ? WaterId       :
   T extends 'balcony'     ? BalconyId      :
+  T extends 'lift'        ? LiftId        :
+  T extends 'liftPart'    ? LiftPartId    :
   T extends 'opening'     ? OpeningId     :
   T extends 'floor'       ? FloorId       :
   T extends 'section'    ? SectionId     :
