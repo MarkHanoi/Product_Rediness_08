@@ -337,7 +337,27 @@ export class CreateWallOpeningCommand implements Command {
             console.warn('[CreateWallOpeningCommand] SemanticGraph cleanup failed (non-fatal):', err);
         }
 
-        return { success: true, affectedElementIds: [this.data.wallId] };
+        // ⭐ §FIX-ORPHANED-HOSTED-MESH (L-3406, founder 2026-08-22) — THE UNDO NAMES THE
+        // ELEMENT IT REMOVED, not only the wall it removed it from.
+        //
+        // This returned `[this.data.wallId]` alone, while the DELETE path one file over
+        // returns the hosted element's own id (`DeleteElementCommand` window branch,
+        // `affectedElementIds: [id]`). CommandManager merges this list back into
+        // `targetIds` (see `createCommandTargetIdentity.test.ts`), so an undo that never
+        // named the door/window it destroyed was reporting a wall edit — and every
+        // downstream consumer keyed on the affected element (selection clearing, view
+        // invalidation, collaboration echo) heard about the host and not the child.
+        //
+        // ⚠ THIS IS NOT WHAT CAUSED THE FOUNDER'S ORPHAN — that was the builder's build
+        // QUEUE (L-3400), fixed at source — and it is recorded as a SEPARATE finding rather
+        // than folded into that one, because a fix that credits itself with a defect it did
+        // not cause hides the real mechanism from the next reader. It is a reporting
+        // asymmetry found while measuring the real one, and it is corrected here because
+        // the two paths must agree about what an ADD_OPENING affects.
+        //
+        // `targetIds` already carries both ids in this exact order, so this is the same
+        // pair the command has declared since construction.
+        return { success: true, affectedElementIds: [this.data.wallId, this.openingElementId] };
     }
 
     serialize(): SerializedCommand {

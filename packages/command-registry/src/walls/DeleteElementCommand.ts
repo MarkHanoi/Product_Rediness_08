@@ -93,6 +93,13 @@ export class DeleteElementCommand implements Command {
      * this inline stair branch left the stair's opening in the floor forever.
      */
     private _stairDelegate: DeleteStairCommand | null = null;
+
+    /**
+     * ⭐ §FIX-ORPHANED-HOSTED-MESH (L-3404) — set ONLY when `execute()` removed a scene
+     * object that no store held. It is the id, not a boolean, so `undo()` can name the
+     * thing it cannot restore instead of saying "something".
+     */
+    private _reapedOrphanId: string | null = null;
     /**
      * §FIX-WALL-DELETE-LEAVES-GRAPH-EDGES (BIM 3.0 C7) — wall-family branches only
      * (wall + cascaded children, window, door, window-orphan, door-orphan).
@@ -195,6 +202,31 @@ export class DeleteElementCommand implements Command {
         if ((stores as any).ceilingStore?.getById?.(id)) return { ok: true };
         if ((stores as any).beamStore?.get?.(id) ?? (stores as any).beamStore?.getById?.(id)) return { ok: true };
         if ((stores as any).plumbingStore?.get?.(id) ?? (stores as any).plumbingStore?.getById?.(id)) return { ok: true };
+
+        // ⭐ §FIX-ORPHANED-HOSTED-MESH (L-3404, founder 2026-08-22) — THE HATCH THIS
+        // REFUSAL DID NOT HAVE.
+        //
+        // The founder undid an ADD_OPENING and was left with a window he could SELECT and
+        // could not DELETE: every branch above failed and this line refused him, correctly
+        // — no store held the record — with NO removal path of any kind behind the refusal.
+        // That is a regression with a contract citation attached
+        // ([[refusing-half-needs-its-escape-hatch]]).
+        //
+        // ⛔ THIS EXTENDS THE EXISTING HATCH RATHER THAN MINTING A RIVAL. The
+        // §FIX-WINDOW-OOB-OPENING-RESTORE line above covers an orphan still present in
+        // windowStore/doorStore. His orphan was in NEITHER — undo removed both — so it fell
+        // straight through to here. Same defect shape, one store deeper.
+        //
+        // ⚠ ORDER MATTERS AND IT IS DELIBERATE: this is the LAST branch, so a scene root
+        // can only authorise a delete when EVERY store has already said no. That is the
+        // definition of the orphan, and it is why this cannot mask a normal element whose
+        // own branch is missing — such an element has a store record and never reaches here.
+        //
+        // ⭐ The root cause is fixed at source (WindowBuilder/DoorBuilder dispose() now
+        // cancel the queued build, L-3400). This hatch exists for orphans ALREADY minted in
+        // a live session and for any future path that mints one — a class this file cannot
+        // close on its own.
+        if (elementRegistry.getRoot(id)) return { ok: true };
 
         return { ok: false, reason: `Element ${id} not found in any store` };
     }
@@ -647,10 +679,57 @@ export class DeleteElementCommand implements Command {
             return delegate.execute(ctx);
         }
 
+        // ⭐ §FIX-ORPHANED-HOSTED-MESH (L-3404) — REAP THE ORPHAN, AND SAY SO.
+        //
+        // Reached only when every store branch above declined, which is exactly the state
+        // `canExecute`'s last line authorised. `reapOrphanRoot` detaches the scene root and
+        // drops both registry entries; it returns false when there was nothing there, so
+        // "I cleaned up an orphan" and "there was no orphan either" stay DIFFERENT answers
+        // ([[context-data-honesty-family]] — failure and empty must not be the same value).
+        //
+        // ⛔ IT IS REPORTED AS WHAT IT IS, NOT AS A NORMAL DELETE. The user gets their model
+        // cleaned, and the result says the object had no record — because a green tick that
+        // implies a BIM element was deleted, when what was removed was a stray mesh, is the
+        // silent-success shape this repo keeps paying for.
+        if (elementRegistry.reapOrphanRoot(id)) {
+            this._reapedOrphanId = id;
+            this.elementType = 'orphan-scene-node';
+            return {
+                success: true,
+                affectedElementIds: [id],
+                info: [
+                    `Removed a stray 3-D object for ${id}. It was present in the scene but in ` +
+                    `NO store, so there was no BIM element to delete — nothing else changed, and ` +
+                    `this cannot be undone because there is no record to restore (L-3404).`,
+                ],
+            };
+        }
+
         return { success: false, affectedElementIds: [], info: ['Element not found in any store'] };
     }
 
     undo(ctx: CommandContext): CommandResult {
+        // ⭐ §FIX-ORPHANED-HOSTED-MESH (L-3404) — AN ORPHAN REAP IS NOT REVERSIBLE, AND IT
+        // SAYS SO INSTEAD OF REPORTING AN UNQUALIFIED SUCCESS.
+        //
+        // What was removed had no store record; there is literally nothing to restore, and
+        // re-creating a mesh from nothing would invent an element. `success: true` is
+        // correct — the model IS in the state the user asked for, and returning false here
+        // would wedge the undo stack over an operation that had no model effect — but it is
+        // QUALIFIED with the reason, which is the distinction ISSUE-LOG L-2400/L-2421 record
+        // 65 undo bodies failing to draw.
+        if (this._reapedOrphanId) {
+            return {
+                success: true,
+                affectedElementIds: [],
+                info: [
+                    `Nothing to restore for ${this._reapedOrphanId}: what was removed was a ` +
+                    `stray 3-D object with no store record, so undo has no element to bring ` +
+                    `back. The model is unchanged (L-3404).`,
+                ],
+            };
+        }
+
         // OI-041: slab and column execute() immediately delegate — this.deletedData is never
         // set in those branches; the guard must also accept a live delegate as proof of execute().
         if (!this.deletedData && !this._slabDelegate && !this._columnDelegate && !this._stairDelegate) {

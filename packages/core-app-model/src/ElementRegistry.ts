@@ -279,6 +279,53 @@ export class ElementRegistry {
     }
 
     /**
+     * ⭐ §FIX-ORPHANED-HOSTED-MESH (L-3404, founder 2026-08-22) — THE ESCAPE HATCH for a
+     * scene object that is in NO STORE.
+     *
+     * ── WHY A REGISTRY METHOD, AND NOT A SCENE TRAVERSE AT THE CALL SITE ─────────────
+     * The founder hit an element he could SELECT and could not DELETE:
+     * `DeleteElementCommand.canExecute` refused it, correctly, because no store held the
+     * record — and there was then NO removal path of any kind. A refusal whose "yes"
+     * branch does not exist is a regression with a citation attached
+     * ([[refusing-half-needs-its-escape-hatch]]).
+     *
+     * The reaper belongs HERE because this map is already, by its own header above, *"the
+     * SINGLE SOURCE OF TRUTH for what scene roots are placed BIM elements"* — every
+     * builder in every family registers through {@link registerRoot}. A reaper written at
+     * the call site would need `scene.traverse` and therefore THREE, which P2 forbids
+     * outside `renderer-three`, and would be a SECOND answer to "where does this element
+     * live in the scene" — the defect shape C84 EI-9 names.
+     *
+     * ⚠ **THIS IS A DETACH, NOT A FULL TEARDOWN, AND THAT IS STATED RATHER THAN IMPLIED.**
+     * It removes the root from its parent (ADR-0297 INVARIANT L2 (a) — detach FIRST is
+     * exactly the mandated order) and drops both registry entries. It does **NOT** release
+     * the GPU buffers, because doing so would require a value import of
+     * `scheduleGpuRelease` from `@pryzm/renderer-three` into a module that every
+     * `element-registry` consumer loads — including server-side ones
+     * ([[server-safe-entry-can-import-browser-ui]]). The buffers are collected with the
+     * detached subtree. For a rare orphan reap that is an acceptable cost and it is
+     * strictly better than an object the user can select and cannot remove. Named as a
+     * known limitation: L-3405.
+     *
+     * ⛔ CALLERS MUST ESTABLISH "NO STORE HOLDS THIS" THEMSELVES. This method deliberately
+     * cannot see any store, so it can neither check that condition nor pretend to. Calling
+     * it on a LIVE element would detach a real element's mesh behind its builder's back.
+     *
+     * @returns `true` when a root was found and reaped; `false` when there was nothing to
+     *          reap — so a caller can tell "I cleaned up an orphan" from "there was no
+     *          orphan either", which are different answers and must not share a value.
+     */
+    reapOrphanRoot(id: string): boolean {
+        const root = this.idToRootMap.get(id);
+        if (!root) return false;
+        // ADR-0297 L2 (a) — detach the whole subtree in ONE call, before anything else.
+        root.parent?.remove(root);
+        this.idToRootMap.delete(id);
+        this.unregister(id);
+        return true;
+    }
+
+    /**
      * §ISOLATE-ALL-ELEMENTS-WIRED (2026-06-26) — read-only enumeration of every
      * registered element root, paired with its authoritative {@link StoreType}.
      *
