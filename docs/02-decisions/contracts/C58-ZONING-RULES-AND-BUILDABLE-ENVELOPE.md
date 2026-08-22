@@ -666,6 +666,15 @@ is off:**
    The control writes the `volume` axis only. `footprint` defaults ON. "Hide everything" stays
    expressible (`{volume:false, footprint:false}` ⇒ `'none'`) so no future need mints a fifth
    authority.
+   > ⚠ **AMENDED 2026-08-22 (lane PARCEL33, L-6910) — this clause said "so no future need mints a
+   > fifth authority" and stopped there. It left `{volume:false, footprint:false}` REPRESENTABLE
+   > AND UNREACHABLE.** No control ever wrote the `footprint` axis:
+   > `setBuildableEnvelopeFootprintVisible` shipped with this section and had **zero callers**.
+   > The founder reported the consequence three days later — *"There is a bug on 'envelope off' —
+   > the shade goes back."* The per-axis rule above is unchanged and correct; what was missing is
+   > the surface, and it is now **[§1.18](#118--every-axis-of-the-visibility-authority-must-have-a-control-l-6910)**,
+   > which this clause is subordinate to. **A state the model can hold and the UI cannot set is not
+   > a design, it is a gap.**
 4. ⭐ **THE FOOTPRINT SHADE IS A PROJECTION OF SOLIDS THAT ALREADY EXIST — NEVER A NEW DERIVATION.**
    It takes the ring, the hue and every honesty flag from the largest **ground-touching**
    (`baseHeightM === 0`) solid `envelopeToMassing` produced. This is what makes it safe under
@@ -704,6 +713,86 @@ through the **real** pure rule, plus three structural pins: the one-axis gate mu
 rasterisers must read the shared L2 rule and neither may branch on the volume boolean; and the
 caller-side gate must stay gone. Verified RED before the fix (4 of the 10 fail on a one-axis
 `applyEnvelopeVisibilityAxes`), GREEN after.
+
+
+### §1.18 — EVERY AXIS of the visibility authority MUST have a control (L-6910)
+
+**Added 2026-08-22 (lane PARCEL33). Grounded in a founder report on the deployed build, with
+screenshots showing the button reading `Envelope: OFF` and a pale shade still on the plot:**
+*"There is a bug on 'envelope off' — the shade goes back."*
+
+⭐ **IT WAS NOT A LOGIC BUG. The runtime was behaving exactly as §1.17 specifies**, and the
+founder's own console says so:
+
+```
+§ENVELOPE-ONE-VISIBILITY — buildable envelope VOLUME set HIDDEN by the user
+   (ground footprint shade STAYS — §ENVELOPE-TWO-AXES); 2 surface(s) notified.
+§ENVELOPE-ONE-VISIBILITY — … mode=ground-shade: … drawing 1 flat GROUND FOOTPRINT shade(s) instead
+```
+
+**And it was still a defect**, for a reason that has nothing to do with the rasteriser: a control
+labelled **OFF** that leaves a visible artefact on the plot is misleading **however good the
+reasoning behind the artefact is**. §1.17 made `{volume:false, footprint:false}` ⇒ `'none'` a real,
+correct, tested state — and **no surface could set it**. That is
+[[authored-but-unwired-is-the-bottleneck]] at the contract level: §1.17 §3 explicitly reserved the
+footprint axis *"so a future control has exactly one place to write"*, and the future control was
+never built.
+
+**Normative:**
+
+1. ⭐ **Every axis the visibility authority holds MUST be writable from the UI.** A persisted axis
+   with no control is an unreachable state, and an unreachable state is indistinguishable from a
+   bug to the person holding the mouse. This generalises: it binds any future third axis on the
+   same day it is added, not three days later when a founder reports it.
+2. ⛔ **The fix MUST NOT be "one control writes both axes."** That deletes the distinction §1.17
+   exists to introduce and re-opens the founder's **opposite** report of 2026-08-19
+   (*"When the envelope is OFF we should see this shade on the GROUND"*). Two asks in opposite
+   directions: **the control grows; it does not get to pick a side.** One user gesture MUST produce
+   exactly one axis write.
+3. **The control is TWO labelled switches — `Volume` and `Footprint` — not a tri-state cycle.**
+   Decided, with the rejected alternative recorded rather than discarded:
+   - a cycle makes the CURRENT state readable only from a label and the NEXT state guessable only
+     by trying, whereas the axes are genuinely **independent booleans**, not three points on a line;
+   - a cycle cannot express `{volume:true, footprint:false}` — not distinguishable on screen (the
+     volume's own base IS the footprint; a coplanar shade would z-fight) but a **stored preference
+     that survives** and decides what appears the moment the volume is hidden;
+   - a cycle needs its own ordering rule on top of two per-axis storage keys — a fifth thing that
+     can disagree, which is precisely what §1.15 spent a lane removing.
+4. ⚠ **Storage keys and defaults are FROZEN by this section.** `pryzm.site.buildableEnvelopeVisible`
+   and `pryzm.site.buildableEnvelopeFootprintVisible`, both defaulting **ON** (§1.4: an envelope
+   that silently fails to arrive reads as *"there is no constraint here"*). An existing user's
+   "off" MUST survive any re-shaping of the control. The VOLUME switch MUST keep the
+   `data-testid="envelope-toggle"` it has always had — `makeDraggable` excludes it by that exact
+   selector, so a rename silently re-enables drag-on-click.
+5. **The control's markup MUST come from ONE pure producer** —
+   `apps/editor/src/ui/site/envelopeVisibilityControl.ts` — which renders the axes it is **handed**
+   and reads no global. A control that reads the authority itself cannot be driven through its
+   states by a test, and can display a state the host disagrees with. The host reads the authority
+   once, at render, and passes it in; the producer writes nothing.
+6. **The control MUST be rendered INSIDE the envelope card**, not beside it. The card is a
+   singleton element re-homed between the 3D-site viewport, the GIS rail slot and the Parcel rail
+   slot (C19 §1.12), so one producer inside it gives **every host the same control and the same
+   state by construction** — rather than by a synchronisation rule someone has to remember.
+7. **§1.17 §6 (the control MUST SAY what OFF does) is EXTENDED, not replaced.** Each arm of the
+   caption MUST name what is drawn **and** what the other switch would change; the volume-off arm
+   MUST say the shade can be cleared; the both-off arm MUST state that **the determination itself is
+   unchanged** — hiding a constraint is not the same as there being no constraint (§1.4). The
+   estimated-confidence qualifier is **retained in every arm** (§L-616: a shade that reads
+   authoritative on a default rule pack is the overstatement defect wearing a new shape).
+8. **The drag-exclusion selector list MUST be exported by the control**, never hand-copied at the
+   `makeDraggable` call site. With two switches, a copied list is exactly how the second one keeps
+   starting a drag on every click while the first does not.
+
+> ⚠ **NOT ESTABLISHED.** Not verified in a browser by this lane. What IS measured: the L2 rule's
+> `'none'` arm and both rasterisers' handling of it were already correct and unchanged — this
+> section adds only the missing surface, so the risk it carries is a UI risk, not a geometry one.
+
+**Binding artefact:** `apps/editor/src/ui/site/__tests__/envelopeVisibilityControl.spec.ts` — all
+four axis combinations rendered distinctly; one click ⇒ exactly one axis write (the arm that fails
+the rejected §1.18.2 fix); the caption's three distinguishable arms; the confidence qualifier
+retained; the producer reads no global; and the **reachability** arm asserting `GISAreaLayout` now
+calls `setBuildableEnvelopeFootprintVisible` — an arm checking only that the export exists would
+have passed for the three days it had no caller.
 
 ---
 

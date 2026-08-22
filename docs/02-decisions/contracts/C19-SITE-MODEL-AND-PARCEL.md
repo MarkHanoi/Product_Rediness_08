@@ -487,6 +487,127 @@ The implicit path is the default; the explicit path is for users who want to con
 
 All Site/Parcel/Footprint/ContextBuilding previews MUST use the canonical PRYZM purple `#6600FF` per [C18 Element Preview Visual Contract](./C18-ELEMENT-PREVIEW-VISUAL-CONTRACT.md). ContextBuildings render in a desaturated 50%-opacity grey (`#999999` at α=0.5) to signal their reference-only role.
 
+
+### §5.6 — The PARCEL rail panel carries the WHOLE parcel answer, by HOSTING producers, never by re-deriving (L-6903)
+
+**Added 2026-08-22 (lane PARCEL33). Grounded in a founder report on the deployed build, with three
+screenshots:** *"On parcel selection I want to have **all information directly showing up**: it is
+still on GIS — check second image and third."*
+
+§PARCEL-OWN-PANEL (L-5130) gave the parcel its own left-rail destination and mounted **one**
+section — the cadastral card. Everything else he had been reading (buildable envelope · designed
+vs permitted · how these were measured · full site & massing data) was reachable only from the GIS
+panel. He is not asking for it to MOVE; he is asking for it to be in BOTH.
+
+**Normative:**
+
+1. ⭐ **The panel is a HOST; the producers are the AUTHORITIES.** It MUST NOT re-derive, re-fetch,
+   re-format or re-render any figure it shows. This is C06 §13.3 with a **legal** consequence
+   attached: these values are heights, setbacks and FAR cited to PGM articles, and two surfaces
+   that can disagree about a setback is a defect that reaches the user's land. Recorded three times
+   already (§GIS-ENVELOPE-REHOST L-1362 · §GIS-PARCEL-REHOST L-1582 · §PARCEL-OWN-PANEL L-5130) and
+   binding here.
+2. **The cadastral half MUST be `mountParcelSection`** — the same function the GIS section hosts,
+   over `parcelCard.ts`, the ONE card producer (C57 §1.9 attribution and the C57 §2.4 two-area
+   rule are inherited by construction, not re-added).
+3. **The envelope half MUST be claimed through `window.pryzmMountEnvelopeCard(host)`** — the
+   §GIS-ENVELOPE-REHOST seam. All four folds the founder listed are folds of that ONE element, so
+   this is one call. ⛔ Re-implementing any of them here would fork four refusal templates and a
+   determination doctrine.
+4. **The GIS panel KEEPS its sections.** This adds a route; it never removes one.
+
+### §5.7 — Section reuse across two hosts: the answer depends on the KIND of section (L-6904)
+
+**MEASURED, not reasoned, because the two shapes in this codebase behave oppositely:**
+
+| kind | example | hostable by | displayable by | why |
+|---|---|---|---|---|
+| **re-homed singleton** | the buildable-envelope card | many | **ONE** | `envelopePanel` is one element; `ensureEnvelopePanel` **moves** it (`appendChild`), never clones. The second claim silently empties the first. |
+| **mount-per-host builder** | `mountParcelSection` | many | **many** | it BUILDS into the host it is given and returns its own handle. |
+
+**Normative:**
+
+1. **A re-homed singleton MAY be offered by more than one rail panel ONLY while the rail is
+   exclusive.** `ProjectBrowserPanel` holds one `_rail.activeId` and disposes the non-active
+   section, so one host is live at a time by construction. ⚠ **If the rail ever gains a
+   two-panel-open mode, this clause is what breaks** — the fix would be a second card instance or a
+   host arbiter, never a copied renderer.
+2. ⛔ **A host MUST NOT release a shared singleton on its own dispose.** Calling
+   `pryzmMountEnvelopeCard(null)` would evict the card from whichever *other* host had claimed it
+   since. `getForma3dHostEl` already falls back the moment the slot leaves the document
+   (`document.contains`), so **self-healing beats explicit release** for a shared resource.
+3. ⛔ **A host MUST NOT clear its slot wholesale.** Removing all children detaches the one shared
+   instance. It removes only its own chrome, keyed on the card's `data-testid`.
+4. **A mount-per-host builder MUST be given its OWN handle per host.** A shared handle lets closing
+   either slot drop the other's subscription, leaving a panel on screen that has silently stopped
+   updating (the defect §GIS-PARCEL-REHOST fixed once already).
+
+### §5.8 — A parcel is known BEFORE its envelope is; the gap is a NAMED state, never a blank and never a zero (L-6900..L-6908)
+
+⭐ **"Directly" is a TIMING claim and the timing is MEASURED.** From the founder's console, one
+Barcelona parcel (`1035716DF3813E`, ~2234 m², 32 pts, CL ROGER DE FLOR 168):
+
+```
+[gis][c58] §BCN-REAL-ENVELOPE §BCN-ENVELOPE-TIMING block fetch — residual await 6395 ms
+                              (total since parcel-fetch start 11441 ms)
+```
+
+**There is a 6–11 s window in which the parcel is known and the envelope is not.** "All information
+directly showing up" therefore CANNOT mean "block until it resolves": a panel that renders nothing
+for eleven seconds is the L-553 defect — a blank surface reads as a crash, not as work in progress.
+
+**Normative:**
+
+1. ⭐ **The window is its own state, named RESOLVING.** It MUST NOT be folded into `NOT CHECKED`
+   (C58's designed-vs-permitted vocabulary): that says a check was *declined* when a check is
+   *running*, which is the [[context-data-honesty-family]] conflation with a third member added.
+   Authority: `apps/editor/src/ui/site/envelopeResolutionState.ts`.
+2. ⛔ **RESOLVING MUST be time-bounded, not clear-dependent.** `applyZoning` forks into ~15 per-city
+   chains whose guards and `catch` blocks do not all reach `dispatchEnvelope`, so a flag cleared only
+   on success is a spinner that can never stop — the §L-716 unsatisfiable-gate shape. It expires into
+   **STALLED**, a differently-worded state carrying the recompute hatch. ⚠ The deadline MUST exceed
+   the measured worst case by a wide margin (45 s ≈ 4× the measured 11441 ms); a deadline near the
+   measurement mislabels a HEALTHY resolve as a failure.
+3. ⛔ **No arm of any state may render a figure** — not a zero, not an em-dash that reads as zero,
+   not the previous parcel's value held over (C58 §1.16 / §L-616 / C84 EI-1b).
+4. **`false` from the mount seam MUST be disambiguated into FOUR causes**, because they call for
+   four different user actions: `no-boundary` · `resolving` · `stalled` ·
+   `settled-without-envelope`. Collapsing any two is the same conflation as clause 1.
+   ⚠ The GIS panel's existing empty state collapses three of them and is therefore **wrong during
+   the window**; it is superseded by this clause where the two disagree.
+5. ⛔ **The recompute escape hatch MUST be WITHHELD while RESOLVING.** Pressing it restarts a chain
+   already in flight, and §STALE-ASYNC-ZONING (L-644) then has to discard the older response — the
+   defect family whose symptom is *"the purple volume sits on the neighbouring plot"*. Offering it
+   there invites the user to cause it.
+6. ⭐ **A card present during the window is showing the ESTIMATED fallback, and MUST say so.**
+   MEASURED: `computeAndCacheEstimatedEnvelope` writes `_lastEnvelope` **synchronously on every
+   parcel commit, before `applyZoning` forks**. The card's `EST` badge is honest about the
+   confidence of what it shows; what it cannot know is that a better answer is on its way. That one
+   fact is added above it, and **only** while the phase is `resolving` — a *settled* estimated
+   envelope gets no notice, because outside every registered jurisdiction it is the honest, badged
+   answer (C58 §1.6) and nothing better is coming.
+7. **The panel MUST live-update.** `dispatchEnvelope` → `siteUpdateZoning` → the `SiteModelStore`
+   notifies, so the window ends on screen without a user gesture. The expiry MUST use **one
+   `setTimeout` at the deadline**, never a poll — the success transition already has a signal, and
+   on the WebGL backend a card repaint is not free.
+8. ⛔ **An honest refusal inside a hosted producer MUST be surfaced verbatim, never "fixed".**
+   Specifically: the `NOT CHECKED` rows whose reason is *"two or more floor plates on the same
+   storey overlap … PRYZM has no polygon-union operation to resolve it — so it declines to report a
+   figure"* are **correct**. Summing them would double-count.
+
+> ⚠ **NOT ESTABLISHED.** Not verified in a browser by this lane. The measured facts are the
+> singleton/handle shapes above, the rail's exclusivity, the estimated-envelope caching order, and
+> the founder's own timing log. Whether the composed panel READS well at 6 s is a UX judgement no
+> test here makes.
+
+**Binding artefacts:** `apps/editor/src/ui/site/__tests__/envelopeResolutionState.spec.ts` (the
+phase machine against an injected clock — including the arm that proves RESOLVING can end with no
+settle call) · `apps/editor/src/ui/site/parcel/__tests__/parcelEnvelopeSlotState.spec.ts` (five
+states, distinguishability, no-figure, the withheld hatch) ·
+`apps/editor/src/ui/site/parcel/__tests__/parcelRailPanel.spec.ts` (the panel claims the singleton
+and imports no producer; live re-ask on store notify; dispose drops the subscription and does NOT
+release the shared host).
+
 ---
 
 ## §6 — Tests / CI gates
