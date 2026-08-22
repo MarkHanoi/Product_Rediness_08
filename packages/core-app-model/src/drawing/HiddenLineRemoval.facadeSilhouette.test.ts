@@ -265,7 +265,16 @@ describe('§ELEV-FACADE-HIDES-INTERIOR (L-5301) — voids stay see-through, obli
         expect(segCount(find(three, 'run', 'A-WALL:hidden'))).toBeGreaterThan(0);
     });
 
-    it('a solid OBLIQUE to the picture plane still occludes — by an explicitly COUNTED AABB degradation', () => {
+    /**
+     * ⚠ **This assertion was written against `aabbFallbacks` and CHANGED, in this lane, once the
+     * measurement came back.** The oblique box's canonical edge set has 12 edges and 8 degree-3
+     * vertices: it is not too small to bound a region (the AABB rung's condition), it is not a
+     * union of closed curves. Those are different failures and they deserve different rungs, so
+     * the fix degrades to the strictly-tighter VERTICAL-SPAN hull and counts it separately. The
+     * test now asserts the rung the engine actually uses. Recorded rather than quietly rewritten
+     * — the original expectation is above it in the commit history for this file.
+     */
+    it('a solid OBLIQUE to the picture plane still occludes — by an explicitly COUNTED vertical-span degradation', () => {
         const { drawing, three } = makeFakeDrawing();
         const g = new THREE.BoxGeometry(6, 3, 0.3);
         g.translate(0, 1.5, -0.15);
@@ -277,9 +286,11 @@ describe('§ELEV-FACADE-HIDES-INTERIOR (L-5301) — voids stay see-through, obli
         three.add(node('run', 'A-WALL:proj', 4.0, [-1, 0, -1.5, 1, 0, -1.5]));
 
         const r = applyOcclusion(drawing, { disposition: 'demote' });
-        // The engine MUST say out loud that it could not build a silhouette here.
-        expect(r.aabbFallbacks).toBeGreaterThanOrEqual(1);
-        // …and it must still hide, not silently skip.
+        // The engine MUST say out loud that it could not build a sound silhouette here…
+        expect(r.vspanFallbacks).toBeGreaterThanOrEqual(1);
+        // …and it must NOT have taken the coarser rung when a tighter one applies.
+        expect(r.aabbFallbacks).toBe(0);
+        // …and it must still hide, not silently skip — which is what HEAD did.
         expect(segCount(find(three, 'run', 'A-WALL:hidden'))).toBeGreaterThan(0);
         expect(segCount(find(three, 'run', 'A-WALL:proj'))).toBe(0);
     });

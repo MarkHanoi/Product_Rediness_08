@@ -29,8 +29,8 @@
  *
  * ═══ THE ALGORITHM ═══
  *
- *   1. OCCLUDERS — one per element (grouped by `userData.elementUUID`, so an element never
- *      hides its own linework), built from that element's SOLID front linework:
+ *   1. OCCLUDERS — one per `(element, zone)` pair (an element still never hides its own
+ *      linework: the `uuid` is carried and compared), built from its SOLID front linework:
  *        • its `:cut` linework — the plane∩solid section outline. A CUT solid is AT the view
  *          plane, so its depth is −∞: it occludes everything behind it, always. (This is the
  *          v2 plan/section behaviour, preserved exactly.)
@@ -41,9 +41,42 @@
  *          near one. Only elevation had a depth-ordered projection occluder. There was never
  *          a third occluder to write; there was one engine that had been given a crippled
  *          occluder set by two of its three callers.
- *      Each occluder carries its TRUE projected silhouette (even-odd point-in-polygon on its
- *      outline edges) plus an AABB pre-filter. Too few edges to bound a region ⇒ explicit,
- *      COUNTED and LOGGED degradation to the AABB (Contract 23 §9 — no silent cap).
+ *      Each occluder carries a CANONICAL edge set plus an AABB pre-filter, and one of three
+ *      coverage tests — `silhouette` (even-odd), `vspan`, `aabb` — chosen by what the edge set
+ *      can actually support. Every step down that ladder is COUNTED and LOGGED (Contract 23 §9
+ *      — no silent cap). See `OccluderTest` and `canonicaliseEdges`.
+ *
+ * ═══ §HLR-WIREFRAME-IS-NOT-A-SILHOUETTE (L-5300) — THE DEFECT v3.1 CLOSES ═══
+ *
+ * Founder, 2026-08-22: *"you would never be able to see a interior door hosted on an internal
+ * partition wall graphically with PROJECTION lines if the elevation was taken from outside the
+ * building, although this is happening today."*
+ *
+ * **The occluder set was not the problem.** In his console an elevation registered 23 and 47
+ * occluders and demoted 0 sub-segments; a lane reading that naturally concluded the set was
+ * too small. It was not. The façade WAS registered, WAS depth-ordered, WAS selected as
+ * "nearer", and DID reach the split — and then covered nothing.
+ *
+ * `EdgeProjectorService` builds `:proj` linework from `new THREE.EdgesGeometry(mesh.geometry,
+ * angleDeg)` — the solid's full WIREFRAME. Measured on a face-on 6 × 3 × 0.3 wall box: 12
+ * projected edges, of which **4 are zero-length** (the depth edges collapse to points under
+ * orthographic projection) and the remaining 8 are **the outline rectangle traced TWICE**,
+ * front face over back face, exactly coincident. Even-odd counts two crossings per real
+ * boundary transition, reads EVEN, and answers **OUTSIDE for every interior point**.
+ *
+ * A wireframe is not an outline. `canonicaliseEdges()` makes it one — drop the degenerate
+ * edges, de-duplicate the coincident ones — and then checks the property even-odd actually
+ * needs (every vertex of even degree ⇒ a union of closed curves). The same box then yields 4
+ * edges and covers correctly; the same box **rotated 30°** yields 12 edges with 8 degree-3
+ * vertices, which no even-odd test can read, and is degraded to the vertical-span hull rather
+ * than silently occluding nothing.
+ *
+ * ⚠ **This was invisible to `HiddenLineRemoval.elevationOcclusion.test.ts`, which passes and
+ * has always passed**, because every occluder in it is hand-authored as one clean closed
+ * rectangle — a shape the projector never emits. A fixture that is easier than production is
+ * a fixture that cannot falsify production. `HiddenLineRemoval.facadeSilhouette.test.ts`
+ * builds every occluder from a real `THREE` solid through the real `EdgesGeometry` for exactly
+ * that reason.
  *
  *   2. TARGETS — every `:proj` and `:beyond` segment is SPLIT at the exact points where it
  *      enters/exits an occluder silhouette, so a long edge crossing a wall is clipped at the
@@ -118,16 +151,39 @@ interface Occluder2D {
 }
 
 /**
- * A solid region that hides linework behind it, carrying BOTH its true projected
- * silhouette (`segs` — flat [x0,z0,x1,z1,…] outline edges in drawing space) and its
- * AABB.  `usePolygon` selects the exact even-odd silhouette test; when false the
- * element has too few edges to bound a closed region and the AABB is used as an
- * explicit, LOGGED fallback (no silent cap — Contract 23 §9).
+ * How an occluder answers *"is this point covered by me?"* — in DESCENDING order of
+ * fidelity. Every step down is COUNTED and LOGGED; there is no silent cap (Contract 23 §9).
+ *
+ *   • `'silhouette'` — even-odd point-in-polygon over the canonical edge set. **Only sound
+ *     when that set is a disjoint union of CLOSED curves**, i.e. every vertex has EVEN
+ *     degree. Interior voids (a window opening cut through a wall) nest correctly and read
+ *     as see-through, which is why this is the preferred test.
+ *   • `'vspan'`      — the VERTICAL-SPAN hull: at the sample's H, the occluder covers the
+ *     interval between the lowest and highest crossing of the vertical line through it.
+ *     Exact for every *vertically simple* silhouette (an oblique wall, a stair profile, an
+ *     L-massing); over-claims only where a silhouette has a vertical concavity that is not
+ *     a closed void (an arch, a U). See §HLR-VERTICAL-SPAN-DEGRADATION.
+ *   • `'aabb'`       — the coarse bounding box. Reached only when the element cannot bound a
+ *     region at all (fewer than 3 canonical edges).
+ */
+type OccluderTest = 'silhouette' | 'vspan' | 'aabb';
+
+/**
+ * A solid region that hides linework behind it, carrying BOTH its projected silhouette
+ * (`segs` — flat [x0,z0,x1,z1,…] canonical edges in drawing space) and its AABB.
+ *
+ * ⚠ §HLR-WIREFRAME-IS-NOT-A-SILHOUETTE (L-5300). `segs` is the CANONICAL edge set —
+ * zero-length edges dropped, coincident edges de-duplicated — never the raw projected
+ * wireframe. The raw wireframe of a face-on box is its outline **traced twice** (front face
+ * and back face project to the same rectangle), and even-odd over a doubled boundary answers
+ * OUTSIDE for every interior point. That is not a rounding error: it is the whole reason an
+ * elevation façade hid nothing at all. See the module header.
  */
 interface SilhouetteOccluder extends Occluder2D {
     uuid:       string;
     segs:       number[];
-    usePolygon: boolean;
+    /** Which coverage predicate this occluder is entitled to. See {@link OccluderTest}. */
+    test:       OccluderTest;
     /**
      * Nearest depth of the element along the view direction (smaller = closer to the
      * viewer). A CUT element is AT the view plane and carries `−Infinity`: it occludes
@@ -143,6 +199,25 @@ interface SilhouetteOccluder extends Occluder2D {
  * Tiny boxes from degenerate geometry are discarded to avoid false positives.
  */
 const MIN_OCCLUDER_AREA = 0.001 * 0.001;
+
+/**
+ * Grid (metres) on which two projected vertices count as the SAME vertex, for the two
+ * questions canonicalisation asks: *"are these two edges the same edge?"* and *"what is
+ * this vertex's degree?"*
+ *
+ * 0.1 mm. Chosen against the transport, not against a drafting tolerance: drawing-space
+ * positions arrive in a `Float32BufferAttribute`, whose ~7 significant digits give ≈1e-5 m
+ * of resolution at a 100 m coordinate — an order of magnitude finer than this grid, so two
+ * genuinely-coincident vertices always land in one bucket. It is deliberately NOT the
+ * kernel's `EPSILON_ZERO` (a dimensionless divide-by-zero guard) and NOT `SPLIT_T_EPS_RATIO`
+ * (a parametric fraction): this one is a LENGTH, and C73 §2.1 keeps each band under its own
+ * owner.
+ *
+ * A quantisation straddle can only ever COST fidelity, never correctness: it makes an edge
+ * look unique or a vertex look odd-degree, which degrades the occluder one step down the
+ * {@link OccluderTest} ladder — and every step down is counted and logged.
+ */
+const OCCLUDER_VERTEX_QUANTUM_M = 1e-4;
 
 /** Element key used when a LineSegments carries no `elementUUID` stamp. */
 const ANON_ELEMENT = '_anon';
@@ -192,13 +267,66 @@ function nodeDepth(child: THREE.Object3D): number | null {
 }
 
 /**
- * Walk the TechnicalDrawing scene tree and collect one occluder per element from its SOLID
- * front linework — its `:cut` section AND (when depth-stamped) its `:proj` silhouette.
+ * §HLR-WIREFRAME-IS-NOT-A-SILHOUETTE (L-5300) — reduce a raw projected wireframe to a
+ * CANONICAL edge set, and report whether even-odd is sound over it.
  *
- * Grouping is by `userData.elementUUID` so each architectural element contributes exactly
- * one occluder regardless of how many sub-layers it has — and so an element can be excluded
- * from occluding ITSELF (a wall's base/head edges project onto its own footprint and must
- * survive).
+ * Two reductions, both mandatory, both measured on real projector output:
+ *
+ *   1. **Drop zero-length edges.** The depth edges of any solid whose faces are parallel to
+ *      the picture plane collapse to POINTS under orthographic projection. A face-on
+ *      6 × 3 × 0.3 wall box projects 12 wireframe edges of which **4 are points**.
+ *   2. **De-duplicate coincident edges.** The remaining 8 are the outline rectangle **traced
+ *      twice** — once by the front face, once by the back. Even-odd counts two crossings for
+ *      each single real transition, reads EVEN, and answers OUTSIDE for **every** interior
+ *      point. De-duplicated, the same box yields exactly 4 edges and the test is correct.
+ *
+ * `oddDegree` then answers the question even-odd actually depends on: **is this edge set a
+ * disjoint union of closed curves?** It is iff every vertex has even degree. A wall box seen
+ * face-on canonicalises to 4 edges with 4 degree-2 vertices ⇒ sound. The *same box rotated
+ * 30° about the vertical* canonicalises to 12 edges with **8 degree-3 vertices** — the four
+ * vertical corner edges and the collapsed top/bottom faces meet in T-junctions, no closed
+ * curve exists, and even-odd would answer OUTSIDE for most of the wall's interior. That case
+ * is not silently accepted: it is degraded one step down the {@link OccluderTest} ladder.
+ */
+function canonicaliseEdges(raw: number[]): { segs: number[]; oddDegree: boolean } {
+    const q = (v: number): number => Math.round(v / OCCLUDER_VERTEX_QUANTUM_M);
+    const seen = new Set<string>();
+    const degree = new Map<string, number>();
+    const segs: number[] = [];
+
+    for (let i = 0; i + 3 < raw.length; i += 4) {
+        const ax = raw[i], az = raw[i + 1], bx = raw[i + 2], bz = raw[i + 3];
+        const aKey = `${q(ax)},${q(az)}`;
+        const bKey = `${q(bx)},${q(bz)}`;
+        if (aKey === bKey) continue;                                  // (1) degenerate
+        const key = aKey < bKey ? `${aKey}|${bKey}` : `${bKey}|${aKey}`;
+        if (seen.has(key)) continue;                                  // (2) coincident
+        seen.add(key);
+        degree.set(aKey, (degree.get(aKey) ?? 0) + 1);
+        degree.set(bKey, (degree.get(bKey) ?? 0) + 1);
+        segs.push(ax, az, bx, bz);
+    }
+
+    let oddDegree = false;
+    for (const d of degree.values()) {
+        if ((d & 1) === 1) { oddDegree = true; break; }
+    }
+    return { segs, oddDegree };
+}
+
+/**
+ * Walk the TechnicalDrawing scene tree and collect occluders from every element's SOLID front
+ * linework — its `:cut` section AND (when depth-stamped) its `:proj` silhouette.
+ *
+ * ⚠ **Grouping is by `(elementUUID, zone)`, not by `elementUUID` alone — corrected L-5300.**
+ * It used to union an element's cut ring and its projected wireframe into ONE occluder with
+ * ONE AABB and ONE depth of −∞. Two things were wrong with that, and both are geometric
+ * rather than cosmetic: the union of a section ring and a projected silhouette is not the
+ * boundary of any region (even-odd over it cancels wherever they overlap), and an element's
+ * *projected* face was being credited with the *cut* band's −∞ depth. In an elevation, where
+ * §ELEV-LINEWEIGHT (L-182) makes many elements carry BOTH bands, that union was garbage.
+ * The `uuid` field is retained on each occluder, so an element still never hides its own
+ * linework — that guarantee never depended on the grouping key.
  *
  * @param minProjectionOccluderDepth  A PROJECTION occluder shallower than this is DISCARDED.
  *   The caller passes `0` for a plan view, where "nearer to the viewer" than the cut plane
@@ -209,14 +337,15 @@ function nodeDepth(child: THREE.Object3D): number | null {
 function buildOccluderList(
     drawing: OBC.TechnicalDrawing,
     minProjectionOccluderDepth: number,
-): { occluders: SilhouetteOccluder[]; aabbFallbacks: number } {
+): { occluders: SilhouetteOccluder[]; aabbFallbacks: number; vspanFallbacks: number } {
 
     const drawingThree = (drawing as unknown as { three?: THREE.Object3D }).three;
-    if (!drawingThree) return { occluders: [], aabbFallbacks: 0 };
+    if (!drawingThree) return { occluders: [], aabbFallbacks: 0, vspanFallbacks: 0 };
 
     const map = new Map<string, {
+        uuid: string;
         minX: number; maxX: number; minZ: number; maxZ: number;
-        segs: number[]; depth: number; isCut: boolean; hasProjDepth: boolean;
+        raw: number[]; depth: number; isCut: boolean;
     }>();
 
     drawingThree.traverse((child: THREE.Object3D) => {
@@ -243,22 +372,18 @@ function buildOccluderList(
         }
 
         const uuid = (child.userData?.elementUUID ?? ANON_ELEMENT) as string;
-        let entry = map.get(uuid);
+        const key  = `${zone}::${uuid}`;
+        let entry = map.get(key);
         if (!entry) {
             entry = {
+                uuid,
                 minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity,
-                segs: [], depth: Infinity, isCut: false, hasProjDepth: false,
+                // A CUT band is AT the view plane — it occludes everything behind it.
+                raw: [], depth: zone === 'cut' ? -Infinity : Infinity, isCut: zone === 'cut',
             };
-            map.set(uuid, entry);
+            map.set(key, entry);
         }
-
-        if (zone === 'cut') {
-            entry.isCut = true;
-            entry.depth = -Infinity; // AT the view plane — occludes everything behind it.
-        } else {
-            entry.hasProjDepth = true;
-            if (depth !== null && depth < entry.depth) entry.depth = depth;
-        }
+        if (zone === 'projection' && depth !== null && depth < entry.depth) entry.depth = depth;
 
         const count = posAttr.count;
         for (let i = 0; i < count; i++) {
@@ -269,42 +394,63 @@ function buildOccluderList(
             if (z < entry.minZ) entry.minZ = z;
             if (z > entry.maxZ) entry.maxZ = z;
         }
-        // The outline edges — the TRUE silhouette of the solid in drawing space.
         for (let i = 0; i + 1 < count; i += 2) {
-            entry.segs.push(posAttr.getX(i), posAttr.getZ(i), posAttr.getX(i + 1), posAttr.getZ(i + 1));
+            entry.raw.push(posAttr.getX(i), posAttr.getZ(i), posAttr.getX(i + 1), posAttr.getZ(i + 1));
         }
     });
 
     const occluders: SilhouetteOccluder[] = [];
-    let aabbFallbacks = 0;
+    let aabbFallbacks  = 0;
+    let vspanFallbacks = 0;
 
-    for (const [uuid, b] of map) {
+    for (const b of map.values()) {
         if (!Number.isFinite(b.minX)) continue;
-        if (!b.isCut && !b.hasProjDepth) continue;
+        if (!b.isCut && !Number.isFinite(b.depth)) continue;
 
         const w = b.maxX - b.minX;
         const h = b.maxZ - b.minZ;
         if (w * h < MIN_OCCLUDER_AREA) continue;
 
-        // Prefer the exact silhouette (openings read as voids); degrade to the coarse AABB
-        // only when the element cannot bound a closed region.
-        const usePolygon = b.segs.length / 4 >= 3;
-        if (!usePolygon) aabbFallbacks++;
+        const { segs, oddDegree } = canonicaliseEdges(b.raw);
+
+        // The ladder, top to bottom. Every step down is counted — Contract 23 §9 forbids a
+        // silent cap, and a false NEGATIVE here is exactly the founder's report.
+        let test: OccluderTest;
+        if (segs.length / 4 < 3) {
+            // Cannot bound a region at all.
+            test = 'aabb';
+            aabbFallbacks++;
+        } else if (oddDegree && !b.isCut) {
+            // §HLR-VERTICAL-SPAN-DEGRADATION — the canonical set is not a union of closed
+            // curves, so even-odd is UNSOUND over it (it reads OUTSIDE across the interior of
+            // every solid oblique to the picture plane). Fall to the vertical-span hull:
+            // exact for any vertically simple silhouette, and it still respects an L-notch.
+            //
+            // ⚠ SCOPED TO PROJECTION OCCLUDERS ON PURPOSE. A `:cut` ring is a true plane∩solid
+            // section — a closed loop by construction, with its openings as nested loops — and
+            // it drives plan/section poché, where the disposition is `remove` and an
+            // over-claiming occluder DELETES linework. Degrading cut bands is a separate,
+            // riskier change with no evidence behind it; it is not taken here.
+            test = 'vspan';
+            vspanFallbacks++;
+        } else {
+            test = 'silhouette';
+        }
 
         occluders.push({
-            uuid,
-            xMin: b.minX,
-            xMax: b.maxX,
-            yMin: b.minZ,
-            yMax: b.maxZ,
-            segs:  b.segs,
-            usePolygon,
+            uuid:  b.uuid,
+            xMin:  b.minX,
+            xMax:  b.maxX,
+            yMin:  b.minZ,
+            yMax:  b.maxZ,
+            segs,
+            test,
             depth: b.depth,
             isCut: b.isCut,
         });
     }
 
-    return { occluders, aabbFallbacks };
+    return { occluders, aabbFallbacks, vspanFallbacks };
 }
 
 // ─── Geometric primitives ─────────────────────────────────────────────────────
@@ -368,6 +514,62 @@ function pointInAabb(px: number, pz: number, o: SilhouetteOccluder): boolean {
     return px >= o.xMin && px <= o.xMax && pz >= o.yMin && pz <= o.yMax;
 }
 
+/**
+ * §HLR-VERTICAL-SPAN-DEGRADATION (L-5300) — the VERTICAL-SPAN hull test.
+ *
+ * The occluder covers (px, pz) iff pz lies between the LOWEST and HIGHEST crossing of the
+ * vertical line H = px with the occluder's canonical edge set.
+ *
+ * **When this is used and why it is the right rung.** Even-odd requires a closed-curve edge
+ * set; a solid OBLIQUE to the picture plane does not project to one (its four vertical corner
+ * edges and its collapsed top/bottom faces meet in T-junctions), and even-odd then answers
+ * OUTSIDE across most of its interior — i.e. it hides nothing, which is the defect this whole
+ * change exists to close. The vertical span needs no closure at all.
+ *
+ * **What it gets EXACTLY right:** every *vertically simple* silhouette — a wall at any angle
+ * in plan (its span at each H is the full storey height), a stair profile, an L-shaped massing
+ * (at an H inside the notch the highest crossing is the low wing's top, so the notch is NOT
+ * claimed). **What it OVER-claims:** a silhouette with a vertical concavity that is not a
+ * closed void — an archway, a U-shaped section. That over-claim is bounded by the AABB, is
+ * strictly tighter than it, and is COUNTED (`vspanFallbacks`) and logged on every pass.
+ *
+ * **What it deliberately does NOT do:** resolve interior voids. A window opening cut through a
+ * wall is a closed nested loop; such an element has even degree everywhere and keeps the
+ * `'silhouette'` test, where the void reads as see-through. Only elements that could not have
+ * had a sound void test in the first place reach here.
+ */
+function pointInVerticalSpan(px: number, pz: number, segs: number[]): boolean {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (let i = 0; i + 3 < segs.length; i += 4) {
+        const ax = segs[i], az = segs[i + 1], bx = segs[i + 2], bz = segs[i + 3];
+        if (ax === bx) {
+            // Vertical edge: it crosses H = px only when it IS at px, and then over its span.
+            if (ax !== px) continue;
+            if (az < lo) lo = az;
+            if (az > hi) hi = az;
+            if (bz < lo) lo = bz;
+            if (bz > hi) hi = bz;
+            continue;
+        }
+        const t = (px - ax) / (bx - ax);
+        if (t < 0 || t > 1) continue;
+        const z = az + (bz - az) * t;
+        if (z < lo) lo = z;
+        if (z > hi) hi = z;
+    }
+    return lo <= pz && pz <= hi;
+}
+
+/** The occluder's coverage predicate — one switch, so the ladder cannot drift per call site. */
+function occluderCovers(px: number, pz: number, o: SilhouetteOccluder): boolean {
+    switch (o.test) {
+        case 'silhouette': return pointInSilhouette(px, pz, o.segs);
+        case 'vspan':      return pointInVerticalSpan(px, pz, o.segs);
+        case 'aabb':       return pointInAabb(px, pz, o);
+    }
+}
+
 /** True when far-segment AABB [sMinX,sMaxX]×[sMinZ,sMaxZ] overlaps occluder AABB. */
 function aabbOverlap(
     sMinX: number, sMaxX: number, sMinZ: number, sMaxZ: number, o: SilhouetteOccluder,
@@ -393,7 +595,11 @@ function splitSegmentByOccluders(
 ): Array<{ t0: number; t1: number; hidden: boolean }> {
     const bounds: number[] = [0, 1];
     for (const o of occluders) {
-        if (o.usePolygon) {
+        // Both region tests (`silhouette` and `vspan`) are bounded by the SAME canonical edge
+        // set, so its crossings are a superset of the true enter/exit points either can have.
+        // The midpoint sample below then decides each interval — an extra boundary costs one
+        // merge, a missing one would cost correctness.
+        if (o.test !== 'aabb') {
             const segs = o.segs;
             for (let i = 0; i + 3 < segs.length; i += 4) {
                 const t = segCrossT(ax, az, bx, bz, segs[i], segs[i + 1], segs[i + 2], segs[i + 3]);
@@ -426,7 +632,7 @@ function splitSegmentByOccluders(
         const pz = az + (bz - az) * tm;
         let hidden = false;
         for (const o of occluders) {
-            if (o.usePolygon ? pointInSilhouette(px, pz, o.segs) : pointInAabb(px, pz, o)) {
+            if (occluderCovers(px, pz, o)) {
                 hidden = true;
                 break;
             }
@@ -465,8 +671,16 @@ export interface OcclusionResult {
     clipped:       number;
     /** Sub-segments moved to the `:hidden` dashed pen (`disposition: 'demote'`). */
     demoted:       number;
-    /** Occluders that had too few outline edges for a silhouette and fell back to their AABB. */
+    /** Occluders that had too few canonical edges to bound a region and fell back to their AABB. */
     aabbFallbacks: number;
+    /**
+     * §HLR-VERTICAL-SPAN-DEGRADATION (L-5300) — PROJECTION occluders whose canonical edge set
+     * is not a union of closed curves (an odd-degree vertex exists), so even-odd is unsound and
+     * the vertical-span hull was used instead. A solid oblique to the picture plane lands here.
+     * **Counted, never silent** (Contract 23 §9). A rising number is not a defect; a number that
+     * is rising *and* the drawing looks over-hidden is where to look.
+     */
+    vspanFallbacks: number;
 }
 
 /**
@@ -487,7 +701,7 @@ export function applyOcclusion(
     drawing: OBC.TechnicalDrawing,
     options: OcclusionOptions,
 ): OcclusionResult {
-    const empty: OcclusionResult = { occluders: 0, clipped: 0, demoted: 0, aabbFallbacks: 0 };
+    const empty: OcclusionResult = { occluders: 0, clipped: 0, demoted: 0, aabbFallbacks: 0, vspanFallbacks: 0 };
 
     const drawingThree = (drawing as unknown as { three?: THREE.Object3D }).three;
     if (!drawingThree) return empty;
@@ -496,7 +710,7 @@ export function applyOcclusion(
     const depthMargin  = options.depthMargin ?? DEFAULT_OCCLUSION_DEPTH_MARGIN;
     const minProjDepth = options.minProjectionOccluderDepth ?? -Infinity;
 
-    const { occluders, aabbFallbacks } = buildOccluderList(drawing, minProjDepth);
+    const { occluders, aabbFallbacks, vspanFallbacks } = buildOccluderList(drawing, minProjDepth);
     if (occluders.length === 0) return empty;
 
     // Collect the target nodes first — never mutate the scene while traversing it.
@@ -526,6 +740,9 @@ export function applyOcclusion(
     let clipped = 0;
     let demoted = 0;
 
+    // §HLR-ACTIVE-SET-IS-REUSED (L-5302) — one scratch array for the whole pass; see its use.
+    const active: SilhouetteOccluder[] = [];
+
     for (const { node, uuid, zone, depth, layerName } of targets) {
         const posAttr = node.geometry?.getAttribute('position') as THREE.BufferAttribute | undefined;
         if (!posAttr || posAttr.count < 2) continue;
@@ -554,9 +771,21 @@ export function applyOcclusion(
             const x1 = posAttr.getX(i + 1); const y1 = posAttr.getY(i + 1); const z1 = posAttr.getZ(i + 1);
 
             // Cheap AABB pre-filter: only occluders that can reach this edge take part.
+            //
+            // §HLR-ACTIVE-SET-IS-REUSED (L-5302) — this was `nearer.filter(…)`, which allocates
+            // a fresh array and a fresh closure PER SEGMENT. On the founder's 365-group
+            // elevation that is tens of thousands of short-lived arrays per pass, re-run on
+            // every crop-drag frame. The scratch array is hoisted out of the whole target loop
+            // and truncated by assignment; `splitSegmentByOccluders` only reads it, and only
+            // within this iteration, so no reference outlives the truncation.
             const sMinX = Math.min(x0, x1), sMaxX = Math.max(x0, x1);
             const sMinZ = Math.min(z0, z1), sMaxZ = Math.max(z0, z1);
-            const active = nearer.filter(o => aabbOverlap(sMinX, sMaxX, sMinZ, sMaxZ, o));
+            let activeCount = 0;
+            for (let k = 0; k < nearer.length; k++) {
+                const o = nearer[k];
+                if (aabbOverlap(sMinX, sMaxX, sMinZ, sMaxZ, o)) active[activeCount++] = o;
+            }
+            active.length = activeCount;
 
             if (active.length === 0) {
                 kept.push(x0, y0, z0, x1, y1, z1);
@@ -613,16 +842,28 @@ export function applyOcclusion(
         demoted += hidden.length / 6;
     }
 
-    const result: OcclusionResult = { occluders: occluders.length, clipped, demoted, aabbFallbacks };
+    const result: OcclusionResult = { occluders: occluders.length, clipped, demoted, aabbFallbacks, vspanFallbacks };
 
     if (targets.length > 0) {
+        // §HLR-WIREFRAME-IS-NOT-A-SILHOUETTE (L-5300) — the log now reports the FIDELITY of the
+        // occluder set, not merely its size. The count alone is what made this defect invisible
+        // for so long: the founder's console read `23 occluder(s) … 0 sub-segment(s) demoted`
+        // and every reader concluded the occluder SET was too small. It was not. Its members
+        // were present, depth-ordered and selected — and each one covered nothing, because
+        // even-odd over a doubled wireframe boundary answers OUTSIDE everywhere.
+        const silhouettes = occluders.length - aabbFallbacks - vspanFallbacks;
         console.log(
             `[HiddenLineRemoval] v3 §FEAT-REVIT-LINE-TYPE-SEMANTICS — ` +
             `${occluders.length} occluder(s) ` +
-            `(${occluders.filter(o => o.isCut).length} cut, ${occluders.filter(o => !o.isCut).length} projected), ` +
+            `(${occluders.filter(o => o.isCut).length} cut, ${occluders.filter(o => !o.isCut).length} projected; ` +
+            `${silhouettes} silhouette, ${vspanFallbacks} vertical-span, ${aabbFallbacks} AABB), ` +
             `disposition=${disposition}, ` +
             `${clipped.toFixed(1)} segment-equivalent(s) removed, ` +
             `${demoted} sub-segment(s) demoted proj → HIDDEN (dashed)` +
+            (vspanFallbacks > 0
+                ? ` [${vspanFallbacks} projection occluder(s) degraded to the vertical-span hull — ` +
+                  `edge set is not a union of closed curves (oblique to the picture plane)]`
+                : '') +
             (aabbFallbacks > 0
                 ? ` [${aabbFallbacks} occluder(s) degraded to coarse AABB — too few outline edges for a silhouette]`
                 : ''),
