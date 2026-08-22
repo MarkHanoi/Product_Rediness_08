@@ -37,7 +37,7 @@ import { layerForZone } from '@pryzm/core-app-model';
 // §FIX-PLAN-PROJECT-INCREMENTAL (L-65) — P8 span for the incremental graft path.
 import { emitPlanViewMotionEvent } from '@pryzm/core-app-model';
 import type * as FRAGS from '@thatopen/fragments';
-import { ViewDefinition, VIEW_PROJECTION_DIRECTIONS } from '@pryzm/core-app-model';
+import { ViewDefinition, VIEW_PROJECTION_DIRECTIONS, PLAN_VIEW_TYPES } from '@pryzm/core-app-model';
 // §ELEV-SCOPE-DEPTH (L-1855) — the far-clip fallback is now a NAMED, SHARED constant.
 // §CROP-IS-THE-CLIP (L-4500) — the crop rectangle IS the clip range; ONE resolver
 // serves this projector AND the plan scope rectangle that draws it.
@@ -960,6 +960,49 @@ export function solidIntersectsDepthPlane(
  * @param epsilon    Tolerance in metres (default: CUT_LINE_EPSILON).
  * @param solidIntersectsCutPlane  Whether the SOLID these edges came from meets the plane.
  */
+/**
+ * §RCP-IS-NOT-A-PLAN-WITH-A-FLIPPED-CAMERA (L-5403) — does this view's viewer stand BELOW
+ * its cut plane looking UP?
+ *
+ * TRUE for a reflected ceiling plan (`VIEW_PROJECTION_DIRECTIONS.ceilingPlan` = +Y), FALSE
+ * for a floor or structural plan (`plan` = -Y). Read from the RESOLVED direction rather
+ * than from `viewType`, because `spatial.projectionDirection` is an explicit per-view
+ * override that `getDirectionForView` honours AHEAD of the type — so a view whose type says
+ * "plan" but whose direction says +Y is, for depth purposes, looking up.
+ */
+export function viewLooksUpward(direction: THREE.Vector3): boolean {
+    return direction.y > 0;
+}
+
+/**
+ * §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) / §RCP-IS-NOT-A-PLAN-WITH-A-FLIPPED-CAMERA (L-5403)
+ * — per-element NEAREST depth along a PLAN-FAMILY view's direction.
+ *
+ * Depth is measured in metres FROM the cut plane TOWARDS THE VIEWER, so it is positive for
+ * geometry between the viewer and the plane and negative for geometry beyond it.
+ * `applyOcclusion`'s `minProjectionOccluderDepth: 0` rejects the negative half — without
+ * that clip a roof (the nearest solid in a plan, whose silhouette covers the whole plate)
+ * would occlude the ENTIRE DRAWING.
+ *
+ * The two frames are mirror images and the sign MUST follow the view:
+ *
+ *   downward (plan, structural plan)  — viewer above; nearest is the HIGHEST point.
+ *   upward   (reflected ceiling plan) — viewer below; nearest is the LOWEST point.
+ *
+ * Using the downward expression for an upward view does not merely fail to help — it
+ * INVERTS the occluder order, so the engine removes what is closest to the viewer and keeps
+ * what is behind it. That is why L-5403 could not be closed by widening the `isPlanView`
+ * literal alone.
+ */
+export function makePlanFamilyDepthOfBox(
+    cutPlaneY: number,
+    looksUpward: boolean,
+): (box: THREE.Box3) => number {
+    return looksUpward
+        ? (box: THREE.Box3): number => box.min.y - cutPlaneY
+        : (box: THREE.Box3): number => cutPlaneY - box.max.y;
+}
+
 export function classifyByVertexY(
     srcGeo:     THREE.BufferGeometry,
     cutPlaneY:  number,
@@ -2250,7 +2293,38 @@ export class EdgeProjectorService {
         const { near, far, floorY }   = this.resolveClipRange(viewDef);  // §02 §1.2 — no cache
 
         // DOC-4.2 — Cut plane world-Y for cut-vs-projection classification (plan views only).
-        const isPlanView = viewDef.viewType === 'plan' || viewDef.viewType === 'structural-plan';
+        // ⭐ §RCP-IS-NOT-A-PLAN-WITH-A-FLIPPED-CAMERA (L-5403) — THIS LITERAL WAS THE BUG.
+        //
+        // It read `viewType === 'plan' || viewType === 'structural-plan'`, and it was a FOURTH
+        // rival answer to a question that already has ONE owner. Measured 2026-08-22:
+        //
+        //   • `resolveViewScope('ceiling-plan')` returns `_PLAN_SCOPE` — planFamily TRUE,
+        //     cut TRUE, poche TRUE. This line said NOT a plan.
+        //   • `getDirectionForView` HAS a `case 'ceiling-plan'` (returns +Y).
+        //   • `resolveClipRange` HAS an RCP branch (near = level top, far = +0.5 m) and even
+        //     logs `resolveClipRange() RCP …`.
+        //
+        // So the direction and the clip window were computed for an RCP and then CONSUMED BY
+        // NOTHING: `cutPlaneY` stayed null, `planFloorY`/`planBelowY` stayed null,
+        // `viewDepthOfBox` stayed null, and `minProjectionOccluderDepth` took the elevation
+        // value. A reflected ceiling plan therefore fell through to the "no cut plane and no
+        // depth bands" branch and emitted every edge onto the BASE ISO layer — 'A-WALL', not
+        // 'A-WALL:cut' / ':proj' / ':beyond'.
+        //
+        // ⚠ AND `drawingZoneFromLayerName('A-WALL')` RETURNS **null**. A zone-less layer gets
+        // no pen weight from `PenWeightTable`, no poché, and no graphic intent — so all THREE
+        // ceiling-plan intents authored in `SystemIntents.ts` (ceiling / slab / wall, each of
+        // them a transform between the `cut`, `projection` and `beyond` states) drove exactly
+        // nothing. Authored-but-unwired, at the intent layer, caused by this one literal.
+        //
+        // The answer now comes from `PLAN_VIEW_TYPES` — the same array `ViewScope`'s own
+        // `_PLAN_FAMILY_TYPES` is built from, so the projector and the classifier cannot
+        // disagree again. `PLAN_VIEW_TYPES` is {plan, ceiling-plan, structural-plan}; it is
+        // deliberately NOT `resolveViewScope(vt).planFamily`, which also contains 'detail' —
+        // 'detail' is outside this line today, `resolveClipRange` has no detail branch, and
+        // widening it here would be an unmeasured change to a fourth view type. Recorded as
+        // an open divergence (L-5405) rather than silently taken.
+        const isPlanView = (PLAN_VIEW_TYPES as readonly string[]).includes(viewDef.viewType);
         const isSectionDepthView = viewDef.viewType === 'section' || viewDef.viewType === 'elevation';
         const cutPlaneY  = isPlanView ? near : null;
 
@@ -2327,7 +2401,23 @@ export class EdgeProjectorService {
             };
         } else if (isPlanView && cutPlaneY !== null) {
             const planeY = cutPlaneY;
-            viewDepthOfBox = (box: THREE.Box3): number => planeY - box.max.y;
+            // §RCP-IS-NOT-A-PLAN-WITH-A-FLIPPED-CAMERA (L-5403) — THE SIGN IS THE VIEW'S, NOT
+            // THE PLAN'S. Depth here is "metres from the cut plane TOWARDS THE VIEWER", and
+            // the viewer of a floor plan and the viewer of a reflected ceiling plan stand on
+            // opposite sides of their plane:
+            //
+            //   plan (direction -Y) — viewer ABOVE, looking DOWN. Nearest is HIGHEST.
+            //   RCP  (direction +Y) — viewer BELOW, looking UP.   Nearest is LOWEST.
+            //
+            // Handing an RCP the plan expression would not merely fail to help: it would
+            // INVERT the occluder ordering, so `applyOcclusion` would delete the lines
+            // closest to the viewer and keep the ones behind them. That is a graphics
+            // regression, and it is why L-5403 could not be closed by adding 'ceiling-plan'
+            // to the literal above and stopping there.
+            //
+            // `minProjectionOccluderDepth: 0` (below) stays correct for both: in each frame
+            // negative depth means "on the far side of the cut plane", which may never occlude.
+            viewDepthOfBox = makePlanFamilyDepthOfBox(planeY, viewLooksUpward(direction));
         }
 
         // DOC-4.4 — Log crop region when active (culling is performed by NativeElementMeshExporter).
