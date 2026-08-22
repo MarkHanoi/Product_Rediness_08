@@ -399,6 +399,35 @@ export function cameraForState(state: SiteEntryState, instant = false): SiteEntr
     };
 }
 
+/**
+ * §GLOBE-QUICK-TOGGLE (L-6800..L-6807, C60 §6.5 / C59 §2.1) — the DECLARED world framing as a
+ * camera target, **without entering the entry flow**.
+ *
+ * ⭐ WHY THIS EXISTS AS ITS OWN EXPORT, AND WHY IT IS NOT A `SiteEntryStore`.
+ *
+ * C60 §6.5 is normative: *"the globe and the 3D Site are the **same viewer at different camera
+ * altitudes**"*, and §6.10: *"the entry flow is a STATE of the `site-3d` view, not a new view
+ * mechanism"*. So "take me to the 3D globe" **from inside a live project** is one thing only —
+ * fly the ONE Cesium camera to the world framing this module already declares
+ * (`WORLD_HOME` at `SITE_ENTRY_ALTITUDE_M.world`, `SITE_ENTRY_PITCH_DEG.world`).
+ *
+ * ⛔ IT MUST NOT BE A SECOND ENTRY SESSION, and that is a C19 §1.3/§1.4 safety property, not a
+ * preference. A `SiteEntryStore` mid-project would put the user back at the top of a machine
+ * whose terminal intent (`site.entry.select-parcel`) emits `site-handoff` — and the parcel
+ * boundary is a **ONE-SHOT IMMUTABLE polygon** (see the file header). A user who pressed a
+ * *camera* button and then kept zooming would be walking toward re-committing the site of a
+ * project that already has one. Reusing the PROJECTION while refusing the REDUCER is what makes
+ * that unreachable: this function produces a camera target and nothing else — no state, no
+ * effects list, no port, no intent that could ever reach the hand-off.
+ *
+ * `instant: false` — this is a navigation the user asked for, so it is a visible flight
+ * (`SITE_ENTRY_FLIGHT_DURATION_S`), not a cut. Contrast `cameraForState(state, true)`, which
+ * `frameCurrent()` uses because a MOUNT is not a navigation.
+ */
+export function worldFramingTarget(): SiteEntryCameraTarget {
+    return cameraForState(INITIAL_SITE_ENTRY_STATE);
+}
+
 // ── The reducer ─────────────────────────────────────────────────────────────────────
 
 function descended(stage: SiteEntryStage): SiteEntryStage {

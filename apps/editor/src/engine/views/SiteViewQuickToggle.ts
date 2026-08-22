@@ -28,12 +28,32 @@
 // ── THE PANE MENU STAYS ─────────────────────────────────────────────────────────
 // This does not remove the per-pane picker. See the model's header: four of that menu's
 // six entries are disabled WITH REASONS, and those refusals are real.
+//
+// ── §GLOBE-QUICK-TOGGLE (L-6800..L-6807) — TWO PORTS, NOT ONE STORE ─────────────
+// Founder 2026-08-22: *"add in the top panel buttons 3d globe also"*.
+//
+// The globe is not a fourth segment — it CANNOT be, see the model's header (C60 §6.10).
+// It is an action that does two different kinds of thing, so it dispatches into two
+// different places, and keeping them apart is the point:
+//
+//   · WHICH VIEW IS ON SCREEN → `view.pane.*` into the SAME `PaneLayoutStore` every
+//     other control here writes to. Still exactly one layout owner.
+//   · WHERE THE ONE CAMERA LOOKS → `view.site.*` into an INJECTED camera port. The
+//     pane store has no altitude state and must not grow one.
+//
+// ⛔ IT DOES NOT ENTER THE C60 ENTRY FLOW, and that is a safety property rather than a
+// simplification. `SiteEntryStore`'s terminal intent emits `site-handoff`, and the parcel
+// boundary is a ONE-SHOT IMMUTABLE polygon (C19 §1.3/§1.4) — so a mid-project button that
+// re-opened that machine would be walking the user toward re-committing the site of a
+// project that already has one. This forwards a camera target and nothing else.
 
 import type { PaneLayoutStore } from './paneLayoutStore';
 import type { RendererKind } from './paneViewModel';
 import {
     describeSiteViewQuickToggle,
+    globeClickIntents,
     segmentClickIntents,
+    type SiteViewGlobeFraming,
     type SiteViewSegment,
 } from './siteViewQuickToggleModel';
 
@@ -43,12 +63,39 @@ export interface SiteViewQuickToggleHandle {
     dispose(): void;
 }
 
+/**
+ * §GLOBE-QUICK-TOGGLE (L-6800..L-6807) — the two CAMERA ports the bar dispatches into.
+ *
+ * ⚠ INJECTED, never resolved here. This file is DOM chrome; it must not know that the world
+ * framing comes from C60 or that the site reframe is `window.pryzmZoomToSite` (P4 — and P1: the
+ * composition layer, `SiteAuthoringPaneShell`, is where globals are read). Injection is also
+ * what makes the click sequencing testable with recorders, which is the whole reason
+ * `globeClickIntents` returns data.
+ */
+export interface SiteViewCameraPorts {
+    /** Fly the ONE Cesium camera to the declared WORLD framing (C60 §6.5). */
+    readonly frameGlobe: () => void;
+    /** Reframe it on the site — the declared `site.zoom-to-site` action. */
+    readonly frameSite: () => void;
+    /**
+     * Whether `frameSite` has a live entry point right now. Re-asked on every repaint, like
+     * `mountableKinds` — a snapshot, not a subscription. `undefined` ⇒ assume it does.
+     */
+    readonly canFrameSite?: () => boolean;
+}
+
 export interface SiteViewQuickToggleOptions {
     readonly store: PaneLayoutStore;
     /** Where to mount. Defaults to `document.body` — it is shell chrome, not pane chrome. */
     readonly parent?: HTMLElement;
     /** Renderer kinds with a mounter registered here (the runtime half of availability). */
     readonly mountableKinds?: () => ReadonlySet<RendererKind> | null;
+    /**
+     * §GLOBE-QUICK-TOGGLE — omit and the `⊕ 3D Globe` control is REFUSED WITH A REASON, never
+     * silently dropped. A workspace that cannot fly the camera should say so; a bar that
+     * quietly grows and shrinks is how a control becomes untestable.
+     */
+    readonly camera?: SiteViewCameraPorts;
 }
 
 export const SITE_VIEW_QUICK_TOGGLE_TESTID = 'site-view-quick-toggle';
@@ -69,11 +116,26 @@ export function mountSiteViewQuickToggle(
     root.setAttribute('role', 'group');
     root.setAttribute('aria-label', 'Site view');
 
+    /**
+     * §GLOBE-QUICK-TOGGLE — the ONE bit of state this control owns: the framing it LAST
+     * COMMANDED. Not a camera reading (`siteEntryModel.ts` disqualifies altitude sniffing —
+     * *"IT FLAPS… STAGE IS A CAUSE, NOT AN EFFECT"*), and not a rival store: it is the exact
+     * analogue of `PaneLayoutStore._splitMemory`, the memory that makes `◧ Split` work.
+     *
+     * It is written in EXACTLY ONE place — after the camera intent for that framing has been
+     * forwarded to the port — so it can never claim a move that did not happen.
+     */
+    let globeFraming: SiteViewGlobeFraming = 'site';
+
     const render = (): void => {
         const model = describeSiteViewQuickToggle({
             layout: opts.store.getLayout(),
             canRestoreSplit: opts.store.canRestoreSplit(),
             mountableKinds: opts.mountableKinds?.() ?? null,
+            globeFraming,
+            // No camera ports wired ⇒ there is no way back, so the model refuses the way out
+            // (see `canReturnToSite` — the gate is deliberately on the outbound click).
+            canReturnToSite: opts.camera != null && (opts.camera.canFrameSite?.() ?? true),
         });
 
         root.replaceChildren();
@@ -81,6 +143,53 @@ export function mountSiteViewQuickToggle(
         for (const seg of model.segments) {
             root.appendChild(buildSegment(seg, opts.store));
         }
+
+        // ⭐ `⊕ 3D Globe` / `⤢ Back to site` — the founder's ask, an ACTION rather than a
+        // segment because the globe is the SAME cesium view at world altitude (C60 §6.5) and
+        // may not become a `ViewType` (C60 §6.10). See the model header.
+        const globe = document.createElement('button');
+        globe.type = 'button';
+        globe.className =
+            'svq-btn svq-btn--globe'
+            + (model.globe.moveTo === 'site' ? ' svq-btn--globe-return' : '');
+        globe.setAttribute('data-testid', 'site-view-quick-toggle-globe');
+        globe.setAttribute('data-framing', globeFraming);
+        // textContent only — no HTML sink in this file (C08 §3.1 §XSS-SINK-SCAN).
+        globe.textContent = model.globe.label;
+        globe.disabled = !model.globe.enabled;
+        // DISABLE-OR-EXPLAIN: the reason reaches the user, never only the console.
+        globe.title = model.globe.reason ?? model.globe.title;
+        globe.addEventListener('click', () => {
+            if (!model.globe.enabled) return;
+            const moveTo = model.globe.moveTo;
+            for (const intent of globeClickIntents(model.globe, model.segments, opts.store.getLayout())) {
+                if (intent.type === 'view.site.frame-globe' || intent.type === 'view.site.frame-site') {
+                    // The camera is the LAST intent by construction — a pane that is not
+                    // mounted yet drops the target. Only now may the memory move.
+                    try {
+                        if (intent.type === 'view.site.frame-globe') opts.camera?.frameGlobe();
+                        else opts.camera?.frameSite();
+                    } catch (e) {
+                        // A camera that refuses must not strand the control mid-state: leave
+                        // `globeFraming` where it was so the label still offers a real move.
+                        console.warn('[site-view-toggle] camera port threw — framing unchanged:', e);
+                        return;
+                    }
+                    globeFraming = moveTo;
+                    render();
+                    return;
+                }
+                const res = opts.store.dispatch(intent);
+                // A rejection is the store's honest answer, not a failure to swallow.
+                if (!res.ok) {
+                    console.info(
+                        `[site-view-toggle] ${intent.type} refused: ${res.rejected ?? 'no reason given'}`,
+                    );
+                    return;
+                }
+            }
+        });
+        root.appendChild(globe);
 
         // `◧ Split` — the route BACK. A control that takes the user full-screen without
         // one is the L-942 shape: a branch whose escape hatch was never built.

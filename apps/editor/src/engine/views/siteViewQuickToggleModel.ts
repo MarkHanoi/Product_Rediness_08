@@ -32,6 +32,34 @@
 // here would be a second census beside `VIEW_TYPE_REGISTRY`, and this repo's own
 // finding is that censuses rot (C06 §15 / C01 §6 rule 6). Add a site view to the
 // registry and it appears here with no edit.
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+// §GLOBE-QUICK-TOGGLE (L-6800..L-6807 · C59 §2 · C60 §6.5/§6.10) — ⭐ WHY THE GLOBE
+// BUTTON WAS MISSING, WHICH IS NOT WHAT IT LOOKS LIKE
+// ═══════════════════════════════════════════════════════════════════════════════
+// Founder 2026-08-22: *"add in the top panel buttons **3d globe** also"* — this bar,
+// which shipped as `▦ 2D Site Map | ◉ 3D Site | ◧ Split`.
+//
+// The 2026-08-21 pass named this file "the top-centre 3D globe / 3D site control" and
+// then could not produce a globe segment. **That was not an oversight and no amount of
+// care would have caught it, because the two halves of the design forbid each other:**
+//
+//   · `segments` is DERIVED from `VIEW_TYPE_REGISTRY` (the paragraph directly above).
+//     A globe segment therefore requires a globe `ViewType`.
+//   · **C60 §6.10 forbids exactly that ViewType** — *"the entry flow is a STATE of the
+//     `site-3d` view, not a new view mechanism. It adds no `ViewType`, no renderer and
+//     no pane framework"* — because C60 §6.5 says the globe and the 3D Site **ARE the
+//     same viewer at different camera altitudes**.
+//
+// So the derivation could NEVER yield a globe, and the header promised one anyway. The
+// globe is ABSENT from this bar for a structural reason, while the globe SUBSYSTEM is
+// fully built and merely UNREACHABLE outside onboarding (L-6801) — two different
+// defects with opposite fixes, which is why the distinction is not pedantry.
+//
+// ⭐ THE FIX IS THEREFORE NOT A THIRD SEGMENT. It is an ACTION beside the segments —
+// `SiteViewGlobeAction`, modelled exactly like the `◧ Split` affordance already is —
+// that puts the ONE cesium view on screen and then moves the ONE camera. See that
+// interface for the measurement that rules the rival-ViewType design out (L-6802).
 
 import {
     LEFT_PANE,
@@ -52,6 +80,25 @@ import {
  * a shortcut into it.
  */
 const SITE_RENDERER_KINDS: ReadonlySet<RendererKind> = new Set<RendererKind>(['maplibre', 'cesium']);
+
+/**
+ * §GLOBE-QUICK-TOGGLE (L-6800..L-6807) — WHICH renderer carries the globe.
+ *
+ * ⚠ ONE DECLARED FACT, NOT A CENSUS. It is not `'site-3d'`: hard-coding the view type here
+ * would be the second-list defect this file's header forbids. It is the RENDERER, because that
+ * is the level C60 §6.5 states the fact at — *"the globe and the 3D Site are the same viewer at
+ * different camera altitudes"* — so the globe is wherever the one cesium site view is, and the
+ * bar follows the registry if that view is ever renamed or replaced.
+ */
+const GLOBE_RENDERER_KIND: RendererKind = 'cesium';
+
+/** The `▦ 2D Site Map | ◉ 3D Site` glyph family is monochrome geometric (C06 §6.1). `⊕` reads
+ *  as a graticuled sphere in that family; the emoji 🌐 `gisActionRegistry` uses for its own
+ *  `site.globe` row would be the only colour in the bar. `⤢` is NOT a new mark — it is the
+ *  glyph `gisActionRegistry.ts` already declares for `site.zoom-to-site`, which is the exact
+ *  action the return click dispatches (C84 EI-8/EI-9 one vocabulary). */
+const GLOBE_GLYPH = '⊕';
+const RETURN_GLYPH = '⤢';
 
 /** What one segment of the bar is, once the layout has been read. */
 export interface SiteViewSegment {
@@ -80,9 +127,49 @@ export interface SiteViewSplitAction {
     readonly reason?: string;
 }
 
+/**
+ * §GLOBE-QUICK-TOGGLE (L-6800..L-6807) — where the ONE Cesium camera is framed.
+ *
+ * TWO VALUES, not three, and deliberately NOT the four C60 stages. This is not the entry
+ * flow's `SiteEntryStage`: the editor has no stage machine and must not acquire one (L-6803).
+ * It is the ONE bit this control needs — "the last framing I commanded" — so it can say what a
+ * click would do next.
+ */
+export type SiteViewGlobeFraming = 'site' | 'world';
+
+/**
+ * ⭐ THE `🌐 3D Globe` AFFORDANCE — modelled BESIDE the segments, exactly like
+ * `SiteViewSplitAction`, and for the same reason: it is an ACTION, not a view.
+ *
+ * ⛔ IT IS NOT A SEGMENT AND CANNOT BECOME ONE. `segments` is DERIVED from
+ * `VIEW_TYPE_REGISTRY`, so a globe segment would require a globe `ViewType` — and
+ * **C60 §6.10 forbids exactly that** (*"the entry flow is a STATE of the `site-3d` view, not a
+ * new view mechanism… It adds no `ViewType`, no renderer and no pane framework"*), because
+ * C60 §6.5 says the globe and the 3D Site **are the same viewer at different camera
+ * altitudes**. A rival `site-globe-3d` cesium row is not merely redundant, it is REACHABLY
+ * BROKEN: `assignViewToPane` vacates only the SAME view type, so assigning it beside `site-3d`
+ * yields `validatePaneLayout → {ok:false, conflicts:[{rendererKind:'cesium',panes:['left','right']}]}`
+ * — MEASURED, L-6802 — i.e. in the founder's own default split the globe button would refuse
+ * on every click.
+ */
+export interface SiteViewGlobeAction {
+    readonly label: string;
+    readonly glyph: string;
+    /** The framing a click MOVES TO — never a claim about where the camera *is* (L-6805). */
+    readonly moveTo: SiteViewGlobeFraming;
+    readonly enabled: boolean;
+    /** Present whenever `enabled` is false. C59 §2 disable-or-explain; no bare grey. */
+    readonly reason?: string;
+    /** Hover copy for the ENABLED state — the disabled state shows `reason` instead. */
+    readonly title: string;
+    /** The view type carrying the globe (the cesium site view), or null when none is registered. */
+    readonly viewType: ViewType | null;
+}
+
 export interface SiteViewQuickToggleModel {
     readonly segments: readonly SiteViewSegment[];
     readonly split: SiteViewSplitAction;
+    readonly globe: SiteViewGlobeAction;
 }
 
 export interface SiteViewQuickToggleInput {
@@ -97,6 +184,32 @@ export interface SiteViewQuickToggleInput {
      */
     readonly mountableKinds?: ReadonlySet<RendererKind> | null;
     readonly registry?: Readonly<Record<ViewType, ViewTypeDescriptor>>;
+    /**
+     * §GLOBE-QUICK-TOGGLE — the framing this control LAST COMMANDED. Defaults to `'site'`.
+     *
+     * ⚠ IT IS THE CONTROL'S MEMORY OF ITS OWN COMMAND, NOT A CAMERA READING, and that
+     * distinction is load-bearing (L-6805). `siteEntryModel.ts`'s header disqualifies camera
+     * sniffing outright — *"IT FLAPS… STAGE IS A CAUSE, NOT AN EFFECT"* — so this control never
+     * asks the camera where it is. It is the exact analogue of `PaneLayoutStore._splitMemory`,
+     * which is what makes `◧ Split` work: a store remembering the intent it issued.
+     *
+     * The consequence, stated so nobody "fixes" it: if the user grabs the globe and flies
+     * somewhere by hand, this value does not move. That is not a lie, because
+     * `SiteViewGlobeAction` describes **what the click does**, never where the camera is — and
+     * both labels stay useful and true under any hand-flown camera.
+     */
+    readonly globeFraming?: SiteViewGlobeFraming;
+    /**
+     * Whether the "back to the site" reframe has a live entry point (production:
+     * `window.pryzmZoomToSite`, the ONE declared `site.zoom-to-site` action in
+     * `gisActionRegistry.ts`). Defaults to `true`.
+     *
+     * ⛔ FALSE DISABLES THE OUTBOUND CLICK TOO, and that is the point (L-6804). A control that
+     * flies the user to 20,000 km with no way back is the L-942 shape — a branch whose escape
+     * hatch was never built. The gate is on the WAY OUT, where refusing is free, not on the way
+     * back, where refusing strands.
+     */
+    readonly canReturnToSite?: boolean;
 }
 
 /** The pane currently hosting `viewType`, or null. */
@@ -186,6 +299,72 @@ export function describeSiteViewQuickToggle(
                     ? undefined
                     : 'No previous split to restore — choose a view for the other pane.',
         },
+        globe: describeGlobeAction(segments, input),
+    };
+}
+
+/**
+ * §GLOBE-QUICK-TOGGLE — the founder's *"add in the top panel buttons 3d globe also"*.
+ *
+ * DERIVED, like everything else here: the globe rides the ONE cesium site segment, so every
+ * refusal the bar already computes for that segment (not pane-hostable / no mounter registered)
+ * is INHERITED rather than restated. A second copy of "why can't I open the 3D Site" is a second
+ * thing that can disagree.
+ */
+function describeGlobeAction(
+    segments: readonly SiteViewSegment[],
+    input: SiteViewQuickToggleInput,
+): SiteViewGlobeAction {
+    const framing: SiteViewGlobeFraming = input.globeFraming ?? 'site';
+    const canReturn = input.canReturnToSite ?? true;
+    // Where a click MOVES TO — the opposite of where this control last went.
+    const moveTo: SiteViewGlobeFraming = framing === 'world' ? 'site' : 'world';
+
+    const outbound = moveTo === 'world';
+    const label = outbound ? `${GLOBE_GLYPH} 3D Globe` : `${RETURN_GLYPH} Back to site`;
+    const carrier = segments.find((s) => s.rendererKind === GLOBE_RENDERER_KIND) ?? null;
+
+    const base = {
+        label,
+        glyph: outbound ? GLOBE_GLYPH : RETURN_GLYPH,
+        moveTo,
+        viewType: carrier?.viewType ?? null,
+    } as const;
+
+    // No cesium site view is registered at all — there is no globe to fly. Unreachable while
+    // `site-3d` exists, but a silent empty branch here would be the thing that hides its removal.
+    if (!carrier) {
+        return {
+            ...base,
+            enabled: false,
+            title: label,
+            reason:
+                'No 3D Site view is registered, so there is no globe to fly — the globe IS that '
+                + 'view at world altitude (C60 §6.5), not a view of its own.',
+        };
+    }
+    // INHERITED refusal — the same reason the `◉ 3D Site` segment is already showing.
+    if (!carrier.enabled) {
+        return { ...base, enabled: false, title: label, reason: carrier.reason };
+    }
+    // ⛔ NO ONE-WAY DOOR. See `canReturnToSite` — the gate is on the way OUT.
+    if (!canReturn) {
+        return {
+            ...base,
+            enabled: false,
+            title: label,
+            reason:
+                'Reframing on the site is not wired in this workspace, so the globe would have '
+                + 'no way back. This control stays off rather than strand you at world altitude.',
+        };
+    }
+    return {
+        ...base,
+        enabled: true,
+        title: outbound
+            ? `Zoom ${carrier.label} out to the whole Earth. Your project is not touched — this `
+              + 'moves the camera only.'
+            : `Bring ${carrier.label} back down to your site.`,
     };
 }
 
@@ -207,10 +386,7 @@ export function describeSiteViewQuickToggle(
 export function segmentClickIntents(
     segment: SiteViewSegment,
     layout: PaneLayout,
-): ReadonlyArray<
-    | { readonly type: 'view.pane.assign'; readonly paneId: PaneId; readonly viewType: ViewType | null }
-    | { readonly type: 'view.pane.solo'; readonly paneId: PaneId }
-> {
+): readonly SiteViewPaneIntent[] {
     if (!segment.enabled) return [];
     if (segment.soloed) return [];
 
@@ -222,4 +398,59 @@ export function segmentClickIntents(
     };
     const solo = { type: 'view.pane.solo' as const, paneId: segment.targetPane };
     return alreadyThere ? [solo] : [assign, solo];
+}
+
+/** The pane intents this bar may emit — the `PaneLayoutStore` vocabulary, unextended. */
+export type SiteViewPaneIntent =
+    | { readonly type: 'view.pane.assign'; readonly paneId: PaneId; readonly viewType: ViewType | null }
+    | { readonly type: 'view.pane.solo'; readonly paneId: PaneId };
+
+/**
+ * The CAMERA intents. A SEPARATE namespace from `view.pane.*` on purpose: they go to a
+ * different port. `PaneLayoutStore` owns which view is in which pane and knows nothing about
+ * altitude; the ONE Cesium camera is moved by the camera port (C60 §4), and conflating the two
+ * would give the pane store a second job it has no state for.
+ *
+ * ⚠ DELIBERATELY PAYLOAD-FREE. The world framing is C60's to declare
+ * (`siteEntryModel.worldFramingTarget()`), and C60 DEPENDS ON C59 (C60 §7) — so a C59 chrome
+ * module importing C60 to fill in a lat/lon/altitude would invert that edge. The model says
+ * WHICH framing; the port, which is the C60-aware adapter, says what that framing is.
+ */
+export type SiteViewCameraIntent =
+    /** Fly the ONE Cesium camera to the declared WORLD framing. */
+    | { readonly type: 'view.site.frame-globe' }
+    /** Reframe it on the site — the declared `site.zoom-to-site` action. */
+    | { readonly type: 'view.site.frame-site' };
+
+/**
+ * ⭐ The intents ONE `3D Globe` / `Back to site` click must dispatch, in order.
+ *
+ * Returned as DATA for the same three reasons `segmentClickIntents` is: the sequencing is
+ * unit-testable, the DOM layer cannot invent a fourth way to move a view (C59 §2 invariant 3),
+ * and a click never touches a renderer.
+ *
+ * ⭐ THE PANE HALF IS `segmentClickIntents` ITSELF, NOT A COPY OF IT. "Show me the globe" first
+ * means "put the 3D Site on screen, alone" — which is *exactly* what clicking `◉ 3D Site`
+ * means, and is also exactly what C60's own `siteEntryPaneIntent()` requests (assign + solo,
+ * C59 §2 invariant 5: no live BIM pane behind a photoreal globe on the WebGL fallback). By
+ * delegating, this inherits that function's no-churn rules for free — no re-assign of a
+ * heavyweight singleton into the pane it already occupies, no re-solo of a soloed pane — and
+ * the two controls can never disagree about how a view reaches the screen.
+ *
+ * THEN the camera moves. Order matters: framing a pane that is not mounted yet drops the
+ * target (`cesiumSiteEntryCameraPort` logs exactly that), so the camera intent is last.
+ */
+export function globeClickIntents(
+    globe: SiteViewGlobeAction,
+    segments: readonly SiteViewSegment[],
+    layout: PaneLayout,
+): ReadonlyArray<SiteViewPaneIntent | SiteViewCameraIntent> {
+    if (!globe.enabled) return [];
+    const carrier = segments.find((s) => s.viewType === globe.viewType);
+    if (!carrier) return [];
+    const camera: SiteViewCameraIntent =
+        globe.moveTo === 'world'
+            ? { type: 'view.site.frame-globe' }
+            : { type: 'view.site.frame-site' };
+    return [...segmentClickIntents(carrier, layout), camera];
 }

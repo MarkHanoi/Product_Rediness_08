@@ -23,8 +23,14 @@ import { mountPaneViewPicker, type PaneViewPickerHandle } from './PaneViewPicker
 // store as the pickers below — there is no second write path.
 import {
     mountSiteViewQuickToggle,
+    type SiteViewCameraPorts,
     type SiteViewQuickToggleHandle,
 } from './SiteViewQuickToggle';
+// §GLOBE-QUICK-TOGGLE (L-6800..L-6807, C60 §6.5) — the DECLARED world framing. Imported here,
+// in the COMPOSITION layer, and not by the bar's own model: C60 depends on C59 (C60 §7), so a
+// C59 chrome module reaching into C60 for a lat/lon would invert that edge. The bar names the
+// framing (`view.site.frame-globe`); this file is where "the globe framing" has a value.
+import { worldFramingTarget } from './siteEntryModel';
 
 /** The shell handle: pane elements, the store (the ONE write path), and disposal. */
 export interface SiteAuthoringPaneShell {
@@ -60,6 +66,53 @@ export interface SiteAuthoringPaneShellOptions {
      * Off only for tests that want bare geometry.
      */
     viewPicker?: boolean;
+    /**
+     * §GLOBE-QUICK-TOGGLE (L-6800..L-6807) — the camera ports the top-centre `⊕ 3D Globe`
+     * action dispatches into. Defaults to `defaultSiteViewCameraPorts()` (the declared typed
+     * globals). Tests pass recorders.
+     */
+    camera?: SiteViewCameraPorts;
+}
+
+/**
+ * §GLOBE-QUICK-TOGGLE (L-6800..L-6807) — resolve the two camera ports from the DECLARED typed
+ * globals `GISAreaLayout` already registers. This is the whole production wiring.
+ *
+ * ⚠ TYPED GLOBALS, NOT `window as any` (P4). Both are declared in `src/types/globals.d.ts`;
+ * this is the same idiom `OnboardingStepController` uses to reach the identical camera host for
+ * `GlobeHeroSearch`. It lives in this composition file rather than in the bar so the bar stays
+ * headless-testable and so there is exactly one place that knows how the globe is reached.
+ *
+ * ⭐ NEITHER PORT IS NEW MACHINERY.
+ *   · `frameGlobe` → `CesiumViewport.flyToGeographic(worldFramingTarget())` — the SAME primitive
+ *     and the SAME declared framing the onboarding globe already flies on this founder's WebGL
+ *     box on every project start (`SiteEntryStore.frameCurrent()`), so its behaviour there is
+ *     established rather than assumed.
+ *   · `frameSite` → `window.pryzmZoomToSite`, the ONE declared `site.zoom-to-site` action in
+ *     `gisActionRegistry.ts`, whose whole reason for existing is that the ACTIVE SURFACE decides
+ *     the target. Re-deriving a "fly back to the site" target here would be a third copy of the
+ *     thing that registry exists to de-duplicate.
+ *
+ * `canFrameSite` reports whether that entry point is registered AT ALL — the
+ * `entryPoints: []` doctrine from the same registry: *"a dead button that looked alive is its
+ * own bug"*. When it is missing the bar refuses the OUTBOUND click, so the user is never flown
+ * somewhere the return trip cannot be made from.
+ */
+export function defaultSiteViewCameraPorts(): SiteViewCameraPorts {
+    return {
+        frameGlobe: () => {
+            const host = window.pryzmGetSiteEntryCameraHost?.() ?? null;
+            if (!host) {
+                console.warn('[site-view-toggle] no globe mounted — world framing dropped.');
+                return;
+            }
+            host.flyToGeographic(worldFramingTarget());
+        },
+        frameSite: () => {
+            window.pryzmZoomToSite?.();
+        },
+        canFrameSite: () => typeof window.pryzmZoomToSite === 'function',
+    };
 }
 
 const MIN_FRACTION = 0.2;
@@ -250,6 +303,7 @@ export function mountSiteAuthoringPaneShell(
             ? mountSiteViewQuickToggle({
                 store,
                 mountableKinds: () => controller.registeredKinds?.() ?? null,
+                camera: opts.camera ?? defaultSiteViewCameraPorts(),
             })
             : null;
 

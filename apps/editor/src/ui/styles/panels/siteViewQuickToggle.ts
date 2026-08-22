@@ -118,4 +118,43 @@ export const SITE_VIEW_QUICK_TOGGLE_STYLES = `
         color: var(--app-text-muted, #6b6880);
         font-weight: 500;
     }
+
+    /* SITE-VIEW-QUICK-TOGGLE / GLOBE (L-6800..L-6807) — the '3D Globe' action.
+
+       It is NOT a segment and must not read as one (C60 6.10 forbids it ever being a
+       view type), so it gets the ACTION treatment: a filled purple pill, separated
+       from the segment group by a hairline rule. It is never '--active' or '--solo',
+       because those two words describe a view being HOSTED, and this action hosts
+       nothing - it moves a camera.
+
+       Purple on white, per the brand: no black anywhere. */
+    .svq-btn--globe {
+        margin-left: 5px;
+        /* The separator is a rule on the BAR, not a border on the button: a border-left
+           of a different width from the button's own 1.5px transparent border would
+           shift the label half a pixel, and it would light up on hover with the rest
+           of the border. A box-shadow inset draws in the gutter and stays put. */
+        box-shadow: -5px 0 0 -4px var(--app-border);
+        color: var(--app-accent, #6600FF);
+        font-weight: 600;
+    }
+
+    .svq-btn--globe:hover:not(:disabled) {
+        background: var(--app-accent, #6600FF);
+        border-color: var(--app-accent, #6600FF);
+        color: #ffffff;
+    }
+
+    /* The RETURN state. A different word needs a different weight, or the user cannot
+       tell at a glance which way the one button currently points. */
+    .svq-btn--globe-return {
+        color: var(--app-text-muted, #6b6880);
+        font-weight: 500;
+    }
+
+    .svq-btn--globe-return:hover:not(:disabled) {
+        background: var(--app-hover-bg, rgba(102, 0, 255, 0.06));
+        border-color: var(--app-border);
+        color: var(--app-accent, #6600FF);
+    }
 `;

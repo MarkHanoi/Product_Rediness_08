@@ -319,6 +319,12 @@ declare global {
             altitudeM: number;
             pitchDeg: number;
             instant?: boolean;
+            /** §REVEAL-FLIGHT-COMPLETE — seconds. Declared by the model
+             *  (`SITE_ENTRY_FLIGHT_DURATION_S`) and honoured by `CesiumViewport.flyToGeographic`.
+             *  ⚠ It was MISSING from this declaration while the implementation accepted it, so
+             *  every caller that passed a `SiteEntryCameraTarget` through here had its pacing
+             *  silently untyped — added §GLOBE-QUICK-TOGGLE (L-6806). */
+            durationS?: number;
         }): void } | null;
         /** PRYZM-EARTH-ONBOARDING PRD §16 (Milestone 2 polish) — resolves once the ONE Cesium
          *  viewport `pryzmGetSiteEntryCameraHost()` returns is actually live and accepting
