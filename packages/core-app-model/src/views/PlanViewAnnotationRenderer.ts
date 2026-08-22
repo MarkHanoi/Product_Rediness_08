@@ -48,6 +48,10 @@ import {
 import { graphicsRulesEngine } from '../drawing/GraphicsRulesEngine';
 import type { PenStyle } from '../drawing/PenWeightTable';
 import { SCREEN_PX_PER_MM } from '../drawing/DrawingConstants';
+// §CROP-OVERLAY-IS-PRYZM-PURPLE (L-4300) — the view-authoring overlay palette. The
+// scope box used to hard-code five amber literals here while PlanViewCanvas drew the
+// SAME affordance in blue; both now read the one two-value PRYZM-purple ramp.
+import { CROP_INK, cropZoneFill } from './ViewCropPalette';
 
 export type PlanWorldToScreen = (worldX: number, worldZ: number) => { sx: number; sy: number };
 
@@ -1916,7 +1920,12 @@ export class PlanViewAnnotationRenderer {
             const selectedId = this._getSelectedAnnotationId();
             const anySelected = selectedId !== null && group.some(a => a.id === selectedId);
             const INK     = style.lineColor ?? '#1a4731';
-            const SEL_INK = '#f59e0b';                      // amber — selected sector
+            // §CROP-OVERLAY-IS-PRYZM-PURPLE (L-4300) — was amber `#f59e0b`. The rose is
+            // not a crop affordance, but it IS the selected-state indicator of the same
+            // mark whose crop overlay is now purple, and this file already paints its
+            // other selection accents #6600ff. Two selection colours on one mark was the
+            // defect; see ViewCropPalette.CROP_INK.SELECTED for the full rationale.
+            const SEL_INK = CROP_INK.SELECTED;              // PRYZM purple — selected sector
             const R       = 17;                             // circle radius in CSS px
             const cx      = sAnchor.sx;
             const cy      = sAnchor.sy;
@@ -2140,9 +2149,14 @@ export class PlanViewAnnotationRenderer {
         // read as amber squares by default; the one under the cursor turns the PRYZM
         // selection purple (#6600ff, the same accent linear-dimension selection uses)
         // and enlarges, so the crop grab targets are obvious BEFORE the user commits.
+        // §CROP-OVERLAY-IS-PRYZM-PURPLE (L-4300) — REST and HOVER are two rungs of ONE
+        // brand-purple ramp, never the same value. `HOVER` was already #6600ff here, so
+        // painting the resting state the same purple would have deleted the hover state
+        // rather than unified the colour; `CROP_INK.EDGE` is the brand hue at reduced
+        // alpha and `CROP_INK.HOVER` is it at full strength. See ViewCropPalette.
         const hov = this._hoveredScopeHandle;
-        const ACCENT = 'rgba(180, 83, 9, 0.95)';
-        const HOVER = '#6600ff';
+        const ACCENT = CROP_INK.EDGE;
+        const HOVER = CROP_INK.HOVER;
 
         ctx.save();
         this._renderScopeZoneFills(ctx, scope, w2s);
@@ -2158,7 +2172,7 @@ export class PlanViewAnnotationRenderer {
 
         ctx.setLineDash([8, 4]);
         ctx.lineWidth = 1.5;
-        ctx.strokeStyle = 'rgba(217, 119, 6, 0.92)';
+        ctx.strokeStyle = CROP_INK.GUIDE;
         ctx.beginPath();
         ctx.moveTo(a.sx, a.sy);
         ctx.lineTo(fa.sx, fa.sy);
@@ -2169,13 +2183,13 @@ export class PlanViewAnnotationRenderer {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        ctx.strokeStyle = 'rgba(180, 83, 9, 0.95)';
+        ctx.strokeStyle = CROP_INK.EDGE;
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo((a.sx + b.sx) / 2, (a.sy + b.sy) / 2);
         ctx.lineTo(depthHandle.sx, depthHandle.sy);
         ctx.stroke();
-        ctx.fillStyle = 'rgba(180, 83, 9, 0.95)';
+        ctx.fillStyle = CROP_INK.EDGE;
         drawArrowTip(ctx, depthHandle, {
             x: depthHandle.sx - (a.sx + b.sx) / 2,
             y: depthHandle.sy - (a.sy + b.sy) / 2,
@@ -2188,7 +2202,7 @@ export class PlanViewAnnotationRenderer {
             const s = hovered ? base + 4 : base;
             ctx.beginPath();
             ctx.rect(p.sx - s / 2, p.sy - s / 2, s, s);
-            ctx.fillStyle = hovered ? HOVER : '#ffffff';
+            ctx.fillStyle = hovered ? HOVER : CROP_INK.HANDLE_FILL;
             ctx.fill();
             ctx.strokeStyle = hovered ? HOVER : ACCENT;
             ctx.lineWidth = hovered ? 2 : 1.4;
@@ -2197,7 +2211,7 @@ export class PlanViewAnnotationRenderer {
 
         // Far corners frame the scope box (visual anchors, small); the depth midpoint
         // and the two width midpoints are the primary grab targets (larger).
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = CROP_INK.HANDLE_FILL;
         ctx.strokeStyle = ACCENT;
         ctx.lineWidth = 1.2;
         for (const p of [a, b, fa, fb]) {
@@ -2215,14 +2229,14 @@ export class PlanViewAnnotationRenderer {
         }
 
         ctx.font = `11px ${FONT}`;
-        ctx.fillStyle = 'rgba(120, 53, 15, 0.95)';
+        ctx.fillStyle = CROP_INK.LABEL;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         ctx.fillText(`Depth ${depth.toFixed(2)} m`, depthHandle.sx, depthHandle.sy - 9);
         // Discoverability hint: the mark is BOTH a crop editor (drag handles) and a
         // navigation target (double-click) — spell it out so neither is hidden.
         ctx.font = `10px ${FONT}`;
-        ctx.fillStyle = 'rgba(120, 53, 15, 0.72)';
+        ctx.fillStyle = CROP_INK.LABEL_SOFT;
         ctx.textBaseline = 'top';
         ctx.fillText('Drag handles to crop · double-click to open', (a.sx + b.sx) / 2, (a.sy + b.sy) / 2 + 9);
         ctx.restore();
@@ -2255,8 +2269,8 @@ export class PlanViewAnnotationRenderer {
 
         ctx.save();
         this._renderScopeZoneFills(ctx, scope, w2s, true);
-        ctx.fillStyle = 'rgba(245, 158, 11, 0)';
-        ctx.strokeStyle = 'rgba(217, 119, 6, 0.75)';
+        ctx.fillStyle = cropZoneFill(0);
+        ctx.strokeStyle = CROP_INK.GUIDE;
         ctx.lineWidth = 1.25;
         ctx.setLineDash([7, 5]);
         ctx.beginPath();
@@ -2268,7 +2282,7 @@ export class PlanViewAnnotationRenderer {
         ctx.stroke();
 
         ctx.setLineDash([]);
-        ctx.strokeStyle = 'rgba(180, 83, 9, 0.98)';
+        ctx.strokeStyle = CROP_INK.EDGE_ACTIVE;
         ctx.lineWidth = 2.4;
         ctx.beginPath();
         ctx.moveTo(a.sx, a.sy);
@@ -2276,7 +2290,7 @@ export class PlanViewAnnotationRenderer {
         ctx.stroke();
 
         ctx.font = `11px ${FONT}`;
-        ctx.fillStyle = 'rgba(120, 53, 15, 0.95)';
+        ctx.fillStyle = CROP_INK.LABEL;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         ctx.fillText('Active cut', (a.sx + b.sx) / 2, (a.sy + b.sy) / 2 - 7);
@@ -2386,7 +2400,10 @@ export class PlanViewAnnotationRenderer {
             ctx.closePath();
             ctx.fill();
         }
-        ctx.fillStyle = debug ? `rgba(59, 130, 246, ${alpha})` : `rgba(245, 158, 11, ${alpha})`;
+        // §CROP-OVERLAY-IS-PRYZM-PURPLE (L-4300) — the CUT zone wash follows the brand.
+        // The projection zone above stays GREEN on purpose: it encodes a different fact
+        // ("what projects into this view"), and collapsing both to one hue deletes it.
+        ctx.fillStyle = debug ? `rgba(59, 130, 246, ${alpha})` : cropZoneFill(alpha);
         ctx.beginPath();
         ctx.moveTo(a.sx, a.sy);
         ctx.lineTo(b.sx, b.sy);

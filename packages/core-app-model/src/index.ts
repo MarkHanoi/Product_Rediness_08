@@ -823,6 +823,16 @@ export {
     PLAN_CAMTARGET_MAX_ABS_M,
     PlanViewCanvas,
 } from './views/PlanViewCanvas.js';
+// §CROP-HANDLE-IS-GRABBABLE (L-4302) — the crop-handle id union + the ONE grab radius.
+export type { CropHandleId } from './views/PlanViewCanvas.js';
+// §CROP-OVERLAY-IS-PRYZM-PURPLE (L-4300) — the view-authoring overlay palette.
+export {
+    CROP_INK,
+    CROP_HANDLE_DRAWN_PX,
+    CROP_HANDLE_DRAWN_HOVER_PX,
+    CROP_HANDLE_GRAB_PX,
+    cropZoneFill,
+} from './views/ViewCropPalette.js';
 
 export type { PlanSnapType, PlanSnapResult } from './views/PlanSnapEngine.js';
 export { PlanSnapEngine } from './views/PlanSnapEngine.js';

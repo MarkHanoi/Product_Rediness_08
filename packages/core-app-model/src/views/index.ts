@@ -199,6 +199,25 @@ export {
     PlanViewCanvas,
 } from './PlanViewCanvas.js';
 
+// §CROP-OVERLAY-IS-PRYZM-PURPLE (L-4300) / §CROP-HANDLE-IS-GRABBABLE (L-4302) —
+// the view-authoring overlay palette + the crop-handle grab geometry. Exported so
+// the app-layer interaction path (PlanViewInteraction) reads the SAME grab radius
+// the canvas hit-tests with, instead of re-typing a bare 10.
+export type { CropHandleId } from './PlanViewCanvas.js';
+export {
+    CROP_INK,
+    CROP_BRAND_RGB,
+    CROP_HANDLE_DRAWN_PX,
+    CROP_HANDLE_DRAWN_HOVER_PX,
+    CROP_HANDLE_GRAB_PX,
+    EDGE_REST_ALPHA,
+    GUIDE_ALPHA,
+    HOVER_ALPHA,
+    MIN_RAMP_ALPHA_GAP,
+    cropZoneFill,
+    parseHexRgb,
+} from './ViewCropPalette.js';
+
 export type { PlanSnapType, PlanSnapResult } from './PlanSnapEngine.js';
 export { PlanSnapEngine } from './PlanSnapEngine.js';
 

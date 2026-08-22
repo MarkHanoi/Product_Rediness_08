@@ -152,3 +152,172 @@ describe('§FIX-ELEVATION-CROP-EXTEND (L-175) — elevation crop handle drag', (
         expect(pvc.cropFromHandleDrag('ne', 700, 100)).toBeNull();
     });
 });
+
+/**
+ * §CROP-HANDLE-IS-GRABBABLE (L-4302) — the FOUR EDGE MIDPOINTS.
+ *
+ * Founder, 2026-08-22: *"more importantly allow me to easily drag … When the user hovers
+ * with the mouse it should be able to see an arrow, and then click and resize the crop
+ * view."*
+ *
+ * Four corners were the whole vocabulary, and a corner moves BOTH axes. So "crop the sky
+ * off the top of this elevation without narrowing it" was NOT EXPRESSIBLE — every gesture
+ * that changed height also changed width. The midpoints are also what make `ns-resize` /
+ * `ew-resize` (the plain double-headed arrows) reachable; the corners only ever produce
+ * the diagonal pair.
+ *
+ * Screen frame for these tests (same `setupSectionCanvas` as above):
+ *   sx = 400 + 30·H     (H = -10 → 100,  H = +10 → 700)
+ *   sy = 345 − 30·V     (V =   0 → 345,  V =   3 → 255)
+ */
+describe('§CROP-HANDLE-IS-GRABBABLE (L-4302) — edge midpoints resize ONE axis', () => {
+    beforeEach(() => viewDefinitionStore.reset());
+
+    it('hit-tests the N midpoint at the top edge centre', () => {
+        const pvc = setupSectionCanvas('vd-mid-1', 1);
+        const hit = pvc.hitTestCropHandle(400, 255);
+        expect(hit).not.toBeNull();
+        expect(hit!.handle).toBe('n');
+    });
+
+    it('hit-tests the E midpoint at the right edge centre', () => {
+        const pvc = setupSectionCanvas('vd-mid-2', 1);
+        expect(pvc.hitTestCropHandle(700, 300)!.handle).toBe('e');
+    });
+
+    it('hit-tests the S and W midpoints', () => {
+        const pvc = setupSectionCanvas('vd-mid-3', 1);
+        expect(pvc.hitTestCropHandle(400, 345)!.handle).toBe('s');
+        expect(pvc.hitTestCropHandle(100, 300)!.handle).toBe('w');
+    });
+
+    it('⭐ N moves ONLY the top edge — the gesture that was previously impossible', () => {
+        const pvc = setupSectionCanvas('vd-mid-4', 1);
+        // Drag the top edge down to V = 2 (sy = 345 − 60 = 285). The horizontal cursor
+        // position is deliberately OFF-CENTRE, to prove H is ignored.
+        const crop = pvc.cropFromHandleDrag('n', 610, 285);
+        expect(crop).not.toBeNull();
+        expect(crop!.region!.max[1]).toBeCloseTo(2, 3);
+        expect(crop!.region!.min[1]).toBeCloseTo(0, 3);
+        // Both H edges untouched — the assertion a corner drag CANNOT satisfy.
+        expect(crop!.region!.min[0]).toBeCloseTo(-10, 3);
+        expect(crop!.region!.max[0]).toBeCloseTo(10, 3);
+    });
+
+    it('S moves ONLY the bottom edge', () => {
+        const pvc = setupSectionCanvas('vd-mid-5', 1);
+        // V = −1 → sy = 375.
+        const crop = pvc.cropFromHandleDrag('s', 250, 375);
+        expect(crop!.region!.min[1]).toBeCloseTo(-1, 3);
+        expect(crop!.region!.max[1]).toBeCloseTo(3, 3);
+        expect(crop!.region!.min[0]).toBeCloseTo(-10, 3);
+        expect(crop!.region!.max[0]).toBeCloseTo(10, 3);
+    });
+
+    it('E moves ONLY the right edge — the vertical cursor position is ignored', () => {
+        const pvc = setupSectionCanvas('vd-mid-6', 1);
+        // H = 12 → sx = 760; sy deliberately far from the edge centre.
+        const crop = pvc.cropFromHandleDrag('e', 760, 200);
+        expect(crop!.region!.max[0]).toBeCloseTo(12, 3);
+        expect(crop!.region!.min[0]).toBeCloseTo(-10, 3);
+        expect(crop!.region!.min[1]).toBeCloseTo(0, 3);
+        expect(crop!.region!.max[1]).toBeCloseTo(3, 3);
+    });
+
+    it('W moves ONLY the left edge', () => {
+        const pvc = setupSectionCanvas('vd-mid-7', 1);
+        // H = −12 → sx = 40.
+        const crop = pvc.cropFromHandleDrag('w', 40, 500);
+        expect(crop!.region!.min[0]).toBeCloseTo(-12, 3);
+        expect(crop!.region!.max[0]).toBeCloseTo(10, 3);
+        expect(crop!.region!.min[1]).toBeCloseTo(0, 3);
+        expect(crop!.region!.max[1]).toBeCloseTo(3, 3);
+    });
+
+    it('a corner still moves BOTH axes — the existing vocabulary is kept, not replaced', () => {
+        const pvc = setupSectionCanvas('vd-mid-8', 1);
+        const crop = pvc.cropFromHandleDrag('ne', 760, 225);
+        expect(crop!.region!.max[0]).toBeCloseTo(12, 3);
+        expect(crop!.region!.max[1]).toBeCloseTo(4, 3);
+    });
+
+    it('the MIN_SPAN collapse guard applies to a single-axis drag too', () => {
+        const pvc = setupSectionCanvas('vd-mid-9', 1);
+        // Drag the top edge down to V = 0.05 (sy = 343.5) → vertical span 0.05 < 0.1.
+        expect(pvc.cropFromHandleDrag('n', 400, 343.5)).toBeNull();
+    });
+
+    it('the H sign is honoured by the single-axis handles as well', () => {
+        const pvc = setupSectionCanvas('vd-mid-10', -1);
+        // canvasH 12 → regionH −12 under sign −1; the sorted region spans [−12, 10].
+        const crop = pvc.cropFromHandleDrag('e', 760, 300);
+        expect(crop!.region!.min[0]).toBeCloseTo(-12, 3);
+        expect(crop!.region!.max[0]).toBeCloseTo(10, 3);
+        expect(crop!.region!.min[1]).toBeCloseTo(0, 3);
+        expect(crop!.region!.max[1]).toBeCloseTo(3, 3);
+    });
+
+    it('plan views still offer no crop handles at all, midpoints included', () => {
+        viewDefinitionStore.reset();
+        viewDefinitionStore.create({
+            id: 'vd-plan-mid',
+            name: 'Level 1 Plan',
+            viewType: 'plan',
+            crop: { enabled: true, region: { min: [-5, -5], max: [5, 5] } },
+        });
+        const pvc = makeCanvas();
+        pvc.setSize(800, 600);
+        pvc.setViewType('plan');
+        pvc.setFrustum(10, { x: 0, y: 0, z: 0 } as unknown as import('@pryzm/renderer-three/three').Vector3);
+        (pvc as unknown as { _lastViewId: string })._lastViewId = 'vd-plan-mid';
+        for (const h of ['n', 's', 'e', 'w'] as const) {
+            expect(pvc.cropFromHandleDrag(h, 700, 100)).toBeNull();
+        }
+    });
+});
+
+describe('§CROP-HANDLE-IS-GRABBABLE (L-4302) — the grab radius, and the hover state', () => {
+    beforeEach(() => viewDefinitionStore.reset());
+
+    it('⭐ the default radius is 14, not the old 10 — a 12 px near-miss now lands', () => {
+        const pvc = setupSectionCanvas('vd-grab-1', 1);
+        // 12 px below the NE corner (700, 255).
+        expect(pvc.hitTestCropHandle(700, 267)).not.toBeNull();
+        expect(pvc.hitTestCropHandle(700, 267)!.handle).toBe('ne');
+        // …and the same point missed under the threshold this file used to pass.
+        expect(pvc.hitTestCropHandle(700, 267, 10)).toBeNull();
+    });
+
+    it('nearest-wins is preserved when a midpoint and a corner are both in range', () => {
+        // A crop only 0.6 m wide: at 30 px/unit the top edge is 18 px long, so its
+        // midpoint sits 9 px from each top corner — inside the 14 px grab radius.
+        viewDefinitionStore.reset();
+        viewDefinitionStore.create({
+            id: 'vd-grab-2',
+            name: 'Narrow Elevation',
+            viewType: 'elevation',
+            spatial: { sectionVolume: { origin: [0, 0, 0], direction: [0, 0, -1], width: 20, height: 3, near: 0, far: 8 } },
+            crop: { enabled: true, region: { min: [-0.3, 0], max: [0.3, 3] }, farClip: { offset: 8 } },
+        });
+        const pvc = makeCanvas();
+        pvc.setSize(800, 600);
+        pvc.setViewType('elevation');
+        pvc.setSectionAxes('x', true, 1);
+        pvc.setFrustum(10, { x: 0, y: 0, z: 1.5 } as unknown as import('@pryzm/renderer-three/three').Vector3);
+        (pvc as unknown as { _lastViewId: string })._lastViewId = 'vd-grab-2';
+        // Right top corner: H = 0.3 → sx = 409; V = 3 → sy = 255.
+        expect(pvc.hitTestCropHandle(409, 255)!.handle).toBe('ne');
+        // Exactly on the top midpoint (sx = 400) the midpoint is nearer, so it wins.
+        // Corner-first ordering only decides EXACT ties.
+        expect(pvc.hitTestCropHandle(400, 255)!.handle).toBe('n');
+    });
+
+    it('the hover handle round-trips, and starts null', () => {
+        const pvc = setupSectionCanvas('vd-grab-3', 1);
+        expect(pvc.getHoveredCropHandle()).toBeNull();
+        pvc.setHoveredCropHandle('e');
+        expect(pvc.getHoveredCropHandle()).toBe('e');
+        pvc.setHoveredCropHandle(null);
+        expect(pvc.getHoveredCropHandle()).toBeNull();
+    });
+});

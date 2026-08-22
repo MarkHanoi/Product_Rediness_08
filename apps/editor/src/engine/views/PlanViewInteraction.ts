@@ -24,6 +24,11 @@ import { PlanSnapEngine, type PlanSnapType } from '@pryzm/core-app-model';
 // Re-export for downstream consumers that import PlanSnapType from here.
 export type { PlanSnapType } from '@pryzm/core-app-model';
 import { planElementDragController } from '@pryzm/core-app-model';
+// §CROP-HANDLE-IS-GRABBABLE (L-4302) — the crop-handle id union and the ONE grab
+// radius, both owned by PlanViewCanvas/ViewCropPalette. This file used to pass a bare
+// `10` to hitTestCropHandle while passing 14 to the plan-side scope handles, so the
+// two halves of the SAME affordance were grabbable at different distances.
+import { CROP_HANDLE_GRAB_PX, type CropHandleId } from '@pryzm/core-app-model';
 import { annotationStore } from '@pryzm/plugin-annotations';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 // §ELEV-SCOPE-DEPTH (L-1855) — the depth HANDLE's fallback must be a named constant
@@ -181,7 +186,7 @@ export class PlanViewInteraction {
     // corner handles while IN a section/elevation view (parity with the plan-view
     // scope-box resize). §PERF-ELEV-CROP-DRAG-FLOW (L-222): live preview writes the store
     // directly; the single committed undo entry (view.setCrop) fires on pointer-up.
-    private _cropDrag: { handle: 'nw' | 'ne' | 'se' | 'sw'; lastUpdate: number; preCrop: ViewCropSettings | undefined } | null = null;
+    private _cropDrag: { handle: CropHandleId; lastUpdate: number; preCrop: ViewCropSettings | undefined } | null = null;
     private _levelDrag: { levelId: string; startSy: number; startElevation: number } | null = null;
     private _annotDrag: {
         annotationId: string;
@@ -209,6 +214,18 @@ export class PlanViewInteraction {
      * the mutation still flows through the view.setCrop command (P6).
      */
     private _scopeHoverHandle: 'depth' | 'width-left' | 'width-right' | 'cut-plane' | null = null;
+
+    /**
+     * §CROP-HANDLE-IS-GRABBABLE (L-4302) — the elevation/section CROP-boundary handle
+     * currently under the cursor, or null.
+     *
+     * MEASURED BEFORE BUILDING (C01 §6 rule 6 — "absent" and "unreachable" have opposite
+     * fixes): `grep -n hitTestCropHandle apps/editor/src/engine/views/PlanViewInteraction.ts`
+     * returned exactly ONE call site, inside `_onMouseDown`. The crop handles therefore
+     * had **no hover path at all** — not a hover path that failed to fire. That is why
+     * the founder saw no cursor: there was nothing to reach. ABSENT, not UNREACHABLE.
+     */
+    private _cropHoverHandle: CropHandleId | null = null;
 
     /** True while planElementDragController owns the current drag. */
     private _elementDragActive = false;
@@ -269,6 +286,7 @@ export class PlanViewInteraction {
         this._isDragging = false;
         this._scopeDrag = null;
         this._cropDrag = null;
+        this._cropHoverHandle = null;
         this._levelDrag = null;
         this._hoveredElementId = null;
     }
@@ -314,6 +332,51 @@ export class PlanViewInteraction {
         const rect = this._canvas.getBoundingClientRect();
         const sx = e.clientX - rect.left;
         const sy = e.clientY - rect.top;
+
+        // ── §CROP-BEATS-DATUM (L-4303) — crop-boundary handle drag, tested FIRST ──
+        //
+        // THE FOUNDER'S DEFECT, 2026-08-22: *"allow me to easily drag — I still drag the
+        // levels around and slabs."* This block used to sit BELOW the level-datum test,
+        // and the level-datum test returns unconditionally on a hit. Measured against the
+        // pre-change source: a crop corner lying within 10 px of a level datum line was
+        // **unreachable in every gesture**, not merely hard to reach —
+        //   • press 1 → datum unselected → L-1868 Guard A selects the level and RETURNS;
+        //   • press 2 → datum now selected → arms a LEVEL DRAG and RETURNS.
+        // `hitTestCropHandle` was never evaluated on either press. A level datum line
+        // spans the FULL WIDTH of an elevation, so this collision is the common case at
+        // the left and right ends of every crop rectangle, which is exactly where the
+        // handles are.
+        //
+        // THE RULE ADOPTED, stated so it can be argued with: **an explicitly drawn,
+        // point-sized, view-authoring handle outranks an ambient full-width model band
+        // whenever the pointer is inside the handle's grab radius.** The crop handle is a
+        // 9 px square the user can SEE and aimed at; the datum's hit region is a 20 px
+        // tall stripe across the whole drawing that the pointer merely happens to be in.
+        // Between "what was drawn where I clicked" and "what happens to pass through
+        // here", the drawn thing wins.
+        //
+        // ⭐ THIS DOES NOT WEAKEN §LEVEL-Z-IS-NOT-A-DRAG-TARGET (L-1868). Read the
+        // direction: L-1868 exists because cropping was silently moving datums. Giving
+        // the crop handle priority can only ever REDUCE accidental datum edits — it
+        // removes presses from the datum branch and never adds one. Guard A
+        // (select-before-drag) and Guard B (LEVEL_DRAG_MIN_TRAVEL_PX) below are untouched
+        // and still gate every press that is NOT on a crop handle.
+        //
+        // Cheap: `hitTestCropHandle` returns null immediately unless the canvas is a
+        // section/elevation frame (`_sectionFlipV`) carrying a resolvable crop.
+        const cropHit = this._planCanvas.hitTestCropHandle?.(sx, sy, CROP_HANDLE_GRAB_PX) ?? null;
+        if (cropHit) {
+            // §PERF-ELEV-CROP-DRAG-FLOW (L-222) — snapshot the pre-drag crop for the
+            // single-undo-entry pointer-up commit.
+            const cropDef = this._viewId ? viewDefinitionStore.get(this._viewId) : undefined;
+            this._cropDrag = { handle: cropHit.handle, lastUpdate: 0, preCrop: cropDef?.crop };
+            this._isDragging = true;
+            this._canvas.style.cursor = this._cropCursor(cropHit.handle);
+            (e as any).__pryzmToolHandled = true;
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
 
         // ── Level datum line drag (section/elevation views) ───────────────────
         // Only allow dragging the line itself, not the head (head is for click-to-edit).
@@ -444,23 +507,6 @@ export class PlanViewInteraction {
             };
             this._isDragging = true;
             this._canvas.style.cursor = this._scopeCursor(scopeHit.handle);
-            (e as any).__pryzmToolHandled = true;
-            e.preventDefault();
-            e.stopPropagation();
-            return;
-        }
-
-        // ── §FIX-ELEVATION-CROP-EXTEND (L-175) — crop-boundary corner-handle drag ──
-        // Only fires in section/elevation views (hitTestCropHandle is _sectionFlipV-
-        // gated); resizes the view's crop rectangle in-place via view.setCrop.
-        const cropHit = this._planCanvas.hitTestCropHandle?.(sx, sy, 10) ?? null;
-        if (cropHit) {
-            // §PERF-ELEV-CROP-DRAG-FLOW (L-222) — snapshot the pre-drag crop for the
-            // single-undo-entry pointer-up commit.
-            const cropDef = this._viewId ? viewDefinitionStore.get(this._viewId) : undefined;
-            this._cropDrag = { handle: cropHit.handle, lastUpdate: 0, preCrop: cropDef?.crop };
-            this._isDragging = true;
-            this._canvas.style.cursor = this._cropCursor(cropHit.handle);
             (e as any).__pryzmToolHandled = true;
             e.preventDefault();
             e.stopPropagation();
@@ -703,6 +749,43 @@ export class PlanViewInteraction {
         }
         if (nextScopeHandle) {
             this._canvas.style.cursor = this._scopeCursor(nextScopeHandle);
+            if (this._hoveredElementId !== null) {
+                this._hoveredElementId = null;
+                this._planCanvas.setHoveredElementId(null);
+            }
+            this._planCanvas.clearSnapIndicator();
+            return;
+        }
+
+        // ── §CROP-HANDLE-IS-GRABBABLE (L-4302) — crop-boundary hover affordance ──
+        //
+        // The founder: *"When the user hovers with the mouse it should be able to see an
+        // arrow, and then click and resize the crop view."* There was NO hover path here
+        // at all (see `_cropHoverHandle` — one call site, in `_onMouseDown`), so the
+        // elevation crop handles were the only resize affordance in this file with no
+        // cursor: the plan-side scope handles (L-154), the mark origin (L-305) and the
+        // hosted arrows (§FIX-PLAN-HOSTED-HANDLE-GRAB) all had one.
+        //
+        // It uses the SAME `hitTestCropHandle` at the SAME radius the press uses, so the
+        // cursor can never promise a grab the mousedown will not honour — the rule the
+        // hosted-handle hover block below already states.
+        //
+        // Placed ABOVE the scope/origin/hosted hovers to mirror the mousedown ordering.
+        // In practice they are mutually exclusive by view type (crop handles are
+        // `_sectionFlipV`-gated to section/elevation; scope handles need a selected mark
+        // in plan), but the two orderings must not be allowed to disagree.
+        const cropHover = toolActiveForScope
+            ? null
+            : (this._planCanvas.hitTestCropHandle?.(sx, sy, CROP_HANDLE_GRAB_PX) ?? null);
+        const nextCropHandle = cropHover?.handle ?? null;
+        if (nextCropHandle !== this._cropHoverHandle) {
+            const hadCrop = this._cropHoverHandle !== null;
+            this._cropHoverHandle = nextCropHandle;
+            this._planCanvas.setHoveredCropHandle?.(nextCropHandle);
+            if (!nextCropHandle && hadCrop) this._canvas.style.cursor = '';
+        }
+        if (nextCropHandle) {
+            this._canvas.style.cursor = this._cropCursor(nextCropHandle);
             if (this._hoveredElementId !== null) {
                 this._hoveredElementId = null;
                 this._planCanvas.setHoveredElementId(null);
@@ -1721,7 +1804,17 @@ export class PlanViewInteraction {
             ?.catch((err: Error) => console.error('[PlanViewInteraction] §FIX-ELEVATION-CROP-EXTEND view.setCrop failed:', err));
     }
 
-    private _cropCursor(handle: 'nw' | 'ne' | 'se' | 'sw'): string {
+    /**
+     * §CROP-HANDLE-IS-GRABBABLE (L-4302) — the resize cursor for a crop-boundary handle.
+     * This is literally what the founder means by *"see an arrow"*: `ns-resize` and
+     * `ew-resize` render as a double-headed arrow in every browser. The four corners give
+     * the diagonal pair; the four edge midpoints (new) give the orthogonal pair, which is
+     * the more legible one and was previously unreachable because those handles did not
+     * exist.
+     */
+    private _cropCursor(handle: CropHandleId): string {
+        if (handle === 'n' || handle === 's') return 'ns-resize';
+        if (handle === 'e' || handle === 'w') return 'ew-resize';
         return handle === 'nw' || handle === 'se' ? 'nwse-resize' : 'nesw-resize';
     }
 

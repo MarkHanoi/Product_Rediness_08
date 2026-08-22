@@ -19,6 +19,36 @@ import { penCategoryForLayerTag } from '../drawing/PenWeightTable';
 import { composeLayerTag, vgCategoryForLayer, baseIsoLayerForTag } from '../drawing/DrawingLayerIdentity';
 // §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) / C09 §4.6 — the four-zone classifier.
 import { drawingZoneFromLayerName, penZoneOf, BEYOND_DASH_PX } from '../drawing/DrawingZone';
+// §CROP-OVERLAY-IS-PRYZM-PURPLE (L-4300) + §CROP-HANDLE-IS-GRABBABLE (L-4302) — the
+// crop rectangle drawn IN elevation/section was BLUE while the same affordance drawn
+// in plan was AMBER. One affordance, two hues, neither the brand. Both now read the
+// one ramp; the handle sizes come from the same module so paint and hit cannot drift.
+import {
+    CROP_INK,
+    CROP_HANDLE_DRAWN_PX,
+    CROP_HANDLE_DRAWN_HOVER_PX,
+    CROP_HANDLE_GRAB_PX,
+} from './ViewCropPalette';
+
+/**
+ * §CROP-HANDLE-IS-GRABBABLE (L-4302) — the crop-boundary grab targets.
+ *
+ * Was four CORNERS only. A corner moves BOTH axes at once, so "crop the sky off the
+ * top of this elevation without changing its width" was not expressible: every gesture
+ * that changed height also changed width. The four edge midpoints move exactly one
+ * axis, and they are also what makes `ns-resize` / `ew-resize` — the plain up-down and
+ * left-right arrows the founder asked to see — reachable at all.
+ */
+export type CropHandleId = 'nw' | 'ne' | 'se' | 'sw' | 'n' | 's' | 'e' | 'w';
+
+/** Handles that move the LEFT (min-H) edge. */
+const CROP_H_MIN: ReadonlySet<CropHandleId> = new Set<CropHandleId>(['nw', 'sw', 'w']);
+/** Handles that move the RIGHT (max-H) edge. */
+const CROP_H_MAX: ReadonlySet<CropHandleId> = new Set<CropHandleId>(['ne', 'se', 'e']);
+/** Handles that move the TOP (max-V) edge. */
+const CROP_V_MAX: ReadonlySet<CropHandleId> = new Set<CropHandleId>(['nw', 'ne', 'n']);
+/** Handles that move the BOTTOM (min-V) edge. */
+const CROP_V_MIN: ReadonlySet<CropHandleId> = new Set<CropHandleId>(['sw', 'se', 's']);
 
 /**
  * §PLAN-CAMTARGET-SANITY (L-481) — how far from the site origin a PLAN camera target may sit
@@ -202,6 +232,8 @@ export class PlanViewCanvas {
 
     /** Currently selected level ID for section/elevation view highlighting. */
     private _selectedLevelId: string | null = null;
+    /** §CROP-HANDLE-IS-GRABBABLE (L-4302) — crop handle under the cursor (hover only). */
+    private _hoveredCropHandle: CropHandleId | null = null;
 
     /** Cached hit-areas for level datum lines + heads, rebuilt each render pass. */
     private _levelDatumHitAreas: Array<{
@@ -660,6 +692,25 @@ export class PlanViewCanvas {
      */
     setHoveredScopeHandle(handle: 'depth' | 'width-left' | 'width-right' | 'cut-plane' | null): void {
         planViewAnnotationRenderer.setHoveredScopeHandle(handle);
+    }
+
+    /**
+     * §CROP-HANDLE-IS-GRABBABLE (L-4302) — the crop-boundary handle currently under
+     * the cursor, or null. Drives the enlarge + solid-fill hover state in
+     * `_renderCropBoundary`. Purely visual; the mutation still flows through the
+     * `view.setCrop` command (P6).
+     *
+     * This has a HOVER path at all for the first time: `hitTestCropHandle` existed and
+     * was called from `_onMouseDown` ONLY, so before this the elevation crop handles
+     * gave no cursor and no highlight until after the press had already committed.
+     */
+    setHoveredCropHandle(handle: CropHandleId | null): void {
+        if (this._hoveredCropHandle === handle) return;
+        this._hoveredCropHandle = handle;
+    }
+
+    getHoveredCropHandle(): CropHandleId | null {
+        return this._hoveredCropHandle;
     }
 
     /** Set/clear the selected grid ID — used for highlight + dimension rendering. */
@@ -1617,7 +1668,7 @@ export class PlanViewCanvas {
      * editing keeps the section-mark scope-box path (`hitTestScopeHandle`). Returns
      * the corner id (nw/ne/se/sw) nearest the cursor within `thresholdPx`, or null.
      */
-    hitTestCropHandle(sx: number, sy: number, thresholdPx = 10): { handle: 'nw' | 'ne' | 'se' | 'sw' } | null {
+    hitTestCropHandle(sx: number, sy: number, thresholdPx = CROP_HANDLE_GRAB_PX): { handle: CropHandleId } | null {
         if (!this._sectionFlipV || !this._lastViewId) return null;
         const viewDef = viewDefinitionStore.get(this._lastViewId);
         if (!viewDef) return null;
@@ -1626,15 +1677,27 @@ export class PlanViewCanvas {
 
         // Canvas-space corners: worldToScreen flips V for sections (higher V = lower
         // sy), so maxV maps to the visual top, minV to the bottom.
-        const corners: Array<{ handle: 'nw' | 'ne' | 'se' | 'sw'; h: number; v: number }> = [
+        //
+        // §CROP-HANDLE-IS-GRABBABLE (L-4302) — the four EDGE midpoints join the four
+        // corners, and the default threshold is now the shared CROP_HANDLE_GRAB_PX (14),
+        // not a bare 10. Corners are probed FIRST so that on a very short edge — where a
+        // midpoint sits within grab range of a corner — the two-axis corner still wins
+        // rather than being shadowed by the single-axis midpoint.
+        const midH = (bounds.minH + bounds.maxH) / 2;
+        const midV = (bounds.minV + bounds.maxV) / 2;
+        const targets: Array<{ handle: CropHandleId; h: number; v: number }> = [
             { handle: 'nw', h: bounds.minH, v: bounds.maxV },
             { handle: 'ne', h: bounds.maxH, v: bounds.maxV },
             { handle: 'se', h: bounds.maxH, v: bounds.minV },
             { handle: 'sw', h: bounds.minH, v: bounds.minV },
+            { handle: 'n',  h: midH,        v: bounds.maxV },
+            { handle: 's',  h: midH,        v: bounds.minV },
+            { handle: 'e',  h: bounds.maxH, v: midV },
+            { handle: 'w',  h: bounds.minH, v: midV },
         ];
-        let best: { handle: 'nw' | 'ne' | 'se' | 'sw' } | null = null;
+        let best: { handle: CropHandleId } | null = null;
         let bestDist = thresholdPx;
-        for (const c of corners) {
+        for (const c of targets) {
             const p = this.worldToScreen(c.h, c.v);
             const d = Math.hypot(sx - p.sx, sy - p.sy);
             if (d < bestDist) {
@@ -1656,7 +1719,7 @@ export class PlanViewCanvas {
      * absolute world-H, and elevation perpendicular-offset) without duplicating the
      * per-frame math. Returns null when the drag would collapse the crop.
      */
-    cropFromHandleDrag(handle: 'nw' | 'ne' | 'se' | 'sw', sx: number, sy: number): ViewCropSettings | null {
+    cropFromHandleDrag(handle: CropHandleId, sx: number, sy: number): ViewCropSettings | null {
         if (!this._sectionFlipV || !this._lastViewId) return null;
         const viewDef = viewDefinitionStore.get(this._lastViewId);
         const region = viewDef?.crop?.region;
@@ -1667,15 +1730,21 @@ export class PlanViewCanvas {
         // Cursor → canvas-H/canvas-V (inverse of worldToScreen).
         const { worldX: dragH, worldZ: dragV } = this.screenToWorld(sx, sy);
 
-        // Move only the grabbed corner's H and V extremes; the opposite corner stays.
-        const hIsMin = handle === 'nw' || handle === 'sw'; // left corners → minH edge
-        const vIsMax = handle === 'nw' || handle === 'ne'; // top corners  → maxV edge
+        // Move only the edges the grabbed handle OWNS; every other edge stays put.
+        //
+        // §CROP-HANDLE-IS-GRABBABLE (L-4302) — this used to be two booleans, which forced
+        // EVERY handle to move exactly one H edge AND one V edge. That is right for a
+        // corner and wrong for an edge midpoint: 'n' must move the top edge and leave
+        // both sides alone. Membership sets make "this handle owns no H edge" a
+        // representable state, which a boolean pair cannot express.
         let cMinH = bounds.minH;
         let cMaxH = bounds.maxH;
         let cMinV = bounds.minV;
         let cMaxV = bounds.maxV;
-        if (hIsMin) cMinH = dragH; else cMaxH = dragH;
-        if (vIsMax) cMaxV = dragV; else cMinV = dragV;
+        if (CROP_H_MIN.has(handle)) cMinH = dragH;
+        else if (CROP_H_MAX.has(handle)) cMaxH = dragH;
+        if (CROP_V_MAX.has(handle)) cMaxV = dragV;
+        else if (CROP_V_MIN.has(handle)) cMinV = dragV;
 
         // Affine calibration of the H inverse from the current region↔canvas corners.
         const cRegMinH = this._projectRegionHToCanvasH(viewDef, region.min[0]);
@@ -2115,23 +2184,45 @@ export class PlanViewCanvas {
         const height = Math.abs(p2.sy - p1.sy);
         if (width < 1 || height < 1) return;
 
+        // §CROP-OVERLAY-IS-PRYZM-PURPLE (L-4300) — was `rgba(37,99,235,·)` (blue) while
+        // the SAME crop affordance drawn in plan was amber. Both are now the one
+        // brand-purple ramp: `CROP_INK.GUIDE` for the dashed frame, `CROP_INK.EDGE` for
+        // a resting handle border, `CROP_INK.HOVER` (full-strength #6600ff) for the one
+        // under the cursor. REST and HOVER are deliberately different rungs — see
+        // ViewCropPalette; a single flat purple would have erased the hover state.
+        const hov = this._hoveredCropHandle;
         ctx.save();
-        ctx.strokeStyle = 'rgba(37, 99, 235, 0.78)';
+        ctx.strokeStyle = CROP_INK.GUIDE;
         ctx.lineWidth = 1.2;
         ctx.setLineDash([6, 4]);
         ctx.strokeRect(left, top, width, height);
         ctx.setLineDash([]);
-        ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = 'rgba(37, 99, 235, 0.95)';
-        for (const pt of [
-            [left, top],
-            [left + width, top],
-            [left + width, top + height],
-            [left, top + height],
-        ] as const) {
+
+        // §CROP-HANDLE-IS-GRABBABLE (L-4302) — EIGHT handles, not four, and each is
+        // drawn larger than the old 6 px square. The four edge midpoints are the ones
+        // that carry a single-axis (ns/ew) resize, which is both the gesture the founder
+        // asked for and the only way to change one dimension without the other.
+        const midHpx = left + width / 2;
+        const midVpx = top + height / 2;
+        const pts: Array<{ id: CropHandleId; x: number; y: number }> = [
+            { id: 'nw', x: left,         y: top },
+            { id: 'n',  x: midHpx,       y: top },
+            { id: 'ne', x: left + width, y: top },
+            { id: 'e',  x: left + width, y: midVpx },
+            { id: 'se', x: left + width, y: top + height },
+            { id: 's',  x: midHpx,       y: top + height },
+            { id: 'sw', x: left,         y: top + height },
+            { id: 'w',  x: left,         y: midVpx },
+        ];
+        for (const pt of pts) {
+            const hovered = hov === pt.id;
+            const sz = hovered ? CROP_HANDLE_DRAWN_HOVER_PX : CROP_HANDLE_DRAWN_PX;
             ctx.beginPath();
-            ctx.rect(pt[0] - 3, pt[1] - 3, 6, 6);
+            ctx.rect(pt.x - sz / 2, pt.y - sz / 2, sz, sz);
+            ctx.fillStyle = hovered ? CROP_INK.HOVER : CROP_INK.HANDLE_FILL;
             ctx.fill();
+            ctx.strokeStyle = hovered ? CROP_INK.HOVER : CROP_INK.EDGE;
+            ctx.lineWidth = hovered ? 2 : 1.4;
             ctx.stroke();
         }
         ctx.restore();
