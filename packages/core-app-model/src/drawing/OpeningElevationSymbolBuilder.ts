@@ -64,6 +64,10 @@ import {
 import { storeRegistry } from '../StoreRegistry';
 import { registerSegmentUUID } from '../views/DrawingSelectionIndex';
 import { layerForZone, type DrawingZone } from './DrawingZone';
+// §ELEV-SYMBOL-KEEPS-THE-DEPTH (L-5303) — the ONE name of the depth stamp an occluder is
+// ordered by. Imported rather than re-spelt: a second literal 'viewDepth' here would be a
+// second authority for the key, and the engine that reads it is the only one entitled to name it.
+import { VIEW_DEPTH_KEY } from './HiddenLineRemoval';
 import {
     buildOpeningElevationSymbol,
     nearFaceSign,
@@ -421,6 +425,9 @@ export function suppressSymbolisedElementLinework(
     if (!container) return { removedLayers: 0, removedSegments: 0 };
 
     const doomed: THREE.Object3D[] = [];
+    // §ELEV-SYMBOL-KEEPS-THE-DEPTH (L-5303) — see the note below the loop.
+    const solidDepth  = new Map<string, number>();
+    const symbolNodes = new Map<string, THREE.LineSegments[]>();
     let removedSegments = 0;
     for (const child of container.children) {
         const ls = child as THREE.LineSegments;
@@ -429,7 +436,16 @@ export function suppressSymbolisedElementLinework(
         if (!uuid || !coveredElementIds.has(uuid)) continue;
         const layerName = String(ls.userData?.layerName ?? ls.name ?? '');
         // Never the symbol's own linework -- it carries the same elementUUID by design.
-        if (SYM_LAYER_RE.test(layerName)) continue;
+        if (SYM_LAYER_RE.test(layerName)) {
+            const bucket = symbolNodes.get(uuid);
+            if (bucket) bucket.push(ls); else symbolNodes.set(uuid, [ls]);
+            continue;
+        }
+        const d = ls.userData?.[VIEW_DEPTH_KEY];
+        if (typeof d === 'number' && Number.isFinite(d)) {
+            const prev = solidDepth.get(uuid);
+            if (prev === undefined || d < prev) solidDepth.set(uuid, d);
+        }
         removedSegments += ((ls.geometry?.getAttribute('position')?.count ?? 0) / 2) | 0;
         doomed.push(ls);
     }
@@ -439,6 +455,36 @@ export function suppressSymbolisedElementLinework(
         const geo = (d as THREE.LineSegments).geometry;
         if (geo && typeof geo.dispose === 'function') geo.dispose();
     }
+
+    // ── §ELEV-SYMBOL-KEEPS-THE-DEPTH (L-5303) — THE SYMBOL INHERITS THE SOLID'S DEPTH ──
+    //
+    // ⚠ This closes the consequence the header above recorded as *"NOT MEASURED"*, and the
+    // reasoning it offered — *"the host WALL's occluder is untouched"* — is TRUE for an
+    // OPENING symbol and FALSE for a WALL symbol (§ELEV-SYMBOL-WALL, L-1242), where the host
+    // IS the element whose linework this function just deleted.
+    //
+    // Measured consequence before this block: a symbolised façade wall occluded NOTHING.
+    // `_emit()` stamps `layerName` and `elementUUID` on the injected symbol and never
+    // `viewDepth`, and `HiddenLineRemoval.buildOccluderList()` refuses an unstamped `:proj`
+    // node as an occluder — correctly, since an unordered projection occluder could hide
+    // geometry that is actually NEARER than it. So the solid occluder was deleted here and
+    // its replacement could not become one. The founder's interior door then drew with
+    // PROJECTION lines through a façade, which is his report verbatim.
+    //
+    // The transfer is the only honest source for the number: the symbol REPLACES that solid,
+    // stands where it stood, and therefore has exactly its nearest depth along the view
+    // direction. Nothing is invented — an element whose solid carried no stamp leaves its
+    // symbol unstamped, and the engine goes on refusing to guess. An existing stamp on a
+    // symbol is never overwritten.
+    if (solidDepth.size > 0) {
+        for (const [uuid, depth] of solidDepth) {
+            for (const sym of symbolNodes.get(uuid) ?? []) {
+                if (typeof sym.userData[VIEW_DEPTH_KEY] === 'number') continue;
+                sym.userData[VIEW_DEPTH_KEY] = depth;
+            }
+        }
+    }
+
     return { removedLayers: doomed.length, removedSegments };
 }
 

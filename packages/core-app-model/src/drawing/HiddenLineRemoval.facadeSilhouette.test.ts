@@ -47,6 +47,7 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
 import { applyOcclusion } from './HiddenLineRemoval';
+import { suppressSymbolisedElementLinework } from './OpeningElevationSymbolBuilder';
 
 // ─── Fixture harness — REAL solids, REAL EdgesGeometry, REAL projection ───────
 
@@ -293,5 +294,74 @@ describe('§ELEV-FACADE-HIDES-INTERIOR (L-5301) — voids stay see-through, obli
         // …and it must still hide, not silently skip — which is what HEAD did.
         expect(segCount(find(three, 'run', 'A-WALL:hidden'))).toBeGreaterThan(0);
         expect(segCount(find(three, 'run', 'A-WALL:proj'))).toBe(0);
+    });
+});
+
+// ─── The SECOND root cause: a symbolised wall stops being an occluder ─────────
+
+describe('§ELEV-SYMBOL-KEEPS-THE-DEPTH (L-5303) — an authored wall symbol must inherit the solid it replaces', () => {
+    /**
+     * §ELEV-SYMBOL-WALL (L-1242) replaces a wall's raw elevation wireframe with an AUTHORED
+     * symbol on `A-WALL-SYM:proj`, then `suppressSymbolisedElementLinework()` deletes the raw
+     * linework. `OpeningElevationSymbolBuilder._emit()` stamps `layerName` and `elementUUID`
+     * on the symbol — and **not** `viewDepth`.
+     *
+     * `buildOccluderList()` refuses an unstamped `:proj` node as an occluder, deliberately and
+     * correctly: an unordered projection occluder could hide geometry that is actually NEARER
+     * than it. So the façade's SOLID occluder is deleted and its replacement cannot become one.
+     * **A symbolised façade wall occludes nothing** — a second, independent cause of the
+     * founder's report, and one the silhouette fix alone does not touch.
+     *
+     * The builder's own header records this as *"NOT MEASURED — the occlusion consequence"*
+     * and reasons that *"the host WALL's occluder is untouched"*. That mitigation is real for
+     * an OPENING symbol. It does not hold for a WALL symbol, where the host IS the thing whose
+     * linework was just deleted.
+     */
+    function symbolisedFacadeScene() {
+        const { drawing, three } = makeFakeDrawing();
+        const facade = boxSolid(8, 3, 0.30, 0, 1.5, -0.15);
+
+        // The wall's RAW solid linework, as the projector emits it.
+        three.add(solidNode('facade', 'A-WALL:proj', facade));
+        // The AUTHORED symbol that replaces it: same uuid, zone-suffixed layer, NO depth stamp.
+        three.add(node('facade', 'A-WALL-SYM:proj', undefined, [
+            -4, 0, 0, 4, 0, 0,
+            4, 0, 0, 4, 0, -3,
+            4, 0, -3, -4, 0, -3,
+            -4, 0, -3, -4, 0, 0,
+        ]));
+        // An interior door 4 m behind, wholly inside the façade.
+        three.add(solidNode('door', 'A-DOOR:proj', boxSolid(0.9, 2.1, 0.05, -1.2, 1.05, -4.0)));
+        return { drawing, three };
+    }
+
+    it('⭐ the door stays hidden after the façade wall is replaced by its symbol', () => {
+        const { drawing, three } = symbolisedFacadeScene();
+        const doorBefore = segCount(find(three, 'door', 'A-DOOR:proj'));
+
+        suppressSymbolisedElementLinework(drawing, new Set(['facade']));
+        // The raw solid is gone; only the symbol remains for that element.
+        expect(find(three, 'facade', 'A-WALL:proj')).toBeUndefined();
+        expect(find(three, 'facade', 'A-WALL-SYM:proj')).toBeDefined();
+
+        applyOcclusion(drawing, { disposition: 'demote' });
+
+        expect(segCount(find(three, 'door', 'A-DOOR:proj'))).toBe(0);
+        expect(segCount(find(three, 'door', 'A-DOOR:hidden'))).toBe(doorBefore);
+    });
+
+    it('the transferred stamp is the SOLID nearest depth, not a guess', () => {
+        const { drawing, three } = symbolisedFacadeScene();
+        const solidDepth = find(three, 'facade', 'A-WALL:proj')!.userData.viewDepth as number;
+        suppressSymbolisedElementLinework(drawing, new Set(['facade']));
+        expect(find(three, 'facade', 'A-WALL-SYM:proj')!.userData.viewDepth).toBe(solidDepth);
+    });
+
+    it('a symbol whose element had NO stamp stays unstamped — the engine still refuses to guess', () => {
+        const { drawing, three } = makeFakeDrawing();
+        three.add(node('x', 'A-WALL:proj', undefined, [0, 0, 0, 4, 0, 0, 4, 0, 0, 4, 0, -3]));
+        three.add(node('x', 'A-WALL-SYM:proj', undefined, [0, 0, 0, 4, 0, 0]));
+        suppressSymbolisedElementLinework(drawing, new Set(['x']));
+        expect(find(three, 'x', 'A-WALL-SYM:proj')!.userData.viewDepth).toBeUndefined();
     });
 });
