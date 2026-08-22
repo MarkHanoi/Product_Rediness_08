@@ -246,6 +246,26 @@ files and **no snapshot suite**) · `tests/fixtures/drawing/` (SPEC-29) · `pack
 away is present and complete, while all three files of its named replacement are absent.** SPEC-30
 is marked `Active — normative` and **0 of its 7 cited paths resolve.** → **L-5510**
 
+### §3.5b ⚠ NOTE TO A FUTURE PATH-CHECKING GATE — these paths are QUOTED, not CITED
+
+Self-audited 2026-08-22: of the paths in backticks in this file, **32 resolve and 12 do not.**
+**All twelve are deliberate quotations of the broken citations catalogued in §3.1 and §3.5** — this
+document names them *because* they do not resolve. They are evidence, not claims about where code
+lives.
+
+`packages/drawing-canvas2d/` · `packages/drawing-svg/` · `packages/drawing-pdf/` ·
+`packages/drawing-dxf/` · `packages/geometry-kernel/edge-projection/` ·
+`packages/geometry-kernel/visibility/` · `packages/scene-cache/` ·
+`packages/drawing-primitives/__tests__/snapshots/` · `tests/fixtures/drawing/` ·
+`packages/stores/StyleStore.ts` · `packages/renderer/dirty-flags.ts` ·
+`packages/visibility/resolver.ts` — **all UNRESOLVED BY DESIGN. Status: `PLANNED`/quoted.**
+
+⭐ **This is the rule the gate proposed in §3.6 will need**, and stating it here is cheaper than
+discovering it as twelve false positives on the gate's first run. **An audit document is
+structurally full of paths that do not resolve; a checker that cannot distinguish *quoting a
+broken path* from *asserting a working one* will flag the audit hardest of all.** A gate that
+punishes the document reporting the defect is worse than no gate.
+
 ### §3.6 ⚠ Why no gate caught any of this
 
 `tools/ga-gate/check-contract-cited-paths.ts` asserts exactly this property — that every repo path
