@@ -1673,6 +1673,48 @@ occurs inside a frame callback). Anyone adding one must re-read this section fir
 ⚠ **Not yet measured in a browser. `drawCalls` as printed is not a reliable instrument (§2) — A/B
 with the kill switch and `renderer.info.render.calls` read across two frames.**
 
+### §9.4b — ⭐ NO GRAPHICS ARE COMPROMISED, and that is pinned by a test
+
+Founder, 2026-08-22: *"please don't compromise graphics while implementing what you are doing."*
+
+`three` r183 `WebGLShadowMap.render()` opens with **two separate guards**:
+
+```js
+if ( scope.enabled === false ) return;                                   // ← shadows OFF
+if ( scope.autoUpdate === false && scope.needsUpdate === false ) return; // ← THIS fix
+```
+
+Only the second is touched. The depth texture stays allocated and bound, and every material keeps
+sampling it — **shadows remain on screen at full resolution and full filtering.** "Not recomputed
+while the camera moves" is a different thing from "turned down", and the distinction is the whole
+argument.
+
+Nothing else moves either, verified rather than asserted:
+
+| lever | value | who could change it |
+|---|---|---|
+| `shadowMap.enabled` | untouched | the freeze never writes it |
+| `shadowMap.mapSize` | untouched (2048) | tier manager only |
+| `shadowMap.type` (PCF Soft) | untouched | tier manager only |
+| `light.castShadow` | untouched | the L-25 defect this replaced DID clear it |
+| the `ShadowDepthTexture` | never disposed | §FIX-SHADOW-MIDSUBMIT-DESTROY |
+| resolution / DPR / AA / materials | not in this path at all | — |
+
+`RenderPipelineManager.shadowFreeze.test.ts` (§NAV-SHADOW-NEVER-DOWNGRADES-QUALITY, L-3311) asserts
+each row, so a future change cannot reach for `enabled` or `mapSize` under the name of this
+optimisation.
+
+⚠ **The one honest staleness, stated rather than hidden:** a model mutation that lands *during* an
+active camera drag will not cast its shadow until the camera settles. It self-heals on `rest`/`sleep`
+(pointer release plus the damping tail), and the thaw carries `needsUpdate = true`, so the map is
+refreshed exactly once against the settled scene. It cannot persist past a drag.
+
+⭐ **And the shadow rig is anchored, not view-following** — a second reason the freeze is exact:
+`light.target.position.set(0, 0, 0)` at `RealSunService.ts:392, :486, :562` and a fixed
+`keyLight.position.set(10, 10, 10)` at `PascalSceneLighting.ts:291`. The sun has **no per-frame
+update path** (no frame subscription in `RealSunService`), so it moves only when the user or the date
+moves it — and that is a model change, which thaws.
+
 ### §9.5 — What is NOT closed, ranked for the 10–20× target
 
 1. **~5.9 meshes per element** (1947 meshes / 331 elements). This, not the shadow pass, is the

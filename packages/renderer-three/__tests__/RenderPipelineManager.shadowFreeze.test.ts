@@ -14,7 +14,17 @@
 //   (1) suppress(true)  → shadowMap.autoUpdate = false, NO dispose/destroy call;
 //   (2) suppress(false) → autoUpdate = true + needsUpdate = true (refresh once);
 //   (3) idempotent (repeat calls do not re-touch the map);
-//   (4) inert when WebGPU is not active (WebGL fallback owns its own shadowMap).
+//   (4) it freezes on the WebGL fallback TOO — see the inverted case at the bottom;
+//   (5) §NAV-SHADOW-NEVER-DOWNGRADES-QUALITY (L-3311) — the freeze must never reduce
+//       what is DRAWN. Founder, 2026-08-22: "please don't compromise graphics."
+//       three r183 WebGLShadowMap.render() opens with TWO separate guards:
+//           if ( scope.enabled === false ) return;                                  ← shadows OFF
+//           if ( scope.autoUpdate === false && scope.needsUpdate === false ) return; ← this fix
+//       Only the SECOND is touched. The depth texture stays bound and every material
+//       keeps sampling it, so shadows remain on screen at full resolution — they are
+//       not recomputed while the camera moves, which is a different thing from being
+//       turned down. The case below pins that distinction so no future "optimisation"
+//       can quietly reach for `enabled`, `castShadow`, or `mapSize` under this name.
 
 import { describe, expect, it, vi } from 'vitest';
 import { RenderPipelineManager } from '../src/pipeline/RenderPipelineManager.js';
@@ -26,6 +36,10 @@ function makeFakeRenderer() {
     const shadowMap = {
         autoUpdate: true,
         needsUpdate: false,
+        // Quality-bearing fields. NOTHING in the freeze path may write these.
+        enabled: true,
+        type: 'PCFSoftShadowMap',
+        mapSize: { width: 2048, height: 2048 },
         // If the code ever tried to tear the map down, these would fire — they MUST NOT.
         dispose: disposeSpy,
         map: { dispose: destroySpy, destroy: destroySpy },
@@ -107,6 +121,33 @@ describe('RenderPipelineManager.setShadowPassSuppressed (§FIX-SHADOW-MIDSUBMIT-
         // …and thawing resumes it and asks for exactly one refresh against the settled
         // scene, so a frozen map can never outlive the motion that froze it.
         rpm.setShadowPassSuppressed(false);
+        expect(shadowMap.autoUpdate).toBe(true);
+        expect(shadowMap.needsUpdate).toBe(true);
+    });
+
+    it('§NAV-SHADOW-NEVER-DOWNGRADES-QUALITY (L-3311) — freezing changes what is RECOMPUTED, never what is DRAWN', () => {
+        const rpm = new RenderPipelineManager();
+        const { shadowMap, disposeSpy, destroySpy } = makeFakeRenderer();
+        (rpm as unknown as { _renderer: unknown })._renderer = { shadowMap };
+
+        rpm.setShadowPassSuppressed(true);   // camera drag begins
+
+        // ⭐ THE WHOLE POINT. `enabled` is the flag that turns shadows OFF; the freeze
+        // must never touch it, or "faster navigation" silently becomes "no shadows".
+        expect(shadowMap.enabled, 'the freeze turned shadows OFF — this is a quality regression, not a perf win').toBe(true);
+        // Resolution and filtering are quality settings. A freeze is not a tier drop.
+        expect(shadowMap.mapSize).toEqual({ width: 2048, height: 2048 });
+        expect(shadowMap.type).toBe('PCFSoftShadowMap');
+        // And the texture the materials sample must still exist (§FIX-SHADOW-MIDSUBMIT-DESTROY).
+        expect(disposeSpy).not.toHaveBeenCalled();
+        expect(destroySpy).not.toHaveBeenCalled();
+
+        // Only this one flag moved.
+        expect(shadowMap.autoUpdate).toBe(false);
+
+        rpm.setShadowPassSuppressed(false);  // camera settles
+        expect(shadowMap.enabled).toBe(true);
+        expect(shadowMap.mapSize).toEqual({ width: 2048, height: 2048 });
         expect(shadowMap.autoUpdate).toBe(true);
         expect(shadowMap.needsUpdate).toBe(true);
     });
