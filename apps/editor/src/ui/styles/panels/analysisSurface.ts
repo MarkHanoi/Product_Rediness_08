@@ -49,7 +49,67 @@ export const ANALYSIS_SURFACE_STYLES = `
   background: var(--app-bg);
 }
 
-/* ── Header ─────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   HEADER — and the 44 px at the top of it is a MEASURED RESERVE, not padding
+   §ANALYSIS-HEADER-OCCLUDED (L-3600)
+   ═══════════════════════════════════════════════════════════════════════════
+
+   ⛔ THE DEFECT, MEASURED 2026-08-22. '#anl-surface' is 'position: fixed; top:
+   0' at 'z-index: 50'. Two pieces of always-on shell chrome are ALSO fixed at
+   the top of the viewport, at a FAR higher z-index, and both of them reach into
+   the right-hand half this panel owns:
+
+     .wmb-toplevel-wrapper  top: 6px  left: 50%  translateX(-50%)  z-index: 200
+         (SaveUndoRedoHUD + Author|Inspect|Analysis|Data + the level pill).
+         Centred on 50% of the VIEWPORT — which is exactly this panel's left
+         edge — so its right half lands on the panel's title, subtitle and the
+         start of the tab strip. That is the sliced subtitle in the report.
+         styles/panels/platform-shell/workspaceModeBar.ts:9-19
+     .cp-presence-strip     top: 8px  right: 8px                  z-index: 9990
+         Collaborator chips, 28 px tall, in the panel's top-RIGHT corner —
+         where '+ Add widget' / refresh / reset / info live.
+         styles/panels/collaborativePresence.ts:21-46
+
+   ⚠ NOT AN OCCLUDER, and it was the first suspect: '.plat-toolbar' (fixed, top:
+   0, left: 50%, z-index 9000). It is DETACHED FROM THE DOCUMENT — §L-MOUNT-DETACH,
+   PlatformProjectBrowser.ts:101-140, a founder decision of 2026-08-14 — so it
+   cannot overlap anything. C01 §6 rule 6: ABSENT and UNREACHABLE have opposite
+   fixes, and this one is absent.
+
+   ⭐ HOW INSPECT AVOIDS IT, and why this fix is different. Inspect re-centres the
+   floating bars over the left canvas half —
+   'body.pryzm-mode-inspect .wmb-toplevel-wrapper { left: 25% }'
+   (autonomous-auditor/inspectModeShell.ts:202). Analysis has no equivalent
+   because 'WorkspaceController._applyLayout()' toggles ONLY
+   'pryzm-mode-inspect'; there is no 'pryzm-mode-analysis' body class to hang the
+   rule on. That is the RIGHT fix and it belongs to the shell, not here (L-3601,
+   handed over rather than reached for).
+
+   So this panel does the half it can do alone, and it is the stronger half: it
+   REFUSES TO DRAW ANYTHING IN A BAND THE SHELL HAS ALREADY CLAIMED. That holds
+   whatever the shell later floats there, and it does not depend on a second
+   file staying in step.
+
+   THE NUMBER. Lowest edge of the two occluders, measured from their own sheets:
+     mode bar   6 + (3 + 24 + 3)  = 36 px   [wmb-bar padding 3, wmb-btn 5+14+5]
+     presence   8 + 28            = 36 px
+   Reserve = 36 + 8 clearance = 44 px. At the 768 px breakpoint '.wmb-btn' takes
+   'min-height: 36px', so the bar is 42 px and the reserve becomes 56 px.
+   ⚠ Those inputs are PINNED by analysisHeaderReserve.spec.ts — move one of them
+   and the test names this block, rather than the panel silently re-breaking.
+   ⛔ NOT a custom property: ARM C of §PANEL-BRAND-STANDARD resolves every
+   'var(--x)' in this sheet against tokens.ts, and a sheet-local property is
+   undeclared there by construction. The literal carries its derivation instead.
+
+   ── Visual language: the founder's second request, and it is Inspect's ────────
+   'it should look similar to Inspect … same UI design, colours and principles'.
+   So the header is now the SAME treatment '#aud-stack' uses (auditStack.ts:38-56):
+   the brand gradient plate, 'var(--app-on-accent)' text, uppercase tracking, the
+   header shadow, and header buttons on the on-accent veil rather than bordered
+   panel chips. Same tokens, same roles — no second palette (§PANEL-BRAND-STANDARD).
+   It also makes the reserve read as deliberate: the floating white pills sit on a
+   purple plate, the way they sit on the canvas in Author mode.
+   ─────────────────────────────────────────────────────────────────────────── */
 
 .anl-header {
   flex: 0 0 auto;
@@ -57,9 +117,10 @@ export const ANALYSIS_SURFACE_STYLES = `
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 16px 12px;
-  background: var(--app-panel-bg);
-  border-bottom: 1px solid var(--app-border);
+  padding: 58px 16px 12px; /* 44 reserve + 14 the header's own top padding */
+  background: var(--app-gradient);
+  box-shadow: var(--app-shadow-header);
+  color: var(--app-on-accent);
 }
 
 .anl-title-wrap { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -68,12 +129,14 @@ export const ANALYSIS_SURFACE_STYLES = `
   font-size: 11.7px;
   font-weight: 800;
   letter-spacing: 0.10em;
-  color: var(--app-accent);
+  text-transform: uppercase;
+  color: var(--app-on-accent);
 }
 
 .anl-title-sub {
   font-size: 9.9px;
-  color: var(--app-text-muted);
+  line-height: 1.45;
+  color: var(--app-on-accent-dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -87,21 +150,17 @@ export const ANALYSIS_SURFACE_STYLES = `
   gap: 4px;
   min-height: 24px;
   padding: 4px 10px;
-  border: 1px solid var(--app-border);
+  border: none;
   border-radius: var(--app-radius-sm);
-  background: var(--app-panel-bg);
-  color: var(--app-text-2);
+  background: var(--app-on-accent-veil);
+  color: var(--app-on-accent);
   font-family: var(--app-font);
   font-size: 10.8px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background 0.15s;
 }
-.anl-header-btn:hover {
-  background: var(--app-wash-hover);
-  color: var(--app-accent);
-  border-color: var(--app-accent);
-}
+.anl-header-btn:hover { background: var(--app-on-accent-veil-hover); }
 .anl-header-btn:focus-visible { outline: none; box-shadow: var(--app-focus-ring); }
 
 /* ── Status strip ───────────────────────────────────────────────────────── */
@@ -232,9 +291,18 @@ export const ANALYSIS_SURFACE_STYLES = `
 }
 .anl-strip--warn { border-left-color: var(--app-status-warning-line); background: var(--app-status-warning-bg); }
 .anl-strip--err  { border-left-color: var(--app-status-error-line);   background: var(--app-status-error-bg);   }
+/* ⛔ ADDED 2026-08-22 (§ANALYSIS-OK-STRIP-READ-AS-WARNING, L-3603). 'renderGraph()'
+   has always emitted 'anl-strip anl-strip--ok' for a HEALTHY liveness sentence,
+   and this sheet had no such rule — so the bare '.anl-strip' base applied and a
+   graph reporting 'LIVE — maintained off the StoreEventBus' rendered in amber on
+   the warning plate, identical to a truncation warning. On a surface whose whole
+   claim is that a warning means something, a permanent false amber is the fastest
+   way to teach a reader to discount the real ones. */
+.anl-strip--ok   { border-left-color: var(--app-status-success-line); background: var(--app-status-success-bg); }
 .anl-strip-text { font-size: 10.8px; line-height: 1.6; color: var(--app-text); }
 .anl-strip--err .anl-strip-text  { color: var(--app-status-error-ink); }
 .anl-strip--warn .anl-strip-text { color: var(--app-status-warning-ink); }
+.anl-strip--ok .anl-strip-text   { color: var(--app-status-success-ink); }
 
 .anl-note {
   margin: 0;
@@ -439,12 +507,19 @@ export const ANALYSIS_SURFACE_STYLES = `
 
 /* ── Picker / provenance sheet ─────────────────────────────────────────── */
 
+/* ⚠ 'top' CARRIES THE 44 px RESERVE TOO (§ANALYSIS-HEADER-OCCLUDED, L-3600).
+   The sheet is 'position: absolute' inside '#anl-surface', which is the fixed
+   containing block, so its offset is measured from the panel's own top edge —
+   the same edge the shell chrome sits on. It was 54 (just under the old header);
+   98 = 54 + 44 keeps it just under the new one instead of underneath the mode
+   bar, and the max-height loses the same 44 so the sheet still ends above the
+   panel's bottom rather than overflowing it. */
 .anl-picker {
   position: absolute;
-  top: 54px;
+  top: 98px;
   right: 16px;
   left: 16px;
-  max-height: calc(100% - 90px);
+  max-height: calc(100% - 134px);
   overflow-y: auto;
   z-index: 5;
   padding: 12px 13px;
@@ -495,6 +570,16 @@ export const ANALYSIS_SURFACE_STYLES = `
 @media (max-width: 1100px) {
   .anl-grid { grid-template-columns: minmax(0, 1fr); }
   .anl-card--wide { grid-column: 1 / -1; }
+}
+
+/* ── The reserve grows with the chrome it clears (§ANALYSIS-HEADER-OCCLUDED) ──
+   'workspaceModeBar.ts:73-84' gives '.wmb-btn' a 'min-height: 36px' at this
+   exact breakpoint (MOB-001-SC), so the bar becomes 3 + 36 + 3 = 42 px and its
+   lowest edge moves from 36 to 48. Reserve 56 = 48 + 8. This media query exists
+   BECAUSE that one does; if the mobile mode bar is ever re-sized, both move. */
+@media (max-width: 768px) {
+  .anl-header { padding-top: 70px; } /* 56 reserve + 14 */
+  .anl-picker { top: 110px; max-height: calc(100% - 146px); }
 }
 
 /* ── The relationship graph (ADR-0343 D.7, STR-14 4) ──────────────────────
@@ -603,15 +688,25 @@ export const ANALYSIS_SURFACE_STYLES = `
   color: var(--app-accent);
 }
 
-/* A tab on which EVERY widget is a refusal card says so before it is opened. */
+/* A tab on which EVERY widget is a refusal card says so before it is opened.
+
+   ⛔ CORRECTED 2026-08-22 (§ANALYSIS-TAB-CHIP-PHANTOM, L-3602). This rule shipped
+   as 'var(--app-warn, #b45309)' twice and broke §PANEL-BRAND-STANDARD in all
+   three of its hard-0 arms at once — ARM A (a raw hex), ARM B (a var() fallback),
+   ARM C (a PHANTOM: '--app-warn' is declared nowhere in tokens.ts, so the neon
+   fallback was what actually rendered). That is precisely the defect L-1740..
+   L-1744 fixed and shipped a guard for, re-opened by the commit that added the
+   tab strip. Measured: 'npx vitest run apps/editor/src/ui/styles/__tests__/
+   panelBrandStandard.spec.ts' -> 3 failed, all naming this file, before this fix.
+   The declared warning role is the '-bg / -line / -ink' triple. */
 .anl-tab-nb {
   font-size: 8.5px;
   font-weight: 800;
   letter-spacing: 0.08em;
   padding: 2px 5px;
   border-radius: 4px;
-  background: color-mix(in srgb, var(--app-warn, #b45309) 13%, transparent);
-  color: var(--app-warn, #b45309);
+  background: var(--app-status-warning-bg);
+  color: var(--app-status-warning-ink);
 }
 
 .anl-tab-lede {
