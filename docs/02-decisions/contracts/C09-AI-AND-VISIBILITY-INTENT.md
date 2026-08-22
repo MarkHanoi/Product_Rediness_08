@@ -249,6 +249,59 @@ photographed.
 **Consequence, accepted deliberately:** a derived overlay disappears whenever its subject does. That
 is the definition of an outline. An outline of something you cannot see is the defect.
 
+### §4.3.2 — HIDDEN IS NOT PICKABLE, AND INJECTED SYMBOLS ARE NOT EXEMPT (normative; L-3902/L-3903, 2026-08-22)
+
+**A drawing element the resolved intent does not paint MUST NOT be hit-testable, selectable, or
+otherwise reachable by the pointer. "What is drawn" and "what can be picked" MUST be decided by the
+SAME predicate, called from both paths — never by two expressions that happen to agree today.**
+
+⭐ **THE MEASUREMENT.** `PlanViewCanvas.render()` dropped a hidden line twice — VG
+`resolved.visible === false`, then the intent's `appearanceToPenStyle()` returning
+`{ widthMm: 0, opacity: 0 }` so the stroke painted at `globalAlpha = 0`. **`hitTest()` applied
+NEITHER.** It traversed every `LineSegments`, took the first `DrawingSelectionIndex` id inside the
+pixel threshold and returned it. A category switched off in the Visibility Intent panel stayed
+**fully selectable**: click blank paper, select the element that is not drawn, drag it, and an
+invisible thing moves. Measured RED for `A-FURN` **and** `A-WALL:cut` — this is not a
+symbol-builder problem, it is a canvas problem, and a per-family fix would have missed walls.
+
+⛔ **THE PREDICATE MUST BE SHARED, NOT DUPLICATED.** A second copy of the visibility test inside the
+pointer path is forbidden by this clause. The two copies drift the first time either is edited, and
+this repo has already paid for that shape twice in this very subsystem: `vgCategoryForLayer()`
+existed twice and the copies diverged (one lacked the ISO hyphen sub-layer arm, so `A-GLAZ-CUT` /
+`A-FURN-SHADOW` resolved to a null category), and L-1600 was seven hand-copied answers to "which
+layer is this line on", one of which had silently gone wrong. Encoded as
+`PlanViewCanvas._lineIsDrawn()` over `penCategoryForLayerTag()`.
+
+**Visibility is keyed on OPACITY, not width.** `ctx.lineWidth` is floored at one device pixel
+(§4.6.4e / L-288), so a `widthMm: 0` pen still lays down a hairline; it is `globalAlpha = 0` that
+makes a line invisible. Keying pickability on width would make the pointer disagree with the screen
+for any zero-width-but-visible pen.
+
+**§4.3.2a — AUTHORED SYMBOL INJECTION IS SUBJECT TO INTENT.** A producer that adds authored 2D
+linework AFTER the edge projection — a plan symbol, a swing arc, a walking line, a slope arrow —
+has no mesh counterpart and therefore never passed the projection's own intent veto. **Such
+producers MUST be gated on the bound intent for the element family they emit for**, and the gate
+MUST be resolved by the CALLER, once, not re-implemented inside each producer: visibility intent is
+a DOMAIN concept (P7) and does not belong in `packages/geometry-*`, which exist to do geometry
+maths.
+
+> Measured 2026-08-22 over all fifteen `*SymbolBuilder*` / `*SymbolTechnicalDrawingBridge*` files:
+> `grep -icE "visibilityIntent|isVisible|categoryVisible|vgOverride"` → **0 of 15**. Encoded as
+> `makeSymbolInjectionGate()` (`presentation/SymbolInjectionGate.ts`), constructed once in
+> `EdgeProjectorService`.
+
+⚠ **THIS CLAUSE DOES NOT CLAIM THAT UNGATED INJECTION MADE HIDDEN ELEMENTS VISIBLE.** It did not —
+the canvas drops them, and that was measured before the gate was written. The cost of ungated
+injection is everything DOWNSTREAM of the canvas, where no alpha is applied: the drawing carries
+geometry for a switched-off category, the selection index records it, and the work is redone every
+re-projection. Stating the narrower true claim rather than the broader convenient one.
+
+**The gate MUST FAIL OPEN.** An unbound view, a missing intent or a resolver throw resolve to
+"inject". A gate that failed closed would silently delete authored linework from a drawing whenever
+intent resolution had a bad day — strictly worse than the unconditional injection it replaces.
+**Absence of a decision is not a hide** (§4.5.1: a default is not an override, in its other
+direction).
+
 ### §4.4 — Intent lifecycle
 
 1. A plugin or AI workflow creates an `IntentProposal` and dispatches `ApplyVisibilityIntentCommand`.
@@ -364,7 +417,7 @@ geometry — never a per-element flag, and never a property of the (element, vie
 |---|---|---|---|---|
 | plan / ceiling-plan / structural-plan / detail | the solid ∩ the horizontal cut plane | solid between the cut plane and the view range's near/below bound | solid beyond the view range | *(occlusion only — §4.6.5)* |
 | section | the solid ∩ the section plane | solid within the projection depth behind the plane | solid beyond the projection depth | *(occlusion only — §4.6.5)* |
-| elevation | **empty by definition** — an elevation slices nothing (`ViewScope.cut = false`) | the façade: solid within the near depth band | receding solid behind it | *(occlusion only — §4.6.5)* |
+| elevation | **NOT empty** — see the correction below: the solid the elevation plane is drawn THROUGH (`ViewScope.cut = false` selects the SECTION ROUTING branch, it does not mean "no cut band") | the façade: solid within the near depth band | receding solid behind it | *(occlusion only — §4.6.5)* |
 
 **The `HIDDEN` column is deliberately empty of geometry rules.** It is not a band of space. The
 first three columns are **depth/range** classifications and produce **only** SOLID linework;
@@ -372,6 +425,21 @@ first three columns are **depth/range** classifications and produce **only** SOL
 
 `ViewScope` (`packages/core-app-model/src/views/ViewScope.ts`) is the ONE encoding of this
 table. `viewPlane.isVertical` is the only legitimate difference between the three consumers.
+
+> ⚠ **CORRECTED 2026-08-22 (lane VIEW6, L-3904) — the elevation CUT cell read *"empty by
+> definition — an elevation slices nothing"*, and it had been false for months.** `ViewScope.ts`
+> carries its own correction notice saying so: §ELEV-LINEWEIGHT (**L-182**) makes
+> `EdgeProjectorService` emit a `:cut` layer for elevations too, for geometry the elevation plane is
+> drawn THROUGH, so the heavy cut pen can establish the weight hierarchy.
+>
+> **The confusion is the `ViewScope.cut` flag, which does not mean what its name suggests here.** It
+> selects `EdgeProjectorService`'s SECTION ROUTING branch. It is `false` for elevation because the
+> elevation branch emits its own `:cut` linework (L-182) — **not** because there is no cut band.
+> Reading the flag as "an elevation has no cut" is what kept this row wrong, and what kept
+> §4.6.2's poché sentence wrong beside it.
+>
+> **Read `ViewScope.ts`, never this table**, and when they disagree the code is the newer fact here —
+> raise the correction in place rather than restating the flag.
 
 ---
 
@@ -437,7 +505,41 @@ per-(category × zone) graphic property of the intent — exactly like a pen wei
 through the same intent → pen/graphics table → layer chain, so a view can override it and a
 template can carry it. The **system default is a LIGHT GREY** (`ISO_CUT_LAYER_TO_POCHE_FILL`);
 the dense near-black poché is an EXPLICIT `construction-docs` purpose modifier, not the
-default. Elevations have no cut and therefore no poché (`ViewScope.poche = false`).
+default.
+
+**§4.6.2a — ELEVATION POCHÉ IS *VIEW-TYPE-DECLARED*, NEVER INHERITED** *(normative; corrects
+§4.6.2 in place — lane VIEW6, L-3904, 2026-08-22; the clause implements L-1601)*
+
+⚠ **§4.6.2 used to end: *"Elevations have no cut and therefore no poché (`ViewScope.poche =
+false`)."* BOTH HALVES ARE FALSE.** An elevation HAS a cut band (§4.6.1, corrected above) and
+`_ELEVATION_SCOPE.poche` is **`true`** — §ELEVATION-POCHE-IS-INTENT-DECLARED (**L-1601**) turned it
+on, and `PlanViewCanvas._renderPocheFills()` runs for elevations today.
+
+**The normative rule.** An elevation MUST paint a cut fill **only** where the bound intent declares
+one **for the elevation view type** — a `viewTypeProfiles['elevation']` entry or a
+`viewTypeModifiers` row scoped to it (`viewTypeDeclaresCutFill()`). The
+`ISO_CUT_LAYER_TO_POCHE_FILL` default and the VG template seed are **NOT fallbacks** for an
+elevation, and **a fill inherited from the intent's BASE element rules is NOT a declaration.**
+
+⭐ **WHY INHERITANCE MUST NOT COUNT — measured twice.** Every system intent seeds PLAN poché tones
+on its base element rules (slab `#dcdcdc`, wall `#c9c9c9`). An elevation that merely asked *"does
+the resolved cut appearance have a fill?"* would answer YES for every category in every project and
+paint the whole façade grey — which is §FIX-ELEVATION-POCHE (**L-119**) recurring in a lighter
+colour. L-1601 measured exactly that on its first cut, and this predicate is what the failing arm
+forced.
+
+⛔ **CONSEQUENCE THE UI MUST DISCLOSE (normative).** The Element Rules surface writes BASE rules, so
+a cut fill set there is inert for elevations *by this clause*. **A control that stores a value which,
+for a whole view family, nothing can ever draw MUST say so at the point of entry and MUST name the
+surface that does work** — here, the View Modifiers tab. Storing it silently is a defect of the same
+family as a gate whose "yes" branch is unreachable from the UI. Implemented by
+`VisibilityIntentPanel.renderElevationPocheNote()`, scoped to the `cut` state (on any other state
+the sentence would be false).
+
+Both directions are pinned by `apps/editor/__tests__/elevationCutPocheIsIntentDeclared.test.ts`:
+arm 1 — a declared elevation cut fill FILLS; arm 2 — no declaration fills NOTHING. Arm 2 is what
+makes arm 1 safe to ship: a suite with only arm 1 would pass on a build that fills unconditionally,
+i.e. on the L-119 regression.
 
 **§4.6.3 — A LAYERED element pochés PER LAYER.** Where an element stores a construction
 build-up (`wall.layers`, `slab.layers`, …), the cut region is subdivided into one filled
