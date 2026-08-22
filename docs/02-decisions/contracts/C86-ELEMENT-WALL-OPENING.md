@@ -1297,7 +1297,22 @@ new attribute in the Properties panel, like frame width but **offset wide**"* an
 basically has **angles inwards** — the **angle, which will define the size of the glass**; and the
 **side** of the windows (top / bottom / left / right / all / multiple)"*.
 
-Five persisted fields on **`Window`** (L0) and **`WindowOpening`** (runtime), all defaulting to `0`:
+> ⛔ **AMENDED 2026-08-22 (lane WIN5, L-3410 … L-3416) — the reveal is now SIX fields, and the
+> sixth governs the other five.** `revealDirection: 'outdoor' | 'indoor'` (default `'outdoor'`)
+> selects **which wall face** the whole reveal runs from — the projecting box AND the splay, because
+> ADR-0342 §2 binds them to one geometry rule. It is resolved to a single SIGN inside
+> `WindowReveal`, so the two cannot land on different faces.
+>
+> The founder reported the reveal appearing on the INDOOR face; `EXTERIOR_LOCAL_Z` was measured to
+> be **declared and never consumed** (zero production readers) and is now `+1` and wired. Full
+> reasoning, including why the face is AUTHORED rather than resolved from topology
+> (`WallData.frontSide`/`backSide` has **zero writers repo-wide** — UNREACHABLE, not MISSING,
+> C01 §6 rule 6), is in the amendment box at **ADR-0342 §3.2**. Exposed in the Properties panel and
+> via RAC (`set the reveal direction to outdoor` / `what is the reveal direction`) — the first
+> ENUM in the RAC property vocabulary, per C67.
+
+Six persisted fields on **`Window`** (L0) and **`WindowOpening`** (runtime): `revealDirection`
+(the face, default `'outdoor'`) and five defaulting to `0` —
 `revealProjection` (signed metres) and `revealSplayHead` / `revealSplaySill` / `revealSplayJambLeft`
 / `revealSplayJambRight` (degrees, `0 … 85`).
 

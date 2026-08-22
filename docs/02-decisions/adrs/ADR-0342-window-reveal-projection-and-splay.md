@@ -76,6 +76,58 @@ Chosen: **`revealProjection`**, with the splay fields as `revealSplayHead` / `re
 the point of use that these five fields are ONE model, which is precisely the fact a future editor
 must not lose. `projectionDepth` would have named the first ask well and orphaned the second.
 
+> ⛔ **§3.2 IS AMENDED — 2026-08-22, lane WIN5 (L-3410 … L-3413). Read this box before the section
+> below it; the section's CONCLUSION is inverted and its METHOD is the finding.**
+>
+> The founder, looking at the built model: *"the reveal projection and splay are applied to the
+> WRONG SIDE — both currently modify the INDOOR face."* **`EXTERIOR_LOCAL_Z` is now `+1`.**
+>
+> **Two things were measured before the literal was touched, and the FIRST matters more than the
+> second:**
+>
+> 1. ⭐ **The constant was UNREACHABLE.**
+>    `grep -rn EXTERIOR_LOCAL_Z packages/ apps/ src/ plugins/` → **7 hits: the declaration, a
+>    barrel re-export, three prose comments, and one test asserting its own value. ZERO production
+>    consumers.** The geometry hard-coded its sign as a literal `-` in
+>    `zOuterFace = -run - projection`. So everything §3.2 establishes was **documentation the
+>    geometry was never bound to** — and the test suite asserted that the model AGREED WITH ITSELF
+>    (the constant said −1, the arithmetic used −1, the test asserted −1). **Three self-consistent
+>    statements of one fact are not three pieces of evidence.** The constant is CONSUMED now, via
+>    `revealOutwardSign()`, which is the only place a direction becomes a sign.
+>
+> 2. **§3.2's own recorded contradiction was the tell, and it was written down rather than
+>    resolved.** This ADR logged L-1926: `_addSillBoard` places the sill at `+z` commented
+>    *"toward exterior"*, directly against the constant, *"one of the two is wrong and it is the
+>    sill comment"* — and left the board alone. **It was not the sill comment.** The founder's
+>    observation of the running app resolves the contradiction in the SILL's favour, and the two
+>    agree for the first time. Per [[probe-can-be-wrong-three-ways]], an observation at the layer
+>    the user experiences outranks a derivation from three module headers, which is what §3.2 was.
+>
+> **What §3.2 still gets RIGHT, and must not be lost in the correction:** that there must be exactly
+> ONE statement of which side is outside, that it must be a persisted authored fact and never a
+> render-time heuristic, and that no consumer may re-derive it. Those hold; only the value moved.
+>
+> ⭐ **AND THE FACE IS NOW A USER CHOICE — `revealDirection: 'outdoor' | 'indoor'`** (Properties
+> panel + RAC, modelled on the door's `Swing: Inward | Outward`). It resolves to a **sign** that
+> every z-expression in `WindowReveal` multiplies by, so §2's ONE-model rule is kept **by
+> construction**: the projecting box and the splay cannot land on different faces. `'indoor'`
+> reproduces the pre-amendment geometry exactly.
+>
+> **Why the direction is AUTHORED and not resolved from topology — measured, not preferred.**
+> `WallData.frontSide`/`backSide` (`interior | exterior | unknown`) is declared in THREE schemas
+> and `grep -rnE "(frontSide|backSide)[[:space:]]*[:=]"` over `packages/ plugins/ apps/ src/
+> server/` returns **ZERO writers**. That is UNREACHABLE, not MISSING (C01 §6 rule 6), and
+> `WallSideFinishResolver` already refuses to guess it. The door's `swingDirection` is likewise
+> purely authored — `DoorSwingVocabulary` is a MAPPER, not a resolver, so there was no prior-art
+> resolver to reuse. The panel says the side is the user's choice, not a detected value.
+>
+> 🔴 **NOT VERIFIED IN A BROWSER by the amending lane.** The flip rests on the founder's report. If
+> it is wrong, the fix is ONE literal — never a second code path.
+>
+> **C84 EI-2 survives:** an unauthored window short-circuits before any sign is read;
+> `StraightHostLeafByteIdentical` passes unchanged. A window that DID author a reveal moves to the
+> other face, which is the correction requested.
+
 ### 3.2 · Which face is "outside" — MEASURED, and there is now exactly one answer
 
 A wall has two faces, and `WallSideFinishResolver`'s header explicitly **refuses** to supply the

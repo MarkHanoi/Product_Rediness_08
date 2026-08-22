@@ -145,3 +145,59 @@ describe('§B — ⛔ a host that cannot carry the shape REFUSES, out loud', () 
         expect(res.success).toBe(true);
     });
 });
+
+// ── §C (WIN5, 2026-08-22, L-3420) — THE RETURN JOURNEY, AND WHAT MEASURING IT FOUND ──────
+//
+// The founder reported: *"changing a window from Circular to Rectangular leaves the wall
+// opening in the old shape."* §A above only ever drives rectangular → X, so the leg he
+// named had never been run.
+//
+// ⭐ **IT WAS RUN, AND THE STORE PATH IS SOUND.** Circular → rectangular lands on BOTH the
+// windowStore record and `wall.openings[]` — the record every wall-body arm consumes. So
+// the defect is NOT in the command, NOT in the two-store mirror, and NOT in
+// `_resolveProfilePatch`. That is a NEGATIVE result and it is recorded rather than
+// discarded, because the next reader would otherwise re-measure the same three files.
+//
+// 🔴 **WHAT IS THEREFORE STILL UNEXPLAINED, NAMED RATHER THAN IMPLIED AWAY.** The founder's
+// symptom is real and this lane did not reproduce it, so it is a RENDER-layer question this
+// suite cannot reach: whether the wall's fragment/CSG cache re-cuts, whether an instanced
+// window reuses a cached geometry, or whether the panel dispatched a different route
+// entirely. Not verified in a browser by this lane.
+//
+// ⚠ ONE REAL PROFILE-LOSS PATH WAS FOUND WHILE MEASURING, and it is NOT this one:
+// `WallStore.updateWindow`'s self-heal branch (`if (!matched)`) re-creates a missing opening
+// from the window record and does **not** carry `openingProfile` — so a window that has been
+// through an out-of-bounds edit comes back RECTANGULAR whatever it was. Left untouched here
+// because `WallStore.ts` is held by another lane (the L-1252 note in
+// `UpdateWindowParameterCommand._syncWallStore` says so in as many words); logged as L-3421.
+describe('§C — circular → rectangular, the founder-reported direction', () => {
+    beforeEach(() => seed());
+
+    it('⭐ the return leg lands on wall.openings[] — the record the geometry reads', () => {
+        expect(new UpdateWindowParameterCommand(WINDOW_ID, { openingProfile: 'circular' } as never, {} as never)
+            .execute(ctx()).success).toBe(true);
+        expect(openingNow()?.openingProfile).toBe('circular');   // non-vacuity for the leg below
+
+        const back = new UpdateWindowParameterCommand(WINDOW_ID, { openingProfile: 'rectangular' } as never, {} as never)
+            .execute(ctx());
+        expect(back.success).toBe(true);
+        expect(standaloneWindowStore.getById(WINDOW_ID)?.openingProfile).toBe('rectangular');
+        expect(openingNow()?.openingProfile).toBe('rectangular');
+    });
+
+    it('⚠ the SQUARING IS NOT REVERSED, and that is a real (smaller) finding — L-3422', () => {
+        // Going to `circular` carries height down to width (C86 §10.1 PR-8: width IS the
+        // diameter). Coming BACK does not restore the original height, because nothing
+        // remembers it — the window was seeded 1.2 x 1.5 and returns as 1.2 x 1.2.
+        //
+        // ⛔ THIS IS PINNED AS THE CURRENT BEHAVIOUR, NOT ENDORSED. Restoring it would need
+        // the pre-circular height stored somewhere, and inventing a height on the way back
+        // would be worse than losing one. The user can see the number and retype it; a
+        // silently invented 1.5 they did not ask for, they cannot see.
+        new UpdateWindowParameterCommand(WINDOW_ID, { openingProfile: 'circular' } as never, {} as never).execute(ctx());
+        new UpdateWindowParameterCommand(WINDOW_ID, { openingProfile: 'rectangular' } as never, {} as never).execute(ctx());
+        const win = standaloneWindowStore.getById(WINDOW_ID)!;
+        expect(win.width).toBe(1.2);
+        expect(win.height).toBe(1.2);      // was 1.5 before the round trip
+    });
+});
