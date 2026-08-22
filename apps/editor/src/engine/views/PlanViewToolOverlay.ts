@@ -86,6 +86,19 @@ export class PlanViewToolOverlay {
      *  §GRID-BUTTON-CENSUS: a CHILD of the canvas pane ('.vco-create-btn'), never body-parented. */
     private _createActionBtn: HTMLButtonElement | null = null;
 
+    /**
+     * §FIX-PLAN-TOOL-POINTER-UNREACHABLE (L-7002) — true while the ACTIVE tool was
+     * armed PROGRAMMATICALLY (`setActiveTool`) rather than by the ToolManager.
+     *
+     * The plan-only families (`pool`, `balcony`) and the ContextualEditBar's transient
+     * tools are armed this way and are invisible to the ToolManager, so a ToolManager
+     * `'none'` notification must not be read as "put that tool away". See the
+     * subscription in `attach()` for the measurement — the twin of the guard in
+     * `SvpPlanToolOverlay`, applied here so the two plan surfaces cannot disagree
+     * about when a tool is armed (the L-73 parity rule).
+     */
+    private _programmaticTool = false;
+
     private readonly _boundMouseDownCapture = this._onMouseDownCapture.bind(this);
     private readonly _boundMouseMove        = this._onMouseMove.bind(this);
     private readonly _boundMouseUp          = this._onMouseUp.bind(this);
@@ -163,6 +176,16 @@ export class PlanViewToolOverlay {
             this._updateCursor();
             this._activateHandler(this._activeTool);
             this._toolUnsub = tm.subscribe((tool: string) => {
+                // ⛔ §FIX-PLAN-TOOL-POINTER-UNREACHABLE (L-7002) — see the twin guard in
+                // `SvpPlanToolOverlay.attach`. A plan-only tool (`pool`, `balcony`) has
+                // no `TOOL_MANAGER_TOOL_KEYS` entry by design, so the ToolManager can
+                // neither own it nor know it is armed; its `'none'` means "the
+                // TOOLMANAGER has no tool", which is already true and says nothing
+                // about this overlay. Before this guard the very next `deactivateAll()`
+                // silently disarmed the tool with nothing on screen changing —
+                // measured, and one cause of the founder's repeated palette clicks.
+                if (this._programmaticTool && tool === 'none') return;
+                this._programmaticTool = false;
                 this._deactivateHandler();
                 this._activeTool = tool;
                 if (!this._paused) {
@@ -200,6 +223,7 @@ export class PlanViewToolOverlay {
         if (!this._active) return;
         this._active = false;
         this._paused = false;
+        this._programmaticTool = false;
 
         this._toolUnsub?.();
         this._toolUnsub = null;
@@ -276,8 +300,18 @@ export class PlanViewToolOverlay {
             console.warn('[PlanViewToolOverlay] setActiveTool called while not attached — ignored');
             return;
         }
+        // ⭐ §FIX-PLAN-TOOL-POINTER-UNREACHABLE (L-7001) — IDEMPOTENT RE-ARM, the twin
+        // of the guard in `SvpPlanToolOverlay.setActiveTool`. Re-arming the tool that
+        // is ALREADY armed used to tear the handler down and build a new one, which
+        // discarded any in-progress stroke and logged a fresh activation every time —
+        // the founder saw `Handler activated: balcony` x11, x8, x5.
+        if (tool === this._activeTool && this._activeHandler !== null) {
+            this._programmaticTool = true;
+            return;
+        }
         this._deactivateHandler();
         this._activeTool = tool;
+        this._programmaticTool = tool !== 'none';
         this._updateCursor();
         if (tool !== 'none') {
             this._activateHandler(tool);

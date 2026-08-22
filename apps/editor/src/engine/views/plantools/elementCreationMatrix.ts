@@ -588,13 +588,43 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
     },
     {
         tool: 'lift', label: 'Lift',
-        views: ['3d'], modes: [], autoIn: [], modeSource: 'n/a',
-        gap: 'NOT IMPLEMENTED — 3D-ONLY. `ToolManager.activateLift` publishes the ' +
-             "'lift' tool key but `planToolHandlerRegistry` has no LiftPlanToolHandler, " +
-             'so the plan overlays resolve no handler and the tool is inert in plan. ' +
-             'A lift is a placed footprint like a column — plan is the NATURAL surface ' +
-             'for it. This is the clearest violation of the founder\'s principle in the ' +
-             'matrix and the highest-value next fix.',
+        // §FIX-LIFT-UNREACHABLE (founder, 2026-08-22) — L-7020..L-7024 · C104 · ADR-0325.
+        //
+        //   "Lift — it should be under Architecture, but could not see it!"
+        //
+        // ⚠ THIS ROW USED TO READ `views: ['3d']` AND CALL THE PLAN ARM "the highest-
+        // value next fix". It is now built, so the row moves — and the row and the
+        // capability move TOGETHER, which is the rule this repo has broken five times
+        // in a different file and is not breaking again here.
+        //
+        // `LiftPlanToolHandler` is in the shared plan registry, so BOTH plan surfaces
+        // have it (L-73), and it dispatches `lift.create` — the C104 COMPOUND.
+        views: ['plan', '3d'],
+        // ⛔ NO MODE STRIP, DELIBERATELY. A lift is placed with ONE click, and the only
+        // axis that varies — wall-hosted vs standalone-glass enclosure — is resolved
+        // from the CURSOR (a wall within 1.5 m ⇒ hosted against it) because
+        // `LiftCompoundSchema` refuses `wall-hosted` without a `hostWallId`. Offering a
+        // "wall-hosted" pill with no wall under the cursor would be a control that
+        // reports a capability the payload cannot carry — C84 EI-3, and the exact
+        // §FIX-STAIR-SHAPE-DESYNC defect. The preview hint names which enclosure the
+        // next click will place, so the choice is VISIBLE without being a fake control.
+        modes: [],
+        // No AUTO. Where a lift core goes is the architect's decision — the residential
+        // and office generators place cores in BATCH, which is not a creation MODE of
+        // this tool. "Not applicable" and "not implemented" are different answers (this
+        // file's own rule), and this is the former.
+        autoIn: [],
+        modeSource: 'n/a',
+        gap: 'TWO gaps, named rather than implied. (1) THE 3-D ARM AND THE PLAN ARM '
+           + 'CREATE DIFFERENT THINGS. `ToolManager.activateLift` drives the LEGACY '
+           + 'MASSING command `CreateVerticalCirculationCommand`, NOT `lift.create`; '
+           + 'the plan arm drives the C104 compound. `PluginRegistry.ts` records the '
+           + 'same divergence (L-5709). The palette now offers the COMPOUND only — one '
+           + 'word, one result — and the massing command stays where it is actually '
+           + 'used, in the residential/office batch executors. Collapsing the 3-D '
+           + 'activator onto `lift.create` is L-7040. (2) `ChatCommandClassification` '
+           + 'classifies `lift.create` class B, so the AI chat route still refuses it '
+           + '(L-5710).',
     },
 
     // ── Spatial + services ───────────────────────────────────────────────────

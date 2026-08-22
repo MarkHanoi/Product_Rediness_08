@@ -41,6 +41,11 @@ import { PoolPlanToolHandler }         from './PoolPlanToolHandler';
 // Registered after slab because a balcony's plate IS a slab; the tool itself hosts on
 // a WALL (C15), which is why it sits beside the door/window pair conceptually.
 import { BalconyPlanToolHandler }      from './BalconyPlanToolHandler';
+// §FIX-LIFT-UNREACHABLE (L-7020) — the plan route that makes the C104 lift COMPOUND
+// reachable. Registered beside the stair because both are vertical circulation, and a
+// lift is a placed footprint the way a column is: plan is its natural surface, which is
+// exactly what `elementCreationMatrix` named as the matrix's highest-value open hole.
+import { LiftPlanToolHandler }         from './LiftPlanToolHandler';
 import { StairPlanToolHandler }        from './StairPlanToolHandler';
 import { StairPathPlanToolHandler }    from './StairPathPlanToolHandler';
 import { BeamPlanToolHandler }         from './BeamPlanToolHandler';
@@ -85,7 +90,7 @@ const _registryTracer = trace.getTracer('@pryzm/editor.plan-tool-registry', '0.1
 /** The canonical, ordered list of every plan-view tool key. */
 export const PLAN_TOOL_KEYS = [
     'wall', 'room', 'column', 'linear-dim', 'door', 'window', 'slab', 'pool',
-    'balcony', 'stair',
+    'balcony', 'lift', 'stair',
     'stair-path', 'beam', 'roof', 'curtain-wall', 'ceiling', 'floor', 'railing',
     'furniture', 'lighting', 'plumbing', 'opening', 'grid', 'section-mark',
     'elevation-mark', 'move', 'rotate', 'align', 'copy-place', 'text-note', 'element-tag',
@@ -125,6 +130,13 @@ export function createPlanToolHandlers(): Record<string, PlanToolHandler> {
                 // it in this shared factory is what gives BOTH plan surfaces the tool
                 // at once (the L-73 parity guarantee) rather than only the main overlay.
                 'balcony':            new BalconyPlanToolHandler(),
+                // §FIX-LIFT-UNREACHABLE (L-7020) — a lift is VERTICAL CIRCULATION,
+                // so it sits next to the stair. Registering it in this shared factory
+                // is what gives BOTH plan surfaces the tool at once (the L-73 parity
+                // guarantee) rather than only the main overlay — the L-1380 defect the
+                // lift's palette row had already committed once, by landing on
+                // `CreatePanelLayout` and not on `CreateRailPanel`.
+                'lift':               new LiftPlanToolHandler(),
                 'stair':              new StairPlanToolHandler(),
                 'stair-path':         new StairPathPlanToolHandler(),
                 'beam':               new BeamPlanToolHandler(),

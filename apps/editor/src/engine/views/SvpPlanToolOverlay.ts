@@ -96,6 +96,16 @@ export class SvpPlanToolOverlay {
     private _activeTool:    string            = 'none';
     private _activeHandler: PlanToolHandler  | null = null;
     private _toolUnsub:     (() => void)     | null = null;
+    /**
+     * §FIX-PLAN-TOOL-POINTER-UNREACHABLE (L-7002) — true while the ACTIVE tool was
+     * armed PROGRAMMATICALLY (`setActiveTool`) rather than by the ToolManager.
+     *
+     * The plan-only families (`pool`, `balcony`) and the ContextualEditBar's transient
+     * tools are armed this way and are invisible to the ToolManager, so a ToolManager
+     * `'none'` notification must not be read as "put that tool away". See the
+     * subscription in `attach()` for the measurement.
+     */
+    private _programmaticTool = false;
 
     // Last snap result (for drawing indicator in onMouseMove).
     // Contract 32 — snapType is the full universal-snap union.
@@ -209,6 +219,27 @@ export class SvpPlanToolOverlay {
         if (tm?.subscribe) {
             this._activeTool = tm.getActiveTool?.() ?? 'none';
             this._toolUnsub  = tm.subscribe((tool: string) => {
+                // ⛔ §FIX-PLAN-TOOL-POINTER-UNREACHABLE (L-7002) — DO NOT CLOBBER A
+                // PLAN-ONLY TOOL WITH THE TOOLMANAGER'S IDLE STATE.
+                //
+                // MEASURED, 2026-08-22, before this guard: arm `balcony` through the
+                // palette (`activatePlanOnlyTool` -> `setActiveTool('balcony')`), then
+                // let the ToolManager notify `'none'` — as it does on EVERY
+                // `deactivateAll()`, which selection, Escape and half the UI trigger.
+                //   `isPlacing()` true  ->  notify('none')  ->  `isPlacing()` FALSE.
+                // The tool disarmed itself with nothing on screen changing, and the
+                // user's next click did nothing. That is one measured cause of the
+                // founder's `Handler activated: balcony` x11: a person re-arming a tool
+                // that keeps putting itself away.
+                //
+                // A plan-only tool (`pool`, `balcony`) has NO `TOOL_MANAGER_TOOL_KEYS`
+                // entry by design, so the ToolManager can neither own it nor know it is
+                // armed. `'none'` from the ToolManager therefore means "the TOOLMANAGER
+                // has no tool", which is ALREADY TRUE and says nothing about this
+                // overlay. A notification naming a REAL tool is different — that tool
+                // genuinely takes over, and the branch below runs as it always did.
+                if (this._programmaticTool && tool === 'none') return;
+                this._programmaticTool = false;
                 this._deactivateHandler();
                 this._activeTool = tool;
                 if (this._svpFocused && !this._paused) {
@@ -227,6 +258,7 @@ export class SvpPlanToolOverlay {
         this._active     = false;
         this._svpFocused = false;
         this._paused     = false;
+        this._programmaticTool = false;
 
         this._toolUnsub?.();
         this._toolUnsub = null;
@@ -354,8 +386,23 @@ export class SvpPlanToolOverlay {
                     // IS attached (see ContextualEditBar._activatePlanTool). No warning noise.
                     return;
                 }
+                // ⭐ §FIX-PLAN-TOOL-POINTER-UNREACHABLE (L-7001) — IDEMPOTENT RE-ARM.
+                // Arming the tool that is ALREADY armed used to tear the handler down
+                // and build a new one, which (a) discarded any in-progress stroke — a
+                // half-drawn pool outline evaporating because the user clicked the
+                // palette row again to check it had "taken" — and (b) is one measured
+                // cause of the founder's `Handler activated: balcony` repeating x11,
+                // x8, x5. A second click on the same row is now a no-op, exactly as a
+                // second press of an already-pressed toggle should be.
+                if (tool === this._activeTool && this._activeHandler !== null) {
+                    this._programmaticTool = true;
+                    span.setAttribute('pryzm.svp.armed', true);
+                    span.setAttribute('pryzm.svp.rearm_skipped', true);
+                    return;
+                }
                 this._deactivateHandler();
                 this._activeTool = tool;
+                this._programmaticTool = tool !== 'none';
                 this._updateCursor();
                 if (tool !== 'none') {
                     this._activateHandler(tool);

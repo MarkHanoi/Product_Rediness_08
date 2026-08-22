@@ -139,7 +139,12 @@ describe('§FEAT-DUAL-VIEW-CREATION-MATRIX — the creation matrix is real, not 
             // ⭐ `balcony` is plan-only DELIBERATELY, not pending: a hosted compound is
             // placed against a facade in plan. The 3-D arm needs a `ToolManager`
             // activator and is declared as a gap on the row itself.
-            expect(gaps).toEqual(['balcony', 'lift', 'lighting', 'pool']);
+            //
+            // ⭐ UPDATED 2026-08-22 (§FIX-LIFT-UNREACHABLE, L-7020): `lift` LEFT this
+            // ledger because `LiftPlanToolHandler` shipped, so the row now declares
+            // BOTH views and the list SHRANK — which this comment's own instruction
+            // says to tighten for, not to absorb. It was four; it is three.
+            expect(gaps).toEqual(['balcony', 'lighting', 'pool']);
         });
 
         it('reports the LATENT mode-desync risks (the shape of the founder\'s AUTO bug)', () => {

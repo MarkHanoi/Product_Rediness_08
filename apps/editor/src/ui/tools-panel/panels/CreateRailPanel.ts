@@ -739,6 +739,40 @@ export class CreateRailPanel {
                         },
                     },
                     {
+                        // §FIX-LIFT-UNREACHABLE (founder, 2026-08-22) — L-7020..L-7024 · C104.
+                        //
+                        //   "Lift — it should be under ARCHITECTURE, but could not see it!"
+                        //
+                        // ⛔ C01 §6 RULE 6, AND THE VERDICT DIFFERED PER SURFACE.
+                        // Measured before this row existed:
+                        //   rg -n "lift" apps/editor/src/ui/tools-panel/panels/CreateRailPanel.ts
+                        //     ->  0 hits.  On THIS surface the lift was ABSENT.
+                        //   CreatePanelLayout.ts:300  ->  a row existed, under STRUCTURE.
+                        // So one surface had nothing and the other had it filed where the
+                        // founder was not looking. That split is L-1380 exactly — two live
+                        // create surfaces, a capability added to one — and it is why this row
+                        // and the `CreatePanelLayout` one land in the SAME commit.
+                        //
+                        // ⭐ AND IT IS UNDER ARCHITECTURE, WHERE HE ASKED FOR IT. A lift is
+                        // vertical circulation: it belongs beside the stair and the handrail,
+                        // not beside the beam. The old Structure filing was not a typo — it
+                        // was the massing-era lift, which is a different object (see below).
+                        //
+                        // ⛔ NOT `props.toolManager.activateLift()`. That drives the LEGACY
+                        // MASSING command `CreateVerticalCirculationCommand`, NOT
+                        // `lift.create` — `PluginRegistry.ts:465` records the divergence in
+                        // as many words (L-5709). This row arms `LiftPlanToolHandler`, which
+                        // dispatches the C104 COMPOUND: shaft enclosure, one landing door per
+                        // served storey, five cabin parts, and a void in every slab it passes
+                        // through, in ONE undo entry.
+                        label:    'Lift',
+                        shortcut: 'Alt+Shift+L',
+                        icon:     'material-symbols:elevator-outline',
+                        action: () => {
+                            activatePlanOnlyToolOrExplain('lift', 'Lift');
+                        },
+                    },
+                    {
                         label:    'Ramp',
                         shortcut: 'Alt+P',
                         icon:     PryzmIcons.pryzmRamp,

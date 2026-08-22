@@ -63,6 +63,14 @@ import {
 } from '@pryzm/geometry-slab';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import { resolveActivePoolDrawMode, activePoolLoopMode } from './activePoolDrawMode';
+// §FIX-PLAN-TOOL-POINTER-UNREACHABLE (L-7004) — the slab that was selected AT THE
+// MOMENT THE TOOL WAS ARMED. Arming a plan-only tool now suppresses 3-D selection
+// (L-7003, so an armed create tool can no longer pick a wall and attach a gizmo), and
+// `SelectionManager.setEnabled(false)` calls `unselectAll()` on the way down. Without
+// this snapshot the SELECTION override below would read empty for every pool drawn
+// after the fix — a defect introduced by a fix, which is why the snapshot ships in the
+// same commit as the suppression rather than after it.
+import { armedSelectionId } from './armedSelectionSnapshot';
 
 /** PRYZM purple — the shared preview colour every plan tool draws in. */
 const STROKE = '#6600ff';
@@ -350,7 +358,18 @@ export class PoolPlanToolHandler implements PlanToolHandler {
         return out;
     }
 
-    /** An explicitly selected slab id, if the current selection is one. */
+    /**
+     * An explicitly selected slab id, if the current selection is one.
+     *
+     * THREE readings, strongest first, and the third is the one L-7004 added:
+     *   1. the live selection's `userData` (a slab mesh is selected right now);
+     *   2. the live selection's id, when it carries the `slab` prefix;
+     *   3. ⭐ the ARM-TIME snapshot — because arming this tool DISABLES selection and
+     *      `setEnabled(false)` unselects everything, so by the time the architect has
+     *      drawn the outline readings 1 and 2 are both empty BY CONSTRUCTION. The
+     *      snapshot is taken immediately before the suppression; see
+     *      `armedSelectionSnapshot.ts`.
+     */
     private _selectedSlabId(): string | null {
         const sel = (window as unknown as {
             selectionManager?: {
@@ -363,7 +382,9 @@ export class PoolPlanToolHandler implements PlanToolHandler {
             return obj.userData.id;
         }
         const id = sel?.getSelectedId?.();
-        return id && id.startsWith('slab') ? id : null;
+        if (id && id.startsWith('slab')) return id;
+        const armed = armedSelectionId();
+        return armed && armed.startsWith('slab') ? armed : null;
     }
 
     /** Plan centroid of a ring (vertex average — sufficient for a containment probe). */

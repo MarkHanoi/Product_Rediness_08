@@ -162,6 +162,29 @@ export function mountCreatePanel(
                             },
                         },
                         {
+                            // §FIX-LIFT-UNREACHABLE (founder, 2026-08-22) — L-7020..L-7024 · C104.
+                            //
+                            //   "Lift — it should be under ARCHITECTURE, but could not see it!"
+                            //
+                            // ⭐ MOVED FROM `Structure`, WHERE IT WAS, TO `Architecture`,
+                            // WHERE HE LOOKED — and REPOINTED at the C104 compound.
+                            // The Structure row called `props.toolManager.activateLift?.()`,
+                            // which drives the LEGACY MASSING command
+                            // `CreateVerticalCirculationCommand`, NOT `lift.create`
+                            // (`PluginRegistry.ts:465`, L-5709). Two palette words for two
+                            // different objects is worse than one word in the wrong section,
+                            // so the row moves AND changes what it dispatches, in one commit.
+                            // The massing command keeps its real callers — the residential and
+                            // office batch executors — and loses only its palette entry.
+                            //
+                            // ⛔ NOT `props.toolManager.activateLift()`. See above.
+                            label: "Lift",
+                            icon: "material-symbols:elevator-outline",
+                            action: () => {
+                                activatePlanOnlyToolOrExplain('lift', 'Lift');
+                            },
+                        },
+                        {
                             label: "Room",
                             icon: PryzmIcons.pryzmRoom,
                             children: {
@@ -294,10 +317,13 @@ export function mountCreatePanel(
                     items: [
                         { label: "Column", icon: PryzmIcons.pryzmColumn, action: () => props.toolManager.activateColumn() },
                         { label: "Beam", icon: PryzmIcons.pryzmBeam, action: () => props.toolManager.activateBeam() },
-                        // §LIFT-CREATE-TOOL — manual lift placement (peer of Column). One
-                        // click → CreateVerticalCirculationCommand (the same command the
-                        // residential generator drives); base = active level, top = level above.
-                        { label: "Lift", icon: "material-symbols:elevator-outline", action: () => props.toolManager.activateLift?.() },
+                        // §FIX-LIFT-UNREACHABLE (L-7020) — THE LIFT ROW MOVED TO ARCHITECTURE.
+                        // It used to sit here, calling `props.toolManager.activateLift?.()`,
+                        // which drives the LEGACY MASSING `CreateVerticalCirculationCommand` —
+                        // NOT the C104 compound `lift.create`. The founder looked under
+                        // Architecture and found nothing; a lift is vertical circulation and
+                        // belongs beside the stair. This comment stays so the next reader
+                        // finds the row rather than concluding it was deleted.
                         {
                             label: "Slab",
                             icon: PryzmIcons.pryzmSlab,
