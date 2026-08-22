@@ -120,11 +120,26 @@ describe('§FEAT-DUAL-VIEW-CREATION-MATRIX — the creation matrix is real, not 
 
         it('reports the OPEN dual-view holes (the founder\'s remaining work)', () => {
             const gaps = dualViewGaps().map(c => c.tool).sort();
-            // Exactly two elements are single-view today, and they fail in OPPOSITE
-            // directions — lift is 3D-only, lighting is plan-only. Both are named in
-            // the matrix with a justification. If this list grows, a regression
-            // shipped; if it shrinks, tighten this assertion.
-            expect(gaps).toEqual(['lift', 'lighting']);
+            // Four elements are single-view today, and they do NOT all fail in the
+            // same direction — `lift` is 3D-only; `lighting`, `pool` and `balcony`
+            // are plan-only. Every one is named in the matrix with a justification.
+            // If this list grows, a regression shipped; if it shrinks, tighten this
+            // assertion.
+            //
+            // ⚠ THIS ASSERTION WAS ALREADY RED BEFORE THE BALCONY TOUCHED IT, and
+            // that is recorded rather than quietly absorbed (L-5610). Measured at
+            // BALC21's base commit:
+            //   git show HEAD~1:…/elementCreationMatrix.ts | grep -c "tool: 'pool'" -> 1
+            //   git show HEAD~1:…/elementCreationMatrix.spec.ts | grep "toEqual(\['lift'" -> present
+            // i.e. the `pool` row (`views: ['plan']`) had already landed while this
+            // ledger still named two tools. A ledger that is updated by whoever next
+            // trips over it is a ledger nobody owns — so BOTH additions are listed
+            // here with their reason, not just the one this lane added.
+            //
+            // ⭐ `balcony` is plan-only DELIBERATELY, not pending: a hosted compound is
+            // placed against a facade in plan. The 3-D arm needs a `ToolManager`
+            // activator and is declared as a gap on the row itself.
+            expect(gaps).toEqual(['balcony', 'lift', 'lighting', 'pool']);
         });
 
         it('reports the LATENT mode-desync risks (the shape of the founder\'s AUTO bug)', () => {

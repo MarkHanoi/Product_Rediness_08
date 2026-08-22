@@ -37,6 +37,10 @@ import { SlabPlanToolHandler }         from './SlabPlanToolHandler';
 // §FIX-POOL-UNREACHABLE (L-5210) — the plan route that makes a swimming pool
 // reachable. Registered after slab because a pool is CUT INTO one.
 import { PoolPlanToolHandler }         from './PoolPlanToolHandler';
+// §FEAT-BALCONY-COMPOUND (L-5605) — the plan route that makes a balcony reachable.
+// Registered after slab because a balcony's plate IS a slab; the tool itself hosts on
+// a WALL (C15), which is why it sits beside the door/window pair conceptually.
+import { BalconyPlanToolHandler }      from './BalconyPlanToolHandler';
 import { StairPlanToolHandler }        from './StairPlanToolHandler';
 import { StairPathPlanToolHandler }    from './StairPathPlanToolHandler';
 import { BeamPlanToolHandler }         from './BeamPlanToolHandler';
@@ -80,7 +84,8 @@ const _registryTracer = trace.getTracer('@pryzm/editor.plan-tool-registry', '0.1
 
 /** The canonical, ordered list of every plan-view tool key. */
 export const PLAN_TOOL_KEYS = [
-    'wall', 'room', 'column', 'linear-dim', 'door', 'window', 'slab', 'pool', 'stair',
+    'wall', 'room', 'column', 'linear-dim', 'door', 'window', 'slab', 'pool',
+    'balcony', 'stair',
     'stair-path', 'beam', 'roof', 'curtain-wall', 'ceiling', 'floor', 'railing',
     'furniture', 'lighting', 'plumbing', 'opening', 'grid', 'section-mark',
     'elevation-mark', 'move', 'rotate', 'align', 'copy-place', 'text-note', 'element-tag',
@@ -115,6 +120,11 @@ export function createPlanToolHandlers(): Record<string, PlanToolHandler> {
                 // shared factory is what gives BOTH plan surfaces the tool at once
                 // (the L-73 parity guarantee) rather than only the main overlay.
                 'pool':               new PoolPlanToolHandler(),
+                // §FEAT-BALCONY-COMPOUND (L-5605) — a balcony is a COMPOUND hosted
+                // on a wall, so it sits next to the slab it is built from. Registering
+                // it in this shared factory is what gives BOTH plan surfaces the tool
+                // at once (the L-73 parity guarantee) rather than only the main overlay.
+                'balcony':            new BalconyPlanToolHandler(),
                 'stair':              new StairPlanToolHandler(),
                 'stair-path':         new StairPathPlanToolHandler(),
                 'beam':               new BeamPlanToolHandler(),

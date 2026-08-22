@@ -189,6 +189,10 @@ import type { UnderlayReferenceRotateTool as _UnderlayReferenceRotateToolImpl }
 import { MarqueeSelectionTool }        from '@pryzm/input-host';
 import { installUnderlayPersistence } from './UnderlayPersistence';
 import { projectScopedStorage } from '@pryzm/core-app-model';
+// §FEAT-BALCONY-COMPOUND (L-5607) — the profile-edit bridge that turns an
+// "Edit Profile" vertex drag on a balcony's plate into a `balcony.updateProfile`,
+// so the finish and the railings follow the new outline in ONE undo entry.
+import { attachBalconyProfileBridge } from './balconyProfileBridge';
 // ── §FIX-ANY-STORE-SEAM (L-980) — the store seam is TYPED ───────────────────
 // Every store below arrived as `any` from `initBuilders`, which is how
 // `curtainWallStoreInstance?.getById?.()` and `ceilingStore?.get?.()` —
@@ -2159,6 +2163,54 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             }
         });
         console.log('[initTools] §FT-HANDRAIL: handrail.created bus→legacy-store bridge registered.');
+    }
+
+    // §FEAT-BALCONY-COMPOUND (L-5607, C103 §4.3, ADR-0333 §6) — the PROFILE-EDIT
+    // bridge. The founder: *"as we do with the edit profile feature, the user could
+    // after change the shape, and the floor finish and railings should adapt."*
+    //
+    // ⭐ THE COMMAND ALREADY DOES THE WORK — `balcony.updateProfile` re-derives all
+    // three members from one polygon in ONE undo entry. THIS LINE IS THE ONLY THING
+    // BETWEEN IT AND THE USER'S GESTURE, and a compound command nothing dispatches is
+    // the pool's defect wearing a different hat. Attaching it here, in the same
+    // function as the three member mirrors it depends on, keeps the whole chain
+    // visible in one place.
+    if (runtime) {
+        attachBalconyProfileBridge({
+            balconies: () => {
+                // ⚠ THE TYPED SLOT AND THE RUNTIME OBJECT DISAGREE, AND THAT IS
+                // PRE-EXISTING — named here rather than papered over. `PryzmRuntime.stores`
+                // is typed `StoresSlot` (elements / hydrate / viewState / project), but at
+                // RUNTIME `bootstrap.everything.ts` also hangs every plugin's store on it
+                // under its `storeKey`. `PoolPlanToolHandler` reaches the slab store the
+                // same way and for the same reason. The cast is therefore narrow and
+                // deliberate — it asserts exactly the ONE method this bridge calls — and a
+                // missing key resolves to an empty list, which makes the bridge a no-op
+                // rather than a crash.
+                const slot = runtime.stores as unknown as Record<string, unknown> | undefined;
+                const store = slot?.['balcony'] as
+                    | { getState?: () => Map<string, { id: string; childrenIds: readonly string[]; hostWallId?: string }> }
+                    | undefined;
+                const state = store?.getState?.();
+                return state ? [...state.values()] : [];
+            },
+            wallById: (id) => {
+                // The LEGACY wall store — the same one the profile editor and the plan
+                // tools read, so the host centreline this bridge measures against is the
+                // one on screen.
+                const w = window.wallStore?.getById?.(id) as
+                    | { id: string; baseLine?: ReadonlyArray<{ x: number; z: number }> }
+                    | undefined;
+                return w ?? undefined;
+            },
+            slabPolygon: (slabId) => {
+                const slab = window.slabStore?.getById?.(slabId) as
+                    | { polygon?: ReadonlyArray<{ x: number; y: number }> }
+                    | undefined;
+                return slab?.polygon;
+            },
+            dispatch: (type, payload) => runtime.bus.executeCommand(type, payload),
+        });
     }
 
     // §FT-LIGHTING (LIGHTING-BUS-MIGRATION — C11 §11.11): bus → legacy-LightingStore.

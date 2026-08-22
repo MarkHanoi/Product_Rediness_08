@@ -273,6 +273,62 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
            + 'check-tool-activator-coverage ARM A stays at 0.',
     },
 
+    // ── Architecture ─────────────────────────────────────────────────────────
+    {
+        tool: 'balcony', label: 'Balcony',
+        // §FEAT-BALCONY-COMPOUND (founder, 2026-08-22) — L-5600..L-5608 · C103 · ADR-0333.
+        //
+        //   "Please create a 'balcony compound system'. Like swimming pool. Should be
+        //    under architectural tab. It should be a 'host' compound composed by an
+        //    slab, floor finish and railing. The user can hosted as you host a door on
+        //    a wall with a preview of the space."
+        //
+        // ⚠ PLAN ONLY, AND THIS ROW SAYS SO RATHER THAN CLAIMING BOTH.
+        // The plan arm is real: `BalconyPlanToolHandler` is in the shared plan
+        // registry, so BOTH plan surfaces have it. There is no `balcony` key in
+        // `TOOL_MANAGER_TOOL_KEYS` and this row does not pretend otherwise — the spec
+        // asserts the negative as hard as the positive, so a declared-but-absent 3-D
+        // arm fails BY NAME. Declaring `'3d'` here to look complete is precisely the
+        // C84 EI-3 defect, and it is the shape of the founder's "Create Stair" report:
+        // a control that reported activation and activated nothing.
+        views: ['plan'],
+        // ⭐ TWO MODES, AND BOTH ARE REAL. The ids are `BalconyDrawMode` in
+        // `activeBalconyPlacement.ts` — the union the handler has an arm for — so this
+        // strip cannot offer a gesture the tool does not implement
+        // (§FIX-STAIR-SHAPE-DESYNC's lesson, applied before it could bite again).
+        //
+        // ⛔ The wall's linear/ortho/curved are DELIBERATELY NOT spread here. A balcony
+        // is not drawn as a path; it is either snapped to a facade at a parametric
+        // size or drawn as a closed ring. Spreading WALL_DRAW_MODES to look consistent
+        // would offer three gestures with no arm behind them.
+        modes: [
+            {
+                id: 'hosted', key: 'H', label: 'Hosted',
+                description: 'Snap the balcony to a wall at its parametric size — one click',
+            },
+            {
+                id: 'outline', key: 'O', label: 'Outline',
+                description: 'Draw an arbitrary balcony ring; the host wall is measured from it',
+            },
+        ],
+        // No AUTO. A balcony is not derivable from a room or a wall loop — the
+        // architect decides which facade gets one and where. "Not applicable" and "not
+        // implemented" are different answers (this file's own rule), and this is the
+        // former. ⚠ `ResidentialBuildingExecutor._createBalconies` DOES place balconies
+        // automatically, but it is a batch typology pass, not a creation MODE of this
+        // tool, and it does not go through `balcony.create` at all (L-5612).
+        autoIn: [],
+        modeSource: 'shared', // activeBalconyPlacement.ts — mode AND parametric size
+        gap: 'Three gaps, named rather than implied. (1) No 3-D arm: `TOOL_MANAGER_TOOL_KEYS` '
+           + 'has no `balcony` key, so the tool cannot be armed from the 3-D viewport. NOT a '
+           + 'missing handler — `balcony.create` is dispatchable through the composed runtime '
+           + 'and the plan arm drives it; adding the 3-D arm means a `ToolManager` activator. '
+           + '(2) `ResidentialBuildingExecutor._createBalconies` still builds balconies as loose '
+           + 'slabs + handrails with no `balcony` parent, so a generated balcony is NOT a '
+           + 'compound and cannot be reshaped as one (L-5612). (3) The AI chat classifies '
+           + '`balcony.create` class B, so that route refuses it (L-5609).',
+    },
+
     // ── The slab family ──────────────────────────────────────────────────────
     {
         tool: 'slab', label: 'Slab',

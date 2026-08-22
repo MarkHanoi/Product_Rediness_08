@@ -1203,6 +1203,144 @@ export function wireCommandEventBridge(
           break;
         }
 
+        case 'balcony.create': {
+          // §FEAT-BALCONY-COMPOUND (L-5607) · C103 §7.4 · ADR-0333.
+          //
+          // ═══════════════════════════════════════════════════════════════════
+          // ⭐ A COMPOUND EMITS ITS MEMBERS' EVENTS. IT DOES NOT GET A FOURTH BRIDGE.
+          // ═══════════════════════════════════════════════════════════════════
+          // `balcony.create` writes the slab, floor and handrail PLUGIN stores in ONE
+          // multi-store patch — which is what buys one gesture = one undo entry. But
+          // every legacy mirror in `initTools.ts` keys on the COMMAND TYPE, so none of
+          // them fires for a command called `balcony.create`. Without this case the
+          // balcony would land in the plugin stores and reach NEITHER the mesh
+          // builders NOR the profile editor: authored, committed, and invisible.
+          //
+          // ⚠ THAT IS NOT HYPOTHETICAL — IT IS THE SWIMMING POOL'S LIVE STATE. Its own
+          // commit says so: *"NOT VERIFIED … that a pool renders, that the water
+          // surface draws"*. `pool.create` has no case here, so nothing mirrors its
+          // walls, its floor slab or its water into the legacy stores. Measured
+          // 2026-08-22, and the PATTERN is stated because a bare substring would
+          // match this very comment and report the opposite of the truth:
+          //   grep -nE "^\s+case 'pool\.(create|delete)'" CommandEventBridge.ts
+          //   -> RC=1, zero matches.
+          //
+          // ⭐ THE FIX IS REUSE, NOT A NEW BRIDGE. `slab.batch.create` already
+          // establishes the idiom: emit ONE member event PER MEMBER, stamped with the
+          // member's OWN `commandType`, and the three existing `initTools.ts`
+          // subscribers (§FT1 slab, §P3.2-FL floor, §FT-HANDRAIL handrail) mirror them
+          // exactly as if the user had drawn each member by hand. No fourth mirror, no
+          // fourth set of field-mapping bugs, and a balcony member is by construction
+          // the same legacy record as a hand-drawn one.
+          //
+          // ⚠ `commandType` is deliberately the MEMBER's verb, not `'balcony.create'`.
+          // The subscribers filter on it (`ev.commandType !== 'slab.create'` -> return),
+          // so stamping the compound's verb would emit three events nothing listens to
+          // — activation reported, nothing activated.
+          //
+          // ⭐ AND THE GEOMETRY IS READ FROM THE COMMIT, NOT FROM THE REQUEST. The
+          // railing PATHS are computed by `buildBalconyAssembly` and are NOT in the
+          // payload — the payload carries only the outline and the pre-minted ids. So
+          // the members are read out of `record.forward`, which is what
+          // `indexCommittedWalls` does above (ADR-002 §5: the bridge relays the
+          // handler's RESULT). Recomputing them here would put a SECOND producer of
+          // the rail geometry in the tree — the duplication defect this whole compound
+          // was designed to avoid.
+          //
+          // ⚠ MULTI-STORE PATCH PATHS ARE `[storeKey, id]`, NOT `[id]`. That is the
+          // one difference from every other case in this file, and it is exactly the
+          // routing convention `produceMultiStoreCommand` documents.
+          const p = record.payload as {
+            levelId?: string;
+            slabId?: string;
+            floorId?: string;
+            materialId?: string;
+          };
+          const _balconyLevelId = p.levelId ?? '';
+          const _balconyCommitted = new Map<string, Map<string, Record<string, unknown>>>();
+          for (const patch of record.forward ?? []) {
+            if (patch.op !== 'add' || patch.path.length !== 2) continue;
+            const storeKey = String(patch.path[0]);
+            const memberId = String(patch.path[1]);
+            const value = patch.value as Record<string, unknown> | undefined;
+            if (!value || typeof value !== 'object' || memberId.length === 0) continue;
+            let slice = _balconyCommitted.get(storeKey);
+            if (!slice) { slice = new Map(); _balconyCommitted.set(storeKey, slice); }
+            slice.set(memberId, value);
+          }
+
+          // (1) THE CANTILEVER PLATE — a real slab. `polygon` is `{x, y}` with y
+          //     carrying world Z (the plan convention the §FT1 subscriber expects);
+          //     `position` is the origin because SlabFragmentBuilder adds the centroid
+          //     itself.
+          const _balconySlab = p.slabId
+            ? _balconyCommitted.get('slab')?.get(p.slabId)
+            : undefined;
+          if (p.slabId && _balconySlab) {
+            const ring = (_balconySlab['boundary'] ?? []) as Array<{ x: number; y: number; z: number }>;
+            events.emit('slab.created', {
+              commandId:    record.id,
+              commandType:  'slab.create',
+              levelId:      _balconyLevelId,
+              elementCount: 1,
+              id:           p.slabId,
+              // The member id doubles as the IFC guid — deterministic and unique per
+              // member, so two balcony plates can never collide the way they would
+              // under the mirror's `crypto.randomUUID()` fallback. Established
+              // practice: `ResidentialBuildingExecutor` passes `createId('slab')`.
+              ifcGuid:      p.slabId,
+              polygon:      ring.map((v) => ({ x: v.x, y: v.z })),
+              position:     { x: 0, y: 0, z: 0 },
+              thickness:    _balconySlab['thickness'] as number | undefined,
+              baseOffset:   _balconySlab['baseOffset'] as number | undefined,
+              materialId:   (_balconySlab['materialId'] as string | undefined) ?? p.materialId,
+            });
+          }
+
+          // (2) THE FLOOR FINISH — a real floor covering, NOT a second slab.
+          //     `floor.created`'s polygon is 3-D, unlike the slab's.
+          const _balconyFinish = p.floorId
+            ? _balconyCommitted.get('floor')?.get(p.floorId)
+            : undefined;
+          if (p.floorId && _balconyFinish) {
+            const ring = (_balconyFinish['boundary'] ?? []) as Array<{ x: number; y: number; z: number }>;
+            events.emit('floor.created', {
+              commandId:    record.id,
+              commandType:  'floor.create',
+              levelId:      _balconyLevelId,
+              floorId:      p.floorId,
+              ifcGuid:      p.floorId,
+              polygon:      ring.map((v) => ({ x: v.x, y: v.y, z: v.z })),
+              baseOffset:   _balconyFinish['baseOffset'] as number | undefined,
+              thickness:    _balconyFinish['thickness'] as number | undefined,
+              // ⚠ `hostSlabId` IS sent, and it is load-bearing rather than decorative:
+              // `FloorSlabBindingHandler._onSlabUpdated` uses it to keep the finish
+              // resting on the plate when the plate moves vertically. A balcony finish
+              // that did not carry it would detach the first time the plate moved.
+              hostSlabId:   p.slabId,
+              createdBy:    'balcony.create',
+            });
+          }
+
+          // (3) THE RAILING — one real handrail per FREE edge, carrying the path the
+          //     assembly actually committed (its `y` is the FINISHED floor level).
+          for (const [railId, rail] of _balconyCommitted.get('handrail') ?? []) {
+            events.emit('handrail.created', {
+              commandId:   record.id,
+              commandType: 'handrail.create',
+              levelId:     _balconyLevelId,
+              id:          railId,
+              path:        rail['path'] as ReadonlyArray<{ x: number; y?: number; z: number }> | undefined,
+              height:      rail['height'] as number | undefined,
+              diameter:    rail['diameter'] as number | undefined,
+              shape:       rail['shape'] as string | undefined,
+              hostId:      rail['hostId'] as string | undefined,
+              materialId:  (rail['materialId'] as string | undefined) ?? p.materialId,
+            });
+          }
+          break;
+        }
+
         default:
           break;
       }

@@ -44,6 +44,9 @@ import { shortcutForTool, formatTooltip } from './creationToolShortcuts';
 import { refuseElementAuthoring } from '../../layout/elementAuthoringContext';
 // LANDSCAPE-CATALOGUE (L-1380) - one derived source, both create surfaces.
 import { buildTreeCreateItems, buildPottedPlantCreateItems } from '../../create/landscapeCreateItems';
+// §FEAT-BALCONY-COMPOUND (L-5606) — PLAN-ONLY tools are armed by the plan OVERLAY,
+// not by the 3-D ToolManager, and they refuse OUT LOUD when no plan surface is open.
+import { activatePlanOnlyToolOrExplain } from '../../create/activatePlanOnlyTool';
 
 interface DisciplineTool {
     label:    string;
@@ -704,6 +707,35 @@ export class CreateRailPanel {
                             if (!this._activateTool('handrail', this._selectedHandrailTypeId)) {
                                 service.activateHandrailTool(this._selectedHandrailTypeId);
                             }
+                        },
+                    },
+                    {
+                        // §FEAT-BALCONY-COMPOUND (founder, 2026-08-22) — L-5606 · C103 · ADR-0333.
+                        //
+                        //   "Please create a 'balcony compound system'. Like swimming pool.
+                        //    Should be under ARCHITECTURAL TAB."
+                        //
+                        // ⭐ THIS ROW IS AXIS 3, AND IT IS THE AXIS THE POOL STILL HAS OPEN.
+                        // Measured 2026-08-22:
+                        //   grep -rniE "'pool'|\"pool\"|swimming" apps/editor/src/ui/                         //     | grep -viE "pool_table|pool-table"   ->  0
+                        // The swimming pool is fully dispatchable and has a plan handler in
+                        // the shared registry, and there is NO palette row for it anywhere —
+                        // so the founder's original "not able to access via UI" report is
+                        // still live. The balcony does not repeat that: the row ships with
+                        // the tool.
+                        //
+                        // ⛔ NOT `this._activateTool('balcony')`. That routes to
+                        // `runtime.tools.activate()` — the 3-D ToolManager — and
+                        // `TOOL_MANAGER_TOOL_KEYS` has no `balcony` key BY DESIGN (a hosted
+                        // compound is placed against a facade in plan; the matrix row
+                        // declares the 3-D gap rather than pretending). Calling it would
+                        // report activation and activate nothing, which is the founder's
+                        // "Create Stair" defect exactly.
+                        label:    'Balcony',
+                        shortcut: 'Alt+Shift+A',
+                        icon:     'material-symbols:balcony',
+                        action: () => {
+                            activatePlanOnlyToolOrExplain('balcony', 'Balcony');
                         },
                     },
                     {

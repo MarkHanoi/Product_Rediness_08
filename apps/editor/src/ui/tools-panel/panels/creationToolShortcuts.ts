@@ -65,6 +65,16 @@ export const CREATION_TOOL_SHORTCUTS: Readonly<Record<string, string>> = {
     // `assertNoShortcutCollisions()`, which runs at import time.
     'Stair (C)':            'Alt+Shift+Ctrl+T',
     'Handrail':             'Alt+H',
+    // §FEAT-BALCONY-COMPOUND (L-5606) — a balcony sits next to the handrail because
+    // the railing is one of its three members (ADR-0332: a guard IS a handrail).
+    //
+    // ⚠ NOT `Alt+B` and NOT `Alt+Shift+B`: `Room Bounding` and `Bathroom` hold those.
+    // ⭐ AND THAT WAS MEASURED, NOT ASSUMED — the first draft of this row took
+    // `Alt+Shift+B`, which `assertNoShortcutCollisions()` (it runs at IMPORT time)
+    // would have thrown on. All 26 bare `Alt+<letter>` combos are already allocated,
+    // so this follows the precedent `Potted Plants` set below: take the nearest free
+    // combo with any mnemonic left in it — the `A` of "bAlcony".
+    'Balcony':              'Alt+Shift+A',
     'Ramp':                 'Alt+P',
     'Ceiling':              'Alt+C',
     'Auto Ceiling':         'Alt+Shift+C',

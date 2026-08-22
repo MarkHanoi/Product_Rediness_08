@@ -4,6 +4,11 @@ import * as PryzmIcons from '../icons/PryzmIcons';
 import { WallDrawingMode } from '@pryzm/geometry-wall';
 import { ceilingSystemTypeStore } from '@pryzm/core-app-model/stores';
 import { floorSystemTypeStore } from '@pryzm/core-app-model/stores';
+// §FEAT-BALCONY-COMPOUND (L-5606) — PLAN-ONLY tools are armed by the plan OVERLAY,
+// not by the 3-D ToolManager. THE SAME activator both create surfaces use, so this
+// panel and CreateRailPanel cannot drift the way their two hand-typed plant lists did
+// (L-1380).
+import { activatePlanOnlyToolOrExplain } from '../create/activatePlanOnlyTool';
 import { ActiveLevelHUD } from '../levels/ActiveLevelHUD';
 import type { FloorPickerMode } from '../FloorModePicker';
 import type { CeilingPickerMode } from '../CeilingModePicker';
@@ -138,6 +143,23 @@ export function mountCreatePanel(
                                     { label: "Create Handrail", icon: "material-symbols:add", action: () => service.activateHandrailTool() }
                                 ]
                             }
+                        },
+                        {
+                            // §FEAT-BALCONY-COMPOUND (founder, 2026-08-22) — L-5606 · C103.
+                            // The SECOND create surface. `CreatePanelLayout` and
+                            // `CreateRailPanel` are both live (L-1380 records what happens
+                            // when only one of them learns about a tool: the capability
+                            // exists on one surface and silently does not on the other), so
+                            // the balcony row lands on both in the same commit.
+                            //
+                            // ⛔ NOT `props.toolManager.activate…` — `TOOL_MANAGER_TOOL_KEYS`
+                            // has no `balcony` key by design; the tool is PLAN-ONLY and the
+                            // creation matrix declares that rather than pretending otherwise.
+                            label: "Balcony",
+                            icon: "material-symbols:balcony",
+                            action: () => {
+                                activatePlanOnlyToolOrExplain('balcony', 'Balcony');
+                            },
                         },
                         {
                             label: "Room",
