@@ -761,8 +761,47 @@ export class ServerSyncQueue {
                     if (typeof serverCount === 'number') {
                         this._serverVersionCountByProject.set(projectId, serverCount);
                     } else {
-                        const prior = this._serverVersionCountByProject.get(projectId) ?? 0;
-                        this._serverVersionCountByProject.set(projectId, prior + 1);
+                        // §FIX-IFMATCH-INVENTED-A-COUNT (L-5830) — ⛔ `?? 0` WAS THE BUG.
+                        //
+                        // `prior + 1` is a sound inference ONLY when `prior` was itself
+                        // learned from the server: versions are append-only, so one
+                        // successful save adds exactly one. The `?? 0` turned "I have
+                        // never been told this project's count" into the assertion
+                        // "the server holds zero" — and the very next save then sent
+                        // `If-Match: "v1"` at a server holding 746.
+                        //
+                        // OBSERVED on the founder's console, and it is the line that
+                        // produced it verbatim:
+                        //   §L-B2-RECONCILE 412 for "Auto-save" — expected 1, server
+                        //   has 746. Re-basing count + retrying once.
+                        // Every such 412 costs a WASTED POST of the entire snapshot
+                        // body before the retry — a doubled multi-MB round trip on the
+                        // save path, to enforce a precondition that was never true.
+                        //
+                        // Absent authority we now assert nothing: no entry means no
+                        // `If-Match`, which the server reads as "no precondition" and
+                        // appends. That is not a weakening — a GUESSED precondition
+                        // detects no real concurrent writer, it only manufactures
+                        // conflicts with itself.
+                        //
+                        // ⚠ SO THE LOCK IS OFF UNTIL AN AUTHORITATIVE COUNT ARRIVES,
+                        // and today exactly two sources provide one: a 412 body's
+                        // `actual`, and a POST response carrying a count — which
+                        // `POST /api/projects/:id/versions` does NOT send from any of
+                        // its three backends (`server.js`: the Supabase RPC returns
+                        // `to_jsonb(project_versions row)`, the Supabase fallback
+                        // selects five columns, the PG path returns the version row,
+                        // and the in-memory path returns a hand-built literal — none
+                        // carries `version_count`, which lives on `projects`). The
+                        // reader above has always looked for four spellings of a field
+                        // the server never sends, so the guess was not a rare fallback
+                        // — it was the ONLY path. Making one of those three return
+                        // sites authoritative is what restores the lock; see
+                        // ISSUE-LOG L-5831.
+                        const prior = this._serverVersionCountByProject.get(projectId);
+                        if (prior !== undefined) {
+                            this._serverVersionCountByProject.set(projectId, prior + 1);
+                        }
                     }
                 } catch { /* non-fatal */ }
                 return true;
