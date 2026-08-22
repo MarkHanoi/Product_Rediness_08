@@ -73,6 +73,7 @@ import {
     dispatchUpdateSheetField,
     showExportDialog,
     buildInlineScaleOverlay,
+    buildResizeHandles,
     showReturnToSheetBanner,
 } from './SheetEditorCommands';
 import {
@@ -1125,6 +1126,31 @@ export class SheetEditorPanel {
         // Inline scale overlay (when selected but not focused)
         if (this._selectedVpId === vp.id && view && !isFocused) {
             vpEl.appendChild(buildInlineScaleOverlay(vp, sheet, view.viewType));
+
+            // §SHEET-RESIZE-IS-A-CROP (L-3809) — the eight resize handles, whose
+            // CSS had been fully authored in `styles/panels/sheetEditor.ts` since
+            // before this lane and which NOTHING had ever created an element for
+            // (measured: 9 `sh-resize-handle` hits, all in the stylesheet, zero
+            // producers). This is that missing producer.
+            //
+            // Mounted only on the SELECTED, unfocused viewport: handles on every
+            // viewport would sit under the cursor during a move-drag, and a
+            // focused viewport is being navigated, not composed.
+            //
+            // A drag dispatches `SetViewportCropCommand` — never a scale change
+            // — so the printed `1:N` survives the gesture.
+            for (const handle of buildResizeHandles(
+                vp,
+                sheet,
+                this._scaleFactor,
+                composed.resolved ? composed : null,
+                () => {
+                    const cur = this._activeSheetId ? sheetStore.get(this._activeSheetId) : null;
+                    if (cur) { this._refreshCanvas(cur); this._refreshSidebar(); }
+                },
+            )) {
+                vpEl.appendChild(handle);
+            }
         }
 
         // Click → select

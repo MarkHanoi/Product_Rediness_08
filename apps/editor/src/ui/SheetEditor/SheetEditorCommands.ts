@@ -22,6 +22,12 @@ import { RemoveDataPanelFromSheetCommand } from '@pryzm/command-registry';
 import { ExportSheetCommand } from '@pryzm/command-registry';
 import type { ExportFormat } from '@pryzm/command-registry';
 import { SetSheetCompositionIntentCommand } from '@pryzm/command-registry';
+import { SetViewportCropCommand } from '@pryzm/command-registry';
+// §SHEET-RESIZE-IS-A-CROP (L-3809) — a viewport has no size of its own, so a
+// resize handle changes what it SHOWS. The arithmetic is the inverse of the
+// composer's framing and lives beside it, never duplicated here.
+import { resizeCropByEdgeDelta, currentCropFromComposition } from '@pryzm/file-format/sheets';
+import type { EdgeDeltaMm } from '@pryzm/file-format/sheets';
 import { titleBlockStore } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { layoutEngine } from '@pryzm/core-app-model';
@@ -802,4 +808,156 @@ export function showReturnToSheetBanner(
         `[SheetEditorCommands] Return-to-sheet banner shown for view="${viewDef?.name ?? viewId}" ` +
         `from sheet="${sheetId}" — ESC / Return button to go back`,
     );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §SHEET-RESIZE-IS-A-CROP (L-3809) — the eight resize handles
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Which edges a compass handle drives. */
+const HANDLE_EDGES: Record<string, ReadonlyArray<'left' | 'right' | 'top' | 'bottom'>> = {
+    nw: ['left', 'top'],
+    ne: ['right', 'top'],
+    sw: ['left', 'bottom'],
+    se: ['right', 'bottom'],
+    n:  ['top'],
+    s:  ['bottom'],
+    e:  ['right'],
+    w:  ['left'],
+};
+
+/**
+ * Build the eight resize handles for a selected viewport.
+ *
+ * ⛔ THIS FUNCTION EXISTS BECAUSE ITS CSS ALREADY DID. Measured before writing
+ * it: `grep -rn "sh-resize-handle"` returned NINE hits, every one of them in
+ * `apps/editor/src/ui/styles/panels/sheetEditor.ts` — a base class and eight
+ * compass cursor rules, fully authored — and ZERO producers of an element to
+ * wear them. The stylesheet described a complete feature that had never
+ * existed [authored-but-unwired]. The class names below are the ones already in
+ * that stylesheet, deliberately, so the CSS acquires the producer it was
+ * written for rather than a second, parallel one.
+ *
+ * ─── WHAT A DRAG DOES ──────────────────────────────────────────────────────
+ * It dispatches `SetViewportCropCommand`. A viewport has no size of its own —
+ * it is exactly as big as the drawing it shows at the scale it shows it at — so
+ * the only honest meaning of "make this viewport wider" is "show more drawing".
+ * `resizeCropByEdgeDelta` is the arithmetic; its header records the two
+ * alternatives that were rejected (rescale, and stretch).
+ *
+ * ⭐ THE SCALE IS NEVER TOUCHED, WHICH IS THE WHOLE POINT. Dragging a handle
+ * changes WHAT IS SHOWN and never HOW BIG IT IS DRAWN, so the printed `1:N`
+ * stays true through any gesture. A resize that quietly rescaled would make
+ * every dimension on the drawing wrong.
+ *
+ * @param vp          the viewport being resized.
+ * @param sheet       its sheet.
+ * @param scaleFactor CSS pixels per paper millimetre, from the panel's canvas
+ *                    fit. The gesture happens in pixels and the model is in
+ *                    millimetres; this is the only conversion between them.
+ * @param composed    the composition currently on screen. Supplies the frame an
+ *                    UNCROPPED viewport is showing, so the first drag is a copy
+ *                    of what the user is looking at rather than a jump.
+ * @param onCommitted called after a successful dispatch so the panel can rebuild.
+ */
+export function buildResizeHandles(
+    vp:          SheetViewport,
+    sheet:       SheetDefinition,
+    scaleFactor: number,
+    composed:    { originX: number; originZ: number; widthMm: number; heightMm: number } | null,
+    onCommitted: () => void,
+): HTMLElement[] {
+    // Without a composition there is no frame to resize FROM. Returning no
+    // handles is correct and VISIBLE: a viewport whose drawing has not composed
+    // yet shows no resize affordance, rather than one that silently does nothing
+    // when dragged.
+    if (!composed) return [];
+    if (!(scaleFactor > 0) || !Number.isFinite(scaleFactor)) return [];
+
+    const scaleDenom = vp.scale ?? 100;
+    const baseCrop = vp.crop ?? currentCropFromComposition(composed, scaleDenom);
+    if (!baseCrop) return [];
+
+    return Object.keys(HANDLE_EDGES).map((dir) => {
+        const h = document.createElement('div');
+        h.className = `sh-resize-handle sh-resize-handle--${dir}`;
+        h.dataset.resizeDir = dir;
+        h.title = 'Drag to change what this viewport shows (the scale does not change)';
+
+        h.addEventListener('pointerdown', (ev: PointerEvent) => {
+            // A resize must never ALSO start a viewport move or a canvas
+            // rubber-band selection; both are listening on ancestors.
+            ev.stopPropagation();
+            ev.preventDefault();
+
+            const startX = ev.clientX;
+            const startY = ev.clientY;
+            const edges  = HANDLE_EDGES[dir] ?? [];
+            let   last: ReturnType<typeof resizeCropByEdgeDelta> = null;
+
+            const toDelta = (e: PointerEvent): EdgeDeltaMm => {
+                // Pixels → paper millimetres. Screen Y grows DOWNWARD, which is
+                // the direction `topMm` / `bottomMm` are already defined in, so
+                // this needs no flip. The flip that DOES exist on this surface
+                // (paper Y grows upward from the bottom-left) is not applied
+                // here because `EdgeDeltaMm` is stated per EDGE precisely so
+                // that no caller has to reason about it.
+                const dxMm = (e.clientX - startX) / scaleFactor;
+                const dyMm = (e.clientY - startY) / scaleFactor;
+                const d: Record<string, number> = {};
+                for (const edge of edges) {
+                    if (edge === 'left')   d.leftMm   = dxMm;
+                    if (edge === 'right')  d.rightMm  = dxMm;
+                    if (edge === 'top')    d.topMm    = dyMm;
+                    if (edge === 'bottom') d.bottomMm = dyMm;
+                }
+                return d as EdgeDeltaMm;
+            };
+
+            const onMove = (e: PointerEvent): void => {
+                // Recomputed from the ORIGINAL crop every frame, never
+                // accumulated from the previous result. Accumulating compounds
+                // the refusal at the floor: once one frame is refused, an
+                // incremental model has lost its origin and the gesture dies
+                // mid-drag.
+                last = resizeCropByEdgeDelta(baseCrop, scaleDenom, toDelta(e));
+            };
+
+            const onUp = (e: PointerEvent): void => {
+                window.removeEventListener('pointermove', onMove);
+                window.removeEventListener('pointerup', onUp);
+
+                last = resizeCropByEdgeDelta(baseCrop, scaleDenom, toDelta(e));
+                if (!last) {
+                    // REFUSED — the drag would have collapsed the viewport. The
+                    // previous crop stands and nothing is dispatched, so the
+                    // undo history does not fill with no-ops.
+                    console.warn('[SheetEditorCommands] resize refused — would collapse the viewport');
+                    return;
+                }
+
+                // ONE command per GESTURE, not per pointermove: a drag must be a
+                // single undo step. That is why nothing dispatches in onMove.
+                const mgr = window.commandManager; // TODO(E.5.x): runtime.bus.executeCommand
+                if (!mgr) {
+                    console.error('[SheetEditorCommands] Engine not yet initialised — resize ignored');
+                    return;
+                }
+                const res = mgr.execute(
+                    new SetViewportCropCommand(sheet.id, vp.id, last),
+                    { source: 'HUMAN_DIRECT' },
+                ) as { success?: boolean; error?: string } | undefined;
+                if (res && res.success === false) {
+                    console.warn(`[SheetEditorCommands] resize refused: ${res.error ?? 'unknown reason'}`);
+                    return;
+                }
+                onCommitted();
+            };
+
+            window.addEventListener('pointermove', onMove);
+            window.addEventListener('pointerup', onUp);
+        });
+
+        return h;
+    });
 }
