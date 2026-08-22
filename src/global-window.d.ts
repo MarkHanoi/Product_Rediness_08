@@ -578,6 +578,13 @@ declare global {
     __slabProfileEditor?: any;
     lastPointerMoveEvent?: any;
     __kitchenSubUnit?: any;
+    /**
+     * §FEAT-LIFT-COMPOUND-SYSTEM (L-5705) — the lift member the Tab drill-in has
+     * descended to, or null at the whole-lift view. Mirrors `__kitchenSubUnit`.
+     * Shape: `{ liftId, memberId, kind } | null`. Carries IDS, never meshes, so a
+     * member whose geometry is not built on the current level is still selectable.
+     */
+    __liftSubMember?: { liftId: string; memberId: string; kind: string } | null;
     __wardrobeSubUnit?: any;
     activeLevelElevation?: any;
     isCameraDragging?: any;

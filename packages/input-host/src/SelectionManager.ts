@@ -8,6 +8,10 @@ import * as OBC from '@thatopen/components';
 // can never be referenced by an in-flight submit.
 import { TransformControls, getThreeRenderer, safeDisposeMaterial, safeDisposeGeometry, scheduleGpuRelease } from '@pryzm/renderer-three';
 import { CurtainSubElement } from '@pryzm/geometry-curtain-wall';
+// §FEAT-LIFT-COMPOUND-SYSTEM (L-5705) — the lift's Tab drill-in takes its cycle
+// ORDER and its member LABELS from the domain, not from mesh-traverse order. See
+// the `lfSubMembers` field declaration for why that direction is load-bearing.
+import { LIFT_PART_CYCLE_ORDER, LIFT_PART_LABELS } from '@pryzm/geometry-lift';
 import { LevelPlaneConstraint } from './LevelPlaneConstraint.js';
 import { BIM_LAYER } from '@pryzm/scene-committer';
 import { DeleteOpeningCommand } from '@pryzm/command-registry';
@@ -198,6 +202,34 @@ export class SelectionManager implements ISelectionManager {
     private kcSubUnitIndex = -1;
     /** Amber highlight mesh for the active kitchen sub-element. */
     private kcSubHighlight: THREE.Mesh | null = null;
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // ── Lift-compound sub-element tracking (§FEAT-LIFT-COMPOUND-SYSTEM, L-5705) ──
+    //
+    // ⭐ THE FOUNDER ASKED FOR THE KITCHEN'S SELECTION MODEL, NOT THE BALCONY'S:
+    // "the lift is an element on its own, but clicking tab allow the user to select
+    // sub systems within the lift system". C103 §2 admits BOTH disciplines and
+    // requires a compound to DECLARE one; the lift declares `drill-in` (C104 §2),
+    // and the mechanism below is `cycleKitchenUnit`'s, mirrored rather than
+    // reinvented — same amber highlight, same wrap-to-whole, same `e.preventDefault()`
+    // so page focus never moves.
+    //
+    // ⚠ ONE REAL DIFFERENCE FROM THE KITCHEN, AND IT IS THE INTERESTING ONE. Kitchen
+    // units are discovered by walking the mesh tree for `userData.kitchenUnitIndex`.
+    // A lift's members are NOT all in one mesh tree: the enclosure sides are in the
+    // WALL store, the landing doors in the DOOR store and the cabin parts in the
+    // `liftPart` store, each built by its own family's builder. So the cycle order is
+    // taken from the lift RECORD's `childrenIds` + `LIFT_PART_CYCLE_ORDER` (domain
+    // data), and the scene is only consulted to find the mesh for a KNOWN id. A
+    // `traverse()`-discovered order would silently drop every member whose builder
+    // had not run yet — which, for a lift whose upper-storey doors live on levels
+    // that are not currently visible, is the COMMON case rather than the corner one.
+    /** Ordered list of lift member descriptors for Tab cycling. */
+    private lfSubMembers: Array<{ id: string; kind: string; label: string; group: THREE.Object3D | null }> = [];
+    /** Current Tab index: -1 = whole lift, 0..N-1 = a member. */
+    private lfSubMemberIndex = -1;
+    /** Amber highlight mesh for the active lift sub-element. */
+    private lfSubHighlight: THREE.Mesh | null = null;
     // ─────────────────────────────────────────────────────────────────────────
 
     // ── Wardrobe-cabinet sub-element tracking (§16 §2.6) ─────────────────────
@@ -1383,7 +1415,16 @@ export class SelectionManager implements ISelectionManager {
                         ? (this.isKitchenFurniture(this.selectedObject)
                             || this.isWardrobeFurniture(this.selectedObject))
                         : false;
-                    if (!selIsCW && !selIsKitchenOrWardrobe) {
+                    // §FEAT-LIFT-COMPOUND-SYSTEM (L-5705) — the lift joins CW /
+                    // kitchen / wardrobe as a type whose OWN Tab semantics take
+                    // precedence over the generic overlapping-candidate cycle. Without
+                    // this the generic cycle would fire first and Tab would hop to the
+                    // next element under the cursor instead of descending INTO the
+                    // lift — which is the founder's whole request, inverted.
+                    const selIsLift = this.selectedObject
+                        ? this.isLiftCompound(this.selectedObject)
+                        : false;
+                    if (!selIsCW && !selIsKitchenOrWardrobe && !selIsLift) {
                         e.preventDefault();
                         // Shift+TAB cycles backward; TAB cycles forward.
                         const n = this._tabCycleCandidates.length;
@@ -1431,6 +1472,16 @@ export class SelectionManager implements ISelectionManager {
                 if (this.isWardrobeFurniture(this.selectedObject)) {
                     e.preventDefault();
                     this.cycleWardrobeUnit(this.selectedObject);
+                }
+
+                // ── Tab key — drill into a LIFT COMPOUND's members ──────────
+                // §FEAT-LIFT-COMPOUND-SYSTEM (L-5705) / C104 §2 `drill-in`.
+                // The founder's "clicking tab allow the user to select sub
+                // systems within the lift system", wired to the SAME mechanism
+                // the kitchen uses — a click selects the lift, Tab descends.
+                if (this.isLiftCompound(this.selectedObject)) {
+                    e.preventDefault();
+                    this.cycleLiftMember(this.selectedObject);
                 }
             }
 
@@ -2847,6 +2898,12 @@ export class SelectionManager implements ISelectionManager {
         // Reset wardrobe sub-unit cycling state (§16 §2.6)
         this.resetWdSubState();
 
+        // Reset lift drill-in state (§FEAT-LIFT-COMPOUND-SYSTEM, L-5705). Without
+        // this the member list survives a deselect, so Tab-ing into a SECOND lift
+        // would silently cycle the FIRST lift's members — the amber box landing on a
+        // different lift than the inspector names.
+        this.resetLfSubState();
+
         // Hide wardrobe run inspector on deselect
         const wdRunInsp = window.wardrobeRunInspector;
         if (wdRunInsp) wdRunInsp.hide();
@@ -3355,6 +3412,184 @@ export class SelectionManager implements ISelectionManager {
             if (runInsp) runInsp.hide();
             console.log(`[SelectionManager] Kitchen unit [${this.kcSubUnitIndex + 1}/${this.kcSubUnits.length}] arm=${unitEntry.arm} index=${unitEntry.index}`);
         }
+    }
+
+    // ── Lift compound Tab drill-in (§FEAT-LIFT-COMPOUND-SYSTEM, L-5705) ───────
+
+    /** True if the given object is a placed LOD-300 lift COMPOUND root. */
+    private isLiftCompound(obj: THREE.Object3D): boolean {
+        const t = (obj.userData?.type ?? obj.userData?.elementType ?? '').toString().toLowerCase();
+        // ⚠ `lift` ONLY — deliberately NOT `verticalcirculation`. That is the LOD-200
+        // MASSING lift, which has no members to drill into: its whole geometry is two
+        // placeholder boxes built by LiftMeshBuilder. Matching it here would give the
+        // architect a Tab key that appears to do something and cycles an empty list.
+        // The two families are distinct on purpose — see LiftCompoundTypes.ts.
+        return t === 'lift';
+    }
+
+    /**
+     * Cycle through a lift's members one Tab press at a time.
+     * Order: whole lift → enclosure sides → landing doors → cabin parts → whole lift.
+     *
+     * The order is OUTSIDE-IN and it is editorial, not numeric: an architect drilling
+     * into a lift is nearly always heading for a finish, and making them Tab past the
+     * shaft first matches how the thing is read in section.
+     */
+    private cycleLiftMember(liftRoot: THREE.Object3D): void {
+        const liftId = liftRoot.userData?.id as string | undefined;
+        if (!liftId) return;
+
+        if (this.lfSubMembers.length === 0) {
+            this.lfSubMembers = this._buildLiftMemberList(liftId);
+        }
+        // No discoverable members → keep the whole-lift highlight rather than
+        // silently consuming the Tab key. A lift whose stores are not yet populated
+        // is a real state (mid project-load), and it must not look like a broken key.
+        if (this.lfSubMembers.length === 0) {
+            console.log(
+                `[SelectionManager] §LIFT-TAB-DRILL-IN lift ${liftId} has no resolvable ` +
+                'members yet — staying on the whole-lift view.',
+            );
+            return;
+        }
+
+        this.lfSubMemberIndex++;
+        if (this.lfSubMemberIndex >= this.lfSubMembers.length) {
+            // Wrap: back to the whole-lift view.
+            this.lfSubMemberIndex = -1;
+            this._clearLfHighlight();
+            window.__liftSubMember = null;
+            console.log('[SelectionManager] §LIFT-TAB-DRILL-IN back to whole-lift view');
+            return;
+        }
+
+        const member = this.lfSubMembers[this.lfSubMemberIndex]!;
+        this._clearLfHighlight();
+
+        // ⭐ THE SUB-SELECTION IS PUBLISHED EVEN WHEN THE MESH IS ABSENT. The member
+        // is identified by ID (from the lift record), so the inspector can show the
+        // car ceiling's properties on a storey whose geometry is not currently built.
+        // Only the amber BOX needs a mesh; the SELECTION does not.
+        if (member.group) {
+            const bbox = new THREE.Box3().setFromObject(member.group);
+            const size = new THREE.Vector3();
+            const center = new THREE.Vector3();
+            bbox.getSize(size);
+            bbox.getCenter(center);
+            const hlGeo = new THREE.BoxGeometry(size.x + 0.03, size.y + 0.03, size.z + 0.03);
+            const hlMat = new THREE.MeshBasicMaterial({
+                color: 0xf59e0b,
+                transparent: true,
+                opacity: 0.4,
+                depthTest: false,
+            });
+            this.lfSubHighlight = new THREE.Mesh(hlGeo, hlMat);
+            this.lfSubHighlight.position.copy(center);
+            this.world.scene.three.add(this.lfSubHighlight);
+        }
+
+        window.__liftSubMember = { liftId, memberId: member.id, kind: member.kind };
+        console.log(
+            `[SelectionManager] §LIFT-TAB-DRILL-IN member ` +
+            `[${this.lfSubMemberIndex + 1}/${this.lfSubMembers.length}] ` +
+            `${member.label} id=${member.id}` +
+            (member.group ? '' : ' (no mesh built on this level — selection is by id)'),
+        );
+    }
+
+    /**
+     * Build the ordered member list from the lift RECORD, not from the mesh tree.
+     * See the field-declaration comment for why that direction is load-bearing.
+     */
+    private _buildLiftMemberList(
+        liftId: string,
+    ): Array<{ id: string; kind: string; label: string; group: THREE.Object3D | null }> {
+        const out: Array<{ id: string; kind: string; label: string; group: THREE.Object3D | null }> = [];
+        // ⚠ THE FIRST DRAFT OF THIS BLOCK READ `window.__pryzmStores`, WHICH DOES NOT
+        // EXIST. `grep -rn "__pryzmStores"` returned only the two lines that invented
+        // it — a seam built to the shape the caller wanted rather than to the shape the
+        // app has, which is `[[fake-more-capable-than-real]]` in miniature and would
+        // have made Tab silently cycle an empty list forever.
+        //
+        // The REAL bridge is the composed runtime's store map: `runtime.stores[<key>]`
+        // is the contract `PluginRegistry.ts:133` documents ("Store key under
+        // `runtime.stores[<key>]`"), the keys are the `storeKey` fields of the `lift`
+        // and `liftPart` descriptors, and `window.runtime` is already how this very
+        // file reaches the bus (line ~1349). Same door, not a new one.
+        const liftStore = window.runtime?.stores?.lift;
+        const partStore = window.runtime?.stores?.liftPart;
+        const lift = liftStore?.getState?.().get?.(liftId) as
+            | { childrenIds?: string[]; landingSideId?: string }
+            | undefined;
+        if (!lift?.childrenIds) return out;
+
+        /** Find the built mesh for an id, or null if its builder has not run. */
+        const meshFor = (id: string): THREE.Object3D | null => {
+            let found: THREE.Object3D | null = null;
+            this.world.scene.three.traverse((o) => {
+                if (!found && (o.userData?.id === id || o.userData?.elementId === id)) found = o;
+            });
+            return found;
+        };
+
+        // Cabin parts come from the part store so they arrive in the DECLARED
+        // domain order, not in whatever order the ids happen to sit in childrenIds.
+        const cabinIds = new Set<string>();
+        const parts = (partStore?.getState?.() ?? new Map()) as Map<string, { liftId: string; kind: string }>;
+        const byKind = new Map<string, { id: string; kind: string }>();
+        for (const [pid, p] of parts) {
+            if (p?.liftId === liftId) {
+                byKind.set(p.kind, { id: pid, kind: p.kind });
+                cabinIds.add(pid);
+            }
+        }
+
+        // 1. Enclosure sides + 2. landing doors — everything in childrenIds that is
+        //    not a cabin part, in record order (enclosure first, doors second, which
+        //    is the order the assembly wrote them).
+        for (const cid of lift.childrenIds) {
+            if (cabinIds.has(cid)) continue;
+            const isLanding = cid === lift.landingSideId;
+            out.push({
+                id: cid,
+                kind: isLanding ? 'shaft-landing-side' : 'shaft-member',
+                label: isLanding ? 'Shaft landing side' : 'Shaft member',
+                group: meshFor(cid),
+            });
+        }
+
+        // 3. Cabin parts, in the DECLARED cycle order (domain data, not traverse order).
+        for (const kind of LIFT_PART_CYCLE_ORDER) {
+            const hit = byKind.get(kind);
+            if (!hit) continue;
+            out.push({
+                id: hit.id,
+                kind,
+                label: LIFT_PART_LABELS[kind] ?? kind,
+                group: meshFor(hit.id),
+            });
+        }
+        return out;
+    }
+
+    /** Clear the lift amber sub-highlight from the scene. */
+    private _clearLfHighlight(): void {
+        if (this.lfSubHighlight) {
+            this.world.scene.three.remove(this.lfSubHighlight);   // DETACH now…
+            // §SELECT-HIGHLIGHT-RELEASE-AT-BOUNDARY (L-1002) — …RELEASE at the frame
+            // boundary, exactly as the kitchen highlight does.
+            scheduleGpuRelease(this.lfSubHighlight.geometry as THREE.BufferGeometry);
+            scheduleGpuRelease(this.lfSubHighlight.material as THREE.Material);
+            this.lfSubHighlight = null;
+        }
+    }
+
+    /** Reset lift cycling state. */
+    private resetLfSubState(): void {
+        this._clearLfHighlight();
+        this.lfSubMembers = [];
+        this.lfSubMemberIndex = -1;
+        window.__liftSubMember = null;
     }
 
     /** Build ordered list of kitchen unit sub-elements from the furniture root. */
