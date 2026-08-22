@@ -709,6 +709,59 @@ existing one, it replaces it or defers to it; it does not sit beside it.
 It may never render a pass it did not compute — which is the same rule as §5.3, stated from the
 failure side rather than the data side.
 
+### §5.2.2 — ⚠ MUST: an OFFERED ARTEFACT states what it approximated, and the statement may not be a string a renderer can clip
+
+*Minted 2026-08-22 from L-4200…L-4207, founder-reported from production ("absolutely not good").*
+
+§5.2.1 above is written from the *validation* side: a rule that cannot compute its precondition
+emits nothing. This subsection is the same doctrine from the **generator** side, and it is a
+distinct MUST because the failure mode is the mirror image — not a check that fails closed into a
+green tick, but a **product that fails open into an authoritative-looking answer**.
+
+The founder asked for an apartment inside an **81.2 m²** room with a curved east edge. He was
+offered two layouts covering **71.5 m²** — seven rooms at **10.2 m² each** — with no visible
+statement that **12 % of his room was not planned**, and no visible statement that the real
+architectural engine had already **REFUSED that exact programme** and named the rooms it could not
+size (`master 9.3 m² against a 12 m² minimum`). Both facts existed in the code. One was behind
+`globalThis.__pryzmLayoutDiag` (off in production); the other was appended to a `summary` string
+that `.alm-title { text-overflow: ellipsis; white-space: nowrap }` clipped to `"(offlin…"`.
+
+**Binding, three parts:**
+
+1. **A generator that could not honour the request as asked MUST say so on the artefact it
+   offers** — not in a console line, not behind a debug flag, and not only in a `status: 'rejected'`
+   arm the successful path never reaches. When a weaker generator produces what the user is looking
+   at because a stronger one declined, **the decline and its reason travel with the options**.
+
+2. **The statement is DATA, not prose appended to a display string.** A caveat concatenated onto a
+   title, summary or label is one CSS declaration away from not existing, and the renderer that
+   clips it is usually not the code being reviewed when the honesty was added. The carrier must be a
+   structured field the renderer is obliged to lay out (in the apartment picker:
+   `LayoutOption.limitations`, rendered above the commit control).
+
+3. **The statement carries BOTH numbers** (C73 §4.4). *"This shape is approximated"* is an
+   adjective. *"The room is 81.2 m², so 10.6 m² of it — 13 % — is NOT covered"* is a measurement,
+   and only the second lets a user decide. Likewise a room below a normative minimum is named with
+   the achieved area **and** the minimum, never as "too small".
+
+**Corollary — an approximation is not a licence to proceed silently, and a refusal is not a
+licence to offer nothing.** Both halves are failures. The honest orderings, strongest first:
+plan against the real boundary; else plan against a stated approximation **with the loss
+quantified on the artefact**; else refuse **naming what would fit**. Choosing the middle option
+silently is the one forbidden move, and it is what shipped.
+
+**Where this is enforced:** `packages/ai-host/src/workflows/apartmentLayout/proceduralLayout.ts`
+(emits the limitations), `.../generate.ts` (`declineToLimitation`, stamps the engine's refusal onto
+every shipped option), `apps/editor/src/ui/apartment-layout/layoutModalHtml.ts`
+(`limitationsHtml`, rendered before `.alm-select`). Tests:
+`packages/ai-host/__tests__/honestPickerL4200.test.ts`,
+`apps/editor/__tests__/honestPickerCardL4200.test.ts` — the editor suite asserts **string index
+ordering** against the commit button, because "it is rendered somewhere" is precisely the property
+that held while the defect shipped.
+
+⚠ **NOT established by any of the above:** that the limitations block fits the founder's viewport
+without pushing "Use this layout" below the fold. That needs a browser.
+
 ### §5.3 — Silence on UNDETERMINED, always
 
 If the containment answer, the bounding-wall list or the swing geometry is `undetermined`

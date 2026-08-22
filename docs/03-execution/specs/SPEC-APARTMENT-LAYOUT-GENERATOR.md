@@ -165,9 +165,57 @@ Overall (0–100) = `round(100 × Σ(score_i × weight_i) / Σ weight_i)`. Retur
 
 Up to **3** attempts. After a fully-invalid batch, the next prompt appends the concrete failure reasons (V-rules) so the model corrects them. A retry that still yields < `count` valid options returns whatever validated (≥1), or rejects the run with a clear reason if zero.
 
+### §10.1 — The FALLBACK LADDER, and the decline reason that must survive it (normative)
+
+*Amended 2026-08-22 from L-4200…L-4207 (lane LAY9), founder-reported from production.*
+
+§10 above describes only the **AI retry loop**. The shipped orchestrator
+(`generate.ts:generateLayoutOptions`) runs a three-rung ladder below it, and the rung boundaries are
+where the founder's Room 03-002 defect lived. The ladder is normative:
+
+| rung | generator | when it runs |
+|---|---|---|
+| 1 | the AI relay (§6) | always, up to `maxRetries` |
+| 2 | **D-TGL** `generateDeterministicLayouts` | rung 1 yielded no valid option **and** `proceduralFallback` is on |
+| 3 | the strip slicer `generateProceduralLayoutHonest` | rung 2 produced nothing **and** the §D3.5 envelope admits the shell |
+
+**MUST — a rung that declines names WHY, and the name survives to the artefact.**
+`enumerateLayouts` evaluates a viability gate (every requested mandatory room realised; no habitable
+room below its `programRules.minAreaM2`) and, when no strategy passes, it knows exactly which rooms
+it could not size and by how much. Before this amendment it `console.warn`-ed that sentence behind
+`globalThis.__pryzmLayoutDiag` — **off in production** — and returned a bare `[]`. Rung 3 therefore
+could not distinguish *"the engine refused this programme on architectural grounds"* from *"the
+perimeter was degenerate"*, and shipped **parallel strips that commit the very sub-minimum rooms
+rung 2 had just refused** (a 10.2 m² "Master" against a 12 m² minimum).
+
+The carrier is `LayoutDeclineDiagnosis` (`types.ts`), emitted through the **optional** `onDecline`
+sink on `enumerateLayouts` and `generateDeterministicLayouts`. It carries `kind`
+(`envelope` | `program-does-not-fit` | `degenerate`), the engine's own `reason`, the
+`missingMandatoryTypes`, and `underMinAreaRooms` with **both** the achieved area and the minimum per
+room (C73 §4.4). `generateLayoutOptions` surfaces it on `GenerateLayoutResult.declineDiagnosis` —
+**on the `ok` arm as well as the `rejected` arm** — and stamps it onto every option it ships as an
+`engine-fallback` limitation.
+
+**MUST — rung 3 states what it approximated, as data.** The strip slicer cannot plan against a
+non-rectangular boundary; §L-907a already had it fall back to the largest inscribed axis-aligned
+rectangle. That disclosure was appended to `LayoutOption.summary` and clipped away by
+`.alm-title`'s `text-overflow: ellipsis`. It now travels on `LayoutOption.limitations` and names the
+uncovered area in m² **and** as a percentage. See **C83 §5.2.2**, which binds this for every offered
+artefact, not only this generator.
+
+**MUST — rung 3 sizes rooms from `rules/programRules.ts`.** It used to divide the span by the room
+count, so a hall and a master bedroom came out the same area. Band widths reserve each room's
+`minAreaM2` and `minShortSideM` first, then split the surplus by `areaWeight`; shortfalls that
+remain are **reported per room with both numbers**, never absorbed silently.
+
+**KNOWN LIMITATION, stated rather than fixed (L-4207):** rung 3 lays rooms in a single line, so
+every interior room is a passage — architecturally wrong for an en-suite or a bathroom. It is
+declared on the card (`private-room-is-passage`). The resolution is for rung 2 to stop declining,
+not for rung 3 to grow a corridor engine.
+
 ## §11 — UI (modal)
 
-On `apartment.layout-options-ready`: a modal with `count` cards, each: a **2D plan thumbnail** rendered via **FrameScheduler** (P3 — never a raw rAF), the room list with areas, the 4-axis score breakdown, and the overall /100. **Select** → dispatch `apartment.layout-execute { optionIndex }`. **Cancel** → `apartment.layout-cancel` (clears AIStore). Thumbnail uses the bake-worker render (SPEC-47 §7 placeholder until it lands).
+On `apartment.layout-options-ready`: a modal with `count` cards, each: a **2D plan thumbnail** rendered via **FrameScheduler** (P3 — never a raw rAF), the room list with areas, the 4-axis score breakdown, and the overall /100. Every card MUST also render, **above** the Select control, (a) the option's stated `limitations` in full and (b) the validation ERROR sentences — not a count, and not behind a collapsed chip (C83 §5.2.2; L-4203/L-4206). **Select** → dispatch `apartment.layout-execute { optionIndex }`. **Cancel** → `apartment.layout-cancel` (clears AIStore). Thumbnail uses the bake-worker render (SPEC-47 §7 placeholder until it lands).
 
 ## §12 — Execute handler `apartment.layout-execute`
 

@@ -34668,3 +34668,194 @@ tracks split view without a visible one-frame lag from the `ResizeObserver`. **F
 control still clipped by the shell row, a header floating too low, or bars visibly snapping a frame
 after the split-view toggle.
 
+---
+
+## §HONEST-PICKER — "absolutely not good": the apartment picker for Room 03-002 (lane LAY9, 2026-08-22)
+
+The founder asked, in the AI assistant:
+
+> *"create an apartment with 2 bedrooms and 2 en-suite bathrooms and open kitchen and dinning in Room 03-002"*
+
+PRYZM replied that it was laying out *"2 bedrooms, 1 bathroom, 2 en-suites, an open-plan
+kitchen/dining inside room 03-002 (81.2 m²)"* and opened the picker with **2 options**: two cards
+reading **"Procedural A / Procedural B — 7 rooms (offlin…"**, **seven rooms at 10.2 m² EACH**,
+**"7 rooms · 6 doors · 71.5 m²"**, **90/100**, and **"4 errors"** behind a collapsed chip. The room
+is **81.2 m²** with an irregular boundary — three orthogonal sides and an east edge that is a
+**faceted arc**.
+
+**Reproduced offline** by building the shell the way the live room-scoped path builds it
+(`analyseRoomRing` on a 3-orthogonal-sides + faceted-arc ring, 80.6 m², 19 vertices) and running
+`generateDeterministicLayouts` and `generateProceduralLayoutHonest` on it. Every number below is
+from that harness or from `grep`; the browser was never opened.
+
+### L-4200 — ⛔ FIXED (root): the engine REFUSED, the reason was thrown away, and the fallback shipped the layout it had refused
+
+`enumerate.ts`'s viability gate computes, for the founder's programme on his shell:
+
+> *"every strategy shrank a habitable room below its minimum area (under-min: **[master, bedroom,
+> living]**) across all 4 strategies … **master 9.3 m² vs 12 m² minimum**, bedroom 4.7 vs 9.0,
+> living 13.6 vs 14.0"* — and separately *"missing: [dining]"*.
+
+That is a **CORRECT architectural refusal**. 80.6 m² genuinely cannot hold hall + living + kitchen
++ dining + 2 bedrooms + 2 en-suites + bathroom + corridor at minimum room sizes.
+
+Then it was **destroyed twice over**:
+
+1. the sentence was `console.warn`-ed behind `if (_layoutDiagOn())` — `globalThis.__pryzmLayoutDiag`,
+   **off in production** — so nobody ever saw it;
+2. the function returned a bare `[]`, so `generate.ts` **could not distinguish an architectural
+   refusal from a degenerate perimeter** and fell through to the strip slicer for both.
+
+The strip slicer's own header, and `generate.ts`'s own `§ENVELOPE-DIAGNOSTIC` comment, say this
+must not happen — *"the strip-slicer, whose parallel-strip output looks like a real layout and
+hides the actual failure from the user"*. The guard that comment installed covers **only the
+envelope arm**. The mandatory / min-area arm walked straight past it. The 10.2 m² "Master" the
+founder was offered is **below the 12 m² minimum the engine had just refused to ship**.
+
+**FIX:** `enumerateLayouts(input, onDecline?)` and `generateDeterministicLayouts(…, onDecline?)`
+emit a `LayoutDeclineDiagnosis` at **every** empty return — `envelope` / `program-does-not-fit` /
+`degenerate` — carrying **both numbers per room** (C73 §4.4). `generate.ts` captures it, puts it on
+`GenerateLayoutResult.declineDiagnosis`, folds it into the `reason` string, and stamps an
+`engine-fallback` limitation onto **every option it ships**. Purely additive: the parameter is
+optional, so the house orchestrator, the residential packer and 20+ existing callers are
+byte-identical.
+
+### L-4201 — ⛔ FIXED: seven rooms of identical area is `span / n`, and the normative room database was one directory away
+
+`proceduralLayout.ts` gave every band `cellM = span / n` and wrote `area: cellM * cross` on every
+room. It **had never imported `rules/programRules.ts`** — the 248-constraint `ROOM_RULES` database
+(`areaWeight`, `minAreaM2`, `minShortSideM`, UK Building Regs / HQI values) that the D-TGL bubble
+graph sizes against. Verified: `grep -n "programRules" proceduralLayout.ts` → **0 hits before**.
+
+**FIX:** new `allocateBandWidths(types, spanM, crossM)` reserves each room the width it needs to
+clear **both** its `minAreaM2` (at the fixed band depth) and its `minShortSideM`, then splits the
+surplus by `areaWeight`. Same shell, same programme, before → after (m²):
+
+| | Hall | Living | Kitchen | Dining | Master | Ensuite | Bedroom | Ensuite | Bathroom |
+|---|---|---|---|---|---|---|---|---|---|
+| before | 10.0 | 10.0 | 10.0 | 10.0 | 10.0 | *(absent)* | 10.0 | *(absent)* | 10.0 |
+| after | 4.6 | 15.6 | 8.7 | 8.3 | 12.0 | 3.7 | 9.2 | 3.7 | 4.1 |
+
+When the minima genuinely do not fit, the allocator **returns the shortfalls** rather than picking
+silent winners and losers, and the caller prints each one with both numbers.
+
+### L-4202 — ⛔ FIXED: he asked for 2 en-suites and got 0, and nothing said so
+
+`roomProgram()` read only `p.masterEnSuite`, and used it merely to **rename** bedroom 1 "master".
+`enSuiteCount` has been a first-class program field since L-1642; `bubbleGraph.ts:373` has honoured
+it all along; `generate.ts:110` puts it in the AI prompt; `validate.ts:88` validates against it.
+**Only this generator ignored it** — the classic "two engines, two vocabularies" defect.
+
+**FIX:** `enSuiteCount` is read, clamped to `[0, bedrooms]` (the same clamp `bubbleGraph.ts`
+applies — an en-suite pairs 1:1 with a bedroom), and each en-suite is minted **immediately after
+its host bedroom** so the chain's door lands between the two.
+
+⚠ This changed an existing assertion. `apartmentLayoutProcedural.test.ts` set
+`masterEnSuite: true` and expected **7 rooms / 6 walls**. That expectation **encoded the defect**.
+Updated to 8 / 7 with the reason recorded in place.
+
+### L-4203 — ⛔ FIXED: the disclosure was GENERATED and then destroyed by one CSS line
+
+The §L-907a disclosure — *"planned on inscribed 7.9×8.8 m rectangle; site is non-rectangular"* —
+**was already being produced**, appended to `LayoutOption.summary`. The founder never saw it
+because `apps/editor/src/ui/styles/panels/apartmentLayoutModal.ts:54` read:
+
+```css
+.alm-title { … overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+```
+
+He read **"Procedural A — 7 rooms (offlin…"**. A **13 % shortfall against the real room, hidden by
+one CSS declaration.** This is the sharpest instance yet of *"committed ≠ reachable"*: the honesty
+work was done, shipped, and then clipped by the renderer.
+
+**FIX, three parts:**
+* `LayoutOption.limitations` — stated limitations as **DATA**, not a suffix on a title. Rendered in
+  full by `limitationsHtml()`, **inside the card, above "Use this layout"** (the tests assert the
+  string index ordering, because "rendered somewhere" is not the property that failed).
+* The disclosure now names **the uncovered area**: *"The room is 80.6 m², so **10.6 m² of it — 13%
+  — is NOT covered by this layout**. This generator cannot plan against a non-rectangular
+  boundary."* "Approximated" without the m² is an adjective, not a measurement.
+* `.alm-title` **wraps to two lines** instead of clipping.
+
+### L-4204 — ⭐ REFUTED (mine and the brief's): the curved edge is NOT why the engine declined
+
+The brief's hypothesis — *"the engine is laying out against a BOUNDING RECTANGLE, not the room
+polygon"*, and the linked prior art *"`shellWallMatch` fails on non-orthogonal shells; his room has
+a curved edge — check whether that is the same root cause"* — is **wrong at the input, and wrong
+about the decline.** Measured matrix, `generateDeterministicLayouts` option count:
+
+| shape | 2bd 1ba (no en-suite) | 2bd + `masterEnSuite` | 2bd + 2 en-suites | 1bd 1ba minimal |
+|---|---|---|---|---|
+| **RECT 9×9** | **3** | **0** | **0** | **3** |
+| RECT 12×7 | 0 | 0 | 0 | **3** |
+| **ARC 8.0×8.94** | 0 | **0** | **0** | **3** |
+
+Two things fall out: the engine **succeeds on the arc shape** (1-bed → 3 options), and it **fails on
+a perfect rectangle** for the en-suite programme. The decline is **programme-driven, not
+shape-driven**. And the polygon genuinely reaches the engine: `shellReader.analyseRoomRing` mints one
+synthetic ring wall **per polygon edge** (19 for the arc fixture) and `netAreaM2` is the true
+shoelace area — the bounding box appears **later**, inside the strip slicer's inscribed-rectangle
+fallback, which is exactly where the 71.5-vs-81.2 gap comes from. Recorded, not deleted.
+
+### L-4205 — the "two options" are not a collapsed choice: the generator only ever has one
+
+`proceduralLayout.ts` computes `variants = Math.max(1, Math.min(count, 2))`, and variant B is
+variant A **reversed**. `DEFAULT_OPTION_COUNT` is **3** — the picker asked for three and the
+generator can only make two. So the answer to *"real diversity collapsed by the picker, or only one
+solution ever produced?"* is **the latter, and the picker collapses nothing.** Both cards also
+scored **89.0** — identical, because a reversed band sequence scores the same on every axis.
+
+Partly addressed: the summaries now **say what differs** — *"9 rooms in a single line, public end
+first"* vs *"the same rooms reversed"* — so the card no longer implies a choice it cannot offer.
+🟡 **OPEN:** whether a one-solution generator should show one card. Not decided here; showing one
+card would hide that the reversal is available, and two honestly-labelled cards is at least true.
+
+### L-4206 — ⛔ FIXED: "4 errors" behind a collapsed chip, next to an enabled commit button
+
+`validationHtml()` rendered the count as a pill and the findings inside a `<pre>` revealed only by
+clicking it, while `.alm-select` ("Use this layout") sat beside it **fully enabled**. A count is not
+a finding. **FIX:** `ValidationBadge.errorLines` carries the error sentences (`classId: message`,
+deduped, capped at 12 so one pathological option cannot push the button off the card) and they render
+**always-visible** under the pill. **Warnings stay collapsed** — they do not stop a build.
+
+⚠ **What his four errors were is NOT established.** They come from `validateAndFormatLayout` over
+`optionToDto`'s projection and depend on the founder's real room; the harness reproduces the shape
+class, not his exact polygon. The fix makes them **legible**, which is what was asked; naming them
+would require his project.
+
+### L-4207 — 🟡 OPEN: the strip slicer's linear chain makes every interior room a passage
+
+A single line of rooms means every room but the two ends is walked **through**. For an en-suite or a
+bathroom that is an architectural error, and it is a property of the generator, not of the brief.
+Now **stated** on the card (`private-room-is-passage`, severity `error`) rather than hidden.
+**Not fixed** — fixing it means giving the fallback a corridor, which is what D-TGL already is. The
+right resolution is for D-TGL to stop declining, not for the fallback to grow a second engine.
+
+### TEST COUNTS, BEFORE AND AFTER, MEASURED THE SAME WAY
+
+Measured by **reverting my nine source files** (`git checkout --`, never `git stash`), running, then
+re-applying the patch and re-running. Command: `npx vitest run --root packages/ai-host`.
+
+* **BEFORE:** `Test Files 6 failed | 262 passed (268)` · `Tests **12 failed** | 4512 passed | 4 skipped (4528)`
+* **AFTER:** `Test Files 6 failed | 263 passed (269)` · `Tests **12 failed** | 4523 passed | 4 skipped (4539)`
+* **The same 12, in the same 6 files.** Zero new failures; **+11 passing** (the new suite).
+* `apps/editor`: `layoutCardModel` · `layoutModalHtml` · `layoutCardModel.facade-hierarchy` ·
+  `houseModalHtml.liveModal` · `residentialCardModel` → **118 passed, 0 failed**; new
+  `honestPickerCardL4200.test.ts` → **8 passed**.
+* **Root gate:** `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=0**.
+
+The brief warned not to inherit a red count. The 12 pre-existing failures
+(`apartmentBriefCountCarried` ×4, `circulationIntegrityAudit` ×2, `circulationRobustnessSweep`,
+`shellWallMatch` ×3, `spineSingleLoadedSelection`, `stairPosition`) are **not mine and were red
+before I touched anything** — including the three in `shellWallMatch.test.ts`, the file the brief
+suspected of sharing a root cause with this report. It does not.
+
+### NOT VERIFIED IN A BROWSER
+
+Every claim above is from the offline harness, `grep`, `vitest` or `tsc`. **Not verified:** that the
+founder's actual Room 03-002 polygon produces these exact numbers (the harness reproduces the shape
+CLASS — three orthogonal sides plus a faceted arc — not his ring); that the limitations block fits
+the card at his viewport without pushing "Use this layout" below the fold; that a two-line
+`.alm-title` does not disturb the card grid; and what his four validation errors actually were.
+**Falsified by:** a card where the commit button is off-screen, a limitations block that overflows
+its card, or a Room 03-002 run whose engine reason differs from `program-does-not-fit`.
