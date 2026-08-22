@@ -42,3 +42,15 @@ export type { SheetRenderTarget, ViewportChrome } from './SheetRenderTarget';
 // and in three export services against a template declaring eleven fields.
 export { resolveTitleBlockValues, resolveSheetScaleLabel } from './TitleBlockValues';
 export type { TitleBlockContext, TitleBlockSheet } from './TitleBlockValues';
+
+// §SHEET-RESIZE-IS-A-CROP (L-3809) — a viewport has no size of its own, so
+// dragging its edge changes what it SHOWS, not how big the drawing is drawn.
+// The inverse of the composer's framing arithmetic; keeps "1:N" true.
+export {
+    resizeCropByEdgeDelta,
+    currentCropFromComposition,
+    cropPaperSizeMm,
+    mmToWorldM,
+    MIN_CROP_EXTENT_M,
+} from './ViewportResize';
+export type { CropRectM, EdgeDeltaMm } from './ViewportResize';

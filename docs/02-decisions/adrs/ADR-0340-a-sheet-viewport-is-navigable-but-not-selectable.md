@@ -14,6 +14,107 @@
 
 ---
 
+## ⚠ AMENDED 2026-08-22 (lane SHEET4) — THE TITLE SAYS THE OPPOSITE OF THE DECISION
+
+**Status of the ruling: UPHELD. Status of the title: CORRECTED.**
+
+The founder, 2026-08-22, listing it as a standing request:
+
+> "Viewports must be selectable — select a viewport → see its properties →
+> change the scale there → resize it → crop it in place → double-click to
+> navigate inside it at full 3D quality, without leaving the sheet, for 3D
+> **and** plan **and** elevation."
+
+That reads as a direct contradiction of this ADR, and the lane was briefed to
+overturn it if the reasoning no longer held. **It was measured first, and the
+contradiction is not real — it is an artefact of this document's own title.**
+
+### What the title says, and what the decision says
+
+The title reads *"a sheet viewport is NAVIGABLE, but it is not SELECTABLE"*.
+The decision underneath it says something much narrower: **elements INSIDE a
+composed viewport cannot be selected**, because `SVGCompositeRenderer` emits
+anonymous `<line>` elements from merged `THREE.LineSegments` buffers in which
+per-element identity is already gone (§VG-LAYER-IDENTITY-IS-THE-ONLY-SURVIVOR,
+L-1600). **The VIEWPORT ITSELF was always selectable** — §5 of this ADR is a
+specification for a viewport properties panel with editable `position`, `scale`
+and `crop`.
+
+So the subject of "SELECTABLE" silently changed between the title and the body:
+in the title it is the viewport, in the body it is the elements inside it. An
+agent reading only the title — which is what a title is for — would refuse to
+implement viewport selection. **That is this repo's recurring defect class
+(a document asserting something the code does not do) with the polarity
+inverted: a document REFUSING something the code already does.**
+
+### Measured, 2026-08-22 — five of the six asks were already shipped
+
+| Founder's ask | State | Evidence |
+|---|---|---|
+| Select a viewport | **SHIPPED** | `SheetEditorPanel._selectedVpId`, set by the viewport click handler |
+| See its properties | **SHIPPED** | `SheetEditorSidebar.ts` §Viewport properties, per §5 below |
+| Change the scale there | **SHIPPED** | `SheetEditorSidebar.ts:283` dispatches `UpdateViewportScaleCommand` |
+| Crop it in place | **SHIPPED** | `SheetEditorSidebar.ts:332` dispatches `SetViewportCropCommand` |
+| Double-click → navigate, without leaving the sheet | **SHIPPED** | §1 below (L-1866) |
+| **Resize it** | **⛔ ABSENT** | see below |
+
+**Resize was ABSENT, and absent in the most misleading way.** Measured with
+`grep -rn "sh-resize-handle"` → **9 hits, every one of them in
+`apps/editor/src/ui/styles/panels/sheetEditor.ts`** — eight cursor rules and a
+base class, fully authored, for eight compass handles. **Zero DOM producers.**
+The CSS existed and nothing ever created an element to wear it
+[authored-but-unwired]: the feature looked present to anyone reading the
+stylesheet and did not exist.
+
+### What resizing a viewport MEANS — and why it is a crop
+
+A viewport **has no size of its own**. `ViewportSvgComposer` is explicit: it is
+exactly as big as the drawing it shows, at the scale it shows it at. So a
+resize handle cannot simply set a width; it must change one of the things that
+determines the size, and there are only three candidates:
+
+1. **Change the scale.** Rejected — that is a different control, it already
+   exists, and dragging a corner to restyle a drawing from 1:50 to 1:63 would
+   produce scales no drafter would choose.
+2. **Stretch the linework to the new rectangle.** Rejected outright: it
+   falsifies the drawing, and it makes the printed "1:N" a lie. This is the
+   same rejection this ADR already records for *"clamp the oversized viewport
+   to the sheet"*.
+3. **Change what the viewport SHOWS.** ⭐ This is the correct one, and it is
+   already a first-class, undoable, persisted concept: **`crop`**.
+
+⭐ **So resize IS crop, expressed as a gesture rather than as four numbers.**
+Dragging an edge changes the drawing-space rectangle the viewport frames; the
+paper size follows, because paper size is a function of crop and scale. The
+conversion is exact and was already established by §3 of this ADR — a crop
+rectangle and a viewBox are both in metres, and `paperMm = worldM × 1000 /
+scaleDenom`. Nothing is approximated, `1:N` stays true, and the gesture
+dispatches the `SetViewportCropCommand` that L-1840 already built, so resize is
+undoable and survives a save on its first day.
+
+### The part of the reasoning that STILL HOLDS
+
+**Element selection inside a viewport remains REFUSED, unchanged, for the
+reason originally given.** The merged-buffer identity loss is real, measured and
+not affected by anything above. "Navigate here, edit there, via a button that
+says so" stands.
+
+And one ask is **NOT delivered and cannot be, as stated**: *"navigate inside it
+at full 3D quality"*. §7 below is still true — a 3D viewport is a raster
+capture, so navigating inside one is a transform on a bitmap and it degrades as
+you zoom. Delivering literal full 3D quality needs a live render pass at the
+viewport's aspect, which does not exist: measured on `RendererHandleFactory`,
+there is **no render-to-target-at-aspect entry point** (L-3802). Recorded as
+refused-for-now, by name, rather than quietly approximated.
+
+### Consequence for this document
+
+The title is retained verbatim for link stability, but **it must be read as "a
+sheet viewport is navigable and selectable; the ELEMENTS INSIDE IT are not"**.
+Nothing in the decision below changes.
+
+---
+
 ## Context
 
 The founder, 2026-08-21, on production build `071a7b2c`:
