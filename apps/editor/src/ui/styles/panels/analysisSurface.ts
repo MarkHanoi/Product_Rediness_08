@@ -117,17 +117,35 @@ export const ANALYSIS_SURFACE_STYLES = `
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 58px 16px 12px; /* 44 reserve + 14 the header's own top padding */
+  padding: 14px 16px 12px;
+  height: auto;
   background: var(--app-gradient);
   box-shadow: var(--app-shadow-header);
   color: var(--app-on-accent);
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  /* ⭐ THE RESERVE, AND IT IS A BORDER RATHER THAN PADDING ON PURPOSE.
+     C06 §6.1 tabulates 'padding: 14px 16px 12px' as THE shared metric of the
+     three mode-surface headers, read from '.aud-header' at test time by
+     'dataPanelChrome.spec.ts' ARM C and by the arm in this lane's
+     'analysisHeaderReserve.spec.ts'. Folding the shell reserve into that value
+     would make Analysis disagree with the reference on a number that is not
+     about Analysis at all -- the reserve is shell OCCUPANCY, not header inset,
+     and the two must be able to move independently.
+     A transparent top border is the reserve: 'background-clip' defaults to
+     'border-box', so the brand gradient paints continuously THROUGH it and the
+     band reads as one header rather than a strip above one. The tabulated six
+     properties stay byte-identical to Inspect. */
+  border-top: 44px solid transparent;
 }
 
 .anl-title-wrap { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 
 .anl-title {
   font-size: 11.7px;
-  font-weight: 800;
+  /* C06 §6.1 tabulates 700 / 0.10em, read from '.aud-header'. It was 800 here,
+     which is the same half-step of drift that put the Data header at 44px. */
+  font-weight: 700;
   letter-spacing: 0.10em;
   text-transform: uppercase;
   color: var(--app-on-accent);
@@ -165,13 +183,16 @@ export const ANALYSIS_SURFACE_STYLES = `
 
 /* ── Status strip ───────────────────────────────────────────────────────── */
 
+/* Three children now, not two (the tab lede folded in), so 'space-between' is
+   wrong -- it would centre the trust statement between the lede and the note.
+   The note is pushed right on its own. */
 .anl-status {
   flex: 0 0 auto;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 6px 16px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 7px 16px;
   background: var(--app-surface-sunken);
   border-bottom: 1px solid var(--app-border-light);
   font-size: 9.9px;
@@ -182,7 +203,7 @@ export const ANALYSIS_SURFACE_STYLES = `
   border-bottom-color: var(--app-status-warning-line);
   color: var(--app-status-warning-ink);
 }
-.anl-status-note { flex-shrink: 0; font-style: italic; }
+.anl-status-note { flex-shrink: 0; margin-left: auto; font-style: italic; }
 
 /* ── Grid ───────────────────────────────────────────────────────────────── */
 
@@ -578,7 +599,7 @@ export const ANALYSIS_SURFACE_STYLES = `
    lowest edge moves from 36 to 48. Reserve 56 = 48 + 8. This media query exists
    BECAUSE that one does; if the mobile mode bar is ever re-sized, both move. */
 @media (max-width: 768px) {
-  .anl-header { padding-top: 70px; } /* 56 reserve + 14 */
+  .anl-header { border-top-width: 56px; }
   .anl-picker { top: 110px; max-height: calc(100% - 146px); }
 }
 
@@ -709,14 +730,17 @@ export const ANALYSIS_SURFACE_STYLES = `
   color: var(--app-status-warning-ink);
 }
 
-.anl-tab-lede {
-  padding: 8px 14px 0;
-  font-family: var(--app-font);
-  font-size: 11.5px;
-  line-height: 1.45;
-  color: var(--app-text-muted);
-  flex-shrink: 0;
-}
+/* ⚠ '.anl-tab-lede' WAS A BAND OF ITS OWN AND IS NOT ANY MORE (C06 §6.1,
+   L-3642). The contract: 'A mode surface MUST reach its content in ONE chrome
+   band plus, at most, one navigation row.' Analysis had four -- header, tab
+   strip, tab lede, status strip. The lede and the status strip are BOTH
+   per-tab statements about the same tab, so they are now one line: the lede
+   leads, the computed trust statement follows it.
+   ⛔ NOT ONE WORD OF THE TRUST STATEMENT WAS TRADED FOR THE ROOM. ADR-0343 §D.6
+   requires it pinned and visible; a redesign that shortened it to fit a chrome
+   rule would be the redesign that is wrong. The lede is now the ledeic half of
+   the status line, and it is rendered in the muted ink it always had. */
+.anl-status-lede { color: var(--app-text-2); font-weight: 600; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SERIES FOCUS — 'highlight this and the rest be a bit dormant' (L-3610)

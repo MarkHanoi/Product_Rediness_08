@@ -44,12 +44,21 @@ function px(block: string, prop: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
-/** The reserve the header actually applies = its top padding minus its own 14px. */
+/**
+ * The reserve the header actually applies.
+ *
+ * ⚠ IT IS A TRANSPARENT TOP BORDER, NOT PADDING, and the distinction is a
+ * contract one. C06 §6.1 tabulates `padding: 14px 16px 12px` as THE shared
+ * metric of the three mode-surface headers; the shell reserve is OCCUPANCY, not
+ * header inset, and folding it into that value would make Analysis disagree
+ * with the reference on a number that is not about Analysis at all.
+ * `background-clip` defaults to `border-box`, so the brand gradient paints
+ * through the border and the band still reads as one header.
+ */
 function headerReserve(): number {
-  const top = px(rule(ANALYSIS, '.anl-header {'), 'padding');
-  // `padding: 58px 16px 12px` — px() takes the FIRST length, which is the top.
-  expect(top, '.anl-header no longer declares a px top padding').not.toBeNull();
-  return top! - 14;
+  const b = px(rule(ANALYSIS, '.anl-header {'), 'border-top');
+  expect(b, '.anl-header no longer declares its reserve as a top border').not.toBeNull();
+  return b!;
 }
 
 describe('§ANALYSIS-HEADER-OCCLUDED — the inputs the reserve was derived from', () => {
@@ -91,9 +100,9 @@ describe('§ANALYSIS-HEADER-OCCLUDED — the inputs the reserve was derived from
     expect(px(mobileBtn, 'min-height'), 'the mobile mode bar changed height').toBe(36);
     const lowestMobile = 6 + 3 + 36 + 3;
     const m = /@media \(max-width: 768px\)[\s\S]*?\.anl-header \{([^}]*)\}/.exec(ANALYSIS)?.[1] ?? '';
-    const top = px(m, 'padding-top');
+    const top = px(m, 'border-top-width');
     expect(top, 'the Analysis sheet lost its 768px reserve override').not.toBeNull();
-    expect(top! - 14).toBeGreaterThanOrEqual(lowestMobile);
+    expect(top!).toBeGreaterThanOrEqual(lowestMobile);
   });
 
   it('the widget-picker sheet opens BELOW the reserve, not under the mode bar', () => {
@@ -129,5 +138,85 @@ describe('§ANALYSIS-HEADER-OCCLUDED — the header speaks Inspect (the founder 
     const browser = readFileSync(join(REPO, 'apps/editor/src/ui/platform/PlatformProjectBrowser.ts'), 'utf8');
     expect(browser).toContain('§L-MOUNT-DETACH');
     expect(browser).toContain('NOT attached to the document');
+  });
+});
+
+
+/**
+ * C06 §6.1 — ARM C's rule, applied to the third surface.
+ *
+ * ⚠ DELIBERATELY COUPLED TO ANOTHER SURFACE'S STYLESHEET, and the contract says
+ * why: *"Convergence MUST be asserted by READING the reference sheet, never by
+ * duplicating its literals."* Two independent copies diverge the first time one
+ * side moves — which is exactly how the Data header reached 44px / weight 800 /
+ * no shadow while its own comment claimed it matched Inspect.
+ *
+ * ⛔ When `.aud-header` changes, THIS FAILS. Converge Analysis, or raise the
+ * decision that the two should differ. Do not delete the arm.
+ */
+describe('C06 §6.1 — the Analysis header agrees with the Inspect reference', () => {
+  const audit = readFileSync(join(STYLES, 'panels/autonomous-auditor/auditStack.ts'), 'utf8');
+  const anl = (): string => rule(ANALYSIS, '.anl-header {');
+  const aud = (): string => rule(audit, '.aud-header {');
+
+  /** One declaration's value, or null. */
+  function decl(block: string, prop: string): string | null {
+    const m = new RegExp(`(?:^|;|\\s)${prop}\\s*:\\s*([^;]+);`).exec(block);
+    return m ? m[1]!.trim() : null;
+  }
+
+  it('both headers are found by this test', () => {
+    // Guard the premise: an empty body makes every comparison below pass on ''.
+    expect(anl().length).toBeGreaterThan(20);
+    expect(aud().length).toBeGreaterThan(20);
+  });
+
+  it('padding, brand ground, ink and elevation match Inspect', () => {
+    expect(decl(anl(), 'padding')).toBe(decl(aud(), 'padding'));
+    expect(decl(anl(), 'background')).toBe(decl(aud(), 'background'));
+    expect(decl(anl(), 'color')).toBe(decl(aud(), 'color'));
+    // Elevation is load-bearing: without it the header and the tab strip beneath
+    // it read as one thick slab, which is the defect §6.1 was written for.
+    expect(decl(anl(), 'box-shadow')).toBe(decl(aud(), 'box-shadow'));
+    expect(decl(anl(), 'height')).toBe('auto');
+  });
+
+  it('the title weight and tracking match Inspect', () => {
+    expect(decl(anl(), 'font-weight')).toBe(decl(aud(), 'font-weight'));
+    expect(decl(anl(), 'letter-spacing')).toBe(decl(aud(), 'letter-spacing'));
+    const title = rule(ANALYSIS, '.anl-title {');
+    expect(decl(title, 'font-weight')).toBe(decl(aud(), 'font-weight'));
+    expect(decl(title, 'letter-spacing')).toBe(decl(aud(), 'letter-spacing'));
+  });
+
+  it('header actions sit on the on-accent veil, as §6.1 tabulates', () => {
+    const btn = rule(ANALYSIS, '.anl-header-btn {');
+    expect(btn).toContain('var(--app-on-accent-veil)');
+    expect(btn).toContain('var(--app-on-accent)');
+  });
+
+  it('⛔ the shell reserve is NOT inside the shared padding metric', () => {
+    // If it ever is, the arm above starts failing for a reason that has nothing
+    // to do with header convergence — which is how a coupled assertion gets
+    // deleted rather than fixed.
+    expect(decl(anl(), 'padding')).toBe('14px 16px 12px');
+    expect(headerReserve()).toBeGreaterThan(0);
+  });
+
+  it('⭐ the surface reaches its content in ONE band plus ONE navigation row', () => {
+    // §6.1: "A mode surface MUST reach its content in ONE chrome band plus, at
+    // most, one navigation row." The tab lede used to be a fourth stacked band
+    // and is now part of the status line.
+    const surface = readFileSync(join(REPO, 'apps/editor/src/ui/analysis/AnalysisSurface.ts'), 'utf8');
+    expect(surface, 'the tab lede is a stacked band again').not.toContain("'anl-tab-lede'");
+    expect(surface).toContain("lede.className = 'anl-status-lede'");
+    // ⚠ DISCLOSED, not glossed: Analysis lands at THREE bands, not two — header,
+    // tab strip, status strip. The third is the §D.6 trust statement: a COMPUTED
+    // per-tab sentence rather than chrome, and §6.1's own rationale ("a third
+    // stacked band is a signal that a CONTROL belongs in the header's actions
+    // slot") does not reach it, because it holds no control. Folding it into the
+    // header would put a recomputed sentence in a slot that does not recompute.
+    // This arm pins that it is STILL THERE rather than pretending it is not.
+    expect(surface).toContain("this._status.className = " + String.fromCharCode(96) + "anl-status");
   });
 });

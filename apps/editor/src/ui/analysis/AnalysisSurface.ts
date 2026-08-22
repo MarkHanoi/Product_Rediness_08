@@ -78,7 +78,9 @@ export class AnalysisSurface {
   private _grid!: HTMLElement;
   private _status!: HTMLElement;
   private _tabBar!: HTMLElement;
-  private _tabLede!: HTMLElement;
+  /** The active tab's one-line lede. §C06 §6.1 — it is part of the status
+   *  line now, not a fourth stacked band. Held as a string, not an element. */
+  private _tabLedeText = '';
   private _visible = false;
   private _chartjs: ChartJS | null = null;
   private _chartLoadFailed = false;
@@ -145,9 +147,6 @@ export class AnalysisSurface {
     this._tabBar.setAttribute('aria-label', 'Analysis sections');
     panel.appendChild(this._tabBar);
 
-    this._tabLede = document.createElement('div');
-    this._tabLede.className = 'anl-tab-lede';
-    panel.appendChild(this._tabLede);
 
     // ── Status strip ────────────────────────────────────────────────────────
     this._status = document.createElement('div');
@@ -657,7 +656,7 @@ export class AnalysisSurface {
       this._tabBar.appendChild(b);
     }
     const lede = ANALYSIS_TABS.find((t) => t.id === this._layout.activeTab);
-    this._tabLede.textContent = lede?.lede ?? '';
+    this._tabLedeText = lede?.lede ?? '';
   }
 
   private _setActiveTab(id: AnalysisTabId): void {
@@ -695,6 +694,19 @@ export class AnalysisSurface {
     this._status.replaceChildren();
     this._status.className = `anl-status${incomplete ? ' anl-status--warn' : ''}`;
     const tab = ANALYSIS_TABS.find((t) => t.id === this._layout.activeTab)?.label ?? 'this tab';
+
+    // C06 §6.1 (L-3642) — "ONE chrome band plus, at most, one navigation row".
+    // The tab lede used to be a band of its own between the tab strip and this
+    // one. Both are per-tab statements about the same tab, so they are one line.
+    // ⛔ The lede was folded INTO the trust statement, not the other way round:
+    // nothing below was shortened to make room for it (ADR-0343 §D.6).
+    if (this._tabLedeText) {
+      const lede = document.createElement('span');
+      lede.className = 'anl-status-lede';
+      lede.textContent = `${this._tabLedeText}  ·  `;
+      this._status.appendChild(lede);
+    }
+
     const text = document.createElement('span');
     if (!incomplete) {
       text.textContent = `Rendered in ${ms} ms — every declared source read on ${tab}.`;
