@@ -175,6 +175,37 @@ const V2_CONTAINER_MARKER = '\x00fflate2\x01';
 interface _V2Entry { i: string; b: string }
 
 /**
+ * §PERF-VERSION-ENVELOPE-WRITE (L-5801) — one slot of a container being written.
+ *
+ * EITHER `blob` holds the compressed bytes for this version (carried forward from
+ * the stored envelope or the per-project blob cache — no decode, no deflate),
+ * OR `json` holds the raw record text that still needs deflating. Exactly one of
+ * the two is non-null on entry to {@link LocalVersionRepository._persistSlots}.
+ *
+ * This is the type that lets a save carry 19 unchanged versions forward as BYTES
+ * instead of decoding them into `VersionRecord`s it never reads.
+ */
+interface _PendingSlot { id: string; blob: string | null; json: string | null }
+
+/**
+ * §FIX-VERSION-SIZE-LOG-OVERSTATES (L-5806) — report the stored size HONESTLY.
+ *
+ * The two "persisted to IndexedDB" logs used to print `payload.length * 2` bytes,
+ * i.e. they assumed two bytes per character. A v2 container is
+ * `V2_CONTAINER_MARKER` + JSON whose every string is base64 — pure Latin-1 — so V8
+ * holds it as a one-byte string and IndexedDB's structured clone writes it as
+ * UTF-8: **one byte per character**. The log therefore overstated the payload by
+ * almost exactly 2× (the founder read "~70.8 MB" for a ~35 MB container), which is
+ * the same class of defect as an unmeasured claim: a number presented as measured
+ * that no instrument produced. Both figures are printed now — the honest one
+ * first — so nobody has to know this to read the line.
+ */
+function _formatPayloadSize(payload: string): string {
+    const mb = payload.length / 1024 / 1024;
+    return `~${mb.toFixed(1)} MB (${payload.length.toLocaleString()} chars)`;
+}
+
+/**
  * §PERF-VERSION-INCREMENTAL-COMPRESS — per-project cache of already-compressed
  * per-version blobs (versionId → compressed blob string). Lets a save reuse the
  * bytes of UNCHANGED versions and compress only the new/changed one, turning the
@@ -1031,6 +1062,39 @@ export class LocalVersionRepository implements IVersionRepository {
         }
     }
 
+    /**
+     * §PERF-VERSION-ENVELOPE-WRITE (L-5801) — the stored container as WRITE SLOTS,
+     * without decoding a single snapshot. Returns `null` — never `[]` — when there
+     * is no v2 envelope to edit, so a caller can tell "empty history" (an empty
+     * array) from "this project is on the legacy v1 whole-array format, use the
+     * decoding path" (null). Collapsing those two would silently DESTROY a v1
+     * project's history on its next save, which is why the distinction is a return
+     * value and not a boolean flag.
+     *
+     * A slot whose stored `b` is not `COMPRESSED_MARKER`-prefixed is handed back as
+     * `json`, not `blob`: the in-session mirror legitimately holds the newest entry
+     * as RAW text while the compression worker is still deflating it (see
+     * `_persistSlots`). Classifying it as an already-compressed blob would write raw
+     * JSON into IndexedDB verbatim and permanently inflate the container.
+     */
+    private _envelopeSlots(projectId: string): _PendingSlot[] | null {
+        const raw = this._rawPayload(projectId);
+        if (raw === null) return [];               // nothing stored yet — an append is a fresh container
+        if (!raw.startsWith(V2_CONTAINER_MARKER)) return null;  // legacy v1 — caller must decode
+        let entries: _V2Entry[];
+        try {
+            entries = JSON.parse(raw.slice(V2_CONTAINER_MARKER.length)) as _V2Entry[];
+        } catch {
+            return null;                            // undecodable envelope — fall back, never guess
+        }
+        if (!Array.isArray(entries)) return null;
+        return entries.map(e => (
+            typeof e?.b === 'string' && e.b.startsWith(COMPRESSED_MARKER)
+                ? { id: e.i, blob: e.b, json: null }
+                : { id: e.i, blob: null, json: typeof e?.b === 'string' ? e.b : 'null' }
+        ));
+    }
+
     /** §PERF-VERSION-NARROW-READ (L-1300) — see {@link IVersionRepository.getLatestVersion}. */
     getLatestVersion(projectId: string): VersionRecord | null {
         const raw = this._rawPayload(projectId);
@@ -1105,18 +1169,60 @@ export class LocalVersionRepository implements IVersionRepository {
      * Reduces the risk of the two writes diverging on quota errors.
      */
     saveVersionWithMeta(projectId: string, version: VersionRecord, meta: ProjectMeta): StorageWriteOutcome {
-        const versions = this.getVersions(projectId);
-        const existingIdx = versions.findIndex(v => v.id === version.id);
-        if (existingIdx >= 0) {
-            versions[existingIdx] = version;
-        } else {
-            versions.push(version);
-        }
         // §PERF-VERSION-INCREMENTAL-COMPRESS — this version's content is (re)written
         // here, so drop any cached blob for its id; every other version reuses its
         // cached blob and is not re-deflated.
         _blobCacheFor(projectId).delete(version.id);
-        this.saveVersionsWithQuota(projectId, versions);
+
+        // §PERF-VERSION-ENVELOPE-WRITE (L-5801) — THE NARROW APPEND.
+        //
+        // WAS `const versions = this.getVersions(projectId)` — a full inflate +
+        // JSON.parse of all 20 stored snapshots, on EVERY autosave, to produce an
+        // array whose only use was `push()` and `slice(-20)`. The records were never
+        // read. MEASURED (`node --expose-gc tools/perf/bench-version-container.mjs`,
+        // lane LOAD30, 2026-08-22): 2623 ms → 223 ms (11.8×).
+        //
+        // The v2 envelope already carries the id of every stored version, so the
+        // append is an envelope edit: replace-by-id or push, trim, and hand the
+        // unchanged versions on as BYTES. Legacy v1 payloads have no envelope and
+        // fall through to the decoding path below — correctness first, never slower.
+        //
+        // ⛔ §FIX-ENVELOPE-APPEND-BYPASSED-THE-FALLBACK (L-5805) — THE GUARD IS LOAD-
+        // BEARING, AND IT WAS MISSING. The envelope branch used to be entered on the
+        // sole condition `slots !== null`, with no `_saveWorkerOffloadEnabled()` and
+        // no `store.isDisabled()` check — unlike BOTH of its siblings
+        // (`updateSyncStatus`, `saveVersionsWithQuota`), which have always had it.
+        // Two things broke, and the second loses data:
+        //   1. The documented revert switch (`__pryzmSaveWorkerOffload === false`)
+        //      stopped reverting this call site's on-disk format.
+        //   2. ⛔ When IndexedDB is UNAVAILABLE (`isDisabled()` — Safari private
+        //      mode, blocked site data, an `indexedDB.open` error), `_persistSlots`
+        //      still terminates in `getVersionCacheStore().putVersions()`, which on
+        //      a disabled store updates ONLY the in-memory mirror and returns. The
+        //      localStorage TRIM_TARGETS ladder and the §QUOTA-EVICT valve inside
+        //      `saveVersionsWithQuota` — the entire offline durability story — were
+        //      never reached, so every autosave was lost on reload with no error.
+        // The guard restores the invariant the other two writers already state: the
+        // v2 envelope is an IDB-primary optimisation, and IDB-absent falls back.
+        const store = getVersionCacheStore();
+        const slots = (_saveWorkerOffloadEnabled() && !store.isDisabled())
+            ? this._envelopeSlots(projectId)
+            : null;
+        if (slots !== null) {
+            const fresh: _PendingSlot = { id: version.id, blob: null, json: JSON.stringify(version) };
+            const at = slots.findIndex(s => s.id === version.id);
+            if (at >= 0) slots[at] = fresh; else slots.push(fresh);
+            this._persistSlots(projectId, slots.slice(-MAX_VERSIONS_STORED));
+        } else {
+            const versions = this.getVersions(projectId);
+            const existingIdx = versions.findIndex(v => v.id === version.id);
+            if (existingIdx >= 0) {
+                versions[existingIdx] = version;
+            } else {
+                versions.push(version);
+            }
+            this.saveVersionsWithQuota(projectId, versions);
+        }
 
         // Contract 45 §7.2 — read full index so other-user rows aren't dropped.
         const index = projectRepository.listAllProjectsUnfiltered();
@@ -1185,22 +1291,50 @@ export class LocalVersionRepository implements IVersionRepository {
      * rewriting the full snapshot payload. Used by ServerSyncQueue callbacks.
      */
     updateSyncStatus(projectId: string, versionId: string, syncStatus: VersionRecord['syncStatus']): void {
-        const versions = this.getVersions(projectId);
-        const idx = versions.findIndex(v => v.id === versionId);
-        if (idx < 0) return;
-        versions[idx] = { ...versions[idx], syncStatus };
         // §VERSION-QUOTA-INDEXEDDB — persist to IDB (durable, large quota). Never
         // throws; the mirror is updated synchronously so the next read is correct.
         try {
             const store = getVersionCacheStore();
             if (_saveWorkerOffloadEnabled() && !store.isDisabled()) {
-                // §PERF-VERSION-INCREMENTAL-COMPRESS — only THIS version's content
-                // changed (its syncStatus). Invalidate its blob so it is re-deflated
-                // while every other version reuses its cached blob (O(1), not O(20)).
+                // §PERF-VERSION-ENVELOPE-WRITE (L-5802) — THE NARROW PATCH.
+                //
+                // This runs on EVERY successful server sync, i.e. once per autosave,
+                // moments after the save itself. It used to open with the SAME full
+                // 20-snapshot inflate as the save did — so one autosave paid the
+                // whole-history decode TWICE. MEASURED (lane LOAD30, 2026-08-22,
+                // `node --expose-gc tools/perf/bench-version-container.mjs`):
+                // 2640 ms → 324 ms (8.1×).
+                //
+                // Only ONE version's content changes (its `syncStatus` field), so
+                // only ONE has to be inflated, patched and re-deflated; the other 19
+                // are carried forward as bytes.
+                const slots = this._envelopeSlots(projectId);
+                if (slots !== null) {
+                    const at = slots.findIndex(s => s.id === versionId);
+                    if (at < 0) return; // unknown version — same no-op as before
+                    const current = slots[at];
+                    const raw = current.json ?? _decompressJSON(current.blob ?? '');
+                    const record = JSON.parse(raw) as VersionRecord;
+                    if (record.syncStatus === syncStatus) return; // already there — no rewrite
+                    record.syncStatus = syncStatus;
+                    _blobCacheFor(projectId).delete(versionId);
+                    slots[at] = { id: versionId, blob: null, json: JSON.stringify(record) };
+                    this._persistSlots(projectId, slots.slice(-MAX_VERSIONS_STORED));
+                    return;
+                }
+                // Legacy v1 payload — no envelope to patch. Decode, edit, re-persist.
+                const versions = this.getVersions(projectId);
+                const idx = versions.findIndex(v => v.id === versionId);
+                if (idx < 0) return;
+                versions[idx] = { ...versions[idx], syncStatus };
                 _blobCacheFor(projectId).delete(versionId);
                 this._persistVersionsIncremental(projectId, versions.slice(-MAX_VERSIONS_STORED));
             } else {
                 // Flag OFF / no IDB — EXACT prior behaviour: whole-array recompress.
+                const versions = this.getVersions(projectId);
+                const idx = versions.findIndex(v => v.id === versionId);
+                if (idx < 0) return;
+                versions[idx] = { ...versions[idx], syncStatus };
                 store.putVersions(projectId, _compressJSON(JSON.stringify(versions)));
             }
         } catch {
@@ -1266,7 +1400,7 @@ export class LocalVersionRepository implements IVersionRepository {
             try { localStorage.removeItem(this.key(projectId)); } catch { /* ignore */ }
             console.log(
                 `[VersionRepository] ${trimmed.length} version(s) persisted to IndexedDB ` +
-                `(project "${projectId}", ~${(payload.length * 2 / 1024 / 1024).toFixed(1)} MB compressed).`
+                `(project "${projectId}", ${_formatPayloadSize(payload)} compressed).`
             );
             return;
         }
@@ -1329,18 +1463,49 @@ export class LocalVersionRepository implements IVersionRepository {
      */
     private _persistVersionsIncremental(projectId: string, trimmed: VersionRecord[]): void {
         const cache = _blobCacheFor(projectId);
-        const blobs: (string | null)[] = new Array(trimmed.length).fill(null);
-        const need: { idx: number; key: string; json: string }[] = [];
-        for (let i = 0; i < trimmed.length; i++) {
-            const v = trimmed[i];
+        this._persistSlots(projectId, trimmed.map(v => {
             const cached = cache.get(v.id);
-            if (cached !== undefined) blobs[i] = cached;
-            else need.push({ idx: i, key: v.id, json: JSON.stringify(v) });
+            return cached !== undefined
+                ? { id: v.id, blob: cached, json: null }
+                : { id: v.id, blob: null, json: JSON.stringify(v) };
+        }));
+    }
+
+    /**
+     * §PERF-VERSION-ENVELOPE-WRITE (L-5801) — the ONE writer of the v2 container.
+     *
+     * ⭐ WHY THIS EXISTS. `_persistVersionsIncremental` took `VersionRecord[]`, so
+     * every caller had to HAVE the decoded records — and the only way to have them
+     * was `getVersions()`, a full 20-snapshot inflate. The incremental *compress*
+     * was O(1) while the *read that fed it* stayed O(history), and the two call
+     * sites that pay it (`saveVersionWithMeta`, `updateSyncStatus`) both run on
+     * EVERY autosave. Taking SLOTS instead of records lets a caller carry forward
+     * an unchanged version as its already-compressed bytes, having never decoded it.
+     *
+     * MEASURED (`node --expose-gc tools/perf/bench-version-container.mjs`, 20
+     * versions / 37.5 MB container — the founder's payload; re-taken by lane
+     * LOAD30 on 2026-08-22 rather than inherited, hence numbers that differ from
+     * an earlier run's on the same ratios):
+     *   append a version   2623 ms → 223 ms   (11.8×)
+     *   flip a syncStatus  2640 ms → 324 ms   (8.1×)
+     *
+     * A slot is EITHER `blob` (compressed bytes already in hand) OR `json` (raw
+     * record text awaiting deflate). `json` slots are routed to the compression
+     * worker when it is ready; the mirror is updated synchronously in the meantime
+     * with the raw text, which reads back identically because `_decompressJSON` is
+     * a passthrough for unmarked strings.
+     */
+    private _persistSlots(projectId: string, slots: _PendingSlot[]): void {
+        const cache = _blobCacheFor(projectId);
+        const blobs: (string | null)[] = slots.map(s => s.blob);
+        const need: { idx: number; key: string; json: string }[] = [];
+        for (let i = 0; i < slots.length; i++) {
+            if (blobs[i] === null) need.push({ idx: i, key: slots[i].id, json: slots[i].json ?? 'null' });
         }
 
         // Nothing new to compress → assemble + persist with zero deflate.
         if (need.length === 0) {
-            this._commitVersionContainer(projectId, trimmed, blobs);
+            this._commitSlots(projectId, slots, blobs);
             return;
         }
 
@@ -1371,10 +1536,9 @@ export class LocalVersionRepository implements IVersionRepository {
             //
             // MEASURED: 236 ms → **38 ms** (6.2×), same payload, same codec.
             const store = getVersionCacheStore();
-            const pendingRaw = new Map(need.map(n => [n.key, n.json]));
-            const mirrorEntries: _V2Entry[] = trimmed.map((v, i) => ({
-                i: v.id,
-                b: blobs[i] ?? pendingRaw.get(v.id) ?? JSON.stringify(v),
+            const mirrorEntries: _V2Entry[] = slots.map((s, i) => ({
+                i: s.id,
+                b: blobs[i] ?? s.json ?? 'null',
             }));
             store.putVersionsMirrorOnly(projectId, V2_CONTAINER_MARKER + JSON.stringify(mirrorEntries));
             const seq = _bumpVersionSaveSeq(projectId);
@@ -1387,14 +1551,14 @@ export class LocalVersionRepository implements IVersionRepository {
                         cache.set(n.key, b); // valid regardless of supersession (content is immutable per id)
                     }
                     if (_currentVersionSaveSeq(projectId) !== seq) return; // superseded by a newer save
-                    this._commitVersionContainer(projectId, trimmed, blobs);
+                    this._commitSlots(projectId, slots, blobs);
                 })
                 .catch(() => {
                     // Worker failed mid-flight — synchronous fallback so the save is
                     // never lost (never worse than the pre-P4 behaviour).
                     for (const n of need) { const b = _compressJSON(n.json); blobs[n.idx] = b; cache.set(n.key, b); }
                     if (_currentVersionSaveSeq(projectId) !== seq) return;
-                    this._commitVersionContainer(projectId, trimmed, blobs);
+                    this._commitSlots(projectId, slots, blobs);
                 });
             return;
         }
@@ -1403,7 +1567,7 @@ export class LocalVersionRepository implements IVersionRepository {
         // NEW version(s) synchronously. Still O(new) not O(history), because the
         // unchanged versions reuse their cached blobs.
         for (const n of need) { const b = _compressJSON(n.json); blobs[n.idx] = b; cache.set(n.key, b); }
-        this._commitVersionContainer(projectId, trimmed, blobs);
+        this._commitSlots(projectId, slots, blobs);
     }
 
     /**
@@ -1411,11 +1575,18 @@ export class LocalVersionRepository implements IVersionRepository {
      * blob cache to EXACTLY the stored ids (bounding it to ≤ MAX_VERSIONS_STORED
      * and dropping trimmed-out versions), and persist it to the IDB-primary store.
      * The stored bytes round-trip byte-identically through {@link _decodeVersionsPayload}.
+     *
+     * ⛔ EVERY committed entry is COMPRESSED. A slot may legitimately arrive holding
+     * raw JSON (the mirror carries the newest entry raw while the worker deflates it,
+     * and {@link _envelopeSlots} may therefore read one back), and writing that raw
+     * text into IndexedDB would permanently inflate the stored container — the exact
+     * hazard `_decodeVersionsPayload` refuses to seed the blob cache with. The
+     * `_compressJSON` fallback below is that guarantee, not decoration.
      */
-    private _commitVersionContainer(projectId: string, trimmed: VersionRecord[], blobs: (string | null)[]): void {
-        const entries: _V2Entry[] = trimmed.map((v, i) => ({
-            i: v.id,
-            b: blobs[i] ?? _compressJSON(JSON.stringify(v)), // defensive: never store a null blob
+    private _commitSlots(projectId: string, slots: _PendingSlot[], blobs: (string | null)[]): void {
+        const entries: _V2Entry[] = slots.map((s, i) => ({
+            i: s.id,
+            b: blobs[i] ?? _compressJSON(s.json ?? 'null'), // defensive: never store a null blob
         }));
         // Re-scope the cache to precisely the stored ids.
         _versionBlobCache.set(projectId, new Map(entries.map(e => [e.i, e.b])));
@@ -1425,8 +1596,8 @@ export class LocalVersionRepository implements IVersionRepository {
         // outdated payload from the fallback path before the next warm.
         try { localStorage.removeItem(this.key(projectId)); } catch { /* ignore */ }
         console.log(
-            `[VersionRepository] ${trimmed.length} version(s) persisted to IndexedDB ` +
-            `(project "${projectId}", ~${(payload.length * 2 / 1024 / 1024).toFixed(1)} MB compressed).`
+            `[VersionRepository] ${entries.length} version(s) persisted to IndexedDB ` +
+            `(project "${projectId}", ${_formatPayloadSize(payload)} compressed).`
         );
     }
 
