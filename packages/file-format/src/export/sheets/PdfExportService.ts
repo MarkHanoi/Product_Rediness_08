@@ -43,8 +43,20 @@ import { sheetStore }                from '@pryzm/core-app-model';
 import { titleBlockStore } from '@pryzm/core-app-model/views';
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
+import { viewportPreviewRenderer, fitLetterbox } from '@pryzm/core-app-model/presentation';
 import { composeForPlacement, viewportPaperRect } from './ViewportSvgComposer';
+import { chromeFor } from './SheetRenderTarget';
+import { resolveTitleBlockValues } from './TitleBlockValues';
+import type { TitleBlockContext, TitleBlockSheet } from './TitleBlockValues';
 import { applyPdfProvenanceAbsence } from '../provenanceAbsence';
+
+/**
+ * §SHEET-PDF-CARRIES-THE-3D (L-3803) — view types that have no vector form and
+ * never will. `SheetProjectionOrchestrator` excludes them from projection by
+ * design, so `viewTechnicalDrawingCache` is empty for them by construction, not
+ * by accident. They are the RASTER leg; everything else is the vector leg.
+ */
+const RASTER_VIEW_TYPES = new Set(['3d', 'render', 'walkthrough']);
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 
@@ -86,8 +98,15 @@ class PdfExportServiceImpl {
      * not found, zero viewports, etc.).
      *
      * @param sheetId — SheetDefinition.id to export.
+     * @param ctx — §SHEET-TITLE-BLOCK-HAS-A-SOURCE (L-3806). The facts a title
+     *   block needs that do not live on the sheet: project name, site address,
+     *   and the sign-off names. OPTIONAL, and omitting it renders those fields
+     *   EMPTY — which is the founder's rule ("a field with no source must render
+     *   EMPTY, never a placeholder that looks like data") and is deliberately
+     *   the failure mode of forgetting. There is no argument to this function
+     *   that causes an invented value to be printed.
      */
-    async exportSheet(sheetId: string): Promise<boolean> {
+    async exportSheet(sheetId: string, ctx: TitleBlockContext = {}): Promise<boolean> {
         const sheet = sheetStore.get(sheetId);
         if (!sheet) {
             console.warn(`[PdfExportService] Sheet '${sheetId}' not found`);
@@ -186,12 +205,40 @@ class PdfExportServiceImpl {
             const vpY = Math.max(BORDER_MARGIN, pH - rect.bottomMm - vpH);
 
             if (!drawing) {
+                // ── §SHEET-PDF-CARRIES-THE-3D (L-3803) — THE RASTER LEG ──────
+                //
+                // The founder: *"the PDF does not contain the 3D view — page
+                // size is right, the 3D viewport is missing from the output."*
+                //
+                // THE DEFECT WAS THAT THIS BRANCH HAD NO ELSE. `3d` / `render` /
+                // `walkthrough` are excluded from projection by design, so
+                // `drawing` is ALWAYS undefined for them and every 3D viewport
+                // fell out here into a labelled empty rectangle. The 3D was not
+                // lost converting SVG to PDF — it was never handed to it.
+                //
+                // ⚠ A HYPOTHESIS WAS REFUTED ON THE WAY HERE, AND THAT IS WORTH
+                // MORE THAN THE FIX. The suspicion was a second, rival viewport
+                // producer inside the PDF ("bbox-driven viewport"). FALSE — that
+                // string is a stale log message. Re-measured rather than taken
+                // on trust: this file imports `composeForPlacement` and calls it
+                // above. There is ONE producer and C06 §13.3 holds, so the sheet
+                // and the PDF CANNOT disagree about composition. The gap is a
+                // MISSING RASTER LEG in a surface that has only ever had a
+                // vector one — a different defect with a different fix, and
+                // hunting the rival would have found nothing.
+                const isRaster = RASTER_VIEW_TYPES.has(
+                    (viewDefinitionStore.get(vp.viewId)?.viewType ?? '') as string,
+                );
+                if (isRaster && this._drawRasterViewport(pdf, vpX, vpY, vpW, vpH, vp.viewId)) {
+                    resolvedCount++;
+                    this._drawViewportChrome(pdf, vpX, vpY, vpW, vpH, scale);
+                    continue;
+                }
+
                 // §SHEET-PDF-PLACES-THE-VIEWPORT (L-1874) — a 3D view has no
-                // vector drawing and never will: `3d`, `render` and
-                // `walkthrough` are excluded from projection by design, so there
-                // is nothing for `SVGCompositeRenderer` to emit. Drawing an
-                // unlabelled dashed rectangle made that read as a broken export.
-                // The placeholder now NAMES the reason on the page.
+                // vector drawing and never will. Drawing an unlabelled dashed
+                // rectangle made that read as a broken export. The placeholder
+                // NAMES the reason on the page.
                 console.warn(
                     `[PdfExportService] No TechnicalDrawing for viewId=${vp.viewId} — labelled placeholder rendered`,
                 );
@@ -222,20 +269,11 @@ class PdfExportServiceImpl {
                 this._drawViewportPlaceholder(pdf, vpX, vpY, vpW, vpH, vp.viewId);
             }
 
-            // Viewport border
-            pdf.setDrawColor('#3b5bdb');
-            pdf.setLineWidth(0.35);
-            pdf.rect(vpX, vpY, vpW, vpH);
-
-            // Viewport label beneath the border
-            const viewLabel = `1:${scale}`;
-            pdf.setFontSize(5);
-            pdf.setTextColor('#3b5bdb');
-            pdf.text(viewLabel, vpX + 1, vpY + vpH + 3);
+            this._drawViewportChrome(pdf, vpX, vpY, vpW, vpH, scale);
         }
 
         // ── Title block fields ─────────────────────────────────────────────────
-        this._drawTitleBlock(pdf, sheet, template, pW, pH);
+        this._drawTitleBlock(pdf, sheet, template, pW, pH, ctx);
 
         // PV-04 / C75 §7.7 — a flattened sheet PDF carries no ValueProvenance
         // mapping; the absence is recorded BY NAME in the document metadata
@@ -262,21 +300,26 @@ class PdfExportServiceImpl {
      */
     private _drawTitleBlock(
         pdf: jsPDF,
-        sheet: { sheetNumber: string; name: string; revision?: string; issueDate?: string; issuedBy?: string },
+        sheet: TitleBlockSheet,
         template: { paperWidth: number; paperHeight: number; borderWidth: number; fields: any[] },
         pW: number,
         pH: number,
+        ctx: TitleBlockContext,
     ): void {
         const tbX0 = pW - template.borderWidth;
 
-        // Build field values map
-        const fieldValues: Record<string, string> = {
-            sheetNumber: sheet.sheetNumber,
-            sheetName:   sheet.name,
-            revision:    sheet.revision   || '—',
-            date:        sheet.issueDate  || new Date().toLocaleDateString('en-GB'),
-            issuedBy:    sheet.issuedBy   || '',
-        };
+        // §SHEET-TITLE-BLOCK-HAS-A-SOURCE (L-3806) — ONE producer for these
+        // values. This map used to be built inline here, and identically (and
+        // identically WRONGLY) in `SheetEditorPanel` and the other export
+        // services: five keys against a template declaring eleven, so PROJECT,
+        // ADDRESS, SCALE, DRAWN, CHECKED, APPROVED and CONTRACT No. all rendered
+        // blank — the founder's screenshot. The sixth key, `issuedBy`, matched
+        // no template field key at all and was dead.
+        //
+        // Note `revision` no longer falls back to '—'. Under the founder's rule
+        // a field with no source renders EMPTY; a dash is a mark a reader can
+        // mistake for a revision code.
+        const fieldValues = resolveTitleBlockValues(sheet, ctx);
 
         for (const field of template.fields) {
             // TitleBlock coordinates: x is absolute mm from paper left, y is from paper bottom.
@@ -316,6 +359,133 @@ class PdfExportServiceImpl {
             tbX0 + 1,
             pH - BORDER_MARGIN - 1,
         );
+    }
+
+    /**
+     * §SHEET-CHROME-IS-NOT-THE-DRAWING (L-3804) — the viewport frame and its
+     * `1:50` label, drawn ONLY IF THIS TARGET DRAWS THEM.
+     *
+     * The founder: *"the blue viewport border and the `{3D} … 1:50` label bar
+     * are on-screen editing affordances. They must not print."*
+     *
+     * They were being drawn UNCONDITIONALLY — `pdf.setDrawColor('#3b5bdb')`,
+     * `pdf.rect(...)`, then the label — at the bottom of the viewport loop, on
+     * every export. A blue rectangle on an issued drawing is not decoration: a
+     * reader cannot distinguish it from a section box, a match line or a detail
+     * bubble, all of which are real annotation that MEANS something. Printing
+     * the editor's furniture puts marks on a construction document that nobody
+     * drew and nothing in the model backs.
+     *
+     * The decision is delegated to `chromeFor('print')` rather than deleted
+     * outright, because the founder asked for an explicit render-target
+     * distinction and not a hidden flag: the policy lives in ONE module both
+     * surfaces read, so a future affordance has an obvious home and cannot be
+     * added as "chrome, probably fine to print". Deleting these lines would
+     * have satisfied the symptom and left the next affordance to repeat it.
+     *
+     * This is a no-op today for every call site, since this service always
+     * exports for print. It is kept as a call rather than removed so that the
+     * chrome is EXPLICITLY DECLINED at the point it would have been drawn — an
+     * absence with a reason attached, which a reader can check, rather than an
+     * absence that looks like an oversight.
+     */
+    private _drawViewportChrome(
+        pdf: jsPDF,
+        x: number, y: number, w: number, h: number,
+        scale: number,
+    ): void {
+        const chrome = chromeFor('print');
+
+        if (chrome.frame) {
+            pdf.setDrawColor('#3b5bdb');
+            pdf.setLineWidth(0.35);
+            pdf.rect(x, y, w, h);
+        }
+
+        if (chrome.scaleLabel) {
+            pdf.setFontSize(5);
+            pdf.setTextColor('#3b5bdb');
+            pdf.text(`1:${scale}`, x + 1, y + h + 3);
+        }
+    }
+
+    /**
+     * §SHEET-PDF-CARRIES-THE-3D (L-3803) — place a 3D capture on the page.
+     *
+     * Returns `true` when a frame was actually embedded, `false` when there is
+     * none to embed — the caller then falls through to the labelled placeholder.
+     * A boolean rather than a throw because "the user has not opened the 3D view
+     * this session" is an ordinary state, not an error, and it must produce the
+     * placeholder that NAMES it rather than aborting the export of the other
+     * viewports on the sheet.
+     *
+     * ─── WHY THE IMAGE IS FITTED, NOT STRETCHED ────────────────────────────
+     * Same rule as the screen (§SHEET-3D-LETTERBOX-IS-PAPER, L-3801), through
+     * the SAME function: `fitLetterbox` is imported rather than reimplemented,
+     * so the PDF and the sheet cannot disagree about where inside its rect the
+     * capture sits. Stretching to fill would falsify the view.
+     *
+     * ⭐ AND ON PAPER THE BARS COST NOTHING. The screen has to PAINT the
+     * remainder to stop it being scene-coloured; here, not drawing is already
+     * paper. So the letterboxed 3D lands on white with no fill at all — which
+     * is the outcome L-3801 had to construct on the screen, arrived at for
+     * free.
+     */
+    private _drawRasterViewport(
+        pdf: jsPDF,
+        x: number, y: number, w: number, h: number,
+        viewId: string,
+    ): boolean {
+        const capture = viewportPreviewRenderer.resolve3DCapture();
+        if (!capture) {
+            console.warn(
+                `[PdfExportService] viewId=${viewId} is a raster view but no 3D frame has been ` +
+                'captured this session — placeholder rendered. Open the 3D view once before exporting.',
+            );
+            return false;
+        }
+
+        // §SHEET-3D-SNAPSHOT-IS-DATED (L-1875) — the badge is screen chrome and
+        // is suppressed in print (`chromeFor('print').snapshotBadge === false`),
+        // but the STALENESS DOES NOT STOP MATTERING just because the badge is
+        // not drawn. It changes channel: logged here, at the moment of export,
+        // naming the age of the frame that went onto the page. Recorded as an
+        // open question (L-3805) rather than settled quietly — a dated capture
+        // on an issued drawing is a provenance question, not a styling one.
+        if (capture.capturedAt !== null) {
+            const ageMs = Date.now() - capture.capturedAt;
+            console.warn(
+                `[PdfExportService] viewId=${viewId} embedded a 3D SNAPSHOT captured ` +
+                `${Math.round(ageMs / 1000)}s ago, not a live frame — the 3D surface was not ` +
+                'renderable at export time (the sheet editor hides it, L-1470).',
+            );
+        }
+
+        const fit = fitLetterbox(capture.canvas.width, capture.canvas.height, w, h);
+
+        try {
+            // PNG rather than JPEG: a 3D view of a building is large flat areas
+            // and hard edges, which is exactly what JPEG's ringing artefacts are
+            // worst on, and those artefacts would read as geometry.
+            const dataUrl = capture.canvas.toDataURL('image/png');
+            pdf.addImage(dataUrl, 'PNG', x + fit.dx, y + fit.dy, fit.dw, fit.dh);
+        } catch (err) {
+            // A tainted (cross-origin) canvas throws on toDataURL. That is a
+            // real possibility for a WebGL surface and must degrade to the
+            // named placeholder, never to a silent blank rectangle.
+            console.error(
+                `[PdfExportService] 3D capture for viewId=${viewId} could not be read ` +
+                '(canvas may be tainted) — placeholder rendered:', err,
+            );
+            return false;
+        }
+
+        console.log(
+            `[PdfExportService] embedded 3D raster for viewId=${viewId}: ` +
+            `${fit.dw.toFixed(1)}×${fit.dh.toFixed(1)}mm in a ${w.toFixed(1)}×${h.toFixed(1)}mm ` +
+            `viewport (${(fit.barFraction * 100).toFixed(0)}% paper margin)`,
+        );
+        return true;
     }
 
     /**

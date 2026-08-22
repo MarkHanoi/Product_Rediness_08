@@ -29,6 +29,12 @@ import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { sheetStore } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { titleBlockStore } from '@pryzm/core-app-model/views';
+// §SHEET-TITLE-BLOCK-HAS-A-SOURCE (L-3806) — the ONE producer of title block
+// field values. Both export paths below built their own five-key map against a
+// template declaring eleven fields; one of them rebuilt it INSIDE the per-field
+// loop. Four copies of one rule, wrong in all four.
+import { resolveTitleBlockValues } from './TitleBlockValues';
+import type { TitleBlockContext } from './TitleBlockValues';
 import { composeViewportSvg } from './ViewportSvgComposer';
 
 const PRINT_STYLE_ID = 'pryzm-sheet-print-style';
@@ -108,7 +114,7 @@ class SheetExportServiceImpl {
      * Exports the sheet as an SVG document with viewport outlines and title block fields.
      * Triggers a file download. Note: live preview raster content is embedded as placeholders.
      */
-    exportToSvg(sheetId: string): void {
+    exportToSvg(sheetId: string, ctx: TitleBlockContext = {}): void {
         const sheet = sheetStore.get(sheetId);
         if (!sheet) {
             console.warn(`[SheetExportService] Sheet '${sheetId}' not found`);
@@ -173,14 +179,11 @@ class SheetExportServiceImpl {
 
         // Title block fields
         const tbX = pW - template.borderWidth;
+        // §SHEET-TITLE-BLOCK-HAS-A-SOURCE (L-3806) — resolved ONCE, outside the
+        // loop. It was being rebuilt per field, which allocated a fresh map for
+        // every one of the eleven fields and made the duplication easy to miss.
+        const fieldValues = resolveTitleBlockValues(sheet, ctx);
         for (const field of template.fields) {
-            const fieldValues: Record<string, string> = {
-                sheetNumber: sheet.sheetNumber,
-                sheetName:   sheet.name,
-                revision:    sheet.revision || '—',
-                date:        sheet.issueDate || new Date().toLocaleDateString('en-GB'),
-                issuedBy:    sheet.issuedBy  || '',
-            };
             const fieldEl = document.createElementNS(ns, 'text');
             const fx = tbX + (field.x - (pW - template.borderWidth));
             const fy = pH - field.y;
@@ -213,7 +216,7 @@ class SheetExportServiceImpl {
      * Builds a temporary hidden print layer with the sheet layout and then
      * calls window.print(). The print layer is removed afterwards.
      */
-    exportToPrint(sheetId: string): void {
+    exportToPrint(sheetId: string, ctx: TitleBlockContext = {}): void {
         const sheet    = sheetStore.get(sheetId);
         if (!sheet) {
             console.warn(`[SheetExportService] Sheet '${sheetId}' not found`);
@@ -268,14 +271,9 @@ class SheetExportServiceImpl {
         tbEl.className = 'sh-titleblock';
         tbEl.style.width = `${(template.borderWidth / template.paperWidth) * 100}%`;
 
-        // Field values
-        const fields: Record<string, string> = {
-            sheetNumber: sheet.sheetNumber,
-            sheetName:   sheet.name,
-            revision:    sheet.revision || '—',
-            date:        sheet.issueDate || new Date().toLocaleDateString('en-GB'),
-            issuedBy:    sheet.issuedBy  || '',
-        };
+        // §SHEET-TITLE-BLOCK-HAS-A-SOURCE (L-3806) — one producer, shared with
+        // the SVG path above, the PDF exporter and the sheet editor panel.
+        const fields = resolveTitleBlockValues(sheet, ctx);
 
         for (const field of template.fields) {
             const zone = document.createElement('div');

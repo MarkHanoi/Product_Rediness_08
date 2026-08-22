@@ -41,6 +41,11 @@ import type { ViewDefinition } from '@pryzm/core-app-model';
 import { viewportPreviewRenderer } from '@pryzm/core-app-model';
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
 import { sheetProjectionOrchestrator } from './SheetProjectionOrchestrator';
+// §SHEET-TITLE-BLOCK-HAS-A-SOURCE (L-3806) — the ONE producer of title block
+// field values, and the L7 gatherer that feeds it. The panel used to build its
+// own five-key map against a template declaring eleven fields.
+import { resolveTitleBlockValues } from '@pryzm/file-format/sheets';
+import { gatherTitleBlockContext } from './titleBlockContext';
 import { dataPanelRenderer } from '@pryzm/core-app-model';
 import { sheetCommentStore } from '@pryzm/core-app-model';
 import type { SheetComment } from '@pryzm/core-app-model';
@@ -585,13 +590,22 @@ export class SheetEditorPanel {
         tb.style.width = `${tbW}px`;
         canvas.appendChild(tb);
 
-        const fieldValues: Record<string, string> = {
-            sheetNumber: sheet.sheetNumber,
-            sheetName:   sheet.name,
-            revision:    sheet.revision || '—',
-            date:        sheet.issueDate || new Date().toLocaleDateString('en-GB'),
-            issuedBy:    sheet.issuedBy  || '',
-        };
+        // §SHEET-TITLE-BLOCK-HAS-A-SOURCE (L-3806) — THE FOUNDER'S EMPTY TITLE
+        // BLOCK. This map was built inline here with FIVE keys, against a
+        // template that declares ELEVEN, so PROJECT, ADDRESS, SCALE, DRAWN,
+        // CHECKED, APPROVED and CONTRACT No. rendered blank on every sheet —
+        // and the fifth key, `issuedBy`, matched no template field key at all.
+        //
+        // The identical five-key map was ALSO written in `PdfExportService`,
+        // `SheetExportService` and `DxfExportService`: one rule, four copies,
+        // wrong in all four. Now one producer, which is C06 §13.3 and the same
+        // subtraction that fixed the viewport (§SHEET-ONE-VIEWPORT-PRODUCER).
+        //
+        // The context carries what does not live on the sheet — project name
+        // and the site address the founder's console prints as
+        // `CL PERELLO 60 BARCELONA`. Anything with no source renders EMPTY,
+        // never a placeholder that looks like data.
+        const fieldValues = resolveTitleBlockValues(sheet, gatherTitleBlockContext(this.runtime));
 
         for (const field of template.fields) {
             const zone = document.createElement('div');

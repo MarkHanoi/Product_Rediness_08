@@ -30,3 +30,15 @@ export type {
 
 export { SVGCompositeRenderer } from './SVGCompositeRenderer';
 export type { SVGViewBox, SVGPochePolygon, PochePolygon } from './SVGCompositeRenderer';
+
+// §SHEET-CHROME-IS-NOT-THE-DRAWING (L-3804) — the screen-vs-print policy. The
+// sheet editor (L7) and every export surface read the SAME policy from here, so
+// an affordance cannot be chrome on one surface and ink on the other.
+export { chromeFor } from './SheetRenderTarget';
+export type { SheetRenderTarget, ViewportChrome } from './SheetRenderTarget';
+
+// §SHEET-TITLE-BLOCK-HAS-A-SOURCE (L-3806) — THE one producer of title block
+// field values, replacing the five-key map that was written inline in the panel
+// and in three export services against a template declaring eleven fields.
+export { resolveTitleBlockValues, resolveSheetScaleLabel } from './TitleBlockValues';
+export type { TitleBlockContext, TitleBlockSheet } from './TitleBlockValues';
