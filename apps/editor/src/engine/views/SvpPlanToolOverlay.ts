@@ -76,7 +76,8 @@ export class SvpPlanToolOverlay {
 
     // Injected on attach
     private _svpCanvas:  HTMLCanvasElement | null = null;
-    /** §GRID-SPLITVIEW (2026-05-23) — "+ Grid" entry point for the split-view plan pane. */
+    /** §GRID-SPLITVIEW / §GRID-BUTTON-CENSUS - "+ Grid" for the split-view plan pane.
+     *  A CHILD of '.svp-pane' ('.vco-create-btn'), never body-parented. */
     private _gridBtn:    HTMLButtonElement | null = null;
     private _planCanvas: PlanViewCanvas   | null = null;
     private _viewId:     string                  = DEFAULT_PLAN_VIEW_ID;
@@ -670,17 +671,41 @@ export class SvpPlanToolOverlay {
         const ph  = Math.round(rect.height * dpr);
         if (this._overlay.width  !== pw) this._overlay.width  = pw;
         if (this._overlay.height !== ph) this._overlay.height = ph;
-        this._positionGridButton();
+        // §GRID-BUTTON-CENSUS - nothing to reposition; the button is a CSS-positioned
+        // child of '.svp-pane' and moves with the pane.
     }
 
-    // ── §GRID-SPLITVIEW (2026-05-23) — "+ Grid" entry point for the split-view ──
-    // plan pane. The SVP overlay already registers the grid plan-tool handler and
-    // routes it (ACTIVE_TOOL_KEYS includes 'grid'), but there was NO way to ACTIVATE
-    // grid from split view — the only "+ Grid" affordance lived in PlanViewToolOverlay
-    // (the MAIN plan view). So grid lines could be created in the main plan view but
-    // not in the split-view plan pane. This button mirrors that affordance and calls
-    // the same toolManager.activateGrid(); the existing SVP handler dispatch then
-    // takes the clicks once the pane is focused (identical to wall/window/stair).
+    // ── §GRID-SPLITVIEW (2026-05-23) / §GRID-BUTTON-CENSUS (L-4000..L-4004) ──
+    //
+    // The split-view plan pane's "+ Grid" entry point. The SVP overlay already
+    // registers the grid plan-tool handler and routes it (ACTIVE_TOOL_KEYS
+    // includes 'grid'), but there was NO way to ACTIVATE grid from split view -
+    // the only "+ Grid" affordance lived in PlanViewToolOverlay (the MAIN plan
+    // view). This button mirrors that affordance and calls the same
+    // toolManager.activateGrid(); the existing SVP handler dispatch then takes
+    // the clicks once the pane is focused (identical to wall/window/stair).
+    //
+    // THE DEFECT CLOSED 2026-08-22, AND IT WAS THE FOUNDER'S SCREENSHOT.
+    // This button was 'document.body.appendChild(btn)' with 'position: fixed'
+    // and a hand-picked 'zIndex: 10002', placed from the SVP canvas rect. Its
+    // own pane, '.svp-pane', is 'position: fixed; right: 0; width: 40%' at
+    // z-index 1 (splitView.ts:37) - correctly BEHIND '#anl-surface' (z 50) and
+    // '#dw-workbench' (z 110). The BUTTON was not in the pane, so at 10002 it
+    // out-painted both and appeared ALONE inside the Data and Analysis panels
+    // at x = 60vw, with no pane around it.
+    //
+    // Lane DATA3 measured the OTHER "+ Grid" (PlanViewToolOverlay, z-index 6)
+    // and concluded the affordance "cannot render over the panel at all". That
+    // was true of the button it measured and false of this one. C01 §6 rule 6:
+    // a claim of IMPOSSIBILITY is a measurement, and a census of one is not a
+    // census. There were always two owners.
+    //
+    // As a CHILD of '.svp-pane' the button is CONTAINED: the pane is positioned
+    // AND carries a z-index, so it creates a stacking context and no descendant
+    // of it can out-paint a sibling of the pane whatever number it holds. It
+    // also inherits the pane's 'display', so tearing down split view takes the
+    // button with it. CSS: '.vco-create-btn' in styles/panels/canvasOverlays.ts,
+    // shared byte-for-byte with the main plan view's affordance.
     private _mountGridButton(): void {
         if (this._gridBtn) return;
         const viewDef = viewDefinitionStore.get(this._viewId) ?? null;
@@ -688,19 +713,10 @@ export class SvpPlanToolOverlay {
         if (vt !== 'plan' && vt !== 'structural-plan') return; // grids are a plan-view concept
 
         const btn = document.createElement('button');
-        btn.type = 'button';
+        btn.type      = 'button';
+        btn.className = 'vco-create-btn';
         btn.textContent = '+ Grid';
         btn.title = 'Create a structural grid line in this plan view';
-        Object.assign(btn.style, {
-            position: 'fixed', zIndex: '10002', padding: '8px 14px',
-            background: 'linear-gradient(180deg,#7c3aed 0%,#6d28d9 100%)',
-            color: '#ffffff', border: '1px solid rgba(255,255,255,0.18)',
-            borderRadius: '8px', fontSize: '12px', fontFamily: 'system-ui, sans-serif',
-            fontWeight: '600', letterSpacing: '0.02em', cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(76,29,149,0.35)', userSelect: 'none', display: 'none',
-        } as Partial<CSSStyleDeclaration>);
-        btn.addEventListener('mouseenter', () => { btn.style.background = 'linear-gradient(180deg,#8b5cf6 0%,#7c3aed 100%)'; });
-        btn.addEventListener('mouseleave', () => { btn.style.background = 'linear-gradient(180deg,#7c3aed 0%,#6d28d9 100%)'; });
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const tm = window.toolManager;
@@ -711,19 +727,16 @@ export class SvpPlanToolOverlay {
                 console.warn('[SvpPlanToolOverlay] toolManager.activateGrid not available');
             }
         });
-        document.body.appendChild(btn);
-        this._gridBtn = btn;
-        this._positionGridButton();
-    }
 
-    private _positionGridButton(): void {
-        const btn = this._gridBtn;
-        const canvas = this._svpCanvas;
-        if (!btn || !canvas) return;
-        const rect = canvas.getBoundingClientRect();
-        btn.style.left    = `${rect.left + 16}px`;
-        btn.style.top     = `${rect.bottom - (btn.offsetHeight || 34) - 16}px`;
-        btn.style.display = 'block';
+        // The pane, never the body. Degrades to the canvas's own parent rather
+        // than unmounting if the pane class ever moves (C06 §14.2).
+        const host =
+            this._svpCanvas?.closest('.svp-pane') ??
+            this._svpCanvas?.parentElement ??
+            null;
+        if (!host) return;
+        host.appendChild(btn);
+        this._gridBtn = btn;
     }
 
     private _clearOverlay(): void {

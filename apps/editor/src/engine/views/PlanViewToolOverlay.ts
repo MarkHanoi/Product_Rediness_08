@@ -82,7 +82,8 @@ export class PlanViewToolOverlay {
     /** Floating HTML tooltip for snap type name — one label at a time, dark bg. */
     private _snapTooltip: HTMLDivElement | null = null;
 
-    /** Floating contextual action button — "+ Grid" in plan, "+ Level" in elevation/section. */
+    /** Contextual create button - "+ Grid" in plan, "+ Level" in elevation/section.
+     *  §GRID-BUTTON-CENSUS: a CHILD of the canvas pane ('.vco-create-btn'), never body-parented. */
     private _createActionBtn: HTMLButtonElement | null = null;
 
     private readonly _boundMouseDownCapture = this._onMouseDownCapture.bind(this);
@@ -240,7 +241,8 @@ export class PlanViewToolOverlay {
 
     notifyResize(): void {
         this._syncSize();
-        this._positionCreateActionButton();
+        // §GRID-BUTTON-CENSUS - nothing to reposition. The create button is a
+        // CSS-positioned child of the canvas pane and moves with it.
         this._activeHandler?.redraw();
     }
 
@@ -683,6 +685,28 @@ export class PlanViewToolOverlay {
 
     // ── Contextual creation button (Grid in plan, Level in elev/section) ──────
 
+    /**
+     * §GRID-BUTTON-CENSUS (L-4000..L-4004) - the button is a CHILD of the canvas
+     * pane, not a body-parented fixed element positioned by hand.
+     *
+     * WHAT THIS REPLACED, measured 2026-08-22. Fourteen inline style properties
+     * including 'position: fixed' and 'zIndex: 6', appended to 'document.body',
+     * then placed by a '_positionCreateActionButton()' helper reading
+     * 'baseCanvas.getBoundingClientRect()' on every resize. Three consequences,
+     * all of them real:
+     *   - it survived every workspace-mode switch, because a body child has no
+     *     relationship to a canvas that just became half width or 'display: none';
+     *   - its z-index was hand-picked, which C06 §7.3 forbids - and its SIBLING
+     *     affordance in 'SvpPlanToolOverlay' hand-picked 10002, on the other side
+     *     of the panel layer, so the same control was at once buried and floating;
+     *   - the first placement ran while the button was still 'display: none', so
+     *     'offsetHeight' was 0 and 'rect.bottom - 0 - 16' put it a full button
+     *     height BELOW the canvas until something else triggered a resize.
+     * All three are properties of body-parenting plus JS geometry. As a child of
+     * '#container' at 'left: 16px; bottom: 16px' none of them can occur: the
+     * position, the visibility and the stacking are the pane's, by construction
+     * (C06 §14). The CSS is '.vco-create-btn' in styles/panels/canvasOverlays.ts.
+     */
     private _mountCreateActionButton(viewDef: ViewDefinition): void {
         const vt = viewDef.viewType;
         const isPlan       = vt === 'plan' || vt === 'structural-plan';
@@ -690,55 +714,28 @@ export class PlanViewToolOverlay {
         if (!isPlan && !isElevSect) return;
 
         const btn = document.createElement('button');
-        btn.type = 'button';
-        const label = isPlan ? '+ Grid' : '+ Level';
-        const title = isPlan
+        btn.type      = 'button';
+        btn.className = 'vco-create-btn';
+        btn.textContent = isPlan ? '+ Grid' : '+ Level';
+        btn.title       = isPlan
             ? 'Create a structural grid line in this plan view'
             : 'Add a level at a chosen elevation';
-        btn.textContent = label;
-        btn.title       = title;
-        Object.assign(btn.style, {
-            position:     'fixed',
-            zIndex:       '6',
-            padding:      '8px 14px',
-            background:   'linear-gradient(180deg,#7c3aed 0%,#6d28d9 100%)',
-            color:        '#ffffff',
-            border:       '1px solid rgba(255,255,255,0.18)',
-            borderRadius: '8px',
-            fontSize:     '12px',
-            fontFamily:   'system-ui, sans-serif',
-            fontWeight:   '600',
-            letterSpacing:'0.02em',
-            cursor:       'pointer',
-            boxShadow:    '0 4px 12px rgba(76,29,149,0.35)',
-            userSelect:   'none',
-            display:      'none',
-        });
-        btn.addEventListener('mouseenter', () => {
-            btn.style.background = 'linear-gradient(180deg,#8b5cf6 0%,#7c3aed 100%)';
-        });
-        btn.addEventListener('mouseleave', () => {
-            btn.style.background = 'linear-gradient(180deg,#7c3aed 0%,#6d28d9 100%)';
-        });
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             if (isPlan) this._handleCreateGrid();
             else        this._handleCreateLevel();
         });
 
-        document.body.appendChild(btn);
+        // The canvas's own positioned parent. '#container' is 'position: relative'
+        // (index.html:62), so 'left/bottom' are measured from the VIEWPORT PANE the
+        // canvas occupies - which is exactly what the old rect maths was trying,
+        // and failing, to reproduce. Falls back rather than unmounting (C06 §14.2).
+        const host =
+            document.getElementById('container') ??
+            this._baseCanvas?.parentElement ??
+            document.body;
+        host.appendChild(btn);
         this._createActionBtn = btn;
-        this._positionCreateActionButton();
-    }
-
-    private _positionCreateActionButton(): void {
-        const btn = this._createActionBtn;
-        const base = this._baseCanvas;
-        if (!btn || !base) return;
-        const rect = base.getBoundingClientRect();
-        btn.style.left    = `${rect.left + 16}px`;
-        btn.style.top     = `${rect.bottom - btn.offsetHeight - 16}px`;
-        btn.style.display = 'block';
     }
 
     private _handleCreateGrid(): void {
