@@ -15,6 +15,7 @@ import type { BimService } from '@app/engine/BimService';
 import type { GISCallbacks } from './GISAreaLayout';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import { triggerWindowResize } from '../../engine/triggerWindowResize'; // F.events.16
+import { publishShellCanvasRegion } from './shellCanvasBudget';
 
 export interface DockResult {
     leftPlaceholder: HTMLElement;
@@ -139,8 +140,18 @@ export function mountDockingArea(
 
     const canvasEl = document.getElementById('container');
     if (canvasEl) {
-        new ResizeObserver(() => triggerWindowResize()).observe(canvasEl); // F.events.16
+        new ResizeObserver(() => {
+            triggerWindowResize(); // F.events.16
+            // §SHELL-FLOAT-BUDGET (L-4030..L-4035) — re-publish the canvas region
+            // on EVERY geometry change, not only on a mode switch. Split view
+            // (`.svp-active` → 60%) is toggled from three call sites in
+            // SplitViewManager/svpPlanPaneMounter, and pinned docks resize this
+            // element too. Observing the element is one measurement in place of
+            // an enumeration of everything that can narrow it.
+            publishShellCanvasRegion();
+        }).observe(canvasEl);
     }
+    publishShellCanvasRegion();
 
     setTimeout(() => applyDockLayout(), 0);
 

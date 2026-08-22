@@ -32,6 +32,7 @@ const PRESENCE = readFileSync(join(STYLES, 'panels/collaborativePresence.ts'), '
 const CEB = readFileSync(join(STYLES, 'panels/platform-shell/contextualEditBar.ts'), 'utf8');
 const TOKENS = readFileSync(join(STYLES, 'tokens.ts'), 'utf8');
 const CONTROLLER = readFileSync(join(REPO, 'apps/editor/src/ui/WorkspaceController.ts'), 'utf8');
+const PUBLISHER = readFileSync(join(REPO, 'apps/editor/src/ui/layout/shellCanvasBudget.ts'), 'utf8');
 
 /** The declaration block of `selector`, or '' — good enough for these flat sheets. */
 function rule(src: string, selector: string): string {
@@ -101,15 +102,23 @@ describe('§ANALYSIS-HEADER-OCCLUDED — the inputs the reserve was derived from
     }
   });
 
-  it('the budget is DECLARED with a default and PUBLISHED from the mode registry', () => {
-    // A `var(--x)` with no declaration renders as its fallback forever and the
+  it('the budget is DECLARED with a default and actually PUBLISHED', () => {
+    // A `var(--x)` with no declaration renders as its fallback forever, and the
     // publisher is what makes the fallback ever change. Both halves or neither.
+    //
+    // ⚠ CORRECTED the same day: this arm first required the WRITE to be inside
+    // `WorkspaceController` as `def?.canvas === 'half' ? '25%' : '50%'`. That
+    // budget was ENUMERATED from the mode registry and missed split view
+    // (`#container` is `width: 60%` under `.svp-active`). The region is now
+    // MEASURED from `#container`'s rect by one publisher; the controller CALLS
+    // it after setting the width. `shellFloatBudget.spec.ts` owns the
+    // one-writer arm — this one only needs the budget to be live.
     expect(TOKENS).toMatch(/--shell-canvas-cx:\s*50%/);
     expect(TOKENS).toMatch(/--shell-canvas-w:\s*100vw/);
-    expect(CONTROLLER).toContain("setProperty('--shell-canvas-cx'");
-    expect(CONTROLLER).toContain("setProperty('--shell-canvas-w'");
-    // Derived from the registry row, not from a mode name (ADR-0343 §D.1).
-    expect(CONTROLLER).toMatch(/const half = def\?\.canvas === 'half'/);
+    expect(PUBLISHER).toContain("setProperty('--shell-canvas-cx'");
+    expect(PUBLISHER).toContain("setProperty('--shell-canvas-w'");
+    expect(PUBLISHER).toContain('getBoundingClientRect()');
+    expect(CONTROLLER).toContain('publishShellCanvasRegion()');
   });
 
   it('⛔ the CEB was the MISSED occluder — its geometry is why 44 was never enough', () => {

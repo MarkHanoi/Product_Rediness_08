@@ -73,6 +73,11 @@ export const SPLIT_VIEW_STYLES = `
     display: flex;
     align-items: center;
     gap: 6px;
+    /* §SHELL-TOPBAR-BAND - THIS side absorbs the squeeze, by ellipsis, because
+       '.svp-view-select' already declares 'text-overflow: ellipsis' and a
+       'min-width: 100px' floor. The level group opposite gets 'flex-shrink: 0'
+       so a narrow pane never leaves a chevron with nothing beside it. */
+    min-width: 0;
 }
 
 .svp-header-dot {
@@ -87,6 +92,12 @@ export const SPLIT_VIEW_STYLES = `
     display: flex;
     align-items: center;
     gap: 6px;
+    /* §SHELL-TOPBAR-BAND - never crushed. A '<select>' with 'appearance: none'
+       draws its chevron as a 'background-image' pinned to its right edge, so it
+       renders that glyph at ANY width, including one too small for a single
+       character. The affordance outlives the label, and the result is a control
+       the user can click and cannot read. A floor is the only fix that holds. */
+    flex-shrink: 0;
 }
 
 .svp-level-label {
@@ -109,6 +120,8 @@ export const SPLIT_VIEW_STYLES = `
     cursor: pointer;
     outline: none;
     max-width: 120px;
+    /* §SHELL-TOPBAR-BAND - a legible floor, matching '.svp-view-select'. */
+    min-width: 92px;
     appearance: none;
     -webkit-appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3l3 4 3-4' stroke='%23718096' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
@@ -296,9 +309,28 @@ export const SPLIT_VIEW_STYLES = `
     transition: right 0.2s ease-in-out;
 }
 
+/* §SHELL-TOPBAR-BAND (L-4030..L-4035) - THIS HEADER MUST START BELOW THE
+   ALWAYS-ON SHELL ROW, and 'top: 10px' put it INSIDE it.
+
+   Built by BOTH 'PlanViewManager.ts:312' (main viewport) and
+   'SplitViewManager.ts:440' (split pane) from this one class, so one rule fixes
+   both surfaces. It is 'absolute' at z-index 6; '.wmb-toplevel-wrapper' is
+   'fixed', 'top: 6px', OPAQUE, at z-index 200. Two bars, one band, and the
+   higher one wins - which is the founder's screenshot: the shell row covering
+   the middle of this header, leaving '.svp-view-select' as a bare chevron
+   (its glyph is a 'background-image' pinned to the right edge, so it survives
+   an occlusion its label does not).
+
+   ⭐ It surfaced TODAY because L-3500 gave the centred wrapper a THIRD child.
+   A wider bar covered ground it had not covered before. The bar was not the
+   defect; the ABSENCE OF A BAND BUDGET was, and a bar can always grow again.
+
+   'gap' + 'min-width: 0' below is the second half: when this header does run out
+   of room its groups must ELLIPSISE, never collapse a labelled control to its
+   own chevron. NO BACKTICKS IN THIS BLOCK: it lives inside a template literal. */
 .svp-plan-view-header {
     position: absolute;
-    top: 10px;
+    top: calc(var(--shell-topbar-h, 36px) + 8px);
     left: 12px;
     right: 12px;
     z-index: 6;
@@ -306,6 +338,8 @@ export const SPLIT_VIEW_STYLES = `
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
     transition: left 0.2s ease-in-out;
 }
 

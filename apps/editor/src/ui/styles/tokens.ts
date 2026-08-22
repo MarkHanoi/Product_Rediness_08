@@ -58,6 +58,40 @@ export const DESIGN_TOKENS = `
            full-width workbench or the mode cannot be left. */
         --shell-canvas-cx:   50%;
         --shell-canvas-w:    100vw;
+
+        /* §SHELL-TOPBAR-BAND (L-4030..L-4035) - THE VERTICAL HALF OF THE SAME
+           BUDGET: how much of the top of the viewport the always-on fixed shell
+           row occupies. Any OTHER bar that floats at the top of a canvas pane
+           must start below it.
+
+           ⛔ THE DEFECT, MEASURED 2026-08-22 from the founder's screenshot.
+           '.wmb-toplevel-wrapper' is 'position: fixed; top: 6px' at z-index 200
+           and is OPAQUE. '.svp-plan-view-header' - built by BOTH
+           'PlanViewManager.ts:312' and 'SplitViewManager.ts:440' from one class -
+           is 'position: absolute; top: 10px; left: 12px; right: 12px' at
+           z-index 6, spanning its pane's FULL width with
+           'justify-content: space-between'. The two bars occupy the SAME 30px
+           band, and 200 paints over 6.
+
+           So the shell row was covering the middle of the view header. What the
+           founder photographed as 'an orphan chevron with no label' is the
+           '.svp-view-select' with its LEFT half under the opaque bar: that
+           select is 'appearance: none' with its chevron drawn as a
+           'background-image' pinned to 'right 6px center', so the affordance
+           survives at full opacity while the label does not. A control you can
+           click and cannot read.
+
+           ⭐ AND THIS IS WHY IT APPEARED TODAY. L-3500 added a THIRD child (the
+           level pill) to the centred wrapper. The wrapper got wider, so it began
+           covering ground it had not covered before. Nothing was duplicated -
+           the '+Level:' select has always been the VIEW header's own control -
+           but nothing anywhere said the two bars may not share a band.
+
+           THE NUMBER, derived from the wrapper's own sheet, identically to the
+           Analysis header reserve so there is ONE derivation and not two:
+             6 (top) + 3 (wmb-bar padding) + 5 + 14 + 5 (wmb-btn) + 3 = 36 px
+           Consumers add their own clearance on top. */
+        --shell-topbar-h:    36px;
         --app-bg:            #e8edf6;
         --app-panel-bg:      #ffffff;
         /* §UX1-CONFIRM-GLASS — the translucent panel surface and its blur, declared

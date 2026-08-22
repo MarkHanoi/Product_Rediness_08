@@ -41,6 +41,8 @@ const read = (p: string): string => readFileSync(join(REPO, p), 'utf8');
 
 const TOKENS = read('apps/editor/src/ui/styles/tokens.ts');
 const CONTROLLER = read('apps/editor/src/ui/WorkspaceController.ts');
+const DOCK = read('apps/editor/src/ui/layout/DockingLayout.ts');
+const PUBLISHER = read('apps/editor/src/ui/layout/shellCanvasBudget.ts');
 const MODES = read('apps/editor/src/ui/platform/workspaceModes.ts');
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -63,6 +65,28 @@ function everyRule(): Array<{ file: string; selector: string; body: string }> {
   return out;
 }
 
+/** The declaration block of `selector` in `src`, or ''. No dynamic regex — a
+ *  template literal eats `\.` and `\s`, which silently turns a selector match
+ *  into a wildcard. This lane hit that once; the helper removes the class. */
+function ruleBody(src: string, selector: string): string {
+  const i = src.indexOf(`${selector} {`);
+  if (i < 0) return '';
+  const open = src.indexOf('{', i);
+  const close = src.indexOf('}', open);
+  return open < 0 || close < 0 ? '' : src.slice(open + 1, close);
+}
+
+/** Source with comment lines removed — a comment quoting old code is not code. */
+function codeOnly(src: string): string {
+  return src
+    .split(String.fromCharCode(10))
+    .filter((l) => {
+      const t = l.trimStart();
+      return !t.startsWith('*') && !t.startsWith('//') && !t.startsWith('/*');
+    })
+    .join(String.fromCharCode(10));
+}
+
 const isFixed = (b: string): boolean => /position:\s*fixed/.test(b);
 const centresOnViewport = (b: string): boolean => /(?:^|;|\s)left:\s*50%/.test(b);
 const budgeted = (b: string): boolean => /left:\s*var\(--shell-canvas-cx/.test(b);
@@ -76,13 +100,48 @@ describe('§SHELL-FLOAT-BUDGET — ARM A: the budget is DECLARED and PUBLISHED',
     expect(TOKENS).toMatch(/--shell-canvas-w:\s*100vw/);
   });
 
-  it('⭐ they are published from the mode REGISTRY, not from a mode name', () => {
-    // ADR-0343 §D.1: adding a half-canvas mode must be a ROW, not a sixth CSS
-    // rule. If this ever reads `this._mode === 'analysis'` the budget has become
-    // the fifth hand-written copy of the thing it replaced.
-    expect(CONTROLLER).toContain("setProperty('--shell-canvas-cx'");
-    expect(CONTROLLER).toContain("setProperty('--shell-canvas-w'");
-    expect(CONTROLLER).toMatch(/const half = def\?\.canvas === 'half'/);
+  it('⛔ there is exactly ONE writer, and it is not a mode branch', () => {
+    /**
+     * ⚠ CORRECTED THE SAME DAY IT SHIPPED. This arm first required
+     * `const half = def?.canvas === 'half'` inside `WorkspaceController` — a
+     * budget ENUMERATED from the mode registry. The founder's next screenshot
+     * falsified it: `#container` is also `width: 60%` under `.svp-active`, so a
+     * mode-derived budget left the opaque centred row at 50% of the VIEWPORT,
+     * on top of the split pane's own header.
+     *
+     * ⭐ Enumerating the causes of a narrow canvas is a CENSUS, and this lane's
+     * whole finding is that censuses rot (C01 §6 rule 6). The region is now
+     * MEASURED from `#container`'s rect by one function, so split view,
+     * half-canvas modes, pinned docks and anything added later need no entry.
+     */
+    // ⚠ COMMENTS STRIPPED. `WorkspaceController` QUOTES the deleted mode-branch
+    // in its correction note, and a comment that quotes old code is not code —
+    // this lane already had two arms match their own explanatory comment.
+    const writers = [CONTROLLER, DOCK, PUBLISHER].flatMap((src, i) =>
+      [...codeOnly(src).matchAll(/setProperty\('--shell-canvas-(cx|w)'/g)].map(() => i),
+    );
+    // Every write is in the publisher (index 2) and nowhere else.
+    expect(new Set(writers)).toEqual(new Set([2]));
+    expect(PUBLISHER).toContain('getBoundingClientRect()');
+    expect(PUBLISHER).toContain("getElementById('container')");
+  });
+
+  it('both call sites CALL the publisher rather than computing a value', () => {
+    // The registry still DECIDES the canvas width; the publisher READS it. A
+    // second computation of "the same" number is the defect shape this file
+    // was extracted to avoid.
+    expect(CONTROLLER).toContain('publishShellCanvasRegion()');
+    expect(DOCK).toContain('publishShellCanvasRegion()');
+    // and the ResizeObserver on #container is what catches split view.
+    expect(DOCK).toMatch(/new ResizeObserver\([\s\S]{0,600}?publishShellCanvasRegion\(\)/);
+  });
+
+  it('⛔ a zero-width canvas falls back rather than publishing 0%', () => {
+    // Data mode is `canvas: 'hidden'` — `#container` measures 0x0. Publishing
+    // `0%` would pile every bar on the left edge; the mode bar must stay
+    // reachable over the full-width workbench or the mode cannot be left.
+    expect(PUBLISHER).toMatch(/if \(r\.width > 0\)/);
+    expect(PUBLISHER).toMatch(/VIEWPORT_CENTRE = '50%'/);
   });
 
   it('the registry really has half-canvas modes for the budget to serve', () => {
@@ -160,6 +219,95 @@ describe('§SHELL-FLOAT-BUDGET — ARM C: the per-mode `left` overrides are RETI
     const shell = read(`${PANELS}/autonomous-auditor/inspectModeShell.ts`);
     expect(shell).toMatch(/body\.pryzm-mode-inspect \.ins-lens-bar \{[^}]*position: fixed/);
     expect(shell).toMatch(/body\.pryzm-mode-inspect \.ins-explode-bar \{[^}]*bottom: 62px/);
+  });
+});
+
+describe('§SHELL-TOPBAR-BAND (L-4030..L-4035) — the VERTICAL half of the budget', () => {
+  /**
+   * ⭐ THE FOUNDER'S SECOND SCREENSHOT, AND THE COORDINATOR'S READING OF IT WAS
+   * WRONG IN A WAY THAT MATTERED.
+   *
+   * It was relayed as ONE fixed row at `top: 6px` *"into which several
+   * independent owners inject"*, holding two rival level controls plus an
+   * orphan chevron, with the fix being to delete one of the level controls.
+   *
+   * ⛔ MEASURED 2026-08-22 — `.wmb-toplevel-wrapper` has exactly THREE children
+   * and they are all appended in `DockingLayout.ts` (`saveUndoRedoHUD.element`,
+   * `workspaceModeBar.element`, `levelSlot`). NOTHING else in the repo appends
+   * to it. The `Level:` select and the Grid / IFC / V-G / INTENT / Range chips
+   * are NOT in that row at all — they belong to `.svp-plan-view-header`, a
+   * DIFFERENT bar built by both `PlanViewManager` and `SplitViewManager`.
+   *
+   * It is TWO BARS SHARING ONE BAND: `fixed, top: 6px, z-index: 200, opaque`
+   * over `absolute, top: 10px, z-index: 6`. Deleting a level control would have
+   * left every other control in that header under the same bar.
+   */
+  const SPLIT = read(`${PANELS}/splitView.ts`);
+
+  it('the always-on top row is ONE composition with exactly THREE children', () => {
+    // The premise. If a fourth owner starts injecting here, the band grows and
+    // the clearance below must be re-derived — so this is asserted, not assumed.
+    const dock = read('apps/editor/src/ui/layout/DockingLayout.ts');
+    const appends = [...dock.matchAll(/topBarWrapper\.appendChild\(([^)]*)\)/g)].map((m) =>
+      m[1]!.trim(),
+    );
+    expect(appends).toEqual([
+      'saveUndoRedoHUD.element',
+      'workspaceModeBar.element',
+      'levelSlot',
+    ]);
+  });
+
+  it('the band height is DECLARED once, on the same derivation as the reserve', () => {
+    // 6 top + 3 wmb-bar padding + (5 + 14 + 5) wmb-btn + 3 = 36. Identical to the
+    // figure analysisHeaderReserve.spec.ts derives, so there is ONE number.
+    expect(TOKENS).toMatch(/--shell-topbar-h:\s*36px/);
+  });
+
+  it('⛔ the plan-view header starts BELOW the band, not inside it', () => {
+    const body = ruleBody(SPLIT, '.svp-plan-view-header');
+    expect(body.length).toBeGreaterThan(20);
+    expect(body).toContain('position: absolute');
+    expect(body, 'the view header is back inside the shell row').toMatch(
+      /top:\s*calc\(var\(--shell-topbar-h/,
+    );
+    expect(body, 'the view header went back to a hand-picked top').not.toMatch(/top:\s*10px/);
+  });
+
+  it('the TWO top-of-pane headers are distinct, and each is handled', () => {
+    // ⚠ MEASURED, not assumed — and they are NOT one class. `PlanViewManager`
+    // builds `.svp-plan-view-header` (absolute, top: 10px) over the MAIN
+    // viewport; `SplitViewManager` builds `.svp-header` (in flow, 36px tall) at
+    // the top of `.svp-pane`. Both shared the shell row's band and each needs a
+    // DIFFERENT remedy, which is why one arm cannot cover both.
+    expect(read('apps/editor/src/engine/views/PlanViewManager.ts')).toContain(
+      "'svp-plan-view-header'",
+    );
+    expect(read('apps/editor/src/engine/views/SplitViewManager.ts')).toContain("'svp-header'");
+    // The main-viewport header clears the band by starting below it (arm above).
+    // The split-pane header is inside `.svp-pane`, which occupies the 40% the
+    // canvas gives up — so the BUDGET keeps the shell row out of it, and that
+    // only works because the region is measured rather than mode-derived.
+    expect(ruleBody(SPLIT, '.svp-pane')).toMatch(/width:\s*40%/);
+    expect(ruleBody(SPLIT, '#container.svp-active')).toMatch(/width:\s*60%/);
+  });
+
+  it('⭐ no labelled control in that header can collapse to its own chevron', () => {
+    // The mechanism, and it is not a flex-squeeze curiosity: a `<select>` with
+    // `appearance: none` draws its chevron as a `background-image` pinned to the
+    // right edge, so the glyph renders at ANY width — including one too small
+    // for a single character, and including one whose label is under an opaque
+    // bar. The affordance outlives the label. Floors are the only fix.
+    for (const sel of ['.svp-view-select', '.svp-level-select']) {
+      const body = ruleBody(SPLIT, sel);
+      expect(body.length, `${sel} rule not found`).toBeGreaterThan(20);
+      expect(body, `${sel} draws a background chevron`).toContain('appearance: none');
+      expect(body, `${sel} has no legible min-width floor`).toMatch(/min-width:\s*\d+px/);
+    }
+    expect(
+      ruleBody(SPLIT, '.svp-header-level'),
+      'the level group can be crushed again',
+    ).toContain('flex-shrink: 0');
   });
 });
 

@@ -44,6 +44,8 @@ import {
   workspaceModeForShortcut,
   type WorkspaceMode,
 } from './platform/workspaceModes';
+// §SHELL-FLOAT-BUDGET (L-4010..L-4016) — the ONE writer of the canvas region.
+import { publishShellCanvasRegion } from './layout/shellCanvasBudget';
 
 export type { WorkspaceMode };
 
@@ -186,16 +188,29 @@ export class WorkspaceController {
     // canvas to centre on, and the mode bar must stay reachable over the
     // full-width workbench or the mode cannot be left. Stated here rather than
     // left as a silent `else`, because it is a decision, not a default.
-    const half = def?.canvas === 'half';
-    document.body.style.setProperty('--shell-canvas-cx', half ? '25%' : '50%');
-    document.body.style.setProperty('--shell-canvas-w', half ? '50vw' : '100vw');
-
+    // ⛔ CORRECTED 2026-08-22, SAME DAY, BY THE FOUNDER'S NEXT SCREENSHOT.
+    // This block first read:
+    //     const half = def?.canvas === 'half';
+    //     setProperty('--shell-canvas-cx', half ? '25%' : '50%');
+    // Correct for the two half-canvas MODES and wrong for everything else that
+    // narrows the canvas. `#container` is ALSO `width: 60%` under `.svp-active`
+    // (splitView.ts:23, toggled from three call sites), and the remaining 40% is
+    // `.svp-pane` with its own header bar — so a mode-derived budget left this
+    // opaque fixed row at 50% of the VIEWPORT, on top of that pane's header.
+    // Enumerating the causes of a narrow canvas is a CENSUS, and this lane's
+    // whole finding is that censuses rot. The region is measured instead.
+    // The registry still DECIDES the width just below; the publisher READS it.
     if (canvas) {
       switch (def?.canvas ?? 'full') {
         case 'full':   canvas.style.display = 'block'; canvas.style.width = '';    break;
         case 'half':   canvas.style.display = 'block'; canvas.style.width = '50%'; break;
         case 'hidden': canvas.style.display = 'none';                              break;
       }
+      // §SHELL-FLOAT-BUDGET — publish AFTER the width is set, synchronously, so
+      // the bars move in the same frame as the canvas rather than one
+      // ResizeObserver tick later. Same function DockingLayout's observer calls;
+      // neither site computes a value.
+      publishShellCanvasRegion();
     }
 
     // The WORKBENCH half stays a per-mode decision: it is not derivable from the
