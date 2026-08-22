@@ -39,7 +39,7 @@ import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { triggerWindowResize } from '../engine/triggerWindowResize'; // F.events.16
 // §WORKSPACE-MODE-REGISTRY (L-3000 · ADR-0343 §D.1) — the ONE mode table.
 import {
-  getWorkspaceMode,
+  getWorkspaceMode, WORKSPACE_MODES,
   isWorkspaceMode,
   workspaceModeForShortcut,
   type WorkspaceMode,
@@ -132,7 +132,30 @@ export class WorkspaceController {
     const dw        = window.dataWorkbench as { setMode: (m: string) => void } | undefined; // TODO(F.6.5): legacy dataWorkbench — replace with runtime.panelHost.get('dataWorkbench')
     const propPanel = document.querySelector('.gpp-panel') as HTMLElement | null;
 
-    document.body.classList.toggle('pryzm-mode-inspect', this._mode === 'inspect');
+    // §MODE-BODY-CLASS-FOR-EVERY-MODE (L-3601) — was a single hand-written line
+    // toggling ONLY `pryzm-mode-inspect`, and that asymmetry was a real defect,
+    // not a tidiness point.
+    //
+    // ⭐ MEASURED (lane ANLZ3): `.wmb-toplevel-wrapper` is `position: fixed;
+    // left: 50%` — and in a half-canvas mode `left: 50%` IS the panel's own left
+    // edge, so the mode bar draws ON TOP of the panel header. Inspect escapes it
+    // with `body.pryzm-mode-inspect .wmb-toplevel-wrapper { left: 25% }`
+    // (inspectModeShell.ts:202). Analysis is ALSO a half-canvas mode and had no
+    // such rule available, because there was no body class to hang one on — which
+    // is the founder's sliced "Every figure traceable to elements" subtitle.
+    //
+    // Derived from the registry rather than extended by hand: §WORKSPACE-MODE-REGISTRY
+    // (L-3000) collapsed a five-times-duplicated mode list into one table
+    // precisely so a new mode is a row, not five edits. A second hand-written
+    // toggle here would have been the sixth copy.
+    //
+    // ⛔ ADDITIVE ONLY. `pryzm-mode-inspect` is emitted exactly as before, so
+    // every existing Inspect rule is untouched; the loop only ADDS classes for
+    // the other modes. It does not, on its own, re-centre anything — a mode still
+    // needs its own `left` rule (Analysis's now ships in analysisSurface.ts).
+    for (const m of WORKSPACE_MODES) {
+      document.body.classList.toggle(`pryzm-mode-${m.id}`, this._mode === m.id);
+    }
 
     // §WORKSPACE-MODE-REGISTRY (L-3000) — the CANVAS half of the layout is now a
     // table lookup, not a per-mode branch. An unknown id cannot reach here

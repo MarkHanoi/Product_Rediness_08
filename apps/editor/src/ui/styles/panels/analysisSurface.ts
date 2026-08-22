@@ -937,4 +937,24 @@ export const ANALYSIS_SURFACE_STYLES = `
    and 'which standard' are the same kind of control and must not grow two looks. */
 .anl-std-picker { display: flex; flex-direction: column; gap: 6px; }
 
+
+/* -- §MODE-BODY-CLASS-FOR-EVERY-MODE (L-3601) -------------------------------
+   The shell's mode bar is 'position: fixed; left: 50%'. In a HALF-canvas mode
+   'left: 50%' is this panel's own left edge, so the bar drew on top of the
+   Analysis header -- the founder's sliced 'Every figure traceable to elements'
+   subtitle, exactly. Inspect has escaped this since its own sheet added
+   'body.pryzm-mode-inspect .wmb-toplevel-wrapper { left: 25% }'; Analysis could
+   not, because no 'pryzm-mode-analysis' body class existed to hang a rule on.
+   WorkspaceController now emits one per registry row, so this is the matching
+   half.
+   ⚠ This does NOT retire the header reserve above. It moves the MODE BAR only.
+   '.cp-presence-strip' is 'top: 8px; right: 8px' at z-9990 and still reaches the
+   four header buttons on the RIGHT -- a left-edge rule cannot touch it. Removing
+   the reserve because the subtitle stopped being sliced would re-break the
+   buttons, which is a different occluder with a different geometry.
+   NO BACKTICKS IN THIS BLOCK: it lives inside a template literal. */
+body.pryzm-mode-analysis .wmb-toplevel-wrapper {
+  left: 25%;
+}
+
 `;
