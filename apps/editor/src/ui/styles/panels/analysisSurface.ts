@@ -142,8 +142,29 @@ export const ANALYSIS_SURFACE_STYLES = `
      A transparent top border is the reserve: 'background-clip' defaults to
      'border-box', so the brand gradient paints continuously THROUGH it and the
      band reads as one header rather than a strip above one. The tabulated six
-     properties stay byte-identical to Inspect. */
-  border-top: 44px solid transparent;
+     properties stay byte-identical to Inspect.
+
+     ⚠⚠ CORRECTED 2026-08-22 (§ANALYSIS-RESERVE-IS-RIGHT-EDGE-ONLY, L-4900) —
+     founder: 'the heading has too much space gap on the top'. HE IS RIGHT, AND
+     THE RESERVE WAS NOT WRONG, IT WAS APPLIED IN THE WRONG PLACE.
+
+     The reserve exists for ONE occluder. §SHELL-FLOAT-BUDGET retired the mode
+     bar's contribution, and the derivation note further down already records
+     that what remains is '.cp-presence-strip' alone: 'position: fixed; top: 8px;
+     RIGHT: 8px' with 28px chips, so it bottoms out at 36 and the reserve is
+     36 + 8 = 44.
+
+     ⭐ BUT THAT STRIP IS ANCHORED TO THE RIGHT EDGE AND IS ~100px WIDE. It can
+     only ever cover the four header BUTTONS. Reserving 44px across the FULL
+     WIDTH pushed the ANALYSIS title and its subtitle down by 44px to clear
+     something that was never above them — which is the gap he is pointing at.
+     A one-occluder reserve must be one-occluder WIDE as well as one-occluder
+     tall; the previous correction fixed the height derivation and left the
+     horizontal extent unexamined.
+
+     The reserve now sits on '.anl-header-actions' only. The six tabulated C06
+     §6.1 properties are still byte-identical to '.aud-header' — this moves a
+     reserve OFF the header, it does not change the header's own metric. */
 }
 
 .anl-title-wrap { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -167,7 +188,21 @@ export const ANALYSIS_SURFACE_STYLES = `
   text-overflow: ellipsis;
 }
 
-.anl-header-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+/* §ANALYSIS-RESERVE-IS-RIGHT-EDGE-ONLY (L-4900) — the shell reserve lives HERE,
+   not on the header, because '.cp-presence-strip' is anchored 'right: 8px' and
+   can only ever occlude these four buttons. 36 = the strip's bottom edge
+   (top 8 + chip 28); the extra 8 is the same clearance the old full-width
+   reserve carried. Derived, not typed: see 'analysisHeaderReserve.spec.ts',
+   which reads both numbers out of 'collaborativePresence.ts' at test time so a
+   chip resize moves the reserve instead of silently re-occluding the buttons. */
+.anl-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-top: 44px;
+  align-self: flex-start;
+}
 
 .anl-header-btn {
   display: inline-flex;
@@ -606,7 +641,10 @@ export const ANALYSIS_SURFACE_STYLES = `
    lowest edge moves from 36 to 48. Reserve 56 = 48 + 8. This media query exists
    BECAUSE that one does; if the mobile mode bar is ever re-sized, both move. */
 @media (max-width: 768px) {
-  .anl-header { border-top-width: 56px; }
+  /* §ANALYSIS-RESERVE-IS-RIGHT-EDGE-ONLY (L-4900) — was '.anl-header
+     { border-top-width: 56px }'. The reserve moved to the actions cluster, so
+     the responsive arm moves with it or the buttons re-occlude on mobile. */
+  .anl-header-actions { margin-top: 56px; }
   .anl-picker { top: 110px; max-height: calc(100% - 146px); }
 }
 

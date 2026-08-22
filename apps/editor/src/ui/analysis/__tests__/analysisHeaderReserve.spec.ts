@@ -60,8 +60,19 @@ function px(block: string, prop: string): number | null {
  * through the border and the band still reads as one header.
  */
 function headerReserve(): number {
-  const b = px(rule(ANALYSIS, '.anl-header {'), 'border-top');
-  expect(b, '.anl-header no longer declares its reserve as a top border').not.toBeNull();
+  // §ANALYSIS-RESERVE-IS-RIGHT-EDGE-ONLY (L-4900) — this used to read
+  // `border-top` off `.anl-header`, i.e. it asserted WHERE the reserve lived.
+  // The founder reported the ANALYSIS title sitting 44px too low: the reserve
+  // was full-width while its ONLY remaining occluder, `.cp-presence-strip`, is
+  // anchored `right: 8px` and can reach nothing but the four header buttons.
+  // The reserve moved to `.anl-header-actions`.
+  //
+  // ⭐ The helper now asserts the RULE — "the actions clear the lowest shell
+  // occluder" — not the property that happened to carry it. A test that pins a
+  // location cannot survive the location being wrong, and this one went red for
+  // a reason that was not a defect.
+  const b = px(rule(ANALYSIS, '.anl-header-actions {'), 'margin-top');
+  expect(b, '.anl-header-actions no longer declares the shell reserve').not.toBeNull();
   return b!;
 }
 
@@ -163,8 +174,9 @@ describe('§ANALYSIS-HEADER-OCCLUDED — the inputs the reserve was derived from
     const mobileBtn = /@media \(max-width: 768px\)[\s\S]*?\.wmb-btn \{([^}]*)\}/.exec(MODEBAR)?.[1] ?? '';
     expect(px(mobileBtn, 'min-height'), 'the mobile mode bar changed height').toBe(36);
     const lowestMobile = 6 + 3 + 36 + 3;
-    const m = /@media \(max-width: 768px\)[\s\S]*?\.anl-header \{([^}]*)\}/.exec(ANALYSIS)?.[1] ?? '';
-    const top = px(m, 'border-top-width');
+    // L-4900 — the responsive arm moved with the reserve it guards.
+    const m = /@media \(max-width: 768px\)[\s\S]*?\.anl-header-actions \{([^}]*)\}/.exec(ANALYSIS)?.[1] ?? '';
+    const top = px(m, 'margin-top');
     expect(top, 'the Analysis sheet lost its 768px reserve override').not.toBeNull();
     expect(top!).toBeGreaterThanOrEqual(lowestMobile);
   });
