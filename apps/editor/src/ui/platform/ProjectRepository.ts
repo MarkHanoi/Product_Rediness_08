@@ -1161,6 +1161,30 @@ export class LocalVersionRepository implements IVersionRepository {
     }
 
     saveVersions(projectId: string, versions: VersionRecord[]): void {
+        // §FIX-BULK-SAVE-TRUSTED-A-STALE-BLOB (L-5807) — DROP THE CACHE FIRST.
+        //
+        // The per-version blob cache rests on one stated invariant: "content is
+        // immutable per id" — every path that CHANGES a record invalidates that id's
+        // blob at its call site (`saveVersionWithMeta`, `updateSyncStatus`). This
+        // wholesale writer never did. It is handed an arbitrary array and has no way
+        // to tell a changed record from an unchanged one, so any caller re-using an
+        // id with different content had its change silently DISCARDED: the stale
+        // blob was carried forward as though it were still valid, and the on-disk
+        // bytes kept describing the previous content for ever.
+        //
+        // ⛔ ABSENT ≠ UNREACHABLE, so this is stated as a latent trap rather than a
+        // live defect. `grep -rn "saveVersions(" --include=*.ts apps/ packages/ |
+        // grep -v ProjectRepository` → three product callers, and today all three
+        // are safe by accident, not by construction: `duplicateInto` re-keys into a
+        // different PROJECT (a different cache), `deleteVersion` only removes rows,
+        // and `importProject` only appends a fresh id. Nothing enforced that, and a
+        // fourth caller editing a record in place would have found the bug.
+        //
+        // The cost of closing it is bounded and paid nowhere hot: this method is
+        // never on the autosave path (that is `saveVersionWithMeta`), so re-deflating
+        // the array it was explicitly given is the right trade against a silent,
+        // permanent, on-disk content loss.
+        _versionBlobCache.delete(projectId);
         this.saveVersionsWithQuota(projectId, versions);
     }
 
