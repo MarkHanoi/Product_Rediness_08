@@ -63,6 +63,9 @@ import { resolveBoundIntentWithInheritance } from '@pryzm/core-app-model';
 // §SYMBOL-INJECTORS-VS-INTENT (L-3903) — the ONE seam the fifteen symbol injectors
 // are gated by. The builders stay dumb; this CALLER decides. See SymbolInjectionGate.ts.
 import { makeSymbolInjectionGate } from '@pryzm/core-app-model';
+// §ELEV-FURNITURE-IS-NOT-A-WIREFRAME (L-6020) — the ONE owner of "which VG family is this
+// layer?", so the native path's intent veto keys on exactly what the canvas keys its hide on.
+import { vgCategoryForLayer } from '@pryzm/core-app-model/drawing';
 import {
     isElementTypeFullyHidden,
     normaliseIfcUserDataType,
@@ -2492,6 +2495,14 @@ export class EdgeProjectorService {
         //
         // §02 §4.3 — groups are cleared after projection; underlying builder
         //             geometry is NOT disposed (owned by builders, not this service).
+        // ── §SYMBOL-INJECTORS-VS-INTENT (L-3903) — ONE GATE, NOW FOR BOTH CONSUMERS ──
+        //
+        // Built HERE rather than beside the injectors, because the NATIVE mesh loop below asks
+        // it as well (§ELEV-FURNITURE-IS-NOT-A-WIREFRAME, L-6020). It resolves the bound intent
+        // once and memoises per family, so moving it earlier costs nothing and removes the
+        // possibility of two gates for one projection.
+        const _symbolGate = makeSymbolInjectionGate(viewDef.id, viewDef.viewType);
+
         if (nativeMeshGroups.length > 0) {
 
             let totalLayerCount = 0;
@@ -2569,9 +2580,63 @@ export class EdgeProjectorService {
             let _groupYieldCount    = 0;
 
             let __diag_group_idx = 0;
+            /**
+             * §ELEV-FURNITURE-IS-NOT-A-WIREFRAME (L-6020..L-6024) — count of native element
+             * groups skipped because the bound intent cannot draw their family in ANY state.
+             */
+            let _nativeSkippedByIntent = 0;
+            /** Families actually skipped, for the log — a number alone would not say WHICH. */
+            const _nativeSkippedFamilies = new Set<string>();
+
             for (const group of nativeMeshGroups) {
                 // A-1: element UUID stamped by NativeElementMeshExporter.exportForView()
                 const elementUUID = group.userData.elementUUID as string | undefined;
+
+                // ═══ §ELEV-FURNITURE-IS-NOT-A-WIREFRAME (L-6020..L-6024) — THE INTENT VETO ═══
+                //
+                // Founder, 2026-08-22: furniture exclusion is not honoured, and opening the
+                // elevation is slow. His console names the cost precisely:
+                //   §DIAG-EPS-01 edgesGeo … elemType=FurniturePart faceCount=5280
+                //                edgeVertices=4884 allocMs=20.39ms
+                // — twenty milliseconds of `EdgesGeometry` for ONE pot plant, on every pass.
+                //
+                // ⚠ MEASURED, AND IT IS THE HALF NOBODY HAD CLOSED. The per-family intent veto
+                // existed for exactly ONE of the projector's three sources: the IFC path
+                // (`isTypeHiddenByIntent`, Wave 11 / Stage S7, further down this method).
+                // SOURCE B — the NATIVE mesh groups, which is where every PRYZM-authored wall,
+                // window, door and piece of furniture lives — had NO veto at all. So a family
+                // the user had switched off was still fully edge-projected, still written into
+                // the drawing, and still indexed by `registerSegmentUUID` for selection.
+                //
+                // ⛔ THIS IS NOT "hidden furniture still renders" — that report is REFUTED at the
+                // canvas layer and must not be re-opened here. `PlanViewCanvas` already drops the
+                // line twice (VG `resolved.visible`, then the intent's alpha-0 pen), proven at
+                // `ctx.strokeStyle` by `visibilityIntentGovernsSymbolInjectors.test.ts`. What is
+                // being fixed is everything DOWNSTREAM of the canvas, which is verbatim the cost
+                // `SymbolInjectionGate`'s own header enumerates for the injectors — and the
+                // native path's share of it is far larger, because an injector emits a handful of
+                // authored polylines while this loop runs `EdgesGeometry` over 5,280 faces.
+                //
+                // ⭐ WHY THIS CANNOT COMPROMISE GRAPHICS. The gate answers "could this family draw
+                // in ANY of the four states (cut / projection / beyond / hidden)?" and skips only
+                // on a unanimous NO. A family that is merely restyled, or hidden in one zone,
+                // still projects exactly as before. And it FAILS OPEN by construction — an
+                // unbound view, a missing intent or a resolver throw all return `true`. Absence
+                // of a decision is not a hide.
+                //
+                // The family key is `vgCategoryForLayer(resolveProjectionLayer(type))` — the SAME
+                // key the canvas resolves its own hide from, so the projector's veto and the
+                // canvas's paint cannot answer one question two ways (the `vgCategoryForLayer`
+                // divergence is why that function has one owner).
+                const _groupFamily = vgCategoryForLayer(
+                    resolveProjectionLayer(group.userData?.elementType as string | undefined),
+                );
+                if (_groupFamily && !_symbolGate(_groupFamily)) {
+                    _nativeSkippedByIntent++;
+                    _nativeSkippedFamilies.add(_groupFamily);
+                    __diag_group_idx++;
+                    continue;
+                }
                 // §TRUE-PROJECTION-HOST-NEVER-HIDES-ITS-OPENING (L-6012) — read ONCE per group;
                 // every layer this element emits carries the same host relation.
                 const _groupHostId = group.userData.hostId as string | undefined;
@@ -3489,6 +3554,21 @@ export class EdgeProjectorService {
                 );
             }
 
+            // §ELEV-FURNITURE-IS-NOT-A-WIREFRAME (L-6020..L-6024) — THE SECOND LINE THE FOUNDER
+            // READS BACK. Printed only when something was actually skipped, and it names the
+            // FAMILIES rather than only a count: "12 groups skipped" invites the question this
+            // line should already have answered, and a veto that skipped the wrong family would
+            // otherwise look identical to one that worked.
+            if (_nativeSkippedByIntent > 0) {
+                console.log(
+                    `[EdgeProjectorService] §ELEV-FURNITURE-IS-NOT-A-WIREFRAME ` +
+                    `viewId=${viewId} skippedByIntent=${_nativeSkippedByIntent}/${nativeMeshGroups.length} ` +
+                    `native group(s) — families=[${[..._nativeSkippedFamilies].sort().join(', ')}] ` +
+                    `(no EdgesGeometry, no drawing linework, not selectable; the canvas already ` +
+                    `painted none of it)`,
+                );
+            }
+
             // §G1-T2 — Group cleanup is now owned by callers via
             // nativeElementMeshExporter.releaseGroups(groups, { disposeProxies: true }).
             // Callers hold the NME reference; EPS only holds the group array.
@@ -3706,7 +3786,9 @@ export class EdgeProjectorService {
         //
         // FAILS OPEN by construction — an unbound view, a missing intent or a resolver
         // throw all return `true`. Absence of a decision is not a hide.
-        const _symbolGate = makeSymbolInjectionGate(viewDef.id, viewDef.viewType);
+        // §SYMBOL-INJECTORS-VS-INTENT (L-3903) — the gate is CONSTRUCTED ABOVE, before the
+        // native mesh loop, because §ELEV-FURNITURE-IS-NOT-A-WIREFRAME (L-6020) asks it there
+        // too. One construction, one resolve per family, two consumers.
 
         // ── DOC-2.5a: Door swing arc injection ────────────────────────────────
         // Door swing arcs have no 3D mesh counterpart — they are a 2D AEC convention
