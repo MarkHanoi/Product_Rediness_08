@@ -1170,10 +1170,28 @@ contribution to them is READ FROM THE MODE REGISTRY — never written per (mode 
 | `--shell-canvas-cx` | `50%` | horizontal centre of the region the 3-D canvas occupies |
 | `--shell-canvas-w` | `100vw` | width of that region — for `max-width` stops on bars that GROW |
 
-Declared in `apps/editor/src/ui/styles/tokens.ts`; written by
-`WorkspaceController._applyLayout()` from the `canvas` column of `WORKSPACE_MODES`
-(`'half'` → `25%` / `50vw`). **Adding a half-canvas mode is a ROW** (ADR-0343 §D.1). No bar names a
-mode; no mode names a bar.
+| `--shell-topbar-h` | `36px` | height of the always-on fixed top row, for bars that must clear it |
+
+Declared in `apps/editor/src/ui/styles/tokens.ts`. **Written by exactly ONE function**,
+`publishShellCanvasRegion()` in `apps/editor/src/ui/layout/shellCanvasBudget.ts`. No bar names a
+mode; no mode names a bar; no second site computes the value.
+
+> ⚠ **CORRECTED 2026-08-22, THE SAME DAY, BY THE FOUNDER'S NEXT SCREENSHOT — and the correction is
+> the more important half of this section.** This paragraph first read *"written by
+> `WorkspaceController._applyLayout()` from the `canvas` column of `WORKSPACE_MODES`
+> (`'half'` → `25%` / `50vw`); adding a half-canvas mode is a ROW"*. That budget was **ENUMERATED
+> from the mode registry**. It was correct for the two half-canvas MODES and wrong for everything
+> else that narrows the canvas: `#container` is also `width: 60%` under `.svp-active`
+> (`splitView.ts:23`, toggled from **three** call sites), and the remaining 40 % is `.svp-pane` with
+> its own header bar. So the opaque centred shell row stayed at 50 % of the **viewport** — inside
+> the pane — and painted over that header.
+>
+> ⭐ **Enumerating the causes of a narrow canvas is a CENSUS, and §7.5's own finding is that censuses
+> rot.** The region is now **MEASURED** from `#container.getBoundingClientRect()`. Split view,
+> half-canvas modes, pinned docks and anything added later are handled by one measurement because
+> none of them is enumerated. `WorkspaceController` still *decides* the width and then **calls** the
+> publisher; `DockingLayout`'s `ResizeObserver` on `#container` calls the same function on every
+> later change. **A budget that lists what can change is a budget that will be wrong.**
 
 ### §15.1 — Why a per-panel RESERVE is the wrong shape, and this is the fifth time
 
@@ -1213,6 +1231,36 @@ the bar is **BUDGETED** rather than pinning its geometry.
 narrow viewport, so the two widest always-on bars also take
 `max-width: calc(var(--shell-canvas-w) - 32px)`.
 
+### §15.6 — TWO BARS MAY NOT SHARE A BAND, and an occluded control keeps its affordance
+
+> **Added 2026-08-22 · L-4030..L-4035 · §SHELL-TOPBAR-BAND.** Founder: *"now we have an overlapping
+> issue — can you check and make it sound?"*
+
+**Measured, and the reading it was reported under was wrong.** It was described as ONE fixed row
+with several independent owners injecting into it. `.wmb-toplevel-wrapper` has **exactly three
+children**, all appended in `DockingLayout.ts`, and nothing else in the repo appends to it. The
+`Level:` select and the Grid / IFC / V-G / INTENT / Range chips belong to a **different bar** — the
+view header, built by `SplitViewManager` (`.svp-header`, in flow at the top of `.svp-pane`) and
+`PlanViewManager` (`.svp-plan-view-header`, absolute at `top: 10px`). The shell row is `fixed`,
+opaque, at **z-index 200**; both headers are at **6**.
+
+**Rule:** a bar that floats at the top of a canvas pane MUST clear `--shell-topbar-h`, and the shell
+row MUST stay inside the canvas region (§15). Neither alone is sufficient — the main viewport's
+header needed the first, the split pane's header needed the second.
+
+⭐ **AND AN OCCLUDED CONTROL DOES NOT LOOK OCCLUDED.** `.svp-view-select` is `appearance: none` and
+draws its chevron as a `background-image` pinned to `right 6px center`. With its left half under an
+opaque bar it rendered as **a bare chevron with no label** — the founder's *"orphan chevron"*. **The
+affordance outlives the label**, so the control stays clickable and becomes unreadable, and no
+amount of squeezing makes it disappear honestly. Every `<select>` styled this way MUST carry a
+legible `min-width` floor, and its group MUST NOT be `flex-shrink`-able to below it.
+
+⚠ **It surfaced because a bar GREW.** L-3500 added a third child to the centred wrapper. Nothing was
+duplicated; a wider opaque bar simply covered ground it had not covered before. **The bar was not
+the defect — the absence of a band budget was**, and a bar can always grow again.
+
+---
+
 ### §15.5 — Known gaps (named, so they are not assumed closed)
 
 - **Nothing here is measured in a browser.** Every arm is source-text; happy-dom performs no layout.
@@ -1225,5 +1273,13 @@ narrow viewport, so the two widest always-on bars also take
   desktop-width guarantee only.
 - **5 canvas-anchored bars remain un-enrolled** (`.ann-dim-opt-bar`, `.fw-hud`, `.iml-root`,
   `.sched-panel`, `.vg-panel`).
+- **`--shell-topbar-h` is a LITERAL, not a measurement.** `--shell-canvas-cx` is measured from the
+  DOM; the band height is still hand-derived from the mode bar's own sheet (6 + 3 + 5 + 14 + 5 + 3).
+  It is pinned by `analysisHeaderReserve.spec.ts`, which fails if any input moves — but it is the
+  weaker of the two mechanisms and should become a measurement too.
+- **Two SURFACES now write one authority.** The view header's level select publishes
+  `projectContext.activeLevelId` (L-720) and `ActiveLevelHUD` reads it. That is legitimate under
+  §13.10 (*active state is DERIVED from the authority*), but whether the product wants two level
+  controls at all is a **founder decision, raised and not taken** — see ISSUE-LOG L-4034.
 
 ---

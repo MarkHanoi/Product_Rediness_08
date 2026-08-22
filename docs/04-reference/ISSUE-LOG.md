@@ -34532,3 +34532,104 @@ screen**:
   all three want it TRUE during a replay; none is made worse);
 * anything about the 3D gizmo drag-end path beyond that it funnels through the same `gateWallMove`
   (`registerTransformDragHandler.ts:192`) as the plan drag (`MovePlanToolHandler.ts:485`).
+
+---
+
+### L-4030 — ⛔ FIXED: *"two level controls side by side"* is **TWO BARS SHARING ONE BAND**, not one crowded row
+
+Relayed to this lane as: one `position: fixed` row at `top: 6px` *"into which several independent
+owners inject — the mode bar, `#alh-modebar-slot`, plus the Grid/IFC/V-G/INTENT/promo/Range chips"*,
+holding two rival level controls, to be fixed by deleting one of them.
+
+⛔ **MEASURED 2026-08-22 — the premise is falsified.**
+`grep -rn "topBarWrapper\|\.wmb-toplevel-wrapper" --include=*.ts apps/editor/src | grep append`
+→ **three sites, all in `DockingLayout.ts:185-221`**: `saveUndoRedoHUD.element`,
+`workspaceModeBar.element`, `levelSlot`. **Nothing else in the repo appends to that wrapper.**
+
+The `Level:` select and the chips belong to the **view header**:
+
+| bar | built by | position | z-index |
+|---|---|---|---|
+| `.wmb-toplevel-wrapper` | `DockingLayout.ts:184` | `fixed`, `top: 6px`, **opaque** | **200** |
+| `.svp-header` | `SplitViewManager.ts:441` | in flow, 36 px, top of `.svp-pane` | 6 (pane) |
+| `.svp-plan-view-header` | `PlanViewManager.ts:312` | `absolute`, `top: 10px` | **6** |
+
+**Two bars, one band, and 200 paints over 6.** Deleting a level control would have fixed nothing —
+every other control in that header was under the same bar.
+
+### L-4031 — ⭐ the *"orphan chevron"* has a MECHANISM, and it generalises
+
+`.svp-view-select` is `appearance: none` with its chevron drawn as a `background-image` pinned to
+`right 6px center` (`splitView.ts`). With its left half under the opaque shell row it renders as **a
+bare chevron with no label** — clickable, unreadable. **The affordance outlives the label.**
+
+This is not a flex-squeeze curiosity; it is structural to any `<select>` styled that way, under
+occlusion *or* compression. Both selects now carry a legible `min-width` floor and
+`.svp-header-level` takes `flex-shrink: 0`. Contract text: **C06 §15.6**.
+
+### L-4032 — ⭐ it IS a regression shipped today, but not the alleged one
+
+Nothing was duplicated. The view header has always had its own level select
+(`SplitViewManager.ts:469`); `ActiveLevelHUD` was moved into the mode-bar composition by **L-3500**.
+That gave the centred wrapper a **third child**, so a wider opaque bar covered ground it had not
+covered before. **The bar was never the defect — the absence of a band budget was**, and a bar can
+always grow again. Fixed at the budget, not at the collision.
+
+### L-4033 — ⛔⛔ FIXED: **my own §SHELL-FLOAT-BUDGET, shipped an hour earlier, had the same defect it was written to name**
+
+`WorkspaceController` published `--shell-canvas-cx` as
+`def?.canvas === 'half' ? '25%' : '50%'` — **ENUMERATED from the mode registry**. Correct for the two
+half-canvas modes and **wrong for split view**: `#container` is `width: 60%` under `.svp-active`
+(`splitView.ts:23`, toggled from **three** call sites in `SplitViewManager` and
+`svpPlanPaneMounter`), and the remaining 40 % is `.svp-pane`. So the budget left the opaque row at
+50 % of the **viewport** — inside the pane — painting over its header.
+
+⭐ **Enumerating the causes of a narrow canvas is a CENSUS, and L-4000's whole finding is that
+censuses rot.** I wrote that into a contract (C06 §7.5) and then shipped the same shape in the fix
+for it, in the same session. Recording it rather than quietly correcting it, because the
+*recurrence* is the evidence: the rule is easy to state and easy to violate while stating it.
+
+**Fix:** `apps/editor/src/ui/layout/shellCanvasBudget.ts` — **THE ONE WRITER**, measuring
+`#container.getBoundingClientRect()`. Split view, half-canvas modes, pinned docks and anything added
+later need no entry because none is enumerated. `WorkspaceController` still *decides* the width and
+then **calls** the publisher; `DockingLayout`'s `ResizeObserver` on `#container` calls the same
+function afterwards. A zero-width canvas (Data mode, `canvas: 'hidden'`) falls back to the viewport
+centre **deliberately** — publishing `0%` would pile every bar on the left edge, and the mode bar
+must stay reachable or the mode cannot be left.
+
+### L-4034 — 🟡 OPEN · **FOUNDER DECISION**: two SURFACES now write one level authority — do we want both?
+
+⛔ **Neither control was deleted, and that is deliberate.** They are not duplicates:
+
+- **`ActiveLevelHUD`** — the shell's global pill. Carries the **elevation readout** (`+18.210 m`) and
+  **▲▼ stepping**. Reads `projectContext.activeLevelId`.
+- **`.svp-level-select`** — the **view header's own** storey picker. Since **L-720** it also
+  *publishes* `projectContext.activeLevelId` (before that it moved only the camera, and the label
+  was dishonest).
+
+So they are two surfaces over ONE authority, which C06 §13.10 permits (*active state is DERIVED from
+the authority, never mirrored*). Removing either **deletes a capability** — the elevation readout and
+stepping on one side, the per-view picker on the other. After the band fix they are no longer side by
+side. **Raised, not taken.** The founder's own standing direction is *always ASK, never auto-edit*.
+
+### L-4035 — 🟡 OPEN: `--shell-topbar-h` is a LITERAL where `--shell-canvas-cx` is a MEASUREMENT
+
+The horizontal half of the budget is measured from the DOM; the vertical half is still hand-derived
+from the mode bar's sheet (`6 + 3 + 5 + 14 + 5 + 3 = 36`). It is pinned by
+`analysisHeaderReserve.spec.ts` and fails if any input moves, but **it is the weaker of the two
+mechanisms** and should become a measurement too. Named so it is not mistaken for settled.
+
+### TEST COUNTS — SECOND PASS
+
+* Same command as above. **256 → 263 passing**, 18 files, zero red. `shellFloatBudget.spec.ts`
+  24 → **31**; `analysisHeaderReserve.spec.ts` re-pointed at the new publisher.
+* **Root gate:** `npx tsc --noEmit --skipLibCheck` → **RC=0**.
+
+### NOT VERIFIED IN A BROWSER — second pass
+
+That the two bars no longer overlap at the founder's viewport; that the plan-view header at
+`calc(36px + 8px)` does not now sit awkwardly far down the canvas; and that the measured budget
+tracks split view without a visible one-frame lag from the `ResizeObserver`. **Falsified by:** any
+control still clipped by the shell row, a header floating too low, or bars visibly snapping a frame
+after the split-view toggle.
+
