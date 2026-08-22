@@ -39353,3 +39353,340 @@ this test path does not call. **Owner of the rule-pack registry to rule on it.**
   the L-3260 NUL cause. **A near-miss:** on that evidence the bar looked authored-and-unwired, which
   is the opposite diagnosis and the opposite fix. **Confirm a "nothing found" with a second tool
   before building a finding on it.**
+
+---
+
+## §ANALYSIS-HIGHLIGHT-AND-RELATIONSHIPS — L-6600..L-6621 (lane ANLX31, 2026-08-22)
+
+> Founder, verbatim: *"In Analysis tab - i want to select for example: **Wall** - and have all the
+> walls on the pryzm 3d scene highlighted. / if **walls for example and level 1 are selected** -
+> then wall in level 1 should be highlighted / if we select **ceilings in quantities tab > ceiling
+> should highlight**: **Relationship tab should have all sections ready across all the elements**"*
+>
+> Four asks. Three shipped whole, one is a per-family verdict of which exactly one family was
+> tractable. **ADR-0358** carries the design decision; every row below is a measurement.
+
+### L-6600 — ⭐ THE HIGHLIGHT WAS UNREACHABLE, NOT ABSENT — the paint was complete and its event was dead
+
+C01 §6 rule 6, and the distinction decided the whole fix: **nothing needed writing, one wire needed
+reconnecting.**
+
+`596f7cb2`, landed one hour before this lane opened, added the entire paint half and every line of
+it is correct — the `'analysis'` lens in `DiagnosticMaterialManager`, the light-grey ghost
+`0xd8dce3`, the PRYZM-purple selected set `0x6600FF`, `setAnalysisSelection()`, and an
+`InspectModeCoordinator` subscription to `'selection.changed'`.
+
+**Measured before changing anything:**
+
+```
+grep -rn "emit('selection.changed'" --include=*.ts apps packages plugins
+  → 1 hit: packages/runtime-composer/src/composeRuntime.ts:317
+           (inside buildSelectionStub().notify())
+
+notify() runs ONLY from runtime.selection.{add,remove,clear,set}
+
+grep -rnE "selection\.(set|add|remove|clear)\(" --include=*.ts apps packages plugins
+  (minus tests / DrawingSelectionIndex)
+  → 1 hit: plugins/selection/src/handlers/ClearSelection.ts:29
+           — and that is ctx.stores.selection, a plugin-SDK SelectionStore,
+             a DIFFERENT object from the runtime's SelectionSlot.
+```
+
+**Zero production sites ever put an id INTO `runtime.selection`.** The event therefore never fired
+with a non-empty set and `_onSelectionChanged` never ran in production at all.
+
+⚠ **The generalisable lesson, and it is [[committed-is-not-reachable]] in its purest form:** every
+function on the path was individually correct and the feature did nothing. A unit test of any single
+link would have passed. **Only an assertion ABOUT THE WIRE catches a severed wire** — which is why
+`analysisHighlightReachability.spec.ts` is deliberately source-level and pins the "exactly one
+emitter" count so the diagnosis cannot rot silently.
+
+**FIXED — `c9aaa7fd`.** `InspectModeCoordinator` subscribes to `selectionBus`, which C27 §4 names
+*"the single authorised entry point for all selection sources"* and which every surface the founder
+clicks already dispatches on. Both subscriptions are kept and they are **not rivals** — two SOURCES
+feeding ONE SINK, `_setAnalysisEmphasis`. One sink is what makes keeping both safe the day
+`runtime.selection` acquires a writer.
+
+### L-6601 — only `select` and `clear` may repaint
+
+`highlight` / `isolate` / `focus-camera` are decorations **over** the current selection, and
+`SelectionBus.dispatch` deliberately refuses to let them rewrite `currentIds`. Repainting on them
+would paint a set that did not move — and, for `clear`, repaint before the bus had cleared it.
+Pinned by a test.
+
+### L-6602 — ⭐ A FLAT ID SET CANNOT ANSWER "WALLS **AND** LEVEL 1". FACETS COMPOSE; SETS DO NOT.
+
+The load-bearing word in the founder's sentence is **and**. "Walls" is picked on the category donut,
+"Level 1" on the elements-by-level bar — **two widgets, two axes**, and the join has to live
+somewhere.
+
+`widgetRenderers.selectFigure()` dispatched `{type:'select', elementIds:[...f.elementIds]}` and
+`dispatch` replaces `currentIds` wholesale. Click "Walls" → hold 312 ids. Click "Level 1" → the set
+has **forgotten it ever meant walls**; it holds 312 opaque strings. It can REPLACE or UNION. It
+cannot intersect with intent, because *"walls on level 1"* is not derivable from *"these 312 ids"*
+plus *"these 208 ids"* without re-asking what each list MEANT.
+
+A **facet** holds the QUESTION — `{axis:'category', key:'walls'}` — not the answer. Two questions on
+two axes compose by construction.
+
+**FIXED — `242893d0`** (`selectionFacets.ts` + `analysisReadModel.idsForFacet`). Three rules, with
+the rejected alternatives recorded rather than omitted — see **ADR-0358 §2**:
+
+1. **Across axes: INTERSECTION.**
+2. **Within one axis: REPLACEMENT, one facet per axis.** ⛔ *Not* the faceted-search convention
+   (union within a facet). Every card carries `SeriesFocus`, which lights **exactly one** key; a
+   model holding `{walls, doors}` while the donut lit only `doors` would have the picture and the
+   selection making different claims on the same card, and the reader would believe the picture. The
+   store is `Map<AnalysisAxis, AnalysisFacet>`, so the rule is a **data structure, not a check**.
+   ⛔ Intersecting *within* an axis was never a candidate — walls ∩ doors is always empty.
+3. **Same key again clears that axis** — there is always a way back, by the gesture that left.
+
+**IDS ARE RE-RESOLVED, NEVER STORED.** A facet picked before a wall was drawn stays true instead of
+decaying into ids that no longer name anything. ⭐ This is the property a flat set cannot have at
+any price, and it is why the design is facets rather than a smarter set.
+
+**`null` IS NOT AN EMPTY SET** — the three-state discipline `GraphPlacement.levelOf` already uses. A
+set (possibly empty) is a live answer; `null` means "not projectable" and falls back to the ids
+captured at click time **flagged `fresh:false`**, which the chip renders as `(N, snapshot)`.
+Collapsing the two would let *"the wall store was not published"* read as *"there are no walls"*.
+
+### L-6603 — an invisible filter is a bug generator, so the facets are ON SCREEN
+
+A chip bar between the tab strip and the status strip. One chip per axis carrying **the axis name**
+(Family / Storey / Type / Chapter / Take-off line / Relation) — a reader debugging an empty
+intersection needs to see that one chip is a family and the other a storey, because that is what
+tells them the two **compose** rather than **contradict**. 24 px remove control (WCAG 2.2 AA 2.5.8)
+plus Clear all.
+
+The sentence names **every operand with its own count**: `Walls (312) ∩ Level 1 (208) → 47
+element(s) highlighted`. An intersection the reader cannot decompose is one they cannot check. An
+empty result reads *"nothing satisfies all of these. That is an answer about the model, not a failed
+query."* — i.e. *there are no walls on level 1*, a fact about the building. A bare "0 selected" would
+read as a broken dashboard.
+
+### L-6604 — ⛔ A FACET NARROWS THE EMPHASIS. IT NEVER NARROWS A DENOMINATOR.
+
+Every card keeps printing the **whole** model's figures while a filter is active. Re-running the
+queries under the facet would silently turn every total on the surface into a *filtered* total while
+each card's own `basis` line still described the whole model — **H1 failed at the source layer, on
+every card at once**.
+
+It is also the distinction `graphReadModel` already draws in its own words: *"filtered to Level 1"
+is NOT the same statement as "truncated at 60 nodes"*. This adds a **third** thing that must not be
+confused with either — an **emphasis**, which changes no number on screen. So a facet change redraws
+**only** the chip bar.
+
+**Lifetime:** survives a model edit, a level change and a tab switch (re-resolved, not re-read);
+**cleared** on leaving the Analysis workspace, because the Analysis lens is the only thing that
+renders this emphasis and a filter with no visible effect anywhere is L-6603's defect in its worst
+form; **not persisted**, the rule `graphReadModel._levelFilter` already follows.
+
+⭐ **Deliverable 3 came free.** The Quantities tab needed **no new code**: its cards already declare
+`query.groupBy: 'chapter' | 'unit'`, so clicking a take-off line files a facet on that axis and it
+composes with a storey facet like anything else. One mechanism, not three.
+
+### L-6610 — `circulatesVia` was UNREACHABLE. **NOW WIRED.**
+
+`grep -rn "circulationPaths"` → **9 lines / 5 files, and NOT ONE is a producer**: the type
+declaration (`inputs.ts:88`), the single READ (`roomGraphAdapter.ts:71`), two test fixtures, two
+prose comments, and the Analysis coverage note describing its own absence. The adapter was written
+and correct and read a key nothing ever set. `roomGraphAdapter.ts:71` reads
+`snapshot.circulationPaths ?? []`, so the absent key was a **silent no-op** — which is exactly why it
+went unnoticed.
+
+⛔ **What was NOT done, and why.** The documented source is the D-TGL circulation graph
+(`SPEC-CIRCULATION-GRAPH`, `ai-host/.../tgl/bubbleGraph.ts`) — the richest structure in the repo,
+carrying an explicit `corridorId` spine. **Not wired**, for two measured reasons: it runs only inside
+the **offline generator**, so a hand-drawn building has none of it and the row would stay empty for
+exactly the models the founder is looking at; and its node ids are program-local (`'r0'`) with
+adjacency keyed by room **name**, so projecting it would need an id-reconciliation pass — a second,
+rival idea of which room is which. Wiring it would have filled the row for generated models only
+while quietly minting an id-mapping authority. **Declined rather than attempted.**
+
+⭐ **What is projected instead is already authored, twice over:** which rooms are circulation comes
+from the room's own `roomType` against the closed vocabulary in the section literally headed
+**"Circulation"** in `packages/room-topology/src/RoomTypes.ts` (corridor · stairwell · lift-lobby ·
+entrance-lobby · foyer) — the same field the Analysis census already groups by, so the two surfaces
+classify a room the same way or not at all; and which rooms it serves comes from the live door graph
+`RoomGraphService` already builds, the same structure that already becomes `connectsTo`. **A
+projection of two authored facts. Not a new source of truth.**
+
+⚠ **The one thing it is honest about:** `viaRoomIds` was documented as ORDERED and a door-adjacency
+**set is not a route**. A corridor's neighbours have no canonical traversal order and none is
+invented — sorted by id for stability, and said so in three places (`inputs.ts`'s own doc, corrected;
+the coverage row; the derivation).
+
+⛔ **The path node is synthetic (`circulation:<roomId>`), not the room id.** `BuildingGraph.addNode`
+is last-write-wins on `kind`, so reusing the corridor's id would replace `kind:'room'` with
+`kind:'circulation'` — losing that a corridor **is** a room, breaking the `ROOM_KINDS` consumers, and
+stripping the `props.levelId` that only room nodes carry and that the Analysis storey filter joins
+through. Pinned by a test.
+
+**Both call sites, one behaviour.** The delta leg in `buildingGraphMaintainer` passes the same
+classification authority as the full rebuild; without it a door added after load would re-project the
+level's roomGraph edges **without** its `circulatesVia` ones and the family would silently empty
+itself on the first edit. **FIXED — `fbe517c9`.**
+
+### L-6611 — `derivesFrom` is **ABSENT**. No wire fixes it. And the never-true predicate is located.
+
+Re-measured against the **write API** rather than by grepping the type name:
+`SemanticGraphManager.addRelationship` has **77 non-test call sites covering 14 of its 26 declared
+types** (sitsOn 20 · supports 7 · adjacentTo 7 · connectedTo 4 · boundedBy 3 · hosts 3 · hostedBy 3 ·
+joinedTo 2 · connectedByStair 2 · connectedByLift 2 · partOf · contains · measuredAt · decidedBy).
+`branchedFrom` / `supersedes` / `precededBy` are **not among them**.
+
+⚠ `grep "type: 'branchedFrom'"` returns **8 hits and EVERY ONE is a test fixture** — which is why the
+write API, not the string, is the measurement.
+
+⭐ **The never-true predicate is REAL and now located: `buildBuildingGraph.ts:622`,**
+`snap.relationships.some(r => DERIVATION_TYPES.includes(r.type))`. **Verdict: an accidental dead
+branch, not a deliberate refusal** — it carries no comment saying it cannot fire, it is written in the
+same `length > 0` cheap-exit idiom as its four siblings, and `adapters/index.ts:14` still advertises
+`semantic → derivesFrom` as a live capability. **The defect is upstream of the gate**: a declared edge
+family, a shipped adapter, an editor wiring leg, a UI colour and a legend entry all built on a
+relation nothing in the product ever creates. The gate merely makes that invisible at runtime instead
+of loud. **OPEN** — the honest row now says all of this.
+
+### L-6612 — `precededBy`: the panel's own row was **UNDERSTATED**, and the correction matters
+
+It read *"NO WRITER ANYWHERE"*, describing an absence where **half the subject is real data nobody
+has wired**. The TemporalGraph has two journals in opposite states:
+
+- ⭐ **The MUTATION journal is UNREACHABLE, not absent.** `NodeMutationRecord` is written for every
+  create/update/delete by `TemporalGraphManager.init()` (subscribed to `storeEventBus`, initialised in
+  production at `initDataPlatform.ts:288`), is **persisted** through `ProjectSerializer`/
+  `ProjectLoader`, and has **two live readers** (`DesignHistoryPanel`, `GhostOverlayRenderer`). It
+  carries an element id and a timestamp — enough to synthesise a per-element ordering — but **no
+  predecessor pointer**, and `_mutations` is private with no full-enumeration accessor
+  (`DesignHistoryPanel.ts:287` reaches it through an `any` cast).
+- ⛔ **The RELATIONSHIP journal is genuinely ABSENT.** `TemporalEdge` is the two-ended,
+  interval-valid shape a `precededBy` edge maps onto one-for-one, and `recordEdge` / `expireEdge` /
+  `expireEdgesForElement` have **zero callers outside their own declaring file**. `TemporalGraph.ts:26`
+  instructs writers to call `recordEdge()`; nothing ever did. And no temporal adapter exists at all —
+  `grep -rni temporal packages/building-graph/src` → **1 hit, a comment**.
+
+**OPEN, and it is the next most tractable family.** Not wired here: adding a public enumeration
+accessor to `TemporalGraph` is a change to a package a sibling lane was editing in this shared tree,
+and **an honest row is worth more than a rushed adapter**.
+
+### L-6613 — `servesZone` is **ABSENT**, and this row is **CORRECT TO STAY EMPTY**
+
+The earlier note (*"no adapter emitting it"*) understated it as a **wiring** gap. The true state is
+that **there is no domain model to wire**: no `zone` element kind (29 kinds are declared in
+`packages/schemas/src/elements`; none is a zone), no zone store, and no system-side element that
+could be the `from` endpoint. `SemanticGraph.ts:57` marks its own `servesZone` member `// (future)`.
+The single near-miss is `hvacZone?: string` on the room type (`RoomTypes.ts:238`,
+`RoomDataSchema.ts:160`) — a bare optional string with **zero writers and zero readers**: a field, not
+a model.
+
+⚠ **Do not confuse this with the large and real URBAN zoning subsystem**
+(`packages/schemas/src/site/zoning/**`, `packages/site-parcel-data/**`). Its subject is a **parcel**,
+not a building element, and no zoning record references an element id.
+
+⭐ **Filling this row would mean INVENTING a zone model, which is a worse outcome than an honest
+blank.** It stays NOT MEASURED on purpose. **CLOSED as correct, not deferred.**
+
+### L-6620 — the 60-node cap was an **ALGORITHM**, not a policy
+
+The founder's model holds 430 UBG nodes and the card drew 60 — **14 %** of his building. The cap was
+never a legibility judgement; its own comment said *"the force layout is O(n²) per iteration × 160
+iterations"*. Raising it without touching the algorithm would have traded a truncation the card
+**admits** for a stall it does not.
+
+**FIXED — `63d5c76e`.** Barnes-Hut quadtree repulsion above 60 nodes: O(n log n) instead of O(n²).
+
+- ⛔ **It is an approximation and the file says so** rather than implying parity. Immaterial for a
+  layout (the output is an aesthetic arrangement, not a figure) — but "immaterial" is a judgement, so
+  it is recorded.
+- ⭐ **Not applied where it would change anything that renders today.** Below `EXACT_BELOW = 60` — the
+  *previous* cap — the exact pass runs unchanged, so every graph drawable before this commit draws
+  byte-identically. The approximation is used only above the old cap, i.e. only for graphs that
+  previously could not be drawn at all. **Nothing is traded; an empty range is now populated.**
+- The **mass weighting** (`repulsion * c.count`) is load-bearing: a cell standing in for k bodies must
+  push k times as hard, or the layout clumps exactly where it most needs to spread.
+- The **depth floor** is load-bearing too, not defensive: two coincident nodes can never be separated
+  by subdivision, and coincidence is **reachable** here because the deterministic seeding places every
+  node on one circle. A test drives 200 nodes into a 1×1 viewport.
+- **Still deterministic** — no `Math.random` in a render path, the property the original was careful
+  about.
+
+### L-6621 — the new cap is a **MEASURED** number: 60 → 320
+
+One full 160-iteration layout of a ring-plus-chords graph into the real 360×280 card, warm:
+
+| n | 60 | 120 | 240 | **320** | 480 | 960 |
+|---|---|---|---|---|---|---|
+| ms | 15.8 | 24.5 | 55.3 | **70.0** | 103.8 | 258.5 |
+
+**120 → 480 is a 4× node count for a 4.24× cost.** O(n²) would have been ~16×.
+
+**320 is the largest size measured under a 100 ms one-shot budget with margin** — 480 was measured
+and **rejected** at 103.8 ms. ⚠ C66 §1.1: those are readings on ONE machine, so this is a
+bench-backed choice and **never a supported-capacity claim**. `graphLayoutScale.spec.ts` asserts the
+**shape** (machine-stable) and not the milliseconds (not machine-stable) — a hard ms budget in CI is
+a flake generator, and a flake that gets relaxed is worse than no assertion.
+
+⚠ **What is NOT claimed.** The old comment bundled two claims — *"a hairball that communicates
+nothing AND costs a visible pause"* — and **only the cost half was ever measured**. 320 nodes in a
+360×280 card is dense and the new comment does not pretend otherwise: legibility is what the
+per-level scope is for; this number is about cost.
+
+⛔ **The cap still exists, so the truncation notice still matters.** A 430-node model now draws 320
+instead of 60 — **74 % instead of 14 %**, and still not all of it. A faster layout raises the number
+at which the tool stops drawing; **it does not abolish the number.**
+
+### L-6622 — ⭐ the honesty guard went RED **correctly**, and was UPDATED, not relaxed
+
+`analysisHonesty.spec.ts` asserts the dead-family set **exactly**, so wiring `circulatesVia` (L-6610)
+made it fail. The fix was to **move** `circulatesVia` from the dead array to a live array — and **the
+live array is new**: the guard previously asserted only that dead families are `NOT_MEASURED`, so a
+**live** family could silently go dead without anything going red. Both directions are now pinned.
+Deleting the entry from both lists, or softening to *"at least three are dead"*, would have let the
+next silently-unwired family sail straight through.
+
+⛔ **The honesty rule is intact end to end.** No family was turned into a zero to make the tab look
+complete. The existing reconciliation already renders *wired-but-found-none* as `COUNTED_ONLY` with
+the words *"The projection is wired and ran"* — a different sentence from `NOT_MEASURED`, and it
+stays that way. The header's *"totals are LOWER BOUNDS"* is untouched.
+
+### L-6623 — corrections recorded rather than hidden (three of them, all mine)
+
+1. ⚠ **A test harness failure masqueraded as a product regression.** The first draft of
+   `analysisFacets.spec.ts` used `vi.resetModules()` per test, re-importing `@pryzm/core-app-model`
+   (and THREE) each time and blowing the 10 s hook budget. The suite failed on **timeouts**, and for a
+   while that read as `AnalysisSurface` building zero cards. **Bisected — it was not.** Isolation is
+   now `clearFacets()` + re-stubbed stores + census invalidation. *A slow test and a broken feature
+   print the same red.*
+2. ⚠ **A test that could not fail for the right reason.** The end-to-end circulation arm used
+   `g.query({ type: 'circulatesVia' })`. The filter key is **`edgeType`**; `type` is ignored, so the
+   query returned **every** edge — one arm passed for the wrong reason while another failed
+   confusingly. *A test that cannot fail correctly is worse than no test.*
+3. ⚠ **Two assertions were wrong about the code, not the code about the tests:** the census keys are
+   **plural** (`walls`, not `wall`) and the wall type field is **`systemTypeId`**, not `wallType`.
+
+### L-6624 — ⛔ `/tmp` IS SHARED ACROSS THE WORKTREES. Use the scratchpad.
+
+A diagnostic written to `/tmp/probe.txt` was **overwritten by another lane mid-session**, and the
+file that came back described a different worktree's vitest run
+(`C:/ClaudeWorktrees/Product_Rediness_08/half1-honesty/apps/component-editor`). On a multi-lane
+shared tree, `/tmp` is not private and a probe result read from it may belong to someone else.
+Generalises the same shape as [[multi-agent-shared-tree-collisions]].
+
+### L-6625 — gate readings at lane close (readings, with a timestamp — never states)
+
+- `npx vitest run apps/editor/src/ui/analysis/` → **9 files / 140 tests PASS** (was 6 files / 107;
+  +33 arms). Per-file, summed and checked against the total so no file can silently drop out of the
+  glob: 18 + 21 + 17 + 16 + 5 + 34 + 8 + 12 + 9 = **140**.
+- `apps/editor` UBG suites — `buildBuildingGraph` + `ubgDeltaConvergence` + `ubgCirculationFromDoorGraph`
+  → **47/47 PASS**. `packages/building-graph` → **73/73 PASS**.
+- root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **zero errors in
+  any file this lane touched.** ⚠ Read four times across the session and it gave four different
+  answers (1 error in `EdgeProjectorService.ts`, then 1 in `activatePlanOnlyTool.ts` + 2 in a
+  `zzprobe.spec.ts`, then 4 including `LiftPlanToolHandler.ts`, then those alone) — **every one of
+  them another lane's in-flight file.** This corroborates GLOBE32's L-6809: on a shared tree with
+  live lanes, *"root tsc is red"* is **a reading with a timestamp, never a state**. Re-run it; do not
+  quote a filename from this row.
+- ⚠ **Two heredocs silently failed to write a file** (bash `unexpected EOF while looking for
+  matching '`) when the payload contained backticks inside a quoted delimiter. The `cat > file <<'EOF'`
+  idiom is not safe for this repo's comment style; the file simply did not exist afterwards. **Check
+  the file exists after a heredoc write, or use the editor tool.**
