@@ -56,6 +56,15 @@ import { invalidateAnalysisReadModel, runQuery, censusSourceTable } from './anal
 import { defaultLayout, loadLayout, saveLayout, type AnalysisLayout } from './analysisLayout';
 import { WIDGET_CATALOGUE, widgetById } from './widgetCatalogue';
 import {
+  FACETS_EVENT,
+  activeFacets,
+  applyFacets,
+  clearFacets,
+  describeResolution,
+  removeFacet,
+  resolveFacets,
+} from './selectionFacets';
+import {
   AREA_STANDARD_EVENT,
   GRAPH_SCOPE_EVENT,
   completenessStrip,
@@ -73,11 +82,31 @@ type ChartJS = typeof import('chart.js');
 
 const REFRESH_DEBOUNCE_MS = 350;
 
+/**
+ * How each facet axis reads on a chip. §FEAT-ANALYSIS-FACET-CROSS-FILTER (L-6603).
+ *
+ * ⛔ These are the READER'S words for the axis, not the query vocabulary's.
+ * `category` is what the read model calls it; "Family" is what an architect
+ * calls it, and the chip is read by the architect. The `AnalysisAxis` union
+ * stays the authority — this table only renames it at the glass.
+ */
+const FACET_AXIS_LABEL: Readonly<Record<string, string>> = Object.freeze({
+  category:     'Family',
+  level:        'Storey',
+  type:         'Type',
+  chapter:      'Chapter',
+  unit:         'Take-off line',
+  relationship: 'Relation',
+});
+
 export class AnalysisSurface {
   private _el!: HTMLElement;
   private _grid!: HTMLElement;
   private _status!: HTMLElement;
   private _tabBar!: HTMLElement;
+  /** §FEAT-ANALYSIS-FACET-CROSS-FILTER (L-6603) — the chip bar. An invisible
+   *  filter is a bug generator, so the active facets are always ON SCREEN. */
+  private _facetBar!: HTMLElement;
   /** The active tab's one-line lede. §C06 §6.1 — it is part of the status
    *  line now, not a fourth stacked band. Held as a string, not an element. */
   private _tabLedeText = '';
@@ -148,6 +177,33 @@ export class AnalysisSurface {
     panel.appendChild(this._tabBar);
 
 
+    // ── Facet bar (§FEAT-ANALYSIS-FACET-CROSS-FILTER, L-6603) ───────────────
+    //
+    // ⭐ THIS BAR IS NOT DECORATION — IT IS THE OTHER HALF OF THE FEATURE.
+    //
+    // A cross-filter the reader cannot see is worse than no cross-filter: every
+    // card on the surface still prints the WHOLE model's figures (the filter
+    // narrows the 3-D emphasis, not the denominators — see ADR-0358 §3), so a
+    // forgotten facet means a reader looking at "312 walls" while 47 are purple
+    // and nothing explains the difference. The bar states every active facet,
+    // each facet's own count, and the intersection.
+    //
+    // Placed BETWEEN the tabs and the status strip on purpose: the facets apply
+    // across every tab (they are module state in `selectionFacets`), so the bar
+    // must not read as belonging to the tab beneath it — but it MUST sit above
+    // the status line, which reports the tab it captions.
+    //
+    // ⚠ `hidden` when empty rather than rendered as an empty row: a permanently
+    // visible "no filters" strip is chrome that teaches the reader to stop
+    // looking at that band, which is precisely the habit this bar needs to break.
+    this._facetBar = document.createElement('div');
+    this._facetBar.className = 'anl-facets';
+    this._facetBar.setAttribute('role', 'status');
+    this._facetBar.setAttribute('aria-live', 'polite');
+    this._facetBar.setAttribute('aria-label', 'Active element filters');
+    this._facetBar.hidden = true;
+    panel.appendChild(this._facetBar);
+
     // ── Status strip ────────────────────────────────────────────────────────
     this._status = document.createElement('div');
     this._status.className = 'anl-status';
@@ -175,6 +231,70 @@ export class AnalysisSurface {
     provBtn.addEventListener('click', () => this._toggleProvenance());
 
     this._buildTabs();
+  }
+
+  /**
+   * Draw the active-facet chips. One chip per AXIS — the data structure in
+   * `selectionFacets` cannot hold two on one axis, so this cannot render two.
+   *
+   * ⛔ `textContent`, never `innerHTML`: a facet label is model-derived and
+   * element ids/type names originate in imported IFC/glTF files
+   * (§DW-MATERIAL-COLOR-XSS, L-407).
+   */
+  private _renderFacetBar(): void {
+    const facets = activeFacets();
+    this._facetBar.replaceChildren();
+    this._facetBar.hidden = facets.length === 0;
+    if (facets.length === 0) return;
+
+    const lead = document.createElement('span');
+    lead.className = 'anl-facets-lead';
+    lead.textContent = facets.length === 1 ? 'Highlighting' : 'Highlighting the intersection of';
+    this._facetBar.appendChild(lead);
+
+    for (const f of facets) {
+      const chip = document.createElement('span');
+      chip.className = 'anl-facet-chip';
+
+      // ⭐ THE AXIS IS ON THE CHIP. "Wall" and "Level 1" are both just words; a
+      // reader debugging an empty intersection needs to see that one is a FAMILY
+      // and the other a STOREY, because that is what tells them the two facets
+      // are composable rather than contradictory.
+      const axis = document.createElement('span');
+      axis.className = 'anl-facet-axis';
+      axis.textContent = FACET_AXIS_LABEL[f.axis] ?? f.axis;
+      const label = document.createElement('span');
+      label.className = 'anl-facet-label';
+      label.textContent = f.label;
+
+      const x = document.createElement('button');
+      x.type = 'button';
+      x.className = 'anl-facet-x';
+      x.textContent = '✕';
+      x.title = `Stop filtering by ${f.label}`;
+      x.setAttribute('aria-label', `Remove the ${f.label} filter`);
+      x.addEventListener('click', () => removeFacet(f.axis));
+
+      chip.append(axis, label, x);
+      this._facetBar.appendChild(chip);
+    }
+
+    // ⭐ THE SENTENCE, WITH EVERY OPERAND. `describeResolution` prints each
+    // facet's own count beside the intersection, so "Wall (312) ∩ Level 1 (208)
+    // -> nothing satisfies all of these" reads as a fact about the building
+    // rather than as a broken query. A bare "0 selected" could not.
+    const sentence = document.createElement('span');
+    sentence.className = 'anl-facets-sentence';
+    sentence.textContent = describeResolution(resolveFacets());
+    this._facetBar.appendChild(sentence);
+
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'anl-facets-clear';
+    clear.textContent = 'Clear all';
+    clear.title = 'Remove every filter and return the scene to its unemphasised state';
+    clear.addEventListener('click', () => clearFacets());
+    this._facetBar.appendChild(clear);
   }
 
   private _headerButton(id: string, label: string, title: string): HTMLButtonElement {
@@ -249,6 +369,17 @@ export class AnalysisSurface {
       if (!this._visible) return;
       void this._renderSelectionWidgets();
     });
+
+    // §FEAT-ANALYSIS-FACET-CROSS-FILTER (L-6603). ⛔ The chip bar redraws; the
+    // WIDGETS DO NOT. A facet narrows the 3-D emphasis, never a card's
+    // denominator (ADR-0358 §3) — re-running the queries here would silently
+    // turn every total on the surface into a filtered total while the card's own
+    // basis line still described the whole model, which is H1 failed at the
+    // source layer. The bar is the only thing that changes.
+    window.addEventListener(FACETS_EVENT, () => {
+      if (!this._visible) return;
+      this._renderFacetBar();
+    });
   }
 
   // ── Show / hide ─────────────────────────────────────────────────────────────
@@ -258,6 +389,7 @@ export class AnalysisSurface {
     this._el.classList.add('anl-surface--visible');
     this._layout = loadLayout(); // a project switch may have changed it
     this._buildTabs();
+    this._renderFacetBar();
     void this.refresh();
   }
 
@@ -265,6 +397,15 @@ export class AnalysisSurface {
     this._visible = false;
     this._el.classList.remove('anl-surface--visible');
     if (this._debounce) { clearTimeout(this._debounce); this._debounce = null; }
+    // §FEAT-ANALYSIS-FACET-CROSS-FILTER (L-6603). ⛔ LEAVING THE WORKSPACE CLEARS
+    // THE FACETS, and that is not tidiness. The Analysis lens is the only thing
+    // that renders this emphasis; in Author or Inspect the purple is not painted
+    // (`setAnalysisSelection` re-applies only under the analysis lens). A filter
+    // that is still active but has no visible effect ANYWHERE is the
+    // invisible-filter defect in its worst form — the reader returns to the tab
+    // later and finds a subset highlighted by a click they made in another
+    // session of attention.
+    clearFacets();
   }
 
   // ── Rendering ───────────────────────────────────────────────────────────────
@@ -331,6 +472,20 @@ export class AnalysisSurface {
     }
 
     this._setStatus(Date.now() - t0, anyIncomplete, unreachableAcross, reasonsAcross);
+
+    // §FEAT-ANALYSIS-FACET-CROSS-FILTER (L-6602). ⭐ RE-RESOLVE, DO NOT RE-READ.
+    // A refresh means the model moved (a wall was drawn, a storey added, the
+    // project re-opened). The facets hold QUESTIONS, so asking them again yields
+    // the answer for the model as it is NOW — which is the whole reason the
+    // selection is facets and not a set of ids. A pinned id set would silently
+    // shrink here, and the reader would see fewer purple elements with nothing
+    // on screen saying why.
+    //
+    // ⚠ No-op when no facet is active: `applyFacets` dispatches a `clear`, and a
+    // clear on an already-empty selection costs one bus fan-out and paints
+    // nothing.
+    if (activeFacets().length > 0) applyFacets();
+    this._renderFacetBar();
   }
 
   private async _renderSelectionWidgets(): Promise<void> {

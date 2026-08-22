@@ -1014,4 +1014,124 @@ export const ANALYSIS_SURFACE_STYLES = `
    arm that used to pin the mode bar now pins that the mode bar is BUDGETED.
    NO BACKTICKS IN THIS BLOCK: it lives inside a template literal. */
 
+/* == Facet bar (FEAT-ANALYSIS-FACET-CROSS-FILTER, L-6603) ==================
+   The active cross-filter, always on screen while it is active.
+
+   AN INVISIBLE FILTER IS A BUG GENERATOR. The cards on this surface keep
+   printing the WHOLE model's figures -- a facet narrows the 3-D emphasis, never
+   a denominator (ADR-0358 section 3) -- so a forgotten facet means a reader
+   looking at "312 walls" while 47 of them are purple in the viewport and
+   nothing on screen accounts for the difference. This band is what accounts
+   for it.
+
+   It uses the ACCENT token, which resolves to the PRYZM purple #6600FF -- the
+   same colour DiagnosticMaterialManager paints the selected set with
+   (ANALYSIS_SELECTED_COLOR). The chip and the elements it selected therefore
+   read as one statement across the two halves of the screen. That is the only
+   colour claim here: no new hue is minted, and the Inspect palette
+   (INSPECT-FOCUS-IS-THE-ONLY-COLOUR, L-3511) is untouched.
+
+   NO BACKTICKS IN THIS BLOCK: it lives inside a template literal. */
+.anl-facets {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-wash);
+  flex-shrink: 0;
+}
+.anl-facets[hidden] { display: none; }
+
+.anl-facets-lead {
+  font-family: var(--app-font);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+
+.anl-facet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 8px;
+  border: 1px solid var(--app-accent);
+  border-radius: 11px;
+  background: var(--app-panel-bg);
+  font-family: var(--app-font);
+  font-size: 11px;
+  line-height: 1.5;
+  max-width: 100%;
+}
+
+/* The axis name, quieter than the value. A reader debugging an empty
+   intersection needs to see that one chip is a FAMILY and the other a STOREY --
+   that is what tells them the two compose rather than contradict. */
+.anl-facet-axis {
+  color: var(--app-text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.anl-facet-label {
+  color: var(--app-text);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 24px hit target -- WCAG 2.2 AA (2.5.8), the floor the density scale pins. */
+.anl-facet-x {
+  appearance: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--app-text-muted);
+  font-size: 10px;
+  line-height: 1;
+  min-width: 24px;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.anl-facet-x:hover { background: var(--app-wash-hover); color: var(--app-accent); }
+.anl-facet-x:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 1px; }
+
+/* The sentence carries EVERY OPERAND, not just the result -- an intersection
+   the reader cannot decompose is one they cannot check. It wraps rather than
+   truncating: this line is the honesty half and must never be elided. */
+.anl-facets-sentence {
+  font-family: var(--app-font);
+  font-size: 11px;
+  color: var(--app-text-muted);
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.anl-facets-clear {
+  appearance: none;
+  border: 1px solid var(--app-border);
+  border-radius: 4px;
+  background: var(--app-panel-bg);
+  cursor: pointer;
+  font-family: var(--app-font);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--app-text-muted);
+  padding: 4px 9px;
+  min-height: 24px;
+  flex-shrink: 0;
+}
+.anl-facets-clear:hover { color: var(--app-accent); border-color: var(--app-accent); }
+.anl-facets-clear:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 1px; }
+
 `;

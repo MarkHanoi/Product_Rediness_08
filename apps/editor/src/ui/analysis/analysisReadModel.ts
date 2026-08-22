@@ -88,6 +88,7 @@ import { projectGraph, type GraphPlacement } from './graphReadModel';
 import { areaCoverageRows, areaStandard } from './areaStandards';
 
 import type {
+  AnalysisAxis,
   AnalysisFigure,
   AnalysisQuery,
   AnalysisResult,
@@ -870,4 +871,123 @@ export function censusLevels(): ReadonlyArray<{ id: string; name: string }> {
  */
 export function censusSourceTable(): ReadonlyArray<{ store: string; family: string; typeField: string | null }> {
   return CENSUS_SOURCES.map((s) => ({ store: s.storeName, family: s.label, typeField: s.typeField }));
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §FEAT-ANALYSIS-FACET-CROSS-FILTER (L-6602) — RESOLVING A FACET TO ELEMENT IDS
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// Founder: *"if walls for example and level 1 are selected - then wall in level 1
+// should be highlighted"*.
+//
+// ⭐ THE FUNCTION BELOW IS WHY THAT SENTENCE NEEDS FACETS AND NOT A FLAT ID SET.
+//
+// "Walls ∩ Level 1" spans TWO WIDGETS on two different axes. A flat set of the
+// 312 wall ids cannot answer "now also filter to Level 1" — it has forgotten
+// that it ever meant *walls*, so the second click can only replace it or union
+// with it. A facet remembers the QUESTION (`axis` + `key`), not the answer, and
+// two questions intersect. See ADR-0358 §2.
+//
+// ⭐ AND IT IS WHY THE FACET RE-RESOLVES INSTEAD OF PINNING IDS. A facet stores
+// no ids; it asks this function again on every refresh. So a selection made
+// before a wall was drawn, a storey was added, or the project was re-read stays
+// TRUE rather than decaying into a list of ids that no longer name anything.
+// A pinned id set would be a screenshot of a query, and would silently shrink
+// as the model moved — the reader would see fewer purple walls with nothing on
+// screen saying why. Cost is one pass over the memoised census, not a rescan.
+//
+// ⛔ `null` MEANS "THIS AXIS IS NOT RE-RESOLVABLE HERE" AND IS NOT AN EMPTY SET.
+// The same three-state discipline `GraphPlacement.levelOf` uses. An empty set is
+// a real answer ("no elements match this facet"); `null` says the read model
+// cannot recompute this axis at all, and the caller must fall back to the ids it
+// captured at click time AND SAY SO. Collapsing the two would let a facet the
+// model can no longer resolve render as a facet that matches nothing, which is
+// the [[context-data-honesty-family]] defect at the smallest possible scale.
+
+/**
+ * Every element id belonging to one facet — `(axis, key)` — recomputed NOW.
+ *
+ * `null` ⇒ this module does not project that axis; the caller must use the ids
+ * captured when the reader clicked, and must render that difference.
+ */
+export function idsForFacet(axis: AnalysisAxis, key: string): ReadonlySet<string> | null {
+  return withHandlerSpan(
+    'pryzm.analysis.readmodel.facet',
+    { 'pryzm.surface': 'analysis', 'pryzm.analysis.facet_axis': axis },
+    () => {
+      switch (axis) {
+        case 'category': {
+          const g = getCensus().groups.find((x) => x.key === key);
+          // ⛔ A key naming no group is `null`, not `∅`. "The wall family is not
+          // in this census" and "there are no walls" are different answers and
+          // the whole surface depends on them staying different (§D.6 H2).
+          return g ? new Set(g.records.map((r) => r.id)) : null;
+        }
+        case 'level': {
+          const c = getCensus();
+          // `unassigned` is a REAL, NAMED group here exactly as it is in
+          // `censusByLevel` — an element with no storey is filterable, not lost.
+          const out = new Set<string>();
+          for (const g of c.groups) {
+            for (const r of g.records) {
+              if ((r.levelId ?? 'unassigned') === key) out.add(r.id);
+            }
+          }
+          // A storey the level authority does not know is unresolvable, not empty.
+          if (out.size === 0 && key !== 'unassigned' && !c.levelNames.has(key)) return null;
+          return out;
+        }
+        case 'type': {
+          // Type keys are namespaced `family:typeId` by `censusByType`, because a
+          // wall type and a door type may share a raw id string. Re-derive the
+          // SAME key here rather than parsing it apart — a split on ':' would
+          // break the first time a type id contains one.
+          const c = getCensus();
+          const out = new Set<string>();
+          for (const g of c.groups) {
+            for (const r of g.records) {
+              if ((r.typeId ? `${g.key}:${r.typeId}` : 'untyped') === key) out.add(r.id);
+            }
+          }
+          return out.size > 0 ? out : null;
+        }
+        case 'chapter': {
+          // ⚠ Reads the MEMOISED take-off. This axis is only ever asked for after
+          // a take-off widget rendered — which is what ran `computeTakeoff()` in
+          // the first place — so resolving a chapter facet costs a scan of
+          // `t.lines`, never a fresh O(n·m) take-off.
+          const t = getTakeoff();
+          const out = new Set<string>();
+          let matched = false;
+          for (const l of t.lines) {
+            if (l.chapter !== key) continue;
+            matched = true;
+            for (const id of l.elementIds) out.add(id);
+          }
+          return matched ? out : null;
+        }
+        case 'unit': {
+          // ⛔ NOT the unit. `takeoffByUnit` emits `figure(l.code, …)`, so a figure
+          // on the `unit` axis is keyed by take-off LINE CODE — the axis names how
+          // the card was grouped, not what the key is. Resolving by `l.unit` here
+          // would select every line sharing m², which is a different and much
+          // larger set than the one the reader clicked.
+          const t = getTakeoff();
+          const line = t.lines.find((l) => l.code === key);
+          return line ? new Set(line.elementIds) : null;
+        }
+        case 'relationship':
+          // ⭐ REFUSED, and the refusal is the honest answer. A relationship figure
+          // counts EDGES, not elements, and its `elementIds` are the nodes incident
+          // to that family — including SYNTHETIC nodes (`rule`, `circulation`) that
+          // name no element in any store. Re-resolving it here would need the UBG,
+          // which is maintained on its own cadence and is not this module's to
+          // read (ADR-0343 §D.4). The caller falls back to the captured ids and
+          // labels the chip, so the reader knows this one facet is a snapshot.
+          return null;
+        default:
+          return null;
+      }
+    },
+  );
 }

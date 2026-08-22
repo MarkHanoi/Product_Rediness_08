@@ -70,6 +70,8 @@ import type { Chart, ChartConfiguration } from 'chart.js';
 
 import { selectionBus, UNIT_LABEL, type CoverageState } from '@pryzm/core-app-model';
 
+import { toggleFacet } from './selectionFacets';
+
 import {
   projectGraph,
   livenessSentence,
@@ -85,6 +87,7 @@ import { SeriesFocus, markSeries } from './seriesFocus';
 
 import {
   seriesColour,
+  type AnalysisAxis,
   type AnalysisFigure,
   type AnalysisResult,
   type AnalysisWidgetDef,
@@ -127,14 +130,32 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return n;
 }
 
-/** Select the elements behind a figure. H4 — a number you cannot open is a number you cannot check. */
-function selectFigure(f: AnalysisFigure): void {
-  if (f.elementIds.length === 0) return;
-  selectionBus.dispatch({
-    type: 'select',
-    source: 'analytics',
-    elementIds: [...f.elementIds],
-  });
+/**
+ * Select the elements behind a figure. H4 — a number you cannot open is a number
+ * you cannot check.
+ *
+ * §FEAT-ANALYSIS-FACET-CROSS-FILTER (L-6602). ⭐ THIS USED TO DISPATCH A FLAT ID
+ * SET AND THAT IS THE WHOLE OF THE BUG THE FOUNDER REPORTED. Clicking "Walls"
+ * pushed 312 opaque strings at the bus; clicking "Level 1" next pushed 208 more
+ * and REPLACED them, because a set of ids has forgotten which question produced
+ * it. His sentence — *"if walls for example and level 1 are selected - then wall
+ * in level 1 should be highlighted"* — is an INTERSECTION ACROSS TWO WIDGETS,
+ * and it is not answerable from the ids alone.
+ *
+ * So a click now records the QUESTION — `(axis, key)` — and `selectionFacets`
+ * intersects the active questions and dispatches the result. The dispatch itself
+ * is unchanged and still goes through `selectionBus` (C27 §4).
+ *
+ * ⛔ `axis` comes from the WIDGET'S OWN `query.groupBy`, never from a guess about
+ * the key. Two widgets can emit the same key string on different axes, and a
+ * facet filed under the wrong axis would silently replace an unrelated filter.
+ */
+function selectFigure(axis: AnalysisAxis, f: AnalysisFigure): void {
+  // ⚠ A figure with no ids is still a legitimate facet pick — it just resolves to
+  // nothing, and the facet bar says so. Returning early here (as this function
+  // used to) would make a zero-population slice UNCLICKABLE, which reads as a
+  // broken control rather than as an empty answer.
+  toggleFacet(axis, f);
 }
 
 // ── The completeness / coverage strips ────────────────────────────────────────
@@ -336,6 +357,7 @@ export function renderKpi(host: HTMLElement, result: AnalysisResult): void {
  */
 function legend(
   host: HTMLElement,
+  axis: AnalysisAxis,
   figures: readonly AnalysisFigure[],
   total: number,
   focus?: SeriesFocus,
@@ -352,7 +374,7 @@ function legend(
     const pctEl = el('span', 'anl-legend-pct', pct);
     li.append(sw, label, val, pctEl);
     li.title = `${f.label} — ${fmt(f.value, f.unit)} ${UNIT_LABEL[f.unit]}. Basis: ${f.basis}`;
-    const go = (): void => { focus?.toggle(f.key); selectFigure(f); };
+    const go = (): void => { focus?.toggle(f.key); selectFigure(axis, f); };
     li.addEventListener('click', go);
     li.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
     list.appendChild(li);
@@ -414,7 +436,7 @@ export function renderChart(
       // the model selection (what the figure IS) and the chart emphasis (what
       // the reader is looking at). They are separate answers and both happen.
       focus.toggle(f.key);
-      selectFigure(f);
+      selectFigure(result.query.groupBy, f);
     },
   };
 
@@ -482,7 +504,7 @@ export function renderChart(
     renderTable(host, def, result, focus);
     return;
   }
-  legend(host, result.figures, total, focus);
+  legend(host, result.query.groupBy, result.figures, total, focus);
 }
 
 /**
@@ -609,7 +631,7 @@ export function renderTable(
 
     tr.append(tdC, tdL, tdV, tdB, tdD);
     tr.title = `${f.elementIds.length} element(s) — click to select them and light this series`;
-    const go = (): void => { f0.toggle(f.key); selectFigure(f); };
+    const go = (): void => { f0.toggle(f.key); selectFigure(result.query.groupBy, f); };
     tr.addEventListener('click', go);
     tr.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
     tb.appendChild(tr);
@@ -665,7 +687,7 @@ export function renderTreemap(host: HTMLElement, def: AnalysisWidgetDef, result:
     // §ANALYSIS-SERIES-FOCUS (L-3610). The cell stays in the map when it is not
     // the focused one -- area encodes quantity, and removing a rectangle would
     // silently change what the remaining rectangles are a share OF.
-    const go = (): void => { focus.toggle(t.key); selectFigure(f); };
+    const go = (): void => { focus.toggle(t.key); selectFigure(result.query.groupBy, f); };
     tile.addEventListener('click', go);
     tile.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
     box.appendChild(tile);

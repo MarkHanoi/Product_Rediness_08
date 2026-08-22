@@ -2,7 +2,7 @@
  * analysisHighlightReachability — does clicking a figure REACH the 3-D paint?
  *
  * Layer Affected:  UI — Analysis surface (L7) · engine bridge
- * ADR:             ADR-0354 §2 (the facet selection model)
+ * ADR:             ADR-0358 §2 (the facet selection model)
  * Contracts:       C27 §4 (SelectionBus is the single authorised entry point)
  * Issue log:       L-6600 · L-6601
  *
