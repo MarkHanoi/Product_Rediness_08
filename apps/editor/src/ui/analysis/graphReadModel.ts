@@ -50,6 +50,98 @@ import type { AnalysisFigure, CoverageRow } from './AnalysisTypes';
  */
 export const GRAPH_NODE_CAP = 60;
 
+// ── The per-level scope (§ANALYSIS-GRAPH-LEVEL-FILTER, L-3620) ────────────────
+//
+// ⭐ THE FOUNDER'S POINT, AND IT IS THE WHOLE DESIGN OF THIS SECTION:
+//
+//   "filtered to Level 1" is NOT the same statement as "truncated at 60 nodes"
+//   and they must never render identically.
+//
+// They are opposite kinds of fact. A CAP is the tool failing to show you the
+// model — every count under it is a floor and the reader must discount it. A
+// FILTER is the reader choosing a smaller universe — every count inside it is
+// EXACT for the universe named on the card. Rendering a filter as a lower-bound
+// warning would teach the reader to distrust a number that is not in doubt; and
+// rendering a truncation as a scope would hide one that is.
+//
+// So the projection carries them SEPARATELY: `scope` (what universe was asked
+// for) and `truncated` / `incompleteReason` (what the tool could not deliver
+// inside it). A filtered graph is `complete: true` unless something ELSE is
+// wrong — and the "something else" is named below, because there is one.
+//
+// ⛔ WHERE A LEVEL COMES FROM, MEASURED 2026-08-22. `UbgNode` has no level field
+// (packages/building-graph/src/types.ts:65-72 — id, kind, props, refs, strict).
+// Exactly ONE adapter stamps `props.levelId`, `roomGraphAdapter.ts:43`, and only
+// on `room` nodes. So a level filter over the UBG alone could place rooms and
+// nothing else. It is therefore resolved by JOINING THROUGH THE ELEMENT CENSUS,
+// which already indexes `id -> levelId` across the eighteen declared stores —
+// and which already knows how to say "this table does not claim that id".
+
+/**
+ * How a node id is placed on a storey. Supplied by the caller so this module
+ * never imports the census directly — the census imports THIS module, and one
+ * of the two directions has to stay an argument.
+ */
+export interface GraphPlacement {
+  /**
+   * `string`    — the census places this id on this level;
+   * `null`      — the census claims the id but it carries NO level;
+   * `undefined` — ⛔ the census does not claim this id AT ALL. Distinct from
+   *               both of the above, and the distinction is the honest half:
+   *               synthetic `rule` nodes (from `violates`) and any element in a
+   *               store outside the declared table land here. They are NOT
+   *               "elements on another storey".
+   */
+  levelOf(id: string): string | null | undefined;
+  /** Level id -> display name, from the live level authority. */
+  readonly levelNames: ReadonlyMap<string, string>;
+}
+
+/**
+ * The active level scope for every relationship widget, or `null` for "all".
+ *
+ * ⚠ MODULE STATE, and deliberately shared rather than per-card: the graph, the
+ * relations table and the coverage ledger are read TOGETHER and a filter that
+ * moved one of them would put three disagreeing universes on one tab.
+ * ⚠ NOT persisted. A scope restored from a previous session would reopen the tab
+ * showing less than the model holds with nothing on screen to explain it.
+ */
+let _levelFilter: string | null = null;
+
+/** The level every relationship widget is currently scoped to, or `null`. */
+export function graphLevelFilter(): string | null {
+  return _levelFilter;
+}
+
+/** Set the scope. The surface re-renders; nothing here recomputes on its own. */
+export function setGraphLevelFilter(levelId: string | null): void {
+  _levelFilter = levelId;
+}
+
+/** How a node fell outside the active scope. Three answers, never merged. */
+export interface GraphScope {
+  /** The level id the reader asked for, or `null` for the whole model. */
+  readonly levelId: string | null;
+  /** Its display name, resolved through the level authority. */
+  readonly levelName: string | null;
+  /** Nodes the census places on ANOTHER storey — legitimately out of scope. */
+  readonly excludedOtherLevel: number;
+  /** Nodes the census claims but that carry no level at all. */
+  readonly excludedNoLevel: number;
+  /**
+   * ⛔ Nodes the census DOES NOT CLAIM. Excluded because they cannot be placed,
+   * not because they are elsewhere — so a figure scoped to a level is a FLOOR
+   * while this is non-zero, and the card says exactly that.
+   */
+  readonly excludedUnplaceable: number;
+  /**
+   * Relations severed by the scope: one endpoint kept, the other dropped.
+   * ⭐ Reported because a relationship view that silently cuts its own edges
+   * understates connectivity, which is the one thing it exists to show.
+   */
+  readonly severedEdges: number;
+}
+
 /**
  * What each of the ten declared UBG edge types can ACTUALLY carry in production.
  *
@@ -137,6 +229,18 @@ const EDGE_FAMILIES: readonly EdgeFamilyFact[] = Object.freeze([
   },
 ]);
 
+/** The scope of a projection that produced nothing. Named, not blank. */
+function EMPTY_SCOPE(levelId: string | null, placement: GraphPlacement | null): GraphScope {
+  return {
+    levelId,
+    levelName: levelId === null ? null : (placement?.levelNames.get(levelId) ?? levelId),
+    excludedOtherLevel: 0,
+    excludedNoLevel: 0,
+    excludedUnplaceable: 0,
+    severedEdges: 0,
+  };
+}
+
 export interface GraphProjection {
   readonly nodes: readonly UbgNode[];
   readonly edges: readonly UbgEdge[];
@@ -148,6 +252,12 @@ export interface GraphProjection {
   readonly totalEdges: number;
   /** True ⇒ `nodes` is a subset and every count on the card must read "≥". */
   readonly truncated: boolean;
+  /**
+   * ⭐ The universe these figures are TRUE OF. Never conflated with `truncated`:
+   * a scope is what the reader asked for, a truncation is what the tool could
+   * not deliver. See the §ANALYSIS-GRAPH-LEVEL-FILTER note above.
+   */
+  readonly scope: GraphScope;
   readonly liveness: UbgLiveness | null;
   /** ⛔ false ⇒ counts are a lower bound OR the graph's freshness is unknown. */
   readonly complete: boolean;
@@ -214,10 +324,13 @@ export function livenessSentence(l: UbgLiveness | null): string {
  *
  * P8: `pryzm.analysis.graph.project`.
  */
-export function projectGraph(): GraphProjection {
+export function projectGraph(
+  placement: GraphPlacement | null = null,
+  levelId: string | null = _levelFilter,
+): GraphProjection {
   return withHandlerSpan(
     'pryzm.analysis.graph.project',
-    { 'pryzm.surface': 'analysis' },
+    { 'pryzm.surface': 'analysis', 'pryzm.analysis.graph_scope': levelId ?? 'all-levels' },
     () => {
       const w = gw();
       const graph = w?.__pryzmBuildingGraph;
@@ -239,14 +352,74 @@ export function projectGraph(): GraphProjection {
           totalNodes: 0,
           totalEdges: 0,
           truncated: false,
+          scope: EMPTY_SCOPE(levelId, placement),
           liveness,
           complete: false,
           incompleteReason: ['the Unified Building Graph was not reachable — no relationship figure on this tab was computed'],
         };
       }
 
-      const allNodes = graph.allNodes() ?? [];
-      const allEdges = graph.allEdges() ?? [];
+      const everyNode = graph.allNodes() ?? [];
+      const everyEdge = graph.allEdges() ?? [];
+
+      // ── The level scope, applied BEFORE anything is counted ─────────────────
+      //
+      // ⭐ Applied first on purpose. If the scope were applied after the figures,
+      // the card would print an edge tally for the whole model beside a picture
+      // of one storey -- which is the "wrong number under the right title" shape
+      // the change-table refusal names, in a different costume.
+      //
+      // A node's level comes from `placement` (the element census) and falls back
+      // to `props.levelId` where an adapter projected one -- today only
+      // `roomGraphAdapter`. Census FIRST: it reads the element stores, which are
+      // the authority on where an element is; the prop is one adapter's copy.
+      let excludedOtherLevel = 0;
+      let excludedNoLevel = 0;
+      let excludedUnplaceable = 0;
+
+      const levelOfNode = (n: UbgNode): string | null | undefined => {
+        const fromCensus = placement?.levelOf(n.id);
+        if (fromCensus !== undefined) return fromCensus;
+        const prop = n.props?.levelId;
+        return typeof prop === 'string' && prop.length > 0 ? prop : undefined;
+      };
+
+      let allNodes = everyNode;
+      if (levelId !== null) {
+        const kept: UbgNode[] = [];
+        for (const n of everyNode) {
+          const lvl = levelOfNode(n);
+          if (lvl === levelId) { kept.push(n); continue; }
+          // ⛔ THREE DIFFERENT REASONS TO BE OUT OF SCOPE, counted separately.
+          // Merging them would let "we could not place 40 nodes" hide inside
+          // "40 nodes are on other storeys", and only the first makes the
+          // remaining figures a floor.
+          if (lvl === undefined) excludedUnplaceable++;
+          else if (lvl === null) excludedNoLevel++;
+          else excludedOtherLevel++;
+        }
+        allNodes = kept;
+      }
+
+      const inScope = new Set(allNodes.map((n) => n.id));
+      const allEdges = levelId === null
+        ? everyEdge
+        : everyEdge.filter((e) => inScope.has(e.from) && inScope.has(e.to));
+      // A relation with ONE endpoint in scope was CUT by the filter. The reader
+      // is looking at a connectivity picture; a cut it is not told about is an
+      // understatement of exactly the thing the picture is for.
+      const severedEdges = levelId === null
+        ? 0
+        : everyEdge.filter((e) => inScope.has(e.from) !== inScope.has(e.to)).length;
+
+      const scope: GraphScope = {
+        levelId,
+        levelName: levelId === null ? null : (placement?.levelNames.get(levelId) ?? levelId),
+        excludedOtherLevel,
+        excludedNoLevel,
+        excludedUnplaceable,
+        severedEdges,
+      };
 
       // ── Figures, one per edge family PRESENT ────────────────────────────────
       const byType = new Map<string, { count: number; ids: Set<string> }>();
@@ -315,23 +488,69 @@ export function projectGraph(): GraphProjection {
         totalNodes: allNodes.length,
         totalEdges: allEdges.length,
         truncated,
+        scope,
         liveness,
         // ⛔ `complete` is false if ANYTHING is a lower bound: a truncated draw,
-        // or a graph whose freshness we cannot vouch for. The surface renders
-        // "≥ N" off this flag, so conflating the two would understate the doubt.
-        complete: !truncated && fresh,
-        // §ANALYSIS-INCOMPLETE-REASON (L-3303) — say WHICH. Neither of these is
-        // an unreadable source, and the status strip used to report both as
+        // a graph whose freshness we cannot vouch for, or nodes the filter had
+        // to drop because it could not place them.
+        //
+        // ⭐ THE SCOPE ITSELF IS NOT ONE OF THEM (§ANALYSIS-GRAPH-LEVEL-FILTER,
+        // L-3620). `excludedOtherLevel` and `excludedNoLevel` are nodes the
+        // reader ASKED to leave out; the remaining counts are exact for the
+        // universe named on the card, and printing "≥" over them would put a
+        // doubt on a number that is not in doubt. `excludedUnplaceable` IS one:
+        // those nodes have no resolvable level, so some of them may belong to
+        // the level being shown and the figures for it are a floor.
+        complete: !truncated && fresh && scope.excludedUnplaceable === 0,
+        // §ANALYSIS-INCOMPLETE-REASON (L-3303) — say WHICH. None of these is an
+        // unreadable source, and the status strip used to report all of them as
         // "0 declared source(s) unreadable", which reads as self-refuting.
         incompleteReason: [
           ...(truncated
             ? [`the graph was drawn to a ${GRAPH_NODE_CAP}-node cap and holds ${allNodes.length}`]
             : []),
           ...(fresh ? [] : [`graph freshness is "${liveness?.freshness ?? 'unknown'}" — it may be behind the model`]),
+          ...(scope.excludedUnplaceable > 0
+            ? [
+                `${scope.excludedUnplaceable} node(s) carry no level the element census can resolve, so the ` +
+                'level filter had to drop them — some may belong to this storey',
+              ]
+            : []),
         ],
       };
     },
   );
+}
+
+/**
+ * One sentence describing the universe these figures are true of.
+ *
+ * ⛔ IT IS NOT A WARNING AND MUST NOT BE RENDERED AS ONE. The caller puts it on
+ * the neutral scope plate, never the amber lower-bound plate — that separation
+ * IS §ANALYSIS-GRAPH-LEVEL-FILTER (L-3620). A reader who cannot tell "you asked
+ * for one storey" from "the tool gave up at sixty nodes" has been given one
+ * ambiguous fact instead of two clear ones.
+ */
+export function scopeSentence(scope: GraphScope): string {
+  if (scope.levelId === null) {
+    return 'Scope: EVERY STOREY. These figures cover the whole model.';
+  }
+  const bits: string[] = [
+    `Scope: ${scope.levelName ?? scope.levelId} ONLY — these counts are exact for this storey, not a truncation of the model.`,
+  ];
+  if (scope.excludedOtherLevel > 0) {
+    bits.push(`${scope.excludedOtherLevel} element(s) are on other storeys and were left out because you asked.`);
+  }
+  if (scope.excludedNoLevel > 0) {
+    bits.push(`${scope.excludedNoLevel} carry no storey at all — a real fact about the model, not a filter failure.`);
+  }
+  if (scope.severedEdges > 0) {
+    bits.push(
+      `⚠ ${scope.severedEdges} relation(s) cross this storey's boundary and are NOT drawn: one endpoint is out of ` +
+        "scope. Connectivity here is therefore lower than the whole building's.",
+    );
+  }
+  return bits.join(' ');
 }
 
 /** The declared edge-family table, for the surface's provenance panel. */

@@ -56,6 +56,7 @@ import { invalidateAnalysisReadModel, runQuery, censusSourceTable } from './anal
 import { defaultLayout, loadLayout, saveLayout, type AnalysisLayout } from './analysisLayout';
 import { WIDGET_CATALOGUE, widgetById } from './widgetCatalogue';
 import {
+  GRAPH_SCOPE_EVENT,
   completenessStrip,
   renderChart,
   renderGraph,
@@ -216,6 +217,22 @@ export class AnalysisSurface {
     window.addEventListener('bim-room-updated', invalidate);
     window.addEventListener('bim-room-removed', invalidate);
     window.addEventListener('level-changed', invalidate);
+
+    // §ANALYSIS-GRAPH-LEVEL-FILTER (L-3620). The storey scope lives in
+    // `graphReadModel`, is shared by all three relationship widgets, and is
+    // changed by a control inside a card. A renderer must not hold the surface
+    // (ADR-0343 §D.3 — a renderer that can reach its host can reach anything the
+    // host can), so the control fires an event and the surface owns the redraw.
+    //
+    // ⛔ NOT routed through `invalidateAnalysisReadModel()`. A scope change makes
+    // no census or take-off figure wrong: the graph is not memoised here (the UBG
+    // maintains itself on its own cadence) so re-rendering re-projects it, and
+    // dropping the census cache would make choosing a storey pay for a full
+    // 18-store rescan that changes nothing.
+    window.addEventListener(GRAPH_SCOPE_EVENT, () => {
+      if (!this._visible) return;
+      void this.refresh();
+    });
 
     // Selection widgets are `refresh: 'on-selection'` — they alone re-render
     // here, because a selection change does not change any other figure.

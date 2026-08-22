@@ -70,8 +70,17 @@ import type { Chart, ChartConfiguration } from 'chart.js';
 
 import { selectionBus, UNIT_LABEL, type CoverageState } from '@pryzm/core-app-model';
 
-import { projectGraph, livenessSentence, nodeDegrees } from './graphReadModel';
+import {
+  projectGraph,
+  livenessSentence,
+  nodeDegrees,
+  scopeSentence,
+  graphLevelFilter,
+  setGraphLevelFilter,
+} from './graphReadModel';
+import { censusPlacement, censusLevels } from './analysisReadModel';
 import { renderNodeLink, renderEdgeLegend } from './nodeLinkSvg';
+import { SeriesFocus, markSeries } from './seriesFocus';
 
 import {
   seriesColour,
@@ -254,11 +263,23 @@ export function renderKpi(host: HTMLElement, result: AnalysisResult): void {
   }
 }
 
-/** Legend rows. This is what makes hue not the only channel. */
-function legend(host: HTMLElement, figures: readonly AnalysisFigure[], total: number): void {
+/**
+ * Legend rows. This is what makes hue not the only channel.
+ *
+ * §ANALYSIS-SERIES-FOCUS (L-3610) — each row is a `data-series` mark, so picking
+ * one lights it and dims its siblings WITHOUT removing them. The value and the
+ * percentage stay on screen for every row, focused or not: the card's
+ * denominator does not change because the reader emphasised part of it.
+ */
+function legend(
+  host: HTMLElement,
+  figures: readonly AnalysisFigure[],
+  total: number,
+  focus?: SeriesFocus,
+): void {
   const list = el('ul', 'anl-legend');
   figures.forEach((f, i) => {
-    const li = el('li', 'anl-legend-item');
+    const li = markSeries(el('li', 'anl-legend-item'), f.key);
     li.tabIndex = 0;
     const sw = el('span', 'anl-swatch');
     sw.style.background = seriesColour(i, f.key);
@@ -268,7 +289,7 @@ function legend(host: HTMLElement, figures: readonly AnalysisFigure[], total: nu
     const pctEl = el('span', 'anl-legend-pct', pct);
     li.append(sw, label, val, pctEl);
     li.title = `${f.label} — ${fmt(f.value, f.unit)} ${UNIT_LABEL[f.unit]}. Basis: ${f.basis}`;
-    const go = (): void => selectFigure(f);
+    const go = (): void => { focus?.toggle(f.key); selectFigure(f); };
     li.addEventListener('click', go);
     li.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
     list.appendChild(li);
@@ -289,6 +310,7 @@ export function renderChart(
 ): void {
   if (result.figures.length === 0) { emptyState(host, def, result); return; }
 
+  const focus = new SeriesFocus(host);
   const total = result.figures.reduce((s, f) => s + f.value, 0);
   const canvasWrap = el('div', 'anl-canvas-wrap');
   const canvas = el('canvas');
@@ -323,7 +345,13 @@ export function renderChart(
     },
     onClick: (_e: unknown, active: Array<{ index: number }>): void => {
       const idx = active?.[0]?.index;
-      if (typeof idx === 'number') selectFigure(result.figures[idx]!);
+      if (typeof idx !== 'number') return;
+      const f = result.figures[idx]!;
+      // §ANALYSIS-SERIES-FOCUS (L-3610) — the founder's sentence, both halves:
+      // the model selection (what the figure IS) and the chart emphasis (what
+      // the reader is looking at). They are separate answers and both happen.
+      focus.toggle(f.key);
+      selectFigure(f);
     },
   };
 
@@ -372,7 +400,12 @@ export function renderChart(
         };
 
   try {
-    charts.push(new chartjs.Chart(canvas, cfg));
+    const chart = new chartjs.Chart(canvas, cfg);
+    charts.push(chart);
+    // The canvas cannot be reached by CSS, so the focus mechanism needs the
+    // dataset itself. Registered with the FULL-strength colours and the figure
+    // keys, so a dim pass never compounds and never keys on a display label.
+    focus.registerChart(chart, colours, result.figures.map((f) => f.key));
   } catch (e) {
     // ⛔ A CHART THAT CANNOT BE CONSTRUCTED MUST NOT TAKE THE DASHBOARD DOWN.
     // `new Chart()` needs a live 2-D context; a browser that refuses one (GPU
@@ -383,26 +416,116 @@ export function renderChart(
     // already true, so the honest degradation is to render them as a table.
     console.warn('[analysis] chart could not be constructed; rendering the same figures as a table.', e);
     canvasWrap.remove();
-    renderTable(host, def, result);
+    renderTable(host, def, result, focus);
     return;
   }
-  legend(host, result.figures, total);
+  legend(host, result.figures, total, focus);
 }
 
-/** A sortable, click-through table. The most honest renderer of a long tail. */
-export function renderTable(host: HTMLElement, def: AnalysisWidgetDef, result: AnalysisResult): void {
+/**
+ * How many contributing elements a drill-down lists before it stops.
+ *
+ * ⛔ The list is CAPPED and SAYS SO, and it never truncates in silence — a
+ * take-off row can hold thousands of wall ids and rendering all of them would
+ * make the card unreadable for exactly the reader who opened it. The count in
+ * the header is always the TRUE one; only the list is capped.
+ */
+const DRILL_CAP = 40;
+
+/**
+ * §ANALYSIS-ROW-DRILLDOWN (L-3630) — the elements behind one figure, named.
+ *
+ * ⭐ WHY A DRILL-DOWN IS NOT A NICETY HERE. ADR-0343 §D.6 H4 is *"a number you
+ * cannot open is a number you cannot check"*, and until now "open" meant one
+ * thing: dispatch the whole row to the selection bus. That answers "show me
+ * these" and cannot answer "which ONE of these is the 70° raked wall". A
+ * quantity surveyor checking a *medición* needs the second question, and it is
+ * the question a qualifier provokes.
+ */
+function drillDown(f: AnalysisFigure): HTMLElement {
+  const box = el('div', 'anl-drill');
+
+  const head = el(
+    'div',
+    'anl-drill-head',
+    `${NUM0.format(f.elementIds.length)} contributing element(s)` +
+      (f.elementIds.length > DRILL_CAP ? ` — listing the first ${DRILL_CAP}` : ''),
+  );
+  box.appendChild(head);
+
+  const list = el('div', 'anl-drill-ids');
+  for (const id of f.elementIds.slice(0, DRILL_CAP)) {
+    // ⛔ textContent, never innerHTML — element ids originate in imported
+    // IFC/glTF files (§DW-MATERIAL-COLOR-XSS, L-407).
+    const chip = el('button', 'anl-drill-id', id);
+    chip.type = 'button';
+    chip.title = `Select ${id} on its own`;
+    chip.addEventListener('click', (e) => {
+      e.stopPropagation(); // the row's own handler would re-select the whole group
+      selectionBus.dispatch({ type: 'select', source: 'analytics', elementIds: [id] });
+    });
+    list.appendChild(chip);
+  }
+  box.appendChild(list);
+
+  if (f.elementIds.length > DRILL_CAP) {
+    box.appendChild(
+      el(
+        'p',
+        'anl-drill-foot',
+        `${NUM0.format(f.elementIds.length - DRILL_CAP)} more are in this figure and are NOT listed here. ` +
+          'The quantity above counts all of them — this list is capped, the measurement is not.',
+      ),
+    );
+  }
+  return box;
+}
+
+/**
+ * The qualifier block. §ANALYSIS-QUALIFIER-LEGIBLE (L-3631).
+ *
+ * ⚠ THE FOUNDER'S REPORT, and it is a legibility defect rather than a truth
+ * one: *"3 of 41: raked wall (70.0°) measured in its authored, un-sheared
+ * elevation plane"* was rendered as 9 px grey text under a basis string, i.e. as
+ * a footnote. It is not a footnote — it is the statement that N of the elements
+ * in that row were measured APPROXIMATELY, which is the single fact a surveyor
+ * must not miss.
+ *
+ * ⛔ NOT A TOOLTIP AND NOT COLLAPSED. Every word survives; only the typography
+ * and the plate change. Making the panel tidier may not cost a syllable of this.
+ */
+function qualifierBlock(qualifiers: readonly string[]): HTMLElement {
+  const box = el('div', 'anl-qual');
+  const head = el('span', 'anl-qual-badge', qualifiers.length === 1 ? 'APPROXIMATED' : `APPROXIMATED ×${qualifiers.length}`);
+  box.appendChild(head);
+  const ul = el('ul', 'anl-qual-list');
+  for (const q of qualifiers) ul.appendChild(el('li', undefined, q));
+  box.appendChild(ul);
+  return box;
+}
+
+/** A click-through table. The most honest renderer of a long tail. */
+export function renderTable(
+  host: HTMLElement,
+  def: AnalysisWidgetDef,
+  result: AnalysisResult,
+  focus?: SeriesFocus,
+): void {
   if (result.figures.length === 0) { emptyState(host, def, result); return; }
+
+  const f0 = focus ?? new SeriesFocus(host);
 
   const table = el('table', 'anl-table anl-table--figures');
   const thead = el('thead');
   const htr = el('tr');
-  for (const h of ['', 'Item', 'Quantity', 'Basis']) htr.appendChild(el('th', undefined, h));
+  for (const h of ['', 'Item', 'Quantity', 'Basis', '']) htr.appendChild(el('th', undefined, h));
   thead.appendChild(htr);
   table.appendChild(thead);
 
   const tb = el('tbody');
-  result.figures.forEach((f, i) => {
-    const tr = el('tr', 'anl-row-clickable');
+  result.figures.forEach((fig, i) => {
+    const f = fig;
+    const tr = markSeries(el('tr', 'anl-row-clickable'), f.key);
     tr.tabIndex = 0;
     const tdC = el('td', 'anl-td-swatch');
     const sw = el('span', 'anl-swatch');
@@ -411,19 +534,40 @@ export function renderTable(host: HTMLElement, def: AnalysisWidgetDef, result: A
     const tdL = el('td', 'anl-td-key', f.label);
     const tdV = el('td', 'anl-td-num', `${fmt(f.value, f.unit)} ${UNIT_LABEL[f.unit]}`);
     const tdB = el('td', 'anl-td-note', f.basis);
-    if (f.qualifiers.length > 0) {
-      // ⚠ A qualifier means some contributor was measured APPROXIMATELY. It is
-      // shown, not hidden behind a tooltip: an approximated quantity that reads
-      // as exact is the defect the take-off's own qualifiers exist to prevent.
-      const q = el('div', 'anl-qualifier', `⚠ ${f.qualifiers.join(' · ')}`);
-      tdB.appendChild(q);
-    }
-    tr.append(tdC, tdL, tdV, tdB);
-    tr.title = `${f.elementIds.length} element(s) — click to select them`;
-    const go = (): void => selectFigure(f);
+    if (f.qualifiers.length > 0) tdB.appendChild(qualifierBlock(f.qualifiers));
+
+    // ── The drill-down toggle, in its own column so the row click is unchanged ─
+    const tdD = el('td', 'anl-td-drill');
+    const toggle = el('button', 'anl-drill-toggle', '▸');
+    toggle.type = 'button';
+    toggle.title = `Show the ${f.elementIds.length} element(s) behind this figure`;
+    toggle.setAttribute('aria-expanded', 'false');
+    tdD.appendChild(toggle);
+
+    tr.append(tdC, tdL, tdV, tdB, tdD);
+    tr.title = `${f.elementIds.length} element(s) — click to select them and light this series`;
+    const go = (): void => { f0.toggle(f.key); selectFigure(f); };
     tr.addEventListener('click', go);
     tr.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
     tb.appendChild(tr);
+
+    // The expansion is a SIBLING row, so it inherits the table's column widths
+    // instead of a second layout that drifts away from the one above it.
+    const drillRow = markSeries(el('tr', 'anl-drill-row'), f.key);
+    const drillCell = el('td');
+    drillCell.setAttribute('colspan', '5');
+    drillCell.appendChild(drillDown(f));
+    drillRow.appendChild(drillCell);
+    drillRow.hidden = true;
+    tb.appendChild(drillRow);
+
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation(); // opening the list is not the same act as selecting the group
+      const open = drillRow.hidden;
+      drillRow.hidden = !open;
+      toggle.textContent = open ? '▾' : '▸';
+      toggle.setAttribute('aria-expanded', String(open));
+    });
   });
   table.appendChild(tb);
   host.appendChild(table);
@@ -433,6 +577,7 @@ export function renderTable(host: HTMLElement, def: AnalysisWidgetDef, result: A
 export function renderTreemap(host: HTMLElement, def: AnalysisWidgetDef, result: AnalysisResult): void {
   if (result.figures.length === 0) { emptyState(host, def, result); return; }
 
+  const focus = new SeriesFocus(host);
   const layout = squarify(result.figures.map((f) => ({ key: f.key, label: f.label, value: f.value })));
   const box = el('div', 'anl-treemap');
   const indexOf = new Map(result.figures.map((f, i) => [f.key, i]));
@@ -440,7 +585,7 @@ export function renderTreemap(host: HTMLElement, def: AnalysisWidgetDef, result:
   for (const t of layout.tiles) {
     const i = indexOf.get(t.key) ?? 0;
     const f = result.figures[i]!;
-    const tile = el('div', 'anl-tile');
+    const tile = markSeries(el('div', 'anl-tile'), t.key);
     tile.style.left = `${(t.x * 100).toFixed(4)}%`;
     tile.style.top = `${(t.y * 100).toFixed(4)}%`;
     tile.style.width = `${(t.w * 100).toFixed(4)}%`;
@@ -454,7 +599,10 @@ export function renderTreemap(host: HTMLElement, def: AnalysisWidgetDef, result:
     cap.appendChild(el('span', 'anl-tile-label', t.label));
     cap.appendChild(el('span', 'anl-tile-value', `${fmt(t.value, f.unit)} ${UNIT_LABEL[f.unit]}`));
     tile.appendChild(cap);
-    const go = (): void => selectFigure(f);
+    // §ANALYSIS-SERIES-FOCUS (L-3610). The cell stays in the map when it is not
+    // the focused one -- area encodes quantity, and removing a rectangle would
+    // silently change what the remaining rectangles are a share OF.
+    const go = (): void => { focus.toggle(t.key); selectFigure(f); };
     tile.addEventListener('click', go);
     tile.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
     box.appendChild(tile);
@@ -514,6 +662,71 @@ export function renderUnknownWidget(host: HTMLElement, id: string): void {
 // ── The relational widget (ADR-0343 §D.7, STR-14 §4) ──────────────────────────
 
 /**
+ * The event the scope control fires. `AnalysisSurface` listens and re-renders.
+ *
+ * ⛔ A DOM event rather than a direct call: a renderer must not hold the surface.
+ * That is the same rule that keeps a widget from holding a store (ADR-0343 §D.3)
+ * — a renderer that can reach its host can reach anything the host can.
+ */
+export const GRAPH_SCOPE_EVENT = 'anl-graph-scope-changed';
+
+/**
+ * The storey picker for every relationship widget. §ANALYSIS-GRAPH-LEVEL-FILTER.
+ *
+ * ⭐ ITS FIRST OPTION IS THE WHOLE MODEL AND IS THE DEFAULT. A relationship view
+ * that opened pre-filtered would show a reader less than the building holds
+ * without their having asked, which is the same overstatement-by-omission the
+ * node cap commits when it stays silent.
+ *
+ * ⚠ THE LEVELS OFFERED ARE THE ONES THE CENSUS RESOLVED, not a list of storeys
+ * the app believes in — `censusLevels()` reads the same snapshot the figures are
+ * computed over. A picker that could offer a level the figures were not computed
+ * against is a picker that can produce an empty card and blame the model.
+ */
+function levelScopePicker(): HTMLElement {
+  const bar = el('div', 'anl-scope-bar');
+  bar.appendChild(el('span', 'anl-scope-label', 'Storey'));
+
+  const levels = censusLevels();
+  const active = graphLevelFilter();
+
+  const chip = (id: string | null, label: string, title: string): HTMLElement => {
+    const b = el('button', `anl-scope-chip${id === active ? ' anl-scope-chip--on' : ''}`, label);
+    b.type = 'button';
+    b.title = title;
+    b.setAttribute('aria-pressed', String(id === active));
+    b.addEventListener('click', () => {
+      setGraphLevelFilter(id);
+      window.dispatchEvent(new CustomEvent(GRAPH_SCOPE_EVENT));
+    });
+    return b;
+  };
+
+  bar.appendChild(
+    chip(null, 'All storeys', 'Every relationship in the model — the unfiltered universe'),
+  );
+  for (const l of levels) {
+    bar.appendChild(
+      chip(l.id, l.name, `Only relationships whose BOTH endpoints the census places on ${l.name}`),
+    );
+  }
+
+  if (levels.length === 0) {
+    // ⛔ An empty picker is a real answer about the level authority, not a
+    // missing control. Rendering nothing would read as "this feature is absent".
+    bar.appendChild(
+      el(
+        'span',
+        'anl-scope-note',
+        'The level authority returned no storeys, so there is nothing to scope to. That is a fact about ' +
+          'bimManager.getLevels(), not about this graph.',
+      ),
+    );
+  }
+  return bar;
+}
+
+/**
  * The node-link relationship diagram — the picture the founder asked for.
  *
  * ⭐ THREE THINGS SHIP TOGETHER ON THIS CARD, AND THE OTHER TWO ARE NOT GARNISH:
@@ -530,12 +743,27 @@ export function renderUnknownWidget(host: HTMLElement, id: string): void {
  * real deliverable and it is not a dashboard card's to schedule.
  */
 export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result: AnalysisResult): void {
-  const g = projectGraph();
+  const g = projectGraph(censusPlacement());
 
-  // ── The liveness strip, first: it qualifies everything below it ────────────
+  // ── The scope control, ABOVE everything it governs ─────────────────────────
+  // §ANALYSIS-GRAPH-LEVEL-FILTER (L-3620). It sits first because every figure
+  // under it is a figure ABOUT the universe it names; a scope control below the
+  // picture would let a reader read the picture before learning what it is of.
+  host.appendChild(levelScopePicker());
+
+  // ── The liveness strip: it qualifies everything below it ───────────────────
   const live = el('div', `anl-strip ${g.liveness?.freshness === 'stale' ? 'anl-strip--err' : 'anl-strip--ok'}`);
   live.appendChild(el('span', 'anl-strip-text', livenessSentence(g.liveness)));
   host.appendChild(live);
+
+  // ── The scope statement, on its OWN plate ──────────────────────────────────
+  // ⛔ 'anl-scope', never 'anl-strip--warn'. The founder's rule: a filter and a
+  // truncation must never render identically. This says what universe you are
+  // looking at; the amber strip below says what the tool could not deliver
+  // inside it. Same card, two different kinds of fact, two different plates.
+  const scope = el('div', 'anl-scope');
+  scope.appendChild(el('span', 'anl-scope-text', scopeSentence(g.scope)));
+  host.appendChild(scope);
 
   if (g.unreachable.length > 0) {
     host.appendChild(
@@ -588,6 +816,7 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
     );
   }
 
+  const focus = new SeriesFocus(host);
   const box = el('div', 'anl-nodelink-box');
   host.appendChild(box);
   renderNodeLink(box, nodes, g.edges, {
@@ -599,11 +828,16 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
     // Same dispatch shape `selectFigure()` uses, so a graph node and a donut
     // slice select identically. P6-safe: selection is intent, not mutation.
     onPick: (id) => selectionBus.dispatch({ type: 'select', source: 'analytics', elementIds: [id] }),
+    // §ANALYSIS-SERIES-FOCUS (L-3610) — the founder's sentence applied to the
+    // picture he described it about: the picked node, its relations and its
+    // neighbours lead; everything else goes dormant and STAYS ON SCREEN.
+    focus,
   });
 
   const counts = new Map<string, number>();
   for (const e of g.edges) counts.set(e.type, (counts.get(e.type) ?? 0) + 1);
-  renderEdgeLegend(host, edgeTypeIndex, counts);
+  // The legend is also a QUERY surface: a row lights its whole relation family.
+  renderEdgeLegend(host, edgeTypeIndex, counts, focus);
 
   host.appendChild(
     el(

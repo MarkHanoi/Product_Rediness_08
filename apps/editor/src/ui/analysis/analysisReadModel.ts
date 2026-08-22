@@ -84,7 +84,7 @@ import {
 } from '@pryzm/core-app-model';
 import { withHandlerSpan } from '@pryzm/plugin-sdk';
 
-import { projectGraph } from './graphReadModel';
+import { projectGraph, type GraphPlacement } from './graphReadModel';
 
 import type {
   AnalysisFigure,
@@ -240,6 +240,8 @@ export function invalidateAnalysisReadModel(): void {
   withHandlerSpan('pryzm.analysis.readmodel.invalidate', { 'pryzm.surface': 'analysis' }, () => {
     _census = null;
     _takeoff = null;
+    _placement = null;
+    _placementFor = null;
     _queryCache.clear();
   });
 }
@@ -524,7 +526,7 @@ export function runQuery(query: AnalysisQuery, selectedIds: readonly string[] = 
             'which is an undercount that reads as a count (ADR-0343 §C.3.2, §D.6 H3).',
           );
         }
-        const g = projectGraph();
+        const g = projectGraph(censusPlacement());
         const result: AnalysisResult = {
           query,
           figures: g.figures,
@@ -594,6 +596,51 @@ export function runQuery(query: AnalysisQuery, selectedIds: readonly string[] = 
       return result;
     },
   );
+}
+
+/**
+ * The census as a PLACEMENT INDEX — id → storey — for the relationship scope.
+ *
+ * §ANALYSIS-GRAPH-LEVEL-FILTER (L-3620). `UbgNode` carries no level (measured:
+ * `packages/building-graph/src/types.ts:65-72` is `.strict()` over id/kind/
+ * props/refs, and only `roomGraphAdapter` stamps `props.levelId`, only on rooms).
+ * The census already knows where every element in the eighteen declared stores
+ * lives, so the level filter joins through it rather than through a second,
+ * rival idea of what a storey is.
+ *
+ * ⭐ THE RETURN VALUE HAS THREE STATES AND THAT IS THE POINT. `undefined` means
+ * "this table does not claim that id" — a synthetic `rule` node, or an element
+ * in a store outside the declared table. It is NOT `null` ("claimed, no level")
+ * and it is certainly not "on another storey". The graph counts the three
+ * separately and only `undefined` makes a filtered figure a lower bound.
+ *
+ * Built once per census, from the memoised snapshot — it costs one Map, not a
+ * second scan.
+ */
+let _placement: GraphPlacement | null = null;
+let _placementFor: CensusSnapshot | null = null;
+
+export function censusPlacement(): GraphPlacement {
+  const c = getCensus();
+  if (_placement && _placementFor === c) return _placement;
+  const index = new Map<string, string | null>();
+  for (const g of c.groups) for (const r of g.records) index.set(r.id, r.levelId);
+  _placement = {
+    levelOf: (id: string) => index.get(id),
+    levelNames: c.levelNames,
+  };
+  _placementFor = c;
+  return _placement;
+}
+
+/**
+ * Every storey the level authority knows, for the relationship scope picker.
+ * ⛔ Read from the SAME snapshot the figures are computed over, so the picker can
+ * never offer a level the figures were not computed against.
+ */
+export function censusLevels(): ReadonlyArray<{ id: string; name: string }> {
+  const c = getCensus();
+  return [...c.levelNames].map(([id, name]) => ({ id, name }));
 }
 
 /**

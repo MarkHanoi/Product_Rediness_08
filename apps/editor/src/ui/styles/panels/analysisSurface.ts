@@ -718,4 +718,194 @@ export const ANALYSIS_SURFACE_STYLES = `
   flex-shrink: 0;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   SERIES FOCUS — 'highlight this and the rest be a bit dormant' (L-3610)
+   ═══════════════════════════════════════════════════════════════════════════
+
+   The founder's sentence, and the CSS is the whole of it for every mark that is
+   NOT a canvas. One rule set governs legend rows, table rows, treemap tiles,
+   graph nodes and graph edges, because they all carry the same 'data-series'
+   token list -- seriesFocus.ts. Chart.js paints into a canvas that CSS cannot
+   reach, so the donut and the bar are re-tinted in TypeScript instead; the two
+   halves are kept to one alpha constant so they cannot drift apart.
+
+   ⛔ DORMANT, NOT GONE. Nothing here sets 'display:none' and nothing here sets
+   'visibility:hidden'. Hiding the unpicked marks would leave a card whose
+   denominator, legend totals and percentages describe a population the reader
+   can no longer see -- a filtered chart under an unfiltered caption. Opacity
+   changes emphasis; it does not change the answer.
+
+   ⛔ NO TRANSITION ON THE DIM. A transition here would run an animation on
+   every pick, and this surface must never be the reason a frame is dropped
+   (P3, ADR-0343 D.3). The change is instant and costs one style recalculation.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.anl-focus-on [data-series] {
+  opacity: 0.28;
+}
+.anl-focus-on [data-series].anl-focused {
+  opacity: 1;
+}
+
+/* The lit mark also gets a NON-COLOUR cue, because opacity alone is a contrast
+   change and this surface never lets one channel carry an identity on its own
+   (ADR-0343 D.5, WCAG SC 1.4.1). */
+.anl-focus-on .anl-legend-item.anl-focused,
+.anl-focus-on .anl-row-clickable.anl-focused td {
+  background: var(--app-wash-selected);
+}
+.anl-focus-on .anl-tile.anl-focused {
+  outline: 2px solid var(--app-accent);
+  outline-offset: -2px;
+}
+.anl-focus-on .anl-nodelink g.anl-focused circle {
+  stroke: var(--app-accent);
+  stroke-width: 2.5;
+}
+
+/* A drill-down row inherits its parent figure's focus rather than declaring one:
+   it is the SAME series, opened. */
+.anl-drill-row { background: var(--app-surface-sunken); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCOPE — a filter is not a truncation, and must not look like one (L-3620)
+   ═══════════════════════════════════════════════════════════════════════════
+   'anl-scope' is a NEUTRAL plate on the accent wash. The lower-bound strip is
+   amber ('anl-strip--warn'). That difference is the founder's rule rendered:
+   'filtered to Level 1' says what universe you asked for and every figure in it
+   is exact; 'truncated at 60 nodes' says the tool could not deliver the universe
+   you asked for and every figure is a floor. Same card, opposite meanings.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.anl-scope {
+  display: flex;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--app-radius-sm);
+  border-left: 3px solid var(--app-accent);
+  background: var(--app-violet-soft);
+}
+.anl-scope-text { font-size: 10.8px; line-height: 1.6; color: var(--app-text); }
+
+.anl-scope-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+.anl-scope-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+  margin-right: 3px;
+}
+.anl-scope-chip {
+  appearance: none;
+  padding: 3px 10px;
+  border: 1px solid var(--app-border);
+  border-radius: 99px;
+  background: var(--app-panel-bg);
+  color: var(--app-text-2);
+  font-family: var(--app-font);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.13s, color 0.13s, border-color 0.13s;
+}
+.anl-scope-chip:hover { border-color: var(--app-accent); color: var(--app-accent); }
+.anl-scope-chip:focus-visible { outline: none; box-shadow: var(--app-focus-ring); }
+.anl-scope-chip--on {
+  background: var(--app-accent);
+  border-color: var(--app-accent);
+  color: var(--app-on-accent);
+}
+.anl-scope-note { font-size: 9.9px; line-height: 1.55; color: var(--app-text-muted); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DRILL-DOWN + QUALIFIERS — 'more sound' quantities (L-3630, L-3631)
+   ═══════════════════════════════════════════════════════════════════════════
+   A quantity row can now be opened to the elements it measured, one chip per id,
+   each individually selectable. And the qualifier -- 'N of M: raked wall (70.0)
+   measured in its authored, un-sheared elevation plane' -- is promoted off the
+   9 px footnote it used to be. It states that part of the row was measured
+   APPROXIMATELY, which is the one fact a quantity surveyor must not miss.
+   ⛔ Nothing is truncated or hidden here: the text is the same text, on a plate
+   that reads as a qualification rather than as small print.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.anl-td-drill { width: 22px; text-align: right; vertical-align: top; }
+
+.anl-drill-toggle {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 4px;
+  border-radius: var(--app-radius-sm);
+  cursor: pointer;
+}
+.anl-drill-toggle:hover { background: var(--app-wash-hover); color: var(--app-accent); }
+.anl-drill-toggle:focus-visible { outline: none; box-shadow: var(--app-focus-ring); }
+
+.anl-drill { display: flex; flex-direction: column; gap: 6px; padding: 8px 6px 10px; }
+.anl-drill-head {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+.anl-drill-ids { display: flex; flex-wrap: wrap; gap: 4px; }
+.anl-drill-id {
+  appearance: none;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 7px;
+  border: 1px solid var(--app-border-light);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-panel-bg);
+  color: var(--app-text-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  cursor: pointer;
+}
+.anl-drill-id:hover { border-color: var(--app-accent); color: var(--app-accent); }
+.anl-drill-id:focus-visible { outline: none; box-shadow: var(--app-focus-ring); }
+.anl-drill-foot { margin: 0; font-size: 9px; line-height: 1.55; color: var(--app-text-muted); }
+
+.anl-qual {
+  margin-top: 6px;
+  padding: 7px 9px;
+  border-left: 3px solid var(--app-status-warning-line);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-status-warning-bg);
+}
+.anl-qual-badge {
+  display: inline-block;
+  margin-bottom: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--app-status-warning-ink);
+}
+.anl-qual-list {
+  margin: 0;
+  padding-left: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.anl-qual-list li {
+  font-size: 9.9px;
+  line-height: 1.55;
+  color: var(--app-status-warning-ink);
+}
+
 `;

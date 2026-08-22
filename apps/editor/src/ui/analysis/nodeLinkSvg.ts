@@ -43,6 +43,18 @@
  */
 
 import { seriesColour } from './AnalysisTypes';
+import { markSeries, type SeriesFocus } from './seriesFocus';
+
+/**
+ * The focus-key namespaces. §ANALYSIS-SERIES-FOCUS (L-3610).
+ *
+ * A node id and an edge type are different KINDS of thing and could collide as
+ * bare strings (nothing stops a UBG edge type being named like an element id).
+ * Prefixing them makes "focus the `bounds` family" and "focus element X" two
+ * keys that cannot be confused for one another.
+ */
+export const FOCUS_NODE = (id: string): string => `n:${id}`;
+export const FOCUS_EDGE = (type: string): string => `e:${type}`;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -72,6 +84,12 @@ export interface NodeLinkOptions {
   readonly groupIndex: ReadonlyMap<string, number>;
   /** Called with the element id when a node is activated (click / Enter). */
   readonly onPick?: (id: string) => void;
+  /**
+   * The card's focus controller. When present, activating a node ALSO lights it,
+   * its incident edges and its neighbours, and dims the rest — it never removes
+   * anything, so the truncation notice and the counts above stay true.
+   */
+  readonly focus?: SeriesFocus;
 }
 
 interface Pos { id: string; x: number; y: number; vx: number; vy: number }
@@ -200,6 +218,15 @@ export function renderNodeLink(
     .map((e) => [e.from, e.to] as const);
   const pos = forceLayout(ids, pairs, W, H);
 
+  // Adjacency over the DRAWN edges only — see the note on the node keys below.
+  const neighbours = new Map<string, Set<string>>();
+  const link = (a: string, b: string): void => {
+    let set = neighbours.get(a);
+    if (!set) { set = new Set<string>(); neighbours.set(a, set); }
+    set.add(b);
+  };
+  for (const [a, b] of pairs) { link(a, b); link(b, a); }
+
   // ── Edges, under the nodes ────────────────────────────────────────────────
   const edgeG = document.createElementNS(SVG_NS, 'g');
   edgeG.setAttribute('stroke-linecap', 'round');
@@ -215,6 +242,10 @@ export function renderNodeLink(
     line.setAttribute('stroke', seriesColour(opts.edgeTypeIndex.get(e.type) ?? 0, e.type));
     line.setAttribute('stroke-width', '1.5');
     line.setAttribute('stroke-opacity', '0.5');
+    // Three keys: this edge lights when EITHER endpoint is picked, or when its
+    // relation family is. That is what makes "click a node" answer "what does
+    // this connect to" rather than "which dot is this".
+    markSeries(line, FOCUS_NODE(e.from), FOCUS_NODE(e.to), FOCUS_EDGE(e.type));
     const title = document.createElementNS(SVG_NS, 'title');
     title.textContent = `${e.from} —[${e.type}]→ ${e.to}`;
     line.appendChild(title);
@@ -230,6 +261,10 @@ export function renderNodeLink(
     if (!p) continue;
 
     const g = document.createElementNS(SVG_NS, 'g');
+    // Its own key PLUS one per neighbour, so picking a neighbour lights this
+    // node too. The set is built from the drawn `edges`, never from the whole
+    // graph: a node dimmed here is dimmed because nothing DRAWN reaches it.
+    markSeries(g, FOCUS_NODE(n.id), ...[...(neighbours.get(n.id) ?? [])].map(FOCUS_NODE));
     g.setAttribute('tabindex', '0');
     g.setAttribute('role', 'button');
     g.setAttribute('aria-label', `${n.label} — ${n.group}. Select in the model.`);
@@ -258,8 +293,13 @@ export function renderNodeLink(
     title.textContent = `${n.label} (${n.group}) — ${n.id}`;
     g.appendChild(title);
 
-    if (opts.onPick) {
-      const pick = (): void => opts.onPick!(n.id);
+    if (opts.onPick || opts.focus) {
+      const pick = (): void => {
+        // Emphasis and selection are two answers and both happen — the founder's
+        // sentence has two halves ("highlight this" AND the model selection).
+        opts.focus?.toggle(FOCUS_NODE(n.id));
+        opts.onPick?.(n.id);
+      };
       g.addEventListener('click', pick);
       g.addEventListener('keydown', (ev) => {
         const k = (ev as KeyboardEvent).key;
@@ -281,12 +321,23 @@ export function renderEdgeLegend(
   host: HTMLElement,
   edgeTypeIndex: ReadonlyMap<string, number>,
   counts: ReadonlyMap<string, number>,
+  focus?: SeriesFocus,
 ): void {
   const legend = document.createElement('div');
   legend.className = 'anl-nodelink-legend';
   for (const [type, index] of edgeTypeIndex) {
-    const row = document.createElement('span');
+    const row = markSeries(document.createElement('span'), FOCUS_EDGE(type));
     row.className = 'anl-nodelink-legend-row';
+    if (focus) {
+      row.tabIndex = 0;
+      row.setAttribute('role', 'button');
+      row.title = `Light every ${type} relation and dim the rest`;
+      const go = (): void => focus.toggle(FOCUS_EDGE(type));
+      row.addEventListener('click', go);
+      row.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); }
+      });
+    }
     const swatch = document.createElement('span');
     swatch.className = 'anl-nodelink-swatch';
     swatch.style.background = seriesColour(index, type);
