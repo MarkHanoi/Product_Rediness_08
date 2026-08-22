@@ -38151,6 +38151,15 @@ apps/editor/src/engine/views/EdgeProjectorService.ts(1205,10): error TS6133:
 commits add **no** typecheck error — verified by the error list being exactly this one line before
 and after. ⚠ **The tree was green at `b8a35abf` and is not now.** ELEV28 to close.
 
+> ⚠ **CORRECTED at lane close, ~30 min later — the row above was already stale, and the shape of
+> the staleness is the point.** Re-run: RC=**2**, and the EdgeProjectorService error is **GONE**
+> (ELEV28 closed it). The single remaining error is
+> `apps/editor/src/ui/analysis/selectionFacets.ts(262,66) TS4104` — a **different** lane's
+> **untracked** in-flight file. ⛔ **"root tsc is red" is a reading with a timestamp, never a
+> state.** On a shared tree with three live lanes it can name a different file every few minutes,
+> so a row that pins the FILE without pinning the MOMENT will send someone to the wrong owner.
+> **Re-run the command; do not quote either file name.** NAV29's files are clean in both readings.
+
 ### L-5915 — HAND-OFF to LOAD30: `tools/perf/bench-version-container.mjs`
 
 Left untracked by the interrupted predecessor. `tools/perf/**` is NAV29's owned path, so it was
