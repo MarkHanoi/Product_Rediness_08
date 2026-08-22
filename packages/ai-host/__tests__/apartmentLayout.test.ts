@@ -2,6 +2,7 @@
 // Pure-core fixtures (no stores/AI). A1–A2 foundation of the #51 capstone.
 
 import { describe, expect, it } from 'vitest';
+import { ROOM_RULES } from '../src/workflows/apartmentLayout/rules/programRules';
 import { validateLayout } from '../src/workflows/apartmentLayout/validate.js';
 import { scoreLayout } from '../src/workflows/apartmentLayout/score.js';
 import type {
@@ -50,11 +51,26 @@ describe('validateLayout (SPEC §8)', () => {
     });
 
     it('V1 — rejects an undersized bedroom', () => {
+        // §BEDROOM-MINIMA-ARE-JURISDICTIONAL (L-4210) — this used to assert the
+        // LITERAL `/Bed3.*below the 11\.5/`. The founder ruled the bedroom minimum
+        // down (11.5 -> 7.5, a Catalan habitability figure rather than a UK one), and
+        // the literal went red for a reason that was NOT a defect.
+        //
+        // ⛔ The fix is not to retype the new number — that would rot again on the
+        // next ruling, and a jurisdiction-keyed table (L-4211) will make the number
+        // vary at RUNTIME, at which point no literal can be right. The test now reads
+        // the SAME authority the validator reads, so it asserts the RULE ("a bedroom
+        // under its own minimum is rejected, and the message names that minimum")
+        // rather than one jurisdiction's value.
+        const min = ROOM_RULES.bedroom.minAreaM2;
         const l = validLayout();
-        l.rooms.find(r => r.name === 'Bed3')!.area = 7;
+        l.rooms.find(r => r.name === 'Bed3')!.area = min - 0.5;
         const r = validateLayout(l, constraints, program);
         expect(r.valid).toBe(false);
-        expect(r.failures.some(f => /Bed3.*below the 11\.5/.test(f))).toBe(true);
+        expect(
+            r.failures.some(f => f.includes('Bed3') && f.includes(String(min))),
+            `no failure named Bed3 and the ${min} m² minimum — got: ${r.failures.join(' | ')}`,
+        ).toBe(true);
     });
 
     it('V2 — rejects a windowless bedroom', () => {

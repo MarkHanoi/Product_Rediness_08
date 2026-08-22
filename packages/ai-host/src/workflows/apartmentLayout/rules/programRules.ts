@@ -474,12 +474,32 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     master: {
         type: 'master', occupancy: 'bedroom', privacy: 'private',
         acousticRole: 'receiver', frontage: 'required',
-        // DB-020 master minAreaM2 12 (Building Regs mandatory); DB-022 min clear width
-        // 2.75 m to fit a double bed with circulation both sides; DB-023 clear length
-        // 3.2 m recommended HQI; DB-021 recommended 16-20 m².
+        // §BEDROOM-MINIMA-ARE-JURISDICTIONAL (L-4210, founder ruling 2026-08-22).
+        //
+        // ⛔ WAS `minAreaM2: 12, minShortSideM: 2.75`, cited as "DB-020 (Building Regs
+        // mandatory)". The founder, testing a real 81 m² Barcelona room, got ZERO
+        // layouts and the refusal *"master 9.3 m² vs 12 m² minimum"*. His ruling:
+        // *"12 m² should not be the minimum — the minimum room area could be 7-8 m²."*
+        //
+        // ⭐ HE IS CORRECTING A JURISDICTION ERROR, NOT RELAXING A STANDARD. Every
+        // citation in this table is UK — Building Regs / HQI / BS 8300 — in a product
+        // whose first market is Catalonia. Catalan habitability (Decret
+        // d'habitabilitat) sets a double bedroom at 8 m² and a single at 6 m²; the UK
+        // Nationally Described Space Standard sets 11.5 / 7.5. The old number was not
+        // wrong, it was FOREIGN, and it was asserted as "mandatory" over a room in
+        // Spain.
+        //
+        // ⚠ THE REAL DEFECT IS THAT THIS TABLE HAS ONE COLUMN. A minimum area is a
+        // function of JURISDICTION, and PRYZM already resolves jurisdiction elsewhere
+        // (15 countries, the planning-regime resolver). Until these rows are keyed by
+        // it, ANY single value here is wrong somewhere. Recorded, not solved: L-4211.
+        //
+        // DB-022's 2.75 m clear width moves with the area — a 8 m² room cannot hold a
+        // 2.75 m short side without being 2.9 m long, which no double bedroom is. 2.4 m
+        // still fits a double bed with one-side circulation.
         // §AREA-FRACTIONS — master ≤ 20 % of the apartment (spec ceiling). Stops
         // the master from eating living/kitchen area in small flats.
-        areaWeight: 1.3, minAreaM2: 12, minShortSideM: 2.75, needsWindow: true, windowMandatory: true,
+        areaWeight: 1.3, minAreaM2: 8, minShortSideM: 2.4, needsWindow: true, windowMandatory: true,
         maxAreaFrac: 0.20,
         // Master is reached from CORRIDOR / living / dining AND connects to its
         // en-suite — never directly off the entrance hall (the user's rule).
@@ -521,11 +541,20 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     bedroom: {
         type: 'bedroom', occupancy: 'bedroom', privacy: 'private',
         acousticRole: 'receiver', frontage: 'required',
-        // DB-026 double bedroom minAreaM2 11.5 (Building Regs mandatory); DB-028 min
-        // clear width 2.6 m. (Single bedroom 7.5 m² / 2.15 m is permitted by Building
-        // Regs DB-030/031 but we default to double-capable to avoid box rooms.)
+        // §BEDROOM-MINIMA-ARE-JURISDICTIONAL (L-4210, founder ruling 2026-08-22).
+        //
+        // ⛔ WAS `minAreaM2: 11.5, minShortSideM: 2.6`. ⭐ THE OLD COMMENT ALREADY
+        // CONTAINED THE ANSWER AND OVERRODE IT: *"Single bedroom 7.5 m² / 2.15 m is
+        // permitted by Building Regs DB-030/031 but we default to double-capable to
+        // AVOID BOX ROOMS."* So 7.5 was never forbidden — a PRODUCT PREFERENCE was
+        // stacked on top of a standard and then inherited that standard's word
+        // "mandatory". The founder has reversed the preference; the standard is
+        // untouched because it never said 11.5 was a floor for every bedroom.
+        //
+        // See the master row for why these numbers are JURISDICTIONAL and why one
+        // column cannot be right everywhere (L-4211).
         // §AREA-FRACTIONS — secondary bedroom ≤ 16 % each (spec ceiling).
-        areaWeight: 1.0, minAreaM2: 11.5, minShortSideM: 2.6, needsWindow: true, windowMandatory: true,
+        areaWeight: 1.0, minAreaM2: 7.5, minShortSideM: 2.15, needsWindow: true, windowMandatory: true,
         maxAreaFrac: 0.16,
         // A bedroom's door MUST land on circulation or a social space — never another
         // bedroom and never directly off the entrance hall. The user's explicit rule:
