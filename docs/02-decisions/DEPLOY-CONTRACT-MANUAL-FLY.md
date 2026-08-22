@@ -1144,3 +1144,28 @@ byte-identity claim before assuming any future post-SHA commit is equally harmle
 hygiene" is not a property you can read off a commit message.
 
 ---
+
+## 6.9.6 EIGHTH EXECUTION — 2026-08-22 (`fbea29f2`), bundle proof 6/6 — DEPLOYED WITH A LANE LIVE IN THE TREE
+
+**Result: PASSED.** Served chunk `main-DrFBo7EY.js` → **`main-BrCcxFlJ.js`**; cesium 257 / google 39;
+`/version` `git_sha == fbea29f2a5…`; `/api/health/live` `{"ok":true}`. Rollback tag captured **before**
+deploying (§5.3): `pryzm:deployment-01M0M2JF4DJTF9G633JR2F8CRC`. Builder verified **16384 MB** (§2.1).
+Two deploys in one morning — `04a57083` (6.9.5), then `f48d11d7`, then this.
+
+### ⭐ The new condition this execution ran under: a SUBAGENT WAS EDITING THE TREE
+
+Lane WIN5 was live in the working tree when the deploy was staged. That is the exact scenario §6.9.5
+recorded as *"a typecheck reading has a shelf life of minutes"* — so the root `tsc` was **re-run at
+the gate**, not reused from ten minutes earlier, and `git status --porcelain` was **read immediately
+before** the worktree checkout to confirm the lane had not landed a partial edit.
+
+**The check that matters is not "is tsc green" but "is tsc green ON THE SHA I AM ABOUT TO SHIP".**
+The deploy worktree is detached at an explicit SHA, so a lane committing mid-deploy cannot reach the
+image — but a lane's UNCOMMITTED edit in the MAIN tree can absolutely reach a `tsc` run in the main
+tree and make a green reading meaningless in either direction. Both were checked; both clean.
+
+⚠ **WIN5's work is NOT in this image**, by construction, and that is correct — a deploy names a SHA.
+
+### Timing
+
+Dispatch → proof ≈ **21 min**, first attempt, no retry. Blue-green rolled cleanly.
