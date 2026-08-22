@@ -5,10 +5,26 @@
  * Layer:    L2 — packages/core-app-model
  * Contract: C66 §1.1 (a figure that has not been measured is a CLAIM — applied
  *           here to durations), C03 (read model; mutates nothing, no undo entry).
- * ADR:      ADR-0351 §4D, **AMENDED IN PLACE by ADR-0353 §3**. Read that
- *           amendment before changing anything here: this module exists because
- *           a founder ruling reversed part of a written refusal, and the half
- *           that was NOT reversed is still binding.
+ * ADR:      ADR-0351 (§8 4D-3 and 4D-5 are the binding half), **AMENDED by
+ *           ADR-0355 §2**. Read that amendment before changing anything here:
+ *           this module exists because a founder ruling reversed part of a
+ *           written refusal, and the half that was NOT reversed is still binding.
+ *
+ *           ⚠ CITATION CORRECTED 2026-08-22 (lane SEQ27, L-6301). This line read
+ *           "ADR-0351 §4D, AMENDED IN PLACE by ADR-0353 §3". BOTH halves were
+ *           wrong and they were wrong in different ways:
+ *             • ADR-0351 has no "§4D" heading. Its sections are numbered 1..9;
+ *               the 4D material is §8's rows tagged `4D-1`..`4D-6`. Measured:
+ *               `grep -n "^## " docs/02-decisions/adrs/ADR-0351-*.md`.
+ *             • ADR-0353 is "A reflected ceiling plan is PLAN-HANDED" (lane
+ *               VIEWDOC20, 2026-08-22) and its §3 is about coordinate mapping.
+ *               It is not an amendment to anything here. Measured: `grep -c
+ *               "sequence\|duration\|output rate\|constructab" ADR-0353-*.md`
+ *               -> 1, an incidental match.
+ *           TWO LANES MINTED 0353 ON THE SAME DAY and the sequence lane's
+ *           amendment never got a number at all. ADR-0355 is that missing
+ *           amendment. ⛔ The refusals below are UNCHANGED by the correction —
+ *           only the pointer to where they are ratified was wrong.
  *
  * ═════════════════════════════════════════════════════════════════════════════
  * ⭐ WHAT WAS REVERSED, AND — MORE IMPORTANTLY — WHAT WAS NOT

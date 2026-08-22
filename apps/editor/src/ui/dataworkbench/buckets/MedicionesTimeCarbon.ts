@@ -58,7 +58,13 @@ import {
     type LevelOrderEntry,
     type SequencedActivity,
     type DerivedConstructionSequence,
+    buildSequenceGraph,
 } from '@pryzm/core-app-model';
+// §SEQUENCE-GRAPH (L-6300) — the SAME derived sequence, drawn as a dependency
+// graph. ⛔ Not a second read model and not a second tab: one `sequence`
+// variable feeds both views, so the list and the picture cannot disagree.
+import { drawGraph, drawLegend, refusalsHtml, absentTradesHtml } from './SequenceGraphView';
+import { SeriesFocus } from '../../analysis/seriesFocus';
 import type { MaterialCarbonFacts } from '@pryzm/schemas/materials';
 // The scrubber asks "built by the END of this day?", so it must use the ONE
 // spelling of that instant. Hand-rolling `+ MS_DAY - 1` here is how one surface
@@ -226,6 +232,20 @@ interface TimeUiState {
     hideUnscheduled: boolean;
     /** Set while a time filter is projected onto the viewport. */
     applied: boolean;
+    /**
+     * §SEQUENCE-GRAPH (L-6302) — how the DERIVED SEQUENCE is drawn.
+     *
+     * ⭐ A VIEW MODE, NOT A TAB. Both modes render the SAME
+     * `deriveConstructionSequence` output. The founder asked for "a tab for 6d
+     * graph of execution"; `6D` is already Carbon on this bucket's tab bar, and
+     * two tabs called 6D would be a permanent misnaming in the one product whose
+     * whole discipline is naming things accurately — so the picture lives here,
+     * beside the data it draws. ADR-0355 §3 records the decision and his words.
+     *
+     * ⛔ `list` STAYS THE DEFAULT. He uses the list; a new view must not take his
+     * existing one away on first open.
+     */
+    seqView: 'list' | 'graph';
 }
 
 const timeUi = new WeakMap<HTMLElement, TimeUiState>();
@@ -249,7 +269,8 @@ function renderTime(panel: HTMLElement, runtime: Runtime): void {
     const schedule = loadSchedule(runtime);
     const resolved = resolveTasks(schedule, takeoff);
     const coverage = scheduleCoverage(schedule, takeoff);
-    const ui = timeUi.get(panel) ?? { dayOffset: 0, hideUnscheduled: false, applied: false };
+    const ui = timeUi.get(panel)
+        ?? { dayOffset: 0, hideUnscheduled: false, applied: false, seqView: 'list' as const };
     timeUi.set(panel, ui);
 
     const w = coverage.windowMs;
@@ -340,7 +361,7 @@ function renderTime(panel: HTMLElement, runtime: Runtime): void {
                         </div>
                     </section>`}
 
-                ${sequenceSection(sequence, takeoff, adoptedActivityIds)}
+                ${sequenceSection(sequence, takeoff, adoptedActivityIds, ui.seqView)}
 
                 <section style="margin-bottom:18px;">
                     <h4 style="margin:0 0 8px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--app-text);">Add a task</h4>
@@ -388,6 +409,17 @@ function renderTime(panel: HTMLElement, runtime: Runtime): void {
 
     bindTime(panel, runtime, takeoff, schedule, state, totalDays);
     bindSequence(panel, runtime, takeoff, schedule, sequence);
+
+    // §SEQUENCE-GRAPH (L-6305) — the view switch, and the mount for the picture.
+    for (const btn of panel.querySelectorAll<HTMLButtonElement>('[data-seq-view]')) {
+        btn.addEventListener('click', () => {
+            const next = btn.getAttribute('data-seq-view');
+            if (next !== 'list' && next !== 'graph') return;
+            ui.seqView = next;
+            renderTime(panel, runtime);
+        });
+    }
+    if (ui.seqView === 'graph') mountSequenceGraph(panel, sequence, takeoff);
 }
 
 /**
@@ -557,22 +589,91 @@ function activityCard(a: SequencedActivity, takeoff: TakeoffResult, alreadyAdopt
         </article>`;
 }
 
-/** The whole derived-sequence section, including its refusal statement. */
-function sequenceSection(seq: DerivedConstructionSequence, takeoff: TakeoffResult, adopted: ReadonlySet<string>): string {
+/**
+ * The whole derived-sequence section, including its refusal statement.
+ *
+ * §SEQUENCE-GRAPH (L-6303) — TWO VIEWS, ONE READ MODEL. `seq` is the single
+ * `deriveConstructionSequence` result; the list renders it as cards and the graph
+ * renders it as a DAG. The coverage statement above the switch belongs to NEITHER
+ * view — it is printed once, outside them, so that changing view cannot drop it.
+ */
+function sequenceSection(
+    seq: DerivedConstructionSequence,
+    takeoff: TakeoffResult,
+    adopted: ReadonlySet<string>,
+    view: 'list' | 'graph',
+): string {
+    const tab = (id: 'list' | 'graph', label: string, title: string): string => `
+        <button type="button" data-seq-view="${id}" title="${escapeHtml(title)}"
+                aria-pressed="${view === id}"
+                style="padding:3px 10px;border-radius:99px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid ${view === id ? 'var(--app-accent)' : 'var(--app-border)'};background:${view === id ? 'rgba(102,0,255,.10)' : 'var(--app-panel-bg)'};color:${view === id ? 'var(--app-accent)' : 'var(--app-text-muted)'};">${escapeHtml(label)}</button>`;
+
     return `
         <section style="margin-bottom:18px;">
             <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding-bottom:6px;border-bottom:2px solid var(--app-accent);margin-bottom:8px;">
                 <h4 style="margin:0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--app-text);">Derived build sequence</h4>
                 <span style="font-size:10px;color:var(--app-text-muted);font-style:italic;">Secuencia constructiva</span>
-                <span style="margin-left:auto;font-size:10px;color:var(--app-text-muted);">${seq.activities.length} activities</span>
+                <span style="margin-left:auto;display:inline-flex;gap:5px;align-items:center;">
+                    ${tab('list', 'List', 'The activities as cards, in build order, each adoptable as a task.')}
+                    ${tab('graph', 'Execution graph', 'The SAME activities as a dependency mind map. A graph, not a programme: there is no time axis, because no activity has a duration.')}
+                </span>
+                <span style="font-size:10px;color:var(--app-text-muted);">${seq.activities.length} activities</span>
             </div>
             <div style="font-size:10.5px;line-height:1.65;color:var(--app-text);margin-bottom:10px;padding:9px 11px;border:1px solid var(--app-accent);border-radius:9px;background:rgba(102,0,255,.05);white-space:normal;overflow-wrap:break-word;">
                 ${escapeHtml(seq.coverageStatement)}
             </div>
-            <div style="display:flex;flex-direction:column;gap:7px;">
+            ${view === 'graph'
+                ? '<div data-seq-graph></div>'
+                : `<div style="display:flex;flex-direction:column;gap:7px;">
                 ${seq.activities.map((a) => activityCard(a, takeoff, adopted.has(a.id))).join('')}
-            </div>
+            </div>`}
         </section>`;
+}
+
+/**
+ * §SEQUENCE-GRAPH (L-6304) — mount the radial dependency graph.
+ *
+ * ⭐ EVERY REFUSAL IS RENDERED BEFORE THE PICTURE, NOT AFTER IT. The four
+ * sentences come from `graph.refusals`, which is a FIELD on the read model rather
+ * than a template literal here — a caveat that lives only in markup is one
+ * refactor away from deletion, and the DOM suite asserts these are on screen.
+ */
+function mountSequenceGraph(panel: HTMLElement, seq: DerivedConstructionSequence, takeoff: TakeoffResult): void {
+    const host = panel.querySelector<HTMLElement>('[data-seq-graph]');
+    if (!host) return;
+    const graph = buildSequenceGraph(seq, takeoff);
+
+    const caveats = document.createElement('div');
+    caveats.setAttribute('data-seq-refusals', '');
+    caveats.style.cssText = 'font-size:9.5px;line-height:1.6;color:#B3261E;margin-bottom:8px;padding:8px 10px;border:1px solid rgba(179,38,30,.35);border-radius:9px;background:rgba(179,38,30,.04);white-space:normal;overflow-wrap:break-word;';
+    caveats.innerHTML = refusalsHtml(graph) + absentTradesHtml(graph);
+    host.appendChild(caveats);
+
+    // The focus scope is the graph host, so an emphasis here cannot reach the
+    // task cards below — one mechanism, but scoped to the picture it belongs to.
+    const focus = new SeriesFocus(host);
+
+    const strip = document.createElement('div');
+    strip.setAttribute('data-seq-explain', '');
+    strip.style.cssText = 'min-height:34px;font-size:10px;line-height:1.6;color:var(--app-text);padding:7px 10px;border:1px solid var(--app-border);border-radius:9px;background:var(--app-bg);margin-bottom:8px;white-space:normal;overflow-wrap:break-word;';
+    strip.innerHTML = '<span style="color:var(--app-text-muted);">Click an activity to light it and its dependencies, or click a curve to read WHY that dependency exists. Click the background to clear.</span>';
+    host.appendChild(strip);
+
+    const canvas = document.createElement('div');
+    canvas.style.cssText = 'border:1px solid var(--app-border);border-radius:9px;background:var(--app-panel-bg);padding:4px;';
+    host.appendChild(canvas);
+    drawGraph(canvas, graph, focus, (html) => {
+        strip.innerHTML = html || '<span style="color:var(--app-text-muted);">Click an activity to light it and its dependencies, or click a curve to read WHY that dependency exists. Click the background to clear.</span>';
+    });
+
+    drawLegend(host, graph, focus);
+
+    const ringNote = document.createElement('div');
+    ringNote.style.cssText = 'margin-top:6px;font-size:9px;line-height:1.55;color:var(--app-text-muted);';
+    ringNote.textContent =
+        `The rings are DEPENDENCY DEPTH, 0 to ${graph.maxDepth}: how many activities must finish before this one can start. `
+        + 'They are not weeks, dates or phases, and the centre is not "day one" — it is the activity that nothing precedes.';
+    host.appendChild(ringNote);
 }
 
 /**

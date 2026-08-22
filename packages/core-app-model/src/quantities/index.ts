@@ -112,8 +112,19 @@ export {
 } from './ScheduleModel.js';
 
 // ── 4D — THE DERIVED CONSTRUCTION SEQUENCE (§CONSTRUCTABILITY-SEQUENCE,
-//        L-4840, ADR-0353 §3). Order and dependencies are DERIVED; durations
-//        are still refused, and `TaskDurationSource` is deliberately NOT widened.
+//        L-4840, ADR-0351 §8 4D-3/4D-5 + ADR-0355 §2). Order and dependencies
+//        are DERIVED; durations are still refused, and `TaskDurationSource` is
+//        deliberately NOT widened.
+//
+//        ⚠ CITATION CORRECTED 2026-08-22 (lane SEQ27, L-6301). This block and
+//        the `ConstructionSequence.ts` header both read "ADR-0353 §3". ADR-0353
+//        is "A reflected ceiling plan is PLAN-HANDED" (lane VIEWDOC20, same
+//        day) and §3 of it is about coordinate mapping — it says nothing about
+//        sequences, durations or output rates. Two lanes minted 0353 on
+//        2026-08-22 and the sequence lane's amendment never got a number.
+//        Measured: `grep -c "sequence\|duration\|output rate\|constructab"
+//        docs/02-decisions/adrs/ADR-0353-*.md` -> 1 (an incidental match).
+//        ADR-0355 is that missing amendment, written by this lane.
 export type {
   BuildStage,
   BuildStageDef,
@@ -130,5 +141,20 @@ export {
   deriveConstructionSequence,
   activitiesWithAFabricatedDuration,
 } from './ConstructionSequence.js';
+
+// ── 4D — THE SEQUENCE AS A DEPENDENCY GRAPH (§SEQUENCE-GRAPH, L-6300..L-6312,
+//        ADR-0355). A DAG, NOT a timeline: the ORDER and the DEPENDENCY EDGES
+//        are real, so they are drawn; durations, dates, float and the critical
+//        path are not, so no axis, scale or coordinate is emitted here.
+export type {
+  SequenceGraph,
+  SequenceGraphNode,
+  SequenceGraphEdge,
+  AbsentTrade,
+} from './SequenceGraph.js';
+export {
+  buildSequenceGraph,
+  sequenceGraphTimeClaims,
+} from './SequenceGraph.js';
 
 export { carbonToCsv, scheduleToCsv } from './carbonCsv.js';
