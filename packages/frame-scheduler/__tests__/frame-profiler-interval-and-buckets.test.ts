@@ -33,7 +33,7 @@
  * exactly why the instrument has to be right before he reads it.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -417,6 +417,30 @@ describe('§NAV-PROFILER-BUCKETS-THE-WRONG-LISTENER — the CENSUS GUARD', () =>
         _scanCache = found;
         return found;
     }
+
+    /**
+     * ⭐ §THE-WALK-IS-SETUP-COST-NOT-TEST-COST (lane NAV29, 2026-08-22) — warm the scan
+     * HERE, with a stated budget, so no assertion is charged for it.
+     *
+     * ⛔ MEASURED FLAKE, and it is worth naming precisely because of how it presents.
+     * Memoising the walk fixed the repeated cost but concentrated ALL of it on whichever
+     * `it()` happened to run first. That arm then failed as `Test timed out in 5000ms` —
+     * on a run where the walk took ~2 s in one pass and >5 s in the next, with three lanes
+     * contending for the same disk (vitest reported `transform 21.90s` on the slow run
+     * against `2.54s` on the fast one). NOTHING about the code under test had changed.
+     *
+     * ⛔ A CENSUS GUARD THAT FAILS AS A TIMEOUT IS WORSE THAN ONE THAT FAILS LOUDLY. Its
+     * whole value is the message it prints — *"ADD A ROW to LISTENER_BUCKETS"* — and a
+     * timeout prints none of it. The next reader sees a red frame-scheduler suite, finds
+     * a stopwatch complaint, and learns nothing about classification. That is how a guard
+     * gets marked flaky and then gets skipped.
+     *
+     * ⛔ AND THE FIX IS NOT A BIGGER PER-TEST TIMEOUT. The walk is not what any assertion
+     * is testing; it is the fixture they all share. Charged as setup it has an honest,
+     * generous budget, and every assertion below runs in milliseconds against a warm map
+     * — so a red arm from here on is a real classification failure and can only be that.
+     */
+    beforeAll(() => { scanTickListenerIds(); }, 120_000);
 
     it('the scan is NON-VACUOUS — it finds the ids this lane measured by hand', () => {
         // ⛔ A repo scan that silently matches nothing is a green test that guards
