@@ -2300,8 +2300,40 @@ export interface ToolsSlot {
    * @param activator  Sync callback.  Receives the optional mode string.
    */
   register(family: string, activator: (mode?: string) => void): void;
-  /** Activate a tool family, optionally specifying a draw mode. */
-  activate(toolId: string, mode?: string): void;
+  /**
+   * Activate a tool family, optionally specifying a draw mode.
+   *
+   * §FIX-ACTIVATE-REPORTS-WHETHER-ANYTHING-RAN (L-4600, founder 2026-08-22).
+   *
+   * ⭐ RETURNS `true` ONLY WHEN A REGISTERED ACTIVATOR ACTUALLY RAN.
+   *
+   * This used to return `void`, and the implementation set `activeToolId` and
+   * notified subscribers **whether or not an activator existed for `toolId`**.
+   * A caller therefore could not distinguish "the tool is now armed" from
+   * "nobody has ever registered this family, and I have just recorded a tool
+   * id that arms nothing". The chat placement capability
+   * (`apps/editor/src/ui/ai/chatPlacementActivation.ts`) consumed exactly that
+   * non-signal and replied *"<X> tool is active — click to place"* for six
+   * families that had no activator at all — a capability reporting success
+   * while activating nothing, which is the defect shape this repo has paid for
+   * repeatedly (see `[[committed-is-not-reachable]]`, C01 §6 rule 6).
+   *
+   * `false` means: NO activator is registered under `toolId`. The active-tool
+   * id is still recorded (subscribers that only track "which button looks
+   * pressed" keep working exactly as before, so this is a widening, not a
+   * behaviour change) — but the caller now has the fact it needs in order to
+   * be honest with the user instead of guessing.
+   *
+   * ⛔ Do NOT make the caller's message vaguer to accommodate a `false`. Either
+   * register an activator, or say which family had none.
+   */
+  activate(toolId: string, mode?: string): boolean;
+  /**
+   * §FIX-ACTIVATE-REPORTS-WHETHER-ANYTHING-RAN (L-4600) — is a real activator
+   * registered for `family`? Lets a caller ask BEFORE committing to a sentence,
+   * and lets a coverage gate enumerate the slot without activating anything.
+   */
+  hasActivator(family: string): boolean;
   deactivate(): void;
   subscribe(listener: (toolId: string | null) => void): Disposable;
 }

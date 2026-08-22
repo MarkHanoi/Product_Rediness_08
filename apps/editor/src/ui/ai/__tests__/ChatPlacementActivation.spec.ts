@@ -229,3 +229,61 @@ describe('activation never overclaims', () => {
         expect(world.furnitureActivations).toEqual([]);
     });
 });
+
+// ─── §FIX-ACTIVATE-REPORTS-WHETHER-ANYTHING-RAN (L-4600) ────────────────
+//
+// The founder typed "Create Stair" and was told "Stair tool is active — … click
+// to place". Nothing was created and no panel appeared.
+//
+// The mechanism: `runtime.tools.activate()` returned `void` and recorded the
+// active-tool id whether or not an activator existed, so this bridge reached the
+// success sentence for SIX declared families that arm nothing (measured
+// 2026-08-22: furniture, grid, lift, lighting, railing, stair-path — the set
+// difference between ELEMENT_CREATION_MATRIX tool ids and the ids passed to
+// runtime.tools.register in ToolsAreaLayout).
+//
+// ⛔ THE FIX IS NOT A VAGUER SENTENCE. The reply asserted below is MORE
+// specific than the one it replaces.
+
+describe('§FIX-ACTIVATE-REPORTS-WHETHER-ANYTHING-RAN — chat must not claim an activation that did not happen', () => {
+    it('⭐ activate() returns FALSE → the reply says NOTHING was activated and names the family', () => {
+        // The real slot returns false when no activator is registered.
+        w()['runtime'] = {
+            tools: { activate: () => false },
+            events: { emit: vi.fn() },
+        };
+        const reply = activatePlacementFromChat('stair');
+
+        // It must NOT make the old claim …
+        expect(reply).not.toContain('tool is active');
+        expect(reply).not.toContain('nothing is created until you click');
+        // … and it must say what actually happened, naming the family so the
+        // reader can act on it.
+        expect(reply).toContain('nothing was activated');
+        expect(reply).toContain('NO ACTIVATOR');
+        expect(reply).toContain('stair');
+    });
+
+    it('activate() returns TRUE → the ordinary success sentence is unchanged', () => {
+        w()['runtime'] = {
+            tools: { activate: () => true },
+            events: { emit: vi.fn() },
+        };
+        const reply = activatePlacementFromChat('slab');
+        expect(reply).toContain('Slab tool is active');
+        expect(reply).toContain('nothing is created until you click');
+    });
+
+    it('⚠ a slot that returns VOID is treated as success — deliberate, and this pins it', () => {
+        // Only an EXPLICIT `false` triggers the refusal (`armed === false`).
+        // Every pre-existing caller and stub returns undefined, and widening the
+        // test to `!armed` would have turned all of them into false refusals —
+        // a "fix" that reports failure on success is the same defect inverted.
+        w()['runtime'] = {
+            tools: { activate: () => undefined },
+            events: { emit: vi.fn() },
+        };
+        const reply = activatePlacementFromChat('slab');
+        expect(reply).toContain('Slab tool is active');
+    });
+});

@@ -357,7 +357,35 @@ export function activatePlacementFromChat(
     // The exact palette call (`CreateRailPanel._activateTool`): no mode is
     // passed, so the registered activator applies its own default — the same
     // default the palette's plain button press gets.
-    tools.activate(entry.tool);
+    //
+    // §FIX-ACTIVATE-REPORTS-WHETHER-ANYTHING-RAN (L-4600, founder 2026-08-22).
+    //
+    // ⭐ THE RETURN VALUE IS THE WHOLE FIX. `activate()` used to return `void`
+    // and recorded the active-tool id whether or not a real activator existed,
+    // so this function reached the success sentence for SIX declared families
+    // that arm nothing (measured 2026-08-22 — `furniture`, `grid`, `lift`,
+    // `lighting`, `railing`, `stair-path`: the set difference between the tool
+    // ids in `ELEMENT_CREATION_MATRIX` and the ids passed to
+    // `runtime.tools.register` in `ToolsAreaLayout`). The founder's "Create
+    // Stair" report is this shape, and a capability that reports success and
+    // activates nothing is the defect this repo has paid for repeatedly.
+    //
+    // ⛔ THE FIX IS NOT A VAGUER SENTENCE. The reply below is MORE specific
+    // than the one it replaces: it names the family, states plainly that
+    // nothing was activated, and points at the palette — the same escape hatch
+    // every other honest branch in this function offers. C01 §6 rule 6:
+    // "cannot happen" is a measurement, and here we have the measurement at
+    // runtime, so we report it rather than assuming the happy path.
+    const armed = tools.activate(entry.tool);
+    if (armed === false) {
+        return (
+            `I resolved "${ref}" to the ${entry.name} tool, but NO ACTIVATOR is registered ` +
+            `for "${entry.tool}" in this session — nothing was activated and nothing will be ` +
+            `placed if you click. This is a wiring gap, not something you did wrong. ` +
+            `The console line beginning "[runtime-composer/tools] NO ACTIVATOR registered" ` +
+            `names the families that ARE wired.`
+        );
+    }
     const viewNote =
         entry.views.length === 1 ? ` (this tool works in the ${entry.views[0]} view only)` : '';
     const shaped = shapeLabel === null ? entry.name : `${entry.name} (${shapeLabel})`;

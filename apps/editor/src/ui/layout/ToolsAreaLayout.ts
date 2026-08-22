@@ -191,7 +191,16 @@ export function mountToolsArea(
         // The mode test runs FIRST and the collision is guarded rather than assumed —
         // if someone ever publishes a type whose id is a mode name, the console says so
         // instead of the tool quietly doing the wrong one of the two things.
-        runtime.tools.register('handrail', (m?) => {
+        // §FIX-DECLARED-TOOL-WITH-NO-ACTIVATOR (L-4601) — ONE closure, registered
+        // under BOTH names. `elementCreationMatrix` declares this family as
+        // `railing`; this file registered it as `handrail`. The two id spaces are
+        // the SAME family under two spellings, so `runtime.tools.activate('railing')`
+        // — the id chat and every matrix-driven caller resolve to — found no
+        // activator and silently armed nothing while reporting success. Aliasing is
+        // correct here and a rename is not: `handrail` is the id the palette,
+        // `HandrailModePicker` and `service.activateHandrailTool` already use, and
+        // `railing` is the id the shared capability table declares. Both must work.
+        const activateRailingFamily = (m?: string): void => {
             if (isHandrailDrawMode(m)) {
                 if (handrailTypeStore.getById(m)) {
                     console.warn(
@@ -204,7 +213,9 @@ export function mountToolsArea(
                 return;
             }
             service.activateHandrailTool(m);
-        });
+        };
+        runtime.tools.register('handrail', activateRailingFamily);
+        runtime.tools.register('railing',  activateRailingFamily);
         runtime.tools.register('ramp',          ()   => { const t = window.rampTool; if (t) t.activate?.(); else console.warn('[runtime.tools/ramp] rampTool not ready'); }); // TODO(E.6): legacy window.rampTool bridge — delete when plugins/ramp lands per §16.5
         // §FIX-AUTO-MODE-DROPPED-AT-ACTIVATION (L-918, founder 2026-08-15) — these two
         // activators were declared `() => service.activateX()`. Nineteen of the
@@ -284,7 +295,51 @@ export function mountToolsArea(
         runtime.tools.register('roof',          (m?) => service.activateRoofTool((m as any) ?? '2point'));
         runtime.tools.register('opening',       (m?) => tm.activateOpeningTool?.(m ?? '2point'));
         runtime.tools.register('plumbing',      (m?) => service.activatePlumbingTool((m as any) ?? 'toilet'));
-        console.log('[Layout] Phase E (S78-WIRE) — 21 tool activators registered with runtime.tools');
+
+        // ── §FIX-DECLARED-TOOL-WITH-NO-ACTIVATOR (L-4601, founder 2026-08-22) ──
+        //
+        // ⭐ FOUND BY DIFFING THE DECLARED LIST AGAINST THE REGISTERED ONE, NOT BY
+        // READING EITHER. `ELEMENT_CREATION_MATRIX` declares 20 tool ids and THIS
+        // block registered 20 activators — and the COUNTS MATCHING is exactly what
+        // hid the problem, because the SETS did not.
+        //
+        // ⚠ THE FIRST MEASUREMENT OF THIS GAP WAS WRONG, AND THE CORRECTION IS THE
+        // POINT. Diffing the matrix against THIS FILE ALONE said six ids were
+        // unbound (`furniture`, `grid`, `lift`, `lighting`, `railing`, `stair-path`).
+        // But `runtime.tools.register` has THREE production call sites, not one —
+        // `apps/editor/src/PluginRegistry.ts` holds 27 more, and it already binds
+        // `furniture` and `lighting`. Diffing against ALL of them (`git show HEAD:` on
+        // each, so the reading could not include this lane's own edits) gives the real
+        // pre-existing gap: **FOUR** — `grid`, `lift`, `railing`, `stair-path`.
+        //
+        // ⛔ AND `lighting` WAS VERY NEARLY A REGRESSION. `activators.set()` means the
+        // LAST registration wins; PluginRegistry's `lighting` activator CONSTRUCTS a
+        // `LightingPlacementTool` and assigns `window.lightingTool`. A well-meaning
+        // second registration here would have silently replaced the constructor with a
+        // bare `.activate()` on whatever happened to be there. Not registered. The
+        // coverage gate now reads all three files, so it cannot make this mistake.
+        // (`grid` is safe: PluginRegistry binds `grid:tool`, a DIFFERENT id.)
+        //
+        // Until this landed, `runtime.tools.activate('railing' | 'stair-path' | 'grid'
+        // | 'lift')` silently armed NOTHING and every caller — chat included —
+        // reported success.
+        //
+        // `stair-path` is the matrix's DUAL-VIEW REFERENCE row and authors from the
+        // same `StairToolConfigStore` as `stair`, so it takes the same activator: the
+        // argument is a SHAPE, exactly as the `stair` row above.
+        runtime.tools.register('stair-path',    (m?) => service.activateStairPathTool((m as StairShapeChoice) ?? 'I'));
+        runtime.tools.register('grid',          ()   => { void tm.activateGrid?.(); });
+        runtime.tools.register('lift',          ()   => { void tm.activateLift?.(); });
+        // ⭐ NO HAND-COUNTED TOTAL IN THIS LINE, DELIBERATELY. It used to read
+        // "21 tool activators registered" — a literal that had already rotted
+        // (the real figure was 20) and, worse, a COUNT: the exact form of
+        // statement that let six missing families hide behind "20 declared, 20
+        // registered" for as long as they did (L-4601). The gate compares SETS;
+        // this line names what changed and stops claiming a total.
+        console.log(
+            '[Layout] Phase E (S78-WIRE) — tool activators registered with runtime.tools ' +
+            '(§FIX-DECLARED-TOOL-WITH-NO-ACTIVATOR: +stair-path, +railing, +grid, +lift, +lighting)',
+        );
     }
     // Sprint §49: expose pickers so plan-view tool handlers can read the
     // active drawing mode on every mousemove (mirrors wallModePicker pattern).

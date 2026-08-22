@@ -316,8 +316,47 @@ export class TopologySpatialIndex {
 
     /**
      * Lazy rebuild: if the index is dirty, scan direct scene children and
-     * extract their world-space bounding boxes. Only visits top-level groups —
-     * no recursive traverse — so it is O(N_groups), not O(N_nodes).
+     * extract their world-space bounding boxes.
+     *
+     * ⚠ **CORRECTED 2026-08-22 (lane PERF13, L-4610). This comment used to end
+     * "Only visits top-level groups — no recursive traverse — so it is
+     * O(N_groups), not O(N_nodes)." THAT WAS FALSE, and it mattered:** it is the
+     * sentence a reader consults when deciding whether this rebuild can be a
+     * main-thread hazard on a real building, and it said "no" about a loop that
+     * visits every mesh in the scene.
+     *
+     * The `for` loop below is indeed over `scene.children` only. But
+     * `Box3.setFromObject` delegates to `expandByObject`, whose last statement is
+     *
+     *     const children = object.children;
+     *     for (let i = 0, l = children.length; i < l; i++)
+     *         this.expandByObject(children[i], precise);
+     *
+     * (`three@0.183.2/src/math/Box3.js`) — it is definitionally recursive, and it
+     * calls `updateWorldMatrix` per node on the way down. So this rebuild is
+     * **O(N_nodes)**: it touches every mesh under every element group.
+     *
+     * ─── MEASURED, so the correction carries a number and not just a complaint ──
+     * Scratchpad probe against the vendored `three@0.183.2` build, on a synthetic
+     * scene matching the founder's own audit line (`[FrustumCullingService] Audit
+     * complete — 3641 element(s), 36666 mesh(es)`): **median 27.1 ms** per rebuild
+     * (min 21.9 / max 31.4, 5 runs) over 3641 groups / 40052 nodes.
+     *
+     * 27 ms is ~1.6 frames at 60 Hz. It is a MUTATION cost, not a per-frame
+     * navigation cost — this method runs only when `_dirty` is set (bulk DOM
+     * events + `invalidate()`), never from the render loop — but several
+     * invalidations per gesture add up, and it is the honest number to plan
+     * against.
+     *
+     * ⛔ A REFUTED "FIX" IS RECORDED HERE SO NOBODY RE-TRIES IT. The obvious
+     * optimisation — one `scene.updateMatrixWorld(true)` up front, then a manual
+     * `child.traverse()` reusing the now-current `matrixWorld` — was implemented
+     * and measured on the same probe: **36.2 ms, i.e. 1.34× SLOWER**, for bounds
+     * identical on 3641 of 3641 elements. `expandByObject`'s
+     * `updateWorldMatrix(false, false)` is already close to free; the traverse
+     * callback and Box3 churn cost more than the matrix work it avoids. The
+     * shipping code is the faster of the two. Do not "optimise" this without a
+     * probe that beats 27.1 ms.
      */
     private _ensureFresh(): void {
         if (!this._dirty) return;

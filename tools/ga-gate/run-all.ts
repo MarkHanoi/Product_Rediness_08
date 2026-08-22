@@ -43,6 +43,11 @@
  *   29. check-no-direct-store-writes.ts    — P6 commands are the only mutation path (L-812, was MISSING)
  *   30. check-visibility-intent-not-ui.ts  — P7 visibility intent ≠ UI (L-812, was MISSING)
  *   31. check-chat-capability-coverage.ts  — every registered bus command is declared to the chat (ADR-0313)
+ *   31b. check-tool-activator-coverage.ts — every DECLARED creation tool has a registered
+ *                                            activator. Compares SETS, never a count: the six
+ *                                            missing families hid behind "20 declared, 20
+ *                                            registered" (L-4601). Sibling of 31, not a duplicate —
+ *                                            different source, different failure mode.
  *   33. check-batch-creation-coverage.ts   — C11 §4.2: live catalogue entries whose command
  *                                            loops over elements with NO batchCoordinator
  *                                            batch. A NAMED ledger of 4, not a count.
@@ -144,6 +149,12 @@ const GATES: Gate[] = [
   // chat capability metadata. Added 2026-08-10 after `wall.updateSystemTypeBatch`
   // and the chat panel shipped in the SAME release and could not reach each other.
   { name: 'chat-capability-coverage (ADR-0313)',      script: 'check-chat-capability-coverage.ts' },
+  // §FIX-DECLARED-TOOL-WITH-NO-ACTIVATOR (L-4602) — sibling of the line above, NOT
+  // a duplicate of it. That gate's subject is bus command VERBS reachable from
+  // chat; this one's is TOOL ACTIVATION IDS (ELEMENT_CREATION_MATRIX →
+  // runtime.tools.register). Six declared families armed nothing while reporting
+  // success, and neither the chat gate nor any other could see it.
+  { name: 'tool-activator-coverage (L-4601)',         script: 'check-tool-activator-coverage.ts' },
   // W5-3 (2026-08-11). Born passing, so it is NOT on gate-debt.json. Every
   // property-mutation command type must declare where its subject id lives and
   // whether it reaches the CRDT document — or say in writing why it does not.

@@ -414,7 +414,22 @@ function buildProjectContextStub(initialAudit: RuntimeAudit): ProjectContextSlot
   };
 }
 
-function buildToolsStub(): ToolsSlot {
+/**
+ * Build Slot 5 (`runtime.tools`).
+ *
+ * §FIX-ACTIVATE-REPORTS-WHETHER-ANYTHING-RAN (L-4600) — EXPORTED so the slot can
+ * be unit-tested on its own. It is a pure in-memory registry (one Map, one Set,
+ * no I/O, no THREE, no DOM); testing it through `composeRuntime()` would mean
+ * standing up 46 plugins, the renderer and the persistence client to observe a
+ * Map lookup, which is why `toolsSlot.activateHonesty.test.ts` calls this
+ * directly. This is the per-slot pattern `buildPickingSlot` / `picking.slot.test.ts`
+ * already established.
+ *
+ * ⛔ NOT A RIVAL COMPOSITION ROOT (P1). This builds ONE slot and wires nothing;
+ * `composeRuntime()` remains the only way production code obtains a runtime, and
+ * remains this function's only production caller.
+ */
+export function buildToolsStub(): ToolsSlot {
   let activeToolId: string | null = null;
   const subs       = new Set<(id: string | null) => void>();
   // Phase E (S78-WIRE) — real tool activators registered by Layout.ts after
@@ -436,16 +451,55 @@ function buildToolsStub(): ToolsSlot {
       activators.set(family, activator);
     },
 
+    hasActivator(family) {
+      return activators.has(family);
+    },
+
+    // §FIX-ACTIVATE-REPORTS-WHETHER-ANYTHING-RAN (L-4600, founder 2026-08-22).
+    //
+    // ⭐ THE BUG THIS CLOSES. Everything below the `const fn` line is unchanged.
+    // What changed is that the two outcomes — "an activator ran" and "no
+    // activator is registered for this id" — used to be INDISTINGUISHABLE to
+    // every caller, because this method returned `void` and took the same
+    // "record the id, notify subscribers" path in both cases. The chat
+    // placement capability read that non-answer as success and told the founder
+    // *"Stair tool is active — click to place"* on families where nothing had
+    // been armed. §CONTEXT-DATA-HONESTY: a failure and a success must not look
+    // the same value.
+    //
+    // ⛔ THE STATE TRACKING IS DELIBERATELY UNCHANGED. `activeToolId` is still
+    // set and subscribers still fire when no activator exists, so every panel
+    // that merely mirrors "which tool id is current" behaves exactly as before.
+    // Suppressing the state change here would silently break the rail
+    // highlight for the pseudo-families that legitimately have no activator.
+    // The fix is to RETURN THE FACT, not to withhold the state.
+    //
+    // The warn names the id and the registered set, so the first console line
+    // after a failing chat activation says which family is missing — that is
+    // the one-line falsification the founder can run without a debugger.
     activate(id, mode?) {
       // Call the registered real activator (if any) before state tracking.
       const fn = activators.get(id);
+      let ran = false;
       if (fn) {
-        try { fn(mode); }
-        catch (err) { console.error('[runtime-composer/tools] activator threw for', id, ':', err); }
+        try { fn(mode); ran = true; }
+        catch (err) {
+          // An activator that THREW did not arm the tool either. Reporting
+          // `true` here would restore the exact lie this change removes.
+          console.error('[runtime-composer/tools] activator threw for', id, ':', err);
+        }
+      } else {
+        console.warn(
+          `[runtime-composer/tools] NO ACTIVATOR registered for "${id}" — the active-tool id was ` +
+          `recorded but NOTHING WAS ARMED. Registered families: [${[...activators.keys()].sort().join(', ')}]. ` +
+          'Register one in ToolsAreaLayout, or stop offering this family to callers (C01 §6 rule 6).',
+        );
       }
-      if (activeToolId === id) return;
-      activeToolId = id;
-      notify();
+      if (activeToolId !== id) {
+        activeToolId = id;
+        notify();
+      }
+      return ran;
     },
 
     deactivate() {

@@ -510,7 +510,21 @@ declare global {
                  *  deliberate act. Optional for the same reason as
                  *  `familyRegistryStore` above: transitional writers of this narrow
                  *  window slot may not carry the full runtime. */
-                readonly tools?: { activate?: (toolId: string, mode?: string) => void };
+                /**
+                 * §FIX-ACTIVATE-REPORTS-WHETHER-ANYTHING-RAN (L-4600) — `activate`
+                 * now RETURNS whether a registered activator actually ran. It used to
+                 * be declared `=> void` here and in `ToolsSlot`, which is precisely
+                 * why the chat placement bridge could not tell "armed" from "no
+                 * activator exists for this family" and said "tool is active" for
+                 * both. Widened deliberately — this slot is documented as
+                 * narrow-by-design, so widening it is a deliberate act, which this is.
+                 * `hasActivator` is added so a caller can ASK before it commits to a
+                 * sentence. `boolean | void` keeps every existing call site valid.
+                 */
+                readonly tools?: {
+                    activate?: (toolId: string, mode?: string) => boolean | void;
+                    hasActivator?: (family: string) => boolean;
+                };
               }
             | undefined;
         unselectAll: (() => void) | undefined;
