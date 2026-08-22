@@ -10,6 +10,7 @@
     ".": "./src/index.ts",
     "./types": "./src/types.ts",
     "./tracing": "./src/tracing.ts",
+    "./habitability": "./src/workflows/apartmentLayout/rules/habitability/index.ts",
     "./validators": "./src/workflows/apartmentLayout/validators/index.ts",
     "./validators/validate-and-format": "./src/workflows/apartmentLayout/validators/validate-and-format.ts",
     "./validators/layout-adapter": "./src/workflows/apartmentLayout/validators/layout-adapter.ts",

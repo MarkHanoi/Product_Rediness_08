@@ -26,7 +26,10 @@
 // shippable answer; a confident answer under the wrong ordinance is not.
 
 import { resolveRegisteredJurisdictionAt } from '@pryzm/site-parcel-data';
-import type { HabitabilityBinding } from '@pryzm/ai-host';
+// The pure `./habitability` subpath, never the package barrel: the barrel reaches
+// `ConstraintEngine`, which touches `window` at module scope. Type-only here, but the
+// subpath is what makes this module importable from a node-environment test.
+import type { HabitabilityBinding } from '@pryzm/ai-host/habitability';
 
 /**
  * ⚠ THE COUNTRY CODE IS TAKEN FROM THE REGISTRATION, NEVER DERIVED FROM THE POINT.

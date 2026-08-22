@@ -3,6 +3,15 @@
 import { describe, expect, it } from 'vitest';
 import { buildBubbleGraph } from '../src/workflows/apartmentLayout/tgl/bubbleGraph.js';
 import type { ApartmentProgram } from '../src/workflows/apartmentLayout/types.js';
+// §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4414, lane JURIS11, 2026-08-22) — the
+// allocator's area FLOOR is `roomMinima(type, binding)`; with NO binding that is the
+// named PRYZM baseline, which is derived from ROOM_RULES. The three clamp tests below
+// used to assert the LITERAL 11.5 and had been RED since d11c225d ruled it to 7.5 —
+// red for a reason that was not a defect, exactly as the L-4210 commit described of
+// `apartmentLayout.test.ts`. They now read the SAME authority the allocator reads, so
+// they survive the next ruling AND the arrival of a real jurisdiction at runtime, where
+// no literal can be correct in every country.
+import { roomMinima } from '../src/workflows/apartmentLayout/rules/habitability/index.js';
 
 const PROGRAM: ApartmentProgram = {
     bedrooms: 2, bathrooms: 1, masterEnSuite: true,
@@ -218,10 +227,10 @@ describe('buildBubbleGraph (TGL P2)', () => {
     it('enforces §8 minima even on a tiny shell', () => {
         const g = buildBubbleGraph(PROGRAM, 20);
         for (const r of g.rooms) {
-            // UK Building Regs / HQI mandatory minima (constraint DB):
-            // DB-026 double bedroom 11.5 m²; DB-047 living 14 m².
-            if (r.type === 'bedroom') expect(r.targetAreaM2).toBeGreaterThanOrEqual(11.5);
-            if (r.type === 'living')  expect(r.targetAreaM2).toBeGreaterThanOrEqual(14);
+            // Assert THE RULE, not a value: no room may be allocated below the floor the
+            // allocator itself resolves for that type. Quantified over every room, so a
+            // new room type is covered without editing this test.
+            expect(r.targetAreaM2, r.type).toBeGreaterThanOrEqual(roomMinima(r.type).minAreaM2);
         }
     });
 
@@ -339,17 +348,20 @@ describe('buildBubbleGraph (TGL P2)', () => {
         });
 
         it('still clamps overrides UP to the architectural minimum (DB-026 etc.)', () => {
-            // A 5 m² override on a bedroom is illegal — DB-026 floor is 11.5 m².
-            // The override is REPLACED by the floor, not silently honoured.
+            // An override BELOW the resolved floor is REPLACED by the floor, not silently
+            // honoured. The property under test is the clamp, never the clamp's value —
+            // so the overrides are pinned below the authority rather than at a literal.
+            const bedFloor = roomMinima('bedroom').minAreaM2;
+            const bathFloor = roomMinima('bathroom').minAreaM2;
             const tooSmall: ApartmentProgram = {
                 ...PROGRAM,
-                roomAreas: { bedroom: 5, bathroom: 1 },
+                roomAreas: { bedroom: bedFloor / 2, bathroom: bathFloor / 2 },
             };
             const g = buildBubbleGraph(tooSmall, 120);
             const bed = g.rooms.find(r => r.type === 'bedroom')!;
             const bath = g.rooms.find(r => r.type === 'bathroom')!;
-            expect(bed.targetAreaM2).toBeGreaterThanOrEqual(11.5);
-            expect(bath.targetAreaM2).toBeGreaterThanOrEqual(5);   // DB-035 bathroom min
+            expect(bed.targetAreaM2).toBeGreaterThanOrEqual(bedFloor);
+            expect(bath.targetAreaM2).toBeGreaterThanOrEqual(bathFloor);
         });
 
         it('only overrides specified types — unspecified rooms keep weight-scaled defaults', () => {
@@ -420,13 +432,14 @@ describe('buildBubbleGraph (TGL P2)', () => {
         });
 
         it('name override clamps UP to the architectural minimum (same as type)', () => {
+            const bedFloor = roomMinima('bedroom').minAreaM2;
             const tooSmall: ApartmentProgram = {
                 ...PROGRAM,
-                roomAreasByName: { 'Bedroom 1': 5 },           // < DB-026 floor (11.5)
+                roomAreasByName: { 'Bedroom 1': bedFloor / 2 },   // below the resolved floor
             };
             const g = buildBubbleGraph(tooSmall, 120);
             const bedroom = g.rooms.find(r => r.type === 'bedroom')!;
-            expect(bedroom.targetAreaM2).toBeGreaterThanOrEqual(11.5);
+            expect(bedroom.targetAreaM2).toBeGreaterThanOrEqual(bedFloor);
         });
 
         it('unmatched names are silently ignored (no warning, no throw)', () => {
