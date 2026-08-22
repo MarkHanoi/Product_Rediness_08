@@ -3,7 +3,7 @@
 > **Stamp**: 2026-05-03 · **Status**: CANONICAL  
 > **Scope**: `packages/persistence-client/` (L4), `packages/file-format/` (L5), project lifecycle, project isolation, render gallery storage, and server-side PostgreSQL routing.  
 > **References**: [ADR-0203] object storage, [ADR-0204] wire format, [SPEC-26] `.pryzm` file format, [ADR-0217] `.pryzm-family` format.  
-> **Changelog**: 2026-05-03 — added §1.3 server-side pgClient routing invariant (`DATABASE_URL` before `SUPABASE_DB_URL`); added §1.3.1 FK-removal invariant (`projects_owner_id_fkey` dropped in mixed-auth deployments); §1.4 renumbered from §1.3.
+> **Changelog**: 2026-08-22 (lane LOAD30) — added **§3.5** (a snapshot describes state; an append-only journal MUST NOT live inside it) and **§3.6** (a version-history write MUST NOT decode the history it is not changing), per [ADR-0356](../adrs/ADR-0356-a-design-journal-is-not-snapshot-state.md); ISSUE-LOG L-5800 … L-5851. · 2026-05-03 — added §1.3 server-side pgClient routing invariant (`DATABASE_URL` before `SUPABASE_DB_URL`); added §1.3.1 FK-removal invariant (`projects_owner_id_fkey` dropped in mixed-auth deployments); §1.4 renumbered from §1.3.
 
 ---
 
@@ -293,6 +293,101 @@ browser. `projects.id` is `TEXT PRIMARY KEY` with no format constraint, so the r
 nothing. The allowlist (GAP-04) stays an allowlist — the added patterns are anchored lowercase-hex —
 but **a client-minted id being unsavable is a contract breach, and the test that guards it MUST
 assert against an id built the way the client builds it, never against a hand-written literal.**
+
+### §3.5 — A snapshot describes STATE; an append-only journal MUST NOT live inside it (binding)
+
+> **Added**: 2026-08-22 · lane LOAD30, closes **L-5820** / **L-5821** / **L-5822**.
+> ADR: [ADR-0356](../adrs/ADR-0356-a-design-journal-is-not-snapshot-state.md).
+> Files: `TemporalGraph` (`§FIX-TEMPORAL-LOAD-REPLAY-RATCHET`), `ProjectLoader` (the batch window),
+> `ProjectSerializer` (`§PROBE-SNAPSHOT-JOURNAL-WEIGHT`).
+
+**A `ProjectSnapshot` is a description of a building at an instant. A journal of every mutation that
+has ever occurred to it is not part of that description.** Embedding the second inside the first
+makes every stored copy of the state carry a full copy of the history, so N stored versions hold N
+copies of one monotonically growing log — and the size of the *present* becomes a function of the
+length of the *past*.
+
+MEASURED (`node --expose-gc tools/perf/bench-version-container.mjs`, 2026-08-22): a **264-element**
+project's model serialises to **~0.1 MB** (about 400 bytes per element) and its whole 20-version
+container to **0.3 MB**. The founder's container was **~35 MB** and cost **2231 ms** of synchronous
+main-thread decode on every project open. **Over 99% of it was `temporalGraph`.**
+
+Three requirements, each binding:
+
+1. ⭐ **A LOAD IS A REPLAY, AND A REPLAY MUST NOT BE RECORDED AS HISTORY.** Hydrating a project
+   writes every restored element into its store, so a load emits one `create` per restored element.
+   `ProjectLoader` buffers those on `storeEventBus` and flushes them from its `finally` — i.e.
+   **after** the Phase G `temporalGraphManager.deserialize()` has clear-then-restored the real
+   journal — so they landed on top of it and were persisted. **Opening a project therefore made the
+   next open more expensive, without bound.** A recorder subscribed to the store event bus MUST be
+   suspended across the load's entire batch window, flush included. ⛔ **Suspension MUST decline to
+   MINT, never delete**: the snapshot's own journal is restored unchanged.
+2. **A suspension MUST be depth-counted and floored at zero.** A nested load may not resume early,
+   and an unbalanced resume may never leave the recorder permanently deaf to the user's real edits.
+   It MUST be released from a `finally`, so a fatal load cannot leave it deaf either.
+3. **A log line that reports a snapshot MUST NOT name only the part that is small.**
+   `[ProjectSerializer] Snapshot created: …` reported elements, levels, walls, slabs and furniture —
+   and every reading of it silently attributed the payload to the members it happened to name. It
+   MUST also report the journal's size. ⛔ **By COUNT, never by re-serialising the sub-tree**: this
+   line runs on the autosave path, and a probe that measured the largest member by stringifying it
+   would BE the cost it reports.
+
+**Not decided by this section, and deliberately so:** the journal already on a user's disk. Stopping
+the ratchet does not shrink it. Remediation options are costed in ISSUE-LOG **L-5823**; ⛔ **a blind
+retention cap is not among them** — it would delete design history the user never agreed to lose, to
+fix a defect that was ours.
+
+### §3.6 — A version-history WRITE MUST NOT decode the history it is not changing (binding)
+
+> **Added**: 2026-08-22 · lane LOAD30, closes **L-5801** / **L-5802** / **L-5805** / **L-5806** /
+> **L-5807** / **L-5810** / **L-5830**.
+> Files: `ProjectRepository` (`§PERF-VERSION-ENVELOPE-WRITE`, `§FIX-ENVELOPE-APPEND-BYPASSED-THE-FALLBACK`,
+> `§FIX-BULK-SAVE-TRUSTED-A-STALE-BLOB`), `PlatformShell` (`§PERF-OPEN-NARROW-RESTORE`),
+> `ServerSyncQueue` (`§FIX-IFMATCH-INVENTED-A-COUNT`).
+
+The local store keeps `MAX_VERSIONS_STORED` snapshots in one v2 container whose envelope carries
+every version's id. **The ids are enough to append, replace and trim. Decoding the snapshots to do
+it is work performed to answer a question the envelope already answers.**
+
+Five requirements, each binding:
+
+1. **An append or a per-version patch MUST NOT inflate a version it is not changing.** Unchanged
+   versions travel as already-compressed BYTES, taken from the stored envelope. MEASURED: append
+   **2623 ms → 223 ms**; a `syncStatus` flip **2640 ms → 324 ms** — and both run on **every**
+   autosave, so one autosave used to pay the whole-history decode twice.
+2. **A caller that wants ONE record MUST ask for one record.** `getLatestVersion()` /
+   `countVersions()` / `probeVersions()` exist for exactly this; every project-open restore path
+   MUST use them. MEASURED on project open: **2231 ms → 78 ms**. ⚠ This is only safe *because* of
+   requirement 1 — `getLatestVersion()` deliberately does not seed the per-version blob cache, so
+   while the WRITE path still read that cache, a narrow open merely moved the freeze to the next
+   save. **The read and the write must move together.**
+3. ⛔ **AN OPTIMISATION MUST NOT BYPASS THE DURABILITY FALLBACK.** The container path is an
+   IndexedDB-primary optimisation. When IndexedDB is unavailable — private browsing, blocked site
+   data, an `open` error — or when the documented revert switch is set, the writer MUST fall through
+   to the localStorage trim/evict ladder. The measured breach: an envelope append entered on
+   "an envelope exists" alone terminated in a store write that a disabled store answers **from
+   memory only**, so **every autosave was lost on reload with no error printed**.
+4. **A cache keyed by id MUST be invalidated by every writer that can change that id's content.**
+   The per-version blob cache rests on *content is immutable per id*. A wholesale array writer cannot
+   distinguish changed from unchanged records and MUST therefore drop the project's cache rather than
+   carry a stale blob forward — which silently discards the caller's edit and leaves the stored bytes
+   describing the previous content permanently.
+5. ⭐ **AN OPTIMISTIC-LOCK PRECONDITION MUST BE SERVER-SOURCED OR ABSENT — NEVER INVENTED.**
+   `If-Match` asserts a version count. Deriving it from `prior + 1` is sound **only** when `prior`
+   came from the server; coercing an unknown count to `0` asserts "the server holds zero" and
+   guarantees a `412` against any project that is not brand new. The measured breach:
+   *"expected 1, server has 746"*, on every session, each costing a **wasted POST of the entire
+   snapshot body** before the reconcile retry. ⛔ **A guessed precondition detects no concurrent
+   writer — it only manufactures conflicts with itself**, so absent authority the client MUST send
+   no `If-Match` at all. ⚠ **The corollary is a server obligation**: a response that a client is
+   expected to derive a precondition from MUST carry the count. `POST /api/projects/:id/versions`
+   does not today (it returns a `project_versions` row; `version_count` lives on `projects`), which
+   is why the lock is currently inert — see ISSUE-LOG **L-5831**.
+
+**Not decided by this section:** server-side version retention. The client keeps 20; the server keeps
+everything (`versionLimitFor(plan)` returns `-1` for an uncapped plan — **746** rows for one project,
+each holding a full snapshot). C05 has no retention rule and needs one; ⛔ **pruning a user's stored
+history is a product decision, not a performance change** (ISSUE-LOG **L-5832**, ADR-0356 §7).
 
 ---
 

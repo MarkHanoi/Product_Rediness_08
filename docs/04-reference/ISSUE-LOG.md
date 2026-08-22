@@ -37830,6 +37830,431 @@ it should be reconciled in the same edit — not by moving the constant to match
 
 ---
 
+## Lane LOAD30 — project open & autosave: what a save costs, and what is actually in it (L-5800 … L-5851, 2026-08-22)
+
+⚠ **READ THIS FIRST, IT GOVERNS EVERY ROW BELOW.** This lane has **no browser**. Every figure is
+either a **repo measurement** — a bench run, a test run, a grep, with the command given — or it is
+**PROJECTED and labelled as such**. Nothing here establishes what the founder's machine will feel;
+L-5850 enumerates exactly which claims need his console to close.
+
+The founder's complaint: *"the performance of both navigation and **project opening** is not yet
+good."* Navigation is lane NAV29. **Project opening and autosave are this lane, and the finding is
+that they were the same defect wearing two costumes: the local version store did O(history) work
+to answer O(1) questions, and the history it was doing that work over was ~99% a journal that
+should never have grown.**
+
+### L-5800 — ⭐ WHAT ONE AUTOSAVE COSTS, AND ON WHICH THREAD (the founder's question 1)
+
+MEASURED: `node --expose-gc tools/perf/bench-version-container.mjs` (20 versions / 37.5 MB
+container / 33 500 temporal mutation records per snapshot — the shape calibrated to the founder's
+own log line). **These are this lane's numbers, re-taken, not inherited from the predecessor's
+comment block; its readings on the same ratios were 3049/3219, mine are 2623/2640.**
+
+| stage of ONE autosave | before | after | thread |
+|---|---|---|---|
+| `saveVersionWithMeta` — read history to append one version | **2623 ms** | **223 ms** | MAIN |
+| `updateSyncStatus` — read history to flip one `syncStatus` | **2640 ms** | **324 ms** | MAIN |
+| deflate the ONE new version | 177 ms | 177 ms | **worker when ready, MAIN otherwise** |
+| assemble the container (`JSON.stringify` of the envelope) | 87 ms | 87 ms | **MAIN, always** |
+| parse the envelope | 40 ms | 40 ms | MAIN |
+| IndexedDB structured clone + disk write of the whole payload | ⛔ **NOT MEASURED** | ⛔ **NOT MEASURED** | browser-only |
+
+**Both of the top two rows run on EVERY autosave**, moments apart — the save, then the sync-status
+flip when the server confirms it. So one autosave paid the whole-history decode **twice**.
+
+**On which thread — the honest answer, in three parts.** ⭐ The *deflate* is off-thread when
+`getCompressWorkerPool().isReady()`, and `_saveWorkerOffloadEnabled()` is **DEFAULT ON**
+(`globalThis.__pryzmSaveWorkerOffload !== false`; `grep -rn "__pryzmSaveWorkerOffload"` → **two
+hits, both inside `ProjectRepository.ts`**, so nothing in the app ever sets it false and the
+production value is ON). But the worker is **lazily constructed and `isReady()` is false until it
+handshakes**, so the FIRST save of every session compresses synchronously on the main thread by
+design. And the two largest remaining costs — `JSON.stringify(version)` for the fresh record, and
+`V2_CONTAINER_MARKER + JSON.stringify(entries)` for the whole container — are **always** on the
+main thread, worker or no worker. **The offload moves the deflate. It never moved the stringify.**
+
+> ⚠ **CORRECTION to the brief's framing.** It read *"a ~71 MB re-serialise is kicked off from inside
+> the frame loop."* MEASURED: `SaveOrchestrator.scheduleDebounce()` is
+> `setTimeout(() => this.executeSave(), this.DEBOUNCE_MS)` with `DEBOUNCE_MS = 2500`. The mutation
+> is **emitted** from the build-queue drain inside the frame loop, but the save **executes 2.5 s
+> later on a macrotask**, not inside a rAF callback. ⛔ **The user-visible conclusion is unchanged**
+> — a multi-second synchronous task in a `setTimeout` blocks the next frames exactly as badly — but
+> the mechanism is narrower than "inside the frame loop", and anyone hunting it inside the
+> scheduler will not find it.
+
+### L-5801 — §PERF-VERSION-ENVELOPE-WRITE: the append decoded 20 snapshots to `push()` one
+
+*Inherited from the interrupted predecessor lane, read in full, completed and committed (`06accd3a`).*
+
+`saveVersionWithMeta` opened with `const versions = this.getVersions(projectId)` — a full inflate +
+`JSON.parse` of every stored snapshot — and then used that array for exactly three things:
+`findIndex`, `push`, `slice(-20)`. **The records were never read.** §PERF-VERSION-INCREMENTAL-COMPRESS
+(L-131 P4b) had already made the *deflate* O(1) by caching per-version blobs; the *read that fed it*
+stayed O(history), so the saving it bought was far smaller than expected.
+
+The v2 container's envelope already carries every version's id. The append is therefore an envelope
+edit — replace-by-id or push, trim, and hand the nineteen unchanged versions on as **bytes**.
+`_persistVersionsIncremental(VersionRecord[])` became `_persistSlots(_PendingSlot[])`, where a slot
+is EITHER already-compressed bytes OR raw text awaiting deflate.
+
+**MEASURED: 2623 ms → 223 ms (11.8×).**
+
+### L-5802 — the same decode, paid a second time, by `updateSyncStatus`
+
+`updateSyncStatus` runs on every successful server sync — once per autosave, moments after the save.
+It opened with the identical full-history inflate to change ONE string field on ONE record. Only
+that one record needs inflating; the other nineteen travel as bytes.
+
+**MEASURED: 2640 ms → 324 ms (8.1×).**
+
+### L-5803 — ⭐ the founder's "incremental in name only" suspicion: HALF RIGHT, and the right half is the one still open
+
+The brief read: *"An 'incremental' path exists — `_persistVersionsIncremental` … **but it calls
+`_commitVersionContainer` too.** If that holds, 'incremental' is incremental in name only."*
+
+**Established with certainty, and it splits in two:**
+
+- ⛔ **The COMPRESSION half is genuinely incremental and always was.** Only new/changed versions are
+  deflated; unchanged ones reuse cached blobs. MEASURED separation: `deflate ONE version` = **177 ms**
+  against `getVersions()` = **2231 ms**. Calling it incremental in name only would have been wrong.
+- ✅ **The CONTAINER half is exactly as suspected, and it is still true after this lane.** Every save
+  ends in `_commitSlots` → `V2_CONTAINER_MARKER + JSON.stringify(entries)` → `putVersions()`: the
+  **entire container is re-assembled and re-written on every single save**, all 20 versions of it.
+  MEASURED residue: **87 ms to assemble + 40 ms to parse the envelope, on the main thread, per
+  save** — plus an unmeasured browser-side structured clone of the whole payload into IndexedDB.
+  **That is the append-only/delta question, and it is answered in L-5840, not here.**
+
+### L-5805 — ⛔ THE ENVELOPE PATH HAD DROPPED THE GUARD, AND THE CONSEQUENCE IS LOST SAVES
+
+Found by reading the inherited diff before extending it. The new envelope branch in
+`saveVersionWithMeta` was entered on `slots !== null` **alone** — with no `_saveWorkerOffloadEnabled()`
+check and no `store.isDisabled()` check, unlike **both** of its siblings (`updateSyncStatus`,
+`saveVersionsWithQuota`), which have always had it. Two things broke, and the second loses data:
+
+1. The documented revert switch (`__pryzmSaveWorkerOffload === false`) stopped reverting this call
+   site's on-disk format.
+2. ⛔ **With IndexedDB unavailable** — Safari private mode, blocked site data, an `indexedDB.open`
+   error, `onblocked` — `_persistSlots` still terminated in `getVersionCacheStore().putVersions()`,
+   which on a disabled store updates **only the in-memory mirror** and returns. The localStorage
+   `TRIM_TARGETS` ladder and the **§QUOTA-EVICT** valve inside `saveVersionsWithQuota` were never
+   reached. **Every autosave existed for exactly as long as the tab did, with no error printed.**
+
+Guard restored; two tests in `versionRepositoryEnvelopeWrite.test.ts` pin both arms, and they are
+about DATA, not milliseconds.
+
+### L-5806 — the "~70.8 MB" the founder read was ~35 MB: the log multiplied by two
+
+Both "persisted to IndexedDB" lines printed `payload.length * 2`, i.e. they assumed two bytes per
+character. A v2 container is the marker plus JSON whose every string is base64 — pure Latin-1 — so
+V8 holds it one byte per character and IndexedDB's structured clone writes it as UTF-8: **one byte
+per character.** The line overstated the stored payload by almost exactly 2×.
+
+⛔ **This is not a cosmetic fix.** A number presented as measured that no instrument produced is the
+same class of defect as a claim of enforcement that does not exist. Both figures are printed now,
+the honest one first. MEASURED against the bench: container **37.5 MB of chars**, which the old line
+would have reported as **75.0 MB** — the founder read **70.8 MB**, and his real container is ~35 MB.
+
+### L-5807 — §FIX-BULK-SAVE-TRUSTED-A-STALE-BLOB — a latent trap, found because a TEST leaked state
+
+The per-version blob cache rests on one stated invariant: *content is immutable per id*. Every path
+that CHANGES a record invalidates that id's blob at its own call site. The wholesale
+`saveVersions(projectId, versions)` writer **never did**. It is handed an arbitrary array and cannot
+tell a changed record from an unchanged one, so a caller re-using an id with different content had
+its change **silently discarded** — the stale blob carried forward, and the stored bytes kept
+describing the previous content permanently.
+
+⛔ **ABSENT ≠ UNREACHABLE, so this is filed as a latent trap and not as a live defect.**
+`grep -rn "saveVersions(" --include=*.ts apps/ packages/ | grep -v ProjectRepository` → **three**
+product callers, and all three are safe **by accident, not by construction**: `duplicateInto`
+re-keys into a different PROJECT (a different cache), `deleteVersion` only removes rows,
+`importProject` only appends a fresh id. **Nothing enforced that.** Closed by dropping the project's
+cache in `saveVersions()` — never on the autosave critical path — and pinned by a test.
+
+### L-5810 — ⭐ PROJECT OPEN INFLATED 20 SNAPSHOTS TO USE THE LAST ONE (the founder's headline)
+
+All three local-restore call sites in `PlatformShell` read `getVersions(id)` and then took
+`[length - 1]`. `getLatestVersion()` — written for exactly this question by §PERF-VERSION-NARROW-READ
+(L-1300) — answers it in **one** inflate. **These call sites were simply never migrated onto it.**
+
+**MEASURED: 2231 ms → 78 ms (28.6×)** of synchronous main-thread block, removed from project open.
+
+⭐ **WHY IT WAS ONLY SAFE TO SWITCH NOW, and this is the part worth keeping.** `getLatestVersion()`
+deliberately does NOT seed the per-version blob cache — seeding it from a single entry would leave
+it holding one id and make the next save believe the other nineteen needed re-deflating. Before
+L-5801 the save path READ that cache, so a narrow open would have made the next SAVE O(history):
+one freeze traded for another. **The envelope writer now reads the unchanged versions' bytes
+straight out of the stored container, so the save no longer depends on a warm cache.** The read and
+the write had to move together; that is why this row and L-5801 are one change in two commits.
+
+### L-5811 — PROJECT OPEN: what is read, decoded and decompressed, in what order (the founder's question 3)
+
+Traced in `PlatformShell.setProjectContext` → `ProjectLoader.loadProject`:
+
+1. `void warmVersionCache()` — fire-and-forget; `VersionCacheStore.warm()` cursors **every project's**
+   entire stored payload into a synchronous in-memory mirror. ⚠ Not just this project's: the warm is
+   a full `openCursor()` over the `versions` object store. Not on the awaited path for the common
+   case, but it is IndexedDB read volume proportional to **all** local history.
+2. `versionRepository.getLatestVersion(id)` — reads the mirror, parses the **envelope** (ids only,
+   no snapshots), inflates **exactly one** blob, `JSON.parse`s it. **Was: inflate + parse all 20.**
+3. `versionCtrl.loadVersion(latest)` → hydration: levels → grids → columns → walls → slabs →
+   ceilings → floor finishes → stairs → furniture → roofs → handrails → plumbing → lighting →
+   curtain walls → beams → rooms, all inside one `storeEventBus.beginBatch()`.
+4. Phase D/G metadata restores — semantic graph, **`temporalGraphManager.deserialize()`**, decision
+   records, annotation slices.
+5. `storeEventBus.endBatch()` in the `finally` — the buffered element events fan out to builders.
+
+**Is anything read that the first frame does not need?** ✅ **Yes, and it was the dominant cost:**
+nineteen snapshots at step 2 (now gone), and the whole temporal journal at step 4 — which the first
+frame does not need at all, and which L-5820 shows should never have been that large.
+
+### L-5812 — SCOPED, NOT BUILT: the version-history PANEL still decodes all 20
+
+`PlatformVersionController.renderVersionList` calls `getVersions()` and reads only `label`,
+`timestamp`, `elementCount` and `syncStatus` off each record — then throws away twenty full
+snapshots. On the founder's payload that is the same **2231 ms** freeze, on a user click.
+
+⛔ **Deliberately not fixed here, because it cannot be fixed narrowly without a FORMAT change.** The
+v2 entry is `{ i: versionId, b: blob }` — there is no meta to read without inflating. Doing it right
+means a v3 entry carrying `{ i, b, m: { label, ts, n, s } }`: ~100 extra bytes per version,
+backward-compatible (an entry with no `m` falls back to inflating that one), and it would also let
+the hub answer version questions with zero inflates. **Costed at roughly a day with migration and
+tests. Not half-built.** The open path — the founder's actual complaint — does not go through it.
+
+### L-5820 — ⭐⭐ THE ROOT CAUSE OF THE PAYLOAD: OPENING A PROJECT MADE THE NEXT OPEN MORE EXPENSIVE, FOR EVER
+
+Everything above makes the *machinery* faster. This row is about **what the machinery was carrying**,
+and it is the founder's question 2 — *"~3.5 MB per version for 264 elements (~13 KB/element) — what
+is in a snapshot that large?"*
+
+⭐ **THE ANSWER: almost none of it is the model.** MEASURED with the same bench, varying only the
+journal size:
+
+| temporal mutation records / snapshot | one version raw | 20-version container | `getVersions()` |
+|---|---|---|---|
+| **0** | **0.1 MB** | **0.3 MB** | **60 ms** |
+| 5 000 | 1.3 MB | 5.9 MB | 691 ms |
+| 33 500 | 7.9 MB | 37.5 MB | 2231 ms |
+
+**264 elements of walls, slabs, furniture, handrails, levels and params serialise to ~0.1 MB — about
+400 bytes per element.** The founder's container is ~35 MB. ⛔ **"13 KB/element" is not a property
+of elements at all** — it is the journal, divided by an element count it has nothing to do with.
+
+**THE MECHANISM, and it is a ratchet:**
+
+- `TemporalGraphManager.init()` subscribes to `StoreEventBus` and mints one `NodeMutationRecord` per
+  create/update/delete. `_mutations` is **append-only**, `MAX_MUTATIONS = 200_000` is a
+  **`console.warn` with no pruning**.
+- `ProjectSerializer.serialize()` embeds `temporalGraphManager.serialize()` — the **entire** journal
+  — in **every** snapshot, unconditionally.
+- Hydrating a project writes every restored element into its store, so a load emits one `create` per
+  restored element. `ProjectLoader` runs the whole hydration inside `storeEventBus.beginBatch()`
+  whose `endBatch()` sits in the **`finally`** — i.e. it flushes those events to subscribers
+  **AFTER** the Phase G `deserialize()` has already clear-then-restored the real journal.
+- So they landed **on top of** the restored journal and were persisted: journal(N) → open → N + E
+  where E ≈ elements restored → autosave writes N+E into **all 20** stored snapshots **and POSTs it
+  to the server** → next open N + 2E → …
+
+**Nothing in the loop ever paid it back.** At 264 elements per open, 33 500 records is on the order
+of a hundred sessions — and the founder's server holds **746 versions** for this project, so a
+hundred-plus sessions is entirely consistent with the evidence.
+
+FIXED (`de4ee9af`) by `suspendRecording()` / `resumeRecording()` spanning exactly the loader's batch
+window, so the replay flush mints nothing. ⛔ **NOTHING IS DELETED** — suspension only declines to
+mint records for a replay of history the snapshot already carries; `deserialize()` restores that
+journal unchanged. Depth-counted (a nested load cannot resume early), floored at zero (an unbalanced
+resume can never leave the manager deaf to real edits), resumed from the `finally`.
+
+Seven tests reproduce `ProjectLoader`'s **real ordering** against the real bus and the real manager
+rather than calling the new switch — including one that asserts the flush lands AFTER the restore
+(the premise the defect depended on) and one that runs five successive opens and asserts the count
+does not move where it used to climb by 264 each time.
+
+### L-5821 — §PROBE-SNAPSHOT-JOURNAL-WEIGHT: the log named the model and stayed silent about the rest
+
+`[ProjectSerializer] Snapshot created: 264 elements, 7 levels, 62 walls, 10 slabs, 31 furniture` —
+the exact line the founder pasted — reports **only the model**, which reads as though the model were
+what the snapshot costs. It is not, and the gap is >99%. Every reading of that log silently
+attributed the payload to the elements it happened to name.
+
+It now also prints `temporalGraph N mutations / M edges`. **Counts only, never a `JSON.stringify` of
+the sub-tree** — this runs on the autosave path, and a probe that measured the largest member by
+re-serialising it would BE the cost it reports. Paired with the pre-existing
+`[ProjectLoader] TemporalGraph restored (…)` on open and the corrected
+`[VersionRepository] … persisted to IndexedDB (~N MB …)` on write, **one console paste now shows
+journal-in, journal-out and bytes-stored** — which is the reading that closes L-5850.
+
+### L-5822 — ⚠ REFUTED: the journal is NOT duplicated exponentially
+
+Recorded because it was this lane's own leading hypothesis for about ten minutes, and it was wrong
+in the direction that would have justified a much more aggressive fix. `deserialize()` **opens with
+`this.clear()`**, so restoring a snapshot's journal replaces the in-memory one rather than appending
+to it. There is **no** doubling per open. The growth is **linear** in (opens × elements restored),
+which is bad enough and is what L-5820 fixes — but a lane that had "confirmed" exponential growth
+would have gone looking for a compaction it does not need.
+
+### L-5823 — ⛔ OPEN, AND DELIBERATELY NOT DECIDED: the ~33 500 records ALREADY on the founder's disk
+
+**L-5820 stops the ratchet. It does not shrink what the ratchet already built.** His container stays
+at ~35 MB until something compacts it, so **his next open is faster than before by L-5810 and L-5801
+but is still carrying the journal.** Stated plainly rather than implied.
+
+Three remediation options, costed, **none taken**, because the founder's rule is binding — *never
+lose user data to make it fast*, and the temporal journal is a real feature (`DesignHistoryPanel`,
+`GhostOverlayRenderer` both read it):
+
+- **(a) Provable de-duplication.** An element can only be *created* once in real history, so N
+  `create` records for one `elementId` with no intervening `delete` are **provably** replay
+  artefacts. Sound, non-heuristic, and it targets exactly what the bug minted. Needs care around
+  create→delete→create cycles. ~half a day plus tests.
+- **(b) A user-facing "compact design history" action** that states the count and the reclaim before
+  doing anything. Safe by construction because the user consents. ~half a day.
+- **(c) Move the journal out of band** — one journal per PROJECT instead of a copy inside each of 20
+  snapshots. This is the architecturally right answer and it subsumes L-5840; see the ADR.
+
+⛔ **A blind retention cap is NOT on this list.** It would delete design history the user never
+agreed to lose, to fix a bug that was ours.
+
+### L-5830 — ⭐ "expected 1, server has 746" was not a STALE count, it was a MANUFACTURED one
+
+`If-Match` is sent only when `_serverVersionCountByProject` holds an entry, and the sole writer of
+that entry on the success path was `get(projectId) ?? 0` then `+ 1`. `prior + 1` is a sound
+inference when `prior` came **from the server** — versions are append-only, one save adds one. The
+`?? 0` turned *"I have never been told this project's count"* into *"the server holds zero"*. So the
+first save of a session wrote a **1**, and the second asserted `If-Match: "v1"` at a server holding
+**746**. The precondition **could not be true**, the 412 was certain, and reconcile-and-retry paid
+for it with a **second POST of the entire multi-MB snapshot body**.
+
+⭐ **AND THE GUESS WAS NOT A FALLBACK — IT WAS THE ONLY PATH.** The success handler looks for four
+spellings of a server-sent count (`versionCount`, `count`, `total`, `version.version_count`).
+`POST /api/projects/:id/versions` sends **none** of them from **any** of its three backends:
+`version_count` lives on the `projects` row, while every one of those return sites answers with a
+`project_versions` row.
+
+FIXED (`a7b2b286`): absent authority, the client asserts nothing — no entry, no `If-Match`, which
+the server reads as "no precondition" and appends. **That is not a weakening: a guessed precondition
+detects no real concurrent writer, it only manufactures conflicts with itself.** A count from a
+412 body's `actual` is still authoritative and `prior + 1` still builds on it.
+
+**REVERT-AND-RERUN, not asserted:** with `?? 0` restored, **2 of the 4 new tests go RED**. The
+assertions are on the REQUESTS — how many, carrying what — because a test asserting only *"the save
+succeeded"* is **green on the broken code**: the reconcile made it succeed, at double the cost.
+
+> ⚠ **CORRECTION, recorded not deleted — the founder's own narrowed hypothesis, narrowed once more.**
+> The brief said two ids in the log had first been read as two projects, then correctly re-read as
+> one project plus a per-save version id, with the note that *"minting a VERSION id with a `proj-`
+> prefix makes every log ambiguous — check whether anything keys on that prefix."* **CHECKED:** no
+> code branches on a `proj-` prefix for VERSION ids; the prefix is validated on **project** ids only
+> (`server.js`, the `invalid_id` refusal). So the ambiguity is real in the LOGS and inert in the
+> CODE. Filed as a naming hazard, not a defect.
+
+### L-5831 — ⛔ OPEN, NAMED NOT BUILT: the optimistic lock is now OFF until a POST carries the count
+
+Honest consequence of L-5830, stated so it cannot be mistaken for a win. Two sources of an
+authoritative count exist today: a 412 body's `actual`, and a POST response carrying one. The second
+does not exist. Until it does, `If-Match` is effectively never sent, and **a genuine concurrent
+writer will not be detected on the save path** (it was not reliably detected before either — the
+first two saves of every session had no valid precondition and the third onwards was riding a count
+adopted from a false 412 — but the gap is now permanent instead of transient).
+
+**The fix is one field on the return sites of `POST /api/projects/:id/versions` in `server.js`:**
+the Supabase RPC arm (`pryzm_save_version` returns `to_jsonb(project_versions row)`; the count is
+set on `projects` in its Step 5 and would have to be returned alongside), the Supabase
+manual-fallback arm (its `.select(…)` names five columns), the PG arm
+(`createVersionTransactional` already counts inside the transaction), and the in-memory arm
+(`existing.length` is on the line above). **Contract-visible: it changes the documented response
+shape of a C05 §3 route, so it wants the founder's sign-off, not a lane's.**
+
+⛔ **AND THE OBVIOUS SHORTCUT IS WRONG.** `ProjectHub` already receives the server's authoritative
+`p.version_count` when it lists projects — but it does not hold the queue, and the count that IS
+threaded to the open path is `ProjectMeta.versionCount`, **the LOCAL count (≤ 20)**. Seeding
+`If-Match` from that would be the identical defect with a different number: a plausible value from
+the wrong authority.
+
+### L-5832 — the 746 VERSIONS verdict: the client keeps 20, the server keeps everything
+
+**Not a client bug, and not fixable from the client.** `MAX_VERSIONS_STORED = 20` bounds the local
+store. Server-side, `POST /api/projects/:id/versions` enforces `versionLimitFor(plan)` and **`-1`
+means unlimited**, so a plan with no cap accumulates for ever — 746 rows for one project, each row
+holding a **full `snapshot` JSONB**. With a journal-inflated snapshot that is on the order of
+**gigabytes for one project**, and every autosave POSTs another one.
+
+**Three separable questions, none of which a lane may answer alone:**
+1. **Retention policy.** Keep-all is a product decision with a storage bill. C05 has no §
+   on server-side version retention; it should.
+2. **Payload.** L-5820 removes the reason each row is enormous going forward. Existing rows are
+   unaffected.
+3. **Pruning existing rows.** ⛔ **Deleting a user's server-side version history is not a
+   performance change** and is explicitly out of this lane's authority.
+
+### L-5840 — ⭐ IS `MAX_VERSIONS_STORED = 20` CONSIDERED? (the founder's question 4)
+
+**Measured verdict: 20 is not the problem, and lowering it would be the wrong lever.**
+
+The container rewrite is O(history) in **bytes moved**, not in CPU-per-version: after L-5801 the
+per-save cost is `parse envelope (40 ms) + deflate one version (177 ms, off-thread when ready) +
+assemble container (87 ms, always main) + an unmeasured IDB clone of the whole payload`. Only the
+**assemble** and the **clone** scale with 20 — and both scale with **container BYTES**, which
+L-5820 cuts by two orders of magnitude for new history. **Halving the version count to make the
+bytes smaller would trade the user's history for an effect the payload fix delivers for free.**
+
+**The append-only / per-version-record container IS the right end state, and here is its cost,
+stated so it is not half-built.** One IndexedDB record per version (`projectId|versionId`) instead
+of one blob per project: a save writes **one ~2 MB record** rather than re-writing a 37.5 MB
+container, and the assemble+clone cost stops scaling with history entirely. It requires a
+`VersionCacheStore` schema change (`DB_VERSION` bump + new object store), a new mirror shape, a
+migration that must be reversible, and updates to every reader — with the whole durability story
+(§QUOTA-EVICT, the localStorage fallback, `probeVersions`' unreadable-vs-empty distinction)
+re-proved against it. **Estimated 3–5 days with tests and migration.** See ADR-0356; **not started
+here, because a half-built storage migration is worse than the container it replaces.**
+
+### L-5850 — ⛔ EVERY CLAIM IN THIS LANE THAT NEEDS THE FOUNDER'S BROWSER
+
+Nothing below is disputed; nothing below is measured by this lane either.
+
+1. **That the founder's project open is now fast.** MEASURED here is a Node bench on a synthetic
+   payload calibrated to his log line. His browser, his data, his IndexedDB.
+2. **Whether the compression worker is REACHED in his session.** `isReady()` is false until the
+   worker handshakes; the first save of every session is synchronous by design. `grep` proves the
+   flag is default-ON and never set false; it cannot prove the worker chunk loads in production.
+   **Read: does any save log appear without a preceding `[CompressWorkerPool]` warning?**
+3. **The IndexedDB structured-clone + write cost** for a 37.5 MB payload — browser-only, unmeasured
+   in both the before and the after column.
+4. **His journal's actual size.** L-5821's probe answers it in one paste:
+   `[ProjectSerializer] … temporalGraph N mutations / M edges`. **If N is in the tens of thousands,
+   L-5820 is confirmed on his data and L-5823 becomes live.**
+5. **That the 412 loop is gone.** Read: no `§L-B2-RECONCILE 412` line in a session.
+6. **`warmVersionCache()`'s full-store cursor cost** with ~50 local projects — L-5811 step 1.
+
+### L-5851 — root `tsc` on a shared tree is a reading with a timestamp, never a state
+
+MEASURED at lane start: `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` →
+**RC=2**, one error, `apps/editor/src/engine/views/EdgeProjectorService.ts(1205,10) TS6133` —
+ELEV28's file, in flight. Re-run mid-lane: **RC=2**, that error **gone**, replaced by
+`apps/editor/src/ui/analysis/selectionFacets.ts(262,66) TS4104` in another lane's **untracked** file.
+
+**This lane's delta adds zero typecheck errors** — verified by the error list being exactly one
+foreign line in both readings, with none of this lane's files named. ⛔ Do not quote either
+filename; re-run the command. (NAV29 recorded the identical shape at L-5914 independently, which is
+the strongest evidence available that it is a property of the shared tree and not of any one lane.)
+
+### L-5852 — `check-contract-cited-paths` is RED, and this lane's C05 sections contribute NOTHING to it
+
+MEASURED after the C05 §3.5/§3.6 edit: `npx tsx tools/ga-gate/check-contract-cited-paths.ts` →
+**RC=3**, *"493 unresolved cited paths against a declared level of 490."* Its sibling
+`check-contract-index-equivalence.ts` → **RC=0** (*arm A 18 = baseline; arms B/C/D clean*).
+
+⛔ **Do not read that as this lane's breach.** Run with `--list` and grep for C05: the file's ONLY
+unresolved citation is `src/ui/OfflineBanner.ts` at **lines 43 and 52** — inside §1.2.1, stamped
+**2026-05-03**, long predating these sections, which begin at line 297. The gate reports
+`contract files read: 104` where `CLAUDE.md` measured **102** on the same day, so contracts are being
+minted by other lanes **while this gate runs**. The +3 is theirs.
+
+⚠ **Same shape as L-5851, and worth stating as a rule rather than a pair of incidents:** on a shared
+tree with several live lanes, a ratchet gate's RED is **a reading with a timestamp and an owner**,
+not a state of the branch. Attribute it with `--list` before acting on it, and ⛔ **never raise the
+baseline** to make someone else's citation go away.
+
+---
+
 ## Lane NAV29 — navigation & the two backends (2026-08-22)
 
 ⚠ **READ THIS FIRST, IT GOVERNS EVERY ROW BELOW.** This lane has **no browser and no GPU**. Every
