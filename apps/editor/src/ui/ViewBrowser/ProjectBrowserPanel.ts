@@ -26,7 +26,7 @@ import { CameraRailPanel    }            from './panels/CameraRailPanel';
 import { LevelsGridsRailPanel }          from './panels/LevelsGridsRailPanel';
 import { UnifiedBrowserPanel }           from './panels/UnifiedBrowserPanel';
 import { DocumentsBrowserPanel }         from './panels/DocumentsBrowserPanel';
-import { ViewTemplateManagerPanel }      from '../views/ViewTemplateManagerPanel';
+import { VisibilityIntentManagerPanel }      from '../views/VisibilityIntentManagerPanel';
 import { PhysicsRailPanel }              from './panels/PhysicsRailPanel';
 import { RenderRailPanel }               from '../tools-panel/panels/RenderRailPanel';
 // A.24 / A.31.e — first-class Inspect panel (Model Tree + Provenance), promoted
@@ -47,6 +47,13 @@ import {
     GIS_PARCEL_SLOT_TESTID,
     type ParcelSectionHandle,
 } from '../site/parcel/parcelPanelSection';
+// §PARCEL-OWN-PANEL (L-5130) — the founder's dedicated PARCEL destination. It hosts the
+// SAME `mountParcelSection` the GIS section above hosts; see that module's header for
+// why a second card producer is the thing that must not happen.
+import {
+    buildParcelRailPanel,
+    type ParcelRailPanelHandle,
+} from '../site/parcel/parcelRailPanel';
 
 // ── Section icon map ───────────────────────────────────────────────────────
 
@@ -76,7 +83,7 @@ const SECTION_ICONS: Record<string, string> = {
     AI:           `<img src="/icons/left/AI.svg"           style="width:22px;height:22px;object-fit:contain;" />`,
     CAMERA:       `<img src="/icons/left/Camera.svg"       style="width:22px;height:22px;object-fit:contain;" />`,
     LEVELS_GRIDS: `<img src="/icons/right/sETTINGS.svg"   style="width:22px;height:22px;object-fit:contain;" />`,
-    VIEW_TEMPLATES: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    VISIBILITY_INTENT: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="3" width="18" height="4" rx="1"/>
         <rect x="3" y="10" width="11" height="4" rx="1"/>
         <rect x="3" y="17" width="7" height="4" rx="1"/>
@@ -87,6 +94,17 @@ const SECTION_ICONS: Record<string, string> = {
     RENDER: `<img src="/icons/right/RENDER.svg" style="width:22px;height:22px;object-fit:contain;" />`,
 
     GIS: `<img src="/icons/right/gis.svg" style="width:22px;height:22px;object-fit:contain;" />`,
+
+    // §PARCEL-OWN-PANEL (L-5130) — a surveyed plot boundary: an irregular closed ring
+    // with a corner marker. Inline SVG rather than an `/icons/` asset on purpose — an
+    // <img> that 404s renders as a broken glyph and the rail entry would look disabled,
+    // which is precisely the "authored but unreachable" reading this panel exists to
+    // avoid. currentColor keeps it in step with the rail's active/inactive states.
+    PARCEL: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 7.5 L11 3.5 L20 6.5 L18.5 18 L7 20.5 Z"/>
+        <circle cx="11" cy="3.5" r="1.4" fill="currentColor" stroke="none"/>
+        <line x1="9.5" y1="11.5" x2="14.5" y2="12.5"/>
+    </svg>`,
 
     // A.24 / A.31.e — Inspect (Model Tree + Provenance). Magnifier-over-tree
     // glyph; inline SVG so it inherits the rail's currentColor + needs no asset.
@@ -110,7 +128,7 @@ export class ProjectBrowserPanel {
     private readonly _aiPanel:                AIRailPanel;
     private readonly _cameraPanel:            CameraRailPanel;
     private readonly _levelsGridsPanel:       LevelsGridsRailPanel;
-    private readonly _viewTemplatesPanel:     ViewTemplateManagerPanel;
+    private readonly _visibilityIntentPanel:  VisibilityIntentManagerPanel;
     private readonly _physicsPanel:           PhysicsRailPanel;
     private readonly _renderPanel:            RenderRailPanel;
 
@@ -120,6 +138,16 @@ export class ProjectBrowserPanel {
     private _inspectHandle: InspectPanelHandle | null = null;
     /** §GIS-PARCEL-REHOST (L-1582) — the live parcel section's store subscription. */
     private _parcelSection: ParcelSectionHandle | null = null;
+    /**
+     * §PARCEL-OWN-PANEL (L-5130) — the DEDICATED panel's handle.
+     *
+     * ⛔ Deliberately a SECOND field rather than reusing `_parcelSection`. Both mount
+     * the same section, but into two different slots with two different lifetimes: if
+     * they shared one handle, opening GIS after PARCEL would overwrite the reference
+     * and closing either would dispose the other's live subscription — leaving a panel
+     * on screen that had silently stopped updating. Two slots, two handles.
+     */
+    private _parcelPanel: ParcelRailPanelHandle | null = null;
 
     /** Founder 2026-08-10 — first-line AI chat launcher button (top of rail,
      *  directly under the PRYZM logo). Kept as a field so the active-state
@@ -174,7 +202,7 @@ export class ProjectBrowserPanel {
         // renaming a view template all dispatched into `undefined`. Same shape as
         // §VIEW-INTENT-ASSIGN-DISPATCH-IS-DEAD (L-1860) and
         // §OVERRIDE-PANEL-DISPATCH-IS-DEAD (L-1890).
-        this._viewTemplatesPanel = new ViewTemplateManagerPanel(this.runtime);
+        this._visibilityIntentPanel = new VisibilityIntentManagerPanel(this.runtime);
         this._physicsPanel       = new PhysicsRailPanel(this.runtime);
         this._renderPanel        = new RenderRailPanel(renderProps, null as any);
 
@@ -190,6 +218,13 @@ export class ProjectBrowserPanel {
             if (this._rail.activeId !== 'GIS' && this._parcelSection !== null) {
                 try { this._parcelSection.dispose(); } catch { /* defensive */ }
                 this._parcelSection = null;
+            }
+            // §PARCEL-OWN-PANEL (L-5131) — the same rule for the dedicated panel. Written
+            // as its own branch on its own field for the reason the field declares: a
+            // shared handle would let closing one slot deafen the other.
+            if (this._rail.activeId !== 'PARCEL' && this._parcelPanel !== null) {
+                try { this._parcelPanel.dispose(); } catch { /* defensive */ }
+                this._parcelPanel = null;
             }
             if (this._rail.activeId !== 'INSPECT' && this._inspectHandle !== null) {
                 try { this._inspectHandle.dispose(); } catch { /* defensive */ }
@@ -220,10 +255,17 @@ export class ProjectBrowserPanel {
             { id: 'BROWSER',        label: 'Project Browser',   buildFn: () => this._browserPanel.build()          },
             { id: 'LEVELS_GRIDS',   label: 'Levels & Grids',   buildFn: () => this._levelsGridsPanel.build()      },
             { id: 'DOCUMENTS',      label: 'Views & Sheets',    buildFn: () => this._documentsPanel.build()        },
-            { id: 'VIEW_TEMPLATES', label: 'View Templates',    buildFn: () => this._viewTemplatesPanel.build()    },
+            { id: 'VISIBILITY_INTENT', label: 'Visibility Intent', buildFn: () => this._visibilityIntentPanel.build() },
             { id: 'CAMERA',         label: 'Camera & Render',   buildFn: () => this._buildCameraRenderPanel()      },
             { id: 'INSPECT',        label: 'Inspect',           buildFn: () => this._buildInspectPanel()           },
             { id: 'GIS',            label: 'GIS',               buildFn: () => this._buildGISPanel()               },
+            // §PARCEL-OWN-PANEL (L-5130) — founder 2026-08-21: "the GIS panel has great
+            // data, but we should have another panel only for parcel data … also on the
+            // left-hand side rail toolbar." Placed directly AFTER GIS because that is
+            // where a reader looking for site facts already goes; the GIS section keeps
+            // its own parcel block, since removing it would break the route the founder
+            // asked to have restored one day earlier (§GIS-PARCEL-REHOST L-1582).
+            { id: 'PARCEL',         label: 'Parcel',            buildFn: () => this._buildParcelPanel()            },
             { id: 'AI',             label: 'AI & Tools',        buildFn: () => this._aiPanel.build()               },
             { id: 'PHYSICS',        label: 'Physics',           buildFn: () => this._physicsPanel.build()          },
         ];
@@ -726,6 +768,20 @@ export class ProjectBrowserPanel {
     }
 
     // ── GIS / Geospatial panel ─────────────────────────────────────────────────
+
+    // ── §PARCEL-OWN-PANEL (L-5130..L-5136) — the dedicated PARCEL destination ───
+    //
+    // Four lines, and that is the point. Every fact this panel shows — the referencia
+    // catastral, the address, the registry area AND the ring area, the source and the
+    // retrieval timestamp — is produced by `parcelCard.ts` via `mountParcelSection`,
+    // the same producer the GIS section above hosts. Nothing is re-fetched and nothing
+    // is re-formatted here. See `parcelRailPanel.ts`'s header for why a second producer
+    // would be a C06 §13.3 breach with a legal consequence attached.
+    private _buildParcelPanel(): HTMLElement {
+        try { this._parcelPanel?.dispose(); } catch { /* defensive */ }
+        this._parcelPanel = buildParcelRailPanel(this.runtime);
+        return this._parcelPanel.element;
+    }
 
     private _buildGISPanel(): HTMLElement {
         const root = document.createElement('div');
