@@ -33980,3 +33980,244 @@ with its command written down, or a test result. Specifically unverified by eye:
 furniture category is now unclickable in a real plan pane; that the elevation note renders legibly in
 the panel; and that skipping injection for a hidden family produces no visible change to any drawing
 the founder currently has open.
+
+
+---
+
+## SHELL7 — 2026-08-22 · the shell layer: floating chrome, its stacking, and two dead bands
+
+> Lane brief: re-measure the `+ Grid` census from scratch (a prior conclusion was falsified by a
+> screenshot), find the TRUE occluder of the ANALYSIS header, and close two dead bands in the Data
+> panel. Contracts: **C06 §6.1 / §7 / §14**, **C04**, **ADR-0343 §D.1**.
+
+### L-4000 — ⛔ FIXED: there were **TWO** `+ Grid` buttons, and the one nobody measured was at `z-index: 10002`
+
+Lane DATA3 reported, and it was relayed to the founder, that `+ Grid` *"is NOT in the Data panel …
+`PlanViewToolOverlay.ts:694`, a plan-view canvas overlay at `zIndex: '6'` against `#dw-workbench`'s
+110 — **it cannot render over the panel at all**"*. The founder's screenshots then showed a `+ Grid`
+pill inside the Data panel (STRATEGIZE / Programme, over the empty state) **and** inside the
+Analysis panel.
+
+**Measured 2026-08-22.** `rg "\+ Grid" --type ts` over `apps/editor/src` returns **TWO** owners,
+each building its own pill from scratch:
+
+| owner | parent | position | z-index | anchored to |
+|---|---|---|---|---|
+| `PlanViewToolOverlay.ts:694` | `document.body` | `fixed` | **6** | `#container` rect |
+| `SvpPlanToolOverlay.ts:692` | `document.body` | `fixed` | **10002** | `.svp-pane` canvas rect |
+
+⭐ **The z-index REASONING was correct; the CENSUS was wrong** — and that distinction is the whole
+finding. The lane brief hypothesised a stacking-context error (*"an ancestor with `transform`,
+`filter`, `opacity < 1`, `will-change` or `contain` … is the most likely reason a 6-vs-110 argument
+produced the wrong answer"*). **That hypothesis is FALSIFIED.** Measured: `index.html:38` is the only
+`body` rule in the repo and sets `margin/padding/overflow/width/height/background` — no `transform`,
+no `filter`, no `opacity`, no `will-change`, no `contain`; likewise for `html`. **`body` creates no
+stacking context**, so every `position: fixed` body child competes in ONE root context and
+`6 < 110` really does bury the first button. The error was not in the reasoning. It was that a set of
+two was measured as a set of one.
+
+**C01 §6 rule 6, second direction:** *a claim of impossibility is a measurement* — and a measurement
+of one member of a set is not a measurement of the set.
+
+### L-4001 — ⛔ FIXED (root cause): the split-view pill floated ALONE over the panel because it was not a child of its own pane
+
+`.svp-pane` is `position: fixed; top: 0; right: 0; width: 40%` at **`z-index: 1`**
+(`splitView.ts:37`). `#dw-workbench` is **110** and `#anl-surface` is **50**, so the PANE sits
+correctly *behind* both panels. Its button was not in the pane — `document.body.appendChild(btn)` at
+**10002** — so it out-painted both and appeared at x ≈ 60vw **with no pane around it**: a lone
+purple `+ Grid` pill in the middle of the Data panel. That is the founder's screenshot.
+
+**Fix (C06 §14 applied to a canvas, now §7.5):** each button is a **CHILD of the pane it belongs
+to**, placed by CSS at that pane's own bottom-left corner — `#container` for the main plan view,
+`.svp-pane` for split view. It inherits the pane's width (half-canvas modes), its `display` (Data
+mode is `canvas: 'hidden'`), and its stacking, **by construction**.
+
+### L-4002 — ⛔ FIXED: neither button knew about the workspace mode
+
+A `document.body`-parented `position: fixed` element survives every mode switch. Nothing hid either
+pill when the canvas went to half width or `display: none`. Closed by L-4001's re-parenting — the
+button is now inside the thing that changes.
+
+### L-4003 — ⛔ FIXED: both buttons hand-picked a z-index, on opposite sides of the panel layer
+
+C06 §7.3: *"New or edited UI-chrome code MUST NOT introduce a raw `z-index` literal."* Both did
+(**6** and **10002**), which is exactly why one subject produced two opposite verdicts.
+
+⚠ **AND THE TOKEN WOULD HAVE BEEN WRONG TOO.** `--z-viewport-hud` is **900**; `#anl-surface` is
+**50** and `#dw-workbench` is **110** — neither panel is migrated to `--z-panel` (**1000**), see C06
+§7.4 Phase 4. So the *correctly tokenised* value out-paints both panels. The shared
+`.vco-create-btn` therefore carries **no z-index at all**: an `auto` positioned descendant paints
+below every positioned body sibling with `z-index ≥ 1`, which is every panel in the shell. Recorded
+as new contract text, **C06 §7.5**.
+
+### L-4004 — ⛔ FIXED (latent): the button was placed a full button-height BELOW the canvas on first paint
+
+`_positionCreateActionButton()` ran while the button was still `display: none`, so `offsetHeight`
+was **0** and `top = rect.bottom - 0 - 16` put it ~34 px past the canvas bottom until something else
+triggered a resize. Deleted with the whole JS-geometry path.
+
+**Verification:** `gridButtonCensus.spec.ts` — **13 arms**. ARM A is **set-based, not a count** (a
+count can be right while the membership is wrong — the defect here). ARM D pins the four premises
+the containment rests on, so none can move silently.
+
+⚠ **Not verifiable without a browser:** that the rendered pill now sits inside the canvas pane.
+**Falsified by:** a `+ Grid` still visible inside a panel, or one that no longer appears in split
+view at all.
+
+---
+
+### L-4010 — ⛔ FIXED: **L-3601 moved the wrong bar.** The ANALYSIS occluder is the EDITOR TOOLBAR
+
+The founder reported the ANALYSIS header *still* occluded after L-3601 shipped
+`body.pryzm-mode-analysis .wmb-toplevel-wrapper { left: 25% }`. **The mode bar had moved.** It was
+never what sat on the title.
+
+**Measured 2026-08-22** (`contextualEditBar.ts:9-20`): `.ceb-bar` — undo · redo · move · copy ·
+delete · the drafting icons — is `position: fixed; top: 56px; left: 50%; transform: translateX(-50%)`
+at `z-index: 8990`, with `.ceb-btn { width: 30px; height: 30px }` children. So it occupies
+**y = 56..86**, centred on the **viewport**, i.e. straddling the panel's left edge.
+
+The Analysis reserve is **44 px**, derived (L-3600) from `max(mode bar 6+30, presence strip 8+28)`
+**= 36**. It never had a chance of clearing an occluder that bottoms out at **86**. Growing it to 94
+would have surrendered a fifth of the panel to a bar that should not be there at all.
+
+### L-4011 — ⭐ the GENERAL defect: the re-centring was hand-written once per (mode × bar), and covered 5 of 8 cells
+
+    inspectModeShell.ts   pryzm-mode-inspect  ->  .wmb-toplevel-wrapper  left 25%
+    inspectModeShell.ts   pryzm-mode-inspect  ->  .bam-container         left 25%
+    inspectModeShell.ts   pryzm-mode-inspect  ->  .ins-lens-bar          fixed, left 25%, bottom 16
+    inspectModeShell.ts   pryzm-mode-inspect  ->  .ins-explode-bar       fixed, left 25%, bottom 62
+    analysisSurface.ts    pryzm-mode-analysis ->  .wmb-toplevel-wrapper  left 25%   (L-3601)
+
+Two half-canvas modes × four bars = **eight cells. Five were written; three were not.** And
+`.ceb-bar` was in **neither** list. A per-(mode × bar) rule set always converges to this.
+
+### L-4012 — ⛔ FIXED: ONE OWNED BUDGET, not a fifth per-panel reserve
+
+`tokens.ts` declares `--shell-canvas-cx: 50%` / `--shell-canvas-w: 100vw`;
+`WorkspaceController._applyLayout()` writes both from the **`canvas` column of `WORKSPACE_MODES`**
+(`'half'` → `25%` / `50vw`). **A half-canvas mode is a ROW** (ADR-0343 §D.1) — no bar names a mode,
+no mode names a bar. **15 bars enrolled:** `.ceb-bar`, `.wmb-toplevel-wrapper`, `.bam-container`,
+`.wdh-bar`, `.sth-bar`, `.bsp-overlay`, `.stsp-panel`, `.th-overlay`, `.th-pill`, `.th-status-pill`,
+`.th-dim-overlay`, `.spt-hud`, `.spt-params`, `.ins-lens-bar`, `.ins-explode-bar`. **All five
+per-mode `left` overrides RETIRED.** Contract text: **C06 §15**.
+
+### L-4013 — the 44 px reserve STAYS and its DERIVATION CHANGED — the number was right for the wrong reason
+
+Every canvas-anchored bar now contributes **zero**. The sole surviving occluder is
+`.cp-presence-strip` (`top: 8px; right: 8px`, 28 px chips → **36**) + 8 clearance = **44**.
+`right:` is measured from the viewport's right edge, **which IS the panel's right edge** — there is
+no canvas on that side to re-centre it over, so no horizontal budget can reach it.
+
+⚠ **This is the case a pinned literal hides.** `analysisHeaderReserve.spec.ts` **derives** the
+reserve; its mode-bar arm now asserts the bar is **BUDGETED** rather than pinning its geometry, and
+a new arm keeps `.ceb-bar`'s numbers live so that if it ever leaves the budget the test states what
+the reserve would have to become (**94 px**).
+
+### L-4014 — centring is not sufficient for a row that GROWS
+
+`.ceb-bar` gains buttons per element type (`.ceb-btn--wall-only` and siblings), so a canvas-centred
+bar can still cross the panel edge at a narrow viewport. The two widest always-on bars also take
+`max-width: calc(var(--shell-canvas-w) - 32px)`.
+
+### L-4015 — 🟡 OPEN: 5 canvas-anchored bars remain un-budgeted, and 18 are correct as they are
+
+`shellFloatBudget.spec.ts` ARM D is a **classified, shrink-only backlog**: **23** remaining
+`position: fixed; left: 50%` rules, of which **18** are viewport-by-design (11 blocking element
+mode-pickers, 5 app-level toasts, and `.plat-toolbar` which is detached — §L-MOUNT-DETACH) and
+**5** are debt: `.ann-dim-opt-bar`, `.fw-hud`, `.iml-root`, `.sched-panel`, `.vg-panel`
+(the last owned by another lane today). Shrink-only in **both** directions.
+
+### L-4016 — 🟡 OPEN: `canvas: 'hidden'` (Data mode) is deliberately un-budgeted
+
+There is no canvas to centre on, and the mode bar **must** stay reachable over the full-width
+workbench or the mode cannot be left. Stated as a decision, not left as a silent `else`. Likewise
+the 768 px breakpoint keeps the taller un-budgeted reserve, because at phone width the half-canvas
+modes collapse — **the budget is a desktop-width guarantee only**.
+
+⚠ **Not verifiable without a browser:** that the rendered toolbar now clears the ANALYSIS title at
+the founder's viewport. **Falsified by:** any bar still crossing x = 50 % in Inspect or Analysis, or
+`.ceb-bar` clipping its own buttons against the new `max-width` at a narrow window.
+
+---
+
+### L-4020 — ⛔ FIXED: the Data header's actions slot did not merely happen to be empty — **it did not exist** in six of seven buckets
+
+Founder, on `STRATEGIZE · 3 views`: the purple band *"runs the full panel width and is almost
+entirely empty — the title occupies the far left and nothing else uses it"*.
+
+**Measured 2026-08-22.** `_buildHeatmapControl()` returned a wrapper whose class **was**
+`.dw-bucket-header-actions` and whose `style.display` was `'none'` outside the AUDIT bucket
+(`DataWorkbench.ts:742-743`). So `justify-content: space-between` went on reserving a right-hand
+half that nothing could occupy. **ABSENT and EMPTY look identical and have opposite fixes**
+(C01 §6.1).
+
+### L-4021 — ⛔ FIXED: the slot is a persistent host, and its job comes from the REFERENCE
+
+The slot is now created in its own right; the heatmap select is an inner `.dw-header-ctl-group`
+inside it. **The job is not invented:** C06 §6.1 names `.aud-header` as THE shared treatment, and
+Inspect puts exactly one control in its actions slot — `aud-refresh-btn`
+(`AuditStack.ts:140-141`). This surface already has `DataWorkbench.refresh()`, fanning out to all
+nine refreshable panels, so the action is **RE-HOSTED, never re-implemented** (C06 §13.3). It
+resolves in every bucket, so it never needs §13.5's disabled-with-a-reason branch. `.dw-header-btn`
+copies `.aud-header-btn` **by role, not by hex** — both resolve `--app-on-accent-veil` /
+`--app-on-accent`. **Converged on §6.1, not forked from it.**
+
+### L-4022, L-4023 — ALLOCATED, NOT USED
+
+Stated rather than left as a gap. The lane was allocated **L-4000..L-4040**; the two header-band
+findings collapsed into L-4020/L-4021, and source comments citing the range `L-4020..L-4023` refer to
+the §DW-HEADER-BAND-HAS-A-JOB work as a whole, not to four distinct rows. **L-4005..L-4009,
+L-4017..L-4019 and L-4027..L-4040 are likewise unused.**
+
+### L-4024 — ⛔ FIXED: the SECOND dead band — a summary bar with nothing to summarise
+
+Founder: *"a strip of dead space at the very bottom of the panel"*. **Measured:**
+`ProgrammePanel._totalEl` is appended **unconditionally** with `padding: 8px 12px`, a 2 px top rule
+and a sunken ground. `_renderTable()` clears it with `innerHTML = ''` and then **returns early in
+the empty state without hiding it** — so an empty Programme renders an **18 px sunken strip under a
+2 px rule containing nothing**, at the foot of the panel. Exactly the screen screenshotted.
+Visibility is now derived from the row count **in one place**.
+
+### L-4025 — ⭐ WHY IT SURVIVED ITS WHOLE LIFE: an inline `cssText` block opts a panel out of the only gate that reads it
+
+The bar was styled by `style.cssText`, not a class. `dataPanelChrome.spec.ts` ARM A compares
+**emitted classes against declared rules** — an inline style block is invisible to that comparison.
+C06 §6.1 rule 2 is therefore not a tidiness point. Moved to `.dw-total-bar` in the sheet. Recorded
+as new contract text, **C06 §6.1.1**.
+
+### L-4026 — 🟡 OPEN: a single veil button is *a* job for a full-width band, not a full one
+
+§6.1's own signal — *"a third stacked band is a signal that a control belongs in the header's
+actions slot"* — points at the **~30 per-panel `.dw-toolbar` rows**, each of which is that third
+band (`ProgrammePanel` has four buttons in one). Hoisting them into the header actions slot is the
+next step. **NOT shipped**: it is a blind visual change across 30 panels, and this lane could not see
+a browser. If the founder still reads the band as empty at `dw--full`, that is the fix.
+
+⚠ **Two existing arms CHANGED SHAPE rather than being deleted.** `dataPanelChrome.spec.ts:210` and
+`dataPanelChromeDom.spec.ts:85` both pinned `.dw-bucket-header-actions` as the heatmap wrapper. They
+are re-pointed **and strengthened**: a new DOM arm walks all five buckets and fails if the slot is
+empty in any of them — an assertion the previous structure could never have passed.
+
+### TEST COUNTS — BEFORE AND AFTER, MEASURED THE SAME WAY
+
+* **Command:** `npx vitest run apps/editor/src/ui/analysis apps/editor/src/ui/dataworkbench
+  apps/editor/src/ui/styles/__tests__ apps/editor/src/ui/platform/__tests__`
+* **Before:** 16 files · **213 passing**. **After:** 18 files · **256 passing**. Zero red.
+* **New:** `gridButtonCensus.spec.ts` **13** · `shellFloatBudget.spec.ts` **24**. **Grown:**
+  `analysisHeaderReserve.spec.ts` 15 → 16 · `dataPanelChrome.spec.ts` + `dataPanelChromeDom.spec.ts`
+  57 → 62 (dataworkbench directory total).
+* **Root gate:** `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=0**,
+  run before every commit.
+* ⚠ **Pre-existing reds, unchanged:** the 3 in `apps/editor/src/engine/__tests__` named in the brief
+  (`mt05StoreIdentityHeap` ×2, `wallMoveGateMutualCorner` ×1). Not touched by this lane.
+
+### NOT VERIFIED IN A BROWSER — the whole of it
+
+**Nothing in this lane was observed on screen**, and two lanes before it shipped layout arithmetic
+that the founder's screenshots then contradicted. Every claim above is a source measurement with its
+command written down, or a test result. Specifically unverified by eye: that the editor toolbar now
+clears the ANALYSIS title; that no `+ Grid` pill appears inside a panel; that the Data header band
+now reads as occupied; and that hiding the empty total bar removed the strip he saw rather than
+merely a strip.
+

@@ -243,6 +243,44 @@ third stacked band is a signal that a control belongs in the header's actions sl
 **Colour may never be the ONLY channel** distinguishing a state (SC 1.4.1) — a control that encodes
 its active mode as a fill alone must also name it.
 
+#### §6.1.1 — RESERVED SPACE THAT NOTHING CAN OCCUPY IS THE SAME DEFECT AS A THIRD BAND
+
+> **Added 2026-08-22 · L-4020..L-4026 · §DW-HEADER-BAND-HAS-A-JOB / §DW-EMPTY-TOTAL-BAR.**
+> Founder, on STRATEGIZE / Programme: the header band *"runs the full panel width and is almost
+> entirely empty — the title occupies the far left and nothing else uses it"*, plus *"a strip of
+> dead space at the very bottom of the panel"*.
+
+§6.1 forbids a **third stacked band**. It equally forbids the inverse, and both reports above are
+the inverse: **chrome that reserves space it cannot fill.**
+
+**Two rules, each written because it was violated:**
+
+1. ⭐ **A header's actions slot MUST be OCCUPIED in every state the header appears in.** Measured
+   2026-08-22: `.dw-bucket-header-actions` **was** the heatmap wrapper and carried `display: none`
+   outside the AUDIT bucket, so in **six of seven buckets the slot did not exist** — while
+   `justify-content: space-between` went on reserving its space. *"Empty in this state"* and
+   *"absent in this state"* look identical and have opposite fixes (C01 §6.1). The slot is now a
+   persistent wrapper; per-bucket controls are inner groups inside it.
+   **The job comes from the reference, never invented.** `.aud-header-actions` holds exactly one
+   control — a refresh button — so Data hosts the same action, **RE-HOSTED from
+   `DataWorkbench.refresh()`, never re-implemented** (§13.3).
+
+2. ⛔ **A summary bar with nothing to summarise MUST NOT RENDER ITS CHROME.**
+   `ProgrammePanel._totalEl` was appended unconditionally with `padding: 8px 12px`, a 2 px top rule
+   and a sunken ground; the empty-state branch cleared its content and **returned early without
+   hiding it**, leaving an 18 px sunken strip under a 2 px rule containing nothing. Visibility MUST
+   be **derived from the data in one place**, never toggled from two.
+
+⚠ **And the reason it went unseen for its whole life:** the bar was styled by an inline
+`style.cssText` block. `dataPanelChrome.spec.ts` ARM A compares **emitted classes against declared
+rules** — an inline style block is invisible to that comparison. §6.1 rule 2 is therefore not a
+tidiness point: **a panel that styles inline opts itself out of the only gate that reads it.**
+
+**Open cell (recorded, not assumed closed).** A single veil button on a full-width band is *a* job,
+not a full one. §6.1's own signal — *"a third stacked band means a control belongs in the header's
+actions slot"* — points at the ~30 per-panel `.dw-toolbar` rows, each of which is that third band.
+Hoisting them is the next step and was **not** shipped blind across 30 panels without a browser.
+
 ---
 
 ## §7 — UI Layering & Overlap (z-index)
@@ -362,6 +400,50 @@ Files touched Phase 1: `apps/editor/src/ui/layout/zLayers.ts` (new SSOT),
   (kept raw in Phase 1 to preserve their intentional +1 ordering over Cesium `z:15`).
 - **Phase 7 — CesiumViewport** (`CESIUM_Z=15`) and the WebGPU overlay (`z:2`) →
   `canvas` band tokens (deferred — those files are outside the L-149 fence).
+
+---
+
+### §7.5 — Chrome that must sit BELOW every panel expresses that by CONTAINMENT, not by a token
+
+> **Added 2026-08-22 · L-4000..L-4004 · §GRID-BUTTON-CENSUS · normative.**
+
+§7.2 already forbids `position: absolute` inside a low-lying container **for chrome that must float
+ABOVE panels**. The opposite case has its own rule, and it is not the mirror image.
+
+**A control that belongs to a canvas pane MUST be a CHILD of that pane, and MUST NOT declare a
+z-index at all.** An `auto` positioned descendant paints below every positioned body sibling with
+`z-index ≥ 1` — which is every panel in this shell. That is the only expression of *"below every
+panel"* that does not depend on numbers which have not been migrated.
+
+⛔ **Reaching for `var(--z-viewport-hud)` here is the bug, not the fix.** `viewportHud` is **900**;
+`#anl-surface` is **50** and `#dw-workbench` is **110**. Neither panel has been migrated to
+`--z-panel` (**1000**) — see the Phase 4 backlog in §7.4 — so the *correctly tokenised* value
+out-paints both. Until §7.4 completes, **the scale cannot be used to place something beneath a
+panel**, and code that tries will be right in the table and wrong on screen.
+
+**Two structural facts do the work instead, and both must be asserted where they live:**
+
+1. **A pane that carries a z-index CREATES a stacking context**, and its descendants are then
+   contained inside it whatever number they hold. `.svp-pane` (`position: fixed`, `z-index: 1`) is
+   such a pane; a button inside it cannot out-paint `#dw-workbench` even at `10002`.
+2. **A pane at `z-index: auto` does NOT**, so its descendants compete at the root. `#container` is
+   such a pane — which is exactly the trap §7.2 names — and the answer is to carry no z-index, not
+   to pick a small one.
+
+⭐ **THE MEASUREMENT THAT MADE THIS A RULE, and it is a census lesson before it is a CSS one.**
+`+ Grid` had **TWO** owners, both `document.body`-parented and both hand-picking a value:
+`PlanViewToolOverlay` at **6** and `SvpPlanToolOverlay` at **10002** — on opposite sides of the
+panel layer. A lane measured the first, correctly concluded *"it cannot render over the panel at
+all"*, and reported that as the answer to a screenshot showing the second. **The z-index reasoning
+was sound** — neither `html` nor `body` declares `transform`/`filter`/`opacity`/`will-change`/
+`contain`, so there is one root stacking context and the comparison was valid. **The census was
+wrong.** C01 §6 rule 6, second direction: *a claim of impossibility is a measurement*, and a
+measurement of one member of a set is not a measurement of the set.
+
+**Obligation:** a control of this kind is verified by a set-based census arm, not a count — see
+`apps/editor/src/ui/styles/__tests__/gridButtonCensus.spec.ts`, whose ARM D pins the four premises
+(`#container` positioned + no z-index, `.svp-pane` z-index 1, the two panel z-indices, and that
+`body` creates no stacking context) so none can move silently.
 
 ---
 
@@ -1071,5 +1153,77 @@ than a pair of coordinate sets kept in sync by hand.
 *"knows no mode by name"*. The level slot is a sibling in the composition, not a row in the table —
 adding a MODE is a registration, adding a NEIGHBOUR is a composition, and conflating them would make
 the registry the second place the shell layout is decided.
+
+---
+
+## §15 — FLOATING CANVAS-ANCHORED CHROME CENTRES ON THE CANVAS, AND THE ACCOUNTING IS ONE PUBLISHED NUMBER
+
+> **Added 2026-08-22 · L-4010..L-4016 · §SHELL-FLOAT-BUDGET · normative.** Founder: the ANALYSIS
+> header *"is still occluded"* — after a fix had already shipped for it.
+
+**A bar that floats over the canvas MUST be positioned relative to the CANVAS REGION, never to the
+viewport. The canvas region is published by the shell as two custom properties, and a mode's
+contribution to them is READ FROM THE MODE REGISTRY — never written per (mode × bar).**
+
+| property | default | meaning |
+|---|---|---|
+| `--shell-canvas-cx` | `50%` | horizontal centre of the region the 3-D canvas occupies |
+| `--shell-canvas-w` | `100vw` | width of that region — for `max-width` stops on bars that GROW |
+
+Declared in `apps/editor/src/ui/styles/tokens.ts`; written by
+`WorkspaceController._applyLayout()` from the `canvas` column of `WORKSPACE_MODES`
+(`'half'` → `25%` / `50vw`). **Adding a half-canvas mode is a ROW** (ADR-0343 §D.1). No bar names a
+mode; no mode names a bar.
+
+### §15.1 — Why a per-panel RESERVE is the wrong shape, and this is the fifth time
+
+A panel that reserves a band for the shell's chrome is the panel doing the shell's accounting. It
+had been done four times. **Measured 2026-08-22**, the re-centring itself was hand-written once per
+(mode × bar): four rules in `inspectModeShell.ts`, one in `analysisSurface.ts` (L-3601). Two
+half-canvas modes × four bars is **eight cells; five were written and three were not** — and
+`.ceb-bar`, the editor toolbar the founder was actually looking at, was in **neither** list.
+
+⭐ **That is why L-3601 changed nothing he could see.** It re-centred the MODE BAR. The occluder was
+`.ceb-bar` — `position: fixed; top: 56px` with 30 px circular buttons, so it occupies **y = 56..86**
+— against a header reserve of **44 px** derived from occluders that bottom out at **36**. Growing
+the reserve to 94 px would have surrendered a fifth of the panel to a bar that should not be there.
+
+### §15.2 — A reserve survives ONLY for chrome no horizontal budget can reach
+
+The Analysis reserve stays at 44 px and its **derivation changed**: every canvas-anchored bar now
+contributes **zero**, and the sole remaining term is `.cp-presence-strip` at `top: 8px; right: 8px`
+→ 36, + 8 clearance. **`right:` is measured from the viewport's right edge, which IS the panel's
+right edge** — there is no canvas on that side to re-centre it over. *The number was unchanged and
+the reason was not*, which is precisely the case a pinned literal hides:
+`analysisHeaderReserve.spec.ts` therefore **derives** the reserve, and its mode-bar arm now asserts
+the bar is **BUDGETED** rather than pinning its geometry.
+
+### §15.3 — Two categories, and a bar must be in one of them explicitly
+
+- **Canvas-anchored** → enrols in the budget. **15 bars** enrolled 2026-08-22.
+- **Viewport-by-design** → a blocking mode-picker or an app-level toast is about the whole
+  application, not the canvas; centring it on the viewport is correct. **18** such rules.
+- **Neither** is a defect. `shellFloatBudget.spec.ts` ARM D is a **classified, shrink-only backlog**
+  (**5** genuine debt entries), shrink-only in BOTH directions: an unlisted bar fails, and a listed
+  bar that is no longer un-budgeted also fails.
+
+### §15.4 — Centring is not sufficient for a row that GROWS
+
+`.ceb-bar` gains buttons per element type. A canvas-centred bar can still cross the panel edge at a
+narrow viewport, so the two widest always-on bars also take
+`max-width: calc(var(--shell-canvas-w) - 32px)`.
+
+### §15.5 — Known gaps (named, so they are not assumed closed)
+
+- **Nothing here is measured in a browser.** Every arm is source-text; happy-dom performs no layout.
+  A rendered overlap check would be strictly stronger and does not exist.
+- **`canvas: 'hidden'` (Data mode) keeps the viewport centre**, deliberately: there is no canvas to
+  centre on and the mode bar must stay reachable over the full-width workbench. Bars that appear in
+  that mode are therefore still un-budgeted **by decision**, not by omission.
+- **At the 768 px breakpoint the half-canvas modes collapse**, so the mobile reserve remains sized
+  for the un-budgeted mode bar. A floor, not a contradiction — but it means the budget is a
+  desktop-width guarantee only.
+- **5 canvas-anchored bars remain un-enrolled** (`.ann-dim-opt-bar`, `.fw-hud`, `.iml-root`,
+  `.sched-panel`, `.vg-panel`).
 
 ---
