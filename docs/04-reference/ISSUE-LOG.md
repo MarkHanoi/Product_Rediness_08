@@ -34364,6 +34364,10 @@ AssertionError: expected true to be false
    403|     expect(call.result.allowed).toBe(false);
 ```
 
+(That reading was taken **before** this lane added its correction block to the arm; the identical
+assertion now reports at **:448**. The line MOVED, the fact did not — re-run rather than trust either
+number.)
+
 `res.blocked` is **`false`** and that assertion **passes**. ⭐ **The gate does not block the founder's
 gesture at all** — not on the policy arm, not on the absent-discriminator arm. The failing fact is
 the opposite one: the pre-flight **ALLOWS** and **follows**. Every "the gate is refusing him" reading
