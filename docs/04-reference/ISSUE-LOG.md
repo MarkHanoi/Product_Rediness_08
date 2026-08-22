@@ -37426,3 +37426,235 @@ python -c "b=open(p,'rb').read(); print([(i,c) for i,c in enumerate(b) if c<9 or
 Replaced with an explicit `` `${zone}::${uuid}` ``. Every source and doc file this lane touched was
 byte-checked after writing; all clean. **The rule earns its place: the failure is silent, it makes
 real code look absent, and one command finds it.**
+
+---
+
+### L-5700 — the lift was BUILT at LOD 200, and the LOD-300 compound was ABSENT. Both halves of that sentence were contested by the brief.
+
+**Lane LIFT22, 2026-08-22.** The founder asked for a *"lift compound system … lod 300 …
+with types"* whose cabin decomposes into *"structure, finishes wall, floor ceiling
+etc.. all sub elements querible and selectable"*.
+
+The brief for this lane opened *"⭐ START HERE — THE LIFT IS ALREADY BUILT, AND
+UNREACHABLE"*. **Both adjectives were wrong, in opposite directions**, and separating
+them was most of the work:
+
+**What was really there** (`wc -l packages/geometry-lift/src/*.ts` → 1,303):
+a **LOD-200 MASSING lift**. ONE record (`LiftData`), ONE store
+(`verticalCirculation`), and `LiftMeshBuilder` drawing **two placeholder boxes** — a
+translucent shaft and a solid car. `CreateVerticalCirculationCommand` declares
+`affectedStores = ['verticalCirculation']`. **No doors. No cabin parts. No shaft
+walls. No slab voids.** So "already built" is true of a massing block and false of
+everything the founder asked for.
+
+**And it was NOT unreachable.** Measured, non-test sites:
+`CreatePanelLayout.ts:278` (a `Lift` palette button under Structure) ·
+`ToolsAreaLayout.ts:332` (`runtime.tools.register('lift', …)`) ·
+`initTools.ts:2643/2662` (LiftTool **instantiated and registered**) ·
+`initBuilders.ts:985` (LiftMeshBuilder **constructed**).
+
+**The stale claim, corrected.** The brief said `lift` is one of FOUR declared tool
+families "whose activator arms nothing". That is a **pre-fix historical reading**:
+`tools/ga-gate/check-tool-activator-coverage.ts`'s own header says *"measured BEFORE
+the fix"*, and `§FIX-DECLARED-TOOL-WITH-NO-ACTIVATOR` closed `lift` in the same commit
+that produced the number. **A live re-run exits 1 on `pool`, not `lift`.**
+
+⭐ **The lesson is not "the brief was wrong".** It is that *"X is unreachable"* decays
+faster than almost any other claim in this repo, because it is exactly the class of
+statement someone fixes. **Re-run the gate; never inherit its output.**
+
+### L-5701 — 6-person vs 8-person: ADDED, because one of the rivals carried a regulatory citation
+
+The founder asked for a *"default of standard lift for 6 people"*. `BUILT_IN_LIFT_TYPES`
+had `passenger-8`. Both are real standard cars.
+
+**Resolved by ADDING `passenger-6` and making it the default of `lift.create` only.**
+`passenger-8` and `accessible` are byte-for-byte unchanged. Three reasons:
+
+1. ⛔ `accessible` cites **EN 81-70** for its 1.1 × 1.4 m clear car. That is
+   **regulatory** — an accessible lift that is not 1.1 × 1.4 m is not an accessible
+   lift. Silently rewriting a standards-cited definition to satisfy a default
+   preference is the worst available way to honour a request.
+2. `LiftToolPlacement.ts` pins `DEFAULT_TYPE_ID = 'passenger-8'` and the
+   residential-building generator drives it. Changing the value under it resizes every
+   lift in every generated building, silently.
+3. A 6-person car is itself standard (450 kg, ~1.0 × 1.25 m). It earns a row; it does
+   not need to displace one.
+
+**Verdict: CLOSED.** C104 §6.
+
+### L-5702 — a lift cabin part is NOT a slab, and the reason is 15 m² of floor area that does not exist
+
+`Slab`, `Ceiling`, `Floor` and `Wall` all carry a `levelId` and sit relative to that
+level's datum. **A lift car travels** — its floor is at a different elevation on every
+storey and at none while moving, so there is no `levelId` that is true of it.
+
+And a `slab` record lands in every floor-area schedule, take-off and `IfcSlab` export:
+a ~1.5 m² car floor counted once per served storey inflates a 10-storey building's GFA
+by **15 m² that does not exist**. That is the `Water`/ADR-0124 §4 argument verbatim.
+
+**Verdict: CLOSED** — `liftPart` is the ONE new family (ADR-0354 §3).
+
+### L-5703 — the landing doors are REAL `Door` records, one per served level
+
+*"How many doors does this building have?"*, *"what is the level-7 lift door's fire
+rating?"* and *"export the model"* are all **door** questions answered by the **door
+store**. A lift-specific sub-element would be invisible to the schedule (C28), the
+fire strategy, IFC export (C25) and the material dispatcher — and each would return a
+**confident wrong answer** rather than an error.
+
+⭐ **What made it representable:** the shaft enclosure spans **pit to overrun** as one
+tall wall, and `Door` already has `wallId` + `sillHeight` + `offset`. So N landing
+doors host in ONE wall at N sill heights — **exactly how a shaft is drawn in section**.
+No new hosting mechanism was needed and none was built.
+
+**Verdict: CLOSED.** ADR-0354 §2.
+
+### L-5704 — the shaft voids EVERY slab it passes, and the delete heals every one
+
+A shaft that does not penetrate the floors is not a shaft. Voids go into `Slab.holes`
+— the field the pool already uses — by **whole-array replace, never `push`** (a deep
+patch does not survive the legacy undo adapter and would wipe *every* hole on that
+slab).
+
+⚠ **The precedent is not flattering.** `DeleteStairCommand` contains **zero**
+references to openings, so deleting a stair leaves its void punched through the floor
+plate forever and nothing reaps it. **A lift makes that bug one-per-storey worse** —
+ten stacked holes is precisely a lift shaft with no lift in it.
+
+`lift.delete` matches voids **by geometry, never by index** ("remove the last hole" is
+wrong the moment a slab carries a second lift, a stair void or a pool), and ⛔ **does
+not delete the host wall** — a wall-hosted lift *borrows* a wall.
+
+**Verdict: CLOSED**, pinned by R-11 of the reachability suite.
+
+### L-5705 — "like the kitchen element": Tab-to-subselect EXISTS, and the one place it could not be copied
+
+**Established by measurement before designing anything.** There is no
+`packages/kitchen` and no `plugins/kitchen`. The founder's referent is kitchen
+cabinetry placed as **furniture** (`geometry-furniture/KitchenTypes.ts`, matched by
+`userData.furnitureType` starting `kitchen_`), and the mechanism is
+`SelectionManager.cycleKitchenUnit()` — shared in shape with curtain-wall and
+wardrobe. **So Tab-to-subselect is PRESENT, and the lift was wired INTO it.**
+
+⭐ **The one place it could NOT be copied, which is the finding worth keeping.**
+`_buildKcUnitList` discovers units with `root.traverse()`. That works because a kitchen
+run is **one mesh tree**. A lift's members are **three families in three stores**, and
+its upper-storey landing doors sit on levels that are routinely **not built** because
+they are not the active level. **A traverse-discovered list silently drops every member
+whose builder has not run — for a multi-storey lift, the COMMON case.**
+
+So the cycle order comes from the **record**, and the scene is consulted only to find a
+mesh for a **known id**; the sub-selection is published by id even with no mesh, so
+"select the car ceiling" works while standing on the ground floor.
+
+**Verdict: CLOSED in mechanism; NOT browser-verified (L-5706).**
+
+### L-5706 — NOT VERIFIED IN A BROWSER
+
+Wired and unit-tested, but **no test and no human has pressed Tab in a live viewport**:
+that the amber highlight appears, that it lands on the right member, and that a placed
+lift looks right in 3-D are **claimed by nobody**. The mechanism mirrors one in daily
+use; that is an argument, not evidence.
+
+**Verdict: OPEN — needs a browser pass.**
+
+### L-5707 — a TYPE ALIAS used as a VALUE took out test collection for an entire sibling lane
+
+`LiftTypes.ts:24` declares `export type LiftKind = 'passenger' | …` — a **type**. The
+first draft of `LiftCompoundTypes.ts` wrote `kind: LiftKind.default('passenger')` **at
+module scope**. A type alias erases at runtime, so it threw
+`TypeError: Cannot read properties of undefined (reading 'default')`.
+
+⚠ **The blast radius was not the lift.** `command-registry` imports
+`@pryzm/geometry-lift` as a **value** edge
+(`CreateVerticalCirculationCommand.ts:27`), and that barrel is reachable from
+`bootstrap.everything` — so the throw killed **test COLLECTION for every suite under
+`apps/editor`**, including a sibling lane's 13-case reachability proof, **which is how
+it was found**. `[[scc-no-barrel-access-at-module-load]]`.
+
+Fixed with a real `z.enum` plus a typed-const parity line so the enum and the alias
+cannot drift. **Lesson: prefer lazy/function-scope construction for anything a barrel
+re-exports — module-scope work inside a barrel-reachable file makes one package's
+defect everyone's crash.**
+
+**Verdict: CLOSED** — sibling suite re-run in the foreground, 13 passed.
+
+### L-5708 — I INVENTED A GLOBAL, and caught it only by grepping my own code
+
+The first draft of the Tab drill-in read `window.__pryzmStores?.lift`.
+`grep -rn "__pryzmStores"` returned **two hits: the two lines that had just invented
+it.** A seam built to the shape the caller wanted rather than the shape the app has —
+`[[fake-more-capable-than-real]]` in miniature. It would have made Tab cycle an empty
+list **forever**, while any test that mocked the global passed.
+
+The real bridge is `runtime.stores[<key>]` (`PluginRegistry.ts:133`), reached via
+`window.runtime` — the same door this very file already uses for the bus.
+
+⭐ **Grep the symbol you just wrote against the repo. If the only hits are yours, you
+invented it.**
+
+**Verdict: CLOSED.**
+
+### L-5709 — THE HONEST GAP: the model answers "how many storeys?" completely; the UI that ASKS does not exist
+
+The founder asked that *"the user will be asked how many stories that lift should
+cover based on the existing levels in the project"*.
+
+**The model does this fully** — `servedLevels` is a set of level ids, one landing door
+per entry, one void per slab, tested at both the pure (30 cases) and composed (12
+cases) layers. **The UI that asks is not built**, and neither is the **placement
+preview** (*"a preview where the door of the lift will be"*): there is no
+`LiftPlanToolHandler` (`grep -n "Lift" planToolHandlerRegistry.ts` → 0), so the lift
+tool is inert in plan.
+
+⚠ **The `Lift` palette button and the `lift` activator both exist — and both drive the
+LEGACY MASSING command, not `lift.create`.** So a green reachability suite and a
+working button coexist with the compound being unreachable from the UI. **Axis 3 of
+four is PARTIAL, and saying "the lift is reachable" without that qualifier would be
+false.**
+
+**Verdict: OPEN.** The three rows a plan handler needs belong to files another lane
+owns this session; the matrix `tool` and the registry key **must be the same string**
+(the railing/handrail desync).
+
+### L-5710 — the AI chat route refuses `lift.create` (axis 4)
+
+`ChatCommandClassification.ts` classifies unknown verbs class B, so chat refuses the
+new verb. Not closed here. **Verdict: OPEN**, stated rather than left silent.
+
+### L-5711 — L0 promotion DEFERRED, for a measured reason and not an architectural one
+
+`Pool`/`Water` live in `packages/schemas` (L0) and in `registry.ts` + `types/Id.ts`.
+`LiftCompound`/`LiftPart` **should** join them and do not yet: at the time,
+`packages/schemas/src/types/Id.ts` and `.../elements/index.ts` **both carried another
+lane's uncommitted work** (` M` in `git status --short` while its `Balcony.ts` was
+still `??`). Read-modify-writing either would have silently destroyed it —
+`[[multi-agent-shared-tree-collisions]]`.
+
+Both shapes are declared together in `geometry-lift` and are drop-in: promotion is a
+move plus three registry lines. **Consequence, stated:** until then they are absent
+from `SCHEMA_REGISTRY` and the branded-`Id` union.
+
+**Verdict: OPEN.**
+
+### L-5712 — the cabin has NO MESH BUILDER, so a placed lift shows a shaft and doors and NO CAR
+
+Composing from existing families means the shaft walls, glass sides and landing doors
+render through the **existing** wall / curtain-wall / door builders — a real dividend.
+But the **cabin parts are a new family with no builder**, so the car is not drawn.
+
+The Tab drill-in survives this by design (selection by id; highlight only where a mesh
+exists), which is exactly why that design was chosen — but the visual result today is
+incomplete. **Verdict: OPEN.**
+
+### L-5713 — the two lifts must eventually converge, and it must NOT be done casually
+
+The residential-building generator should emit `lift.create` rather than
+`CreateVerticalCirculationCommand`, making `verticalCirculation` a projection rather
+than a rival. **Not done here.** It changes the meaning of every already-generated
+building and needs its own lane, a snapshot migration, and a decision about existing
+projects.
+
+⛔ **Until then, do NOT "clean up the duplication" between the two lift records** —
+C104 §1 and R-8. **Verdict: OPEN.**
