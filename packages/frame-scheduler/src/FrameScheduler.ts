@@ -790,9 +790,29 @@ export class FrameScheduler {
 
     // §FRAME-PROFILER — record total frame wall-time + emit the 1 s summary.
     // Placed before the idle-gate's early returns so it runs on every tick.
+    //
+    // ⭐ §NAV-FRAME-IS-NOT-CPU (L-5900, lane NAV24, 2026-08-22) — TWO durations, and
+    // `deltaMs` is the one the user feels.
+    //
+    // `_frameEnd - _profStart` is the wall-clock time spent INSIDE this method: the
+    // drain plus every tick listener. That is MAIN-THREAD work and only main-thread
+    // work. `deltaMs` (computed at the top of this tick, `now - lastTickTime`) is the
+    // rAF-to-rAF INTERVAL — the actual cadence the viewport updates at.
+    //
+    // This call used to pass ONLY the first, and `FrameProfiler` labelled it `frame=`
+    // and computed `worst`/`p95`/`hitches` from it. `deltaMs` was already in scope,
+    // already correct, and was dropped on the floor. On BOTH backends the expensive
+    // half of a heavy frame is off this thread — WebGPU encodes and submits, WebGL2
+    // hands work to the driver — so a GPU-bound scene produced short ticks, long
+    // frames, and a profiler that printed "✅ smooth" over a visible stutter.
+    //
+    // ⛔ `deltaMs` is safe to report across the idle stop/start cycle: `start()`
+    // re-anchors `lastTickTime = adapter.now()` (see start(), §S03-T1), so the first
+    // tick after a wake measures one frame and not the whole idle gap. Without that
+    // anchor this line would mint a fake multi-second hitch on every wake.
     if (_prof) {
       const _frameEnd = _perfNow();
-      this.profiler.endFrame(_frameEnd - _profStart, _frameEnd);
+      this.profiler.endFrame(_frameEnd - _profStart, _frameEnd, deltaMs);
     }
 
     // 3. Idle-continuation gate (ADR-006).  If the tick had work to do —
