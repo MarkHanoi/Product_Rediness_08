@@ -62,6 +62,10 @@ import {
 // the builders ask. Re-deriving the flag precedence here would be a second
 // implementation free to disagree with the one that decides what actually renders.
 import { isElementInstancingEnabled } from '@pryzm/core-app-model/rendering';
+// §NAV-THE-EVIDENCE-NOBODY-CAN-REACH (L-5910) — the surviving refusal counts for
+// §SURFACE-WITH-NO-AREA-REFUSES-THE-PASS. A named function import, not `* as THREE`
+// (P2 holds); `surfaceArea.ts` is structurally typed and pulls no renderer with it.
+import { getZeroAreaSurfaceReport } from '@pryzm/renderer-three';
 
 // ── Structural views of live objects (no THREE import — P2) ─────────────────
 
@@ -1174,6 +1178,81 @@ function printReport(r: PryzmPerfReport): void {
             p(LINE);
         }
     }
+
+    // ── VIEWPORT SUBMIT ─────────────────────────────────────────────────────
+    // ⭐ §NAV-THE-EVIDENCE-NOBODY-CAN-REACH (L-5910, lane NAV29, 2026-08-22).
+    //
+    // Two instruments already existed for exactly the founder's complaint, both
+    // correct, both COMPLETELY UNREACHABLE from the workflow he actually uses.
+    //
+    //   · `renderPipelineManager.getFrameSkipReport()` — §L900-FRAME-SKIP-ATTRIBUTION.
+    //     Names WHICH of `render()`'s ten early-return gates declined a frame, and
+    //     how many IN A ROW. Its own header states the stakes: nothing else repaints
+    //     that canvas, so a declined frame is a FROZEN VIEWPORT.
+    //   · `getZeroAreaSurfaceReport()` — §SURFACE-WITH-NO-AREA-REFUSES-THE-PASS.
+    //     Survives the flood on purpose, because "a message that scrolled past at
+    //     frame 3 of 40,000 is not a finding a human can retrieve".
+    //
+    // ⛔ AND NEITHER WAS PRINTED HERE. The founder's report is a pasted console
+    // line; the reading protocol this module publishes is `on()` → gesture →
+    // `report()`. An instrument that requires knowing its own function name is not
+    // an instrument he has — it is one a lane has. That is the same defect as a
+    // count that survives only in a report nobody re-runs, and it is why the
+    // "177 frame(s) were refused" line reached this lane as an anecdote from a
+    // scrollback rather than as a retained number with a denominator.
+    //
+    // ⚠ THIS SECTION MEASURES NOTHING NEW. It reads two existing reports and prints
+    // them. Every figure below is the subsystem's own, unmodified.
+    p('  VIEWPORT SUBMIT — which frames the pipeline DECLINED, and why');
+    const rpmSkip = safe(() =>
+        g<{ getFrameSkipReport?: () => {
+            skips: Record<string, number>;
+            lastSkipReason: string | null;
+            consecutiveSkips: number;
+            framesPresented: number;
+        } }>('renderPipelineManager')?.getFrameSkipReport?.(),
+    );
+    if (!rpmSkip) {
+        p(row('frame-skip attribution', null,
+            '← no window.renderPipelineManager.getFrameSkipReport()'));
+    } else {
+        const entries = Object.entries(rpmSkip.skips).sort((a, b) => b[1] - a[1]);
+        const total = entries.reduce((s, [, n]) => s + n, 0);
+        p(row('frames declined (all gates)', num(total),
+            total === 0 ? '✅ nothing declined' : ''));
+        for (const [reason, n] of entries) p(row('  ' + reason, num(n)));
+        // ⭐ The load-bearing number is CONSECUTIVE, not total. A view switch is
+        // ALLOWED to decline frames; a gate that has declined 600 in a row is a leak.
+        p(row('consecutive skips (NOW)', num(rpmSkip.consecutiveSkips),
+            rpmSkip.consecutiveSkips > 0
+                ? `🔴 STALLED at gate "${rpmSkip.lastSkipReason}" — the image on screen is STALE`
+                : '✅ not currently stalled'));
+        p(row('frames presented since', num(rpmSkip.framesPresented),
+            rpmSkip.framesPresented > 0
+                ? '← pipeline is live; any staleness is UPSTREAM of the submit'
+                : ''));
+    }
+    const zeroArea = safe(() => getZeroAreaSurfaceReport());
+    if (!zeroArea) {
+        p(row('zero-area surface refusals', null, '← getZeroAreaSurfaceReport() unavailable'));
+    } else if (zeroArea.length === 0) {
+        // ⛔ NOT "0 refusals". The gate registers a site the first time it RUNS, so an
+        // empty list means no gated site has been exercised at all — an absence of
+        // measurement, not a clean bill of health (§PERF-ZERO-IS-NOT-UNWRITTEN, L-1397).
+        p(row('zero-area surface refusals', '—',
+            'NO SITE HAS RUN — absence of measurement, NOT a measured zero'));
+    } else {
+        for (const s of zeroArea) {
+            p(row(`  "${s.site}"`,
+                `${num(s.suppressedTotal)} refused / ${num(s.episodes)} episode(s)`,
+                s.suppressing
+                    ? `🔴 REFUSING NOW (${num(s.suppressed)} this episode) — surface has no area`
+                    : ''));
+        }
+        p('       ⚠ A refusal is CORRECT: a draw into a 0×0 attachment is discarded by');
+        p('         the driver. What it costs is everything computed to reach it.');
+    }
+    p(LINE);
 
     p('  pryzmPerf.on() = arm+zero · reset() = zero, stay armed · off() = stop');
     p('  Full object: window.pryzmPerf.data()   ·   Frame costs: __pryzmFrameProfile = true');
