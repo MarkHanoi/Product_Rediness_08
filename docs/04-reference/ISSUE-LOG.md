@@ -37862,6 +37862,15 @@ comment block; its readings on the same ratios were 3049/3219, mine are 2623/264
 **Both of the top two rows run on EVERY autosave**, moments apart — the save, then the sync-status
 flip when the server confirms it. So one autosave paid the whole-history decode **twice**.
 
+> ⚠ **READ THE RATIO, NOT THE MILLISECONDS — and this lane proved that on itself.** The table above
+> was taken on a quiet machine. **Re-run at lane close, with two sibling lanes running full test
+> suites on the same box:** `getVersions()` **4606 ms**, `getLatestVersion()` **189 ms**; append
+> **5854 → 544 ms**; sync flip **6079 → 978 ms**. Every absolute roughly **2.2× worse**, every
+> ratio intact (24×, 11×, 6×). ⛔ **So an absolute figure from this bench is a reading of a machine
+> under a load, not a property of the code** — which is exactly why the founder's instruction was
+> *never inherit a number, including mine*, and why quoting "2231 ms" at someone without re-running
+> is the same defect one level up. **The command is in every row; run it.**
+
 **On which thread — the honest answer, in three parts.** ⭐ The *deflate* is off-thread when
 `getCompressWorkerPool().isReady()`, and `_saveWorkerOffloadEnabled()` is **DEFAULT ON**
 (`globalThis.__pryzmSaveWorkerOffload !== false`; `grep -rn "__pryzmSaveWorkerOffload"` → **two
