@@ -81,14 +81,33 @@ describe('RenderPipelineManager.setShadowPassSuppressed (§FIX-SHADOW-MIDSUBMIT-
         expect(shadowMap.needsUpdate).toBe(false); // untouched by the second call
     });
 
-    it('is inert when WebGPU is not active (WebGL fallback owns its shadowMap)', () => {
+    // ⚠ INVERTED 2026-08-22, §NAV-SHADOW-CAMERA-CANNOT-CHANGE-IT (L-3310).
+    //
+    // This case used to be titled *"is inert when WebGPU is not active (WebGL fallback
+    // owns its shadowMap)"* and asserted `autoUpdate === true` after a suppress call. It
+    // was not testing a requirement — it was PINNING a belief the repository had already
+    // measured as false: three r183's classic `WebGLShadowMap` reads the per-light
+    // autoUpdate flags too (WebGLShadowMap.js:95 and :170), which is why L-1480 removed
+    // the identical gate from `_applyShadowFreezeState` in the same class.
+    //
+    // ⭐ It is kept, inverted, rather than deleted. A green test standing guard over a
+    // defect is worth more as a record of how the defect survived than as a deletion: the
+    // belief has now cost three separate bugs, and this file voted for it each time.
+    it('freezes on the WebGL fallback TOO — the per-light flags are read there as well', () => {
         const rpm = new RenderPipelineManager();
         const { shadowMap } = makeFakeRenderer();
-        // _webGpuActive stays false (default); still give it a renderer.
+        // _webGpuActive stays false (default) — this IS the WebGL fallback, and it is the
+        // backend `autoWebGLHeavyScene` forces a heavy scene onto, i.e. exactly the case
+        // the nav freeze exists for.
         (rpm as unknown as { _renderer: unknown })._renderer = { shadowMap };
 
         rpm.setShadowPassSuppressed(true);
+        expect(shadowMap.autoUpdate).toBe(false);
 
-        expect(shadowMap.autoUpdate).toBe(true); // untouched — early return
+        // …and thawing resumes it and asks for exactly one refresh against the settled
+        // scene, so a frozen map can never outlive the motion that froze it.
+        rpm.setShadowPassSuppressed(false);
+        expect(shadowMap.autoUpdate).toBe(true);
+        expect(shadowMap.needsUpdate).toBe(true);
     });
 });

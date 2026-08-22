@@ -1577,3 +1577,114 @@ Recorded so nobody reads silence as a clean bill of health.
 - **Whether any of this is what the founder actually feels.** Every ranking above is a
   cost measurement. **§10.2 is the only thing that converts one into a felt improvement, and it has
   not been run.** If it comes back flat, row #1 is over-ranked and this document should say so.
+
+---
+
+## §9 — ⭐ THE HEADLINE IN §1 DOES NOT APPLY TO THE BACKEND THE FOUNDER IS ACTUALLY ON
+
+**Measured 2026-08-22, from the founder's own console.**
+
+§1 is correct and it is the largest single waste in this repository — **on WebGPU**. Its own scope
+line says so: *"Scope: **WebGPU only.** `isRealWebGPUBackend()` gates the whole TSL pipeline … so
+`webgl-classic` and the forced-WebGL path do not pay this."*
+
+The founder's session prints:
+
+```
+[initScene] §FRAME-STARTS-CLEAN-ON-EVERY-BACKEND … on backend 'webgl-fallback'
+[RenderPipelineManager] §PERF-WEBGL2-NO-TSL non-WebGPU backend — TSL pipeline OFF …
+                        SSGI / outlines / post-FX stay OFF.
+[autoWebGLHeavyScene] §AUTO-WEBGL-HEAVY — scene is device-loss-risk
+                      (331 elems / 1848 meshes / 7 levels; reason=tier:post-load);
+                      Auto mode switching WebGPU→WebGL to avoid heavy-scene device loss.
+```
+
+⛔ **So the fix §1.5 argues for would have changed nothing for the person who reported the
+problem.** A ledger headline that is true and inapplicable is the same failure mode as a stale
+count: it sends the next reader to the wrong file. §1 stands; **this section is the WebGL half.**
+
+### §9.1 — What the founder's numbers actually decompose to
+
+```
+§SWAP-PAINTS-THE-BUILDING  sceneMeshes=1947  drawCalls=3685  triangles=480010
+[PascalSceneLighting] Shadow flags set on 1366 mesh(es).
+```
+
+`1947 + 1366 = 3313`, against a reported **3685**. The residue is the ground catcher, grids, gizmos
+and the site overlay. **The shadow depth pass is ~37 % of every frame's draw calls**, and it is
+re-run **every frame**, including frames in which only the camera moved.
+
+### §9.2 — The mechanism, and why it was off precisely when it was needed
+
+`RenderPipelineManager.setShadowPassSuppressed()` — the nav shadow freeze, in the file since L-25 —
+was disarmed **twice over**, and either alone was sufficient:
+
+1. **It had ZERO production callers.** Measured: every reference outside the class was a test.
+   The camera-motion lifecycle in `initScene.ts` (`controlstart` → `beginMotion`, `rest`/`sleep` →
+   `endMotion`) was correct and complete, and simply never told the pipeline manager about it.
+2. **It returned early on WebGL** — `if (!this._webGpuActive) return;` — justified in its own
+   comment as *"the WebGL2 fallback drives its own shadowMap and is out of this lane."*
+
+⭐ **Claim (2) is the third recurrence of one disproven belief, and it is disproven THIRTY LINES
+BELOW ITSELF.** `_applyShadowFreezeState` carries the L-1480 correction verbatim: the classic
+`WebGLShadowMap` reads the **per-light** `autoUpdate` flags too
+(`three@0.183.2/…/webgl/WebGLShadowMap.js:95` renderer-level, **`:170` per-light**). The same
+inversion was corrected for `§FRAME-STARTS-CLEAN-ON-EVERY-BACKEND` (L-1350) twelve hours before
+that. A test — `shadowFreeze.test.ts` — stood guard over the belief and voted green each time.
+
+⭐ **And the two compose into the worst possible shape:** `autoWebGLHeavyScene` forces
+WebGPU → WebGL **because the scene is heavy**. So the optimisation for heavy scenes switched itself
+off exactly when a scene got heavy. *The heavier the model, the more certainly it was disabled.*
+
+### §9.3 — Why freezing during navigation is LOSSLESS, and the condition under which it stops being
+
+A shadow map is a function of the **lights** and the **geometry**. It is not a function of the view
+camera — and here that is not an assumption, it is checked: both shadow cameras are **fixed ortho
+boxes fixed at configuration time**, never fitted to the view frustum.
+
+| light | file | box |
+|---|---|---|
+| sun key light | `RealSunService.ts:469-472` | near 1 · far 500 · **±80 m** |
+| Pascal key light | `PascalSceneLighting.ts:296-301` | near 1 · far 100 · **±`cfg.shadowCameraSize`** |
+
+Orbiting cannot change a single texel. Re-rendering per frame reproduces a **bit-identical** texture.
+
+⛔ **This stops holding the moment a shadow camera follows the view** — cascades, a fitted frustum,
+or a per-frame `shadow.camera` write. There is none today (measured: no `shadow.camera.*` assignment
+occurs inside a frame callback). Anyone adding one must re-read this section first.
+
+### §9.4 — What shipped (L-3310)
+
+- The `_webGpuActive` early return is **gone**, citing L-1480 in place.
+- `initScene.ts` wires the missing caller onto the **existing** motion lifecycle —
+  `controlstart` → freeze; `rest`/`sleep` → thaw + exactly one refresh. Deliberately **not**
+  `controlend`: camera-controls fires `update` through a damping tail of several hundred ms, and a
+  private timer would have rediscovered that bug.
+- The tab-hidden backstop thaws too. Without it a drag interrupted by backgrounding the tab would
+  leave the map frozen for the session — the same silent-lockup shape that backstop already exists
+  to prevent for `isCameraDragging`.
+- Kill switch `window.__pryzmShadowFreezeOnNav = false`, declared in `globals.d.ts` (P4 holds), so a
+  suspected staleness report is confirmed or cleared in one step rather than a redeploy.
+- The guard test is **inverted, not deleted** — a green test standing over a defect is worth more as
+  a record of how the defect survived three times.
+
+**Expected: ~37 % fewer draw calls per frame while navigating, scaling with caster count.** At the
+10–20× the founder is planning for, this is 13 660–27 320 avoided mesh submissions per frame.
+⚠ **Not yet measured in a browser. `drawCalls` as printed is not a reliable instrument (§2) — A/B
+with the kill switch and `renderer.info.render.calls` read across two frames.**
+
+### §9.5 — What is NOT closed, ranked for the 10–20× target
+
+1. **~5.9 meshes per element** (1947 meshes / 331 elements). This, not the shadow pass, is the
+   term that decides the 20× case: it multiplies *everything* downstream. **Unmeasured — no
+   per-family mesh census exists.** That census is the next thing to build.
+2. **`InstancedMeshCoalescer` reports `mergedGroups=0 totalInstances=0`** on every batch. Its key is
+   `levelId:geometry.uuid:material.uuid`, and §7.4 records that *every element allocates fresh
+   geometry* — so two elements can never share a UUID. **Whether 0 is "nothing left to merge"
+   (`InstancedElementRenderer` already groups by geo×mat×level) or "structurally cannot merge" is
+   NOT SETTLED, and the two have opposite fixes.** Do not act on this line without settling it.
+3. **`SpatialTree.refreshTreeNow()` rebuilds ~27 400 DOM nodes on every model mutation** (§3.4),
+   visible or not. Not a navigation cost; a mutation cost.
+4. **The WebGL fallback is itself the constraint.** §PERF-WEBGL2-NO-TSL turns off the entire node
+   pipeline. The device-loss forcing is correct — but it means the heavy-scene path is also the
+   least capable path, and that trade has never been re-measured since the instancing fixes landed.

@@ -2053,8 +2053,37 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     //
     // Contract: 08-CAMERA-SYSTEM-CONTRACT §3 — camera events must keep the
     //   render loop alive for the full motion window including damping tail.
+    // §NAV-SHADOW-CAMERA-CANNOT-CHANGE-IT (L-3310) — freeze the shadow map for the
+    // duration of a camera motion, and refresh it once when the camera settles.
+    //
+    // The freeze mechanism (`RenderPipelineManager.setShadowPassSuppressed`) has existed
+    // since L-25 and had ZERO production callers — measured 2026-08-22: every reference
+    // outside the class was a test. It also returned early on WebGL, which is the backend
+    // a heavy scene gets forced onto. So it was disarmed twice over, in the case it was
+    // written for. The gate is gone; these three lines are the missing caller.
+    //
+    // ⭐ This is LOSSLESS, not a quality setting: both shadow cameras are fixed ortho
+    // boxes, never fitted to the view, so orbiting cannot change the shadow map. See the
+    // citations on `setShadowPassSuppressed`. What it removes is 1366 meshes redrawn per
+    // frame (founder's session) to recompute a texture that could not have changed.
+    //
+    // ⛔ It hangs off the SAME lifecycle as `beginMotion`/`endMotion` rather than a private
+    // one: `controlend` deliberately does NOT end motion here, because camera-controls
+    // keeps firing 'update' through the damping tail for several hundred ms. A private
+    // timer would rediscover that bug. `rest`/`sleep` are the settled signal.
+    //
+    // Kill switch: `window.__pryzmShadowFreezeOnNav = false` in DevTools restores the old
+    // per-frame behaviour without a reload, so a suspected shadow-staleness report can be
+    // confirmed or cleared in one step instead of a redeploy.
+    const _navShadow = (suppressed: boolean): void => {
+        if (window.__pryzmShadowFreezeOnNav === false) return;
+        try { renderPipelineManagerRef?.setShadowPassSuppressed?.(suppressed); }
+        catch (e) { console.warn('[initScene] §NAV-SHADOW-FREEZE could not reach the pipeline manager:', e); }
+    };
+
     world.camera.controls.addEventListener('controlstart', () => {
         window.isCameraDragging = true;
+        _navShadow(true);
         getFrameScheduler().beginMotion();
     });
     // controlend fires immediately when the pointer is released after a camera control
@@ -2074,10 +2103,12 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     });
     world.camera.controls.addEventListener('rest', () => {
         window.isCameraDragging = false;
+        _navShadow(false);   // thaw + one refresh against the settled scene
         getFrameScheduler().endMotion();
     });
     world.camera.controls.addEventListener('sleep', () => {
         window.isCameraDragging = false;
+        _navShadow(false);
         getFrameScheduler().endMotion();
     });
 
@@ -2087,7 +2118,10 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // ALL selection is blocked until the user manually triggers another drag.
     // Reset the flag on visibilitychange (tab hidden/shown) and window blur
     // (browser window loses focus) as a backstop against this silent lockup.
-    const _resetDragOnFocusLoss = (): void => { window.isCameraDragging = false; };
+    // ⛔ Thaw here too. `controlend` never fires when a tab is backgrounded mid-drag, so
+    // without this the shadow map would stay frozen for the rest of the session — the same
+    // silent-lockup shape this backstop already exists to prevent for `isCameraDragging`.
+    const _resetDragOnFocusLoss = (): void => { window.isCameraDragging = false; _navShadow(false); };
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') _resetDragOnFocusLoss();
     });

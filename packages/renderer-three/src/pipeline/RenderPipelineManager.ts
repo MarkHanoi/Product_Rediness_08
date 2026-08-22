@@ -1935,7 +1935,36 @@ export class RenderPipelineManager implements IViewSwitchListener {
      */
     private _shadowPassSuppressed = false;
     setShadowPassSuppressed(suppressed: boolean): void {
-        if (!this._webGpuActive) return;
+        // §NAV-SHADOW-CAMERA-CANNOT-CHANGE-IT (L-3310, 2026-08-22) —
+        // ⚠⚠ THIS METHOD USED TO OPEN WITH `if (!this._webGpuActive) return;`, on the
+        // stated grounds that *"the WebGL2 fallback drives its own shadowMap and is out of
+        // this lane"*. That is the SAME claim §SHADOW-PER-LIGHT-FREEZE-IS-SCENE-STATE
+        // (L-1480) measured as FALSE and removed from `_applyShadowFreezeState` thirty
+        // lines below, in this same class, two days earlier. The classic
+        // `WebGLShadowMap` reads BOTH the renderer-level and the per-light autoUpdate
+        // flags (three r183, WebGLShadowMap.js:95 and :170). The belief has now cost the
+        // same defect three times; it is disproven in this file, above and below.
+        //
+        // ⭐ WHY IT MATTERED MOST ON THE BACKEND IT EXCLUDED: `autoWebGLHeavyScene` forces
+        // WebGPU -> WebGL precisely BECAUSE a scene is heavy (measured on the founder's
+        // session: 331 elements / 1848 meshes -> `reason=tier:post-load`). So the nav
+        // shadow freeze disabled itself in exactly the case it was written for. The
+        // heavier the model, the more certainly the optimisation was off.
+        //
+        // ⭐ WHY FREEZING DURING NAVIGATION IS LOSSLESS, not a quality trade:
+        // a shadow map is a function of the LIGHTS and the GEOMETRY. It is not a function
+        // of the view camera — and in this build that is not an assumption, it is checked:
+        // both shadow cameras are FIXED ortho boxes set at configuration time
+        // (`RealSunService.ts:469-472` at +/-80 m, `PascalSceneLighting.ts:296-301` at
+        // +/-cfg.shadowCameraSize), never fitted to the view frustum. Orbiting therefore
+        // cannot change a single texel of the map, and re-rendering it per frame
+        // reproduces a bit-identical texture. On the founder's session that is 1366
+        // shadow-casting meshes redrawn every frame to compute a result already in memory,
+        // which is why `drawCalls=3685` against `sceneMeshes=1947`.
+        //
+        // ⛔ If a future change makes the shadow camera follow the view (cascades, a fitted
+        // frustum), THIS FREEZE BECOMES LOSSY and the two citations above stop holding.
+        // Re-read them before adding one.
         if (suppressed === this._shadowPassSuppressed) return;
         this._shadowPassSuppressed = suppressed;
         this._applyShadowFreezeState();

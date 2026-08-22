@@ -71,6 +71,13 @@ declare global {
          * Guards ALL click/hover selection — must be false for a pick to proceed.
          */
         isCameraDragging: boolean;
+        /**
+         * §NAV-SHADOW-CAMERA-CANNOT-CHANGE-IT (L-3310) — DevTools kill switch. Set to
+         * `false` to restore per-frame shadow-map rendering during camera motion. Declared
+         * here rather than reached for through a cast, so P4 holds and the flag is
+         * discoverable by anyone grepping this file for what the session can be told.
+         */
+        __pryzmShadowFreezeOnNav?: boolean;
 
         /**
          * §PERF-WALL-DRAG-DEFER (ADR-061) — true while a wall is being moved via
