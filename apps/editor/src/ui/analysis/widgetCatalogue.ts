@@ -211,6 +211,46 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
     span: 1,
     notBuilt: null,
   },
+  // ── The AREA widgets (§ANALYSIS-AREA-STANDARDS, L-3640) ───────────────────
+  //
+  // ⭐ WHY THESE TWO EXIST AND THE CHANGE TABLE STILL DOES NOT. The founder's
+  // brief separates them and the separation is real: a version diff is blocked
+  // on a MISSING MODEL (stable element ids across saved versions), whereas the
+  // area family was blocked on a DECISION. A decision can be taken and stated;
+  // a missing model cannot be reasoned around.
+  //
+  // ⛔ THEY DO NOT CLAIM A STANDARD. Measured 2026-08-22: every `Room.area` in
+  // this product is enclosed by the WALL CENTRELINES
+  // (`geometry-kernel/src/producers/room.ts:64`), which is not the plane SIA,
+  // IPMS or RICS measures on. So the figure is reported AS a centreline sum, the
+  // selected standard's classes are listed with their real state, and the
+  // centreline→face correction ships as a BRACKET rather than a point value.
+  {
+    id: 'area-by-level',
+    tab: 'areas',
+    kind: 'table',
+    title: 'Floor area by storey — room centreline basis',
+    subtitle:
+      '⚠ NOT GFA, NIA or NGF. The area enclosed by the wall CENTRELINES of each room, summed per storey, with the ' +
+      'centreline→face correction bracketed. Click a storey to select its rooms.',
+    query: { id: 'area:level', source: 'area', groupBy: 'level', measure: 'quantity', unit: 'm2', cost: 'O(n)' },
+    refresh: 'on-commit',
+    span: 2,
+    notBuilt: null,
+  },
+  {
+    id: 'area-standard',
+    tab: 'areas',
+    kind: 'coverage',
+    title: 'Measured-area standard — which classes this build can produce',
+    subtitle:
+      '⭐ The standard is named ON THIS CARD and is switchable. Every class states its measurement plane, so a ' +
+      'reader can see that the standard asks for a face and this product measures a centreline.',
+    query: { id: 'area:level', source: 'area', groupBy: 'level', measure: 'quantity', unit: 'm2', cost: 'O(n)' },
+    refresh: 'on-commit',
+    span: 2,
+    notBuilt: null,
+  },
   {
     id: 'takeoff-coverage',
     tab: 'quantities',
@@ -264,7 +304,7 @@ const NOT_BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
     span: 1,
     notBuilt: {
       lede:
-        'Not built, and deliberately not approximated. GFA is not "the sum of the floor areas" — it is whatever the adopted standard says it is, and PRYZM has adopted none (ADR-0343 §U.3, open).',
+        'Still not built as GFA/NIA — but no longer for the reason this card used to give. This card said <em>"PRYZM has adopted none"</em>; a standard IS now selected and named on the <em>Measured-area standard</em> card above (default SIA 416, switchable), and a real per-storey area figure ships beside it. What is still missing is the MEASUREMENT PLANE: GFA and NIA are measured to a face and PRYZM measures to the wall centreline, so the figure this build can produce is neither of them and is labelled as neither.',
       have: [
         'Per-room computed areas, and slab/floor polygons with real geometry.',
         'A level hierarchy, which is the per-storey spine every area standard is organised around.',
@@ -273,7 +313,17 @@ const NOT_BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
       need: [
         '<strong>An adopted standard.</strong> IPMS, the RICS Code of Measuring Practice, SIA 416, or per-jurisdiction. They disagree about whether to include shafts, external walls, balconies and plant — so the same model has several different, all-correct GFAs.',
         '<strong>A per-space inclusion rule.</strong> Every room needs to know which measured-area class it belongs to. No space carries one today.',
-        '<strong>Wall-centreline vs internal-face measurement.</strong> The standards differ, and the difference is several percent on a real building.',
+        // ⚠ CORRECTED 2026-08-22 (§ANALYSIS-AREA-STANDARDS, L-3641). This row used to
+        // read "<strong>Wall-centreline vs internal-face measurement.</strong> The
+        // standards differ, and the difference is several percent on a real
+        // building." - written as an OPEN QUESTION. It is not open: it has an
+        // answer, and the answer was in the geometry kernel the whole time.
+        // C01 §6 rule 6, cite the command:
+        //   grep -n centerline packages/geometry-kernel/src/producers/room.ts
+        //   -> :59, :64 - the room polygon IS the wall-centreline half-edge face.
+        // What remains missing is not the choice; it is the per-EDGE thickness
+        // attribution needed to convert exactly.
+        '<strong>Per-edge wall thickness on the room boundary.</strong> ANSWERED, not open: PRYZM measures rooms on the wall CENTRELINE (<code>producers/room.ts:64</code>), and every standard measures to a face. The <em>Floor area by storey</em> card now reports that figure honestly and BRACKETS the correction from the thinnest and thickest bounding wall — an exact conversion needs each boundary edge attributed to its own wall, which the room cache does not keep.',
       ],
       close:
         'ADR-0343 §D.6 H3: a ratio needs BOTH operands MEASURED. GEA : NIA has neither. <code>targetGFA</code> exists in the schedule extractor and is a TARGET — rendering it as GFA would be inventing the measurement from the brief.',
@@ -284,13 +334,15 @@ const NOT_BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
     tab: 'areas',
     kind: 'not-built',
     title: 'SIA 416 surface table and ratio gauges',
-    subtitle: 'Zero occurrences of SIA anywhere in this repository — checked, not assumed.',
+    subtitle:
+      '⚠ SIA 416 is now the SELECTED standard (see the card above). What is missing is the per-space ' +
+      'SU/SP/SD/SC/SI category and a face-measured plane — not the choice.',
     query: null,
     refresh: 'manual',
     span: 1,
     notBuilt: {
       lede:
-        'Not built. SIA 416 classifies every surface into SU / SP / SD / SC / SI, and no space in PRYZM carries an SIA category. The standard is absent from the codebase entirely.',
+        '⚠ CORRECTED 2026-08-22. This card used to say <em>"Zero occurrences of SIA anywhere in this repository"</em> and <em>"The standard is absent from the codebase entirely"</em>. Both were true when written and BOTH ARE NOW FALSE: <code>areaStandards.ts</code> declares SIA 416’s eight classes, each with its measurement plane and its measured state, and SIA 416 is the default selection. What is genuinely still absent is the per-space category — no room in PRYZM carries SU / SP / SD / SC / SI, so the surface table cannot be filled and no ratio gauge has two measured operands.',
       have: [
         'Rooms with areas, a room-type vocabulary, and a normative program-rules database.',
         'A level hierarchy, which SIA 416 tables are organised per storey.',
@@ -298,7 +350,7 @@ const NOT_BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
       need: [
         '<strong>An SIA 416 category per space</strong> (SU Nutzfläche / SP Verkehrsfläche / SD Konstruktionsfläche / SC / SI). Mapping PRYZM room types onto it is a normative decision, not a lookup — and it must be authored, then reviewed.',
         '<strong>Construction area (SD).</strong> That is wall and shaft footprint, which needs the wall footprint polygons per storey, not the wall records.',
-        '<strong>The standard\'s own edition and jurisdiction scope.</strong> SIA is Swiss; the ratio gauges mean something different under a different national standard.',
+        '<strong>A measurement plane the model can honestly satisfy.</strong> SIA measures NGF to the inner face and GF to the outer; PRYZM measures rooms to the wall CENTRELINE. That is the same blocker the GFA/NIA card names and it is shared by every standard in the picker — which is exactly why the picker exists. (The jurisdiction caveat stands and is now printed on the standard card itself: SIA is Swiss, and its ratios mean something else elsewhere.)',
       ],
       close:
         'The gauges are four ratios of a table that does not exist. Drawing them at zero would put four confident dials on screen reporting a standard the product has never implemented.',
@@ -387,7 +439,12 @@ export const DEFAULT_TAB_LAYOUT: Readonly<Record<AnalysisTabId, readonly string[
   // card scattered among working figures reads as a broken widget, whereas four
   // of them under a tab whose own lede says so reads as a declared boundary.
   // This tab is also where the founder's IPMS/RICS/SIA decision lands.
-  areas: Object.freeze(['gfa-nia', 'sia-416', 'unit-mix', 'tenure', 'change-table']),
+  // ⚠ NO LONGER an all-refusals tab (§ANALYSIS-AREA-STANDARDS, L-3640). The two
+  // area widgets lead, because they are the ones that MEASURE; the four
+  // refusals follow, each still naming what it is blocked on. The standard
+  // ledger sits directly under the figure it qualifies — the same rule that
+  // keeps `takeoff-coverage` on the Quantities tab rather than a tab of its own.
+  areas: Object.freeze(['area-by-level', 'area-standard', 'gfa-nia', 'sia-416', 'unit-mix', 'tenure', 'change-table']),
 });
 
 /** Flat order across every tab. DERIVED — do not hand-maintain. */

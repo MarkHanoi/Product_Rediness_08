@@ -85,6 +85,7 @@ import {
 import { withHandlerSpan } from '@pryzm/plugin-sdk';
 
 import { projectGraph, type GraphPlacement } from './graphReadModel';
+import { areaCoverageRows, areaStandard } from './areaStandards';
 
 import type {
   AnalysisFigure,
@@ -240,6 +241,7 @@ export function invalidateAnalysisReadModel(): void {
   withHandlerSpan('pryzm.analysis.readmodel.invalidate', { 'pryzm.surface': 'analysis' }, () => {
     _census = null;
     _takeoff = null;
+    _areas = null;
     _placement = null;
     _placementFor = null;
     _queryCache.clear();
@@ -323,6 +325,133 @@ export function getCensus(): CensusSnapshot {
       return _census;
     },
   );
+}
+
+// ── Room areas (§ANALYSIS-AREA-STANDARDS, L-3640) ────────────────────────────
+//
+// ⛔ READ HERE, NOT IN THE WIDGET. `areaStandards.ts` holds the standards and
+// touches no store; this module is the ONE place on this surface that reads a
+// store, which is what stops a widget reaching past the read model and
+// undercounting (ADR-0343 §D.3, §C.3.2).
+//
+// ⚠ WHAT `Room.area` IS, measured 2026-08-22 and load-bearing for every figure
+// derived from it: `grep -n centerline packages/geometry-kernel/src/producers/
+// room.ts` -> :59 "Wall ids whose CENTERLINE edge contributed to the boundary",
+// :64 "Half-edge graph from wall CENTERLINES". It is the area enclosed by the
+// wall CENTRELINES. Exact for that definition; not the plane any published
+// standard measures on. Every basis string this module emits says so.
+
+export interface RoomAreaRecord {
+  readonly id: string;
+  readonly levelId: string | null;
+  /** m², centreline-enclosed. */
+  readonly area: number;
+  /** m, centreline perimeter. Drives the face-correction bracket. */
+  readonly perimeter: number;
+  /**
+   * Thinnest / thickest BOUNDING wall, or `null` when no bounding wall could be
+   * resolved. ⛔ `null` is not 0: a room whose walls cannot be found produces NO
+   * bracket contribution and is counted separately, rather than silently
+   * contributing a zero correction that would narrow the interval falsely.
+   */
+  readonly minWallThickness: number | null;
+  readonly maxWallThickness: number | null;
+}
+
+export interface RoomAreaSnapshot {
+  readonly rooms: readonly RoomAreaRecord[];
+  readonly unreachable: readonly string[];
+  readonly complete: boolean;
+  /** Rooms whose cached area is 0 — NOT counted as 0 m² rooms; reported. */
+  readonly roomsWithNoArea: number;
+  /** Rooms for which no bounding wall thickness resolved. */
+  readonly roomsWithoutBracket: number;
+  readonly levelNames: ReadonlyMap<string, string>;
+  readonly elapsedMs: number;
+}
+
+let _areas: RoomAreaSnapshot | null = null;
+
+function num(v: unknown): number | null {
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+/**
+ * The room-area snapshot. One pass over `roomStore`, plus one index build over
+ * `wallStore` for the face-correction bracket.
+ *
+ * ⚠ COST: O(n + m). Memoised with the census and dropped by the same invalidate.
+ */
+export function getRoomAreas(): RoomAreaSnapshot {
+  if (_areas) return _areas;
+  return withHandlerSpan('pryzm.analysis.readmodel.areas', { 'pryzm.surface': 'analysis' }, () => {
+    const t0 = Date.now();
+    const unreachable: string[] = [];
+
+    const roomRows = readStore('roomStore');
+    if (roomRows === null) unreachable.push('roomStore');
+    const wallRows = readStore('wallStore');
+    // ⛔ An unreadable WALL store does not make the AREAS unreadable — it makes
+    // the BRACKET unavailable. Two different figures, two different failures;
+    // collapsing them would suppress a real area sum over a missing correction.
+    if (wallRows === null) unreachable.push('wallStore (bracket only)');
+
+    const thickness = new Map<string, number>();
+    for (const raw of wallRows ?? []) {
+      const w = raw as Record<string, unknown>;
+      const id = str(w.id);
+      const t = num(w.thickness);
+      if (id && t !== null && t > 0) thickness.set(id, t);
+    }
+
+    const rooms: RoomAreaRecord[] = [];
+    let roomsWithNoArea = 0;
+    let roomsWithoutBracket = 0;
+
+    for (const raw of roomRows ?? []) {
+      const r = raw as Record<string, unknown>;
+      const id = str(r.id);
+      if (!id) continue;
+      const area = num(r.area) ?? 0;
+      if (!(area > 0)) roomsWithNoArea++;
+
+      // Either cache is acceptable — `boundingWallIds` is the legacy alias the
+      // producer maintains in lockstep with `boundingElementIds` (Room.ts:136).
+      const bounding = [
+        ...(Array.isArray(r.boundingWallIds) ? (r.boundingWallIds as unknown[]) : []),
+        ...(Array.isArray(r.boundingElementIds) ? (r.boundingElementIds as unknown[]) : []),
+      ].filter((x): x is string => typeof x === 'string');
+
+      const ts: number[] = [];
+      for (const wid of bounding) {
+        const t = thickness.get(wid);
+        if (t !== undefined) ts.push(t);
+      }
+      if (ts.length === 0) roomsWithoutBracket++;
+
+      rooms.push({
+        id,
+        levelId: str(r.levelId),
+        area,
+        perimeter: num(r.perimeter) ?? 0,
+        minWallThickness: ts.length > 0 ? Math.min(...ts) : null,
+        maxWallThickness: ts.length > 0 ? Math.max(...ts) : null,
+      });
+    }
+
+    _areas = {
+      rooms,
+      unreachable,
+      // ⛔ Only an unreadable ROOM store makes the AREA figures a floor. A missing
+      // bracket is a missing qualifier, not a missing measurement.
+      complete: roomRows !== null,
+      roomsWithNoArea,
+      roomsWithoutBracket,
+      levelNames: readLevelNames(),
+      elapsedMs: Date.now() - t0,
+    };
+    return _areas;
+  });
 }
 
 /**
@@ -439,6 +568,79 @@ function takeoffByChapter(t: TakeoffResult, unit: QuantityUnit): AnalysisFigure[
   return out.sort((a, b) => b.value - a.value);
 }
 
+/**
+ * Room centreline area per storey. §ANALYSIS-AREA-STANDARDS (L-3640).
+ *
+ * ⛔ THE BASIS STRING IS THE POINT OF THIS FUNCTION. H1 — "Σ (length × height)
+ * − Σ opening voids" is a basis; "floor area" is not. Here the basis has to
+ * carry the MEASUREMENT PLANE, because that is the single fact that decides
+ * whether the number is GFA, NIA, NGF or none of them. It is none of them.
+ *
+ * ⛔ The face correction is a BRACKET, never a point value. Per room the true
+ * correction from centreline to internal face is Σ over edges of
+ * (edge length × that edge's wall thickness ÷ 2). `Room.perimeter` is cached but
+ * per-edge attribution is not, so the honest statement is the interval
+ * [P·t_min/2, P·t_max/2] over the room's bounding walls — every per-edge
+ * assignment lies inside it. Reporting the midpoint would be a guess with the
+ * shape of a measurement, which is the one thing this surface refuses.
+ *
+ * ⚠ The bracket ignores corner effects of order t². Stated on the card.
+ */
+function areaByLevel(a: RoomAreaSnapshot): AnalysisFigure[] {
+  const byLevel = new Map<string, { area: number; ids: string[]; lo: number; hi: number; unbracketed: number }>();
+  for (const r of a.rooms) {
+    // An element with no levelId becomes a NAMED group, never a dropped one —
+    // the same rule the element census follows (SPEC §4.1 W3).
+    const k = r.levelId ?? 'unassigned';
+    const b = byLevel.get(k) ?? { area: 0, ids: [], lo: 0, hi: 0, unbracketed: 0 };
+    b.area += r.area;
+    b.ids.push(r.id);
+    if (r.minWallThickness !== null && r.maxWallThickness !== null) {
+      b.lo += (r.perimeter * r.minWallThickness) / 2;
+      b.hi += (r.perimeter * r.maxWallThickness) / 2;
+    } else {
+      b.unbracketed++;
+    }
+    byLevel.set(k, b);
+  }
+
+  const out: AnalysisFigure[] = [];
+  for (const [k, b] of byLevel) {
+    const label = k === 'unassigned' ? 'No storey assigned' : (a.levelNames.get(k) ?? k);
+    const qualifiers: string[] = [
+      'Measured on the WALL CENTRELINE, which is not the plane any published area standard uses — ' +
+        'it OVERSTATES every net class (SIA NGF, IPMS 3, RICS NIA) and UNDERSTATES every gross one.',
+    ];
+    if (b.hi > 0) {
+      qualifiers.push(
+        `Centreline → internal-face correction for this storey lies between −${b.lo.toFixed(2)} m² and ` +
+          `−${b.hi.toFixed(2)} m² (bracketed from the thinnest and thickest bounding wall; corner effects ` +
+          'of order t² ignored). It is a BOUND, not an estimate.',
+      );
+    }
+    if (b.unbracketed > 0) {
+      qualifiers.push(
+        `${b.unbracketed} room(s) on this storey resolved no bounding wall thickness, so they contribute ` +
+          'NOTHING to that bracket — the interval above is narrower than the true one by an unknown amount.',
+      );
+    }
+    out.push(
+      figure(
+        k,
+        label,
+        b.area,
+        'm2',
+        'Σ of the cached polygon area of every room on this storey, where that polygon is a face of the ' +
+          'wall-CENTRELINE ' +
+          'half-edge graph (`geometry-kernel/src/producers/room.ts:64`). Exact for that definition.',
+        b.ids,
+        qualifiers,
+      ),
+    );
+  }
+  return out.sort((x, y) => (x.key === 'unassigned' ? 1 : y.key === 'unassigned' ? -1 : y.value - x.value));
+}
+
 function selectionBreakdown(c: CensusSnapshot, selectedIds: readonly string[]): AnalysisFigure[] {
   if (selectedIds.length === 0) return [];
   const wanted = new Set(selectedIds);
@@ -541,7 +743,26 @@ export function runQuery(query: AnalysisQuery, selectedIds: readonly string[] = 
         return result;
       }
 
-      if (query.source === 'takeoff') {
+      if (query.source === 'area') {
+        // §ANALYSIS-AREA-STANDARDS (L-3640). The FIGURES are the centreline sums;
+        // the COVERAGE is the selected standard's class ledger. They are two
+        // different statements deliberately shipped on one result: "here is what
+        // this build measures" and "here is what the standard you picked asks
+        // for, and which of it this build cannot give you".
+        if (query.groupBy !== 'level') {
+          throw new Error(
+            `[analysis] source "area" projects only the "level" axis, not "${query.groupBy}". ` +
+            'Every published area standard is organised per storey, and an area total with no storey ' +
+            'axis cannot be checked against one (ADR-0343 §D.6 H3).',
+          );
+        }
+        const a = getRoomAreas();
+        figures = areaByLevel(a);
+        coverage = areaCoverageRows(areaStandard());
+        unreachable = a.unreachable;
+        over = a.rooms.length;
+        complete = a.complete;
+      } else if (query.source === 'takeoff') {
         const t = getTakeoff();
         const unit = query.unit ?? 'm2';
         figures = query.groupBy === 'chapter' ? takeoffByChapter(t, unit) : takeoffByUnit(t, unit);

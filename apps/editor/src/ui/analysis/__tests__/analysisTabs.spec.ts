@@ -48,9 +48,35 @@ describe('§ANALYSIS-TABS — every widget has a home, and none is lost', () => 
     expect(DEFAULT_TAB_LAYOUT.relationships).toContain('relationship-coverage');
   });
 
-  it('⛔ the Areas tab is entirely NOT BUILT — so the tab strip can say so', () => {
+  /**
+   * ⚠ INVERTED 2026-08-22 (§ANALYSIS-AREA-STANDARDS, L-3640), not deleted.
+   *
+   * It used to read: *"⛔ the Areas tab is entirely NOT BUILT — so the tab strip
+   * can say so"*, asserting `built === []`. That was TRUE and is now FALSE:
+   * `area-by-level` and `area-standard` measure. The assertion is inverted
+   * rather than removed because the RULE it protects has not changed — the tab
+   * strip's NOT BUILT chip must agree with the tab's contents, in both
+   * directions. A tab with a built widget that still advertised NOT BUILT would
+   * be exactly as wrong as the case the original arm guarded, and
+   * `AnalysisSurface._buildTabs()` derives the chip from this same predicate.
+   */
+  it('⭐ the Areas tab is NO LONGER all-refusals — and the NOT BUILT chip must follow', () => {
     const built = DEFAULT_TAB_LAYOUT.areas.filter((id) => widgetById(id)?.notBuilt == null);
-    expect(built, 'a built widget on the all-refusals tab would make the NOT BUILT chip a lie').toEqual([]);
+    expect(built, 'the area widgets that MEASURE must be on this tab').toEqual(['area-by-level', 'area-standard']);
+    // The chip's own condition, restated here so the two cannot drift: it shows
+    // only when a tab holds widgets and NONE of them is built.
+    const chipWouldShow = DEFAULT_TAB_LAYOUT.areas.length > 0 && built.length === 0;
+    expect(chipWouldShow, 'the tab advertises NOT BUILT while holding widgets that measure').toBe(false);
+  });
+
+  it('⛔ the four refusals SURVIVE on the Areas tab — a measured neighbour is not a fix', () => {
+    // The founder's brief separates them and the separation is real: the area
+    // family was blocked on a DECISION, the change table on a MISSING MODEL.
+    // Shipping the first must not quietly retire the second.
+    for (const id of ['gfa-nia', 'sia-416', 'unit-mix', 'tenure', 'change-table']) {
+      expect(DEFAULT_TAB_LAYOUT.areas, `${id} was dropped from the Areas tab`).toContain(id);
+      expect(widgetById(id)?.notBuilt, `${id} stopped refusing`).not.toBeNull();
+    }
   });
 });
 

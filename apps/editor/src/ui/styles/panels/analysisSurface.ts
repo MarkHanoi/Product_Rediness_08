@@ -908,4 +908,9 @@ export const ANALYSIS_SURFACE_STYLES = `
   color: var(--app-status-warning-ink);
 }
 
+/* The area-standard picker: the scope bar plus the sentence naming the standard
+   the ledger under it is a ledger OF. Same chips, deliberately -- 'which storey'
+   and 'which standard' are the same kind of control and must not grow two looks. */
+.anl-std-picker { display: flex; flex-direction: column; gap: 6px; }
+
 `;

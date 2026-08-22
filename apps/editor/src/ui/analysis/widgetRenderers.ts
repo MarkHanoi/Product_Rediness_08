@@ -79,6 +79,7 @@ import {
   setGraphLevelFilter,
 } from './graphReadModel';
 import { censusPlacement, censusLevels } from './analysisReadModel';
+import { AREA_STANDARDS, areaStandard, setAreaStandard } from './areaStandards';
 import { renderNodeLink, renderEdgeLegend } from './nodeLinkSvg';
 import { SeriesFocus, markSeries } from './seriesFocus';
 
@@ -169,8 +170,62 @@ const COVERAGE_CLASS: Record<CoverageState, string> = {
   MEASURED: 'anl-badge--ok',
 };
 
-/** The take-off coverage ledger — ⭐ this widget's entire job is H2. */
+/**
+ * The event the area-standard picker fires. `AnalysisSurface` listens.
+ * Same shape as `GRAPH_SCOPE_EVENT`, for the same reason: a renderer must not
+ * hold the surface.
+ */
+export const AREA_STANDARD_EVENT = 'anl-area-standard-changed';
+
+/**
+ * The measured-area standard picker. §ANALYSIS-AREA-STANDARDS (L-3640).
+ *
+ * ⭐ THE STANDARD IS ON THE CARD'S FACE, WHICH WAS THE POINT OF THE REQUEST. The
+ * same building has several different, all-correct areas; a surface that picked
+ * one and did not say so would be publishing an unattributed number, which is
+ * the whole class of defect this panel exists to refuse.
+ *
+ * ⚠ Switching does NOT change any figure below — the figures are centreline
+ * sums and are what they are. It changes the LEDGER: which classes the selected
+ * standard asks for, and which of them this build can produce. That is stated
+ * on the control itself, because a picker that looks like it recomputes and does
+ * not is worse than no picker.
+ */
+function areaStandardPicker(): HTMLElement {
+  const bar = el('div', 'anl-scope-bar');
+  bar.appendChild(el('span', 'anl-scope-label', 'Standard'));
+  const active = areaStandard();
+
+  for (const std of AREA_STANDARDS) {
+    const b = el('button', `anl-scope-chip${std.id === active.id ? ' anl-scope-chip--on' : ''}`, std.label);
+    b.type = 'button';
+    b.title = std.jurisdiction;
+    b.setAttribute('aria-pressed', String(std.id === active.id));
+    b.addEventListener('click', () => {
+      setAreaStandard(std.id);
+      window.dispatchEvent(new CustomEvent(AREA_STANDARD_EVENT));
+    });
+    bar.appendChild(b);
+  }
+
+  const note = el('p', 'anl-note');
+  note.textContent =
+    `${active.label} — ${active.jurisdiction} ${active.verdict} ` +
+    'Switching standard changes WHICH CLASSES are asked for, not the figures: the areas this build holds are ' +
+    'centreline sums and do not become a different measurement because a different rulebook is selected.';
+  const wrap = el('div', 'anl-std-picker');
+  wrap.append(bar, note);
+  return wrap;
+}
+
+/** The coverage ledger — ⭐ this widget's entire job is H2. */
 export function renderCoverage(host: HTMLElement, result: AnalysisResult): void {
+  // The area ledger names a standard, so it gets the control that names it.
+  // ⛔ Conditioned on the SOURCE, not on a widget id: a widget id is a label and
+  // labels get copied; the source is what actually decides whether these rows
+  // are an area standard's classes or a take-off engine's families.
+  if (result.query.source === 'area') host.appendChild(areaStandardPicker());
+
   const rows = [...result.coverage].sort((a, b) => COVERAGE_ORDER[a.state] - COVERAGE_ORDER[b.state]);
   if (rows.length === 0) {
     host.appendChild(el('p', 'anl-empty', 'The source published no coverage ledger. That is itself unknown, not clean.'));
@@ -179,10 +234,18 @@ export function renderCoverage(host: HTMLElement, result: AnalysisResult): void 
 
   const notMeasured = rows.filter((r) => r.state === 'NOT_MEASURED').length;
   const counted = rows.filter((r) => r.state === 'COUNTED_ONLY').length;
+  // ⚠ The noun changes with the source. It used to say "families known to the
+  // take-off engine" unconditionally, which would describe SIA 416's classes as
+  // take-off families — a caption that misnames what it is counting.
+  const noun = result.query.source === 'area'
+    ? `classes declared by ${areaStandard().label}`
+    : result.query.source === 'graph'
+      ? 'declared UBG edge families'
+      : 'families known to the take-off engine';
   const lede = el(
     'p',
     'anl-lede',
-    `${rows.length} families known to the take-off engine · ${notMeasured} NOT MEASURED · ${counted} counted only. ` +
+    `${rows.length} ${noun} · ${notMeasured} NOT MEASURED · ${counted} counted only. ` +
       'A family that is not measured produces no line and is NEVER rendered as a zero — that is the difference between ' +
       '"you have no roofs" and "roofs are not measured".',
   );

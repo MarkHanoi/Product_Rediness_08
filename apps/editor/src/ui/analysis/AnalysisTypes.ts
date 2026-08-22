@@ -94,7 +94,23 @@ export type AnalysisSource =
    * projected relationship — a silent undercount that reads as a count, the
    * exact defect ADR-0343 §C.3.2 exists to name.
    */
-  | 'graph';
+  | 'graph'
+  /**
+   * §ANALYSIS-AREA-STANDARDS (L-3640). Room polygon areas, read from the SAME
+   * `roomStore` the census reads, summed per storey.
+   *
+   * ⛔ IT IS A SEPARATE SOURCE FROM `census` DELIBERATELY. The census answers
+   * "how many", in `ud`; this answers "how much floor", in `m²`, and it carries
+   * a MEASUREMENT PLANE that the census has no concept of. Folding an area sum
+   * into the census would produce a figure whose basis nobody could state —
+   * which is H1, failed, at the source layer.
+   *
+   * ⛔ It is ALSO not `takeoff`. `computeTakeoff()` is the measurement authority
+   * for BOQ quantities and produces no room-area line; a room area is not a
+   * *medición* row, it is a planning figure. Two authorities, two sources,
+   * neither pretending to be the other.
+   */
+  | 'area';
 
 /**
  * The declared cost class. ⚠ SPEC §3: every figure here is ESTIMATED FROM THE
@@ -255,7 +271,12 @@ export const ANALYSIS_TABS: readonly AnalysisTabDef[] = Object.freeze([
   { id: 'overview',      label: 'Overview',      lede: 'What is in this model — counts, by family, by storey, by type.' },
   { id: 'quantities',    label: 'Quantities',    lede: 'How much of it — measured take-off, and what the take-off does not measure.' },
   { id: 'relationships', label: 'Relationships', lede: 'How it is connected — the Unified Building Graph and which edge families are real.' },
-  { id: 'areas',         label: 'Areas & change', lede: 'Area standards, unit mix and version diff. Every widget here is NOT BUILT and says why.' },
+  // ⚠ THE LEDE CHANGED 2026-08-22 (§ANALYSIS-AREA-STANDARDS, L-3640). It read
+  // "Every widget here is NOT BUILT and says why." That was true and is now
+  // false: the two area widgets MEASURE. Leaving the old sentence would be a
+  // caption that refutes the card beneath it — the same self-refuting shape
+  // L-3303 fixed on the status strip.
+  { id: 'areas',         label: 'Areas & change', lede: 'How much floor, under a NAMED standard — plus the unit mix and version diff that are still NOT BUILT, each saying why.' },
 ]);
 
 export function analysisTabById(id: string): AnalysisTabDef | undefined {

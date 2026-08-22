@@ -56,6 +56,7 @@ import { invalidateAnalysisReadModel, runQuery, censusSourceTable } from './anal
 import { defaultLayout, loadLayout, saveLayout, type AnalysisLayout } from './analysisLayout';
 import { WIDGET_CATALOGUE, widgetById } from './widgetCatalogue';
 import {
+  AREA_STANDARD_EVENT,
   GRAPH_SCOPE_EVENT,
   completenessStrip,
   renderChart,
@@ -230,6 +231,15 @@ export class AnalysisSurface {
     // dropping the census cache would make choosing a storey pay for a full
     // 18-store rescan that changes nothing.
     window.addEventListener(GRAPH_SCOPE_EVENT, () => {
+      if (!this._visible) return;
+      void this.refresh();
+    });
+
+    // §ANALYSIS-AREA-STANDARDS (L-3640) — same shape, same reason. ⛔ Also NOT an
+    // invalidation: switching standard changes which CLASSES are asked for, not
+    // a single measured figure, so paying for a full rescan would be work with
+    // no output difference.
+    window.addEventListener(AREA_STANDARD_EVENT, () => {
       if (!this._visible) return;
       void this.refresh();
     });
