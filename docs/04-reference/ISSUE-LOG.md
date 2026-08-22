@@ -32687,6 +32687,25 @@ rendering — `cat -v` and a diff view both show something plausible.
 
 ---
 
+### ⚠ L-3424 — the lane BRIEF named two paths that do not exist, and both were caught by grepping rather than by trusting
+
+Recorded at the coordinator's own instruction — *"a brief that sent a lane to a non-existent file is
+exactly the kind of thing the next lane needs to see"* — and it is C01 §6 rule 6 pointed at the
+briefing layer rather than at the code.
+
+| the brief said | measured | consequence |
+|---|---|---|
+| the issue log is `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` | `find docs -iname "V1-LAUNCH*"` returns only `V1-LAUNCH-IMPLEMENTATION-PLAN.md`, a **different document**; the log is `docs/04-reference/ISSUE-LOG.md` | none — the first `grep` for `L-2424` against the named path returned *"No such file or directory"*, so the path was measured before a single row was written and the rows landed correctly |
+| *"C25 (visibility intents)"* | `ls docs/02-decisions/contracts/ | grep ^C25` → `C25-IFC-EXPORT-PRODUCTION.md`. Visibility intent is **C09 §4** | none for this lane — `git show` over all five WIN5 commits returns **0** mentions of C25; the citation was never relied on |
+
+⭐ **The transferable point is not that two paths were wrong.** It is that a path in a brief has
+exactly the same status as a path in a document: an ASSERTION, not a fact, and one `ls` distinguishes
+them. This log records the same shape for the contract range in `CLAUDE.md` five times over
+(C67 → C81 → C84/C85–C99 → C100 → C76), and the fifth recurrence landed *inside the correction notice
+for the fourth*. A stated path is worth exactly one command.
+
+---
+
 **⛔ WHAT THIS LANE DID NOT REACH.** No browser verification of any kind: the reveal-face flip, the
 orphan reap in a live session, and the circular→rectangular render are all unverified visually. Root
 `tsc --noEmit --skipLibCheck` reached **RC=0** on this lane's own files, but the tree is shared and

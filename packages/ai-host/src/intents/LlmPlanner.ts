@@ -274,6 +274,13 @@ export function capabilityFieldShapes(id: string, ctx: ResolverContext): Capabil
 const VALUE_SOURCE_PHRASE: Readonly<Record<CapabilityValueSource, string>> = {
   measurement: 'a length in METRES (SI), converted from whatever unit the user said',
   angle: 'an angle in DEGREES',
+  // ⭐ §FEAT-REVEAL-DIRECTION-RAC (L-3414) — a CLOSED SET OF WORDS, not a quantity. The
+  // phrase deliberately tells the model the value is one of a fixed list WITHOUT naming the
+  // list: the members live on the property vocabulary's own `enumSpoken` table, and a
+  // second copy in a prompt string is a second place a spelling can be accepted and then
+  // refused downstream. The registry's per-parameter `example` carries a concrete one.
+  enumeration: "ONE WORD from a fixed set — copy the word the user said through verbatim; do not convert it or add a unit",
+
   'wall-system-types': "a wall type NAME from the project's wall catalogue, as the user said it",
   'window-system-types': "a window type NAME from the project's window catalogue",
   'door-system-types': "a door type NAME from the project's door catalogue",
