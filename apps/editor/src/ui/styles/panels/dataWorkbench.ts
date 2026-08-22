@@ -141,13 +141,10 @@ export const DATA_WORKBENCH_STYLES = `
   background: var(--app-panel-bg);
 }
 
-.dw-content-title {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--app-text-muted);
-}
+/* §DW-DEAD-CHROME-RULES (L-3702) — '.dw-content-title' DELETED. It was the
+   title of the LEGACY '.dw-content-header', superseded by
+   '.dw-content-header--lifecycle' + '.dw-bucket-header-title'. Measured
+   2026-08-22 repo-wide: 'rg dw-content-title' → 1 hit, this declaration. */
 
 /* ── Panel content area ───────────────────────────────────────────────────── */
 .dw-panel {
@@ -898,37 +895,67 @@ export const DATA_WORKBENCH_STYLES = `
   align-items: stretch;
 }
 
-/* ── Bucket header strip (like INSPECT / AUDIT header) ────────────────────── */
+/* ── Bucket header strip — THE panel header, converged on Inspect ──────────── */
+/* §DW-ONE-HEADER-BAND (L-3701). The comment above this rule used to say
+   'like INSPECT / AUDIT header'. It was not like it, and the differences were
+   the whole of what the founder called drift. Measured against '.aud-header'
+   (panels/autonomous-auditor/auditStack.ts:38), the Inspect surface he named as
+   the reference:
+
+       property          Inspect '.aud-header'      Data (was)        Data (now)
+       padding           14px 16px 12px             0 14px            14px 16px 12px
+       height            auto                       44px fixed        auto
+       box-shadow        var(--app-shadow-header)   NONE              var(--app-shadow-header)
+       font-weight       700                        800 (on title)    700
+       letter-spacing    0.10em                     0.1em             0.10em
+       font-family       var(--app-font)            inherited         var(--app-font)
+
+   Two of those are load-bearing rather than cosmetic. The missing box-shadow is
+   the reason the Data header floated with no separation from the sub-tab row
+   below it, so the two bands read as one thick slab; and the fixed 44px height
+   cannot grow for the actions slot that 'justify-content: space-between' was
+   already reserving. */
 .dw-bucket-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 14px;
-  height: 44px;
+  gap: 10px;
+  padding: 14px 16px 12px;
+  height: auto;
   flex-shrink: 0;
   /* Was 'var(--bucket-header-bg, <the gradient written out again>)'. MEASURED
      2026-08-21: NOTHING in this repo ever writes --bucket-header-bg, so the
      fallback was the value, always. A runtime hook nobody publishes is not
      configurability, it is a second copy of the token with a longer name. */
   background: var(--app-gradient);
+  box-shadow: var(--app-shadow-header);
   color: var(--app-on-accent);
+  font-family: var(--app-font);
 }
 .dw-bucket-header-left {
   display: flex;
   align-items: center;
   gap: 8px;
+  /* The actions slot must never be crushed by a long bucket name. 'MEDICIONES'
+     is the widest of the seven; min-width:0 lets THIS side ellipsise instead. */
+  min-width: 0;
+  overflow: hidden;
 }
 .dw-bucket-header-icon {
   font-size: 16px;
   line-height: 1;
   opacity: 0.9;
+  flex-shrink: 0;
 }
 .dw-bucket-header-title {
   font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
+  font-weight: 700;
+  letter-spacing: 0.10em;
   text-transform: uppercase;
   color: var(--app-on-accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .dw-bucket-header-count {
   font-size: 10px;
@@ -938,6 +965,63 @@ export const DATA_WORKBENCH_STYLES = `
   padding: 2px 7px;
   color: var(--app-on-accent-dim);
   letter-spacing: 0.03em;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ── Header actions slot (Inspect's '.aud-header-actions' equivalent) ─────── */
+/* §DW-ONE-HEADER-BAND (L-3700) — this is where the deleted third band went. */
+.dw-bucket-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.dw-header-ctl-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--app-on-accent-dim);
+  white-space: nowrap;
+  user-select: none;
+}
+/* A native <select> sitting ON the purple gradient. The closed control takes
+   the veil treatment '.aud-header-btn' uses; the OPEN option list does NOT —
+   and that distinction is the entire reason the 'option' rule below exists.
+
+   ⛔ §DW-HEADER-TRANSPARENT (L-3300) was white-text-on-white-ground caused by a
+   colour that silently failed to resolve. An unstyled 'option' is the same trap
+   by a different route: Chromium paints the popup on the UA's own light ground
+   while the option INHERITS 'color: var(--app-on-accent)' (#ffffff) from the
+   select. Every option would be white on white — invisible, and invisible in a
+   popup no screenshot of the panel would ever show. The option list is pinned
+   to the panel's own surface tokens explicitly. */
+.dw-header-select {
+  background: var(--app-on-accent-veil);
+  border: 1px solid var(--app-on-accent-veil-hover);
+  border-radius: 4px;
+  color: var(--app-on-accent);
+  font-family: var(--app-font);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 6px;
+  max-width: 118px;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.13s, border-color 0.13s;
+}
+.dw-header-select:hover {
+  background: var(--app-on-accent-veil-hover);
+}
+.dw-header-select:focus-visible {
+  outline: 2px solid var(--app-on-accent);
+  outline-offset: 1px;
+}
+.dw-header-select option {
+  background: var(--app-panel-bg);
+  color: var(--app-text);
+  font-weight: 500;
 }
 
 /* ── Sub-tab Pill Bar ─────────────────────────────────────────────────────── */
@@ -955,25 +1039,17 @@ export const DATA_WORKBENCH_STYLES = `
 }
 .dw-subtab-bar::-webkit-scrollbar { display: none; }
 
-.dw-bucket-chip {
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--bucket-color, var(--app-accent));
-  padding: 2px 7px;
-  background: color-mix(in srgb, var(--bucket-color, var(--app-accent)) 10%, transparent);
-  border-radius: 100px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
+/* §DW-DEAD-CHROME-RULES (L-3702) — '.dw-bucket-chip' and '.dw-subtab-sep' were
+   DELETED here, not restyled. They are the FOSSIL of the one-row header this
+   panel was originally meant to have: a bucket chip, a separator glyph, then the
+   sub-tab pills, all on a single strip. Measured 2026-08-22, repo-wide:
 
-.dw-subtab-sep {
-  font-size: 11px;
-  color: var(--app-border);
-  flex-shrink: 0;
-  user-select: none;
-}
+       rg 'dw-bucket-chip|dw-subtab-sep' --glob '*.{ts,tsx,js,html,css}'
+         → 2 hits, BOTH of them these two rule declarations. Zero emitters.
+
+   Keeping a rule for markup nothing produces is not harmless: it is the second
+   half of a design that the header stack silently replaced, and the next reader
+   cannot tell 'planned' from 'broken'. Recorded in the ISSUE-LOG instead. */
 
 .dw-subtab-btn {
   display: flex;
@@ -1080,58 +1156,30 @@ export const DATA_WORKBENCH_STYLES = `
    PHASE 2: VISUAL INTELLIGENCE OVERLAY — Heatmap Toolbar + Legend
    ══════════════════════════════════════════════════════════════════════════════ */
 
-/* ── Visualizer / Heatmap Bar (below sub-tab strip in AUDIT bucket) ──────────── */
-.dw-viz-bar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 10px;
-  background: var(--app-surface-sunken);
-  border-bottom: 1px solid var(--app-border);
-  flex-shrink: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.dw-viz-bar::-webkit-scrollbar { display: none; }
+/* ── Visualizer / Heatmap Bar — DELETED. §DW-HEATMAP-BAR-HAD-NO-RULE (L-3703) ──
+   THE THIRD BAND WAS UNSTYLED FOR ITS WHOLE LIFE, AND THE RULES FOR IT WERE
+   SITTING RIGHT HERE UNDER A DIFFERENT NAME.
 
-.dw-viz-label {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--app-text-muted);
-  white-space: nowrap;
-  flex-shrink: 0;
-  margin-right: 4px;
-}
+       DataWorkbench.ts emitted   .dw-heatmap-bar / .dw-heatmap-label
+       this sheet declared        .dw-viz-bar     / .dw-viz-label
 
-.dw-viz-btn {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  padding: 3px 9px;
-  border-radius: 100px;
-  border: 1px solid var(--app-border);
-  background: var(--app-panel-bg);
-  cursor: pointer;
-  font-family: var(--app-font);
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--app-text-muted);
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
-}
-.dw-viz-btn:hover {
-  background: var(--app-wash-hover);
-  border-color: var(--app-accent);
-  color: var(--app-accent);
-}
-.dw-viz-btn--active {
-  background: var(--app-accent);
-  border-color: var(--app-accent);
-  color: var(--app-on-accent);
-}
+   Measured 2026-08-22, repo-wide:
+       rg 'dw-heatmap' --glob '*.{ts,tsx,js,html,css}'  → 2 hits, both emitters
+       rg 'dw-viz-bar|dw-viz-label' (same glob)         → 3 hits, all declarations
+
+   ⛔ ABSENT vs UNREACHABLE (C01 §6.1). 'The heatmap bar has no styling' and 'the
+   heatmap bar's styling is unreachable' look identical in the browser and have
+   OPPOSITE fixes. This was the second: padding, a sunken ground, a bottom border
+   and a 9px/700/uppercase muted label all existed and none of them could ever
+   match. So the band shipped with 'Heatmap:' flush against x=0, no ground, no
+   separator, and the label at the container's inherited 11.7px regular.
+
+   §DW-ONE-HEADER-BAND (L-3700) moved the capability into the bucket header's
+   actions slot, so '.dw-viz-btn' has no emitter either now. All four rules are
+   deleted rather than renamed onto '.dw-heatmap-*': the markup they styled no
+   longer exists, and a rule kept for markup nothing produces is exactly the
+   condition that let this defect live. The legend rules BELOW are NOT dead —
+   DataVisualizerService.ts emits '#dw-viz-legend' and '.dw-viz-legend-*'. */
 
 /* ── Legend overlay (fixed, bottom-left of 3D viewport) ──────────────────────── */
 #dw-viz-legend {

@@ -247,6 +247,15 @@ export class DataWorkbench implements IDataWorkbench {
     private _contentEl!:      HTMLElement;
     private _headerEl!:       HTMLElement;
     private _bucketHeaderEl!: HTMLElement;
+    /* §DW-ONE-HEADER-BAND (L-3700) — the header's LEFT block is now a persistent
+       child, created once, instead of `_bucketHeaderEl.innerHTML = …` on every
+       bucket switch. That rewrite is why nothing could live in the header's
+       right-hand half: any element appended there was destroyed by the next
+       `_rebuildSubTabBar()`. The `justify-content: space-between` on
+       `.dw-bucket-header` had therefore been reserving an actions slot that was
+       structurally impossible to fill — which is why the Heatmap controls ended
+       up as a THIRD stacked band instead. */
+    private _bucketHeaderLeftEl!: HTMLElement;
     private _subTabBarEl!:    HTMLElement;
 
     private _activeBucket: BucketId = 'strategize';
@@ -262,8 +271,13 @@ export class DataWorkbench implements IDataWorkbench {
     private _auditSheetPane!:   HTMLElement;
     private _auditSheetVisible = false;
 
-    // Heatmap / visualizer bar (shown inside AUDIT bucket)
-    private _heatmapBarEl!: HTMLElement;
+    /* Heatmap / visualizer control (AUDIT bucket only). §DW-ONE-HEADER-BAND
+       (L-3700): was `_heatmapBarEl`, a full-width THIRD chrome band under the
+       sub-tab row. It is now a labelled <select> in the bucket header's actions
+       slot — the same place Inspect puts `.aud-header-actions`. All five modes
+       are still reachable; only the band is gone. */
+    private _heatmapCtlEl!:    HTMLElement;
+    private _heatmapSelectEl!: HTMLSelectElement;
 
     // Panel instances
     private _hierarchyPanel!:      HierarchyTreePanel;
@@ -401,17 +415,37 @@ export class DataWorkbench implements IDataWorkbench {
         this._headerEl = document.createElement('div');
         this._headerEl.className = 'dw-content-header dw-content-header--lifecycle';
 
+        /* §DW-ONE-HEADER-BAND (L-3700) — THE PANEL OPENED WITH THREE STACKED
+           CHROME BANDS BEFORE ONE ROW OF DATA:
+
+               .dw-bucket-header   44px   gradient · '⬡ AUDIT · 5 views'
+               .dw-subtab-bar     ~36px   Hierarchy / Schedules / Spatial / …
+               .dw-heatmap-bar    ~22px   'Heatmap:' Off | Sync | Occupancy | …
+                                  ─────
+                                  ~103px  (+2px of borders)
+
+           Inspect — the reference the founder named — reaches its content in
+           ONE band: `.aud-header` (auditStack.ts:38), a gradient strip with the
+           title on the left and `.aud-header-actions` on the right.
+
+           The third band is now that actions slot. Nothing was removed: all five
+           heatmap modes are options on one <select>, which additionally states
+           the CURRENT mode as text rather than as a filled pill. */
         this._bucketHeaderEl = document.createElement('div');
         this._bucketHeaderEl.className = 'dw-bucket-header';
+
+        this._bucketHeaderLeftEl = document.createElement('div');
+        this._bucketHeaderLeftEl.className = 'dw-bucket-header-left';
+        this._bucketHeaderEl.appendChild(this._bucketHeaderLeftEl);
+
+        this._heatmapCtlEl = this._buildHeatmapControl();
+        this._bucketHeaderEl.appendChild(this._heatmapCtlEl);
 
         this._subTabBarEl = document.createElement('div');
         this._subTabBarEl.className = 'dw-subtab-bar';
 
-        this._heatmapBarEl = this._buildHeatmapBar();
-
         this._headerEl.appendChild(this._bucketHeaderEl);
         this._headerEl.appendChild(this._subTabBarEl);
-        this._headerEl.appendChild(this._heatmapBarEl);
         this._contentEl.appendChild(this._headerEl);
 
         // ── AUDIT split container (hierarchy + data-sheet side by side) ────────
@@ -523,12 +557,42 @@ export class DataWorkbench implements IDataWorkbench {
         this._rebuildSubTabBar();
     }
 
-    // ── Heatmap toolbar (AUDIT bucket secondary bar) ───────────────────────────
+    // ── Heatmap control (AUDIT bucket — header actions slot) ───────────────────
 
-    private _buildHeatmapBar(): HTMLElement {
-        const bar = document.createElement('div');
-        bar.className = 'dw-heatmap-bar';
-        bar.style.display = 'none';
+    /**
+     * §DW-ONE-HEADER-BAND (L-3700) — was `_buildHeatmapBar()`, a `.dw-heatmap-bar`
+     * strip of five `.dw-viz-btn` pills mounted as the third stacked chrome band.
+     *
+     * ⛔ THAT BAND HAD NO STYLESHEET RULE AT ALL. Measured 2026-08-22:
+     *
+     *     rg 'dw-heatmap' --glob '*.{ts,tsx,js,html,css}'
+     *       → DataWorkbench.ts:530  bar.className   = 'dw-heatmap-bar'
+     *       → DataWorkbench.ts:542  label.className = 'dw-heatmap-label'
+     *       (and NOWHERE else in the repo)
+     *
+     * The sheet declared `.dw-viz-bar` / `.dw-viz-label` — padding, sunken
+     * ground, bottom border, a 9px uppercase muted label — and NOTHING emitted
+     * those two names. So the band shipped as a bare flex row: no padding (the
+     * word 'Heatmap:' sat flush against x=0 while every other band is inset
+     * 10-14px), no ground, no separator, and the label at the container's
+     * inherited 11.7px regular instead of the intended 9px/700/uppercase.
+     * That is not "one band too many" — it is one band that looked broken, and
+     * it is why the founder read it as debris.
+     *
+     * ABSENT vs UNREACHABLE (C01 §6.1): the rules were PRESENT and UNREACHABLE.
+     * The fix is therefore wiring, not building — and here the wiring that made
+     * sense was to delete the band and hang the capability off the header, which
+     * is where Inspect keeps its own actions (`.aud-header-actions`).
+     *
+     * A <select> rather than five pills because the header is a single 42px
+     * band shared with the bucket title: five pills do not fit at 420px, one
+     * control does, and a select *names* the active mode instead of encoding it
+     * as a fill (SC 1.4.1 — colour was the only channel on the pill).
+     */
+    private _buildHeatmapControl(): HTMLElement {
+        const wrap = document.createElement('div');
+        wrap.className = 'dw-bucket-header-actions';
+        wrap.style.display = 'none';
 
         const modes: Array<{ mode: HeatmapMode; label: string; title: string }> = [
             { mode: 'off',        label: 'Off',        title: 'No heatmap overlay'                        },
@@ -538,33 +602,37 @@ export class DataWorkbench implements IDataWorkbench {
             { mode: 'area-delta', label: 'Area Δ',     title: 'Compare actual vs. target area'            },
         ];
 
-        const label = document.createElement('span');
-        label.className = 'dw-heatmap-label';
-        label.textContent = 'Heatmap:';
-        bar.appendChild(label);
+        const label = document.createElement('label');
+        label.className = 'dw-header-ctl-label';
+        label.htmlFor = 'dw-heatmap-select';
+        label.textContent = 'Heatmap';
 
+        const select = document.createElement('select');
+        select.className = 'dw-header-select';
+        select.id = 'dw-heatmap-select';
+        select.setAttribute('aria-label', 'Heatmap overlay mode');
         for (const { mode, label: lbl, title } of modes) {
-            const btn = document.createElement('button');
-            btn.className = 'dw-viz-btn' + (mode === 'off' ? ' dw-viz-btn--active' : '');
-            btn.dataset.vizMode = mode;
-            btn.textContent = lbl;
-            btn.title = title;
-            btn.addEventListener('click', () => {
-                dataVisualizer.setMode(mode);
-                this._syncHeatmapButtons();
-            });
-            bar.appendChild(btn);
+            const opt = document.createElement('option');
+            opt.value       = mode;
+            opt.textContent = lbl;
+            opt.title       = title;
+            select.appendChild(opt);
         }
+        select.value = dataVisualizer.mode;
+        select.addEventListener('change', () => {
+            dataVisualizer.setMode(select.value as HeatmapMode);
+            this._syncHeatmapControl();
+        });
 
-        return bar;
+        this._heatmapSelectEl = select;
+        wrap.appendChild(label);
+        wrap.appendChild(select);
+        return wrap;
     }
 
-    private _syncHeatmapButtons(): void {
-        const activeMode = dataVisualizer.mode;
-        this._heatmapBarEl.querySelectorAll('.dw-viz-btn').forEach(el => {
-            const b = el as HTMLElement;
-            b.classList.toggle('dw-viz-btn--active', b.dataset.vizMode === activeMode);
-        });
+    /** Re-read the visualizer singleton — another surface can have changed it. */
+    private _syncHeatmapControl(): void {
+        if (this._heatmapSelectEl) this._heatmapSelectEl.value = dataVisualizer.mode;
     }
 
     // ── Placeholder helper ─────────────────────────────────────────────────────
@@ -626,12 +694,12 @@ export class DataWorkbench implements IDataWorkbench {
         this._subTabBarEl.innerHTML = '';
         const bucket = BUCKETS.find(b => b.id === this._activeBucket)!;
 
-        if (this._heatmapBarEl) {
-            this._heatmapBarEl.style.display = this._activeBucket === 'audit' ? 'flex' : 'none';
-            if (this._activeBucket === 'audit') this._syncHeatmapButtons();
+        if (this._heatmapCtlEl) {
+            this._heatmapCtlEl.style.display = this._activeBucket === 'audit' ? 'flex' : 'none';
+            if (this._activeBucket === 'audit') this._syncHeatmapControl();
         }
 
-        if (this._bucketHeaderEl) {
+        if (this._bucketHeaderLeftEl) {
             /* §DW-HEADER-TRANSPARENT (L-3300) — THE WHITE BAND AT THE TOP OF THE
                DATA PANEL WAS THIS LINE:
 
@@ -655,13 +723,16 @@ export class DataWorkbench implements IDataWorkbench {
                already declares the gradient, and every bucket now declares the
                same accent — so a per-bucket inline colour is a second copy of a
                token with no second value, which is the defect the comment beside
-               `--bucket-header-bg` in the sheet already records. */
-            this._bucketHeaderEl.innerHTML = `
-                <div class="dw-bucket-header-left">
-                    <span class="dw-bucket-header-icon">${bucket.icon}</span>
-                    <span class="dw-bucket-header-title">${bucket.label}</span>
-                    <span class="dw-bucket-header-count">${bucket.subTabs.length} views</span>
-                </div>
+               `--bucket-header-bg` in the sheet already records.
+
+               §DW-ONE-HEADER-BAND (L-3700) — this writes the LEFT block only.
+               It used to be `this._bucketHeaderEl.innerHTML = …`, i.e. the whole
+               header including any sibling, which is why the header's right half
+               could never hold a control: every bucket switch deleted it. */
+            this._bucketHeaderLeftEl.innerHTML = `
+                <span class="dw-bucket-header-icon">${bucket.icon}</span>
+                <span class="dw-bucket-header-title">${bucket.label}</span>
+                <span class="dw-bucket-header-count">${bucket.subTabs.length} views</span>
             `;
         }
 
