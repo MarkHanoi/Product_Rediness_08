@@ -393,6 +393,17 @@ export function mountCreatePanel(
                     // the two live create surfaces cannot drift apart by hand.
                     items: [
                         {
+                            // §FIX-POOL-UNREACHABLE axis 3 (founder) — L-5690. The SECOND
+                            // create surface; L-1380 records what happens when only one of
+                            // the two learns about a tool. Plan-only, so it is armed by the
+                            // plan overlay and not by the 3-D ToolManager.
+                            label: "Swimming Pool",
+                            icon: "material-symbols:pool",
+                            action: () => {
+                                activatePlanOnlyToolOrExplain('pool', 'Swimming Pool');
+                            },
+                        },
+                        {
                             label: "Trees",
                             icon: "material-symbols:park",
                             children: {

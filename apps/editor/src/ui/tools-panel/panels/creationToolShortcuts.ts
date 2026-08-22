@@ -122,6 +122,12 @@ export const CREATION_TOOL_SHORTCUTS: Readonly<Record<string, string>> = {
     // ground-planted trees and container plantings are not one family.
     // 'Trees' keeps Alt+Shift+P (the muscle memory the old single tool had);
     // potted plants take Alt+Shift+W, the nearest free letter.
+    // §FIX-POOL-UNREACHABLE axis 3 (founder, 2026-08-22) — L-5690.
+    // ⚠ NOT `Alt+Shift+P` (Trees) and NOT `Alt+Shift+S` (Soft Furnishings): both the
+    // obvious mnemonics are taken, as are all 26 bare `Alt+<letter>` combos. This
+    // follows the precedent `Potted Plants` set below — take the nearest free combo
+    // with any mnemonic left in it. Q for aQua.
+    'Swimming Pool':        'Alt+Shift+Q',
     'Trees':                'Alt+Shift+P',
     'Potted Plants':        'Alt+Shift+W',
 };

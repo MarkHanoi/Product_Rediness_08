@@ -1184,6 +1184,37 @@ export class CreateRailPanel {
                 // collapsing them is the vocabulary defect this replaces.
                 tools: [
                     {
+                        // §FIX-POOL-UNREACHABLE axis 3 (founder, 2026-08-22) — L-5690.
+                        //
+                        //   "there is an element called swimming pool that at least is not
+                        //    able to access via UI"
+                        //
+                        // ⭐ THE FOUNDER'S ORIGINAL REPORT WAS STILL LIVE. L-5200 closed
+                        // axes 1 + 2 (the PluginRegistry descriptor, so `pool.create` can
+                        // be dispatched at all) and L-5210 added `PoolPlanToolHandler` to
+                        // the shared plan registry — and then the lane ended. NOTHING
+                        // OFFERED THE TOOL. Measured 2026-08-22, and the pattern AND the
+                        // exclusions are stated because a bare substring reports the
+                        // opposite of the truth here:
+                        //   grep -rniE "'pool'|\"pool\"|swimming" apps/editor/src/ui/ \
+                        //     | grep -viE "pool_table|pool-table"     ->  0
+                        // (The unqualified `grep -rni "pool" apps/editor/src/ui/` returns
+                        // 65 hits, EVERY one irrelevant — a local variable named `pool` in
+                        // `boundaryGuard.ts` and a `kave_pool_table` furniture entry.
+                        // `PluginRegistry.ts`'s comment claiming "the LANDSCAPE palette
+                        // row" closed axis 3 is FALSE; this row is the first one.)
+                        //
+                        // ⛔ NOT `this._activateTool('pool')`. `TOOL_MANAGER_TOOL_KEYS`
+                        // has no `pool` key — the creation matrix declares the pool
+                        // plan-only rather than pretending otherwise — so the 3-D route
+                        // would report activation and activate nothing.
+                        label: 'Swimming Pool',
+                        icon:  'material-symbols:pool',
+                        action: () => {
+                            activatePlanOnlyToolOrExplain('pool', 'Swimming Pool');
+                        },
+                    },
+                    {
                         label: 'Trees',
                         icon:  PryzmIcons.plant,
                         action: () => { /* handled by subPanel */ },
