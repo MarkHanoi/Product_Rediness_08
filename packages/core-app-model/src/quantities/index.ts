@@ -42,11 +42,35 @@ export type {
   RateEntry,
   RateBook,
   CostedLine,
+  LineEstimate,
   CostedTakeoff,
   CostSummary,
   UnpricedReason,
 } from './CostModel.js';
 export { applyRates, chapterSubtotals } from './CostModel.js';
+
+// ── 5D — REGIONAL COST ESTIMATES (§REGIONAL-COST-ESTIMATE, L-4830, ADR-0353) ──
+// ⛔ The mechanism ships with ZERO rates: every candidate price base is licensed
+// or has a licence nobody has read. See RegionalRates.ts's header.
+export type {
+  RateConfidence,
+  RateLicenceStatus,
+  RatePriceProvenance,
+  RegionalRate,
+  RegionalRateBook,
+  RateSourceCandidate,
+  CostJurisdictionBinding,
+  RateMatchTier,
+  ResolvedRateBooks,
+} from './RegionalRates.js';
+export {
+  REGIONAL_RATE_BOOKS,
+  SHIPPED_REGIONAL_RATE_COUNT,
+  RATE_SOURCE_CANDIDATES,
+  ratesShippedWithoutClearedLicence,
+  resolveRegionalRates,
+  regionalRateForLine,
+} from './RegionalRates.js';
 
 export type { RateImportResult } from './takeoffCsv.js';
 export { takeoffToCsv, costedTakeoffToCsv, rateBookToCsv, parseRateCsv } from './takeoffCsv.js';
@@ -86,5 +110,25 @@ export {
   scheduleWindowMs,
   taskDefects,
 } from './ScheduleModel.js';
+
+// ── 4D — THE DERIVED CONSTRUCTION SEQUENCE (§CONSTRUCTABILITY-SEQUENCE,
+//        L-4840, ADR-0353 §3). Order and dependencies are DERIVED; durations
+//        are still refused, and `TaskDurationSource` is deliberately NOT widened.
+export type {
+  BuildStage,
+  BuildStageDef,
+  LevelOrderEntry,
+  NoDurationReason,
+  ActivityQuantity,
+  SequencedActivity,
+  ConstructionSequence as DerivedConstructionSequence,
+} from './ConstructionSequence.js';
+export {
+  BUILD_STAGES,
+  NO_LEVEL,
+  stageForLine,
+  deriveConstructionSequence,
+  activitiesWithAFabricatedDuration,
+} from './ConstructionSequence.js';
 
 export { carbonToCsv, scheduleToCsv } from './carbonCsv.js';

@@ -26,9 +26,34 @@
  * Where do real rates come from? The user types them, or imports a CSV from a
  * price database they hold a licence to — BEDEC (ITeC, Catalonia), the Base de
  * Precios de la Construcción, SPON'S, RSMeans. PRYZM redistributes none of them.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⚠ AMENDED 2026-08-22, lane MEDI14 (ADR-0353 §2) — THE ESTIMATE ARM
+ * ─────────────────────────────────────────────────────────────────────────────
+ * The paragraph above said "There is no default and there is no estimate." The
+ * founder reversed the ESTIMATE half deliberately: a geolocated project should be
+ * able to say roughly what it comes to. **The prohibition above is UNCHANGED for
+ * everything else** — this file still ships zero rates, and
+ * `REGIONAL_RATES.REGIONAL_RATE_BOOKS` is empty because every candidate price
+ * base is licensed or has a licence nobody has read.
+ *
+ * The estimate arm is therefore a MECHANISM with no numbers in it, and it is
+ * built so that an estimate can never be mistaken for a price:
+ *
+ *   • `CostedLine.estimate` is a SEPARATE field from `rate`/`amount`;
+ *   • a line the user has priced gets NO estimate at all — the user always wins;
+ *   • `pricedTotal` is UNCHANGED and contains no estimated money, ever;
+ *   • `estimatedTotal` is its own figure and its own line count;
+ *   • every estimate carries its database, edition and PRICE DATE, and the
+ *     coverage statement says all of that in words.
+ *
+ * ⛔ MUST NOT: add `estimatedTotal` into `pricedTotal`, or offer a single
+ * "total" that silently contains both. An estimate that cannot be told apart
+ * from a measurement is a regression even though it looks like a feature.
  */
 
 import type { TakeoffLine, TakeoffResult, QuantityUnit } from './TakeoffTypes.js';
+import { regionalRateForLine, type RatePriceProvenance, type ResolvedRateBooks } from './RegionalRates.js';
 
 // ── Rates ─────────────────────────────────────────────────────────────────────
 
@@ -58,6 +83,24 @@ export type UnpricedReason =
   /** A rate exists but was quoted in a different unit — applying it would be a category error. */
   | 'UNIT_MISMATCH';
 
+/**
+ * §REGIONAL-COST-ESTIMATE (L-4830) — a published regional figure for one line.
+ *
+ * ⛔ THIS IS NOT A PRICE. It is never summed into `pricedTotal`, it is never
+ * written into the user's rate book, and it is absent entirely on any line the
+ * user has priced. It exists so a geolocated project can answer "roughly what?"
+ * without anybody being able to mistake the answer for a quotation.
+ */
+export interface LineEstimate {
+  readonly rate: number;
+  readonly amount: number;
+  readonly currency: string;
+  readonly bookId: string;
+  readonly bookName: string;
+  readonly description: string;
+  readonly provenance: RatePriceProvenance;
+}
+
 export interface CostedLine {
   readonly line: TakeoffLine;
   /** `null` ⇒ this line is NOT in the total. Never coerced to 0. */
@@ -66,6 +109,12 @@ export interface CostedLine {
   readonly amount: number | null;
   readonly source: string | null;
   readonly unpricedReason: UnpricedReason | null;
+  /**
+   * §REGIONAL-COST-ESTIMATE (L-4830). `null` ⇒ either the user priced this line
+   * (an estimate would be noise beside a real rate) or no rate book covers it.
+   * NEVER merged into `amount`.
+   */
+  readonly estimate: LineEstimate | null;
 }
 
 export interface CostSummary {
@@ -79,6 +128,18 @@ export interface CostSummary {
   readonly unitMismatchLineCodes: readonly string[];
   /** Priced lines whose rate carries an empty `source`. */
   readonly unsourcedRateCount: number;
+  /**
+   * §REGIONAL-COST-ESTIMATE (L-4830) — the sum of the ESTIMATED amounts, over
+   * lines the user has NOT priced.
+   *
+   * ⛔ IT IS ITS OWN NUMBER. It is not part of `pricedTotal`, and no field on
+   * this interface adds the two together. A surface that wants to show "what
+   * this might come to" must render two figures and say which is which.
+   */
+  readonly estimatedTotal: number;
+  readonly estimatedLineCount: number;
+  /** Lines with neither a typed rate NOR an estimate — the honest remainder. */
+  readonly neitherPricedNorEstimatedCount: number;
   /**
    * The sentence that MUST accompany the total wherever it is shown. Generated
    * here rather than in the UI so a second surface cannot render the total
@@ -100,7 +161,16 @@ export interface CostedTakeoff {
  * A line with no matching rate is returned unpriced with a reason — it is never
  * dropped, because a BOQ that hides its unpriced lines reads as complete.
  */
-export function applyRates(takeoff: TakeoffResult, book: RateBook | null): CostedTakeoff {
+export function applyRates(
+  takeoff: TakeoffResult,
+  book: RateBook | null,
+  /**
+   * §REGIONAL-COST-ESTIMATE (L-4830) — the region-resolved published rates, from
+   * `resolveRegionalRates()`. OPTIONAL: omitting it is the pre-amendment
+   * behaviour exactly, which is what keeps every existing caller correct.
+   */
+  regional: ResolvedRateBooks | null = null,
+): CostedTakeoff {
   const byCode = new Map<string, RateEntry>();
   for (const e of book?.entries ?? []) {
     if (!Number.isFinite(e.rate) || e.rate < 0) continue;
@@ -111,26 +181,53 @@ export function applyRates(takeoff: TakeoffResult, book: RateBook | null): Coste
   let pricedTotal = 0;
   let pricedLineCount = 0;
   let unsourcedRateCount = 0;
+  let estimatedTotal = 0;
+  let estimatedLineCount = 0;
+  let neitherCount = 0;
   const unpricedLineCodes: string[] = [];
   const unitMismatchLineCodes: string[] = [];
+
+  /* §REGIONAL-COST-ESTIMATE — an estimate is offered ONLY where the user has not
+     priced the line. A published figure sitting beside a rate the user typed is
+     noise at best and an invitation to compare an estimate with a quotation at
+     worst; the user's number is the answer, full stop. */
+  const estimateFor = (line: TakeoffLine): LineEstimate | null => {
+    if (!regional) return null;
+    const hit = regionalRateForLine(line, regional);
+    if (!hit) return null;
+    return {
+      rate: hit.rate.rate,
+      amount: Math.round(line.quantity * hit.rate.rate * 100) / 100,
+      currency: hit.book.currency,
+      bookId: hit.book.bookId,
+      bookName: hit.book.displayName,
+      description: hit.rate.description,
+      provenance: hit.rate.provenance,
+    };
+  };
 
   for (const line of takeoff.lines) {
     const entry = byCode.get(line.code);
     if (!entry) {
-      lines.push({ line, rate: null, amount: null, source: null, unpricedReason: 'NO_RATE' });
+      const estimate = estimateFor(line);
+      lines.push({ line, rate: null, amount: null, source: null, unpricedReason: 'NO_RATE', estimate });
       unpricedLineCodes.push(line.code);
+      if (estimate) { estimatedTotal += estimate.amount; estimatedLineCount++; } else { neitherCount++; }
       continue;
     }
     if (entry.unit !== line.unit) {
       // A €/m² rate against an `ud` quantity is not an approximation, it is a
       // different number. Refuse rather than multiply.
-      lines.push({ line, rate: null, amount: null, source: entry.source || null, unpricedReason: 'UNIT_MISMATCH' });
+      const estimate = estimateFor(line);
+      lines.push({ line, rate: null, amount: null, source: entry.source || null, unpricedReason: 'UNIT_MISMATCH', estimate });
       unpricedLineCodes.push(line.code);
       unitMismatchLineCodes.push(line.code);
+      if (estimate) { estimatedTotal += estimate.amount; estimatedLineCount++; } else { neitherCount++; }
       continue;
     }
     const amount = Math.round(line.quantity * entry.rate * 100) / 100;
-    lines.push({ line, rate: entry.rate, amount, source: entry.source || null, unpricedReason: null });
+    // ⛔ NO ESTIMATE ON A PRICED LINE. The user always wins.
+    lines.push({ line, rate: entry.rate, amount, source: entry.source || null, unpricedReason: null, estimate: null });
     pricedTotal += amount;
     pricedLineCount++;
     if (!entry.source.trim()) unsourcedRateCount++;
@@ -158,6 +255,18 @@ export function applyRates(takeoff: TakeoffResult, book: RateBook | null): Coste
   }
   // The take-off's own gaps are part of the cost's honesty, not separate from it:
   // a total is only ever "of what was measured".
+  /* §REGIONAL-COST-ESTIMATE — the estimate NEVER enters the total above, and the
+     statement says that in words rather than relying on the layout to imply it. */
+  if (estimatedLineCount > 0) {
+    parts.push(
+      `${estimatedLineCount} unpriced line${estimatedLineCount === 1 ? ' carries a regional ESTIMATE' : 's carry regional ESTIMATES'} `
+      + `totalling ${Math.round(estimatedTotal * 100) / 100}. THAT MONEY IS NOT IN THE TOTAL ABOVE. `
+      + 'An estimate is a published regional figure with its own database, edition and price date — '
+      + 'it is not a quotation, it is not your rate, and typing a rate on a line replaces it entirely.',
+    );
+  } else if (regional && regional.tier === 'none') {
+    parts.push(regional.statement);
+  }
   const notMeasured = takeoff.coverage.filter((c) => c.state === 'NOT_MEASURED').length;
   if (notMeasured > 0) {
     parts.push(`This is a cost of the MEASURED work only — ${notMeasured} trade${notMeasured === 1 ? '' : 's'} listed in the take-off's coverage table ${notMeasured === 1 ? 'is' : 'are'} NOT MEASURED and therefore NOT PRICED.`);
@@ -173,6 +282,9 @@ export function applyRates(takeoff: TakeoffResult, book: RateBook | null): Coste
       unpricedLineCodes,
       unitMismatchLineCodes,
       unsourcedRateCount,
+      estimatedTotal: Math.round(estimatedTotal * 100) / 100,
+      estimatedLineCount,
+      neitherPricedNorEstimatedCount: neitherCount,
       coverageStatement: parts.join(' '),
     },
   };
