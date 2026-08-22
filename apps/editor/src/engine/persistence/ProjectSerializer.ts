@@ -1539,11 +1539,29 @@ export class ProjectSerializer {
         };
         snapshot.integrity = integrity;
 
+        // §PROBE-SNAPSHOT-JOURNAL-WEIGHT (L-5821) — name the OTHER thing in here.
+        //
+        // This line has always reported the MODEL (elements, levels, walls…), which
+        // reads as though the model were what the snapshot costs. It is not, and the
+        // gap is not small: for a 264-element project the model serialises to ~0.1 MB
+        // while the founder's stored 20-version container is ~35 MB (lane LOAD30,
+        // 2026-08-22). The difference is `temporalGraph`, embedded WHOLE in every
+        // snapshot — and nothing printed its size, so every reading of this log
+        // silently attributed the payload to the elements it happened to name.
+        //
+        // Counts only (`.length`), never a `JSON.stringify` of the sub-tree: this
+        // runs on the autosave path and a probe that measures by re-serialising the
+        // largest member would BE the cost it reports. Paired with
+        // `[ProjectLoader] TemporalGraph restored (…)` on open and the
+        // `[VersionRepository] … persisted to IndexedDB (~N MB …)` line on write, a
+        // single console paste now shows journal-in, journal-out and bytes-stored.
+        const _tg = snapshot.temporalGraph;
         console.log(
             `[ProjectSerializer] Snapshot created: ${elementCount} elements, ` +
             `${levels.length} levels, ${walls.length} walls, ` +
             `${slabs.length} slabs, ${furniture.length} furniture ` +
-            `(integrity ${integrity.checksum})`
+            `(integrity ${integrity.checksum}) · temporalGraph ` +
+            `${_tg?.mutations?.length ?? 0} mutations / ${_tg?.edges?.length ?? 0} edges`
         );
 
         return snapshot;

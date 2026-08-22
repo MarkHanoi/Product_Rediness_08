@@ -659,6 +659,31 @@ export class ProjectLoader {
         storeEventBus.beginBatch();
         // ── End PERF-AUDIT-2026 P0 batch open ────────────────────────────────
 
+        // ── §FIX-TEMPORAL-LOAD-REPLAY-RATCHET (L-5820) ───────────────────────
+        // ⭐ A LOAD IS A REPLAY, AND A REPLAY IS NOT HISTORY.
+        //
+        // `temporalGraphManager` subscribes to StoreEventBus and mints a
+        // NodeMutationRecord per create/update/delete. Hydrating a project writes
+        // every restored element into its store, so the buffer opened above ends up
+        // holding one `create` per restored element — and `endBatch()` below sits in
+        // the `finally`, i.e. it flushes them to subscribers AFTER the Phase G
+        // `temporalGraphManager.deserialize()` has already clear-then-restored the
+        // real journal. So they landed ON TOP of it and were persisted.
+        //
+        // That made OPENING a project permanently enlarge its own payload: the
+        // journal is embedded whole in every ProjectSnapshot, the local store keeps
+        // 20 of them, and every autosave POSTs one to the server. MEASURED (lane
+        // LOAD30, 2026-08-22, `tools/perf/bench-version-container.mjs`): the model
+        // for a 264-element project is ~0.1 MB and its whole 20-version container
+        // 0.3 MB — against the ~35 MB container the founder is carrying. The journal
+        // is the difference, and this loop is where it grew.
+        //
+        // ⛔ NOTHING IS DELETED. Suspension only declines to MINT records for a
+        // replay of history the snapshot already carries; `deserialize()` restores
+        // that journal unchanged. Resumed in the `finally` immediately after
+        // `endBatch()`, so it spans exactly the flush it exists to cover.
+        temporalGraphManager.suspendRecording();
+
         __phase('setup');           // setup window closed — element hydration begins
         try {
             // ── PROJECT-LOAD-PERFORMANCE-13 §2 Phase 1 — path selector ────────
@@ -2579,6 +2604,12 @@ export class ProjectLoader {
             // many elements were loaded.  Safe to call from finally — if depth is
             // already 0 (e.g. nested batch already closed it) this is a no-op.
             storeEventBus.endBatch();
+            // §FIX-TEMPORAL-LOAD-REPLAY-RATCHET (L-5820) — resume the INSTANT the
+            // replay flush is done, and not one statement earlier: everything the
+            // buffer just delivered is a restore, everything after it is the user.
+            // In `finally` (not after the try) so a fatal load error can never
+            // leave the manager permanently deaf to real edits.
+            temporalGraphManager.resumeRecording();
             __phase('event_flush'); // builders fanned out — geometry pipeline drained
             // ── End PERF-AUDIT-2026 P0 batch close ───────────────────────────
 

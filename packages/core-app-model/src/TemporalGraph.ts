@@ -122,6 +122,54 @@ export class TemporalGraphManager {
         }
     }
 
+    // ── Replay suppression ────────────────────────────────────────────────
+
+    /**
+     * §FIX-TEMPORAL-LOAD-REPLAY-RATCHET (L-5820) — depth of nested
+     * {@link suspendRecording} calls. `> 0` means _recordMutation is a no-op.
+     */
+    private _suspendDepth = 0;
+
+    /**
+     * ⭐ STOP RECORDING — the mutations about to arrive are a REPLAY, not history.
+     *
+     * THE DEFECT THIS EXISTS TO CLOSE. `init()` subscribes this manager to
+     * StoreEventBus and records a NodeMutationRecord for every create/update/delete.
+     * A project LOAD writes every restored element into its store, so a load emits
+     * one `create` per restored element — and `ProjectLoader` runs the whole
+     * hydration inside `storeEventBus.beginBatch()`, whose `endBatch()` flush lands
+     * in the `finally` block, i.e. **AFTER** the Phase G `deserialize()` that
+     * restores the real journal. The clear-then-restore therefore could not absorb
+     * them: they were appended ON TOP of the restored journal.
+     *
+     * MEASURED CONSEQUENCE (lane LOAD30, 2026-08-22). The journal is embedded WHOLE
+     * inside every `ProjectSnapshot`, and the local store keeps 20 snapshots, so
+     * each open added ≈ one record per element to a payload that is then written
+     * twenty times over locally AND POSTed to the server on every autosave. On a
+     * 264-element project the model itself serialises to ~0.1 MB and its 20-version
+     * container to **0.3 MB**; the founder's container is ~35 MB. The delta is
+     * this journal — the act of OPENING made the next open more expensive, without
+     * bound, and nothing in the loop ever paid it back.
+     *
+     * ⛔ THIS DELETES NOTHING. Suspension only declines to MINT records for a
+     * replay of history that the snapshot already carries; the snapshot's own
+     * journal is restored by `deserialize()` exactly as before. Nested/paired via a
+     * depth counter so a load nested inside another suspension cannot resume early.
+     */
+    suspendRecording(): void {
+        this._suspendDepth++;
+    }
+
+    /** Pair of {@link suspendRecording}. Floors at 0 — an unbalanced resume must
+     *  never leave the manager permanently recording a replay it was told to skip,
+     *  nor permanently deaf. */
+    resumeRecording(): void {
+        if (this._suspendDepth > 0) this._suspendDepth--;
+    }
+
+    /** True while a replay is being suppressed. Exposed for tests and diagnostics. */
+    isRecordingSuspended(): boolean { return this._suspendDepth > 0; }
+
     /**
      * Reset all temporal data.
      * Called when a project is closed (bim-project-cleared event).
@@ -376,6 +424,10 @@ export class TemporalGraphManager {
         mutatedBy:   string;
         commandId:   string;
     }): void {
+        // §FIX-TEMPORAL-LOAD-REPLAY-RATCHET (L-5820) — a suspended manager mints
+        // nothing. See {@link suspendRecording} for why a project-load replay is
+        // not history and what it cost to record it as though it were.
+        if (this._suspendDepth > 0) return;
         const record: NodeMutationRecord = {
             id:          crypto.randomUUID(),
             elementId:   params.elementId,
