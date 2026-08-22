@@ -59,6 +59,10 @@ import { PlanViewManager } from './views/PlanViewManager';
 // the C13 teardown + the ADR-0298 isolation probe. ViewController stays the THREE
 // lifetime owner; the module holds the ownership stamp and the registry entry.
 import { noteDrawingMounted, noteDrawingUnmounted } from './views/mountedDrawingScope';
+// §ORCH-EVERY-DRIVER-HANDS-DOWN-THE-PREDICATE (L-5402) — the cancellation signal lives in a
+// leaf module precisely so a driver can recognise it WITHOUT pulling the lazily loaded
+// 4,100-line projector into this bundle (`EdgeProjectorService` is imported type-only above).
+import { isProjectionSuperseded } from './views/projectionCancellation';
 import { ifcProjectionStore } from '@pryzm/core-app-model';
 // DOC-2.5d: level datum line injection for elevation views
 // DOC-2.5e: grid line injection for elevation views
@@ -677,7 +681,17 @@ export class ViewController implements IViewController {
 
         const projectionGen = viewTechnicalDrawingCache.beginProjection(viewId);
         try {
-            const drawing = await this._edgeProjectorService.project(viewDef, models, nativeGroups);
+            // §ORCH-EVERY-DRIVER-HANDS-DOWN-THE-PREDICATE (L-5402) — this call site knew
+            // about generations (it opens one above and interrogates `setIfCurrent` below,
+            // returning 'superseded') and STILL never handed the predicate down. So a
+            // background projection that was overtaken ran to completion and was then
+            // discarded — the exact waste §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) closed
+            // for the other five drivers. Measured 2026-08-22: 2 of the 7 `project()` call
+            // sites omitted it, and BOTH are in this file.
+            const drawing = await this._edgeProjectorService.project(
+                viewDef, models, nativeGroups, [], 0,
+                () => viewTechnicalDrawingCache.currentGeneration(viewId) !== projectionGen,
+            );
             const accepted = viewTechnicalDrawingCache.setIfCurrent(viewId, projectionGen, drawing);
             if (!accepted) {
                 try { drawing.onDisposed.trigger(); } catch { /* */ }
@@ -701,6 +715,11 @@ export class ViewController implements IViewController {
             return 'projected';
         } catch (err) {
             nativeElementMeshExporter.releaseGroups(nativeGroups, { disposeProxies: true });
+            // §ORCH-EVERY-DRIVER-HANDS-DOWN-THE-PREDICATE (L-5402) — a cancelled pass is
+            // 'superseded', which this method's own outcome union already names. Reporting it
+            // as 'failed' would make the L-5402 optimisation look like a defect to every
+            // caller that branches on the outcome, and log an error for correct behaviour.
+            if (isProjectionSuperseded(err)) return 'superseded';
             console.error(`[ViewController] Background projection failed for viewId=${viewId}:`, err);
             return 'failed';
         }
@@ -2263,7 +2282,14 @@ export class ViewController implements IViewController {
 
                 if (models.length > 0 || nativeGroups.length > 0) {
                     const projectionGen = viewTechnicalDrawingCache.beginProjection(elevViewDef.id);
-                    this._edgeProjectorService.project(elevViewDef, models, nativeGroups).then(drawing => {
+                    // §ORCH-EVERY-DRIVER-HANDS-DOWN-THE-PREDICATE (L-5402) — the ELEVATION
+                    // driver, i.e. the pane the founder keeps open while he navigates. It
+                    // opened a generation and checked `setIfCurrent`, but never let the
+                    // projector abandon a pass it had already lost.
+                    this._edgeProjectorService.project(
+                        elevViewDef, models, nativeGroups, [], 0,
+                        () => viewTechnicalDrawingCache.currentGeneration(elevViewDef.id) !== projectionGen,
+                    ).then(drawing => {
                         const accepted = viewTechnicalDrawingCache.setIfCurrent(elevViewDef.id, projectionGen, drawing);
                         if (!accepted) {
                             // §F.1 — superseded elevation projection; release proxy groups.
@@ -2285,6 +2311,11 @@ export class ViewController implements IViewController {
                         this.mountReprojectedDrawing(elevViewDef.id, drawing);
                     }).catch(err => {
                         nativeElementMeshExporter.releaseGroups(nativeGroups, { disposeProxies: true });
+                        // §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — cancellation is the
+                        // intended outcome of L-5402, not a failure. Logging it as an error
+                        // would turn a working optimisation into console noise the founder
+                        // reads as a bug.
+                        if (isProjectionSuperseded(err)) return;
                         console.error('[ViewController] DOC-1.8: EdgeProjectorService.project() failed for elevation view:', err);
                     });
                 }
