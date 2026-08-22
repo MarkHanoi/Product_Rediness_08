@@ -1,10 +1,23 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import type { BimManager } from '@pryzm/core-app-model';
-import { type ViewDefinition, PLAN_VIEW_TYPES } from '../views/ViewDefinitionTypes';
+import {
+    type ViewDefinition,
+    PLAN_VIEW_TYPES,
+    resolveElevationClipRange,
+    UNCLIPPED_ELEVATION_FAR_DEPTH_M,
+} from '../views/ViewDefinitionTypes';
 // §FIX-ELEVATION-CROP-CLIP (L-123) — the flat-XZ crop cull is a plan-plane concept;
 // depth-projected views must not cull straddling elements by it.
 import { resolveViewScope } from '../views/ViewScope';
+// §ELEV-SCOPE-IS-THE-SCOPE (L-6000) — the ORIENTED scope of a depth-projected view. Read its
+// module header: this is the SAME frame `EdgeProjectorService.resolveSectionVolumeBox` returns,
+// extracted to L2 so the exporter and the projector cannot hold two answers.
+import {
+    resolveElevationScopeFrame,
+    scopeFrameIntersectsWorldAABB,
+    type ElevationScopeFrame,
+} from '../views/ElevationScopeFrame';
 // §SCC-NO-SELF-BARREL — relative import, NOT the package barrel (see
 // presentation/ViewRangeIntentResolver.ts for the measurement).
 import {
@@ -43,6 +56,29 @@ function _isInsideCropRegion(
     if (_scratchBox.max.z < cropRegion.minZ) return false;
     if (_scratchBox.min.z > cropRegion.maxZ) return false;
     return true;
+}
+
+/**
+ * §TRUE-PROJECTION-HOST-NEVER-HIDES-ITS-OPENING (L-6011) — the DECLARED host of a hosted
+ * opening, or `undefined`.
+ *
+ * C15 hosted elements: `WindowBuilder`/`DoorBuilder` freeze `wallId` onto the element ROOT's
+ * userData, and the slab-opening path writes `hostId`. Both are read; `hostId` wins because it
+ * is the explicit name.
+ *
+ * ⛔ SCOPED TO HOSTED-OPENING TYPES ON PURPOSE, using the SAME element-type test the L-190
+ * childrenIds union below already uses. `wallId` also appears on a wall's CHILD fragment meshes
+ * (WallFragmentBuilder stamps it on window-part/door-part children), and a stamp that leaked a
+ * non-host id into `HiddenLineRemoval._sharesHostFace` would exempt an unrelated pair from
+ * occlusion — a silent over-claim, and the failure mode that rule exists to avoid.
+ */
+function _hostIdOf(root: THREE.Object3D): string | undefined {
+    const et = (root.userData?.elementType as string | undefined)?.toLowerCase();
+    if (et !== 'window' && et !== 'door' && et !== 'opening') return undefined;
+    const declared = (root.userData?.hostId ?? root.userData?.wallId) as string | undefined;
+    if (typeof declared !== 'string' || declared.length === 0) return undefined;
+    // A self-referential stamp carries no relation; drop it rather than record a lie.
+    return declared === (root.userData?.id as string | undefined) ? undefined : declared;
 }
 
 /**
@@ -358,15 +394,68 @@ export class NativeElementMeshExporter {
         const scope = resolveViewScope(viewDef.viewType);
         const cropRegion = scope.planFamily ? viewDef.spatial?.cropRegion : undefined;
 
+        // ═══ §ELEV-SCOPE-IS-THE-SCOPE (L-6000..L-6004) — THE ELEVATION'S OWN SCOPE ═══
+        //
+        // Founder, 2026-08-22: *"i am selecting a window that should be on the scope of the crop
+        // box but is not, is way further away — absolutely incorrect"* … *"also the performance
+        // of opening the elevation view is really slow"*. ONE defect, both symptoms: a
+        // depth-projected view applied NO spatial scope here at all, so the whole model was
+        // proxied, edge-projected and made hit-testable on every pass.
+        //
+        // ⚠ THE PARAGRAPH ABOVE STAYS TRUE AND IS NOT UNDONE. The flat XZ `cropRegion` really is
+        // the wrong shape for an elevation and is still NOT read for one. What is applied instead
+        // is the ORIENTED frame — the SAME box `EdgeProjectorService` already builds and already
+        // uses as its per-mesh drop gate (`sectionBoxIntersectsWorldAABB`, two call sites).
+        //
+        // ⭐ THIS THEREFORE CANNOT CHANGE THE DRAWING, ONLY ITS COST. The exporter tests an
+        // element's ROOT world AABB, which is the union of its meshes' AABBs. If the root box
+        // misses the frame then every mesh inside it misses too, and the projector would have
+        // dropped all of them one stage later. Culling here is the projector's own verdict,
+        // reached before the EdgesGeometry pass rather than after it — which is precisely the
+        // founder's standing constraint (*"don't compromise graphics"*) satisfied by
+        // construction rather than by care.
+        //
+        // ⛔ ABSENT ≠ UNREACHABLE (C01 §6 rule 6). A view with no explicit `spatial.sectionVolume`
+        // resolves to `null` — its frame is annotation-derived and lives in the projector, which
+        // reads an L7 store this package cannot. That case culls NOTHING, exactly as today, and
+        // says `scope=ABSENT` in the log below rather than pretending the view is unbounded.
+        let scopeFrame: ElevationScopeFrame | null = null;
+        if (scope.depthProjected) {
+            const pd = viewDef.spatial?.projectionDirection;
+            const dir = new THREE.Vector3(pd?.x ?? 0, 0, pd?.z ?? -1);
+            // §CROP-IS-THE-CLIP (L-4500) — the depth window comes from the ONE resolver both the
+            // projector's clip planes and the plan scope rectangle call. No fourth producer.
+            const { near: scopeNear, far: scopeFar } =
+                resolveElevationClipRange(viewDef, UNCLIPPED_ELEVATION_FAR_DEPTH_M);
+            scopeFrame = resolveElevationScopeFrame(
+                viewDef,
+                dir,
+                scopeFar,
+                this._bimManager.getLevels?.() ?? [],
+                scopeNear,
+            );
+        }
+
         // §H.2 — Stable view-level cache key components.
         const viewId = viewDef.id ?? '';
+        // §ELEV-SCOPE-IS-THE-SCOPE — the proxy cache key must encode the SCOPE, not only the
+        // plan crop. Two different elevation scopes produce two different element SETS; a key
+        // blind to the scope would serve a proxy captured under one frame to a pass running
+        // under another. The frame is reduced to the six numbers the cull actually reads.
         const cropKey = cropRegion
             ? `${cropRegion.minX.toFixed(2)}:${cropRegion.maxX.toFixed(2)}:${cropRegion.minZ.toFixed(2)}:${cropRegion.maxZ.toFixed(2)}`
-            : 'full';
+            : scopeFrame
+                ? `sf:${scopeFrame.origin.x.toFixed(2)},${scopeFrame.origin.z.toFixed(2)}:` +
+                  `${scopeFrame.forward.x.toFixed(3)},${scopeFrame.forward.z.toFixed(3)}:` +
+                  `${scopeFrame.width.toFixed(2)}:${scopeFrame.minDepth.toFixed(2)}-${scopeFrame.maxDepth.toFixed(2)}:` +
+                  `${scopeFrame.minY.toFixed(2)}-${scopeFrame.maxY.toFixed(2)}`
+                : 'full';
 
         const groups: THREE.Group[] = [];
         let totalCount   = 0;
         let culledCount  = 0;
+        /** §ELEV-SCOPE-IS-THE-SCOPE — elements dropped by the ORIENTED elevation/section frame. */
+        let scopeCulled  = 0;
 
         // §H.2 cache stats (per exportForView call)
         let h2Hits  = 0;
@@ -383,6 +472,19 @@ export class NativeElementMeshExporter {
             if (cropRegion) {
                 if (!_isInsideCropRegion(root, cropRegion)) {
                     culledCount++;
+                    continue;
+                }
+            }
+
+            // §ELEV-SCOPE-IS-THE-SCOPE (L-6000..L-6004) — the elevation/section cull. INTERSECTION,
+            // never containment: an 8 m-deep wall whose near face is inside the crop and whose far
+            // face is well past it SURVIVES here and is CLIPPED downstream by the projector's
+            // `clipSegmentToSectionBox`. That distinction is the whole of L-123's real concern,
+            // honoured rather than reintroduced.
+            if (scopeFrame) {
+                _scratchBox.setFromObject(root);
+                if (!scopeFrameIntersectsWorldAABB(scopeFrame, _scratchBox)) {
+                    scopeCulled++;
                     continue;
                 }
             }
@@ -415,6 +517,10 @@ export class NativeElementMeshExporter {
                     wrapper.userData = {
                         elementUUID: elementId,
                         elementType: root.userData?.elementType,
+                        // §TRUE-PROJECTION-HOST-NEVER-HIDES-ITS-OPENING (L-6011) — C15 host
+                        // relation, carried to the drawing so the ONE occlusion engine can tell
+                        // "behind that wall" from "IN that wall". See `_hostIdOf`.
+                        hostId:      _hostIdOf(root),
                         baseLine:    root.userData?.baseLine,
                         baseOffset:  root.userData?.baseOffset,
                         rootWorldY:  _scratchVec.y,
@@ -592,6 +698,8 @@ export class NativeElementMeshExporter {
                 wrapper.userData = {
                     elementUUID: elementId,
                     elementType: root.userData?.elementType,
+                    // §TRUE-PROJECTION-HOST-NEVER-HIDES-ITS-OPENING (L-6011) — see `_hostIdOf`.
+                    hostId:      _hostIdOf(root),
                     baseLine:    root.userData?.baseLine,
                     baseOffset:  root.userData?.baseOffset,
                     rootWorldY:  _scratchVec.y,
@@ -628,6 +736,35 @@ export class NativeElementMeshExporter {
                 `[NativeElementMeshExporter] Culled ${culledCount}/${totalCount} elements outside cropRegion` +
                 ` (${totalCount - culledCount} passed)`,
             );
+        }
+
+        // §ELEV-SCOPE-IS-THE-SCOPE (L-6000..L-6004) — THE LINE THE FOUNDER READS BACK.
+        //
+        // It reports the SCOPE, not merely a count, because a count alone is what let the old
+        // `No levelId — exporting all 385 elements` line read as a fact about the model rather
+        // than as the ABSENCE of a scope. `scope=ABSENT` is printed explicitly when the view
+        // carries no explicit `spatial.sectionVolume` — that view is annotation-framed and is
+        // culled by the projector instead, and saying so is the difference between a measured
+        // "not applied" and a guess (C01 §6 rule 6).
+        if (scope.depthProjected && totalCount > 0) {
+            if (scopeFrame) {
+                console.log(
+                    `[NativeElementMeshExporter] §ELEV-SCOPE-IS-THE-SCOPE ${viewDef.viewType} ` +
+                    `scope=APPLIED kept=${totalCount - culledCount - scopeCulled}/${totalCount} ` +
+                    `(culled ${scopeCulled} outside scope) ` +
+                    `lateral=${scopeFrame.width.toFixed(2)}m ` +
+                    `depth=[${scopeFrame.minDepth.toFixed(2)},${scopeFrame.maxDepth.toFixed(2)}]m ` +
+                    `vertical=[${scopeFrame.minY.toFixed(2)},${scopeFrame.maxY.toFixed(2)}]m ` +
+                    `origin=(${scopeFrame.origin.x.toFixed(2)},${scopeFrame.origin.z.toFixed(2)}) ` +
+                    `fwd=(${scopeFrame.forward.x.toFixed(2)},${scopeFrame.forward.z.toFixed(2)})`,
+                );
+            } else {
+                console.log(
+                    `[NativeElementMeshExporter] §ELEV-SCOPE-IS-THE-SCOPE ${viewDef.viewType} ` +
+                    `scope=ABSENT (no spatial.sectionVolume on this view) — ${totalCount} element(s) ` +
+                    `exported unculled; the projector's annotation-derived frame culls instead`,
+                );
+            }
         }
 
         // §H.2 — Log cache performance for this exportForView call.

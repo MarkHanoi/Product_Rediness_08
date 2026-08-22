@@ -354,7 +354,9 @@ export class OpeningElevationSymbolBuilder {
 
                 const base = symOpening.type === 'door' ? DOOR_SYM_LAYER : GLAZ_SYM_LAYER;
                 const uuid = op.elementId ?? op.id;
-                if (_emit(drawing, base, result.polylines, uuid)) {
+                // §TRUE-PROJECTION-HOST-NEVER-HIDES-ITS-OPENING (L-6013) — `wall.id` IS the host
+                // of every opening in this loop, by construction of the loop itself.
+                if (_emit(drawing, base, result.polylines, uuid, wall.id)) {
                     injected++;
                     // RECORDED ONLY ON A SUCCESSFUL EMIT. A refusal `continue`s above and a
                     // zero-polyline result returns before this, so an opening that got NO symbol
@@ -585,6 +587,20 @@ function _emit(
     baseLayer: string,
     polylines: readonly EmittablePolyline[],
     elementUUID: string,
+    /**
+     * §TRUE-PROJECTION-HOST-NEVER-HIDES-ITS-OPENING (L-6013) — the id of the WALL this symbol
+     * is hosted in (C15), or `undefined` for the wall's own symbol.
+     *
+     * ⭐ THIS PARAMETER IS WHY THE FIX REACHES THE FOUNDER'S BUILD AT ALL. In an ELEVATION an
+     * opening's linework is NOT the projected solid — this builder injects the authored symbol
+     * and `suppressSymbolisedElementLinework` takes the wireframe away. So the `hostId` the
+     * exporter stamps onto the mesh wrapper never arrives on the linework the occlusion engine
+     * actually traverses for a façade window, and stamping only there would have been a green
+     * test over a path the founder's build does not take (memory: `committed-is-not-reachable`).
+     * The relation is free here: this loop already has `wall.id` in hand as the host of every
+     * opening it emits.
+     */
+    hostId?: string,
 ): boolean {
     const byZone = new Map<DrawingZone, number[]>();
     for (const pl of polylines) {
@@ -618,6 +634,8 @@ function _emit(
         // The ELEMENT tier (priority 10000) of the graphics-rules chain keys on this. Without
         // it a per-element pen override cannot reach an injected symbol — L-280, exactly.
         projected.userData.elementUUID = elementUUID;
+        // §TRUE-PROJECTION-HOST-NEVER-HIDES-ITS-OPENING (L-6013) — see the parameter doc.
+        if (hostId !== undefined && hostId !== elementUUID) projected.userData.hostId = hostId;
         drawing.addProjectionLines(projected, layer);
         registerSegmentUUID(drawing, projected, elementUUID);
         geo.dispose();

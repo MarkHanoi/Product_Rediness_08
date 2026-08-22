@@ -181,6 +181,13 @@ type OccluderTest = 'silhouette' | 'vspan' | 'aabb';
  */
 interface SilhouetteOccluder extends Occluder2D {
     uuid:       string;
+    /**
+     * §TRUE-PROJECTION-HOST-NEVER-HIDES-ITS-OPENING (L-6010) — the id of the element this one is
+     * HOSTED IN (C15: `Window.wallId` / `Door.wallId`), carried from `userData.hostId`.
+     * `undefined` for an unhosted element. Read the exemption at its use site in
+     * `applyOcclusion`, not here.
+     */
+    hostId?:    string;
     segs:       number[];
     /** Which coverage predicate this occluder is entitled to. See {@link OccluderTest}. */
     test:       OccluderTest;
@@ -344,6 +351,7 @@ function buildOccluderList(
 
     const map = new Map<string, {
         uuid: string;
+        hostId?: string;
         minX: number; maxX: number; minZ: number; maxZ: number;
         raw: number[]; depth: number; isCut: boolean;
     }>();
@@ -372,11 +380,18 @@ function buildOccluderList(
         }
 
         const uuid = (child.userData?.elementUUID ?? ANON_ELEMENT) as string;
+        // §TRUE-PROJECTION-HOST-NEVER-HIDES-ITS-OPENING (L-6010) — the DECLARED host relation
+        // (C15), stamped by `EdgeProjectorService` from the element root's `wallId`. It is read
+        // here rather than inferred from geometry on purpose: §FEAT-WINDOW-REVEAL (L-1920) makes
+        // the recess USER-AUTHORED, so no depth threshold can tell a hosted opening from a
+        // separate solid a few centimetres behind a wall.
+        const hostId = (child.userData?.hostId as string | undefined) || undefined;
         const key  = `${zone}::${uuid}`;
         let entry = map.get(key);
         if (!entry) {
             entry = {
                 uuid,
+                hostId,
                 minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity,
                 // A CUT band is AT the view plane — it occludes everything behind it.
                 raw: [], depth: zone === 'cut' ? -Infinity : Infinity, isCut: zone === 'cut',
@@ -439,6 +454,7 @@ function buildOccluderList(
 
         occluders.push({
             uuid:  b.uuid,
+            hostId: b.hostId,
             xMin:  b.minX,
             xMax:  b.maxX,
             yMin:  b.minZ,
@@ -697,6 +713,67 @@ export interface OcclusionResult {
  * P8: side-effecting export → carries the observability log below (the drawing layer has no
  * tracer in this package; the projector's span wraps this call).
  */
+/**
+ * §TRUE-PROJECTION-HOST-NEVER-HIDES-ITS-OPENING (L-6010..L-6019) — ARE THESE TWO ELEMENTS PART
+ * OF THE SAME VISIBLE FACE?
+ *
+ * Founder, 2026-08-22, verbatim:
+ *   *"even the windows that should be seen in projection line — which are the hosted windows on
+ *    the main wall — are in hidden line — this is incorrect — i hope you understand the concept
+ *    of true projection?"*
+ *
+ * ═══ WHAT "TRUE PROJECTION" MEANS, ENCODED ═══
+ *
+ * What the eye sees from the view direction is PROJECTION; what lies BEHIND a solid is HIDDEN.
+ * A window hosted in the front wall is **part of the face the viewer is looking at**. It is not
+ * behind that wall — it is IN it. A wall cannot be in front of its own aperture.
+ *
+ * ⚠ AND THE ENGINE HAD NO WAY TO KNOW THAT. The guard was `o.uuid !== uuid` alone — "an element
+ * never hides its own linework". A wall and the window it hosts are two different uuids, so the
+ * guard did not reach: the wall's `:proj` occluder is nearer (its front face is the outermost
+ * surface), the window's frame and glazing sit a few centimetres back inside the reveal,
+ * `wallDepth < windowDepth - depthMargin` holds, and every hosted opening on the façade demoted
+ * to the dashed `:hidden` pen. §L-5300's own family census recorded window and door as
+ * "occludable by wall" with no host exemption — it was MEASURED, and read as correct.
+ *
+ * ⭐ THE FIX IS SEMANTIC, NOT A DEPTH TWEAK. Widening `depthMargin` until the window scrapes
+ * through would be a magic number that fails on the first deep reveal: §FEAT-WINDOW-REVEAL
+ * (L-1920) makes the recess USER-AUTHORED, so there is no safe margin. The relationship is
+ * DECLARED DATA — `Window.wallId` / `Door.wallId` (C15) — carried to the drawing as
+ * `userData.hostId`.
+ *
+ * ⛔ THE EXEMPTION IS HOST-SCOPED AND MUST STAY THAT WAY. §ELEV-FACADE-HIDES-INTERIOR (L-5300)
+ * is the founder's OTHER named case: *"you would never be able to see a interior door hosted on
+ * an internal partition wall … if the elevation was taken from outside"*. A blanket "openings
+ * are never occluded" rule would re-open it. An interior door declares a host — the PARTITION —
+ * and the façade is not it, so the façade still hides it. That is the difference between this
+ * predicate and `elementType === 'Window'`.
+ *
+ * THREE RELATIONS, and each is a distinct claim:
+ *   1. the occluder IS the target's host      — the wall does not hide its own window;
+ *   2. the target IS the occluder's host      — nor does a window projecting PROUD of the wall
+ *      (§FEAT-WINDOW-REVEAL builds exactly that) punch a hole in its own host. A one-way
+ *      exemption would leave the wall eaten away around the opening;
+ *   3. both declare the SAME host             — two windows in one wall are both on the face the
+ *      viewer sees. Neither is behind the other, and in a bay assembly their AABBs overlap.
+ *
+ * ⚠ SCOPED BY THE `hostId` STAMP, NOT BY TYPE. Elements that carry no stamp are unaffected in
+ * every direction — the ordinary occlusion case is byte-for-byte what it was.
+ *
+ * Maps C09 §4.6.5/§4.6.6 (occlusion is one engine; disposition is view intent), C15 (hosted
+ * elements), C84 §host integrity.
+ */
+function _sharesHostFace(
+    occluder: SilhouetteOccluder,
+    targetUuid: string,
+    targetHostId: string | undefined,
+): boolean {
+    if (targetHostId !== undefined && occluder.uuid === targetHostId) return true;      // (1)
+    if (occluder.hostId !== undefined && occluder.hostId === targetUuid) return true;   // (2)
+    if (targetHostId !== undefined && occluder.hostId === targetHostId) return true;    // (3)
+    return false;
+}
+
 export function applyOcclusion(
     drawing: OBC.TechnicalDrawing,
     options: OcclusionOptions,
@@ -714,7 +791,7 @@ export function applyOcclusion(
     if (occluders.length === 0) return empty;
 
     // Collect the target nodes first — never mutate the scene while traversing it.
-    const targets: Array<{ node: THREE.LineSegments; uuid: string; zone: DrawingZone; depth: number; layerName: string }> = [];
+    const targets: Array<{ node: THREE.LineSegments; uuid: string; hostId?: string; zone: DrawingZone; depth: number; layerName: string }> = [];
 
     drawingThree.traverse((child: THREE.Object3D) => {
         if (!(child instanceof THREE.LineSegments)) return;
@@ -726,6 +803,8 @@ export function applyOcclusion(
         targets.push({
             node:      child,
             uuid:      (child.userData?.elementUUID ?? ANON_ELEMENT) as string,
+            // §TRUE-PROJECTION-HOST-NEVER-HIDES-ITS-OPENING (L-6010) — see the exemption below.
+            hostId:    (child.userData?.hostId as string | undefined) || undefined,
             zone,
             // No depth stamp ⇒ +Infinity ⇒ every occluder counts as nearer. This is exactly
             // the v2 plan/section behaviour and keeps an unstamped drawing correct.
@@ -743,7 +822,7 @@ export function applyOcclusion(
     // §HLR-ACTIVE-SET-IS-REUSED (L-5302) — one scratch array for the whole pass; see its use.
     const active: SilhouetteOccluder[] = [];
 
-    for (const { node, uuid, zone, depth, layerName } of targets) {
+    for (const { node, uuid, hostId, zone, depth, layerName } of targets) {
         const posAttr = node.geometry?.getAttribute('position') as THREE.BufferAttribute | undefined;
         if (!posAttr || posAttr.count < 2) continue;
 
@@ -757,6 +836,7 @@ export function applyOcclusion(
 
         const nearer = candidates.filter(o =>
             o.uuid !== uuid &&                      // an element never hides its own linework
+            !_sharesHostFace(o, uuid, hostId) &&    // …nor the face it is a part OF (L-6010)
             o.depth < depth - depthMargin,          // CUT occluders are −∞ ⇒ always nearer
         );
         if (nearer.length === 0) continue;

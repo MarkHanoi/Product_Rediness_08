@@ -347,6 +347,17 @@ export {
 export type { ElevationClipRange, ElevationClipSource } from './views/ViewDefinitionTypes.js';
 // §FIX-ELEVATION-POCHE / §FIX-ELEVATION-SCOPE (L-119 / L-120 P4) — unified view scope.
 export { resolveViewScope, resolveOcclusionDisposition, resolveBeyondLineStyle } from './views/ViewScope.js';
+// §ELEV-SCOPE-IS-THE-SCOPE (L-6000..L-6004) — the ORIENTED spatial scope of a depth-projected
+// view. `EdgeProjectorService.resolveSectionVolumeBox` delegates its explicit branch to this and
+// `SectionVolumeBox` is an ALIAS of `ElevationScopeFrame`, so the L7 projector's mesh-drop gate
+// and the L2 exporter's cull are one predicate rather than two that happen to agree.
+export {
+    resolveElevationScopeFrame,
+    scopeFrameIntersectsWorldAABB,
+    levelStackVerticalBounds,
+    DEFAULT_LEVEL_HEIGHT_M,
+} from './views/ElevationScopeFrame.js';
+export type { ElevationScopeFrame, ScopeLevelBand } from './views/ElevationScopeFrame.js';
 export type { ViewScope } from './views/ViewScope.js';
 
 // ── BimKernel + SpatialAuthority (P9-W2 2026-05-10) ────────────────────────

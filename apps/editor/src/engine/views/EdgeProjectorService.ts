@@ -42,6 +42,16 @@ import { ViewDefinition, VIEW_PROJECTION_DIRECTIONS, PLAN_VIEW_TYPES } from '@pr
 // §CROP-IS-THE-CLIP (L-4500) — the crop rectangle IS the clip range; ONE resolver
 // serves this projector AND the plan scope rectangle that draws it.
 import { resolveElevationClipRange, UNCLIPPED_ELEVATION_FAR_DEPTH_M } from '@pryzm/core-app-model';
+// §ELEV-SCOPE-IS-THE-SCOPE (L-6000..L-6004) — the ORIENTED scope frame of a depth-projected
+// view now lives at L2 so `NativeElementMeshExporter` can read the SAME box this file drops
+// meshes against. `resolveSectionVolumeBox`'s explicit branch DELEGATES to it below; the
+// annotation-linked branch stays here because it reads `annotationStore` (L7).
+import {
+    resolveElevationScopeFrame,
+    scopeFrameIntersectsWorldAABB,
+    levelStackVerticalBounds,
+    type ElevationScopeFrame,
+} from '@pryzm/core-app-model';
 // §FIX-ELEVATION-POCHE (L-119) — unified per-view-type drawing scope. An
 // elevation has cut:false → emit :proj/:beyond ONLY (no :cut → no black poché).
 // §FEAT-VIEW-OCCLUSION-DISPOSITION (L-279) — `resolveViewScope` gives the view TYPE's
@@ -1193,20 +1203,13 @@ function resolveSectionDepthPlane(
  * which case the caller keeps the legacy per-volume band.
  */
 function _levelStackVerticalBounds(bimManager?: BimManager): { min: number; max: number } | null {
+    // §ELEV-SCOPE-IS-THE-SCOPE (L-6001) — DELEGATED. The body used to live here; it now lives in
+    // `packages/core-app-model/src/views/ElevationScopeFrame.ts` so the L2 exporter derives the
+    // SAME vertical band. This wrapper only unwraps `BimManager` into the structural level list
+    // that module takes (L2 may not import a BimManager type from L7's perspective, and the band
+    // is a property of the level stack, not of the manager).
     if (!bimManager) return null;
-    const levels = bimManager.getLevels?.() ?? [];
-    if (!levels.length) return null;
-    let min = Infinity;
-    let max = -Infinity;
-    for (const lvl of levels) {
-        const elev = Number((lvl as { elevation?: number }).elevation);
-        if (!Number.isFinite(elev)) continue;
-        const rawH = Number((lvl as { height?: number }).height);
-        const h = Number.isFinite(rawH) && rawH > 0 ? rawH : DEFAULT_FAR_OFFSET;
-        min = Math.min(min, elev);
-        max = Math.max(max, elev + h);
-    }
-    return Number.isFinite(min) && Number.isFinite(max) && max > min ? { min, max } : null;
+    return levelStackVerticalBounds(bimManager.getLevels?.() ?? []);
 }
 
 export function resolveSectionVolumeBox(
@@ -1217,74 +1220,28 @@ export function resolveSectionVolumeBox(
     nearClipDepth = 0,
 ): SectionVolumeBox | null {
     if (viewDef.viewType !== 'section' && viewDef.viewType !== 'elevation') return null;
-    const explicit = viewDef.spatial.sectionVolume;
-    if (explicit) {
-        const origin = new THREE.Vector3(explicit.origin[0], explicit.origin[1], explicit.origin[2]);
-        const forward = new THREE.Vector3(explicit.direction[0], 0, explicit.direction[2]);
-        if (forward.lengthSq() <= 1e-8) forward.copy(projectionDirection).setY(0);
-        if (forward.lengthSq() <= 1e-8) forward.set(0, 0, -1);
-        forward.normalize();
-        const right = new THREE.Vector3(-forward.z, 0, forward.x).normalize();
-        const width = Math.max(0.01, Number(explicit.width) || 0.01);
-        const legacyHeight = Math.max(0.01, Number(explicit.height) || 0.01);
-        // §CROP-IS-THE-CLIP (L-4500) — the ORIENTED depth box is the SAME window as the
-        // projector's clip planes, so it takes the RESOLVED range rather than re-reading
-        // `explicit.near`/`explicit.far`. Reading the stored volume here meant a panel
-        // depth edit (which writes `crop.farClip.offset` only) moved the clip planes but
-        // NOT the box that culls and clips meshes — the drawing then contained geometry
-        // from one depth window drawn against a rectangle from another.
-        const near = Math.max(0, nearClipDepth);
-        const far = Math.max(near, farClipDepth);
-
-        // §FIX-ELEVATION-VERTICAL-CROP (L-302) — VERTICAL EXTENT (C24 SPATIAL, 3-D).
-        //
-        // The vertical bounds are NO LONGER `origin.y .. origin.y + sectionVolume.height`. That
-        // stored `height` was frozen to ONE STOREY at creation (CreateElevationMarkCommand /
-        // DefaultViewsManager), so a two-storey house's elevation clipped level 2 away at the
-        // mesh-drop gate (`sectionBoxIntersectsWorldAABB`) — level 2 was never projected.
-        //
-        // Instead: the DEFAULT extent is the full building height from the level stack, and the
-        // EDITABLE override is `crop.region[1]` — the exact field the elevation-view top/bottom
-        // edge drag already writes (PlanViewCanvas.cropFromHandleDrag, "crop.region[1] === world
-        // Y"). The explicit branch previously IGNORED that field (only the fallback branch read
-        // it), which is why dragging the top edge revealed nothing — a lying handle (L-267).
-        //
-        // Distinguishing an explicit user crop from the untouched creation artefact: the frozen
-        // creation value equals the one-storey band `[origin.y, origin.y + legacyHeight]`. When
-        // `crop.region[1]` DEVIATES from that band the user has dragged → honour it; otherwise it
-        // is superseded by the full-height default. This closes the clip AND the lying handle in
-        // one path, reading the same override the handle writes.
-        const oneStoreyBottom = origin.y;
-        const oneStoreyTop = origin.y + legacyHeight;
-        const stack = _levelStackVerticalBounds(bimManager);
-        const defaultMinY = stack ? stack.min : oneStoreyBottom;
-        const defaultMaxY = stack ? stack.max : oneStoreyTop;
-        const cropMinV = viewDef.crop?.region?.min?.[1];
-        const cropMaxV = viewDef.crop?.region?.max?.[1];
-        const VTOL = 0.02;
-        const userSetBottom = Number.isFinite(cropMinV) && Math.abs((cropMinV as number) - oneStoreyBottom) > VTOL;
-        const userSetTop = Number.isFinite(cropMaxV) && Math.abs((cropMaxV as number) - oneStoreyTop) > VTOL;
-        let minY = userSetBottom ? (cropMinV as number) : defaultMinY;
-        let maxY = userSetTop ? (cropMaxV as number) : defaultMaxY;
-        if (minY > maxY) [minY, maxY] = [maxY, minY];
-
-        return {
-            origin,
-            direction: forward.clone(),
-            right,
-            forward,
-            width,
-            height: Math.max(0.01, maxY - minY),
-            near,
-            far,
-            minRight: -width / 2,
-            maxRight: width / 2,
-            minDepth: near,
-            maxDepth: far,
-            minY,
-            maxY,
-        };
-    }
+    // ═══ §ELEV-SCOPE-IS-THE-SCOPE (L-6001) — THE EXPLICIT BRANCH IS NOW DELEGATED ═══
+    //
+    // Every line of the frame math that used to sit here — the forward/right basis, the
+    // §CROP-IS-THE-CLIP (L-4500) resolved depth window, and the §FIX-ELEVATION-VERTICAL-CROP
+    // (L-302) level-stack default with its `crop.region[1]` user override — moved VERBATIM to
+    // `packages/core-app-model/src/views/ElevationScopeFrame.ts`. Not for tidiness: this file is
+    // L7 and `NativeElementMeshExporter` is L2, so the exporter could not read this box and
+    // therefore applied NO scope to an elevation at all (the founder's *"exporting all 385
+    // elements"*). Moving the frame DOWN a layer is the only way both can hold one answer; the
+    // alternative was a second implementation, which is how L-4500 got three producers.
+    //
+    // `SectionVolumeBox` and `ElevationScopeFrame` are the same shape by design — see that
+    // module's header. The annotation-linked fallback below stays HERE because it reads
+    // `annotationStore`, an L7 store.
+    const explicitFrame = resolveElevationScopeFrame(
+        viewDef,
+        projectionDirection,
+        farClipDepth,
+        bimManager?.getLevels?.() ?? undefined,
+        nearClipDepth,
+    );
+    if (explicitFrame) return explicitFrame;
 
     const linkedAnn = annotationStore.getAll().find(ann =>
         (ann.type === 'elevation-mark' || ann.type === 'section-mark') &&
@@ -1432,32 +1389,13 @@ function triangleIntersectsSectionBox(
 }
 
 export function sectionBoxIntersectsWorldAABB(box: SectionVolumeBox, aabb: THREE.Box3, epsilon = 1e-5): boolean {
-    if (aabb.isEmpty()) return false;
-    let minRight = Infinity;
-    let maxRight = -Infinity;
-    let minDepth = Infinity;
-    let maxDepth = -Infinity;
-    let minY = Infinity;
-    let maxY = -Infinity;
-    for (const x of [aabb.min.x, aabb.max.x]) {
-        for (const y of [aabb.min.y, aabb.max.y]) {
-            for (const z of [aabb.min.z, aabb.max.z]) {
-                const c = pointSectionBoxCoords(new THREE.Vector3(x, y, z), box);
-                minRight = Math.min(minRight, c.right);
-                maxRight = Math.max(maxRight, c.right);
-                minDepth = Math.min(minDepth, c.depth);
-                maxDepth = Math.max(maxDepth, c.depth);
-                minY = Math.min(minY, c.y);
-                maxY = Math.max(maxY, c.y);
-            }
-        }
-    }
-    return maxRight >= box.minRight - epsilon &&
-        minRight <= box.maxRight + epsilon &&
-        maxDepth >= box.minDepth - epsilon &&
-        minDepth <= box.maxDepth + epsilon &&
-        maxY >= box.minY - epsilon &&
-        minY <= box.maxY + epsilon;
+    // §ELEV-SCOPE-IS-THE-SCOPE (L-6002) — DELEGATED to the one implementation at L2, so the
+    // exporter's cull and this mesh-drop gate are provably the SAME predicate. That equality is
+    // what makes the exporter's new cull safe: it tests an element's ROOT world AABB, the union
+    // of its meshes' AABBs, so a root that misses the frame contains no mesh that could pass
+    // here. Nothing that would have been drawn is dropped — only work that would have been
+    // thrown away one stage later is skipped.
+    return scopeFrameIntersectsWorldAABB(box, aabb, epsilon);
 }
 
 function worldAABBIntersectsDepthPlane(
@@ -1861,22 +1799,16 @@ export interface ClipRange {
     far:  number;
 }
 
-export interface SectionVolumeBox {
-    origin: THREE.Vector3;
-    direction: THREE.Vector3;
-    right: THREE.Vector3;
-    forward: THREE.Vector3;
-    width: number;
-    height: number;
-    near: number;
-    far: number;
-    minRight: number;
-    maxRight: number;
-    minDepth: number;
-    maxDepth: number;
-    minY: number;
-    maxY: number;
-}
+/**
+ * §ELEV-SCOPE-IS-THE-SCOPE (L-6002) — now an ALIAS, not a rival declaration.
+ *
+ * The fourteen fields were declared here AND (identically) at L2 as `ElevationScopeFrame`. Two
+ * structurally-equal shapes are a divergence waiting to happen: adding a field to one compiles
+ * fine and silently drops it from the other. The alias makes them one type by construction, and
+ * the name is kept because ~30 sites in this file read `SectionVolumeBox` and renaming them
+ * would bury a semantic change inside a rename diff.
+ */
+export type SectionVolumeBox = ElevationScopeFrame;
 
 /** §FIX-ELEV-LIVE-CROP-REPROJECT (L-202) — inputs the per-element cache signature depends on. */
 export interface ClipSignatureInput {
@@ -2655,6 +2587,9 @@ export class EdgeProjectorService {
             for (const group of nativeMeshGroups) {
                 // A-1: element UUID stamped by NativeElementMeshExporter.exportForView()
                 const elementUUID = group.userData.elementUUID as string | undefined;
+                // §TRUE-PROJECTION-HOST-NEVER-HIDES-ITS-OPENING (L-6012) — read ONCE per group;
+                // every layer this element emits carries the same host relation.
+                const _groupHostId = group.userData.hostId as string | undefined;
 
                 // ═══ §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — C09 §4.6.4a ═══
                 //
@@ -2745,6 +2680,15 @@ export class EdgeProjectorService {
                                 hitLines.userData.elementUUID = elementUUID;
                                 registerSegmentUUID(drawing, hitLines, elementUUID);
                             }
+                            // §TRUE-PROJECTION-HOST-NEVER-HIDES-ITS-OPENING (L-6012) — the REPLAY
+                            // path needs the stamp too. It is resolved fresh from the group (it
+                            // is a RELATION, not geometry, so it is deliberately NOT cached — a
+                            // window rehosted to another wall must re-occlude correctly without a
+                            // geometry version bump), for the same reason and by the same
+                            // precedent as the `_elementFunction` stamp above. A cache hit that
+                            // dropped it would un-exempt exactly the elements that had NOT
+                            // changed — the hardest possible bug to see.
+                            if (_groupHostId) hitLines.userData.hostId = _groupHostId;
                             drawing.addProjectionLines(hitLines, sublayerName);
                         }
                         if (EPS_VERBOSE) console.log(
@@ -3128,6 +3072,13 @@ export class EdgeProjectorService {
                             projected.userData.elementUUID = elementUUID;
                             registerSegmentUUID(drawing, projected, elementUUID);
                         }
+                        // §TRUE-PROJECTION-HOST-NEVER-HIDES-ITS-OPENING (L-6012) — the C15 host
+                        // relation reaches the drawing HERE or the exemption in
+                        // `HiddenLineRemoval._sharesHostFace` is unreachable and the fix is a
+                        // green test over a dead field. `NativeElementMeshExporter` stamps it on
+                        // the wrapper (`_hostIdOf`); this is the one transport onto the linework
+                        // the occlusion engine actually traverses.
+                        if (_groupHostId) projected.userData.hostId = _groupHostId;
                         // §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — the element TYPE's function
                         // travels to the canvas on the SAME transport `elementUUID` and
                         // VIEW_DEPTH_KEY already use: `userData` on the projected LineSegments.

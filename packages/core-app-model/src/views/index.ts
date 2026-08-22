@@ -39,6 +39,18 @@ export {
 export { resolveViewScope, resolveOcclusionDisposition } from './ViewScope.js';
 export type { ViewScope } from './ViewScope.js';
 
+// §ELEV-SCOPE-IS-THE-SCOPE (L-6000..L-6004) — the ORIENTED spatial scope of a depth-projected
+// view. `EdgeProjectorService.resolveSectionVolumeBox` DELEGATES to this for its explicit
+// `sectionVolume` branch, so the L2 exporter's cull and the L7 projector's mesh-drop gate are
+// one test rather than two that agree today.
+export {
+    resolveElevationScopeFrame,
+    scopeFrameIntersectsWorldAABB,
+    levelStackVerticalBounds,
+    DEFAULT_LEVEL_HEIGHT_M,
+} from './ElevationScopeFrame.js';
+export type { ElevationScopeFrame, ScopeLevelBand } from './ElevationScopeFrame.js';
+
 // ── P9-W4 (2026-05-10) — ViewDefinitionStore, ViewTechnicalDrawingCache, ViewDependencyTracker ──
 
 export { viewDefinitionStore } from './ViewDefinitionStore.js';
