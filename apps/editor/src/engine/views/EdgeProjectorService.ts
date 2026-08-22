@@ -49,7 +49,6 @@ import { resolveElevationClipRange, UNCLIPPED_ELEVATION_FAR_DEPTH_M } from '@pry
 import {
     resolveElevationScopeFrame,
     scopeFrameIntersectsWorldAABB,
-    levelStackVerticalBounds,
     type ElevationScopeFrame,
 } from '@pryzm/core-app-model';
 // §FIX-ELEVATION-POCHE (L-119) — unified per-view-type drawing scope. An
@@ -1188,29 +1187,15 @@ function resolveSectionDepthPlane(
 }
 
 /**
- * §FIX-ELEVATION-VERTICAL-CROP (L-302) — the SPATIAL vertical extent of an elevation, from the
- * LEVEL STACK.
- *
- * The union of every level band in the model: [min level.elevation, max (level.elevation +
- * level.height)]. This is the C24 SPATIAL crop (a 3-D section-volume extent) — NOT the C24.1
- * PAPER crop (a 2-D window on a sheet). A building elevation spans the FULL building height by
- * default (Revit/ArchiCAD/Vectorworks all do this); a single-storey default is simply wrong for
- * a documentation elevation.
- *
- * Resolved live from BimManager on every call (§02 §1.2 — never cached), so the bound tracks a
- * changed `level.elevation`/`level.height` and a moved elevation origin (L-305) with no baked
- * storey-height literal (L-127). Returns null when there is no level stack to derive from, in
- * which case the caller keeps the legacy per-volume band.
+ * §ELEV-SCOPE-IS-THE-SCOPE (L-6001) — `_levelStackVerticalBounds` USED TO LIVE HERE and is now
+ * `levelStackVerticalBounds` in `packages/core-app-model/src/views/ElevationScopeFrame.ts`, whose
+ * header carries the §FIX-ELEVATION-VERTICAL-CROP (L-302) reasoning verbatim. Its only caller was
+ * the explicit-`sectionVolume` branch of `resolveSectionVolumeBox`, which now delegates wholesale,
+ * so the wrapper left behind was dead code and root `tsc` said so (TS6133). Recorded rather than
+ * silently deleted: the next reader looking for the vertical band in this file should be sent to
+ * the one place that computes it, not left to conclude it was dropped.
  */
-function _levelStackVerticalBounds(bimManager?: BimManager): { min: number; max: number } | null {
-    // §ELEV-SCOPE-IS-THE-SCOPE (L-6001) — DELEGATED. The body used to live here; it now lives in
-    // `packages/core-app-model/src/views/ElevationScopeFrame.ts` so the L2 exporter derives the
-    // SAME vertical band. This wrapper only unwraps `BimManager` into the structural level list
-    // that module takes (L2 may not import a BimManager type from L7's perspective, and the band
-    // is a property of the level stack, not of the manager).
-    if (!bimManager) return null;
-    return levelStackVerticalBounds(bimManager.getLevels?.() ?? []);
-}
+
 
 export function resolveSectionVolumeBox(
     viewDef: ViewDefinition,
