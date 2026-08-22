@@ -1076,6 +1076,49 @@ export const ONBOARDING_STYLES = `
    is sized by padding alone, so it carries an explicit min-height: 28 x 0.85 =
    23.8 is clamped back to 24 by uiScale's MIN_TARGET_PX, which is what keeps SC
    2.5.8 true through any future density change. */
+/* ⭐ §CONFIRM-IS-LANDSCAPE (L-6700), founder 2026-08-22: *"make the bottom panel
+   more landscape shape"*, pointing at THIS step — the confirm card was running off
+   the bottom of his viewport, with the "Generate your apartment with AI" heading
+   clipped at the top and the two exit links clipped at the bottom.
+   Cause: "width: min(264px, 92vw)" + "max-height: min(56vh, 440px)" is a PORTRAIT
+   box, and the confirm step carries the most content of the four — a section
+   label, a 2x2 typology grid, an AI blurb, a primary CTA and two exits. A narrow
+   column makes that content tall by construction, so it overflowed.
+
+   ⚠ THIS DELIBERATELY DEPARTS FROM §UX1-ONBOARDING-HEADER-ROOT, and the departure
+   is recorded rather than made silently. That rule says the width is
+   264 = "the SAME measured width the confirm card settled on, so steps 1-4 are ONE
+   card that changes contents rather than four cards that change size." That is a
+   real design decision and it is why this override is scoped to "--confirm" ONLY:
+   steps 1, 2 and 4 keep the shared 264px card and do not move. The founder asked
+   for this step specifically, and a card that clips its own primary CTA is a worse
+   outcome than four cards of two widths.
+
+   Landscape = wider AND shorter: the typology chips go 4-across on one row instead
+   of 2x2, which removes a whole row of height, and the height cap comes down so the
+   card cannot grow back into the fold. "92vw"/"94vw" guards keep it inside a narrow
+   viewport, where it degrades back to the stacked portrait form below. */
+.os-onboarding-overlay--confirm {
+  width: min(560px, 94vw);
+  max-height: min(46vh, 340px);
+}
+.os-onboarding-overlay--confirm .os-typology-choices__row {
+  /* 4-across on one row — the height this removes is the point of the change. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 620px) {
+  /* Below the landscape width there is no room for four chips; fall back to the
+     original 2x2 portrait card rather than shrinking the chips past a tap target
+     (SC 2.5.8 — the 28px min-height below is load-bearing). */
+  .os-onboarding-overlay--confirm {
+    width: min(264px, 92vw);
+    max-height: min(56vh, 440px);
+  }
+  .os-onboarding-overlay--confirm .os-typology-choices__row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .os-onboarding-overlay--confirm .os-section-label { line-height: 1.1; }
 .os-onboarding-overlay--confirm .os-typology-choices { gap: 4px; margin-bottom: 0; }
 .os-onboarding-overlay--confirm .os-typology-choices__row { gap: 4px; }
