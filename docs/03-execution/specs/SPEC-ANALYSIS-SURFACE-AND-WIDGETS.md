@@ -113,6 +113,19 @@ Grouped by the founder's reference screenshots (Speckle Workspace dashboards, 20
 | W14 | **Model checker** — rule violations | UBG `violates` edges ← `ConstraintEngine` via `provideLiveGraphSources` (`ui/layout/installLiveGraphWiring.ts:47`) | O(E) | **T1\*** | ⛔ **"Zero violations" and "the constraint source was absent" are the SAME VALUE here** and must not be. If `provideLiveGraphSources` did not attach, the card says *unknown*, never *pass*. |
 | W15 | **Circulation / adjacency metrics** | UBG `adjacentTo` / `circulatesVia` | O(E) | **T1\*** | Per-relation-type queries have **no index** on `SemanticGraphManager` (L-2138) — a whole-model type query is `getAll()` + filter. Fine at project scale, stated so it is not assumed indexed. |
 
+> ⚠ **AMENDED 2026-08-22 (lane ANLZ3, L-3620).** The relational widgets now carry a **per-storey
+> SCOPE**, shared by all three so one tab cannot show three disagreeing universes. It is governed by
+> the new **ADR-0343 §D.6 H9**: a scope and a truncation are different facts and must not render
+> identically. A scoped graph stays `complete: true` — its counts are exact for the universe named —
+> while the node cap keeps producing `complete: false` and a `≥` prefix.
+>
+> ⛔ **The level is resolved by joining through the ELEMENT CENSUS, not from the graph.** Measured:
+> `UbgNode` has no level field (`packages/building-graph/src/types.ts:65-72` is `.strict()` over
+> `id / kind / props / refs`) and exactly **one** adapter stamps `props.levelId`
+> (`roomGraphAdapter.ts:43`, rooms only). The census's three-state answer — placed here / placed
+> elsewhere / **not claimed at all** — is what makes H9's exception expressible: a node the filter
+> could not PLACE might belong to the scope being shown, so it alone makes a scoped figure a floor.
+
 ### §4.4 — Change and time
 
 | # | Widget | Data source | Query cost | Tier | Honesty rule / what it refuses |
@@ -122,19 +135,42 @@ Grouped by the founder's reference screenshots (Speckle Workspace dashboards, 20
 
 ### §4.5 — Developer / area analytics (the SIA 416 + GFA family)
 
-**All of §4.5 is T3 and blocked on one decision: ADR-0343 §U.3, which measured-area standard PRYZM
+> ⚠ **AMENDED 2026-08-22 (lane ANLZ3, L-3640/L-3641). The sentence below said §4.5 was blocked on
+> ONE decision. It was blocked on TWO things, and only one of them was a decision.**
+>
+> **The decision is TAKEN.** ADR-0343 §U.3 is RESOLVED: **SIA 416 is the default, switchable, and
+> named on the card's face** (`apps/editor/src/ui/analysis/areaStandards.ts`, four options including
+> a non-normative "PRYZM room-boundary sum").
+>
+> ⛔ **The second blocker was never written down, and it is the harder one — ADR-0343 §U.7, the
+> MEASUREMENT PLANE.** Measured, C01 §6 rule 6:
+> `grep -n "centerline" packages/geometry-kernel/src/producers/room.ts` → `:59`, `:64`. **Every
+> `Room.area` in this product is enclosed by the wall CENTRELINES.** No published standard measures
+> on that plane: SIA NGF / IPMS 3 / RICS NIA and GIA use the internal dominant face (centreline
+> **OVERSTATES**), SIA GF / IPMS 1 / RICS GEA the external face (centreline **UNDERSTATES**).
+>
+> So **every class of every standard below is still `NOT_MEASURED`** — but for a stated,
+> checkable reason rather than for a missing choice. What SHIPPED instead is honest and useful:
+> a per-storey **centreline** area figure that says so in its own basis string, a per-standard class
+> ledger carrying each class's plane and state, and a **bracketed** centreline→face correction
+> (`[P·t_min/2, P·t_max/2]` over each room's bounding walls — a bound, never a midpoint estimate,
+> corner effects of order `t²` ignored and stated).
+
+**§4.5 was T3 and blocked on one decision: ADR-0343 §U.3, which measured-area standard PRYZM
 adopts.** They are enumerated so the gap is named per widget rather than as one shrug.
 
 | # | Widget | Blocking gap | Tier |
 |---|---|---|---|
-| W18 | **GFA extractor** — Total GFA / NIA | No measured-area standard is encoded. `targetGFA` (`ScheduleExtractor.ts:574`) is a **target**, not a measurement — rendering it as GFA would be H3. | **T3** |
+| W18 | **GFA extractor** — Total GFA / NIA | ⚠ **AMENDED.** "No measured-area standard is encoded" is no longer the blocker — SIA 416 is encoded and selected. The blocker is §U.7: GFA and NIA are measured to a **face** and PRYZM measures to the wall **centreline**. `targetGFA` (`ScheduleExtractor.ts:574`) is still a **target**, not a measurement, and rendering it as GFA would still be H3. | **T3** |
 | W19 | **GEA : NIA ratio** | Both operands are W18. H3: a ratio needs **both** operands `MEASURED`. | **T3** |
-| W20 | **SIA 416 surface table** per storey | **Zero `SIA` occurrences in `packages/` or `apps/editor/src`.** Needs an SIA 416 category (SU/SP/SD/SC/SI) mapping per space, and no space carries one. | **T3** |
+| W20 | **SIA 416 surface table** per storey | ⛔ **"Zero `SIA` occurrences" IS NOW FALSE — re-measure, do not re-transcribe.** `areaStandards.ts` declares SIA 416's eight classes with their planes and states. The two REAL blockers, unchanged: an SIA category (SU/SP/SD/SC/SI) per space, which no space carries; and §U.7, the measurement plane. | **T3** |
 | W21 | **SIA ratio gauges** (SU/SP, SD/SP, SC/SP, SI/SP) | W20. | **T3** |
 | W22 | **Unit mix / bedroom distribution** | Bedroom count is derivable from room types (would be T2); **the unit model that groups rooms into sellable units is the gap**. | **T3** |
 | W23 | **Tenure distribution / affordable mix %** | ⛔ **Tenure has no model anywhere in this repo.** It is not derivable from geometry, rooms, or program. It is authored data that does not exist. | **T3** |
 | W24 | **Area efficiency metrics** | W18 + W22. | **T3** |
 | W25 | **Unit mix configurator** (write path) | W22, **and** it is a *write* surface — out of scope for a read-only Analysis surface (ADR-0343 §D.3). If wanted, it is an ADR-0061-shaped per-node delta re-running the existing engine, **never a parallel mutator**. | **T3** |
+| **W26** | **Floor area by storey — room centreline basis** *(SHIPPED 2026-08-22, `area-by-level`)* | None. It measures. ⛔ It is **not** GFA/NIA/NGF and its title, subtitle, basis string and qualifiers all say so; the centreline→face correction ships as a bracket. A room whose bounding walls do not resolve contributes **nothing** to that bracket and is counted apart — a zero contribution would narrow the interval and make it claim more than it knows. | **T1** |
+| **W27** | **Measured-area standard ledger** *(SHIPPED 2026-08-22, `area-standard`)* | None. The selected standard's classes, each with its `plane` and its `CoverageState`. The `plane` column is the whole argument of the card and is **data, not prose**: seven rows read `internal-face` / `external-face` while the one measured row reads `centreline`. | **T1** |
 
 ### §4.6 — Environmental
 

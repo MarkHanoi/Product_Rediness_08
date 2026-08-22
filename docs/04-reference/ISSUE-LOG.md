@@ -33435,6 +33435,29 @@ line.**
   `wallMoveGateMutualCorner` ×1) were **not run, not adopted and not touched** — no file this lane
   edited is under `apps/editor/src/engine`.
 
+### ⚠ L-3643 — DISCLOSURE: this section was committed by **another lane's** docs commit, and it is the second time today
+
+The L-3600…L-3642 rows above were written to `ISSUE-LOG.md` and, before this lane could commit
+them, were swept into lane SHEET4's `f64be873` (*"docs(ISSUE-LOG L-3800..L-3809)"*) — measured:
+
+```
+$ git log --oneline -S "L-3600 … L-3642" -- docs/04-reference/ISSUE-LOG.md
+f64be873 docs(ISSUE-LOG L-3800..L-3809): SHEET4 — two of six reports were already fixed …
+```
+
+The content is complete and reachable; only its commit message is somebody else's. **This is the
+identical collision `8ae4d3a2` disclosed earlier today** (*"this lane's docs commit swept in WIN5's
+uncommitted entry"*), so it is now a pattern rather than an accident: with several lanes live in one
+tree, `git add docs/04-reference/ISSUE-LOG.md` cannot help but stage whatever a neighbour has
+written and not yet committed. Recorded rather than quietly accepted, because a reader tracing
+L-3600 back through `git log` would otherwise land on a sheet-editor lane and conclude the
+attribution was wrong.
+
+⭐ **The fix is not more care.** MEMORY [[multi-agent-shared-tree-collisions]] already says agents
+commit scoped CODE and the orchestrator owns docs; the two briefs today both instructed lanes to
+write ISSUE-LOG rows directly. Either the orchestrator collects them, or lanes write to per-lane
+fragment files that the orchestrator concatenates. Deciding that is above this lane.
+
 
 ---
 
