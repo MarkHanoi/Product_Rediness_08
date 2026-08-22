@@ -712,14 +712,28 @@ export function mountCreatePanel(
 
     // ── Phase 3: Mount ActiveLevelHUD ────────────────────────────────────────────
     setTimeout(() => {
+        // §LEVEL-PILL-FOLLOWS-THE-MODE-BAR (L-3500) — PREFER the slot the mode-bar
+        // composition owns (`DockingLayout.ts`, inside `.wmb-toplevel-wrapper`), so
+        // the level pill sits beside `Author | Inspect | Analysis | Data` and moves
+        // with them. The `.plat-toolbar` and `#alh-hud-mount` branches below are
+        // retained as the fallback chain `mountHost.spec.ts` requires — this
+        // function must never end with the HUD unmounted just because one host is
+        // absent (headless, alternate shells, a platform toolbar that has not
+        // rendered yet).
+        const modeBarSlot = document.getElementById('alh-modebar-slot');
         const platToolbar = document.querySelector('.plat-toolbar') as HTMLElement | null;
         let hudMountEl: HTMLElement | null;
-        if (platToolbar) {
+        if (modeBarSlot) {
+            hudMountEl = modeBarSlot;
+        } else if (platToolbar) {
             const sep = document.createElement('div');
             sep.className = 'plat-divider';
             platToolbar.appendChild(sep);
             const slot = document.createElement('div');
             slot.id = 'alh-toolbar-slot';
+            // L-3500 — the shared class carries the "HUD is inside a host bar, not
+            // floating over the canvas" layout reset, so the two hosts cannot drift.
+            slot.className = 'alh-slot';
             platToolbar.appendChild(slot);
             hudMountEl = slot;
         } else {

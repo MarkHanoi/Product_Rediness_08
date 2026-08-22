@@ -184,6 +184,42 @@ export function mountDockingArea(
     topBarWrapper.className = 'wmb-toplevel-wrapper';
     topBarWrapper.appendChild(saveUndoRedoHUD.element);
     topBarWrapper.appendChild(workspaceModeBar.element);
+
+    // ── §LEVEL-PILL-FOLLOWS-THE-MODE-BAR (L-3500) ─────────────────────────────
+    //
+    // THE SLOT THE ACTIVE-LEVEL PILL MOUNTS INTO, and it is created HERE — in the
+    // ONE place the mode bar is composed (§WORKSPACE-MODE-REGISTRY, L-3000, moved
+    // the mode LIST into a table; this moves the mode bar's NEIGHBOURS into the
+    // same composition) — rather than by hand-positioning a second floating
+    // element somewhere else in the tree.
+    //
+    // ⛔ THE DEFECT THIS CLOSES, measured 2026-08-22. `ActiveLevelHUD` was mounted
+    // by `CreatePanelLayout.ts` into `.plat-toolbar` (a `setTimeout(…, 600)` that
+    // appends a `plat-divider` + `#alh-toolbar-slot`), i.e. into the PLATFORM
+    // toolbar at the top-RIGHT of the shell, while `Author | Inspect | Analysis |
+    // Data` live in this fixed, centred wrapper. The two controls are read
+    // together and moved apart; worse, they obeyed different layout rules — this
+    // wrapper is re-centred to `left: 25%` by
+    // `body.pryzm-mode-inspect .wmb-toplevel-wrapper` (inspectModeShell.ts) when
+    // the Inspect panel takes the right half, and the platform toolbar is not, so
+    // the level pill did not follow the mode bar out of the panel's way.
+    //
+    // As a THIRD CHILD of this flex row the pill inherits, by construction: the
+    // fixed top anchor, the 7px gap, the `pointer-events` discipline
+    // (`.wmb-toplevel-wrapper > *`), the two mobile breakpoints, and the
+    // inspect-mode re-centre. "Follows them" is then a property of the DOM, not a
+    // second set of coordinates kept in sync by hand.
+    //
+    // The slot is created EMPTY and filled later by `CreatePanelLayout`, which is
+    // where the HUD's `bimManager` / `projectContext` dependencies already live.
+    // `CreatePanelLayout` still falls back to `.plat-toolbar` and then to
+    // `#alh-hud-mount` when this slot is absent (headless / alternate shells) —
+    // see `toolbar/__tests__/mountHost.spec.ts`, which requires a fallback chain.
+    const levelSlot = document.createElement('div');
+    levelSlot.id        = 'alh-modebar-slot';
+    levelSlot.className = 'alh-slot';
+    topBarWrapper.appendChild(levelSlot);
+
     document.body.appendChild(topBarWrapper);
 
     // ── Bottom Action Menu ────────────────────────────────────────────────────

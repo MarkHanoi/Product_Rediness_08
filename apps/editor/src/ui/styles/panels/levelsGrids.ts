@@ -129,9 +129,18 @@ export const ACTIVE_LEVEL_HUD_STYLES = `
         cursor: default;
     }
 
-    /* ─── §ALH-TB: Toolbar-slot overrides ────────────────────────────────────
-       When the HUD is injected into #alh-toolbar-slot (inside .plat-toolbar),
-       override the absolute-position defaults.  §ALH-BRAND (L-933): this block
+    /* ─── §ALH-TB: Host-slot overrides ───────────────────────────────────────
+       When the HUD is injected into a HOST BAR rather than floating over the
+       canvas, override the absolute-position defaults.  There are two such hosts
+       and the rules must not drift apart, so they share the '.alh-slot' CLASS
+       rather than an id (§LEVEL-PILL-FOLLOWS-THE-MODE-BAR, L-3500 — this block
+       was '#alh-toolbar-slot' when '.plat-toolbar' was the only host):
+         • '#alh-modebar-slot'  — inside '.wmb-toplevel-wrapper', beside the
+                                  Author/Inspect/Analysis/Data pills.  This one
+                                  FLOATS OVER THE 3-D CANVAS, so it keeps the
+                                  glass treatment (see the override below).
+         • '#alh-toolbar-slot'  — inside '.plat-toolbar', the fallback host.
+       §ALH-BRAND (L-933): this block
        used to carry a SECOND copy of the violet palette (its own gradient,
        '#5B21B6', four 'rgba(102,0,255,…)' literals) because the base rules were
        dark.  The base rules are now the on-brand ones, so the colour half is
@@ -139,11 +148,11 @@ export const ACTIVE_LEVEL_HUD_STYLES = `
        The slot sits inside an opaque toolbar, so the base scrim composites to
        solid white there and the blur is redundant, hence 'backdrop-filter:none'.
     ──────────────────────────────────────────────────────────────────────── */
-    #alh-toolbar-slot {
+    .alh-slot {
         display: flex;
         align-items: center;
     }
-    #alh-toolbar-slot .alh-hud {
+    .alh-slot .alh-hud {
         position: static;
         transform: none;
         z-index: auto;
@@ -151,26 +160,45 @@ export const ACTIVE_LEVEL_HUD_STYLES = `
         display: flex;
         align-items: center;
     }
-    #alh-toolbar-slot .alh-badge {
+    .alh-slot .alh-badge {
         padding: 2px 6px;
         box-shadow: 0 1px 6px color-mix(in srgb, var(--app-accent) 10%, transparent);
         backdrop-filter: none;
         -webkit-backdrop-filter: none;
     }
-    #alh-toolbar-slot .alh-info {
+    .alh-slot .alh-info {
         min-width: 80px;
     }
-    #alh-toolbar-slot .alh-name {
+    .alh-slot .alh-name {
         font-size: 11.5px;
     }
-    #alh-toolbar-slot .alh-elev {
+    .alh-slot .alh-elev {
         font-size: 9.5px;
     }
-    #alh-toolbar-slot .alh-arrow {
+    .alh-slot .alh-arrow {
         font-size: 10px;
     }
-    #alh-toolbar-slot .alh-arrow:disabled {
+    .alh-slot .alh-arrow:disabled {
         opacity: 0.22;
+    }
+
+    /* ─── §LEVEL-PILL-FOLLOWS-THE-MODE-BAR (L-3500) ──────────────────────────
+       The mode-bar slot is a '.alh-slot' — it takes the layout reset above — but
+       it does NOT sit inside an opaque toolbar: it floats over the 3-D viewport
+       exactly as the free-standing pill did.  So the two rules the '.plat-toolbar'
+       host switched OFF because they were redundant there are switched back ON
+       here: the 84% scrim needs its blur, and the pill needs its own elevation to
+       read against a model rather than against a white bar.
+
+       ⚠ The 84%/blur pair is the MEASURED legibility floor documented at the top
+       of this file (WCAG table, worst case 4.80:1).  Do not drop the blur without
+       moving the text colour with it.
+    ──────────────────────────────────────────────────────────────────────── */
+    #alh-modebar-slot .alh-badge {
+        padding: 3px 8px;
+        box-shadow: 0 2px 10px color-mix(in srgb, var(--app-accent) 16%, transparent);
+        backdrop-filter: blur(12px) saturate(160%);
+        -webkit-backdrop-filter: blur(12px) saturate(160%);
     }
 `;
 
