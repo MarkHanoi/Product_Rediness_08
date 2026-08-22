@@ -96,6 +96,50 @@ The founder's Phase-2 ask, verbatim: *"in each view (either split view or comple
 
 8. **The shared camera pose is ONE pure value, PROJECTED — never a listener graph** (Phase 3, §2.7). No renderer may write another renderer's camera. The only write path is an intent on the shared-pose reducer, and a renderer applying a projected pose MUST NOT be able to re-emit it (the epoch discipline). θ is applied EXACTLY ONCE, on the BIM side. See §2.7 for the mechanism and why a listener implementation is forbidden.
 
+9. **A REGISTRY-DERIVED SURFACE MAY ONLY OFFER VIEWS. Anything else is modelled BESIDE it, as an action** (§2.9, L-6800..L-6808). A control whose contents are derived from `VIEW_TYPE_REGISTRY` can, by construction, offer nothing that is not a `ViewType` — so the fix for "this derived bar is missing X" is **never** to mint a `ViewType` for X. Camera framings, layout restores and reframes are **actions**; they carry a label, an `enabled`, and a **reason whenever `enabled` is false**, and they return their intents as **DATA** (invariant 3). See §2.9.
+
+---
+
+## §2.9 — A derived surface cannot offer a non-view, and that is a FEATURE (L-6800..L-6808)
+
+> **Founder, verbatim (2026-08-22):** *"add in the top panel buttons **3d globe** also."*
+> **And (2026-08-21), quoted in the source of the very file that could not deliver it:**
+> *"at this stage the user should be able to just go to 3D globe, so a button 3D globe / 3D site in the middle top would be beneficial."*
+
+**Decision recorded in [ADR-0357](../adrs/ADR-0357-the-globe-is-a-camera-framing-not-a-view-type.md).**
+
+### §2.9.1 — The defect shape, because it will recur
+
+`siteViewQuickToggleModel.ts` (the top-centre `▦ 2D Site Map | ◉ 3D Site | ◧ Split` bar) named itself *"the … **3D globe / 3D site** control"* and shipped without a globe. **That was not an oversight.** Two individually-correct commitments forbid each other:
+
+- its segment set is **DERIVED** from `VIEW_TYPE_REGISTRY` (§1.4 — *"never a per-surface list of bespoke buttons"*), so a globe segment requires a globe `ViewType`; and
+- **C60 §6.10 forbids that `ViewType`**, because C60 §6.5 says the globe and the 3D Site **are the same viewer at different camera altitudes**.
+
+The derivation could **never** have produced a globe. **The bug was a header promising a capability the derivation structurally excludes** — not a missing `if`. Normative consequence: when a derived surface is asked for something it cannot enumerate, **do not extend the enumeration** — check first whether the thing is a view at all.
+
+### §2.9.2 — MEASURED: the rival ViewType is reachably broken, not merely redundant
+
+Registering `site-globe-3d` as a second `cesium`, `singleton: true` view type:
+
+```
+assignViewToPane(EMPTY, RIGHT, 'site-3d')       → {left: null,            right: 'site-3d'}
+assignViewToPane(  …  , LEFT,  'site-globe-3d') → {left: 'site-globe-3d', right: 'site-3d'}
+validatePaneLayout(…)  → {ok:false, conflicts:[{rendererKind:'cesium', panes:['left','right']}]}
+```
+
+`assignViewToPane` vacates a singleton's previous pane only when the view type is **the same**, so two different `cesium` singletons do not vacate each other. The pure algebra yields an invalid layout and only `PaneLayoutStore.guard()` catches it — **as a rejection of the user's click**. In the founder's own default layout (2D map left · 3D Site right) the globe button would have refused **every** press. Pinned as a test in `siteViewQuickToggle.spec.ts`, so the decision is re-provable rather than remembered.
+
+### §2.9.3 — The action shape (normative)
+
+An action beside a derived segment set MUST:
+
+1. **Return its intents as DATA** (invariant 3). A click touches no renderer, no `MultiPaneController` and no DOM style.
+2. **Reuse the segment sequencing for its pane half.** "Show me X full screen" already has one implementation (`segmentClickIntents`); a second copy is a second thing that can disagree about how a heavyweight singleton reaches the screen. `globeClickIntents()` delegates and appends its camera intent **last** — framing a pane that is not mounted yet drops the target.
+3. **Use a SEPARATE intent namespace per port.** `view.pane.*` goes to `PaneLayoutStore`; `view.site.*` goes to an injected camera port. The pane store holds no camera state and must not grow one.
+4. **Carry a reason whenever it is disabled**, and **inherit** the underlying view's reason rather than restating it.
+5. ⛔ **Have a route back, and gate the way OUT rather than the way back.** A control that takes the user somewhere it cannot return from is the L-942 shape. When the return entry point is unregistered, the **outbound** click is refused with that reason — refusing on the way out is free; refusing on the way back strands.
+6. **Own at most one bit of state, and only as memory of its own command.** The `'site' | 'world'` framing bit is the exact analogue of `PaneLayoutStore._splitMemory`. ⛔ It is **not** read back from the renderer: C60 §1.1 disqualifies camera-altitude sniffing (*"IT FLAPS"*), and an action describes **what the click does**, never where the camera is.
+
 ---
 
 ## §2.7 — The shared camera pose (L-600) — Phase 3, pure model LANDED, NOT WIRED

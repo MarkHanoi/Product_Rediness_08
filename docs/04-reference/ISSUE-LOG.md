@@ -39147,3 +39147,209 @@ rebuilt on every projection pass is the signature of a write-shaped event on a r
   no end-to-end millisecond figure was measured here, and none is claimed (L-6021).
 - ⛔ **Not** that every elevation is now scoped. Views without an explicit `spatial.sectionVolume`
   are `scope=ABSENT` at the exporter and culled by the projector instead (L-6003).
+
+---
+
+## §GLOBE-QUICK-TOGGLE — L-6800..L-6808 (lane GLOBE32, 2026-08-22)
+
+> **Founder:** *"add in the top panel buttons **3d globe** also."*
+> Contracts **C59 §2.9** (NEW) · **C60 §6.11** (NEW) · ADR-0357. Code: `c80475ba`.
+
+### L-6800 — ⭐ THE GLOBE WAS NOT FORGOTTEN. The bar DERIVES its segments, and C60 forbids the globe from being one
+
+`apps/editor/src/engine/views/siteViewQuickToggleModel.ts:1-2` calls itself *"the PURE decision
+half of the top-centre **3D globe / 3D site** control"*, and `:5` quotes the founder's 2026-08-21
+ask verbatim: *"the user should be able to just go to 3D globe, so a button 3D globe / 3D site in
+the middle top would be beneficial."* It shipped **2026-08-21** with two segments and no globe.
+
+⛔ **That was not an oversight, and no amount of care would have caught it.** Two individually
+correct commitments forbid each other:
+
+- **`segments` is DERIVED** — `describeSiteViewQuickToggle()` maps `VIEW_TYPE_REGISTRY` filtered by
+  `SITE_RENDERER_KINDS = {maplibre, cesium}` (`:54`). The header states why: a hand-written
+  `['site-map-2d','site-3d']` would be a second census beside the registry and *"censuses rot"*
+  (C01 §6 rule 6). **⇒ a globe segment requires a globe `ViewType`.**
+- **C60 §6.10 forbids that `ViewType`**, normatively: *"the entry flow is a STATE of the `site-3d`
+  view, not a new view mechanism… It adds no `ViewType`, no renderer and no pane framework"* —
+  because **C60 §6.5**: *"the globe and the 3D Site are the **same viewer at different camera
+  altitudes**."*
+
+**The derivation could never have produced a globe.** The defect is a **header promising a
+capability the derivation structurally excludes** — not a missing branch. Recorded as C59 §2.9
+because it is a shape, not an incident: *when a derived surface is asked for something it cannot
+enumerate, do not extend the enumeration — check first whether the thing is a view at all.*
+
+### L-6801 — ABSENT vs UNREACHABLE: the two halves have different causes and OPPOSITE fixes
+
+C01 §6 rule 6 demands the measurement, and here the two readings send the fix to different layers.
+
+- **The globe CONTROL in the bar: ABSENT** — structurally, per L-6800.
+- **The globe SUBSYSTEM: UNREACHABLE.** `siteEntryModel.ts` (the `world → country → city → parcel`
+  reducer), `siteEntryStore.ts`, `globePlacementDecisions.ts` and `SiteEntryPanel.ts` all exist and
+  are unit-tested.
+  **MEASURED:** `grep -rn "new SiteEntryStore" apps/ --include=*.ts` → **exactly ONE production
+  call site**, `apps/editor/src/ui/onboarding/GlobeHeroSearch.ts:144` (plus three in
+  `apps/editor/__tests__/SiteEntryStore.test.ts`). **The globe is reachable during onboarding and
+  nowhere else.**
+
+⛔ **Had the diagnosis been "UNREACHABLE" alone, the fix would have been to surface the entry flow
+mid-project — and that fix is actively dangerous.** See L-6803.
+
+⚠ **C60 §8 was stale in the OTHER direction and is corrected in place:** its Phase-2 bullet read
+*"the flow is not yet reachable in the product"*, which under-reported what shipped. It **is**
+wired into the onboarding `location` step. What survives the correction is the sharper fact: that
+one call site is its **only** entrance.
+
+### L-6802 — ⭐ MEASURED: a rival `site-globe-3d` cesium ViewType is REACHABLY BROKEN, not merely redundant
+
+The obvious implementation — register a second `cesium`, `singleton: true` view type — was rejected
+on a measurement, not a preference. Probe (`npx tsx`, then re-pinned as a test arm):
+
+```
+assignViewToPane(EMPTY, RIGHT, 'site-3d')       → {"left":null,            "right":"site-3d"}
+assignViewToPane(  …  , LEFT,  'site-globe-3d') → {"left":"site-globe-3d", "right":"site-3d"}
+validatePaneLayout(…)  → {"ok":false,"conflicts":[{"rendererKind":"cesium","panes":["left","right"]}]}
+```
+
+⭐ **Root cause of the breakage:** `assignViewToPane` vacates a singleton's previous pane **only
+when the view type is the same** (`paneViewModel.ts:171-177`). Two *different* `cesium` singletons
+therefore never vacate each other — the pure algebra emits an invalid layout, and only
+`PaneLayoutStore.guard()` catches it, **as a rejection of the user's click**. In the founder's own
+default split (2D map LEFT · 3D Site RIGHT) the globe button would have refused **every** press.
+
+Pinned as an arm in `siteViewQuickToggle.spec.ts` so the decision is **re-provable** rather than
+remembered as prose.
+
+### L-6803 — ⛔ A mid-project globe button MUST NOT construct a `SiteEntryStore` — the parcel boundary is ONE-SHOT
+
+The tempting "surface the entry flow mid-project" fix puts the user back at the top of a machine
+whose terminal intent (`site.entry.select-parcel`) emits `site-handoff`. `siteEntryModel.ts:37-41`
+states the hazard itself: *"The parcel boundary is a **ONE-SHOT IMMUTABLE** polygon."* A user who
+pressed a **camera** button and then kept zooming would be walking toward **re-committing the site
+of a project that already has one**.
+
+⭐ **The rule this yields (now C60 §6.11): REUSE THE PROJECTION, REFUSE THE REDUCER.**
+`siteEntryModel.ts` gains one export and no behaviour:
+
+```ts
+export function worldFramingTarget(): SiteEntryCameraTarget {
+    return cameraForState(INITIAL_SITE_ENTRY_STATE);
+}
+```
+
+It returns a value: **no state, no effects list, no port, and no intent that could ever reach the
+hand-off.** Safe by construction rather than by discipline.
+
+⚠ **Pinned as a PROPERTY, not a code-reading promise.** A test enumerates every
+(layout × framing × return-availability) input and asserts **no `site.entry.*` intent is
+producible** from this control.
+
+### L-6804 — ⛔ NO ONE-WAY DOOR: gate the way OUT, never the way back
+
+The same button flips `⊕ 3D Globe` ⇄ `⤢ Back to site`; the return dispatches the **one declared
+`site.zoom-to-site` action** (`gisActionRegistry.ts`), whose whole purpose is that *the ACTIVE
+SURFACE decides the target* — re-deriving a "fly back" target here would be a third copy of the
+thing that registry de-duplicated.
+
+**When that entry point is unregistered, the OUTBOUND click is refused with that reason.** Refusing
+on the way out costs nothing; refusing on the way back strands the user at 20,000 km. This is the
+**L-942 shape** (*"a gate whose 'yes' branch awaits a decision is a REGRESSION with a contract
+citation attached"*) inverted into a rule.
+
+### L-6805 — the framing bit is the control's memory of its OWN COMMAND, and that is not a camera reading
+
+`globeFraming: 'site' | 'world'` is written in exactly one place: **after** the camera intent for
+that framing has been forwarded to the port. It is the exact analogue of
+`PaneLayoutStore._splitMemory`, the memory that makes `◧ Split` work.
+
+⛔ **It is deliberately NOT derived from the live camera.** `siteEntryModel.ts:16-21` disqualifies
+that outright: *"IT FLAPS. Altitude is continuous and the user's hand is not steady."*
+
+⚠ **The consequence, stated so nobody "fixes" it:** if the user grabs the globe and flies somewhere
+by hand, this value does not move. **That is not a lie** — `SiteViewGlobeAction` describes **what
+the click does**, never where the camera is, so both labels stay true and useful under any
+hand-flown camera. A port that **throws** leaves the memory untouched, so the label can never claim
+a move that did not happen (arm: *"a camera port that THROWS leaves the framing where it was"*).
+
+### L-6806 — `globals.d.ts` declared the camera host WITHOUT `durationS` while the implementation accepted it
+
+`apps/editor/src/types/globals.d.ts` typed `pryzmGetSiteEntryCameraHost` as
+`flyToGeographic(target: {lat, lon, altitudeM, pitchDeg, instant?})` — **no `durationS`** — while
+`CesiumViewport.flyToGeographic` (`:13747`) accepts it and `SiteEntryCameraTarget` carries it
+(`SITE_ENTRY_FLIGHT_DURATION_S`, the constant whose own doc-comment explains that leaving pacing
+hard-coded in the viewport *"is precisely how it came to be invisible"*).
+
+**Effect:** every `SiteEntryCameraTarget` passed through that global had its pacing **silently
+untyped** — it arrived at runtime and was honoured, but nothing type-checked it and nothing would
+have caught its removal. Declaration corrected (additive; no call site changed). Pinned by an arm.
+
+### L-6807 — the glyph is `⊕`, and the return glyph is NOT a new mark
+
+The bar's family is monochrome geometric (`▦ ◉ ◧`, C06 §6.1) and the brand is white + purple, **no
+black**. `gisActionRegistry.ts` declares 🌐 as the icon for its own `site.globe` row — an emoji, and
+it would be the **only colour in the bar**, so it is not reused here. `⊕` reads as a graticuled
+sphere in the existing family.
+
+⭐ **`⤢` is not minted by this lane** — it is the glyph `gisActionRegistry.ts` already declares for
+`site.zoom-to-site`, which is the exact action the return click dispatches (C84 EI-8/EI-9, one
+vocabulary: one action, one spelling, one mark).
+
+⚠ **A NAMING TRAP FOUND EN ROUTE, worth a reader's attention.** `gisActionRegistry.ts` carries its
+own warning that `site.globe` (*"3D globe (photoreal)"*, `pryzmShowSiteResultView('3D')`) and
+`site.earth` (*"PRYZM Earth"*, `pryzmEnterSiteView('3d')`) are **different actions with inverted
+names** — and **neither** is the site-authoring globe this lane surfaced. `site.globe` is the
+**post-generate photoreal RESULT view with the building placed**. Three surfaces, one phrase. The
+new control was deliberately **not** wired to either.
+
+### L-6808 — ⚠ PRE-EXISTING RED, NOT THIS LANE'S, NOT FIXED: `SiteEntryModel.test.ts` fails on a Murcia jurisdiction tie
+
+`cd apps/editor && npx vitest run __tests__/SiteEntryModel.test.ts` → **1 failed / 30**:
+
+```
+× every registered jurisdiction lights up exactly where its own predicate says
+  expected undefined to be 'es-30005-alcantarilla'
+```
+
+**PROBED** (`jurisdictionClaimAt` at Alcantarilla's own extent centre):
+
+```
+centre {lat: 37.97, lon: -1.235}   kind = ambiguous
+candidates = ['es-30030-murcia', 'es-30005-alcantarilla']
+alcantarilla.contains(centre) = true
+```
+
+⭐ **The diagnosis:** two registrations claim Alcantarilla's own centre **at the same
+`extentResolution`**, so `jurisdictionAt` returns `null` by design (§JURISDICTION-SPECIFICITY —
+*"an ambiguity yields `null`, DELIBERATELY"*). The test has an escape hatch for exactly this class
+— but scoped by regex to **Canarias municipals only** (`/^es-3[58]\d{3}-/`), so the Murcia pair
+falls through to the strict assertion. Either `es-30030-murcia` is registered at too fine a
+resolution (it **contains** Alcantarilla, so `metropolitan` would let the `municipal` registration
+win) or the allow-list needs the same honest treatment the Canarias one got.
+
+⛔ **NOT THIS LANE'S, and deliberately not absorbed.** The subject is
+`packages/site-parcel-data/` — **clean in the working tree**, never touched here
+(`git status --porcelain packages/site-parcel-data/` → empty). This lane's only edit to
+`siteEntryModel.ts` is **29 insertions, 0 deletions** (`git diff --stat`), one pure function that
+this test path does not call. **Owner of the rule-pack registry to rule on it.**
+
+### L-6809 — gate readings at lane close, WITH TIMESTAMPS (they are readings, never states)
+
+- `npx vitest run apps/editor/src/engine/__tests__/siteViewQuickToggle.spec.ts` → **44/44 PASS**
+  (was **20/20**; +24 arms), including a **REACHABILITY** arm that mounts the real bar against the
+  real `PaneLayoutStore` and clicks the real button. *"Committed ≠ reachable"* — every other arm
+  tests a pure function.
+- `PaneHost.spec.ts` + `PaneViewPicker.spec.ts` + `shellFloatBudget.spec.ts` → **51/51 PASS**.
+- root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **2 errors, both
+  in another lane's UNTRACKED `apps/editor/src/engine/views/plantools/__tests__/zzprobe.spec.ts`;
+  ZERO in this lane's files.**
+  ⚠ **Read twice, twenty minutes apart, and it gave three different answers** — 11 errors
+  (EdgeProjectorService + analysisFacets + parcelRailPanel), then **0**, then **2**. On a shared
+  tree with live lanes, *"root tsc is red"* is **a reading with a timestamp, never a state**.
+  Re-run it; do not quote a file name from this row.
+- ⚠ **`grep` silence, third repo recurrence:** the ripgrep-backed Grep tool reported *"Found 3
+  files"* for `mountSiteViewQuickToggle` and **missed `SiteAuthoringPaneShell.ts`, which imports it
+  at `:25` and calls it at `:250`**. Plain `grep -rn` over the same directory found both. The file
+  is tracked, not ignored, and carries **zero NUL bytes** (`file` → *UTF-8 text*), so this is not
+  the L-3260 NUL cause. **A near-miss:** on that evidence the bar looked authored-and-unwired, which
+  is the opposite diagnosis and the opposite fix. **Confirm a "nothing found" with a second tool
+  before building a finding on it.**

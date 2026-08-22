@@ -257,6 +257,18 @@ same transition under both modes.
 9. **No `window as any`** (P4). Both ports are injected.
 10. **The entry flow is a STATE of the `site-3d` view, not a new view mechanism** (C59 §0/§2.6). It
     adds no `ViewType`, no renderer and no pane framework.
+11. **The world FRAMING may be reached without the entry FLOW — and a mid-project control MUST take
+    that route** (§GLOBE-QUICK-TOGGLE, L-6800..L-6808, [ADR-0357](../adrs/ADR-0357-the-globe-is-a-camera-framing-not-a-view-type.md)).
+    §6.5 says the globe *is* the `site-3d` viewer at world altitude, so *"take me to the 3D globe"*
+    from inside a live project is a **camera** request, and the whole of it is
+    `cameraForState(INITIAL_SITE_ENTRY_STATE)` — exported as `worldFramingTarget()`.
+    ⛔ **A mid-project surface MUST NOT construct a `SiteEntryStore`.** That store's terminal intent
+    emits `site-handoff`, and the parcel boundary is a **ONE-SHOT IMMUTABLE polygon** (§4.1, C19
+    §1.3/§1.4) — so re-opening the machine in a project that already has a site puts the user on a
+    path toward re-committing it. **Reuse the PROJECTION; refuse the REDUCER.** The distinction is
+    testable and must be pinned as a property (no `site.entry.*` intent producible), never as a
+    code-reading promise. `worldFramingTarget()` is safe by construction: it returns a value and has
+    no state, no effects list, no port and no intent.
 
 ---
 
@@ -289,10 +301,26 @@ C60 **depends on** C59 and never competes with it: the globe is the `site-3d` vi
   `apps/editor/__tests__/SiteEntryStore.test.ts` (9).
 
 **Phase 2 — NOT DONE, deliberately, and it is the honest sequencing:**
-- **Wiring into the shipping onboarding entry.** The flow is not yet reachable in the product. It
-  should be sequenced **behind C59 Phase 3** (per-pane view + camera state): the entry flow is a
-  camera state of `site-3d`, and Phase 3 is what gives a pane its own camera state to own. Wiring it
-  onto the Phase-2 switcher now would build against a surface that is about to change underneath it.
+- ~~**Wiring into the shipping onboarding entry.** The flow is not yet reachable in the product.~~
+  > ⚠ **CORRECTED 2026-08-22 (lane GLOBE32) — this bullet was STALE, and it was stale in the
+  > direction that matters: it under-reported what shipped.** The flow **IS** wired into the
+  > onboarding `location` step. **MEASURED:** `grep -rn "new SiteEntryStore" apps/ --include=*.ts`
+  > → **exactly one production call site**, `apps/editor/src/ui/onboarding/GlobeHeroSearch.ts:144`
+  > (plus three in `apps/editor/__tests__/SiteEntryStore.test.ts`). It runs the real reducer, the
+  > real camera port and the real `world → country → city → parcel` descent chain, at
+  > `mode: 'open'` — see that file's header for why `'open'` and not the shipped
+  > `'coverage-gated'` default.
+  >
+  > **What is STILL true, and is the part worth keeping:** that one call site is the flow's
+  > **only** reachable entrance. **The globe is UNREACHABLE outside onboarding.** Nothing in the
+  > live editor constructs a `SiteEntryStore`, and §6.11 now forbids a mid-project surface from
+  > doing so until the question *"what happens to the boundary this project already committed?"*
+  > has an answer. The top-centre `⊕ 3D Globe` control (L-6800..L-6808) surfaces the world
+  > **framing** mid-project; it deliberately does **not** re-host the **flow**.
+  >
+  > ⛔ **The two are different facts with opposite fixes.** "The globe control is missing" was
+  > **ABSENT** in the pane bar (structurally — see C59 §2.9) and **UNREACHABLE** in the editor
+  > (built, not surfaced). Reading one as the other sends the fix to the wrong layer.
 - **The lit coverage layer ON the globe** (a rendered rectangle/extrusion per `CoverageEntry`). The
   data is ready and derived; the Cesium drawing is a `CesiumViewport` change and that file is under
   concurrent edit. It must be drawn from `siteEntryCoverageEntries()` and from nothing else (§2).
