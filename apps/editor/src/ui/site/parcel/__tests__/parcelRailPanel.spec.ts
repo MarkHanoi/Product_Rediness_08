@@ -20,6 +20,9 @@ import {
     PARCEL_RAIL_PANEL_TESTID,
     PARCEL_RAIL_SLOT_TESTID,
     PARCEL_PANEL_INTRO,
+    // §PARCEL-ALL-INFO (L-6905) — the envelope half the founder asked to be re-surfaced.
+    PARCEL_RAIL_ENVELOPE_SLOT_TESTID,
+    PARCEL_RAIL_ENVELOPE_STATE_TESTID,
 } from '../parcelRailPanel.js';
 import { PARCEL_NO_BOUNDARY_TEXT } from '../parcelCard.js';
 
@@ -210,5 +213,204 @@ describe('§PARCEL-OWN-PANEL — the left-rail entry the founder asked for', () 
         // Each has its own teardown branch keyed on its own active id.
         expect(src).toMatch(/activeId !== 'GIS' && this\._parcelSection !== null/);
         expect(src).toMatch(/activeId !== 'PARCEL' && this\._parcelPanel !== null/);
+    });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════
+// §PARCEL-ALL-INFO (L-6905..L-6909) — "all information directly showing up"
+// ════════════════════════════════════════════════════════════════════════════════════
+//
+// Founder 2026-08-22: *"On parcel selection I want to have all information directly
+// showing up: it is still on GIS — check second image and third."*
+//
+// ⭐ WHAT THESE ARMS ARE FOR. The one outcome that must fail is a SECOND renderer of the
+// envelope figures: they are cited to PGM articles, and two surfaces that can disagree
+// about a setback is the C06 §13.3 breach with a legal consequence attached. So the arms
+// assert the panel CLAIMS the singleton card rather than drawing one — and that in the
+// measured 6–11 s window where it cannot, it says which of four things is true.
+
+/** Let the panel's `queueMicrotask(renderEnvelope)` run. */
+const flush = (): Promise<void> => new Promise<void>((r) => { queueMicrotask(() => r()); });
+
+/** Install a fake for the §GIS-ENVELOPE-REHOST seam; returns a restore fn. */
+function withEnvelopeSeam(present: boolean): { calls: HTMLElement[]; restore: () => void } {
+    const calls: HTMLElement[] = [];
+    const w = window as unknown as {
+        pryzmMountEnvelopeCard?: (h: HTMLElement | null) => boolean;
+        pryzmRecomputeEnvelopeCard?: () => boolean;
+    };
+    const priorMount = w.pryzmMountEnvelopeCard;
+    const priorRecompute = w.pryzmRecomputeEnvelopeCard;
+    w.pryzmMountEnvelopeCard = (host: HTMLElement | null): boolean => {
+        if (host) {
+            calls.push(host);
+            if (present) {
+                const card = document.createElement('div');
+                card.setAttribute('data-testid', 'buildable-envelope-card');
+                card.textContent = 'Buildable envelope';
+                host.appendChild(card);
+            }
+        }
+        return present;
+    };
+    w.pryzmRecomputeEnvelopeCard = () => false;
+    return {
+        calls,
+        restore: () => { w.pryzmMountEnvelopeCard = priorMount; w.pryzmRecomputeEnvelopeCard = priorRecompute; },
+    };
+}
+
+describe('§PARCEL-ALL-INFO — the panel CLAIMS the one card, it does not draw a second', () => {
+    it('mounts the singleton buildable-envelope card into its own slot', async () => {
+        const seam = withEnvelopeSeam(true);
+        try {
+            const h = buildParcelRailPanel(runtimeWith(CORDOBA_SITE) as never);
+            document.body.appendChild(h.element);
+            await flush();
+            const slot = h.element.querySelector(`[data-testid="${PARCEL_RAIL_ENVELOPE_SLOT_TESTID}"]`);
+            expect(slot).not.toBeNull();
+            // ⭐ The seam was asked for THIS slot — the §GIS-ENVELOPE-REHOST (L-1362) route.
+            expect(seam.calls).toContain(slot);
+            expect(slot!.querySelector('[data-testid="buildable-envelope-card"]')).not.toBeNull();
+            h.element.remove();
+            h.dispose();
+        } finally { seam.restore(); }
+    });
+
+    it('⛔ NEVER re-derives: no capacity/measurement/envelope producer is imported here', () => {
+        // THE ARM THAT MATTERS, and the one a hand-written section would fail. Every fold
+        // the founder listed (designed vs permitted · how these were measured · full site &
+        // massing) belongs to the card's ONE template in GISAreaLayout. This panel hosts.
+        const src = codeOnly(read('apps/editor/src/ui/site/parcel/parcelRailPanel.ts'));
+        expect(src).toContain('pryzmMountEnvelopeCard');
+        expect(src).not.toMatch(/buildCapacitySectionHtml|buildDesignedVsPermittedFold|buildHowMeasuredFold/);
+        expect(src).not.toMatch(/buildCapacityComparison|measureAuthoredDesign|collectAuthoredModelSnapshot/);
+        expect(src).not.toMatch(/getLastBuildableEnvelope|resolveStoredBuildableDetermination|solveEstimatedEnvelope/);
+        expect(src).not.toMatch(/\bfetch\s*\(/);
+    });
+
+    it('⛔ dispose does NOT release the shared host — that would evict the card from GIS too', () => {
+        // The card is a SINGLETON that `ensureEnvelopePanel` MOVES rather than clones.
+        // `getForma3dHostEl` already falls back the moment this slot leaves the document
+        // (`document.contains`), so self-healing beats explicit release for a shared resource.
+        const src = codeOnly(read('apps/editor/src/ui/site/parcel/parcelRailPanel.ts'));
+        expect(src).not.toMatch(/pryzmMountEnvelopeCard\?\.\(null\)/);
+    });
+
+    it('⛔ never clears the slot wholesale — that would detach the shared card', () => {
+        const src = codeOnly(read('apps/editor/src/ui/site/parcel/parcelRailPanel.ts'));
+        // It removes only its own chrome, keyed on the card's testid.
+        expect(src).toContain("getAttribute('data-testid') !== 'buildable-envelope-card'");
+        expect(src).not.toMatch(/envSlot\.replaceChildren\(\)/);
+    });
+});
+
+describe('§PARCEL-ALL-INFO — the 6–11 s window says which of four things is true', () => {
+    it('with a committed parcel and no card, it names a state rather than showing nothing', async () => {
+        const seam = withEnvelopeSeam(false);
+        try {
+            const h = buildParcelRailPanel(runtimeWith(CORDOBA_SITE) as never);
+            document.body.appendChild(h.element);
+            await flush();
+            const msg = h.element.querySelector(`[data-testid="${PARCEL_RAIL_ENVELOPE_STATE_TESTID}"]`);
+            expect(msg).not.toBeNull();
+            expect((msg!.textContent ?? '').length).toBeGreaterThan(40);
+            // ⛔ A blank slot reads as a crash (L-553); zeros read as "nothing is buildable"
+            // (C84 EI-1b). Neither is permitted.
+            expect(msg!.textContent).not.toMatch(/\b0(\.0+)?\s*(m|m²|%)\b/);
+            h.element.remove();
+            h.dispose();
+        } finally { seam.restore(); }
+    });
+
+    it('with NO boundary it says so, and does not claim a determination is running', async () => {
+        const seam = withEnvelopeSeam(false);
+        try {
+            const h = buildParcelRailPanel(runtimeWith(null) as never);
+            document.body.appendChild(h.element);
+            await flush();
+            const msg = h.element.querySelector(`[data-testid="${PARCEL_RAIL_ENVELOPE_STATE_TESTID}"]`);
+            expect(msg?.getAttribute('data-state')).toBe('no-boundary');
+            expect(msg?.textContent).toMatch(/No parcel boundary is committed/i);
+            h.element.remove();
+            h.dispose();
+        } finally { seam.restore(); }
+    });
+
+    it('a PRESENT card renders no replacement sentence', async () => {
+        const seam = withEnvelopeSeam(true);
+        try {
+            const h = buildParcelRailPanel(runtimeWith(CORDOBA_SITE) as never);
+            document.body.appendChild(h.element);
+            await flush();
+            expect(h.element.querySelector(`[data-testid="${PARCEL_RAIL_ENVELOPE_STATE_TESTID}"]`)).toBeNull();
+            h.element.remove();
+            h.dispose();
+        } finally { seam.restore(); }
+    });
+
+    it('⭐ LIVE — a store notification re-asks the seam, so the window ENDS on screen', async () => {
+        // `dispatchEnvelope` → `siteUpdateZoning` → the site store notifies. Without this the
+        // panel would print "resolving" until the user closed and re-opened it, which is the
+        // §GIS-PARCEL-REHOST defect (a section that silently stopped updating).
+        const seam = withEnvelopeSeam(false);
+        try {
+            let notify: (() => void) | null = null;
+            const rt = {
+                siteModelStore: {
+                    getSite: () => CORDOBA_SITE,
+                    subscribe: (l: () => void) => { notify = l; return () => { notify = null; }; },
+                },
+            };
+            const h = buildParcelRailPanel(rt as never);
+            document.body.appendChild(h.element);
+            await flush();
+            const before = seam.calls.length;
+            expect(notify).not.toBeNull();
+            (notify as unknown as () => void)();
+            expect(seam.calls.length).toBeGreaterThan(before);
+            h.element.remove();
+            h.dispose();
+        } finally { seam.restore(); }
+    });
+
+    it('dispose drops the store subscription — no re-render into a detached tree', async () => {
+        const seam = withEnvelopeSeam(false);
+        try {
+            let unsubbed = false;
+            let notify: (() => void) | null = null;
+            const rt = {
+                siteModelStore: {
+                    getSite: () => CORDOBA_SITE,
+                    subscribe: (l: () => void) => { notify = l; return () => { unsubbed = true; }; },
+                },
+            };
+            const h = buildParcelRailPanel(rt as never);
+            document.body.appendChild(h.element);
+            await flush();
+            h.element.remove();
+            h.dispose();
+            expect(unsubbed).toBe(true);
+            const after = seam.calls.length;
+            (notify as unknown as (() => void) | null)?.();
+            expect(seam.calls.length).toBe(after);
+        } finally { seam.restore(); }
+    });
+
+    it('never throws when the seam is absent entirely', async () => {
+        const w = window as unknown as { pryzmMountEnvelopeCard?: unknown };
+        const prior = w.pryzmMountEnvelopeCard;
+        delete w.pryzmMountEnvelopeCard;
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => { /* quiet */ });
+        try {
+            const h = buildParcelRailPanel(runtimeWith(CORDOBA_SITE) as never);
+            document.body.appendChild(h.element);
+            await flush();
+            // GISAreaLayout registers the seam at boot; a panel opened before that must still
+            // build. It reports the honest state rather than an empty slot.
+            expect(h.element.querySelector(`[data-testid="${PARCEL_RAIL_ENVELOPE_STATE_TESTID}"]`)).not.toBeNull();
+            h.element.remove();
+            expect(() => h.dispose()).not.toThrow();
+        } finally { w.pryzmMountEnvelopeCard = prior; warn.mockRestore(); }
     });
 });
