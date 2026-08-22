@@ -75,6 +75,18 @@ export const CREATION_TOOL_SHORTCUTS: Readonly<Record<string, string>> = {
     // so this follows the precedent `Potted Plants` set below: take the nearest free
     // combo with any mnemonic left in it — the `A` of "bAlcony".
     'Balcony':              'Alt+Shift+A',
+    // §FIX-LIFT-UNREACHABLE (L-7020) — the lift joins ARCHITECTURE, beside the stair and
+    // the handrail, because it is vertical circulation. It was previously filed under
+    // Structure on the OTHER create surface and absent from this one entirely.
+    //
+    // ⚠ NOT `Alt+L` (Toilet) and NOT `Alt+Shift+L` (Lighting) — and that was MEASURED,
+    // not assumed. The first draft of this row took `Alt+Shift+L`, and
+    // `creationToolShortcuts.test.ts` caught it before `assertNoShortcutCollisions()`
+    // (which runs at IMPORT time) could throw the editor's own boot. ⭐ `V` for the
+    // ele*V*ator / *V*ertical circulation, which is also the word the LOD-200 record
+    // family is named after — the nearest free combo with a mnemonic left in it, the
+    // precedent `Balcony` and `Potted Plants` both set.
+    'Lift':                 'Alt+Shift+V',
     'Ramp':                 'Alt+P',
     'Ceiling':              'Alt+C',
     'Auto Ceiling':         'Alt+Shift+C',

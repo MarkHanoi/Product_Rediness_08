@@ -766,7 +766,7 @@ export class CreateRailPanel {
                         // served storey, five cabin parts, and a void in every slab it passes
                         // through, in ONE undo entry.
                         label:    'Lift',
-                        shortcut: 'Alt+Shift+L',
+                        shortcut: 'Alt+Shift+V',
                         icon:     'material-symbols:elevator-outline',
                         action: () => {
                             activatePlanOnlyToolOrExplain('lift', 'Lift');
