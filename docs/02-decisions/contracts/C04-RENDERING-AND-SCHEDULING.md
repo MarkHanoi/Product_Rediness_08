@@ -1405,3 +1405,159 @@ this lane did not take.
   real cleanliness finding, but the only seams this lane could NAME with measurement were the
   scheduling policy (extracted) and the plan-family depth function (extracted). Splitting the
   rest without a named seam was declined.
+
+---
+
+## §FRAME-INSTRUMENT — a per-frame instrument is a RENDERING ARTEFACT and is governed here (NORMATIVE, added 2026-08-22, lane NAV29, L-5900..L-5913)
+
+**Subject.** `packages/frame-scheduler/src/FrameProfiler.ts` (the `[FrameProfiler]` line),
+`apps/editor/src/engine/pryzmPerfConsole.ts` (`window.pryzmPerf.report()`), and any future
+instrument that reports on the single rAF this contract's §2 establishes.
+
+**Why in C04 rather than in a testing doc.** The founder's standing report is
+*"the performance of both navigation and project opening is not yet good … ideally for
+webGPU and webGL — both."* Every answer to that sentence is a **reading**, and every reading
+is produced by one of these instruments. An instrument that names the wrong subsystem, reports
+the wrong quantity, or cannot be reached from the published protocol does not merely fail to
+inform — **it decides what the next lane investigates.** Three separate defects of exactly that
+shape were found in one pass (L-5900, L-5901, L-5903), plus a fourth in the instrument's own
+window reset (L-6400). That is not a testing concern; it is the rendering subsystem lying about
+itself.
+
+### §FI.1 — RULE: a frame instrument MUST report the INTERVAL, not only the tick cost
+
+`FrameScheduler.tick()`'s wall-clock duration is **main-thread work and only main-thread work**.
+The rAF-to-rAF interval is what the user feels.
+
+**Both MUST be reported, and the distribution (`worst`, `p95`, `hitches`) MUST be computed on
+the INTERVAL.**
+
+> ⛔ **This is not a refinement, it is a correctness rule, and it is a TWO-BACKEND rule.** On the
+> WebGPU path the per-frame submit encodes and submits and returns; on the WebGL2 path
+> `renderer.render()` hands work to the driver. On **both** backends a scene too heavy for the
+> GPU produces SHORT ticks and LONG frames. An instrument reporting only the tick therefore
+> prints `✅ smooth` over a visible stutter — a **false all-clear on precisely the complaint it
+> exists to serve** (L-5900).
+
+⭐ **And the pair is what makes a two-backend comparison possible at all.** Same gesture, both
+backends: `cpu` similar and `frame` much worse on one → the difference is GPU-side and no bucket
+can explain it; `cpu` worse on one → main-thread, read the buckets. **Neither question is
+answerable from a single number.**
+
+⛔ **`frame - cpu` MUST NOT be named "GPU time".** At a healthy 60 fps with a 6 ms tick the
+residual is ~10 ms of idle vsync wait. JS cannot separate vsync wait from GPU wait from
+compositor wait, and an instrument that names a measurement it does not have is the same class
+of defect as a gate that does not gate.
+
+### §FI.2 — RULE: every per-frame line MUST carry the RESOLVED backend
+
+A reading that does not say which backend produced it cannot be compared to another one, and
+comparison **is** the method for a two-backend investigation.
+
+The backend MUST be read from the value written when the backend actually resolves
+(`globalThis.pryzmRendererBackend`, set by `createRenderer`), and MUST print `unknown` when
+absent. ⛔ **It MUST NOT be inferred, defaulted, or hardcoded** — `UnifiedFrameLoop`'s hardcoded
+`"WebGPU"` printed on every WebGL2 session (corrected 2026-08-19) is the standing proof that
+guessing this label sends a perf investigation after a pipeline problem that cannot exist.
+
+### §FI.3 — RULE: subsystem attribution is an EXPLICIT TABLE, guarded by a repo census
+
+Attribution by `id.includes(...)` guessing is forbidden. Every **persistent** per-frame listener
+MUST have an explicit row naming its bucket, and the table MUST be guarded by a test that
+**scans the repo** for registration sites and fails when one is unclassified.
+
+**A substring fallback MAY remain, and ONLY for ids that cannot be enumerated** — the
+`once:<reason>:<seq>` ids minted by `scheduleOnce()`, and per-instance template-literal ids such
+as `` `engine-loading-progress-${seq}` ``.
+
+> ⚠ **Measured justification.** Before the table, `unified-frame-loop` — `apps/editor`'s ENTIRE
+> render path — matched none of the guessed substrings and was filed as `other`, so `render=`
+> read **0.0 by construction on every editor session**; while `renderer.scene-reconcile`, which
+> reconciles the scene graph and **draws nothing**, was the one editor-adjacent id that DID
+> match. The instrument was wrong in both directions at once (L-5901).
+
+**§FI.3.a — the bucket names WHAT WORK THIS IS, never WHEN IT RUNS.** The listener's registered
+`TickPriority` (`pre-render` / `render` / `post-render` / `overlay`) MUST NOT be copied into the
+bucket. Both vocabularies use the word "render" and they mean different things:
+`plan-view-manager` registers at `pre-render` and paints an entire second viewport;
+`level-explode-tick` registers at `render` and draws nothing at all, it lerps object positions.
+Priority orders execution. **The bucket names cost.**
+
+**§FI.3.b — the census MUST compare SETS IN BOTH DIRECTIONS.** Forward (every registered id is
+classified) **and** mirror (every classified id is still registered).
+
+> ⭐ **The mirror arm's first finding was a defect in the SCANNER, not in the table.**
+> `renderer.draw` presented as a dead row; it is registered through
+> `renderer.attachTo(scheduler, 'renderer.draw')`, one wrapper deep, which the scan could not
+> see. The tempting fix — deleting the row — would have blinded `render=` to the L4 renderer.
+> A forward-only census never surfaces that hole at all (L-5904). CLAUDE.md records the same
+> shape five times over as a correct count sitting on top of a wrong range.
+
+**§FI.3.c — the census MUST NOT count prose.** Comments MUST be stripped before matching. An id
+appearing only in a JSDoc `@example` misattributes the finding to the documenting file; an id
+appearing only in a `//` comment narrating a fixed bug would mint a permanently dead table row
+while the ids that actually register keep falling through the fallback (L-5905). **A census that
+counts prose has the same defect as a gate that classifies by name: it can be satisfied by
+writing, not by doing.**
+
+### §FI.4 — RULE: every bucket the classifier can name MUST appear in the emitted line
+
+A bucket that is declared, zeroed and accumulable but never printed is a **silent sink**.
+
+> ⛔ **This is written because it happened.** `overlay` was a `FrameBucketKey`, was zeroed by
+> `_ZERO_BUCKETS()`, was accumulable by `recordListener()` — and was **not printed**. It was
+> harmless only by accident: nothing ever returned `'overlay'`, because the fallback's own arm
+> read `id.includes('render') || id.includes('overlay')` → `'render'`. The moment the census
+> classified the eleven real secondary-surface listeners, their cost would have arrived nowhere,
+> the columns would have summed to **less than the frame**, and the reader — subtracting —
+> would have concluded the residual was off-thread (L-5903).
+
+**A profiler whose columns do not add up is worse than one with a coarse bucket.** The
+conservation arm MUST be derived from the classification table itself, so a bucket added
+tomorrow cannot be left unprinted.
+
+### §FI.5 — RULE: an instrument MUST be reachable from the protocol the founder is given
+
+**A diagnostic reachable only by knowing its own function name is not an instrument the user has.
+It is one a lane has.**
+
+Any surviving per-subsystem report — frame-skip attribution, zero-area refusals, scene census —
+MUST be printed by the single published entry point (`window.pryzmPerf.report()`), not merely
+exported.
+
+> ⛔ **Measured cost of not having this rule.** `getFrameSkipReport()` and
+> `getZeroAreaSurfaceReport()` were both correct, both built specifically to survive a console
+> flood, and neither was printed by `report()`. The consequence is on the record: *"177 frame(s)
+> were refused"* reached a lane as an **anecdote copied out of a scrollback**, without its
+> denominator, **months after the machinery to retain it shipped** (L-5910).
+
+### §FI.6 — RULE: an empty report is an ABSENCE OF MEASUREMENT, not a zero
+
+Restates §PERF-ZERO-IS-NOT-UNWRITTEN (L-1397) for this subsystem because it is where it keeps
+being violated. A per-site gate registers a site **the first time that site runs**, so an empty
+list means *no gated site has been exercised* — it MUST print `—  NO SITE HAS RUN`, never `0`.
+Printing `0` there is a **false exoneration of a named prime suspect**.
+
+Likewise a refusal count MUST be reported with what it means: **a refusal is CORRECT** — a draw
+into a 0×0 attachment is discarded by the driver — so what it costs is not the draw, it is
+**everything computed to reach it**.
+
+### §FI.7 — the instrument MUST NOT join the population it measures
+
+Per-frame cost: one typed-global boolean read when off; one comparison, one increment and one
+bounded array push when on. Sorting, percentile computation and formatting run **once per
+window**, in the branch that was already about to log. ⛔ **No traverse, no timer-driven
+sampling** — an instrument that walks the scene on a timer is measuring itself.
+
+### §FI.8 — NOT MEASURED / open (stated so nobody reads it as covered)
+
+- ⛔ **No figure in this section was taken in a browser.** The rules are about what an instrument
+  must report; **none of them establishes that any scene is fast or slow on either backend.**
+  Both cells of that row are empty and L-5913 says so explicitly.
+- The instruments are backend-symmetric **by construction** — none branches on the backend —
+  but that is a property of the code, **not a measurement of either backend**.
+- `mainRendererVisibility.isHidden` has **zero readers**: the render loop keeps running at full
+  cost into a `display:none` container (L-5907). A rule requiring the loop to honour a hide is
+  **not yet written**, because this lane could not verify the change in a browser.
+- `admitSurface` has **exactly one call site** and it gates the **clear**, not the draws. Which
+  submitter produced the founder's 245 `glDrawElements` errors is **not established** (L-5908).

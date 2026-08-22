@@ -37827,3 +37827,337 @@ the constant disagree by one.** That is a third number in a file whose whole job
 it should be reconciled in the same edit — not by moving the constant to match the prose.
 
 **Verdict: OPEN — not this lane's to fix; owner of `fce90ec4` / the contract-gate owner.**
+
+---
+
+## Lane NAV29 — navigation & the two backends (2026-08-22)
+
+⚠ **READ THIS FIRST, IT GOVERNS EVERY ROW BELOW.** This lane has **no browser and no GPU**. Every
+figure it produces is either a **repo measurement** (a grep, a test run, a typecheck — reproducible
+by anyone, and the command is given) or it is **PROJECTED**. Nothing here establishes that any scene
+is fast or slow on any backend. The founder's console is the only instrument that can say that,
+which is precisely why most of this lane's output is *instrument* rather than *fix*.
+
+### L-5900 — §NAV-FRAME-IS-NOT-CPU: the profiler measured the wrong QUANTITY, on both backends
+
+*Inherited from the interrupted predecessor lane, re-read, verified and kept.*
+
+`FrameProfiler.endFrame()` took ONE duration — the wall-clock time spent inside
+`FrameScheduler.tick()` — labelled it `frame=`, and computed `worst`, `p95` and `hitches` from it.
+`FrameScheduler.tick()` already held the real rAF-to-rAF interval (`deltaMs = now - lastTickTime`)
+and threw it away.
+
+⛔ **That made the instrument structurally blind to the question the founder is asking.** On the
+WebGPU path the per-frame submit encodes and submits and returns; on the WebGL2 path
+`renderer.render()` hands work to the driver. On **both**, a scene too heavy for the GPU produces
+SHORT ticks and LONG frames — so the profiler printed `✅ smooth` over a visible stutter.
+
+`endFrame(cpuMs, nowMs, intervalMs)` now carries both, prints both, and computes the distribution on
+the interval. ⭐ **The pair is what makes a two-backend comparison possible at all:** same gesture,
+both backends — `cpu` similar and `frame` much worse on one means the difference is GPU-side and no
+bucket can explain it; `cpu` worse means read the buckets.
+
+⛔ **`frame - cpu` is NOT "GPU time"** and the line refuses to call it that. At a healthy 60 fps with
+a 6 ms tick the residual is ~10 ms of idle vsync wait. JS cannot separate vsync wait from GPU wait
+from compositor wait, so the verdict only speaks once the interval is already over the vsync period.
+
+**Status: CLOSED in code** (`2d5a8c49`). **NOT VERIFIED IN A BROWSER.**
+
+### L-5901 — §NAV-PROFILER-BUCKETS-THE-WRONG-LISTENER: the census guard went red, and it was RIGHT
+
+The predecessor wrote a repo-scanning census guard demanding that every persistent tick listener be
+classified explicitly, then was interrupted before filling the table. It failed with **16
+unclassified listeners** and one row it called dead.
+
+⭐ **The assertion was not relaxed. The table was finished** — 26 rows, every one carrying its call
+site — which is the same disposition a sibling lane recorded the same day
+(`c9813cb5`, *"the census guard went red CORRECTLY — update the set, do not relax it"*).
+
+⭐ **THE CLASSIFICATION RULE IS NOW WRITTEN DOWN**, because a half-filled table with no stated rule
+gets finished by taste. **A bucket names WHAT WORK THIS IS, never WHEN IT RUNS.** The temptation is
+to copy the listener's registered `TickPriority` into the bucket, since both vocabularies use the
+word "render". MEASURED, that is wrong in both directions: `plan-view-manager` registers at
+`'pre-render'` and paints an entire second viewport; `level-explode-tick` registers at `'render'`
+and draws nothing at all, it lerps object positions.
+
+**Status: CLOSED in code** (`2d5a8c49`). Re-take with
+`npx vitest run --root packages/frame-scheduler` → **12 files, 134 passed**.
+
+### L-5902 — §NAV-BACKEND-ON-EVERY-PERF-LINE
+
+*Inherited, verified, kept.* Every `[FrameProfiler]` line now begins `backend=…`, read from
+`globalThis.pryzmRendererBackend` (written by `createRenderer` when the backend resolves) and
+printing `unknown` rather than guessing when absent. Two pasted readings cannot be compared unless
+each says which backend produced it, and comparison **is** the method here. The standing proof that
+guessing the label costs an afternoon is `UnifiedFrameLoop`'s hardcoded `"WebGPU"`, corrected
+2026-08-19.
+
+### L-5903 — §NAV-BUCKET-THAT-NEVER-PRINTS: a bucket accumulating into a column nobody printed
+
+⭐ **NEW, and found by finishing L-5901 rather than by looking for it.**
+
+`overlay` has been a member of `FrameBucketKey` and of `_ZERO_BUCKETS()` since the profiler shipped,
+`recordListener()` has always been willing to add time to it — and **the summary line did not print
+it.** Nothing was mis-summed. The accumulator simply had no way out.
+
+It was **harmless ONLY BY ACCIDENT**: no row in the table and no arm of the substring fallback ever
+returned `'overlay'`, because the fallback's own arm read
+`id.includes('render') || id.includes('overlay')` → `'render'`.
+
+⛔ **The moment L-5901 classified the eleven real secondary-surface listeners, that latent hole would
+have SILENTLY EATEN their cost.** They would have left `other=`, arrived nowhere, and the columns
+would have summed to less than the frame with no indication anything was missing — and the reader
+subtracts, and concludes the residual is off-thread. A profiler whose columns do not add up is worse
+than one with a coarse bucket.
+
+Fixed three ways: `overlay=` is printed; the fallback returns `'overlay'` for overlay ids, ordered
+before the `render` arm; and a **CONSERVATION** test derived from `LISTENER_BUCKETS` itself fails if
+any bucket the table can name is absent from the emitted line.
+
+**Status: CLOSED in code** (`2d5a8c49`).
+
+### L-5904 — §RENDERER-DRAW-IS-NOT-DEAD: the mirror arm caught the SCANNER, not the table
+
+The census guard's mirror arm — *"no row in the table is dead"* — reported `renderer.draw` as a row
+with no registering call site.
+
+⛔ **It is registered.** `packages/renderer/src/Renderer.ts:157` declares
+`attachTo(scheduler, listenerId = 'renderer.draw')` and calls `addTickListener` **inside itself**;
+`apps/editor/src/bootstrap.render.ts:83` and `bootstrap.render.everything.ts:188` both invoke
+`renderer.attachTo(scheduler, 'renderer.draw')`. The scan looked only for ids adjacent to the
+literal token `addTickListener(`, so an id reaching the scheduler through ONE wrapper was invisible.
+
+⭐ **This is the whole argument for comparing SETS IN BOTH DIRECTIONS rather than counting.** Run
+forwards only and the hole never surfaces. Run backwards and it presents as a false "dead row" —
+whose tempting fix is to DELETE a live row and blind the `render=` column to the L4 renderer.
+CLAUDE.md records this exact shape five times over as a correct count sitting on a wrong range.
+
+⚠ **The fix is NOT general.** One named indirection was taught to the scanner, not indirection in
+general. A second wrapper would be invisible again — and would, again, present as a dead row rather
+than as silence, which is the property worth keeping.
+
+### L-5905 — §PROSE-IS-NOT-A-REGISTRATION: the census was reading documentation as evidence
+
+MEASURED on the corpus the guard is pointed at, both directions:
+
+- `annotation-render-layer` was attributed to `packages/core-app-model/src/rendering/UnifiedFrameLoop.ts`,
+  which merely shows it inside an `@example` JSDoc block. The real registration is
+  `plugins/annotations/src/AnnotationRenderLayer.ts:343`. The id was real, so nothing failed — the
+  **file name the guard printed** was simply wrong, which sends the next reader to the wrong package.
+- `engine-loading-progress` appears **only inside a `//` comment** (`EngineLoadingOverlay.ts:90`)
+  narrating a bug that was already fixed. The id registered at runtime is
+  `engine-loading-progress-${seq}` — a template literal minted PER INSTANCE by
+  §FIX-OVERLAY-DUP-ID. **Classifying the commented string would have minted a permanently dead
+  `LISTENER_BUCKETS` row while the ids that actually exist kept falling through the substring arm.**
+
+⭐ A census that counts prose has the same defect as a gate that classifies by name: **it can be
+satisfied by writing, not by doing.** Comments are stripped before matching (only block comments and
+lines whose *trimmed* form starts with `//` or `*`, so a `//` inside a string literal can never
+truncate real code), and the live per-instance ids are served by a named fallback arm instead.
+
+### L-5906 — THREE extra `THREE.WebGLRenderer` instances were filed under `other`
+
+MEASURED (`grep -rn "new THREE.WebGLRenderer" apps plugins packages`, excluding tests): three
+**per-frame tick listeners own a SEPARATE `THREE.WebGLRenderer` and a separate canvas** —
+`pip-renderer-loop` (`PIPRenderer.ts:52`), `floating-object-carousel-loop`
+(`FloatingObjectCarousel.ts:294`) and `panorama-panel-render` (`PanoramaPanel.ts:438`).
+
+That is a second and third GL context on the same GPU as the viewport, and until L-5903 their cost
+had nowhere to be reported. They now land in `overlay=`.
+
+⚠ **This lane did not measure what they cost.** It measured that they exist, that they tick per
+frame, and that the founder had no column in which to see them. Whether any is alive during his
+navigation gesture is a question only `overlay=` in his own console can answer — and it is a
+first-order question, because a hidden panel that never disposes its tick listener costs a whole
+GL context's worth of frame for a surface nobody is looking at.
+
+⛔ **Also observed and NOT this lane's to fix: these are `THREE.` uses outside
+`packages/renderer-three/`, which is P2's stated invariant.** `tools/ga-gate/check-three-imports.ts`
+reports 0 importers outside, so the gate and this grep disagree about something — most likely the
+gate keys on `import * as THREE` while these reach THREE another way. **Named, not resolved. Do not
+quote either number without naming which one you ran.**
+
+### L-5907 — §HIDE-IS-A-PERMISSION-NOBODY-TOOK: `isHidden` has ZERO readers
+
+`mainRendererVisibility.requestHide(reason)` documents itself, verbatim, as
+*"I am covering the viewport, **you may stop rendering**"*.
+
+⛔ **Nothing takes the permission.** MEASURED
+(`grep -rn "mainRendererVisibility" apps packages plugins`, excluding its own file and tests): the
+only members anyone calls are `setContainer`, `requestHide`, `releaseHide`, `pin` and `unpin`, from
+exactly two files (`PlanViewManager`, `SplitViewManager`). **`isHidden` is read nowhere outside the
+class.** `_apply()` sets `style.display = 'none'` and the render loop keeps running at full cost
+into a container with no layout box.
+
+⭐ The safety argument for acting on it is already encoded in the controller and does not need to be
+re-derived: **a `pin()` vetoes a hide**, and `SplitViewManager` pins precisely because it is
+*consuming* the pixels. So `isHidden === true` already means *no consumer exists*. Skipping the
+submit in that state is visually neutral **by construction** — a draw into a `display:none`,
+zero-backing-store surface produces no pixels for anyone.
+
+**Status: OPEN — deliberately NOT fixed by this lane.** The gate would belong in
+`UnifiedFrameLoop` (`packages/core-app-model/src/rendering/`) or `mainRendererVisibility`
+(`apps/editor/src/engine/views/`), and with two sibling lanes live in adjacent files this lane
+would not take a shared-tree collision for a change it cannot verify in a browser. **Handed on with
+the mechanism, the safety argument, and the grep.**
+
+### L-5908 — the 177-refused-frames verdict
+
+The report: `§SURFACE-WITH-NO-AREA-REFUSES-THE-PASS` logged *"177 frame(s) were refused while it had
+none"* on a view switch, alongside a `GL_INVALID_FRAMEBUFFER_OPERATION … Attachment has zero size`
+flood until WebGL silenced itself.
+
+**MEASURED — the chain, entirely from source:**
+
+1. `PlanViewManager` mounts a Canvas2D view → `mainRendererVisibility.requestHide('canvas2d-view')`
+   → `#container` gets `display:none`.
+2. OBC's own `SimpleRenderer.resize` has **no `Math.max` and no `> 0` guard** and is wired to a
+   `ResizeObserver` on that container, so it drives `three.setSize(0, 0)`. The backing store is
+   0×0 and **stays 0×0** until the container is shown again.
+3. `initScene.clearObcBaseFramebuffer` asks `admitSurface(obc, …)` and is refused, once per frame,
+   silently, with a count kept.
+
+**VERDICT, in three parts, kept separate because they have different evidence:**
+
+- ⭐ **177 refused frames is NOT a user-visible freeze of the thing being refused.** ~2.95 s at
+  60 Hz, during which the 3D container was `display:none` and the founder was looking at the plan
+  canvas. **The refusal is the gate WORKING.** Reporting it as a stall would have been the third
+  refuted lead on this defect.
+- ⛔ **What it does cost is everything computed to REACH the refusal** — 177 frames of scheduler
+  dispatch, listener ticks, camera work and scene traversal, to arrive at a submit that is then
+  correctly declined. That is L-5907, and it is a real cost landing on exactly the gesture the
+  founder calls slow.
+- ⚠ **The continuing error storm is NOT explained by this gate, and this lane did not close it.**
+  MEASURED: `admitSurface` has **exactly one call site in the whole repo**
+  (`grep -rn "admitSurface" apps packages plugins` → `initScene.ts:1908`, plus the import and the
+  definition). It gates the **clear**. The founder's flood was `glClear` **and** 245×
+  `glDrawElements` **and** 9× `glDrawArrays` — **draws**, which that site does not cover.
+  `RenderPipelineManager.render()` has its own `_isRenderTargetZeroSize()` gate, but on
+  `this._renderer`, **a different surface from OBC's**. INFERRED and **not measured**: the remaining
+  submitters into the OBC surface are OBC's own renderer in MANUAL mode, the GPU picker borrowing
+  the renderer, and `ViewRenderCache` — none of which consult the gate. **Naming which one produced
+  the 245 draws requires his console; this lane refuses to pick one.**
+
+**Status: PARTIALLY EXPLAINED. The refusal is understood and correct. The storm is not closed.**
+
+### L-5909 — REFUTED: `[CutFill] Updating: enabled=false` is no longer the expensive path
+
+Carried into this lane as a live suspicion (*"what does `Updating` do when `enabled=false`?"*).
+
+**It was already fixed, one day before this lane ran.** `ViewPropertiesPanel.updateCutFillStyle`
+carries §NAV-CUTFILL-DEAD-TRAVERSE (L-2152, lane PERF1, 2026-08-21): the full `scene.traverse` — two
+`.toLowerCase()` allocations and eight `String.includes` scans **per mesh**, with zero side effects
+when disabled — is now behind `if (enabled)`. What remains on the `false` path is O(1): a
+`components.get`, a `clipper.deleteAll()` on an empty clipper, a `views.close()`, and
+`_restoreCutFillVisibility()`, which iterates only the **saved** set and is empty when cut-fill was
+never enabled.
+
+⚠ **The log line survived the fix and now misleads.** It announces `Updating:` for a call that
+updates nothing, six times in a row, which is what made it a suspect in the first place. **Recorded
+as a correction, not as a finding.** Low-value follow-up: make the line conditional or say `no-op`.
+
+### L-5910 — §NAV-THE-EVIDENCE-NOBODY-CAN-REACH
+
+Two instruments existed for the founder's exact complaint, both correct, both unreachable from the
+protocol he is given:
+
+- `renderPipelineManager.getFrameSkipReport()` — names WHICH of `render()`'s ten early-return gates
+  declined a frame and **how many IN A ROW**. Its own header states the stakes: nothing else
+  repaints that canvas, so a declined frame is a **frozen viewport**, not a dropped post-FX pass.
+- `getZeroAreaSurfaceReport()` — built specifically to **survive** the driver's 255-line flood,
+  because *"a message that scrolled past at frame 3 of 40,000 is not a finding a human can
+  retrieve."*
+
+⛔ **Neither was printed by `window.pryzmPerf.report()`**, the one reading protocol this codebase
+publishes to him. That is how *"177 frame(s) were refused"* reached this lane as an anecdote copied
+out of a scrollback rather than as a retained count with its denominator — **months after the
+machinery to retain it shipped.** An instrument that requires knowing its own function name is one a
+LANE has, not one the FOUNDER has.
+
+Both are now a **VIEWPORT SUBMIT** section in `report()`. It measures nothing new. Two honesty rules
+were carried through rather than re-decided: **consecutive** skips lead (a view switch is *allowed*
+to decline frames; 600 in a row is a leak), and an **empty** zero-area report prints
+`—  NO SITE HAS RUN` rather than `0`, because the gate registers a site the first time it runs
+(§PERF-ZERO-IS-NOT-UNWRITTEN, L-1397).
+
+**Status: CLOSED in code** (`675b4565`). **NOT VERIFIED IN A BROWSER.**
+
+### L-5911 — `[PascalSceneLighting] Shadow flags set on 121 mesh(es)` repeating — NOT ROOT-CAUSED
+
+MEASURED from source (`PascalSceneLighting.ts:495-530`): the counter that produces `121` increments
+**only for meshes whose flags were not already set** — the guard is
+`if (!obj.castShadow || !obj.receiveShadow)`, and `count++` sits inside it.
+
+So a **repeating** `121` is not idempotent re-application being logged; it is 121 meshes arriving at
+this pass **unflagged, again**. And each pass is a full `scene.traverse` that calls
+`computeBoundingSphere()` on any mesh lacking one.
+
+⭐ **THE DISCRIMINATOR, so the founder can settle it in his own console without a lane:**
+- the number is **IDENTICAL** each time → something is CLEARING `castShadow` between passes and this
+  is a **flip-flop**: two owners fighting over the same flag, and the traverse is pure waste;
+- the number **VARIES** → geometry is still arriving, and the passes are legitimate progressive work.
+
+**Status: OPEN, NOT ROOT-CAUSED.** This lane refuses to name a cause it did not observe.
+
+### L-5912 — the mesh-multiplication verdict: the instrument is wired; the answer needs his console
+
+Carried in: *10.07 meshes/element, up from 5.9*. `logSceneCensusOnce` is wired and prints once per
+project load.
+
+⭐ **The scene-wide number decides nothing, and the tool already says so in its own output:** it is
+an AVERAGE. The answer is the top row of the `console.table` it prints beside it, sorted by forward
+draw cost, with `meshes/elem` per family — plus its `(unattributed)` row, which the tool correctly
+calls a FINDING rather than a rounding bucket (geometry carrying no `userData.elementType` cannot be
+hidden, isolated, selected by type, or reached by any per-family optimisation).
+
+⚠ **This lane did not and cannot rank the families.** Reading `[pryzmPerf] §NAV-MESH-PER-ELEMENT-CENSUS`
+off one project load answers it in one paste. **Stated as an unanswered question rather than
+estimated**, because 10.07 vs 5.9 is exactly the kind of ratio that invites an arithmetic story.
+
+### L-5913 — the two-backend ledger, and what this lane could NOT put in it
+
+The founder's constraint is binding: *"ideally for webGPU and webGL — both"*, and he is currently on
+`GPU: WebGL · webgl-only`.
+
+| what | WebGL | WebGPU |
+|---|---|---|
+| `[FrameProfiler] backend=` label | ✅ emitted | ✅ emitted |
+| `cpu=` vs `frame=` separated | ✅ | ✅ |
+| `overlay=` column | ✅ | ✅ |
+| VIEWPORT SUBMIT in `pryzmPerf.report()` | ✅ | ✅ |
+| **any measured frame time** | ⛔ **NOT MEASURED** | ⛔ **NOT MEASURED** |
+
+⛔ **Both columns of the row that matters are empty, and that is the honest state.** This lane has no
+browser and no GPU. Every instrument above is backend-symmetric **by construction** — none of them
+branches on the backend, all of them read the same two durations — but *"symmetric by construction"*
+is a property of the code, **not a measurement of either backend.**
+
+**The comparison is now takeable in two pastes, which it was not before:** set
+`__pryzmFrameProfile = true`, run the same orbit gesture on each backend, paste both
+`[FrameProfiler]` lines. `cpu` similar and `frame` much worse on one → GPU-side, and no bucket can
+explain it. `cpu` worse on one → main-thread, read the buckets.
+
+### L-5914 — HAND-OFF: root `tsc` is RED, and not from this lane
+
+MEASURED: `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=2**, one
+error:
+
+```
+apps/editor/src/engine/views/EdgeProjectorService.ts(1205,10): error TS6133:
+  '_levelStackVerticalBounds' is declared but its value is never read.
+```
+
+`EdgeProjectorService.ts` is **ELEV28's** owned file and its work is in flight. This lane's three
+commits add **no** typecheck error — verified by the error list being exactly this one line before
+and after. ⚠ **The tree was green at `b8a35abf` and is not now.** ELEV28 to close.
+
+### L-5915 — HAND-OFF to LOAD30: `tools/perf/bench-version-container.mjs`
+
+Left untracked by the interrupted predecessor. `tools/perf/**` is NAV29's owned path, so it was
+banked (`7c70d5e2`) to stop it being lost a second time — but its **subject** is
+`apps/editor/src/ui/platform/ProjectRepository.ts` + `VersionCacheStore.ts`, which is LOAD30's, and
+its `L-5801..L-5804` tags are in LOAD30's band, not NAV29's.
+
+⛔ **NAV29 claims no result from it.** It was not run, its transcription of the codec was not
+verified against the live one, and no ISSUE-LOG row is filed for its numbers. MEASURED: `node --check`
+→ RC=0; it parses, and that is all this lane establishes. **LOAD30: run it or delete it.**
