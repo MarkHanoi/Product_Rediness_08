@@ -35114,8 +35114,10 @@ L-4210), which cut `master` 12 → 8 m² and `bedroom` 11.5 → 7.5 m² after a 
 produced ZERO layouts with *"master 9.3 m² vs 12 m² minimum"*. That commit recorded the real defect —
 *"THIS TABLE HAS ONE COLUMN … Recorded, NOT solved: L-4211"* — and this lane is L-4211's answer.
 
-⚠ **L-4210 and L-4211 were cited in that commit message and NEVER WRITTEN HERE.**
-`grep -c "L-4210\|L-4211" docs/04-reference/ISSUE-LOG.md` → **0**. This block is also their record.
+⚠ **L-4210 and L-4211 were cited in that commit message and never written into this log.** Measured
+BEFORE this block was appended: `grep -c "L-4210\|L-4211" docs/04-reference/ISSUE-LOG.md` → **0**.
+(Re-running it now returns a non-zero count *because of this block* — which is the point: this block
+is also their record. Quoting the post-hoc number would be measuring my own edit.)
 
 **Eighteen findings. The first one outranks the feature.**
 
