@@ -188,9 +188,33 @@ export class PlatformShell {
         // and re-read before deciding to go to the server, so large-project history
         // reliably auto-restores after a reload.
         void warmVersionCache();
-        const localVersions = versionRepository.getVersions(id);
-        if (localVersions.length > 0) {
-            const latest = localVersions[localVersions.length - 1]!;
+        // §PERF-OPEN-NARROW-RESTORE (L-5810) — ⭐ THE PROJECT-OPEN COST, and it was
+        // paid for nothing.
+        //
+        // WAS `versionRepository.getVersions(id)` followed by
+        // `localVersions[localVersions.length - 1]` — a full inflate + JSON.parse of
+        // ALL 20 stored snapshots, synchronously, on the critical path of every
+        // project open, to use EXACTLY ONE of them. The other nineteen were parsed
+        // into `VersionRecord`s that were never read and immediately became garbage.
+        //
+        // `getLatestVersion()` (§PERF-VERSION-NARROW-READ, L-1300) has answered this
+        // exact question in ONE inflate since it was written; this call site was
+        // simply never migrated onto it. MEASURED (lane LOAD30, 2026-08-22,
+        // `node --expose-gc tools/perf/bench-version-container.mjs`, 20 versions /
+        // 37.5 MB container): **2231 ms → 78 ms (28.6×)** of synchronous
+        // main-thread block, removed from project open.
+        //
+        // ⭐ WHY IT IS SAFE TO SWITCH ONLY NOW. `getLatestVersion()` deliberately
+        // does NOT seed the per-version blob cache (it holds one id; seeding from it
+        // would make the next save believe the other nineteen needed re-deflating).
+        // Before §PERF-VERSION-ENVELOPE-WRITE (L-5801) the save path READ that cache,
+        // so a narrow open would have made the next SAVE O(history) — trading one
+        // freeze for another. The envelope writer now carries unchanged versions
+        // forward as bytes straight out of the STORED container, so the save no
+        // longer depends on the cache being warm. The read and the write had to move
+        // together, and this is the second half.
+        const latest = versionRepository.getLatestVersion(id);
+        if (latest) {
             console.log('[PlatformShell] Auto-restoring latest local version:', latest.label);
             this.versionCtrl.loadVersion(latest);
         } else if (opts?.isNewProject) {
@@ -227,8 +251,10 @@ export class PlatformShell {
             const warmAttempt: Promise<VersionRecord | null> = (!prefetched)
                 ? warmVersionCache().then(() => {
                     if (this.ctx.activeProjectId !== id) return null;
-                    const warmed = versionRepository.getVersions(id);
-                    return warmed.length > 0 ? warmed[warmed.length - 1]! : null;
+                    // §PERF-OPEN-NARROW-RESTORE (L-5810) — same one-record question,
+                    // same one-inflate answer. See the call site above for why the
+                    // blob-cache consequence is no longer a reason to decode all 20.
+                    return versionRepository.getLatestVersion(id);
                 }).catch(() => null)
                 : Promise.resolve(null);
             console.log('[PlatformShell] No local versions — clearing scene before data restore');
@@ -319,15 +345,18 @@ export class PlatformShell {
         } catch { /* non-fatal — fall through to a synchronous read */ }
         // The user may have switched projects while the warm was in flight.
         if (this.ctx.activeProjectId !== projectId) return false;
-        let local: VersionRecord[];
+        let latest: VersionRecord | null;
         try {
-            local = versionRepository.getVersions(projectId);
+            // §PERF-OPEN-NARROW-RESTORE (L-5810) — one record wanted, one inflate
+            // paid. This is the LAST-RESORT open path, so it runs when the user is
+            // already waiting on a failed server round-trip; decoding nineteen
+            // snapshots to discard them here was the worst place to do it.
+            latest = versionRepository.getLatestVersion(projectId);
         } catch (err) {
             console.warn('[PlatformShell] §FIX-PROJECT-OPEN-STREAMLOAD-FALLBACK — local read failed:', err);
             return false;
         }
-        if (local.length === 0) return false;
-        const latest = local[local.length - 1]!;
+        if (!latest) return false;
         console.log(
             '[PlatformShell] §FIX-PROJECT-OPEN-STREAMLOAD-FALLBACK — server had no version; ' +
             'restoring latest LOCAL version:', latest.label,

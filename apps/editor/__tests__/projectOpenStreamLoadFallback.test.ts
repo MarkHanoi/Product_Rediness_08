@@ -66,10 +66,20 @@ vi.mock('../src/ui/platform/PlatformProjectBrowser', () => ({
 }));
 
 // Controllable version repository + warm.
+//
+// §PERF-OPEN-NARROW-RESTORE (L-5810) — the fake exposes BOTH readers, and they are
+// derived from ONE seed. The open path stopped decoding all 20 stored snapshots to
+// use the last of them and now asks `getLatestVersion()`, which the real repository
+// answers in a single inflate. A fake that stubbed the two INDEPENDENTLY could be
+// seeded to disagree — and would then pass whichever reader the product happened to
+// call, proving nothing about the migration between them. Seeding `_seedLocal` once
+// and computing the narrow answer from it means the fixture cannot drift from the
+// behaviour it claims to model: "this project has a local version".
 vi.mock('../src/ui/platform/ProjectRepository', () => ({
     warmVersionCache: vi.fn().mockResolvedValue(undefined),
     versionRepository: {
         getVersions: vi.fn(),
+        getLatestVersion: vi.fn(),
         saveVersionWithMeta: vi.fn(),
     },
 }));
@@ -86,6 +96,17 @@ import type { VersionRecord } from '../src/ui/platform/PlatformShellTypes';
 
 const apiFetchMock = apiFetch as unknown as Mock;
 const getVersionsMock = versionRepository.getVersions as unknown as Mock;
+const getLatestVersionMock = versionRepository.getLatestVersion as unknown as Mock;
+
+/**
+ * Seed the local store ONCE; both readers answer from it consistently.
+ * `getLatestVersion()` returns the LAST record, which is precisely the contract the
+ * production call site relies on (storage order IS chronological order).
+ */
+function seedLocal(versions: VersionRecord[]): void {
+    getVersionsMock.mockReturnValue(versions);
+    getLatestVersionMock.mockReturnValue(versions.length > 0 ? versions[versions.length - 1]! : null);
+}
 
 function makeLocalVersion(projectId: string): VersionRecord {
     return {
@@ -131,6 +152,7 @@ describe('§FIX-PROJECT-OPEN-STREAMLOAD-FALLBACK — server-404 open falls back 
     beforeEach(() => {
         (globalThis as any).window = (globalThis as any).window ?? {};
         getVersionsMock.mockReset();
+        getLatestVersionMock.mockReset();
         apiFetchMock.mockReset();
     });
     afterEach(() => {
@@ -140,7 +162,7 @@ describe('§FIX-PROJECT-OPEN-STREAMLOAD-FALLBACK — server-404 open falls back 
 
     it('restores the latest LOCAL version when the server returns 404', async () => {
         const projectId = 'proj-only-local';
-        getVersionsMock.mockReturnValue([makeLocalVersion(projectId)]);
+        seedLocal([makeLocalVersion(projectId)]);
         apiFetchMock.mockResolvedValue({ ok: false, status: 404 });
 
         const { shell, loadVersion, emit } = makeShell(projectId);
@@ -160,7 +182,7 @@ describe('§FIX-PROJECT-OPEN-STREAMLOAD-FALLBACK — server-404 open falls back 
 
     it('opens empty only when the server 404s AND there is no local snapshot', async () => {
         const projectId = 'proj-nothing';
-        getVersionsMock.mockReturnValue([]);
+        seedLocal([]);
         apiFetchMock.mockResolvedValue({ ok: false, status: 404 });
 
         const { shell, loadVersion, emit } = makeShell(projectId);
@@ -175,7 +197,7 @@ describe('§FIX-PROJECT-OPEN-STREAMLOAD-FALLBACK — server-404 open falls back 
 
     it('falls back to local when the server response has {version:null}', async () => {
         const projectId = 'proj-null-version';
-        getVersionsMock.mockReturnValue([makeLocalVersion(projectId)]);
+        seedLocal([makeLocalVersion(projectId)]);
         apiFetchMock.mockResolvedValue({ ok: true, json: async () => ({ version: null }) });
 
         const { shell, loadVersion, emit } = makeShell(projectId);
@@ -190,7 +212,7 @@ describe('§FIX-PROJECT-OPEN-STREAMLOAD-FALLBACK — server-404 open falls back 
 
     it('still loads the SERVER version when one exists (no regression)', async () => {
         const projectId = 'proj-server';
-        getVersionsMock.mockReturnValue([]); // local empty — server must carry it
+        seedLocal([]); // local empty — server must carry it
         apiFetchMock.mockResolvedValue({
             ok: true,
             json: async () => ({
@@ -210,8 +232,12 @@ describe('§FIX-PROJECT-OPEN-STREAMLOAD-FALLBACK — server-404 open falls back 
         expect(loadVersion).toHaveBeenCalledTimes(1);
         const restored = loadVersion.mock.calls[0]![0] as VersionRecord;
         expect(restored.id).toBe('ver-server-1');
-        // getVersions must NOT have been consulted for a fallback (server won).
+        // NEITHER local reader may be consulted for a fallback (server won). Both
+        // are named: asserting only on `getVersions` would have gone quietly true
+        // the moment the product migrated to the narrow reader (L-5810), turning a
+        // real assertion into a vacuous one without a single test failing.
         expect(getVersionsMock).not.toHaveBeenCalled();
+        expect(getLatestVersionMock).not.toHaveBeenCalled();
         const emptyEmits = emit.mock.calls.filter(
             ([topic, payload]) => topic === 'pryzm-project-loaded' && (payload as any)?.empty === true,
         );
