@@ -47,6 +47,7 @@ import {
     scheduleToCsv,
     carbonToCsv,
     taskFinishDate,
+    deriveConstructionSequence,
     UNIT_LABEL,
     TAKEOFF_CHAPTERS,
     type TakeoffResult,
@@ -54,6 +55,9 @@ import {
     type ConstructionTask,
     type CarbonResult,
     type CarbonOverrideBook,
+    type LevelOrderEntry,
+    type SequencedActivity,
+    type DerivedConstructionSequence,
 } from '@pryzm/core-app-model';
 import type { MaterialCarbonFacts } from '@pryzm/schemas/materials';
 // The scrubber asks "built by the END of this day?", so it must use the ONE
@@ -86,8 +90,29 @@ interface WindowLike {
             applyToScene?: (root: unknown, elementIds: readonly string[]) => { matched: number; hidden: number };
         };
     };
+    /* §CONSTRUCTABILITY-SEQUENCE (L-4842) — the level ELEVATIONS. The sequence
+       engine will not infer a storey order from a level NAME, so the order has
+       to be read from the one place that holds it. Absent ⇒ the engine says the
+       order is UNKNOWN and omits the structure-follows-structure dependency —
+       ABSENT, not satisfied. */
+    bimManager?: { getLevels?: () => Array<{ id?: string; name?: string; elevation?: number }> };
 }
 const win = (): WindowLike => window as unknown as WindowLike;
+
+/**
+ * Read the level order, or return NOTHING. ⛔ There is no fallback ordering here:
+ * a guessed storey order would put a slab under a wall it carries.
+ */
+function readLevelOrder(): LevelOrderEntry[] {
+    try {
+        const raw = win().bimManager?.getLevels?.() ?? [];
+        return raw
+            .filter((l) => typeof l?.id === 'string' && Number.isFinite(l?.elevation))
+            .map((l) => ({ levelId: l.id as string, name: l.name || (l.id as string), elevation: l.elevation as number }));
+    } catch {
+        return [];
+    }
+}
 
 // ── Local presentation constants (see the file header for why they are local) ──
 
@@ -236,6 +261,14 @@ function renderTime(panel: HTMLElement, runtime: Runtime): void {
     const atIso = new Date(atMs).toISOString().slice(0, 10);
     const state = scheduleStateAt(schedule, takeoff, atMs);
 
+    // §CONSTRUCTABILITY-SEQUENCE (L-4840) — the ORDER, derived. Recomputed on
+    // every render for the same reason the take-off is: a stale programme is
+    // worse than an absent one, because both are signable.
+    const sequence = deriveConstructionSequence(takeoff, readLevelOrder());
+    const adoptedActivityIds = new Set(
+        schedule.tasks.map((t) => t.notes ?? '').filter((n) => n.startsWith('activity:')).map((n) => n.slice(9)),
+    );
+
     const chapterOptions = TAKEOFF_CHAPTERS
         .map((c) => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.label)}</option>`).join('');
 
@@ -307,6 +340,8 @@ function renderTime(panel: HTMLElement, runtime: Runtime): void {
                         </div>
                     </section>`}
 
+                ${sequenceSection(sequence, takeoff, adoptedActivityIds)}
+
                 <section style="margin-bottom:18px;">
                     <h4 style="margin:0 0 8px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--app-text);">Add a task</h4>
                     ${openLines.length === 0 && takeoff.lines.length > 0 ? `
@@ -352,6 +387,192 @@ function renderTime(panel: HTMLElement, runtime: Runtime): void {
         </div>`;
 
     bindTime(panel, runtime, takeoff, schedule, state, totalDays);
+    bindSequence(panel, runtime, takeoff, schedule, sequence);
+}
+
+/**
+ * §CONSTRUCTABILITY-SEQUENCE (L-4840) — adopting a derived activity as a real task.
+ *
+ * ⛔ THE DURATION IS DEMANDED, NOT DEFAULTED, AND THE REFUSAL SAYS WHY. This is
+ * the exact branch ADR-0351 protects: a lane implementing "give me an estimate"
+ * is under maximum pressure to put a plausible number in this field. It does not,
+ * and the message names what PRYZM would have had to invent.
+ *
+ * The adopted task records `notes: 'activity:<id>'` so the panel can show which
+ * activities have been taken up — a derived read model and a stored task must not
+ * be confused, and this is the one thread between them.
+ */
+function bindSequence(
+    panel: HTMLElement,
+    runtime: Runtime,
+    takeoff: TakeoffResult,
+    schedule: ConstructionSchedule,
+    sequence: DerivedConstructionSequence,
+): void {
+    panel.querySelectorAll<HTMLButtonElement>('[data-seq-adopt]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const id = btn.dataset.seqAdopt!;
+            const activity = sequence.activities.find((a) => a.id === id);
+            if (!activity) return;
+            const daysInput = panel.querySelector<HTMLInputElement>(`[data-seq-days="${CSS.escape(id)}"]`);
+            const raw = daysInput?.value.trim() ?? '';
+            if (raw === '') {
+                alert(
+                    'Enter a duration in calendar days for this activity.\n\n'
+                    + 'PRYZM derived the ORDER and the DEPENDENCIES from your model — those rest on no number. '
+                    + 'A DURATION rests on an output rate (m²/day), PRYZM ships none, and a figure it could not '
+                    + 'cite would turn this programme into a drawing with dates on it.',
+                );
+                daysInput?.focus();
+                return;
+            }
+            const days = Number(raw);
+            if (!Number.isFinite(days) || days < 1 || Math.round(days) !== days) {
+                alert('Duration must be a whole number of calendar days, at least 1.');
+                return;
+            }
+            const b = bindingForActivity(activity, takeoff);
+            const task: ConstructionTask = {
+                id: `task-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+                name: `${activity.stageLabel} — ${activity.levelName}`,
+                chapter: undefined,
+                startDate: new Date().toISOString().slice(0, 10),
+                durationDays: days,
+                // ⭐ TRUE AT THE MOMENT IT IS WRITTEN: the user just typed it.
+                durationSource: 'USER_ENTERED',
+                lineCodes: b.lineCodes,
+                elementIds: b.elementIds,
+                // `dependsOn` carries the DERIVED order. ⚠ It is still RECORDED,
+                // NOT SOLVED (ADR-0351 §8 4D-3): moving a predecessor moves
+                // nothing, because with no durations there is nothing to pass
+                // forward. What changed is only that the dependency is now
+                // derived rather than hand-typed.
+                dependsOn: [],
+                notes: `activity:${activity.id}`,
+            };
+            saveSchedule(runtime, { version: 1, tasks: [...schedule.tasks, task] });
+            renderTime(panel, runtime);
+        });
+    });
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 4D — THE DERIVED SEQUENCE (§CONSTRUCTABILITY-SEQUENCE, L-4840, ADR-0353 §3)
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// ⭐ WHAT THIS SECTION IS, AND WHAT THE PANEL ABOVE IT STILL REFUSES.
+// Founder, 2026-08-22: "you know how a project starts being built — so you could
+// create an algorithm that checks the elements, levels and constructability, and
+// based on this we should provide the estimate."
+//
+// The ORDER is derived and shown here. The DURATION is not, and the panel's
+// existing sentence about output rates is UNCHANGED, because it is still true:
+// PRYZM has no m²/day figure and will not invent one. Each activity therefore
+// reads `—` where a duration would be, with the reason beside it. That is
+// strictly more than the blank programme this tab had before — the user gets the
+// order, the dependencies and the quantities, and types the one number only they
+// can source.
+//
+// ⛔ NOTHING HERE WRITES A TASK BY ITSELF. Adopting an activity is an explicit
+// click that REQUIRES the user to type days first, so `durationSource:
+// 'USER_ENTERED'` stays true at the moment it is written.
+
+/**
+ * How an adopted task should be bound to the model.
+ *
+ * ⭐ THE HONEST SPLIT. A `ConstructionTask` joins by take-off LINE CODE, which
+ * survives a delete-and-redraw. But an activity is per LEVEL and a line is NOT —
+ * one `WALL.blockwork.200` line covers every storey — so a line code can only be
+ * used when every element behind it is on THIS activity's level. Where it is
+ * not, the task falls back to explicit `elementIds`, which do NOT survive a
+ * redraw, and the panel SAYS SO on the button rather than letting the user find
+ * out when their programme silently empties.
+ */
+function bindingForActivity(
+    activity: SequencedActivity,
+    takeoff: TakeoffResult,
+): { lineCodes: string[]; elementIds: string[]; tracksModel: boolean } {
+    const lineCodes: string[] = [];
+    const elementIds: string[] = [];
+    for (const code of activity.lineCodes) {
+        const line = takeoff.lines.find((l) => l.code === code);
+        if (!line) continue;
+        const spansOtherLevels = line.contributions.some(
+            (c) => (c.levelId ?? ' NO-LEVEL') !== activity.levelId,
+        );
+        if (spansOtherLevels) {
+            for (const c of line.contributions) {
+                if ((c.levelId ?? ' NO-LEVEL') === activity.levelId) elementIds.push(c.elementId);
+            }
+        } else {
+            lineCodes.push(code);
+        }
+    }
+    return { lineCodes, elementIds, tracksModel: elementIds.length === 0 };
+}
+
+/** One derived activity, with its dependencies, its quantities and its absent duration. */
+function activityCard(a: SequencedActivity, takeoff: TakeoffResult, alreadyAdopted: boolean): string {
+    const b = bindingForActivity(a, takeoff);
+    const inputCss = 'padding:4px 6px;border:1px solid var(--app-border);border-radius:6px;font-size:10.5px;background:#fff;color:var(--app-text);';
+    return `
+        <article style="padding:9px 11px;border:1px solid ${a.measuredNothing ? 'rgba(179,38,30,.4)' : 'var(--app-border)'};border-radius:9px;background:var(--app-panel-bg);">
+            <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;">
+                <div style="flex:2;min-width:230px;">
+                    <div style="display:flex;gap:7px;align-items:baseline;flex-wrap:wrap;">
+                        <span style="font-size:9px;font-weight:800;color:var(--app-accent);background:rgba(102,0,255,.10);border-radius:99px;padding:2px 7px;white-space:nowrap;">${a.rank}</span>
+                        <span style="font-size:12px;font-weight:700;color:var(--app-text);">${escapeHtml(a.stageLabel)}</span>
+                        <span style="font-size:10px;color:var(--app-text-muted);">${escapeHtml(a.levelName)}</span>
+                        ${a.measuredNothing ? '<span style="font-size:9px;font-weight:800;color:#B3261E;background:rgba(179,38,30,.10);border-radius:99px;padding:2px 7px;">MEASURES NOTHING</span>' : `<span style="font-size:9px;color:var(--app-text-muted);background:var(--app-bg);border:1px solid var(--app-border);border-radius:99px;padding:1px 7px;">${a.elementIds.length} element${a.elementIds.length === 1 ? '' : 's'}</span>`}
+                    </div>
+                    ${a.quantities.length > 0 ? `
+                        <div style="margin-top:5px;font-size:9.5px;line-height:1.6;color:var(--app-text-muted);white-space:normal;overflow-wrap:break-word;">
+                            builds ${a.quantities.map((q) => `<strong>${escapeHtml(fmt(q.quantity))} ${escapeHtml(UNIT_LABEL[q.unit])}</strong> ${escapeHtml(q.description)}`).join(' · ')}
+                        </div>` : ''}
+                    ${a.dependsOn.length > 0 ? `
+                        <details style="margin-top:5px;">
+                            <summary style="font-size:9.5px;color:var(--app-accent);cursor:pointer;">follows ${a.dependsOn.length} activit${a.dependsOn.length === 1 ? 'y' : 'ies'} — why</summary>
+                            <div style="margin-top:4px;font-size:9.5px;line-height:1.6;color:var(--app-text-muted);white-space:normal;overflow-wrap:break-word;">
+                                ${a.dependsOn.map((d, i) => `<div style="margin-bottom:3px;"><code style="font-size:8.5px;">${escapeHtml(d)}</code> — ${escapeHtml(a.dependencyReasons[i] ?? '')}</div>`).join('')}
+                            </div>
+                        </details>` : ''}
+                    ${a.note ? `<div style="margin-top:5px;font-size:9.5px;line-height:1.55;color:#8A6100;white-space:normal;overflow-wrap:break-word;">⚠ ${escapeHtml(a.note)}</div>` : ''}
+                </div>
+                <div style="text-align:right;min-width:150px;max-width:230px;">
+                    <div style="font-size:9px;color:var(--app-text-muted);">duration</div>
+                    <div style="font-size:20px;font-weight:800;color:#B3261E;line-height:1;">—</div>
+                    <div style="font-size:8.5px;line-height:1.5;color:var(--app-text-muted);margin-top:4px;text-align:left;white-space:normal;overflow-wrap:break-word;">${escapeHtml(a.durationNote)}</div>
+                    ${a.measuredNothing ? '' : `
+                        <div style="margin-top:7px;display:flex;gap:5px;align-items:center;justify-content:flex-end;flex-wrap:wrap;">
+                            <input data-seq-days="${escapeHtml(a.id)}" type="number" min="1" step="1" placeholder="days" style="width:66px;${inputCss}"/>
+                            <button type="button" class="dw-toolbar-btn" data-seq-adopt="${escapeHtml(a.id)}" title="Create a task from this activity. You must type the duration — PRYZM has none to offer.">${alreadyAdopted ? 'Adopt again' : 'Adopt as task'}</button>
+                        </div>
+                        <div style="margin-top:4px;font-size:8.5px;line-height:1.5;color:${b.tracksModel ? 'var(--app-text-muted)' : '#8A6100'};text-align:left;white-space:normal;overflow-wrap:break-word;">
+                            ${b.tracksModel
+                                ? 'Adopted by LINE CODE: draw more of this and it is already scheduled.'
+                                : '⚠ Adopted by ELEMENT ID, because the take-off line behind this activity spans more than one storey and there is no per-level line code. This task will NOT follow a delete-and-redraw of those elements.'}
+                        </div>`}
+                </div>
+            </div>
+        </article>`;
+}
+
+/** The whole derived-sequence section, including its refusal statement. */
+function sequenceSection(seq: DerivedConstructionSequence, takeoff: TakeoffResult, adopted: ReadonlySet<string>): string {
+    return `
+        <section style="margin-bottom:18px;">
+            <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding-bottom:6px;border-bottom:2px solid var(--app-accent);margin-bottom:8px;">
+                <h4 style="margin:0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--app-text);">Derived build sequence</h4>
+                <span style="font-size:10px;color:var(--app-text-muted);font-style:italic;">Secuencia constructiva</span>
+                <span style="margin-left:auto;font-size:10px;color:var(--app-text-muted);">${seq.activities.length} activities</span>
+            </div>
+            <div style="font-size:10.5px;line-height:1.65;color:var(--app-text);margin-bottom:10px;padding:9px 11px;border:1px solid var(--app-accent);border-radius:9px;background:rgba(102,0,255,.05);white-space:normal;overflow-wrap:break-word;">
+                ${escapeHtml(seq.coverageStatement)}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px;">
+                ${seq.activities.map((a) => activityCard(a, takeoff, adopted.has(a.id))).join('')}
+            </div>
+        </section>`;
 }
 
 /**
@@ -710,15 +931,31 @@ function lineBlock(carbon: CarbonResult): string {
                     </article>`).join('')}
             </div>
             ${unattributed.length === 0 ? '' : `
-                <details style="margin-top:10px;">
+                <details style="margin-top:10px;" open>
                     <summary style="font-size:10.5px;color:var(--app-accent);cursor:pointer;">
-                        ${unattributed.length} take-off line${unattributed.length === 1 ? '' : 's'} name no material at all
+                        ${unattributed.length} take-off line${unattributed.length === 1 ? '' : 's'} name no material at all — and each says why
                     </summary>
-                    <div style="margin-top:6px;font-size:10px;line-height:1.65;color:var(--app-text-muted);">
+                    <div style="margin-top:6px;font-size:10px;line-height:1.65;color:var(--app-text-muted);white-space:normal;overflow-wrap:break-word;">
                         These carry real quantities but no material reference, so carbon cannot even be <em>asked</em> about them —
                         a different gap from “no factor”, and fixed differently (tag the element, don't hunt for a factor).
-                        <div style="margin-top:5px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:9px;word-break:break-all;">
-                            ${unattributed.map((l) => escapeHtml(l.line.code)).join('  ')}
+                        <!-- §MATERIAL-ATTRIBUTION-REASONS (L-4820). This block used to print a
+                             list of bare line codes. A code names WHICH line is unattributed and
+                             nothing about WHY, so the user was told there was a problem and given
+                             no way to act on it — which is why it now prints the reason the
+                             take-off itself recorded, per line. The four causes have four
+                             different fixes and only the take-off knows which applies. -->
+                        <div style="margin-top:7px;display:flex;flex-direction:column;gap:5px;">
+                            ${unattributed.map((l) => `
+                                <div style="padding:7px 9px;border:1px solid var(--app-border);border-radius:7px;background:var(--app-panel-bg);">
+                                    <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">
+                                        <code style="font-size:9px;font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--app-text);word-break:break-all;">${escapeHtml(l.line.code)}</code>
+                                        <span style="font-size:9.5px;color:var(--app-text-muted);">${escapeHtml(fmt(l.unmeasuredVolumeM3))} m³ unattributed</span>
+                                        ${NOT_MEASURED_BADGE}
+                                    </div>
+                                    <div style="margin-top:4px;font-size:9.5px;line-height:1.55;color:#8A6100;white-space:normal;overflow-wrap:break-word;">
+                                        ${escapeHtml(l.line.materialGap ?? 'The take-off recorded no reason. That is itself a defect — §MATERIAL-ATTRIBUTION-REASONS requires one, and everyUnattributedLineStatesItsReason() should have caught it.')}
+                                    </div>
+                                </div>`).join('')}
                         </div>
                     </div>
                 </details>`}

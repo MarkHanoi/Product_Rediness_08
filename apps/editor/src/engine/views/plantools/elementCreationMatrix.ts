@@ -222,6 +222,57 @@ const STAIR_SHAPES: readonly CreationMode[] = [
  * Ordering: the slab family first (this agent's subject), then the rest.
  */
 export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
+    // ── Landscape ────────────────────────────────────────────────────────────
+    {
+        tool: 'pool', label: 'Swimming pool',
+        // §FIX-POOL-UNREACHABLE (founder, 2026-08-22) — L-5210..L-5216.
+        //
+        //   "there is an element called swimming pool that at least is not able to
+        //    access via UI ... on creation it should have, like the wall: linear,
+        //    ortho — but also circular, ellipse, rectangular shape creation
+        //    options."
+        //
+        // ⚠ PLAN ONLY, AND THIS ROW SAYS SO RATHER THAN CLAIMING BOTH.
+        // The plan arm is real: `PoolPlanToolHandler` is in the shared plan registry,
+        // so BOTH plan surfaces have it. There is no `pool` key in
+        // `TOOL_MANAGER_TOOL_KEYS` and this row does not pretend otherwise — the spec
+        // below asserts the negative as hard as the positive, so a declared-but-absent
+        // 3-D arm fails by name. Declaring `'3d'` here to look complete is precisely
+        // the C84 EI-3 defect (a capability offered that the pipeline cannot serve),
+        // and it is the shape of the founder's "Create Stair" report: a control that
+        // reported activation and activated nothing.
+        views: ['plan'],
+        modes: [
+            // The founder's "like the wall: linear, ortho" — the SAME three constants
+            // every boundary-drawing tool spreads, so parity is by construction.
+            ...WALL_DRAW_MODES,
+            // ...and "circular, ellipse, rectangular". ⭐ Ids match `BoundaryLoopMode`
+            // in @pryzm/geometry-slab — the module that turns each mode into real
+            // vertices — so the strip cannot offer a shape the generator does not
+            // implement. Same ids, same generator, same keys as the slab/floor/ceiling
+            // rows above; no sixth private shape picker is minted for the pool.
+            //
+            // ⭐ SPELLED `rectangular`, NOT `rectangle`. The slab family carries both
+            // spellings for historic reasons and pays for it in a mapping ladder
+            // (L-1322). The pool starts on the canonical side and so has nothing to
+            // reconcile later (C84 EI-8 — one vocabulary per concept).
+            { id: 'rectangular', key: 'Q', label: 'Rectangular', description: 'Closed pool outline from two opposite corners' },
+            { id: 'circular',    key: 'I', label: 'Circular',    description: 'Closed pool outline from centre and rim' },
+            { id: 'elliptical',  key: 'E', label: 'Elliptical',  description: 'Closed pool outline from centre and bounding corner' },
+        ],
+        // No AUTO. A pool is not derivable from a room or a wall loop — the architect
+        // decides where it goes. "Not applicable" and "not implemented" are different
+        // answers (this file's own rule), and this is the former.
+        autoIn: [],
+        modeSource: 'shared', // activePoolDrawMode.ts
+        gap: 'No 3-D arm yet: `TOOL_MANAGER_TOOL_KEYS` has no `pool` key, so the tool '
+           + 'cannot be armed from the 3-D viewport. NOT a missing handler — `pool.create` '
+           + 'is fully dispatchable (L-5200) and the plan arm drives it. Adding the 3-D arm '
+           + 'means a `ToolManager` activator, which lane PERF13 owns; handed over in L-5214. '
+           + 'The activator id `pool` is already registered in PluginRegistry so '
+           + 'check-tool-activator-coverage ARM A stays at 0.',
+    },
+
     // ── The slab family ──────────────────────────────────────────────────────
     {
         tool: 'slab', label: 'Slab',

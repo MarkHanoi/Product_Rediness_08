@@ -161,6 +161,10 @@ describe('§SHELL-FLOAT-BUDGET — ARM B: every enrolled bar is really enrolled'
     ['platform-shell/workspaceModeBar.ts', '.wmb-toplevel-wrapper'],
     ['drawingHuds.ts', '.bam-container'],
     ['drawingHuds.ts', '.wdh-bar'],
+    // §SITE-VIEW-QUICK-TOGGLE (L-5110) — the founder's top-centre 3D globe / 3D site
+    // bar. Enrolled IN LOCK-STEP with the file that creates it, never afterwards: a
+    // new centred bar that is not in this table is exactly what ARM D exists to catch.
+    ['siteViewQuickToggle.ts', '.svq-bar'],
     ['drawingHuds.ts', '.sth-bar'],
     ['drawingHuds.ts', '.bsp-overlay'],
     ['drawingHuds.ts', '.stsp-panel'],

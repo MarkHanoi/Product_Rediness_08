@@ -203,7 +203,7 @@ export interface LevelOrderEntry {
 }
 
 /** The special bucket for elements that name no level. Never merged into a real one. */
-export const NO_LEVEL = ' NO-LEVEL';
+export const NO_LEVEL = '\u0000NO-LEVEL';
 
 // ── The activity ──────────────────────────────────────────────────────────────
 

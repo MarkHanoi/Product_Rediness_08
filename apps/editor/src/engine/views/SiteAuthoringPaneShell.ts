@@ -17,6 +17,14 @@ import { EMPTY_LR_LAYOUT, LEFT_PANE, RIGHT_PANE, type PaneId } from './paneViewM
 import { PaneHost, MultiPaneController } from './PaneHost';
 import { PaneLayoutStore } from './paneLayoutStore';
 import { mountPaneViewPicker, type PaneViewPickerHandle } from './PaneViewPicker';
+// §SITE-VIEW-QUICK-TOGGLE (L-5110) — the founder's top-centre 3D globe / 3D site
+// control. It is SHELL chrome (fixed, budgeted on the canvas region), not pane chrome,
+// which is why it mounts beside the panes rather than inside one. It shares the SAME
+// store as the pickers below — there is no second write path.
+import {
+    mountSiteViewQuickToggle,
+    type SiteViewQuickToggleHandle,
+} from './SiteViewQuickToggle';
 
 /** The shell handle: pane elements, the store (the ONE write path), and disposal. */
 export interface SiteAuthoringPaneShell {
@@ -221,6 +229,30 @@ export function mountSiteAuthoringPaneShell(
         );
     }
 
+    // ── §SITE-VIEW-QUICK-TOGGLE (L-5110..L-5117) — the top-centre shortcut ──────
+    //
+    // Founder: "we don't really need this 3D Site button on the top-right corner
+    // (almost hidden) … a button 3D globe / 3D site in the middle top would be
+    // beneficial."
+    //
+    // ⛔ It is mounted IN ADDITION to the pickers above, never instead of them. Four
+    // of the pane menu's six entries are disabled WITH REASONS (C59 Phase 2's
+    // disable-or-explain rule) and those refusals are real information about Phase 3
+    // work; a shortcut bar is not a licence to delete them.
+    //
+    // It reads and writes the SAME `store`, so a change made from either surface
+    // repaints the other — the two cannot disagree about which view is where.
+    //
+    // Gated on the same `viewPicker` flag: a test asking for bare geometry wants no
+    // chrome at all, and splitting the flag would let one arrive without the other.
+    const quickToggle: SiteViewQuickToggleHandle | null =
+        opts.viewPicker !== false
+            ? mountSiteViewQuickToggle({
+                store,
+                mountableKinds: () => controller.registeredKinds?.() ?? null,
+            })
+            : null;
+
     let disposed = false;
     const dispose = (): void => {
         if (disposed) return;
@@ -233,6 +265,7 @@ export function mountSiteAuthoringPaneShell(
         for (const p of pickers) {
             try { p.dispose(); } catch { /* chrome already gone */ }
         }
+        try { quickToggle?.dispose(); } catch { /* chrome already gone */ }
         // Detach both hosted renderers before removing the DOM (the mounters re-home
         // their singleton — e.g. Cesium back to #container — on unmount).
         leftHost.unmount();

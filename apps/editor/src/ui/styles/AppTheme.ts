@@ -63,6 +63,9 @@ import { LEFT_NAV_RAIL_STYLES } from './panels/leftNavRail';
 import { SEL_OVERLAY_STYLES } from './panels/selectionOverlay';
 import { OOP_STYLES } from './panels/operationOverlay';
 import { SPLIT_VIEW_STYLES } from './panels/splitView';
+// §SITE-VIEW-QUICK-TOGGLE (L-5110) — the top-centre 3D globe / 3D site bar.
+// Enrolled in §SHELL-FLOAT-BUDGET (C06 §15); see the sheet's header.
+import { SITE_VIEW_QUICK_TOGGLE_STYLES } from './panels/siteViewQuickToggle';
 import { CANVAS_OVERLAYS_STYLES } from './panels/canvasOverlays';
 import { DISCIPLINE_ACCORDION_STYLES } from './panels/disciplineAccordion';
 import { DOCKING_SYSTEM_STYLES, VIEW_CUBE_STYLES } from './panels/dockingSystem';
@@ -206,6 +209,7 @@ export function injectAppTheme(): void {
         + SEL_OVERLAY_STYLES
         + OOP_STYLES
         + SPLIT_VIEW_STYLES
+        + SITE_VIEW_QUICK_TOGGLE_STYLES
         + CANVAS_OVERLAYS_STYLES
         + VIEW_PROPERTIES_PANEL_STYLES
         + DOOR_SECTION_STYLES

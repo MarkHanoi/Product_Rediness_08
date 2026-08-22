@@ -34,6 +34,9 @@ import { LinearDimPlanToolHandler }    from './LinearDimPlanToolHandler';
 import { DoorPlanToolHandler }         from './DoorPlanToolHandler';
 import { WindowPlanToolHandler }       from './WindowPlanToolHandler';
 import { SlabPlanToolHandler }         from './SlabPlanToolHandler';
+// §FIX-POOL-UNREACHABLE (L-5210) — the plan route that makes a swimming pool
+// reachable. Registered after slab because a pool is CUT INTO one.
+import { PoolPlanToolHandler }         from './PoolPlanToolHandler';
 import { StairPlanToolHandler }        from './StairPlanToolHandler';
 import { StairPathPlanToolHandler }    from './StairPathPlanToolHandler';
 import { BeamPlanToolHandler }         from './BeamPlanToolHandler';
@@ -77,7 +80,7 @@ const _registryTracer = trace.getTracer('@pryzm/editor.plan-tool-registry', '0.1
 
 /** The canonical, ordered list of every plan-view tool key. */
 export const PLAN_TOOL_KEYS = [
-    'wall', 'room', 'column', 'linear-dim', 'door', 'window', 'slab', 'stair',
+    'wall', 'room', 'column', 'linear-dim', 'door', 'window', 'slab', 'pool', 'stair',
     'stair-path', 'beam', 'roof', 'curtain-wall', 'ceiling', 'floor', 'railing',
     'furniture', 'lighting', 'plumbing', 'opening', 'grid', 'section-mark',
     'elevation-mark', 'move', 'rotate', 'align', 'copy-place', 'text-note', 'element-tag',
@@ -107,6 +110,11 @@ export function createPlanToolHandlers(): Record<string, PlanToolHandler> {
                 'door':               new DoorPlanToolHandler(),
                 'window':             new WindowPlanToolHandler(),
                 'slab':               new SlabPlanToolHandler(),
+                // §FIX-POOL-UNREACHABLE (L-5210) — a pool is an ASSEMBLY cut INTO a
+                // slab, so it sits next to the slab here. Registering it in this
+                // shared factory is what gives BOTH plan surfaces the tool at once
+                // (the L-73 parity guarantee) rather than only the main overlay.
+                'pool':               new PoolPlanToolHandler(),
                 'stair':              new StairPlanToolHandler(),
                 'stair-path':         new StairPathPlanToolHandler(),
                 'beam':               new BeamPlanToolHandler(),

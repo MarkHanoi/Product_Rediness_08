@@ -11,7 +11,28 @@ export const WALL_DRAWING_HUD_STYLES = `
        panel whenever a draw tool was armed. */
     .wdh-bar {
         position: fixed;
-        top: 68px;
+        /* §MODE-STRIP-CLEARS-BAND (L-5120) — founder: "push the MODE panel slightly
+           UP; the mode strip is clipped at the top edge."
+
+           This was a hand-picked 68px. It is now DERIVED from the same published
+           band the rest of the shell clears: 6px row offset + --shell-topbar-h
+           (36px) + one 8px gutter = 50px, i.e. 18px higher, and it MOVES WITH THE
+           BAND instead of drifting the next time the band grows. C06 §15.6 is
+           explicit that a bar at the top of the canvas must clear the band and
+           that the band can grow — L-4030's whole cause was a bar growing under
+           bars that had hand-picked their own clearance.
+
+           ⚠ It now shares y-space with .ceb-bar (top: 56px, 30px buttons). They
+           are not co-visible in normal use — .ceb-bar is the SELECTION toolbar and
+           is opacity:0 / pointer-events:none until something is selected, while
+           this strip is up during DRAWING — and .wdh-bar's z-index (9500) already
+           sits above .ceb-bar's (8990), so the mode strip wins where they do meet.
+           They overlapped at 68px too; this does not create the condition.
+
+           ⛔ NOT VERIFIABLE WITHOUT A BROWSER. Falsified in one look: start the
+           wall tool and check the strip sits clear of the top bar with a visible
+           gap and nothing clipped. */
+        top: calc(6px + var(--shell-topbar-h, 36px) + 8px);
         left: var(--shell-canvas-cx, 50%);
         transform: translateX(-50%);
         z-index: 9500;

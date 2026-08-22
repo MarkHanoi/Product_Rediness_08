@@ -40,13 +40,20 @@ import {
     parseRateCsv,
     UNIT_LABEL,
     TAKEOFF_CHAPTERS,
+    resolveRegionalRates,
+    RATE_SOURCE_CANDIDATES,
+    SHIPPED_REGIONAL_RATE_COUNT,
     type TakeoffResult,
     type TakeoffLine,
     type RateEntry,
     type RateBook,
+    type LineEstimate,
 } from '@pryzm/core-app-model';
 import { withHandlerSpan } from '@pryzm/plugin-sdk';
 import { escapeHtml } from './DWHelpers';
+// §REGIONAL-COST-ESTIMATE (L-4832) — the composition surface where the parcel's
+// geolocation becomes a cost jurisdiction, through the ONE existing resolver.
+import { currentCostJurisdiction, costJurisdictionDiagLine } from './resolveCostJurisdiction';
 
 type Runtime = import('@pryzm/runtime-composer/types').PryzmRuntime | null;
 
@@ -170,12 +177,87 @@ function qualifierBlock(line: TakeoffLine): string {
     </div>`;
 }
 
-/** The element-id disclosure — this is what makes a row checkable. */
-function traceBlock(line: TakeoffLine): string {
+/**
+ * §TAKEOFF-DESGLOSE (L-4800) — the per-element breakdown.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⭐ WHAT THIS REPLACED, AND WHY IT WAS UNUSABLE
+ * ─────────────────────────────────────────────────────────────────────────────
+ * This block used to render `line.elementIds.join('  ')` — for a real project,
+ * 124 raw UUIDs in one unbroken monospace paragraph inside a 110 px scroller.
+ * Every id was correct and none of them were checkable: the reader could see
+ * WHICH elements were measured and nothing about WHAT any of them measured, so a
+ * total that looked wrong could not be attributed to an element.
+ *
+ * A *medición* is signed line by line and then checked row by row. This IS the
+ * row level: mark, type/label, level, the element's own measured quantity, and
+ * the per-element note when that element was measured approximately.
+ *
+ * ⛔ THE FOOTER STATES THE SUM AND THE LINE TOTAL SIDE BY SIDE. They are equal by
+ * construction (`TakeoffLine.quantity` is derived from these rows), and printing
+ * both is what makes that checkable rather than merely asserted.
+ *
+ * ⚠ NO `text-overflow: ellipsis` ANYWHERE IN THIS TABLE. A CSS ellipsis on a card
+ * title destroyed a user-facing disclosure in this product earlier today; the
+ * cells here WRAP (`word-break` on the id column, normal wrapping on the note),
+ * because a truncated reason is a hidden one.
+ */
+function desgloseBlock(line: TakeoffLine): string {
+    const rows = line.contributions;
+    const sum = rows.reduce((a, c) => a + c.quantity, 0);
+    const cell = 'padding:3px 6px;border-bottom:1px solid var(--app-border-light);vertical-align:top;';
+    const head = 'padding:3px 6px;font-size:8.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--app-text-muted);text-align:left;border-bottom:1px solid var(--app-border);position:sticky;top:0;background:var(--app-panel-bg);';
+    // "NO MARK" / "NO LEVEL" are printed as words, not as a dash. A dash reads as
+    // decoration; the words say that the element states nothing, which is the
+    // fact a quantity surveyor needs in order to know it cannot cross-reference
+    // this row to a drawing.
+    const absent = (v: string | null, word: string): string =>
+        v ? escapeHtml(v) : `<span style="color:#B3261E;font-size:8.5px;font-weight:700;">${word}</span>`;
     return `<details style="margin-top:5px;">
-        <summary style="font-size:9.5px;color:var(--app-accent);cursor:pointer;">${line.elementIds.length} element${line.elementIds.length === 1 ? '' : 's'} measured</summary>
-        <div style="margin-top:4px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:9px;line-height:1.6;color:var(--app-text-muted);word-break:break-all;max-height:110px;overflow:auto;">${escapeHtml(line.elementIds.join('  '))}</div>
+        <summary style="font-size:9.5px;color:var(--app-accent);cursor:pointer;">Desglose — ${rows.length} element${rows.length === 1 ? '' : 's'} measured</summary>
+        <div style="margin-top:4px;max-height:260px;overflow:auto;border:1px solid var(--app-border);border-radius:7px;">
+            <table style="width:100%;border-collapse:collapse;font-size:9.5px;line-height:1.5;color:var(--app-text);table-layout:fixed;">
+                <thead><tr>
+                    <th style="${head}width:15%;">Mark</th>
+                    <th style="${head}width:26%;">Type / name</th>
+                    <th style="${head}width:12%;">Level</th>
+                    <th style="${head}width:15%;text-align:right;">Quantity</th>
+                    <th style="${head}width:32%;">Element id · note</th>
+                </tr></thead>
+                <tbody>
+                    ${rows.map((c) => `<tr>
+                        <td style="${cell}">${absent(c.mark, 'NO MARK')}</td>
+                        <td style="${cell}word-wrap:break-word;">${c.label ? escapeHtml(c.label) : ''}</td>
+                        <td style="${cell}">${absent(c.levelId, 'NO LEVEL')}</td>
+                        <td style="${cell}text-align:right;font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap;">${escapeHtml(fmt(c.quantity))} <span style="font-weight:400;color:var(--app-text-muted);">${escapeHtml(UNIT_LABEL[line.unit])}</span></td>
+                        <td style="${cell}font-family:ui-monospace,Menlo,Consolas,monospace;font-size:8.5px;color:var(--app-text-muted);word-break:break-all;overflow-wrap:anywhere;">${escapeHtml(c.elementId)}${c.note ? `<div style="margin-top:2px;font-family:inherit;color:#8A6100;word-break:normal;overflow-wrap:break-word;">⚠ ${escapeHtml(c.note)}</div>` : ''}</td>
+                    </tr>`).join('')}
+                </tbody>
+                <tfoot><tr>
+                    <td colspan="3" style="${cell}font-weight:700;border-top:2px solid var(--app-border);">Sum of the ${rows.length} row${rows.length === 1 ? '' : 's'} above</td>
+                    <td style="${cell}text-align:right;font-weight:800;border-top:2px solid var(--app-border);font-variant-numeric:tabular-nums;white-space:nowrap;">${escapeHtml(fmt(sum))} ${escapeHtml(UNIT_LABEL[line.unit])}</td>
+                    <td style="${cell}border-top:2px solid var(--app-border);font-size:8.5px;color:var(--app-text-muted);word-break:normal;overflow-wrap:break-word;">line total ${escapeHtml(fmt(line.quantity))} ${escapeHtml(UNIT_LABEL[line.unit])}${Math.abs(sum - line.quantity) > 0.005 ? ' — <strong style="color:#B3261E;">THESE DISAGREE. Report this: the line total is derived from these rows and cannot differ from them.</strong>' : ' — equal, as it must be'}</td>
+                </tr></tfoot>
+            </table>
+        </div>
     </details>`;
+}
+
+/**
+ * §MATERIAL-ATTRIBUTION-REASONS (L-4820) — the sentence 6D needs and could not
+ * previously get. A line that reaches no carbon figure says WHY here, on the
+ * take-off itself, because the fix is upstream of 6D every time.
+ */
+function materialBlock(line: TakeoffLine): string {
+    if (line.materialBreakdown.length > 0) {
+        return `<div style="margin-top:5px;font-size:9px;line-height:1.5;color:var(--app-text-muted);overflow-wrap:break-word;">
+            Material: ${line.materialBreakdown.map((m) => `<strong>${escapeHtml(m.materialId)}</strong> ${escapeHtml(fmt(m.volumeM3))} m³${m.note ? ` (${escapeHtml(m.note)})` : ''}`).join(' · ')}
+        </div>`;
+    }
+    if (!line.materialGap) return '';
+    return `<div style="margin-top:5px;font-size:9px;line-height:1.5;color:#8A6100;overflow-wrap:break-word;white-space:normal;">
+        <strong>Names no material — no carbon figure is reachable.</strong> ${escapeHtml(line.materialGap)}
+    </div>`;
 }
 
 function emptyState(icon: string, title: string, body: string): string {
@@ -266,7 +348,8 @@ function renderTakeoff(panel: HTMLElement, runtime: Runtime): void {
                                                 <div style="font-size:9.5px;line-height:1.55;color:var(--app-text-muted);margin-top:4px;">${escapeHtml(l.basis)}</div>
                                                 ${qualifierBlock(l)}
                                                 ${secondaryChips(l)}
-                                                ${traceBlock(l)}
+                                                ${materialBlock(l)}
+                                                ${desgloseBlock(l)}
                                             </div>
                                             <div style="text-align:right;white-space:nowrap;">
                                                 <div style="font-size:16px;font-weight:800;color:var(--app-text);">${escapeHtml(fmt(l.quantity))}</div>
@@ -303,6 +386,93 @@ export function mountCostPanel(panel: HTMLElement, runtime: Runtime): void {
     });
 }
 
+/**
+ * §REGIONAL-COST-ESTIMATE (L-4830) — the estimate, rendered so it CANNOT be read
+ * as a price.
+ *
+ * ⛔ THE RULES THIS BLOCK ENCODES, AND WHY EACH IS HERE:
+ *   • it never appears on a line the user has priced — the engine returns null
+ *     there, so this is belt and braces on a decision made upstream;
+ *   • it is visually a DIFFERENT KIND OF THING — dashed border, its own colour,
+ *     and the word ESTIMATE spelled out — not the same number in grey;
+ *   • it names its database, edition and PRICE DATE inline. A construction rate
+ *     with no date cannot be indexed to today, so a dateless estimate would be
+ *     unusable even when correct;
+ *   • ⚠ IT WRAPS. white-space:normal + overflow-wrap:break-word, and NO
+ *     text-overflow:ellipsis anywhere. An ellipsis on a card title destroyed a
+ *     user-facing disclosure in this product earlier today, and a truncated
+ *     provenance is a provenance nobody can check.
+ */
+function estimateChip(c: { estimate: LineEstimate | null }): string {
+    const e = c.estimate;
+    if (!e) return '';
+    return `<div style="margin-top:6px;padding:5px 7px;border:1px dashed #8A6100;border-radius:7px;background:rgba(138,97,0,.06);text-align:right;">
+        <div style="font-size:8.5px;font-weight:800;letter-spacing:.06em;color:#8A6100;">ESTIMATE — NOT IN THE TOTAL</div>
+        <div style="font-size:13px;font-weight:800;color:#8A6100;">${escapeHtml(fmt(e.amount))} ${escapeHtml(e.currency)}</div>
+        <div style="font-size:8.5px;line-height:1.5;color:var(--app-text-muted);white-space:normal;overflow-wrap:break-word;text-align:left;margin-top:3px;">
+            ${escapeHtml(fmt(e.rate))} ${escapeHtml(e.currency)} per unit · ${escapeHtml(e.provenance.database)} ${escapeHtml(e.provenance.edition)}
+            · prices at ${escapeHtml(e.provenance.priceDate)}${e.provenance.itemCode ? ` · item ${escapeHtml(e.provenance.itemCode)}` : ''}
+            <br>Type a rate above to replace it with your own number.
+        </div>
+    </div>`;
+}
+
+/**
+ * ⛔ THE PARAGRAPH THE FOUNDER REVERSED, REWRITTEN RATHER THAN DELETED.
+ *
+ * It used to end: "There is no default and there is no estimate." The ESTIMATE
+ * half was reversed by ruling on 2026-08-22. The NO-DEFAULT half was NOT, and it
+ * is still literally true — SHIPPED_REGIONAL_RATE_COUNT is 0. Both facts are
+ * stated, because a panel that quietly dropped the old sentence would leave a
+ * user unable to tell which of the two rules still applies to them.
+ */
+function ratesDisclosure(regionStatement: string): string {
+    return `<div style="font-size:9.5px;line-height:1.6;color:var(--app-text-muted);margin-top:8px;white-space:normal;overflow-wrap:break-word;">
+        <strong>PRYZM ships no rates — ${SHIPPED_REGIONAL_RATE_COUNT} of them, to be exact.</strong>
+        Every price in the total above is one you typed or imported: from BEDEC (ITeC), a Base de Precios,
+        SPON'S, RSMeans or your own quotations.
+        <br><strong>Regional estimates</strong> are a separate thing and are shown separately. PRYZM can key a
+        published price base to this project's parcel — and today it holds none to key.
+        ${escapeHtml(regionStatement)}
+        <br>Rates are stored <strong>in this browser only</strong>: they are not in the project file, they do not
+        sync to collaborators, and they are not covered by undo.
+    </div>`;
+}
+
+/**
+ * The named ledger of price bases and the ONE question that decides whether each
+ * may ever ship: has anybody read its licence?
+ *
+ * Rendered on the panel because a user asking "why is there no estimate?"
+ * deserves the real answer — and because the answer is a founder/legal decision,
+ * not an engineering backlog item.
+ */
+function rateSourceLedger(): string {
+    return `<section style="margin-top:20px;border-top:2px solid var(--app-border);padding-top:14px;">
+        <h4 style="margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--app-text);">Why there is no estimate — the licence ledger</h4>
+        <div style="font-size:11px;line-height:1.6;color:var(--app-text-muted);margin-bottom:10px;white-space:normal;overflow-wrap:break-word;">
+            A regional estimate needs a published price base, and every one PRYZM could carry is licensed or has a
+            licence nobody has read. The mechanism to hold one is built and a rate book can be imported today;
+            what is missing is a legal clearance, not a feature.
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+            ${RATE_SOURCE_CANDIDATES.map((c) => `
+                <div style="padding:8px 10px;border:1px solid var(--app-border);border-radius:8px;background:var(--app-panel-bg);">
+                    <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">
+                        <span style="font-size:11px;font-weight:700;color:var(--app-text);">${escapeHtml(c.database)}</span>
+                        <span style="font-size:9.5px;color:var(--app-text-muted);">${escapeHtml(c.publisher)} · ${escapeHtml(c.geography)}</span>
+                        <span style="margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.06em;border-radius:99px;padding:2px 7px;white-space:nowrap;${
+                            c.licence === 'LICENSED_NOT_REDISTRIBUTABLE'
+                                ? 'color:#B3261E;background:rgba(179,38,30,.10);'
+                                : 'color:#8A6100;background:rgba(138,97,0,.10);'
+                        }">${escapeHtml(c.licence.replace(/_/g, ' '))}</span>
+                    </div>
+                    <div style="margin-top:4px;font-size:10px;line-height:1.55;color:var(--app-text-muted);white-space:normal;overflow-wrap:break-word;">${escapeHtml(c.whatMustBeEstablished)}</div>
+                </div>`).join('')}
+        </div>
+    </section>`;
+}
+
 function renderCost(panel: HTMLElement, runtime: Runtime): void {
     let result: TakeoffResult;
     try {
@@ -314,7 +484,17 @@ function renderCost(panel: HTMLElement, runtime: Runtime): void {
     }
 
     const book = loadRateBook(runtime);
-    const costed = applyRates(result, book);
+    /* §REGIONAL-COST-ESTIMATE (L-4830). Every project is geolocated via its
+       parcel, so a region CAN be resolved — and today every resolution ends in a
+       refusal, because PRYZM ships no rate book for anywhere. The panel states
+       that rather than showing an empty estimate column with no explanation.
+       ⭐ Logged on every render, in the shape of the §JURISDICTION-DIAG line the
+       founder already reads: an INVISIBLE refusal is how a wrong default
+       survives a year (L-4210). */
+    const binding = currentCostJurisdiction();
+    const regional = resolveRegionalRates(binding);
+    console.log(costJurisdictionDiagLine(binding));
+    const costed = applyRates(result, book, regional);
     const s = costed.summary;
     const cur = book.currency || 'EUR';
 
@@ -349,12 +529,13 @@ function renderCost(panel: HTMLElement, runtime: Runtime): void {
                                aria-label="Source of the rate for ${escapeHtml(l.description)}"
                                style="width:100%;box-sizing:border-box;padding:4px 7px;border:1px solid var(--app-border);border-radius:6px;font-size:9.5px;background:#fff;color:var(--app-text-muted);"/>
                     </div>
-                    <div style="text-align:right;white-space:nowrap;min-width:96px;">
+                    <div style="text-align:right;white-space:normal;min-width:130px;max-width:200px;">
                         ${c.amount === null
                             ? `<div style="font-size:11px;font-weight:800;color:#B3261E;">${mismatch ? 'UNIT MISMATCH' : 'NO RATE'}</div>
                                <div style="font-size:9px;color:var(--app-text-muted);">not in the total</div>`
                             : `<div style="font-size:15px;font-weight:800;color:var(--app-text);">${escapeHtml(fmt(c.amount))}</div>
                                <div style="font-size:9px;color:var(--app-text-muted);">${escapeHtml(cur)}${c.source ? '' : ' · no source'}</div>`}
+                        ${estimateChip(c)}
                     </div>
                 </div>
             </article>`;
@@ -382,17 +563,19 @@ function renderCost(panel: HTMLElement, runtime: Runtime): void {
                         <span style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--app-text-muted);">Priced total</span>
                         <span style="font-size:20px;font-weight:800;color:var(--app-text);">${s.pricedLineCount === 0 ? '—' : `${escapeHtml(fmt(s.pricedTotal))} ${escapeHtml(cur)}`}</span>
                     </div>
-                    <div style="font-size:10.5px;line-height:1.65;color:var(--app-text);margin-top:5px;">${escapeHtml(s.coverageStatement)}</div>
+                    ${s.estimatedLineCount > 0 ? `
+                    <div style="margin-top:7px;padding-top:7px;border-top:1px dashed #8A6100;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
+                        <span style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8A6100;">Estimated separately</span>
+                        <span style="font-size:16px;font-weight:800;color:#8A6100;">${escapeHtml(fmt(s.estimatedTotal))} ${escapeHtml(cur)}</span>
+                        <span style="font-size:10px;color:var(--app-text-muted);white-space:normal;">over ${s.estimatedLineCount} unpriced line${s.estimatedLineCount === 1 ? '' : 's'} — <strong>not added to the total above</strong></span>
+                    </div>` : ''}
+                    <div style="font-size:10.5px;line-height:1.65;color:var(--app-text);margin-top:5px;white-space:normal;overflow-wrap:break-word;">${escapeHtml(s.coverageStatement)}</div>
                 </div>
-                <div style="font-size:9.5px;line-height:1.6;color:var(--app-text-muted);margin-top:8px;">
-                    <strong>PRYZM ships no rates.</strong> Every price here is one you typed or imported — from BEDEC (ITeC),
-                    a Base de Precios, SPON'S, RSMeans or your own quotations. There is no default and no estimate.
-                    Rates are stored <strong>in this browser only</strong>: they are not in the project file, they do not sync
-                    to collaborators, and they are not covered by undo.
-                </div>
+                ${ratesDisclosure(regional.statement)}
             </div>
             <div style="flex:1;overflow:auto;padding:14px 16px;">
                 <div style="display:flex;flex-direction:column;gap:7px;">${rows}</div>
+                ${rateSourceLedger()}
                 ${coverageBlock(result)}
             </div>
         </div>`;

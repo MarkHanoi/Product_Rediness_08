@@ -556,28 +556,19 @@ export { ScheduleExtractor } from './schedules/ScheduleExtractor.js';
 // already reaches ScheduleExtractor. The leaf subpath `@pryzm/core-app-model/quantities`
 // is also published for consumers that must avoid the root barrel at module load
 // (MEMORY §SCC: no barrel access at module load).
-export type {
-    QuantityUnit, TakeoffChapterId, TakeoffChapterDef, SecondaryMeasure,
-    TakeoffLine, CoverageState, CoverageRow, TakeoffResult,
-    TakeoffStores, RateEntry, RateBook, CostedLine, CostedTakeoff, CostSummary,
-    UnpricedReason, RateImportResult,
-    // 4D / 6D (lane DIM46, 2026-08-21; ADR-0351) - the same take-off, two more
-    // questions asked of it. There is ONE measurement engine in this product.
-    MaterialVolume,
-    CarbonOverrideBook, CarbonMaterialRow, CarbonLine, CarbonChapterTotal,
-    CarbonGapRow, CarbonSummary, CarbonResult,
-    ConstructionSchedule, ConstructionTask, TaskProgressState, ResolvedTask,
-    TaskStateAt, ScheduleStateAt, ScheduleCoverage,
-} from './quantities/index.js';
-export {
-    UNIT_LABEL, TAKEOFF_CHAPTERS,
-    computeTakeoff, defaultTakeoffStores, wallBaselineLength, openingVoidArea,
-    applyRates, chapterSubtotals,
-    takeoffToCsv, costedTakeoffToCsv, rateBookToCsv, parseRateCsv,
-    computeCarbon, carbonToCsv, scheduleToCsv,
-    EMPTY_SCHEDULE, resolveTasks, scheduleStateAt, scheduleCoverage, taskFromLine,
-    taskFinishDate, taskWindowMs, taskProgressAt, scheduleWindowMs, taskDefects,
-} from './quantities/index.js';
+//
+// ⛔ §BARREL-FORWARDS-THE-SET-NOT-A-COPY (L-5250). This was TWO hand-copied
+// lists — one here, one in `quantities/index.ts` — and the copy here fell
+// behind by ten symbols. `MedicionesBucket`, `MedicionesTimeCarbon`,
+// `ElementFamilySchedules` and `resolveCostJurisdiction` all imported names the
+// sub-barrel exported correctly and this file did not forward, which reads as
+// TS2305 "has no exported member" and is indistinguishable, at the call site,
+// from the symbol never having been written. It HAD been written and committed
+// (`a9c75d7f`); it was UNREACHABLE, not ABSENT — opposite fixes, C01 §6 rule 6.
+//
+// A star re-export forwards the SET, so the two can no longer drift. Do not
+// replace it with an explicit list: an explicit list is what broke.
+export * from './quantities/index.js';
 
 export type {
     RequirementStatus,
@@ -1052,3 +1043,8 @@ export type {
     GridEditSubject,
     GridEditVerdict,
 } from './grids/GridEditVariants.js';
+
+// §ELEMENT-FAMILY-SCHEDULES (L-5251) — `StoreType` is the canonical element-family
+// union (26 members). `ElementFamilySchedules` needs it to enumerate "all the
+// elements" without minting a 27th rival list of family names.
+export type { StoreType } from './ElementRegistry.js';
