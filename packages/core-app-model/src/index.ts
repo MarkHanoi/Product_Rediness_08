@@ -432,7 +432,8 @@ export type { VgCanvasStyle } from './presentation/VgCanvasStyleResolver.js';
 export type { VGInstanceOverrideStoreImpl } from './presentation/VGInstanceOverrideStore.js';
 export { vgInstanceOverrideStore } from './presentation/VGInstanceOverrideStore.js';
 
-export { viewportPreviewRenderer } from './presentation/ViewportPreviewRenderer.js';
+export { viewportPreviewRenderer, fitLetterbox } from './presentation/ViewportPreviewRenderer.js';
+export type { Resolved3DCapture, LetterboxFit } from './presentation/ViewportPreviewRenderer.js';
 
 export type { IntentUsageSummary } from './presentation/selectors/intentUsageCount.js';
 export { intentUsageCount, formatIntentUsageLabel } from './presentation/selectors/intentUsageCount.js';

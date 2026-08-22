@@ -77,6 +77,120 @@ export function rgbaHasColour(data: Uint8ClampedArray | number[], threshold = 8)
     return false;
 }
 
+/**
+ * A 3D frame that can be placed on a sheet, and WHICH KIND of frame it is.
+ *
+ * `capturedAt` is `null` for the LIVE surface and a timestamp for a remembered
+ * one. It is not optional: every consumer must state which it received, so a
+ * new call site cannot default its way into presenting a snapshot as live
+ * (§SHEET-3D-SNAPSHOT-IS-DATED, L-1875).
+ */
+export interface Resolved3DCapture {
+    readonly canvas:     HTMLCanvasElement;
+    readonly capturedAt: number | null;
+    /** width / height of the frame. The number the viewport rect must match. */
+    readonly aspect:     number;
+}
+
+/** Where a source image lands inside a destination rect, aspect preserved. */
+export interface LetterboxFit {
+    dx: number;
+    dy: number;
+    dw: number;
+    dh: number;
+    /** Unfilled destination area, as a fraction of the rect. 0 ⇒ an exact fit. */
+    barFraction: number;
+}
+
+/**
+ * §SHEET-3D-LETTERBOX-IS-PAPER (L-3801) — fit `src` inside `dst`, never stretch.
+ *
+ * Exported as a pure function for the same reason `rgbaHasColour` is: it is the
+ * arithmetic the founder's black bars are made of, and it must be assertable
+ * without a working canvas backend. It is also the ONE definition of the fit —
+ * the PDF export path needs the identical rectangle, and two copies of a
+ * placement rule is how the third gets written (§SHEET-ONE-VIEWPORT-PRODUCER).
+ *
+ * `barFraction` is returned rather than derived by callers because it is the
+ * number that says *how much of this viewport is not the drawing* — a viewport
+ * that is 40 % bars is a layout defect whether or not the bars are white, and a
+ * caller that cannot see the figure cannot report it.
+ */
+export function fitLetterbox(
+    srcW: number, srcH: number, dstW: number, dstH: number,
+): LetterboxFit {
+    // A degenerate source or destination has no meaningful fit. Fill the rect
+    // rather than emitting NaN geometry that silently paints nothing.
+    if (!(srcW > 0) || !(srcH > 0) || !(dstW > 0) || !(dstH > 0)) {
+        return { dx: 0, dy: 0, dw: dstW, dh: dstH, barFraction: 0 };
+    }
+
+    const srcAspect = srcW / srcH;
+    const dstAspect = dstW / dstH;
+
+    let dw = dstW, dh = dstH, dx = 0, dy = 0;
+    if (srcAspect > dstAspect) {
+        // Source is PROPORTIONALLY WIDER than the rect ⇒ bars TOP AND BOTTOM.
+        dh = dstW / srcAspect;
+        dy = (dstH - dh) / 2;
+    } else {
+        // Source is PROPORTIONALLY NARROWER than the rect ⇒ bars LEFT AND
+        // RIGHT. The founder reported bars "down both sides", so his viewport
+        // rect was wider than his capture — but WHICH branch he hit is not
+        // asserted here, because it depends on the composed rect and the live
+        // canvas size at that moment, and neither was measured. The colour of
+        // the bars is the defect (L-3801); the axis is incidental to it.
+        dw = dstH * srcAspect;
+        dx = (dstW - dw) / 2;
+    }
+
+    const barFraction = 1 - (dw * dh) / (dstW * dstH);
+    return { dx, dy, dw, dh, barFraction };
+}
+
+/**
+ * §SHEET-3D-LETTERBOX-IS-PAPER (L-3801) — what the unfilled part of a 3D
+ * viewport is made of.
+ *
+ * The founder, 2026-08-21: *"the 3D viewport has black bars down both sides,
+ * visible in every sheet screenshot."*
+ *
+ * ─── WHAT THE BARS ACTUALLY WERE ───────────────────────────────────────────
+ * They were `#0f1520`, painted by `_paint3DCapture` across the WHOLE viewport
+ * rect before the aspect-preserving blit drew the capture centred inside it.
+ * The capture is the main 3D canvas, which is roughly 16:9; a 3D viewport on a
+ * sheet is laid out at the composer's 120 × 90 mm default, which is 4:3. Two
+ * different aspects, so there is always a remainder, and the remainder was
+ * being painted the colour of a 3D background.
+ *
+ * That is a category error, and it is the same one L-1843 fixed one level down.
+ * `#0f1520` is the colour of the SCENE. The area beside a drawing on a sheet is
+ * not scene and never was — **it is paper**. Painting it dark states, in the
+ * only language a drawing has, that the 3D view extends there and is empty. It
+ * does not extend there; there is simply nothing placed there.
+ *
+ * ─── WHY FIT-TO-PAPER AND NOT THE BETTER FIX ───────────────────────────────
+ * The founder named the better fix himself: *"capture at the viewport's aspect
+ * in the first place — probably a camera-aspect argument that is not being
+ * passed."* He is right that it is better, and it is NOT AVAILABLE HERE.
+ * Measured before claiming it (C01 §6 rule 6):
+ *
+ *   grep -n "capture|aspect|toDataURL|snapshot|Offscreen" \
+ *     packages/renderer-three/src/RendererHandleFactory.ts
+ *     → 1 hit, a COMMENT: "thumbnail capture uses canvas.toDataURL()".
+ *
+ * There is no render-to-target-at-aspect entry point on the renderer handle to
+ * pass a camera aspect TO. It is ABSENT, not merely unwired — so the fix is
+ * BUILD, not CALL, and it is a renderer-side pass this module may not author:
+ * P2 keeps THREE inside `@pryzm/renderer-three`, and this is an L2 read-only
+ * presenter (C01 §2). Recorded as L-3802 rather than faked from here.
+ *
+ * Stretching to fill was never a candidate: it falsifies the drawing.
+ * Cropping to fill was rejected too — it silently discards the part of the view
+ * the user framed, and a bar you can see beats content you cannot.
+ */
+const PAPER_WHITE = '#ffffff';
+
 const FALLBACK_WALL_EDGE    = '#1a1a2e';
 const FALLBACK_SLAB_FILL    = '#e4e8ef';
 const FALLBACK_SLAB_EDGE    = '#a0a8b8';
@@ -308,14 +422,64 @@ class ViewportPreviewRenderer {
         w:       number,
         h:       number,
     ): void {
-        const pryzmCanvas     = (window as any).pryzmCanvas     as HTMLCanvasElement | undefined;
-        const obcCanvas       = (window as any).obcRendererCanvas as HTMLCanvasElement | undefined;
-        const src: HTMLCanvasElement | undefined = pryzmCanvas ?? obcCanvas;
+        const resolved = this.resolve3DCapture();
+        if (!resolved) {
+            this._render3DUnavailable(ctx, viewDef, w, h);
+            return;
+        }
+        this._paint3DCapture(ctx, viewDef, resolved.canvas, w, h, resolved.capturedAt);
+    }
+
+    /**
+     * §SHEET-PDF-CARRIES-THE-3D (L-3803) — THE ONE LADDER that answers "is there
+     * a 3D frame to show, and is it live or remembered?"
+     *
+     * ─── WHY THIS IS PUBLIC ────────────────────────────────────────────────
+     * Because the PDF needs the same answer, and was not asking anyone.
+     *
+     * The founder, 2026-08-21: *"the PDF does not contain the 3D view — page
+     * size is right, the 3D viewport is missing from the output."* Measured:
+     *
+     *   sed -n '186,200p' packages/file-format/src/export/sheets/PdfExportService.ts
+     *     → `if (!drawing) { … this._drawViewportPlaceholder(…); continue; }`
+     *
+     * `drawing` is `viewTechnicalDrawingCache.get(viewId)`, and `3d` / `render`
+     * / `walkthrough` are excluded from projection BY DESIGN, so that branch is
+     * unconditional for a 3D viewport: the PDF drew a labelled empty rectangle
+     * and moved on. The 3D was not lost in the SVG→PDF conversion — it was
+     * never handed to it. ABSENT, not unreachable, so the fix is BUILD.
+     *
+     * ⚠ AND THE OBVIOUS HYPOTHESIS WAS WRONG, WHICH IS WORTH MORE THAN THE FIX.
+     * The brief warned that a rival viewport producer had been hypothesised in
+     * the PDF and REFUTED — the "bbox-driven viewport" string was a stale log
+     * message. Re-measured here rather than taken on trust:
+     * `PdfExportService.ts:46` imports `composeForPlacement` and `:144` calls
+     * it. There is ONE producer, C06 §13.3 holds, and the sheet and the PDF
+     * cannot disagree about composition. The 3D gap is a MISSING RASTER LEG in
+     * a surface that has only ever had a vector one — a different defect with a
+     * different fix, and chasing the rival would have found nothing.
+     *
+     * Exposing the ladder (rather than letting the PDF re-derive it) keeps the
+     * live-vs-remembered decision in ONE place. A second copy would drift, and
+     * the field it would drift on is `capturedAt` — the flag that decides
+     * whether the viewer is told this is a snapshot. That is the field it is
+     * least acceptable to get wrong twice.
+     *
+     * Returns `null` when there is no frame at all — the user has not opened
+     * the 3D view this session. Callers MUST branch on that and say so, never
+     * emit an empty rectangle: "no frame captured yet" and "the view is empty"
+     * are different facts [context-data-honesty].
+     */
+    resolve3DCapture(): Resolved3DCapture | null {
+        const w = window as unknown as {
+            pryzmCanvas?:        HTMLCanvasElement;
+            obcRendererCanvas?:  HTMLCanvasElement;
+        };
+        const src = w.pryzmCanvas ?? w.obcRendererCanvas;
 
         if (src && src.width > 0 && src.height > 0 && this._surfaceHasContent(src)) {
             this._remember3DCapture(src);
-            this._paint3DCapture(ctx, viewDef, src, w, h, null);
-            return;
+            return { canvas: src, capturedAt: null, aspect: src.width / src.height };
         }
 
         // The live surface is unusable or blank. Fall back to the most recent
@@ -323,11 +487,14 @@ class ViewportPreviewRenderer {
         // is a snapshot, with its age. §SHEET-3D-SNAPSHOT-IS-DATED (L-1875).
         const cached = this._last3dCapture;
         if (cached && cached.width > 0 && cached.height > 0) {
-            this._paint3DCapture(ctx, viewDef, cached, w, h, this._last3dCaptureAt);
-            return;
+            return {
+                canvas:     cached,
+                capturedAt: this._last3dCaptureAt,
+                aspect:     cached.width / cached.height,
+            };
         }
 
-        this._render3DUnavailable(ctx, viewDef, w, h);
+        return null;
     }
 
     /**
@@ -396,21 +563,16 @@ class ViewportPreviewRenderer {
         h:          number,
         capturedAt: number | null,
     ): void {
-        ctx.fillStyle = '#0f1520';
+        // §SHEET-3D-LETTERBOX-IS-PAPER (L-3801) — the remainder is PAPER, not
+        // `#0f1520`. See the constant's header: the area beside a drawing on a
+        // sheet is paper, and painting it the colour of a 3D background claimed
+        // the view extended there and was empty.
+        ctx.fillStyle = PAPER_WHITE;
         ctx.fillRect(0, 0, w, h);
 
-        const srcAspect = src.width / src.height;
-        const dstAspect = w / h;
-        let dw = w, dh = h, dx = 0, dy = 0;
-        if (srcAspect > dstAspect) {
-            dh = w / srcAspect;
-            dy = (h - dh) / 2;
-        } else {
-            dw = h * srcAspect;
-            dx = (w - dw) / 2;
-        }
+        const fit = fitLetterbox(src.width, src.height, w, h);
 
-        ctx.drawImage(src, dx, dy, dw, dh);
+        ctx.drawImage(src, fit.dx, fit.dy, fit.dw, fit.dh);
         if (capturedAt !== null) this._drawSnapshotBadge(ctx, capturedAt, w, h);
         this._drawViewTypeBadge(ctx, viewDef.viewType, w, h);
     }
