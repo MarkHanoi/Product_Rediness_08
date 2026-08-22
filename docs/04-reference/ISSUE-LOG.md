@@ -35391,10 +35391,30 @@ global across worktrees), then the five suspect suites:
 | **HEAD~1 (= `d11c225d`, baseline)** | **9 failed / 114 passed** |
 | with this lane's code | the **same 9** |
 
-Full `@pryzm/ai-host` suite after the lane: **4550 passed / 13 failed / 4 skipped**. All 13 are
-pre-existing and named — the 9 above plus the 4 `apartmentBriefCountCarried` failures the brief
-already flagged. **This lane adds ZERO failures**, and +37 assertions across two new suites.
-Root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=0**.
+Full `@pryzm/ai-host` suite, FINAL run: **4549 passed / 14 failed / 4 skipped**, and the arithmetic
+of the 14 is stated rather than waved at, because the raw count went UP while the lane's own three
+fixes went in:
+
+| bucket | n | evidence |
+|---|---:|---|
+| A/B-proven pre-existing at `HEAD~1` | 6 | the 9 above **minus the 3 `tglBubbleGraph` cases this lane repaired** |
+| `apartmentBriefCountCarried` | 4 | pre-existing, A/B-proven by the brief before this lane opened |
+| **5000 ms TIMEOUT flakes under full-suite parallel load** | 4 | `grep -c "Test timed out" -> 4`. Re-run in isolation: `circulationIntegrityAudit` · `circulationRobustnessSweep` · `houseVertical` · `tglCirculationComplianceSelection` → **4 files / 36 tests / 0 failed, RC=0**. They are heavy combinatorial sweeps; none is an assertion failure. |
+
+**So: 6 + 4 + 4 = 14, and NONE of them is an assertion this lane broke.** +37 assertions added, 3
+pre-existing reds closed. ⚠ The timeout bucket is stated as a LOAD FLAKE, not as green — an
+intermittently-red suite is a real (pre-existing) problem, it is simply not this lane's.
+
+Root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=0**, twice: once
+before the docs commit and once after the `habitabilityDiagLine` wiring.
+
+⚠ **A SECOND LANE APPEARED IN THE TREE MID-RUN.** The brief opened with *"no other lanes are
+running"*; by the final verification `git status` carried uncommitted `§CROP-IS-THE-CLIP (L-4500)`
+edits in `packages/core-app-model/src/{index,views/PlanViewAnnotationRenderer,views/ViewDefinitionTypes}.ts`
+that this lane did not author. **They were left untouched and are NOT in any of this lane's four
+commits** (`git show --stat` on each). Recorded because a full-suite number measured with another
+lane's uncommitted code in the tree is a number with an asterisk on it, and the four suites above
+were re-verified in isolation partly for that reason.
 
 **Three of the 9 pre-existing reds were CLOSED in passing.** `tglBubbleGraph.test.ts` asserted the
 literal `11.5` and had been red since `d11c225d` cut it to 7.5 — red for a reason that was not a
