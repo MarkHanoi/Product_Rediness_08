@@ -127,6 +127,68 @@ export interface MaterialVolume {
   readonly note?:      string;
 }
 
+// ── The DESGLOSE — one row per element (§TAKEOFF-DESGLOSE, L-4800) ────────────
+
+/**
+ * §TAKEOFF-DESGLOSE (L-4800) — ONE ELEMENT's contribution to one line.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⭐ WHY THIS EXISTS, AND WHAT IT REPLACED
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Before this field, a line carried `elementIds: string[]` and a single summed
+ * `quantity`. The per-element figure was COMPUTED — `LineBuilder.add()` receives
+ * one element's quantity on every call — and then THROWN AWAY at the `+=`. The UI
+ * could therefore only print 124 raw UUIDs as an unbroken paragraph, which is a
+ * traceability claim nobody can act on: it names the elements but not what any of
+ * them measured, so a wrong total cannot be attributed to a wrong wall.
+ *
+ * A *medición* is checked line by line and then row by row. The desglose IS the
+ * row level, and it is what makes "124 elements measured" an auditable statement
+ * rather than a reassuring one.
+ *
+ * ⛔ THE LINE TOTAL IS THE SUM OF THESE ROWS, EXACTLY. `LineBuilder.build()`
+ * computes `quantity` from the ROUNDED contributions, so what the user sums by
+ * hand equals what the line prints. A total that is "nearly" the sum of its
+ * visible parts is the same defect class as a quantity whose basis is unstated —
+ * it cannot be checked. `desgloseSumsToLineTotal()` asserts it.
+ *
+ * ⛔ EVERY FIELD BUT `elementId` AND `quantity` MAY BE `null`, AND `null` IS A
+ * REAL ANSWER: "this element states no mark" is not "mark: —" as decoration, it
+ * is the reason a quantity surveyor cannot cross-reference this row to a drawing.
+ * A blank is never filled with the id, the type, or a neighbour's value.
+ */
+export interface TakeoffContribution {
+  /** The element this row measured. Joins to the element stores. */
+  readonly elementId: string;
+  /**
+   * What THIS element contributed, in the LINE's unit. Always > 0 — an element
+   * that measured nothing produces no row, exactly as a line that measures
+   * nothing produces no line.
+   */
+  readonly quantity: number;
+  /** The level the element declares. `null` ⇒ the element states no level. */
+  readonly levelId: string | null;
+  /**
+   * The element's own mark / number, as an architect would cite it on a drawing
+   * (`properties.mark`, a room number, a door reference). `null` ⇒ unmarked, and
+   * that is worth seeing: an unmarked element cannot be cross-referenced.
+   */
+  readonly mark: string | null;
+  /**
+   * A human label for this element — its type name, its room name. `null` ⇒ the
+   * element carries none. NEVER the id: printing the id here would make an
+   * unlabelled element look labelled.
+   */
+  readonly label: string | null;
+  /**
+   * Why THIS element's figure is approximate, when it is. `null` ⇒ measured
+   * exactly by the same code that built its geometry. The line's `qualifiers`
+   * aggregate these; this is the per-row version, so the reader can see WHICH
+   * of the 124 rows the warning is about.
+   */
+  readonly note: string | null;
+}
+
 // ── The line ──────────────────────────────────────────────────────────────────
 
 export interface TakeoffLine {
@@ -144,8 +206,21 @@ export interface TakeoffLine {
   /**
    * ⭐ TRACEABILITY. The ids of the elements this row measured. A row that cannot
    * name its elements is not a *medición*, it is a number. Always non-empty.
+   *
+   * ⚠ DERIVED from {@link contributions} since L-4800, in order, so the two can
+   * never disagree. Kept as its own field because every existing consumer — 4D's
+   * `resolveTasks`, the scrubber's four element sets, the CSV — asks only "which
+   * elements", and making them all learn a new shape to answer the same question
+   * is churn, not architecture.
    */
   readonly elementIds:  readonly string[];
+  /**
+   * §TAKEOFF-DESGLOSE (L-4800) — ONE ROW PER ELEMENT, each with its own measured
+   * quantity, level, mark and per-element note. Always non-empty, and its
+   * quantities always sum EXACTLY to {@link quantity}. See
+   * {@link TakeoffContribution} for why the group sum alone was not enough.
+   */
+  readonly contributions: readonly TakeoffContribution[];
   /**
    * The measurement rule, in words — e.g. "Σ (length × height) − Σ opening voids".
    * Rendered in the UI and written to the CSV, because a quantity whose basis is
@@ -166,6 +241,26 @@ export interface TakeoffLine {
    * {@link MaterialVolume}.
    */
   readonly materialBreakdown: readonly MaterialVolume[];
+  /**
+   * §MATERIAL-ATTRIBUTION-REASONS (L-4820) — WHY `materialBreakdown` is empty,
+   * in words. `null` when it is non-empty.
+   *
+   * ⭐ THIS IS THE UPSTREAM HALF OF 6D. The carbon panel could previously say
+   * only *"1552.63 m³ of material was measured and none of it reaches a carbon
+   * figure"* — a true sentence that names no cause and therefore no fix. The
+   * causes are genuinely different and have genuinely different fixes:
+   *
+   *   • the element names a material the catalogue does not hold  → fix the id;
+   *   • the family is COUNTED, not volumetric (a door, a stair)   → no volume exists;
+   *   • the grouping key is a FINISH NAME, not a `MaterialRecord.id` → needs a mapping;
+   *   • the system type carries no layer with a `materialId`      → author the type.
+   *
+   * ⛔ MUST be non-null whenever `materialBreakdown` is empty. A line that
+   * declines to say why it names no material is exactly the shape that produced
+   * the unactionable sentence above. `everyUnattributedLineStatesItsReason()`
+   * asserts it.
+   */
+  readonly materialGap: string | null;
 }
 
 // ── Coverage (the honest half) ────────────────────────────────────────────────
@@ -203,4 +298,59 @@ export interface TakeoffResult {
   readonly unreadableStores: readonly string[];
   /** Total elements that contributed to at least one line. */
   readonly measuredElementCount: number;
+}
+
+// ── The two invariants the desglose adds, as functions ────────────────────────
+//
+// Stated as CODE rather than as a comment, because a rule that only exists in
+// prose is the shape this repo keeps paying for. Both are asserted by the suite
+// and both are cheap enough for a caller to run.
+
+/**
+ * ⭐ ASSERT THE RULE, NOT THE VALUE. `line.quantity` must equal the sum of
+ * `line.contributions[].quantity`, to within one unit of the engine's own 1e-4
+ * rounding per row. Returns the line codes that FAIL, so a failure names the
+ * line rather than merely being false.
+ *
+ * Pinning a literal total here would go red for a reason that is not a defect
+ * the moment a fixture changes; pinning the RELATION cannot.
+ */
+export function desgloseSumsToLineTotal(
+  lines: readonly TakeoffLine[],
+): readonly string[] {
+  const bad: string[] = [];
+  for (const l of lines) {
+    const sum = l.contributions.reduce((a, c) => a + c.quantity, 0);
+    // One 1e-4 rounding step per row is the worst case the builder can produce.
+    const tolerance = Math.max(1e-4, l.contributions.length * 1e-4);
+    if (Math.abs(sum - l.quantity) > tolerance) bad.push(l.code);
+  }
+  return bad;
+}
+
+/**
+ * ⛔ A line with no `materialBreakdown` MUST state why. Returns the offending
+ * line codes. See {@link TakeoffLine.materialGap}.
+ */
+export function everyUnattributedLineStatesItsReason(
+  lines: readonly TakeoffLine[],
+): readonly string[] {
+  return lines
+    .filter((l) => l.materialBreakdown.length === 0 && !l.materialGap)
+    .map((l) => l.code);
+}
+
+/**
+ * §DESGLOSE-TRACEABILITY — `elementIds` is derived from `contributions`, so the
+ * two can never disagree. Returns the line codes where they DO, which would mean
+ * a measurer built a line by a path that bypasses the builder.
+ */
+export function elementIdsMatchContributions(
+  lines: readonly TakeoffLine[],
+): readonly string[] {
+  return lines
+    .filter((l) =>
+      l.elementIds.length !== l.contributions.length
+      || l.contributions.some((c, i) => c.elementId !== l.elementIds[i]))
+    .map((l) => l.code);
 }

@@ -45,6 +45,32 @@ export function takeoffToCsv(result: TakeoffResult): string {
     ].map(esc).join(','));
   }
   rows.push('');
+  // §TAKEOFF-DESGLOSE (L-4800) — C84 EI-11: what the user sees and what the
+  // system exports must be the same code. The panel now shows one ROW PER
+  // ELEMENT, so the CSV carries the same rows. Exporting only the summed line
+  // would make the export weaker than the screen, which is the EI-11 failure
+  // with the arrow reversed.
+  rows.push('# DESGLOSE — one row per element. Each line total above IS the sum of its rows here.');
+  rows.push(['Line code', 'Element ID', 'Mark', 'Label', 'Level', 'Quantity', 'Unit', 'Note'].map(esc).join(','));
+  for (const l of result.lines) {
+    for (const c of l.contributions) {
+      rows.push([
+        l.code, c.elementId, c.mark ?? 'NO MARK', c.label ?? '', c.levelId ?? 'NO LEVEL',
+        c.quantity, UNIT_LABEL[l.unit], c.note ?? '',
+      ].map(esc).join(','));
+    }
+  }
+  rows.push('');
+  rows.push('# MATERIAL ATTRIBUTION — why a line reaches no carbon figure. A blank reason on an unattributed line is a defect, not a silence.');
+  rows.push(['Line code', 'Materials named', 'Reason none is named'].map(esc).join(','));
+  for (const l of result.lines) {
+    rows.push([
+      l.code,
+      l.materialBreakdown.map((m) => `${m.materialId}: ${m.volumeM3} m3`).join(' | '),
+      l.materialGap ?? '',
+    ].map(esc).join(','));
+  }
+  rows.push('');
   rows.push('# COVERAGE — what is measured and what is NOT. A family marked NOT_MEASURED contributes NO line above; it is absent, not zero.');
   rows.push(['Family', 'State', 'Note'].map(esc).join(','));
   for (const c of result.coverage) rows.push([c.family, c.state, c.note].map(esc).join(','));

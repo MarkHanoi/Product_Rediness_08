@@ -17,12 +17,13 @@ export type {
   TakeoffChapterId,
   TakeoffChapterDef,
   SecondaryMeasure,
+  TakeoffContribution,
   TakeoffLine,
   CoverageState,
   CoverageRow,
   TakeoffResult,
 } from './TakeoffTypes.js';
-export { UNIT_LABEL, TAKEOFF_CHAPTERS } from './TakeoffTypes.js';
+export { UNIT_LABEL, TAKEOFF_CHAPTERS, desgloseSumsToLineTotal, everyUnattributedLineStatesItsReason, elementIdsMatchContributions } from './TakeoffTypes.js';
 
 export type {
   TakeoffStores,
@@ -32,8 +33,10 @@ export type {
   PolyElementLike,
   LinearElementLike,
   CountedElementLike,
+  OpeningElementLike,
+  StairLike,
 } from './QuantityTakeoff.js';
-export { computeTakeoff, defaultTakeoffStores, wallBaselineLength, openingVoidArea } from './QuantityTakeoff.js';
+export { computeTakeoff, defaultTakeoffStores, wallBaselineLength, openingVoidArea, openingPerimeter } from './QuantityTakeoff.js';
 
 export type {
   RateEntry,

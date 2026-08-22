@@ -51,6 +51,7 @@ import type {
   QuantityUnit,
   SecondaryMeasure,
   TakeoffChapterId,
+  TakeoffContribution,
   TakeoffLine,
   TakeoffResult,
   MaterialVolume,
@@ -111,6 +112,65 @@ export interface LinearElementLike {
   materialId?: string;
 }
 
+/**
+ * §OPENING-MEASURED-NOT-COUNTED (L-4810) — a DOOR or WINDOW *element* record.
+ *
+ * ⚠ THIS IS A SECOND RECORD FOR THE SAME THING, AND THAT IS THE MODEL, NOT A BUG.
+ * The VOID is on the host wall (`Opening`, C15 §3.1 — the wall cuts the hole);
+ * the JOINERY is its own element in `doorStore` / `windowStore`, joined by
+ * `Opening.elementId`. The take-off previously read ONLY the void, which is why
+ * it could count doors and measure nothing about them: `frameWidth`,
+ * `frameThickness`, `fireRating` and `accessibilityType` all live HERE.
+ *
+ * ⛔ ABSENT IS A REAL ANSWER. A void whose element record cannot be found is
+ * measured for everything the VOID knows (count, area, perimeter) and reports the
+ * frame-derived measures as unavailable WITH THE REASON — never as zero, and
+ * never by assuming a nominal frame width.
+ */
+export interface OpeningElementLike {
+  id: string;
+  levelId?: string;
+  /** Joins back to `Opening.elementId` on the host wall. */
+  wallId?: string;
+  width?: number;
+  height?: number;
+  /** Face width of the frame section, metres. Absent ⇒ leaf/glazing area unknown. */
+  frameWidth?: number;
+  /** Frame depth through the wall, metres. */
+  frameThickness?: number;
+  /** e.g. '30min', 'FD30'. Present on `DoorData` and `WindowData` TODAY. */
+  fireRating?: string;
+  accessibilityType?: string;
+  properties?: { mark?: string };
+}
+
+/**
+ * §STAIR-MEASURED-NOT-COUNTED (L-4811) — the stair fields a *medición* needs.
+ * Structurally satisfied by `StairData` from `@pryzm/geometry-stair`; declared
+ * narrowly here for the reason every other store shape is.
+ */
+export interface StairLike {
+  id: string;
+  levelId?: string;
+  shape?: string;
+  width?: number;
+  riserHeight?: number;
+  treadDepth?: number;
+  riserCount?: number;
+  flights?: Array<{ riserCount?: number; treadDepth?: number }>;
+  landings?: Array<{ depth?: number }>;
+  properties?: {
+    mark?: string;
+    material?: string;
+    treadMaterial?: string;
+    riserMaterial?: string;
+    riserVisible?: boolean;
+    stringerType?: string;
+    stringerThickness?: number;
+    nosingDepth?: number;
+  };
+}
+
 export interface CountedElementLike {
   id: string;
   levelId?: string;
@@ -161,7 +221,10 @@ export interface TakeoffStores {
   columns?:      ListStore<LinearElementLike> | null;
   beams?:        ListStore<LinearElementLike> | null;
   handrails?:    ListStore<LinearElementLike> | null;
-  stairs?:       ListStore<CountedElementLike> | null;
+  stairs?:       ListStore<StairLike> | null;
+  /** §OPENING-MEASURED-NOT-COUNTED (L-4810) — the joinery element records. */
+  doors?:        ListStore<OpeningElementLike> | null;
+  windows?:      ListStore<OpeningElementLike> | null;
   plumbing?:     ListStore<CountedElementLike> | null;
   furniture?:    ListStore<CountedElementLike> | null;
   curtainWalls?: ListStore<CountedElementLike> | null;
@@ -259,6 +322,41 @@ export function openingVoidArea(op: Pick<Opening, 'width' | 'height' | 'offset' 
   return Math.abs(outlineSignedArea(outline.points));
 }
 
+/**
+ * §OPENING-MEASURED-NOT-COUNTED (L-4810) — the PERIMETER of one opening's void,
+ * metres, measured on the SAME polygon `openingOutline()` produces.
+ *
+ * This is the frame / lining run, and it is the measure that makes an arched head
+ * cost what an arched head costs: the arc is walked vertex by vertex on the
+ * tessellated outline the mesh is actually cut with, so it is longer than
+ * `2(w + h)` by exactly as much as the arch is.
+ *
+ * Returns `null` — NOT zero — when the outline producer refuses the geometry, for
+ * the same reason {@link openingVoidArea} does.
+ *
+ * ⚠ WHAT IT IS NOT: it is the perimeter of the WHOLE void. A door frame usually
+ * has three sides — PRYZM does not model whether a threshold piece exists, so the
+ * threshold run is INCLUDED and the line says so rather than guessing it away.
+ */
+export function openingPerimeter(
+  op: Pick<Opening, 'width' | 'height' | 'offset' | 'sillHeight' | 'openingProfile'>,
+): number | null {
+  const outline = openingOutline({
+    profile:    resolveOpeningProfile(op.openingProfile),
+    width:      op.width,
+    height:     op.height,
+    offset:     op.offset,
+    sillHeight: op.sillHeight,
+  });
+  if (!outline || outline.points.length < 3) return null;
+  const pts = outline.points;
+  let total = 0;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    total += Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y);
+  }
+  return total;
+}
+
 // ── Line accumulation ─────────────────────────────────────────────────────────
 
 interface Accum {
@@ -266,8 +364,15 @@ interface Accum {
   chapter:     TakeoffChapterId;
   description: string;
   unit:        QuantityUnit;
-  quantity:    number;
-  elementIds:  string[];
+  /* §TAKEOFF-DESGLOSE (L-4800) — ONE ROW PER ELEMENT, kept rather than summed
+     away. The per-element figure was always computed here; the "+=" below used
+     to be the only thing that survived it. `quantity` is now DERIVED from these
+     rows in build(), so a line total IS the sum of what the reader can see. */
+  contributions: TakeoffContribution[];
+  /* §MATERIAL-ATTRIBUTION-REASONS (L-4820) — why this code names no material.
+     Set by the first contributing element: a code groups the elements one
+     measurer produced, so the reason is a property of the measurer. */
+  materialGap: string | null;
   basis:       string;
   qualifiers:  Map<string, number>;
   secondary:   Map<string, { label: string; value: number; unit: QuantityUnit }>;
@@ -291,10 +396,19 @@ class LineBuilder {
     basis: string;
     secondary?: readonly SecondaryMeasure[];
     qualifier?: string | null;
+    /* §TAKEOFF-DESGLOSE (L-4800) — the per-element identity a desglose row needs.
+       All three are OPTIONAL and all three land as `null`, never a placeholder:
+       an element that states no level must READ as stating no level. */
+    levelId?: string | null;
+    mark?: string | null;
+    label?: string | null;
     /* §MATERIAL-CARBON-FACTS — what this ELEMENT contributed, per material.
        Omitted where the measurer genuinely does not know the material; an
        omission is reported by 6D as NOT MEASURED, never as zero. */
     materials?: readonly MaterialVolume[];
+    /* §MATERIAL-ATTRIBUTION-REASONS (L-4820) — required in effect whenever
+       `materials` is empty; build() refuses to emit a line carrying neither. */
+    materialGap?: string | null;
   }): void {
     let acc = this._byCode.get(args.code);
     if (!acc) {
@@ -303,8 +417,8 @@ class LineBuilder {
         chapter: args.chapter,
         description: args.description,
         unit: args.unit,
-        quantity: 0,
-        elementIds: [],
+        contributions: [],
+        materialGap: args.materialGap ?? null,
         basis: args.basis,
         qualifiers: new Map(),
         secondary: new Map(),
@@ -312,8 +426,15 @@ class LineBuilder {
       };
       this._byCode.set(args.code, acc);
     }
-    acc.quantity += args.quantity;
-    acc.elementIds.push(args.elementId);
+    acc.contributions.push({
+      elementId: args.elementId,
+      quantity: args.quantity,
+      levelId: args.levelId ?? null,
+      mark: args.mark ?? null,
+      label: args.label ?? null,
+      note: args.qualifier ?? null,
+    });
+    if (acc.materialGap === null && args.materialGap) acc.materialGap = args.materialGap;
     this._measured.add(args.elementId);
     for (const s of args.secondary ?? []) {
       const cur = acc.secondary.get(s.label);
@@ -337,18 +458,29 @@ class LineBuilder {
   build(): TakeoffLine[] {
     const round = (n: number) => Math.round(n * 1e4) / 1e4;
     return [...this._byCode.values()]
+      // §TAKEOFF-DESGLOSE — round the ROWS first and drop the degenerate ones.
+      // Doing it here rather than only at the line total is what keeps the
+      // printed total equal to the sum of the printed rows.
+      .map((a) => ({
+        ...a,
+        contributions: a.contributions
+          .map((c) => ({ ...c, quantity: round(c.quantity) }))
+          .filter((c) => c.quantity > 0),
+      }))
       // A group whose measured quantity rounds away entirely is degenerate
       // geometry, not a quantity — drop it rather than print `0.00`.
-      .filter((a) => round(a.quantity) > 0)
+      .filter((a) => a.contributions.length > 0)
       .map((a) => ({
         code:        a.code,
         chapter:     a.chapter,
         description: a.description,
         unit:        a.unit,
-        quantity:    round(a.quantity),
-        elementIds:  [...a.elementIds],
+        // ⛔ DERIVED FROM THE ROWS, never accumulated beside them.
+        quantity:    round(a.contributions.reduce((t, c) => t + c.quantity, 0)),
+        elementIds:  a.contributions.map((c) => c.elementId),
+        contributions: a.contributions,
         basis:       a.basis,
-        qualifiers:  [...a.qualifiers.entries()].map(([q, n]) => `${n} of ${a.elementIds.length}: ${q}`),
+        qualifiers:  [...a.qualifiers.entries()].map(([q, n]) => `${n} of ${a.contributions.length}: ${q}`),
         secondary:   [...a.secondary.values()].map((s) => ({ ...s, value: round(s.value) })),
         materialBreakdown: [...a.materials.values()]
           .map((m) => ({ ...m, volumeM3: round(m.volumeM3) }))
@@ -356,6 +488,14 @@ class LineBuilder {
           // quantity — the same rule the line itself is filtered by above.
           .filter((m) => m.volumeM3 > 0)
           .sort((x, y) => y.volumeM3 - x.volumeM3),
+        /* §MATERIAL-ATTRIBUTION-REASONS — the reason survives only while the
+           breakdown is genuinely empty. A measurer where SOME elements named a
+           material keeps the breakdown and drops the reason: that line IS
+           attributed, partially, and CarbonModel already reports the remainder. */
+        materialGap: [...a.materials.values()].some((m) => round(m.volumeM3) > 0)
+          ? null
+          : (a.materialGap
+             ?? 'This measurer states no reason for naming no material — §MATERIAL-ATTRIBUTION-REASONS (L-4820) requires one.'),
       }))
       .sort((x, y) => (x.chapter === y.chapter ? x.code.localeCompare(y.code) : x.chapter.localeCompare(y.chapter)));
   }
@@ -413,7 +553,9 @@ export function defaultTakeoffStores(): TakeoffStores {
     columns:      fromWindow<ListStore<LinearElementLike>>('columnStore'),
     beams:        fromWindow<ListStore<LinearElementLike>>('beamStore'),
     handrails:    fromWindow<ListStore<LinearElementLike>>('handrailStore'),
-    stairs:       fromWindow<ListStore<CountedElementLike>>('stairStore'),
+    stairs:       fromWindow<ListStore<StairLike>>('stairStore'),
+    doors:        fromWindow<ListStore<OpeningElementLike>>('doorStore'),
+    windows:      fromWindow<ListStore<OpeningElementLike>>('windowStore'),
     plumbing:     fromWindow<ListStore<CountedElementLike>>('plumbingStore'),
     furniture:    fromWindow<ListStore<CountedElementLike>>('furnitureStore'),
     curtainWalls: fromWindow<ListStore<CountedElementLike>>('curtainWallStore'),
@@ -525,7 +667,15 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
         unit: 'm2',
         quantity: net,
         elementId: w.id,
+        levelId: w.levelId ?? null,
+        mark: w.properties?.mark ?? null,
+        label: typeName,
         materials: wallMaterials,
+        materialGap: !typeId
+          ? 'This wall names no system type, so there is no layer stack to split its volume across. Assign a wall type.'
+          : (layers ?? []).length === 0
+            ? `Wall type "${typeName}" declares no layers, so the wall's volume cannot be attributed to any material. Author the type's layer stack.`
+            : 'Every layer of this wall type is either zero-thickness or names no materialId. A layer with no material contributes NOTHING — not a share of its neighbour, and not a zero.',
         basis: 'Σ elevation face area (wallProfile ring, else length × height; curved walls measured along the tessellated arc) − Σ opening voids from openingOutline()',
         secondary: [
           { label: 'Gross face',        value: grossFace, unit: 'm2' },
@@ -542,9 +692,36 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
       note: 'm² of wall face net of openings; the deduction uses openingOutline(), the same producer that cuts the mesh, so arched and circular voids deduct their true area.',
     });
 
-    // ── DOORS / WINDOWS — counted, from the host walls' openings ──────────────
+    // ── DOORS / WINDOWS — MEASURED, not merely counted (§L-4810) ──────────────
+    //
+    // ⭐ WHAT CHANGED, AND WHY THE COVERAGE CARD WAS THE SPECIFICATION.
+    // This block used to emit a count and a single "Void area" chip, and the
+    // coverage card said, verbatim, that ironmongery, finish, fire rating,
+    // glazing spec and reveal treatment were NOT measured. Four of those five
+    // are absent from the model and stay NOT MEASURED with their reason. The
+    // fifth — FIRE RATING — was NOT absent: `DoorData.fireRating` and
+    // `WindowData.fireRating` exist today, and the take-off simply never read
+    // the joinery element record, only the wall's void. That is the
+    // §authored-but-unwired shape, not a missing capability.
+    //
+    // The joinery record also carries `frameWidth`, which is what makes a LEAF
+    // area and a GLAZED area derivable rather than assumed.
+    //
+    // ⛔ ONE PRICED UNIT PER LINE (see `SecondaryMeasure`). Everything derived
+    // here rides along as a SECONDARY measure on the existing `ud` line rather
+    // than becoming a second line for the same element — a door billed once per
+    // unit and again per m² of leaf is the exact double-count that rule exists
+    // to prevent.
+    const doorRows = readList<OpeningElementLike>(stores.doors, 'doorStore');
+    const windowRows = readList<OpeningElementLike>(stores.windows, 'windowStore');
+    const joinery = new Map<string, OpeningElementLike>();
+    for (const d of doorRows ?? []) joinery.set(d.id, d);
+    for (const wd of windowRows ?? []) joinery.set(wd.id, wd);
+
     let doorN = 0, windowN = 0;
+    let ratedN = 0, unratedN = 0, noRecordN = 0, noFrameWidthN = 0;
     for (const w of walls) {
+      const hostThickness = w.thickness ?? 0;
       for (const op of w.openings ?? []) {
         const isDoor = op.type === 'door';
         const leaves = isDoor ? (op.doorType ?? 'single') : (op.windowType ?? 'single');
@@ -552,34 +729,107 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
         const sizeKey = `${Math.round(op.width * 1000)}x${Math.round(op.height * 1000)}`;
         const family = isDoor ? 'DOOR' : 'WINDOW';
         const label = isDoor ? 'Door' : 'Window';
+        const elementId = op.elementId || op.id;
+        const rec = joinery.get(elementId);
         const area = openingVoidArea(op);
+        const perim = openingPerimeter(op);
+
+        // FIRE RATING joins the CODE only when the model states one, so every
+        // door authored without a rating keeps the code it already had and the
+        // rate the user typed against it survives. A blanket `.fd-none` segment
+        // would have churned every existing code for no information.
+        const fireRating = rec?.fireRating?.trim() || null;
+        if (rec) { if (fireRating) ratedN++; else unratedN++; } else { noRecordN++; }
+
+        // LEAF / GLAZED area. Exact only where the frame is a constant-width band
+        // around a RECTANGULAR void; for an arched or circular head, insetting the
+        // outline is a polygon offset this engine does not do, so the measure is
+        // REFUSED with its reason rather than approximated by the bounding box.
+        const fw = rec?.frameWidth ?? 0;
+        const rectangular = profile === 'rectangular';
+        let clearArea: number | null = null;
+        let clearReason: string | null = null;
+        if (!rec) {
+          clearReason = 'no joinery element record found for this void, so the frame width is unknown';
+        } else if (!(fw > 0)) {
+          noFrameWidthN++;
+          clearReason = 'the joinery record states no frameWidth, so the frame band cannot be deducted';
+        } else if (!rectangular) {
+          clearReason = `a ${profile} head cannot be inset by a constant frame width without a polygon offset, which this engine does not do`;
+        } else {
+          const cw = op.width - 2 * fw;
+          const ch = op.height - 2 * fw;
+          clearArea = cw > 0 && ch > 0 ? cw * ch : 0;
+          if (!(clearArea > 0)) {
+            clearArea = null;
+            clearReason = 'the stated frameWidth consumes the whole opening — the clear area would be zero or negative';
+          }
+        }
+
+        const secondary: SecondaryMeasure[] = [];
+        if (area !== null) secondary.push({ label: 'Structural opening area', value: area, unit: 'm2' });
+        if (clearArea !== null) {
+          secondary.push({ label: isDoor ? 'Leaf area (clear of frame)' : 'Glazed area (clear of frame)', value: clearArea, unit: 'm2' });
+        }
+        if (perim !== null) {
+          secondary.push({ label: 'Frame / lining perimeter', value: perim, unit: 'm' });
+          if (hostThickness > 0) {
+            secondary.push({ label: 'Reveal area (perimeter × host wall thickness)', value: perim * hostThickness, unit: 'm2' });
+          }
+        }
+
+        const qualifier = area === null
+          ? 'void area unavailable — outline producer refused this geometry'
+          : clearReason !== null
+            ? `${isDoor ? 'leaf' : 'glazed'} area NOT measured: ${clearReason}`
+            : leaves === 'double'
+              ? 'double leaf: the meeting stile between the two leaves is NOT deducted — its section is not modelled'
+              : null;
+
         B.add({
-          code: `${family}.${slug(leaves, 'single')}.${slug(profile, 'rectangular')}.${sizeKey}`,
+          code: `${family}.${slug(leaves, 'single')}.${slug(profile, 'rectangular')}.${sizeKey}${fireRating ? `.${slug(fireRating, 'rated')}` : ''}`,
           chapter: 'openings',
-          description: `${label} — ${leaves}, ${profile}, ${mm(op.width)} × ${mm(op.height)}`,
+          description: `${label} — ${leaves}, ${profile}, ${mm(op.width)} × ${mm(op.height)}${fireRating ? `, fire rating ${fireRating}` : ''}`,
           unit: 'ud',
           quantity: 1,
-          elementId: op.elementId || op.id,
-          basis: 'Count of openings hosted in walls, grouped by leaf count, void profile and nominal size',
-          secondary: area === null ? [] : [{ label: 'Void area', value: area, unit: 'm2' }],
-          qualifier: area === null ? 'void area unavailable — outline producer refused this geometry' : null,
+          elementId,
+          levelId: rec?.levelId ?? w.levelId ?? null,
+          mark: rec?.properties?.mark ?? null,
+          label: fireRating ? `${label} ${fireRating}` : label,
+          basis: 'Count of openings hosted in walls, grouped by leaf count, void profile, nominal size and (where the model states one) fire rating. Areas and the frame perimeter are measured on the SAME outline openingOutline() cuts the mesh with',
+          secondary,
+          qualifier,
+          materialGap: 'A door or window is COUNTED, and its areas are measured — but PRYZM models no leaf thickness and no frame section, so there is no VOLUME to attribute to a material. Carbon needs m³; this family can only ever supply m² until a joinery section is modelled.',
         });
         if (isDoor) doorN++; else windowN++;
       }
     }
+
+    const openingNote = (n: number, kind: 'door' | 'window'): string => {
+      const parts = [
+        `${n} measured: count, structural opening area and frame/lining perimeter from openingOutline() — the same producer that cuts the mesh — plus reveal area (perimeter × host wall thickness)`,
+        kind === 'door'
+          ? 'and leaf area clear of the frame where the joinery record states a frameWidth'
+          : 'and glazed area clear of the frame where the joinery record states a frameWidth',
+      ];
+      const gaps: string[] = [];
+      if (noRecordN > 0) gaps.push(`${noRecordN} void(s) have NO joinery element record, so nothing frame-derived could be measured for them`);
+      if (noFrameWidthN > 0) gaps.push(`${noFrameWidthN} record(s) state no frameWidth`);
+      const still = kind === 'door'
+        ? 'STILL NOT MEASURED: ironmongery (no hardware set exists on the model), leaf/frame FINISH as a specification, and leaf VOLUME — no leaf thickness is modelled, so no carbon figure can be reached.'
+        : 'STILL NOT MEASURED: glazing SPECIFICATION (the window type carries an opacity, not a build-up, U-value or pane count), reveal TREATMENT (plaster, render or lining is not modelled — only the reveal AREA is), and glass VOLUME, so no carbon figure can be reached.';
+      return `${parts.join(' ')}. ${gaps.length > 0 ? gaps.join('; ') + '. ' : ''}Fire rating IS measured where the element states one, and it joins the line code so a rated door prices separately (${ratedN} rated, ${unratedN} unrated, of the records that were found). ${still}`;
+    };
+
     coverage.push({
       family: 'Doors',
-      state: doorN > 0 ? 'COUNTED_ONLY' : 'MEASURED',
-      note: doorN > 0
-        ? `${doorN} counted by leaf count, profile and size. Ironmongery, finish and fire rating are NOT measured.`
-        : 'Store read successfully; the project contains no doors.',
+      state: doorN > 0 ? 'MEASURED' : 'MEASURED',
+      note: doorN > 0 ? openingNote(doorN, 'door') : 'Store read successfully; the project contains no doors.',
     });
     coverage.push({
       family: 'Windows',
-      state: windowN > 0 ? 'COUNTED_ONLY' : 'MEASURED',
-      note: windowN > 0
-        ? `${windowN} counted by leaf count, profile and size. Glazing spec and reveal treatment are NOT measured.`
-        : 'Store read successfully; the project contains no windows.',
+      state: windowN > 0 ? 'MEASURED' : 'MEASURED',
+      note: windowN > 0 ? openingNote(windowN, 'window') : 'Store read successfully; the project contains no windows.',
     });
   }
 
@@ -600,6 +850,11 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
        same thing as a material id, so this is a separate accessor and returns
        undefined rather than reusing `keyOf`. */
     materialIdOf: (e: PolyElementLike) => string | undefined = (e) => e.materialId,
+    /* §MATERIAL-ATTRIBUTION-REASONS (L-4820) — what to SAY when no element in this
+       family names a catalogue material. Stated per family because the fixes
+       differ: a floor grouped by FINISH NAME needs a finish→material mapping, a
+       slab with no materialId needs the element tagged. */
+    materialGap = 'No element in this family names a MaterialRecord id, so no volume can be attributed to a material.',
   ): void => {
     const rows = readList<PolyElementLike>(store, storeName);
     if (rows === null) {
@@ -620,6 +875,10 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
         unit,
         quantity: qty,
         elementId: e.id,
+        levelId: e.levelId ?? null,
+        mark: null,
+        label: key,
+        materialGap,
         basis,
         secondary: unit === 'm3'
           ? [{ label: 'Plan area', value: area, unit: 'm2' as QuantityUnit }]
@@ -647,6 +906,8 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
     (k) => `Floor construction — ${k}`,
     'Σ plan area of the floor boundary polygon (or the stored computed area)',
     'm² of plan area, grouped by finish. Skirtings, thresholds and screed falls are NOT measured.',
+    (e) => e.materialId,
+    'These floors are grouped by FINISH NAME, which is not a MaterialRecord id — the two are different vocabularies (C100 §1.1), and mapping one onto the other by string similarity is exactly the substitution C100 §5 forbids. Tag the floor with a materialId, or author a finish→material mapping.',
   );
   measurePolyFamily(
     stores.ceilings, 'ceilingStore', 'Ceilings', 'finishes', 'CEIL', 'm2',
@@ -654,6 +915,8 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
     (k) => `Ceiling — ${k}`,
     'Σ plan area of the ceiling boundary polygon (or the stored computed area)',
     'm² of plan area, grouped by finish. Bulkheads, coves and access hatches are NOT measured.',
+    (e) => e.materialId,
+    'These ceilings are grouped by FINISH NAME, which is not a MaterialRecord id. Tag the ceiling with a materialId, or author a finish→material mapping.',
   );
   measurePolyFamily(
     stores.roofs, 'roofStore', 'Roofs', 'roofing', 'ROOF', 'm2',
@@ -661,6 +924,8 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
     (k) => `Roof — ${k}`,
     'Σ plan area of the roof polygon. NOTE: this is PLAN area, not the developed slope area',
     'm² of PLAN area, grouped by roof type. A pitched roof\'s true surface is larger than its plan projection; slope development is NOT applied.',
+    (e) => e.materialId,
+    'These roofs name no materialId, and a ROOF TYPE is not a material. A roof also carries no build-up thickness here, so even a named material would have no volume to multiply.',
   );
   measurePolyFamily(
     stores.slabs, 'slabStore', 'Slabs', 'structure', 'SLAB', 'm3',
@@ -668,6 +933,8 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
     (k, e) => `Slab — ${k}, ${mm(thicknessOf(e))}`,
     'Σ (plan area × thickness)',
     'm³ of concrete, grouped by material and thickness. Reinforcement, formwork and edge trim are NOT measured.',
+    (e) => e.materialId,
+    'These slabs name no materialId. The VOLUME is measured — it is the attribution that is missing, so tagging the slab is the whole fix.',
   );
 
   // ── Linear families ─────────────────────────────────────────────────────────
@@ -697,9 +964,15 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
         unit: 'ud',
         quantity: 1,
         elementId: c.id,
+        levelId: c.levelId ?? null,
+        mark: null,
+        label: key,
         materials: (c.materialId ?? c.material) && (c.width ?? 0) > 0 && (c.depth ?? 0) > 0
           ? [{ materialId: (c.materialId ?? c.material)!, volumeM3: (c.width ?? 0) * (c.depth ?? 0) * h }]
           : [],
+        materialGap: !(c.materialId ?? c.material)
+          ? 'This column names no material at all. Its gross volume IS measured — only the attribution is missing.'
+          : 'This column names a material but no width × depth section, so there is no volume to attribute.',
         basis: 'Count grouped by profile / section. Length and volume ride along as secondary measures',
         secondary: [
           { label: 'Total length', value: h, unit: 'm' },
@@ -733,9 +1006,15 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
         unit: 'm',
         quantity: span,
         elementId: b.id,
+        levelId: b.levelId ?? null,
+        mark: null,
+        label: key,
         materials: (b.materialId ?? b.material) && (b.width ?? 0) > 0 && (b.depth ?? 0) > 0
           ? [{ materialId: (b.materialId ?? b.material)!, volumeM3: (b.width ?? 0) * (b.depth ?? 0) * span }]
           : [],
+        materialGap: !(b.materialId ?? b.material)
+          ? 'This beam names no material at all. Its gross volume IS measured — only the attribution is missing.'
+          : 'This beam names a material but no width × depth section, so there is no volume to attribute.',
         basis: 'Σ span measured between the beam\'s start and end points',
         secondary: (b.width ?? 0) > 0 && (b.depth ?? 0) > 0
           ? [{ label: 'Gross volume', value: (b.width ?? 0) * (b.depth ?? 0) * span, unit: 'm3' }]
@@ -766,6 +1045,10 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
         unit: 'm',
         quantity: len,
         elementId: h.id,
+        levelId: h.levelId ?? null,
+        mark: null,
+        label: key,
+        materialGap: 'A handrail is measured in LINEAR METRES and PRYZM models no rail SECTION (no width, no depth, no profile area), so there is no volume any material could be attributed to. Naming the material would not close this — the section would.',
         basis: 'Σ length measured along the handrail baseline in plan',
         secondary: (h.height ?? 0) > 0 ? [{ label: 'Elevation area', value: len * (h.height ?? 0), unit: 'm2' }] : [],
       });
@@ -789,6 +1072,7 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
     keyOf: (e: CountedElementLike) => string,
     describe: (key: string) => string,
     note: string,
+    materialGap = 'A counted family carries no dimensioned volume, so there is nothing for a material to be attributed to.',
   ): void => {
     const rows = readList<CountedElementLike>(store, storeName);
     if (rows === null) {
@@ -804,6 +1088,10 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
         unit: 'ud',
         quantity: 1,
         elementId: e.id,
+        levelId: e.levelId ?? null,
+        mark: null,
+        label: key,
+        materialGap,
         basis: 'Count of placed elements, grouped by type',
       });
     }
@@ -814,23 +1102,129 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
     });
   };
 
-  countFamily(
-    stores.stairs, 'stairStore', 'Stairs', 'circulation', 'STAIR',
-    (e) => e.shape ?? 'straight',
-    (k) => `Stair — ${k}`,
-    'Counted by shape. Riser/tread quantities, stringers, landings and finishes are NOT measured.',
-  );
+  // ── STAIRS — MEASURED, not merely counted (§L-4811) ─────────────────────────
+  //
+  // ⭐ THE COVERAGE CARD WAS THE SPECIFICATION HERE TOO. It said "Counted by
+  // shape. Riser/tread quantities, stringers, landings and finishes are NOT
+  // measured." Four of those five are in `StairData` today — `riserCount`,
+  // `riserHeight`, `treadDepth`, `flights[].riserCount`, `landings[].depth`,
+  // `width` and `properties.stringerType` — and the take-off read none of them.
+  //
+  // ⛔ ONE PRICED UNIT PER LINE. A stair remains one `ud` item; the risers,
+  // treads, stringer run and landing area ride along as SECONDARY measures. A
+  // stair billed once per unit and again per tread is a double count, and the
+  // Spanish convention prices the flight as an item with its peldaños stated.
+  //
+  // ⚠ TREADS = RISERS − 1, PER FLIGHT. A flight of N risers has N−1 treads: the
+  // last riser lands on the floor or the landing above, which is why the landing
+  // area is measured separately rather than as another tread.
+  const stairs = readList<StairLike>(stores.stairs, 'stairStore');
+  if (stairs === null) {
+    coverage.push({ family: 'Stairs', state: 'NOT_MEASURED', note: 'stairStore was not reachable when the take-off ran.' });
+  } else {
+    let openRiserN = 0, noStringerN = 0, windingN = 0;
+    for (const st of stairs) {
+      const shape = st.shape ?? 'straight';
+      const width = st.width ?? 0;
+      const riserH = st.riserHeight ?? 0;
+      const nominalGoing = st.treadDepth ?? 0;
+      const props = st.properties ?? {};
+
+      // FLIGHTS. An absent/empty flight list is a single flight of the stair's
+      // own riserCount — that is what the mesh builder falls back to, and a
+      // measurer that disagreed with the builder would be measuring a stair the
+      // user cannot see.
+      const flights = (st.flights ?? []).length > 0
+        ? (st.flights ?? []).map((f) => ({ risers: f.riserCount ?? 0, going: f.treadDepth ?? nominalGoing }))
+        : [{ risers: st.riserCount ?? 0, going: nominalGoing }];
+
+      let risers = 0, treads = 0, treadArea = 0, planRun = 0, stringerRun = 0;
+      const stringerType = props.stringerType ?? 'none';
+      const stringersPerFlight = stringerType === 'mono' ? 1 : stringerType === 'none' ? 0 : 2;
+      for (const f of flights) {
+        const rf = Math.max(0, Math.round(f.risers));
+        if (rf <= 0) continue;
+        const tf = Math.max(0, rf - 1);
+        risers += rf;
+        treads += tf;
+        treadArea += tf * width * (f.going ?? 0);
+        planRun += tf * (f.going ?? 0);
+        stringerRun += stringersPerFlight * Math.hypot(rf * riserH, tf * (f.going ?? 0));
+      }
+      if (risers <= 0) continue;
+
+      const landingArea = (st.landings ?? []).reduce((a, l) => a + Math.max(0, l.depth ?? 0) * width, 0);
+      const totalRise = risers * riserH;
+      // A riser FACE only exists on a closed-riser stair. `riserVisible: false`
+      // is an OPEN-riser stair: there is genuinely no face, and measuring one
+      // would invent material that is not there.
+      const riserVisible = props.riserVisible !== false;
+      if (!riserVisible) openRiserN++;
+      if (stringersPerFlight === 0) noStringerN++;
+      const winding = shape === 'spiral' || shape === 'winder';
+      if (winding) windingN++;
+
+      const secondary: SecondaryMeasure[] = [
+        { label: 'Risers', value: risers, unit: 'ud' },
+        { label: 'Treads', value: treads, unit: 'ud' },
+      ];
+      if (totalRise > 0) secondary.push({ label: 'Total rise', value: totalRise, unit: 'm' });
+      if (planRun > 0) secondary.push({ label: 'Plan run (going)', value: planRun, unit: 'm' });
+      if (treadArea > 0) secondary.push({ label: 'Tread area', value: treadArea, unit: 'm2' });
+      if (riserVisible && risers * width * riserH > 0) {
+        secondary.push({ label: 'Riser face area', value: risers * width * riserH, unit: 'm2' });
+      }
+      if (stringerRun > 0) secondary.push({ label: 'Stringer length', value: stringerRun, unit: 'm' });
+      if (landingArea > 0) secondary.push({ label: 'Landing area', value: landingArea, unit: 'm2' });
+
+      const qualifier = winding
+        ? 'winder / spiral stair: tread area is measured as rectangular treads of the nominal width × going. A winder tread is a WEDGE and its true area differs — this figure is an approximation and is the only approximate number on this line'
+        : !riserVisible
+          ? 'open-riser stair (riserVisible = false): there is no riser face, so no riser area is measured. That is an absence, not a zero'
+          : stringersPerFlight === 0
+            ? 'this stair declares stringerType "none", so no stringer length is measured'
+            : null;
+
+      B.add({
+        code: `STAIR.${slug(shape, 'straight')}.${slug(props.material ?? 'unspecified', 'unspecified')}`,
+        chapter: 'circulation',
+        description: `Stair — ${shape}${props.material ? `, ${props.material}` : ''}`,
+        unit: 'ud',
+        quantity: 1,
+        elementId: st.id,
+        levelId: st.levelId ?? null,
+        mark: props.mark ?? null,
+        label: `${shape} stair, ${risers} risers`,
+        basis: 'Count of stairs grouped by shape and material. Risers are summed per FLIGHT and treads are risers − 1 per flight (the last riser lands on the floor above); tread area = Σ treads × width × going; stringer length = Σ hypot(flight rise, flight going) × stringers implied by stringerType; landing area = Σ landing depth × width',
+        secondary,
+        qualifier,
+        materialGap: props.material
+          ? `This stair names its material as "${props.material}", which is a StairMaterial ENUM ('concrete' | 'steel' | 'timber' | 'marble' | 'glass' | 'composite'), NOT a MaterialRecord id. There are seven concrete rows and thirteen timber rows in the master catalogue and the enum does not say which — picking one would be the substitution C100 §5 forbids. A stair→catalogue mapping, or a materialId on the stair, closes this.`
+          : 'This stair names no material. It also has no modelled slab or waist thickness, so even a named material would have no VOLUME to attribute.',
+      });
+    }
+    coverage.push({
+      family: 'Stairs',
+      state: 'MEASURED',
+      note: stairs.length === 0
+        ? 'Store read successfully; the project contains no stairs.'
+        : `Riser and tread COUNTS, total rise, plan run, tread area, riser face area, stringer length and landing area — all derived from the stair's own flights and landings.${openRiserN > 0 ? ` ${openRiserN} stair(s) are OPEN-RISER, so they have no riser face to measure — an absence, not a zero.` : ''}${noStringerN > 0 ? ` ${noStringerN} stair(s) declare stringerType "none".` : ''}${windingN > 0 ? ` ${windingN} winder/spiral stair(s): the tread area is a rectangular approximation of a wedge-shaped tread.` : ''} STILL NOT MEASURED: tread/riser FINISHES as a specification, nosings (a nosing depth is stored but no nosing line is derived), balustrades (measured separately as the Handrails family), soffit finish, and the concrete WAIST or steel section — no structural thickness is modelled, so a stair reaches no volume and therefore no carbon figure.`,
+    });
+  }
+
   countFamily(
     stores.plumbing, 'plumbingStore', 'Plumbing fixtures', 'mep', 'PLUMB',
     (e) => e.fixtureType ?? 'unspecified',
     (k) => `Sanitary fixture — ${k}`,
     'Counted by fixture type. Pipework, drainage runs and connections are NOT measured — there is no MEP distribution model.',
+    'A sanitary fixture is a catalogue product, not a volume of material. PRYZM models no fixture geometry, so there is nothing to attribute; a fixture-level EPD would be the right shape here, not a material factor.',
   );
   countFamily(
     stores.furniture, 'furnitureStore', 'Furniture', 'furnishings', 'FURN',
     (e) => e.furnitureType ?? e.type ?? 'unspecified',
     (k) => `Furniture — ${k}`,
-    'Counted by furniture type.',
+    'Counted by furniture type. Dimensions, finish and fixing are NOT measured — furniture is placed from a catalogue, and PRYZM stores no per-item bill of materials.',
+    'Furniture is placed as a catalogue item with no modelled volume or material stack. A per-product EPD is the right shape for furniture carbon, not a per-m³ material factor.',
   );
 
   // ── Curtain walls — m² of elevation ─────────────────────────────────────────
@@ -849,6 +1243,10 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
         unit: 'm2',
         quantity: len * h,
         elementId: cw.id,
+        levelId: cw.levelId ?? null,
+        mark: null,
+        label: 'Glazed system',
+        materialGap: 'A curtain wall is measured as a gross ELEVATION AREA. PRYZM breaks out neither the mullion sections nor the pane build-up, so there is no volume of aluminium and no volume of glass to attribute — the m² is real, the m³ does not exist.',
         basis: 'Σ (baseline length × height) of the curtain-wall elevation',
         secondary: [{ label: 'Elevation length', value: len, unit: 'm' }],
       });
@@ -883,6 +1281,10 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
           unit: 'm2',
           quantity: area,
           elementId: r.id,
+          levelId: r.levelId ?? null,
+          mark: r.roomNumber ?? null,
+          label: r.name ?? null,
+          materialGap: 'A room FINISH is a name, not a MaterialRecord id, and a finish has no modelled thickness — so there is neither a material nor a volume here. A finish→material mapping plus a coat thickness would be needed, and inventing either would put a fabricated m³ into a carbon submission.',
           basis: 'Σ room net floor area, grouped by the resolved floor finish',
           qualifier: f?.floor === FINISH_UNDETERMINED ? 'floor finish could not be resolved for this room' : null,
         });
@@ -894,6 +1296,10 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
           unit: 'm2',
           quantity: area,
           elementId: r.id,
+          levelId: r.levelId ?? null,
+          mark: r.roomNumber ?? null,
+          label: r.name ?? null,
+          materialGap: 'A room FINISH is a name, not a MaterialRecord id, and a finish has no modelled thickness. See the floor-finish line for the full reason.',
           basis: 'Σ room net floor area taken as the ceiling area, grouped by the resolved ceiling finish',
           qualifier: f?.ceiling === FINISH_UNDETERMINED ? 'ceiling finish could not be resolved for this room' : null,
         });
@@ -926,6 +1332,10 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
           unit: 'm2',
           quantity: net,
           elementId: r.id,
+          levelId: r.levelId ?? null,
+          mark: r.roomNumber ?? null,
+          label: r.name ?? null,
+          materialGap: 'A room FINISH is a name, not a MaterialRecord id, and a finish has no modelled thickness. See the floor-finish line for the full reason.',
           basis: 'Σ (room perimeter × room height) − Σ voids of the openings in that room\'s bounding walls',
           secondary: [{ label: 'Openings deducted', value: voids, unit: 'm2' }],
           qualifier: f?.walls === FINISH_UNDETERMINED ? 'wall finish could not be resolved for this room' : null,
