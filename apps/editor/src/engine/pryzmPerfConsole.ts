@@ -422,6 +422,78 @@ function censusScene(scene: TraversableLike): SceneCensus {
 }
 
 /**
+ * §NAV-MESH-PER-ELEMENT-CENSUS (L-3312) — print the per-family census, ONCE, on the
+ * console the founder already reads.
+ *
+ * ⚠ THE INSTRUMENT WAS NOT MISSING. The performance ledger §9.5 ranked *"no
+ * per-family mesh census exists"* as the #1 open item for the 10–20x target. That was
+ * WRONG: `censusScene()` above computes exactly that — elements, standalone meshes,
+ * instanced groups, instances, shadow casters and lines, per family — and has done
+ * since INSTR1. What was missing is that NOTHING EVER CALLED IT unless a human typed
+ * `pryzmPerf.report()`, and nobody did. That is `authored-but-unwired` one more time,
+ * and the correction is worth more than the tool would have been.
+ *
+ * ⭐ THE ROW THAT ANSWERS THE QUESTION is `meshes/elem` — standalone + groups divided
+ * by distinct element ids. At 1947 meshes over 331 elements the scene-wide figure is
+ * ~5.9, and the scene-wide figure is USELESS for deciding what to fix: it is an average
+ * over families that differ by an order of magnitude. Sorted by draw cost descending,
+ * the first row of this table IS the thing to fix.
+ *
+ * ⛔ ONE TRAVERSE, ON AN EXPLICIT EVENT, NEVER ON A TIMER — the rule `censusScene`
+ * already states: an instrument that walks the scene on a timer joins the population it
+ * is measuring. This fires once per project load and prints nothing thereafter.
+ */
+export function logSceneCensusOnce(scene: unknown, label: string): void {
+    if (_censusPrintedFor === label) return;
+    _censusPrintedFor = label;
+    try {
+        const c = censusScene(scene as TraversableLike);
+        const rows = Object.entries(c.families)
+            .map(([family, r]) => {
+                const drawn = r.standaloneMeshes + r.instancedGroups;
+                return {
+                    family,
+                    elements: r.elements,
+                    standalone: r.standaloneMeshes,
+                    groups: r.instancedGroups,
+                    instances: r.instances,
+                    // ⛔ A family with 0 distinct ids reports '—', never Infinity and never 0.
+                    // "(unattributed)" geometry has no elements BY DEFINITION, and printing a
+                    // ratio there would invent a denominator.
+                    'meshes/elem': r.elements > 0 ? +(drawn / r.elements).toFixed(2) : '—',
+                    'draws (fwd)': drawn,
+                    shadowCasters: r.shadowCasters,
+                    lines: r.lines,
+                };
+            })
+            .sort((a, b) => b['draws (fwd)'] - a['draws (fwd)']);
+
+        console.log(
+            `[pryzmPerf] §NAV-MESH-PER-ELEMENT-CENSUS (${label}) — ${c.meshes} mesh(es), ` +
+            `${c.elements} element(s), scene-wide ${c.elements > 0 ? (c.meshes / c.elements).toFixed(2) : '?'} meshes/element. ` +
+            `⭐ The scene-wide number is an AVERAGE and decides nothing — read the top row, sorted by forward draw cost. ` +
+            `estimatedForwardDrawCalls=${c.estimatedForwardDrawCalls} (EXCLUDES the shadow pass: ` +
+            `${c.shadowCasters} caster(s) are re-submitted whenever the shadow map refreshes — §NAV-SHADOW-CAMERA-CANNOT-CHANGE-IT).`,
+        );
+        console.table(rows);
+        if (c.families['(unattributed)']) {
+            console.log(
+                '[pryzmPerf] ⚠ "(unattributed)" is geometry carrying no `userData.elementType`. It is a FINDING, ' +
+                'not a rounding bucket: nothing can hide it, isolate it, or select it by type, and no per-family ' +
+                'optimisation can reach it.',
+            );
+        }
+    } catch (e) {
+        // A diagnostic that throws must never take a load with it.
+        console.warn('[pryzmPerf] §NAV-MESH-PER-ELEMENT-CENSUS could not run:', e);
+    }
+}
+let _censusPrintedFor: string | null = null;
+
+/** Re-arm the once-per-load guard (project switch). */
+export function resetSceneCensusOnce(): void { _censusPrintedFor = null; }
+
+/**
  * ⭐ RULE 2 IN CODE — the backend row, derived from TWO authoritative live sources
  * and reconciled, with the disagreement printed rather than resolved.
  *

@@ -223,10 +223,53 @@ not static-analysis work, and it remains open.
 
 ## §6 — Discipline Rules
 
-These five rules are merge-blocking non-negotiables (from `01-VISION.md §8`):
+These rules are merge-blocking non-negotiables (rules 1–5 from `01-VISION.md §8`; rule 6 added 2026-08-22):
 
 1. **Edit canonical docs; do not write audit derivatives.** When a discrepancy surfaces, edit the relevant `C0N-*.md` or `02-ARCHITECTURE.md`. Writing a new `*-AUDIT-2026-MM-DD.md` is prohibited.
 2. **A sub-phase is done when runtime behaviour matches the spec**, not when documentation says so.
 3. **The live verifiers in `03-CURRENT-STATE.md §1` are re-run every sprint close.** Any positive delta on a tripwired metric is an incident.
 4. **Phase F cannot start until ≥ 6/9 convergence booleans are true** (`§4` above).
 5. **Every PR adding a new exported function adds ≥ 1 OpenTelemetry span** (P8). No span = no merge.
+6. ⭐ **"X DOES NOT EXIST" IS A MEASUREMENT. GREP BEFORE YOU CLAIM IT.** *(§6.1)*
+
+### §6.1 — Rule 6, in full: an absence claim is a measurement, not an observation
+
+**Founder ruling, 2026-08-22.** No document, audit register, ISSUE-LOG row, ADR, commit message or
+report may state that a capability, instrument, gate, test, field or code path is **MISSING, ABSENT,
+NOT BUILT, or DOES NOT EXIST** unless the author ran a search for it and can cite the command. The
+citation is part of the claim, exactly as a measured count is.
+
+**Why this is merge-blocking and not advice.** This repository's governing method is re-running
+commands, and its most expensive recurring defect is a confident sentence about the code that the
+code contradicts. Both directions have now cost real work:
+
+| direction | the claim | what was actually there |
+|---|---|---|
+| **claimed PRESENT, was absent** | *"CI enforces layer boundaries via `eslint-plugin-boundaries`"* (L-809) | no `import/resolver` — it checked essentially nothing |
+| **claimed PRESENT, was absent** | *"the conflict-surfacing half has no gate"* | the gate exists, under `tools/rac-conformance/` |
+| **claimed ABSENT, was present** | *"no per-family mesh census exists"* — ranked **#1** open item in `APPLICATION-PERFORMANCE-LEDGER.md §9.5` | `censusScene()` in `apps/editor/src/engine/pryzmPerfConsole.ts` computes exactly that, per family, and had since INSTR1 |
+
+⛔ **The third row is the one this rule is named for, and it is the more dangerous shape.** A false
+*"it exists"* gets caught the first time someone tries to use it. A false *"it does not exist"*
+**silently authorises building a second one** — and a rival instrument that disagrees with the first
+is strictly worse than the gap that was imagined. The census case cost a #1 ranking on a performance
+ledger and nearly cost a duplicate tool.
+
+**What the rule requires, minimally:**
+
+1. **Search by capability, not by the name you would have given it.** The census was not called
+   `meshCensus`. Grep the thing it would *compute* (`elementsByType`, `standaloneMeshes`), not the
+   name you expect. A single-name grep returning nothing is not evidence of absence.
+2. **Search the whole tree, and say what you excluded.** Tests, `tools/`, and non-obvious
+   directories count as existing: two of the three rows above were missed because the search
+   stopped at the directory the author expected.
+3. **Distinguish ABSENT from UNREACHABLE, and prefer the second.** *"It does not exist"* and *"it
+   exists and nothing calls it"* have **opposite fixes** — build it, versus wire it. The census was
+   the second: complete, correct, and invoked only if a human typed `pryzmPerf.report()`. Ranking it
+   as missing would have produced a rival; ranking it as unwired produced a three-line call site.
+4. **State the command.** *"`grep -rn censusScene apps packages` → 1 definition, 0 production
+   callers"* is a claim a reader can refute. *"There is no census"* is not.
+
+**Anti-pattern this rule forbids by name:** promoting an unsearched absence to a ranked work item.
+An absence that has not been searched for is a **hypothesis**, and it is recorded with the word
+UNVERIFIED beside it or it is not recorded at all.

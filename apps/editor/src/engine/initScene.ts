@@ -5111,6 +5111,22 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 try { reportSwapPaintsTheBuilding('immediately-after-swap'); } catch { /* diagnostic only */ }
                 setTimeout(() => {
                     try { reportSwapPaintsTheBuilding('one-second-after-swap'); } catch { /* diagnostic only */ }
+                    // §NAV-MESH-PER-ELEMENT-CENSUS (L-3312) — the per-family table, printed
+                    // beside the reading it explains. `drawCalls` above says HOW MUCH; this
+                    // says WHICH FAMILY, which is the half nobody had.
+                    //
+                    // ⚠ The instrument was NOT missing — `censusScene()` has computed this
+                    // since INSTR1 and nothing ever called it. That is why this is three lines
+                    // and not a new tool (C01 §6.1: ABSENT and UNREACHABLE have opposite fixes).
+                    //
+                    // Piggy-backs the existing 1 s timer rather than adding one: this is a
+                    // single scene traverse and it must never become a recurring cost, which is
+                    // the rule `censusScene` states about itself.
+                    try {
+                        void import('./pryzmPerfConsole').then((m) => {
+                            m.logSceneCensusOnce(window.scene, 'one-second-after-swap');
+                        });
+                    } catch { /* diagnostic only */ }
                 }, 1000);
 
                 // Remount the corner pill so the "· <backend>" label updates.

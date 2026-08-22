@@ -1718,13 +1718,32 @@ moves it — and that is a model change, which thaws.
 ### §9.5 — What is NOT closed, ranked for the 10–20× target
 
 1. **~5.9 meshes per element** (1947 meshes / 331 elements). This, not the shadow pass, is the
-   term that decides the 20× case: it multiplies *everything* downstream. **Unmeasured — no
-   per-family mesh census exists.** That census is the next thing to build.
-2. **`InstancedMeshCoalescer` reports `mergedGroups=0 totalInstances=0`** on every batch. Its key is
-   `levelId:geometry.uuid:material.uuid`, and §7.4 records that *every element allocates fresh
-   geometry* — so two elements can never share a UUID. **Whether 0 is "nothing left to merge"
-   (`InstancedElementRenderer` already groups by geo×mat×level) or "structurally cannot merge" is
-   NOT SETTLED, and the two have opposite fixes.** Do not act on this line without settling it.
+   term that decides the 20× case: it multiplies *everything* downstream.
+
+   > ⚠ **CORRECTED 2026-08-22 — this item said "Unmeasured — no per-family mesh census exists.
+   > That census is the next thing to build." THE CENSUS EXISTED.** `censusScene()` in
+   > `apps/editor/src/engine/pryzmPerfConsole.ts` computes elements, standalone meshes, instanced
+   > groups, instances, shadow casters and lines **per family**, and has since INSTR1. What was
+   > missing is that **nothing ever called it** unless a human typed `pryzmPerf.report()`.
+   >
+   > ⛔ **ABSENT and UNREACHABLE have opposite fixes** — build it, versus wire it — and ranking
+   > this as ABSENT would have authorised a SECOND census that disagreed with the first. The real
+   > fix was a three-line call site. This is now **C01 §6 rule 6 / §6.1**, merge-blocking, at the
+   > founder's direction: *"X does not exist" is a measurement; grep before you claim it.*
+
+   **Now wired (L-3312):** the per-family table prints once per load beside
+   `§SWAP-PAINTS-THE-BUILDING`, sorted by forward draw cost. ⭐ **Read the top row, not the
+   scene-wide 5.9** — that average spans families differing by an order of magnitude and decides
+   nothing. Still to do: act on what the first real reading says.
+2. ✅ **`InstancedMeshCoalescer`'s `mergedGroups=0` is SETTLED — it is CORRECT, not a defect.**
+   Measured 2026-08-22: `InstancedElementRenderer._hashGeometry` (`:805-818`) keys a group on
+   geometry **CONTENT** — `elementType_levelId_indexCount_vertexCount_x0_y0_z0_material.uuid` —
+   **not** on `geometry.uuid`. So look-alike geometry from different elements already groups, and
+   the only way two InstancedMeshes can reach the coalescer sharing a `geometry.uuid` is as shards
+   of a deliberate 512-slot spill, which must NOT be re-merged. `0` means *nothing left to merge*.
+   ⛔ **Do not "fix" this.** The residual risk is the `material.uuid` term in that key, which
+   `SharedMaterialCache.dedupInstanceMaterial` exists to neutralise — **that** is the thing worth
+   measuring, not the coalescer.
 3. **`SpatialTree.refreshTreeNow()` rebuilds ~27 400 DOM nodes on every model mutation** (§3.4),
    visible or not. Not a navigation cost; a mutation cost.
 4. **The WebGL fallback is itself the constraint.** §PERF-WEBGL2-NO-TSL turns off the entire node
