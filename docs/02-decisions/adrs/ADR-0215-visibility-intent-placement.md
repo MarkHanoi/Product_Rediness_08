@@ -6,8 +6,41 @@
 | Closes | `CONFLICT-ANALYSIS.md §3.10`, §6.5 |
 | Required by | Sprint S29 (Phase 2B start — plan-view rebuild) |
 | Owner | Architecture lead |
-| Spec dependency | `specs/SPEC-04-DRAWING-ENGINE.md` |
-| Source rules | `02-decisions/contracts/12-VISIBILITY-INTENT-SYSTEM-CONTRACT.md` (the rule matrix preserved) |
+| Spec dependency | `specs/SPEC-04-DRAWING-ENGINE.md` — **and [`SPEC-51`](../../03-execution/specs/SPEC-51-VIEW-GENERATION-PIPELINE.md) §1.2 for where these modules actually are** |
+| Source rules | ⚠ `02-decisions/contracts/12-VISIBILITY-INTENT-SYSTEM-CONTRACT.md` — **ABSENT.** The live owner is **[C09 §4](../../02-decisions/contracts/C09-AI-AND-VISIBILITY-INTENT.md)** |
+
+> ## ⚠ CORRECTED 2026-08-22 (lane VIEWDOC20) — **0 of 6 cited paths resolve, and one of them is a
+> ## LAYER ASSIGNMENT THE CODE DID NOT HONOUR**
+>
+> This ADR is `Accepted`. Measured: **6 repo paths cited, ZERO resolve.**
+>
+> | Cited | Row | Reality |
+> |---|---|---|
+> | `packages/geometry-kernel/visibility/classifier.ts` | :28 | **RELOCATED** → `packages/geometry-kernel/src/hidden-line/classifier.ts` (L2). The decision holds; the directory was renamed. |
+> | `packages/geometry-kernel/visibility/style-resolver.ts` | :29 | ⛔ **see below — this one is NOT a path error** |
+> | `packages/stores/StyleStore.ts` | :29 | **ABSENT.** 58 stores in `packages/stores/src`; no `StyleStore` there or anywhere in the repo. |
+> | `plugins/<elem>/committer.ts` | :30 | Template placeholder, and **unrealised**: the only `committer.ts` under `plugins/` is `plugins/toy-cube/src/committer.ts`, a fixture. |
+> | `packages/renderer/dirty-flags.ts` | :31 | **ABSENT.** `packages/renderer/src` holds 6 entries; none is this. |
+> | `packages/geometry-kernel/visibility/` | :64 | **RELOCATED** → `packages/geometry-kernel/src/hidden-line/`. |
+>
+> ### ⛔ Row :29 — style resolution is at L6, and this ADR put it at L4
+>
+> `find packages plugins apps -name 'style-resolver*'` → **`plugins/plan-view/src/style-resolver.ts`
+> is the only one in the repo. `plugins/*` is L6.** This ADR assigns that work to
+> *"L1 data + **L4 evaluation**"*.
+>
+> ⭐ **This must NOT be fixed by editing the path.** Repointing row :29 at
+> `plugins/plan-view/src/style-resolver.ts` would make the citation resolve **and silently ratify
+> the layer placement this ADR was written to reject** — converting a live architectural
+> disagreement into a tidy-looking table. That is the more expensive outcome.
+>
+> Per the conflict-resolution order in `CLAUDE.md`, **the ADR is stronger than the code, so the
+> CODE is wrong**: style evaluation belongs in the kernel, not in a plugin. The remedy is to move
+> it, not to re-describe it. **`plugins/plan-view/` is not lane VIEWDOC20's file and was
+> deliberately not touched.** Recorded as **L-5509** and handed on.
+>
+> The Decision and its layer table below are **NOT retracted** — the placement argument still
+> stands, and row :29 is now a measured statement of drift rather than an unnoticed one.
 
 ---
 

@@ -12,6 +12,41 @@
 
 > Phase 2B is the project's single most likely slip. SPEC-30 makes it tractable by pinning **what the plan view must do**, **how fast**, and **on what budget**, plus the **pre-port migration** that converts the legacy 11-wave Visibility-Intent system without a 6-month freeze. Without this SPEC, "54 files in 3 sprints" is a wish.
 
+> ## ⚠ CORRECTED 2026-08-22 (lane VIEWDOC20) — **ZERO of this document's 7 cited paths resolve**
+>
+> Status line reads `Active — normative`. Measured: **7 repo paths cited · 0 resolve.** This is the
+> worst ratio of the eleven view-pipeline documents audited.
+>
+> | Cited | Reality |
+> |---|---|
+> | `packages/visibility/resolver.ts` | **ABSENT** |
+> | `packages/visibility/legacy-adapter.ts` | **ABSENT** |
+> | `packages/visibility/incremental.ts` | **ABSENT** |
+> | `packages/geometry-kernel/edge-projection.ts` | **RELOCATED** → `packages/geometry-kernel/src/edge-projection.ts` (missing `src/` only) |
+> | `packages/geometry-kernel/poche.ts` | **RELOCATED** → `packages/geometry-kernel/src/poche.ts` (missing `src/` only) |
+> | `apps/bench/plan-view-perf.ts` | **RELOCATED**, lower confidence → `apps/bench/src/benches/plan-view-redraw.bench.ts` |
+> | `plugins/<family>/plan-symbol.ts` | Template placeholder — **and unrealised**: no plugin has this file |
+>
+> ### ⭐ The finding: the thing this SPEC promises to REPLACE is the thing that still exists
+>
+> `packages/visibility/src/waves/` contains **`w01-level-scope.ts` … `w11-ghost-layer.ts`** — the
+> **legacy 11-wave Visibility-Intent system is present and complete**, while **all three files of
+> the named replacement are absent.** `packages/visibility/src` holds `index.ts`, `runtime.ts`,
+> `legacyGovernanceStore.ts`, `intents/`, `waves/`.
+>
+> ⚠ `legacyGovernanceStore.ts` is **name-adjacent** to the cited `legacy-adapter.ts` and is **not**
+> it — it is a store, not the parity adapter. **Reporting it as the relocation would be the
+> ABSENT-vs-RELOCATED error this audit exists to avoid** (C01 §6 rule 6): the two have opposite
+> fixes, and calling this one "moved" would erase a real, unbuilt migration from the record.
+>
+> **So the "pre-port migration" in the abstract above is UNBUILT**, and this document has described
+> it in the present tense, marked normative, for sixteen weeks. The performance budgets below are
+> **targets, not measurements**; nothing in this file establishes that any of them is met.
+>
+> No gate caught this: `tools/ga-gate/check-contract-cited-paths.ts` asserts exactly this property
+> but globs **`contracts/**` only**, and this file is in `specs/`. See SPEC-51 §3.5, §3.6
+> (L-5510, L-5511).
+
 ---
 
 ## §1 What plan view is

@@ -12,6 +12,38 @@
 
 > SPEC-04 declared the vector primitives (`Line`, `Polyline`, `Arc`, `Polygon`, `Text`, `Symbol`) and styles. This SPEC pins the **TypeScript schemas**, the **rendering contract** for SVG / Canvas2D / native-PDF backends, and the **CI gates** that enforce backend-equivalence. Phase 2C sheets & schedules cannot ship without this.
 
+> ## ⚠ CORRECTED 2026-08-22 (lane VIEWDOC20) — **the "CI gates that enforce backend-equivalence"
+> ## DO NOT EXIST, and two of the three backends throw**
+>
+> Measured: **6 repo paths cited · 1 resolves · 5 do not.** Status line reads `Active — normative`.
+>
+> **(1) The enforcement claim in the abstract above is FALSE.** This is the L-809 defect shape — a
+> normative document describing a gate that does not exist:
+> - `ls tools/ga-gate/ | grep -iE "visual|diff|parity|backend|drawing"` → **no match**, across
+>   **68** gate scripts.
+> - A `tests/visual-diff/` corpus and a CI job at `.github/workflows/ci.yml:306` **do** exist — ⚠ so
+>   this is *not* "no gate at all", and saying so would be wrong in the other direction. Its
+>   subject is **`3d/` element renders and `plan-view/`**, **not backend equivalence**.
+> - **The only test touching the backends is
+>   `packages/drawing-primitives/__tests__/backends.test.ts`, and it asserts
+>   `SvgBackend.render()` THROWS `BackendNotImplementedError`.** ⭐ The suite nearest this SPEC's
+>   subject **pins the non-equivalence** rather than enforcing equivalence.
+>
+> **(2) Backend equivalence is not merely unenforced — it is currently impossible.**
+> `packages/drawing-primitives/src/backends/svg.ts` (966 B) and `pdf.ts` (688 B) are headed
+> `// TYPED STUB` and throw. Only `canvas2d.ts` renders. Working SVG/PDF/DXF live on a **separate
+> sheet-level path** that never consumes a `PrimitiveStream`. See SPEC-51 §3.2.
+>
+> **(3) `tests/fixtures/drawing/` (cited by §"For every fixture in") is ABSENT.**
+> `tests/fixtures/` exists (cold-load, pryzm-1, four `.pryzm-stub.json`) with no `drawing/`.
+> The named fixture corpus for the equivalence gate was never built.
+>
+> **(4) `plugins/<family>/schedule.ts` and `plugins/<family>/plan-symbol.ts` are template
+> placeholders — and the pattern is unrealised**: no plugin in the repo has either file.
+>
+> **The schemas and the rendering contract below are retained as the ratified target.** What is
+> corrected is the claim that anything enforces them. See SPEC-51 §3.2, §3.6 (L-5506, L-5511).
+
 ---
 
 ## §1 The primitive set

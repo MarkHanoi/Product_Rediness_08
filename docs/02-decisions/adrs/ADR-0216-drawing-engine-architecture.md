@@ -6,8 +6,48 @@
 | Closes | `CONFLICT-ANALYSIS.md §6.6`; `CRITICAL-REVIEW-2026-04-27.md §B4` |
 | Required by | Sprint S29 (Phase 2B — plan view rebuild) |
 | Owner | Architecture lead |
-| Implementation | `packages/drawing-primitives/` (vector model); `packages/drawing-canvas2d/`; `packages/drawing-svg/`; `packages/drawing-pdf/` |
-| Spec dependency | `SPEC-04-DRAWING-ENGINE.md` |
+| Implementation | ⚠ **THREE OF THESE FOUR PATHS DO NOT EXIST — corrected 2026-08-22, see box below.** ~~`packages/drawing-primitives/` (vector model); `packages/drawing-canvas2d/`; `packages/drawing-svg/`; `packages/drawing-pdf/`~~ |
+| Spec dependency | `SPEC-04-DRAWING-ENGINE.md` — **and [`SPEC-51-VIEW-GENERATION-PIPELINE.md`](../../03-execution/specs/SPEC-51-VIEW-GENERATION-PIPELINE.md), which carries the measured as-built map** |
+
+> ## ⚠ CORRECTED 2026-08-22 (lane VIEWDOC20)
+>
+> **This ADR is `Accepted` and its header field named `Implementation` — the field whose whole
+> purpose is to say where the code lives — is three-quarters wrong.** Measured: **7 paths cited,
+> 1 resolves, 6 do not.**
+>
+> **(1) The back-end packages were consolidated, and two of the three THROW.**
+> `packages/drawing-canvas2d|svg|pdf/` → all now `packages/drawing-primitives/src/backends/`.
+> Only `canvas2d.ts` (5,636 B) renders. `svg.ts` (966 B) and `pdf.ts` (688 B) are headed
+> `// TYPED STUB` and throw `BackendNotImplementedError`. **The Decision's sentence *"Three
+> pluggable back-ends (Canvas2D / SVG / PDF) consume it"* is true of one.**
+> Working SVG/PDF/DXF exist on a **separate sheet-level path** that never touches the primitive
+> stream (`drawing-primitives/src/sheet/SheetToSvg.ts`, `packages/pdf-export/src/SheetToPdf.ts`,
+> `packages/file-format/src/export/sheets/{PdfExportService,DxfExportService}.ts`).
+>
+> **(2) `packages/scene-cache/` (§:105) DOES NOT EXIST.** `ls -d packages/scene-cache` → absent;
+> no `SceneCache` anywhere in the repo. The purity claim *"`(ViewDef, sceneRevision) → Primitive[]`
+> is a pure function"* is untouched by this — **only the claim about where it is cached is false.**
+>
+> **(3) ⛔ §:126's MITIGATION FOR THIS ADR'S OWN HEADLINE RISK IS THE SHARPEST FINDING.**
+> The risk is stated as *"Three back-ends to keep at parity"*, mitigated by *"the snapshot suite at
+> `packages/drawing-primitives/__tests__/snapshots/` and a per-back-end visual-diff CI gate"*.
+> Measured:
+> - `packages/drawing-primitives/__tests__/` exists with **9 test files and NO `snapshots/`
+>   directory**. The named suite is **ABSENT**.
+> - A visual-diff corpus and CI job **do** exist (`tests/visual-diff/`, `ci.yml:306`) — ⚠ so this
+>   is **not** an absent gate, and reporting it as one would be wrong. But its subject is
+>   **`3d/` element renders and `plan-view/`**, not back-end parity. `ls tools/ga-gate/ | grep -iE
+>   "visual|diff|parity|backend|drawing"` → **no match** across **68** gate scripts.
+> - **The only test that touches the back-ends is `__tests__/backends.test.ts`, and it asserts
+>   `SvgBackend.render()` THROWS.**
+>
+> ⭐ **So the mitigation named for the parity risk is a test that PINS THE NON-PARITY.** It is
+> green, it is meaningful, and it measures the opposite of what this ADR cites it for. **A gate
+> with the wrong subject is more dangerous than a missing one, because it reports success.**
+>
+> **The architecture below is NOT retracted** — it remains the ratified target, and the layer
+> assignment is still right. What is corrected is every claim about where it lives and what
+> defends it. See SPEC-51 §3.2, §3.5 (L-5506, L-5510, L-5511).
 
 ---
 
