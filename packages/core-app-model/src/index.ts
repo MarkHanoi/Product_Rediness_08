@@ -334,7 +334,17 @@ export {
     // `?? 8` / `?? 200` again. See ViewDefinitionTypes for the derivation.
     UNCLIPPED_ELEVATION_FAR_DEPTH_M, DEFAULT_ELEVATION_SCOPE_DEPTH_M,
     resolveElevationFarDepth,
+    // §CROP-IS-THE-CLIP (L-4500) — the crop rectangle IS the clip range. ONE
+    // near/far resolution for every producer of an elevation depth window:
+    // projector clip planes, oriented section box, plan scope rectangle, drag
+    // seed. `resolveElevationFarDepth` is now a thin `.far` wrapper over it.
+    resolveElevationClipRange,
+    MIN_ELEVATION_CLIP_DEPTH_M,
+    // §CROP-IS-THE-CLIP (L-4500) — the plan-family CULL margin on spatial.cropRegion.
+    // Not a clip range. See its JSDoc before reading a ~0.10 m discrepancy as a defect.
+    CROP_REGION_CULL_MARGIN_M,
 } from './views/ViewDefinitionTypes.js';
+export type { ElevationClipRange, ElevationClipSource } from './views/ViewDefinitionTypes.js';
 // §FIX-ELEVATION-POCHE / §FIX-ELEVATION-SCOPE (L-119 / L-120 P4) — unified view scope.
 export { resolveViewScope, resolveOcclusionDisposition, resolveBeyondLineStyle } from './views/ViewScope.js';
 export type { ViewScope } from './views/ViewScope.js';

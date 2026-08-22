@@ -292,14 +292,149 @@ export const DEFAULT_ELEVATION_SCOPE_DEPTH_M = 40;
  * they cannot drift apart again (C06 §13.3 — one producer per surface).
  */
 export function resolveElevationFarDepth(
-    viewDef: {
-        crop?: { farClip?: { offset?: number } };
-        spatial?: { viewRange?: { farOffset?: number } };
-    },
+    viewDef: ElevationClipSource,
     fallback: number,
 ): number {
-    const stored = viewDef.crop?.farClip?.offset ?? viewDef.spatial?.viewRange?.farOffset;
-    return typeof stored === 'number' && Number.isFinite(stored) ? stored : fallback;
+    return resolveElevationClipRange(viewDef, fallback).far;
+}
+
+// ── §CROP-IS-THE-CLIP (L-4500) — the crop rectangle IS the clip range ─────────
+//
+// THE DEFECT (founder, 2026-08-21): *"the elevation line ... really defines
+// accurately the place of cut ... however the extension of it is not aligned with
+// the further line of the square crop in plan view. The user should be able to
+// absolutely and super accurately define the crop view, and this would/should
+// define precisely what the elevation shows."*
+//
+// ONE elevation had THREE stores for its depth window and no expression that read
+// all three, so "what the plan draws" and "what the projector clips" were computed
+// from DIFFERENT fields:
+//
+//   · `crop.farClip.offset`      — written by the depth-handle drag AND by the
+//                                   ViewPropertiesPanel "View Depth (m)" input.
+//                                   READ by the projector (`resolveClipRange`).
+//   · `spatial.sectionVolume.far`— written by the depth-handle drag and by
+//                                   `CreateElevationMarkCommand`. READ by the plan
+//                                   scope rectangle (`PlanViewAnnotationRenderer.
+//                                   _scopeWorld`) and by the oriented section box.
+//   · `spatial.viewRange.farOffset` — written by `roomInteriorElevations`.
+//
+// The drag happens to write the first two together, which is why dragging LOOKS
+// right. **Typing a number into the panel writes only the FIRST**, so the panel
+// moved the projector's far while the plan rectangle stayed put — a lying
+// rectangle, the same defect shape as L-267 and L-1856, one field further along.
+//
+// THE INVARIANT, stated so it can be tested (see `elevationCropIsTheClip.test.ts`):
+//
+//     far  plane of an elevation/section == far  edge of its crop rectangle
+//     near plane of an elevation/section == near edge of its crop rectangle
+//
+// This function is the ONE expression both sides call, so the invariant holds by
+// CONSTRUCTION rather than by two producers agreeing. C06 §13.3 (one producer per
+// surface); C24 (spatial crop) — the paper crop (C24.1) is a different window and
+// is NOT resolved here.
+//
+// PRECEDENCE, and why the two ends differ:
+//   far  — `crop.farClip.offset` first: it is the DEDICATED far-clip field, it is
+//          the one the panel writes, and `sectionVolume.far` is the drag's mirror
+//          of it. If the mirror won, a typed depth would be inert.
+//   near — `sectionVolume.near` first: there is NO dedicated near-clip field, the
+//          section volume's near IS the drawn near edge, and `viewRange.nearOffset`
+//          means "cut height above the FLOOR" (a PLAN concept, DOC-1.5d) which has
+//          no meaning in depth space. It is kept as a fallback only because
+//          `roomInteriorElevations` writes it on views that carry no sectionVolume.
+
+/** The fields any elevation/section clip resolution may read. Structural, so both
+ *  L3 (`PlanViewAnnotationRenderer`) and L5 (`EdgeProjectorService`) can pass a
+ *  `ViewDefinition` without importing each other. */
+export interface ElevationClipSource {
+    crop?: { farClip?: { offset?: number } };
+    spatial?: {
+        viewRange?: { nearOffset?: number; farOffset?: number };
+        sectionVolume?: { near?: number; far?: number };
+    };
+}
+
+/** A depth window along the projection direction, in metres from the view origin. */
+export interface ElevationClipRange {
+    /** Depth of the near plane. 0 = the cut plane itself. Never negative. */
+    near: number;
+    /** Depth of the far plane. Never less than `near`. */
+    far: number;
+}
+
+/**
+ * Minimum depth of an elevation/section clip window, in metres.
+ *
+ * ⚠ This is a DEGENERACY GUARD, not an offset — it must never be reachable from a
+ * stored value, or it becomes exactly the kind of silent 100 mm term this whole
+ * block exists to abolish. Measured 2026-08-22, every writer already clamps above
+ * it: `PlanViewInteraction._applyScopeDragFromPointer` clamps the depth drag to
+ * `near + 0.25`; `CreateElevationMarkCommand` clamps to `Math.max(0.5, …)` and
+ * seeds 15 m on the fallback branch; `ViewPropertiesPanel`'s depth input clamps to
+ * 0.25. It fires only for a hand-edited or corrupt document, where the alternative
+ * is an elevation that shows nothing and a grab handle sitting on its own origin.
+ *
+ * It lives HERE, in the shared resolver, rather than in the plan renderer — which
+ * is where it used to live, as `Math.max(near + 0.1, volume.far)`. A floor applied
+ * on ONE side of the invariant is a disagreement generator; applied in the one
+ * expression both sides call, it cannot separate them.
+ */
+export const MIN_ELEVATION_CLIP_DEPTH_M = 0.1;
+
+/**
+ * Outward margin, in metres, on the axis-aligned `spatial.cropRegion` box.
+ *
+ * ⚠ §CROP-IS-THE-CLIP (L-4500) — **`spatial.cropRegion` is NOT a clip range and is
+ * NOT what an elevation is clipped to.** It is a cheap axis-aligned XZ AABB used
+ * to CULL elements before the expensive edge pass, and
+ * `NativeElementMeshExporter.exportForView` reads it **only** when
+ * `resolveViewScope(viewType).planFamily` — for elevation/section it passes
+ * `undefined` (see the §FIX-ELEVATION-CROP-CLIP note there: an XZ box mixes the
+ * drawing-horizontal axis with the view DEPTH axis and would cull straddlers).
+ *
+ * The margin exists because culling on an exact boundary drops an element whose
+ * own AABB merely touches it. Outward is the safe direction: too generous keeps a
+ * few extra elements that later stages clip anyway; too tight deletes real
+ * geometry from the drawing.
+ *
+ * ⭐ It is NAMED because it is the term that made an elevation's logged
+ * `cropRegion` depth read ~0.10 m (= 2 × this) DEEPER than the logged `far`, in
+ * every sample, which reads exactly like a clip-range defect and is not one.
+ * If you are chasing a ~100 mm discrepancy between those two log fields, this
+ * constant is the whole answer — see ISSUE-LOG L-4500.
+ */
+export const CROP_REGION_CULL_MARGIN_M = 0.05;
+
+const _finiteOrUndefined = (v: unknown): number | undefined =>
+    typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+
+/**
+ * §CROP-IS-THE-CLIP (L-4500) — THE one near/far resolution for a section or
+ * elevation view. Every producer of a depth window — the projector's clip planes,
+ * the oriented section box, the plan scope rectangle, the drag seed — MUST come
+ * through here. See the block comment above for precedence and the invariant.
+ *
+ * `fallbackFar` names the QUESTION being asked when nothing is stored:
+ * `UNCLIPPED_ELEVATION_FAR_DEPTH_M` for "clip nothing",
+ * `DEFAULT_ELEVATION_SCOPE_DEPTH_M` for "where do we draw the grab handle".
+ */
+export function resolveElevationClipRange(
+    viewDef: ElevationClipSource,
+    fallbackFar: number,
+): ElevationClipRange {
+    const near = Math.max(
+        0,
+        _finiteOrUndefined(viewDef.spatial?.sectionVolume?.near)
+            ?? _finiteOrUndefined(viewDef.spatial?.viewRange?.nearOffset)
+            ?? 0,
+    );
+    const storedFar =
+        _finiteOrUndefined(viewDef.crop?.farClip?.offset)
+        ?? _finiteOrUndefined(viewDef.spatial?.sectionVolume?.far)
+        ?? _finiteOrUndefined(viewDef.spatial?.viewRange?.farOffset);
+    const far = Math.max(near + MIN_ELEVATION_CLIP_DEPTH_M, storedFar ?? fallbackFar);
+    return { near, far };
 }
 
 // ═════════════════════════════════════════════════════════════════════════════

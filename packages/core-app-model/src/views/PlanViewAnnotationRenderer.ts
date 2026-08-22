@@ -34,7 +34,13 @@ import type { ViewDefinition } from './ViewDefinitionTypes';
 // so an untouched elevation PROJECTED the whole building but drew its depth handle
 // 8 m from a mark seeded 24 m away — unreachable, and committing it sliced the
 // building. See ViewDefinitionTypes for the derivation.
-import { resolveElevationFarDepth, DEFAULT_ELEVATION_SCOPE_DEPTH_M } from './ViewDefinitionTypes';
+import {
+    // §CROP-IS-THE-CLIP (L-4500) — the rectangle this file DRAWS and the planes the
+    // projector CLIPS to are now one expression, so they cannot disagree.
+    resolveElevationClipRange,
+    DEFAULT_ELEVATION_SCOPE_DEPTH_M,
+} from './ViewDefinitionTypes';
+import type { ElevationClipRange } from './ViewDefinitionTypes';
 // §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — a tag's size is PAPER, scaled by the
 // view (C24). The same mechanism as the dimension tier gap (L-281); tags never got it.
 import {
@@ -2135,7 +2141,12 @@ export class PlanViewAnnotationRenderer {
         const viewDef = linkedViewId ? viewDefinitionStore.get(linkedViewId) : undefined;
         if (!viewDef) return;
 
-        const depth = Math.max(0.1, viewDef.spatial.sectionVolume?.far ?? resolveElevationFarDepth(viewDef, DEFAULT_ELEVATION_SCOPE_DEPTH_M));
+        // §CROP-IS-THE-CLIP (L-4500) — the label reads the SAME resolver as the
+        // rectangle it annotates and as the projector. It used to read
+        // `sectionVolume.far ?? resolveElevationFarDepth(...)` — sectionVolume FIRST,
+        // the exact INVERSE of the projector's precedence — so after a panel depth
+        // edit the caption stated a depth the drawing did not have.
+        const depth = resolveElevationClipRange(viewDef, DEFAULT_ELEVATION_SCOPE_DEPTH_M).far;
         const scope = this._scopeWorld(ann, viewDef);
         if (!scope) return;
 
@@ -2308,18 +2319,22 @@ export class PlanViewAnnotationRenderer {
         return { sx: (fa.sx + fb.sx) / 2, sy: (fa.sy + fb.sy) / 2 };
     }
 
-    private _sectionScopeWorld(ann: AnnotationElement, depth: number): ScopeWorld | null {
+    private _sectionScopeWorld(ann: AnnotationElement, clip: ElevationClipRange): ScopeWorld | null {
         const pts = ann.geometry2D.modelPoints;
         if (!pts || pts.length < 2) return null;
-        const a = { x: pts[0].x, z: pts[0].z };
-        const b = { x: pts[1].x, z: pts[1].z };
-        const fallback = normalize2({ x: -(b.z - a.z), z: b.x - a.x });
+        const p0 = { x: pts[0].x, z: pts[0].z };
+        const p1 = { x: pts[1].x, z: pts[1].z };
+        const fallback = normalize2({ x: -(p1.z - p0.z), z: p1.x - p0.x });
         const dir = normalize2((ann.parameters.tailDirection as { x: number; z: number } | undefined) ?? fallback);
+        // §CROP-IS-THE-CLIP (L-4500) — the NEAR edge sits at `clip.near`, not at the
+        // mark line, whenever a near offset is stored. Drawing it at the mark while the
+        // projector clipped at the offset is the same lying-edge shape as the far end.
+        const at = (p: { x: number; z: number }, d: number) => ({ x: p.x + dir.x * d, z: p.z + dir.z * d });
         return {
-            a,
-            b,
-            farA: { x: a.x + dir.x * depth, z: a.z + dir.z * depth },
-            farB: { x: b.x + dir.x * depth, z: b.z + dir.z * depth },
+            a: at(p0, clip.near),
+            b: at(p1, clip.near),
+            farA: at(p0, clip.far),
+            farB: at(p1, clip.far),
         };
     }
 
@@ -2331,22 +2346,24 @@ export class PlanViewAnnotationRenderer {
     private _computeElevationScope(
         ann: AnnotationElement,
         viewDef: ViewDefinition,
+        clip: ElevationClipRange,
     ): ScopeWorld | null {
         const pt = ann.geometry2D.modelPoints?.[0];
         if (!pt) return null;
         const dir = normalize2((ann.parameters.facingDirection as { x: number; z: number } | undefined) ?? { x: 0, z: -1 });
         const perp = { x: -dir.z, z: dir.x };
-        const depth = Math.max(0.1, resolveElevationFarDepth(viewDef, DEFAULT_ELEVATION_SCOPE_DEPTH_M));
         const DEFAULT_HALF = 3;
         const leftPerp  = viewDef.crop?.region?.min[0]  ?? -DEFAULT_HALF;
         const rightPerp = viewDef.crop?.region?.max[0]  ??  DEFAULT_HALF;
-        const a = { x: pt.x + perp.x * leftPerp,  z: pt.z + perp.z * leftPerp };
-        const b = { x: pt.x + perp.x * rightPerp, z: pt.z + perp.z * rightPerp };
+        const baseA = { x: pt.x + perp.x * leftPerp,  z: pt.z + perp.z * leftPerp };
+        const baseB = { x: pt.x + perp.x * rightPerp, z: pt.z + perp.z * rightPerp };
+        // §CROP-IS-THE-CLIP (L-4500) — both ends from the shared range. See _sectionScopeWorld.
+        const at = (p: { x: number; z: number }, d: number) => ({ x: p.x + dir.x * d, z: p.z + dir.z * d });
         return {
-            a,
-            b,
-            farA: { x: a.x + dir.x * depth, z: a.z + dir.z * depth },
-            farB: { x: b.x + dir.x * depth, z: b.z + dir.z * depth },
+            a: at(baseA, clip.near),
+            b: at(baseB, clip.near),
+            farA: at(baseA, clip.far),
+            farB: at(baseB, clip.far),
         };
     }
 
@@ -2357,8 +2374,14 @@ export class PlanViewAnnotationRenderer {
             const dir = normalize2({ x: volume.direction[0], z: volume.direction[2] });
             const right = { x: -dir.z, z: dir.x };
             const half = Math.max(0.05, volume.width / 2);
-            const near = Math.max(0, volume.near);
-            const far = Math.max(near + 0.1, volume.far);
+            // §CROP-IS-THE-CLIP (L-4500) — near/far come from the SHARED resolver, not
+            // from `volume.near`/`volume.far` directly. `sectionVolume.far` is only ONE
+            // of three stores for this quantity: the ViewPropertiesPanel "View Depth (m)"
+            // input writes `crop.farClip.offset` and does NOT touch the section volume,
+            // so reading the volume here drew a rectangle at the OLD depth beside an
+            // elevation clipped at the NEW one — a lying rectangle (cf. L-267, L-1856).
+            // Same expression as EdgeProjectorService.resolveClipRange() by construction.
+            const { near, far } = resolveElevationClipRange(viewDef, DEFAULT_ELEVATION_SCOPE_DEPTH_M);
             const proj = Math.max(near, Math.min(viewDef.viewRange?.depth?.offset ?? viewDef.spatial.viewRange?.farOffset ?? far, far));
             const centerAt = (depth: number) => ({ x: ox + dir.x * depth, z: oz + dir.z * depth });
             const nearCenter = centerAt(near);
@@ -2373,10 +2396,14 @@ export class PlanViewAnnotationRenderer {
                 projectionB: { x: projCenter.x + right.x * half, z: projCenter.z + right.z * half },
             };
         }
-        const depth = Math.max(0.1, resolveElevationFarDepth(viewDef, DEFAULT_ELEVATION_SCOPE_DEPTH_M));
+        // §CROP-IS-THE-CLIP (L-4500) — NO sectionVolume: the same resolver still owns
+        // both ends. `near` matters here because `roomInteriorElevations` writes
+        // `viewRange.nearOffset` on exactly these volume-less views, and the rectangle
+        // used to start at the anchor while the projector clipped at that offset.
+        const clip = resolveElevationClipRange(viewDef, DEFAULT_ELEVATION_SCOPE_DEPTH_M);
         return ann.type === 'section-mark'
-            ? this._sectionScopeWorld(ann, depth)
-            : this._computeElevationScope(ann, viewDef);
+            ? this._sectionScopeWorld(ann, clip)
+            : this._computeElevationScope(ann, viewDef, clip);
     }
 
     private _renderScopeZoneFills(ctx: CanvasRenderingContext2D, scope: ScopeWorld, w2s: PlanWorldToScreen, subdued = false): void {

@@ -39,7 +39,9 @@ import { emitPlanViewMotionEvent } from '@pryzm/core-app-model';
 import type * as FRAGS from '@thatopen/fragments';
 import { ViewDefinition, VIEW_PROJECTION_DIRECTIONS } from '@pryzm/core-app-model';
 // §ELEV-SCOPE-DEPTH (L-1855) — the far-clip fallback is now a NAMED, SHARED constant.
-import { resolveElevationFarDepth, UNCLIPPED_ELEVATION_FAR_DEPTH_M } from '@pryzm/core-app-model';
+// §CROP-IS-THE-CLIP (L-4500) — the crop rectangle IS the clip range; ONE resolver
+// serves this projector AND the plan scope rectangle that draws it.
+import { resolveElevationClipRange, UNCLIPPED_ELEVATION_FAR_DEPTH_M } from '@pryzm/core-app-model';
 // §FIX-ELEVATION-POCHE (L-119) — unified per-view-type drawing scope. An
 // elevation has cut:false → emit :proj/:beyond ONLY (no :cut → no black poché).
 // §FEAT-VIEW-OCCLUSION-DISPOSITION (L-279) — `resolveViewScope` gives the view TYPE's
@@ -1139,6 +1141,7 @@ export function resolveSectionVolumeBox(
     projectionDirection: THREE.Vector3,
     farClipDepth: number,
     bimManager?: BimManager,
+    nearClipDepth = 0,
 ): SectionVolumeBox | null {
     if (viewDef.viewType !== 'section' && viewDef.viewType !== 'elevation') return null;
     const explicit = viewDef.spatial.sectionVolume;
@@ -1151,8 +1154,14 @@ export function resolveSectionVolumeBox(
         const right = new THREE.Vector3(-forward.z, 0, forward.x).normalize();
         const width = Math.max(0.01, Number(explicit.width) || 0.01);
         const legacyHeight = Math.max(0.01, Number(explicit.height) || 0.01);
-        const near = Math.max(0, Number(explicit.near) || 0);
-        const far = Math.max(near, Number(explicit.far) || farClipDepth);
+        // §CROP-IS-THE-CLIP (L-4500) — the ORIENTED depth box is the SAME window as the
+        // projector's clip planes, so it takes the RESOLVED range rather than re-reading
+        // `explicit.near`/`explicit.far`. Reading the stored volume here meant a panel
+        // depth edit (which writes `crop.farClip.offset` only) moved the clip planes but
+        // NOT the box that culls and clips meshes — the drawing then contained geometry
+        // from one depth window drawn against a rectangle from another.
+        const near = Math.max(0, nearClipDepth);
+        const far = Math.max(near, farClipDepth);
 
         // §FIX-ELEVATION-VERTICAL-CROP (L-302) — VERTICAL EXTENT (C24 SPATIAL, 3-D).
         //
@@ -2245,7 +2254,7 @@ export class EdgeProjectorService {
             : null;
 
         const sectionDepthBands = isSectionDepthView ? resolveSectionDepthBands(viewDef, far) : null;
-        const sectionVolumeBox = isSectionDepthView ? resolveSectionVolumeBox(viewDef, direction, far, this._bimManager) : null;
+        const sectionVolumeBox = isSectionDepthView ? resolveSectionVolumeBox(viewDef, direction, far, this._bimManager, near) : null;
 
         // §FIX-ELEV-LIVE-CROP-REPROJECT (L-202) — clip/crop signature for the
         // per-element projection cache. Encodes every clip input the cached
@@ -2324,8 +2333,15 @@ export class EdgeProjectorService {
             `dir=(${direction.x},${direction.y},${direction.z}) ` +
             `near=${near.toFixed(3)} far=${far.toFixed(3)}` +
             (planBelowY !== null ? ` belowY=${planBelowY.toFixed(3)}` : '') +
+            // §CROP-IS-THE-CLIP (L-4500) — LABELLED, because the unlabelled form invited a
+            // wrong inference that cost a lane a day: `spatial.cropRegion` is the
+            // axis-aligned PLAN-FAMILY CULL box (NativeElementMeshExporter reads it only
+            // when `resolveViewScope(viewType).planFamily`), inflated by
+            // CROP_REGION_CULL_MARGIN_M on every side. It is NOT this view's depth window
+            // and for an elevation it is not read at all — so `maxZ − minZ` printed here
+            // is ~2 × the margin WIDER than `far`, by construction and not by defect.
             (cropRegion
-                ? ` cropRegion=[${cropRegion.minX.toFixed(2)},${cropRegion.minZ.toFixed(2)} → ${cropRegion.maxX.toFixed(2)},${cropRegion.maxZ.toFixed(2)}]`
+                ? ` cullAABB(plan-family only)=[${cropRegion.minX.toFixed(2)},${cropRegion.minZ.toFixed(2)} → ${cropRegion.maxX.toFixed(2)},${cropRegion.maxZ.toFixed(2)}]`
                 : ''),
         );
 
@@ -3997,8 +4013,17 @@ export class EdgeProjectorService {
         // world-Y elevation values.  Use viewRange.nearOffset / farOffset as
         // explicit depth overrides; fall back to safe coverage defaults.
         if (viewDef.viewType === 'elevation' || viewDef.viewType === 'section') {
-            const nearDepth = viewDef.spatial.viewRange?.nearOffset ?? 0;
-            const farDepth  = resolveElevationFarDepth(viewDef, DEFAULT_ELEVATION_FAR_DEPTH);
+            // §CROP-IS-THE-CLIP (L-4500) — THE INVARIANT: the far plane of an elevation
+            // or section is EXACTLY the far edge of its crop rectangle, and the near
+            // plane is EXACTLY the near edge. This line used to read
+            // `viewRange.nearOffset ?? 0` and `crop.farClip.offset ?? viewRange.farOffset`
+            // — neither of which is the field the plan rectangle is DRAWN from
+            // (`spatial.sectionVolume`). Two producers of one window (C06 §13.3): the
+            // scope drag wrote both and so LOOKED right, while the ViewPropertiesPanel
+            // depth input wrote only `crop.farClip.offset` and moved the clip out from
+            // under a rectangle that did not follow. Both sides now call one expression.
+            const { near: nearDepth, far: farDepth } =
+                resolveElevationClipRange(viewDef, DEFAULT_ELEVATION_FAR_DEPTH);
             console.log(
                 `[EdgeProjectorService] resolveClipRange() ${viewDef.viewType} depth ` +
                 `near=${nearDepth.toFixed(3)} far=${farDepth.toFixed(3)}`,

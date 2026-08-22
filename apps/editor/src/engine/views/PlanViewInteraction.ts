@@ -33,7 +33,15 @@ import { annotationStore } from '@pryzm/plugin-annotations';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 // §ELEV-SCOPE-DEPTH (L-1855) — the depth HANDLE's fallback must be a named constant
 // that reaches the model, not a magic 8 that sits short of a mark seeded 24 m out.
-import { resolveElevationFarDepth, DEFAULT_ELEVATION_SCOPE_DEPTH_M } from '@pryzm/core-app-model';
+// §CROP-IS-THE-CLIP (L-4500) — the drag SEEDS from the same resolver the projector
+// and the drawn rectangle read, so a drag can never silently revert a depth typed
+// into the ViewPropertiesPanel. CROP_REGION_CULL_MARGIN_M names the 50 mm that used
+// to be an anonymous `padding` literal below.
+import {
+    resolveElevationClipRange,
+    DEFAULT_ELEVATION_SCOPE_DEPTH_M,
+    CROP_REGION_CULL_MARGIN_M,
+} from '@pryzm/core-app-model';
 import { floorPlanUnderlayRef } from '@pryzm/core-app-model';
 import type { AnnotationElement } from '@pryzm/plugin-annotations';
 import type { ViewDefinition, ViewSectionVolume, ViewCropSettings } from '@pryzm/core-app-model';
@@ -1867,8 +1875,18 @@ export class PlanViewInteraction {
     }
 
     private _resolveSectionVolumeForDrag(ann: AnnotationElement, viewDef: ViewDefinition): ViewSectionVolume | null {
-        if (viewDef.spatial.sectionVolume) return viewDef.spatial.sectionVolume;
-        const far = Math.max(0.25, resolveElevationFarDepth(viewDef, DEFAULT_ELEVATION_SCOPE_DEPTH_M));
+        const clip = resolveElevationClipRange(viewDef, DEFAULT_ELEVATION_SCOPE_DEPTH_M);
+        if (viewDef.spatial.sectionVolume) {
+            // §CROP-IS-THE-CLIP (L-4500) — RECONCILE, do not return the stored volume raw.
+            // `sectionVolume.far` is one of three stores for this quantity and the panel's
+            // "View Depth (m)" input updates a DIFFERENT one (`crop.farClip.offset`). A raw
+            // return seeded the drag from the stale mirror, and the width-handle branch
+            // below re-writes `farClip.offset` from `nextVolume.far` — so grabbing a WIDTH
+            // handle after typing a depth silently reverted the typed depth. Seeding from
+            // the resolved range makes that write a no-op instead.
+            return { ...viewDef.spatial.sectionVolume, near: clip.near, far: clip.far };
+        }
+        const far = Math.max(0.25, clip.far);
         const height = Math.max(
             0.25,
             (viewDef.crop?.region?.max?.[1] ?? viewDef.spatial.boundingBox?.max?.[1] ?? 3) -
@@ -1979,7 +1997,13 @@ export class PlanViewInteraction {
                 zs.push(origin.z + dir.z * depth + right.z * side);
             }
         }
-        const padding = 0.05;
+        // §CROP-IS-THE-CLIP (L-4500) — this box is the PLAN-FAMILY CULL AABB, not a clip
+        // range: an elevation is clipped by the oriented section volume, and
+        // NativeElementMeshExporter reads `spatial.cropRegion` only for plan-family views.
+        // The margin was an anonymous `0.05` literal, and the ~0.10 m it puts between a
+        // logged `cropRegion` depth and the logged `far` reads exactly like a clip defect.
+        // It is not one. Named so the next reader does not have to re-derive it.
+        const padding = CROP_REGION_CULL_MARGIN_M;
         return {
             minX: Number((Math.min(...xs) - padding).toFixed(3)),
             minZ: Number((Math.min(...zs) - padding).toFixed(3)),
