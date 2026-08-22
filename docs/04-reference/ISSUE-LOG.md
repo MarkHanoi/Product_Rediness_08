@@ -38231,10 +38231,16 @@ MEASURED at lane start: `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit
 ELEV28's file, in flight. Re-run mid-lane: **RC=2**, that error **gone**, replaced by
 `apps/editor/src/ui/analysis/selectionFacets.ts(262,66) TS4104` in another lane's **untracked** file.
 
-**This lane's delta adds zero typecheck errors** — verified by the error list being exactly one
-foreign line in both readings, with none of this lane's files named. ⛔ Do not quote either
-filename; re-run the command. (NAV29 recorded the identical shape at L-5914 independently, which is
-the strongest evidence available that it is a property of the shared tree and not of any one lane.)
+**THIRD reading, at lane close** — **RC=2**, **twelve** errors, and BOTH earlier files are gone:
+`apps/editor/src/engine/__tests__/siteViewQuickToggle.spec.ts` (ten `TS6133`/`TS6192`, another
+lane's **modified** file) and `apps/editor/src/engine/views/plantools/__tests__/zzprobe.spec.ts`
+(two, another lane's **untracked scratch probe** — the filename says so).
+
+**This lane's delta adds zero typecheck errors** — verified across all three readings by grepping the
+error list for every file it touched: **0 hits, every time**. ⛔ **Three readings, three different
+owners, none of them this lane.** Do not quote a filename; re-run the command. (NAV29 recorded the
+identical shape at L-5914 independently, which is the strongest evidence available that it is a
+property of the shared tree and not of any one lane.)
 
 ### L-5852 — `check-contract-cited-paths` is RED, and this lane's C05 sections contribute NOTHING to it
 
