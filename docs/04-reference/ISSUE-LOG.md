@@ -36582,3 +36582,197 @@ HEAD would have raced their next write for no gain. Residual at hand-off:
 (`VisibilityIntent` not assignable to `Record<string, unknown>`), **entirely inside that lane's
 in-flight file**, which ELEV12 did not author and does not own. Named so it is not mistaken for
 fallout from L-4500..L-4519.
+
+---
+
+## §VIEW-DOC-TRUTH — lane VIEWDOC20, 2026-08-22 (L-5500 … L-5514)
+
+**Scope:** the *documentation* of view generation — plan, RCP, section, elevation, edge projection.
+Sibling lanes HLR18 (`packages/core-app-model/src/drawing/**`, C09, C84) and EPS19
+(`apps/editor/src/engine/views/**`, C04) hold the code half. **VIEWDOC20 edited no source file.**
+
+**Method:** every repo path cited in 11 view-pipeline documents extracted and resolution-tested;
+every enforcement claim named and run; every count re-measured. **No number in these rows was
+transcribed from a document.**
+
+### L-5500 — ⛔ `rcp` is THREE unbridged vocabularies for ONE concept
+
+`ViewTypeSchema` (`packages/schemas/src/view/view-template.ts:200`) declares **`'rcp'`**.
+The runtime `ViewDefinition.viewType` (`packages/core-app-model/src/views/ViewDefinitionTypes.ts:57`)
+declares **`'ceiling-plan'`**. `ViewMode` (`packages/views/src/types/ViewType.ts:33`) declares
+**`'Ceiling'`**. The **only** translation in the repo is
+`apps/editor/src/ui/SheetEditor/activateViewForEditing.ts:71` — `if (t === 'ceiling-plan') return 'Ceiling'` —
+bridging spellings 2→3. **Nothing bridges `'rcp'` ↔ `'ceiling-plan'`.**
+
+`plugins/sheets/src/view-renderer/view-source.ts:31,40` accepts `'rcp'` and calls itself *"Subset of
+`View.kind` from `@pryzm/schemas` — kept inline here"* — a **hand-copy of an L0 enum**.
+`viewDefinitionStore` only ever stores `'ceiling-plan'` (`SplitViewManager.ts:932`). **A sheet
+view-source of kind `'rcp'` therefore cannot match any view that exists.**
+
+⭐ C101 §1's *"FOUR VOCABULARIES over one family"*, recurring — because **nothing compares the L0
+enum to the runtime union**. Specified as **V-RCP-1** in SPEC-51 §4.1; which spelling wins is
+deferred (a cross-package rename + schema migration), **that a total bridge must exist is not**.
+**Handed to HLR18/EPS19 — not this lane's files.**
+
+### L-5501 — ⚠ a substring test on an id is what code does when no mapping exists
+
+`apps/editor/src/ui/ViewPropertiesPanel.ts:130` —
+`if (id.includes('ceiling') || id.includes('rcp')) return 'Ceiling Plan'`.
+This is the visible symptom of L-5500: with no enum mapping available, the panel **guesses from a
+string**. It works until an id contains neither token, or contains one by accident. **Not fixed
+here** — `apps/editor/src/ui/**` is not this lane's file.
+
+### L-5502 — ⚠ projection runs at L7; every document places it at L4
+
+SPEC-04 §1 draws *"L4 kernel ─ projection ─→ L5 drawing-primitives"*. Measured: the projector that
+runs is **`apps/editor/src/engine/views/EdgeProjectorService.ts`, 4,106 lines, in `apps/` = L7**.
+There are **four** loci for one pipeline (SPEC-51 §1.2): `geometry-kernel/src/edge-projection.ts`
+(273 ln, L2, *"CLASSIFIER only"*, plan-only) · `geometry-kernel/src/hidden-line/` (L2) ·
+`core-app-model/src/drawing/**` (L2) · the L7 service.
+
+⭐ **`check-layer-boundaries.ts` raises nothing, and that is not absolution.** L7→L2 is *downward*
+and legal. **The debt is altitude-of-concern, which no gate in this repo measures.** A legal
+import can still be a misplacement. Recorded, not "fixed" by redrawing the diagram.
+
+### L-5503 — RCP: six of seven pipeline stages ungoverned
+
+Of 10 live docs matching `\brcp\b|reflected ceiling`, **nine mention it only as a list member**
+(C59:47, `auto-documentation-sheets-plan.md:87`, four `intent-analysis/*`, the master tracker, a
+capabilities inventory). **Mentioned in a list is not specified.** S3 (projection) is now closed by
+SPEC-51 §4 + ADR-0353; S1/S2/S4/S5/S6 remain **GAP**, declared in SPEC-51 §4.6 with the reason
+(they need EPS19's in-flight measurement of the shared plan path — specifying ahead of it would be
+specifying against a guess).
+
+### L-5504 — `detail` view: seven of seven stages ungoverned
+
+`'detail'` is in **both** `ViewType` unions and in `ViewTypePropertiesPanelConfig`. **No live
+document states what a callout crops, at what scale, or how it relates to its parent view.**
+
+### L-5505 — elevation occlusion is undocumented, and it is the stage most likely to draw wrongly
+
+ADR-0339 governs *which façade* an elevation shows; ADR-0342 governs reveal/splay projection.
+**Neither says what occludes what.** S4 for elevations is **GAP**.
+
+### L-5506 — ⛔ "same primitives → three outputs" is bypassed by a working rival
+
+SPEC-04 §1/§3 and ADR-0216 specify one vector model feeding three pluggable back-ends. Measured:
+`packages/drawing-primitives/src/backends/` — `canvas2d.ts` (5,636 B) **renders**; `svg.ts` (966 B)
+and `pdf.ts` (688 B) are headed **`// TYPED STUB`** and **throw `BackendNotImplementedError`**
+(`sprintMarker` S55 / S37); there is **no DXF back-end**.
+
+**And the working exporters do not use this architecture at all** — they are **sheet-level**:
+`drawing-primitives/src/sheet/SheetToSvg.ts` (9,241 B) + `SheetWithContentToSvg.ts` +
+`ViewportToSvg.ts` · `packages/pdf-export/src/SheetToPdf.ts` (512 ln) ·
+`file-format/src/export/sheets/PdfExportService.ts` (554 ln) · `…/DxfExportService.ts` (421 ln).
+They consume a `Sheet`, not a `PrimitiveStream`.
+
+⭐ **So parity between screen, SVG, PDF and DXF is not guaranteed BY CONSTRUCTION — which is the
+single property SPEC-04 §3 exists to provide.** The `backends/` registry is a fossil with a live
+rival. Corrected in SPEC-04 §3, SPEC-29, ADR-0216. **No code touched.**
+
+### L-5507 — a fourth back-end no document mentions
+
+`packages/drawing-primitives/src/backends/print-canvas.ts`. Absent from SPEC-04 §3, SPEC-29 and
+ADR-0216, all three of which enumerate the back-ends exhaustively.
+
+### L-5508 — ⛔ SPEC-04 §10 names six OpenTelemetry spans. ZERO exist.
+
+`rg "drawing\.(edge-projection\.run|classify\.hidden|canvas2d\.frame|export\.(svg|pdf|dxf))"` →
+**7 hits, ALL documentation** (SPEC-04:283-288 declaring them; ADR-0216:111 repeating one).
+**Zero in `apps/ packages/ plugins/ src/ server/ tools/`.** Independently
+`rg "startSpan|withSpan|tracer\.|startActiveSpan" packages/core-app-model/src/drawing` → **1**, in
+`DetailLevelResolver.ts`, not one of the six.
+
+⚠ Confirmed **ABSENT, not unreachable** — the grep *did* return all six names and every resolution
+is a `.md` file (C01 §6 rule 6). The **L-809 shape**, and it survived sixteen weeks because
+`check-otel-spans.ts`'s **Zone C prints a census and gates nothing**.
+
+### L-5509 — ⛔ ADR-0215 puts style resolution at L4; the code has it at L6. **The ADR wins.**
+
+ADR-0215 (`Accepted`) row :29 assigns style resolution to *"L1 data + **L4 evaluation**"* at
+`packages/geometry-kernel/visibility/style-resolver.ts`.
+`find packages plugins apps -name 'style-resolver*'` → **`plugins/plan-view/src/style-resolver.ts`,
+the only one in the repo — L6.**
+
+⭐ **Deliberately NOT fixed as a path edit.** Repointing the citation would make it resolve **and
+silently ratify the placement the ADR rejected**, converting a live architectural disagreement into
+a tidy table. Per `CLAUDE.md`'s conflict order **the ADR is stronger, so the CODE is wrong** — the
+remedy is to move the module. **`plugins/plan-view/` is not this lane's file. HANDED ON.**
+
+### L-5510 — ⛔ SPEC-30 is `Active — normative` and **0 of its 7 cited paths resolve**
+
+Worst ratio of the eleven documents audited. `packages/visibility/{resolver,legacy-adapter,incremental}.ts`
+— **all three ABSENT** (verified by `find`). Meanwhile `packages/visibility/src/waves/` contains
+**`w01-level-scope.ts` … `w11-ghost-layer.ts`** (verified by `ls`): **the legacy 11-wave system
+SPEC-30 promises to adapt away is present and complete, while every file of its named replacement
+is missing.** The "pre-port migration" in its abstract is **UNBUILT**, described in the present
+tense for sixteen weeks.
+
+⚠ `legacyGovernanceStore.ts` is **name-adjacent to `legacy-adapter.ts` and is NOT it** — a store,
+not the parity adapter. **Calling it "the relocation" would erase a real unbuilt migration from the
+record**, which is precisely the ABSENT-vs-RELOCATED error this audit exists to avoid.
+
+### L-5511 — ⚠ no gate reads any of this: `check-contract-cited-paths.ts` globs `contracts/**` only
+
+The gate that asserts *"every cited repo path resolves or is marked PLANNED"* exists and works —
+first reading **1528 citations, 491 unresolved**. **It reads `contracts/**`.** Every document in
+this audit lives in `specs/` or `adrs/`. **The 32 misses are concentrated in exactly the documents
+no gate reads.**
+
+Aggregate for the 11 audited docs: **57 real citations · 25 resolve · 32 do not** — **14 RELOCATED,
+11 ABSENT, 3 `<placeholder>` templates**. All 32 misses sit in the 2026-04-27 cluster (SPEC-04,
+SPEC-29, SPEC-30, ADR-0215, ADR-0216); **ADR-0265, ADR-0342, ADR-0104, ADR-0336 and ADR-0340 are
+clean at 26/26.** The defect is age, not authorship.
+
+⭐ **Extending that gate's glob to `adrs/**` + `specs/**` is the highest-value follow-up this audit
+produces. PROPOSED, NOT BUILT** — it is a code change in `tools/`, and its shrink-only baseline must
+be set by whoever can re-run it. **Pinning a ratchet from a lane that cannot re-run it would fix a
+number nobody verified.**
+
+### L-5512 — ⭐ the ONLY sentence specifying RCP instructed the reader to introduce the bug
+
+> SPEC-04 §6:212 — *"Default RCP: cut at Level + 2.4 m **looking down, mirrored**."*
+
+Wrong on all three counts, and **the code is right on all three**:
+- **"+2.4 m"** — code reads `level.elevation + level.height`, a level property, never a constant
+  (`EdgeProjectorService.ts:4045-4058`; `near = ceiling`, `far = near + 0.5`).
+- **"looking down"** — code projects **+Y, UP** (`ViewDefinitionTypes.ts:224`
+  `ceilingPlan: { x:0, y:1, z:0 }`; the union member's own comment reads *"looking upward"*).
+  **An RCP looks up — that is what makes it reflected.**
+- **"mirrored"** — `rg -i "\bmirror" apps/editor/src/engine/views/` → **189 hits, every one the
+  English sense**. No geometric reflection exists, **and none may be added**.
+
+⭐ **The absence of the mirror is CORRECT.** Plan-family projection maps world `(X,Z)` → drawing
+`(x,y)` and drops Y, which is handedness-preserving from above *or* below, so the reflection is
+already implicit; the direction vector governs clip and face-facing, not the 2-D basis (the only
+`right`-vector basis, `resolveSectionVolumeBox` `:1147`, opens with
+`if (viewType !== 'section' && viewType !== 'elevation') return null;`). **Adding a mirror would be
+a DOUBLE flip — east on the left, the classic RCP bug**, which looks plausible on a symmetric plan
+and is caught late, usually by a contractor. **An engineer implementing that line faithfully would
+have shipped it.**
+
+⭐ **The code was right by accident: nothing asserted it.** Ratified as **ADR-0353** with a
+**two-arm** assertable form — ARM A pins the sign of `x`, ARM B pins `direction.y === 1`, because
+**ARM A alone is satisfiable by a regression** (projecting down with no mirror also yields `+5`).
+
+### L-5513 — RCP element set: one gate admits plan and RCP alike
+
+SPEC-51 §4.5 (V-RCP-4) now specifies the RCP element set normatively — ceilings/soffits and
+fixtures **shown**; walls **cut**; doors **head only, ⛔ NO SWING ARC** (a swing is a floor-plane
+symbol, meaningless looking up, and the most common wrong mark on an RCP); floor-mounted furniture
+**not shown**.
+
+Measured: `apps/editor/src/engine/views/plan-canvas/PlanViewSymbolRenderer.ts:16` admits `'plan'`,
+`'ceiling-plan'` **and** `'structural-plan'` through **one** gate, so plan symbols reach the RCP by
+the same path as the plan. ⚠ **Whether a door swing is among them on the RCP path is NOT MEASURED
+by this lane** — that file is EPS19's. **Handed to EPS19 with §4.5's table as the assertion
+target.**
+
+### L-5514 — ⚠ `CLAUDE.md`'s ADR count is stale (268 → 284)
+
+`ls docs/02-decisions/adrs/ADR-*.md | wc -l` → **284** (2026-08-22); `CLAUDE.md` reads **268**.
+Another recurrence of the count-staleness shape the file's own correction boxes catalogue.
+**Not edited** — `CLAUDE.md` is the root instruction file, not this lane's, and it already tells
+readers to re-measure rather than trust the line. **Named so the next reader knows.**
+
+**L-5515 … L-5580 unused.**
