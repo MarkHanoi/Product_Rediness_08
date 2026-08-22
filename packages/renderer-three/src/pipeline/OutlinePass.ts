@@ -159,6 +159,35 @@ export async function createOutlinePasses(
         .greaterThan(0)
         .select(hoverOutlineColor.mul(osc), hoverOutlineColor);
 
+    // ── §OUTLINE-BAILS-ON-EMPTY-SELECTION (L-3320) ────────────────────────
+    //
+    // ⭐ THE FOUNDER'S OWN A/B IS THE EVIDENCE FOR THIS. 2026-08-22, same model,
+    // same session: *"in AUTO is not flowing well — it moves framed, fragmented …
+    // then in WebGL: it is much better, honestly good."* Outlines are activated on
+    // WebGPU and are OFF on the WebGL path (§PERF-WEBGL2-NO-TSL), so the two
+    // backends differ by exactly this pass, and he can feel the difference.
+    //
+    // MEASURED (ledger §1.1, the vendored OutlineNode driven with a counting stub):
+    // ONE node with an EMPTY selection still submits every mesh in the scene —
+    // 3898 of them at his scene size — because `updateBefore` runs two passes with
+    // OPPOSITE predicates and pass 1 draws everything NOT selected. PRYZM wires
+    // TWO nodes. Idle cost: 4 full scene-graph walks, 7796 wasted submissions,
+    // 14 fullscreen quads and 20 render-target switches PER FRAME, to draw a
+    // violet edge around nothing.
+    //
+    // ⛔ WHY THIS IS NOT THE 15 s RECOMPILE RISK (7dbc0685, localClippingEnabled):
+    // returning `false` from `updateBefore` is a FIRST-CLASS SKIP in three's own
+    // dispatcher — `NodeFrame.updateBeforeNode` rolls the frameId back when it sees
+    // false. It touches no material, no shader, no pipeline layout and no render
+    // target. It is a property read on the node instance. Nothing recompiles.
+    //
+    // ⛔ THE BAIL MUST BE ONE FRAME LATE. The composite samples the outline render
+    // target every frame, so bailing on the very frame the selection empties would
+    // freeze the PREVIOUS outline in the buffer as a ghost. Render one final,
+    // now-empty pass, then skip from the second consecutive empty frame onward.
+    installEmptySelectionBail(selectedOutlinePass, selectedObjects);
+    installEmptySelectionBail(hoverOutlinePass, hoveredObjects);
+
     return {
         selectedOutlineNode,
         hoverOutlineNode,
@@ -168,3 +197,37 @@ export async function createOutlinePasses(
         },
     };
 }
+
+/**
+ * Wrap one OutlineNode's `updateBefore` so it skips while its selection is empty.
+ *
+ * @param node    the live OutlineNode instance
+ * @param objects the SAME live array the node was constructed with — read at call
+ *                time, never captured by value, because the manager mutates it in
+ *                place and a snapshot would pin the bail to boot-time state.
+ */
+function installEmptySelectionBail(node: unknown, objects: THREE.Object3D[]): void {
+    const n = node as { updateBefore?: (frame: unknown) => unknown } | null;
+    if (!n || typeof n.updateBefore !== 'function') {
+        // ⛔ Say so rather than silently shipping the un-bailed pass. A no-op that
+        // reports nothing is how §1.6's view-switch guard went four months
+        // suppressing nothing while its own comment asserted that it worked.
+        console.warn(
+            '[OutlinePass] §OUTLINE-BAILS-ON-EMPTY-SELECTION could not install: the node exposes no ' +
+            'updateBefore(). The outline pass is running UNBAILED — every idle frame still submits ' +
+            'the whole scene. This is a real cost, not a cosmetic warning.',
+        );
+        return;
+    }
+    const original = n.updateBefore.bind(n);
+    let lastWasEmpty = false;
+    n.updateBefore = function patchedUpdateBefore(frame: unknown): unknown {
+        const empty = objects.length === 0;
+        if (empty && lastWasEmpty) return false;   // second consecutive empty frame onward
+        lastWasEmpty = empty;
+        return original(frame);
+    };
+}
+
+/** Test-only surface. Not part of the pipeline API. */
+export const __testing = { installEmptySelectionBail };
