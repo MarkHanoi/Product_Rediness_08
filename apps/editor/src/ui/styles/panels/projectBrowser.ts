@@ -1557,6 +1557,35 @@ export const PROJECT_BROWSER_STYLES = `
     padding-top: 8px;
 }
 
+/* §PARCEL-OWN-PANEL (L-5130) — the DEDICATED parcel rail panel.
+   Layout only. The card inside is produced by parcelCard.ts and styled by
+   .pryzm-parcel-card above; restyling it from here would fork the one card
+   producer's appearance per host, which is the drift this panel exists to not
+   introduce. */
+.pb-parcel-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+}
+
+.pb-parcel-intro {
+    color: var(--pryzm-panel-ink-muted, var(--pryzm-panel-ink));
+    font-family: var(--app-font);
+    font-size: var(--pryzm-panel-font-size-small, 11px);
+    line-height: 1.5;
+    /* ⛔ NO text-overflow/ellipsis and NO nowrap. A truncated disclosure destroyed
+       a user-facing sentence elsewhere today; this text MUST be able to wrap. */
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+/* The slot is a plain flow container: the section it hosts brings its own card,
+   its own three states and its own action button. */
+.pb-parcel-slot {
+    display: block;
+}
+
 /* The map overlay hosts the SAME element as a floating card — position and
    width are the HOST's business, so they are scoped to the host, never baked
    into the producer. */
