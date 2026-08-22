@@ -248,4 +248,4 @@ export async function bootstrapWithEverything(
 
 /** Re-export ELEMENT_PLUGIN_IDS so tests + dev tools can iterate the
  *  12 element families without a deep import path. */
-export { ELEMENT_PLUGIN_IDS, ALL_PLUGINS } from './PluginRegistry.js';
+export { ELEMENT_PLUGIN_IDS, ALL_PLUGINS, STORE_ONLY_PLUGIN_IDS } from './PluginRegistry.js';

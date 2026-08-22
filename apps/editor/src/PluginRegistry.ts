@@ -58,6 +58,8 @@ import { StairStore, buildStairHandlerSet } from '@pryzm/plugin-stair';
 import { HandrailStore, buildHandrailHandlerSet } from '@pryzm/plugin-handrail';
 import { CeilingStore, buildCeilingHandlerSet } from '@pryzm/plugin-ceiling';
 import { FloorStore, buildFloorHandlerSet } from '@pryzm/plugin-floor';
+// §FIX-POOL-UNREACHABLE (L-5200, ADR-0124) — the pool ASSEMBLY. See the descriptor below.
+import { PoolStore, WaterStore, buildPoolHandlerSet } from '@pryzm/plugin-pool';
 
 // ---- Wave 18: 2 non-element plugins with zero-dep handler factories ----
 import { buildSelectionHandlerSet } from '@pryzm/plugin-selection';
@@ -247,6 +249,59 @@ export const ALL_PLUGINS: readonly PluginDescriptor[] = [
     storeKey: 'slab',
     buildStore: () => new SlabStore() as unknown as Store<object>,
     buildHandlers: () => buildSlabHandlerSet() as readonly CommandHandler<unknown>[],
+  },
+
+  // ---- Pool + Water (§FIX-POOL-UNREACHABLE, L-5200 · ADR-0124 · C100) ----
+  //
+  // ⭐ THIS IS THE WHOLE UNREACHABILITY FIX, AND IT IS THE `lighting` DESCRIPTOR'S
+  // DEFECT VERBATIM (see §LIGHTING-STORE-FIX above).
+  //
+  // MEASURED 2026-08-22, before this descriptor existed — four independent axes,
+  // each re-run rather than inherited from the L-980 note that first recorded them:
+  //
+  //   1. `rg -n "new PoolStore\(|new WaterStore\("` → ZERO construction sites
+  //      repo-wide. The classes in `plugins/pool/src/store.ts` were never built,
+  //      not even by the plugin's own tests.
+  //   2. No `pool` / `water` storeKey was declared HERE, so the bus storesProvider
+  //      (built from `stores[plugin.storeKey]` in bootstrap.everything.ts) had no
+  //      such key, and `CommandBus.buildContext` (CommandBus.ts:286-292) THREW
+  //        "pool.create: required store 'pool' is missing from HandlerContext.stores"
+  //      before `pool.create` mutated anything. The handlers WERE registered
+  //      (engineLauncher.ts:630) — registered but not dispatchable, which is the
+  //      `[[authored-but-unwired-is-the-bottleneck]]` shape exactly.
+  //   3. No tool, palette entry or plan handler dispatched `pool.create`; the only
+  //      call sites were `plugins/pool/__tests__/`.
+  //   4. The AI chat classifies `pool.create` as class B
+  //      (`ChatCommandClassification.ts:66`), so that route refused it too.
+  //
+  // Axes 1 + 2 are closed by the two descriptors below. Axis 3 is closed by the
+  // `pool` activator + the LANDSCAPE palette row + `PoolPlanToolHandler`. Axis 4 is
+  // NOT closed here and is recorded as still-open in L-5206.
+  //
+  // ⚠ ORDER: pool sits after slab because `CreatePoolHandler.canExecute` reads the
+  // HOST slab from `ctx.stores.slab`. That is a DISPATCH-time read, so array order
+  // is not load-bearing — it is kept adjacent for the reader, not for correctness.
+  {
+    id: 'pool',
+    storeKey: 'pool',
+    buildStore: () => new PoolStore() as unknown as Store<object>,
+    // `pool.create` / `pool.delete` declare affectedStores
+    // ['pool','wall','slab','water'] — ALL FOUR must resolve, which is why the
+    // water descriptor below is not optional.
+    buildHandlers: () => buildPoolHandlerSet() as readonly CommandHandler<unknown>[],
+  },
+  {
+    id: 'water',
+    storeKey: 'water',
+    buildStore: () => new WaterStore() as unknown as Store<object>,
+    // ⭐ NO HANDLERS, DELIBERATELY — and this is a statement, not an omission.
+    // Water has no commands of its own: a water body is created and destroyed
+    // ONLY as part of a pool assembly (ADR-0124 §4), so `pool.create` owns the
+    // only write path. Minting a `water.create` here would be a second, rival way
+    // to produce a water body with no pool around it — the exact defect ADR-0124
+    // §4 exists to prevent. The store is contributed so the pool's fourth
+    // affectedStore resolves; the command surface stays the pool's.
+    buildHandlers: () => [] as readonly CommandHandler<unknown>[],
   },
 
   // ---- Door ----
@@ -484,6 +539,11 @@ export const ALL_PLUGINS: readonly PluginDescriptor[] = [
 export const ELEMENT_PLUGIN_IDS = [
   'wall',
   'slab',
+  // §FIX-POOL-UNREACHABLE (L-5200) — both contribute a non-empty storeKey, so both
+  // belong in the list the storeKey assertion iterates. `water` contributes no
+  // handlers by design; see STORE_ONLY_PLUGIN_IDS below.
+  'pool',
+  'water',
   'door',
   'window',
   'roof',
@@ -504,6 +564,39 @@ export const ELEMENT_PLUGIN_IDS = [
 ] as const;
 
 export type ElementPluginId = (typeof ELEMENT_PLUGIN_IDS)[number];
+
+/**
+ * §FIX-POOL-UNREACHABLE (L-5201) — plugin ids that contribute a STORE but NO
+ * command handlers, each with the reason it is right that they do not.
+ *
+ * ⭐ AN EXEMPTION IS A STATEMENT, NOT A SUPPRESSION — the same idiom
+ * `ACTIVATOR_EXEMPT` uses in `tools/ga-gate/check-tool-activator-coverage.ts`,
+ * and it is here for the same reason. `bootstrap.everything.test.ts` asserts
+ * "every plugin contributes at least one handler", which was a TRUE invariant
+ * for all 22 descriptors that existed when it was written. `water` is the first
+ * legitimate exception, and there were two dishonest ways to make the suite green
+ * again: delete the assertion, or mint a sham `water.noop` handler so the count
+ * came out right. Both would have destroyed a real invariant to accommodate one
+ * row.
+ *
+ * Instead the invariant is REFINED and stays enforced: a plugin contributes
+ * handlers UNLESS it is named here. A new zero-handler descriptor still fails the
+ * suite until someone writes down why — which is the property worth keeping.
+ *
+ * ⛔ Adding an id here is a design claim, not a formality. Do not add one to
+ * silence a failure.
+ */
+export const STORE_ONLY_PLUGIN_IDS: Readonly<Record<string, string>> = Object.freeze({
+  // ADR-0124 §4 — a water body exists ONLY as part of a pool assembly. `pool.create`
+  // writes it and `pool.delete` removes it; there is no gesture that produces water
+  // on its own, so there is no `water.*` verb to register. Minting one would create a
+  // second, rival way to put water in a project with no pool around it — precisely
+  // what ADR-0124 §4 rules out. The STORE is still contributed because
+  // `pool.create` declares `affectedStores = ['pool','wall','slab','water']` and
+  // `CommandBus.buildContext` throws unless all four keys resolve.
+  water: 'ADR-0124 §4 — water is created and destroyed only by pool.* ; it owns no verb of its own.',
+});
+
 
 /** F-launch.1 (S81 F.1.01) — flatten every plugin's `contributions`
  *  array into the single `readonly PluginContribution[]` that

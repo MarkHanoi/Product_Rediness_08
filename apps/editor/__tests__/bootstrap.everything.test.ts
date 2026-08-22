@@ -31,6 +31,7 @@ import {
   bootstrapWithEverything,
   ALL_PLUGINS,
   ELEMENT_PLUGIN_IDS,
+  STORE_ONLY_PLUGIN_IDS,
 } from '../src/bootstrap.everything.js';
 
 const AUDIT = { actorId: 'u', projectId: 'p', clientId: 'c', timestamp: '' } as const;
@@ -86,10 +87,32 @@ describe('editor.bootstrap.everything — bootstrapWithEverything (W-1C-1)', () 
 
   it('records every plugin\'s handler types under registeredHandlerTypes', async () => {
     const rt = await bootstrapWithEverything({ audit: AUDIT });
-    // Every plugin contributes at least one handler.
+    // Every plugin contributes at least one handler — UNLESS it is a declared
+    // store-only contribution.
+    //
+    // §FIX-POOL-UNREACHABLE (L-5201). This assertion used to be unconditional, and
+    // it was TRUE of all 22 descriptors that existed when it was written. `water`
+    // (added with `pool`) is the first legitimate exception: ADR-0124 §4 gives water
+    // no verb of its own, so a `water.*` handler would be a sham invented to satisfy
+    // a count. The invariant is REFINED rather than dropped — a zero-handler plugin
+    // still fails here until it is named in `STORE_ONLY_PLUGIN_IDS` with a reason,
+    // and the reason lives in the registry (the artefact) rather than in this test.
     for (const plugin of ALL_PLUGINS) {
       const types = rt.registeredHandlerTypes[plugin.id];
       expect(types, `plugin ${plugin.id} should contribute handlers`).toBeDefined();
+      if (STORE_ONLY_PLUGIN_IDS[plugin.id]) {
+        // Declared store-only: it must contribute EXACTLY zero handlers. If it grows
+        // one, the declaration has gone stale and must be removed — an exemption
+        // whose condition no longer holds is a false statement in the registry.
+        expect(
+          types!.length,
+          `plugin ${plugin.id} is declared STORE-ONLY but now contributes handlers — remove it from STORE_ONLY_PLUGIN_IDS`,
+        ).toBe(0);
+        // The store key is what a store-only plugin exists to contribute, so it may
+        // never be blank — that would make the descriptor contribute nothing at all.
+        expect(rt.registeredStoreKeys[plugin.id]?.length, `${plugin.id} storeKey`).toBeGreaterThan(0);
+        continue;
+      }
       expect(types!.length, `plugin ${plugin.id} contributed zero handlers`).toBeGreaterThan(0);
     }
     // E-finish.0.E (PRYZM2-WIREUP-PLAN-S72 §16 E.0): 12 canonical
