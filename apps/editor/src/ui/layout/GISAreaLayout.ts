@@ -69,7 +69,21 @@ import {
 import {
     isBuildableEnvelopeVisible,
     setBuildableEnvelopeVisible,
+    // §ENVELOPE-AXES-CONTROL (L-6910) — the SECOND axis. `envelopeVisibility.ts` has carried
+    // it since L-1188 and its header says outright that "a future control has exactly one
+    // place to write". This is that control; the authority is unchanged.
+    isBuildableEnvelopeFootprintVisible,
+    setBuildableEnvelopeFootprintVisible,
+    getBuildableEnvelopeAxes,
 } from '../site/envelopeVisibility';
+// §ENVELOPE-AXES-CONTROL (L-6910..L-6916) — the two-switch control, extracted PURE so all four
+// axis combinations are pinned by a spec instead of asserted in a comment. It renders the axes
+// it is handed and writes nothing itself; the authority above owns the write.
+import {
+    buildEnvelopeAxesControlHtml,
+    wireEnvelopeAxesControl,
+    ENVELOPE_AXES_DRAG_EXCLUDE,
+} from '../site/envelopeVisibilityControl';
 
 /** §L-676-B — scope name + audit-probe key for this file's per-project closure state. */
 const GIS_LAYOUT_SCOPE = 'gis.areaLayout';
@@ -2386,7 +2400,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // starts a drag. Wired ONCE (inside the create block); the returned disposer is not
             // needed — the panel lives for the GIS session.
             try {
-                makeDraggable(envelopePanel, '[data-envelope-drag]', ['[data-testid="envelope-toggle"]']);
+                // §ENVELOPE-AXES-CONTROL (L-6912) — the exclusion list is now the control's OWN
+                // export, not a literal repeated here. There are TWO switches as of L-6910, and a
+                // hand-copied selector list is exactly how the second one would have kept starting
+                // a drag on every click while the first did not.
+                makeDraggable(envelopePanel, '[data-envelope-drag]', [...ENVELOPE_AXES_DRAG_EXCLUDE]);
             } catch { /* non-fatal — drag is a convenience, the panel still works without it */ }
         } else if (envelopePanel.parentElement !== viewport) {
             viewport.appendChild(envelopePanel);
@@ -2401,48 +2419,68 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      *  §ENVELOPE-ONE-VISIBILITY (L-1170) — the label READS the authority (never a local
      *  mirror of it), so the control can never display a state the renderers disagree with. */
     const envelopeToggleHtml = (): string => {
-        const on = isBuildableEnvelopeVisible();
-        // ⭐ §ENVELOPE-TWO-AXES (C58 §1.17 / L-1188) — SAY WHAT "OFF" ACTUALLY DOES. It hides the
-        // VOLUME and leaves the flat ground footprint shade. A control labelled bare "OFF" beside a
-        // shade that is still on screen invites the user to read the shade as something else
-        // (terrain, the parcel fill) — which is exactly the ambiguity the founder's report had to
-        // be disambiguated out of. The caption is ESTIMATED-qualified for the same reason the card's
-        // chip is: the shade is drawn from the same provisional determination the card describes,
-        // so its honesty caveat travels with it (§L-616 / §1.16 — a shade that reads authoritative
-        // on a default rule pack is the overstatement defect wearing a new shape).
-        const sub = on
-            ? ''
-            : `<div style="margin-top:5px;font:500 10px system-ui;color:#8a83a0;line-height:1.35;">
-                 Volume hidden — buildable <b>footprint</b> still shaded on the ground, at the same
-                 confidence as the figures above.
-               </div>`;
-        return `<button data-testid="envelope-toggle" style="margin-top:10px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;padding:7px 10px;border-radius:8px;font:600 12px system-ui;background:${on ? '#6600FF' : '#ffffff'};color:${on ? '#ffffff' : '#6600FF'};">
-           Envelope: ${on ? 'ON' : 'OFF'}
-         </button>${sub}`;
+        // ⭐ §ENVELOPE-AXES-CONTROL (L-6910, founder 2026-08-22: "There is a bug on 'envelope off'
+        // — the shade goes back.") — THIS IS NOW TWO SWITCHES, and the reason is that the MODEL
+        // has had two axes since L-1188 while this control had one button.
+        //
+        // The old markup lived here: a single `Envelope: ON/OFF` button writing the VOLUME axis,
+        // plus a caption shown only when it was off, describing the surviving ground shade as a
+        // feature. Both halves were honest and neither was sufficient — the caption never said
+        // the shade could be turned off, so the state the founder wanted ("hide everything") was
+        // representable in the model (`envelopeDrawMode({volume:false,footprint:false})` →
+        // `'none'`) and UNREACHABLE from any surface. A control labelled OFF that leaves a visible
+        // artefact on the plot is misleading however good the reasoning behind the artefact is.
+        //
+        // ⛔ IT WAS NOT FIXED BY MAKING THE ONE BUTTON WRITE BOTH AXES. That would delete the
+        // distinction L-1188 exists to introduce and re-open the founder's 2026-08-19 report in
+        // the opposite direction ("When the envelope is OFF we should see this shade on the
+        // GROUND"). Two asks, opposite directions: the control grows, it does not pick a side.
+        //
+        // The markup is now produced by the PURE `buildEnvelopeAxesControlHtml`, so every one of
+        // the four axis combinations is pinned by `envelopeVisibilityControl.spec.ts` rather than
+        // asserted in a comment here — the §GIS-ENVELOPE-FULL-SECTIONS lesson applied to chrome.
+        // This closure reads the authority ONCE and hands it over; the producer reads no global.
+        return buildEnvelopeAxesControlHtml(getBuildableEnvelopeAxes());
     };
 
     const wireEnvelopeToggle = (panel: HTMLDivElement): void => {
-        const btn = panel.querySelector('[data-testid="envelope-toggle"]') as HTMLButtonElement | null;
-        if (!btn) return;
-        btn.onclick = () => {
-            // ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) — THE CONTROL ONLY WRITES THE ANSWER.
-            //
-            // This handler used to be a THREE-WAY RENDERER PICKER, and the third way was the
-            // founder's bug: `else { refreshEnvelopePanel(); }` repainted the CARD and touched
-            // NO SCENE AT ALL. Whenever the site pane was in `map2d` sub-mode on a 2D result
-            // view, clicking OFF flipped a flag and left the box exactly where it was. That is
-            // literally "I tried to hide it but it did not work" — a control whose effect
-            // depended on which of two unrelated view-mode variables happened to be set.
-            //
-            // Every surface now repaints from the authority's own subscription:
-            //   · CesiumViewport re-renders `formaLastMassingInput` (no re-fly, no re-clamp,
-            //     and it carries the cached `keepPhotoreal`, so §FIX-ENVELOPE-TOGGLE-VIEW-SWITCH
-            //     is honoured BY CONSTRUCTION rather than by this handler branching correctly);
-            //   · ParcelBoundarySceneRenderer rebuilds the BIM/plan volume.
-            // The only thing left here is the card's own ON/OFF label.
-            setBuildableEnvelopeVisible(!isBuildableEnvelopeVisible());
-            refreshEnvelopePanel();
-        };
+        // §ENVELOPE-AXES-CONTROL (L-6911) — bind BOTH switches. The wiring lives in the pure
+        // module so the selectors and the markup cannot drift apart; the writes stay here,
+        // because the authority's setters are this file's to call and the control's job ends at
+        // reporting the click (L-1170: a surface that renders AND writes AND decides is how one
+        // question came to have four answers).
+        wireEnvelopeAxesControl(panel, {
+            onToggleVolume: () => {
+                setBuildableEnvelopeVisible(!isBuildableEnvelopeVisible());
+                refreshEnvelopePanel();
+            },
+            // ⭐ THE WRITE THAT DID NOT EXIST. `setBuildableEnvelopeFootprintVisible` has been
+            // exported since L-1188 with NO caller — [[authored-but-unwired-is-the-bottleneck]]
+            // in one line. Everything downstream (the persisted key, the notification, the L2
+            // `applyEnvelopeVisibilityAxes` projection, both rasterisers' `'none'` arm) was
+            // already built and already correct.
+            onToggleFootprint: () => {
+                setBuildableEnvelopeFootprintVisible(!isBuildableEnvelopeFootprintVisible());
+                refreshEnvelopePanel();
+            },
+        });
+        // ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) — THE CONTROL ONLY WRITES THE ANSWER, and that
+        // rule is UNCHANGED by L-6910; only the number of axes it writes has grown.
+        //
+        // The two handlers above do exactly what the single one did: call the authority's setter
+        // and repaint the CARD's own label. Neither reaches into a viewport and neither decides
+        // which renderer to poke. That was the L-1170 defect — this handler used to be a
+        // THREE-WAY RENDERER PICKER whose third branch (`else { refreshEnvelopePanel(); }`)
+        // repainted the card and touched NO SCENE AT ALL, so on a 2D result view clicking OFF
+        // flipped a flag and left the box exactly where it was.
+        //
+        // Every surface repaints from the authority's own subscription instead:
+        //   · CesiumViewport re-renders `formaLastMassingInput` (no re-fly, no re-clamp, and it
+        //     carries the cached `keepPhotoreal`, so §FIX-ENVELOPE-TOGGLE-VIEW-SWITCH is honoured
+        //     BY CONSTRUCTION rather than by this handler branching correctly);
+        //   · ParcelBoundarySceneRenderer rebuilds the BIM/plan volume.
+        // Both read the L2 `applyEnvelopeVisibilityAxes`, whose `'none'` arm — unreachable from
+        // the UI until L-6910 — is what actually clears the founder's shade.
     };
 
     // §L-621b follow-up (2026-08-05, founder: "already movable, just not closable") — the

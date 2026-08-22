@@ -1603,7 +1603,12 @@ export const PROJECT_BROWSER_STYLES = `
     border-color: var(--app-accent);
 }
 
-.pb-gis-envelope-slot > [data-testid="buildable-envelope-card"] {
+/* §PARCEL-ALL-INFO (L-6905) — the Parcel panel hosts the SAME singleton card, so it needs the
+   SAME de-floating rule. The selector is a shared list rather than a copied block: the card's
+   floating geometry is one fact, and two rules that can drift is how one host ends up with a
+   300px absolutely-positioned card inside a rail column. */
+.pb-gis-envelope-slot > [data-testid="buildable-envelope-card"],
+.pb-parcel-envelope-slot > [data-testid="buildable-envelope-card"] {
     position: static !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -1614,6 +1619,80 @@ export const PROJECT_BROWSER_STYLES = `
     box-shadow: none !important;
     border: 1px solid var(--app-border-light) !important;
     resize: none !important;
+}
+
+/* §PARCEL-ALL-INFO (L-6905..L-6909) — the Parcel panel's envelope half. */
+.pb-parcel-envelope-slot {
+    margin-top: 8px;
+    border-top: 1px solid var(--app-border-light);
+    padding-top: 8px;
+    min-width: 0;
+}
+
+/* The five-state sentence. TEXT, deliberately: C58 refuses to publish a figure it cannot cite,
+   and the panel carries that refusal through in words rather than as a blank gap (which reads
+   as a crash) or as zeros (which read as "nothing is buildable"). */
+.pb-parcel-envelope-state {
+    padding: 8px 10px;
+    border: 1px dashed var(--app-border);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-bg);
+    color: var(--app-text-muted);
+    font-size: var(--pryzm-panel-font-size-meta);
+    line-height: 1.45;
+    /* ⛔ NO ellipsis, NO nowrap — every one of these sentences is a disclosure and a
+       truncated disclosure is worse than none (the .pb-parcel-intro rule, same reason). */
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+/* RESOLVING is the one state that is not an absence, so it is the one state that is not
+   dashed-and-grey: it reads as work in progress, in the brand purple, never as a warning. */
+.pb-parcel-envelope-state[data-state="resolving"] {
+    border-style: solid;
+    border-color: var(--app-accent, #6600FF);
+    background: var(--app-violet-soft, rgba(102, 0, 255, 0.06));
+    color: var(--app-accent, #6600FF);
+}
+
+/* The notice above a PRESENT card whose figures are the provisional fallback. Same purple
+   family as the resolving state — it is the same fact, told beside data instead of instead
+   of it. */
+.pb-parcel-envelope-resolving {
+    margin-bottom: 6px;
+    padding: 6px 9px;
+    border-radius: var(--app-radius-sm);
+    background: var(--app-violet-soft, rgba(102, 0, 255, 0.06));
+    color: var(--app-accent, #6600FF);
+    font-size: var(--pryzm-panel-font-size-meta);
+    line-height: 1.45;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+/* The escape hatch. Tokens only (C06 §7.3) — the same --app-* family the parcel card's own
+   action button uses, so the two halves of this panel read as one surface. */
+.pb-parcel-envelope-recompute {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 6px 10px;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-bg-elevated, var(--app-bg));
+    color: var(--app-text);
+    font-size: var(--pryzm-panel-font-size-meta);
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+}
+.pb-parcel-envelope-recompute:hover:not(:disabled) {
+    border-color: var(--app-accent, var(--app-border));
+    color: var(--app-accent, var(--app-text));
+}
+.pb-parcel-envelope-recompute:disabled {
+    opacity: 0.6;
+    cursor: default;
 }
 
 `;

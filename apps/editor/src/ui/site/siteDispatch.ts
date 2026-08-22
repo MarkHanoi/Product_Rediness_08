@@ -547,6 +547,15 @@ import {
     isUncertifiedPreviewModeActive,
     uncertifiedPreviewCaveat,
 } from './testMode/uncertifiedPreviewMode.js';
+// §PARCEL-ALL-INFO (L-6900..L-6906) — the RESOLVING phase. A determination takes 6–11 s on the
+// founder's own Barcelona parcel, and until now no surface could tell "in flight" apart from
+// "nothing here". This module holds only that fact; it renders nothing and fetches nothing, and
+// it is a zero-dependency leaf so a panel can read it without importing this 512 KB file.
+import {
+    beginEnvelopeResolution,
+    noteEnvelopeResolutionSettled,
+    resetEnvelopeResolutionState,
+} from './envelopeResolutionState.js';
 
 const _siteRestoreTracer = trace.getTracer('pryzm.site.restore');
 
@@ -671,6 +680,10 @@ export function resetSiteDispatchProjectState(): void {
         // bbox; dropping it cancels nothing in flight but stops Project B reading
         // Project A's cached fields. Recreated lazily on first use.
         _dkByggefeltProducer = null;
+        // §PARCEL-ALL-INFO (L-6903) — a resolution belonging to project A must not describe
+        // project B's parcel panel. Same rule as `_lastEnvelope` two lines up, and the same
+        // reason: the phase is a claim about THIS project's parcel.
+        resetEnvelopeResolutionState();
         _owningProjectId = null;
     } catch (e) {
         console.warn('[gis] §L-676 resetSiteDispatchProjectState failed (non-fatal):', e);
@@ -1461,6 +1474,10 @@ export function dispatchClearParcelBoundary(ctx: SiteContext): boolean {
     // C58 — drop the cached buildable envelope so the Forma view stops drawing it
     // (a fresh parcel selection recomputes it on the next `site.parcel-boundary-set`).
     _lastEnvelope = null;
+    // §PARCEL-ALL-INFO (L-6904) — and drop the RESOLVING phase with it. The boundary a
+    // determination was launched against no longer exists, so "still resolving" would be a claim
+    // about a parcel the user just deleted. `idle` is the honest phase for "nothing committed".
+    resetEnvelopeResolutionState();
     console.log('[gis] §L-384 parcel boundary cleared via site.replace — ready to re-draw.');
     return true;
 }
@@ -1814,6 +1831,21 @@ function applyZoning(
     // one's jurisdiction. A cleared point refuses nothing and claims nothing, which is the only
     // honest value for "we have not derived it yet".
     _lastParcelQueryPoint = null;
+    // §PARCEL-ALL-INFO (L-6901) — MARK THE DETERMINATION AS IN FLIGHT, here and nowhere else.
+    //
+    // This function is the ONE synchronous chokepoint every jurisdiction branch passes through
+    // before forking into its own async chain, which is the identical argument
+    // `_lastParcelQueryPoint` (declared above) makes for living here: a mark that must be added
+    // at each of the fifteen-odd exits is a mark that will be omitted at the sixteenth, and it
+    // would fail nowhere.
+    //
+    // ⚠ THE PHASE IS TIME-BOUNDED, NOT CLEAR-DEPENDENT (§L-716). Several of those exits are
+    // `catch` blocks and `!site` guards that never reach `dispatchEnvelope`, so a flag cleared
+    // only on success would leave a spinner running for the session. `getEnvelopeResolutionPhase`
+    // expires it into a differently-worded STALLED state instead. Do not "fix" that by adding
+    // clears to the guards — the deadline is what makes the state honest when a path is added
+    // later and forgets.
+    beginEnvelopeResolution(Array.isArray(boundary.polygon) ? boundary.polygon.length : 0);
     try {
         const loc = ctx.store.getSite()?.location;
         // §L-521 — resolve the jurisdiction + fetch the REAL zoning at the DRAWN PARCEL'S actual
@@ -8661,6 +8693,13 @@ function dispatchEnvelope(
     jurisdictionRef: string,
 ): void {
     markStartupPhase(`envelope:dispatched(${envelope.status})`); // §STARTUP-BUDGET
+    // §PARCEL-ALL-INFO (L-6902) — SETTLED. Every path that produces a `BuildableEnvelope` funnels
+    // through this function — the real cited solve, the estimated fallback, and every
+    // `buildRefusedEnvelope` — and all three are settlements: each is a STATED disposition, and
+    // none of them should keep a panel saying "resolving". Marked before the write, so a soft
+    // reject below (`siteUpdateZoning` returning `!ok`) still ends the phase rather than leaving
+    // it in flight against an answer that already exists.
+    noteEnvelopeResolutionSettled();
     _lastEnvelope = envelope;
     noteSiteDispatchOwner(); // §L-676 — record WHICH project this envelope belongs to.
     // §NEARBY-HEIGHT-SUGGESTION — every NORMAL dispatch (this function) is, by construction, a
