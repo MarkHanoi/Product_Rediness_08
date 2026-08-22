@@ -1408,6 +1408,86 @@ this lane did not take.
 
 ---
 
+## §PROJECTION-ADMISSION — the CHEAPEST work is the work never admitted, and every source MUST be admitted by the SAME rules (NORMATIVE, added 2026-08-22, lane ELEV28, L-6000..L-6024)
+
+§PROJECTION-SCHEDULING governs how projection work is *paced*. This section governs whether it is
+*admitted at all*, which is the larger lever and the one that had gaps. Founder, 2026-08-22:
+*"the performance of opening the elevation view is really slow"*, alongside
+`§DIAG-EPS-01 … elemType=FurniturePart faceCount=5280 edgeVertices=4884 allocMs=20.39ms` — twenty
+milliseconds of `EdgesGeometry` for one pot plant, on every pass.
+
+### §PA.1 — RULE: an element MUST be admitted by the view's SPATIAL SCOPE before any edge pass
+
+A depth-projected view MUST apply its oriented scope frame at the element-selection stage, not only
+at the per-mesh gate downstream. The normative frame and its three axes are **C09 §4.6.7e**; this
+section adds only the *cost* obligation, because the two symptoms are one defect (out-of-scope
+linework is both mis-pickable and expensive).
+
+⛔ **A cull added for cost MUST be provably implied by a drop the pipeline already performs.** The
+exporter's test is an element's ROOT world AABB against the SAME frame
+`sectionBoxIntersectsWorldAABB` already drops individual meshes against; a root that misses it
+contains no mesh that could have passed. This is how the founder's standing constraint —
+*"please don't compromise graphics while implementing what you are doing"* — is discharged **by
+construction** rather than by review. A cull that cannot be stated in that form is not admissible
+here.
+
+### §PA.2 — RULE: the per-family visibility veto applies to EVERY projection source, or to none
+
+`EdgeProjectorService` has three sources — **A** (OBC `EdgeProjector`), **B** (native mesh groups),
+**C** (IFC scene meshes). ⚠ **MEASURED 2026-08-22: the per-family intent veto existed on SOURCE C
+ALONE** (`isElementTypeFullyHidden`, Wave 11 / Stage S7 — one call site in the whole file). Source B
+is where every PRYZM-authored wall, window, door and piece of furniture lives, and it had none: a
+family the user had switched off was still fully edge-projected, still written into the drawing, and
+still indexed by `registerSegmentUUID` for selection.
+
+A veto on one source and not another is **worse than none on either**, because the surviving source
+makes the control look implemented. Every source MUST ask the same gate.
+
+- **§PA.2(a) — ONE gate, ONE key.** `makeSymbolInjectionGate` (C09 §4.x / L-3903) is the gate; the
+  family key is `vgCategoryForLayer(resolveProjectionLayer(elementType))` — the same key the canvas
+  resolves its own hide from. A second key is how `vgCategoryForLayer` came to exist twice and
+  DIVERGE; it has one owner for that reason.
+- **§PA.2(b) — the veto MUST FAIL OPEN.** An unbound view, a missing intent or a resolver throw MUST
+  admit. **Absence of a decision is not a hide**, and a gate failing CLOSED silently deletes authored
+  linework whenever intent resolution has a bad day — strictly worse than the unconditional
+  projection it replaces.
+- **§PA.2(c) — the veto MUST be unanimous across all four states** (`cut` · `projection` · `beyond` ·
+  `hidden`). A family merely restyled, or hidden in one zone, MUST still project. This is what makes
+  the skip **provably invisible**: the canvas already paints nothing for a family that can draw in no
+  state.
+- **§PA.2(d) — ⛔ this does NOT re-open "hidden furniture still renders."** That report is REFUTED at
+  the canvas layer (`PlanViewCanvas` drops the line twice — VG `resolved.visible`, then the intent's
+  alpha-0 pen — proven at `ctx.strokeStyle`). What §PA.2 fixes is everything DOWNSTREAM of the
+  canvas. Anyone citing this section as confirmation of the canvas hypothesis is misreading it.
+
+### §PA.3 — RULE: an admission diagnostic MUST name WHAT was excluded and by WHICH rule
+
+A count alone is not a measurement. `No levelId — exporting all 385 elements` was a true sentence
+that read as a fact about the model rather than as **the absence of a scope**, and it survived that
+way for as long as it did precisely because it named no rule. Every admission stage MUST emit a line
+carrying the RULE, the FRAME or FAMILY it applied, and the kept/total split — and MUST distinguish
+*"this rule did not apply here"* from *"this rule excluded nothing"* (C09 §4.6.7e(4)).
+
+### §PA.4 — NOT MEASURED, and NOT CLAIMED (read before quoting this section)
+
+- ⛔ **No wall-clock figure was captured on the founder's model.** The improvement is **PROJECTED**
+  from two removed costs, not observed. A predecessor shipped a 14.6 s arithmetic figure; he tested
+  it and it did not deliver. **Do not quote a millisecond number for this section.**
+- **The 5% projection-cache hit rate is EXPLAINED, not fixed.** Only **87 of 365** groups on his pass
+  were cacheable at all (`CACHEABLE_ELEMENT_TYPES`); the denominator is the finding. Culling
+  out-of-scope elements shrinks the working set the LRU must hold, which is the right direction — and
+  is not a measured rate.
+- **FIVE projection passes were started to open ONE elevation** (L-6022): four superseded and
+  correctly abandoned after 12, 109, 34 and 4 of 365 groups — **159 group-projections paid for and
+  discarded**. The cancellation machinery is working; the re-trigger upstream of it is **NOT
+  diagnosed** and is not attributed here.
+- **`TopologySpatialIndex` rebuilding 417 elements on every projection pass is NOT explained by this
+  section.** It is lazy and dirty-flagged; something DIRTIES it on a read path. `packages/room-topology`
+  is outside this lane and the owner is unassigned (L-6023). ⭐ The question is *"what dirties it during
+  a READ?"*, not *"why is the rebuild slow?"*
+
+---
+
 ## §FRAME-INSTRUMENT — a per-frame instrument is a RENDERING ARTEFACT and is governed here (NORMATIVE, added 2026-08-22, lane NAV29, L-5900..L-5913)
 
 **Subject.** `packages/frame-scheduler/src/FrameProfiler.ts` (the `[FrameProfiler]` line),

@@ -38610,3 +38610,540 @@ its `L-5801..L-5804` tags are in LOAD30's band, not NAV29's.
 ⛔ **NAV29 claims no result from it.** It was not run, its transcription of the codec was not
 verified against the live one, and no ISSUE-LOG row is filed for its numbers. MEASURED: `node --check`
 → RC=0; it parses, and that is all this lane establishes. **LOAD30: run it or delete it.**
+
+---
+
+## §PARCEL-ALL-INFO + §ENVELOPE-AXES-CONTROL — lane PARCEL33, 2026-08-22 (L-6900..L-6916)
+
+Two founder reports, one panel.
+
+> 1. *"On parcel selection I want to have **all information directly showing up**: it is still on
+>    GIS — check second image and third."*
+> 2. *"There is a bug on **'envelope off'** — the shade goes back."*
+
+### L-6900 — the founder's window is MEASURED: 6–11 s between "parcel known" and "envelope known"
+
+Not inferred. From his own console, one Barcelona parcel (CL ROGER DE FLOR 168, ref
+`1035716DF3813E`, ~2234 m², 32 pts):
+
+```
+[gis][c58] §BCN-REAL-ENVELOPE §BCN-ENVELOPE-TIMING block fetch — residual await 6395 ms
+                              (total since parcel-fetch start 11441 ms)
+[gis][c58] buildable envelope computed → confidence=block-constructed status=ok inset=861.1m² height=22.4m
+```
+
+So *"all information directly showing up"* **cannot mean "block until it resolves"**. A panel that
+renders nothing for eleven seconds is the L-553 defect — a blank surface reads as a crash, not as
+work in progress. The whole design question was what each section says **during** that window.
+
+### L-6901 — RESOLVING is a FOURTH state; folding it into `NOT CHECKED` would have been wrong
+
+The surrounding vocabulary already models three dispositions and refuses to collapse them:
+`NOT CHECKED` / `NO LIMIT SET` / `OVER` (`capacityPanelSection.ts`). **None of them is true during
+the window.** `NOT CHECKED` is the closest and it is still wrong — it says a check was *declined*
+when a check is *running* and an answer is coming. That is the
+[[context-data-honesty-family]] conflation (failure and emptiness rendered as one value) with a
+third member added.
+
+`apps/editor/src/ui/site/envelopeResolutionState.ts` adds the word, dependency-free (no DOM, no
+store, no fetch) so `siteDispatch.ts` (512 KB) and the panel can both read it and every arm is
+testable against an injected clock.
+
+### L-6902 — ⛔ the RESOLVING state is TIME-BOUNDED, because a settle is not guaranteed to arrive
+
+The obvious implementation is a boolean set at launch and cleared on success. **It would have been
+a spinner that spins forever**, and this repo has the lesson written down:
+[[unsatisfiable-gate-decomposition-is-the-fix]] (§L-716) — *ask "can this ever be true?" before
+"why slow?"*.
+
+MEASURED: `applyZoning` (`siteDispatch.ts`) is one synchronous chokepoint that forks into ~15
+per-city `apply*ZoningThenFallback` chains, and **not every guard and `catch` in them reaches
+`dispatchEnvelope`**. So the phase does not trust a clear to arrive: `getEnvelopeResolutionPhase()`
+expires `resolving` into **`stalled`** after `ENVELOPE_RESOLUTION_DEADLINE_MS = 45_000` — a
+differently-worded state carrying the recompute escape hatch, never a silent revert to "nothing
+here".
+
+⚠ **The deadline is chosen from the measurement, not from taste.** 45 s is ~4× his measured 11441 ms
+worst case. A deadline near the measured time would flip a HEALTHY resolve to "stalled" on a slower
+link and turn a working feature into an apparent failure — the §L-553 trade already regretted once.
+Pinned by an arm that asserts the RELATIONSHIP (`> 11_441 * 2`), not the literal.
+
+⭐ The mark is written at `applyZoning` and **nowhere else**, for the identical reason
+`_lastParcelQueryPoint` lives there (§L-663): a mark that must be added at each of fifteen exits is
+a mark that will be omitted at the sixteenth, and it would fail nowhere.
+
+### L-6903 — every fold the founder listed is ONE element, so the panel makes ONE call
+
+He named: **Buildable envelope** (`REAL · CONSTRUCTED`, the stored-determination note, setbacks
+F/S/R, max height, max FAR, buildable, the provenance sentence) · **Designed vs permitted** with its
+per-metric rows · **How these were measured** · **Full site & massing data** (PARCEL / ORDINANCE
+LIMITS / MASSING POTENTIAL / PER STOREY).
+
+**MEASURED: all four are folds of the SAME element** — the singleton buildable-envelope card
+assembled by `refreshEnvelopePanel` (`GISAreaLayout.ts:3421` names the four folds in its own
+comment) and re-homed by `window.pryzmMountEnvelopeCard(host)`, the §GIS-ENVELOPE-REHOST (L-1362)
+seam whose entire purpose is that a panel may claim the card without rebuilding it.
+
+So `parcelRailPanel.ts` gained **one call**, exactly as §PARCEL-OWN-PANEL (`31d66f93`) was one call.
+⛔ Nothing re-derived, no copied markup, no second reader. A rival renderer of these figures is how
+two panels come to disagree about a number cited to a PGM article — the C06 §13.3 breach with a
+legal consequence attached, already recorded three times (§GIS-ENVELOPE-REHOST L-1362,
+§GIS-PARCEL-REHOST L-1582, §PARCEL-OWN-PANEL L-5130). Pinned by an arm asserting the panel imports
+**none** of `buildDesignedVsPermittedFold` / `buildHowMeasuredFold` / `buildCapacityComparison` /
+`measureAuthoredDesign` / `getLastBuildableEnvelope` / `solveEstimatedEnvelope` / `fetch(`.
+
+### L-6904 — ⭐ CAN TWO PANELS HOST ONE SECTION? **Two answers, and they differ by KIND.**
+
+The coordinator asked this twice. Measured, not reasoned:
+
+**(a) The envelope card — a SINGLETON, hostable by many, displayable by ONE.**
+`envelopePanel` is one `HTMLDivElement` in a `mountGISArea` closure (`GISAreaLayout.ts:2185`) and
+`ensureEnvelopePanel` **moves** it (`viewport.appendChild`) rather than cloning. Two hosts therefore
+**cannot** display it at once — the second claim silently empties the first.
+
+That would be a live defect if GIS and PARCEL could be open together. **They cannot:**
+`ProjectBrowserPanel` holds ONE `_rail.activeId` and disposes the non-active section
+(`ProjectBrowserPanel.ts:218-228`, one branch per handle). One host is live at a time, by
+construction. On top of that `getForma3dHostEl` returns the preferred host only while
+`document.contains(host)`, so a closed panel cannot strand the card — it falls back to the GIS slot
+or the 3D viewport.
+
+⛔ **Consequence, and it is not obvious:** the Parcel panel's `dispose()` must **NOT** call
+`pryzmMountEnvelopeCard(null)`. If GIS had claimed the card since, releasing would evict it from
+GIS too. A panel disposing itself must not reach into another host's state; self-healing beats
+explicit release for a shared resource. Pinned by an arm.
+⛔ And the render must never `replaceChildren()` the slot — that would detach the one shared
+instance. It removes only its own chrome, keyed on the card's testid.
+
+**(b) `mountParcelSection` — the OPPOSITE, and safe for the opposite reason.**
+It is not a singleton element: it **builds** into whatever host it is given and returns its own
+handle. Many hosts may display it simultaneously, **provided each owns its own handle** — which is
+exactly why §PARCEL-OWN-PANEL refused to share the GIS one (a shared handle lets closing either
+slot drop the other's subscription).
+
+**So "is section reuse safe?" has no single answer.** Re-homed singleton: hosted by many, displayed
+by one. Mount-per-host builder: hosted and displayed by many, one handle each.
+
+### L-6905 — `pryzmMountEnvelopeCard` returns a BOOLEAN whose `false` has FOUR causes
+
+Its own doc-comment is emphatic that the value is load-bearing and must never be softened into
+zeros. It does **not** say *why* — and the four whys need four sentences because they call for four
+different user actions:
+
+| cause | what the user should do |
+|---|---|
+| `no-boundary` | nothing committed → select a parcel |
+| `resolving` | committed, answer in flight → wait (6–11 s, MEASURED) |
+| `stalled` | committed, deadline blown → the chain died; recompute |
+| `settled-without-envelope` | committed, the answer was "none" → a determination, not a failure |
+
+⚠ **The GIS panel's existing empty state collapses three of them** into *"No buildable envelope
+determined yet…"* — which during the window is **actively wrong**: it says nothing has been
+determined while a determination is running. `parcelEnvelopeSlotState.ts` is the pure five-state
+decision; every arm asserts DISTINGUISHABILITY, and one asserts that **no arm renders a figure,
+a zero, or a dash that reads as zero** (C58 §1.16 / §L-616 — these values are legally loaded).
+
+### L-6906 — ⛔ NO recompute button while RESOLVING
+
+The obvious affordance is a recompute on every non-card arm. **Refused on two of five.** Pressing
+it during the window restarts a chain that is already running, and §STALE-ASYNC-ZONING (L-644) then
+has to discard the older response — the defect family whose symptom is *"the purple volume sits on
+the neighbouring plot"*. Offering the button there would invite the user to cause it.
+
+### L-6907 — ⭐ MEASURED, and it changes the design: during the window the card shows the ESTIMATED fallback
+
+Not a blank card, and **not** the previous parcel's numbers either. `computeAndCacheEstimatedEnvelope`
+writes `_lastEnvelope` **synchronously on every parcel commit, BEFORE `applyZoning` forks**
+(`siteDispatch.ts`, `dispatchParcelBoundary`). So the "stale value from the previous parcel" hazard
+is already closed at the source — but for the whole 6–11 s window the card renders an
+`estimated-ruleset` envelope while the **cited** determination is still being fetched.
+
+The card's `EST` badge is honest about the confidence of what it shows. What it **cannot** say —
+because it does not know — is that a better answer is on its way and these figures are about to be
+replaced. A user reading setbacks off the card in second 3 has not been lied to, but has been
+under-informed at a surface whose whole discipline is that a provisional value is labelled as one.
+
+**So the panel adds that one fact above the card, and ONLY while the phase is `resolving`.** A
+*settled* estimated envelope gets no notice: outside every registered jurisdiction it is the honest,
+badged answer (C58 §1.6) and nothing better is coming for it.
+
+### L-6908 — ONE `setTimeout`, not a poll
+
+The SUCCESS transition arrives for free: `dispatchEnvelope` → `siteUpdateZoning` → the
+`SiteModelStore` notifies, and the panel subscribes. The only transition with no natural signal is
+`resolving` → `stalled`, and it needs exactly one timer at the deadline. Polling once a second would
+repaint the card ~45 times per parcel for no information gain — and the founder is on **WebGL**
+(`GPU: WebGL · webgl-only`), where a card repaint is not free.
+
+### L-6909 — ⛔ NOT "FIXED": the two `NOT CHECKED` rows whose reason is overlapping floor plates
+
+> *"Two or more floor plates on the same storey overlap. Summing them would double-count, and PRYZM
+> has no polygon-union operation to resolve it — so it declines to report a figure."*
+
+That is an honest refusal and it is **correct**. Left exactly as it is, and surfaced verbatim on the
+Parcel panel because the panel hosts the same producer. Recorded here so a later lane does not
+"improve" it by summing.
+
+---
+
+### L-6910 — ⭐ `'envelope off'` is NOT a logic bug. The MODEL has two axes and the UI had ONE button.
+
+`apps/editor/src/ui/site/envelopeVisibility.ts` has carried **two** persisted booleans since
+§ENVELOPE-TWO-AXES (L-1188):
+
+```
+pryzm.site.buildableEnvelopeVisible           ← VOLUME    "what mass may I build?"   (obstructive)
+pryzm.site.buildableEnvelopeFootprintVisible  ← FOOTPRINT "what area may I build on?" (flat)
+```
+
+⭐ **And the file predicted this defect in its own header:** *"The `Envelope: ON/OFF` control writes
+the VOLUME axis only; the FOOTPRINT axis exists so 'hide everything' is expressible without a fifth
+authority, and **so a future control has exactly one place to write**."*
+
+**That future control was never built.** MEASURED: `setBuildableEnvelopeFootprintVisible` shipped
+with L-1188 and had **ZERO callers** — [[authored-but-unwired-is-the-bottleneck]] in one export.
+The founder's console shows the runtime behaving exactly as designed:
+
+```
+§ENVELOPE-ONE-VISIBILITY — buildable envelope VOLUME set HIDDEN by the user
+   (ground footprint shade STAYS — §ENVELOPE-TWO-AXES); 2 surface(s) notified.
+§ENVELOPE-ONE-VISIBILITY — … mode=ground-shade: … drawing 1 flat GROUND FOOTPRINT shade(s) instead
+```
+
+**It was still a defect.** A control labelled **OFF** that leaves a visible artefact on the plot is
+misleading however good the reasoning behind the artefact is — and the state he wanted
+(*"hide everything"*) was **representable in the model and unreachable from the UI**:
+`envelopeDrawMode({volume:false, footprint:false})` → `'none'` has existed and been correct since
+L-1188 (`packages/site-parcel-data/src/envelopeToMassing.ts:543`), with both rasterisers' `'none'`
+arm already built.
+
+### L-6911 — ⛔ the rejected fix: making the one button write BOTH axes
+
+It would delete the distinction L-1188 exists to introduce, and **re-open the founder's OPPOSITE
+report** of 2026-08-19: *"When the envelope is OFF we should see this shade on the GROUND."* Two
+asks, opposite directions, one control — **the control has to grow, it does not get to pick a
+side.** Pinned by an arm asserting one click produces exactly one axis write.
+
+### L-6912 — the decision: TWO LABELLED SWITCHES, not a tri-state cycle
+
+A cycle (volume → shade → none) is fewer pixels and was **rejected**, in order of weight:
+
+1. A cycle makes the CURRENT state readable only from a label and the NEXT state guessable only by
+   trying. Two switches show both answers at once, matching a model where the axes are genuinely
+   independent booleans rather than three points on a line.
+2. `{volume: true, footprint: false}` is a real, persistable state a cycle cannot express. It is not
+   currently *distinguishable on screen* (`envelopeDrawMode` returns `'volume'` for it — the
+   volume's own base IS the footprint and a coplanar shade would z-fight) but it is a **stored
+   preference that survives**, and it decides what appears the moment the volume is hidden. A
+   control that cannot set half its own model's state space is the gap being fixed.
+3. The persisted keys are per-axis. A cycle needs its own ordering rule on top of them — a fifth
+   thing that can disagree, which is what L-1170 spent a whole module removing.
+
+⚠ **Both storage keys and both defaults are preserved.** The VOLUME testid stays `envelope-toggle`
+deliberately: `makeDraggable` excludes it by that exact selector and
+`apps/editor/__tests__/makeDraggableOffsetParent.test.ts:111` pins it — a rename would silently
+re-enable drag-on-click **and** break a passing test, for no gain.
+
+### L-6913 — the drag-exclusion list is now the control's own export
+
+It was a literal repeated at the `makeDraggable` call site. With two switches, a hand-copied list is
+**exactly** how the second one would keep starting a drag on every click while the first did not.
+`ENVELOPE_AXES_DRAG_EXCLUDE` names both; an arm pins it.
+
+### L-6914 — the caption was the other half of the bug
+
+The old caption appeared only when the volume was off and described the surviving shade **as a
+feature**. It never said the shade could be turned off — so a user who pressed OFF had no way to
+learn that the state they wanted existed. Every arm of the new caption names what is drawn AND what
+the other switch would change. The **estimated-confidence qualifier is preserved** (§L-616 /
+C58 §1.16 — the shade is drawn from the same provisional determination the card describes, so its
+honesty caveat travels with it); dropping it while rewriting would have been a quiet honesty
+regression, and an arm pins it.
+
+The both-off arm also states that **the determination above is unchanged** — hiding a constraint is
+not the same as there being no constraint (C58 §1.4).
+
+### L-6915 — ONE producer, EVERY host: the control is inside the card
+
+Because the two switches are rendered into the singleton envelope card by its one template, the 3D-site
+viewport, the GIS rail slot and the Parcel rail slot all get **the same control and the same state
+by construction**. There is no second copy to keep in sync — which is the coordinator's
+"both panels must show the same control and the same state", satisfied structurally rather than by
+a synchronisation rule someone has to remember.
+
+`packages/renderer-three` / `CesiumViewport.ts` were **not touched**: they already read the
+authority through the L2 `applyEnvelopeVisibilityAxes` chokepoint, and its `'none'` arm needed no
+change.
+
+### L-6916 — HAND-OFF: two RED files, neither this lane's
+
+Recorded so the next lane does not attribute them here.
+
+- `apps/editor/src/ui/styles/__tests__/panelBrandStandard.spec.ts` ARM C → **RED**:
+  `panels/analysisSurface.ts  var(--app-wash)` — an undeclared custom property. That sheet has
+  **120 uncommitted insertions** in the shared tree (ANLX31). My sheet
+  (`panels/projectBrowser.ts`) is not in that arm's scope, and its own suites are green.
+- Root `tsc --noEmit --skipLibCheck` → **4 errors**, all
+  `apps/editor/src/ui/analysis/__tests__/__probe.spec.ts` (TS1002 unterminated string literal).
+  Also ANLX31's in-flight file. **My files are clean.**
+
+**GREEN this lane:** `envelopeResolutionState.spec.ts` · `envelopeVisibilityControl.spec.ts` ·
+`parcelEnvelopeSlotState.spec.ts` · `parcelRailPanel.spec.ts` (22) — **70 tests**; plus
+`gisActionRegistry.test.ts` + `makeDraggableOffsetParent.test.ts` (28) still green under the
+editor config, which is what proves the testid was safe to keep.
+
+---
+
+## ELEV28 — the elevation lane (L-6000..L-6024), 2026-08-22
+
+Three founder complaints from one live build. Two of them turned out to be **one defect**, and the
+third was **semantic, not geometric**. Every number below is labelled MEASURED or PROJECTED.
+
+### L-6000 — MEASURED: an elevation applied NO spatial scope, and that is ONE defect with TWO symptoms
+
+Founder, verbatim: *"i am selecting a window within the elevation — the elevation scope is defined
+on the right hand side split view — i am selecting a window that should be on the scope of the crop
+box but is not, is way further away — absolutely incorrect"* … *"also the performance of opening the
+elevation view is really slow."*
+
+His console, on **every** pass:
+
+```
+[NativeElementMeshExporter] No levelId — exporting all 385 elements across 7 levels (viewType=elevation)
+[EdgeProjectorService] project() … cullAABB(plan-family only)=[-15.49,-6.83 → 0.35,-3.87]
+```
+
+⭐ **The two symptoms are the same bug.** The drawing carried hit-testable linework for elements far
+outside his crop (so a click resolves to a window metres away), and the whole model was proxied and
+edge-projected on every pass (so opening the view is slow). One cull closes both.
+
+**ROOT, and it is a LAYERING fact rather than a geometry one.** The oriented scope box was computed
+by `EdgeProjectorService.resolveSectionVolumeBox` — `apps/editor`, **L7**.
+`NativeElementMeshExporter` is `packages/core-app-model`, **L2**, and cannot import it. So the
+exporter fell back to the only box it could see: the axis-aligned `spatial.cropRegion`, read **only**
+when `resolveViewScope(viewType).planFamily` — i.e. **never for an elevation**. The `cullAABB` line's
+own `(plan-family only)` label was telling the truth, and nobody read it as an absence.
+
+### L-6001 — the fix: the FRAME moves DOWN a layer; no fourth authority is minted
+
+`packages/core-app-model/src/views/ElevationScopeFrame.ts` (NEW) holds the explicit-`sectionVolume`
+frame math, moved **verbatim** out of the projector. `resolveSectionVolumeBox`'s explicit branch
+delegates to it; `SectionVolumeBox` is now a **type ALIAS** of `ElevationScopeFrame`; and
+`sectionBoxIntersectsWorldAABB` delegates to `scopeFrameIntersectsWorldAABB`. **One predicate, two
+callers.**
+
+⛔ **§CROP-IS-THE-CLIP (L-4500..L-4504) is not re-opened.** The depth window is still resolved by the
+one owner, `resolveElevationClipRange`, which the exporter now calls directly. Only the FRAME moved.
+
+⭐ **WHY THE NEW CULL CANNOT CHANGE THE DRAWING.** The projector **already** drops any mesh whose
+world AABB misses this box — MEASURED, two call sites, `EdgeProjectorService.ts:2870` and `:3599`.
+The exporter tests an element's **root** world AABB, which is the union of its meshes' AABBs; a root
+that misses the frame therefore contains no mesh that could have passed the projector's gate. The
+cull is **the projector's own verdict, reached one stage earlier**. That is the founder's standing
+constraint (*"don't compromise graphics"*) satisfied by construction rather than by care.
+
+**INTERSECTION, never containment.** A wall whose near face is inside the crop and whose far face is
+well past it survives, and `clipSegmentToSectionBox` clips it at the boundary. That is L-123's real
+concern honoured, not reintroduced — pinned by AXIS 2b of the inherited suite.
+
+### L-6002 — ⚠ CORRECTION to an earlier lane, and to the inherited suite's own docstring
+
+**The earlier lane's conclusion — "the crop is a plan-family box BY DESIGN" — is REFUTED by the
+founder**: an elevation's crop DEFINES its scope. ⛔ And he is pointing at the **LATERAL** extent (a
+window off to the side at the same depth), so the depth clip was never the thing to tighten.
+
+**§FIX-ELEVATION-CROP-CLIP (L-123) was HALF right.** Its DIAGNOSIS — a flat XZ box mixes the
+drawing-horizontal axis with the view DEPTH axis — is correct, and is why re-enabling that box would
+be the wrong fix. Its REMEDY — cull nothing — threw away the lateral and vertical bounds along with
+the depth one. An elevation's crop bounds **three** axes.
+
+**⚠ The inherited test's docstring cited `resolveElevationScopeFrame` as though it existed.** It did
+not; a repo-wide grep returned only the docstring's own mention. This lane created it. Recorded
+because a docstring that names a function into existence is exactly how a PROJECTED design comes to
+be read as a MEASURED one.
+
+### L-6003 — ABSENT ≠ UNREACHABLE, and the console says which
+
+A view with **no** explicit `spatial.sectionVolume` is framed from its linked elevation-/section-mark
+via `annotationStore` — an **L7** store this L2 package cannot read. That case resolves to `null`,
+culls **nothing** (exactly today's behaviour), and **says so**:
+
+```
+[NativeElementMeshExporter] §ELEV-SCOPE-IS-THE-SCOPE elevation scope=ABSENT (no spatial.sectionVolume
+  on this view) — N element(s) exported unculled; the projector's annotation-derived frame culls instead
+```
+
+**The line the founder reads back when it IS applied** — it reports the SCOPE, not merely a count,
+because a bare count is what let `No levelId — exporting all 385 elements` read as a fact about the
+model rather than as the absence of a scope:
+
+```
+[NativeElementMeshExporter] §ELEV-SCOPE-IS-THE-SCOPE elevation scope=APPLIED kept=K/N
+  (culled C outside scope) lateral=15.74m depth=[0.00,2.86]m vertical=[0.00,21.00]m
+  origin=(-7.57,-3.92) fwd=(0.00,-1.00)
+```
+
+### L-6004 — what the elevation's scope now bounds: THREE axes
+
+| Axis | Bound | Source |
+|---|---|---|
+| **LATERAL** | `±width/2` about the origin along `right` | `sectionVolume.width` — the scope rectangle he drags |
+| **DEPTH** | `[near, far]` along `forward` | `resolveElevationClipRange` — §CROP-IS-THE-CLIP's one owner |
+| **VERTICAL** | whole level stack by default; `crop.region[1]` when dragged | §FIX-ELEVATION-VERTICAL-CROP (L-302), unchanged |
+
+Suite: `NativeElementMeshExporter.elevationScope.test.ts` — **5/5 PASS** (was **1/5**). ⚠ The one
+that passed before passed **for the wrong reason**: nothing was culled at all, so of course a
+straddler survived. It must still pass, and does.
+
+### L-6010 — MEASURED: a wall was hiding its own windows, and the guard could not reach
+
+Founder: *"even the windows that should be seen in projection line — which are the **hosted windows
+on the main wall** — are in hidden line — this is incorrect — i hope you understand the concept of
+**true projection**?"* · `16919 sub-segment(s) demoted proj → HIDDEN`.
+
+**ROOT — SEMANTIC, not geometric.** `applyOcclusion`'s guard was `o.uuid !== uuid` alone: *"an
+element never hides its own linework"*. A wall and the window it hosts are **two different uuids**,
+so the guard did not reach. The wall's `:proj` occluder is nearer (its front face is the outermost
+surface), the window's frame and glazing sit centimetres back inside the reveal, `wallDepth <
+windowDepth − depthMargin` holds, and every façade opening demoted to the dashed pen. §L-5300's own
+family census recorded window and door as *"occludable by wall"* with **no host exemption** — it was
+MEASURED, and read as correct.
+
+**FIX — `_sharesHostFace(occluder, targetUuid, targetHostId)`, three relations, each a distinct claim:**
+
+1. the occluder **is** the target's host — a wall does not hide its own window;
+2. the target **is** the occluder's host — nor does a window projecting **proud** of the wall
+   (§FEAT-WINDOW-REVEAL builds exactly that) punch a hole in its own host;
+3. both declare the **same** host — two windows in one wall are both on the visible face, and in a
+   bay assembly their AABBs overlap.
+
+⛔ **NOT a depth tweak.** §FEAT-WINDOW-REVEAL (L-1920) makes the recess **USER-AUTHORED**, so no
+`depthMargin` is safe. The relation is **declared data** — `Window.wallId` / `Door.wallId` (C15).
+
+⛔ **HOST-SCOPED, so §ELEV-FACADE-HIDES-INTERIOR (L-5300) does not regress.** An interior door
+declares the **partition** as its host; the façade is not it; the façade still hides it. Both Case B
+guards were GREEN before this change and GREEN after — which is what makes them guards rather than
+decoration.
+
+Suite: `HiddenLineRemoval.trueProjection.test.ts` — **8/8 PASS** (was **5/8**).
+
+### L-6013 — ⭐ THE REACHABILITY HALF: the obvious transport does not reach a façade window at all
+
+The engine fix is provable at `applyOcclusion`. That proves **nothing** about whether the stamp
+ARRIVES — and here the gap was **real, not hypothetical**.
+
+**MEASURED:** in an ELEVATION a window's linework is **not** the projected solid.
+`EdgeProjectorService` calls `openingElevationSymbolBuilder.inject()` and then
+`suppressSymbolisedElementLinework()` **DELETES** the projected wireframe for every covered element
+(§ELEV-SYMBOL-OPENING, L-1240 — pinned both ways in `OpeningElevationSymbolBuilder.test.ts` §A). So
+stamping `hostId` on the mesh wrapper in `NativeElementMeshExporter` reaches **a layer that is no
+longer there**.
+
+The stamp is therefore made in **three** places, and the third is the one that matters for the
+founder's screenshot:
+
+1. `NativeElementMeshExporter._hostIdOf` → the wrapper (covers sections and un-symbolised openings);
+2. `EdgeProjectorService` → every projected `LineSegments`, **including the cache-replay branch**
+   (the relation is deliberately NOT cached: a window rehosted to another wall must re-occlude
+   without a geometry version bump — the same precedent as the `_elementFunction` stamp beside it);
+3. **`OpeningElevationSymbolBuilder._emit`** → the injected symbol. Free: that loop already holds
+   `wall.id` as the host of every opening it emits.
+
+`HiddenLineRemoval.hostReachesTheDrawing.test.ts` (NEW, **3/3 PASS**) asserts it **at the drawing** —
+inject, then occlude, nothing hand-stamped.
+
+### L-6016 — ⚠ an OBSERVATION recorded so nobody "fixes" the engine on the strength of it
+
+MEASURED in the vitest env: the node `OBC.TechnicalDrawing.toDrawingSpace()` returns reports
+`.type === 'LineSegments'` but **fails `instanceof THREE.LineSegments`** against
+`@pryzm/renderer-three/three`. There is only ONE three in the store
+(`ls node_modules/.pnpm | grep '^three@'` → **1**, `three@0.183.2`), so this is a **CJS/ESM
+dual-load**, not a duplicate dependency. `applyOcclusion` gates on `instanceof`.
+
+⛔ **It is NOT evidence of a production defect.** The founder's own console is the
+counter-measurement: `16919 sub-segment(s) demoted proj → HIDDEN` is `applyOcclusion` reaching symbol
+linework in the shipped Vite build, where three resolves once as ESM. The reachability suite re-wraps
+into local-THREE nodes, copying geometry and userData verbatim, and says why in its header.
+
+### L-6017 — ⚠ VERDICT on the vertical-span hull: REFUTED as the cause, RETAINED as a risk
+
+The brief offered it as hypothesis 2 (*"a hull is larger than the solid it replaces, so an oblique
+wall's hull can swallow genuinely visible openings"*). **MEASURED: it is not what the founder saw.**
+
+The inherited suite's **HULL CASE** builds an oblique host (30° yaw), asserts `r.vspanFallbacks > 0`
+so the hull really is in play, and then asserts the hosted window survives. That assertion was **RED
+before the host exemption and GREEN after, with no change whatsoever to the hull code**. The hull was
+the *mechanism by which* the missing exemption bit hardest, not the defect.
+
+⭐ **The hull's own over-inclusiveness is therefore UNPROVEN IN EITHER DIRECTION and stays open.**
+Nothing here measures whether it over-claims for an **unhosted** element behind an oblique wall. It
+remains a concern with a counter (`vspanFallbacks`) and a log line. **Do not close it on the strength
+of this lane.**
+
+### L-6020 — MEASURED: the per-family intent veto existed for ONE of the projector's THREE sources
+
+Founder: furniture exclusion is not honoured, and the elevation is slow. His console prices it:
+`§DIAG-EPS-01 … elemType=FurniturePart faceCount=5280 edgeVertices=4884 allocMs=20.39ms` — **20 ms of
+`EdgesGeometry` for one pot plant, every pass.**
+
+`grep isElementTypeFullyHidden` over `EdgeProjectorService` → **ONE call site**, inside the **IFC**
+branch (Wave 11 / Stage S7). **Source B — the NATIVE mesh groups, where every PRYZM-authored wall,
+window, door and piece of furniture lives — had no per-family veto at all.** A family the user had
+switched off was still fully edge-projected, still written into the drawing, and still indexed by
+`registerSegmentUUID` for selection.
+
+**FIX: a new CALLER, not a new mechanism.** `makeSymbolInjectionGate` (L-3903) already exists, is
+already tested, already memoises per family and already **fails open**. It is constructed a few
+hundred lines earlier so ONE gate serves both consumers, and the native group loop asks it once per
+group, keyed on `vgCategoryForLayer(resolveProjectionLayer(type))` — the **same** key the canvas
+resolves its own hide from, so veto and paint cannot answer one question two ways.
+
+⛔ **This does NOT re-open "hidden furniture still renders"**, which is REFUTED at the canvas layer
+(`PlanViewCanvas` drops the line twice; proven at `ctx.strokeStyle` by
+`visibilityIntentGovernsSymbolInjectors.test.ts`). What is fixed is everything DOWNSTREAM of the
+canvas — verbatim the cost `SymbolInjectionGate`'s own header enumerates for the injectors, and the
+native path's share of it is far larger, because an injector emits a handful of authored polylines
+while this loop runs `EdgesGeometry` over 5,280 faces.
+
+```
+[EdgeProjectorService] §ELEV-FURNITURE-IS-NOT-A-WIREFRAME viewId=… skippedByIntent=N/M native
+  group(s) — families=[furniture] (no EdgesGeometry, no drawing linework, not selectable; the canvas
+  already painted none of it)
+```
+
+### L-6021 — the four perf numbers, each labelled
+
+| Founder's line | Verdict | Evidence |
+|---|---|---|
+| `View switch took 157.1 ms` | **PROJECTED** improvement, not measured on his model | Dominated by the two below; this lane has no run of his project. ⛔ No millisecond figure is claimed — a predecessor shipped a 14.6 s arithmetic figure the founder tested and it did not deliver. |
+| `FurniturePart … allocMs=20.39ms` | **CLOSED two ways** | (a) L-6020 skips the family outright when it is switched off; (b) L-6000's scope cull removes interior furniture deeper than `far` (**2.857 m** on his south elevation) before any `EdgesGeometry` runs. |
+| `hitRate=5%` (4 hits / 87 cacheable of 365 groups) | **EXPLAINED, partly improved** | The denominator is the point: only **87 of 365** groups are cacheable at all (`CACHEABLE_ELEMENT_TYPES`). Culling out-of-scope elements shrinks the working set the LRU must hold, which is the direction that raises the rate. ⚠ **Not measured on his model — do not quote a projected hit rate.** |
+| `TopologySpatialIndex Rebuilt — 417 element(s)` per pass | **DIAGNOSED — ⛔ NOT THIS LANE'S FILE** | `packages/room-topology/src/TopologySpatialIndex.ts` is lazy and dirty-flagged (`_ensureFresh`); it rebuilds only when something both DIRTIES and QUERIES it. Dirtying comes from a `storeEventBus` non-delete event or one of `INVALIDATING_EVENTS` (`model-updated`, `ai-model-update`, `project-loaded`, …). **A projection is a READ and must dirty nothing.** See L-6023. |
+
+### L-6022 — MEASURED: five projection passes to open one elevation
+
+`§PERF-PROJECTION-CANCEL-SUPERSEDED — abandoning after 12/365 … 109/365 … 34/365 … 4/365` is the
+cancellation machinery **working**: four passes were superseded and correctly abandoned. ⭐ **The
+waste is not the cancellation, it is that FIVE passes were started for one view open.** Each
+abandoned pass still paid for the groups it had reached — 12 + 109 + 34 + 4 = **159 group-projections
+thrown away**, MEASURED from his own log.
+
+⛔ **Root not established by this lane.** The re-trigger is upstream of the projector — a view-open
+sequence that bumps the projection generation four times. `SectionViewService` / `ViewController` is
+where to look; naming a cause without measuring it is what this register exists to prevent.
+
+### L-6023 — HAND-OFF: `TopologySpatialIndex` rebuild is outside all three live lanes
+
+`packages/room-topology/**` belongs to none of ELEV28 / NAV29 / LOAD30. **The question to answer is
+not "why is the rebuild slow?" but "what dirties it during a READ?"** — the §UNSATISFIABLE-GATE
+lesson: ask whether the precondition can ever be false before optimising the body. 417 elements
+rebuilt on every projection pass is the signature of a write-shaped event on a read path.
+
+### L-6024 — what a reader of this lane must NOT conclude
+
+- ⛔ **Not** that the vertical-span hull is exonerated. It is refuted as the cause of *this* report
+  and otherwise unmeasured (L-6017).
+- ⛔ **Not** that elevation performance is fixed on the founder's model. Two named costs are removed;
+  no end-to-end millisecond figure was measured here, and none is claimed (L-6021).
+- ⛔ **Not** that every elevation is now scoped. Views without an explicit `spatial.sectionVolume`
+  are `scope=ABSENT` at the exporter and culled by the projector instead (L-6003).

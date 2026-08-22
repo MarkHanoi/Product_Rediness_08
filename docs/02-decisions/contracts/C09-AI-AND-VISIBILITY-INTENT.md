@@ -997,6 +997,39 @@ solid occludes" rule has a catastrophic degenerate case in plan:
   opening-cut edges**; the converse (plane pushed INTO the host) ⇒ **both** CUT. **A guard that
   asserts only the converse is vacuous** — it passed before the fix.
 
+- **(§4.6.5(a2), L-6010) A HOST NEVER OCCLUDES WHAT IT HOSTS, AND THE RULE IS SEMANTIC.** *True
+  projection*: what the eye sees from the view direction is PROJECTION; what lies BEHIND a solid is
+  HIDDEN. A window hosted in the façade is **part of the face the viewer is looking at** — it is not
+  behind that wall, it is IN it, and a wall cannot be in front of its own aperture. Founder,
+  2026-08-22: *"even the windows that should be seen in projection line — which are the hosted
+  windows on the main wall — are in hidden line — this is incorrect."*
+
+  The occluder guard `o.uuid !== uuid` is **NOT sufficient**: a wall and the window it hosts are two
+  different uuids, so the wall's nearer `:proj` occluder demoted every façade opening whose glazing
+  sits back inside its reveal. **Three relations are exempt, and each is a separate claim:**
+  (1) the occluder IS the target's host; (2) the target IS the occluder's host (a window projecting
+  PROUD of its wall must not punch a hole in it); (3) both declare the SAME host (two windows in one
+  wall are both on the visible face).
+
+  ⛔ **The exemption MUST be HOST-SCOPED, never family-scoped.** A blanket *"openings are never
+  occluded"* rule re-opens §ELEV-FACADE-HIDES-INTERIOR (L-5300) — the founder's other named case, an
+  interior door on a partition behind the façade, which MUST still demote. The regression guard is
+  therefore part of the rule, not an optional companion to it.
+
+  ⛔ **AND IT MUST NOT BE A DEPTH MARGIN.** §FEAT-WINDOW-REVEAL (L-1920) makes the recess
+  USER-AUTHORED, so no `depthMargin` is safe at any value. The relation is **declared data** —
+  `Window.wallId` / `Door.wallId` (C15) — carried to the drawing as `userData.hostId`.
+
+- **(§4.6.5(a2), L-6013) THE HOST RELATION MUST BE PROVED *AT THE DRAWING*, NOT AT THE ENGINE.**
+  A suite that hand-stamps `hostId` onto its own fixtures proves the engine honours the stamp and
+  **nothing** about whether the stamp arrives. MEASURED: in an ELEVATION a window's linework is the
+  **injected symbol**, because `suppressSymbolisedElementLinework` deletes the projected solid's
+  wireframe for every element `OpeningElevationSymbolBuilder` covered (§ELEV-SYMBOL-OPENING, L-1240).
+  A stamp made only on the mesh wrapper therefore lands on a layer that is no longer there. Every
+  producer of occludable linework — native projection, **the projection cache's replay branch**, and
+  each symbol injector that emits for a hosted family — MUST carry the relation, and a guard MUST
+  assert it after a real `inject()`.
+
 - **(§4.6.5(a1), L-5300) EVERY OCCLUDER FIXTURE MUST BE BUILT FROM A REAL SOLID.** A guard that
   hand-authors an occluder as one clean closed rectangle CANNOT FALSIFY THE PRODUCT, because
   `EdgeProjectorService` never emits that shape. `HiddenLineRemoval.elevationOcclusion.test.ts`
@@ -1037,7 +1070,18 @@ named interior-door case, built from real solids) and **`HiddenLineRemoval.famil
   Both are emitter defects, not engine defects, and neither is repaired by L-5300.
 - **A solid OBLIQUE to the picture plane is covered by the vertical-span hull, not its true
   silhouette** (§4.6.5(a1) rule 3). Exact for walls, stairs and L-massings; over-claims on an
-  archway or a U-section. The exact answer needs the projected FACE loops, which the drawing layer
+  archway or a U-section.
+  > ⚠ **L-6017 (lane ELEV28, 2026-08-22) — the hull was NOT the cause of the founder's demoted
+  > façade windows, and this cell stays OPEN anyway.** It was offered as the leading hypothesis
+  > (36 of 78 occluders had degraded to it on his pass, and a hull is strictly larger than the
+  > solid it replaces). MEASURED against it: the HULL CASE in
+  > `HiddenLineRemoval.trueProjection.test.ts` builds a 30°-yawed host, asserts `vspanFallbacks > 0`
+  > so the hull is genuinely in play, and asserts the hosted window survives — **RED before the host
+  > exemption (§4.6.5(a2)) and GREEN after, with no change to the hull code at all.** The hull was
+  > the mechanism by which the missing exemption bit hardest, not the defect.
+  > ⛔ **Its own over-inclusiveness remains UNPROVEN IN EITHER DIRECTION**: nothing measures whether
+  > it over-claims for an **unhosted** element behind an oblique wall. Do not close this cell on the
+  > strength of that lane. The exact answer needs the projected FACE loops, which the drawing layer
   does not receive — it receives an edge soup. Closing it means the projector emitting a silhouette
   alongside the wireframe, which is a projector change, not an engine one.
 - **`beyond` is still clipped by `cut` occluders only** even in an elevation, where the founder's
@@ -1097,6 +1141,50 @@ so it cannot be applied to one side of the equality only.
 depth sweep) and `apps/editor/__tests__/ElevationCropIsTheClipBox.test.ts` (the oriented box, plus a
 structural arm that fails when a fifth rival expression appears). ISSUE-LOG **L-4500..L-4506**.
 **Status:** added 2026-08-22.
+
+**§4.6.7e — THE CROP IS ALSO THE SCOPE: an elevation's crop bounds THREE axes, and every stage that
+selects elements MUST read the SAME frame** (normative; L-6000..L-6004, added 2026-08-22).
+
+Founder, 2026-08-22: *"i am selecting a window that should be on the scope of the crop box but is
+not, is way further away — absolutely incorrect"* … *"also the performance of opening the elevation
+view is really slow."* ⭐ **These are ONE defect.** A depth-projected view that applies no spatial
+scope at element-selection time puts out-of-crop linework into the drawing — where it is hit-testable
+— **and** pays the full edge-projection cost for it. Fixing the selection symptom without the cost
+symptom, or the reverse, means the root was not found.
+
+- **§4.6.7e(1) — an elevation's crop is its SCOPE, not merely its picture window.** It bounds
+  **LATERAL** (`±width/2` along `right`), **DEPTH** (`[near, far]` along `forward`, from §4.6.7a's one
+  resolver) and **VERTICAL** (§FIX-ELEVATION-VERTICAL-CROP / L-302: the whole level stack by default,
+  `crop.region[1]` once dragged). ⚠ A remedy that addresses only the depth axis does not close this:
+  the founder's own case is a window off to the SIDE at the SAME depth.
+
+- **§4.6.7e(2) — ONE frame, delegated, never re-derived.** The oriented frame is resolved by
+  `packages/core-app-model/src/views/ElevationScopeFrame.ts`. `EdgeProjectorService`'s
+  `resolveSectionVolumeBox` DELEGATES its explicit-`sectionVolume` branch to it, `SectionVolumeBox` is
+  a type ALIAS of `ElevationScopeFrame`, and `sectionBoxIntersectsWorldAABB` delegates to
+  `scopeFrameIntersectsWorldAABB`. **It lives at L2 because the element-selection stage
+  (`NativeElementMeshExporter`) is L2 and could not import an L7 answer** — which is exactly why it
+  had none. A second implementation at either layer is a §4.6.7a-class violation.
+
+- **§4.6.7e(3) — the scope test is INTERSECTION, and the cull is a COST decision, never a graphics
+  one.** A cull earlier in the pipeline MUST be provably implied by a drop the pipeline already
+  performs: the exporter tests an element's ROOT world AABB — the union of its meshes' AABBs — so a
+  root that misses the frame contains no mesh that could have passed the projector's own per-mesh
+  gate. Containment testing is FORBIDDEN: a straddling solid survives the cull and is CLIPPED at the
+  boundary by `clipSegmentToSectionBox` (this is §FIX-ELEVATION-CROP-CLIP / L-123's real concern, and
+  it is honoured rather than reintroduced).
+
+- **§4.6.7e(4) — ABSENT ≠ UNREACHABLE, and the diagnostic MUST say which.** A view carrying no
+  explicit `spatial.sectionVolume` is framed from its linked annotation, which lives in an L7 store;
+  that case culls NOTHING and MUST report `scope=ABSENT`. A stage that silently applies no scope is
+  indistinguishable from one that has decided the view is unbounded — which is precisely how
+  `No levelId — exporting all 385 elements` read as a fact about the model for as long as it did.
+  ⚠ §4.6.7c stands unchanged: `spatial.cropRegion` is still the plan-family CULL box and is still not
+  read for an elevation. The elevation's scope is the ORIENTED frame, not that AABB.
+
+**Gate:** `packages/core-app-model/src/geometry/NativeElementMeshExporter.elevationScope.test.ts`
+(three axes plus the depth-straddler and the cost ratio, over the founder's own reconstructed frame).
+ISSUE-LOG **L-6000..L-6004**. **Status:** added 2026-08-22.
 
 ---
 
