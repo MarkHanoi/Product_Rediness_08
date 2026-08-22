@@ -370,16 +370,26 @@ describe('§ANALYSIS-CATALOGUE — the refusals name their gap', () => {
    * ⭐ §UBG-COVERAGE-HONESTY (L-3258) — the relational widgets must SAY which
    * edge families they cannot show.
    *
-   * Measured at HEAD by this lane: four of the UBG's ten declared edge types
-   * cannot be populated in production at all — `derivesFrom` (its three source
-   * families have zero SemanticGraph writers), `circulatesVia`
-   * (`circulationPaths` is never set outside tests), `servesZone` and
-   * `precededBy` (no adapter emits them). An empty `derivesFrom` renders exactly
-   * like a building with no derivations, which is the
+   * Measured at HEAD when written: four of the UBG's ten declared edge types
+   * could not be populated in production at all. An empty `derivesFrom` renders
+   * exactly like a building with no derivations, which is the
    * [[context-data-honesty-family]] defect: the failure value and the empty
    * value are the same value.
+   *
+   * ⚠ THE SET WENT FROM FOUR TO THREE ON 2026-08-22, and this guard went RED
+   * CORRECTLY when it did (§FEAT-UBG-CIRCULATION-FROM-DOOR-GRAPH, L-6610).
+   * `circulatesVia` was **UNREACHABLE, not ABSENT** — the adapter was written and
+   * correct and read a `circulationPaths` key that no producer ever set — and it
+   * is now wired to the live door graph plus the room's authored `roomType`.
+   *
+   * ⛔ THE GUARD WAS UPDATED, NOT RELAXED, AND THE DIFFERENCE IS THE WHOLE POINT.
+   * The dead set is still asserted EXACTLY, and `circulatesVia` moved into the
+   * live set below where it is now asserted to be MEASURED. Deleting it from
+   * both lists — or softening the check to "at least three are dead" — would
+   * mean the next family to silently lose its writer sails straight through.
+   * If you wire another one: MOVE it between the two arrays. Never shrink them.
    */
-  it('the graph coverage table declares all ten UBG edge families, and refuses the dead four', () => {
+  it('the graph coverage table declares all ten UBG edge families, and refuses the dead three', () => {
     const table = graphEdgeFamilyTable();
     const byType = new Map(table.map((f) => [f.type, f]));
 
@@ -391,14 +401,33 @@ describe('§ANALYSIS-CATALOGUE — the refusals name their gap', () => {
     }
     expect(table.length, 'the coverage table must cover every declared family, no more and no fewer').toBe(10);
 
-    // The four that cannot fire must be NOT_MEASURED — never COUNTED_ONLY, which
+    // The three that cannot fire must be NOT_MEASURED — never COUNTED_ONLY, which
     // would read as "wired, and this project has none".
-    for (const dead of ['derivesFrom', 'circulatesVia', 'servesZone', 'precededBy']) {
+    //
+    // ⭐ ALL THREE ARE NOW **ABSENT**, not unreachable — measured 2026-08-22
+    // (L-6611 / L-6612 / L-6613). No wire fixes any of them:
+    //   derivesFrom — its three source families are 0 of the 14 relationship
+    //                 types that have production writers among 77 addRelationship
+    //                 call sites;
+    //   precededBy  — the TemporalEdge journal has zero external writers, and no
+    //                 temporal adapter exists (the MUTATION journal is real and
+    //                 unreachable, which the coverage note now states);
+    //   servesZone  — there is no zone domain model at all, and filling this row
+    //                 would mean INVENTING one. It is CORRECT to stay empty.
+    for (const dead of ['derivesFrom', 'servesZone', 'precededBy']) {
       expect(byType.get(dead)!.state, `${dead} cannot be populated but is not declared NOT_MEASURED`).toBe(
         'NOT_MEASURED',
       );
       // …and each names WHY, specifically. "No data" is not a reason.
       expect(byType.get(dead)!.note.length, `${dead} does not say why it is empty`).toBeGreaterThan(80);
+    }
+
+    // ⭐ THE OTHER HALF OF THE SAME GUARD. A family declared MEASURED is a claim
+    // that a producer exists; asserting the dead set alone would let a live
+    // family quietly go NOT_MEASURED without anything going red.
+    for (const live of ['bounds', 'adjacentTo', 'connectsTo', 'circulatesVia', 'hostedIn', 'dependsOn', 'violates']) {
+      expect(byType.get(live)!.state, `${live} has a production writer but is declared dead`).toBe('MEASURED');
+      expect(byType.get(live)!.note.length, `${live} does not say what produces it`).toBeGreaterThan(80);
     }
   });
 

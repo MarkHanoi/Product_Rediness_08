@@ -16,7 +16,9 @@
  * read before a line of this was written, exactly as the lane brief required,
  * and it is a good implementation: deterministic seeding on a circle, no
  * `Math.random` in a render path, no `requestAnimationFrame` (P3), an O(n²)
- * repulsion pass with cooling, positions clamped to the viewport.
+ * repulsion pass with cooling, positions clamped to the viewport. ⚠ The
+ * repulsion pass is no longer only O(n²) — see §PERF-GRAPH-BARNES-HUT (L-6620)
+ * below; the seeding, cooling and clamp are still the ones lifted from there.
  *
  * What it is NOT is reusable: it is module-private, bound to one floating
  * panel's single `_svg` singleton, and hard-codes `#f7f8fc` and its own colours
@@ -94,15 +96,162 @@ export interface NodeLinkOptions {
 
 interface Pos { id: string; x: number; y: number; vx: number; vy: number }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// §PERF-GRAPH-BARNES-HUT (L-6620) — the node cap was an ALGORITHM, not a policy
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// Founder, on a model holding 430 nodes drawn to a 60-node cap: 87 % of his
+// building was not on the card.
+//
+// ⭐ THE CAP WAS NEVER A DESIGN CHOICE ABOUT LEGIBILITY — read its own comment in
+// `graphReadModel.ts`: *"the force layout is O(n²) per iteration × 160
+// iterations"*. 60 was the number that kept a card under a visible pause. Raising
+// it without touching the algorithm would trade a truncation the card ADMITS for
+// a stall it does not. So the algorithm changed first and the cap followed the
+// measurement.
+//
+// Barnes-Hut: build a quadtree over the current positions each iteration, and
+// when a cell is far enough away relative to its size (`s/d < THETA`), treat the
+// whole cell as ONE body at its centre of mass instead of visiting its members.
+// O(n log n) per iteration instead of O(n²).
+//
+// ⛔ THIS IS AN APPROXIMATION AND THE FILE SAYS SO RATHER THAN IMPLYING PARITY.
+// A far cluster's aggregate force is not identical to the sum of its members'.
+// For a LAYOUT that is immaterial — the output is an aesthetic arrangement with
+// no measured meaning, not a figure — but "immaterial" is a judgement and it is
+// recorded here rather than hidden behind unchanged-looking output.
+//
+// ⭐ AND IT IS NOT APPLIED WHERE IT WOULD CHANGE ANYTHING THAT RENDERS TODAY.
+// Below `EXACT_BELOW` the exact O(n²) pass runs, unchanged, so every card that
+// draws today draws byte-identically. The approximation is used only above the
+// old cap — i.e. only for graphs that previously could not be drawn at all.
+// Nothing is traded; a range that was empty is now populated.
+//
+// ⛔ STILL DETERMINISTIC. The tree is built in `nodeIds` order, subdivision is
+// geometric, and traversal order is fixed — no `Math.random`, no `Map` iteration
+// over an insertion order that could vary. The same model lays out the same way
+// on every open, which is what makes two runs comparable.
+
+/**
+ * Barnes-Hut opening angle. Smaller = more exact and slower; 0 degenerates to
+ * the exact O(n²) pass. 0.9 is the value the original Barnes & Hut (1986) paper
+ * uses for the regime where accuracy is not the objective, and a graph layout is
+ * emphatically that regime.
+ */
+const THETA = 0.9;
+
+/**
+ * Below this node count the EXACT pass runs. Set to the previous
+ * `GRAPH_NODE_CAP` on purpose: every graph that could be drawn before this
+ * change still takes the identical code path and produces the identical picture.
+ */
+const EXACT_BELOW = 60;
+
+/** One quadtree cell. `body` is set only on a leaf holding exactly one node. */
+interface Cell {
+  x: number; y: number; w: number; h: number;
+  /** Centre of mass and count — every node in this cell weighs 1. */
+  cx: number; cy: number; count: number;
+  body: Pos | null;
+  children: Cell[] | null;
+}
+
+function newCell(x: number, y: number, w: number, h: number): Cell {
+  return { x, y, w, h, cx: 0, cy: 0, count: 0, body: null, children: null };
+}
+
+function subdivide(c: Cell): void {
+  const hw = c.w / 2;
+  const hh = c.h / 2;
+  c.children = [
+    newCell(c.x, c.y, hw, hh),
+    newCell(c.x + hw, c.y, hw, hh),
+    newCell(c.x, c.y + hh, hw, hh),
+    newCell(c.x + hw, c.y + hh, hw, hh),
+  ];
+}
+
+/** Which quadrant of `c` holds `p`. Deterministic, boundary-inclusive to the low side. */
+function quadrant(c: Cell, p: Pos): number {
+  const right = p.x >= c.x + c.w / 2 ? 1 : 0;
+  const below = p.y >= c.y + c.h / 2 ? 1 : 0;
+  return below * 2 + right;
+}
+
+/**
+ * Insert one body. Running centre of mass is updated on the way DOWN, so no
+ * second pass is needed.
+ *
+ * ⚠ `depth` is a hard stop, and it is load-bearing rather than defensive: two
+ * nodes at EXACTLY the same coordinates can never be separated by subdivision,
+ * so an unguarded insert recurses until the stack dies. Coincident nodes are
+ * real here — the deterministic seeding places every node on one circle, and a
+ * graph with duplicate ids or a degenerate viewport can collapse points. At the
+ * floor the cell simply holds several bodies in its aggregate, which costs a
+ * little accuracy in a place where accuracy was already meaningless.
+ */
+function insert(c: Cell, p: Pos, depth = 0): void {
+  c.cx = (c.cx * c.count + p.x) / (c.count + 1);
+  c.cy = (c.cy * c.count + p.y) / (c.count + 1);
+  c.count += 1;
+
+  if (c.count === 1) { c.body = p; return; }
+
+  if (depth >= 24) return; // coincident-point floor — see the doc above
+
+  if (c.children === null) {
+    subdivide(c);
+    const existing = c.body;
+    c.body = null;
+    if (existing) insert(c.children![quadrant(c, existing)]!, existing, depth + 1);
+  }
+  insert(c.children![quadrant(c, p)]!, p, depth + 1);
+}
+
+/**
+ * Accumulate the repulsion `target` feels from everything in `c`.
+ *
+ * ⛔ Reads `target.x/y` and writes only `target.vx/vy`, so a whole traversal is
+ * safe while other nodes' positions are being read — which is why the caller can
+ * build ONE tree per iteration and walk it for every node.
+ */
+function applyRepulsion(c: Cell, target: Pos, repulsion: number): void {
+  if (c.count === 0) return;
+  if (c.body === target && c.count === 1) return; // never repel from itself
+
+  const dx = target.x - c.cx;
+  const dy = target.y - c.cy;
+  const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+
+  // The opening criterion. `w` is the cell's size; a leaf always satisfies it.
+  if (c.children === null || c.w / dist < THETA) {
+    // ⚠ `count` is the mass. A cell standing in for k bodies must push k times as
+    // hard, or the approximation would systematically UNDER-repel dense regions
+    // and the layout would clump exactly where it most needs to spread.
+    const force = (repulsion * c.count) / (dist * dist);
+    target.vx += (dx / dist) * force;
+    target.vy += (dy / dist) * force;
+    return;
+  }
+  for (const child of c.children) applyRepulsion(child, target, repulsion);
+}
+
+
 /**
  * Deterministic force-directed layout. Adapted from `RoomGraphPanel._forceLayout`
  * — same seeding, same cooling schedule, same clamp.
  *
- * ⚠ O(n²) per iteration × 160 iterations. That is fine for the tens of nodes a
- * card shows and is NOT fine for a whole building, which is why the caller caps
- * the node count and SAYS SO on the card rather than rendering a hairball. A
- * truncated graph that admits truncation is honest; one that does not is a lie
- * about the model's connectivity.
+ * ⚠ CORRECTED 2026-08-22 (§PERF-GRAPH-BARNES-HUT, L-6620). This used to read
+ * *"O(n²) per iteration × 160 iterations … NOT fine for a whole building, which
+ * is why the caller caps the node count"*. The first half is now true only below
+ * `EXACT_BELOW`; above it the repulsion pass is a Barnes-Hut quadtree at
+ * O(n log n) and the caller's cap rose accordingly.
+ *
+ * ⭐ The SECOND half of that sentence still stands and must not be deleted with
+ * the first: a truncated graph that ADMITS truncation is honest, one that does
+ * not is a lie about the model's connectivity. A faster layout raises the number
+ * at which the tool stops drawing; it does not abolish the number, and
+ * `GraphProjection.truncated` still reports it.
  */
 export function forceLayout(
   nodeIds: readonly string[],
@@ -136,19 +285,37 @@ export function forceLayout(
   for (let iter = 0; iter < iterations; iter++) {
     const cooling = 1 - iter / iterations;
 
-    for (let i = 0; i < nodeIds.length; i++) {
-      const u = positions.get(nodeIds[i]!)!;
-      for (let j = i + 1; j < nodeIds.length; j++) {
-        const v = positions.get(nodeIds[j]!)!;
-        const dx = u.x - v.x;
-        const dy = u.y - v.y;
-        const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-        const force = repulsion / (dist * dist);
-        u.vx += (dx / dist) * force;
-        u.vy += (dy / dist) * force;
-        v.vx -= (dx / dist) * force;
-        v.vy -= (dy / dist) * force;
+    if (nodeIds.length < EXACT_BELOW) {
+      // ── EXACT O(n²). Every graph that could be drawn before §PERF-GRAPH-BARNES-HUT
+      //    takes this path and produces the identical picture. Unchanged.
+      for (let i = 0; i < nodeIds.length; i++) {
+        const u = positions.get(nodeIds[i]!)!;
+        for (let j = i + 1; j < nodeIds.length; j++) {
+          const v = positions.get(nodeIds[j]!)!;
+          const dx = u.x - v.x;
+          const dy = u.y - v.y;
+          const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+          const force = repulsion / (dist * dist);
+          u.vx += (dx / dist) * force;
+          u.vy += (dy / dist) * force;
+          v.vx -= (dx / dist) * force;
+          v.vy -= (dy / dist) * force;
+        }
       }
+    } else {
+      // ── BARNES-HUT O(n log n). One tree per iteration, walked once per node.
+      //    The tree is built over the CURRENT positions and no position moves
+      //    during the walk (only velocities accumulate), so every node sees the
+      //    same configuration — exactly as in the exact pass above.
+      //
+      //    ⚠ The root spans the padded viewport, NOT the nodes' bounding box:
+      //    positions are clamped into that box at the end of every iteration, so
+      //    the box is invariant and the tree's geometry cannot drift between
+      //    iterations. A bounding-box root would rescale each pass and make the
+      //    layout depend on its own history.
+      const root = newCell(0, 0, W, H);
+      for (const id of nodeIds) insert(root, positions.get(id)!);
+      for (const id of nodeIds) applyRepulsion(root, positions.get(id)!, repulsion);
     }
 
     for (const [a, b] of edgePairs) {

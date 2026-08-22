@@ -38,17 +38,47 @@ import type { UbgLiveness } from '../../engine/buildingGraphMaintainer';
 import type { AnalysisFigure, CoverageRow } from './AnalysisTypes';
 
 /**
- * ⛔ The node cap. The force layout is O(n²) per iteration × 160 iterations, and
- * a card is ~360×280 px. Above this a node-link diagram is a hairball that
- * communicates nothing and costs a visible pause.
+ * ⛔ The node cap — 60 → 320, §PERF-GRAPH-BARNES-HUT (L-6620).
  *
- * The graph is therefore TRUNCATED, and `GraphProjection.truncated` says so and
- * by how much. A truncated diagram that admits truncation is honest; one that
- * does not is a lie about the building's connectivity — the reader counts what
- * they can see. ADR-0343 §D.4: *"A widget that cannot answer inside its budget
- * degrades to a stated refusal, never to a partial number."*
+ * ⚠ CORRECTED 2026-08-22. This used to read *"The force layout is O(n²) per
+ * iteration × 160 iterations … Above this a node-link diagram is a hairball that
+ * communicates nothing AND costs a visible pause."* That sentence bundled two
+ * different claims and only one of them was ever measured.
+ *
+ * ⭐ THE COST HALF WAS THE REAL CONSTRAINT, AND IT WAS AN ALGORITHM. The founder's
+ * model holds 430 nodes and the card drew 60 — 14 % of his building. The
+ * repulsion pass is now a Barnes-Hut quadtree above 60 nodes (`nodeLinkSvg.ts`),
+ * O(n log n) instead of O(n²), so the cap follows a NEW measurement rather than
+ * the old one.
+ *
+ * MEASURED 2026-08-22, one full 160-iteration layout of a ring-plus-chords graph
+ * into the real 360×280 card, warm:
+ *
+ *     n=60  → 15.8 ms      n=240 → 55.3 ms      n=480 → 103.8 ms
+ *     n=120 → 24.5 ms      n=320 → 70.0 ms      n=960 → 258.5 ms
+ *
+ * 120 → 480 is a 4× node count for a **4.24×** cost. O(n²) would have been ~16×.
+ *
+ * **320 is the largest size measured under a 100 ms one-shot budget with margin**
+ * — 480 was measured and rejected at 103.8 ms. ⚠ C66 §1.1: those are readings on
+ * ONE machine, so this is a bench-backed choice, never a supported-capacity
+ * claim. `graphLayoutScale.spec.ts` asserts the SHAPE (which is machine-stable),
+ * not the milliseconds (which are not).
+ *
+ * ⭐ THE HAIRBALL HALF WAS NEVER MEASURED AND IS STILL NOT. 320 nodes in a
+ * 360×280 card is dense, and this cap does not claim otherwise. Legibility is
+ * what the per-level scope below is for; this number is about cost.
+ *
+ * ⛔ AND THE CAP STILL EXISTS, SO THE TRUNCATION NOTICE STILL MATTERS. A 430-node
+ * model now draws 320 of its nodes instead of 60 — better, and still not all of
+ * them. `GraphProjection.truncated` reports it and by how much. A truncated
+ * diagram that admits truncation is honest; one that does not is a lie about the
+ * building's connectivity — the reader counts what they can see. ADR-0343 §D.4:
+ * *"A widget that cannot answer inside its budget degrades to a stated refusal,
+ * never to a partial number."* A faster layout raises the number at which the
+ * tool stops drawing. It does not abolish the number.
  */
-export const GRAPH_NODE_CAP = 60;
+export const GRAPH_NODE_CAP = 320;
 
 // ── The per-level scope (§ANALYSIS-GRAPH-LEVEL-FILTER, L-3620) ────────────────
 //
