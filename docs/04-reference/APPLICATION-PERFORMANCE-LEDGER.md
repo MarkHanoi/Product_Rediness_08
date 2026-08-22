@@ -1735,6 +1735,13 @@ moves it — and that is a model change, which thaws.
    `§SWAP-PAINTS-THE-BUILDING`, sorted by forward draw cost. ⭐ **Read the top row, not the
    scene-wide 5.9** — that average spans families differing by an order of magnitude and decides
    nothing. Still to do: act on what the first real reading says.
+
+   > ⭐ **RE-READ 2026-08-22 (lane PERF13, L-4613): the founder is now on a model of 3 641 elements /
+   > 36 666 meshes — ~10.07 meshes per element, against the ~5.9 this item was written about. The
+   > ratio nearly DOUBLED at scale.** The instrument is wired and **still has no reading**; PERF13
+   > could not produce one (no browser). This remains the single highest-value open item, and one
+   > page load closes it. See §10.
+
 2. ✅ **`InstancedMeshCoalescer`'s `mergedGroups=0` is SETTLED — it is CORRECT, not a defect.**
    Measured 2026-08-22: `InstancedElementRenderer._hashGeometry` (`:805-818`) keys a group on
    geometry **CONTENT** — `elementType_levelId_indexCount_vertexCount_x0_y0_z0_material.uuid` —
@@ -1749,3 +1756,154 @@ moves it — and that is a model change, which thaws.
 4. **The WebGL fallback is itself the constraint.** §PERF-WEBGL2-NO-TSL turns off the entire node
    pipeline. The device-loss forcing is correct — but it means the heavy-scene path is also the
    least capable path, and that trade has never been re-measured since the instancing fixes landed.
+---
+
+## §10 — ⭐ A BIGGER MODEL, AND THE HONEST ANSWER IS THAT EVERY COST THIS LANE COULD MEASURE IS A **MUTATION** COST
+
+> Lane **PERF13**, 2026-08-22 · ISSUE-LOG `L-4600 … L-4615`.
+> §9.5 is **corrected in place** below, not restated.
+
+### §10.1 — The model that forced this section
+
+The founder's session is an order of magnitude past the one §1–§9 were measured on. From his own
+console:
+
+| measured | §1–§9 model | THIS model |
+|---|---|---|
+| elements | 331 | **3 641** |
+| meshes | 1 947 | **36 666** |
+| **meshes / element** | **~5.9** | **~10.07** |
+| model height | — | **55 m**, 10+ levels |
+| `windowsRegistered` | — | **2 463 → 2 513** (grew mid-session) |
+| `doorsRegistered` | — | **0** |
+| instance spill | — | `Window_L-09…L-13` each *"exceeded 512 slots and spilled to 2 shards"* |
+
+⭐ **The ratio nearly DOUBLED at scale — 5.9 → 10.07 meshes per element — which is the opposite of
+what an instancing story predicts.** Eleven times the elements is a linear problem; a doubling of
+the per-element multiplier on top of it is not.
+
+⛔ **DO NOT REPORT 10.07 AS A FINDING.** It is an average over families that differ by an order of
+magnitude, and it decides nothing. See §10.5 #1.
+
+### §10.2 — ⭐ THE STRONGEST SIGNAL IS NOT A RENDER METRIC
+
+```
+[initCollaboration] Socket disconnected: ping timeout
+[PlatformCollabPill]  Socket disconnected: ping timeout
+```
+
+A missed WebSocket heartbeat means the **main thread was blocked**, not that the GPU was busy. That
+reframes the question away from the renderer — and §1's headline finding does not apply to him
+anyway: the `OutlineNode` double-submission is **WebGPU-only**, and his session is WebGL.
+
+**Where this lane looked, and what it found:**
+
+| candidate | verdict | basis |
+|---|---|---|
+| render loop / shadow pass | **not re-opened** | closed by §9.4 (L-3310); not re-measured |
+| `OutlineNode` (§1) | **irrelevant to him** | WebGPU-only; he is on WebGL |
+| `TopologySpatialIndex` rebuild | **MEASURED ~27.1 ms** — mutation-only | §10.3 |
+| `TopologyLayer` adjacency rebuild | **NOT quadratic — hypothesis refuted** | 1.0 m radius over 1.0 m cells ≈ 9 cells/element; 11 335 edges / 3 807 elements ≈ 3 each |
+| `FrustumCullingService` audit | **debounced, not per-frame** | `_scheduleAudit` → `setTimeout(DEBOUNCE_MS)` |
+| picking (§NAV-PICK-QUADRATIC) | **NOT re-verified at 2 500 windows** | asked for; not reached |
+| 512-slot spill / per-level grouping | **NOT measured** | §10.5 #5 |
+| plan re-projection (`HiddenLineRemoval`: 6 539 segment-equivalents × 42 occluders) | **NOT measured — OUT OF BOUNDS** | lane ELEV12 owns those files |
+
+⭐ **The honest headline: every cost this lane could measure is a MUTATION cost, and the founder's
+complaint is about NAVIGATION.** That mismatch is the finding. Either the block is in a path this
+lane did not reach (picking at 2 500 windows, or the plan re-projection another lane owns), or the
+several-per-gesture mutation rebuilds are what he experiences as "navigation" because they fire
+while he moves. **Unresolved, and recorded as unresolved.**
+
+### §10.3 — MEASURED: the topology index rebuild is O(N_nodes), and its own comment said otherwise
+
+`packages/room-topology/src/TopologySpatialIndex.ts` `_ensureFresh()` carried:
+
+> *"Only visits top-level groups — no recursive traverse — so it is O(N_groups), not O(N_nodes)."*
+
+**False.** The loop is over `scene.children`, but its body is `box.setFromObject(child)` →
+`Box3.expandByObject`, which recurses over `object.children` (`three@0.183.2/src/math/Box3.js`) and
+calls `updateWorldMatrix` per node. It touches **every mesh in the scene**.
+
+**Probe** (scratchpad, vendored `three@0.183.2`, synthetic scene at his exact census —
+3 641 groups / 36 666 meshes / 40 052 nodes):
+
+| arm | median | min / max |
+|---|---|---|
+| **A — `setFromObject` per child (SHIPPING)** | **27.1 ms** | 21.9 / 31.4 |
+| B — one `updateMatrixWorld(true)` then reuse | 36.2 ms | 31.6 / 44.4 |
+
+⚠ **ARM B WAS THIS LANE'S OWN PROPOSED FIX, AND IT IS 1.34× SLOWER.** Bounds identical on
+3 641 / 3 641 elements, so the arms agree on the answer and differ only in cost.
+`expandByObject`'s `updateWorldMatrix(false, false)` is already close to free; the traverse callback
+and `Box3` churn cost more than the matrix work they avoid. **The shipping code is the faster of the
+two.** Recorded in the source so nobody re-tries it. Do not "optimise" this without a probe that
+beats 27.1 ms.
+
+**FIX SHIPPED: the comment**, plus the measured number, so the next reader plans against a
+measurement rather than a wrong asymptotic. ~27 ms is ~1.6 frames — real, but `_ensureFresh` has no
+render-loop caller; it runs on `_dirty`, set by bulk DOM events and `invalidate()`.
+
+### §10.4 — MEASURED, from his log: three quarters of geometries are NEW at every cull audit
+
+```
+[FrustumCullingService] Audit complete — 3641 element(s), 36666 mesh(es),
+                        64 sphere(s) recomputed, 9064 skipped (cached), 0 left uncullable.
+```
+
+`skippedCount` counts **WeakSet cache HITS** on geometry identity. **9 064 / 36 666 = 24.7 %.** The
+other ~27 500 took the cache-MISS branch, and `fixedCount` is only 64 — their spheres were already
+valid; they were geometries **the WeakSet had never seen**. A WeakSet keyed on object identity can
+only miss like that if the geometry OBJECTS are being recreated — which is the same mechanism
+`[[webgpu-heavy-scene-crash-and-instancing]]` records for instancing being defeated, and the likeliest
+explanation for 5.9 → 10.07 meshes/element.
+
+⚠ **NOT A CONCLUSION** — one line cannot say how many audits preceded it, and a first audit would
+legitimately miss everything.
+**Settles in one console line:** trigger two audits without mutating the model and compare `skipped`.
+~25 % again ⇒ geometries are being rebuilt. ~100 % ⇒ the cache is fine and that line was an early audit.
+
+### §10.5 — §9.5 CORRECTED IN PLACE
+
+1. **~5.9 meshes/element → re-read as ~10.07 at 3 641 elements.** §9.5 #1's *"read the top row, not
+   the scene-wide average"* is **reaffirmed and is now the single highest-value open item**: the
+   instrument is wired and **still has no reading**. This lane could not produce one — it cannot see
+   a browser. One page load produces it.
+2. **§9.5 #2 (`InstancedMeshCoalescer` `mergedGroups=0` is CORRECT) — NOT disturbed.** Not
+   re-measured, not "fixed". Its own named residual — the `material.uuid` term and
+   `SharedMaterialCache.dedupInstanceMaterial` — remains unmeasured, and §10.4 is circumstantial
+   evidence pointing at exactly it.
+3. **§9.5 #3 (`SpatialTree.refreshTreeNow()`, ~27 400 DOM nodes per mutation) — joined by a second
+   mutation-cost row**, §10.3's ~27 ms topology rebuild. ⭐ **The pattern across both is now worth
+   more than either: the measurable costs at real scale are per-MUTATION, and they are several per
+   gesture.**
+4. **§9.5 #4 (the WebGL fallback is the constraint) — reaffirmed, and it is why §1 did not help
+   him.** §1's headline and §9's outline fix are both node-pipeline concerns; the heavy scene is
+   forced onto the path that has neither.
+5. **NEW — the 512-slot spill, and the question to ask BEFORE the obvious one.** Every storey
+   L-09…L-13 spills to 2 shards. The question is not *"is 512 the right cap"* but **"is the per-LEVEL
+   group key what forces a separate group per storey?"** One group of ~5 000 windows with a level
+   attribute could be one draw call instead of ten. ⚠ **That trades directly against
+   §INSTANCED-AGGREGATE-LEVEL-VISIBILITY, which chose per-level grouping PRECISELY so a level can be
+   hidden.** Measure the trade; assume neither side. **Unmeasured here.**
+6. **NEW — a CORRECTNESS defect found while profiling, not fixed:** `TopologySpatialIndex.findNearby`
+   queries cells around the element's **XZ centroid** without expanding by its own extent, so
+   adjacency for anything larger than the 1.0 m radius misses its own edges — and because
+   `TopologyLayer`'s pairing loop skips `otherId < id`, whether an edge is recorded depends on **which
+   UUID sorts higher**. ISSUE-LOG **L-4612**. Not fixed here: the fix multiplies the candidate set for
+   large elements and sits directly on the 27 ms of §10.3, a trade this lane did not measure.
+7. **NEW — `doorsRegistered=0` against 2 513 windows.** Not investigated. Empty registry vs failing
+   registration are different defects with different fixes.
+
+### §10.6 — ⛔ WHAT WAS DELIBERATELY NOT DONE
+
+- **No graphics were compromised.** No change to resolution, shadow quality, filtering, LOD or
+  element visibility. Per the founder's standing instruction, twice repeated.
+- **§9.5 #2 was not "fixed".** It is correct as it stands and the ledger says so.
+- **No second census was built.** `logSceneCensusOnce` exists and is wired; building a rival would
+  have produced two instruments that disagree — §9.5 #1's own recorded lesson.
+- **No files belonging to lanes JURIS11, ELEV12 or WALL8 were touched** — in particular
+  `EdgeProjectorService.ts` and `core-app-model/src/views/**`, which is why the plan-view
+  re-projection cost (`HiddenLineRemoval`, `WindowPlanSymbolBuilder` injecting 455 symbols per
+  re-projection) is named here but not measured.
+

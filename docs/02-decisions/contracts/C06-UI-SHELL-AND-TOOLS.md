@@ -12,17 +12,57 @@
 | C06 names | Measured |
 |---|---|
 | `KeyboardShortcutRegistry` | ❌ **ZERO occurrences repo-wide.** `grep -rIl "KeyboardShortcutRegistry" --include=*.ts --exclude-dir=node_modules packages apps plugins` → nothing. |
-| `runtime.tools.register(tool)` | ❌ **NO PRODUCTION REGISTRATION SITE.** `grep -rn "tools\.register(" --include=*.ts --exclude-dir=node_modules packages apps plugins` → **4 matches, all non-executing**: a doc-comment (`packages/geometry-slab/src/SlabTool.ts:76`), two planning comments (`packages/input-host/src/ToolBindings.ts:5,74`), and a **codegen string template** (`packages/plugin-sdk/src/dev/create-command.ts:201`). |
+| `runtime.tools.register(tool)` | ⛔ **THIS ROW IS FALSE — SEE §0.0b BELOW.** It read: ❌ *"NO PRODUCTION REGISTRATION SITE.* `grep -rn "tools\.register(" --include=*.ts --exclude-dir=node_modules packages apps plugins` → **4 matches, all non-executing**: a doc-comment (`packages/geometry-slab/src/SlabTool.ts:76`), two planning comments (`packages/input-host/src/ToolBindings.ts:5,74`), and a **codegen string template** (`packages/plugin-sdk/src/dev/create-command.ts:201`)."* **Re-measured 2026-08-22: 52 live production registration calls binding 51 tool ids.** |
 
 ⭐ **The `create-command.ts:201` match is the trap worth naming.** It is a *scaffold emitter* — a
 string that a generator writes into new files. A name-shaped grep counts it as evidence the API
 exists; it is evidence that **new code will be told to call an API that does not**. This is defect
 shape **C — declared but never called**, with an extra hop: the declaration is inside a string.
 
-**Read every `runtime.tools.register` and `KeyboardShortcutRegistry` clause below as NOT-YET-TRUE.**
-`packages/input-host/src/ToolBindings.ts` is where the real tool-binding table lives and is the
-place to start; its own header (`:5`) describes moving *"the 20 `runtime.tools.register(...)`
-calls"* — **a migration whose source side does not exist**, so that note is stale in the same way.
+**Read every `KeyboardShortcutRegistry` clause below as NOT-YET-TRUE.**
+
+---
+
+### §0.0b — ⛔⛔ THE `runtime.tools.register` ROW ABOVE IS **FALSE**, AND IT WAS FALSE ON THE DAY IT WAS WRITTEN — corrected 2026-08-22 (lane PERF13, ISSUE-LOG L-4601)
+
+**RE-MEASURED 2026-08-22:**
+
+```
+grep -rn "tools\.register(" --include=*.ts --exclude-dir=node_modules packages apps plugins | wc -l
+```
+→ **63 matches**, of which **52 are live production registration calls**:
+`apps/editor/src/PluginRegistry.ts` **27** · `apps/editor/src/ui/layout/ToolsAreaLayout.ts` **25**.
+Together they bind **51 distinct tool ids**, and `runtime.tools.activate()` dispatches through them
+on every Create-palette click.
+
+⭐ **THIS WAS NOT DRIFT. The row was wrong when it was written**, and that is checkable:
+
+```
+git show $(git rev-list -1 --before="2026-08-19 00:00" HEAD):apps/editor/src/ui/layout/ToolsAreaLayout.ts   | grep -c "tools\.register("
+```
+→ **20**. On 2026-08-18 the file already carried twenty registrations. The row reported *"4 matches,
+all non-executing"*.
+
+⚠ **The evidence that it was wrong was quoted inside the row itself.** §0.0 cited `ToolBindings.ts:5`
+describing the migration of *"the 20 `runtime.tools.register(...)` calls"* and dismissed it as *"a
+migration whose source side does not exist"*. **Twenty calls is exactly what was there.** The
+contemporaneous note was right and the correction overrode it.
+
+⭐ **THE LESSON IS ABOUT CORRECTION NOTICES, NOT ABOUT TOOLS.** This repo's standard remedy for a
+stale claim is a dated correction box carrying a command. That device is only as good as the command,
+and here a correction box **demoted a working, load-bearing API to "does not exist"** — the same
+class of failure CLAUDE.md records for the P4 cast gate (*"stale PESSIMISTICALLY — it named a breach
+the gate does not report"*), and for the C00 contract range, five times. **A correction is a
+measurement and can be wrong; re-run it, do not inherit it.**
+
+**The `create-command.ts:201` scaffold-emitter observation SURVIVES and is worth keeping** — a
+name-shaped grep counting a codegen string as evidence of an API is a real trap. It is simply not
+what happened here: the API is real and has 52 callers.
+
+**Read every `runtime.tools.register` clause below as TRUE AND LIVE.** The genuine open item is
+narrower and now gated: every DECLARED creation family must have a registered activator, because
+`activate()` used to report success for ids that had none (L-4600). See
+`tools/ga-gate/check-tool-activator-coverage.ts`.
 
 ---
 
