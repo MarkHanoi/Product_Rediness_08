@@ -184,10 +184,64 @@ Section views and elevation views are produced by the drawing engine (`packages/
 
 ## §6 — UI Theming
 
-- All visual tokens MUST be CSS custom properties declared in `src/engine/subsystems/styles/` (the former `src/styles/AppTheme.ts` is the single CSS injection point for runtime JS-managed CSS).
+> ⛔ **CORRECTED 2026-08-22 (lane DATA3) — BOTH PATHS IN THE FIRST BULLET WERE DEAD.**
+> Measured, `ls`:
+> `src/engine/subsystems/styles/` → **MISSING** · `src/styles/AppTheme.ts` → **MISSING** ·
+> `apps/editor/src/ui/styles/tokens.ts` → **EXISTS** · `apps/editor/src/ui/styles/AppTheme.ts` →
+> **EXISTS** · `packages/wcag-audit/` → **EXISTS**.
+> The bullet is rewritten to the measured paths below. This is the C01 §6 Rule 6 shape at a
+> *contract* citation: an agent following the old bullet would have concluded the token layer was
+> **ABSENT** and built a second one, when it was merely **MOVED**.
+> Related and **NOT fixed here**: `apps/editor/src/ui/dataworkbench/DataWorkbench.ts` and several
+> `panels/*.ts` sheets cite `docs/02-decisions/contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md` for the
+> CSS-prefix table and the *"CSS layer only, zero logic"* rule. **That file does not exist**
+> (`ls` → No such file or directory). `check-contract-cited-paths.ts` (L-960) polices paths cited
+> *inside* `contracts/**` and cannot see a contract path cited from **source**.
+
+- All visual tokens MUST be CSS custom properties declared in `apps/editor/src/ui/styles/tokens.ts`; `apps/editor/src/ui/styles/AppTheme.ts` is the single CSS injection point for runtime JS-managed CSS.
 - The boot-shell skeleton CSS is inlined in `index.html` (Stage 0) and MUST NOT be injected by JS.
 - Dark mode MUST toggle via `<html data-theme="dark|light">`.
 - All text-on-background combinations MUST meet WCAG AA contrast (4.5:1 for normal text, 3:1 for large). CI gate: `packages/wcag-audit/`.
+
+### §6.1 — The three workspace-mode surfaces share ONE header treatment
+
+> **Added 2026-08-22 · L-3700/L-3701 · §DW-ONE-HEADER-BAND.** Founder, twice in one session:
+> *"Inspect has a clean layout … completely clean and tidy panel … they should all follow the same
+> UI/UX principles as Inspect. Same UI design, colours and principles."*
+
+**Inspect (F2), Data (F3) and Analysis (F4) are one product.** `.aud-header`
+(`apps/editor/src/ui/styles/panels/autonomous-auditor/auditStack.ts`) is the **reference
+implementation**, not merely one of three:
+
+| property | value | why it is in the contract |
+|---|---|---|
+| `padding` | `14px 16px 12px` | the shared metric; `height` MUST be `auto`, never a fixed px |
+| `background` | `var(--app-gradient)` | the one brand ground |
+| `color` | `var(--app-on-accent)` | ink on that ground |
+| `box-shadow` | `var(--app-shadow-header)` | ⭐ **elevation is load-bearing.** Without it the header and the row beneath it read as one thick slab — which is a large part of what "three stacked bands" looked like |
+| `font-weight` / `letter-spacing` | `700` / `0.10em` | |
+| actions | right-hand slot, `var(--app-on-accent-veil)` controls | `.aud-header-actions` / `.dw-bucket-header-actions` |
+
+**A mode surface MUST reach its content in ONE chrome band plus, at most, one navigation row.** A
+third stacked band is a signal that a control belongs in the header's actions slot.
+
+**Two rules that exist because both were violated, silently, for months:**
+
+1. ⭐ **Convergence MUST be asserted by READING the reference sheet, never by duplicating its
+   literals.** Two independent copies diverge the first time one side moves — which is exactly how
+   the Data header reached `44px` / weight `800` / no shadow while its own comment claimed it was
+   *"like INSPECT / AUDIT header"*. `dataPanelChrome.spec.ts` ARM C reads `.aud-header` at test
+   time and fails when the two disagree. **When it fails, converge or raise the decision — do not
+   delete the arm.**
+2. ⭐ **Every class a panel EMITS must have a rule in that panel's sheet, and something must compare
+   the two artefacts.** `.dw-heatmap-bar` was emitted for its whole life against a sheet that
+   declared `.dw-viz-bar`; the band rendered **completely unstyled** and nothing anywhere noticed.
+   **ABSENT and UNREACHABLE styling are indistinguishable in a browser and have opposite fixes**
+   (C01 §6.1). Gate: `dataPanelChrome.spec.ts` ARM A, directory-globbed, shrink-only in both
+   directions.
+
+**Colour may never be the ONLY channel** distinguishing a state (SC 1.4.1) — a control that encodes
+its active mode as a fill alone must also name it.
 
 ---
 

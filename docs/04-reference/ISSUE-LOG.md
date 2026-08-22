@@ -32164,7 +32164,7 @@ also how L-3250b was found — a routine grep for the `BuildingGraph` class body
 `binary file matches` instead of the class.
 
 **None of the ten was corruption.** Every occurrence is a deliberate NUL used as a separator or
-sentinel *inside a string literal*, written as a literal byte instead of the ` ` escape. Each
+sentinel *inside a string literal*, written as a literal byte instead of the `\0` escape. Each
 context was read before it was touched.
 
 | file | what the NUL is |
@@ -32180,7 +32180,7 @@ context was read before it was touched.
 | `tools/depth-lexeme-reprobe/v2-valencia-regex-delta.mjs` | extraction-failure marker |
 | `tools/ga-gate/lib/sourceScan.ts` | `EOL_SENTINEL` (×2) |
 
-**Fix:** the ` ` escape — **byte-identical at runtime**, pure ASCII on disk, greppable. UTF-8
+**Fix:** the `\0` escape — **byte-identical at runtime**, pure ASCII on disk, greppable. UTF-8
 safe by construction (`0x00` never appears inside a multi-byte sequence, so replacing that byte cannot
 touch an em-dash or a CJK character). Verified after: all ten contain **0** NUL bytes and still decode
 as valid UTF-8, and a **full re-sweep of the same 7 946 files reports ZERO remaining**.
@@ -32207,3 +32207,484 @@ checking bytes rather than trusting a rendering. Fixed with explicit byte constr
   **52**, naming **6 NEW** files. **All six are `packages/command-registry/src/**` and none is this
   lane's.** ⚠ CLAUDE.md records this as *"54 of 70 … 2 new files"* — **it has grown today**; re-run
   the gate, do not quote that line.
+
+
+## L-3700 … L-3707 — LANE DATA3: the Data panel's third header band **had no stylesheet rule at all** — 2026-08-22 (commits `95518c4`, docs)
+
+The founder: **"MAKE THE DATA PANEL SOUND TOO: FOLLOWING UI/UX PRINCIPLES FROM INSPECT TAB"**, in the
+same breath as the same instruction for Analysis — *"Inspect has a clean layout … completely clean
+and tidy panel … they should all follow the same UI/UX principles as Inspect. Same UI design, colours
+and principles."*
+
+**Chrome before the first row of data, computed from the shipped sheet (not measured in a browser):**
+
+| band | class | height | ground |
+|---|---|---|---|
+| 1 | `.dw-bucket-header` | 44 px fixed | `var(--app-gradient)` |
+| 2 | `.dw-subtab-bar` | ~36 px | `var(--app-panel-bg)` |
+| 3 | `.dw-heatmap-bar` | ~22 px | **none — see L-3703** |
+| | | **~103 px** | (+2 px of borders) |
+
+Inspect reaches its content in **ONE** band: `.aud-header`
+(`apps/editor/src/ui/styles/panels/autonomous-auditor/auditStack.ts:38`) — a gradient strip with the
+title on the left and `.aud-header-actions` on the right.
+
+### ⭐ L-3703 — FIXED: the third band was **UNSTYLED FOR ITS WHOLE LIFE**, and its rules were sitting in the sheet under a different name
+
+Measured 2026-08-22, repo-wide, `--glob '*.{ts,tsx,js,html,css}'`:
+
+```
+rg 'dw-heatmap'                 → 2 hits, BOTH emitters:
+                                    DataWorkbench.ts:530  bar.className   = 'dw-heatmap-bar'
+                                    DataWorkbench.ts:542  label.className = 'dw-heatmap-label'
+rg 'dw-viz-bar|dw-viz-label'    → 3 hits, ALL declarations in dataWorkbench.ts
+```
+
+**Two names for one thing, and nothing in the repo ever compared them.** The sheet had `padding:
+5px 10px`, `background: var(--app-surface-sunken)`, a bottom border and a `9px / 700 / uppercase /
+muted` label ready for that band. **None of it could ever match.** So it shipped as a bare flex row:
+`Heatmap:` **flush against x = 0** while every neighbouring band is inset 10–14 px, no ground, no
+separator, and the label at the container's inherited **11.7 px regular** instead of the intended
+9 px/700/uppercase.
+
+⛔ **This is not "one band too many" — it is one band that LOOKED BROKEN**, which is why the founder
+read it as debris rather than as a control.
+
+⭐ **ABSENT vs UNREACHABLE, C01 §6.1, at the CSS layer.** *"The heatmap bar has no styling"* and
+*"the heatmap bar's styling is unreachable"* are **indistinguishable in the browser** and have
+**opposite fixes** — write the rules, versus connect the two names. It was the second. The same
+distinction that C01 §6 Rule 6 was written for last night, one layer down.
+
+### L-3700 — FIXED: three stacked bands → one header + navigation, and the actions slot was **structurally impossible** before
+
+`.dw-bucket-header` already declared `justify-content: space-between` with **exactly one child**. It
+had been reserving an actions slot for as long as it has existed — and nothing could ever occupy it,
+because `_rebuildSubTabBar()` ran
+
+```ts
+this._bucketHeaderEl.innerHTML = `<div class="dw-bucket-header-left"> … </div>`;
+```
+
+on **every bucket switch**, destroying any sibling appended there. **That is why the heatmap controls
+became a band instead of header actions.** The left block is now a persistent child written in
+isolation, and the actions slot holds one labelled `<select>`.
+
+**Nothing was removed.** All five `HeatmapMode` values are options on that select, which additionally
+**names** the active mode as text rather than encoding it as a filled pill — colour was the only
+channel on the old pills, which SC 1.4.1 forbids regardless. Five pills do not fit beside a bucket
+title at 420 px; one control does.
+
+Chrome before content: **~103 px → ~78 px**, computed from the sheet.
+
+### L-3701 — FIXED: the Data header was not the Inspect header, and the drift was the founder's complaint
+
+The comment above the rule said *"like INSPECT / AUDIT header"*. **It was not like it.** Measured
+against `.aud-header`:
+
+| property | Inspect `.aud-header` | Data (was) | Data (now) |
+|---|---|---|---|
+| `padding` | `14px 16px 12px` | `0 14px` | `14px 16px 12px` |
+| `height` | `auto` | **`44px` fixed** | `auto` |
+| `box-shadow` | `var(--app-shadow-header)` | **NONE** | `var(--app-shadow-header)` |
+| `font-weight` | `700` | `800` (on title) | `700` |
+| `font-family` | `var(--app-font)` | inherited | `var(--app-font)` |
+
+Two of those are load-bearing, not cosmetic. **The missing `box-shadow` is why the header and the
+sub-tab row read as one thick slab** rather than a header over content — the founder's "three
+stacked bands" reads worse than it needed to for that one reason. And a **fixed 44 px cannot grow**
+for the actions slot the rule was already reserving.
+
+⭐ **The gate for this is deliberately COUPLED to Inspect's stylesheet.** `dataPanelChrome.spec.ts`
+ARM C reads `.aud-header` **at test time** and requires the Data header to agree. A convergence
+asserted as two independent literals diverges the moment one side moves — **which is exactly how
+44 px / 800 / no-shadow happened.** When Inspect changes, that arm FAILS; the fix is to converge the
+Data side, or to raise the decision that the two should differ. **It is not to delete the arm.**
+
+### L-3702 — FIXED: `.dw-bucket-chip` + `.dw-subtab-sep` are the **fossil of the one-row header this panel never got**
+
+```
+rg 'dw-bucket-chip|dw-subtab-sep' --glob '*.{ts,tsx,js,html,css}'
+  → 2 hits, BOTH of them the rule declarations. Zero emitters, repo-wide.
+```
+
+A bucket **chip**, a **separator glyph**, then the sub-tab pills — that is a single-strip header, and
+it is what this panel was originally designed to have. The three-band stack silently replaced it and
+left the rules behind. `.dw-content-title` (1 hit, the declaration) is the same shape: the title of
+the **legacy** `.dw-content-header`, superseded by `.dw-content-header--lifecycle`.
+
+All deleted, each with the grep that proves it dead recorded beside the deletion. **A rule kept for
+markup nothing produces is not harmless** — the next reader cannot tell *planned* from *broken*,
+which is the precise condition that let L-3703 live.
+
+`.dw-viz-btn*` joined them once the band went. **`#dw-viz-legend` and `.dw-viz-legend-*` are NOT
+dead** — `DataVisualizerService.ts` emits them — and the test says so explicitly so a future sweep
+does not take them as "more dead viz CSS".
+
+### L-3704 — the gate that would have caught it: emitted class × declared rule, directory-globbed
+
+`apps/editor/src/ui/dataworkbench/__tests__/dataPanelChrome.spec.ts`, 10 assertions, 1.6 s (no heavy
+imports — it reads shipped source as text).
+
+**ARM A** cross-resolves two INDEPENDENT artefacts: the class a `.ts` file actually puts on an
+element, against the selector the stylesheet declares. **A rename cannot satisfy it** — the new name
+is undeclared too. It globs the DIRECTORY, so a new panel file is covered the day it lands.
+
+It scans **class contexts only** (`className =`, `classList.*()`, `class="…"`, `querySelector('.x')`).
+A blunt `/dw-[a-z-]+/` sweep reports **14 "orphans", 11 of them element IDs** — `dw-heatmap-select`,
+`dw-auto-setup-btn`, `#dw-workbench` — which legitimately have no class rule. **A baseline mostly
+made of noise is a baseline nobody reads.**
+
+| measurement | count |
+|---|---|
+| orphan classes at HEAD (whole panel) | **5** |
+| of which in `DataWorkbench.ts` | `dw-heatmap-bar`, `dw-heatmap-label` |
+| orphan classes after this lane | **3** |
+
+The residual three — `dw-compliance-summary`, `dw-toolbar-btn--primary`, `dw-toolbar-select` — are
+**pre-existing, NOT repaired here, and named rather than silently tolerated.** The baseline is
+shrink-only **in both directions**: a new orphan fails, *and* an entry listed here that is already
+fixed fails, so a fix is forced to update the list rather than leave it stale.
+
+**ARM D** derives the required heatmap modes from the `HeatmapMode` **union type**, not from a copy
+of the list — so *"collapse chrome, do not delete function"* is measured: a future tidy that drops
+`Area Δ` to shorten the select fails even though the select still exists and still works.
+
+### L-3705 — REFUTED: the founder's "two empty states doing the same job" is **already fixed** (L-2005)
+
+The brief listed the auto-setup banner and the *"No hierarchy yet…"* empty state as a live
+duplicate-call-to-action defect. **Measured in the current source**,
+`HierarchyTreePanel.ts:245-250`:
+
+```ts
+empty.innerHTML = _bannerShown
+    ? '… No hierarchy yet.<br>Use <strong>Generate hierarchy</strong> above … or <strong>[+ Site]</strong> to start by hand'
+    : '… No hierarchy yet.<br>Click <strong>[+ Site]</strong> to start.';
+```
+
+The empty state **already defers to the banner** when the banner is showing. **§L-2005 closed this on
+2026-08-21 and the screenshot predates the fix.** Recorded as a correction rather than deleted —
+[[confident-register-rows-are-the-wrong-ones]]: the item was stated confidently and was wrong.
+
+**Residual, NOT changed:** with the banner up the panel still shows a banner card, a toolbar, a
+filter bar and *then* a 🏗 empty state about the same subject. They no longer **contradict**, which
+is what L-2005 fixed. Reducing it further would re-open a closed defect on another lane's reasoning,
+so it is stated here instead.
+
+### L-3706 — MISATTRIBUTED: the floating `+ Grid` button is **not in the Data panel** and is not this lane's
+
+The brief reads it as Data-panel debris. Measured:
+
+```
+rg '\+ Grid' apps/editor/src
+  → apps/editor/src/engine/views/PlanViewToolOverlay.ts:694   const label = isPlan ? '+ Grid' : '+ Level';
+  → apps/editor/src/engine/views/SvpPlanToolOverlay.ts:692    btn.textContent = '+ Grid';
+```
+
+It is a **plan-view canvas overlay**: `position: fixed`, `zIndex: '6'`, appended to `document.body`,
+and positioned from `_baseCanvas.getBoundingClientRect()` — `left = rect.left + 16`,
+`top = rect.bottom - h - 16`. At **z-index 6 against `#dw-workbench`'s 110 it cannot render over the
+Data panel at all**; it sits at the bottom-left of the *canvas*, whose right edge is the Data panel's
+left edge. **It reads as unanchored because it is anchored to the other half of the screen.**
+
+⭐ **Separately and worth a lane: it is brand-non-compliant.** Its inline styles are
+`linear-gradient(180deg,#7c3aed,#6d28d9)`, hover `#8b5cf6`, border `rgba(255,255,255,0.18)`, shadow
+`rgba(76,29,149,0.35)` — **violet, but not `#6600FF`**, and hard-coded rather than tokenised. It sits
+**outside** the directories `§PANEL-BRAND-STANDARD`'s ARM A globs, which is why the guard is green
+while this ships. **NOT CHANGED HERE** — it belongs to the plan-view overlay, not to
+`ui/dataworkbench/**`.
+
+### L-3707 — FIXED: the ISSUE-LOG was **binary to grep again**, from 2 NUL bytes inside the entry about NUL bytes
+
+`grep` reported `Binary file docs/04-reference/ISSUE-LOG.md matches` on this 4.2 MB log. Byte scan:
+**2 NUL bytes at offsets 4243887 and 4244880**, both inside L-3260's own prose — *"written as a
+literal byte instead of the `\0` escape"* and *"the `\0` escape — byte-identical at runtime"* — where
+the escape was written as **the literal byte it was warning against**.
+
+**Third recurrence of one shape** (L-3208 → L-3260 → here), and this one landed **inside the
+correction notice for the second**. Same class as the CLAUDE.md count/range defect: the rule is
+stated in the document and enforced by nothing. Both replaced with the two ASCII characters.
+
+### What this lane did NOT establish
+
+- **⛔ NOTHING RAN IN A BROWSER.** Every assertion here is shipped source read as text. *"The header
+  is 42 px"*, *"the select is legible on the purple"*, *"the option popup is readable"* and *"~103 px
+  → ~78 px"* are **computed from the stylesheet, not observed**. A rendered check would be strictly
+  stronger; this is not one.
+- **The `<option>` popup is the sharpest unverified risk.** `.dw-header-select option` pins
+  `background: var(--app-panel-bg)` / `color: var(--app-text)` **precisely because** an unstyled
+  option inherits the select's `--app-on-accent` white while Chromium paints the popup on its own
+  light ground — **white on white, §DW-HEADER-TRANSPARENT (L-3300) by a different route, and
+  invisible inside a popup no screenshot of the panel would ever contain.** The mitigation is
+  asserted in the sheet and in the test; **it is not verified on a real browser.**
+- **`#dw-workbench { font-size: 11.7px }`** is an odd literal that `uiScale.scaleCssText()` may or
+  may not have produced. **Not touched, not explained.**
+- **The top strip is INSP3's and was left alone.** Mode bar + "Ground Floor" + "Level: Ground" + Grid
+  + IFC + V/G + INTENT + "promo 02" + Range in one row. Observed, not touched.
+- **L-3300 … L-3302 have code (`f48d11d7`) but no ISSUE-LOG entry.** Not backfilled here.
+
+
+---
+
+## L-3400 … L-3423 — WIN5: **the window that survived its own undo**, and **the reveal that ran on the wrong face** — 2026-08-22 (lane WIN5)
+
+Four founder reports, measured before anything was written. Every number below came from running
+a probe, a `grep` or a test — nothing untraced is asserted, and the claims this lane could not
+verify are named as such.
+
+### ⛔ L-3400 — **THE TOP FINDING**: undo of `ADD_OPENING` raced the builder's BUILD QUEUE, leaving a window in the SCENE and in NO STORE
+
+Founder: *"I undid all my changes. A window stayed in the 3D view. Its opening was gone. I can
+SELECT it. I CANNOT delete it. It does NOT appear in plan — only in 3D."* His console:
+
+```
+[CommandManager] UNDO: ADD_OPENING (history remaining: 0)
+[BimManager] Unregistered element 2f9fb49c-...
+[VDT] §G3-STALE-EVENT for unregistered element 2f9fb49c-... type= window
+[CommandManager] UNDO result: success=true
+[PickDiag] candidates=[Window:2f9fb49c@197.27, ...]
+[CommandManager] REFUSED DELETE_ELEMENT: Element 2f9fb49c-... not found in any store
+```
+
+**THE MECHANISM, MEASURED.** `WindowBuilder` builds on a queue. `windowStore` `'add'` calls
+`_enqueue()`, which parks a task and schedules a `pre-render` callback for a **later frame**;
+`'remove'` calls `dispose()`, which tore down only what was **already built**. An undo landing
+between the two runs:
+
+```
+add    -> _enqueue()            task parked, nothing in the scene
+remove -> dispose()             NO-OP: windowGroups has no entry yet
+tick   -> _drainBuildQueue()    builds the group and adds it to the scene
+```
+
+⭐ **ONE mechanism explains all three symptoms, and each is a consequence rather than a separate
+bug.** 3-D shows it (the scene object is real); plan does **not** (plan projection is
+registry/store-driven, so a scene orphan is invisible to it — **the divergence is the DIAGNOSTIC**:
+it localises the orphan to the scene graph, not to a store); delete refuses, correctly.
+
+⛔ **THE CORRECT ORDERING WAS ALREADY IN THE FILE, TEN LINES ABOVE, AND WAS NOT CARRIED DOWN.**
+`clearProjectGeometry()` clears `_pendingBuilds` **before** it disposes. The project-clear path knew
+a pending task outlives the thing it builds; the per-element path did not.
+
+**Fix — two arms, deliberately not one.** (1) `dispose()` cancels the queued build — closes the path
+measured. (2) the drain re-asserts the record still exists in the store — closes the CLASS, because
+any future route that drops a record without emitting `'remove'` mints the same orphan, and this
+orphan is unusually expensive: the user can select it and cannot remove it.
+
+### L-3401 — **the DOOR carried the identical shape**, and is fixed in the same breath
+
+`DoorBuilder` has the same `_pendingBuilds` / `clearProjectGeometry` / `dispose` asymmetry,
+character for character. `ADD_OPENING` serves both families, so fixing one would have left the
+founder's defect live under the other name.
+
+### L-3402 — the regression test asserts on the SCENE GRAPH, and was FALSIFIED against the broken build
+
+`packages/geometry-window/__tests__/OrphanedHostedMeshOnUndo.test.ts` drives the real store, the real
+builder and the real `FrameScheduler` on a fake rAF clock, then reads `scene.traverse`. **With both
+arms reverted, 2 of 4 fail and the removed window's group IS in the scene.** A test asserting
+`windowStore.has(id) === false` would have passed against the broken version the whole time — which
+is the point: *"the store no longer has it"* was true for every second the founder was looking at
+the window ([[committed-is-not-reachable]]).
+
+### L-3403 — ✅ **the orphan CANNOT reach a saved snapshot** — verified, so this is not data loss
+
+`apps/editor/src/engine/persistence/ProjectSerializer.ts:1215` serialises `windowStore.getAll()`.
+The save path reads **stores**, not the scene, so a scene-only orphan is invisible to it. This
+matches the founder's *"snapshot stayed at 260 elements"* and is why the priority is SCENE
+pollution, cleared by a reload — **not** corruption of his model.
+
+### ⛔ L-3404 — the refusal that had **no "yes" branch**: a selectable object with no removal path
+
+`DeleteElementCommand.canExecute` already carries a hatch (`§FIX-WINDOW-OOB-OPENING-RESTORE`) for an
+orphan still present in `windowStore`/`doorStore`. The founder's orphan was in **neither** — undo
+removed both — so it fell through to *"not found in any store"*. **An object in the scene and in no
+store had NO removal path of any kind** ([[refusing-half-needs-its-escape-hatch]]).
+
+**Fix:** `ElementRegistry.reapOrphanRoot(id)` — detach the root, drop both registry entries — plus
+one more `canExecute` branch, **placed LAST** so a scene root can only authorise a delete once every
+store has said no. That ordering is what stops it masking a live element, and it is **proven with a
+real window**, not asserted. The reaper lives on `ElementRegistry` because that map is already, by
+its own header, *"the SINGLE SOURCE OF TRUTH for what scene roots are placed BIM elements"*; a
+reaper at the call site would need `scene.traverse` (P2 forbids THREE outside `renderer-three`) and
+would be a second answer to *"where does this element live in the scene"* (C84 EI-9).
+
+The result is also **qualified rather than a green tick**: the user is told a stray 3-D object was
+removed, that there was no BIM element, and that it cannot be undone; `undo()` returns success WITH
+that reason and an **empty** `affectedElementIds` rather than claiming an element it did not restore.
+
+### L-3405 — 🔴 the reap is a **DETACH, not a full teardown** — stated, not implied
+
+GPU buffers are **not** released. Doing so needs a VALUE import of `scheduleGpuRelease` into a module
+every `element-registry` consumer loads, server-side ones included
+([[server-safe-entry-can-import-browser-ui]]). Detach-first is ADR-0297 L2(a) order and the buffers
+go with the detached subtree; for a rare orphan reap that is an acceptable cost and strictly better
+than an object the user cannot remove. **Named as a limitation rather than left to be discovered.**
+
+### L-3406 — `ADD_OPENING`'s undo named the HOST WALL and not the element it removed
+
+`CreateWallOpeningCommand.undo()` returned `affectedElementIds: [wallId]`; the DELETE path one file
+over returns the hosted element's own id. `CommandManager` merges that list into `targetIds`, so the
+undo reported a **wall edit** for a window removal. ⚠ **This did NOT cause the orphan** — that was
+the build queue — and it is logged separately precisely so the fix does not credit itself with a
+defect it did not cause.
+
+---
+
+### ⭐ L-3410 — **`EXTERIOR_LOCAL_Z` was declared `-1` and NEVER CONSUMED**; the reveal ran on the INDOOR face
+
+Founder: *"the reveal projection and splay are applied to the WRONG SIDE — both currently modify the
+INDOOR face."*
+
+**Measured first.** `grep -rn EXTERIOR_LOCAL_Z packages/ apps/ src/ plugins/` → **7 hits: the
+declaration, a barrel re-export, three prose comments, and one test asserting its own value. ZERO
+production consumers.** The geometry hard-coded its sign as a literal `-` in
+`zOuterFace = -run - projection`. So ADR-0342 §3.2's careful three-header derivation was
+**documentation the geometry was never bound to** — [[authored-but-unwired-is-the-bottleneck]] — and
+the suite asserted that the model **agreed with itself**. Three self-consistent statements of one
+wrong fact are not three pieces of evidence.
+
+⭐ **ADR-0342 had already WRITTEN DOWN the contradiction it could not resolve.** L-1926 records
+`_addSillBoard` placing the sill at `+z` commented *"toward exterior"*, directly against the
+constant, and left the board alone. **The founder's observation of the running app resolves it in
+the SILL's favour**, so the two agree for the first time ([[probe-can-be-wrong-three-ways]]: an
+observation at the layer the user experiences outranks a derivation from module headers).
+
+**C84 EI-2 is intact:** an unauthored window short-circuits before any sign is read;
+`StraightHostLeafByteIdentical` passes unchanged and there is a mesh-level test that the flag cannot
+move an unauthored leaf. A window that DID author a reveal moves to the other face — **declared, not
+discovered later** — and `revealDirection: 'indoor'` reproduces the old geometry exactly.
+
+🔴 **NOT VERIFIED IN A BROWSER BY THIS LANE.** The flip rests on the founder's report. If it is
+wrong it is **one literal**, not a second code path.
+
+### L-3411 — the BUILDER carried two hard-coded signs of its own
+
+`_fz1 = fd / 2` and `zOuterFace - 0.01` were both statements of *"which way is out"* living inside a
+consumer. Once the face became a user choice they would have kept the frame on one face while the
+reveal moved to the other. Both now take `outwardSign` from the model. `memberDepth` became
+`Math.abs`: **a depth is a magnitude**, and taking it as a subtraction was the old assumption
+showing.
+
+### L-3412 — 🔴 PRYZM **cannot** determine indoor vs outdoor: the slot is UNREACHABLE, not MISSING
+
+Searched by capability, not by name. `WallData.frontSide` / `backSide` — vocabulary
+`interior | exterior | unknown`, commented *"Topology Layer stamps the real value"* — is declared in
+**THREE** schemas (`WallDataSchema.ts:292`/`:420`, `WallTypes.ts:481`, `schemas/elements/Wall.ts:110`).
+
+Command run:
+
+    grep -rnE "(frontSide|backSide)[[:space:]]*[:=]" packages/ plugins/ apps/ src/ server/ --include=*.ts --include=*.tsx --include=*.js
+
+→ **ZERO writers** (the single hit is an unrelated local variable in a furniture thumbnail service).
+Per C01 §6 rule 6 that is **UNREACHABLE**, never MISSING — the two have opposite fixes (wire it vs
+build it). `WallSideFinishResolver` already refuses to guess it in prose: *"nothing in this build
+ever sets them — so I will not guess."*
+
+⚠ **The door's `swingDirection: 'inward' | 'outward'` — the prior art the founder named — is
+likewise PURELY AUTHORED.** `DoorSwingVocabulary` is a vocabulary MAPPER between the L0 `swing` enum
+and the legacy pair, **not** a resolver; there is no inward/outward resolution to reuse. Recorded so
+the next reader does not go hunting for one.
+
+⭐ **The one LIVE adjacent capability** is `classifyFacades` /
+`@pryzm/spatial-index/FacadeOrientationMath`, which computes `isExterior = boundingRoomCount <= 1`
+and is already consumed by `ZeroTokenChatBridge`. It answers *"is this WALL exterior"* — **not**
+*"which of its two FACES is outdoors"*, which is the question a reveal asks. So the direction is
+authored, defaults to `'outdoor'`, and **the panel says so on screen**: *"PRYZM does not yet detect
+which wall face is outdoors, so this is your choice, not a detected value."* A default that LOOKED
+resolved and was actually a guess is worse than an explicit one.
+
+### L-3413 — ONE flag on ONE model, because two would be the ADR-0342 fork
+
+The direction resolves to a **sign** inside `resolveWindowReveal` that every z-expression multiplies
+by; every consumer keeps reading the same fields it already read. The mirror is asserted on the box
+**and** the splay **and** the glazing rectangle — a fork would show up as one mirroring and the
+other not, or as the glass changing size with the face. The C83 recess refusal now names **the face
+the user chose**, not a hard-coded one.
+
+### L-3414 … L-3416 — RAC: the vocabulary's **FIRST enum**
+
+*"set the reveal direction to outdoor"* / *"what is the reveal direction"*. `toMeters('outdoor',
+undefined)` is `NaN`, and a `NaN` reaching the numeric stages produces *"a reveal direction of NaN
+is not valid"* — a true refusal **naming the wrong problem**, which is worse than a miss because it
+sends the user to change something that was never wrong. So `measure: 'enum'` returns from its own
+arm before sign, bounds and `round3`; every numeric row reaches exactly its previous code.
+
+The accepted words and the stored value are **one table** (`enumSpoken`: outside/exterior/external →
+`outdoor`, inside/interior/internal → `indoor`), and the regex is **generated from its keys** — a
+grammar that accepts a spelling the schema then rejects is literally the defect
+`DoorSwingVocabulary` was written to close (the field name matched, the vocabulary did not, and the
+measured intersection was EMPTY).
+
+⭐ **FOUR existing census gates caught real gaps**, each closed by a registration rather than by a
+number bumped to make red go green: the acceptance family, the target matrix, the capability
+`examples`, and the non-metric unit census. `windowRevealRac` §C caught that the query row inherited
+**no kinds at all** — i.e. that the capability had never been registered anywhere. 370/370 green
+after.
+
+`lastMeasurement` is deliberately **not** written for an enum intent: it exists so a bare numeric
+follow-up can reuse the last NUMBER, and carrying `"outdoor"` into it puts a string where the
+follow-up grammar reads a quantity ([[context-data-honesty-family]]).
+
+---
+
+### L-3420 — 🔴 the CIRCULAR → RECTANGULAR report was **NOT reproduced** at the store layer, and that is recorded rather than discarded
+
+Founder: *"changing a window from Circular to Rectangular leaves the wall opening in the old
+shape."* `OpeningProfileChangeRoute.test.ts` §A only ever drove rectangular → X, so the leg he named
+had never been run. **It was run: the return leg lands on BOTH the windowStore record and
+`wall.openings[]`** — the record every wall-body arm consumes. So the defect is **not** in
+`UpdateWindowParameterCommand`, **not** in `_resolveProfilePatch`, and **not** in the two-store
+mirror; `WallHoleBodyBuilder.outlineFor` correctly returns `null` for a rectangle and the caller
+walks its literal rect. A NEGATIVE result, pinned by a permanent test so the next reader does not
+re-measure the same three files.
+
+🔴 **STILL UNEXPLAINED, and named rather than implied away:** his symptom is real and this lane did
+not reproduce it, so it is a RENDER-layer question this suite cannot reach — the wall fragment/CSG
+cache, an instanced window reusing cached geometry, or the panel dispatching a different route.
+**Not verified in a browser by this lane.**
+
+### L-3421 — ⚠ a REAL profile-loss path, found while measuring, and it is not the one reported
+
+`WallStore.updateWindow`'s self-heal branch (`if (!matched)`) re-creates a missing opening from the
+window record and does **not** carry `openingProfile` — so a window that has been through an
+out-of-bounds edit comes back **RECTANGULAR whatever it was**. Left untouched: `WallStore.ts` is
+held by another lane, which the L-1252 note in `_syncWallStore` says in as many words.
+
+### L-3422 — the circular SQUARING is not reversed on the way back
+
+Going to `circular` carries height down to width (C86 §10.1 PR-8 — width IS the diameter). Coming
+back does not restore the original height, because nothing remembers it: 1.2 × 1.5 returns as
+1.2 × 1.2. **Pinned as current behaviour, not endorsed.** Inventing a height on the way back would
+be worse than losing one — the user can see the number and retype it; a silently invented 1.5 they
+did not ask for, they cannot see.
+
+### ⚠ L-3423 — RETRACTED IN PART: this file WAS binary to ripgrep mid-session, and **another lane fixed it, not this one**
+
+**What was actually observed.** At the start of this lane, `grep` over `ISSUE-LOG.md` returned
+*"Binary file matches"* and **zero lines, silently**, and a byte count found **2 raw NUL bytes** —
+both inside prose describing NUL bytes written as literal bytes instead of the escape. Consequence:
+the repo's **primary ledger** was unsearchable and said nothing about it.
+
+⛔ **THIS LANE DID NOT FIX IT, AND THE FIRST DRAFT OF THIS ROW CLAIMED IT DID.** By the time the
+append ran the file already measured **0 NUL bytes**: a sibling lane had rewritten it in the shared
+tree, and `git log` shows the work under **L-3208** (*"the note saying 'Verified 0 NUL bytes'
+contained a literal NUL, and it made the whole 4.2 MB log unsearchable"*) and **L-3260**. The
+retraction is recorded rather than the row being deleted, because *"I fixed X"* written by an agent
+that only watched X get fixed is exactly the class of defect this log exists to catch — and it was
+caught only by re-reading the byte count after the write instead of trusting the intent.
+
+**What survives as a finding for the next lane:** a raw NUL in a `.md` or `.ts` file makes it
+BINARY to ripgrep, which returns *"binary file matches"* and **zero lines** rather than an error.
+On this 4.2 MB ledger that is a silent, total search failure. Verify with a byte count, never with a
+rendering — `cat -v` and a diff view both show something plausible.
+
+---
+
+**⛔ WHAT THIS LANE DID NOT REACH.** No browser verification of any kind: the reveal-face flip, the
+orphan reap in a live session, and the circular→rectangular render are all unverified visually. Root
+`tsc --noEmit --skipLibCheck` reached **RC=0** on this lane's own files, but the tree is shared and
+two sibling-lane files (`apps/editor/src/ui/analysis/graphReadModel.ts`, an unterminated string
+literal, and `apps/editor/src/ui/bottom-menu/BottomActionMenu.ts`) were mid-edit and RED at the time
+of writing — zero errors in any file this lane touched. Pre-existing failures A/B tested against
+`HEAD` and **PROVEN** not this lane's: `canPlaceRefusalIdentity` (1, `[OCC_HOST_RAKED]`),
+`WindowPlanSymbolBuilder.detailLevel` (4), and 9 across 2 `geometry-door` files (identical counts
+with the lane's files restored from `HEAD`).
