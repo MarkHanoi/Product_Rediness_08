@@ -408,3 +408,100 @@ export function summariseWallTopologyAudit(levelId: string, a: WallTopologyAudit
              : '')
          + `: ${a.findings.map(describeWallTopologyFinding).join(' | ')}`;
 }
+
+// ─── §WALL-TOPOLOGY-ATTRIBUTION (L-4700) ─────────────────────────────────────
+//
+// ⭐ WHY THIS MOVED OUT OF `WallMoveReweldService` AND BECAME EXPORTED.
+//
+// The before/after diff below was written INLINE inside that service, as a local
+// `key()` closure over a `Set`. It was correct there. It was also the ONLY copy,
+// and it sat on the POST-COMMIT leg — a store subscriber that runs after the
+// wall has already moved. So the one derivation that can answer *"did THIS
+// gesture create this?"* was reachable only from a place that could no longer do
+// anything about the answer.
+//
+// `wallPlacementGate` needs the identical question PRE-COMMIT. Re-deriving it
+// there would put two copies of an attribution rule in two layers — and this
+// repository has a name for that outcome: L-942 shipped BROKEN TWICE because
+// "the layer that DECIDES kept its own copy of the inputs". One derivation, two
+// consumers, and a disagreement between the gate's answer and the service's
+// answer becomes impossible rather than merely unlikely.
+//
+// Pure and store-free like the rest of this module, so the gate can run it on a
+// PROJECTED world (the level as it WOULD BE) without touching anything.
+
+/**
+ * The identity of a finding, for set membership across two audits of the same
+ * level.
+ *
+ * ⚠ IT DELIBERATELY EXCLUDES THE MEASURED NUMBERS. A crossing that was already
+ * standing and merely got 40 mm deeper is the SAME finding, not a new one:
+ * keying on `measuredMm` would re-attribute every pre-existing defect to
+ * whichever gesture last nudged it, which is precisely the misattribution the
+ * before/after split exists to prevent (§CONTEXT-DATA-HONESTY). The numbers
+ * still travel on the finding itself and are still reported.
+ */
+export function wallTopologyFindingKey(f: WallTopologyFinding): string {
+    return `${f.kind}|${f.guestWallId}|${f.guestSide}|${f.hostWallId}|${f.hostSide ?? ''}`;
+}
+
+/** The two halves of an audit, told apart. */
+export interface WallTopologyAttribution {
+    /** Present AFTER and absent BEFORE — this gesture is responsible. */
+    readonly created: readonly WallTopologyFinding[];
+    /** Present in BOTH — true before the gesture, unchanged by it. */
+    readonly standing: readonly WallTopologyFinding[];
+    /** Present BEFORE and absent AFTER — this gesture REPAIRED it. Reported
+     *  because "the drag fixed two corners" is a fact a user is entitled to, and
+     *  because a diff that can only ever grow is not a diff. */
+    readonly repaired: readonly WallTopologyFinding[];
+}
+
+/**
+ * Split an AFTER audit against a BEFORE audit of the same level.
+ *
+ * ⚠ ORDER OF ARGUMENTS IS `(before, after)` — the same order the sentence reads
+ * in. Swapping them silently inverts `created` and `repaired`, which is why both
+ * are returned rather than just the one a given caller wants: a caller that gets
+ * the order wrong sees an impossible `repaired` list rather than a plausible and
+ * wrong `created` one.
+ */
+export function attributeWallTopology(
+    before: WallTopologyAudit,
+    after: WallTopologyAudit,
+): WallTopologyAttribution {
+    const stood = new Set(before.findings.map(wallTopologyFindingKey));
+    const stands = new Set(after.findings.map(wallTopologyFindingKey));
+    return {
+        created:  after.findings.filter(f => !stood.has(wallTopologyFindingKey(f))),
+        standing: after.findings.filter(f =>  stood.has(wallTopologyFindingKey(f))),
+        repaired: before.findings.filter(f => !stands.has(wallTopologyFindingKey(f))),
+    };
+}
+
+/**
+ * The level as it WOULD BE if `wallId` were re-based to `newBaseLine` — the
+ * projection a PRE-COMMIT caller audits.
+ *
+ * Returns `null` when the subject is not in the list, which is *"I could not
+ * ask"* and must never be folded into *"nothing found"* (C83 §5.3). A caller
+ * that receives `null` has no basis to report anything at all.
+ *
+ * Non-mutating: the input array and every wall in it are left untouched, because
+ * the caller is holding the live store's records and a probe that edits the model
+ * it is judging is not a probe.
+ */
+export function projectWallTopologyInput(
+    walls: readonly WallTopologyInput[],
+    wallId: string,
+    newBaseLine: ReadonlyArray<{ readonly x: number; readonly y?: number; readonly z: number }>,
+): readonly WallTopologyInput[] | null {
+    if (newBaseLine.length < 2) return null;
+    let found = false;
+    const out = walls.map(w => {
+        if (w.id !== wallId) return w;
+        found = true;
+        return { ...w, baseLine: [newBaseLine[0]!, newBaseLine[1]!] };
+    });
+    return found ? out : null;
+}

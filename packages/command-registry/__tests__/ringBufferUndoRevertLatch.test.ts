@@ -394,3 +394,96 @@ describe('§L-4101 ARM 4 — the latch is depth-counted and floors at 0', () => 
         expect(world.cm.isReverting()).toBe(false);
     });
 });
+
+// ==========================================================================
+// ARM 5 — ⭐ IS THE FOUNDER'S 2026-08-22 MODEL RECOVERABLE? (ISSUE-LOG L-4706)
+// ==========================================================================
+
+describe('§L-4706 ARM 5 — the 55 m drag with ZERO re-weld entries, and one Ctrl+Z', () => {
+    /**
+     * Founder, 2026-08-22: he grabbed an existing wall believing he was drawing
+     * one, and dragged it fifty-five metres. `[PlanDrag] Wall committed
+     * Δ( -55.000 , -20.700 )`.
+     *
+     * ⭐ THE SHAPE THAT MADE THIS WORTH MEASURING RATHER THAN ASSERTING FROM THE
+     * ARCHITECTURE: his re-weld produced **0 entries and 0 refusals** —
+     *
+     *   §MOVE-REWELD-EMPTY-PLAN — 5 partner(s) considered, 0 re-weld entries and
+     *   0 refusals. NOT_WELDED_TO_SUBJECT_PREV_SEGMENT(51943/500 mm) ×5
+     *
+     * — because after 55 m every partner is 51 m from where the wall used to be,
+     * against a 500 mm weld tolerance. A gesture with no cascade behind it is
+     * precisely the shape that USED to leave partners stranded: the ring-buffer
+     * leg minted a forward cascade of its own (L-4100) and the next step undid
+     * THAT instead of the move.
+     *
+     * This arm answers the founder's practical question — *can I get my building
+     * back?* — at the store, on that exact shape.
+     */
+    function buildFarWallAndPartition(w: World): void {
+        // A partition the subject will be swept straight THROUGH, and a subject
+        // parked 55 m away from it. No joinedTo edges are seeded: the graph
+        // refuses, the service falls to the level scan, and every partner scores
+        // NOT_WELDED — reproducing `0 entries, 0 refusals`.
+        w.wallStore.add(wallRecord('w-part', [0, -5], [0, 5]));
+        w.wallStore.add(wallRecord('w-sub', [-5, 55], [5, 55]));
+    }
+
+    const pose2 = (w: World): string =>
+        JSON.stringify(['w-part', 'w-sub'].map(id => {
+            const b = w.wallStore.getById(id)!.baseLine;
+            return [id, [b[0]!.x, b[0]!.z], [b[1]!.x, b[1]!.z]];
+        }));
+
+    it('ONE undo step restores the whole gesture, and mints nothing on the way', () => {
+        world = makeWorld();
+        buildFarWallAndPartition(world);
+
+        const poseBefore = pose2(world);
+        const prevBaseLine = world.wallStore.getById('w-sub')!.baseLine.map(p => ({ ...p }));
+
+        expect(moveWall(world, 'w-sub', 0, -55).success).toBe(true);
+        expect(pose2(world)).not.toBe(poseBefore);          // the 55 m move really happened
+
+        // The shape the founder hit: no cascade rode along, so there is exactly
+        // ONE thing on the stack and exactly ONE thing to put back. Asserted
+        // rather than assumed — if a cascade DOES appear here the fixture has
+        // stopped reproducing his gesture and every line below is about
+        // something else.
+        const history = world.cm.getHistory();
+        const top = history[history.length - 1]!;
+        expect((top.structuralChildren ?? []).length).toBe(0);
+        const historyAfterMove = history.length;
+
+        // Ctrl+Z — the ring-buffer leg, latched (§L-4101).
+        ringBufferInverseWrite(world, 'w-sub', prevBaseLine, /* latched */ true);
+
+        // ⭐ THE ANSWER: the model is recoverable in one step.
+        expect(pose2(world)).toBe(poseBefore);
+        // …and the undo did not grow the stack it was consuming.
+        expect(world.cm.getHistory().length).toBe(historyAfterMove);
+        expect(world.cm.isReverting()).toBe(false);
+    });
+
+    it('UNLATCHED, the same recovery still lands — but only because the cascade was EMPTY', () => {
+        // ⚠ RECORDED SO NOBODY CONCLUDES THE LATCH WAS UNNECESSARY HERE. On this
+        // ONE shape the treadmill is harmless: the partners are 51 m away, so the
+        // cascade the unlatched undo triggers has nothing to propose and mints
+        // nothing. That is a property of THIS fixture, not of the undo — ARM 1
+        // above is the same write on a WELDED fixture and it mints entries.
+        // Stating the difference is the point: 'it happened to work' and 'it is
+        // correct' are not the same value.
+        world = makeWorld();
+        buildFarWallAndPartition(world);
+
+        const poseBefore = pose2(world);
+        const prevBaseLine = world.wallStore.getById('w-sub')!.baseLine.map(p => ({ ...p }));
+        expect(moveWall(world, 'w-sub', 0, -55).success).toBe(true);
+        const historyAfterMove = world.cm.getHistory().length;
+
+        ringBufferInverseWrite(world, 'w-sub', prevBaseLine, /* latched */ false);
+
+        expect(pose2(world)).toBe(poseBefore);
+        expect(world.cm.getHistory().length).toBe(historyAfterMove);
+    });
+});

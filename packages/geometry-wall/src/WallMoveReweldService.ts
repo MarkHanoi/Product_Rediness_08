@@ -64,7 +64,11 @@ import { DEFAULT_SNAP_RADIUS } from './WallJoinResolver';
 import {
     auditWallTopology,
     summariseWallTopologyAudit,
-    type WallTopologyAudit,
+    // §L-4700 — THE DIFF IS NO LONGER THIS FILE'S. It used to be a local `key()`
+    // closure right here; `wallPlacementGate` needs the identical question
+    // PRE-COMMIT, and two copies of an attribution rule in two layers is exactly
+    // how L-942 shipped broken twice. One derivation, two consumers.
+    attributeWallTopology,
 } from './WallTopologyIntegrity';
 
 type WallEventType = 'add' | 'update' | 'remove';
@@ -673,10 +677,11 @@ export class WallMoveReweldService {
                     : w
             ));
             const auditBefore = auditWallTopology(before as typeof after);
-            const key = (f: WallTopologyAudit['findings'][number]): string =>
-                `${f.kind}|${f.guestWallId}|${f.guestSide}|${f.hostWallId}|${f.hostSide ?? ''}`;
-            const stood = new Set(auditBefore.findings.map(key));
-            const created = auditAfter.findings.filter(f => !stood.has(key(f)));
+            // §L-4700 — the SHARED attribution. `wallPlacementGate` now asks the
+            // same question one step EARLIER, against the PROJECTED level, and the
+            // two must never be able to disagree about what "created by this
+            // gesture" means.
+            const { created } = attributeWallTopology(auditBefore, auditAfter);
 
             const line = summariseWallTopologyAudit(levelId, auditAfter);
             if (!line) return;

@@ -83,6 +83,14 @@ import {
   type CandidateWall,
   type WallData,
   type WallPlacementVerdict,
+  // §L-4700 — the topology probe, moved from POST-COMMIT to PRE-COMMIT. Pure and
+  // store-free, which is what lets this gate run it on a PROJECTED level.
+  auditWallTopology,
+  attributeWallTopology,
+  projectWallTopologyInput,
+  describeWallTopologyFinding,
+  type WallTopologyAttribution,
+  type WallTopologyInput,
 } from '@pryzm/geometry-wall';
 import { showToast } from '@app/ui/platform/PlatformToastSystem';
 import { ConfirmationCard } from '@app/ui/consequence/ConfirmationCard';
@@ -196,6 +204,23 @@ export interface WallPlacementGateResult {
    * reader cannot tell which of them stopped the move.
    */
   readonly reported?: readonly string[];
+  /**
+   * §WALL-TOPOLOGY-PREFLIGHT (L-4700) — findings this gesture WOULD CREATE,
+   * as the sentences a human reads, each carrying both C83 §10.3 numbers.
+   *
+   * ⚠ THE EXACT OPPOSITE OF `reported` ABOVE, which is why it is a separate
+   * field and not another array poured into that one. `reported` is *"true
+   * before the gesture and unchanged by it"*; this is *"not true before the
+   * gesture and true after it"*. Merging them would make the one thing the
+   * founder needed to know — which drag caused this — unrecoverable, which is
+   * the misattribution the whole before/after split exists to prevent.
+   *
+   * Present on an ALLOWED result today. If the founder makes a created
+   * `BODY_CROSSING` IMPOSSIBLE (C83 amendment; see the call site), the same
+   * sentences become a `refusalReason` and this field goes quiet on that arm —
+   * so a consumer must not read its presence as "the move went through".
+   */
+  readonly createdTopology?: readonly string[];
 }
 
 // The card used when the confirmation FLOW has not been composed in this session
@@ -471,6 +496,100 @@ function previewReweldForMove(
  * better manners. The one method checked below is `getById`, because without it
  * there is no subject to ask about at all.
  */
+/**
+ * §WALL-TOPOLOGY-PREFLIGHT (ISSUE-LOG L-4700) — WOULD THIS MOVE CREATE A
+ * TOPOLOGY FINDING THAT DOES NOT EXIST YET?
+ *
+ * ── THE REPORT THIS ANSWERS ──────────────────────────────────────────────────
+ * Founder, 2026-08-22: *"after trying just to create a wall: a big envelope was
+ * created (WHICH IS WRONG!!) — why? fix"*. He believed he was DRAWING a wall,
+ * grabbed an existing one, and dragged it 55 m:
+ *
+ *     [PlanDrag] Wall committed  Δ( -55.000 , -20.700 )
+ *
+ * The system SAW the damage and said so in words — and only after the fact:
+ *
+ *     [WallTopologyIntegrity] §WALL-TOPOLOGY-CORRUPT level='L0' — 1 finding(s)
+ *       across 45 wall(s) [BODY_CROSSING×1]
+ *     §WALL-TOPOLOGY-ATTRIBUTION: 1 of these 1 finding(s) were CREATED by this gesture
+ *
+ * ⭐ THAT IS A DETECTOR WITH NO CONSEQUENCE — the `refusing-half-needs-its-
+ * escape-hatch` family INVERTED. It named the culprit, in the right words, with
+ * both numbers, to `console` — and let it stand. `auditWallTopology` was wired
+ * into `WallMoveReweldService`, which is a STORE SUBSCRIBER: by the time it runs
+ * the wall has already moved, so the one derivation that can answer *"did THIS
+ * gesture do it?"* was reachable only from a place that could no longer act.
+ *
+ * ── WHY THE QUESTION IS ASKED HERE, AND NOT SOMEWHERE NEW ────────────────────
+ * Same chokepoint argument as this file's other three pre-flights: the plan drag
+ * (`MovePlanToolHandler.ts`) and the 3D gizmo drag-end
+ * (`registerTransformDragHandler.ts`) both funnel through `gateWallMove`, so
+ * neither gesture grows its own wiring and the two cannot drift.
+ *
+ * ⛔ AND THE DISCRIMINATOR IS **THE FINDING, NEVER THE NUMBER.** A 55 m drag is
+ * not the defect — moving a façade 55 m is legal on a real site, and a gate that
+ * refused on magnitude would be wrong on the founder's own next gesture. What is
+ * measured is *"this gesture CREATED a topology finding that did not exist
+ * before"*, which the audit already computes and hands over for free. A move of
+ * any size through clear space produces an empty `created`; a 300 mm nudge
+ * through a partition does not.
+ *
+ * ── WHAT IS PROJECTED, AND WHAT IS NOT ───────────────────────────────────────
+ * The projection re-bases ONLY the subject. It deliberately does NOT apply the
+ * re-weld plan's partner entries: this pre-flight runs alongside the re-weld
+ * pre-flight, not after it, and a projection that guessed at the cascade's
+ * output would be answering a question about a world the cascade might refuse to
+ * build. The audit `WallMoveReweldService` runs POST-commit sees the real
+ * post-cascade level and remains the authority on what actually happened; this
+ * one answers *"is the thing about to be dispatched sound on its own?"*.
+ *
+ * Scoped to the subject's OWN level, because the audit is per-level: two walls on
+ * different storeys crossing in plan is not a finding and never was.
+ *
+ * `null` ⇒ the question could not be asked (no subject, no level, degenerate
+ * baseline). Never folded into "clean" — C83 §5.3, and the same reading every
+ * other pre-flight in this file gives its own not-applicable branch.
+ *
+ * Never throws through: a probe that breaks a move is worse than no probe (the
+ * rule `WallMoveReweldService.auditLevelTopology` already states for its copy).
+ */
+function previewTopologyForMove(
+  wallId: string,
+  walls: readonly WallData[],
+  newBaseLine: readonly [PlanPointLike, PlanPointLike],
+): WallTopologyAttribution | null {
+  try {
+    const subject = walls.find(w => w.id === wallId);
+    if (!subject) return null;
+    const levelId = subject.levelId;
+    // Guests-only walls (no thickness) are kept: the audit itself decides what
+    // it can say about them and REPORTS the count, so filtering here would hide
+    // a half-audit behind a clean result.
+    const before = walls.filter(w => w.levelId === levelId) as unknown as readonly WallTopologyInput[];
+    if (before.length === 0) return null;
+    const after = projectWallTopologyInput(before, wallId, [
+      { x: newBaseLine[0].x, y: newBaseLine[0].y ?? 0, z: newBaseLine[0].z },
+      { x: newBaseLine[1].x, y: newBaseLine[1].y ?? 0, z: newBaseLine[1].z },
+    ]);
+    if (after === null) return null;
+    return attributeWallTopology(auditWallTopology(before), auditWallTopology(after));
+  } catch (err) {
+    console.warn('[wallPlacementGate] §WALL-TOPOLOGY-PREFLIGHT probe failed (non-fatal):', err);
+    return null;
+  }
+}
+
+/** Metres between the two poses' furthest-travelling endpoint — REPORTED ONLY.
+ *  ⛔ It is never a predicate. It exists so the sentence can say *"this MOVED an
+ *  existing wall 55.0 m"*, which is the half of the founder's *"why?"* that no
+ *  topology finding can carry. Nothing branches on it. */
+function moveDistanceM(
+  cur: readonly PlanPointLike[],
+  next: readonly [PlanPointLike, PlanPointLike],
+): number {
+  const d = (a: PlanPointLike, b: PlanPointLike) => Math.hypot(b.x - a.x, b.z - a.z);
+  return Math.max(d(cur[0]!, next[0]), d(cur[1]!, next[1]));
+}
 function previewSlabWeldForMove(
   wallId: string,
   newBaseLine: readonly [PlanPointLike, PlanPointLike],
@@ -842,10 +961,93 @@ export function gateWallMove(
     });
   }
 
+  // ── §WALL-TOPOLOGY-PREFLIGHT (L-4700) — THE FOURTH QUESTION, and the first
+  //    one that is about the WALL BODIES rather than about a weld ────────────
+  //
+  // The three pre-flights above ask, in order: does the new pose cross a hosted
+  // OPENING; can the junction re-weld be DONE; can the slab-loop weld be done.
+  // MEASURED 2026-08-22 — that is the complete set, and NONE of them asks
+  // whether the wall now passes straight THROUGH another wall:
+  //   grep -nEi 'distance|magnitude|plausib|hypot|maxMove|tooFar|displacement' \
+  //     apps/editor/src/engine/consequence/wallPlacementGate.ts   -> no arm
+  //   grep -nEi 'auditWallTopology|WallTopology|BODY_CROSSING' <same file>  -> not reached
+  // which is why the founder's 55 m drag through a partition returned
+  // `blocked: false` with every arm satisfied and nothing to say.
+  //
+  // ⚠ REPORTED, NOT REFUSED — and this is a DELIBERATE, NAMED restraint, not an
+  // oversight. Three reasons, in decreasing order of force:
+  //
+  //  1. THE PROBE HAS A DOCUMENTED FALSE-POSITIVE CLASS, in its own words:
+  //     `BODY_CROSSING` *"will also report a deliberately-authored X where two
+  //     walls genuinely cross (the shape `JunctionResolverV2` records as
+  //     `role: 'passthrough'`) … separating the two needs the junction INDEX,
+  //     which is not reachable from this layer."* Hard-refusing on a predicate
+  //     whose author wrote down that it cannot tell corruption from a legal X
+  //     would block an authored crossing outright. C01 §6 rule 6: that
+  //     limitation is MEASURED and stated, not assumed away.
+  //  2. A TWO-STEP EDIT IS LEGITIMATE. Move wall A across B, then move B — the
+  //     intermediate state is exactly this finding. Refusing step 1 makes the
+  //     pair impossible, and this is the same argument `b9f9d3b2` accepted when
+  //     it downgraded the incumbent arm.
+  //  3. L-942 SHIPPED A REFUSAL ON THIS GATE AND IT COST FOUR DEPLOYS. The
+  //     founder's words were *"THIS WAS ALL WORKING — BUT WITH ISSUES … BUT NOW
+  //     NOTHING WORKS."* Re-blocking the core gesture on a lane's own reading of
+  //     intent is precisely what C83 §10.6.6 forbids.
+  //
+  // ⭐ WHAT DOES CHANGE, AND IT IS THE PART THAT WAS MISSING: the finding is now
+  // computed BEFORE the dispatch instead of after it, and it REACHES A PERSON in
+  // the same one channel the refusals use (§L-921-ONE-CHANNEL) instead of
+  // `console.error`. The founder's question was *"why?"* — and the answer needs
+  // two facts his console never put together: that the gesture MOVED an existing
+  // wall (he thought he was drawing one) and by how far, and that it created a
+  // crossing that was not there before.
+  //
+  // ⛔ TO MAKE IT REFUSE — the predicate is ready and it is ONE branch:
+  // `topology.created.some(f => f.kind === 'BODY_CROSSING')`. It is a C83
+  // §10.2/§10.6 amendment (IMPOSSIBLE vs INADVISABLE) and needs the founder,
+  // exactly as the §L-942 note above says of its own restoration predicate. The
+  // measured cost of flipping it is item 1: authored X junctions become
+  // unmovable until the junction index reaches this layer.
+  let createdTopology: readonly string[] | undefined;
+  if (cur?.[0] && cur?.[1]) {
+    const topology = previewTopologyForMove(wallId, walls, newBaseLine);
+    // `null` is "could not ask", and `created.length === 0` is "asked, clean".
+    // They are different values and are never merged (§CONTEXT-DATA-HONESTY).
+    if (topology && topology.created.length > 0) {
+      const movedM = moveDistanceM(cur, newBaseLine);
+      const sentences = topology.created.map(describeWallTopologyFinding);
+      createdTopology = sentences;
+      console.warn(
+        `[wallPlacementGate] §WALL-TOPOLOGY-PREFLIGHT wall ${wallId}: this move CREATES ` +
+        `${topology.created.length} topology finding(s) that do NOT exist yet ` +
+        `[${topology.created.map(f => `${f.guestWallId}→${f.hostWallId}:${f.kind}`).join(', ')}]; ` +
+        `${topology.standing.length} were already standing and are not this gesture's. ` +
+        `REPORTED, NOT REFUSED — the move proceeds. Ctrl+Z reverts it in one step.`,
+        { movedM: Number(movedM.toFixed(3)), created: sentences },
+      );
+      const NL2 = '\n';
+      const lines = sentences.map(s => `  • ${s}`).join(NL2);
+      void Promise.resolve().then(() => {
+        chatSay(
+          `That drag **MOVED an existing wall** — it did not create one. Wall ${wallId} ` +
+          `travelled ${movedM.toFixed(1)} m, and that move creates ` +
+          `${topology.created.length} problem(s) in the model that were not there before:` + NL2 +
+          lines + NL2 +
+          `Press Ctrl+Z to put it back — one step undoes the whole gesture. ` +
+          (topology.standing.length > 0
+            ? `(${topology.standing.length} other finding(s) on this level were already ` +
+              `standing before this drag and are unchanged by it.)`
+            : ``),
+        );
+      });
+    }
+  }
+
   return {
     blocked: false,
     verdict,
     surfaced: false,
     ...(reportedPreExisting ? { reported: reportedPreExisting } : {}),
+    ...(createdTopology ? { createdTopology } : {}),
   };
 }
