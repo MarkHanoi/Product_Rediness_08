@@ -53,6 +53,7 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
   private _unsubRoomFocus:      (() => void) | null = null;
   private _unsubElementType:    (() => void) | null = null;
   private _unsubAttributeFocus: (() => void) | null = null;
+  private _unsubSelection:      (() => void) | null = null;
 
   init(scene: THREE.Scene): void {
     this._scene = scene;
@@ -72,17 +73,33 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
     this._unsubRoomFocus      = window.runtime?.events?.on('pryzm-inspect-room-focus',       this._onRoomFocus.bind(this)) ?? null;
     this._unsubElementType    = window.runtime?.events?.on('pryzm-inspect-element-type',     this._onElementType.bind(this)) ?? null;
     this._unsubAttributeFocus = window.runtime?.events?.on('pryzm-inspect-attribute-focus',  this._onAttributeFocus.bind(this)) ?? null;
+    // §ANALYSIS-IS-GREY-AND-PURPLE (L-6410) — the canonical selection event.
+    // `runtime-composer/src/types.ts:126` declares `'selection.changed'` as the
+    // replacement for the legacy `'pryzm-selection-changed'` DOM event, emitted
+    // whenever `runtime.selection.{add,remove,clear,set}` mutates the set. Using
+    // the retired DOM name here would subscribe to something nothing emits.
+    this._unsubSelection      = window.runtime?.events?.on('selection.changed',              this._onSelectionChanged.bind(this)) ?? null;
 
     // ── Bug fix: restoreFromStorage() fires BEFORE init() — re-check current mode
     // so the lens is applied if we're already in inspect mode when the scene is ready.
     // D.7.6: routed through getFrameScheduler() instead of raw rAF.
     getFrameScheduler().scheduleOnce('inspect-coordinator-init-catchup', () => {
       const wc = window.workspaceController; // TODO(D.4): replace with runtime.workspaceController — Phase D.4.x
-      if (wc?.getMode?.() === 'inspect') {
+      const startMode = wc?.getMode?.();
+      if (startMode === 'inspect') {
         const deltaMap = comparisonEngine.getDeltaMap();
         diagnosticMaterialManager.applyLens(this._activeLens, deltaMap, this._scene!, this._selectedRoomId);
         levelExplodeController.activate();
         console.log('[InspectModeCoordinator] Init catch-up — applied lens for pre-set inspect mode');
+      } else if (startMode === 'analysis') {
+        // §ANALYSIS-IS-GREY-AND-PURPLE (L-6410) — this catch-up carried the SAME
+        // enumeration gap as `_onWorkspaceMode`: it tested only for 'inspect', so
+        // reloading the page while Analysis was the active workspace produced an
+        // unstyled scene until the user switched modes and back. Both sites read
+        // the mode; both must know every mode that paints.
+        const deltaMap = comparisonEngine.getDeltaMap();
+        diagnosticMaterialManager.applyLens('analysis', deltaMap, this._scene!, this._selectedRoomId);
+        console.log('[InspectModeCoordinator] Init catch-up — applied lens for pre-set analysis mode');
       }
     });
 
@@ -99,6 +116,7 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
     this._unsubRoomFocus?.();      this._unsubRoomFocus = null;
     this._unsubElementType?.();    this._unsubElementType = null;
     this._unsubAttributeFocus?.(); this._unsubAttributeFocus = null;
+    this._unsubSelection?.();      this._unsubSelection = null;
     levelExplodeController.dispose();
   }
 
@@ -113,6 +131,25 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
       diagnosticMaterialManager.applyLens(this._activeLens, deltaMap, this._scene, this._selectedRoomId);
       levelExplodeController.activate();
       console.log(`[InspectModeCoordinator] Entered inspect — lens: ${this._activeLens}`);
+    } else if (mode === 'analysis') {
+      // §ANALYSIS-IS-GREY-AND-PURPLE (L-6410).
+      //
+      // ⛔ THE DEFECT THIS FIXES: 'analysis' appeared in NEITHER branch. The chain
+      // was `if (inspect) {…} else if (author || data) { restore }` — so entering
+      // Analysis FROM Inspect fell through both arms and left Inspect's cyan ghost
+      // painted over the model, while entering from Author applied nothing at all.
+      // The founder saw exactly that: "the analysis tab should behave like the
+      // inspect tab — when elements are selected they should be highlighted".
+      //
+      // ⚠ This is an ENUMERATED mode list. Adding a seventh workspace mode without
+      // adding it here reproduces the bug silently — the `else` does nothing. If a
+      // mode is added, it belongs in one of these three arms by explicit choice.
+      const deltaMap = comparisonEngine.getDeltaMap();
+      diagnosticMaterialManager.applyLens('analysis', deltaMap, this._scene, this._selectedRoomId);
+      console.log(
+        `[InspectModeCoordinator] Entered analysis — lens: analysis ` +
+        `(light-grey ghost + PRYZM purple selection)`,
+      );
     } else if (mode === 'author' || mode === 'data') {
       if (diagnosticMaterialManager.isActive()) {
         diagnosticMaterialManager.restore(this._scene);
@@ -124,6 +161,19 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
         levelExplodeController.deactivate();
       }
     }
+  }
+
+  /**
+   * §ANALYSIS-IS-GREY-AND-PURPLE (L-6410) — keep the Analysis lens' purple set in
+   * step with the real selection.
+   *
+   * `setAnalysisSelection` re-applies ONLY when the Analysis lens is the active
+   * one, so this subscription is inert in Author / Inspect / Data and cannot
+   * disturb Inspect's own palette.
+   */
+  private _onSelectionChanged(payload: unknown): void {
+    const ids = (payload as { ids?: readonly string[] })?.ids ?? [];
+    diagnosticMaterialManager.setAnalysisSelection(ids, this._scene);
   }
 
   private _onSetLens(payload: unknown): void {

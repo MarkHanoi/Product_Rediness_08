@@ -11,9 +11,22 @@
 export const DATA_WORKBENCH_STYLES = `
 
 /* ── Workbench container ──────────────────────────────────────────────────── */
+/* §DW-TOP-IS-ZERO-RESERVE-IS-LOCAL (L-6100). This was 'top: 40px' — a FULL-WIDTH
+ * empty band above the panel, reserved for the centred workspace-mode pill
+ * ('.wmb-toplevel-wrapper', top: 6px, bottom edge y = 36). The pill is CENTRED and
+ * the panel's own header content is at the far left (title) and far right
+ * (controls), so the band bought clearance nobody needed across the whole width
+ * and read as a gap.
+ *
+ * The Analysis surface already solved this the right way and is the precedent:
+ * '#anl-surface' is 'top: 0' and reserves LOCALLY on its right-hand actions row
+ * ('.anl-header-actions { margin-top: 44px }'), because the only thing that
+ * actually overlaps there is '.cp-presence-strip' (top: 8px; right: 8px → y = 36).
+ * Same geometry, same fix. The pill floats at z-index 200 over this panel's 110,
+ * so it stays visible where the header passes beneath it. */
 #dw-workbench {
   position: fixed;
-  top: 40px; right: 0; bottom: 0;
+  top: 0; right: 0; bottom: 0;
   width: 342px;
   background: var(--app-panel-bg);
   border-left: 1px solid var(--app-border);
@@ -576,7 +589,16 @@ export const DATA_WORKBENCH_STYLES = `
   font-size: 12px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.06em; color: var(--app-text-muted);
 }
-.dw-header-actions { display: flex; gap: 4px; align-items: center; }
+/* §DW-TOP-IS-ZERO-RESERVE-IS-LOCAL (L-6100) — the reserve the full-width band used
+ * to provide, now paid ONLY here, on the right, where '.cp-presence-strip'
+ * (fixed; top: 8px; right: 8px; z-index 9990) actually reaches y = 36. The title
+ * on the left needs none: nothing overlaps the left edge. Mirrors
+ * '.anl-header-actions { margin-top: 44px }' in analysisSurface.ts — if you change
+ * one, measure the other. */
+.dw-header-actions {
+  display: flex; gap: 4px; align-items: center;
+  margin-top: 44px; align-self: flex-start; flex-shrink: 0;
+}
 
 /* ── Relationship Explorer Panel (dw-rel-*) ──────────────────────────────── */
 /* Step 5: Moved from RelationshipExplorerPanel.ts independent injector to     */

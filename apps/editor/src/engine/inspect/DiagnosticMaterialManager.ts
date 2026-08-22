@@ -135,7 +135,21 @@ export type InspectLens =
   | 'openings'
   | 'finishes'
   | 'xray'
-  | 'assets';
+  | 'assets'
+  /**
+   * §ANALYSIS-IS-GREY-AND-PURPLE (L-6410) — the Analysis workspace's lens.
+   *
+   * Founder: *"the analysis tab should behave like the inspect tab — when elements
+   * are selected they should be highlighted: but use a grey light for elements and
+   * pryzm colour for selected elements."*
+   *
+   * It is a SEPARATE lens rather than a re-tint of `'ghost'` because
+   * §INSPECT-FOCUS-IS-THE-ONLY-COLOUR (L-3511) makes Inspect's cyan/violet a
+   * deliberate, tagged decision — and Inspect is the surface the founder has
+   * repeatedly called the good one. ⛔ Do NOT "unify" these two palettes: one
+   * shared constant would silently restyle Inspect the next time Analysis changes.
+   */
+  | 'analysis';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -164,6 +178,25 @@ const VOLUME_SELECTED_COLOR       = 0x8B5CF6; // violet jewel color
 const VOLUME_FLOOR_OPACITY        = 0.00; // floor overlays hidden in ghost/spatial — volumes take over
 
 const HOLOGRAPHIC_COLOR           = 0xCC00FF; // §2.A purple holographic extension
+
+/**
+ * §ANALYSIS-IS-GREY-AND-PURPLE (L-6410) — the ANALYSIS workspace palette.
+ *
+ * ⛔ These are NOT the Inspect values and must never be merged with them.
+ * `§INSPECT-FOCUS-IS-THE-ONLY-COLOUR` (L-3511) makes Inspect's cyan/violet
+ * deliberate, and the founder asked for grey + PRYZM purple in ANALYSIS only.
+ * One shared constant would silently restyle Inspect the next time Analysis moved.
+ *
+ * `ANALYSIS_GHOST_COLOR` is a LIGHT grey ("grey light", his words) — it must still
+ * read as present. ⚠ NOT `HEATMAP_GREY_COLOR` (0x888888), which is a mid grey used
+ * for "no requirement" and goes muddy at ghost opacities.
+ * `ANALYSIS_SELECTED_COLOR` is PRYZM purple #6600FF — the brand accent used by
+ * previews and `PreviewStyle.ts`, so selection reads as the product's own colour.
+ */
+const ANALYSIS_GHOST_COLOR        = 0xd8dce3; // light neutral grey
+const ANALYSIS_SELECTED_COLOR     = 0x6600FF; // PRYZM purple
+const ANALYSIS_SELECTED_EMISSIVE  = 0x3300aa; // keeps it legible against the grey
+const ANALYSIS_SELECTED_OPACITY   = 0.95;
 
 /**
  * §INSPECT-FOCUS-IS-THE-ONLY-COLOUR (L-3511) — THE Inspect blue.
@@ -207,6 +240,8 @@ export class DiagnosticMaterialManager {
   private _originals    = new WeakMap<THREE.Mesh, THREE.Material | THREE.Material[]>();
   private _savedMeshes: THREE.Mesh[] = [];
   private _activeLens:    InspectLens = 'ghost';
+  /** §ANALYSIS-IS-GREY-AND-PURPLE (L-6410) — ids the Analysis lens paints purple. */
+  private _analysisSelection: ReadonlySet<string> = new Set<string>();
   private _overlayObjects: THREE.Object3D[] = [];
   private _overlayGroup:   THREE.Group | null = null;
   private _active = false;
@@ -340,6 +375,7 @@ export class DiagnosticMaterialManager {
       case 'finishes': this._applyFinishes(scene, deltaMap, selectedRoomId);       break;
       case 'xray':     this._applyXray(scene, deltaMap);                           break;
       case 'assets':   this._applyAssets(scene, deltaMap, selectedRoomId);         break;
+      case 'analysis': this._applyAnalysisSelection(scene);                        break;
     }
 
     // Defer GPU disposal to the NEXT RAF tick.
@@ -1188,6 +1224,89 @@ export class DiagnosticMaterialManager {
         cumulativeOffset += w_m + 0.3;
       });
     });
+  }
+
+  // ── §ANALYSIS-IS-GREY-AND-PURPLE (L-6410) ──────────────────────────────────
+
+  /**
+   * The Analysis workspace's selection emphasis: everything reads as a light grey
+   * ghost, and whatever is SELECTED reads in PRYZM purple.
+   *
+   * Founder: *"the analysis tab should behave like the inspect tab — when elements
+   * are selected they should be highlighted: but use a grey light for elements and
+   * pryzm colour for selected elements."*
+   *
+   * ⛔ Deliberately NOT a re-tint of the `'ghost'` lens. `§INSPECT-FOCUS-IS-THE-ONLY-COLOUR`
+   * (L-3511) makes Inspect's cyan ghost + violet jewel a tagged decision, and this
+   * file already warns that `INSPECT_BLUE` is not `GHOST_EDGE_COLOR` "and that
+   * separation is deliberate". Two surfaces, two named palettes, one mechanism.
+   *
+   * ⚠ With an EMPTY selection every mesh ghosts and nothing is emphasised — which
+   * is the honest rendering of "nothing is selected", not a bug. The caller decides
+   * whether to apply this lens at all; see `InspectModeCoordinator._onWorkspaceMode`.
+   */
+  private _applyAnalysisSelection(scene: THREE.Scene): void {
+    this._pulseMeshes = [];
+    const selected = this._analysisSelection;
+
+    scene.traverse(obj => {
+      if (!(obj instanceof THREE.Mesh)) return;
+
+      // Room overlays would double-paint the floor under a selected volume.
+      if (obj.userData.isRoomOverlay) {
+        this._applyToMesh(obj, new THREE.MeshBasicMaterial({
+          transparent: true,
+          opacity:     VOLUME_FLOOR_OPACITY,
+          depthWrite:  false,
+        }));
+        return;
+      }
+
+      // `_resolveElementId` walks ancestors, so a child mesh of a door/window
+      // GROUP resolves to the group's id — the same reason `_resolveElementType`
+      // exists (see the file header on doors/windows carrying no own userData).
+      const id = this._resolveElementId(obj);
+      if (id !== null && selected.has(id)) {
+        this._applyToMesh(obj, new THREE.MeshPhongMaterial({
+          color:       ANALYSIS_SELECTED_COLOR,
+          emissive:    ANALYSIS_SELECTED_EMISSIVE,
+          opacity:     ANALYSIS_SELECTED_OPACITY,
+          transparent: true,
+          side:        THREE.DoubleSide,
+          depthWrite:  true,
+        }));
+        return;
+      }
+
+      // Everything else: the light grey ghost.
+      //
+      // ⚠ `resolveGhostRole`/`ghostOpacityForRole` return null for rooms, shader
+      // materials and hit-proxies — those must be left alone, which is why this
+      // reuses the shared role resolution instead of painting every mesh flat.
+      const role = resolveGhostRole(this._ghostSubject(obj));
+      const opacity = ghostOpacityForRole(role);
+      if (opacity === null) return;
+
+      this._applyToMesh(obj, new THREE.MeshPhongMaterial({
+        color:       ANALYSIS_GHOST_COLOR,
+        opacity,
+        transparent: true,
+        side:        THREE.DoubleSide,
+        depthWrite:  false,
+      }));
+    });
+  }
+
+  /**
+   * Replace the set of element ids the Analysis lens treats as selected. Re-applies
+   * only when the Analysis lens is the active one, so calling it from a selection
+   * subscription is safe in every other workspace.
+   */
+  setAnalysisSelection(ids: Iterable<string>, scene: THREE.Scene | null): void {
+    this._analysisSelection = new Set(ids);
+    if (scene && this._active && this._activeLens === 'analysis') {
+      this._applyAnalysisSelection(scene);
+    }
   }
 
   // ── Polymorphic Auditor helpers ────────────────────────────────────────────
