@@ -93,9 +93,35 @@ describe('LiftTypeStore', () => {
     let ts: LiftTypeStore;
     beforeEach(() => { ts = new LiftTypeStore(); });
 
-    it('ships the built-in types', () => {
+    // §FEAT-LIFT-COMPOUND-SYSTEM (L-5701) — this case USED to read
+    // `toEqual(['accessible', 'goods', 'passenger-8'])` and went red when
+    // `passenger-6` was added. It went red CORRECTLY: a hard-coded set is exactly the
+    // right guard for a census, because adding a lift type is a decision that should
+    // have to be made twice.
+    //
+    // ⭐ SO THE SET IS UPDATED, NOT RELAXED — the assertion still fails on an
+    // unannounced addition. What is ALSO pinned now is the half that actually matters,
+    // which the bare census could not express: that adding the founder's 6-person
+    // default did NOT displace the two standards-cited types. `accessible` cites
+    // EN 81-70 for its 1.1 x 1.4 m clear car (regulatory), and `passenger-8` is what
+    // `LiftToolPlacement.DEFAULT_TYPE_ID` pins for the residential-building generator.
+    // A future edit that "simplifies" the list by dropping either one fails here with
+    // a reason attached rather than with a diff.
+    it('ships the built-in types — passenger-6 ADDED, the standards-cited pair UNTOUCHED', () => {
         const ids = ts.getAll().map((t) => t.id).sort();
-        expect(ids).toEqual(['accessible', 'goods', 'passenger-8']);
+        expect(ids).toEqual(['accessible', 'goods', 'passenger-6', 'passenger-8']);
+
+        // The regulatory car keeps its EN 81-70 clear dimensions.
+        const accessible = ts.getAll().find((t) => t.id === 'accessible')!;
+        expect(accessible.defaults.shaftWidth).toBeCloseTo(1.8, 10);
+        expect(accessible.defaults.shaftDepth).toBeCloseTo(2.0, 10);
+
+        // The generator's type keeps its capacity.
+        expect(ts.getAll().find((t) => t.id === 'passenger-8')!.defaults.carCapacityPersons)
+            .toBe(8);
+        // …and the new one really is the 6-person car the founder asked for.
+        expect(ts.getAll().find((t) => t.id === 'passenger-6')!.defaults.carCapacityPersons)
+            .toBe(6);
     });
 
     it('every built-in type has positive shaft + door defaults', () => {
