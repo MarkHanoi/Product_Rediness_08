@@ -15,6 +15,7 @@ import type {
     LayoutDoor,
     LayoutDeclineDiagnosis,
     LayoutLimitation,
+    RoomType,
     ApartmentConstraints,
     ApartmentProgram,
     ScoringWeights,
@@ -27,6 +28,10 @@ import { scoreLayout } from './score.js';
 import { generateProceduralLayoutHonest } from './proceduralLayout.js';
 import { validateApartmentEnvelope } from './dimensions/validateApartmentEnvelope.js';
 import { generateDeterministicLayouts } from './tgl/runDeterministicLayout.js';
+// §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4410) — every refusal that names a
+// minimum must name what imposes it, or say that nothing does.
+import { provenanceSentence, resolveRoomMinimum } from './rules/habitability/index.js';
+import type { HabitabilityBinding } from './rules/habitability/index.js';
 
 export const LAYOUT_MODEL = 'claude-haiku-4-5-20251014';
 export const LAYOUT_MAX_TOKENS = 3000;
@@ -120,10 +125,26 @@ function withLimitation(
  * the per-room `9.3 m² against a 12.0 m² minimum` pairs, because "the layout engine
  * declined" without the numbers is an adjective, not a measurement (C73 §4.4).
  */
-export function declineToLimitation(d: LayoutDeclineDiagnosis): LayoutLimitation {
-    const rooms = (d.underMinAreaRooms ?? [])
+export function declineToLimitation(
+    d: LayoutDeclineDiagnosis,
+    /**
+     * §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4410) — WHERE this apartment is, so
+     * the per-room pairs name the instrument behind each minimum. ⭐ THIS IS THE EXACT
+     * STRING THE FOUNDER OBJECTED TO: *"master 9.3 m² vs 12 m² minimum"*, printed over
+     * a Barcelona room with a UK number and no attribution. ABSENT ⇒ the named PRYZM
+     * baseline, and the sentence then says the figure is PRYZM's own, not a law.
+     */
+    binding?: HabitabilityBinding | null,
+): LayoutLimitation {
+    const under = d.underMinAreaRooms ?? [];
+    const rooms = under
         .map(r => `${r.type} ${r.areaM2.toFixed(1)} m² vs ${r.minAreaM2.toFixed(1)} m² minimum`)
         .join('; ');
+    // One attribution line per DISTINCT room type named above — never a bare number.
+    // De-duplicated because the same type can appear twice (e.g. two bedrooms).
+    const attributions = [...new Set(under.map(r => r.type))]
+        .map(t => provenanceSentence(resolveRoomMinimum(t as RoomType, binding), null))
+        .join(' ');
     const missing = (d.missingMandatoryTypes ?? []).length > 0
         ? ` It could not place: ${[...new Set(d.missingMandatoryTypes)].join(', ')}.`
         : '';
@@ -133,7 +154,11 @@ export function declineToLimitation(d: LayoutDeclineDiagnosis): LayoutLimitation
         text:
             `The architectural layout engine DECLINED this programme on this shape, so what you ` +
             `see was produced by a simpler fallback generator. The engine's reason: ${d.reason}` +
-            `${rooms ? ` (${rooms})` : ''}.${missing}`,
+            `${rooms ? ` (${rooms})` : ''}.${missing}` +
+            // §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4410) — the numbers above are
+            // now always followed by what imposes them, or by a plain statement that
+            // nothing does. The pre-L-4400 sentence stopped at the pairs.
+            `${attributions ? ` ${attributions}` : ''}`,
     };
 }
 
@@ -435,7 +460,12 @@ export async function generateLayoutOptions(
             // the founder's Room 03-002 defect: a layout that looks authoritative
             // while a better engine has already said it does not work.
             const stamped = decline !== undefined
-                ? withLimitation(procedural.options, declineToLimitation(decline))
+                ? withLimitation(
+                      procedural.options,
+                      // §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4410) — carry WHERE
+                      // this is, so the decline names the instrument behind each figure.
+                      declineToLimitation(decline, input.constraints.habitability),
+                  )
                 : procedural.options;
             return {
                 options: stamped, status: 'ok', attempts: attempt,

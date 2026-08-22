@@ -386,6 +386,42 @@ export {
 } from './workflows/apartmentLayout/designParamsToScoringWeights.js';
 export type { DesignParams } from './workflows/apartmentLayout/designParamsToScoringWeights.js';
 export { generateProceduralLayout } from './workflows/apartmentLayout/proceduralLayout.js';
+
+// ── §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4411, lane JURIS11, 2026-08-22) ──
+//
+// The jurisdiction-keyed room-minima authority. Exported because the COMPOSITION
+// SURFACE (apps/editor) is where geography becomes a jurisdiction — it holds the site
+// location and it already depends on @pryzm/site-parcel-data, whose
+// `resolveRegisteredJurisdictionAt` is the ONE resolver PRYZM has. This module never
+// reaches for geometry; it consumes the resolved plain-string binding.
+//
+// ⛔ A NUMBER FROM HERE IS A LEGAL STATEMENT ABOUT SOMEONE'S HOME. Never render one
+// without `provenanceSentence(...)`, which has no arm that omits the instrument (or
+// the plain statement that there is none). See SPEC-HABITABILITY-MINIMA + ADR-0352.
+export {
+  HABITABILITY_COVERAGE,
+  HABITABILITY_STANDARDS,
+  PRYZM_BASELINE,
+  authorityLabel,
+  coverageFor,
+  provenanceSentence,
+  resolveRoomMinimum,
+  roomMinima,
+  structuredCountryCount,
+} from './workflows/apartmentLayout/rules/habitability/index.js';
+export type {
+  HabitabilityBinding,
+  HabitabilityBindingness,
+  HabitabilityConfidence,
+  HabitabilityCoverageForm,
+  HabitabilityCoverageRow,
+  HabitabilityExtent,
+  HabitabilityMatchTier,
+  HabitabilityStandard,
+  ResolvedRoomMinimum,
+  RoomMinimum,
+  RoomMinimumProvenance,
+} from './workflows/apartmentLayout/rules/habitability/index.js';
 export {
   buildLayoutPlan,
   buildLayoutCommands,

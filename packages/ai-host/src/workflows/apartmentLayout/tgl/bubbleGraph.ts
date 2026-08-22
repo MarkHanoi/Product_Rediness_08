@@ -9,6 +9,9 @@
 
 import type { ApartmentProgram, RoomType } from '../types.js';
 import { roomRule, doorAllowedBetween } from '../rules/programRules.js';
+// §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4408) — the AREA FLOOR is a function of
+// jurisdiction; `roomRule(...).minAreaM2` is now only the named PRYZM baseline.
+import { roomMinima } from '../rules/habitability/index.js';
 import { apartmentDimensionsFor } from '../dimensions/roomDimensions.js';
 import { computeFacadeValueField, type FacadeValueField } from '../environment/facadeValueField.js';
 import { computeDaylightDepthField, type DaylightDepthField } from '../environment/daylightDepthField.js';
@@ -282,6 +285,18 @@ export interface BubbleGraphOpts {
      *  flows to the public rooms / `absorberFill` studies, never a new bedroom. Default
      *  false ⇒ apartment + AUTO storeys byte-identical (round-up stays on). */
     readonly lockBedroomCount?: boolean;
+    /**
+     * §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4408, lane JURIS11, 2026-08-22) —
+     * WHERE this apartment is, so the AREA FLOOR each room is clamped up to is the one
+     * that jurisdiction's habitability instrument imposes rather than the UK figures
+     * this table shipped for a year (L-4210).
+     *
+     * ⛔ ABSENT ⇒ the ONE named PRYZM baseline (today's `ROOM_RULES` values, unchanged),
+     * so every un-migrated caller — the house path, the residential-building path,
+     * every test — allocates byte-identically. Absent means "PRYZM does not know where
+     * this is", never "the UK" and never "unconstrained".
+     */
+    readonly habitability?: import('../rules/habitability/types.js').HabitabilityBinding;
 }
 
 export function buildBubbleGraph(
@@ -547,8 +562,13 @@ export function buildBubbleGraph(
         //   ceil  = maxAreaFrac * availableAreaM2  (Infinity when no cap)
         // Stops the corridor's 0.85 weight from eating 25 % of a 60 m² studio
         // and stops the master from eating living/kitchen in small flats.
+        // §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4408) — the absolute area floor is
+        // resolved against the jurisdiction, not read off the one-column table. Absent
+        // binding ⇒ the named PRYZM baseline ⇒ `roomMinima(...).minAreaM2` equals
+        // `rule.minAreaM2` exactly, so this line is byte-identical for every existing caller.
+        const jurisdictionalMinAreaM2 = roomMinima(r.type, opts?.habitability).minAreaM2;
         const floor = Math.max(
-            rule.minAreaM2 || 3,
+            jurisdictionalMinAreaM2 || 3,
             (rule.minAreaFrac ?? 0) * availableAreaM2,
         );
         const ceil = rule.maxAreaFrac !== undefined

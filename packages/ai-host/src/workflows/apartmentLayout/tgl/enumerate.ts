@@ -36,7 +36,17 @@ import { validateCirculationSequence } from '../topology/validateCirculationSequ
 import { validateCorridorConnectivity } from '../topology/validateCorridorConnectivity.js';
 import { validateNoRoomOverlap, type RoomOverlap } from '../topology/validateNoRoomOverlap.js';
 import { windowMandatoryFor, isPrivate, roomRule } from '../rules/programRules.js';
-import { dimensionsFor } from '../dimensions/roomDimensions.js';
+// ⛔ §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4409, 2026-08-22) — `dimensionsFor`
+// USED TO BE IMPORTED HERE, AND THE §DIAG-MIN-AREA-GATE WAS ITS **ONLY** CONSUMER IN
+// THIS FILE. That is the measurement behind the finding: removing the gate's dependency
+// on `roomDimensions.areaMin` made the import unused (root tsc TS6133), which proves the
+// comfort framework was doing exactly one job here — deciding "not buildable" — and
+// doing it with a number the founder's own ruling could not reach. The comfort database
+// is untouched and keeps its real consumers (`validateRoomShape.ts`, `subdivide.ts`).
+// §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4409) — the HARD min-area reject is a
+// legal statement, so it keys on the jurisdiction's instrument, not on PRYZM's
+// comfort framework. See the §DIAG-MIN-AREA-GATE block for why that swap was required.
+import { roomMinima } from '../rules/habitability/index.js';
 
 /**
  * §DIAG diagnostic gate. All per-candidate / per-enumerate §DIAG breadcrumb logging is
@@ -163,6 +173,14 @@ export interface EnumerateInput {
      *  bedroom round-up in `buildBubbleGraph` so an explicit Ground bedrooms=1 ships
      *  EXACTLY 1. Absent/false ⇒ byte-identical (round-up stays on for AUTO storeys). */
     readonly lockBedroomCount?: boolean;
+    /**
+     * §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4409, lane JURIS11, 2026-08-22) —
+     * WHERE this apartment is, threaded to the §DIAG-MIN-AREA-GATE below so the HARD
+     * REJECT is measured against the habitability instrument of THAT place.
+     *
+     * ⛔ ABSENT ⇒ the ONE named PRYZM baseline. NOT "the UK", NOT "unconstrained".
+     */
+    readonly habitability?: import('../rules/habitability/types.js').HabitabilityBinding;
     /** §STAIR-KEEPOUT (A.21.D21) — OPTIONAL axis-aligned keep-out rectangles in
      *  the engine's plan frame (metres) — the vertical stair core(s) a multi-storey
      *  house reserves. Subtracted from the decomposed shell BEFORE subdivide so no
@@ -1256,6 +1274,11 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
             ...(input.spaceGenerosity !== undefined ? { spaceGenerosity: input.spaceGenerosity } : {}),
             envelopeFitGrowth,
             lockBedroomCount: input.lockBedroomCount ?? false,
+            // §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4408) — the allocator's absolute
+            // area FLOOR must be the same authority the §DIAG-MIN-AREA-GATE rejects on,
+            // or the engine sizes to one number and refuses on another. Absent ⇒ omitted
+            // ⇒ the named PRYZM baseline ⇒ byte-identical.
+            ...(input.habitability ? { habitability: input.habitability } : {}),
         },
     );
     let bubble: BubbleGraph = s.order === 'rev' ? { ...base, rooms: [...base.rooms].reverse() } : base;
@@ -2003,15 +2026,37 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
 
     // §DIAG-MIN-AREA-GATE (tracker §68.1, 2026-06-11) — collect every HABITABLE room
     // (living/kitchen/dining/master/bedroom/study) whose realised footprint is below
-    // its own `roomDimensions[type].areaMin`. A "2 m² bedroom" is the founder defect:
-    // the auto-sizer must DROP a room (the §FEASIBILITY-ALLOC drop logic) rather than
-    // shrink one below its minimum. A candidate that still carries such a room is
-    // HARD-INVALID below. Wet/service/circulation rooms are excluded — they come small
-    // by design and are governed by the short-side / drop logic, not an area floor.
+    // its minimum. A "2 m² bedroom" is the founder defect: the auto-sizer must DROP a
+    // room (the §FEASIBILITY-ALLOC drop logic) rather than shrink one below its
+    // minimum. A candidate that still carries such a room is HARD-INVALID below.
+    // Wet/service/circulation rooms are excluded — they come small by design and are
+    // governed by the short-side / drop logic, not an area floor.
+    //
+    // ⛔⛔ §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4409, 2026-08-22) — **THIS LINE
+    // READ `dimensionsFor(rs.type).areaMin`, AND THAT IS WHY THE FOUNDER'S OWN RULING
+    // NEVER REACHED HIM.**
+    //
+    // On 2026-08-22 (d11c225d, L-4210) he ruled `ROOM_RULES.master.minAreaM2` 12 → 8
+    // after his real 81 m² Barcelona plate produced ZERO layouts with the refusal
+    // *"master 9.3 m² vs 12 m² minimum"*. That commit edited `programRules.ts`. **This
+    // gate — the one that emits that exact sentence — reads a DIFFERENT TABLE**
+    // (`dimensions/roomDimensions.ts`, whose `master.areaMin` is 12 and
+    // `bedroom.areaMin` is 9, untouched since `9396069c`). So the number in his
+    // refusal was still 12 the moment after the fix shipped. Committed ≠ reachable.
+    //
+    // ⭐ AND THE TWO TABLES WERE NEVER RECONCILABLE BY PICKING ONE. `roomDimensions.ts`
+    // is PRYZM's COMFORT framework (areaComfortableMin/Max, aspect bands, usable wall);
+    // its header even claims *"the framework's minima are AT OR ABOVE programRules's"*,
+    // an invariant the founder's ruling INVERTED for master and bedroom. A comfort
+    // preference is not a habitability law and must not decide "not buildable". The
+    // HARD gate therefore keys on the habitability authority — jurisdictional, with the
+    // instrument attached — and `roomDimensions` keeps its (unchanged) role in the SOFT
+    // shape/quality validators. ABSENT binding ⇒ the named PRYZM baseline, which is
+    // `ROOM_RULES.minAreaM2` — i.e. the value the founder actually ruled.
     const underMinAreaRooms: { roomId: string; type: RoomType; areaM2: number; areaMinM2: number }[] = [];
     for (const rs of roomShapes) {
         if (!MIN_AREA_HABITABLE_TYPES.has(rs.type)) continue;
-        const areaMinM2 = dimensionsFor(rs.type).areaMin;
+        const areaMinM2 = roomMinima(rs.type, input.habitability).minAreaM2;
         const areaM2 = (rs.rect.x1 - rs.rect.x0) * (rs.rect.z1 - rs.rect.z0);
         if (areaM2 < areaMinM2 - 1e-6) {
             underMinAreaRooms.push({ roomId: rs.id, type: rs.type, areaM2, areaMinM2 });

@@ -24,6 +24,9 @@ import { getActiveScoringWeights, getActiveEngineTuning } from './activeDesignPa
 import { getRoomAreaOverrides } from './activeRoomAreaOverrides.js';
 import { getRoomTypeOverrides } from './activeRoomTypeOverrides.js';
 import { getCurrentSiteOrigin } from '../site/siteDispatch.js';
+// §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4411) — lat/lon -> jurisdiction, via the
+// ONE existing resolver. See resolveHabitabilityBinding.ts for why it lives at L7.
+import { resolveHabitabilityBinding } from './resolveHabitabilityBinding.js';
 import { relationshipUndeterminedLabel, relationshipArrayOrUnknown } from '../relationshipDetermination.js';
 
 /** A typed gather refusal (C78 §8.1 vocabulary) handed to `onUndetermined`. */
@@ -178,6 +181,18 @@ export function gatherLayoutPayload(
         payload.siteLatitudeDeg = origin.lat;
     }
 
+    // §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4411, 2026-08-22) — stamp WHERE this
+    // apartment is, from the SAME pinned origin the latitude stamp above reads, via the
+    // ONE existing jurisdiction resolver. The engine then sizes AND refuses against the
+    // habitability instrument of that place instead of the UK figures that produced
+    // "master 9.3 m² vs 12 m² minimum" over a Barcelona room (L-4210).
+    // ⛔ Always stamped, including on the un-resolved arms — a binding that says
+    // `resolution: 'none'` is what makes the PRYZM baseline VISIBLE as a default.
+    payload.constraints = {
+        ...payload.constraints,
+        habitability: resolveHabitabilityBinding(origin?.lat, origin?.lon),
+    };
+
     // A.25.3 — stamp the non-scoring engine tuning (adjacency / accessibility /
     // climate / space sliders) so the D-TGL engine RE-RUNS with the user's
     // priorities. Null ⇒ those four sliders are at the neutral midpoint (identity)
@@ -329,6 +344,12 @@ export function gatherRoomLayoutPayload(
     if (origin && Number.isFinite(origin.lat) && (origin.lat !== 0 || origin.lon !== 0)) {
         built.payload.siteLatitudeDeg = origin.lat;
     }
+    // §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4411) — the same stamp on the
+    // ROOM-scoped path, which is the one the founder was on when he hit L-4210.
+    built.payload.constraints = {
+        ...built.payload.constraints,
+        habitability: resolveHabitabilityBinding(origin?.lat, origin?.lon),
+    };
     const tuning = getActiveEngineTuning();
     if (tuning) built.payload.tuning = tuning;
 

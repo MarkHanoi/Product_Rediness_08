@@ -28,6 +28,11 @@ import type {
 // graph sizes against, so the two engines can no longer disagree about how big a
 // bathroom is.
 import { ROOM_RULES } from './rules/programRules.js';
+// §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4406) — the strip slicer prints the one
+// sentence the founder objected to ("below the N m² minimum this room type requires"),
+// so it is the first consumer wired to the jurisdiction-keyed authority.
+import { resolveRoomMinimum, provenanceSentence } from './rules/habitability/index.js';
+import type { HabitabilityBinding, ResolvedRoomMinimum } from './rules/habitability/index.js';
 import type { ShellAnalysis } from './shellAnalysis.js';
 import { polygonAreaM2 } from './shellAnalysis.js';
 import { scoreLayout } from './score.js';
@@ -175,22 +180,44 @@ export function allocateBandWidths(
     types: readonly RoomType[],
     spanM: number,
     crossM: number,
+    /**
+     * §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4406) — WHERE this apartment is.
+     * ABSENT ⇒ the named PRYZM baseline, byte-identical to the pre-L-4400 numbers.
+     * ⛔ Absent does NOT mean "the UK" and it does NOT mean "unconstrained": it means
+     * PRYZM does not know, and the shortfall sentences below say exactly that.
+     */
+    habitability?: HabitabilityBinding | null,
 ): {
     readonly widths: readonly number[];
-    readonly shortfalls: ReadonlyArray<{ readonly index: number; readonly type: RoomType; readonly areaM2: number; readonly minAreaM2: number }>;
+    readonly shortfalls: ReadonlyArray<{
+        readonly index: number;
+        readonly type: RoomType;
+        readonly areaM2: number;
+        readonly minAreaM2: number;
+        /** The instrument (or the explicit absence of one) behind `minAreaM2`. Present on
+         *  every shortfall — a bare number in a refusal is the L-4210 defect. */
+        readonly authority: ResolvedRoomMinimum;
+    }>;
 } {
     const n = types.length;
     if (n === 0 || !(spanM > 0) || !(crossM > 0)) return { widths: [], shortfalls: [] };
-    const rule = (t: RoomType) => ROOM_RULES[t];
+    // Resolve ONCE per type per call — the ladder is pure but this runs per candidate.
+    const resolved = new Map<RoomType, ResolvedRoomMinimum>();
+    const minima = (t: RoomType): ResolvedRoomMinimum => {
+        let r = resolved.get(t);
+        if (!r) { r = resolveRoomMinimum(t, habitability); resolved.set(t, r); }
+        return r;
+    };
     // The width this room needs to satisfy BOTH its area floor and its short-side floor.
     const floors = types.map(t => {
-        const r = rule(t);
-        const byArea = r && r.minAreaM2 > 0 ? r.minAreaM2 / crossM : 0;
-        const byShortSide = r ? r.minShortSideM : 0;
+        const r = minima(t);
+        const byArea = r.minAreaM2 > 0 ? r.minAreaM2 / crossM : 0;
+        const byShortSide = r.minShortSideM;
         // The band's short side is min(width, crossM); crossM is fixed, so only the
         // width is ours to set — and only when crossM already clears the floor.
         return Math.max(byArea, byShortSide);
     });
+    const rule = (t: RoomType) => ROOM_RULES[t];
     const weights = types.map(t => {
         const w = rule(t)?.areaWeight;
         return typeof w === 'number' && w > 0 ? w : 1;
@@ -209,15 +236,18 @@ export function allocateBandWidths(
         widths = weights.map(w => spanM * (w / sumW));
     }
 
-    const shortfalls: Array<{ index: number; type: RoomType; areaM2: number; minAreaM2: number }> = [];
+    const shortfalls: Array<{
+        index: number; type: RoomType; areaM2: number; minAreaM2: number; authority: ResolvedRoomMinimum;
+    }> = [];
     widths.forEach((w, i) => {
-        const r = rule(types[i]!);
-        if (!r || r.minAreaM2 <= 0) return;
+        const t = types[i]!;
+        const r = minima(t);
+        if (r.minAreaM2 <= 0) return;
         // Compare the DISPLAYED value, not the raw float: a band that rounds to
         // exactly the minimum must not print "12.0 m² — below the 12.0 m² minimum".
         const areaM2 = Math.round(w * crossM * 10) / 10;
         if (areaM2 < r.minAreaM2) {
-            shortfalls.push({ index: i, type: types[i]!, areaM2, minAreaM2: r.minAreaM2 });
+            shortfalls.push({ index: i, type: t, areaM2, minAreaM2: r.minAreaM2, authority: r });
         }
     });
     return { widths, shortfalls };
@@ -333,7 +363,10 @@ export function generateProceduralLayoutHonest(
         // §HONEST-PICKER (L-4200) — band widths from `ROOM_RULES`, not `span / n`.
         // The founder's card read "Hall 10.2 · Living 10.2 · Kitchen 10.2 · … ×7",
         // seven rooms of identical area, because this used to be one division.
-        const alloc = allocateBandWidths(order, span, cross);
+        // §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4406) — the minima are now a
+        // function of WHERE the apartment is. `constraints.habitability` absent ⇒ the
+        // named PRYZM baseline, byte-identical to the pre-L-4400 widths.
+        const alloc = allocateBandWidths(order, span, cross, constraints.habitability);
         /** Limitations specific to THIS variant (the reversed order can shrink a
          *  different room), merged with the shared set on the option below. */
         const limitationsForVariant: LayoutLimitation[] = [];
@@ -368,14 +401,32 @@ export function generateProceduralLayoutHonest(
         // Every band that still lands under its `ROOM_RULES.minAreaM2` is named with
         // BOTH numbers, once per option (variant B reverses the order, so the
         // shortfall set can differ between the two).
+        // ⭐ §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4407) — THE SENTENCE THE FOUNDER
+        // OBJECTED TO. It used to end *"below the N m² minimum THIS ROOM TYPE REQUIRES.
+        // This layout is not buildable as drawn."* — a flat legal claim, made with a UK
+        // number, over a room in Barcelona. Two changes, both load-bearing:
+        //   (a) it now names the INSTRUMENT behind the number, or says plainly that
+        //       nothing does (`provenanceSentence`, which has no arm that omits this);
+        //   (b) "not buildable as drawn" is asserted ONLY when the figure is actually a
+        //       regulation. Against a PRYZM default the layout is under PRYZM's own
+        //       guidance, which is a quality statement, not a legality one — and the
+        //       severity drops from `error` to `warning` to match. Telling an architect
+        //       their plan is unbuildable on the strength of our own default is the
+        //       permissive/restrictive error inverted, and it is still an error.
         for (const sf of alloc.shortfalls) {
             const nm = rooms[sf.index]?.name ?? cap(sf.type);
+            const regulated = sf.authority.areaIsRegulated;
             limitationsForVariant.push({
                 code: 'room-below-minimum',
-                severity: 'error',
+                severity: regulated ? 'error' : 'warning',
                 text:
                     `${nm} is ${sf.areaM2.toFixed(1)} m² — below the ${sf.minAreaM2.toFixed(1)} m² minimum ` +
-                    `this room type requires. This layout is not buildable as drawn.`,
+                    `applied to this room type. ` +
+                    `${provenanceSentence(sf.authority, sf.authority.areaIsRegulated ? sf.authority.displayName : null)} ` +
+                    (regulated
+                        ? 'This layout is not buildable as drawn.'
+                        : 'PRYZM is NOT telling you this is illegal where you are building — only that it ' +
+                          'falls short of our own default.'),
             });
         }
 

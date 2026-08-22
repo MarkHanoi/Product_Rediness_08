@@ -264,9 +264,38 @@ const INF = Number.POSITIVE_INFINITY;
  */
 export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     // ── Public / social ────────────────────────────────────────────────────────
-    // Numeric minima below are the UK BUILDING REGULATIONS / HQI mandatory values
-    // from the 248-constraint database (SPEC-LAYOUT-CONSTRAINT-DATABASE) — every
-    // value carries the constraint id it implements (e.g. DB-047 = constraint #047).
+    //
+    // ⛔ §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4400, lane JURIS11, 2026-08-22).
+    // THIS HEADER USED TO READ: *"Numeric minima below are the UK BUILDING REGULATIONS /
+    // HQI mandatory values from the 248-constraint database"*. **Every clause of that
+    // sentence was load-bearing and two of them were false**, which is how a foreign
+    // number came to be printed to a Barcelona architect with the word "mandatory"
+    // attached (L-4210):
+    //   • "Building Regulations" — the bedroom pair (11.5 / 7.5 m², 2.75 / 2.15 m) is
+    //     the **Nationally Described Space Standard**, not the Building Regulations.
+    //   • "mandatory" — NDSS is a PLANNING standard that binds only where a local
+    //     authority has adopted it, and HQI is a defunct Housing Corporation FUNDING
+    //     standard. Neither is mandatory even in England. BS 8300 (the bathroom rows)
+    //     is an accessibility design standard, not a habitability floor.
+    //   • "UK" was the only true clause — and it was the whole defect, in a product
+    //     whose first market is Catalonia.
+    //
+    // ⭐ **WHAT THESE NUMBERS ARE NOW: THE PRYZM ENGINEERING BASELINE — the ONE named
+    // fallback, and law nowhere.** The jurisdiction-keyed authority lives in
+    // `./habitability/` and is derived FROM this table (never retyped from it), so a
+    // founder ruling here still moves the fallback in the same commit. Resolve a real
+    // minimum with `resolveRoomMinimum(type, binding)`; size with `roomMinima(...)`;
+    // and NEVER print one of these numbers to a user without
+    // `provenanceSentence(...)`, which states that it is a default and not a law.
+    //
+    // ⚠ THIS FILE MUST NOT IMPORT `./habitability/`. The edge is one-way
+    // (habitability → programRules) because `standards.ts` reads ROOM_RULES at module
+    // scope to derive the fallback; closing the loop yields an undefined-at-load
+    // circular barrel. See habitability/index.ts.
+    //
+    // The DB-0NN constraint ids below are retained as the trace back to
+    // SPEC-LAYOUT-CONSTRAINT-DATABASE — they identify the row's ORIGIN, and no longer
+    // assert that the row is law anywhere.
 
     living: {
         type: 'living', occupancy: 'living-room', privacy: 'public',

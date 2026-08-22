@@ -268,6 +268,23 @@ export interface ApartmentConstraints {
     wallThickness: number;         // mm
     floorToCeiling: number;        // mm
     wallTypeId: string;
+    /**
+     * §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4406, lane JURIS11, 2026-08-22) —
+     * WHERE this apartment is, so the room minima the engine enforces are the ones
+     * the law of THAT place imposes rather than a foreign country's (L-4210).
+     *
+     * Resolved at the composition surface from the ONE existing geography resolver
+     * (`resolveRegisteredJurisdictionAt` in @pryzm/site-parcel-data) and carried here
+     * as plain strings — the layout engine never touches geometry-to-jurisdiction.
+     * See `rules/habitability/` and ADR-0352.
+     *
+     * ⛔ OPTIONAL, AND ABSENT MEANS "PRYZM DOES NOT KNOW WHERE THIS IS". It resolves
+     * to the ONE named PRYZM baseline, and every sentence built from it says the
+     * figure is a PRYZM default and not a regulation. Absent is NOT "the UK" and is
+     * NOT "unconstrained". A call site that omits it is byte-identical to the
+     * pre-L-4400 engine, which is why it is safe to migrate call sites one at a time.
+     */
+    habitability?: import('./rules/habitability/types.js').HabitabilityBinding;
 }
 
 export interface ApartmentProgram {

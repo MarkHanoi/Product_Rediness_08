@@ -273,6 +273,12 @@ export function generateDeterministicLayouts(
         ...(doorSpans && doorSpans.length > 0 ? { doorSpansWorld: doorSpans } : {}),
         ...(envelopeValidator ? { envelopeValidator } : {}),
         ...(lockBedroomCount ? { lockBedroomCount: true } : {}),
+        // §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4409) — WHERE this apartment is,
+        // carried off `ApartmentConstraints` (resolved at the composition surface from
+        // the ONE existing geography resolver). It drives BOTH the bubble-graph area
+        // floor and the §DIAG-MIN-AREA-GATE hard reject, so the engine sizes and refuses
+        // against the SAME authority. Absent ⇒ the named PRYZM baseline ⇒ byte-identical.
+        ...(constraints.habitability ? { habitability: constraints.habitability } : {}),
         ...(spineFirst ? { spineFirst: true } : {}),   // §SPINE-FIRST P4 (opt-in; off ⇒ byte-identical)
         ...(entryEngine ? { entry: entryEngine } : {}),   // §RESI-ENTRY-INTO-CORRIDOR (engine-frame anchor)
         ...(keepOutEngine && keepOutEngine.length > 0 ? { keepOutRects: keepOutEngine } : {}),
