@@ -944,6 +944,58 @@ solid occludes" rule has a catastrophic degenerate case in plan:
 
 ---
 
+### §4.6.7 — THE CROP IS THE CLIP (normative; elevation + section)
+
+> **The far plane of an elevation or section is EXACTLY the far edge of its crop rectangle, and
+> the near plane is EXACTLY the near edge.** There is no epsilon, no margin and no half-thickness
+> between what the user draws in plan and what the drawing contains.
+
+Founder, 2026-08-21: *"the elevation line … really defines accurately the place of cut of the view,
+which is sound — however the extension of it is not aligned with the further line of the square crop
+in plan view … the user should be able to absolutely and super accurately define the crop view, and
+this would/should define precisely what the elevation shows."*
+
+This clause sits beside §4.6 for the same stated reason §4.6 exists: **the quantity was re-invented
+per caller and drifted.** §4.6 governs which ZONE a segment is in; §4.6.7 governs which segments
+EXIST at all. They compose — narrowing the crop removes geometry, it does **not** reclassify what
+remains, and no change made to satisfy §4.6.7 may alter a cut / projected / beyond / hidden verdict.
+
+**§4.6.7a — ONE resolver, named.** Every producer of an elevation/section depth window — the
+projector's clip planes, the oriented section volume, the plan scope rectangle, its depth caption,
+and the scope-drag seed — **MUST** resolve through `resolveElevationClipRange()`
+(`packages/core-app-model/src/views/ViewDefinitionTypes.ts`). A second expression for this quantity is
+a contract violation regardless of whether its answer currently agrees, because agreement between two
+producers is a coincidence and not an invariant (C06 §13.3).
+
+**§4.6.7b — the three stores, and the precedence between them.** The window is persisted redundantly
+and this is not yet unified (`crop.farClip.offset`, `spatial.sectionVolume.near/far`,
+`spatial.viewRange.nearOffset/farOffset`). Until it is, the resolution order is normative:
+
+- **far** — `crop.farClip.offset` → `sectionVolume.far` → `viewRange.farOffset` → the caller's named
+  fallback. The dedicated field wins because it is the one the *"View Depth (m)"* input writes; if its
+  mirror won, a typed depth would be silently inert.
+- **near** — `sectionVolume.near` → `viewRange.nearOffset` → `0`. `viewRange.nearOffset` means *"cut
+  height above the FLOOR"* (DOC-1.5d) — a **plan** concept with no meaning in depth space — and
+  survives only because `roomInteriorElevations` writes it on views carrying no section volume.
+
+**§4.6.7c — `spatial.cropRegion` is NOT a clip range.** It is an axis-aligned XZ AABB used to CULL
+before the edge pass, read **only** for plan-family views (`resolveViewScope(viewType).planFamily`),
+and inflated outward by `CROP_REGION_CULL_MARGIN_M` on every side. Diagnostics **MUST NOT** print it
+adjacent to a clip range without labelling it as a cull box: an unlabelled pairing invites the reading
+that the margin is a clip defect, which it is not, and that misreading has already cost a lane.
+
+**§4.6.7d — no writer may store a depth window it cannot draw.** A stored `far` below
+`near + MIN_ELEVATION_CLIP_DEPTH_M` yields an elevation showing nothing behind a grab handle sitting
+on its own origin. Every writer clamps above that floor today; the floor lives in the shared resolver
+so it cannot be applied to one side of the equality only.
+
+**Gate:** `packages/core-app-model/src/views/__tests__/elevationCropIsTheClip.test.ts` (the rule over a
+depth sweep) and `apps/editor/__tests__/ElevationCropIsTheClipBox.test.ts` (the oriented box, plus a
+structural arm that fails when a fifth rival expression appears). ISSUE-LOG **L-4500..L-4506**.
+**Status:** added 2026-08-22.
+
+---
+
 ### §4.7 — THE ELEMENT FILTER WRITES INTENT (normative; ADR-0336, OI-058, P7 ARM B)
 
 **The Project Browser's ELEMENTS list is a WRITER of visibility intent, never an authority over

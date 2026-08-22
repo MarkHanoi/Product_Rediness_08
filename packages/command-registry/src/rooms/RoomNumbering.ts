@@ -14,6 +14,54 @@ export function resolveRoomLevelPrefix(levelId: string, ctx: CommandContext): st
   }
 }
 
+// ── §MINTED-NAME-FOLLOWS-NUMBER (L-4510) ─────────────────────────────
+//
+// THE DEFECT (founder, 2026-08-21, over a Level 1 plan: *"why in Level 1 are the
+// graphics not correct?"*). Two rooms on ONE level, both labelled `Room 01-002`,
+// with DIFFERENT areas — 25.1 m² and 20.5 m². Already recorded once at L-896 with
+// `Room 00-001` sitting on rooms 00-001 and 00-004; the mechanism was never closed.
+//
+// The mechanism is in this file. `assignUniqueRoomNumbers` MINTS `Room <number>`
+// as a room name (below), but its "may I overwrite this name?" test recognised only
+// '', 'Room', and the bare number string — **never the shape it had just minted
+// itself**. So the instant a room is RENUMBERED (its incoming number is already
+// taken, or fails `expectedPattern` because the level prefix moved — the prefix is
+// the level INDEX in the elevation-sorted list, so inserting a level shifts every
+// level above it) it gets a NEW number and KEEPS the OLD minted name. That name now
+// belongs to a different room. Two rooms, one label, two areas.
+//
+// THE RULE: a SYSTEM-MINTED name must always name the room’s OWN number. An
+// AUTHORED name ("Kitchen") is never touched by anything here.
+//
+// ⚠ A SECOND COPY of this predicate exists at
+// `packages/ai-host/src/intents/roomAutoLabel.ts` (`MINTED_NAME_RE`,
+// `isAutoDefaultRoomName`), whose own doc-comment names this exact bug. It is NOT
+// imported here: ai-host and command-registry are BOTH L2, so the import would be
+// sideways. Collapsing the two needs the predicate to move to a lower layer —
+// recorded as the exit condition on L-4510, not done here.
+
+/**
+ * The exact shape `assignUniqueRoomNumbers` mints below: `Room <prefix>-<seq>`.
+ * `\d{2,}` / `\d{3,}` rather than fixed widths because `levelPrefix` is
+ * `padStart(2)` and the sequence is `padStart(3)` — both are MINIMA, and a project
+ * with 100+ levels or 1000+ rooms on one level overflows them.
+ */
+const MINTED_ROOM_NAME_RE = /^Room \d{2,}-\d{3,}$/;
+
+/**
+ * True when `name` is a name the SYSTEM produced and may therefore replace.
+ *
+ * `incoming` is the room’s pre-existing number string: a name equal to it is the
+ * bare-number seed the generators write (`HouseLayoutExecutor` seeds "01", "02"…),
+ * which is also system output.
+ */
+export function isSystemMintedRoomName(name: string | undefined | null, incoming: string): boolean {
+  if (!name) return true;
+  if (name === 'Room') return true;
+  if (incoming !== '' && name === incoming) return true;
+  return MINTED_ROOM_NAME_RE.test(name);
+}
+
 export function assignUniqueRoomNumbers(
   rooms: RoomData[],
   levelPrefix: string,
@@ -70,13 +118,21 @@ export function assignUniqueRoomNumbers(
 
     if (incoming && expectedPattern.test(incoming) && !used.has(incoming)) {
       used.add(incoming);
-      return incoming === room.roomNumber ? room : { ...room, roomNumber: incoming };
+      // §MINTED-NAME-FOLLOWS-NUMBER (L-4510) — keeping the NUMBER is not enough. A
+      // room can arrive holding a minted name that names a DIFFERENT number (it was
+      // renumbered on an earlier pass and its name was stranded). Repair it here too,
+      // or the stale label survives every subsequent re-detect untouched.
+      const keptName = isSystemMintedRoomName(room.name, incoming) ? `Room ${incoming}` : room.name;
+      if (incoming === room.roomNumber && keptName === room.name) return room;
+      return { ...room, roomNumber: incoming, name: keptName };
     }
 
     const roomNumber = nextRoomNumber();
-    const name = !room.name || room.name === 'Room' || room.name === incoming
-      ? `Room ${roomNumber}`
-      : room.name;
+    // §MINTED-NAME-FOLLOWS-NUMBER (L-4510) — THE founder-screenshot line. This test
+    // used to be `!room.name || room.name === 'Room' || room.name === incoming`, which
+    // does not recognise `Room NN-NNN` — the shape minted on the very next line. A
+    // renumbered room therefore kept a name naming someone else’s number.
+    const name = isSystemMintedRoomName(room.name, incoming) ? `Room ${roomNumber}` : room.name;
 
     return { ...room, roomNumber, name };
   });

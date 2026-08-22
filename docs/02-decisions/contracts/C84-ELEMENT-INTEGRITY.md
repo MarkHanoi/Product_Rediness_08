@@ -1606,6 +1606,26 @@ A field must be **carried** or **declared dropped**. Never omitted.
   "repair" the room cascade would have shipped a no-op with a success report — the exact defect class
   this contract governs (EI-12).
 
+- **§8.i — A DERIVED value that stops following the value it was derived FROM.**
+  §MINTED-NAME-FOLLOWS-NUMBER (L-4510). `RoomNumbering.assignUniqueRoomNumbers` mints
+  `Room ${roomNumber}` as a room's NAME, then renumbers the room and leaves the name behind — its
+  "may I overwrite this?" test recognised `''`, `'Room'` and the bare number, but **not the shape it
+  had minted one line earlier**. Result: two rooms on one level both labelled `Room 01-002`, with
+  different areas, on the founder's Level 1 plan (and once before, at L-896, as `Room 00-001`).
+  > **The rule, general to this contract:** a value the SYSTEM derives must be re-derived whenever
+  > its input changes, and the predicate that decides *"is this system-derived or AUTHORED?"*
+  > **MUST recognise the system's own output**. A predicate that cannot recognise what its own
+  > module emits is EI-8a in a new costume — it is a comment about intent, enforced by nothing.
+  > The AUTHORED case is untouched, per §3 and EI-7e: a human name and a human number are kept
+  > verbatim.
+  > ⚠ Its companion defect is the one that makes it survive: `roomTagIdempotency.roomTagNeedsRefresh`
+  > **stored** `roomNumber` on every tag and **never compared it** (L-4515), and the room label is
+  > `name || roomNumber`, so a NAMED room's number never reached the label at all. **A drift test
+  > that omits a field the artefact carries reports "already correct" forever.**
+  > ⚠ And the counter that looked like the guard was not one: `RoomTagAutoPopulator`'s
+  > `N duplicate(s) removed` counts duplicate **TAGS keyed by room GUID**, so two rooms sharing a
+  > NAME can never be counted (L-4516). Its confident `0` was the number to distrust.
+
 ---
 
 ## 9. `[Z8]` NOT MEASURED — the honest register

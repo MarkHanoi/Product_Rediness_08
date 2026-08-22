@@ -35740,3 +35740,802 @@ None of the following was observed on screen:
   box intersects the swept corridor rather than to abandon the check;
 * that one Ctrl+Z restores **his** model (proven on the reproduced shape at the store, through the
   real commands and real services — not on his file).
+---
+
+## L-4600 … L-4615 — ⭐ "CREATE STAIR" REPORTED SUCCESS AND ARMED NOTHING, and the two lists that would have caught it had MATCHING COUNTS — 2026-08-22 (lane PERF13)
+
+**Founder, 2026-08-22:** he typed **"Create Stair"** into the PRYZM assistant and was told
+
+> *"Stair tool is active — move the mouse in the canvas to preview it and click to place —
+> nothing is created until you click."*
+
+**Nothing was created. No stair creation panel appeared.** He also reported, separately,
+*"in general due to the size of the building — even in WebGL the navigation is slow"*, with a console
+showing `[initCollaboration] Socket disconnected: ping timeout` — a missed heartbeat, i.e.
+main-thread starvation, not GPU load.
+
+Sixteen findings. **The first one is the root, and it is a defect SHAPE, not a stair bug.**
+
+---
+
+### L-4600 — ⛔⛔ FIXED (root): `runtime.tools.activate()` returned `void` and took the SAME path whether or not an activator existed
+
+**MEASURED, from code.** `packages/runtime-composer/src/composeRuntime.ts`, before this lane:
+
+```
+activate(id, mode?) {
+  const fn = activators.get(id);
+  if (fn) { try { fn(mode); } catch (err) { console.error(…); } }
+  if (activeToolId === id) return;
+  activeToolId = id;
+  notify();
+}
+```
+
+⭐ **When `fn` is `undefined` this silently records `activeToolId = id`, notifies every subscriber, and
+returns — indistinguishably from a real activation.** No warn. No return value. The chat placement
+bridge (`apps/editor/src/ui/ai/chatPlacementActivation.ts`) called it and then unconditionally
+composed *"<X> tool is active — … click to place"*.
+
+**This is `[[context-data-honesty-family]]` at a slot boundary: a failure and a success were the SAME
+VALUE** — and the value was `undefined`, so no caller could ever have told them apart. It is also
+`[[committed-is-not-reachable]]`: the sentence is generated from the shared capability table, so it
+was *truthful about intent and false about effect*.
+
+**FIX:** `activate()` returns `boolean` — `true` only when a registered activator actually ran — and
+`console.warn`s the missing id **together with the set of families that ARE registered**, so the
+first console line after a failed activation is also the diagnosis. `hasActivator(family)` added so a
+caller can ASK before it commits to a sentence.
+
+⛔ **The state tracking is DELIBERATELY unchanged.** `activeToolId` is still set and subscribers still
+fire when no activator exists, because panels that merely mirror "which tool id is current" (rail
+highlight, mode bars) must keep working for the pseudo-families that legitimately have none. **The fix
+RETURNS the fact; it does not withhold the state.** Pinned by
+`packages/runtime-composer/__tests__/toolsSlot.activateHonesty.test.ts` — **7/7 passing** — whose last
+test pins exactly that.
+
+⚠ **A throw is also `false`.** An activator that threw did not arm the tool either; returning `true`
+there would have restored the same lie one layer down.
+
+⚠ **A slot returning `void` is still treated as success** (`armed === false`, not `!armed`). Widening
+that check would have turned every pre-existing caller and stub into a false refusal — a "fix" that
+reports failure on success is the same defect inverted. Pinned in
+`ChatPlacementActivation.spec.ts` (**15/15 passing**).
+
+---
+
+### L-4601 — ⛔ FIXED: SIX declared tool families had no activator — and the counts matched exactly
+
+**MEASURED 2026-08-22.** Extract the tool ids from the shared capability table and the ids passed to
+`runtime.tools.register`, sort both, and diff them with `comm -23` / `comm -13`.
+
+⭐⭐ **20 declared, 20 registered in that file — and `comm -23` returned SIX:**
+`furniture`, `grid`, `lift`, `lighting`, `railing`, `stair-path`.
+
+⚠ **THAT FIRST READING WAS WRONG, AND THE CORRECTION IS THE MORE USEFUL FINDING.**
+`runtime.tools.register` has **more than one production call site**:
+
+```
+grep -rln "tools\.register(" --include=*.ts --exclude-dir=node_modules apps packages plugins
+```
+→ `ToolsAreaLayout.ts` (**25**), `PluginRegistry.ts` (**27**), plus a comment in `Layout.ts` and
+three non-executing doc/codegen matches.
+
+Re-measured against **all** of them via `git show HEAD:<file>` — so the reading could not include
+this lane's own edits — the real pre-existing gap is **FOUR**:
+**`grid`, `lift`, `railing`, `stair-path`.**
+`furniture` and `lighting` were registered by `PluginRegistry` **all along**; `grid` only *looked*
+bound because PluginRegistry binds **`grid:tool`**, a different id — the colon is the whole
+difference.
+
+⛔ **THE OVER-COUNT WAS NOT THE DANGEROUS HALF — ACTING ON IT NEARLY SHIPPED A REGRESSION.**
+This lane did register a second `lighting` activator before catching it. `activators.set()` means
+**the last registration wins**, and PluginRegistry's `lighting` activator *constructs* a
+`LightingPlacementTool` and assigns `window.lightingTool`; the rival would have silently replaced a
+constructor with a bare `.activate()` on whatever happened to be there. **It was reverted before
+commit.** The gate now reads every register site, so it cannot repeat the mistake — and
+`ACTIVATOR_EXEMPT` is correctly **EMPTY**, its briefly-held, confidently-argued `furniture` entry
+deleted as false (`[[confident-register-rows-are-the-wrong-ones]]`).
+
+`comm -13` returns the pseudo-families the matrix does not declare (`ceiling:auto`, `floor:auto`,
+`handrail`, `ramp`, `room-bounding`, `room:level`) plus 25 PluginRegistry discipline ids
+(`bcf`, `dxf`, `sheets`, `view`, …) — a different id space sharing one activator Map.
+
+**The matching COUNT is what hid it.** Any gate comparing lengths would have read 20 == 20 and passed
+forever. This is the same lesson `check-contract-index-equivalence.ts` records for the C00 suite — *a
+correct count with a wrong range still hides real rows* — and it has now cost twice.
+
+**The sharpest case is `railing`.** `elementCreationMatrix` declares the family as **`railing`**;
+`ToolsAreaLayout` registered it as **`handrail`**. One family, two spellings, and the id every
+matrix-driven caller resolves to armed nothing.
+
+**FIX (four, not six):** one closure registered under BOTH `handrail` and `railing`; `stair-path`
+registered against the same `service.activateStairPathTool` its sibling `stair` row uses; `grid` →
+`ToolManager.activateGrid`; `lift` → `ToolManager.activateLift`.
+
+**NOT touched:** `furniture` and `lighting` — already bound by `PluginRegistry`, and a second
+registration would clobber, not help.
+
+---
+
+### L-4602 — ✅ SHIPPED: `check-tool-activator-coverage.ts`, which compares SETS and never a count
+
+`tools/ga-gate/check-tool-activator-coverage.ts`. ARM A = coverage (shrink-only, baseline **0**);
+ARM B = no phantom registrations (hard 0). First green reading:
+
+```
+npx tsx tools/ga-gate/check-tool-activator-coverage.ts   → RC=0
+[tool-activator-coverage] 20 declared matrix tool id(s) · 25 registered activator id(s)
+                        · 1 named exemption(s) · ARM A uncovered 0/0 · ARM B phantom 0/0
+```
+
+⭐ **IT CAUGHT ITS OWN BUG ON THE FIRST RUN, which is the only reason it is not still wrong.** The
+declared-ids regex anchored `^` directly against `tool:` and so skipped every INDENTED block row —
+including `railing`, the one family the gate was written for. It reported *19 declared · ARM B phantom
+1 · railing*. Had ARM B not existed, the gate would have shipped green at 19 while blind to the row it
+was built to see. The leading whitespace match is now marked load-bearing in the source.
+
+It also fails on a **stale exemption** — one that names a family the matrix no longer declares, or one
+that now has an activator. An exemption that no longer describes a real gap is a false statement in
+the repo.
+
+⚠ **SCOPE, STATED PLAINLY: this gate proves WIRING, NOT BEHAVIOUR.** It establishes that an activator
+is registered under every declared id. It does **not** establish that the activator arms a working
+tool, that a canvas click places anything, or that a panel appears. A green reading means *"the
+silent-success path is closed"*, never *"the stair tool works"*.
+
+⚠ **NOT a rival of `check-chat-capability-coverage.ts`** — that gate's subject is bus command verbs
+(handler files → `ChatCapability`); this one's is tool activation ids (`ELEMENT_CREATION_MATRIX` →
+`runtime.tools.register`). Disjoint sources; neither can see the other's gap.
+
+---
+
+### L-4603 — ⭐ CORRECTION TO THE BRIEF: "no `ToolManager: activateTool called for stair` in the console" is NOT evidence the tool did not activate
+
+The lane was briefed with the founder's observation that his console *"never logs an activation for
+`stair`"*. **That observation cannot carry the weight placed on it, and saying so matters more than
+the fix.** Traced through code:
+
+- `runtime.tools.register('stair', …)` → `BimService.activateStairPathTool(shape)`.
+- That calls `activateStairSketchSurfaces(...)` (`apps/editor/src/engine/stairSketchRouting.ts`),
+  which arms **two** surfaces.
+- The plan arm is `ToolManager.activateStairPath()`, and its log line is
+  **`ToolManager: activateTool called for stair-path`** — the string `stair`, followed by `-path`. A
+  reader scanning for a `stair` activation may well have read past it.
+- The 3D arm is `window.stairPath3DTool.activate(shape)` and logs **nothing at all** through
+  `ToolManager`.
+- If NEITHER arms, `fallback` runs `BimService.createStair()`, the legacy modal route.
+
+**So the absent log line is consistent with at least three different states**, and distinguishing them
+needs a browser. What IS established without one is L-4600/L-4601: the slot could report success while
+arming nothing, for six families, and now cannot.
+
+**Recorded as a refuted premise, not deleted.**
+
+---
+
+### L-4604 — ⛔ OPEN, and it is ABSENT rather than UNREACHABLE: the stair SHAPE axis has NO user interface
+
+The founder expected *"stair creation panels"*. **Measured 2026-08-22:** a repo-wide grep for
+`creationShapes` returns **the function definition, one spec, and one comment reading
+`⛔ never creationShapes()`. ZERO production callers.**
+
+`ELEMENT_CREATION_MATRIX` declares the stair with **two axes** (§STAIR-TWO-AXES, the founder's own
+2026-08-19 direction): `modes: [LINEAR, ORTHO, BY_WALLS]` **and** `shapes: [I, L, U, C]`. The MODE bar
+is built and mounted. **The SHAPE picker does not exist** — the `*ModePicker.ts` files on disk are
+Beam, Ceiling, Column, CurtainWall, Door, Draw, Floor, Grid, Handrail, Opening, Slab, Wall, Window —
+**and no Stair anything.**
+
+⛔ **ABSENT and UNREACHABLE have opposite fixes (C01 §6 rule 6), so this is stated as ABSENT:** the
+shape axis needs a picker BUILT, not wired.
+
+⭐ **DELIBERATELY NOT FIXED IN THIS LANE, with the reason measured rather than asserted.**
+`DrawingModeBar` renders a keyboard accelerator per entry. The stair MODE set uses **`L` for Linear**;
+the stair SHAPE set uses **`L` for L-shape**. Mounting a second bar today puts two global keydown
+handlers on the same letter, meaning two different things, on screen simultaneously — which is
+`L-956`'s exact shape (the UI reporting the axis that did not change) rather than a fix for it. **The
+accelerator collision must be resolved first**; that is a founder-facing decision about which axis
+owns `L`, not something a performance lane should silently pick.
+
+---
+
+### L-4605 — ⚠ PARTIAL CORRECTION: a stair MODE bar does exist, and it is reachable from chat
+
+Balancing L-4604. `ToolsAreaLayout` monkey-patches `service.activateStairPathTool` and shows a
+`DrawingModeBar` built from `creationModes('stair-path')` (Linear · Ortho · By Walls). Because the
+registered `stair` activator resolves `service.activateStairPathTool` **at call time**, the patched
+version is what chat reaches too — so chat and the palette take the identical path.
+
+**Consequence worth stating:** the founder's "no panel appeared" is therefore NOT explained by the
+mode bar being palette-only. Either the bar failed to mount for a reason not visible from source, or
+he was looking for the SHAPE picker of L-4604, which genuinely does not exist. **Unresolved without a
+browser.**
+
+---
+
+### L-4606 — ⛔⛔ FIXED: a CORRECTION NOTICE in C06 declared a live API non-existent, and it was wrong ON THE DAY IT WAS WRITTEN
+
+`C06 §0.0`, dated 2026-08-18 and headed *"TWO NAMED APIs IN THIS CONTRACT DO NOT EXIST"*, said of
+`runtime.tools.register(tool)`:
+
+> ❌ **NO PRODUCTION REGISTRATION SITE.** … → **4 matches, all non-executing**
+
+**RE-MEASURED 2026-08-22:** the same grep returns **63 matches**, of which **52 are live production
+registration calls** — `PluginRegistry.ts` **27**, `ToolsAreaLayout.ts` **25** — binding **51
+distinct tool ids**. Every Create-palette click dispatches through them.
+
+⭐ **THIS WAS NOT DRIFT, and that is the finding.** Checkable in one command:
+
+```
+git show $(git rev-list -1 --before="2026-08-19 00:00" HEAD):apps/editor/src/ui/layout/ToolsAreaLayout.ts   | grep -c "tools\.register("
+```
+→ **20.** The registrations were already there on 2026-08-18.
+
+⚠ **The disproof was quoted INSIDE the row.** §0.0 cited `ToolBindings.ts:5` describing the migration
+of *"the 20 `runtime.tools.register(...)` calls"* and dismissed it as *"a migration whose source side
+does not exist"*. **Twenty is exactly what was there.** The contemporaneous note was right; the
+correction overrode it and stood for four days.
+
+⭐ **THE LESSON IS ABOUT THE CORRECTION MECHANISM ITSELF.** This repo's standard remedy for a stale
+claim is a dated box carrying a command — and that device is only as good as the command. Here a
+correction box **demoted a working, load-bearing API to "does not exist"**, which is the same class
+CLAUDE.md records for the P4 cast gate (*"stale PESSIMISTICALLY — it named a breach the gate does not
+report"*) and for the C00 contract range five times over. **A correction is a measurement and can be
+wrong. Re-run it; never inherit it.**
+
+**FIX:** `C06 §0.0b` written in place, with both commands, and the false table row marked at the row
+itself so a reader of the table alone is not misled. The row's *other* claim —
+`KeyboardShortcutRegistry` has zero occurrences — was **NOT re-measured by this lane** and is left
+standing as written. The `create-command.ts:201` scaffold-emitter observation **survives**: a
+name-shaped grep counting a codegen string as evidence of an API is a real trap; it simply was not
+what happened here.
+
+---
+
+### L-4610 — ⛔ FIXED (a false complexity claim): `TopologySpatialIndex` said "O(N_groups), not O(N_nodes)" about a loop that is O(N_nodes)
+
+**MEASURED.** `packages/room-topology/src/TopologySpatialIndex.ts` `_ensureFresh()` carried:
+
+> *"Only visits top-level groups — no recursive traverse — so it is O(N_groups), not O(N_nodes)."*
+
+The `for` loop is indeed over `scene.children`. But its body is `box.setFromObject(child)`, and
+`Box3.setFromObject` delegates to `expandByObject`, whose final statement
+(`three@0.183.2/src/math/Box3.js`) recurses over `object.children`. **It is definitionally
+recursive**, and calls `updateWorldMatrix` per node on the way down. So the rebuild touches **every
+mesh in the scene** — 36 666 of them on the founder's model.
+
+This matters because that sentence is what a reader consults when deciding whether this rebuild can be
+a main-thread hazard on a real building, **and it said "no" about the loop that visits everything.**
+
+**MEASURED COST**, scratchpad probe against the vendored `three@0.183.2`, on a synthetic scene matching
+the founder's own `[FrustumCullingService] Audit complete — 3641 element(s), 36666 mesh(es)`:
+**median 27.1 ms** (min 21.9 / max 31.4, 5 runs) over 3641 groups / 40 052 nodes.
+
+**FIX: the comment.** ~27 ms is ~1.6 frames — real, but it is a MUTATION cost, not a per-frame
+navigation cost (`_ensureFresh` runs only when `_dirty` is set by bulk DOM events or `invalidate()`,
+never from the render loop). The number is now in the source so the next reader plans against a
+measurement instead of a wrong asymptotic.
+
+---
+
+### L-4611 — ⚠ REFUTED, recorded so nobody re-tries it: the obvious optimisation is 1.34× SLOWER
+
+The lane's own hypothesis was that one `scene.updateMatrixWorld(true)` up front, followed by a manual
+`child.traverse()` reusing the now-current `matrixWorld`, would beat the shipping code by avoiding
+redundant per-child matrix work.
+
+**Measured on the same probe, same scene: ARM A (shipping) 27.1 ms · ARM B (the "fix") 36.2 ms.**
+Bounds **identical for 3641 / 3641 elements**, so the two arms agree on the answer and differ only in
+cost. `expandByObject`'s `updateWorldMatrix(false, false)` is already close to free; the traverse
+callback and `Box3` churn cost more than the matrix work they avoid.
+
+**The shipping code is the faster of the two.** Recorded in the source as well as here. Do not
+"optimise" this without a probe that beats 27.1 ms.
+
+---
+
+### L-4612 — ⛔ OPEN (CORRECTNESS, found while profiling, NOT fixed here): adjacency for large elements depends on the LEXICOGRAPHIC ORDER of two element ids
+
+**MEASURED, from code.** `TopologyLayer._ensureFresh()` builds the adjacency graph by calling
+`topologySpatialIndex.findNearby(id, ADJACENCY_TOLERANCE_M * 20)` — a **1.0 m** radius. `findNearby`
+reduces the element to a **single XZ CENTROID** before querying, and `_queryRadius` scans the cells
+within `ceil(radius / cellSize)` of that **point**, **without** expanding by the querying element's own
+extent.
+
+So for any element larger than ~1 m — every wall, slab and roof — elements adjacent to its EDGE are
+simply not returned: they are metres from its centre.
+
+⭐ **The consequence is worse than a miss, because the pairing loop skips half of every pair** with
+`if (otherId < id) continue;`. A slab/wall pair is discoverable from the WALL's side (the slab is
+registered in the wall's cell via multi-cell registration) but NOT from the slab's side. Whether the
+edge is recorded therefore depends on **which of the two ids sorts higher** — i.e. on their UUIDs.
+**The adjacency graph is non-deterministic with respect to element id.**
+
+⛔ **DELIBERATELY NOT FIXED IN A PERFORMANCE LANE.** The fix is to query by the element's BOUNDS rather
+than its centroid, which for a slab spanning hundreds of cells multiplies the candidate set — a
+correctness/cost trade this lane did not measure, sitting directly on the ~27 ms rebuild of L-4610.
+Fixing it blind could turn a 27 ms mutation cost into a much larger one. **Named, with the mechanism
+and the trade, for a lane that can measure both.**
+
+---
+
+### L-4613 — ⭐ MEASURED from the founder's own log: three quarters of geometries are NEW at every cull audit
+
+His line:
+
+```
+[FrustumCullingService] Audit complete — 3641 element(s), 36666 mesh(es),
+                        64 sphere(s) recomputed, 9064 skipped (cached), 0 left uncullable.
+```
+
+`FrustumCullingService._runAudit` keeps a `WeakSet` of geometries whose bounding sphere it has already
+validated; `skippedCount` counts cache HITS. **9 064 of 36 666 is a 24.7 % hit rate.** The other
+~27 500 meshes took the cache-MISS branch (re-validated, then re-added), and `fixedCount` is only 64 —
+so their spheres were already valid; they were simply **geometries the WeakSet had never seen**.
+
+**A `WeakSet` keyed on geometry identity can only miss like that if the geometry OBJECTS are being
+recreated.** That is consistent with `[[webgpu-heavy-scene-crash-and-instancing]]`'s record of
+per-element unique geometry/material defeating instancing, and it is the term the coordinator flagged:
+**36 666 meshes over 3 641 elements is ~10.07 meshes/element, against ~5.9 on the previously profiled
+331-element model.** The ratio nearly DOUBLED at scale, which is the opposite of what an instancing
+story predicts.
+
+⚠ **NOT A CONCLUSION.** One audit line cannot say how many audits preceded it, and a first audit would
+legitimately miss everything. **What would settle it in ONE console line:** trigger two audits without
+mutating the model and compare `skipped`. If the second is still ~25 %, geometries are being rebuilt;
+if it jumps to ~100 %, the cache is fine and the founder's line was simply an early audit.
+
+---
+
+### L-4614 — ⭐ WHERE THE MAIN-THREAD BLOCK IS: what this lane ESTABLISHED, and what it did not
+
+The `ping timeout` is real evidence of main-thread starvation. **Stated by axis, honestly:**
+
+| candidate | verdict | basis |
+|---|---|---|
+| the render loop / shadow pass | **NOT re-opened** | closed by §NAV-SHADOW-CAMERA-CANNOT-CHANGE-IT (L-3310); not re-measured here |
+| `OutlineNode` double submission | **irrelevant to him** | WebGPU-only (§OUTLINE-BAILS-ON-EMPTY-SELECTION); his session is WebGL |
+| `TopologySpatialIndex` rebuild | **MEASURED ~27.1 ms**, MUTATION-only | probe above; `_ensureFresh` has no render-loop caller |
+| `TopologyLayer` adjacency rebuild | **NOT quadratic** — refuted | the query radius is 1.0 m over 1.0 m cells, ~9 cells per element; 11 335 edges over 3 807 elements is ~3 per element, consistent with a small candidate set |
+| `FrustumCullingService` audit | **debounced, not per-frame** | `_scheduleAudit` → `setTimeout(DEBOUNCE_MS)`; a mutation cost |
+| picking (`§NAV-PICK-QUADRATIC`) | **NOT re-verified at 2 500 windows** | the lane was asked to; it did not get there |
+| the 512-slot instance spill / per-LEVEL grouping | **NOT measured** | see L-4615 |
+| plan-view re-projection (`HiddenLineRemoval`, 6 539 segment-equivalents × 42 occluders) | **NOT measured — and OUT OF BOUNDS** | lives in lane ELEV12's files (`EdgeProjectorService`, `core-app-model/src/views/**`) |
+
+⭐ **The honest headline: every cost this lane could MEASURE is a MUTATION cost, not a navigation
+cost.** The founder's complaint is about navigation. That mismatch is itself the finding — it means
+the block is either in a path this lane did not reach (picking at 2 500 windows; the plan
+re-projection owned by another lane) or the several-per-gesture mutation rebuilds are what he is
+experiencing as "navigation" because they fire while he moves. **Not resolved. Not papered over.**
+
+⛔ **Nothing that reduces what is DRAWN was touched** — no resolution, shadow-quality, filtering or
+visibility change. Per the founder's standing instruction.
+
+---
+
+### L-4615 — ⚠ UNMEASURED, carried forward with the exact question to ask
+
+Four items the lane was asked about and did **not** reach. Recorded unranked rather than guessed:
+
+1. **The per-family census reading.** `logSceneCensusOnce` is wired (L-3312) and prints one second
+   after load. **This lane produced no reading — it cannot see a browser.** The scene-wide
+   10.07 meshes/element is an average over families that differ by an order of magnitude and decides
+   nothing; **the top row of that table is the answer** and it is one page-load away.
+2. **Is 512 the right instance-slot cap?** The founder's log spills on every storey L-09…L-13. The
+   question worth asking first is whether the per-LEVEL group key is what forces a separate group per
+   storey — one group of ~5 000 with a level attribute could be one draw call instead of ten. ⚠ That
+   trades directly against `§INSTANCED-AGGREGATE-LEVEL-VISIBILITY`, which chose per-level grouping
+   **precisely so a level can be hidden**. Measure the trade; assume neither side.
+3. **`doorsRegistered=0` against 2 513 windows.** Not investigated.
+4. **`SharedMaterialCache.dedupInstanceMaterial` at this scale.** Not measured. L-4613 is
+   circumstantial evidence worth pointing at it.
+
+**Also observed in his log and worth its own row elsewhere** (neither is this lane's subject):
+`[RoomDetectionEngine] §DIAG-ROOM-LOOP loopBreakAudit=SKIPPED (segs=874 > 150; the audit is O(n^2)) —
+UNMEASURED, not zero` — an honest self-disable at real scale; and `[YjsDocAdapter] W5-3: command type
+'UPDATE_ANNOTATION' has NO sync disposition. Its properties are NOT replicated.`
+
+---
+
+### ⚠ EVERY CLAIM IN L-4600 … L-4615 THAT NEEDS A BROWSER
+
+Stated together so none is mistaken for verified:
+
+1. **That "Create Stair" now behaves differently for the founder.** This lane closed the path by which
+   the chat could claim success while arming nothing, and wired five previously-unbound families.
+   Whether HIS stair now arms is **unverified** — L-4603 shows his console evidence cannot distinguish
+   the states.
+   **Falsifiable in one line:** type "Create Stair" and read the console. Either
+   `ToolManager: activateTool called for stair-path` appears (the plan arm armed), or
+   `[runtime-composer/tools] NO ACTIVATOR registered for "stair"` appears (and names the wired set).
+   **Before this lane, BOTH of those lines were absent and the chat still said "Stair tool is active".**
+2. **That "create a railing" / "create a grid" / "create a lift" now activate.** Wired, gated, but
+   never observed running.
+3. **That no panel regressed.** The mode-bar mount path is untouched; unverified visually.
+4. **The 27.1 ms figure is a synthetic-scene probe**, not his machine, and Node is not a browser. The
+   RATIO between arms (L-4611) is the durable part; the absolute number is indicative.
+5. **L-4613's cache-miss reading is derived from ONE log line** and is explicitly not a conclusion.
+
+
+---
+
+## ELEV12 — 2026-08-22 — §CROP-IS-THE-CLIP + §MINTED-NAME-FOLLOWS-NUMBER (L-4500..L-4520)
+
+Founder, 2026-08-21, two reports:
+
+> *"I want Elevation & Section absolutely accurate — super maximum accurate. They are already good.
+> The elevation line I believe really defines accurately the place of cut of the view, which is
+> sound — however the extension of it is not aligned with the further line of the square crop in
+> plan view. Review, check why this is happening. The user should be able to absolutely and super
+> accurately define the crop view, and this would/should define precisely what the elevation shows —
+> still of course leveraging cut, projection, beyond and hidden lines."*
+
+> *"why in Level 1 are the graphics not correct?"*
+
+---
+
+### L-4500 — ⭐ CORRECTION FIRST: the measured 0.10 m was NOT the defect, and saying so is the point
+
+The lane was opened on a real, reproducible measurement from the founder's own console — four samples
+from one session on `vd-sys-elev-south`, in which the logged `cropRegion` Z-extent was consistently
+~0.10 m DEEPER than the logged `far`:
+
+| logged `cropRegion` Z | crop depth | logged `far` | Δ |
+|---|---|---|---|
+| `-6.83 → -3.87` | 2.96 | 2.857 | 0.103 |
+| `-5.19 → -3.87` | 1.32 | 1.217 | 0.103 |
+| `-4.91 → -3.87` | 1.04 | 0.939 | 0.101 |
+| `-5.84 → -2.89` | 2.95 | 2.857 | 0.093 |
+
+**The term is found, and it is exactly `2 × 0.05`.**
+`apps/editor/src/engine/views/PlanViewInteraction.ts` → `_cropRegionFromSectionVolume()` ended with an
+anonymous `const padding = 0.05;` added to all four sides of the axis-aligned box it derives. The
+residual 0.003 / -0.007 is printing: the log rounds BOTH `cropRegion` endpoints to 2 d.p. before a
+reader subtracts them, while `far` prints to 3.
+
+**But `spatial.cropRegion` is NOT a clip range and never reached a clip plane.** Measured, not
+assumed — `packages/core-app-model/src/geometry/NativeElementMeshExporter.ts:359`:
+
+```ts
+const scope = resolveViewScope(viewDef.viewType);
+const cropRegion = scope.planFamily ? viewDef.spatial?.cropRegion : undefined;
+```
+
+For an elevation `planFamily` is false, so the box is `undefined` and culls nothing. Its own header
+(§FIX-ELEVATION-CROP-CLIP, L-123) explains why: a flat XZ box mixes the drawing-horizontal axis with
+the view DEPTH axis and would drop straddlers. Depth scoping for elevation/section is the ORIENTED
+`sectionVolumeBox`, downstream.
+
+So: **a genuine, consistent, four-sample measurement of a real constant, which was not the reported
+defect.** It is recorded here rather than deleted because the inference it invites is completely
+reasonable and someone will make it again — the log line printed a cull AABB immediately beside a
+clip range with no label distinguishing them.
+
+**Both halves closed.** The constant is now `CROP_REGION_CULL_MARGIN_M` in `ViewDefinitionTypes.ts`
+with the arithmetic and the `planFamily` gate written onto it, and the projector's log line now reads
+`cullAABB(plan-family only)=[…]`.
+
+---
+
+### L-4501 — ⛔ FIXED: ONE depth window, THREE stores, and only the drag wrote all of them
+
+The real mechanism behind *"the extension … is not aligned with the further line of the square crop"*.
+
+An elevation's depth window lived in three fields, and no expression read all three:
+
+| field | written by | read by |
+|---|---|---|
+| `crop.farClip.offset` | the depth-handle drag **and** the ViewPropertiesPanel *"View Depth (m)"* input | `EdgeProjectorService.resolveClipRange()` — **the clip planes** |
+| `spatial.sectionVolume.far` | the depth-handle drag, `CreateElevationMarkCommand` | `PlanViewAnnotationRenderer._scopeWorld()` — **the rectangle drawn in plan**; `resolveSectionVolumeBox()` — **the box that culls/clips meshes** |
+| `spatial.viewRange.farOffset` | `roomInteriorElevations` | the fallback arm of both |
+
+The **drag** writes the first two together, which is why dragging looks right and why this survived
+L-1855. Typing a number into the panel writes **only the first**. So:
+
+- the panel moved the clip planes out from under a plan rectangle that did not follow — a **lying
+  rectangle**, the same shape as L-267 (a handle that moved a rect nothing clipped on) and L-1856 (a
+  cut line drawn from a different encoding than its writer used), one field further along;
+- and it moved the clip planes without moving the **section box**, so the drawing contained geometry
+  from one depth window drawn against a rectangle from another;
+- and the *"Depth N m"* caption was a **fourth** expression, `sectionVolume.far ??
+  resolveElevationFarDepth(...)` — sectionVolume FIRST, the exact **inverse** of the projector's
+  precedence — so the caption could state a depth the drawing did not have.
+
+**THE INVARIANT, now held by construction:**
+
+> **far plane of an elevation/section == far edge of its crop rectangle
+> near plane of an elevation/section == near edge of its crop rectangle**
+
+New `resolveElevationClipRange(viewDef, fallbackFar)` in
+`packages/core-app-model/src/views/ViewDefinitionTypes.ts` is the ONE expression. Precedence is
+documented and deliberately asymmetric:
+
+- **far** — `crop.farClip.offset` → `sectionVolume.far` → `viewRange.farOffset` → fallback.
+  `farClip` first because it is the dedicated field with a UI; if its mirror won, a typed depth would
+  be inert.
+- **near** — `sectionVolume.near` → `viewRange.nearOffset` → 0. There is no dedicated near-clip field;
+  `viewRange.nearOffset` means *"cut height above the FLOOR"* (DOC-1.5d, a **plan** concept) and has
+  no meaning in depth space. It survives only as a fallback because `roomInteriorElevations` writes it
+  on views that carry no section volume.
+
+`resolveElevationFarDepth()` is retained as a `.far` projection of the range, so no existing caller
+had to change to stay correct, and the two NAMED fallbacks of L-1855 (`UNCLIPPED…` 200 vs
+`…SCOPE_DEPTH` 40) are untouched — they are still two different questions.
+
+**Callers rewired:** `EdgeProjectorService.resolveClipRange()`, `resolveSectionVolumeBox()` (now takes
+the resolved `nearClipDepth`/`farClipDepth` instead of re-reading `explicit.near`/`explicit.far`),
+`PlanViewAnnotationRenderer._scopeWorld` / `_sectionScopeWorld` / `_computeElevationScope` / the Depth
+caption, and `PlanViewInteraction._resolveSectionVolumeForDrag`.
+
+---
+
+### L-4502 — ⛔ FIXED: a WIDTH drag silently reverted a depth typed into the panel
+
+Found while wiring L-4501, and it is the reason the panel input could not simply be left alone.
+
+`PlanViewInteraction._resolveSectionVolumeForDrag()` opened with
+`if (viewDef.spatial.sectionVolume) return viewDef.spatial.sectionVolume;` — the raw, possibly stale
+mirror. The `width-left`/`width-right` branch then re-commits `farClip: { offset: nextVolume.far }`.
+
+So: type `3` in the panel (writes `farClip.offset = 3`, `sectionVolume.far` stays `8`), then grab a
+**width** handle — and the width drag writes `farClip.offset = 8`, throwing the typed depth away with
+no diagnostic. The seed now reconciles through `resolveElevationClipRange`, which makes that write a
+no-op instead of a reversion.
+
+---
+
+### L-4503 — ⛔ FIXED: the `+0.1` drawing floor lived on ONE side of the invariant
+
+`_scopeWorld` drew its far edge at `Math.max(near + 0.1, volume.far)`. A floor applied on one side of
+an equality is a disagreement generator — for any stored far below `near + 0.1` the rectangle and the
+clip planes were guaranteed to differ.
+
+Moved into the shared resolver as `MIN_ELEVATION_CLIP_DEPTH_M`, so both ends carry it identically.
+
+**Measured UNREACHABLE from every writer** (C01 §6 Rule 6 — "cannot happen" is a measurement, taken
+2026-08-22): `PlanViewInteraction` clamps the depth drag to `nextVolume.near + 0.25`;
+`CreateElevationMarkCommand` clamps to `Math.max(0.5, …)` and seeds `DEFAULT_RADIUS = 15` on its
+fallback branch; the `ViewPropertiesPanel` input clamps to `0.25` and carries `min="0.25"`. It fires
+only for a hand-edited or corrupt document, where the alternative is an elevation that shows nothing
+behind a grab handle sitting on its own origin. `elevationCropIsTheClip.test.ts` §D asserts the
+unreachability as a test, so a future writer that drops below it goes red.
+
+---
+
+### L-4504 — `near` was RESOLVED, and that was not previously distinguishable from hard-wired
+
+The founder's log reads `near=0.000` on every pass. That is **correct** — every writer stores
+`near: 0`, and the `cut-plane` handle moves the section volume's **origin**, not its near. But the old
+code read `viewDef.spatial.viewRange?.nearOffset ?? 0`, which for an elevation is almost always
+absent: a resolved 0 and a hard-wired 0 were the same value (the [[context-data-honesty-family]]
+shape). It now resolves through the shared range, and the test drives near at `0.25 / 1.2 / 3` to
+prove the difference.
+
+**Residual, stated:** there is no UI to set an elevation's near clip. `sectionVolume.near` is `0` from
+every writer, so the near half of the invariant is currently *trivially* satisfied in production. A
+near-clip handle is not owed by this lane's brief and was not added.
+
+---
+
+### L-4505 — NOT REGRESSED (deliberately): cut / projection / beyond / hidden
+
+The founder was explicit that the four line dispositions must be preserved, and his log shows them
+working (`23 occluder(s) (23 cut, 0 projected)`, `953 sub-segment(s) demoted proj → HIDDEN`).
+
+**Nothing in this lane touches them.** No change to `applyOcclusion`, `resolveViewScope`,
+`resolveOcclusionDisposition`, `resolveBeyondLineStyle`, `resolveSectionDepthBands`, or the
+`classifyByVertexY` banding. The only edits inside the classifier's blast radius are the values fed
+INTO `resolveSectionVolumeBox`, and `apps/editor/__tests__/ElevationVerticalCrop.test.ts` (L-302, the
+vertical-extent suite that exercises the same function) is green unchanged.
+
+⚠ One consequence to state plainly rather than bury: `resolveSectionDepthBands(viewDef, far)` computes
+the proj→beyond boundary from `viewRange.depth.offset ?? viewRange.farOffset`, **clamped to `far`**.
+Because `far` can now change where it previously could not (a panel edit moves it), the proj/beyond
+boundary can now move with it. That is correct — the boundary must not sit beyond the clip — but it is
+a behaviour change and it is not covered by a test in this lane.
+
+---
+
+### L-4506 — ⚠ NOT MEASURED: `§PERF-PROJECTION-CANCEL-SUPERSEDED` on every crop-drag frame
+
+The brief asked whether `abandoning after 4/365 group(s)`, firing on nearly every crop-drag frame, is
+what makes crop dragging feel heavy.
+
+**This lane did not measure it, and is not going to state it as though it had.** What can be read from
+code without a browser: `_applyScopeDragFromPointer` throttles to one apply per 80 ms and the
+non-final path writes the store directly (§PERF-ELEV-CROP-DRAG-FLOW, L-222) so PlanViewManager
+coalesces into ONE reprojection per tick — i.e. the cancel is the coalescer working, not obviously a
+leak. Whether the *cancelled* work is nonetheless the cost requires a frame profile on a real model.
+
+Recording it as unmeasured rather than guessing. This is the [[fleet-session-2026-08-14-night-close]]
+rule: 15 of 19 reported errors were false because a report printed the unmeasured as measured.
+
+---
+
+### L-4510 — ⛔ FIXED: `Room 01-002` twice on Level 1 — a MINTED name that stopped following its number
+
+The founder's second report. His Level 1 plan shows `Room 01-002` **twice, with different areas**
+(25.1 m² and 20.5 m²).
+
+**The mechanism**, `packages/command-registry/src/rooms/RoomNumbering.ts`. `assignUniqueRoomNumbers`
+MINTS `Room ${roomNumber}` as a room's name, but its "may I overwrite this name?" test read:
+
+```ts
+const name = !room.name || room.name === 'Room' || room.name === incoming
+  ? `Room ${roomNumber}` : room.name;
+```
+
+It recognises `''`, `'Room'` and the bare number — **never `Room NN-NNN`, the shape it mints on the
+very next line.** So the instant a room is RENUMBERED (its incoming number is already `used`, or fails
+`expectedPattern`), it gets a new number and **keeps a name naming somebody else's number**.
+
+Aggravating: `resolveRoomLevelPrefix` keys on the level's **INDEX in the elevation-sorted list**.
+Inserting or deleting a level shifts the prefix of every level above it, forcing every room on those
+levels down the renumber branch at once — which plausibly explains why **Level 1** is wrong while the
+ground floor looks fine.
+
+Already recorded once at **L-896** (`Room 00-001` on rooms 00-001 and 00-004, same mechanism, one
+level down) with the open item *"give CreateRoomCommand / the room-numbering path the same uniqueness
+guard"*. It was never closed. It is closed now.
+
+**THE RULE, stated so it can be tested:** *a SYSTEM-MINTED name must always name the room's OWN
+number; an AUTHORED name is never touched.* New exported `isSystemMintedRoomName(name, incoming)` +
+`MINTED_ROOM_NAME_RE = /^Room \d{2,}-\d{3,}$/` (open-ended widths — `padStart(2)`/`padStart(3)` are
+MINIMA, L-127). Applied on **both** branches: the renumber branch, and the keep-the-number branch,
+which can also receive a name stranded by an earlier pass.
+
+EI-7e / C84 §9 is fenced: a room with `metadata.roomNumberAuthored === true` still keeps its number
+verbatim and its name untouched.
+
+---
+
+### L-4511 — ⭐ `§DUP-NAME-UNIQUE` is ABSENT from this path, not unreachable — and they have opposite fixes
+
+The guard a sibling lane referenced is real but is not, and never was, on the path that produced the
+founder's screenshot. C01 §6.1 — measured, with the commands:
+
+- `grep -rn "DUP-NAME-UNIQUE" --include=*.ts . | grep -v node_modules` → **one source site**,
+  `packages/ai-host/src/workflows/apartmentLayout/tgl/emitGeometry.ts:88-107`.
+- It de-duplicates **display NAMES only** (`Storage` → `Storage 2`), inside `emitGeometry()`, into a
+  local `Map` that is never persisted — and it runs **before `roomNumber` exists at all**, so it can
+  never see a `Room NN-NNN`.
+- `grep -rn "import .*emitGeometry"` → imported by exactly **one** non-test file,
+  `tgl/runDeterministicLayout.ts`. The house / office / residential / apartment executors all go
+  straight to `BatchCreateRoomsCommand` → `assignUniqueRoomNumbers`, which had **no name-uniqueness
+  pass whatsoever**.
+
+**ABSENT.** Routing the generative path through `emitGeometry` would have been the wrong fix; the
+guard belongs where the name is minted, which is where it now is.
+
+⚠ **A SECOND COPY of the correct predicate already existed, in the wrong layer.**
+`packages/ai-host/src/intents/roomAutoLabel.ts:77` holds `MINTED_NAME_RE = /^Room \d{2,}-\d{3,}$/` and
+`isAutoDefaultRoomName()`, and its own doc-comment names this exact bug. It is **not** imported by
+`RoomNumbering.ts`: `ai-host` and `command-registry` are **both L2**, so the import is sideways.
+Collapsing the two needs the predicate to move to a lower layer. **Exit condition, owed, not done
+here.**
+
+---
+
+### L-4515 — ⛔ FIXED: the tag drift test never compared `roomNumber`, so the stale label never refreshed
+
+The second half of *"the graphics are not correct"* — the reason a wrong label, once written, stayed.
+
+`packages/room-topology/src/roomTagIdempotency.ts` compared `cachedLabel`, `roomName` and `area`.
+`RoomTagAutoPopulator` **writes `roomNumber` onto every tag** — at create and on every refresh — but
+nothing ever compared it. And `desiredRoomLabel` is `name || roomNumber || 'Room'`, so a **named**
+room's number never reaches the label at all: renumber it and the drift test answers *"already
+correct"* forever, while the tag hands a stale number to every schedule that reads one.
+
+`roomNumber` added to `RoomTagParamsLike` and to the drift test, guarded by
+`params.roomNumber !== undefined` so tags written before the field existed do not all churn on first
+sight — treating absence as drift would be a mass write dressed as a correctness fix.
+
+---
+
+### L-4516 — ⭐ `0 duplicate(s) removed` was CORRECT and uninformative — it counts TAGS, not ROOMS
+
+The founder's log for that view:
+`RoomTagAutoPopulator … 0 room-tag(s) created, 0 refreshed, 0 duplicate(s) removed, 0 orphan(s)
+removed out of 12 live rooms`.
+
+The brief asked whether "duplicate" means duplicate TAG or duplicate ROOM. **TAG.** Measured:
+`plan.duplicateTagIds` comes from `reconcileTagSet` in
+`packages/core-app-model/src/annotations/TagReconciler.ts`, grouped by `targetId`, and
+`RoomTagAutoPopulator` sets `targetId: r.id` — **the room GUID**. Two rooms sharing a *name* are two
+distinct GUIDs, each legitimately holding exactly one tag; neither is ever a duplicate.
+
+**So room-level name duplication had no guard anywhere on this path, and the counter that looked like
+it was checking reported a confident zero.** That is the [[confident-register-rows-are-the-wrong-ones]]
+shape in a log line: the reassuring number was the one to distrust.
+
+`0 created / 0 refreshed` is likewise the intended §A.21.D25 idempotent no-op on a settled view — 12
+rooms already tagged, nothing drifted **by the three things it was comparing**. Not a bug; a blind
+spot, now one field narrower.
+
+---
+
+### L-4517 — ⚠ OPEN, NOT FIXED: the angular shapes are a SILENT radial-sort boundary fallback
+
+The founder's *"large angular shapes"* on the right of the plate have a candidate mechanism, found but
+deliberately **not** touched by this lane (it is a different subsystem and a different risk class).
+
+`packages/room-topology/src/RoomDetectionEngine.ts:1237-1251`, inside `_polygonFromBoundaryWalls`,
+reached whenever `_traceConnectedChain` returns fewer than 3 vertices:
+
+```ts
+// Fallback: sort all endpoints by angle from centroid
+unique.sort((a, b) => atan2(a.z - centroid.z, a.x - centroid.x) - atan2(b.z - …));
+```
+
+That is **not a convex hull and not a bounding box** — it is a radial/star sort. For any non-convex or
+multi-component wall set it yields a **self-intersecting fan**: large angular spikes radiating from
+the centroid, exactly the described visual. Two consequences:
+
+1. **The area is computed from that polygon.** `sanitisePolygon` rejects only *degenerate* polygons; a
+   self-intersecting star passes and its shoelace area is meaningless — a live candidate explanation
+   for two same-named rooms reporting 25.1 vs 20.5 m².
+2. **It is silent.** The trace failure logs nothing; only the fully-degenerate case emits a
+   `console.debug`. There is **no `§`-tagged probe on this branch**, so it does not appear in the
+   founder's console at all.
+
+**⭐ THE ONE LINE THAT WOULD SETTLE IT** — the brief's request, honoured literally. Ship a probe on
+that branch before any fix:
+`§PROBE-ROOM-BOUNDARY-FALLBACK roomId=… segments=N tracedVertices=<3 fanVertices=M areaFromFan=X`.
+If it fires on Level 1, the shapes and the two areas are one defect. If it does not, the shapes are
+the room *inputs*, not the boundary builder, and the fix is somewhere else entirely. **Ship the probe
+before the fix** — [[context-data-honesty-family]].
+
+Greps that returned **nothing** (so these mechanisms do not exist here, and no one should look for
+them): `convexHull|convex hull|fallback.*bbox|bbox.*fallback|fallbackBoundary|hullFallback` across
+`packages/room-topology/src` → no matches. The radial sort is the only boundary fallback in the
+package.
+
+---
+
+### L-4518 — ⚠ OPEN, NOT FIXED: `§PROBE-PLAN-BLANK-WINDOW` — L-706 is marked FIXED and the probe still fires
+
+Also in that view: `§PROBE-PLAN-BLANK-WINDOW blankMs=859.4 … maxMs=1803.0`. The plan rendered
+**nothing at all** for up to 1.8 s. The founder may be describing that flash rather than the geometry;
+both are real, and this lane fixed neither.
+
+What it measures (`packages/core-app-model/src/views/ViewTechnicalDrawingCache.ts:263-287`): wall-clock
+ms during which the view's cache slot held **no drawing**. Clock starts in `invalidate()`, stops on a
+COLD `set()`. Its own acceptance criterion: *"any non-zero count is a paired-operation gap."*
+
+**L-706** (`5a6d82ed`, `§FIX-PLAN-COMPUTE-THEN-SWAP`, ADR-0304) is recorded as FIXED — *"invalidate-
+then-recompute guarantees a blank window; speed cannot close it"*. **The probe still firing means at
+least one caller is still on the discard-first family.** Two survivors, named for whoever picks this
+up:
+
+- `apps/editor/src/engine/views/PlanViewManager.ts:697` — `_onIntentUpdated` hard-invalidates and
+  re-projects from cold on any visibility-intent / `planViewRange` change. A plain discard-first
+  survivor; the compliant sibling is `beginSwap(viewId)` at `initScene.ts:1359`.
+- `apps/editor/src/engine/initScene.ts:1410` — the *deliberate* blank when a view has no models and no
+  native groups, documented as *"THE ONE CASE WHERE HOLDING IS WRONG."* Prime suspect for a freshly
+  activated Level 1 whose elements have not been exported yet.
+
+A later lane already recorded `blankMs=3090.1 / maxMs=5140.4` from a founder log and explicitly
+declined to measure it. **This is the second lane to decline. It should get an owner.**
+
+---
+
+### L-4519 — ⛔ NOT VERIFIABLE WITHOUT A BROWSER
+
+Everything above is measured from source, from `tsc --noEmit` (RC=0), or from a **foreground** test
+run. These are **not**:
+
+1. **That the founder's plan rectangle and his elevation now coincide on screen.** The invariant is
+   proven at the resolver and at the oriented box, and both drawing and clipping now call one
+   expression — but nobody has dragged a crop in a browser and looked. The structural arm
+   (`ElevationCropIsTheClipBox.test.ts`, *"NO RIVAL EXPRESSION"*) is what closes the gap a unit test
+   cannot: it fails if a fifth producer appears, which is the failure mode that actually recurs here.
+2. **That the panel's *"View Depth (m)"* input now moves the plan rectangle.** Reachability is proven
+   by reading the writer (`ViewPropertiesPanel` → `SET_VIEW_CROP` → `crop.farClip.offset`) and the
+   reader (one resolver, `farClip` first) — but not observed.
+3. **That Level 1 now shows twelve distinct room labels.** `assignUniqueRoomNumbers` is proven to
+   return distinct names for the founder's exact input, and the tag drift test now sees a renumber —
+   but **existing** stale tags refresh only once their room passes through the numberer again, and
+   whether that happens on view activation is a browser observation this lane did not make. It is
+   also the one claim above where a partial fix could look like a full one.
+4. **That the *"1.8 s blank"* and the *"angular shapes"* are unchanged.** They were not touched
+   (L-4517, L-4518). They were also not re-measured.
