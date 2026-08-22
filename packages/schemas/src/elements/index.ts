@@ -48,5 +48,10 @@ export { ProjectOrigin } from './ProjectOrigin.js';
 // is its OWN family, not a blue slab. Both decisions are recorded in ADR-0124.
 export { Pool } from './Pool.js';
 export { Water } from './Water.js';
+// §FEAT-BALCONY-COMPOUND (L-5600) — the balcony COMPOUND parent (C103, ADR-0333).
+// A balcony is a COMPOUND (cantilever slab + floor finish + railing runs) whose
+// three members are real records of EXISTING families, derived from ONE polygon.
+// Unlike the pool it mints NO new member family — the compound is the only new kind.
+export { Balcony } from './Balcony.js';
 // §P3.4-SE: Section cut annotation element schema + DTO types.
 export type { SectionData, SectionLine, SectionsState } from './Section.js';

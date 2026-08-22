@@ -1,0 +1,31 @@
+{
+  "name": "@pryzm/plugin-balcony",
+  "version": "0.1.0",
+  "description": "PRYZM — Balcony COMPOUND plugin (L-5600 / C103 / ADR-0333). A balcony is a COMPOUND, not a primitive: balcony.create composes a cantilever SLAB + its FLOOR FINISH + N RAILING runs along the free perimeter, in ONE undo entry via produceMultiStoreCommand. balcony.updateProfile re-derives all three from a new outline — the founder's 'edit the profile and the finish and railings adapt'. balcony.delete removes all of it. Geometry math lives in @pryzm/geometry-balcony (pure).",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./store": "./src/store.ts",
+    "./errors": "./src/errors.ts",
+    "./handlers": "./src/handlers/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ci": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/geometry-balcony": "workspace:*",
+    "@pryzm/plugin-sdk": "workspace:*",
+    "immer": "^10.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^3.0.0"
+  }
+}

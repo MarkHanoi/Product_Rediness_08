@@ -1,0 +1,27 @@
+{
+  "name": "@pryzm/geometry-balcony",
+  "version": "0.1.0",
+  "description": "PRYZM — balcony COMPOUND geometry subsystem. Dimension resolution (record → systemType → documented default), the host-wall rectangle, the MEASURED free-edge rule, and the pure balcony ASSEMBLY (cantilever slab + floor finish + railing runs) derived from ONE polygon. §FEAT-BALCONY-COMPOUND / C103 / ADR-0333.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ci": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@pryzm/schemas": "workspace:*",
+    "zod": "*"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
+  }
+}

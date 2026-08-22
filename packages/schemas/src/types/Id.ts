@@ -51,6 +51,14 @@ export type PoolId        = Id<'pool'>;
  */
 export type WaterId       = Id<'water'>;
 /**
+ * §FEAT-BALCONY-COMPOUND (L-5600) — the balcony COMPOUND parent (C103).
+ * A balcony OWNS its three members — a cantilever SLAB, its FLOOR FINISH and the
+ * perimeter RAILING runs — through the L0 `parentId` / `childrenIds` fields, the
+ * same ownership mechanism `pool` uses (ADR-0124 §3). The balcony record itself
+ * carries NO geometry beyond the ONE boundary every member is derived from.
+ */
+export type BalconyId     = Id<'balcony'>;
+/**
  * §FEAT-PROJECT-ORIGIN (L-109) — the singleton Project Origin / Base Point.
  * One per project; the always-on blue-sphere coordination datum whose position
  * IS the shared-coordinate origin (C19 §1.3 LTP-ENU / ADR-0115 project base point).
@@ -104,6 +112,7 @@ export type ElementType =
   | 'projectOrigin'
   | 'pool'
   | 'water'
+  | 'balcony'
   | 'opening'
   | 'floor'
   | 'section';
@@ -115,7 +124,7 @@ export type AnyElementId =
   | RoomId | FurnitureId | AnnotationId | DimensionId | SheetId
   | ScheduleId | ViewId | ProjectId
   | StructuralId | LightingId | PlumbingId | ProjectOriginId
-  | PoolId | WaterId
+  | PoolId | WaterId | BalconyId
   | OpeningId | FloorId | SectionId;
 
 /** Map element-type discriminator → typed ID. */
@@ -147,6 +156,7 @@ export type IdFor<T extends ElementType> =
   T extends 'projectOrigin' ? ProjectOriginId :
   T extends 'pool'        ? PoolId        :
   T extends 'water'       ? WaterId       :
+  T extends 'balcony'     ? BalconyId      :
   T extends 'opening'     ? OpeningId     :
   T extends 'floor'       ? FloorId       :
   T extends 'section'    ? SectionId     :

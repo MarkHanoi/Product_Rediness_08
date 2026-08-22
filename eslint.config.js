@@ -139,6 +139,7 @@ export const layerElements = [
   { type: 'L2', pattern: 'packages/constraint-solver/**' },   // [CLAUDE.md]
   { type: 'L2', pattern: 'packages/drawing-primitives/**' },  // [CLAUDE.md]
   // The element families. geometry-* anchored on geometry-kernel (L2).
+  { type: 'L2', pattern: 'packages/geometry-balcony/**' },      // [family] verified: imports schemas + @opentelemetry/api only
   { type: 'L2', pattern: 'packages/geometry-beam/**' },         // [family]
   { type: 'L2', pattern: 'packages/geometry-column/**' },       // [family]
   { type: 'L2', pattern: 'packages/geometry-curtain-wall/**' }, // [family]

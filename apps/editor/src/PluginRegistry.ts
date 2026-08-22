@@ -60,6 +60,12 @@ import { CeilingStore, buildCeilingHandlerSet } from '@pryzm/plugin-ceiling';
 import { FloorStore, buildFloorHandlerSet } from '@pryzm/plugin-floor';
 // §FIX-POOL-UNREACHABLE (L-5200, ADR-0124) — the pool ASSEMBLY. See the descriptor below.
 import { PoolStore, WaterStore, buildPoolHandlerSet } from '@pryzm/plugin-pool';
+// §FEAT-BALCONY-COMPOUND (L-5600, C103 / ADR-0333) — the balcony COMPOUND. See the
+// descriptor below; this import is axis 1 of the four the pool taught us to check.
+import { BalconyStore, buildBalconyHandlerSet } from '@pryzm/plugin-balcony';
+// §FEAT-LIFT-COMPOUND-SYSTEM (L-5700, C104 / ADR-0325) — the lift COMPOUND. See the
+// descriptor below for the four-axis reachability argument.
+import { LiftCompoundStore, LiftPartStore, buildLiftHandlerSet } from '@pryzm/plugin-lift';
 
 // ---- Wave 18: 2 non-element plugins with zero-dep handler factories ----
 import { buildSelectionHandlerSet } from '@pryzm/plugin-selection';
@@ -396,6 +402,101 @@ export const ALL_PLUGINS: readonly PluginDescriptor[] = [
     buildHandlers: () => buildFloorHandlerSet() as readonly CommandHandler<unknown>[],
   },
 
+  // ---- Balcony (§FEAT-BALCONY-COMPOUND, L-5600 · C103 · ADR-0333) ----
+  //
+  // ⭐ THIS DESCRIPTOR IS THE WHOLE REACHABILITY FIX, WRITTEN BEFORE THE DEFECT
+  // RATHER THAN AFTER IT. The pool sat in this repo for weeks, fully built and fully
+  // tested, and could not be dispatched AT ALL because these five lines did not
+  // exist (§FIX-POOL-UNREACHABLE, L-5200). The production storesProvider is
+  // `storesAsRecordView(stores)` over `stores[plugin.storeKey]` accumulated from
+  // `ALL_PLUGINS` (bootstrap.everything.ts), so a plugin with no descriptor here
+  // contributes no store key, and `CommandBus.buildContext` THROWS
+  //     "balcony.create: required store 'balcony' is missing from HandlerContext.stores"
+  // BEFORE any mutation — registered and undispatchable.
+  //
+  // `apps/editor/__tests__/balconyReachableThroughComposedRuntime.test.ts` exists to
+  // make that unrepeatable: delete this descriptor and every test in it fails.
+  //
+  // ⚠ THE OTHER THREE STORES ARE *NOT* DECLARED HERE, AND THAT IS CORRECT.
+  // `balcony.create` declares `affectedStores = ['balcony','slab','floor','handrail']`
+  // — all four must resolve — but `slab`, `floor` and `handrail` are contributed by
+  // their OWN descriptors above. A balcony's plate IS a slab and lives in the slab
+  // store; that is the point of a compound (C103 §2.3). The pool needed a second
+  // descriptor only because `water` was a genuinely new family with no home.
+  //
+  // ⚠ ORDER: balcony is placed after `slab`, `handrail` and `floor` because it
+  // writes all three of their stores. Array order is NOT load-bearing — a handler
+  // reads its stores at DISPATCH time, long after every descriptor has been built —
+  // so this is for the reader, not for correctness. It is stated because the first
+  // draft of this comment claimed an ordering the code did not have, which is
+  // exactly the class of defect this file is otherwise full of warnings about.
+  {
+    id: 'balcony',
+    storeKey: 'balcony',
+    buildStore: () => new BalconyStore() as unknown as Store<object>,
+    buildHandlers: () => buildBalconyHandlerSet() as readonly CommandHandler<unknown>[],
+  },
+
+  // ---- Lift + LiftPart (§FEAT-LIFT-COMPOUND-SYSTEM, L-5700 · C104 · ADR-0325) ----
+  //
+  // ⭐ THESE TWO DESCRIPTORS ARE AXIS 2 OF THE FOUR-AXIS REACHABILITY CHECK, AND
+  // AXIS 2 IS THE ONE THAT SILENTLY THROWS.
+  //
+  // The production storesProvider is `storesAsRecordView(stores)` over
+  // `stores[plugin.storeKey]` accumulated from `ALL_PLUGINS`
+  // (bootstrap.everything.ts:145). With no descriptor here, the key is simply
+  // absent, and `CommandBus.buildContext` (CommandBus.ts:286-292) throws
+  //
+  //     lift.create: required store 'lift' is missing from HandlerContext.stores
+  //
+  // BEFORE anything mutates — with the handlers registered and undispatchable. That
+  // is the `pool` defect (L-5200) and the `lighting` defect before it, and it is why
+  // `apps/editor/__tests__/liftReachableThroughComposedRuntime.test.ts` reads
+  // `rt.stores.lift` off the REAL composition root and never builds a store of its
+  // own. A plugin's own suite CANNOT catch this: it supplies the provider that was
+  // broken.
+  //
+  // ⚠ MEASURED STATE OF THE OTHER THREE AXES FOR `lift`, 2026-08-22, so nobody
+  // inherits the stale reading the brief for this lane carried:
+  //   1. `new LiftStore(` — 2 non-test sites (initBuilders.ts:982/987). That is the
+  //      LOD-200 MASSING lift's store, a DIFFERENT store from the two below; see
+  //      `LiftCompoundTypes.ts` for why both exist.
+  //   3. DISPATCH — `lift` already has a palette button
+  //      (`CreatePanelLayout.ts:278`, Structure > Lift) and an activator
+  //      (`ToolsAreaLayout.ts:332`). ⚠ BOTH DRIVE THE LEGACY MASSING COMMAND
+  //      (`CreateVerticalCirculationCommand`), NOT `lift.create`. So the tool key is
+  //      armed and the COMPOUND is still not dispatchable from the UI. The earlier
+  //      report that `lift` "arms nothing" was stale — it was fixed by
+  //      §FIX-DECLARED-TOOL-WITH-NO-ACTIVATOR; the accurate statement is narrower and
+  //      is recorded in L-5709.
+  //   4. `ChatCommandClassification.ts` classifies `lift.create` class B, so the AI
+  //      chat route refuses it. NOT closed here — recorded open in L-5710.
+  //
+  // ⚠ ORDER: lift sits after `slab`, `door` and `curtain-wall` because
+  // `CreateLiftHandler` declares
+  // `affectedStores = ['lift','liftPart','wall','curtainwall','door','slab']` and ALL
+  // SIX must resolve. Array order is NOT load-bearing (a handler reads its stores at
+  // DISPATCH time, long after every descriptor is built) — this is for the reader.
+  {
+    id: 'lift',
+    storeKey: 'lift',
+    buildStore: () => new LiftCompoundStore() as unknown as Store<object>,
+    buildHandlers: () => buildLiftHandlerSet() as readonly CommandHandler<unknown>[],
+  },
+  {
+    id: 'liftPart',
+    storeKey: 'liftPart',
+    buildStore: () => new LiftPartStore() as unknown as Store<object>,
+    // ⭐ NO HANDLERS, DELIBERATELY — a statement, not an omission, and the same
+    // statement the `water` descriptor makes. A cabin part is created and destroyed
+    // ONLY as part of a lift compound (C104 §2), so `lift.create` owns the only
+    // write path. Minting a `liftPart.create` would be a second, rival way to
+    // produce a car ceiling with no car around it — exactly the defect the
+    // single-write-path rule exists to prevent. The store is contributed so the
+    // lift's second affectedStore resolves; the command surface stays the lift's.
+    buildHandlers: () => [] as readonly CommandHandler<unknown>[],
+  },
+
   // ---- Furniture (E-finish.0.E orphan registration) ----
   {
     id: 'furniture',
@@ -544,6 +645,16 @@ export const ELEMENT_PLUGIN_IDS = [
   // handlers by design; see STORE_ONLY_PLUGIN_IDS below.
   'pool',
   'water',
+  // §FEAT-BALCONY-COMPOUND (L-5600) — contributes a non-empty storeKey AND a
+  // handler set, so it belongs in the list the storeKey assertion iterates and needs
+  // no STORE_ONLY_PLUGIN_IDS exemption.
+  'balcony',
+  // §FEAT-LIFT-COMPOUND-SYSTEM (L-5700) — `lift` contributes a storeKey AND a
+  // handler set. `liftPart` contributes a storeKey and NO handlers by design, so it
+  // needs a written reason in STORE_ONLY_PLUGIN_IDS below (the bootstrap test
+  // requires >= 1 handler per plugin unless the id is named there).
+  'lift',
+  'liftPart',
   'door',
   'window',
   'roof',
@@ -595,6 +706,14 @@ export const STORE_ONLY_PLUGIN_IDS: Readonly<Record<string, string>> = Object.fr
   // `pool.create` declares `affectedStores = ['pool','wall','slab','water']` and
   // `CommandBus.buildContext` throws unless all four keys resolve.
   water: 'ADR-0124 §4 — water is created and destroyed only by pool.* ; it owns no verb of its own.',
+  // C104 §2 — a lift CABIN PART exists ONLY as part of a lift compound.
+  // `lift.create` writes the five of them and `lift.delete` removes them; there is
+  // no gesture that produces a car ceiling on its own, so there is no `liftPart.*`
+  // verb to register. Minting one would be a second, rival way to produce a cabin
+  // part with no cabin around it. The STORE is still contributed because
+  // `lift.create` declares `liftPart` among its six affectedStores and
+  // `CommandBus.buildContext` throws unless all six keys resolve.
+  liftPart: 'C104 §2 — cabin parts are created and destroyed only by lift.* ; they own no verb of their own.',
 });
 
 

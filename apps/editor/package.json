@@ -1,7 +1,7 @@
 {
   "name": "@pryzm/editor",
   "version": "0.1.0",
-  "description": "PRYZM 2 — L7 editor application.  S05 ships the bootstrap data half (protocol → command-bus → persistence → stores → scene-committer); S06 D5 adds the render half + start() pump.",
+  "description": "PRYZM 2 \u2014 L7 editor application.  S05 ships the bootstrap data half (protocol \u2192 command-bus \u2192 persistence \u2192 stores \u2192 scene-committer); S06 D5 adds the render half + start() pump.",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -43,6 +43,7 @@
     "@pryzm/keyboard-registry": "workspace:*",
     "@pryzm/persistence-client": "workspace:*",
     "@pryzm/plugin-annotations": "workspace:*",
+    "@pryzm/plugin-balcony": "workspace:*",
     "@pryzm/plugin-beam": "workspace:*",
     "@pryzm/plugin-ceiling": "workspace:*",
     "@pryzm/plugin-column": "workspace:*",
@@ -78,7 +79,8 @@
     "@pryzm/view-state": "workspace:*",
     "maplibre-gl": "^5.6.0",
     "pbf": "^5.1.2",
-    "pmtiles": "^4.4.1"
+    "pmtiles": "^4.4.1",
+    "@pryzm/plugin-lift": "workspace:*"
   },
   "devDependencies": {
     "@pryzm/runtime-composer": "workspace:*",
