@@ -111,6 +111,7 @@ import {
   extractConstraintSnapshot,
   resolveBuildingGraphServices,
   resolveLevelIds,
+  roomTypeResolver,
   type BuildBuildingGraphServices,
 } from './buildBuildingGraph';
 import { onRuntimeEvent } from './runtimeEventBridge';
@@ -346,7 +347,15 @@ export function applyUbgDelta(
         const levelIds = services.levelIds ?? resolveLevelIds(undefined);
         for (const levelId of levelIds) {
           guarded(() => {
-            const snap = extractRoomGraphSnapshot(services.roomGraph!.getGraph(levelId));
+            // §FEAT-UBG-CIRCULATION-FROM-DOOR-GRAPH (L-6610) — the DELTA leg must pass the
+            // same classification authority as the full rebuild, or a door added after
+            // load would re-project this level's roomGraph edges WITHOUT its
+            // `circulatesVia` ones and the family would silently empty itself on the
+            // first edit. Two call sites, one behaviour.
+            const snap = extractRoomGraphSnapshot(
+              services.roomGraph!.getGraph(levelId),
+              roomTypeResolver(services.roomStore),
+            );
             // Retract this level's roomGraph edges before re-projecting, so a
             // door that was removed stops connecting two rooms. Scope = the rooms
             // the level reports NOW plus any node already tagged with this level

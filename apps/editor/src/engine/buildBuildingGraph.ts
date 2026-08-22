@@ -35,6 +35,7 @@ import {
   type ConstraintSnapshot,
   type TopologyAdjacencyInput,
   type RoomGraphNodeInput,
+  type CirculationPathInput,
   type RoomGraphEdgeInput,
   type SemanticRelationshipInput,
   type DependencyEdgeInput,
@@ -99,6 +100,14 @@ export interface RoomRecordLike {
   occupancy?: string;
   /** Some stores carry the program tag as `occupancyType` (detected-room shape). */
   occupancyType?: string;
+  /**
+   * The room-topology classification (`RoomTypes.ts`) — `'corridor'`,
+   * `'stairwell'`, `'bedroom'`… §FEAT-UBG-CIRCULATION-FROM-DOOR-GRAPH (L-6610)
+   * reads this to decide which rooms are CIRCULATION. It is also the field the
+   * Analysis census already groups by (`roomStore` typeField `roomType`), so the
+   * two surfaces classify a room the same way or not at all.
+   */
+  roomType?: string;
   /** Direct floor area (m²) when the store exposes it at the top level. */
   area?: number;
   /** Detected-room shape: metrics live under `computed` (`computed.area`). */
@@ -282,8 +291,137 @@ function asArray<T>(coll: Map<string, T> | ReadonlyArray<T> | undefined | null):
   return [...coll];
 }
 
-/** Extract one level's RoomGraph into a plain roomGraph snapshot. */
-export function extractRoomGraphSnapshot(graph: RoomGraphLike): RoomGraphSnapshot {
+// ═════════════════════════════════════════════════════════════════════════════
+// §FEAT-UBG-CIRCULATION-FROM-DOOR-GRAPH (L-6610) — `circulatesVia`, at last
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// ⭐ MEASURED FIRST, WIRED SECOND. C01 §6 rule 6 — "X has no writer" is a
+// MEASUREMENT, and the two possible findings have opposite fixes:
+//
+//   `grep -rn "circulationPaths"` -> 9 lines / 5 files, and NOT ONE is a
+//   producer: the type declaration (`inputs.ts:88`), the single READ
+//   (`roomGraphAdapter.ts:71`), two test fixtures, two prose comments, and the
+//   Analysis coverage note describing its own absence.
+//
+// So `circulatesVia` was **UNREACHABLE, not ABSENT** — the adapter is written,
+// correct, and reads a key nothing ever set. `roomGraphAdapter.ts:71` spells the
+// silence: `snapshot.circulationPaths ?? []`, so an absent key is a NO-OP rather
+// than an error, which is precisely why this went unnoticed for so long.
+//
+// ⛔ WHAT WAS **NOT** DONE, AND WHY. The documented source for this family is the
+// D-TGL circulation graph (`SPEC-CIRCULATION-GRAPH`, `ai-host/.../tgl/bubbleGraph.ts`),
+// which is the richest structure in the repo — it even carries an explicit
+// `corridorId` spine. It is **not** wired here, for two measured reasons:
+//   1. it runs only inside the OFFLINE GENERATOR, so a hand-drawn building has
+//      none of it and the row would stay empty for exactly the models the
+//      founder is looking at;
+//   2. its node ids are program-local (`'r0'`) and its adjacency is keyed by room
+//      NAME, so projecting it would need an id-reconciliation pass — i.e. a
+//      second, rival idea of which room is which.
+// Wiring it would have filled the row for generated models only, while quietly
+// minting an id-mapping authority. That is the defect this repo makes most
+// often, so it was declined rather than attempted.
+//
+// ⭐ WHAT IS PROJECTED INSTEAD IS ALREADY AUTHORED, TWICE OVER:
+//   • WHICH ROOMS ARE CIRCULATION — from the room's own `roomType`, using the
+//     **product's own closed vocabulary**. `packages/room-topology/src/RoomTypes.ts`
+//     has a section literally headed "Circulation" listing exactly these five.
+//     Nothing here invents a category; if an architect classifies a room as a
+//     corridor, this reads that classification and nothing else.
+//   • WHICH ROOMS IT SERVES — from the live door graph `RoomGraphService` already
+//     builds from `roomStore` / `wallStore` / `doorStore`, which is the SAME
+//     structure this function already turns into `connectsTo` edges.
+//
+// This is a PROJECTION of two authored facts, not a new source of truth.
+//
+// ⚠ AND THE ONE THING IT IS HONEST ABOUT: `viaRoomIds` is documented as ORDERED,
+// and a door-adjacency SET IS NOT A ROUTE. A corridor's neighbours have no
+// canonical traversal order and this function does not invent one — it sorts by
+// id for stability and says so, in `inputs.ts`, in the Analysis coverage row, and
+// here. An ordered route needs a route producer; that is the D-TGL leg above and
+// it remains unwired.
+
+/**
+ * The room classifications that ARE circulation.
+ *
+ * ⛔ ADOPTED VERBATIM from the "Circulation" section of
+ * `packages/room-topology/src/RoomTypes.ts` — copied as a list of five strings
+ * rather than imported because this module reads store records structurally
+ * (`RoomRecordLike`) and takes no package dependency on room-topology. If that
+ * section gains a member, this set must gain it too; the Analysis coverage row
+ * names the file so the pairing is discoverable from the panel.
+ */
+const CIRCULATION_ROOM_TYPES: ReadonlySet<string> = new Set([
+  'corridor', 'stairwell', 'lift-lobby', 'entrance-lobby', 'foyer',
+]);
+
+/** How a room id resolves to its classification. Supplied by the caller. */
+export type RoomTypeResolver = (roomId: string) => string | null;
+
+/**
+ * Build one `circulationPaths` entry per circulation room on this level.
+ *
+ * ⛔ The path node id is `circulation:<roomId>`, NOT the room id. `BuildingGraph.addNode`
+ * is last-write-wins on `kind` (except that a generic `element` cannot downgrade a
+ * specific kind), so reusing the room's id would REPLACE its `kind:'room'` with
+ * `kind:'circulation'` — losing the fact that a corridor is a room, breaking the
+ * `ROOM_KINDS` consumers, and stripping the `props.levelId` that only room nodes
+ * carry and that the Analysis level filter joins through. The synthetic id is the
+ * same shape the `violates` leg already uses for its `rule` nodes.
+ */
+function deriveCirculationPaths(
+  nodes: readonly RoomGraphNodeInput[],
+  edges: readonly RoomGraphEdgeInput[],
+  roomTypeOf: RoomTypeResolver,
+): CirculationPathInput[] {
+  const isCirculation = (roomId: string): boolean => {
+    const t = roomTypeOf(roomId);
+    return t !== null && CIRCULATION_ROOM_TYPES.has(t.trim().toLowerCase());
+  };
+
+  // Door adjacency, both directions — the door graph is undirected and a corridor
+  // serves a room whichever way the edge was recorded.
+  const served = new Map<string, Set<string>>();
+  for (const e of edges) {
+    if (isCirculation(e.fromRoomId)) {
+      (served.get(e.fromRoomId) ?? served.set(e.fromRoomId, new Set()).get(e.fromRoomId)!).add(e.toRoomId);
+    }
+    if (isCirculation(e.toRoomId)) {
+      (served.get(e.toRoomId) ?? served.set(e.toRoomId, new Set()).get(e.toRoomId)!).add(e.fromRoomId);
+    }
+  }
+
+  const out: CirculationPathInput[] = [];
+  // Iterate NODES, not the map, so the output order follows the graph rather than
+  // insertion order — two rebuilds of the same model must produce the same graph.
+  for (const n of nodes) {
+    const rooms = served.get(n.roomId);
+    // ⚠ A circulation room with no door to anything emits NOTHING. An edgeless
+    // corridor is a real modelling state (it happens mid-draw), and a path node
+    // with an empty `viaRoomIds` would add a dot to the diagram that connects to
+    // nothing while claiming to be a route.
+    if (!rooms || rooms.size === 0) continue;
+    out.push({
+      id: `circulation:${n.roomId}`,
+      // Sorted by id: STABLE, and explicitly NOT a traversal order — see the
+      // block comment above and `CirculationPathInput`'s own doc.
+      viaRoomIds: [...rooms].sort(),
+    });
+  }
+  return out;
+}
+
+/**
+ * Extract one level's RoomGraph into a plain roomGraph snapshot.
+ *
+ * `roomTypeOf` is OPTIONAL and its absence is not a failure: without it the
+ * snapshot carries no `circulationPaths` and the adapter's `?? []` skips that
+ * leg, which is exactly the behaviour every caller had before L-6610.
+ */
+export function extractRoomGraphSnapshot(
+  graph: RoomGraphLike,
+  roomTypeOf?: RoomTypeResolver,
+): RoomGraphSnapshot {
   const nodes: RoomGraphNodeInput[] = asArray(graph.nodes)
     .filter((n) => n && n.roomId)
     .map((n) => ({ roomId: n.roomId }));
@@ -297,7 +435,37 @@ export function extractRoomGraphSnapshot(graph: RoomGraphLike): RoomGraphSnapsho
       ...(typeof e.doorWidth === 'number' ? { doorWidth: e.doorWidth } : {}),
     }));
 
-  return graph.levelId !== undefined ? { levelId: graph.levelId, nodes, edges } : { nodes, edges };
+  const circulationPaths = roomTypeOf ? deriveCirculationPaths(nodes, edges, roomTypeOf) : [];
+  // ⛔ The key is OMITTED, never set to `[]`, when there is no circulation to
+  // report. `RoomGraphSnapshot.circulationPaths` is optional and the adapter
+  // reads `?? []`, so the two behave identically today — but "no circulation
+  // rooms on this storey" and "nobody asked about circulation" are different
+  // facts, and the snapshot is the last place they are still distinguishable.
+  const circ = circulationPaths.length > 0 ? { circulationPaths } : {};
+  return graph.levelId !== undefined
+    ? { levelId: graph.levelId, nodes, edges, ...circ }
+    : { nodes, edges, ...circ };
+}
+
+/**
+ * Read a room's classification off the live store. Returns `null` for "no store",
+ * "no such room" and "no classification" alike — all three mean the same thing to
+ * the caller (this room cannot be shown to be circulation), and inventing a
+ * distinction the caller cannot act on would be noise.
+ *
+ * ⚠ `roomType` FIRST, then `occupancy`/`occupancyType`. `roomType` is the
+ * room-topology classification (`RoomTypes.ts`) whose "Circulation" section this
+ * feature keys on; `occupancy` is the free-text program tag and is the fallback
+ * only, because a project that never set `roomType` may still say "Corridor"
+ * there. A free-text match is looser, which is why it is second and not first.
+ */
+export function roomTypeResolver(store: RoomStoreLike | null | undefined): RoomTypeResolver | undefined {
+  if (!store) return undefined;
+  return (roomId: string): string | null => {
+    const rec = safeGet(() => store.getById(roomId));
+    if (!rec) return null;
+    return rec.roomType ?? rec.occupancyType ?? rec.occupancy ?? null;
+  };
 }
 
 // ── A.21.D16 enrichment — human labels + element rationale data ───────────────
@@ -607,7 +775,10 @@ export function buildBuildingGraph(opts: BuildBuildingGraphOptions = {}): Buildi
     for (const levelId of services.levelIds) {
       runGuarded(() => {
         const rg = services.roomGraph!.getGraph(levelId);
-        const snap = extractRoomGraphSnapshot(rg);
+        // §FEAT-UBG-CIRCULATION-FROM-DOOR-GRAPH (L-6610) — the room store is the
+        // classification authority. Absent ⇒ no `circulationPaths`, which is the
+        // pre-L-6610 behaviour rather than a failure.
+        const snap = extractRoomGraphSnapshot(rg, roomTypeResolver(services.roomStore));
         if (snap.nodes.length > 0 || snap.edges.length > 0) {
           createRoomGraphAdapter(snap).project(graph);
         }

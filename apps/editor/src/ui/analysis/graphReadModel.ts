@@ -200,32 +200,88 @@ const EDGE_FAMILIES: readonly EdgeFamilyFact[] = Object.freeze([
     type: 'derivesFrom',
     state: 'NOT_MEASURED',
     note:
-      '⛔ STRUCTURALLY EMPTY, not "this project has none". The semantic adapter projects ONLY the ' +
-      'derivation family `branchedFrom` / `supersedes` / `precededBy`, and all three have ZERO ' +
-      'production writers in the SemanticGraph — verify with ' +
-      "grep -rn \"type: 'branchedFrom'\" packages apps plugins (excluding tests) → 0. " +
-      'The adapter is even gated on a predicate that can never be true.',
+      '⛔ ABSENT — there is no data, so this is NOT a wiring gap and no wire would fix it. ' +
+      'The semantic adapter projects ONLY `branchedFrom` / `supersedes` / `precededBy`, and none of ' +
+      'the three has a production writer. Re-measured 2026-08-22 (L-6611) against the WRITE API ' +
+      'rather than by grepping the type name: `SemanticGraphManager.addRelationship` has 77 non-test ' +
+      'call sites covering 14 of its 26 declared relationship types (sitsOn 20 · supports 7 · ' +
+      'adjacentTo 7 · connectedTo 4 · boundedBy 3 · hosts 3 · hostedBy 3 · joinedTo 2 · ' +
+      'connectedByStair 2 · connectedByLift 2 · partOf · contains · measuredAt · decidedBy). The ' +
+      'three derivation types are not among them. ⚠ `grep "type: \'branchedFrom\'"` returns 8 hits ' +
+      'across the repo and EVERY ONE is a test fixture — which is why the write API, not the string, ' +
+      'is the measurement. ' +
+      '⭐ The never-true predicate is REAL and now located: `buildBuildingGraph.ts:622`, ' +
+      '`snap.relationships.some(r => DERIVATION_TYPES.includes(r.type))`. It is an ACCIDENTAL DEAD ' +
+      'BRANCH, not a refusal — it carries no comment saying it cannot fire, it is written in the ' +
+      'same `length > 0` cheap-exit idiom as its four siblings, and `adapters/index.ts:14` still ' +
+      'advertises `semantic → derivesFrom` as a live capability. The defect is upstream of the gate: ' +
+      'a declared edge family, a shipped adapter, an editor wiring leg, a UI colour and a legend ' +
+      'entry all built on a relation nothing in the product ever creates.',
   },
   {
     type: 'circulatesVia',
-    state: 'NOT_MEASURED',
+    // ⭐ WIRED 2026-08-22 (§FEAT-UBG-CIRCULATION-FROM-DOOR-GRAPH, L-6610). This row
+    // read NOT_MEASURED / "STRUCTURALLY UNREACHABLE" and it was right: the adapter
+    // was written and correct, and `extractRoomGraphSnapshot` never set the key it
+    // reads. UNREACHABLE is the diagnosis that says a wire will fix it, and one did.
+    state: 'MEASURED',
     note:
-      '⛔ STRUCTURALLY UNREACHABLE. The adapter needs `RoomGraphSnapshot.circulationPaths`, and ' +
-      '`extractRoomGraphSnapshot` never sets that key — repo-wide, `circulationPaths` appears only in ' +
-      'the adapter, its own type declaration, and two tests. The D-TGL circulation graph exists; ' +
-      'nothing wires it to the UBG.',
+      'A circulation path per circulation-classified room, from the LIVE door graph. Two authored ' +
+      'facts, projected, nothing invented: WHICH rooms are circulation comes from the room’s own ' +
+      '`roomType` against the closed vocabulary in the "Circulation" section of ' +
+      '`packages/room-topology/src/RoomTypes.ts` (corridor · stairwell · lift-lobby · ' +
+      'entrance-lobby · foyer); WHICH rooms it serves comes from the same `RoomGraphService` door ' +
+      'edges that already produce `connectsTo`. ' +
+      '⚠ `viaRoomIds` here is a SET sorted by id, NOT a route — a corridor’s door neighbours have no ' +
+      'canonical traversal order and none is invented. Reading these as an ordered path would read ' +
+      'an order that was never measured. ' +
+      '⚠ The path node is synthetic (`circulation:<roomId>`) and the element census does not claim ' +
+      'it, so it counts as UNPLACEABLE under a storey filter — correctly: it is a projection ' +
+      'artefact, not an element on another floor. ' +
+      '⛔ STILL UNWIRED: the D-TGL circulation graph, which is the only source with a real ORDERED ' +
+      'route and an explicit corridor spine. It runs only inside the offline generator and its node ' +
+      'ids are program-local, so projecting it would need an id-reconciliation authority. Declined ' +
+      'deliberately rather than attempted — see `buildBuildingGraph.ts`.',
   },
   {
     type: 'servesZone',
     state: 'NOT_MEASURED',
-    note: '⛔ NO WRITER ANYWHERE. A declared edge type with no adapter emitting it. Zoning is not projected.',
+    note:
+      '⛔ ABSENT, and — measured 2026-08-22 (L-6613) — this row is CORRECT TO STAY EMPTY. The earlier ' +
+      'note ("no adapter emitting it") understated it as a wiring gap; the true state is that there ' +
+      'is no domain model to wire. A `zone` element kind does not exist (29 kinds are declared in ' +
+      '`packages/schemas/src/elements`; none is a zone), there is no zone store, and no ' +
+      'system-side element could be the `from` endpoint. `SemanticGraph.ts:57` marks its own ' +
+      '`servesZone` member `// (future)`. The single near-miss is `hvacZone?: string` on the room ' +
+      'type (`RoomTypes.ts:238`, `RoomDataSchema.ts:160`) — a bare optional string with ZERO writers ' +
+      'and ZERO readers: a field, not a model. ' +
+      '⚠ DO NOT confuse this with the large and real URBAN zoning subsystem ' +
+      '(`packages/schemas/src/site/zoning/**`, `packages/site-parcel-data/**`) — its subject is a ' +
+      'PARCEL, not a building element, and no zoning record references an element id. ' +
+      '⭐ Filling this row would mean INVENTING a zone model, which is a worse outcome than an ' +
+      'honest blank. It stays NOT MEASURED on purpose.',
   },
   {
     type: 'precededBy',
     state: 'NOT_MEASURED',
     note:
-      '⛔ NO WRITER ANYWHERE in the UBG. The TemporalGraph records every mutation and is never ' +
-      'projected into this graph, so "how the design evolved" is absent from the relational view.',
+      '⚠ CORRECTED 2026-08-22 (L-6612) — this row read "NO WRITER ANYWHERE", and that was ' +
+      'UNDERSTATED in a way that matters: it described an absence where half the subject is real ' +
+      'data nobody has wired. The TemporalGraph has TWO journals and they are in OPPOSITE states. ' +
+      '⭐ THE MUTATION JOURNAL IS UNREACHABLE, NOT ABSENT: `NodeMutationRecord` is written for every ' +
+      'create/update/delete by `TemporalGraphManager.init()` (subscribed to `storeEventBus`, ' +
+      'initialised in production at `initDataPlatform.ts:288`), is PERSISTED through ' +
+      '`ProjectSerializer`/`ProjectLoader`, and has two live readers (`DesignHistoryPanel`, ' +
+      '`GhostOverlayRenderer`). It carries an element id and a timestamp — enough to synthesise a ' +
+      'per-element ordering — but NO predecessor pointer, and `_mutations` is private with no ' +
+      'full-enumeration accessor (`DesignHistoryPanel.ts:287` reaches it through an `any` cast). ' +
+      'So the blocker is a missing public read API plus a missing adapter, not missing data. ' +
+      '⛔ THE RELATIONSHIP JOURNAL IS GENUINELY ABSENT: `TemporalEdge` is the two-ended, ' +
+      'interval-valid shape a `precededBy` edge maps onto one-for-one, and `recordEdge` / ' +
+      '`expireEdge` / `expireEdgesForElement` have ZERO callers outside their own declaring file. ' +
+      '`TemporalGraph.ts:26` instructs writers to call `recordEdge()`; nothing ever did. ' +
+      'And no temporal adapter exists at all: `grep -rni temporal packages/building-graph/src` → 1 ' +
+      'hit, and it is a comment.',
   },
 ]);
 

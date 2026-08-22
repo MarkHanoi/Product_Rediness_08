@@ -76,8 +76,14 @@ export interface RoomGraphNodeInput {
 /**
  * The plain snapshot the roomGraph adapter projects -- one level's `RoomGraph`.
  * `nodes` materialises room nodes; `edges` produces `connectsTo`. If
- * `circulationPaths` is supplied (D-TGL circulation, strategy §3), the adapter
- * also emits `circulatesVia` from each path node to the rooms it threads.
+ * `circulationPaths` is supplied, the adapter also emits `circulatesVia` from
+ * each path node to the rooms it threads.
+ *
+ * ⚠ The parenthetical here used to read "(D-TGL circulation, strategy §3)",
+ * naming a producer that never existed on this path. Corrected 2026-08-22
+ * (L-6610): the live producer is the DOOR-ADJACENCY derivation in
+ * `buildBuildingGraph.extractRoomGraphSnapshot`; D-TGL remains unwired and the
+ * reasons are recorded there.
  */
 export interface RoomGraphSnapshot {
   /** the level these rooms belong to (carried as a node prop). */
@@ -88,11 +94,32 @@ export interface RoomGraphSnapshot {
   readonly circulationPaths?: ReadonlyArray<CirculationPathInput>;
 }
 
-/** A circulation path (corridor / route) threading an ordered list of rooms. */
+/**
+ * A circulation path (corridor / route) and the rooms it threads.
+ *
+ * ⚠ CORRECTED 2026-08-22 (§FEAT-UBG-CIRCULATION-FROM-DOOR-GRAPH, L-6610). This
+ * used to read *"threading an ORDERED list of rooms"* flat, and `viaRoomIds`
+ * used to be documented as *"ordered ids of the rooms this path passes via"*.
+ * That was true of the ONE producer imagined when it was written (a D-TGL route,
+ * which really is ordered) and it is NOT true of the producer that now exists.
+ *
+ * ⛔ **ORDER IS PRODUCER-DEFINED AND MEANS A TRAVERSAL ONLY WHEN THE PRODUCER HAS
+ * ONE.** The live producer — `extractRoomGraphSnapshot` in
+ * `apps/editor/src/engine/buildBuildingGraph.ts` — derives a path per
+ * circulation-classified room from the DOOR-ADJACENCY GRAPH, which is a SET. A
+ * corridor's neighbours have no canonical traversal order, so it sorts them by id
+ * for stability and claims nothing more. Reading that array as a route would be
+ * reading an order that was never measured.
+ *
+ * A consumer that needs a genuine route must ask its producer, not this type.
+ */
 export interface CirculationPathInput {
   /** stable id of the circulation node (corridor / route). */
   readonly id: string;
-  /** ordered ids of the rooms this path passes via. */
+  /**
+   * The rooms this path threads. ⛔ A SET in general — see the interface doc.
+   * Ordered only when the producer measured an order.
+   */
   readonly viaRoomIds: ReadonlyArray<string>;
 }
 
