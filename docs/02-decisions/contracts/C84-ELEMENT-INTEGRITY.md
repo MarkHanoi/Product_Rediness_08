@@ -1467,6 +1467,79 @@ edited, because the retraction is the finding (C84 §6 authoring rules):
 
 ---
 
+## 4G. THE DOCUMENTATION-OCCLUSION AXIS — *"is this family HIDDEN when it stands behind a solid?"* — measured 2026-08-22 (lane HLR18)
+
+Beside §4F (*"can the user ASK for this in chat?"*) sits a second per-family axis that C84 had no
+row for: **what happens to this family's linework in an elevation or section when a solid stands
+between it and the viewer.** Founder, 2026-08-22: *"you would never be able to see a interior door
+hosted on an internal partition wall graphically with **projection** lines if the elevation was
+taken from outside the building, although this is happening today, and this should be reviewed for
+**every possible element**."*
+
+### 4G.0 — THE ONE-SENTENCE FINDING
+
+**The occlusion engine has never heard of an element family, and that is correct** — it keys on
+the layer tag's ZONE suffix, `elementUUID`, `viewDepth` and the geometry (C09 §4.6.5). So a
+family's verdict on this axis is decided **entirely by how its linework is EMITTED**, which makes
+this a C84 question, not a C09 one: it is the same *"which of this family's representations reach
+which consumer"* shape as EI-1 and §4E, applied to the drawing consumer.
+
+### 4G.1 — THE CENSUS
+
+Measured through the real engine with a representative solid pushed through the same
+`THREE.EdgesGeometry` the projector uses. **Executable, not prose** —
+`packages/core-app-model/src/drawing/HiddenLineRemoval.familyCensus.test.ts`, 42 assertions.
+
+| Family | Layer as emitted | Occludes | Occludable | Basis |
+|---|---|---|---|---|
+| wall | `A-WALL:proj` | ✅ | ✅ | MEASURED |
+| curtain wall | `A-WALL:proj` | ✅ | ✅ | MEASURED |
+| slab / floor | `A-FLOR:proj` | ✅ | ✅ | MEASURED |
+| ceiling | `A-CEIL:proj` | ✅ | ✅ | MEASURED |
+| roof | `A-ROOF:proj` | ✅ | ✅ | MEASURED (extruded prism, not a box) |
+| column | `A-COLS:proj` | ✅ | ✅ | MEASURED |
+| beam | `A-BEAM:proj` | ✅ | ✅ | MEASURED |
+| stair | `A-STRS:proj` | ✅ | ✅ | MEASURED (5-tread stepped profile) |
+| handrail | `A-STRS:proj` | ✅ | ✅ | MEASURED (50 mm sliver) |
+| door leaf | `A-DOOR:proj` | ✅ | ✅ | MEASURED — **the founder's named case** |
+| window | `A-GLAZ:proj` | ✅ | ✅ | MEASURED |
+| curtain panel | `A-GLAZ:proj` | ✅ | ✅ | MEASURED |
+| furniture | `A-FURN:proj` | ✅ | ✅ | MEASURED |
+| plumbing — the SOLID path | `A-PLMB:proj` | ✅ | ✅ | MEASURED |
+| an element type absent from `ELEMENT_TYPE_TO_PROJECTION_LAYER` | `projection-visible:proj` | ✅ | ✅ | MEASURED — being unmapped costs it its ISO layer and its pen, **not** its occlusion |
+| **plumbing — the ELEVATION SYMBOL** | `A-PLMB` *(flat)* | ❌ | ❌ | MEASURED — **REAL GAP**, see 4G.2 |
+| **imported IFC linework** | `projection-visible` *(flat)* | ❌ | ❌ | MEASURED — **REAL GAP**, see 4G.2 |
+| grid / annotation | `A-GRID` *(flat)* | ❌ | ❌ | MEASURED — **CORRECT**: a datum is not a solid, and a grid line breaking behind a wall is a drafting error, not a fix |
+| room / space | — | — | — | **NOT MEASURED.** A room is a volume with no projected solid linework in elevation; whether it reaches the drawing at all was not established by this lane |
+| terrain / site context | — | — | — | **NOT MEASURED.** Context tiles do not travel the `elementRegistry` root path the drawing exporter walks; not established |
+
+### 4G.2 — THE TWO REAL GAPS, AND WHY THEY ARE C84 GAPS
+
+Both are **emitter** defects — a family's linework arriving on a layer with **no zone suffix**,
+which C09 §4.6.4b already names as *the pen ladder being flattened at the last mile*. This axis
+shows the same flattening costs the family its occlusion as well as its pen, in **both**
+directions at once.
+
+1. **`PlumbingElevationSymbolBuilder`** injects onto a flat `A-PLMB`
+   (`packages/geometry-plumbing/src/PlumbingElevationSymbolBuilder.ts`:33, :72) and the fixtures
+   carry `skipInElevation`, so the raw solid never projects either. A WC in elevation is outside
+   the occlusion system entirely.
+2. **`EdgeProjectorService.addIfcLayer`** writes the flat base name with no zone suffix, no
+   `elementUUID` and no `viewDepth`. An imported IFC model neither hides nor is hidden.
+
+### 4G.3 — THE INVARIANT THIS AXIS ADDS
+
+> **EI-14 — A FAMILY'S DRAWING LINEWORK MUST CARRY A ZONE.** Any builder that injects linework
+> into a `TechnicalDrawing` MUST emit it on a **zone-suffixed** layer and MUST stamp
+> `elementUUID`. Where the linework REPLACES a solid, it MUST also inherit that solid's
+> `viewDepth` (C09 §4.6.5(a3)). A flat layer name silently removes the family from the pen ladder,
+> from per-element overrides, **and** from occlusion — three consequences, one omission, no error.
+
+*Guarded by* `HiddenLineRemoval.familyCensus.test.ts` (the census above) and
+`HiddenLineRemoval.facadeSilhouette.test.ts` (the founder's named door case, L-5300..L-5303).
+
+---
+
 ## 5. Gates
 
 > ⛔ **CORRECTED 2026-08-18 — "EXISTS" IN THIS TABLE WAS WORKTREE-SCOPED AND READ AS HEAD-SCOPED.**

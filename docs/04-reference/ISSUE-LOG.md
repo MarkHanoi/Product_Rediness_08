@@ -37078,3 +37078,351 @@ founder's own ordering: cleanliness is in scope and is the lowest priority.
 - ⛔ **`CLAUDE.md`** — not this lane's file.
 
 **L-5412 … L-5480 unused.**
+
+---
+
+## HLR18 — 2026-08-22 · elevation hidden lines: a wireframe is not a silhouette, and a symbol is not the solid it replaced
+
+> Lane brief: *"if the elevation is facing a wall, whatever seats behind the wall is with hidden
+> lines (light grey dash by default). Only until the scope of the crop region. Means that you would
+> never be able to see a interior door hosted on an internal partition wall graphically with
+> **projection** lines if the elevation was taken from outside the building, although this is
+> happening today, and this should be reviewed for every possible element."*
+>
+> Commits `e28eb611` (the failing test), `e5a21993` (the engine), `776a6652` (the symbol depth),
+> `02734523` (the census). Root gate `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit
+> --skipLibCheck` → **RC=0**, re-run after every one.
+
+### L-5300 — ⭐ THE ROOT CAUSE: a WIREFRAME is not an OUTLINE, and even-odd over a doubled boundary answers OUTSIDE everywhere
+
+**The lane brief's lead was that the OCCLUDER SET was the suspect** — *"Can a PROJECTED (uncut)
+element occlude at all in an elevation? If uncut elements are excluded from the occluder set, that
+is the entire defect."* **REFUTED, and the engine's own log line refutes it.** Recorded rather than
+deleted, because the refutation is the useful part.
+
+A fixture reproducing the founder's scene, run at the session-start SHA:
+
+```
+[HiddenLineRemoval] v3 — 3 occluder(s) (0 cut, 3 projected), disposition=demote,
+   0.0 segment-equivalent(s) removed, 0 sub-segment(s) demoted proj → HIDDEN (dashed)
+```
+
+**Three PROJECTED, UNCUT occluders. Registered, depth-ordered, selected as "nearer", reaching
+`splitSegmentByOccluders()` — and zero demotions.** `buildOccluderList` has admitted uncut `:proj`
+linework since L-277. The founder's *"24 occluders / 0 projected"* readings are elements that ALSO
+carry an §ELEV-LINEWEIGHT (L-182) elevation `:cut` band, which the old per-element grouping counted
+as cut. **Presence is not coverage**, and a count of the SET reads healthy either way. That is the
+transferable lesson: the occluder census was the wrong census.
+
+**The real mechanism is one rung lower.** `EdgeProjectorService` builds `:proj` linework from
+`new THREE.EdgesGeometry(mesh.geometry, angleDeg)` — the solid's full **wireframe**. Measured, on a
+face-on 6 × 3 × 0.3 m wall box:
+
+| | count | what they are |
+|---|---|---|
+| raw projected edges | **12** | the box wireframe, flattened |
+| …zero-length | **4** | the depth edges collapse to POINTS under orthographic projection |
+| …real | **8** | **the outline rectangle TRACED TWICE** — front face over back face, exactly coincident |
+
+Even-odd point-in-polygon counts **two** crossings for every **one** real boundary transition,
+reads EVEN, and answers **OUTSIDE for every interior point**. The façade could not hide anything,
+ever. The module header's claim that each occluder *"carries its TRUE projected silhouette"* was
+false for every solid the projector actually emits.
+
+**Fixed** (`e5a21993`) by `canonicaliseEdges()`: drop zero-length edges, de-duplicate coincident
+ones on a 0.1 mm vertex grid. Measured effect — box 12 → **4** edges, covers correctly; a wall with
+a real window opening 24 → **8** (outer loop + hole loop, hole still see-through); an L-massing
+18 → **6**, notch preserved.
+
+### L-5301 — the coverage ladder: even-odd is only sound over a union of CLOSED curves, so an oblique solid gets a tighter rung, not a silent pass
+
+De-duplication alone is not enough, and the case that proves it is the **same box rotated 30°**
+about the vertical. It canonicalises to **12 edges with 8 DEGREE-3 vertices**: the four vertical
+corner edges and the collapsed top and bottom faces meet in T-junctions, no closed curve exists,
+and even-odd *still* answers OUTSIDE across the interior.
+
+So the engine now picks its predicate from what the edge set can support — `OccluderTest`, three
+rungs, **every step down counted and printed**:
+
+| rung | condition | exact for | over-claims on |
+|---|---|---|---|
+| `silhouette` | every vertex EVEN degree | any closed-curve set, voids nested correctly | — |
+| `vspan` | odd-degree vertex, PROJECTION occluder | any *vertically simple* silhouette — an oblique wall, a stair profile, an L-notch | an archway, a U-section |
+| `aabb` | fewer than 3 canonical edges | — | everything |
+
+`vspan` covers, at each H, the interval between the lowest and highest crossing of the vertical
+line through the sample. It is **strictly tighter than the AABB** and needs no closure.
+
+⚠ **The degree gate is SCOPED TO PROJECTION OCCLUDERS, deliberately.** A `:cut` ring is a true
+plane∩solid section — closed by construction, openings as nested loops — and it drives plan and
+section, where the disposition is `remove` and an over-claiming occluder **deletes** linework.
+Degrading cut bands would be a riskier change with no evidence behind it and was not taken.
+
+### L-5302 — the measured cost, taken by revert-and-rerun, and what bounded it
+
+Bench: **368 element groups** on a synthetic 8-storey South elevation — the ~365 ELEV12 measured
+per elevation pass. The pre-fix engine was extracted at `e28eb611~1` into a temporary sibling module
+and run side by side, 5 iterations, fresh scene each:
+
+| | wall time | demoted |
+|---|---|---|
+| BASELINE (pre-fix) | **17.9 ms** | **0** |
+| FIXED | **22.3 ms** | **2413** |
+
+**+4.4 ms, +25%** — and the baseline was cheap *because it did nothing*. Interpreting that as a
+regression would be reading the cost of the feature as the cost of the fix.
+
+**§HLR-ACTIVE-SET-IS-REUSED** recovered 1.9 ms of it (24.2 → 22.3): the per-segment
+`nearer.filter(…)` allocated a fresh array **and a fresh closure per segment** — tens of thousands
+of short-lived arrays per pass, re-run on every crop-drag frame — and is now one scratch array
+hoisted out of the whole target loop.
+
+⚠ **22.3 ms is above a 60 fps frame budget.** It sits inside a projection pass whose own
+`EdgesGeometry` + `toDrawingSpace` costs the projector reports at tens of ms per layer, so it is
+not the dominant term — but it is not free, and a crop-drag re-projects. **Not optimised further,
+and named rather than buried**: the next lever is a spatial bucket over the occluder set, which
+would make the pre-filter sub-linear. That is a real change and this lane did not take it.
+
+### L-5303 — ⭐ THE SECOND ROOT CAUSE, in a different file: a symbolised façade wall occludes NOTHING
+
+**The silhouette fix is necessary and NOT sufficient.** Measured chain:
+
+1. §ELEV-SYMBOL-WALL (**L-1242**) injects an authored wall elevation symbol onto `A-WALL-SYM:proj`
+   via `OpeningElevationSymbolBuilder._emit()`, which stamps `layerName` and `elementUUID` —
+   **and not `viewDepth`**.
+2. `suppressSymbolisedElementLinework()` then **deletes that element's raw solid linework** (every
+   non-`-SYM` layer carrying the same `elementUUID`).
+3. `buildOccluderList()` **refuses an unstamped `:proj` node** as an occluder — correctly: an
+   unordered projection occluder could hide geometry that is actually nearer than it.
+
+So the façade's occluder is deleted at (2) and its replacement cannot become one at (3).
+
+⚠ **This file's own header already flagged the risk** — *"NOT MEASURED — the occlusion
+consequence"* — and offered the mitigation *"the host WALL's occluder is untouched"*. That
+mitigation is **TRUE for an OPENING symbol and FALSE for a WALL symbol**, where the host IS the
+element whose linework was just deleted. The note was right to flag it and wrong about its reach,
+which is a better failure than not flagging it.
+
+**Fixed** (`776a6652`): the suppressor transfers the nearest `viewDepth` of the solids it deletes
+onto the surviving `-SYM` linework of the same element, in the pass that already visits both. The
+transfer is the only honest source for the number — the symbol stands where the solid stood.
+Nothing is invented: an element whose solid carried no stamp leaves its symbol unstamped and the
+engine goes on refusing to guess (asserted), and an existing stamp is never overwritten.
+
+### L-5304 — one occluder per `(element, ZONE)`, because a cut ring ∪ a projected wireframe is not the boundary of any region
+
+Occluders were grouped by `elementUUID` alone, unioning an element's `:cut` section ring with its
+`:proj` wireframe into ONE region carrying depth −∞. Two things wrong, both geometric: even-odd
+over the union **cancels wherever the two overlap**, and a merely-*projected* face was credited
+with the *cut* band's −∞ depth. In an elevation, where L-182 gives many elements both bands, the
+merged set was nonsense. The `uuid` is still carried per occluder, so *"an element never hides its
+own linework"* is untouched — that guarantee never depended on the grouping key.
+
+### L-5305 — ⭐ THE SHIPPED SUITE PASSED THROUGHOUT, AND THAT IS THE FINDING
+
+`HiddenLineRemoval.elevationOcclusion.test.ts` is green, has always been green, and guards a
+behaviour that **has never worked in a real elevation**. Its fixtures hand-author every occluder as
+one closed rectangle, four edges, traced once:
+
+```ts
+seg('wall-facade', 'A-WALL:proj', 0.0, [[0,0],[4,0], [4,0],[4,3], [4,3],[0,3], [0,3],[0,0]])
+```
+
+The projector never emits that shape. **A fixture easier than production is not a weak test; it is
+a test of a different system** — the sibling of [[fake-more-capable-than-real]] (*a fake built from
+the header cannot falsify the header*), one layer down: a FIXTURE built from the algorithm's
+idealised input cannot falsify the algorithm.
+
+`HiddenLineRemoval.facadeSilhouette.test.ts` therefore builds **every** occluder from a real `THREE`
+solid through the real `EdgesGeometry`. **6 of its 7 original cases were RED at `e28eb611`**, which
+is the only reason the fix is provable. C09 §4.6.6 now carries this as a merge-blocking authoring
+rule.
+
+### L-5310 — the per-family census — 18 families, executable, 42 assertions
+
+*"Every possible element"* is discharged as a table, not prose:
+`packages/core-app-model/src/drawing/HiddenLineRemoval.familyCensus.test.ts`. Full grid in
+**C84 §4G.1**. Summary:
+
+- **15 families OCCLUDE and are OCCLUDABLE**, measured with a representative solid pushed through
+  the real `EdgesGeometry` — wall · curtain wall · slab/floor · ceiling · roof · column · beam ·
+  stair · handrail · door leaf · window · curtain panel · furniture · plumbing (solid) · **any
+  element type absent from `ELEMENT_TYPE_TO_PROJECTION_LAYER`**. The roof is an extruded triangular
+  prism, the stair a five-tread stepped profile, the handrail a 50 mm sliver — shapes a box-only
+  fixture could not carry.
+- **An UNMAPPED element type is not lost.** Its fallback base name is pre-interned through
+  `layerForZone` like every other, so it keeps its zone and its place in the occlusion system.
+  Being unmapped costs it its ISO layer and its pen, **not** its occlusion. Measured, because the
+  opposite was the plausible assumption.
+- **3 families are NEITHER**, each with a named reason — two real gaps (L-5311, L-5312) and one
+  correct convention (grid/annotation: a datum is not a solid, and a grid line breaking behind a
+  wall would be a drafting error, not a fix).
+- **2 rows are `NOT MEASURED`** — room/space and terrain/site context. Recorded blank rather than
+  guessed ([[confident-register-rows-are-the-wrong-ones]]).
+
+Six family-blind ZONE rules are pinned in the same file: the `:beyond` asymmetry **both ways**,
+`:cut` is never a target, an element never hides its own linework across layers, depth ordering is
+real, and co-planar solids do not hide each other at the 50 mm margin.
+
+⚠ **TWO OF THE CENSUS'S FIRST "FINDINGS" WERE MY OWN ARITHMETIC.** The first cut used a fixed probe
+at `(0, −0.30)` and reported **ceiling** and **stair** as NOT OCCLUDING. Both were fixture errors: a
+100 mm ceiling slab spans drawing z ∈ [−0.10, 0] so the probe sat below it entirely, and the stair
+profile starts at x = 0 so the probe sat exactly **on** its left boundary, where an even-odd verdict
+is undefined. The probe is now derived from the subject's own projected extent and the subject is
+lifted clear of the façade's boundary. Recorded rather than quietly corrected: **a census whose
+FALSE rows are its own fixture is worse than no census.**
+
+### L-5311 — REAL GAP, HANDED TO EPS19: imported IFC linework is invisible to occlusion in both directions
+
+`EdgeProjectorService.addIfcLayer` (`apps/editor/src/engine/views/EdgeProjectorService.ts`, the
+`addIfcLayer` closure) writes `projected.userData.layerName = targetLayerName` with **the flat base
+name** — no `:proj` suffix — and stamps **neither `elementUUID` nor `VIEW_DEPTH_KEY`.**
+`drawingZoneFromLayerName` returns `null` for a flat name, so IFC linework is **neither an occluder
+nor a target**. An imported IFC model in an elevation neither hides anything nor is hidden by
+anything.
+
+**⛔ NOT FIXED BY THIS LANE — the file belongs to EPS19.** The patch, exactly:
+
+1. resolve the zone the same way the native path does and emit through `layerForZone(layerName,
+   zone)` instead of the flat `targetLayerName`;
+2. stamp `projected.userData.elementUUID = elementId` (it is already read into `elementId` two lines
+   above and then unused for this purpose);
+3. stamp `projected.userData[VIEW_DEPTH_KEY] = <the IFC mesh's nearest depth>` using the same
+   `viewDepthOfBox(meshWorldBox)` the native path uses — `meshWorldBox` is already computed there.
+
+Pinned as the expected-FALSE row `IFC fallback linework` in
+`HiddenLineRemoval.familyCensus.test.ts`; **that row must be flipped to `true` in the same commit
+as the fix**, or the census will assert the gap back into existence.
+
+### L-5312 — REAL GAP: the plumbing ELEVATION symbol is outside the occlusion system, in both directions
+
+`packages/geometry-plumbing/src/PlumbingElevationSymbolBuilder.ts` injects onto a **flat
+`A-PLMB`** (`:33` `const PLMB_LAYER = 'A-PLMB'`, `:72` `drawing.addProjectionLines(projected,
+PLMB_LAYER)`) — no zone suffix. And the fixtures carry `skipInElevation`
+(`EdgeProjectorService:2837`), so the raw solid never projects either. **A WC in an elevation
+neither hides nor is hidden.**
+
+This is the same last-mile flattening `OpeningElevationSymbolBuilder`'s own header calls out as
+*"the zone ladder being flattened at the last mile … the SAME shape as the L-280 defect"* — and
+this lane's measurement adds that the flattening costs the family **its occlusion as well as its
+pen**: three consequences, one omission, no error. Now C84 **EI-14**.
+
+**NOT FIXED — outside this lane's file ownership** (`packages/geometry-plumbing/`). The fix is the
+one `OpeningElevationSymbolBuilder` already models: emit through `layerForZone('A-PLMB', zone)` and
+stamp the depth.
+
+### L-5320 — *"light grey dash by default"* was ALREADY TRUE, and nothing was added
+
+The brief said to check whether hidden-line styling is governed by intent before adding any, and to
+read §ELEVATION-POCHE-NEEDS-A-VIEW-TYPE-ROW (**L-3904**) first. Both done. **No styling was
+written.**
+
+`PenWeightTable.ts:179-195` — the HIDDEN zone block — already carries, for **all thirteen**
+categories (wall, slab, column, structural, beam, door, window, stair, roof, ceiling, furniture,
+lighting, plumbing), identically:
+
+```ts
+pen(0.09, '#6b7280', [...HIDDEN_DASH_PX], 0.55)
+```
+
+0.09 mm · grey `#6b7280` · the fine `HIDDEN_DASH_PX` `[4,3]` · opacity 0.55. *"Light grey"* is
+delivered by **colour × alpha**, not by a lighter hex — and per C09 §4.6.4b the pen table is the
+only pen authority, with the intent chain (`GraphicsRulesEngine`) layered above it, so a user who
+wants a different grey already has the control. Adding a second default would have been a second
+pen authority, which is the L-280 defect.
+
+**The defect was never that HIDDEN drew wrong. It was that nothing was ever CLASSIFIED as hidden.**
+
+### L-5321 — *"only until the scope of the crop region"* — answered, and it holds by construction
+
+There is **no far-clip inside `applyOcclusion`**, and there should not be. The engine can only see
+what the projector put in the drawing, and for elevation and section the projector culls to the
+crop first: `EdgeProjectorService:~2727` — `if (sectionVolumeBox && (!meshWorldBox ||
+!sectionBoxIntersectsWorldAABB(sectionVolumeBox, meshWorldBox))) return;` — with
+`sectionVolumeBox = isSectionDepthView ? resolveSectionVolumeBox(…) : null`. So an element beyond
+the crop contributes no linework and therefore no occluder.
+
+This is C09 **§4.6.7 THE CROP IS THE CLIP** already doing its job: *"§4.6 governs which ZONE a
+segment is in; §4.6.7 governs which segments EXIST at all."* Occlusion inherits the crop. ⚠ The
+honest residual: when `resolveSectionVolumeBox` returns `null` nothing is culled, and *"only until
+the crop"* is then satisfied vacuously rather than actively. **Not measured by this lane**: which
+views resolve a null volume box in practice.
+
+### L-5322 — the `beyond` asymmetry was left ALONE, deliberately, and it is the one place the founder's rule is not yet literal
+
+C09 §4.6.5(c)1: a `:beyond` segment is clipped by `cut` occluders **only**, never by projection
+occluders. The founder's rule — *"whatever seats behind the wall is with hidden lines"* — argues
+that in an ELEVATION a projected façade should clip `beyond` too.
+
+**Not changed.** The carve-out exists to protect PLAN, where the floor slab is a projected solid
+spanning the whole plate lying nearer than everything below it; letting projected solids clip
+`beyond` there would silently delete the entire below-storey band the view range was configured to
+include — and with it the founder's own stair example. Both halves are now pinned in
+`HiddenLineRemoval.familyCensus.test.ts` so neither can move by accident.
+
+The right shape is a per-view option resolved off `ViewScope` with the same *instance beats type
+beats default* precedence as `occlusionDisposition` (L-279). **It is NOT plumbed.** It is recorded
+here rather than half-built, because a half-built version would be a `ViewScope` field nothing
+reads — [[refusing-half-needs-its-escape-hatch]].
+
+⚠ It also matters **less than it looks** for the named acceptance case: an interior partition a few
+metres behind a façade is classified `:proj`, not `:beyond` (the depth classifier's beyond band is
+~12 m), so the founder's door is in scope and is fixed. A partition genuinely past the beyond
+threshold is not.
+
+### L-5330 — NOT DONE, DELIBERATELY
+
+- **The oblique-solid silhouette is approximated, not exact** (L-5301). The exact answer needs the
+  projected FACE loops; the drawing layer receives an edge soup. Closing it means the projector
+  emitting a silhouette alongside the wireframe — a projector change, in EPS19's file, and a much
+  larger one than either fix here.
+- **No spatial index over the occluder set** (L-5302). The pre-filter is linear in occluders per
+  segment. Named, measured, not taken.
+- **The two flat-layer gaps** (L-5311, L-5312) are in files this lane does not own.
+- **`:cut` occluders keep the un-gated even-odd test** (L-5301). Changing them risks deleting
+  linework in plan and section and has no evidence behind it.
+
+### L-5331 — NOT VERIFIED IN A BROWSER
+
+**Nothing in this lane was observed on screen.** Every number above is a unit measurement or a
+source read with its command written down. Specifically NOT established by this lane:
+
+1. **That the founder's own South Elevation now dashes his interior door.** The invariant is proven
+   on real solids through the real `EdgesGeometry`, and both root causes are closed — but his model
+   has layered walls, curved hosts and symbol paths this fixture does not reproduce.
+2. **That `#6b7280` at α 0.55 reads as "light grey" to him.** That is a judgement about a screen,
+   and L-5320 only establishes that the value is already there and already intent-overridable.
+3. **That +4.4 ms is imperceptible during a crop-drag.** The bench is synthetic and runs in
+   `happy-dom`, not in the browser's main thread beside the projector's own work.
+4. **Whether any elevation in his project actually takes the symbolised-wall path** (L-5303). The
+   fix is proven at the seam; whether §ELEV-SYMBOL-WALL fires for his walls was not measured.
+
+### L-5340 — the `check-contract-cited-paths` gate was ALREADY RED on arrival, and it is not this lane's
+
+`npx tsx tools/ga-gate/check-contract-cited-paths.ts` → **RC=3**, *"491 unresolved cited paths
+against a declared level of 490"*. **Measured to be pre-existing, not inherited as an assumption**:
+this lane's C09 edit was set aside, `git checkout HEAD --` restored the committed version, the gate
+re-run → **491 / 490, identical**, and the modified file was restored. My C09 and C84 additions
+contribute **zero** unresolved citations (re-run after C84: still 491).
+
+The +1 arrived with `95979fbc` (C04 / §PROJECTION-SCHEDULING, a sibling lane, committed minutes
+earlier). **Left for that lane** — silently "fixing" a citation in someone else's contract section
+would erase the evidence of which commit introduced it.
+
+### L-5341 — a NUL byte very nearly shipped into a `.ts` file, again
+
+Writing `` `${uuid} ${zone}` `` as an occluder map key emitted **`\x00` as the separator**. `grep`
+immediately reported *"Binary file … matches"* and returned no lines — the exact symptom
+[[the ISSUE-LOG's own hard-won rule]] names, where a NUL in `ConstructionSequence.ts` made ten live
+exports read as absent.
+
+Caught in under a minute **only because the byte-check was run as a habit, not as a response to a
+symptom**:
+
+```
+python -c "b=open(p,'rb').read(); print([(i,c) for i,c in enumerate(b) if c<9 or (c>13 and c<32)])"
+```
+
+Replaced with an explicit `` `${zone}::${uuid}` ``. Every source and doc file this lane touched was
+byte-checked after writing; all clean. **The rule earns its place: the failure is silent, it makes
+real code look absent, and one command finds it.**

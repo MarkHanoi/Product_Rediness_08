@@ -877,6 +877,74 @@ front-facing linework:
 > being handed a crippled occluder set by two of its three callers.** There was never a third
 > occluder to write.
 
+> ⚠ **AND THE OCCLUDER SET WAS *STILL* NOT THE PROBLEM — corrected in place, lane HLR18,
+> L-5300, 2026-08-22.** The paragraph above is true and was, for nine months, read as the whole
+> story: *"the set was crippled, we widened it, done."* An elevation then registered its
+> occluders, ordered them, selected them as nearer — and hid **nothing**, and the founder
+> reported seeing an interior door through a façade. The engine's own log said so in one line
+> and nobody read it as the refutation it was:
+>
+> ```
+> 3 occluder(s) (0 cut, 3 projected), disposition=demote, 0 sub-segment(s) demoted
+> ```
+>
+> **Three uncut, projected occluders present. Zero demotions.** Presence is not coverage. A
+> census of the occluder SET can be complete while every member of it covers the empty region,
+> and the count reads healthy either way.
+
+**(a1) THE SILHOUETTE RULE — NORMATIVE (added L-5300).** *An occluder's coverage region MUST be
+derived from a CANONICAL edge set, and the coverage predicate MUST be one the edge set can
+actually support.*
+
+`EdgeProjectorService` builds `:proj` linework from `THREE.EdgesGeometry(mesh.geometry, angleDeg)`
+— the solid's full **wireframe**, not its outline. Measured on a face-on 6 × 3 × 0.3 m wall box:
+**12 projected edges**, of which **4 are zero-length** (edges parallel to the view direction
+collapse to points under orthographic projection) and the remaining **8 are the outline rectangle
+traced TWICE**, front face over back face, exactly coincident. Even-odd point-in-polygon counts
+two crossings for every one real boundary transition, reads EVEN, and answers **OUTSIDE for every
+interior point**. A wireframe is not an outline, and the difference is not a rounding error: it is
+total.
+
+Three rules follow, all binding:
+
+1. **CANONICALISE FIRST.** Zero-length edges are dropped; coincident edges are de-duplicated on a
+   quantised vertex grid. Measured effect: the box above goes 12 → 4 edges and covers correctly;
+   a wall with a real window opening goes 24 → 8, outer loop plus hole loop, and the hole still
+   reads see-through; an L-shaped massing goes 18 → 6 and keeps its notch.
+2. **EVEN-ODD IS ONLY SOUND OVER A UNION OF CLOSED CURVES** — every vertex of even degree. It is
+   forbidden anywhere else. The same box **rotated 30° about the vertical** canonicalises to 12
+   edges with **8 degree-3 vertices**: its four vertical corner edges and its collapsed top and
+   bottom faces meet in T-junctions, no closed curve exists, and even-odd still answers OUTSIDE
+   across its interior.
+3. **DEGRADE EXPLICITLY, AND COUNT IT.** Where even-odd is unsound the engine falls to the
+   **vertical-span hull** — at each H, cover the interval between the lowest and highest crossing
+   of the vertical line through the sample. Exact for any *vertically simple* silhouette (an
+   oblique wall, a stair profile, an L-massing notch); strictly tighter than the AABB; over-claims
+   only where a silhouette has a vertical concavity that is not a closed void (an archway, a U).
+   Below that sits the AABB, reached only when fewer than three canonical edges survive. **Every
+   step down the ladder is counted (`vspanFallbacks`, `aabbFallbacks`) and printed on every pass**
+   — Contract 23 §9 forbids a silent cap, and here a silent cap is a false NEGATIVE, which is the
+   founder's report.
+
+**(a2) ONE OCCLUDER PER `(element, ZONE)` — NOT per element (added L-5300).** Occluders were
+grouped by `elementUUID` alone, which unioned an element's `:cut` section ring with its `:proj`
+wireframe into ONE region at depth −∞. That union is not the boundary of any region — even-odd
+cancels wherever the two overlap — and it credited a merely-*projected* face with the *cut* band's
+−∞ depth. In an elevation, where §ELEV-LINEWEIGHT (L-182) gives many elements **both** bands, the
+merged set was geometric nonsense. The element's `uuid` is still carried on each occluder, so
+*"an element never hides its own linework"* is unaffected — that guarantee never depended on the
+grouping key.
+
+**(a3) A SYMBOL THAT *REPLACES* A SOLID INHERITS ITS DEPTH (added L-5303).** Where a builder
+injects an authored elevation symbol and then deletes the solid's raw linework
+(`suppressSymbolisedElementLinework`), the symbol MUST carry the `viewDepth` of the solid it
+replaced. Otherwise the solid's occluder is deleted and its replacement is refused as an
+unstamped `:proj` node — and **a symbolised façade wall occludes nothing**, which is a second,
+independent cause of the same user-visible defect, in a different file, that (a1) does not touch.
+The transfer is the only admissible source for the number: the symbol stands where the solid
+stood. An element whose solid carried no stamp leaves its symbol unstamped, and the engine goes
+on refusing to guess.
+
 **(b) The disposition — INTENT, not a code branch.** Carried on `ViewScope.occlusionDisposition`:
 
 - `remove` — the occluded span is not drawn (plan / section default: the slab does not show
@@ -929,9 +997,25 @@ solid occludes" rule has a catastrophic degenerate case in plan:
   opening-cut edges**; the converse (plane pushed INTO the host) ⇒ **both** CUT. **A guard that
   asserts only the converse is vacuous** — it passed before the fix.
 
+- **(§4.6.5(a1), L-5300) EVERY OCCLUDER FIXTURE MUST BE BUILT FROM A REAL SOLID.** A guard that
+  hand-authors an occluder as one clean closed rectangle CANNOT FALSIFY THE PRODUCT, because
+  `EdgeProjectorService` never emits that shape. `HiddenLineRemoval.elevationOcclusion.test.ts`
+  passed, and has always passed, across the entire lifetime of a defect in which an elevation
+  façade hid nothing at all. **A fixture easier than production is not a weak test; it is a test
+  of a different system.** Occluder fixtures MUST be pushed through the same `EdgesGeometry` the
+  projector uses.
+- **(§4.6.5, L-5310) THE FAMILY CENSUS IS EXECUTABLE, NOT PROSE.** *"Reviewed for every possible
+  element"* is discharged by a table with one row per family and a measured verdict in both
+  directions — **does it occlude · is it occludable** — driven through the real engine with a
+  representative solid. A family that legitimately does neither (a grid datum) is a correct row;
+  a family that should and does not is a finding, and MUST carry its `file:line` reason.
+
 *Guarded by* `packages/core-app-model/src/drawing/DrawingZone.test.ts` (20 assertions),
 `apps/editor/__tests__/perSolidZoneClassification.test.ts` (§4.6.1a, 11 assertions),
-`HiddenLineRemoval.planPoche.test.ts`, `HiddenLineRemoval.elevationOcclusion.test.ts`.
+`HiddenLineRemoval.planPoche.test.ts`, `HiddenLineRemoval.elevationOcclusion.test.ts`,
+**`HiddenLineRemoval.facadeSilhouette.test.ts`** (L-5300..L-5303, 10 assertions — the founder's
+named interior-door case, built from real solids) and **`HiddenLineRemoval.familyCensus.test.ts`**
+(L-5310, 42 assertions — 18 families plus the six family-blind zone rules).
 
 **§4.6.7 — Open cells (recorded, not faked).**
 - **A per-VIEW override of `occlusionDisposition`.** §4.6.5(b) says a view MUST be able to
@@ -941,6 +1025,26 @@ solid occludes" rule has a catastrophic degenerate case in plan:
 - **Plan projection-occluders are enabled but conservative** — see §4.6.5(c). Widening rule (1)
   requires a real answer to "may a slab occlude the storey below?", which is a *view-range*
   question, not an occlusion one.
+- **Two families reach the drawing on a ZONE-LESS layer and are therefore invisible to occlusion
+  in BOTH directions** (measured, lane HLR18, L-5310/L-5311, and pinned in
+  `HiddenLineRemoval.familyCensus.test.ts`):
+  - **imported IFC linework** — `EdgeProjectorService.addIfcLayer` writes the flat base name with
+    no zone suffix, no `elementUUID` and no `viewDepth`. An IFC model neither hides nor is hidden.
+  - **the plumbing ELEVATION symbol** — `PlumbingElevationSymbolBuilder` injects onto a flat
+    `A-PLMB` (`packages/geometry-plumbing/src/PlumbingElevationSymbolBuilder.ts`:33,:72), and the
+    fixtures carry `skipInElevation` so the raw solid never projects either. This is the flattening
+    §4.6.4b already names, reaching occlusion as well as the pen.
+  Both are emitter defects, not engine defects, and neither is repaired by L-5300.
+- **A solid OBLIQUE to the picture plane is covered by the vertical-span hull, not its true
+  silhouette** (§4.6.5(a1) rule 3). Exact for walls, stairs and L-massings; over-claims on an
+  archway or a U-section. The exact answer needs the projected FACE loops, which the drawing layer
+  does not receive — it receives an edge soup. Closing it means the projector emitting a silhouette
+  alongside the wireframe, which is a projector change, not an engine one.
+- **`beyond` is still clipped by `cut` occluders only** even in an elevation, where the founder's
+  rule (*"whatever seats behind the wall is with hidden lines"*) argues for projected solids
+  clipping it too. The carve-out that forbids this exists to protect PLAN (§4.6.5(c)1) and must
+  survive any change. The right shape is a per-view option resolved off `ViewScope`, the same
+  precedence as `occlusionDisposition`; it is NOT plumbed, and it is recorded rather than guessed.
 
 ---
 
