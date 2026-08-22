@@ -258,6 +258,28 @@ const _CANONICAL_TYPE_TO_LAYER: ReadonlyMap<string, string> = (() => {
  * `projection-visible` is how geometry disappears from the pen table, the cut gate and
  * the poché, all at once and with no error.
  */
+/**
+ * §RCP-HAS-NO-SWING-ARC (L-5407) — the view types that receive the FLOOR-PLANE symbol pass
+ * (door swings, furniture plans, plumbing fixtures, stair treads, column caps, wall layers).
+ *
+ * ⛔ `'ceiling-plan'` is EXCLUDED ON PURPOSE. Every symbol behind this gate describes the
+ * floor plane; a reflected ceiling plan draws the ceiling. SPEC-51 §4.5 (V-RCP-4) is
+ * explicit that an RCP shows a door HEAD and no swing arc, and that floor-mounted furniture
+ * is not shown. An RCP's own symbols — light fittings — are drawn on the canvas by
+ * `PlanViewSymbolRenderer.renderLightingPlanSymbols`, which DOES admit `'ceiling-plan'`.
+ *
+ * ⚠ This set is NOT `PLAN_VIEW_TYPES` and NOT `resolveViewScope(vt).planFamily`. It contains
+ * `'detail'` (which neither of the other two plan-family answers in this file contains) and
+ * omits `'ceiling-plan'` (which both contain). It is a FOURTH answer to "which views are
+ * plan-like", and it is a legitimate one — "which views draw floor symbols" is a different
+ * question from "which views have a horizontal cut plane". Naming it is what stops it being
+ * mistaken for a copy of the others; reconciling it is L-5405, and needs measurement this
+ * lane did not take.
+ */
+const PLAN_SYMBOL_INJECTION_VIEW_TYPES: ReadonlySet<string> = new Set([
+    'plan', 'detail', 'structural-plan',
+]);
+
 export function resolveProjectionLayer(elementType: string | undefined): string {
     if (!elementType) return FALLBACK_NATIVE_LAYER;
     return _CANONICAL_TYPE_TO_LAYER.get(_canonicalTypeKey(elementType)) ?? FALLBACK_NATIVE_LAYER;
@@ -3754,11 +3776,33 @@ export class EdgeProjectorService {
         // Door swing arcs have no 3D mesh counterpart — they are a 2D AEC convention
         // symbol computed from DoorStore + WallStore geometry. Injected here, after the
         // base projection, so they appear on the A-DOOR layer alongside projected door edges.
-        if (
-            viewDef.viewType === 'plan' ||
-            viewDef.viewType === 'detail' ||
-            viewDef.viewType === 'structural-plan'
-        ) {
+        // ⭐ §RCP-HAS-NO-SWING-ARC (L-5407) — 'ceiling-plan' IS DELIBERATELY ABSENT FROM THIS
+        // SET, AND THAT WAS TRUE BY ACCIDENT UNTIL THIS COMMENT.
+        //
+        // SPEC-51 §4.5 (V-RCP-4, lane VIEWDOC20, ratified alongside ADR-0353) specifies the
+        // RCP element set: ceilings/soffits and fixtures SHOWN, walls CUT, doors HEAD ONLY —
+        // **⛔ no swing arc** — and floor-mounted furniture NOT shown. A door swing is a
+        // FLOOR-PLANE symbol: it describes where the leaf sweeps across the floor, which is
+        // meaningless in a drawing of the ceiling, and it is the most common wrong mark on a
+        // reflected ceiling plan.
+        //
+        // Every builder behind this gate is a floor-plane symbol (swing arcs, sofas, beds,
+        // wardrobes, chairs, kitchens, trees, plumbing fixtures, stair treads, column caps),
+        // so the RIGHT answer for an RCP is the whole set, not the door alone.
+        //
+        // ⚠ WHAT AN RCP *DOES* SHOW — light fittings — is rendered on the CANVAS, not here:
+        // `plan-canvas/PlanViewSymbolRenderer.renderLightingPlanSymbols` admits 'plan',
+        // 'ceiling-plan' AND 'structural-plan' (`:16`). VIEWDOC20's L-5513 flagged that line
+        // as the possible swing-arc path; MEASURED 2026-08-22 — it is the LIGHTING renderer,
+        // and admitting an RCP there is correct. The swing arc is here, and here it is absent.
+        //
+        // ⚠ AND 'detail' IS IN THIS SET WHILE BEING OUTSIDE `isPlanView` — a FIFTH rival
+        // plan-family literal in this one file (L-5405). Not reconciled here: doing so would
+        // move symbols on detail views, which nothing has measured.
+        //
+        // Named, so the next reader sees a DECISION rather than an omission — the exact
+        // failure mode ADR-0353 §1 records ("the code was right by accident: nothing asserted it").
+        if (PLAN_SYMBOL_INJECTION_VIEW_TYPES.has(viewDef.viewType)) {
             if (_symbolGate('door')) doorPlanSymbolBuilder.inject(drawing, viewDef);
             // Contract 48 §5: every sofa-part mesh tags userData.skipInPlan so its
             // beveled edges are excluded from the base projection above; this

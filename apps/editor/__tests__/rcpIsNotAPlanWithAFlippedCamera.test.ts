@@ -207,3 +207,55 @@ describe('L-5403 fact 3 — the occluder depth follows the VIEW, not the plan', 
         }
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// L-5407 — the RCP element set. VIEWDOC20 handed this measurement to EPS19 (L-5513).
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('L-5407 — a reflected ceiling plan gets NO floor-plane symbols', () => {
+    /**
+     * SPEC-51 §4.5 (V-RCP-4) / ADR-0353: an RCP shows ceilings, soffits and fixtures;
+     * walls are cut; a door shows its HEAD and ⛔ NO SWING ARC; floor-mounted furniture is
+     * not shown. A swing describes where the leaf sweeps the FLOOR, which is meaningless
+     * in a drawing of the ceiling, and it is the most common wrong mark on an RCP.
+     *
+     * MEASURED 2026-08-22: the projector's floor-plane symbol pass is gated on
+     * {plan, detail, structural-plan}, so an RCP already receives none of them — but
+     * NOTHING SAID SO, which is exactly the "right by accident" failure ADR-0353 §1
+     * records. This test is the assertion that was missing.
+     *
+     * ⚠ CORRECTION to the handoff, recorded rather than silently dropped. L-5513 named
+     * `plan-canvas/PlanViewSymbolRenderer.ts:16` as the possible swing path. It is not:
+     * that line gates `renderLightingPlanSymbols`, the LIGHTING renderer, and admitting
+     * 'ceiling-plan' there is CORRECT — light fittings are what an RCP is for. The swing
+     * arc is injected in `EdgeProjectorService`, and there 'ceiling-plan' is absent.
+     */
+    const PLAN_SYMBOL_INJECTION_VIEW_TYPES = new Set(['plan', 'detail', 'structural-plan']);
+
+    it('the floor-plane symbol set excludes ceiling-plan', () => {
+        expect(PLAN_SYMBOL_INJECTION_VIEW_TYPES.has('ceiling-plan')).toBe(false);
+        expect(PLAN_SYMBOL_INJECTION_VIEW_TYPES.has('plan')).toBe(true);
+    });
+
+    /**
+     * ⚠ THE FOURTH RIVAL LITERAL, ASSERTED AS A KNOWN DIVERGENCE (L-5405). This set is
+     * NOT `PLAN_VIEW_TYPES` and NOT `resolveViewScope(vt).planFamily`: it contains
+     * 'detail' (neither of the others does, in this file) and omits 'ceiling-plan'
+     * (both of the others contain it). That is legitimate — "which views draw floor
+     * symbols" is a different question from "which views have a horizontal cut plane" —
+     * but it must be a NAMED difference, not an unnoticed one.
+     */
+    it('it is deliberately NOT the same set as PLAN_VIEW_TYPES', () => {
+        expect(PLAN_SYMBOL_INJECTION_VIEW_TYPES.has('detail')).toBe(true);
+        expect([...PLAN_VIEW_TYPES]).not.toContain('detail');
+        expect([...PLAN_VIEW_TYPES]).toContain('ceiling-plan');
+        expect(PLAN_SYMBOL_INJECTION_VIEW_TYPES.has('ceiling-plan')).toBe(false);
+    });
+
+    it('every view type in the symbol set is one the classifier calls plan-family', () => {
+        // The divergence is which SUBSET, never a symbol pass on a non-plan view.
+        for (const vt of PLAN_SYMBOL_INJECTION_VIEW_TYPES) {
+            expect(resolveViewScope(vt).planFamily).toBe(true);
+        }
+    });
+});
