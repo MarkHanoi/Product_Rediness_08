@@ -134,6 +134,14 @@ const EPS_VERBOSE = false;
 // lazily loaded 3,700-line projector into the main bundle. Re-exported here so existing
 // `from './EdgeProjectorService'` call sites resolve it too.
 import { ProjectionSupersededError } from './projectionCancellation';
+// §PERF-CW-YIELD-IS-PER-GROUP / §PERF-CANCEL-IS-NOT-A-YIELD-RIDER (L-5400..L-5401, L-5404) —
+// the per-group SCHEDULING policy, lifted into a pure leaf module so the tests drive the
+// SAME code this loop runs. There is no hand-written model of the loop any more.
+import {
+    groupNeedsPerLayerYield,
+    shouldYieldAfterGroup,
+    shouldCancelAtGroupBoundary,
+} from './projectionChunkPolicy';
 export { ProjectionSupersededError, isProjectionSuperseded } from './projectionCancellation';
 
 /**
@@ -2503,14 +2511,33 @@ export class EdgeProjectorService {
             // (CurtainWallBuilder.ts §11 line ~878). Case-insensitive comparison handles
             // any future normalisation of the casing without a silent regression.
             // One O(n) scan with early-exit is O(1) amortised for any non-empty batch.
-            const _hasCWElements = nativeMeshGroups.some(g =>
-                (g.userData?.elementType as string | undefined)?.toLowerCase() === 'curtainwall'
-            );
-            // CHUNK_SIZE = 4 for wall/element groups (~12ms/group → ~48ms/chunk ≤50ms).
-            //              = 1 for CW groups — overridden by §PERF-EDGEPROJECTOR-SUBLAYER-YIELD
-            //                which yields inside the layer loop for CW, making CHUNK_SIZE moot.
-            const CHUNK_SIZE = _hasCWElements ? 1 : 4;
+            // ⚠ §PERF-CW-YIELD-IS-PER-GROUP (L-5401) — `_hasCWElements` IS GONE, AND WITH IT
+            // THE ONE-CURTAIN-WALL CLIFF. It was a BATCH-WIDE flag — `nativeMeshGroups.some(…
+            // 'curtainwall')` — consulted inside the LAYER loop of EVERY group. So a single
+            // curtain wall anywhere in the model made all 365 groups yield a full display
+            // frame after every layer, and (§L-5400) disabled cancellation for the pass.
+            //
+            // The scheduling questions now live in ONE pure, tested policy —
+            // `projectionChunkPolicy.ts` — which `projectionChunkPolicy.test.ts` drives
+            // DIRECTLY, so there is no hand-written model of this loop to drift out of sync
+            // (the previous test's model had no curtain-wall branch at all, which is exactly
+            // why it could not see L-5400).
+            //
+            // Detection is unchanged and stays where it was proved: the discriminator is
+            // `wrapper.userData.elementType === 'CurtainWall'`, stamped by
+            // NativeElementMeshExporter from the element root. An `InstancedMesh` probe does
+            // NOT work — the exporter converts every InstancedMesh into N plain Mesh proxies
+            // first, so the original probe was always false (§PERF-EDGEPROJECTOR-CHUNK-ADAPTIVE,
+            // corrected 2026-05-05).
+            //
+            // `_chunkGroupIdx` counts groups that ran the FULL pipeline (cache hits `continue`
+            // before it); `__diag_group_idx` is the TRUE loop position. They are DIFFERENT
+            // NUMBERS and L-5404 is what happens when they are compared to each other.
             let _chunkGroupIdx = 0;
+            // §PERF-CW-YIELD-IS-PER-GROUP (L-5401) — the ledger. One frame yield is one
+            // display frame (~16.7 ms) of calendar time whether or not the CPU is busy.
+            let _perLayerYieldCount = 0;
+            let _groupYieldCount    = 0;
 
             let __diag_group_idx = 0;
             for (const group of nativeMeshGroups) {
@@ -2565,6 +2592,11 @@ export class EdgeProjectorService {
                 const elemTypeLower = (group.userData?.elementType as string | undefined)?.toLowerCase();
                 const isCacheableElement = elemTypeLower !== undefined
                     && EdgeProjectorService.CACHEABLE_ELEMENT_TYPES.has(elemTypeLower);
+
+                // §PERF-CW-YIELD-IS-PER-GROUP (L-5401) — a property of THIS group, resolved
+                // from the same `elementType` stamp the cache gate above already read. The
+                // batch-wide `_hasCWElements` it replaces is documented at its former site.
+                const isCWGroup = groupNeedsPerLayerYield(elemTypeLower);
                 const currentVer  = typeof group.userData?.version === 'number'
                     ? (group.userData.version as number)
                     : undefined;
@@ -3224,7 +3256,17 @@ export class EdgeProjectorService {
                     // Calendar cost: +16ms per layer per CW group. For 17 CW groups × 3 layers
                     //   avg = 51 extra rAF ticks ≈ +816ms of elapsed time. Acceptable tradeoff
                     //   for eliminating 17× 200ms LONGTASKs that block navigation/interaction.
-                    if (_hasCWElements) {
+                    //
+                    // ⚠ §PERF-CW-YIELD-IS-PER-GROUP (L-5401) — THE COST ESTIMATE ABOVE WAS THE
+                    // COST OF THE DESIGN, NOT THE COST OF THE CODE. The condition was the
+                    // BATCH-WIDE `_hasCWElements`, so "17 CW groups × 3 layers" was actually
+                    // *every* group × its layers. On the founder's model (365 groups,
+                    // ~2.4 layers/group) that is ~876 display frames ≈ 14.6 s of calendar time
+                    // for ONE pass — while he navigates, with a plan pane open, and (§L-5400)
+                    // with cancellation switched off. `isCWGroup` is the question the comment
+                    // was always describing.
+                    if (isCWGroup) {
+                        _perLayerYieldCount++;
                         // §FIX-EDGEPROJECTOR-RAF-YIELD-P3 (Task 1.2) — migrated from raw rAF
                         // to FrameScheduler.scheduleOnce() to maintain P3 single-rAF-owner invariant.
                         // Semantics are identical: scheduleOnce fires on the next pre-render tick
@@ -3259,10 +3301,9 @@ export class EdgeProjectorService {
                 }
 
                 // §PERF-EDGEPROJECTOR-CHUNK: yield to the browser event loop every
-                // CHUNK_SIZE groups so the main thread is never blocked for more than
-                // ~50 ms at a time. For CW batches, per-layer yields (above) are used
-                // instead and this per-group yield is a no-op (CHUNK_SIZE=1, but
-                // _hasCWElements guard below skips the wait for non-first-layer groups).
+                // GROUP_CHUNK_SIZE groups so the main thread is never blocked for more
+                // than ~50 ms at a time. A group that already yielded after each of its
+                // LAYERS (curtain wall) skips this — it has had all the relief it needs.
                 //
                 // §FIX-EDGEPROJECTOR-RAF-YIELD (2026-05-05): Changed from setTimeout(resolve, 0)
                 // to a VSYNC-synchronized yield. WHY: setTimeout yields the current macrotask
@@ -3278,31 +3319,58 @@ export class EdgeProjectorService {
                 //
                 // COST: Adds ~16ms × (chunks−1) of calendar time vs setTimeout(0).
                 _chunkGroupIdx++;
-                if (!_hasCWElements && _chunkGroupIdx % CHUNK_SIZE === 0) {
+                if (shouldYieldAfterGroup(isCWGroup, _chunkGroupIdx)) {
+                    _groupYieldCount++;
                     await new Promise<void>(resolve =>
                         getFrameScheduler().scheduleOnce('eps-chunk-yield', () => resolve(), 'pre-render'),
                     );
+                }
 
-                    // §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — the chunk boundary is
-                    // the ONLY safe cancellation point in this loop: every per-group temp
-                    // geometry has been disposed by the `finally` above, so abandoning
-                    // here leaks nothing. If a newer generation was started while we were
-                    // yielded, everything from this point on is guaranteed to be rejected
-                    // by `setIfCurrent`, so computing it is pure waste. Cancel instead.
+                {
+                    // §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — a group boundary is a safe
+                    // cancellation point: every per-group temp geometry has been disposed by
+                    // the `finally` above, so abandoning here leaks nothing. If a newer
+                    // generation was started while we were yielded, everything from this point
+                    // on is guaranteed to be rejected by `setIfCurrent`, so computing it is
+                    // pure waste. Cancel instead.
+                    //
+                    // ⚠ §PERF-CANCEL-IS-NOT-A-YIELD-RIDER (L-5400) — THIS CHECK USED TO LIVE
+                    // INSIDE THE YIELD'S `if`, guarded by `!_hasCWElements`. For any batch
+                    // containing a single curtain wall that branch never ran, so the
+                    // cancellation check NEVER RAN EITHER: the pass computed all 365 groups
+                    // and handed back a drawing `setIfCurrent()` immediately rejected. What
+                    // makes a boundary safe is the `finally`, not the yield — so the two
+                    // decisions are now independent, and both live in ONE tested policy
+                    // (`projectionChunkPolicy.ts`). Non-CW cadence is unchanged (every
+                    // GROUP_CHUNK_SIZE work-groups); CW groups gain the every-group cadence
+                    // their `CHUNK_SIZE = 1` always intended and never reached.
                     //
                     // §FIX-PLAN-GEN-SELF-SUPERSEDE (L-705) — but ONLY while work REMAINS.
-                    // `_chunkGroupIdx % CHUNK_SIZE === 0` is also true at the boundary that
-                    // follows the LAST group whenever the group count is a multiple of
-                    // CHUNK_SIZE, and cancelling there throws away a drawing that is already
-                    // COMPLETE — paying the whole cost and then discarding the result, which
-                    // is the exact waste this optimisation exists to prevent, inverted. A
-                    // finished drawing is always worth handing back: `setIfCurrent()` is
-                    // still the authority on whether it may be DISPLAYED (and, on an empty
-                    // cache, §FIX-PLAN-BLANK-STALEGEN would rather have it than nothing).
-                    if (_chunkGroupIdx < nativeMeshGroups.length && isSuperseded?.() === true) {
+                    // Cancelling at the boundary that follows the LAST group throws away a
+                    // drawing that is already COMPLETE — paying the whole cost and then
+                    // discarding the result, which is the exact waste this optimisation
+                    // exists to prevent, inverted. A finished drawing is always worth handing
+                    // back: `setIfCurrent()` is still the authority on whether it may be
+                    // DISPLAYED (and, on an empty cache, §FIX-PLAN-BLANK-STALEGEN would
+                    // rather have it than nothing).
+                    //
+                    // ⚠ §CANCEL-DENOMINATORS-MUST-COMMENSURATE (L-5404) — that "work remains"
+                    // guard used to read `_chunkGroupIdx < nativeMeshGroups.length`, comparing
+                    // a CACHE-MISS counter to a TOTAL-GROUP count. On any pass with cache hits
+                    // the left side can never reach the right, so the guard stayed true after
+                    // the final group and a COMPLETE drawing became cancellable — re-opening
+                    // L-705 through the cache-hit `continue`. The policy takes the TRUE loop
+                    // position (`__diag_group_idx`, which counts hits and misses alike).
+                    if (shouldCancelAtGroupBoundary({
+                        perLayerYielded: isCWGroup,
+                        workGroupsDone:  _chunkGroupIdx,
+                        loopIndex:       __diag_group_idx - 1,
+                        groupsTotal:     nativeMeshGroups.length,
+                        isSuperseded,
+                    })) {
                         console.log(
                             `[EdgeProjectorService] §PERF-PROJECTION-CANCEL-SUPERSEDED — abandoning ` +
-                            `viewId=${viewId} after ${_chunkGroupIdx}/${nativeMeshGroups.length} group(s); ` +
+                            `viewId=${viewId} after ${__diag_group_idx}/${nativeMeshGroups.length} group(s); ` +
                             `a newer generation superseded this pass.`,
                         );
                         // Release the half-built drawing here — nobody downstream will ever
@@ -3331,7 +3399,10 @@ export class EdgeProjectorService {
                         // `_detachDrawingFromScene`, called on BOTH exits.
                         _detachDrawingFromScene(drawing);
                         try { drawing.onDisposed.trigger(); } catch { /* best-effort */ }
-                        throw new ProjectionSupersededError(viewId, _chunkGroupIdx, nativeMeshGroups.length);
+                        // §CANCEL-DENOMINATORS-MUST-COMMENSURATE (L-5404) — the error reports
+                        // the TRUE loop position against the TRUE total, so "abandoned after
+                        // 8/365" means what a reader assumes it means.
+                        throw new ProjectionSupersededError(viewId, __diag_group_idx, nativeMeshGroups.length);
                     }
                 }
             }
@@ -3339,7 +3410,12 @@ export class EdgeProjectorService {
             if (totalGeoCount > 0) {
                 console.log(
                     `[EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — ` +
-                    `${nativeMeshGroups.length} group(s) in ${Math.ceil(nativeMeshGroups.length / CHUNK_SIZE)} chunk(s), ` +
+                    // §PERF-CW-YIELD-IS-PER-GROUP (L-5401) — report the FRAME YIELDS actually
+                    // spent, not a chunk count derived from a batch-wide CHUNK_SIZE that no
+                    // longer exists. Yields are the number the founder feels: each one is a
+                    // whole display frame of calendar time.
+                    `${nativeMeshGroups.length} group(s), ${_perLayerYieldCount + _groupYieldCount} frame yield(s) ` +
+                    `(${_perLayerYieldCount} per-layer / ${_groupYieldCount} per-chunk), ` +
                     `${totalGeoCount} edge geometries across ${totalLayerCount} ISO layer(s) ` +
                     `(per-element UUID tagging active)`,
                 );
