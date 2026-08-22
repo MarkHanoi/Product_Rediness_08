@@ -61,27 +61,42 @@ const VIEWPORT_WIDTH = '100vw';
  * left. That is a decision, not a default — C06 §15.5 records it.
  */
 export function publishShellCanvasRegion(): void {
-    if (typeof document === 'undefined') return;
-    const body = document.body;
-    if (!body) return;
+    // ⛔ TOTAL, AND THAT IS A REQUIREMENT RATHER THAN CAUTION.
+    // `WorkspaceController._applyLayout()` calls this in the middle of a mode
+    // change. If it could throw, a LAYOUT BUDGET would be able to abort the
+    // mode switch that follows it — chrome cosmetics taking down a workspace.
+    // C06 §14.2's obligation ("a control whose host is absent must degrade,
+    // never unmount") is the same rule one layer down. The fallbacks below are
+    // the degraded answer; there is no path out of here that is not a publish.
+    try {
+        if (typeof document === 'undefined') return;
+        const body = document.body;
+        if (!body) return;
 
-    const canvas = document.getElementById('container');
-    const vw = window.innerWidth || 0;
+        const canvas = document.getElementById('container');
+        const vw = typeof window === 'undefined' ? 0 : window.innerWidth || 0;
 
-    let cx = VIEWPORT_CENTRE;
-    let w = VIEWPORT_WIDTH;
+        let cx = VIEWPORT_CENTRE;
+        let w = VIEWPORT_WIDTH;
 
-    if (canvas && vw > 0) {
-        const r = canvas.getBoundingClientRect();
-        // A hidden or not-yet-laid-out canvas measures 0 and must NOT produce a
-        // budget of `0%` — every bar would pile up on the left edge. Falling back
-        // is the honest answer to "there is no canvas region".
-        if (r.width > 0) {
-            cx = `${(((r.left + r.width / 2) / vw) * 100).toFixed(3)}%`;
-            w = `${((r.width / vw) * 100).toFixed(3)}vw`;
+        // `getBoundingClientRect` is absent on some non-element hosts and in
+        // trimmed test DOMs; treat its absence as "unmeasurable", not as a fault.
+        if (canvas && vw > 0 && typeof canvas.getBoundingClientRect === 'function') {
+            const r = canvas.getBoundingClientRect();
+            // A hidden or not-yet-laid-out canvas measures 0 and must NOT produce
+            // a budget of `0%` — every bar would pile up on the left edge.
+            // Falling back is the honest answer to "there is no canvas region".
+            if (r.width > 0) {
+                cx = `${(((r.left + r.width / 2) / vw) * 100).toFixed(3)}%`;
+                w = `${((r.width / vw) * 100).toFixed(3)}vw`;
+            }
         }
-    }
 
-    body.style.setProperty('--shell-canvas-cx', cx);
-    body.style.setProperty('--shell-canvas-w', w);
+        body.style.setProperty('--shell-canvas-cx', cx);
+        body.style.setProperty('--shell-canvas-w', w);
+    } catch {
+        // Swallowed on purpose. A budget that cannot be computed leaves the
+        // declared defaults in `tokens.ts` in force, which is the pre-budget
+        // behaviour — never a broken mode switch.
+    }
 }

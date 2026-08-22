@@ -34619,6 +34619,41 @@ from the mode bar's sheet (`6 + 3 + 5 + 14 + 5 + 3 = 36`). It is pinned by
 `analysisHeaderReserve.spec.ts` and fails if any input moves, but **it is the weaker of the two
 mechanisms** and should become a measurement too. Named so it is not mistaken for settled.
 
+### L-4036 — ⛔ FIXED (hardening): a LAYOUT BUDGET must never be able to abort a mode change
+
+`publishShellCanvasRegion()` is called by `WorkspaceController._applyLayout()` **in the middle of a
+mode switch**. As first written it could throw — a bare `window.innerWidth` in a `window`-less
+environment, or a host without `getBoundingClientRect` — and a throw there would abort the mode
+switch that follows it. **Chrome cosmetics able to take down a workspace.** It is now total: every
+path publishes, and an unmeasurable region leaves the declared defaults in `tokens.ts` in force,
+which is the pre-budget behaviour. Same obligation as C06 §14.2 (*degrade, never unmount*), one
+layer down.
+
+### L-4037 — 🟡 OPEN · NOT MINE: `analysisSurfaceMount.spec.ts` is a TIMING FLAKE, and it is pre-existing
+
+**Observed while verifying this lane, and it is recorded rather than assumed away.** Identical
+command, identical tree, two consecutive runs:
+
+    npx vitest run apps/editor/src/ui/analysis    ->  105 / 105 passing
+    npx vitest run apps/editor/src/ui/analysis    ->  103 / 105 (2 failed)
+
+**Non-deterministic, therefore not a deterministic consequence of any diff.** Run alone the file is
+**8/8, twice**.
+
+**Mechanism, measured.** The spec settles the async mount with
+`await new Promise((r) => setTimeout(r, 0))` — one or two macrotask ticks. But
+`AnalysisSurface.refresh()` opens with `await this._ensureChartjs()`, which is
+`await import('chart.js')` — a **dynamic import** whose settle time depends on transform and machine
+load. Every widget is gated behind it, which is exactly the failing set (`change-table`,
+`level-bar`, `.anl-card-foot`: *"expected null not to be null"*, *"expected 0 to be greater
+than 0"*). Under parallel load the two ticks are not enough.
+
+⛔ **NOT THIS LANE'S, and deliberately not silently patched.** `git log` on the file →
+last touched by `e1d121cc` (§ANALYSIS-TABS, L-3303..L-3304). It appears in **zero** of this lane's
+six commits — verified per commit with `git show --stat`. The real fix is to await the surface's own
+refresh rather than a fixed number of ticks, which needs a handle the spec does not currently have.
+**A fixed tick count is not a wait, it is a bet.**
+
 ### TEST COUNTS — SECOND PASS
 
 * Same command as above. **256 → 263 passing**, 18 files, zero red. `shellFloatBudget.spec.ts`
