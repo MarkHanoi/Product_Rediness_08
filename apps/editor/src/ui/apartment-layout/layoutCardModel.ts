@@ -53,7 +53,7 @@ import type {
     DtglLayoutEdge,
     DtglLayoutRoom,
 } from '@pryzm/ai-host/validators/layout-adapter';
-import type { LayoutOption, LayoutRoom, ScoredLayoutOption } from '@pryzm/ai-host';
+import type { LayoutLimitation, LayoutOption, LayoutRoom, ScoredLayoutOption } from '@pryzm/ai-host';
 import { computeCirculationReachability } from './layoutBubbleGraph.js';
 import { measureRoomFacades, type RoomFacadeMetrics } from './roomFacadeMetrics.js';
 
@@ -123,6 +123,15 @@ export interface ValidationBadge {
      *  into a per-class details panel. Always a string: empty on the
      *  projector-error path (defensive — modal shows "Validation skipped"). */
     readonly markdownReport: string;
+    /**
+     * §HONEST-PICKER (L-4200, 2026-08-22) — the ERROR messages themselves, so the
+     * modal can print them beside the "Use this layout" button instead of behind a
+     * click. The founder's Room 03-002 cards read "4 errors" on a collapsed chip
+     * while the commit button next to it was fully enabled; a count is not a
+     * finding. Warnings stay in the expandable report — they do not block a build.
+     * Empty when there are no errors OR on the projector-error path.
+     */
+    readonly errorLines: readonly string[];
 }
 
 export interface LayoutCardModel {
@@ -162,6 +171,26 @@ export interface LayoutCardModel {
      *  degraded fallback (a pre-deploy engine build) and the chip is rendered with a
      *  "~" qualifier. */
     readonly circulationExact: boolean;
+    /**
+     * §HONEST-PICKER (L-4200, 2026-08-22) — the option's STATED limitations, passed
+     * straight through from `LayoutOption.limitations` (errors first, then warnings;
+     * order within a severity preserved). The modal renders these IN FULL, above the
+     * "Use this layout" button.
+     *
+     * The founder's Room 03-002 card carried its whole disclosure ("planned on
+     * inscribed 7.9×8.8 m rectangle; site is non-rectangular") inside `summary`,
+     * which `.alm-title` clips with `text-overflow: ellipsis` — so a 13 % shortfall
+     * against the real room was rendered and then hidden by CSS. A limitation is
+     * DATA, not a suffix on a title.
+     *
+     * An EMPTY array means "checked, none"; the field is never absent here (it is
+     * `[]` when the option carried none) — but an option that never went through a
+     * generator which records limitations will show `[]` too, so this list is a
+     * lower bound on what is wrong, never a clean bill of health.
+     */
+    readonly limitations: readonly LayoutLimitation[];
+    /** Convenience for the renderer — how many limitations are `severity: 'error'`. */
+    readonly limitationErrors: number;
 }
 
 const BAR_LABELS: Record<ScoreBarKey, string> = {
@@ -310,6 +339,7 @@ const UNKNOWN_BADGE: ValidationBadge = Object.freeze({
     label: '? Unknown',
     summaryLine: 'validation skipped (projector error)',
     markdownReport: '',
+    errorLines: Object.freeze([]) as readonly string[],
 });
 
 /** True iff `n` is a finite, non-negative number. */
@@ -411,6 +441,14 @@ function buildValidationBadge(option: LayoutOption): ValidationBadge {
         const warnings = report.warnings;
         // §L-909(b) — checks that could not run. Never counted as violations.
         const notMeasured = (report.notMeasured ?? []).length;
+        // §HONEST-PICKER (L-4200) — the error SENTENCES, deduped, in report order
+        // (dimensional then topology). Capped at 12 so one pathological option
+        // cannot push the commit button off the card; the full set stays in the
+        // expandable markdown report, and the count on the pill is never capped.
+        const errorLines = [
+            ...report.dimensional.filter(v => v.severity === 'error').map(v => `${v.classId}: ${v.message}`),
+            ...report.topology.filter(v => v.severity === 'error').map(v => `${v.classId}: ${v.message}`),
+        ].filter((line, i, arr) => arr.indexOf(line) === i).slice(0, 12);
         // A zero-violation card with unrun checks must NOT read "✓ Passes" —
         // that is the over-claim this lane exists to stop. Every other label
         // is byte-identical to before.
@@ -433,6 +471,7 @@ function buildValidationBadge(option: LayoutOption): ValidationBadge {
             // per-class details panel. Defensive `?? ''` keeps the field
             // typed as a string in case a future formatter returns undefined.
             markdownReport: markdownReport ?? '',
+            errorLines,
         };
     } catch {
         return UNKNOWN_BADGE;
@@ -502,6 +541,15 @@ export function buildLayoutCardModel(option: ScoredLayoutOption, index: number):
     // 100% ⇒ MAXIMUM circulation (the generator guarantee). Surfaced as a chip beside the score.
     const reach = computeCirculationReachability(option);
 
+    // §HONEST-PICKER (L-4200) — errors first so the renderer never buries a
+    // "not buildable as drawn" line under an approximation notice. Stable within a
+    // severity (the generators emit them in a deterministic order).
+    const rawLimitations = Array.isArray(option.limitations) ? option.limitations : [];
+    const limitations: LayoutLimitation[] = [
+        ...rawLimitations.filter(l => l?.severity === 'error'),
+        ...rawLimitations.filter(l => l?.severity !== 'error'),
+    ];
+
     return {
         index,
         title,
@@ -515,6 +563,8 @@ export function buildLayoutCardModel(option: ScoredLayoutOption, index: number):
         validation: buildValidationBadge(option),
         circulationPct: Math.max(0, Math.min(100, Math.round(reach.fraction * 100))),
         circulationExact: reach.hasDoorGraph,
+        limitations,
+        limitationErrors: limitations.filter(l => l.severity === 'error').length,
         ...(narrative ? { narrative } : {}),
     };
 }

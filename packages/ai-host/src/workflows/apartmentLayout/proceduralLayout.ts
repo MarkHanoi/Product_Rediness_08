@@ -14,11 +14,20 @@ import type {
     LayoutWall,
     LayoutDoor,
     LayoutRoom,
+    LayoutLimitation,
     RoomType,
     ApartmentProgram,
     ApartmentConstraints,
     ScoringWeights,
 } from './types.js';
+// §HONEST-PICKER (L-4200, 2026-08-22) — THE normative room database. It has existed
+// since the D-TGL engine landed and this file had never imported it: every band was
+// `span / n` wide, so a hall and a master bedroom came out the SAME AREA. That is the
+// signature the founder read off his Room 03-002 picker — seven rooms, 10.2 m² each.
+// `areaWeight` / `minAreaM2` / `minShortSideM` are the same values the D-TGL bubble
+// graph sizes against, so the two engines can no longer disagree about how big a
+// bathroom is.
+import { ROOM_RULES } from './rules/programRules.js';
 import type { ShellAnalysis } from './shellAnalysis.js';
 import { polygonAreaM2 } from './shellAnalysis.js';
 import { scoreLayout } from './score.js';
@@ -113,7 +122,19 @@ export function largestInscribedAxisRect(
     };
 }
 
-/** Ordered room program → the room types to lay out, longest-lived first. */
+/**
+ * Ordered room program → the room types to lay out, public-first.
+ *
+ * §HONEST-PICKER (L-4200, 2026-08-22) — `enSuiteCount` IS NOW READ. It was not
+ * before: the founder asked for "2 bedrooms and 2 en-suite bathrooms" and this
+ * function looked only at `masterEnSuite`, so his layout contained ZERO en-suites
+ * and nothing anywhere said so. `enSuiteCount` has been a first-class program field
+ * since L-1642 and the D-TGL bubble graph (`bubbleGraph.ts:373`) has honoured it all
+ * along — only this fallback did not, which is exactly the "two engines, two
+ * vocabularies" defect shape. Each en-suite is minted IMMEDIATELY AFTER its host
+ * bedroom so the chain's door lands between the two (§ENSUITE-1TO1: an en-suite
+ * pairs with exactly one bedroom, master first).
+ */
 function roomProgram(p: ApartmentProgram): RoomType[] {
     const types: RoomType[] = [];
     if (p.entranceHall) types.push('hall');
@@ -121,10 +142,85 @@ function roomProgram(p: ApartmentProgram): RoomType[] {
     types.push('kitchen');
     if (p.openPlanKitchenDining) types.push('dining');
     const beds = Math.max(0, Math.floor(p.bedrooms));
-    for (let i = 0; i < beds; i++) types.push(i === 0 && p.masterEnSuite ? 'master' : 'bedroom');
+    // Clamped to [0, beds] — an en-suite pairs 1:1 with a bedroom, so more en-suites
+    // than bedrooms is not a thing the geometry can express (the same clamp
+    // `bubbleGraph.ts` applies).
+    const suites = typeof p.enSuiteCount === 'number' && Number.isFinite(p.enSuiteCount)
+        ? Math.max(0, Math.min(beds, Math.floor(p.enSuiteCount)))
+        : (p.masterEnSuite ? Math.min(1, beds) : 0);
+    for (let i = 0; i < beds; i++) {
+        types.push(i === 0 && (suites > 0 || p.masterEnSuite) ? 'master' : 'bedroom');
+        if (i < suites) types.push('ensuite');
+    }
     const baths = Math.max(0, Math.floor(p.bathrooms));
     for (let i = 0; i < baths; i++) types.push('bathroom');
     return types.length >= 2 ? types : ['living', 'bedroom'];
+}
+
+/**
+ * §HONEST-PICKER (L-4200) — BAND WIDTHS FROM THE PROGRAM-RULES DATABASE.
+ *
+ * The old slicer gave every room `span / n`. This allocates each band a width
+ * proportional to its `ROOM_RULES.areaWeight`, after first reserving the width each
+ * room needs to reach BOTH its `minAreaM2` (given the fixed `crossM` band depth) and
+ * its `minShortSideM`. Nothing is invented: every number comes from the same
+ * normative database the D-TGL engine sizes against.
+ *
+ * When the reserved minima do not fit in `spanM` the allocation does NOT silently
+ * shrink some room below its floor and stay quiet — it returns the proportional
+ * split AND the per-room shortfalls, so the caller states them on the card. Pure +
+ * deterministic.
+ */
+export function allocateBandWidths(
+    types: readonly RoomType[],
+    spanM: number,
+    crossM: number,
+): {
+    readonly widths: readonly number[];
+    readonly shortfalls: ReadonlyArray<{ readonly index: number; readonly type: RoomType; readonly areaM2: number; readonly minAreaM2: number }>;
+} {
+    const n = types.length;
+    if (n === 0 || !(spanM > 0) || !(crossM > 0)) return { widths: [], shortfalls: [] };
+    const rule = (t: RoomType) => ROOM_RULES[t];
+    // The width this room needs to satisfy BOTH its area floor and its short-side floor.
+    const floors = types.map(t => {
+        const r = rule(t);
+        const byArea = r && r.minAreaM2 > 0 ? r.minAreaM2 / crossM : 0;
+        const byShortSide = r ? r.minShortSideM : 0;
+        // The band's short side is min(width, crossM); crossM is fixed, so only the
+        // width is ours to set — and only when crossM already clears the floor.
+        return Math.max(byArea, byShortSide);
+    });
+    const weights = types.map(t => {
+        const w = rule(t)?.areaWeight;
+        return typeof w === 'number' && w > 0 ? w : 1;
+    });
+    const sumW = weights.reduce((a, b) => a + b, 0);
+    const sumFloor = floors.reduce((a, b) => a + b, 0);
+
+    let widths: number[];
+    if (sumFloor <= spanM) {
+        // Reserve every floor, then split the surplus by weight.
+        const surplus = spanM - sumFloor;
+        widths = floors.map((f, i) => f + surplus * (weights[i]! / sumW));
+    } else {
+        // The plate genuinely cannot hold this programme at minimum sizes. Split by
+        // weight and REPORT the shortfalls — never quietly pick winners and losers.
+        widths = weights.map(w => spanM * (w / sumW));
+    }
+
+    const shortfalls: Array<{ index: number; type: RoomType; areaM2: number; minAreaM2: number }> = [];
+    widths.forEach((w, i) => {
+        const r = rule(types[i]!);
+        if (!r || r.minAreaM2 <= 0) return;
+        // Compare the DISPLAYED value, not the raw float: a band that rounds to
+        // exactly the minimum must not print "12.0 m² — below the 12.0 m² minimum".
+        const areaM2 = Math.round(w * crossM * 10) / 10;
+        if (areaM2 < r.minAreaM2) {
+            shortfalls.push({ index: i, type: types[i]!, areaM2, minAreaM2: r.minAreaM2 });
+        }
+    });
+    return { widths, shortfalls };
 }
 
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
@@ -166,6 +262,14 @@ export function generateProceduralLayoutHonest(
     // slicing the bbox plans rooms OUTSIDE the real boundary. Plan on the
     // largest inscribed axis-aligned rectangle WITH DISCLOSURE, or refuse.
     let disclosure = '';
+    // §HONEST-PICKER (L-4200, 2026-08-22) — the STATED limitations of every option
+    // this call produces. `disclosure` (a suffix on `summary`) was the only carrier
+    // before, and `.alm-title` truncates the summary with `text-overflow: ellipsis`,
+    // so on the founder's Room 03-002 card the words "planned on inscribed 7.9×8.8 m
+    // rectangle; site is non-rectangular" were rendered and then clipped. The
+    // limitations travel as DATA and the modal renders them in full, above the
+    // "Use this layout" button.
+    const limitations: LayoutLimitation[] = [];
     const polyArea = shell.perimeter.length >= 3 ? polygonAreaM2(shell.perimeter) : 0;
     const bboxArea = w * d;
     if (shell.perimeter.length >= 3 && bboxArea > 0 && polyArea < RECT_AREA_RATIO * bboxArea) {
@@ -182,6 +286,19 @@ export function generateProceduralLayoutHonest(
         }
         minX = rect.x0; minZ = rect.z0; w = rect.w; d = rect.d;
         disclosure = ` — planned on inscribed ${rect.w.toFixed(1)}×${rect.d.toFixed(1)} m rectangle; site is non-rectangular`;
+        // BOTH numbers, and the difference spelled out — C73 §4.4. "Approximated"
+        // without the m² left behind is the adjective the founder correctly refused
+        // to accept as a disclosure.
+        const uncovered = polyArea - rect.w * rect.d;
+        limitations.push({
+            code: 'shape-approximated',
+            severity: 'warning',
+            text:
+                `This shape is approximated by an inscribed ${rect.w.toFixed(1)} × ${rect.d.toFixed(1)} m ` +
+                `rectangle (${(rect.w * rect.d).toFixed(1)} m²). The room is ${polyArea.toFixed(1)} m², so ` +
+                `${uncovered.toFixed(1)} m² of it — ${(100 * uncovered / polyArea).toFixed(0)}% — is NOT covered ` +
+                `by this layout. This generator cannot plan against a non-rectangular boundary.`,
+        });
     }
 
     const sliceAlongX = w >= d;       // slice across the LONGER axis
@@ -190,19 +307,46 @@ export function generateProceduralLayoutHonest(
 
     const types = roomProgram(program);
     const n = Math.max(2, types.length);
-    const cellM = span / n;
     const variants = Math.max(1, Math.min(count, 2));
     const out: ScoredLayoutOption[] = [];
 
+    // §HONEST-PICKER (L-4200) — a LINEAR CHAIN makes every interior room a passage.
+    // That is a property of this generator, not of the user's brief, so it is stated
+    // rather than hidden. Rooms whose whole point is privacy (bathroom, en-suite) are
+    // the ones it matters for; only the two chain ends can avoid it.
+    const passThroughPrivate = types
+        .slice(1, -1)
+        .filter(t => t === 'bathroom' || t === 'ensuite' || t === 'wc');
+    if (passThroughPrivate.length > 0) {
+        limitations.push({
+            code: 'private-room-is-passage',
+            severity: 'error',
+            text:
+                `This generator lays rooms in a single line, so ${passThroughPrivate.length} ` +
+                `private room(s) (${passThroughPrivate.map(cap).join(', ')}) can only be reached by ` +
+                `walking through another room. A real plan routes them off a hall or corridor.`,
+        });
+    }
+
     for (let v = 0; v < variants; v++) {
         const order = v === 0 ? types : [...types].reverse();
+        // §HONEST-PICKER (L-4200) — band widths from `ROOM_RULES`, not `span / n`.
+        // The founder's card read "Hall 10.2 · Living 10.2 · Kitchen 10.2 · … ×7",
+        // seven rooms of identical area, because this used to be one division.
+        const alloc = allocateBandWidths(order, span, cross);
+        /** Limitations specific to THIS variant (the reversed order can shrink a
+         *  different room), merged with the shared set on the option below. */
+        const limitationsForVariant: LayoutLimitation[] = [];
         const walls: LayoutWall[] = [];
         const doors: LayoutDoor[] = [];
         const rooms: LayoutRoom[] = [];
 
+        let cursorM = 0;
         for (let i = 0; i < n; i++) {
+            const widthM = alloc.widths[i] ?? span / n;
+            cursorM += widthM;
             if (i < n - 1) {
-                const posM = (i + 1) * cellM; // distance along span from the min corner
+                const posM = cursorM;          // distance along span from the min corner
                 const wall: LayoutWall = sliceAlongX
                     ? { start: { x: (minX + posM) * M, y: minZ * M }, end: { x: (minX + posM) * M, y: (minZ + cross) * M } }
                     : { start: { x: minX * M, y: (minZ + posM) * M }, end: { x: (minX + cross) * M, y: (minZ + posM) * M } };
@@ -214,10 +358,24 @@ export function generateProceduralLayoutHonest(
             rooms.push({
                 name: `${cap(type)} ${i + 1}`,
                 type,
-                area: cellM * cross,
+                area: widthM * cross,
                 windowCount: 1,
                 hasDirectAccess: true,
                 adjacentTo: [],
+            });
+        }
+
+        // Every band that still lands under its `ROOM_RULES.minAreaM2` is named with
+        // BOTH numbers, once per option (variant B reverses the order, so the
+        // shortfall set can differ between the two).
+        for (const sf of alloc.shortfalls) {
+            const nm = rooms[sf.index]?.name ?? cap(sf.type);
+            limitationsForVariant.push({
+                code: 'room-below-minimum',
+                severity: 'error',
+                text:
+                    `${nm} is ${sf.areaM2.toFixed(1)} m² — below the ${sf.minAreaM2.toFixed(1)} m² minimum ` +
+                    `this room type requires. This layout is not buildable as drawn.`,
             });
         }
 
@@ -235,11 +393,23 @@ export function generateProceduralLayoutHonest(
         }
 
         const opt: LayoutOption = {
-            summary: `Procedural ${v === 0 ? 'A' : 'B'} — ${n} rooms (offline demo)${disclosure}`,
+            // §HONEST-PICKER (L-4200) — SAY WHAT DIFFERS. The founder was shown two
+            // cards reading "Procedural A / Procedural B — 7 rooms" with identical
+            // areas and identical scores, which implies a choice that does not
+            // exist. This generator has exactly ONE solution shape (a line of
+            // rooms); the only variable is which end of the plate the public rooms
+            // take, so the card says that instead of a bare letter.
+            summary:
+                `Procedural ${v === 0 ? 'A' : 'B'} — ${n} rooms in a single line, ` +
+                `${v === 0 ? 'public end first' : 'the same rooms reversed'} (offline demo)${disclosure}`,
             rooms,
             walls,
             doors,
             corridorWidthMin: constraints.minCorridorWidth,
+            // §HONEST-PICKER (L-4200) — an EMPTY array is the positive statement
+            // "checked, none found"; the field is never omitted on this path because
+            // this generator always knows what it approximated.
+            limitations: [...limitations, ...limitationsForVariant],
         };
         out.push({ ...opt, score: scoreLayout(opt, weights) });
     }

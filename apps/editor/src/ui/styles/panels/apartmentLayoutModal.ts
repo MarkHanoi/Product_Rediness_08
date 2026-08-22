@@ -50,8 +50,16 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
   display: flex; align-items: center; justify-content: center; overflow: hidden;
 }
 .alm-thumb svg { width: 100%; height: 100%; }
-.alm-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.alm-title { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alm-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+/* §HONEST-PICKER (L-4200, 2026-08-22) — the title WRAPS (was: overflow:hidden +
+ * text-overflow:ellipsis + white-space:nowrap). That one line is how the founder's
+ * Room 03-002 card rendered "Procedural A — 7 rooms (offline demo) — planned on
+ * inscribed 7.9x8.8 m rectangle; site is non-rectangular" and showed him
+ * "Procedural A - 7 rooms (offlin...". Two lines max keeps the card layout stable;
+ * anything longer belongs in the limitations block, which is now where the real
+ * disclosure lives (it is DATA, not a suffix on a title). */
+.alm-title { font-weight: 600; font-size: 13px; overflow: hidden; line-height: 1.35;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .alm-overall { font-weight: 700; font-size: 18px; color: #6600FF; }
 .alm-overall small { font-size: 11px; font-weight: 500; color: #94a3b8; }
 .alm-bars { display: flex; flex-direction: column; gap: 4px; }
@@ -68,6 +76,31 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
 .alm-room-name { font-weight: 500; }
 .alm-room-type { color: #94a3b8; }
 .alm-room-area { color: #475569; }
+/* §HONEST-PICKER (L-4200) — the ALWAYS-VISIBLE error list under the validation pill.
+ * Errors stop a build, so they are never behind a click; warnings stay in the
+ * expandable markdown report below. */
+.alm-validation-errors {
+  list-style: none; margin: 4px 0 0; padding: 6px 8px; border-radius: 6px;
+  background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;
+  font-size: 11px; line-height: 1.45; display: flex; flex-direction: column; gap: 2px;
+  max-height: 120px; overflow-y: auto;
+}
+/* §HONEST-PICKER (L-4200) — STATED LIMITATIONS, directly above "Use this layout".
+ * Brand palette only (PRYZM purple + slate); red is reserved for the error variant,
+ * and there is no black anywhere. */
+.alm-limits {
+  margin-top: 6px; padding: 8px 10px; border-radius: 8px;
+  background: #F5F0FF; border: 1px solid #C9B8FF; color: #4C1D95;
+}
+.alm-limits--err { background: #fef2f2; border-color: #fecaca; color: #7f1d1d; }
+.alm-limits-head { font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+  text-transform: uppercase; margin-bottom: 4px; }
+.alm-limits-list { list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 4px; }
+.alm-limit { display: grid; grid-template-columns: 14px 1fr; gap: 6px;
+  font-size: 11px; line-height: 1.45; }
+.alm-limit-icon { line-height: 1.45; }
+.alm-limit--err .alm-limit-text { font-weight: 600; }
 .alm-select {
   margin-top: auto; padding: 8px 12px; border: none; border-radius: 8px; cursor: pointer;
   background: #6600FF; color: #ffffff; font-weight: 600; font-size: 12px;

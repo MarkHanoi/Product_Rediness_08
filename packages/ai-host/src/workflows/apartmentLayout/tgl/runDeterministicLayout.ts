@@ -7,7 +7,7 @@
 // This REPLACES the strip-slicer `generateProceduralLayout` behind generate.ts's
 // opt-in fallback seam — same shape out, real architecture in. Pure + deterministic.
 
-import type { ApartmentConstraints, ApartmentProgram, ScoringWeights, ScoredLayoutOption, LayoutOption, EngineTuning } from '../types.js';
+import type { ApartmentConstraints, ApartmentProgram, LayoutDeclineDiagnosis, ScoringWeights, ScoredLayoutOption, LayoutOption, EngineTuning } from '../types.js';
 import type { ShellAnalysis } from '../shellAnalysis.js';
 import { scoreLayout } from '../score.js';
 import { enumerateLayouts } from './enumerate.js';
@@ -161,9 +161,24 @@ export function generateDeterministicLayouts(
     // internal corridor reaches the entry edge (the apartment front door opens into circulation).
     // Absent ⇒ no entry leg (byte-identical to the pre-entry behaviour for every caller that omits it).
     entryWorld?: { readonly x: number; readonly z: number },
+    // §HONEST-PICKER (L-4200, 2026-08-22) — OPTIONAL decline sink, forwarded verbatim
+    // to `enumerateLayouts`. An empty return from this function used to be the ONLY
+    // signal the caller got, so `generate.ts` could not tell "the engine refused this
+    // programme on architectural grounds" from "the perimeter was degenerate" and fell
+    // through to the strip slicer for both. Omitted ⇒ byte-identical for the house
+    // orchestrator, the residential packer and every existing test (ADR-0061).
+    onDecline?: (d: LayoutDeclineDiagnosis) => void,
 ): ScoredLayoutOption[] {
     const perimeter = shell.perimeter as Pt[];
-    if (!perimeter || perimeter.length < 3) return [];
+    if (!perimeter || perimeter.length < 3) {
+        onDecline?.({
+            kind: 'degenerate',
+            reason:
+                `the shell perimeter has ${perimeter?.length ?? 0} vertices — the layout engine ` +
+                `needs a closed polygon of at least 3`,
+        });
+        return [];
+    }
 
     // §PRINCIPAL-AXIS (LAYOUT-QUALITY-DEEP, 2026-06-04) — a SKEWED (off-axis) plot
     // stair-steps in the axis-aligned slab-sweep decomposition, dropping rooms and
@@ -244,7 +259,7 @@ export function generateDeterministicLayouts(
         ? residualExcludeRectsLayout.map(r => ({ x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z1 }))
         : residualExcludeRectsWorld?.map(mapRectToEngine);
 
-    const candidates = enumerateLayouts({
+    const candidates = enumerateLayouts(({
         shellPolygon,
         program,
         levelId: 'shell',                         // graph-internal; real level applied at build
@@ -284,7 +299,7 @@ export function generateDeterministicLayouts(
         // storey; absent / false ⇒ the fallback pass is skipped ⇒ byte-identical baseline.
         ...(program.groundFloorWetRoomPublicFallback === true
             ? { groundFloorWetRoomPublicFallback: true } : {}),
-    });
+    }), onDecline);
 
     return candidates.map((c, idx) => {
         // Emit ALL walls (perimeter flagged isExternal) so the preview shows the

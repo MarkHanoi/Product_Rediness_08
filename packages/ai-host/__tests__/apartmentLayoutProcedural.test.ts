@@ -22,10 +22,16 @@ describe('generateProceduralLayout (offline fallback)', () => {
     it('produces real multi-wall layouts (not a 1-wall stub)', () => {
         const opts = generateProceduralLayout(shell, program, constraints, weights, 2);
         expect(opts.length).toBe(2);
-        // program = hall, living, kitchen, dining, master, bedroom, bathroom = 7 rooms → 6 partitions.
-        expect(opts[0]!.walls.length).toBe(6);
-        expect(opts[0]!.doors.length).toBe(6);
-        expect(opts[0]!.rooms.length).toBe(7);
+        // §HONEST-PICKER (L-4200, 2026-08-22) — WAS 7 rooms / 6 partitions. The
+        // fixture sets `masterEnSuite: true` and this generator used to mint NO
+        // en-suite room at all: `roomProgram` read the flag only to RENAME bedroom 1
+        // "master". The founder asked for "2 bedrooms and 2 en-suite bathrooms" and
+        // got zero en-suites with nothing anywhere saying so. The programme is now
+        // hall, living, kitchen, dining, master, ENSUITE, bedroom, bathroom = 8.
+        expect(opts[0]!.walls.length).toBe(7);
+        expect(opts[0]!.doors.length).toBe(7);
+        expect(opts[0]!.rooms.length).toBe(8);
+        expect(opts[0]!.rooms.map(r => r.type)).toContain('ensuite');
         expect(opts[0]!.score.overall).toBeGreaterThan(0);
     });
 
@@ -69,11 +75,11 @@ describe('generateProceduralLayout (offline fallback)', () => {
     it('records the linear door chain on the rooms (adjacentTo + doorAdjacentTo)', () => {
         const [opt] = generateProceduralLayout(shell, program, constraints, weights, 1);
         const rooms = opt!.rooms;
-        expect(rooms.length).toBe(7);
+        expect(rooms.length).toBe(8);   // §HONEST-PICKER (L-4200) — was 7, +1 en-suite.
         // Ends have 1 neighbour, middles 2; door graph mirrors wall adjacency.
         expect(rooms[0]!.doorAdjacentTo).toEqual([rooms[1]!.name]);
         expect(rooms[3]!.doorAdjacentTo).toEqual([rooms[2]!.name, rooms[4]!.name]);
-        expect(rooms[6]!.doorAdjacentTo).toEqual([rooms[5]!.name]);
+        expect(rooms[7]!.doorAdjacentTo).toEqual([rooms[6]!.name]);
         for (const r of rooms) expect(r.adjacentTo).toEqual(r.doorAdjacentTo);
     });
 });

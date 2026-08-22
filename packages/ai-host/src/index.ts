@@ -447,6 +447,11 @@ export type {
   LayoutRoom,
   LayoutWall,
   LayoutDoor,
+  // §HONEST-PICKER (L-4200, 2026-08-22) — the picker renders these; they must cross
+  // the package boundary or the editor card model cannot type them.
+  LayoutLimitation,
+  LayoutDeclineDiagnosis,
+  LayoutDeclineKind,
   ScoredLayoutOption,
   LayoutScore,
   LayoutScoreBreakdown,

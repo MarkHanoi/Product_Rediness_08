@@ -11,7 +11,7 @@
 // layouts — but every emitted graph is in the canonical {x,z} frame.
 
 import { EPSILON_ZERO, pointInPolygonXZ } from '@pryzm/geometry-kernel';
-import type { ApartmentProgram, RoomType, ScoringWeights } from '../types.js';
+import type { ApartmentProgram, LayoutDeclineDiagnosis, RoomType, ScoringWeights } from '../types.js';
 import { decomposeToRects, clampRectToConvexShell, polygonBBox, rectArea, rectifyConvexQuad, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
 import { buildBubbleGraph, scaleProgramToShell, type BubbleGraph, type ProgramRoom, type AdjacencyEdge } from './bubbleGraph.js';
 import { subdivideWithReport, withFeasibilityReportSession, findCorridorStubToKeepOut, claimResidualPlacements, resolveRoomOverlaps, rectPolygon, type DroppedRoom, type RoomPlacement } from './subdivide.js';
@@ -2786,22 +2786,67 @@ export function preferInBoundsCandidates(pool: readonly TglCandidate[]): readonl
 }
 
 /**
+ * §HONEST-PICKER (L-4200) — collapse every strategy's `underMinAreaRooms` to ONE row
+ * per room type, keeping the LARGEST area actually achieved for that type across the
+ * strategies. The largest is the honest one: it is the best the engine managed, so
+ * "master 9.3 m² against a 12 m² minimum" is a floor on the shortfall, never an
+ * exaggeration of it. Pure + deterministic (types sorted).
+ */
+function dedupeUnderMin(
+    candidates: readonly TglCandidate[],
+): ReadonlyArray<{ type: string; areaM2: number; minAreaM2: number }> {
+    const best = new Map<string, { type: string; areaM2: number; minAreaM2: number }>();
+    for (const c of candidates) {
+        for (const r of c.underMinAreaRooms) {
+            const prev = best.get(r.type);
+            if (prev === undefined || r.areaM2 > prev.areaM2) {
+                best.set(r.type, {
+                    type: r.type,
+                    areaM2: Math.round(r.areaM2 * 10) / 10,
+                    minAreaM2: Math.round(r.areaMinM2 * 10) / 10,
+                });
+            }
+        }
+    }
+    return [...best.values()].sort((a, b) => a.type.localeCompare(b.type));
+}
+
+/**
  * Enumerate candidate layouts and return the best `count`, Pareto-ranked then
  * weighted-sorted. Deterministic: same input ⇒ identical output (graphs + GUIDs).
  */
-export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
+export function enumerateLayouts(
+    input: EnumerateInput,
+    // §HONEST-PICKER (L-4200, 2026-08-22) — OPTIONAL decline sink. Every `return []`
+    // below already KNEW why it was empty; the reason was logged behind
+    // `__pryzmLayoutDiag` and then dropped, so `generate.ts` could not tell an
+    // architectural REFUSAL from a degenerate crash and fell through to the strip
+    // slicer for both. Purely additive: omitted ⇒ byte-identical for every existing
+    // caller (house orchestrator, residential packer, 20+ tests).
+    onDecline?: (d: LayoutDeclineDiagnosis) => void,
+): TglCandidate[] {
     // §FEASIBILITY-LOG-SESSION (founder defect, 2026-08-10) — one preview runs the
     // subdivider once per strategy × per rect, so the per-drop warning flooded the
     // console during slider drags. Open ONE reporting session around the whole
     // enumeration: every nested subdivide joins it and a single summary line
     // ("N rooms dropped across M rects: living×2, kitchen×1") is emitted at the end.
-    return withFeasibilityReportSession(() => enumerateLayoutsImpl(input));
+    return withFeasibilityReportSession(() => enumerateLayoutsImpl(input, onDecline));
 }
 
-function enumerateLayoutsImpl(input: EnumerateInput): TglCandidate[] {
+function enumerateLayoutsImpl(
+    input: EnumerateInput,
+    onDecline?: (d: LayoutDeclineDiagnosis) => void,
+): TglCandidate[] {
     const decomposedArea = decomposeToRects(input.shellPolygon).reduce((s, r) => s + rectArea(r), 0);
     const shellArea = input.shellAreaM2 && input.shellAreaM2 > 0 ? input.shellAreaM2 : decomposedArea;
-    if (shellArea <= 0) return [];
+    if (shellArea <= 0) {
+        onDecline?.({
+            kind: 'degenerate',
+            reason: 'the shell has no usable floor area (its perimeter did not decompose to any rectangle) — nothing can be planned inside it',
+            shellAreaM2: shellArea,
+        });
+        return [];
+    }
 
     // §D3.5 APARTMENT-ENVELOPE GATE — refuse to generate when the shell + program
     // combination is architecturally absurd (e.g. 200 m² 1-bedroom or 35 m²
@@ -2840,6 +2885,11 @@ function enumerateLayoutsImpl(input: EnumerateInput): TglCandidate[] {
         for (const f of env.hardFindings) {
             console.warn(`[apartment-layout] §D3.5 envelope reject: ${f.reason}`);
         }
+        onDecline?.({
+            kind: 'envelope',
+            reason: env.hardFindings.map(f => f.reason).join('; ') || 'the shell and the requested bedroom count are outside the §D3.5 envelope band',
+            shellAreaM2: shellArea,
+        });
         return [];
     }
 
@@ -2848,7 +2898,14 @@ function enumerateLayoutsImpl(input: EnumerateInput): TglCandidate[] {
         const c = buildCandidate(input, shellArea, s);
         if (c) candidates.push(c);
     }
-    if (candidates.length === 0) return [];
+    if (candidates.length === 0) {
+        onDecline?.({
+            kind: 'degenerate',
+            reason: `no layout strategy could build a candidate on this ${shellArea.toFixed(1)} m² shell — the decomposed plate has no rectangle a room can sit in`,
+            shellAreaM2: shellArea,
+        });
+        return [];
+    }
 
     // LEGALITY + SHAPE + TOPOLOGY GATE (§rules + D3.1 + T3.3, 5-tier fallback)
     //
@@ -2973,6 +3030,24 @@ function enumerateLayoutsImpl(input: EnumerateInput): TglCandidate[] {
             `requested program (${requested}) at minimum room sizes — surfacing a structured ` +
             `rejection rather than shipping a degenerate option (no kitchen/living, or a sub-min room).`,
         );
+        // §HONEST-PICKER (L-4200, 2026-08-22) — THIS is the sentence the founder's
+        // Room 03-002 run produced and nobody ever saw. It was gated behind
+        // `__pryzmLayoutDiag` (off in production) and then thrown away with the
+        // empty array, so `generate.ts` read "D-TGL declined" as indistinguishable
+        // from "D-TGL crashed" and shipped the strip slicer's uniform bands —
+        // which commit the very sub-minimum rooms this gate just refused.
+        // The per-room numbers travel as DATA (both sides of each comparison,
+        // C73 §4.4) so the card can print "master 9.3 m² against a 12 m² minimum"
+        // rather than a bare adjective.
+        onDecline?.({
+            kind: 'program-does-not-fit',
+            reason:
+                `${reason} across all ${candidates.length} strategies on this ` +
+                `${shellArea.toFixed(1)} m² shell. Requested programme: ${requested}.`,
+            missingMandatoryTypes: missingUnion,
+            underMinAreaRooms: dedupeUnderMin(candidates),
+            shellAreaM2: shellArea,
+        });
         return [];
     }
 

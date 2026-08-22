@@ -128,6 +128,78 @@ export interface LayoutOption {
      *  AI-produced or hand-built option that never went through `enumerate.ts` has no
      *  verdict, and `undefined` here means **NOT MEASURED**, never "sound". */
     circulation?: LayoutCirculationVerdict;
+    /**
+     * §HONEST-PICKER (L-4200, 2026-08-22) — STATED LIMITATIONS OF *THIS* OPTION,
+     * in the words the user must read BEFORE pressing "Use this layout".
+     *
+     * The founder's Room 03-002 report is the reason this field exists. The strip
+     * slicer had planned on an inscribed rectangle 10.6 m² smaller than the room,
+     * after the D-TGL engine had ALREADY declined the same program for a NAMED
+     * architectural reason — and the only trace of either fact was a sentence
+     * appended to `summary`, which `.alm-title`'s `text-overflow: ellipsis`
+     * truncated away. A card that looks authoritative while silently dropping 12 %
+     * of the room is the exact defect class C83 §5.2.1 / C78 §1.4 forbid.
+     *
+     * ABSENT ⇒ NOTHING IS CLAIMED — never "no limitations". An empty array is the
+     * positive statement "this option was checked and carries none".
+     */
+    limitations?: readonly LayoutLimitation[];
+}
+
+/**
+ * §HONEST-PICKER (L-4200) — one stated limitation of a layout option.
+ *
+ * `severity` is the user-facing weight, NOT a legality verdict: `error` means the
+ * option breaches something normative (a room below its `programRules.minAreaM2`),
+ * `warning` means it is buildable but the engine had to approximate (planning on an
+ * inscribed rectangle; running a fallback engine after the real one declined).
+ */
+export interface LayoutLimitation {
+    /** Stable machine code — the renderer never keys on the prose. */
+    readonly code:
+        | 'shape-approximated'      // planned on an inscribed rectangle, not the real polygon
+        | 'engine-fallback'         // the D-TGL engine declined; a weaker generator produced this
+        | 'room-below-minimum'      // a room is smaller than its programRules minimum
+        | 'private-room-is-passage' // a bathroom/en-suite is only reachable through another room
+        | 'requested-room-absent';  // a room the user asked for is not in this layout
+    readonly severity: 'error' | 'warning';
+    /** One sentence, plain language, carrying BOTH numbers wherever two exist. */
+    readonly text: string;
+}
+
+/**
+ * §HONEST-PICKER (L-4200) — WHY THE D-TGL ENGINE PRODUCED NO CANDIDATE.
+ *
+ * `enumerateLayouts` computed exactly this diagnosis at every `return []` and then
+ * DISCARDED it (the mandatory / min-area sentence was `console.warn`-ed only behind
+ * `__pryzmLayoutDiag`). `generate.ts` therefore could not distinguish "the engine
+ * refused this program on architectural grounds" from "the engine crashed on a
+ * degenerate perimeter", and fell through to the strip slicer for both — shipping
+ * the very layout the engine had just refused. ABSENT ⇒ NOT MEASURED.
+ */
+export type LayoutDeclineKind =
+    /** §D3.5 apartment-envelope band: shell area vs bedroom count. */
+    | 'envelope'
+    /** Viability gate: every strategy dropped a requested mandatory room, or shrank
+     *  a habitable room below its `programRules.minAreaM2`. */
+    | 'program-does-not-fit'
+    /** No usable boundary, or no strategy built a candidate at all. */
+    | 'degenerate';
+
+export interface LayoutDeclineDiagnosis {
+    readonly kind: LayoutDeclineKind;
+    /** The ENGINE's own sentence. Never empty. */
+    readonly reason: string;
+    /** Mandatory room types dropped by EVERY strategy (union). */
+    readonly missingMandatoryTypes?: readonly string[];
+    /** Rooms every strategy shrank below minimum — BOTH numbers, per C73 §4.4. */
+    readonly underMinAreaRooms?: ReadonlyArray<{
+        readonly type: string;
+        readonly areaM2: number;
+        readonly minAreaM2: number;
+    }>;
+    /** The shell area the engine judged (m²). */
+    readonly shellAreaM2?: number;
 }
 
 /**

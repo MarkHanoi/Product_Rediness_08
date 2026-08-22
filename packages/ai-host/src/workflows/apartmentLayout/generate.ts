@@ -13,6 +13,8 @@ import type {
     LayoutRoom,
     LayoutWall,
     LayoutDoor,
+    LayoutDeclineDiagnosis,
+    LayoutLimitation,
     ApartmentConstraints,
     ApartmentProgram,
     ScoringWeights,
@@ -89,6 +91,50 @@ export interface GenerateLayoutResult {
     /** Relay calls made (1 = first-try success; ≤ maxRetries). */
     attempts: number;
     reason?: string;
+    /** §HONEST-PICKER (L-4200, 2026-08-22) — the D-TGL engine's OWN diagnosis when it
+     *  produced no candidate. Present on BOTH arms: on `rejected` it is the reason,
+     *  and on `ok` it says a WEAKER engine produced the options the user is looking at
+     *  and why. Before this existed the strip slicer's parallel bands shipped with no
+     *  trace that the real engine had refused the same programme. ABSENT ⇒ D-TGL was
+     *  never asked, or it succeeded — never "it had no objection". */
+    declineDiagnosis?: LayoutDeclineDiagnosis;
+}
+
+/**
+ * §HONEST-PICKER (L-4200) — stamp a `LayoutLimitation` onto every option, preserving
+ * whatever the generator already recorded. Pure; returns NEW option objects.
+ */
+function withLimitation(
+    options: readonly ScoredLayoutOption[],
+    limitation: LayoutLimitation,
+): ScoredLayoutOption[] {
+    return options.map(o => ({
+        ...o,
+        limitations: [...(o.limitations ?? []), limitation],
+    }));
+}
+
+/**
+ * §HONEST-PICKER (L-4200) — turn the engine's decline into the sentence the picker
+ * card shows above "Use this layout". It carries the engine's own words, including
+ * the per-room `9.3 m² against a 12.0 m² minimum` pairs, because "the layout engine
+ * declined" without the numbers is an adjective, not a measurement (C73 §4.4).
+ */
+export function declineToLimitation(d: LayoutDeclineDiagnosis): LayoutLimitation {
+    const rooms = (d.underMinAreaRooms ?? [])
+        .map(r => `${r.type} ${r.areaM2.toFixed(1)} m² vs ${r.minAreaM2.toFixed(1)} m² minimum`)
+        .join('; ');
+    const missing = (d.missingMandatoryTypes ?? []).length > 0
+        ? ` It could not place: ${[...new Set(d.missingMandatoryTypes)].join(', ')}.`
+        : '';
+    return {
+        code: 'engine-fallback',
+        severity: 'warning',
+        text:
+            `The architectural layout engine DECLINED this programme on this shape, so what you ` +
+            `see was produced by a simpler fallback generator. The engine's reason: ${d.reason}` +
+            `${rooms ? ` (${rooms})` : ''}.${missing}`,
+    };
 }
 
 /** Build the user prompt; on retry, append the prior validation failures (§10). */
@@ -245,6 +291,16 @@ export async function generateLayoutOptions(
     // "rejected" semantics; the live editor registration enables it. The strip
     // slicer (generateProceduralLayout) remains a last-resort safety net.
     if (options.length === 0 && opts.proceduralFallback) {
+        // §HONEST-PICKER (L-4200, 2026-08-22) — CAPTURE the engine's own decline.
+        // `enumerateLayouts` has always computed a named reason at every empty return
+        // (envelope band / mandatory room dropped / room below `minAreaM2`) and then
+        // discarded it behind `__pryzmLayoutDiag`. This orchestrator therefore read
+        // "0 options" as one undifferentiated fact and, on the founder's Room 03-002
+        // run, walked straight past a CORRECT architectural refusal into the strip
+        // slicer — which shipped the very sub-minimum rooms the engine had refused.
+        // The reason now travels with the result on BOTH arms.
+        let decline: LayoutDeclineDiagnosis | undefined;
+        const captureDecline = (d: LayoutDeclineDiagnosis): void => { decline = d; };
         const deterministic = generateDeterministicLayouts(
             input.shell, input.program, input.constraints, input.weights, input.count,
             input.windowSpansWorld, input.doorSpansWorld,
@@ -255,6 +311,8 @@ export async function generateLayoutOptions(
             input.style,    // ST.5 — glazing-size bias
             undefined, undefined,        // keepOutRectsLayout / residualExcludeRectsLayout
             input.lockBedroomCount,      // §RAC-APARTMENT-IN-ROOM / L-911 — stated counts are exact
+            undefined, undefined,        // spineFirst / entryWorld
+            captureDecline,              // §HONEST-PICKER (L-4200)
         );
         if (deterministic.length > 0) {
             return { options: deterministic, status: 'ok', attempts: attempt, reason: 'AI unavailable — deterministic D-TGL offline layout' };
@@ -330,6 +388,7 @@ export async function generateLayoutOptions(
             return {
                 options: [], status: 'rejected', attempts: attempt,
                 reason: envelope.hardFindings.map(f => f.reason).join('; ') + adjReason,
+                ...(decline !== undefined ? { declineDiagnosis: decline } : {}),
             };
         }
 
@@ -352,6 +411,10 @@ export async function generateLayoutOptions(
                 input.tuning,
                 undefined,      // residualExcludeRectsWorld
                 input.style,    // ST.5 — glazing-size bias
+                undefined, undefined,        // keepOutRectsLayout / residualExcludeRectsLayout
+                undefined,                   // lockBedroomCount (this arm ADJUSTED the count)
+                undefined, undefined,        // spineFirst / entryWorld
+                captureDecline,              // §HONEST-PICKER (L-4200) — the ADJUSTED programme's reason wins
             );
             if (dtgl2.length > 0) {
                 return {
@@ -365,9 +428,21 @@ export async function generateLayoutOptions(
             input.shell, adjustedProgram, input.constraints, input.weights, input.count,
         );
         if (procedural.options.length > 0) {
+            // §HONEST-PICKER (L-4200) — the strip slicer is now shipped WITH the
+            // engine's refusal stamped onto every option, so the picker card carries
+            // "the architectural layout engine DECLINED this programme … master
+            // 9.3 m² vs 12.0 m² minimum" in words. Shipping it without that stamp is
+            // the founder's Room 03-002 defect: a layout that looks authoritative
+            // while a better engine has already said it does not work.
+            const stamped = decline !== undefined
+                ? withLimitation(procedural.options, declineToLimitation(decline))
+                : procedural.options;
             return {
-                options: procedural.options, status: 'ok', attempts: attempt,
-                reason: `AI unavailable — procedural offline layout (D-TGL declined)${adjustedNote}`,
+                options: stamped, status: 'ok', attempts: attempt,
+                reason:
+                    `AI unavailable — procedural offline layout (D-TGL declined` +
+                    `${decline ? `: ${decline.reason}` : ''})${adjustedNote}`,
+                ...(decline !== undefined ? { declineDiagnosis: decline } : {}),
             };
         }
         // §L-907a — the strip slicer REFUSED (non-rectangular footprint with no
@@ -377,6 +452,7 @@ export async function generateLayoutOptions(
             return {
                 options: [], status: 'rejected', attempts: attempt,
                 reason: `${procedural.refusal}${adjustedNote}`,
+                ...(decline !== undefined ? { declineDiagnosis: decline } : {}),
             };
         }
     }

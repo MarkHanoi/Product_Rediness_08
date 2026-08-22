@@ -171,6 +171,19 @@ export function buildProgramEditFormHtml(
 }
 
 /**
+ * §HONEST-PICKER (L-4200) — the always-visible error list under the validation pill.
+ * Returns '' when there are none, so a clean card gains no empty box.
+ */
+function errorLinesHtml(lines: readonly string[]): string {
+    if (lines.length === 0) return '';
+    return (
+        `<ul class="alm-validation-errors" data-role="validation-errors">` +
+        lines.map(l => `<li>${escHtml(l)}</li>`).join('') +
+        `</ul>`
+    );
+}
+
+/**
  * §VALIDATION-BADGE / §VALIDATION-DETAILS (2026-06-01) — pill + expandable
  * details panel. The pill (`.alm-validation-pill`) is always rendered when
  * the card carries a `validation` field; clicking it toggles the
@@ -209,6 +222,12 @@ function validationHtml(card: LayoutCardModel): string {
         `${escHtml(v.label)}` +
         `<span class="alm-validation-caret" aria-hidden="true">▾</span>` +
         `</button>` +
+        // §HONEST-PICKER (L-4200, 2026-08-22) — the ERROR LINES, always visible.
+        // The pill's count ("4 errors") is not a finding, and the details `<pre>`
+        // below is collapsed until clicked — so on the founder's Room 03-002 cards
+        // four errors sat one click away from an enabled "Use this layout" button.
+        // Warnings stay collapsed (they do not stop a build); errors do not.
+        errorLinesHtml(v.errorLines ?? []) +
         `<pre class="alm-validation-details" data-role="validation-details">` +
         `${detailsBody}</pre>`
     );
@@ -243,6 +262,48 @@ function circulationChipHtml(card: LayoutCardModel): string {
         `padding:2px 7px;border-radius:999px;font-size:11px;font-weight:600;line-height:1.4;` +
         `background:${bg};color:${fg};border:1px solid ${border};">` +
         `Circulation ${approx}${pct}%</span>`
+    );
+}
+
+/**
+ * §HONEST-PICKER (L-4200, 2026-08-22) — THE STATED-LIMITATIONS BLOCK.
+ *
+ * Rendered IN FULL, immediately above "Use this layout", never behind a collapsed
+ * chip and never as a suffix on the title. The founder's Room 03-002 card is why:
+ *
+ *   • its whole shape disclosure lived in `summary`, and `.alm-title` clips with
+ *     `text-overflow: ellipsis` — a 13 % shortfall against the real room was
+ *     rendered and then hidden by one CSS line;
+ *   • it read "4 errors" on a pill that had to be CLICKED to reveal what they were,
+ *     while the "Use this layout" button sat right next to it, fully enabled.
+ *
+ * Errors (a room below its normative minimum; a private room only reachable through
+ * another) are red and come first; warnings (the engine approximated the shape, a
+ * fallback generator produced this) are amber. Returns '' when the option carries
+ * none — an empty block would read as reassurance the data does not support.
+ */
+function limitationsHtml(card: LayoutCardModel): string {
+    const items = card.limitations ?? [];
+    if (items.length === 0) return '';
+    const rows = items.map(l => {
+        const isErr = l.severity === 'error';
+        const cls = isErr ? 'alm-limit--err' : 'alm-limit--warn';
+        const icon = isErr ? '⚠' : 'ℹ';
+        return (
+            `<li class="alm-limit ${cls}" data-code="${escHtml(l.code)}">` +
+            `<span class="alm-limit-icon" aria-hidden="true">${icon}</span>` +
+            `<span class="alm-limit-text">${escHtml(l.text)}</span></li>`
+        );
+    }).join('');
+    const errs = card.limitationErrors;
+    const head = errs > 0
+        ? `${errs} problem${errs === 1 ? '' : 's'} with this layout`
+        : 'What this layout does not do';
+    return (
+        `<div class="alm-limits${errs > 0 ? ' alm-limits--err' : ''}" data-role="limitations">` +
+        `<div class="alm-limits-head">${escHtml(head)}</div>` +
+        `<ul class="alm-limits-list">${rows}</ul>` +
+        `</div>`
     );
 }
 
@@ -287,6 +348,10 @@ function cardHtml(card: LayoutCardModel, safeThumb: string, safeGraph: string): 
         `<div class="alm-meta">${card.roomCount} rooms · ${card.doorCount} doors · ${card.totalAreaM2} m²</div>` +
         `<ul class="alm-rooms">${rooms}</ul>` +
         validationHtml(card) +
+        // §HONEST-PICKER (L-4200) — the limitations sit BETWEEN the validation pill
+        // and the commit button, so the last thing read before "Use this layout" is
+        // what this layout gets wrong.
+        limitationsHtml(card) +
         `<button type="button" class="alm-select" data-index="${card.index}">Use this layout</button>` +
         `</div>`
     );
