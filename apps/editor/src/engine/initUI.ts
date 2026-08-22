@@ -2846,11 +2846,37 @@ export async function initUI(p: UIParams): Promise<void> {
     };
 
     container.addEventListener('dblclick', async (e: MouseEvent) => {
+        // §PROBE-DBLCLICK-ZOOM-WHICH-ARM (L-6500) — founder 2026-08-22: "in Inspect
+        // view the elements get highlighted when selected, but on double click it
+        // doesn't zoom in to the element — that happens in Author view but not in
+        // Inspect."
+        //
+        // ⛔ SHIP THE PROBE BEFORE THE FIX. This handler has FOUR ways to return
+        // without framing anything, and from the outside all four look identical:
+        // nothing happens. Selection in Inspect goes through GPU pick and demonstrably
+        // WORKS (`[GpuPick] §SELECT-PICK-RESOLUTION`, `[PickResolver] §97 click hit`),
+        // while this path uses the CPU `caster.castRay()` — so "the pick is broken"
+        // and "the pick is fine but an arm returned early" predict the same silence.
+        //
+        // ⚠ Two candidate causes were considered and NEITHER is confirmed:
+        //   · `LevelExplodeController` is ACTIVE in Inspect and REPARENTS 452 scene
+        //     roots into 7 level groups (`[§LEVEL-STACK] Built 7 level groups`). The
+        //     ancestor walk below tests `cur.parent instanceof THREE.Scene` for its
+        //     last-resort `target`, which after reparenting is NEVER true.
+        //   · `world.camera.controls` may be absent or locked while Inspect holds the
+        //     camera (`navManager.clearControlLock()` exists, so a lock concept does).
+        // Guessing between them costs a deploy each. One line of console decides it.
+        //
+        // Remove this probe once the arm is known and fixed.
+        const _probe = (arm: string, detail?: unknown): void => {
+            console.log(`[dblclick-zoom] §PROBE-DBLCLICK-ZOOM-WHICH-ARM returned at: ${arm}`, detail ?? '');
+        };
+
         // Let SelectionManager's slab-profile dblclick handle slabs first
         // (it calls e.preventDefault() so we check defaultPrevented)
-        if (e.defaultPrevented) return;
+        if (e.defaultPrevented) { _probe('defaultPrevented (an earlier dblclick handler claimed it)'); return; }
         const activeToolMode = toolManager.getActiveTool?.();
-        if (activeToolMode && activeToolMode !== 'none') return;
+        if (activeToolMode && activeToolMode !== 'none') { _probe('a tool is active', activeToolMode); return; }
 
         // §ROOM-LABEL-EDIT — a double-click on a room label edits it (name + number)
         // instead of zooming. Intercept before the camera-frame raycast below.
@@ -2864,10 +2890,28 @@ export async function initUI(p: UIParams): Promise<void> {
         const result = await caster.castRay();
         if (!result?.object) {
             // Nothing hit — try using the already-selected element from selectionManager
+            //
+            // §FIX-DBLCLICK-ZOOM-FALLS-BACK-TO-THE-SELECTION (L-6501). This fallback is
+            // the arm that matters in Inspect: the founder's complaint is precisely
+            // "the element IS selected and highlighted, but double-click does not
+            // frame it". So a CPU raycast miss over a ghosted scene must still frame
+            // what is already selected — which it can only do if BOTH halves are
+            // present. Report which half is missing rather than returning in silence.
             const selected = selectionManager?.selectedObject as THREE.Object3D | null;
-            if (selected && world.camera.controls) {
-                await frameObject(selected, world.camera.controls as any);
+            const controls = world.camera.controls;
+            if (selected && controls) {
+                console.log('[dblclick-zoom] raycast MISS — framing the current selection instead:',
+                    selected.userData?.id ?? selected.uuid);
+                await frameObject(selected, controls as any);
+                return;
             }
+            _probe('raycast MISS and no usable fallback', {
+                hasSelection: !!selected,
+                hasControls:  !!controls,
+                // ⚠ `hasSelection:false` here while the UI shows a highlight means the
+                // highlight and `selectionManager.selectedObject` are DIFFERENT state —
+                // that would be the real defect, not the camera.
+            });
             return;
         }
 
@@ -2897,10 +2941,18 @@ export async function initUI(p: UIParams): Promise<void> {
 
         const frameTarget = semanticRoot ?? target;
         const controls = world.camera.controls;
-        if (controls) {
-            console.log('[dblclick-zoom] Framing:', frameTarget.userData?.id ?? frameTarget.uuid, '| type:', frameTarget.userData?.type ?? frameTarget.userData?.elementType ?? 'n/a');
-            await frameObject(frameTarget, controls as any);
+        if (!controls) {
+            // §PROBE-DBLCLICK-ZOOM-WHICH-ARM (L-6500) — the silent arm. `frameObject`
+            // is never called and nothing distinguishes this from "no hit". If Inspect
+            // holds or replaces the camera controls, THIS is the line that will say so.
+            _probe('a target was found but camera.controls is absent', {
+                target: frameTarget.userData?.id ?? frameTarget.uuid,
+                semanticRootFound: !!semanticRoot,
+            });
+            return;
         }
+        console.log('[dblclick-zoom] Framing:', frameTarget.userData?.id ?? frameTarget.uuid, '| type:', frameTarget.userData?.type ?? frameTarget.userData?.elementType ?? 'n/a');
+        await frameObject(frameTarget, controls as any);
     });
 
     // ── Expose camera controls for CameraRailPanel navigation arrows ──────────
