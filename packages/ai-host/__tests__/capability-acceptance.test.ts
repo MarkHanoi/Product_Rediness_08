@@ -578,6 +578,20 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
   // splay to 20" and "…to 20 degrees" must both arrive as TWENTY, not as 20
   // metres and not as 0.02 — every other member of this vocabulary is a length
   // and `toMeters` would have read them that way.
+  // ⭐ §FEAT-REVEAL-DIRECTION-RAC (L-3414) — the FIRST enum capability, so the phrasings
+  // deliberately cover both the STORED words and the words an architect actually uses.
+  // Every one of them must land the canonical value; the vocabulary's `enumSpoken` table
+  // is the only mapping, so a synonym accepted here cannot be rejected downstream.
+  {
+    id: 'set-reveal-direction',
+    ctx: sel('window'),
+    phrasings: [
+      'set the reveal direction to outdoor',
+      'change the reveal direction to indoor',
+      'set the reveal side to outside',
+      'set the reveal face to interior',
+    ],
+  },
   {
     id: 'set-reveal-projection',
     ctx: sel('window'),

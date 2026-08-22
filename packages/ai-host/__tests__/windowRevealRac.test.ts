@@ -39,6 +39,10 @@ import {
   queryableKinds,
 } from '../src/intents/PropertyQuery.js';
 import { resolveChatCapability } from '../src/capabilities/ChatCapabilityRegistry.js';
+import {
+  matchPropertyUtterance,
+  applyPropertyIntent,
+} from '../src/intents/PropertyVocabulary.js';
 
 const winCtx = (readProperty?: ResolverContext['readProperty']): ResolverContext => ({
   selection: [{ elementId: 'win-1', elementType: 'window' }],
@@ -156,7 +160,9 @@ describe('§C — the reveal is ASKABLE, and asks about the field the write writ
         // capability's probe and reading the field names out of the payload it
         // really emits, so neither side can be transcribed.
         const revealRows = PROPERTY_QUERY_ROWS.filter((r) => r.field.startsWith('reveal'));
-        expect(revealRows.length).toBe(5);
+        // 6 since §FEAT-REVEAL-DIRECTION-RAC (L-3414) added `revealDirection` — the
+        // projection, the four splays, and the face they all run from.
+        expect(revealRows.length).toBe(6);
 
         for (const row of revealRows) {
             const cap = resolveChatCapability(row.capabilityId);
@@ -235,5 +241,65 @@ describe('§C — the reveal is ASKABLE, and asks about the field the write writ
             expect(r.reason.toLowerCase()).toContain('wall');
             expect(r.reason).toContain('head splay');
         }
+    });
+});
+
+// ── ⭐ §FEAT-REVEAL-DIRECTION-RAC (L-3414 … L-3416, founder 2026-08-22) ─────────────────
+//
+// *"The attribute must be queryable AND executable by RAC … Note: the RAC unit converter
+//  is length-only — an enum needs its own parse path, and `set the head splay to 20`
+//  without a unit meant twenty METRES (§L-3203)."*
+//
+// ⛔ THE ONE THING THIS BLOCK EXISTS TO CATCH is a word reaching the numeric stages. If it
+// does, `toMeters('outdoor', undefined)` is NaN and the user gets "a reveal direction of
+// NaN is not valid" — a refusal that names the wrong problem, which is worse than a miss
+// because it sends them to change something that was never wrong.
+describe('§FEAT-REVEAL-DIRECTION-RAC — the direction is settable and askable BY WORD', () => {
+    const winSel = [{ elementId: 'w1', elementType: 'window' }] as never;
+
+    it('the grammar claims the utterance and hands back the WORD, not a number', () => {
+        const hit = matchPropertyUtterance('set the reveal direction to outdoor');
+        expect(hit).not.toBeNull();
+        expect(hit!.id).toBe('set-reveal-direction');
+        expect(hit!.measure).toBe('enum');
+        expect(hit!.raw).toBe('outdoor');
+    });
+
+    it('⭐ accepts the words an ARCHITECT says, and writes the ONE the schema declares', () => {
+        for (const [spoken, stored] of [['outside', 'outdoor'], ['exterior', 'outdoor'],
+                                        ['inside', 'indoor'], ['interior', 'indoor']] as const) {
+            const hit = matchPropertyUtterance(`set the reveal direction to ${spoken}`);
+            expect(hit, spoken).not.toBeNull();
+            const out = applyPropertyIntent(
+                { intent: 'set-reveal-direction', value: hit!.raw } as never,
+                { selection: winSel } as never,
+            );
+            expect(out.kind, spoken).toBe('commands');
+            const payload = (out as { commands: { payload: Record<string, unknown> }[] })
+                .commands[0]!.payload as { updates?: Record<string, unknown> };
+            // The payload carries the CANONICAL value — never the spoken synonym.
+            expect(JSON.stringify(payload), spoken).toContain(stored);
+        }
+    });
+
+    it('⛔ a word the model does not know is REFUSED by name, with the legal set', () => {
+        const out = applyPropertyIntent(
+            { intent: 'set-reveal-direction', value: 'sideways' } as never,
+            { selection: winSel } as never,
+        );
+        expect(out.kind).toBe('refusal');
+        const reason = (out as { reason: string }).reason;
+        expect(reason).toContain('sideways');
+        expect(reason).toContain('outdoor');
+        expect(reason).toContain('indoor');
+        // ⭐ AND IT DOES NOT SAY "NaN" OR NAME A UNIT — the §L-3203 failure mode.
+        expect(reason).not.toContain('NaN');
+        expect(reason).not.toMatch(/m/);
+    });
+
+    it('⛔ NON-VACUITY — the numeric rows are untouched by the enum arm', () => {
+        const hit = matchPropertyUtterance('set the reveal projection to 100mm');
+        expect(hit!.measure).toBe('length');
+        expect(hit!.raw).toBe('100');
     });
 });

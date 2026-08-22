@@ -85,7 +85,10 @@ export type PropertyDrivenIntentId =
   | 'set-reveal-splay'
   | 'set-reveal-splay-head'
   | 'set-reveal-splay-sill'
-  | 'set-reveal-splay-jambs';
+  | 'set-reveal-splay-jambs'
+  // ⭐ §FEAT-REVEAL-DIRECTION-RAC (L-3414) — the founder's Indoor / Outdoor control, and
+  // the FIRST member of this vocabulary that is not a number at all. See the entry.
+  | 'set-reveal-direction';
 
 /**
  * Every property intent carries exactly one measured value.
@@ -98,7 +101,20 @@ export type PropertyDrivenIntentId =
  */
 export interface PropertyIntent {
   readonly intent: PropertyDrivenIntentId;
-  readonly value: number;
+  /**
+   * ⭐ §FEAT-REVEAL-DIRECTION-RAC (L-3414) — WIDENED FROM `number` TO CARRY AN ENUM.
+   *
+   * The founder's note was explicit and it is the reason this type moved rather than a
+   * parallel intent being minted: *"the RAC unit converter is length-only — an enum needs
+   * its own parse path, and `set the head splay to 20` without a unit meant twenty
+   * METRES (§L-3203)"*. A string routed through `toMeters` would be `NaN`; a second
+   * intent family would be a second grammar, a second kind guard and a second refusal
+   * voice for one question.
+   *
+   * A `'length'` or `'angle'` entry still carries a number and every numeric stage below
+   * runs exactly as before — the enum arm returns before reaching them.
+   */
+  readonly value: number | string;
 }
 
 /**
@@ -114,7 +130,7 @@ export interface PropertyIntent {
  * of defect as the roof-pitch query row that read `pitch`/radians off the L0
  * schema while the write lands `slope`/gradient on the geometry record.
  */
-export type PropertyMeasure = 'length' | 'angle';
+export type PropertyMeasure = 'length' | 'angle' | 'enum';
 
 // ─── The spec ────────────────────────────────────────────────────────────────
 
@@ -169,6 +185,17 @@ export interface PropertyEntry {
    * historical behaviour rather than a new assumption.
    */
   readonly measure?: PropertyMeasure;
+  /**
+   * ⭐ §FEAT-REVEAL-DIRECTION-RAC (L-3414) — REQUIRED when `measure` is `'enum'`, and
+   * meaningless otherwise. Maps every SPOKEN form to the ONE canonical value the store
+   * holds, so the grammar accepts what an architect actually says while the command
+   * receives exactly what the schema declares.
+   *
+   * ⛔ The canonical values are NOT restated here as a separate list. The keys are what
+   * the user may say; the values are what is written. One table, so a spelling can never
+   * be accepted by the grammar and then rejected by the schema.
+   */
+  readonly enumSpoken?: Readonly<Record<string, string>>;
   /** The routes, in order; the first route claiming a kind serves it. */
   readonly routes: readonly PropertyRoute[];
 }
@@ -503,6 +530,60 @@ export const PROPERTY_VOCABULARY: Readonly<Record<PropertyDrivenIntentId, Proper
    * ZERO IS VALID — a flush face is the default and an ordinary thing to ask
    * back for after trying a projection.
    */
+  /**
+   * ⭐ §PROP-REVEAL-DIRECTION (L-3414, founder 2026-08-22) — *"set the reveal direction to
+   * outdoor"* / *"what is the reveal direction"*.
+   *
+   * THE FOUNDER'S FOURTH ASK ON THIS FEATURE and the first ENUM in this table.
+   *
+   * ⛔ **IT GOVERNS THE PROJECTION AND THE SPLAY TOGETHER, AND THE SUMMARY SAYS SO IS NOT
+   * ENOUGH — the MODEL enforces it.** `WindowReveal` resolves the direction to a single
+   * sign that every z-expression multiplies by, so a chat user who flips the direction
+   * cannot end up with the box on one face and the splay on the other. ADR-0342's rule
+   * (one reveal, not two) is kept by construction rather than by this row's wording.
+   *
+   * BOTH HALVES OF THE HONESTY BAR:
+   *   1. FIELD EXISTS + WRITE LANDS — `WindowOpeningSchema.revealDirection` is declared,
+   *      so `windowStore.update` merges and re-parses it rather than Zod stripping it.
+   *   2. THE GEOMETRY READS IT — `resolveWindowReveal` consumes it on every call and
+   *      `WindowRevealLeaf.test.ts` asserts the built BufferGeometry moves to the other
+   *      face for both the projecting box AND the splay plate. It is not a field nothing
+   *      reads ([[committed-is-not-reachable]]).
+   *
+   * ⚠ `measure: 'enum'` EXISTS BECAUSE OF §L-3203. The unit converter is length-only:
+   * `toMeters('outdoor', undefined)` is `NaN`, and the numeric stages would then refuse
+   * with "a reveal direction of NaN is not valid" — a true refusal naming the wrong
+   * problem. The enum arm returns before any of them.
+   *
+   * ⚠ SPOKEN FORMS INCLUDE "outside"/"inside" and "exterior"/"interior" because those are
+   * what an architect says, but the STORED value is `outdoor`/`indoor` — one table maps
+   * both directions, so the grammar cannot accept a word the schema then rejects. That is
+   * literally the door-swing defect `DoorSwingVocabulary` was written to close.
+   */
+  'set-reveal-direction': {
+    id: 'set-reveal-direction',
+    property: 'reveal direction',
+    synonyms: ['reveal side', 'reveal face', 'window reveal direction'],
+    adjectives: [],
+    label: 'reveal direction',
+    signed: false,
+    zeroValid: false,
+    measure: 'enum',
+    enumSpoken: {
+      outdoor: 'outdoor', outdoors: 'outdoor', outside: 'outdoor',
+      exterior: 'outdoor', external: 'outdoor', out: 'outdoor',
+      indoor: 'indoor', indoors: 'indoor', inside: 'indoor',
+      interior: 'indoor', internal: 'indoor', in: 'indoor',
+    },
+    routes: [
+      {
+        kinds: ['window'],
+        busCommand: 'element.updateParameters',
+        payload: generic('revealDirection'),
+      },
+    ],
+  },
+
   'set-reveal-projection': {
     id: 'set-reveal-projection',
     property: 'reveal projection',
@@ -696,6 +777,31 @@ const LEN_SRC = String.raw`(-?\d+(?:[.,]\d+)?)\s*(millimet(?:er|re)s?|centimet(?
  */
 const ANG_SRC = String.raw`(-?\d+(?:[.,]\d+)?)()\s*(?:°|deg|degs|degree|degrees)?`;
 
+/**
+ * ⭐ §FEAT-REVEAL-DIRECTION-RAC (L-3414) — the ENUM capture, built PER ENTRY from its own
+ * `enumSpoken` keys.
+ *
+ * ⛔ IT IS GENERATED, NEVER TRANSCRIBED. The accepted words and the values written are the
+ * same table, so the grammar cannot accept a spelling the command then refuses — which is
+ * the exact failure the door's `swing` vocabulary shipped (`DoorSwingVocabulary`'s header:
+ * every swing change wrote an out-of-union value because the FIELD NAME matched and the
+ * VOCABULARY did not).
+ *
+ * The second `()` group keeps the arity identical to `LEN_SRC` / `ANG_SRC` so
+ * `matchPropertyUtterance` reads `m[1]`/`m[2]` without knowing which measure it matched.
+ * LONGEST FIRST, for the same first-match-wins reason the noun group is sorted.
+ */
+function enumSrc(entry: PropertyEntry): string {
+  const words = Object.keys(entry.enumSpoken ?? {})
+    .slice()
+    .sort((a, b) => b.length - a.length)
+    .map(escapeRe);
+  // An entry that declares `measure: 'enum'` and no words would compile to `()` and match
+  // the empty string against every utterance. Refuse to build such a pattern: an
+  // unsatisfiable regex is better than an omnivorous one.
+  return words.length === 0 ? String.raw`(?!)()` : `(${words.join('|')})()`;
+}
+
 function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -722,7 +828,8 @@ const COMPILED: readonly CompiledProperty[] = allPropertyEntries().map((entry) =
     .sort((a, b) => b.length - a.length)
     .map(escapeRe)
     .join('|');
-  const SRC = measureOf(entry) === 'angle' ? ANG_SRC : LEN_SRC;
+  const _m = measureOf(entry);
+  const SRC = _m === 'angle' ? ANG_SRC : _m === 'enum' ? enumSrc(entry) : LEN_SRC;
   return {
     id: entry.id,
     named: new RegExp(
@@ -796,7 +903,11 @@ function round3(v: number): number {
  * the maximum" would have been a true refusal wearing a false unit — the kind of
  * sentence that sends a user to change the wrong number.
  */
-function fmt(n: number, entry: PropertyEntry): string {
+function fmt(n: number | string, entry: PropertyEntry): string {
+  // ⭐ §FEAT-REVEAL-DIRECTION-RAC (L-3414) — an enum is spoken back as the WORD, with no
+  // unit at all. Appending " m" to "outdoor" would be this function's own recorded defect
+  // (see its header) arriving a second time from the other direction.
+  if (typeof n === 'string') return n;
   return measureOf(entry) === 'angle' ? `${round3(n)}°` : `${round3(n)} m`;
 }
 
@@ -840,8 +951,44 @@ export function applyPropertyIntent(
     }
   }
 
+  // ── ⭐ ENUM STAGE (L-3414) — returns BEFORE the numeric stages, deliberately.
+  //
+  // Sign, bounds and `round3` are all questions about a quantity. Asking them of a word
+  // gives `NaN`, and a `NaN` that flows on becomes "a reveal direction of NaN is not
+  // valid" — a refusal naming the wrong problem. The kind guard above ALREADY ran, so an
+  // enum property gets the same selection and capability treatment as every other row;
+  // only the value stages differ, which is the only thing that actually differs.
+  if (measureOf(entry) === 'enum') {
+    const spoken = typeof si.value === 'string' ? si.value : String(si.value);
+    const canonical = entry.enumSpoken?.[spoken];
+    if (canonical === undefined) {
+      const legal = [...new Set(Object.values(entry.enumSpoken ?? {}))];
+      return refuse(
+        `"${spoken}" is not a ${entry.label} I know. It can be: ${legal.join(' or ')}.`,
+        legal.map((v) => `set the ${entry.property} to ${v}`),
+      );
+    }
+    const enumCommands: BusCommandRef[] = ctx.selection.map((s) => {
+      const route = routeFor(entry, s.elementType)!;
+      return {
+        type: route.busCommand,
+        payload: route.payload(s.elementId, s.elementType, canonical as never),
+      };
+    });
+    const k = ctx.selection.length;
+    return {
+      kind: 'commands',
+      intent: si.intent,
+      summary: k > 1
+        ? `Set ${k} selected elements' ${entry.label} to ${canonical}`
+        : `Set the selected ${normalizeElementKind(first.elementType)}'s ${entry.label} to ${canonical}`,
+      commands: enumCommands,
+      destructive: false,
+    };
+  }
+
   // ── Value stage — sign, then the route's published bounds (when it has any).
-  const value = round3(si.value);
+  const value = round3(si.value as number);
   if (!Number.isFinite(value)) {
     return refuse(`"${si.value}" is not a ${entry.label} I can read.`);
   }

@@ -173,7 +173,22 @@ export type CapabilityValueSource =
   /** Free user text (a room name). */
   | 'user-text'
   /** A pair of plan coordinates. */
-  | 'coordinates';
+  | 'coordinates'
+  /**
+   * ⭐ §FEAT-REVEAL-DIRECTION-RAC (L-3414) — a CLOSED SET OF WORDS declared by the
+   * property vocabulary's own `enumSpoken` table, not a quantity.
+   *
+   * ⛔ It is a member of its own rather than being folded into `user-text`, and the
+   * difference is enforcement: `user-text` is free prose nothing validates, while an
+   * enumeration is REFUSED by name when the word is not a member — *"'sideways' is not a
+   * reveal direction I know. It can be: outdoor or indoor."* Calling a closed set free
+   * text would throw away the refusal that makes it usable.
+   *
+   * ⚠ It is also NOT `measurement`: the unit converter is length-only, so a word routed
+   * through it is NaN and the refusal then names the wrong problem (§L-3203 records that
+   * failure from the other direction — a unitless 20 read as twenty METRES).
+   */
+  | 'enumeration';
 
 export interface ChatCapabilityParameter {
   readonly name: string;
@@ -1603,6 +1618,61 @@ const CAPABILITIES: readonly ChatCapability[] = [
   // `proveCommandTargets` reads it per capability, but it is one claim: the
   // reveal fields are on `WindowOpeningSchema`, `windowStore.update` merges and
   // re-parses them, and `WindowRevealLeaf` builds from them.
+  /**
+   * ⭐ §FEAT-REVEAL-DIRECTION-RAC (L-3414, founder 2026-08-22) — WHICH FACE the whole
+   * reveal runs from, and the FIRST capability in this registry whose value is a WORD.
+   *
+   * ⛔ IT GOVERNS THE PROJECTION AND THE SPLAY AS ONE. `WindowReveal` resolves the
+   * direction to a single sign that every z-expression multiplies by, so a chat user
+   * cannot end up with the box on one face and the splay on the other. ADR-0342's
+   * one-reveal rule is kept by the MODEL, not by this description.
+   *
+   * ⚠ `valueSource: 'enumeration'` and the probe carries a STRING. The unit converter is
+   * length-only — `toMeters('outdoor', undefined)` is NaN — so the vocabulary declares
+   * `measure: 'enum'` and `applyPropertyIntent` returns from its enum arm before any
+   * numeric stage. §L-3203 is the recorded cost of getting that wrong in the other
+   * direction (a unitless 20 read as twenty METRES).
+   */
+  {
+    id: 'set-reveal-direction',
+    description: 'choose whether the window reveal runs from the outdoor or the indoor face',
+    verbs: ['set', 'change', 'make'],
+    aliases: ['reveal direction', 'reveal side', 'reveal face'],
+    refusalLabel: 'reveal direction',
+    targets: ['window'],
+    parameters: [
+      {
+        name: 'revealDirection',
+        description:
+          'which wall face the reveal runs from — outdoor or indoor. Governs the projecting box AND the splay together, because they are one reveal.',
+        required: true,
+        valueSource: 'enumeration',
+        example: 'outdoor',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'element.updateParameters',
+    probe: { intent: 'set-reveal-direction', value: 'outdoor' },
+    commandProof: [
+      {
+        file: UPDATE_ELEMENT_PARAMETER_FILE,
+        mustMention: ['window', 'windowStore.update'],
+        note: 'WRITE half: applyUpdate routes window to windowStore.update, which merges and re-parses through WindowOpeningSchema — which declares revealDirection, so Zod keeps it rather than stripping it.',
+      },
+      {
+        file: 'packages/geometry-window/src/WindowReveal.ts',
+        mustMention: ['revealDirection', 'outwardSign'],
+        note: 'GEOMETRY half: resolveWindowReveal reads the field on every call and turns it into the ONE sign every z-expression is multiplied by. WindowRevealLeaf.test.ts asserts the built BufferGeometry moves to the other face for the box AND the splay plate.',
+      },
+    ],
+    examples: [
+      'set the reveal direction to outdoor',
+      'change the reveal direction to indoor',
+      'set the reveal side to outside',
+    ],
+  },
+
   {
     id: 'set-reveal-projection',
     description: 'push the window face proud of the wall, or recess it',

@@ -659,7 +659,10 @@ export type SemanticIntent =
    *  its bounds are all declared in PropertyVocabulary.ts; this union member is
    *  the only line the IR spends on the whole family, however many properties
    *  the table grows to. */
-  | { readonly intent: PropertyDrivenIntentId; readonly value: number }
+  // ⭐ §FEAT-REVEAL-DIRECTION-RAC (L-3414) — `string` joined `number` here because the
+  // vocabulary gained its first ENUM property. Every numeric row is unaffected: the enum
+  // arm in `applyPropertyIntent` returns before any stage that reads it as a quantity.
+  | { readonly intent: PropertyDrivenIntentId; readonly value: number | string }
   /** ADR-0315 P1 — stair riser height, on the LIVE stair.updateParameters
    *  carrier (STAIR_CONSTRAINTS-validated by the command). */
   | { readonly intent: 'set-riser-height'; readonly value: number }
@@ -3323,11 +3326,19 @@ const matchProperty: Matcher = (text) => {
   // the command as 15 — read by the C83 gate as 15° only by coincidence, and by
   // any millimetre-suffixed phrasing as 0.015. The measure is read from the
   // entry, never guessed from the unit suffix (an angle's suffix is optional).
+  //
+  // ⭐ §FEAT-REVEAL-DIRECTION-RAC (L-3414) — the ENUM arm, added for the same reason the
+  // angle arm was: `toMeters('outdoor', undefined)` is NaN, and a NaN flowing on becomes a
+  // refusal that names the wrong problem. The word is passed through VERBATIM and the
+  // vocabulary's own `enumSpoken` table maps it — this line must not know the members, or
+  // it becomes a second place a spelling can be accepted.
   return {
     intent: hit.id,
-    value: hit.measure === 'angle'
-      ? parseFloat(hit.raw.replace(',', '.'))
-      : toMeters(hit.raw, hit.unit),
+    value: hit.measure === 'enum'
+      ? hit.raw
+      : hit.measure === 'angle'
+        ? parseFloat(hit.raw.replace(',', '.'))
+        : toMeters(hit.raw, hit.unit),
   };
 };
 

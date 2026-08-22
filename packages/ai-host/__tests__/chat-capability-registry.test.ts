@@ -268,6 +268,7 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       // §FEAT-WINDOW-REVEAL-RAC (L-3202 … L-3204) — five capabilities, ONE kind.
       // The reveal is a property of the opening, so a literal is exactly right
       // here: there is no register to drift against.
+      'set-reveal-direction': ['window'],
       'set-reveal-projection': ['window'],
       'set-reveal-splay': ['window'],
       'set-reveal-splay-head': ['window'],

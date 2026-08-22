@@ -142,7 +142,7 @@ export type PropertyReader = (
  * splays are degrees, and a reader that silently normalised them would be a
  * second unit authority.
  */
-export type PropertyQueryUnit = 'metres' | 'degrees' | 'gradient-as-degrees' | 'count';
+export type PropertyQueryUnit = 'metres' | 'degrees' | 'gradient-as-degrees' | 'count' | 'enum';
 
 // ─── The table ───────────────────────────────────────────────────────────────
 
@@ -390,6 +390,25 @@ export const PROPERTY_QUERY_ROWS: readonly PropertyQueryRow[] = Object.freeze([
   // row may claim, not the arity of the write. Both rows therefore answer for
   // exactly the kinds that capability can set, which is the property that makes
   // the claim true.
+  /**
+   * ⭐ §FEAT-REVEAL-DIRECTION-RAC (L-3415) — *"what is the reveal direction"*.
+   *
+   * Mirrors `set-reveal-direction`, so "can I ask?" and "can I set?" stay ONE question —
+   * the invariant this table's header states and the reason every row carries a
+   * `capabilityId` instead of a hand-listed kind set.
+   *
+   * ⚠ `unit: 'enum'` is not decoration: `speak` would otherwise reach a numeric case and
+   * answer `NaN`.
+   */
+  {
+    id: 'reveal-direction',
+    capabilityId: 'set-reveal-direction',
+    noun: 'reveal direction',
+    synonyms: ['reveal side', 'reveal face'],
+    adjectives: [],
+    field: 'revealDirection',
+    unit: 'enum',
+  },
   {
     id: 'reveal-projection',
     capabilityId: 'set-reveal-projection',
@@ -570,6 +589,12 @@ function speak(row: PropertyQueryRow, raw: number): string {
       // conversion site each way; a second would be a second source of truth.
       return `${round3((Math.atan(raw) * 180) / Math.PI)}°`;
     case 'count':
+      return `${raw}`;
+    case 'enum':
+      // ⭐ §FEAT-REVEAL-DIRECTION-RAC (L-3415) — spoken as the WORD, with no unit and no
+      // rounding. `round3('outdoor')` is NaN, so an enum routed through any numeric case
+      // would answer "the reveal direction is NaN" — a confident wrong answer, which is
+      // worse than the refusal it displaces.
       return `${raw}`;
   }
 }

@@ -211,8 +211,14 @@ describe('the value reaches the sentence, in the unit a human uses', () => {
     // in one table (`rakeAngleDeg` degrees, `slope` a gradient, the splays
     // degrees), which is the strongest possible argument for the per-row `unit`
     // this assertion protects.
+    // ⭐ §FEAT-REVEAL-DIRECTION-RAC (L-3415) — `reveal-direction:enum` joins, and it is
+    // the FIRST non-numeric row in this table. It is exactly what this assertion is for:
+    // an enum routed through any numeric case of `speak` would answer "the reveal
+    // direction is NaN" — a confident wrong answer, which is worse than the refusal it
+    // displaces. FOUR value conventions now coexist here, not three.
     expect(nonMetric).toEqual([
       'rake-angle:degrees',
+      'reveal-direction:enum',
       'reveal-splay-head:degrees',
       'reveal-splay-jamb-left:degrees',
       'reveal-splay-jamb-right:degrees',

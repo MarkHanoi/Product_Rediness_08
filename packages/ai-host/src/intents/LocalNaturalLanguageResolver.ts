@@ -1468,7 +1468,17 @@ export function resolveNaturalLanguage(
               ...(si.intent === 'set-wall-type' && typeof si.scope === 'string'
                 ? { lastWallTypeScope: si.scope }
                 : {}),
-              ...('value' in si ? { lastMeasurement: si.value } : conversation.lastMeasurement !== undefined ? { lastMeasurement: conversation.lastMeasurement } : {}),
+              // ⭐ §FEAT-REVEAL-DIRECTION-RAC (L-3416) — `si.value` may now be a WORD, and a
+              // word is NOT a measurement. `lastMeasurement` exists so a bare follow-up
+              // ("and 200?") can reuse the last NUMBER; carrying "outdoor" into it would
+              // make the next bare numeric follow-up read a string, which is precisely the
+              // "failure and a legitimate value share one slot" shape
+              // ([[context-data-honesty-family]]). An enum intent therefore leaves the
+              // remembered measurement ALONE rather than overwriting it with something the
+              // follow-up grammar cannot use.
+              ...('value' in si && typeof si.value === 'number'
+                ? { lastMeasurement: si.value }
+                : conversation.lastMeasurement !== undefined ? { lastMeasurement: conversation.lastMeasurement } : {}),
               ...(applied.kind === 'local' && applied.action === 'setActiveLevel' && applied.levelId !== undefined
                 ? { lastLevelId: applied.levelId }
                 : conversation.lastLevelId !== undefined ? { lastLevelId: conversation.lastLevelId } : {}),
