@@ -167,6 +167,33 @@ made the shell worse, and the ADR should be revisited rather than executed.
 **What this does NOT decide:** whether `analysis` eventually absorbs `inspect`'s right half
 (`AuditStack`) or sits permanently beside it. Left open — see §U.5.
 
+> ⭐ **§D.1 EXTENDED IN PLACE, 2026-08-22 (L-3500) — the registry was half the lesson.**
+> §D.1's binding precondition was about the mode LIST, and it was met (`workspaceModes.ts`, L-3000).
+> The founder then reported the OTHER half: *"the `Level 3 / +9.000` control floats top-right, far
+> from the mode buttons — move it alongside them and make it follow them."*
+>
+> **MEASURED.** `DockingLayout.ts` composes `.wmb-toplevel-wrapper` — whose own CSS comment reads
+> *"owns the fixed centering for HUD + mode bar"* — and appends `SaveUndoRedoHUD` +
+> `WorkspaceModeBar` to it. `ActiveLevelHUD` was mounted somewhere else entirely, by
+> `CreatePanelLayout.ts` on a `setTimeout(…, 600)`, into `.plat-toolbar`.
+>
+> **The distance was the symptom; the two LAYOUT RULES were the defect.** This ADR's own
+> `inspectModeShell.ts` rule re-centres `body.pryzm-mode-inspect .wmb-toplevel-wrapper { left: 25% }`
+> when a half-mode surface claims the right half. `.plat-toolbar` is not in that rule — so entering
+> `inspect` (and now `analysis`) moved the mode bar out of the panel's way and stranded the level
+> pill behind it.
+>
+> **THE RULE THIS ADDS:** *a control that must track the mode bar is a CHILD OF THE MODE BAR'S
+> COMPOSITION, never a second floating element positioned to match it.* The registry made adding a
+> MODE a registration; this makes adding a mode-bar NEIGHBOUR a composition. They are the same
+> lesson applied to the two halves of the same bar, and the second half was not stated until a
+> fourth half-screen mode made the re-centre rule load-bearing — which is to say, until this ADR
+> shipped.
+>
+> ⚠ The registry itself is NOT the place for neighbours. `workspaceModes.ts` stays a table of
+> MODES; `WorkspaceModeBar` still *"knows no mode by name"* and renders only registry rows. The
+> level slot is a sibling in `DockingLayout`, not a row in the table.
+
 ### D.2 — C27 §6 is delivered BY this surface. There is one widget engine, not two dashboard systems
 
 C27 §6 specifies **per-node-type** dashboards bound to the Inspect tree selection. Speckle's model is

@@ -612,6 +612,41 @@ the `ElementType` union **four** times (`schemas/Id.ts:79` 30 members · `CoreEl
 `AITypes.ts:16` 11 · `ai/types.ts:16` 11, byte-identical to the third) · six colour-name tables ·
 the wall's world-base-Y, computed at **ten** independent sites.
 
+#### EI-9.1 — A HAND-WRITTEN LIST OF THE ELEMENT FAMILIES IS A SECOND ANSWER (normative; L-3540, 2026-08-22)
+
+**"Which element families exist" is a question, and EI-9 applies to it. A surface that needs the
+answer MUST DERIVE it from the one declared family table. A literal array of family names is a
+second implementation and is a violation — even when it happens to be correct on the day it is
+written, because its failure mode is not being wrong, it is falling BEHIND, silently.**
+
+⭐ **THIS RULE IS WRITTEN FROM THREE RECURRENCES, NOT ONE.**
+
+1. `ElementTypeSelectorZone.ts`'s `ELEMENT_TYPE_LABELS` declared **SIX** families while the engine
+   published **TWENTY** element stores — fourteen families could not be inspected at all. Closed by
+   §INSPECT-EVERY-CATEGORY (L-2032), which minted `inspectCategories.ts` as THE declaration and
+   `__tests__/InspectCategoryCoverage.test.ts` as the gate that fails CI when a new
+   `window.<x>Store` family has neither a row nor a written exclusion.
+2. `LevelExplodeController`'s reconcile trigger was a hand-maintained allowlist of per-type
+   `bim-<type>-added|updated|removed` events; it omitted rooms, labels, handrails, openings,
+   plumbing and lighting (§FIX-LEVEL-EXPLODE-RECONCILE-ALL-TYPES, L-233).
+3. `initUI.ts`'s `SEMANTIC_TYPES_FOR_ZOOM` — the double-click-to-frame allowlist — held **14**
+   entries and was missing **NINE** real families (rooms, stairs, stair-railings, handrails, lifts,
+   openings, curtain-panels, lighting, plumbing). Double-clicking any of them framed the whole
+   level group instead of the element, which reads as *"zoom does nothing useful here"*. **The
+   feature was not missing; its family list was.**
+
+⚠ **THE DIAGNOSTIC VALUE OF THIS CLAUSE IS C01 §6 RULE 6.** All three presented to a user as
+*"PRYZM cannot do X for family F"*, which is indistinguishable from *"PRYZM cannot do X"* — ABSENT
+and UNREACHABLE again, and their fixes are opposite (build the feature vs. add F to a list). Before
+building a family-facing capability, **grep the family list of the nearest existing one**: the
+capability is more often present and narrow than absent.
+
+**The derivation is cheap and it inherits the guard.** `SEMANTIC_TYPES_FOR_ZOOM` is now
+`INSPECT_CATEGORIES.map(c => c.meshType)` plus three explicitly-reasoned non-family literals
+(`ifc-element`, `ifc-model`, the legacy un-hyphenated `curtainwall`). The coverage test that already
+protects the Inspect dropdown now protects the camera too, at zero extra cost — which is the point:
+**deriving does not merely avoid a copy, it borrows the copy's gate.**
+
 ### `[Z8]` EI-10 — WHAT A SECOND IMPLEMENTATION MUST EARN
 
 A second implementation of one question is admissible **only** with all four of:

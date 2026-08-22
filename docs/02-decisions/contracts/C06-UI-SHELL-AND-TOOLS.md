@@ -1021,3 +1021,55 @@ The rules:
 
 ---
 
+## §14 — A CONTROL THAT MUST TRACK A BAR IS A CHILD OF THAT BAR'S COMPOSITION
+
+> **Added 2026-08-22 · L-3500 · normative.** Founder: *"the `Level 3 / +9.000` control floats
+> top-right, far from `Author | Inspect | Analysis | Data`. Move it alongside them and make it
+> follow them."*
+
+**A floating chrome control whose position is specified RELATIVE to another surface — "beside the
+mode bar", "under the toolbar", "next to the view cube" — MUST be mounted INTO that surface's
+composition as a sibling element. It MUST NOT be a separately-anchored floating element whose
+coordinates are chosen to match. If it needs its own layout treatment inside that host, the
+treatment is keyed on a CLASS shared by every host, never on the id of the first one.**
+
+⭐ **THE DISTANCE IS THE SYMPTOM; TWO LAYOUT RULES ARE THE DEFECT.** Measured 2026-08-22:
+`DockingLayout.ts` composes `.wmb-toplevel-wrapper` — whose own CSS comment reads *"owns the fixed
+centering for HUD + mode bar"* — and appends `SaveUndoRedoHUD` + `WorkspaceModeBar` to it.
+`ActiveLevelHUD` was mounted somewhere else entirely, by `CreatePanelLayout.ts` on a
+`setTimeout(…, 600)`, into `.plat-toolbar`.
+
+The two then obeyed different rules, and the divergence was invisible until a half-screen mode
+existed: `inspectModeShell.ts` re-centres `body.pryzm-mode-inspect .wmb-toplevel-wrapper
+{ left: 25% }` when the Inspect panel claims the right half, and `.plat-toolbar` is not in that
+rule. **Entering Inspect moved the mode bar out of the panel's way and left the level pill behind
+it.** Hand-positioning the pill to match would have fixed the screenshot and left the second rule
+un-followed — and a third rule, added later for a fifth mode, would break it again.
+
+As a child of the host's flex row, the control inherits **by construction**: the anchor, the gap,
+the `pointer-events` discipline the wrapper applies to `> *`, every responsive breakpoint, and every
+present and future mode-dependent re-position. *"Follows it"* becomes a property of the DOM rather
+than a pair of coordinate sets kept in sync by hand.
+
+**Three obligations follow, and each closes a way this has already gone wrong:**
+
+1. **The host slot is created where the host is composed** — `DockingLayout.ts` for the top bar —
+   not by the consumer reaching in from wherever its data dependencies happen to live. The consumer
+   FILLS the slot; it does not invent one.
+2. **A fallback chain is mandatory.** Mount ordering between two independent layout functions is a
+   runtime fact, not a guarantee. `CreatePanelLayout` still degrades slot → `.plat-toolbar` →
+   `#alh-hud-mount`; `toolbar/__tests__/mountHost.spec.ts` exists because a control whose host is
+   absent must degrade, **never unmount**.
+3. **Host-specific CSS is CLASS-keyed** (`.alh-slot`), because the moment there are two hosts an
+   id-keyed override block is how the second one silently ships without the layout reset. Rules that
+   genuinely differ per host — the mode-bar slot floats over the 3-D canvas and therefore KEEPS the
+   backdrop blur that an opaque toolbar makes redundant — are stated as a narrow id-keyed override
+   ON TOP of the shared class, with the reason.
+
+⚠ **THIS IS NOT A LICENCE TO PUT NEIGHBOURS IN THE MODE REGISTRY.** `workspaceModes.ts`
+(§WORKSPACE-MODE-REGISTRY, ADR-0343 §D.1) stays a table of MODES and `WorkspaceModeBar` still
+*"knows no mode by name"*. The level slot is a sibling in the composition, not a row in the table —
+adding a MODE is a registration, adding a NEIGHBOUR is a composition, and conflating them would make
+the registry the second place the shell layout is decided.
+
+---

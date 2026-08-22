@@ -209,6 +209,46 @@ FinalElementAppearance =
 
 Each layer is evaluated in strict precedence order. Local overrides win over intent rules but MUST NOT mutate the master intent.
 
+### §4.3.1 — DERIVED GEOMETRY IS NOT A VISIBILITY SUBJECT (normative; L-3510, 2026-08-22)
+
+**An object that exists only to depict another object — an edge outline, a ghost profile, a
+highlight clone, a diagnostic overlay — MUST inherit its visibility and its transform from the
+object it depicts, by being its CHILD. It MUST NOT be enrolled as a visibility subject in its own
+right, and it MUST NOT carry a level tag, an element id, or any other attribution that would make a
+visibility or transform pass treat it as an element.**
+
+⭐ **WHY THIS IS NORMATIVE AND NOT A STYLE NOTE — the measurement that produced it.** The founder
+reported two Inspect defects on 2026-08-22 and they were **ONE population**:
+
+* *"SOLO = Ground, yet wireframe from every level is still drawn."*
+* *"EXPLODE does not separate every element — a lot of geometry stays behind."*
+
+`DiagnosticMaterialManager._applyGhostToNonRoomMesh()` built one cyan `THREE.LineSegments` per
+structural mesh and attached it to a **scene-root** overlay group, copying the source mesh's WORLD
+transform into it. Every level pass then missed it, twice over:
+
+* the solo filter runs inside `if (!this._isBimObject(obj)) return;`, and that predicate demands
+  `userData.id || levelId || storeyName`. A derived clone has an **empty** `userData`, so solo never
+  looked at it — it was not *failing to hide*, **it was not in the pass**;
+* the explode buckets on `userData.levelId`, so the clone got no offset — and the world-transform
+  copy is a **snapshot**, so it stayed at the pose the mesh held when the ghost was applied.
+
+⛔ **THE TEMPTING FIX IS FORBIDDEN BY THIS CLAUSE.** Stamping a `levelId` on the clone makes both
+passes reach it and is WRONG: the clone then has its own opinion about where it is, is transformed
+independently of its subject, and acquires a start-of-lift race (a ghost applied while the model is
+already exploded records the LIFTED Y as its baseline and double-shifts on the next apply). The
+correct fix removes the question instead of answering it — parent the clone to its subject at
+identity, and transform + `visible` are inherited from THREE with nothing left to maintain.
+
+**This clause codifies what the element builders already do**: `WallEdgeOverlayBuilder` and
+`SlabFragmentBuilder` stamp `role:'edges'` and nest their overlay INSIDE the element subtree
+(`GLBExporter.ts` describes them as living *"INSIDE an element subtree"*). The Inspect ghost was the
+one edge overlay in the repo that did not, and that divergence is exactly what the founder
+photographed.
+
+**Consequence, accepted deliberately:** a derived overlay disappears whenever its subject does. That
+is the definition of an outline. An outline of something you cannot see is the defect.
+
 ### §4.4 — Intent lifecycle
 
 1. A plugin or AI workflow creates an `IntentProposal` and dispatches `ApplyVisibilityIntentCommand`.

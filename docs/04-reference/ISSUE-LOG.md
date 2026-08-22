@@ -32696,3 +32696,304 @@ of writing — zero errors in any file this lane touched. Pre-existing failures 
 `HEAD` and **PROVEN** not this lane's: `canPlaceRefusalIdentity` (1, `[OCC_HOST_RAKED]`),
 `WindowPlanSymbolBuilder.detailLevel` (4), and 9 across 2 `geometry-door` files (identical counts
 with the lane's files restored from `HEAD`).
+
+---
+
+## L-3500 … L-3540 — LANE INSP3: **two Inspect screenshots were ONE bug**, and **three of the six things he asked for already existed** — 2026-08-22 (commits `02f65894`, `8b4bbb4e`, `9cde6c19`)
+
+Six founder requests against the Inspect surface. Before any code, each was measured — and the
+single most useful result of the lane is that **three of the six were not missing features**. Two
+were features that shipped and then silently stopped covering new element families; one was a log
+line that could not answer the question it was being asked.
+
+⛔ **NOTHING IN THIS SECTION WAS VERIFIED IN A BROWSER.** Every mechanism below is read from code
+and from the founder's own console lines. Where a claim could not be closed that way, it says so.
+
+### ⚠ L-3500-PRE — C01 §6 RULE 6, applied to this lane's OWN brief: the named issue log **does not exist**
+
+The brief instructed *"the log is `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md`"*.
+
+```
+$ find docs -name 'V1-LAUNCH-READINESS-AUDIT*'
+(no output)
+```
+
+That path is stale — the file is not on disk under any directory of `docs/`. The live ledger is
+`docs/04-reference/ISSUE-LOG.md` (4.3 MB), which is where this section is appended. Recorded rather
+than silently corrected, because a stale path in a brief is how a lane's whole write-up lands in a
+file nobody reads. (`docs/04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md` exists and is a different
+document; the MEMORY pointer naming the audit file is also stale.)
+
+### L-3500 — the level pill was mounted into a **different bar**, so it could not follow the modes
+
+Founder: *"the `Level 3 / +9.000` control floats top-right, far from `Author | Inspect | Analysis |
+Data`. Move it alongside them and make it follow them."*
+
+**MEASURED — two hosts, two layout rules.** `DockingLayout.ts:178-186` composes
+`.wmb-toplevel-wrapper` (`position:fixed; top:6px; left:50%`) and appends `SaveUndoRedoHUD` +
+`WorkspaceModeBar` to it. That wrapper's own CSS comment already read *"owns the fixed centering
+for HUD + mode bar"* — a composition slot that existed and had never been used for the level pill.
+`CreatePanelLayout.ts:713` mounted `ActiveLevelHUD` on a `setTimeout(…, 600)` into `.plat-toolbar`.
+
+⭐ **THE WORSE HALF IS NOT THE DISTANCE, IT IS THAT THEY OBEYED DIFFERENT RULES.**
+`inspectModeShell.ts:202` re-centres `body.pryzm-mode-inspect .wmb-toplevel-wrapper { left: 25% }`
+when the Inspect panel claims the right half. `.plat-toolbar` is not in that rule. So entering
+Inspect moved the mode bar out of the panel's way and left the level pill where it was.
+
+**FIX — compositional, per the brief.** The slot is created in the ONE place the mode bar is
+composed, as a sibling of `workspaceModeBar.element`. As a third child of that flex row the pill
+inherits **by construction**: the fixed anchor, the 7 px gap, the `.wmb-toplevel-wrapper > *`
+pointer-events discipline, both mobile breakpoints, and the inspect-mode re-centre. *"Follows
+them"* becomes a property of the DOM rather than a second set of coordinates kept in sync by hand.
+**No second floating element was added and none was hand-positioned.** The `.plat-toolbar` and
+`#alh-hud-mount` branches are kept as the fallback chain `toolbar/__tests__/mountHost.spec.ts`
+requires.
+
+CSS: the host-slot override block moves from `#alh-toolbar-slot` to the shared `.alh-slot` class
+(9 selectors) — with two hosts, an id-keyed block is how the second one silently misses the layout
+reset. The mode-bar host then **restores** the backdrop blur the toolbar host switches off: it
+floats over the 3-D canvas, where the 84 % scrim + blur pair is the **measured** WCAG floor
+documented at the top of `levelsGrids.ts` (worst case 4.80 : 1), not a taste call.
+
+GUARD: `apps/editor/src/ui/platform/__tests__/levelPillFollowsModeBar.spec.ts`, 6 arms, GREEN. They
+read the shipped TypeScript as TEXT and the spec header states what a green run therefore does
+**not** prove (visual adjacency, the 600 ms mount ordering, the inspect re-centre).
+
+### ⭐ L-3510 — **THE TOP FINDING**: screenshots 3 and 4 are the SAME object population
+
+Founder, two reports treated as two bugs:
+
+* screenshot 3 — *"EXPLODE does not separate every element; a lot of geometry stays behind"*
+* screenshot 4 — *"SOLO=Ground, yet wireframe from every level is still drawn"*
+
+**MEASURED.** `DiagnosticMaterialManager._applyGhostToNonRoomMesh()` builds one cyan
+`THREE.LineSegments` per structural mesh (§1.1) and parked it at the **scene root**
+(`_overlayGroup`), copying the source mesh's **world** transform into it. Both level passes then
+skip it, for the same reason twice:
+
+* **SOLO.** `BottomActionMenu._applySceneVisibilityFilters()` runs its filter inside
+  `if (!this._isBimObject(obj)) return;`, and `_isBimObject` (`BottomActionMenu.ts:1233`) demands
+  `userData.id || levelId || storeyName`. A bare `LineSegments` has an **empty** `userData`, so solo
+  never looks at it. It is not *failing to hide* — **it is not in the pass**.
+* **EXPLODE.** `_buildLevelRootMap()` buckets on `_objectLevelId(obj)` = `userData.levelId`. No tag,
+  no bucket, no offset. And the world-transform copy is a **snapshot**, so the outline stays at the
+  pose the mesh held when the ghost was applied while the mesh rises out from under it.
+
+⛔ **THE FIX IS NOT A THIRD TAG.** Stamping `levelId` on the clone would enrol a **derived** object
+as a first-class level member, lifted independently of the mesh it outlines, with a start-of-lift
+race: a ghost applied while already exploded records the **lifted** Y as its baseline and
+double-shifts on the next apply. A derived overlay must not have its own opinion about where it is.
+
+The clone is now a **child of its source mesh at identity**. `EdgesGeometry(obj.geometry)` is
+already in the mesh's local space, so identity is exact — and this **deletes** the world-transform
+copy, which existed only to compensate for the scene-root parent. It inherits every ancestor
+transform and `visible` from THREE itself, so solo, active-level-only, the ceiling hide and
+elements-in-view all reach the wireframe **for free, because they reach the mesh**.
+
+⭐ **THIS IS THE PATTERN THE ELEMENT BUILDERS ALREADY USE.** `WallEdgeOverlayBuilder` and
+`SlabFragmentBuilder` stamp `role:'edges'` and nest the overlay inside the element subtree —
+`GLBExporter.ts:632` describes them as living *"INSIDE an element subtree"*. The Inspect ghost was
+the one edge overlay in the repo that did not.
+
+**CONSEQUENCE ACCEPTED DELIBERATELY:** an edge overlay is now hidden whenever its mesh is hidden.
+That is the intended semantics of an outline — an outline of something you cannot see is what the
+founder photographed.
+
+### L-3511 — *"everything reads cyan"* is a **leak**, not a palette choice; and the focused family had no colour of its own
+
+**MEASURED.** `InspectModeCoordinator._onElementType()` calls `applyGhostWithFocus()` **directly**
+(`InspectModeCoordinator.ts:235`) for every non-`rooms` category, bypassing `applyLens()` — and
+`_applyLensImmediate` is where `_stopPulse()` + `_clearOverlays()` + `_restoreMaterials()` live. So
+choosing a category skipped all three, and left **every** cyan edge clone from the base ghost lens
+on screen: one per wall, per slab, per column. The model was a cyan wireframe of itself.
+
+Second half: the focused branch **restored the authored material**, so *"the selected category"*
+rendered in oak / plaster / glass — the one appearance indistinguishable from an ordinary shaded
+view. It is now painted in `INSPECT_BLUE`, a **name** given to the `0x00aaff` this file already
+carried once as `XRAY_EMISSIVE_COLOR`, so the two consumers cannot drift and cyan now means exactly
+one thing. Painting goes **through** `_applyToMesh` so the mesh enrols in `_savedMeshes` and is
+restored on Inspect exit — the old branch wrote `obj.material` directly and did **not** enrol it.
+
+The white-but-faintly-visible half already existed (`_applyClearWorldGhost`, 0.06 white) and is
+untouched. Prior art honoured per the brief: §INSPECT-OPENINGS-PARTICIPATE / §INSPECT-EVERY-CATEGORY
+(L-2030…L-2034) own the ghosting decision and **no second ghosting path was minted**.
+
+A focus that matches **zero** meshes was previously SILENT and renders identically to *"the model is
+empty"*. It now names itself in the log.
+
+### L-3520 — the `[§LEVEL-STACK]` line the founder was reading is a **numerator with no denominator**
+
+His log:
+
+```
+[§LEVEL-STACK] exploded: offset roots per level — Ground=44(rm2+lbl1+fur4), Level 1=158(...),
+… (total 443; rooms 34, labels 17, furniture 31)
+```
+
+⭐ **THAT LINE CANNOT ANSWER HIS QUESTION.** It counts the roots the pass **moved**. 443-of-443 and
+443-of-1546 print the same reassuring line. Same shape as §LEVEL-STACK-COUNT-IS-NOT-PROOF (L-1012),
+one level up.
+
+`apps/editor/src/ui/bottom-menu/levelCoverageCensus.ts` (pure — no THREE, no DOM) plus one traverse
+per user gesture now report the **left-behind** population by family, worst first.
+
+⚠ **THE FOUNDER'S LEAD IS NOT AN IDENTITY, AND THE CENSUS SAYS SO WITH A NUMBER.** He predicted the
+left-behind set *"is very likely the SAME population as the `(unattributed)` bucket"*. Measured, the
+two predicates differ: `logSceneCensusOnce` buckets `(unattributed)` on a missing
+**`userData.elementType`**; the explode buckets on **`userData.levelId`**. Each has a population the
+other misses — an object can carry `elementType:'wall'` and no `levelId` (named in the census, left
+behind by the explode) or a `levelId` and no `elementType` (unattributed, lifted correctly). The
+overlap is expected to be large and is now **printed**, never asserted. Two tests pin both
+directions of the non-identity. The census also separates *"no level tag"* from *"tagged and dropped
+by the bucketing anyway"*, because those have different fixes.
+
+### L-3521 — the fix for the explode was already in the same file, 60 lines away
+
+`_applyRegistryLevelIsolation()` sits just below `_buildLevelRootMap()` and had **already** stopped
+trusting scene tags: it enumerates `elementRegistry.getAllRoots()` — *"the ONE place every
+Create-command / builder registers its root"* — because the traverse *"silently drops any element
+type whose root failed to stamp a levelId"*. Its docblock says exactly that.
+
+**The TRANSFORM half was never given the same treatment.** So isolation was authoritative and the
+explode was not, in the same class, in the same file — which is why an element could hide correctly
+under Solo and refuse to lift under Explode. `_registryRootsByLevel()` closes the asymmetry through
+the same `resolveRootLevels()` derivation. **Additive only:** a root already bucketed by a scene tag
+keeps its bucket. Span elements lift with their **base** storey — a Y offset is not a set — and that
+choice is written down rather than left as an accident of `Set` iteration order.
+
+### L-3530 — **a late mesh is not a deleted element**
+
+Founder: *"click a wall → it highlights for about a second, then the highlight is lost."*
+
+`SelectionManager._reresolveSelectionAfterRebuild()`'s miss branch read, in full:
+
+```ts
+if (!fresh) {
+  // Element no longer in the scene (e.g. undo-of-create removed it) —
+  // drop the selection entirely so nothing dangles.
+  this.unselectAll();
+  return;
+}
+```
+
+⭐ **"NO SCENE-ATTACHED MESH CARRIES THIS ID" IS NOT "THIS ELEMENT IS GONE."** Two different facts
+arriving as the same value (`null`), with the second inferred from the first —
+[[context-data-honesty-family]] at the interaction layer.
+
+**The race is documented in the calling file and contradicted three lines later.** The
+`setTimeout(…, 0)` defer is justified as *"so the builder's `scene.remove(old)` + `scene.add(new)`
+has settled"*, while the `onRootSwapped` subscription immediately below states *"Builders register
+the root BEFORE `scene.add()`"*. A builder that registers on one tick and attaches on a later
+**frame** — the build queue drains from a `pre-render` scheduler slot — is observed as ABSENT by a
+macrotask-deferred check. Click wall → `bim-selection-changed` → `wallTransformController.activateFor`
+→ the wall is re-queued and rebuilt → `bim-wall-updated` → this runs → deselect.
+
+**FIX — ask the domain, not the scene** (C84 EI-9: one authority per fact). `elementRegistry` is the
+single authority on existence, and `getStoreType()` survives the transient
+`unregisterRoot()` + `registerRoot()` pair a stair-shaped rebuild performs. Registry still knows it
+⇒ the mesh is **late** ⇒ keep the selection, retry (4 × 50 ms). Registry has forgotten it ⇒
+genuinely removed ⇒ deselect on the **first** miss — the original branch's purpose, preserved.
+
+The two deselects are **different values** on purpose: a registered root that never attaches is an
+*orphaned registration*, a real defect with a different fix, and folding it into "removed" is how it
+would stay invisible. Decision extracted to `packages/input-host/src/reresolveFate.ts` (pure) so the
+thing that was wrong — the inference, not the drawing — is unit-testable. 7 tests, GREEN.
+
+### L-3531 — **the probe shipped first**: one observable had EIGHTEEN causes
+
+**MEASURED before touching anything:** `unselectAll()` has **eighteen** call sites that can fire on
+or shortly after a click, across seven files, all emitting a byte-identical
+`bim-selection-changed { object: null }`. Among them: `_reresolveSelectionAfterRebuild`;
+`setEnabled(false)`, reached from `ToolManager.activateTool` **after two `await`s** (an unbounded
+delay — three separate plan-tool files already annotate this as a hazard they work around); three
+pick-miss branches inside `performSelection`; every `ViewController.activate()`; and `select()`
+itself, which unselects on **every** successful selection so a null always precedes the object.
+
+⭐ **Five of the eighteen are correct behaviour, and nothing could tell them apart.**
+`unselectAll(reason?)` now logs `[§SELECT-CLEARED] reason=… id=… type=…`. The parameter is
+**optional**, so the ~14 external callers are untouched and report as `unspecified` — itself
+information: it says the clear came from outside `SelectionManager`. Seven internal sites now name
+themselves.
+
+⚠ **THE FOUNDER'S OWN LEAD IS REFUTED — recorded, not deleted.** He suspected
+`[PickResolver] hover-anchor hit=…` of overwriting the selection. Measured: **one** log site
+(`SelectionManager.ts:1718`), on the **click** path, not the hover path, and it **ends in
+`this.select(...)`**. It is the selection write, not a competitor to it. The hover rAF writes only
+`_lastHoveredObjectGpu` and never touches selection state; the coupling runs the other way —
+`unselectAll()` wipes the hover anchor. If that line appears constantly, it means many clicks are
+reaching `performSelection`, not that hover is stomping selection.
+
+**Which of the eighteen the founder is actually hitting is settled by this log line in HIS console,
+not by this lane.** L-3530 fixes the strongest candidate and is strictly safer than the status quo
+either way: it never deselects an element the domain still knows about without saying so.
+
+### L-3540 — **the double-click zoom he asked for already shipped**; a hand-written family list was the bug
+
+⚠ **C01 §6 RULE 6.** `initUI.ts:2807` has framed the main viewport on double-click since before the
+split-view work. `§SVP-DBLCLICK-FRAME` (`SplitViewManager.ts:1676`) was written as its **plan-pane
+analogue**, and both call the same primitive — `frameObject()`
+(`packages/core-app-model/src/navigation/CameraFramingUtils.ts:34`), whose own header calls its
+`minDist 2.5 / dimMult 1.5` defaults *"the double-click contract"*. `SelectionManager.ts:1419-1430`
+even records **deleting** its rival dblclick listener so this one could run. **No second camera-fit
+was written, and none was needed.**
+
+⛔ **WHAT WAS WRONG IS `SEMANTIC_TYPES_FOR_ZOOM`** — a hand-written allowlist of element families.
+Measured against `INSPECT_CATEGORIES`, its fourteen entries were missing **nine** real families:
+rooms, stairs, stair-railings, handrails, lifts, openings, curtain-panels, lighting, plumbing.
+Double-clicking any of them fell through to the direct **scene child** and framed a whole level
+group — *"zoom does nothing useful here"*, silently. Same defect shape as `ELEMENT_TYPE_LABELS`
+shipping six of twenty families until §INSPECT-EVERY-CATEGORY (L-2032) counted them.
+
+It is now **derived** from `inspectCategories.ts`, the one declared family table that
+`__tests__/InspectCategoryCoverage.test.ts` already fails CI over when a new `window.<x>Store`
+family appears with neither a category row nor a written exclusion. A family added to PRYZM is
+double-clickable **by construction** — that coverage guard now protects the camera too, at zero
+extra cost. Three non-family literals (`ifc-element`, `ifc-model`, and the legacy un-hyphenated
+`curtainwall` spelling) stay explicit, with the reason.
+
+⚠ **A SECOND, DIVERGENT CAMERA-FIT EXISTS AND WAS DELIBERATELY NOT TOUCHED.** The `zoom-selected`
+bus command (`engineLauncher.ts:817-870`) uses `ctrls.fitToBox(box, true)` with an `r * 2` symmetric
+`setLookAt` fallback — a different framing for the same conceptual action, with AI, toolbar and
+schedule-row consumers. Consolidating it onto `frameObject`/`frameObjects` would change the framing
+those three surfaces produce, which is a behaviour change nobody asked for in this lane. **Named as
+open debt rather than fixed quietly.** `frameObjects()` (the union-Box3 multi-select variant) exists
+at `CameraFramingUtils.ts:76` with **zero** production callers.
+
+### ⛔ WHAT THIS LANE DID NOT FIX, AND WHY
+
+* **The remaining left-behind population under Explode/Solo.** L-3510 fixes the inspect edge
+  overlays; L-3521 adds registry coverage. Anything still outside both is now **measured and named
+  per family** by L-3520 rather than guessed at — the honest next step is to read that line in a
+  live session and fix the top row, not to widen a predicate speculatively.
+* **`zoom-selected` vs `frameObject`** — see L-3540 above.
+* **`WallStore.updateWindow` / anything under `geometry-window*`, window/door commands or
+  `DeleteElementCommand`** — held by lane WIN5 this session; not touched.
+* **P7 / C25 note.** Solo's visibility writes remain `obj.visible` assignments inside
+  `BottomActionMenu`, as they were. This lane did **not** migrate them to a visibility-intent
+  domain object, and does not claim to have: it removed a population from the imperative path by
+  making derived geometry inherit its parent's visibility, which reduces the surface a future C25
+  migration has to cover but does not perform that migration.
+
+### VERIFICATION (foreground, synchronous)
+
+* Root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` — **zero errors in
+  any file this lane touched**, re-run after each commit. The tree is shared and sibling-lane files
+  were RED at various points (`packages/ai-host/ChatCapabilityRegistry.ts`,
+  `apps/editor/src/ui/analysis/graphReadModel.ts`, `packages/file-format/.../PdfExportService.ts`,
+  `apps/editor/src/ui/dataworkbench/DataWorkbench.ts` — the set changed between runs as other lanes
+  committed, which is itself why the filter is by filename, not by exit code).
+* `apps/editor/src/engine/__tests__` — **302 passed / 3 failed**, and the 3 are exactly the
+  pre-existing reds named in the brief (`mt05StoreIdentityHeap` ×2, `wallMoveGateMutualCorner` ×1).
+  **Unchanged before and after.** Not adopted, not "fixed", not masked.
+* `apps/editor` — `LevelCoverageCensus` 10/10 GREEN; `InspectOpeningsParticipate` +
+  `InspectCategoryCoverage` re-run GREEN (33 total).
+* `apps/editor/src/ui/platform/__tests__` — 14/14 GREEN.
+* `packages/input-host` — `reresolveFate` 7/7 GREEN; suite **80 passed / 0 failed**. Its 2 red
+  FILES are collection-time `ReferenceError: DOMMatrix is not defined` from `pdfjs-dist` via
+  `file-format`, pre-existing and untouched.
+* `apps/editor/src/ui/styles/__tests__/panelBrandStandard.spec.ts` — 3 pre-existing failures,
+  **proven not this lane's**: that spec globs `panels/dataWorkbench.ts`, `panels/analysisSurface.ts`
+  and `panels/autonomous-auditor/*` only, and `levelsGrids.ts` (the file this lane edited) is in
+  none of those.
+* `npx tsx tools/ga-gate/check-otel-spans.ts` — Zone B reports 6 new uninstrumented files, **all
+  under `packages/command-registry`**; none from this lane.
