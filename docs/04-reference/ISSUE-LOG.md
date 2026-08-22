@@ -33016,3 +33016,747 @@ at `CameraFramingUtils.ts:76` with **zero** production callers.
   none of those.
 * `npx tsx tools/ga-gate/check-otel-spans.ts` — Zone B reports 6 new uninstrumented files, **all
   under `packages/command-registry`**; none from this lane.
+
+---
+
+## L-3600 … L-3642 — LANE ANLZ3: **the Analysis panel was drawing inside a band the shell had already claimed**, and **the "open" area decision had an answer sitting in the geometry kernel** — 2026-08-22 (commits `1d44fb92`, `5ba2d68d`, `e21b5d7b`, `1bcf00ac`)
+
+Six founder requests against the Analysis surface (F4). The two most useful results of the lane are
+both measurements that changed what the work was:
+
+1. the header overlap he reported is **not** caused by the element everything points at, and
+2. the GFA/NIA card's third blocker — *"wall-centreline vs internal-face measurement … the standards
+   differ"* — was written as an **open question** and is not one. It has an answer, it is
+   **CENTRELINE**, and it was in `packages/geometry-kernel/src/producers/room.ts` the whole time.
+
+⛔ **NOTHING IN THIS SECTION WAS VERIFIED IN A BROWSER.** Every mechanism is read from code, from
+the founder's screenshots and from test runs in `happy-dom`, which performs no layout and paints
+nothing. **No claim below establishes that anything is legible, positioned or coloured on screen.**
+Where a claim could not be closed that way, it says so.
+
+### ⚠ L-3600-PRE — the brief's ISSUE-LOG path is stale, and lane INSP3 found it first
+
+My brief also named `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md`. `find docs -iname
+"V1-LAUNCH*"` returns only `V1-LAUNCH-IMPLEMENTATION-PLAN.md`, a different document. Corrected by
+the coordinator mid-lane; recorded here because L-3500-PRE recorded the identical thing hours
+earlier in the same session and **the brief was issued to a second lane with the same stale path
+still in it**. The stale path is not the defect any more — the propagation is.
+
+---
+
+### L-3600 — ⛔ FIXED: the header, the subtitle and the four header buttons were **underneath shell chrome**, and `.plat-toolbar` — the obvious culprit — is **detached from the document**
+
+Founder: the four-tab strip I shipped this morning (`e1d121cc`), the subtitle *"Every figure
+traceable to elements — click any of them"* and the `+ Add widget` / ↺ / ⟲ / ⓘ buttons are all
+overlapped, the subtitle sliced in half.
+
+`#anl-surface` is `position: fixed; top: 0; right: 0; width: 50%` at **`z-index: 50`**. Two pieces
+of always-on shell chrome are fixed at the top of the viewport at a **far** higher z-index, and both
+reach into the right-hand half the panel owns:
+
+| element | position | z-index | what it covers | source |
+|---|---|---|---|---|
+| `.wmb-toplevel-wrapper` | `top: 6px; left: 50%; translateX(-50%)` | **200** | the title, the subtitle, the start of the tab strip | `styles/panels/platform-shell/workspaceModeBar.ts:9-19` |
+| `.cp-presence-strip` | `top: 8px; right: 8px` | **9990** | the four header buttons | `styles/panels/collaborativePresence.ts:21-46` |
+
+`left: 50%` **is** the Analysis panel's left edge, so the mode-bar wrapper's right half lands
+squarely on the panel's top-left. That is the sliced subtitle, exactly.
+
+⚠ **C01 §6 RULE 6 — and it changed the fix.** The first suspect was `.plat-toolbar`: `position:
+fixed; top: 0; left: 50%; max-width: 80vw; z-index: 9000`, which on a 1440 px screen would cover
+~280 px of the panel's top-left. **It is not an occluder.**
+
+```
+$ grep -n "L-MOUNT-DETACH" apps/editor/src/ui/platform/PlatformProjectBrowser.ts
+101:        // §L-MOUNT-DETACH (founder decision, 2026-08-14). The `.plat-toolbar` is
+102:        // NOT attached to the document when no `.plat-left-panel` wrapper exists.
+```
+
+It is never in the DOM (a founder decision of 2026-08-14, after a body-append made every injected
+feature stack down the middle of the viewport). **ABSENT and UNREACHABLE have opposite fixes**: a
+reserve sized for a node that never renders would be 44 px of permanently dead panel.
+
+**⭐ HOW INSPECT AVOIDS THIS, AND WHY THE FIX HERE IS DIFFERENT.** Inspect re-centres the floating
+bars over the left canvas half — `body.pryzm-mode-inspect .wmb-toplevel-wrapper { left: 25% }`
+(`autonomous-auditor/inspectModeShell.ts:202`). **Analysis has no equivalent**, because
+`WorkspaceController._applyLayout()` toggles **only** `pryzm-mode-inspect` (`WorkspaceController.ts:135`
+— one line, one mode). There is no `pryzm-mode-analysis` body class to hang the rule on.
+
+That is the **better** fix and it is **not this lane's to make**: the shell and the mode bar belong
+to lane INSP3 this session. It is handed over as **L-3601** below.
+
+**What this panel does instead is the half it can do alone, and it is the stronger half: it refuses
+to draw anything in a band the shell has already claimed.** That holds whatever the shell later
+floats there, and it does not depend on a second file staying in step.
+
+The number, derived from the occluders' own sheets:
+
+```
+mode bar   6 + (3 + 5 + 14 + 5 + 3)  = 36 px    [wmb-bar padding 3, wmb-btn 5+14+5]
+presence   8 + 28                    = 36 px    [cp-chip height 28]
+reserve    36 + 8 clearance          = 44 px
+mobile     6 + (3 + 36 + 3)          = 48 -> 56 px   [wmb-btn min-height 36 at <=768px]
+```
+
+⭐ **The derivation is PINNED, not commented.** `analysisHeaderReserve.spec.ts` reads those four
+inputs **out of their own stylesheets** and fails if one moves. Move the mode bar down and the test
+names this block, rather than the panel silently re-breaking in a screenshot three weeks later.
+
+⛔ **The reserve is a transparent top BORDER, not padding** (see L-3642 — it started as padding and
+that was wrong for a contract reason).
+
+### 🔴 L-3601 — OPEN, HANDED TO THE SHELL: there is no `pryzm-mode-analysis` body class, so the floating bars cannot move out of the Analysis panel's way
+
+The complete fix for L-3600 is two lines that this lane must not write:
+
+```ts
+// WorkspaceController._applyLayout(), beside the existing line 135
+document.body.classList.toggle('pryzm-mode-analysis', this._mode === 'analysis');
+```
+```css
+/* the Analysis counterpart of inspectModeShell.ts:202-208 */
+body.pryzm-mode-analysis .wmb-toplevel-wrapper { left: 25%; }
+body.pryzm-mode-analysis .bam-container        { left: 25%; }
+```
+
+With those, the mode bar and the bottom action menu sit over the canvas half where they belong in a
+50/50 mode, and the panel's 44 px reserve becomes belt-and-braces rather than the only defence.
+
+⚠ **`.cp-presence-strip` is NOT solved by that** — it is `right: 8px`, so it is in the panel's
+corner in every mode. Either it moves left by 50% in the two half-panel modes, or the reserve keeps
+covering it. Named so the next lane does not "fix" the mode bar and assume the corner is clear.
+
+### L-3602 — 🔴 FIXED: **§PANEL-BRAND-STANDARD was RED**, all three hard-0 arms, and this sheet was the only reason
+
+Measured **before** any change this lane made:
+
+```
+$ npx vitest run apps/editor/src/ui/styles/__tests__/panelBrandStandard.spec.ts
+Tests  3 failed | 7 passed (10)
+  ARM A  panels/analysisSurface.ts:...  #b45309   (raw hex literal, hard-0)
+  ARM B  panels/analysisSurface.ts      var(--app-warn, …)   (fallback, hard-0)
+  ARM C  panels/analysisSurface.ts      var(--app-warn)  x2  (PHANTOM, hard-0)
+```
+
+One rule caused all three: `.anl-tab-nb`, the "NOT BUILT" chip on the tab strip, shipped as
+`var(--app-warn, #b45309)` **twice**.
+
+⛔ **`--app-warn` IS DECLARED NOWHERE.** `grep -n "^\s*--app-" apps/editor/src/ui/styles/tokens.ts`
+lists `--app-status-warning`, `-warning-bg`, `-warning-line`, `-warning-ink` — and no `--app-warn`.
+So the fallback is not a dead safety net that happens to agree with its token: **the fallback IS
+what rendered**, every time, in a sheet whose own header says it holds *"ZERO hex literals and ZERO
+`var(--x, fallback)` forms"*.
+
+This is precisely the defect **L-1740…L-1744 fixed and shipped a guard for** — *"the Inspect and
+Data panels were four palettes wearing the product's name"* — re-opened by the commit that added the
+tab strip (`e1d121cc`, mine, this morning). The declared warning role is the `-bg` / `-line` / `-ink`
+triple and the chip now uses it. **After: 10 passed.**
+
+⚠ **The guard did its job and nobody read it.** It was RED for the whole morning, across at least
+two lanes, and was discovered by a lane doing unrelated work. A hard-0 arm that nobody runs is a
+comment.
+
+### L-3603 — FIXED: a graph reporting **LIVE** rendered on the amber warning plate
+
+`renderGraph()` has always emitted `anl-strip anl-strip--ok` for a healthy liveness sentence.
+`grep -n "anl-strip--ok" apps/editor/src/ui/styles/panels/analysisSurface.ts` → **0 hits**. There
+was no such rule, so the bare `.anl-strip` base applied — and that base is warning-coloured
+(`border-left: 3px solid var(--app-status-warning-line); background: var(--app-status-warning-bg)`).
+
+So *"LIVE — maintained off the StoreEventBus. 4 delta(s) applied…"* rendered identically to *"the
+graph was drawn to a 60-node cap"*. **On a surface whose entire claim is that a warning means
+something, a permanent false amber is the fastest way to teach a reader to discount the real ones.**
+Same shape as L-3303's self-refuting status strip, in colour instead of words.
+
+### L-3610 — SHIPPED: click a slice and the rest go **dormant, not gone** — and the "not gone" is an honesty rule
+
+Founder, the most concrete of the six: *"when the user selects a part of the graph it should
+highlight this and the rest be a bit dormant."*
+
+The click-through already existed (`AnalysisFigure.elementIds` → `selectionBus.dispatch`). What was
+missing is the visual state **on the chart**. `seriesFocus.ts` adds it, and every design constraint
+in it is an honesty constraint rather than a taste one:
+
+* ⛔ **Nothing is removed or hidden.** No `display: none`, no `visibility: hidden`, no filtered
+  dataset. A chart that HIDES the unpicked series leaves its own denominator, its legend totals and
+  its percentages describing a population the reader can no longer see — a filtered chart under an
+  unfiltered caption. Opacity changes emphasis; it does not change the answer. Pinned by an arm that
+  asserts the unpicked mark is still in the tree with `hidden === false`.
+* ⛔ **Hue is never changed, only alpha.** `dimFill()` parses the resolved token and moves one
+  channel, so a dimmed slice is still identifiable as itself — and, the case that matters,
+  `--app-cat-unassigned` stays the named neutral. `unassigned` / `untyped` / `unmeasured` are real
+  ANSWERS about the model (SPEC §4.1 W2) and a re-tint would promote them into the categorical
+  rotation by accident. An unparseable colour is returned **unchanged** rather than replaced by a
+  grey: a guessed fill is a minted colour, and ADR-0343 §D.5 forbids minting.
+* ⛔ **No animation, no transition on the dim.** P3 — this surface must never be why a frame is
+  dropped. Chart.js is re-tinted with `update('none')`.
+* **Picking the focused series again clears it.** There must always be a way back to the whole
+  population by the same gesture that left it.
+
+⭐ **ONE mechanism, not five.** `data-series` is a space-separated TOKEN LIST and a mark lights on
+**membership**, so the same rule governs a donut slice, a legend row, a table row, a treemap tile, a
+graph node and a graph edge. It exists in that form for the graph, where "the part the user
+selected" is genuinely more than one mark: a node carries its own key plus one per neighbour, an
+edge carries both endpoints plus its relation family. Picking a node therefore lights the node, its
+incident edges **and** its neighbours — *"what does this connect to"*, not *"which dot is this"*.
+The edge legend became a query surface for free: a row lights its whole relation family.
+
+### L-3620 — SHIPPED: a per-storey scope for Relationships, and it **refuses to look like the node cap**
+
+Founder: a per-level filter on the relationship view — and, explicitly, *"filtered to Level 1" is
+not the same statement as "truncated at 60 nodes" and they must never render identically.*
+
+He is right and the distinction is structural, not cosmetic:
+
+| | a CAP | a FILTER |
+|---|---|---|
+| whose choice | the tool's, imposed | the reader's, asked for |
+| the counts under it | a **FLOOR** — every total must read `≥` | **EXACT** for the universe named |
+| what the reader must do | discount the number | trust the number, note the scope |
+| plate | amber `.anl-strip--warn` | neutral violet `.anl-scope` |
+
+So `GraphProjection` gained a `scope` alongside `truncated`, `scopeSentence()` is rendered on its own
+plate, and **a filtered graph stays `complete: true`**. Printing `≥` over a scoped count would put
+doubt on a number that is not in doubt; conversely, rendering a truncation as a scope would hide one
+that is.
+
+⛔ **WITH ONE EXCEPTION, AND IT IS THE HONEST HALF.** Three reasons a node can fall out of scope, and
+they are counted separately and never merged:
+
+* `excludedOtherLevel` — the census places it on another storey. **Chosen.** Not a floor.
+* `excludedNoLevel` — the census claims it and it carries no storey. **A fact about the model.** Not
+  a floor.
+* `excludedUnplaceable` — ⛔ the census **does not claim the id at all**. Synthetic `rule` nodes from
+  `violates`, or an element in a store outside the declared table. **These might belong to the storey
+  being shown**, so while this is non-zero the filtered figures ARE a lower bound and the card says
+  exactly that.
+
+Also reported: **severed relations** — one endpoint in scope, one out. A connectivity picture that
+silently cuts its own edges understates the one thing it exists to show.
+
+⚠ **WHERE A LEVEL COMES FROM, MEASURED.** `UbgNode` has **no level field** —
+`packages/building-graph/src/types.ts:65-72` is `.strict()` over `id / kind / props / refs`. Exactly
+**one** adapter stamps `props.levelId`: `roomGraphAdapter.ts:43`, and only on `room` nodes. A filter
+built on the UBG alone could place rooms and nothing else. It therefore joins through the **element
+census**, which already indexes `id → levelId` across the eighteen declared stores and already knows
+how to say *"this table does not claim that id"* — which is the third state above, and the only
+reason the distinction is expressible at all.
+
+⭐ **This also answers the `LOWER BOUNDS: the graph was drawn to a 60-node cap and holds 421` line
+in the founder's screenshot**, in the way he asked for: one storey is a legitimately smaller
+universe, so scoping to it is often enough to get under the cap — and when it is, the card stops
+saying `≥` **because the figure stopped being a floor**, not because the warning was suppressed.
+
+### L-3630 / L-3631 — SHIPPED: "make quantities more sound" — per-row drill-down, and the raked-wall qualifier off the footnote
+
+**L-3630 — a number you cannot open is a number you cannot check (H4), and "open" meant one thing.**
+Clicking a take-off row dispatched the whole row to the selection bus. That answers *"show me
+these"*. It cannot answer *"which ONE of these is the 70° raked wall"* — which is exactly the
+question the qualifier provokes, and exactly the question a quantity surveyor checking a *medición*
+asks. Every figure row now expands to its contributing element ids, each individually selectable.
+⛔ The list is capped at 40 and **says so**; the header count is always the true one. *The list is
+capped, the measurement is not.*
+
+**L-3631 — the qualifier was typographically a footnote and semantically is not.** ⚠ *"3 of 41: raked
+wall (70.0°) measured in its authored, un-sheared elevation plane"* rendered as 9 px grey text under
+a basis string. It is the statement that **N of the elements in that row were measured
+APPROXIMATELY**. It now has its own plate and an `APPROXIMATED ×N` badge. ⛔ **Not a tooltip, not
+collapsed, not one word shorter** — only the typography and the ground changed.
+
+### L-3640 — SHIPPED: the area family was blocked on a **DECISION**, the decision is taken, and it is on the card's face
+
+Founder: build the area widgets against ONE standard, state it on the card, make it switchable — and
+pick SIA 416 as the default **only if** it is already the most-referenced standard in the repo,
+otherwise pick the one the code already leans on.
+
+**Both halves measured. The result is that neither branch is clean, and that is recorded rather than
+smoothed over.**
+
+```
+$ grep -rniE "\bSIA[ -]?416\b" --include=*.ts --include=*.md .   ->  16
+$ grep -rniE "\bIPMS\b"        --include=*.ts --include=*.md .   ->   4
+$ grep -rniE "\bRICS\b"        (word boundary)                   ->  13
+```
+
+⚠ **SIA leads — and every one of those 16 is this product SAYING IT DOES NOT HAVE IT**: the
+`sia-416` refusal card, ADR-0343, the SPEC row, and a test. **A count generated by a refusal card is
+not the repo leaning on a standard**; it is the repo describing a hole. Reading it as adoption is
+[[confident-register-rows-are-the-wrong-ones]] exactly.
+
+⛔ **And the brief's other branch has NO REFERENT.** There is no standard the code leans on. The only
+implemented area rule in the whole product is `ScheduleExtractor.ts:567` —
+`actualGFA = rooms.reduce((sum, r) => sum + (r.computed?.area ?? 0), 0)` — the centreline sum
+wearing an acronym no standard would grant it, and `.toFixed(2)`'d into a string on the way out
+(the L-2136 absent-becomes-`"0.00"` path).
+
+**So: SIA 416 by the brief's tie-break, switchable, and the reasoning is written down instead of the
+count being presented as if it settled anything.**
+
+`areaStandards.ts` declares four options — SIA 416, IPMS, RICS CoMP, and **"PRYZM room-boundary sum
+(NOT a published standard)"**. Each class of each standard carries its **measurement plane** and its
+`CoverageState`. ⭐ The fourth option is in the picker on purpose: the other three are entirely
+`NOT_MEASURED`, and a picker whose every option refuses reads as a broken control rather than as a
+boundary. It is the one that measures, and its own label and jurisdiction line say it is not a
+standard, so it can never be quoted as one.
+
+**Three refusal cards were corrected IN PLACE because this lane made their stated reasons false** —
+a refusal whose reason has expired is a refusal nobody can act on:
+
+* `sia-416`: *"Zero occurrences of SIA anywhere in this repository"* and *"The standard is absent
+  from the codebase entirely"*. **Both true when written, both now false.** The real remaining
+  blocker (no per-space SU/SP/SD/SC/SI category) is named instead.
+* `gfa-nia`: *"PRYZM has adopted none"*. A standard is now selected and on the card's face.
+* the Areas tab lede: *"Every widget here is NOT BUILT and says why"* — a caption that would now
+  refute the card beneath it, which is the L-3303 self-refuting shape in a different slot.
+
+⛔ **THE CHANGE TABLE IS STILL NOT BUILT, AND REFUSING IT IS A RESULT.** The founder's brief and the
+card itself are right: a version diff needs stable element ids across saved versions, which do not
+exist, and a change table built on the session mutation log would be *"the wrong number under the
+right title, which is the worst combination"*. It is untouched, still on the tab, still refusing.
+An arm in `analysisTabs.spec.ts` now pins that all four refusals **survive** — shipping the area
+family must not quietly retire the ones it did not solve.
+
+`analysisTabs.spec.ts`'s *"the Areas tab is entirely NOT BUILT"* arm was **INVERTED with a note,
+never deleted**: the rule it protects (the tab strip's NOT BUILT chip must agree with the tab's
+contents) has not changed, only its direction.
+
+### L-3641 — ⭐ the "open" measurement question had an answer, and it was in the geometry kernel
+
+The `gfa-nia` card listed as its third missing thing: *"**Wall-centreline vs internal-face
+measurement.** The standards differ, and the difference is several percent on a real building."*
+Written as an open question. **It is not open.** C01 §6 rule 6 — cite the command:
+
+```
+$ grep -n "centerline" packages/geometry-kernel/src/producers/room.ts
+59: /** Wall ids whose centerline edge contributed to the boundary. */
+64: // 1. Half-edge graph from wall centerlines
+```
+
+**Every `Room.area` in this product is the area enclosed by the wall CENTRELINES.** Exact for that
+definition — and not the plane any published standard measures on:
+
+| class | plane | centreline is… |
+|---|---|---|
+| SIA NGF · IPMS 3 · RICS NIA/GIA | internal dominant face | an **OVERSTATEMENT** |
+| SIA GF/BGF · IPMS 1 · RICS GEA | external face | an **UNDERSTATEMENT** |
+
+So the product is **not** "call the centreline sum GFA and move on". It is: report the figure **as**
+a centreline sum with the plane in its basis string (H1 — *"Σ (length × height) − Σ opening voids"*
+is a basis, *"floor area"* is not), list the selected standard's classes with their real state, and
+**bracket** the conversion.
+
+⛔ **THE CORRECTION IS AN INTERVAL, NEVER A POINT VALUE.** Per room the true centreline→face
+correction is `Σ over edges (edge length × that edge's wall thickness ÷ 2)`. `Room` caches
+`perimeter` but **not** per-edge attribution, so the honest statement is
+`[P·t_min/2, P·t_max/2]` over the room's bounding walls — every possible per-edge assignment lies
+inside it. It is a **bound**, not an estimate; reporting the midpoint would be a guess with the
+shape of a measurement. It ignores corner effects of order `t²` and says so.
+
+⛔ **A room whose bounding walls do not resolve contributes NOTHING to the bracket** and is counted
+apart. A zero contribution would *narrow* the interval and make it claim more than it knows — the
+same shape as a `NOT_MEASURED` family rendered as a zero.
+
+⚠ **Two failures kept separate.** An unreadable `roomStore` makes the areas a floor. An unreadable
+`wallStore` makes the **bracket** unavailable and nothing else. Collapsing them would suppress a
+real area sum over a missing correction.
+
+### L-3642 — the header converges on **C06 §6.1**, and the convergence is asserted by READING the reference
+
+Coordinator correction mid-lane: lane DATA3 added **C06 §6.1**, which names ONE shared header
+treatment across Inspect / Data / Analysis with `.aud-header` as the **reference** and six properties
+tabulated. It is the authority for the founder's *"match Inspect"* request, so this lane converged on
+it rather than on my own reading of Inspect's sheet. Three drifts closed:
+
+```
+padding      58px 16px 12px  ->  14px 16px 12px   (the tabulated shared metric)
+font-weight  800             ->  700              (the same half-step that put Data at 44px/800)
+height       (unset)         ->  auto             (tabulated: never a fixed px)
+```
+
+⭐ **The L-3600 reserve moved from `padding` to a transparent top BORDER, and the change is
+substantive.** The reserve is shell **occupancy**, not header **inset**. Folding it into `padding`
+made Analysis disagree with the reference on a number that has nothing to do with Analysis — and a
+coupled assertion that fails for an unrelated reason is a coupled assertion that gets **deleted**
+rather than fixed. `background-clip` defaults to `border-box`, so the brand gradient paints through
+the border and the band still reads as one header. The two concerns can now move independently.
+
+⭐ **And the convergence is now asserted by reading `.aud-header` AT TEST TIME**, which is §6.1
+rule 1 verbatim: *"Convergence MUST be asserted by READING the reference sheet, never by duplicating
+its literals."* My first arm compared Analysis against two hand-typed strings — which is exactly the
+shape that let the Data header claim convergence in a comment while being 44px/800/no-shadow. The
+new arm is deliberately coupled to Inspect's stylesheet and **will fail when Inspect moves**.
+Converge, or raise the decision. Do not delete it.
+
+§6.1's band rule — *"ONE chrome band plus, at most, one navigation row"* — Analysis had **four**:
+header, tab strip, tab lede, status strip. The tab lede is folded into the status line; both are
+per-tab statements about the same tab. ⛔ **The trust statement was not shortened to make room** —
+the lede was folded INTO it, not over it.
+
+⚠ **DISCLOSED, NOT GLOSSED: this lands Analysis at THREE bands, not two.** The third is
+`.anl-status`, which ADR-0343 §D.6 requires pinned and visible and which is a **computed per-tab
+sentence**, not chrome. §6.1's own rationale — *"a third stacked band is a signal that a CONTROL
+belongs in the header's actions slot"* — does not reach it: it holds no control, and moving it into
+the header would put a recomputed sentence in a slot that does not recompute. The new arm pins that
+it is **still there** rather than pretending otherwise. **If §6.1 means to bind computed statements
+too, that is a decision for the contract — not something a lane should settle by deleting a coverage
+line.**
+
+### ⛔ WHAT THIS LANE DID NOT BUILD, AND WHY
+
+* **The change table** (L-3640). Correctly refused. Blocked on stable element ids across saved
+  versions; the session mutation log is a different question wearing the same title.
+* **Any SIA / IPMS / RICS class as a MEASURED figure.** Every one of them is `NOT_MEASURED` because
+  the measurement plane is wrong, and mislabelling a centreline sum as NGF would be the single most
+  quotable wrong number this surface could produce.
+* **The unit mix and the tenure split.** Untouched refusals. Both blocked on a persisted unit
+  entity, which is not this lane's to add.
+* **`WorkspaceController` / the mode bar / the level pill** — lane INSP3's this session. The one
+  change Analysis needs from them is written out in full at L-3601.
+* **`tokens.ts`** — not touched. `--app-warn` was fixed by using the declared warning triple, not by
+  minting a token in a shared file mid-session.
+* **A rendered check of ANY of this.** Everything is source-text and `happy-dom`. The 44 px reserve
+  is derived arithmetic, not a measured overlap; the dim is a class toggle, not a measured opacity.
+
+### VERIFICATION (foreground, synchronous)
+
+* `npx vitest run apps/editor/src/ui/analysis` — **6 files, 98 passed** (was 4 files / 62 at lane
+  start). Re-run after each commit.
+* `npx vitest run apps/editor/src/ui/analysis apps/editor/src/ui/styles/__tests__/panelBrandStandard.spec.ts
+  apps/editor/src/ui/dataworkbench/__tests__/dataPanelChrome.spec.ts` — **8 files, 124 passed**.
+* `panelBrandStandard.spec.ts` alone — **10 passed**. It was **3 failed / 7 passed** before
+  `1d44fb92`, and every failure named this lane's sheet (L-3602).
+* `dataPanelChrome.spec.ts` — green, unaffected by the Analysis header change (it compares Data
+  against Inspect; Analysis is compared against Inspect by its own new arm).
+* Root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` — **0 errors
+  repo-wide** at close. ⚠ It was non-zero at two points mid-lane and neither was this lane's:
+  `packages/ai-host/src/intents/LlmPlanner.ts:274` (a sibling lane's in-flight `CapabilityValueSource`
+  union), which another lane fixed while this one ran.
+* The three pre-existing reds named in the brief (`mt05StoreIdentityHeap` ×2,
+  `wallMoveGateMutualCorner` ×1) were **not run, not adopted and not touched** — no file this lane
+  edited is under `apps/editor/src/engine`.
+
+
+---
+
+## L-3800 … L-3809 — LANE SHEET4: **two of the six reports were already fixed**, and the ADR that "blocked" a third had only blocked it in its TITLE — 2026-08-22 (commits `a549ec30`, `ac51e90b`, `010be83d`, `44db5aa9`, `f9364fcb`)
+
+Six founder reports on the sheet surface. **Four were real defects with measured root causes. Two
+were not defects at all**, and finding that out cost less than fixing them would have. Every
+"X does not exist" below is a grep with its command written down, per C01 §6 rule 6.
+
+### L-3800 — ⚠ REFUTED: sheets **already survive** close and reopen; both snapshot legs were wired
+
+The brief: *"sheets must survive project close and reopen — today they apparently do not"*, with
+instructions to wire the two legs on the model of `analysisLayout.ts` (L-3007), whose header states
+the governing rule: *a half-wired field — written on save, dropped on load — is STRICTLY WORSE than
+a browser-local one, because it looks persistent and silently is not.*
+
+**Measured before writing a line of fix:**
+
+```
+grep -n "sheet" packages/persistence-client/src/loader/ProjectSerializer.ts
+  → :916   sheets: sheetStore.serialize() as ProjectSnapshot['sheets'],
+grep -n "sheet" packages/persistence-client/src/loader/ProjectLoader.ts
+  → :1191  sheetStore.deserialize((snapshot as any).sheets);
+```
+
+and the **second** serializer/loader pair under `apps/editor/src/engine/persistence/` carries the
+same two calls (`:1459` / `:2166`). **Both legs, both pairs, already wired.** This is C01 §6 rule 6
+in its exact shape: ABSENT and UNREACHABLE have opposite fixes, and "wire it" applied to an
+already-wired leg produces a **duplicate leg**, not a working feature.
+
+So no wiring was written. Instead the round-trip is now **PINNED** by
+`apps/editor/__tests__/SheetSnapshotRoundTrip.test.ts` — 5 tests, 5 pass — running the founder's
+exact sequence: create → SAVE (`serialize`) → CLOSE (`reset`, the call `projectScopeRegistry` makes)
+→ REOPEN (`deserialize`) → assert.
+
+⛔ **The per-field assertions are the point, not the sheet count.** A snapshot that restores a sheet
+whose viewports lost their `crop` and `scale` has restored a **different drawing under the same
+name**. Covered: `position` as VALUES (a dropped position re-defaults to `{0,0}` via the `viewIds[]`
+migration branch and would otherwise read as success), per-placement `scale`, `crop` (L-1840), a
+`JSON.parse(JSON.stringify(...))` transit leg, and a malformed-snapshot arm proving `deserialize`
+**refuses** rather than clearing the sheets it holds. The fixture is built through the real store
+API (`create` / `addViewport` / `updateViewportCrop`), never injected into the private map, so it
+cannot prove the round-trip for a sheet the product cannot produce.
+
+🔴 **WHAT THIS DOES NOT ESTABLISH, AND THE FOUNDER'S OBSERVATION IS STILL UNEXPLAINED.** The
+`sheetStore` round-trip is sound; that is all this proves. Two candidate explanations for what he
+saw, neither verified in a browser by this lane:
+
+1. **The DRAWINGS are caches and are not persisted.** `viewTechnicalDrawingCache` is a rendering
+   cache by design. On reopen the sheet returns with its viewports intact and **empty**, and
+   elevations re-request projection at the point of consumption (L-1841) while a **3D viewport
+   cannot recover at all** — its capture is in-memory only, and `_render3DUnavailable` says *"Open
+   the 3D view to capture it"*. A sheet whose every viewport is blank reads, from the founder's
+   chair, exactly like a sheet that did not survive. **This is the most likely explanation and it
+   is a real, open defect** — logged here, not fixed.
+2. The project was not saved before close (autosave timing). Not investigated.
+
+### L-3801 — FIXED: the black bars were `#0f1520`, and the area beside a drawing is **paper**
+
+*"The 3D viewport has black bars down both sides, visible in every sheet screenshot."*
+
+**Root cause, at the literal.** `ViewportPreviewRenderer._paint3DCapture` painted `#0f1520` across
+the **whole** viewport rect, then blitted the capture aspect-preserved and centred inside it. The
+capture is the main 3D canvas; the viewport is laid out at the composer's default rect. Two
+aspects ⇒ always a remainder ⇒ the remainder was painted **the colour of a scene background**.
+
+That is a category error, and the same one L-1843 fixed one level down. `#0f1520` asserts *"the 3D
+view extends here and is empty"*. It does not extend there. **It is paper.** Now `#ffffff`.
+
+Also extracts `fitLetterbox` as an exported pure function — the ONE definition of the fit, because
+the PDF leg (L-3803) needs the identical rectangle and two copies of a placement rule is how the
+third gets written. It returns `barFraction`, the share of the viewport that is **not** drawing, so
+a caller can report it; degenerate input returns a finite rect rather than NaN geometry that
+silently paints nothing.
+
+7 tests. **Aspect preservation is asserted BEFORE the colour**, deliberately: a white bar over a
+*stretched* image would be a regression wearing the fix's clothes. The colour assertion drives the
+real private paint through a recording 2D context and asserts `#ffffff` reaches `fillStyle` and
+`#0f1520` never does — asserting the exported constant instead would pass while the paint used a
+different one.
+
+### L-3802 — 🔴 OPEN: the **better** fix needs a renderer API that does not exist
+
+The founder named it: *"capture at the viewport's aspect in the first place — probably a
+camera-aspect argument that is not being passed."* He is right that it is better: it removes the
+bars rather than recolouring them.
+
+**Measured before claiming it absent:**
+
+```
+grep -n "capture|aspect|toDataURL|snapshot|Offscreen" \
+  packages/renderer-three/src/RendererHandleFactory.ts
+  → 1 hit, and it is a COMMENT: "thumbnail capture uses canvas.toDataURL()".
+```
+
+There is **no render-to-target-at-aspect entry point to pass a camera aspect TO**. It is ABSENT,
+not unwired, so the fix is **BUILD**, and it is a renderer-side pass `core-app-model` may not
+author: P2 keeps THREE inside `@pryzm/renderer-three` and this is an L2 read-only presenter
+(C01 §2). Stretching was never a candidate (it falsifies the drawing); cropping-to-fill was
+rejected because it silently discards what the user framed, and **a bar you can see beats content
+you cannot**.
+
+### L-3803 — FIXED: the PDF's 3D branch **had no `else`** — and the obvious hypothesis was wrong
+
+*"The PDF does not contain the 3D view. Page size is right; the 3D viewport is missing."*
+
+**Measured.** `PdfExportService`'s viewport loop reads `viewTechnicalDrawingCache.get(vp.viewId)`
+and, on a miss, drew a labelled placeholder and `continue`d. `3d` / `render` / `walkthrough` are
+excluded from projection **by design**, so that branch was **unconditional** for every 3D viewport.
+The 3D was not lost converting SVG → PDF; **it was never handed to it.**
+
+⚠ **THE REFUTED HYPOTHESIS IS WORTH MORE THAN THE FIX, and is recorded rather than deleted.** The
+brief carried a prior lane's warning that a *rival viewport producer* inside the PDF had been
+hypothesised and found FALSE — the "bbox-driven viewport" string is a **stale log message**.
+Re-measured here rather than taken on trust: `PdfExportService.ts:47` imports `composeForPlacement`
+and `:144` calls it. **One producer; C06 §13.3 holds**, so the sheet and the PDF cannot disagree
+about composition. Chasing the rival would have found nothing. The real defect is a **missing raster
+leg in a surface that has only ever had a vector one** — a different defect with a different fix.
+
+The fix adds `_drawRasterViewport`, fed by a new **public** `viewportPreviewRenderer.resolve3DCapture()`
+— the *same* live-vs-remembered ladder the screen uses, so `capturedAt` (the flag deciding whether a
+viewer is told this is a snapshot) stays in ONE place. Fitted through the shared `fitLetterbox`,
+never stretched. ⭐ **On paper the bars cost nothing: not drawing IS paper**, so the letterboxed 3D
+lands on white with no fill — the outcome L-3801 had to construct on screen, arrived at for free.
+Degrades to the **named** placeholder when no frame exists or the canvas is tainted.
+
+### L-3804 — FIXED: the viewport frame and `1:N` label were printing; now a **render target**, not a flag
+
+*"The blue viewport border and the `{3D} … 1:50` label bar are on-screen editing affordances. They
+must not print."*
+
+**Measured:** the loop ended with an unconditional `pdf.setDrawColor('#3b5bdb')` + `pdf.rect(...)` +
+the label, on every export. A blue rectangle on an issued drawing is **not decoration** — a reader
+cannot distinguish it from a section box, a match line or a detail bubble, all of which are real
+annotation that *means* something. Printing the editor's furniture puts marks on a construction
+document that nobody drew and nothing in the model backs.
+
+New `SheetRenderTarget` module: `chromeFor('screen' | 'print')`, with the target a **required**
+argument so a new export surface cannot inherit editing furniture by saying nothing. The founder
+asked for a render-target distinction and not a hidden flag, and the reason is this subsystem's
+history: a boolean must be re-asked correctly at every future call site, and *forgetting an option
+the other surface applies* is precisely what produced L-1874 (dropped `cropWorldM`), L-1874 again
+(corner vs centre) and L-1630 (two producers). The call is **kept** rather than the lines deleted,
+so the chrome is *explicitly declined* where it would have been drawn — an absence with a checkable
+reason instead of one that looks like an oversight.
+
+### L-3805 — 🔴 OPEN QUESTION: the snapshot badge is suppressed in print; the **staleness is not**
+
+`chromeFor('print').snapshotBadge === false`, because the dated *"snapshot · 4m ago"* badge is a
+screen affordance drawn over the image. **But a dated 3D capture on an issued drawing is a
+provenance question, not a styling one** (§SHEET-3D-SNAPSHOT-IS-DATED, L-1875, exists because
+presenting a stale frame as live is a lie). The fact changes channel rather than vanishing:
+`PdfExportService` logs the capture's age at export. **Whether a printed sheet should carry the
+capture date on its face is a founder decision and is not settled here.**
+
+### L-3806 — FIXED: the title block declared **eleven** fields and every consumer supplied **five**
+
+*"The title block is empty and must be sound — PROJECT and ADDRESS blank; only `Sheet 01`, `A001`
+and the date are filled."*
+
+**Measured.** The template declares eleven keys (`grep -n "key:" .../TitleBlockStore.ts`):
+`projectName · projectAddress · sheetNumber · sheetName · scale · date · drawnBy · checkedBy ·
+approvedBy · contractNo · revision`. Every consumer built its own map carrying **five**:
+`{ sheetNumber, sheetName, revision, date, issuedBy }`. So **seven fields had no producer** — exactly
+the screenshot — and the fifth key, `issuedBy`, **matched no template field key at all** and was
+dead on arrival.
+
+The map was written **four times**: `SheetEditorPanel`, `PdfExportService`, and **twice** in
+`SheetExportService` (one of those *inside* the per-field loop, reallocating for every field). One
+rule, four copies, wrong in all four — the C06 §13.3 failure this repo keeps paying for.
+
+Now one producer, `resolveTitleBlockValues` (L3, pure), plus an L7 gatherer
+`gatherTitleBlockContext`. **PROJECT** binds to `runtime.projectContext.projectName`; **ADDRESS**
+binds to `siteModelStore.getLocation()?.siteAddress` — the founder's `CL PERELLO 60 BARCELONA`.
+⓵ The schema field is **`siteAddress`, not `address`**, which is why grepping `projectAddress`
+across the repo returns only the template definitions and no producer. **SCALE** is *derived*: the
+single scale when viewports agree, `As indicated` when they differ (the drafting convention, and a
+true statement about the sheet), **EMPTY** when there are no viewports.
+
+⛔ **The context argument's failure mode is the safe one, and that is why it was chosen over a
+service locator**: a surface that forgets it renders EMPTY fields, which is exactly the founder's
+rule. **There is no argument to these functions that causes an invented value to print.**
+
+16 tests. Mostly assertions that fields are **empty** — deliberately, since the easy way to make
+the suite green is to fill them in, which is the defect.
+
+### L-3807 — 🔴 OPEN: `drawnBy` / `checkedBy` / `approvedBy` / `contractNo` have **no model source**
+
+They render blank and **must**, per the founder's rule: *"a field with no source must render EMPTY,
+never a placeholder that looks like data."*
+
+⚠ **The near-miss is the part worth recording.** `sheet.issuedBy` **exists** and was the obvious
+candidate for `drawnBy`. It is deliberately **not** used: issuing and drawing are different acts,
+and printing a real person's name against work they may not have done is a **fabricated attribution
+on a legal instrument** — the invented-address defect wearing a different label. A test now stands
+guard on that temptation. Placeholder project names (`'Untitled Project'`, the literal
+`ProjectSerializer.ts:1357` and `MigrationEngine.ts:77` backfill) are filtered **by value** for the
+same reason. `revision` no longer falls back to an em-dash.
+
+**The fix is a field in the sheet model and an editor for it — not a guess in the resolver.**
+
+### L-3808 — 🔴 OPEN QUESTION: the `date` field conflates *issue date* with *date produced*
+
+When `sheet.issueDate` is set, `date` is that date — a fact. When it is not, `date` is **today**,
+which is also a fact (the day the document was produced) but a **different** one, and the template's
+label ("Date") does not distinguish them. Stamping today's date on an unissued sheet asserts an
+issue date that does not exist. Long-standing behaviour, and the founder's screenshot shows it
+filled without complaint, so it is **left as it was and flagged** rather than changed unilaterally
+on a legal document.
+
+### L-3809 — FIXED: resize was ABSENT behind **fully-authored CSS** — and resize **is a crop**
+
+*"Viewports must be selectable — select → properties → change the scale → **resize** → crop in
+place → double-click to navigate inside without leaving the sheet."*
+
+**Five of the six were already shipped.** Measured: `_selectedVpId` + click handler (select);
+`SheetEditorSidebar` §Viewport properties (properties); `SheetEditorSidebar.ts:283`
+`UpdateViewportScaleCommand` (scale); `:332` `SetViewportCropCommand` (crop); ADR-0340 §1 / L-1866
+(double-click stays on the sheet).
+
+**Resize was the one that was genuinely absent, and absent in the most misleading way available:**
+
+```
+grep -rn "sh-resize-handle"
+  → 9 hits, EVERY ONE in apps/editor/src/ui/styles/panels/sheetEditor.ts
+    (a base class + eight compass cursor rules). ZERO DOM producers.
+```
+
+The stylesheet described a complete eight-handle feature that **had never existed**
+[authored-but-unwired]. To anyone reading the CSS it was present; to the founder it was not there.
+
+⭐ **AND RESIZING A VIEWPORT CAN ONLY MEAN ONE THING.** A viewport **has no size of its own** —
+`ViewportSvgComposer` says so: it is exactly as big as the drawing it shows at the scale it shows it
+at. So a handle must change something that *determines* the size, and there are three candidates:
+**(1) change the scale** — rejected, that control exists and dragging a corner lands on 1:63;
+**(2) stretch the linework** — rejected outright, it falsifies the drawing and makes the printed
+`1:N` a lie (ADR-0340 already records this rejection for *"clamp the oversized viewport"*);
+**(3) change what the viewport SHOWS** — which is **`crop`**, already first-class, undoable and
+persisted since L-1840.
+
+**So resize IS crop, expressed as a gesture rather than four numbers**, and it therefore arrives
+undoable and surviving a save on its first day. The gesture is in paper millimetres, the stored
+value is in building metres, and the scale is the only thing between them — so **the scale is never
+touched and `1:N` stays true through any drag**.
+
+Landed as a pure core (`ViewportResize.ts`, 15 tests) **and its caller** (`buildResizeHandles`,
+mounted in `SheetEditorPanel` on the selected unfocused viewport, reusing the class names already in
+the stylesheet so the CSS acquires the producer it was written for). Shipping the core alone would
+have been the very defect this entry is about.
+
+⛔ **Every resize test asserts the PAPER SIZE via `cropPaperSizeMm`, not the stored crop.** A handle
+that stores a crop and does not change the size the user sees is a lie, and a test asserting only
+`crop.maxX` would pass for exactly that lie.
+
+⚠ **The boundary test found a REAL defect, not a test artefact.** Shrinking a 6 m crop to exactly
+`MIN_CROP_EXTENT_M` needs a 119 mm drag, and `6 − (119 × 50 / 1000)` is `0.04999999999999982` in
+IEEE-754 — **below** the floor — so the last legal drag of the gesture was refused and the viewport
+stopped short of the limit it is allowed to reach. Worse, it was **scale-dependent**: the same drag
+succeeded at 1:50 and failed at 1:100. Fixed with a 1 µm epsilon on an inclusive floor.
+
+⚠ **And one of this lane's own assertions was wrong, corrected in place rather than deleted:** the
+scale-invariance test expected 150 mm on both arms. A 6 m crop is 120 mm of paper at 1:50 and 60 mm
+at 1:100 — the arms start at different sizes and cannot end at the same one. The invariant is the
+**delta**, not the absolute.
+
+### ADR-0340 — AMENDED IN PLACE: the ruling is UPHELD, the **title** is corrected
+
+The lane was briefed to overturn ADR-0340 if its reasoning no longer held, since the founder's
+request appeared to contradict it head-on. **It does not.** The contradiction is an artefact of the
+ADR's own title.
+
+The title reads *"a sheet viewport is NAVIGABLE, but it is not SELECTABLE"*. The decision underneath
+says something far narrower: **elements INSIDE a composed viewport** cannot be selected, because
+`SVGCompositeRenderer` emits anonymous `<line>`s from merged buffers where per-element identity is
+already gone (L-1600). **The viewport itself was always selectable** — §5 of that same ADR
+*specifies* a viewport properties panel with editable `position`, `scale` and `crop`.
+
+The subject of "SELECTABLE" changes between the title and the body. An agent reading only the title
+— which is what a title is for — refuses to implement viewport selection. **That is this repo's
+recurring defect class with the polarity inverted:** not a document claiming something the code does
+not do, but a document **refusing something the code already does**.
+
+The amendment states which part of the reasoning **still holds** (element selection remains refused,
+unchanged) and records one ask as **not deliverable as stated**: *"navigate at full 3D quality"*.
+A 3D viewport is a raster capture (ADR §7), so navigating inside one is a transform on a bitmap and
+degrades as you zoom; making it live needs the renderer API measured absent in L-3802. **Refused by
+name rather than quietly approximated.**
+
+### VERIFICATION (foreground, synchronous)
+
+* Root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` — **RC=0, zero
+  errors.** Mid-session this read 17 errors, **all 17** in
+  `packages/ai-host/src/intents/LlmPlanner.ts` and progressing from a type error to *syntax* errors
+  (unterminated string literal) between runs — a concurrent lane editing that file live. Zero in any
+  file this lane touched, at every run.
+* `packages/file-format` — `titleBlockValues` **16/16**, `viewportResize` **15/15**.
+* `packages/core-app-model` — `src/presentation/` **6 files / 46 tests, all pass** (includes the new
+  `ViewportPreviewRenderer.letterbox` 7/7 and the pre-existing `blankDetect` suite).
+* `apps/editor` — `SheetSnapshotRoundTrip` + `SheetAddViewportReachesSheetStore` +
+  `sheetProjectionOrchestrator` **25/25**; root-config
+  `apps/editor/src/ui/__tests__/sheetViewportInteraction.spec.ts` **16/16**.
+* `apps/editor/src/engine/__tests__` reds — **exactly 3**, the pre-existing set named in the brief
+  (`mt05StoreIdentityHeap` ×2, `wallMoveGateMutualCorner` ×1). **Unchanged before and after**; not
+  adopted, not masked.
+* `packages/file-format` full suite — 2 red FILES, **both pre-existing and proven unrelated**:
+  `family-round-trip` dies at collection with `ReferenceError: DOMMatrix is not defined` from
+  `pdfjs-dist` via the ROOT barrel (`src/index.js` → `src/import/PDFToImageConverter.ts`), a subtree
+  this lane did not touch and which lane INSP3 records independently; `dxf-parser.adversarial`
+  **passes 7/7 in isolation** and fails only under full-run parallel load.
+
+### NOT DONE, DELIBERATELY
+
+* **The 3D capture is still not persisted** (L-3800 candidate 1). It is the most likely explanation
+  for the founder's "sheets do not survive" and it is **logged, not fixed** — persisting a raster
+  into the project snapshot is a size/format decision (a capped, downscaled data URI per view) that
+  belongs to C05 and should not be taken silently inside a bug-fix lane.
+* **No capture-at-viewport-aspect** (L-3802) — needs a renderer-side API that does not exist and
+  that P2 forbids this layer from authoring.
+* **`SheetExportService` / `DxfExportService` chrome** was not audited against `chromeFor`; only the
+  PDF path was. Those surfaces may still print affordances.
+* **Nothing here was verified in a browser by this lane.** Every claim above is a source
+  measurement or a test result. The founder-facing behaviours — bars gone, 3D in the PDF, frame
+  absent from print, title block populated, handles draggable — are **argued from tests, not
+  observed on screen**, and the 3D-in-PDF path in particular depends on a capture existing, which
+  requires opening the 3D view once in a real session.
