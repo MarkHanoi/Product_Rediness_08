@@ -35489,3 +35489,254 @@ Everything above is measured from code, from `tsc`, or from a foreground test ru
 3. **That the new refusal sentences render fully in the picker card.** L-4203 records that a
    generated disclosure was previously destroyed by one CSS line, and the attribution text is
    materially longer than what it replaced. Unverified.
+
+---
+
+## Lane WALL8 — 2026-08-22 (second pass) — *"a big envelope was created (WHICH IS WRONG!!) — why?"* (L-4700 … L-4712)
+
+> **Allocated L-4700–L-4740; L-4713–L-4740 unused.**
+
+### L-4700 — ⛔ FIXED (root cause): **the gate has no arm that reasons about wall BODIES at all** — measured, not assumed
+
+**Founder, 2026-08-22, on a 3,700-element model:** *"after trying just to create a wall: a big
+envelope was created (WHICH IS WRONG!!) — why? fix"*.
+
+He believed he was **drawing** a wall. He grabbed an existing one and dragged it **fifty-five
+metres**, and it committed: `[PlanDrag] Wall committed Δ( -55.000 , -20.700 )`.
+
+**C01 §6 rule 6 — "there is no arm" is a MEASUREMENT. The commands:**
+
+```
+grep -nEi 'distance|magnitude|plausib|hypot|maxMove|tooFar|displacement' \
+  apps/editor/src/engine/consequence/wallPlacementGate.ts     ->  NO MATCH
+grep -nEi 'auditWallTopology|WallTopology|BODY_CROSSING' <same file>
+                                                             ->  NO MATCH (not reached)
+grep -n 'blocked: true' <same file>                          ->  5 sites
+```
+
+The five are one create-path arm and **four** move-path arms, and they are the complete set:
+
+| arm | what it asks |
+|---|---|
+| `:587` / `:595` | does the new pose cross a **hosted opening**? |
+| `:667` | can the **junction re-weld cascade** be done (`!pre.ok`)? |
+| `:792` | did the **slab-loop weld** pre-flight throw (UNDETERMINED)? |
+| `:812` | did the **slab-loop weld** refuse? |
+
+⭐ **Not one of them asks whether the wall now passes straight THROUGH another wall**, and there is
+**no magnitude or plausibility arm of any kind**. So the 55 m sweep satisfied every arm and returned
+`blocked: false` with nothing to say — which is L-4108's finding (*the gate does not block his
+gesture at all*) arriving in production on a real building.
+
+### L-4701 — ⭐ the system **already computed the right answer** and only `console.error`-ed it
+
+```
+[WallTopologyIntegrity] §WALL-TOPOLOGY-CORRUPT level='L0' — 1 finding(s) across 45 wall(s) [BODY_CROSSING×1]
+§WALL-TOPOLOGY-ATTRIBUTION: 1 of these 1 finding(s) were CREATED by this gesture; 0 were ALREADY STANDING
+```
+
+**A detector with no consequence — the `refusing-half-needs-its-escape-hatch` family INVERTED.** It
+named the culprit, in the right words, with both C83 §10.3 numbers, and let it stand.
+
+**WHY it could not act, and this is the whole architecture of the defect:** `auditWallTopology` was
+wired into `WallMoveReweldService.auditLevelTopology`, and that service is a **store subscriber**.
+By the time it speaks, the wall has already moved. The one derivation able to answer *"did THIS
+gesture do it?"* lived in the only place that could no longer do anything about the answer.
+
+### L-4702 — ⛔ FIXED: ONE derivation, TWO consumers — the attribution diff leaves the service
+
+The before/after diff was an **inline `key()` closure** inside `WallMoveReweldService`. Correct
+there, and the only copy. `wallPlacementGate` needs the identical question **pre-commit**.
+
+Re-deriving it in the gate would put **two copies of an attribution rule in two layers**, and this
+repository has a name for that outcome: **L-942 shipped BROKEN TWICE** because *"the layer that
+DECIDES kept its own copy of the inputs."* So it moved instead — `packages/geometry-wall/src/WallTopologyIntegrity.ts`
+now exports `wallTopologyFindingKey`, `attributeWallTopology` and `projectWallTopologyInput` (pure,
+store-free, like the rest of that module), and the service consumes them in place of its own copy.
+
+⚠ **The key deliberately EXCLUDES the measured numbers.** A crossing that was already standing and
+merely got 40 mm deeper is the **same** finding, not a new one; keying on `measuredMm` would
+re-attribute every pre-existing defect to whichever gesture last nudged it — the exact
+misattribution the before/after split exists to prevent.
+
+### L-4703 — ⛔ FIXED: the question moves **PRE-COMMIT**, at the one chokepoint both gestures share
+
+`previewTopologyForMove` in `wallPlacementGate.ts` audits the subject's **own level** as it stands
+and as it **would be** (`projectWallTopologyInput` re-bases only the subject), and reports what the
+gesture **creates**. Asked at `gateWallMove` — the seam the plan drag
+(`MovePlanToolHandler.ts:485`) and the 3D gizmo drag-end (`registerTransformDragHandler.ts:192`)
+both funnel through — so neither gesture grows its own wiring and the two cannot drift.
+
+**What it deliberately does NOT project:** the re-weld plan's partner entries. This pre-flight runs
+*alongside* the re-weld pre-flight, not after it, and a projection that guessed at the cascade's
+output would be answering about a world the cascade might refuse to build. The post-commit audit
+still sees the real post-cascade level and remains the authority on what happened.
+
+### L-4704 — ⛔ FIXED: it **reaches a person**, in the one channel, and it answers *"why?"*
+
+The report now goes to `chatSay` — the same §L-921-ONE-CHANNEL surface the refusals use — carrying
+the two facts his console never put together:
+
+* **that the gesture MOVED AN EXISTING WALL**, and by how far (*"That drag **MOVED an existing
+  wall** — it did not create one. Wall … travelled 55.0 m"*). He thought he was drawing one; no
+  topology finding can carry that half of the answer;
+* **the finding it created**, as `describeWallTopologyFinding`'s sentence with both numbers
+  (*"…The shortest stranded stub is 5000 mm against a 100 mm end-cap reach"*);
+* **Ctrl+Z**, named explicitly as one step.
+
+Pre-existing findings on the same level are counted separately in the same message and never mixed
+in — `createdTopology` is a **separate result field** from `reported`, because *"true before the
+gesture"* and *"not true before and true after"* are opposite facts and merging them destroys the
+one thing the founder needed to know.
+
+### L-4705 — ⭐ **the discriminator is the FINDING, never the NUMBER** — and there is a control that enforces it
+
+The coordinator's constraint, made executable: *"Do NOT block legitimate large moves. Moving a
+façade 55 m is legal on a real site."*
+
+Distance is **reported and nothing branches on it** (`moveDistanceM`'s doc says so in as many
+words). A 55 m move through clear space produces an empty `created`; a 300 mm nudge through a
+partition does not.
+
+⭐ **ARM 2 of `wallMoveTopologyPreflight.spec.ts` is the control, and the ONLY variable across arms 1
+and 2 is the DIRECTION** — same wall, same fixture, same 55 m magnitude. Replace the topology diff
+with a distance threshold and ARM 1 keeps passing while **ARM 2 goes red**. That is what makes it a
+control rather than a comment that costs CI time.
+
+### L-4706 — ⭐ **HIS MODEL IS RECOVERABLE IN ONE Ctrl+Z** — measured, not reasoned
+
+The coordinator asked this to be confirmed against the ring-buffer + cascade path, *"because a 55 m
+move with 0 re-weld entries is exactly the shape that used to leave partners behind."* It was, and
+it is now safe:
+
+`ringBufferUndoRevertLatch.test.ts` **ARM 5** reproduces the exact shape — a partition, a subject
+55 m away, **no `joinedTo` edges**, so the graph refuses, the service falls to the level scan and
+every partner scores `NOT_WELDED_TO_SUBJECT_PREV_SEGMENT`, giving the founder's
+`§MOVE-REWELD-EMPTY-PLAN … 0 re-weld entries and 0 refusals` (his partners were **51 943 mm** away
+against a **500 mm** weld tolerance). Asserted: the gesture puts **exactly one** entry on the stack
+with **zero** `structuralChildren`, and **one** latched ring-buffer undo step lands on the pre-move
+pose and **mints nothing**.
+
+⚠ **A second arm records that on THIS shape the UNLATCHED undo would also have landed** — because
+the cascade it triggers has nothing to propose. Stated so nobody concludes L-4101's latch was
+unnecessary: *"it happened to work"* and *"it is correct"* are not the same value, and ARM 1 of the
+same file is the identical write on a **welded** fixture, where it mints entries.
+
+### L-4707 — 🟡 OPEN (founder, C83 §10.2 IMPOSSIBLE-vs-INADVISABLE): **should a gesture-created `BODY_CROSSING` REFUSE?**
+
+*The clause is drafted below and NOT applied. C83 is held by lane JURIS11 this session, so it is
+handed over rather than edited — and the decision is the founder's either way.*
+
+**The predicate is one branch, and it is written at the call site:**
+`topology.created.some(f => f.kind === 'BODY_CROSSING')`.
+
+**Three measured reasons this lane did NOT flip it, in decreasing order of force:**
+
+1. ⭐ **The probe has a DOCUMENTED false-positive class, in its own author's words.**
+   `BODY_CROSSING`'s doc-comment: *"will also report a deliberately-authored X where two walls
+   genuinely cross (the shape `JunctionResolverV2` records as `role: 'passthrough'`) … separating
+   the two needs the junction INDEX, which is not reachable from this layer."* Hard-refusing on a
+   predicate whose author recorded that it **cannot tell corruption from a legal X** would make
+   authored X junctions unmovable. That limitation is measured and stated, not assumed away.
+2. **A two-step edit is legitimate.** Move wall A across B, then move B — the intermediate state is
+   exactly this finding. Refusing step 1 makes the pair impossible. Same argument `b9f9d3b2`
+   accepted when it downgraded the incumbent arm.
+3. **L-942 shipped a refusal on THIS gate and it cost four deploys** — *"THIS WAS ALL WORKING — BUT
+   WITH ISSUES … BUT NOW NOTHING WORKS."* C83 §10.6.6 forbids widening a refusal on a lane's own
+   reading of intent.
+
+**DRAFT CLAUSE, for JURIS11 to place (C83 §10.2, after the IMPOSSIBLE/INADVISABLE split):**
+
+> **§10.2.x — A gesture that CREATES a body-crossing.** A wall move whose projected level contains a
+> `BODY_CROSSING` finding **absent before the gesture** is **INADVISABLE**: it MUST be reported to
+> the user before the commit, with both C83 §10.3 numbers and the two wall ids, and the gesture MUST
+> be reversible in one step. It is **not** IMPOSSIBLE while `WallTopologyIntegrity` cannot
+> distinguish a corrupt crossing from an authored `role: 'passthrough'` X — that separation requires
+> the junction index, which is not reachable from the audit layer. **When the junction index reaches
+> that layer, the created-and-not-passthrough case becomes IMPOSSIBLE and the gate refuses.**
+> Findings that were ALREADY STANDING are never a ground for refusal (§L-990: refusing a
+> pre-existing condition makes the wall permanently unmovable while fixing nothing).
+
+**Exit condition:** the junction index becomes readable from `WallTopologyIntegrity`; the
+`passthrough` role is consulted; the refusal ships **with** its escape hatch (C83 §10.6.7).
+
+### L-4708 — 🟡 OPEN: the same gate still has **no arm for the OTHER two finding kinds**
+
+`previewTopologyForMove` reports every kind the audit emits, but the *decision* discussion above is
+only about `BODY_CROSSING`. `VISUALLY_CLOSED_TOPOLOGICALLY_OPEN` — the audit's own **headline**,
+*"the only species of defect a user cannot see and a room detector cannot survive"* — and
+`ENDPOINT_INSIDE_BODY` are now reported pre-commit for the first time, and nobody has decided what
+either should mean. They are named here so the next lane does not discover them as a surprise.
+
+### L-4709 — ⛔ REFUTED: *"it created a wall"* — it did not, and that is the whole of the founder's *"why?"*
+
+Recorded rather than deleted, because the report's own wording (*"after trying just to create a
+wall: a big envelope was created"*) points the wrong way and three readings of it would too. **No
+wall was created by that gesture.** The log is unambiguous — `[PlanDrag] wall drag started` →
+`EXECUTE: UPDATE_WALL_BASELINE` → `Wall committed Δ( -55.000 , -20.700 )` — a **MOVE** of
+`wall_01M0CVY0R49KYHFV3XZZ51P4YV`. The "envelope" is the plan re-drawing itself around a wall that
+is now 55 m from where every one of its neighbours still stands. The fix is therefore a **report
+about a move**, not a guard on creation, and the message says *"it did not create one"* in those
+words.
+
+### L-4710 — the `0 refusals` in his log is the TELL, and it is not a bug in the re-weld
+
+```
+§MOVE-REWELD-EMPTY-PLAN — 5 partner(s) considered, 0 re-weld entries and 0 refusals.
+  NOT_WELDED_TO_SUBJECT_PREV_SEGMENT(51943/500 mm) ×5   … subject: no corner offered.
+```
+
+The re-weld did not fail — **it correctly had nothing to do.** After 55 m every partner is 51.9 m
+from where the wall used to be, against a 500 mm weld tolerance, so none of them was ever welded to
+the segment that moved. `0 refusals` means *"no junction was abandoned"*, which is true: the joins
+were not broken by the cascade, they were left behind by the subject. This is the §L-945 census
+doing exactly its job — and it is why the missing consequence had to come from the **topology**
+probe rather than from the weld engine.
+
+### L-4711 — TEST COUNTS, BEFORE AND AFTER, MEASURED THE SAME WAY
+
+* `npx vitest run apps/editor/src/engine/__tests__/wallMoveTopologyPreflight.spec.ts`
+  → **NEW file, 4/4 green** (created-crossing report · the 55 m clear-space control · pre-existing
+  not attributed · `blocked` unchanged).
+* `npx vitest run --root packages/command-registry __tests__/ringBufferUndoRevertLatch.test.ts`
+  → **8/8** (6 from the first pass + ARM 5's two).
+* `npx vitest run --root packages/geometry-wall __tests__/L1570WallTopologyCorruption.measure.test.ts
+  __tests__/L936ReweldEmitterHonesty.test.ts __tests__/WallMoveJunctionReweld.measure.test.ts
+  __tests__/WallMoveReweld.test.ts` → **4 files, 29/29 green** — the suites that own the code the
+  attribution diff moved out of.
+* `npx vitest run apps/editor/src/engine/__tests__` → **35 files · 326 tests · 323 passing,
+  3 failing.** The three are **exactly the three pre-existing reds** already on the record:
+  `mt05StoreIdentityHeap` ×2 and `wallMoveGateMutualCorner` ×1 (the latter is **L-4113**, left red
+  on purpose pending the founder's §10.6.3 confirmation). **Nothing new went red.**
+* ⚠ **The full `--root packages/geometry-wall` run (107 files) did NOT complete** — it was killed at
+  a 10-minute tool timeout with several other lanes building in the same tree; it took 298 s
+  earlier in this session. **Not reported as green, because it was not observed green.** The four
+  files above are the ones that exercise the changed code.
+* **Root gate:** `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` →
+  **ONE error, and it is not this lane's:**
+  `apps/editor/src/ui/layout/ToolsAreaLayout.ts(342,46): error TS2774` — an in-flight edit by
+  another live lane in this shared checkout. It was **not present** at this lane's earlier RC=0 runs
+  and it is in a file this lane never opened. **Zero errors in any file these commits touch.**
+
+### L-4712 — NOT VERIFIED WITHOUT A BROWSER — stated in full
+
+**What would falsify the change in one look:** drag any wall through another in plan. The chat must
+say *"That drag MOVED an existing wall"* with the metres and the `BODY_CROSSING` sentence, **before**
+the distorted shape appears. Silence means the probe is not reached.
+
+None of the following was observed on screen:
+
+* that the chat panel actually opens and renders the message on his build (`chatSay` queues and
+  calls `ensureChatSurface()`; the tests register a host directly, which is the same API
+  `createAIPanel` uses but is **not** proof the panel comes up);
+* that the message is legible at 3,700 elements — his level had **45 walls** audited and one
+  finding; a level with dozens of created findings would produce a very long bubble and nobody has
+  seen that;
+* the **cost** of the extra audit on a 3,700-element model. `auditWallTopology` is an O(n²) ordered
+  pair scan over one level's walls and it now runs **twice per move** at the gate (before and
+  projected), on top of the once-per-move it already ran post-commit. 45 walls is nothing; a level
+  with 800 is 640 000 pairs × 2 and has not been timed. **If a drag becomes sluggish after this,
+  that is where to look first**, and the fix is to scope the projected audit to walls whose bounding
+  box intersects the swept corridor rather than to abandon the check;
+* that one Ctrl+Z restores **his** model (proven on the reproduced shape at the store, through the
+  real commands and real services — not on his file).
