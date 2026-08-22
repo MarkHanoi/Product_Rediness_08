@@ -33,7 +33,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { diagnosticMaterialManager, InspectLens } from './DiagnosticMaterialManager';
 import { levelExplodeController } from './LevelExplodeController';
-import { comparisonEngine } from '@pryzm/core-app-model';
+import { comparisonEngine, selectionBus } from '@pryzm/core-app-model';
 import type { IInspectModeCoordinator } from '@pryzm/editor-ui';
 
 const MAX_SCENE_HEIGHT = 20.0; // metres — matches DiagnosticMaterialManager constant
@@ -54,6 +54,8 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
   private _unsubElementType:    (() => void) | null = null;
   private _unsubAttributeFocus: (() => void) | null = null;
   private _unsubSelection:      (() => void) | null = null;
+  /** §FIX-ANALYSIS-HIGHLIGHT-HAS-NO-EMITTER (L-6600) — the LIVE selection wire. */
+  private _unsubSelectionBus:   (() => void) | null = null;
 
   init(scene: THREE.Scene): void {
     this._scene = scene;
@@ -79,6 +81,58 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
     // whenever `runtime.selection.{add,remove,clear,set}` mutates the set. Using
     // the retired DOM name here would subscribe to something nothing emits.
     this._unsubSelection      = window.runtime?.events?.on('selection.changed',              this._onSelectionChanged.bind(this)) ?? null;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // §FIX-ANALYSIS-HIGHLIGHT-HAS-NO-EMITTER (L-6600) — the line above subscribes
+    // to an event NOTHING EMITS, so the Analysis purple was UNREACHABLE, not absent.
+    // ═══════════════════════════════════════════════════════════════════════
+    // Measured 2026-08-22, before changing anything:
+    //   grep -rn "emit('selection.changed'" --include=*.ts apps packages plugins
+    //     -> 1 hit: `runtime-composer/src/composeRuntime.ts:317`, inside
+    //        `buildSelectionStub().notify()`.
+    //   `notify()` runs ONLY from `runtime.selection.{add,remove,clear,set}`.
+    //   grep -rnE "selection\.(set|add|remove|clear)\(" --include=*.ts apps packages plugins
+    //     (minus tests / DrawingSelectionIndex) -> 1 hit,
+    //     `plugins/selection/src/handlers/ClearSelection.ts:29`, and that is
+    //     `ctx.stores.selection` — a `SelectionStore` from the plugin SDK, a
+    //     DIFFERENT object from the runtime's `SelectionSlot`.
+    //
+    // So: ZERO production sites ever put an id INTO `runtime.selection`, therefore
+    // `selection.changed` never fires with a non-empty set, therefore
+    // `_onSelectionChanged` never ran in production. The paint code added by
+    // 596f7cb2 (`DiagnosticMaterialManager._applyAnalysisSelection`) was correct
+    // and complete; the event it hung off was dead. C01 §6 rule 6: this is
+    // UNREACHABLE, not ABSENT — both ends existed, the wire between them did not.
+    //
+    // ⭐ THE LIVE WIRE IS `selectionBus`, and it is the RIGHT one on the merits,
+    // not merely the one that works. C27 §4 names SelectionBus "the single
+    // authorised entry point for all selection sources", and every surface the
+    // founder clicks already dispatches on it — the 3-D viewport, the plan view,
+    // the project browser, the schedules, and (via `selectFigure`) every widget
+    // on the Analysis surface. Subscribing here joins the existing chorus instead
+    // of minting a second idea of what "selected" means.
+    //
+    // ⛔ BOTH subscriptions are kept, and they are NOT rivals: they are two
+    // SOURCES feeding ONE SINK (`_setAnalysisEmphasis`). `selection.changed` is
+    // the runtime-canonical event and costs nothing while it is dead; if
+    // `runtime.selection` is ever given writers, `SelectionManager` already
+    // mirrors into `selectionBus` (§MULTI-SELECT-SHIFT, L-1550), so whoever
+    // wires it must keep the two agreeing. One sink is what makes that safe.
+    //
+    // ⚠ INERT OUTSIDE ANALYSIS. `setAnalysisSelection` re-applies only when the
+    // Analysis lens is the ACTIVE lens, so a plain 3-D click in Author mode
+    // updates the stored set and paints nothing. That is deliberate: entering
+    // Analysis afterwards then shows what is already selected, which is the
+    // answer the founder's sentence implies.
+    this._unsubSelectionBus = selectionBus.subscribe((ev) => {
+      // 'select' and 'clear' are the two events that MEAN the set changed;
+      // 'highlight' / 'isolate' / 'focus-camera' are decorations OVER the current
+      // selection and `SelectionBus.dispatch` deliberately does not let them
+      // rewrite `currentIds`. Repainting on them would paint a set that did not
+      // move — and, for 'clear', repaint before the bus had cleared it.
+      if (ev.type !== 'select' && ev.type !== 'clear') return;
+      this._setAnalysisEmphasis(ev.type === 'clear' ? [] : selectionBus.currentIds);
+    });
 
     // ── Bug fix: restoreFromStorage() fires BEFORE init() — re-check current mode
     // so the lens is applied if we're already in inspect mode when the scene is ready.
@@ -117,6 +171,7 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
     this._unsubElementType?.();    this._unsubElementType = null;
     this._unsubAttributeFocus?.(); this._unsubAttributeFocus = null;
     this._unsubSelection?.();      this._unsubSelection = null;
+    this._unsubSelectionBus?.();   this._unsubSelectionBus = null;
     levelExplodeController.dispose();
   }
 
@@ -173,6 +228,19 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
    */
   private _onSelectionChanged(payload: unknown): void {
     const ids = (payload as { ids?: readonly string[] })?.ids ?? [];
+    this._setAnalysisEmphasis(ids);
+  }
+
+  /**
+   * THE ONE SINK for "which elements read as selected in the Analysis lens".
+   *
+   * §FIX-ANALYSIS-HIGHLIGHT-HAS-NO-EMITTER (L-6600). Two sources reach it — the
+   * runtime's `selection.changed` (canonical, currently zero emitters, see
+   * `init()`) and `selectionBus` (live). Routing both through one method is what
+   * stops them becoming two rival answers to the same question the day the first
+   * one acquires a writer.
+   */
+  private _setAnalysisEmphasis(ids: readonly string[]): void {
     diagnosticMaterialManager.setAnalysisSelection(ids, this._scene);
   }
 
