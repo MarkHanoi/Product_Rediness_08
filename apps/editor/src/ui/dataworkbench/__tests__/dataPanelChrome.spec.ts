@@ -207,8 +207,78 @@ describe('§DW-ONE-HEADER-BAND — the Data panel chrome', () => {
             // possible at all, so it is asserted rather than assumed.
             expect(src).toContain('this._bucketHeaderLeftEl.innerHTML');
             expect(src).not.toContain('this._bucketHeaderEl.innerHTML');
-            expect(src).toContain("wrap.className = 'dw-bucket-header-actions'");
+            // §DW-HEADER-BAND-HAS-A-JOB (L-4020) — the slot is now created in
+            // its own right ('actions'), and the heatmap control is an inner
+            // GROUP inside it. It used to BE the slot, carrying 'display: none'
+            // outside AUDIT, which emptied the header's right half in six of
+            // seven buckets — the founder's 'almost entirely empty' band.
+            expect(src).toContain("actions.className = 'dw-bucket-header-actions'");
+            expect(src).toContain("wrap.className = 'dw-header-ctl-group'");
             expect(declaredClasses().has('dw-bucket-header-actions')).toBe(true);
+            expect(declaredClasses().has('dw-header-ctl-group')).toBe(true);
+        });
+
+        it('⭐ the actions slot is ALWAYS occupied, and by a RE-HOSTED action', () => {
+            // C06 §6.1: a mode surface reaches its content in ONE chrome band.
+            // A band whose right half is structurally empty is that rule failing
+            // from the other side — it is reserved space that nothing can use.
+            // §13.3: the dispatch is RE-HOSTED, never re-implemented, so this
+            // pins that the click calls the workbench's own existing fan-out
+            // rather than a second refresh path.
+            const src = stripComments(read(WORKBENCH));
+            expect(src).toContain("refreshBtn.className = 'dw-header-btn'");
+            expect(src).toContain('refreshBtn.addEventListener(');
+            expect(src).toMatch(/refreshBtn\.addEventListener\('click', \(\) => this\.refresh\(\)\)/);
+            expect(declaredClasses().has('dw-header-btn')).toBe(true);
+        });
+    });
+
+    describe('§DW-EMPTY-TOTAL-BAR (L-4024..L-4026) — the SECOND dead band', () => {
+        /**
+         * The founder's report had TWO dead bands, not one: the empty header
+         * half above, and 'a strip of dead space at the very bottom of the
+         * panel'. This is the second.
+         *
+         * ⛔ MEASURED 2026-08-22. 'ProgrammePanel._totalEl' is appended
+         * UNCONDITIONALLY with 'padding: 8px 12px', a 2px top rule and a sunken
+         * ground. '_renderTable()' clears it and then RETURNS EARLY in the empty
+         * state without filling it — so an empty Programme renders an 18px
+         * sunken strip under a 2px rule containing nothing, at the foot of the
+         * panel. Exactly the screen he screenshotted.
+         */
+        const PROGRAMME = join(UI, 'dataworkbench/ProgrammePanel.ts');
+
+        it('the total bar is styled by a SHEET class, not an inline cssText block', () => {
+            // C06 §6.1 rule 2 — every class a panel EMITS has a rule in that
+            // panel's sheet, and ARM A above compares the two artefacts. An
+            // inline style block is invisible to that comparison, which is how
+            // a band with no content and full chrome went unnoticed.
+            const src = stripComments(read(PROGRAMME));
+            expect(src).toContain("this._totalEl.className = 'dw-total-bar'");
+            expect(src, 'the total bar went back to inline styles').not.toMatch(
+                /_totalEl\.style\.cssText/,
+            );
+            expect(declaredClasses().has('dw-total-bar')).toBe(true);
+        });
+
+        it('⛔ its visibility is DERIVED from the row count, in ONE place', () => {
+            // A summary bar with nothing to summarise is residue, not chrome.
+            // Two toggle sites would be the same defect with an extra step.
+            const src = stripComments(read(PROGRAMME));
+            const toggles = [...src.matchAll(/_totalEl\.style\.display\s*=/g)];
+            expect(toggles.length, 'the total bar is toggled from more than one place').toBe(1);
+            expect(src).toMatch(
+                /_totalEl\.style\.display = this\._entries\.length === 0 \? 'none' : 'flex'/,
+            );
+        });
+
+        it('the bar still RENDERS its four figures when there ARE entries', () => {
+            // Hiding it must not have deleted it. The capability is preserved;
+            // only the empty case changed.
+            const src = read(PROGRAMME);
+            for (const label of ['Total rooms:', 'Target GIA:', 'Actual GIA:', 'GIA:']) {
+                expect(src, `the total bar lost "${label}"`).toContain(label);
+            }
         });
     });
 

@@ -438,8 +438,49 @@ export class DataWorkbench implements IDataWorkbench {
         this._bucketHeaderLeftEl.className = 'dw-bucket-header-left';
         this._bucketHeaderEl.appendChild(this._bucketHeaderLeftEl);
 
+        /* §DW-HEADER-BAND-HAS-A-JOB (L-4020..L-4023) - THE ACTIONS SLOT IS NOW
+           ALWAYS OCCUPIED.
+
+           ⛔ THE FOUNDER'S REPORT, MEASURED 2026-08-22: on STRATEGIZE the purple
+           header band 'runs the full panel width and is almost entirely empty -
+           the title occupies the far left and nothing else uses it'. He is
+           reading a real fact. '_buildHeatmapControl()' returns a wrapper with
+           'style.display = none' and '_syncHeatmapControl' only reveals it in
+           the AUDIT bucket, so for SIX of the seven buckets the right-hand half
+           of a full-width brand band held nothing at all, while
+           'justify-content: space-between' kept reserving it.
+
+           ⭐ THE JOB IS THE REFERENCE'S JOB, not a new one. C06 §6.1 names
+           '.aud-header' as THE shared header treatment, and what Inspect puts in
+           its actions slot is exactly one control: 'aud-refresh-btn', a veil
+           button with the glyph below (AuditStack.ts:140-141). This surface
+           already has 'DataWorkbench.refresh()' - it fans out to all nine
+           refreshable panels and is already called on project load - so the
+           action is RE-HOSTED, never re-implemented (C06 §13.3). It resolves in
+           every bucket, so it never needs the disabled-with-a-reason branch of
+           §13.5.
+
+           The slot is a persistent wrapper: the refresh action is always in it,
+           the heatmap select joins it in AUDIT. That is also what makes the
+           bucket-switch rebuild safe - '_rebuildSubTabBar' writes only
+           '_bucketHeaderLeftEl.innerHTML', never the header itself (L-3700). */
+        const actions = document.createElement('div');
+        actions.className = 'dw-bucket-header-actions';
+
         this._heatmapCtlEl = this._buildHeatmapControl();
-        this._bucketHeaderEl.appendChild(this._heatmapCtlEl);
+        actions.appendChild(this._heatmapCtlEl);
+
+        const refreshBtn = document.createElement('button');
+        refreshBtn.type      = 'button';
+        refreshBtn.className = 'dw-header-btn';
+        refreshBtn.id        = 'dw-refresh-btn';
+        refreshBtn.textContent = '↺';
+        refreshBtn.title       = 'Refresh every view in this workbench from the live model';
+        refreshBtn.setAttribute('aria-label', 'Refresh data');
+        refreshBtn.addEventListener('click', () => this.refresh());
+        actions.appendChild(refreshBtn);
+
+        this._bucketHeaderEl.appendChild(actions);
 
         this._subTabBarEl = document.createElement('div');
         this._subTabBarEl.className = 'dw-subtab-bar';
@@ -590,8 +631,12 @@ export class DataWorkbench implements IDataWorkbench {
      * as a fill (SC 1.4.1 — colour was the only channel on the pill).
      */
     private _buildHeatmapControl(): HTMLElement {
+        /* §DW-HEADER-BAND-HAS-A-JOB (L-4020) - this used to BE the actions slot
+           ('.dw-bucket-header-actions') and carried 'display: none' outside the
+           AUDIT bucket, which is why the slot was empty in six of seven buckets.
+           It is now an inner GROUP inside a slot that is always occupied. */
         const wrap = document.createElement('div');
-        wrap.className = 'dw-bucket-header-actions';
+        wrap.className = 'dw-header-ctl-group';
         wrap.style.display = 'none';
 
         const modes: Array<{ mode: HeatmapMode; label: string; title: string }> = [

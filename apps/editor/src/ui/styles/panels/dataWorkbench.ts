@@ -977,6 +977,57 @@ export const DATA_WORKBENCH_STYLES = `
   gap: 6px;
   flex-shrink: 0;
 }
+/* §DW-HEADER-BAND-HAS-A-JOB (L-4020) - the heatmap control is an inner GROUP
+   inside the slot, not the slot itself. It was the slot, and it carried
+   'display: none' outside the AUDIT bucket, which emptied the header's whole
+   right-hand half in six of seven buckets - the founder's 'almost entirely
+   empty' band. */
+.dw-header-ctl-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+/* §DW-EMPTY-TOTAL-BAR (L-4024) - the summary strip at the foot of a data panel.
+   Was an inline 'style.cssText' block on the element, which is invisible to
+   'dataPanelChrome.spec.ts' ARM A (every class a panel EMITS must have a rule in
+   that panel's sheet). Its 'display' is set by the panel from the row count:
+   a summary bar with nothing to summarise renders as an 18px sunken strip under
+   a 2px rule, which is the founder's 'dead space at the very bottom'. */
+.dw-total-bar {
+  display: flex;
+  gap: 24px;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-top: 2px solid var(--app-border);
+  background: var(--app-surface-sunken);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--app-text);
+}
+
+/* Byte-for-byte the reference treatment: C06 §6.1 tabulates header actions as
+   'right-hand slot, var(--app-on-accent-veil) controls', and '.aud-header-btn'
+   (autonomous-auditor/auditStack.ts) is the implementation it names. Copied by
+   ROLE, not by hex - both sides resolve the same two tokens. */
+.dw-header-btn {
+  background: var(--app-on-accent-veil);
+  border: none;
+  border-radius: 4px;
+  color: var(--app-on-accent);
+  font-family: var(--app-font);
+  font-size: 10px;
+  padding: 3px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dw-header-btn:hover {
+  background: var(--app-on-accent-veil-hover);
+}
+.dw-header-btn:focus-visible {
+  outline: 2px solid var(--app-on-accent);
+  outline-offset: 1px;
+}
 .dw-header-ctl-label {
   font-size: 9px;
   font-weight: 700;

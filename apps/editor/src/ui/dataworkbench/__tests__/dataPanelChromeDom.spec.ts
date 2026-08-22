@@ -79,9 +79,30 @@ describe('§DW-ONE-HEADER-BAND — the assembled header', () => {
         }
     });
 
+    it('⭐ the actions slot is never EMPTY, in any bucket', () => {
+        // §DW-HEADER-BAND-HAS-A-JOB (L-4020..L-4023). The founder: on STRATEGIZE
+        // the purple band 'runs the full panel width and is almost entirely
+        // empty'. He was right — '.dw-bucket-header-actions' WAS the heatmap
+        // wrapper and carried 'display: none' outside AUDIT, so six of seven
+        // buckets reserved a right-hand half that nothing could occupy.
+        // This is the arm that says the band has a job in every bucket.
+        for (const b of ['audit', 'data-schedules', 'mediciones', 'strategize', 'validate']) {
+            el.querySelector<HTMLButtonElement>(`[data-bucket="${b}"]`)!.click();
+            const slot = el.querySelector<HTMLElement>('.dw-bucket-header-actions')!;
+            expect(slot, `actions slot missing in ${b}`).toBeTruthy();
+            const visible = [...slot.children].filter(
+                (c) => (c as HTMLElement).style.display !== 'none',
+            );
+            expect(visible.length, `actions slot is empty in ${b}`).toBeGreaterThan(0);
+            expect(slot.querySelector('#dw-refresh-btn'), `no refresh action in ${b}`).toBeTruthy();
+        }
+    });
+
     it('the heatmap control offers all five modes and is AUDIT-only', () => {
         el.querySelector<HTMLButtonElement>('[data-bucket="audit"]')!.click();
-        const wrap = el.querySelector<HTMLElement>('.dw-bucket-header-actions')!;
+        // §DW-HEADER-BAND-HAS-A-JOB — the heatmap control is now an inner GROUP
+        // inside the always-present slot, not the slot itself.
+        const wrap = el.querySelector<HTMLElement>('.dw-header-ctl-group')!;
         expect(wrap.style.display).toBe('flex');
 
         const select = el.querySelector<HTMLSelectElement>('.dw-header-select')!;

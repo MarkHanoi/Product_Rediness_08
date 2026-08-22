@@ -123,16 +123,29 @@ export class ProgrammePanel {
         scroll.appendChild(this._tableEl);
         this._root.appendChild(scroll);
 
-        // ── Total bar ────────────────────────────────────────────────────────
+        /* ── Total bar ─────────────────────────────────────────────────────
+           §DW-EMPTY-TOTAL-BAR (L-4024..L-4026) - THE FOUNDER'S SECOND DEAD BAND.
+
+           ⛔ MEASURED 2026-08-22. This element is appended UNCONDITIONALLY and
+           carries 'padding: 8px 12px', 'border-top: 2px solid' and a sunken
+           ground. '_renderTable()' clears it with 'innerHTML = ""' and then, in
+           the empty state, RETURNS EARLY without filling it - so an empty state
+           renders an 18px sunken strip under a 2px rule containing nothing, at
+           the very bottom of the panel. That is 'a strip of dead space at the
+           very bottom of the panel' in the report, and it appears in exactly the
+           screen he screenshotted (STRATEGIZE / Programme, no entries).
+
+           A summary bar with nothing to summarise is not chrome, it is residue.
+           It is now hidden when there is nothing to total and shown when there
+           is - the visibility is DERIVED from the row count in one place, never
+           toggled from two.
+
+           The inline 'cssText' also moved to '.dw-total-bar' in the sheet: C06
+           §6.1 rule 2 requires every class a panel EMITS to have a rule in that
+           panel's sheet, and 'dataPanelChrome.spec.ts' ARM A compares the two
+           artefacts. An inline style block is invisible to that comparison. */
         this._totalEl = document.createElement('div');
-        this._totalEl.style.cssText = `
-            padding:8px 12px;
-            border-top:2px solid var(--app-border);
-            background:var(--app-surface-sunken);
-            font-size:11px;font-weight:700;
-            display:flex;gap:24px;
-            color:var(--app-text);
-        `;
+        this._totalEl.className = 'dw-total-bar';
         this._root.appendChild(this._totalEl);
 
         this._renderTable();
@@ -144,6 +157,8 @@ export class ProgrammePanel {
         const roomStore = window.roomStore; // TODO(E.18-R.S): legacy roomStore — replace with runtime.stores.rooms slot
         this._tableEl.innerHTML = '';
         this._totalEl.innerHTML = '';
+        // §DW-EMPTY-TOTAL-BAR - one place decides, from the row count itself.
+        this._totalEl.style.display = this._entries.length === 0 ? 'none' : 'flex';
 
         if (this._entries.length === 0) {
             const empty = document.createElement('div');
