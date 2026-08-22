@@ -329,7 +329,7 @@ export class HandrailTool {
 
             if (!withBodies) continue;
             // Translucent 3D ghost body — same convention as Wall / CurtainWall
-            // (Contract §41, docs/02-decisions/contracts/41-ELEMENT-PREVIEW-VISUAL-CONTRACT.md).
+            // (Contract §41, docs/02-decisions/contracts/C18-ELEMENT-PREVIEW-VISUAL-CONTRACT.md).
             const body = createGhostBoxBetween(start, end, elevation, {
                 color: PREVIEW_COLOR.PRIMARY,
                 length,

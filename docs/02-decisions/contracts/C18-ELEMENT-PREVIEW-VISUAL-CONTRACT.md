@@ -1,6 +1,8 @@
 # §41 — Element Preview Visual Contract
 
 > **Status**: CANONICAL. **Created**: 2026-05-22 (records the 3D colour-unification).
+> **Revised**: 2026-08-22 — added §2.5 (view-authoring overlays: the elevation/section
+> crop + scope box, and the NORMATIVE two-value rest/hover ramp rule) and gate step 4.
 > **Revised**: 2026-05-23 — extended the unification to the **2D plan/elevation**
 > creation handlers + **snap markers** (via the new `PREVIEW_CSS`), recorded the
 > out-of-scope colours (§2.4), and marked preview parity satisfied (§5). The 3D
@@ -98,6 +100,59 @@ These are deliberately NOT recoloured to the preview purple, because they are no
 - **Valid/invalid placement feedback** — red is retained for "no host wall" /
   out-of-bounds states so the user still gets a clear blocked-placement cue.
 
+### §2.5 — View-authoring overlays (NORMATIVE, 2026-08-22 — L-4300)
+
+A **view-authoring overlay** is the on-canvas affordance by which a user shapes a
+*view* rather than the *model*: the elevation/section **scope box drawn in plan**
+(cut line, depth arrow, width handles, zone wash, labels) and the **crop rectangle
+drawn inside the elevation/section itself** (dashed frame + handles).
+
+§2.4 puts "edit-operation state colours" out of scope, and until 2026-08-22 that
+was read as covering these too. It does not. §2.4 exempts colours that **carry
+information** — green/blue/red for pick-source / valid / invalid. The crop overlay
+carries no such information; it was simply two different off-brand hues for one
+affordance, split across two files:
+
+| where | what it drew | colour |
+|---|---|---|
+| `PlanViewAnnotationRenderer` | scope box in PLAN | amber `rgba(180,83,9,·)`, `rgba(217,119,6,·)`, `rgba(120,53,15,·)`, wash `rgba(245,158,11,α)` |
+| `PlanViewCanvas._renderCropBoundary` | crop rect in ELEVATION | blue `rgba(37,99,235,·)` |
+
+**RULE — view-authoring overlays use the brand purple `#6600FF`**, obtained from
+`packages/core-app-model/src/views/ViewCropPalette.ts`, which parses its base
+triple from `PREVIEW_CSS.PRIMARY` (§1) and therefore cannot drift from it.
+
+**RULE — a brand-unified overlay MUST retain a two-value ramp.** This is the part
+that generalises, and it is the trap this clause exists to close. The crop
+overlay's HOVER colour was **already** `#6600ff` before unification, so "make it
+all purple" would have made hover indistinguishable from rest — a **regression
+shipped as a branding fix**. Any overlay with a hover/active state therefore
+declares BOTH rungs:
+
+- **REST** — the brand hue at reduced alpha (`CROP_INK.EDGE`, `CROP_INK.GUIDE`).
+- **HOVER / ACTIVE** — the brand hue at full strength (`CROP_INK.HOVER`).
+
+`viewCropPalette.test.ts` asserts `HOVER_ALPHA − rest ≥ MIN_RAMP_ALPHA_GAP`, so
+the ramp cannot be silently collapsed by a later edit. Label ink is a *derived*
+darkening of the same triple, not a second colour.
+
+**Still out of scope, deliberately:**
+
+- The **projection zone** wash stays green (`rgba(34,197,94,·)`). It encodes a
+  different fact — "what projects into this view" — from the cut zone. Collapsing
+  both to purple deletes information; that is §2.4's actual test, and this passes it.
+- `__PRYZM_DEBUG_ZONES__` hues, which exist to look nothing like production.
+
+**In scope by consequence:** the elevation **anchor rose**'s selected-sector ink
+(`SEL_INK`, was `#f59e0b`). It is not a crop affordance, but it is the *selected*
+indicator of the same mark whose crop overlay this clause purples, and
+`PlanViewAnnotationRenderer` already paints its other selection accents `#6600ff`.
+Two different "this is selected" colours on one mark was the defect.
+
+**A view-authoring overlay is not a creation preview**, so §5 (preview parity) and
+the §2.2 handler list do not extend to it. What it inherits from this contract is
+the palette and the single-source rule, nothing else.
+
 ## §3 — Object placement preview standard
 
 Every element placed via the Furniture carousel and its sister tools
@@ -144,4 +199,14 @@ slab-3D and roof-3D gaps. Any NEW element type MUST ship a preview in both its
    MUST: none on creation-preview / snap draws — all use PREVIEW_CSS (#6600ff).
    EXCEPT the §2.4 out-of-scope colours (edit-state, buttons, committed symbols,
    invalid-red).
+4. (§2.5, 2026-08-22) Select an elevation mark in PLAN, then open that elevation.
+   MUST: the scope box in plan and the crop rectangle in the elevation are BOTH
+   PRYZM purple — no amber, no blue.
+   MUST: hovering a crop handle visibly DARKENS it to full-strength #6600ff and
+   enlarges it. If rest and hover look the same the ramp has COLLAPSED (§2.5),
+   and the fix is NOT "make it more purple".
+   MUST: the projection-zone wash is still GREEN (deliberate, §2.5).
+   Grep packages/core-app-model/src/views/PlanViewAnnotationRenderer.ts and
+   PlanViewCanvas.ts for `rgba(180, 83, 9`, `rgba(217, 119, 6`, `rgba(120, 53, 15`,
+   `rgba(245, 158, 11`, `rgba(37, 99, 235`, `#f59e0b` — MUST: none outside a comment.
 ```

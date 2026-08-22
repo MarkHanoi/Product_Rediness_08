@@ -34859,3 +34859,243 @@ the card at his viewport without pushing "Use this layout" below the fold; that 
 `.alm-title` does not disturb the card grid; and what his four validation errors actually were.
 **Falsified by:** a card where the commit button is off-screen, a limitations block that overflows
 its card, or a Room 03-002 run whose engine reason differs from `program-does-not-fit`.
+
+---
+
+## L-4300 … L-4304 — ✅ FIXED (four) + 🔴 OPEN (one): the crop handle was not hard to reach, it was UNREACHABLE — and "levels **and slabs**" was ONE defect — 2026-08-22 (lane CROP10, commit `54e03427`)
+
+**Founder, production, 2026-08-22 — two requests:**
+
+> **(1)** *"The crop overlays must use PRYZM PURPLE."*
+>
+> **(2)** *"more importantly allow me to easily drag — I still drag the levels around and slabs.
+> When the user hovers with the mouse it should be able to see an arrow, and then click and resize
+> the crop view."*
+
+He named (2) the important half, and it turned out not to be a tuning problem. **Five findings; one
+of them collapses two of his symptoms into a single cause, and one is a defect in this repo's own
+documentation that the change surfaced.**
+
+---
+
+### L-4300 — ✅ FIXED: ONE affordance, TWO off-brand hues — and "make it all purple" would have been a regression
+
+**MEASURED.** The crop affordance is drawn by two different renderers, and they disagreed with each
+other *and* with the brand:
+
+| file | what it draws | colour |
+|---|---|---|
+| `packages/core-app-model/src/views/PlanViewAnnotationRenderer.ts` | the scope box **in PLAN** | amber — `rgba(180,83,9,.95)`, `rgba(217,119,6,.92)`, `rgba(120,53,15,.95)`, wash `rgba(245,158,11,α)`, rose `#f59e0b` |
+| `packages/core-app-model/src/views/PlanViewCanvas.ts` | the crop rectangle **in ELEVATION/SECTION** | blue — `rgba(37,99,235,.78)` / `rgba(37,99,235,.95)` |
+
+Seven hard-coded literals for one affordance, in two hues, neither of them PRYZM purple.
+
+⭐ **THE TRAP, and it is the part worth keeping.** `PlanViewAnnotationRenderer.ts:2145` already read
+`const HOVER = '#6600ff'`. **The hover state was already the brand purple.** So the obvious
+execution of the founder's request — paint the resting state `#6600ff` too — would have made
+**hover indistinguishable from rest**: a usability *regression* shipped under a branding
+justification, in the same change whose other half exists to make the handles easier to hover. The
+fix therefore had to be a **ramp**, not a colour.
+
+**FIX — `packages/core-app-model/src/views/ViewCropPalette.ts` (new).** One module, consumed by both
+renderers:
+
+* `CROP_INK.EDGE` — brand hue at **α 0.68** (resting edges, resting handle borders).
+* `CROP_INK.GUIDE` — brand hue at **α 0.42** (dashed extent lines; quieter still).
+* `CROP_INK.EDGE_ACTIVE` — **α 0.82** (the active-but-unselected linked cut line).
+* `CROP_INK.HOVER` — brand hue at **α 1.0**, i.e. `#6600ff` exactly. The **only** value at full
+  strength; never used for a resting state.
+* `CROP_INK.LABEL` / `LABEL_SOFT` — a *derived* darkening of the same triple (×0.35), not a second
+  colour, because 10–11 px text in `#6600ff` on a white sheet is thin.
+
+**There is NO hex literal in the palette.** The base triple is `parseHexRgb(PREVIEW_CSS.PRIMARY)` —
+the value C18 §1 already made canonical — so the crop overlay **cannot drift** from the purple the
+creation previews use. The single permitted literal is `#ffffff`, the handle interior, which is not
+a hue; `viewCropPalette.test.ts` asserts exactly that.
+
+**The ramp cannot silently collapse.** `HOVER_ALPHA − EDGE_REST_ALPHA ≥ MIN_RAMP_ALPHA_GAP (0.2)` is
+asserted, so a later "let's make it more purple" edit fails a test instead of deleting the hover
+state.
+
+**Two deliberate scope decisions, recorded because neither is obvious:**
+
+* **IN scope — the anchor rose's `SEL_INK` (`#f59e0b` → purple).** The rose is *not* a crop
+  affordance. But it is the **selected-state indicator of the very mark** whose crop overlay is now
+  purple, and this same file already paints its other selection accents `#6600ff`
+  (`PlanViewAnnotationRenderer.ts:975`, `:983`). Leaving it amber would have left **one mark showing
+  two different "this is selected" colours at once**. Reversible in one line — it is now a single
+  palette reference.
+* **OUT of scope — the PROJECTION zone wash stays green (`rgba(34,197,94,·)`).** It encodes a
+  different fact ("what projects into this view") from the cut zone. Collapsing both to purple would
+  **delete information**, not unify it. `__PRYZM_DEBUG_ZONES__` hues also untouched — they exist to
+  look nothing like production.
+
+**Contract:** `C18-ELEMENT-PREVIEW-VISUAL-CONTRACT.md` **§2.5 NEW** (view-authoring overlays; the
+NORMATIVE two-value ramp rule) + **§6 gate step 4**. §2.4 had put "edit-operation state colours" out
+of scope and that was being read as covering these; it does not — §2.4 exempts colours that *carry
+information*, and the crop overlay's amber/blue carried none.
+
+---
+
+### L-4301 — ✅ FIXED: three production files cited a contract path that DOES NOT EXIST
+
+Surfaced while writing L-4300's contract update. `PreviewStyle.ts` — the file C18 §1 names as the
+single source of truth — cites its own contract as:
+
+```
+docs/02-decisions/contracts/41-ELEMENT-PREVIEW-VISUAL-CONTRACT.md
+```
+
+**`ls` on that path → RC=2, "No such file or directory".** The contract is
+`C18-ELEMENT-PREVIEW-VISUAL-CONTRACT.md` (its H1 still reads `# §41 — …`, which is how the stale
+form survived). Three production files carried it: `packages/core-app-model/src/preview/PreviewStyle.ts`
+(×2), `packages/geometry-handrail/src/HandrailTool.ts`, `packages/geometry-curtain-wall/src/CurtainWallTool.ts`.
+All four citations repointed; `grep -rn "contracts/41-ELEMENT" packages/ apps/ plugins/ src/ server/`
+→ **0**. `docs/archive/` deliberately untouched (historical).
+
+⚠ **NOTE ON THE MEASUREMENT ITSELF.** The first sweep (`Grep`, `head_limit 30`) reported **3 files**
+and missed `CurtainWallTool.ts`; a plain `grep -rn` after the first two edits found it. **A capped
+search reports a capped answer.** This is the same shape as the count-vs-range defect CLAUDE.md
+records five times: the number was right for what was asked and wrong for what was meant.
+
+---
+
+### L-4302 — ✅ FIXED: the hover cursor was **ABSENT**, not broken — and the hit region was smaller than the paint
+
+> *"When the user hovers with the mouse it should be able to see an arrow."*
+
+**MEASURED FIRST (C01 §6 rule 6 — ABSENT and UNREACHABLE have opposite fixes):**
+
+```
+grep -n hitTestCropHandle apps/editor/src/engine/views/PlanViewInteraction.ts
+```
+
+→ **exactly ONE call site, inside `_onMouseDown`.** There was **no hover path at all** — not a hover
+path that failed to fire. The elevation/section crop handles were the **only** resize affordance in
+that file with no cursor feedback: the plan-side scope handles (L-154), the mark origin (L-305) and
+the hosted drag arrows (§FIX-PLAN-HOSTED-HANDLE-GRAB) each already had one. So the fix was to **add**
+a hover branch, not repair one. Had this been diagnosed as "the cursor isn't firing", the work would
+have gone into the wrong file entirely.
+
+**Three sub-fixes, all in `_onMouseMove` / `PlanViewCanvas`:**
+
+1. **Hover branch**, using the **same** `hitTestCropHandle` at the **same** radius the press uses —
+   so the cursor can never promise a grab the mousedown will not honour. Placed above the
+   scope/origin/hosted hovers, mirroring the mousedown ordering.
+2. **Grab radius 10 → `CROP_HANDLE_GRAB_PX` (14)**, and the drawn square **6 → 9 px** (13 px
+   hovered). The hit region is now deliberately **larger than the paint** — asserted
+   (`CROP_HANDLE_GRAB_PX > CROP_HANDLE_DRAWN_PX / 2`), because a handle whose hit region is smaller
+   than its paint is a mouse-accuracy trap. 14 is not invented: it is
+   `SCOPE_HANDLE_GRAB_PX`, this file's own precedent for "comfortably grabbable", applied to the
+   *other half of the same affordance*.
+3. **FOUR EDGE MIDPOINT handles join the four corners.** A corner moves **both** axes, so *"crop the
+   sky off the top of this elevation without narrowing it"* was **not expressible** — every gesture
+   that changed height also changed width. The midpoints are also the only handles that produce
+   `ns-resize` / `ew-resize`, the plain **double-headed arrows** the founder described; four corners
+   alone can only ever produce the diagonal pair.
+
+`cropFromHandleDrag`'s two booleans (`hIsMin` / `vIsMax`) became four membership sets, because a
+boolean pair **cannot represent** "this handle owns no H edge" — it forces every handle to move one
+edge on each axis.
+
+---
+
+### L-4303 — ✅ FIXED: the crop handle was UNREACHABLE behind the level datum — and "levels **and slabs**" is ONE defect
+
+> *"I still drag the levels around and slabs."*
+
+**MEASURED on the pre-change source.** In `_onMouseDown` the order was:
+
+```
+level datum (10 px)  →  scope handles  →  CROP handles (10 px)  →  annotation  →  underlay  →  element
+```
+
+and **both arms of the level branch `return` unconditionally**. A level datum line spans the **FULL
+WIDTH** of an elevation. So for any pointer within 10 px of a datum line — which is exactly where the
+left and right ends of a crop rectangle live —
+
+* **press 1** → datum unselected → §LEVEL-Z-IS-NOT-A-DRAG-TARGET (L-1868) Guard A **selects the
+  level and returns**;
+* **press 2** → datum now selected → **arms a LEVEL DRAG and returns**.
+
+`hitTestCropHandle` was **never evaluated on either press**. The crop handle was not hard to reach.
+It was **unreachable**, in every gesture, forever — the L-716 shape (*"ask whether this can ever be
+true before asking why it is slow"*).
+
+⭐ **AND THIS EXPLAINS "AND SLABS", WHICH IS NOT A SECOND DEFECT.** Measured:
+`grep -ni slab packages/core-app-model/src/views/PlanElementDragController.ts` → **0 hits**;
+`hitTestDraggable` resolves **only** `'wall' | 'door' | 'window'` and returns `null` for anything
+else. **There is no slab drag path in the plan/elevation interaction layer at all.** Slabs and floor
+finishes are **hosted on the level** — their Z is *level + base offset* (L-1868's own statement of
+the rule) — so *"I drag the slabs"* was the **consequence** of *"I drag the levels"*, observed one
+layer downstream. One fix addresses both halves of his sentence. (Memory
+`trailing-error-is-a-consequence`, in the spatial rather than the temporal direction.)
+
+**THE RULE ADOPTED, stated so it can be argued with:** *an explicitly drawn, point-sized,
+**view-authoring** handle outranks an ambient full-width **model** band whenever the pointer is
+inside the handle's grab radius.* The crop handle is a 9 px square the user can **see** and **aimed
+at**; the datum's hit region is a 20 px tall stripe across the whole drawing that the pointer merely
+**happens to be in**. Between *what was drawn where I clicked* and *what happens to pass through
+here*, the drawn thing wins.
+
+⭐ **THIS DOES NOT WEAKEN L-1868 — and that is proved, not asserted.** L-1868 exists because
+cropping was silently moving datums (his `L0 → 0.023`, a 23 mm move of the GROUND datum). Giving the
+crop handle priority can only ever **remove** presses from the datum branch and never **add** one.
+`cropHandleBeatsLevelDatum.spec.ts` **ARM C** drives this exhaustively over all **eight** input
+combinations: wherever the new rule says `level`, the old rule said `level` too. **ARM D** asserts
+Guard A (`getSelectedLevelId?.() !== levelLineId` → select and arm nothing) and Guard B
+(`LEVEL_DRAG_MIN_TRAVEL_PX = CLICK_MAX_DRAG_PX + 1`) are both still in the source — reordering a hit
+test is precisely the kind of change that can silently undo a gate somewhere else.
+
+**ARM A asserts the ORDER, from the production file**, not a behaviour a reordering could satisfy by
+accident: the index of `hitTestCropHandle` inside `_onMouseDown` must be **less than** the index of
+`hitTestLevel`. That is the one fact that was wrong, and it is a fact about order.
+
+---
+
+### L-4304 — 🔴 OPEN: what this lane did NOT do
+
+1. **🔴 NOT BROWSER-VERIFIED — and this is the class where it matters most.** Every claim above comes
+   from `vitest`, `grep` and `tsc`. Colour and hit-radius are exactly the axis where stylesheet
+   arithmetic has been contradicted by a screenshot. **Falsification, in one look each:**
+   * *Colour:* open an elevation with a crop. Frame + handles must be **violet/purple**. **Any**
+     surviving amber or blue falsifies L-4300. Select the elevation mark in plan: the scope box, the
+     depth arrow, the "Depth … m" label and the selected rose sector must all be purple too.
+   * *The ramp:* hover a crop handle. It must **visibly darken to a deeper purple AND grow**. If
+     rest and hover look the same, the ramp collapsed — and the fix is **not** "more purple".
+   * *The cursor:* hovering a **side** handle must show a **left-right** arrow, a **top/bottom**
+     handle an **up-down** arrow, a corner a **diagonal** one. No cursor at all falsifies L-4302.
+   * *Priority:* put the pointer on a crop corner that sits on a level datum line and drag. The crop
+     must resize and **no `UPDATE_LEVEL` may appear in the console**. A single
+     `Level elevation updated:` line falsifies L-4303.
+   * *Single-axis:* drag the **top-edge midpoint** down. The elevation's **width must not change**.
+2. **🔴 The founder's L-1869 request is STILL NOT BUILT.** *"select the boundary by double-click and
+   then easily be able to only modify the boundary line"* is a **MODE**, and L-1869 §1 argues it
+   must be designed against C09/C25 alongside the sheet-viewport crop (§SHEET-VIEWPORT-CROP-UI,
+   L-1862…L-1866) so the two crops do not acquire two interaction grammars. **This lane made the
+   boundary reachable and cursored; it did not give him an isolated boundary-edit mode.**
+3. **🔴 NO GATE on the overlay palette.** `viewCropPalette.test.ts` forbids the **six named** retired
+   literals in these **two** files. Nothing stops a *new* off-brand literal in a *third* renderer, and
+   nothing checks the rest of the view-authoring surface. C18 §6 step 4 states the grep; no CI job
+   runs it.
+4. **🔴 Repaint cadence NOT measured.** `setHoveredCropHandle` sets a field, exactly as
+   `setHoveredScopeHandle` / `setHoveredElementId` do; none of the three requests a repaint. The
+   hover highlight is therefore assumed to appear on the next scheduled frame. **That assumption was
+   not verified** — if the elevation canvas only repaints on a store event, the *cursor* will change
+   (DOM, immediate) while the *handle highlight* will not. Consistent with the pre-existing
+   affordances either way, so it is a pre-existing question this change inherits, not one it created.
+5. **🔴 The MIN_SPAN floor is still 0.1 m and still unnamed** in `cropFromHandleDrag`. It now guards
+   single-axis drags too (tested), but it remains a bare literal inside the method.
+
+**Verified in the FOREGROUND, with the baseline measured by this lane rather than inherited:**
+
+| suite | BEFORE | AFTER |
+|---|---|---|
+| `@pryzm/core-app-model` (`pnpm --filter … test`) | 126 files / **1319 pass / 0 fail** | 127 files / **1349 pass / 0 fail** |
+| editor engine specs (root vitest) | 33 files / 305 tests / **3 fail** | 34 files / 322 tests / **3 fail** |
+
+The 3 editor reds are **`mt05StoreIdentityHeap.spec.ts` ×2** and **`wallMoveGateMutualCorner.spec.ts` ×1** —
+the same three files, the same three cases, red before this lane touched anything and untouched by it.
+**+47 new assertions, 0 new reds.** Root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck`
+→ **RC=0**.
+
