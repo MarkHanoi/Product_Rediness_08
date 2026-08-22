@@ -164,7 +164,39 @@ const VOLUME_SELECTED_COLOR       = 0x8B5CF6; // violet jewel color
 const VOLUME_FLOOR_OPACITY        = 0.00; // floor overlays hidden in ghost/spatial — volumes take over
 
 const HOLOGRAPHIC_COLOR           = 0xCC00FF; // §2.A purple holographic extension
-const XRAY_EMISSIVE_COLOR         = 0x00aaff;
+
+/**
+ * §INSPECT-FOCUS-IS-THE-ONLY-COLOUR (L-3511) — THE Inspect blue.
+ *
+ * This file already carried this exact value, once, as `XRAY_EMISSIVE_COLOR`. It
+ * is named here and both consumers point at the name, so the focus lens and the
+ * x-ray lens cannot drift into two different blues — and so that adding a third
+ * consumer is a reference rather than a fourth hex literal.
+ *
+ * ⛔ NOT the same blue as `GHOST_EDGE_COLOR` (0x00e5ff, cyan) and that separation
+ * is now load-bearing: after L-3511 the two colours mean DIFFERENT things —
+ * cyan is "structural edge, base ghost lens", blue is "this is the category you
+ * selected". They were previously distinguishable only by luck.
+ */
+const INSPECT_BLUE                = 0x00aaff;
+
+const XRAY_EMISSIVE_COLOR         = INSPECT_BLUE;
+
+/**
+ * §INSPECT-FOCUS-IS-THE-ONLY-COLOUR (L-3511) — the focused category's fill.
+ *
+ * Founder, 2026-08-22: *"when a category is chosen, everything else should go
+ * white but still faintly visible, and only the selected category in the blue
+ * inspect colour."* The white half already existed (`_applyClearWorldGhost`);
+ * this is the half that did not — the focused family used to have its AUTHORED
+ * material RESTORED, so "the selected category" was rendered in whatever colour
+ * the material catalogue happened to give it, which is the one thing it must not
+ * be: indistinguishable from an ordinary shaded view.
+ */
+const FOCUS_ELEMENT_COLOR         = INSPECT_BLUE;
+
+/** Emissive lift on the focused family, so it reads as lit from within. */
+const FOCUS_ELEMENT_EMISSIVE      = 0x0A3A66;
 const MISSING_ASSET_COLOR         = 0xffffff;
 const MISMATCH_FINISH_PULSE_MS    = 800;
 const MAX_SCENE_HEIGHT            = 20.0; // metres — Z-Slicer upper bound (§3)
@@ -461,9 +493,82 @@ export class DiagnosticMaterialManager {
     this._overlayGroup?.add(obj);
   }
 
+  /**
+   * §GHOST-EDGES-RIDE-THEIR-MESH (L-3510) — attach a DERIVED overlay to the mesh
+   * it was derived FROM, instead of to the scene-root overlay group.
+   *
+   * ⛔ THE DEFECT THIS CLOSES, measured 2026-08-22 from two founder screenshots
+   * that looked like two bugs and are one.
+   *
+   *   (a) SOLO=Ground still draws wireframe from every level.
+   *   (b) EXPLODE lifts the levels but a lot of geometry stays behind.
+   *
+   * Both level passes decide membership on a per-object tag, and the cyan
+   * structural edge overlay carries NONE of them:
+   *
+   *   · `BottomActionMenu._applySceneVisibilityFilters()` runs its solo filter
+   *     inside `if (!this._isBimObject(obj)) return;`, and `_isBimObject`
+   *     (BottomActionMenu.ts:1233) requires `userData.id || userData.levelId ||
+   *     userData.storeyName`. A bare `THREE.LineSegments` built here has an empty
+   *     `userData`, so solo never even looks at it — it is not hidden, it is
+   *     SKIPPED. That is symptom (a), exactly: the shaded pass isolates and the
+   *     wireframe does not.
+   *   · `BottomActionMenu._buildLevelRootMap()` buckets by
+   *     `_objectLevelId(obj)`, which is `userData.levelId`. No tag ⇒ no bucket ⇒
+   *     no Y offset. That is symptom (b) for this population.
+   *
+   * ⭐ THE FIX IS NOT A THIRD TAG. Stamping `levelId` onto the clone would put a
+   * DERIVED object into the level bucket as a first-class member, and it would
+   * then be lifted INDEPENDENTLY of the mesh it outlines — with a start-of-lift
+   * race (the clone is built from `getWorldPosition()`, so a ghost applied while
+   * already exploded would record the LIFTED Y as its baseline and double-shift
+   * on the next apply). A derived overlay must not have its own opinion about
+   * where it is.
+   *
+   * Instead the edge clone becomes a CHILD of its source mesh with an identity
+   * local transform. `EdgesGeometry(obj.geometry)` is already in the mesh's LOCAL
+   * space, so identity is exactly right — and this DELETES the world-transform
+   * copy the previous implementation needed only because the overlay lived at the
+   * scene root. It then inherits, from THREE itself and with nothing to maintain:
+   *   · every ancestor transform, including the explode lift, every frame;
+   *   · `visible` — THREE does not render the children of an invisible parent, so
+   *     solo, active-level-only, the ceiling hide and the elements-in-view filter
+   *     all reach the wireframe for free, because they reach the MESH.
+   *
+   * ⚠ CONSEQUENCE ACCEPTED DELIBERATELY: an edge overlay is now hidden whenever
+   * its mesh is hidden. That is the intended semantics of an outline — an outline
+   * of something you cannot see is what the founder photographed.
+   *
+   * The object is still recorded in `_overlayObjects` so `_clearOverlays()` /
+   * `_flushDeferredDisposals()` own its lifetime unchanged; only the PARENT
+   * differs, which is why `_clearOverlays` now detaches from the real parent.
+   */
+  private _addOverlayAsChildOf(parent: THREE.Object3D, obj: THREE.Object3D): void {
+    if (this._clipPlane && (obj as any).material) {
+      const m = (obj as any).material;
+      const planes = [this._clipPlane];
+      if (Array.isArray(m)) m.forEach((x: any) => { if (x.clippingPlanes !== undefined) x.clippingPlanes = planes; });
+      else if (m.clippingPlanes !== undefined) m.clippingPlanes = planes;
+    }
+    // §GHOST-EDGES-RIDE-THEIR-MESH — never let the level passes treat a derived
+    // outline as an element in its own right. `isHelper` is the tag
+    // `_isBimObject` already excludes; `role: 'edges'` is the repo's existing,
+    // type-system-independent name for exactly this kind of node
+    // (WallEdgeVisibilityService.ts:170).
+    obj.userData.isHelper = true;
+    obj.userData.role = 'edges';
+    this._overlayObjects.push(obj);
+    parent.add(obj);
+  }
+
   private _clearOverlays(_scene: THREE.Scene): void {
     for (const obj of this._overlayObjects) {
-      this._overlayGroup?.remove(obj);
+      // §GHOST-EDGES-RIDE-THEIR-MESH (L-3510) — detach from the ACTUAL parent.
+      // Overlays are no longer all children of `_overlayGroup`: the structural
+      // edge clones now ride their source mesh. `removeFromParent()` is correct
+      // for both homes and cannot leave a clone attached to a mesh that is about
+      // to have its authored material restored.
+      obj.removeFromParent();
       // Queue disposal — NEVER call dispose() synchronously here.
       // Three.js / post-processing passes (TRAA, SSGI) hold references to shader
       // programs keyed by material UUID. Calling dispose() while the renderer is
@@ -578,23 +683,30 @@ export class DiagnosticMaterialManager {
         depthWrite:  false,
       }));
       // 1px cyan LineSegments wireframe (§1.1)
-      // _overlayGroup lives at the scene root (world space), so we must use the
-      // mesh's WORLD transform — not its local position/rotation/scale — otherwise
-      // any wall mesh inside a wallGroup with a non-identity transform produces an
-      // edge overlay displaced to the wrong position in the scene.
+      //
+      // §GHOST-EDGES-RIDE-THEIR-MESH (L-3510) — the clone is a CHILD of `obj` at
+      // IDENTITY, so it tracks the mesh through every transform and every
+      // visibility decision. See `_addOverlayAsChildOf` for the full argument.
+      //
+      // ⛔ DO NOT RESTORE THE WORLD-TRANSFORM COPY that stood here:
+      //     obj.getWorldPosition(wPos); lines.position.copy(wPos);  // …etc
+      // It was CORRECT for a scene-root overlay group — the comment it carried
+      // ("_overlayGroup lives at the scene root (world space), so we must use the
+      // mesh's WORLD transform … otherwise any wall mesh inside a wallGroup with
+      // a non-identity transform produces an edge overlay displaced to the wrong
+      // position") described a real defect, and that defect is now IMPOSSIBLE
+      // rather than corrected-for: a child at identity cannot be displaced from
+      // its parent. Re-parenting the clone to the scene root without restoring
+      // that copy would bring the displacement back, so the two changes are one
+      // change.
+      //
+      // It is also a SNAPSHOT — it fixes the outline at the world pose the mesh
+      // held at ghost-apply time, which is why the outline stayed put while the
+      // level explode lifted the mesh out from under it.
       const edges   = new THREE.EdgesGeometry(obj.geometry);
       const lineMat = new THREE.LineBasicMaterial({ color: GHOST_EDGE_COLOR, linewidth: 1 });
       const lines   = new THREE.LineSegments(edges, lineMat);
-      const wPos  = new THREE.Vector3();
-      const wQuat = new THREE.Quaternion();
-      const wScale = new THREE.Vector3();
-      obj.getWorldPosition(wPos);
-      obj.getWorldQuaternion(wQuat);
-      obj.getWorldScale(wScale);
-      lines.position.copy(wPos);
-      lines.quaternion.copy(wQuat);
-      lines.scale.copy(wScale);
-      this._addOverlay(lines);
+      this._addOverlayAsChildOf(obj, lines);
     } else {
       // 'opening' and 'non-structural' differ ONLY in accumulated weight — an
       // opening is many stacked sub-boxes, a wall is one or two. No cyan edge
@@ -1124,6 +1236,42 @@ export class DiagnosticMaterialManager {
   applyGhostWithFocus(scene: THREE.Scene, elementType: string): void {
     this._focusedElementType = elementType;
     const focusNorm = elementType.toLowerCase().replace(/s$/, '');
+
+    // ── §INSPECT-FOCUS-IS-THE-ONLY-COLOUR (L-3511), 2026-08-22 ────────────────
+    //
+    // ⭐ THE FIRST HALF OF THE FOUNDER'S DEFECT IS THIS ONE LINE, and it is not
+    // about colour at all. It is about a pass that never ran.
+    //
+    // MEASURED: `InspectModeCoordinator._onElementType()` calls THIS method
+    // DIRECTLY for every non-'rooms' category (InspectModeCoordinator.ts:235),
+    // bypassing `applyLens()`. `applyLens` → `_applyLensImmediate` opens with
+    // `if (this._active) { this._stopPulse(); this._clearOverlays(scene);
+    // this._restoreMaterials(); }` — so the direct call skipped ALL THREE.
+    //
+    // The one that shows: the base ghost lens (`_applyGhost` → §1.1) adds ONE
+    // cyan `LineSegments` overlay PER STRUCTURAL MESH — every wall, every slab,
+    // every column in the model. Choosing a category left every one of them on
+    // screen. Whatever the focused family was painted, the model as a whole was
+    // a cyan wireframe of itself, which is the founder's *"today everything reads
+    // cyan"* — exactly, and it is a LEAK, not a palette choice.
+    //
+    // Clearing here rather than moving the call site is deliberate: this method
+    // is a PUBLIC entry point with two callers (`_onElementType` and
+    // `_onAttributeFocus`, which calls it then paints a heatmap on top), and both
+    // must be safe. A precondition that only holds when the caller remembers is
+    // the shape of the bug being fixed.
+    this._stopPulse();
+    this._clearOverlays(scene);
+    // `_restoreMaterials()` is the third of the three skipped steps. It is not
+    // cosmetic here: it EMPTIES `_savedMeshes`, and without it every category
+    // switch appended another full copy of the scene to that array for the rest
+    // of the session. It also guarantees the focused family is painted from its
+    // AUTHORED material rather than from the previous focus's blue.
+    this._restoreMaterials();
+    this._ensureOverlayGroup(scene);
+
+    let focused = 0;
+    let ghosted = 0;
     scene.traverse(obj => {
       if (!(obj instanceof THREE.Mesh)) return;
       const mat = obj.material;
@@ -1137,20 +1285,68 @@ export class DiagnosticMaterialManager {
       const resolved = this._resolveElementType(obj);
       if (!resolved) {
         this._applyClearWorldGhost(obj);
+        ghosted++;
         return;
       }
       const resolvedNorm = resolved.replace(/s$/, '');
       if (resolvedNorm === focusNorm || resolved === elementType.toLowerCase()) {
-        // Keep focused elements — restore from material backup if available
-        const orig = this._originals.get(obj);
-        if (orig) {
-          obj.material = Array.isArray(orig) ? [...orig] : orig;
-        }
+        // ── THE SECOND HALF (L-3511) ──────────────────────────────────────────
+        //
+        // ⛔ THIS BRANCH USED TO RESTORE THE AUTHORED MATERIAL:
+        //      const orig = this._originals.get(obj);
+        //      if (orig) obj.material = Array.isArray(orig) ? [...orig] : orig;
+        //
+        // So "the selected category" was drawn in whatever the material
+        // catalogue gave it — oak, plaster, glass — i.e. in the ONE appearance
+        // that is indistinguishable from an ordinary shaded view. The founder
+        // asked for the opposite: *"only the selected category in the blue
+        // inspect colour"*. A focus lens whose focus is not visibly a lens has
+        // no reason to exist.
+        //
+        // ⚠ THE RESTORE PATH IS NOT LOST. `_applyToMesh` saves the original into
+        // `_originals` on first touch, and `restore()` → `_restoreMaterials()`
+        // puts every one of them back when Inspect exits. Painting here goes
+        // THROUGH `_applyToMesh` precisely so this mesh joins `_savedMeshes` and
+        // is restored like every other lens subject — the old branch wrote
+        // `obj.material` directly and therefore did NOT enrol the mesh.
+        this._applyToMesh(obj, new THREE.MeshPhongMaterial({
+          color:             FOCUS_ELEMENT_COLOR,
+          emissive:          new THREE.Color(FOCUS_ELEMENT_EMISSIVE),
+          emissiveIntensity: 0.6,
+          side:              THREE.DoubleSide,
+        }));
+        focused++;
       } else {
         this._applyClearWorldGhost(obj);
+        ghosted++;
       }
     });
-    console.log(`[DiagnosticMaterialManager] applyGhostWithFocus — type: ${elementType}`);
+
+    // §INSPECT-FOCUS-IS-THE-ONLY-COLOUR — the counts are the honesty half. A
+    // focus of ZERO is a real, previously SILENT outcome (a category whose
+    // builder stamps a `userData.elementType` this id does not match), and it
+    // renders identically to "the model is empty": everything white, nothing
+    // blue. Naming it in the log is the difference between a user seeing a
+    // deliberate x-ray and a user seeing a broken one.
+    // The overlay clones this method just detached still hold GPU buffers. The
+    // lens path flushes them on the NEXT frame and never synchronously — see the
+    // long note in `_applyLensImmediate` about disposing a program while the
+    // renderer is still executing the frame ('uZoom' TypeError). A direct caller
+    // gets the same treatment; without this the leak was one full set of edge
+    // clones per category switch.
+    getFrameScheduler().scheduleOnce(
+      'diagnostic-flush-disposals',
+      () => this._flushDeferredDisposals(),
+    );
+
+    console.log(
+      `[§INSPECT-FOCUS-IS-THE-ONLY-COLOUR] focus="${elementType}" — ${focused} mesh(es) in the `
+      + `inspect blue, ${ghosted} ghosted white`
+      + (focused === 0
+        ? ' ⚠ ZERO MESHES MATCHED — nothing is blue; the model is not empty, this focus id '
+          + 'matches no `userData.elementType` any builder stamps (check meshTypeForCategory).'
+        : ''),
+    );
   }
 
   // ── Public: Attribute heatmap colours for the focused element type ──────────

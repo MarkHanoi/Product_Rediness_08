@@ -13,7 +13,13 @@ import { resolveActiveSlabDrawMode } from '@app/engine/views/plantools/activeSla
 // Pick Walls, and `resolveActiveSlabDrawMode()`'s return type (`linear|ortho|curved`)
 // structurally cannot express any of them.
 import { resolveSlabReentryMode } from '@app/engine/views/plantools/activeSlabFamilyMode';
-import { resolveLevelIsolation } from '../../engine/inspect/LevelIsolationResolver';
+import { resolveLevelIsolation, resolveRootLevels } from '../../engine/inspect/LevelIsolationResolver';
+import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+import {
+    censusLevelCoverage,
+    formatLevelCoverage,
+    type LevelCoverageSubject,
+} from './levelCoverageCensus';
 import { resolveNightBackground } from '../../engine/inspect/NightModeBackgroundResolver';
 import {
     resolveSectionClipCapability,
@@ -1405,6 +1411,128 @@ export class BottomActionMenu {
         });
     }
 
+    /**
+     * §EXPLODE-READS-THE-REGISTRY (L-3521) — every REGISTERED element root,
+     * bucketed by the level it belongs to, resolved from the registry rather
+     * than from a scene tag.
+     *
+     * ── ⛔ THE DEFECT THIS CLOSES, measured 2026-08-22 ──────────────────────
+     *
+     * Founder, screenshot 3: *"EXPLODE does not separate every element — upper
+     * levels lift, but a lot of geometry stays behind."*
+     *
+     * `_buildLevelRootMap()` had exactly two sources, and both are per-object
+     * scene TAGS:
+     *   (1) `level.childrenIds` matched against `userData.id`, and
+     *   (2) `_objectLevelId(obj)`, i.e. `userData.levelId`.
+     * An element whose builder stamped neither is in no bucket, gets no offset,
+     * and stays at ground level while its storey rises. Nothing anywhere said so.
+     *
+     * ⭐ THIS IS THE SAME DEFECT `§ISOLATE-ALL-ELEMENTS-WIRED` ALREADY FIXED
+     * ONE METHOD AWAY. `_applyRegistryLevelIsolation()` (below) stopped trusting
+     * the scene tag for the ISOLATION decision and enumerated
+     * `elementRegistry.getAllRoots()` instead — "the ONE place every
+     * Create-command / builder registers its root", so "coverage is by
+     * construction". Its own docblock states the reason verbatim: the traverse
+     * *"silently drops any element type whose root failed to stamp a levelId"*.
+     *
+     * The TRANSFORM half was never given the same treatment. So isolation was
+     * authoritative and the explode was not, in the same class, in the same file
+     * — which is why a stair could hide correctly under Solo and refuse to lift
+     * under Explode. This closes that asymmetry by reading the same registry
+     * through the same `resolveRootLevels()` derivation.
+     *
+     * ⚠ SPAN ELEMENTS PICK ONE LEVEL, DELIBERATELY. `resolveRootLevels` returns
+     * a SET (a stair occupies base AND top) because for VISIBILITY the right
+     * answer is "show under either". A Y-OFFSET is not a set — an object has one
+     * position — so a span element lifts with its `userData.levelId`, i.e. its
+     * base storey, falling back to the lowest resolved level. That is the storey
+     * the stair starts on and the one an architect expects it to travel with.
+     * Encoding this as a comment rather than silently taking `[0]` of a Set,
+     * whose iteration order would be an insertion accident.
+     *
+     * ⚠ ADDITIVE ONLY. A root already bucketed by a scene tag keeps that bucket;
+     * this can only ever ADD coverage, never move an element that already moved.
+     * Never throws — a registry that is absent or a stale resolved copy without
+     * `getAllRoots` yields an empty map, exactly as `resolveLevelIsolation` does.
+     */
+    private static _registryRootsByLevel(): Map<string, THREE.Object3D[]> {
+        const out = new Map<string, THREE.Object3D[]>();
+        try {
+            const getAll = (elementRegistry as {
+                getAllRoots?: () => Array<{ id: string; root: THREE.Object3D; storeType: unknown }>;
+            }).getAllRoots;
+            if (typeof getAll !== 'function') return out;
+
+            for (const entry of getAll.call(elementRegistry)) {
+                const root = entry?.root;
+                if (!root) continue;
+                const stamped = (root.userData as { levelId?: unknown })?.levelId;
+                let levelId = stamped ? String(stamped) : '';
+                if (!levelId) {
+                    // No own tag — ask the shared derivation (span endpoints,
+                    // railing-follows-its-host-stair). Take the first resolved
+                    // level; see the span note above.
+                    const levels = resolveRootLevels(root, entry.storeType as never);
+                    const first = levels.values().next();
+                    if (!first.done) levelId = String(first.value);
+                }
+                if (!levelId) continue;
+                const arr = out.get(levelId);
+                if (arr) arr.push(root); else out.set(levelId, [root]);
+            }
+        } catch (err) {
+            // A diagnostic-grade fallback must never take the explode with it.
+            console.warn('[§EXPLODE-READS-THE-REGISTRY] registry enumeration failed — '
+                + 'scene-tag buckets only:', err);
+        }
+        return out;
+    }
+
+    /**
+     * §LEVEL-COVERAGE-IS-MEASURED (L-3520) — how much of the drawn scene the
+     * level pass actually reaches. One traverse, on a user gesture, never on a
+     * frame.
+     *
+     * `covered` is computed against the SAME root set the transform uses, walking
+     * the parent chain — never a re-derived predicate, or this would be measuring
+     * a copy of the rule instead of the rule.
+     */
+    private _censusLevelCoverage(groups: Array<{ roots: THREE.Object3D[] }>): void {
+        const scene = this._getScene();
+        if (!scene) return;
+        try {
+            const rootSet = new Set<THREE.Object3D>();
+            for (const g of groups) for (const r of g.roots) rootSet.add(r);
+
+            const subjects: LevelCoverageSubject[] = [];
+            scene.traverse((obj: any) => {
+                // Only things the user can SEE. A bare Group that does not move is
+                // invisible either way and would inflate the denominator.
+                const drawn = obj.isMesh === true || obj.isLine === true
+                    || obj.isLineSegments === true || obj.isSprite === true;
+                if (!drawn) return;
+                const ud = obj.userData ?? {};
+                if (ud.isHelper || ud.isPreview || ud.role === 'edges') return;
+
+                let covered = false;
+                for (let cur: THREE.Object3D | null = obj; cur; cur = cur.parent) {
+                    if (rootSet.has(cur)) { covered = true; break; }
+                }
+                const family = (ud.elementType ?? ud.type ?? null) as string | null;
+                subjects.push({
+                    family: family ? String(family) : null,
+                    covered,
+                    hasLevelTag: this._objectLevelId(obj) !== '',
+                });
+            });
+
+            console.log(formatLevelCoverage(censusLevelCoverage(subjects), this._levelMode));
+        } catch (err) {
+            console.warn('[§LEVEL-COVERAGE] census could not run:', err);
+        }
+    }
+
     private _buildLevelRootMap(): Array<{
         level: LevelInfo;
         index: number;
@@ -1438,6 +1566,7 @@ export class BottomActionMenu {
                 }
             }
         });
+        const registryByLevel = BottomActionMenu._registryRootsByLevel();
         // Drop any level-tagged object whose ancestor is ALSO level-tagged for the
         // same level — offsetting both parent and child would compound the Y shift.
         const dropDescendants = (objs: THREE.Object3D[]): THREE.Object3D[] => {
@@ -1470,6 +1599,12 @@ export class BottomActionMenu {
                 // not only as a zero-roots fallback.
                 if (level.id) {
                     for (const obj of byLevel.get(String(level.id)) ?? []) roots.add(obj);
+                }
+                // §EXPLODE-READS-THE-REGISTRY (L-3521) — and finally the ONE
+                // authoritative enumeration, which this method did not consult.
+                // See `_registryRootsByLevel()`.
+                if (level.id) {
+                    for (const obj of registryByLevel.get(String(level.id)) ?? []) roots.add(obj);
                 }
                 return {
                     level,
@@ -1509,6 +1644,10 @@ export class BottomActionMenu {
             );
         }
         console.log(`[§LEVEL-STACK] ${this._levelMode}: offset roots per level — ${diag.join(', ')} (total ${this._levelOriginalY.size}; rooms ${totalRooms}, labels ${totalLabels}, furniture ${totalFurniture})`);
+        // §LEVEL-COVERAGE-IS-MEASURED (L-3520) — the line above is a NUMERATOR.
+        // This one supplies the denominator, which is the founder's actual
+        // question: not "how many moved" but "did EVERY element move".
+        this._censusLevelCoverage(groups);
         this._startLevelAnimation();
     }
 
