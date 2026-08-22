@@ -107,6 +107,17 @@ export class SVGCompositeRenderer {
     private _viewBox: SVGViewBox;
     private _layerLineWeights: Record<string, number> = { ...ISO_LINE_WEIGHTS };
 
+    /**
+     * §FIX-PDF-STAMPS-A-MEANINGLESS-CROSS (L-5010) — annotation kinds this
+     * renderer was asked to draw and has no case for. Populated by the `default:`
+     * arm of the annotation switch on every `renderToSVGString()`.
+     *
+     * It exists so that "this drawing carries no north arrow" and "this drawing
+     * dropped its north arrow" are DIFFERENT VALUES to the caller. Before L-5010
+     * they were the same value with a 2 mm X on top.
+     */
+    private readonly _unrenderedKinds = new Set<string>();
+
     constructor(viewBox: SVGViewBox) {
         this._viewBox = viewBox;
     }
@@ -261,7 +272,24 @@ export class SVGCompositeRenderer {
      */
     setAnnotations(annotations: AnnotationElement[]): this {
         this._annotations = annotations.slice();
+        this._unrenderedKinds.clear();
         return this;
+    }
+
+    /**
+     * §FIX-PDF-STAMPS-A-MEANINGLESS-CROSS (L-5010) — the annotation kinds the most
+     * recent `renderToSVGString()` could not draw, sorted.
+     *
+     * EMPTY means "every annotation on this view reached the paper". It does NOT
+     * mean the drawing is complete — a kind absent from the view is absent from
+     * this set too. This reports OMISSIONS BY THIS RENDERER, nothing wider.
+     *
+     * Measured 2026-08-22: `wall-tag`, `north-arrow`, `scale-bar` and `matchline`
+     * reach the default arm. All four are drawn by `PlanViewAnnotationRenderer`,
+     * so they are visible on screen and absent from the PDF (L-5011).
+     */
+    unrenderedAnnotationKinds(): string[] {
+        return [...this._unrenderedKinds].sort();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -665,9 +693,42 @@ export class SVGCompositeRenderer {
                         }
 
                         default:
-                            // Unknown type — emit a small cross marker at p0 position as fallback
+                            // §FIX-PDF-STAMPS-A-MEANINGLESS-CROSS (L-5010, lane ANNO15,
+                            // founder 2026-08-22)
+                            //
+                            // ⭐ THIS ARM USED TO DRAW A 2 mm X AT p0 FOR EVERY UNKNOWN KIND,
+                            // AND IT IS REACHED BY FOUR REAL, PLACEABLE ANNOTATION KINDS:
+                            // `wall-tag`, `north-arrow`, `scale-bar`, `matchline`. All four
+                            // are drawn correctly by `PlanViewAnnotationRenderer` (:835, :855,
+                            // :856, :857) — so the architect sees a north arrow on screen and
+                            // an X on the issued PDF.
+                            //
+                            // AN X IS NOT A DEGRADED SYMBOL. IT IS A WRONG ONE. A mark on a
+                            // construction drawing that means nothing is worse than no mark:
+                            // it is indistinguishable from a centre-mark, a setting-out point
+                            // or a demolition tick, and a builder cannot tell that it is a
+                            // renderer apology. Absence is at least honest.
+                            //
+                            // So the fallback now emits NOTHING VISIBLE and instead:
+                            //   · records the kind on `_unrenderedKinds`, which the caller can
+                            //     read via `unrenderedAnnotationKinds()` and surface, and
+                            //   · leaves an SVG comment at the position, so the omission is
+                            //     diagnosable from the artefact itself rather than inferred.
+                            //
+                            // §CONTEXT-DATA-HONESTY: "dropped it" and "there was nothing to
+                            // draw" must not share a value. The set is the discriminator.
+                            //
+                            // ⛔ This is deliberately NOT a silent drop and NOT a new symbol.
+                            // Drawing these four properly is a BUILD (four symbol renderers
+                            // with their own drafting conventions), tracked as L-5011.
+                            this._unrenderedKinds.add(String(ann.type));
                             if (p0) {
-                                lines.push(`    <g stroke="${lc}" stroke-width="${lw}"><line x1="${f(p0.x - 1)}" y1="${f(p0.y - 1)}" x2="${f(p0.x + 1)}" y2="${f(p0.y + 1)}"/><line x1="${f(p0.x + 1)}" y1="${f(p0.y - 1)}" x2="${f(p0.x - 1)}" y2="${f(p0.y + 1)}"/></g>`);
+                                // `--` is illegal inside an XML comment, so the kind is
+                                // reduced to a safe token rather than escaped: an invalid
+                                // comment would corrupt the whole SVG, which is a far worse
+                                // failure than a slightly-mangled diagnostic string.
+                                const safeKind = String(ann.type).replace(/[^A-Za-z0-9:_-]/g, '').replace(/-{2,}/g, '-');
+                                lines.push(`    <!-- annotation kind "${safeKind}" has no SVG renderer; omitted at ${f(p0.x)},${f(p0.y)} (L-5010) -->`);
                             }
                     }
                 } catch {
