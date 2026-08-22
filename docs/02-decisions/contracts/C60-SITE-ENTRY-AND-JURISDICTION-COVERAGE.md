@@ -258,7 +258,7 @@ same transition under both modes.
 10. **The entry flow is a STATE of the `site-3d` view, not a new view mechanism** (C59 §0/§2.6). It
     adds no `ViewType`, no renderer and no pane framework.
 11. **The world FRAMING may be reached without the entry FLOW — and a mid-project control MUST take
-    that route** (§GLOBE-QUICK-TOGGLE, L-6800..L-6808, [ADR-0357](../adrs/ADR-0357-the-globe-is-a-camera-framing-not-a-view-type.md)).
+    that route** (§GLOBE-QUICK-TOGGLE, L-6800..L-6809, [ADR-0357](../adrs/ADR-0357-the-globe-is-a-camera-framing-not-a-view-type.md)).
     §6.5 says the globe *is* the `site-3d` viewer at world altitude, so *"take me to the 3D globe"*
     from inside a live project is a **camera** request, and the whole of it is
     `cameraForState(INITIAL_SITE_ENTRY_STATE)` — exported as `worldFramingTarget()`.
@@ -315,7 +315,7 @@ C60 **depends on** C59 and never competes with it: the globe is the `site-3d` vi
   > **only** reachable entrance. **The globe is UNREACHABLE outside onboarding.** Nothing in the
   > live editor constructs a `SiteEntryStore`, and §6.11 now forbids a mid-project surface from
   > doing so until the question *"what happens to the boundary this project already committed?"*
-  > has an answer. The top-centre `⊕ 3D Globe` control (L-6800..L-6808) surfaces the world
+  > has an answer. The top-centre `⊕ 3D Globe` control (L-6800..L-6809) surfaces the world
   > **framing** mid-project; it deliberately does **not** re-host the **flow**.
   >
   > ⛔ **The two are different facts with opposite fixes.** "The globe control is missing" was

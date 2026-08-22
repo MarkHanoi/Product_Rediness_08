@@ -96,11 +96,11 @@ The founder's Phase-2 ask, verbatim: *"in each view (either split view or comple
 
 8. **The shared camera pose is ONE pure value, PROJECTED — never a listener graph** (Phase 3, §2.7). No renderer may write another renderer's camera. The only write path is an intent on the shared-pose reducer, and a renderer applying a projected pose MUST NOT be able to re-emit it (the epoch discipline). θ is applied EXACTLY ONCE, on the BIM side. See §2.7 for the mechanism and why a listener implementation is forbidden.
 
-9. **A REGISTRY-DERIVED SURFACE MAY ONLY OFFER VIEWS. Anything else is modelled BESIDE it, as an action** (§2.9, L-6800..L-6808). A control whose contents are derived from `VIEW_TYPE_REGISTRY` can, by construction, offer nothing that is not a `ViewType` — so the fix for "this derived bar is missing X" is **never** to mint a `ViewType` for X. Camera framings, layout restores and reframes are **actions**; they carry a label, an `enabled`, and a **reason whenever `enabled` is false**, and they return their intents as **DATA** (invariant 3). See §2.9.
+9. **A REGISTRY-DERIVED SURFACE MAY ONLY OFFER VIEWS. Anything else is modelled BESIDE it, as an action** (§2.9, L-6800..L-6809). A control whose contents are derived from `VIEW_TYPE_REGISTRY` can, by construction, offer nothing that is not a `ViewType` — so the fix for "this derived bar is missing X" is **never** to mint a `ViewType` for X. Camera framings, layout restores and reframes are **actions**; they carry a label, an `enabled`, and a **reason whenever `enabled` is false**, and they return their intents as **DATA** (invariant 3). See §2.9.
 
 ---
 
-## §2.9 — A derived surface cannot offer a non-view, and that is a FEATURE (L-6800..L-6808)
+## §2.9 — A derived surface cannot offer a non-view, and that is a FEATURE (L-6800..L-6809)
 
 > **Founder, verbatim (2026-08-22):** *"add in the top panel buttons **3d globe** also."*
 > **And (2026-08-21), quoted in the source of the very file that could not deliver it:**

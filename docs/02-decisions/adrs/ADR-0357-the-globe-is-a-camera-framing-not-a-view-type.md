@@ -2,7 +2,7 @@
 
 **Status:** ACCEPTED
 **Date:** 2026-08-22
-**Lane:** GLOBE32 · `§GLOBE-QUICK-TOGGLE` · L-6800..L-6808
+**Lane:** GLOBE32 · `§GLOBE-QUICK-TOGGLE` · L-6800..L-6809
 **Contracts:** [C59](../contracts/C59-MULTI-PANE-VIEW-SYSTEM.md) §2 · [C60](../contracts/C60-SITE-ENTRY-AND-JURISDICTION-COVERAGE.md) §6.5/§6.10
 **Neighbours:** C19 §1.3/§1.4 (the one-shot parcel boundary), C06 §13 (`gisActionRegistry`), C84 EI-8/EI-9 (one vocabulary)
 
