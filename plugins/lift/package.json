@@ -1,0 +1,31 @@
+{
+  "name": "@pryzm/plugin-lift",
+  "version": "0.1.0",
+  "description": "PRYZM — Lift COMPOUND SYSTEM plugin (L-5700 / C104 / ADR-0325). A lift is a COMPOUND, not a primitive: lift.create composes a full-height shaft ENCLOSURE (walls, or curtain-wall glass for the standalone type) + ONE real landing DOOR per served level + the five LOD-300 CABIN parts + a VOID in every slab the shaft passes through, in ONE undo entry via produceMultiStoreCommand. lift.delete removes all of it AND heals every void. Geometry math lives in @pryzm/geometry-lift (pure).",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./store": "./src/store.ts",
+    "./errors": "./src/errors.ts",
+    "./handlers": "./src/handlers/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ci": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/geometry-lift": "workspace:*",
+    "@pryzm/plugin-sdk": "workspace:*",
+    "immer": "^10.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^3.0.0"
+  }
+}

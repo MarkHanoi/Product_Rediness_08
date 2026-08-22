@@ -1,7 +1,7 @@
 {
   "name": "@pryzm/geometry-lift",
   "version": "0.1.0",
-  "description": "PRYZM — vertical-circulation (lift / elevator) geometry subsystem: types, stores, placeholder mesh builder. Peer of @pryzm/geometry-stair (residential-building multi-family typology, plan §4).",
+  "description": "PRYZM \u2014 vertical-circulation (lift / elevator) geometry subsystem: types, stores, placeholder mesh builder. Peer of @pryzm/geometry-stair (residential-building multi-family typology, plan \u00a74).",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -9,7 +9,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
@@ -21,6 +23,7 @@
     "@pryzm/event-bus": "workspace:*",
     "@pryzm/renderer-three": "workspace:*",
     "@thatopen/components": "^3.4.2",
-    "@opentelemetry/api": "^1.9.0"
+    "@opentelemetry/api": "^1.9.0",
+    "zod": "*"
   }
 }

@@ -13,6 +13,49 @@
 export * from './LiftTypes';
 export * from './LiftTypeDefinitions';
 
+// ── LOD-300 compound system ──────────────────────────────────────────────── §FEAT-LIFT-COMPOUND-SYSTEM
+// The lift as a COMPOUND (C104, extending C103): the pure dimension chain, the
+// cabin sub-element family, and the assembly that turns ONE lift record into its
+// enclosure + one landing door per served level + the five cabin parts + the slab
+// voids. All pure — no THREE, no DOM, no store. `plugins/lift` is the command
+// surface over it, exactly as `plugins/pool` is over `@pryzm/geometry-pool`.
+export {
+    LIFT_DIMENSION_DEFAULTS,
+    resolveLiftDimensions,
+} from './LiftDimensions';
+export type { ResolvedLiftDimensions, LiftDimensionInput } from './LiftDimensions';
+export {
+    LiftEnclosureTypeSchema,
+    LIFT_ENCLOSURE_TYPE_LABELS,
+    LiftCompoundSchema,
+} from './LiftCompoundTypes';
+export type {
+    LiftCompound,
+    LiftCompoundsState,
+    LiftEnclosureTypeName,
+} from './LiftCompoundTypes';
+export {
+    LIFT_PART_KINDS,
+    LIFT_PART_LABELS,
+    LIFT_PART_CYCLE_ORDER,
+    LiftPartKind,
+    LiftPartSchema,
+} from './LiftPartTypes';
+export type { LiftPart, LiftPartsState } from './LiftPartTypes';
+export {
+    buildLiftAssembly,
+    ENCLOSURE_SIDE_COUNT,
+} from './LiftAssembly';
+export type {
+    LiftAssembly,
+    LiftAssemblyInput,
+    LiftEnclosureType,
+    LiftEnclosureSide,
+    LiftPartIds,
+    LiftSlabVoid,
+    ServedLevel,
+} from './LiftAssembly';
+
 // ── Stores ───────────────────────────────────────────────────────────────────
 export { LiftStore } from './LiftStore';
 export { LiftTypeStore } from './LiftTypeStore';
