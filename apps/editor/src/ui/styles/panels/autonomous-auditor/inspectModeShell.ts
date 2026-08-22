@@ -65,7 +65,7 @@ export const INSPECT_MODE_STYLES = `
 .ins-lens-bar {
   position: absolute;
   bottom: 16px;
-  left: 50%;
+  left: var(--shell-canvas-cx, 50%);
   transform: translateX(-50%);
   display: flex;
   flex-direction: row;
@@ -111,7 +111,7 @@ export const INSPECT_MODE_STYLES = `
 .ins-explode-bar {
   position: absolute;
   bottom: 62px;
-  left: 50%;
+  left: var(--shell-canvas-cx, 50%);
   transform: translateX(-50%);
   display: flex;
   flex-direction: row;
@@ -192,30 +192,44 @@ export const INSPECT_MODE_STYLES = `
   white-space: nowrap;
 }
 
-/* ── Inspect mode: shift all floating toolbars to the left 50% canvas ────────
-   When the INSPECT panel occupies the right 50%, every floating bar is
-   re-centred over the left canvas so nothing overlaps the panel.
-   • .wmb-toplevel-wrapper — Author/Inspect/Data tab bar (position: fixed)
-   • .bam-container        — Stacked/Ghost/Area toolbar  (position: fixed)
-   • .ins-lens-bar         — Ghost/Area/Openings lens bar (position: absolute → fixed)
-   • .ins-explode-bar      — Stacked/Exploded/Solo bar   (position: absolute → fixed) */
-body.pryzm-mode-inspect .wmb-toplevel-wrapper {
-  left: 25%;
-}
+/* ── §SHELL-FLOAT-BUDGET (L-4010..L-4016) — THIS BLOCK USED TO BE FOUR RULES ──
+   It read:
 
-body.pryzm-mode-inspect .bam-container {
-  left: 25%;
-}
+     body.pryzm-mode-inspect  .wmb-toplevel-wrapper   ->  left: 25%
+     body.pryzm-mode-inspect  .bam-container          ->  left: 25%
+     body.pryzm-mode-inspect  .ins-lens-bar           ->  fixed, left 25%, bottom 16px
+     body.pryzm-mode-inspect  .ins-explode-bar        ->  fixed, left 25%, bottom 62px
 
+   (written with arrows, not braces: the spec arms find a rule by matching the
+   selector followed by a brace, so a comment in that shape IS the first match -
+   which is how the first draft of this lane's own test failed.)
+
+   Four rules for four bars, in ONE mode. Analysis is also a half-canvas mode and
+   had exactly ONE of the four (L-3601, and only after the founder reported the
+   sliced subtitle); '.ceb-bar' — the editor toolbar he was actually looking at —
+   had none in either. FIVE of the eight cells were written and three were not,
+   which is what a per-(mode x bar) rule set always converges to.
+
+   ⭐ The 'left' half is now ONE published number. Every bar above declares
+   'left: var(--shell-canvas-cx, 50%)' and 'WorkspaceController._applyLayout()'
+   writes it from the 'canvas' column of WORKSPACE_MODES. Adding a half-canvas
+   mode is a ROW (ADR-0343 §D.1). Nothing here names a bar and nothing there
+   names a mode.
+
+   ⛔ WHAT SURVIVES, AND WHY IT IS NOT THE SAME THING. These two bars are
+   'position: absolute' in their own right — they float INSIDE a container in
+   Author mode. Inspect promotes them to 'position: fixed' and re-anchors their
+   'bottom' so they clear the Inspect HUD stack. That is a POSITIONING-MODEL
+   change, not a horizontal budget, and folding it into '--shell-canvas-cx'
+   would make one variable mean two unrelated things. It stays mode-keyed and
+   stays here, beside the bars it belongs to. */
 body.pryzm-mode-inspect .ins-lens-bar {
   position: fixed;
-  left: 25%;
   bottom: 16px;
 }
 
 body.pryzm-mode-inspect .ins-explode-bar {
   position: fixed;
-  left: 25%;
   bottom: 62px;
 }
 `;

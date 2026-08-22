@@ -162,6 +162,34 @@ export class WorkspaceController {
     // (restoreFromStorage validates), but if it ever did, treating it as 'full'
     // leaves the user with a working viewport rather than a blank screen.
     const def = getWorkspaceMode(this._mode);
+
+    // §SHELL-FLOAT-BUDGET (L-4010..L-4016) — PUBLISH THE CANVAS REGION, and it is
+    // the ONE place a half-canvas mode is accounted for by the floating chrome.
+    //
+    // ⛔ WHAT THIS REPLACES. Every canvas-anchored bar in the shell is
+    // `position: fixed; left: 50%; translateX(-50%)`, and in a half-canvas mode
+    // `left: 50%` IS the right-hand panel's left edge — so each one drew its
+    // right half onto the panel. The escape had been hand-written once per
+    // (mode × bar): FOUR rules in `inspectModeShell.ts` and ONE in
+    // `analysisSurface.ts` (L-3601), covering 5 of the 8 cells those two modes
+    // and four bars make. The bar the founder actually reported — `.ceb-bar`,
+    // the editor toolbar — was in NEITHER list, which is why the ANALYSIS header
+    // was still occluded after L-3601 moved the mode bar out of the way.
+    //
+    // ⭐ DERIVED FROM THE REGISTRY, so a new half-canvas mode is a ROW and not a
+    // sixth CSS rule (ADR-0343 §D.1 — the same reason §WORKSPACE-MODE-REGISTRY
+    // collapsed the mode LIST into a table). The bars consume
+    // `var(--shell-canvas-cx)`; none of them names a mode, and none of them
+    // needs editing when a mode is added.
+    //
+    // `canvas: 'hidden'` (Data) keeps the viewport centre ON PURPOSE: there is no
+    // canvas to centre on, and the mode bar must stay reachable over the
+    // full-width workbench or the mode cannot be left. Stated here rather than
+    // left as a silent `else`, because it is a decision, not a default.
+    const half = def?.canvas === 'half';
+    document.body.style.setProperty('--shell-canvas-cx', half ? '25%' : '50%');
+    document.body.style.setProperty('--shell-canvas-w', half ? '50vw' : '100vw');
+
     if (canvas) {
       switch (def?.canvas ?? 'full') {
         case 'full':   canvas.style.display = 'block'; canvas.style.width = '';    break;

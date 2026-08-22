@@ -6,10 +6,27 @@
  */
 export const CEB_STYLES = `
     /* ─── Contextual Edit Bar shell ──────────────────────────────────── */
+    /* §SHELL-FLOAT-BUDGET (L-4010) - THIS BAR IS THE FOUNDER'S OCCLUDER.
+       Measured 2026-08-22: 'top: 56px' with 30px circular '.ceb-btn' children,
+       so it occupies y = 56..86 across the middle of the VIEWPORT. In a
+       half-canvas mode 'left: 50%' is the right-hand panel's own left edge, so
+       its right half landed on the ANALYSIS title and sliced the subtitle
+       'Every figure traceable to elements'. The Analysis header reserve is 44px,
+       derived from occluders that bottom out at y=36 - it never had a chance of
+       clearing this one, and growing it to 94px would have surrendered a fifth
+       of the panel to a bar that simply should not be there.
+       It was in NEITHER hand-written re-centre list: 'inspectModeShell.ts' names
+       four bars and 'analysisSurface.ts' names one, and this is not among the
+       five. It now centres on the CANVAS region instead of the viewport, which
+       is what it always meant - the bar acts on a canvas SELECTION.
+       The max-width is a hard stop, not a nicety: the row grows with the
+       element type ('.ceb-btn--wall-only' and friends), so centring alone
+       leaves it able to cross the panel edge at a narrow viewport. */
     .ceb-bar {
         position: fixed;
         top: 56px;
-        left: 50%;
+        left: var(--shell-canvas-cx, 50%);
+        max-width: calc(var(--shell-canvas-w, 100vw) - 32px);
         transform: translateX(-50%) translateY(-8px);
         opacity: 0;
         pointer-events: none;

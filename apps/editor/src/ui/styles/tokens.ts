@@ -17,6 +17,47 @@ export const DESIGN_TOKENS = `
            injection-time transform like every other length, so this variable is
            reporting, not a second source of truth: read it, never re-derive it. */
         --app-ui-scale:       ${UI_SCALE};
+
+        /* ═══════════════════════════════════════════════════════════════════
+           §SHELL-FLOAT-BUDGET (L-4010..L-4016) — THE CANVAS REGION, PUBLISHED
+           AS TWO NUMBERS. These are the only two facts every floating,
+           canvas-anchored bar needs, and they are the ONE place a half-canvas
+           mode is accounted for.
+           ═══════════════════════════════════════════════════════════════════
+
+           ⛔ THE DEFECT, MEASURED 2026-08-22. The shell floats a dozen bars at
+           'position: fixed; left: 50%; translateX(-50%)'. In a HALF-canvas mode
+           'left: 50%' is the right-hand PANEL's own left edge, so every one of
+           them draws its right half onto the panel. The escape had been written
+           by hand, once per (mode x bar):
+
+             body.pryzm-mode-inspect  .wmb-toplevel-wrapper { left: 25% }
+             body.pryzm-mode-inspect  .bam-container        { left: 25% }
+             body.pryzm-mode-inspect  .ins-lens-bar         { left: 25% }
+             body.pryzm-mode-inspect  .ins-explode-bar      { left: 25% }
+             body.pryzm-mode-analysis .wmb-toplevel-wrapper { left: 25% }   (L-3601)
+
+           FIVE rules for TWO modes and FOUR bars, i.e. three of the eight cells
+           were simply missing — and the bar in the founder's screenshot,
+           '.ceb-bar' (the editor toolbar: undo, redo, move, copy, delete and the
+           drafting icons), was in NEITHER list. It is 'top: 56px' with 30px
+           circular buttons, so it reaches y=86 — while the Analysis header
+           reserve is 44px, derived from occluders that bottom out at y=36. That
+           is the founder's still-sliced 'Every figure traceable to elements'.
+
+           ⭐ ONE OWNED BUDGET, NOT A FIFTH PER-PANEL RESERVE. A reserve is the
+           panel apologising for the shell; it has been added four times and the
+           fifth would have been the hand-copy defect this repo keeps paying for.
+           Instead the SHELL states where the canvas is and every bar centres on
+           THAT. 'WorkspaceController._applyLayout()' writes both properties from
+           the 'canvas' column of WORKSPACE_MODES — so a new half-canvas mode is a
+           ROW (ADR-0343 §D.1), not a sixth CSS rule.
+
+           ⚠ 'canvas: hidden' (Data mode) keeps 50%/100vw deliberately: there is
+           no canvas to centre on, and the mode bar MUST stay reachable over the
+           full-width workbench or the mode cannot be left. */
+        --shell-canvas-cx:   50%;
+        --shell-canvas-w:    100vw;
         --app-bg:            #e8edf6;
         --app-panel-bg:      #ffffff;
         /* §UX1-CONFIRM-GLASS — the translucent panel surface and its blur, declared

@@ -29,6 +29,9 @@ const STYLES = join(REPO, 'apps/editor/src/ui/styles');
 const ANALYSIS = readFileSync(join(STYLES, 'panels/analysisSurface.ts'), 'utf8');
 const MODEBAR = readFileSync(join(STYLES, 'panels/platform-shell/workspaceModeBar.ts'), 'utf8');
 const PRESENCE = readFileSync(join(STYLES, 'panels/collaborativePresence.ts'), 'utf8');
+const CEB = readFileSync(join(STYLES, 'panels/platform-shell/contextualEditBar.ts'), 'utf8');
+const TOKENS = readFileSync(join(STYLES, 'tokens.ts'), 'utf8');
+const CONTROLLER = readFileSync(join(REPO, 'apps/editor/src/ui/WorkspaceController.ts'), 'utf8');
 
 /** The declaration block of `selector`, or '' — good enough for these flat sheets. */
 function rule(src: string, selector: string): string {
@@ -62,40 +65,92 @@ function headerReserve(): number {
 }
 
 describe('§ANALYSIS-HEADER-OCCLUDED — the inputs the reserve was derived from', () => {
-  it('the mode-bar wrapper is still fixed at the top, centred on the viewport', () => {
-    // ⭐ THIS is the occluder. `left: 50%` is the Analysis panel's left edge, so
-    // the wrapper's right half lands on the panel — that is the sliced subtitle.
-    const wrapper = rule(MODEBAR, '.wmb-toplevel-wrapper {');
-    expect(wrapper).toContain('position: fixed');
-    expect(px(wrapper, 'top'), 'the mode bar moved — recompute the reserve').toBe(6);
-    expect(wrapper).toContain('left: 50%');
+  /**
+   * ⚠ THE DERIVATION CHANGED ON 2026-08-22 AND THE NUMBER DID NOT.
+   *
+   * It used to be `max(mode-bar bottom 36, presence-strip bottom 36) + 8`. That
+   * census MISSED the occluder the founder was actually looking at — `.ceb-bar`,
+   * the editor toolbar, at `top: 56px` with 30px buttons, i.e. bottom edge 86.
+   * L-3601 re-centred the MODE BAR and his screenshot was unchanged, because the
+   * mode bar was never what sat on the title.
+   *
+   * §SHELL-FLOAT-BUDGET (L-4010..L-4016) moves every canvas-anchored bar onto
+   * the canvas half, so all of them now contribute ZERO. The only remaining
+   * occluder is `.cp-presence-strip`, which is anchored to the viewport's RIGHT
+   * edge — the same edge as this panel's — and therefore cannot be budgeted at
+   * all. 36 + 8 = 44, unchanged, for one reason instead of two.
+   *
+   * ⛔ SO THE ARMS BELOW CHANGED SHAPE. The mode-bar arm no longer pins its
+   * geometry; it pins that it is BUDGETED. If a bar leaves the budget it becomes
+   * an occluder again and this file must be re-derived — which is exactly what
+   * the previous version of this comment failed to notice about `.ceb-bar`.
+   */
+  it('⭐ the CANVAS-ANCHORED bars are BUDGETED, so they contribute 0', () => {
+    // The claim the reserve now rests on. Each of these was, or would have
+    // been, an occluder of this panel; each now centres on the canvas region.
+    for (const [label, src, sel] of [
+      ['mode bar', MODEBAR, '.wmb-toplevel-wrapper {'],
+      ['contextual edit bar', CEB, '.ceb-bar {'],
+    ] as const) {
+      const block = rule(src, sel);
+      expect(block, `${label} rule not found`).toContain('position: fixed');
+      expect(block, `${label} left the float budget — re-derive the reserve`).toContain(
+        'left: var(--shell-canvas-cx',
+      );
+      expect(block, `${label} still centres on the viewport`).not.toMatch(/(?:^|;|\s)left:\s*50%/);
+    }
   });
 
-  it('the mode-bar button metrics the 36px figure came from are unchanged', () => {
-    const bar = rule(MODEBAR, '.wmb-bar {');
-    const btn = rule(MODEBAR, '.wmb-btn {');
-    expect(bar).toContain('padding: 3px');
-    expect(btn).toContain('padding: 5px 13px');
-    expect(btn).toContain('font-size: 10.8px');
+  it('the budget is DECLARED with a default and PUBLISHED from the mode registry', () => {
+    // A `var(--x)` with no declaration renders as its fallback forever and the
+    // publisher is what makes the fallback ever change. Both halves or neither.
+    expect(TOKENS).toMatch(/--shell-canvas-cx:\s*50%/);
+    expect(TOKENS).toMatch(/--shell-canvas-w:\s*100vw/);
+    expect(CONTROLLER).toContain("setProperty('--shell-canvas-cx'");
+    expect(CONTROLLER).toContain("setProperty('--shell-canvas-w'");
+    // Derived from the registry row, not from a mode name (ADR-0343 §D.1).
+    expect(CONTROLLER).toMatch(/const half = def\?\.canvas === 'half'/);
+  });
+
+  it('⛔ the CEB was the MISSED occluder — its geometry is why 44 was never enough', () => {
+    // Kept as a live measurement rather than prose: if the CEB ever leaves the
+    // budget, the arm above fails AND these numbers say what the reserve would
+    // have to become (56 + 30 + 8 = 94px, a fifth of the panel).
+    const bar = rule(CEB, '.ceb-bar {');
+    expect(px(bar, 'top'), 'the CEB moved — re-check the arm above').toBe(56);
+    const btn = rule(CEB, '.ceb-btn {');
+    expect(px(btn, 'height'), 'the CEB button height moved').toBe(30);
+    expect(56 + 30).toBeGreaterThan(44); // the whole of the founder's report
   });
 
   it('the presence strip is still fixed at the panel top-RIGHT, 28px tall', () => {
-    // The other occluder, and the one over `+ Add widget` / refresh / reset / info.
+    // ⭐ THE ONLY REMAINING OCCLUDER, and the reason the reserve survives the
+    // budget: `right: 8px` is measured from the viewport's right edge, which IS
+    // this panel's right edge. There is no canvas on that side to re-centre it
+    // over, so no horizontal budget can move it. It sits over `+ Add widget` /
+    // refresh / reset / info.
     const strip = rule(PRESENCE, '.cp-presence-strip {');
     expect(strip).toContain('position: fixed');
     expect(px(strip, 'top'), 'the presence strip moved — recompute the reserve').toBe(8);
+    expect(strip, 'the presence strip is no longer right-anchored — re-derive').toMatch(
+      /right:\s*8px/,
+    );
     expect(px(rule(PRESENCE, '.cp-chip {'), 'height')).toBe(28);
   });
 
-  it('⛔ the reserve clears the LOWEST edge of both occluders', () => {
-    // mode bar 6 + (3 + 5 + 14 + 5 + 3) = 36 · presence 8 + 28 = 36.
-    const lowest = Math.max(6 + 3 + 5 + 14 + 5 + 3, 8 + 28);
+  it('⛔ the reserve clears the lowest edge of every UNBUDGETED occluder', () => {
+    // ONE occluder now: presence 8 + 28 = 36. The mode-bar term that used to
+    // share this max is budgeted and gone.
+    const lowest = 8 + 28;
     expect(lowest).toBe(36);
     expect(headerReserve(), 'the Analysis header draws inside shell chrome').toBeGreaterThanOrEqual(lowest);
   });
 
-  it('the 768px breakpoint reserve clears the TALLER mobile mode bar', () => {
-    // `.wmb-btn { min-height: 36px }` inside `@media (max-width: 768px)`.
+  it('the 768px breakpoint reserve stays sized for the UN-budgeted mode bar', () => {
+    // ⚠ DELIBERATE, and disclosed rather than tidied: at phone width the
+    // half-canvas modes collapse, so the budget stops separating the two halves
+    // and the mobile arm must still clear the taller mode bar. A floor, not a
+    // contradiction. `.wmb-btn { min-height: 36px }` inside the 768px media.
     const mobileBtn = /@media \(max-width: 768px\)[\s\S]*?\.wmb-btn \{([^}]*)\}/.exec(MODEBAR)?.[1] ?? '';
     expect(px(mobileBtn, 'min-height'), 'the mobile mode bar changed height').toBe(36);
     const lowestMobile = 6 + 3 + 36 + 3;

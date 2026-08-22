@@ -6,10 +6,12 @@
  */
 export const TOOL_HUD_STYLES = `
     /* ── Overlay container — compact single-line pill bar ───────────────── */
+    /* §SHELL-FLOAT-BUDGET (L-4010) - canvas-anchored, so it centres on the
+       CANVAS region. None of these four bars had a re-centre rule in any mode. */
     .th-overlay {
         position: fixed;
         bottom: var(--th-overlay-bottom, 34px);
-        left: 50%;
+        left: var(--shell-canvas-cx, 50%);
         transform: translateX(-50%);
         transition: bottom 0.22s cubic-bezier(0.34,1.56,0.64,1);
         z-index: 99999;
@@ -237,7 +239,7 @@ export const TOOL_HUD_STYLES = `
     .th-pill {
         position: fixed;
         bottom: var(--th-overlay-bottom, 34px);
-        left: 50%;
+        left: var(--shell-canvas-cx, 50%);
         transition: bottom 0.22s cubic-bezier(0.34,1.56,0.64,1);
         transform: translateX(-50%);
         background: var(--app-gradient);
@@ -261,7 +263,7 @@ export const TOOL_HUD_STYLES = `
     .th-status-pill {
         position: fixed;
         bottom: 20px;
-        left: 50%;
+        left: var(--shell-canvas-cx, 50%);
         transform: translateX(-50%);
         background: rgba(26, 32, 53, 0.88);
         backdrop-filter: blur(8px);
@@ -281,7 +283,7 @@ export const TOOL_HUD_STYLES = `
     .th-dim-overlay {
         position: fixed;
         bottom: 165px;
-        left: 50%;
+        left: var(--shell-canvas-cx, 50%);
         transform: translateX(-50%);
         background: rgba(15, 20, 40, 0.93);
         color: #fff;
@@ -348,7 +350,7 @@ export const STAIR_PATH_TOOL_STYLES = `
     .spt-hud {
         position: fixed;
         bottom: 40px;
-        left: 50%;
+        left: var(--shell-canvas-cx, 50%);
         transform: translateX(-50%);
         z-index: 99999;
         display: flex;
@@ -442,7 +444,7 @@ export const STAIR_PATH_TOOL_STYLES = `
     .spt-params {
         position: fixed;
         bottom: 88px;
-        left: 50%;
+        left: var(--shell-canvas-cx, 50%);
         transform: translateX(-50%);
         z-index: 99998;
         display: flex;

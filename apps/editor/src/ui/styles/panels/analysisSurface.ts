@@ -54,21 +54,27 @@ export const ANALYSIS_SURFACE_STYLES = `
    §ANALYSIS-HEADER-OCCLUDED (L-3600)
    ═══════════════════════════════════════════════════════════════════════════
 
-   ⛔ THE DEFECT, MEASURED 2026-08-22. '#anl-surface' is 'position: fixed; top:
-   0' at 'z-index: 50'. Two pieces of always-on shell chrome are ALSO fixed at
-   the top of the viewport, at a FAR higher z-index, and both of them reach into
-   the right-hand half this panel owns:
+   ⛔ THE DEFECT, MEASURED 2026-08-22, AND THE CENSUS OF IT WAS WRONG TWICE.
+   '#anl-surface' is 'position: fixed; top: 0' at 'z-index: 50'. Always-on shell
+   chrome is ALSO fixed at the top of the viewport, at a FAR higher z-index, and
+   reaches into the right-hand half this panel owns. The FIRST census named two:
 
-     .wmb-toplevel-wrapper  top: 6px  left: 50%  translateX(-50%)  z-index: 200
-         (SaveUndoRedoHUD + Author|Inspect|Analysis|Data + the level pill).
-         Centred on 50% of the VIEWPORT — which is exactly this panel's left
-         edge — so its right half lands on the panel's title, subtitle and the
-         start of the tab strip. That is the sliced subtitle in the report.
-         styles/panels/platform-shell/workspaceModeBar.ts:9-19
-     .cp-presence-strip     top: 8px  right: 8px                  z-index: 9990
-         Collaborator chips, 28 px tall, in the panel's top-RIGHT corner —
+     .wmb-toplevel-wrapper  top: 6px   z-index: 200   -> bottom edge y = 36
+         (SaveUndoRedoHUD + Author|Inspect|Analysis|Data + the level pill)
+         styles/panels/platform-shell/workspaceModeBar.ts
+     .cp-presence-strip     top: 8px  right: 8px  z-index: 9990  -> y = 36
+         Collaborator chips, 28 px tall, in the panel's top-RIGHT corner --
          where '+ Add widget' / refresh / reset / info live.
          styles/panels/collaborativePresence.ts:21-46
+
+   ⭐ IT MISSED THE ONE THE FOUNDER WAS LOOKING AT. '.ceb-bar' -- the editor
+   toolbar: undo, redo, move, copy, delete and the drafting icons -- is
+   'position: fixed; top: 56px' at z-index 8990 with 30px circular '.ceb-btn'
+   children, so it occupies y = 56..86. A 44px reserve derived from occluders
+   that bottom out at 36 never had a chance of clearing it. L-3601 moved the
+   MODE BAR out of the way and the founder's screenshot was unchanged, because
+   the mode bar was not what was on the title.
+   platform-shell/contextualEditBar.ts:9-20
 
    ⚠ NOT AN OCCLUDER, and it was the first suspect: '.plat-toolbar' (fixed, top:
    0, left: 50%, z-index 9000). It is DETACHED FROM THE DOCUMENT — §L-MOUNT-DETACH,
@@ -76,26 +82,27 @@ export const ANALYSIS_SURFACE_STYLES = `
    cannot overlap anything. C01 §6 rule 6: ABSENT and UNREACHABLE have opposite
    fixes, and this one is absent.
 
-   ⭐ HOW INSPECT AVOIDS IT, and why this fix is different. Inspect re-centres the
-   floating bars over the left canvas half —
-   'body.pryzm-mode-inspect .wmb-toplevel-wrapper { left: 25% }'
-   (autonomous-auditor/inspectModeShell.ts:202). Analysis has no equivalent
-   because 'WorkspaceController._applyLayout()' toggles ONLY
-   'pryzm-mode-inspect'; there is no 'pryzm-mode-analysis' body class to hang the
-   rule on. That is the RIGHT fix and it belongs to the shell, not here (L-3601,
-   handed over rather than reached for).
+   ⭐ THE FIX IS THE SHELL'S, AND IT IS NOT A FIFTH RESERVE. §SHELL-FLOAT-BUDGET
+   (L-4010..L-4016) publishes '--shell-canvas-cx' from the 'canvas' column of
+   WORKSPACE_MODES; every canvas-anchored bar -- the mode bar, the CEB, the
+   bottom action menu, the drawing and stair HUDs, the tool-HUD pills, the
+   Inspect lens and explode bars -- centres on THAT instead of on the viewport.
+   In a half-canvas mode they are all over the canvas half and NONE of them
+   reaches this panel. That replaced five hand-written 'left: 25%' rules, of
+   which the L-3601 one used to live at the bottom of this very file.
 
-   So this panel does the half it can do alone, and it is the stronger half: it
-   REFUSES TO DRAW ANYTHING IN A BAND THE SHELL HAS ALREADY CLAIMED. That holds
-   whatever the shell later floats there, and it does not depend on a second
-   file staying in step.
-
-   THE NUMBER. Lowest edge of the two occluders, measured from their own sheets:
-     mode bar   6 + (3 + 24 + 3)  = 36 px   [wmb-bar padding 3, wmb-btn 5+14+5]
-     presence   8 + 28            = 36 px
-   Reserve = 36 + 8 clearance = 44 px. At the 768 px breakpoint '.wmb-btn' takes
-   'min-height: 36px', so the bar is 42 px and the reserve becomes 56 px.
-   ⚠ Those inputs are PINNED by analysisHeaderReserve.spec.ts — move one of them
+   THE NUMBER, AND WHAT IT NOW MEANS. The reserve is still 44px and it is now a
+   ONE-OCCLUDER reserve:
+     mode bar / CEB / HUDs               BUDGETED -- contribute 0
+     .cp-presence-strip  8 + 28  = 36 px  ANCHORED RIGHT -- cannot be budgeted
+   'right: 8px' is measured from the viewport's right edge, which IS this panel's
+   right edge; there is no canvas on that side to re-centre it over, so a
+   horizontal budget cannot touch it. Reserve = 36 + 8 clearance = 44 px.
+   At the 768 px breakpoint the reserve stays 56 px, sized for the taller mobile
+   mode bar -- deliberately kept: on a phone-width viewport the half-canvas modes
+   collapse and the budget stops separating the two halves, so the mobile arm
+   remains sized for the un-budgeted case. That is a floor, not a contradiction.
+   ⚠ Those inputs are PINNED by analysisHeaderReserve.spec.ts -- move one of them
    and the test names this block, rather than the panel silently re-breaking.
    ⛔ NOT a custom property: ARM C of §PANEL-BRAND-STANDARD resolves every
    'var(--x)' in this sheet against tokens.ts, and a sheet-local property is
@@ -938,23 +945,35 @@ export const ANALYSIS_SURFACE_STYLES = `
 .anl-std-picker { display: flex; flex-direction: column; gap: 6px; }
 
 
-/* -- §MODE-BODY-CLASS-FOR-EVERY-MODE (L-3601) -------------------------------
-   The shell's mode bar is 'position: fixed; left: 50%'. In a HALF-canvas mode
-   'left: 50%' is this panel's own left edge, so the bar drew on top of the
-   Analysis header -- the founder's sliced 'Every figure traceable to elements'
-   subtitle, exactly. Inspect has escaped this since its own sheet added
-   'body.pryzm-mode-inspect .wmb-toplevel-wrapper { left: 25% }'; Analysis could
-   not, because no 'pryzm-mode-analysis' body class existed to hang a rule on.
-   WorkspaceController now emits one per registry row, so this is the matching
-   half.
-   ⚠ This does NOT retire the header reserve above. It moves the MODE BAR only.
-   '.cp-presence-strip' is 'top: 8px; right: 8px' at z-9990 and still reaches the
-   four header buttons on the RIGHT -- a left-edge rule cannot touch it. Removing
-   the reserve because the subtitle stopped being sliced would re-break the
-   buttons, which is a different occluder with a different geometry.
+/* -- §MODE-BODY-CLASS-FOR-EVERY-MODE (L-3601) SUPERSEDED BY
+   §SHELL-FLOAT-BUDGET (L-4010..L-4016), 2026-08-22 -------------------------
+
+   This file used to end with:
+
+       body.pryzm-mode-analysis .wmb-toplevel-wrapper { left: 25%; }
+
+   It was correct and it was the SIXTH copy of one idea. 'inspectModeShell.ts'
+   carried four of the same shape; this was the fifth; and the bar the founder
+   was actually looking at -- '.ceb-bar', the editor toolbar with undo, redo,
+   move, copy, delete and the drafting icons -- had none, in either mode. That
+   is why the ANALYSIS header was STILL occluded after L-3601 moved the mode bar
+   out of the way: the wrong occluder had been moved.
+
+   The shell now publishes '--shell-canvas-cx' from the 'canvas' column of
+   WORKSPACE_MODES and every canvas-anchored bar centres on it. A half-canvas
+   mode is a ROW (ADR-0343 §D.1); this panel writes NO rule about anybody else's
+   bar, which is the point -- a panel that has to re-position the shell's chrome
+   is a panel doing the shell's accounting.
+
+   ⚠ THE 44px RESERVE ON '.anl-header' STAYS, AND ITS DERIVATION HAS CHANGED.
+   It was 'max(mode bar bottom 36, presence strip bottom 36) + 8'. The mode bar
+   is now budgeted and contributes NOTHING. '.cp-presence-strip' is
+   'top: 8px; right: 8px' -- anchored to the RIGHT EDGE, which no horizontal
+   budget can move, because there is no canvas on that side to move it to. It
+   still lands on the four header buttons at 8 + 28 = 36, so the reserve is
+   still 36 + 8 = 44. THE NUMBER IS UNCHANGED AND THE REASON IS NOT: it is now
+   a one-occluder reserve. 'analysisHeaderReserve.spec.ts' derives it, and the
+   arm that used to pin the mode bar now pins that the mode bar is BUDGETED.
    NO BACKTICKS IN THIS BLOCK: it lives inside a template literal. */
-body.pryzm-mode-analysis .wmb-toplevel-wrapper {
-  left: 25%;
-}
 
 `;

@@ -6,10 +6,13 @@
  */
 export const WALL_DRAWING_HUD_STYLES = `
     /* ── HUD bar — centered at the top of the scene ─────────────── */
+    /* §SHELL-FLOAT-BUDGET (L-4010) - the drawing HUD sits at y = 68.. and had
+       no re-centre rule in ANY mode, so it drew straight onto a half-canvas
+       panel whenever a draw tool was armed. */
     .wdh-bar {
         position: fixed;
         top: 68px;
-        left: 50%;
+        left: var(--shell-canvas-cx, 50%);
         transform: translateX(-50%);
         z-index: 9500;
         display: flex;
@@ -132,7 +135,7 @@ export const WALL_DRAWING_HUD_STYLES = `
     .bsp-overlay {
         position: fixed;
         top: 68px;
-        left: 50%;
+        left: var(--shell-canvas-cx, 50%);
         transform: translateX(-50%);
         z-index: 9600;
         display: flex;
@@ -180,10 +183,16 @@ export const WALL_DRAWING_HUD_STYLES = `
        ═══════════════════════════════════════════════════════════════ */
 
     /* Outer container — fixed bottom-center, PRYZM light palette */
+    /* §SHELL-FLOAT-BUDGET (L-4010) - replaces a hand-written override keyed on
+       'pryzm-mode-inspect' that re-anchored this bar to 25%. Inspect had the
+       rule; Analysis did not, so the bottom action menu overlapped the Analysis
+       panel's lower half in exactly the way the mode bar overlapped its top.
+       ⚠ No selector-plus-brace in these notes: the spec arms locate a rule by
+       indexOf/regex on the selector, so such a comment IS the first match. */
     .bam-container {
         position: fixed;
         bottom: 6px;
-        left: 50%;
+        left: var(--shell-canvas-cx, 50%);
         transform: translateX(-50%);
         z-index: 9000;
         pointer-events: auto;
@@ -522,7 +531,7 @@ export const STAIR_SETUP_PANEL_STYLES = `
     .stsp-panel {
         position: fixed;
         top: 64px;
-        left: 50%;
+        left: var(--shell-canvas-cx, 50%);
         transform: translateX(-50%);
         z-index: 9010;
         display: flex;
@@ -899,10 +908,11 @@ export const STAIR_SETUP_PANEL_STYLES = `
 
 export const STAIR_HUD_STYLES = `
     /* ── HUD bar ─────────────────────────────────────────────────── */
+    /* §SHELL-FLOAT-BUDGET (L-4010) - stair HUD; no re-centre rule existed. */
     .sth-bar {
         position: fixed;
         bottom: 24px;
-        left: 50%;
+        left: var(--shell-canvas-cx, 50%);
         transform: translateX(-50%);
         z-index: 8900;
         display: flex;
