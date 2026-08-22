@@ -178,6 +178,11 @@ export {
     resolveOutput, resolveWithSourceChain,
 } from './presentation/IntentRuleResolver.js';
 
+// §SYMBOL-INJECTORS-VS-INTENT (L-3903) — the ONE seam every symbol injector's CALLER
+// uses to ask whether an element family may draw in this view. See SymbolInjectionGate.ts.
+export { makeSymbolInjectionGate } from './presentation/SymbolInjectionGate.js';
+export type { SymbolInjectionGate } from './presentation/SymbolInjectionGate.js';
+
 export type { StyleResolverContext, GraphicsRule } from './drawing/GraphicsRulesEngine.js';
 export {
     RULE_PRIORITY_SYSTEM, RULE_PRIORITY_CATEGORY, RULE_PRIORITY_INTENT,

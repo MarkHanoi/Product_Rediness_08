@@ -55,6 +55,7 @@ import {
     viewDefinitionStore,
     vgGovernanceStore,
     registerSegmentUUID,
+    makeSymbolInjectionGate,
 } from '@pryzm/core-app-model';
 
 /** A colour no template, pen table or system intent in the repo can produce by accident. */
@@ -303,4 +304,74 @@ describe('§SYMBOL-INJECTORS-VS-INTENT — does the Visibility Intent panel reac
             });
         });
     }
+});
+
+/**
+ * §SYMBOL-INJECTORS-VS-INTENT (L-3903) — THE GATE THE FIFTEEN INJECTORS ARE ROUTED THROUGH.
+ *
+ * CENSUS, measured 2026-08-22 with
+ *   grep -icE "visibilityIntent|intent|isVisible|categoryVisible|vgOverride" <file>
+ * over all fifteen `*SymbolBuilder*` / `*SymbolTechnicalDrawingBridge*` files under
+ * `packages/geometry-*` and `packages/core-app-model/src/drawing/`:  **0 of 15**.
+ *
+ * The fail-open cases are the load-bearing half. A gate that closed on a missing
+ * intent would silently delete authored linework from every drawing in an unbound
+ * view — strictly worse than the unconditional injection it replaces.
+ */
+describe('§SYMBOL-INJECTORS-VS-INTENT — makeSymbolInjectionGate (L-3903)', () => {
+    const GATE_VIEW = 'v-l3903-gate';
+
+    beforeEach(() => {
+        visibilityIntentStore.reset();
+        viewIntentInstanceStore.reset();
+        viewDefinitionStore.reset();
+        viewDefinitionStore.create({ id: GATE_VIEW, name: GATE_VIEW, viewType: 'plan' } as never);
+    });
+
+    afterEach(() => {
+        visibilityIntentStore.reset();
+        viewIntentInstanceStore.reset();
+        viewDefinitionStore.reset();
+    });
+
+    it('CLOSES for a family the bound intent hides', () => {
+        makeIntent({
+            __default__: rule(),
+            furniture: rule({ visible: false, line: { colour: '#000000', opacity: 0, weight: 0, style: 'solid' } }),
+        });
+        viewIntentInstanceStore.assign(GATE_VIEW, INTENT_ID);
+        const gate = makeSymbolInjectionGate(GATE_VIEW, 'plan');
+        expect(gate('furniture')).toBe(false);
+    });
+
+    it('NEGATIVE CONTROL — hiding furniture does not close the gate on doors', () => {
+        makeIntent({
+            __default__: rule(),
+            furniture: rule({ visible: false, line: { colour: '#000000', opacity: 0, weight: 0, style: 'solid' } }),
+            door: rule(),
+        });
+        viewIntentInstanceStore.assign(GATE_VIEW, INTENT_ID);
+        const gate = makeSymbolInjectionGate(GATE_VIEW, 'plan');
+        expect(gate('door')).toBe(true);
+    });
+
+    it('OPENS for a visible family', () => {
+        makeIntent({ __default__: rule(), furniture: rule() });
+        viewIntentInstanceStore.assign(GATE_VIEW, INTENT_ID);
+        expect(makeSymbolInjectionGate(GATE_VIEW, 'plan')('furniture')).toBe(true);
+    });
+
+    it('FAILS OPEN when the view has no bound intent — absence of a decision is not a hide', () => {
+        expect(makeSymbolInjectionGate(GATE_VIEW, 'plan')('furniture')).toBe(true);
+    });
+
+    it('FAILS OPEN for an undefined viewId', () => {
+        expect(makeSymbolInjectionGate(undefined, 'plan')('furniture')).toBe(true);
+    });
+
+    it('FAILS OPEN for an empty element type', () => {
+        makeIntent({ __default__: rule() });
+        viewIntentInstanceStore.assign(GATE_VIEW, INTENT_ID);
+        expect(makeSymbolInjectionGate(GATE_VIEW, 'plan')('')).toBe(true);
+    });
 });

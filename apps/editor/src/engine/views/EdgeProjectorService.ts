@@ -49,6 +49,9 @@ import { resolveViewScope, resolveOcclusionDisposition } from '@pryzm/core-app-m
 import { BimManager } from '@pryzm/core-app-model';
 // Wave 11 / Stage S7 — per-IFC-type visibility veto.
 import { resolveBoundIntentWithInheritance } from '@pryzm/core-app-model';
+// §SYMBOL-INJECTORS-VS-INTENT (L-3903) — the ONE seam the fifteen symbol injectors
+// are gated by. The builders stay dumb; this CALLER decides. See SymbolInjectionGate.ts.
+import { makeSymbolInjectionGate } from '@pryzm/core-app-model';
 import {
     isElementTypeFullyHidden,
     normaliseIfcUserDataType,
@@ -3538,6 +3541,33 @@ export class EdgeProjectorService {
             // DO NOT call group.clear() — IFC groups are live scene objects (§02 §4.3 exception).
         }
 
+        // ── §SYMBOL-INJECTORS-VS-INTENT (L-3903) — ONE GATE FOR ALL FIFTEEN ───────
+        //
+        // Everything below this line injects AUTHORED 2D linework that has no mesh
+        // counterpart, so it never passed through the projection's own intent veto.
+        // MEASURED 2026-08-22, over all fifteen `*SymbolBuilder*` / `*Bridge*` files:
+        //   grep -icE "visibilityIntent|intent|isVisible|categoryVisible|vgOverride"
+        //   → 0 of 15. Not one consulted visibility intent; each gated on `levelId` alone.
+        //
+        // ⚠ THIS IS NOT THE FIX FOR "hidden furniture still renders" — that report is
+        // REFUTED at the canvas layer. `PlanViewCanvas.render()` already drops a hidden
+        // line twice (VG `resolved.visible`, then the intent's alpha-0 pen), proven by
+        // `visibilityIntentGovernsSymbolInjectors.test.ts` at `ctx.strokeStyle`. What
+        // unconditional injection actually costs is everything downstream of the canvas,
+        // where no alpha is applied: the drawing carries geometry for a switched-off
+        // category, `registerSegmentUUID` indexes it for selection (the pointer half is
+        // closed by §HIDDEN-IS-NOT-PICKABLE / L-3902), and the work is redone every
+        // re-projection for linework that cannot be seen.
+        //
+        // The gate is built HERE, not inside the builders: fifteen one-line guards is
+        // fifteen chances to drift (the `vgCategoryForLayer` divergence, the seven copies
+        // of L-1600), and it would push a DOMAIN concept (P7) into `packages/geometry-*`,
+        // which exist to do geometry maths. The builders stay dumb; the caller decides.
+        //
+        // FAILS OPEN by construction — an unbound view, a missing intent or a resolver
+        // throw all return `true`. Absence of a decision is not a hide.
+        const _symbolGate = makeSymbolInjectionGate(viewDef.id, viewDef.viewType);
+
         // ── DOC-2.5a: Door swing arc injection ────────────────────────────────
         // Door swing arcs have no 3D mesh counterpart — they are a 2D AEC convention
         // symbol computed from DoorStore + WallStore geometry. Injected here, after the
@@ -3547,17 +3577,17 @@ export class EdgeProjectorService {
             viewDef.viewType === 'detail' ||
             viewDef.viewType === 'structural-plan'
         ) {
-            doorPlanSymbolBuilder.inject(drawing, viewDef);
+            if (_symbolGate('door')) doorPlanSymbolBuilder.inject(drawing, viewDef);
             // Contract 48 §5: every sofa-part mesh tags userData.skipInPlan so its
             // beveled edges are excluded from the base projection above; this
             // injector replaces them with a clean architectural plan symbol on
             // the A-FURN layer (UUID-registered for selection).
-            sofaPlanSymbolBuilder.inject(drawing, viewDef);
+            if (_symbolGate('furniture')) sofaPlanSymbolBuilder.inject(drawing, viewDef);
             // Contract 48 §5 (extended for beds): same pattern — every bed-part
             // mesh (BedBuilder + BedEngine variants) tags skipInPlan so its
             // dense mattress / pillow / headboard wireframe is suppressed,
             // then this builder injects the clean AEC plan symbol on A-FURN.
-            bedPlanSymbolBuilder.inject(drawing, viewDef);
+            if (_symbolGate('furniture')) bedPlanSymbolBuilder.inject(drawing, viewDef);
             // §07-WARDROBE-VIEW-CONTRACT — same pattern for wardrobes:
             // WardrobeEngine, WardrobeCabinetEngine and WardrobeGlassBuilder
             // all tag their meshes with skipInPlan so the dense panel/door/
@@ -3565,7 +3595,7 @@ export class EdgeProjectorService {
             // clean architectural footprint (carcass + section dividers +
             // door swing symbols) onto A-FURN with UUID registration for
             // selection.  GLB wardrobes fall through to native projection.
-            wardrobePlanSymbolBuilder.inject(drawing, viewDef);
+            if (_symbolGate('furniture')) wardrobePlanSymbolBuilder.inject(drawing, viewDef);
             // Same pattern for chairs: every chair-part mesh built by
             // ChairBuilder (oak posts, three-leg splays, Cesca cantilever
             // frame, Barcelona tufts, etc.) tags `userData.skipInPlan = true`
@@ -3573,24 +3603,24 @@ export class EdgeProjectorService {
             // and this builder injects a clean minimalist plan symbol on
             // A-FURN — rounded seat outline + soft backrest arc + optional
             // armrest ticks — UUID-registered for selection.
-            chairPlanSymbolBuilder.inject(drawing, viewDef);
+            if (_symbolGate('furniture')) chairPlanSymbolBuilder.inject(drawing, viewDef);
             // §36-KITCHEN-CABINET-ELEMENT-CONTRACT §4 — kitchens get clean
             // architectural plan symbols (carcass per arm + section dividers
             // + per-unit door/drawer/glass/shelf/blank symbols + countertop
             // overhang line) injected onto A-FURN with UUID registration.
-            kitchenPlanSymbolBuilder.inject(drawing, viewDef);
+            if (_symbolGate('furniture')) kitchenPlanSymbolBuilder.inject(drawing, viewDef);
             // Parametric Outdoor Tree Library (25 species, Arbol T-01..T-25):
             // ParametricTreeEngine tags every mesh with skipInPlan so the
             // foliage cluster mesh-edge dump is suppressed, and this builder
             // injects the per-archetype architectural plan symbol (canopy
             // outline + ground-shadow offset + per-archetype crown pattern
             // + trunk dot) onto A-FURN with UUID registration for selection.
-            treePlanSymbolBuilder.inject(drawing, viewDef);
+            if (_symbolGate('furniture')) treePlanSymbolBuilder.inject(drawing, viewDef);
             // §FEAT-PLUMBING-PLAN-ELEV-SYMBOLS (L-221 P1) — plumbing fixtures tag
             // skipInPlan so their LOD400 mesh edges are suppressed above; this injects
             // the clean architectural plan symbol (bowl outline + cistern rectangle for
             // toilets, basin/tray/tub outlines for the rest) onto A-PLMB, UUID-registered.
-            plumbingPlanSymbolBuilder.inject(drawing, viewDef);
+            if (_symbolGate('plumbing')) plumbingPlanSymbolBuilder.inject(drawing, viewDef);
         }
 
         // ── Phase 6: Window frame symbol injection ─────────────────────────────
@@ -3602,7 +3632,7 @@ export class EdgeProjectorService {
             viewDef.viewType === 'detail' ||
             viewDef.viewType === 'structural-plan'
         ) {
-            windowPlanSymbolBuilder.inject(drawing, viewDef);
+            if (_symbolGate('window')) windowPlanSymbolBuilder.inject(drawing, viewDef);
         }
 
         // ── DOC-2.5c: Stair symbol bridge ─────────────────────────────────────
@@ -3616,7 +3646,7 @@ export class EdgeProjectorService {
             viewDef.viewType === 'detail' ||
             viewDef.viewType === 'structural-plan'
         ) {
-            stairSymbolTechnicalDrawingBridge.inject(drawing, viewDef);
+            if (_symbolGate('stair')) stairSymbolTechnicalDrawingBridge.inject(drawing, viewDef);
         }
 
         // ── DOC-2.5f: Roof slope arrows ────────────────────────────────────────
@@ -3627,7 +3657,7 @@ export class EdgeProjectorService {
             viewDef.viewType === 'detail' ||
             viewDef.viewType === 'structural-plan'
         ) {
-            this._roofSlopeSymbolBuilder?.inject(drawing, viewDef);
+            if (_symbolGate('roof')) this._roofSlopeSymbolBuilder?.inject(drawing, viewDef);
         }
 
         // ── DOC-2.5g: Column crosshair center marks ────────────────────────────
@@ -3638,7 +3668,7 @@ export class EdgeProjectorService {
             viewDef.viewType === 'detail' ||
             viewDef.viewType === 'structural-plan'
         ) {
-            columnPlanSymbolBuilder.inject(drawing, viewDef);
+            if (_symbolGate('column')) columnPlanSymbolBuilder.inject(drawing, viewDef);
         }
 
         // §FIX-PLAN-LAYERED-WALL-SYMBOL (L-62) — a LAYERED system type (e.g. "Interior –
@@ -3652,7 +3682,7 @@ export class EdgeProjectorService {
             viewDef.viewType === 'detail' ||
             viewDef.viewType === 'structural-plan'
         ) {
-            wallLayerPlanSymbolBuilder.inject(drawing, viewDef);
+            if (_symbolGate('wall')) wallLayerPlanSymbolBuilder.inject(drawing, viewDef);
         }
 
         // §FEAT-PLUMBING-PLAN-ELEV-SYMBOLS (L-221 P3) — elevation symbol injection.
@@ -3661,7 +3691,7 @@ export class EdgeProjectorService {
         // injects a clean silhouette + family profile onto A-PLMB. Runs BEFORE the
         // occlusion + HLR passes so injected linework is occlusion-tested like any other.
         if (isElevationView) {
-            plumbingElevationSymbolBuilder.inject(drawing, viewDef);
+            if (_symbolGate('plumbing')) plumbingElevationSymbolBuilder.inject(drawing, viewDef);
         }
 
         // §ELEV-SYMBOL-OPENING (L-1240) — the AUTHORED door/window elevation symbol.
@@ -3678,7 +3708,17 @@ export class EdgeProjectorService {
         //
         // Placed beside the plumbing builder, and for the same stated reason: BEFORE the
         // occlusion + HLR passes, so injected linework is occlusion-tested like any other.
-        if (isElevationView) {
+        //
+        // §SYMBOL-INJECTORS-VS-INTENT (L-3903) — gated on BOTH families it emits for: an
+        // elevation opening symbol is door OR window linework, so it runs while EITHER family
+        // may draw, and is skipped only when BOTH are hidden. The gate wraps the WHOLE block
+        // rather than substituting an empty `InjectResult`: a hand-built stand-in would have to
+        // claim a `diagnosis` it never measured, and a fake assembled from the type's own header
+        // cannot falsify that header. Skipping the block outright means
+        // `suppressSymbolisedElementLinework` never runs either — so every opening keeps its
+        // projected wireframe, which is exactly the un-symbolised fallback the suppression is
+        // already designed around (`coveredElementIds` empty ⇒ nothing suppressed).
+        if (isElevationView && (_symbolGate('door') || _symbolGate('window'))) {
             const _sym = openingElevationSymbolBuilder.inject(drawing, viewDef);
 
             // ── THE DOUBLE DRAW, CLOSED — and DERIVED, not enumerated ─────────────

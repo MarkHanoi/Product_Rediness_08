@@ -72,6 +72,11 @@ export type {
     InheritanceContext,
 } from './IntentRuleResolver.js';
 
+// §SYMBOL-INJECTORS-VS-INTENT (L-3903) — the ONE place a symbol injector asks
+// whether an element family may draw in this view. See SymbolInjectionGate.ts.
+export { makeSymbolInjectionGate } from './SymbolInjectionGate';
+export type { SymbolInjectionGate } from './SymbolInjectionGate';
+
 export {
     stateFromPenZone,
     isElementTypeFullyHidden,
