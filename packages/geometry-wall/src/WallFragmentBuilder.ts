@@ -93,7 +93,11 @@ import {
 } from './WallRake';
 import { buildWallLayerBands } from './WallLayerFootprint2D';
 import { OpeningRenderData, OpeningRenderMap } from './WallOpeningRenderData';
-import { buildWallEdgeOverlay } from './WallEdgeOverlayBuilder';
+import {
+    buildWallEdgeOverlay,
+    attachWallEdgeOverlay,
+    auditWallEdgeOverlayFrames,
+} from './WallEdgeOverlayBuilder';
 import { descriptorToBufferGeometry } from './descriptorToBufferGeometry';
 
 // ── §WALL-SINGLE-VOLUME-CSG (#96 phase 3) DI seam types ─────────────────────────
@@ -989,7 +993,40 @@ export class WallFragmentBuilder {
     // When present, startMN / endMN are used for miter geometry.  When null/absent,
     // all end caps are perpendicular (free wall end, no join).  Replaces the old
     // miterNormalsCache pattern — the builder is now a pure function of its inputs.
+    /**
+     * ⭐ §WALL-EDGE-OVERLAY-FRAME (L-7100) — THE PROBE, SHIPPED AHEAD OF THE FIX.
+     *
+     * The founder reported black linework flying metres off his building. His console
+     * said *"3 groups, 3 occluders"*: no error, no warning, a clean pass. Every gate this
+     * subsystem owns gates the MODEL — `profileAuthorability`, `WallOccupancyStore`,
+     * `WallTopologyIntegrity` — and the model was correct throughout. What was wrong was
+     * the SCENE GRAPH, and **nothing in the repo ever looked at it**.
+     *
+     * So `buildWall` is now a thin seam whose only job is to run
+     * `auditWallEdgeOverlayFrames` over the group it just produced. A wall whose linework
+     * and whose solid disagree now SAYS SO, in the console, unconditionally, with both
+     * boxes printed — whichever arm built it and whatever the cause. L-7101's own fix is
+     * below at the profile arm; this seam is what would have made L-7101 a five-minute
+     * bug instead of a screenshot.
+     *
+     * ⚠ NOT behind `bumpPerf`: that is a no-op unless armed (`PerfCounters.ts:146`), so a
+     *   counter would have been silent in exactly the session that needed it. The cost is
+     *   eight transformed corners per child off THREE's own cached `geometry.boundingBox`,
+     *   and it exits immediately for a group with no overlay or no body.
+     *
+     * The real work is unchanged and lives in `_buildWallGeometry` — split rather than
+     * inlined because that method has fourteen `return fragmentIds` sites, and an audit
+     * written at fourteen returns is an audit that gets forgotten at the fifteenth. That
+     * is the same reasoning as the chokepoint below, one level up.
+     */
     buildWall(wall: WallData, joinData?: JoinData | null, renderMap?: OpeningRenderMap, worldY?: number): string[] {
+        const ids = this._buildWallGeometry(wall, joinData, renderMap, worldY);
+        const root = this.wallRoots.get(wall.id);
+        if (root) auditWallEdgeOverlayFrames(root, wall.id);
+        return ids;
+    }
+
+    private _buildWallGeometry(wall: WallData, joinData?: JoinData | null, renderMap?: OpeningRenderMap, worldY?: number): string[] {
         // §NME-VERSION-FIX + §FIX-WALL-VERSION-CONTENT-HASH (L-52): resolve the
         // generation token for this build. Only mints a FRESH token when this
         // wall's projected-geometry inputs changed, so a whole-level rebuild no
@@ -2195,7 +2232,22 @@ export class WallFragmentBuilder {
                     profileBody: true,
                 };
                 wallGroup.add(_pMesh);
-                wallGroup.add(buildWallEdgeOverlay(_pGeo, wall.id));
+                // ⛔ §WALL-EDGE-OVERLAY-FRAME (L-7101) — THE FOUNDER'S STRAY LINEWORK.
+                //    This line read `wallGroup.add(buildWallEdgeOverlay(_pGeo, wall.id))`.
+                //    `_pGeo` is in the wall-LOCAL frame (local-x along the baseline) and the
+                //    BODY carries `rotation.y = −angle` two lines above — but the overlay was
+                //    added to the group at IDENTITY, so the linework was drawn along world +X
+                //    on every wall that did not happen to run due east. Measured: a wall
+                //    (0,0)→(0,6) put its solid at x∈[−0.1,0.1] z∈[0,6] and its outline at
+                //    x∈[0,6] z∈[−0.1,0.1] — a closed elevation silhouette floating clear of
+                //    the building, exactly the screenshot.
+                //
+                //    Note the shape of the miss: the sibling arms at `:1725` and `:2969` DO
+                //    write `rotation.set(0, −wallAngle, 0)` on their own overlays. The rule
+                //    existed; it was written twice and forgotten the third time, which is why
+                //    the fix is a CHOKEPOINT (`attachWallEdgeOverlay` — the overlay rides its
+                //    source mesh) rather than a third hand-written copy of the same rotation.
+                attachWallEdgeOverlay(wallGroup, _pMesh, _pGeo, wall.id);
 
                 const _pFragId = crypto.randomUUID();
                 this.fragments.set(_pFragId, {
