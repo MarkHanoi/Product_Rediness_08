@@ -26,7 +26,7 @@ import { getRoomTypeOverrides } from './activeRoomTypeOverrides.js';
 import { getCurrentSiteOrigin } from '../site/siteDispatch.js';
 // §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4411) — lat/lon -> jurisdiction, via the
 // ONE existing resolver. See resolveHabitabilityBinding.ts for why it lives at L7.
-import { resolveHabitabilityBinding } from './resolveHabitabilityBinding.js';
+import { resolveHabitabilityBinding, habitabilityDiagLine } from './resolveHabitabilityBinding.js';
 import { relationshipUndeterminedLabel, relationshipArrayOrUnknown } from '../relationshipDetermination.js';
 
 /** A typed gather refusal (C78 §8.1 vocabulary) handed to `onUndetermined`. */
@@ -188,10 +188,13 @@ export function gatherLayoutPayload(
     // "master 9.3 m² vs 12 m² minimum" over a Barcelona room (L-4210).
     // ⛔ Always stamped, including on the un-resolved arms — a binding that says
     // `resolution: 'none'` is what makes the PRYZM baseline VISIBLE as a default.
-    payload.constraints = {
-        ...payload.constraints,
-        habitability: resolveHabitabilityBinding(origin?.lat, origin?.lon),
-    };
+    const habitability = resolveHabitabilityBinding(origin?.lat, origin?.lon);
+    // ⭐ ALWAYS LOGGED, in the shape of the §JURISDICTION-DIAG line the founder already
+    // reads. An INVISIBLE fallback is how a UK minimum survived a year in a Catalan
+    // product (L-4210); a resolution of `none` has to be as loud as a resolution of
+    // `es-08019-barcelona`, or nobody ever learns which one they got.
+    console.log(habitabilityDiagLine(habitability));
+    payload.constraints = { ...payload.constraints, habitability };
 
     // A.25.3 — stamp the non-scoring engine tuning (adjacency / accessibility /
     // climate / space sliders) so the D-TGL engine RE-RUNS with the user's
@@ -346,10 +349,9 @@ export function gatherRoomLayoutPayload(
     }
     // §HABITABILITY-MINIMA-ARE-JURISDICTIONAL (L-4411) — the same stamp on the
     // ROOM-scoped path, which is the one the founder was on when he hit L-4210.
-    built.payload.constraints = {
-        ...built.payload.constraints,
-        habitability: resolveHabitabilityBinding(origin?.lat, origin?.lon),
-    };
+    const habitability = resolveHabitabilityBinding(origin?.lat, origin?.lon);
+    console.log(habitabilityDiagLine(habitability));
+    built.payload.constraints = { ...built.payload.constraints, habitability };
     const tuning = getActiveEngineTuning();
     if (tuning) built.payload.tuning = tuning;
 

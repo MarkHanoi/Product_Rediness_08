@@ -29,24 +29,56 @@ pinned by the test suite (`programRules.test.ts`, `furnishRules.test.ts`,
 
 ## 2. Room program table
 
-`occupancy` is the editor `RoomOccupancyType` (colour/tag). `area` is the hard minimum
-net floor area (m²); `0` = no minimum. `short` is the minimum shortest plan side (m).
-`window`: `M` = legally mandatory (validate V2 rejects if absent), `h` = habitable
-(daylight scoring only), `–` = none. `cap` = privacy door cap.
+`occupancy` is the editor `RoomOccupancyType` (colour/tag). `window`: `M` = legally
+mandatory (validate V2 rejects if absent), `h` = habitable (daylight scoring only),
+`–` = none. `cap` = privacy door cap.
 
-| Room | occupancy | privacy | weight | area | short | window | cap |
-|------|-----------|---------|:--:|:--:|:--:|:--:|:--:|
-| Living | `living-room` | public | 1.70 | 18 | 2.7 | M | ∞ |
-| Kitchen | `kitchen` | public | 0.95 | 8 | 1.8 | M | ∞ |
-| Dining | `dining-room` | public | 0.90 | 6 | 2.4 | h | ∞ |
-| Hall (entrance) | `entrance-lobby` | circulation | 0.50 | 0 | 1.2 | – | ∞ |
-| Corridor | `corridor` | circulation | 0.45 | 0 | 0.9 | – | ∞ |
-| Master bedroom | `bedroom` | private | 1.30 | 12 | 2.6 | M | 2 |
-| Bedroom | `bedroom` | private | 1.00 | 9 | 2.1 | M | 1 |
-| Study | `private-office` | private | 0.85 | 5 | 2.0 | h | 1 |
-| Bathroom | `bathroom` | private | 0.45 | 4 | 1.5 | – | 1 |
-| En-suite | `bathroom` | private | 0.40 | 4 | 1.2 | – | 1 |
-| Utility | `utility-room` | service | 0.40 | 0 | 1.5 | – | 1 |
+> ⛔ **REWRITTEN 2026-08-22 (lane JURIS11, ADR-0352). THE `area` AND `short` COLUMNS ARE GONE, AND
+> THEY ARE NOT COMING BACK.**
+>
+> This table used to state a hard minimum area and short side per room — `Living 18 · Kitchen 8 ·
+> Master 12 / 2.6 · Bedroom 9 / 2.1 · Bathroom 4 / 1.5` — and the header of this SPEC says *"when
+> code disagrees with this table, the code is wrong"*. **Both halves of that were a problem.**
+>
+> 1. **It was stale, and it was the FIFTH rival copy of the same numbers.** It agreed with none of
+>    the four tables in code (`ROOM_RULES` · `ROOM_DIMENSIONS` · `houseExecDiagnostics.AREA_MIN` ·
+>    `ConstraintEngine.MIN_AREA_M2` — see
+>    [SPEC-HABITABILITY-MINIMA §6.4](./SPEC-HABITABILITY-MINIMA.md)). Under the stated conflict order
+>    it was quietly declaring the founder's own 2026-08-22 ruling (`master` 12 → 8, L-4210) to be a
+>    bug.
+> 2. **A per-room-type minimum is a LEGAL statement, and it is a function of JURISDICTION.** Málaga
+>    (Art. 12.2.35) requires a 12 m² principal bedroom; Catalonia (Decret 141/2012) requires 8 m².
+>    **Both are correct law.** No single number written in a document can be right, so this document
+>    stops writing one.
+>
+> **THE AUTHORITY IS `resolveRoomMinimum(roomType, binding)`** in
+> `apartmentLayout/rules/habitability/`, governed by
+> [SPEC-HABITABILITY-MINIMA](./SPEC-HABITABILITY-MINIMA.md) and
+> [ADR-0352](../../02-decisions/adrs/ADR-0352-habitability-minima-are-jurisdiction-keyed-and-carry-their-instrument.md).
+> `ROOM_RULES.minAreaM2` / `.minShortSideM` remain in code as the **PRYZM engineering baseline** —
+> the ONE named fallback, law nowhere — and the habitability module DERIVES that fallback from them,
+> so a founder ruling still moves both in one commit.
+>
+> **Read the resolver, never this table, for a minimum.** The columns below are the ones that are
+> genuinely typological and jurisdiction-independent.
+
+| Room | occupancy | privacy | weight | window | cap |
+|------|-----------|---------|:--:|:--:|:--:|
+| Living | `living-room` | public | 1.70 | M | ∞ |
+| Kitchen | `kitchen` | public | 0.95 | M | ∞ |
+| Dining | `dining-room` | public | 0.90 | h | ∞ |
+| Hall (entrance) | `entrance-lobby` | circulation | 0.50 | – | ∞ |
+| Corridor | `corridor` | circulation | 0.45 | – | ∞ |
+| Master bedroom | `bedroom` | private | 1.30 | M | 2 |
+| Bedroom | `bedroom` | private | 1.00 | M | 1 |
+| Study | `private-office` | private | 0.85 | h | 1 |
+| Bathroom | `bathroom` | private | 0.45 | – | 1 |
+| En-suite | `bathroom` | private | 0.40 | – | 1 |
+| Utility | `utility-room` | service | 0.40 | – | 1 |
+
+> ⚠ The `weight` column is an ALLOCATION preference (relative share of the shell), not a minimum,
+> and is deliberately still stated here — it is a PRYZM design choice with no legal content. It is
+> nonetheless the same rot risk: `ROOM_RULES[type].areaWeight` is the live value.
 
 **Privacy gradient** (space-syntax depth): `public` (shallow, near the entrance) →
 `circulation` → `private` / `service` (deep). The daylight + circulation objectives

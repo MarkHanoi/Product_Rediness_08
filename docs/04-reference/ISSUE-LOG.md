@@ -35099,3 +35099,371 @@ the same three files, the same three cases, red before this lane touched anythin
 **+47 new assertions, 0 new reds.** Root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck`
 → **RC=0**.
 
+---
+
+## L-4400 … L-4417 — ⭐ THE FOUNDER'S OWN RULING NEVER REACHED THE GATE THAT REFUSED HIM, and the minima table had FIVE rival copies — 2026-08-22 (lane JURIS11, commits `0c14d0d6`, `3856e6a8`)
+
+**Founder, 2026-08-22, verbatim:**
+
+> *"please — do a big audit — the minima should be defined by the building regulations of the
+> country — document in contracts, specs and adr — check jurisdiction folder and bring this data in
+> the algorithm — for each country"*
+
+The ask followed his own ruling of the same day (`d11c225d`, §BEDROOM-MINIMA-ARE-JURISDICTIONAL,
+L-4210), which cut `master` 12 → 8 m² and `bedroom` 11.5 → 7.5 m² after a real 81 m² Barcelona plate
+produced ZERO layouts with *"master 9.3 m² vs 12 m² minimum"*. That commit recorded the real defect —
+*"THIS TABLE HAS ONE COLUMN … Recorded, NOT solved: L-4211"* — and this lane is L-4211's answer.
+
+⚠ **L-4210 and L-4211 were cited in that commit message and NEVER WRITTEN HERE.**
+`grep -c "L-4210\|L-4211" docs/04-reference/ISSUE-LOG.md` → **0**. This block is also their record.
+
+**Eighteen findings. The first one outranks the feature.**
+
+---
+
+### L-4400 — ⛔⛔ FIXED (root): the ruling edited one table; the gate that produced the refusal reads a DIFFERENT one
+
+**MEASURED, from code.** `d11c225d` edited `ROOM_RULES.master.minAreaM2` in
+`apartmentLayout/rules/programRules.ts`.
+
+The sentence he objected to is emitted by `generate.ts#declineToLimitation` from
+`LayoutDeclineDiagnosis.underMinAreaRooms[].minAreaM2`, which `tgl/enumerate.ts` fills at the
+§DIAG-MIN-AREA-GATE:
+
+```
+enumerate.ts:39    import { dimensionsFor } from '../dimensions/roomDimensions.js';
+enumerate.ts:2014  const areaMinM2 = dimensionsFor(rs.type).areaMin;
+```
+
+`dimensions/roomDimensions.ts` holds `master.areaMin: 12` and `bedroom.areaMin: 9`, **untouched since
+`9396069c`** (`git log --oneline -3 -- .../roomDimensions.ts`). **So the 12 in his refusal was still
+12 the moment after his fix shipped.** Committed ≠ reachable — and the failure is invisible, because
+the *allocator* did move to 8 while the *gate* stayed at 12, so the engine sized to one number and
+refused on another.
+
+**⭐ THE PROOF WAS A BY-PRODUCT.** Re-pointing the gate at the habitability authority made the
+`dimensionsFor` import **unused** — root `tsc` **TS6133**. That gate was the file's ONLY consumer of
+the comfort database, so the one job `roomDimensions.areaMin` was doing in `enumerate.ts` was
+deciding *"not buildable"*, with a number no founder ruling could move.
+
+**FIX:** the hard gate now reads `roomMinima(type, input.habitability).minAreaM2`.
+`roomDimensions.ts` is **untouched** and keeps its real consumers (`validateRoomShape.ts`,
+`subdivide.ts`), where it expresses COMFORT — which is what it is for.
+
+---
+
+### L-4401 — ⭐ the audit's finding: this was a BUILD, not a WIRE, for 14 of 15 countries
+
+**TWO COMMANDS, RE-RUNNABLE.** Over `docs/04-reference/jurisdictions/`:
+
+| # | command | result |
+|---|---|---|
+| (a) | `rg -il "superficie útil mínima\|dormitorio\|habitabilit\|habitatge\|Mindestgröße\|surface habitable minimale\|woonoppervlak\|habitabilidade\|área mínima" docs/04-reference/jurisdictions/` | **3 files** |
+| (b) | `find docs/04-reference/jurisdictions/{be,ch,de,dk,fi,fr,gb,it,nl,no,pt,sa,se,us} -type f \( -name '*.txt' -o -name '*.pdf' \)` | **0 files** |
+
+**(b) is the finding, and it is the strongest form of it.** Fourteen of the fifteen country folders
+hold **no primary legal text of any kind** — not an unextracted one, none. The `jurisdictions/` tree
+(15 countries) and the 15 `server/jurisdiction/` proxies are a **planning/envelope** corpus: zoning,
+cadastre, buildable envelope, heights. They were never a habitability corpus.
+
+⛔ **ABSENT, not UNREACHABLE.** These are `not-fetched` (a SOURCING task), not
+`fetched-not-extracted` (an EXTRACTION task). The two have opposite fixes and mis-costing them is
+how a research backlog gets planned wrong, so `coverage.ts` carries the distinction as a required
+field on every row.
+
+The single exception exists by accident: **Málaga's habitability article lives inside a PGOU that was
+fetched for its ZONING.**
+
+---
+
+### L-4402 — ⛔ FIXED: three of the four clauses in `ROOM_RULES`'s provenance header were FALSE
+
+It read: *"Numeric minima below are the UK BUILDING REGULATIONS / HQI mandatory values."*
+
+| clause | verdict |
+|---|---|
+| "Building Regulations" | **FALSE** — the bedroom pair (11.5 / 7.5 m², 2.75 / 2.15 m) is the **Nationally Described Space Standard**. |
+| "mandatory" | **FALSE** — NDSS is a PLANNING standard binding only where a local authority adopts it; HQI is a **defunct** Housing Corporation FUNDING standard; BS 8300 (the bathroom rows) is an ACCESSIBILITY design standard. None is mandatory even in England. |
+| "HQI" | true, and it is not law |
+| "UK" | **true — and it is the entire defect**, in a product whose first market is Catalonia. |
+
+A wrong citation is worse than none: it is what made *"below the 12 m² minimum"* read as law.
+
+---
+
+### L-4403 — ✅ BUILT: `(jurisdiction, roomType) → { value, provenance, confidence }`, with no way to get the value alone
+
+`packages/ai-host/src/workflows/apartmentLayout/rules/habitability/`. Pure data + pure predicates;
+the only import is the `RoomType` vocabulary. Four rules enforced **by construction**, not by
+convention:
+
+1. **Provenance travels with the number** — there is no shape in the module that holds a `number`
+   without a `RoomMinimumProvenance`.
+2. **`null` means UNKNOWN** — not zero, not "unconstrained", not "use the other field".
+3. **Exactly ONE fallback, `PRYZM_BASELINE`** — it declares an EMPTY `jurisdictionKeys`, so it can
+   never *win* a match. It is only ever the terminal rung, and every resolution reports its tier.
+4. **The fallback is DERIVED from `ROOM_RULES`, never retyped** — so the next founder ruling moves
+   both in one commit. Asserted for every `RoomType`.
+
+---
+
+### L-4404 — the ladder is applied PER FIELD, and that is a LEGAL choice, not an implementation one
+
+Under a per-ROOM rule, a municipal ordinance that states an area and is silent on width would knock a
+real REGIONAL width out and substitute a PRYZM default — **a regulation lost to a default**, which is
+the permissive-direction error. So `minAreaM2` and `minShortSideM` each take the finest instrument
+that actually states them, and each carries its own provenance.
+
+Visible in the shipped data: Málaga regulates bedroom AREA (8 m²) and states **no** bedroom WIDTH ⇒
+`{ areaIsRegulated: true, shortSideIsRegulated: false }`, and the sentence discloses the mix.
+
+⚠ **And a residue of the original defect is now visible:** PRYZM's shipped `bedroom` baseline of
+**7.5 m² is the UK NDSS single-bedroom figure**. Catalonia's is 6. So the secondary-bedroom default
+is *still* a foreign number in Barcelona — it is simply now LABELLED as a PRYZM default rather than
+asserted as law, and the Catalan row overrides it when the parcel resolves.
+
+---
+
+### L-4405 — ⛔ NDSS states NO living / kitchen / dining minimum at all
+
+The 14 m² living / 6 m² kitchen / 9 m² dining figures in `ROOM_RULES` are **HQI-derived, not NDSS**,
+and HQI is a defunct funding standard. NDSS regulates bedrooms, dwelling Gross Internal Area by
+bedspaces, built-in storage and ceiling height — **no per-room social-space minimum exists in it**.
+Recorded on the standard's own `notCovered` list so the silence cannot be read as agreement.
+
+---
+
+### L-4406 — ✅ WIRED: the binding reaches the ALGORITHM, at four seams
+
+| seam | file | before | after |
+|---|---|---|---|
+| bubble-graph absolute area floor | `tgl/bubbleGraph.ts` | `rule.minAreaM2` | `roomMinima(type, opts?.habitability).minAreaM2` |
+| **HARD min-area reject** | `tgl/enumerate.ts` | `dimensionsFor(type).areaMin` ⛔ | `roomMinima(type, input.habitability).minAreaM2` |
+| strip-slicer band widths + shortfalls | `proceduralLayout.ts` | `ROOM_RULES[t]` | `resolveRoomMinimum(t, habitability)` |
+| the decline sentence | `generate.ts` | bare `type N m² vs M m² minimum` pairs | pairs **+ one attribution per distinct room type** |
+
+Threaded editor → `ApartmentConstraints.habitability` → `runDeterministicLayout` → `EnumerateInput`.
+**The sizing allocator and the hard reject now read the SAME authority** — they did not before
+(L-4400).
+
+---
+
+### L-4407 — ⛔ FIXED: *"This layout is not buildable as drawn"* was asserted on the strength of a PRYZM preference
+
+The strip slicer's shortfall sentence ended *"below the N m² minimum **this room type requires**.
+This layout is **not buildable as drawn**."* — a flat legal verdict, made with a UK number, over a
+room in Barcelona.
+
+Now: it names the instrument (`provenanceSentence`, which has **no arm that omits it**), and it
+asserts unbuildability **only when the figure is actually a regulation**. Against a PRYZM default it
+drops to `severity: 'warning'` and says *"PRYZM is NOT telling you this is illegal where you are
+building — only that it falls short of our own default."* Telling an architect their plan is
+unbuildable on the strength of our own preference is the same error inverted, and it is still an
+error.
+
+---
+
+### L-4408 — the deltas this lane changes, DISCLOSED rather than hidden
+
+Making `ROOM_RULES` the single habitability baseline moves the hard gate for six room types:
+
+| type | gate before (`ROOM_DIMENSIONS.areaMin`) | gate after (`ROOM_RULES.minAreaM2`) | direction |
+|---|---:|---:|---|
+| `master` | 12 | 8 | **looser — the founder's ruling, finally reachable** |
+| `bedroom` | 9 | 7.5 | **looser — the founder's ruling, finally reachable** |
+| `study` | 6 | 5 | looser |
+| `kitchen` | 5.5 | 6 | **stricter** |
+| `dining` | 8 | 9 | **stricter** |
+| `living` | 14 | 14 | unchanged |
+
+The two stricter rows are a side effect nobody asked for, and they are stated here rather than
+buried: they are the price of **one** authority instead of two, and neither number is law anywhere —
+both are PRYZM defaults now correctly labelled as such. **Measured impact: zero new test failures**
+(L-4414).
+
+---
+
+### L-4409 — ⛔ FIVE rival room-minima tables, with five different answers
+
+| # | table | `bedroom` | `living` | cited as | state |
+|---|---|---:|---:|---|---|
+| 1 | `apartmentLayout/rules/programRules.ts` `ROOM_RULES` | 7.5 | 14 | *"UK Building Regs / HQI mandatory"* — false on 3 of 4 clauses (L-4402) | ✅ closed |
+| 2 | `apartmentLayout/dimensions/roomDimensions.ts` `ROOM_DIMENSIONS` | 9 | 14 | framework §5.4 (COMFORT) | ✅ no longer the hard gate |
+| 3 | `apps/editor/src/ui/house-layout/houseExecDiagnostics.ts` `AREA_MIN` | 9 | 14 | *"Mirror of ROOM_DIMENSIONS"*, hand-copied | 🔴 **OPEN — L-4415** |
+| 4 | `packages/constraint-solver/src/ConstraintEngine.ts` `MIN_AREA_M2` | 7.5 | 11 | *"UK Part M"*, rendered **as a regulation** in the user-facing rule panel | 🔴 **OPEN — L-4416** |
+| 5 | `SPEC-ARCHITECTURAL-PROGRAM-RULES.md` §2 | 9 | 18 | a NORMATIVE SPEC claiming supremacy over the code | ✅ columns deleted — L-4417 |
+
+C83 §6.1 already recorded **#4** as owed. It named none of #1, #2, #3 or #5. This is the same shape
+CLAUDE.md records for the three rival `commandManager` counters: **five denominators, five verdicts,
+one subject.**
+
+---
+
+### L-4410 — ⛔ NO SECOND RESOLVER — the rejected alternative and the reason
+
+The obvious implementation is a small `latLonToCountry()` next to the layout engine. **Rejected
+outright.** PRYZM has exactly one geography resolver — `resolveRegisteredJurisdictionAt` — carrying
+the §JURISDICTION-SPECIFICITY finest-claim-wins rule and, decisively, an explicit **`'ambiguous'` arm
+that REFUSES rather than picking**, because *"picking one is a confident answer under the wrong
+ordinance"*. A second resolver would not have that arm, would not know `BARCELONA_BBOX` contains four
+other municipalities (the L-652 defect), and would drift from the first the day either changed.
+
+The binding is therefore produced at the composition surface (`apps/editor`, L7 — the one place that
+legitimately sees both packages) and the layout engine consumes plain strings. The reverse import was
+also rejected: `registry.ts` pulls 40+ rule packs and OpenTelemetry into what `programRules.ts`
+declares to be a zero-import pure module.
+
+---
+
+### L-4411 — the string coupling is GATED, not hoped
+
+**A string coupling with no gate is drift with a delay, and its failure mode here is silent** — a
+Barcelona room quietly judged by PRYZM's default with nothing red anywhere.
+`apps/editor/__tests__/habitabilityJurisdictionIds.test.ts` asserts in CI that every jurisdiction key
+is a real registered `jurisdictionId` or a **declared exception with a written reason**; that every
+declared exception is *still* genuinely absent from the registry; that the mirrored
+`HabitabilityExtent` vocabulary is element-for-element identical to `JURISDICTION_EXTENT_RESOLUTIONS`;
+and — as a PROPERTY quantified over every shipped registration — that the adapter's answer equals the
+registry's at the centre of every registered extent.
+
+---
+
+### L-4412 — ⚠ KNOWN LIMITATION: a regional instrument ENUMERATES its municipalities
+
+The resolver returns the FINEST claim, so a Barcelona parcel resolves to `es-08019-barcelona`, not to
+Catalonia — but Decret 141/2012 governs all of Catalonia. Deriving *"this municipal id is in
+Catalonia"* would be a second geography resolver by another name (L-4410), so the Decret lists its
+seven Catalan registration keys **as data**.
+
+⚠ **A Catalan municipality registered for zoning LATER and not added to that list falls to the named
+PRYZM baseline and SAYS SO.** That is the fail-safe direction — a disclosed default, never a foreign
+law asserted — but it is a manual step, and it is the price of not minting a second resolver.
+
+---
+
+### L-4413 — ⛔ WHAT WAS REFUSED, and why refusing is the deliverable
+
+**Seeded (3):**
+
+| jurisdiction | instrument | confidence | force |
+|---|---|---|---|
+| `es-29067-malaga` | PGOU NNUU **Art. 12.2.35** (2018-02) — **read from text held in this repo** | `primary-in-repo` | mandatory |
+| Catalonia (7 keys) | **Decret 141/2012** (DOGC 6245) Annex 1 | `instrument-cited` | mandatory |
+| `gb-eng` | **NDSS** ¶10 (2015-10-01) | `instrument-cited` | **conditional** |
+
+⭐ **The Málaga row IS the argument.** It requires a **12 m² principal bedroom** — the exact number
+the founder ruled OUT for Catalonia, which requires 8. **Both are correct law.** No amount of care in
+choosing "the" value would have produced a right answer; one column could not express it.
+
+**Refused (12 countries).** Every other folder ships as UNKNOWN with a NAMED instrument to chase, a
+`gapKind`, and an evidence path where one exists — `be` (3 regional codes) · `ch` (cantonal) · `de`
+(16 Landesbauordnungen) · `dk` (BR18 — the cheapest to close, machine-readable HTML) · `fi` · `fr`
+(décret 2002-120) · `it` (DM 5.7.1975) · `nl` (Bbl) · `no` (TEK17) · `pt` (**RGEU — named by this
+repo's own Portugal study and flagged there "ASSERTED-UNVERIFIED"**) · `sa` (SBC; expect an ACCESS
+problem too) · `se` (BBR; check the edition) · `us` (**IRC R304 as adopted per state and per city —
+there is no national US figure to fetch**).
+
+⛔ **Not one number was invented.** There is nowhere in the data shape to put a value without an
+instrument, an article and a date.
+
+⚠ Three mapping decisions are recorded ON the records rather than hidden: Málaga's `salón-comedor` is
+seeded onto `open_plan` and **NOT** onto `living` (splitting a combined figure across a `living` +
+`dining` pair OVERSTATES the requirement — the restrictive direction that caused L-4210); its 16 m² is
+the **floor of a scale** (16/18/20/24 by bedroom count) that this per-room table cannot express, so a
+≥3-bedroom Málaga dwelling is under-constrained here by up to 8 m²; and `ensuite ← "baño"` is a
+judgement, since the ordinance has no en-suite concept.
+
+⚠ **Sevilla is the instructive near-miss.** Its NNUU corpus IS in the repo and it **delegates** —
+*"de dimensiones mínimas ajustadas a la normativa de aplicación"*. A `prose-corpus` row is not
+automatically a cheap extraction; closing Sevilla means chasing the instrument it defers to.
+
+---
+
+### L-4414 — TEST BASELINE, TAKEN BY REVERT-AND-RERUN, NOT INHERITED
+
+`git checkout HEAD~1 --` on the eight touched `ai-host` sources (⛔ never `git stash` — the stack is
+global across worktrees), then the five suspect suites:
+
+| run | result |
+|---|---|
+| **HEAD~1 (= `d11c225d`, baseline)** | **9 failed / 114 passed** |
+| with this lane's code | the **same 9** |
+
+Full `@pryzm/ai-host` suite after the lane: **4550 passed / 13 failed / 4 skipped**. All 13 are
+pre-existing and named — the 9 above plus the 4 `apartmentBriefCountCarried` failures the brief
+already flagged. **This lane adds ZERO failures**, and +37 assertions across two new suites.
+Root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=0**.
+
+**Three of the 9 pre-existing reds were CLOSED in passing.** `tglBubbleGraph.test.ts` asserted the
+literal `11.5` and had been red since `d11c225d` cut it to 7.5 — red for a reason that was not a
+defect, the identical failure `d11c225d` itself described of `apartmentLayout.test.ts`. Repointed at
+`roomMinima(type)`, the same authority the allocator reads. ⭐ **And the discipline binds harder now
+than it did yesterday: once the number varies by jurisdiction at runtime, a test that pins 8 is WRONG
+IN MÁLAGA and a test that pins 12 is WRONG IN BARCELONA.** The one place literals still belong is the
+Málaga TRANSCRIPTION CHECK, whose source is on disk — a transcription check must use the literal or
+it checks nothing.
+
+---
+
+### L-4415 — 🔴 OPEN: `houseExecDiagnostics.AREA_MIN` is a hand-copied mirror, and it did not move
+
+`apps/editor/src/ui/house-layout/houseExecDiagnostics.ts:73` — *"Per room TYPE the MINIMUM habitable
+area (m²). **Mirror of `ROOM_DIMENSIONS[*].areaMin`** … Hardcoded here with this pointer because that
+DB is not re-exported from the `@pryzm/ai-host` barrel."* It still reads `master: 12, bedroom: 9`.
+
+The comment is honest about being a copy and names its source, which is better than most — but it is
+still a copy, it is now a copy of a table that is **no longer the hard gate**, and it drives a
+founder-facing console diagnostic. **The habitability module is exported at
+`@pryzm/ai-host/habitability` specifically so this file no longer needs to hand-copy anything.** Not
+done here (a house-path change, out of this lane's scope).
+
+---
+
+### L-4416 — 🔴 OPEN (and the most urgent of the five): `ConstraintEngine.MIN_AREA_M2` renders UK numbers AS REGULATIONS
+
+`packages/constraint-solver/src/ConstraintEngine.ts:65-94` — 30 occupancy types with hard-coded
+minima, commented *"UK Part M"*, *"NHS HTM 04-01"*, *"UK BB93"*, *"BS 8300"*, with **no jurisdiction
+resolution and no provenance**, rendered into the user-facing rule panel with the word *regulation*
+attached. `'living-room': 11.0` agrees with none of the other four tables.
+
+**C83 §6.1 already recorded this as owed** — *"Migrating the existing 17 is owed by C58's owner, and
+this paragraph is the record that it is owed."* It is still owed. What changed today is that the
+machinery to migrate INTO now exists, so closing it is a WIRE rather than a build. Untouched here —
+`constraint-solver` is a different subsystem and a different lane.
+
+---
+
+### L-4417 — ⛔ FIXED: a NORMATIVE SPEC was quietly declaring the founder's own ruling to be a bug
+
+`SPEC-ARCHITECTURAL-PROGRAM-RULES.md` §2 carried `area` / `short` columns — `Living 18 · Kitchen 8 ·
+Master 12 / 2.6 · Bedroom 9 / 2.1 · Bathroom 4 / 1.5` — matching **none** of the four code tables. Its
+own header says *"Conflict order: … this SPEC → code. When code disagrees with this table, **the code
+is wrong**."*
+
+So under the repo's stated conflict order, that document ranked above `d11c225d` and declared the
+founder's 2026-08-22 ruling a defect.
+
+**The columns were DELETED, not corrected.** Correcting them would only have reset the clock: a
+per-room-type minimum is a function of jurisdiction, so no number written in a document can be right
+everywhere, and the next ruling — or the next country — would make it wrong again. §2 now states the
+genuinely typological columns (occupancy, privacy, weight, window, door cap) and points at
+`resolveRoomMinimum(roomType, binding)` for anything with a legal claim in it.
+
+---
+
+### ⛔ NOT VERIFIABLE WITHOUT A BROWSER
+
+Everything above is measured from code, from `tsc`, or from a foreground test run. Three claims are
+**NOT**:
+
+1. **That a founder generating on a real Barcelona parcel now sees the Catalan figures.** The unit
+   path is proven (`habitabilityJurisdictionIds.test.ts` drives Plaça de Catalunya coordinates
+   end-to-end), but the *editor* leg depends on `getCurrentSiteOrigin()` returning a pinned LTP-ENU
+   origin at generate time. That has not been exercised in a browser by this lane.
+2. **That the `§HABITABILITY-DIAG` console line appears in a real session.** It IS wired — both
+   `gatherLayoutPayload` paths call `console.log(habitabilityDiagLine(...))` unconditionally, so a
+   resolution of `none` is exactly as loud as `es-08019-barcelona`. Whether it reaches the founder's
+   console at generate time is a browser observation this lane did not make.
+3. **That the new refusal sentences render fully in the picker card.** L-4203 records that a
+   generated disclosure was previously destroyed by one CSS line, and the attribution text is
+   materially longer than what it replaced. Unverified.

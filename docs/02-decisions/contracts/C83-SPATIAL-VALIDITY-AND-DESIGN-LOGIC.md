@@ -854,6 +854,37 @@ regulation**.
 > is owed. **Sharing the ConstraintEngine's rule registry and panel does not make C83 rules legal
 > claims, and no C83 finding may be rendered in a way that implies one.**
 
+> ⭐ **AMENDED 2026-08-22 (lane JURIS11, ADR-0352). The migration above is PARTLY DISCHARGED — and
+> the paragraph UNDERSTATED the problem by three tables.**
+>
+> The founder ordered the audit after `d11c225d` (L-4210) exposed the same defect in the LAYOUT
+> engine: `ROOM_RULES` asserted UK figures as *"mandatory"* over a room in Barcelona. That half is
+> now closed —
+> [`ADR-0352`](../adrs/ADR-0352-habitability-minima-are-jurisdiction-keyed-and-carry-their-instrument.md)
+> + [`SPEC-HABITABILITY-MINIMA`](../../03-execution/specs/SPEC-HABITABILITY-MINIMA.md). Room minima
+> now resolve as `(jurisdiction, roomType) → { value, provenance, confidence }`, there is **exactly
+> one named fallback** and it is never silently substituted, and no API returns a bare number.
+>
+> **⚠ THE COUNT WAS FIVE, NOT ONE.** This paragraph names `ConstraintEngine.MIN_AREA_M2`. Measured
+> 2026-08-22, there are **five rival room-minima tables** in this repo, with five different answers:
+>
+> | # | Table | `bedroom` | `living` | State |
+> |---|---|---:|---:|---|
+> | 1 | `apartmentLayout/rules/programRules.ts` `ROOM_RULES` | 7.5 | 14 | ✅ closed by ADR-0352 |
+> | 2 | `apartmentLayout/dimensions/roomDimensions.ts` `ROOM_DIMENSIONS` | 9 | 14 | ✅ no longer the hard gate (it is the COMFORT framework, and a comfort preference may not decide "not buildable") |
+> | 3 | `apps/editor/.../house-layout/houseExecDiagnostics.ts` `AREA_MIN` | 9 | 14 | 🔴 **OPEN** (L-4415) — a hand-copied mirror of #2 |
+> | 4 | `packages/constraint-solver/src/ConstraintEngine.ts` `MIN_AREA_M2` | 7.5 | 11 | 🔴 **OPEN** (L-4416) — the one this paragraph already named |
+> | 5 | `SPEC-ARCHITECTURAL-PROGRAM-RULES.md` §2 — a NORMATIVE SPEC whose header claims supremacy over the code | 9 | 18 | ✅ numeric columns DELETED 2026-08-22 (L-4417). It had been quietly declaring the founder's own ruling a bug. |
+>
+> **#4 stays the most urgent**, and this amendment does not soften that: it is the only one of the
+> four that renders its UK numbers to the user **with the word "regulation" attached**. What ADR-0352
+> adds is the machinery to migrate it into — a jurisdiction-keyed authority with provenance already
+> exists, so closing #4 is now a WIRE, not a build.
+>
+> **The MUST NOT above is unchanged and is reinforced.** A C83 rule still may not populate
+> `regulation`. If a C83 rule needs a legal floor it must consume the habitability authority and
+> render that authority's sentence, never transcribe a constant of its own.
+
 ### §6.2 — Not a replacement for the generators' constraints
 
 D-TGL, D-FLE and D-CE keep their internal constraints. C83 validates **states**, not **processes**;
