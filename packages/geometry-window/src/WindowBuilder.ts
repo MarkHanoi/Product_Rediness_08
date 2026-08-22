@@ -1464,9 +1464,25 @@ export class WindowBuilder {
         // frame sits at the BACK of the reveal (which is where a joiner puts it — the splay
         // is the reveal, the frame is behind it); unsplayed it starts at the box's outer lip,
         // which for a projection of 0 is exactly `-fd/2`, i.e. unchanged.
-        const _fz0 = rev ? (rev.hasSplay ? rev.zGlazing : rev.zOuterFace - 0.01) : -fd / 2;
-        const _fz1 = fd / 2;
-        const memberDepth = _fz1 - _fz0;
+        // ⭐ §FEAT-REVEAL-DIRECTION (L-3411) — the frame's two faces take their sign from
+        // the MODEL, never from a literal here. `-0.01` and `fd / 2` were both statements
+        // of "which way is out" living inside this consumer; once the face became a user
+        // choice, a hard-coded sign would have put the frame through the wall on one of the
+        // two settings while the reveal itself moved correctly. `_s` is +1 by default, so
+        // both expressions evaluate to exactly the characters that were here before.
+        const _s = rev ? rev.outwardSign : 1;
+        //
+        // ⛔ THE UNAUTHORED CASE KEEPS ITS LITERALS ON PURPOSE. With no reveal the frame is
+        // SYMMETRIC about z=0 (depth `fd`, centre 0), so the face it would nominally run
+        // from is not observable — writing a sign into it would be inventing a distinction
+        // that has no geometric consequence, and would put a direction into the one path
+        // C84 EI-2 requires to stay character-identical.
+        const _fz0 = rev ? (rev.hasSplay ? rev.zGlazing : rev.zOuterFace + _s * 0.01) : -fd / 2;
+        const _fz1 = rev ? -_s * fd / 2 : fd / 2;
+        // `Math.abs` because the span now runs in EITHER direction along z. Unsigned before
+        // this feature only because `_fz1 > _fz0` was guaranteed by a hard-coded sign — a
+        // depth is a magnitude, and taking it as a subtraction was that assumption showing.
+        const memberDepth = Math.abs(_fz1 - _fz0);
         const memberZ     = (_fz0 + _fz1) / 2;
 
         // Head

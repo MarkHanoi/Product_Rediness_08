@@ -76,6 +76,32 @@ export const WindowOpeningSchema = z.object({
      * authored", `isRevealAuthored()` returns false, and `WindowBuilder` /
      * `WindowPlanSymbolBuilder` take their existing code paths untouched.
      */
+    /**
+     * ⭐ §FEAT-REVEAL-DIRECTION (L-3410 … L-3416, founder 2026-08-22) — WHICH FACE the
+     * reveal runs from.
+     *
+     * *"the reveal projection and splay are applied to the WRONG SIDE — both currently
+     * modify the INDOOR face … I want an explicit direction option (Indoor / Outdoor) in
+     * the Properties panel AND via RAC, modelled on the door's Swing: Inward | Outward."*
+     *
+     * ⛔ **IT IS AUTHORED, NOT INFERRED, AND THAT IS A MEASUREMENT NOT A PREFERENCE.**
+     * PRYZM cannot currently tell which face of a wall looks outdoors. The slot for that
+     * fact EXISTS — `WallData.frontSide` / `backSide`, vocabulary
+     * `interior | exterior | unknown`, declared in THREE schemas — and
+     * `grep -rnE "(frontSide|backSide)\s*[:=]"` over `packages/ plugins/ apps/ src/
+     * server/` returns **ZERO writers**. So the capability is UNREACHABLE, never MISSING
+     * (C01 §6 rule 6), and `WallSideFinishResolver` already REFUSES to guess it in prose:
+     * *"nothing in this build ever sets them — so I will not guess"*. A default resolved
+     * from a datum nothing writes would be a guess wearing a resolver's name.
+     *
+     * ⚠ The door's `swingDirection: 'inward' | 'outward'` — the prior art the founder
+     * named — is likewise **purely authored**; there is no inward/outward resolver to
+     * reuse. Measured, so the next reader does not go looking for one.
+     *
+     * Absent ⇒ `'outdoor'`, which is the founder's intent, so no persisted window needs
+     * migrating and no load path invents a value.
+     */
+    revealDirection:       z.enum(['outdoor', 'indoor']).default('outdoor'),
     revealProjection:      z.number().default(0),
     revealSplayHead:       z.number().min(0).max(85).default(0),
     revealSplaySill:       z.number().min(0).max(85).default(0),

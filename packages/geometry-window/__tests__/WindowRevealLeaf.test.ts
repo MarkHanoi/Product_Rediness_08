@@ -76,7 +76,12 @@ function localZRange(m: THREE.Mesh): { min: number; max: number } {
 }
 
 describe('§FEAT-WINDOW-REVEAL — the PROJECTING BOX reaches the mesh', () => {
-    it('deepens the frame by exactly the projection and pushes it OUTWARD (−Z)', () => {
+    // ⚠ INVERTED 2026-08-22 (L-3410), NOT DELETED. This asserted the box grew along −Z and
+    // it PASSED while the founder watched the box grow into his ROOM. See
+    // `WindowReveal.EXTERIOR_LOCAL_Z`'s header for what was measured and why the literal
+    // moved; the short version is that the constant it agreed with was never consumed by any
+    // production line, so the whole chain was self-consistent and unanchored.
+    it('deepens the frame by exactly the projection and pushes it OUTWARD (+Z, the OUTDOOR face)', () => {
         const plain = partsByRole(buildGroup({ ...WIN }));
         const boxed = partsByRole(buildGroup({ ...WIN, id: 'winB', revealProjection: 0.4 }));
 
@@ -90,10 +95,10 @@ describe('§FEAT-WINDOW-REVEAL — the PROJECTING BOX reaches the mesh', () => {
         // to 1e-9 here would be asserting a precision the renderer's own buffers cannot
         // hold, i.e. a test that fails on the vertex format rather than on the geometry.
         // 1e-6 m is one micron — four orders finer than anything this feature can move.
-        expect(boxedHead.max).toBeCloseTo(plainHead.max, 6);
+        expect(boxedHead.min).toBeCloseTo(plainHead.min, 6);
         // …and the OUTER face has moved 400 mm further out.
-        expect(boxedHead.min).toBeCloseTo(plainHead.min - 0.4, 6);
-        expect(boxedHead.min).toBeLessThan(plainHead.min);   // −Z is the exterior
+        expect(boxedHead.max).toBeCloseTo(plainHead.max + 0.4, 6);
+        expect(boxedHead.max).toBeGreaterThan(plainHead.max);   // +Z is the outdoor face
     });
 
     it('carries the GLAZING out with the box, one reveal run behind the lip', () => {
@@ -102,7 +107,7 @@ describe('§FEAT-WINDOW-REVEAL — the PROJECTING BOX reaches the mesh', () => {
         const model = resolveWindowReveal({ ...WIN, revealProjection: 0.4 } as never, 0.3);
         // The mesh's own position IS the model's glazing plane — measured, not assumed equal.
         expect(pane.position.z).toBeCloseTo(model.zGlazing, 6);
-        expect(pane.position.z).toBeCloseTo(-0.4, 6);
+        expect(pane.position.z).toBeCloseTo(0.4, 6);
     });
 
     it('builds NO splay plates when only the projection is set', () => {
@@ -157,8 +162,11 @@ describe('§FEAT-WINDOW-REVEAL — the SPLAY reaches the mesh, per side', () => 
         const model = resolveWindowReveal(win as never, 0.3);
         const z = localZRange(plate);
         // Precision 6 — Float32 vertex buffers; see the note in the projection test above.
-        expect(z.min).toBeCloseTo(model.zOuterFace, 6);
-        expect(z.max).toBeCloseTo(model.zGlazing, 6);
+        // ⚠ min/max SWAPPED with the axis (L-3410): the plate still spans exactly the outer
+        // plane to the glazing plane, but on the outdoor face the outer plane is the LARGER
+        // z. Asserted against the model's own two numbers so this cannot drift from it again.
+        expect(z.max).toBeCloseTo(model.zOuterFace, 6);
+        expect(z.min).toBeCloseTo(model.zGlazing, 6);
     });
 
     it('the plate is a CLOSED solid with outward normals — a hand-written winding, measured', () => {
@@ -193,5 +201,59 @@ describe('§FEAT-WINDOW-REVEAL — the exclusions are real, not aspirational', (
             curved,
         ));
         expect(g.windowReveal).toBeUndefined();
+    });
+});
+
+// ── ⭐ §FEAT-REVEAL-DIRECTION (L-3411, founder 2026-08-22) — THE DIRECTION REACHES THE MESH
+//
+// ⛔ A VALUE THAT STORES BUT NEVER RENDERS IS A LIE. The model tests
+// (`WindowRevealModel.test.ts`) prove the arithmetic mirrors; they cannot prove the BUILDER
+// consumes it, and the builder carried two hard-coded signs of its own (`fd / 2` and
+// `- 0.01`) that would have kept the frame on one face while the reveal moved to the other.
+// So these assertions are read off real BufferGeometry, after a real build.
+describe('§FEAT-REVEAL-DIRECTION — Indoor / Outdoor reaches the built leaf', () => {
+    it('⭐ the box grows on the side the user chose — the whole founder ask, at the mesh', () => {
+        const plain = partsByRole(buildGroup({ ...WIN, id: 'winDir0' }));
+        const out   = partsByRole(buildGroup({ ...WIN, id: 'winDirO', revealProjection: 0.4 }));
+        const inn   = partsByRole(buildGroup({ ...WIN, id: 'winDirI', revealProjection: 0.4, revealDirection: 'indoor' } as never));
+
+        const p = localZRange(plain.windowFrame![0]!);
+        const o = localZRange(out.windowFrame![0]!);
+        const i = localZRange(inn.windowFrame![0]!);
+
+        // OUTDOOR grows in +Z and leaves the indoor face alone.
+        expect(o.max).toBeCloseTo(p.max + 0.4, 6);
+        expect(o.min).toBeCloseTo(p.min, 6);
+        // INDOOR is its exact mirror: grows in −Z, outdoor face untouched.
+        expect(i.min).toBeCloseTo(p.min - 0.4, 6);
+        expect(i.max).toBeCloseTo(p.max, 6);
+    });
+
+    it('the GLAZING follows the direction too — one plane, not two', () => {
+        const o = partsByRole(buildGroup({ ...WIN, id: 'winDirGO', revealProjection: 0.4 })).windowGlazing![0]!;
+        const i = partsByRole(buildGroup({ ...WIN, id: 'winDirGI', revealProjection: 0.4, revealDirection: 'indoor' } as never)).windowGlazing![0]!;
+        expect(o.position.z).toBeCloseTo(0.4, 6);
+        expect(i.position.z).toBeCloseTo(-0.4, 6);
+    });
+
+    it('⭐ the SPLAY PLATE follows the SAME flag — request (3): not only the projecting box', () => {
+        // The founder asked twice, explicitly: the direction must apply to the projecting
+        // box AND to the splay. A flag wired to one of the two is the ADR-0342 fork.
+        const o = partsByRole(buildGroup({ ...WIN, id: 'winDirSO', revealSplayHead: 40 })).windowReveal![0]!;
+        const i = partsByRole(buildGroup({ ...WIN, id: 'winDirSI', revealSplayHead: 40, revealDirection: 'indoor' } as never)).windowReveal![0]!;
+        const zo = localZRange(o);
+        const zi = localZRange(i);
+        expect(zo.max).toBeCloseTo(-zi.min, 6);
+        expect(zo.min).toBeCloseTo(-zi.max, 6);
+        // NON-VACUITY — the two plates really are on opposite sides of the wall centre.
+        expect(zo.max).toBeGreaterThan(0);
+        expect(zi.min).toBeLessThan(0);
+    });
+
+    it('⛔ an UNAUTHORED window is untouched by the flag — C84 EI-2 at the mesh', () => {
+        const a = localZRange(partsByRole(buildGroup({ ...WIN, id: 'winDirN1' })).windowFrame![0]!);
+        const b = localZRange(partsByRole(buildGroup({ ...WIN, id: 'winDirN2', revealDirection: 'indoor' } as never)).windowFrame![0]!);
+        expect(b.min).toBeCloseTo(a.min, 9);
+        expect(b.max).toBeCloseTo(a.max, 9);
     });
 });

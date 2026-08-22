@@ -40,7 +40,8 @@ describe('§FEAT-WINDOW-REVEAL — the unauthored window is the identity', () =>
         // put the pane (`addSweptBox(..., 0)`), which is what makes the short circuit a
         // short circuit rather than a coincidence.
         expect(r.zGlazing).toBe(0);
-        expect(r.zOuterFace).toBeCloseTo(-T / 2, 12);
+        // The unauthored lip sits AT the chosen wall face — outdoor by default, so +T/2.
+        expect(r.zOuterFace).toBeCloseTo(T / 2, 12);
         expect(r.glazingWidth).toBe(BASE.width);
         expect(r.glazingHeight).toBe(BASE.height);
         for (const s of REVEAL_SIDES) expect(r.inset[s]).toBe(0);
@@ -70,23 +71,45 @@ describe('§FEAT-WINDOW-REVEAL — the unauthored window is the identity', () =>
 });
 
 describe('§FEAT-WINDOW-REVEAL — the projecting box (the founder\'s first ask)', () => {
-    it('slides the outer lip proud of the EXTERIOR face and carries the glazing with it', () => {
+    // ⚠ ⚠ THE THREE ASSERTIONS BELOW WERE INVERTED ON 2026-08-22 (L-3410), NOT DELETED, AND
+    // THE REASON IS THE POINT OF KEEPING THEM.
+    //
+    // They pinned `EXTERIOR_LOCAL_Z === -1` and every consequence of it, and they PASSED
+    // throughout — while the founder was looking at a projecting box growing into his
+    // ROOM. A green test over a wrong axis is worth recording, because it shows exactly how
+    // the defect survived: the suite asserted the model AGREED WITH ITSELF (the constant
+    // said −1, the arithmetic used −1, the test asserted −1) and nothing in the chain was
+    // ever compared against a rendered frame. Three self-consistent statements of one wrong
+    // fact are not three pieces of evidence.
+    //
+    // A second tell was on the page the whole time and was recorded rather than resolved:
+    // ADR-0342 logged L-1926, `_addSillBoard` placing the sill at `+z` commented "toward
+    // exterior", DIRECTLY contradicting the constant. The contradiction was written down and
+    // the code left alone. It is resolved now, in the sill board's favour, by the founder's
+    // observation of the running app.
+    //
+    // ⭐ AND THE SUITE NOW ASSERTS THE THING THAT WAS MISSING: that the two DIRECTIONS are
+    // exact mirrors (§FEAT-REVEAL-DIRECTION below). A mirror test is falsifiable by a sign
+    // error in a way "−1 is −1" never was.
+    it('slides the outer lip proud of the CHOSEN face and carries the glazing with it', () => {
         const r = resolveWindowReveal({ ...BASE, revealProjection: 0.4 }, T);
         expect(r.active).toBe(true);
-        // Exterior is local −Z (the authored layer-stack axis; see EXTERIOR_LOCAL_Z), so a
-        // POSITIVE projection must make the lip MORE negative, never less.
-        expect(EXTERIOR_LOCAL_Z).toBe(-1);
-        expect(r.zOuterFace).toBeCloseTo(-0.15 - 0.4, 12);
+        // The default face is OUTDOOR, which is local +Z (see EXTERIOR_LOCAL_Z's header for
+        // why this literal moved and what evidence moved it).
+        expect(EXTERIOR_LOCAL_Z).toBe(1);
+        expect(r.direction).toBe('outdoor');
+        expect(r.outwardSign).toBe(1);
+        expect(r.zOuterFace).toBeCloseTo(0.15 + 0.4, 12);
         // …and the pane rides out with the box, staying one reveal run behind the lip.
-        expect(r.zGlazing).toBeCloseTo(-0.4, 12);
-        expect(r.zGlazing - r.zOuterFace).toBeCloseTo(r.run, 12);
+        expect(r.zGlazing).toBeCloseTo(0.4, 12);
+        expect(Math.abs(r.zOuterFace - r.zGlazing)).toBeCloseTo(r.run, 12);
         expect(r.run).toBeCloseTo(T / 2, 12);
     });
 
     it('a NEGATIVE projection recesses the window, and the run is unchanged', () => {
         const r = resolveWindowReveal({ ...BASE, revealProjection: -0.1 }, T);
-        expect(r.zOuterFace).toBeCloseTo(-0.05, 12);   // 100 mm inside the exterior face
-        expect(r.zGlazing).toBeCloseTo(0.1, 12);       // …and the pane follows it inward
+        expect(r.zOuterFace).toBeCloseTo(0.05, 12);    // 100 mm inside the outdoor face
+        expect(r.zGlazing).toBeCloseTo(-0.1, 12);      // …and the pane follows it inward
         expect(r.run).toBeCloseTo(T / 2, 12);
     });
 
@@ -206,5 +229,84 @@ describe('§FEAT-WINDOW-REVEAL — C83: INADVISABLE is SAID, not enforced', () =
     it('NON-VACUITY: an ordinary reveal produces NO advisory', () => {
         expect(windowRevealAdvisory({ ...BASE, revealProjection: 0.15 }, T)).toBeNull();
         expect(windowRevealAdvisory({ ...BASE, revealSplayHead: 20 }, T)).toBeNull();
+    });
+});
+
+// ── ⭐ §FEAT-REVEAL-DIRECTION (L-3410 … L-3416, founder 2026-08-22) ──────────────────────
+//
+// *"the reveal projection and splay are applied to the WRONG SIDE — both currently modify
+//  the INDOOR face … I want an explicit direction option (Indoor / Outdoor), like the
+//  door's Swing: Inward | Outward."*
+//
+// ⛔ THE ONE THING THIS BLOCK EXISTS TO GUARD is ADR-0342's binding rule: the projecting
+// box and the splay are ONE geometry rule with ONE glazing plane, and a direction flag must
+// not fork them into two. A fork would show up here as the projection mirroring and the
+// splay not, or as the glazing rectangle changing size with the direction — so the mirror
+// is asserted on ALL of it, not just on the lip.
+describe('§FEAT-REVEAL-DIRECTION — the two faces are exact mirrors, and the glass is not touched', () => {
+    const OUT = { ...BASE, revealProjection: 0.4, revealSplayHead: 30, revealSplayJambLeft: 20 };
+    const IN  = { ...OUT, revealDirection: 'indoor' as const };
+
+    it('the direction resolves, and an absent field is OUTDOOR', () => {
+        expect(resolveWindowReveal(OUT, T).direction).toBe('outdoor');
+        expect(resolveWindowReveal(IN, T).direction).toBe('indoor');
+        expect(resolveWindowReveal({ ...OUT, revealDirection: 'nonsense' as never }, T).direction).toBe('outdoor');
+    });
+
+    it('⭐ every z flips sign, and NOTHING else changes', () => {
+        const o = resolveWindowReveal(OUT, T);
+        const i = resolveWindowReveal(IN, T);
+
+        expect(i.zOuterFace).toBeCloseTo(-o.zOuterFace, 12);
+        expect(i.zGlazing).toBeCloseTo(-o.zGlazing, 12);
+        expect(i.outwardSign).toBe(-o.outwardSign);
+
+        // THE GLASS IS NOT TOUCHED — this is the fork detector. The founder's own rule is
+        // that the ANGLE defines the size of the glass; the FACE must not.
+        expect(i.glazingWidth).toBeCloseTo(o.glazingWidth, 12);
+        expect(i.glazingHeight).toBeCloseTo(o.glazingHeight, 12);
+        expect(i.glazingCentreX).toBeCloseTo(o.glazingCentreX, 12);
+        expect(i.glazingCentreY).toBeCloseTo(o.glazingCentreY, 12);
+        expect(i.run).toBe(o.run);
+        for (const s of REVEAL_SIDES) expect(i.inset[s]).toBeCloseTo(o.inset[s], 12);
+    });
+
+    it('⛔ NON-VACUITY — the two are genuinely different, not two reads of one object', () => {
+        const o = resolveWindowReveal(OUT, T);
+        const i = resolveWindowReveal(IN, T);
+        expect(i.zOuterFace).not.toBeCloseTo(o.zOuterFace, 6);
+        expect(o.zOuterFace).toBeGreaterThan(0);
+        expect(i.zOuterFace).toBeLessThan(0);
+    });
+
+    it('the SPLAY mirrors too — a direction that moved only the box would be the ADR-0342 fork', () => {
+        const oSplay = resolveWindowReveal({ ...BASE, revealSplayHead: 45 }, T);
+        const iSplay = resolveWindowReveal({ ...BASE, revealSplayHead: 45, revealDirection: 'indoor' }, T);
+        // same wedge, opposite side of the wall
+        expect(iSplay.inset.head).toBeCloseTo(oSplay.inset.head, 12);
+        expect(iSplay.zOuterFace).toBeCloseTo(-oSplay.zOuterFace, 12);
+        expect(iSplay.zGlazing).toBeCloseTo(-oSplay.zGlazing, 12);
+    });
+
+    it('an UNAUTHORED window is byte-identical on both faces — C84 EI-2', () => {
+        // Nothing authored means the short circuit fires before any sign is read, so a
+        // record that never had a reveal renders exactly as it did before this feature no
+        // matter what direction it nominally carries.
+        const a = resolveWindowReveal(BASE, T);
+        const b = resolveWindowReveal({ ...BASE, revealDirection: 'indoor' }, T);
+        expect(a.active).toBe(false);
+        expect(b.active).toBe(false);
+        expect(a.glazingWidth).toBe(b.glazingWidth);
+        expect(a.glazingHeight).toBe(b.glazingHeight);
+        expect(a.zGlazing).toBe(b.zGlazing);
+    });
+
+    it('the C83 refusal names the face the USER chose, not a hard-coded one', () => {
+        const deepRecess = { ...BASE, revealProjection: -0.5, revealDirection: 'indoor' as const };
+        const reason = windowRevealRefusal(deepRecess, T);
+        expect(reason).toBeTruthy();
+        expect(String(reason)).toContain('indoor');
+        const outdoorReason = windowRevealRefusal({ ...deepRecess, revealDirection: 'outdoor' }, T);
+        expect(String(outdoorReason)).toContain('outdoor');
     });
 });

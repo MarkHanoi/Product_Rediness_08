@@ -19,6 +19,7 @@ import { OPENING_PROFILE_KINDS, OPENING_PROFILE_LABELS, SEGMENTAL_RISE_RATIO, wa
 import {
     resolveWindowReveal, windowRevealRefusal, REVEAL_SIDES, REVEAL_SIDE_LABEL,
     REVEAL_SPLAY_FIELD, MAX_REVEAL_SPLAY_DEG,
+    REVEAL_DIRECTIONS, REVEAL_DIRECTION_LABEL, resolveRevealDirection,
 } from './WindowReveal';
 import { WindowOpening } from './WindowTypes';
 import { UpdateWindowParameterCommand } from '@pryzm/command-registry';
@@ -207,7 +208,8 @@ function appendRevealFields(body: HTMLElement, windowId: string, win: WindowOpen
               + `${r.glazingWidth.toFixed(3)} × ${r.glazingHeight.toFixed(3)} m`
               + (r.hasProjection
                   ? ` · outer face ${Math.abs(r.projection).toFixed(3)} m `
-                    + `${r.projection > 0 ? 'proud of' : 'behind'} the exterior wall face`
+                    + `${r.projection > 0 ? 'proud of' : 'behind'} the `
+                    + `${r.direction} wall face`
                   : '');
     };
 
@@ -215,6 +217,38 @@ function appendRevealFields(body: HTMLElement, windowId: string, win: WindowOpen
         dispatch(windowId, patch);
         refreshReadout();
     };
+
+    // ── ⭐ 0. THE DIRECTION — WHICH FACE THE WHOLE REVEAL RUNS FROM (L-3412) ───────
+    //
+    // *"the reveal projection and splay are applied to the WRONG SIDE — both currently
+    //  modify the INDOOR face … I want an explicit direction option (Indoor / Outdoor),
+    //  modelled on the door's Swing: Inward | Outward."*
+    //
+    // ⭐ IT IS FIRST IN THE BLOCK, ABOVE BOTH THE PROJECTION AND THE ANGLES, BECAUSE IT
+    // GOVERNS BOTH. Placing it beside the projection would read as "which way the box
+    // goes" and leave the architect to discover that it also moved the splay — which is
+    // exactly the two-features-one-model confusion ADR-0342 exists to prevent.
+    //
+    // ⛔ THE HELP LINE SAYS THE SIDE IS AUTHORED, NOT RESOLVED, AND THAT IS A MEASUREMENT.
+    // PRYZM cannot presently tell which face of a wall looks outdoors: the slot exists
+    // (`WallData.frontSide`/`backSide`) and has ZERO writers repo-wide, so it is UNREACHABLE
+    // rather than missing (C01 §6 rule 6), and `WallSideFinishResolver` already refuses to
+    // guess it. A default that LOOKED resolved and was actually a guess is worse than an
+    // explicit one the architect can see and change — the founder's own constraint.
+    const dirRow = makeField('Reveal Direction',
+        makeSelect(
+            REVEAL_DIRECTIONS.map(d => ({ value: d, label: REVEAL_DIRECTION_LABEL[d] })),
+            resolveRevealDirection(win.revealDirection),
+            v => push({ revealDirection: v as never }),
+        ));
+    const dirHelp = document.createElement('div');
+    dirHelp.className = 'dw-label';
+    dirHelp.style.cssText = 'grid-column:1/-1;opacity:0.65;font-size:11px;line-height:1.4;';
+    dirHelp.textContent =
+        'Applies to the projection AND the splay — they are one reveal. PRYZM does not yet '
+        + 'detect which wall face is outdoors, so this is your choice, not a detected value.';
+    body.appendChild(dirRow);
+    body.appendChild(dirHelp);
 
     // ── 1. THE PROJECTION — his *"like frame width but offset wide"* ──────────────
     //

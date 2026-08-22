@@ -135,11 +135,95 @@ function _tracer(): Tracer {
 /**
  * The sign of the EXTERIOR direction along a hosted opening's local Z axis.
  *
- * ⛔ **THE ONE STATEMENT OF "WHICH SIDE IS OUTSIDE" IN THIS FEATURE.** Derived in §1 of
- * this file's header from the authored layer stack, not from a normal, a winding order or
- * a camera. Import it; never re-derive it, and never write a bare `-1` for it.
+ * ⛔ **THE ONE STATEMENT OF "WHICH SIDE IS OUTSIDE" IN THIS FEATURE.** Import it; never
+ * re-derive it, and never write a bare literal for it.
+ *
+ * ⚠ **CORRECTED 2026-08-22 (L-3410) — THIS WAS `-1` AND IT WAS NEVER CONSUMED.**
+ * Two facts were measured before changing it, and both matter:
+ *
+ *   1. **It was UNREACHABLE, not merely wrong.**
+ *      `grep -rn EXTERIOR_LOCAL_Z packages/ apps/ src/ plugins/` returned **7 hits: the
+ *      declaration, a barrel re-export, three prose comments and one test asserting its
+ *      own value. ZERO production consumers.** The geometry hard-coded its sign as a
+ *      literal `-` in `zOuterFace = -run - projection`. So ADR-0342 §3.2's careful
+ *      derivation was documentation that the geometry was never bound to — the
+ *      authored-but-unwired shape ([[authored-but-unwired-is-the-bottleneck]]). It is
+ *      consumed now, by {@link revealOutwardSign}, which is the only place a direction
+ *      becomes a sign.
+ *
+ *   2. **The founder MEASURED the rendered result and it disagreed with the derivation.**
+ *      *"the reveal projection and splay are applied to the WRONG SIDE — both currently
+ *      modify the INDOOR face."* That is an observation at the layer the user experiences,
+ *      and per [[probe-can-be-wrong-three-ways]] it outranks a derivation from three
+ *      module headers — which is exactly what §3.2 was. ADR-0342 itself recorded the
+ *      conflict it could not resolve (L-1926: `_addSillBoard` places the sill at `+z`
+ *      commented *"toward exterior"*, contradicting §3.2) and left the sill where it
+ *      was. **The founder's observation resolves that contradiction in the SILL's
+ *      favour**, so the two are now consistent for the first time.
+ *
+ * ⛔ **WHAT THIS CHANGES, DECLARED RATHER THAN DISCOVERED LATER.** A window with NO reveal
+ * authored is untouched — `resolveWindowReveal` short-circuits before any sign is read, so
+ * the C84 EI-2 byte-identity guarantee is intact and `StraightHostLeafByteIdentical` is
+ * unaffected. A window that DID author a reveal moves to the other face. That is the
+ * correction the founder asked for, and anyone who wants the previous geometry back has an
+ * explicit, persisted control for it: `revealDirection: 'indoor'`.
+ *
+ * 🔴 **NOT VERIFIED IN A BROWSER BY THIS LANE.** The flip rests on the founder's report,
+ * not on a render this lane observed. If the box now appears on the wrong side again, the
+ * fix is this ONE literal — not a second code path.
  */
-export const EXTERIOR_LOCAL_Z = -1 as const;
+export const EXTERIOR_LOCAL_Z = 1 as const;
+
+/**
+ * ⭐ §FEAT-REVEAL-DIRECTION (L-3410 … L-3416, founder 2026-08-22) — WHICH FACE THE REVEAL
+ * RUNS FROM, as a first-class user choice.
+ *
+ * *"the reveal projection and splay are applied to the WRONG SIDE — both currently modify
+ * the INDOOR face … I want an explicit direction option (Indoor / Outdoor) in the
+ * Properties panel AND via RAC, like the door's Swing: Inward | Outward."*
+ *
+ * ⛔ **IT IS ONE FLAG ON THE ONE MODEL, NOT A FORK.** ADR-0342's binding rule is that the
+ * projecting box and the splay are ONE geometry rule with ONE glazing plane. A direction
+ * that were implemented as a second code path would immediately mint the second glazing
+ * plane that ADR exists to prevent. So the direction resolves to a SIGN — {@link
+ * ResolvedWindowReveal.outwardSign} — that every z-expression in this module is multiplied
+ * by, and every consumer keeps reading the same four fields it already read.
+ */
+export const REVEAL_DIRECTIONS = ['outdoor', 'indoor'] as const;
+export type RevealDirection = (typeof REVEAL_DIRECTIONS)[number];
+
+/** The default when a record authors nothing. The founder's ask: the box goes OUTSIDE. */
+export const DEFAULT_REVEAL_DIRECTION: RevealDirection = 'outdoor';
+
+/**
+ * User-facing labels. The door's `Swing: Inward | Outward` control is the prior art the
+ * founder named, and this is deliberately its twin in shape (a two-member enum on a select
+ * beside the other opening properties) — but NOT in vocabulary. The door swings INWARD /
+ * OUTWARD because a leaf moves; a reveal is a static face, so it is INDOOR / OUTDOOR.
+ * Spelling them the same would invite a future editor to share a mapper between two things
+ * that are not the same axis (C84 EI-9 is about one meaning having one name; it is equally
+ * about two meanings not sharing one).
+ */
+export const REVEAL_DIRECTION_LABEL: Readonly<Record<RevealDirection, string>> = Object.freeze({
+    outdoor: 'Outdoor (exterior face)',
+    indoor:  'Indoor (interior face)',
+});
+
+/** Tolerant reader for the LOAD path — an unknown value is the default, never a throw. */
+export function resolveRevealDirection(v: unknown): RevealDirection {
+    return v === 'indoor' ? 'indoor' : DEFAULT_REVEAL_DIRECTION;
+}
+
+/**
+ * The local-Z sign the reveal runs OUT along, for a given direction.
+ *
+ * ⛔ **THE ONLY PLACE A DIRECTION BECOMES A SIGN.** Everything else in this module — and
+ * every consumer — reads the resolved numbers, so there is exactly one statement of what
+ * "outdoor" means geometrically and it is this line.
+ */
+export function revealOutwardSign(direction: RevealDirection): 1 | -1 {
+    return direction === 'outdoor' ? EXTERIOR_LOCAL_Z : (-EXTERIOR_LOCAL_Z as 1 | -1);
+}
 
 /** The four reveal sides, in construction vocabulary. UI labels them top/bottom/left/right. */
 export const REVEAL_SIDES = ['head', 'sill', 'jambLeft', 'jambRight'] as const;
@@ -198,8 +282,14 @@ export const MAX_REVEAL_SPLAY_DEG = 85;
 export interface WindowRevealSource {
     width: number;
     height: number;
-    /** Signed metres. `> 0` projects past the EXTERIOR face; `< 0` recesses inward. */
+    /** Signed metres. `> 0` projects past the CHOSEN face; `< 0` recesses inward. */
     revealProjection?: number;
+    /**
+     * ⭐ §FEAT-REVEAL-DIRECTION (L-3410) — WHICH face the reveal runs from. Absent ⇒
+     * `'outdoor'`, so every record written before this field existed reads as the founder's
+     * intended default and nothing needs migrating.
+     */
+    revealDirection?: RevealDirection;
     revealSplayHead?: number;
     revealSplaySill?: number;
     revealSplayJambLeft?: number;
@@ -217,8 +307,21 @@ export interface ResolvedWindowReveal {
     readonly active: boolean;
     /** Signed projection actually applied, metres. */
     readonly projection: number;
-    /** Reveal run — outer plane to glazing plane. `t / 2`. */
+    /** Reveal run — outer plane to glazing plane. `t / 2`. Never signed: it is a DEPTH. */
     readonly run: number;
+    /**
+     * ⭐ §FEAT-REVEAL-DIRECTION (L-3410) — the face this reveal runs from, resolved.
+     * The panel and RAC read THIS, never the raw record, so a record holding a typo and a
+     * record holding nothing resolve to the same answer the geometry used.
+     */
+    readonly direction: RevealDirection;
+    /**
+     * The local-Z sign the reveal runs OUT along: `EXTERIOR_LOCAL_Z` for `'outdoor'`, its
+     * negation for `'indoor'`. Exposed so a consumer that must place something ALONGSIDE
+     * the reveal (a future sill board, a shading device) takes the sign from the model
+     * rather than minting a second opinion about which way is out.
+     */
+    readonly outwardSign: 1 | -1;
     /** Local Z of the box's outer lip. Equals `−t/2` when `projection` is 0. */
     readonly zOuterFace: number;
     /** Local Z of the glazing plane. Equals `0` — the wall centre-plane — when `projection` is 0. */
@@ -283,6 +386,11 @@ export function resolveWindowReveal(
             const t = _finite(wallThickness) > 0 ? wallThickness : 0;
             const run = t / 2;
             const projection = _finite(win.revealProjection);
+            // ⭐ §FEAT-REVEAL-DIRECTION (L-3410) — the direction becomes a SIGN, once, here.
+            // Every z-expression below is multiplied by it, which is what keeps the box and
+            // the splay on ONE geometry rule (ADR-0342) instead of forking into two.
+            const direction = resolveRevealDirection(win.revealDirection);
+            const outwardSign = revealOutwardSign(direction);
 
             const splayDeg = Object.freeze({
                 head:      _angle(win.revealSplayHead),
@@ -306,7 +414,13 @@ export function resolveWindowReveal(
                     active: false,
                     projection: 0,
                     run,
-                    zOuterFace: -run,
+                    direction,
+                    outwardSign,
+                    // ⛔ IDENTITY, NOT A RECONSTRUCTION. With nothing authored these are the
+                    // literal pre-feature values on either sign: the lip is at the wall face
+                    // and the glazing at the centre-plane, which is where this builder has
+                    // always put them.
+                    zOuterFace: outwardSign * run,
                     zGlazing: 0,
                     inset: ZERO_INSET,
                     splayDeg,
@@ -339,14 +453,22 @@ export function resolveWindowReveal(
             const glazingCentreX = (inset.jambLeft - inset.jambRight) / 2;
             const glazingCentreY = (inset.sill - inset.head) / 2;
 
-            const zOuterFace = -run - projection;
+            // ⭐ THE SIGNED AXIS. `outwardSign` is the ONLY difference between the two
+            // directions; the run, the insets and the glazing rectangle are identical, which
+            // is precisely why a direction flag cannot fork this into two glazing planes.
+            //   • the lip stands `run + projection` OUT along the chosen face;
+            //   • the glazing plane steps back IN by `run` — the classic reveal depth, held
+            //     fixed so the projection and the splay compose (ADR-0342 §2.1).
+            const zOuterFace = outwardSign * (run + projection);
 
             return Object.freeze({
                 active: true,
                 projection,
                 run,
+                direction,
+                outwardSign,
                 zOuterFace,
-                zGlazing: zOuterFace + run,
+                zGlazing: zOuterFace - outwardSign * run,
                 inset,
                 splayDeg,
                 glazingWidth,
@@ -388,10 +510,15 @@ export function windowRevealRefusal(
             // At `p = −t/2` the glazing plane has reached the INTERIOR face; past it the
             // pane leaves the wall entirely and there is nothing for the reveal to run in.
             if (t > 0 && r.projection <= -r.run) {
+                // ⭐ §FEAT-REVEAL-DIRECTION (L-3413) — the refusal names the face the user
+                // CHOSE and the one it would break out of. Saying "interior" to someone who
+                // set the reveal to Indoor would name the wrong wall face in their own words.
+                const far = r.direction === 'outdoor' ? 'interior' : 'exterior';
                 return `A recess of ${(-r.projection).toFixed(3)} m cannot be cut into a `
-                    + `${t.toFixed(3)} m wall: the glazing plane would sit at or beyond the `
-                    + `interior face (the deepest recess this wall can carry is under `
-                    + `${r.run.toFixed(3)} m). Reduce the recess, or host the window in a thicker wall.`;
+                    + `${t.toFixed(3)} m wall from its ${r.direction === 'outdoor' ? 'outdoor' : 'indoor'} `
+                    + `face: the glazing plane would sit at or beyond the ${far} face (the deepest `
+                    + `recess this wall can carry is under ${r.run.toFixed(3)} m). Reduce the recess, `
+                    + `or host the window in a thicker wall.`;
             }
 
             // ── THE SPLAYS MEET — ZERO GLASS ────────────────────────────────────────────
