@@ -2267,3 +2267,98 @@ one-click reset per §2.2 and §10.12.e, and ⭐ **no new field encodes "is over
 - ⛔ **Curtain-wall and plumbing remain unseeded** (0 of 20 and 0 of 19). Plumbing is additionally
   not a declared dependency of `apps/editor`, so it is on `EXCLUDED_TYPE_STORES` with that reason
   rather than added as a third un-tickable column (L-8603).
+
+---
+
+## §10.14 — ⭐ THE AUTHORING PANEL GAINED A SECOND MOUTH, AND IT REUSES THE LADDER RATHER THAN GROWING ONE (2026-08-23, lane OPENUI57)
+
+### §10.14.a — The founder's ask, and the trap inside it
+
+> *"enable AI chat while in this new creation panel — the user could either do it via UI or chat —
+> 'create a window with…' and **all parameters should be accessible via RAC / AI** — this should be
+> an architecturally sound implementation."*
+
+**"All parameters" is the load-bearing phrase, and taking it literally is the trap.** The obvious
+implementation is a table mapping the eight window dimensions, two finish slots, two grid axes and the
+glazing opacity onto parser rules. That table would be *shorter* than what shipped and it would be the
+defect: **two enumerations of one vocabulary**, drifting from the first field anyone adds — §6.2's
+"authored but unwired" one layer up, and C68 §7.c's rival vocabulary exactly.
+
+### §10.14.b — The rule this mints: **AN AI SURFACE OVER A DECLARED VOCABULARY MUST DERIVE ITS VOCABULARY FROM THE DECLARATION**
+
+> **MUST.** Where a UI renders its controls from a declaration (here
+> `ElementTypeAuthoring.finishEditor`, per C65 §3.5), any chat, RAC or AI surface over the same subject
+> MUST build its vocabulary from **that same declaration** rather than from a parallel list. A field is
+> then reachable by language *because* it is reachable by control, and the correspondence is
+> structural rather than maintained.
+>
+> **MUST.** That correspondence MUST be asserted **in both directions** by a test, so that adding a
+> declared field without language reach — or removing language reach for a declared field — goes red
+> without anyone remembering to check. (`FinishTypeDraftIntent.spec.ts` iterates the registry's own
+> `dimensions`, `slots` and `grid` and asserts each is present in `draftFieldsFor()`.)
+>
+> **MAY.** A LANGUAGE layer over the declaration — English morphology such as `wide → width`,
+> `tall → height`, `thick → thickness` — is permitted and is not a rival vocabulary, provided its
+> values are **words the declaration already uses** and that constraint is itself asserted
+> (`morphologyIsGrounded()`). ⛔ It MUST NOT map to record keys or to values; it can only help reach a
+> field the declaration already declares, and it can never invent one.
+
+### §10.14.c — Material references travel the ONE ladder, and inherit its refusals unsoftened
+
+`FinishTypeDraftIntent` resolves a spoken material through **`suggestMaterialForLegacyName`**, the
+matcher `FinishMaterialSelect.ts` already owns (§10.12.d). It adds nothing to it. Concretely:
+
+- *"frame in unobtainium"* → **refusal**, in the picker's own terms: *"not a material in the library …
+  a near-enough guess here would put a colour on your type that nobody chose."* That is §5's
+  prohibition on substituting a plausible value, restated at the language layer.
+- A name reached by inference rather than by exact label carries **`inferred: true`**, and the chat
+  says so on screen: *"(closest library match — change it above if that is not the one)"*. §5's last
+  MUST — *an INFERRED value is reported as inference, not as resolution* — is therefore satisfied at
+  the surface the founder actually reads, not only in the resolver's return type.
+
+Field resolution likewise reuses **`resolveCatalogueRef`** (ADR-0314), so ambiguity behaves as it does
+everywhere else in the repo: `entry: null` plus the candidate list. *"frame 0.05 m"* answers **"Frame
+face or Frame depth?"** rather than picking one. ⛔ **No second matcher of either kind was written.**
+
+### §10.14.d — §6.2's carrier rule is satisfied by a DETERMINISTIC path, and by no store of its own
+
+§6.2 warns that *a capability reachable only through the LLM planner tests green and does not exist for
+the founder*. This path never reaches a planner: the resolver is offline, zero-token and synchronous.
+
+⛔ **It introduces no bus verb, no DTO store and no `BATCH_REPORT_EVENTS` row**, so C68 §5.a's
+presumption — a plugin `produceCommand` DTO store is DEAD until proven otherwise, right 13/13 — cannot
+bite: there is nothing new to presume dead. *"create it"* runs the dialog's own `validate()`, then the
+existing `elementType.create`, then the existing **store read-back** in
+`FinishTypeAuthoringActions.onSave` (C16 §5.1 CA-21). **The chat contains no "Done"** — it repeats what
+the validator and the store said, or it says it does not know.
+
+⛔ It also does not register as the `chatPromptHost` and does not call `tryHandleZeroToken`. Both hold
+module-global singletons (`host`, `conversation`); a modal that borrowed either would take the
+application's only chat surface away, or interleave two conversations into one memory, for as long as
+it was open.
+
+### §10.14.e — §2.2's authored-versus-derived rule, applied to a DIMENSION
+
+§2.2 states for a material override that a value the user did not choose must never be
+indistinguishable from one they did. **The same distinction was half-missing on the type's dimensions**
+and is now closed: an unauthored field reads **`auto · 1.2 m`** — naming what it INHERITS, taken from
+`resolveWindowDimensions` / `resolveDoorDimensions`, the same resolvers the placement path calls
+(L-127), never a literal — and an authored one reads **`authored ×`**, which clicks back to auto.
+
+> **MUST.** Where a type may either ASSERT a value or INHERIT one, the control MUST show which of the
+> two it is doing, MUST name the inherited value rather than only the word "auto", and MUST offer the
+> way back. ⛔ Clearing MUST delete the field; writing `0`, or freezing today's default into the
+> record, converts "inherits" into "asserts" without the user saying so — and every element placed
+> from that type carries the conversion.
+
+### §10.14.f — What is NOT closed, named rather than left as an absence
+
+- ⛔ **The GLOBAL chat still cannot place a single window from *"create a window with 2 m width"*.**
+  `parseWindowsParametricIntent` requires a named SCOPE and reads size only as `WxH`; there is no
+  singular placement verb and no door-create verb at all; `window.create` / `door.create` REFUSE by
+  design; and `wall.createOpening` sits in `CHAT_UNAVAILABLE` and emits no `*_REPORT_EVENT`, so a
+  capability riding it would get the canned "Done" that L-996 removed. Closing it needs four coupled
+  changes across `plugins/wall`, `packages/ai-host` and `packages/command-registry` (ISSUE-LOG L-9650).
+- ⛔ **T2 ("My Materials") is still absent from this picker**, unchanged from §10.12.g. The chat
+  therefore inherits exactly the same reach as the control beside it — which is correct behaviour for
+  a derived vocabulary, and still a gap.

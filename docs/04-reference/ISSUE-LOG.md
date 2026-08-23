@@ -44972,3 +44972,232 @@ legacy `commandManager`, while `pool.create` exists **only** on the bus.
 | root `tsc --noEmit --skipLibCheck` | **RC=0, zero errors repo-wide** |
 | `check-tool-activator-coverage` | **RC=1** — ARM A 3/0 (balcony, boundary-line, pool). Pre-existing; see L-9308 |
 | plantools suite, 4 pre-existing failures NOT this lane's | `stairByWalls`, `stairCreationModes` (FrameScheduler duplicate id), `stairPlanCreation`, and `planAutoModeReachability` (fails naming **`grid`**, activator arity 0). ⛔ `git status` shows **no** stair/grid/frame-scheduler file dirty, and this lane's `elementCreationMatrix.ts` diff is **prose-only** (`gap:` strings), so none of the four can be this lane's |
+
+---
+
+## §OPENING-PREVIEW-HONEST-FAILURE / §OPENING-PANEL-DISTRIBUTION / §OPENING-AUTO-IS-A-STATE / §OPENING-PANEL-CHAT — lane OPENUI57 (2026-08-23)
+
+Founder, on the live deploy `2f8d9470`, about the window/door **type creation panel**
+(`FinishTypeEditorModal`): *"can you make the panel of window/door creation more sound and more
+elegant and more aligned with PRYZM UI/UX? also please enable AI chat while in this new creation
+panel — the user could either do it via UI or chat — 'create a window with…' and all parameters
+should be accessible via RAC / AI … also the preview should be a 3D scene … I want a webgpu/webgl 3D
+scene to be able to navigate, rotate etc. … also the distribution of the buttons and space needs to
+be better distributed — at the moment it is not elegant — too much space, something empty."*
+
+### L-9600 — ⛔⭐⭐ CLOSED, AND THE CAUSE WAS NONE OF THE FOUR SUSPECTED: **the preview was fine; its FAILURE DETECTOR was the bug, and it fired on every mount in every browser**
+
+The dialog showed *"3-D preview unavailable — this browser did not provide a WebGL context. Every
+other control on this dialog still works."* **while the founder's main viewport was rendering his
+model in WebGL on the same GPU** (status bar: `GPU: Auto · WebGPU · WebGL · webgl-fallback`).
+
+The lane brief named four candidate causes — (a) a lazy-once rig that returned `null` and never
+retried, (b) a device loss with no rebuild, (c) the WebGPU→WebGL fallback leaving the rig on a dead
+device, (d) a genuinely exhausted context budget. **It was (e), and (e) was not on the list: the
+detector could not report anything else.**
+
+`ElementPreviewCanvas.mountElementPreview` inferred failure like this:
+
+```ts
+setTimeout(() => {
+  const px = ctx.getImageData(0, 0, Math.min(canvas.width, 8), Math.min(canvas.height, 8)).data;
+  const anything = Array.from(px).some((v, i) => i % 4 === 3 && v > 0);
+  if (!anything) { failure.style.display = 'flex'; hint.style.display = 'none'; }
+}, 120);
+```
+
+**The blit is LETTERBOXED.** `drawNow` ends with
+`ctx.drawImage(rigCanvas, dx, dy, s, s)` where `s = Math.min(target.width, target.height)` and
+`dx = (target.width - s) / 2`. The modal's panel was `width:min(560px,100%)` with `18px 22px` body
+padding, so the preview frame was **516 x 172 CSS px** and the widget asked for `heightPx: 172`.
+Therefore `s = 172`, `dx = 172`, and the probe read the region `x` in `[0, 8)` — **164 px to the left
+of the first pixel the renderer ever writes**, in margin `ctx.clearRect` had wiped microseconds
+earlier. The renderer also clears with `setClearColor(0x000000, 0)`, so even at `dx = 0` the corner
+of a centred, framed window is alpha 0.
+
+**Arithmetic, not inference: the probe returns "nothing here" on a PERFECT render, always.** Success
+and total failure carried the identical value at the sampling point — §CONTEXT-DATA-HONESTY
+inverted, inside the very widget whose docstring cites that rule. The founder was shown a false
+accusation of his own machine.
+
+Two consequences he felt as *"the preview is dead"*, both downstream of the same element:
+
+1. **It LATCHED.** `firstDrawChecked` made the check one-shot and nothing ever set
+   `failure.style.display = 'none'` again. A later, correct frame could not take the message down.
+   ⚠ This matters more than it looks: `mountElementPreview(body, …)` is called at
+   `FinishTypeEditorModal:195` while the panel is still **detached** (`document.body.appendChild(overlay)`
+   is the last statement in the function), so the first frame legitimately draws into a 1x1 canvas.
+   The probe latched *that* frame's answer for the life of the dialog.
+2. **It ate the pointer.** The overlay is `position:absolute;inset:0` with **no `pointer-events:none`**,
+   so once shown it swallowed every `pointerdown` on the canvas. ⭐ **The navigation the founder asked
+   for was already fully implemented** — drag-orbit, wheel-zoom, arrow keys, `Home`, a Reset view
+   button, all coalesced through `getFrameScheduler().scheduleOnce` with no rAF — **and was
+   unreachable behind a message that should never have been rendered.**
+
+**THE FIX IS THE ONE GRAPH48 ALREADY SHIPPED NEXT DOOR.** `GraphViewport.ts:184-186` does
+`requestGraphDraw(subject, canvas, orbit, (p) => { failure.style.display = p === null ? 'flex' : 'none'; })`
+— it asks the renderer, and re-asks it every frame. `requestPreviewDraw` now takes the same
+`onResult` callback, `drawNow` returns a named `PreviewDrawResult` instead of a boolean, and the
+pixel probe is gone. ⛔ `requestGraphDraw`'s signature is **unchanged**; the change to the shared
+`ElementPreviewRenderer` is purely additive and the analysis suite was re-run green.
+
+### L-9601 — CLOSED: a LOST context was permanent, and that one *was* real (it just was not today's bug)
+
+`ensureRig()` returned any non-null `rig` unconditionally. `WebGLRenderer.render()` on a lost
+context **throws nothing and draws nothing** — so a single driver reset turned every preview in the
+application into a blank box for the rest of the session while every draw "succeeded". This is the
+[[render-reconstruction-boundary-gpu-reset]] shape one surface down. A `webglcontextlost` listener
+(with `preventDefault`, which is what makes restoration possible at all) now marks the rig dead;
+`ensureRig` disposes and rebuilds it, and `contextLossCount` is reported rather than hidden.
+
+⚠ **This was NOT the founder's symptom** — it is a latent defect found while proving L-9600 — and
+saying so is the point: it is exactly the (b)/(c) hypothesis, and it was true as a *bug* and false
+as an *explanation*. The two are separable and were separated.
+
+### L-9602 — CLOSED: five outcomes, five sentences (they were one sentence, and it was the wrong one)
+
+`PreviewDrawResult` is `'ok' | 'no-webgl' | 'context-lost' | 'no-2d-context' | 'empty-subject'`.
+
+| result | what the user is told |
+|---|---|
+| `no-webgl` | the preview could not open a context **on this machine**, plus the driver's own message via `previewRigDiagnostics().lastFailure` |
+| `context-lost` | it was taken away and **rebuilds itself** — named as recoverable, with the action that recovers it |
+| `no-2d-context` | *"Nothing is wrong with WebGL or with your model"* — the old message's **second** lie was blaming WebGL for a 2-D surface failure |
+| `empty-subject` | *"Nothing to draw yet"* — ⛔ never rendered with the word WebGL in it |
+
+Pinned by `ElementPreviewFailureReporting.spec.ts` (**7/7**), which asserts the four texts are
+mutually distinct, that a successful draw shows nothing, that the overlay un-shows itself, and that
+`pointerEvents === 'none'` even while it is displayed.
+
+### L-9603 — CLOSED: navigation (founder's *"navigate, rotate"*)
+
+No code was needed beyond L-9600 — the orbit already existed and already obeyed **P3** (no
+`requestAnimationFrame` here; the single owner is `frame-scheduler/src/RafAdapter.ts`) and the
+one-context rule (no second `WebGLRenderer`; browsers evict the OLDEST, which is the founder's
+model). ⛔ **WebGPU was NOT attempted** — see L-9651.
+
+### L-9620 — CLOSED: the distribution (founder's *"too much space, something empty"*)
+
+Measured: a **560 px** panel whose 516 px body carried a **172 px-tall preview letterboxed into a
+516 px-wide box** (so about two thirds of that frame was empty by construction), then **eighteen**
+full-width rows stacked one per line, each spending roughly 200 px of a 516 px row.
+
+Now: `min(980px, 100%)`, a two-column grid — **showcase** (what you are making: a 300 px showroom,
+the swatch legend, the linkage note) and **controls** (how you change it) — with the dimension run as
+a `repeat(auto-fit, minmax(212px, 1fr))` card grid, so eight window dimensions occupy four rows
+instead of eight. Name and Description are paired. One `<style>` element carries the media query
+(single column under 860 px) and the one hover state; everything else stays inline, matching this
+file's stated §05-BIM-UI §2.1 deviation.
+
+### L-9630 — CLOSED: chat inside the panel, and the vocabulary is DERIVED, not listed
+
+`FinishTypeDraftIntent.ts` + `FinishTypeChatStrip.ts`. Deterministic, **zero-token**, offline.
+
+⭐ **The load-bearing claim is not "it understands N phrases", it is that its vocabulary IS the
+dialog's declaration.** `draftFieldsFor(authoring)` builds every field from
+`ElementTypeAuthoring.finishEditor` — the same declaration the controls render from — so a field is
+chat-reachable *because* it is UI-reachable. `FinishTypeDraftIntent.spec.ts` asserts the
+correspondence in both directions (**21/21**), so adding `sashThickness` to the registry tomorrow
+makes it authorable by chat that same commit, and removing the chat's reach for a declared field
+turns the suite red without anyone remembering to check.
+
+What it deliberately does **not** do, each for a named reason:
+
+- ⛔ **No second material matcher.** Material references go through
+  `suggestMaterialForLegacyName` (`packages/geometry-door/src/FinishMaterialSelect.ts`) — the ONE
+  ladder the picker already owns. Its conservatism is inherited **unsoftened**: `"unobtainium"`
+  resolving to nothing is the CORRECT answer and the chat says so.
+- ⛔ **No second field matcher.** Field resolution is `resolveCatalogueRef`
+  (`@pryzm/command-registry`, ADR-0314) over an in-memory reader of the declared fields, so
+  ambiguity behaves as it does everywhere else: `entry: null` plus the candidate list. *"frame 0.05 m"*
+  answers **"Frame face or Frame depth?"** rather than picking one.
+- ⛔ **No new bus verb, no new store, no `BATCH_REPORT_EVENTS` row.** *"create it"* runs the dialog's
+  own `validate()`, then the existing `elementType.create`, then the existing store read-back in
+  `FinishTypeAuthoringActions.onSave` (C16 §5.1 CA-21). **There is no "Done" in this file** — the
+  chat repeats what the validator and the store said.
+- ⛔ **It does not register as the `chatPromptHost`** (that module holds a single `host`; the AI dock
+  owns it, and a modal must not take the application's only chat away) **and it does not call
+  `tryHandleZeroToken`** (whose `conversation` is module-global, so two surfaces would interleave one
+  memory).
+- ⛔ **The one authored table is `MORPHOLOGY`** (`wide -> width`, `tall -> height`,
+  `thick -> thickness`) — a LANGUAGE layer, the same shape `finishRef.ts` states for its
+  canonical-nickname arm. Its values are WORDS, never keys, and `morphologyIsGrounded()` is asserted
+  against the live vocabulary so it can never name a field the registry does not declare.
+
+Hard stoppers per §RAC-FREEFORM-PLUS-HARD-STOPPERS: an out-of-range value is refused **with both
+numbers** and nothing is changed; a bare number that cannot be metres names **both** readings
+(*"Frame face accepts 0.015 m to 0.2 m, and '50' has no unit. Did you mean 50 mm?"*) instead of
+silently choosing the flattering one.
+
+⚠ **Two real defects were found by these tests before shipping**, both in the first draft of the
+resolver, and both are the same shape: *"width auto"* missed because `auto` survived into the field
+phrase and no field is named "width auto"; *"frame in oak"* missed because the whole phrase was fed
+to the field ladder, which was asked to find a field called "frame oak". A clause carries two
+vocabularies and only one of them is the field's.
+
+### L-9610 — CLOSED: `auto` is a STATE, and it now says what it inherits
+
+A blank dimension meant *inherits the standard value*, which was right, and the field showed only
+the word `auto`, which was half the truth: it said the value was derived without saying what it
+derived **to**. Every dimension now carries a chip reading either **`auto · 1.2 m`** — the number
+from `resolveInheritedOpeningDimensions`, which delegates to `resolveWindowDimensions` /
+`resolveDoorDimensions`, **the same resolvers the placement path calls (L-127)**, never a literal —
+or **`authored x`**, which clicks back to auto. ⛔ Clearing DELETES the key; it never writes `0`.
+*"width auto"* / *"clear the height"* do the same thing from the chat, and the spec pins that the
+edit's value is `null` rather than `0`.
+
+This is C100 §2.2's rule for a material override, applied to a dimension: a value the user did not
+choose must never be indistinguishable from one they did.
+
+### L-9640 — ⛔ CLOSED: `finishTypeAuthoringActions.spec.ts` had been **RED for 13 days**, and not because of this lane
+
+Two of its six cases (`elementType.duplicate` and `elementType.create` on save) asserted a dispatch
+that never happened. **Measured provenance:** the spec was last edited **`8fa2cd0f` (2026-08-10)**;
+the `validate()` rule that refuses a finish carrying no `materialId` landed in **`efe32a0d`
+(2026-08-23, §OPENING-FINISH-IS-A-REFERENCE L-7702)**. The fixture still carried
+`{ name: 'Timber Frame', materialColor: '#c8a55a' }` — a colour with no id — so every save was
+correctly refused and the two assertions had been failing ever since.
+
+⛔ **The fixture was wrong, not the rule** — a door type whose frame names no library material cannot
+be scheduled, exported to IFC or given a carbon factor (C100 §2.1). The fixture now names
+`wood-oak`, **and the refusal has a test of its own** so the rule is asserted rather than tripped
+over: it checks that nothing dispatches, that the dialog stays open, and that *"Pick a library
+material for Frame"* is on screen (C06 — a refusal must name the route back).
+
+### L-9650 — ⛔ OPEN, NOT A GUESS: *"create a window with 2 m width"* still misses in the GLOBAL chat
+
+Inside the panel it works. **Outside it, in the AI dock, it does not, and the reason is specific:**
+
+- `parseWindowsParametricIntent` (`packages/ai-host/src/intents/ZeroTokenResolver.ts:4330`) **returns
+  `null` unless a SCOPE is named** (`:4384` — "all walls" / "the selected walls" / a level tail), and
+  it reads size only from the `WxH` form (`1x2m`), never from *"2 m width"*.
+- There is **no singular window-placement verb** and **no door-create verb at all**
+  (`tools/rac-conformance/operations-1-5.ts:253, :283` already say so). `window.create` and
+  `door.create` both **REFUSE by design** — a window is a hosted opening, created by
+  `wall.createOpening`.
+- `wall.createOpening` is in `CHAT_UNAVAILABLE` and **emits no `*_REPORT_EVENT`**, so a capability
+  riding it directly would get `expectsReport: false` and the canned "Done" that L-996 removed.
+
+⭐ So closing this needs, together: a singular-placement verb with a report event, its
+`BATCH_REPORT_EVENTS` row, a `ChatCapability` row with `probe` + `commandProof`, and its removal from
+`CHAT_UNAVAILABLE` — four coupled changes across `plugins/wall`, `packages/ai-host` and
+`packages/command-registry`, three of which are outside this lane's file ownership. **Not attempted
+here; logged with the exact blockers so the next lane does not re-derive them.**
+
+### L-9651 — ⛔ OPEN, DELIBERATELY NOT ATTEMPTED: the WebGPU port of the shared preview rig
+
+The founder wrote *"webgpu/webgl"*. `ElementPreviewRenderer` is WebGL, his session is already on
+`webgl-fallback`, and the rig is **shared with GRAPH48's 3-D relationship graph**. Porting it is a
+separate change to a component two surfaces depend on, against a standing *"don't compromise
+graphics"* rule. **Needs an owner and a reason; it is not a gap this lane could close safely.**
+
+### L-9652 — lane readings at close
+
+| reading | value |
+|---|---|
+| root `tsc --noEmit --skipLibCheck` | **RC=0**, zero errors repo-wide |
+| `eslint` over the six touched/added sources | **0 errors**, 1 pre-existing `any` warning (`FinishTypeDraft`) |
+| `ElementPreviewFailureReporting.spec.ts` (new) | **7/7 green** |
+| `FinishTypeDraftIntent.spec.ts` (new) | **21/21 green** — 6 reproduced RED against the first draft and drove two real resolver fixes |
+| `element-preview` + `property-panel` + `analysis` suites | **24 files / 352 tests green** — the analysis suite is GRAPH48's, re-run to prove the shared-renderer change did not move the 3-D graph |
+| ⚠ NOT proven | **no browser run.** The letterbox arithmetic and the four-way message split are proven by construction and by spec; *"the founder opens the dialog and sees a rotatable window"* is proven at the DOM layer, not on his GPU |

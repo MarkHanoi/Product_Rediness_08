@@ -911,6 +911,67 @@ every main-plan test. Measured: four clicks + `mouseleave` + Enter → **zero** 
 
 ---
 
+### §7.8 — THE INVERSE OF THE DEAD CLICK: **A PERFECT RENDER BEHIND A MESSAGE NO BROWSER EVER PRODUCED** (L-9600..L-9603, lane OPENUI57, 2026-08-23)
+
+**⚠ §7.6 and §7.7 record three mechanisms by which a working-looking surface does nothing. This one
+is their mirror image and it is not covered by any of them: the surface DID the work, correctly, and
+then told the user it could not.**
+
+> Founder, live deploy `2f8d9470`: the window-type dialog read *"3-D preview unavailable — this
+> browser did not provide a WebGL context"* **while his main viewport was rendering his model in
+> WebGL on the same GPU.**
+
+Four causes were suspected — a lazy rig that returned `null` and never retried, a device loss with no
+rebuild, the WebGPU→WebGL fallback leaving a dead device, an exhausted context budget. **None of them
+was it.** `ElementPreviewCanvas` inferred failure from the ALPHA OF THE TARGET CANVAS'S TOP-LEFT 8x8
+PIXELS, 120 ms after mount. The blit is letterboxed —
+`drawImage(buf, dx, dy, s, s)`, `s = min(w, h)`, `dx = (w - s) / 2` — and the box was 516 x 172 CSS px,
+so the picture started 172 px from the left edge and the probe read 164 px of margin that `clearRect`
+had wiped. **The probe could not pass. It reported "no context" on a perfect render, in every
+browser, on every mount.**
+
+Two aggravations, both structural rather than incidental:
+
+- **It LATCHED** (`firstDrawChecked`). The widget is mounted while its panel is still DETACHED — the
+  modal appends the overlay to `document.body` as its last statement — so the first frame legitimately
+  draws into a 1x1 canvas, and that frame's answer was frozen for the life of the dialog.
+- **It BLOCKED THE POINTER.** The overlay is `position:absolute;inset:0` with no
+  `pointer-events:none`, so it swallowed every `pointerdown`. **The drag-orbit, wheel-zoom, arrow keys,
+  `Home` and Reset view the founder was asking for were already implemented and unreachable behind it.**
+
+> **RULE — A SURFACE MUST NOT INFER ITS OWN FAILURE FROM ITS OUTPUT PIXELS.** A renderer knows whether
+> it drew; ask it. A creation, preview or viewport surface that reports failure MUST take that report
+> from the operation that ran, MUST re-evaluate it on every operation rather than latching the first,
+> and MUST NOT block interaction while the report is displayed.
+>
+> **RULE — A FAILURE MESSAGE THAT NAMES A CAUSE IS A CLAIM, AND IT IS SUBJECT TO §CONTEXT-DATA-HONESTY
+> LIKE ANY OTHER.** *"this browser did not provide a WebGL context"* is a statement about the user's
+> machine. Emitting it from a detector that cannot distinguish "no context" from "drew correctly" is
+> the same defect class as reporting an empty result for a failed query — inverted, and worse, because
+> it sends the reader to debug a subsystem that is working.
+
+**The compliant shape already existed in this repo, one directory away.** `GraphViewport.ts:184-186`
+drives its identical overlay from the renderer's own per-draw answer:
+
+```ts
+requestGraphDraw(subject, canvas, orbit, (p) => {
+  failure.style.display = p === null ? 'flex' : 'none';
+```
+
+`requestPreviewDraw` now takes the same `onResult` callback and `drawNow` returns a named
+`PreviewDrawResult` (`ok` / `no-webgl` / `context-lost` / `no-2d-context` / `empty-subject`) — five
+outcomes with five sentences, where there had been one sentence for all five. ⛔ **"nothing to draw"
+must never be rendered with the word WebGL in it, and a 2-D surface failure must never be blamed on
+WebGL** — those were the old message's second and third lies, under the first.
+
+⚠ **A REAL latent defect was found while proving this one, and it is worth separating from it.**
+`ensureRig()` returned any non-null rig unconditionally, and `WebGLRenderer.render()` on a LOST
+context throws nothing and draws nothing — so one driver reset would have blanked every preview in the
+application for the rest of the session while every draw "succeeded". That is precisely hypothesis (b),
+**true as a bug and false as an explanation of the founder's report.** Both facts are recorded because
+collapsing them is how a fixed bug gets credited with a symptom it never caused.
+
+
 ## §8 — Verification contract
 
 An implementation satisfies this contract when all of the following hold simultaneously:
