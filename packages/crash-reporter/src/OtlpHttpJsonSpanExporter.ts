@@ -23,6 +23,14 @@
 // user's editor stalls. If PRYZM ever needs delivery guarantees, THAT is the
 // moment to take the dependency, and this file's shape makes the swap a
 // one-liner in `Tracing.ts`.
+//
+// ⛔ NOTHING IN THIS FILE MAY EVER OPEN A SPAN, and that is not an oversight of
+// P8 / C10 §2 — it is a hard constraint. A span opened on the EXPORT path is
+// exported, which opens a span, which is exported. `check-otel-spans` ZONE C is
+// an un-gated census and will list this file among the "no span" files forever;
+// a future lane "fixing" that here would build an infinite recursion. The same
+// applies to `SpanRedaction.ts` and to `Tracing.ts`, which runs BEFORE any
+// provider exists to record against.
 
 import type { ReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace-base';
 import type { HrTime } from '@opentelemetry/api';
