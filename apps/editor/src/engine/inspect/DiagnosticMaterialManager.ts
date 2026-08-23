@@ -206,7 +206,47 @@ const HOLOGRAPHIC_COLOR           = 0xCC00FF; // §2.A purple holographic extens
 const ANALYSIS_GHOST_COLOR        = 0xd8dce3; // light neutral grey
 const ANALYSIS_SELECTED_COLOR     = 0x6600FF; // PRYZM purple
 const ANALYSIS_SELECTED_EMISSIVE  = 0x3300aa; // keeps it legible against the grey
-const ANALYSIS_SELECTED_OPACITY   = 0.95;
+/**
+ * §ANALYSIS-SELECTION-IS-TRANSPARENT-PURPLE (L-9203, founder 2026-08-23).
+ *
+ * Founder: *"when an element is selected — which works — the colour should be **80%
+ * transparent violet/purple of PRYZM (according to the contracts)**."*
+ *
+ * ⭐ THE COLOUR IS CONTRACTUAL AND WAS ALREADY RIGHT. `ANALYSIS_SELECTED_COLOR` is
+ * `#6600FF`, which C18 §1 fixes as *"the unified PRYZM purple … rgb(102,0,255)"* and
+ * C16 CA-13 makes mandatory. Nothing about the hue is a judgement call.
+ *
+ * ⚠ THE ALPHA IS NOT CONTRACTUAL, AND SAYING SO IS THE POINT. Measured before
+ * changing the number: `grep -rn "opacity" C18-ELEMENT-PREVIEW-VISUAL-CONTRACT.md`
+ * returns exactly TWO lines — a `0.0001` step threshold (§2, unrelated) and
+ * `opacity 0.55` for **object placement previews** (§3). A creation preview is not a
+ * selection emphasis; C18 §2.4 says so itself (*"a view-authoring overlay is not a
+ * creation preview … what it inherits is the palette and the single-source rule,
+ * nothing else"*). **No contract in the suite states an Analysis selection alpha.**
+ *
+ * ⛔ SO THE PHRASE HAD TO BE READ, AND THE TWO READINGS DIFFER BY 4×:
+ *   · "80% TRANSPARENT"  → alpha 0.20  (mostly see-through)
+ *   · "80% OPACITY"      → alpha 0.80  (mostly solid)
+ *
+ * **THE READING TAKEN IS 0.20, and the reasons are stated so it can be overturned in
+ * one word rather than re-litigated:**
+ *   1. It is his LITERAL phrasing — "transparent", not "opacity".
+ *   2. It is the FALSIFIABLE choice. The value it replaces is 0.95; picking 0.80
+ *      would be a 0.15 change he could not distinguish from the bug he reported, so
+ *      a wrong guess there would be invisible. At 0.20 he can see in one glance
+ *      whether it is what he meant, which is the only way this gets settled.
+ *   3. It suits the surface. The Analysis ghost is a LIGHT neutral grey at 0.04–0.10,
+ *      so a translucent purple still reads as a distinct wash over it — this is the
+ *      "clean pale massing" image he asked for, not a solid repaint of it.
+ *
+ * ⚠ `depthWrite` stays FALSE for the selected material at this alpha (it was true at
+ * 0.95): a mostly-transparent surface that writes depth occludes whatever is behind
+ * it and produces sorting artefacts against the ghost. The emissive lift is retained
+ * so the wash still reads as lit rather than as dirt on the grey.
+ *
+ * ⭐ IF THIS IS WRONG, CHANGE THIS ONE CONSTANT — nothing else encodes the reading.
+ */
+const ANALYSIS_SELECTED_OPACITY   = 0.20;
 
 /**
  * §INSPECT-FOCUS-IS-THE-ONLY-COLOUR (L-3511) — THE Inspect blue.
@@ -1403,7 +1443,10 @@ export class DiagnosticMaterialManager {
           opacity:     ANALYSIS_SELECTED_OPACITY,
           transparent: true,
           side:        THREE.DoubleSide,
-          depthWrite:  true,
+          // §ANALYSIS-SELECTION-IS-TRANSPARENT-PURPLE (L-9203) — was `true`, correct
+          // at 0.95 and wrong at 0.20: a mostly-transparent surface that writes depth
+          // occludes what is behind it and sorts badly against the ghost.
+          depthWrite:  false,
         }));
         return;
       }

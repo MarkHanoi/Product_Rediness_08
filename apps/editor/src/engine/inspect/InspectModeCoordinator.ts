@@ -52,6 +52,34 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
    */
   private _focusedElementIds: ReadonlySet<string> = EMPTY_FOCUS;
 
+  /**
+   * §ANALYSIS-OWNS-ITS-PALETTE (L-9200) — the workspace mode, because the WORKSPACE
+   * is the authority on which palette is legal, and `_activeLens` is not.
+   *
+   * ⛔ THE REGRESSION THIS CLOSES, measured 2026-08-23 on the live deploy `2f8d9470`.
+   * Founder: *"check the Analysis view — before this deployment it was graphically
+   * good, now it goes to 'inspect' graphic modes."* His console:
+   *
+   *   [§INSPECT-FOCUS-IS-ELEMENT-SHAPED] focus=[…105 ids…] — 1016 solid mesh(es)
+   *                                       in the inspect blue, 75 via the proxy
+   *   [DiagnosticMaterialManager] Lens applied: ghost (focus: …)
+   *
+   * `ghost`, while the workspace was Analysis. **Two sources of truth for one
+   * question.** `_activeLens` has exactly ONE writer — `_onSetLens` (:310), fed by
+   * `pryzm-set-inspect-lens`, whose only emitter is `WorkspaceController.ts:339`,
+   * i.e. a user clicking an INSPECT lens chip. Entering Analysis passed the literal
+   * `'analysis'` to `applyLens` and NEVER assigned `_activeLens`, so the field kept
+   * its `'ghost'` default. Every later re-apply read the field and repainted ghost.
+   *
+   * ⭐ L-8200 is what made that reachable: `_setFocusedElements` re-applies
+   * `_activeLens` on EVERY selection change, and in Analysis the family highlight
+   * dispatches on `selectionBus` (`selectionFacets.ts:262`). So the first Analysis
+   * selection repainted the whole model in Inspect's cyan ghost + inspect blue.
+   * The fix was correct and still shipped this, because the state combination was
+   * reachable only by a path no test walked.
+   */
+  private _workspaceMode: string | null = null;
+
   /** F.events.2d / F.events.5 / F.events.6 — all subscriptions on runtime.events typed bus.
    *  No DOM addEventListener / removeEventListener in this class. */
   private _unsubLens:           (() => void) | null = null;
@@ -168,21 +196,18 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
     getFrameScheduler().scheduleOnce('inspect-coordinator-init-catchup', () => {
       const wc = window.workspaceController; // TODO(D.4): replace with runtime.workspaceController — Phase D.4.x
       const startMode = wc?.getMode?.();
-      if (startMode === 'inspect') {
-        const deltaMap = comparisonEngine.getDeltaMap();
-        diagnosticMaterialManager.applyLens(this._activeLens, deltaMap, this._scene!, this._focusedElementIds);
-        levelExplodeController.activate();
-        console.log('[InspectModeCoordinator] Init catch-up — applied lens for pre-set inspect mode');
-      } else if (startMode === 'analysis') {
-        // §ANALYSIS-IS-GREY-AND-PURPLE (L-6410) — this catch-up carried the SAME
-        // enumeration gap as `_onWorkspaceMode`: it tested only for 'inspect', so
-        // reloading the page while Analysis was the active workspace produced an
-        // unstyled scene until the user switched modes and back. Both sites read
-        // the mode; both must know every mode that paints.
-        const deltaMap = comparisonEngine.getDeltaMap();
-        diagnosticMaterialManager.applyLens('analysis', deltaMap, this._scene!, this._focusedElementIds);
-        console.log('[InspectModeCoordinator] Init catch-up — applied lens for pre-set analysis mode');
-      }
+      // §ANALYSIS-OWNS-ITS-PALETTE (L-9200) — RELOAD-INTO-ANALYSIS is one of the four
+      // entry orders, and it used to carry its OWN copy of the mode→lens decision.
+      // Two copies of one decision is how they disagree; this records the mode and
+      // defers to the SAME resolver every other site in this class uses.
+      if (startMode !== 'inspect' && startMode !== 'analysis') return;
+      this._workspaceMode = startMode;
+      const deltaMap = comparisonEngine.getDeltaMap();
+      diagnosticMaterialManager.applyLens(this._effectiveLens(), deltaMap, this._scene!, this._focusedElementIds);
+      if (startMode === 'inspect') levelExplodeController.activate();
+      console.log(
+        `[InspectModeCoordinator] Init catch-up — mode=${startMode}, lens=${this._effectiveLens()}`,
+      );
     });
 
     console.log('[InspectModeCoordinator] Initialized');
@@ -209,11 +234,18 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
     const mode = (payload as { mode?: string })?.mode;
     if (!this._scene) return;
 
+    // §ANALYSIS-OWNS-ITS-PALETTE (L-9200) — RECORD THE MODE BEFORE ANYTHING PAINTS.
+    // Every apply below, and every apply from every other handler in this class,
+    // resolves its lens through `_effectiveLens()`, which reads this field. Setting
+    // it first is what makes "Analysis never paints Inspect's palette" true for the
+    // Inspect→Analysis entry order as well as for the other three.
+    this._workspaceMode = mode ?? null;
+
     if (mode === 'inspect') {
       const deltaMap = comparisonEngine.getDeltaMap();
-      diagnosticMaterialManager.applyLens(this._activeLens, deltaMap, this._scene, this._focusedElementIds);
+      diagnosticMaterialManager.applyLens(this._effectiveLens(), deltaMap, this._scene, this._focusedElementIds);
       levelExplodeController.activate();
-      console.log(`[InspectModeCoordinator] Entered inspect — lens: ${this._activeLens}`);
+      console.log(`[InspectModeCoordinator] Entered inspect — lens: ${this._effectiveLens()}`);
     } else if (mode === 'analysis') {
       // §ANALYSIS-IS-GREY-AND-PURPLE (L-6410).
       //
@@ -227,10 +259,17 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
       // ⚠ This is an ENUMERATED mode list. Adding a seventh workspace mode without
       // adding it here reproduces the bug silently — the `else` does nothing. If a
       // mode is added, it belongs in one of these three arms by explicit choice.
+      // §ANALYSIS-OWNS-ITS-PALETTE (L-9200) — THIS LINE USED TO PASS THE LITERAL
+      // `'analysis'`, and that literal was the whole defect: it painted the right
+      // lens ONCE and left `_activeLens` still saying `'ghost'`, so the very next
+      // re-apply — a selection, a delta update, a family highlight — read the field
+      // and repainted Inspect's cyan over the Analysis surface. Going through the
+      // resolver makes this arm and the `'inspect'` arm above THE SAME EXPRESSION,
+      // which is the only form of "these two cannot disagree" that survives an edit.
       const deltaMap = comparisonEngine.getDeltaMap();
-      diagnosticMaterialManager.applyLens('analysis', deltaMap, this._scene, this._focusedElementIds);
+      diagnosticMaterialManager.applyLens(this._effectiveLens(), deltaMap, this._scene, this._focusedElementIds);
       console.log(
-        `[InspectModeCoordinator] Entered analysis — lens: analysis ` +
+        `[InspectModeCoordinator] Entered analysis — lens: ${this._effectiveLens()} ` +
         `(light-grey ghost + PRYZM purple selection)`,
       );
     } else if (mode === 'author' || mode === 'data') {
@@ -301,23 +340,69 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
     this._focusedElementIds = toFocusSet(ids);
     if (!this._scene || !diagnosticMaterialManager.isActive()) return;
     const deltaMap = comparisonEngine.getDeltaMap();
-    diagnosticMaterialManager.applyLens(this._activeLens, deltaMap, this._scene, this._focusedElementIds);
+    diagnosticMaterialManager.applyLens(this._effectiveLens(), deltaMap, this._scene, this._focusedElementIds);
+  }
+
+  /**
+   * §ANALYSIS-OWNS-ITS-PALETTE (L-9200) — ⭐ THE SINGLE EXPRESSION THAT ANSWERS
+   * "WHICH LENS APPLIES", and the reason this regression cannot recur in the shape
+   * it took.
+   *
+   * ⛔ THE FIX IS NOT A SECOND GUARD. `DiagnosticMaterialManager`'s
+   * `if (lens !== 'analysis')` was already correct and still let the breach through,
+   * because a guard can only be as right as whoever set the value it tests — and
+   * `_activeLens` was set by a DIFFERENT actor (an Inspect lens chip) than the one
+   * that decides which palette is legal (the workspace). Adding a second
+   * `workspaceMode !== 'analysis'` test beside it would have produced TWO guards
+   * that must agree, i.e. the same defect with more places to edit.
+   *
+   * ⭐ THE WORKSPACE IS THE AUTHORITY and `_activeLens` is demoted to what it always
+   * really was: **the user's remembered choice among the six INSPECT lenses**. It is
+   * still stored while in Analysis, so returning to Inspect restores the chip the
+   * user picked — the state is not lost, it is just no longer consulted by a surface
+   * it does not govern. This is the same move as `selectedRoomId → focusedElementIds`
+   * one level up: a slot was answering a question it was not the authority on.
+   *
+   * ⚠ ENUMERATED, like `_onWorkspaceMode`'s arms. A seventh workspace mode that
+   * paints must be added here; the `else` returns the Inspect lens, which is the
+   * right default for `inspect` and harmless for the modes that call `restore()`.
+   */
+  private _effectiveLens(): InspectLens {
+    return this._workspaceMode === 'analysis' ? 'analysis' : this._activeLens;
+  }
+
+  /**
+   * ⚠ Is Inspect's own palette legal right now? The two `applyGhostWithFocus`
+   * callers below BYPASS `applyLens` entirely (that is documented at that method,
+   * and is why it clears overlays itself), so the resolver above cannot protect
+   * them — they need the same question asked in the same words.
+   */
+  private _inspectPaletteIsLegal(): boolean {
+    return this._effectiveLens() !== 'analysis';
   }
 
   private _onSetLens(payload: unknown): void {
     const lens = (payload as { lens?: string })?.lens as InspectLens | undefined;
     if (!lens || !this._scene) return;
+    // Remember the user's Inspect chip even while Analysis is showing…
     this._activeLens = lens;
 
+    // …but paint what the WORKSPACE allows, not what was just clicked. A lens chip
+    // reachable while Analysis is active would otherwise repaint Inspect's cyan on
+    // the Analysis surface — the founder's exact report, by a second route.
     const deltaMap = comparisonEngine.getDeltaMap();
-    diagnosticMaterialManager.applyLens(lens, deltaMap, this._scene, this._focusedElementIds);
-    console.log(`[InspectModeCoordinator] Lens set to: ${lens}`);
+    const effective = this._effectiveLens();
+    diagnosticMaterialManager.applyLens(effective, deltaMap, this._scene, this._focusedElementIds);
+    console.log(
+      `[InspectModeCoordinator] Lens set to: ${lens}`
+      + (effective !== lens ? ` — NOT APPLIED, workspace=${this._workspaceMode} owns the palette (lens=${effective})` : ''),
+    );
   }
 
   private _onDeltaUpdated(_payload: unknown): void {
     if (!diagnosticMaterialManager.isActive() || !this._scene) return;
     const deltaMap = comparisonEngine.getDeltaMap();
-    diagnosticMaterialManager.applyLens(this._activeLens, deltaMap, this._scene, this._focusedElementIds);
+    diagnosticMaterialManager.applyLens(this._effectiveLens(), deltaMap, this._scene, this._focusedElementIds);
     console.log('[InspectModeCoordinator] Delta updated — re-applied lens');
   }
 
@@ -412,10 +497,20 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
       diagnosticMaterialManager.clearElementFocus();
       if (diagnosticMaterialManager.isActive()) {
         const deltaMap = comparisonEngine.getDeltaMap();
-        diagnosticMaterialManager.applyLens(this._activeLens, deltaMap, this._scene, this._focusedElementIds);
+        diagnosticMaterialManager.applyLens(this._effectiveLens(), deltaMap, this._scene, this._focusedElementIds);
       }
-    } else {
+    } else if (this._inspectPaletteIsLegal()) {
       diagnosticMaterialManager.applyGhostWithFocus(this._scene, elementType);
+    } else {
+      // §ANALYSIS-OWNS-ITS-PALETTE (L-9200) — `applyGhostWithFocus` paints the
+      // INSPECT blue unconditionally and bypasses `applyLens`, so the resolver
+      // cannot reach it. Refused here rather than repainted, and SAID so: a
+      // silent no-op is the defect class this lane has been closing all day.
+      console.log(
+        `[InspectModeCoordinator] Element type "${elementType}" NOT painted — `
+        + `workspace=${this._workspaceMode} owns the palette; the Inspect family `
+        + `focus is an Inspect-only treatment (C09 §4.3.3).`,
+      );
     }
   }
 
@@ -426,6 +521,15 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
   private _onAttributeFocus(payload: unknown): void {
     const { elementType, heatmap } = (payload as { elementType?: string; heatmap?: ReadonlyArray<{ id: string; color: number }> }) ?? {};
     if (!elementType || !this._scene || !Array.isArray(heatmap)) return;
+    // §ANALYSIS-OWNS-ITS-PALETTE (L-9200) — same bypass, same refusal. See
+    // `_inspectPaletteIsLegal`.
+    if (!this._inspectPaletteIsLegal()) {
+      console.log(
+        `[InspectModeCoordinator] Attribute focus NOT painted — workspace=`
+        + `${this._workspaceMode} owns the palette.`,
+      );
+      return;
+    }
     // Reapply ghost base first, then overlay heatmap colours
     diagnosticMaterialManager.applyGhostWithFocus(this._scene, elementType);
     diagnosticMaterialManager.applyAttributeHeatmap(this._scene, elementType, heatmap);
