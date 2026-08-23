@@ -54,7 +54,7 @@ export { Water } from './Water.js';
 // Unlike the pool it mints NO new member family — the compound is the only new kind.
 export { Balcony } from './Balcony.js';
 // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7900) — the AUTHORED construction / setting-out
-// line (C105, ADR-0348). ⛔ NOT `Parcel.boundary` (C19 §1.4 — legal, immutable, owned
+// line (C106, ADR-0348). ⛔ NOT `Parcel.boundary` (C19 §1.4 — legal, immutable, owned
 // by the site subsystem) and NOT `RoomBoundingLine` (an invisible room-detection
 // splitter). It is a HOST: what is built on it moves with it.
 export { BoundaryLine, BoundaryLineAttachmentSchema } from './BoundaryLine.js';

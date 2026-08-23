@@ -24,7 +24,7 @@ export enum CommandType {
     /**
      * L-7920 — move an AUTHORED construction / setting-out boundary line and CARRY
      * every element attached to it, as ONE undo unit, naming what could not follow.
-     * See `boundaryLine/MoveBoundaryLineCommand.ts` / C105 §3 / ADR-0348.
+     * See `boundaryLine/MoveBoundaryLineCommand.ts` / C106 §3 / ADR-0348.
      *
      * NOT a parcel-boundary edit: `Parcel.boundary` (C19 §1.4) is legal, surveyed and
      * ONE-SHOT IMMUTABLE, and has no edit command at all, deliberately.

@@ -1,5 +1,5 @@
 /**
- * BoundaryLinePlanToolHandler — §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7931) · C105 · ADR-0348.
+ * BoundaryLinePlanToolHandler — §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7931) · C106 · ADR-0348.
  *
  * THE PLAN-VIEW ROUTE THAT MAKES THE CONSTRUCTION / SETTING-OUT LINE REACHABLE. It is
  * axis 3 of the four the pool taught this repository to check (L-5200):
@@ -235,7 +235,7 @@ export class BoundaryLinePlanToolHandler implements PlanToolHandler {
             drawMode: resolveActiveBoundaryLineDrawMode(),
             // The authoring default from the shared store. ⚠ Note that this is the
             // RECORD's intent only — the VIEW's visibility intent still wins where it
-            // has an opinion (C105 §5, `resolveBoundaryLineSolidity`).
+            // has an opinion (C106 §5, `resolveBoundaryLineSolidity`).
             hasVolume: activeBoundaryLineHasVolume(),
         };
 

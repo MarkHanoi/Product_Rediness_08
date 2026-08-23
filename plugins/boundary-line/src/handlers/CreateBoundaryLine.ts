@@ -1,5 +1,5 @@
 // CreateBoundaryLineHandler — ONE gesture, ONE undo entry, ONE store.
-// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7911) · C105 §1 · C11 · C16 §8.6 · C100.
+// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7911) · C106 §1 · C11 · C16 §8.6 · C100.
 //
 // ⭐ SINGLE-STORE, AND THAT IS THE WHOLE ARGUMENT FOR `produceCommand` HERE.
 // `CreatePoolHandler` must use `produceMultiStoreCommand` because a pool spans four

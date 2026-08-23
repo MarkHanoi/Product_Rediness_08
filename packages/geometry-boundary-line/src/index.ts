@@ -1,5 +1,5 @@
 // @pryzm/geometry-boundary-line — public surface.
-// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7900..L-7910) · **C105** · ADR-0348.
+// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7900..L-7910) · **C106** · ADR-0348.
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 // WHAT A CONSTRUCTION BOUNDARY LINE IS — AND THE TWO LINES IT IS NOT
@@ -7,7 +7,7 @@
 //
 // An AUTHORED setting-out line an architect draws to lay a scheme out at early-stage
 // design, with the wall's own creation modes (linear, ortho, curved, rectangular,
-// circular, elliptical). It is a HOST: what is built on it moves with it (C105 §3).
+// circular, elliptical). It is a HOST: what is built on it moves with it (C106 §3).
 // It may optionally carry VOLUME, turning it into a massing edge.
 //
 // ⛔ IT IS **NOT** `Parcel.boundary` (C19 §1.4). That is the legal lot outline —

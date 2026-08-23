@@ -1,5 +1,5 @@
 /**
- * activeBoundaryLineDrawMode — §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7930) · C105 §2.1.
+ * activeBoundaryLineDrawMode — §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7930) · C106 §2.1.
  *
  * A stable, SURFACE-INDEPENDENT single source of truth for the drawing mode the user
  * has selected for the construction / setting-out line.
@@ -65,7 +65,7 @@ let _mode: BoundaryLineDrawMode = 'linear';
  *
  *   *"The line could have volume also, via a bool setting on Visibility Intent."*
  *
- * Two things are true and they are NOT the same thing (C105 §5):
+ * Two things are true and they are NOT the same thing (C106 §5):
  *   1. the VIEW's visibility intent (`ElementGraphicsRules.solid`) decides how a line
  *      is DRAWN in a given view, and it wins where it has an opinion;
  *   2. the RECORD's `hasVolume` is the element's own authored intent, and it is the

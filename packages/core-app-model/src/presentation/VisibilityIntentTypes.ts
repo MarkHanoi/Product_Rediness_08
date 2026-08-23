@@ -194,7 +194,7 @@ export interface ElementGraphicsRules {
      */
     visible?:     boolean;
     /**
-     * ⭐ §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7954, C105 §5) — THE FOUNDER'S VOLUME BOOL.
+     * ⭐ §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7954, C106 §5) — THE FOUNDER'S VOLUME BOOL.
      *
      *   *"The line could have volume also, via a bool setting on Visibility Intent."*
      *

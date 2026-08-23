@@ -1,11 +1,11 @@
 // @pryzm/geometry-boundary-line — the shared vocabulary.
-// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7900) · C105 · ADR-0348.
+// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7900) · C106 · ADR-0348.
 //
 // ⛔ NOT `Parcel.boundary` (C19 §1.4 — a legal, surveyed, ONE-SHOT IMMUTABLE polygon
 // owned by the site subsystem; there is deliberately no `site.editParcelBoundary`).
 // ⛔ NOT `RoomBoundingLine` (`@pryzm/core-app-model` — an invisible 2-point splitter
 // consumed by room DETECTION, which hosts nothing and has no volume).
-// C105 §0.2 tabulates all three.
+// C106 §0.2 tabulates all three.
 
 import type { BoundaryLine as BoundaryLineSchema, BoundaryLineAttachment } from '@pryzm/schemas';
 

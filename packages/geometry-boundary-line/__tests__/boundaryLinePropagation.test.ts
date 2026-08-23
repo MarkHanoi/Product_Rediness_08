@@ -1,5 +1,5 @@
 // §FEAT-CONSTRUCTION-BOUNDARY-LINE — the propagation PLANNER, at the layer that
-// decides. L-7904..L-7907 · C105 §3 · C84 §EI-PROP · ADR-0348.
+// decides. L-7904..L-7907 · C106 §3 · C84 §EI-PROP · ADR-0348.
 //
 // ⭐ WHAT THIS FILE PINS, AND WHAT IT DELIBERATELY DOES NOT.
 //
@@ -205,7 +205,7 @@ describe('§FEAT-CONSTRUCTION-BOUNDARY-LINE — dimensions and material (L-127 /
     });
 });
 
-describe('§FEAT-CONSTRUCTION-BOUNDARY-LINE — the per-family table (C105 §3.3)', () => {
+describe('§FEAT-CONSTRUCTION-BOUNDARY-LINE — the per-family table (C106 §3.3)', () => {
     it('T-1: EVERY row is complete — a PROPAGATES row has a verb and a shape, a REFUSES row has a reason', () => {
         for (const r of BOUNDARY_LINE_FAMILY_RULES) {
             if (r.verdict === 'PROPAGATES') {

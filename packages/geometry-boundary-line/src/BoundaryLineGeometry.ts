@@ -1,5 +1,5 @@
 // BoundaryLineGeometry — the pure maths of a construction / setting-out line.
-// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7900..L-7903) · C105 §2 · C73 (determinism).
+// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7900..L-7903) · C106 §2 · C73 (determinism).
 //
 // ⭐ EVERYTHING HERE IS A FUNCTION OF `vertices` + `closed`. Nothing derived is
 // stored on the record (C84 §8.i): length, segment count, centroid, a point's world

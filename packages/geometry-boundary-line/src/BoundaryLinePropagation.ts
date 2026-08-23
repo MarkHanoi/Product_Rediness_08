@@ -1,5 +1,5 @@
 // BoundaryLinePropagation — WHEN THE BOUNDARY LINE MOVES, WHAT FOLLOWS IT.
-// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7904..L-7907) · **C105 §3** ·
+// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7904..L-7907) · **C106 §3** ·
 // C84 §EI-PROP (a dependent ADAPTS or REFUSES BY NAME) · ADR-0344 · ADR-0348 ·
 // C72 §9.1 (the three verdicts) · C74 (an honest refusal is an answer).
 //
@@ -81,7 +81,7 @@ export interface BoundaryLineFamilyRule {
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * ⭐ THE PER-FAMILY TABLE (C105 §3.3) — NORMATIVE. **NO CELL IS `SILENT`.**
+ * ⭐ THE PER-FAMILY TABLE (C106 §3.3) — NORMATIVE. **NO CELL IS `SILENT`.**
  * ═══════════════════════════════════════════════════════════════════════════════
  *
  * Membership was decided by ONE measured question, the same shape LEVEL36 used:
@@ -114,7 +114,7 @@ export const BOUNDARY_LINE_FAMILY_RULES: readonly BoundaryLineFamilyRule[] = Obj
     // `BeamData.startPoint` / `.endPoint` -- measured, a LINE family.
     // WARNING, NAMED REMAINDER: `startSupportId` / `endSupportId` are NOT re-solved. A
     // beam whose columns rode the same line still meets them; a beam whose supports did
-    // not move now spans differently. That is a bounded, STATED gap (C105 §3.5), not a
+    // not move now spans differently. That is a bounded, STATED gap (C106 §3.5), not a
     // silence -- re-running support assignment is `AssignBeamSupportsCommand`'s job,
     // never a boundary line's.
     { family: 'beam', verdict: 'PROPAGATES', shape: 'line', moveVerb: 'beam.update' },

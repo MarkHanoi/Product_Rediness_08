@@ -171,7 +171,7 @@ describe('§FEAT-CONSTRUCTION-BOUNDARY-LINE — dispatchable through the compose
 
     it('R-7: ⛔ A DOOR IS REFUSED AT ATTACH TIME, WITH THE TABLE`S OWN SENTENCE', async () => {
         const rt = await bootWithLine();
-        // C105 §3.3: a relationship the system cannot honour must not be RECORDABLE.
+        // C106 §3.3: a relationship the system cannot honour must not be RECORDABLE.
         // Refusing here is what makes "the cascade half-ran and said nothing"
         // structurally impossible rather than merely unobserved.
         await expect(
@@ -250,7 +250,7 @@ describe('§FEAT-CONSTRUCTION-BOUNDARY-LINE — dispatchable through the compose
         rt.tearDown();
     });
 
-    it('R-12: ⭐ DELETING THE LINE DELETES **ONLY** THE LINE (C105 §6)', async () => {
+    it('R-12: ⭐ DELETING THE LINE DELETES **ONLY** THE LINE (C106 §6)', async () => {
         const rt = await bootWithLine();
         await rt.bus.executeCommand('boundaryLine.attach', {
             boundaryLineId: BL, elementId: WALL, elementKind: 'wall',

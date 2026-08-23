@@ -3251,7 +3251,7 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   ['window.setOffset', 'Moving a window along its wall needs a picked position — drag it.'],
   ['room.move', 'Rooms follow their bounding walls; move the walls instead.'],
 
-  // ── §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7960, C105 §7) ──────────────────────
+  // ── §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7960, C106 §7) ──────────────────────
   //
   // ⭐ THE FOUNDER'S RAC SENTENCE, ANSWERED HONESTLY RATHER THAN HALF-WIRED:
   //

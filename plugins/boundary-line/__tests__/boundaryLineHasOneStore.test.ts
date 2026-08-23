@@ -1,5 +1,5 @@
 // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7916) — THE SINGULARITY CLAIM, CHECKED.
-// C84 EI-1 ("one authority per family, and it is NAMED") · C105 §1.
+// C84 EI-1 ("one authority per family, and it is NAMED") · C106 §1.
 //
 // ⭐ WHY A SCAN AND NOT A PARAGRAPH.
 //

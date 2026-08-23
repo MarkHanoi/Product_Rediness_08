@@ -1,5 +1,5 @@
 // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7909) — THE MODE VOCABULARY IS ONE LIST,
-// STATED THREE TIMES, AND THIS FILE IS WHY THAT IS SAFE. C84 EI-8 · C105 §2.1.
+// STATED THREE TIMES, AND THIS FILE IS WHY THAT IS SAFE. C84 EI-8 · C106 §2.1.
 //
 // The founder asked for the wall's modes: "line, ortho, rectangle, ellipse, curve,
 // circle". Three artefacts have to agree on them and NONE of them can import the

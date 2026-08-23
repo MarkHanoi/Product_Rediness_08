@@ -186,7 +186,7 @@ export const ElementCategorySchema = z.enum([
   'MEPElectrical',
   'MEPPlumbing',
   'MEPMechanical',
-  // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7902, C105 §5) — the founder asked for the
+  // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7902, C106 §5) — the founder asked for the
   // boundary line to have a VG category "there too — everywhere". This is the VG
   // taxonomy key; its siblings are `ElementGraphicsRules` (visibility INTENT, via
   // `VisibilityIntentDefaults.ELEMENT_TYPES`), `OverridePanel.CATEGORIES` (the

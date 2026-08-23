@@ -1,5 +1,5 @@
 // BoundaryLineStore — the boundary line's ONE authority.
-// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7910) · C105 §1 · C84 EI-1.
+// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7910) · C106 §1 · C84 EI-1.
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 // ⭐ THIS FAMILY HAS EXACTLY ONE STORE, AND THAT IS A DELIBERATE DEPARTURE.
@@ -34,7 +34,7 @@
 // ⛔ AND IT DOES NOT OWN THEM EITHER. Unlike `pool` (ADR-0124 §3) and `balcony`
 // (C103 §2), a boundary line is NOT a compound: `childrenIds` stays empty and
 // `boundaryLine.delete` removes ONLY the line. Deleting the setting-out line an
-// architect drew a building against must not delete the building. C105 §6 states
+// architect drew a building against must not delete the building. C106 §6 states
 // this as a rule so a later lane cannot "fix" the asymmetry into a cascade delete.
 
 import { Store } from '@pryzm/plugin-sdk';
@@ -68,7 +68,7 @@ export class BoundaryLineStore extends Store<BoundaryLineData> {
     /**
      * ⭐ THE REVERSE INDEX — "which boundary line is this element attached to?"
      *
-     * The edge is stored on the HOST (C105 §3.2, and C84 EI-PROP-d's requirement that
+     * The edge is stored on the HOST (C106 §3.2, and C84 EI-PROP-d's requirement that
      * the record hold an edge to walk), so answering the question from the DEPENDENT's
      * side is a scan. It is O(lines × attachments) and that is acceptable: a project
      * has tens of construction lines, not thousands, and the alternative — a

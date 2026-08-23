@@ -107,19 +107,19 @@ export type LiftId        = Id<'lift'>;
  */
 export type LiftPartId    = Id<'liftPart'>;
 /**
- * §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7900, C105) — the AUTHORED construction /
+ * §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7900, C106) — the AUTHORED construction /
  * setting-out line an architect draws to lay a scheme out at early-stage design.
  *
  * ⛔ NOT THE CADASTRAL PARCEL BOUNDARY. `Parcel.boundary` (C19 §1.4) is a legal,
  * surveyed, ONE-SHOT IMMUTABLE polygon owned by the site subsystem — there is
  * deliberately no `site.editParcelBoundary` command. A `BoundaryLine` is the exact
  * opposite: authored, editable, moveable, and a HOST that carries its dependents when
- * it moves (C105 §3). Merging the two would let an ordinary edit gesture rewrite a
+ * it moves (C106 §3). Merging the two would let an ordinary edit gesture rewrite a
  * legal title outline, which is why they carry different brands and different stores.
  *
  * ⛔ AND NOT `RoomBoundingLine` (`core-app-model`, `CommandType.CREATE_ROOM_BOUNDING_LINE`).
  * That is a 2-point INVISIBLE splitter consumed by room DETECTION to divide an
- * open-plan space; it hosts nothing, has no volume and no LOD. C105 §0.2 tabulates
+ * open-plan space; it hosts nothing, has no volume and no LOD. C106 §0.2 tabulates
  * all three lines side by side so a reader cannot confuse them.
  */
 export type BoundaryLineId = Id<'boundaryLine'>;
@@ -164,7 +164,7 @@ export type ElementType =
   | 'balcony'
   | 'lift'
   | 'liftPart'
-  // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7900, C105) — the authored setting-out line.
+  // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7900, C106) — the authored setting-out line.
   | 'boundaryLine'
   | 'opening'
   | 'floor'

@@ -1,5 +1,5 @@
 // UpdateBoundaryLineHandler / DeleteBoundaryLineHandler.
-// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7913) · C105 §5 · C105 §6 · C84 EI-5.
+// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7913) · C106 §5 · C106 §6 · C84 EI-5.
 
 import {
     withHandlerSpan,
@@ -21,7 +21,7 @@ type Stores = Readonly<{ boundaryLine: BoundaryLinesState } & Record<string, unk
  * ⛔ `vertices` IS DELIBERATELY ABSENT, AND THAT IS THE MOST IMPORTANT LINE IN THIS
  * FILE. Changing the geometry is a HOST MOVE: every attached wall, slab and column
  * has to be carried or refused by name, as ONE undo unit
- * (`MoveBoundaryLineCommand`, C105 §3). If `boundaryLine.update` accepted `vertices`
+ * (`MoveBoundaryLineCommand`, C106 §3). If `boundaryLine.update` accepted `vertices`
  * it would become a SECOND, quieter way to move the line — one that writes the new
  * geometry and strands every dependent in silence. That is precisely the defect C84
  * EI-PROP calls SILENT, and the way to make it unreachable is to leave the field out
@@ -104,7 +104,7 @@ export interface DeleteBoundaryLinePayload {
 }
 
 /**
- * ⛔ DELETING THE LINE DELETES **ONLY** THE LINE. C105 §6, and it is a rule rather
+ * ⛔ DELETING THE LINE DELETES **ONLY** THE LINE. C106 §6, and it is a rule rather
  * than an omission.
  *
  * `pool.delete` removes its walls, floor and water; `lift.delete` removes its

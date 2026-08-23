@@ -260,7 +260,7 @@ export type BeyondLineStyle = 'solid' | 'dashed';
  * silently. Every other category — every actual piece of building fabric — obeys the rule.
  */
 export const DATUM_CATEGORIES: ReadonlySet<string> = Object.freeze(
-    // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7950, C105 §5) — `boundary-line` JOINS the
+    // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7950, C106 §5) — `boundary-line` JOINS the
     // datums, and it belongs here more literally than the other three: it IS a
     // construction line. An architect draws it to set a scheme out, exactly as a grid
     // or a level line is drawn, and its dash is an ISO 128-24 category convention

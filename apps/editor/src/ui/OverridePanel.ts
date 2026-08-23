@@ -257,7 +257,7 @@ export class OverridePanel {
         { id: 'curtainwall', label: 'Curtain walls' },
         { id: 'railing',     label: 'Railings' },
         { id: 'ceiling',     label: 'Ceilings' },
-        // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7952, C105 §5) — the founder's "it should
+        // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7952, C106 §5) — the founder's "it should
         // have a category there too — everywhere". This is the PER-VIEW toggle: hide
         // setting-out lines in the issued plan while keeping them in the working view,
         // which is exactly what a construction line is for.

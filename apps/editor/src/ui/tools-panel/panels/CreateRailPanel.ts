@@ -774,7 +774,7 @@ export class CreateRailPanel {
                     },
                     {
                         // §FEAT-CONSTRUCTION-BOUNDARY-LINE (founder, 2026-08-23) —
-                        // L-7933 · C105 · ADR-0348.
+                        // L-7933 · C106 · ADR-0348.
                         //
                         //   "New feature - create a construction boundary line element
                         //    (under the ARCHITECTURE tab). We have the side-line boundary

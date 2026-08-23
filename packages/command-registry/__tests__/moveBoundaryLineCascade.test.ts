@@ -1,5 +1,5 @@
 /**
- * MoveBoundaryLineCommand — L-7920..L-7926 / C105 §3 / ADR-0348.
+ * MoveBoundaryLineCommand — L-7920..L-7926 / C106 §3 / ADR-0348.
  *
  * ═══════════════════════════════════════════════════════════════════════════════
  * THE FOUNDER'S CASE, PINNED — *"if the user moves the boundary line and this line

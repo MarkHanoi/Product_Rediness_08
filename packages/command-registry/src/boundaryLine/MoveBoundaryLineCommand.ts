@@ -2,7 +2,7 @@
  * MoveBoundaryLineCommand — move the setting-out line and CARRY WHAT IS ON IT,
  * as ONE undo unit, naming everything that could not follow.
  *
- * §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7920..L-7926) · **C105 §3** · ADR-0348 ·
+ * §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7920..L-7926) · **C106 §3** · ADR-0348 ·
  * C84 §EI-PROP (a dependent ADAPTS or REFUSES BY NAME) · C72 §9.1 · C74 ·
  * C81 (a cascade is ONE undo) · C16 (command authoring) · C03 §2.1 · P6 · P8.
  *
@@ -328,7 +328,7 @@ export class MoveBoundaryLineCommand implements Command {
                 if (noAdapter.length > 0) {
                     info.push(
                         `⚠ No adapter is registered for: ${noAdapter.join(', ')}. `
-                        + `Their family claims to follow a boundary line and nothing can carry it (C105 §3.4).`,
+                        + `Their family claims to follow a boundary line and nothing can carry it (C106 §3.4).`,
                     );
                 }
                 // ⭐ THE HALF THE FOUNDER'S ASK TURNS ON: everything that did not move,

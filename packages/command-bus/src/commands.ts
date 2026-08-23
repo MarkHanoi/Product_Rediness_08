@@ -690,7 +690,7 @@ export type SlabMutationCommands = {
      * (passing `[]` would DELETE them).
      */
     /**
-     * §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7940, C105 §3) — MOVE the AUTHORED
+     * §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7940, C106 §3) — MOVE the AUTHORED
      * construction / setting-out line AND CARRY EVERYTHING ATTACHED TO IT, as ONE undo
      * entry, naming by family whatever could not follow.
      *

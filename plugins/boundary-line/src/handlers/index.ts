@@ -5,7 +5,7 @@
 // and no verb.
 //
 // Moving the line is a HOST MOVE: the line's own geometry changes AND every attached
-// wall, slab and column is carried or refused by name, as ONE undo unit (C81, C105
+// wall, slab and column is carried or refused by name, as ONE undo unit (C81, C106
 // §3). The dependents live in the AUTHORITATIVE geometry stores — the ones the
 // fragment builders, the 2-D plan projector, the IFC exporter and persistence read —
 // and a plugin handler cannot reach them. `plugins/wall/src/handlers/MoveWall.ts` is

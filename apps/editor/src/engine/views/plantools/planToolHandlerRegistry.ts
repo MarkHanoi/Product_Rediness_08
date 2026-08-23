@@ -47,7 +47,7 @@ import { BalconyPlanToolHandler }      from './BalconyPlanToolHandler';
 // exactly what `elementCreationMatrix` named as the matrix's highest-value open hole.
 import { LiftPlanToolHandler }         from './LiftPlanToolHandler';
 // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7931) — the plan route that makes the AUTHORED
-// construction / setting-out line reachable (C105). Registered beside the grid because
+// construction / setting-out line reachable (C106). Registered beside the grid because
 // both are SETTING-OUT geometry: an architect lays a scheme out against them before
 // deciding what stands on them. ⛔ NOT the cadastral `Parcel.boundary` (C19 §1.4 —
 // legal, surveyed, ONE-SHOT IMMUTABLE) and NOT `RoomBoundingLine`.

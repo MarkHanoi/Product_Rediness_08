@@ -439,7 +439,7 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
         modeSource: 'shared',   // wallModePicker + activeWallSystemType
     },
     {
-        // §FEAT-CONSTRUCTION-BOUNDARY-LINE (founder, 2026-08-23) — L-7932 · C105.
+        // §FEAT-CONSTRUCTION-BOUNDARY-LINE (founder, 2026-08-23) — L-7932 · C106.
         //
         //   "The UI should be like the wall, with the same modes for creation --
         //    line, ortho, rectangle, ellipse, curve, circle etc."
@@ -454,7 +454,7 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
         // lot outline -- surveyed, recorded, and ONE-SHOT IMMUTABLE; C19 §1.4 says in as
         // many words that there is no `site.editParcelBoundary` command. This is an
         // AUTHORED construction line, and it is a HOST: what is attached to it moves
-        // when it moves (C105 §3).
+        // when it moves (C106 §3).
         tool: 'boundary-line', label: 'Boundary Line',
         views: ['plan'],
         modes: [

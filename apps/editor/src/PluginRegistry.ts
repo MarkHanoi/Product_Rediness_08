@@ -66,7 +66,7 @@ import { BalconyStore, buildBalconyHandlerSet } from '@pryzm/plugin-balcony';
 // §FEAT-LIFT-COMPOUND-SYSTEM (L-5700, C104 / ADR-0325) — the lift COMPOUND. See the
 // descriptor below for the four-axis reachability argument.
 import { LiftCompoundStore, LiftPartStore, buildLiftHandlerSet } from '@pryzm/plugin-lift';
-// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7914, C105 / ADR-0348) — the AUTHORED
+// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7914, C106 / ADR-0348) — the AUTHORED
 // construction / setting-out line. ⛔ NOT the cadastral `Parcel.boundary` (C19 §1.4 —
 // legal, surveyed, ONE-SHOT IMMUTABLE, owned by the site subsystem) and NOT
 // `RoomBoundingLine`. See the descriptor below; this import is axis 1 of the four.
@@ -502,7 +502,7 @@ export const ALL_PLUGINS: readonly PluginDescriptor[] = [
     buildHandlers: () => [] as readonly CommandHandler<unknown>[],
   },
 
-  // ---- BoundaryLine (§FEAT-CONSTRUCTION-BOUNDARY-LINE, L-7914 · C105 · ADR-0348) ----
+  // ---- BoundaryLine (§FEAT-CONSTRUCTION-BOUNDARY-LINE, L-7914 · C106 · ADR-0348) ----
   //
   // ⭐ AXIS 2 OF THE FOUR-AXIS REACHABILITY CHECK — THE ONE THAT THROWS SILENTLY.
   // With no descriptor here the key is simply absent from

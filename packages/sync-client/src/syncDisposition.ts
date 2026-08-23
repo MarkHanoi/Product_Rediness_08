@@ -887,7 +887,7 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
   },
   'lift.create':        { kind: 'element-property', subject: 'liftId',    conflict: 'disclose' },
 
-  // ── §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7962, C105) — the AUTHORED setting-out line ──
+  // ── §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7962, C106) — the AUTHORED setting-out line ──
   //
   // ⛔ NOT the cadastral `Parcel.boundary` (C19 §1.4 — legal, surveyed, ONE-SHOT
   // IMMUTABLE, and with no edit verb at all). Different family, different store.
@@ -902,14 +902,14 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
   // ⭐ WHY `element-property` FOR `.create`. `attachments` is an empty array at create
   // time and every other key is an absolute property of the line. There is no
   // composition to re-derive: unlike the three compounds above, a boundary line OWNS
-  // NOTHING (C105 §6 — deleting it does not delete what was built along it), so there
+  // NOTHING (C106 §6 — deleting it does not delete what was built along it), so there
   // are no member ids in the payload at all.
   'boundaryLine.create': { kind: 'element-property', subject: 'boundaryLineId', conflict: 'disclose' },
   // Property edits: volume, dimensions, material, name. All ABSOLUTE.
   'boundaryLine.update': { kind: 'element-property', subject: 'boundaryLineId', conflict: 'disclose' },
   // ⭐ THE MOVE — and the reason it is `disclose` rather than `last-writer-wins` is the
   // whole point of this element. Moving a boundary line CARRIES every wall, slab and
-  // column attached to it (C105 §3). Two collaborators dragging the same line are not
+  // column attached to it (C106 §3). Two collaborators dragging the same line are not
   // disagreeing about a line; they are disagreeing about where a building sits, and a
   // silent last-writer-wins would move one architect's scheme under the other without
   // saying so. P8's default is the right one here and the exception is refused.
@@ -993,11 +993,11 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
   'plumbing.delete':    { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{plumbingId}` only. See annotation.delete.' },
   // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7962) — and it is the SIMPLEST delete in this
   // whole block, which is worth saying because the three compounds around it are the
-  // hardest. A boundary line OWNS NOTHING (C105 §6): deleting it removes ONE record from
+  // hardest. A boundary line OWNS NOTHING (C106 §6): deleting it removes ONE record from
   // ONE store and leaves every wall and slab that was set out against it exactly where
   // it is. So there is no cascade for the tombstone kind to express — only the plain
   // `{boundaryLineId}` payload that every other row here is blocked on.
-  'boundaryLine.delete': { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{boundaryLineId}` only. NO cascade — a boundary line owns nothing (C105 §6), so unlike pool/lift/balcony this needs only the tombstone kind itself. See annotation.delete.' },
+  'boundaryLine.delete': { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{boundaryLineId}` only. NO cascade — a boundary line owns nothing (C106 §6), so unlike pool/lift/balcony this needs only the tombstone kind itself. See annotation.delete.' },
   'pool.delete':        { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{poolId}` only, and the handler also removes the pool\'s composed walls/slabs — a CASCADE the tombstone kind must express. See annotation.delete.' },
   // §FIX-COMPOUND-SYNC-UNDECLARED (L-7811) — the pool's two compound siblings. BOTH
   // cascades are WIDER than the pool's, which is why each states its own rather than

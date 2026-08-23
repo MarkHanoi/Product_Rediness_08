@@ -1,5 +1,5 @@
 // AttachToBoundaryLineHandler / DetachFromBoundaryLineHandler — THE EDGE.
-// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7912) · C105 §3.2 · C84 EI-PROP-d · C71 §2.5.
+// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7912) · C106 §3.2 · C84 EI-PROP-d · C71 §2.5.
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 // ⭐ WHY THE EDGE LIVES ON THE HOST, AND WHY IT IS NOT A GRAPH EDGE
@@ -12,7 +12,7 @@
 //   ✗ A `boundaryLineId` field on Wall, Slab, Column, Beam, Roof, Stair, Furniture and
 //     Plumbing. That is EIGHT L0 schema amendments across the C85–C99 block for ONE
 //     host, eight places that can disagree, and eight contracts to amend.
-//   ✓ An `attachments[]` array on the boundary line. ONE record, one contract (C105),
+//   ✓ An `attachments[]` array on the boundary line. ONE record, one contract (C106),
 //     and the host can answer "what is on me?" without scanning every store — which is
 //     exactly the question the propagator asks.
 //
@@ -22,7 +22,7 @@
 // edges nothing reads is how `sitsOn` spent months as measured-but-meaningless
 // coverage"*. An element-record reference field is a DIFFERENT mechanism, the one
 // `Pool.hostSlabId`, `Balcony.childrenIds` and `Lift.servedLevels` already use, and it
-// is governed by C105 rather than by the graph vocabulary. Minting `boundOn` would
+// is governed by C106 rather than by the graph vocabulary. Minting `boundOn` would
 // have been the rival vocabulary C84 EI-8 rules out.
 //
 // ─── THE ANCHOR IS CAPTURED, NOT SUPPLIED ─────────────────────────────────────
@@ -90,7 +90,7 @@ implements CommandHandler<AttachToBoundaryLinePayload, Stores> {
             return {
                 valid: false,
                 reason:
-                    `"${cmd.elementKind}" has no row in the boundary-line host-move table (C105 §3.3), `
+                    `"${cmd.elementKind}" has no row in the boundary-line host-move table (C106 §3.3), `
                     + `so whether it should follow a boundary line is UNDECIDED — not "no". Add its row `
                     + `before attaching it (C84 EI-PROP-a).`,
             };

@@ -63,7 +63,7 @@ type VGCategory =
     // §ROOM-VG-CATEGORY (L-1610, lane ROOM1) -- rooms are FILLED REGIONS, not
     // projected line-work. See applyToMesh()'s `fillGovernedElsewhere` arm.
     | 'room'
-    // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7953, C105 §5) — the AUTHORED setting-out
+    // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7953, C106 §5) — the AUTHORED setting-out
     // line. It is a DATUM in the drafting sense (`DATUM_CATEGORIES` in DrawingZone.ts),
     // which is why it needs a category of its own rather than borrowing `grid`'s: a user
     // who hides grids has not asked to hide the line their building is set out against,
@@ -129,7 +129,7 @@ const ELEMENT_TYPE_TO_VG_CATEGORY: Record<string, VGCategory> = {
     'ceiling':       'ceiling', 'Ceiling':     'ceiling', 'CeilingPart': 'ceiling',
     'Grid':          'grid',    'GridLine':      'grid',    'BimGrid':      'grid',
     'Level':         'level',   'LevelLine':     'level',   'BimLevel':     'level',
-    // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7953, C105 §5) — the scene-node name → VG
+    // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7953, C106 §5) — the scene-node name → VG
     // category map. Without a row here a boundary-line node is UNCLASSIFIED and the
     // per-view category toggle silently does nothing to it, which is the "control
     // appears in one panel and does nothing in the next" defect the four-site rule

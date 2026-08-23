@@ -1,6 +1,6 @@
 /**
  * §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7941) — THE COPIED CONSTANT IS COMPARED.
- * C105 §3.3 · C84 EI-8 (one vocabulary per concept) · C84 EI-9 (one answer per question).
+ * C106 §3.3 · C84 EI-8 (one vocabulary per concept) · C84 EI-9 (one answer per question).
  *
  * ═══════════════════════════════════════════════════════════════════════════════
  * ⭐ WHY THIS FILE EXISTS

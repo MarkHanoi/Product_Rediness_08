@@ -1,5 +1,5 @@
 // boundaryLineDependentAdapters — HOW each dependent family is actually carried.
-// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7920) · C105 §3.4 · C84 §EI-PROP.
+// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7920) · C106 §3.4 · C84 §EI-PROP.
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 // ⭐ THE TABLE SAYS **WHETHER**; THIS FILE SAYS **HOW**. THEY ARE CHECKED AGAINST

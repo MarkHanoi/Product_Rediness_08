@@ -29,7 +29,7 @@ const ELEMENT_TYPES = [
     'grid',
     'annotation',
     'level',
-    // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7951, C105 §5) — the founder asked for the
+    // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7951, C106 §5) — the founder asked for the
     // boundary line to have a category in the visibility-intent system "there too —
     // everywhere". THIS is where a category is DECLARED: every element type in this
     // list gets a complete `ElementGraphicsRules` (all four states, seeded from the pen

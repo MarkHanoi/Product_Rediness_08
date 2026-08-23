@@ -6,7 +6,7 @@ import { Vec3 } from '../base/primitives.js';
 
 /**
  * BoundaryLine — the AUTHORED construction / setting-out line.
- * §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7900..L-7906) · **C105** · ADR-0348.
+ * §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7900..L-7906) · **C106** · ADR-0348.
  *
  * ═══════════════════════════════════════════════════════════════════════════
  * ⭐ THREE DIFFERENT LINES EXIST IN THIS REPOSITORY. THIS IS THE THIRD.
@@ -16,7 +16,7 @@ import { Vec3 } from '../base/primitives.js';
  * |---|---|---|---|
  * | `Parcel.boundary` (C19 §1.4) | the SITE subsystem, from cadastre/survey | ⛔ **NO — one-shot immutable; there is no `site.editParcelBoundary`** | no |
  * | `RoomBoundingLine` (`core-app-model`) | room DETECTION | yes | no — it is an invisible splitter |
- * | **`BoundaryLine` (this file)** | the ARCHITECT, by drawing it | ✅ yes | ✅ **yes — it is a HOST (C105 §3)** |
+ * | **`BoundaryLine` (this file)** | the ARCHITECT, by drawing it | ✅ yes | ✅ **yes — it is a HOST (C106 §3)** |
  *
  * ⛔ **Do not reuse, extend, or write through the parcel boundary.** It is a legal
  * title outline; C19 §1.4 makes it immutable for the lifetime of the Site precisely
@@ -29,7 +29,7 @@ import { Vec3 } from '../base/primitives.js';
  * the same modes the wall offers (linear, ortho, curved, rectangular, circular,
  * elliptical) — and then populates it: by hand, or by asking RAC *"create a
  * 3-bedroom apartment on this boundary line"*. Because the line is a HOST, moving it
- * later carries whatever was built on it (C105 §3, the per-family table).
+ * later carries whatever was built on it (C106 §3, the per-family table).
  *
  * ─── ONE POLYLINE, AND NOTHING DERIVED IS STORED ────────────────────────────
  * `vertices` is the SINGLE source of truth for where the line is. Length, segment
@@ -65,9 +65,9 @@ const BoundaryLineVertices = z.array(Vec3).min(2);
  * Storing the dependent's world position would make a boundary-line move a no-op
  * (the stored pose would still be the old one). Storing `(segmentIndex, t, offset)`
  * means the dependent's world pose is a FUNCTION of the line, so re-evaluating the
- * function after the move IS the propagation. C105 §3.2.
+ * function after the move IS the propagation. C106 §3.2.
  *
- * ⚠ `elementKind` is carried because the verdict table (C105 §3.3) is keyed by
+ * ⚠ `elementKind` is carried because the verdict table (C106 §3.3) is keyed by
  * FAMILY, and reading the family back out of the id prefix would be a second
  * vocabulary for the same fact (C84 EI-8) — element ids in this repo do not all
  * carry their family in the prefix (`section-<ts36>` does not).
@@ -156,7 +156,7 @@ export const BoundaryLine = defineElement('boundaryLine', {
    * ⚠ THIS FIELD IS THE ELEMENT'S OWN INTENT, AND IT IS **NOT** THE ONLY AUTHORITY.
    * The founder asked for the switch to live *"via a bool setting on Visibility
    * Intent"*, and it does: `ElementGraphicsRules.solid` (C09 / P7). The rule is
-   * stated once, in C105 §5, and implemented once, in `resolveBoundaryLineSolidity()`:
+   * stated once, in C106 §5, and implemented once, in `resolveBoundaryLineSolidity()`:
    * **the VIEW's intent wins where it expresses an opinion, and this field is the
    * fallback.** Two authorities over one pixel is the defect C84 EI-9 names; naming
    * the precedence is what makes this two INPUTS to one answer instead.

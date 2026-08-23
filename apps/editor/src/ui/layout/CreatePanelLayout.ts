@@ -186,7 +186,7 @@ export function mountCreatePanel(
                         },
                         {
                             // §FEAT-CONSTRUCTION-BOUNDARY-LINE (founder, 2026-08-23) —
-                            // L-7933 · C105. THE SECOND CREATE SURFACE.
+                            // L-7933 · C106. THE SECOND CREATE SURFACE.
                             // `CreatePanelLayout` and `CreateRailPanel` are both live
                             // (L-1380 records what happens when only one of them learns
                             // about a tool: the capability exists on one surface and

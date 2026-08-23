@@ -1,5 +1,5 @@
 /**
- * §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7935..L-7938) · C105 · C11 · **C104 R-10**.
+ * §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7935..L-7938) · C106 · C11 · **C104 R-10**.
  *
  * ═══════════════════════════════════════════════════════════════════════════════
  * ⭐ THE POINTER-LAYER ARM: A REAL DOM EVENT REACHES THE ARMED HANDLER.

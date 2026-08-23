@@ -1,5 +1,5 @@
 // BoundaryLineDimensions — THE ONE PLACE A BOUNDARY-LINE DIMENSION COMES FROM.
-// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7908) · C105 §4 · L-127 (no dimensional
+// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7908) · C106 §4 · L-127 (no dimensional
 // literals outside a resolver) · C100 (an element that renders a solid names a REAL
 // material).
 //
