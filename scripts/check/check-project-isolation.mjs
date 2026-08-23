@@ -285,6 +285,129 @@ then reports '✓ loaded clean' over a scene full of the previous project.
     }
 }
 
+/* ────────────────────────────────────────────────────────────────────────── *
+ * 5d. §C13-TEARDOWN-TRIGGER-DECLARED (L-8100) — A TEARDOWN MAY ONLY BE
+ *     TRIGGERED BY A DECLARED EVENT.
+ *
+ * WHY THIS ARM EXISTS. 5b above is the L-224 guard, and it did NOT catch L-8100,
+ * because the two failures are mirror images and it only models one of them:
+ *
+ *   5b  — a listener bound to `window` for an event emitted ONLY on the typed bus.
+ *   5d  — a listener bound to an event emitted by NOBODY, on any bus.
+ *
+ * 5b is also keyed on THREE HARD-CODED NAMES (`pryzm-project-{switch,loaded,
+ * context-set}`), so it could not have seen a fourth name however dead it was.
+ * `initScene.ts:708` bound `instancedElementRenderer.clear()` — the documented
+ * teardown of the GPU-instancing renderer — to `'clear-project'`, an event with
+ * ZERO dispatchers in the repository and no entry in the event catalog. It ran
+ * NEVER, so 36 of project A's stair-railings plus their aggregate InstancedMesh
+ * reached project B's scene, and the C13 audit reported them to the founder while
+ * this gate printed `✓ No dead project-lifecycle DOM listeners`.
+ *
+ * THE RULE, and why it is decidable rather than heuristic. Proving "nothing
+ * dispatches X" repo-wide is NOT decidable by grep — dispatch happens through
+ * computed names and loops, and a sweep that assumes otherwise reports false
+ * positives, which is how a gate gets muted. So this arm asks a question with an
+ * AUTHORITY behind it instead: `packages/event-bus/src/catalog.ts` is the declared
+ * event vocabulary (204 events). A teardown wired to an event that is not even
+ * DECLARED is unwired-by-construction — nothing typed can emit it.
+ *
+ * SCOPE: the three composition roots that own project lifecycle wiring, and only
+ * listeners whose handler body actually calls a teardown verb. A `mouseenter`
+ * listener is nobody's business here.
+ *
+ * SHRINK-ONLY, against a NAMED baseline — never a bare count, because a count that
+ * stays at 2 while the two entries are swapped for two different ones is a gate
+ * that passed while the thing it guards changed completely.
+ * ────────────────────────────────────────────────────────────────────────── */
+const CATALOG_FILE = path.join(ROOT, 'packages/event-bus/src/catalog.ts');
+const TEARDOWN_ROOTS = [
+    'apps/editor/src/engine/initScene.ts',
+    'apps/editor/src/engine/initTools.ts',
+    'apps/editor/src/engine/initBuilders.ts',
+];
+/**
+ * Known, REASONED exceptions. Each is `file:event`, and each carries why it is not
+ * the L-8100 defect. Entries leave this list by being fixed; nothing may be added
+ * without a reason, and adding one is a deliberate edit in a diff.
+ */
+const TEARDOWN_TRIGGER_BASELINE = new Map([
+    ['apps/editor/src/engine/initScene.ts:project-loaded',
+     'PRE-EXISTING, NOT YET ADJUDICATED (L-8105). Bulk level-clip-plane registration. '
+     + 'It is absent from the catalog AND an independent sweep found no dispatcher, so it '
+     + 'may be a second dead listener — but "may be" is not a finding, and the sweep cannot '
+     + 'see computed dispatch. Logged as L-8105 rather than silently fixed or silently '
+     + 'excused: a guess dressed as a verdict is the defect this file keeps recording.'],
+    ['apps/editor/src/engine/initScene.ts:vd:reprojection-required',
+     'NOT DEAD, merely undeclared. The orphan sweep finds real dispatchers for it; it is a '
+     + 'view-dependency reprojection signal that predates the catalog. Undeclared is a '
+     + 'vocabulary debt, not an unwired teardown. Closes when it is added to catalog.ts.'],
+]);
+if (!fs.existsSync(CATALOG_FILE)) {
+    failed = true;
+    console.error(`\n✗ §C13-TEARDOWN-TRIGGER-DECLARED — event catalog not found at ${CATALOG_FILE}`);
+} else {
+    const catalogSrc = fs.readFileSync(CATALOG_FILE, 'utf8');
+    const declaredEvents = new Set(
+        [...catalogSrc.matchAll(/^\s*'([a-z][a-z0-9:-]+)'\s*:/gm)].map(m => m[1]),
+    );
+    // §R5-FLOOR — an ABSENCE claim is only evidence if the sweep read something.
+    if (declaredEvents.size < 50) {
+        failed = true;
+        console.error(
+            `\n✗ §C13-TEARDOWN-TRIGGER-DECLARED MISCONFIGURED — parsed only ${declaredEvents.size} ` +
+            `event(s) from catalog.ts. A near-empty vocabulary would make every trigger look ` +
+            `undeclared, or (worse) the reverse. Fix the parse, do not trust the verdict.`,
+        );
+    } else {
+        const TEARDOWN_VERB = /\.(clear|clearAll|clearCache|dispose|reset|invalidateAll|removeAll)\s*\(/;
+        const offenders = [];
+        let scannedRoots = 0;
+        for (const rel of TEARDOWN_ROOTS) {
+            const abs = path.join(ROOT, rel);
+            if (!fs.existsSync(abs)) {
+                failed = true;
+                console.error(`\n✗ §C13-TEARDOWN-TRIGGER-DECLARED — teardown root missing: ${rel}`);
+                continue;
+            }
+            scannedRoots += 1;
+            const src = fs.readFileSync(abs, 'utf8');
+            for (const m of src.matchAll(/window\s*\.\s*addEventListener\s*\(\s*'([a-z][a-z0-9:-]+)'/g)) {
+                const ev = m[1];
+                // Only listeners that actually TEAR SOMETHING DOWN are this arm's subject.
+                if (!TEARDOWN_VERB.test(src.slice(m.index, m.index + 2500))) continue;
+                if (declaredEvents.has(ev)) continue;
+                const key = `${rel}:${ev}`;
+                if (TEARDOWN_TRIGGER_BASELINE.has(key)) continue;
+                offenders.push({ key, line: src.slice(0, m.index).split('\n').length });
+            }
+        }
+        console.log(
+            `✓ §C13-TEARDOWN-TRIGGER-DECLARED — ${scannedRoots}/${TEARDOWN_ROOTS.length} root(s) ` +
+            `scanned against ${declaredEvents.size} declared events; ` +
+            `${TEARDOWN_TRIGGER_BASELINE.size} named exception(s), ${offenders.length} new.`,
+        );
+        if (offenders.length > 0) {
+            failed = true;
+            console.error(`\n✗ ${offenders.length} project teardown(s) triggered by an UNDECLARED event:\n`);
+            for (const o of offenders) console.error(`    • ${o.key}  (line ${o.line})`);
+            console.error(`
+An event absent from packages/event-bus/src/catalog.ts cannot be emitted by any
+typed producer. A teardown wired to one is unwired BY CONSTRUCTION — it will run
+NEVER, and the state it was meant to clear will follow the architect into the
+next project. This is L-8100 exactly: 'clear-project' had zero dispatchers, so
+the GPU-instancing renderer was never cleared and project A's geometry was still
+being drawn inside project B.
+
+To fix, bind the teardown to an event that is actually emitted — 'bim-project-cleared'
+is the one ClearProjectCommand emits on every project-entry path — or, better, give
+the surface a NAMED OWNER via projectScopeRegistry.register({ scopeName, clear }),
+which ClearProjectCommand drives directly and which no event rename can unwire.
+`);
+        }
+    }
+}
+
 if (failed) process.exit(1);
 console.log(`\n✓ Project isolation is intact.\n`);
 process.exit(0);
