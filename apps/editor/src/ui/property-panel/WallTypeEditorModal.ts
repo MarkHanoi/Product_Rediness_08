@@ -40,6 +40,12 @@
  */
 
 import type { ElementTypeAuthoring } from './ElementTypeAuthoringRegistry';
+// §MAT-LAYER-IS-A-REFERENCE (L-8610) — REUSED, NOT REBUILT. This is the ONE
+// finish-material picker C100 §10.12.d minted for door + window, both tiers. A
+// second name→value control here would be C68 §7.c's anti-pattern ("even when it
+// is shorter"), and it would drift from the four honest states the original
+// classifies (resolved / unresolved / legacy / empty).
+import { buildFinishMaterialSelect, finishMaterialHex } from '@pryzm/geometry-door';
 
 // ── The draft being edited ───────────────────────────────────────────────────
 
@@ -51,6 +57,27 @@ export interface DraftLayer {
     thickness: number;
     function: string;
     materialColor: string;
+    /**
+     * §MAT-LAYER-IS-A-REFERENCE (L-8610, lane MAT50, 2026-08-23) — the master
+     * material this layer NAMES, per C100 §2.1.
+     *
+     * ⭐ WHY IT WAS MISSING, AND WHY THAT WAS THE WHOLE DEFECT. `WallLayer` has
+     * carried `materialId` for as long as the Material Schedule has read it, and
+     * `elementTypeAuthoringAdapters.ts:79` passes `layers: draft.layers` through
+     * VERBATIM. So the pipe from this modal to the store was complete end to end
+     * and the only thing missing was a control that could NAME a material: every
+     * layer authored here got a raw `<input type="color">` hex and no reference
+     * at all. That is C100 §10.12's finding — *"the surfaces which AUTHOR a
+     * finish could not NAME a material"* — one family over from door/window.
+     *
+     * ⚠ ABSENT, not UNREACHABLE (C01 §6 rule 6): nothing needed rewiring, so the
+     * fix is a control, not a route.
+     *
+     * `materialColor` REMAINS the painted value (`WallFragmentBuilder` reads it,
+     * not this id) and remains authoritative, so an id is never required and an
+     * old type without one behaves exactly as before.
+     */
+    materialId?: string;
 }
 
 /** The finished value handed to `onSave`. Ids are minted by the command, not here. */
@@ -293,7 +320,7 @@ export function openWallTypeEditor(opts: WallTypeEditorOptions): () => void {
         layerList.innerHTML = '';
         draft.layers.forEach((layer, i) => {
             const row = mk('div',
-                'display:grid;grid-template-columns:1fr 92px 132px 34px 30px 30px 30px;gap:6px;' +
+                'display:grid;grid-template-columns:1fr 84px 116px 150px 34px 26px 30px 30px 30px;gap:6px;' +
                 'align-items:center;');
 
             const nm = mk('input',
@@ -325,10 +352,75 @@ export function openWallTypeEditor(opts: WallTypeEditorOptions): () => void {
             });
             fn.addEventListener('change', () => { layer.function = fn.value; redraw(); });
 
+            // ── The material reference (C100 §6.1: populated FROM THE MASTER) ──
+            //
+            // Picking a material writes the id AND brings the hex to that row's
+            // exact value in the same change. That second half is not tidiness:
+            // per C100 §10.12.b an id shipped beside a DISAGREEING hex is read by
+            // every downstream resolver as a deliberate user OVERRIDE, so writing
+            // one without the other would make every freshly-picked layer claim to
+            // be overridden. The two move together or not at all.
+            const matCell = mk('div', 'min-width:0;');
+            const paintOverrideBadge = (): void => {
+                const master = finishMaterialHex(layer.materialId);
+                const overridden = master !== undefined
+                    && master.toLowerCase() !== layer.materialColor.toLowerCase();
+                ovr.style.display = overridden ? 'inline-flex' : 'none';
+                ovr.title = overridden
+                    ? `Overridden — the master value for this material is ${master}. Click to reset.`
+                    : '';
+            };
+            const rebuildMatCell = (): void => {
+                matCell.innerHTML = '';
+                matCell.appendChild(buildFinishMaterialSelect({
+                    currentId:  layer.materialId,
+                    // The layer's own free-text name is what a pre-reference layer
+                    // has instead of an id, so it drives the honest `legacy` state
+                    // rather than being silently dropped (C100 §10.12.d).
+                    legacyName: layer.name,
+                    onChange: (materialId, materialColor) => {
+                        layer.materialId = materialId === '' ? undefined : materialId;
+                        if (materialColor) layer.materialColor = materialColor;
+                        col.value = layer.materialColor;
+                        rebuildMatCell();
+                        paintOverrideBadge();
+                        redraw();
+                    },
+                }));
+            };
+
             const col = mk('input', 'width:34px;height:30px;padding:1px;border:1px solid ' + LINE + ';border-radius:5px;');
             col.type = 'color'; col.value = layer.materialColor;
             col.setAttribute('aria-label', `Layer ${i + 1} material colour`);
-            col.addEventListener('input', () => { layer.materialColor = col.value; redraw(); });
+            col.addEventListener('input', () => {
+                layer.materialColor = col.value;
+                // ⭐ The colour is NOT cleared of its material id here. C100 §2.2
+                // requires an override to stay DISTINGUISHABLE from a resolved
+                // value, and the state IS `materialColor ≠ masterHex(materialId)`
+                // — exactly as §10.12.e spells it, with no new "isOverride" field
+                // and therefore no codec change.
+                paintOverrideBadge();
+                redraw();
+            });
+
+            const ovr = mk('button',
+                'display:none;align-items:center;justify-content:center;height:22px;width:22px;' +
+                'padding:0;border:1px solid ' + PURPLE + ';border-radius:5px;background:#f3ecff;' +
+                'color:' + PURPLE + ';font:600 11px/1 system-ui;cursor:pointer;');
+            ovr.type = 'button';
+            ovr.textContent = '↺';
+            ovr.setAttribute('aria-label', `Reset layer ${i + 1} colour to its material's master value`);
+            ovr.addEventListener('click', () => {
+                const master = finishMaterialHex(layer.materialId);
+                if (master === undefined) return;
+                layer.materialColor = master;
+                col.value = master;
+                paintOverrideBadge();
+                redraw();
+            });
+
+            rebuildMatCell();
+            paintOverrideBadge();
 
             const iconBtn = (label: string, glyph: string, disabled: boolean, fnc: () => void) => {
                 const b = mk('button',
@@ -343,7 +435,7 @@ export function openWallTypeEditor(opts: WallTypeEditorOptions): () => void {
             };
 
             row.append(
-                nm, th, fn, col,
+                nm, th, fn, matCell, col, ovr,
                 iconBtn(`Move layer ${i + 1} up`, '↑', i === 0, () => {
                     [draft.layers[i - 1], draft.layers[i]] = [draft.layers[i], draft.layers[i - 1]];
                     renderLayers();
