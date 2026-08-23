@@ -81,14 +81,31 @@ describe('RingBufferUndoStack.listEntries — the read-only history projection',
     expect(rb.listEntries().map(e => e.isUndone)).toEqual([false, false, true]);
   });
 
-  it('omits absent metadata rather than inventing it', () => {
-    // A legacy fixture carries no timestamp / gestureId / commandType. Absence
-    // must stay absent: a fabricated "now" would be a claim, and a fabricated
-    // gesture id would make an unrelated entry look like a dual-dispatch twin.
+  it('omits absent LABEL metadata rather than inventing it', () => {
+    // A legacy fixture carries no gestureId / commandType. Absence must stay
+    // absent: a fabricated gesture id would make an unrelated entry look like a
+    // dual-dispatch twin (U-10 — the direction that silently deletes elements),
+    // and a fabricated verb would put a label on a row nobody authored.
+    //
+    // ⚠ AMENDED 2026-08-23 (§UNDO-ORDERING-KEY, L-7300). This test also asserted
+    // `not.toHaveProperty('timestamp')`, under the same "a fabricated now would
+    // be a claim" heading — and that grouping was the defect in miniature.
+    // `timestamp` is NOT label metadata: it is the ROUTING key C03 §4.6 U-10
+    // requires on both stacks, and `performUndoRedo._cmEntryIsNewer` reads its
+    // absence as an unconditional win for the ring buffer, not as "unknown".
+    // Six of the eight production push sites omitted it, and the founder's Ctrl+Z
+    // after raking a wall reverted a slab. `push()` now stamps commit time when
+    // the pusher did not, so the key is present by construction; the assertion
+    // moved to `ring-buffer-ordering-key.test.ts` and INVERTED.
+    //
+    // The distinction that survives: a stamp the STACK mints at push is a fact
+    // about when the entry entered the stack — it is not a claim about a gesture
+    // that never declared one. Identity may not be invented; arrival time is
+    // observed here.
     const rb = new RingBufferUndoStack();
     rb.push(pair('a'));
     const [e] = rb.listEntries();
-    expect(e).not.toHaveProperty('timestamp');
+    expect(typeof e!.timestamp).toBe('number');
     expect(e).not.toHaveProperty('gestureId');
     expect(e).not.toHaveProperty('commandType');
   });

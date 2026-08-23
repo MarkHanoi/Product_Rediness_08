@@ -54,10 +54,23 @@
 // OLDEST. This is what a single timeline would do, and it fixes the
 // founder-reported "Ctrl+Z jumps over a just-created door/window" bug (a 3D
 // door is commandManager-ONLY, so ring-buffer-first undid the older wall
-// beneath it). When either timestamp is missing (legacy fixtures), behaviour
-// falls back to ring-buffer-first + `_lastSource` mirroring. The true
-// single-stack end state remains ADR-0251 (one store, derived geometry, one
-// timeline).
+// beneath it). The true single-stack end state remains ADR-0251 (one store,
+// derived geometry, one timeline).
+//
+// ⚠ CORRECTED 2026-08-23 (§UNDO-ORDERING-KEY, L-7300). This paragraph used to
+// end: *"When either timestamp is missing (legacy fixtures), behaviour falls
+// back to ring-buffer-first + `_lastSource` mirroring."* That sentence read as a
+// benign compatibility affordance and was in fact the LIVE MIS-ROUTE — and it
+// was not confined to fixtures: SIX of the EIGHT production ring-buffer push
+// sites minted entries with no timestamp (`initBusHandlers.ts` :825, :1596,
+// :1647, :1703, :1798 and `commitAnnotationSet.ts`; only `CommandBus.ts:591` and
+// `initBusHandlers.ts:1335` stamped one). "Missing ⇒ ring-buffer first" is not a
+// fallback when the key is missing most of the time; it is the routing rule.
+// The founder's three wall edits (rake, rake, profile — all commandManager-ONLY)
+// were jumped over by an older `slab` entry for exactly this reason.
+// `RingBufferUndoStack.push()` now stamps commit time when the pusher did not,
+// so the key is present by construction; `_reportUnorderable` names the residue
+// instead of deciding silently.
 //
 // SAME-GESTURE IDENTITY (§UNDO-GESTURE-ID — C03 §4.6 U-10). Chronological
 // ordering must NOT re-route a DUAL-DISPATCH TWIN: one gesture recorded on both
@@ -179,12 +192,77 @@ function _cmEntryIsNewer(
   cm: CommandManagerLike | undefined,
 ): boolean {
   const pairTime = pair?.timestamp;
-  if (typeof pairTime !== 'number') return false;
+  if (typeof pairTime !== 'number') {
+    // §UNDO-ORDERING-KEY (L-7300) — this early return is not a tie-break, it is
+    // an UNCONDITIONAL WIN for the ring buffer, and it used to be silent. See
+    // `_reportUnorderable` for the founder's repro and for why the real fix is
+    // upstream in `RingBufferUndoStack.push()`.
+    if (cm?.canUndo?.()) _reportUnorderable('Undo', pair);
+    return false;
+  }
   if (!cm?.canUndo?.()) return false;
   const cmTime = cm.peekUndoTimestamp?.();
   if (typeof cmTime !== 'number' || cmTime <= pairTime) return false;
   if (_isSameGestureTwin(pair, cm.peekUndoTargetIds?.() ?? [], cm.peekUndoGestureId?.() ?? null)) return false;
   return true;
+}
+
+/**
+ * §UNDO-ORDERING-KEY (L-7300, C03 §4.6 U-10) — NAME an entry the cross-stack
+ * arbiter cannot order, instead of silently deciding in the ring buffer's favour.
+ *
+ * ── THE DEFECT THIS BELONGS TO, MEASURED ────────────────────────────────────
+ * The founder made three wall edits — rake 80°, rake 70°, then a profile edit —
+ * and pressed Ctrl+Z. All three are `element.updateParameters`, whose bus handler
+ * declares `stores: [] as const` and bridges to `_cmExec`, so all three live on
+ * the commandManager stack ONLY. His console:
+ *
+ *     [CommandManager] snapshot commandType="UPDATE_ELEMENT_PARAMETER (ad)" scope=[wall]
+ *     [Undo] ring-buffer applied — stores: slab  ids: slab_01M0NJ79M2…  shadow-dropped cm entries: 0
+ *     [Redo] ring-buffer applied — stores: slab
+ *
+ * Reproduced byte-for-byte (`L7300RakeProfileUndoCrossStack.test.ts`, ARM A): a
+ * `slab` ring entry carrying NO `timestamp` beats a legacy rake entry stamped a
+ * full second later, because `_cmEntryIsNewer` opened with
+ * `if (typeof pairTime !== 'number') return false`. Absence was answering a
+ * question it was never asked — the exact rule `_isSameGestureTwin`'s doc states
+ * for `gestureId` ("absence must never mean membership"), inverted and unnoticed
+ * one function above it.
+ *
+ * ── WHERE THE FIX IS, AND WHY NOT HERE ──────────────────────────────────────
+ * Upstream, at `RingBufferUndoStack.push()`, which now stamps commit time on any
+ * pair that arrives without one. Six of the eight production push sites minted
+ * unstamped entries; patching this comparator instead would leave the stack full
+ * of unorderable entries and merely pick a different loser for them. There is no
+ * verdict this function can honestly return for an unorderable pair — it can only
+ * stop being the place where the gap is invisible.
+ *
+ * So this is a DIAGNOSTIC, not a decision: behaviour is unchanged (ring-buffer
+ * first, which is what the fixtures that predate the ordering key expect), and
+ * the condition is now reportable. It should be unreachable in production — the
+ * only remaining producers of an unstamped entry are stand-in stacks in tests.
+ * Throttled to one line per (direction, store-set) so a scripted replay cannot
+ * flood the console.
+ */
+const _unorderableReported = new Set<string>();
+function _reportUnorderable(direction: 'Undo' | 'Redo', pair: PatchPair | null): void {
+  const stores = (pair?.affectedStores ?? []).join(',') || '(none declared)';
+  const key = `${direction}:${stores}`;
+  if (_unorderableReported.has(key)) return;
+  _unorderableReported.add(key);
+  console.warn(
+    `[${direction}] §UNDO-ORDERING-KEY — the ring-buffer entry for store(s) [${stores}] carries no ` +
+    'commit timestamp, so it cannot be ordered against the legacy stack (C03 §4.6 U-10). ' +
+    'Falling back to ring-buffer-first, which can jump over a NEWER commandManager-only edit ' +
+    '(a wall rake, a wall profile, a hosted door/window). Every entry pushed through ' +
+    'RingBufferUndoStack.push() is stamped — this entry did not come through it.',
+  );
+}
+
+/** Test seam: `_reportUnorderable` is throttled per (direction, stores) for the
+ *  life of the module, which would make a second test observe nothing. */
+export function __resetUnorderableReports(): void {
+  _unorderableReported.clear();
 }
 
 /**
@@ -785,9 +863,16 @@ export function performRedo(): RedoOutcome {
       // both stacks have a pending redo and both carry commit timestamps, the
       // OLDER entry replays first (the mirror of undo-newest-first). Without
       // timestamps, fall back to mirroring the last undo's stack (_lastSource).
-      const rbNextTime = rb?.canRedo?.() ? (rb.peek?.() ?? null)?.timestamp : undefined;
+      const rbNext = rb?.canRedo?.() ? (rb.peek?.() ?? null) : null;
+      const rbNextTime = rbNext?.timestamp;
       const cmNextTime = cm?.canRedo?.() ? cm.peekRedoTimestamp?.() : null;
       const haveBothTimes = typeof rbNextTime === 'number' && typeof cmNextTime === 'number';
+      // §UNDO-ORDERING-KEY (L-7300) — the redo mirror. Without both keys this
+      // falls back to `_lastSource`, i.e. "whichever stack the last undo used",
+      // which is a guess, not chronology. Same diagnostic, same reason.
+      if (typeof rbNextTime !== 'number' && rbNext !== null && typeof cmNextTime === 'number') {
+        _reportUnorderable('Redo', rbNext);
+      }
       const cmFirst = haveBothTimes
         ? (cmNextTime as number) < (rbNextTime as number)
         : _lastSource === 'commandManager';

@@ -90,6 +90,28 @@ describe('§FEAT-WALL-PROFILE-EDIT (3+4) — the overlay opens, edits and commit
         ]);
     });
 
+    it('§UNDO-ORDERING-KEY (L-7300) — an N-vertex edit is ONE commit, not one per vertex', () => {
+        // C03 §4.6: one gesture is one Ctrl+Z. A profile edit can change many
+        // vertices, and the only route from this overlay to the model is
+        // `onCommit` — so "one undo step per profile edit" is a property of THIS
+        // callback firing once, not of anything downstream. Asserted here because
+        // this is the layer where a per-drag dispatch would have to be introduced.
+        const onCommit = vi.fn();
+        editor.activate(subject, { onCommit, onCancel: () => {} });
+
+        // Three separate model edits inside the one gesture (each midpoint click
+        // inserts a vertex — the same mechanism the insertion test above pins).
+        for (let i = 0; i < 3; i++) {
+            midHandles()[0]!.dispatchEvent(new window.PointerEvent('pointerdown', { bubbles: true }));
+        }
+        expect(editor.ring).toHaveLength(7);
+        expect(onCommit).not.toHaveBeenCalled();   // nothing reaches the model mid-gesture
+
+        clickButton('Apply');
+        expect(onCommit).toHaveBeenCalledTimes(1);
+        expect(onCommit.mock.calls[0]![0]).toHaveLength(7);   // the WHOLE ring, once
+    });
+
     it('Clear profile commits NULL — the field is removed, not set to a rectangle ring', () => {
         const onCommit = vi.fn();
         editor.activate(subject, { onCommit, onCancel: () => {} });

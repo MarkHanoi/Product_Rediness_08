@@ -58,9 +58,32 @@ export interface PatchPair {
    * against the legacy CommandManager's top-entry `command.timestamp` so a
    * NEWER commandManager-only action (e.g. a 3D-placed door/window
    * ADD_OPENING) is undone BEFORE an older ring-buffer entry — reverse
-   * chronological order across BOTH stacks. Optional for backwards
-   * compatibility (pre-existing fixtures omit it → ring-buffer-first
-   * behaviour is preserved).
+   * chronological order across BOTH stacks.
+   *
+   * ⚠ **OPTIONAL TO SUPPLY, NEVER ABSENT ONCE STORED — corrected 2026-08-23,
+   * §UNDO-ORDERING-KEY (L-7300).** This doc used to end *"Optional for backwards
+   * compatibility (pre-existing fixtures omit it → ring-buffer-first behaviour
+   * is preserved)"*, and that sentence described a **silent mis-route**, not a
+   * compatibility affordance. `performUndoRedo._cmEntryIsNewer` opens with
+   * `if (typeof pairTime !== 'number') return false` — so an entry with NO
+   * timestamp does not merely lose a tie-break, it makes the ring buffer win
+   * **unconditionally**, jumping over a legacy-stack entry however much newer
+   * that entry is. The founder's 2026-08-23 console is exactly that: three wall
+   * edits (rake 80 → rake 70 → profile), all `UPDATE_ELEMENT_PARAMETER` and
+   * therefore commandManager-ONLY, and one Ctrl+Z that reverted a **slab**.
+   *
+   * MEASURED: **6 of the 8 production push sites minted an unstamped entry** —
+   * `initBusHandlers.ts` :825 (`element.changeType`, ANY store key), :1596
+   * (furniture), :1647 (floor), :1703 (**slab** — the founder's), :1798
+   * (ceiling), and `commitAnnotationSet.ts` (annotation). Only
+   * `CommandBus.ts:591` and `initBusHandlers.ts:1335` supplied one. Six copies
+   * of an obligation that C03 §4.6 U-10 states once, with nothing enforcing it.
+   *
+   * THE FIX IS AT THE CHOKEPOINT, NOT AT THE CALLERS. {@link
+   * RingBufferUndoStack.push} stamps commit time when the pusher did not, so
+   * **every stored entry carries an ordering key by construction** and no
+   * present or future push site can mint an unorderable one. A caller that KNOWS
+   * the commit instant still wins — its value is never overwritten.
    */
   readonly timestamp?: number;
   /**
@@ -149,6 +172,18 @@ export interface RingBufferUndoStackOptions {
    * When the cap is exceeded the oldest entry is silently discarded.
    */
   maxSize?: number;
+  /**
+   * §UNDO-ORDERING-KEY (C03 §4.6 U-10, L-7300) — the clock {@link
+   * RingBufferUndoStack.push} stamps an unstamped pair with. Defaults to
+   * `Date.now`, which is the SAME clock `Command.timestamp` uses — that shared
+   * clock is what makes the cross-stack comparison meaningful, so an override
+   * must stay epoch-ms-compatible or the two stacks stop being comparable.
+   *
+   * Injectable ONLY so a test can prove the stamping is the stack's doing rather
+   * than the caller's; production has exactly one construction site
+   * (`composeRuntime.ts:967`) and it passes nothing.
+   */
+  now?: () => number;
 }
 
 const DEFAULT_MAX_SIZE = 200;
@@ -181,9 +216,12 @@ export class RingBufferUndoStack implements UndoStackBackend {
   /** Points at the entry that would be undone next (-1 = nothing to undo). */
   private _cursor = -1;
   private readonly _listeners = new Set<() => void>();
+  /** §UNDO-ORDERING-KEY — the clock `push()` stamps with. See the option's doc. */
+  private readonly _now: () => number;
 
   constructor(options: RingBufferUndoStackOptions = {}) {
     this._maxSize = Math.max(1, options.maxSize ?? DEFAULT_MAX_SIZE);
+    this._now = options.now ?? Date.now;
   }
 
   // ── Mutation API ─────────────────────────────────────────────────────────
@@ -192,14 +230,56 @@ export class RingBufferUndoStack implements UndoStackBackend {
    * Push a new `PatchPair` onto the stack.
    *
    * Steps:
+   * 0. §UNDO-ORDERING-KEY — stamp `timestamp` if the pusher did not (see below).
    * 1. Truncate any redo tail above the cursor.
    * 2. If the buffer is at capacity, silently drop the oldest entry (ring).
    * 3. Append the new entry; advance cursor.
    * 4. Notify all subscribers.
    *
    * CONTRACT: never throws (C03 §4.2).
+   *
+   * ── §UNDO-ORDERING-KEY (C03 §4.6 U-10, L-7300) ──────────────────────────────
+   * **INVARIANT ESTABLISHED HERE: every entry this stack stores carries a finite
+   * numeric `timestamp`.** `current()` / `peek()` / `listEntries()` therefore
+   * never hand out an entry the cross-stack arbiter cannot order.
+   *
+   * WHY THE OBLIGATION MOVED HERE. C03 §4.6 U-10 requires both undo stacks to
+   * carry a commit timestamp, and its parenthetical named the producer —
+   * *"stamped by `CommandBus` at push"*. That reading is what let SIX other
+   * producers ship without one (the census is on `PatchPair.timestamp`'s doc):
+   * an obligation attached to ONE caller is an obligation the other seven never
+   * knew they had. `performUndoRedo._cmEntryIsNewer` then reads a missing key as
+   * *"the legacy entry is not newer"* — absence answering a question it was
+   * never asked — and the older ring entry wins over a newer wall edit. That is
+   * the founder's `[Undo] ring-buffer applied — stores: slab` after three
+   * commandManager-only wall edits.
+   *
+   * WHY NOT SIX EDITS AT THE CALL SITES. That is six copies of one rule with
+   * nothing enforcing it — the shape this repository has re-learned at
+   * `_unionTargetIds` (U-9) and at `ELEMENT_STORE_ROUTES` (L-947). Every
+   * producer flows through this method; the rule belongs where it cannot be
+   * forgotten.
+   *
+   * PRECEDENCE, AND WHY IT CANNOT REORDER AN EXISTING PAIR. A supplied
+   * `timestamp` always wins — `CommandBus` and `wall.updateDimensions` keep
+   * stamping their own commit instant. For the six sites that supplied none, the
+   * value now minted is `Date.now()` at push, and at ALL SIX the legacy twin's
+   * command was CONSTRUCTED before the push (`_cmExec` / `commandManager.execute`
+   * precede the `rb.push` at every one of them — :825, :1596, :1647, :1703,
+   * :1798, and `commitAnnotationSet.ts:154-165`). So `cmTime <= pairTime` holds,
+   * `_cmEntryIsNewer` stays `false`, and those dual-dispatch pairs keep their
+   * existing ring-buffer-first routing. The ONLY decision that changes is the
+   * one that was wrong: an UNRELATED, NEWER legacy entry is no longer jumped
+   * over.
    */
   push(pair: PatchPair): void {
+    // 0. §UNDO-ORDERING-KEY — the ordering key is minted here when the pusher
+    //    did not supply one, so no entry can exist without one. Never overwrites.
+    const stamped: PatchPair =
+      typeof pair.timestamp === 'number' && Number.isFinite(pair.timestamp)
+        ? pair
+        : { ...pair, timestamp: this._safeNow() };
+
     // 1. Discard the redo tail.
     this._entries = this._entries.slice(0, this._cursor + 1);
 
@@ -210,11 +290,25 @@ export class RingBufferUndoStack implements UndoStackBackend {
     }
 
     // 3. Append + advance.
-    this._entries.push(pair);
+    this._entries.push(stamped);
     this._cursor = this._entries.length - 1;
 
     // 4. Notify.
     this._notify();
+  }
+
+  /**
+   * §UNDO-ORDERING-KEY — `this._now()` with the two ways an injected clock can
+   * break the invariant closed: a throw, and a non-finite return. Either would
+   * put an unorderable entry back into the stack, which is the whole defect this
+   * closes, so both fall back to `Date.now()`. C03 §4.2: `push` never throws.
+   */
+  private _safeNow(): number {
+    try {
+      const t = this._now();
+      if (typeof t === 'number' && Number.isFinite(t)) return t;
+    } catch { /* an injected clock that throws is not a reason to lose the key */ }
+    return Date.now();
   }
 
   /**
