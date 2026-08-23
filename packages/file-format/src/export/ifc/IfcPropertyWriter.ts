@@ -1,15 +1,18 @@
 import * as WEBIFC from 'web-ifc';
 import { PropertySet, PropertyValue } from './IntermediateModel';
+import { ifcGlobalId, psetKey, relDefinesKey } from './ifcIdentity';
 
 type EntityRef = WEBIFC.IfcLineObject | number;
 
 export class IfcPropertyWriter {
     private api: WEBIFC.IfcAPI;
     private modelID: number;
+    private ownerHistoryRef: EntityRef | null;
 
-    constructor(api: WEBIFC.IfcAPI, modelID: number) {
+    constructor(api: WEBIFC.IfcAPI, modelID: number, ownerHistoryRef: EntityRef | null = null) {
         this.api     = api;
         this.modelID = modelID;
+        this.ownerHistoryRef = ownerHistoryRef;
     }
 
     private w(entity: WEBIFC.IfcLineObject): WEBIFC.IfcLineObject {
@@ -17,18 +20,25 @@ export class IfcPropertyWriter {
         return entity;
     }
 
-    createPropertySets(propertySets: PropertySet[], elementRef: EntityRef): void {
+    /**
+     * @param ownerKey Stable key of the element these psets belong to (see
+     *                 `ifcIdentity.elementKey`). Used to derive stable GlobalIds
+     *                 for the IfcPropertySet and IfcRelDefinesByProperties —
+     *                 both were `crypto.randomUUID()` before L-8501, so every
+     *                 pset in the file changed identity on every export.
+     */
+    createPropertySets(propertySets: PropertySet[], elementRef: EntityRef, ownerKey: string): void {
         for (const pset of propertySets) {
-            const psetRef = this.createPropertySet(pset);
-            this.createRelDefinesByProperties(elementRef, psetRef);
+            const psetRef = this.createPropertySet(pset, ownerKey);
+            this.createRelDefinesByProperties(elementRef, psetRef, ownerKey, pset.name);
         }
     }
 
-    private createPropertySet(pset: PropertySet): EntityRef {
+    private createPropertySet(pset: PropertySet, ownerKey: string): EntityRef {
         const propertyRefs: EntityRef[] = pset.properties.map(p => this.createPropertySingleValue(p));
         return this.w(this.api.CreateIfcEntity(this.modelID, WEBIFC.IFCPROPERTYSET,
-            crypto.randomUUID(),
-            null,
+            ifcGlobalId(null, psetKey(ownerKey, pset.name)),
+            this.ownerHistoryRef,
             pset.name,
             null,
             propertyRefs));
@@ -63,10 +73,15 @@ export class IfcPropertyWriter {
             null));
     }
 
-    private createRelDefinesByProperties(elementRef: EntityRef, psetRef: EntityRef): EntityRef {
+    private createRelDefinesByProperties(
+        elementRef: EntityRef,
+        psetRef: EntityRef,
+        ownerKey: string,
+        psetName: string,
+    ): EntityRef {
         return this.w(this.api.CreateIfcEntity(this.modelID, WEBIFC.IFCRELDEFINESBYPROPERTIES,
-            crypto.randomUUID(),
-            null, null, null,
+            ifcGlobalId(null, relDefinesKey(ownerKey, psetName)),
+            this.ownerHistoryRef, null, null,
             [elementRef],
             psetRef));
     }

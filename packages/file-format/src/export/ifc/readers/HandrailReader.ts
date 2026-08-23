@@ -35,7 +35,7 @@ export class HandrailReader {
 
             elements.push({
                 id: item.id,
-                guid: item.ifcData?.guid ?? crypto.randomUUID(),
+                guid: item.ifcData?.guid,
                 ifcClass: item.ifcData?.ifcClass ?? 'IfcRailing',
                 name: `handrail-${item.id}`,
                 predefinedType: item.ifcData?.predefinedType,

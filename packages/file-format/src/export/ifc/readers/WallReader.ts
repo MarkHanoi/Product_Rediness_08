@@ -54,7 +54,7 @@ export class WallReader {
 
             elements.push({
                 id: wall.id,
-                guid: wall.ifcData?.guid ?? crypto.randomUUID(),
+                guid: wall.ifcData?.guid,
                 ifcClass: wall.ifcData?.ifcClass ?? 'IfcWall',
                 name: `wall-${wall.id}`,
                 predefinedType: ifcDataAny?.predefinedType,

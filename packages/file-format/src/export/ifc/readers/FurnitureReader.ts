@@ -32,7 +32,11 @@ export class FurnitureReader {
 
             elements.push({
                 id: item.id,
-                guid: crypto.randomUUID(),
+                // L-8501: this reader was one of the two that ALWAYS randomised the
+                // GlobalId, with no ifcData fallback at all — an imported fixture lost
+                // its IFC identity on every export. Now it round-trips, and an element
+                // without ifcData gets a GlobalId derived from its PRYZM id.
+                guid: (item as any).ifcData?.guid,
                 ifcClass: 'IfcFurnishingElement',
                 name: `furniture-${item.id}`,
                 predefinedType: undefined,

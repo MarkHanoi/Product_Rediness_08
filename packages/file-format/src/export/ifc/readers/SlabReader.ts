@@ -32,7 +32,7 @@ export class SlabReader {
 
             elements.push({
                 id: slab.id,
-                guid: slab.ifcData?.guid ?? crypto.randomUUID(),
+                guid: slab.ifcData?.guid,
                 ifcClass: slab.ifcData?.ifcClass ?? 'IfcSlab',
                 name: `slab-${slab.id}`,
                 predefinedType: slab.ifcData?.predefinedType,

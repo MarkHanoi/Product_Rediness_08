@@ -28,6 +28,7 @@ import { IfcPropertyWriter } from './IfcPropertyWriter';
 import { IfcModelBuilder } from './IfcModelBuilder';
 import { IfcFileWriter } from './IfcFileWriter';
 import { IfcSemanticWriter, RoomSemanticData } from './IfcSemanticWriter';
+import { ExportDiagnostics, ExportDiagnostic } from './ifcIdentity';
 import { Relationship } from '@pryzm/core-app-model';
 import { debug } from '@pryzm/core-app-model';
 
@@ -47,6 +48,16 @@ export interface ExportOptions {
     };
     /** Progress callback — called at each pipeline stage with (stage, 0-100, detail?) */
     onProgress?: (stage: string, progress: number, detail?: string) => void;
+    /**
+     * L-8510..L-8515 — called once per defect detected while writing the file.
+     *
+     * The audit found five places where this pipeline produced wrong output with
+     * NO warning: an element silently relocated to the first storey in the map, a
+     * dropped void/fill, an opening with a null representation. A file that is
+     * wrong but looks fine is worse than one that fails, so every one of them now
+     * raises a diagnostic here (and to the console) rather than being swallowed.
+     */
+    onDiagnostic?: (d: ExportDiagnostic) => void;
 }
 
 export class IfcExporter {
@@ -63,6 +74,8 @@ export class IfcExporter {
 
     async export(options: ExportOptions = {}): Promise<Uint8Array> {
         const prog = options.onProgress ?? (() => {});
+
+        const diagnostics = new ExportDiagnostics();
 
         debug("Starting export process...");
         prog('Initializing WASM engine', 5, 'Starting the WebIFC geometry engine.');
@@ -105,7 +118,8 @@ export class IfcExporter {
 
             debug("Initializing writers...");
             const geometryWriter = new IfcGeometryWriter(this.api, modelID, spatialRefs.contextRef);
-            const propertyWriter = new IfcPropertyWriter(this.api, modelID);
+            // L-8503: every pset now carries the shared OwnerHistory.
+            const propertyWriter = new IfcPropertyWriter(this.api, modelID, spatialRefs.ownerHistoryRef);
 
             prog('Writing elements & geometry', 48, `${totalElements.toLocaleString()} element${totalElements !== 1 ? 's' : ''} — triangulating meshes and creating IFC entities.`);
             debug("Building IFC elements...");
@@ -114,7 +128,8 @@ export class IfcExporter {
                 modelID,
                 geometryWriter,
                 propertyWriter,
-                spatialRefs
+                spatialRefs,
+                diagnostics
             );
 
             // Phase E-3: createElements now returns element→ref map for semantic enrichment.
@@ -127,10 +142,23 @@ export class IfcExporter {
                 if (rooms.length > 0 || relationships.length > 0) {
                     prog('Writing semantic data', 68, `${rooms.length} room${rooms.length !== 1 ? 's' : ''} and ${relationships.length} relationship${relationships.length !== 1 ? 's' : ''} — attaching PRYZM property sets.`);
                     debug(`[E-3] Enriching IFC model: ${rooms.length} rooms, ${relationships.length} relationships`);
-                    const semanticWriter = new IfcSemanticWriter(this.api, modelID);
+                    const semanticWriter = new IfcSemanticWriter(this.api, modelID, spatialRefs.ownerHistoryRef);
                     semanticWriter.enrich(elementRefs, { rooms, relationships, schemaVersion });
                     debug('[E-3] Semantic enrichment complete.');
                 }
+            }
+
+            // L-8510: emitted only now, because an element with an unresolved
+            // levelId can add the UNASSIGNED storey partway through
+            // createElements(). A storey outside this aggregation is orphaned in
+            // the spatial tree, which is the defect this ordering prevents.
+            spatialStructure.finaliseBuildingAggregation(spatialRefs, intermediateModel.building.id);
+
+            // Surface every defect BEFORE the bytes leave, so the caller can warn
+            // the user rather than shipping a file that merely looks fine.
+            for (const d of diagnostics.all()) options.onDiagnostic?.(d);
+            if (diagnostics.all().length > 0) {
+                console.warn(`[IFC export] completed with ${diagnostics.all().length} diagnostic(s): ${diagnostics.summary()}`);
             }
 
             prog('Serializing IFC file', 82, 'Writing STEP-format data to binary buffer.');

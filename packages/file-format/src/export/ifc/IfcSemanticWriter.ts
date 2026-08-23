@@ -31,6 +31,13 @@
 import * as WEBIFC from 'web-ifc';
 import { Relationship } from '@pryzm/core-app-model';
 import { debug } from '@pryzm/core-app-model';
+import {
+    ifcGlobalId,
+    elementKey,
+    psetKey,
+    relDefinesKey,
+    relSpaceBoundaryKey,
+} from './ifcIdentity';
 
 export type EntityRef = WEBIFC.IfcLineObject | number;
 
@@ -59,10 +66,17 @@ export interface SemanticWriterOptions {
 export class IfcSemanticWriter {
     private readonly api: WEBIFC.IfcAPI;
     private readonly modelID: number;
+    /**
+     * L-8503 — shared `IfcOwnerHistory`. Every entity this writer emits used to
+     * pass `null`; the psets that carry PRYZM's whole semantic layer therefore
+     * had no author, no application and no date.
+     */
+    private readonly ownerHistoryRef: EntityRef | null;
 
-    constructor(api: WEBIFC.IfcAPI, modelID: number) {
+    constructor(api: WEBIFC.IfcAPI, modelID: number, ownerHistoryRef: EntityRef | null = null) {
         this.api = api;
         this.modelID = modelID;
+        this.ownerHistoryRef = ownerHistoryRef;
     }
 
     /** Create an entity AND immediately write it to the model's DATA section. */
@@ -121,7 +135,7 @@ export class IfcSemanticWriter {
         for (const [elementId, rels] of relsBySource) {
             const ref = elementRefs.get(elementId);
             if (!ref) continue; // element not exported (e.g. level, unit)
-            this.writePset_PRYZM_Relationships(ref, rels);
+            this.writePset_PRYZM_Relationships(ref, rels, elementKey(elementId));
             relPsetCount++;
         }
 
@@ -160,8 +174,8 @@ export class IfcSemanticWriter {
 
         if (props.length === 0) return;
 
-        const psetRef = this.makePropertySet('Pset_PRYZM_Spatial', props);
-        this.makeRelDefinesByProperties(elementRef, psetRef);
+        const psetRef = this.makePropertySet('Pset_PRYZM_Spatial', props, elementKey(room.roomId));
+        this.makeRelDefinesByProperties(elementRef, psetRef, elementKey(room.roomId), 'Pset_PRYZM_Spatial');
     }
 
     // ── Pset_PRYZM_Compliance ───────────────────────────────────────────────
@@ -184,8 +198,8 @@ export class IfcSemanticWriter {
 
         if (props.length === 0) return;
 
-        const psetRef = this.makePropertySet('Pset_PRYZM_Compliance', props);
-        this.makeRelDefinesByProperties(elementRef, psetRef);
+        const psetRef = this.makePropertySet('Pset_PRYZM_Compliance', props, elementKey(room.roomId));
+        this.makeRelDefinesByProperties(elementRef, psetRef, elementKey(room.roomId), 'Pset_PRYZM_Compliance');
     }
 
     // ── Pset_PRYZM_Identifiers ──────────────────────────────────────────────
@@ -197,8 +211,8 @@ export class IfcSemanticWriter {
             this.makeProp('AuthoredBy', 'PRYZM-BIM-Platform', 'label'),
         ];
 
-        const psetRef = this.makePropertySet('Pset_PRYZM_Identifiers', props);
-        this.makeRelDefinesByProperties(elementRef, psetRef);
+        const psetRef = this.makePropertySet('Pset_PRYZM_Identifiers', props, elementKey(elementId));
+        this.makeRelDefinesByProperties(elementRef, psetRef, elementKey(elementId), 'Pset_PRYZM_Identifiers');
     }
 
     // ── Pset_PRYZM_Relationships (D-gap-4) ─────────────────────────────────────
@@ -215,7 +229,7 @@ export class IfcSemanticWriter {
      * Acceptance (D-gap-4): IFC file contains PRYZM_Relationships pset for
      * at least walls (hosts door/window) and rooms (adjacentTo, contains).
      */
-    private writePset_PRYZM_Relationships(elementRef: EntityRef, rels: Relationship[]): void {
+    private writePset_PRYZM_Relationships(elementRef: EntityRef, rels: Relationship[], ownerKey: string): void {
         if (rels.length === 0) return;
 
         const props: EntityRef[] = [];
@@ -232,8 +246,8 @@ export class IfcSemanticWriter {
 
         if (props.length === 0) return;
 
-        const psetRef = this.makePropertySet('PRYZM_Relationships', props);
-        this.makeRelDefinesByProperties(elementRef, psetRef);
+        const psetRef = this.makePropertySet('PRYZM_Relationships', props, ownerKey);
+        this.makeRelDefinesByProperties(elementRef, psetRef, ownerKey, 'PRYZM_Relationships');
     }
 
     // ── IfcRelSpaceBoundary (adjacentTo relationships) ──────────────────────
@@ -245,8 +259,8 @@ export class IfcSemanticWriter {
     ): void {
         try {
             this.w(this.api.CreateIfcEntity(this.modelID, WEBIFC.IFCRELSPACEBOUNDARY,
-                crypto.randomUUID(),
-                null,
+                ifcGlobalId(null, relSpaceBoundaryKey(rel.id)),
+                this.ownerHistoryRef,
                 'PRYZM_AdjacentTo',
                 `SemanticGraph adjacentTo: ${rel.sourceId} \u2194 ${rel.targetId}`,
                 srcRef,
@@ -289,19 +303,24 @@ export class IfcSemanticWriter {
             null));
     }
 
-    private makePropertySet(name: string, props: EntityRef[]): EntityRef {
+    private makePropertySet(name: string, props: EntityRef[], ownerKey: string): EntityRef {
         return this.w(this.api.CreateIfcEntity(this.modelID, WEBIFC.IFCPROPERTYSET,
-            crypto.randomUUID(),
-            null,
+            ifcGlobalId(null, psetKey(ownerKey, name)),
+            this.ownerHistoryRef,
             name,
             null,
             props));
     }
 
-    private makeRelDefinesByProperties(elementRef: EntityRef, psetRef: EntityRef): EntityRef {
+    private makeRelDefinesByProperties(
+        elementRef: EntityRef,
+        psetRef: EntityRef,
+        ownerKey: string,
+        psetName: string,
+    ): EntityRef {
         return this.w(this.api.CreateIfcEntity(this.modelID, WEBIFC.IFCRELDEFINESBYPROPERTIES,
-            crypto.randomUUID(),
-            null, null, null,
+            ifcGlobalId(null, relDefinesKey(ownerKey, psetName)),
+            this.ownerHistoryRef, null, null,
             [elementRef],
             psetRef));
     }

@@ -32,7 +32,7 @@ export class ColumnReader {
 
             elements.push({
                 id: col.id,
-                guid: col.ifcData?.guid ?? crypto.randomUUID(),
+                guid: col.ifcData?.guid,
                 ifcClass: col.ifcData?.ifcClass ?? 'IfcColumn',
                 name: `column-${col.id}`,
                 predefinedType: col.ifcData?.predefinedType,

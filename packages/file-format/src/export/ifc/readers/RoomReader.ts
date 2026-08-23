@@ -212,7 +212,7 @@ export class RoomReader {
 
             elements.push({
                 id:             room.id,
-                guid:           room.ifcData?.guid ?? crypto.randomUUID(),
+                guid:           room.ifcData?.guid,
                 ifcClass:       'IfcSpace',
                 name:           displayName,
                 predefinedType: 'INTERNAL',

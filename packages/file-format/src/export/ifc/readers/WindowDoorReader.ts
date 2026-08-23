@@ -37,7 +37,7 @@ export class WindowDoorReader {
 
             elements.push({
                 id: win.id,
-                guid: win.ifcData?.guid ?? crypto.randomUUID(),
+                guid: win.ifcData?.guid,
                 ifcClass: 'IfcWindow',
                 name: `window-${win.id}`,
                 predefinedType: win.ifcData?.predefinedType,
@@ -81,7 +81,7 @@ export class WindowDoorReader {
 
             elements.push({
                 id: door.id,
-                guid: door.ifcData?.guid ?? crypto.randomUUID(),
+                guid: door.ifcData?.guid,
                 ifcClass: 'IfcDoor',
                 name: `door-${door.id}`,
                 predefinedType: door.ifcData?.predefinedType,

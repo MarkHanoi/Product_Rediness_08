@@ -37,7 +37,7 @@ export class StairReader {
 
             elements.push({
                 id: stair.id,
-                guid: stair.ifcData?.guid ?? crypto.randomUUID(),
+                guid: stair.ifcData?.guid,
                 ifcClass,
                 name: `stair-${stair.id}`,
                 predefinedType: undefined,

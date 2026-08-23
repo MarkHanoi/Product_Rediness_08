@@ -52,7 +52,7 @@ export class RoofReader {
 
             elements.push({
                 id:             roof.id,
-                guid:           roof.ifcData?.guid ?? crypto.randomUUID(),
+                guid:           roof.ifcData?.guid,
                 ifcClass:       roof.ifcData?.ifcClass ?? 'IfcRoof',
                 name:           `roof-${roof.id}`,
                 predefinedType,

@@ -32,7 +32,7 @@ export class CurtainWallReader {
 
             elements.push({
                 id: item.id,
-                guid: item.ifcData?.guid ?? crypto.randomUUID(),
+                guid: item.ifcData?.guid,
                 ifcClass: item.ifcData?.ifcClass ?? 'IfcCurtainWall',
                 name: `curtain-wall-${item.id}`,
                 predefinedType: item.ifcData?.predefinedType,

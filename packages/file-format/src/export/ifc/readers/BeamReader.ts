@@ -34,7 +34,7 @@ export class BeamReader {
 
             elements.push({
                 id: beam.id,
-                guid: beam.ifcData?.guid ?? crypto.randomUUID(),
+                guid: beam.ifcData?.guid,
                 ifcClass: 'IfcBeam',
                 name: `beam-${beam.id}`,
                 predefinedType: undefined,

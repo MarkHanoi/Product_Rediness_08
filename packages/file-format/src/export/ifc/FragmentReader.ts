@@ -165,8 +165,9 @@ export class FragmentReader implements ReaderContext {
 
             if (!levelsById.has(levelId)) {
                 levelsById.set(levelId, {
+                    // L-8501: no guid — IfcSpatialStructure derives a stable one
+                    // from `levelId`. It was crypto.randomUUID() per export.
                     id: levelId,
-                    guid: crypto.randomUUID(),
                     name: storeyName,
                     elevation: levelsById.size * 3,
                     height: 3,
@@ -197,8 +198,9 @@ export class FragmentReader implements ReaderContext {
             const geometry = this.mergeGeometries(item.geometries);
             if (!geometry) continue;
             elements.push({
+                // L-8501: imported elements are keyed by their PRYZM id, so the
+                // derived GlobalId is stable across exports.
                 id: item.id,
-                guid: crypto.randomUUID(),
                 ifcClass: item.ifcClass,
                 name: item.name,
                 geometry,
@@ -222,7 +224,6 @@ export class FragmentReader implements ReaderContext {
             for (const level of storeLevels) {
                 levels.push({
                     id: level.id,
-                    guid: crypto.randomUUID(),
                     name: level.name || `Level ${level.id}`,
                     elevation: level.elevation || 0,
                     height: level.height || 3.0
@@ -233,7 +234,6 @@ export class FragmentReader implements ReaderContext {
         if (levels.length === 0) {
             levels.push({
                 id: 'L0',
-                guid: crypto.randomUUID(),
                 name: 'Ground Floor',
                 elevation: 0,
                 height: 3.0
