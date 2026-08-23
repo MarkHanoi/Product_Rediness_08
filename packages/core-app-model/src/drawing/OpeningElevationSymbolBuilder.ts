@@ -95,7 +95,26 @@ interface ReadableWallStore {
         // §10.1 PR-5 curved-host refusal could never fire. Found by the L-1242 dump, which
         // had to build a curved wall and went looking for the real field name.
         curve?: { control?: { x: number; y?: number; z: number }; segments?: number } | null;
-        profile?: unknown;
+        /**
+         * ⚠ THE FIELD IS `wallProfile`, NOT `profile` — corrected 2026-08-23 (OPEN38, L-7404),
+         * and it is THE SAME DEFECT the `curve` note directly above records, in the same
+         * declaration, found the same way and missed the first time.
+         *
+         * `WallData` declares `wallProfile` (`WallTypes.ts:398`); `WallStore` writes
+         * `wallProfile`; the take-off reads `w.wallProfile?.ring`. This block declared
+         * `profile`, so `hasWallProfile(wall.profile)` was ALWAYS FALSE — which made the
+         * `PROFILED_TOP` refusal at `WallElevationSymbol.ts:216` unreachable in production
+         * while its own test passed, because that test hands `hasProfile: true` in by hand
+         * and therefore cannot see the name.
+         *
+         * ⛔ THE CONSEQUENCE WAS NOT A MISSING REFUSAL, IT WAS A FALSE DRAWING. The symbol
+         * emits a flat-topped rectangle from `host.height`, AND the builder suppresses the
+         * wall's true projected linework (`coveredElementIds.add(wall.id)`). So a gabled wall
+         * was drawn in elevation as a rectangle with its real outline removed — exactly the
+         * *"replace a cluttered TRUE drawing with a clean FALSE one"* this file's own header
+         * forbids by name. A typo, not a design decision, and it cost the more expensive half.
+         */
+        wallProfile?: unknown;
         openings?: Array<{
             id: string;
             type: 'window' | 'door';
@@ -303,7 +322,7 @@ export class OpeningElevationSymbolBuilder {
                 stations: _wallStations(wall, a, b),
                 // A profiled wall REFUSES and keeps its raw linework — the symbol draws a FLAT
                 // top and would otherwise draw a top the wall does not have.
-                hasProfile: hasWallProfile(wall.profile),
+                hasProfile: hasWallProfile(wall.wallProfile),
             }, { faceSign: wallNearFaceSign(host, { x: dirX, z: dirZ }) });
 
             if (wallSym.refusal) {

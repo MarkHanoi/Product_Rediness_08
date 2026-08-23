@@ -22,6 +22,10 @@
  * real `BufferGeometry`, stamped exactly as `EdgeProjectorService.addProjectedLayer` stamps them
  * (`userData.layerName` + `userData.elementUUID`).
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+/** Vitest roots this package at packages/core-app-model, so the module sits beside its test. */
+const __DIR = resolve(process.cwd(), 'src/drawing');
 import { describe, it, expect } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
@@ -146,5 +150,49 @@ describe('§C — it is safe on the degenerate inputs the projector can hand it'
         const r = suppressSymbolisedElementLinework(drawing, new Set(['win-1']));
         expect(r.removedLayers).toBe(4);
         expect(three.children).toHaveLength(0);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────
+describe('§D — THE READER NAMES A FIELD THE MODEL ACTUALLY HAS (OPEN38, L-7404)', () => {
+    // ⚠ THIS IS A SOURCE SCAN, AND IT IS THE RIGHT INSTRUMENT FOR THIS DEFECT CLASS RATHER
+    //   THAN A CONCESSION. The defect is not "the refusal is wrong" — the refusal is right.
+    //   It is "the flag that drives the refusal is read from a key `WallData` does not have",
+    //   so the flag is always false and the refusal is unreachable. A behavioural test cannot
+    //   see it: `WallElevationSymbol.test.ts:195` passes `hasProfile: true` in BY HAND and
+    //   goes green while production draws the wrong wall. Only the NAME can be asserted.
+    //
+    // ⛔ IT HAS NOW HAPPENED TWICE IN ONE DECLARATION. The first cut read `wall.arc`, which
+    //    does not exist — so `curved` was always false and the C86 §10.1 PR-5 curved-host
+    //    refusal could never fire; that is recorded in this file's own type block. The second
+    //    read `wall.profile` where the field is `wallProfile`, so `PROFILED_TOP` could never
+    //    fire either — and because the builder ALSO suppresses the wall's true linework, a
+    //    gabled wall was drawn as a flat-topped rectangle with its real outline deleted.
+    //    Two instances is a pattern, and the pattern gets a guard.
+    // ⚠ COMMENTS ARE STRIPPED FIRST, AND THAT IS NOT HYGIENE — IT IS THE TEST WORKING.
+    //   The first run went RED against the corrected file, because the correction NOTE in the
+    //   type block quotes the defect verbatim ("`hasWallProfile(wall.profile)` was ALWAYS
+    //   FALSE") and so does the `wall.arc` note above it. A scan that reads prose cannot tell
+    //   a bug from a description of a bug — and this codebase deliberately keeps descriptions
+    //   of bugs in place (C84 §6, so the retraction stays legible), which makes stripping
+    //   mandatory rather than optional here. `tools/ga-gate/check-refusal-identity.ts` strips
+    //   comments before its own scan for exactly this reason.
+    const stripComments = (src: string): string =>
+        src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/.*/g, ' ');
+    const SRC = stripComments(readFileSync(resolve(__DIR, 'OpeningElevationSymbolBuilder.ts'), 'utf8'));
+
+    it('the stripper actually removes prose — non-vacuity for the two assertions below', () => {
+        // Without this, a stripper that emptied the file would make both of them pass.
+        expect(SRC).toContain('hasWallProfile');
+        expect(SRC).not.toContain('ALWAYS FALSE');
+    });
+
+    it('reads `wall.wallProfile` — the key WallData declares — and never `wall.profile`', () => {
+        expect(SRC).toContain('hasWallProfile(wall.wallProfile)');
+        expect(SRC).not.toMatch(/hasWallProfile\(\s*wall\.profile\s*\)/);
+    });
+
+    it('reads `wall.curve` and never `wall.arc` — the first instance of the same defect', () => {
+        expect(SRC).not.toMatch(/\bwall\.arc\b/);
     });
 });

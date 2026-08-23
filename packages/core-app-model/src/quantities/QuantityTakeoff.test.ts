@@ -302,3 +302,69 @@ describe('CSV export carries the coverage table with it', () => {
     expect(csv).toContain('w1');
   });
 });
+
+// ── §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — a PROFILED wall, and its voids ──────
+//
+// The `ringAreaUV(ring)` branch at `QuantityTakeoff.ts:618` and the raked qualifier at `:639`
+// were the two things in this file with NO assertion behind them (measured 2026-08-23: zero
+// hits for `wallProfile`, `rake` or `un-sheared` across all six quantity suites). They are
+// also exactly the two the profile × openings feature makes reachable in production, so they
+// are asserted now rather than trusted.
+//
+// ⭐ THE RECONCILIATION IS THE POINT, not the individual number. Gross comes from the ring's
+//   SHOELACE AREA in (u, v); voids come from `openingOutline()` in the SAME (u, v) frame. Both
+//   are measured in the wall's authored, un-sheared elevation plane, which is the frame the
+//   ring is authored in — so a profiled wall's take-off is gross − voids with no correction
+//   term, and a RAKED profiled wall's is the same number with a qualifier attached rather than
+//   a different number. That is what "the numbers still reconcile" has to mean.
+describe('a PROFILE-EDITED wall measures its RING, not length × height', () => {
+  /** Gable: 5 m long, 3 m at the ridge (u = 2.5), shoulders cut to 2 m. */
+  const GABLE = {
+    ring: [
+      { u: 0, v: 0 }, { u: 5, v: 0 }, { u: 5, v: 2 }, { u: 2.5, v: 3 }, { u: 0, v: 2 },
+    ],
+  };
+  // By hand: the rectangle 5 × 2 = 10.00 m², plus the triangular gable 5 × 1 / 2 = 2.50 m².
+  // Gross = 12.50 m² — NOT the 15.00 m² a flat-topped reading of `length × height` gives.
+  const GROSS = 12.5;
+
+  it('gross face is the ring area — 2.50 m² less than the bounding rectangle', () => {
+    const r = computeTakeoff(bagWithWalls([wall({ id: 'w1', wallProfile: GABLE } as never)]));
+    expect(wallLine(r)!.quantity).toBeCloseTo(GROSS, 4);
+    // Non-vacuity: the same wall without the ring measures the full rectangle, so this test
+    // cannot pass by the ring being ignored.
+    const flat = computeTakeoff(bagWithWalls([wall({ id: 'w1' })]));
+    expect(wallLine(flat)!.quantity).toBeCloseTo(15, 4);
+  });
+
+  it('and the openings are STILL deducted from it — gross − voids, one frame', () => {
+    const w = wall({
+      id: 'w1',
+      wallProfile: GABLE,
+      openings: [{
+        id: 'o1', elementId: 'd1', type: 'door', doorType: 'single',
+        offset: 2, width: 0.9, height: 2.1, sillHeight: 0,
+      }],
+    } as never);
+    // 12.50 − 1.89 = 10.61 m². The void is the same 0.9 × 2.1 the flat wall deducts: an
+    // opening's area does not change because the wall above it was cut away.
+    const r = computeTakeoff(bagWithWalls([w]));
+    expect(wallLine(r)!.quantity).toBeCloseTo(GROSS - 1.89, 4);
+    const deducted = wallLine(r)!.secondary.find((s) => s.label === 'Openings deducted');
+    expect(deducted!.value).toBeCloseTo(1.89, 4);
+  });
+
+  it('a RAKED profiled wall measures the SAME area, and says so in its qualifier', () => {
+    // §RAKE is a pure SHEAR about the base plane: it moves the wall sideways, it does not
+    // change the wall's own elevation plane. So the area is unchanged and the honest thing is
+    // a qualifier, which is what `:639` emits. ⚠ This is the one number in this file a reader
+    // is most likely to "fix" by multiplying by 1/sin θ — that is the FACE area, a different
+    // quantity, and `openingFaceHeight` is where it is derived.
+    const w = wall({ id: 'w1', wallProfile: GABLE, rakeAngleDeg: 70 } as never);
+    const r = computeTakeoff(bagWithWalls([w]));
+    expect(wallLine(r)!.quantity).toBeCloseTo(GROSS, 4);
+    const q = JSON.stringify(wallLine(r));
+    expect(q).toContain('un-sheared');
+    expect(q).toContain('70.0');
+  });
+});
