@@ -1,4 +1,4 @@
-// C103 §4.4 + §6.3 — the key does not reach a snapshot, a log, or PRYZM.
+// C105 §4.4 + §6.3 — the key does not reach a snapshot, a log, or PRYZM.
 //
 // ⭐ WHY A STATIC ARM EXISTS HERE. The brief's requirement was "prove by test
 // that a key cannot land in a save". A behavioural test can only prove that the
@@ -112,7 +112,7 @@ describe('ARM A (static) — BYOM has NO edge to persistence, sync or telemetry'
 
   it('never posts to a PRYZM-origin path — the key is not proxied home', () => {
     // A relative URL, or any /api/ path, would route through PRYZM's server and
-    // put the user's key on PRYZM's wire. C103 §3.1: browser → provider, direct.
+    // put the user's key on PRYZM's wire. C105 §3.1: browser → provider, direct.
     const offences: string[] = [];
     for (const { file, text } of sources) {
       if (file === 'ByomProviders.ts') continue; // provider URLs are absolute; asserted below

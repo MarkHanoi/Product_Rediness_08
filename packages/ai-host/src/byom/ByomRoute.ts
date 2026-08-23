@@ -27,7 +27,7 @@ import { findProvider } from './ByomProviders.js';
  *                      PRYZM enforces quota. Today's behaviour, unchanged.
  *  • `user-supplied` — the user's own key, browser-direct to their provider.
  *                      The user pays; PRYZM's quota does NOT apply and PRYZM's
- *                      spend ledger records nothing (C103 §5).
+ *                      spend ledger records nothing (C105 §5).
  */
 export type AiKeyClass = 'pryzm-managed' | 'user-supplied';
 

@@ -1,4 +1,4 @@
-// C103 §4 + §6.1 — the device vault and the route decision.
+// C105 §4 + §6.1 — the device vault and the route decision.
 //
 // ⭐ THE LOAD-BEARING TEST IN THIS FILE is `§DEFAULT-UNCHANGED`. The founder's
 // instruction was "we have a default algorithm for the RAC and I want to keep
@@ -174,7 +174,7 @@ describe('§ROUTE — a selected provider inverts payer, quota and spend', () =>
     expect(r.keyClass).toBe('user-supplied');
     expect(r.reason).toBe('user-provider-active');
     expect(r.providerId).toBe('anthropic');
-    // Metering someone else's spend against your quota is wrong. C103 §5.1.
+    // Metering someone else's spend against your quota is wrong. C105 §5.1.
     expect(r.quotaApplies).toBe(false);
     expect(r.billsToPryzm).toBe(false);
   });

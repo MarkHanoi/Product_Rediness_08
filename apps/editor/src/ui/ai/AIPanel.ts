@@ -1779,7 +1779,7 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
     dragHintEl.title = 'Drag to reposition';
     dragHintEl.innerHTML = '<span></span><span></span><span></span><span></span><span></span><span></span>';
 
-    // §BYOM (C103 §7.1) — the way in to "AI provider keys". It sits in the chat
+    // §BYOM (C105 §7.1) — the way in to "AI provider keys". It sits in the chat
     // header rather than in a settings screen because the thing it changes is
     // WHO ANSWERS THIS CHAT, and a control belongs beside the thing it affects.
     // ⚠ `preventDefault` + `stopPropagation`: the header is the drag handle, so

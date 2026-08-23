@@ -1,10 +1,10 @@
-// @pryzm/ai-host — BYOM device vault (C103 §4, SPEC-BYOM-PROVIDER-KEYS §4).
+// @pryzm/ai-host — BYOM device vault (C105 §4, SPEC-BYOM-PROVIDER-KEYS §4).
 //
 // WHERE THE KEY LIVES, AND WHY. The founder's promise is the feature:
 // "stored only on this device, and it leaves it only to call the provider you
 // choose." So the vault is a browser storage area on the user's own machine and
 // nothing else. There is no server row, no project field, no Yjs map, no
-// telemetry attribute. C103 §4.2 carries the full threat model; the short form:
+// telemetry attribute. C105 §4.2 carries the full threat model; the short form:
 //
 //   • localStorage is readable by ANY script on this origin. That is a real
 //     risk and it is NOT hidden — it is stated in the UI in the same plain

@@ -1,4 +1,4 @@
-// §BYOM UI — "AI provider keys" (C103 §7, SPEC-BYOM-PROVIDER-KEYS §7).
+// §BYOM UI — "AI provider keys" (C105 §7, SPEC-BYOM-PROVIDER-KEYS §7).
 //
 // One card per provider, an obscured field with a Show toggle, and a link to
 // that provider's own console. Ollama takes an address instead of a key.
@@ -13,7 +13,7 @@
 //
 // ⚠ The panel ALSO states the risk, not only the promise. localStorage is
 // readable by any script on this origin, and a promise the user cannot evaluate
-// is worse than no promise. C103 §4.2 carries the threat model; the sentence
+// is worse than no promise. C105 §4.2 carries the threat model; the sentence
 // below is its user-facing form.
 //
 // BRAND: PRYZM purple #6600FF on white. No black.
@@ -118,7 +118,8 @@ export function openAiProviderKeysPanel(): HTMLElement {
             'div',
             `color:${MUTED};margin-bottom:14px;`,
             'PRYZM answers most requests with its own built-in AI, and that does not change. ' +
-                'If you would rather run on your own account, add a key below and pick it.',
+                'If you would rather run on your own account, add a key below and pick it. ' +
+                'This applies to the AI chat; PRYZM’s other AI features keep using PRYZM’s own AI for now.',
         ),
     );
 

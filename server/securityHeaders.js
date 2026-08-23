@@ -175,7 +175,7 @@ export function buildConnectSrc(env = process.env, isProd = IS_PROD) {
         'https://api.worldpop.org',
     ];
 
-    // ── §BYOM — user-supplied AI provider origins (C103 §3.3) ──────────────
+    // ── §BYOM — user-supplied AI provider origins (C105 §3.3) ──────────────
     //
     // ⚠ THIS AMENDS C08 §5, WHICH SAID `api.anthropic.com` MUST NOT be reachable
     // from the browser. That rule was written when the ONLY key in play was
@@ -186,7 +186,7 @@ export function buildConnectSrc(env = process.env, isProd = IS_PROD) {
     // browser-direct topology. Proxying it through this server to satisfy the
     // old rule would put a third-party credential on PRYZM's wire and in
     // PRYZM's logs, i.e. it would break the security property the rule exists
-    // to protect, in order to preserve the rule's letter. See C103 §3.1 for the
+    // to protect, in order to preserve the rule's letter. See C105 §3.1 for the
     // full argument and C08 §5.1 for the amended text.
     //
     // The marginal CSP risk is small and worth naming honestly: this policy
@@ -216,7 +216,7 @@ export function buildConnectSrc(env = process.env, isProd = IS_PROD) {
             // Ollama on the user's own machine. ⚠ CSP permits it; that is NOT the
             // same as the browser permitting it — Chrome 142+ and recent Firefox
             // gate local-network requests behind a permission prompt, and Safari
-            // refuses loopback from an https page outright (C103 §3.4). Allowing
+            // refuses loopback from an https page outright (C105 §3.4). Allowing
             // the origin here removes OUR obstacle, not theirs.
             'http://localhost:11434',
             'http://127.0.0.1:11434',

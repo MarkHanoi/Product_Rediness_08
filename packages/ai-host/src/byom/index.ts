@@ -2,7 +2,7 @@
 //
 // ⚠ Do NOT confuse with C22 §1.4 / C08 §8 "BYOK", which is customer-managed
 // ENCRYPTION keys. Different subsystem, different threat model, different
-// contract. C103 §0.1 records the naming collision and why it was avoided.
+// contract. C105 §0.1 records the naming collision and why it was avoided.
 //
 // Re-exported from the package barrel (`src/index.ts`) so the editor imports
 // `@pryzm/ai-host` like every other AI surface and no caller reaches into a

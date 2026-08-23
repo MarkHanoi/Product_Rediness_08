@@ -1,4 +1,4 @@
-// @pryzm/ai-host — BYOM secret guard (C103 §4.4, C22 §BYOM-TIER).
+// @pryzm/ai-host — BYOM secret guard (C105 §4.4, C22 §BYOM-TIER).
 //
 // ⛔ THE RULE THIS FILE EXISTS TO MAKE HARD TO BREAK. A user-supplied provider
 // key MUST NOT reach a log, a telemetry span, an error report, a project file,
@@ -18,7 +18,7 @@ export class ByomSecretLeakError extends Error {
     super(
       `[byom] refused to emit a value from "${where}" because it matched a provider-credential ` +
         'shape. A user-supplied API key must never reach a log, span, error report or project ' +
-        'file (C103 §4.4). Emit the provider ID and the masked descriptor instead.',
+        'file (C105 §4.4). Emit the provider ID and the masked descriptor instead.',
     );
     this.name = 'ByomSecretLeakError';
   }

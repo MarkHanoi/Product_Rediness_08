@@ -1,4 +1,4 @@
-// §BYOM at the WIRING layer (C103 §6.4) — what the founder actually experiences.
+// §BYOM at the WIRING layer (C105 §6.4) — what the founder actually experiences.
 //
 // ⭐ WHY THIS FILE EXISTS SEPARATELY FROM THE PURE TESTS. `packages/ai-host`
 // already proves the vault, the relay and the route decision in isolation, and

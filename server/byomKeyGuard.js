@@ -1,5 +1,5 @@
 /**
- * byomKeyGuard.js — refuse to accept a third-party AI provider key (C103 §4.5).
+ * byomKeyGuard.js — refuse to accept a third-party AI provider key (C105 §4.5).
  *
  * ⛔ WHAT THIS DEFENDS. BYOM's whole promise is that a user's provider key stays
  * on their device and goes only to the provider they chose. The client keeps

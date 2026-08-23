@@ -1,17 +1,17 @@
-// The browser half of BYOM (C103 §4.1). Everything else is pure and lives in
+// The browser half of BYOM (C105 §4.1). Everything else is pure and lives in
 // `@pryzm/ai-host` — this file exists ONLY to bind the injected `ByomStorage`
 // port to real browser storage, so the vault core has no DOM dependency and
 // tests drive it with a plain Map.
 //
 // ⛔ THIS FILE IS THE ONLY PLACE A PROVIDER KEY IS WRITTEN TO DISK. There is no
 // server row, no project field, no Yjs map, no telemetry attribute. That is not
-// an implementation detail — it IS the promise the UI makes, and C103 §4.4 plus
+// an implementation detail — it IS the promise the UI makes, and C105 §4.4 plus
 // `byomSecretContainment.test.ts` are what keep it true.
 //
 // WHY BOTH AREAS. `sessionStorage` dies with the tab and is the right answer on
 // a shared or borrowed machine; `localStorage` survives a restart and is the
 // right answer on a personal one. Only the user knows which machine they are
-// on, so only the user can pick — see C103 §4.2 for the threat model each side
+// on, so only the user can pick — see C105 §4.2 for the threat model each side
 // of that choice buys.
 //
 // SIGN-OUT IS INHERITED, NOT REIMPLEMENTED. Keys live under the `pryzm-`

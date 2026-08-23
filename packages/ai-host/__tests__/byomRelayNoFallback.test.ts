@@ -1,4 +1,4 @@
-// C103 §5.4 + §6.2 — the BYOM relay refuses to fall back, and never leaks.
+// C105 §5.4 + §6.2 — the BYOM relay refuses to fall back, and never leaks.
 //
 // ⭐ THE LOAD-BEARING TEST HERE is `§NO-FALLBACK`. A user key that the provider
 // rejects must NOT quietly retry on PRYZM's key: that would spend PRYZM's money
@@ -192,7 +192,7 @@ describe('§WIRE — the request is built in the provider own dialect', () => {
 
     expect(res.text).toBe('hello');
     expect(res.tokens).toEqual({ input: 11, output: 3 });
-    // ⛔ PRYZM paid zero, so PRYZM's ledger records zero. C103 §5.2.
+    // ⛔ PRYZM paid zero, so PRYZM's ledger records zero. C105 §5.2.
     expect(res.costUsd).toBe(0);
   });
 

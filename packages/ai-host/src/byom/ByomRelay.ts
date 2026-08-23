@@ -1,4 +1,4 @@
-// @pryzm/ai-host — BYOM relay porter (C103 §3, §5; C23 §BYOM-KEY-CLASS).
+// @pryzm/ai-host — BYOM relay porter (C105 §3, §5; C23 §BYOM-KEY-CLASS).
 //
 // A `RelayPorter` exactly like `CfWorkerRelay`, so every existing caller works
 // unchanged. The difference is the topology: this one calls the PROVIDER the
@@ -14,7 +14,7 @@
 //     party told — and it would break the "leaves this device only to call the
 //     provider you choose" promise on the one request where it matters most.
 //     `createResilientRelay` in CfWorkerRelay.ts exists and does exactly that
-//     wrapping; it MUST NOT be wrapped around this porter. C103 §5.4.
+//     wrapping; it MUST NOT be wrapped around this porter. C105 §5.4.
 //  2. LOG THE KEY, in any form. Everything that leaves here goes through
 //     `redactSecrets` first, including the provider's own error body — some
 //     vendors echo the offending credential back in the 401.
@@ -22,7 +22,7 @@
 //     not "unknown rendered as zero": PRYZM's ledger genuinely records zero,
 //     and the USER'S cost is a separate quantity PRYZM cannot compute (it does
 //     not know their negotiated rate). The tokens ARE reported, so a future
-//     per-provider price table has its inputs. C103 §5.2.
+//     per-provider price table has its inputs. C105 §5.2.
 
 import type { RelayPorter, RelayRequest, RelayResponse } from '../AnthropicRelay.js';
 import {
@@ -201,7 +201,7 @@ export function createByomRelay(
 
       return {
         text: parsed.text,
-        // ⛔ Zero because PRYZM paid zero. See the header, and C103 §5.2.
+        // ⛔ Zero because PRYZM paid zero. See the header, and C105 §5.2.
         costUsd: 0,
         model: parsed.model,
         tokens: { input: parsed.inputTokens, output: parsed.outputTokens },

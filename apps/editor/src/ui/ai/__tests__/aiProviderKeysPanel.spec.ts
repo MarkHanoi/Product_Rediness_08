@@ -1,4 +1,4 @@
-// §BYOM UI (C103 §6.5, §7) — the surface the founder actually clicks.
+// §BYOM UI (C105 §6.5, §7) — the surface the founder actually clicks.
 //
 // ⭐ THE POINT OF THE LAST DESCRIBE BLOCK. The panel makes a promise in plain
 // words — "stored only on this device… never sent to PRYZM". A UI test that

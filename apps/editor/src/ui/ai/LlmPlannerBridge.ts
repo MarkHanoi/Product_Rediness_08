@@ -57,7 +57,7 @@ const PLANNER_MODEL = 'claude-haiku-4-5';
 const PLANNER_MAX_TOKENS = 700;
 
 /**
- * §BYOM (C103 §3.1) — the ONE place the chat's relay is constructed, and
+ * §BYOM (C105 §3.1) — the ONE place the chat's relay is constructed, and
  * therefore the one place the BYOM route is honoured. Two topologies, chosen by
  * `resolveAiRoute`, and NOTHING else about the ladder changes:
  *
@@ -71,7 +71,7 @@ const PLANNER_MAX_TOKENS = 700;
  * `onProviderError` exists because `planUtterance` catches a throwing
  * `complete()` and turns it into an honest `unavailable` outcome — correct for
  * a PRYZM-side relay failure, but it would swallow the provider's own reason on
- * the BYOM arm, which is exactly what C103 §5.4 forbids. So the error is
+ * the BYOM arm, which is exactly what C105 §5.4 forbids. So the error is
  * captured on the way past and re-surfaced by the caller.
  */
 function plannerDeps(route: AiRoute, onProviderError?: (err: ByomProviderError) => void): PlannerDeps {
@@ -81,7 +81,7 @@ function plannerDeps(route: AiRoute, onProviderError?: (err: ByomProviderError) 
             // PRYZM's `/api/health` here would report `false` on a deploy that
             // carries no PRYZM upstream and skip the rung — refusing to use a
             // key the user just pasted, for a reason that has nothing to do
-            // with them. C103 §5.3.
+            // with them. C105 §5.3.
             if (route.keyClass === 'user-supplied') return true;
             // 'unknown' (the health route unreachable) is deliberately NOT
             // treated as available: attempting the call would surface a network
@@ -136,7 +136,7 @@ function plannerDeps(route: AiRoute, onProviderError?: (err: ByomProviderError) 
 const ZERO_TOKEN_LINE = '(resolved without AI tokens)';
 
 /**
- * §BYOM-PROVENANCE (C23 §1.2, C103 §7.2) — the attribution now names WHICH KEY
+ * §BYOM-PROVENANCE (C23 §1.2, C105 §7.2) — the attribution now names WHICH KEY
  * SERVED THE REQUEST, not merely that a planner was involved.
  *
  * That is the C23 provenance requirement made visible, and it is also the only
@@ -250,12 +250,12 @@ export async function tryHandleWithPlanner(query: string, hooks: ZeroTokenUiHook
         return false;
     }
 
-    // §BYOM (C103 §3.1). Resolved ONCE per utterance so the relay that runs, the
+    // §BYOM (C105 §3.1). Resolved ONCE per utterance so the relay that runs, the
     // attribution the user reads and the provenance that is recorded can never
     // disagree about which path served this request.
     const route = resolveAiRoute(byomVaults());
 
-    // §BYOM-NO-SILENT-FALLBACK (C103 §5.4). `planUtterance` catches a throwing
+    // §BYOM-NO-SILENT-FALLBACK (C105 §5.4). `planUtterance` catches a throwing
     // `complete()` and returns `unavailable` — right for a PRYZM-side relay
     // failure, wrong for a provider that REJECTED the user's key, because the
     // user would then be told nothing while PRYZM quietly answered on its own
@@ -310,7 +310,7 @@ export async function plannerIsConfigured(): Promise<boolean> {
 }
 
 /**
- * §BYOM (C103 §7.2) — which path will serve the NEXT message, in one sentence
+ * §BYOM (C105 §7.2) — which path will serve the NEXT message, in one sentence
  * the user can read. Exported so the chat panel and the keys panel can both
  * show it without either one re-deriving the decision (two derivations of one
  * fact is how they come to disagree).

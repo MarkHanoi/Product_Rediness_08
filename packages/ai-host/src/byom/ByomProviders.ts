@@ -1,11 +1,11 @@
-// @pryzm/ai-host — BYOM provider registry (C103 §2, SPEC-BYOM-PROVIDER-KEYS §3).
+// @pryzm/ai-host — BYOM provider registry (C105 §2, SPEC-BYOM-PROVIDER-KEYS §3).
 //
 // ⚠ NAMING. "BYOK" is ALREADY TAKEN in this repo and means something else:
 // C22 §1.4 and C08 §8 use it for customer-managed *encryption* keys (KMS /
 // Supabase service-role). Overloading it would have made two unrelated security
 // postures share one word inside a compliance document. The user-supplied
 // *model* credential introduced here is therefore called **BYOM — Bring Your
-// Own Model**, and the two terms never mix. See C103 §0.1.
+// Own Model**, and the two terms never mix. See C105 §0.1.
 //
 // WHAT THIS FILE IS. Pure data plus four pure functions per provider: build the
 // request URL, build the headers, build the body, read the response. No fetch,
@@ -19,7 +19,7 @@
 import type { RelayRequest } from '../AnthropicRelay.js';
 
 /** The six providers the reference surface names. Stable ids — these are
- *  persisted in the device vault and cited by C103 §2.1, so renaming one is a
+ *  persisted in the device vault and cited by C105 §2.1, so renaming one is a
  *  breaking change to a stored value, not a cosmetic edit. */
 export type ByomProviderId =
   | 'anthropic'
@@ -40,7 +40,7 @@ export type ByomProviderId =
 export type ByomAuthKind = 'api-key' | 'none';
 
 /**
- * The browser-direct verdict for this provider, per C103 §3.2.
+ * The browser-direct verdict for this provider, per C105 §3.2.
  *
  * ⭐ MEASURED 2026-08-23, and the evidence class is part of the verdict. A live
  * `OPTIONS` preflight (`Origin: https://example.com`) was run against every
@@ -63,7 +63,7 @@ export type ByomAuthKind = 'api-key' | 'none';
  *                               "supported" without the qualifier.
  *  • `local-opt-in`           — the user's own machine, reachable only after
  *                               THEY configure their local server to accept
- *                               this page's origin. See C103 §3.4 for the
+ *                               this page's origin. See C105 §3.4 for the
  *                               browser-side conditions, which are NOT mixed
  *                               content and are per-browser.
  */
@@ -89,7 +89,7 @@ export interface ByomProvider {
   readonly defaultBaseUrl: string;
   /** May the user point this at their own host? */
   readonly allowsCustomBaseUrl: boolean;
-  /** The CSP `connect-src` origin this provider needs (C103 §3.3). */
+  /** The CSP `connect-src` origin this provider needs (C105 §3.3). */
   readonly connectSrcOrigin: string;
   /** Default model id if the user does not name one. */
   readonly defaultModel: string;
@@ -215,7 +215,7 @@ export const BYOM_PROVIDERS: readonly ByomProvider[] = Object.freeze([
       'accepts 127.0.0.1 and 0.0.0.0 origins by default — start it with OLLAMA_ORIGINS ' +
       'set to the address this page is served from. (2) Chrome 142+ and recent Firefox ' +
       'ask permission before a web page may reach your local network; Safari refuses ' +
-      'outright. Running PRYZM from http://localhost avoids all of it. See C103 §3.4.',
+      'outright. Running PRYZM from http://localhost avoids all of it. See C105 §3.4.',
     keyHint: null,
     dialect: 'openai' as const,
   }),
@@ -228,7 +228,7 @@ export function findProvider(id: string): ByomProvider | null {
   return BYOM_PROVIDERS.find(p => p.id === id) ?? null;
 }
 
-/** Every CSP `connect-src` origin the BYOM surface can require (C103 §3.3).
+/** Every CSP `connect-src` origin the BYOM surface can require (C105 §3.3).
  *  Exported so the server derives its allowlist from THIS registry rather than
  *  from a second hand-maintained copy that would drift. */
 export function byomConnectSrcOrigins(): readonly string[] {
@@ -260,7 +260,7 @@ export function buildHeaders(provider: ByomProvider, secret: string): Record<str
       h['anthropic-version'] = '2023-06-01';
       // The explicit browser opt-in. Without it Anthropic does not serve CORS to
       // a page origin, and the call dies at the preflight with an error the user
-      // cannot act on. C103 §3.2.
+      // cannot act on. C105 §3.2.
       h['anthropic-dangerous-direct-browser-access'] = 'true';
       break;
     case 'google':
@@ -320,7 +320,7 @@ export function buildBody(provider: ByomProvider, req: RelayRequest, model: stri
 }
 
 /** What a parsed provider response yields. Cost is deliberately absent — see
- *  `ByomRelay.ts` and C103 §5.2: PRYZM does not price a call it did not pay for. */
+ *  `ByomRelay.ts` and C105 §5.2: PRYZM does not price a call it did not pay for. */
 export interface ByomParsed {
   readonly text: string;
   readonly model: string;

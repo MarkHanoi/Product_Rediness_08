@@ -374,7 +374,7 @@ app.options('*', cors(expressCorsOptions())); // pre-flight for all routes
 // ── H1: Global rate limiter — applied to all /api/* routes ───────────────────
 app.use('/api', globalLimiter);
 
-// ── §BYOM key guard (C103 §4.5) ───────────────────────────────────
+// ── §BYOM key guard (C105 §4.5) ───────────────────────────────────
 // A user's own AI provider key must NEVER reach a PRYZM server. The client keeps
 // that by construction (packages/ai-host/src/byom/ has no edge to this origin);
 // this is the SECOND wall, for the realistic accident of a user pasting their key
