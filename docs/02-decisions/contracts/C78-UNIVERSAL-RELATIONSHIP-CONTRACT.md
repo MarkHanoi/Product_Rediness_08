@@ -850,6 +850,7 @@ would decide it.
 | **U-INV-13** | The confirmation requirement is a pure function of the plan, never of the verb (§16.1, §16.2) |
 | **U-INV-14** | No observer mutates authoritative state on a path where safe-mode guarantees are required, outside the plan (§1.2d) |
 | **U-INV-15** | A surface that DISPLAYS relationships states which families it could not show, and why, per family — an empty relationship view names its own cause and is never a blank canvas (§4.4, §19.4) |
+| **U-INV-16** | A stored user decision that is a subset of a GROWABLE set records that set's membership at write time; where it cannot, absence is undecidable and is resolved by ASKING, never by defaulting — and a deliberate removal survives every later build (§19.5, §19.6) |
 
 > **§19.4 — U-INV-15, stated. MUST. Added 2026-08-23 (lane GRAPH48, L-8414).** U-INV-2 forbids a
 > consequence path returning `[]` to mean *"I could not determine"*. This is the same rule at the
@@ -882,6 +883,55 @@ would decide it.
 > the same way it renders a scope the reader chose. A filter is the reader asking for less; a
 > truncation is the tool delivering less. Rendering them alike teaches the reader to distrust a
 > number that is not in doubt, and to trust one that is.
+
+> **§19.5 — U-INV-16: A STORED DECISION MUST RECORD THE UNIVERSE IT WAS MADE AGAINST. MUST.
+> Added 2026-08-23 (lane GRAPH48, L-9000 … L-9010).** §19.4 governs what a surface says when it
+> cannot SHOW something. This governs what a surface may INFER from something a user stored
+> earlier, and it is the same failure one layer further back: **one stored value carrying two
+> opposite meanings.**
+>
+> The measured instance. The Analysis dashboard stores the user's widget arrangement per tab. A
+> widget absent from that list meant BOTH *"the user removed it"* AND *"it did not exist when the
+> user arranged this tab"*. The code that read it was correct about the case it reasoned about — a
+> newly added **tab** — and simply did not reason about a newly added **widget in an existing tab**.
+> The consequence was not one hidden widget: **every widget added by any lane thereafter was
+> invisible to every existing user, on every project, with no error, no empty state and no log
+> line**, while the catalogue entry looked live to whoever wrote it.
+>
+> **MUST.** Where a stored user decision is a SUBSET of a set the product can GROW — placed
+> widgets, enabled columns, subscribed families, pinned views, dismissed warnings — the stored
+> record MUST carry the membership of that set **at the time the decision was made**, derived at
+> write time from the live set. Without it, absence is not decidable, and a reader that decides
+> anyway is guessing about user intent.
+>
+> **MUST NOT.** The record MUST NOT be a version number a person is expected to bump. A stamp
+> somebody has to remember is satisfied by forgetting — the same class of mechanism as a gate that
+> classifies by NAME, which this repository has already paid for three times over.
+>
+> **MUST.** A record written before this rule existed is a THIRD state — *"undecidable"* — and it
+> is distinct from the empty set. It MUST be resolved by **asking the person once**, with both
+> answers reachable in one action, and MUST NOT be resolved by defaulting. Both defaults are wrong
+> for somebody: inferring *"new"* resurrects what the user deliberately removed, and inferring
+> *"removed"* hides new capability permanently and silently. ⚠ The asymmetry between those harms is
+> real — an unwanted item costs one click and is VISIBLE, while a hidden one is unrecoverable
+> because a user cannot miss what they cannot see — but it does not license the guess, because
+> **a decision the user made must survive** (§19.6).
+>
+> **MUST NOT.** An unrelated write MUST NOT convert the undecidable state into a decided one. If any
+> save can stamp the record, then reordering something elsewhere silently answers a question the
+> user was never shown — which reinstates the original defect one indirection back. Only an explicit
+> answer, or a full reset, may resolve it.
+>
+> **MUST.** Reconciliation happens on READ and is NOT written back. A read that rewrote stored user
+> state would make *opening* a surface a mutation, on a path that has no undo.
+
+> **§19.6 — the removal rule. MUST.** A capability the user **deliberately removed** stays removed
+> across every subsequent build, indefinitely, and no reconciliation, migration, default-merge or
+> "restore recommended layout" may return it without the user asking for it. This is stated
+> separately from §19.5 because it is the constraint that makes §19.5 hard: the easy fix for a
+> stale stored set is to union the current defaults back in, and that **deletes real user intent to
+> solve a staleness problem**. Where a mechanism cannot distinguish removal from novelty, the
+> correct output is a question, never a merge.
 
 > **§19.1 — the no-partial-credit rule, applied across the product. MUST.** C70 §3.2 forbids
 > partial credit **along** the Golden Chain; C78 forbids it **across** the element × relationship

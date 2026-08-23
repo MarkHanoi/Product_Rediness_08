@@ -43631,3 +43631,559 @@ originally classified openings by guessing `door` vs `window` from the rendered
 NAME, and misclassified. Fixed to filter on the input `type`. **That is the same
 shape of error the feature exists to stop** — inferring a fact that was available
 directly.
+
+
+---
+
+### L-8700 — ⭐ FIXED: the "file may be corrupted" banner on TWO healthy production projects was PRYZM accusing the user of its own defect
+
+**Reported** 2026-08-23, minutes after `2f8d9470` went live. Two projects, both opened, both banner:
+
+```
+[PlatformVersionController] §L-334 integrity check failed — loaded best-effort:
+Project integrity check failed (stored 5b6140fb-50432, computed f14e68b4-5041d).
+The file may be corrupted or was modified outside PRYZM
+```
+
+**MEASURED — the digest carries its own canonical length.** `SnapshotIntegrity.ts`
+stamps `fnv1a(canonical) + '-' + canonical.length.toString(16)`, so both halves are
+readable: stored `0x50432` = **328 242** characters at SAVE, computed `0x5041d` =
+**328 221** at LOAD. ⭐ **The LOAD side is 21 characters SMALLER.** Not corruption,
+not truncation: content the SAVE-side walk COUNTED was never in the stored bytes.
+
+**ROOT CAUSE — `canonicalStringify` did not mirror `JSON.stringify`.** Four
+dispositions, each reproduced with a runnable probe:
+
+| live member on the snapshot        | v1 canonical | `JSON.stringify` | Δ len |
+|------------------------------------|--------------|------------------|-------|
+| `{ cb: () => {} }`                 | `"cb":null`  | key **OMITTED**  |  −10  |
+| `{ s: Symbol('x') }`               | `"s":null`   | key **OMITTED**  |   −9  |
+| `{ d: { toJSON: () => undefined }}`| `"d":null`   | key **OMITTED**  |   −9  |
+| `[1, <hole>, 3]`                   | `[1,,3]`     | `[1,null,3]`     |   +4  |
+
+The first three all shrink the LOAD side — **exactly the sign observed**. `−21` is
+one 13-character function/symbol-valued property name, or two shorter ones. The
+existing `.filter(k => obj[k] !== undefined)` guard *looks* like it covers this and
+does not: it runs **before** `toJSON`, and it tests for `undefined`, never for
+`function` / `symbol`.
+
+⭐ **This is the THIRD member of one family**, and the file's own header already
+recorded the first two (`versionLabel` mutated after the stamp; `toJSON`
+divergence). All three are *"a member whose representation at SAVE differs from its
+representation at LOAD."* The second one bricked a real 1009-element project (L-360).
+
+⚠ **THE ROUND-TRIP TEST WAS GREEN THROUGHOUT AND IS THE OTHER HALF OF THE DEFECT.**
+`sampleSnapshot()` is pure JSON — it *cannot contain* the failure, so it cannot fail
+on it, while being read as proof that the guarantee holds. **A test whose fixture
+cannot express the defect is worth less than no test.** The fixture set is now
+adversarial by construction: twelve live-object shapes, and one test asserts the
+exact SET of shapes v1 diverges on (five) versus v2 (zero) — it exhibits the bug
+rather than asserting its absence.
+
+**SHIPPED**
+* `canonicalStringify` now mirrors `JSON.stringify` exactly (omit in object
+  position, `null` in array position, index-walk so holes render, `toJSON(key)`).
+  **19 of 19 probed value classes round-trip stable**; v1 held 15 of 19.
+* `INTEGRITY_ALGO` `fnv1a32-canonical-v1` → **`-v2`**. Changing what the canonical
+  form IS changes the algorithm; a tag still claiming v1 would be a second false
+  statement on the first. `INTEGRITY_ALGO_V1`, `canonicalStringifyV1` and
+  `computeSnapshotChecksumV1` are **PRESERVED, not deleted** — they keep the
+  historical digest reproducible and let the suite demonstrate the asymmetry.
+* `verifySnapshotChecksum` reports a digest stamped by a **different algorithm** as
+  `comparable:false, ok:true` — the disposition already used for a migrated
+  snapshot, for the same reason: comparing two algorithms' outputs and calling the
+  difference "corruption" is a fabricated verdict. ⛔ **This is not an exclusion and
+  not a softened message.** Nothing left the digest's coverage;
+  `CHECKSUM_EXCLUDED_TOP_KEYS` is unchanged at its two save-metadata members and is
+  now marked CLOSED in code. The window is **one save wide** per project.
+* **The message.** ⛔ *"The file may be corrupted or was modified outside PRYZM"* is
+  gone from both the loader reason and the toast. It now states what is known —
+  what differs, **the canonical-length Δ in decimal**, that the project was loaded
+  **IN FULL with nothing dropped**, and that PRYZM **cannot tell from the stamp
+  alone** whether the difference arose in its own save path or in the stored bytes.
+  A false accusation of corruption is spent credibility: the next TRUE one gets
+  dismissed.
+
+**IS ANYTHING LOST? NO — and this is the founder's real question.** The checksum is
+a *stamp about* the snapshot; it is not a gate on any content. The load path reads
+the stored JSON and imports it whole, the mismatch was already non-blocking, and
+both projects loaded. Further, under the identified mechanism the 21 characters are
+members `JSON.stringify` **cannot persist under any circumstances** — a function is
+not data. **No model content is at risk from this defect.** ⚠ What is NOT proven is
+that the identified mechanism is the one that fired in the founder's file: that
+requires his snapshot, which is why L-8701 ships the probe that names it.
+
+---
+
+### L-8701 — the SAVE-side probe L-8700 did not have: name the member, don't infer it from a hex delta
+
+L-8700 had to be diagnosed from a 21-character difference between two hex suffixes
+because **nothing in the save path could say WHICH member differed.**
+
+`computeSnapshotChecksumWithReport()` returns the same digest **plus** every member
+of the live snapshot that `JSON.stringify` cannot persist — path and kind
+(`function` / `symbol` / `toJSON-undefined`). Folded into the digest walk, so it is
+one array push/pop per node and **no second traversal** (a probe that measured a
+36 MB snapshot by re-walking its largest member would BE the cost it reports).
+`ProjectSerializer` calls it, stamps a non-zero count into `integrity.jsonInvisible`
+(the `integrity` block is excluded from the digest, so this cannot move any
+checksum, and the key is omitted when zero so a clean snapshot stays byte-identical),
+and `console.warn`s the paths.
+
+Under v2 these members no longer perturb the digest — but **each one is content
+silently dropped on every save**, which is the defect shape this repo keeps
+re-learning. If the founder's next save prints this line, it names the member.
+
+⚠ **A deliberately-`undefined` optional key is NOT reported.** `ProjectSerializer`
+writes `provenance: undefined` / `site: undefined` to mean *absent*, which is a
+different value from an empty slice; flagging that idiom would make the probe noise.
+
+---
+
+### L-8702 — ⭐ FIXED: THREE whole-container writes (~110 MB) per autosave, two of them to flip one enum
+
+**Founder, same session:** *"projects take too long to open… a few minutes, which
+should be 10 seconds."* His console, one save cycle:
+
+```
+[VersionRepository] 20 version(s) persisted to IndexedDB … ~36.8 MB (38,630,482 chars) compressed
+[VersionRepository] 20 version(s) persisted to IndexedDB … ~36.8 MB (38,630,478 chars) compressed
+[VersionRepository] 20 version(s) persisted to IndexedDB … ~36.8 MB (38,630,470 chars) compressed
+```
+
+⭐⭐ **The three shrinking sizes were read as proof of a non-deterministic
+serialiser. THEY ARE NOT, and the refutation is in the code, not in a theory.**
+`ServerSyncQueue.ts:14` documents the ladder `'local-only' → 'sync-pending' →
+'synced'`, driven from `PlatformSaveController.ts:77` into
+`versionRepository.updateSyncStatus`, which **rewrites the entire container** each
+time. The three payloads are **not the same content**: the `syncStatus` string of
+one version differs, and its JSON length changes with it (`"local-only"` 12 chars,
+`"sync-pending"` 14, `"synced"` 8) inside the single ~1.84 MB record that gets
+re-deflated. Write 1 IS the save; writes 2 and 3 exist **only for the enum**.
+
+⚠ **This also retires the "8 characters different for the same content" reading
+from the first brief.** `syncStatus` lives on the `VersionRecord`, **outside** the
+`snapshot` the checksum covers — so it is not the same subject as L-8700 either.
+**L-8700 and L-8702 are two different roots, not one seen twice.** Reporting them
+as one would have been the tidier story and the wrong one.
+
+**Of the three rungs, exactly one is not a durable fact:**
+* `local-only` — written **by** the save. Durable, costs no extra write.
+* `sync-pending` — *"an upload is in flight right now."* **Cannot survive a reload as
+  a true statement**; nothing reads it back to make a decision; and the stored value
+  it leaves behind (`local-only` = "not on the server") is the **conservative** one,
+  which is exactly what an interrupted upload should look like.
+* `synced` — a durable fact about the server. Must be written.
+
+**SHIPPED:** `sync-pending` is held in a module-scoped overlay and **overlaid onto
+every read** (wide `getVersions`, narrow `getLatestVersion`, both container formats)
+so the version panel's badge is unchanged in-session; the overlay is pruned to the
+stored ids in `_commitSlots`, exactly as the blob cache is. **3 whole-container
+writes → 2. ≈36.8 MB less IndexedDB traffic per autosave.**
+
+⛔ **NOT extended to `synced`** — that would trade 36.8 MB of writes for the chance
+of re-uploading after a crash, and *"the server already has this"* is not a claim
+that may live only in RAM (C48).
+
+**The tests COUNT WRITES, not answers.** A correctness-only assertion passes
+identically against the old code; the whole finding is about the work. 4 new tests,
+`versionRepositoryEnvelopeWrite.test.ts`; suite **47/47** across six repository
+files.
+
+⚠ **The floor with this storage shape is TWO writes, not one** (the save, plus one
+terminal status write). Getting to one needs `syncStatus` out of the container
+entirely — a sidecar id→status map with the container as fallback. Named, costed,
+**deliberately not shipped blind** alongside a correctness fix.
+
+---
+
+### L-8703 — the OPEN path had no numbers at all, and the gated ones are OFF in the build he runs
+
+The founder's complaint is about **opening**. Every figure anyone could quote came
+from the **save** side. `§PERF-L03-PHASE` per-phase timing exists in `ProjectLoader`
+but is gated behind `globalThis.__pryzmPerfTrace` (`perfTraceOn()`), so it is **off
+in production** — the storage leg of an open, which runs first and scales with a
+36.8 MB container, **has never been measured in production**.
+
+**MEASURED BY READING (what the open path actually does):** the open is already
+NARROW — `PlatformShell` uses `getLatestVersion` (`:216`, `:257`, `:354`), not
+`getVersions`. Only the version-history PANEL (`PlatformVersionController.ts:92`)
+and delete (`:470`) inflate all twenty. ⭐ **So "minutes to open" is NOT a
+20-snapshot inflate**, and a fix aimed there would have hit nothing. What the narrow
+open still pays, in order: read the whole **36.8 MB** container string out of the
+IDB mirror → `JSON.parse` the envelope over those 36.8 MB → inflate ONE ~1.84 MB
+blob to **~8.8 MB** → `JSON.parse` it → migrate → `temporalGraph.deserialize` of
+**30 432** mutations → then the loader begins.
+
+**SHIPPED:** an always-on, one-line-per-open probe in `getLatestVersion`
+(`§PROBE-OPEN-PATH-STORAGE-LEG`) splitting **mirror-read / envelope-parse / inflate
+/ record-parse**, with the container size, the inflated size and the journal's
+mutation+edge counts. Four `performance.now()` reads on a path that runs once per
+open.
+
+⛔ **NOT CLAIMED: that this makes opening faster.** It makes the next open **say
+where the time goes**, which is the precondition the previous three perf attempts in
+this area skipped. **Against the founder's explicit ~10 s target: nothing is
+claimed, because nothing was measured in his browser.**
+
+---
+
+### L-8704 — ⭐ OPEN, founder's call: the temporal journal is 99.7 % of the payload and is duplicated 20×
+
+⚠ **THIS IS NOT A NEW CONTRACT POSITION — IT IS THE SAME ONE, RE-MEASURED.**
+[C05 §3.5](../02-decisions/contracts/C05-PERSISTENCE-AND-FILE-FORMAT.md) already binds
+*"a snapshot describes STATE; an append-only journal MUST NOT live inside it"* (lane
+LOAD30, ADR-0356), and its own *"not decided"* clause already names **L-5823** for the
+journal already on disk. LOAD30 stopped the **ratchet** (a load no longer records its
+own replay as history); it did not change the **shape**. So the number went **UP**, and
+this row is the re-measurement, not a rediscovery. ⛔ Read L-5823 before proposing work.
+
+**MEASURED, from the founder's own console line:**
+`281 elements, 7 levels, 62 walls, 10 slabs, 31 furniture … temporalGraph 30 432
+mutations`, integrity suffix `0x8639ce` = **8 796 110 characters of canonical
+snapshot** — for a model `ProjectSerializer.ts` already documents as *"~0.1 MB"* at
+264 elements. **The model is ~1 % of the snapshot. The journal is the rest** —
+and it is embedded **whole** in each of 20 versions (36.8 MB ÷ 20 ≈ 1.84 MB each),
+whose journals are near-identical because a journal is **append-only**: version *n*
+is version *n−1* plus a handful of records. The count is also growing inside a
+single session (30 357 → 30 432 in about an hour).
+
+**THE SHAPE QUESTION, stated and NOT answered unilaterally:** a version snapshot
+needs the **MODEL**. The journal is one **per-project append-only** structure that
+appears to be inside each version because a snapshot was the only container that
+existed. Storing it once per project — versions referencing a cursor into it —
+would take the container from **~36.8 MB to ~2.4 MB (≈15×)** on *every* write and
+*every* open, with **no record dropped**.
+
+⛔ **NOT ACTIONED, and deliberately so.** It is a persistence-format change (C05),
+it is the founder's history, and he has been told the record count and has **not**
+asked for it to be dropped. ⛔ **The fix is not deletion**, and no lane should
+"solve" this by trimming his journal. This row exists so the decision is his and is
+made against the measurement rather than against a guess.
+
+⚠ **Related, found while measuring and NOT fixed:** `TemporalGraphManager.serialize()`
+returns `Array.from(this._edges.values())` and `[...this._mutations]` — new arrays,
+but the **records inside are live references**. Appends after a stamp cannot change
+the snapshot (the arrays are copies), but `expireEdge()` mutates `edge.validUntil`
+**in place** on an object the just-stamped snapshot still holds. Not the L-8700
+mechanism (wrong direction: `null` → a timestamp GROWS the payload) and no
+occurrence is proven — but it is a live-object-in-a-snapshot seam of exactly the
+family this session keeps finding. **Reported, not changed.**
+
+⚠ **Verified once and dropped, as briefed:** `SnapshotStreaming.ts`'s header claim
+*"no consumers in production code (tree-shaken)"* **holds** — a repo-wide search for
+`SnapshotStreaming|splitSnapshot|mergeSnapshot|SnapshotHeader|LevelChunk` returns the
+two copies of the file itself, one test, and documentation. **Nothing deleted.**
+
+---
+
+### L-9000 — ⭐ CLOSED, and it was SYSTEMIC: a stored arrangement hid every widget added after it
+
+**Founder, on the live deploy `2f8d9470`:** *"I requested to build a building graph … where can I access it?"* He was standing in **Analysis → Relationships**, his tab header read **"Relationships 1"**, and the only card was `relationship-coverage`.
+
+**MEASURED, not assumed:**
+
+* `widgetCatalogue.ts:450` — `relationships: Object.freeze(['relationship-graph', 'relationship-coverage', 'relationship-table'])`. **Three declared, one rendered.**
+* `analysisLayout.ts:151` (the escalation said `:150`; it is **151**) —
+  ```ts
+  tabs[t.id] = Array.isArray(list)
+    ? list.filter((w): w is string => typeof w === 'string')   // stored list wins ENTIRELY
+    : [...DEFAULT_TAB_LAYOUT[t.id]];                            // default only if NEVER stored
+  ```
+  He arranged that tab **before** the graph shipped, so his `localStorage` held
+  `relationships: ['relationship-coverage']` and a stored array won outright.
+
+⛔ **THE CODE THAT HID IT IS GOOD CODE AND ITS COMMENT IS RIGHT.** It reads: *"an empty stored array is a REAL arrangement … `undefined` is the different answer 'this tab was never stored', which happens when a build adds a **tab**"*. Every word is true. **It reasons about a NEW TAB and not about a NEW WIDGET IN AN EXISTING TAB.** That is the entire gap, and nothing about it was careless.
+
+⭐ **THE BLAST RADIUS WAS NOT ONE WIDGET.** Under the old rule **every widget every lane adds from now on is invisible to every existing user, on every project** — no error, no empty state, no log line, and the catalogue entry looks live to whoever wrote it. Twelfth built-but-unreachable surface this session and **the only systemic one**: it would keep minting new ones.
+
+⭐ **IT IS THE SESSION'S RECURRING SHAPE — ONE STORED VALUE CARRYING TWO OPPOSITE MEANINGS.** *"absent from `tabs`"* meant both *"the user removed this"* and *"this did not exist yet"* — the same defect as `—` meaning both *"unused"* and *"unnameable"*, and *"Not assigned to a storey"* meaning both *"has none"* and *"we did not ask the host"*. ⛔ The fix is never a better guess; it is **recording the second fact**.
+
+### L-9001 — ⭐ CLOSED: `knownWidgets` — the fact the stored shape was not recording
+
+`AnalysisLayout` gains `knownWidgets?: readonly string[]`: **the catalogue ids at the moment the arrangement was written.** With it, the two cases separate by construction:
+
+| stored state | meaning | action |
+|---|---|---|
+| in `knownWidgets`, not in `tabs` | the user **removed** it | ⛔ stays removed. Forever. |
+| not in `knownWidgets`, not in `tabs` | it **did not exist** when they arranged | placed on its own catalogue tab |
+| `knownWidgets` **absent** | the arrangement predates the record | ⚠ **neither** — the surface ASKS (L-9002) |
+
+⛔ **RULE B IS HONOURED BY CONSTRUCTION, NOT BY A CHECK.** The membership test is against `knownWidgets`, never against the catalogue, so nothing in `reconcileLayout` is *able* to resurrect a removed widget.
+
+⭐ **DERIVED ON EVERY SAVE, never a version number a human must bump.** A stamp somebody has to remember is satisfied by forgetting — the same class of mechanism as a gate that classifies by NAME.
+
+⛔ **RECONCILED ON READ, NOT WRITTEN BACK.** A read that rewrote the user's stored arrangement would make *opening a dashboard* a mutation, on a path with no undo. The stamp lands on the next real save.
+
+### L-9002 — ⭐ CLOSED: the legacy case is answered by ASKING, because both guesses are wrong
+
+An arrangement with no `knownWidgets` cannot classify **any** widget. Both defaults are wrong for somebody:
+
+* guessing *"new"* **resurrects widgets the user deliberately deleted** — breaks rule B;
+* guessing *"removed"* **hides every widget shipped since, permanently and silently** — is the defect itself.
+
+⚠ The asymmetry is real and was weighed: an unwanted widget costs one click and is **visible**, whereas a hidden one is unrecoverable *because the user cannot miss what they cannot see*. But **"MUST stay removed" is a hard rule**, so the reconciler refuses to decide and hands the decision to the person who owns it.
+
+The tab renders a notice — violet, not amber, because it is a **question, not a warning** — naming each widget with `＋ Add to this tab`, plus *"I removed these on purpose — stop asking"* which records the answer and **changes no tab list at all**. ⛔ It is scoped to widgets whose catalogue tab is the tab being looked at: a notice you cannot act on where you are standing is noise.
+
+⭐ **THE PROMPT IS A ONE-TIME MIGRATION ARTEFACT.** Once answered, `knownWidgets` exists and every future widget places itself with no prompt whatsoever.
+
+### L-9003 — ⭐ CLOSED: `undefined` is a THIRD answer and is never collapsed to `[]`
+
+`knownWidgets: []` means *"the catalogue held nothing"* → every widget is new → place them. `knownWidgets: undefined` means *"this arrangement predates the record"* → ask. ⛔ A reader that merged them would auto-place into every legacy arrangement and **overturn real removals**. Both the `localStorage` path and the snapshot path read a non-array as `undefined`, never as empty.
+
+### L-9004 — ⛔ CAUGHT IN MY OWN DRAFT: `saveLayout` would have silently adopted the catalogue
+
+The first draft stamped `knownWidgets` on **every** save. That meant any unrelated save — reordering a card on Overview, switching the active tab — would silently record *"the user has seen this catalogue"* and the outstanding question **would vanish without ever being asked**. That is the invisible-widget defect again, one indirection further back.
+
+`saveLayout` now refreshes the stamp **only when the layout already carries one**. Legacy stays legacy until the person answers, and the only two exits are explicit: `adoptCatalogueAsKnown()` or a reset to `defaults()`. `layoutReconciliation.spec.ts` L-9004 is the arm that catches it.
+
+### L-9005 — ⭐ CLOSED: the SECOND site, which the escalation did not name
+
+The escalation identified `loadLayout`. **`hydrate()` at `analysisLayout.ts:216` carried the identical defect** — the same `Array.isArray(list) ? … : DEFAULT` line, in the snapshot-rehydration leg.
+
+⚠ It is **dead today** (L-3007 — nothing calls `hydrate` yet), which is exactly why fixing only the reachable copy would have been wrong: it would leave a dormant duplicate of the bug to **re-mint itself the day the snapshot legs are wired**, in a build where nobody would connect the two. A snapshot written by an older build carries no `knownWidgets`, which is precisely the legacy case, and it is now answered the same way.
+
+### L-9006 — ⭐ CLOSED: proven at the layer the founder experiences
+
+`staleArrangementReachability.spec.ts` seeds `localStorage` with the **literal value from his browser**, boots the REAL `AnalysisSurface`, clicks the REAL Relationships tab and reads the DOM. It reproduces the symptom, then proves the notice appears, that **one click renders the graph card**, and that "stop asking" honours the removal across a reopen.
+
+⛔ **ORDER IS LOAD-BEARING**: `localStorage` and `window.projectContext` are seeded **before** the workspace-mode event, because `_show()` calls `loadLayout()` which keys off the project id. Seeding afterwards would test a default arrangement wearing the founder's name — the shape of test that passes while he is still stuck.
+
+⚠ **STATED LIMIT:** happy-dom paints nothing. These arms prove the controls exist, are enabled, and that acting on them changes the DOM. They do **not** prove anything is legible on screen.
+
+### L-9007 — ⭐ CLOSED (deliverable C): both escape hatches work, VERIFIED not assumed
+
+* **`＋ Add widget`** lists *Relationship graph*, its row is **not** `disabled`, and clicking it renders the card. (`_addWidget` guards only on `_allPlacedIds()`, and the graph is not placed — so the guard was never the problem.)
+* **Reset (`⟲`)** restores `defaultLayout()`, graph included.
+
+Both are asserted through real clicks on the real controls, not by reading the code.
+
+### L-9008 — ⚠ MY TEST ASSERTION WAS WRONG AND THE PRODUCT WAS RIGHT
+
+The first draft of the one-click arm asserted `expect(querySelector('.anl-reconcile')).toBeNull()` — *"one answer clears the whole notice"*. **It does not, and it must not.** His arrangement omits **two** widgets (the default Relationships tab holds three; his list held one), so answering about the graph says nothing about `relationship-table`. Collapsing them would be the one-value-two-facts defect this whole section exists to remove, one level up.
+
+⭐ Same lesson as [[confident-register-rows-are-the-wrong-ones]]: the prose-justified expectation was the wrong one. Assertion corrected in place, with the reasoning kept beside it.
+
+### L-9009 — ⭐ CLOSED (deliverable D): `graphViewState.ts` does NOT persist — the hypothesis is REFUTED
+
+The escalation read *"`graphViewState.ts` persists too"*. **Measured 2026-08-23, two independent greps:**
+
+```
+grep -n "localStorage\|sessionStorage\|saveLayout\|persist" apps/editor/src/ui/analysis/graphViewState.ts
+  -> 1 hit, and it is the WORD "persisted" inside a comment about the UBG snapshot.
+grep -rn "localStorage" apps/editor/src/ui/analysis/
+  -> analysisLayout.ts (5) + analysisTabs.spec.ts (5). Nothing else.
+```
+
+Every control this lane shipped — the six hierarchy views, 2D/3D, labels, node size, focus hops, the legend and both exports — is **module state, reset on load**. ⭐ So the blast radius of L-9000 inside this lane was **exactly one thing: the `relationship-graph` widget id**. Every existing user reaches every other control the moment the card renders.
+
+### L-9010 — ⭐ CLOSED: the guarantee is asserted over the WHOLE catalogue, not for one id
+
+`layoutReconciliation.spec.ts` L-9005 iterates **every** entry in `WIDGET_CATALOGUE`, removes it from both `knownWidgets` and its own default tab, and asserts it is auto-placed on its catalogue tab. ⛔ That is what makes the fix systemic rather than a special case: **if a future lane adds a widget and this rule breaks, the arm goes red without anybody remembering to extend it.**
+
+**Differentiating, by controlled edit and revert (not asserted):** neutralising `reconcileLayout` to a no-op → **5 of 15 arms fail**, including the whole-catalogue arm. Restored; 15/15.
+
+**Verification, all FOREGROUND:** `layoutReconciliation.spec.ts` **15/15** · `staleArrangementReachability.spec.ts` **7/7** · whole analysis suite **14 files / 206 passing** · root `tsc --noEmit --skipLibCheck` → **0 errors attributable to this lane's files** (one unrelated error in `packages/core-app-model/src/quantities/RegionalRates.ts`, lane **RATE53**'s in-flight file; a single tsc run on a shared tree is a photograph, not a verdict).
+
+---
+
+## L-8800..L-8811 — C13: the room half was the AUDIT accusing the innocent; the site half is a DATA defect (lane ISO52, 2026-08-23)
+
+**The report.** Founder's production console on `2f8d9470`, opening
+`proj-1787483901080-e63b318a95bb`:
+
+```
+[C13 VIOLATION] Project-isolation leak detected — 2 finding(s):
+  [scene.foreignElement×8 (d6654ac1-… ⇐ room "room-overlay-d6654ac1-…"; …),
+   scope.foreignProject×1 (site.model still owned by proj-1786627649631-548a4dba67b5)]
+  — ⚠ 28/153 scene root(s) UNATTRIBUTED … neither proven clean nor proven leaked
+  · 849 descendant(s) attributed BY INHERITANCE from an id-bearing ancestor
+```
+
+⭐ **THE TWO FINDINGS HAVE DIFFERENT ROOTS, AND NEITHER IS A TEARDOWN LEAK.** Lane ISO45
+was right to refuse to merge them and right that its railing fix would not close
+`site.model`. It was wrong about the mechanism of both, and so was this lane's opening
+hypothesis. Stated separately below rather than forced into one story.
+
+### L-8800 — ⭐ ROOT (rooms): the audit was accusing the loaded project's OWN rooms
+
+**MEASURED, not assumed.** The eight `room-overlay-*` meshes are **not** residue of a
+previous project. They belong to the project that had just been opened, and the audit
+could not possibly have said otherwise:
+
+- `ProjectLoader` builds `__pryzmLoadedProjectExpectation` from the snapshot **arrays**,
+  and its own comment says so — *"Derived state (redetected rooms, room-bounding-lines,
+  annotations) is intentionally NOT part of the audited surface, so it is not included
+  here."* There is no `snapshot.rooms` push and there was never meant to be one.
+- It then runs `__phase('redetect_sweep')` — the per-level `ReDetectRoomsCommand` sweep
+  — **after** that publish. Measured by byte offset in the file: the publish precedes the
+  call site. So a redetected room's id is outside the expected set **by construction, on
+  every load, in every project, forever**.
+- `RoomBoundaryBuilder.ts:339/341/343/348` stamps `userData.id`, `type:'room'`,
+  `levelId`, and `name = room-overlay-<id>`. The id arm saw an id + a type, found the id
+  missing from the expectation, and reported a leak.
+
+⛔ **The teardown was never the problem, and this was checked BEFORE anything was
+written** — the ISO45 lesson. `roomBoundaryBuilder` **is** registered in the
+`bim-project-cleared` sweep (`initBuilders.ts:1125`, `via:'removeAll'`);
+`removeAll()`/`removeRoom()` are correct and idempotent; `_doUpdateRoom` removes before
+rebuilding so no orphan can accumulate; and `ClearProjectCommand` really emits
+`bim-project-cleared` over `DOMEventBus` → `window.dispatchEvent`.
+`node scripts/check/check-project-isolation.mjs` → **RC=0**, *"Dead project-lifecycle DOM
+listeners found: 0"* and *"§C13-TEARDOWN-TRIGGER-DECLARED — 3/3 root(s) scanned against
+204 declared events"*. **ABSENT vs UNREACHABLE was the wrong axis here: the teardown is
+present, reachable and correct.**
+
+⭐ **The declaration already existed and was wired to one half of the audit only.**
+`LOAD_DERIVED_ELEMENT_TYPES` (`declaredProjectScopes.ts:518`) names exactly this class
+and already listed `'room'`. `grep -rn LOAD_DERIVED_ELEMENT_TYPES` over `apps packages
+plugins` returns the declaration, two barrel re-exports, its own unit test and **one**
+consumer — `initScene.ts:1622`, the §L-325 **render-side** audit. The **scene** arm in
+`ProjectIsolationAudit.ts` never read it. One half of the audit knew these ids were
+underivable; the other half accused them. **§L-711, fourth recurrence.**
+
+**Fix — an ATTRIBUTION, never an exemption (`§C13-DERIVED-ELEMENT-LEVEL-ARM`).**
+⛔ Adding `'room'` to a skip list would have been actively dangerous:
+`LOAD_DERIVED_ELEMENT_TYPES` **also contains `'stair-railing'`**, and project A's
+railings surviving into project B is the real leak L-8100 shipped hours earlier. An
+exemption would have retro-blinded the audit to the leak it had just caught. So the
+repair is `instancedGroupLevelId` applied one class over: a derived element is judged on
+the **level** it stamps, and levels **are** in the expectation (§L-711 put
+`snapshot.levels` there). A room redetected into project B carries a level of B and is
+clean; a room overlay left by project A carries a level of A and is **still a finding**,
+reported under its own surface `scene.foreignDerivedElement`. Undecidable (no readable
+`levelId`) falls through to the **stricter** id arm — unknown never becomes clean.
+
+**Proven pre-fix, not argued.** The suite was run against `git show HEAD:` of the
+detector in a scratch copy: the same eight room overlays of the loaded project produce
+**`scene.foreignElement×8`** — the founder's verdict verbatim — and `summariseSceneCoverage`
+returns **no** `orphanedDescendantCount` key at all. Scratch files removed.
+
+**Contract:** C13 **§3.16** (new, binding). **Tests:** 19 in
+`packages/core-app-model/src/persistence/ProjectIsolationAudit.derivedElementLevelArm.test.ts`
+— real `THREE.Scene`, real `collectSceneObjects` traversal, real `detectLeaks`, plus
+source-text pins on `RoomBoundaryBuilder`'s four stamps and on the loader's
+publish-before-redetect ordering, so a rename breaks the test instead of silently
+re-blinding the audit.
+
+⚠ **NAMED RESIDUAL BLINDNESS, stated rather than discovered later.** `L0` is the
+universal default level (`ClearProjectCommand` resets `activeLevelId` to it), so it
+discriminates nothing: a derived element of project A sitting on `L0` is
+indistinguishable from one of project B. That case is **not decided** by this arm and is
+not claimed to be — it is counted and printed as `derivedOnAmbiguousLevel`, never netted
+into the clean total.
+
+⛔ **Graphics untouched.** This lane changed the AUDIT only. No teardown was made more
+eager, no builder was altered, nothing that draws a room was modified — so no correct
+single-project session can lose an overlay because of it.
+
+### L-8802 — ⭐ the 28 UNATTRIBUTED roots were not the worst of it: a whole class was counted NOWHERE
+
+The founder flagged the coverage clause as the most important line in the log, and it
+was — but the bigger hole was one line below it. `summariseSceneCoverage` filed a
+non-root object as *"attributed BY INHERITANCE"* only when `hasIdBearingAncestor` found
+an id above it. When it did **not**, the loop hit a bare `continue` and the object left
+the census entirely: **not a root, not inherited, not unattributed**. `detectLeaks` also
+had nothing to test on it, because it carries no id of its own.
+
+⭐ **So it was invisible to BOTH halves of the audit — and, unlike an unattributed root
+(which at least prints a ⚠), invisible in a way no reader could notice.** That is the
+exact seam `ProjectIsolationAudit`'s own `isIdAttributable` comment records an object
+vanishing through, reproduced one level down, inside the summariser written to prevent
+it.
+
+**Fix (`§C13-ORPHAN-DESCENDANT-CENSUS`):** every geometry-bearing object now lands in
+exactly one bucket, and `orphanedDescendantCount` prints on the **clean** verdict as well
+as the violating one — a blind spot that surfaces only when something else already failed
+is precisely the blind spot that gets read as cleanliness. ⚠ It is **not** a leak count
+and must never be read as one; it is the size of the audit's blind spot below the root
+line, and it shrinks when producers stamp their subtrees, never by being netted away.
+
+**Also added:** `derivedAttributedByLevel` / `derivedOnAmbiguousLevel` on every verdict,
+so "moved off the element-id arm" is a visible quantity. Both are `undefined` — not `0` —
+when no expectation was supplied, because *not computed* and *none found* must not print
+the same. **Contract:** C13 **§3.17** (new, binding).
+
+**NOT CLOSED, and deliberately not guessed at:** the 28 `[UNSTAMPED]` roots themselves.
+Shrinking that set requires knowing which producer emits them, which needs the founder's
+runtime — `classifyUnattributedRoot` returns `UNSTAMPED` precisely when there is no name
+and no `userData` to key on. ⛔ Per C13 §3.15 the only sanctioned way to shrink the
+number is to **declare** a root with a `file:line` citation; inventing declarations from
+a console excerpt would be the §3.15 violation this lane exists to enforce. The next
+production log will now print the orphan count beside it, which is the measurement that
+says whether 28 is the whole gap or only its visible part.
+
+### L-8810 — ⭐ ROOT (site.model): a DATA defect, not a lifecycle one — the teardown works
+
+**MEASURED across six axes.** `site.model` is registered at **module scope**
+(`siteProjectScope.ts:401`, via a static import at `initScene.ts:68`), so the probe
+exists whether or not `installSiteProjectScope()` is reached — which reconciles the
+apparent paradox that the audit *reported* the scope at all.
+`SiteModelStore.reset()` genuinely nulls the site (`packages/stores/src/SiteModelStore.ts:109`);
+`reseedAll()` cannot restore it (the three site scopes carry **no** `reseed`); the store
+has **zero** I/O — no `localStorage`, no IndexedDB — so the project snapshot is its only
+rehydration source; and `_runtimeOverride` is provably `null` in production (the sole
+call site passes no argument).
+
+⭐ **The load path is a total function over the site store.** `ClearProjectCommand`
+nulls it, and ~1300 lines later in the same `load()` `restoreSiteState(runtime,
+snapshot.site ?? null)` runs **unconditionally** — its null branch resets too. Therefore:
+
+> After any `ProjectLoader.load()`, `getSite()` is non-null **iff** `snapshot.site` was
+> non-null, and its `projectId` is exactly `snapshot.site.projectId`.
+
+`restoreSiteState` stamps ownership **from the snapshot**, with a comment saying so, and
+compares it against the live project **nowhere**. **An in-memory survivor cannot reach
+the audit through this path.** So a `scope.foreignProject` on `site.model` after a real
+load is, by construction, **a statement about the file's contents**: project B's own
+snapshot carries `site.projectId = <project A>`.
+
+**Two measured entry paths for the stale id**, either sufficient:
+
+1. **Duplication** — `server/projectStore.js:615` copies the snapshot JSONB verbatim, and
+   `ProjectRepository.duplicateInto` re-keys only the two **top-level** fields
+   (`projectId`, `projectName`); nested `site.projectId` / `site.id` are untouched. Every
+   duplicate then reports this finding on every load, forever.
+2. **A pre-L-676 in-memory leak frozen at save time** — `ProjectSerializer` persists
+   whatever `projectId` the live SiteModel holds, and `ensureSite` adopts a foreign site
+   without an ownership check. The L-676 teardown fix stops future leaks; it cannot
+   un-write a snapshot that already carries the wrong id.
+
+**Two independent circumstantial supports:** the leaked owner predates the loaded project
+by **~10 days** in the id timestamps (implausible for an in-session survivor), and ISO45's
+occurrence names a **different** leaked owner for a **different** loaded project — which
+is what per-file baked-in data looks like, not what one shared singleton looks like.
+
+**Shipped here (`§C13-SCOPE-WITNESS`, C13 §3.18):** the probe's `describe()` payload was
+already collected and then **thrown away** by the console renderer. It carries the
+deciding witness — `deterministicSiteId(projectId) = site_<projectId>` makes the site id
+derivable from the project id, so `siteId === 'site_' + owner` proves an internally
+consistent record that was copied wholesale (a data defect), while a disagreeing pair
+points at a mismatched authored write. The next production line will say which.
+**A teardown leak and a data defect needed opposite fixes and printed identically —
+§CONTEXT-DATA-HONESTY, and the reason the previous lane's reading was reasonable and
+still wrong.**
+
+### L-8811 — OPEN (founder decision): reconciling a site record that names another project
+
+⛔ **Not fixed here, and not because it is hard.** The obvious repair — re-stamp
+`site.projectId` to the loaded project at the `restoreSiteState` seam — turns the verdict
+green **while destroying the evidence of which project the parcel data actually came
+from**. ADR-0298's no-auto-repair rule points the same way. The honest version records
+the migration rather than laundering it, and the pre-existing per-file corruption is not
+repaired by any code change at all.
+
+**Three separable pieces, for a founder call:** (a) reconcile-or-refuse at
+`restoreSiteState`; (b) close `ensureSite`'s missing ownership check; (c) re-key nested
+`site.id`/`site.projectId` in **both** duplicate paths (`ProjectRepository.duplicateInto`,
+`server/projectStore.js`) — (c) is the one that stops new instances being minted and is
+the least contentious. ⚠ Note (c) also touches `ProjectRepository.ts`, which a sibling
+lane was live in during this session.
+
+**The single decisive artefact, named so nobody re-litigates it from theory:** read
+`snapshot.site.id` and `snapshot.site.projectId` from the latest `project_versions` row
+of `proj-1787483901080-e63b318a95bb`. Both naming `proj-1786627649631-…` **confirms** the
+data hypothesis (and the two must agree, since the id is derivable from the projectId —
+a second independent witness). `snapshot.site` absent, or naming the loaded project,
+**falsifies** it and moves the hunt to post-load writers.
