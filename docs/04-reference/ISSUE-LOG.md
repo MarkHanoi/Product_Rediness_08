@@ -45199,5 +45199,8 @@ graphics"* rule. **Needs an owner and a reason; it is not a gap this lane could 
 | `eslint` over the six touched/added sources | **0 errors**, 1 pre-existing `any` warning (`FinishTypeDraft`) |
 | `ElementPreviewFailureReporting.spec.ts` (new) | **7/7 green** |
 | `FinishTypeDraftIntent.spec.ts` (new) | **21/21 green** — 6 reproduced RED against the first draft and drove two real resolver fixes |
+| `FinishTypePanelChat.spec.ts` (new) | **13/13 green, first run** — drives the REAL `openFinishTypeEditor` DOM: types into `#fte-chat-input`, clicks the real Send, then reads `#fte-dim-width`, the auto/authored chip and the draft handed to `onSave`. ⭐ This is the proof that matters ([[committed-is-not-reachable]]); the resolver spec alone would only have proven a return value |
 | `element-preview` + `property-panel` + `analysis` suites | **24 files / 352 tests green** — the analysis suite is GRAPH48's, re-run to prove the shared-renderer change did not move the 3-D graph |
+| `check-otel-spans` | **RC=3** — 10 Zone-B files over baseline, **none of them this lane's** (all `packages/command-registry/**` and `plugins/*/handlers/index.ts` from concurrent lanes). Pre-existing |
+| `check-layer-boundaries` | **RC=3** — upward 103/102, unclassified 15/13, banned third-party 121/113. `grep -icE 'property-panel|element-preview|FinishType'` over the gate's full output → **0**. Pre-existing, sibling-lane packages |
 | ⚠ NOT proven | **no browser run.** The letterbox arithmetic and the four-way message split are proven by construction and by spec; *"the founder opens the dialog and sees a rotatable window"* is proven at the DOM layer, not on his GPU |
