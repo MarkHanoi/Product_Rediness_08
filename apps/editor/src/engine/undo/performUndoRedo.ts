@@ -532,6 +532,35 @@ export const UNMAPPED_BUS_STORE_KEYS: Readonly<Record<string, { readonly owner: 
   // only one of the two is visible to a reader.
   pool:  { owner: 'nothing', reason: 'UNREACHABLE — no PoolStore is ever constructed and PluginRegistry declares no `pool` storeKey, so pool.create throws at CommandBus.buildContext before mutating anything. Wiring undo means wiring the plugin descriptor FIRST (L-980).' },
   water: { owner: 'nothing', reason: 'UNREACHABLE — same measurement as pool: WaterStore is never constructed and there is no `water` storeKey, so the water half of pool.create cannot execute either (L-980).' },
+  // ── §L-7310..L-7312 (2026-08-23) — the two COMPOUND families, and they are the
+  //    OPPOSITE of pool/water: fully REACHABLE, and therefore actually stranded.
+  //
+  // Measured on the same four axes L-980 used, so the difference is stated rather
+  // than smoothed over:
+  //   (1) STORE CONSTRUCTED — yes. `apps/editor/src/PluginRegistry.ts:436` builds
+  //       `new BalconyStore()`, :484 `new LiftCompoundStore()`, :489
+  //       `new LiftPartStore()`.
+  //   (2) storeKey DECLARED — yes, all three (`balcony`, `lift`, `liftPart`), so
+  //       `CommandBus.buildContext` resolves and the handlers dispatch.
+  //   (3) DISPATCHED FROM THE UI — yes. `BalconyPlanToolHandler.ts:271` and
+  //       `LiftPlanToolHandler.ts:218` both call `bus.executeCommand`.
+  //   (4) So a real PatchPair IS minted, `_covered()` declines it (balcony declares
+  //       `['balcony','slab','floor','handrail']` — the last three ARE covered, the
+  //       first is not, and coverage is all-or-nothing), and the legacy stack holds
+  //       nothing. Ctrl+Z is a TOTAL NO-OP. Declared here so `_reportStranded` names
+  //       the dead store to the user instead of the keypress failing silently.
+  //
+  // ⛔ DO NOT "FIX" `lift` BY POINTING IT AT `window.liftStore`. That global IS
+  // assigned (`initBuilders.ts:983`) — and it is a DIFFERENT STORE: the LOD-200
+  // MASSING lift, not the C104 compound the plugin handler writes (PluginRegistry.ts
+  // :461 states this explicitly). Mapping it would satisfy `_covered()` and then
+  // apply an inverse patch to a store that never received the forward — C03 §4.6
+  // U-2b verbatim, which is not a failed undo but a corruption of authoritative
+  // state. An adapter here needs the COMPOUND store on the window (or, better, U-7's
+  // single store), not the nearest global with a matching name.
+  balcony:  { owner: 'nothing', reason: 'REACHABLE AND STRANDED (L-7310) — BalconyStore is built and `balcony.create` dispatches from BalconyPlanToolHandler, but there is no `window.balconyStore`, so the ring entry is never covered and nothing on the legacy stack reverts it.' },
+  lift:     { owner: 'nothing', reason: 'REACHABLE AND STRANDED (L-7311) — LiftCompoundStore is built and `lift.create` dispatches from LiftPlanToolHandler. `window.liftStore` exists but holds the LOD-200 MASSING lift, a DIFFERENT store; aliasing it would breach C03 §4.6 U-2b. No adapter is claimed.' },
+  liftPart: { owner: 'nothing', reason: 'REACHABLE AND STRANDED (L-7312) — LiftPartStore is built and is written by `lift.create` (a part is never created alone, C104 §2). No `window.liftPartStore` exists.' },
 };
 
 /**

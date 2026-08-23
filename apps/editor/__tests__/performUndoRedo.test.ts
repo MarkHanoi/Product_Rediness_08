@@ -484,6 +484,16 @@ describe('buildUndoStoreMap — coverage of every create-handler affectedStores 
     // declared in UNMAPPED_BUS_STORE_KEYS instead.
     pool:  'UNREACHABLE (L-980) — no PoolStore is constructed and no `pool` storeKey exists; pool.create throws at the bus',
     water: 'UNREACHABLE (L-980) — as pool; the water half cannot execute either',
+    // §L-7310..L-7312 (2026-08-23) — the OPPOSITE of pool/water: the store IS
+    // built, the storeKey IS declared, and the verb IS dispatched from a plan tool,
+    // so a real PatchPair is minted and Ctrl+Z is a total no-op. Excused here (with
+    // the gap declared in UNMAPPED_BUS_STORE_KEYS so `_reportStranded` names it to
+    // the user) rather than "covered": `lift`'s only same-named global,
+    // `window.liftStore`, is the LOD-200 MASSING store — a DIFFERENT store from the
+    // C104 compound the handler writes — and mapping it would breach C03 §4.6 U-2b.
+    balcony:  'REACHABLE AND STRANDED (L-7310) — no window.balconyStore; ring entry never covered, legacy stack empty',
+    lift:     'REACHABLE AND STRANDED (L-7311) — window.liftStore is the MASSING lift, a different store (U-2b); no adapter claimed',
+    liftPart: 'REACHABLE AND STRANDED (L-7312) — no window.liftPartStore; written only by lift.create',
   };
 
   it('every affectedStores key declared by a plugin handler is covered or explicitly excused', async () => {
