@@ -16,6 +16,15 @@
  *  - §05: All styles via wle- CSS classes in AppTheme.ts
  */
 
+// §MAT-INSTANCE-LAYER-IS-A-REFERENCE (L-10064) — the founder's *"I wanted to have
+// the material for each layer … why is not in place?"*, asked while looking at THIS
+// table. Lane MAT50 (L-8610) shipped the same control into the element TYPE editor
+// and nobody wired the INSTANCE editors; the picker is reused verbatim, never
+// re-minted (C68 §7.c). `WallLayerSchema.materialId` has existed all along
+// (packages/geometry-wall/src/WallDataSchema.ts:178) — this was ABSENT, not
+// unreachable.
+import { buildLayerMaterialCell, buildLayerPrecedenceNote } from './LayerMaterialCell';
+
 // Values must match WALL_LAYER_FUNCTIONS in WallDataSchema.ts exactly
 const LAYER_FUNCTIONS = [
     { value: 'structure',         label: 'Structure'          },
@@ -87,6 +96,10 @@ export function buildWallLayersEditor(
     });
     wrap.appendChild(colHeader);
 
+    // C100 §2.2 — the precedence is STATED, not guessed at. Wall and slab resolve a
+    // layer's colour by different rules and each gets its own measured sentence.
+    wrap.appendChild(buildLayerPrecedenceNote('wall'));
+
     // ── Row container (re-rendered on add/remove) ─────────────────────────
     const rowsContainer = document.createElement('div');
     wrap.appendChild(rowsContainer);
@@ -102,7 +115,7 @@ export function buildWallLayersEditor(
             colorPick.type = 'color';
             colorPick.value = layer.materialColor ?? FN_COLORS[layer.function] ?? '#cccccc';
             colorPick.className = 'wle-color-pick';
-            colorPick.title = 'Layer colour';
+            colorPick.title = 'Layer colour — this is what gets painted on a wall; the material below names the library row it is made of.';
             colorPick.addEventListener('input', () => { editableLayers[idx].materialColor = colorPick.value; });
             row.appendChild(colorPick);
 
@@ -157,6 +170,21 @@ export function buildWallLayersEditor(
             row.appendChild(removeBtn);
 
             rowsContainer.appendChild(row);
+            // §MAT-INSTANCE-LAYER-IS-A-REFERENCE (L-10064). Full-width line under the
+            // row — a sixth column would crush NAME/FUNCTION in a docked panel, and the
+            // picker's honest `legacy` state needs room to be readable.
+            const matCell = buildLayerMaterialCell({
+                family: 'wall',
+                layer: editableLayers[idx],
+                index: idx + 1,
+                onChanged: () => { colorPick.value = editableLayers[idx].materialColor ?? colorPick.value; },
+            });
+            rowsContainer.appendChild(matCell.el);
+            // C100 §2.2 — the mark must track the value it is derived from. The
+            // colour input is declared ABOVE this cell, so its handler cannot name
+            // `matCell` at declaration time; the badge is repainted through this
+            // hook instead of duplicating the divergence test in two files.
+            colorPick.addEventListener('input', () => matCell.repaint());
         });
     }
 

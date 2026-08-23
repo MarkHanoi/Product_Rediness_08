@@ -15,6 +15,13 @@
  *  - §03: Reads from semantic model (slabStore snapshot)
  */
 
+// §MAT-INSTANCE-LAYER-IS-A-REFERENCE (L-10064) — the founder's *"I wanted to have
+// the material for each layer"*, on the INSTANCE surface. The picker itself is
+// `buildFinishMaterialSelect` (C100 §10.12.d, reused not rebuilt); this module adds
+// the PRECEDENCE, which for a slab is the opposite of a wall's and must therefore
+// never be one shared sentence. See LayerMaterialCell.ts for both measurements.
+import { buildLayerMaterialCell, buildLayerPrecedenceNote } from './LayerMaterialCell';
+
 const LAYER_FUNCTIONS = [
     { value: 'structure',      label: 'Structure'        },
     { value: 'finish-surface', label: 'Finish Surface'   },
@@ -112,6 +119,9 @@ export function buildSlabLayersEditor(
     });
     wrap.appendChild(colHeader);
 
+    // C100 §2.2 / the founder's *"state the precedence, don't leave me guessing"*.
+    wrap.appendChild(buildLayerPrecedenceNote('slab'));
+
     const rowsContainer = document.createElement('div');
     wrap.appendChild(rowsContainer);
 
@@ -125,7 +135,7 @@ export function buildSlabLayersEditor(
             colorPick.type = 'color';
             colorPick.value = layer.materialColor ?? FN_COLORS[layer.function] ?? '#cccccc';
             colorPick.style.cssText = 'width:14px;height:14px;border:none;padding:0;cursor:pointer;border-radius:2px;';
-            colorPick.title = 'Layer colour';
+            colorPick.title = 'Layer colour — a slab layer that names a material is painted in THAT material’s colour; this is the fallback.';
             colorPick.addEventListener('input', () => { editableLayers[idx].materialColor = colorPick.value; });
             row.appendChild(colorPick);
 
@@ -176,6 +186,22 @@ export function buildSlabLayersEditor(
             row.appendChild(removeBtn);
 
             rowsContainer.appendChild(row);
+            // §MAT-INSTANCE-LAYER-IS-A-REFERENCE (L-10064) — the material this layer
+            // NAMES, on its own full-width line under the row. `onChanged` re-paints
+            // the colour input because picking a material also moves the hex
+            // (C100 §10.12.b) and a swatch left showing the old value would be a lie.
+            const matCell = buildLayerMaterialCell({
+                family: 'slab',
+                layer: editableLayers[idx],
+                index: idx + 1,
+                onChanged: () => { colorPick.value = editableLayers[idx].materialColor ?? colorPick.value; },
+            });
+            rowsContainer.appendChild(matCell.el);
+            // C100 §2.2 — the mark must track the value it is derived from. The
+            // colour input is declared ABOVE this cell, so its handler cannot name
+            // `matCell` at declaration time; the badge is repainted through this
+            // hook instead of duplicating the divergence test in two files.
+            colorPick.addEventListener('input', () => matCell.repaint());
         });
     }
 
