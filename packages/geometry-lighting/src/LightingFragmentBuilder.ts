@@ -275,6 +275,48 @@ export class LightingFragmentBuilder {
     /** id → point/spot light node (set only in night mode) */
     private readonly _lights = new Map<string, THREE.Light>();
 
+    /**
+     * ⭐ §FIX-LIGHT-PLACE-FREEZE (L-10080, founder 2026-08-23: *"why does placing a
+     * lighting freeze the scene?"*) — RETIRED PointLight OBJECTS, KEPT FOR REUSE.
+     *
+     * ── THE MEASUREMENT THAT FORCED THIS ────────────────────────────────────
+     * At the `performance` tier the live-light budget is 3. Placing 8 fixtures one at
+     * a time minted **8 distinct `THREE.PointLight` objects** — one per placement,
+     * forever — even though the live COUNT stops changing after the third. The budget
+     * pass displaced the farthest fixture (`_detachLight` dropped its light on the
+     * floor) and minted a brand-new light for the newcomer (`_attachLight`).
+     *
+     * ── WHY A NEW OBJECT COSTS A FULL SHADER REBUILD ────────────────────────
+     * `LiveLightBudget.ts` §PERF-LIGHT-COST-MODEL (2) states the rule this repo
+     * already ratified: `numPointLights` is part of THREE's WebGL program cache key,
+     * and **on the WebGPU/TSL path C04 §SHADOW rule 8 is normative that
+     * `LightsNode.customCacheKey()` hashes per LIGHT**. Per LIGHT — not per count. So
+     * swapping in a different light OBJECT invalidates the lights-node cache key and
+     * rebuilds every material program in the scene *even when the count is unchanged*.
+     * That is why the freeze was not confined to the first three fixtures: it fired on
+     * EVERY placement.
+     *
+     * ⚠ MEASURED vs ASSUMED, stated plainly: the object churn (8 lights for 8
+     * placements) is MEASURED — `lightingLivePoolStable.test.ts` pins it. The
+     * millisecond cost of one program rebuild is NOT measured here; it rests on the
+     * cost model above and on the PSO-compile storms `BatchCoordinator`
+     * §FIX-POST-GEOMETRY-COMPILE-V2 already records. Do not quote a ms figure from
+     * this comment.
+     *
+     * ── WHAT THE POOL CHANGES, AND WHAT IT DOES NOT ─────────────────────────
+     * A displaced fixture's light is PARKED here instead of discarded, and the next
+     * fixture to win a budget slot RE-POINTS it (new parent, colour, intensity,
+     * distance, decay, position, `userData.elementId`). Object identity is therefore
+     * stable across the steady state, so the cache key is stable and the rebuild stops.
+     * ⛔ Nothing about the LOOK changes: same photometry, same budget, same ladder, same
+     * `castShadow = false`. Only the ALLOCATION is reused.
+     *
+     * Bounded at the current budget — a parked light past that is simply dropped for GC.
+     * Fixture lights own no GPU resource of their own (no shadow map, see
+     * §NIGHT-ALL-LIGHTS-ON), so parking a handful is free.
+     */
+    private readonly _lightPool: THREE.PointLight[] = [];
+
     private _scene: THREE.Object3D | null = null;
     private _isNight = false;
 
@@ -1263,13 +1305,34 @@ export class LightingFragmentBuilder {
         const { live } = selectLiveLights(candidates, this.liveLightBudget, focus);
         const liveSet = new Set(live);
 
+        // ⭐ §FIX-LIGHT-PLACE-FREEZE (L-10080) — DETACH BEFORE ATTACH, IN TWO PASSES.
+        //
+        // This used to be ONE pass over `_roots` in insertion order, interleaving
+        // attach and detach. The newcomer is inserted LAST, so on every placement past
+        // the budget the pass attached the newcomer (pool empty → mint a new
+        // `THREE.PointLight`) and only afterwards detached the fixture it displaced —
+        // whose light was then discarded. MEASURED: 8 placements at budget 3 produced 8
+        // distinct light objects. Running every detach first means the displaced light
+        // is already parked in `_lightPool` when the newcomer asks for one, so the
+        // steady state recycles identities and the WebGPU lights-node cache key
+        // (C04 §SHADOW rule 8 — hashed per LIGHT) stops changing.
+        //
+        // Also strictly more correct on its own terms: the live-light count can no
+        // longer transiently EXCEED the budget mid-pass.
+        //
+        // The lens sync stays unconditional and runs for every fixture in the first
+        // pass — every fixture reads as switched-on in both modes, whether or not it
+        // won the live-light budget.
+        const resolved = new Map<string, LightingData>();
         for (const [id, group] of this._roots) {
             const data = byId.get(id) ?? this._synthesizeData(id, group);
-            // The LENS is unconditional — every fixture reads as switched-on in
-            // both modes, whether or not it won the live-light budget.
+            resolved.set(id, data);
             this._syncLens(data, group);
-            if (liveSet.has(id)) this._attachLight(data, group);
-            else                 this._detachLight(id, group);
+            if (!liveSet.has(id)) this._detachLight(id, group);
+        }
+        for (const [id, group] of this._roots) {
+            if (!liveSet.has(id)) continue;
+            this._attachLight(resolved.get(id) ?? this._synthesizeData(id, group), group);
         }
     }
 
@@ -1345,12 +1408,21 @@ export class LightingFragmentBuilder {
             return;
         }
 
-        const light = new THREE.PointLight(
-            data.emission?.color ? new THREE.Color(data.emission.color) : new THREE.Color(colorHex),
-            intensity,
-            distance,
-            decay,
-        );
+        // §FIX-LIGHT-PLACE-FREEZE (L-10080) — REUSE a parked light object before minting
+        // a new one. A different light OBJECT rebuilds every material program on the
+        // WebGPU/TSL path (C04 §SHADOW rule 8 — `LightsNode.customCacheKey()` hashes per
+        // LIGHT), so the steady state must recycle identities, not allocate them. Every
+        // field below is (re)assigned unconditionally, so a recycled light is
+        // indistinguishable from a fresh one — including `position`, which the archetype
+        // switch further down overwrites for every family (the `set(0,0,0)` here is the
+        // floor for the families that fall through that switch untouched).
+        const pooled = this._lightPool.pop();
+        const light = pooled ?? new THREE.PointLight();
+        light.color = data.emission?.color ? new THREE.Color(data.emission.color) : new THREE.Color(colorHex);
+        light.intensity = intensity;
+        light.distance  = distance;
+        light.decay     = decay;
+        light.position.set(0, 0, 0);
 
         // §FIX-LIGHT-NIGHT-CONTRIBUTION — stamp the role so scene-wide dimmers
         // (BottomActionMenu's day/night traversal) leave fixture lights alone.
@@ -1849,6 +1921,12 @@ export class LightingFragmentBuilder {
         if (!light) return;
         group.remove(light);
         this._lights.delete(id);
+        // §FIX-LIGHT-PLACE-FREEZE (L-10080) — PARK, don't discard. See `_lightPool`.
+        // Bounded at the live budget: a parked light beyond that is dropped for GC.
+        if ((light as THREE.PointLight).isPointLight && this._lightPool.length < this.liveLightBudget) {
+            light.userData.elementId = undefined;
+            this._lightPool.push(light as THREE.PointLight);
+        }
     }
 
     dispose(): void {
