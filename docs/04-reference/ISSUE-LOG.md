@@ -44187,3 +44187,178 @@ of `proj-1787483901080-e63b318a95bb`. Both naming `proj-1786627649631-…` **con
 data hypothesis (and the two must agree, since the id is derivable from the projectId —
 a second independent witness). `snapshot.site` absent, or naming the loaded project,
 **falsifies** it and moves the hunt to post-load writers.
+
+---
+
+## L-9200..L-9210 — lane INSP46 REOPENED (2026-08-23): Analysis was painting Inspect's palette, and the guard that should have stopped it was correct
+
+> **THE REPORT.** *"check the Analysis view — before this deployment it was graphically good, now it
+> goes to 'inspect' graphic modes. It should be like image 1 (without the profile lines of floors),
+> and when an element is selected — which works — the colour should be 80% transparent violet/purple
+> of PRYZM (according to the contracts)."*
+
+### L-9200 — CLOSED: the workspace owns which palette is legal, and `_activeLens` never did
+
+**THE STATE COMBINATION, from his console:**
+
+```
+[InspectModeCoordinator] Entered analysis — lens: analysis      <- CORRECT
+[DiagnosticMaterialManager] Lens applied: analysis (focus: …)   <- CORRECT
+[§INSPECT-FOCUS-IS-ELEMENT-SHAPED] … 137 solid mesh(es) in the inspect blue
+[DiagnosticMaterialManager] Lens applied: ghost (focus: …)      <- REVERTED
+[DiagnosticMaterialManager] Lens applied: ghost
+```
+
+⭐ **Entry into Analysis was never broken. USING Analysis took the palette away.** That distinction
+matters: the first framing of this defect was *"entering Analysis leaves ghost active"*, and pinning
+the four entry orders on that theory would have measured a path that already worked.
+
+**MEASURED.** `_activeLens` has exactly ONE writer — `_onSetLens` (`InspectModeCoordinator.ts:310`),
+fed by `pryzm-set-inspect-lens`, whose ONLY emitter is `WorkspaceController.ts:339` — a user
+clicking an INSPECT lens chip (`grep -n "_activeLens = "` -> 1 hit; `grep -rn
+"pryzm-set-inspect-lens" apps packages plugins src` -> 1 emitter). The analysis arm passed the
+LITERAL `'analysis'` to `applyLens` and never assigned the field, so it kept its `'ghost'` default.
+The Analysis family highlight then dispatches on `selectionBus` (`selectionFacets.ts:262`) ->
+`_setFocusedElements` -> `applyLens(this._activeLens)` = **ghost**. The third, bare
+`Lens applied: ghost` is the same path with an empty focus after a pick-miss clear.
+
+⛔ **L-8200 IS WHAT MADE IT REACHABLE, stated plainly.** Before that lane, nothing re-applied
+`_activeLens` on a selection change. L-8200 added exactly that path — correctly, for Inspect — and
+in Analysis it read a field the Analysis surface does not govern.
+
+**⛔ THE FIX IS NOT A SECOND GUARD.** `DiagnosticMaterialManager`'s `if (lens !== 'analysis')` was
+already correct and still let the breach through, because **a guard is only as right as whoever set
+the value it tests**. A `workspaceMode !== 'analysis'` test beside it would be TWO guards that must
+agree — the same defect with more places to edit.
+
+⭐ **THE WORKSPACE BECOMES THE AUTHORITY.** One resolver, `_effectiveLens()`, is now the only
+expression in the class that answers *"which lens applies"*, and all six call sites go through it.
+`_activeLens` is demoted to what it always really was: **the user's remembered choice among the six
+INSPECT lenses**, still stored while Analysis shows so returning to Inspect restores their chip.
+This is the same move as `selectedRoomId -> focusedElementIds` one level up — a slot answering a
+question it was not the authority on.
+
+The two `applyGhostWithFocus` callers BYPASS `applyLens`, so the resolver cannot reach them; both
+now ask `_inspectPaletteIsLegal()` and **refuse out loud** rather than no-op silently.
+
+### L-9201 — the cyan wireframe needed no separate fix, and that was MEASURED
+
+`_applyAnalysisSelection` adds **no overlay, no `EdgesGeometry`, no `LineSegments`** (grepped over
+the method body: zero `_addOverlay*` calls). **Every line in his image 2 was the ghost lens's
+structural edge overlay**, which only `_applyGhostToNonRoomMesh` adds. Fixing the lens fixes the
+picture. `AnalysisNeverPaintsInspectPalette.test.ts` asserts **zero `LineSegments` in the scene**
+after every entry order, so this cannot regress silently.
+
+### L-9202 — CLOSED: the four entry orders + the two other palette writers, pinned
+
+`AnalysisNeverPaintsInspectPalette.test.ts` drives the REAL coordinator through a fake
+`runtime.events` bus and asserts on the SCENE: Author->Analysis, Inspect->Analysis (the founder's
+path), reload-into-Analysis, Analysis->Inspect->Analysis — **each followed by the selection that
+actually triggered the breach** — plus an Inspect lens chip clicked while Analysis shows, an
+element-type family focus while Analysis shows, and the round trip that proves the user's chip is
+REMEMBERED rather than destroyed.
+
+**DIFFERENTIATING, by controlled revert** (both files copied aside, HEAD restored in place, suite
+re-run, originals restored **md5-identical**): **7 of 8 FAILED.** The one that passed is a
+not-equal assertion, which is why it is not the differentiating one.
+
+### L-9203 — the selection colour: the contract fixes the HUE and is SILENT on the ALPHA
+
+⭐ **The hue was already right and is not a judgement call.** `ANALYSIS_SELECTED_COLOR` is
+`#6600FF`, which **C18 §1** fixes as *"the unified PRYZM purple … rgb(102,0,255)"* and **C16 CA-13**
+makes mandatory.
+
+⚠ **THE ALPHA IS IN NO CONTRACT, and this was measured before the number was changed.**
+`grep -rn "opacity" C18-ELEMENT-PREVIEW-VISUAL-CONTRACT.md` returns exactly **two** lines: a
+`0.0001` step threshold (unrelated) and `opacity 0.55` for **object placement previews** (§3). C18
+§2.4 itself says a non-preview overlay inherits *"the palette and the single-source rule, nothing
+else"*. **No contract in the suite states an Analysis selection alpha.**
+
+⛔ **So "80% transparent" had to be READ, and the two readings differ by 4x** — alpha `0.20`
+("80% transparent") vs alpha `0.80` ("80% opacity").
+
+**TAKEN: 0.20.** Three reasons, recorded so it can be overturned in one word rather than
+re-litigated: (1) it is his literal wording — *transparent*, not *opacity*; (2) **it is the
+falsifiable choice** — the value it replaces is `0.95`, so `0.80` would be a 0.15 change he could
+not distinguish from the bug he reported, and a wrong guess there would be invisible; (3) the
+Analysis ghost is a light grey at 0.04–0.10, so a translucent purple still reads as a distinct wash
+over it — the "clean pale massing" he asked for, not a solid repaint of it. `depthWrite` drops to
+`false`, which is required at this alpha and was not at 0.95.
+
+### L-9204 — ⛔ OPEN, ROOT MEASURED, NOT FIXED: the black slab lines are PLAN mode leaking into 3-D
+
+> *"In inspect view … the slab lines show by default in black, which should not."* — and the same
+> linework is what he meant by *"without the profile lines of floors"* in the Analysis report. **One
+> subject, two surfaces.**
+
+**ROOT FOUND — `SlabFragmentBuilder.ts:80-97`, `SLAB_EDGE_MODE_SETTINGS`:**
+
+| mode | colour | depthTest | renderOrder |
+|---|---|---|---|
+| `'3d'` | `0x555555` — subtle medium grey | `true` | `1` |
+| `'plan'` | **`0x000000` — sharp black** | **`false`** | **`999`** |
+
+Black + `depthTest:false` + `renderOrder:999` = **drawn on top of everything**, which is exactly
+what he photographed. **The slab edges are in `'plan'` render mode while the 3-D view is showing.**
+The mode is driven by `WallEdgeVisibilityService.ts:159` (`applySlabEdgeRenderMode(obj, mode)`), and
+`SlabFragmentBuilder.ts:1761` records the intended behaviour: *"Edges are hidden by default in 3D
+view. WallEdgeVisibilityService (via view-activated) enables them for plan views."*
+
+⛔ **NOT FIXED HERE, DELIBERATELY, AND THE REASON IS THE FOUNDER'S OWN RULE.** The black is
+**CORRECT in a plan view** — sharp black linework on top is standard drafting. So this is not a
+colour bug and the colour must not be changed. It is a **mode/lifecycle** bug: the 3-D surface is
+not being returned to `'3d'` (or the edges re-hidden) when it becomes active. The owner is
+`apps/editor/src/ui/WallEdgeVisibilityService.ts`, which is **outside this lane's
+`engine/inspect/**` + `ui/inspect/**`**. Changing shared drafting linework from a diagnostic-lens
+lane is how *"don't compromise graphics"* gets broken in the other direction.
+
+**Next step for whoever takes it:** establish which `view-activated` transitions call
+`applySlabEdgeRenderMode` and whether any path leaves `'plan'` set when the 3-D view returns.
+
+### L-9205 — ⛔ OPEN: the highlight still does not persist for non-room families — and the leading hypothesis is REFUTED
+
+> *"in inspect view — it still highlights the element selected (rooms works), like walls, etc., but
+> for a second — doesn't get selected."*
+
+⭐ **The L-8200/L-8211 paint work IS landing**, and his log proves it: `13 solid mesh(es)` for a
+wall, `1` for a slab, `11` for furniture, `21` for a door, `3` for a wall. Every family resolves.
+
+⚠ **THE HYPOTHESIS HANDED TO THIS LANE — "`unselectAll()` emits a bus clear, which clears
+`_focusedElementIds` and repaints without it" — IS REFUTED BY MEASUREMENT.**
+
+`awk '/unselectAll\(reason/,/^    }$/' SelectionManager.ts | grep -c selectionBus` -> **0**.
+**`unselectAll()` does not touch `selectionBus` at all.** The only two bus-clear sites are:
+
+* `SelectionManager.ts:1527` — the **Escape key** path;
+* `engineLauncher.ts:350` — the `window.unselectAll` **wrapper** (Escape, tool teardown, post-delete).
+
+⛔ **`click-gpu-pick-miss` calls `this.unselectAll('click-gpu-pick-miss')` DIRECTLY
+(`SelectionManager.ts:2080`), not the wrapper** — so a pick-miss clears the highlight and the
+`selectedObject`, but **does not clear the bus, does not reach `_setFocusedElements`, and does not
+clear the Inspect focus.** The same is true of `about-to-select-something-else` (`:2304`).
+
+**So the focus set survives both clear reasons, and the question is re-narrowed rather than
+answered.** What is NOT yet established — and must be measured, not assumed:
+
+1. whether anything re-applies a lens *after* the clear with a stale/empty focus (his Report-1 log
+   shows **no `Lens applied` line after `[§SELECT-CLEARED]`**, which argues the blue is still
+   painted and the thing he loses is something else);
+2. whether what he perceives as "the highlight" is `SelectionManager`'s purple overlay — which
+   **L-8201 established IS destroyed**, ghosted to 4% white by the lens — rather than the blue;
+3. whether the room's survival is explained by the jewel being re-minted by `_applyGhost`, which
+   would make the asymmetry a *rendering* difference, not a *state* difference.
+
+⭐ **(2) is the strongest surviving candidate and it is already documented at L-8201.** If it is the
+answer, the fix is the one L-8201 rejected on blast-radius grounds — and that rejection should be
+re-opened with a narrower predicate than `userData.isHelper`.
+
+### L-9206 — lane readings at close
+
+- `apps/editor` -> `AnalysisNeverPaintsInspectPalette.test.ts` **8/8** ·
+  `InspectWallFocusSurvivesTheNextFrame.test.ts` **24/24** · together **32/32**, foreground.
+- Controlled revert of the two lane files to the shipped state: **7 of 8 failed**; restored
+  md5-identical afterwards.
+- Root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` -> **RC=2, ONE
+  error**, `packages/core-app-model/src/quantities/RegionalRates.ts:401` *'booksForKey' is declared
+  but its value is never read* — **RATE53's file, not this lane's.** Zero errors in this lane's
+  files. On a shared tree a tsc run is a photograph of the whole tree, never a verdict on one lane.

@@ -397,6 +397,61 @@ whose own comment records that *"an InstancedMesh exposes NO per-element `userDa
 the per-family reading is kept in `docs/05-guides/developer/editor-chrome-map.md` §13 rather than
 asserted here.
 
+### §4.3.4 — THE WORKSPACE OWNS THE PALETTE; A LENS VARIABLE DOES NOT (normative; L-9200, 2026-08-23)
+
+**When two surfaces render the same scene with different palettes, the SURFACE — the workspace mode
+— is the authority on which palette is legal. A lens/mode variable set by one surface MUST NOT be
+consulted by another. Exactly ONE expression in the system may answer "which treatment applies", and
+every call site MUST route through it.**
+
+⭐ **THE MEASUREMENT.** §4.3.3 made Inspect's emphasis element-shaped. Within a day that shipped a
+graphics regression on the *Analysis* surface, and the instructive part is that **the guard written
+to prevent it was correct and still failed**:
+
+```ts
+if (lens !== 'analysis' && !familyFocusRanTheFocusPass) {
+  this._applyElementFocus(scene, focusedElementIds);   // paints INSPECT_BLUE
+}
+```
+
+`_activeLens` had exactly one writer — the handler for `pryzm-set-inspect-lens`, whose only emitter
+is a user clicking an **Inspect** lens chip. Entering Analysis passed the literal `'analysis'` to
+`applyLens` and never assigned the field, so it kept its `'ghost'` default. Entry therefore looked
+perfect — *"Entered analysis — lens: analysis"* — and the first Analysis **family highlight**, which
+dispatches on `selectionBus`, re-applied `_activeLens` and repainted 1016 meshes in Inspect's blue.
+The founder: *"before this deployment it was graphically good, now it goes to 'inspect' graphic
+modes."* **Entry was never broken; USING the surface took the palette away.**
+
+⛔ **A SECOND GUARD IS FORBIDDEN BY THIS CLAUSE.** The tempting repair is to add
+`workspaceMode !== 'analysis'` beside the existing test. That yields two guards that must agree, and
+this contract already records twice what happens next (§4.3.2's duplicated visibility predicate;
+L-1600's seven hand-copied layer answers). **A guard can only be as right as whoever set the value
+it tests** — the defect is not a missing test, it is that the value was owned by the wrong actor.
+
+⭐ **THE REQUIRED SHAPE.** Demote the lens variable to what it truly is — *the user's remembered
+choice within its own surface* — and derive the effective treatment from the workspace:
+`effectiveLens() = workspaceMode === 'analysis' ? 'analysis' : rememberedInspectLens`. The remembered
+choice is still STORED while the other surface shows, so returning restores it; it is simply no
+longer consulted by a surface it does not govern. This is §4.3.3's own move (`selectedRoomId` →
+`focusedElementIds`) applied one level up: **a slot was answering a question it was not the
+authority on.**
+
+**ENTRY POINTS THAT BYPASS THE RESOLVER MUST ASK THE SAME QUESTION IN THE SAME WORDS.** Any public
+method that paints without going through the lens application path (in this codebase,
+`applyGhostWithFocus`) is unreachable by the resolver and MUST consult one shared predicate — and
+MUST **refuse out loud**, never silently no-op.
+
+**PALETTE SEPARATION REMAINS BINDING** (§4.3.3): Inspect's cyan/violet/blue and Analysis' light grey
++ PRYZM purple `#6600FF` share the mechanism and never the constants.
+
+⚠ **WHAT IS CONTRACTUAL AND WHAT IS NOT, for the Analysis selection.** The **hue** is contractual —
+C18 §1 fixes `#6600FF` and C16 CA-13 makes it mandatory. The **alpha is not**: C18's only opacity is
+`0.55` for object *placement previews* (§3), and C18 §2.4 states that a non-preview overlay inherits
+*"the palette and the single-source rule, nothing else"*. Where a user request names a value no
+contract states, the implementation MUST record **which reading it took and why**, at the constant,
+so the choice can be overturned in one edit instead of re-derived. (Here: *"80% transparent"* read
+as alpha `0.20`, on the grounds that it is the literal wording and the falsifiable option.)
+
 ### §4.4 — Intent lifecycle
 
 1. A plugin or AI workflow creates an `IntentProposal` and dispatches `ApplyVisibilityIntentCommand`.
