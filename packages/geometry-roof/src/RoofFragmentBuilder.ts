@@ -145,7 +145,19 @@ export class RoofFragmentBuilder {
         return out;
     }
 
-    private _createMaterials(data: RoofData): THREE.Material[] {
+    /**
+     * §ROOF-SLOPE-METRE-UVS (C100 §10.16 / S34, L-10022) — the shingle slot is
+     * built AGAINST THE GEOMETRY IT WILL BE PUT ON.
+     *
+     * ⛔ WAS `uvSpaceOfGeometry(null)` — literally `null`, so every roof in every
+     * project resolved `UV_NONE` and `applyMaterialMaps` refused its maps
+     * unconditionally (C100 §10.15.f measured it at this exact line). The
+     * geometry is the ONLY party that knows what its floats mean, so it is now
+     * the argument; a roof form that still refuses to stamp (barrel) resolves
+     * `UV_NONE` through the same call and keeps its honest flat colour with no
+     * branch here.
+     */
+    private _createMaterials(data: RoofData, geo?: THREE.BufferGeometry): THREE.Material[] {
         const shingleColor = new THREE.Color(data.materialColor || DEFAULT_MATERIAL_COLOR);
 
         // Slot 0 – Trim / Fascia (white)
@@ -187,14 +199,15 @@ export class RoofFragmentBuilder {
             const matDef = this._materialMap.get(matId);
             if (matDef) {
                 const params: THREE.MeshStandardMaterialParameters = { ...(matDef.params ?? {}) };
-                // §MATERIAL-MAPS-AND-TILING (L-1702). This surface has NOT declared
-                // a uv space, so the adapter REFUSES its maps and the material
-                // renders from its base colour. That is deliberate: this geometry
-                // carries no `uv` attribute, and an attached map would paint the
-                // whole surface with texel (0,0) — neither the pattern nor the
-                // colour. It lights up automatically, with no edit here, the day
-                // this builder emits metre UVs and calls `stampMetreUvs()`.
-                applyMaterialMaps(params, matDef, uvSpaceOfGeometry(null));
+                // §MATERIAL-MAPS-AND-TILING (L-1702) + §ROOF-SLOPE-METRE-UVS
+                // (L-10022). The geometry now DECLARES its uv space, so this is
+                // where a roofing pattern becomes real: `RoofGeometryBuilder`
+                // stamps `metres` on every form but the barrel, and
+                // `applyMaterialMaps` binds the maps at `1 / realWorldSizeM`.
+                // A form that did not stamp resolves `UV_NONE` here and is
+                // refused exactly as before — the refusal is a property of the
+                // geometry, never a branch in this file.
+                applyMaterialMaps(params, matDef, uvSpaceOfGeometry(geo));
                 if (data.materialColor && params.color === undefined) {
                     params.color = new THREE.Color(data.materialColor);
                 }
@@ -309,7 +322,7 @@ export class RoofFragmentBuilder {
         // is byte-identical to before this feature).
         const holes     = this._openingHoles(data.id);
         const geo       = RoofGeometryBuilder.generate(data, holes);
-        const materials = this._createMaterials(data);
+        const materials = this._createMaterials(data, geo);
         if (holes.length > 0) {
             console.log(`[RoofFragmentBuilder] opening holes roofId="${data.id}" count=${holes.length} cut=${geo.userData.pryzmRoofOpeningsCut ?? 0}`);
         }

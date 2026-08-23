@@ -35,6 +35,18 @@
 > **Gate**: `tools/ga-gate/check-material-single-source.ts` — BUILT at stamp time (§7). Its three arms
 > are named there together with the four axes it **cannot** decide.
 > **Changelog**:
+> · 2026-08-23 — **§10.16** (lane ROOF7, L-10020..L-10027): ⭐ **the roof carries a texture now.**
+> §10.15.f's *"a roof cannot carry a texture at all"* is **FALSE as of this stamp** and is corrected
+> in place. `RoofFragmentBuilder`'s `uvSpaceOfGeometry(null)` is gone and the geometry emits
+> **real-world-metre UVs measured ALONG THE SLOPE** on **ten of the eleven** generator entry points;
+> **barrel refuses by name** (a 20-strip cylinder needs arc length). ⚠ **The cheap plan projection was
+> proven wrong by a WATCHED RED, not by argument** — it leaves `flat` green and fails nine pitched
+> forms, which is the "half true, half squashed" state §10.15.f predicted. ⛔ **And the founder still
+> sees a colour on `roof-shingle-asphalt-charcoal`**: measured, **10 roof-declared rows, all 10
+> map-bearing, 7 of them `procedural:`** — and runtime procedural generation is OFF by deliberate
+> rollback, which is §10.10.f's S33. **One gate of three removed, and the remaining one is named.**
+> ⛔ **§10.15.f's slice was minted as "S33" and that number was ALREADY TAKEN** by §10.10.f; the roof
+> slice is **S34** (§10.16.f).
 > · 2026-08-23 — **§10.15** (lane PASCALMAT58, L-9700..L-9707): the reference product's materials.
 > ⛔ **"Copy ALL of them" is answered NO for the PIXELS and YES for the TAXONOMY**, and the pixel
 > refusal is now MECHANICAL rather than prose: the rule existed in three documents and was enforced
@@ -52,6 +64,9 @@
 > changed**, and not out of caution: a roof carries **no `uv` attribute anywhere in its pipeline**, so
 > the change would restyle every existing roof and still show no tiling. **S33** (roof metre UVs) is
 > minted and is the only thing standing between the founder's sentence and rows that already exist.
+> ⚠ **Both italicised claims were corrected 2026-08-23 by §10.16 (lane ROOF7)**: the slice is
+> **S34** (the number was taken), the roof `uv` gap is CLOSED on ten of eleven entry points, and it
+> was **not** the only thing standing — 7 of the 10 roof rows still need §10.10.f's S33 bake.
 > · 2026-08-23 — **§10.13** (lane MAT50, L-8600..L-8620): the Material Schedule's ELEMENT AXIS, and
 > wall LAYERS. The axis was a hand-typed six-string array and was wrong in **both directions at
 > once** — `Ceiling` was a column that could never tick (10 types, **0** materialIds) while
@@ -1950,7 +1965,12 @@ question, never a pick*) and a strict improvement, **not** a reachability loss.
   single-volume bridge) and one **DELETES** `uv` during the seam merge; only the hole-extrude arm
   carries metre UVs. ⛔ **It is a geometry slice, not a materials slice**, and this lane declined it on
   that measurement rather than attempting it inside a catalogue change.
-- **S33 — NEW: BUILD-TIME procedural texture generation.** The 24 `procedural:` patterns exist and
+- **S33 — NEW: BUILD-TIME procedural texture generation.** ⚠ **This S33 KEEPS the number** — §10.15.f
+  later minted a second, different "S33" for roof metre UVs, which is renumbered **S34** because this
+  one was minted first (§10.16.f, L-10027). ⭐ **And as of 2026-08-23 this slice is the LOAD-BEARING
+  one for the founder's roof sentence**: S34 gave roofs metre UVs, and 7 of the 10 roof-declared rows
+  still cannot draw because this bake does not exist (§10.16.e).
+  The 24 `procedural:` patterns exist and
   cannot 404, but runtime generation is **off** at ~308 ms of blocked main thread per material. Baking
   them at build time is the route to real tile patterns. ⛔ **MUST NOT** be closed by re-enabling the
   runtime flag.
@@ -2587,7 +2607,16 @@ surface and carries a real-world scale, so the claim cannot rot into a label mat
 The founder's first sentence is *"I want this tiling by default on my roofs"*. **Both halves of it are
 blocked, and the second is the one that matters.**
 
-1. ⛔ **A ROOF CANNOT CARRY A TEXTURE AT ALL TODAY.** `RoofFragmentBuilder.ts:197` calls
+1. ⛔ **A ROOF CANNOT CARRY A TEXTURE AT ALL TODAY.**
+   > ⭐ **SUPERSEDED 2026-08-23 (lane ROOF7, §10.16, L-10020). This paragraph is now FALSE, and it is
+   > left standing because it is the exact measurement that made §10.16 buildable.** The roof pipeline
+   > emits metre UVs on ten of its eleven entry points and `RoofFragmentBuilder` passes its own
+   > geometry; `uvSpaceOfGeometry(null)` is gone from `geometry-roof`. ⚠ **The SECOND half of the
+   > sentence — *"assigning a shingle to a roof shows no course lines"* — is STILL TRUE for the seven
+   > `procedural:` rows this section shipped, for a DIFFERENT reason: §10.10.c's mechanism 2, the
+   > generation flag. See §10.16.e before quoting either half.**
+
+   `RoofFragmentBuilder.ts:197` calls
    `applyMaterialMaps(params, matDef, uvSpaceOfGeometry(null))` — **literally `null`** — and nothing
    in `geometry-roof` or in the three kernel roof builders (`buildExtruded`, `buildMultiLevel`,
    `buildVariableHeight`) emits a `uv` attribute or calls `stampMetreUvs()`. So **every** roof
@@ -2605,7 +2634,20 @@ blocked, and the second is the one that matters.**
 > is a strictly worse state than before, and shipping it and calling it the founder's request would
 > have been the defect this contract keeps logging.
 
-**⭐ S33 — NEW, and it is the slice that decides this: metre UVs for the roof SHINGLE face.** The
+**⭐ S33 — NEW, and it is the slice that decides this: metre UVs for the roof SHINGLE face.**
+
+> ⛔ **RENUMBERED S34, AND BUILT — 2026-08-23 (lane ROOF7, §10.16).** Two corrections in one box.
+> **(1) The NUMBER was already taken** — §10.10.f minted *"S33 — BUILD-TIME procedural texture
+> generation"* two days earlier, and the two slices are **in series on this same founder sentence**,
+> so *"S33 is done"* would have been ambiguous in precisely the case where the distinction decides
+> whether a pattern appears (§10.16.f, L-10027). **The roof slice is S34.**
+> **(2) The SIZING was right about the risk and wrong about the shape of the work.** All ten entry
+> points already funnel through `RoofGeometryBuilder.generate()`, and a frame derived from a
+> TRIANGLE's own normal needs no generator knowledge — so it is **one call, not ten edits**. ⚠ The
+> paragraph's real warning stands and was honoured: the naive plan projection was tried as a watched
+> RED and leaves `flat` GREEN while failing nine pitched forms.
+
+The
 sibling of **S30** (walls), and cheaper: a roof's shingle slot is one continuous sloped plane per
 segment, so it has none of the wall's "which body arm ran" ambiguity that made S30 a refusal. **Until
 S33 lands, "shingle" on a roof means a colour.** Once it lands, every row shipped here starts tiling
@@ -2633,8 +2675,11 @@ contract does not take either.
 
 ### §10.15.g — What is NOT closed, named rather than left as an absence
 
-- ⛔ **S33 (roof metre UVs)** — above. **The single thing standing between the founder's sentence and
-  the rows that already exist.**
+- ⭐ **S33 → RENUMBERED S34, AND BUILT 2026-08-23** (lane ROOF7, §10.16). It was *"the single
+  thing standing between the founder's sentence and the rows that already exist"* — ⛔ **and it was
+  not the only thing.** Measured after it landed: **7 of the 10 roof-declared rows are `procedural:`
+  and their generator does not run** (§10.10.c mechanism 2 = §10.10.f's S33). **One gate of three
+  removed; the load-bearing one is now the build-time bake.** §10.16.e.
 - ⛔ **S27 (a real material carrier)** — unchanged. `roof.setMaterial` and eleven siblings still
   REFUSE with `affectedStores: NONE`. Chat can NAME every new row and cannot APPLY one to a roof.
 - ⛔ **The other 55 of Pascal's 65 material sets are NOT reproduced**, and will not be from that
@@ -2655,3 +2700,206 @@ contract does not take either.
   places**, which is why 34 procedural rows cost zero until used. The founder's session runs the WebGL
   fallback and this path touches no node-material compilation, so `§L-361-WEBGPU-TRANSMISSION-GUARD`
   is not in scope.
+
+---
+
+## §10.16 — ⭐ THE ROOF CAN CARRY A TEXTURE NOW, THE CHEAP FIX WAS AVOIDED, AND THE REASON THE FOUNDER STILL SEES A COLOUR IS A DIFFERENT MECHANISM (2026-08-23, lane ROOF7)
+
+> **Stamp**: 2026-08-23 · **Lane**: ROOF7 · **Rows**: L-10020 – L-10027.
+> **Slice**: **S34** — the roof metre-UV slice §10.15.f minted as *"S33"*. ⛔ **That number was already
+> taken** by §10.10.f's *"S33 — build-time procedural texture generation"*, and the two are **in
+> series on the same founder sentence**, so the collision is corrected here rather than tolerated
+> (§10.16.f, L-10027).
+> **Founder request, verbatim** (via §10.15): *"[dark roof shingles] I want this tiling by default on
+> my roofs."*
+> **Adds and AMENDS.** §10.15.f's *"a roof cannot carry a texture at all"* is now FALSE and is
+> corrected in place; §10.15.g's S33 line is re-stamped BUILT-as-S34; §10.10.f's S33 keeps its number.
+> **Proof**: `packages/geometry-roof/__tests__/RoofSlopeUvsReachMesh.test.ts` — **30 tests AT THE
+> MESH**, three watched REDs **run and recorded**.
+
+### §10.16.0 — The answer in four lines
+
+> 1. ⭐ **A ROOF CARRIES `uv` NOW, IN METRES, MEASURED UP THE RAFTER — on ten of the eleven generator
+>    entry points.** `RoofFragmentBuilder`'s `uvSpaceOfGeometry(null)` is gone; the geometry declares
+>    its own space and `applyMaterialMaps` binds at `1 / realWorldSizeM`.
+> 2. ⛔ **The cheap fix was avoided and PROVEN wrong by a watched RED, not by argument.** The naive
+>    plan projection leaves `flat` green and fails **nine** pitched forms — the "half true, half
+>    squashed" state §10.15.f named, reproduced on demand.
+> 3. ⛔ **BARREL REFUSES BY NAME.** A 20-strip cylinder needs arc length, not a per-face frame. No
+>    `uv`, no map, an honest flat colour, and a reason on `geometry.userData`.
+> 4. ⛔ **THE FOUNDER STILL SEES A COLOUR ON `roof-shingle-asphalt-charcoal`, AND THE REASON IS NO
+>    LONGER THIS ONE.** Measured: **10 roof-declared rows, all 10 map-bearing — 7 of them
+>    `procedural:`, and runtime procedural generation is OFF by deliberate rollback** (§10.10.c).
+>    S34 removed one gate of three in series; §10.10.f's S33 is the next.
+
+### §10.16.a — ⛔ THE DEFECT, AND WHY BOTH HALVES HAD TO LAND TOGETHER
+
+§10.15.f measured it exactly: `RoofFragmentBuilder.ts:197` called
+`applyMaterialMaps(params, matDef, uvSpaceOfGeometry(null))` — **literally `null`** — and no roof
+builder anywhere emitted a `uv` attribute. **Two independent nulls, and fixing either alone renders
+nothing**: metre UVs with the argument still `null` are unread, and the geometry passed to an adapter
+over a `uv`-less mesh would paint texel (0,0) across the whole roof. Both shipped in one change.
+
+⭐ **MEASURED after** — production `uvSpaceOfGeometry(null)` sites under `packages/*/src` fall
+**5 → 4**: `WallFragmentBuilder.ts:4894` (**S30**), `CurtainWallBuilder.ts:2179`/`:2229`,
+`CurtainWallInstanceManager.ts:246`. **Roof is at zero.** ⚠ Re-run the grep; this is the number that
+rots.
+
+### §10.16.b — ⭐ THE PARAMETERISATION, AND WHY TEN GENERATORS COST ONE CALL
+
+§10.15.f sized S33/S34 at *"1540 lines with ten distinct generator entry points … every one of them
+would need UVs"* and warned that doing half would be worse than doing none. **Measured, the sizing was
+right about the risk and wrong about the shape of the work.** All ten already funnel their finished
+triangle soup through `RoofGeometryBuilder.generate()`, and the correct frame is derivable from a
+TRIANGLE, which needs no generator knowledge at all:
+
+```
+h  = normalise(up x n)     — horizontal in the face plane: ALONG THE EAVE
+s  = n x h                 — up-slope  in the face plane: ALONG THE RAFTER
+uv = ( (p - c).h , (p - c).s )      c = geometry centroid — PHASE only, never scale
+```
+
+`h` and `s` are unit and orthogonal, so **the uv map is an ISOMETRY of every face**: one metre
+travelled on the roof is one unit travelled in uv, in any direction. ⭐ **That is the entire
+correctness claim, and it is the one a plan projection fails** — the plan compresses the up-slope axis
+by `cos(pitch)` and leaves the eave axis alone, which is why the error is invisible on a flat roof and
+41 % at 45°.
+
+**Covered (10 of 10):** flat · shed · gable · hip · dutch-hip · gambrel · mansard · segmented (merge
+path) · concave-pitched (wing decomposition) · general-pitched (ring stack). Each has its own test
+row, so a routing change cannot silently drop one.
+
+⛔ **REFUSED (1):** **barrel** — §10.16.d.
+
+> **MUST**: a roof surface that declares metre UVs declares them for the SLOPE. **MUST NOT**: a roof
+> builder adopt the slab's dominant-axis projection. It is right for a slab because a slab is
+> horizontal, and it is the one thing §10.15.f singled out as a trap.
+
+### §10.16.c — ⛔ THE SPLIT MAY NOT CHANGE A PIXEL, AND TWO SEPARATE THINGS COULD HAVE
+
+A ridge vertex belongs to two slopes and two gable-end triangles — four planes, one vertex — so
+vertices split per (vertex × frame). **Both ways that could have restyled every existing roof are
+closed and tested:**
+
+1. ⛔ **`computeVertexNormals()` after a split flat-shades the eave.** The eave-top vertex is shared
+   between the slope and the vertical fascia, so today's normals are averaged across that crease.
+   Duplicates therefore **COPY their source's already-computed normal**; nothing is recomputed.
+2. ⛔ **`_mergeGeometries` re-runs `computeVertexNormals()` on each input it concatenates.** A split
+   segment geometry would come back flat-shaded through the merge. The pass runs at the OUTERMOST
+   `generate()` only; `_buildSegmentedGeometry` calls a private `_generateSegment()` instead.
+
+⭐ **PROVEN ABSOLUTELY, not by inspection.** The public per-form statics do not run the pass, so
+`generateGable(d)` **is** the pre-slice geometry and `generate(d)` is the post-slice one. The suite
+expands both to a triangle soup — **positions AND normals, in draw order** — and asserts `toEqual` for
+seven forms, plus that every material `group` still covers the identical index range.
+
+### §10.16.d — ⛔ BARREL REFUSES, AND THE REFUSAL IS THE ROLLOUT BEING LEGIBLE
+
+`generateBarrel` approximates a cylinder with **20 flat strips**. A per-face frame gives each strip
+its own origin-relative axis; at a shared strip edge the two frames disagree by
+`Δθ × distance-to-origin` — **metres of pattern jump, twenty times across one roof**. A cylinder is
+developable and its honest parameterisation is **arc length**, which belongs inside `generateBarrel`
+where the radius and the angle already exist.
+
+So a barrel emits no `uv`, resolves `UV_NONE`, binds no map, keeps the flat colour it has today, and
+records `geometry.userData.pryzmUvRefusal` naming the reason. A roof carrying a barrel **segment**
+refuses as a whole. ⚠ **Barrel was never one of §10.15.f's ten** — it is the eleventh entry point, and
+naming it here is the difference between a partial rollout and an unstated one.
+
+### §10.16.e — ⛔ WHAT THE FOUNDER ACTUALLY SEES, MEASURED — THIS IS ONE GATE OF THREE
+
+**MEASURED 2026-08-23** over `materialCatalog.ts`: **10 rows declare `surfaces` including `roof`, and
+ALL TEN carry `maps`.**
+
+| rows | source | after S34, what still stands between the row and a pattern |
+|---:|---|---|
+| **3** | file-backed WebP — `roof-tile-clay-012`, `roof-tile-clay-grey-015`, `shingle-timber-weathered-013` | **only the bytes.** §10.10.c measured `public/items/textures/` **absent locally**; whether R2 serves them in production is a **separate and unmeasured** question (§10.9.b). |
+| ⛔ **7** | `procedural:` — the whole §10.15.e shingle family, incl. `roof-shingle-asphalt-charcoal` | ⛔ **the generator does not run.** `globalThis.__pryzmProceduralTexturesV1` is off by deliberate rollback at **150–830 ms of blocked main thread per pattern** (§PROCEDURAL-COST). **That is §10.10.f's S33.** |
+
+⭐ **The answer to *"what happens when I put `roof-shingle-asphalt-charcoal` on a 45° roof?"* is: the
+charcoal `#3a3a3c`, flat — for ONE reason now instead of two.** Set the procedural flag in that
+session and the same roof tiles at **0.999 × 1.716 m measured up the rafter**, which no flag could
+have produced before this slice. ⛔ **MUST NOT** close §10.10.f's S33 by enabling that flag in
+production.
+
+⚠ **AND THE DEFAULT IS STILL NOT TAKEN, deliberately (§10.15.f, L-10026).** `DEFAULT_SHINGLE` /
+`DEFAULT_MATERIAL_COLOR` remains `#c8a46e`. The trade **moved** — tiling is now possible — but it did
+not resolve: *"charcoal by default"* would restyle every roof in every existing project and still tile
+for **none** of the seven shingle rows the founder named. A test pins `#c8a46e` so the change has to
+be made on purpose.
+
+### §10.16.f — ⛔ THE SLICE NUMBER COLLISION, AND WHY IT MATTERED HERE SPECIFICALLY
+
+**§10.10.f (2026-08-21, MAT2) minted "S33 — BUILD-TIME procedural texture generation." §10.15.f
+(2026-08-23, PASCALMAT58) minted "S33 — metre UVs for the roof SHINGLE face."** Each lane took *"the
+next number"* from the section it was writing rather than from the whole slice list.
+
+⚠ **They are not merely two slices with one name — they are the two remaining gates IN SERIES on one
+founder sentence** (§10.16.e). *"S33 is done"* would have been ambiguous in exactly the case where the
+distinction decides whether a pattern appears. **The roof slice is S34**; §10.10.f's S33 keeps its
+number because it was minted first.
+
+⭐ **This is C100's own recurring defect one level down** — a number transcribed into prose rots — and
+the mitigation that exists for CONTRACT ids (`check-contract-index-equivalence.ts`, comparing SETS in
+both directions, never a count) **has no equivalent for SLICE ids.** Named as an absence rather than
+left as one.
+
+### §10.16.g — What is proven AT THE MESH, and what is not
+
+✅ **PROVEN** (`RoofSlopeUvsReachMesh.test.ts`, 30 tests, the real `RoofFragmentBuilder` driven
+through the real `FrameScheduler` into a real `THREE.Scene`):
+
+- a roof mesh's **slot-3 material** carries `map` / `normalMap` / `roughnessMap` at
+  **`1 / realWorldSizeM`**, the size READ FROM `MATERIAL_CATALOG`;
+- the geometry **declares** `metres`, and a second product at a different size tiles differently on
+  the identical roof;
+- ⭐ the eave→ridge uv edge on a 45° roof measures **5.657 m (4·√2)**, not **4 m** — and the course
+  count up the rafter is **√2 ×** the plan-projection answer;
+- the shingle surface is **isometric edge-by-edge** on all ten covered forms;
+- barrel **refuses** on all four observable axes;
+- the rendered triangle soup — positions **and** normals — is **bit-identical** to the pre-slice
+  geometry on seven forms, and the material groups are unchanged.
+
+⭐ **WATCHED RED, RUN AND RECORDED** — RED-A (`uvSpaceOfGeometry(null)`, i.e. the code as it stood
+that morning) **14 failed / 16 passed**; RED-B (the naive plan projection) **13 failed / 17 passed**,
+with `flat` staying GREEN, which *is* the "half true, half squashed" argument demonstrated; RED-C
+(recompute normals after the split) **8 failed / 22 passed**.
+
+⛔ **NOT PROVEN, and not claimed** (C70 §7.1 — never an inherited green):
+
+- **No pixel was measured.** There is no visual test; every assertion stops at the constructed
+  `THREE.Material` and the `uv` attribute on a mesh in a scene.
+- **Nothing here proves the seven procedural rows draw** — §10.16.e says the opposite.
+- **Nothing here proves a file-backed roof map RESOLVES from a browser** (bytes, CORS — L-578).
+- **The `uv` PHASE is unproven as an aesthetic** — courses are correctly SIZED and start wherever the
+  geometry centroid puts them. No rule aligns a course to the eave line; that is a real gap and it is
+  §10.16.h.
+- **`aoMap` is still unbound** — it samples `uv1`, which this geometry does not emit (S32 unchanged).
+
+### §10.16.h — Slice states after this lane
+
+- ⭐ **S34 (roof metre UVs) — BUILT**, 10 of 11 entry points; barrel refuses by name (§10.16.d).
+- **§10.10.f's S33 (build-time procedural bake) — UNCHANGED and now the LOAD-BEARING one** for the
+  founder's sentence: 7 of the 10 roof rows are behind it (§10.16.e).
+- **S30 (wall metre UVs) — UNCHANGED.** The wall's six body constructors are a different problem
+  (§10.10.f) and this lane's per-face frame does not transfer to it: a wall's material is built ONCE,
+  before the body arm is chosen, so the geometry is not in hand at material time. ⚠ **The roof's fix
+  works because `RoofFragmentBuilder` builds the geometry FIRST and the material SECOND.** That
+  ordering, not the arithmetic, is the transferable finding.
+- **S27 (a real material carrier) — UNCHANGED.** `roof.setMaterial` still REFUSES with
+  `affectedStores: NONE`. ⚠ Chat can NAME every roofing row and cannot APPLY one. The reachable path
+  today is `CreateRoofCommand`'s `materialId` → `RoofData.materialId` → this builder.
+  ⚠ **Two scene-traversal re-material paths also stop refusing on roofs with no edit** —
+  `PropertyInspector.onMaterialChange` and `initUI`'s visual-style sweep both already pass
+  `uvSpaceOfGeometry(child.geometry)`, which was `UV_NONE` for every roof and is now `metres`. ⛔ **Not
+  claimed as a win, because both then assign `child.material = new MeshStandardMaterial(...)` — a
+  SINGLE material over a roof's four-slot array.** That flattening is pre-existing and is NOT this
+  lane's; it is recorded because those two paths change behaviour on roofs as a side effect of the
+  stamp, and a reader is owed that rather than a discovery.
+- **NEW, small, named: arc-length UVs for the barrel vault.** ~20 lines inside `generateBarrel`
+  (`u = distance along the vault axis`, `v = R·θ`), plus a decision about the end-cap vertices it
+  shares with the arc. Not attempted here; refusing was cheaper and honest.
+- **NEW, named: no rule aligns a shingle course to the eave.** §10.16.g. A phase convention (v = 0 at
+  the eave ring) is a further slice and is the difference between "correctly sized" and "correctly
+  laid".
+- **S24, S25, S26, S31, S32 — UNCHANGED.**

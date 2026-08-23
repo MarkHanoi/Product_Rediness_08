@@ -13,6 +13,10 @@ import { pitchedRingsFromOffsets, type PitchedRingStack } from './pure/pitchedFr
 // §ROOF-HOSTED-OPENINGS — the planar-face decomposition a hosted skylight is
 // authored against. Pure; the builder consumes it rather than re-deriving planes.
 import { computeRoofFaces, faceYAt, resolveHostFace, type RoofFace } from './pure/roofFaces.js';
+// §ROOF-SLOPE-METRE-UVS (C100 §10.16, S34) — real-world-metre UVs measured along
+// the SLOPE, so a shingle tiles at its true product size up the rafter instead of
+// being foreshortened by cos(pitch). Applied ONCE, at the outermost `generate()`.
+import { applySlopeMetreUvs } from './roofSlopeUvs.js';
 
 type Pt = [number, number]; // [x, z] in level-local space
 
@@ -110,7 +114,14 @@ export class RoofGeometryBuilder {
      * is not merely a no-op, it is not entered.
      */
     static generate(data: Readonly<RoofData>, holes?: ReadonlyArray<ReadonlyArray<Pt>>): THREE.BufferGeometry {
-        if (holes && holes.length > 0) return this._generateWithHoles(data, holes);
+        if (holes && holes.length > 0) {
+            // The hole path is entered ONLY from the top (segments and the wing
+            // decomposition both recurse without holes), so the uv pass here
+            // cannot land on a sub-geometry that is about to be merged.
+            const holed = this._generateWithHoles(data, holes);
+            this._applySlopeUvs(data, holed);
+            return holed;
+        }
         if (this._genDepth === 0) this._degradations = [];
         this._genDepth++;
         try {
@@ -119,7 +130,64 @@ export class RoofGeometryBuilder {
                 geo.userData.pryzmRoofDegraded = true;
                 geo.userData.pryzmRoofDegradations = [...this._degradations];
             }
+            // §ROOF-SLOPE-METRE-UVS — the FINAL geometry only. `_mergeGeometries`
+            // re-runs `computeVertexNormals()` on each input it concatenates, so a
+            // sub-geometry whose vertices this pass had already split would come
+            // back flat-shaded. Depth 1 is the outermost call and the only one
+            // whose result nobody merges.
+            if (this._genDepth === 1) this._applySlopeUvs(data, geo);
             return geo;
+        } finally {
+            this._genDepth--;
+        }
+    }
+
+    /**
+     * §ROOF-SLOPE-METRE-UVS (C100 §10.16 / S34, L-10020) — stamp metre UVs on a
+     * finished roof, or REFUSE by name.
+     *
+     * ⛔ BARREL REFUSES, and that is the whole of the partial rollout. A barrel
+     * vault is 20 flat strips approximating a cylinder; a per-face frame gives
+     * each strip its own origin, and at the shared edge between two strips the
+     * two frames disagree by `Δθ · distance-to-origin` — metres of pattern jump,
+     * twenty times across one roof. A cylinder is developable and its honest
+     * parameterisation is ARC LENGTH, which is a different (small) piece of work
+     * inside `generateBarrel` itself. Until someone does it, a barrel carries no
+     * `uv`, resolves `UV_NONE`, and keeps the honest flat colour it has today —
+     * C100 §10.15.f: half the roofs tiling truly and half squashed is worse than
+     * a uniform refusal, because nothing on screen tells them apart.
+     */
+    private static _applySlopeUvs(data: Readonly<RoofData>, geo: THREE.BufferGeometry): void {
+        if (this._usesBarrel(data)) {
+            geo.userData.pryzmUvRefusal =
+                'barrel vault: a per-face frame seams at every one of the 20 strip ' +
+                'boundaries; a cylinder needs an arc-length parameterisation (C100 §10.16.d)';
+            return;
+        }
+        const outcome = applySlopeMetreUvs(geo);
+        if (!outcome.applied) geo.userData.pryzmUvRefusal = outcome.reason;
+    }
+
+    /** Does this roof contain a barrel anywhere — directly or as a segment? */
+    private static _usesBarrel(data: Readonly<RoofData>): boolean {
+        if (data.roofType === 'barrel') return true;
+        return (data.segments ?? []).some(s => s.roofType === 'barrel');
+    }
+
+    /**
+     * A SEGMENT's geometry — `generate()` minus the uv pass.
+     *
+     * ⚠ Deliberately not `generate()`. Segment geometries are concatenated by
+     * `_mergeGeometries`, which drops `uv` and recomputes normals, so running the
+     * pass here would cost the split and lose both the UVs and the smooth eave
+     * normals. Behaviour is otherwise identical: the degradation reset and the
+     * userData attach were both gated on `_genDepth` and never fired for a nested
+     * call anyway.
+     */
+    private static _generateSegment(data: Readonly<RoofData>): THREE.BufferGeometry {
+        this._genDepth++;
+        try {
+            return this._generateInner(data);
         } finally {
             this._genDepth--;
         }
@@ -435,7 +503,7 @@ export class RoofGeometryBuilder {
                 segments:  undefined,   // prevent infinite recursion
                 slopeArrows: undefined, // slope arrows are segment-level, not nested
             } as RoofData;
-            geometries.push(this.generate(segData));
+            geometries.push(this._generateSegment(segData));
         }
 
         if (geometries.length === 0) return new THREE.BufferGeometry();

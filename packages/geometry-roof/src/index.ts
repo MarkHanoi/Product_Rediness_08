@@ -182,3 +182,13 @@ export type {
     RoofLevelResolution,
     RoofLevelResolutionReason,
 } from './pure/roofLevelPolicy';
+
+// §ROOF-SLOPE-METRE-UVS (C100 §10.16, slice S34 — minted in §10.15.f as "S33").
+// Real-world-metre UVs measured ALONG THE SLOPE, so a shingle tiles at its true
+// product size up the rafter instead of foreshortening by cos(pitch) (41 % at
+// 45°). The pure arithmetic is THREE-free and separately tested; the adapter is
+// the only place `stampMetreUvs()` is called for a roof.
+export { computeSlopeMetreUvs } from './pure/slopeUvs';
+export type { SlopeUvPlan } from './pure/slopeUvs';
+export { applySlopeMetreUvs } from './roofSlopeUvs';
+export type { RoofSlopeUvOutcome } from './roofSlopeUvs';
