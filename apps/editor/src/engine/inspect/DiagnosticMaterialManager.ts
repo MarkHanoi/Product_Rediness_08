@@ -1466,35 +1466,48 @@ export class DiagnosticMaterialManager {
   private _applyElementFocus(scene: THREE.Scene, focusedElementIds: ReadonlySet<string>): void {
     if (focusedElementIds.size === 0) return;
 
+    // ── TWO PHASES, and the second one exists because of a MEASUREMENT ─────────
+    //
+    // ⭐ `WallFragmentBuilder.ts:1303` estimates 70–85% of walls take the INSTANCED
+    // path, and an instanced element has NO visible mesh carrying its own id — the
+    // geometry lives in a shared `InstancedMesh` at the scene root stamped
+    // `instanced-group-<key>` (`InstancedElementRenderer.ts:480,490`). Its only
+    // per-element geometry is the invisible hit-proxy inside its group. A one-phase
+    // pass that skipped proxies would therefore paint NOTHING for most walls in a
+    // real model — the fix would be committed and unreachable, which looks fixed.
+    //
+    // Phase A paints every ordinary focused mesh and records which ids that
+    // satisfied. Phase B paints a proxy ONLY for an id Phase A could not satisfy.
+    // ⛔ That ordering is the whole of L-2031 preserved: a proxy is never surfaced
+    // for an element the user did not select, and never when real geometry existed.
+    const proxiesByElement = new Map<string, THREE.Mesh[]>();
+    const satisfied        = new Set<string>();
     let painted = 0;
+
     scene.traverse(obj => {
       if (!(obj instanceof THREE.Mesh)) return;
-      if (resolveFocusRole(this._focusSubject(obj), focusedElementIds) !== 'solid-focus') return;
-      this._applyToMesh(obj, new THREE.MeshPhongMaterial({
-        color:             FOCUS_ELEMENT_COLOR,
-        emissive:          new THREE.Color(FOCUS_ELEMENT_EMISSIVE),
-        emissiveIntensity: FOCUS_ELEMENT_EMISSIVE_INTENSITY,
-        side:              THREE.DoubleSide,
-      }));
-      // The second axis (see `FOCUS_ELEMENT_EDGE_COLOR`) — a crisp white outline so
-      // ONE focused wall still reads inside a whole family already painted blue.
-      //
-      // ⭐ C09 §4.3.1 IS OBEYED HERE AND IT IS NOT INCIDENTAL: the outline is added
-      // through `_addOverlayAsChildOf`, so it is a CHILD of the mesh it depicts at
-      // identity. It therefore inherits the explode lift, every ancestor transform
-      // and `.visible` from THREE with nothing to maintain — which is precisely the
-      // clause L-3510 minted after the scene-root, world-transform-snapshot version
-      // of this exact idea produced the founder's "wireframe from every level" and
-      // "outline left behind by explode".
-      //
-      // ⚠ Cost is bounded by the SELECTION, not by the model: the base ghost pass
-      // already builds one EdgesGeometry per structural mesh in the scene, so a
-      // handful more for the focused element is noise against it.
-      const edges   = new THREE.EdgesGeometry(obj.geometry);
-      const lineMat = new THREE.LineBasicMaterial({ color: FOCUS_ELEMENT_EDGE_COLOR, linewidth: 1 });
-      this._addOverlayAsChildOf(obj, new THREE.LineSegments(edges, lineMat));
+      const subject = this._focusSubject(obj);
+      const role    = resolveFocusRole(subject, focusedElementIds);
+      if (role === 'proxy-fallback') {
+        const id = subject.elementId!;
+        const list = proxiesByElement.get(id);
+        if (list) list.push(obj); else proxiesByElement.set(id, [obj]);
+        return;
+      }
+      if (role !== 'solid-focus') return;
+      this._paintFocusedSolid(obj);
+      if (subject.elementId) satisfied.add(subject.elementId);
       painted++;
     });
+
+    let viaProxy = 0;
+    for (const [id, proxies] of proxiesByElement) {
+      if (satisfied.has(id)) continue; // real geometry already carried the focus
+      for (const proxy of proxies) {
+        this._paintFocusedSolid(proxy);
+        viaProxy++;
+      }
+    }
 
     // §INSPECT-FOCUS-IS-ELEMENT-SHAPED — the honesty half, and the SAME honesty
     // half `applyGhostWithFocus` carries. A focus of ZERO renders identically to
@@ -1505,12 +1518,48 @@ export class DiagnosticMaterialManager {
     console.log(
       `[§INSPECT-FOCUS-IS-ELEMENT-SHAPED] focus=[${[...focusedElementIds].join(', ')}] — `
       + `${painted} solid mesh(es) in the inspect blue`
-      + (painted === 0
-        ? ' ⚠ ZERO SOLID MESHES MATCHED — if the focused id is a ROOM this is CORRECT '
+      + (viaProxy > 0 ? `, ${viaProxy} via the instanced hit-proxy fallback` : '')
+      + (painted === 0 && viaProxy === 0
+        ? ' ⚠ ZERO MESHES MATCHED — if the focused id is a ROOM this is CORRECT '
           + '(the room jewel is painted by the lens pass, not here); otherwise no mesh in '
-          + 'the scene resolves to this id via userData.id/elementId on itself or an ancestor.'
+          + 'the scene resolves to this id via userData.id/elementId on itself or an ancestor, '
+          + 'and no hit-proxy stands in for it either (a stair-railing member is the known case '
+          + '— StairRailingBuilder.ts:211 deliberately adds none). See editor-chrome-map.md §13.'
         : ''),
     );
+  }
+
+  /** The focused-solid treatment, shared by the real-geometry and proxy arms. */
+  private _paintFocusedSolid(obj: THREE.Mesh): void {
+    this._applyToMesh(obj, new THREE.MeshPhongMaterial({
+      color:             FOCUS_ELEMENT_COLOR,
+      emissive:          new THREE.Color(FOCUS_ELEMENT_EMISSIVE),
+      emissiveIntensity: FOCUS_ELEMENT_EMISSIVE_INTENSITY,
+      side:              THREE.DoubleSide,
+      // ⚠ EXPLICIT, because a hit-proxy's authored material is `colorWrite:false,
+      // depthWrite:false`. `_applyToMesh` REPLACES the material rather than editing
+      // it, so these would default correctly — naming them is a note to the next
+      // reader that the proxy arm depends on the replacement, not on a mutation.
+      colorWrite:        true,
+      depthWrite:        true,
+    }));
+    // The second axis (see `FOCUS_ELEMENT_EDGE_COLOR`) — a crisp white outline so
+    // ONE focused wall still reads inside a whole family already painted blue.
+    //
+    // ⭐ C09 §4.3.1 IS OBEYED HERE AND IT IS NOT INCIDENTAL: the outline is added
+    // through `_addOverlayAsChildOf`, so it is a CHILD of the mesh it depicts at
+    // identity. It therefore inherits the explode lift, every ancestor transform
+    // and `.visible` from THREE with nothing to maintain — which is precisely the
+    // clause L-3510 minted after the scene-root, world-transform-snapshot version
+    // of this exact idea produced the founder's "wireframe from every level" and
+    // "outline left behind by explode".
+    //
+    // ⚠ Cost is bounded by the SELECTION, not by the model: the base ghost pass
+    // already builds one EdgesGeometry per structural mesh in the scene, so a
+    // handful more for the focused element is noise against it.
+    const edges   = new THREE.EdgesGeometry(obj.geometry);
+    const lineMat = new THREE.LineBasicMaterial({ color: FOCUS_ELEMENT_EDGE_COLOR, linewidth: 1 });
+    this._addOverlayAsChildOf(obj, new THREE.LineSegments(edges, lineMat));
   }
 
   /**

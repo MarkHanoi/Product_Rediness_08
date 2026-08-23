@@ -235,7 +235,7 @@ describe('§INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — a focused wall stays fo
   });
 
   // ── §6 — the ancestor walk: a hosted sub-mesh resolves to its group ────────
-  it('focuses a DOOR through its group id, and never the invisible hit proxy', () => {
+  it('focuses a DOOR through its group id, and leaves the hit proxy alone', () => {
     const f = buildScene();
     const mgr = new DiagnosticMaterialManager();
 
@@ -243,10 +243,40 @@ describe('§INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — a focused wall stays fo
     runFrames();
 
     expect(hexOf(f.doorSubMesh)).toBe(INSPECT_BLUE);
-    // L-2031 — the proxy resolves to `door_D1` via the SAME ancestor walk. Painting
-    // it opaque would turn a raycast helper into a door-sized box in the viewport.
+    // L-2031 — the proxy resolves to `door_D1` via the SAME ancestor walk, and the
+    // door HAS real geometry, so the proxy must not be surfaced. This is the
+    // "only when nothing better existed" half of the two-phase pass.
     expect(hexOf(f.hitProxy)).not.toBe(INSPECT_BLUE);
     expect(hasFocusOutline(f.hitProxy)).toBe(false);
+  });
+
+  // ── §6b — THE INSTANCED CASE, which is most of the founder's real walls ────
+  it('falls back to the hit-proxy for an INSTANCED element that has no visible mesh', () => {
+    // `WallFragmentBuilder.ts:1303` estimates 70-85% of walls take the instanced
+    // path. Its group then contains ONLY the invisible `colorWrite:false` proxy
+    // (`WallFragmentBuilder.ts:1520`); the visible geometry is a shared InstancedMesh
+    // at the SCENE ROOT stamped `instanced-group-<key>`, which resolves to a GROUP
+    // id, never the wall's. Without this fallback the founder's most likely wall
+    // highlights nothing — committed and unreachable, which looks fixed.
+    const f = buildScene();
+    const instancedWallGroup = new THREE.Group();
+    instancedWallGroup.userData = { id: 'wall_INST', elementType: 'wall', type: 'wall' };
+    const proxy = new THREE.Mesh(
+      new THREE.BoxGeometry(4, 3, 0.2),
+      new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }),
+    );
+    proxy.userData = { role: 'hit-proxy' };
+    instancedWallGroup.add(proxy);
+    f.scene.add(instancedWallGroup);
+
+    const mgr = new DiagnosticMaterialManager();
+    mgr.applyLens('ghost', EMPTY_DELTA, f.scene, ['wall_INST']);
+    runFrames();
+
+    expect(hexOf(proxy)).toBe(INSPECT_BLUE);
+    // ⛔ …and the OTHER element's proxy is still untouched, so L-2031 holds: a
+    // proxy is surfaced only for an element the user actually selected.
+    expect(hexOf(f.hitProxy)).not.toBe(INSPECT_BLUE);
   });
 
   // ── §7 — focus survives every lens that can carry it ──────────────────────
@@ -327,8 +357,12 @@ describe('resolveFocusRole — the pure focus decision', () => {
     expect(resolveFocusRole(room, toFocusSet(['room-A']))).toBe('room-jewel');
   });
 
-  it('never focuses a hit proxy, even though its id resolves', () => {
-    expect(resolveFocusRole({ ...solid, role: 'hit-proxy' }, toFocusSet(['wall_W1']))).toBe('none');
+  it('offers a FOCUSED element hit proxy as a fallback, and the caller owns the policy', () => {
+    expect(resolveFocusRole({ ...solid, role: 'hit-proxy' }, toFocusSet(['wall_W1']))).toBe('proxy-fallback');
+  });
+
+  it('never offers an UNFOCUSED hit proxy — the whole of L-2031', () => {
+    expect(resolveFocusRole({ ...solid, role: 'hit-proxy' }, toFocusSet(['wall_W2']))).toBe('none');
   });
 
   it('never focuses a ShaderMaterial mesh (the uZoom crash guard)', () => {

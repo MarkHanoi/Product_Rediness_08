@@ -75,7 +75,43 @@ export type FocusRole =
     /** A focused ROOM volume — the §1.3 violet translucent jewel + pulse. */
     | 'room-jewel'
     /** A focused non-room SOLID — the opaque Inspect-blue focus fill. */
-    | 'solid-focus';
+    | 'solid-focus'
+    /**
+     * A focused element's invisible HIT-PROXY, offered as a LAST RESORT.
+     *
+     * ⭐ THE MEASUREMENT THAT FORCED THIS ROLE TO EXIST, 2026-08-23. For an element
+     * rendered through `InstancedElementRenderer`, the visible geometry lives in a
+     * shared `InstancedMesh` parented at the SCENE ROOT and stamped
+     * `userData.id = 'instanced-group-<key>'` (`InstancedElementRenderer.ts:480,490`)
+     * — so `_resolveElementId` on it returns a GROUP id and the element's own id
+     * appears on NO visible mesh. The ONLY per-element geometry left inside the
+     * element's group is the invisible `colorWrite:false` hit-proxy the builders add
+     * for raycasting (`WallFragmentBuilder.ts:1520`, `WindowBuilder.ts:1119`,
+     * `ColumnFragmentBuilder.ts:436`, `BeamFragmentBuilder.ts:529`).
+     *
+     * ⛔ `WallFragmentBuilder.ts:1303` estimates **70–85% of walls** take the
+     * instanced path. Skipping the proxy unconditionally would therefore mean the
+     * founder's wall highlights NOTHING — a fix that is committed and unreachable,
+     * which is worse than the defect because it also looks fixed.
+     *
+     * ⚠ THIS IS NOT A REVERSAL OF L-2031, and the distinction is the whole reason
+     * this is a SEPARATE role rather than a widened `'solid-focus'`. L-2031 was a
+     * BLANKET sweep — `_applyClearWorldGhost` and `applyAttributeHeatmap` painted
+     * every proxy in the scene, surfacing window-sized boxes for elements nobody
+     * asked about. This role fires for ONE element, only because the user selected
+     * it, and — per `_applyElementFocus` — only when no ordinary mesh of that
+     * element was painted. The caller, not this module, owns that last condition:
+     * the decision here is "this proxy belongs to a focused element", the POLICY is
+     * "use it only if nothing better existed".
+     *
+     * ⚠ For an instanced WALL the proxy is not an approximation: the instancing gate
+     * admits only simple walls (no openings, not curved, un-mitred, single layer),
+     * and the proxy is `BoxGeometry(length, height, thickness)` at the wall's exact
+     * pose — it IS the wall. For a window it is the opening's bounding box rather
+     * than the frame silhouette, which is a legible "this one is focused" in a lens
+     * where everything else is 4–10% translucent, and is stated rather than hidden.
+     */
+    | 'proxy-fallback';
 
 /**
  * The facts about one mesh that decide its focus role. Deliberately plain data so
@@ -112,7 +148,11 @@ export interface FocusSubject {
  *      constraint TRIVIALLY true rather than argued: with nothing selected every
  *      subject resolves `'none'` and the scene is byte-for-byte the lens' base pass.
  *   2. ShaderMaterial — the `uZoom` crash guard. Must out-rank everything.
- *   3. hit-proxy — a mesh that is invisible BY CONTRACT is never a focus subject.
+ *   3. hit-proxy — NEVER an ordinary focus subject. It is offered as
+ *      `'proxy-fallback'` when it belongs to a focused element, and the CALLER
+ *      decides whether to use it (see that role's doc for why the policy lives
+ *      there and not here). An UNfocused proxy is always `'none'`, which is the
+ *      whole of L-2031 preserved.
  *   4. room volume — the jewel arm, keyed on `roomId` (a room volume's identity in
  *      this pass is its room, which is why `roomId` and `elementId` are separate
  *      fields rather than one guessed-at id).
@@ -126,7 +166,12 @@ export function resolveFocusRole(
 ): FocusRole {
     if (focusedIds.size === 0)               return 'none';
     if (subject.isShaderMaterial)            return 'none';
-    if (subject.role === HIT_PROXY_ROLE)     return 'none';
+
+    if (subject.role === HIT_PROXY_ROLE) {
+        return subject.elementId !== null && focusedIds.has(subject.elementId)
+            ? 'proxy-fallback'
+            : 'none';
+    }
 
     if (subject.isRoomVolume) {
         return subject.roomId !== null && focusedIds.has(subject.roomId)
