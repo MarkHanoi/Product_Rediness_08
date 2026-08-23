@@ -1083,6 +1083,55 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
   // document-move disposition kind.
   'wall.changeLevel': { kind: 'not-synced', reason: 'DOCUMENT MOVE §NEEDS-DOC-MOVE-KIND: `{id, newLevelId, newElevationY}` re-homes the wall to another ADR-049 per-level doc. levelId is CRDT ROUTING, not a property, so the generic path would write the elevation into the doc the wall is leaving.' },
   'roof.changeLevel': { kind: 'not-synced', reason: 'DOCUMENT MOVE §NEEDS-DOC-MOVE-KIND: `{roofId, levelId}` — and `levelId` is in GLOBAL_PROPERTY_EXCLUDES, so extraction yields ZERO properties and the declaration would replicate literally nothing while reading as synced. See wall.changeLevel.' },
+
+  // ── §FIX-LEVEL-MOVE-NEEDS-A-GESTURE (L-10062) — THE OTHER TEN ──────────────
+  //
+  // ⛔ THE FOUNDER SAW ONE OF THESE WARN, LIVE, 2026-08-23:
+  //   `[YjsDocAdapter] W5-3: command type 'slab.changeLevel' has NO sync
+  //    disposition. Its properties are NOT replicated.`
+  // beside his slab silently moving from L0 to another storey. The move half was
+  // a UI defect (fixed in `PropertyPanelSections._buildLevelChangeRow`); THIS half
+  // is the one that would have made the same move invisible to a collaborator —
+  // and it was invisible to this table too, which is the actual failure.
+  //
+  // ⭐ SILENT BY DECLARATION, NEVER BY OMISSION. The two rows above were written
+  // when `wall` and `roof` were the only families with the verb. §L-1032 then
+  // widened the panel's storey control from a hard-coded `elType === 'wall'` to
+  // the twelve-row `LEVEL_CHANGE_VERBS` register — and this table did not follow.
+  // So ten verbs became reachable from a control the founder can click, each one
+  // undeclared, each one warning at runtime and each one reading as "nobody has
+  // looked" rather than "decided, and here is why". That is C84 EI-1b's blank,
+  // and it is the reason `__tests__/levelChangeDispositions.test.ts` now asserts
+  // SET EQUALITY between the register and this table in both directions: a
+  // thirteenth family cannot be added upstream without this file failing.
+  //
+  // THE DISPOSITION IS THE SAME FOR ALL TEN, AND IT IS NOT A SHORTCUT. Every one
+  // is `{ <x>Id, levelId }`. `levelId` is the ADR-049 document selector and the
+  // sole member of GLOBAL_PROPERTY_EXCLUDES, so `extractElementProperties` yields
+  // ZERO properties: declaring any of them `element-property` would read as
+  // "synced" while provably replicating nothing, and the generic path would write
+  // whatever remained into the document the element is LEAVING. They need the
+  // document-move kind `wall.changeLevel` has been waiting on since §NEEDS-DOC-MOVE-KIND.
+  //
+  // ⚠ FOUR OF THEM CANNOT BE REPLICATED FROM THE PAYLOAD AT ALL, even once that
+  // kind exists, and that is recorded per-row rather than folded into the shared
+  // sentence: `beam`/`furniture`/`lighting`/`plumbing` re-seat the element's
+  // world Y by the ELEVATION DELTA and their stores REFUSE without BOTH
+  // elevations, which the CALLER resolves from the level authority and never
+  // ships in the payload (`packages/command-bus/src/levelChangeVerbs.ts`, the
+  // §L-1087 block). A peer replaying `{id, levelId}` would have to re-resolve
+  // both ends locally — a real design question, named here rather than left to
+  // be discovered by a hovering beam.
+  'slab.changeLevel':        { kind: 'not-synced', reason: 'DOCUMENT MOVE §NEEDS-DOC-MOVE-KIND: `{slabId, levelId}` re-homes the slab to another ADR-049 per-level doc. levelId is CRDT ROUTING and is in GLOBAL_PROPERTY_EXCLUDES, so extraction yields ZERO properties. §L-10062 — this is the verb the founder saw warn live. See wall.changeLevel.' },
+  'column.changeLevel':      { kind: 'not-synced', reason: 'DOCUMENT MOVE §NEEDS-DOC-MOVE-KIND: `{columnId, levelId}`. Height follows the storey (ColumnFragmentBuilder re-derives worldY from getLevelById), so only the routing needs to travel — and routing is precisely what the property path discards. See wall.changeLevel.' },
+  'ceiling.changeLevel':     { kind: 'not-synced', reason: 'DOCUMENT MOVE §NEEDS-DOC-MOVE-KIND: `{ceilingId, levelId}`. See wall.changeLevel.' },
+  'floor.changeLevel':       { kind: 'not-synced', reason: 'DOCUMENT MOVE §NEEDS-DOC-MOVE-KIND: `{floorId, levelId}`. See wall.changeLevel.' },
+  'handrail.changeLevel':    { kind: 'not-synced', reason: 'DOCUMENT MOVE §NEEDS-DOC-MOVE-KIND: `{handrailId, levelId}`. See wall.changeLevel.' },
+  'curtainWall.changeLevel': { kind: 'not-synced', reason: 'DOCUMENT MOVE §NEEDS-DOC-MOVE-KIND: `{curtainWallId, levelId}`. The assembly moves as one and its panels are a COLLECTION on the record (see curtain-wall.addPanel), so this is a document move over a multi-member element. See wall.changeLevel.' },
+  'beam.changeLevel':        { kind: 'not-synced', reason: 'DOCUMENT MOVE §NEEDS-DOC-MOVE-KIND + IRRECOVERABLE FROM THE PAYLOAD: `{beamId, levelId}`. BeamStore.changeLevel moves startPoint.y/endPoint.y by (newElevation - previousElevation) and REFUSES without both; neither is in the payload, so a peer cannot reconstruct the height half from what would be replicated. See wall.changeLevel and levelChangeVerbs.ts §L-1087.' },
+  'furniture.changeLevel':   { kind: 'not-synced', reason: 'DOCUMENT MOVE §NEEDS-DOC-MOVE-KIND + IRRECOVERABLE FROM THE PAYLOAD: `{furnitureId, levelId}`. FurnitureStore.changeLevel applies position.y += (newElevation - previousElevation) to preserve the mount offset and REFUSES without both; neither travels. See beam.changeLevel.' },
+  'lighting.changeLevel':    { kind: 'not-synced', reason: 'DOCUMENT MOVE §NEEDS-DOC-MOVE-KIND + IRRECOVERABLE FROM THE PAYLOAD: `{lightingId, levelId}`. LightingStore.changeLevel is a delta re-seat that REFUSES without both elevations; neither travels — a wall light 2 m up would arrive at the new floor. See beam.changeLevel.' },
+  'plumbing.changeLevel':    { kind: 'not-synced', reason: 'DOCUMENT MOVE §NEEDS-DOC-MOVE-KIND + IRRECOVERABLE FROM THE PAYLOAD: `{plumbingId, levelId}`. PlumbingStore.changeLevel is a delta re-seat that REFUSES without both elevations AND checks existence, which update() does not. See beam.changeLevel.' },
   'level.duplicate-floor-plan': { kind: 'not-synced', reason: 'DERIVED-MULTI ACROSS DOCS: `{sourceLevelId, targetLevelIds[]}` copies a whole level\'s elements into N other levels, minting every id inside. A level is not an element (see level.add), the target is a set, and the ids do not exist in the payload.' },
 
   // ── NOT SYNCED — ORCHESTRATION TRIGGERS (the founder\'s other warning) ──────

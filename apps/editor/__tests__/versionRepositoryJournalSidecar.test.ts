@@ -353,7 +353,6 @@ describe('§JOURNAL-SIDECAR — ⭐ the size, and ⛔ that nothing was deleted t
         // test asserts the SHAPE and not one machine's compression ratio; the real
         // figure at the founder's scale is reported by the bench, not guessed here.
         expect(after).toBeLessThan(before / 2);
-        // eslint-disable-next-line no-console
         console.log(`[test] §JOURNAL-SIDECAR container ${before} → ${after} chars ` +
             `(${(before / after).toFixed(1)}×), journal records unchanged at ${JOURNAL_RECORDS} per version.`);
     });

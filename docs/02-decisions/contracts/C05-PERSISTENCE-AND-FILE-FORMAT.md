@@ -351,6 +351,14 @@ fix a defect that was ours.
 > (≈36.8 MB → ≈2.4 MB) **with no record dropped**. ⛔ That is a FORMAT change and a founder decision;
 > it is costed in **L-8704** beside **L-5823** and is **not** authorised by this box. ⛔ **And it is
 > still not a retention cap** — the fix is to stop copying the journal, never to trim it.
+>
+> ⭐ **SHIPPED 2026-08-23 (lane PERF5, founder-approved) — see [§3.8](#38--an-append-only-journal-is-stored-once-per-project-a-version-holds-a-cursor-binding).**
+> The estimate above was ≈ 15×; the measured figure at the founder's exact shape is **14.8×**
+> (34.33 MB → 2.32 MB, `tools/perf/bench-journal-sidecar.mjs`), with the record count **unchanged at
+> 30 432**. §3.8 carries the full table — including the one row this box would have got wrong:
+> ⚠ the COLD open's CPU legs are ≈ unchanged (245 → 222 ms), because the loader genuinely needs the
+> journal. What an open sheds is the 14.8× smaller container it must read out of IndexedDB, which is
+> a browser-only leg and is `§PROBE-OPEN-PATH-STORAGE-LEG`'s to report, not a bench's to claim.
 
 ### §3.6 — A version-history WRITE MUST NOT decode the history it is not changing (binding)
 
@@ -494,6 +502,92 @@ absence.**
 persist at all. `§L-8701` now NAMES them at save time (`integrity.jsonInvisible` + a console line);
 what to do about any that turn up is a separate finding, because such a member is content being
 dropped on every save regardless of what the digest does with it.
+
+### §3.8 — An append-only journal is stored ONCE PER PROJECT; a version holds a CURSOR (binding)
+
+> **Added**: 2026-08-23 · lane PERF5, closes **L-8704** (and the (c) option of **L-5823**).
+> Files: `packages/persistence-client/src/loader/JournalSidecar.ts` (the snapshot shape and the
+> digest rule), `apps/editor/src/ui/platform/ProjectRepository.ts` (`§JOURNAL-SIDECAR` — the v3
+> container), `SnapshotIntegrity.ts` (the NOT-COMPARABLE arm).
+> Bench: `tools/perf/bench-journal-sidecar.mjs`.
+
+§3.5 binds *"a snapshot describes STATE; an append-only journal MUST NOT live inside it"* and its
+own closing box costs the remedy at **≈15×**. This section is that remedy, made binding, and it
+adds nothing to §3.5's position — it says HOW.
+
+**MEASURED** (`node --expose-gc tools/perf/bench-journal-sidecar.mjs`, 2026-08-23, at the founder's
+exact shape: 281 elements, 30 432 mutations, 20 versions):
+
+| | before (v2) | after (v3) | |
+|---|---|---|---|
+| stored container | **34.33 MB** (36 001 562 chars) | **2.32 MB** (2 434 764 chars) | **14.8×** |
+| journal records retained | 30 432 | **30 432** | ⛔ **unchanged** |
+| one version, raw | 7.29 MB | **0.15 MB** | the journal was 97.9 % of it |
+| chars DEFLATEd per autosave | 7 641 400 | **269 556** | **28×** |
+| append one version | 684 ms | **59 ms** | 11.6× |
+| version-history panel (inflate 20) | 4476 ms | **467 ms** | 9.6× |
+| ⚠ narrow open, COLD | 245 ms | **222 ms** | **≈ unchanged — see requirement 6** |
+| narrow open, second in session | 245 ms | **36 ms** | 6.8× |
+
+Six requirements, each binding:
+
+1. ⭐ **THE JOURNAL IS STORED ONCE PER PROJECT AND EACH VERSION STORES A COUNT.**
+   `temporalGraph.mutations` leaves the stored snapshot and is replaced by
+   `temporalGraph.mutationsRef = { v, n }`, where `n` is how many leading records of the project's
+   journal that version held when it was stamped. The container gains one shared, CHUNKED journal
+   beside the per-version blobs. ⛔ **The record count MUST be identical before and after.** This is
+   a change in the number of COPIES, never in the number of RECORDS; a test asserting only that the
+   container got smaller would pass against a retention cap, which §3.5 and ISSUE-LOG **L-5823**
+   rule out by name.
+2. ⭐ **THE APPEND-ONLY PROPERTY MUST BE CHECKED AT WRITE TIME, NEVER ASSUMED.** A cursor is a
+   faithful description of the past only while the shared journal really is append-only, and it is
+   not guaranteed by the model: restoring an older version and saving from it produces a journal
+   that is not an extension of the stored one. A writer MUST verify the incoming record list still
+   begins with the stored one — in O(n) identity comparisons, with no re-serialisation of anything —
+   and on divergence MUST store that version's journal INLINE and leave the shared journal
+   **untouched** while any stored version still indexes it. ⛔ Replacing a journal that other
+   cursors index silently changes what those versions mean, which is data loss with no error
+   message.
+3. ⛔ **ONLY A PROVABLY IMMUTABLE RECORD LIST MAY BE SHARED.** `NodeMutationRecord`s are pushed and
+   never touched again, so a prefix of the list is a faithful past state. `TemporalEdge` is **not**:
+   `expireEdge()` writes `validUntil` **in place** on a live object, so a shared edge store with a
+   per-version cursor would hand an old version an edge written AFTER it was stamped — a different
+   value at the same index, i.e. a manufactured digest mismatch. **Edges therefore stay inline**,
+   and that is a measured property of the code, not a preference. Extending sharing to edges
+   requires making `TemporalEdge` immutable first, and is out of scope here.
+4. ⭐ **THE INTEGRITY DIGEST'S COVERAGE IS UNCHANGED, AND AN UNFAITHFUL REASSEMBLY IS *NOT
+   COMPARABLE*.** This is §3.7 applied to a new ignition condition, and it is the requirement this
+   section exists to constrain. The stamp is still taken at SAVE over the WHOLE snapshot with the
+   journal inline, and verified at LOAD over a snapshot with the journal inline; detach and
+   re-attach happen strictly BELOW both. ⛔ **`CHECKSUM_EXCLUDED_TOP_KEYS` MUST NOT be widened** —
+   §3.7 req 4 forbids adding a MODEL member and `temporalGraph` is the largest one there is, so the
+   journal remains inside the digest while moving outside the storage record. A faithful reassembly
+   reproduces the stamp bit-for-bit and MUST be compared at FULL strength. A reassembly that could
+   not supply the cursor's exact record count MUST be reported `comparable:false` with its reason,
+   **never** as a mismatch, and the carrier for that fact MUST be invisible to `JSON.stringify`,
+   `Object.keys` and the canonicaliser so the mechanism cannot itself perturb a checksum.
+   *This would have been the FOURTH false accusation of corruption from this module's history
+   (L-334 → L-360 → L-8700) and the worst of them: the file intact, the difference introduced by
+   PRYZM's own read path.*
+5. **A DAMAGED SHARED JOURNAL YIELDS THE VERIFIED PREFIX — never `null`, never the suspect bytes.**
+   Each chunk carries a digest over its exact JSON text, recomputed at read over the text that had
+   to be inflated anyway. Returning `null` would discard verified history to punish one bad chunk;
+   returning the suspect chunk would hand the loader records whose bytes did not survive. The
+   project MUST still open, carrying every record that verified, with the shortfall named.
+6. ⚠ **THE COLD OPEN IS NOT THE WIN, AND MUST NOT BE CLAIMED AS ONE.** The bench above measures
+   the narrow open's CPU legs at **245 → 222 ms**: the loader genuinely needs the journal, so it is
+   still inflated and parsed once. What this change removes from an open is the **container the
+   browser must read out of IndexedDB**, which falls 14.8× — a browser-only leg that
+   `§PROBE-OPEN-PATH-STORAGE-LEG` reports as `mirror-read` and that no Node bench can measure.
+   ⛔ Any claim about the founder's *"opens take minutes"* MUST cite that probe's line from his
+   session, not this table. The probe now prints a fifth leg (`journal-attach`) so the fix cannot
+   quietly cost an open a leg the instrument stopped naming.
+
+**Not decided by this section:** the SERVER copy. `POST /api/projects/:id/versions` still receives
+the whole snapshot with the journal inline, deliberately — detaching on the wire is a change to a
+documented C05 §3 route shape and belongs with **L-5831**/**L-5832**, not to a client storage lane.
+So the 50 MB POST cap and the 746-row server history are **not** improved by this section, and
+saying otherwise would be an unmeasured claim.
 
 ---
 

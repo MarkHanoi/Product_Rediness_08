@@ -46332,3 +46332,166 @@ than the defect above — rarer and equally silent. Pascal never meets it becaus
 single-writer SQLite; PRYZM's is not. Step 2 is only correct with a snapshot watermark
 (`pg_snapshot_xmin`), or seq allocated under the insert's own lock, or seq kept as a hint with the
 composite cursor remaining authoritative. **Do not ship a bare `MAX(seq)` cursor.**
+
+
+---
+
+### L-9980 — ⭐ CLOSED, founder-approved: the temporal journal is stored ONCE per project. **34.33 MB → 2.32 MB, 14.8×, 30 432 records still there**
+
+**L-8704 measured it and left it open for the founder's call. He approved it.** This is the (c)
+option of **L-5823** — *"move the journal out of band … the architecturally right answer"* — and it
+is now `C05 §3.8`, binding.
+
+**MEASURED** (`node --expose-gc tools/perf/bench-journal-sidecar.mjs`, committed, calibrated to his
+exact shape: 281 elements / 30 432 mutations / 20 versions):
+
+| | before (v2) | after (v3) | |
+|---|---|---|---|
+| stored container | **34.33 MB** (36 001 562 chars) | **2.32 MB** (2 434 764 chars) | **14.8×** |
+| ⛔ journal records retained | 30 432 | **30 432** | **NOTHING DROPPED** |
+| one version, raw | 7.29 MB | **0.15 MB** | the journal was **97.9 %** of it |
+| chars DEFLATEd per autosave | 7 641 400 | **269 556** | **28×** |
+| append one version | 684 ms | **59 ms** | 11.6× |
+| version-history panel (inflate 20) | 4476 ms | **467 ms** | 9.6× |
+| ⚠ narrow open, COLD | 245 ms | **222 ms** | **≈ unchanged** |
+| narrow open, 2nd in session | 245 ms | **36 ms** | 6.8× |
+
+**The format.** `V3_CONTAINER_MARKER + {f:3, j:{k,n,c:[{b,n,h}]}, v:[{i,b,r?}]}` — the v2 idea
+(per-version blobs, so a save carries unchanged versions forward as BYTES) plus ONE shared,
+CHUNKED, digest-verified journal. `temporalGraph.mutations` leaves the stored snapshot and becomes
+`temporalGraph.mutationsRef = {v,n}`; `r` on the envelope entry mirrors the cursor so the container
+can answer *"does anything still index the journal?"* without inflating a snapshot (C05 §3.6 req 1).
+
+⛔ **THE FIX IS NOT DELETION AND THE TESTS SAY SO IN THE SAME BREATH AS THE BYTES.** Every
+before/after assertion pairs the size reduction with `expect(afterRecords).toEqual(beforeRecords)`.
+A test asserting only *"smaller"* passes identically against a retention cap — which C05 §3.5 and
+L-5823 rule out by name, and which is the one outcome the founder was never asked for.
+
+⭐ **CHUNKED, BECAUSE OTHERWISE THE COPYING JUST MOVES.** A single journal blob would still be
+re-DEFLATEd whole on every autosave to append four records. Sealed chunks (2000 records) are
+immutable, so a save re-compresses only the tail — the same *carry-unchanged-bytes-forward* property
+`_PendingSlot` already gives the versions, applied to the journal. That is the 28× row.
+
+### L-9981 — ⛔ THE APPEND-ONLY PROPERTY IS **CHECKED**, NOT ASSUMED — and a divergent lineage is stored inline
+
+A cursor describes the past faithfully only while the shared journal really is append-only. **The
+model does not guarantee that.** Restore an older version and save from it and the new journal is
+not an extension of the stored one; replacing the stored journal would then silently change what
+every OTHER version's cursor means — data loss with no error message and no way to notice.
+
+So `isJournalExtension()` verifies the incoming list still begins with the stored one before any
+sharing happens: reference equality first (within a session `serialize()` hands back the very same
+objects — `[...this._mutations]` is a shallow copy), falling back to `id` equality for the
+post-reload case. **O(n) comparisons, zero `JSON.stringify`** — the check must not cost what the
+change saves.
+
+On divergence the writer stores that version's journal **INLINE** and leaves the shared one
+untouched. The journal is replaced only when the envelope proves nothing indexes it any more.
+
+⚠ **AND `edges` ARE NOT SHARED, WHICH IS A MEASURED PROPERTY AND NOT A PREFERENCE.**
+`NodeMutationRecord`s are pushed and never touched again (`grep -n "_mutations"
+packages/core-app-model/src/TemporalGraph.ts` → `push`, `length = 0`, reads; no field assignment).
+`TemporalEdge` is the opposite: `expireEdge()` writes `validUntil` **in place** on a live object
+(`TemporalGraph.ts:241`) — the seam L-8704 already reported. A shared edge store with a per-version
+cursor would hand an old version an edge written AFTER it was stamped: a different value at the same
+index, i.e. a manufactured digest mismatch. Sharing edges needs `TemporalEdge` made immutable first.
+**The per-open probe prints both counts, so if edges ever become a material share the next console
+paste says so instead of inviting a guess.**
+
+### L-9982 — ⭐ THE FOURTH FALSE "CORRUPT" WAS PREVENTED, NOT DIAGNOSED
+
+`SnapshotIntegrity.ts` records two shipped incidents in which the digest was computed at SAVE over
+one representation and recomputed at LOAD over another. The second (L-360) **bricked a real
+1009-element project**; the third (L-8700) hit two healthy projects on 2026-08-23. **This change
+alters what a stored snapshot CONTAINS. That is the ignition condition, exactly.**
+
+Closed three ways, and ⛔ **none of them is an exclusion**:
+
+1. **Coverage unchanged.** The stamp is still taken over the WHOLE snapshot with the journal inline
+   and verified over a snapshot with the journal inline; detach and re-attach happen strictly BELOW
+   both. `CHECKSUM_EXCLUDED_TOP_KEYS` still holds **exactly two members**. C05 §3.7 req 4 forbids
+   adding a MODEL member to silence a mismatch and `temporalGraph` is the largest one there is — so
+   the journal stays inside the DIGEST while moving outside the STORAGE RECORD. Those are different
+   questions and only the second was touched. A test asserts the digest still MOVES when the journal
+   changes, so *"it was quietly excluded"* is falsifiable rather than promised.
+2. **A faithful reassembly is compared at FULL strength.** The canonical form sorts keys, so ORDER
+   cannot perturb it; re-attachment restores exactly the key set that was detached. A test
+   re-attaches in the WORST possible order and gets the identical digest.
+3. **An unfaithful reassembly is `comparable:false`, never `ok:false`** — the same disposition
+   already used for algorithm drift and in-flight migration, with the reason attached and ⛔ without
+   naming the user's file or any actor outside PRYZM. *This one would have been the worst of the
+   four: the file intact, the difference introduced by PRYZM's own read path.*
+
+⭐ **THE CARRIER IS A NON-ENUMERABLE `Symbol.for`-KEYED MARKER, and both halves are load-bearing.**
+`Object.keys` (which the canonicaliser walks) returns neither symbols nor non-enumerable keys;
+`JSON.stringify` serialises neither; spread copies enumerable symbols but not non-enumerable ones;
+`structuredClone` drops both. **So the mechanism cannot reach disk and cannot move a checksum.** A
+plain string key would have been a new snapshot member — i.e. the L-8700 defect, committed on
+purpose. `Symbol.for` rather than `Symbol()` because this repo ships TWO copies of the loader and a
+module-local symbol would go invisible across the copy boundary, where the reader would silently see
+*"no marker"* and compare at full strength something it could not verify.
+
+### L-9983 — a rotted journal chunk yields the VERIFIED PREFIX — never null, never the suspect bytes
+
+Each chunk carries an FNV-1a digest over its exact JSON text, recomputed at read over the text that
+had to be inflated anyway — so verification is free. On a mismatch:
+
+* returning `null` would **discard verified history to punish one bad chunk**;
+* returning the suspect chunk would **hand the loader records whose bytes did not survive**.
+
+It returns the prefix. The project opens, carrying every record that verified; the shortfall makes
+the reassembly inexact, so the digest says NOT COMPARABLE; and the chunk index is printed. Nothing
+is deleted from storage on any of these paths.
+
+⚠ **The mirror is keyed by chunk DIGEST, not by bytes**, so a session that already verified this
+journal keeps serving the records it has in RAM — correct behaviour, and the reason the test for
+this case has to drop the module's per-project state to model a COLD open. Written down because it
+briefly made that test measure the cache instead of the rot.
+
+### L-9984 — the migration is a COMPACTION, and the lazy path is the floor it falls back to
+
+⛔ **Without any migration at all this change still delivers** — twenty autosaves later. Existing
+entries keep their inline journals and age out of the ring, so the container falls ~1.8 MB per save
+and lands at ~2.4 MB after twenty. **That lazy path is the safe floor and is what runs if anything
+declines.** A one-time compaction exists because the founder's complaint is about OPENING, and an
+open pays for the container that is on disk *now*.
+
+It is bounded by construction: **at most once per project per session**, only when ≥2 stored
+versions carry an inline journal, **one version decoded at a time** (twenty simultaneously-parsed
+8.8 MB snapshots is hundreds of MB of live objects), and every version checked INDIVIDUALLY — one
+whose journal is not a verified prefix keeps its own, and one that will not decode is carried
+forward as its **original bytes**. There is no path in it that drops a record.
+
+⭐ **AND THE GUARD THAT MAKES IT FREE FOR PROJECTS WITH NO JOURNAL WAS FOUND BY A COUNTED-WORK
+ASSERTION, NOT BY REVIEW.** The first cut decoded the newest stored version to discover whether
+there was a journal to share — so a project with none paid one inflate to learn nothing.
+`versionRepositoryEnvelopeWrite.test.ts`'s *"appends a version while inflating NOTHING"* went
+**0 → 1** and failed. Its own header says it counts work rather than answers because *"a test that
+only checks the stored history is correct passes just as happily against the old implementation"*.
+It caught a regression written a week later by a different lane. The fix: ask the LIVE record first
+— `detachJournalMutations` is two shallow clones and no inflate, and its answer decides whether
+compaction is worth attempting at all.
+
+### L-9985 — ⚠ WHAT THIS DID **NOT** FIX, stated so no one reads the 14.8× as an open-time claim
+
+1. ⚠ **THE COLD OPEN'S CPU LEGS ARE ≈ UNCHANGED: 245 → 222 ms.** The loader genuinely needs the
+   journal, so it is still inflated and parsed once. What an open sheds is the **container the
+   browser must read out of IndexedDB**, 14.8× smaller — a browser-only leg no Node bench can
+   measure. ⛔ **Any claim about *"opens take minutes"* must cite `§PROBE-OPEN-PATH-STORAGE-LEG`
+   from his session, not the bench.** The probe now prints a fifth leg (`journal-attach`) so the fix
+   cannot quietly cost an open a leg the instrument stopped naming — §L-8703's whole point.
+2. **THE SERVER IS UNCHANGED.** `POST /api/projects/:id/versions` still receives the whole snapshot
+   with the journal inline (deliberately — that is a documented C05 §3 route shape and belongs with
+   L-5831/L-5832, not a client storage lane). **The 50 MB POST cap and the 746 server rows are not
+   improved by this.** `ServerSyncQueue`'s own persisted queue also still carries full snapshots.
+3. **AUTOSAVE IS STILL TWO WHOLE-CONTAINER WRITES** (L-8702's floor). ⭐ But the denominator moved
+   by 14.8×: the second write now costs **~2.3 MB, not ~36.8 MB**. The `syncStatus` sidecar named at
+   L-8702 / audit-D row 9 would save ~2.3 MB per autosave instead of ~36.8 MB — **so it is now a
+   much weaker candidate, which is exactly what row 9's own *"do it AFTER #1"* predicted.** Its
+   remaining case is the write COUNT, not the bytes.
+4. **`_journalMirror` is a per-project record array held for the session** — ~7 MB for the
+   founder's project, the same objects the live `TemporalGraph` already holds, but a second
+   reference. Bounded by project count in a session and dropped on `deleteVersions`; not measured
+   under many open projects.
+5. ⚠ **`MAX_MUTATIONS` in `TemporalGraph` still exists and is untouched.** This lane did not look at
+   it and makes no claim about it.

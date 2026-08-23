@@ -212,6 +212,7 @@ ${refusal.evidence}`;
     lbl.textContent = 'Change Level';
 
     const sel = document.createElement('select');
+    sel.className = 'gpp-level-change-select';
     sel.style.cssText = 'flex:1;font-size:11px;padding:2px 4px;border:1px solid #ccc;border-radius:4px;background:#fff;';
 
     allLevels.forEach((lvl: any) => {
@@ -222,7 +223,74 @@ ${refusal.evidence}`;
         sel.appendChild(opt);
     });
 
-    sel.addEventListener('change', () => {
+    // ── §FIX-LEVEL-MOVE-NEEDS-A-GESTURE (L-10060) — CHOOSE, THEN CONFIRM ──────
+    //
+    // ⛔ THIS ROW USED TO DISPATCH ON `change`, AND THAT WAS THE FOUNDER'S BUG.
+    // Reported 2026-08-23: *"after changing material and colour of the slab — it
+    // shifts location — it moves"*, with
+    //   `[elementLevelChangedMirror] §L-946: slab slab_01M0R5… moved L0 → L1787517791662`
+    // logged BEFORE `UPDATE_SLAB_LAYERS` and `UPDATE_ELEMENT_PARAMETER`, i.e.
+    // before either material edit committed. `_buildLevelChangeRow`'s `change`
+    // listener is the ONLY site in the whole client that dispatches
+    // `<family>.changeLevel` outside the AI host — measured, not assumed — so the
+    // storey move happened while he was on his way DOWN this panel to the Layers
+    // table, which lives two sections below in a `.gpp-panel { overflow-y:auto }`
+    // scroller. A `<select>` sitting in the scroll path fires `change` on a wheel
+    // tick or an arrow key in browsers that steer selects that way, and this one
+    // turned that into an irreversible-looking storey move plus a
+    // `LevelPlaneConstraint` re-lock at Y=2.8.
+    //
+    // ⭐ THE FIX IS THE DISCIPLINE THIS FILE ALREADY WROTE DOWN, ONE ROW OVER.
+    // `_buildDuplicateToLevelRow` below says, in its own header: *"committing it
+    // on the same accidental scroll-wheel over a `<select>` would scatter copies
+    // through the model. The target is chosen, then confirmed."* The reason given
+    // there for NOT trusting a bare `change` — that the gesture is destructive and
+    // a wheel is not a decision — is exactly as true of a storey move, and the
+    // sentence that excused this row (*"picking a storey IS the gesture and it is
+    // reversible with Ctrl+Z"*) was wrong twice over: §L-1085 records that
+    // `<family>.changeLevel` REFUSES on a reloaded project, so the user cannot rely
+    // on symmetry, and `slab.changeLevel` had **no sync disposition at all**, so in
+    // a shared project the move was not even replicated (L-10062 below).
+    //
+    // This is the structural half of the founder's *"make it impossible by
+    // construction, not a guard on one path"*: no `change`, no wheel, no stray
+    // keystroke and no re-render can move an element any more, for ANY of the
+    // twelve families in `LEVEL_CHANGE_VERBS` — they all render THIS row. The
+    // other half is in `UpdateElementParameterCommand`, which now refuses a
+    // level-bearing key outright so no property edit can re-file an element either.
+    const moveBtn = document.createElement('button');
+    moveBtn.type = 'button';
+    moveBtn.className = 'gpp-level-change-move';
+    moveBtn.textContent = 'Move';
+    moveBtn.style.cssText = 'font-size:11px;padding:3px 10px;border:1px solid #6600FF;border-radius:4px;background:#6600FF;color:#fff;cursor:pointer;';
+
+    const status = document.createElement('div');
+    status.className = 'gpp-level-change-status';
+    status.style.cssText = 'font-size:11px;margin-top:4px;line-height:1.4;color:#777;';
+
+    /** The button is live only when the chosen storey is not the one we are on. */
+    const syncArmed = (): void => {
+        const armed = sel.value !== String(elementData.levelId);
+        moveBtn.disabled = !armed;
+        moveBtn.style.opacity = armed ? '1' : '0.4';
+        moveBtn.style.cursor = armed ? 'pointer' : 'default';
+        moveBtn.title = armed
+            ? `Move this ${elType} to the selected storey.`
+            : 'This is the storey the element is already on.';
+    };
+
+    // The select now only STAGES a target. Nothing here reaches the bus.
+    sel.addEventListener('change', syncArmed);
+    syncArmed();
+
+    moveBtn.addEventListener('click', () => {
+        // Re-checked at dispatch, not merely at paint: an accidental double-fire,
+        // or a repaint that re-armed the button, must still be a no-op rather than
+        // a second command on the undo stack.
+        if (sel.value === String(elementData.levelId)) {
+            syncArmed();
+            return;
+        }
         const selectedLevel = allLevels.find((l: any) => l.id === sel.value);
         // The payload is BUILT from the register, never typed out here. Each
         // family spells the same two fields differently (`id`/`newLevelId`,
@@ -237,13 +305,28 @@ ${refusal.evidence}`;
             sel.value,
             typeof selectedLevel?.elevation === 'number' ? selectedLevel.elevation : undefined,
         );
+        status.style.color = '#777';
+        status.textContent = `Moving to ${selectedLevel?.name ?? sel.value}…`;
+        // C16 CA-21 — REPORT WHAT THE ROUTE ACTUALLY DID. §L-1085 means this verb
+        // genuinely refuses on a reloaded project; printing nothing on a refusal is
+        // how "it silently did not move" reads as "it moved and the view is stale".
         window.runtime?.bus?.executeCommand(spec.verb, payload)
-            ?.catch((e: Error) => console.warn(`[PropertyPanel] ${spec.verb} failed:`, e));
+            ?.then(() => {
+                status.style.color = '#2e7d32';
+                status.textContent = `Moved to ${selectedLevel?.name ?? sel.value}.`;
+            })
+            ?.catch((e: Error) => {
+                console.warn(`[PropertyPanel] ${spec.verb} failed:`, e);
+                status.style.color = '#b00020';
+                status.textContent = `Could not move: ${e?.message ?? String(e)}`;
+            });
     });
 
     row.appendChild(lbl);
     row.appendChild(sel);
+    row.appendChild(moveBtn);
     wrap.appendChild(row);
+    wrap.appendChild(status);
     return wrap;
 }
 

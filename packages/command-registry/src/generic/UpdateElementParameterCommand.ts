@@ -172,6 +172,24 @@ export function snapshotScopeForElementType(elementType: string): readonly Store
     return elementStoreRoute(elementType)?.scope ?? EMPTY_SCOPE;
 }
 
+/**
+ * §FIX-LEVEL-MOVE-NEEDS-A-GESTURE (L-10061) — the parameter keys that are STOREY
+ * ROUTING rather than element properties, and are therefore refused on the
+ * generic parameter path.
+ *
+ * ONE list, exported, because the question *"which keys re-file an element
+ * between storeys?"* had no authority anywhere before this (C84 EI-9). It is
+ * deliberately NOT derived from `@pryzm/command-bus`'s `LEVEL_CHANGE_VERBS`:
+ * that register answers a different question (*which family may move, by which
+ * verb, with which payload spelling*), `command-registry` does not depend on
+ * `command-bus`, and adding the dependency to satisfy a three-string constant
+ * would be a manifest change for no reachability gain.
+ *
+ * @see canExecute — the reasoning, the measurement that no legitimate caller
+ *      passes these, and why `baseLevelId` / `topLevelId` are excluded.
+ */
+export const LEVEL_ROUTING_PARAMETER_KEYS: readonly string[] = ['levelId'];
+
 export class UpdateElementParameterCommand implements Command {
     /**
      * §FIX-SNAPSHOT-SCOPE-MATCHES-WRITE (L-947) — PER-INSTANCE, derived from the
@@ -248,6 +266,64 @@ export class UpdateElementParameterCommand implements Command {
         }
         if (!this.input.parameters || Object.keys(this.input.parameters).length === 0) {
             return { ok: false, reason: '[UpdateElementParameterCommand] parameters must not be empty' };
+        }
+
+        // ── §FIX-LEVEL-MOVE-NEEDS-A-GESTURE (L-10061) — A STOREY IS NOT A PROPERTY ──
+        //
+        // Founder, 2026-08-23: *"after changing material and colour of the slab — it
+        // shifts location — it moves … make that impossible by construction, not by a
+        // guard on one path."* The dispatch that actually moved his slab was the
+        // property panel's storey `<select>` (fixed at that site — see
+        // `PropertyPanelSections._buildLevelChangeRow`), but the sentence asks for more
+        // than that one site, and this is the other route a material or colour edit
+        // could ever take: `element.updateParameters` reaches
+        // `store.update(id, {...existing, ...parameters})` for slab (:858) and
+        // furniture, and a PARTIAL MERGE carrying `levelId` would re-file the element
+        // on another storey with NOTHING else happening.
+        //
+        // ⭐ WHY THAT IS A CORRUPTION AND NOT MERELY A WRITE. A storey move is FOUR
+        // effects, and the family's own `<family>.changeLevel` verb owns all four:
+        //   1. the legacy record moves store (`elementLevelChangedMirror`, §L-946);
+        //   2. the element's WORLD Y is re-seated from the destination's elevation —
+        //      four of the twelve families re-seat by DELTA and REFUSE without both
+        //      elevations (`levelChangeVerbs.ts` `heightFollowsLevel`), so a bare
+        //      `levelId` write leaves the element hovering at the old floor's height;
+        //   3. `CommandEventBridge` emits `element.level-changed` so plan views,
+        //      visibility and the spatial index re-file it;
+        //   4. the undo inverse routes through `store.changeLevel`, not through the
+        //      generic `update(id, {levelId})` — which for a REPLACE store is the
+        //      L-977 annihilation shape (`levelChangeVerbs.ts` header: *"Ctrl+Z after
+        //      a level change would destroy the element"*).
+        // NONE of the four happens on this path. So this is not a stricter validator;
+        // it is the refusal that makes "a property edit cannot move an element between
+        // storeys" TRUE, rather than true-because-the-panel-marks-the-field-readonly.
+        //
+        // ⚠ MEASURED SAFE, not assumed (2026-08-23). `levelId` is the sole member of
+        // `GLOBAL_PROPERTY_EXCLUDES` (`packages/sync-client/src/syncDisposition.ts:101`),
+        // so collaboration replay can never carry it here; `grep -c levelId
+        // ChatCapabilityRegistry.ts` → **0**, so no RAC capability writes it; and the
+        // panel declares it `READONLY` in every descriptor family
+        // (`PropertyDescriptorGenerator.ts`). There is no legitimate caller to break —
+        // which is exactly why the hole stayed open and unnoticed.
+        //
+        // `baseLevelId` / `topLevelId` are deliberately NOT refused here. They are a
+        // SPAN, not a routing key, and `StairLevelSpanWidget.ts:28` already records
+        // that the generic route is wrong for them for a different reason (it would
+        // desync `riserHeight × riserCount`). Widening this refusal to cover them
+        // would be an unmeasured change to stair replay, and an over-refusal in a
+        // validator's voice is a defect this repo has logged in its own right (L-1430).
+        const levelKey = Object.keys(this.input.parameters)
+            .find((k) => LEVEL_ROUTING_PARAMETER_KEYS.includes(k));
+        if (levelKey !== undefined) {
+            return {
+                ok: false,
+                reason:
+                    `[UpdateElementParameterCommand] "${levelKey}" is a storey ROUTING key, not a property — ` +
+                    `refused so that a property edit (material, colour, dimensions) can never re-file an ` +
+                    `element on another storey. Dispatch this ${this.input.elementType}'s own ` +
+                    `\`<family>.changeLevel\` verb instead (see packages/command-bus/src/levelChangeVerbs.ts), ` +
+                    `which re-seats the world height, moves the legacy record and gives Ctrl+Z a real inverse.`,
+            };
         }
 
         // ── §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812 precedent, extended by L-814) ──
