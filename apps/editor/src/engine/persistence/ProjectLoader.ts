@@ -333,7 +333,11 @@ export function snapshotHasElements(
         len(snapshot.handrails) + len(snapshot.plumbing) + len(snapshot.curtainWalls) +
         len(snapshot.beams) + len(snapshot.ceilings) + len(snapshot.floors) +
         len(snapshot.rooms) + len(snapshot.lighting) + len(snapshot.doors) +
-        len(snapshot.windows) + len(snapshot.grids);
+        len(snapshot.windows) + len(snapshot.grids) +
+        // L-9948 — a boundary line is an element. A project whose ONLY content is
+        // setting-out lines would otherwise read as empty, and "empty" is what this
+        // predicate protects against overwriting.
+        len((snapshot as { boundaryLines?: unknown }).boundaryLines);
     return total > 0;
 }
 
@@ -1542,6 +1546,78 @@ export class ProjectLoader {
                         this.recordFail(result, `Lighting ${lt.id}`, { success: false, affectedElementIds: [], error: String(e) });
                     }
                 }
+            }
+
+            // ── Step 10c: Boundary lines ─────────────────────────────────────
+            // §FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9948) · C106.
+            //
+            // ⛔ THE THIRD OF THIS FAMILY'S THREE BREAKS. Measured 2026-08-23:
+            // `grep -c "boundaryLine" ProjectSerializer.ts` → **0**, in both copies —
+            // so a boundary line the architect drew committed, rendered (after
+            // L-9944), and was gone on the next open. The save half is now written;
+            // this is the restore half, and a save without a restore is a file that
+            // holds the data and an editor that cannot show it.
+            //
+            // ⭐ IT DISPATCHES THE BUS VERB, NOT A STORE WRITE. `boundaryLine.create`
+            // is the ONE creation path (C11 §1), and going through it is what makes a
+            // restored line identical to a drawn one: the same Zod parse, the same
+            // `CommandEventBridge` case, the same §FT-BOUNDARY-LINE subscriber, the
+            // same mesh. Writing `runtime.stores.boundaryLine` directly here would
+            // populate the store and draw NOTHING — which is precisely the defect
+            // (`committed ≠ reachable`) this whole lane exists to close.
+            //
+            // ⚠ ASYNC, AND THE FAILURE IS NAMED RATHER THAN AWAITED. The bus verb
+            // returns a promise; every other restore on this path is a synchronous
+            // legacy `exec(cmd)`, and making this one await would serialise the whole
+            // load behind N round-trips. The `.catch` is what keeps a refusal visible
+            // — a swallowed rejection here would reproduce the silence the record
+            // already suffered once.
+            const snapshotBoundaryLines = (snapshot as { boundaryLines?: any[] }).boundaryLines;
+            if (Array.isArray(snapshotBoundaryLines) && snapshotBoundaryLines.length > 0) {
+                console.log(`[ProjectLoader] Loading ${snapshotBoundaryLines.length} boundary lines`);
+                for (const bl of snapshotBoundaryLines) {
+                    try {
+                        window.runtime?.bus?.executeCommand('boundaryLine.create', {
+                            // ⛔ THE ID IS CARRIED, NEVER RE-MINTED. `attachments[]` on
+                            // OTHER lines and every future reference key on it, and a
+                            // fresh id would orphan all of them silently (C16 CA-2 is the
+                            // same rule for redo).
+                            boundaryLineId: bl.id,
+                            levelId:        bl.levelId,
+                            vertices:       bl.vertices,
+                            closed:         bl.closed,
+                            drawMode:       bl.drawMode,
+                            hasVolume:      bl.hasVolume,
+                            // ⚠ EVERY OPTIONAL DIMENSION IS FORWARDED AS-IS, INCLUDING
+                            // `undefined`. "Unset" is a first-class state meaning *resolve
+                            // me from the systemType, then the documented default* (L-127),
+                            // and coercing it to a number here would BAKE the default into
+                            // the record on the first reload — a silent one-way migration
+                            // that destroys the tier the resolver exists for.
+                            height:         bl.height,
+                            thickness:      bl.thickness,
+                            baseOffset:     bl.baseOffset,
+                            systemTypeId:   bl.systemTypeId,
+                            materialId:     bl.materialId,
+                            materialColor:  bl.materialColor,
+                            name:           bl.name,
+                        })?.then(() => { result.loaded++; })
+                          ?.catch((e: unknown) => {
+                            console.warn(
+                                `[ProjectLoader] boundaryLine.create failed for '${bl?.id}' — ` +
+                                `the line is in the file and will NOT be on screen:`, e);
+                        });
+                    } catch (e) {
+                        this.recordFail(result, `BoundaryLine ${bl?.id}`, { success: false, affectedElementIds: [], error: String(e) });
+                    }
+                }
+                // ⚠ ATTACHMENTS ARE NOT RESTORED HERE, AND THAT IS NAMED RATHER THAN
+                // FORGOTTEN. `CreateBoundaryLineHandler` writes `attachments: []` by
+                // construction, so a reloaded line loses which walls and slabs were
+                // anchored to it — the propagation edge survives in the FILE (it is
+                // serialised on the record) and not in the STORE. Restoring it needs
+                // `boundaryLine.attach` per attachment AFTER every dependent family has
+                // loaded, which is a later step than this one. L-9950.
             }
 
             // ── Cancellation check (before Step 11) ───────────────────────────
@@ -2887,6 +2963,14 @@ export class ProjectLoader {
                 // trains the reader to discount a P0 line. (§CONTEXT-DATA-HONESTY: the
                 // audit's model and the world disagreed, and the model won the log.)
                 __pushIds(s.lighting);
+                // L-9948 — `boundaryLines`, for the same COMPLETENESS reason as
+                // `lighting` above (§L-711). A restored boundary line registers an
+                // `elementRegistry` root; omitting it here would make the §L-325 audit
+                // report every legitimately-restored line as "a FOREIGN root FROM A
+                // PRIOR PROJECT". An incomplete expectation does not weaken an audit
+                // quietly — it makes it accuse the innocent, which trains the reader to
+                // discount a P0 line.
+                __pushIds(s.boundaryLines);
                 // §C13-SCENE-ID-KEY — `levels`, for the same COMPLETENESS reason as
                 // `lighting` above (§L-711), surfaced by the same widening.
                 //

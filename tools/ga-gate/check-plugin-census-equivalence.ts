@@ -137,17 +137,50 @@ const BASELINE = {
     'navigate', 'plan-view', 'render', 'rhino-import', 'schedules',
     'sheets', 'toy-cube', 'visibility-intent',
   ],
-  /** B — on disk, absent from what `runtime.plugins.list()` reports. */
+  /**
+   * B — on disk, absent from what `runtime.plugins.list()` reports.
+   *
+   * ⭐ RATCHETED DOWN 13 → 8 on 2026-08-23 (lane MIRROR3, L-9949): the five that
+   * left are `balcony`, `boundary-line`, `floor`, `lift`, `pool` — the same five
+   * that left arm E, because one edit (five `PLUGIN_CATALOG` rows in
+   * `packages/runtime-composer/src/PluginHost.ts`) moves BOTH arms. That is not a
+   * coincidence to note in passing: arm B is `DISK \ CATALOG` and arm E is
+   * `(REGISTRY ∩ DISK) \ CATALOG`, so E ⊆ B by construction and anything that
+   * leaves E leaves B too. The eight that REMAIN are all arm-A members — on disk,
+   * contributing nothing at boot — and a catalog row for one of them would be a
+   * claim, not a fix.
+   */
   diskWithoutCatalog: [
-    'balcony', 'boundary-line', 'dxf', 'export-pdf', 'family-editor', 'floor',
-    'geospatial', 'levels', 'lift', 'navigate', 'pool', 'render',
+    'dxf', 'export-pdf', 'family-editor',
+    'geospatial', 'levels', 'navigate', 'render',
     'visibility-intent',
   ],
   /**
-   * E — WIRED AT BOOT AND INVISIBLE TO `runtime.plugins`. Five real element
-   * families the editor boots and the runtime does not admit to having.
+   * E — WIRED AT BOOT AND INVISIBLE TO `runtime.plugins`.
+   *
+   * ⭐ **CLOSED — RATCHETED 5 → 0 on 2026-08-23** (lane MIRROR3, L-9949), by the
+   * one-file fix lane PLUGIN2 named at its close: five `PLUGIN_CATALOG` rows in
+   * `packages/runtime-composer/src/PluginHost.ts` for `balcony`, `boundary-line`,
+   * `floor`, `lift` and `pool` — five real element families the editor booted and
+   * the runtime did not admit to having.
+   *
+   * ⛔ EACH ROW WAS CHECKED AS A CLAIM, NOT AS A COUNT. PLUGIN2 refused this same
+   * edit for seven OTHER plugins whose handlers only `console.debug` (ADR-0367
+   * names them), and the eight remaining arm-B members are arm-A members that
+   * contribute nothing at boot. Only the intersection with the boot registry was
+   * added — which is exactly what this arm measures, so the arm cannot be zeroed
+   * by advertising something that does not exist without arm C going red.
+   *
+   * ⚠ AND ZERO HERE IS NOT "THE FIVE WORK". This arm measures VISIBILITY to
+   * `runtime.plugins.list()`. Whether a pool RENDERS is a different axis — L-9940
+   * ..L-9948, proven by executed read-backs at the render store and the mesh —
+   * and the boundary line still does not survive a reload (L-9948).
+   * [[verification-dispatch-rendering-three-milestones]].
+   *
+   * ⛔ An empty baseline is the STRONGEST state this arm can be in: any new
+   * plugin wired at boot without a catalog row now trips it immediately.
    */
-  registeredButUncatalogued: ['balcony', 'boundary-line', 'floor', 'lift', 'pool'],
+  registeredButUncatalogued: [] as readonly string[],
   /**
    * F — registered, but outside `ELEMENT_PLUGIN_IDS`, so the bootstrap suite's
    * per-plugin storeKey assertion never iterates them.

@@ -111,6 +111,26 @@ export interface ProjectSnapshot {
     handrails: any[];
     plumbing: any[];
     openings: any[];
+    /**
+     * §FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9948) · C106 — construction /
+     * setting-out BOUNDARY LINES.
+     *
+     * ⛔ **ADDED HERE BECAUSE THERE ARE TWO `ProjectSerializer.ts` FILES AND ONLY
+     * ONE IS THE ONE PRODUCTION RUNS.** `initPersistence.ts:109` constructs
+     * `apps/editor/src/engine/persistence/ProjectSerializer.ts`; this copy is not
+     * on the app's path. **PV-05 was once recorded closed against the wrong copy**
+     * (`8cab70c1` hydrated this one, which the app never builds), so the field lands
+     * in both — here as the SHAPE, there as the shape AND the write.
+     *
+     * ⚠ AND THAT ASYMMETRY IS STATED RATHER THAN QUIETLY EVENED OUT: this copy's
+     * `serialize()` does not populate the key, exactly as it does not populate
+     * `lighting` or `curtainPanels`. Making it write one would mint a SECOND
+     * producer of the snapshot and put two answers on one question (C84 EI-9). The
+     * shape is here so a reader of this file cannot conclude the family is
+     * unpersisted, and so a future consolidation has one type to unify rather than
+     * two to reconcile.
+     */
+    boundaryLines?: any[];
     elementCount: number;
     /** Room Bounding Lines — virtual partition elements (§ROOM-BOUNDING). Optional for backward compat. */
     roomBoundingLines?: any[];

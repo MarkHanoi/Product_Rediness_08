@@ -339,6 +339,70 @@ type ElementCreationHandler<P> = (
 - Declare `affectedStores: ['elements', ...]` in the handler descriptor (runtime throws if absent).
 - Complete the synchronous portion (store mutation only) within ≤ 16 ms (C10 NFT 4).
 
+### §5.2.1 — MUTATIONS EMIT TOO, AND FOR EIGHT MONTHS NONE DID (NORMATIVE), added 2026-08-23
+
+> Added by lane MIRROR3 (L-9940…L-9948). §5.2 above says *"Emit a typed domain event via
+> `runtime.events.emit(eventName, payload)` after store mutation succeeds"* — and it was
+> read, universally, as a rule about **creation**.
+
+**MEASURED, and it is one number:**
+
+```
+grep -c "\.created'"  apps/editor/src/engine/initTools.ts   ->  17
+grep -c "\.updated'"  apps/editor/src/engine/initTools.ts   ->   0
+```
+
+Seventeen create-mirrors. **Zero update-mirrors.** Every element family could be CREATED
+and reach the render layer; **none could be UPDATED and reach it.** That single asymmetry
+is the mechanical cause of four separately-reported founder defects — the invisible pool,
+the invisible boundary line, the lift shaft that penetrates the model and not the screen
+(L-9403), and the thirteen `*.setMaterial` verbs that had to be turned into refusals
+(§FIX-MATERIAL-DEAD-DISPATCH, ADR-0117).
+
+**THE RULE.** §5.2's emit obligation binds **every** verb that mutates authoritative state,
+not only creates. Concretely, there are now **three** channels and a verb MUST use the one
+that fits:
+
+| what changed | channel | shape |
+|---|---|---|
+| a new element exists | `<family>.created` | per-family, carries GEOMETRY |
+| its storey changed | `element.level-changed` (§L-946) | family-agnostic, TABLE-driven (`LEVEL_CHANGE_VERBS`) |
+| a field of it changed | `element.updated` (§MIRROR-UPDATE, L-9942) | family-agnostic, TABLE-driven (`ELEMENT_UPDATE_VERBS`) |
+
+⭐ **THE TWO MUTATION CHANNELS ARE TABLES, NOT `case` BLOCKS, AND THE REASON IS IN THIS
+CONTRACT'S OWN HISTORY.** The twelve (now eighteen) `.created` cases are one block per
+family, and §7 of this contract is a table of the fields they each silently dropped —
+`materialColor`, `layers`, `curve`, `finishSpec`, one family at a time, each its own
+founder-visible defect (L-927, L-239, L-972, L-973). A mutation carries the same three
+facts for every family, so it gets ONE event, ONE subscriber, and a row per verb.
+
+⛔ **A COMPOUND EMITS ITS MEMBERS' EVENTS — INCLUDING ITS MUTATIONS.** §5.2's create rule
+already produces the balcony/lift/pool idiom (one member event per member, stamped with the
+MEMBER's own verb, because every legacy mirror keys on COMMAND TYPE). The same applies to
+the parts of a compound that MUTATE something pre-existing: `pool.create` punches a void in
+its host slab and `lift.create` punches one per served storey, and both are `replace`
+patches on an EXISTING record that no create-mirror can see. Both now emit
+`element.updated`. **A compound that mutates a host and emits only creates is a partial
+create reported as a complete one.**
+
+⛔ **AND A MEMBER WITH NO CHANNEL IS NAMED, NEVER SMUGGLED.** C104 §13.3 R-13 is generalised
+here: a create that produces a member no renderer can draw MUST say so, at the layer that
+knows, and MUST NOT reuse another family's channel to make something appear. The pool's
+WATER is the live instance — emitting `slab.created` for it would put one id on two
+families and give the water a thickness it does not have (C84 EI-9). It is reported by name
+(L-9941) and left invisible until it gets a builder of its own.
+
+⚠ **The diagnostic that reports it MUST go quiet when there is nothing to report.** A
+warning on every successful create is a warning nobody reads, which fails in exactly the way
+silence does — and it MUST NOT be deleted when its last row closes, because its job is to
+notice the NEXT member kind that arrives without a mirror.
+
+**GATE.** `tools/ga-gate/check-mirror-completeness.ts` (registered) enumerates every verb
+whose `affectedStores` names a plugin DTO store and requires a channel or a measured ledger
+row. ⚠ **It establishes DECLARATION, not reachability** — it says so on every run. C16 §5.1
+`CA-21` is the other half, and it needs an executed read-back from a RENDER / PERSIST /
+EXPORT store.
+
 ### §5.3 — Handler MUST NOT
 
 - Call `commandManager.execute()` — this is a hard violation.

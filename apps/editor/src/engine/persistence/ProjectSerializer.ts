@@ -156,6 +156,35 @@ export interface ProjectSnapshot {
     /** §PERSIST-LIGHTING — lighting fixtures (were never serialized → lost on reload). */
     lighting?: any[];
     /**
+     * §FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9948) · C106 — construction /
+     * setting-out BOUNDARY LINES.
+     *
+     * ⛔ THE THIRD OF THIS FAMILY'S THREE BREAKS, AND THE LAST TO CLOSE. Measured
+     * 2026-08-23: `grep -c "boundaryLine" ProjectSerializer.ts` → **0**, in BOTH
+     * copies. `boundaryLine.create` validated, executed, mutated its store, returned
+     * a `PatchPair` and reported success — and the record died on save. The other two
+     * breaks (no bridge case; `boundaryLineSolid()` with zero production callers)
+     * closed in L-9940/L-9944; this key is what makes the line survive a reload.
+     *
+     * ⭐ READ FROM THE ONE AUTHORITY. This family has exactly one store
+     * (`plugins/boundary-line/src/store.ts` opens by saying so — C84 EI-1 holding by
+     * construction rather than by discipline), so unlike every other slice here there
+     * is no legacy geometry twin to choose between and no chance of serialising the
+     * stale one.
+     *
+     * ADDITIVE AND OPTIONAL, so no `SNAPSHOT_SCHEMA_VERSION` bump — the disposition
+     * `lighting?` and `curtainPanels?` carry, for the identical stated reason: an old
+     * snapshot simply lacks the key, and "no boundary lines" IS the pre-fix state, so
+     * the migration is correct by construction. A bump with an empty migration step
+     * would be a lie about compatibility.
+     *
+     * ⛔ IT IS DIGEST-COVERED LIKE EVERY OTHER MODEL MEMBER. C05 §3.7 req 4 forbids
+     * adding a model member to `CHECKSUM_EXCLUDED_TOP_KEYS`, which stays at its two
+     * members. Excluding a field to make a checksum settle is the shape that produced
+     * three prior false-"corrupt" incidents.
+     */
+    boundaryLines?: any[];
+    /**
      * §L-1057 / C87 §13.1 CW-P — SPARSE curtain-panel overrides: only the panels a
      * user AUTHORED away from what the grid regenerates. A 20×10 façade with three
      * doors writes 3 entries, not 200; an untouched façade writes none.
@@ -1034,6 +1063,28 @@ export interface ProjectStores {
      * §1.8 promises a regulator.
      */
     provenanceStore?: import('@pryzm/stores').ProvenanceStore;
+    /**
+     * §FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9948) · C106 — the boundary-line
+     * store, as the NARROWEST surface this serializer needs from it.
+     *
+     * ⭐ A PORT, NOT AN IMPORT, and for the reason `BoundaryLineStorePort` already
+     * states in `@pryzm/geometry-boundary-line`: the store is built by
+     * `PluginRegistry` at L7 and hung on the runtime under its `storeKey`, so a
+     * structural shape here lets the serializer reach it without inverting a layer or
+     * importing a plugin.
+     *
+     * ⚠ It is deliberately NOT `unknown` with a cast at the call site: an `any`-shaped
+     * seam is a defect factory ([[fake-more-capable-than-real]]), and the point of the
+     * port is that a store which cannot answer `getState()` is a COMPILE error rather
+     * than a runtime silence.
+     *
+     * Optional, and the absence is honest rather than defensive: when nothing is wired
+     * the resolver below falls back to `window.runtime.stores.boundaryLine` (the same
+     * two-candidate shape `siteModelStore` uses, and for the same measured reason —
+     * a threaded reference captured at init goes stale across a runtime recomposition)
+     * and finally OMITS the key.
+     */
+    boundaryLineStore?: { getState(): Map<string, unknown> };
 }
 
 
@@ -1282,6 +1333,27 @@ export class ProjectSerializer {
         const lighting = (((window as { lightingStore?: { getAll?: () => unknown[] } }).lightingStore?.getAll?.()) ?? [])
             .map((l) => deepStrip(l));
 
+        // §FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9948) · C106 — BOUNDARY LINES.
+        //
+        // ⛔ TWO CANDIDATES, AND THE FIRST THAT ACTUALLY HOLDS RECORDS WINS — the
+        // §L-545-SITE-CAPTURE lesson, reused verbatim. `store ?? window.runtime.store`
+        // short-circuits on the REFERENCE, not on whether the store holds anything, and
+        // a reference threaded once at `initPersistence` time goes stale the moment the
+        // runtime is recomposed (project switch, renderer backend swap, device-loss
+        // recovery). That is how a serializer keeps saving from an empty store while the
+        // live one holds the model.
+        const boundaryLines = ((): unknown[] => {
+            const threaded = stores.boundaryLineStore;
+            const onRuntime = (window as {
+                runtime?: { stores?: Record<string, { getState?: () => Map<string, unknown> } | undefined> };
+            }).runtime?.stores?.['boundaryLine'];
+            for (const candidate of [threaded, onRuntime]) {
+                const state = candidate?.getState?.();
+                if (state && state.size > 0) return [...state.values()].map((b) => deepStrip(b));
+            }
+            return [];
+        })();
+
         // Room subsystem — deepStrip removes any residual THREE.js references
         const rooms = roomStore ? roomStore.getAll().map(r => deepStrip(r)) : [];
 
@@ -1349,7 +1421,11 @@ export class ProjectSerializer {
         const elementCount =
             walls.length + slabs.length + ceilings.length + floors.length + columns.length + stairs.length +
             beams.length + curtainWalls.length + roofs.length + furniture.length +
-            handrails.length + plumbing.length + rooms.length + lighting.length;
+            handrails.length + plumbing.length + rooms.length + lighting.length +
+            // ⭐ L-9948 — a boundary line IS an element, and the founder's report was
+            // literally that the count did not move. Omitting it here would leave the
+            // save log saying "14 elements" for a project with fifteen.
+            boundaryLines.length;
 
         const snapshot: ProjectSnapshot = {
             schemaVersion: SNAPSHOT_SCHEMA_VERSION,
@@ -1361,6 +1437,9 @@ export class ProjectSerializer {
             stairs, beams, curtainWalls, roofs, furniture, handrails,
             plumbing, openings, elementCount, rooms,
             lighting: lighting.length > 0 ? lighting : undefined,
+            // Omitted entirely when nothing was authored, so a project with no
+            // boundary lines produces a snapshot byte-identical to a pre-fix one.
+            boundaryLines: boundaryLines.length > 0 ? boundaryLines : undefined,
             // §L-1057 — omitted entirely when nothing was authored, so an untouched
             // project's snapshot is byte-identical to a pre-fix one.
             curtainPanels: curtainPanels.length > 0 ? curtainPanels : undefined,

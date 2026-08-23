@@ -240,6 +240,70 @@ defect. §5.1 generalises that sentence from one family to every family.
   cannot run without a browser, the honest verdict is **UNPROVEN** with the expected live path named
   — never PASS (ISSUE-LOG §9.6).
 
+#### §5.1.1 — `CA-17-M` — **THE MIRROR IS PART OF CA-17, AND FOR UPDATES IT DID NOT EXIST** (BINDING), added 2026-08-23
+
+> Added by lane MIRROR3 (L-9940…L-9948) after `tools/ga-gate/check-mirror-completeness.ts`
+> measured the shape CA-17 describes and found it **systematically** absent for one whole
+> class of verb.
+
+**THE MEASUREMENT, and it is one number.**
+
+```
+grep -c "\.created'"  apps/editor/src/engine/initTools.ts   ->  17
+grep -c "\.updated'"  apps/editor/src/engine/initTools.ts   ->   0
+```
+
+Seventeen create-mirrors and **zero** update-mirrors. CA-17 says an event satisfies it
+*"only if that bridge is registered on the live path"*; for every `*.set*`, `*.update`,
+`*.addHole`-shaped verb in the tree **there was no bridge to register**. That is why 13
+`*.setMaterial` verbs sit at `REFUSES` under CA-18: a refusal was the only honest answer
+available, not a preference. First reading of the gate: **200 verbs write a plugin DTO
+store · 170 uncovered · 123 UNMIRRORED.**
+
+**CA-17-M, normatively.** A verb whose `affectedStores` names a **plugin DTO store** MUST
+satisfy one of:
+
+1. a `case '<verb>':` arm in `packages/runtime-composer/src/CommandEventBridge.ts` that
+   relays it, **and** a live subscriber; or
+2. a row in that file's `ELEMENT_UPDATE_VERBS` table **and** a matching family row in
+   `LEGACY_UPDATABLE_STORES` (`apps/editor/src/engine/elementUpdatedMirror.ts`) — the
+   table-driven mutation channel; or
+3. a row in `tools/ga-gate/mirror-debt.json` carrying a **measured** reason.
+
+⛔ **A row in ONE table and not the other is the silent half of the defect** — the command
+succeeds, the plugin store is right, and the renderer keeps its own unchanged copy. Both
+mirrors log a NAMED refusal when their counterpart row is missing, for that reason.
+
+⛔ **THE CHANNEL IS DECLARATIVE, NOT GENERIC, AND THAT IS NORMATIVE.** A relay that copied
+every committed field into the legacy record would be a worse defect than the one it
+closes, and the reasons are measured, not stylistic:
+
+- `WallStore.update()` clears `_sourceBaseLine` and re-runs join resolution — a relayed
+  baseline **silently un-welds every corner it touches**. *A moved wall is not a repainted
+  wall.*
+- `SlabStore.update()` is a **whole-record replace**; handed a one-key partial it leaves
+  the record as that one key, frozen, with no diagnostics (**L-977**). `RoofStore.update()`
+  is a Partial merge. `ColumnStore.update()` takes `Omit<T,'id'|'type'>`. **Three stores,
+  three contracts, one method name.**
+- The two representations are not always the same shape: `SlabData.holes` is `{x,y}[][]`
+  with `y` carrying **world Z**; the plugin record's is `{x,y,z}[][]`. A verbatim copy is
+  silent, geometrically plausible, and wrong.
+
+**Therefore a field crosses only when a person established what the render needs**, and the
+row records it. A verb with no row emits nothing and stays on the ledger as NAMED backlog.
+
+⭐ **THE EVENT CARRIES FIELD NAMES; THE MIRROR READS VALUES FROM THE WRITER.** L-927 is the
+standing receipt for the alternative — the `.created` events carry values through a
+whitelist, and `materialColor`, `layers` and `curve` were three separate founder-visible
+defects, each a field the emitter did not know to copy. One value, one owner (C84 EI-9).
+
+⚠ **AND A DECLARED CHANNEL IS STILL NOT CA-21.** The gate prints this on every run: *"NOT
+ESTABLISHED: that any covered verb's event reaches a subscriber, a legacy record, or a
+mesh."* CA-17-M is satisfiable by wiring; **CA-21 is satisfied only by an executed
+read-back**, and the two must not be conflated. `apps/editor/__tests__/PoolAndSlabUpdateReachTheRenderStore.test.ts`
+(render-store read-back) and `apps/editor/__tests__/BoundaryLineReachesTheMesh.test.ts`
+(mesh read-back) are what the second one looks like for this channel.
+
 ### §5.2 — `CA-22` — human-readable command label (**OPTIONAL — NOT-YET-TRUE as enforcement**), added 2026-08-21
 
 > Added by **ADR-0341** (lane UNDO1, L-1880…L-1884) for the undo/redo history dropdown. It is

@@ -3,8 +3,12 @@
 //
 // Phase A returned `[]` for every kind and threw on `register()`.
 // Phase F first cut promotes the slot with:
-//   • runtime.plugins.list()      → 38 plugin descriptors
-//   • runtime.plugins.count       → 38
+//   • runtime.plugins.list()      → 43 plugin descriptors
+//   • runtime.plugins.count       → 43
+//
+// ⚠ THOSE TWO NUMBERS ROT, AND HAVE. They read 38 until 2026-08-23, when ARM E of
+// `check-plugin-census-equivalence.ts` found FIVE plugins wired at boot and never
+// advertised. Read `PLUGIN_CATALOG.length`, or run the gate — never this comment.
 //   • runtime.plugins.byKind(k)   → filtered subset
 //   • runtime.plugins.get(id)     → single descriptor or null
 //
@@ -17,8 +21,15 @@
 // loader that reads each plugin's `plugin.manifest.json` (per
 // `@pryzm/plugin-sdk/descriptor`) so marketplace installs land at
 // runtime; until then the static catalog is sufficient for the
-// status-pill chrome and the 38 element-family / AI / import-export
+// status-pill chrome and the element-family / AI / import-export
 // gestures.
+//
+// ⛔ UNTIL THAT LOADER LANDS, THIS ARRAY IS A HAND-MAINTAINED SECOND CENSUS OF A
+// FACT THAT LIVES SOMEWHERE ELSE (`PluginRegistry`'s boot wiring), and it drifted
+// silently for months. `tools/ga-gate/check-plugin-census-equivalence.ts` is what
+// now compares the two as SETS in both directions — ARM E is the one that catches
+// "wired and unadvertised" and ARM C the one that catches "advertised and absent".
+// A new plugin needs a row here AND its baseline moved there, in ONE commit.
 
 import type {
   Disposable,
@@ -56,15 +67,62 @@ const PLUGIN_CATALOG: readonly PluginDescriptor[] = Object.freeze([
   desc('ifc-export',        'IFC Export',             'import-export'),
   desc('ifc-import',        'IFC Import',             'import-export'),
   desc('rhino-import',      'Rhino Import',           'import-export'),
-  // 12 element-family plugins
+  // ── 17 element-family plugins ─────────────────────────────────────────────
+  //
+  // ⭐ FIVE OF THESE WERE WIRED AT BOOT AND INVISIBLE TO `runtime.plugins.list()`
+  //    FOR MONTHS, AND THEY ARE EXACTLY THE FIVE THE FOUNDER REPORTED AS BROKEN.
+  //
+  // `tools/ga-gate/check-plugin-census-equivalence.ts` ARM E — *"(REGISTRY ∩ DISK)
+  // \ CATALOG — WIRED AT BOOT AND INVISIBLE TO runtime.plugins"* — read
+  // **5: balcony, boundary-line, floor, lift, pool** (measured 2026-08-23, lanes
+  // PLUGIN2 then MIRROR3). Every one of them registers real handlers through
+  // `PluginRegistry`, holds a real store, and is reachable on the bus; the runtime
+  // simply never ADVERTISED them, so every surface that enumerates plugins — the
+  // status pill, the discipline toolbar, any marketplace or capability listing —
+  // reported a tree that did not contain them.
+  //
+  // ⛔ A ROW HERE IS A CLAIM THAT THE RUNTIME ADVERTISES A REAL PLUGIN, AND IT WAS
+  // CHECKED PER ROW RATHER THAN PER COUNT. Lane PLUGIN2 refused exactly this edit
+  // for SEVEN OTHER plugins whose handlers only `console.debug` (ADR-0367 names
+  // them so the next lane does not "finish the job"), and the eight ARM-B members
+  // NOT added below (`dxf`, `export-pdf`, `family-editor`, `geospatial`, `levels`,
+  // `navigate`, `render`, `visibility-intent`) are ARM-A members — on disk,
+  // contributing NOTHING at boot. Advertising those would ratchet a gate green by
+  // shipping a claim. Only the intersection with the boot registry is added.
+  //
+  // ⚠ AND THIS DOES **NOT** MEAN THE FIVE WORK. ARM E measures VISIBILITY to
+  // `runtime.plugins.list()`. Whether a pool renders is a different axis entirely —
+  // it is the §MIRROR-UPDATE / §FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE work
+  // (L-9940..L-9948), proven by executed read-backs at the render store and the
+  // mesh, and the boundary line STILL does not survive a reload (L-9948).
+  // [[verification-dispatch-rendering-three-milestones]]: three axes, tracked
+  // separately, and a green line on one of them is not the other two.
+  desc('balcony',           'Balcony',                'element'),
   desc('beam',              'Beam',                   'element'),
+  // A setting-out / construction line: an L0 element family (`defineElement
+  // ('boundaryLine')`, C106) with a store, five verbs and — since L-9944 — a mesh.
+  // `'element'`, not `'overlay'`: an overlay is drawn ON a view, and this is a
+  // record that persists, schedules and hosts other elements.
+  desc('boundary-line',     'Boundary Line',          'element'),
   desc('ceiling',           'Ceiling',                'element'),
   desc('column',            'Column',                 'element'),
   desc('curtain-wall',      'Curtain Wall',           'element'),
   desc('door',              'Door',                   'element'),
+  // The floor FINISH family (§P3.2-FL) — distinct from `slab`, which is the
+  // structural plate it rests on. Registered at boot since the handrail/floor bus
+  // migration; never advertised until now.
+  desc('floor',             'Floor Finish',           'element'),
   desc('furniture',         'Furniture',              'element'),
   desc('handrail',          'Handrail',               'element'),
+  // The LOD-300 lift COMPOUND (`plugins/lift`), not the LOD-200 massing lift in
+  // `@pryzm/geometry-lift`. C104 §13.1 records that confusion as the trap which
+  // hid the lift's render defect for a day — two elements, two stores, two
+  // builders — so the title says which one this is.
+  desc('lift',              'Lift (compound)',        'element'),
   desc('plumbing',          'Plumbing',               'element'),
+  // An assembly: one gesture composes a void in the host slab, N basin walls, a
+  // floor slab and the water body, in ONE undo entry (ADR-0124).
+  desc('pool',              'Swimming Pool',          'element'),
   desc('roof',              'Roof',                   'element'),
   desc('slab',              'Slab',                   'element'),
   desc('stair',             'Stair',                  'element'),
