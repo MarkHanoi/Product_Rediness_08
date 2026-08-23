@@ -364,11 +364,75 @@ export const SCENE_GRAPHS_NOT_TRAVERSED: readonly string[] = [
     'apps/editor FurnitureDragDropHandler indicatorScene',
 ];
 
+/**
+ * §C13-DECLARED-CHROME (L-8104) — scene roots that are DECLARED PROJECT-INDEPENDENT.
+ *
+ * The founder's 2026-08-23 verdict carried `42/376 scene root(s) UNATTRIBUTED`, and
+ * the first four it named were `pryzm-infinite-grid-3d`, `levelLinesGroup`,
+ * `bimGridsGroup` and `__pryzm_ground_shadow_catcher__` — app-lifetime chrome that is
+ * not project state and never was. Leaving them in the unattributed list is not
+ * neutral: an unattributed root is indistinguishable from a leak, so 42 of them HIDE
+ * the real ones. The number is only useful if it converges on the genuine debt.
+ *
+ * ⛔ THE ONLY LEGITIMATE WAY TO SHRINK THAT NUMBER IS TO DECLARE A ROOT, NEVER TO
+ * ASSUME ONE CLEAN. Every entry below is a written decision, in the diff, keyed on the
+ * name the PRODUCER really assigns and cited by file:line so a rename breaks the
+ * declaration instead of silently re-blinding the audit — the §C13-SCENE-ID-KEY
+ * lesson. The count of declared roots is REPORTED separately on every verdict
+ * (`formatSceneCoverage`), so "declared project-independent" can never be read as
+ * "checked and clean", and an exclusion you cannot count is indistinguishable from a
+ * check you deleted.
+ *
+ * ⭐ WHAT THIS DOES NOT EXEMPT: the CONTENTS. `levelLinesGroup` and `bimGridsGroup`
+ * are CONTAINERS whose children carry real ids (`{elementType:'LevelLine', id}` at
+ * LevelVisualizer.ts:241, `{elementType:'BimGrid', id}` at BimGridRenderer.ts:167) and
+ * ARE project state. `detectLeaks`' element-id arm is NOT gated on `isRoot`, so it
+ * still visits every one of those children and checks it against the expectation
+ * (`snapshot.levels` / `snapshot.grids` are both in it). Declaring the container
+ * therefore costs ZERO coverage — it removes a wrapper from a list of unknowns, not a
+ * check from an element.
+ */
+export const PROJECT_INDEPENDENT_SCENE_ROOTS: ReadonlyMap<string, string> = new Map([
+    [
+        'pryzm-infinite-grid-3d',
+        'packages/core-app-model/src/InfiniteGrid3D.ts:81 — the shader ground-grid plane. '
+        + 'App-lifetime chrome constructed once in initScene and never rebuilt per project; '
+        + 'its only per-project input is an ELEVATION scalar pushed by _updateGridElevation. '
+        + 'It holds no ids and nothing a switch could carry over.',
+    ],
+    [
+        'levelLinesGroup',
+        'packages/core-app-model/src/LevelVisualizer.ts:109 — the CONTAINER for level datum '
+        + 'lines. The container is app-lifetime; its CHILDREN are project state and stay fully '
+        + 'audited by the element-id arm, which is not root-gated (LevelVisualizer.ts:241 stamps '
+        + '{elementType:"LevelLine", id}, and snapshot.levels is in the expectation per §L-711).',
+    ],
+    [
+        'bimGridsGroup',
+        'packages/core-app-model/src/BimGridRenderer.ts:60 — the CONTAINER for BIM grid lines. '
+        + 'Same disposition as levelLinesGroup: container app-lifetime, children stamped '
+        + '{elementType:"BimGrid", id} at BimGridRenderer.ts:167 and covered by snapshot.grids.',
+    ],
+    [
+        '__pryzm_ground_shadow_catcher__',
+        'packages/renderer-three/src/GroundShadowCatcher.ts:35 (GROUND_SHADOW_CATCHER_NAME) — a '
+        + 'renderer-owned invisible plane that receives ground shadows. A property of the '
+        + 'lighting rig, not of any project.',
+    ],
+]);
+
 export interface SceneCoverage {
     /** Direct children of the scene that were inspected. */
     readonly rootCount: number;
     /** Geometry-bearing roots the audit could not attribute to any project. */
     readonly unattributed: readonly string[];
+    /**
+     * §C13-DECLARED-CHROME — roots matched by {@link PROJECT_INDEPENDENT_SCENE_ROOTS}.
+     * Counted and named, never silently dropped: this is the number that says how much
+     * of the old "unattributed" figure was retired by a WRITTEN DECISION rather than by
+     * an assumption.
+     */
+    readonly declaredIndependent: readonly string[];
     /**
      * Non-root objects whose attribution is INHERITED from an id-bearing ancestor
      * and which were therefore never checked individually. See
@@ -431,6 +495,7 @@ export function summariseSceneCoverage(sceneObjects: Iterable<SceneObjectLike>):
     let rootCount = 0;
     let inheritedCount = 0;
     const unattributed: string[] = [];
+    const declaredIndependent: string[] = [];
     for (const obj of sceneObjects) {
         if (obj.isRoot !== true) {
             // §C13-AUDIT-BLIND-CLASSES — a descendant of an id-bearing root is
@@ -443,6 +508,14 @@ export function summariseSceneCoverage(sceneObjects: Iterable<SceneObjectLike>):
         }
         rootCount += 1;
         const ud = (obj.userData ?? {}) as Record<string, unknown>;
+        // §C13-DECLARED-CHROME (L-8104) — a root DECLARED project-independent is
+        // recorded under its own heading, never merged into "unattributed" and never
+        // dropped. Checked BEFORE the id/type gate so the declaration is what retires
+        // it, visibly, rather than an accident of stamping.
+        if (PROJECT_INDEPENDENT_SCENE_ROOTS.has(obj.name ?? '')) {
+            declaredIndependent.push(obj.name ?? '');
+            continue;
+        }
         if (isExemptSceneSingleton(ud)) continue;
         if (isIdAttributable(ud)) continue;                    // attributed by id + type
         if (!GEOMETRY_BEARING_TYPES.has(obj.type ?? '')) continue; // lights/cameras/helpers
@@ -454,6 +527,7 @@ export function summariseSceneCoverage(sceneObjects: Iterable<SceneObjectLike>):
     return {
         rootCount,
         unattributed,
+        declaredIndependent,
         inheritedCount,
         excludedGraphs: SCENE_GRAPHS_NOT_TRAVERSED,
     };
@@ -474,8 +548,15 @@ function formatExcludedGraphs(c: SceneCoverage): string {
     const inherited = (typeof c.inheritedCount === 'number' ? c.inheritedCount : 0) > 0
         ? ` · ${c.inheritedCount} descendant(s) attributed BY INHERITANCE from an id-bearing ancestor, never checked individually`
         : '';
+    // §C13-DECLARED-CHROME (L-8104) — the retired roots are STATED, not netted away.
+    // A declaration removes a root from the unknown pile; it does not turn it into a
+    // checked one, and the verdict must keep saying so on every run.
+    const declared = Array.isArray(c.declaredIndependent) ? c.declaredIndependent : [];
+    const declaredNote = declared.length > 0
+        ? ` · ${declared.length} root(s) DECLARED project-independent (not checked, retired by written decision in PROJECT_INDEPENDENT_SCENE_ROOTS): [${declared.join(', ')}]`
+        : '';
     return (
-        `${inherited} · this count covers ONE scene graph (window.scene) and EXCLUDES ` +
+        `${declaredNote}${inherited} · this count covers ONE scene graph (window.scene) and EXCLUDES ` +
         `${graphs.length} graph(s) it cannot traverse: [${graphs.join('; ')}]`
     );
 }
@@ -519,6 +600,47 @@ function coalescedLevelId(ud: Record<string, unknown>): string | null {
     if (typeof key !== 'string') return null;
     const levelId = key.split(':')[0];
     return levelId && levelId.length > 0 ? levelId : null;
+}
+
+/**
+ * §C13-INSTANCED-GROUP-ARM (L-8103) — the level an `InstancedElementRenderer`
+ * aggregate belongs to.
+ *
+ * ⚠ THIS IS A SECOND, DIFFERENT AGGREGATION SYSTEM, and the audit only covered the
+ * first one. `coalescedLevelId` above reads `packages/scene-committer`'s
+ * `InstancedMeshCoalescer` (`isCoalesced` + `coalescedKey`). The renderer in
+ * `packages/core-app-model/src/rendering/InstancedElementRenderer.ts` is a wholly
+ * separate producer that stamps `isInstancedGroup` + `levelId` + `elementType` and a
+ * SYNTHETIC `userData.id` of the form `instanced-group-<key>` (`_createGroup`, :480).
+ *
+ * That synthetic id had two consequences, both bad and both visible in the founder's
+ * 2026-08-23 console:
+ *
+ *   1. It is `isIdAttributable`, so the element-id arm ACTED on it — and no snapshot
+ *      can ever contain `instanced-group-…`, so EVERY aggregate was reported as a
+ *      foreign element on EVERY load, in every project, forever. A permanent false
+ *      positive inflating `scene.foreignElement` by the number of live aggregates.
+ *   2. The report named a synthetic string instead of the fact that matters. The key
+ *      is `${elementType}_${levelId}_…`, so what the founder actually needed —
+ *      "stair-railings, on level L1787150975010, which is not a level of the project
+ *      you just opened" — was sitting in the id, unparsed.
+ *
+ * So the honest repair is an ATTRIBUTION, not an exemption: read the `levelId` the
+ * renderer already stamps (`_createGroup`, :490) and check it against the expectation,
+ * exactly as the coalesced arm does. `snapshot.levels` is in the expected set (§L-711 /
+ * §C13-SCENE-ID-KEY), so this is decidable.
+ *
+ * ⛔ Returns null when `levelId` is absent, and the caller MUST then leave the object on
+ * the element-id arm. An aggregate whose level cannot be read is NOT clean — and it
+ * cannot be dropped to the unattributed floor either, because it carries an id + type
+ * and `summariseSceneCoverage` would wave it through. That is the exact seam this
+ * file's `isIdAttributable` comment records an object VANISHING through. Never render
+ * unknown as clean.
+ */
+function instancedGroupLevelId(ud: Record<string, unknown>): string | null {
+    if (ud.isInstancedGroup !== true) return null;
+    const levelId = ud.levelId;
+    return typeof levelId === 'string' && levelId.length > 0 ? levelId : null;
 }
 
 /**
@@ -572,6 +694,11 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
     // the loaded project does not have. Deduped by key: one merged root per
     // (level × geometry × material), and a project switch leaves several.
     const foreignCoalesced = new Map<string, string>();
+    // §C13-INSTANCED-GROUP-ARM (L-8103) — `InstancedElementRenderer` aggregates whose
+    // stamped `levelId` names a level the loaded project does not have. Deduped by the
+    // synthetic group id: one aggregate per (elementType × level × geometry × material),
+    // and a project switch leaves one per shard.
+    const foreignInstancedGroups = new Map<string, string>();
 
     for (const obj of sceneObjects) {
         const ud = (obj.userData ?? {}) as Record<string, unknown>;
@@ -675,8 +802,30 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
                 }
             }
         }
+        // §C13-INSTANCED-GROUP-ARM (L-8103) — an `InstancedElementRenderer` aggregate
+        // is attributed by the LEVEL it stamps, never by its synthetic group id. See
+        // `instancedGroupLevelId` for why the id arm is the wrong instrument here.
+        //
+        // `instancedLevel !== null` is ALSO the flag that suppresses the id arm below:
+        // when the level is readable the aggregate is fully decided here (foreign or
+        // clean), and when it is NOT readable this stays null so the object falls
+        // through to the id arm and is still reported. Unknown never becomes clean.
+        let instancedLevel: string | null = null;
+        if (idKnown) {
+            instancedLevel = instancedGroupLevelId(ud);
+            if (instancedLevel !== null && !expectedIds!.has(instancedLevel)) {
+                const gid = sceneElementId(ud) ?? name ?? '<unnamed-instanced-group>';
+                if (!foreignInstancedGroups.has(gid)) {
+                    foreignInstancedGroups.set(
+                        gid,
+                        `level ${instancedLevel} ⇐ ${String(sceneElementType(ud) ?? 'instanced')} `
+                        + `instanced aggregate (${gid})`,
+                    );
+                }
+            }
+        }
         // A BIM element whose id is NOT part of the loaded project is foreign.
-        if (idKnown && !isExemptSceneSingleton(ud)) {
+        if (idKnown && instancedLevel === null && !isExemptSceneSingleton(ud)) {
             const id = sceneElementId(ud);
             if (id !== null && sceneElementType(ud) != null && !expectedIds!.has(id)) {
                 foreignSceneIdSet.add(id);
@@ -743,6 +892,7 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
     if (foreignLinkCount > 0)     findings.push({ surface: 'scene.linkedModel',     count: foreignLinkCount, details: foreignLinkIdentity.slice(0, 20), identities: foreignLinkIdentity.slice(0, 20) });
     if (foreignSceneIds.length)   findings.push({ surface: 'scene.foreignElement',  count: foreignSceneIds.length, details: foreignSceneIds.slice(0, 20), identities: foreignSceneIds.slice(0, 20).map(id => foreignSceneIdentity.get(id) ?? id) });
     if (foreignCoalesced.size)    findings.push({ surface: 'scene.foreignCoalescedRoot', count: foreignCoalesced.size, details: [...foreignCoalesced.keys()].slice(0, 20), identities: [...foreignCoalesced.values()].slice(0, 20) });
+    if (foreignInstancedGroups.size) findings.push({ surface: 'scene.foreignInstancedGroup', count: foreignInstancedGroups.size, details: [...foreignInstancedGroups.keys()].slice(0, 20), identities: [...foreignInstancedGroups.values()].slice(0, 20) });
     if (foreignStoreCount > 0)    findings.push({ surface: 'store.foreignElement',  count: foreignStoreCount, details: foreignStoreDetails });
     if (globals.length > 0)       findings.push({ surface: 'window.globals',        count: globals.length, details: globals });
     if (foreignScopes.length)     findings.push({ surface: 'scope.foreignProject',   count: foreignScopes.length, details: foreignScopes });
