@@ -46042,6 +46042,23 @@ both states — flags unset → every `__PRYZM_*__` is the literal `undefined`; 
 the values are baked in **while `__PRYZM_TRACING_HEADERS__` stays `undefined`**, so the
 SECRET collector token cannot reach a public bundle even when everything else is on.
 
+⭐ **And the FOURTH environment — the production server bundle — was rebuilt and run.**
+`dist/index.cjs` boots against `dist-server-deps/@pryzm/crash-reporter/index.mjs`, an
+**esbuild** bundle that never sees Vite's `define`. That is precisely the environment in
+which `import.meta.env.X` would have thrown:
+
+```
+$ node scripts/build/build-server-deps.mjs
+[build-server-deps] @pryzm/crash-reporter → index.mjs  (104 modules inlined)
+$ node -e "import('./dist-server-deps/@pryzm/crash-reporter/index.mjs')…"
+readBuildTimeEnv() in a define-less Node bundle = {}
+enabled = true | mode = console | sample = 1
+```
+
+So the same source file is correct in **all four**: Vite browser build (defines
+substituted), Vite build without the flag (constant-folded to nothing), esbuild Node
+bundle (identifiers undeclared, `typeof` safe), and vitest.
+
 #### Gate readings after this lane (unchanged where they should be)
 
 | Gate | Reading |
