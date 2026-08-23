@@ -25,8 +25,13 @@
 
 import {
     applySemanticIntent,
+    createByomRelay,
     createCfWorkerRelay,
     planUtterance,
+    resolveAiRoute,
+    routeAttributionLine,
+    ByomProviderError,
+    type AiRoute,
     type PlannerDeps,
     type PlannerOutcome,
     type ResolverContext,
@@ -40,6 +45,7 @@ import {
     type ZeroTokenUiHooks,
 } from './ZeroTokenChatBridge';
 import { probeAiAvailability } from './floorplan-import/FPTiers';
+import { byomVaults } from './byom/byomDeviceStorage';
 
 /** The relay's model id. The SERVER forces its own `ANTHROPIC_MODEL_ID` on
  *  every proxied request (server.js `sanitizeAiBody`), so this is the label the
@@ -50,11 +56,33 @@ const PLANNER_MODEL = 'claude-haiku-4-5';
  *  only buy the model room to explain itself, which the contract forbids. */
 const PLANNER_MAX_TOKENS = 700;
 
-/** The injected transport + configuration probe. Both are replaceable in tests
- *  and neither lives inside the pure `ai-host` planner. */
-function plannerDeps(): PlannerDeps {
+/**
+ * §BYOM (C103 §3.1) — the ONE place the chat's relay is constructed, and
+ * therefore the one place the BYOM route is honoured. Two topologies, chosen by
+ * `resolveAiRoute`, and NOTHING else about the ladder changes:
+ *
+ *   pryzm-managed → browser → PRYZM BFF → CF Worker → Anthropic  (unchanged)
+ *   user-supplied → browser → the provider the user chose        (direct)
+ *
+ * ⛔ The BYOM arm uses the PLAIN global fetch, deliberately, NOT `apiFetch`.
+ * `apiFetch` attaches PRYZM's session token; sending that to a third-party
+ * provider would be a credential leak in the opposite direction.
+ *
+ * `onProviderError` exists because `planUtterance` catches a throwing
+ * `complete()` and turns it into an honest `unavailable` outcome — correct for
+ * a PRYZM-side relay failure, but it would swallow the provider's own reason on
+ * the BYOM arm, which is exactly what C103 §5.4 forbids. So the error is
+ * captured on the way past and re-surfaced by the caller.
+ */
+function plannerDeps(route: AiRoute, onProviderError?: (err: ByomProviderError) => void): PlannerDeps {
     return {
         async isConfigured(): Promise<boolean> {
+            // A user who supplied their own key IS the configuration. Probing
+            // PRYZM's `/api/health` here would report `false` on a deploy that
+            // carries no PRYZM upstream and skip the rung — refusing to use a
+            // key the user just pasted, for a reason that has nothing to do
+            // with them. C103 §5.3.
+            if (route.keyClass === 'user-supplied') return true;
             // 'unknown' (the health route unreachable) is deliberately NOT
             // treated as available: attempting the call would surface a network
             // failure as an AI failure. Three states, two behaviours, and the
@@ -62,6 +90,31 @@ function plannerDeps(): PlannerDeps {
             return (await probeAiAvailability()) === 'available';
         },
         async complete(prompt): Promise<string> {
+            if (route.keyClass === 'user-supplied') {
+                const credential = byomVaults().resolveActive();
+                if (credential) {
+                    try {
+                        const relay = createByomRelay(credential, globalThis.fetch);
+                        const res = await relay.complete({
+                            model: credential.model,
+                            system: prompt.system,
+                            user: prompt.user,
+                            maxTokens: PLANNER_MAX_TOKENS,
+                        });
+                        return res.text;
+                    } catch (err) {
+                        // ⛔ NO FALLBACK. Retrying on PRYZM's key here would
+                        // spend PRYZM's money on the user's request with
+                        // neither party told. Capture, then rethrow.
+                        if (err instanceof ByomProviderError) onProviderError?.(err);
+                        throw err;
+                    }
+                }
+                // Selected but unresolvable — a configuration gap, not a
+                // rejected credential. Nothing of the user's was sent anywhere,
+                // so continuing on PRYZM's key is safe AND is disclosed by
+                // `routeAttributionLine`, which says so in as many words.
+            }
             // MUST be the authed apiFetch — the proxy route sits behind
             // authMiddleware and a plain fetch returns 401.
             const relay = createCfWorkerRelay(undefined, apiFetch);
@@ -81,10 +134,24 @@ function plannerDeps(): PlannerDeps {
  *  ways (substitution, then append) and two spellings of it would be one more
  *  thing to desync. */
 const ZERO_TOKEN_LINE = '(resolved without AI tokens)';
-const PLANNER_ATTRIBUTION =
-    '(the quick paths did not recognise this phrasing, so the AI planner read it — ' +
-    'it produced the same kind of instruction you could have typed, and it was ' +
-    're-checked before anything ran)';
+
+/**
+ * §BYOM-PROVENANCE (C23 §1.2, C103 §7.2) — the attribution now names WHICH KEY
+ * SERVED THE REQUEST, not merely that a planner was involved.
+ *
+ * That is the C23 provenance requirement made visible, and it is also the only
+ * way a user notices that a key they configured has quietly stopped being used:
+ * a `user-provider-unresolvable` route still answers, and without this line it
+ * would answer indistinguishably from the one they were expecting.
+ */
+function plannerAttribution(route: AiRoute): string {
+    return (
+        'the quick paths did not recognise this phrasing, so the AI planner read it — ' +
+        'it produced the same kind of instruction you could have typed, and it was ' +
+        're-checked before anything ran ' +
+        routeAttributionLine(route)
+    );
+}
 
 /**
  * The deterministic tiers print "(resolved without AI tokens)". On a PLANNED
@@ -106,7 +173,8 @@ const PLANNER_ATTRIBUTION =
  * line is present, appended to the first line spoken when it is not, and never
  * repeated within one planned run.
  */
-function plannedHooks(hooks: ZeroTokenUiHooks): ZeroTokenUiHooks {
+function plannedHooks(hooks: ZeroTokenUiHooks, route: AiRoute): ZeroTokenUiHooks {
+    const PLANNER_ATTRIBUTION = `(${plannerAttribution(route)})`;
     let attributed = false;
     return {
         confirm: (summary) => hooks.confirm(summary),
@@ -181,16 +249,48 @@ export async function tryHandleWithPlanner(query: string, hooks: ZeroTokenUiHook
         console.error('[LlmPlannerBridge] could not build the resolver context:', err);
         return false;
     }
+
+    // §BYOM (C103 §3.1). Resolved ONCE per utterance so the relay that runs, the
+    // attribution the user reads and the provenance that is recorded can never
+    // disagree about which path served this request.
+    const route = resolveAiRoute(byomVaults());
+
+    // §BYOM-NO-SILENT-FALLBACK (C103 §5.4). `planUtterance` catches a throwing
+    // `complete()` and returns `unavailable` — right for a PRYZM-side relay
+    // failure, wrong for a provider that REJECTED the user's key, because the
+    // user would then be told nothing while PRYZM quietly answered on its own
+    // key. The provider's own reason is captured here and spoken below.
+    let providerError: ByomProviderError | null = null;
+
     let outcome: PlannerOutcome;
     try {
-        outcome = await planUtterance(query, ctx, plannerDeps());
+        outcome = await planUtterance(
+            query,
+            ctx,
+            plannerDeps(route, (err) => { providerError = err; }),
+        );
     } catch (err) {
+        // ⛔ Never `console.error(err)` on the BYOM arm without going through
+        // `userMessage()` — the raw error may embed a provider body. The typed
+        // arm is redacted at construction; the untyped one is not logged whole.
+        if (err instanceof ByomProviderError) {
+            hooks.say(err.userMessage());
+            return true;
+        }
         console.error('[LlmPlannerBridge] planner failed, falling through:', err);
         return false;
     }
+
+    // A captured provider error outranks a bare `unavailable`: the user's key
+    // was tried and refused, and that is a thing they can act on.
+    if (providerError !== null) {
+        hooks.say((providerError as ByomProviderError).userMessage());
+        return true;
+    }
+
     if (outcome.kind !== 'intent') return reportNonAnswer(outcome, hooks);
     try {
-        await runZeroTokenResolution(toResolution(outcome.intent, ctx), ctx, plannedHooks(hooks));
+        await runZeroTokenResolution(toResolution(outcome.intent, ctx), ctx, plannedHooks(hooks, route));
         return true;
     } catch (err) {
         console.error('[LlmPlannerBridge] planned intent failed to execute:', err);
@@ -203,8 +303,18 @@ export async function tryHandleWithPlanner(query: string, hooks: ZeroTokenUiHook
  *  fall-through honestly instead of leaving the user with a bare "not sure". */
 export async function plannerIsConfigured(): Promise<boolean> {
     try {
-        return await plannerDeps().isConfigured();
+        return await plannerDeps(resolveAiRoute(byomVaults())).isConfigured();
     } catch {
         return false;
     }
+}
+
+/**
+ * §BYOM (C103 §7.2) — which path will serve the NEXT message, in one sentence
+ * the user can read. Exported so the chat panel and the keys panel can both
+ * show it without either one re-deriving the decision (two derivations of one
+ * fact is how they come to disagree).
+ */
+export function describeActiveAiRoute(): string {
+    return routeAttributionLine(resolveAiRoute(byomVaults()));
 }
