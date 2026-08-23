@@ -133,7 +133,71 @@ export class PoolPlanToolHandler implements PlanToolHandler {
         if (this._points.length > 0) {
             this._cursorPoint = pt;
             this._drawPreview();
+            return;
         }
+
+        // ⭐⭐ §FIX-POOL-SILENT-BEFORE-FIRST-CLICK (L-7850) — THE IDLE HINT.
+        //
+        // THE FOUNDER: *"Swimming pool doesn't get created."* His log shows the tool
+        // ARMING three times, the session's selection-suppression firing correctly
+        // (`reason=tool-activated-selection-disabled`) — and then nothing. No command,
+        // no refusal, no elements.
+        //
+        // ⚠ THE COMMIT PATH IS NOT THE DEFECT, and that was measured before writing a
+        // line here: `pointerReachesArmedHandler.spec.ts` ARM A-2 drives THREE real DOM
+        // clicks and a real `dblclick` at the real overlay and gets exactly one
+        // `pool.create`. The state machine, the overlay, the dblclick forwarding and
+        // the commit all work.
+        //
+        // ⛔ WHAT DID NOT WORK IS THAT UNTIL THE FIRST CLICK LANDED, THIS HANDLER DREW
+        // ABSOLUTELY NOTHING. Every arm above returns early on `_points.length === 0`,
+        // so an armed pool put not one pixel on the overlay: no preview, no hint, no
+        // cursor feedback. Compare `LiftPlanToolHandler`, which draws
+        // "Lift · move the pointer over the plan to place the shaft" immediately, and
+        // `BalconyPlanToolHandler`, which previews on hover. The pool was the ONLY one
+        // of the three plan-only compounds that was invisible while armed — and an
+        // armed tool that shows nothing is indistinguishable from a broken one, which
+        // is exactly the sentence the founder wrote.
+        //
+        // ⭐ AND IT NAMES THE CLOSING GESTURE, which is the second half of his earlier
+        // report — *"I created a few lines but the creation did not trigger."* A
+        // LINEAR/ORTHO pool is an open polyline until a double-click or Enter closes
+        // it, and NOTHING on screen said so. `_hintFor` already says it beautifully
+        // once a point exists; it simply could not be reached before one did.
+        //
+        // ⛔ NOT FIXED BY GIVING THE POOL A SINGLE-CLICK COMMIT. The multi-point path
+        // IS the feature — the founder's own spec asked for linear / ortho / circular /
+        // ellipse / rectangular. The fix is to SAY what the gesture is, not to replace it.
+        this._cursorPoint = pt;
+        this._drawIdleHint();
+    }
+
+    /**
+     * The hint an ARMED pool shows before its first click: which mode is live, and what
+     * the first gesture is. Mode is re-read on every sample, exactly as every other arm
+     * in this handler does, so switching on the strip updates the sentence immediately.
+     */
+    private _drawIdleHint(): void {
+        const c = this._ctx;
+        if (!c) return;
+        const { ctx, overlayCanvas, dpr } = c;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const cssW = overlayCanvas.width / dpr;
+        const cssH = overlayCanvas.height / dpr;
+        ctx.clearRect(0, 0, cssW, cssH);
+        ctx.save();
+        const loopMode = activePoolLoopMode();
+        const mode = resolveActivePoolDrawMode();
+        // The closed-loop modes borrow the SHARED gesture table the slab, floor and
+        // ceiling tools already use, so a user who learned one is not taught a second
+        // grammar for the pool. The open modes state the close explicitly, because
+        // "how do I finish this?" is the question that produced the founder's report.
+        const label = loopMode
+            ? BOUNDARY_LOOP_GESTURE[loopMode].first
+            : `${mode === 'ortho' ? 'Orthogonal' : mode === 'curved' ? 'Curved' : 'Linear'} · ` +
+              `click the first corner · dbl-click or Enter closes the pool`;
+        this._drawHint(ctx, cssH, `Pool · ${label}`);
+        ctx.restore();
     }
 
     onClick(pt: WorldPoint): void {

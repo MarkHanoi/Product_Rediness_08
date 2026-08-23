@@ -56,11 +56,26 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vite
 // ⚠ THE 2-D CONTEXT STUB MUST BE INSTALLED BEFORE THE OVERLAY MODULE LOADS — happy-dom's
 // `getContext('2d')` returns null and both overlays treat that as "cannot build a draw
 // context" and refuse to arm at all. Same preamble as `pointerReachesArmedHandler.spec.ts`.
+/**
+ * Every string the handlers write to the overlay, in order.
+ *
+ * ⭐ THIS IS HOW "an armed tool shows nothing" BECOMES A MEASURABLE CLAIM rather
+ * than a screenshot. happy-dom's `getContext('2d')` returns null and both overlays
+ * treat that as "cannot build a draw context" and refuse to arm at all, so the stub is
+ * required anyway; recording `fillText` costs one line and turns it into a probe.
+ */
+const drawnText: string[] = [];
 (HTMLCanvasElement.prototype as unknown as { getContext: unknown }).getContext =
     function getContext(): unknown {
         return new Proxy(
             {},
-            { get: () => (): unknown => undefined, set: () => true },
+            {
+                get: (_t, prop) => (...args: unknown[]): unknown => {
+                    if (prop === 'fillText' && typeof args[0] === 'string') drawnText.push(args[0]);
+                    return undefined;
+                },
+                set: () => true,
+            },
         );
     };
 // §R3-SENTINEL — both overlays refuse to arm a handler until initTools has completed.
@@ -326,5 +341,60 @@ describe('§FIX-PLAN-TOOL-ESCAPE-RUNAWAY — Escape puts a plan-only tool away',
             escape();
             expect(activePlanOnlySessionTool()).toBeNull();
         });
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §FIX-POOL-SILENT-BEFORE-FIRST-CLICK (L-7850)
+// ═════════════════════════════════════════════════════════════════════════════
+describe('§FIX-POOL-SILENT-BEFORE-FIRST-CLICK — an armed pool is VISIBLE before its first click', () => {
+    beforeEach(() => {
+        installWorld();
+        __resetActivePoolDrawModeForTests();
+        __resetArmedSelectionForTests();
+        canvas = document.createElement('canvas');
+        document.body.appendChild(canvas);
+        canvas.getBoundingClientRect = (): DOMRect =>
+            ({ left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+        svpPlanToolOverlay.attach(canvas, planCanvasStub as never, VIEW_ID);
+    });
+
+    afterEach(() => {
+        endPlanOnlyToolSession();
+        svpPlanToolOverlay.detach();
+        canvas.remove();
+    });
+
+    it('D-1 hovering an ARMED pool with no points yet writes a hint naming the closing gesture', () => {
+        // ⭐ THE FOUNDER: "Swimming pool doesn't get created." His log shows the tool
+        // arming three times and NOTHING else. The commit path is not the defect —
+        // `pointerReachesArmedHandler.spec.ts` A-2 already drives three real clicks and
+        // a dblclick to one `pool.create`. What was broken is that until the first
+        // click landed this handler drew ZERO pixels: every arm of `onMouseMove`
+        // returned early on `_points.length === 0`. An armed tool that shows nothing is
+        // indistinguishable from a broken one.
+        expect(activatePlanOnlyToolOrExplain('pool', 'Swimming Pool')).toBe(true);
+        enterPane();
+
+        drawnText.length = 0;
+        window.dispatchEvent(new MouseEvent('mousemove', { ...px(4, 4), bubbles: true }));
+
+        const hint = drawnText.join(' | ');
+        expect(hint).toContain('Pool');
+        // ⭐ AND IT NAMES THE CLOSE. "I created a few lines but the creation did not
+        // trigger" is a LINEAR pool left as an open polyline, with nothing on screen
+        // saying a double-click or Enter is what closes it.
+        expect(hint).toMatch(/dbl-click or Enter/i);
+    });
+
+    it('D-2 the LIFT already did this, and still does — the pool now matches it', () => {
+        // The control. A regression here would mean the fix traded one silent tool for
+        // another, which is how "consistent" gets used to mean "consistently broken".
+        expect(activatePlanOnlyToolOrExplain('lift', 'Lift')).toBe(true);
+        enterPane();
+
+        drawnText.length = 0;
+        window.dispatchEvent(new MouseEvent('mousemove', { ...px(4, 4), bubbles: true }));
+        expect(drawnText.join(' | ')).toContain('Lift');
     });
 });
