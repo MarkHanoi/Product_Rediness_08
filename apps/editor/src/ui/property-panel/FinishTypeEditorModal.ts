@@ -41,7 +41,15 @@ import {
 // of a library element."* The widget owns no WebGL context and starts no
 // animation loop; see `ElementPreviewRenderer.ts` for both decisions.
 import { mountElementPreview, type ElementPreviewHandle } from '../element-preview/ElementPreviewCanvas';
-import { buildOpeningPreviewSubject } from '../element-preview/OpeningPreviewSubject';
+import {
+    buildOpeningPreviewSubject,
+    resolveInheritedOpeningDimensions,
+} from '../element-preview/OpeningPreviewSubject';
+// §OPENING-PANEL-CHAT (L-9630) — the founder's *"enable AI chat while in this new
+// creation panel."* The strip owns no draft of its own; it drives THIS one through
+// the port built below, so the chat and the controls cannot disagree about the type.
+import { mountFinishTypeChat } from './FinishTypeChatStrip';
+import { draftFieldsFor } from './FinishTypeDraftIntent';
 
 /** The draft under edit — a family type record minus identity fields. */
 export type FinishTypeDraft = Record<string, any> & {
@@ -99,11 +107,42 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
         'display:flex;align-items:center;justify-content:center;padding:24px;');
     overlay.className = 'fte-overlay';
 
+    // §OPENING-PANEL-DISTRIBUTION (L-9620) — the founder's words were *"the
+    // distribution of the buttons and space needs to be better distributed … too much
+    // space, something empty."* The measured cause: a 560 px column carrying a
+    // 516 x 172 preview box, then EIGHTEEN full-width rows stacked one per line, each
+    // using ~200 px of a 516 px row for its control and leaving the rest blank. The
+    // dialog was tall, narrow and half-empty at the same time.
+    //
+    // ⭐ The fix is a two-column reading order, not a smaller font: the SHOWROOM (what
+    // you are making) on the left, the CONTROLS (how you change it) on the right, and
+    // the dimension run laid out as a wrapping grid so eight fields occupy four rows
+    // of two rather than eight rows of one.
     const panel = mk('div',
-        'background:#ffffff;color:' + INK + ';border-radius:12px;width:min(560px,100%);' +
-        'max-height:min(86vh,720px);display:flex;flex-direction:column;overflow:hidden;' +
+        'background:#ffffff;color:' + INK + ';border-radius:12px;width:min(980px,100%);' +
+        'max-height:min(90vh,860px);display:flex;flex-direction:column;overflow:hidden;' +
         'box-shadow:0 24px 64px rgba(0,0,0,0.32);font:13px/1.45 system-ui,-apple-system,sans-serif;');
     panel.className = 'fte-panel';
+
+    // ⚠ ONE stylesheet, for the two things inline styles cannot express: a media query
+    // and a pseudo-class. Everything else stays inline, matching this file's stated
+    // §05-BIM-UI §2.1 deviation. ⛔ NO BACKTICKS ANYWHERE IN THIS STRING — a backtick
+    // inside a CSS comment inside a template literal terminates the literal, and that
+    // has cost six lanes this session; the string is therefore plain-quoted.
+    const styleEl = document.createElement('style');
+    styleEl.textContent = [
+        '.fte-layout{display:grid;grid-template-columns:minmax(0,330px) minmax(0,1fr);',
+        'gap:24px;align-items:start;}',
+        '@media (max-width:860px){.fte-layout{grid-template-columns:minmax(0,1fr);}',
+        '.fte-showcase{position:static !important;}}',
+        '.fte-dimgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(212px,1fr));',
+        'gap:12px 16px;}',
+        '.fte-idgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));',
+        'gap:0 16px;}',
+        '.fte-panel input[type=range]{width:100%;}',
+        '.fte-auto-btn:hover{background:#f4efff;}',
+    ].join('');
+    panel.appendChild(styleEl);
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-modal', 'true');
     panel.setAttribute('aria-labelledby', 'fte-title');
@@ -121,7 +160,18 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
     header.append(title, subtitle);
 
     // ── Body ─────────────────────────────────────────────────────────────────
-    const body = mk('div', 'flex:1;min-height:0;overflow-y:auto;padding:18px 22px;');
+    const body = mk('div', 'flex:1;min-height:0;overflow-y:auto;padding:18px 22px 22px;');
+
+    // The two reading columns. `showcase` is what the user is MAKING and stays put
+    // while the control column scrolls; `controls` is how they change it.
+    const layout = mk('div', '');
+    layout.className = 'fte-layout';
+    const showcase = mk('div', 'position:sticky;top:0;');
+    showcase.className = 'fte-showcase';
+    const controls = mk('div', 'min-width:0;');
+    controls.className = 'fte-controls';
+    layout.append(showcase, controls);
+    body.appendChild(layout);
 
     const field = (labelText: string, forId: string, control: HTMLElement, hint?: string) => {
         const wrap = mk('div', 'margin-bottom:14px;');
@@ -140,14 +190,14 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
     // §OPENING-PANEL-PARITY (L-7742) — the dialog's group rhythm, matching the
     // inspector's `.dw-group`. Once this dialog carries dimensions and subdivision as
     // well as finishes, a flat list of controls stops being readable.
-    const groupHeading = (title: string): void => {
+    const groupHeading = (title: string, host: HTMLElement = controls): void => {
         const g = mk('div',
             'display:flex;align-items:center;gap:8px;margin:18px 0 8px;font-size:9.5px;' +
             'font-weight:800;letter-spacing:0.09em;text-transform:uppercase;color:' + PURPLE + ';');
         g.textContent = title;
         const rule = mk('span', 'flex:1 1 auto;height:1px;background:linear-gradient(90deg,rgba(102,0,255,.22),rgba(102,0,255,0));');
         g.appendChild(rule);
-        body.appendChild(g);
+        host.appendChild(g);
     };
 
     const nameInput = mk('input',
@@ -168,9 +218,15 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
     descInput.id = 'fte-desc';
     descInput.placeholder = 'Optional — what this type is for';
 
-    body.append(field('Name', 'fte-name', nameInput));
-    body.appendChild(nameErr);
-    body.append(field('Description', 'fte-desc', descInput));
+    // §OPENING-PANEL-DISTRIBUTION (L-9620) — Name and Description were two full-width
+    // rows on a 516 px column, each using a fraction of it. Side by side they take one
+    // row and read as what they are: the type's identity.
+    groupHeading('Identity');
+    const idGrid = mk('div', '');
+    idGrid.className = 'fte-idgrid';
+    idGrid.append(field('Name', 'fte-name', nameInput), field('Description', 'fte-desc', descInput));
+    controls.appendChild(idGrid);
+    controls.appendChild(nameErr);
 
     // ── Preview strip — one band per finish slot, from the draft's own data ──
     const preview = mk('div',
@@ -192,7 +248,21 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
     const subjectFor = () => buildOpeningPreviewSubject(opts.authoring.family, draft);
     const initialSubject = subjectFor();
     if (initialSubject) {
-        showroom = mountElementPreview(body, { subject: initialSubject, heightPx: 172 });
+        // §OPENING-PANEL-DISTRIBUTION (L-9620) — 172 px in a 516 px box letterboxed the
+        // subject into a third of its own frame and left the other two thirds blank:
+        // literally the "too much space, something empty" the founder pointed at. In a
+        // 330 px column at 300 px tall the square blit fills almost the whole frame.
+        showroom = mountElementPreview(showcase, { subject: initialSubject, heightPx: 300 });
+    } else {
+        // C65 §3.4 / §CONTEXT-DATA-HONESTY — a family with no showroom says so. It must
+        // not read as a preview that failed.
+        const noShow = mk('div',
+            'border:1px dashed ' + LINE + ';border-radius:10px;padding:22px 16px;text-align:center;' +
+            'font-size:11.5px;line-height:1.45;color:' + MUTED + ';margin-bottom:14px;');
+        noShow.textContent =
+            'No 3-D showroom for ' + opts.authoring.family + ' types yet. Every control below ' +
+            'still authors the type exactly as it will be built.';
+        showcase.appendChild(noShow);
     }
 
     function redraw(): void {
@@ -223,7 +293,7 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
             (hasOpacity ? `, glazing opacity ${Math.round((draft.glazingOpacity ?? 1) * 100)} percent` : ''));
     }
 
-    body.appendChild(preview);
+    showcase.appendChild(preview);
 
     // ── Finish slots ──────────────────────────────────────────────────────
     //
@@ -241,28 +311,40 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
     // hex for materialId`, which is exactly how `doorFinishColour.ts` rung 1 already
     // infers an instance override. One spelling of one rule.
     groupHeading('Finishes');
+    /** Per-slot repaint, so a chat-driven material change updates the same controls. */
+    const slotRefreshers = new Map<string, () => void>();
     slots.forEach((slot, i) => {
         const row = mk('div', 'display:flex;gap:8px;align-items:center;margin-bottom:6px;');
         const lab = mk('div', 'flex:0 0 64px;font-weight:600;font-size:12px;');
         lab.textContent = slot.label;
 
-        const picker = buildFinishMaterialSelect({
-            currentId:  draft[slot.key]?.materialId,
-            legacyName: draft[slot.key]?.name,
-            onChange: (id, color, label) => {
-                draft[slot.key] = {
-                    ...draft[slot.key],
-                    name: label,
-                    materialId: id || undefined,
-                    materialColor: color,
-                };
-                col.value = /^#[0-9a-fA-F]{6}$/.test(color) ? color : '#cccccc';
-                refreshOverride();
-                redraw();
-            },
-        });
-        picker.style.flex = '1';
-        picker.style.minWidth = '0';
+        const applyPick = (id: string, color: string, label: string): void => {
+            draft[slot.key] = {
+                ...draft[slot.key],
+                name: label,
+                materialId: id || undefined,
+                materialColor: color,
+            };
+            col.value = /^#[0-9a-fA-F]{6}$/.test(color) ? color : '#cccccc';
+            refreshOverride();
+            redraw();
+        };
+
+        // ⚠ `buildFinishMaterialSelect` reads its current value at BUILD time — it is a
+        // pure builder, by design (C03/P6). So a change made anywhere other than the
+        // select itself is reflected by rebuilding it, never by reaching into its DOM.
+        // That keeps the picker the single owner of its own honest four-state head.
+        const makePicker = (): HTMLElement => {
+            const p = buildFinishMaterialSelect({
+                currentId:  draft[slot.key]?.materialId,
+                legacyName: draft[slot.key]?.name,
+                onChange: applyPick,
+            });
+            p.style.flex = '1';
+            p.style.minWidth = '0';
+            return p;
+        };
+        let picker = makePicker();
 
         const col = mk('input',
             'width:38px;height:32px;padding:1px;border:1px solid ' + LINE + ';border-radius:5px;flex-shrink:0;');
@@ -312,12 +394,22 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
         });
 
         row.append(lab, picker, col);
-        body.appendChild(row);
-        body.appendChild(note);
+        controls.appendChild(row);
+        controls.appendChild(note);
         refreshOverride();
+
+        slotRefreshers.set(slot.key, () => {
+            const next = makePicker();
+            row.replaceChild(next, picker);
+            picker = next;
+            const hex = draft[slot.key]?.materialColor;
+            col.value = /^#[0-9a-fA-F]{6}$/.test(hex ?? '') ? hex : '#cccccc';
+            refreshOverride();
+        });
     });
 
     // ── Glazing opacity ──────────────────────────────────────────────────────
+    let glazingRefresh: (() => void) | null = null;
     if (hasOpacity) {
         const op = typeof draft.glazingOpacity === 'number' ? draft.glazingOpacity : 1;
         const row = mk('div', 'display:flex;gap:8px;align-items:center;margin-bottom:12px;');
@@ -338,13 +430,18 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
             v <= 0.05 ? 'clear glass' : v >= 0.95 ? 'opaque' : `${Math.round(v * 100)}% opaque`;
         val.textContent = describe(op);
 
+        glazingRefresh = (): void => {
+            const v = typeof draft.glazingOpacity === 'number' ? draft.glazingOpacity : 1;
+            slider.value = String(v);
+            val.textContent = describe(v);
+        };
         slider.addEventListener('input', () => {
             draft.glazingOpacity = parseFloat(slider.value);
-            val.textContent = describe(draft.glazingOpacity);
+            glazingRefresh?.();
             redraw();
         });
         row.append(lab, slider, val);
-        body.appendChild(row);
+        controls.appendChild(row);
     }
 
     // ── The TYPE's own dimensions ─────────────────────────────────────────
@@ -363,61 +460,144 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
     // project move together the next time the type was edited, which is a worse defect
     // than the gap. The reasoning per field is in `ElementTypeNumericField`'s header.
     const dimFields = opts.authoring.finishEditor?.dimensions ?? [];
+    /** Per-key repaint of the auto/authored state chip. Filled below; used by the chat too. */
+    const dimRefreshers = new Map<string, () => void>();
     if (dimFields.length > 0) {
         groupHeading('Dimensions');
         if (!draft.dimensions || typeof draft.dimensions !== 'object') draft.dimensions = {};
         const dims = draft.dimensions as Record<string, number | undefined>;
+
+        // ⭐ §OPENING-AUTO-IS-A-STATE (L-9610) — what each BLANK field resolves to,
+        // from the placement resolvers themselves. Read ONCE per open: these depend on
+        // the type id and the catalogue, neither of which changes while the modal is up.
+        const inherited = resolveInheritedOpeningDimensions(opts.authoring.family, typeof draft.id === 'string' ? draft.id : undefined);
+
+        const dimGrid = mk('div', '');
+        dimGrid.className = 'fte-dimgrid';
+        controls.appendChild(dimGrid);
+
         for (const f of dimFields) {
-            const row = mk('div', 'display:flex;gap:8px;align-items:center;margin-bottom:4px;');
-            const lab = mk('label', 'flex:0 0 118px;font-weight:600;font-size:12px;');
+            // §OPENING-PANEL-DISTRIBUTION (L-9620) — a CARD, not a row. The label and its
+            // state sit on one line and the slider spans the card's full width beneath,
+            // so two fields fit where one row used to sprawl.
+            const cell = mk('div',
+                'min-width:0;border:1px solid #edeff3;border-radius:8px;padding:8px 10px 9px;' +
+                'background:#fcfcfe;');
+
+            const head = mk('div', 'display:flex;align-items:center;gap:6px;margin-bottom:5px;');
+            const lab = mk('label', 'font-weight:600;font-size:11.5px;flex:1 1 auto;min-width:0;');
             lab.textContent = f.label;
             lab.htmlFor = `fte-dim-${f.key}`;
 
-            const range = mk('input', 'flex:1;min-width:0;accent-color:' + PURPLE + ';');
+            // ⭐⭐ THE AUTHORED-VERSUS-DERIVED CHIP (E). C100 §2.2 states the rule for a
+            // material override and it is the SAME rule here: a value the user did not
+            // choose must never be indistinguishable from one they did. An "auto" field
+            // that silently becomes a number is a lie about where the value came from.
+            //
+            // ⛔ SO THE CHIP IS NOT DECORATION. It is the only thing on screen that
+            // separates "this type ASSERTS 1.20 m" from "this type INHERITS 1.20 m", and
+            // those two types behave differently for every window ever placed from them.
+            // It is also the way BACK: authored → click → auto, which the previous
+            // dialog offered only by selecting the field and deleting its contents.
+            const chip = mk('button',
+                'font:inherit;font-size:10px;font-weight:700;letter-spacing:.02em;padding:1px 7px;' +
+                'border-radius:999px;cursor:pointer;flex:0 0 auto;white-space:nowrap;');
+            chip.type = 'button';
+            chip.className = 'fte-auto-btn';
+
+            const range = mk('input', 'width:100%;accent-color:' + PURPLE + ';margin:0;');
             range.type = 'range';
             range.min = String(f.min); range.max = String(f.max); range.step = String(f.step);
 
+            const bottom = mk('div', 'display:flex;gap:8px;align-items:center;');
             const num = mk('input',
-                'flex:0 0 86px;padding:5px 7px;border:1px solid ' + LINE + ';border-radius:5px;' +
-                'font:inherit;font-variant-numeric:tabular-nums;text-align:right;');
+                'flex:0 0 74px;padding:4px 6px;border:1px solid ' + LINE + ';border-radius:5px;' +
+                'font:inherit;font-size:12px;font-variant-numeric:tabular-nums;text-align:right;' +
+                'background:#fff;');
             num.type = 'number';
             num.min = String(f.min); num.max = String(f.max); num.step = String(f.step);
             num.id = `fte-dim-${f.key}`;
-
-            // ⚠ A dimension the type does NOT set is left EMPTY, not zero and not a
-            // fabricated default. `resolveWindowDimensions` falls through an absent field
-            // to the canonical default, and writing a number here would silently freeze
-            // that default into the type — turning "inherits" into "asserts" without the
-            // user saying so. The placeholder names what will be used instead.
-            const initial = dims[f.key];
-            if (typeof initial === 'number' && Number.isFinite(initial)) {
-                num.value = String(initial);
-                range.value = String(initial);
-            } else {
-                num.value = '';
-                num.placeholder = 'auto';
-                range.value = String((f.min + f.max) / 2);
-            }
             num.title = `${f.label} in metres. Leave blank to inherit the standard value.`;
+
+            const unit = mk('span', 'font-size:11px;color:' + MUTED + ';flex:0 0 auto;');
+            unit.textContent = 'm';
+
+            const inh = inherited[f.key];
+            const inhText = typeof inh === 'number' && Number.isFinite(inh) ? inh.toFixed(3).replace(/0+$/, '').replace(/\.$/, '') : null;
+
+            /**
+             * Repaint every part of the cell that depends on WHETHER the field is
+             * authored. One function, called from the chip, the slider, the number box
+             * and the chat — so the four surfaces cannot drift on the one question that
+             * matters here.
+             */
+            function refresh(): void {
+                const v = dims[f.key];
+                const authored = typeof v === 'number' && Number.isFinite(v);
+                if (authored) {
+                    num.value = String(v);
+                    range.value = String(v);
+                    num.placeholder = '';
+                    num.style.color = INK;
+                    chip.textContent = 'authored ×';
+                    chip.style.border = '1px solid ' + PURPLE;
+                    chip.style.background = '#f4efff';
+                    chip.style.color = PURPLE;
+                    chip.disabled = false;
+                    chip.style.cursor = 'pointer';
+                    chip.title =
+                        `This type SETS ${f.label} to ${v} m. Click to clear it back to auto, ` +
+                        'and it will inherit the standard value again.';
+                } else {
+                    num.value = '';
+                    // ⚠ The placeholder NAMES the inherited number rather than saying only
+                    // "auto". "auto" alone tells the author the value is derived without
+                    // telling them what it derives TO, so they cannot see the window they
+                    // are about to make.
+                    num.placeholder = inhText ? `auto ${inhText}` : 'auto';
+                    num.style.color = MUTED;
+                    range.value = inhText ? inhText : String((f.min + f.max) / 2);
+                    chip.textContent = inhText ? `auto · ${inhText} m` : 'auto';
+                    chip.style.border = '1px solid ' + LINE;
+                    chip.style.background = '#fff';
+                    chip.style.color = MUTED;
+                    chip.disabled = true;
+                    chip.style.cursor = 'default';
+                    chip.title = inhText
+                        ? `Not set on this type. Placed elements inherit ${inhText} m from the ` +
+                          'standard value, and will follow it if that standard ever changes.'
+                        : 'Not set on this type; the standard value is used.';
+                }
+            }
+            dimRefreshers.set(f.key, refresh);
 
             const write = (raw: string): void => {
                 const v = parseFloat(raw);
                 if (!Number.isFinite(v)) { delete dims[f.key]; } else { dims[f.key] = v; }
+                refresh();
                 redraw();
             };
-            range.addEventListener('input', () => { num.value = range.value; write(range.value); });
-            num.addEventListener('input', () => {
-                if (num.value !== '') range.value = num.value;
-                write(num.value);
+            // ⚠ Dragging the slider AUTHORS the value — that is the point of touching it —
+            // but the chip says so the instant it happens, so the transition from inherited
+            // to asserted is never silent.
+            range.addEventListener('input', () => write(range.value));
+            num.addEventListener('input', () => write(num.value));
+            chip.addEventListener('click', () => {
+                delete dims[f.key];
+                refresh();
+                redraw();
             });
 
-            row.append(lab, range, num);
-            body.appendChild(row);
+            head.append(lab, chip);
+            bottom.append(num, unit);
+            cell.append(head, range, bottom);
             if (f.hint) {
-                const h = mk('div', 'margin:0 0 8px 126px;color:' + MUTED + ';font-size:11px;');
+                const h = mk('div', 'margin-top:5px;color:' + MUTED + ';font-size:10.5px;line-height:1.35;');
                 h.textContent = f.hint;
-                body.appendChild(h);
+                cell.appendChild(h);
             }
+            refresh();
+            dimGrid.appendChild(cell);
         }
     }
 
@@ -427,8 +607,13 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
     // registry says why in full: its subdivision is an ordered list of typed bands and
     // two sliders would flatten a half-light door into equal panels.
     const grid = opts.authoring.finishEditor?.grid;
+    /** Per-key repaint of a subdivision slider, so the chat can drive it too. */
+    const gridRefreshers = new Map<string, () => void>();
     if (grid) {
         groupHeading('Subdivision');
+        const gridHost = mk('div', '');
+        gridHost.className = 'fte-dimgrid';
+        controls.appendChild(gridHost);
         const gridRow = (label: string, key: string, max: number) => {
             const current = Array.isArray(draft[key]) ? (draft[key] as number[]).length : 1;
             const row = mk('div', 'display:flex;gap:8px;align-items:center;margin-bottom:10px;');
@@ -442,16 +627,25 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
             slider.id = `fte-grid-${key}`;
             const val = mk('div', 'flex:0 0 40px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums;color:' + MUTED + ';');
             val.textContent = slider.value;
+            // One repaint function, shared by the slider and the chat, so the two
+            // authoring surfaces cannot disagree about what the draft says.
+            const refresh = (): void => {
+                const n = Array.isArray(draft[key]) ? (draft[key] as number[]).length : 1;
+                const clamped = Math.min(Math.max(n, 1), max);
+                slider.value = String(clamped);
+                val.textContent = String(clamped);
+            };
+            gridRefreshers.set(key, refresh);
             slider.addEventListener('input', () => {
                 const n = parseInt(slider.value, 10);
-                val.textContent = String(n);
                 // Equal shares. The ratios are the type's DEFAULT starting point; an
                 // instance may be re-divided unevenly afterwards.
                 draft[key] = Array(n).fill(1 / n);
+                refresh();
                 redraw();
             });
             row.append(lab, slider, val);
-            body.appendChild(row);
+            gridHost.appendChild(row);
         };
         gridRow('Columns', grid.columnsKey, grid.maxColumns);
         gridRow('Rows', grid.rowsKey, grid.maxRows);
@@ -459,13 +653,19 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
 
     // §FEAT-ELEMENT-TYPE-AUTHORING — the instance-linkage decision, stated where the
     // user can act on it (mirrors the wall editor; see the registry's `instanceLinkage`).
+    //
+    // ⛔ THIS SENTENCE IS LOAD-BEARING AND STAYS VERBATIM. It is the only place the user
+    // is told that editing a type later will NOT restyle what is already placed, and a
+    // user who assumes the opposite will edit a type expecting a project-wide change.
+    // It moves into the showcase column — where the bottom of a 300 px preview left real
+    // empty space — and it is not shortened, softened or turned into a tooltip.
     const note = mk('div',
-        'margin-top:6px;padding-top:12px;border-top:1px solid ' + LINE + ';' +
-        'font-size:11.5px;color:' + MUTED + ';');
+        'margin-top:12px;padding-top:12px;border-top:1px solid ' + LINE + ';' +
+        'font-size:11.5px;line-height:1.45;color:' + MUTED + ';');
     note.textContent =
         `Placed ${opts.authoring.family}s keep the finishes they were created with; ` +
         'editing this type later will not restyle them automatically.';
-    body.appendChild(note);
+    showcase.appendChild(note);
 
     // ── Footer ───────────────────────────────────────────────────────────────
     const footer = mk('div',
@@ -482,6 +682,92 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
     saveBtn.type = 'button';
     saveBtn.textContent = `Create ${opts.authoring.noun}`;
     footer.append(cancelBtn, saveBtn);
+
+    // ── The chat (§OPENING-PANEL-CHAT, L-9630) ──────────────────────────────
+    //
+    // ⭐ TWO AUTHORING SURFACES, ONE DRAFT. The chat does not own a model of the
+    // type, does not dispatch a command and does not decide whether a save
+    // succeeded: it writes the SAME `draft` object the controls write, calls the
+    // SAME per-control refreshers, and routes "create it" through the SAME
+    // `commit()`. So the founder's *"either via UI or chat"* is one pipeline with
+    // two mouths, not two pipelines that must be kept in agreement.
+    //
+    // It spans both columns because it is about the whole type, not about either
+    // half of it — and because it is what fills the space the founder called empty.
+    const chatFields = draftFieldsFor(opts.authoring);
+    const chat = mountFinishTypeChat(body, {
+        fields: chatFields,
+        applyEdits(edits) {
+            for (const e of edits) {
+                const f = e.field;
+                if (f.target === 'identity') {
+                    if (f.id === '__name__') { nameInput.value = String(e.value ?? ''); nameErr.textContent = ''; }
+                    else descInput.value = String(e.value ?? '');
+                    continue;
+                }
+                if (f.target === 'finish') {
+                    // C100 §2.1 — the id is the identity and the hex is its CACHE. Written
+                    // exactly as the picker writes it, because it is the same shape or it
+                    // is a second spelling of one rule.
+                    draft[f.id] = {
+                        ...draft[f.id],
+                        name: e.materialLabel ?? '',
+                        materialId: e.materialId,
+                        materialColor: e.materialHex ?? '',
+                    };
+                    slotRefreshers.get(f.id)?.();
+                    continue;
+                }
+                if (f.target === 'glazing') {
+                    draft.glazingOpacity = typeof e.value === 'number' ? e.value : draft.glazingOpacity;
+                    glazingRefresh?.();
+                    continue;
+                }
+                if (f.target === 'grid') {
+                    const n = typeof e.value === 'number' ? Math.max(1, Math.round(e.value)) : 1;
+                    draft[f.id] = Array(n).fill(1 / n);
+                    gridRefreshers.get(f.id)?.();
+                    continue;
+                }
+                // dimension
+                const dims = draft.dimensions as Record<string, number | undefined>;
+                // ⛔ `clearsToAuto` is NOT "set it to zero". Deleting the key is what
+                // returns the field to INHERITED, and the two are different types.
+                if (e.clearsToAuto) delete dims[f.id];
+                else if (typeof e.value === 'number') dims[f.id] = e.value;
+                dimRefreshers.get(f.id)?.();
+            }
+            redraw();
+        },
+        commit(): string | null {
+            // ⚠ `commitDraft` is this dialog's own save path, aliased so the call below
+            // cannot be misread as this port method calling itself.
+            const err = validate();
+            nameErr.textContent = err ?? '';
+            if (err) { nameInput.focus(); return err; }
+            commitDraft();
+            return null;
+        },
+        describe(): string {
+            const dims = (draft.dimensions ?? {}) as Record<string, number | undefined>;
+            const parts: string[] = [];
+            for (const f of chatFields) {
+                if (f.target === 'dimension') {
+                    const v = dims[f.id];
+                    // "authored" and "inherited" stay distinguishable in the chat's own
+                    // answer too — the same rule the control chip enforces (§OPENING-AUTO-IS-A-STATE).
+                    parts.push(`${f.label} ${typeof v === 'number' ? `${v} m` : 'auto'}`);
+                } else if (f.target === 'finish') {
+                    parts.push(`${f.label} ${draft[f.id]?.name || 'not set'}`);
+                } else if (f.target === 'grid') {
+                    parts.push(`${f.label} ${Array.isArray(draft[f.id]) ? (draft[f.id] as number[]).length : 1}`);
+                } else if (f.target === 'glazing') {
+                    parts.push(`Glazing ${Math.round((draft.glazingOpacity ?? 1) * 100)}% opaque`);
+                }
+            }
+            return parts.join(' · ');
+        },
+    });
 
     panel.append(header, body, footer);
     overlay.appendChild(panel);
@@ -506,7 +792,7 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
         return null;
     }
 
-    function commit(): void {
+    function commitDraft(): void {
         const err = validate();
         nameErr.textContent = err ?? '';
         if (err) { nameInput.focus(); return; }
@@ -520,7 +806,7 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
 
     // ── Wiring (C43) ─────────────────────────────────────────────────────────
     nameInput.addEventListener('input', () => { nameErr.textContent = ''; });
-    saveBtn.addEventListener('click', commit);
+    saveBtn.addEventListener('click', commitDraft);
     cancelBtn.addEventListener('click', () => { onCloseInternal(); opts.onCancel?.(); });
     overlay.addEventListener('mousedown', (e) => {
         if (e.target === overlay) { onCloseInternal(); opts.onCancel?.(); }
@@ -528,7 +814,7 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
 
     function onKey(e: KeyboardEvent): void {
         if (e.key === 'Escape') { e.preventDefault(); onCloseInternal(); opts.onCancel?.(); return; }
-        if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); commit(); return; }
+        if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); commitDraft(); return; }
         if (e.key !== 'Tab') return;
         const focusable = panel.querySelectorAll<HTMLElement>(
             'input:not([disabled]),select:not([disabled]),button:not([disabled]),[tabindex]:not([tabindex="-1"])');
@@ -550,6 +836,7 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
         // OLDEST context, i.e. the main viewport.
         showroom?.dispose();
         showroom = null;
+        chat.dispose();
         overlay.remove();
         invoker?.focus?.();
     }

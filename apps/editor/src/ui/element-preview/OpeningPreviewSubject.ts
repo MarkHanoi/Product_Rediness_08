@@ -362,3 +362,66 @@ export function buildOpeningPreviewSubject(
     if (family === 'door') return buildDoorPreviewSubject(draft as never);
     return null;
 }
+
+/**
+ * §OPENING-AUTO-IS-A-STATE (L-9610) — what a BLANK dimension field will actually
+ * resolve to, keyed by the same `dimensions` keys `ElementTypeAuthoringRegistry`
+ * declares.
+ *
+ * ⭐ WHY THIS EXISTS AT ALL. The type editor leaves an unauthored dimension EMPTY
+ * with the placeholder "auto", which is correct — writing a number there would
+ * silently freeze today's default into the type and turn "inherits" into
+ * "asserts". But "auto" on its own is only half the truth: it says the value is
+ * derived without saying WHAT it derives to, so the author cannot see the window
+ * they are about to create. This closes that half, and it closes it WITHOUT
+ * minting a second source: every number below comes back from
+ * `resolveWindowDimensions` / `resolveDoorDimensions`, the same resolvers the
+ * placement path calls (L-127: preview and placement must both call this).
+ *
+ * ⛔ The resolvers are deliberately called with NO authored dimensions block. The
+ * question this answers is *"what would this field be if I left it blank"*, which
+ * is a different question from *"what is this type's width"* — and the resolvers
+ * fall through PER FIELD, so an unauthored field's inherited value does not
+ * depend on which of its siblings the user has authored.
+ *
+ * Returns an empty map for a family with no resolver, never a fabricated default.
+ */
+export function resolveInheritedOpeningDimensions(
+    family: string,
+    /**
+     * The type's own id when it HAS one (Duplicate of a saved type), `undefined`
+     * for an unsaved draft. ⚠ Taken as a scalar rather than as the draft object:
+     * `FinishTypeDraft` is `Record<string, any>`, and a structural parameter would
+     * accept any record at all — including the wrong one — with no complaint.
+     */
+    typeId: string | undefined,
+): Readonly<Record<string, number>> {
+    if (family === 'window') {
+        const base = { ...(typeId ? { systemTypeId: typeId } : {}) };
+        const single = resolveWindowDimensions({ ...base, windowType: 'single' });
+        const dbl = resolveWindowDimensions({ ...base, windowType: 'double' });
+        return {
+            width: single.width,
+            doubleWidth: dbl.width,
+            height: single.height,
+            frameThickness: single.frameThickness,
+            frameDepth: single.frameDepth,
+            columnDividerThickness: single.columnDividerThickness,
+            rowDividerThickness: single.rowDividerThickness,
+            sillDepth: single.sillDepth,
+        };
+    }
+    if (family === 'door') {
+        const single = resolveDoorDimensions(typeId, 'single');
+        const dbl = resolveDoorDimensions(typeId, 'double');
+        return {
+            width: single.width,
+            doubleWidth: dbl.width,
+            height: single.height,
+            frameThickness: single.frameThickness,
+            frameDepth: single.frameDepth,
+            leafThickness: single.leafThickness,
+        };
+    }
+    return {};
+}

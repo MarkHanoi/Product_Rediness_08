@@ -22,12 +22,23 @@ function makeStore(types: any[]) {
     };
 }
 
+// ⚠ §OPENING-FINISH-IS-A-REFERENCE (L-7702, commit efe32a0d, 2026-08-23) made a
+// finish slot without a `materialId` INVALID — `validate()` refuses the save with
+// "Pick a library material for Frame." This fixture was last edited on 2026-08-10
+// (8fa2cd0f) and carried a colour with no id, so the two save tests below had been
+// RED since that commit landed: the rule shipped and its fixture did not move with
+// it. Measured 2026-08-23 by lane OPENUI57 — see ISSUE-LOG L-9640.
+//
+// ⛔ The fix is the FIXTURE, not the rule. A door type whose frame names no library
+// material cannot be scheduled, exported to IFC or given a carbon factor (C100 §2.1);
+// refusing it is the behaviour under test, and the refusal now has a test of its own
+// below rather than silently eating two other assertions.
 const SOLID = {
     id: 'dt-solid-timber',
     name: 'Solid Timber (Default)',
     isBuiltIn: true,
-    frameFinish: { name: 'Timber Frame', materialColor: '#c8a55a' },
-    leafFinish:  { name: 'Timber Leaf',  materialColor: '#c8a55a' },
+    frameFinish: { name: 'Wood · Oak (Light)', materialId: 'wood-oak', materialColor: '#c8a96e' },
+    leafFinish:  { name: 'Wood · Oak (Light)', materialId: 'wood-oak', materialColor: '#c8a96e' },
     glazingOpacity: 1,
     dimensions: { width: 0.926, height: 2.04 },
     metadata: { createdAt: 1, modifiedAt: 1, createdBy: 'system', version: 1 },
@@ -111,6 +122,28 @@ describe('handleFinishTypeAuthoring — Duplicate (P6: command, not store write)
         cancelBtn.click();
         expect(executeCommand).not.toHaveBeenCalled();
         expect(document.querySelector('.fte-panel')).toBeNull();
+    });
+
+    it('REFUSES to save a finish that names no library material (L-7702)', () => {
+        // The state the old fixture was accidentally in, now asserted on purpose.
+        const noMaterial = {
+            ...SOLID,
+            frameFinish: { name: 'Timber Frame', materialColor: '#c8a55a' },
+            leafFinish:  { name: 'Timber Leaf',  materialColor: '#c8a55a' },
+        };
+        handleFinishTypeAuthoring({
+            mode: 'duplicate', family: 'door', store: makeStore([noMaterial]),
+            currentTypeId: 'dt-solid-timber', onCreated: vi.fn(),
+        });
+        const panel = document.querySelector('.fte-panel') as HTMLElement;
+        const saveBtn = Array.from(panel.querySelectorAll('button'))
+            .find(b => b.textContent?.startsWith('Create'))!;
+        saveBtn.click();
+        // Nothing dispatched, dialog stays open, and the reason is on screen —
+        // C06: a refusal must name the route back.
+        expect(executeCommand).not.toHaveBeenCalled();
+        expect(document.querySelector('.fte-panel')).not.toBeNull();
+        expect(panel.textContent).toMatch(/Pick a library material for Frame/);
     });
 
     it('New Type dispatches elementType.create with a template-derived draft', () => {

@@ -97,9 +97,65 @@ interface Rig {
     /** Everything belonging to the CURRENT subject; emptied and disposed on each swap. */
     content: THREE.Group;
     canvas: HTMLCanvasElement;
+    /**
+     * §OPENING-PREVIEW-HONEST-FAILURE (L-9600) — flipped by the canvas's own
+     * `webglcontextlost` event. A lost context renders NOTHING and throws NOTHING:
+     * every subsequent `render()` is a silent no-op. Without this flag the rig
+     * stays non-null forever and the surface shows a permanently blank box while
+     * `ensureRig()` keeps handing back the corpse.
+     */
+    lost: boolean;
 }
 
 let rig: Rig | null = null;
+
+/**
+ * §OPENING-PREVIEW-HONEST-FAILURE (L-9600) — WHY a draw could not happen, as a
+ * NAMED value rather than a boolean.
+ *
+ * ⭐ THE DEFECT THIS TYPE EXISTS TO KILL. `drawNow` used to return `boolean`, and
+ * `ElementPreviewCanvas` did not even read it: it inferred failure by sampling the
+ * alpha of the target canvas's top-left 8x8 pixels 120 ms after mount. That region
+ * is inside the LETTERBOX MARGIN on any preview box wider than it is tall (the
+ * showroom's is 516 x 172 CSS px, so the blit starts 172 px from the left edge and
+ * the probe reads 164 px of guaranteed-transparent margin). The probe therefore
+ * reported "this browser did not provide a WebGL context" on EVERY mount, in EVERY
+ * browser, including one that had just rendered the frame perfectly.
+ *
+ * That is §CONTEXT-DATA-HONESTY inverted — a probe under which SUCCESS and TOTAL
+ * FAILURE carry the same value — and it is why the founder read a false accusation
+ * of his browser while his main viewport was rendering his model in WebGL.
+ *
+ * ⛔ These five are deliberately NOT collapsible into "unavailable". They have
+ * different causes, different fixes and different things to tell the user:
+ *  - `ok`             — drawn.
+ *  - `no-webgl`       — the context could not be CREATED. Carries the driver's own
+ *                       message via {@link previewRigDiagnostics}.
+ *  - `context-lost`   — it was created and then TAKEN AWAY (driver reset, tab
+ *                       backgrounded, the browser's live-context cap evicting).
+ *                       Recoverable: the rig is dropped and the next request
+ *                       rebuilds it.
+ *  - `no-2d-context`  — the TARGET canvas would not give a 2-D context. Nothing to
+ *                       do with WebGL; blaming WebGL here was the old message's
+ *                       second lie.
+ *  - `empty-subject`  — the rig is fine and the subject has no parts. "Nothing to
+ *                       draw" must never read as "the renderer failed".
+ */
+export type PreviewDrawResult =
+    | 'ok'
+    | 'no-webgl'
+    | 'context-lost'
+    | 'no-2d-context'
+    | 'empty-subject';
+
+/**
+ * The driver's own words from the last failed {@link ensureRig}, kept so the UI can
+ * name the real cause instead of guessing at one. `null` once a rig exists.
+ */
+let lastRigFailure: string | null = null;
+
+/** How many times the context has been lost this session. Reported, never hidden. */
+let contextLossCount = 0;
 /** How many mounted previews exist. The context is released when this reaches 0. */
 let liveMounts = 0;
 /** The subject currently built into `rig.content`, so an unchanged subject is not rebuilt. */
@@ -114,6 +170,16 @@ let builtKey: string | null = null;
  * FIRST; there is no fallback below it.
  */
 function ensureRig(): Rig | null {
+    // §OPENING-PREVIEW-HONEST-FAILURE (L-9601) — a LOST rig is not a rig. It used to
+    // be returned unconditionally, so a single driver reset turned every preview in
+    // the application into a permanently blank box for the rest of the session: the
+    // renders kept "succeeding" (a lost context throws nothing) and nothing ever
+    // rebuilt. Dropping it here is what makes the loss RECOVERABLE.
+    if (rig && rig.lost) {
+        try { rig.renderer.dispose(); } catch { /* the context is already gone */ }
+        rig = null;
+        builtKey = null;
+    }
     if (rig) return rig;
     try {
         const canvas = document.createElement('canvas');
@@ -151,12 +217,56 @@ function ensureRig(): Rig | null {
         const content = new THREE.Group();
         scene.add(content);
 
-        rig = { renderer, scene, camera, content, canvas };
+        rig = { renderer, scene, camera, content, canvas, lost: false };
+
+        // §OPENING-PREVIEW-HONEST-FAILURE (L-9601) — the ONLY way to learn that a
+        // context died. `render()` on a lost context is a silent no-op: it returns
+        // normally, draws nothing and reports nothing. Without this listener
+        // "device-loss" and "everything is fine" are the same observable, which is
+        // the failure shape [[render-reconstruction-boundary-gpu-reset]] records for
+        // the main viewport, one surface down.
+        canvas.addEventListener('webglcontextlost', (e) => {
+            // Preventing the default is what makes restoration possible at all.
+            e.preventDefault();
+            contextLossCount++;
+            if (rig) rig.lost = true;
+            builtKey = null;
+            console.warn(
+                '[ElementPreviewRenderer] the shared preview context was LOST ' +
+                `(occurrence ${contextLossCount}). The next draw request rebuilds it.`,
+            );
+        });
+
+        lastRigFailure = null;
         return rig;
     } catch (err) {
+        // ⭐ The driver's own words are KEPT, not swallowed into a boolean. "WebGL is
+        // unavailable" and "this machine has already handed out its 16th context" are
+        // different problems and the second one is actionable.
+        lastRigFailure = err instanceof Error ? err.message : String(err);
         console.warn('[ElementPreviewRenderer] WebGL unavailable — preview disabled:', err);
         return null;
     }
+}
+
+/**
+ * What the shared rig's state actually is, for a UI that must NAME a failure rather
+ * than assert one. Pure read; creates nothing.
+ */
+export function previewRigDiagnostics(): {
+    readonly held: boolean;
+    readonly lost: boolean;
+    readonly mounts: number;
+    readonly contextLosses: number;
+    readonly lastFailure: string | null;
+} {
+    return {
+        held: rig !== null && !rig.lost,
+        lost: rig !== null && rig.lost,
+        mounts: liveMounts,
+        contextLosses: contextLossCount,
+        lastFailure: lastRigFailure,
+    };
 }
 
 /**
@@ -299,9 +409,19 @@ function ensureBuffer(r: Rig, w: number, h: number): void {
  * unchanged type allocates NOTHING: it moves the camera and re-renders 512²
  * pixels of an existing scene.
  */
-function drawNow(subject: PreviewSubject, target: HTMLCanvasElement, orbit: OrbitState): boolean {
+function drawNow(
+    subject: PreviewSubject,
+    target: HTMLCanvasElement,
+    orbit: OrbitState,
+): PreviewDrawResult {
+    const wasLost = rig !== null && rig.lost;
     const r = ensureRig();
-    if (!r) return false;
+    // ⚠ The order matters. A rig that was JUST found lost and could not be rebuilt is
+    // reported as `context-lost` (recoverable, try again) and not as `no-webgl`
+    // (this machine cannot do it at all) — two different sentences for the user.
+    if (!r) return wasLost ? 'context-lost' : 'no-webgl';
+    if (r.lost) return 'context-lost';
+    if (subject.parts.length === 0) return 'empty-subject';
 
     ensureBuffer(r, BUFFER_PX, BUFFER_PX);
     if (builtKey !== subject.key) buildContent(r, subject);
@@ -309,7 +429,7 @@ function drawNow(subject: PreviewSubject, target: HTMLCanvasElement, orbit: Orbi
     r.renderer.render(r.scene, r.camera);
 
     const ctx = target.getContext('2d');
-    if (!ctx) return false;
+    if (!ctx) return 'no-2d-context';
     ctx.clearRect(0, 0, target.width, target.height);
     // Letterbox: never stretch. A stretched window is a WRONG window, not a
     // cosmetic defect — the whole point of the showroom is proportion.
@@ -317,7 +437,7 @@ function drawNow(subject: PreviewSubject, target: HTMLCanvasElement, orbit: Orbi
     const dx = (target.width - s) / 2;
     const dy = (target.height - s) / 2;
     ctx.drawImage(r.canvas, dx, dy, s, s);
-    return true;
+    return 'ok';
 }
 
 /** A pending draw per target canvas, so requests coalesce per surface. */
@@ -326,17 +446,29 @@ const pending = new WeakMap<HTMLCanvasElement, () => void>();
 /**
  * Request ONE frame for `target`. Coalesced: repeated calls inside a single frame
  * collapse to one draw. Never starts a loop.
+ *
+ * `onResult` receives the OUTCOME OF THE DRAW THAT ACTUALLY RAN — the same shape
+ * `requestGraphDraw` already reports through `onProjected`, which is the pattern
+ * GRAPH48 established and the one this call site should have used from the start.
+ *
+ * ⭐ §OPENING-PREVIEW-HONEST-FAILURE (L-9600). Read {@link PreviewDrawResult}'s
+ * docstring before adding a caller: the previous consumer inferred failure from
+ * pixel alpha and was wrong 100% of the time. **The renderer knows; ask it.** And
+ * ask it EVERY draw — a one-shot check latches the first frame's answer, which for
+ * a preview mounted into a detached panel is the answer for a canvas that had no
+ * size yet.
  */
 export function requestPreviewDraw(
     subject: PreviewSubject,
     target: HTMLCanvasElement,
     orbit: OrbitState,
+    onResult?: (result: PreviewDrawResult) => void,
 ): void {
     const already = pending.get(target);
     if (already) already();          // cancel the superseded request; the newest state wins
     const dispose = getFrameScheduler().scheduleOnce('element-preview-draw', () => {
         pending.delete(target);
-        drawNow(subject, target, orbit);
+        onResult?.(drawNow(subject, target, orbit));
     });
     pending.set(target, dispose);
 }
