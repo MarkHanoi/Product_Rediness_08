@@ -33,6 +33,7 @@
  */
 
 import { trace } from '@opentelemetry/api';
+import { projectScopeRegistry } from '@pryzm/core-app-model';
 
 const _tracer = trace.getTracer('@pryzm/editor.armed-selection-snapshot', '0.1.0');
 
@@ -85,3 +86,15 @@ export function clearArmedSelection(): void {
 export function __resetArmedSelectionForTests(): void {
   _armedSelectionId = null;
 }
+
+// ── §C13-CANDIDATE-OWNERS (L-8110) — project-switch owner ────────────────────
+//
+// `_armedSelectionId` is an ELEMENT ID. Carried across a switch it names an element
+// that does not exist in the incoming project, so the next tool arming reads a
+// dangling id — the `activeWallSystemType` shape already on the ADR-0298 debt list.
+// `clearArmedSelection()` existed and was called only when a tool session ended,
+// which a project switch is not.
+projectScopeRegistry.register({
+    scopeName: 'plantools.armedSelection',
+    clear: () => clearArmedSelection(),
+});

@@ -52,6 +52,9 @@
 // no store and dispatches no command; it is presentation state, the same class as the
 // three initScene gates above.
 
+// §C13-CANDIDATE-OWNERS (L-8110) — see the projectScopeRegistry.register at the foot of this file.
+import { projectScopeRegistry } from '@pryzm/core-app-model';
+
 /** Which views may render an underlay. */
 export type UnderlayViewScope = 'plan' | 'all';
 
@@ -209,9 +212,44 @@ export function installUnderlayViewScope(): void {
     console.log('[underlay-view-scope] §UND-VIEW-SCOPE installed (L-1197) — underlays are view-scoped.');
 }
 
-/** Test-only reset of module state. */
-export function __resetUnderlayViewScopeForTests(): void {
+/**
+ * §C13-CANDIDATE-OWNERS (L-8110) — the PROJECT-SWITCH reset, distinct from the
+ * test-only one below.
+ *
+ * Restores the DEFAULT user intent (`true` — an underlay the architect has not hidden
+ * is visible) and forgets the outgoing project's view mode, but leaves `_installed`
+ * alone. A switch that cleared the subscription latch would let the next install
+ * double-subscribe the view gate, which is the L-224 failure re-created one layer
+ * down. The two resets differ by exactly that field, deliberately.
+ */
+export function resetUnderlayViewScopeForProjectSwitch(): void {
     _activeViewMode = null;
     _userVisible = true;
+}
+
+/** Test-only reset of module state. Also drops the subscription latch. */
+export function __resetUnderlayViewScopeForTests(): void {
+    resetUnderlayViewScopeForProjectSwitch();
     _installed = false;
 }
+
+// ── §C13-CANDIDATE-OWNERS (L-8110) — project-switch owner ────────────────────
+//
+// `_userVisible` is the ARCHITECT'S EYE-STATE for THIS project's floor-plan underlay,
+// and this module's own header names it "the authority persistence must save"
+// (UnderlayPersistence reads it rather than the computed `mesh.visible`). Carried
+// across a switch it is a hidden setting applied to a different project's import: the
+// incoming underlay restores invisible, with the Import Manager's eye showing the
+// previous project's choice, and the next save WRITES that choice onto project B.
+//
+// `_activeViewMode` is re-announced by ViewController on the next `view-activated`,
+// but it is reset here too: until that event arrives the scope gate would be computed
+// against the OUTGOING project's view mode, and "stale until something refreshes it"
+// is the shape this file's own §UND-VIEW-SCOPE correction was written about.
+//
+// ⛔ `_installed` is NOT reset — same app-lifetime subscription latch as
+// `lineworkProbe`; clearing it would double-subscribe the view gate.
+projectScopeRegistry.register({
+    scopeName: 'views.underlayViewScope',
+    clear: () => { resetUnderlayViewScopeForProjectSwitch(); },
+});

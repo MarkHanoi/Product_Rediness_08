@@ -51,6 +51,9 @@
 // Cost: one scene traverse per 3D activation, i.e. the same order as the three
 // overlay gates initScene already runs on that event.
 
+// §C13-CANDIDATE-OWNERS (L-8110) — see the projectScopeRegistry.register at the foot of this file.
+import { projectScopeRegistry } from '@pryzm/core-app-model';
+
 /** One line-bearing object, as the probe sees it. */
 export interface LineworkRow {
     /** THREE `Object3D.type` — 'Line' | 'LineSegments' | 'LineLoop' | 'Line2' | … */
@@ -402,10 +405,43 @@ export function installLineworkProbe(): void {
     console.log('[linework-probe] §LINEWORK-3D-PROBE installed (L-1225) — censuses 3D linework on every 3D entry.');
 }
 
-/** Test-only reset. */
-export function __resetLineworkProbeForTests(): void {
+/**
+ * §C13-CANDIDATE-OWNERS (L-8110) — the PROJECT-SWITCH reset, distinct from the
+ * test-only one below.
+ *
+ * It clears the census state and NOT `_installed`. The two resets differ by exactly
+ * that one field, and the difference is the whole point: a test needs a virgin module
+ * (including an un-subscribed one), while a project switch must leave the subscription
+ * alone — a switch that cleared `_installed` would let the next `installLineworkProbe`
+ * subscribe a second time and census twice on every 3-D entry. Sharing one reset
+ * between the two callers is how that bug gets written.
+ */
+export function resetLineworkProbeCensus(): void {
     _baseline = null;
     _last = null;
-    _installed = false;
     _entries = 0;
 }
+
+/** Test-only reset. Also drops the subscription latch — see the note above. */
+export function __resetLineworkProbeForTests(): void {
+    resetLineworkProbeCensus();
+    _installed = false;
+}
+
+// ── §C13-CANDIDATE-OWNERS (L-8110) — project-switch owner ────────────────────
+//
+// `_baseline` and `_last` are LINEWORK CENSUSES of the open project's 3-D scene. The
+// probe's whole output is a COMPARISON against `_baseline`, so a baseline taken in
+// project A and compared against project B reports a difference that measures the
+// project switch rather than the regression the probe exists to catch — a probe
+// answering confidently about the wrong subject ([[probe-can-be-wrong-three-ways]]).
+//
+// ⛔ `_installed` is DELIBERATELY NOT RESET. It latches the `view-activated`
+// subscription, which is app-lifetime, not project state: clearing it would let the
+// next install subscribe a SECOND time and census twice per entry. That is the L-224
+// failure re-created one layer down, and it is the same carve-out
+// `OpenedRegionProposal` records for its own `installed` flag.
+projectScopeRegistry.register({
+    scopeName: 'diagnostics.lineworkProbe',
+    clear: () => { resetLineworkProbeCensus(); },
+});

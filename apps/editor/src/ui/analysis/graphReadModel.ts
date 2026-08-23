@@ -36,6 +36,7 @@ import type { UbgEdge, UbgNode } from '@pryzm/building-graph';
 import type { UbgLiveness } from '../../engine/buildingGraphMaintainer';
 
 import type { AnalysisFigure, CoverageRow } from './AnalysisTypes';
+import { projectScopeRegistry } from '@pryzm/core-app-model';
 
 /**
  * ⛔ The node cap — 60 → 320, §PERF-GRAPH-BARNES-HUT (L-6620).
@@ -653,3 +654,16 @@ export function nodeDegrees(edges: readonly UbgEdge[]): Map<string, number> {
   }
   return d;
 }
+
+// ── §C13-CANDIDATE-OWNERS (L-8110) — project-switch owner ────────────────────
+//
+// `_levelFilter` holds a LEVEL ID. Level ids are not unique across projects and are
+// not even guaranteed to exist in the next one: `ClearProjectCommand` resets
+// `projectContext.activeLevelId` to 'L0' (§C13-G3) precisely because a dangling level
+// reference makes downstream readers abort silently. A surviving filter makes the
+// graph render empty, or — worse, on an id collision — render the wrong storey, with
+// no error anywhere.
+projectScopeRegistry.register({
+    scopeName: 'analysis.graphReadModel',
+    clear: () => setGraphLevelFilter(null),
+});

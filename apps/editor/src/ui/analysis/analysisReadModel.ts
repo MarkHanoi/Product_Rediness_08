@@ -93,6 +93,7 @@ import type {
   AnalysisQuery,
   AnalysisResult,
 } from './AnalysisTypes';
+import { projectScopeRegistry } from '@pryzm/core-app-model';
 
 // ── The declared source table ─────────────────────────────────────────────────
 //
@@ -991,3 +992,21 @@ export function idsForFacet(axis: AnalysisAxis, key: string): ReadonlySet<string
     },
   );
 }
+
+// ── §C13-CANDIDATE-OWNERS (L-8110) — project-switch owner ────────────────────
+//
+// Every field this module memoises (`_census`, `_takeoff`, `_areas`, `_placement`,
+// `_placementFor`, `_queryCache`) is derived from the OPEN project's element stores,
+// and each is served from cache until something invalidates it. Carried across a
+// switch, the Analysis surface reports project A's element counts, takeoff quantities
+// and room areas under project B's name — a wrong number presented as a measurement,
+// which is the §CONTEXT-DATA-HONESTY failure in its most expensive form.
+//
+// `invalidateAnalysisReadModel()` already exists and its own doc says "Called on
+// commit and on project load"; this registration is what makes the second half of
+// that sentence true on every project-entry path rather than only where a caller
+// happened to remember.
+projectScopeRegistry.register({
+    scopeName: 'analysis.readModel',
+    clear: () => invalidateAnalysisReadModel(),
+});

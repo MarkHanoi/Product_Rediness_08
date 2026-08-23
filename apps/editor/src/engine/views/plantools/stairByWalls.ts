@@ -47,6 +47,7 @@
  */
 
 import { resolveStairGeometryLimits } from '@pryzm/geometry-stair';
+import { projectScopeRegistry } from '@pryzm/core-app-model';
 
 /** A point in the world XZ plane. Y is the level elevation and is not used here. */
 export interface PlanPoint {
@@ -447,3 +448,21 @@ export function executeStairByWalls(req: ByWallsRequest): ByWallsExecution {
     setPendingStairByWallsPlan(outcome);
     return { ok: true, plan: outcome };
 }
+
+// ── §C13-CANDIDATE-OWNERS (L-8110) — project-switch owner ────────────────────
+//
+// `_pendingPlan` is a By-Walls stair plan derived from WALL GEOMETRY AND WALL IDS of
+// the open project. Its own reset carries the comment "Test seam + project-switch
+// reset (C48 project isolation)" — a reset AUTHORED FOR a project switch that NO
+// project-switch path ever called (grep `__resetStairByWallsForTests` outside tests
+// -> 0). Authored-but-unwired, exactly the class this gate exists to surface.
+//
+// The plan is one-shot by construction (`consumePendingStairByWallsPlan` clears on
+// read), so the surviving window is "armed in project A, never consumed, switch" —
+// and the module's own header says what happens then: "A plan left standing would
+// re-draw a stair the next time the tool activated for any reason." In the incoming
+// project that stair would be drawn against project A's wall coordinates.
+projectScopeRegistry.register({
+    scopeName: 'plantools.stairByWallsPlan',
+    clear: () => setPendingStairByWallsPlan(null),
+});
