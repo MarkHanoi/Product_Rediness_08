@@ -353,15 +353,35 @@ export const SCENE_GRAPHS_NOT_TRAVERSED: readonly string[] = [
     // apps/editor/src/ui/geospatial/CesiumViewport.ts — six `scene.primitives.add()`
     // sites (tilesets, placed massing models, context layers). A Cesium
     // PrimitiveCollection is a SECOND renderer's graph: it is not reachable from
-    // `window.scene` and exposes no `.traverse()`. Covered ONLY by the
-    // `gis.cesiumViewport` probe, which counts EIGHT NAMED FIELDS — not primitives.
-    'cesium viewer.scene.primitives (probe gis.cesiumViewport counts 8 named fields, NOT primitives)',
+    // `window.scene` and exposes no `.traverse()`. NOT UNOWNED, though — it has a
+    // registered scope with a real teardown (`gis.cesiumViewport`, whose clear calls
+    // `resetProjectScopedState('project-switch')` per live viewport) and a probe that
+    // answers `getOwningProjectId()`. So it is audited by OWNERSHIP rather than by
+    // SWEEP, which is the disposition C13 §7.5 names for a producer a sweep cannot
+    // see. What remains true is that the probe counts NAMED FIELDS, not primitives:
+    // a primitive added outside those fields would not be seen.
+    'cesium viewer.scene.primitives (owned + probed by gis.cesiumViewport, which counts 8 named fields, NOT primitives)',
     // apps/editor/src/ui/furniture-carousel/FloatingObjectCarousel.ts:305 — its own
-    // `new THREE.Scene()`. Its GLB-404 handler (:427) adds a completely unstamped
-    // grey box to it.
-    'apps/editor furniture-carousel private THREE.Scene (GLB-404 fallback boxes)',
-    // apps/editor/src/ui/furniture-carousel/FurnitureDragDropHandler.ts — `indicatorScene`.
-    'apps/editor FurnitureDragDropHandler indicatorScene',
+    // `new THREE.Scene()` (verified the ONLY assignment to `this.scene`). Its GLB-404
+    // handler (:427) adds a completely unstamped grey box to it. Genuinely a second
+    // graph AND genuinely unowned — but it renders the furniture CATALOGUE, not placed
+    // project elements, so its contents are catalogue previews rather than project
+    // state. The honest close is a probe on the carousel, not a sweep.
+    'apps/editor furniture-carousel private THREE.Scene (GLB-404 fallback boxes; catalogue content, no owner)',
+    // ⚠ CORRECTED 2026-08-23 (L-8106). A third entry used to sit here:
+    //     'apps/editor FurnitureDragDropHandler indicatorScene'
+    // IT WAS NOT A SEPARATE GRAPH. `FurnitureDragDropHandler.ts:161` assigns
+    // `this.indicatorScene = world.scene.three` — THE MAIN SCENE — and that is the only
+    // non-null assignment in the file (:98 declares it null, :196 resets it to null).
+    // The drop indicator has therefore always been inside `window.scene` and has always
+    // been traversed by this audit.
+    //
+    // Removing it is not a narrowing, it is a correction. Over-declaring blindness is
+    // its own defect: this list exists so a reader can act on the gaps, and a gap that
+    // is not real spends the reader's attention and makes the true gaps look smaller by
+    // comparison. §CONTEXT-DATA-HONESTY cuts BOTH ways — claiming coverage you do not
+    // have and claiming blindness you do not have are the same error about the same
+    // fact. Do not re-add it without re-reading :161.
 ];
 
 /**

@@ -143,6 +143,8 @@ Therefore any subsystem participating in teardown or open MUST subscribe via `ru
 
 **CI gate (binding):** `scripts/check/check-project-isolation.mjs` MUST fail on any occurrence of `window.addEventListener('pryzm-project-{switch,loaded,context-set}'`. A listener that cannot fire is worse than a missing one: it reads as protection while providing none.
 
+> ⚠ **This gate covers ONE HALF of the family, and the other half shipped a leak on 2026-08-23 (L-8100).** It is keyed on three hard-coded names and on one failure mode — a listener on `window` for an event emitted on the **typed bus**. The mirror-image failure is a listener for an event emitted **nowhere at all**, which is what `'clear-project'` was, and no number of hard-coded names could have caught a fourth. **See §3.14**, which adds the complementary arm. Do not treat §3.9's `✓` as covering the whole class — it printed `✓ No dead project-lifecycle DOM listeners` in the same run that reported the leak.
+
 ### §3.10 — A project switch is a full teardown with NAMED OWNERS; the audit enumerates owners, not symptoms (binding)
 
 Every stateful surface reset on a project switch MUST have exactly one **named owner**: a `ProjectLifecycleController` step, a `ProjectScopeRegistry` scope, or a `ClearProjectCommand` step. `ProjectScopeRegistry` is the registry of owners; **a store that registers no `clear` MUST fail a test.**
@@ -209,6 +211,37 @@ Binding rules:
    `'<in-flight-events-unattributed>'` rather than filing an unknown as a clean. Owners
    whose teardown fires inside another owner's bracket declare `ownsTeardown: false` +
    a required `teardownOwner`, gate-enforced.
+
+### §3.14 — A teardown may only be triggered by an event that is DECLARED, and rendering aggregates need an owner like any other store (binding; L-8100, 2026-08-23)
+
+**A teardown wired to an event nobody emits is not a weak teardown. It is no teardown, and it reads as one.**
+
+`InstancedElementRenderer` — the GPU-instancing coordinator that parents one `InstancedMesh` per (elementType × levelId × geometry × material) directly into `world.scene` — documented its own project-close contract and had exactly one production call site for it: `initScene.ts:708`, inside `window.addEventListener('clear-project', …)`. **`'clear-project'` has zero dispatchers in this repository and is not in `packages/event-bus/src/catalog.ts`.** The renderer was therefore never bulk-cleared on a project switch, ever, and 36 of project A's stair-railings plus their aggregate mesh were drawn inside project B in the founder's 2026-08-23 report.
+
+This is **§3.9's failure with the polarity reversed**, and that is exactly why §3.9's gate did not catch it:
+
+| | §3.9 (L-224) | §3.14 (L-8100) |
+|---|---|---|
+| listener bound to | `window` | `window` |
+| event emitted on | the **typed bus** | **nowhere at all** |
+| gate that sees it | arm 5b, keyed on 3 hard-coded names | arm 5d (new) |
+
+Binding rules:
+
+1. **A project-lifecycle teardown MUST be triggered by an event declared in `packages/event-bus/src/catalog.ts`, or by a `ProjectScopeRegistry` owner.** An undeclared event cannot be emitted by any typed producer, so a teardown wired to one is unwired **by construction**.
+2. **A RENDERING AGGREGATE IS PROJECT-SCOPED STATE and MUST have a named owner (§3.10), exactly like a store.** Aggregation keys are built from geometry and level, never from the project, so an aggregate has **no project identity to be torn down by** — which is what makes an event-shaped teardown for it uniquely fragile. `render.instancedElements` is the declared owner.
+3. **A probe MUST be able to contradict its own teardown.** The `render.instancedElements` stamp is reset **only inside `clear()`** — never by a "a switch happened" listener. If the stamp were reset by the *event*, a switch on which the teardown failed would reset it too and the probe would name the incoming project as owner of the outgoing project's geometry, laundering the leak. A probe that can only ever agree with the teardown is decoration.
+4. **An aggregate is attributed by the LEVEL it stamps, never by a synthetic group id.** `InstancedElementRenderer` stamps `userData.id = 'instanced-group-<key>'`, which no snapshot can ever contain, so the element-id arm reported every aggregate as foreign on every load in every project. ⛔ The suppression is conditional on the level being **readable**: an aggregate with no `levelId` falls back to the id arm and is still reported. **Unknown never becomes clean.**
+5. **CI gate (binding):** `scripts/check/check-project-isolation.mjs` arm **§C13-TEARDOWN-TRIGGER-DECLARED** checks the three composition roots (`initScene`, `initTools`, `initBuilders`) for listeners whose handler calls a teardown verb, and fails on any bound to an undeclared event. **Shrink-only against a NAMED baseline, never a bare count** — a count that holds at 2 while its two entries are swapped is a gate that passed while its subject changed completely.
+
+### §3.15 — Declaring a scene root project-independent is the ONLY sanctioned way to shrink "unattributed" (binding; L-8104/L-8106)
+
+The audit reports how many scene roots it could not attribute. That number is only useful if it converges on real debt, and it was not: **42 of 376**, whose first four entries were the infinite grid, the level-lines container, the BIM-grids container and the ground shadow catcher. **An unattributed root is indistinguishable from a leak, so a pile of legitimate chrome is camouflage.**
+
+1. A root may leave the unattributed list **only** by being added to `PROJECT_INDEPENDENT_SCENE_ROOTS` with a written reason and a `file:line` citation of the producer that assigns its name — so a rename breaks the declaration rather than silently re-blinding the audit.
+2. **Declaring a CONTAINER never exempts its CONTENTS.** `detectLeaks`' element-id arm is not gated on `isRoot`; every id-bearing descendant is still checked. A declaration removes a wrapper from a list of unknowns, not a check from an element.
+3. **The declared count MUST be printed on every verdict**, clean or violating. An exclusion you cannot count is indistinguishable from a check you deleted.
+4. ⚠ **The honesty rule cuts BOTH ways.** `SCENE_GRAPHS_NOT_TRAVERSED` claimed `FurnitureDragDropHandler.indicatorScene` as a third untraversable graph; it is `world.scene.three` (`:161`) and has always been traversed. **Claiming coverage you do not have and claiming blindness you do not have are the same error about the same fact** — an unreal gap spends the reader's attention and makes the true gaps look smaller by comparison. Over-declaration MUST be corrected, and removing a false entry is not a narrowing.
 
 ---
 
