@@ -17,7 +17,7 @@
 // depend on them and a concurrent lane consumes them mid-flight (C84 §8.3).
 
 import * as THREE from "@pryzm/renderer-three/three";
-import { MATERIAL_CATALOG, hasAnyMap, type MaterialMaps, type MaterialRecord, type MaterialTiling } from "@pryzm/schemas/materials";
+import { MATERIAL_CATALOG, hasAnyMap, type MaterialMaps, type MaterialRecord, type MaterialSurface, type MaterialTiling } from "@pryzm/schemas/materials";
 import { disposeMaterialTextures } from "./materials/MaterialResolver";
 
 export type { MaterialCategory } from "@pryzm/schemas/materials";
@@ -61,6 +61,17 @@ export type StandardMaterialDef = {
      */
     readonly maps?: MaterialMaps;
     readonly tiling?: MaterialTiling;
+    /**
+     * §MATERIAL-DECLARED-SURFACES (L-9702) — the master's DECLARED suitability,
+     * carried through unchanged. A master field, so passing it through is
+     * mapping and not extending (C84 §1.3).
+     *
+     * ⛔ ABSENT MEANS **NOT DECLARED**, NEVER "SUITABLE EVERYWHERE". Every
+     * consumer must render that third state rather than assume one of the two
+     * ordinary answers; `isDeclaredForSurface()` returns `null` for it so the
+     * compiler makes the caller see it.
+     */
+    readonly surfaces?: readonly MaterialSurface[];
 };
 
 /**
@@ -91,12 +102,16 @@ function project(m: MaterialRecord): StandardMaterialDef {
     // `applyMaterialMaps()` at the point of use. That also means building
     // `STANDARD_MATERIAL_LIBRARY` at module load stays free — eagerly resolving
     // 205 rows would fire a request per map for materials nothing places.
+    // §MATERIAL-DECLARED-SURFACES (L-9702). Carried on BOTH arms, because
+    // suitability is orthogonal to whether a row has maps: a flat paint declares
+    // `['wall', 'ceiling']` and has no texture at all, and dropping the field on
+    // the map-less arm would have made "no maps" silently mean "no suitability".
     if (!hasAnyMap(m.maps)) {
-        return { id: m.id, label: m.label, category: m.category, params };
+        return { id: m.id, label: m.label, category: m.category, params, surfaces: m.surfaces };
     }
     return {
         id: m.id, label: m.label, category: m.category, params,
-        maps: m.maps, tiling: m.tiling,
+        maps: m.maps, tiling: m.tiling, surfaces: m.surfaces,
     };
 }
 

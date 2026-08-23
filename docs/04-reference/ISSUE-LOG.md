@@ -45204,3 +45204,224 @@ graphics"* rule. **Needs an owner and a reason; it is not a gap this lane could 
 | `check-otel-spans` | **RC=3** — 10 Zone-B files over baseline, **none of them this lane's** (all `packages/command-registry/**` and `plugins/*/handlers/index.ts` from concurrent lanes). Pre-existing |
 | `check-layer-boundaries` | **RC=3** — upward 103/102, unclassified 15/13, banned third-party 121/113. `grep -icE 'property-panel|element-preview|FinishType'` over the gate's full output → **0**. Pre-existing, sibling-lane packages |
 | ⚠ NOT proven | **no browser run.** The letterbox arithmetic and the four-way message split are proven by construction and by spec; *"the founder opens the dialog and sees a rotatable window"* is proven at the DOM layer, not on his GPU |
+
+---
+
+## L-9700 .. L-9707 — the reference product's materials: the licence verdict made structural, the facet it validated, and the roof answer (lane PASCALMAT58, 2026-08-23)
+
+> **Founder**: *"check pascal editor once more — I really want the following materials: [dark roof
+> shingles] I want this tiling by default on my roofs … [timber decking] and [basket-weave parquet]
+> those are flooring render finishes"* → **"as requested copy ALL the materials — ALL OF THEM — and
+> apply to the master material library in Data tab and to C100"**.
+> **Contract**: [C100 §10.15](../02-decisions/contracts/C100-MASTER-MATERIAL-DATABASE.md) (new).
+> **Gates**: `check-material-single-source` **RC=0** (ARMs D/E/F new, both new hard arms watched-RED
+> and observed to fire) · `check-material-maps-tiling` **RC=0** · `check-material-id-required`
+> **RC=0** at its declared baselines · root `tsc --noEmit --skipLibCheck` **RC=0, zero errors
+> repo-wide**.
+
+### L-9700 — ⛔ THE LICENCE RULE EXISTED IN THREE DOCUMENTS AND WAS ENFORCED WHERE ROWS ARE NOT WRITTEN
+
+**Status: FIXED — `§MATERIAL-UPSTREAM-LEDGER`.**
+
+*"No file from `pascalorg/editor` is copied, downloaded, vendored or derived from. We take the
+taxonomy only"* was already written in `tools/texture-pipeline/README.md`, in the `$comment` key of
+`sources/materials.json`, and in `PASCAL-FINISHES-RESEARCH.md` §0.2 — and mechanically enforced in
+**one** place: `acquire.mjs`'s `ALLOWED_LICENCES` gate, which runs before any network call.
+
+> ⛔ **That gate governs exactly the path that DOWNLOADS.** Every `procedural:` row and every
+> hand-authored row is typed straight into `materialCatalog.ts` and passes through it **never**. A
+> rule enforced only on the acquisition path is unenforced on the authoring path, and the authoring
+> path is where most rows come from.
+
+**Fixed by `packages/schemas/src/materials/materialProvenance.ts`** (L0, pure) — **lane RATE53's shape
+adopted, not a second spelling invented**: `MaterialUpstream` with a three-valued
+`MaterialLicenceStatus` **plus `licenceNote`, the sentence in the licence that decided it**;
+`MaterialRecord.upstream?`; `NOTICE.md` at the repo root; ARMs D/E/F on
+`tools/ga-gate/check-material-single-source.ts`.
+
+⭐ **A test asserts `unclearedMaterialUpstreams()` is NON-EMPTY.** *A ledger with no refusals in it has
+not been used.* If the Pascal-textures row is ever "tidied away", that goes red and a reviewer has to
+state out loud that the provenance question was resolved.
+
+### L-9701 — ⛔ THE VERDICT, RE-MEASURED, WITH THREE PIECES OF EVIDENCE THE PRIOR RESEARCH DID NOT HAVE
+
+**Status: CONFIRMED (independently), not re-litigated.** Complete local clone, `288` tracked = `288`
+on disk, working tree clean.
+
+| subject | verdict | deciding sentence |
+|---|---|---|
+| manifest / taxonomy | ✅ CLEARED | MIT: *"The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."* |
+| ⛔ 288 texture binaries | ⛔ NOT_ESTABLISHED | **there is none** — zero CREDITS/NOTICE/attribution/README under `apps/editor/public/material/**`, zero occurrences of `ambientCG` / `Poly Haven` / `CC0` / `attribution` repo-wide |
+
+1. `git log -- apps/editor/public/material` → **exactly one commit**, `45a8cce` *"Bump plugin-bones to
+   d1c3c8b (night-10 dawn batch) (#711)"*, naming no texture source. No per-asset history exists even
+   in principle.
+2. ⭐ `wiki/blender-edit-mode-research.md:406` — *"Blender is GPL-licensed … **copying Blender source
+   into this MIT repository requires license review**."* **Licence review was performed for CODE and
+   recorded for none of the 288 binaries.** That is not readable as "probably CC0".
+3. ⛔ **235 of the 314 paths their own manifest cites DO NOT EXIST in their own repository.** All
+   `roofing`, `wood` and `flooring` entries — **including all four the founder named** — point at
+   `_512.ktx2` files never committed, while the `.webp`/`.jpg` maps that ARE on disk are referenced by
+   nothing. The 79 that DO resolve are the **KTX2-only** families this repo cannot decode (C100
+   §10.9.b, S31). ⭐ **The subset that works upstream and the subset we could use do not intersect.**
+
+⚠ **The naming inference (`statuaretto`, `hungarian_parquet_10`, `green_labradorite` read as
+commercial-vendor house style) is recorded and is NOT the basis of the verdict.** The verdict rests on
+the ABSENCE of any statement of origin and would be identical if every filename were bland.
+
+⚠ **Corrections to the brief's own figures, measured**: **65** material directories, not 61; the 288
+files are `159 .webp + 65 .jpg + 62 .ktx2 + 2 .png`, not "288 `.webp`"; the manifest holds **114**
+entries, of which **45 are flat `colors`** with no maps.
+
+### L-9702 — ⭐ `surfaces` WAS BEING AUTHORED AND DROPPED ON THE FLOOR FOR TWO DAYS (C100 §10.7 S25 → CLOSED)
+
+**Status: FIXED.** `tools/texture-pipeline/sources/materials.json` has carried `"surfaces": ["floor"]`
+per material **since 2026-08-21**; `acquire.mjs` copied it into `textures.manifest.json`; and
+`emit-catalog-rows.mjs` **discarded it at every emit, because `MaterialRecord` had no field for it.**
+The data was right, the pipeline was right, and the destination did not exist —
+§AUTHORED-BUT-UNWIRED in its quietest form. The emitter now **REFUSES** a manifest material that
+declares none.
+
+⛔ **THE ONE DELIBERATE DIVERGENCE FROM THE REFERENCE PRODUCT.** Theirs reads *"Absent = universal
+(e.g. flat colors)"*. **We do not adopt that**: under it, *"nobody classified this"* and *"suits
+everything"* are **the same value**, so the first filter anyone ships offers polished marble for a
+roof. `isDeclaredForSurface()` returns **`null`**, not a boolean, so the compiler makes every caller
+see the third state.
+
+⛔ **And it is NOT the schedule's element axis.** That axis is DERIVED and measures what a family
+**references** (L-8600, C100 §10.13.d); `surfaces` is AUTHORED and states what the product **suits**.
+Two facts, two columns.
+
+### L-9703 — ⭐ THE MATERIAL SCHEDULE HAD TWO ROW BUILDERS, AND ADDING A COLUMN PROVED IT
+
+**Status: FIXED (pre-existing defect, surfaced by this lane).** `DataSchedulesBucket.ts` built its
+rows twice — the grouped view via `buildRows`, and the SEARCH-FILTERED view via an inline copy that
+re-emitted the same `<td>`s from **positional indices** `r[0]`..`r[4]`. Adding one column to `columns`
+and to `buildRows` left the filtered view one cell short:
+`materialScheduleRender.test.ts` → *"expected 13 to be 14"*.
+
+⭐ **C100's own thesis inside a UI file: two records of one fact is how they come to disagree.** The
+filtered view now **selects materials and calls `buildRows`**; one producer of a row, one producer
+(`searchStringFor`) of the string it is matched on. The second builder is gone, not patched.
+
+⚠ **The undeclared cell renders the words `not declared`, NOT `∅`.** ∅ already means *"this family
+cannot yet name a material"* in that same table (L-8606); one glyph for two unrelated absences would
+be C100 §10.13.b committed inside its own fix. Pinned by a new test.
+
+### L-9704 — ⭐ SEVEN ROOFING + THREE DECKING GENERATORS, AND NO NEW LAYOUT CODE
+
+**Status: SHIPPED.** Asphalt 3-tab in **charcoal** / slate grey / weathered brown, architectural
+laminated charcoal, natural slate, cedar shingle, silvered cedar; oak / thermo-ash / grey-composite
+decking. All **procedural** — no file, no bucket, no CORS, no decoder, **and no chain of title to
+establish**.
+
+⭐ **The finding is not the rows.** A shingle course, a slate roof and a deck are **running bonds** —
+the same layout as a plank floor and a subway tile. Only product dimensions in millimetres and a
+`SurfaceProfile` were written. C100 §10.3.b said *"parquet, shingle and mosaic are PATTERN"*;
+measured, **they are the SAME pattern**.
+
+> ⛔ **THE MODULE OF A ROOF COURSE IS THE VISIBLE TAB × THE EXPOSURE, NOT THE PRODUCT SIZE.** A 3-tab
+> asphalt strip is a 1000 mm sheet but the eye sees a **333 mm tab at 143 mm exposure** — the rest is
+> lapped under the course above. A slate is 500 × 250 at a **200 mm gauge**. Keying on the product
+> size would have rendered every roof at ~3× scale, and no type in the system could have caught it.
+> `check-material-maps-tiling` **ARM E** holds each row's `realWorldSizeM` to the generator's own
+> computed cell, so the scale is derived and never transcribed.
+
+⚠ **Memory, stated because textures are not free**: a set is generated **once per material, lazily,
+cached on (path × scale)**, never per element; ~12 MB RGBA for three channels at `1024²`, decking at
+`1536²`. **Nothing is generated for a material nobody places**, so 34 procedural rows cost zero until
+used.
+
+### L-9705 — ⭐ A "TOLERANCE THAT SCALES WITH JOINT WIDTH" WAS A CONSTANT AND SCALED WITH NOTHING
+
+**Status: FIXED.** `packages/procedural-textures/__tests__/seamless.test.ts` ARM A asserted
+`|measured − analytic| < 0.03`, justified in its own comment as *"the perimeter's worth of
+half-pixels, which is why it scales with joint width"*. **The reasoning was right and the NUMBER was a
+constant.** It held only because every preset until now was a compact tile or parquet stave; the first
+long thin piece — a deck board, perimeter/area ~9× a 600 mm tile's — exceeded it at **0.0347**.
+
+⛔ **Not fixed by raising the constant** (*a baseline is not permission*). The bound is now **derived**:
+`2 × (Σ piece perimeter × ½ px) / cell area`, computed from the layout's own polygons.
+
+⭐ **AND THE COMMENT WAS CORRECTED AFTER MEASURING IT.** A first draft claimed the derived bound was
+*"tighter than 0.03 for every compact preset — the metro tile's bound is ~0.012"*. **Measured across
+all 34 presets, that was FALSE**: the range is **0.0205 … 0.0958**, so it is tighter for **3** presets
+and looser for **31**. The comment now says so.
+
+> ⭐ **THE UNIFORMITY IS THE EVIDENCE, NOT THE TIGHTNESS.** Under the flat constant, headroom ranged
+> from **1.05×** (over budget — the failure that started this) to **0.26×**. Under the derived bound
+> every preset sits at or under **half** its budget (worst **0.479**, `tile-porcelain-600-stack`). A
+> bound of the right shape leaves uniform headroom; an arbitrary one does not.
+
+**186/186 green** in `@pryzm/procedural-textures`.
+
+### L-9706 — ⛔ "THIS TILING BY DEFAULT ON MY ROOFS": THE DEFAULT WAS **NOT** CHANGED, AND THE REASON IS MEASURED
+
+**Status: REFUSED, with the blocker named and a slice minted. Founder decision required.**
+
+1. ⛔ **A ROOF CANNOT CARRY A TEXTURE AT ALL TODAY.** `RoofFragmentBuilder.ts:197` calls
+   `applyMaterialMaps(params, matDef, uvSpaceOfGeometry(null))` — **literally `null`** — and nothing
+   in `packages/geometry-roof` or in the three kernel roof builders (`buildExtruded`,
+   `buildMultiLevel`, `buildVariableHeight`) emits a `uv` attribute or calls `stampMetreUvs()`. Every
+   roof resolves `UV_NONE` and its maps are refused **by design** (C100 §10.9.e: *a visibly wrong
+   pattern is worse than an honest flat colour*). **Assigning a shingle to a roof today changes its
+   COLOUR and shows no course lines.**
+2. ⚠ **Blast radius of the default itself.** `composeRoofMaterialKey`'s `DEFAULT_SHINGLE = '#c8a46e'`
+   applies to **every roof carrying no explicit `materialColor`** — i.e. retroactively, everywhere.
+   Switching it to charcoal **darkens every roof in every existing project**.
+
+> ⛔ **1 and 2 together are why this was not done.** Not *"it is risky"*: the change would deliver
+> **the whole cost (every existing model restyled) and none of the benefit (still no tiling)**.
+> Shipping that and calling it the founder's request is the defect this repo keeps logging.
+
+**⭐ S33 (C100 §10.15.f) — metre UVs for the roof SHINGLE face.** Sibling of **S30** (walls) and
+**cheaper**: a roof's shingle slot is one continuous sloped plane per segment, with none of the wall's
+*"which body arm ran"* ambiguity that made S30 a refusal. ⭐ **When S33 lands, every row shipped in
+L-9704 starts tiling with no edit to any of them** — which is exactly what §10.9.e's declared-stamp
+default was built for.
+
+⚠ **S33 IS SIZED, NOT HAND-WAVED, AND THE SIZING CHANGES ITS SHAPE.**
+`packages/geometry-roof/src/RoofGeometryBuilder.ts` is **1540 lines** with **ten** distinct generator
+entry points (flat, shed, gable, hip, dutch-hip, mansard, gambrel, segmented, concave-pitched,
+general-pitched) plus a merge path, and every one of them would need UVs.
+
+⛔ **And the obvious cheap version is WRONG, which is the part worth writing down.** A roof is ONE
+`BufferGeometry` with four material groups, so the tempting fix — stamp a planar XZ metre-UV the way a
+slab does — **foreshortens the pattern up the slope by `cos(pitch)`**: 13 % compression at 30°, and
+**41 % at 45°**. Courses would read at the correct size across the eave and visibly wrong up the
+rafter, which is the axis a roof is most read along. Correct UVs are **slope-distance**, parameterised
+per face. ⛔ **Doing half of the ten generators would give some roof types true tiling and others a
+squashed one — worse than the uniform, honest refusal that exists now.** A partial fix here is not a
+smaller version of the fix.
+
+**FOUNDER DECISION, recorded as open rather than taken** (the sibling of §9.9 / §9.10.6 S20): charcoal
+shingle **restyles every existing roof**; keeping the tan means new projects still start on a colour
+nobody chose.
+
+### L-9707 — ⭐ THREE OF THE FOUNDER'S FOUR NAMED FINISHES ALREADY EXISTED; THE GAP WAS THE PICKER
+
+**Status: FIXED (reachability).** Before this lane: clay scallop → `roof-tile-clay-012` /
+`roof-tile-clay-grey-015`; basket-weave parquet → `parquet-oak-basket-weave` /
+`parquet-ash-basket-weave-double`; timber plank floors → three `floor-*-plank-*` rows. **All present,
+all invisible** — the Material Library offered a flat category list with no way to ask *"what can go
+on a roof?"*.
+
+- **BIM Material Library** gains a **"Suitable for" chip row** (Floor · Wall · Ceiling · Roof ·
+  Furniture · Outdoor · **∅ Not declared**), read from `MATERIAL_SURFACES` at L0 so a seventh surface
+  needs no edit in the UI. ⚠ **ONE `applyFilters()` over BOTH axes** — two independent hide passes
+  race, and whichever ran last wins, so typing a term after picking a chip would have silently
+  un-filtered the chip.
+- **Material Schedule** gains `Suitable For (declared)`, **beside** and not merged into the derived
+  family matrix.
+- **Chat/RAC needs no resolver edit** — `finishRefCandidates()` token-matches master LABELS, so every
+  new row is nameable today. ⛔ **The CARRIER is unchanged**: `roof.setMaterial` still REFUSES with
+  `affectedStores: NONE`. **C100 S27 is not closed by this lane.**
+
+A test pins all four founder-named ids, asserting each is declared for the right surface and carries a
+real-world scale, so the claim cannot rot into a label match.
+
+⛔ **STILL OPEN**: the other 55 Pascal material sets are **not** reproduced and will not be from that
+source. The route that exists is `tools/texture-pipeline/sources/materials.json` — declare a CC0 asset,
+re-run the acquirer, get provenance and SHA-256s. ⚠ **Not run here: it needs network**, and inventing
+manifest rows without executing the acquirer would produce exactly the unverifiable provenance L-9701
+refuses.

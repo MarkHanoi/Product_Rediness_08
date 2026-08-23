@@ -114,6 +114,24 @@ for (const mat of manifest.materials) {
   }
   const [w, h] = mat.tiling.realWorldSizeM;
   const origin = mat.tiling.sizeOrigin;
+  // §MATERIAL-DECLARED-SURFACES (L-9702). The manifest has carried `surfaces` for
+  // every one of these rows since 2026-08-21 and there was NO FIELD AT L0 TO PUT
+  // IT IN, so it was written and dropped on the floor at every emit. That is
+  // AUTHORED-BUT-UNWIRED in its quietest form: the data was right, the pipeline
+  // was right, and the destination did not exist. It does now, so it is carried.
+  //
+  // REFUSE rather than emit a row with no declared surfaces. An absent `surfaces`
+  // means NOT DECLARED, so silently generating that for a material whose source
+  // file DOES declare one would make "we never said" and "we said and lost it"
+  // the same value.
+  if (!Array.isArray(mat.surfaces) || mat.surfaces.length === 0) {
+    console.error(
+      "REFUSING: manifest material '" + mat.id + "' declares no surfaces.\n" +
+      '  Add them in tools/texture-pipeline/sources/materials.json and re-acquire.',
+    );
+    process.exit(1);
+  }
+  const surfaceLiteral = mat.surfaces.map((x) => "'" + x + "'").join(', ');
   const label = mat.label.replace(/'/g, "\\'");
   rows.push(
     `  // ${mat.provenance.libraryName} '${mat.provenance.sourceAssetName}' (${mat.provenance.sourceAssetId}), ` +
@@ -121,7 +139,8 @@ for (const mat of manifest.materials) {
       `  { source: 'builtin' as const, id: '${mat.id}', label: "${label}", category: '${mat.category}', ` +
       `color: '${base.color}', metalness: 0, roughness: ${base.roughness}, ` +
       `maps: { ${maps.join(', ')} }, ` +
-      `tiling: { realWorldSizeM: [${w}, ${h}] } },`,
+      `tiling: { realWorldSizeM: [${w}, ${h}] }, ` +
+      `surfaces: [${surfaceLiteral}], upstream: '${mat.provenance.library}' },`,
   );
 }
 
@@ -169,7 +188,41 @@ const block = [
 // reports a failure while succeeding is the honesty defect in miniature.
 const proc = await import(pathToFileURL(resolve(REPO, 'packages/procedural-textures/src/index.ts')).href);
 
-const FAMILY_CATEGORY = { parquet: 'Wood', tile: 'Ceramic & Tile' };
+const FAMILY_CATEGORY = { parquet: 'Wood', tile: 'Ceramic & Tile', roofing: 'Roofing', decking: 'Wood' };
+
+/**
+ * §MATERIAL-DECLARED-SURFACES (L-9702) — which surface slots each generated family
+ * is DECLARED suitable for.
+ *
+ * DECLARED, NOT DERIVED FROM USAGE, and the two are different facts (C100 §10.13.b).
+ * The Material Schedule's element axis measures what a family REFERENCES; this
+ * states what the product SUITS. A roof shingle suits a roof whether or not any
+ * roof in any project currently names it.
+ *
+ * `decking` gets ['floor', 'outdoor'] and NOT 'wall': a deck board CAN be used as
+ * cladding, but it is a different product when it is — different profile, different
+ * fixing — and a picker that offers decking for an interior wall is making a
+ * specification claim we would have to defend.
+ */
+const FAMILY_SURFACES = {
+  parquet: ['floor'],
+  tile: ['floor', 'wall'],
+  roofing: ['roof'],
+  decking: ['floor', 'outdoor'],
+};
+
+/**
+ * Per-generator category overrides, where the FAMILY category would be a lie.
+ *
+ * One entry, and it earns its place: a wood-plastic composite deck board is not
+ * timber. Filing it under `Wood` would put a polymer product in the timber column of
+ * every schedule and every carbon takeoff, which is a data defect rather than a
+ * cosmetic one. `Timber Engineered` is the master's own existing category for
+ * manufactured board products.
+ */
+const ID_CATEGORY = {
+  'procedural:decking-composite-grey-140': 'Timber Engineered',
+};
 
 const procRows = [];
 for (const g of proc.listProceduralGenerators()) {
@@ -178,7 +231,16 @@ for (const g of proc.listProceduralGenerators()) {
     console.error(`REFUSING: generator '${g.id}' is listed but has no spec.`);
     process.exit(1);
   }
-  const category = FAMILY_CATEGORY[g.family];
+  const category = ID_CATEGORY[g.id] ?? FAMILY_CATEGORY[g.family];
+  const surfaceList = FAMILY_SURFACES[g.family];
+  if (!surfaceList) {
+    console.error(
+      "REFUSING: generator family '" + g.family + "' declares no surfaces.\n" +
+      '  Add it to FAMILY_SURFACES. Emitting a row with none would mean NOT DECLARED,\n' +
+      '  and "we did not classify it" must never be produced by a generator that could.',
+    );
+    process.exit(1);
+  }
   if (!category) {
     console.error(
       `REFUSING: generator family '${g.family}' has no catalogue category.\n` +
@@ -198,7 +260,8 @@ for (const g of proc.listProceduralGenerators()) {
     `  { source: 'builtin' as const, id: '${id}', label: "${label}", category: '${category}', ` +
     `color: '${spec.surface.faceColor}', metalness: 0, roughness: ${spec.surface.faceRoughness}, ` +
     `maps: { color: '${g.id}', normal: '${g.id}', roughness: '${g.id}' }, ` +
-    `tiling: { realWorldSizeM: [${w}, ${h}] } },`,
+    `tiling: { realWorldSizeM: [${w}, ${h}] }, ` +
+    `surfaces: [${surfaceList.map((x) => "'" + x + "'").join(', ')}], upstream: 'pryzm-procedural' },`,
   );
 }
 

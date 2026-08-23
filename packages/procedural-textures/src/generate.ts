@@ -46,12 +46,26 @@ export type PatternSpec =
   | { readonly pattern: 'hexagon'; readonly params: HexagonParams }
   | { readonly pattern: 'versailles'; readonly params: VersaillesParams };
 
+/**
+ * The pattern families this package generates.
+ *
+ * ⭐ WIDENED BY L-9704 (`roofing`, `decking`) AND THE WIDENING COST NOTHING, which
+ * is the evidence that the layout/profile split this package was built on was the
+ * right seam. A roof shingle course and a timber deck are RUNNING BONDS — courses
+ * of rectangles with a per-row offset — exactly like a plank floor and a subway
+ * tile. Not one line of layout code was written for either: only product
+ * dimensions in millimetres and a `SurfaceProfile`. C100 §10.3.b said "parquet,
+ * shingle and mosaic are PATTERN"; it turns out they are the SAME pattern, laid at
+ * different sizes on different materials.
+ */
+export type ProceduralFamily = 'parquet' | 'tile' | 'roofing' | 'decking';
+
 /** A named, reproducible procedural material. Data only — no pixels until asked. */
 export interface ProceduralTextureSpec {
   /** Stable generator id. THIS is what a material record references. */
   readonly id: string;
   readonly label: string;
-  readonly family: 'parquet' | 'tile';
+  readonly family: ProceduralFamily;
   readonly layout: PatternSpec;
   readonly surface: SurfaceProfile;
   /** ⛔ The ONLY source of randomness. `Math.random()` appears nowhere. */

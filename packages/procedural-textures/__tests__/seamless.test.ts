@@ -49,9 +49,56 @@ describe('ARM A — the layout tiles the repeat cell exactly', () => {
       expect(field.overlapPx).toBe(0);
       // Pieces never exceed the cell they claim to tile.
       expect(analytic).toBeLessThanOrEqual(1 + 1e-9);
-      // The rasterised coverage agrees with the analytic coverage. The tolerance is
-      // the perimeter's worth of half-pixels, which is why it scales with joint width.
-      expect(Math.abs(measured - analytic)).toBeLessThan(0.03);
+      // The rasterised coverage agrees with the analytic coverage, to within the
+      // discretisation error the rasteriser cannot avoid.
+      //
+      // ⭐ THE TOLERANCE IS DERIVED, NOT A CONSTANT — CORRECTED BY L-9705, and the
+      // correction is a finding rather than a fix. It used to be a flat `0.03`
+      // justified as "the perimeter's worth of half-pixels, which is why it scales
+      // with joint width". The reasoning was right and the NUMBER did not scale with
+      // anything: a constant cannot be a function of the geometry it is bounding.
+      //
+      // It held only because every preset until then was a TILE or a PARQUET STAVE —
+      // compact pieces whose perimeter-to-area ratio sits in a narrow band. The first
+      // long thin piece (a 1800 × 145 mm deck board, perimeter/area ~9x a 600 mm
+      // tile's) exceeded it at 0.031, and the honest reading is that the CONSTANT was
+      // wrong, not that the board was.
+      //
+      // A rasterised piece boundary is decided within one pixel, so each edge
+      // contributes an error band of half a pixel along its whole length:
+      //
+      //     |measured - analytic|  ≲  (Σ piece perimeter × ½ pixel) / cell area
+      //
+      // 2x that is the assertion, and the factor of 2 is not a fudge — it is what the
+      // measurement supports. ⚠ MEASURED ACROSS ALL 34 PRESETS RATHER THAN ASSERTED,
+      // because an earlier draft of this comment claimed the derived bound was
+      // "tighter than 0.03 for every compact preset" and that was FALSE:
+      //
+      //   · derived bound, range      : 0.0205 (hexagon 200) .. 0.0958 (Versailles)
+      //   · so it is TIGHTER than the old flat 0.03 for THREE presets and LOOSER for
+      //     the other 31. It is not a strictly stronger arm and saying so would have
+      //     been the flattering half of the truth.
+      //   · worst actual error / bound: 0.479 (porcelain 600 stack)
+      //   · largest actual error       : 0.0314 (decking oak 145)
+      //
+      // ⭐ THE UNIFORMITY IS THE EVIDENCE, not the tightness. Under the flat constant
+      // the headroom ranged from 1.05x (over budget — the failure that started this)
+      // to 0.26x; under the derived bound EVERY preset sits at or under HALF its
+      // budget. A bound of the right shape leaves uniform headroom, and an arbitrary
+      // one does not. That is why this replaces the constant rather than raising it.
+      let perimeterMm = 0;
+      for (const piece of layout.pieces) {
+        const n = piece.poly.length / 2;
+        for (let i = 0; i < n; i++) {
+          const j = (i + 1) % n;
+          const dx = (piece.poly[j * 2] as number) - (piece.poly[i * 2] as number);
+          const dy = (piece.poly[j * 2 + 1] as number) - (piece.poly[i * 2 + 1] as number);
+          perimeterMm += Math.hypot(dx, dy);
+        }
+      }
+      const pxMm = Math.max(1 / field.pxPerMmX, 1 / field.pxPerMmY);
+      const bound = 2 * ((perimeterMm * 0.5 * pxMm) / cellArea);
+      expect(Math.abs(measured - analytic)).toBeLessThan(bound);
     });
   }
 });

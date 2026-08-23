@@ -148,18 +148,53 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
             : { glyph: DASH, colour: '#c9d0dc', weight: '400', title: 'Available, but no built-in type in this family uses it.' };
     };
 
-    const columns = ['Name', 'Category', 'Color', 'Roughness', 'Metalness', ...families.map(f => f.label)];
+    // ── DECLARED suitability, and it is NOT the same fact as the matrix ──────
+    //
+    // ⭐ TWO FACTS, TWO COLUMNS, DELIBERATELY (L-9703, C100 §10.13.b). Everything
+    // to the right of this column is DERIVED: it measures which families actually
+    // REFERENCE a material. This column is AUTHORED: it states which surfaces the
+    // PRODUCT suits. A roof shingle suits a roof whether or not any roof in this
+    // project names it, and folding the two into one cell would destroy exactly
+    // the reading that is useful — "you have seven roofing finishes and none of
+    // them is on a roof."
+    //
+    // ⛔ AND THE THIRD STATE IS RENDERED, not defaulted. An absent `surfaces` is
+    // NOT DECLARED, which is neither "suits everything" nor "suits nothing"; it
+    // gets the same ∅ the family axis already uses for "cannot yet name a
+    // material", because it is the same class of answer.
+    const suitabilityCell = (m: { surfaces?: readonly string[] }):
+        { text: string; colour: string; title: string } =>
+        m.surfaces && m.surfaces.length > 0
+            ? {
+                text: m.surfaces.join(' · '),
+                colour: 'var(--app-text-2)',
+                title: 'DECLARED suitability — a property of the product. Separate from the family columns to the right, which measure actual USE.',
+              }
+            : {
+                // ⛔ NOT `VOID`. ∅ ALREADY MEANS SOMETHING ELSE IN THIS TABLE — "this
+                // family cannot yet name a material" (L-8606) — and re-using one
+                // glyph for two unrelated absences inside one table is precisely the
+                // "a dash that means two things" defect C100 §10.13.b exists to stop,
+                // committed inside the fix for it. Two different absences get two
+                // different marks, and this one says what it means in words.
+                text: 'not declared',
+                colour: '#b9a0d6',
+                title: 'No suitability declared for this material. ⛔ NOT the same as "suitable everywhere" — nobody has classified it yet. (Distinct from the ∅ in the family columns, which means a family cannot yet name ANY material.)',
+              };
 
-    const rows = STANDARD_MATERIAL_LIBRARY.map(m => {
-        const color     = formatMaterialColor(m.params.color);
-        const roughness = typeof m.params.roughness === 'number' ? m.params.roughness.toFixed(2) : '—';
-        const metalness = typeof m.params.metalness === 'number' ? m.params.metalness.toFixed(2) : '—';
-        const usage     = usageByMaterial.get(m.id);
-        return [
-            m.label, m.category, color, roughness, metalness,
-            ...families.map(f => cellState(f.id, usage).glyph),
-        ];
-    });
+    const columns = ['Name', 'Category', 'Suitable For (declared)', 'Color', 'Roughness', 'Metalness', ...families.map(f => f.label)];
+
+    // ⛔ THE FLAT `rows` ARRAY THAT USED TO SIT HERE IS DELETED (L-9703), and
+    // deleting it was the point of the change rather than a side effect. It was the
+    // THIRD representation of one table — a positional `string[][]` that the search
+    // handler re-rendered into `<td>`s by index (`r[0]`..`r[4]`) while `buildRows`
+    // rendered the same data from the record. Adding one column updated two of the
+    // three and `materialScheduleRender.test.ts` caught the third
+    // ("expected 13 to be 14"). ⭐ That is C100's own thesis inside a UI file: two
+    // records of one fact is how they come to disagree. The filtered view now
+    // SELECTS materials and calls `buildRows`, so a row has exactly one producer.
+    // ⚠ If an export ever needs a flat array, DERIVE it from the records at the
+    // point of export — do not re-mint a parallel table here.
 
     const grouped = new Map<string, typeof STANDARD_MATERIAL_LIBRARY>();
     for (const m of STANDARD_MATERIAL_LIBRARY) {
@@ -167,6 +202,28 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
         list.push(m);
         grouped.set(m.category, list);
     }
+
+    /**
+     * The ONE search string for a material row.
+     *
+     * ⭐ EXTRACTED BY L-9703 BECAUSE ADDING A COLUMN BROKE THE OTHER COPY. This
+     * table had TWO row builders — the grouped view below and an inline one in the
+     * search handler that re-emitted the same `<td>`s from POSITIONAL INDICES
+     * (`r[0]`..`r[4]`). One column added to `columns` and to `buildRows` left the
+     * filtered view one cell short, and `materialScheduleRender.test.ts` caught it
+     * ("expected 13 to be 14"). ⚠ That is C100's own thesis inside a UI file: two
+     * records of one fact is how they come to disagree. The filtered view now
+     * SELECTS materials and calls `buildRows`, so there is one producer of a row
+     * and one producer of the string it is matched on.
+     */
+    const searchStringFor = (m: (typeof STANDARD_MATERIAL_LIBRARY)[number]): string => [
+        m.label, m.category, m.id, formatMaterialColor(m.params.color),
+        // Declared suitability is searchable, so "roof" finds the roofing finishes
+        // even before any roof in the project references one — which is exactly the
+        // case the DECLARED/USED split exists to make visible.
+        ...(m.surfaces ?? []),
+        ...families.filter(f => usageByMaterial.get(m.id)?.has(f.id)).map(f => f.label),
+    ].join(' ').toLowerCase();
 
     const buildRows = (materials: typeof STANDARD_MATERIAL_LIBRARY, riOffset: number) =>
         materials.map((m, ri) => {
@@ -177,6 +234,7 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
             const cells = [
                 `<td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);font-weight:700;color:var(--app-text);white-space:nowrap;">${escapeHtml(m.label)}</td>`,
                 `<td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);color:var(--app-text-2);font-size:10px;">${escapeHtml(m.category)}</td>`,
+                `<td title="${escapeHtml(suitabilityCell(m).title)}" style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);color:${suitabilityCell(m).colour};font-size:10px;white-space:nowrap;">${escapeHtml(suitabilityCell(m).text)}</td>`,
                 `<td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);">
                     <div style="display:flex;align-items:center;gap:6px;">
                         <div style="width:16px;height:16px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,.12);background:${escapeHtml(color)};"></div>
@@ -192,10 +250,7 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
                     </td>`;
                 }),
             ];
-            const searchStr = [
-                m.label, m.category, m.id, color,
-                ...families.filter(f => usage?.has(f.id)).map(f => f.label),
-            ].join(' ').toLowerCase();
+            const searchStr = searchStringFor(m);
             return `<tr data-ms-row data-search="${escapeHtml(searchStr)}" style="background:${(ri + riOffset) % 2 === 0 ? '#fff' : 'rgba(12,122,110,.025)'};">${cells.join('')}</tr>`;
         }).join('');
 
@@ -243,7 +298,7 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
                         statement that these materials are unused.
                     </div>
                 ` : ''}
-                <input data-ms-search type="search" placeholder="Search concrete, timber, glass, category…"
+                <input data-ms-search type="search" placeholder="Search concrete, timber, glass, category, roof, floor…"
                        style="width:100%;box-sizing:border-box;margin-top:8px;padding:7px 10px;
                               border:1px solid var(--app-border);border-radius:8px;
                               font-size:12px;background:#fff;color:var(--app-text);outline:none;"/>
@@ -265,28 +320,10 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
             if (tbody) tbody.innerHTML = groupedHtml;
             return;
         }
-        const filteredRows = rows
-            .filter(r => r.join(' ').toLowerCase().includes(term))
-            .map((r, ri) => {
-                const color  = r[2];
-                const usage  = usageByMaterial.get(STANDARD_MATERIAL_LIBRARY.find(m => m.label === r[0])?.id ?? '');
-                return `<tr data-ms-row style="background:${ri % 2 === 0 ? '#fff' : 'rgba(12,122,110,.025)'};">
-                    <td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);font-weight:700;color:var(--app-text);white-space:nowrap;">${escapeHtml(r[0])}</td>
-                    <td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);color:var(--app-text-2);font-size:10px;">${escapeHtml(r[1])}</td>
-                    <td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);">
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <div style="width:16px;height:16px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,.12);background:${escapeHtml(color)};"></div>
-                            <span style="font-size:9px;font-family:monospace;color:var(--app-text-muted);">${escapeHtml(color)}</span>
-                        </div>
-                    </td>
-                    <td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);color:var(--app-text-2);text-align:center;">${escapeHtml(r[3])}</td>
-                    <td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);color:var(--app-text-2);text-align:center;">${escapeHtml(r[4])}</td>
-                    ${families.map(f => {
-                        const st = cellState(f.id, usage);
-                        return `<td title="${escapeHtml(st.title)}" style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);text-align:center;color:${st.colour};font-size:13px;font-weight:${st.weight};">${st.glyph}</td>`;
-                    }).join('')}
-                </tr>`;
-            }).join('');
+        const filteredRows = buildRows(
+            STANDARD_MATERIAL_LIBRARY.filter(m => searchStringFor(m).includes(term)),
+            0,
+        );
         if (tbody) tbody.innerHTML = filteredRows || `<tr><td colspan="${columns.length}" style="padding:24px;text-align:center;color:var(--app-text-muted);font-size:12px;">No materials match "${escapeHtml(term)}"</td></tr>`;
     });
 }

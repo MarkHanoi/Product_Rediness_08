@@ -24,6 +24,20 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+// §MATERIAL-DECLARED-SURFACES + §MATERIAL-UPSTREAM-LEDGER (L-9700..L-9702).
+// ARMs D/E/F read the L0 MODULE rather than the file's TEXT, deliberately and
+// unlike ARMs A-C. A and B ask "does this FILE contain a literal", which is a
+// question about source text; D/E/F ask "is this DATA well-formed", which is a
+// question about values. Parsing text to answer a value question is how a gate
+// starts disagreeing with the runtime it exists to police.
+import {
+  MATERIAL_CATALOG,
+  MATERIAL_UPSTREAMS,
+  findMaterialUpstream,
+  isUpstreamClearedToShip,
+  materialSurfacesDefect,
+  materialUpstreamsRequiringNotice,
+} from '../../packages/schemas/src/materials/index.js';
 
 const REPO_ROOT = process.env.GA_GATE_REPO_ROOT ?? process.cwd();
 const read = (rel: string): string => readFileSync(join(REPO_ROOT, rel), 'utf8');
@@ -202,15 +216,105 @@ for (const r of KNOWN_RIVALS) {
   }
 }
 
+// -- ARM D (hard-0) -- every DECLARED `surfaces` list is well-formed ---------
+//
+// AN EMPTY ARRAY IS THE FAILURE THIS ARM EXISTS FOR, not a mistyped surface name
+// (TypeScript already catches those on a literal). `surfaces: []` reads as NOT
+// DECLARED to every consumer while looking, in a diff, like a deliberate
+// classification -- the two-values-one-slot defect C100 section 10.13.b was
+// written after, re-created inside the facet built to avoid it.
+let surfacesDeclared = 0;
+for (const m of MATERIAL_CATALOG) {
+  const defect = materialSurfacesDefect(m);
+  if (defect) fail('D', defect);
+  if (m.surfaces && m.surfaces.length > 0) surfacesDeclared++;
+}
+
+// -- ARM E (hard-0) -- no shipped row names an UNCLEARED upstream ------------
+//
+// THE ARM THAT MAKES THE LEDGER LOAD-BEARING RATHER THAN DECORATIVE. The rule
+// "no file from pascalorg/editor is copied" was already true and already written
+// -- in a README, in a JSON $comment and in a research doc -- and mechanically
+// enforced only inside `acquire.mjs`'s allowlist, which governs the ONE path that
+// downloads. Every procedural row and every hand-authored row bypasses that
+// script entirely. This arm covers the ROWS.
+//
+// It checks rows against the ledger, NOT that the ledger is free of refusals. The
+// ledger is EXPECTED to carry NOT_ESTABLISHED entries; a ledger with no refusals
+// in it has not been used.
+const upstreamCounts = new Map<string, number>();
+for (const m of MATERIAL_CATALOG) {
+  if (!m.upstream) continue;
+  upstreamCounts.set(m.upstream, (upstreamCounts.get(m.upstream) ?? 0) + 1);
+  const u = findMaterialUpstream(m.upstream);
+  if (!u) {
+    fail('E', `material '${m.id}' names upstream '${m.upstream}', which is not in MATERIAL_UPSTREAMS - an unledgered provenance is no provenance`);
+    continue;
+  }
+  if (!isUpstreamClearedToShip(m.upstream)) {
+    fail('E', `material '${m.id}' names upstream '${m.upstream}' whose licence status is ${u.status}. ${u.rationale}`);
+  }
+}
+// A CLEARED verdict with no sentence behind it is an opinion (the RATE53 rule).
+for (const u of MATERIAL_UPSTREAMS) {
+  if (u.status !== 'NOT_ESTABLISHED' && (!u.licenceNote || !u.verifiedOn)) {
+    fail('E', `upstream '${u.id}' claims status ${u.status} with no licenceNote and/or no verifiedOn date - a verdict with no quoted sentence and no reading date is an opinion`);
+  }
+  if (u.status === 'NOT_ESTABLISHED' && u.licenceNote !== null) {
+    fail('E', `upstream '${u.id}' is NOT_ESTABLISHED but carries a licenceNote - if a sentence was read, the status is not "nobody read it"`);
+  }
+  if (u.attributionRequired && !u.attributionText) {
+    fail('E', `upstream '${u.id}' requires attribution but names no attributionText - an obligation with no text is unfulfillable`);
+  }
+}
+
+// -- ARM F (hard-0) -- NOTICE.md reproduces every REQUIRED attribution -------
+//
+// THIS IS WHAT MAKES ATTRIBUTION STRUCTURAL RATHER THAN A COURTESY, and it is the
+// whole point of holding the ledger in code. MIT's condition is not "be nice": it
+// is "the above copyright notice ... shall be included in all copies". A notice
+// living only in a source comment is one file move from being dropped, and nothing
+// would have gone red.
+//
+// Compared as CONTAINMENT of the required text, never as a byte-diff of the file:
+// NOTICE.md is allowed prose of its own, and a gate that failed on a reflowed
+// paragraph would be switched off within a week.
+const NOTICE = 'NOTICE.md';
+const requiredNotices = materialUpstreamsRequiringNotice();
+if (!existsSync(join(REPO_ROOT, NOTICE))) {
+  if (requiredNotices.length > 0) {
+    fail('F', `${requiredNotices.length} upstream(s) require attribution and ${NOTICE} does not exist`);
+  }
+} else {
+  const flatNotice = read(NOTICE).replace(/\s+/g, ' ').trim();
+  for (const u of requiredNotices) {
+    for (const para of (u.attributionText ?? '').split('\n\n')) {
+      const want = para.replace(/\s+/g, ' ').trim();
+      if (want.length > 0 && !flatNotice.includes(want)) {
+        fail('F', `${NOTICE} does not reproduce a required paragraph for upstream '${u.id}': "${want.slice(0, 70)}..."`);
+      }
+    }
+  }
+}
+
 console.log('material-single-source');
 console.log(`  catalogue : ${entries.length} rows, ${new Set(ids).size} unique ids  [${CATALOG}]`);
 console.log(`  projection: ${projHexes.length} '#rrggbb' literals (must be 0), ${proj0x.length}/${PROJECTION_0X_BASELINE} '0x' literals (must be 0 - C100 §9.9 / S13 DECIDED)  [${PROJECTION}]`);
 console.log(`  finishRef : ${finishHexes.length} hex literals (must be 0)  [${FINISH_REF}]`);
+console.log(`  surfaces  : ${surfacesDeclared}/${MATERIAL_CATALOG.length} rows DECLARE a suitability (absent = NOT DECLARED, never "universal")  [ARM D]`);
+console.log(`  upstreams : ${MATERIAL_UPSTREAMS.length} in the ledger, ${MATERIAL_UPSTREAMS.filter((u) => u.status !== 'CLEARED_FOR_REDISTRIBUTION').length} NOT cleared (expected non-zero - a ledger with no refusals has not been used)  [ARM E]`);
+for (const [id, n] of [...upstreamCounts].sort()) console.log(`      - ${n} row(s) name '${id}' (${findMaterialUpstream(id)?.status})`);
+console.log(`  notice    : ${requiredNotices.length} upstream(s) require attribution; NOTICE.md must reproduce each  [ARM F]`);
 console.log(`  ledger    : ${KNOWN_RIVALS.length} declared rival(s), each with an owning slice:`);
 for (const r of KNOWN_RIVALS) console.log(`      - ${r.file} : ${r.why} (${r.slice})`);
 console.log('  NOT CHECKED (C85 §7.1 - UNPROVEN per C70 §7.1, never an inherited green):');
 console.log('      hex literals in unrelated UI chrome; whether an ELEMENT INSTANCE (as opposed to a');
 console.log('      type default) names a resolvable material; IFC/GLB material export.');
+console.log('      ARM D/E/F additions: that a DECLARED surface is ARCHITECTURALLY correct (it is an');
+console.log('      authored claim and no gate can read a specifier mind); that a row with NO upstream');
+console.log('      is genuinely PRYZM-authored (absent means "predates the ledger"); and that any');
+console.log('      licence text quoted in the ledger still says what it said - a publisher can');
+console.log('      re-license, and only a human re-reading it can find that out.');
 console.log('  NOW CHECKED ELSEWHERE - check-material-id-required.ts (C100 §9, added 2026-08-19):');
 console.log('      ARM A colour-without-id . ARM B a stored materialId that resolves to NOTHING .');
 console.log('      ARM C a producer that mints a key without the master resolver . ARM D persistence');

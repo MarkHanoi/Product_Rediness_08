@@ -17,13 +17,22 @@
 import type { ProceduralTextureSpec } from './generate.js';
 import {
   ASH,
+  ASPHALT_CHARCOAL,
+  ASPHALT_SLATE_GREY,
+  ASPHALT_WEATHERED_BROWN,
+  CEDAR_SHINGLE,
+  CEDAR_SHINGLE_SILVERED,
   CEMENT_GREY,
+  COMPOSITE_GREY_DECK,
   MARBLE_WHITE,
   OAK,
+  OAK_DECK,
   PORCELAIN_WHITE,
   SLATE_DARK,
+  SLATE_ROOF,
   SMOKED_OAK,
   TERRACOTTA,
+  THERMO_ASH_DECK,
   WALNUT,
 } from './shading/SurfaceProfile.js';
 
@@ -49,7 +58,7 @@ import {
 export const PROCEDURAL_ID_PREFIX = 'procedural:';
 
 const spec = (
-  family: 'parquet' | 'tile',
+  family: ProceduralTextureSpec['family'],
   id: string,
   label: string,
   layout: ProceduralTextureSpec['layout'],
@@ -146,6 +155,78 @@ export const PROCEDURAL_TEXTURE_SPECS: readonly ProceduralTextureSpec[] = [
   spec('tile', 'tile-mosaic-50-white', 'Tile · Mosaic 50 × 50 white, 2 mm grout',
     { pattern: 'running-bond', params: { lengthMm: 52, widthMm: 52, jointMm: 2, offsetNum: 0, offsetDen: 1, repeatX: 8, repeatY: 8 } },
     PORCELAIN_WHITE, 0x0b1c),
+
+  // ── ROOFING (L-9704) ───────────────────────────────────────────────────────
+  //
+  // ⭐ THE MODULE OF A ROOF COURSE IS NOT THE SIZE OF THE PRODUCT — IT IS THE
+  // VISIBLE TAB × THE EXPOSURE (the "gauge"), and getting that wrong is the
+  // single commonest way a roof texture comes out at the wrong scale. A 3-tab
+  // asphalt strip is a 1000 mm sheet, but the eye sees a 333 mm tab; the sheet is
+  // laid with only ~143 mm showing, the rest lapped under the course above. So
+  // the module is 333 × 143, NOT 1000 × 333. A slate is 500 × 250 laid at a
+  // 200 mm gauge — module 250 × 200. Half bond throughout, because that is how
+  // every one of these products is actually set out: the joint of one course sits
+  // over the middle of the tile below, and it is what stops water tracking down a
+  // continuous vertical seam.
+  //
+  // ⛔ `lengthMm` runs ALONG the eave, `widthMm` runs UP the slope. Swapping them
+  // gives a roof of tall thin tiles that reads as cladding, and nothing in the
+  // type system can catch it — hence this paragraph.
+  spec('roofing', 'roof-shingle-asphalt-charcoal',
+    'Roof Shingle · Asphalt Charcoal (333 tab × 143 exposure, half bond)',
+    { pattern: 'running-bond', params: { lengthMm: 333, widthMm: 143, jointMm: 3, offsetNum: 1, offsetDen: 2, repeatX: 3, repeatY: 2 } },
+    ASPHALT_CHARCOAL, 0x0c11),
+  spec('roofing', 'roof-shingle-asphalt-slate-grey',
+    'Roof Shingle · Asphalt Slate Grey (333 tab × 143 exposure, half bond)',
+    { pattern: 'running-bond', params: { lengthMm: 333, widthMm: 143, jointMm: 3, offsetNum: 1, offsetDen: 2, repeatX: 3, repeatY: 2 } },
+    ASPHALT_SLATE_GREY, 0x0c12),
+  spec('roofing', 'roof-shingle-asphalt-weathered-brown',
+    'Roof Shingle · Asphalt Weathered Brown (333 tab × 143 exposure, half bond)',
+    { pattern: 'running-bond', params: { lengthMm: 333, widthMm: 143, jointMm: 3, offsetNum: 1, offsetDen: 2, repeatX: 3, repeatY: 2 } },
+    ASPHALT_WEATHERED_BROWN, 0x0c13),
+  // Architectural (laminated) shingle: a wider, taller tab than a 3-tab strip,
+  // laid at a 146 mm exposure. Third bond, which is what gives the deliberately
+  // irregular look the product is sold on.
+  spec('roofing', 'roof-shingle-architectural-charcoal',
+    'Roof Shingle · Architectural Charcoal (400 tab × 146 exposure, third bond)',
+    { pattern: 'running-bond', params: { lengthMm: 400, widthMm: 146, jointMm: 4, offsetNum: 1, offsetDen: 3, repeatX: 3, repeatY: 1 } },
+    ASPHALT_CHARCOAL, 0x0c14),
+  spec('roofing', 'roof-slate-natural-500',
+    'Roof Slate · Natural 500 × 250 at 200 gauge, half bond',
+    { pattern: 'running-bond', params: { lengthMm: 252, widthMm: 202, jointMm: 2, offsetNum: 1, offsetDen: 2, repeatX: 4, repeatY: 1 } },
+    SLATE_ROOF, 0x0c15),
+  spec('roofing', 'roof-shingle-cedar',
+    'Roof Shingle · Western Red Cedar (150 × 125 exposure, third bond)',
+    { pattern: 'running-bond', params: { lengthMm: 154, widthMm: 129, jointMm: 4, offsetNum: 1, offsetDen: 3, repeatX: 3, repeatY: 1 } },
+    CEDAR_SHINGLE, 0x0c16),
+  spec('roofing', 'roof-shingle-cedar-silvered',
+    'Roof Shingle · Cedar Silvered (150 × 125 exposure, third bond)',
+    { pattern: 'running-bond', params: { lengthMm: 154, widthMm: 129, jointMm: 4, offsetNum: 1, offsetDen: 3, repeatX: 3, repeatY: 1 } },
+    CEDAR_SHINGLE_SILVERED, 0x0c17),
+
+  // ── EXTERNAL DECKING (L-9704) ──────────────────────────────────────────────
+  //
+  // ⭐ THE GAP IS THE PRODUCT. A deck board is specified by its face width and the
+  // gap between boards (drainage + seasonal movement), and the gap is an OPEN VOID
+  // over a dark substructure rather than a filled joint — which is why these use
+  // their own `*_DECK` profiles instead of the interior-floor ones. At 5–6 mm the
+  // gap is ten times a parquet joint and it is the dominant line on the surface.
+  //
+  // ⚠ Board LENGTHS here are the repeat cell, not the merchant length. A 3.6 m
+  // board at 1024² is ~284 px/m, which is soft close up — a texel budget, stated
+  // rather than hidden, and the reason these carry a raised `defaultResolution`.
+  spec('decking', 'decking-oak-145',
+    'Decking · Oak Board 145 × 1800, 5 mm gap, half bond',
+    { pattern: 'running-bond', params: { lengthMm: 1800, widthMm: 150, jointMm: 5, offsetNum: 1, offsetDen: 2, repeatX: 1, repeatY: 3 } },
+    OAK_DECK, 0x0d11, 1536),
+  spec('decking', 'decking-thermo-ash-120',
+    'Decking · Thermo-Ash Board 120 × 1800, 6 mm gap, third bond',
+    { pattern: 'running-bond', params: { lengthMm: 1800, widthMm: 126, jointMm: 6, offsetNum: 1, offsetDen: 3, repeatX: 1, repeatY: 2 } },
+    THERMO_ASH_DECK, 0x0d12, 1536),
+  spec('decking', 'decking-composite-grey-140',
+    'Decking · Composite Grey Board 140 × 2000, 5 mm gap, half bond',
+    { pattern: 'running-bond', params: { lengthMm: 2000, widthMm: 145, jointMm: 5, offsetNum: 1, offsetDen: 2, repeatX: 1, repeatY: 3 } },
+    COMPOSITE_GREY_DECK, 0x0d13, 1536),
 ];
 
 const BY_ID = new Map(PROCEDURAL_TEXTURE_SPECS.map((s) => [s.id, s] as const));

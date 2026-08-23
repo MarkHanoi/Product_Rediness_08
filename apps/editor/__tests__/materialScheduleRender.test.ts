@@ -27,10 +27,51 @@ beforeAll(() => {
 
 describe('Material Schedule — the rendered element axis', () => {
 
-    it('renders a table with the five material columns plus an element axis', () => {
+    it('renders a table with the six material columns plus an element axis', () => {
         expect(panel.querySelector('table')).not.toBeNull();
-        expect(headers.slice(0, 5)).toEqual(['Name', 'Category', 'Color', 'Roughness', 'Metalness']);
-        expect(headers.length).toBeGreaterThan(5);
+        expect(headers.slice(0, 6)).toEqual([
+            'Name', 'Category', 'Suitable For (declared)', 'Color', 'Roughness', 'Metalness',
+        ]);
+        expect(headers.length).toBeGreaterThan(6);
+    });
+
+    /**
+     * ⭐ L-9703 — DECLARED suitability and MEASURED use are TWO COLUMNS, on purpose.
+     *
+     * The element-axis columns to the right are DERIVED: they measure which families
+     * actually reference a material. 'Suitable For' is AUTHORED: it states what the
+     * product suits. Merging them would destroy the reading that matters — "you have
+     * roofing finishes and none of them is on a roof" — and it is the same "two
+     * facts, one value" collapse C100 §10.13.b was written after. This asserts the
+     * two remain distinct columns rather than one.
+     */
+    it('keeps DECLARED suitability separate from the DERIVED usage axis', () => {
+        const declaredIdx = headers.indexOf('Suitable For (declared)');
+        expect(declaredIdx).toBe(2);
+        // Every family column sits to the RIGHT of it, and none of them is it.
+        expect(headers.filter(h => h === 'Suitable For (declared)')).toHaveLength(1);
+        expect(headers.length - declaredIdx - 1).toBeGreaterThan(1);
+    });
+
+    /**
+     * ⚠ ∅ ALREADY MEANS SOMETHING IN THIS TABLE — "this family cannot yet name a
+     * material" (L-8606). The undeclared-suitability cell therefore must NOT reuse
+     * it: one glyph for two unrelated absences inside one table is exactly the
+     * defect the glyph was introduced to fix.
+     */
+    it('does not reuse the family axis ∅ for undeclared suitability', () => {
+        const bodyRows = [...panel.querySelectorAll('tbody tr')];
+        const suitabilityCells = bodyRows
+            .filter(tr => tr.querySelector('td[colspan]') === null)
+            .map(tr => (tr.children[2]?.textContent ?? '').trim());
+        expect(suitabilityCells.length).toBeGreaterThan(0);
+        expect(suitabilityCells).not.toContain('∅');
+        // Most rows predate the facet, so 'not declared' must actually appear —
+        // otherwise this assertion is vacuously satisfied by an empty column.
+        expect(suitabilityCells).toContain('not declared');
+        // ...and at least one row must carry a real declaration, or the facet ships
+        // with no data and the column is decoration.
+        expect(suitabilityCells.some(t => t.includes('roof'))).toBe(true);
     });
 
     /**

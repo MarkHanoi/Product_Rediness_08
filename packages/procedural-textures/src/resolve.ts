@@ -21,14 +21,14 @@
 // what this is. When MAT-1's `MaterialResolver` lands, it forks on `isProceduralId`
 // and calls `getProceduralTexture` — no edit to this file is required for that.
 
-import { generateProceduralTexture, proceduralRealWorldSizeM, type GeneratedTextureSet } from './generate.js';
+import { generateProceduralTexture, proceduralRealWorldSizeM, type GeneratedTextureSet, type ProceduralFamily } from './generate.js';
 import { findProceduralSpec, isProceduralId, PROCEDURAL_TEXTURE_SPECS } from './presets.js';
 
 /** Everything a resolver needs about a generator BEFORE deciding to rasterise. */
 export interface ProceduralDescriptor {
   readonly id: string;
   readonly label: string;
-  readonly family: 'parquet' | 'tile';
+  readonly family: ProceduralFamily;
   /** Real-world size of ONE texture tile, metres. Fills `tiling.realWorldSizeM`. */
   readonly realWorldSizeM: { readonly x: number; readonly y: number };
   /** Which PBR channels this generator produces. All three, always — see generate.ts. */

@@ -174,3 +174,163 @@ export const CEMENT_GREY: SurfaceProfile = {
   grainAcrossMm: 70,
   grainReliefMm: 0.03,
 };
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §PROCEDURAL-ROOF-AND-DECK (L-9704) — ROOFING AND EXTERNAL DECKING PROFILES.
+//
+// ⭐ NO NEW LAYOUT CODE WAS WRITTEN FOR EITHER FAMILY, and that is the finding
+// worth recording rather than the profiles themselves. A shingle course, a slate
+// roof and a timber deck are all `running-bond`: rectangles in rows with a
+// per-row offset of p/q of a module. The only genuinely new information is
+// CHARACTER — what asphalt granules, riven slate and weathered cedar look like —
+// which is precisely the axis this file owns. The split earned its keep.
+//
+// ⛔ EVERY DIMENSION THESE PAIR WITH IS A REAL PRODUCT DIMENSION (see presets.ts).
+// The founder's ask was "I want this tiling BY DEFAULT on my roofs", and a
+// shingle course rendered at the wrong physical size is worse than a flat colour:
+// the eye knows how big a roof tile is at least as well as it knows a floorboard.
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Asphalt/bitumen strip shingle, charcoal — the dark roof the founder named.
+ *
+ * ⚠ Granules are FINE and ISOTROPIC, which is why `grainLongMm ≈ grainAcrossMm`
+ * at a short wavelength: an anisotropic grain here would read as brushed metal.
+ * The relief is comparatively strong (0.25 mm) because granule sparkle under a
+ * low sun is most of what makes an asphalt roof legible at all.
+ */
+export const ASPHALT_CHARCOAL: SurfaceProfile = {
+  faceColor: '#3a3a3c',
+  jointColor: '#212123',
+  faceRoughness: 0.95,
+  jointRoughness: 0.98,
+  bevelMm: 1.5,
+  jointDepthMm: 2.2,
+  toneJitter: 0.11,
+  hueJitter: 0.025,
+  grainStrength: 0.3,
+  grainLongMm: 26,
+  grainAcrossMm: 22,
+  grainReliefMm: 0.25,
+  edgeAoStrength: 0.55,
+  latewoodStrength: 0,
+};
+
+/** The same product in the second-commonest colourway. */
+export const ASPHALT_SLATE_GREY: SurfaceProfile = {
+  ...ASPHALT_CHARCOAL,
+  faceColor: '#6c6f73',
+  jointColor: '#44474a',
+  toneJitter: 0.1,
+};
+
+/** Asphalt again, in the weathered-brown colourway common on pitched housing. */
+export const ASPHALT_WEATHERED_BROWN: SurfaceProfile = {
+  ...ASPHALT_CHARCOAL,
+  faceColor: '#5a4636',
+  jointColor: '#35281f',
+  hueJitter: 0.04,
+  toneJitter: 0.13,
+};
+
+/**
+ * Natural riven roofing slate. Deeper joint than asphalt — a slate roof's shadow
+ * lines at the tail of each course are its dominant visual feature.
+ */
+export const SLATE_ROOF: SurfaceProfile = {
+  faceColor: '#4a4f55',
+  jointColor: '#282c30',
+  faceRoughness: 0.7,
+  jointRoughness: 0.9,
+  bevelMm: 1.2,
+  jointDepthMm: 2.6,
+  toneJitter: 0.09,
+  hueJitter: 0.02,
+  grainStrength: 0.2,
+  grainLongMm: 95,
+  grainAcrossMm: 34,
+  grainReliefMm: 0.13,
+  edgeAoStrength: 0.6,
+  latewoodStrength: 0,
+};
+
+/**
+ * Western red cedar shingle / shake.
+ *
+ * ⚠ `toneJitter` is the highest in this file (0.17) and that is not an accident:
+ * a cedar roof is a patchwork of individually-weathered shingles, and a cedar
+ * roof rendered at low jitter reads as printed vinyl however good the layout is.
+ */
+export const CEDAR_SHINGLE: SurfaceProfile = {
+  faceColor: '#8a6b4a',
+  jointColor: '#3a2b1c',
+  faceRoughness: 0.86,
+  jointRoughness: 0.94,
+  bevelMm: 1.0,
+  jointDepthMm: 3.0,
+  toneJitter: 0.17,
+  hueJitter: 0.07,
+  grainStrength: 0.4,
+  grainLongMm: 120,
+  grainAcrossMm: 5,
+  grainReliefMm: 0.16,
+  edgeAoStrength: 0.6,
+  latewoodStrength: 0.3,
+};
+
+/** Cedar again, silvered by exposure — the finish most people picture as "shingle". */
+export const CEDAR_SHINGLE_SILVERED: SurfaceProfile = {
+  ...CEDAR_SHINGLE,
+  faceColor: '#9a958c',
+  jointColor: '#3f3d39',
+  hueJitter: 0.04,
+  toneJitter: 0.15,
+  latewoodStrength: 0.22,
+};
+
+/**
+ * Oak external decking.
+ *
+ * ⚠ A DECK IS NOT AN INTERIOR FLOOR WITH A WIDER JOINT, and the profile says so
+ * rather than aliasing `OAK`: the gap between deck boards is an OPEN VOID over a
+ * dark substructure, not a filled joint, so `jointColor` is near-black and
+ * `jointDepthMm` is an order larger than a parquet's 0.4 mm. Exterior timber is
+ * also rougher (0.72 vs 0.55) and varies more, because it is not sanded and
+ * lacquered.
+ */
+export const OAK_DECK: SurfaceProfile = {
+  ...OAK,
+  jointColor: '#1d150c',
+  faceRoughness: 0.74,
+  jointRoughness: 0.95,
+  bevelMm: 1.4,
+  jointDepthMm: 4.0,
+  toneJitter: 0.14,
+  hueJitter: 0.06,
+  grainStrength: 0.4,
+  grainReliefMm: 0.14,
+  edgeAoStrength: 0.68,
+};
+
+/** Thermally-modified ash decking — the mid-brown of a modern terrace. */
+export const THERMO_ASH_DECK: SurfaceProfile = {
+  ...OAK_DECK,
+  faceColor: '#8e7355',
+  toneJitter: 0.12,
+  latewoodStrength: 0.26,
+};
+
+/** Grey wood-plastic composite decking. Extruded, so far less tone variation. */
+export const COMPOSITE_GREY_DECK: SurfaceProfile = {
+  ...OAK_DECK,
+  faceColor: '#7c7a76',
+  jointColor: '#201f1e',
+  faceRoughness: 0.8,
+  toneJitter: 0.04,
+  hueJitter: 0.015,
+  grainStrength: 0.22,
+  grainLongMm: 40,
+  grainAcrossMm: 3,
+  grainReliefMm: 0.09,
+  latewoodStrength: 0,
+};

@@ -24,6 +24,8 @@
 
 import type { MaterialMaps, MaterialTiling } from './materialMaps.js';
 import type { MaterialCarbonFacts } from './materialCarbon.js';
+import type { MaterialSurface } from './materialSurfaces.js';
+import type { MaterialUpstreamId } from './materialProvenance.js';
 
 /** C84 §1.1 — the built-in category vocabulary. */
 export type MaterialCategory =
@@ -110,4 +112,38 @@ export interface MaterialRecord {
    * refuses rather than assumes when a half is missing.
    */
   readonly carbon?: MaterialCarbonFacts;
+
+  // ── §MATERIAL-DECLARED-SURFACES (L-9702) — C100 §10.7 S25 ─────────────────
+  // OPTIONAL and ADDITIVE, exactly as `maps`/`tiling`/`carbon` were.
+  //
+  // ⛔ ABSENT MEANS **NOT DECLARED**, NEVER "SUITABLE EVERYWHERE". The reference
+  // product spells this facet "Absent = universal"; we deliberately do not, and
+  // `materialSurfaces.ts` carries the full argument. In one line: under
+  // "absent = universal" an unclassified row silently claims every slot, so the
+  // first picker that filters offers polished marble for a roof.
+  //
+  // ⭐ AND IT IS A DIFFERENT FACT FROM THE SCHEDULE'S ELEMENT AXIS. That axis is
+  // DERIVED (`materialUsageRegistry`, C100 §10.13.d) and measures what a family
+  // ACTUALLY REFERENCES. This one is AUTHORED and states what the product SUITS.
+  // A material can be suitable for a roof and used on none. Collapsing the two
+  // is the "two facts, one value" defect §10.13.b was written after.
+
+  /**
+   * Which surface slots this finish is DECLARED suitable for.
+   * `undefined` = not declared — see `isDeclaredForSurface()`, which returns
+   * `null` for that case rather than guessing on the material's behalf.
+   */
+  readonly surfaces?: readonly MaterialSurface[];
+
+  // ── §MATERIAL-UPSTREAM-LEDGER (L-9700) — C100 §10.6 / §10.14 ──────────────
+  // ⛔ A ROW MAY ONLY NAME AN UPSTREAM WHOSE LICENCE HAS BEEN READ AND CLEARED.
+  // `isUpstreamClearedToShip()` is the predicate; ARM F of
+  // `check-material-single-source.ts` is the enforcement. Absent means the row
+  // predates the ledger and is `pryzm-authored` by construction (scalars only,
+  // no bytes) — which is why the field is optional rather than required: making
+  // it required would have meant touching 245 rows to state a fact that is
+  // already true of every one of them.
+
+  /** Where this row's DATA or BYTES came from. See `materialProvenance.ts`. */
+  readonly upstream?: MaterialUpstreamId;
 }

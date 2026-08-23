@@ -44,3 +44,33 @@ export {
     findCarbonFacts,
     carbonFactorOrphans,
 } from './carbonFactorTable.js';
+
+// §MATERIAL-DECLARED-SURFACES (L-9702) — C100 §10.7 S25. Which surface slots a
+// finish is DECLARED suitable for. ⛔ Absent means NOT DECLARED, never
+// "universal" — `isDeclaredForSurface()` returns `null` for that case on purpose.
+// This is a DIFFERENT fact from the schedule's derived element axis (§10.13.d),
+// which measures what a family actually references.
+export type { MaterialSurface } from './materialSurfaces.js';
+export {
+    MATERIAL_SURFACES,
+    isMaterialSurface,
+    isDeclaredForSurface,
+    materialSurfacesDefect,
+} from './materialSurfaces.js';
+
+// §MATERIAL-UPSTREAM-LEDGER (L-9700) — C100 §10.6 / §10.14. Where a row's data or
+// bytes came from, with the SENTENCE of the licence that decided it (the RATE53
+// shape). ⛔ No shipped row may name an upstream that is not CLEARED.
+export type {
+    MaterialLicenceStatus,
+    MaterialUpstreamTake,
+    MaterialUpstreamId,
+    MaterialUpstream,
+} from './materialProvenance.js';
+export {
+    MATERIAL_UPSTREAMS,
+    findMaterialUpstream,
+    isUpstreamClearedToShip,
+    unclearedMaterialUpstreams,
+    materialUpstreamsRequiringNotice,
+} from './materialProvenance.js';

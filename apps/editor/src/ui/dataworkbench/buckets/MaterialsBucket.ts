@@ -25,6 +25,11 @@ import { ceilingSystemTypeStore }    from '@pryzm/core-app-model/stores';
 import { handrailTypeStore }         from '@pryzm/core-app-model/stores';
 import { SteelProfileLibrary }       from '@pryzm/plugin-structural';
 import { escapeHtml, formatMaterialColor, formatMetres } from './DWHelpers';
+// §MATERIAL-DECLARED-SURFACES (L-9703) — C100 §10.7 S25 ships the facet WITH its
+// filter, in one commit, and this is the filter. The vocabulary is READ from L0,
+// never re-typed here: a hand-written chip list is a rival enumeration of the
+// material vocabulary, which is the defect C100 §1.1 traces six times.
+import { MATERIAL_SURFACES, type MaterialSurface } from '@pryzm/schemas/materials';
 
 // ── Private helper: material <select> builder ────────────────────────────────
 
@@ -101,6 +106,60 @@ function userMaterialsMarkup(): string {
     </section>`;
 }
 
+// ── §MATERIAL-DECLARED-SURFACES: the filter's three states ──────────────
+
+/**
+ * The value a card advertises to the filter.
+ *
+ * ⭐ THREE STATES, NOT TWO, and this is the whole reason the filter is worth
+ * shipping rather than a nice-to-have. A material is either DECLARED suitable for
+ * a surface, DECLARED and not suitable, or NOT DECLARED AT ALL — and the third is
+ * a real answer, not a missing one. The reference product spells this facet
+ * "absent = universal", which makes "we never classified this" and "this suits
+ * everything" the same value; under that reading the first filter anyone ships
+ * confidently offers polished marble for a roof.
+ *
+ * So an undeclared card carries an EMPTY string here and is matched by its own
+ * chip, exactly as lane MAT50's schedule renders ∅ for "this family cannot yet
+ * name a material" instead of the dash that meant two opposite things
+ * (C100 §10.13.b / §10.13.c).
+ */
+const NOT_DECLARED = '';
+
+/** The pseudo-surface the "not declared" chip filters on. Never a real surface. */
+const UNDECLARED_TOKEN = 'undeclared';
+
+function surfaceTokens(surfaces: readonly MaterialSurface[] | undefined): string {
+    return surfaces && surfaces.length > 0 ? surfaces.join(' ') : NOT_DECLARED;
+}
+
+/** A one-line caption for a card. Says ∅ rather than nothing when nothing is declared. */
+function surfaceCaption(surfaces: readonly MaterialSurface[] | undefined): string {
+    if (!surfaces || surfaces.length === 0) {
+        return '<span title="No suitability declared for this material — that is NOT the same as suitable everywhere." style="color:#8a6db8;font-weight:700;">∅</span>';
+    }
+    return escapeHtml(surfaces.join(' · '));
+}
+
+/**
+ * The chip row. Reads {@link MATERIAL_SURFACES} from L0 so a seventh surface
+ * appears here the day it is declared, with no edit in this file.
+ */
+function surfaceChipMarkup(): string {
+    const chip = (value: string, label: string, title: string): string =>
+        `<button data-surface-chip="${escapeHtml(value)}" title="${escapeHtml(title)}" style="font-size:10px;font-weight:700;border:1px solid var(--app-border);background:#fff;color:var(--app-text-muted,#7a8aaa);border-radius:99px;padding:3px 10px;cursor:pointer;">${escapeHtml(label)}</button>`;
+    const all = `<button data-surface-chip="" data-surface-all title="Show every material" style="font-size:10px;font-weight:700;border:1px solid #D4580A;background:#D4580A;color:#fff;border-radius:99px;padding:3px 10px;cursor:pointer;">All</button>`;
+    const real = MATERIAL_SURFACES
+        .map((sfc) => chip(sfc, sfc.charAt(0).toUpperCase() + sfc.slice(1), `Materials DECLARED suitable for a ${sfc} surface`))
+        .join('');
+    const undeclared = chip(
+        UNDECLARED_TOKEN,
+        '∅ Not declared',
+        'Materials with NO declared suitability. This is a distinct answer from "suitable everywhere" — nobody has classified these yet.',
+    );
+    return `<div data-surface-chips style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;align-items:center;"><span style="font-size:10px;color:var(--app-text-muted,#7a8aaa);font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-right:2px;">Suitable for</span>${all}${real}${undeclared}</div>`;
+}
+
 // ── BIM Material Library ──────────────────────────────────────────────────────
 
 export function mountMaterialLibrary(panel: HTMLElement): void {
@@ -131,7 +190,8 @@ export function mountMaterialLibrary(panel: HTMLElement): void {
                                 data-material-card
                                 data-material-id="${escapeHtml(material.id)}"
                                 data-material-color="${escapeHtml(color)}"
-                                data-search="${escapeHtml(`${material.label} ${material.category} ${material.id}`.toLowerCase())}"
+                                data-search="${escapeHtml(`${material.label} ${material.category} ${material.id} ${(material.surfaces ?? []).join(' ')}`.toLowerCase())}"
+                                data-surfaces="${escapeHtml(surfaceTokens(material.surfaces))}"
                                 title="Click to select · ${escapeHtml(material.id)}"
                                 style="border:1.5px solid var(--app-border);border-radius:10px;background:var(--app-panel-bg);overflow:hidden;cursor:pointer;transition:border-color .12s,box-shadow .12s;"
                             >
@@ -146,6 +206,7 @@ export function mountMaterialLibrary(panel: HTMLElement): void {
                                         <span>·</span>
                                         <span>M ${metalness}</span>
                                     </div>
+                                    <div style="font-size:9px;color:var(--app-text-muted);margin-top:2px;">${surfaceCaption(material.surfaces)}</div>
                                 </div>
                             </article>
                         `;
@@ -191,9 +252,14 @@ export function mountMaterialLibrary(panel: HTMLElement): void {
                     </div>
                     <button data-clear-selection style="background:none;border:none;cursor:pointer;color:var(--app-text-muted,#7a8aaa);font-size:14px;line-height:1;padding:2px;" title="Clear selection">×</button>
                 </div>
-                <input data-material-search type="search" placeholder="Search concrete, oak, marble, steel, glass..." style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--app-border);border-radius:8px;font-size:12px;background:#fff;color:var(--app-text,#1a2035);outline:none;" />
+                ${surfaceChipMarkup()}
+                <input data-material-search type="search" placeholder="Search concrete, oak, marble, steel, glass, roof, decking..." style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--app-border);border-radius:8px;font-size:12px;background:#fff;color:var(--app-text,#1a2035);outline:none;" />
             </div>
             <div style="flex:1;overflow:auto;padding:12px 14px;">
+                <div data-surface-empty style="display:none;padding:24px;text-align:center;font-size:12px;color:var(--app-text-muted,#7a8aaa);line-height:1.6;">
+                    No material matches this filter.<br />
+                    <span style="font-size:11px;">∅ <b>Not declared</b> is its own answer, not an error — most rows predate the suitability facet and nobody has classified them yet. That is deliberately not the same as “suitable everywhere”.</span>
+                </div>
                 <div data-user-materials-section>${userMaterialsMarkup()}</div>
                 ${categoryMarkup}
             </div>
@@ -212,11 +278,48 @@ export function mountMaterialLibrary(panel: HTMLElement): void {
     const selId        = panel.querySelector('[data-selected-id]') as HTMLElement | null;
     const clearBtn     = panel.querySelector('[data-clear-selection]') as HTMLElement | null;
 
-    search?.addEventListener('input', () => {
-        const term = search.value.trim().toLowerCase();
+    // §MATERIAL-DECLARED-SURFACES (L-9703). ⚠ ONE apply() over BOTH axes, not two
+    // listeners each hiding cards. Two independent hide passes race: whichever ran
+    // last wins, so typing a term after picking a chip silently un-filters the
+    // chip. The state is (term, surface) and the predicate reads both.
+    let activeSurface = '';
+    const applyFilters = (): void => {
+        const term = (search?.value ?? '').trim().toLowerCase();
+        let shown = 0;
         panel.querySelectorAll('[data-material-card]').forEach(card => {
             const el = card as HTMLElement;
-            el.style.display = !term || (el.dataset.search ?? '').includes(term) ? '' : 'none';
+            const matchesTerm = !term || (el.dataset.search ?? '').includes(term);
+            const declared = el.dataset.surfaces ?? '';
+            // The three states, spelled out rather than collapsed into a truthiness
+            // check — `''` is a REAL value here ("not declared"), so an `if (declared)`
+            // would silently fold it in with "does not match".
+            const matchesSurface =
+                activeSurface === ''            ? true
+              : activeSurface === 'undeclared'  ? declared === ''
+              : declared.split(' ').includes(activeSurface);
+            const visible = matchesTerm && matchesSurface;
+            el.style.display = visible ? '' : 'none';
+            if (visible) shown++;
+        });
+        const empty = panel.querySelector('[data-surface-empty]') as HTMLElement | null;
+        if (empty) empty.style.display = shown === 0 ? '' : 'none';
+    };
+
+    search?.addEventListener('input', applyFilters);
+
+    panel.querySelectorAll('[data-surface-chip]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const el = btn as HTMLElement;
+            const value = el.dataset.surfaceChip ?? '';
+            activeSurface = activeSurface === value && value !== '' ? '' : value;
+            panel.querySelectorAll('[data-surface-chip]').forEach(other => {
+                const o = other as HTMLElement;
+                const on = (o.dataset.surfaceChip ?? '') === activeSurface;
+                o.style.background = on ? '#D4580A' : '#fff';
+                o.style.color      = on ? '#fff' : 'var(--app-text-muted,#7a8aaa)';
+                o.style.borderColor = on ? '#D4580A' : 'var(--app-border)';
+            });
+            applyFilters();
         });
     });
 
