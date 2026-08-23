@@ -124,6 +124,45 @@ Each declared parameter carries a `valueSource` drawn from `KNOWN_VALUE_SOURCES`
 
 A refusal from a value source MUST **list the project's real options**, never guess: *"There is no wall type called "X" in this project. The wall types here are: …"* (§CONTEXT-DATA-HONESTY).
 
+#### ⛔ …AND IT MAY NOT DENY A NAME IT GOES ON TO LIST (L-10100, 2026-08-23)
+
+The rule above, alone, produced this — founder-reported, production. He created a window type
+called **"Custom Window Type"**, typed **"Make all windows Custom window type"**, and was told:
+
+> *"There is no window type called **"type"** in this project. The window types here are: Single
+> Pane (Default), … , **Custom Window Type**."*
+
+**The refusal contradicts itself inside one sentence.** It denies his type exists in the clause
+before the one that lists it, and a user who believes it goes and re-creates a type that was
+already there. Registration was FINE; the PARSE extracted `"type"` as the reference. That is
+**worse than a plain miss** — the same doctrine as §7's *"being confidently wrong is worse than
+refusing"*, now applied to the refusal itself.
+
+Three binding rules, each with its own guard, because **any of the three alone is a sort nobody
+enforces** (the failure mode `CatalogueFamilies.ts` already records twice for stair railings):
+
+1. ⛔ **A grammar may not anchor on an occurrence of the family's own noun that lies INSIDE the
+   candidate type name.** A user-authored name may contain the family noun, the word "type", or
+   both — *that is what a default name generator produces* (`Custom Window Type`, `Custom Slab
+   Type`). Measured 2026-08-23, `FilterScope.liftTypeFilter` anchored on the second "window", read
+   the adjective as `"windows custom"`, and rewrote the sentence to `"make all window type"`.
+   **window, door AND wall all failed this way; slab / ceiling / stair / stair-railing survived
+   only because their domain-noise lists happen to omit the PLURAL — an accident, not a guard.**
+2. ⭐ **THE CATALOGUE IS THE STRONGEST GUARD, AND IT DECIDES FIRST.** A span the project's own
+   catalogue affirmatively claims beats any keyword-stripping heuristic, and where several spans
+   are claimable the **LONGEST** wins. `resolveCatalogueRef`'s domain-noise ladder is deliberately
+   forgiving — it will happily reduce `"windows custom"` to `["custom"]` — so a heuristic that
+   *feeds* it a mis-anchored span gets a confident wrong answer back. Read the sentence exactly as
+   the user typed it first.
+3. ⛔ **If the extracted span is not found but a listed type CONTAINS it (or it contains a listed
+   type), the copy MUST say so and OFFER that type** — never *"there is no X called …"*. Whatever
+   span a future grammar mis-extracts, the refusal degrades to a question, not to a denial.
+
+Pinned by `packages/ai-host/__tests__/self-referential-type-name.test.ts`, which asserts the
+founder's literal sentence plus **all seven families** (window · door · slab · ceiling · stair ·
+stair-railing · wall) with a self-referential name, and carries the plain built-in name alongside
+as a control so a "fix" that passes by NARROWING the grammar fails there.
+
 ### e. ⚙ `scopeModes` only for scopes the resolver honours
 
 `scopeModes` is validated against `KNOWN_SCOPE_MODES` (`selection` · `all` · `global` · `level` · `room` · `orientation`) and must include the capability's own default `scope`. Beyond that: **declaring a spatial mode before the U3 `ScopeResolver` honours it would be the ElementCapabilities lie in a new costume** — and since 2026-08-11 that is a CHECK, not a convention: check 5c drives every declared spatial mode through `applySemanticIntent` with an injected stub resolver and requires the descriptor to arrive with the declared kind (§6.3-G3). When the resolver is absent the arm refuses honestly (*"spatial scoping isn't wired into this chat context"*) rather than silently widening to `all`.
