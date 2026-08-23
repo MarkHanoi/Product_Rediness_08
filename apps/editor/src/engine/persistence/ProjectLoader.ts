@@ -384,12 +384,45 @@ export class ProjectLoader {
         // snapshot) verifies clean → no warning. This check is pure + read-only.
         try {
             const __integrity = verifySnapshotChecksum(snapshot);
-            if (__integrity.present && !__integrity.ok) {
+
+            // §L-8700 — NOT COMPARABLE is not a mismatch. A digest stamped by a
+            // different algorithm version (or describing pre-migration content)
+            // cannot be re-derived by this build, so the difference between the
+            // two carries no information about the file. Console note only: the
+            // user has nothing to act on, and a warning they cannot act on is how
+            // a true warning later gets ignored.
+            if (__integrity.present && __integrity.comparable === false) {
+                console.log(
+                    `[ProjectLoader] §L-8700 integrity stamp not comparable — ${__integrity.note ?? 'reason not recorded'} ` +
+                    `Loaded normally; no integrity claim is being made either way.`,
+                );
+            } else if (__integrity.present && !__integrity.ok) {
+                // The digest encodes its own canonical length as the hex suffix,
+                // so the two halves carry a readable Δ. Print it: it is the single
+                // most diagnostic number in the line (L-8700 was identified from
+                // `0x50432 → 0x5041d`, i.e. LOAD 21 characters SHORTER), and
+                // making the reader do hex by hand is why it went unread for a day.
+                const __eb = __integrity.expectedBytes;
+                const __ab = __integrity.actualBytes;
+                const __delta = typeof __eb === 'number' && typeof __ab === 'number'
+                    ? ` — canonical length ${__eb} at save vs ${__ab} at load (Δ ${__ab - __eb})`
+                    : '';
+                // ⛔ DO NOT restore "the file may be corrupted or was modified
+                // outside PRYZM". That sentence was WRONG in production (L-8700):
+                // the stamp and the stored bytes disagreed because PRYZM's own
+                // canonical form did not mirror JSON.stringify, and blaming the
+                // user's file for PRYZM's defect spends the credibility every
+                // TRUE corruption warning will need. Say only what is known:
+                // WHAT differs, that NOTHING was dropped from the load, and that
+                // the two possible sources cannot be told apart from here.
                 const reason =
-                    `Project integrity check failed (stored ${__integrity.expected}, computed ` +
-                    `${__integrity.actual}). The file may be corrupted or was modified outside ` +
-                    `PRYZM — loaded best-effort; please review your model and re-save.`;
-                console.error(`[ProjectLoader] §L-334 checksum mismatch — loading BEST-EFFORT (project NOT bricked): ${reason}`);
+                    `Integrity stamp mismatch (stored ${__integrity.expected}, computed ` +
+                    `${__integrity.actual})${__delta}. The project was loaded IN FULL — no element ` +
+                    `was dropped, skipped or altered because of this. The stamp records what PRYZM ` +
+                    `computed when it saved; PRYZM cannot tell from the stamp alone whether the ` +
+                    `difference arose in its own save path or in the stored bytes. Re-saving ` +
+                    `re-stamps the project.`;
+                console.error(`[ProjectLoader] §L-334/§L-8700 checksum mismatch — loading BEST-EFFORT (project NOT bricked): ${reason}`);
                 result.warnings.push(reason);
                 result.integrity = {
                     ok: false, reason, expected: __integrity.expected, actual: __integrity.actual,

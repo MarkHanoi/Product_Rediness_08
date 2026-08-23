@@ -64,8 +64,15 @@ export {
 // verify at LOAD → non-blocking warning, never brick). See SnapshotIntegrity.ts.
 export {
   INTEGRITY_ALGO,
+  INTEGRITY_ALGO_V1,
   computeSnapshotChecksum,
+  computeSnapshotChecksumV1,
+  computeSnapshotChecksumWithReport,
+  canonicalStringifyV1,
+  decodeCanonicalLength,
   verifySnapshotChecksum,
   type SnapshotIntegrityMeta,
   type ChecksumVerification,
+  type ChecksumReport,
+  type JsonInvisibleMember,
 } from './SnapshotIntegrity.js';

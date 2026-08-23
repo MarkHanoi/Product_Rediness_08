@@ -111,7 +111,7 @@ import { obcAnnotationAdapter } from '@pryzm/plugin-annotations';
 // and verified at LOAD (client-side; a server-side column is a tracked
 // follow-up). See packages/persistence-client/src/loader/SnapshotIntegrity.ts.
 import {
-    computeSnapshotChecksum,
+    computeSnapshotChecksumWithReport,
     INTEGRITY_ALGO,
     type SnapshotIntegrityMeta,
 } from '@pryzm/persistence-client';
@@ -1532,12 +1532,40 @@ export class ProjectSerializer {
         // AFTER this stamp — excluding it is what stops the L-360 false-"corrupt"
         // that bricked a valid project). Round-trips through JSON.stringify/parse
         // unchanged, so a faithfully-saved project always re-verifies at LOAD.
+        //
+        // §L-8701 — the SAVE-side probe the L-8700 investigation did not have.
+        // `computeSnapshotChecksumWithReport` returns the same digest plus the
+        // members of the LIVE snapshot that `JSON.stringify` cannot persist at
+        // all (function-valued, symbol-valued, `toJSON()`→undefined). Under the
+        // v2 canonical form those no longer perturb the digest — but each one is
+        // content silently dropped on EVERY save, and the whole reason L-8700
+        // took a 21-character hex delta to diagnose is that nothing here could
+        // name the member. Folded into the digest walk, so it costs one extra
+        // array push/pop per node and no second traversal.
+        const __integrityReport = computeSnapshotChecksumWithReport(snapshot);
         const integrity: SnapshotIntegrityMeta = {
             algo: INTEGRITY_ALGO,
-            checksum: computeSnapshotChecksum(snapshot),
+            checksum: __integrityReport.checksum,
             schemaVersion: SNAPSHOT_SCHEMA_VERSION,
+            // Omitted entirely when zero, so a clean snapshot stays byte-identical
+            // to a pre-L-8701 one. `integrity` is excluded from the digest, so
+            // adding this key cannot move any checksum.
+            ...(__integrityReport.jsonInvisibleCount > 0
+                ? { jsonInvisible: __integrityReport.jsonInvisibleCount }
+                : {}),
         };
         snapshot.integrity = integrity;
+
+        if (__integrityReport.jsonInvisibleCount > 0) {
+            console.warn(
+                `[ProjectSerializer] §L-8701 ${__integrityReport.jsonInvisibleCount} snapshot member(s) ` +
+                `cannot be persisted by JSON.stringify and are DROPPED on save — ` +
+                __integrityReport.jsonInvisible.map(m => `${m.path} (${m.kind})`).join(', ') +
+                (__integrityReport.jsonInvisibleCount > __integrityReport.jsonInvisible.length
+                    ? `, … (${__integrityReport.jsonInvisibleCount - __integrityReport.jsonInvisible.length} more)`
+                    : ''),
+            );
+        }
 
         // §PROBE-SNAPSHOT-JOURNAL-WEIGHT (L-5821) — name the OTHER thing in here.
         //

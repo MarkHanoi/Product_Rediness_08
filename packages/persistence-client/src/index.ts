@@ -229,10 +229,17 @@ export { IndexedDBStore } from './IndexedDBStore.js';
 // `./loader/SnapshotIntegrity.ts` for the determinism + no-brick rationale.
 export {
   INTEGRITY_ALGO,
+  INTEGRITY_ALGO_V1,
   computeSnapshotChecksum,
+  computeSnapshotChecksumV1,
+  computeSnapshotChecksumWithReport,
+  canonicalStringifyV1,
+  decodeCanonicalLength,
   verifySnapshotChecksum,
   type SnapshotIntegrityMeta,
   type ChecksumVerification,
+  type ChecksumReport,
+  type JsonInvisibleMember,
 } from './loader/SnapshotIntegrity.js';
 
 // D.4.2 — persistence-half composition root.  Spec:

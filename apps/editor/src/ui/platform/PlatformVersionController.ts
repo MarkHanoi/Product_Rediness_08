@@ -433,10 +433,18 @@ export class PlatformVersionController {
             // loaded best-effort above; surface a loud, long-lived warning so possible
             // corruption is never silently ignored — but the user is never locked out.
             if (result.integrity && result.integrity.ok === false) {
-                console.warn('[PlatformVersionController] §L-334 integrity check failed — loaded best-effort:', result.integrity.reason);
+                console.warn('[PlatformVersionController] §L-334/§L-8700 integrity stamp mismatch — loaded in full:', result.integrity.reason);
+                // §L-8700 — WORDING IS LOAD-BEARING. This toast used to read "this
+                // project file may be corrupted", which the founder saw on TWO
+                // healthy production projects: the mismatch was PRYZM's own
+                // canonical form disagreeing with JSON.stringify, not the file.
+                // A false accusation of corruption is spent credibility — the next
+                // TRUE one gets dismissed. Say what is known (loaded in full,
+                // nothing dropped) and what to do (re-save re-stamps it); leave
+                // the cause to the console line, which carries the byte delta.
                 showToast(
-                    `⚠ Integrity check failed — this project file may be corrupted. ` +
-                    `It was loaded best-effort; please review your model and re-save.`,
+                    `⚠ Integrity stamp mismatch — the project was loaded in full and nothing was ` +
+                    `dropped. Saving again re-stamps it. Details in the console.`,
                     'error',
                     12000,
                 );
