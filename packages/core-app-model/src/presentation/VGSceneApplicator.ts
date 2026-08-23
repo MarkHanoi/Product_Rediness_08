@@ -62,7 +62,16 @@ type VGCategory =
     | 'plumbing' | 'grid' | 'level' | 'opening'
     // §ROOM-VG-CATEGORY (L-1610, lane ROOM1) -- rooms are FILLED REGIONS, not
     // projected line-work. See applyToMesh()'s `fillGovernedElsewhere` arm.
-    | 'room';
+    | 'room'
+    // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7953, C105 §5) — the AUTHORED setting-out
+    // line. It is a DATUM in the drafting sense (`DATUM_CATEGORIES` in DrawingZone.ts),
+    // which is why it needs a category of its own rather than borrowing `grid`'s: a user
+    // who hides grids has not asked to hide the line their building is set out against,
+    // and the founder asked for this family to have a category "there too — everywhere".
+    //
+    // ⛔ NOT the cadastral parcel boundary (C19 §1.4), which is site data and has no
+    // scene node in this map at all.
+    | 'boundary-line';
 
 /**
  * DOC-1.13 — VG category → ISO 13567 DXF layer name.
@@ -120,6 +129,14 @@ const ELEMENT_TYPE_TO_VG_CATEGORY: Record<string, VGCategory> = {
     'ceiling':       'ceiling', 'Ceiling':     'ceiling', 'CeilingPart': 'ceiling',
     'Grid':          'grid',    'GridLine':      'grid',    'BimGrid':      'grid',
     'Level':         'level',   'LevelLine':     'level',   'BimLevel':     'level',
+    // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7953, C105 §5) — the scene-node name → VG
+    // category map. Without a row here a boundary-line node is UNCLASSIFIED and the
+    // per-view category toggle silently does nothing to it, which is the "control
+    // appears in one panel and does nothing in the next" defect the four-site rule
+    // exists to prevent. Both the centreline node and the extruded solid map to the
+    // same category, because the user hides "boundary lines", not "boundary-line
+    // centrelines".
+    'BoundaryLine':  'boundary-line', 'BoundaryLineSolid': 'boundary-line',
     'Opening':       'opening',
     // §ROOM-VG-CATEGORY (L-1610, lane ROOM1) -- RoomBoundaryBuilder stamps
     // userData.elementType = 'room' on both the floor fill and the room volume.

@@ -260,7 +260,19 @@ export type BeyondLineStyle = 'solid' | 'dashed';
  * silently. Every other category — every actual piece of building fabric — obeys the rule.
  */
 export const DATUM_CATEGORIES: ReadonlySet<string> = Object.freeze(
-    new Set<string>(['grid', 'level', 'annotation']),
+    // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7950, C105 §5) — `boundary-line` JOINS the
+    // datums, and it belongs here more literally than the other three: it IS a
+    // construction line. An architect draws it to set a scheme out, exactly as a grid
+    // or a level line is drawn, and its dash is an ISO 128-24 category convention
+    // rather than a hidden-line reading.
+    //
+    // ⚠ THE EXEMPTION IS NARROW AND CONDITIONAL, AND THAT IS WORTH SAYING OUT LOUD. A
+    // boundary line with `hasVolume: true` DOES have building fabric — a real extruded
+    // solid — and that solid's own edges obey the ladder like anything else. What is
+    // exempted is the CENTRELINE, which is drafting notation whether or not a solid
+    // stands on it. The two are different pieces of geometry from the same record; only
+    // the first is a datum.
+    new Set<string>(['grid', 'level', 'annotation', 'boundary-line']),
 ) as ReadonlySet<string>;
 
 // ─── Occlusion disposition (C09 §4.6.5) — INTENT, not a code branch ───────────

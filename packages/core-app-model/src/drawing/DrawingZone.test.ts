@@ -151,7 +151,13 @@ describe('§FEAT-REVIT-LINE-TYPE-SEMANTICS — the pen table obeys C09 §4.6.4',
     it('the ONE exemption is explicit: DATUM categories (grid, level) carry an ISO 128-24 chain line, not a zone dash', () => {
         // Recorded so the carve-out can never be widened silently: these are the ONLY
         // categories permitted to dash outside the hidden zone, and they are not solids.
-        expect([...DATUM_CATEGORIES].sort()).toEqual(['annotation', 'grid', 'level']);
+        // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7950) — `boundary-line` JOINED the
+        // datums. It is a CONSTRUCTION line: an architect draws it to set a scheme out,
+        // exactly as a grid or level line is drawn, and its dash is an ISO 128-24
+        // category convention rather than a hidden-line reading. The exemption covers
+        // the CENTRELINE only; a boundary line carrying VOLUME has a real solid whose
+        // own edges obey the ladder like any other fabric (C105 §5).
+        expect([...DATUM_CATEGORIES].sort()).toEqual(['annotation', 'boundary-line', 'grid', 'level']);
         expect(resolvePen('PROJECTION', 'grid').dashPx).not.toBeNull();
         expect(resolvePen('PROJECTION', 'level').dashPx).not.toBeNull();
     });

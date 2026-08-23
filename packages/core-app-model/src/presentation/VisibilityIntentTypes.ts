@@ -193,6 +193,33 @@ export interface ElementGraphicsRules {
      * which dispatches `SetIntentProfileElementVisibilityCommand`.
      */
     visible?:     boolean;
+    /**
+     * ⭐ §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7954, C105 §5) — THE FOUNDER'S VOLUME BOOL.
+     *
+     *   *"The line could have volume also, via a bool setting on Visibility Intent."*
+     *
+     * Whether this element type is drawn as a SOLID in this intent, or as LINEWORK.
+     * Introduced for `boundary-line`, where the question is genuinely per-VIEW: the same
+     * setting-out line is massing in the 3-D view and a construction line in the 1:100
+     * plan, and that is one model with two views rather than two models.
+     *
+     * ⚠ `undefined` AND `false` ARE DIFFERENT VALUES AND MUST NOT BE COLLAPSED.
+     * `undefined` means *this intent has no opinion* — fall back to the element's own
+     * authored intent (`BoundaryLine.hasVolume`). `false` means *this intent says
+     * linework*, and it must WIN over a record that says volume. Resolving with `??`
+     * is correct; resolving with `||` would silently turn every "this view says
+     * linework" into "ask the record", which is the emptiness/failure collapse in one
+     * operator. `resolveBoundaryLineSolidity()` in `@pryzm/geometry-boundary-line` is
+     * the ONE place that decides, and its test pins the case `||` would break.
+     *
+     * ⛔ It is deliberately NOT a per-STATE field (`cut` / `projection` / …). Solidity
+     * is a property of the ELEMENT in this view, not of one occlusion state: a line that
+     * was a solid in projection and linework in beyond would be two different objects.
+     *
+     * Absent on every other family today, and that is not an omission: nothing else in
+     * the model is optionally-a-solid. A second family adopting it should say why here.
+     */
+    solid?:       boolean;
     /** Appearance when the element is physically cut by the cut plane. */
     cut:          ElementStateAppearance;
     /** Appearance when the element is visible below the cut plane (in projection). */

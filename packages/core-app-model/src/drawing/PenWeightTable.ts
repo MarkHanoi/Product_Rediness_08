@@ -155,6 +155,17 @@ const SYSTEM_PEN_TABLE: Partial<Record<PenZone, Partial<Record<string, PenStyle>
         grid:       pen(0.13, '#0000cc', [8, 4]),  // DATUM — ISO 128-24 chain line, not a zone dash
         annotation: pen(0.18, '#000000'),
         level:      pen(0.13, '#334155', [5, 3]),  // DATUM — ISO 128-24 chain line, not a zone dash
+        // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7950) — DATUM, in PROJECTION ONLY, exactly
+        // as `grid` and `level` are. A construction line has no CUT (it is not sliced by
+        // the cut plane — it IS the plane's own notation), no BEYOND and no HIDDEN: a
+        // setting-out line that vanished behind a wall would be useless for setting out.
+        // Absent zones fall to `FALLBACK_PEN`, which is the correct and stated behaviour
+        // for a category the zone does not apply to.
+        //
+        // ⭐ PRYZM purple `#6600FF`, the brand's construction-geometry colour and the
+        // same one `BoundaryLinePlanToolHandler` previews in — so what the architect
+        // aims at and what lands are the same colour rather than two.
+        'boundary-line': pen(0.13, '#6600ff', [10, 4]),
     },
 
     // ── BEYOND zone — past the cut plane, DELIBERATELY still shown. ──

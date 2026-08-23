@@ -3251,6 +3251,36 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   ['window.setOffset', 'Moving a window along its wall needs a picked position — drag it.'],
   ['room.move', 'Rooms follow their bounding walls; move the walls instead.'],
 
+  // ── §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7960, C105 §7) ──────────────────────
+  //
+  // ⭐ THE FOUNDER'S RAC SENTENCE, ANSWERED HONESTLY RATHER THAN HALF-WIRED:
+  //
+  //     "After creating it, I could ask via RAC: 'create a 3-bedroom apartment on
+  //      this boundary line'."
+  //
+  // Two DIFFERENT things are needed for that, and only one of them is a boundary-line
+  // problem:
+  //   (a) the line must be an ADDRESSABLE SUBJECT — a stable id the chat can name.
+  //       ✅ DONE: `boundaryLine_<ulid>` is a branded L0 id, the record lives in the
+  //       ONE store at `runtime.stores.boundaryLine`, and every verb below takes it by
+  //       id. Nothing further is needed to REFER to a boundary line.
+  //   (b) the apartment GENERATOR must consume it as its footprint. ⛔ NOT DONE, and
+  //       not stubbed: it is a real piece of work inside the generative pipeline
+  //       (`packages/ai-host/src/generative`, `FloorPlanBatchExecutor`), whose plans are
+  //       currently seeded from a level's slab outline. Logged as L-7961, OPEN.
+  //
+  // ⛔ SO THE VERBS BELOW ARE DECLARED UNAVAILABLE RATHER THAN CLASSIFIED-AND-DEAD.
+  // A verb that the chat CLASSIFIES but that generates nothing is the silent-success
+  // shape this repository keeps finding; a named refusal with the route back to success
+  // is the honest answer while (b) is open. Each sentence tells the user what to do
+  // instead, which is the whole point of this map (C16 CA-18).
+  ['boundaryLine.create', 'Drawing a setting-out line needs the points you want it through, which I cannot infer from a sentence — use the Boundary Line tool under Architecture (Alt+Shift+N).'],
+  ['boundaryLine.move', 'Moving a boundary line from chat needs a target position I cannot infer — drag its vertices in plan. Everything attached to it moves with it.'],
+  ['boundaryLine.attach', 'Attaching an element to a boundary line needs both of them picked — select the element and the line in plan.'],
+  ['boundaryLine.detach', 'Detaching an element from a boundary line needs it picked — select it in plan.'],
+  ['boundaryLine.update', 'Boundary-line properties (volume, height, thickness, material) are edited in the Properties panel with the line selected.'],
+  ['boundaryLine.delete', 'Deleting a boundary line needs it picked — select it in plan and press Delete. Deleting the line does NOT delete what was built along it.'],
+
   // §FEAT-CHAT-SYMMETRY (2026-08-10) — the move/rotate twins across the other
   // element families. Same reason as wall.move: chat has no pointer.
   ['slab.move', 'Moving a slab from chat needs a target position I cannot infer — drag it, or use the Move tool.'],

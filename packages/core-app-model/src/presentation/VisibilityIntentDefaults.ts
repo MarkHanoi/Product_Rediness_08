@@ -29,6 +29,15 @@ const ELEMENT_TYPES = [
     'grid',
     'annotation',
     'level',
+    // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7951, C105 §5) — the founder asked for the
+    // boundary line to have a category in the visibility-intent system "there too —
+    // everywhere". THIS is where a category is DECLARED: every element type in this
+    // list gets a complete `ElementGraphicsRules` (all four states, seeded from the pen
+    // table) in every system intent and in every intent cloned from the defaults.
+    //
+    // ⭐ ADDING IT HERE IS WHAT MAKES THE `solid` BOOL REACHABLE. `solid` lives on
+    // `ElementGraphicsRules`, and a family with no rules record has nowhere to carry it.
+    'boundary-line',
     'ifc-element',
 ] as const;
 
