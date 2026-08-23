@@ -1779,8 +1779,30 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
     dragHintEl.title = 'Drag to reposition';
     dragHintEl.innerHTML = '<span></span><span></span><span></span><span></span><span></span><span></span>';
 
+    // §BYOM (C103 §7.1) — the way in to "AI provider keys". It sits in the chat
+    // header rather than in a settings screen because the thing it changes is
+    // WHO ANSWERS THIS CHAT, and a control belongs beside the thing it affects.
+    // ⚠ `preventDefault` + `stopPropagation`: the header is the drag handle, so
+    // without them a click on this button starts a window drag instead.
+    const keysBtn = document.createElement('button');
+    keysBtn.type = 'button';
+    keysBtn.className = 'ai-chat-header-keys';
+    keysBtn.title = 'AI provider keys — use your own Claude, ChatGPT, Gemini, DeepSeek, OpenRouter or local Ollama';
+    keysBtn.setAttribute('aria-label', 'AI provider keys');
+    keysBtn.textContent = '⚙';
+    keysBtn.style.cssText =
+        'margin-left:auto;background:transparent;border:none;color:inherit;font-size:15px;' +
+        'cursor:pointer;padding:2px 6px;line-height:1;opacity:.8;';
+    keysBtn.addEventListener('mousedown', (e) => { e.stopPropagation(); });
+    keysBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        void import('./byom/AiProviderKeysPanel').then(m => m.openAiProviderKeysPanel());
+    });
+
     headerEl.appendChild(headerIconEl);
     headerEl.appendChild(headerTitleEl);
+    headerEl.appendChild(keysBtn);
     headerEl.appendChild(dragHintEl);
     panel.appendChild(headerEl);
 
