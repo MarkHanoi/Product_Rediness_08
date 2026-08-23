@@ -228,6 +228,20 @@ const GATES: Gate[] = [
   // declared size vs image, metre UVs on non-slab surfaces) — its green is not a
   // claim that a texture appears on screen.
   { name: 'material-maps-tiling (C100 §10.2.c/§10.9 · L-1700)', script: 'check-material-maps-tiling.ts' },
+  // §PLUGIN-CENSUS-EQUIVALENCE (L-9920) + §MIRROR-COMPLETENESS (L-9940) — the two
+  // gates the Pascal audit named as the cheapest wins, REGISTERED 2026-08-23.
+  //
+  // ⭐ Both answer the SAME question at two layers: "is this thing actually
+  // switched on?" — the shape behind twelve built-and-unreachable surfaces found
+  // in one session. The census compares four rival plugin lists as SETS in both
+  // directions; the mirror gate asks whether a verb that writes a plugin DTO
+  // store has any channel to the render layer at all.
+  //
+  // ⛔ They are registered HERE, beside the material gates, rather than at the end,
+  // because run-all's own unregistered-file warning is what surfaced them — and a
+  // gate appended to the bottom of a list is the one nobody reads next time.
+  { name: 'plugin-census-equivalence (C01/C11 · L-9920)', script: 'check-plugin-census-equivalence.ts' },
+  { name: 'mirror-completeness (C68 §5.a · L-9940)',      script: 'check-mirror-completeness.ts' },
   // C15 §8.1 / C86 WO-B-3 (2026-08-19) — the hosted-opening dual-write gate. C15
   // §8.1's OWN stated enforcement was "a code-review checklist item", i.e. nothing,
   // and it had measurably failed on the two most-used door/window gestures. This
