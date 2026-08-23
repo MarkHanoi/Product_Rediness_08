@@ -2903,3 +2903,92 @@ with `flat` staying GREEN, which *is* the "half true, half squashed" argument de
   the eave ring) is a further slice and is the difference between "correctly sized" and "correctly
   laid".
 - **S24, S25, S26, S31, S32 — UNCHANGED.**
+
+---
+
+## §10.17 — ⭐ THE **INSTANCE** LAYER EDITORS: §10.12's FINDING, TWO TIERS DOWN — AND THE TWO FAMILIES PAINT A LAYER BY OPPOSITE RULES (2026-08-23, lane LAYERMAT10)
+
+### §10.17.0 — The answer in four lines
+
+1. §10.12 found that *"the surfaces which AUTHOR a finish could not NAME a material"* for
+   door and window. **MAT50 then fixed the wall TYPE editor (§10.13 / L-8610) and the wall
+   and slab INSTANCE editors were never touched.** The founder found them.
+2. `WallLayersEditor` / `SlabLayersEditor` now carry the SAME picker —
+   `buildFinishMaterialSelect`, no third control minted (C68 §7.c).
+3. ⭐ **Establishing the precedence turned up a genuine disagreement between two element
+   families**, recorded in §10.17.b. It is not a defect this lane could fix and it is not
+   papered over: the UI states each family's measured rule.
+4. Overrides are marked with a one-click reset per §2.2 / §10.12.e, and **no new field
+   encodes "is override"** — so there is no codec change.
+
+### §10.17.a — ABSENT, not UNREACHABLE — and the measurement that settled it
+
+C01 §6 rule 6: the two have opposite fixes, so the question is asked before building.
+
+```
+grep materialId apps/editor/src/ui/property-panel/*.ts
+  -> CurtainSubElementPanel.ts, FinishTypeDraftIntent.ts    (0 hits in either layers editor)
+packages/geometry-wall/src/WallDataSchema.ts:178   materialId: z.string().optional()
+packages/geometry-slab/src/SlabTypes.ts:82         materialId?: string
+```
+
+Both schemas have carried the field all along, and both save pipes are **verbatim
+passthroughs** — `element.changeType` → `UpdateSlabLayersCommand` does
+`structuredClone(payload.layers)`; `UpdateWallSystemTypeCommand` spreads them onto the
+snapshot. **Nothing needed rewiring. The fix was a control**, exactly as §10.12 found one
+tier up and §10.13 found one family over. That is three consecutive lanes finding the same
+shape at a different altitude, which is the pattern worth naming:
+**a schema field is not a feature until a surface can write it.**
+
+### §10.17.b — ⛔ THE PRECEDENCE: **WALL AND SLAB DISAGREE**, measured at the builders
+
+| family | the expression that decides a layer's colour | winner |
+|---|---|---|
+| **slab** — `packages/geometry-slab/src/SlabFragmentBuilder.ts:692` | `layerMasterHex ?? layer.materialColor ?? data.materialColor ?? '#909090'` | **the MATERIAL** |
+| **wall** — `packages/geometry-wall/src/WallFragmentBuilder.ts:2118` and `:2586` | `sideOverride ?? layer.materialColor ?? wall.materialColor ?? WALL_DEFAULT_BODY_COLOUR` | **the layer COLOUR** — `layer.materialId` is **not read by the wall builder at all** |
+
+⛔ **So a single shared sentence in the UI would be FALSE for one of them.** Telling a slab
+user *"your colour overrides the material"* is wrong; telling a wall user *"the material is
+painted"* is wrong. A swatch that silently does nothing is the §CONTEXT-DATA-HONESTY
+failure — refusal and success rendered identically — and this contract has logged that shape
+repeatedly. Each LAYERS table therefore carries **its own measured sentence**, tooltipped
+with the full chain and the `file:line` that settles it, and a diverged layer is badged with
+which of the two is actually on the mesh: `overridden` (wall) vs `material wins` (slab).
+
+⚠ **NOT RECONCILED, AND DELIBERATELY SO.** Making the two builders agree is a rendering
+change in two packages this lane does not own, and it would move pixels on every existing
+wall or slab. It is recorded as a question for whoever owns that reconciliation, with the
+evidence attached, rather than resolved by an unmeasured edit. **The declaration table
+`LAYER_COLOUR_PRECEDENCE` is the one place the answer lives** (C84 EI-9), and it carries the
+`file:line` so re-measuring is cheaper than trusting it.
+
+### §10.17.c — The reference and the hex move together, and for walls that is load-bearing
+
+§10.12.b's rule applies unchanged: picking a material writes `materialId` **and** brings
+`materialColor` to that master row's exact value, in one change, repainting the visible
+swatch. ⭐ **On a wall it is the only reason the material reaches the mesh at all**, since
+the wall builder reads only the hex — so what is a correctness rule for openings is a
+*functional* requirement here.
+
+### §10.17.d — ⚠ THE STALE-MARK CASE, and why the control returns `{el, repaint}`
+
+The override state IS `materialColor ≠ masterHex(materialId)` (§10.12.e) — derived, never
+stored. But `materialColor` is edited by a control the material cell does **not** own: the
+row's `<input type="color">`. **A badge painted once at build time is correct on first
+render and WRONG the instant the swatch moves** — an override with no mark, which is §2.2's
+MUST inverted. The cell therefore exposes `repaint()` and both editors call it from their
+colour handler, rather than duplicating the divergence test in two files.
+
+### §10.17.e — What is NOT closed, named rather than left as an absence
+
+- ⛔ **T2 ("My Materials") is still absent from this picker**, unchanged from §10.12.g and
+  §10.14.f — it is a property of `FinishMaterialSelect`, not of this wiring.
+- ⛔ **The two builders still disagree** (§10.17.b). The UI is honest about it; the model is
+  not yet consistent.
+- ⚠ **A slab layer's material reaches the mesh through TWO independent routes** (the
+  `materialMap` branch and the resolved hex) while a wall layer's reaches it through one.
+  Nothing here changed that; it is why the two tables' sentences differ.
+
+Proof: `apps/editor/src/ui/property-panel/__tests__/instanceLayerMaterial.spec.ts` — **19/19**,
+driving the real editors, the real picker and the layers that reach `onSave`.
+

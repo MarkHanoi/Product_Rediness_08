@@ -639,3 +639,82 @@ Both handlers call `getCommandManagerBridge()` → `commandManager.execute(new A
 `packages/drawing-primitives/` defines 2D geometry primitives used by the drawing engine. These MUST:
 - Import only from `packages/schemas/`.
 - Be pure value objects (no methods, no DOM, no THREE).
+
+---
+
+## §4.9 — ⛔ A SYNC DISPOSITION TABLE THAT TRACKS A REGISTER MUST BE **ASSERTED AGAINST IT**, NOT KEPT IN STEP BY HAND (2026-08-23, lane LAYERMAT10, L-10062)
+
+`packages/sync-client/src/syncDisposition.ts` states its own rule: a verb is **silent BY
+DECLARATION, never BY OMISSION**. The rule held for the verbs someone remembered.
+
+**MEASURED 2026-08-23:** the table declared `wall.changeLevel` and `roof.changeLevel` — **2
+of the 12 verbs in `packages/command-bus/src/levelChangeVerbs.ts`**. The two rows were
+written when those were the only two families with the verb. §L-1032 then widened the
+property panel's storey control from a hard-coded `elType === 'wall'` to the whole register,
+and **the disposition table did not follow**. Ten verbs became reachable from a control the
+user can click, each undeclared, each warning at runtime — which is how the founder met one:
+
+```
+[YjsDocAdapter] W5-3: command type 'slab.changeLevel' has NO sync disposition.
+```
+
+### The rule this mints
+
+> **When one table's membership is DERIVED from another's, the relationship MUST be asserted
+> by an artefact — in BOTH directions — and the assertion MUST compare SETS, never counts.**
+
+Both halves are load-bearing:
+
+- **Both directions.** Arm A (register ⊄ table) catches what actually happened: a family
+  gains the verb upstream and nobody declares it. Arm B (table ⊄ register) catches its
+  mirror: a family loses the verb and a stale row goes on claiming a decision about
+  something that no longer exists. A one-directional check would have passed for years.
+- **Sets, never counts.** A count can be right while the membership is wrong. CLAUDE.md
+  records that exact failure **five times** for the contract index, which is why
+  `check-contract-index-equivalence.ts` compares row SETS — the same reasoning, one table over.
+
+⚠ **What the assertion does NOT claim.** All twelve are `not-synced`, and correctly so:
+`levelId` is the ADR-049 document selector and the sole member of
+`GLOBAL_PROPERTY_EXCLUDES`, so declaring any of them `element-property` would read as
+*synced* while replicating literally nothing. **The artefact pins that every verb has a
+WRITTEN REASON — not that the reason is "yes".** Four of the ten (`beam`, `furniture`,
+`lighting`, `plumbing`) additionally cannot be replicated from their payload at all, even
+once the document-move kind exists, because their stores re-seat world Y by an elevation
+DELTA and refuse without both elevations — neither of which travels. That is recorded
+per-row rather than folded into the shared sentence.
+
+**Artefact:** `packages/sync-client/__tests__/levelChangeDispositions.test.ts` — 4/4 GREEN;
+on the pre-fix tree arm A would have named all ten.
+
+## §4.10 — ⛔ A STOREY IS NOT A PROPERTY: `levelId` IS REFUSED ON THE GENERIC PARAMETER PATH (2026-08-23, lane LAYERMAT10, L-10061)
+
+Founder, on a slab that changed storey during a material edit: *"make that impossible by
+construction, not by a guard on one path."*
+
+`UpdateElementParameterCommand`'s slab and furniture arms are
+`store.update(id, {...existing, ...parameters})`. A partial merge carrying `levelId` would
+re-file an element on another storey with **none of the four effects a storey move owes it**:
+
+1. the legacy-store move (`elementLevelChangedMirror`, §L-946);
+2. the world-Y re-seat from the destination elevation — four of the twelve families re-seat
+   by DELTA and **REFUSE without both elevations**, so a bare `levelId` write leaves the
+   element hovering at the old floor's height;
+3. the `element.level-changed` emit that re-files plan views, visibility and the spatial index;
+4. an undo inverse routed through `store.changeLevel` rather than the generic
+   `update(id, {levelId})` — which for a REPLACE store is the **L-977 annihilation shape**.
+
+`canExecute` now refuses any `levelId` parameter, naming the family's own `changeLevel`
+verb. ⭐ **This is a refusal, not a validator tightening**: it makes *"a property edit cannot
+move an element between storeys"* TRUE, rather than true-because-the-panel-happens-to-mark-
+the-field-`READONLY`.
+
+⚠ **Measured safe before adding, because an over-refusal in a validator's voice is its own
+defect (L-1430):** `levelId` is the sole member of `GLOBAL_PROPERTY_EXCLUDES` so
+collaboration replay cannot carry it; `grep -c levelId ChatCapabilityRegistry.ts` → **0**;
+every descriptor family marks it `READONLY`. **There was no legitimate caller to break —
+which is exactly why the hole stayed open and unnoticed.** `baseLevelId` / `topLevelId` are
+deliberately NOT refused: they are a SPAN rather than a routing key, and
+`StairLevelSpanWidget.ts:28` already records that the generic route is wrong for them for a
+different reason. Widening the refusal to cover them would be an unmeasured change to stair
+replay.
+

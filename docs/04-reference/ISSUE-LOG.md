@@ -46821,3 +46821,548 @@ two is visible. Three of PRYZM's own memories converge here:
 [[committed-is-not-reachable]], [[authored-but-unwired-is-the-bottleneck]] and
 [[verification-dispatch-rendering-three-milestones]] — **dispatch-layer green is one
 of three milestones, and this row is the pointer-layer one coming back red.**
+
+### L-9940 — ⛔⭐ **17 CREATE-MIRRORS, 0 UPDATE-MIRRORS.** One zero was the pool, the boundary line, the lift's shaft and thirteen refusing `*.setMaterial` verbs (lane MIRROR3, 2026-08-23)
+
+```
+grep -c "\.created'"  apps/editor/src/engine/initTools.ts   ->  17
+grep -c "\.updated'"  apps/editor/src/engine/initTools.ts   ->   0
+```
+
+**Every element family could be CREATED and reach the render layer. None could be
+UPDATED and reach it.** `element.level-changed` (L-946) was the single exception and it
+moves exactly one field, `levelId`. Everything else — a thickness, a base offset, a void
+punched through a floor plate — committed to the plugin DTO store, reported success, and
+left the legacy store the fragment builders / plan projector / IFC exporter /
+`ProjectSerializer` all read holding its own unchanged copy.
+
+`tools/ga-gate/check-mirror-completeness.ts` (registered `d37f59c9`) is the detector for
+that zero and reads the consequences off the tree: **200 verbs write a plugin DTO store,
+170 had no channel, 123 of those were live defects.**
+
+⭐ **THE FIX IS ONE CHANNEL, NOT N FIXES**, and that is the whole finding. Four
+independently-reported founder defects — the invisible pool (L-9305), the invisible
+boundary line (L-9305), the lift shaft that penetrates the model and not the screen
+(L-9403), and the `§FIX-MATERIAL-DEAD-DISPATCH` family (ADR-0117) — are the same missing
+edge in the graph. Commits `87f08689` (channels) and `8a9f6ee7` (proofs + gate).
+
+**Gate reading, before → after:** ledger 170 → **156** rows · **UNMIRRORED 123 → 109** ·
+census `17 '.created' / 0 '.updated'` → `18 / 1` · RC=0, both directions clean.
+
+⚠ **What this row does NOT claim.** The gate says it itself, on every run: *"NOT
+ESTABLISHED: that any covered verb's event reaches a subscriber, a legacy record, or a
+mesh. A bridge case is a DECLARED channel."* That is why L-9941..L-9946 below each name
+an EXECUTED read-back and why the rows this lane did not close are named rather than
+implied.
+
+---
+
+### L-9941 — ⭐ CLOSED: the founder can draw a **POOL** and see the basin. The WATER is still invisible, and is reported by name
+
+`case 'pool.create'` in `CommandEventBridge.ts`. The balcony/lift idiom reused verbatim:
+**one member event per member, stamped with the MEMBER's own verb**, so §P2.1 (wall) and
+§FT1 (slab) treat a pool's basin exactly as a hand-drawn wall and a hand-drawn slab.
+
+| member | channel | state |
+|---|---|---|
+| N basin walls (negative `baseOffset`) | `wall.created` → §P2.1 | ⭐ RENDERS |
+| the pool floor | `slab.created` → §FT1 | ⭐ RENDERS |
+| the void in the HOST slab | `element.updated` → §MIRROR-UPDATE (L-9942) | ⭐ RENDERS |
+| **the WATER body** | none | ⛔ **INVISIBLE — OPEN** |
+
+⛔ **THE WATER IS NOT SMUGGLED THROUGH AS A SLAB, AND THAT REFUSAL IS PINNED BY A TEST.**
+Emitting `slab.created` for it would make something blue appear in one line of code, and
+would put one id on two families and give the water a thickness it does not have. `water`
+is its own family *precisely* because a slab's thickness would tie the surface to the
+floor (`PoolAssembly.ts` §4; `poolWaterLevel.test.ts` pins it). C84 EI-9, and the same
+refusal the lift made when it declined to feed its compound into the massing store.
+
+⚠ **The `default:` detector had already seen this and said so** — a pool is a four-store
+compound, so `stores.size > 1` is true and §FIX-COMPOUND-SILENT-DROP warns. It warned
+into a console nobody was reading, once per tab, and the balcony case had named the pool
+IN PROSE months earlier. **A warning is not a mirror.**
+
+⭐ **What the water needs, for whoever takes it:** a `water.created` typed event, a
+subscriber, and a `WaterMeshBuilder` (a translucent surface at `surfaceElevation`, which
+is an ABSOLUTE elevation independent of the floor — that independence is the point of the
+family). ⛔ Do NOT close it by reusing another family's channel.
+
+---
+
+### L-9942 — ⭐ CLOSED: `element.updated`, the SECOND mutation channel — and the reason it is a TABLE and not a relay
+
+`ELEMENT_UPDATE_VERBS` (`CommandEventBridge.ts`) + `LEGACY_UPDATABLE_STORES`
+(`apps/editor/src/engine/elementUpdatedMirror.ts`). Eight verbs enrolled:
+`slab.addHole`, `slab.removeHole`, `slab.setThickness`, `slab.setBaseOffset`,
+`slab.setType`, `roof.setOverhang`, `roof.setThickness`, `column.setHeight`.
+
+⛔ **A MOVED WALL IS NOT A REPAINTED WALL, AND THAT IS WHY THIS IS NOT A GENERIC RELAY.**
+Three measured reasons a blind field-copy would have shipped a worse defect than the one
+it closed:
+
+- `WallStore.update()` clears `_sourceBaseLine` and **re-runs join resolution** — a
+  relayed baseline would silently un-weld every corner it touched;
+- `SlabStore.update()` is a **whole-record REPLACE**: handed a one-key partial it leaves
+  the slab as that one key, frozen, with no diagnostics (L-977, recorded in that store's
+  own header). `RoofStore.update()` is a Partial merge. `ColumnStore.update()` takes
+  `Omit<ColumnData,'id'|'type'>`. **Three stores, three contracts, one verb name.**
+- `SlabData.holes` is `{x,y}[][]` where `y` carries **world Z**; the plugin record's
+  `holes` is `{x,y,z}[][]`. A verbatim copy writes `y: 0` for every vertex — a degenerate
+  sliver on a ground-floor plate and a hole **somewhere else entirely** on any other
+  storey. Silent, and geometrically plausible enough to survive a screenshot.
+
+⭐ **THE EVENT CARRIES FIELD NAMES, NOT FIELD VALUES.** L-927 is the standing receipt for
+the alternative: the `.created` events carry values through a whitelist, and
+`materialColor`, `layers` and `curve` were each a separate founder-visible defect,
+because a field the emitter did not know to copy could never arrive. Names on the wire and
+values read from the writer means one value with one owner (C84 EI-9).
+
+⚠ **That makes subscriber ORDER load-bearing, and it is measured rather than assumed.**
+`PatchEmitter.listeners` is an insertion-ordered `Set`; `bootstrap()` calls
+`attachStores` (`bootstrap.ts:103`) BEFORE `composeRuntime()` calls
+`wireCommandEventBridge` (`composeRuntime.ts:956`), so the plugin store has applied the
+forward patches by the time the event fires. The mirror does not rely on it silently — a
+record it cannot find is a NAMED refusal, and the suite subscribes in that same order so
+it would go red if production's order were ever inverted.
+
+---
+
+### L-9943 — ⭐ CLOSED: **L-9403 was never a lift bug.** The shaft void rides the same channel as the pool's
+
+Lane LIFT56 wrote, correctly: *"there is no `slab.updated` mirror in initTools.ts — every
+slab bridge there keys on a CREATE."* **That was true of the whole repository, not just
+the lift** (L-9940). So the fix is not lift-shaped: `lift.create` now emits
+`element.updated` for each penetrated slab, exactly as `pool.create` does for its host.
+
+⭐ **ONE EVENT PER PENETRATED SLAB, keyed by the slab's own id — never one per patch.** A
+lift serving ten storeys punches one void per plate, and two patches on one plate must
+not make the mirror rebuild it twice.
+
+⛔ **The `(5) WHAT STILL CANNOT RENDER` block in `case 'lift.create'` was KEPT.** Its job
+was never to carry this one row: it is the thing that notices the NEXT member kind to
+arrive without a mirror. A diagnostic removed because its last row closed is strictly
+worse than the bug it was watching for.
+
+---
+
+### L-9944 — ⭐ CLOSED (all three): the **BOUNDARY LINE** renders AND persists. `boundaryLineSolid()` had **ZERO** production callers
+
+AUDIT-B §2.5 measured three independent breaks in one verb, and only one of them was the
+bridge:
+
+| axis | before | after |
+|---|---|---|
+| bridge case | `grep -nE "^\s+case 'boundaryLine\."` → RC=1, 0 hits | ⭐ `create` / `update` / `attach` / `detach` / `move` / `delete` |
+| geometry builder | `boundaryLineSolid()` → its own export, one barrel re-export, **two comments about its deadness**, zero calls | ⭐ `BoundaryLineMeshBuilder` (11 mesh arms, green) |
+| persistence | `grep -c boundaryLine ProjectSerializer` → **0 : 0** | ⭐ CLOSED **L-9948** (unblocked when PERF5 closed) |
+
+⛔ **AND THE L-7825 RUNTIME DETECTOR IS STRUCTURALLY BLIND TO THIS FAMILY.** It fires on a
+MULTI-store compound (`path.length === 2` **and** `stores.size > 1`). `boundaryLine.create`
+writes ONE store through `produceCommand`, whose patch paths are length 1 — so the
+mechanism built to stop the next silent drop could never have seen this one. That is why a
+STATIC gate had to exist as well: **a runtime detector only speaks about the shapes it was
+taught, and only when somebody exercises the verb.**
+
+⭐ **ONE CASE FOR FIVE VERBS**, on purpose. They all mean the same thing to a renderer.
+`boundaryLine.move` carries no `line` — it is the L-220 distinct-verb bridge to
+`MoveBoundaryLineCommand`, which declares `stores: []` and writes through
+`BoundaryLineStorePort` — so the subscriber reads `runtime.stores.boundaryLine`, which for
+this family is not a fallback but **the** authority (one store, deliberately; C84 EI-1).
+
+---
+
+### L-9945 — ⛔ C100 §5 OBEYED: a boundary line with volume and no resolvable material is drawn as LINEWORK, never as a believable grey
+
+`HandrailFragmentBuilder` ships every balcony with *"3 handrails have NO RESOLVABLE
+MATERIAL … the colour on screen is NOT these elements' material"* — **and paints them
+anyway.** This family does not copy that. `resolveBoundaryLineMaterial` has three answers
+and the builder handles all three: `linework` (no material by intent — styled by the C09
+pen, a different authority), `resolved` (the master's colour through
+`resolveMaterialColour`), and `unresolved` → **the solid is not drawn, the LINE is, and
+the resolver's own sentence is returned to the caller and logged.** The record stays
+visible; nothing on screen lies about what it is made of. Pinned by ARM 7.
+
+⚠ **The C09 pen is NOT wired to the 3-D scene.** Linework is drawn in the PRYZM
+construction purple by a NAMED constant that says it is standing in for the pen. When
+C09's per-view intent reaches this scene, that constant is what it replaces —
+`resolveBoundaryLineSolidity` already takes the intent argument and this call site
+deliberately passes nothing, which the resolver reads as *"this view has no opinion, ask
+the record"*.
+
+---
+
+### L-9946 — ⭐ THE `z` SIGN, and why it needed its own test arm
+
+`ExtrudeGeometry` extrudes along +Z and `rotateX(-π/2)` maps `(x, y, z) → (x, z, -y)`, so
+a shape point written as `(px, pz)` lands at world **`-pz`** — the footprint MIRRORED
+about the X axis. **A boundary line of the right shape in the wrong place is the hardest
+kind of wrong to notice, and no count assertion can see it.** ARM 4 of
+`BoundaryLineReachesTheMesh.test.ts` uses a probe whose every vertex has `z >= 0` and
+asserts the bounding box does not reach past half a thickness into negative Z.
+
+---
+
+### L-9947 — ⛔ OPEN: **~23 `*.delete` rows are all waiting on ONE `element.deleted` channel**
+
+The single largest remaining group on `tools/ga-gate/mirror-debt.json` (109 UNMIRRORED
+rows). `annotation.delete`, `beam.delete`, `ceiling.delete`, `column.delete`,
+`curtain-wall.delete`, `dimension.delete`, `door.delete`, `furniture.delete`,
+`grid.delete`, `handrail.delete`, `lighting.delete`, `plumbing.delete`, `roof.delete`,
+`section.delete`, `slab.delete`, `stair.delete`, `structural.delete`, `wall.delete`,
+`window.delete`, `boundaryLine.delete`†, `pool.delete`, `lift.delete`, `balcony.delete`.
+
+⭐ **They need the same one thing** — an `element.deleted` event plus a per-family
+`remove(id)` adapter, the exact shape `element.updated` already has. That is a coherent
+next lane, **not** twenty-three per-family fixes. ⚠ Two things to establish first, because
+a delete mirror is more dangerous than an update one: (a) whether the UI's Delete key
+already removes through the LEGACY path (`commandManager`), in which case the mirror must
+be idempotent rather than additive; and (b) cascade — a wall's openings, a compound's
+members. `boundaryLine.delete` is the standing counter-example and C106 §6 makes it a
+rule: **deleting the setting-out line an architect drew a building against must not delete
+the building.**
+
+† `boundaryLine.delete` has its channel already (it disposes a builder group, not a store
+record) and has left the ledger.
+
+---
+
+### L-9948 — ⭐ CLOSED (corrected in place): the boundary line now **SURVIVES A RELOAD** — save AND restore
+
+```
+grep -c "boundaryLine" apps/editor/src/engine/persistence/ProjectSerializer.ts       -> 0
+grep -c "boundaryLine" packages/persistence-client/src/loader/ProjectSerializer.ts   -> 0
+```
+
+> ⚠ **This row was first written as OPEN and HANDED OFF, because `ProjectSerializer.ts`
+> was mid-edit in lane PERF5.** PERF5 then closed and reported it had touched *neither*
+> copy — its change is confined to `temporalGraph.mutations` — so the block lifted and the
+> work landed in this lane. **Corrected in place rather than appended**, per the repository
+> rule; the original text is superseded, not deleted from history.
+
+⛔ **THERE ARE TWO `ProjectSerializer.ts` FILES AND ONLY ONE IS THE ONE PRODUCTION RUNS.**
+`initPersistence.ts:109` constructs **`apps/editor/src/engine/persistence/ProjectSerializer.ts`**
+— that is the live copy. `packages/persistence-client/src/loader/ProjectSerializer.ts` is
+not on the app's path, and **PV-05 was once recorded closed against it** (`8cab70c1`
+hydrated the copy the app never builds). Both were edited here: the live one gains the
+shape AND the write; the other gains the **shape only**, with a comment saying exactly
+that, so a reader of the dead copy cannot conclude the family is unpersisted and a future
+consolidation has one type to unify rather than two to reconcile.
+
+**WHAT LANDED, all three legs:**
+
+| leg | where | note |
+|---|---|---|
+| SAVE | live `ProjectSerializer.ts` — `boundaryLines?: any[]` | read from the ONE authority; **two candidates, first non-empty wins** |
+| COUNT | `elementCount` + the loader's `len()` sum + the §L-224 audit expectation | the founder's report was literally *"the count did not move"* |
+| RESTORE | `ProjectLoader.ts` Step 10c | dispatches the **bus verb**, not a store write |
+
+⭐ **THE RESTORE DISPATCHES `boundaryLine.create`, NEVER A STORE WRITE.** Going through the
+ONE creation path (C11 §1) is what makes a restored line identical to a drawn one — same
+Zod parse, same bridge case, same §FT-BOUNDARY-LINE subscriber, same mesh. Writing
+`runtime.stores.boundaryLine` directly would populate the store and **draw nothing**, which
+is exactly the `committed ≠ reachable` defect this whole lane exists to close.
+
+⭐ **AND THE STORE IS RESOLVED BY WHICH CANDIDATE HOLDS RECORDS, NOT BY WHICH REFERENCE IS
+NON-NULL** — the §L-545-SITE-CAPTURE lesson reused. `store ?? window.runtime.store`
+short-circuits on the REFERENCE; a reference threaded once at `initPersistence` time goes
+stale the moment the runtime is recomposed (project switch, backend swap, device-loss
+recovery), and the serializer then keeps saving from an empty store while the live one
+holds the model. That is the founder's `siteStore=resolved · site=NULL · walls>0` signature,
+pre-empted here.
+
+⛔ **DIGEST-COVERED, AND `CHECKSUM_EXCLUDED_TOP_KEYS` IS UNTOUCHED at its two members.**
+C05 §3.7 req 4 forbids adding a model member to that set, and excluding a field to make a
+checksum settle is the shape that produced three prior false-"corrupt" incidents.
+
+⚠ **ADDITIVE AND OPTIONAL — no `SNAPSHOT_SCHEMA_VERSION` bump**, the disposition `lighting?`
+and `curtainPanels?` already carry: an old snapshot simply lacks the key, and *"no boundary
+lines"* IS the pre-fix state, so the migration is correct by construction. A bump with an
+empty migration step would be a lie about compatibility.
+
+⚠ **`pool` has the same gap, one row lower in priority.** A pool's walls and floor DO
+persist (they are real `Wall` / `Slab` records in the authoritative stores); only the
+assembly parent and the water body are lost on reload — so a reloaded pool comes back as
+loose walls and a slab with no parent to select, edit or delete as one thing.
+
+⚠ **And there is no plan SYMBOL builder for the boundary line.** The subscriber registers
+the id and its storey with `viewDependencyTracker` / `bimManager`, so the plan pipeline
+KNOWS about it — that is what makes a future symbol builder wire-able — but nothing draws
+it in plan today. A setting-out line that is 3-D-only is half a feature; it is named here
+rather than left to be discovered.
+
+---
+
+### L-10060 — ⭐ **A SLAB CHANGED STOREY WHILE THE USER SCROLLED TO ITS MATERIAL CONTROLS.** The storey `<select>` committed on a bare `change` (lane LAYERMAT10, 2026-08-23)
+
+Founder: *"after changing material and colour of the slab — **it shifts location — it
+moves** — why? solve it — architecturally sound — no shortcuts"*, with:
+
+```
+[elementLevelChangedMirror] §L-946: slab slab_01M0R5XZ… moved L0 → L1787517791662 in the legacy store.
+[YjsDocAdapter] W5-3: command type 'slab.changeLevel' has NO sync disposition.
+[LevelPlaneConstraint] Locked model Y=2.8000 … for element "Slab"
+…later… [CommandManager] EXECUTE: UPDATE_SLAB_LAYERS / UPDATE_ELEMENT_PARAMETER
+```
+
+⚠ **THE BRIEFED HYPOTHESIS WAS WRONG, AND THAT IS WORTH RECORDING.** It proposed *"a
+panel re-render writes the level select's value back"*. It does not: `opt.selected = true`
+never fires `change`, and **no production code synthesises one** (`dispatchEvent(new
+Event('change'` → every hit in the repo is a test). Adopting it would have produced a fix
+for a mechanism that does not exist.
+
+⭐ **MEASURED ROOT.** `PropertyPanelSections._buildLevelChangeRow` dispatched
+`<family>.changeLevel` **on a bare `change` event**, and it is the ONLY site in the client
+that dispatches that verb outside the AI host. It sits two sections ABOVE the LAYERS table
+inside `.gpp-panel { overflow-y: auto }`, so every route to the material controls drags
+pointer and keyboard across it. **That is why the move landed BEFORE both material
+commands in his log** — the storey never followed the material edit, it preceded it.
+
+⛔ **THE FILE ALREADY KNEW.** `_buildDuplicateToLevelRow`, one row down, reads:
+*"committing it on the same accidental scroll-wheel over a `<select>` would scatter copies
+through the model. The target is chosen, then confirmed."* The sentence that excused the
+level row — *"picking a storey IS the gesture and it is reversible with Ctrl+Z"* — was
+wrong twice: §L-1085 records the verb REFUSING on a reloaded project, and the move was not
+replicated at all (L-10062).
+
+**FIX:** choose-then-confirm, disarmed while the selected storey is the current one and
+re-checked at click, for **all twelve families** — they all render this one row.
+
+⛔ **THE COUPLING WAS NEVER SLAB-ONLY** — asserted, not assumed. On the pre-fix tree the
+same bare `change` also dispatched `wall.changeLevel`, `roof.changeLevel`,
+`column.changeLevel` and `furniture.changeLevel`.
+
+Proof: `apps/editor/src/ui/property-panel/__tests__/slabMaterialEditKeepsItsStorey.spec.ts`
+— **10/10 post-fix; 9 failed / 1 passed pre-fix**, the discriminating arm reading
+`expected [ { verb: 'slab.changeLevel' } ] to deeply equal []`. The one that passes on both
+trees is the DOOR control: a hosted element still gets C15 §2's declared refusal. The spec
+finds the control **by its option set, not by a class this lane added**, so the pre-fix
+failure lands on the dispatch rather than on a missing selector.
+
+### L-10061 — ⛔ `element.updateParameters` would have written `levelId` straight onto the record
+
+The founder asked for *"impossible by construction, not a guard on one path"*, so the other
+route was closed too. `UpdateElementParameterCommand`'s slab arm is
+`store.update(id, {...existing, ...parameters})` — a partial merge that would re-file an
+element on another storey with **none of the four effects a storey move owes it**:
+
+1. the §L-946 legacy mirror;
+2. the world-Y re-seat (four families re-seat by DELTA and REFUSE without both elevations);
+3. the `element.level-changed` emit that re-files plan views, visibility and the spatial index;
+4. an undo inverse that routes through `store.changeLevel` rather than the generic
+   `update(id, {levelId})` — which for a REPLACE store is the **L-977 annihilation shape**.
+
+`canExecute` now refuses `levelId` outright, naming the family's own verb. ⚠ **Measured
+safe before adding**: `levelId` is the sole member of `GLOBAL_PROPERTY_EXCLUDES`, so
+collaboration replay cannot carry it; `grep -c levelId ChatCapabilityRegistry.ts` → **0**;
+the panel marks it `READONLY` in every descriptor family. **There was no legitimate caller
+to break — which is exactly why the hole stayed open.** `baseLevelId` / `topLevelId` are
+deliberately NOT refused: an unmeasured over-refusal in a validator's voice is its own
+defect (L-1430).
+
+### L-10062 — ⛔ **TEN of the twelve `*.changeLevel` verbs had NO sync disposition.** Silent by OMISSION, which is the one thing that table forbids
+
+The founder saw one of them warn, live: `'slab.changeLevel' has NO sync disposition`.
+
+`syncDisposition.ts` declared **2 of 12** — `wall` and `roof`, written when they were the
+only two families with the verb. **§L-1032 widened the panel's storey control to the whole
+`LEVEL_CHANGE_VERBS` register and this table did not follow**, so ten verbs became
+reachable from a control the founder can click, each undeclared and each warning at runtime.
+
+All ten are now `not-synced` with a written reason: `levelId` is the ADR-049 document
+selector and is in `GLOBAL_PROPERTY_EXCLUDES`, so `element-property` would read as *synced*
+while replicating literally nothing. ⚠ **Four carry a second, per-row reason**:
+`beam` / `furniture` / `lighting` / `plumbing` re-seat world Y by the elevation DELTA and
+their stores refuse without BOTH elevations, **neither of which is in the payload** — a peer
+could not reconstruct the height half even once the document-move kind exists.
+
+⭐ **AND IT CANNOT REGROW.** `packages/sync-client/__tests__/levelChangeDispositions.test.ts`
+asserts **SET EQUALITY between the register and the table in BOTH directions** — never a
+count, because a count can be right while the membership is wrong (the failure CLAUDE.md
+records five times over for the contract index). **4/4 GREEN.**
+
+### L-10064 … L-10067 — ⭐ a wall AND slab **layer** can NAME a material on the INSTANCE editor, and the two families paint it by OPPOSITE rules
+
+Founder, looking at a selected WALL: *"I wanted to have the material for each layer — so
+the user can change not only the colour but the material also — **why is not in place?**"*
+
+**ABSENT, not UNREACHABLE** (C01 §6 rule 6), established before building. Lane MAT50
+(L-8610) shipped this control into `WallTypeEditorModal` — the element **TYPE** editor.
+Nobody wired the **INSTANCE** editors, which are what the property panel renders when you
+click an element. Measured: `grep materialId apps/editor/src/ui/property-panel/*.ts` → 0
+hits in either `WallLayersEditor.ts` or `SlabLayersEditor.ts`, while
+`WallLayerSchema.materialId` and `SlabLayer.materialId` have existed all along and both
+save pipes are verbatim passthroughs. **Nothing needed rewiring; the fix was a control.**
+
+⭐ **THE PRECEDENCE QUESTION TURNED UP A REAL DISAGREEMENT** — measured 2026-08-23 by
+reading both builders, and neither is this lane's to change:
+
+| family | expression | winner |
+|---|---|---|
+| **slab** — `SlabFragmentBuilder.ts:692` | `layerMasterHex ?? layer.materialColor ?? data.materialColor ?? '#909090'` | **the MATERIAL** |
+| **wall** — `WallFragmentBuilder.ts:2118`, `:2586` | `sideOverride ?? layer.materialColor ?? wall.materialColor ?? DEFAULT` | **the layer COLOUR** (`layer.materialId` is **not read at all**) |
+
+⛔ **So the UI does not say one sentence for both.** Telling a slab user *"your colour
+overrides the material"* would be false, and a swatch that silently does nothing is
+§CONTEXT-DATA-HONESTY. Each table carries its own measured sentence, tooltipped with the
+chain and the `file:line`, and a diverged layer is badged with which of the two is actually
+on the mesh — `overridden` for a wall, `material wins` for a slab.
+
+The reference and the hex move together (C100 §10.12.b); the override state IS
+`materialColor ≠ masterHex(materialId)` (§10.12.e) so **no new field and no codec change**.
+⚠ The cell returns `{el, repaint}` rather than an element because the state derives from a
+value edited by a control it does not own — a badge painted once would be stale the instant
+the swatch moved, which is the C100 §2.2 MUST inverted.
+
+Proof: `apps/editor/src/ui/property-panel/__tests__/instanceLayerMaterial.spec.ts` — **19/19**.
+
+### L-10068 — ⭐ **"new type creation doesn't work": the type WAS created; the dropdown was built once and never rebuilt**
+
+Founder: *"new type creation doesn't work"*, with his console showing it created twice and
+nothing following:
+
+```
+[SlabTypeSelectorWidget] Created new type: Custom Slab Type st-1787522180714
+[SlabTypeSelectorWidget] Created new type: zfh st-1787522228499
+```
+
+⭐ **THE TWO CANDIDATE HALVES GET DIFFERENT VERDICTS** — they have different fixes and the
+log cannot tell them apart, so both were measured:
+
+- **APPLY / DISPATCH — NOT BROKEN.** `onApply` → `element.changeType` →
+  `UpdateSlabLayersCommand` on the legacy store is intact.
+- **UI REFRESH — THE WHOLE DEFECT.** The option list is built once from
+  `typeStore.getAll()` at construction; `_handleNewType` wrote to the store and returned
+  `void` with nothing listening. **The type existed and was UNSELECTABLE.**
+
+So no `UPDATE_SLAB_TYPE` reached his console for exactly the reason he could never press
+Apply on it: **you cannot apply what is not in the list.** One broken half, and it made the
+working half look broken too.
+
+⛔ **AND THE CODE SAID SO OUT LOUD**: both handlers ended with
+`alert('… Re-select the slab to see it in the list.')` — a workaround shipped in place of a
+fix. Removed, because it is now false; the spec throws if any alert fires.
+
+**REUSED, NOT INVENTED**: `WallTypeSelectorWidget` fixed exactly this for walls and its own
+comment carries the reasoning. ⚠ **Three families shared the shape verbatim** — slab, floor
+AND ceiling — so the slab report was never slab-only.
+
+⛔ Creating a type still does **not** apply it: the new type is inserted above the action
+rows and SELECTED, and committing stays an explicit Apply — the same discipline as L-10060
+one file over. C16 CA-21: the user is told *"Type "zfh" created and selected — press Apply
+to use it on this slab."*
+
+⚠ **NAMED, NOT FIXED — P6.** These widgets still call `typeStore.add()` / `addCustomType()`
+DIRECTLY from the UI: no command, so no undo, no sync disposition, no RAC reachability. The
+compliant route is `bus.executeCommand('elementType.create')`, which walls use — but
+measured 2026-08-23, `elementTypeAuthoringAdapters.ts` declares `family: 'wall'` and
+NOTHING ELSE, and `ElementTypeAuthoringRegistry` declares only wall / door / window. **There
+is no slab/floor/ceiling adapter to dispatch to.** Moving these families onto the command
+needs a store adapter, a registry declaration and a bus-handler branch — real work, out of
+this report's scope.
+
+⚠ **Also measured, for the next lane:** the three sibling widgets use **three different
+store APIs** — slab writes `add()`, floor and ceiling write `addCustomType()`.
+
+Proof: `apps/editor/src/ui/property-panel/__tests__/typeCreationReachesTheDropdown.spec.ts`
+— **20/20 post-fix; 18 failed / 2 passed pre-fix.** The two that pass on both trees are the
+refusal paths (cancelled name prompt, invalid thickness).
+
+### L-10069 — ⛔ **OPEN, NAMED NOT BUILT: the slab type dialog does not match the window dialog**
+
+Founder: *"in slab I need **a similar interface then in window**"* — the dialog lane
+OPENUI57 shipped today (`588c9649`, `1874d276`; C11 §7.8 + C100 §10.14): live rotatable 3-D
+preview on the shared offscreen rig, two-column 980 px layout, `auto · 1.2 m` / `authored ×`
+state chips, master-resolved materials, and a deterministic zero-token panel chat whose
+vocabulary is DERIVED from `ElementTypeAuthoring`.
+
+**NOT STARTED.** Slab type authoring is still two `window.prompt()` calls (see L-10068),
+which is the same pre-modal state walls were in before `WallTypeEditorModal`. The pattern to
+take is OPENUI57's — `buildFinishMaterialSelect` for materials, `OpeningPreviewSubject.ts` as
+the model for a preview subject, `requestPreviewDraw`'s `onResult` callback — and ⚠ **a slab
+is not a window**: its preview subject is a layered horizontal plate, not a framed opening.
+Take the pattern, not the geometry.
+
+⚠ **This is also blocked on the same gap L-10068 names**: the dialog's chat vocabulary is
+derived from `ElementTypeAuthoring`, and **slab has no authoring declaration** — so the
+dialog and the P6 fix want the same prerequisite (a slab entry in
+`ElementTypeAuthoringRegistry` + an adapter in `elementTypeAuthoringAdapters.ts`). Doing
+that once unblocks both. **Left named rather than half-built.**
+
+---
+
+### L-9949 — ⭐ CLOSED: **five plugins were wired at boot and the runtime did not admit to having them** — and they are the founder's five
+
+`tools/ga-gate/check-plugin-census-equivalence.ts` **ARM E** — *"(REGISTRY ∩ DISK) \\
+CATALOG — WIRED AT BOOT AND INVISIBLE TO `runtime.plugins`"*:
+
+```
+E   5  (baseline 5)  ->  balcony, boundary-line, floor, lift, pool      [before]
+E   0  (baseline 0)                                                      [after]
+B  13  ->  8   (the same five leave, because E is a subset of B)
+```
+
+Lane PLUGIN2 found it and named the one-file fix at its close; it was outside that lane's
+ownership. The fix is five `PLUGIN_CATALOG` rows in
+`packages/runtime-composer/src/PluginHost.ts`. Every surface that ENUMERATES plugins — the
+status pill, the discipline toolbar, any capability or marketplace listing — had been
+reporting a tree that did not contain the five element families the founder spent the
+session reporting as broken.
+
+⛔ **EACH ROW WAS CHECKED AS A CLAIM, NOT AS A COUNT.** A `PLUGIN_CATALOG` row asserts *the
+runtime advertises this plugin*. PLUGIN2 **refused this same edit** for seven OTHER plugins
+whose handlers only `console.debug` (ADR-0367 names them *"so the next lane does not
+'finish the job'"*), and the **eight remaining ARM-B members** — `dxf`, `export-pdf`,
+`family-editor`, `geospatial`, `levels`, `navigate`, `render`, `visibility-intent` — are
+**ARM-A members**: on disk, contributing NOTHING at boot. Advertising those would ratchet a
+gate green by shipping a claim. Only the intersection with the boot registry was added,
+which is what ARM E measures — so the arm cannot be zeroed by advertising a phantom without
+ARM C going red.
+
+⚠ **ZERO HERE DOES NOT MEAN THE FIVE WORK**, and the distinction is the whole of
+[[verification-dispatch-rendering-three-milestones]]. ARM E measures **visibility to
+`runtime.plugins.list()`**. Whether a pool RENDERS is a different axis — L-9940…L-9948,
+proven by executed read-backs at the render store and at the mesh. Thirteen features this
+session were correct-and-unwired behind exactly this kind of green line.
+
+⭐ **The baseline is now EMPTY, which is the strongest state this arm can be in:** any new
+plugin wired at boot without a catalogue row trips it immediately, rather than joining a
+tolerated list.
+
+⚠ **`PLUGIN_CATALOG` remains a hand-maintained SECOND census of a fact that lives in
+`PluginRegistry`'s boot wiring**, and it drifted silently for months. The gate is what
+compares them as SETS in both directions. The permanent fix is the manifest-driven loader
+the file's own header has promised since Phase F.4.x.
+
+---
+
+### L-9950 — ⛔ OPEN: a reloaded boundary line loses its **ATTACHMENTS**
+
+`CreateBoundaryLineHandler` writes `attachments: []` by construction — correctly, since a
+line is created before anything is anchored to it. So the L-9948 restore brings the LINE
+back and not the edges: which walls, slabs and columns were parametrically anchored to it
+survives in the **FILE** (the array is on the serialised record) and not in the **STORE**.
+
+**What it needs:** a `boundaryLine.attach` dispatch per attachment, run **after** every
+dependent family has loaded — a later step than Step 10c, because an attachment naming a
+wall that has not been restored yet is an edge to nothing. ⚠ It must also decide what to do
+with an attachment whose element is absent from the snapshot: dropping it silently is the
+emptiness/failure collapse, and keeping it is a dangling edge. **Neither is chosen here.**
+
+⚠ **Named rather than discovered.** The propagation planner (`planBoundaryLineMove`) walks
+`attachments`, so until this closes, moving a reloaded boundary line adapts NOTHING and
+refuses NOTHING — it reports a clean move of a line that has quietly forgotten what was on
+it, which is worse than refusing.
+
+---
+
+### L-9951 — ⚠ the boundary line is **3-D ONLY**: there is no plan symbol builder
+
+The §FT-BOUNDARY-LINE subscriber registers the id and its storey with
+`viewDependencyTracker` and `bimManager`, so the plan pipeline KNOWS about the element —
+that is what makes a future symbol builder wire-able — but nothing draws it in plan today.
+
+⛔ **A setting-out line that is 3-D-only is half a feature**, and arguably the wrong half:
+a construction line's primary home is the plan. Named here rather than left to be
+discovered from a screenshot. It is the same shape as L-9309's refusal to build a 3-D arm
+for a tool whose element could not render — *the surface follows the representation, never
+the other way round.*
