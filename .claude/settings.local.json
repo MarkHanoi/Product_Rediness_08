@@ -247,7 +247,13 @@
       "Bash(perl -0pi -e \"s/this\\\\.emit\\\\\\('update', frozen, wall\\\\\\);/this.emit\\('update', frozen\\);/g\" src/WallStore.ts)",
       "Bash(cp /tmp/WallStore.keep.ts src/WallStore.ts)",
       "Bash(rm /tmp/WallStore.keep.ts)",
-      "Bash(node -e \"const j=require\\('./tools/rac-conformance/certification/results/persistence.json'\\); for\\(const r of j.rows\\){console.log\\(r.capability+' :: '+r.persistence.slice\\(0,600\\)+'\\\\n'\\)}\")"
+      "Bash(node -e \"const j=require\\('./tools/rac-conformance/certification/results/persistence.json'\\); for\\(const r of j.rows\\){console.log\\(r.capability+' :: '+r.persistence.slice\\(0,600\\)+'\\\\n'\\)}\")",
+      "Bash(npx tsx *)",
+      "Bash(echo \"GP-EXIT=$?\")",
+      "Bash(echo \"GDI-EXIT=$?\")",
+      "Bash(echo \"DIFF_RC=$?\")",
+      "Bash(node -e \"const j=require\\('C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/tools/rac-conformance/certification/results/certify.json'\\);console.log\\(JSON.stringify\\(j.gates,null,1\\),j.exitCode\\)\")",
+      "Bash(NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit -p \"C:/Users/LENOVO/AppData/Local/Temp/claude/c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08/bf4118a7-5245-409d-969b-4a3bfc99ac02/scratchpad/tsconfig.furniture-owner.json\")"
     ],
     "deny": [
       "Bash(rm -rf *)",
@@ -270,7 +276,8 @@
     "defaultMode": "auto",
     "additionalDirectories": [
       "c:\\Users\\LENOVO\\.claude\\projects\\c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08\\memory",
-      "C:\\ClaudeWorktrees\\Product_Rediness_08\\b2-perf\\packages\\geometry-slab\\__tests__"
+      "C:\\ClaudeWorktrees\\Product_Rediness_08\\b2-perf\\packages\\geometry-slab\\__tests__",
+      "C:\\Users\\LENOVO\\AppData\\Local\\Temp"
     ]
   }
 }
