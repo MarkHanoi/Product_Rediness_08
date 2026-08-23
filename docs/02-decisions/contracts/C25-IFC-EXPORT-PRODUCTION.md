@@ -57,6 +57,31 @@ IfcProject → IfcSite → IfcBuilding → IfcBuildingStorey → IfcSpace (per R
 
 **Current state**: `plugins/ifc-export/src/hierarchy.ts` implements IfcProject → IfcBuilding → IfcBuildingStorey. ~~**IfcSite is empty; IfcSpace is absent; IfcZone is absent.** These are the master plan IFC-α-1/α-2/α-3 gap-fill phases.~~ **← SUPERSEDED, see the banner above.**
 
+### §1.3.1 — Hosted openings resolve to a storey THROUGH THEIR HOST (added 2026-08-23, L-8900)
+
+⚠ §1.3's completeness invariant — *"every element resolves to a storey"* — must NOT
+be read as *"every element carries a storey"*. **Doors and windows do not, by
+design.**
+
+**MEASURED:** `packages/schemas/src/elements/Door.ts:48` and `Window.ts:48` declare
+`wallId: idRef('wall')` and **no** `levelId`. Per [C15](C15-HOSTED-ELEMENT-CONTRACT.md)
+a hosted opening is an offset along a wall, so its storey is a property **of the host
+wall** (`Wall.ts:91`). A door with no `levelId` is **correct**, not defective.
+
+⭐ **Consequence for any tool that groups or reports by storey:** it MUST resolve a
+hosted opening through `wallId → wall.levelId`, and MUST distinguish a **derived**
+storey from a **carried** one. Treating the absence as "unassigned" is a false
+statement about the model. The IFC tree made exactly that error against a real
+project — 117 openings in one bucket — and the fix is recorded as L-8900..L-8903.
+
+⛔ **THIS SAYS NOTHING ABOUT WHAT THE EXPORT SHOULD WRITE.** Whether an exported
+`.ifc` should emit `IfcRelContainedInSpatialStructure` for a hosted opening — or
+rely solely on `IfcRelVoidsElement` / `IfcRelFillsElement` and let the host carry
+containment — is a **live MVD question tracked as L-8590 and NOT decided here**.
+A VIEW grouping a door under its host's storey carries no standards risk; a FILE
+asserting direct containment might. **Do not cite this section as authority to
+change the exporter.**
+
 ### §1.4 — IfcSite full attributes
 
 `IfcSite` attributes (`refLatitude`, `refLongitude`, `refElevation`, `LandTitleNumber`, `SiteAddress`) MUST be populated from `SiteModel` when present, and project-origin-promoted otherwise. Cross-link to [C12](C12-GEOSPATIAL.md) for the LTP-ENU coordinate transforms.

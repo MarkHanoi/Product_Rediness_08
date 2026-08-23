@@ -43462,3 +43462,172 @@ terminator. Re-measured immediately after:
 template literal from `export const … = \u0060` to the closing `\u0060;`.** Anything appended to it —
 including prose in a `/* … */` — may not contain a backtick. `sed -n '$p'` on the file after any
 append, and a `tsc` run, is the cheap check.
+
+### L-8900 — ⭐ CLOSED: the 117 "unassigned" doors and windows were never unassigned — their storey belongs to the wall they are cut into
+
+**FOUNDER REPORT** (deploy `2f8d9470`): *"most (or all) the doors and windows
+don't belong to a level - why?"* The IFC tree's **By storey** grouping showed 7
+real storeys and then **"Not assigned to a storey" = 117** — 12 doors and ~105
+windows, listed by uuid.
+
+**MEASURED, off disk:**
+
+| Fact | Where |
+|---|---|
+| `Door` carries `wallId: idRef('wall')` and **NO** `levelId` | `packages/schemas/src/elements/Door.ts:48` |
+| `Window` — identical | `packages/schemas/src/elements/Window.ts:48` |
+| `Wall` **does** carry `levelId`, defaulting to `''` | `packages/schemas/src/elements/Wall.ts:91` |
+| A wall is retrievable by id | `packages/geometry-wall/src/WallStore.ts:1146` `getById()` |
+
+⭐ **This is not a data defect — it is the C15 design.** A hosted opening is an
+offset along a wall, so its storey is a property **of the host**. Lane BOUND43
+independently re-derived the same rule this week (*"attach the WALL and the door
+rides it"*).
+
+⛔ **So the tree's label was a FALSE STATEMENT ABOUT THE MODEL**, not an honest
+report of a gap in it. The storey was **derivable and was not derived**.
+
+**RESOLUTION:** `adaptNativeElements` takes an injected `HostIndex`
+(`resolveWallLevel`) backed by `wallStore.getById()`. A door on a wall on Level 1
+groups under Level 1 — which is what Revit and every other viewer shows a user.
+**Both families**, doors and windows. **IFC-spatial had the identical hole** and
+takes the identical fix: the opening now nests under its storey rung.
+
+⚠ **EXPORT DELIBERATELY UNTOUCHED.** IFCEXP49's **L-8590** declined to write
+`IfcRelContainedInSpatialStructure` for hosted doors without an MVD check, and
+**that caution is correct** — a wrong containment in a real `.ifc` is a standards
+violation someone else's software will read. **This tree is a VIEW, not the
+file**, so grouping a door under its host's storey here carries none of that
+risk. This lane turned up **no** new evidence on the MVD question and therefore
+records none for the export lane.
+
+---
+
+### L-8901 — ⭐ CLOSED: a derived storey is distinguishable from a carried one, and failures name their owner
+
+⛔ **Not a silent reclassification.** Per this lane's own rule — every state names
+its own cause — `Facet` gained three kinds rather than one label being swapped:
+
+- **`derived`** — carries the value **and the hop it came through** (`via`).
+- **`unresolved`** — derivable in principle, resolution **failed**, naming which.
+- **`per-part`** — see L-8903.
+
+`not-authored` still means exactly what it meant. **Nothing was deleted.**
+
+**Three states in the grouping, not one:**
+
+| Bucket | Means | Owner |
+|---|---|---|
+| the storey's own group | derived through the host, or directly carried | — |
+| *"Hosted, but the host wall could not be found"* | no `wallId`, or a `wallId` not in the store | the opening / a broken reference |
+| *"Hosted, but the host wall carries no level"* | host resolved, `wall.levelId === ''` | ⭐ **the WALL, not the door** |
+
+⭐ **The grouping DECLARES its derived count** in the limit note (*"N of M
+elements are hosted openings whose storey was DERIVED from their host wall"*), so
+**a derived tree cannot pass as an authored one**. The story card's *Where* slot
+shows the hop and cites C15.
+
+**COMPLETENESS (the founder's question D)** — a test asserts every hosted opening
+is **EITHER `derived` OR `unresolved`**, never `not-authored` and never dropped,
+and that group counts **sum to the element total**.
+
+⚠ **WHAT THAT DOES NOT ESTABLISH.** It proves the *partition* is total. It does
+**NOT** predict how many of HIS 117 will resolve — that depends on whether each
+door's `wallId` is present in `wallStore` with a non-empty `levelId` in his
+project, which this lane **cannot measure without running his model**. The tree
+now **reports its own completeness**: whatever does not resolve lands in one of
+the two named buckets with an exact count, instead of one undifferentiated 117.
+**A number is not claimed here because a number would be a guess.**
+
+---
+
+### L-8902 — ⛔ OPEN: a wall with `levelId === ''` makes its openings unresolvable, and the wall is the defect
+
+`Wall.levelId` defaults to `''` (`schemas/src/elements/Wall.ts:91`). A wall left
+at that default hosts openings that **cannot** resolve a storey, and the tree now
+says so explicitly rather than blaming the opening.
+
+⚠ **NOT INVESTIGATED HERE** — whether any wall in the founder's project is in
+that state, and if so how it got there, is a wall-family question. It is named so
+that if part of the 117 lands in that bucket, the owner is already identified.
+
+---
+
+### L-8903 — ⭐ CLOSED: "By material" was calling doors "not authored" when they deliberately carry TWO materials
+
+⚠ **The same assumption, live in a second grouping** — checked because the founder
+asked whether other groupings shared it.
+
+**MEASURED** — `Door`/`Window` carry **`frameFinish.materialId` +
+`leafFinish.materialId`**, never one plain `materialId`.
+**C100 §9.1 rules that split CORRECT, NOT A DEFECT** (*"a single `materialId`
+would name half the element and leave the other half unnamed"*).
+
+The tree read a plain `material` field, found none, and reported **"Material not
+authored on this element"** — which **misdescribes a deliberate design** as an
+omission.
+
+**RESOLUTION:** such elements form a **real group** listing both parts
+(*"frame: Oak · leaf: Glass"*), counted as **grouped**, not as a deficit.
+⛔ **NOT regularised and NOT flattened** to pick a winner between two right
+answers. A door authoring **neither** finish is still honestly `not-authored`.
+
+⚠ **KNOWN LIMIT, stated rather than hidden:** a door with an Oak frame does **not**
+appear under a top-level "Oak" group — it appears under its own part-pair group.
+Grouping it under both would double-count and break the invariant that group
+counts sum to the total. **Searching materials across per-part families is not
+solved here.**
+
+**"By IFC class" and "By IFC system" were checked and do NOT ask a hosted element
+for anything its host owns** — a door's class is its own.
+
+---
+
+### L-8904 — ⭐ CLOSED (cosmetic, same grouping): storey groups showed raw level ids
+
+The founder's screenshot showed groups labelled `L1787150975010`. Level names are
+now resolved via `levelStore` where one is supplied, **falling back to the raw
+id** — a raw id is ugly but true, and inventing a name would not be.
+
+---
+
+### L-8905 — ⭐ the export-reachability pin fired TWICE MORE, and was right both times
+
+The SET assertion in `plugins/ifc-inspector/__tests__/ifc-class-authority.test.ts`
+has now caught **three** real shared-tree changes:
+
+1. first reading included `IfcGrid`;
+2. **FAILED** when IFCEXP49 added `'IfcGrid': WEBIFC.IFCGRID` — closing L-8305;
+3. **FAILED again** when IFCEXP49 added `'IfcFurniture'` and
+   `'IfcSanitaryTerminal'` (`IfcModelBuilder.ts:68-69`), acting on this lane's
+   **L-8303 / L-8304**. Those two classes are now emittable **end-to-end**, not
+   merely ratified. The superseded `IfcFurnishingElement` / `IfcFlowTerminal` rows
+   were **deliberately KEPT** (`:50-51`) so older persisted models still resolve.
+
+⭐ **A count would have read 5 → 4 → 2 and looked like noise. The SET named
+exactly which member moved, every time.** This is the
+`check-contract-index-equivalence` shape earning its keep in a second place.
+
+---
+
+### L-8906 — lane IFCTREE47 readings at close of the hosted-storey pass
+
+FOREGROUND, 2026-08-23:
+
+- `plugins/ifc-inspector` suite → **96/96 passed, 5 files** (was 74/74; **22 new**,
+  all in `hosted-storey.test.ts`).
+- Root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck`
+  → **RC=0, 0 errors, whole tree** (it read RC=2/4 errors earlier in the session;
+  other lanes closed theirs).
+
+⚠ **PROVEN IN THE MODEL LAYER, NOT IN HIS BROWSER.** The derivation, the three
+buckets, the derived-count declaration and the total-partition are proven by
+foreground tests against synthetic sources. **Whether his 117 collapses to zero
+is not proven here** and is the first thing to look at on the next deploy — see
+L-8901 for why no number is claimed.
+
+⚠ **A defect in this lane's own first test draft, kept as a note:** test D
+originally classified openings by guessing `door` vs `window` from the rendered
+NAME, and misclassified. Fixed to filter on the input `type`. **That is the same
+shape of error the feature exists to stop** — inferring a fact that was available
+directly.
