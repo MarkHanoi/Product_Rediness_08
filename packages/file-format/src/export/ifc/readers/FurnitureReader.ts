@@ -37,7 +37,10 @@ export class FurnitureReader {
                 // its IFC identity on every export. Now it round-trips, and an element
                 // without ifcData gets a GlobalId derived from its PRYZM id.
                 guid: (item as any).ifcData?.guid,
-                ifcClass: 'IfcFurnishingElement',
+                // L-8550 — C25 §2.1: the contract says 'IfcFurniture' and the code
+                // said 'IfcFurnishingElement'; the contract wins. An imported element that
+                // carries its own ifcClass keeps it.
+                ifcClass: (item as any).ifcData?.ifcClass ?? 'IfcFurniture',
                 name: `furniture-${item.id}`,
                 predefinedType: undefined,
                 geometry,

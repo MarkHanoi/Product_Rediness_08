@@ -420,6 +420,28 @@ describe('L-8520 — an unmapped ifcClass is reported before it degrades to a pr
     });
 });
 
+describe('L-8550 — furniture and plumbing follow C25 §2.1, where the contract beat the code', () => {
+    it('emits IFCFURNITURE and IFCSANITARYTERMINAL, not the abstract supertypes', () => {
+        const { step, diagnostics } = emit(model([
+            el({ id: 'furn_1', ifcClass: 'IfcFurniture' }),
+            el({ id: 'plumb_1', ifcClass: 'IfcSanitaryTerminal' }),
+        ]));
+        expect(diagnostics.count('UNKNOWN_IFC_CLASS')).toBe(0);
+        expect(countOf(step, 'IFCFURNITURE')).toBe(1);
+        expect(countOf(step, 'IFCSANITARYTERMINAL')).toBe(1);
+    });
+
+    it('still round-trips an IMPORTED element that genuinely carries a supertype', () => {
+        // Rewriting an imported IfcFurnishingElement into IfcFurniture would be
+        // a round-trip regression: the upstream file said what it said.
+        const { step, diagnostics } = emit(model([
+            el({ id: 'imported_1', ifcClass: 'IfcFurnishingElement' }),
+        ]));
+        expect(diagnostics.count('UNKNOWN_IFC_CLASS')).toBe(0);
+        expect(countOf(step, 'IFCFURNISHINGELEMENT')).toBe(1);
+    });
+});
+
 // ── the file still parses ───────────────────────────────────────────────────
 
 describe('the emitted file is still a readable IFC model', () => {

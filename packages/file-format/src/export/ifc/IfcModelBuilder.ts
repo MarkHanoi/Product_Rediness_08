@@ -59,6 +59,14 @@ const IFC_CLASS_MAP: Record<string, number> = {
     // added: a storey is spatial structure, written by IfcSpatialStructure, and
     // must never arrive as an element — it is diagnosed instead.
     'IfcGrid':                 WEBIFC.IFCGRID,
+    // L-8550 — C25 §2/§2.1 (lane IFCTREE47) rules that PRYZM `furniture` is
+    // `IfcFurniture` and `plumbing` is `IfcSanitaryTerminal`, and that the code
+    // saying otherwise is wrong. Per CLAUDE.md's conflict-resolution order the
+    // contract wins, so the readers now emit these. The two supertypes above
+    // stay mapped so an IMPORTED element that genuinely carries one still
+    // round-trips as itself rather than being rewritten.
+    'IfcFurniture':            WEBIFC.IFCFURNITURE,
+    'IfcSanitaryTerminal':     WEBIFC.IFCSANITARYTERMINAL,
 };
 
 const WALL_IFC_CLASSES = new Set(['IfcWall', 'IfcWallStandardCase']);

@@ -42,7 +42,10 @@ export class PlumbingReader {
                 // its IFC identity on every export. Now it round-trips, and an element
                 // without ifcData gets a GlobalId derived from its PRYZM id.
                 guid: (item as any).ifcData?.guid,
-                ifcClass: 'IfcFlowTerminal',
+                // L-8550 — C25 §2.1: the contract says 'IfcSanitaryTerminal' and the code
+                // said 'IfcFlowTerminal'; the contract wins. An imported element that
+                // carries its own ifcClass keeps it.
+                ifcClass: (item as any).ifcData?.ifcClass ?? 'IfcSanitaryTerminal',
                 name: `plumbing-${item.id}`,
                 predefinedType: undefined,
                 geometry,
