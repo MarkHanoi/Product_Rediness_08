@@ -62,7 +62,15 @@ export interface BoundaryLineFamilyRule {
     readonly verdict: PropagationVerdict;
     /** How the dependent is re-seated. Absent when the verdict is not PROPAGATES. */
     readonly shape?: DependentShape;
-    /** The bus verb that commits the move. Absent when the verdict is not PROPAGATES. */
+    /**
+     * The bus verb `MOVE_COMMAND_BY_TYPE` names for this family.
+     *
+     * WARNING: ABSENCE IS MEANINGFUL AND IS NOT THE SAME AS "does not move". A
+     * PROPAGATES row with NO `moveVerb` is a family that HAS a legacy COMMAND reaching
+     * its authoritative store but NO bus route and no gizmo branch -- `lighting` is
+     * exactly that, and the row says so. Reading absence as "cannot follow" is the
+     * mistake this table's first draft made; see the lighting row.
+     */
     readonly moveVerb?: string;
     /**
      * REQUIRED when the verdict is REFUSES: the sentence the user reads. C16 CA-18 —
@@ -93,41 +101,69 @@ export interface BoundaryLineFamilyRule {
  * persistence read.
  */
 export const BOUNDARY_LINE_FAMILY_RULES: readonly BoundaryLineFamilyRule[] = Object.freeze([
-    // ── ADAPTS ──────────────────────────────────────────────────────────────────
+    // -- ADAPTS ------------------------------------------------------------------
+    // Every row below was verified TWICE: the bus verb exists in
+    // `MOVE_COMMAND_BY_TYPE`, and a legacy command with a MEASURED payload writes the
+    // family's AUTHORITATIVE geometry store. `boundaryLineDependentAdapters.ts`
+    // (`packages/command-registry`) holds the second half, and its coverage test fails
+    // if a PROPAGATES row has no adapter -- which is what stops this table claiming a
+    // cell nothing can execute.
     { family: 'wall', verdict: 'PROPAGATES', shape: 'line', moveVerb: 'wall.updateBaseline' },
     { family: 'slab', verdict: 'PROPAGATES', shape: 'area', moveVerb: 'slab.movePolygon' },
     { family: 'column', verdict: 'PROPAGATES', shape: 'point', moveVerb: 'column.update' },
+    // `BeamData.startPoint` / `.endPoint` -- measured, a LINE family.
+    // WARNING, NAMED REMAINDER: `startSupportId` / `endSupportId` are NOT re-solved. A
+    // beam whose columns rode the same line still meets them; a beam whose supports did
+    // not move now spans differently. That is a bounded, STATED gap (C105 §3.5), not a
+    // silence -- re-running support assignment is `AssignBeamSupportsCommand`'s job,
+    // never a boundary line's.
     { family: 'beam', verdict: 'PROPAGATES', shape: 'line', moveVerb: 'beam.update' },
-    { family: 'roof', verdict: 'PROPAGATES', shape: 'area', moveVerb: 'roof.update' },
-    { family: 'floor', verdict: 'PROPAGATES', shape: 'area', moveVerb: 'floor.update' },
-    { family: 'ceiling', verdict: 'PROPAGATES', shape: 'area', moveVerb: 'ceiling.update' },
-    { family: 'room', verdict: 'PROPAGATES', shape: 'area', moveVerb: 'room.updateBoundary' },
+    { family: 'curtain-wall', verdict: 'PROPAGATES', shape: 'line', moveVerb: 'wall.updateCurtainWall' },
+    { family: 'curtainwall', verdict: 'PROPAGATES', shape: 'line', moveVerb: 'wall.updateCurtainWall' },
+    { family: 'handrail', verdict: 'PROPAGATES', shape: 'line', moveVerb: 'handrail.moveBaseLine' },
+    { family: 'railing', verdict: 'PROPAGATES', shape: 'line', moveVerb: 'handrail.moveBaseLine' },
     { family: 'furniture', verdict: 'PROPAGATES', shape: 'point', moveVerb: 'furniture.updateParameters' },
     { family: 'plumbing', verdict: 'PROPAGATES', shape: 'point', moveVerb: 'plumbing.moveFixture' },
     { family: 'plumbingfixture', verdict: 'PROPAGATES', shape: 'point', moveVerb: 'plumbing.moveFixture' },
-    // ⭐ STAIR **PROPAGATES HERE AND REFUSES FOR A LEVEL**, AND THAT IS NOT A
-    // CONTRADICTION. ADR-0345 refuses a stair on a level-HEIGHT change because the
-    // storey gap it spans changed, which invalidates its riser count — a re-SOLVE,
-    // not a translate. A boundary-line move is a horizontal displacement in XZ: the
-    // rise is untouched, so the stair simply goes with it, through the same
-    // `stair.move` the 3-D gizmo already dispatches. Two hosts, two questions, two
+    // STAIR PROPAGATES HERE AND REFUSES FOR A LEVEL, AND THAT IS NOT A CONTRADICTION.
+    // ADR-0345 refuses a stair on a level-HEIGHT change because the storey gap it spans
+    // changed, which invalidates its riser count -- a re-SOLVE, not a translate. A
+    // boundary-line move is a horizontal displacement in XZ: the rise is untouched, so
+    // the stair goes with it through the same `MoveStairCommand` the 3-D gizmo already
+    // dispatches (and which re-reconciles its slab void). Two hosts, two questions, two
     // answers; flattening them would be the wrong kind of consistency.
     { family: 'stair', verdict: 'PROPAGATES', shape: 'point', moveVerb: 'stair.move' },
     { family: 'stairs', verdict: 'PROPAGATES', shape: 'point', moveVerb: 'stair.move' },
-    { family: 'handrail', verdict: 'PROPAGATES', shape: 'line', moveVerb: 'handrail.moveBaseLine' },
-    { family: 'railing', verdict: 'PROPAGATES', shape: 'line', moveVerb: 'handrail.moveBaseLine' },
-    { family: 'curtain-wall', verdict: 'PROPAGATES', shape: 'line', moveVerb: 'wall.updateCurtainWall' },
-    { family: 'curtainwall', verdict: 'PROPAGATES', shape: 'line', moveVerb: 'wall.updateCurtainWall' },
+    // LIGHTING -- A CORRECTION, RECORDED RATHER THAN QUIETLY MADE.
+    //
+    // The first draft of this table REFUSED lighting and quoted
+    // `MOVE_UNSUPPORTED_REASON.lighting` from `elementMove.ts` verbatim: "Lighting
+    // fixtures have no move command on any surface yet -- tracked under Gate G7."
+    // THAT SENTENCE IS TRUE OF THE BUS AND FALSE OF THE COMMAND LAYER, and the
+    // difference decides this cell.
+    //
+    // MEASURED 2026-08-23:
+    // `packages/command-registry/src/lighting/MoveLightingCommand.ts` EXISTS, takes
+    // `{ elementId, to: {x,y,z} }`, and writes the lighting store. What is missing is a
+    // `MOVE_COMMAND_BY_TYPE` row and a 3-D gizmo branch -- i.e. no SURFACE dispatches
+    // it. `MoveBoundaryLineCommand` dispatches COMMANDS, not bus verbs, so it reaches
+    // the one that exists. `moveVerb` is therefore ABSENT on this row, and its absence
+    // is the honest statement that lighting has no bus route yet.
+    //
+    // Copying the refusal without re-measuring would have shipped a REFUSES cell for a
+    // family that can follow perfectly well -- the inverse of the "PROPAGATES row that
+    // propagates nothing" C84 warns about, and just as wrong.
+    { family: 'lighting', verdict: 'PROPAGATES', shape: 'point' },
 
-    // ── REFUSES, EACH WITH ITS REASON ───────────────────────────────────────────
-    // ⭐ These are not gaps. C84 EI-PROP-b: *an honest refusal is a valid answer, and
-    // for a whole class of cells it is the TARGET state.* Four of the seven below are
-    // cells that MUST refuse — adapting them would be the defect.
+    // -- REFUSES, EACH WITH ITS MEASURED REASON ----------------------------------
+    // These are not gaps. C84 EI-PROP-b: an honest refusal is a valid answer, and for a
+    // whole class of cells it is the TARGET state. Nine of the thirteen below are cells
+    // that MUST refuse -- adapting them would itself be the defect.
     {
         family: 'door',
         verdict: 'REFUSES',
         reason:
-            'A door is HOSTED in a wall (C15) — its position is an OFFSET along that wall, not a '
+            'A door is HOSTED in a wall (C15) - its position is an OFFSET along that wall, not a '
             + 'world point. It moves when its host wall moves. Attach the WALL to the boundary '
             + 'line and the door rides it.',
     },
@@ -135,28 +171,64 @@ export const BOUNDARY_LINE_FAMILY_RULES: readonly BoundaryLineFamilyRule[] = Obj
         family: 'window',
         verdict: 'REFUSES',
         reason:
-            'A window is HOSTED in a wall (C15) — its position is an OFFSET along that wall, not '
+            'A window is HOSTED in a wall (C15) - its position is an OFFSET along that wall, not '
             + 'a world point. It moves when its host wall moves. Attach the WALL to the boundary '
             + 'line and the window rides it.',
     },
+    // -- The C79 cause-vocabulary trio -------------------------------------------
+    // MEASURED, AND THE SAME MEASUREMENT FOR ALL THREE. `UpdateRoofBoundaryCommand`,
+    // `UpdateCeilingBoundaryCommand` and `UpdateFloorBoundaryCommand` each REQUIRE
+    //     cause: { wallId: string; kind: 'wall-moved' | 'wall-removed' }
+    // and each documents it as "Why this write happened. Named, never inferred (C79
+    // §4.4 / C75)." A boundary line is not a wall and has no `wallId`. Passing a
+    // fabricated one to satisfy the type would write FALSE PROVENANCE into the record --
+    // it would tell every later reader that a wall moved when none did, which is worse
+    // than the element not following. The fix is a `boundary-line-moved` member on that
+    // cause union, which is C79's contract to amend and not this lane's to force.
     {
-        family: 'lighting',
+        family: 'roof',
         verdict: 'REFUSES',
-        // ⚠ MEASURED, not assumed: `MOVE_UNSUPPORTED_REASON.lighting` in
-        // `elementMove.ts` says the same thing in the same words, and
-        // `ElementCapabilities` does not declare 'move' for lighting either — so at
-        // least no button lies. Quoted rather than paraphrased so the two cannot
-        // drift into two different explanations of one fact.
         reason:
-            'Lighting fixtures have no move command on any surface yet (Gate G7), so a light '
-            + 'attached to a boundary line cannot be carried. Move it by hand after the line '
-            + 'settles, or place it on a wall that does follow.',
+            'A roof re-projects only through UpdateRoofBoundaryCommand, whose `cause` must name a '
+            + 'WALL that moved (C79 §4.4 - named, never inferred). A boundary line is not a wall, '
+            + 'and inventing a wall id would write false provenance. Move the roof directly, or '
+            + 'attach the walls it sits on.',
+    },
+    {
+        family: 'ceiling',
+        verdict: 'REFUSES',
+        reason:
+            'A ceiling re-projects only through UpdateCeilingBoundaryCommand, whose `cause` must '
+            + 'name a WALL that moved (C79 §4.4 - named, never inferred). A boundary line is not a '
+            + 'wall, and inventing a wall id would write false provenance. Attach the walls that '
+            + 'bound the ceiling instead.',
+    },
+    {
+        family: 'floor',
+        verdict: 'REFUSES',
+        reason:
+            'A floor finish re-projects only through UpdateFloorBoundaryCommand, whose `cause` '
+            + 'must name a WALL that moved (C79 §4.4 - named, never inferred). A boundary line is '
+            + 'not a wall, and inventing a wall id would write false provenance. Attach the walls '
+            + 'that bound the floor instead.',
+    },
+    {
+        family: 'room',
+        verdict: 'REFUSES',
+        // Not "cannot" -- "must not". A room's polygon carries `detectionMethod`, i.e.
+        // it records that it was DERIVED from its bounding walls. Writing it from a
+        // boundary line would make two authorities over one polygon (C84 EI-9), and the
+        // next re-detect would silently overwrite whichever one lost.
+        reason:
+            'A room BOUNDARY is DERIVED from its bounding walls and records that in '
+            + '`detectionMethod`. Writing it from a boundary line would create a second authority '
+            + 'over one polygon. A room follows because its WALLS follow - attach those.',
     },
     {
         family: 'grid',
         verdict: 'REFUSES',
         reason:
-            'A structural grid is a DATUM — other elements are set out FROM it. Moving a grid '
+            'A structural grid is a DATUM - other elements are set out FROM it. Moving a grid '
             + 'because a construction line moved would invert that hierarchy and silently '
             + 'relocate everything dimensioned off it. Move the grid deliberately instead.',
     },
@@ -231,8 +303,12 @@ export interface BoundaryLineAdaptation {
     readonly elementId: string;
     readonly family: string;
     readonly shape: DependentShape;
-    /** The bus verb that commits it — `MOVE_COMMAND_BY_TYPE`'s answer for the family. */
-    readonly moveVerb: string;
+    /**
+     * The bus verb that would commit it, when the family has one. OPTIONAL -- see the
+     * `moveVerb` note on `BoundaryLineFamilyRule`. The DISPATCHER keys on `family`,
+     * never on this, precisely so a family with no bus route is still carried.
+     */
+    readonly moveVerb?: string;
     /** POINT shape: where the element goes. */
     readonly position?: Vec3XYZ;
     /** LINE shape: both endpoints, re-seated from the anchor pair. */
@@ -321,7 +397,7 @@ export function planBoundaryLineMove(
                 }
 
                 const shape = rule.shape ?? 'point';
-                const verb = rule.moveVerb!;
+                const verb = rule.moveVerb;
 
                 if (shape === 'line') {
                     if (!att.end) {

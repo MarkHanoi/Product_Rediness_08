@@ -437,5 +437,10 @@ export * from './windows/UpdateWindowSystemTypeCommand';
 export * from './windows/UpdateWindowsSystemTypeBatchCommand';
 export * from './windows/CreateWindowsParametricBatchCommand';
 
+// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7920, C105 / ADR-0348) — the host-move
+// cascade for the AUTHORED construction / setting-out line.
+export * from './boundaryLine/MoveBoundaryLineCommand';
+export * from './boundaryLine/boundaryLineDependentAdapters';
+
 // ── Sprint AP (2026-05-13) — UndoManager extracted from src/engine/ ──────────
 export { UndoManager, AddObjectCommand, undoManager } from './UndoManager.js';

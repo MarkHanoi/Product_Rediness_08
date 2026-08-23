@@ -64,6 +64,7 @@ import {
   // (enabled on BOTH surfaces, inert on BOTH). Both legacy commands own the GEOMETRY store
   // (window.slabStore / window.handrailStore) that the fragment builders, the 2-D plan
   // projector, the IFC exporter and persistence read; only the bus route was missing.
+  MoveBoundaryLineCommand,
   UpdateSlabPolygonCommand,
   // §FIX-SLAB-TYPE-SWAP (mirrors §FIX-FLOOR-TYPE-SWAP L-106) — the slab branch of
   // element.changeType runs this legacy command on the legacy SlabStore (the store
@@ -1088,6 +1089,44 @@ export function initBusHandlers(
             stores: [] as const,
             validate: (cmd) => (!cmd.id ? 'id is required' : (!cmd.to ? 'to is required' : null)),
             fn: (cmd) => { _cmExec(new MovePlumbingCommand({ id: cmd.id, to: cmd.to })); },
+        },
+
+        // ── §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7940) — the HOST MOVE ────────────
+        //
+        // ⭐ THE FOUNDER'S SENTENCE, GIVEN A ROUTE: "if the user moves the boundary line
+        // and this line had slabs and walls, they should move, adapt, propagate with all
+        // elements!!"
+        //
+        // This is the L-220 DISTINCT-VERB pattern for the same reason `slab.movePolygon`
+        // and `handrail.moveBaseLine` are: the dependents live in the AUTHORITATIVE
+        // geometry stores, and a plugin handler can only write the detached DTO mirrors.
+        // `plugins/boundary-line` therefore ships NO `boundaryLine.move` handler at all —
+        // its `handlers/index.ts` says so, and says why — so nothing can shadow this.
+        //
+        // ⭐ ONE UNDO. `MoveBoundaryLineCommand` dispatches one legacy command per
+        // dependent with `source: 'STRUCTURAL_CASCADE'` from inside its own `execute()`,
+        // and `CommandManagerImpl` (§L-874-ONE-UNDO) folds those children into THIS
+        // gesture's history entry. `_cmExec` is what puts the gesture on that stack.
+        //
+        // ⛔ AND `stores: []`, DELIBERATELY. The command declares its own eleven-store
+        // footprint for `CommandManagerImpl`'s snapshot; declaring them again here would
+        // route ring-buffer patches for stores this bridge itself never writes. The
+        // furniture / plumbing / slab bridges above all take the same shape.
+        {
+            type: 'boundaryLine.move',
+            stores: [] as const,
+            validate: (cmd) => (
+                !cmd.boundaryLineId                                   ? 'boundaryLineId is required' :
+                !Array.isArray(cmd.vertices) || cmd.vertices.length < 2
+                    ? 'vertices must be at least two {x,y,z} points'  :
+                null
+            ),
+            fn: (cmd) => {
+                _cmExec(new MoveBoundaryLineCommand({
+                    boundaryLineId: cmd.boundaryLineId,
+                    vertices: cmd.vertices,
+                }));
+            },
         },
 
         // ── §FIX-MOVE-SLAB-AND-HANDRAIL (Gate G7) — the last two lying Move buttons ──

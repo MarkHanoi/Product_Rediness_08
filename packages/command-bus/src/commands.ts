@@ -689,6 +689,32 @@ export type SlabMutationCommands = {
      * `holes` travel with the ring; OMIT the key to preserve the slab's existing holes
      * (passing `[]` would DELETE them).
      */
+    /**
+     * §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7940, C105 §3) — MOVE the AUTHORED
+     * construction / setting-out line AND CARRY EVERYTHING ATTACHED TO IT, as ONE undo
+     * entry, naming by family whatever could not follow.
+     *
+     * ⛔ NOT a parcel-boundary edit. `Parcel.boundary` (C19 §1.4) is the LEGAL lot
+     * outline — surveyed, recorded, ONE-SHOT IMMUTABLE — and has NO edit verb at all,
+     * deliberately. This verb belongs to a different family with a different store.
+     *
+     * Bridged in `initBusHandlers` to `MoveBoundaryLineCommand`
+     * (`@pryzm/command-registry`), which dispatches one legacy command per dependent as
+     * a `STRUCTURAL_CASCADE` child. It CANNOT be a plugin handler: the dependents live
+     * in the AUTHORITATIVE geometry stores and a plugin handler can only write the
+     * detached DTO mirrors — the reason `plugins/wall/src/handlers/MoveWall.ts` refuses
+     * `wall.move` outright.
+     *
+     * `vertices` is ABSOLUTE, not a delta: an edit may drag one vertex or re-shape a
+     * ring, and a delta could express only the rigid case. The vertex COUNT may not
+     * change (every attachment stores a `segmentIndex`); the command refuses with both
+     * numbers if it does.
+     */
+    'boundaryLine.move': {
+        boundaryLineId: string;
+        vertices: Array<{ x: number; y: number; z: number }>;
+    };
+
     'slab.movePolygon':   {
         slabId: string;
         polygon: Array<{ x: number; y: number }>;

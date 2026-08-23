@@ -21,6 +21,15 @@ export enum CommandType {
      * level. See `levels/SetLevelHeightCommand.ts` / ADR-0345.
      */
     SET_LEVEL_HEIGHT = 'SET_LEVEL_HEIGHT',
+    /**
+     * L-7920 — move an AUTHORED construction / setting-out boundary line and CARRY
+     * every element attached to it, as ONE undo unit, naming what could not follow.
+     * See `boundaryLine/MoveBoundaryLineCommand.ts` / C105 §3 / ADR-0348.
+     *
+     * NOT a parcel-boundary edit: `Parcel.boundary` (C19 §1.4) is legal, surveyed and
+     * ONE-SHOT IMMUTABLE, and has no edit command at all, deliberately.
+     */
+    MOVE_BOUNDARY_LINE = 'MOVE_BOUNDARY_LINE',
     CREATE_STAIR = 'CREATE_STAIR',
     UPDATE_STAIR_PARAMETERS = 'UPDATE_STAIR_PARAMETERS',
     VALIDATE_STAIR = 'VALIDATE_STAIR',

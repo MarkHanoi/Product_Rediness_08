@@ -1590,6 +1590,9 @@ importers:
       '@pryzm/event-bus':
         specifier: workspace:*
         version: link:../event-bus
+      '@pryzm/geometry-boundary-line':
+        specifier: workspace:*
+        version: link:../geometry-boundary-line
       '@pryzm/geometry-column':
         specifier: workspace:*
         version: link:../geometry-column
