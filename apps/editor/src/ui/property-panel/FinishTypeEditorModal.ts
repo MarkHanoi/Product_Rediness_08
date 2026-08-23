@@ -137,6 +137,19 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
         return wrap;
     };
 
+    // §OPENING-PANEL-PARITY (L-7742) — the dialog's group rhythm, matching the
+    // inspector's `.dw-group`. Once this dialog carries dimensions and subdivision as
+    // well as finishes, a flat list of controls stops being readable.
+    const groupHeading = (title: string): void => {
+        const g = mk('div',
+            'display:flex;align-items:center;gap:8px;margin:18px 0 8px;font-size:9.5px;' +
+            'font-weight:800;letter-spacing:0.09em;text-transform:uppercase;color:' + PURPLE + ';');
+        g.textContent = title;
+        const rule = mk('span', 'flex:1 1 auto;height:1px;background:linear-gradient(90deg,rgba(102,0,255,.22),rgba(102,0,255,0));');
+        g.appendChild(rule);
+        body.appendChild(g);
+    };
+
     const nameInput = mk('input',
         'width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid ' + LINE + ';' +
         'border-radius:6px;font:inherit;color:' + INK + ';background:#fff;');
@@ -227,6 +240,7 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
     // No new field encodes "is override": the state IS `materialColor !== the master's
     // hex for materialId`, which is exactly how `doorFinishColour.ts` rung 1 already
     // infers an instance override. One spelling of one rule.
+    groupHeading('Finishes');
     slots.forEach((slot, i) => {
         const row = mk('div', 'display:flex;gap:8px;align-items:center;margin-bottom:6px;');
         const lab = mk('div', 'flex:0 0 64px;font-weight:600;font-size:12px;');
@@ -331,6 +345,116 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
         });
         row.append(lab, slider, val);
         body.appendChild(row);
+    }
+
+    // ── The TYPE's own dimensions ─────────────────────────────────────────
+    //
+    // ⭐⭐ THE ASYMMETRY THIS CLOSES (§OPENING-PANEL-PARITY, L-7746): the window
+    // INSPECTOR carried sixteen attributes and this dialog offered FIVE — name,
+    // description, two finishes and glazing. A user could interrogate sixteen
+    // properties of a placed window and author five of them into a type.
+    //
+    // ⛔ THIS IS NOT "copy the inspector's fields into the dialog." Each field below
+    // was tested against the STORE: it appears here only because
+    // `WindowSystemType.dimensions` / `DoorSystemType.dimensions` already carries it,
+    // i.e. because the type is genuinely where it lives. The instance-only attributes
+    // (splay angles, reveal projection, sill height, per-window colour overrides) are
+    // deliberately absent — promoting one of those would make every window on the
+    // project move together the next time the type was edited, which is a worse defect
+    // than the gap. The reasoning per field is in `ElementTypeNumericField`'s header.
+    const dimFields = opts.authoring.finishEditor?.dimensions ?? [];
+    if (dimFields.length > 0) {
+        groupHeading('Dimensions');
+        if (!draft.dimensions || typeof draft.dimensions !== 'object') draft.dimensions = {};
+        const dims = draft.dimensions as Record<string, number | undefined>;
+        for (const f of dimFields) {
+            const row = mk('div', 'display:flex;gap:8px;align-items:center;margin-bottom:4px;');
+            const lab = mk('label', 'flex:0 0 118px;font-weight:600;font-size:12px;');
+            lab.textContent = f.label;
+            lab.htmlFor = `fte-dim-${f.key}`;
+
+            const range = mk('input', 'flex:1;min-width:0;accent-color:' + PURPLE + ';');
+            range.type = 'range';
+            range.min = String(f.min); range.max = String(f.max); range.step = String(f.step);
+
+            const num = mk('input',
+                'flex:0 0 86px;padding:5px 7px;border:1px solid ' + LINE + ';border-radius:5px;' +
+                'font:inherit;font-variant-numeric:tabular-nums;text-align:right;');
+            num.type = 'number';
+            num.min = String(f.min); num.max = String(f.max); num.step = String(f.step);
+            num.id = `fte-dim-${f.key}`;
+
+            // ⚠ A dimension the type does NOT set is left EMPTY, not zero and not a
+            // fabricated default. `resolveWindowDimensions` falls through an absent field
+            // to the canonical default, and writing a number here would silently freeze
+            // that default into the type — turning "inherits" into "asserts" without the
+            // user saying so. The placeholder names what will be used instead.
+            const initial = dims[f.key];
+            if (typeof initial === 'number' && Number.isFinite(initial)) {
+                num.value = String(initial);
+                range.value = String(initial);
+            } else {
+                num.value = '';
+                num.placeholder = 'auto';
+                range.value = String((f.min + f.max) / 2);
+            }
+            num.title = `${f.label} in metres. Leave blank to inherit the standard value.`;
+
+            const write = (raw: string): void => {
+                const v = parseFloat(raw);
+                if (!Number.isFinite(v)) { delete dims[f.key]; } else { dims[f.key] = v; }
+                redraw();
+            };
+            range.addEventListener('input', () => { num.value = range.value; write(range.value); });
+            num.addEventListener('input', () => {
+                if (num.value !== '') range.value = num.value;
+                write(num.value);
+            });
+
+            row.append(lab, range, num);
+            body.appendChild(row);
+            if (f.hint) {
+                const h = mk('div', 'margin:0 0 8px 126px;color:' + MUTED + ';font-size:11px;');
+                h.textContent = f.hint;
+                body.appendChild(h);
+            }
+        }
+    }
+
+    // ── Subdivision ──────────────────────────────────────────────────
+    //
+    // Rendered only for a family that DECLARES a grid. Door declares none, and the
+    // registry says why in full: its subdivision is an ordered list of typed bands and
+    // two sliders would flatten a half-light door into equal panels.
+    const grid = opts.authoring.finishEditor?.grid;
+    if (grid) {
+        groupHeading('Subdivision');
+        const gridRow = (label: string, key: string, max: number) => {
+            const current = Array.isArray(draft[key]) ? (draft[key] as number[]).length : 1;
+            const row = mk('div', 'display:flex;gap:8px;align-items:center;margin-bottom:10px;');
+            const lab = mk('label', 'flex:0 0 118px;font-weight:600;font-size:12px;');
+            lab.textContent = label;
+            lab.htmlFor = `fte-grid-${key}`;
+            const slider = mk('input', 'flex:1;min-width:0;accent-color:' + PURPLE + ';');
+            slider.type = 'range';
+            slider.min = '1'; slider.max = String(max); slider.step = '1';
+            slider.value = String(Math.min(Math.max(current, 1), max));
+            slider.id = `fte-grid-${key}`;
+            const val = mk('div', 'flex:0 0 40px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums;color:' + MUTED + ';');
+            val.textContent = slider.value;
+            slider.addEventListener('input', () => {
+                const n = parseInt(slider.value, 10);
+                val.textContent = String(n);
+                // Equal shares. The ratios are the type's DEFAULT starting point; an
+                // instance may be re-divided unevenly afterwards.
+                draft[key] = Array(n).fill(1 / n);
+                redraw();
+            });
+            row.append(lab, slider, val);
+            body.appendChild(row);
+        };
+        gridRow('Columns', grid.columnsKey, grid.maxColumns);
+        gridRow('Rows', grid.rowsKey, grid.maxRows);
     }
 
     // §FEAT-ELEMENT-TYPE-AUTHORING — the instance-linkage decision, stated where the

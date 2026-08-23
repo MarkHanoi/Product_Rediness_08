@@ -28,7 +28,7 @@ import { UpdateWindowParameterCommand } from '@pryzm/command-registry';
 // `finishMaterial`, while the door inspector had already been given real
 // library dropdowns writing a `materialId`. Same concept, two surfaces, drifted.
 // The picker is imported, never re-implemented (C100 §1.1).
-import { injectDwStyles, buildFinishMaterialSelect } from '@pryzm/geometry-door';
+import { injectDwStyles, buildFinishMaterialSelect, appendDwGroup } from '@pryzm/geometry-door';
 
 /**
  * §WINDOW-AUDIT-2026 (DI cleanup) — WindowSection accepts the CommandManager via
@@ -67,6 +67,9 @@ function makeField(label: string, control: HTMLElement): HTMLElement {
     const lbl = document.createElement('div');
     lbl.className = 'dw-label';
     lbl.textContent = label;
+    // Belt-and-braces for the narrowest panel width: the label wraps now (L-7740),
+    // and hover still reveals the exact string.
+    lbl.title = label;
     const wrap = document.createElement('div');
     wrap.className = 'dw-control';
     wrap.appendChild(control);
@@ -247,8 +250,11 @@ function appendRevealFields(body: HTMLElement, windowId: string, win: WindowOpen
             v => push({ revealDirection: v as never }),
         ));
     const dirHelp = document.createElement('div');
-    dirHelp.className = 'dw-label';
-    dirHelp.style.cssText = 'grid-column:1/-1;opacity:0.65;font-size:11px;line-height:1.4;';
+    // §OPENING-PANEL-PARITY (L-7741) — was `className = 'dw-label'`, which inherited
+    // that rule's `white-space: nowrap; text-overflow: ellipsis` and CLIPPED this note
+    // mid-sentence at "PRYZM does not yet …". The clipped half is the half that says
+    // the value is the USER'S CHOICE and not a detected fact — i.e. the whole point.
+    dirHelp.className = 'dw-note';
     dirHelp.textContent =
         'Applies to the projection AND the splay — they are one reveal. PRYZM does not yet '
         + 'detect which wall face is outdoors, so this is your choice, not a detected value.';
@@ -266,24 +272,58 @@ function appendRevealFields(body: HTMLElement, windowId: string, win: WindowOpen
         makeNumberInput(win.revealProjection ?? 0, -1, 2, 0.01, v => push({ revealProjection: v }))
     ));
 
-    // ── 2. THE SPLAY — one input per side, plus "all sides" ───────────────────────
-    for (const side of REVEAL_SIDES) {
-        const field = REVEAL_SPLAY_FIELD[side];
-        body.appendChild(makeField(`Splay ${REVEAL_SIDE_LABEL[side]} (°)`,
-            makeNumberInput(
-                (win[field] as number | undefined) ?? 0,
-                0, MAX_REVEAL_SPLAY_DEG, 1,
-                v => push({ [field]: v } as Partial<WindowOpening>),
-            )
-        ));
-    }
-    // ONE dispatch ⇒ ONE undo step. See the block comment at the call site.
+    // ── 2. THE SPLAY — "all sides" first, four per-edge inputs behind a disclosure ──
+    //
+    // §OPENING-PANEL-PARITY (L-7744) — PROGRESSIVE DISCLOSURE, and the order is the
+    // point. Five splay rows in a flat list were five equals; in practice one of them
+    // (all sides) is what most users want and the other four are the exception. So the
+    // summary control leads, and the per-edge controls sit behind a toggle.
+    //
+    // ⛔ NOTHING IS HIDDEN BEHIND A CONTROL THAT GIVES NO HINT IT EXISTS. The toggle is
+    // always visible, it NAMES what it reveals ("Set each edge separately"), and — the
+    // part that matters — it AUTO-OPENS whenever any per-edge value is already
+    // non-zero. A window whose left jamb is splayed 12° must never present as though it
+    // had no per-edge splay, which is exactly the failure a naive collapse would ship.
     body.appendChild(makeField('Splay all sides (°)',
         makeNumberInput(0, 0, MAX_REVEAL_SPLAY_DEG, 1, v => push({
             revealSplayHead: v, revealSplaySill: v,
             revealSplayJambLeft: v, revealSplayJambRight: v,
         }))
     ));
+
+    const perEdgeRows: HTMLElement[] = [];
+    let anyPerEdgeSet = false;
+    for (const side of REVEAL_SIDES) {
+        const field = REVEAL_SPLAY_FIELD[side];
+        const current = (win[field] as number | undefined) ?? 0;
+        if (current > 0) anyPerEdgeSet = true;
+        // ⚠ The label reads "Splay Bottom (sill) (°)" and used to be ELIDED to
+        // "Splay Bottom (sill) ..." by `.dw-label`'s `text-overflow: ellipsis`
+        // (L-7740). It wraps now, and `makeField` also sets `title`.
+        perEdgeRows.push(makeField(`Splay ${REVEAL_SIDE_LABEL[side]} (°)`,
+            makeNumberInput(
+                current,
+                0, MAX_REVEAL_SPLAY_DEG, 1,
+                v => push({ [field]: v } as Partial<WindowOpening>),
+            )
+        ));
+    }
+
+    const disclose = document.createElement('button');
+    disclose.type = 'button';
+    disclose.className = 'dw-disclose';
+    let open = anyPerEdgeSet;
+    const paint = (): void => {
+        disclose.textContent = open
+            ? '▾ Set each edge separately'
+            : '▸ Set each edge separately (4 controls)';
+        disclose.setAttribute('aria-expanded', String(open));
+        for (const r of perEdgeRows) r.style.display = open ? 'contents' : 'none';
+    };
+    disclose.addEventListener('click', () => { open = !open; paint(); });
+    body.appendChild(disclose);
+    for (const r of perEdgeRows) body.appendChild(r);
+    paint();
 
     refreshReadout();
     body.appendChild(readout);
@@ -331,6 +371,7 @@ export function buildWindowSection(windowId: string): HTMLElement | null {
         toggle.textContent = collapsed ? '▲' : '▼';
     });
 
+    appendDwGroup(body, 'Dimensions');
     body.appendChild(makeField('Width (m)',
         makeNumberInput(win.width, 0.3, 6.0, 0.05, v => dispatch(windowId, { width: v }))
     ));
@@ -343,6 +384,7 @@ export function buildWindowSection(windowId: string): HTMLElement | null {
         makeNumberInput(win.sillHeight, 0, 2.0, 0.05, v => dispatch(windowId, { sillHeight: v }))
     ));
 
+    appendDwGroup(body, 'Type & Shape');
     body.appendChild(makeField('Window Type',
         makeSelect(
             [{ value: 'single', label: 'Single' }, { value: 'double', label: 'Double' }],
@@ -399,8 +441,10 @@ export function buildWindowSection(windowId: string): HTMLElement | null {
     // ⛔ Labels are TOP/BOTTOM/LEFT/RIGHT because that is what he asked for; the STORED names
     // are head/sill/jamb because that is the construction vocabulary and what the drawings,
     // schedules and RAC use. `REVEAL_SIDE_LABEL` owns the mapping, once.
+    appendDwGroup(body, 'Reveal & Splay');
     appendRevealFields(body, windowId, win);
 
+    appendDwGroup(body, 'Appearance');
     body.appendChild(makeField('Frame Color',
         makeColorPicker(win.frameColor, v => dispatch(windowId, { frameColor: v }))
     ));
@@ -418,6 +462,7 @@ export function buildWindowSection(windowId: string): HTMLElement | null {
         )
     ));
 
+    appendDwGroup(body, 'Subdivision');
     const currentCols = win.columnRatios.length;
     body.appendChild(makeField('Columns (1–4)',
         makeIntSlider(currentCols, 1, 4, v => {
@@ -434,10 +479,8 @@ export function buildWindowSection(windowId: string): HTMLElement | null {
         })
     ));
 
-    body.appendChild(makeField('Fire Rating',
-        makeTextInput(win.fireRating ?? '', v => dispatch(windowId, { fireRating: v || undefined }))
-    ));
 
+    appendDwGroup(body, 'Finishes');
     // §OPENING-FINISH-IS-A-REFERENCE (L-7701) — DOOR PARITY.
     //
     // This row used to be `makeField('Finish Material', makeTextInput(win.finishMaterial …))`
@@ -475,6 +518,40 @@ export function buildWindowSection(windowId: string): HTMLElement | null {
             }),
         })
     ));
+
+    appendDwGroup(body, 'Performance');
+    // §OPENING-PANEL-PARITY (L-7743) — THE EMPTY BOX, MADE HONEST.
+    //
+    // The founder's screenshot shows `Fire Rating` blank: no value, no placeholder, no
+    // "not set". MEASURED before rendering anything, because unset / unsupported /
+    // unwired are three different statements and this repo's whole discipline is that
+    // they must not look alike:
+    //   • SCHEMA        — `WindowTypes.ts:138` `fireRating: z.string().optional()`.
+    //   • PERSISTENCE   — `ProjectSerializer.ts:1215` spreads the whole record, so it
+    //                      round-trips. Not unwired.
+    //   • CONSUMER      — `QuantityTakeoff.ts:741` READS it, counts rated vs unrated,
+    //                      and folds it into the take-off code and description
+    //                      (`:790`, `:792`, `:798`). Not unsupported.
+    // So the honest answer is UNSET, and unset has a CONSEQUENCE worth stating: the
+    // opening is counted as unrated in the measured take-off. The placeholder says so.
+    // The datalist offers the standard designations the take-off already slugs, without
+    // FORBIDDING a value — fire designations are jurisdictional and a closed list here
+    // would refuse a correct answer from a country nobody thought of.
+    const fireInput = makeTextInput(win.fireRating ?? '', v => dispatch(windowId, { fireRating: v || undefined }));
+    fireInput.placeholder = 'Not set — counts as unrated';
+    fireInput.title = 'Fire resistance designation, e.g. EI30, EW60, FD30. '
+        + 'Left blank the opening is measured as UNRATED in the quantity take-off.';
+    fireInput.setAttribute('list', 'dw-fire-ratings-window');
+    const fireList = document.createElement('datalist');
+    fireList.id = 'dw-fire-ratings-window';
+    for (const r of ['EI30', 'EI60', 'EI90', 'EW30', 'EW60', 'E30', 'E60']) {
+        const o = document.createElement('option');
+        o.value = r;
+        fireList.appendChild(o);
+    }
+    const fireRow = makeField('Fire Rating', fireInput);
+    fireRow.appendChild(fireList);
+    body.appendChild(fireRow);
 
     section.appendChild(body);
     return section;

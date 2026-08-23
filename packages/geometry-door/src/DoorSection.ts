@@ -20,6 +20,7 @@ import { UpdateDoorParameterCommand } from '@pryzm/command-registry';
 // `WindowSection`. Door had library dropdowns and window had a free-text box for
 // the same concept; two surfaces for one rule is how they drifted (C65 §3.5).
 import { buildFinishMaterialSelect } from './FinishMaterialSelect';
+import { appendDwGroup } from './DwPanelChrome';
 
 /**
  * CSS is now managed by AppTheme.ts (DOOR_SECTION_STYLES in propertyInspector.ts).
@@ -73,6 +74,10 @@ function makeField(label: string, control: HTMLElement): HTMLElement {
     const lbl = document.createElement('div');
     lbl.className = 'dw-label';
     lbl.textContent = label;
+    // §OPENING-PANEL-PARITY (L-7740) — labels wrap rather than elide; hover still
+    // reveals the exact string at the narrowest panel width. Door and window get the
+    // SAME treatment, because the two panels drifting is this lane's other finding.
+    lbl.title = label;
     const wrap = document.createElement('div');
     wrap.className = 'dw-control';
     wrap.appendChild(control);
@@ -188,6 +193,7 @@ export function buildDoorSection(doorId: string): HTMLElement | null {
         toggle.textContent = collapsed ? '▲' : '▼';
     });
 
+    appendDwGroup(body, 'Dimensions');
     body.appendChild(makeField('Width (m)',
         makeNumberInput(door.width, 0.4, 4.0, 0.05, v => dispatch(doorId, { width: v }))
     ));
@@ -200,6 +206,7 @@ export function buildDoorSection(doorId: string): HTMLElement | null {
         makeNumberInput(door.sillHeight, 0, 0.5, 0.01, v => dispatch(doorId, { sillHeight: v }))
     ));
 
+    appendDwGroup(body, 'Type & Shape');
     body.appendChild(makeField('Door Type',
         makeSelect(
             [{ value: 'single', label: 'Single' }, { value: 'double', label: 'Double' }],
@@ -229,6 +236,7 @@ export function buildDoorSection(doorId: string): HTMLElement | null {
         )
     ));
 
+    appendDwGroup(body, 'Operation');
     body.appendChild(makeField('Hinges Side',
         makeToggle(
             [{ value: 'left', label: 'Left' }, { value: 'right', label: 'Right' }],
@@ -253,6 +261,7 @@ export function buildDoorSection(doorId: string): HTMLElement | null {
         )
     ));
 
+    appendDwGroup(body, 'Members');
     body.appendChild(makeField('Leaf Thickness (m)',
         makeNumberInput(door.leafThickness ?? 0.04, 0.02, 0.12, 0.005, v => dispatch(doorId, { leafThickness: v }))
     ));
@@ -265,6 +274,7 @@ export function buildDoorSection(doorId: string): HTMLElement | null {
         makeNumberInput(door.frameDepth ?? 0.07, 0.03, 0.30, 0.005, v => dispatch(doorId, { frameDepth: v }))
     ));
 
+    appendDwGroup(body, 'Appearance');
     body.appendChild(makeField('Frame Color',
         makeColorPicker(door.frameColor, v => dispatch(doorId, { frameColor: v }))
     ));
@@ -277,10 +287,8 @@ export function buildDoorSection(doorId: string): HTMLElement | null {
         makeNumberInput(door.handleHeight, 0.8, 1.2, 0.01, v => dispatch(doorId, { handleHeight: v }))
     ));
 
-    body.appendChild(makeField('Fire Rating',
-        makeTextInput(door.fireRating ?? '', v => dispatch(doorId, { fireRating: v || undefined }))
-    ));
 
+    appendDwGroup(body, 'Finishes');
     // §OPENING-FINISH-IS-A-REFERENCE (L-7700) — `legacyName` is the half that was
     // missing. A door placed before openings referenced materials carries
     // `frameFinish.name === 'Steel Frame'` and no id; the old picker showed that as
@@ -309,6 +317,43 @@ export function buildDoorSection(doorId: string): HTMLElement | null {
             }),
         })
     ));
+
+    // ⭐ §OPENING-PANEL-PARITY (L-7745) — THE DOOR/WINDOW ASYMMETRY, STATED ON PURPOSE.
+    //
+    // The window panel carries a REVEAL & SPLAY group; this one does not, and that is
+    // construction rather than an unfinished panel. A window's reveal is the splayed
+    // return between the frame and the wall faces — a light-admitting detail with four
+    // independently angled edges (§FEAT-WINDOW-REVEAL, L-1920). A door's opening is a
+    // trafficked void: it has a lining and a threshold, not a splayed sill, and
+    // `DoorOpening` carries no `revealSplay*` field to author.
+    //
+    // ⚠ Written here because the alternative is that the next reader compares the two
+    // panels, finds a group missing, and "restores" it — shipping four controls that
+    // write nothing. Two panels differing by accident and two panels differing on
+    // purpose look identical from the outside; only a sentence tells them apart.
+    appendDwGroup(body, 'Performance');
+    // §OPENING-PANEL-PARITY (L-7743) — the honest empty box, IDENTICAL to the window's.
+    // Measured the same way: schema `DoorTypes.ts:95`, persisted by the whole-record
+    // spread at `ProjectSerializer.ts:1216`, and READ by `QuantityTakeoff.ts:741`
+    // which counts rated vs unrated. Blank means UNSET, and unset is measured as
+    // unrated — so the placeholder says that rather than leaving a silent gap.
+    // ⚠ A door's designations differ from a window's (FD30/FD60 are door products),
+    // so the list differs. The two panels are symmetric in SHAPE, not in vocabulary.
+    const fireInput = makeTextInput(door.fireRating ?? '', v => dispatch(doorId, { fireRating: v || undefined }));
+    fireInput.placeholder = 'Not set — counts as unrated';
+    fireInput.title = 'Fire resistance designation, e.g. FD30, FD60, EI30. '
+        + 'Left blank the opening is measured as UNRATED in the quantity take-off.';
+    fireInput.setAttribute('list', 'dw-fire-ratings-door');
+    const fireList = document.createElement('datalist');
+    fireList.id = 'dw-fire-ratings-door';
+    for (const r of ['FD30', 'FD60', 'FD90', 'EI30', 'EI60', 'E30']) {
+        const o = document.createElement('option');
+        o.value = r;
+        fireList.appendChild(o);
+    }
+    const fireRow = makeField('Fire Rating', fireInput);
+    fireRow.appendChild(fireList);
+    body.appendChild(fireRow);
 
     section.appendChild(body);
     return section;

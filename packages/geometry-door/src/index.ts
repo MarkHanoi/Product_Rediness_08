@@ -83,6 +83,9 @@ export {
     suggestMaterialForLegacyName,
 } from './FinishMaterialSelect';
 export type { FinishMaterialState, FinishMaterialSelectOptions } from './FinishMaterialSelect';
+// §OPENING-PANEL-PARITY (L-7742) — the shared `dw-` inspector chrome. Same home,
+// same reason as the finish picker above: window imports from door, never back.
+export { appendDwGroup, appendDwNote } from './DwPanelChrome';
 
 // ── §FEAT-CURVED-WINDOW-LEAF / §FEAT-CURVED-DOOR-LEAF (L-957) ───────────────
 // The SHARED curved-hosted-leaf geometry, consumed by `DoorBuilder` here and by

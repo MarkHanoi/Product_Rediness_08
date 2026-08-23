@@ -175,7 +175,15 @@ export function buildWindowPreviewSubject(draft: {
     }
 
     return {
-        key: subjectKey('window', draft.id, draft.name, [W, H, fd], cols, rows, frame, sill, glassOpacity),
+        // ⚠ THE KEY MUST NAME EVERY NUMBER THE IMAGE DEPENDS ON. It listed only
+        // [W, H, fd]; once L-7746 made the frame face, mullion, transom and sill
+        // projection editable in the dialog, dragging any of those sliders changed the
+        // geometry and NOT the key — so the showroom would have sat still while the
+        // numbers moved. A cache key that is a SUBSET of its inputs is a stale render,
+        // and a preview that lags its own controls is worse than no preview.
+        key: subjectKey('window', draft.id, draft.name,
+            [W, H, fd, ft, cdt, rdt, d.sillDepth, d.sillThickness, d.sillOverhang, d.glazingThickness],
+            cols, rows, frame, sill, glassOpacity),
         parts,
         extent: [W + 2 * d.sillOverhang, H, fd + d.sillDepth],
         caption: `${fmt(W)} × ${fmt(H)} m · ${cols.length}×${rows.length} pane${cols.length * rows.length === 1 ? '' : 's'}`,
@@ -260,7 +268,10 @@ export function buildDoorPreviewSubject(draft: {
     }
 
     return {
-        key: subjectKey('door', draft.id, draft.name, [W, H, fd], segs.map((s) => s.heightRatio), [1], frame, leaf, glassOpacity),
+        // Same rule as the window's, and the same reason — see there.
+        key: subjectKey('door', draft.id, draft.name,
+            [W, H, fd, ft, lt, extentW],
+            segs.map((sg) => sg.heightRatio), [1], frame, leaf, glassOpacity),
         parts,
         extent: [extentW, H, fd],
         caption: `${fmt(W)} × ${fmt(H)} m · ${segs.length} segment${segs.length === 1 ? '' : 's'}`,

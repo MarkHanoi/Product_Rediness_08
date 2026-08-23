@@ -167,6 +167,27 @@ describe('§OPENING-SHOWROOM-PREVIEW — the render key gates the redraw (C04)',
         expect(b.key).not.toBe(a.key);
     });
 
+    it('changes when an EDITABLE dimension changes — the key must not be a subset of its inputs', () => {
+        // ⭐ L-7746 made the frame face, mullion, transom and sill projection editable in
+        // the New Type dialog. The key listed only [width, height, frameDepth], so
+        // dragging any of those sliders changed the GEOMETRY and not the KEY — the
+        // showroom would have sat still while the numbers moved. A preview that lags
+        // its own controls is worse than no preview.
+        const base = buildWindowPreviewSubject(WINDOW_DRAFT);
+        for (const [field, value] of [
+            ['frameThickness', 0.09],
+            ['columnDividerThickness', 0.11],
+            ['rowDividerThickness', 0.11],
+            ['sillDepth', 0.31],
+        ] as const) {
+            const moved = buildWindowPreviewSubject({
+                ...WINDOW_DRAFT,
+                dimensions: { [field]: value },
+            });
+            expect(moved.key, `key ignored ${field}`).not.toBe(base.key);
+        }
+    });
+
     it('changes when the subdivision changes', () => {
         const a = buildWindowPreviewSubject(WINDOW_DRAFT);
         const b = buildWindowPreviewSubject({ ...WINDOW_DRAFT, defaultColumnRatios: [1] });

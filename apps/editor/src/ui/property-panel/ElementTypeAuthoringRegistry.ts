@@ -86,6 +86,39 @@ export interface ElementTypeFinishSlot {
     label: string;
 }
 
+/**
+ * §OPENING-PANEL-PARITY (L-7746) — one numeric attribute of a TYPE.
+ *
+ * ⚠ EVERY FIELD HERE IS TYPE-LEVEL BY MEASUREMENT, NOT BY GUESS. The test applied
+ * to each was: *does the family's store record already carry it, and is it shared by
+ * every instance placed from the type?* Only the values living under
+ * `WindowSystemType.dimensions` / `DoorSystemType.dimensions` qualified — those are
+ * exactly what `resolveWindowDimensions` / `resolveDoorDimensions` read from the TYPE
+ * when the instance does not override them. The store already answered the question,
+ * so the declaration follows the store rather than a preference.
+ *
+ * ⛔ GETTING THIS SPLIT WRONG IS WORSE THAN THE GAP IT CLOSES. A per-instance field
+ * promoted to the type would make every window on the project move together the next
+ * time the type is edited. So the splay angles and `revealProjection` are NOT here:
+ * they are instance state and the resolver reads the instance first.
+ *
+ * ⚠ `sillHeight` is the closest call and is DELIBERATELY EXCLUDED even though
+ * `WindowTypeDimensions` declares it: a sill height is a property of the ROOM, not of
+ * the window product — a kitchen sill and a bedroom sill differ in one building using
+ * one window type. Authoring it on the type would invite exactly the project-wide
+ * move this paragraph warns about.
+ */
+export interface ElementTypeNumericField {
+    /** The key under the record's `dimensions` object. */
+    key: string;
+    label: string;
+    min: number;
+    max: number;
+    step: number;
+    /** Short hint under the control. Say what the number DOES, not what it is called. */
+    hint?: string;
+}
+
 /** A family's authoring declaration. */
 export interface ElementTypeAuthoring {
     /** `normalizeType()` output, matching `ElementTypeCatalogRegistry.family`. */
@@ -103,6 +136,31 @@ export interface ElementTypeAuthoring {
         slots: ElementTypeFinishSlot[];
         /** Whether the family carries a `glazingOpacity` (0 = clear … 1 = opaque). */
         glazingOpacity: boolean;
+        /**
+         * §OPENING-PANEL-PARITY (L-7746) — the TYPE's own dimensions, written to
+         * `draft.dimensions[key]`. Declared per family so the editor stays generic
+         * (C65 §3.5: specialise in the DECLARATION, never with a family branch in the
+         * editor). Adding a family's dimensions is a table entry, not a code path.
+         */
+        dimensions?: ElementTypeNumericField[];
+        /**
+         * The subdivision grid. `undefined` for a family whose subdivision is not a
+         * rows × columns grid.
+         *
+         * ⛔ DOOR DECLARES NOTHING HERE ON PURPOSE, and the reason is NAMED rather than
+         * left as an absence for someone to "fix": a door's subdivision is
+         * `defaultSegments`, an ORDERED LIST of typed bands (`panel` / `glass` / `empty`,
+         * each with a height ratio) plus an optional sidelight. That is a list editor,
+         * not two sliders — and two sliders laid over it would silently flatten a
+         * half-light door into equal bands, DISCARDING the segment types the user chose.
+         * Left to a lane that builds the list editor properly (L-7747).
+         */
+        grid?: {
+            columnsKey: string;
+            rowsKey: string;
+            maxColumns: number;
+            maxRows: number;
+        };
     };
     /**
      * PROOF, not intent (C05). The serializer field its custom types are written to,
@@ -158,6 +216,17 @@ const AUTHORING: ElementTypeAuthoring[] = [
                 { key: 'leafFinish',  label: 'Leaf' },
             ],
             glazingOpacity: true,
+            // Exactly the six `DoorSystemType.dimensions` fields — no more. Each is read
+            // by `resolveDoorDimensions` when the door instance does not carry its own,
+            // which is what makes it a property of the TYPE.
+            dimensions: [
+                { key: 'width',          label: 'Leaf width',     min: 0.4,  max: 2.0,  step: 0.005, hint: 'Structural opening for a single leaf.' },
+                { key: 'doubleWidth',    label: 'Double width',   min: 0.8,  max: 4.0,  step: 0.01,  hint: 'Used when the door is placed as a double.' },
+                { key: 'height',         label: 'Height',         min: 1.6,  max: 3.2,  step: 0.005 },
+                { key: 'frameThickness', label: 'Frame face',     min: 0.02, max: 0.20, step: 0.005, hint: 'How far the frame reaches into the opening.' },
+                { key: 'frameDepth',     label: 'Frame depth',    min: 0.02, max: 0.30, step: 0.005, hint: 'Across the wall reveal.' },
+                { key: 'leafThickness',  label: 'Leaf thickness', min: 0.02, max: 0.12, step: 0.002 },
+            ],
         },
         persisted: {
             snapshotField: 'doorSystemTypes',
@@ -176,6 +245,22 @@ const AUTHORING: ElementTypeAuthoring[] = [
                 { key: 'sillFinish',  label: 'Sill' },
             ],
             glazingOpacity: true,
+            dimensions: [
+                { key: 'width',                  label: 'Width',           min: 0.3,   max: 6.0,  step: 0.01 },
+                { key: 'doubleWidth',            label: 'Double width',    min: 0.6,   max: 8.0,  step: 0.01,  hint: 'Used when the window is placed as a double.' },
+                { key: 'height',                 label: 'Height',          min: 0.3,   max: 4.0,  step: 0.01 },
+                { key: 'frameThickness',         label: 'Frame face',      min: 0.015, max: 0.20, step: 0.002, hint: 'The number that separates a slim steel frame from a fat uPVC one.' },
+                { key: 'frameDepth',             label: 'Frame depth',     min: 0.02,  max: 0.30, step: 0.005, hint: 'Across the wall reveal.' },
+                { key: 'columnDividerThickness', label: 'Mullion',         min: 0.01,  max: 0.15, step: 0.002, hint: 'The centre post between panes.' },
+                { key: 'rowDividerThickness',    label: 'Transom',         min: 0.01,  max: 0.15, step: 0.002, hint: 'The horizontal bar between rows.' },
+                { key: 'sillDepth',              label: 'Sill projection', min: 0,     max: 0.40, step: 0.005, hint: 'How far the sill board stands proud of the wall.' },
+            ],
+            grid: {
+                columnsKey: 'defaultColumnRatios',
+                rowsKey:    'defaultRowRatios',
+                maxColumns: 4,
+                maxRows:    3,
+            },
         },
         persisted: {
             snapshotField: 'windowSystemTypes',

@@ -126,6 +126,18 @@ export const DOOR_SECTION_STYLES = `
     .dw-field {
         display: contents;
     }
+    /* §OPENING-PANEL-PARITY (L-7740) — LABELS WRAP, THEY DO NOT ELIDE.
+     *
+     * This rule was 'white-space: nowrap; overflow: hidden; text-overflow: ellipsis'
+     * against a fixed 108px label track, so any label longer than the track was cut.
+     * The founder's screenshot shows the consequence: "Splay Bottom (sill) ..." — and
+     * in a stack of FIVE splay controls the elided one is precisely the one you cannot
+     * identify. An ellipsis is only acceptable where the full text is recoverable; here
+     * it was the only place the field's identity was written.
+     *
+     * A two-line label costs a few pixels of height. An unreadable label costs the
+     * control. 'title' is set in 'makeField' as well, so hover always reveals the
+     * full string even at the narrowest panel width. */
     .dw-label {
         font-size: 10px;
         color: var(--app-text-muted);
@@ -133,10 +145,73 @@ export const DOOR_SECTION_STYLES = `
         line-height: 1.3;
         align-self: center;
         min-width: 0;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        hyphens: none;
     }
+
+    /* §OPENING-PANEL-PARITY (L-7741) — explanatory notes under a control.
+     *
+     * These used to borrow '.dw-label', which inherited its 'nowrap' + 'ellipsis' — so
+     * the Reveal Direction note was CLIPPED MID-SENTENCE at "PRYZM does not yet …".
+     * That sentence states a real limitation ("so this is your choice, not a detected
+     * value"), and the half that was cut is the half that carries the meaning. A note
+     * that cannot be finished is worse than no note: the user reads a truncated
+     * hedge and cannot tell what the product does not know. */
+    .dw-note {
+        grid-column: 1 / -1;
+        font-size: 11px;
+        line-height: 1.45;
+        color: var(--app-text-muted);
+        white-space: normal;
+        overflow-wrap: anywhere;
+        margin: -2px 0 4px;
+        padding: 6px 9px;
+        border-left: 2px solid var(--app-accent, #6600FF);
+        background: rgba(102, 0, 255, 0.045);
+        border-radius: 0 6px 6px 0;
+    }
+
+    /* §OPENING-PANEL-PARITY (L-7742) — a group heading inside a parametric section.
+     * Eighteen controls in one flat list is not a panel, it is a dump. */
+    .dw-group {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 8px 0 2px;
+        font-size: 9.5px;
+        font-weight: 800;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--app-accent, #6600FF);
+    }
+    .dw-group::after {
+        content: '';
+        flex: 1 1 auto;
+        height: 1px;
+        background: linear-gradient(90deg, rgba(102,0,255,0.22), rgba(102,0,255,0));
+    }
+    .dw-group:first-child { margin-top: 0; }
+
+    /* Progressive disclosure — the per-edge splay controls. The summary control is
+     * always visible and the toggle SAYS what it reveals, so nothing is hidden
+     * behind a control that gives no hint it exists. */
+    .dw-disclose {
+        grid-column: 1 / -1;
+        font: inherit;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-align: left;
+        padding: 3px 0;
+        margin: 0 0 2px;
+        border: none;
+        background: transparent;
+        color: var(--app-accent, #6600FF);
+        cursor: pointer;
+    }
+    .dw-disclose:hover { text-decoration: underline; }
     /* Value cell — every control lives here and fills the shared column. */
     .dw-control {
         min-width: 0;
