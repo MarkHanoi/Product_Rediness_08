@@ -66,6 +66,11 @@ import { BalconyStore, buildBalconyHandlerSet } from '@pryzm/plugin-balcony';
 // §FEAT-LIFT-COMPOUND-SYSTEM (L-5700, C104 / ADR-0325) — the lift COMPOUND. See the
 // descriptor below for the four-axis reachability argument.
 import { LiftCompoundStore, LiftPartStore, buildLiftHandlerSet } from '@pryzm/plugin-lift';
+// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7914, C105 / ADR-0348) — the AUTHORED
+// construction / setting-out line. ⛔ NOT the cadastral `Parcel.boundary` (C19 §1.4 —
+// legal, surveyed, ONE-SHOT IMMUTABLE, owned by the site subsystem) and NOT
+// `RoomBoundingLine`. See the descriptor below; this import is axis 1 of the four.
+import { BoundaryLineStore, buildBoundaryLineHandlerSet } from '@pryzm/plugin-boundary-line';
 
 // ---- Wave 18: 2 non-element plugins with zero-dep handler factories ----
 import { buildSelectionHandlerSet } from '@pryzm/plugin-selection';
@@ -497,6 +502,43 @@ export const ALL_PLUGINS: readonly PluginDescriptor[] = [
     buildHandlers: () => [] as readonly CommandHandler<unknown>[],
   },
 
+  // ---- BoundaryLine (§FEAT-CONSTRUCTION-BOUNDARY-LINE, L-7914 · C105 · ADR-0348) ----
+  //
+  // ⭐ AXIS 2 OF THE FOUR-AXIS REACHABILITY CHECK — THE ONE THAT THROWS SILENTLY.
+  // With no descriptor here the key is simply absent from
+  // `storesAsRecordView(stores)` and `CommandBus.buildContext` (CommandBus.ts:286-292)
+  // throws
+  //
+  //     boundaryLine.create: required store 'boundaryLine' is missing from HandlerContext.stores
+  //
+  // BEFORE anything mutates — with the handlers registered and undispatchable. That is
+  // the `pool` defect (L-5200), the `lift` defect (L-5700) and the `lighting` defect
+  // before both, and it is why
+  // `apps/editor/__tests__/boundaryLineReachableThroughComposedRuntime.test.ts` reads
+  // `rt.stores.boundaryLine` off the REAL composition root and never builds a store of
+  // its own. A plugin's own suite CANNOT catch this: it supplies the provider that was
+  // broken.
+  //
+  // ⭐ AND THIS IS THE FAMILY'S **ONLY** STORE. C84 §1 measures five rival
+  // representations per family and rows 2/3 — the plugin DTO store and the legacy
+  // geometry store — are the pair that keeps diverging (`MoveWall.ts` refuses
+  // `wall.move` in as many words). `boundaryLine` has no geometry twin: this instance
+  // IS the authority, which makes C84 EI-1 hold by construction rather than by
+  // discipline. `boundaryLineHasOneStore.test.ts` checks the claim rather than
+  // asserting it.
+  //
+  // ⚠ ORDER IS NOT LOAD-BEARING — every handler here declares `affectedStores:
+  // ['boundaryLine']` and nothing else, because creating, attaching to, updating or
+  // deleting a boundary line writes exactly one store. The MOVE is the multi-store
+  // gesture, and it is deliberately NOT a plugin handler (see
+  // `plugins/boundary-line/src/handlers/index.ts` for why).
+  {
+    id: 'boundary-line',
+    storeKey: 'boundaryLine',
+    buildStore: () => new BoundaryLineStore() as unknown as Store<object>,
+    buildHandlers: () => buildBoundaryLineHandlerSet() as readonly CommandHandler<unknown>[],
+  },
+
   // ---- Furniture (E-finish.0.E orphan registration) ----
   {
     id: 'furniture',
@@ -655,6 +697,10 @@ export const ELEMENT_PLUGIN_IDS = [
   // requires >= 1 handler per plugin unless the id is named there).
   'lift',
   'liftPart',
+  // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7914) — contributes a non-empty storeKey AND
+  // a handler set, so it belongs in the list the storeKey assertion iterates and needs
+  // no STORE_ONLY_PLUGIN_IDS exemption.
+  'boundary-line',
   'door',
   'window',
   'roof',
