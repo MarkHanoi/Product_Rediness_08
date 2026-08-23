@@ -55,6 +55,11 @@ export default defineConfig({
       'apps/editor/src/ui/documentation/__tests__/**/*.spec.ts',
       // §FEAT-SWAP-LOADING-OVERLAY (L-141): renderer live-swap loading overlay specs.
       'apps/editor/src/ui/overlays/__tests__/**/*.spec.ts',
+      // §OPENING-SHOWROOM-PREVIEW (L-7720): the PURE half of the element preview —
+      // the subject builders. They are what stops the showroom inventing its own
+      // dimensions instead of calling `resolve{Window,Door}Dimensions` (L-127), and
+      // what pins that every drawn part NAMES a master material (C100 §2.1).
+      'apps/editor/src/ui/element-preview/__tests__/**/*.spec.ts',
       // §L-847: the shipped F3 Data surface. Differentiating specs — they fail
       // if WorkspaceController's data mode reverts to benching DataWorkbench
       // (setMode('hidden')) or DataCommandCenter re-claims the mode event,

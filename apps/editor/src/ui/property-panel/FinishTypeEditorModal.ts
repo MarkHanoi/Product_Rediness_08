@@ -36,6 +36,12 @@ import {
     finishMaterialHex,
     finishMaterialLabel,
 } from '@pryzm/geometry-door';
+// §OPENING-SHOWROOM-PREVIEW (L-7720) — the founder's second ask: *"a small
+// preview — a 3D canvas scene of the window we are creating … like a 3D showroom
+// of a library element."* The widget owns no WebGL context and starts no
+// animation loop; see `ElementPreviewRenderer.ts` for both decisions.
+import { mountElementPreview, type ElementPreviewHandle } from '../element-preview/ElementPreviewCanvas';
+import { buildOpeningPreviewSubject } from '../element-preview/OpeningPreviewSubject';
 
 /** The draft under edit — a family type record minus identity fields. */
 export type FinishTypeDraft = Record<string, any> & {
@@ -159,7 +165,31 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
         'overflow:hidden;margin-bottom:16px;');
     preview.setAttribute('role', 'img');
 
+    // ── The showroom ─────────────────────────────────────────────────
+    //
+    // ⭐ IT SITS ABOVE THE COLOUR STRIP, AND THE STRIP STAYS. They answer different
+    // questions: the strip is a swatch legend (which slot is which colour, readable
+    // at a glance and by a screen reader); the canvas is the ASSEMBLY. Replacing the
+    // strip with the canvas would have lost the legend, and a 3-D view is the worse
+    // surface for "what colour is the sill".
+    //
+    // The subject is rebuilt from the DRAFT on every edit, so the preview is of the
+    // thing being authored — not of the type it was duplicated from.
+    let showroom: ElementPreviewHandle | null = null;
+    const subjectFor = () => buildOpeningPreviewSubject(opts.authoring.family, draft);
+    const initialSubject = subjectFor();
+    if (initialSubject) {
+        showroom = mountElementPreview(body, { subject: initialSubject, heightPx: 172 });
+    }
+
     function redraw(): void {
+        // The showroom re-reads the draft. `setSubject` is cheap when nothing the
+        // IMAGE depends on changed — `PreviewSubject.key` covers exactly those fields —
+        // so typing in the Name box does not re-render the scene.
+        if (showroom) {
+            const next = subjectFor();
+            if (next) showroom.setSubject(next);
+        }
         preview.innerHTML = '';
         for (const slot of slots) {
             const band = mk('div', 'flex:1;');
@@ -390,6 +420,12 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
         if (closed) return;
         closed = true;
         panel.removeEventListener('keydown', onKey);
+        // ⚠ BEFORE `overlay.remove()`. The handle releases the shared WebGL context
+        // when it is the last mounted preview, and a retained context still counts
+        // against the browser's live-context cap — whose eviction victim is the
+        // OLDEST context, i.e. the main viewport.
+        showroom?.dispose();
+        showroom = null;
         overlay.remove();
         invoker?.focus?.();
     }
