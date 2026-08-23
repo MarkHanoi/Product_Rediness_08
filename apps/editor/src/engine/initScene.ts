@@ -3040,6 +3040,20 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                         `event=${evt} isBatching=${batchCoordinator.isBatching} loadActive=${isProjectLoadActive()}`,
                     );
                 }
+                // §L-10010-TRANSMISSION-SWEEP-COVERS-THE-BATCH — ARM BEFORE THE DEFER.
+                //
+                // ⛔ The early-return below is what left the founder's 2026-08-23 crash
+                // uncovered: geometry added DURING a batch skips this whole pass, so the
+                // `neutralizeTransmissionForWebGPU()` call further down never ran for it,
+                // and BatchCoordinator's post-batch synchronous compile render happened
+                // BEFORE the consolidated post-batch pass. Arming is one boolean write on
+                // the RPM and is deliberately placed ABOVE the defer so that EVERY geometry
+                // add — batched, deferred, loading, or not — guarantees a transmission sweep
+                // at the next frame boundary, wherever that lands. The sweep itself still
+                // costs nothing until a render actually happens.
+                try {
+                    window.renderPipelineManager?.armTransmissionSweep?.(`geomAdd:${evt}`);
+                } catch { /* non-fatal — RPM may not be bound yet during boot */ }
                 // P1.3 + §FIX-LOAD-TRAVERSE-BATCH (P2): skip the per-add scene
                 // traversal during a batchCoordinator batch OR a project load. The
                 // consolidated pass runs once at batch-end (setPostBatchCallback below)

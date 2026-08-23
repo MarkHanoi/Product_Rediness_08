@@ -1130,6 +1130,15 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // while the viewport is zero-size / suspended / paused.
         drainGpuReleaseQueue();
 
+        // ── §L-10010-TRANSMISSION-SWEEP-COVERS-THE-BATCH ─────────────────────
+        // The frame boundary is the last instant that is provably AFTER every
+        // material this frame will compile and BEFORE any of them is compiled. A
+        // sweep armed by a batch boundary (or by the recovery ladder) lands here,
+        // which is what makes the guard cover materials CREATED DURING a batch —
+        // the window the founder's 2026-08-23 crash fell through. One boolean read
+        // when not armed. See {@link armTransmissionSweep}.
+        this._runArmedTransmissionSweep();
+
         // ── §GPU-CASTER-RELEASE-CHOKEPOINT (L-1290) ──────────────────────────
         // The releases above have now actually happened, at the boundary, with
         // submits paused since the tick that enqueued them. Close the derived
@@ -2401,6 +2410,58 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // transmission-glass node graph (the "expected a float" TSL device-loss seed) so the node
         // material rebuilds WITHOUT the transmission node before the next post-batch render.
         if (disabled && reason === 'batch') this._neutralizeTransmissionForWebGPU();
+
+        // §L-10010-TRANSMISSION-SWEEP-COVERS-THE-BATCH — the line above sweeps at the
+        // moment the batch STARTS, which is the moment BEFORE the batch's materials
+        // exist. Arm a sweep that runs at the next `render()` instead: the first render
+        // after a batch is BatchCoordinator's §FIX-POST-GEOMETRY-COMPILE-V2
+        // `rpm.render()`, i.e. exactly the compile that turns a transmission node into
+        // WGSL. See {@link armTransmissionSweep} for the full measurement.
+        this.armTransmissionSweep(`shadowLatch:${reason}:${disabled ? 'on' : 'off'}`);
+    }
+
+    /**
+     * §L-10010-TRANSMISSION-SWEEP-COVERS-THE-BATCH (founder crash, 2026-08-23)
+     * ────────────────────────────────────────────────────────────────────────
+     *
+     * ARMS a transmission sweep for the next `render()`. Cheap: one boolean write.
+     *
+     * ⭐ WHY A LATCH AND NOT ANOTHER CALL SITE. The guard this joins
+     * (`§L-361-WEBGPU-TRANSMISSION-GUARD`) had two live entry points and the founder's
+     * crash fell between them. MEASURED by reading the control flow, 2026-08-23:
+     *
+     *   1. `setShadowPassDisabled('batch', true)` — fires at batch START, from
+     *      `BatchCoordinator._setupBatch`. Any material the batch is ABOUT to create
+     *      does not exist yet, so the sweep can only ever find zero of them. The
+     *      founder's console shows the `§BATCH-SHADOW-MAP-SUPPRESS` line and **no**
+     *      `neutralized N transmission material(s)` line, which is what a sweep over an
+     *      empty set looks like.
+     *   2. `initScene.runTierPbrPass` → `neutralizeTransmissionForWebGPU()` — the
+     *      non-batched geometry-add seam (ADR-0267 §Fix-2). It is **skipped for the
+     *      whole batch** by `shouldDeferPerAddGeometryPass(batchCoordinator.isBatching)`,
+     *      and its consolidated post-batch run happens inside `_onPostBatch()`, which
+     *      `BatchCoordinator.onComplete` invokes **AFTER** the
+     *      §FIX-POST-GEOMETRY-COMPILE-V2 synchronous `rpm.render()`.
+     *
+     * ⛔ So a material created DURING a batch is compiled by a render that sits after
+     * entry 1 and before entry 2. A guard that runs before the thing it guards exists,
+     * and again after that thing has already been compiled, guards nothing. That window
+     * is where `THREE.TSL: Invalid generated code, expected a "float"` printed.
+     *
+     * ⭐ THE LATCH CLOSES THE CLASS, NOT THE GESTURE. It does not matter which code
+     * path created the material, whether it was inside a batch, or which of the several
+     * synchronous-compile renders picks it up: the sweep runs at the LAST INSTANT
+     * BEFORE ANY RENDER, which is the only place that is provably after every material
+     * that render will compile. Adding a third hand-placed call site would have fixed
+     * this gesture and left the next one open.
+     *
+     * ⚠ COST WHEN NOT ARMED: one boolean read per frame. The sweep itself is a scene
+     * traverse, so it must never be run unconditionally per frame — that is why this is
+     * a latch and not a per-frame call.
+     */
+    armTransmissionSweep(reason: string): void {
+        this._transmissionSweepArmed = true;
+        this._transmissionSweepReason = reason;
     }
 
     /**
@@ -2445,14 +2506,41 @@ export class RenderPipelineManager implements IViewSwitchListener {
      * classic `THREE.WebGLRenderer` (backend 'webgl-only'), which has no node graph and keeps full
      * refractive glass.
      */
-    private _neutralizeTransmissionForWebGPU(): void {
+    /** §L-10010 — a transmission sweep is due at the next `render()`. */
+    private _transmissionSweepArmed = false;
+    /** §L-10010 — why the sweep was armed, for the one log line it prints if it finds work. */
+    private _transmissionSweepReason = '';
+
+    /**
+     * §L-10010 — run the armed sweep, if any. Called from `render()` at the frame
+     * boundary, BEFORE any pass is encoded, so a material created since the last frame
+     * is neutralized before the compile that would emit its TSL node.
+     */
+    private _runArmedTransmissionSweep(): void {
+        if (!this._transmissionSweepArmed) return;
+        this._transmissionSweepArmed = false;
+        const reason = this._transmissionSweepReason;
+        this._transmissionSweepReason = '';
+        const n = this._neutralizeTransmissionForWebGPU();
+        if (n > 0) {
+            console.warn(
+                `[RenderPipelineManager] §L-10010-TRANSMISSION-SWEEP-COVERS-THE-BATCH the ` +
+                `pre-render sweep (armed by ${reason}) neutralized ${n} transmission material(s) ` +
+                `that did NOT exist when the batch-start sweep ran. Without this latch those ` +
+                `${n} would have reached the synchronous post-batch compile un-neutralized — ` +
+                `the "expected a float" seed.`,
+            );
+        }
+    }
+
+    private _neutralizeTransmissionForWebGPU(): number {
         try {
             // Fire whenever the renderer node-compiles (native WebGPU OR WebGL2-backed
             // WebGPURenderer). A plain THREE.WebGLRenderer (isWebGPURenderer falsy) has no TSL
             // node graph → skip, keeping refractive glass.
             const rendererNodeCompiles =
                 (this._renderer as { isWebGPURenderer?: boolean } | null)?.isWebGPURenderer === true;
-            if (!rendererNodeCompiles || !this._scene) return;
+            if (!rendererNodeCompiles || !this._scene) return 0;
             const seen = new Set<string>();
             let neutralized = 0;
             this._scene.traverse((obj) => {
@@ -2460,8 +2548,25 @@ export class RenderPipelineManager implements IViewSwitchListener {
                 if (!rawMat) return;
                 const mats = Array.isArray(rawMat) ? rawMat : [rawMat];
                 for (const m of mats) {
-                    if (!(m instanceof THREE.MeshPhysicalMaterial) || seen.has(m.uuid)) continue;
+                    if (!m || seen.has(m.uuid)) continue;
                     seen.add(m.uuid);
+                    // §L-10011-NODE-MATERIAL-IS-NOT-A-PHYSICAL-MATERIAL — this test was
+                    // `m instanceof THREE.MeshPhysicalMaterial`, and in three r183 that is
+                    // NOT the class this guard's own docstring names. MEASURED in
+                    // `three.webgpu.js`: `class MeshPhysicalNodeMaterial extends
+                    // MeshStandardNodeMaterial` → `extends NodeMaterial` → `extends
+                    // Material`. It does NOT extend MeshPhysicalMaterial, so the guard
+                    // written to disarm "the MeshPhysicalNodeMaterial transmission node
+                    // graph" could not see a MeshPhysicalNodeMaterial at all.
+                    //
+                    // ⭐ THE PROPERTY IS THE SUBJECT, NOT THE CLASS. What emits the
+                    // transmission TSL node is a numeric `transmission > 0`, whatever
+                    // class carries it. Keying on the property covers
+                    // MeshPhysicalMaterial (all of today's PRYZM glass —
+                    // `WindowBuilder.ts:321` `transmission: 0.9`), MeshPhysicalNodeMaterial
+                    // (none today, latent), and anything a future importer or the GLB
+                    // round-trip mints. A material with no numeric `transmission` is
+                    // untouched, so this widening cannot reach an ordinary material.
                     const mm = m as unknown as { transmission?: number; opacity?: number; transparent?: boolean; needsUpdate?: boolean };
                     if (typeof mm.transmission === 'number' && mm.transmission > 0) {
                         mm.transmission = 0;
@@ -2481,8 +2586,10 @@ export class RenderPipelineManager implements IViewSwitchListener {
                     `"expected a float" device-loss seed). Classic WebGLRenderer keeps refractive glass.`,
                 );
             }
+            return neutralized;
         } catch (err: unknown) {
             console.warn('[RenderPipelineManager] §L-361-WEBGPU-TRANSMISSION-GUARD failed (non-fatal):', err instanceof Error ? err.message : err);
+            return 0;
         }
     }
 
@@ -4242,6 +4349,40 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // The viewport is being given another chance — drop the stale cause so a
         // LATER, unrelated failure cannot be reported with this one's message.
         this._lastError                    = null;
+
+        // ── §L-10012-RETRY-MUST-CHANGE-SOMETHING ─────────────────────────────
+        //
+        // ⛔ A RETRY THAT REPEATS THE PREVIOUS ATTEMPT BYTE-FOR-BYTE IS LATENCY, NOT
+        // MITIGATION. This method already states that principle for the shadow class
+        // (§RECOVERY-MUST-REFUSE: *"a retry that cannot repair the fault class is a
+        // defect, not a mitigation"*) — and then, for the TSL class, did exactly the
+        // thing it forbids. The founder's 2026-08-23 console is the proof: a
+        // `THREE.TSL: Invalid generated code, expected a "float"` seeded a GPU fault,
+        // the ladder rebuilt the pipeline N times against the SAME material graph, and
+        // every rebuild re-compiled the same invalid node. The user paid N multi-second
+        // rebuilds for an outcome that was determined before the first one started.
+        //
+        // ⭐ SO REMOVE THE SEED BEFORE REBUILDING, and let the count say whether this
+        // attempt differs from the last. Neutralizing transmission is the one repair
+        // that changes what the next compile will emit; it is idempotent, so on the
+        // second pass it reports 0 and the log says plainly that this attempt is
+        // identical to the previous one rather than implying progress.
+        //
+        // ⚠ The bound (MAX_AUTO_RECOVERY_ATTEMPTS) is deliberately NOT changed here.
+        // It is pinned by `RenderPipelineManager.autoRecoveryBound.test.ts` and
+        // `recoveryLoopUnbounded.test.ts` and it is the L-663 spin guard; making the
+        // attempts MEANINGFUL is this change's job, re-tuning how many there are is not.
+        const _txNeutralized = this._neutralizeTransmissionForWebGPU();
+        console.log(
+            `[RenderPipelineManager] §L-10012-RETRY-MUST-CHANGE-SOMETHING pre-rebuild ` +
+            `transmission sweep neutralized ${_txNeutralized} material(s). ` +
+            (_txNeutralized > 0
+                ? 'This attempt therefore differs from the previous one: the TSL transmission ' +
+                  'node that seeded the fault will not be emitted by the next compile.'
+                : 'NOTHING CHANGED — if the fault recurs it will recur identically, and the ' +
+                  'cause is NOT the transmission node graph. Read the original GPU report, ' +
+                  'not this ladder.'),
+        );
 
         // ── §L930-DETACH-BEFORE-FREE (founder L-930) — the ORDER below is the fix ──
         //

@@ -667,6 +667,13 @@ declare global {
                 // generators add glass outside batchCoordinator batches, so the batch-only
                 // neutralizer never fired for them). Real-WebGPU-gated + idempotent; no-op on WebGL.
                 neutralizeTransmissionForWebGPU?: () => void;
+                /**
+                 * §L-10010-TRANSMISSION-SWEEP-COVERS-THE-BATCH — arm a transmission sweep
+                 * for the next `render()`. One boolean write; the sweep runs at the frame
+                 * boundary, which is the only instant provably after every material the
+                 * next compile will touch.
+                 */
+                armTransmissionSweep?: (reason: string) => void;
                 // §PERF-WEBGPU-FRAGMENT / ADR-0076 — TRAA toggle driven by the render
                 // quality tier (Axis 1). Both are async + idempotent + no-op on WebGL.
                 activateTRAA?: () => Promise<void>;
