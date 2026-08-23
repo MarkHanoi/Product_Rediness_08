@@ -387,9 +387,18 @@ export class OpeningElevationSymbolBuilder {
         }
 
         if (refusals.length > 0) {
+            // §ELEV-SHEAR-SURVIVES-THE-PROXY (L-10140) — "opening(s)" was a MISLABEL. Since
+            // §ELEV-SYMBOL-WALL (L-1242) this array also carries WALL refusals (`PROFILED_TOP`,
+            // `DEGENERATE_HOST`, `DEGENERATE_ARC`, pushed at `:329` under a field still named
+            // `openingId`), so a founder grepping his console for a refused WALL found a line
+            // that said no wall had been refused. The verb is unchanged; only the noun is now
+            // true. ⭐ And the second clause is the part that matters: a refusal here is not a
+            // hole in the drawing — the element KEEPS its projected linework, which is why
+            // `coveredElementIds` is only ever added to on a successful emit.
             console.warn(
-                `[OpeningElevationSymbolBuilder] ${refusals.length} opening(s) REFUSED in view `
-                + `${viewDef.id}: ` + refusals.map(r => `${r.openingId} (${r.code}) — ${r.reason}`).join(' · '),
+                `[OpeningElevationSymbolBuilder] ${refusals.length} element(s) (openings and/or `
+                + `walls) REFUSED a symbol in view ${viewDef.id} — each KEEPS its projected `
+                + `linework: ` + refusals.map(r => `${r.openingId} (${r.code}) — ${r.reason}`).join(' · '),
             );
         }
         if (injected > 0) {

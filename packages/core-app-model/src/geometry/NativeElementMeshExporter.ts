@@ -82,6 +82,32 @@ function _hostIdOf(root: THREE.Object3D): string | undefined {
 }
 
 /**
+ * §ELEV-SHEAR-SURVIVES-THE-PROXY (L-10140) — SEAT A PROXY AT A WORLD MATRIX, WHOLE.
+ *
+ * ⭐ **THE ONE LINE THIS WHOLE FIX IS.** `matrixAutoUpdate = false` is what makes it stick:
+ * without it the very next `updateMatrixWorld` on the wrapper recomposes `matrix` from the
+ * proxy's (untouched, identity) position/quaternion/scale and the assignment is silently undone.
+ * `Object3D.updateWorldMatrix(true, false)` — which `EdgeProjectorService.ts:2861` calls
+ * immediately before `EdgesGeometry(...).applyMatrix4(mesh.matrixWorld)` — skips `updateMatrix()`
+ * exactly when this flag is off, and composes `parent.matrixWorld × this.matrix` instead. The
+ * wrapper Group is never transformed, so `matrixWorld` comes out equal to the source's.
+ *
+ * ⛔ **DO NOT "TIDY" THIS BACK INTO A `decompose`.** `WallFragmentBuilder._applyRakeShearToChildren`
+ * puts a rake into the child's `matrix` as a SHEAR, and `Matrix4.decompose` cannot carry one —
+ * it reads scale off column LENGTHS and a quaternion off a basis the shear made non-orthogonal.
+ * Measured cost of the old form on the founder's wall: **0.413 m** of corner displacement, on the
+ * sheet, in a contract document. `NativeElementMeshExporter.rakedShear.probe.test.ts` pins it.
+ *
+ * `position` / `quaternion` / `scale` are deliberately left at their defaults and are MEANINGLESS
+ * on a proxy — every consumer reads `matrixWorld` (measured across `EdgeProjectorService`).
+ */
+function _seatProxy(proxy: THREE.Mesh, elements: ArrayLike<number>): void {
+    proxy.matrix.fromArray(elements as number[]);
+    proxy.matrixAutoUpdate = false;
+    proxy.matrixWorldNeedsUpdate = true;
+}
+
+/**
  * §F.1 — Options for `releaseGroups()`.
  *
  * `disposeProxies`: when `true`, call `.dispose()` on every proxy mesh geometry
@@ -104,14 +130,23 @@ export interface NMEExportOptions {
  * Do NOT call geometry.dispose() on eviction — the source InstancedMesh or Mesh
  * in the scene owns the GPU resource lifetime.
  *
- * Position/quaternion/scale are stored as primitive components (not THREE.* objects)
- * to avoid per-entry allocations when reading from cache.
+ * The world transform is stored as the SIXTEEN MATRIX ELEMENTS (not THREE.* objects) to avoid
+ * per-entry allocations when reading from cache.
+ *
+ * ⛔ §ELEV-SHEAR-SURVIVES-THE-PROXY (L-10140) — IT USED TO BE `px…sz`, A DECOMPOSED T·R·S, AND
+ * THAT IS THE DEFECT THIS FIELD REPLACES. A rake is applied by
+ * `WallFragmentBuilder._applyRakeShearToChildren` as a SHEAR premultiplied onto the child's
+ * `matrix`; `THREE.Matrix4.decompose` reads scale off the column lengths and a quaternion off a
+ * basis that a shear has made NON-ORTHOGONAL, so the recomposed T·R·S is a DIFFERENT SOLID. The
+ * founder's raked+profiled wall reached `EdgeProjectorService` displaced by **0.413 m** and drew
+ * as a quadrilateral floating clear of its own building. `WallFragmentBuilder.ts:1385` states the
+ * identical reason for excluding raked walls from GPU instancing — *"a shear is not expressible
+ * in TRS"* — and only one of the two T·R·S bottlenecks was acted on. Sixteen numbers cost four
+ * more per proxy and cannot lose an affine term.
  */
 interface NMEProxyDescriptor {
-    // World-space transform decomposed from groupWorldMatrix × instanceMatrix
-    px: number; py: number; pz: number;
-    qx: number; qy: number; qz: number; qw: number;
-    sx: number; sy: number; sz: number;
+    /** World matrix, column-major, exactly as `Matrix4.elements` — NEVER a decomposition. */
+    m: readonly number[];
     // Shared references — do NOT dispose on cache eviction
     geometry: THREE.BufferGeometry;
     material: THREE.Material | THREE.Material[];
@@ -506,9 +541,12 @@ export class NativeElementMeshExporter {
                 const wrapper = new THREE.Group();
                 for (const d of cached.descriptors) {
                     const proxy = new THREE.Mesh(d.geometry, d.material);
-                    proxy.position.set(d.px, d.py, d.pz);
-                    proxy.quaternion.set(d.qx, d.qy, d.qz, d.qw);
-                    proxy.scale.set(d.sx, d.sy, d.sz);
+                    // §ELEV-SHEAR-SURVIVES-THE-PROXY (L-10140) — the SAME assignment the miss
+                    // path makes. Pinned by the probe's cache test: a descriptor that could only
+                    // hold T·R·S would have restored the bug on every cache HIT even with the
+                    // miss path fixed, and an elevation re-opens from cache far more often than
+                    // it is built.
+                    _seatProxy(proxy, d.m);
                     proxy.userData = d.userData;
                     proxy.updateMatrixWorld(true);
                     wrapper.add(proxy);
@@ -611,7 +649,12 @@ export class NativeElementMeshExporter {
                             instanced.geometry.userData.sharedGeometry = true;
                         }
                         const proxy = new THREE.Mesh(instanced.geometry, instanced.material as THREE.Material | THREE.Material[]);
-                        worldMatrix.decompose(proxy.position, proxy.quaternion, proxy.scale);
+                        // §ELEV-SHEAR-SURVIVES-THE-PROXY (L-10140) — `worldMatrix` is
+                        // `groupWorldMatrix × instanceMatrix`. An instance matrix is T·R·S by
+                        // construction, but the GROUP's world matrix need not be — a curtain
+                        // wall on a raked host inherits the host's shear — so this arm is seated
+                        // the same way as the plain-mesh arm rather than being argued safe.
+                        _seatProxy(proxy, worldMatrix.elements);
                         proxy.userData = {
                             ...root.userData,
                             ...instanced.userData,
@@ -624,10 +667,7 @@ export class NativeElementMeshExporter {
 
                         // §H.2 — Collect descriptor for this proxy (cache miss path).
                         descriptors.push({
-                            px: proxy.position.x, py: proxy.position.y, pz: proxy.position.z,
-                            qx: proxy.quaternion.x, qy: proxy.quaternion.y,
-                            qz: proxy.quaternion.z, qw: proxy.quaternion.w,
-                            sx: proxy.scale.x, sy: proxy.scale.y, sz: proxy.scale.z,
+                            m: proxy.matrix.elements.slice(),
                             geometry: proxy.geometry,
                             material: proxy.material,
                             userData: proxy.userData,
@@ -655,7 +695,12 @@ export class NativeElementMeshExporter {
                     }
                     const proxy = new THREE.Mesh(source.geometry, source.material);
                     source.updateWorldMatrix(true, false);
-                    source.matrixWorld.decompose(proxy.position, proxy.quaternion, proxy.scale);
+                    // §ELEV-SHEAR-SURVIVES-THE-PROXY (L-10140) — THE FOUNDER'S RAKED, PROFILED
+                    // WALL COMES THROUGH HERE, and this line used to be a `decompose`. Every
+                    // consumer of a proxy reads `mesh.matrixWorld` and nothing else (measured:
+                    // `EdgeProjectorService` lines 1418, 1553, 1677, 2906, 3667), so seating the
+                    // world matrix WHOLE is strictly more faithful and costs one copy.
+                    _seatProxy(proxy, source.matrixWorld.elements);
                     proxy.userData = {
                         ...root.userData,
                         ...source.userData,
@@ -667,10 +712,7 @@ export class NativeElementMeshExporter {
 
                     // §H.2 — Collect descriptor for this proxy (cache miss path).
                     descriptors.push({
-                        px: proxy.position.x, py: proxy.position.y, pz: proxy.position.z,
-                        qx: proxy.quaternion.x, qy: proxy.quaternion.y,
-                        qz: proxy.quaternion.z, qw: proxy.quaternion.w,
-                        sx: proxy.scale.x, sy: proxy.scale.y, sz: proxy.scale.z,
+                        m: proxy.matrix.elements.slice(),
                         geometry: proxy.geometry,
                         material: proxy.material,
                         userData: proxy.userData,

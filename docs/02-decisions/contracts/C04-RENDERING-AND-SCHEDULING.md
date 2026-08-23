@@ -1803,3 +1803,114 @@ per-element** — elements differ in extent, and a shared box would size every h
   by raycast; `gpu-pick.ts` builds its pick scene from **visible** meshes and drops an element that
   has none, so hiding a merged source makes the element **unclickable**. A merged-away marker in
   `packages/picking` is a prerequisite for any merge batcher.
+
+---
+
+## §PROJECTION-FIDELITY — the 2-D feed MUST carry the SOLID, and `T·R·S` cannot (NORMATIVE, added 2026-08-24, lane ELEV14, L-10140..L-10142)
+
+Founder, 2026-08-23: *"check why a raked wall with edited profile would not render well in
+elevation?"* Split view — 3-D left, West Elevation right. The 3-D drew the wall correctly raked
+with its authored profile; the elevation drew a quadrilateral floating clear of the building
+outline. **The model was right and the projection of it was wrong**, which narrows the question to
+the feed.
+
+### §PF.1 — RULE: the native 2-D feed MUST carry each mesh's world matrix WHOLE, never a decomposition
+
+`NativeElementMeshExporter.exportForView()` is the **single** producer of native geometry for every
+2-D view — plan (`initScene.ts:1345`/`:1399`), section and elevation
+(`ViewController.ts:675`/`:2280`). It builds one lightweight proxy `Mesh` per source mesh, sharing
+the source geometry by reference, and it used to seat that proxy with:
+
+```ts
+source.matrixWorld.decompose(proxy.position, proxy.quaternion, proxy.scale);
+```
+
+⛔ **`Matrix4.decompose` cannot carry a shear.** It takes scale from the column *lengths* and then
+reads a quaternion off the normalised basis — which a shear has made **non-orthogonal**. The
+recomposed `T·R·S` is a *different solid*, and `EdgeProjectorService` then draws it faithfully
+(`EdgesGeometry(mesh.geometry).applyMatrix4(mesh.matrixWorld)`, `:2892`/`:2906`).
+
+⭐ **A rake IS a shear, and it lives in the matrix.**
+`WallFragmentBuilder._applyRakeShearToChildren` (`:3302`) premultiplies a genuine shear onto each
+child's `matrix` and sets `matrixAutoUpdate = false`. **The same file already states this exact
+impossibility as its reason for excluding raked walls from GPU instancing** (`:1385` — *"GPU
+instancing decomposes a world matrix into T·R·S and a shear is not expressible in TRS"*). **Two
+`T·R·S` bottlenecks, one argument, and only one of them was acted on.**
+
+**NORMATIVE.** Any stage that re-seats geometry for projection MUST copy the 16 matrix elements
+(`_seatProxy` — `matrix.fromArray` + `matrixAutoUpdate = false`) and MUST NOT decompose. The §H.2
+descriptor cache MUST likewise persist the 16 elements; a `T·R·S` descriptor re-introduces the
+defect on every cache HIT even with the producer fixed.
+
+### §PF.2 — the measurement, and what the CONTROLS establish
+
+`NativeElementMeshExporter.rakedShear.probe.test.ts` — worst corner error between the model and
+what the projector is fed, driven through the real exporter:
+
+| case | before | after |
+|---|---|---|
+| plain wall (CONTROL) | 0 | 0 |
+| profile-edited ONLY (CONTROL) | 0 | 0 |
+| raked only | **0.413 m** | 0 |
+| raked + profile — the founder's wall | **0.413 m** | 0 |
+| raked + profile, oblique 20° (on the sheet) | **0.433 m** | 0 |
+| raked + profile + an opening (on the sheet) | **0.413 m** | 0 |
+| **SECTION**, same wall | **0.438 m** | 0 |
+| **PLAN**, same wall | **0.438 m** | 0 |
+| cache HIT vs the MISS that filled it | **0.027 m** | 0 |
+
+⭐ **The two controls are what separate a FEEDING defect from a PROJECTION defect.** The feed is
+exact for a plain wall and exact for a profile-edited one — **a profile is baked into the GEOMETRY,
+and geometry is passed by reference, so it was never at risk.** The feed is wrong **only where a
+shear exists**. The projector was handed a solid that is not the wall and drew it correctly.
+
+⭐ **It was never only the elevation.** Section and plan take the same feed and were wrong by
+0.438 m on the same wall. The founder reported the view he had open. **A defect at a shared feed
+MUST be re-measured at every consumer of that feed before it is called scoped.**
+
+⚠ The last row is a second finding: the cache re-decomposed an already-recomposed matrix, so one
+element drifted a further **27 mm** between the pass that built it and every pass served from
+cache — *a drawing that changed when you re-opened it.*
+
+### §PF.3 — RULE: a symbol that refuses MUST leave the TRUE linework behind it, and that linework MUST be true
+
+`WallElevationSymbol` draws a flat top, so it **refuses** a profiled wall (`PROFILED_TOP`,
+`WallElevationSymbol.ts:216`) and the wall keeps its projected mesh linework — `coveredElementIds`
+is added to **only on a successful emit**, so suppression can never outrun emission. That design is
+correct and is retained.
+
+⛔ **But a refusal's fallback is only as good as the path it falls back TO.** The founder's wall hit
+exactly this branch: the symbol correctly stood aside, and the raw linework it stood aside for was
+the 0.413 m-displaced proxy. **A refusal cannot be assessed without measuring its alternative.**
+The alternative is now measured, and is exact.
+
+**NORMATIVE.** A refusal diagnostic MUST name the FAMILY it refused. The
+`[OpeningElevationSymbolBuilder]` warning said *"N opening(s) REFUSED"* while the array had carried
+**wall** refusals since §ELEV-SYMBOL-WALL (L-1242), under a field still named `openingId` — so a
+console search for a refused wall found a line stating none had been. It now says
+*"N element(s) (openings and/or walls) REFUSED a symbol … each KEEPS its projected linework"*. The
+per-view `[ELEV-DIAG]` line already reported `wallSymbolsREFUSED=N (these KEEP their linework)` and
+is unchanged.
+
+### §PF.4 — NOT MEASURED / open (read before quoting this section)
+
+- ⛔ **No figure here was taken in a browser.** Every number is a headless corner-distance through
+  the real exporter. The founder's screenshot is consistent with them and is **not** evidence that
+  0.413 m is the whole of what he saw.
+- ⛔ **`GLBExporter.ts:102` decomposes the same way** (`clone.matrix.decompose(...)`) and is
+  **NOT** fixed here — `packages/file-format` was outside this lane's ownership. If a raked wall
+  survives to GLB/IFC export with its shear in the matrix, it exports as the wrong solid, by the
+  same mechanism. **Unmeasured; logged, not claimed.**
+- ⚠ **Not every raked wall carries its rake in the matrix.** A plain, unopened raked wall is sheared
+  on the **geometry** (`WallFragmentBuilder.ts:4708`) and was never affected; the founder's case
+  reaches the matrix shear via the PROFILE arm (`:2278`→`:2353`). **That asymmetry is why
+  "raked-only looked acceptable" and "raked + profile did not" — the two take different paths.**
+- ⚠ **The instanced hit-proxy box is projected.** An instanced wall's only scene mesh is
+  `BoxGeometry(len, height, thickness)` tagged `role: 'hit-proxy'`, and `EdgeProjectorService`
+  contains no clause excluding it — so an instanced wall's plan/elevation is drawn from the proxy
+  box. For a plain wall that box is a faithful drawing; **raked and profiled walls never instance**
+  (`isSimpleWall`, `WallFragmentBuilder.ts:1438`), so this does not touch them. Recorded because it
+  is the shape of the defect this section is about, one arm over.
+- ⛔ **A raked wall's PLAN is deliberately its un-sheared BASE footprint** (ADR-0310 §2.3,
+  `WallRake.ts:212`). That decision is downstream of the feed and is unchanged; what §PF.2 pins is
+  that the feed no longer moves the base outline before that decision is taken.
