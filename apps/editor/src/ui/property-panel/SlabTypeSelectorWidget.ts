@@ -22,6 +22,52 @@
 // picker would have contradicted the slab the user was about to get.
 import { materialHexById } from '@pryzm/core-app-model/material-library';
 
+/**
+ * §FIX-TYPE-CREATED-THEN-NOTHING (L-10068) — lane LAYERMAT10, 2026-08-23.
+ *
+ * Founder: *"new type creation doesn't work"*. His console, twice, and nothing after
+ * it but unrelated topology rebuilds:
+ *   [SlabTypeSelectorWidget] Created new type: Custom Slab Type st-1787522180714
+ *   [SlabTypeSelectorWidget] Created new type: zfh st-1787522228499
+ *
+ * ⭐ MEASURED, and the two candidate halves are NOT both broken — which matters,
+ * because they have different fixes and the log alone cannot tell them apart:
+ *
+ *   · APPLY / DISPATCH — **NOT BROKEN.** `onApply` -> `element.changeType` ->
+ *     `UpdateSlabLayersCommand` on the LEGACY store is intact and exercised.
+ *   · UI REFRESH — **THIS WAS THE WHOLE DEFECT.** The option list is built ONCE
+ *     from `typeStore.getAll()` when the widget is constructed, and `_handleNewType`
+ *     / `_handleDuplicate` wrote to the store and returned `void` with nothing
+ *     listening. The type existed and was UNSELECTABLE.
+ *
+ * So no `UPDATE_SLAB_TYPE` appeared in his console for the exact reason that he
+ * could never reach the Apply button: you cannot apply what is not in the list. One
+ * broken half, and it made the other half look broken too.
+ *
+ * ⛔ AND THE CODE SAID SO OUT LOUD. Both handlers ended with
+ * `alert('... Re-select the slab to see it in the list.')` — a workaround shipped
+ * in place of a fix, telling the user to work around a dropdown that could not
+ * refresh itself. `WallTypeSelectorWidget` fixed exactly this for walls and its own
+ * comment records the reasoning verbatim: *"The dropdown updates ITSELF ... A created
+ * type is now immediately selectable, and selected."* This is that fix, for the
+ * three families that never got it. The alert is REMOVED because it is now false.
+ *
+ * ⛔ CREATING A TYPE STILL DOES NOT APPLY IT. The new type is inserted and SELECTED;
+ * committing it to this slab stays an explicit Apply. That is the wall widget's
+ * rule and it is the same discipline as §FIX-LEVEL-MOVE-NEEDS-A-GESTURE (L-10060)
+ * one file over: a model mutation needs a gesture, never a side effect of another one.
+ *
+ * ⚠ NAMED, NOT FIXED HERE — P6. This widget still calls `typeStore.add()` DIRECTLY
+ * from the UI: no command, therefore no undo, no sync disposition and no RAC
+ * reachability. The compliant route is `bus.executeCommand('elementType.create')`,
+ * which walls use — but measured 2026-08-23, `elementTypeAuthoringAdapters.ts`
+ * declares `family: 'wall'` and NOTHING ELSE, and `ElementTypeAuthoringRegistry`
+ * declares only wall / door / window. There is no slab adapter to dispatch to.
+ * Moving this family onto the command needs a store adapter, a registry declaration
+ * and a bus-handler branch (the registry's own steps 1-4) — a real piece of work,
+ * out of this report's scope, recorded here rather than left as an absence.
+ */
+
 export interface SlabTypeApplyPayload {
     systemTypeId: string | null;
     layers: any[] | null;
@@ -148,16 +194,40 @@ export function buildSlabTypeSelectorWidget(
     applyBtn.onmouseenter = () => { applyBtn.style.background = 'rgba(255,255,255,0.35)'; };
     applyBtn.onmouseleave = () => { applyBtn.style.background = 'rgba(255,255,255,0.2)'; };
 
+    // §FIX-TYPE-CREATED-THEN-NOTHING (L-10068) — the dropdown updates ITSELF.
+    const status = document.createElement('div');
+    status.className = 'ets-status';
+    status.style.cssText = 'font-size:10px;line-height:1.4;margin-top:4px;color:rgba(255,255,255,0.85);display:none;';
+
+    function _adoptCreatedType(t: any): void {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = `${t.name}  (${Math.round(t.totalThickness * 1000)}mm)`;
+        opt.style.cssText = 'background:#1e3a5f;color:#fff;';
+        // Before the separator when there is one, otherwise before the two action
+        // rows — so a created type never lands underneath "New Type...".
+        const anchor = sel.querySelector('option[disabled]')
+            ?? sel.querySelector('option[value="__duplicate__"]');
+        if (anchor) sel.insertBefore(opt, anchor); else sel.appendChild(opt);
+        sel.value = t.id;
+        refreshStrip();
+        // C16 CA-21 — say what the route DID and what is still owed. Creating a type
+        // deliberately does not retype this slab; the user is told the remaining
+        // gesture instead of being left to wonder whether anything happened.
+        status.style.display = 'block';
+        status.textContent = `Type "${t.name}" created and selected — press Apply to use it on this slab.`;
+    }
+
     sel.addEventListener('change', () => {
         const v = sel.value;
         if (v === '__duplicate__') {
             sel.value = elementData.systemTypeId ?? '';
-            _handleDuplicate(elementData, typeStore, allTypes);
+            _handleDuplicate(elementData, typeStore, allTypes, _adoptCreatedType);
             return;
         }
         if (v === '__new__') {
             sel.value = elementData.systemTypeId ?? '';
-            _handleNewType(typeStore);
+            _handleNewType(typeStore, _adoptCreatedType);
             return;
         }
         refreshStrip();
@@ -193,13 +263,15 @@ export function buildSlabTypeSelectorWidget(
     row.appendChild(strip);
     row.appendChild(applyBtn);
     outer.appendChild(row);
+    outer.appendChild(status);
     return outer;
 }
 
 function _handleDuplicate(
     elementData: Record<string, any>,
     typeStore: any,
-    allTypes: any[]
+    allTypes: any[],
+    onCreated: (t: any) => void,
 ): void {
     const currentId = elementData.systemTypeId;
     const source = currentId ? typeStore?.getById?.(currentId) : null;
@@ -228,10 +300,16 @@ function _handleDuplicate(
     });
 
     console.log('[SlabTypeSelectorWidget] Duplicated type:', newName.trim(), newId);
-    alert(`Slab type "${newName.trim()}" created. Re-select the slab to see it in the list.`);
+    // §FIX-TYPE-CREATED-THEN-NOTHING (L-10068) — READ THE RECORD BACK from the
+    // store rather than handing the caller the literal we just built: the store is
+    // the authority on what was actually stored, and a widget that re-renders from
+    // its own input cannot notice a rejected or normalised write.
+    const dup = typeStore?.getById?.(newId);
+    if (dup) onCreated(dup);
+    else console.warn('[SlabTypeSelectorWidget] Type created but not found in catalogue:', newId);
 }
 
-function _handleNewType(typeStore: any): void {
+function _handleNewType(typeStore: any, onCreated: (t: any) => void): void {
     const newName = prompt('New slab type name:', 'Custom Slab Type');
     if (!newName?.trim()) return;
 
@@ -258,5 +336,8 @@ function _handleNewType(typeStore: any): void {
     });
 
     console.log('[SlabTypeSelectorWidget] Created new type:', newName.trim(), newId);
-    alert(`Slab type "${newName.trim()}" created. Re-select the slab to see it in the list.`);
+    // §FIX-TYPE-CREATED-THEN-NOTHING (L-10068) — see _handleDuplicate.
+    const created = typeStore?.getById?.(newId);
+    if (created) onCreated(created);
+    else console.warn('[SlabTypeSelectorWidget] Type created but not found in catalogue:', newId);
 }
