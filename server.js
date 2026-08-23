@@ -3651,74 +3651,6 @@ app.post('/api/projects/:id/versions', authMiddleware, async (req, res) => {
         });
     }
 
-    // == SS-GUARD-EMPTY-SNAPSHOT (L-10040) =====================================
-    // Layer 3 of the wipe defence. Refuse to append an EMPTY snapshot on top of a
-    // project whose latest stored version has elements, unless the caller sends
-    // "force": true. Ported from the Pascal editor audit, section 3.5.
-    //
-    // WHY IT MATTERS HERE even though this table is append-only: every open
-    // restores the LATEST version, so an empty latest is a wipe from the seat of
-    // whoever opens it next, on every device. On the in-memory fallback path it is
-    // worse than that: that path keeps only the last 20 rows, so twenty empty
-    // autosaves EVICT the real history outright.
-    //
-    // THE COUNT IS DERIVED FROM THE SNAPSHOT, NEVER from body.elementCount, which
-    // is client supplied and defaults to 0 in the destructuring above. Keying the
-    // refusal on that field would reject a correct client that simply omitted it.
-    //
-    // COST: countSnapshotElements reads at most 20 array lengths off an object
-    // that is already parsed. The stored-side read only runs when the incoming
-    // count is ZERO, so a normal save pays nothing at all.
-    const _incomingElements = countSnapshotElements(snapshot);
-    if (_incomingElements === 0) {
-        let _storedElements = null;
-        try {
-            const _guardSb = await getSupabaseClient();
-            if (_guardSb) {
-                const { data: _lastVersionRow } = await _guardSb
-                    .from('project_versions')
-                    .select('element_count')
-                    .eq('project_id', id)
-                    .order('created_at', { ascending: false })
-                    .limit(1)
-                    .maybeSingle();
-                _storedElements = _lastVersionRow
-                    ? parseInt(_lastVersionRow.element_count ?? 0, 10)
-                    : null;
-            } else if (getPgPool()) {
-                _storedElements = await pgProjectStore.getLatestVersionElementCount(id);
-            } else {
-                const _memVersions = _versions.get(id) ?? [];
-                const _memLatest = _memVersions[_memVersions.length - 1];
-                _storedElements = _memLatest ? (_memLatest.elementCount ?? null) : null;
-            }
-        } catch (guardReadErr) {
-            // FAIL OPEN, deliberately. If we cannot read the stored baseline we do
-            // not know whether anything would be destroyed, and a refusal we cannot
-            // justify is worse than the hole it closes.
-            console.warn(
-                '[versions] empty-snapshot guard could not read the stored baseline for '
-                + id + '; allowing the write:',
-                guardReadErr?.message,
-            );
-            _storedElements = null;
-        }
-        const _emptyVerdict = decideSnapshotWrite({
-            incomingElementCount: _incomingElements,
-            storedElementCount: _storedElements,
-            force: req.body?.force === true,
-        });
-        if (!_emptyVerdict.accept) {
-            console.warn(
-                '[versions] ' + _emptyVerdict.reason
-                + ' projectId=' + id
-                + ' userId=' + (req.auth?.userId ?? 'anonymous')
-                + ' label=' + String(label).slice(0, 60),
-            );
-            return res.status(409).json(emptySnapshotRejectionBody(_emptyVerdict));
-        }
-    }
-
     // == SS-SCAN-SNAPSHOT-URLS (L-10042) -- REPORT ONLY, REJECTS NOTHING =======
     // The Zod schema above is passthrough at every level and strictly types one
     // array, so no string VALUE in this payload has ever been looked at. Snapshots
@@ -3811,6 +3743,80 @@ app.post('/api/projects/:id/versions', authMiddleware, async (req, res) => {
                     version: { id: existingInMem.id, projectId: id, label: existingInMem.label, timestamp: existingInMem.timestamp, elementCount: existingInMem.elementCount },
                     deduplicated: true,
                 });
+            }
+        }
+
+        // ⚠ ORDER IS LOAD-BEARING: this sits AFTER the three idempotency checks.
+        // IDEMPOTENCY ("have I already stored this exact version?") must be answered
+        // BEFORE POLICY ("should I store it?"). With the guard above them, a client
+        // retrying a version the server had ALREADY committed — a 201 lost to a
+        // dropped connection — would collect a 409 for work that is on the server,
+        // and its queue would surface a refusal about data that is not missing.
+        // == SS-GUARD-EMPTY-SNAPSHOT (L-10040) =====================================
+        // Layer 3 of the wipe defence. Refuse to append an EMPTY snapshot on top of a
+        // project whose latest stored version has elements, unless the caller sends
+        // "force": true. Ported from the Pascal editor audit, section 3.5.
+        //
+        // WHY IT MATTERS HERE even though this table is append-only: every open
+        // restores the LATEST version, so an empty latest is a wipe from the seat of
+        // whoever opens it next, on every device. On the in-memory fallback path it is
+        // worse than that: that path keeps only the last 20 rows, so twenty empty
+        // autosaves EVICT the real history outright.
+        //
+        // THE COUNT IS DERIVED FROM THE SNAPSHOT, NEVER from body.elementCount, which
+        // is client supplied and defaults to 0 in the destructuring above. Keying the
+        // refusal on that field would reject a correct client that simply omitted it.
+        //
+        // COST: countSnapshotElements reads at most 20 array lengths off an object
+        // that is already parsed. The stored-side read only runs when the incoming
+        // count is ZERO, so a normal save pays nothing at all.
+        const _incomingElements = countSnapshotElements(snapshot);
+        if (_incomingElements === 0) {
+            let _storedElements = null;
+            try {
+                const _guardSb = supabase;
+                if (_guardSb) {
+                    const { data: _lastVersionRow } = await _guardSb
+                        .from('project_versions')
+                        .select('element_count')
+                        .eq('project_id', id)
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+                    _storedElements = _lastVersionRow
+                        ? parseInt(_lastVersionRow.element_count ?? 0, 10)
+                        : null;
+                } else if (getPgPool()) {
+                    _storedElements = await pgProjectStore.getLatestVersionElementCount(id);
+                } else {
+                    const _memVersions = _versions.get(id) ?? [];
+                    const _memLatest = _memVersions[_memVersions.length - 1];
+                    _storedElements = _memLatest ? (_memLatest.elementCount ?? null) : null;
+                }
+            } catch (guardReadErr) {
+                // FAIL OPEN, deliberately. If we cannot read the stored baseline we do
+                // not know whether anything would be destroyed, and a refusal we cannot
+                // justify is worse than the hole it closes.
+                console.warn(
+                    '[versions] empty-snapshot guard could not read the stored baseline for '
+                    + id + '; allowing the write:',
+                    guardReadErr?.message,
+                );
+                _storedElements = null;
+            }
+            const _emptyVerdict = decideSnapshotWrite({
+                incomingElementCount: _incomingElements,
+                storedElementCount: _storedElements,
+                force: req.body?.force === true,
+            });
+            if (!_emptyVerdict.accept) {
+                console.warn(
+                    '[versions] ' + _emptyVerdict.reason
+                    + ' projectId=' + id
+                    + ' userId=' + (req.auth?.userId ?? 'anonymous')
+                    + ' label=' + String(label).slice(0, 60),
+                );
+                return res.status(409).json(emptySnapshotRejectionBody(_emptyVerdict));
             }
         }
 

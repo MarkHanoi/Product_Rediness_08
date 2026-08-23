@@ -179,6 +179,20 @@ describe('§GUARD-EMPTY-SNAPSHOT — the route actually wires it (a module nothi
         expect(route).toContain('res.status(409).json(emptySnapshotRejectionBody(');
     });
 
+    it('⚠ IDEMPOTENCY BEFORE POLICY — the guard runs AFTER the idempotency checks', () => {
+        // A client retrying a version the server had ALREADY committed (a 201 lost to
+        // a dropped connection) must get the idempotent 200, not a 409 about work
+        // that is sitting on the server. "Have I already stored this?" is answered
+        // before "should I store this?".
+        const routeStart = serverJs.indexOf("app.post('/api/projects/:id/versions'");
+        const routeEnd = serverJs.indexOf("app.get('/api/projects/:id/command-log'", routeStart);
+        const route = serverJs.slice(routeStart, routeEnd);
+        const lastIdempotency = route.lastIndexOf('Idempotency hit (in-memory)');
+        const guardAt = route.indexOf('decideSnapshotWrite(');
+        expect(lastIdempotency).toBeGreaterThan(-1);
+        expect(guardAt).toBeGreaterThan(lastIdempotency);
+    });
+
     it('⭐ the stored-side read is INSIDE the bare-snapshot branch, so a normal save pays nothing', () => {
         const routeStart = serverJs.indexOf("app.post('/api/projects/:id/versions'");
         const routeEnd = serverJs.indexOf("app.get('/api/projects/:id/command-log'", routeStart);
