@@ -3741,8 +3741,34 @@ export function parseWallTypeIntent(
   text: string,
   ctx?: ResolverContext,
 ): Extract<SemanticIntent, { intent: 'set-wall-type' }> | null {
-  const lifted = parseFilterClauses(text, 'wall', ctx?.resolveWallSystemType);
-  const m = WALL_TYPE_RE.exec(lifted.stripped);
+  const catalogue = ctx?.resolveWallSystemType;
+  // ⭐⭐ §FIX-SELF-REFERENTIAL-TYPE-NAME (L-10100) — the wall twin of the guard
+  // in `makeHostedTypeParser`, and NOT a precaution: measured 2026-08-23,
+  // "make all walls Custom Wall Type" produced typeRef **"type"** here, on the
+  // very grammar whose refusal copy is the founding incident's. See
+  // `FilterScope.liftTypeFilter`'s header for the mechanism. Reading the
+  // sentence exactly as typed wins whenever the project's own catalogue claims
+  // the tail; everything else falls through to the filter-lifted path below,
+  // byte-identical to before.
+  const raw = wallTypeShape(text);
+  if (raw !== null && catalogue !== undefined && catalogue(raw.typeRef) !== null) {
+    return { intent: 'set-wall-type', typeRef: raw.typeRef, scope: raw.base };
+  }
+  const lifted = parseFilterClauses(text, 'wall', catalogue);
+  const hit = lifted.stripped === text ? raw : wallTypeShape(lifted.stripped);
+  if (hit === null) return null;
+  return {
+    intent: 'set-wall-type',
+    typeRef: hit.typeRef,
+    scope: withFilters(hit.base, lifted.filters),
+  };
+}
+
+/** The wall-type GRAMMAR half, run against ONE spelling of the sentence — see
+ *  `parseWallTypeIntent` for why the raw and the filter-lifted spellings are
+ *  both offered to it, and `makeHostedTypeParser.runShape` for its twin. */
+function wallTypeShape(text: string): { typeRef: string; base: 'all' | 'selection' } | null {
+  const m = WALL_TYPE_RE.exec(text);
   if (!m) return null;
   const scopeWord = m[1]!;
   const typeRef = m[2]!.trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
@@ -3779,12 +3805,8 @@ export function parseWallTypeIntent(
   // being judged is the CANDIDATE TYPE NAME, not the whole sentence.
   if (OTHER_CAPABILITY_WORD.test(typeRef)) return null;
   return {
-    intent: 'set-wall-type',
     typeRef,
-    scope: withFilters(
-      new RegExp(`^${WALL_SCOPE_ALL}$`).test(scopeWord) ? 'all' : 'selection',
-      lifted.filters,
-    ),
+    base: new RegExp(`^${WALL_SCOPE_ALL}$`).test(scopeWord) ? 'all' : 'selection',
   };
 }
 
@@ -4120,10 +4142,15 @@ function makeHostedTypeParser(
   const singularRe = new RegExp(
     `^(?:change|set|swap) (?:the )?(?:${nouns})(?:'s)? type (?:to|into|as) (?:a |an |the )?(.+)$`,
   );
-  return (text, ctx) => {
-    const lifted = parseFilterClauses(text, noun, ctx === undefined ? undefined : catalogueOf(ctx));
-    const scoped = scopedRe.exec(lifted.stripped);
-    const singular = scoped === null ? singularRe.exec(lifted.stripped) : null;
+  /** The GRAMMAR half, run against ONE spelling of the sentence. Filters are
+   *  the caller's business — this reads shape and nothing else, so the raw and
+   *  the filter-lifted spellings cannot be understood differently. */
+  const runShape = (
+    source: string,
+    catalogue: ((ref: string) => { id: string; name: string } | null) | undefined,
+  ): { typeRef: string; base: IntentScope } | null => {
+    const scoped = scopedRe.exec(source);
+    const singular = scoped === null ? singularRe.exec(source) : null;
     if (scoped === null && singular === null) return null;
     const typeRef = (scoped?.[4] ?? singular![1]!).trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
     if (typeRef.length === 0) return null;
@@ -4152,14 +4179,47 @@ function makeHostedTypeParser(
     // ref still claims, and still earns the honest "there is no <noun> type
     // called X; the types here are …" refusal that lists the real names.
     if (resolveColorRef(typeRef) !== null) {
-      const catalogue = ctx === undefined ? undefined : catalogueOf(ctx);
       if (catalogue === undefined || catalogue(typeRef) === null) return null;
     }
-    if (scoped === null) return { typeRef, scope: withFilters('selection', lifted.filters) };
+    if (scoped === null) return { typeRef, base: 'selection' };
     const isAll = new RegExp(`^${WALL_SCOPE_ALL}$`).test(scoped[1]!);
     const base = wallScopeBase(isAll, undefined, scoped[2]?.trim(), scoped[3]?.trim());
     if (base === null) return null;
-    return { typeRef, scope: withFilters(base, lifted.filters) };
+    return { typeRef, base };
+  };
+  return (text, ctx) => {
+    const catalogue = ctx === undefined ? undefined : catalogueOf(ctx);
+    // ⭐⭐ §FIX-SELF-REFERENTIAL-TYPE-NAME (L-10100) — THE CATALOGUE GETS THE
+    // FIRST SAY, AS IT ALREADY DOES FOR COLOUR REFS TWENTY LINES ABOVE.
+    //
+    // The filter lift runs BEFORE the grammar, and a type name that contains
+    // the family's own noun ("Custom Window Type") gives it a second, wrong
+    // place to anchor: the founder's "make all windows custom window type" was
+    // rewritten to "make all window type" and read as typeRef "type"
+    // (MEASURED — `FilterScope.liftTypeFilter`'s header carries the trace).
+    //
+    // `liftTypeFilter` now refuses that mis-anchor structurally, and this is
+    // the SECOND, INDEPENDENT guard the sibling table demands ("ordering fixes
+    // it only while the array stays sorted"): read the sentence EXACTLY AS THE
+    // USER TYPED IT first, and if the grammar's tail is a span the project's
+    // catalogue AFFIRMATIVELY claims, that reading wins outright — no filter
+    // lift, no keyword stripping, nothing to mis-anchor on.
+    //
+    // ⛔ It can only ADD resolutions, never remove one:
+    //   • no catalogue injected ⇒ nothing to affirm ⇒ today's path, untouched;
+    //   • a real filter clause ("all timber casement windows", "all windows
+    //     wider than 1m") leaves the raw grammar either UNMATCHED or holding a
+    //     tail the guards above decline, so the lift still runs;
+    //   • only an EXACTLY-KNOWN type name short-circuits, which is the one
+    //     reading that cannot be a mis-parse.
+    const raw = runShape(text, catalogue);
+    if (raw !== null && catalogue !== undefined && catalogue(raw.typeRef) !== null) {
+      return { typeRef: raw.typeRef, scope: raw.base };
+    }
+    const lifted = parseFilterClauses(text, noun, catalogue);
+    const hit = lifted.stripped === text ? raw : runShape(lifted.stripped, catalogue);
+    if (hit === null) return null;
+    return { typeRef: hit.typeRef, scope: withFilters(hit.base, lifted.filters) };
   };
 }
 

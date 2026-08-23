@@ -233,6 +233,36 @@ export interface CatalogueFamily {
   readonly rejectRef?: (ref: string) => boolean;
 }
 
+/**
+ * §FIX-SELF-REFERENTIAL-TYPE-NAME (L-10100) — the listed type names that
+ * OVERLAP an unresolved span, in either direction.
+ *
+ * Exported so the refusal copy and its test read the same function rather than
+ * two spellings of "contains" (C84 EI-8a). Whole-word matching in BOTH
+ * directions: a span the grammar under-extracted ("type") is found inside a
+ * real name ("Custom Window Type"), and a span it over-extracted ("windows to
+ * timber casement") is found to carry one ("Timber Casement"). An exact match
+ * is never "nearby" — that case resolved and never reaches here.
+ */
+export function nearbyNames(names: readonly string[], ref: string): readonly string[] {
+  const needle = ref.trim();
+  if (needle.length === 0) return [];
+  const wordish = (inner: string, outer: string): boolean => {
+    // `\b` is only a boundary next to a WORD character — a name ending in ")"
+    // ("Single Pane (Default)") would never match with it hard-coded on both
+    // ends, so each edge is anchored only where it can be.
+    const esc = inner.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const left = /^\w/.test(inner) ? '\\b' : '';
+    const right = /\w$/.test(inner) ? '\\b' : '';
+    return new RegExp(`${left}${esc}${right}`, 'i').test(outer);
+  };
+  return names.filter(
+    (n) =>
+      n.trim().toLowerCase() !== needle.toLowerCase() &&
+      (wordish(needle, n) || wordish(n, needle)),
+  );
+}
+
 function generic(kind: string) {
   return (ctx: ResolverContext): CatalogueLookup | null => {
     const hit = ctx.catalogues?.[kind];
@@ -330,6 +360,21 @@ export const CATALOGUE_FAMILIES: readonly CatalogueFamily[] = [
   // already uses to keep "change all doors to left swing" out of the catalogue
   // — and `__tests__/stair-chat-acceptance.test.ts` pins both halves. Two
   // independent guards, because the collision is silent when either fails.
+  //
+  // ⭐⭐ THIRD RECURRENCE — §FIX-SELF-REFERENTIAL-TYPE-NAME (L-10100, lane
+  // RACTYPE12, 2026-08-23). Same shape, new cause: the founder's TYPE NAME
+  // CONTAINED THE GRAMMAR'S OWN NOUN. "Make all windows Custom window type"
+  // made `liftTypeFilter` anchor on the SECOND "window" — the one inside his
+  // type name — and the sentence reached this table as typeRef **"type"**,
+  // earning a refusal that denied his type in the clause before the one that
+  // listed it. window, door AND wall all failed; slab / ceiling / stair /
+  // stair-railing survived only because their domain-noise lists happen to
+  // omit the PLURAL. ⛔ THAT IS THE SAME "enumerated list that must be
+  // REMEMBERED" defect this block already warns about, one layer down. The
+  // guards now live in `FilterScope.liftTypeFilter` (mis-anchor refused +
+  // longest catalogue claim wins), in `makeHostedTypeParser` (read the
+  // sentence as typed FIRST) and in `nearbyNames` below (a refusal may not
+  // deny a name it lists). See C68 §3.d.
   {
     intent: 'set-stair-railing-type',
     // storeRegistry registers this kind under exactly this key
@@ -449,15 +494,46 @@ export function catalogueFamilySpec(
       if (hit === null) {
         // The source's own limit, when it has one — see `CatalogueLookup.note`.
         const noteTail = lookup.note === undefined ? '' : ` ${lookup.note}`;
+        // ⭐⭐ §FIX-SELF-REFERENTIAL-TYPE-NAME (L-10100) — THE REFUSAL MAY NOT
+        // CONTRADICT ITSELF. The founder was told
+        //
+        //   *"There is no window type called "type" in this project. The window
+        //    types here are: … , Custom Window Type."*
+        //
+        // — his type does not exist, in the same sentence that lists it. That
+        // is WORSE than a plain miss: it is a confident denial disproved by its
+        // own next clause, and a user who believes it goes and re-creates a
+        // type that was already there.
+        //
+        // The parse defect that produced this exact span is fixed twice over
+        // upstream (`liftTypeFilter`, `makeHostedTypeParser`). ⛔ This is the
+        // THIRD guard, and it is the one that generalises: whatever span a
+        // future grammar mis-extracts, if a REAL type name contains it (or it
+        // contains a real name) the copy says so and offers that type instead
+        // of denying it. Word-boundary matching, so "type" finds "Custom Window
+        // Type" and never "Typewriter Nook".
+        const near = nearbyNames(lookup.names, si.typeRef);
+        const plural = family.nounPlural ?? `${family.elementKind}s`;
+        const listTail = lookup.names.length === 0
+          ? ''
+          : ` The ${family.typeNoun}s here are: ${lookup.names.join(', ')}.`;
+        const head = near.length === 0
+          ? (lookup.names.length === 0
+              ? `I could not find a ${family.typeNoun} called "${si.typeRef}" in this project.`
+              : `There is no ${family.typeNoun} called "${si.typeRef}" in this project.`)
+          : near.length === 1
+            ? `I could not read "${si.typeRef}" as a complete ${family.typeNoun} name. ` +
+              `Did you mean "${near[0]!}"?`
+            : `I could not read "${si.typeRef}" as a complete ${family.typeNoun} name. ` +
+              `These contain it: ${near.map((n) => `"${n}"`).join(', ')} — name the one you mean.`;
         return {
           refusal: {
-            reason: (lookup.names.length === 0
-              ? `I could not find a ${family.typeNoun} called "${si.typeRef}" in this project.`
-              : `There is no ${family.typeNoun} called "${si.typeRef}" in this project. ` +
-                `The ${family.typeNoun}s here are: ${lookup.names.join(', ')}.`) + noteTail,
-            suggestions: lookup.names.slice(0, 2).map(
-              (n) => `change all ${family.nounPlural ?? `${family.elementKind}s`} to ${n.toLowerCase()}`,
-            ),
+            reason: head + listTail + noteTail,
+            // The near matches lead: they are the answer when there is one.
+            suggestions: [...near, ...lookup.names]
+              .filter((n, i, a) => a.indexOf(n) === i)
+              .slice(0, 2)
+              .map((n) => `change all ${plural} to ${n.toLowerCase()}`),
           },
         };
       }

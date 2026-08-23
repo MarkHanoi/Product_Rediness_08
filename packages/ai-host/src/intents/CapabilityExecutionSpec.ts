@@ -66,6 +66,7 @@ import { RAKE_MIN_DEG, RAKE_MAX_DEG } from '@pryzm/geometry-wall';
 import {
   CATALOGUE_FAMILIES,
   catalogueFamilySpec,
+  nearbyNames,
   type CatalogueFamilyIntentId,
 } from './CatalogueFamilies.js';
 import {
@@ -311,12 +312,32 @@ export const EXECUTION_SPECS: SpecTable = {
         const hit = ctx.resolveWallSystemType(si.typeRef);
         if (hit === null) {
           const names = ctx.wallSystemTypeNames ?? [];
+          // ⭐ §FIX-SELF-REFERENTIAL-TYPE-NAME (L-10100) — the wall twin of the
+          // catalogue families' third guard. A refusal may not deny a type in
+          // the same sentence that lists it: measured 2026-08-23, "make all
+          // walls Custom Wall Type" reached here with `typeRef` = "type" and
+          // answered *'There is no wall type called "type" … Custom Wall
+          // Type.'* ⛔ DERIVED from `nearbyNames`, never a second spelling of
+          // "contains" (C84 EI-8a) — the families' test pins the same function.
+          const near = nearbyNames(names, si.typeRef);
+          const listTail = names.length === 0
+            ? ''
+            : ` The wall types here are: ${names.join(', ')}.`;
+          const head = near.length === 0
+            ? (names.length === 0
+                ? `I could not find a wall type called "${si.typeRef}" in this project.`
+                : `There is no wall type called "${si.typeRef}" in this project.`)
+            : near.length === 1
+              ? `I could not read "${si.typeRef}" as a complete wall type name. Did you mean "${near[0]!}"?`
+              : `I could not read "${si.typeRef}" as a complete wall type name. `
+                + `These contain it: ${near.map((n) => `"${n}"`).join(', ')} — name the one you mean.`;
           return {
             refusal: {
-              reason: names.length === 0
-                ? `I could not find a wall type called "${si.typeRef}" in this project.`
-                : `There is no wall type called "${si.typeRef}" in this project. The wall types here are: ${names.join(', ')}.`,
-              suggestions: names.slice(0, 2).map((n) => `change all walls to ${n.toLowerCase()}`),
+              reason: head + listTail,
+              suggestions: [...near, ...names]
+                .filter((n, i, a) => a.indexOf(n) === i)
+                .slice(0, 2)
+                .map((n) => `change all walls to ${n.toLowerCase()}`),
             },
           };
         }

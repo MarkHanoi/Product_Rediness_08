@@ -271,6 +271,11 @@ function makePropertyFilter(
   return base;
 }
 
+/** Escape a literal for embedding in a RegExp source. */
+function escapeReSrc(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * Lift the TYPE adjective out of "make all interior partition walls white".
  *
@@ -280,6 +285,53 @@ function makePropertyFilter(
  * the INJECTED lookup, and it is a type filter only if the catalogue claims
  * it. Nothing is guessed and nothing is narrowed: an unrecognised adjective
  * leaves the sentence exactly as the user typed it.
+ *
+ * ⭐⭐ §FIX-SELF-REFERENTIAL-TYPE-NAME (L-10100, lane RACTYPE12, 2026-08-23) —
+ * WHY THIS FUNCTION IS ENUMERATED INSTEAD OF ONE LAZY REGEX.
+ *
+ * The founder created a window type called **"Custom Window Type"** and typed
+ * **"Make all windows Custom window type"**. He got back:
+ *
+ *   *"There is no window type called **"type"** in this project. The window
+ *    types here are: … , **Custom Window Type**."*
+ *
+ * A refusal that denies his type exists in the same sentence that lists it.
+ * MEASURED here, not assumed — the mechanism was this function:
+ *
+ *   1. the old lazy regex anchored its right-hand noun on the **SECOND**
+ *      "window" (the one inside his TYPE NAME), making the candidate
+ *      `"windows custom"`;
+ *   2. `resolveCatalogueRef`'s domain-noise list drops `window`/`windows`/
+ *      `type`, so `"windows custom"` reduces to `["custom"]` and resolves —
+ *      **confidently** — to "Custom Window Type";
+ *   3. the sentence was rewritten to `"make all window type"`, whose tail the
+ *      type grammar then read as the typeRef **`"type"`**.
+ *
+ * That is the THIRD recurrence of the shape this file's sibling
+ * (`CatalogueFamilies.ts:307-333`) already records twice: a grammar anchoring
+ * on the wrong occurrence of its own noun. ⛔ It is NOT exotic — a default
+ * name generator produces exactly this ("Custom Window Type", "Custom Slab
+ * Type"), and window/door/wall all broke while slab/ceiling survived only
+ * because their domain-noise lists happen to omit the PLURAL. An accident is
+ * not a guard.
+ *
+ * TWO independent guards, because either alone is a sort nobody enforces:
+ *
+ *   • ⛔ A candidate may not BEGIN with the family noun. If the scope word is
+ *     immediately followed by the noun, the element phrase is already complete
+ *     ("all windows") and there is no adjective slot — a right anchor further
+ *     along is a MIS-ANCHOR, structurally, whatever the catalogue then says.
+ *   • ⭐ THE CATALOGUE DECIDES BY LONGEST MATCH. Every (scope word, noun
+ *     occurrence) pair is offered to the lookup and the LONGEST span it claims
+ *     wins, so "change all custom window type windows to timber casement"
+ *     filters on the whole name rather than on the "custom" prefix the lazy
+ *     regex stopped at. The old code took the first shortest hit and never
+ *     looked further.
+ *
+ * Everything else is preserved byte-for-byte: the same scope words, the same
+ * `[a-z]` start, the same 48-character ceiling, the same "no `,` or `;`"
+ * permissiveness about en-dashes and digits, and the same rule that the
+ * catalogue — never this function — decides what a type name is.
  */
 function liftTypeFilter(
   text: string,
@@ -287,24 +339,55 @@ function liftTypeFilter(
   resolveType: ((ref: string) => { id: string; name: string } | null) | undefined,
 ): { stripped: string; filter: TypeFilterLike | null } {
   if (resolveType === undefined) return { stripped: text, filter: null };
-  // The candidate is whatever sits between the scope word and the noun. It is
-  // deliberately permissive about CHARACTERS (catalogue names carry en-dashes,
-  // slashes, digits: "Interior – Partition", "RC 250") and strict about
-  // LENGTH — a type name is a few words, and an unbounded run would start
-  // swallowing clauses. What it may NOT do is decide: the catalogue does that.
-  const re = new RegExp(
-    String.raw`\b(all|every|each|the|these|those|selected)\s+([a-z][^,;]{0,48}?)\s+(${kindNoun}s?)\b`,
-  );
-  const m = re.exec(text);
-  if (!m) return { stripped: text, filter: null };
-  const candidate = m[2]!.trim();
-  if (candidate.length === 0) return { stripped: text, filter: null };
-  const hit = resolveType(candidate);
-  if (hit === null) return { stripped: text, filter: null };
-  const stripped = `${text.slice(0, m.index)}${m[1]!} ${m[3]!}${text.slice(m.index + m[0].length)}`;
+  const nounSrc = `${escapeReSrc(kindNoun)}s?`;
+  const startsWithNoun = new RegExp(String.raw`^${nounSrc}\b`);
+  const scopeRe = /\b(all|every|each|the|these|those|selected)\s+/g;
+  let best: {
+    start: number;
+    end: number;
+    scope: string;
+    noun: string;
+    candidate: string;
+    hit: { id: string; name: string };
+  } | null = null;
+
+  for (let sm = scopeRe.exec(text); sm !== null; sm = scopeRe.exec(text)) {
+    // The candidate always begins here — the first character after the scope
+    // word — so the `[a-z]` test below is invariant across right anchors.
+    const from = sm.index + sm[0].length;
+    const nounRe = new RegExp(String.raw`\b(${nounSrc})\b`, 'g');
+    nounRe.lastIndex = from;
+    for (let nm = nounRe.exec(text); nm !== null; nm = nounRe.exec(text)) {
+      const candidate = text.slice(from, nm.index).trim();
+      // The old regex's own bounds, unchanged: permissive about CHARACTERS
+      // (catalogue names carry en-dashes, slashes, digits: "Interior –
+      // Partition", "RC 250") and strict about LENGTH. Once a candidate breaks
+      // one of these, every LONGER candidate from this anchor breaks it too.
+      if (candidate.length === 0 || candidate.length > 48) break;
+      if (!/^[a-z]/.test(candidate) || /[,;]/.test(candidate)) break;
+      // ⛔ GUARD 1 — a mis-anchor, not an adjective. See the header.
+      if (startsWithNoun.test(candidate)) continue;
+      const hit = resolveType(candidate);
+      if (hit === null) continue;
+      // ⭐ GUARD 2 — longest catalogue claim wins.
+      if (best === null || candidate.length > best.candidate.length) {
+        best = {
+          start: sm.index,
+          end: nm.index + nm[0].length,
+          scope: sm[1]!,
+          noun: nm[1]!,
+          candidate,
+          hit,
+        };
+      }
+    }
+  }
+
+  if (best === null) return { stripped: text, filter: null };
+  const stripped = `${text.slice(0, best.start)}${best.scope} ${best.noun}${text.slice(best.end)}`;
   return {
     stripped: stripped.replace(/\s+/g, ' ').trim(),
-    filter: { kind: 'type', typeId: hit.id, label: hit.name },
+    filter: { kind: 'type', typeId: best.hit.id, label: best.hit.name },
   };
 }
 
