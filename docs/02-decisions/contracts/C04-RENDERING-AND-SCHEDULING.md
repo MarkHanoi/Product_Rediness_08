@@ -1641,3 +1641,132 @@ sampling** — an instrument that walks the scene on a timer is measuring itself
   **not yet written**, because this lane could not verify the change in a browser.
 - `admitSurface` has **exactly one call site** and it gates the **clear**, not the draws. Which
   submitter produced the founder's 245 `glDrawElements` errors is **not established** (L-5908).
+
+---
+
+## §MATERIAL-GUARD — a guard over MATERIALS is an ORDERING problem, and its only correct seam is the FRAME BOUNDARY (NORMATIVE, added 2026-08-23, lane SCENE6, L-10002 / L-10010..L-10013)
+
+### §MG.1 — RULE: a sweep that must run before a compile MUST be armed, and MUST run at `render()`
+
+⛔ **A guard placed at a lifecycle event runs at the time of the EVENT, not at the time of the
+SUBJECT.** `§L-361-WEBGPU-TRANSMISSION-GUARD` was written to stop
+`THREE.TSL: Invalid generated code, expected a "float"`, and it did not stop the founder's
+2026-08-23 crash — not because it was missing, but because both of its call sites were on the wrong
+side of the thing it guards:
+
+| entry point | when it fires | what it can see |
+|---|---|---|
+| `setShadowPassDisabled('batch', true)` | batch **START** | ⛔ nothing the batch is about to create |
+| `initScene.runTierPbrPass` → `neutralizeTransmissionForWebGPU()` | geometry add | ⛔ skipped for the whole batch by `shouldDeferPerAddGeometryPass(isBatching)`; its post-batch run is in `_onPostBatch()`, which `BatchCoordinator.onComplete` invokes **after** the `§FIX-POST-GEOMETRY-COMPILE-V2` synchronous `rpm.render()` |
+
+A material minted **during** a batch is therefore compiled by a render that sits after the first and
+before the second. **A guard that runs before its subject exists, and again after that subject has
+been compiled, guards nothing.**
+
+**NORMATIVE.** A guard whose job is *"neutralise X before the GPU compiles X"* MUST be expressed as
+an **armed latch consumed at the frame boundary** — `RenderPipelineManager.armTransmissionSweep()`
+→ swept at the top of `render()`. The frame boundary is **the only instant provably after every
+material that render will compile and before any of them is compiled**. Arming is one boolean write;
+the cost when not armed is one boolean read per frame.
+
+⛔ **Adding a third hand-placed call site is NOT a fix.** It closes the gesture that was reported
+and leaves the next one open. Any new geometry-producing path would otherwise have to remember to
+call the guard, which is the property this rule exists to remove.
+
+### §MG.2 — RULE: a material guard keys on the PROPERTY, never on the class
+
+`instanceof THREE.MeshPhysicalMaterial` could **not** see `MeshPhysicalNodeMaterial` — the class the
+guard's own docstring named. Measured in three r183: `MeshPhysicalNodeMaterial extends
+MeshStandardNodeMaterial extends NodeMaterial extends Material`. It does not extend
+`MeshPhysicalMaterial`.
+
+**NORMATIVE.** Key on the property that produces the effect (`typeof mat.transmission === 'number'
+&& > 0`), because *that* is what emits the node, whatever object carries it. A material lacking the
+property is untouched, so the widening cannot reach an ordinary material.
+
+### §MG.3 — RULE: a retry MUST change something, and MUST say when it did not
+
+`_driveRecoveryRebuild` rebuilt N times against the same material graph, re-compiling the identical
+invalid node every time. This contract already states the principle for the shadow class
+(`§RECOVERY-MUST-REFUSE`: *"a retry that cannot repair the fault class is a defect, not a
+mitigation"*); it now binds for the material class too.
+
+**NORMATIVE.** A recovery attempt MUST remove the seed before rebuilding, and MUST **log what it
+changed**. A count of `0` MUST read as *"nothing changed — if the fault recurs it will recur
+identically, and the cause is NOT this"*, never as progress.
+
+⚠ **The attempt BOUND is a separate decision and is unchanged.** Making attempts *meaningful* is
+this rule; re-tuning how many there are is not, and `MAX_AUTO_RECOVERY_ATTEMPTS` remains the L-663
+spin guard.
+
+### §MG.4 — RULE: a degenerate DRAW is a different fault from a degenerate COMPILE, and needs its own guard
+
+⛔ **Do not merge these two.** They end at the same symptom (an unhappy WebGPU encoder) and have
+nothing else in common:
+
+- **compile** (§MG.1–3) — a node graph emits invalid WGSL. The geometry is *fine*; the failure is
+  before any draw is encoded. three logs it (`three.webgpu.js:2141`) and then **recovers**
+  (`result = builder.generateConst( output )`), so the TSL line is the **seed**, not the crash.
+- **submission** (L-10002) — codegen is fine; the draw call itself submits **zero vertices**.
+  Chromium: *"Draw with a vertex count of 0 is unusual."* One degenerate mesh poisons the command
+  encoder and flickers **the whole canvas**, not the offending object.
+
+**NORMATIVE.** The empty-draw guard (`packages/renderer-three/src/EmptyDrawGuard.ts`, installed by
+`WebGPURendererAdapter` after `init()`):
+
+1. MUST **skip only on positive proof** that the draw submits zero vertices, naming the field that
+   proves it. Every unrecognised or unreadable shape MUST be drawn. ⛔ The doubt runs in one
+   direction only: a false positive does not cost frame time, it **deletes authored geometry from
+   the screen**, which is worse than the flicker it prevents.
+2. MUST **chain** onto the render-object function already installed rather than replace it (three
+   installs its own for MRT / post-processing), and `uninstall()` MUST restore the previous value
+   **exactly** — `null` included, which is meaningful to three.
+3. MUST NOT repair the geometry or report the object as broken. A zero-vertex draw is usually a
+   **transient**; treating a transient as a fault is how a guard becomes a second bug.
+
+⚠ **Scope, stated because the gap is real:** three swaps the hook for its own during the shadow and
+toon-outline passes and restores it after, so **those draws are not guarded**. The main colour pass
+is.
+
+### §MG.5 — RULE: a per-element material object is a SHADER COMPILE, and a material with no appearance MUST be shared
+
+On WebGPU a material object is a node-material compile, and PSO compilation is
+O(unique {shader, vertex-layout, render-state} tuples) — `BatchCoordinator` measures ~3 ms per
+variant and names it the seed of an 8 000 ms LONGTASK → device loss.
+
+**MEASURED (L-10003):** a corpus of 364 walls that is **100 % instanced** — the best case the
+instancing router can produce — carried **364 distinct `MeshBasicMaterial` instances for 1 distinct
+visual signature**. All 364 were the `§INSTANCED-SELECTION-FIX` hit proxy, each one `new`.
+
+**NORMATIVE.** A material that writes **neither colour nor depth** (`colorWrite: false` +
+`depthWrite: false`), carries no per-element state and is never mutated MUST be a **single shared
+instance**, stamped `markSharedGpuResource()`.
+
+⚠ **The stamp is load-bearing, not decoration.** `detachAndReleaseChildren` frees a child's material
+on every rebuild, so sharing **without** it makes the first element's rebuild destroy the material
+its siblings still draw with — trading N compiles for the destroyed-GPU-resource fault class
+(ADR-0297 INVARIANT L1).
+
+⛔ **This rule does NOT extend to materials with an appearance.** Element **body** materials carry
+user-visible colour and finish; sharing those requires the
+`§PERF-INSTANCE-MATERIAL-DEDUP` signature cache (`materialSignature.ts`), which is conservative by
+construction and declines anything it does not fully understand. **Per-element geometry stays
+per-element** — elements differ in extent, and a shared box would size every hit target wrong.
+
+### §MG.6 — NOT MEASURED / open (stated so nobody reads it as covered)
+
+- ⛔ **No figure in this section was taken in a browser.** The ordering claims are read off control
+  flow and the counts off a headless census; **none of them establishes a frame time.**
+- ⛔ **`2 069 scene meshes` is NOT established as a draw-call problem.** A current GPU draws that
+  without noticing. L-10003 suggests the larger cost on this path is per-element material objects
+  → shader/PSO compiles, which a **merge** batcher does not address and material dedup does.
+  **Both should be measured in the browser before AUDIT-C §6 row 1 is scheduled as an L.**
+- **Wall BODY materials are still one instance per wall** — the census reports 364 / 364 / 432
+  instances for 1 visual signature on the standard-mesh arm. Deliberately not changed here.
+- **The instanced arm does not reduce the MESH census.** An instanced wall still leaves its hit
+  proxy in the scene, and that census is what `SceneQualityTierManager`'s ≥1 200 cap and the
+  ≥1 000-mesh Auto-WebGL swap arm both gate on.
+- ⛔ **Pascal's merge mechanism is INVALID here as prescribed** — see L-10013. PRYZM does not pick
+  by raycast; `gpu-pick.ts` builds its pick scene from **visible** meshes and drops an element that
+  has none, so hiding a merged source makes the element **unclickable**. A merged-away marker in
+  `packages/picking` is a prerequisite for any merge batcher.

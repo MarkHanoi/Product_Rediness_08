@@ -46225,6 +46225,19 @@ save was redundant while the server was in fact protecting him.
 ⚠ The ratio is deliberate — **one** case proves the refusal fires, the rest prove it does **not** fire
 on anything a correct session does.
 
+⚠ **A SECOND-ORDER REFUSAL THE FIRST PASS INTRODUCED, AND CLOSED.** The client guard lets a
+MANUAL save of an emptied project through, but the SERVER refuses a bare snapshot independently —
+so the founder who deliberately emptied a project and pressed Save would have collected a 409
+banner for a save he explicitly asked for. **That is a refusal on a legitimate save, i.e. exactly
+the failure this lane was told not to commit.** Closed by carrying the manual intent onto the wire:
+`PlatformSaveController` passes `emptyOverwriteIntent: !isAutoSave && snapshot.elementCount === 0`
+to `ServerSyncQueue.enqueue()`, which emits `"force": true` in the request body and persists the
+flag with the queue item so it survives a reload before the upload lands.
+⛔ **`!isAutoSave` is load-bearing and is pinned by a test that counts the producers of that flag.**
+An autosave that set it would disarm the server guard on every request, leaving the server
+protecting nobody — not a stale tab running pre-guard code, not a replayed request, not any other
+client. Defence in depth means the outer layer must not be able to switch the inner one off.
+
 ### L-10041 — ⚠ `elementCount` IS CLIENT-SUPPLIED AND DEFAULTS TO 0 — KEYING A REFUSAL ON IT WOULD BE THE DEFECT, NOT THE FIX
 
 **Status: NAMED, avoided by design.** `POST /api/projects/:id/versions` destructures
@@ -46495,3 +46508,206 @@ compaction is worth attempting at all.
    under many open projects.
 5. ⚠ **`MAX_MUTATIONS` in `TemporalGraph` still exists and is untouched.** This lane did not look at
    it and makes no claim about it.
+
+---
+
+### L-10010 — ⛔ THE TRANSMISSION GUARD SWEPT **BEFORE** THE BATCH CREATED THE GLASS IT EXISTED TO DISARM
+
+**Founder, live, 2026-08-23.** `CREATE_WALLS_ON_ALL_SLABS` on `WebGPU: true` →
+`THREE.TSL: Invalid generated code, expected a "float"` → `recoverFromRenderFailure` →
+retries exhausted → *"The 3D viewport could not recover: a GPU resource was released while the
+renderer was still using it."*
+
+**The guard already existed.** `§L-361-WEBGPU-TRANSMISSION-GUARD` was written to stop this exact
+string. It is not missing — **it is mis-ordered**, and the control flow says so:
+
+1. `setShadowPassDisabled('batch', true)` (`RenderPipelineManager.ts:2403`) fires at batch
+   **START**, from `BatchCoordinator._setupBatch`. The five walls are created **after** it, so
+   the sweep it runs can only ever see an empty set. The founder's console carries the
+   `§BATCH-SHADOW-MAP-SUPPRESS` line and **no** *"neutralized N transmission material(s)"* line —
+   which is what a sweep over an empty set looks like.
+2. The second entry point (`initScene.runTierPbrPass` → `neutralizeTransmissionForWebGPU()`) is
+   **skipped for the whole batch** by `shouldDeferPerAddGeometryPass(isBatching)`, and its
+   consolidated post-batch run happens in `_onPostBatch()`, which `BatchCoordinator.onComplete`
+   invokes **AFTER** the `§FIX-POST-GEOMETRY-COMPILE-V2` synchronous `rpm.render()` (compile block
+   `BatchCoordinator.ts:~1925-2050`, `_onPostBatch()` `:~2118` — same closure, sequential).
+
+⛔ **A material minted DURING a batch is therefore compiled by a render that sits after entry 1 and
+before entry 2.** A guard that runs before its subject exists, and again after that subject has
+already been compiled, guards nothing.
+
+**FIX — a latch, not a third call site.** `RenderPipelineManager.armTransmissionSweep(reason)` is
+one boolean write; the sweep runs at `render()`'s frame boundary, the only instant provably after
+every material that render will compile and before any of them is compiled. Armed at **both**
+shadow-latch directions (batch END, `BatchCoordinator.ts:1776`, is unconditional and lands before
+the compile render) **and** from every geometry-add event, placed **above** `initScene`'s
+`shouldDeferPerAddGeometryPass` early-return. A third hand-placed call site would have closed this
+gesture and left the next one open. Cost when not armed: one boolean read per frame.
+
+⚠ **ALSO ESTABLISHED, and it reframes the report:** `THREE.TSL: Invalid generated code, expected a
+"float"` is **NOT fatal in three r183**. `three.webgpu.js:2141` calls `error(...)` and then
+*recovers* — `result = builder.generateConst( output )`. It is the **seed**, not the crash; the
+modal comes from PRYZM's own ladder after a subsequent GPU validation error reaches
+`_onDestroyedGpuResource`. **Do not quote the TSL line as the failure.**
+
+Pinned by `packages/renderer-three/__tests__/RenderPipelineManager.transmissionSweepCoversBatch.test.ts`
+(8 tests; the 5 load-bearing ones verified RED before the fix by disarming the sweep, then restored).
+Test 1a pins that the batch-start sweep provably cannot see the batch's own glass, so 1b cannot pass
+vacuously.
+
+### L-10011 — ⛔ THE GUARD'S `instanceof` COULD NOT SEE THE CLASS ITS OWN DOCSTRING NAMED
+
+`_neutralizeTransmissionForWebGPU` tested `m instanceof THREE.MeshPhysicalMaterial`. In three r183,
+**measured in `three.webgpu.js`**: `class MeshPhysicalNodeMaterial extends MeshStandardNodeMaterial`
+→ `extends NodeMaterial` → `extends Material`. It does **not** extend `MeshPhysicalMaterial`. So the
+guard written to disarm *"the MeshPhysicalNodeMaterial transmission node graph"* could not see a
+`MeshPhysicalNodeMaterial` at all.
+
+**LATENT, not live** — stated honestly: no PRYZM builder mints a node material directly today, so
+today's real glass (`WindowBuilder.ts:321`, `transmission: 0.9`) is a `MeshPhysicalMaterial` and
+*was* covered. The hole would have opened the first time an importer or a future builder minted the
+node class.
+
+**FIX:** key on the **property**, not the class — `typeof mat.transmission === 'number' && > 0`.
+That is what emits the TSL node, whatever object carries it. A material with no numeric
+`transmission` is untouched, so the widening cannot reach an ordinary material.
+
+### L-10012 — ⛔ THE RECOVERY LADDER REBUILT N TIMES AGAINST THE SAME MATERIAL GRAPH
+
+`_driveRecoveryRebuild` re-compiled the identical invalid node on every attempt — latency, not
+mitigation, in the very method that already states that principle for the shadow class
+(`§RECOVERY-MUST-REFUSE`: *"a retry that cannot repair the fault class is a defect, not a
+mitigation"*). It now removes the seed **before** rebuilding and **logs the count**, so `0` says
+plainly *"nothing changed — the cause is NOT the transmission node graph, read the original GPU
+report"* instead of implying progress.
+
+⚠ **The bound is deliberately unchanged.** `MAX_AUTO_RECOVERY_ATTEMPTS` is pinned by
+`autoRecoveryBound.test.ts` / `recoveryLoopUnbounded.test.ts` and is the L-663 spin guard. Making
+the attempts **meaningful** was this change's job; re-tuning how many there are was not.
+
+### L-10002 — PRYZM HAD **0 HITS** FOR THE HOOK THAT STOPS A ZERO-VERTEX DRAW POISONING THE WEBGPU ENCODER
+
+AUDIT-C §2.6 measured it: `grep -rn "setRenderObjectFunction|hasDrawableGeometry"` → **0**, on a
+codebase whose primary backend is WebGPU. Pascal's guard (`viewer/index.tsx:109-144`, MIT) records
+the consequence: **one degenerate mesh poisons the command encoder and flickers the WHOLE canvas**,
+not the offending object — a symptom with no visual relationship to its cause.
+
+⚠ **NOT the same family as L-10010** — checked before building, and they are two faults with two
+fixes. L-10010 is **codegen** (a node graph emits invalid WGSL, from a geometry with a *full*
+position buffer — this guard lets every one of those through, correctly). L-10002 is **submission**
+(codegen is fine; the draw call itself is degenerate). **The empty-draw guard does not fix the
+founder's crash.**
+
+⛔ **The direction of doubt is the design.** This guard SKIPS draws, so a false positive does not
+cost frame time — it makes authored geometry **disappear**. `emptyDrawReason()` returns a reason
+only on positive proof (6 clauses, each naming the field that proves the count) and `null` — *"draw
+it"* — for everything it does not understand. It **chains** onto whatever function three already
+installed for its MRT/post-processing passes rather than replacing it, and `uninstall()` restores
+the previous value exactly, `null` included.
+
+**Scope stated, because the gap is real and Pascal has it too:** three swaps the hook for its own
+during the shadow (`:43831`) and toon-outline (`:39799`) passes and restores it after, so those
+draws are **not** guarded. The main colour pass is.
+
+`packages/renderer-three/src/EmptyDrawGuard.ts`, installed by `WebGPURendererAdapter` after
+`init()`. 8 tests.
+
+### L-10000 — ⭐ MITRE IS **NOT** THE GENERAL REASON WALLS ARE NOT INSTANCED — THE ANSWER IS A PROPERTY OF THE TOPOLOGY
+
+The per-clause reject counters at `WallFragmentBuilder.ts:1428-1443` already existed and were bumped;
+only a running browser could read them (AUDIT-C §6 row 9: *"row 1's prerequisite cannot be satisfied
+by anyone but the founder"*).
+`packages/geometry-wall/__tests__/SCENE6InstancingRejectCensus.measure.test.ts` is that readout,
+headless — it drives the real `WallJoinResolver.resolveLevel` → `buildWall` pipeline and reads the
+real `PERF_KEYS`. Nothing is re-implemented: if the router changes, the census changes with it.
+
+| corpus | walls | instanced | dominant reject clause |
+|---|---|---|---|
+| `control-freestanding` | 364 | **100.0 %** | *(none fired)* |
+| `slab-rings-91x4` — what `CreateWallsFromSlabCommand` emits | 364 | **0.0 %** | `mitreStart`/`mitreEnd` **364 = 100 % of rejects** |
+| `room-grid-13x13` | 364 | **97.8 %** | mitre **4 = 2 %** |
+| `room-grid-8x8-doors` | 144 | **62.5 %** | `openings` **48 = 89 %** |
+| `room-grid-8x8-layered` | 144 | **0.0 %** | `multiLayer` **144 = 100 %** |
+| `realistic-plate-13x13-openings` | 364 | **0.0 %** | `openings` **364 = 100 %** |
+
+⭐ **AUDIT-C §6 row 1's stated prerequisite is HALF-REFUTED and its conclusion SURVIVES.** Mitre is
+dominant **only for closed ring topologies** — which is the founder's literal gesture, and there it
+accounts for *every* reject. On a bare room grid it accounts for 2 %, because **PRYZM mints miter
+normals only at 2-wall L-corners**: T and X junctions get `JoinData` but no MN (measured: 364/364
+joined, only the 4 outer L-corners rejected). On a plate where every wall carries a door, `openings`
+alone accounts for 100 %.
+
+⛔ **But every corpus that resembles a building still reaches 0 % instanced — via a DIFFERENT clause
+each time.** So the settle-based merge batcher is still the only mechanism that reaches them all;
+what changes is the *reason*, and ranking it on mitre alone would have aimed the fix at the wrong
+clause for a real floor plate.
+
+**Two non-vacuity arms**, because a census reporting 0 % everywhere is indistinguishable from one
+that never armed: the control **must** come back ~100 %, and join engagement is read off the
+**resolver's own output** (JoinData returned, baseline moved), not off a counter.
+
+### L-10003 — ⭐ THE 100 %-INSTANCED CONTROL WAS MINTING **364 MATERIAL OBJECTS FOR ONE INVISIBLE BOX**
+
+Found by L-10000 on the way past. A corpus of 364 free-standing walls that is **100 % instanced** —
+the best case the router can produce — put **364 meshes** in the scene carrying **364 distinct
+`MeshBasicMaterial` INSTANCES for 1 distinct visual signature**. All 364 are the
+`§INSTANCED-SELECTION-FIX` hit proxy, and each was `new`.
+
+On WebGPU a material object is a **node-material compile**. `BatchCoordinator.ts` measures PSO
+compilation at ~3 ms per unique {shader, vertex-layout, render-state} tuple and names it the seed of
+an 8 000 ms LONGTASK → device loss. **363 needless material objects is 363 needless compiles** — on
+the arm that is supposed to be the fast one. This is `§PERF-INSTANCE-MATERIAL-DEDUP` (L-131 P6,
+`materialSignature.ts`) verbatim: *"builders that mint a FRESH THREE.Material on every element …
+give every element a UNIQUE uuid"*.
+
+⛔ **Safe to share THIS material, and only this one.** The proxy is `colorWrite:false` +
+`depthWrite:false` — it writes nothing to colour or depth, carries no colour/map/per-wall state and
+is never mutated, so sharing is unobservable **by construction**. Pinned as a property, so a future
+edit that gives it an appearance goes red. The per-wall **geometry** stays per-wall (walls differ in
+extent; a shared box would size every hit target wrong). **Wall BODY materials are deliberately not
+touched** — they carry user-visible colour and finish, and the census still reports them at
+364 / 364 / 432 instances.
+
+⚠ `markSharedGpuResource` is load-bearing: `detachAndReleaseChildren` frees a child's material on
+every rebuild, so sharing **without** the stamp would have the first wall's rebuild destroy the
+material its siblings still draw with (ADR-0297 INVARIANT L1).
+
+**After:** control **364 → 1** material instance; `room-grid` **364 → 9**.
+
+⚠ **Measured and reported, NOT acted on:** an instanced wall still leaves **one** mesh in the scene
+(the proxy), so the instanced arm does **not** reduce the mesh census that
+`SceneQualityTierManager`'s ≥1 200 cap and the ≥1 000-mesh Auto-WebGL swap arm both gate on.
+
+### L-10013 — ⛔ OPEN / BLOCKER: PASCAL'S MERGE MECHANISM IS **INVALID IN PRYZM** BECAUSE PRYZM DOES NOT PICK BY RAYCAST
+
+AUDIT-C §6 row 1 prescribes Pascal's `wall-batch.ts` mechanism verbatim, including: *"keep every
+wall's own mesh in the graph, **invisible**, for picking/measure/highlight."*
+
+⛔ **That half is FALSE for PRYZM, and it is the reason ITEM 11 was not built in this lane.** Pascal
+picks by **raycast**, and `THREE.Raycaster` does not test `object.visible`. PRYZM picks by rendering
+a **parallel clone scene** built from **visible** meshes:
+
+- `packages/picking/src/gpu-pick.ts:1409-1437` `collectVisibleMeshes()` — *"Invisible meshes are
+  excluded since they produce no pixels in the render."*
+- `syncPickScene` (`:1073-1089`): when an element has **no visible mesh** it calls
+  `_invalidateEntry(id, stale)` — the element is **removed from the pick scene entirely**.
+
+⇒ A merge batcher that hides source meshes with `visible = false` makes **every merged wall
+unclickable**, and its pixels resolve to whatever is behind. *"A merge that changes what is drawn,
+or breaks picking, is worse than the slowness."*
+
+**THE PRECEDENT THAT SOLVES IT ALREADY EXISTS.** ADR-046 taught the pick scene to handle exactly
+this shape for InstancedMesh: `collectInstancedMeshes()` (`:1396-1406`) deliberately collects
+**hidden** InstancedMeshes *"(visible=false) that were coalesced by InstancedMeshCoalescer"* and
+builds per-instance pick clones. A merge batcher needs the same treatment for plain meshes — a
+merged-away marker the pick scene honours — and that work lives in **`packages/picking`**, not in
+this lane's ownership.
+
+⚠ **Do not build the batcher until that marker exists.** Building it first produces a mechanism
+that cannot be enabled, which is the *authored-but-unwired* failure this repo already tracks.
+
+**Also relevant to ranking it:** 2 069 scene meshes is **not**, on its own, a draw-call problem — a
+current GPU draws that without noticing. L-10003 suggests the far larger cost on this path is
+**per-element material objects → shader/PSO compiles**, which a merge batcher does **not** address
+and material dedup does. ⛔ Neither figure has been measured in the browser; both should be, before
+row 1 is scheduled as an **L**.
