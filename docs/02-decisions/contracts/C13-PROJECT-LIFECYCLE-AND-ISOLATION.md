@@ -243,6 +243,43 @@ The audit reports how many scene roots it could not attribute. That number is on
 3. **The declared count MUST be printed on every verdict**, clean or violating. An exclusion you cannot count is indistinguishable from a check you deleted.
 4. ⚠ **The honesty rule cuts BOTH ways.** `SCENE_GRAPHS_NOT_TRAVERSED` claimed `FurnitureDragDropHandler.indicatorScene` as a third untraversable graph; it is `world.scene.three` (`:161`) and has always been traversed. **Claiming coverage you do not have and claiming blindness you do not have are the same error about the same fact** — an unreal gap spends the reader's attention and makes the true gaps look smaller by comparison. Over-declaration MUST be corrected, and removing a false entry is not a narrowing.
 
+### §3.16 — A LOAD-DERIVED element is attributed by its LEVEL, never by an element id no snapshot can contain (binding; L-8800, 2026-08-23)
+
+`__pryzmLoadedProjectExpectation` is built from the snapshot ARRAYS, and `ProjectLoader` then runs its `redetect_sweep` phase. So the ids of elements that are **re-derived during a load** — the classes named in `LOAD_DERIVED_ELEMENT_TYPES` (`room`, `annotation`, `curtain-panel`, `stair-railing`, `stair-landing`, `opening`) — are outside the expected set **by construction, on every load, in every project, forever**.
+
+The founder's 2026-08-23 verdict was `scene.foreignElement×8`, every one of them a `room-overlay-*` mesh belonging to **the project that had just been opened**. `LOAD_DERIVED_ELEMENT_TYPES` already declared this exact class and already listed `room`; it was wired into the §L-325 RENDER-side audit and **nowhere else**. One half of the audit knew these ids were underivable and the other half accused them. This is §L-711 in its fourth recurrence.
+
+1. A scene object whose type is in `LOAD_DERIVED_ELEMENT_TYPES` MUST be judged on the `levelId` it stamps, checked against the expectation exactly as `coalescedLevelId` and `instancedGroupLevelId` are. `snapshot.levels` is in the expected set (§L-711 / §C13-SCENE-ID-KEY), so this is decidable.
+2. ⛔ **AN EXEMPTION IS PROHIBITED.** `LOAD_DERIVED_ELEMENT_TYPES` contains `stair-railing`, and project A's railings surviving into project B is the real leak §3.14/L-8100 closed hours earlier. Keying a skip on this list would have retro-blinded the audit to the leak it had just caught. The repair is an **attribution**; the arm must decide **foreign** as readily as **clean**.
+3. A derived element whose `levelId` is **absent or unreadable** MUST fall through to the stricter element-id arm. Undecidable resolves to the stricter check, never to silence.
+4. Foreign derived elements are reported under their **own** surface, `scene.foreignDerivedElement`, never merged into `scene.foreignElement`. The two arms answer different questions off different evidence, and a reader who cannot tell them apart cannot tell a real leak from an expectation gap.
+5. ⚠ **NAMED RESIDUAL BLINDNESS.** `L0` is the universal default level (`ClearProjectCommand` resets `activeLevelId` to it), so it discriminates nothing. Derived elements sitting on `L0` are **UNDECIDED** and MUST be counted and printed as `derivedOnAmbiguousLevel`, never banked into the clean total.
+
+### §3.17 — An object attributed by NOTHING must be counted under its own heading (binding; L-8802, 2026-08-23)
+
+`summariseSceneCoverage` filed a non-root object as "attributed BY INHERITANCE" only when an id-bearing ancestor existed. When none did, the object hit a bare `continue` and **left the census entirely** — not a root, not inherited, not unattributed — while `detectLeaks` also had nothing to test, because it carried no id of its own.
+
+So it was invisible to **both** halves of the audit, and — unlike an unattributed root, which at least prints a ⚠ — invisible in a way no reader could notice. That is the same seam this contract records an object vanishing through in §3.15, reproduced one level down, inside the summariser that exists to prevent it.
+
+1. Every geometry-bearing object MUST land in exactly one census bucket: root-attributed, root-unattributed, declared-independent, inherited, or **orphaned**.
+2. `orphanedDescendantCount` MUST be printed on the **clean** verdict as well as the violating one. A blind spot that surfaces only when something else already failed is precisely the blind spot that gets read as cleanliness.
+3. ⚠ It is **not** a leak count and MUST never be presented as one. It is the size of the audit's blind spot below the root line, and it shrinks when producers stamp their subtrees — never by being netted away.
+
+### §3.18 — A `scope.foreignProject` finding MUST carry the evidence that says WHICH mechanism it is (binding; L-8810, 2026-08-23)
+
+`site.model still owned by <other project>` has two mechanisms that need **opposite** fixes: a teardown leak (project A's state survived the switch) or a **data defect** (project B's own snapshot carries `site.projectId = A`, which `restoreSiteState` writes back verbatim *after* `ClearProjectCommand` correctly nulled the store). They rendered identically, and the previous lane read the finding as the first and deferred it. It is the second.
+
+1. The probe's `describe()` payload MUST be rendered into the console finding, not collected and dropped. `site.model`'s already returned the deciding witness: `deterministicSiteId(projectId) = site_<projectId>` makes the site id derivable from the project id, so `siteId === 'site_' + owner` proves an internally consistent record that was **copied wholesale** — a snapshot/duplication defect — while a disagreeing pair points at a mismatched authored write.
+2. ⛔ The audit MUST NOT silently re-stamp the site to the loaded project. That would turn the verdict green while destroying the evidence of which project the parcel data came from (ADR-0298 — report, never auto-repair). Reconciliation at the `restoreSiteState` seam is a founder-level decision, recorded as L-8811, not a patch.
+
+### §3.19 — A teardown detaches by PARENT, never by container (binding; L-8820, 2026-08-23)
+
+`Object3D.remove(child)` is a **silent no-op** when `child` is not a direct child of the object it is called on. A builder that detaches with `this._scene.remove(root)` and then deletes its index entry regardless will, for any root that was re-parented — or built before its scene was set — **drop the object from its own index while leaving it live in the scene**. The object is then unreachable by that builder's `remove()`, its `clearProjectGeometry()` **and** its `dispose()`, and it accumulates across every subsequent project switch.
+
+1. Every project-scoped teardown MUST detach with `removeFromParent()` (or an equivalent that resolves the object's ACTUAL parent). Behaviour is identical in the normal case, so this costs nothing and cannot remove geometry a correct session still needs.
+2. An index entry MUST NOT be deleted on a detach path that can silently fail. "Removed from my map" and "removed from the scene" are different facts.
+3. ⚠ `RoomBoundaryBuilder.removeRoom` documented this hazard and guarded it **before** `LightingFragmentBuilder` reproduced it. A lesson learned in one builder and not generalised is the recurring shape of this whole contract — see §3.16, where a declaration was wired into one half of the audit only.
+
 ---
 
 ## §4 — The normative teardown sequence
