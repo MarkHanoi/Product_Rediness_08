@@ -44782,3 +44782,193 @@ in `packages/command-registry/**`, `plugins/balcony`, `plugins/boundary-line` an
 `plugins/lift/src/handlers/index.ts` — **none of which this lane modified.** CLAUDE.md records
 this gate at *"54 of 70, 2 new files"*; it is now 10, so eight more arrived from sibling lanes
 this session. **The baseline is shrink-only and must not be extended to absorb them.**
+
+
+## L-9300..L-9310 — lane POOL55 (2026-08-23): the founder drew a pool and a boundary line, and NOTHING was created — three roots, and the biggest one is not in either tool
+
+> **Founder, on the live deploy `2f8d9470`, minutes apart:**
+> *"testing the swimmingpool — it doesn't work still: first the creation mode should work exactly
+> like the wall … the preview is not possible to be created in 3D view … but even with rectangle
+> mode doesn't work — the swimming pool would not create"*
+> *"testing boundary line: same preview works on plan view — not in 3D view … and doesn't actually
+> work — it doesn't create"*
+>
+> Both consoles: `[SvpPlanToolOverlay] Handler activated: <tool>` **seven times**, zero `*.create`.
+
+⭐ **BOTH TOOLS ALREADY HAD A GREEN POINTER-LAYER PROOF ON THE SAME SURFACE.**
+`pointerReachesArmedHandler.spec.ts` and `boundaryLinePointerReach.spec.ts` drive the REAL
+`SvpPlanToolOverlay` with REAL DOM `MouseEvent`s and each gets exactly one `create` — 36 assertions,
+green, on the founder's own pane. So *"the pointer does not reach the armed handler"* is **REFUTED**,
+and the leading hypothesis this lane was handed (*"does the split view forward `dblclick` / `keydown`
+at all?"*) is **REFUTED AS STATED**: both listeners are bound in `SvpPlanToolOverlay.attach()`
+(`dblclick` on the canvas in capture, `keydown` on `window` in capture) and both fire.
+**What the harnesses quietly made true, production does not.** Reproduced in
+`apps/editor/src/engine/views/plantools/__tests__/planOnlyToolFinishGesture.spec.ts` — 20 assertions,
+real DOM events, the real split-view overlay, the real palette call.
+
+### L-9300 — CLOSED: a PRESERVED stroke could not be FINISHED — Enter and Escape were dropped whenever the pointer left the pane
+
+`SvpPlanToolOverlay._onMouseLeave` **deliberately** preserves a half-drawn stroke (§T-B1 — so a
+six-point outline does not evaporate because the architect reached for the toolbar) while setting
+`_svpFocused = false`. `_onKeyDown` then returned early on that very flag. **The stroke was kept
+alive and made unfinishable, in one file.**
+
+⛔ **AND IT WAS A SPLIT-VIEW-ONLY BREAK.** `PlanViewToolOverlay._onKeyDown` has no hover gate at all
+(`if (!this._activeHandler || this._paused) return;`), so Enter has always worked on the MAIN plan
+surface. The founder's layout is 3-D + the SPLIT pane, which is why he is the one who found it.
+
+**MEASURED, before the fix** (ARM B): four clicks → `mouseleave` → Enter → **0 `pool.create`**;
+three clicks → `mouseleave` → Enter → **0 `boundaryLine.create`**. With the pointer left on the pane
+both committed. **After:** both commit, and B-3/B-4 pin that hovering still works and that Enter with
+no stroke still creates nothing.
+
+⭐ **THIS IS ALSO THE `Handler activated: pool` ×7.** Escape is decided below that same guard, so with
+the pointer off the pane the overlay never claimed it and the session's bubble-phase fallback ran
+`planOnlyToolEscape(false)` — *"no overlay held a stroke"* — **disarming a tool that was mid-outline**.
+A person whose tool keeps putting itself away clicks the palette again.
+
+### L-9301 — CLOSED: every refusal these two tools compute was erased ~16 ms later
+
+`_refuse()` painted its sentence on the overlay canvas — the right SECOND channel, and it was the
+only one. `SvpPlanToolOverlay._onMouseMove` begins **every** pointer sample with `ctx.clearRect(...)`
+and then calls the handler, whose points `_refuse()` has just reset to zero, so the handler redrew
+the idle hint (pool) or nothing at all (boundary line) over the reason.
+
+**MEASURED** (ARM A-4): after ONE `mousemove` the on-screen text was `"Pool · Click the first corner"`.
+The reason was computed, correct, and thrown away. **C11 §7.6 — a dead click behind a perfect preview.**
+
+Closed two ways: the refusal now persists until the next CLICK (a new attempt is when the old reason
+stops being true), and it is also delivered through `runtime.toasts` — the channel L-7005 established
+as the live one after `pryzm:toast` measured 40+ emitters and **zero** subscribers.
+
+### L-9302 — CLOSED: the boundary line's six modes had **ZERO** production writers
+
+`PLAN_ONLY_MODE_STORES` carried only `pool` and `balcony`, so `beginPlanOnlyToolSession` found no
+store for `boundary-line`, mounted **no mode strip**, and every line the founder could draw shipped
+`linear` with `hasVolume: false`.
+
+⚠ **MEASURED 2026-08-23:** `grep -rn "setActiveBoundaryLineDrawMode" apps packages plugins` → the
+definition, the `__resetForTests` helper, and **four calls, ALL FOUR INSIDE
+`boundaryLinePointerReach.spec.ts`**. That spec's `rectangular` arm was green **because it called the
+setter the UI does not call**. This is the third recurrence in this family (the pool's palette row,
+L-5690; `activePoolDrawMode`'s own *"not one production WRITER"* note), which is why the census in
+ARM C drives the mode through the **session's store table** rather than the setter.
+
+### L-9303 — CLOSED: Escape asked one PANE whether a stroke existed, when the tool spans both
+
+A plan-only tool is armed on **every** attached plan surface, and the two overlays hold **separate**
+handler instances, so the outline lives in exactly one of them. Both listen for Escape on `window` in
+the capture phase and the FIRST to run decided the two-stage gesture from its OWN handler. With the
+main plan surface also up, that first reader is the EMPTY one → *"no stroke"* → stage 2 → **the
+half-drawn outline in the other pane is disarmed out from under the architect.**
+`anyPlanSurfaceHasStroke()` makes the question a property of the TOOL.
+
+### L-9304 — CLOSED: the pool's closing edge was invisible, so "Enter closes the ring" had to be taken on trust
+
+The founder: *"if I create 3 segments on preview and click Enter the 4th should connect with the
+first point"* — **and it always did.** `_commit()` treats `_points` as a RING (first vertex not
+repeated — the slab/boundary-line convention, and the L0 schema refuses a duplicated closing vertex),
+so three segments have always produced a four-sided pool. What was missing is that the preview stroked
+an **open** polyline. The closing edge is now drawn fainter and in a longer dash — the edge the TOOL
+will add, not one the architect placed. The wall never needed this: it commits each segment as it
+goes, so its closing segment is a real wall the moment Enter lands.
+
+### L-9305 — ⛔⭐ THE BIGGEST ROOT, AND IT IS IN NEITHER TOOL: **a pool and a boundary line render NOTHING, anywhere**
+
+Both commands are genuinely dispatchable — registered in `PluginRegistry`, reached by
+`composeRuntime()` through `bootstrapWithEverything`, real records, real undo. **And then they stop.**
+
+| | `pool.create` | `boundaryLine.create` |
+|---|---|---|
+| `case` in `CommandEventBridge` | **none** → `default:` | **none** → `default:` |
+| L-7825 silent-drop detector sees it? | **yes** (4 stores) — warns, mirrors nothing | ⛔ **NO** — single-store (`produceCommand`, patch paths length 1); the detector needs `path.length === 2` **and** >1 store |
+| legacy mirror reached | none (`wall.created` / `slab.created` never emitted) | none |
+| mesh builder in repo | ⛔ `PoolMeshBuilder` / `WaterBuilder` → **ZERO matches repo-wide** | ⛔ none; `boundaryLineSolid()` has **zero production callers** |
+| plan-view draw path | none | none |
+| persistence | — | ⛔ `ProjectSerializer` has no `boundaryLines` field: the record **dies on save** |
+| element count | not in `ProjectSerializer`'s `elementCount` sum | not in it either |
+
+⛔ **DISPATCHABLE IS NOT VISIBLE**, and both matrix rows said *"NOT a missing handler — … fully
+dispatchable … and the plan arm drives it"*, which reads as *"it works in plan"*. Corrected in place
+(L-9306/L-9307).
+
+**Owner: the lane holding `packages/runtime-composer/src/CommandEventBridge.ts`.** ⛔ **This lane did
+NOT edit it** — it is dirty in a live sibling lane's tree (LIFT56, closing the lift's render path),
+and `06a4db7b`'s `case 'lift.create'` (:1352) is the exact idiom to copy; `case 'balcony.create'`
+(:1214) is the worked example, and its own comment already names the pool as the live instance.
+**Two things are needed, not one:** (a) `case 'pool.create'` emitting `wall.created` / `slab.created`
+per member — the water body has no event, no subscriber and no builder, so it must be **reported by
+name** the way the lift reports its unmirrored members, never smuggled through as another type; and
+(b) extend the detector to single-store families, or `boundaryLine` stays silent.
+
+⭐ **Interim, shipped here:** both handlers now emit a **success confirmation by name** on a resolved
+dispatch. With no render path, "created" and "silently refused" are the same number of pixels — which
+is the founder's entire report. C11 §7.6.
+
+### L-9306 / L-9307 — CLOSED: the two matrix `gap:` rows were corrected in place
+
+Both named only the missing 3-D arm and then asserted dispatchability in a way that reads as working.
+They now name the render gap FIRST and order the 3-D arm BELOW it, with the reason: **a 3-D arm built
+first would add a second surface that creates the same invisible element.**
+
+### L-9308 — ⛔ OPEN, and the CLAIM was the defect, not the gate
+
+`elementCreationMatrix.ts` asserted *"The activator id `pool` is already registered in PluginRegistry
+so `check-tool-activator-coverage` ARM A stays at 0."*
+
+**MEASURED 2026-08-23:** `npx tsx tools/ga-gate/check-tool-activator-coverage.ts` → **RC=1**,
+*"ARM A FAIL — 3 declared tool id(s) have NO registered activator (baseline 0): balcony,
+boundary-line, pool"*. There is **no** `runtime.tools.register('pool', …)` anywhere.
+
+⭐ So the answer to *"is this a gate that cannot see this class of gap?"* is **no — the gate sees it,
+names all three, and is RED right now.** What was wrong was the line quoting the gate. Same shape as
+`PluginRegistry`'s *"the LANDSCAPE palette row"* claim that L-5690 measured as false, and as the five
+count/range corrections in CLAUDE.md. **Read the gate, never the line that quotes it.** The claim is
+corrected in place; ARM A stays RED until the activators land (L-9309).
+
+⚠ Two caveats on that gate, so nobody over-reads a future green: its regexes **match commented-out
+code**, and its own header says a green reading means *"the silent-success path is closed"*, never
+*"the tool works"* — it cannot see L-9305 at all.
+
+### L-9309 — ⛔ OPEN, DELIBERATELY NOT BUILT: the 3-D arm for `pool` and `boundary-line`
+
+The founder asked for it twice (*"it should behave like slab — preview — then creation"*), and the gap
+was declared at `elementCreationMatrix.ts:268` and **handed to lane PERF13 in L-5214, where it was
+never picked up.** ⛔ **This is not a second drop — it is a REFUSAL WITH A MEASURED REASON:** until
+L-9305 lands, a 3-D arm would give him a perfect 3-D preview that creates an **invisible** element, at
+a second surface. That is the founder's own report reproduced somewhere new. **Render first, arm
+second.**
+
+The build itself is enumerated rather than hand-waved — 17 sites, and (0) is a prerequisite:
+**(0)** `case 'pool.create'` in `CommandEventBridge` · **(1)** `ToolName` union
+(`packages/input-host/src/types.ts`) · **(2)** `TOOL_MANAGER_TOOL_KEYS` (`ToolManager.ts:58`) ·
+**(3)** private field · **(4)** `setPoolTool()` + `registerTool()` (pattern `ToolManager.ts:147`) ·
+**(5)** `activatePool(mode)` routing **all six** modes (pattern `:602`; a mode with no case silently
+degrades) · **(6)** a `PoolTool` class — `packages/geometry-pool` has only `PoolAssembly.ts` /
+`PoolDimensions.ts` today · **(7)–(9)** construction, `window.poolTool`, `setDeps`, and
+`toolManager.setPoolTool` in `initTools.ts` · **(10)** `BimService.activatePoolTool(mode)` writing
+`setActivePoolDrawMode` **first** · **(11)** `runtime.tools.register('pool', …)` in
+`ToolsAreaLayout.ts` — **without this `runtime.tools.activate('pool')` returns `false`** ·
+**(12)** flip the palette row off `activatePlanOnlyToolOrExplain` · **(13)** matrix
+`views: ['plan','3d']` · **(14)** the matrix spec's gap ledger · **(15)** remove the row from
+`PLAN_ONLY_MODE_STORES` — a pool with a ToolManager arm is no longer plan-only and would mount its
+strip twice · **(16)** the `_programmaticTool && tool === 'none'` guards in **both** overlays, which
+are correct only while the ToolManager cannot own `pool` · **(17)** items (11) and (13) must land
+**together**: (13) alone trips ARM A, (11) alone trips ARM B as a phantom.
+
+⭐ **The smallest precedent is `LiftTool` (319 lines)** — plain `THREE.Raycaster` against a ground
+plane, ghost preview, injected `createCommand` — **not** `SlabTool` (2230). But `LiftTool` is a
+single-click placer; a pool needs a polygon, so the point-collection loop should come from
+`RoomTool`'s MANUAL_BOUNDARY mode. ⚠ And **do not copy `SlabTool`'s dispatch**: it commits through the
+legacy `commandManager`, while `pool.create` exists **only** on the bus.
+
+### L-9310 — lane readings at close
+
+| reading | value |
+|---|---|
+| `planOnlyToolFinishGesture.spec.ts` (new) | **20/20 green** — 4 reproduced RED before the fixes |
+| the six specs in this lane's blast radius | **210/210 green** (incl. `elementCreationMatrix.spec.ts`, 150 assertions, and both prior pointer-reach suites) |
+| per-mode census, **12 combinations** | pool **and** boundary-line × linear / ortho / curved / rectangular / circular / elliptical — **all 12 dispatch** |
+| root `tsc --noEmit --skipLibCheck` | **RC=0, zero errors repo-wide** |
+| `check-tool-activator-coverage` | **RC=1** — ARM A 3/0 (balcony, boundary-line, pool). Pre-existing; see L-9308 |
+| plantools suite, 4 pre-existing failures NOT this lane's | `stairByWalls`, `stairCreationModes` (FrameScheduler duplicate id), `stairPlanCreation`, and `planAutoModeReachability` (fails naming **`grid`**, activator arity 0). ⛔ `git status` shows **no** stair/grid/frame-scheduler file dirty, and this lane's `elementCreationMatrix.ts` diff is **prose-only** (`gap:` strings), so none of the four can be this lane's |

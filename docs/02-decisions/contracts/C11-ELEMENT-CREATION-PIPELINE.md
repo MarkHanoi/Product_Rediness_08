@@ -840,6 +840,75 @@ promised (fail on a template-literal id whose prefix matches a known `ElementTyp
 `packages/schemas`, with an allowlist for non-element entities such as view definitions and render jobs).
 Until that lands, this contract does not govern id minting and must not be cited as though it does.
 
+### §7.7 — THE DEAD CLICK HAS TWO MORE MECHANISMS, AND NEITHER IS ID MINTING (L-9300..L-9310, lane POOL55, 2026-08-23)
+
+**⚠ §7.6 above names the symptom and one cause.** Three founder reports in two days on two different
+element families measured **two further causes of the identical symptom**, and both are more general than
+id minting. This subsection records them so §7.6 is not cited as though it were the whole class.
+
+> *"testing the swimmingpool … even with rectangle mode doesn't work — the swimming pool would not create"*
+> *"testing boundary line … doesn't actually work — it doesn't create"*
+
+**⭐ Both families already had a green pointer-layer proof on the founder's own surface.**
+`pointerReachesArmedHandler.spec.ts` and `boundaryLinePointerReach.spec.ts` each drive the REAL
+`SvpPlanToolOverlay` with REAL DOM `MouseEvent`s and each obtains exactly one `*.create` — 36 assertions.
+The pointer path was never the defect. **A reachability proof at the pointer layer does not bound the
+class of defect that produces a dead click**, and C104 R-10 should be read with that limit attached.
+
+#### Mechanism A — A REFUSAL THAT IS COMPUTED, CORRECT, AND ERASED BEFORE IT CAN BE READ
+
+`PoolPlanToolHandler` and `BoundaryLinePlanToolHandler` each route every declined creation through a
+`_refuse()` that draws the reason **on the plan preview canvas**. That canvas is cleared by the overlay at
+the head of **every pointer sample** (`SvpPlanToolOverlay._onMouseMove` → `ctx.clearRect(...)` → handler),
+and `_refuse()` has just reset the stroke to zero points — so the handler redraws the idle hint over the
+reason. **Measured: after one `mousemove` the on-screen text was `"Pool · Click the first corner"`.**
+
+The refusal was well-written, named both routes back to success (C16 CA-18), and survived roughly one
+frame. **This is worse than no refusal**, because the code reads as compliant at every review.
+
+> **RULE.** A creation refusal MUST be delivered on a channel the ARCHITECT'S NEXT ACTION CANNOT ERASE.
+> A preview-canvas draw is a legitimate SECOND leg and MUST NOT be the only one. The live first leg in
+> this repo is `runtime.toasts` (L-7005 measured `pryzm:toast` at 40+ emitters and **zero** subscribers).
+> ⛔ A refusal whose lifetime is bounded by the next pointer sample does not satisfy §3.2.
+
+#### Mechanism B — A COMMAND THAT SUCCEEDS AND RENDERS NOTHING: **DISPATCHABLE IS NOT VISIBLE**
+
+`pool.create` and `boundaryLine.create` are both genuinely registered, reached by `composeRuntime()`,
+validated, undoable — and **neither has a `case` in `packages/runtime-composer/src/CommandEventBridge.ts`**.
+Both fall to `default:`, so no member event reaches the legacy mirrors in `initTools.ts` and no builder ever
+runs. Repo-wide, `PoolMeshBuilder` / `WaterBuilder` return **zero** matches and `boundaryLineSolid()` has
+**zero** production callers; `ProjectSerializer` has no `boundaryLines` field, so that record also dies on
+save. To the architect, a successful creation and a silent refusal are **the same number of pixels**.
+
+⚠ **The existing silent-drop detector (L-7825) cannot see half of this.** It requires
+`patch.path.length === 2` **and** more than one store, so it catches the multi-store pool and misses the
+**single-store** boundary line entirely.
+
+> **RULE.** A creation command is NOT complete when it dispatches, validates and commits. **§8 verification
+> for a new element family MUST include a reading at the layer the user experiences** — a mesh in the scene
+> or a symbol in the plan — and a family with no render path MUST be recorded as such in
+> `elementCreationMatrix`'s `gap:` field. ⛔ *"Fully dispatchable and the plan arm drives it"* MUST NOT be
+> written where it can be read as *"it works"*; both rows said exactly that and both were wrong in the way
+> that mattered.
+>
+> **RULE (ORDERING).** Where a family has no render path, a NEW activation surface (a 3-D arm, an AI verb,
+> a palette row) MUST NOT be added first. It reproduces the dead click at a second surface. **Render first,
+> arm second.** Lane POOL55 declined to build the requested 3-D arm on exactly this ground (L-9309).
+
+#### Mechanism C (corollary) — A FINISH GESTURE IS PART OF THE CREATION PATH
+
+`SvpPlanToolOverlay` preserved a half-drawn stroke across `mouseleave` (§T-B1) while gating `keydown` on
+hover focus — so **Enter and Escape were dropped for exactly the strokes the same file had gone out of its
+way to keep alive.** `PlanViewToolOverlay` has no such gate, so this was split-view-only and invisible to
+every main-plan test. Measured: four clicks + `mouseleave` + Enter → **zero** dispatches, both families.
+
+> **RULE.** For any tool whose gesture terminates on a KEY, that key MUST reach the handler wherever the
+> handler holds uncommitted state. A hover gate that outlives the stroke it guards is a creation-path bug,
+> not an input-routing preference.
+
+**Full measurement, per-mode census (12 combinations) and the 17-site 3-D-arm checklist:
+`docs/04-reference/ISSUE-LOG.md` L-9300..L-9310.**
+
 ---
 
 ## §8 — Verification contract
