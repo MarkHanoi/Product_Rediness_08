@@ -25,6 +25,7 @@ import { floorSystemTypeStore }      from '@pryzm/core-app-model/stores';
 import { slabSystemTypeStore }       from '@pryzm/geometry-slab';
 import { SteelProfileLibrary }       from '@pryzm/plugin-structural';
 import { escapeHtml, formatMaterialColor, formatMetres } from './DWHelpers';
+import { buildMaterialUsageIndex } from '../materialUsageRegistry';
 
 // ── Type aliases (mirrors shell-private types; duplicated to avoid import cycle) ─
 
@@ -113,39 +114,50 @@ export function mountTypeSchedule(
 export function mountMaterialSchedule(panel: HTMLElement): void {
     const accentColor = '#0C7A6E';
 
-    const usageMap = new Map<string, Set<string>>();
-    const mark = (matId: string | undefined, cat: string) => {
-        if (!matId) return;
-        if (!usageMap.has(matId)) usageMap.set(matId, new Set());
-        usageMap.get(matId)!.add(cat);
-    };
+    // ── The element axis is DERIVED (L-8600..L-8606, lane MAT50) ─────────────
+    //
+    // This used to be a hand-typed six-string array plus five hand-written marker
+    // calls, and it was wrong in BOTH directions at once: 'Ceiling' was a column
+    // with no marker (329 dashes forever) and `handrailTypeStore` — 44 types, 26
+    // distinct materialIds — had no column at all. See materialUsageRegistry.ts.
+    const { usageByMaterial, familyStates, families } = buildMaterialUsageIndex();
 
-    wallSystemTypeStore.getAll().forEach(t => t.layers.forEach(l => mark(l.materialId, 'Wall')));
-    floorSystemTypeStore.getAll().forEach(t => (t as any).layers?.forEach((l: any) => mark(l.materialId, 'Floor')));
-    slabSystemTypeStore.getAll().forEach(t => t.layers.forEach(l => mark((l as any).materialId, 'Slab')));
-    doorSystemTypeStore.getAll().forEach(t => {
-        mark(t.frameFinish.materialId, 'Door');
-        mark(t.leafFinish.materialId,  'Door');
-    });
-    windowSystemTypeStore.getAll().forEach(t => {
-        mark(t.frameFinish.materialId, 'Window');
-        mark(t.sillFinish.materialId,  'Window');
-    });
-
-    const ELEMENT_CATS = ['Wall', 'Floor', 'Slab', 'Ceiling', 'Door', 'Window'];
     const TICK = '✓';
     const DASH = '—';
+    // The THIRD state: this family declares a material slot and no built-in type
+    // fills one, so the column cannot produce a tick for ANY material. Rendering
+    // that as DASH asserted "not used"; the truth is "cannot say"
+    // (§CONTEXT-DATA-HONESTY — failure and empty must not be the same value).
+    const VOID = '∅';
 
-    const columns = ['Name', 'Category', 'Color', 'Roughness', 'Metalness', ...ELEMENT_CATS];
+    const unseededLabels = families
+        .filter(f => familyStates.get(f.id) === 'unseeded')
+        .map(f => f.label);
+
+    /** Glyph + colour for one material × one family cell. */
+    const cellState = (familyId: string, usage: ReadonlySet<string> | undefined):
+        { glyph: string; colour: string; weight: string; title: string } => {
+        if (familyStates.get(familyId) === 'unseeded') {
+            return {
+                glyph: VOID, colour: '#b9a0d6', weight: '400',
+                title: 'This family cannot yet carry a material reference — no built-in type names one.',
+            };
+        }
+        return usage?.has(familyId)
+            ? { glyph: TICK, colour: accentColor, weight: '700', title: 'Used by a built-in type in this family.' }
+            : { glyph: DASH, colour: '#c9d0dc', weight: '400', title: 'Available, but no built-in type in this family uses it.' };
+    };
+
+    const columns = ['Name', 'Category', 'Color', 'Roughness', 'Metalness', ...families.map(f => f.label)];
 
     const rows = STANDARD_MATERIAL_LIBRARY.map(m => {
         const color     = formatMaterialColor(m.params.color);
         const roughness = typeof m.params.roughness === 'number' ? m.params.roughness.toFixed(2) : '—';
         const metalness = typeof m.params.metalness === 'number' ? m.params.metalness.toFixed(2) : '—';
-        const usage     = usageMap.get(m.id);
+        const usage     = usageByMaterial.get(m.id);
         return [
             m.label, m.category, color, roughness, metalness,
-            ...ELEMENT_CATS.map(cat => (usage?.has(cat) ? TICK : DASH)),
+            ...families.map(f => cellState(f.id, usage).glyph),
         ];
     });
 
@@ -161,7 +173,7 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
             const color     = formatMaterialColor(m.params.color);
             const roughness = typeof m.params.roughness === 'number' ? m.params.roughness.toFixed(2) : '—';
             const metalness = typeof m.params.metalness === 'number' ? m.params.metalness.toFixed(2) : '—';
-            const usage     = usageMap.get(m.id);
+            const usage     = usageByMaterial.get(m.id);
             const cells = [
                 `<td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);font-weight:700;color:var(--app-text);white-space:nowrap;">${escapeHtml(m.label)}</td>`,
                 `<td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);color:var(--app-text-2);font-size:10px;">${escapeHtml(m.category)}</td>`,
@@ -173,14 +185,17 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
                 </td>`,
                 `<td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);color:var(--app-text-2);text-align:center;">${escapeHtml(roughness)}</td>`,
                 `<td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);color:var(--app-text-2);text-align:center;">${escapeHtml(metalness)}</td>`,
-                ...ELEMENT_CATS.map(cat => {
-                    const assigned = usage?.has(cat) ?? false;
-                    return `<td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);text-align:center;color:${assigned ? accentColor : '#c9d0dc'};font-size:13px;font-weight:${assigned ? '700' : '400'};">
-                        ${assigned ? TICK : DASH}
+                ...families.map(f => {
+                    const st = cellState(f.id, usage);
+                    return `<td title="${escapeHtml(st.title)}" style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);text-align:center;color:${st.colour};font-size:13px;font-weight:${st.weight};">
+                        ${st.glyph}
                     </td>`;
                 }),
             ];
-            const searchStr = [m.label, m.category, m.id, color, ...ELEMENT_CATS.filter(c => usage?.has(c))].join(' ').toLowerCase();
+            const searchStr = [
+                m.label, m.category, m.id, color,
+                ...families.filter(f => usage?.has(f.id)).map(f => f.label),
+            ].join(' ').toLowerCase();
             return `<tr data-ms-row data-search="${escapeHtml(searchStr)}" style="background:${(ri + riOffset) % 2 === 0 ? '#fff' : 'rgba(12,122,110,.025)'};">${cells.join('')}</tr>`;
         }).join('');
 
@@ -213,8 +228,21 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
                                  padding:2px 9px;font-weight:700;">${STANDARD_MATERIAL_LIBRARY.length} materials</span>
                     <span style="font-size:10px;color:var(--app-text-muted);margin-left:auto;">
                         ✓ = used in a type &nbsp;·&nbsp; — = available but not yet used
+                        ${unseededLabels.length > 0 ? `&nbsp;·&nbsp;<span style="color:#8a6db8;">∅ = family cannot yet name a material</span>` : ''}
                     </span>
                 </div>
+                ${unseededLabels.length > 0 ? `
+                    <div style="margin-top:8px;padding:7px 10px;border-radius:8px;
+                                background:rgba(138,109,184,.08);border:1px solid rgba(138,109,184,.22);
+                                font-size:10px;color:var(--app-text-2);line-height:1.5;">
+                        <strong style="color:#6d4f9c;">∅ ${escapeHtml(unseededLabels.join(' · '))}</strong>
+                        — ${unseededLabels.length === 1 ? 'this family declares' : 'these families declare'}
+                        a material slot, but no built-in type fills one, so
+                        ${unseededLabels.length === 1 ? 'its column' : 'their columns'}
+                        cannot tick for any material. That is a gap in the type catalogue, not a
+                        statement that these materials are unused.
+                    </div>
+                ` : ''}
                 <input data-ms-search type="search" placeholder="Search concrete, timber, glass, category…"
                        style="width:100%;box-sizing:border-box;margin-top:8px;padding:7px 10px;
                               border:1px solid var(--app-border);border-radius:8px;
@@ -241,7 +269,7 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
             .filter(r => r.join(' ').toLowerCase().includes(term))
             .map((r, ri) => {
                 const color  = r[2];
-                const usage  = usageMap.get(STANDARD_MATERIAL_LIBRARY.find(m => m.label === r[0])?.id ?? '');
+                const usage  = usageByMaterial.get(STANDARD_MATERIAL_LIBRARY.find(m => m.label === r[0])?.id ?? '');
                 return `<tr data-ms-row style="background:${ri % 2 === 0 ? '#fff' : 'rgba(12,122,110,.025)'};">
                     <td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);font-weight:700;color:var(--app-text);white-space:nowrap;">${escapeHtml(r[0])}</td>
                     <td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);color:var(--app-text-2);font-size:10px;">${escapeHtml(r[1])}</td>
@@ -253,9 +281,9 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
                     </td>
                     <td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);color:var(--app-text-2);text-align:center;">${escapeHtml(r[3])}</td>
                     <td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);color:var(--app-text-2);text-align:center;">${escapeHtml(r[4])}</td>
-                    ${ELEMENT_CATS.map(cat => {
-                        const assigned = usage?.has(cat) ?? false;
-                        return `<td style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);text-align:center;color:${assigned ? accentColor : '#c9d0dc'};font-size:13px;font-weight:${assigned ? '700' : '400'};">${assigned ? TICK : DASH}</td>`;
+                    ${families.map(f => {
+                        const st = cellState(f.id, usage);
+                        return `<td title="${escapeHtml(st.title)}" style="padding:7px 10px;border-bottom:1px solid var(--app-border);border-right:1px solid var(--app-border-light);text-align:center;color:${st.colour};font-size:13px;font-weight:${st.weight};">${st.glyph}</td>`;
                     }).join('')}
                 </tr>`;
             }).join('');
