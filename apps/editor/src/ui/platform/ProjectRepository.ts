@@ -221,6 +221,53 @@ function _blobCacheFor(projectId: string): Map<string, string> {
 }
 
 /**
+ * §PERF-SYNCSTATUS-TRANSIENT-NOT-PERSISTED (L-8702) — in-memory overlay for the
+ * ONE syncStatus value that is not a durable fact.
+ *
+ * ⭐ THE MEASUREMENT THAT PRODUCED THIS. The founder's console showed THREE
+ * whole-container writes of the SAME twenty versions per autosave:
+ *     [VersionRepository] 20 version(s) … ~36.8 MB (38,630,482 chars) compressed
+ *     [VersionRepository] 20 version(s) … ~36.8 MB (38,630,478 chars) compressed
+ *     [VersionRepository] 20 version(s) … ~36.8 MB (38,630,470 chars) compressed
+ * ≈110 MB of IndexedDB traffic to record one autosave of a 281-element model.
+ *
+ * They are NOT three writes of identical content, and they are NOT evidence of a
+ * non-deterministic serialiser (which is how the sizes were first read). They are
+ * the documented syncStatus ladder — `ServerSyncQueue.ts:14`,
+ * `'local-only' -> 'sync-pending' -> 'synced'` — and the three payloads differ by
+ * a handful of characters because the STRING LENGTH of that one field changes
+ * (`"local-only"` 12 chars, `"sync-pending"` 14, `"synced"` 8) inside the one
+ * ~1.84 MB record that gets re-deflated. Write 1 is the save; writes 2 and 3
+ * exist ONLY to flip one enum on ONE version, and each rewrites all 36.8 MB.
+ *
+ * Of the three ladder states exactly one is not durable:
+ *   • `local-only`   — written BY the save itself. Durable, free (no extra write).
+ *   • `sync-pending` — "an upload is in flight RIGHT NOW". Cannot survive a reload
+ *     as a true statement: after a reload no upload is in flight. Nothing reads it
+ *     back from storage to make a decision, and reading it back as `local-only`
+ *     (which is what the stored record says) is the CONSERVATIVE value — it means
+ *     "not on the server", which is exactly what an interrupted upload leaves.
+ *   • `synced`       — a durable fact about the server. Must be written.
+ * So `sync-pending` is held HERE instead, and overlaid onto reads so the version
+ * panel's badge is unchanged in-session. 3 whole-container writes → 2.
+ *
+ * ⛔ Do NOT extend this to `synced`. That would trade 36.8 MB of writes for the
+ * possibility of re-uploading a version after a crash, and "the server already
+ * has this" is not a claim that may live only in RAM (C48).
+ */
+const _transientSyncStatus = new Map<string, Map<string, VersionRecord['syncStatus']>>();
+function _transientFor(projectId: string): Map<string, VersionRecord['syncStatus']> {
+    let m = _transientSyncStatus.get(projectId);
+    if (!m) { m = new Map<string, VersionRecord['syncStatus']>(); _transientSyncStatus.set(projectId, m); }
+    return m;
+}
+/** Overlay the in-memory transient status onto a decoded record (identity when none). */
+function _applyTransientStatus(projectId: string, record: VersionRecord): VersionRecord {
+    const pending = _transientSyncStatus.get(projectId)?.get(record.id);
+    return pending === undefined ? record : { ...record, syncStatus: pending };
+}
+
+/**
  * §PERF-COMPRESS-WORKER — monotonic per-project save sequence. The async worker
  * compress path only COMMITS its result if it is still the latest save for the
  * project, so a slow worker for an older save can never clobber a newer one.
@@ -1095,13 +1142,37 @@ export class LocalVersionRepository implements IVersionRepository {
         ));
     }
 
-    /** §PERF-VERSION-NARROW-READ (L-1300) — see {@link IVersionRepository.getLatestVersion}. */
+    /**
+     * §PERF-VERSION-NARROW-READ (L-1300) — see {@link IVersionRepository.getLatestVersion}.
+     *
+     * §PROBE-OPEN-PATH-STORAGE-LEG (L-8703) — THE OPEN PATH HAD NO NUMBERS.
+     *
+     * The founder reported opens taking "a few minutes" against a target of ten
+     * seconds, and every figure anyone could quote came from the SAVE side. The
+     * per-phase load timing that does exist (`§PERF-L03-PHASE` in ProjectLoader)
+     * is gated behind `globalThis.__pryzmPerfTrace` and is therefore OFF in the
+     * build the founder runs — so the storage leg of an open, which is the FIRST
+     * thing that happens and the one that scales with a 36.8 MB container, has
+     * never been measured in production at all.
+     *
+     * This is the cheapest honest instrument for it: four `performance.now()`
+     * reads and `.length` counts on a path that runs ONCE per project open, and
+     * it separates the four costs that are otherwise indistinguishable —
+     *   mirror-read → envelope-parse → inflate(one version) → parse(one version)
+     * — and names the journal's share of what came back, so the next open says
+     * where the time went instead of inviting another guess. Counts only
+     * (`.length`), never a re-`JSON.stringify` of the sub-tree, for the same
+     * reason as §PROBE-SNAPSHOT-JOURNAL-WEIGHT on the save side.
+     */
     getLatestVersion(projectId: string): VersionRecord | null {
+        const __t0 = performance.now();
         const raw = this._rawPayload(projectId);
+        const __tRaw = performance.now();
         if (!raw) return null;
         try {
             if (raw.startsWith(V2_CONTAINER_MARKER)) {
                 const entries = JSON.parse(raw.slice(V2_CONTAINER_MARKER.length)) as _V2Entry[];
+                const __tEnvelope = performance.now();
                 if (entries.length === 0) return null;
                 // ⚠ Storage order IS chronological order: every writer appends and
                 // then `slice(-MAX_VERSIONS_STORED)`, so the last entry is the
@@ -1114,7 +1185,22 @@ export class LocalVersionRepository implements IVersionRepository {
                 // ids; seeding it from a single entry would leave it holding one id
                 // and make the next save believe the other 19 need recompressing —
                 // an O(1) read that silently makes the next write O(history).
-                return JSON.parse(_decompressJSON(last.b)) as VersionRecord;
+                const __json = _decompressJSON(last.b);
+                const __tInflate = performance.now();
+                const __record = JSON.parse(__json) as VersionRecord;
+                const __tParse = performance.now();
+                const __tg = (__record.snapshot as { temporalGraph?: { mutations?: unknown[]; edges?: unknown[] } } | undefined)?.temporalGraph;
+                const __ms = (a: number, b: number) => (b - a).toFixed(0);
+                console.log(
+                    `[VersionRepository] §PROBE-OPEN-PATH-STORAGE-LEG open "${projectId}": ` +
+                    `container ${_formatPayloadSize(raw)} / ${entries.length} version(s) · ` +
+                    `newest inflates to ${(__json.length / 1024 / 1024).toFixed(1)} MB ` +
+                    `(temporalGraph ${__tg?.mutations?.length ?? 0} mutations / ${__tg?.edges?.length ?? 0} edges) · ` +
+                    `mirror-read ${__ms(__t0, __tRaw)} ms, envelope-parse ${__ms(__tRaw, __tEnvelope)} ms, ` +
+                    `inflate ${__ms(__tEnvelope, __tInflate)} ms, record-parse ${__ms(__tInflate, __tParse)} ms ` +
+                    `= ${__ms(__t0, __tParse)} ms before the loader has seen a single element.`,
+                );
+                return _applyTransientStatus(projectId, __record); // L-8702 overlay
             }
             const all = this._decodeVersionsPayload(projectId, raw);
             return all.length > 0 ? all[all.length - 1]! : null;
@@ -1140,7 +1226,12 @@ export class LocalVersionRepository implements IVersionRepository {
             cache.clear(); // rebuild to exactly the stored ids (drops trimmed-out versions)
             const out: VersionRecord[] = [];
             for (const e of entries) {
-                out.push(JSON.parse(_decompressJSON(e.b)) as VersionRecord);
+                // §PERF-SYNCSTATUS-TRANSIENT-NOT-PERSISTED (L-8702) — the stored record
+                // carries the last DURABLE status; an in-flight upload's `sync-pending`
+                // lives in memory and is overlaid here so every reader (the version
+                // panel's badge above all) sees exactly what it saw before the write
+                // was removed.
+                out.push(_applyTransientStatus(projectId, JSON.parse(_decompressJSON(e.b)) as VersionRecord));
                 // ⛔ §PERF-VERSION-NARROW-READ (L-1300) — CACHE ONLY ACTUALLY-COMPRESSED
                 // BLOBS. The in-session MIRROR is now a v2 container whose newest
                 // entry may hold RAW JSON (it is written before the worker's deflate
@@ -1157,7 +1248,8 @@ export class LocalVersionRepository implements IVersionRepository {
             return out;
         }
         // Legacy v1 whole-array blob / raw JSON.
-        return JSON.parse(_decompressJSON(raw)) as VersionRecord[];
+        return (JSON.parse(_decompressJSON(raw)) as VersionRecord[])
+            .map(v => _applyTransientStatus(projectId, v)); // L-8702 overlay, both formats
     }
 
     saveVersions(projectId: string, versions: VersionRecord[]): void {
@@ -1315,6 +1407,18 @@ export class LocalVersionRepository implements IVersionRepository {
      * rewriting the full snapshot payload. Used by ServerSyncQueue callbacks.
      */
     updateSyncStatus(projectId: string, versionId: string, syncStatus: VersionRecord['syncStatus']): void {
+        // §PERF-SYNCSTATUS-TRANSIENT-NOT-PERSISTED (L-8702) — the TRANSIENT rung of
+        // the ladder never touches storage. See {@link _transientSyncStatus} for the
+        // measurement (three 36.8 MB container writes per autosave) and for why
+        // exactly this one rung, and no other, may live in memory. The overlay keeps
+        // in-session reads — the version panel's badge — identical to before.
+        if (syncStatus === 'sync-pending') {
+            _transientFor(projectId).set(versionId, syncStatus);
+            return;
+        }
+        // A DURABLE status supersedes any transient one for this id.
+        _transientSyncStatus.get(projectId)?.delete(versionId);
+
         // §VERSION-QUOTA-INDEXEDDB — persist to IDB (durable, large quota). Never
         // throws; the mirror is updated synchronously so the next read is correct.
         try {
@@ -1614,6 +1718,15 @@ export class LocalVersionRepository implements IVersionRepository {
         }));
         // Re-scope the cache to precisely the stored ids.
         _versionBlobCache.set(projectId, new Map(entries.map(e => [e.i, e.b])));
+        // §PERF-SYNCSTATUS-TRANSIENT-NOT-PERSISTED (L-8702) — bound the transient
+        // overlay the same way, so a trimmed-out version cannot leave an entry
+        // behind for the lifetime of the tab. Same reasoning as the blob cache:
+        // an unbounded per-id map beside a bounded container is a slow leak.
+        const _stored = new Set(entries.map(e => e.i));
+        const _pending = _transientSyncStatus.get(projectId);
+        if (_pending) {
+            for (const id of [..._pending.keys()]) if (!_stored.has(id)) _pending.delete(id);
+        }
         const payload = V2_CONTAINER_MARKER + JSON.stringify(entries);
         getVersionCacheStore().putVersions(projectId, payload); // mirror sync + IDB async, never throws
         // Best-effort: drop any stale legacy localStorage copy so we don't read an

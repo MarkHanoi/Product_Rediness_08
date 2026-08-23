@@ -338,3 +338,97 @@ describe('§FIX-ENVELOPE-APPEND-BYPASSED-THE-FALLBACK (L-5805) — the guard is 
         }
     });
 });
+
+
+// -----------------------------------------------------------------------------
+// SS-PERF-SYNCSTATUS-TRANSIENT-NOT-PERSISTED (L-8702) -- THREE 36.8 MB WRITES PER
+// AUTOSAVE, TWO OF THEM TO FLIP ONE ENUM.
+//
+// The founder's console, live build, one save cycle:
+//     [VersionRepository] 20 version(s) ... ~36.8 MB (38,630,482 chars) compressed
+//     [VersionRepository] 20 version(s) ... ~36.8 MB (38,630,478 chars) compressed
+//     [VersionRepository] 20 version(s) ... ~36.8 MB (38,630,470 chars) compressed
+// ~110 MB of IndexedDB traffic to record one autosave of a 281-element model.
+//
+// The three sizes differ, which was first read as a non-deterministic serialiser.
+// It is not. `ServerSyncQueue.ts:14` documents the ladder
+// 'local-only' -> 'sync-pending' -> 'synced', and the payloads differ because the
+// STRING LENGTH of that one field changes inside the single ~1.84 MB record that
+// gets re-deflated. Write 1 IS the save; writes 2 and 3 exist only for the enum.
+//
+// WHY THIS TEST COUNTS WRITES rather than asserting the stored history is right:
+// a correctness-only assertion passes identically against the old implementation.
+// The whole finding is about the WORK, so `_putVersions` -- the one call that
+// reaches IndexedDB -- is what is counted, exactly as the suite above counts
+// decodes. Nothing is stubbed that is under test.
+// -----------------------------------------------------------------------------
+
+describe('L-8702 — the syncStatus ladder costs ONE container write, not three', () => {
+    it('runs the full local-only -> sync-pending -> synced ladder in 2 writes (was 3)', () => {
+        const repo = new LocalVersionRepository();
+        seedHistory(repo);
+
+        // 1. the save itself — writes the container with syncStatus 'local-only'
+        const fresh = makeVersion(HISTORY_LENGTH);
+        repo.saveVersionWithMeta(PROJECT, fresh, META);
+        expect(_putVersions).toHaveBeenCalledTimes(1);
+
+        // 2. upload starts — TRANSIENT. Must not touch storage at all.
+        repo.updateSyncStatus(PROJECT, fresh.id, 'sync-pending');
+        expect(_putVersions).toHaveBeenCalledTimes(1); // ⭐ separating: was 2
+        expect(_putVersionsMirrorOnly).not.toHaveBeenCalled();
+
+        // 3. upload succeeded — DURABLE. Must be written.
+        repo.updateSyncStatus(PROJECT, fresh.id, 'synced');
+        expect(_putVersions).toHaveBeenCalledTimes(2); // ⭐ was 3
+    });
+
+    it('still shows sync-pending to every reader while the upload is in flight', () => {
+        // The write was removed; the BADGE must not change. Both the wide read
+        // (version panel) and the narrow read (project open) see the overlay.
+        const repo = new LocalVersionRepository();
+        seedHistory(repo);
+        const fresh = makeVersion(HISTORY_LENGTH);
+        repo.saveVersionWithMeta(PROJECT, fresh, META);
+
+        repo.updateSyncStatus(PROJECT, fresh.id, 'sync-pending');
+        expect(repo.getLatestVersion(PROJECT)?.syncStatus).toBe('sync-pending');
+        const wide = repo.getVersions(PROJECT);
+        expect(wide[wide.length - 1]!.syncStatus).toBe('sync-pending');
+    });
+
+    it('a DURABLE status supersedes the transient one and reaches the stored bytes', () => {
+        const repo = new LocalVersionRepository();
+        seedHistory(repo);
+        const fresh = makeVersion(HISTORY_LENGTH);
+        repo.saveVersionWithMeta(PROJECT, fresh, META);
+        repo.updateSyncStatus(PROJECT, fresh.id, 'sync-pending');
+        repo.updateSyncStatus(PROJECT, fresh.id, 'synced');
+
+        expect(repo.getLatestVersion(PROJECT)?.syncStatus).toBe('synced');
+        // ...and it is in the PAYLOAD, not only in the overlay: a fresh repository
+        // reading the same mirror (i.e. a reload) must still see 'synced'.
+        expect(new LocalVersionRepository().getLatestVersion(PROJECT)?.syncStatus).toBe('synced');
+    });
+
+    it('leaves the CONSERVATIVE local-only in the STORED BYTES while an upload is in flight', () => {
+        // The reason sync-pending may live in memory: after a reload no upload IS
+        // in flight, so what survives must be the value meaning "not on the
+        // server". ⛔ A second `new LocalVersionRepository()` does NOT model that —
+        // the overlay is module-scoped, so a same-realm instance still sees it, and
+        // a test written that way would be asserting the reload it cannot perform.
+        // The checkable claim is about the PERSISTED CONTAINER, so read the bytes.
+        const repo = new LocalVersionRepository();
+        seedHistory(repo);
+        const fresh = makeVersion(HISTORY_LENGTH);
+        repo.saveVersionWithMeta(PROJECT, fresh, META);
+        repo.updateSyncStatus(PROJECT, fresh.id, 'sync-pending'); // ...then the tab dies
+
+        const payload = _vmirror.get(PROJECT)!;
+        expect(payload.startsWith(V2_MARKER)).toBe(true);
+        const entries = JSON.parse(payload.slice(V2_MARKER.length)) as { i: string; b: string }[];
+        const stored = JSON.parse(realCodec.decodeCompressed(entries[entries.length - 1]!.b)) as VersionRecord;
+        expect(stored.id).toBe(fresh.id);
+        expect(stored.syncStatus).toBe('local-only');
+    });
+});
