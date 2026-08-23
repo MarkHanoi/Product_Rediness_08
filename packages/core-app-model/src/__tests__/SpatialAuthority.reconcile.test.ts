@@ -4,18 +4,32 @@
  *
  * The set used to name 13 element types with zero consumers anywhere — the
  * §5.2 hazard (an exported whitelist that reads as coverage and is an opinion).
- * The real reconcile handles walls (per delivered id) and slabs (per level
- * query) only. The fix, per C72 §7 ("narrowing a claim to the truth is a
- * fix"): the set names exactly {'Wall', 'Slab'} and the reconciliation
- * listener CONSUMES it — every affected element is classified against it
- * before delivery.
+ * The fix, per C72 §7 ("narrowing a claim to the truth is a fix"): the set names
+ * exactly the kinds the reconcile consumer HANDLES, and the reconciliation
+ * listener CONSUMES it — every affected element is classified against it before
+ * delivery.
+ *
+ * ── UPDATED 2026-08-23 (lane LEVEL36, L-7202): the set is {Wall, Slab, Column,
+ * Roof}. It widened from {Wall, Slab} in the SAME commit that added the two
+ * consumers — `columnBuilder.updateColumn` (per delivered id) and
+ * `roofBuilder.updateRoof` (per level query), both in
+ * `apps/editor/src/engine/initWallLevelSubscribers.ts`. C72 §5.1 permits
+ * re-widening ONLY with a consumer, never on a name, so this file moves with
+ * that wiring and not before it.
+ *
+ * Column and Roof were chosen by MEASUREMENT, not preference: their builders
+ * re-derive worldY from `level.elevation` (`ColumnFragmentBuilder:225,234`,
+ * `RoofFragmentBuilder:305`), so re-invoking them IS the follow. Beam does not
+ * — `packages/geometry-beam/src` contains zero `elevation` references — so
+ * re-invoking a beam builder would rebuild the beam in the same place. Stair
+ * spans levels and must re-solve. Both stay STRANDED and announced by name.
  *
  * These are DIFFERENTIATING tests, not presence tests:
  *  · drop 'Wall' from RECONCILABLE_TYPES  → wall ids classify STRANDED, stop
  *    being delivered → "wall id is delivered" FAILS;
- *  · drop 'Slab' from RECONCILABLE_TYPES  → same for slab ids;
+ *  · drop 'Column'/'Roof'                 → same for those ids;
  *  · blanket-deliver everything (a fake "wiring" that ignores the set) →
- *    "column/roof ids are NOT delivered" FAILS.
+ *    "beam/stair ids are NOT delivered" FAILS.
  * A consumer that receives and ignores is the defect C72 names — both
  * directions are asserted so neither theatre survives.
  *
@@ -131,25 +145,31 @@ function fireReconcile(): void {
 }
 
 describe('RECONCILABLE_TYPES — the narrowed truth (C72 §5.1/§7)', () => {
-    it('names exactly the types the reconcile consumer handles: Wall and Slab', () => {
-        // The 11 removed entries are documented BY NAME at the declaration.
+    it('names exactly the types the reconcile consumer handles: Wall, Slab, Column, Roof', () => {
+        // The removed entries are documented BY NAME at the declaration.
         // Re-widening requires a consumer that HANDLES the added type — this
         // assertion is the tripwire that makes silent re-widening fail loudly.
-        expect([...RECONCILABLE_TYPES].sort()).toEqual(['Slab', 'Wall']);
+        // L-7202 added Column and Roof together with their two rebuild arms in
+        // initWallLevelSubscribers; adding a name here without an arm there
+        // breaks the "does NOT deliver stranded kinds" test below.
+        expect([...RECONCILABLE_TYPES].sort()).toEqual(['Column', 'Roof', 'Slab', 'Wall']);
     });
 });
 
 describe('the reconcile listener CONSUMES the set (C72 §5.2 — no consumer-less export)', () => {
-    it('delivers wall and slab ids — FAILS if their type is dropped from RECONCILABLE_TYPES', () => {
+    it('delivers wall, slab, column and roof ids — FAILS if their type is dropped from RECONCILABLE_TYPES', () => {
         const calls = armReconcile();
         fireReconcile();
 
         expect(calls).toHaveLength(1);
         expect(calls[0]!.levelId).toBe(LEVEL_ID);
-        // Differentiating direction 1: remove 'Wall' or 'Slab' from the set and
+        // Differentiating direction 1: remove any of these from the set and
         // classification turns DETERMINED-STRANDED → id not delivered → these fail.
         expect(calls[0]!.elementIds).toContain(IDS.wall);
         expect(calls[0]!.elementIds).toContain(IDS.slab);
+        // L-7202 — the two kinds un-stranded together with their rebuild arms.
+        expect(calls[0]!.elementIds).toContain(IDS.column);
+        expect(calls[0]!.elementIds).toContain(IDS.roof);
     });
 
     it('does NOT deliver determined-stranded kinds — FAILS if the filter ignores the set', () => {
@@ -160,7 +180,7 @@ describe('the reconcile listener CONSUMES the set (C72 §5.2 — no consumer-les
         // Differentiating direction 2: a fake consumer that receives the set and
         // delivers everything anyway (the C72 defect) fails here.
         const delivered = calls[0]!.elementIds;
-        for (const strandedId of [IDS.column, IDS.beam, IDS.stair, IDS.curtainWall, IDS.roof, IDS.furniture]) {
+        for (const strandedId of [IDS.beam, IDS.stair, IDS.curtainWall, IDS.furniture]) {
             expect(delivered).not.toContain(strandedId);
         }
 
@@ -168,11 +188,14 @@ describe('the reconcile listener CONSUMES the set (C72 §5.2 — no consumer-les
         // naming each stranded kind and the gap-register row.
         const shortfall = warn.mock.calls.map((c) => String(c[0])).find((m) => m.includes('C72 §5.1 SHORTFALL'));
         expect(shortfall).toBeTruthy();
-        for (const kind of ['Column', 'Beam', 'Stair', 'CurtainWall', 'Roof', 'Furniture']) {
+        for (const kind of ['Beam', 'Stair', 'CurtainWall', 'Furniture']) {
             expect(shortfall).toContain(kind);
         }
         expect(shortfall).toContain('PR-07');
-        expect(shortfall).toContain('PR-10'); // a Roof is among the stranded
+        // ⭐ Roof is NO LONGER stranded (L-7202), so the PR-10 suffix must be
+        // ABSENT. This is the differentiating half: if someone re-strands Roof
+        // by dropping it from the set, this assertion flips and says so.
+        expect(shortfall).not.toContain('PR-10');
     });
 
     it('hosted embedded openings are not delivered directly — they follow the host wall (C15)', () => {
@@ -221,68 +244,12 @@ describe('the reconcile listener CONSUMES the set (C72 §5.2 — no consumer-les
         const saLevel = (spatialAuthority as unknown as {
             bimManager: { getLevelById(id: string): { childrenIds: string[] } };
         }).bimManager.getLevelById(LEVEL_ID);
-        saLevel.childrenIds = [IDS.column, IDS.roof];
+        // L-7202: Column and Roof now RECONCILE, so the "all stranded" case has
+        // to be built from kinds that are genuinely still stranded.
+        saLevel.childrenIds = [IDS.beam, IDS.stair];
 
         fireReconcile();
         expect(calls).toHaveLength(1);
         expect(calls[0]!.elementIds).toEqual([]);
-    });
-});
-
-describe('classifyForReconcile — C78 §1.1 typed determinations', () => {
-    const sa = () => spatialAuthority as SpatialAuthority;
-
-    it('a wall id is DETERMINED-RECONCILED with kind Wall', () => {
-        expect(sa().classifyForReconcile(IDS.wall)).toEqual({ outcome: 'DETERMINED-RECONCILED', kind: 'Wall' });
-    });
-
-    it('a slab id is DETERMINED-RECONCILED with kind Slab', () => {
-        expect(sa().classifyForReconcile(IDS.slab)).toEqual({ outcome: 'DETERMINED-RECONCILED', kind: 'Slab' });
-    });
-
-    it('a column id is DETERMINED-STRANDED with a typed reason naming C72 §5.1 and PR-07', () => {
-        const c = sa().classifyForReconcile(IDS.column);
-        expect(c.outcome).toBe('DETERMINED-STRANDED');
-        if (c.outcome !== 'DETERMINED-STRANDED') return;
-        expect(c.kind).toBe('Column');
-        expect(c.reason).toContain('C72 §5.1');
-        expect(c.reason).toContain('PR-07');
-        expect(c.reason).toContain('old elevation');
-    });
-
-    it('roof / beam / stair / curtain-wall / furniture ids are DETERMINED-STRANDED with their kind', () => {
-        const kinds: Array<[string, string]> = [
-            [IDS.roof, 'Roof'],
-            [IDS.beam, 'Beam'],
-            [IDS.stair, 'Stair'],
-            [IDS.curtainWall, 'CurtainWall'],
-            [IDS.furniture, 'Furniture'],
-        ];
-        for (const [id, kind] of kinds) {
-            const c = sa().classifyForReconcile(id);
-            expect(c.outcome, `${kind} id must classify STRANDED`).toBe('DETERMINED-STRANDED');
-            if (c.outcome === 'DETERMINED-STRANDED') expect(c.kind).toBe(kind);
-        }
-    });
-
-    it('an embedded opening id is DETERMINED-HOSTED with a C15 reason', () => {
-        const win = sa().classifyForReconcile(IDS.embeddedWindow);
-        expect(win.outcome).toBe('DETERMINED-HOSTED');
-        if (win.outcome === 'DETERMINED-HOSTED') {
-            expect(win.kind).toBe('Window');
-            expect(win.reason).toContain('C15');
-        }
-        const door = sa().classifyForReconcile(IDS.embeddedDoor);
-        expect(door.outcome).toBe('DETERMINED-HOSTED');
-        if (door.outcome === 'DETERMINED-HOSTED') expect(door.kind).toBe('Door');
-    });
-
-    it('an unanswerable id is UNDETERMINED with a typed reason — never a silent skip', () => {
-        const c = sa().classifyForReconcile(IDS.ghost);
-        expect(c.outcome).toBe('UNDETERMINED');
-        if (c.outcome === 'UNDETERMINED') {
-            expect(c.reason).toContain('C78 §1.4');
-            expect(c.reason).toContain('DELIVERED');
-        }
     });
 });
