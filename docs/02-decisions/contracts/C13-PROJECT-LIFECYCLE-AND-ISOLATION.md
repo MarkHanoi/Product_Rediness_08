@@ -305,9 +305,18 @@ Therefore:
    (`decideVersionWrite`), consumed by `PlatformSaveController.saveVersionInternal`. Server:
    `server/emptySnapshotGuard.js`, consumed by `POST /api/projects/:id/versions`, which answers
    **409 `empty_snapshot_rejected`**.
-2. ⭐ **The escape hatch must already exist.** A MANUAL save is explicit intent and is never
-   refused; the server accepts `"force": true`. A refusal whose "yes" branch waits on a decision
-   nobody has made is a regression with a contract citation attached.
+2. ⭐ **The escape hatch must already exist, and it MUST REACH THE SERVER.** A MANUAL save is
+   explicit intent and is never refused by the client; and because the server refuses a bare
+   snapshot independently, the manual intent is carried onto the wire as `"force": true`
+   (`ServerSyncQueue` `emptyOverwriteIntent` -> request body, persisted with the queue item so it
+   survives a reload). Without that leg the user who deliberately emptied a project and pressed
+   Save would collect a 409 banner for a save they explicitly asked for — **a refusal on a
+   legitimate save, which is worse than the hole the guard closes**. A refusal whose "yes" branch
+   waits on a decision nobody has made is a regression with a contract citation attached.
+   ⛔ **An AUTOSAVE may never set that flag.** If it did, the client would disarm the server guard
+   on every request and the server would stop protecting anyone — including a stale tab running
+   pre-guard code, a replayed request, or any other client. The outer layer must not be able to
+   switch off the inner one by default.
 3. **The threshold is ZERO, not a ratio.** Deleting 4 999 of 5 000 walls is real BIM work and is
    never refused. A "suspicious drop" heuristic keyed on a proportion would refuse legitimate
    demolition; the narrowest rule that closes anything is the only one permitted here.

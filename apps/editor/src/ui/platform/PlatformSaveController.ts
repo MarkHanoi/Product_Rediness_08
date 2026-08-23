@@ -405,7 +405,19 @@ export class PlatformSaveController {
             this.ctx.ownSyncedVersionIds.add(version.id);
             // Enqueue for the SERVER regardless — the server copy is the durable
             // authority and is the recovery path out of a full local origin.
-            this.syncQueue.enqueue(version, this.ctx.projectId);
+            // §GUARD-EMPTY-SNAPSHOT (L-10040) — ⭐ THE ESCAPE HATCH HAS TO REACH THE
+            // SERVER, not just localStorage. The guard above lets a MANUAL save of an
+            // empty model through, but the server refuses a bare snapshot over a
+            // populated project unless the request carries `force: true`. Without
+            // this the user who deliberately emptied a project and pressed Save would
+            // get a 409 banner for a save they explicitly asked for — a refusal on a
+            // legitimate save, which is worse than the hole the guard closes.
+            //
+            // ⛔ `!isAutoSave` is load-bearing: an autosave must NEVER set it, or the
+            // client would disarm the server guard on every request.
+            this.syncQueue.enqueue(version, this.ctx.projectId, {
+                emptyOverwriteIntent: !isAutoSave && snapshot.elementCount === 0,
+            });
 
             // §FIX-STORAGE-QUOTA-SILENT-INDEX-FAILURE (L-269) — THE FALSE-SUCCESS GATE.
             // The version body reached IndexedDB, but if the project meta index did not

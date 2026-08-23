@@ -144,6 +144,19 @@ interface QueueItem {
      * queue with its full payload; `flush()` skips it. Cleared by `unblock()`.
      */
     blocked?: SaveBlock;
+    /**
+     * §GUARD-EMPTY-SNAPSHOT (L-10040) — set ONLY when the user explicitly asked
+     * for this save (Save button / Ctrl+S / the save modal) AND the snapshot is
+     * bare. It becomes `"force": true` on the wire, which is the ONE thing that
+     * gets a bare snapshot past the server's empty-snapshot refusal.
+     *
+     * ⛔ It is NOT set for an autosave, ever. If it were, the client would be
+     * disarming the server guard on every request and the server would stop
+     * protecting anyone — including a stale tab running pre-guard code, a
+     * replayed request, or any other client. Defence in depth means the outer
+     * layer must not be able to switch off the inner one by default.
+     */
+    emptyOverwriteIntent?: boolean;
 }
 
 interface SerialisableQueueItem {
@@ -152,6 +165,7 @@ interface SerialisableQueueItem {
     attemptCount: number;
     nextAttemptAt: number;
     blocked?: SaveBlock;
+    emptyOverwriteIntent?: boolean;
 }
 
 /**
@@ -366,14 +380,18 @@ export class ServerSyncQueue {
      * property the old latch bought (no snapshot round-trip per wall click on a
      * gated plan) is kept, without discarding anything.
      */
-    enqueue(version: VersionRecord, projectId: string): void {
+    enqueue(version: VersionRecord, projectId: string, opts?: { emptyOverwriteIntent?: boolean }): void {
         const block = this.getSaveBlock(projectId);
+        // §GUARD-EMPTY-SNAPSHOT (L-10040) — carried, never inferred. See the field
+        // docstring on QueueItem for why an autosave must never set this.
+        const intent = opts?.emptyOverwriteIntent === true ? { emptyOverwriteIntent: true as const } : {};
 
         const existing = this.queue.findIndex(q => q.version.id === version.id);
         if (existing >= 0) {
             this.queue[existing] = {
                 version, projectId, attemptCount: 0, nextAttemptAt: Date.now(),
                 ...(block ? { blocked: block } : {}),
+                ...intent,
             };
         } else {
             if (this.queue.length >= HARD_QUEUE_CEILING && !this._evictOneSupersededItem()) {
@@ -392,6 +410,7 @@ export class ServerSyncQueue {
             this.queue.push({
                 version, projectId, attemptCount: 0, nextAttemptAt: Date.now(),
                 ...(block ? { blocked: block } : {}),
+                ...intent,
             });
         }
 
@@ -736,6 +755,13 @@ export class ServerSyncQueue {
                     snapshot: version.snapshot,
                     elementCount: version.elementCount,
                     versionId: version.id,
+                    // §GUARD-EMPTY-SNAPSHOT (L-10040) — the escape hatch, and the
+                    // ONLY thing that gets a bare snapshot past the server refusal.
+                    // Present only for a save the USER asked for; an autosave never
+                    // sets it, so the server guard keeps protecting every other
+                    // caller. Omitted entirely otherwise, so the request bytes of a
+                    // normal save are unchanged.
+                    ...(item.emptyOverwriteIntent === true ? { force: true } : {}),
                 }),
             });
 
@@ -927,6 +953,11 @@ export class ServerSyncQueue {
             // server has already given (a retry loop against a 403) and, worse, would
             // lose the only record of why the version never uploaded.
             ...(item.blocked ? { blocked: item.blocked } : {}),
+            // §GUARD-EMPTY-SNAPSHOT (L-10040) — the INTENT travels with the payload
+            // too. A manual "yes, empty it" that has not uploaded before a reload
+            // would otherwise come back without `force` and collect a 409 from the
+            // guard the user already overrode.
+            ...(item.emptyOverwriteIntent === true ? { emptyOverwriteIntent: true } : {}),
         }));
 
         // §VERSION-QUOTA-INDEXEDDB (2026-06-25) — PRIMARY persistence is IndexedDB,

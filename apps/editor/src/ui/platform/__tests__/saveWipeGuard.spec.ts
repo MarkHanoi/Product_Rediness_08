@@ -8,6 +8,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import {
     BARE_SNAPSHOT_CEILING,
     decideVersionWrite,
@@ -135,5 +138,43 @@ describe('§GUARD-EMPTY-SNAPSHOT — the window it exists for, restated as a tes
     it('and stops refusing by itself the moment the real data lands', () => {
         expect(decideVersionWrite({ incomingElementCount: 793, storedElementCount: 793, isAutoSave: true }).action)
             .toBe('write');
+    });
+});
+
+describe('§GUARD-EMPTY-SNAPSHOT — ⭐ THE ESCAPE HATCH REACHES THE SERVER, not just localStorage', () => {
+    // These read the source rather than driving a DOM + network + IndexedDB stack,
+    // for the same reason `serverSaveRejectionFate` is a pure module: the policy
+    // that decides whether the user's work survives must be assertable without a
+    // browser. What they pin is a WIRING fact, and a wiring fact is exactly what
+    // rots silently.
+    const here = dirname(fileURLToPath(import.meta.url));
+    const read = (rel: string) => readFileSync(resolve(here, rel), 'utf8');
+
+    it('the manual-save path asks the queue to send force, keyed on !isAutoSave', () => {
+        const ctrl = read('../PlatformSaveController.ts');
+        expect(ctrl).toMatch(/emptyOverwriteIntent:\s*!isAutoSave && snapshot\.elementCount === 0/);
+    });
+
+    it('⛔ an AUTOSAVE can never set it — otherwise the client disarms the server guard', () => {
+        const ctrl = read('../PlatformSaveController.ts');
+        // The ONLY producer of the flag must be gated on `!isAutoSave`. If a later
+        // edit sets it unconditionally, the server-side refusal becomes decorative
+        // for this client and for every stale tab replaying against it.
+        const producers = ctrl.match(/emptyOverwriteIntent:[^,\r\n]*/g) ?? [];
+        expect(producers).toHaveLength(1);
+        expect(producers[0]).toContain('!isAutoSave');
+    });
+
+    it('the queue turns that intent into "force": true on the wire, and omits it otherwise', () => {
+        const queue = read('../ServerSyncQueue.ts');
+        expect(queue).toMatch(/\.\.\.\(item\.emptyOverwriteIntent === true \? \{ force: true \} : \{\}\)/);
+    });
+
+    it('the intent survives a reload — it is written into the persisted queue item', () => {
+        // A manual "yes, empty it" that has not uploaded before a reload would
+        // otherwise come back without force and collect a 409 for a refusal the
+        // user already overrode.
+        const queue = read('../ServerSyncQueue.ts');
+        expect(queue).toMatch(/emptyOverwriteIntent \?\? |emptyOverwriteIntent === true \? \{ emptyOverwriteIntent: true \}/);
     });
 });
