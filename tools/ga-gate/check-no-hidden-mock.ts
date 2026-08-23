@@ -515,7 +515,7 @@ function analyse(root: string, dirs: readonly string[], today: Date): Analysis {
   let scaffoldHeaders = 0;
 
   const CLASS = /\bclass\s+([A-Za-z_$][\w$]*)/;
-  const KIND = /^\s*(?:public\s+|private\s+|protected\s+|declare\s+)?(?:readonly\s+)?kind\s*(?::\s*[\w'"|. <>\[\]]+\s*)?=\s*['"]([\w.-]+)['"]/;
+  const KIND = /^\s*(?:public\s+|private\s+|protected\s+|declare\s+)?(?:readonly\s+)?kind\s*(?::\s*[\w'"|. <>[\]]+\s*)?=\s*['"]([\w.-]+)['"]/;
   const FIELD_AFTER_DOC = /^\s*(?:readonly\s+)?([A-Za-z_$][\w$]*)\??\s*:/;
 
   // pass 1 — production sources: M-A, M-B, and the M-C field inventory.

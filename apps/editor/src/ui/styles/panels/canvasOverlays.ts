@@ -126,7 +126,7 @@ export const CANVAS_OVERLAYS_STYLES = `
    ═══════════════════════════════════════════════════════════════════════════
 
    ⛔ THE DEFECT, MEASURED 2026-08-22, AND IT WAS TWO BUTTONS, NOT ONE.
-   'rg "\+ Grid" --type ts' returns TWO owners that each build their own pill:
+   'rg "\\+ Grid" --type ts' returns TWO owners that each build their own pill:
 
      PlanViewToolOverlay.ts:694   document.body.appendChild  position: fixed  z-index 6
      SvpPlanToolOverlay.ts:692    document.body.appendChild  position: fixed  z-index 10002

@@ -168,7 +168,7 @@ export function parseRateCsv(text: string): RateImportResult {
     if (cells[0]?.toLowerCase() === 'code') continue; // header
     const [code, rateRaw, unitRaw, source] = cells;
     if (!code) { rejected.push(`Row ${i + 1}: no line code — skipped.`); continue; }
-    const rate = Number(String(rateRaw ?? '').replace(/[^0-9.\-]/g, ''));
+    const rate = Number(String(rateRaw ?? '').replace(/[^0-9.-]/g, ''));
     if (!Number.isFinite(rate) || rate < 0) {
       rejected.push(`Row ${i + 1} (${code}): rate "${rateRaw ?? ''}" is not a usable number — skipped, NOT treated as 0.`);
       continue;

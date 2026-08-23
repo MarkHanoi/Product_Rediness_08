@@ -215,7 +215,7 @@ function collectAdapters(root: string, dirs: readonly string[]): { adapters: Ada
   const CLASS = /\bclass\s+([A-Za-z_$][\w$]*)/;
   // A CLASS FIELD, not an object property and not an assignment to a member:
   // optional `readonly`, then `kind`, `=`, a string literal.
-  const KIND = /^\s*(?:public\s+|private\s+|protected\s+|declare\s+)?(?:readonly\s+)?kind\s*(?::\s*[\w'"|. <>\[\]]+\s*)?=\s*['"]([\w.-]+)['"]/;
+  const KIND = /^\s*(?:public\s+|private\s+|protected\s+|declare\s+)?(?:readonly\s+)?kind\s*(?::\s*[\w'"|. <>[\]]+\s*)?=\s*['"]([\w.-]+)['"]/;
   for (const dir of dirs) {
     for (const abs of walk(join(root, dir))) {
       const rel = relPath(root, abs);

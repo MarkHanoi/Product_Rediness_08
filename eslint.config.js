@@ -315,6 +315,14 @@ export default [
     ignores: [
       'node_modules/**',
       'dist/**',
+      // `dist-server-deps/` is the `build:server-deps` bundle output and is
+      // GITIGNORED (.gitignore:11). It was missed here, so ESLint was linting a
+      // rollup bundle: the only two errors it raised were `Definition for rule
+      // '@typescript-eslint/no-unused-vars' was not found` — inline directives the
+      // bundler COPIED from the sources it inlined, for a plugin this config only
+      // registers on `.ts`/`.tsx`. Not a code finding; linting build output has no
+      // meaning by construction.
+      'dist-server-deps/**',
       // `apps/component-editor/dist-gate/` is a COMMITTED vite bundle (the C51
       // apex-output gate reads it). It is a build artefact by every definition
       // this ignore list already uses, and linting minified output produced

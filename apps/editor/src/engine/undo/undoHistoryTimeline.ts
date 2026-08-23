@@ -238,7 +238,7 @@ function _describeDottedVerb(raw: string): string {
 function _splitToken(token: string): string[] {
   return token
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/[_\-]+/g, ' ')
+    .replace(/[_-]+/g, ' ')
     .split(/\s+/)
     .filter(w => w.length > 0)
     .map(w => w.toLowerCase());

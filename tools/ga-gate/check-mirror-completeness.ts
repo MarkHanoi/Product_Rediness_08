@@ -51,7 +51,7 @@
  * ─── WHAT IT CHECKS, PRECISELY ─────────────────────────────────────────────
  * ARM A — MIRROR COVERAGE (the shrink-only ratchet).
  *   For every verb discovered in the handler roots whose `affectedStores` names
- *   at least one PLUGIN DTO STORE KEY (measured from `plugins/*​/src/store.ts`,
+ *   at least one PLUGIN DTO STORE KEY (measured from `plugins/<plugin>/src/store.ts`,
  *   never hard-coded), the verb must satisfy ONE of:
  *     (a) a `case '<verb>':` arm in `packages/runtime-composer/src/CommandEventBridge.ts`;
  *     (b) a row in `mirror-debt.json` carrying a REASON.
@@ -91,7 +91,7 @@
  * documented way this repo produces a confidently-green gate:
  *   · the handler walk must read ≥ MIN_FILES files;
  *   · it must discover ≥ MIN_VERBS verbs;
- *   · `plugins/*​/src/store.ts` must yield ≥ MIN_STORE_KEYS store keys AND the
+ *   · `plugins/<plugin>/src/store.ts` must yield ≥ MIN_STORE_KEYS store keys AND the
  *     bridge file must yield ≥ MIN_BRIDGE_CASES case arms. A regex that stopped
  *     matching would otherwise report "every verb is covered" or "no verb needs
  *     covering", both of which read as success.

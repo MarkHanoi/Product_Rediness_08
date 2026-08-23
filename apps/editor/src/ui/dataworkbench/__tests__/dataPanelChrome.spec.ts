@@ -346,7 +346,7 @@ describe('§DW-ONE-HEADER-BAND — the Data panel chrome', () => {
             expect(modes.length).toBe(5);
 
             const src = stripComments(read(WORKBENCH));
-            const control = /_buildHeatmapControl\(\): HTMLElement \{([\s\S]*?)\n    \}/.exec(src)?.[1] ?? '';
+            const control = /_buildHeatmapControl\(\): HTMLElement \{([\s\S]*?)\n {4}\}/.exec(src)?.[1] ?? '';
             expect(control.length).toBeGreaterThan(200);
             const missing = modes.filter((m) => !control.includes(`mode: '${m}'`));
             expect(missing, 'a heatmap mode was dropped when the band was collapsed').toEqual([]);

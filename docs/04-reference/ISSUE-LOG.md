@@ -45425,3 +45425,410 @@ source. The route that exists is `tools/texture-pipeline/sources/materials.json`
 re-run the acquirer, get provenance and SHA-256s. ⚠ **Not run here: it needs network**, and inventing
 manifest rows without executing the acquirer would produce exactly the unverifiable provenance L-9701
 refuses.
+
+---
+
+## §ROOF-SLOPE-METRE-UVS — L-10020 … L-10027 (lane ROOF7, 2026-08-23): the roof can carry a texture now, and the reason it still will not show one is a different mechanism
+
+> **Contract**: [C100 §10.16](../02-decisions/contracts/C100-MASTER-MATERIAL-DATABASE.md) — the slice
+> C100 §10.15.f minted as "S33" and this lane renumbers **S34** (the number was already taken by
+> §10.10.f). **Files**: `packages/geometry-roof/src/pure/slopeUvs.ts` (new, pure),
+> `packages/geometry-roof/src/roofSlopeUvs.ts` (new, THREE adapter), `RoofGeometryBuilder.ts`,
+> `RoofFragmentBuilder.ts`, `index.ts`.
+> **Proof**: `packages/geometry-roof/__tests__/RoofSlopeUvsReachMesh.test.ts` — **30 tests, AT THE
+> MESH**, GREEN; three watched REDs RUN and recorded (L-10021, L-10023).
+
+### L-10020 — ⛔ A ROOF COULD NOT CARRY A TEXTURE AT ALL, AND THE REFUSAL SITE WAS ONE ARGUMENT
+
+**Status: FIXED — `§ROOF-SLOPE-METRE-UVS`.**
+
+`RoofFragmentBuilder.ts:197` called `applyMaterialMaps(params, matDef, uvSpaceOfGeometry(null))` —
+**literally `null`** — and nothing in `geometry-roof` emitted a `uv` attribute or called
+`stampMetreUvs()`. So **every** roof in **every** project resolved `UV_NONE`,
+`resolveMaterialTextures` returned `state: 'no-uvs'`, and no map slot was written. Assigning a shingle
+to a roof changed its **colour** and showed **no course lines**, unconditionally and by design
+(C100 §10.9.e: *a visibly wrong pattern is worse than an honest flat colour*).
+
+Both halves close together, because either alone is inert: the geometry now **emits and DECLARES**
+metre UVs, and the builder passes **its own geometry** instead of `null`.
+
+⭐ **MEASURED after the change** — production `uvSpaceOfGeometry(null)` call sites under
+`packages/*/src` fall from **5 to 4**: `WallFragmentBuilder.ts:4894` (C100 **S30**),
+`CurtainWallBuilder.ts:2179` + `:2229`, `CurtainWallInstanceManager.ts:246`. **Roof is at zero.**
+⚠ Re-run the grep; do not trust this number.
+
+### L-10021 — ⭐ THE CHEAP FIX IS THE WRONG FIX, AND ONE FUNCTION COVERS TEN GENERATORS INSTEAD OF TEN EDITS
+
+**Status: FIXED.**
+
+`SlabFragmentBuilder.rewriteAxisAlignedUVsToMetres` projects onto the dominant axis of the face
+normal, so a horizontal face becomes `(x, z)`. **Exact for a slab** — a slab's top face is horizontal
+and the plan IS the surface. On a roof it measures the **RUN, not the RAFTER**: a 143 mm course
+renders at `143 · cos(pitch)` mm — **13 % short at 30°, 41 % short at 45°**. And it fails
+**SELECTIVELY**: flat roofs, mansard caps and hip ridge caps are horizontal and tile truly; every
+pitched face does not. ⛔ Half the product tiling correctly and half squashed, with nothing on screen
+to tell them apart, is worse than the uniform refusal it replaced (C100 §10.15.f).
+
+**What shipped is a per-face frame taken from the triangle's own normal:**
+
+```
+h  = normalise(up x n)     — horizontal in the face plane: ALONG THE EAVE
+s  = n x h                 — up-slope  in the face plane: ALONG THE RAFTER
+uv = ( (p - c).h , (p - c).s )      c = geometry centroid — PHASE only, never scale
+```
+
+`h` and `s` are unit and orthogonal, so **the map is an ISOMETRY of each face**: one metre travelled
+on the roof is one unit travelled in uv, in every direction. That single property is the whole
+correctness claim, and the suite asserts it **edge by edge** on every roof form rather than as one
+span.
+
+⭐ **AND IT IS WHY "DO ALL TEN" COST ONE CALL.** C100 §10.15.f sized this at *"1540 lines with ten
+distinct generator entry points … every one of them would need UVs"*. Measured, all ten already funnel
+their finished triangle soup through `RoofGeometryBuilder.generate()`, and a frame derived from a
+TRIANGLE needs no generator knowledge at all. The pass runs **once, at `generate()`**, and covers
+**flat · shed · gable · hip · dutch-hip · gambrel · mansard · segmented (merge path) ·
+concave-pitched (wing decomposition) · general-pitched (ring stack)** — each asserted in its own test
+so a routing change cannot silently drop one.
+
+⭐ **WATCHED RED-B, RUN NOT ASSUMED** — the frame replaced by the naive plan projection (`uv = (x,-z)`
+on every face), i.e. exactly the trap §10.15.f named: **13 failed / 17 passed (30)**. The pitch proof
+and the isometry of **shed, gable, hip, dutch-hip, gambrel, mansard, segmented, concave, general** all
+fall. ⚠ **`flat` stays GREEN under RED-B** — which is the argument itself, demonstrated: the cheap fix
+is correct on exactly the forms that need no correction.
+
+### L-10022 — the material adapter is now built AGAINST the geometry it will be put on
+
+**Status: FIXED.** `RoofFragmentBuilder._createMaterials(data)` → `_createMaterials(data, geo)`, and
+the shingle slot resolves `uvSpaceOfGeometry(geo)`. ⭐ **There is no roof-form branch in that file**: a
+form that declines to stamp resolves `UV_NONE` through the identical call and keeps its flat colour.
+The refusal is a property of the GEOMETRY — which is exactly what C100 §10.9.e's declared stamp was
+built for, and it is what let this land one builder at a time.
+
+### L-10023 — ⛔ THE VERTEX SPLIT MUST NOT CHANGE A PIXEL, AND TWO SEPARATE THINGS COULD HAVE
+
+**Status: FIXED — the half most likely to have shipped a regression quietly.**
+
+A ridge vertex is shared by two slopes and two gable-end triangles: four planes, four frames, one
+vertex. No single uv serves them, so vertices are duplicated per (vertex × frame). **Two traps, both
+real, both closed:**
+
+1. ⛔ **`computeVertexNormals()` after a split flat-shades the roof.** A roof's eave-top vertex is
+   shared between the slope face AND the vertical fascia, so today's normals are *averaged across
+   that crease*. Recomputing after splitting would weld nothing and change the shading of **every
+   roof in every project** — the cost with none of the benefit, which is the same trade §10.15.f
+   refused for the default colour. The duplicate therefore **COPIES its source's already-computed
+   normal**; nothing is recomputed.
+2. ⛔ **`_mergeGeometries` re-runs `computeVertexNormals()` on every input it concatenates**, so a
+   segment geometry whose vertices had already been split would come back flat-shaded *through the
+   merge path*. The pass runs at `_genDepth === 1` only, and `_buildSegmentedGeometry` now calls a
+   private `_generateSegment()` — `generate()` minus the pass.
+
+⭐ **PROVEN, not argued.** The public per-form statics (`generateGable`, …) do **not** run the pass, so
+they ARE the pre-slice geometry. The suite expands both to a triangle soup — **positions AND normals,
+in draw order** — and asserts `toEqual` for flat · shed · gable · hip · dutch · gambrel · mansard,
+plus that every material `group` still covers the identical index range. **A roof with no texture
+renders float-for-float as it did.**
+
+⭐ **WATCHED RED-C, RUN** — `computeVertexNormals()` restored after the split: **8 failed / 22 passed
+(30)**, all seven soup comparisons plus the split-copies-its-source test. Nothing else moved, which is
+the point: the defect is invisible to every texture assertion in the file.
+
+⭐ **WATCHED RED-A, RUN** — `uvSpaceOfGeometry(null)` restored, i.e. **the code as it stood this
+morning**: **14 failed / 16 passed (30)**, including the founder claim, the repeat, the two-scales
+control, the course count, and all ten generator rows. The geometry assertions stay green under
+RED-A, correctly — it breaks the wiring, not the parameterisation.
+
+### L-10024 — ⛔ BARREL REFUSES, BY NAME, AND THAT IS THE PARTIAL ROLLOUT BEING LEGIBLE
+
+**Status: OPEN, deliberately.**
+
+`generateBarrel` approximates a cylinder with **20 flat strips**. A per-face frame gives each strip
+its own origin-relative `s` axis, and at the shared edge between two strips the frames disagree by
+`Δθ × distance-to-origin` — **metres of pattern jump, twenty times across one roof**. A cylinder is
+developable and its honest parameterisation is **arc length**, which belongs inside `generateBarrel`
+where the radius and the angle are already in hand.
+
+So a barrel emits **no `uv`**, resolves `UV_NONE`, gets **no map**, keeps its flat colour, and records
+`geometry.userData.pryzmUvRefusal` naming the reason; a roof carrying a barrel **segment** refuses as
+a whole. A test asserts all four. ⚠ **Barrel is NOT one of the ten C100 §10.15.f sized** (flat, shed,
+gable, hip, dutch-hip, mansard, gambrel, segmented, concave-pitched, general-pitched) — it is the
+eleventh entry point and the only one that refuses.
+
+### L-10025 — ⭐ THIS REMOVES ONE OF THREE MECHANISMS IN SERIES; SEVEN OF THE TEN ROOF ROWS STILL WILL NOT DRAW
+
+**Status: OPEN — stated first, so the fix is not read as the outcome.**
+
+§THREE-INVALIDATION-GATES-IN-SERIES. C100 §10.10.c already recorded three independent mechanisms
+between a catalogue row and a drawn pattern, **each alone sufficient**. This lane owns exactly one of
+them.
+
+**MEASURED 2026-08-23** over `materialCatalog.ts` — **10 rows declare `surfaces` including `roof`, and
+ALL TEN carry `maps`**:
+
+| rows | source | what stands between them and a pattern, AFTER this lane |
+|---:|---|---|
+| **3** | file-backed WebP — `roof-tile-clay-012`, `roof-tile-clay-grey-015`, `shingle-timber-weathered-013` | **only the bytes.** §10.10.c measured `public/items/textures/` **absent locally**; whether R2 serves them in production is a **separate, unmeasured** question (§10.9.b). |
+| ⛔ **7** | `procedural:` — the whole PASCALMAT58 shingle family, incl. `roof-shingle-asphalt-charcoal` | **the generator does not run.** `globalThis.__pryzmProceduralTexturesV1` is **off by deliberate rollback** at 150–830 ms of blocked main thread per pattern (§PROCEDURAL-COST L-1820). That is C100 **§10.10.f's S33 — build-time baking** — a different slice that happens to carry the same number (L-10027). |
+
+⭐ **So the honest answer to *"what does the founder see putting `roof-shingle-asphalt-charcoal` on a
+45° roof?"* is: the charcoal `#3a3a3c`, flat — and now for ONE remaining reason instead of two.** Set
+`globalThis.__pryzmProceduralTexturesV1 = true` in that session and the same roof tiles at
+0.999 × 1.716 m **measured up the rafter**, which is what this lane makes true and what no flag could
+have made true before it. ⛔ **MUST NOT** close §10.10.f's S33 by flipping that flag in production; the
+bake is the sound route and the rollback was measured, not cautious.
+
+### L-10026 — ⚠ THE ROOF DEFAULT IS UNCHANGED, AND WHAT CHANGING IT WOULD DO IS RECORDED INSTEAD
+
+**Status: OPEN — a founder decision, not an engineering one. NOT TAKEN.**
+
+`RoofFragmentBuilder.DEFAULT_MATERIAL_COLOR` (and the kernel's
+`composeRoofMaterialKey.DEFAULT_SHINGLE`) is `#c8a46e`, a warm tan, applied to **every roof carrying
+no explicit `materialColor`** — retroactively, everywhere, because §2.2's *"editing the master changes
+every element that references it"* cuts both ways for a default. Switching it to charcoal would
+**darken every roof in every existing project**.
+
+PASCALMAT58 declined it because it delivered the cost and none of the benefit. ⚠ **The trade has
+now MOVED but not resolved**: the benefit exists for the 3 file-backed rows and still does not for the
+7 procedural ones (L-10025), so *"charcoal by default"* would today restyle every roof and tile for
+none of the shingle rows the founder actually named. A test pins `#c8a46e` so a future lane must
+change it on purpose, in a commit that says so.
+
+### L-10027 — ⛔ C100 CARRIES TWO DIFFERENT SLICES NUMBERED "S33"
+
+**Status: FIXED in the contract — the roof slice is renumbered **S34**.**
+
+- **§10.10.f (2026-08-21, lane MAT2)** — *"S33 — NEW: BUILD-TIME procedural texture generation."*
+- **§10.15.f (2026-08-23, lane PASCALMAT58)** — *"⭐ S33 — NEW … metre UVs for the roof SHINGLE face."*
+
+Two lanes, two days apart, each minted "the next S number" by reading the section it was writing
+rather than the whole slice list. ⚠ **They are not merely different — they are IN SERIES on the same
+founder sentence** (L-10025), so the collision would have made *"S33 is done"* ambiguous in precisely
+the case where the distinction decides whether the founder sees a pattern. **The roof slice is S34**,
+and both sections now say so.
+
+⭐ The shape is C100's own recurring one — *a number transcribed into prose rots* — and the mitigation
+that exists for contract ids (`check-contract-index-equivalence.ts`, comparing SETS in both
+directions) **has no equivalent for slice ids**. Named here rather than left as an absence.
+
+## L-9900 .. L-9906 — `npm run lint` exits 1: the 27 error-level findings classified one by one (lane GATE1, 2026-08-23)
+
+**AUDIT-E §2.6 reported 25 errors on 2026-08-22. Re-measured 2026-08-23 on a tree four lanes
+further on: `npx eslint . --max-warnings=999999 -f json` → **27 errors**, 8 162+ files.** The count
+moves; the classification below is per-error and is the part worth keeping.
+
+| Rule | n | Verdict |
+|---|---|---|
+| `pryzm/store-single-channel` | 7 | ⛔ **RULE IS WRONG** — contradicts ADR-0124 §5. Left failing (L-9900) |
+| `no-useless-escape` | 8 | REAL (7 cosmetic, 1 a genuine doc defect). FIXED (L-9904) |
+| `no-irregular-whitespace` | 6 | 4 flagged **load-bearing** characters (L-9902); 1 redundant, 1 stray. FIXED AT SOURCE |
+| `no-control-regex` | 2 | 1 caught a **vacuous test** (L-9901, FIXED); 1 is a mandatory ANSI stripper, left failing |
+| `@typescript-eslint/no-unused-vars` | 2 | Not code findings — a gitignored bundle was being linted (L-9903). FIXED |
+| `no-fallthrough` | 1 | Layout artefact, no fallthrough exists. FIXED (L-9904) |
+| `no-regex-spaces` | 1 | REAL, cosmetic. FIXED (L-9904) |
+
+### L-9900 — ⛔ `pryzm/store-single-channel` CONTRADICTS ADR-0124 §5; ITS 7 "VIOLATIONS" ARE THE CORRECT DECLARATIONS
+
+**Status: LEFT FAILING, DELIBERATELY. Not fixed, not suppressed.** The brief that opened this lane
+described these 7 as "real architectural violations". **They are not.** Truncating any one of them is
+a data-loss regression with a contract citation attached.
+
+```
+plugins/balcony/src/handlers/{CreateBalcony,DeleteBalcony,UpdateBalconyProfile}.ts   [balcony, slab, floor, handrail]
+plugins/lift/src/handlers/{CreateLift,DeleteLift}.ts            [lift, liftPart, wall, curtainwall, door, slab]
+plugins/pool/src/handlers/{CreatePool,DeletePool}.ts                        [pool, wall, slab, water]
+```
+
+The rule asserts *"every class that implements `CommandHandler` must list AT MOST ONE store in
+`affectedStores`"*. **`affectedStores` has two load-bearing runtime jobs and the rule models
+neither:**
+
+1. **It is the DI manifest.** `CommandBus.buildContext()` (`CommandBus.ts:284-292`) reads
+   `handler.affectedStores` as `required` and **throws `CommandBusError` synchronously** for any
+   declared-but-absent key — *"The bus does NOT fall back to globals"*. Drop `slab` from
+   `CreatePoolHandler` and `ctx.stores.slab` is `undefined`, so the handler's own `canExecute`
+   (`if (!ctx.stores.slab[cmd.hostSlabId])`) throws on the first keystroke.
+2. **It is the undo-routing table.** `CommandBus.ts:461-497` (§U-B6) routes each patch onto the ring
+   buffer **by store key**; a patch whose store is undeclared is **silently dropped**, so Ctrl+Z
+   applies an incomplete inverse. The bus `console.error`s that exact condition. `CreatePool.ts`'s
+   own docstring names the symptom: *"Ctrl+Z would then remove the pool but LEAVE THE HOLE IN THE
+   FLOOR, which the ticket names as 'worse than no feature'."*
+
+**ADR-0124 §5 is the ratified decision and it goes the other way.** Titled *"the multi-store command
+routing convention (and the bug it exposed)"*, it records *"A pool spans FOUR stores"*, mints
+`produceMultiStoreCommand()` as *"the ONE chokepoint for a multi-store bus command"*, and notes
+*"the trap had never been sprung because no bus handler had ever declared two stores"*. The rule's own
+header cites sprint **W-1A-1 / PHASE-1C** — it **predates** the ADR and was never revisited.
+Per CLAUDE.md's conflict order an ADR outranks code, and a lint rule is code.
+
+⭐ **AND IT IS MIS-SCOPED, MEASURED.** The rule is bound to `plugins/**/handlers/**/*.ts`. Multi-store
+`affectedStores` declarations in the tree:
+
+```bash
+grep -rn "affectedStores = \[" --include=*.ts plugins | grep "/handlers/" | grep -c ","   # 7   ← policed
+# same grep, everything else, node_modules excluded                                        # 90  ← NOT policed
+#   packages/command-registry/src/windows 13 · doors 12 · walls 7 · views 7 · slabs 6 ·
+#   vg 5 · stair 5 · levels 3 · handrails 3 · furniture 3 · apps/editor/PluginRegistry.ts 4 …
+```
+
+**7 of 97 = 7.2 % coverage.** This is the L-809 shape verbatim: a rule set to `'error'` that matches
+almost none of the population it exists to police — and the sliver it *does* match is the sliver an
+ADR explicitly blesses.
+
+⛔ **AND ALL 14 SUPPRESSIONS AT THOSE SITES ARE DEAD.** Every one of the 7 files already carries the
+correct reasoning in an `eslint-disable-next-line pryzm/store-single-channel -- CA-6/§U-B6 …`
+directive. **None of them work:**
+
+- The **class-level** directive is followed by 2–4 further `//` lines of justification.
+  `eslint-disable-next-line` applies to **exactly the next line**, which is another comment — so the
+  directive lands 2–5 lines above the `export class` the rule reports on. Gaps measured:
+  CreateBalcony 127→132, DeleteBalcony 53→55, UpdateBalconyProfile 110→114, CreateLift 149→154,
+  DeleteLift 94→96, CreatePool 101→105, DeletePool 71→73.
+- The **property-level** directive *is* correctly placed above `readonly affectedStores`, but the rule
+  reports on the **`ClassDeclaration`** node, so a directive on the property line can never suppress
+  it.
+
+Fourteen directives, zero effect — a suppression that reads as coverage and is not, which is the same
+defect class as a gate suite that aborts silently.
+
+**THE REPAIR IS TO THE RULE, AND IT IS NOT A LINT FIX.** Either narrow it to the invariant that
+survives ADR-0124 — *a handler declaring >1 store must go through `produceMultiStoreCommand()`*,
+which ADR-0124 §5 states as *"Hand-rolling the prefixing is forbidden"* — or retire it. Both options
+have 90 unpoliced sites behind them. ⛔ Not attempted here: writing a new rule to reach green in an
+effort-S lane is how the 7.2 % rule got written in the first place.
+
+⛔ `plugins/pool/**` is lane MIRROR3's. **Reported, not edited — and the report is "do not touch
+these arrays", not "fix them".**
+
+### L-9901 — ⭐ `no-control-regex` CAUGHT A TEST ASSERTION THAT COULD NEVER FAIL
+
+**Status: FIXED.** `packages/ai-host/__tests__/windowRevealRac.test.ts:297` contained **literal
+U+0008 BACKSPACE bytes**, not `\b` escapes:
+
+```
+expect(reason).not.toMatch(/<U+0008>m<U+0008>/);
+```
+
+The intent is unambiguous from its own neighbours — line 295 says *"⭐ AND IT DOES NOT SAY 'NaN' OR
+NAME A UNIT — the §L-3203 failure mode"* and line 296 is `expect(reason).not.toContain('NaN')`. Line
+297 is meant to assert the refusal message does not name the unit **m**, i.e. `/\bm\b/`.
+
+**As written it asserted that the reason contains no BACKSPACE-m-BACKSPACE sequence. No refusal string
+ever will, so the assertion could not fail.** A §L-3203 guard guarding nothing — green, and empty.
+
+`git grep -lP '\x08' -- '*.ts' '*.tsx'` → **1 file before, 0 after**; the corruption was isolated to
+this one line, consistent with backslashes eaten in transit rather than an authoring habit.
+
+⭐ **This is the one finding of the 27 that no type-level mechanism could have caught.** `tsc` sees a
+valid `RegExp`; `noUncheckedIndexedAccess` is irrelevant; the test passes. Only a lexical rule reading
+the regex body could see it. Cite it whenever the case for retiring lint rules is made.
+
+### L-9902 — ⛔ FOUR OF THE SIX `no-irregular-whitespace` ERRORS FLAGGED CHARACTERS WHOSE REMOVAL IS A SYNTAX ERROR
+
+**Status: FIXED AT SOURCE — the rule was NOT relaxed.** All six are **U+200B ZERO WIDTH SPACE**, and
+five sit between a `*` and a `/` inside a `/** … */` block comment, where they exist to stop a
+documented glob or comment delimiter from **terminating the block**:
+
+| Site | Text | Deleting the U+200B |
+|---|---|---|
+| `apps/editor/src/ui/site/parcel/__tests__/parcelRailPanel.spec.ts:65` | `/* … *␣/` inside JSDoc | closes the comment → **syntax error** |
+| `tools/ga-gate/check-mirror-completeness.ts:54` | `plugins/*␣/src/store.ts` | **syntax error** |
+| `tools/ga-gate/check-mirror-completeness.ts:94` | `plugins/*␣/src/store.ts` | **syntax error** |
+| `tools/ga-gate/check-verb-register.ts:100` (col 15) | `plugins/␣*␣/src/handlers/*.ts` | **syntax error** |
+| `tools/ga-gate/check-verb-register.ts:100` (col 13) | same token, `/␣*` | harmless; defensive |
+| `packages/ai-host/src/storeReadDetermination.ts:183` | `\`…␣.length\`` | genuine stray |
+
+`no-irregular-whitespace` already defaults to `skipStrings: true` — **ESLint itself accepts that this
+character class is content, not a hazard, once it is inside a literal.** The same holds in a comment,
+and here the character is *preventing* the very parse error the rule exists to prevent.
+
+⛔ **It was not silenced and the characters were not deleted.** Both would have been wrong: relaxing
+`skipComments` buys green with a blind spot, deleting breaks the build. **Fixed by rewording so the
+character is not needed** — the documented globs now read `plugins/<plugin>/src/store.ts`, and the
+JSDoc at `parcelRailPanel.spec.ts:65` no longer spells `*/` inline.
+
+⭐ **That repair closed a real defect the lint error was only a symptom of.** Those globs were
+*documentation of what the gate scans*, and they contained an invisible character — so
+`plugins/*/src/store.ts` pasted from the source **did not run**, and `grep` for it **silently
+missed**. Same class as *"grep silence has three causes"*: one invisible byte, and the text stops
+meaning what it displays.
+
+### L-9903 — ESLINT WAS LINTING A GITIGNORED ROLLUP BUNDLE
+
+**Status: FIXED in `eslint.config.js`.** Two of the 27 errors were
+`Definition for rule '@typescript-eslint/no-unused-vars' was not found` at
+`dist-server-deps/@pryzm/file-format/server.mjs:17459` and `:17487`.
+
+**Neither is a code finding.** They are inline `eslint-disable` directives the **bundler copied** out
+of the TypeScript sources it inlined, landing in a `.mjs` file for which this config registers no
+`@typescript-eslint` plugin. `dist-server-deps/` is `build:server-deps` output and is **gitignored
+(`.gitignore:11`)**. The ignore block's own header says *"Globally ignored — build artefacts only"*
+and already lists `dist/**` and `**/dist-gate/**`; this directory was simply missed. Linting build
+output has no meaning by construction.
+
+### L-9904 — THE REMAINING 10 WERE REAL, LEXICAL, AND ONE OF THEM WAS A WRONG COMMAND IN A DOC
+
+**Status: FIXED.** Eight `no-useless-escape`, one `no-regex-spaces`, one `no-fallthrough`. Every
+regex change was proved semantics-identical against sample inputs before it was written.
+
+- **7 × `\-` or `\[` inside a character class** (`undoHistoryTimeline.ts:241`,
+  `takeoffCsv.ts:171`, and five `tools/ga-gate/check-*.ts` regexes). Inside `[…]`, `[` is never a
+  metacharacter and a trailing `-` is already literal. Cosmetic, real.
+- ⭐ **`apps/editor/src/ui/styles/panels/canvasOverlays.ts:129` was a genuine defect.** The file is a
+  **CSS template literal**, so the `\+` in the documented command `rg "\+ Grid" --type ts` was eaten
+  by the template — **the rendered comment told the reader to run `rg "+ Grid"`, which is a different
+  and wrong ripgrep pattern.** Doubled to `\\+`. The lint error and the doc bug had one cause.
+- **`no-regex-spaces` at `dataPanelChrome.spec.ts:349`** — four literal spaces in a source-scraping
+  regex → ` {4}`. Exactly equivalent.
+- **`no-fallthrough` at `duplicateToLevel.ts:844`** — **there is no fallthrough.**
+  `case 'curtainWall':` is genuinely empty; ESLint's default `allowEmptyCase` only exempts an empty
+  case **adjacent** to the next one, and three `//` lines of `§L-1032 D3` commentary broke adjacency.
+  The commentary was hoisted above the arm and the three cases made consecutive. No semantic change.
+
+### L-9905 — ⭐ THE 27 ERRORS BEAR ON ADR-0366, AND THEY SUPPORT IT
+
+AUDIT-E §2.5/§3.3 argues that Pascal's `any` density is **3.4× lower** than PRYZM's *despite*
+`biome.jsonc` disabling `noExplicitAny`, because the discipline comes from
+`noUncheckedIndexedAccess: true` and a declared module graph rather than from a linter. **This lane's
+error surface supports that, on three measurements:**
+
+1. **The linter is removed as a variable.** `eslint.config.js:500` sets
+   `'@typescript-eslint/no-explicit-any': 'warn'` — **6 752 warnings, zero errors.** In *outcome* that
+   is identical to Pascal's `noExplicitAny: "off"`: neither repo blocks on `any`. Two repos, the same
+   non-enforcement, a 3.4× density gap. **The gap therefore cannot be explained by the linter**, which
+   is precisely the audit's claim.
+2. **Not one of the 27 errors is about types.** The whole error-level surface is 7 architectural + 18
+   lexical + 2 build-artefact. The gate that blocks CI has nothing to say about `any`, unsafe
+   indexing, or type escapes. Whatever governs type discipline here, it is not `npm run lint`.
+3. ⭐ **PRYZM has already hand-built `noUncheckedIndexedAccess`, and paid for it.** The
+   `no-fallthrough` site is `_geometryMissingReason()` in `duplicateToLevel.ts` — a function whose
+   entire job is to prove array elements are present because the compiler will not. Its own docstring:
+   *"The geometry field each builder dereferences WITHOUT a guard … a `TypeError` swallowed by a
+   dispatch `.catch()` is exactly how L-978's slab and wall defects stayed invisible for months."*
+   **That is a bespoke runtime re-implementation of a compile-time flag, and the ISSUE-LOG records the
+   months of invisible defects it was written in response to.**
+
+⚠ **The honest counterweight, so this is not read as "retire the linter":** **L-9901 is a bug that
+only a lexical rule could find** — a test that could never fail, invisible to `tsc` at any strictness.
+And ⚠ **`strict: true` is already set** in the root `tsconfig.json` (verified by reading the file, not
+by a scripted probe — my first probe reported it UNSET and was wrong), along with `noUnusedLocals`,
+`noUnusedParameters` and `noImplicitReturns`, all of which Pascal delegates to a linter and then
+disables. **`noUncheckedIndexedAccess` is the one flag genuinely missing.** ⛔ And the root config
+`include`s only `src` + four `apps/editor/src` directories — **`packages/**`, `plugins/**` and
+`tools/**` are not covered by the root typecheck at all**, so "turn the flag on at the root" would
+reach a minority of the tree. That scoping question belongs in ADR-0366 and is not answered here.
+
+### L-9906 — lane readings at close
+
+```
+npx eslint . --max-warnings=999999      BEFORE: 27 errors      AFTER: 8 errors   RC = 1
+```
+
+⛔ **`npm run lint` still exits 1, and that is the intended outcome of this lane.** The residue is
+**7 × `pryzm/store-single-channel`** (L-9900 — the rule is wrong; fixing the code breaks undo, and
+suppressing it buys green with a lie) and **1 × `no-control-regex`** at
+`tools/bim30-status/bim30-status.ts:348`, which is `/\x1b\[[0-9;]*m/g` — **an ANSI-escape stripper,
+which cannot be written without a control character.** Rewriting it as
+`new RegExp(String.fromCharCode(27) + …)` would satisfy the rule by making the code worse.
+
+**Both are logged rather than silenced.** A green lint bought with an `eslint-disable` reads as
+coverage and is not — the same defect as a gate suite that aborts silently.

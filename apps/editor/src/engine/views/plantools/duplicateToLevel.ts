@@ -836,11 +836,11 @@ function _isPt(v: unknown): boolean {
 function _geometryMissingReason(kind: DuplicableKind, record: unknown): string | null {
     const r = record as Record<string, unknown>;
     switch (kind) {
-        case 'wall':
-        case 'curtainWall':
         // §L-1032 D3 — `HandrailData.baseLine` is the same two-point shape
         // (`HandrailTypes.ts:23`), and `handrailCopyPayload` destructures it
-        // unguarded exactly as the wall builder does.
+        // unguarded exactly as the wall builder does, so `handrail` shares this arm.
+        case 'wall':
+        case 'curtainWall':
         case 'handrail': {
             const bl = r['baseLine'];
             if (!Array.isArray(bl) || bl.length < 2 || !_isPt(bl[0]) || !_isPt(bl[1])) {

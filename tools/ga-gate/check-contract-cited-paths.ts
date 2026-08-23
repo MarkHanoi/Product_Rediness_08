@@ -109,7 +109,7 @@ const MIN_CONTRACT_FILES = 90;
 const MIN_CANDIDATES = 600;
 
 const REPO_ROOTS = ['tools/', 'packages/', 'apps/', 'plugins/', 'scripts/', 'server/', 'src/'];
-const NOT_A_PATH = /[*<>{}?|\[\]()…\s#]/;
+const NOT_A_PATH = /[*<>{}?|[\]()…\s#]/;
 const TRY_EXT = ['.ts', '.tsx', '.js', '.mjs', '.cjs', '.json', '.md'];
 
 /**

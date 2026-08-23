@@ -62,7 +62,7 @@ const CORDOBA_SITE = {
     },
 };
 
-/** Source with `//`, `*` and `/* … *​/` comment lines removed. */
+/** Source with `//` lines, banner `*` lines and block comments removed. */
 function codeOnly(src: string): string {
     return src
         .split(String.fromCharCode(10))

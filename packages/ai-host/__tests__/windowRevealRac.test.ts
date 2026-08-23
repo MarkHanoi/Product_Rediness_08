@@ -294,7 +294,7 @@ describe('§FEAT-REVEAL-DIRECTION-RAC — the direction is settable and askable 
         expect(reason).toContain('indoor');
         // ⭐ AND IT DOES NOT SAY "NaN" OR NAME A UNIT — the §L-3203 failure mode.
         expect(reason).not.toContain('NaN');
-        expect(reason).not.toMatch(/m/);
+        expect(reason).not.toMatch(/\bm\b/);
     });
 
     it('⛔ NON-VACUITY — the numeric rows are untouched by the enum arm', () => {

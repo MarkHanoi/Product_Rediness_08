@@ -97,7 +97,7 @@ const REGISTER_PATH = 'docs/04-reference/API-VERB-REGISTER.md';
 /**
  * Roots that register CommandBus handlers. This is the UNION of the two existing
  * gates' roots — `check-chat-capability-coverage.ts` walks
- * `plugins/​*​/src/handlers/*.ts` + two editor files; `check-sync-disposition.ts`
+ * `plugins/<plugin>/src/handlers/*.ts` + two editor files; `check-sync-disposition.ts`
  * walks `plugins`, `apps/editor/src/engine`, `packages/command-registry/src`.
  * Taking the union rather than either one is deliberate: where the two disagree
  * about what a bus command is, that disagreement is a FINDING (reported below),
@@ -728,7 +728,7 @@ function ownerOf(file: string): string {
 
 function storesOf(slice: string): string[] {
   const head = slice.slice(0, 900);
-  const m = /\b(?:affectedStores|stores)\s*(?::[^=\[]*)?[:=]\s*\[([^\]]*)\]/.exec(head);
+  const m = /\b(?:affectedStores|stores)\s*(?::[^=[]*)?[:=]\s*\[([^\]]*)\]/.exec(head);
   if (m === null) return [];
   return [...m[1]!.matchAll(/'([A-Za-z0-9_.-]+)'/g)].map((x) => x[1]!);
 }

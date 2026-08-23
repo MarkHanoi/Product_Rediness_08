@@ -227,7 +227,7 @@ const NON_FLAG_NAME = /(?:Time|Timestamp|Handler|Fields|Field|Color|Colors|Label
 /** The declaration's visible type/value must be switch-shaped. */
 const FLAG_SHAPE = /:\s*(?:boolean\b|Set\s*<|Map\s*<)|=\s*(?:true\b|false\b|new\s+Set\b|new\s+Map\b|0\s*[;,)]?\s*$)/;
 /** A class-member method declaration (indented, name + parens, body opens). */
-const METHOD_RE = /^\s{2,8}(?:public\s+|private\s+|protected\s+|readonly\s+)?(?:async\s+)?([A-Za-z_$][\w$]*)\s*\([^;]*\)\s*(?::\s*[\w<>,\s|\[\].]+)?\s*\{/;
+const METHOD_RE = /^\s{2,8}(?:public\s+|private\s+|protected\s+|readonly\s+)?(?:async\s+)?([A-Za-z_$][\w$]*)\s*\([^;]*\)\s*(?::\s*[\w<>,\s|[\].]+)?\s*\{/;
 /** Control-flow keywords METHOD_RE would otherwise mistake for method names. */
 const NOT_A_METHOD = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'else', 'do', 'new', 'await', 'typeof', 'delete', 'void', 'yield']);
 /** Releases that ANNOUNCE themselves as test hooks are outside S1's subject — printed, not judged. */

@@ -180,7 +180,7 @@ export function storeElementsOrUnknown<T = unknown>(
 /**
  * The COUNT of a determination — `null` when undetermined.
  *
- * The single most important function in this file, because `…​.length` on a
+ * The single most important function in this file, because `….length` on a
  * swallowed `[]` is how "the store did not answer" became "the building has no
  * walls" in an AI prompt.
  */
