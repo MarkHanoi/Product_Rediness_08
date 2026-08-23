@@ -1353,9 +1353,20 @@ export class WallFragmentBuilder {
         // render as a FULL RECTANGLE while the model said otherwise — the exact class of
         // defect `WallRake.ts:102` forbids ("a silently-wrong wall").
         //
-        // INERT TODAY, DELIBERATELY. Nothing in the repo authors `wallProfile` yet, so this
-        // condition never fires and the instanced baselines are unchanged — pinned by
-        // §(A2a) of `WallProfileNonRegressionBaseline.test.ts`. It is added in the SAME slice
+        // ⚠ "INERT TODAY, DELIBERATELY" — CORRECTED IN PLACE 2026-08-22 (WALL35, L-7100).
+        // This paragraph read *"Nothing in the repo authors `wallProfile` yet, so this
+        // condition never fires"*. **It fires.** `WallTool.enterProfileEditMode` →
+        // `WallProfileEditor` → `_commitWallProfile` is a live authoring path, and it is
+        // reachable by a user gesture: the Contextual Edit Bar's "Edit Profile" button
+        // (`ContextualEditBar.ts:1447` maps `wall: w.wallTool`; `initTools.ts:879` assigns
+        // the global). `ProjectLoader.ts:1051` and `ImportProjectCommand.ts:686` write the
+        // field on restore. The clause below is load-bearing on every profiled wall the
+        // founder draws — it is what keeps a profiled wall OFF the instanced arm, and
+        // without it his raked-top wall would render as a full rectangle.
+        //
+        // The instanced baselines are unchanged, and that part was and is true: a wall with
+        // no profile is untouched, pinned by §(A2a) of
+        // `WallProfileNonRegressionBaseline.test.ts`. It is added in the SAME slice
         // as the field rather than the slice that draws it, because the router is what
         // decides whether a profile is silently discarded, and a guard that arrives after
         // the field is a guard that arrives after the bug.

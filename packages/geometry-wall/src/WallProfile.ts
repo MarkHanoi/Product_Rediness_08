@@ -105,21 +105,73 @@
 // empty set is not a gate, it is a disabled feature with a reason attached.
 //
 // So the instanced arm is excluded at the ROUTER — one condition, `!hasWallProfile`,
-// beside the four that are already there. That is also the shape of the fix the
-// instanced arm needs for RAKE, which it does not have: measured 2026-08-18, a plain
-// raked wall instances with a matrix BYTE-IDENTICAL to the vertical wall's and renders
-// vertical while the model says otherwise (pinned §(A2b) of
-// `WallProfileNonRegressionBaseline.test.ts`). That defect is NOT fixed here — it is
-// reported and owned elsewhere — but this module must not walk into it.
+// beside the others already there. ⚠ DO NOT trust a count written here: this line used
+// to say "beside the four that are already there" and `isSimpleWall` now carries seven
+// other clauses. **Read the predicate** (`WallFragmentBuilder.isSimpleWall`); it is the
+// artefact, this is a paraphrase of it.
 //
-// ─── SLICE 1 SCOPE, STATED PLAINLY ────────────────────────────────────────────
+// ⚠ THE RAKE CLAIM THAT USED TO END THIS PARAGRAPH IS STALE — CORRECTED 2026-08-22
+//   (WALL35, L-7102). It read: *"That is also the shape of the fix the instanced arm
+//   needs for RAKE, **which it does not have**: measured 2026-08-18, a plain raked wall
+//   instances with a matrix BYTE-IDENTICAL to the vertical wall's and renders vertical
+//   while the model says otherwise (pinned §(A2b) of
+//   `WallProfileNonRegressionBaseline.test.ts`). That defect is NOT fixed here — it is
+//   reported and owned elsewhere."*
 //
-// This slice adds the MODEL, the GATE, PERSISTENCE and CACHE INVALIDATION. It adds
-// NO geometry and NO authoring path: nothing in the repo writes `wallProfile`, so the
-// field is unauthorable by construction. The gate is therefore in place BEFORE the
-// authoring path exists, which is the only ordering in which a refusal can never be
-// reached too late. A profile that could be stored but not drawn would be exactly the
-// silently-wrong wall `WallRake.ts:102` forbids.
+//   **It HAS the fix.** L-955 closed by `2449c742` on 2026-08-18 — the same day the
+//   measurement above was taken, from the other side. `isSimpleWall` now tests
+//   `isVerticalRake((wall as { rakeAngleDeg?: number }).rakeAngleDeg)`, and §(A2b) of
+//   `WallProfileNonRegressionBaseline.test.ts` was rewritten to assert the EXCLUSION
+//   (*"a plain RAKED wall is EXCLUDED from the instanced arm (L-955, closed)"*) plus the
+//   control that the same wall at 90° still instances. Re-measured 2026-08-22: the raked
+//   wall registers 0 instances, the vertical one 1.
+//
+//   The diagnosis the paragraph carried is UNCHANGED and still correct — a T·R·S product
+//   expresses neither a shear nor a non-rectangular silhouette — which is why it is
+//   corrected in place rather than deleted. What is wrong is only the tense.
+//
+// ─── SLICE 1 SCOPE — ⚠ THIS BLOCK WAS TRUE AT SLICE 1 AND IS NOW FALSE ────────
+//
+// ⛔ **CORRECTED IN PLACE 2026-08-22 (WALL35, L-7100). DO NOT DELETE THE PARAGRAPH; it
+//    is the record of what this module was scoped to be, and reading it as a statement
+//    about TODAY is what sent a bug hunt looking for an authoring path that already
+//    existed.** It read, verbatim:
+//
+//      "This slice adds the MODEL, the GATE, PERSISTENCE and CACHE INVALIDATION. It adds
+//       NO geometry and NO authoring path: nothing in the repo writes `wallProfile`, so
+//       the field is unauthorable by construction. The gate is therefore in place BEFORE
+//       the authoring path exists, which is the only ordering in which a refusal can
+//       never be reached too late. A profile that could be stored but not drawn would be
+//       exactly the silently-wrong wall `WallRake.ts:102` forbids."
+//
+//    **Every clause of the first half is now false.** Measured 2026-08-22:
+//
+//      • GEOMETRY EXISTS — `WallProfileBodyBuilder.buildWallProfileBodyGeometry`
+//        (§FEAT-WALL-PROFILE-BODY, L-1067), reached from `WallFragmentBuilder`'s profile
+//        arm; plus the per-station curved arm (§FEAT-WALL-PROFILE-CURVED, L-1072) and the
+//        end-edge mitre (§FEAT-WALL-PROFILE-MITRE, L-1071).
+//      • AN AUTHORING PATH EXISTS — `WallTool.enterProfileEditMode` →
+//        `WallProfileEditor` → `WallTool._commitWallProfile` → `element.updateParameters`.
+//      • IT IS REACHABLE BY A USER GESTURE — the **Contextual Edit Bar's "Edit Profile"
+//        button** (`apps/editor/src/ui/ContextualEditBar.ts:1447` maps `wall: w.wallTool`
+//        in its candidate table; `initTools.ts:879` assigns `window.wallTool`), shown for
+//        a single selected wall and enabled per `profileEditAvailability`.
+//      • AND TWO RESTORE PATHS WRITE IT — `ProjectLoader.ts:1051` and
+//        `ImportProjectCommand.ts:686`, both via `CreateWallCommand`.
+//
+// ⭐ THE SECOND HALF STILL STANDS AND IS THE PART TO KEEP: *"a profile that could be
+//   stored but not drawn would be exactly the silently-wrong wall `WallRake.ts:102`
+//   forbids."* That is not a historical note — it is the standing invariant, and it was
+//   BREACHED between 2026-08-19 and 2026-08-22 in a way this header could not describe,
+//   because the breach was not in the model or the gate at all. The profile was stored
+//   correctly, drawn correctly, and its **edge overlay was placed in a different frame**
+//   (§WALL-EDGE-OVERLAY-FRAME, L-7101). A header that denies the feature exists cannot
+//   warn you about the feature's bugs, which is precisely the cost of leaving this
+//   paragraph in the present tense for three days.
+//
+//   The ordering claim also survives on its own terms: the gate DID land before the
+//   authoring path, and it did its job — `profileAuthorability` refused every combination
+//   it was supposed to refuse throughout. Nothing about L-7101 is a gate failure.
 
 // ⚠ THE ONE IMPORT, AND IT DOES NOT COST THIS MODULE ITS PURITY. `WallArcParam` imports
 //   nothing at all — no THREE, no DOM, no store — so `WallProfile` remains the pure module
