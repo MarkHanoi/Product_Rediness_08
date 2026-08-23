@@ -46,6 +46,9 @@ export {
   NOT_AUTHORED,
   NOT_EXTRACTED,
   authored,
+  derived,
+  unresolved,
+  perPart,
   IMPORTED_CAPABILITY,
   NATIVE_CAPABILITY,
   MATERIAL_EXPORT_CAVEAT,
@@ -105,11 +108,15 @@ export {
   adaptImportedModel,
   adaptNativeElements,
   normaliseRawIfcType,
+  HOST_DERIVED_STOREY_TYPES,
+  NO_HOST_INDEX,
 } from './tree/adapters.js';
 export type {
   ImportedModelLike,
   ImportedRecordLike,
   NativeElementLike,
+  HostIndex,
+  HostLevelResolution,
 } from './tree/adapters.js';
 
 export { createIfcTreeView, createTreeToggle } from './tree/ifc-tree-view.js';

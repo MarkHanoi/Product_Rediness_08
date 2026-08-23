@@ -214,7 +214,32 @@ export function buildElementStory(el: IfcTreeElement): ElementStory {
   );
 
   // 3 — Where. Grounded by the spatial chain.
-  if (el.spatial.length > 0) {
+  //
+  // §IFC-TREE-HOSTED-STOREY (L-8902). A DERIVED storey is still a model fact —
+  // the host relation and the wall's level are both authored — but it is NOT a
+  // value this element carries, and the chip must say so. "Level 1" and
+  // "Level 1, because the wall it is cut into is on Level 1" are different
+  // claims, and a user checking a door's level deserves the second.
+  if (el.storey.kind === 'unresolved') {
+    slots.push(
+      unknownSlot(
+        'where',
+        'not-in-model',
+        `This is a hosted opening, so its storey belongs to its host wall rather than to itself — but the host did not resolve: ${el.storey.why}.`,
+      ),
+    );
+  } else if (el.storey.kind === 'derived') {
+    const chain = el.spatial.map((r) => r.name).join(' → ');
+    slots.push(
+      answeredSlot('where', chain || el.storey.value, [
+        {
+          kind: 'model',
+          chip: `${PROVENANCE_CHIP.model} (derived)`,
+          detail: `via ${el.storey.via} — PRYZM stores no level on a door or window (C15: an offset along a wall)`,
+        },
+      ]),
+    );
+  } else if (el.spatial.length > 0) {
     slots.push(
       answeredSlot('where', el.spatial.map((r) => r.name).join(' → '), [
         { kind: 'model', chip: PROVENANCE_CHIP.model, detail: 'IFC spatial containment' },
@@ -239,7 +264,25 @@ export function buildElementStory(el: IfcTreeElement): ElementStory {
   }
 
   // 4 — Part of and made of. Material half is often the honest gap.
-  if (el.material.kind === 'authored') {
+  //
+  // §IFC-TREE-PER-PART-MATERIAL (L-8903). A door has a frame finish AND a leaf
+  // finish, and C100 §9.1 rules that split CORRECT rather than a defect. Both
+  // are listed; neither is promoted to "the" material.
+  if (el.material.kind === 'per-part') {
+    slots.push(
+      answeredSlot(
+        'part-of-and-made-of',
+        el.material.parts.map((x) => `${x.part}: ${x.value}`).join(' · '),
+        [
+          {
+            kind: 'model',
+            chip: `${el.material.parts.length} from the model`,
+            detail: 'authored per part — this family carries one finish per surface, not one material (C100 §9.1)',
+          },
+        ],
+      ),
+    );
+  } else if (el.material.kind === 'authored') {
     slots.push(
       answeredSlot('part-of-and-made-of', `Material: ${el.material.value}`, [
         { kind: 'model', chip: PROVENANCE_CHIP.model, detail: 'material assignment' },

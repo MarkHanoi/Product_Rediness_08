@@ -95,8 +95,49 @@ export interface Grouping {
 // helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * The groupable value of a facet.
+ *
+ * §IFC-TREE-HOSTED-STOREY (L-8900). `derived` COUNTS — a door whose storey came
+ * from its host wall belongs in that storey's group, which is exactly what the
+ * founder (and Revit, and every other viewer) expects to see. The fact that it
+ * was derived is not lost: it is carried on the facet and surfaced by the story
+ * card's provenance chip and by `deriveStats()` below.
+ *
+ * `per-part` deliberately does NOT return a single value — see `partsKey`.
+ */
 function facetValue(f: Facet): string | null {
-  return f.kind === 'authored' ? f.value : null;
+  if (f.kind === 'authored') return f.value;
+  if (f.kind === 'derived') return f.value;
+  return null;
+}
+
+/** Stable label/key for a deliberately multi-valued facet (C100 §9.1). */
+function partsKey(f: Facet): { key: string; label: string } | null {
+  if (f.kind !== 'per-part') return null;
+  const parts = [...f.parts].sort((a, b) => a.part.localeCompare(b.part));
+  return {
+    key: `parts:${parts.map((x) => `${x.part}=${x.value}`).join('|')}`,
+    label: parts.map((x) => `${x.part}: ${x.value}`).join(' · '),
+  };
+}
+
+/**
+ * How many of a grouping's members were DERIVED rather than directly carried.
+ * Reported in the limit note so a derived tree never passes as an authored one.
+ */
+function deriveStats(
+  elements: readonly IfcTreeElement[],
+  pick: (e: IfcTreeElement) => Facet,
+): { derived: number; unresolved: number } {
+  let d = 0;
+  let u = 0;
+  for (const e of elements) {
+    const f = pick(e);
+    if (f.kind === 'derived') d++;
+    else if (f.kind === 'unresolved') u++;
+  }
+  return { derived: d, unresolved: u };
 }
 
 /** One O(n) pass. Returns insertion-ordered groups. */
@@ -410,7 +451,9 @@ export function groupBySystem(sources: readonly IfcTreeSource[]): Grouping {
 export function groupByMaterial(sources: readonly IfcTreeSource[]): Grouping {
   const elements = allElements(sources);
   const total = elements.length;
-  const withMaterial = elements.filter((e) => facetValue(e.material) !== null);
+  const withMaterial = elements.filter(
+    (e) => facetValue(e.material) !== null || e.material.kind === 'per-part',
+  );
 
   if (withMaterial.length === 0) {
     const cause = emptyCause(sources, (s) => s.capability.answersMaterial);
@@ -434,6 +477,14 @@ export function groupByMaterial(sources: readonly IfcTreeSource[]): Grouping {
   const groups = bucket(elements, (e) => {
     const v = facetValue(e.material);
     if (v) return { key: `mat:${v}`, label: v };
+
+    // §IFC-TREE-PER-PART-MATERIAL (L-8903). A door carries frame AND leaf
+    // finishes and C100 §9.1 rules that split CORRECT. It is a REAL group, not
+    // a deficit — reporting it as "not authored" would misdescribe a deliberate
+    // design, and flattening it would pick a winner between two right answers.
+    const pk = partsKey(e.material);
+    if (pk) return { key: `mat:${pk.key}`, label: pk.label };
+
     if (e.material.kind === 'not-extracted') {
       return {
         key: 'mat:not-extracted',
@@ -501,19 +552,55 @@ export function groupByStorey(sources: readonly IfcTreeSource[]): Grouping {
   }
 
   const groups = bucket(elements, (e) => {
+    // `derived` lands here too — a hosted door groups under its host's storey.
     const v = facetValue(e.storey);
     if (v) return { key: `st:${v}`, label: v };
+
     if (e.storey.kind === 'not-extracted') {
       return { key: 'st:not-extracted', label: 'Storey not extracted', deficit: 'unassigned' as const };
     }
+
+    // §IFC-TREE-HOSTED-STOREY (L-8901). A hosted opening whose host did not
+    // resolve is NOT "unassigned" — it is derivable in principle and the
+    // derivation failed. The bucket says WHICH failure, because a missing host
+    // and a host with no level have different owners.
+    if (e.storey.kind === 'unresolved') {
+      const noHost = /carries no wallId|not in the wall store/.test(e.storey.why);
+      return noHost
+        ? {
+            key: 'st:unresolved-host',
+            label: 'Hosted, but the host wall could not be found',
+            deficit: 'unassigned' as const,
+          }
+        : {
+            key: 'st:unresolved-level',
+            label: 'Hosted, but the host wall carries no level',
+            deficit: 'unassigned' as const,
+          };
+    }
+
     return { key: 'st:unassigned', label: 'Not assigned to a storey', deficit: 'unassigned' as const };
   });
+
+  const stats = deriveStats(elements, (e) => e.storey);
+  const limitNote =
+    stats.derived > 0
+      ? `${stats.derived.toLocaleString()} of ${total.toLocaleString()} elements are hosted openings ` +
+        '(doors and windows) whose storey was DERIVED from their host wall. PRYZM does not store a ' +
+        'level on a door or a window — C15 makes it an offset along a wall — so this is a resolved ' +
+        'reference, not a value the element carries.'
+      : undefined;
 
   return {
     id: 'storey',
     label: 'By storey',
     groups,
-    coverage: { kind: 'populated', grouped: total - countDeficit(groups), deficit: countDeficit(groups) },
+    coverage: {
+      kind: 'populated',
+      grouped: total - countDeficit(groups),
+      deficit: countDeficit(groups),
+      ...(limitNote ? { limitNote } : {}),
+    },
     totalElements: total,
   };
 }

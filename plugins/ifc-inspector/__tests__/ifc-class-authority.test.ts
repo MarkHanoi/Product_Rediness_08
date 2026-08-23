@@ -202,16 +202,18 @@ describe('§IFC-TREE-AUTHORITY — export reachability of the classes it produce
     // Measured at the time of writing. If this set CHANGES, read it — a growth
     // means a new class was minted with no way to export it.
     //
-    // ⭐ IT ALREADY EARNED ITS KEEP. First reading included 'IfcGrid'; this
-    // assertion then FAILED on a re-run because lane IFCEXP49 added
-    // `'IfcGrid': WEBIFC.IFCGRID` to IFC_CLASS_MAP mid-session, closing L-8305.
-    // The pin detected a real shared-tree change rather than a flake — which is
-    // precisely why it compares a SET and not a count.
-    expect(notEmittable).toEqual([
-      'IfcAnnotation',
-      'IfcFurniture',
-      'IfcLightFixture',
-      'IfcSanitaryTerminal',
-    ]);
+    // ⭐ IT HAS NOW EARNED ITS KEEP THREE TIMES, each a real shared-tree change
+    // caught by comparing a SET rather than a count:
+    //   1. first reading included 'IfcGrid';
+    //   2. it FAILED when lane IFCEXP49 added `'IfcGrid': WEBIFC.IFCGRID`,
+    //      closing L-8305;
+    //   3. it FAILED again when IFCEXP49 added 'IfcFurniture' and
+    //      'IfcSanitaryTerminal' (IfcModelBuilder.ts:68-69), acting on this
+    //      lane's L-8303 / L-8304 — so those two classes are now emittable
+    //      end-to-end, not merely ratified. The superseded 'IfcFurnishingElement'
+    //      and 'IfcFlowTerminal' rows were deliberately KEPT (:50-51) so older
+    //      persisted models still resolve.
+    // A count would have gone 5 -> 4 -> 2 and read as noise.
+    expect(notEmittable).toEqual(['IfcAnnotation', 'IfcLightFixture']);
   });
 });

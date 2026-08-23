@@ -65,12 +65,46 @@ export type PsetScalar = string | number | boolean | null;
  */
 export type Facet =
   | { readonly kind: 'authored'; readonly value: string }
+  /**
+   * ⭐ §IFC-TREE-HOSTED-STOREY (L-8900). The element does NOT carry this value
+   * and IS NOT MISSING IT — a HOST carries it, and we followed the reference.
+   *
+   * A PRYZM door or window has `wallId` and NO `levelId`
+   * (`packages/schemas/src/elements/Door.ts:48`, `Window.ts:48`). That is
+   * deliberate: C15 makes a hosted opening an offset along a wall, so its storey
+   * is a property OF THE WALL. Calling such a door "not assigned to a storey" is
+   * a FALSE STATEMENT ABOUT THE MODEL, not a gap in the model.
+   *
+   * `via` names the hop, so a derived answer is never mistaken for a carried one.
+   */
+  | { readonly kind: 'derived'; readonly value: string; readonly via: string }
+  /**
+   * ⭐ Hosted, derivable IN PRINCIPLE, and the resolution FAILED. Distinct from
+   * `not-authored`, because the element was never supposed to carry the value.
+   * `why` names WHICH failure — a missing host and a host with no level are
+   * different defects with different owners.
+   */
+  | { readonly kind: 'unresolved'; readonly why: string }
+  /**
+   * ⭐ §IFC-TREE-PER-PART-MATERIAL (L-8903). The element deliberately carries
+   * SEVERAL values, one per part, and no single one is the answer.
+   *
+   * `Door`/`Window` carry `frameFinish.materialId` + `leafFinish.materialId`
+   * rather than one `materialId`, and C100 §9.1 rules that split CORRECT, NOT A
+   * DEFECT. ⛔ So this must not be flattened to pick a winner, and must not be
+   * reported as "not authored" — both would misdescribe a deliberate design.
+   */
+  | { readonly kind: 'per-part'; readonly parts: readonly { part: string; value: string }[] }
   | { readonly kind: 'not-authored' }
   | { readonly kind: 'not-extracted'; readonly why: string };
 
 export const NOT_EXTRACTED = (why: string): Facet => ({ kind: 'not-extracted', why });
 export const NOT_AUTHORED: Facet = Object.freeze({ kind: 'not-authored' });
 export const authored = (value: string): Facet => ({ kind: 'authored', value });
+export const derived = (value: string, via: string): Facet => ({ kind: 'derived', value, via });
+export const unresolved = (why: string): Facet => ({ kind: 'unresolved', why });
+export const perPart = (parts: readonly { part: string; value: string }[]): Facet =>
+  parts.length === 0 ? NOT_AUTHORED : { kind: 'per-part', parts };
 
 /** A rung of the IFC spatial chain: Project -> Site -> Building -> Storey -> Space. */
 export interface SpatialRung {

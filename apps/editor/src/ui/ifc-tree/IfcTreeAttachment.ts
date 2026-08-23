@@ -41,6 +41,8 @@ import {
   adaptNativeElements,
   createIfcTreeView,
   createTreeToggle,
+  type HostIndex,
+  type HostLevelResolution,
   type IfcTreeSource,
   type IfcTreeView,
   type TreeMode,
@@ -68,6 +70,61 @@ function warnOnce(msg: string): void {
  * is already TODO(TASK-08)'d for removal; this follows the existing convention
  * rather than inventing a second access path, and moves when that one does.
  */
+/**
+ * Human name for a level id, so storey groups read "Level 1" rather than
+ * "L1787150975010". Falls back to the id — a raw id is ugly but true, and
+ * inventing a name would not be.
+ */
+function levelNameOf(levelId: string): string | undefined {
+  try {
+    const w = window as unknown as Record<string, { getAll?(): unknown[] } | undefined>;
+    const levels = w['levelStore']?.getAll?.() ?? [];
+    for (const raw of levels) {
+      const l = raw as Record<string, unknown>;
+      if (String(l['id'] ?? '') === levelId) {
+        const n = l['name'];
+        if (typeof n === 'string' && n.trim()) return n;
+      }
+    }
+  } catch {
+    /* fall through — the id is still a true answer */
+  }
+  return undefined;
+}
+
+/**
+ * Resolve a hosted opening's storey through its host wall.
+ *
+ * THREE outcomes, never collapsed: resolved / no-host / host-has-no-level. A
+ * missing wall and a wall with no level are different defects with different
+ * owners, and the tree names which one it hit.
+ *
+ * Backed by `wallStore.getById()` (packages/geometry-wall/src/WallStore.ts:1146).
+ */
+function buildHostIndex(): HostIndex {
+  const w = window as unknown as Record<string, unknown>;
+  const wallStore = w['wallStore'] as
+    | { getById?(id: string): { levelId?: string } | undefined }
+    | undefined;
+
+  return {
+    resolveWallLevel(wallId): HostLevelResolution {
+      if (!wallId) return { kind: 'no-host' };
+      try {
+        const wall = wallStore?.getById?.(wallId);
+        if (!wall) return { kind: 'no-host' };
+        const levelId = typeof wall.levelId === 'string' ? wall.levelId : '';
+        // NB: Wall.levelId defaults to '' (schemas/src/elements/Wall.ts:91), so
+        // an empty string is a real "host has no level", not a missing wall.
+        if (!levelId) return { kind: 'host-has-no-level', hostId: wallId };
+        return { kind: 'resolved', levelId, levelName: levelNameOf(levelId) ?? levelId };
+      } catch {
+        return { kind: 'no-host' };
+      }
+    },
+  };
+}
+
 function collectSources(): IfcTreeSource[] {
   const out: IfcTreeSource[] = [];
 
@@ -96,22 +153,37 @@ function collectSources(): IfcTreeSource[] {
       stairStore: 'stair',
       furnitureStore: 'furniture',
     };
+    // §IFC-TREE-HOSTED-STOREY (L-8900). A door/window carries `wallId` and NO
+    // `levelId` (schemas/src/elements/Door.ts:48, Window.ts:48) — C15 makes a
+    // hosted opening an offset along a wall, so its storey belongs to the wall.
+    // Without this index every door and window fell into "Not assigned to a
+    // storey", which was a FALSE STATEMENT ABOUT THE MODEL.
+    const hosts = buildHostIndex();
+
     const native: Parameters<typeof adaptNativeElements>[0][number][] = [];
     for (const [storeName, type] of Object.entries(table)) {
       const items = w[storeName]?.getAll?.() ?? [];
       for (const raw of items) {
         const e = raw as Record<string, unknown>;
+        const levelId = typeof e['levelId'] === 'string' ? (e['levelId'] as string) : undefined;
+        const frame = e['frameFinish'] as { materialId?: string } | undefined;
+        const leaf = e['leafFinish'] as { materialId?: string } | undefined;
         native.push({
           id: String(e['id'] ?? ''),
           type: String(e['type'] ?? type),
           name: typeof e['name'] === 'string' ? (e['name'] as string) : undefined,
-          levelId: typeof e['levelId'] === 'string' ? (e['levelId'] as string) : undefined,
+          levelId,
+          levelName: levelId ? levelNameOf(levelId) : undefined,
           material: typeof e['material'] === 'string' ? (e['material'] as string) : null,
+          // C100 §9.1 — one finish PER SURFACE, never collapsed into one id.
+          frameMaterial: typeof frame?.materialId === 'string' ? frame.materialId : null,
+          leafMaterial: typeof leaf?.materialId === 'string' ? leaf.materialId : null,
+          wallId: typeof e['wallId'] === 'string' ? (e['wallId'] as string) : null,
           ifcData: (e['ifcData'] as { guid?: string } | undefined) ?? null,
         });
       }
     }
-    if (native.length > 0) out.push(adaptNativeElements(native, 'PRYZM model'));
+    if (native.length > 0) out.push(adaptNativeElements(native, 'PRYZM model', hosts));
   } catch (err) {
     warnOnce(`native stores unavailable: ${String(err)}`);
   }
