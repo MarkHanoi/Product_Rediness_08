@@ -53,5 +53,11 @@ export { Water } from './Water.js';
 // three members are real records of EXISTING families, derived from ONE polygon.
 // Unlike the pool it mints NO new member family — the compound is the only new kind.
 export { Balcony } from './Balcony.js';
+// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7900) — the AUTHORED construction / setting-out
+// line (C105, ADR-0348). ⛔ NOT `Parcel.boundary` (C19 §1.4 — legal, immutable, owned
+// by the site subsystem) and NOT `RoomBoundingLine` (an invisible room-detection
+// splitter). It is a HOST: what is built on it moves with it.
+export { BoundaryLine, BoundaryLineAttachmentSchema } from './BoundaryLine.js';
+export type { BoundaryLineAttachment } from './BoundaryLine.js';
 // §P3.4-SE: Section cut annotation element schema + DTO types.
 export type { SectionData, SectionLine, SectionsState } from './Section.js';

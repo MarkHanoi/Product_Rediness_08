@@ -1,0 +1,27 @@
+{
+  "name": "@pryzm/geometry-boundary-line",
+  "version": "0.1.0",
+  "description": "PRYZM — construction / setting-out BOUNDARY LINE geometry. Parametric attachment anchors, the host-move propagation PLANNER (adapt-or-refuse-by-name), the volume extrusion, and the dimension-resolution chain. §FEAT-CONSTRUCTION-BOUNDARY-LINE / C105 / ADR-0348.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ci": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@pryzm/schemas": "workspace:*",
+    "zod": "*"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
+  }
+}

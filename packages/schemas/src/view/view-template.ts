@@ -186,6 +186,14 @@ export const ElementCategorySchema = z.enum([
   'MEPElectrical',
   'MEPPlumbing',
   'MEPMechanical',
+  // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7902, C105 §5) — the founder asked for the
+  // boundary line to have a VG category "there too — everywhere". This is the VG
+  // taxonomy key; its siblings are `ElementGraphicsRules` (visibility INTENT, via
+  // `VisibilityIntentDefaults.ELEMENT_TYPES`), `OverridePanel.CATEGORIES` (the
+  // per-view toggle grid) and `VGSceneApplicator`'s scene-name map. All four land in
+  // one commit, because a category declared in one of them and missing from another
+  // is a control that appears in one panel and silently does nothing in the next.
+  'BoundaryLine',
   'Annotation',
   'Dimension',
   'Tag',
