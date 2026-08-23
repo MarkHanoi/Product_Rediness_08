@@ -1110,18 +1110,64 @@ whether `_skipBridge` is ever true in production.
     swept per-station frame"* — it was never a refusal, it was the implementation note for the fix.
 
     **WHAT IS STILL REFUSED, EACH WITH ITS KIND AND ITS MACHINERY NAMED:**
-    - `layered` — **UNBUILT.** *"The bands have no per-station top"* is demonstrably a description
+    - `layered` — **UNBUILT (MULTI-band only; the ONE-band case shipped 2026-08-23 — see L-7403
+      under `hosted-openings` below).** *"The bands have no per-station top"* is demonstrably a description
       of absent code: `CurvedWallLayerBuilder` had exactly that gap and it closed in eight lines
       (`CurvedProfileHeights`). **Machinery:** the V2 band slicer extrudes each band between two
       HORIZONTAL Y planes and needs the same scalar→accessor change, plus the rule for how one ring
       divides across a stack (almost certainly *"every band takes the same (u,v) ring, clipped to
       its own [yLo,yHi]"* — the bands are concentric and share the elevation frame).
-    - `hosted-openings` — **UNBUILT, and the dangerous one.** *"The occupancy check is purely
-      horizontal"*, so nothing would notice an opening left floating in material the profile
-      removed. **Machinery:** a vertical term in `WallOccupancyStore.canPlace()` consulting
-      `wallProfileExtentAt(ring, u)` over the opening's `u` span, and the same in the gate for the
-      reverse authoring order. The geometry half is comparatively easy —
-      `buildWallHoleBodyGeometry` already takes a `THREE.Shape` outline plus holes.
+    - ~~`hosted-openings` — **UNBUILT, and the dangerous one.**~~ ✅ **BUILT 2026-08-23 (lane
+      OPEN38, `§FEAT-WALL-PROFILE-OPENINGS`, L-7400).** The entry is kept because its *"Machinery"*
+      prediction is the most useful thing in this register — it was **right about the shape of the
+      work, right about the ordering, and wrong about the function**, and only the last of those
+      could have been found by building it.
+
+      **RIGHT, and it is why this closed cleanly:**
+      - *"The geometry half is comparatively easy — `buildWallHoleBodyGeometry` already takes a
+        `THREE.Shape` outline plus holes."* Exactly so. Its BOTTOM edge was already a walk (it dips
+        over every door); its TOP edge was the constant `yt`. The feature is `outerRing`, making the
+        top edge the ring's upper chain — one expression becoming a function.
+      - *"and the same in the gate for the reverse authoring order."* This is the half that is
+        easiest to forget and it was not: the gate runs on `WallStore.update` against the MERGED
+        wall, so dragging a profile vertex DOWN THROUGH an existing window is refused, naming the
+        window and the metres.
+
+      ⛔ **WRONG, and this is the finding: `wallProfileExtentAt(ring, u)` IS THE WRONG FUNCTION.**
+      It takes the EXTREME of every crossing at a station — correct for a SWEEP, which needs the
+      station's whole vertical span, which is what it was built for. An opening occupies a **span**,
+      not a station, and at a STEP the two disagree: a ring whose top drops 3 m → 2 m across a
+      vertical edge at `u = 2` reports `top = 3` there, so a head at 2.5 m spanning `u ∈ [1.5, 2.5]`
+      passes at both ends **and at the vertex** while poking out of the wall over half its width.
+      Worse, **the number a refusal must quote is not visible to a station query at all.**
+      The predicate is `wallProfileChains` + `wallProfileRectFit`: the ring split into its lower and
+      upper boundaries as polylines, evaluated segment by segment across the whole span, with a
+      **vertical segment contributing BOTH its ends**. Measured, not argued — §B of
+      `OPEN38CanPlaceVerticalArm.test.ts`.
+
+      ⭐ **THE ORDERING THE OLD REFUSAL PRESCRIBED WAS FOLLOWED, and it is the part worth
+      generalising.** *"An opening in removed material is worse than a refusal"* named `canPlace`'s
+      vertical blindness as the reason the arm could not lift. So the vertical arm
+      (`OCC_OUTSIDE_HOST_PROFILE`) landed in its **own commit** (`a77a4c86`) — reachable, correct,
+      and unreachable in practice because the authorability gate still refused every wall that could
+      reach it — and only then did the geometry and the refusal move (`27b9836a`). **A refusal that
+      names its own precondition is telling you the order to work in.**
+
+      **WHAT SURVIVES, per-opening and with a number rather than by category:**
+      an opening the ring cuts away (`hosted-openings`); an opening whose record cannot be read as a
+      rectangle (`hosted-openings-unjudgeable` — *"it does not fit"* and *"I could not tell"* are
+      different verdicts); a **DOOR without a level foot across its own span** (`uneven-foot` — a
+      door is carved out of the outer boundary rather than cut as a closed hole, so over an archway
+      there is nothing at floor level to carve); and **curve × openings × profile**
+      (`curved-hosted-openings` — each PAIR is built, the triple is not, because the curved OPENING
+      builder is a different function from the curved PROFILE builder and never reads the ring).
+
+      ⚠ **AND THE `layered` ARM ABOVE HAD A LIVE OFF-BY-ONE — L-7403.** It refuses
+      `layers.length > 1`; `WallFragmentBuilder`'s band arm is entered on `> 0` **and returns**. A
+      ONE-layer profiled wall was therefore ADMITTED and drawn as a full rectangle — and
+      `CreateWallCommand` stamps `layers` from the WallSystemType, so a 1-layer *"Plain Wall"* is the
+      founder's actual wall. **Fixed at the ROUTER, not the gate**: tightening to `> 0` would have
+      refused a profile on every real wall. The MULTI-layer case below is genuinely unbuilt.
     - `curved-multi-interval` — **the narrowest one, and still NOT `impossible`.** A swept solid
       carries ONE vertical span per station, so a ring empty in its MIDDLE at some `u` would render
       solid where the author drew a void. **Machinery:** a per-station multi-interval sweep.

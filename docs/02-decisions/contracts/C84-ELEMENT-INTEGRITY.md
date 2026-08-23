@@ -696,6 +696,58 @@ capability is more often present and narrow than absent.
 protects the Inspect dropdown now protects the camera too, at zero extra cost — which is the point:
 **deriving does not merely avoid a copy, it borrows the copy's gate.**
 
+#### EI-9.2 — A CONTAINMENT TEST IS A QUESTION, AND THE GATE, THE PRE-FLIGHT AND THE BUILDER MUST ASK THE SAME ONE (normative; L-7400, 2026-08-23, lane OPEN38)
+
+**When a model gate, a UI pre-flight and a geometry builder each need to know whether a thing FITS
+inside another thing, that is ONE question. It gets ONE predicate, and all three call it. A builder
+that re-derives its own containment test is a second answer to a question a gate already answered
+— and the two disagree in the worst possible direction: the gate ADMITS what the builder then
+DECLINES, so the model holds a state the geometry silently draws wrongly.**
+
+**WALL (C85) · WALL-OPENING (C86) — `§FEAT-WALL-PROFILE-OPENINGS`.** `wallProfileRectFit(ring, rect)`
+answers *"does this opening's rectangle lie inside the material this outline encloses?"* and is
+consulted by **three** callers asking what look like three questions:
+
+| Asker | Asks | Consequence of a private answer |
+|---|---|---|
+| `profileAuthorability` (`WallStore.update` / `.addOpening` / `WallDataSchema`) | *may this outline be applied to this wall?* | the model holds an outline that removes an opening's material |
+| `WallOccupancyStore.canPlace` (`OCC_OUTSIDE_HOST_PROFILE`) | *may this opening go here?* | the user places a window that is refused later, as a crash |
+| `buildWallHoleBodyGeometry` | *can this solid be built?* | the wall falls back to a body with no outline in it, silently |
+
+They are the SAME question from three sides. The predicate is pure, lives in the L0-adjacent module
+that owns the meaning (`WallProfile.ts`), and returns the **metres** as well as the verdict so no
+caller has to re-derive the number it reports.
+
+⚠ **THE BUILDER'S CALL IS NOT DEFENCE-IN-DEPTH THEATRE, AND THE DISTINCTION IS THE RULE.** It can
+only fire when the model was mutated behind both gates — but that is exactly the state this family
+has reached twice (a profiled wall rendered as a rectangle for three days; a one-layer profiled wall
+rendered as a rectangle in production while every test passed). **The builder's independent check is
+what converts "the gate was bypassed" from an invisible wrong drawing into a declined build.**
+
+⭐ **AND THE ORDERING IS PART OF THE RULE.** Where an existing refusal NAMES a missing check as its
+own justification — here, *"`canPlace` is explicitly 1-D and vertical-blind, so nothing would notice
+an opening left floating in material the profile removed"* — **the check ships in its own commit,
+BEFORE the refusal is relaxed.** It is then reachable and correct while remaining unreachable in
+practice, because the standing refusal still excludes every subject that could reach it. Relaxing
+the refusal in the same commit that satisfies it leaves a window in which the model can hold a wall
+the geometry draws wrongly, and no test can tell you the window was there. **A refusal that names
+its own precondition is telling you the order to work in.**
+
+⛔ **THE COROLLARY — EI-2, RESTATED FOR SPATIAL CONFLICT.** When the fit test fails on an edit to
+the CONTAINER, the correct answer is to **refuse the container's edit**, never to move, clip or
+resize the CONTENT to suit it. Editing an element the author did not select in order to honour one
+they did is silent narrowing wearing the costume of helpfulness — and it is what the founder's
+standing direction on spatial validity forbids: **always ASK, never auto-edit.** Recorded as
+[C86 §12 R-18](C86-ELEMENT-WALL-OPENING.md) and [ADR-0347](../adrs/ADR-0347-an-opening-and-its-hosts-outline-are-one-question-asked-from-three-sides.md).
+
+⚠ **THE INSTRUMENT TRAP, WORTH THE PARAGRAPH BECAUSE C85 FELL INTO IT IN WRITING.** C85's own
+*"Machinery"* prediction for this fix named `wallProfileExtentAt(ring, u)` — an existing, correct
+function — as the tool. It is the WRONG tool: it answers *"what is the vertical extent AT this
+station"*, which is what a SWEEP needs, while an opening occupies a **span**. At a step the two
+disagree, the station query reports the high side, and a head that pokes out of the wall over half
+its width is admitted. **A nearby function that answers a nearby question is more dangerous than no
+function at all**, because it makes the wrong design look like reuse.
+
 ### `[Z8]` EI-10 — WHAT A SECOND IMPLEMENTATION MUST EARN
 
 A second implementation of one question is admissible **only** with all four of:
