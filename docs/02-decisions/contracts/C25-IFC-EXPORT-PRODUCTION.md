@@ -82,7 +82,9 @@ Every PRYZM element type MUST export to a typed IfcEntity with its canonical Pse
 | PRYZM type | IfcEntity | Pset | Status |
 |---|---|---|---|
 | Wall | `IfcWall` | `Pset_WallCommon` | EXISTS (S56 wall.ts); audit FireRating/AcousticRating coverage |
-| Slab / Floor | `IfcSlab` | `Pset_SlabCommon`, `Pset_FlooringCommon` | EXISTS (S56 slab.ts); audit Pset depth |
+| Slab | `IfcSlab` | `Pset_SlabCommon` | EXISTS (S56 slab.ts); audit Pset depth |
+| Floor (finish) | `IfcCovering` · PredefinedType `FLOORING` | `Pset_CoveringCommon`, `Pset_FlooringCommon` | ⭐ **ROW SPLIT 2026-08-23 (L-8302)** — see §2.1 |
+| Curtain panel | `IfcPlate` · PredefinedType `CURTAIN_PANEL` | `Pset_PlateCommon` | ⭐ **ROW ADDED 2026-08-23 (L-8302)** — see §2.1 |
 | Door | `IfcDoor` | `Pset_DoorCommon`; `OperationType` derived from door type | EXISTS (S56 door.ts); audit OperationType derivation |
 | Window | `IfcWindow` | `Pset_WindowCommon`; `PartitioningType` derived from system type | EXISTS (S56 window.ts); audit PartitioningType |
 | Column | `IfcColumn` | `Pset_ColumnCommon` | EXISTS (S56 column.ts) |
@@ -99,6 +101,74 @@ Every PRYZM element type MUST export to a typed IfcEntity with its canonical Pse
 | Curtain Wall | `IfcCurtainWall` | `Pset_CurtainWallCommon` | **GAP** |
 | Dimension / Annotation | `IfcAnnotation` (with `IfcLabel` / `IfcAnnotationFillArea`) | n/a | **GAP — IFC-γ-3** |
 | Grid | `IfcGrid` | n/a | **GAP** |
+
+
+### §2.1 — Corrections of 2026-08-23 (lane IFCTREE47, L-8300..L-8306)
+
+Building the IFC primitive tree required a SINGLE authority for "what IFC class is
+a PRYZM `wall`?". Establishing it found **four** rival statements of that fact, not
+one, and two disagreements with this table.
+
+**The four maps, and how they relate:**
+
+| # | Where | Maps | Rows | Live consumers |
+|---|---|---|---|---|
+| A | `packages/core-app-model/src/CoreElement.ts:77` `ELEMENT_TYPE_TO_IFC_CLASS` | `ElementType` → IFC class NAME | 19 | ⚠ **ONE** (`CreateHandrailCommand.ts:185`) |
+| B | `packages/file-format/src/export/ifc/IfcModelBuilder.ts:24` `IFC_CLASS_MAP` | IFC class NAME → web-ifc numeric code | 20 | the export path the app runs |
+| C | `packages/file-format/src/export/ifc/FragmentReader.ts:250` `mapImportedIfcClass` | raw IFC type → class NAME | ~16, private | import path only |
+| D | **this table** | PRYZM type → IfcEntity | — | normative |
+
+⭐ **A and B are NOT rivals — they COMPOSE** (`ElementType` → class name → web-ifc
+code). The real rivalry is **A vs D**, plus **58 hand-typed `ifcClass:` literals**
+across `command-registry` and `core-app-model` stores that bypass A's factory
+entirely. `createIfcMetadata()`, the function A exists to serve, has **one** live
+call site — A is effectively dead code that nonetheless disagrees with this table.
+
+**Two rows: the CODE was wrong, this contract was right** (per the CLAUDE.md
+conflict-resolution order — when code disagrees with a contract, the code is wrong):
+
+| PRYZM type | Code said | This table says | Verdict |
+|---|---|---|---|
+| `furniture` | `IfcFurnishingElement` | **`IfcFurniture`** | contract wins |
+| `plumbing` | `IfcFlowTerminal` | **`IfcSanitaryTerminal`** | contract wins |
+
+Both are emittable — `node_modules/web-ifc/ifc-schema.d.ts` exposes
+`IFCFURNITURE = 1509553395` and `IFCSANITARYTERMINAL = 3053780830`. *(This lane did
+NOT verify offline whether IFC4X3 makes the supertypes abstract, and does not assert
+it; the binding reason is the ordering, not a schema claim.)*
+
+**One row: the CODE was right and THIS TABLE was imprecise** — hence the split above.
+The old row read *"Slab / Floor → `IfcSlab`"*, conflating two families PRYZM keeps
+separate. `packages/core-app-model/src/stores/FloorSystemTypeStore.ts` stamps
+`ifcTypeName: 'FLOORING'` on every floor system type — that is literally
+`IfcCoveringTypeEnum.FLOORING`. **PRYZM's `floor` is a FINISH; its `slab` is the
+STRUCTURE.** Mapping the finish to `IfcSlab` would emit two structural slabs where
+the model has one slab and one covering.
+
+**⛔ EIGHTEEN element families have no row here at all.** The L0 id vocabulary
+(`packages/schemas/src/types/Id.ts:136`, **36** members) and `core-app-model`'s
+`ElementType` (`CoreElement.ts:7`, **18** members) **disagree** — they even spell
+curtain walling differently (`curtainwall` vs `curtain-wall`). Families in L0 with no
+row in this table include `lift`, `liftPart`, `pool`, `balcony`, `water`,
+`boundaryLine`, `verticalCirculation`, `structural`, and `section`.
+
+⭐ These are recorded as **UNMAPPED and NAMED** by
+`plugins/ifc-inspector/src/tree/ifc-class-authority.ts`, never invented and never
+proxied. That matters because `IfcModelBuilder.ts:156` silently falls back to
+`IFCBUILDINGELEMENTPROXY` for any class it does not know — so today an unranked
+family exports as a generic proxy **with no warning anywhere**. Non-products
+(`view`, `sheet`, `schedule`, `project`) are separated from real gaps: absent by
+design is not the same as absent by omission.
+
+*Exit condition:* a founder decision on the unranked families, each landing as a row
+in this table; then the 58 literals and map A collapse into the single authority, and
+`createIfcMetadata` either gains real callers or is deleted.
+
+> ⚠ **The authority lives in a PLUGIN, which is the wrong layer for it long-term.**
+> `plugins/ifc-inspector/src/tree/ifc-class-authority.ts` is L6; a class mapping this
+> fundamental belongs at L0/L2 beside the vocabularies it reconciles. It was placed
+> there to avoid a cross-lane edit to `core-app-model` and `file-format` while the
+> export half was being reworked by another lane. **Promoting it is L-8307.**
 
 ---
 

@@ -41635,3 +41635,362 @@ different blast radius and is not guessed at here.
   construction, not merely by an argument-shape mismatch.** The probe was deleted.
 - Root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` -> **RC=0**.
   On a shared tree a single tsc run is a photograph of the whole tree, never a verdict on one lane.
+
+### L-8300 — ⭐ CLOSED: there were FOUR rival IFC class maps, not the two the brief named — and two of them were never rivals
+
+**MEASURED** (`grep -rn` over `packages plugins apps src`, plus direct reads):
+
+| # | Where | Maps | Rows |
+|---|---|---|---|
+| A | `packages/core-app-model/src/CoreElement.ts:77` `ELEMENT_TYPE_TO_IFC_CLASS` | `ElementType` → IFC class NAME | 19 |
+| B | `packages/file-format/src/export/ifc/IfcModelBuilder.ts:24` `IFC_CLASS_MAP` | IFC class NAME → web-ifc numeric code | 20 |
+| C | `packages/file-format/src/export/ifc/FragmentReader.ts:250` `mapImportedIfcClass` | raw IFC type → class NAME | ~16, private/inline |
+| D | `docs/02-decisions/contracts/C25-IFC-EXPORT-PRODUCTION.md §2` | PRYZM type → IfcEntity | normative |
+
+⭐ **A and B are NOT rivals — they COMPOSE.** A produces the class name B consumes.
+The brief asked whether "they agree"; the honest answer is that the question does
+not apply to that pair. The **real** rivalry is **A vs D**, and it is settled by the
+CLAUDE.md ordering: contract beats code.
+
+⚠ **The dead-map finding is the one with teeth.** `createIfcMetadata()` — the factory
+map A exists to serve — has **ONE** live call site
+(`packages/command-registry/src/handrails/CreateHandrailCommand.ts:185`).
+Against it: **58** hand-typed IFC-class literals (`grep -rn "ifcClass: *'Ifc"` over
+`packages plugins apps src`, excluding node_modules and tests → 58).
+So the canonical map is bypassed essentially everywhere and disagrees with the
+contract while doing so. **This is `[[authored-but-unwired-is-the-bottleneck]]`
+again: the map exists, is correct-ish, and is not the thing running.**
+
+**RESOLUTION:** `plugins/ifc-inspector/src/tree/ifc-class-authority.ts` is now the
+single authority, keyed on `string` (see L-8301) and guarded by a **SET comparison in
+both directions** against both vocabularies read off disk — the
+`check-contract-index-equivalence.ts` shape, chosen because a count can be right
+while the membership is wrong. C25 §2.1 records the whole reconciliation.
+
+---
+
+### L-8301 — ⛔ OPEN: two `ElementType` unions disagree, including on spelling
+
+**MEASURED** — `packages/schemas/src/types/Id.ts:136` (L0 id vocabulary) declares
+**36** members; `packages/core-app-model/src/CoreElement.ts:7` declares **18**.
+
+- L0 spells curtain walling `curtainwall`; core spells it `curtain-wall`.
+- `level` and `curtain-panel` exist ONLY in core.
+- **Eighteen** kinds exist only in L0 (`lift`, `liftPart`, `pool`, `water`,
+  `balcony`, `boundaryLine`, `verticalCirculation`, `structural`, `section`,
+  `annotation`, `dimension`, `sheet`, `schedule`, `view`, `project`,
+  `projectOrigin`, `lighting`, `curtainwall`).
+
+⭐ **Consequence for anything typed `Record<ElementType, X>`:** it is silently
+PARTIAL against the other union. `ELEMENT_TYPE_TO_IFC_CLASS` is exactly that shape,
+keyed on the 18-member union, so it cannot express a class for the other eighteen —
+which is why the new authority is keyed on `string` and tested against BOTH sets.
+
+⛔ **NOT FIXED HERE.** Unifying the vocabularies touches L0 schemas and every
+consumer; it is not a tree lane's change. Logged, not guessed at.
+
+---
+
+### L-8302 — ⭐ CLOSED: C25 §2 conflated PRYZM's structural `slab` with its finish `floor`
+
+**MEASURED** — C25 §2 carried one row, *"Slab / Floor → `IfcSlab`"*. But
+`packages/core-app-model/src/stores/FloorSystemTypeStore.ts` stamps
+`ifcTypeName: 'FLOORING'` on **every** floor system type (11 occurrences) — that
+string is literally `IfcCoveringTypeEnum.FLOORING`.
+
+⭐ **The ONE row where the CODE was right and the CONTRACT was wrong.** PRYZM's
+`floor` is a FINISH and its `slab` is the STRUCTURE. Mapping the finish to `IfcSlab`
+would emit two structural slabs where the model has one slab and one covering.
+
+**RESOLUTION:** C25 §2 row SPLIT in place (Slab → `IfcSlab`; Floor (finish) →
+`IfcCovering`/`FLOORING`), and a `Curtain panel` → `IfcPlate`/`CURTAIN_PANEL` row
+ADDED. Recorded in C25 §2.1.
+
+---
+
+### L-8303 / L-8304 — ⭐ CLOSED: `furniture` and `plumbing` — the code disagreed with C25 and the code was wrong
+
+**MEASURED** — `CoreElement.ts:77` maps `furniture` to `IfcFurnishingElement` and
+`plumbing` to `IfcFlowTerminal`. C25 §2 ranks them `IfcFurniture` and
+`IfcSanitaryTerminal`. Per the CLAUDE.md conflict-resolution order, **the contract
+wins**. Both are emittable — `node_modules/web-ifc/ifc-schema.d.ts` exposes
+`IFCFURNITURE = 1509553395` (:377) and `IFCSANITARYTERMINAL = 3053780830` (:310).
+
+⚠ **STATED HONESTLY AS NOT VERIFIED:** the usual rationale is that IFC4/IFC4X3
+demoted `IfcFurnishingElement` and `IfcFlowTerminal` to abstract supertypes. **This
+lane did NOT verify schema abstractness against a buildingSMART EXPRESS schema and
+does not assert it.** Presence in web-ifc proves the constant exists, NOT that the
+class is instantiable. The binding reason is the ordering, not a schema claim.
+
+---
+
+### L-8305 — ⭐ CLOSED BY ANOTHER LANE, mid-session: `IfcGrid` had no row in `IFC_CLASS_MAP`
+
+**MEASURED at session start** — C25 §2 ranks Grid to `IfcGrid`, and
+`ELEMENT_TYPE_TO_IFC_CLASS` agreed, but `IFC_CLASS_MAP` (`IfcModelBuilder.ts:24`)
+had **no** `IfcGrid` row, so a grid reaching that builder fell through
+`IfcModelBuilder.ts:156` to `IFCBUILDINGELEMENTPROXY` **silently**.
+
+⭐ **Detected closing, by a test, not by re-reading.** The export-reachability pin in
+`plugins/ifc-inspector/__tests__/ifc-class-authority.test.ts` FAILED on a mid-session
+re-run because lane **IFCEXP49** added `'IfcGrid': WEBIFC.IFCGRID` to the map.
+Confirmed by `grep -n "IfcGrid" packages/file-format/src/export/ifc/IfcModelBuilder.ts`
+→ `:61`, against a dirty working tree that is **IFCEXP49's, not this lane's**.
+
+⭐ **This is why the assertion compares a SET and not a count.** A count would have
+gone 5 → 4 and read as noise; the set named exactly which member left.
+
+---
+
+### L-8306 — ⛔ OPEN (founder decision): EIGHTEEN element families have no ratified IFC class
+
+**MEASURED** — the L0 families with no row in C25 §2: `lift`, `liftPart`,
+`verticalCirculation`, `balcony`, `pool`, `water`, `boundaryLine`, `structural`,
+`section`, plus the non-products `view`, `sheet`, `schedule`, `project`,
+`projectOrigin`.
+
+⭐ **These now RESOLVE AS UNMAPPED AND ARE NAMED in the tree** — the first surface in
+PRYZM that makes them visible. ⛔ **Nothing was invented.** Non-normative candidates
+are offered only where one is obvious (`lift` → `IfcTransportElement`,
+`balcony` → `IfcSlab`, `boundaryLine` → `IfcAnnotation`) and are explicitly NOT a
+mapping — the `unmapped` variant has no `ifcClass` field at all, so a caller cannot
+read a candidate as a class. **`pool` and `water` carry NO candidate**, because IFC
+has no honest product for either and offering one would be the defect.
+
+⚠ **Contrast with today's behaviour:** `IfcModelBuilder.ts:156` proxies any unknown
+class to `IFCBUILDINGELEMENTPROXY` with no warning, so an unranked family exports as
+a generic proxy and nothing anywhere says so.
+
+*Needs:* a founder yes/no per family, each landing as a C25 §2 row.
+
+---
+
+### L-8307 — ⛔ OPEN: the class authority is at the WRONG LAYER, deliberately
+
+`plugins/ifc-inspector/src/tree/ifc-class-authority.ts` is **L6**. A mapping this
+fundamental belongs at L0/L2 beside the vocabularies it reconciles. It was placed in
+the plugin to avoid cross-lane edits to `core-app-model` and `file-format` while
+IFCEXP49 was reworking the export half. **Stated as debt at the moment of creation
+rather than discovered later.** Promotion is the follow-up.
+
+---
+
+### L-8320 — ⭐ CLOSED: `IfcElementRecord` has NO material and NO system field, so "no materials" would be a lie about someone else's file
+
+**MEASURED** — `packages/file-format/src/import/ifc/IfcModelStore.ts:1-10`.
+`IfcElementRecord` carries EXACTLY: `id`, `expressID`, `name`, `ifcTypeName`,
+`rawIfcType`, `storeyName`, `storeyExpressID`, `psets`. **Eight fields. No material.
+No system. No GlobalId string** (it carries `expressID`, which is a file-local
+integer, not the IFC GUID).
+
+⭐ **The founder's reference UI's honesty strings describe PRYZM's exact
+limitation** — *"per-element assignment is not yet extracted (data-only parse)"* is
+literally true of this record. Those strings were adopted verbatim rather than
+paraphrased.
+
+**RESOLUTION:** sources DECLARE what they can answer (`SourceCapability`) instead of
+the grouping inferring it from an empty array. Guarded by a test that re-reads
+`IfcModelStore.ts` off disk and fails if `material` or `system` ever appears —
+`[[fake-more-capable-than-real]]`: a mirror written from a header cannot falsify the
+header.
+
+---
+
+### L-8321 — ⭐ CLOSED: the capability flags were first named `extracts*`, and the verb was the defect
+
+**FOUND BY THE SUITE, not by review.** With `extractsSystem: false` on the native
+source, a native-only model reported its system grouping as **NOT-EXTRACTED** —
+blaming PRYZM's parser for a fact about PRYZM's *data model*. PRYZM authors no
+`IfcSystem` at all (`grep -rn` for `IFCSYSTEM` / `IfcSystem` / `IfcDistributionSystem`
+over `packages plugins` → **0 production hits**), which is a **complete answer**, not
+a gap.
+
+**RESOLUTION:** renamed to `answers*` — *"can this source answer the question,
+including with none"*. Native → **ABSENT**; imported → **NOT-EXTRACTED**; both
+loaded → **names BOTH causes in one sentence**. ⚠ A `sed` during the rename hit both
+constants and wrongly flipped `IMPORTED_CAPABILITY` to `true`; caught by reading the
+diff before commit, not by the suite.
+
+---
+
+### L-8330 — ⭐ CLOSED: PRYZM "system types" are NOT IFC systems, and grouping them would have looked right
+
+An IFC system (`IfcSystem`/`IfcDistributionSystem`) is an MEP or functional network.
+PRYZM's wall/floor/ceiling **system types** are IFC **type objects** (`IfcWallType`
+and friends) — a different relation entirely.
+
+⛔ **Grouping type objects under "By IFC system" would have produced a populated,
+plausible, WRONG tree** — strictly worse than an honest empty one, because nothing
+would look broken. The grouping is empty on purpose and says which of two causes
+applies.
+
+---
+
+### L-8332 — ⛔ OPEN (IFCEXP49's half): material is visible in the tree and does NOT survive export
+
+**MEASURED** — `grep -rn` for `IFCMATERIAL` / `IfcMaterial` / `RelAssociatesMaterial`
+/ `MaterialLayerSet` over `packages/file-format/src/export` and
+`plugins/ifc-export/src` → **0**. Zero, in **both** export pipelines.
+
+Native material exists only as property-set STRINGS on a few families:
+`readers/BeamReader.ts:28` (`beam.material`), `readers/StairReader.ts:30`,
+`readers/RoomReader.ts:133-135` (room finishes). Every other family authors none.
+
+⭐ **So the tree can honestly show a material that will NOT reach an IFC file.**
+*"PRYZM knows the beam is steel"* and *"PRYZM will tell your consultant the beam is
+steel"* are different claims and the second is false. The story card states this
+whenever it shows a material (`MATERIAL_EXPORT_CAVEAT`). ⛔ Render colour was NOT
+used as a material source — that is presentation, and deriving material from it
+would manufacture data.
+
+---
+
+### L-8333 — ⛔ OPEN (IFCEXP49's half): there are TWO export pipelines and the app runs the LESS enriched one
+
+**MEASURED** — `grep -rn "exportProjectToIFC4X3"` over `packages plugins apps src server`
+returns the definition, ONE barrel re-export (`plugins/ifc-export/src/index.ts:18`),
+and **tests only**. **ZERO production callers.** The UI calls `exportIFC` from
+`@pryzm/file-format` (`apps/editor/src/engine/initUI.ts:1035` and `:1990`).
+
+⭐ So the richly-enriched `IFC4X3Exporter` — `Pset_WallCommon`, quantities,
+`IfcSpace`, `IfcZone`, Revit worksets — is **authored-but-unreachable**, and every
+statement this feature makes about "what PRYZM exports" must describe
+`IfcExporter`, not the richest file on disk. Recorded in code as
+`EXPORT_PATH_CAVEAT`. **Owned by IFCEXP49; not touched here.**
+
+---
+
+### L-8340 — ⭐ CLOSED: 111,263 elements, exact counts, bounded rows
+
+**The split that makes both halves true:** grouping is ONE O(n) counting pass that
+materialises no row, so **counts and group actions are exact for all 111,263**;
+row materialisation is a separate step capped at **1,500** (`MAX_MATERIALISED_ROWS`),
+with a per-group fold at 300.
+
+**PROVEN in the suite against a real 111,263-element array:** a collapsed tree
+materialises **0** element rows; an expanded huge group stops at the cap, reports
+`truncated`, and the notice **states the true total 111,263** and says explicitly
+that counts are not truncated. ⛔ It never says "showing 500" and leaves the reader
+to infer that is all there are.
+
+⚠ **NOT PROVEN:** actual frame timing in the founder's browser. The bound is
+structural (rows built × constant), not a measured milliseconds figure, and is not
+claimed as one.
+
+---
+
+### L-8350 — ⚠ OPEN (inference, overrulable in one line): nine headings, denominator eight
+
+The request lists **nine** headings — *What it is · Why it exists · Where · Part of
+and made of · Feeds and fed by · Who is responsible · State and history · If it
+fails · How we know* — and shows the fraction as **"2 of 8 answered"**.
+
+⭐ **The reading implemented is that "How we know" is not a ninth question — it is
+the PROVENANCE LEDGER over the other eight.** It is the only one of the nine that
+can never be Unknown: even with nothing known, it has an answer. That makes the
+denominator come out at eight without discarding a heading, and puts provenance
+structurally at the centre, which C23 requires anyway.
+
+⚠ **THIS IS AN INFERENCE FROM A SCREENSHOT, NOT A MEASURED FACT.** If the founder
+intends nine answerable slots, `ANSWERABLE_SLOTS` gains a row and the denominator
+moves; nothing else changes.
+
+---
+
+### L-8351 — ⭐ CLOSED: an AI answer cannot be labelled a model fact, by construction
+
+Four provenances: `model` (read from the file/store), `mapping` (derived by the
+C25 §2 authority — true by construction, authored by nobody), `user`, `ai`.
+
+⛔ **`withAiAnswers()` can stamp ONLY `ai`, and there is deliberately no parameter
+to override that** — making mislabelling impossible beats remembering not to. It
+also **cannot overwrite an already-grounded slot**. AI-only answers are excluded
+from the `grounded` count and surfaced separately as `aiOnly`, and the ledger
+sentence ends *"…rest on AI inference alone and are not a fact about the building."*
+
+⭐ **A user's own API key does not upgrade `ai` to `model`.** Who paid for the
+inference has no bearing on whether it was measured.
+
+⭐ **`openQuestions()` excludes NOT-EXTRACTED slots** — asking a language model
+cannot fix PRYZM's parser, and offering to try would misrepresent what the button
+does.
+
+---
+
+### L-8360 — ⭐ CLOSED: "Research ALL elements" is refused, and a missing cost estimate says so
+
+⛔ There is **no unbounded fan-out action**. `gateBatch()` refuses above
+`MAX_BATCH_ELEMENTS = 50` and names why (*"on a 100k-element model that is a
+six-figure request count"*). Every permitted run states the element count, the
+question count, and a cost line.
+
+⭐ **When no estimate is available the confirmation SAYS "Cost is not estimated"
+rather than inventing a figure** — a fabricated "≈ $0.40" would be worse than none,
+because the founder would act on it. A test asserts the confirmation contains no
+currency-digit when the estimate is null.
+
+⛔ **No second AI call path exists.** `ai-seam.ts` declares an interface and a policy
+and contains no transport, no fetch, no key handling. With no port injected the Ask
+affordance renders **disabled with a stated reason** — a fallback would be exactly
+the second path this is forbidden to create.
+
+⚠ **NOT COORDINATED — the BYOK lane was UNREACHABLE.** `SendMessage` to `BYOK44`
+returned *"No agent named 'BYOK44' is reachable"*. The port is therefore an
+interface this lane guessed the SHAPE of, not one agreed with that lane. It is one
+small interface (3 methods) behind one injection site, so adapting it is cheap — but
+**it is not a negotiated contract and should not be read as one.**
+
+---
+
+### L-8375 — ⛔ OPEN: the Inspect panel has a contribution registry that is NEVER INSTANTIATED
+
+**MEASURED** — `packages/ui/src/PanelHost.ts` defines the panel-contribution
+registry, and the only `new PanelHost()` calls in the repo are in tests.
+`createIfcPanelContribution` (`plugins/ifc-inspector/src/panel-contribution.ts`) has
+**zero** callers. Authored-but-unwired, again.
+
+⭐ **Consequence for this lane:** with no live mount point, and
+`apps/editor/src/ui/inspect/**` owned by a concurrent lane that was **unreachable**
+(`SendMessage` to `INSP46` → *"No agent named 'INSP46' is reachable"*), the toggle
+attaches **by selector at runtime** from a NEW file
+(`apps/editor/src/ui/ifc-tree/IfcTreeAttachment.ts`) and edits **no existing file's
+source**. `.aud-header` is additionally contract-pinned by
+`analysisHeaderReserve.spec.ts:196,230,236` and `dataPanelChrome.spec.ts:294,299`.
+
+**Verified AFTER INSP46's commits landed** (`368602ba`, `2217b2ff`): all three
+selectors still resolve — `aud-stack` (`AuditStack.ts:130`), `aud-header-actions`
+(`:140`), `aud-project-tree` (`:160`). If they ever stop matching, the module logs
+**one warning and does nothing** — a missing toggle is a bug, a broken Inspect panel
+is a catastrophe.
+
+⛔ **This is NOT the permanent home.** The right shape is `PanelHost` actually being
+instantiated. Stated as debt at creation.
+
+---
+
+### L-8380 — lane IFCTREE47 readings at close (readings, with a timestamp — never states)
+
+All in the FOREGROUND, 2026-08-23:
+
+- `plugins/ifc-inspector` suite → **74/74 passed, 4 files** (`npx vitest run`).
+  Includes the pre-existing `pset-editor` tests, unchanged.
+- `npx tsc -p plugins/ifc-inspector/tsconfig.json --noEmit` → **RC=0**.
+- Root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` →
+  **RC=2, 4 errors**, of which **0 are this lane's** after the fix; the remainder are
+  `packages/core-app-model/src/presentation/VGSceneApplicator.ts:130` (×2,
+  `"boundary-line"` not assignable to `VGCategory`) and boundary-line command
+  errors — **another lane's, on a shared tree**.
+
+⚠ **CORRECTION TO THIS LANE'S OWN BRIEF.** The brief stated *"Root gate → RC=0 now;
+keep it."* **That was already false when measured at session start:** the first root
+run returned **RC=2 with 1 error** in
+`packages/command-registry/src/boundaryLine/MoveBoundaryLineCommand.ts:423`. An
+earlier reading in this lane misreported it as RC=0 because the backgrounded command
+was a compound whose **last** element was a `tail`, so the shell's exit code was the
+`tail`'s, not `tsc`'s — `[[trailing-error-is-a-consequence]]`, in its exit-code form.
+**Read the compiler's own line, never the pipeline's status.**
+
+⭐ **A single tsc run on a shared tree is a photograph, not a verdict** — this lane's
+two commits are scoped to `plugins/ifc-inspector/**`,
+`apps/editor/src/ui/ifc-tree/**`, one import line in `engineLauncher.ts`, and the
+`apps/editor` manifest + lockfile.
