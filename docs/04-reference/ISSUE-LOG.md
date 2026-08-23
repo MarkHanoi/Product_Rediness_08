@@ -42831,3 +42831,204 @@ entries are swapped is a gate that passed while its subject changed completely.
 * ⚠ Mid-lane the root `tsc` was **RC=2 with 11 errors, all in
   `apps/editor/src/engine/inspect/DiagnosticMaterialManager.ts`** — a sibling lane's in-flight edit
   (+198/−30), not this lane's. Recorded rather than silenced; they were gone by the final run.
+
+---
+
+## IFC EXPORT — lane IFCEXP49 (2026-08-23) · L-8500..L-8580
+
+Founder-supplied file-and-line audit. Every claim below was **re-derived from the code**, not
+transcribed; where the audit was wrong or incomplete that is recorded as a correction rather than
+quietly adjusted. Contracts: **C25** (amended §1.7/§1.8/§1.9/§3.1 in place), C05, C84.
+ADRs: **ADR-0362** (pipeline convergence), **ADR-0363** (GlobalId is derived, not stored).
+
+### L-8500 — ⛔ CLOSED: every `.ifc` file PRYZM had ever exported was schema-invalid at EVERY GlobalId
+
+`IfcGloballyUniqueId` is a **22-character** base64 string over `0-9 A-Z a-z _ $`. Pipeline A —
+`packages/file-format/src/export/ifc/**`, the path the app actually runs — wrote
+`crypto.randomUUID()`, a **36-character hyphenated UUID**, verbatim into `GlobalId`. The "encoder"
+was the identity function, in two files:
+
+```
+IfcModelBuilder.ts:21      const gi = (v: string) => v;
+IfcSpatialStructure.ts:21  const gi = (v: string) => v;
+```
+
+**32 `crypto.randomUUID()` sites** across the pipeline (the audit estimated ~25). A correct
+buildingSMART encoder already existed at `plugins/ifc-export/src/guid.ts:33`, exported from
+`index.ts:32`, with **zero production call sites**.
+
+**Verified the existing encoder before adopting it** rather than assuming: bijective over 20,000
+random UUIDs, always 22 chars, first character always in `0..3`,
+nil → `0000000000000000000000`, max → `3$$$$$$$$$$$$$$$$$$$$$`. It was correct; it was unreachable.
+
+**Fixed** by minting ONE codec at **L0** (`packages/schemas/src/ifc/GlobalId.ts`) that both pipelines
+import — see ADR-0362 for why L0 and not the three obvious alternatives. Proven on the emitted file:
+no 36-character UUID appears anywhere in it, and every GlobalId the IFC parser can find passes
+`isIfcGlobalId`.
+
+### L-8501 — ⛔ CLOSED: GlobalIds churned on every export — fixed by DERIVING them, not by building the map the brief asked for
+
+No persistent PRYZM-id → GlobalId mapping existed in either pipeline. Thirteen readers used
+`?? crypto.randomUUID()`; `FurnitureReader.ts:35` and `PlumbingReader.ts:40` randomised
+unconditionally with no `ifcData` fallback at all; project/site/building came from
+`createDefaultIntermediateModel()`; and **every** opening, `RelVoids`, `RelFills`, `RelContained`,
+`RelAggregates`, `IfcPropertySet` and `IfcRelDefinesByProperties` was random per export. That breaks
+round-trip, dangles every downstream reference (BCF, COBie, clash reports) and makes federated
+coordination impossible.
+
+⭐ **The brief said to decide where the map lives and to coordinate a snapshot field if needed. I
+refused the map** — see ADR-0363. A map must be persisted, migrated, GC'd, merged under
+collaboration, and is wrong the moment it is not saved; and every existing project has no map, so
+first export re-mints anyway, which is the defect. A **derivation** from an identifier that is
+already persistent and already stable (the PRYZM element id) is stable **by construction**.
+**No project-file change was needed, so no coordination was required.**
+
+A persisted `ifcData.guid` still wins verbatim, which is what preserves imported-IFC identity.
+Proven on the file: two exports of an unchanged model are byte-identical across elements **and**
+relationships and psets — the latter being the half an element-only check would miss, since most
+GlobalIds in an IFC file belong to relationships.
+
+### L-8502 — ⭐ CLOSED: the rival GUID encoder is deleted, not copied
+
+`plugins/ifc-export/src/guid.ts` is now re-exports only. Copying the good implementation into
+Pipeline A would have made a second copy free to drift from a third. The founder's constraint was
+explicit — *a second divergence must not be creatable afterwards* — so **there is no longer any code
+in that file that could diverge.** `deterministicUuid` deliberately stays: it is a test affordance
+and L0 should not grow one.
+
+### L-8503 — CLOSED: `OwnerHistory` was null on every entity except `IfcProject`
+
+One shared `IfcOwnerHistory` now reaches project, site, building, storeys, every element, every pset
+and every relationship. Asserted on the file (attribute #2 is `#n`, never `$`) and that exactly one
+is written.
+
+### L-8504 — CLOSED: `IfcSpace` was related with the wrong relationship, and the two pipelines disagreed
+
+Pipeline A used `IfcRelContainedInSpatialStructure`, which IFC4 reserves for products contained *in*
+a spatial element. `IfcSpace` is itself a spatial element and nests via `IfcRelAggregates` — which
+Pipeline B does and documents at `exporters/space.ts:325-327`. **A schema violation, and the two
+pipelines contradicted each other; A was wrong.** Asserted: a model of spaces alone now emits zero
+`IFCRELCONTAINEDINSPATIALSTRUCTURE`.
+
+### L-8505 — CLOSED: `predefinedType` was carried and then silently dropped for Wall, Window, Door, Column
+
+Those four switch arms never passed the attribute. Now emitted for all four; `IfcSpace` still
+defaults to `INTERNAL`. Asserted per family on the emitted line.
+
+### L-8510..L-8515 — CLOSED: five silent fallbacks, each a wrong-output-without-warning
+
+Every one now raises an `ExportDiagnostic` to the console **and** to `ExportOptions.onDiagnostic`.
+
+* **L-8510 ⛔ the worst one.** `IfcModelBuilder.ts:229-233` reassigned any element whose `levelId`
+  did not resolve to *the first storey in the map*. The file opened cleanly, every element was
+  present, and a third-floor wall sat on the ground floor. Nothing warned. Now: an explicitly-named
+  `UNASSIGNED` storey — still exported, still visible, unmistakably not placed — plus an error
+  diagnostic. The building→storey `IfcRelAggregates` is deferred to `finaliseBuildingAggregation()`
+  so that storey is not orphaned, which was a defect the fix would otherwise have introduced.
+* **L-8511** missing host wall (`:130-133`) — was `debug()` + `continue`; the door was written,
+  visible, and silently did not cut its wall.
+* **L-8512** opening with no geometry (`:137-139`) — wrote an `IfcOpeningElement` with a **null
+  Representation**, cutting nothing, while `RelVoids` claimed the wall was voided. Now refused
+  outright: better absent than a lie.
+* **L-8513** empty geometry · **L-8520** unmapped `ifcClass` — warned rather than silently proxied.
+
+### L-8520 — CLOSED: the two IFC class maps did NOT agree
+
+`CoreElement.ts:77` maps `grid`→`IfcGrid` and `level`→`IfcBuildingStorey`; **neither was in
+`IfcModelBuilder`'s `IFC_CLASS_MAP`**, so both degraded to `IfcBuildingElementProxy` with no warning.
+`IfcGrid` added. `IfcBuildingStorey` deliberately **not** added — a storey is spatial structure and
+must never arrive as an element — it is diagnosed instead. This is the same fallback C25 §2.1 (lane
+IFCTREE47) names as warning-free; it now warns.
+
+### L-8530 — CLOSED: QTO Net quantities asserted that every wall is solid
+
+`openingsArea ?? 0` in `qto-wall-base.ts`, with no caller ever supplying openings, made
+`NetSideArea === GrossSideArea` and `NetVolume === GrossVolume` for every wall. The audit's phrasing
+is exact: **misleading, not merely absent.** Both halves of the instruction were done, not one:
+`undefined` openings now mean UNKNOWN and the Net quantity is withheld (`0` means
+known-to-have-none and IS emitted); **and** the openings are now fed — `Wall.openings` carried each
+opening's width and height all along.
+
+⚠ **Five existing tests asserted the defect** and were corrected, not deleted: `density emits both
+GrossWeight and NetWeight` pinned `netWeight === grossWeight` with no openings supplied; `→ 9
+quantities` listed `NetSideArea`/`NetVolume` in the same condition; the `writeEntity` spy counted 11;
+the span asserted `quantityCount` 4. A new case proves Net now comes out genuinely lower than Gross —
+which nothing previously tested, because nothing previously could.
+
+### L-8540 — CLOSED: a natively-drawn model exported NO standard `Pset_*Common` at all
+
+Six passthrough sites of the form `if (x.ifcData?.psetCommon)`. `psetCommon` exists only on IMPORTED
+elements — `WallData.ifcData` is declared `{ guid, ifcClass }`. Now `Status` (← `properties.phase`,
+defaulting `NEW`), `Reference` (← `systemTypeId`, else `properties.mark`) and `FireRating`
+(← `door/window.fireRating`) reach `Pset_WallCommon`, `SlabCommon`, `ColumnCommon`, `DoorCommon`,
+`WindowCommon`, `CurtainWallCommon`. An imported pset still wins property-by-property and native
+values now **fill its gaps** rather than being discarded.
+
+### L-8541 — ⛔ OPEN (schema gap, NOT a plumbing gap): twelve `Pset_*Common` properties have no source field in PRYZM
+
+⚠ **This is a correction to the brief**, which framed the shortfall as *"the writers are already
+correct — the callers starve them. Plumb the real element data."* True for `Status` and `FireRating`,
+which are now plumbed. **False for the rest: there is nothing on the element to pass.** Verified
+against `packages/schemas/src/elements/Wall.ts` and `packages/geometry-wall/src/WallTypes.ts`:
+
+> `IsExternal` · `LoadBearing` · `ThermalTransmittance` · `AcousticRating` · `Combustible` ·
+> `Compartmentation` · `SurfaceSpreadOfFlame` · `ExtendToStructure` · `SecurityRating` ·
+> `Infiltration` · `GlazingAreaFraction` · `SmokeStop`
+
+`Pset_WallCommon` supports 11 properties and PRYZM can truthfully fill 2. They are **not** emitted,
+and a test asserts each of the eight wall properties stays absent — a fabricated standard property is
+worse than a missing one because the consumer cannot tell. **Exit: the element schemas carry them;
+no exporter change is then needed.** Recorded in C25 §3.1.
+
+### L-8550 — CLOSED: furniture and plumbing obey C25 §2.1, where the contract beat the code
+
+C25 §2.1 (lane IFCTREE47) rules `furniture`→`IfcFurniture` and `plumbing`→`IfcSanitaryTerminal`
+against the code's `IfcFurnishingElement`/`IfcFlowTerminal`. Per CLAUDE.md's conflict order the
+contract wins. Both emittable (`ifc-schema.d.ts:377`, `:310`). The supertypes stay mapped and an
+element carrying its own `ifcData.ifcClass` keeps it, so an IMPORTED `IfcFurnishingElement`
+round-trips as itself rather than being rewritten — trading one fidelity defect for another.
+
+### L-8560 — ⛔ OPEN: C25 §1.1 requires IFC4X3; the pipeline users actually run writes IFC4
+
+`IfcExporter.ExportOptions.schema` is `'IFC2X3' | 'IFC4'` — IFC4X3 is not a value it can express.
+The contract's §1.1 was written about Pipeline B. Migrating Pipeline A is a geometry-and-entity
+question, not a flag. **Not attempted in this lane; named rather than reconciled.** C25 §1.7.
+
+### L-8521 — ⛔ OPEN (owned by `core-app-model`, not this lane): IFC export cannot run outside a browser
+
+`packages/core-app-model/src/debugOverlay.ts:7` reads `window.__PRYZM_SHOW_DEBUG_OVERLAY`
+**unguarded**, and every Pipeline A writer calls `debug()`. Outside a browser they throw
+`ReferenceError: window is not defined`, so IFC export is impossible from a worker or the server.
+The new test suite has to `vi.stubGlobal('window', …)` because of it. One-line guard, wrong lane.
+
+### L-8570 — ABSENT capabilities: what was NOT shipped, and why
+
+Judged individually rather than swept up. **Materials were deliberately not built.**
+`IfcMaterial` / `IfcMaterialLayerSet` / `IfcRelAssociatesMaterial` have **zero occurrences anywhere
+in the repo** (cross-checked with two tools). The audit's own compounding note is the reason to stop:
+door and window finishes only became real material references yesterday, and balcony handrails are
+created naming no material at all. **Emitting `IfcMaterial` entities with no source is exactly the
+fabrication L-8541 and C25 §1.9 forbid** — so the writer waits on the data, and this is a decision,
+not an omission. Also unshipped and unclaimed: **type objects + `IfcRelDefinesByType`**
+(`revitTypePsets` is hardcoded to 0), **systems**, **classification**, and **QTO for every family
+except Wall**.
+
+### L-8580 — verification, run in the FOREGROUND
+
+* `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=0**.
+  ⚠ Mid-lane it read RC=2 with 2 errors, both in
+  `packages/core-app-model/src/presentation/VGSceneApplicator.ts` (`'boundary-line'` not assignable
+  to `VGCategory`) — lane **BOUND43**'s in-flight edit, not this one's. Recorded rather than
+  silenced; gone by the final run.
+* `packages/schemas` → **24/24** (`ifcGlobalId.test.ts`), incl. 100k derived keys with zero
+  collisions and a frozen-vector guard. `check-domain-purity.ts` → **RC=0, 0 impurities / 189 files.**
+* `packages/file-format` → **43/43** across the two new IFC suites; full package **179/180**.
+  ⚠ The two failing suites (`family-round-trip`, `dxf-parser.adversarial`) fail with
+  `ReferenceError: DOMMatrix is not defined` — pre-existing browser-global breakage, same class as
+  L-8521, neither touching IFC.
+* `plugins/ifc-export` → **259/259** (was 256, of which 5 encoded the L-8530 defect).
+* ⭐ **The IFC assertions are made on the EMITTED FILE, never on a return value.** They reopen the
+  `SaveModel()` bytes through web-ifc and ask the parser which lines carry a `GlobalId`. A first
+  regex version false-positived on `IFCGEOMETRICREPRESENTATIONCONTEXT('Model',…)`, whose attribute #1
+  is a `ContextIdentifier`; whitelisting entity names instead would have silently stopped checking
+  any entity nobody remembered to add.

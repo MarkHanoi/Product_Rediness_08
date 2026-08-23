@@ -1,7 +1,7 @@
 # C25 — IFC Export (Production-Grade)
 
 > **Stamp**: 2026-05-31 · **Status**: DRAFT
-> **Scope**: governs the existing `plugins/ifc-export/` (PRYZM 2 Phase 3-B Sprint S56) plus the gap-fill work to reach production-grade IFC4X3 coverage across all PRYZM element types. Codifies invariants for `IFC4X3Exporter`, the per-entity exporters, the `IFCMetaStore` round-trip, Pset authoring, spatial structure completeness, classification, and COBie.
+> **Scope**: governs **BOTH IFC export pipelines** — `packages/file-format/src/export/ifc/**` (the path the app actually runs) **and** `plugins/ifc-export/**` (PRYZM 2 Phase 3-B Sprint S56) — plus the gap-fill work to reach production-grade IFC4X3 coverage across all PRYZM element types. ⚠ **This line read "governs the existing `plugins/ifc-export/`" until 2026-08-23 (lane IFCEXP49, L-8500). That is the pipeline NOTHING RUNS**; see §1.7. Codifies invariants for `IFC4X3Exporter`, the per-entity exporters, the `IFCMetaStore` round-trip, Pset authoring, spatial structure completeness, classification, and COBie.
 > **Depends on**: [C05](C05-PERSISTENCE-AND-FILE-FORMAT.md), [C12](C12-GEOSPATIAL.md), [C15](C15-HOSTED-ELEMENT-CONTRACT.md).
 > **Downstream**: [C26](C26-REVIT-ROUND-TRIP.md) (IFC4 is the Revit bridge), [C28 §7](C28-DATA-PANEL-AND-AUTOMATION.md) (IFC Pset export from data grid).
 > **Key principles**: **P5** (IFC config schema pure), **P8** (every Pset write opens a span).
@@ -74,6 +74,93 @@ Per P8, every `IfcPropertySet` write emits an OpenTelemetry span. Span name: `pr
 **Current state**: `plugins/ifc-export/src/otel.ts` exists with P8 spans. Audit confirms.
 
 ---
+
+### §1.7 — ⛔ There are TWO export pipelines, and this contract governed the wrong one
+
+> **Added 2026-08-23 · lane IFCEXP49 · L-8500..L-8560 · [ADR-0362](../adrs/ADR-0362-one-ifc-globalid-codec-at-l0-not-a-second-pipeline.md), [ADR-0363](../adrs/ADR-0363-ifc-globalid-is-derived-not-stored.md).**
+
+Measured at HEAD with two tools, because a single grep is not proof (ripgrep and `grep -rn` agreed):
+
+| | **Pipeline A** — the shipping path | **Pipeline B** — the contract's subject until today |
+|---|---|---|
+| Root | `packages/file-format/src/export/ifc/**` (L3) | `plugins/ifc-export/src/**` (L6) |
+| Reached from the UI | ⭐ **YES** — `ExportRailPanel` → `BimService.exportIfc` → `exportIFC` | **NO** |
+| Why not | — | `runtime-composer/src/ImportExportSlots.ts` throws `RuntimeNotWiredError('ifc.export.run','F.12.4')`; `exportProjectToIFC4X3` has **zero** non-test callers |
+| Schema written | **IFC4** (IFC2X3 selectable) | IFC4 / IFC4X3 |
+| Geometry | real triangulated mesh | box extrusion only |
+| Openings | present | **absent** |
+
+**Two consequences for this contract, both binding:**
+
+1. **§1.1 (*"Every export targets IFC4X3, NOT IFC2x3 and NOT IFC4"*) is FALSE of the path users
+   actually use** — it writes IFC4. This is recorded as a real, open gap (**L-8560**), not quietly
+   reconciled. Pipeline A's `IfcExporter.ExportOptions.schema` is `'IFC2X3' | 'IFC4'`; IFC4X3 is not
+   an option it can express. Migrating it is a geometry-and-entity question, not a flag.
+2. **Everything §3 and §5 assert about "the exporter" was measured against Pipeline B.** Where the
+   two disagree, the reader must be told which one is meant. §3 now says so.
+
+⭐ **This is the same defect shape the §1.3 banner already records for IFC-α-1/α-2/α-3 and that
+C25 §2.1 records for the class maps: a contract stamped against one artefact while a different
+artefact does the work.** It is the third recurrence inside this one file. The convergence in
+ADR-0362 is the structural answer — a shared core at L0 that both pipelines import — so that a
+statement about "the GlobalId minter" is now true of both by construction rather than by
+coincidence.
+
+*Exit condition:* Pipeline A gains IFC4X3, or Pipeline B is wired and Pipeline A retired. Until one
+of those happens, **every claim in this contract must name its pipeline.**
+
+### §1.8 — `IfcGloballyUniqueId` is valid and stable, by construction
+
+> **Added 2026-08-23 · lane IFCEXP49 · L-8500/L-8501.**
+
+**Validity.** Every `GlobalId` MUST satisfy: 22 characters; every character in
+`0-9 A-Z a-z _ $`; and the FIRST character no greater than `'3'` (it encodes only the top 2 bits of
+the 128-bit value — the condition hand-rolled validators forget). The single authority is
+`packages/schemas/src/ifc/GlobalId.ts` (**L0**, pure, zero imports), and **both pipelines import
+it**. `plugins/ifc-export/src/guid.ts` is re-exports only.
+
+> ⚠ **Until 2026-08-23 this held for neither pipeline in production.** Pipeline A wrote
+> `crypto.randomUUID()` — a **36-character** hyphenated UUID — verbatim into `GlobalId` through an
+> encoder that was the identity function (`IfcModelBuilder.ts:21`, `IfcSpatialStructure.ts:21`).
+> **Every `.ifc` file PRYZM had ever exported was schema-invalid at every GlobalId.** A correct
+> encoder sat in Pipeline B with **zero production call sites**.
+
+**Stability.** A `GlobalId` MUST be stable for the life of the element. It is **DERIVED**, never
+stored in a lookup table and never randomised:
+
+* a persisted `ifcData.guid` (an imported IFC identity) is **preserved verbatim**;
+* otherwise it is derived from the PRYZM element id — `globalIdFromStableKey('el:' + id)`.
+
+Relationship entities derive from namespaced keys (`opening:`, `relvoids:`, `relfills:`,
+`relcontained:`, `relaggregates:`, `pset:`). ⛔ **The lane seeds and these namespace strings are a
+persistence format**: changing either silently re-mints every derived GlobalId in every project.
+
+**Every write site MUST go through `toIfcGlobalId(value, stableKey)`**, which cannot return an
+invalid value. A rule that asks an author to remember to call an encoder is a rule that decays; this
+one is enforced by the type of the only reachable minter.
+
+### §1.9 — A wrong number is worse than a missing one
+
+> **Added 2026-08-23 · lane IFCEXP49 · L-8510..L-8515, L-8530, L-8541.**
+
+Where the model does not carry a fact, the export MUST omit it rather than emit a default that reads
+as a measurement. Three rulings, each from a shipped defect:
+
+1. **Quantities.** A `Qto_*` Net quantity MUST NOT be emitted when the opening figures are unknown.
+   `openingsArea ?? 0` made `NetSideArea === GrossSideArea` and `NetVolume === GrossVolume` for every
+   wall ever exported — the file asserted, with a standard quantity set's authority, that a wall full
+   of windows was solid. `undefined` now means UNKNOWN and suppresses; `0` means known-to-have-none
+   and is emitted. **A QS reads Net; they do not read the absence of Net.**
+2. **Property sets.** A `Pset_*Common` property MUST NOT be emitted unless a real element field
+   backs it. See §3.
+3. **Silent relocation is forbidden.** An element whose `levelId` does not resolve MUST NOT be
+   reassigned to another storey. It goes to an explicitly-named `UNASSIGNED` storey and raises an
+   error diagnostic. The old behaviour put it in *the first storey in the map*: the file opened
+   cleanly, every element was present, and a third-floor wall sat on the ground floor. Nothing warned.
+
+Every such condition MUST raise an `ExportDiagnostic` reaching both the console and the caller
+(`ExportOptions.onDiagnostic`). Codes: `UNRESOLVED_LEVEL`, `MISSING_HOST_WALL`,
+`OPENING_WITHOUT_GEOMETRY`, `EMPTY_GEOMETRY`, `UNKNOWN_IFC_CLASS`.
 
 ## §2 — Element coverage table
 
@@ -186,7 +273,55 @@ in this table; then the 58 literals and map A collapse into the single authority
 
 `Pset_FurnitureTypeCommon` MUST carry: `Reference`, `Style`, `NominalLength`, `NominalWidth`, `NominalHeight`, `Status`.
 
-**Current state**: `plugins/ifc-export/src/psets.ts` implements core Psets. The depth audit (IFC-γ-1 in master plan) verifies coverage.
+### §3.1 — ⛔ Corrections of 2026-08-23 (lane IFCEXP49, L-8540/L-8541)
+
+> The MUSTs above are **schema requirements PRYZM currently cannot meet**, and saying so is the
+> point of this subsection. They are retained as the target; what follows is what is measurable today.
+
+**Which pipeline?** Every "current state" claim in §3 above was written against **Pipeline B**, which
+nothing runs (§1.7). Restated per pipeline:
+
+| Pset | Writer supports | Pipeline B ships | Pipeline A ships (the user's file) |
+|---|---|---|---|
+| `Pset_WallCommon` | 11 properties | **`Status='NEW'` alone** — the caller passes `{ id: wall.id }` | `Status` + `Reference` |
+| `Pset_DoorCommon` | 14 | 2 (`Status`, `FireRating`) | `Status` + `Reference` + `FireRating` |
+| `Pset_WindowCommon` | 13 | 2 (`Status`, `FireRating`) | `Status` + `Reference` + `FireRating` |
+| `Pset_SlabCommon` / `Pset_ColumnCommon` / `Pset_CurtainWallCommon` | — | **absent entirely** | `Status` + `Reference` |
+
+⭐ **Before L-8540, Pipeline A shipped NONE of these for a natively-authored model.** Every reader's
+Common pset was a passthrough of `ifcData.psetCommon`, a field that exists only on elements
+IMPORTED from IFC — `WallData.ifcData` is declared `{ guid, ifcClass }` and nothing else. A model
+drawn entirely in PRYZM exported no `Pset_WallCommon`, `Pset_SlabCommon`, `Pset_DoorCommon`,
+`Pset_WindowCommon` or `Pset_ColumnCommon` **at all**.
+
+⚠ **The audit framed this as a starved caller — "the writers are already correct, the callers starve
+them; plumb the real element data". That is right for exactly two properties and wrong for the rest.**
+For `Status` (← `CoreElement.properties.phase`) and `FireRating` (← `DoorData.fireRating` /
+`WindowData.fireRating`) the data existed and is now plumbed. For the others **there is nothing on the
+element to pass.** Verified against `packages/schemas/src/elements/Wall.ts` and
+`packages/geometry-wall/src/WallTypes.ts`, these have **no source field anywhere in PRYZM**:
+
+> `IsExternal` · `LoadBearing` · `ThermalTransmittance` · `AcousticRating` · `Combustible` ·
+> `Compartmentation` · `SurfaceSpreadOfFlame` · `ExtendToStructure` · `SecurityRating` ·
+> `Infiltration` · `GlazingAreaFraction` · `SmokeStop`
+
+**They are NOT emitted, and MUST NOT be.** A standard property carrying a fabricated value is worse
+than absence, because the consumer cannot tell the difference — the same ruling as §1.9 and the same
+reasoning the materials section applies to `IfcMaterial` (§5.1). A test asserts each of the eight
+wall properties stays absent.
+
+**`Status` is emitted always**, defaulting to `NEW`: an authoring tool's default genuinely is new
+construction, and it is the one property downstream checkers treat as mandatory. PRYZM's `'Future'`
+phase is deliberately **not** mapped — `PEnum_ElementStatus` has no future member and `TEMPORARY`
+means temporary *works*, so mapping it would be a lie with an enum's authority.
+
+*Exit condition:* **this is a SCHEMA gap, not a plumbing gap (L-8541).** The twelve properties reach
+the file the moment the element schemas carry them; no exporter change is needed. Until then §3's
+MUSTs are unmet and this table is the honest reading.
+
+**Current state**: `plugins/ifc-export/src/psets.ts` implements core Psets; Pipeline A's is
+`packages/file-format/src/export/ifc/readers/commonPsets.ts`. The depth audit (IFC-γ-1 in master
+plan) verifies coverage — **against the table in §3.1, not the MUSTs above.**
 
 ---
 
