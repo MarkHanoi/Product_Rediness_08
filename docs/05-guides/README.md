@@ -25,6 +25,8 @@ Documents organised by **who's reading them**, not by what topic they cover.
 
 | Folder/file | What |
 |---|---|
+| `onboarding.md` | Developer onboarding path |
+| `editor-chrome-map.md` | Every control in the editor shell — six regions, source line, and an ACTIVE / REFUSES-WITH-REASON / DECLARED-BUT-UNREACHABLE state per control |
 | `process/` | Beta-triage process · launch dry-run checklist |
 | `demos/` | M9-1C-headless script · M12-alpha demo script · README |
 

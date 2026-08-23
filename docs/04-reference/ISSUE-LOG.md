@@ -40424,3 +40424,467 @@ rather than rendered as a blank panel.
   **Two lanes independently observing each other's transients is the strongest available evidence
   that neither set was structural**, and it is exactly why this section says *readings, never
   states*: on a shared tree a single tsc run is a photograph, not a fact.
+
+
+---
+
+## Lane UIDOC39 — editor chrome map (2026-08-23) · block L-7500 – L-7560
+
+Deliverable: **[docs/05-guides/developer/editor-chrome-map.md](../05-guides/developer/editor-chrome-map.md)** —
+all six chrome regions, every control with `file.ts:line` for definition AND registration, every
+flyout recursed to the leaf, and a per-control STATE column. **No source file was changed by this
+lane.** Every row below is a MEASUREMENT with the command that produced it (C01 §6 rule 6), and
+every negative was confirmed with **two** tools.
+
+### L-7500 — ⛔ OPEN: **`LeftNavRail` — 976 LOC and 8 panels — is constructed on every boot and never mounted**
+
+`apps/editor/src/ui/layout/NavigationAreaLayout.ts:251` does `new LeftNavRail({…}, runtime)` and
+`:256` does `void leftNavRail; // suppressed — not mounted`. The live left rail is
+`ProjectBrowserPanel` inside `.vb-panel` (`:259-261`).
+
+**Measured 2026-08-23, two tools.** The ripgrep-backed `Grep` on `new LeftNavRail|leftNavRail` and
+`grep -rn "leftNavRail" --include=*.ts apps packages plugins src` agree: **one construction site,
+zero `appendChild`**. Its stylesheet is still injected (`AppTheme.ts:62` → `LEFT_NAV_RAIL_STYLES`),
+and its constructor runs `_restoreState()` (`LeftNavRail.ts:320-325`) which can call `_setActive()`
+and build a whole panel into a **detached** tree.
+
+⚠ **This is DECLARED-BUT-UNREACHABLE, not ABSENT.** The eight panels (MODEL · DATA · VIEWS ·
+SCHEDULES · AI · VALIDATE · HISTORY · SETTINGS) are real code with real builders. Nothing offers
+them. `VALIDATE` in particular has no equivalent on the live rail.
+
+**Not fixed here** (documentation-only lane). The decision is binary and belongs to whoever owns
+the shell: mount it, or delete it and its stylesheet. Constructing it on every boot is the one
+option that costs without paying.
+
+### L-7501 — ⛔ OPEN: **`check-tool-activator-coverage` is RED (ARM A 2/0), and a matrix comment asserts the opposite**
+
+```
+npx tsx tools/ga-gate/check-tool-activator-coverage.ts > /tmp/tac.txt 2>&1; echo "RC=$?"
+```
+→ **RC=1**, 2026-08-23:
+`22 declared matrix tool id(s) · 51 registered activator id(s) · 0 named exemption(s) ·
+ARM A uncovered 2/0 · ARM B phantom 0/0` — the two are **`balcony`** and **`pool`**.
+
+**What it does and does not mean.** The two palette rows are NOT broken: they route through
+`activatePlanOnlyToolOrExplain` (`ui/create/activatePlanOnlyTool.ts:196`), which never touches
+`runtime.tools`. But **any other caller** of `runtime.tools.activate('pool'|'balcony')` records an
+active tool id and arms nothing — the silent-success shape the gate exists to catch.
+
+⛔ **`elementCreationMatrix.ts:270-273` states the opposite**, in the pool row's `gap:` field:
+*"The activator id `pool` is already registered in PluginRegistry so check-tool-activator-coverage
+ARM A stays at 0."* The gate scans `REGISTER_FILES` (`ToolsAreaLayout.ts` + `PluginRegistry.ts`)
+for the literal `tools.register('<id>'` (`check-tool-activator-coverage.ts:215-223`).
+`PluginRegistry.ts:291` carries a plugin **descriptor** `id: 'pool'`, which is a different thing.
+**The comment is false as written**, and it is false in the direction that hides a red gate.
+
+**Fix is one of two, both cheap:** register the two ids in `ToolsAreaLayout.ts` pointing at the
+plan-only activator, **or** add them to `ACTIVATOR_EXEMPT` **with the reason** (that map is
+deliberately empty today, and its own header explains why a prose-justified exemption is the
+dangerous kind — `[[confident-register-rows-are-the-wrong-ones]]`). ⛔ Do not raise
+`UNCOVERED_BASELINE`.
+
+### L-7502 — ⛔ OPEN: **the SECOND create surface renders into a DOM node nothing creates — `CREATE_CONFIG` and the whole C17 Batch tree are unreachable**
+
+`apps/editor/src/ui/layout/CreatePanelLayout.ts:617-619`:
+
+```ts
+const renderCreateContent = () => {
+    const container = document.getElementById('create-navigation-container');
+    if (!container) return;
+```
+
+**Measured 2026-08-23, two tools** (the `Grep` tool, and `grep -rn --include=*.ts --include=*.html`
+excluding `node_modules` / `dist` / `docs`): `create-navigation-container` occurs at **exactly one
+site in the repository** — that `getElementById`. **Nothing creates it.** The sibling id
+`create-content` is read at `CreatePanelLayout.ts:47`, `:71` and `initUI.ts:3032` and is likewise
+**never created**.
+
+So `renderCreateContent()` returns on its first statement every time, and everything below it is
+unreachable:
+
+- the five-discipline `CREATE_CONFIG` tree (`:81-450`) — Architecture / Structure / Plumbing /
+  Interior / Outdoor — including four sub-items the right rail does **not** offer at all:
+  *Detect All Rooms*, *Detect on Level*, *Auto-Organise (tag by type)*, *Clear All Rooms*
+  (`:194-237`);
+- the **entire C17 Batch catalogue injection** (`:585-616`) — one `Batch` submenu per discipline,
+  parameterised entries opening a form layer, phase-gated entries rendering disabled with their
+  precondition reason (CB-4 / CB-5).
+
+⭐ **The batch CAPABILITY is not stranded** — `AIPanel.ts:1279-1305` builds a `batchCatalogueNode`
+from the same `groupCatalogue()` and dispatches through the same `dispatchBatchEntry()`. **It is
+the panel that is dead, not C17.** That distinction is the whole difference between "delete the
+panel" and "restore a capability", and it is why this row is DECLARED-BUT-UNREACHABLE rather than a
+capability loss.
+
+⚠ **This is the L-1380 shape in its strongest form.** Two live create surfaces were required to
+agree; one of them has been dark. Any lane that "kept both surfaces in sync" by editing
+`CreatePanelLayout.ts` was editing a file the user cannot reach.
+
+### L-7503 — ⚠ MINOR: **`SaveUndoRedoHUD` styles a `[disabled]` state that no code ever sets, and labels a Ctrl+S it does not bind**
+
+`apps/editor/src/ui/SaveUndoRedoHUD.ts:130-135` defines `.surh-btn[disabled]` /
+`.surh-caret[disabled]` (`opacity: .35; pointer-events: none`). `_makeBtn` (`:567-578`) and
+`_makeCaret` (`:382-397`) never set `disabled`, and nothing else in the file does. Save / Undo /
+Redo are therefore always live; an empty stack is signalled only by the popover's
+*"Nothing to undo yet."* (`:444-448`).
+
+Separately, the Save button's title is `'Save project (Ctrl+S)'` (`:305`) and **this file installs
+no key handler** — the accelerator, if it exists, is bound elsewhere and was not located by this
+lane. Neither is user-visible breakage; both are recorded because a styled state nothing reaches
+and a labelled key nothing binds are the two smallest members of the authored-but-unwired family.
+
+### L-7504 — ✅ CLOSED (verified, no action): **the `railing` / `handrail` id mismatch PERF13 found is fixed**
+
+`apps/editor/src/ui/layout/ToolsAreaLayout.ts:217-218` registers **both** spellings against one
+activator (`activateRailingFamily`). The palette calls `_activateTool('handrail', …)`; the matrix
+declares `railing`; both resolve.
+
+✅ `npx vitest run apps/editor/src/engine/views/plantools/__tests__/elementCreationMatrix.spec.ts`
+→ **144 tests passed**, 2026-08-23.
+✅ `pnpm --filter @pryzm/editor exec vitest run __tests__/creationToolShortcuts.test.ts`
+→ **7 passed** (49 create-rail tools, every one with a unique Alt-prefixed combo).
+
+Recorded as a **verified negative** so the next audit does not re-open it.
+
+### L-7505 — ⚠ MINOR: **a stale comment inside `CreateRailPanel.ts` says the swimming pool has no palette row; it is eleven lines below**
+
+`apps/editor/src/ui/tools-panel/panels/CreateRailPanel.ts:734-748` (the Balcony row) asserts:
+*"The swimming pool is fully dispatchable and has a plan handler in the shared registry, and there
+is NO palette row for it anywhere — so the founder's original 'not able to access via UI' report is
+still live."*
+
+The pool row exists at `:1245-1250` (`Swimming Pool`, `Alt+Shift+Q`,
+`activatePlanOnlyToolOrExplain('pool','Swimming Pool')`). Comment only, no behavioural effect — but
+it is a comment that would tell the next reader a shipped capability is missing.
+
+### L-7506 — ⚠ MINOR: **the Split View toggle refuses to the CONSOLE, not to the user**
+
+`apps/editor/src/engine/initUI.ts:3528-3532`: if `window.splitViewManager` is absent the click logs
+`[SplitView] splitViewManager not yet ready` and returns. To the user that is indistinguishable
+from a dead button.
+
+Every neighbouring control in the same corner already does better: the GPU pill raises an inline
+notice on a failed swap (`RendererBackendToggle.ts:212-236`), and the bottom dock's Section button
+renders disabled **with its reason as the title** (`SectionClipCapabilityResolver.ts:144-192`). The
+pattern to copy exists two files away. Not observed in a live session; the window in which it can
+fire was not measured.
+
+### L-7507 — ⚠ RECORDED (stale declaration, not a capability loss): **seven of the eight launcher-rail slots are declared and nothing occupies them**
+
+`apps/editor/src/ui/layout/zLayers.ts:133-154` declares `LauncherSlot` with eight names —
+`splitView` 0 · `siteView` 1 · `planGis` 2 · `graph` 3 · `livingGraph` 4 · `siteAnalysis` 5 ·
+`envelopeCard` 6 · `resetLayout` 7 — and `launcherRailStyle()` places any of them.
+
+**Measured 2026-08-23, two tools:** `launcherRailStyle(` has **one** call site,
+`initUI.ts:3507`, slot `splitView`. `GISAreaLayout.ts:15-17` records why: *"this file mounted six
+launcher-rail pills and now mounts none"* (§GIS-ACTION-REGISTRY, L-1360); the six moved into the
+GIS panel's declared action registry and the reset button with them
+(`GISAreaLayout.ts:5047-5060`).
+
+⭐ **No capability was lost, and that is defended by a test** — `gisActionRegistry.test.ts` asserts
+by scanning production source that every entry point the registry declares is still registered.
+What remains is a **type and a table describing a rail with one occupant**. Cheap to trim to
+`splitView`; harmless to leave; wrong to read as "seven pills exist".
+
+### L-7508 — ⚠ MINOR: **`DockingLayout.ts` describes a CSS rule, in the present tense, that no longer exists**
+
+`apps/editor/src/ui/layout/DockingLayout.ts:213-216` states that `.wmb-toplevel-wrapper`
+*"is re-centred to `left: 25%` by `body.pryzm-mode-inspect .wmb-toplevel-wrapper`
+(inspectModeShell.ts:202)"*.
+
+**Measured 2026-08-23:** that rule is gone. `inspectModeShell.ts:194-224` carries it **only inside
+a comment** explaining its removal, and `analysisSurface.ts:985-1000` records the same for the
+`pryzm-mode-analysis` copy. Both were superseded by §SHELL-FLOAT-BUDGET (L-4010..L-4016):
+`.wmb-toplevel-wrapper` now takes `left: var(--shell-canvas-cx, 50%)`
+(`styles/panels/platform-shell/workspaceModeBar.ts:19-30`), published by
+`WorkspaceController._applyLayout` (`:213`) and by nothing else.
+
+**The behaviour is unchanged and correct.** The comment points a reader at a mechanism that was
+deliberately deleted for being the fifth copy of one idea — which is the failure mode the deletion
+was performed to end.
+
+### L-7509 — ⚠ RECORDED (tooling, unexplained): **ripgrep-backed `Grep` omitted a file that `grep -rn` found, with no NUL byte, no ignore rule and no binary detection**
+
+Searching `create-content` repo-wide, the `Grep` tool returned **3 hits** and did not include
+`apps/editor/src/engine/initUI.ts:3032`; `grep -rn "create-content" --include=*.ts` returned it
+immediately. Scoping `Grep` to that single file **did** find it.
+
+Ruled out, 2026-08-23: `git check-ignore -v apps/editor/src/engine/initUI.ts` → **rc 1** (not
+ignored) · `git ls-files --error-unmatch` → tracked · `file` → *"JavaScript source, Unicode text,
+UTF-8 text"* · a `grep -P` scan for a NUL byte → **none**. Size 195 892 B.
+
+**Cause not established.** Recorded because `[[grep-silence-has-three-causes]]` now has a fourth
+member with no explanation, and because every UNREACHABLE verdict in this lane's deliverable was
+cross-checked with a second tool as a direct consequence.
+
+### L-7510 — gate + suite readings at lane close (readings, with a timestamp — never states)
+
+- `npx tsx tools/ga-gate/check-tool-activator-coverage.ts` → **RC=1**, ARM A **2/0** (`balcony`,
+  `pool`), ARM B phantom **0/0**, 22 declared · 51 registered · 0 exemptions. **See L-7501.**
+- `npx vitest run apps/editor/src/engine/views/plantools/__tests__/elementCreationMatrix.spec.ts`
+  → **1 file / 144 tests PASS.**
+- `pnpm --filter @pryzm/editor exec vitest run __tests__/creationToolShortcuts.test.ts`
+  → **1 file / 7 tests PASS.**
+- **No source file changed.** The lane's whole output is one guide, one README index row, and these
+  rows. Three sibling lanes (LEVEL36, UNDO37, OPEN38) were committing into the same tree; nothing
+  here touches their files.
+
+---
+
+## Lane OPEN38 — openings in profile-edited walls (2026-08-23)
+
+**The ask, verbatim:** *"Openings (windows + doors) in **raked** profile-edited walls +
+**profile-edited** walls + **layered** profile-edited walls."* These were the three refusals
+`profileAuthorability` made. Two lifted, one stands, and one of the two lifted turned out to be
+a different combination from the one the brief named.
+
+⭐ **Commits:** `a77a4c86` (the gate, alone) → `27b9836a` (the geometry) → `6d0390a7` (elevation
++ quantities). Root `tsc --noEmit --skipLibCheck` **RC=0** after each.
+
+### L-7400 — ✅ CLOSED: **profile × openings. The top edge was a constant; the bottom edge was already a walk**
+
+`WallHoleBodyBuilder` builds a wall as ONE `THREE.Shape`. Its BOTTOM edge was already
+non-trivial — it dips up and over every floor-reaching door so the reveal joins the outer
+boundary. Its TOP edge was the single constant `yt = baseOffset + height`. The whole feature is
+`WallHoleBodyParams.outerRing`: the top edge becomes the ring's **upper chain**, the bottom edge
+its **lower chain**. Same extruder, same frame, same `translate(0, 0, −t/2)`. No CSG, no WASM.
+
+⭐ **Checked against the thing it generalises.** Handed the RECTANGLE ring, the new walk emits the
+literal path's own five points in the literal path's own order, so the two geometries are
+compared **vertex for vertex** (with and without a door). "Byte-identical when absent" is a
+measurement here, not a hope.
+
+**The gate narrowed from a CATEGORY to a MEASUREMENT.** The old refusal read *"not supported on a
+wall that HOSTS DOORS OR WINDOWS"*. Every clause of its stated mechanism was TRUE and both
+clauses described **absent code** — the fourth time in this family. What is new is that this
+refusal also **prescribed the order its own lifting had to happen in** (*"`canPlace` is 1-D and
+vertical-blind … an opening in removed material is worse than a refusal"*), and that order was
+followed: the vertical arm landed in its own commit while the refusal still stood.
+
+What survives is per-opening and carries a number, from `wallProfileRectFit` — the SAME predicate
+`canPlace` declines with and the body builder refuses to cut against (C84 EI-9, three askers, one
+answer).
+
+### L-7400a — ⚠ the brief's TIER-1 reading was REFUTED, and the correction reshaped the ladder
+
+The brief proposed: *"TIER 1 — RAKE × openings. A rake makes the top edge a **straight line**:
+`yt(x) = base + height + tan(θ)·x`. Start here, it is most of what the founder drew."*
+
+**Measured: false, twice over.**
+
+1. **A rake in this repo is a LATERAL SHEAR in Z, not a slope of the top edge along the wall.**
+   `WallRake.ts` states it: `topOffset = height · cot(θ) · leftPerp(direction)`, and
+   `rakeShearPerMetre` is `cot θ` applied to the wall's **left normal**. A raked wall's top edge
+   stays at constant Y and moves sideways. `yt(x) = base + height + tan(θ)·x` describes a
+   **gable/sloping-top wall**, which in this repo is authored as a **profile** — the very feature
+   in question.
+2. **rake × openings was ALREADY BUILT** — §RAKE-HOSTED-OPENING, founder 2026-08-18.
+   `rakeAuthorability` has had no `hosted-openings` arm since then.
+
+So there was no rake tier to ship. The three refusals in the founder's sentence are all
+`profileAuthorability`'s, and rake enters only as a composition: the ring is authored in the
+un-sheared frame and `_applyRakeShearToChildren` leans the built group, so **profile × rake ×
+openings needed no term at all**. The real ladder was: the gate (L-7400), the body (L-7400), the
+routing (L-7403), and layered (L-7406, refused).
+
+⭐ The brief's *shape* of the work — *"make the top edge a function of x instead of a constant,
+reusing the walk that already exists"* — was **exactly right**, and is the sentence the
+implementation followed. Only the tier that motivated it was wrong.
+
+### L-7400b — the INSTRUMENT finding: `wallProfileExtentAt` is wrong for this question
+
+The obvious implementation reuses `wallProfileExtentAt`, which already existed for the curved
+sweep. **It is wrong at a STEP.** That function takes the EXTREME of every crossing at a station
+— correct for a sweep, which needs the station's whole vertical span. So a ring whose top drops
+3 m → 2 m across a vertical edge at `u = 2` reports `top = 3` there, and a window head at 2.5 m
+spanning `u ∈ [1.5, 2.5]` passes at both ends *and* at the vertex while poking out of the wall
+over half its width. Worse: **the number a refusal must quote is not visible to a station query
+at all.**
+
+An opening occupies a **span**, not a station. So the question is asked of `wallProfileChains` —
+the ring split into its lower and upper boundaries as polylines, evaluated segment by segment
+across the whole span, with a **vertical segment contributing BOTH its ends**. Not a second model
+of the ring: winding is normalised with the same `wallProfileSignedArea2` the body builder uses,
+and `bottom ++ top` reproduces that ring vertex for vertex. Measured in §B of
+`OPEN38CanPlaceVerticalArm.test.ts` rather than argued.
+
+### L-7401 — ✅ CLOSED: **`canPlace`'s rake gate was structurally DEAD**
+
+`canPlace` handed `rakeAuthorability` a subject with no `height` and no `curveMinRadiusM`.
+`RakeSubject`'s own doc warns *"ABSENT MEANS UNJUDGEABLE, NOT SAFE … the authoritative call — the
+one at the store write boundary — MUST supply both"*. `canPlace` **is** an authoritative
+pre-flight (this file's header calls it the C74 §2 enforcement family) and supplied neither, so
+`curved-collapse` — the one arm still refusing a curved raked host after §FEAT-RAKE-CURVED — fell
+through **on every placement, on every wall, always**.
+
+Measured 2026-08-23: `UpdateWallsRakeBatchCommand` was the **only** caller in the repo supplying
+them. Both are in hand at the call site and cost nothing (`wall.height`; `arcMinTurnRadius` walks
+the same centreline polyline `wallCentrelineLength` already walked). Now asserted in both
+directions: a tight arc at 20° refuses naming **shift 8.242 m vs radius 2.675 m**, and the same
+wall at 70° is a buildable cone and is **accepted**.
+
+### L-7402 — ✅ CLOSED: **a stale fixture was hiding that dead gate**
+
+`packages/command-registry/__tests__/canPlaceRefusalIdentity.test.ts:118` was **RED at HEAD**,
+before this lane touched anything — proven by isolating the variable (the bare and threaded
+`canPlace` verdicts are byte-identical `{valid:true}`), not by inference. Its subject was a rake
+of 70° on a gentle arc, written when `rakeAuthorability` refused **every** curved rake; L-1062
+lifted that arm and left the fixture asserting a refusal that had ceased to exist. Measured: it
+shifts **1.092 m** against a **16.006 m** turn radius — a perfectly buildable wall.
+
+Re-pointed at a rake unbuildable **by its own number** (5° is outside `[15, 165]`), so it cannot
+go stale behind another lifted arm.
+
+⭐ **The lesson is the pairing, not either half.** A stale test failed for a reason *next to* a
+dead gate. Anyone reading the red would have "fixed the test" and left the gate dead — which is
+the most expensive kind of red there is.
+
+### L-7403 — ✅ CLOSED: **the feature was unreachable on the founder's ACTUAL wall (L-1064's off-by-one, one gate over)**
+
+`profileAuthorability` refuses `layers.length > 1`. `WallFragmentBuilder`'s LAYERED body arm is
+entered on `wall.layers.length > 0` **and returns**. So a **one-layer** profiled wall was ADMITTED
+by the gate and drawn here as a full rectangle, ring discarded. Measured: **3.000 m where the ring
+authored 1.500 m**.
+
+⛔ **`CreateWallCommand` stamps `layers` from the WallSystemType, so a 1-layer "Plain Wall" IS the
+founder's wall.** Every existing profile test stayed green because all of them build walls with no
+`layers` key at all — the feature worked in the test harness and not in the product. This is
+[[authored-but-unwired-is-the-bottleneck]] and [[committed-is-not-reachable]] in one defect.
+
+⭐ **Fixed at the ROUTER, not at the gate, and the direction is the whole of it.** Tightening the
+gate to `> 0` would have refused a profile on **every real wall**. The layered arm now steps aside
+for a single-layer profiled wall, which IS a plain wall geometrically (`thickness` is
+Σ layer.thickness over one term). L-1064's own stated lesson: *close the off-by-one by REMOVING
+the boundary, not by moving it.*
+
+### L-7404 — ✅ CLOSED: **elevation read `wall.profile`, a key `WallData` does not have**
+
+`OpeningElevationSymbolBuilder.ts:306` read `hasWallProfile(wall.profile)`. The field is
+`wallProfile`. So the flag was always false and the `PROFILED_TOP` refusal was **unreachable in
+production**.
+
+⛔ **The consequence was not a missing refusal, it was a FALSE DRAWING.** The symbol emits a
+flat-topped rectangle from `host.height`, **and** the builder suppresses the wall's true projected
+linework. A gabled wall was drawn in elevation as a rectangle with its real outline deleted —
+exactly what that module's header forbids by name: *"replace a cluttered TRUE drawing with a clean
+FALSE one"*.
+
+⚠ **Second instance in ONE declaration** — the first cut read `wall.arc`, which also does not
+exist, so the C86 §10.1 PR-5 curved-host refusal could never fire either. Two instances is a
+pattern, so it gets a guard: a **source scan**, because a behavioural test cannot see it (the only
+assertion on that branch passes `hasProfile: true` in by hand and goes green while production
+draws the wrong wall).
+
+⭐ **The scan went RED on the corrected file**, and that is the interesting part: the correction
+note quotes the defect verbatim, because this codebase deliberately keeps descriptions of bugs in
+place (C84 §6). A scan that reads prose cannot tell a bug from a description of one. Comments are
+stripped first — as `check-refusal-identity.ts` does — plus a non-vacuity assertion so a stripper
+that emptied the file could not make it pass.
+
+### L-7405 — ✅ CLOSED: **the take-off was already right and had nothing saying so**
+
+Measured: across all six quantity suites, **zero** hits for `wallProfile`, `rake` or `un-sheared`.
+The `ringAreaUV(ring)` branch and the raked qualifier — the two things this lane makes reachable
+in production — were the two with no assertion behind them. **They reconcile**, now asserted with
+hand-derived numbers: a 5 m gable (ridge 3 m, shoulders 2 m) measures **12.50 m²** not 15.00; with
+a 0.9 × 2.1 door, **10.61 m²**; raked to 70°, **the same 12.50 m²** plus the qualifier. Gross comes
+from the ring in (u, v) and the void from `openingOutline()` in the **same** (u, v) frame, so
+there is no correction term to get wrong.
+
+### L-7406 — ⛔ **REFUSED, WITH THE REASON: MULTI-layer × profile stays unbuilt**
+
+The brief's TIER 3, assessed and declined. The refusal text is accurate and the mechanism is
+real: the V2 band slicer builds each band by slicing the **plan footprint** and extruding it
+between two **horizontal Y planes** (`WallPipelineV2` / `LayeredWallOpeningBuilder`). There is no
+per-station top in that path, so a ring could not be expressed at all — the wall would render as
+a full rectangle while the model said otherwise.
+
+⚠ **This is a real structural gap, not a missing branch**, and it is a bigger piece of work than
+this lane: it needs the band slicer to accept a per-station top/bottom envelope, the way
+`CurvedProfileHeights` gave the curved arm one. **What is NOT the fix is widening the refusal or
+approximating** — a legal drawing that shows a rectangle where the author cut a gable is the
+silently-wrong wall `WallRake.ts:102` forbids.
+
+⭐ **The single-layer half of the founder's third ask IS delivered** (L-7403), and that is the
+half that was actually blocking, because a "Plain Wall" carries exactly one layer.
+
+### L-7410 — ⛔ **OPEN, HANDED OVER: `WallTool.enterProfileEditMode`'s probe ring**
+
+`enterProfileEditMode` (~`:2213`) probes the gate with a **synthetic right triangle**
+`[{u:0,v:0},{u:L,v:0},{u:L,v:height}]`, chosen when the opening arm was category-based, on the
+stated ground that *"the only arms that can fire are the WALL-SHAPE arms"*. **That stopped being
+true the moment the arm became ring-sensitive**: on a 4 × 3 m wall the triangle's top edge at
+`u = 1.5` is 1.125 m, so an ordinary window now fails a probe about a ring the author never drew.
+
+**The one-line fix:** probe with the wall's **implicit rectangle**
+`[{u:0,v:0},{u:L,v:0},{u:L,v:height},{u:0,v:height}]` — the profile every wall already is, which
+can never refuse for an opening reason and still exercises every wall-shape arm. Byte-neutral
+before the change, correct after.
+
+⚠ Better still, and the author's call: `enterProfileEditMode` already calls
+`wallProfileVariantAvailability` immediately above this probe, so the inline probe is a **second
+judgement of the same question** — the C84 EI-9 duplication `WallProfileVariants` exists to
+remove. Deleting it is strictly better than re-pointing it.
+
+**Why this lane did not take it:** `WallTool.ts` is owned by lane UNDO37, and `SendMessage`
+could not reach that lane from this session (no such agent registered). Recorded here for the
+orchestrator to route.
+
+**Blast radius, stated precisely rather than generally:**
+- ✅ **Profile-edit FIRST, then place openings — FULLY LIVE.** This is the founder's request read
+  literally and it needs nothing further.
+- ⛔ **Openings first, then Edit Profile — blocked at the editor's door.** The model and the
+  commit path both accept it (`_commitWallProfile` re-checks with the real ring); only the entry
+  probe refuses.
+
+### L-7411 — the `WALL_PROFILE_AXES` table gained a word it did not have
+
+Flipping `hosted-openings` to `'available'` would have been C84 EI-3 live — the button enables,
+the click refuses (L-7410). Leaving it `'unbuilt'` would have been a **lie about the geometry**,
+which is measured end to end. So the union gained **`'built-not-reachable'`**.
+
+⭐ It is worth a member rather than a comment because it names a whole **class** of defect in this
+repo — *capability shipped, reachability not* ([[authored-but-unwired-is-the-bottleneck]]) — and a
+table that can only say "built" or "not built" cannot record it. A cell in that state is CLOSED,
+and its reason **owes the author a working order of operations**, because there always is one.
+That obligation is asserted, not left to convention.
+
+### L-7412 — ⛔ **OPEN, PRE-EXISTING, NOT THIS LANE: the plugin-side occupancy port is profile-blind**
+
+`plugins/wall/src/occupancy.ts` is a separate `WallOccupancyStore` with its own
+`CanPlaceRefusalCode` union, documented as **deliberately** divergent (its own header, GE-04). It
+has no rake arm and now no profile arm, so `plugins/wall/src/handlers/CreateWallOpening.ts` cannot
+see a host outline. This lane threaded the five geometry-wall-backed create sites and **reverted**
+its edits to the plugin handler (which imports the rival, not the shared store) rather than widen
+a duplicate the file asks not to be matched. The store write boundary still refuses, which is what
+protects the model. Closing it properly is GE-04's collapse of the family, not a patch.
+
+### L-7413 — the pre-existing red this lane did NOT cause, and how that was established
+
+`packages/geometry-wall/__tests__/WJ1MovePropagateRecompute.measure.test.ts` → 1 FAIL
+(*"the NON-VACUITY GUARD — without PROPAGATE the move OPENS the joint"*), **1134/1135 pass**,
+identical count before and after this lane's changes. Established by **import closure**, not by
+assertion: the test's only production imports are `WallMoveReweld` and `WallTypes`, and
+`WallMoveReweld` imports only `@pryzm/core-app-model`, `@pryzm/geometry-kernel` and
+`WallJoinResolver` — none of which this lane touched.
+
+### L-7480 — gate readings at lane close (readings, with a timestamp — never states)
+
+- root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=0**,
+  taken after each of the three commits.
+  ⚠ One transient **RC=2** window in the middle of this lane, caused by this lane: the
+  `plugins/wall/src/handlers/CreateWallOpening.ts` edit that was reverted (L-7412). Lane LEVEL36's
+  **L-7206** observed it from the other side, which is the mirror image of the note in **L-7380**.
+  On a shared tree a single tsc run is a photograph, not a fact.
+- `packages/geometry-wall` full suite → **111 files / 1135 tests, 1134 PASS / 1 FAIL** (L-7413).
+- `packages/geometry-wall` — the new suites: `OPEN38CanPlaceVerticalArm` **24**,
+  `OPEN38ProfileOpeningBody` **19**, `OPEN38ProfileRoutingProbe.measure` **5** → all PASS.
+- `packages/geometry-wall` — the four suites that pinned the old refusal, corrected in place:
+  `WallProfileSlice1` + `RK1RakedCombinationMatrix.measure` + `WPE1WallProfileVariantMatrix` →
+  **81 PASS.**
+- `packages/command-registry` — `canPlaceRefusalIdentity` **10 PASS** (was 9/10 at HEAD, L-7402).
+- `plugins/wall` — `occupancy` → **15 PASS** (untouched; see L-7412).
+- `packages/core-app-model` — `src/drawing/` → **19 files / 242 PASS**, ELEV28's
+  `§ELEV-SYMBOL-OPENING` and host-exemption suites included and unregressed.
+- `packages/core-app-model` — `src/quantities/` → **6 files / 126 PASS**, including the three new
+  profiled/raked take-off assertions (L-7405).
