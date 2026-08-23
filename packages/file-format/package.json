@@ -41,6 +41,7 @@
     "@pryzm/geometry-stair": "workspace:*",
     "@pryzm/geometry-wall": "workspace:*",
     "@pryzm/room-topology": "workspace:*",
+    "@pryzm/schemas": "workspace:*",
     "@thatopen/components": "^3.4.2",
     "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
