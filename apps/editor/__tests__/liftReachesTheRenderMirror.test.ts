@@ -64,9 +64,23 @@
  *           there is nothing left to report.
  *   ARM C — the GENERIC detector. Any compound with no case announces itself the first
  *           time it is used. `pool.create` is the live case today.
+ *   ARM D — ⭐ THE LAST HOP, WHICH IS THE ONE NOTHING ELSE CAN SEE. ARMs A–C prove the
+ *           bridge EMITS; `geometry-lift/__tests__/LiftCompoundReachesTheMesh.test.ts`
+ *           proves the builder turns parts into MESHES. Between them sits one
+ *           subscriber in `initTools.ts` — and `initTools` cannot be imported by any
+ *           suite (it needs a THREE world, a components registry, a command manager and
+ *           twenty stores before its first line runs). ⛔ That is exactly how L-972's
+ *           five constant-false reads survived in plain sight, and an unproven hop
+ *           between two proven ones is where "committed ≠ reachable" lives. So the
+ *           wiring is pinned as SOURCE TEXT, the established idiom here
+ *           (`projectScopedBuilderTeardown.test.ts`, `gisProjectIsolationOwnerGate`,
+ *           `mountedDrawingIsolation`). A source scan is weaker than an execution and
+ *           is used because the alternative is nothing, not because it is equal.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { bootstrapWithEverything } from '../src/bootstrap.everything.js';
 // ⭐ THE BRIDGE IS THE SUBJECT, SO IT IS WIRED EXACTLY AS `composeRuntime.ts:956`
 // wires it — `wireCommandEventBridge(inner.bus.patches, events)`. `bootstrapWithEverything`
@@ -459,5 +473,53 @@ describe('§FIX-LIFT-LOST-BETWEEN-DISPATCH-AND-STORE — the lift reaches the re
         expect(said).toMatch(/committed a COMPOUND across \d+ stores/);
         disposeBridge();
         rt.tearDown();
+    });
+
+    // ── ARM D — the un-executable hop ────────────────────────────────────────
+    const APP = resolve(__dirname, '..');
+    const readSrc = (rel: string): string => readFileSync(resolve(APP, rel), 'utf8');
+
+    it('⭐ D-1 initTools SUBSCRIBES `lift.created` and drives the compound builder', () => {
+        // "Authored-but-unwired is the bottleneck": a builder nothing calls is the same
+        // value as a builder that does not exist — which is precisely the state the
+        // cabin was in before this lane, and the state ARM B used to document.
+        const src = readSrc('src/engine/initTools.ts');
+        const start = src.indexOf("runtime.events.on('lift.created'");
+        expect(start, 'no lift.created subscriber in initTools').toBeGreaterThan(-1);
+        const body = src.slice(start, start + 2000);
+        expect(body).toContain('liftCompoundMeshBuilder.updateLift(');
+        // The two registrations without which a bus-created element is invisible in
+        // PLAN view — the root cause the wall, column and beam bridges each carry a
+        // note about. A lift that renders in 3-D and not in plan is half a fix.
+        expect(body).toContain('viewDependencyTracker.registerElement(');
+        expect(body).toContain('bimManager.registerElement(');
+        // ⛔ AND IT MUST NOT REACH FOR THE OTHER LIFT BUILDER. `liftMeshBuilder` draws
+        // the LOD-200 MASSING lift from `LiftStore`; driving it from the compound is
+        // the C104 R-8 merge arriving through the renderer.
+        expect(body).not.toMatch(/\bliftMeshBuilder\b/);
+    });
+
+    it('⭐ D-2 initBuilders CONSTRUCTS the builder and puts it on the project-clear sweep', () => {
+        const src = readSrc('src/engine/initBuilders.ts');
+        expect(src).toContain('new LiftCompoundMeshBuilder(');
+        // ⛔ A builder that parents roots into the shared scene and is NOT on the
+        // sweep leaves a steel tower standing in the next project — L-8101's shape.
+        expect(src).toContain("{ name: 'liftCompoundMeshBuilder'");
+        // …and it is returned, so `initTools` can actually receive it. A builder
+        // constructed and not returned is authored-but-unwired one layer earlier.
+        expect(src).toMatch(/^\s+liftCompoundMeshBuilder,\s*$/m);
+    });
+
+    it('⭐ D-3 the two lift builders stay SEPARATE — C104 §1 / R-8, checked at the source', () => {
+        // The single most likely mistake in this subsystem, per C104 §1: "cleaning up
+        // the duplication" between the LOD-200 massing lift and the LOD-300 compound.
+        // They are two elements, two stores, two builders, and this pins the third.
+        const src = readSrc('src/engine/initBuilders.ts');
+        expect(src).toContain('new LiftMeshBuilder(');
+        expect(src).toContain('new LiftCompoundMeshBuilder(');
+        // The massing builder still takes the massing STORE; the compound builder
+        // takes only the scene. If someone ever hands `liftStore` to the compound
+        // builder, that is the merge, and this line goes red.
+        expect(src).toContain('new LiftCompoundMeshBuilder(scene)');
     });
 });

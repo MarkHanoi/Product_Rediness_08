@@ -585,6 +585,18 @@ throughout the founder's session.
 > ⚠ **AND AXIS 5 IS STILL NOT "IT RENDERS", WHICH IS WHY AXIS 6 EXISTS.** A mirror event
 > proves the record reached the channel a builder listens on. It does not prove a builder
 > turned it into a mesh — the failure `[[committed-is-not-reachable]]` names, one layer up.
+>
+> ⭐ **AND BETWEEN AXES 5 AND 6 SITS ONE HOP NEITHER CAN SEE** — the `initTools.ts`
+> subscriber. `initTools` cannot be imported by any suite (a THREE world, a components
+> registry, a command manager and twenty stores before its first line), which is exactly
+> how L-972's five constant-false reads survived in plain sight. **ARM D** of the same
+> file pins it as SOURCE TEXT — the established idiom here — asserting that the
+> subscriber exists, calls `liftCompoundMeshBuilder.updateLift(`, performs the
+> `viewDependencyTracker` / `bimManager` registrations without which the lift is
+> invisible in PLAN, and **does not reach for `liftMeshBuilder`** (the R-8 merge arriving
+> through the renderer). ⛔ **A source scan is weaker than an execution.** It is used
+> because the alternative is nothing, not because it is equal, and it should be replaced
+> the day `initTools` becomes importable.
 
 **Axis 6 — MESH** *(⭐ NEW 2026-08-23, L-9400)*: ✅ **CLOSED for the cabin, the frame and
 the guide rails**, by `packages/geometry-lift/__tests__/LiftCompoundReachesTheMesh.test.ts`
