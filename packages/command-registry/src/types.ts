@@ -15,6 +15,12 @@ export enum CommandType {
     UPDATE_GRID = 'UPDATE_GRID',
     TOGGLE_PIN_GRID = 'TOGGLE_PIN_GRID',
     UPDATE_LEVEL = 'UPDATE_LEVEL',
+    /**
+     * L-7201 — floor-to-floor HEIGHT edit. Distinct from UPDATE_LEVEL because it
+     * is a rigid translation of every level ABOVE, not a property write on one
+     * level. See `levels/SetLevelHeightCommand.ts` / ADR-0345.
+     */
+    SET_LEVEL_HEIGHT = 'SET_LEVEL_HEIGHT',
     CREATE_STAIR = 'CREATE_STAIR',
     UPDATE_STAIR_PARAMETERS = 'UPDATE_STAIR_PARAMETERS',
     VALIDATE_STAIR = 'VALIDATE_STAIR',

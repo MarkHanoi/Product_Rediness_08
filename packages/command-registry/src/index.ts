@@ -167,6 +167,7 @@ export * from './levels/CreatePlanViewCommand';
 export * from './levels/DeleteLevelCommand';
 export * from './levels/DuplicateFloorPlanCommand';
 export * from './levels/UpdateLevelCommand';
+export * from './levels/SetLevelHeightCommand';
 
 // ─── Lighting ─────────────────────────────────────────────────────────────
 export * from './lighting/CreateLightingCommand';

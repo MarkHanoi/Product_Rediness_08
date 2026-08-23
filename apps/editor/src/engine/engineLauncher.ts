@@ -390,6 +390,10 @@ export async function bootstrap(
         // §FIX-BUILDER-ISOLATION-LEAK (L-320) — thread the floor/handrail/stair-railing
         // builders so initTools can dispose them on project switch (bim-project-cleared).
         floorBuilder, handrailBuilder, stairRailingBuilder,
+        // L-7202 (lane LEVEL36) — the two per-kind rebuild entry points that let
+        // columns and roofs FOLLOW a level-elevation change. Threaded into
+        // initWallLevelSubscribers below; see its header for the coverage table.
+        columnBuilder, roofBuilder,
     } = await initBuilders({ scene: world.scene.three as THREE.Scene, bimManager, projectContext });
     bimManager.setRoofStore(roofStore);
     bimManager.setGridStore(gridStore); // OI-044: inject GridStore into BimManager
@@ -906,7 +910,13 @@ export async function bootstrap(
 
     // PR-10: roofStore + bimManager feed the roof→walls-beneath clash check
     // inside the level-rebuild callback (see roofWallClashAnnouncer.ts).
-    initWallLevelSubscribers({ wallTool, slabStore, spatialAuthority, roofStore, bimManager });
+    // L-7202: columnStore/columnBuilder/roofBuilder un-strand Column and Roof on
+    // a level-elevation change (ADR-0345). Both builders re-derive worldY from
+    // `level.elevation`, so re-invoking them IS the follow — no store write.
+    initWallLevelSubscribers({
+        wallTool, slabStore, spatialAuthority, roofStore, bimManager,
+        columnStore: columnStoreInstance, columnBuilder, roofBuilder,
+    });
 
     // ── §03: Slab-wall connectivity ───────────────────────────────────────────
     const slabWallConnectivityService = new SlabWallConnectivityService(

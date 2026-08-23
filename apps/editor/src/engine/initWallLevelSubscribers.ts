@@ -13,6 +13,32 @@ import { checkAndAnnounceRoofWallClashes } from './roofWallClashAnnouncer';
  *   3. The generic dependency-cascade consumer (CONNECT-0, C72 §2.1 —
  *      see initDependencyCascade.ts for what is routed and what is not)
  * Extracted from engineLauncher.ts Task 5.2.
+ *
+ * ── WHAT THE LEVEL-REBUILD CALLBACK COVERS (ADR-0345, lane LEVEL36) ─────────
+ *
+ * This callback is THE consumer that makes `RECONCILABLE_TYPES` true. Keep the
+ * two in step: adding an arm here is what licenses adding a name there
+ * (C72 §5.1 — "re-widening requires a consumer that HANDLES the added type").
+ *
+ *   ADAPTS HERE  · Wall   (per delivered id, `builder.updateWall`)
+ *                · Slab   (per level query, `slabStore.triggerRebuild`)
+ *                · Column (per delivered id, `columnBuilder.updateColumn`)  L-7202
+ *                · Roof   (per level query, `roofBuilder.updateRoof`)       L-7202
+ *   ADAPTS ELSEWHERE
+ *                · Door / Window — hosted (C15): re-rendered by their host
+ *                  wall's rebuild via `resolveOpeningRenderMap`, above.
+ *                · Furniture / Plumbing / Lighting — `position.y` is persisted
+ *                  ABSOLUTE state, so re-seating is a store write and P6 puts
+ *                  it on the command path: `SetLevelHeightCommand` composes
+ *                  `ReseatLevelElementsCommand` into its own undo unit.
+ *   REFUSES BY NAME (ADR-0344 — silence is a defect, not a default)
+ *                · Beam, Stair, CurtainWall. `SetLevelHeightCommand` counts
+ *                  them and surfaces the refusal to the user at commit time.
+ *                  Per-kind reasons: see `ReconcilableType` in SpatialAuthority.
+ *
+ * ⛔ This callback runs at RENDER time and must never write to a store — a
+ * write here is both un-undoable and a P6 breach. Anything needing a store
+ * write belongs in the command, not here.
  */
 export function initWallLevelSubscribers(params: {
     wallTool: { getWallStore(): any; getFragmentBuilder(): any };
@@ -24,8 +50,23 @@ export function initWallLevelSubscribers(params: {
     bimManager: { getLevelById(id: string): { elevation?: number } | undefined };
     /** PR-10 — announcement channel override (tests). Default: showAppToast. */
     announceRoofWallClash?: (message: string, kind: 'warn' | 'error') => unknown;
+
+    // ── L-7202 (lane LEVEL36) — the two per-kind rebuild entry points that
+    // un-strand Column and Roof on a level-elevation change. Both are OPTIONAL
+    // so every existing caller (and the PR-10 tests) keeps compiling; when a
+    // handle is absent the kind simply is not rebuilt, exactly as before.
+    // See the ReconcilableType comment block in `SpatialAuthority.ts` for why
+    // these two and not Beam / Stair / CurtainWall.
+    /** L-7202 — columns re-derive `level.elevation` in `ColumnFragmentBuilder:225`. */
+    columnStore?: { getById?(id: string): any; get?(id: string): any };
+    columnBuilder?: { updateColumn(column: any): void };
+    /** L-7202 — roofs re-derive `level.elevation` in `RoofFragmentBuilder:305`. */
+    roofBuilder?: { updateRoof(roof: any): void };
 }): void {
-    const { wallTool, slabStore, spatialAuthority, roofStore, bimManager, announceRoofWallClash } = params;
+    const {
+        wallTool, slabStore, spatialAuthority, roofStore, bimManager, announceRoofWallClash,
+        columnStore, columnBuilder, roofBuilder,
+    } = params;
 
     // ── §DOOR/WIN-AUDIT P2 #9/#12: host-wall level-drift guard ───────────────
     wallTool.getWallStore().subscribe((event: string, wall: any, prevState: any) => {
@@ -81,6 +122,61 @@ export function initWallLevelSubscribers(params: {
         for (const s of slabsOnLevel) slabStore.triggerRebuild(s.id);
         if (slabsOnLevel.length > 0) {
             console.log(`[initWallLevelSubscribers] FIX-9: Re-projected ${slabsOnLevel.length} slab(s) after level "${_levelId}" elevation change.`);
+        }
+
+        // ── L-7202 (lane LEVEL36): COLUMNS — per delivered id ────────────────
+        // Delivered ids are the level's `childrenIds` that classified
+        // DETERMINED-RECONCILED (or UNDETERMINED, fail-open). We probe the
+        // column store for each rather than querying by level, because that is
+        // the shape the wall arm above already uses and it keeps the two arms
+        // reading the same list. `updateColumn` re-derives worldY from
+        // `level.elevation` (ColumnFragmentBuilder:225,234), so re-invoking it
+        // is exactly what makes the column follow — no store write, no new
+        // rebuild path (C72 §2.4 / BIM30-DO-NOT-REBUILD §2).
+        if (columnStore && columnBuilder) {
+            let columnsRebuilt = 0;
+            for (const id of elementIds) {
+                const col = columnStore.getById?.(id) ?? columnStore.get?.(id);
+                if (!col) continue;
+                try {
+                    columnBuilder.updateColumn(col);
+                    columnsRebuilt++;
+                } catch (err) {
+                    console.error(`[initWallLevelSubscribers] L-7202: updateColumn (level-rebuild) failed for column "${id}" — continuing.`, err);
+                }
+            }
+            if (columnsRebuilt > 0) {
+                console.log(`[initWallLevelSubscribers] L-7202: Re-seated ${columnsRebuilt} column(s) after level "${_levelId}" elevation change.`);
+            }
+        }
+
+        // ── L-7202 (lane LEVEL36): ROOFS — per level query ───────────────────
+        // Queried by level (the slab shape) rather than per delivered id: a
+        // roof is frequently registered against the level it CAPS rather than
+        // sitting in that level's childrenIds, so an id-driven loop misses it.
+        // `updateRoof` re-derives `level.elevation + baseOffset`
+        // (RoofFragmentBuilder:305).
+        //
+        // ⚠ ORDERING IS LOAD-BEARING: this runs BEFORE the PR-10 clash check
+        // below, so that check sees the roof in its NEW position. Before this
+        // arm existed the roof never moved and the check's whole purpose was to
+        // announce the resulting clash; now that the roof follows, a pure level
+        // move should produce NO clash, and the check correctly says nothing.
+        // The check is deliberately left in place — it still catches the cases
+        // it was built for (a roof whose own baseOffset strands it).
+        if (roofBuilder) {
+            let roofsRebuilt = 0;
+            for (const r of (roofStore.getByLevel(_levelId) ?? [])) {
+                try {
+                    roofBuilder.updateRoof(r);
+                    roofsRebuilt++;
+                } catch (err) {
+                    console.error(`[initWallLevelSubscribers] L-7202: updateRoof (level-rebuild) failed for roof "${r?.id}" — continuing.`, err);
+                }
+            }
+            if (roofsRebuilt > 0) {
+                console.log(`[initWallLevelSubscribers] L-7202: Re-seated ${roofsRebuilt} roof(s) after level "${_levelId}" elevation change.`);
+            }
         }
 
         // ── PR-10 (C72 §5.1): roof→walls-beneath clash check ─────────────────

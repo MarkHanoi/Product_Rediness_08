@@ -79,6 +79,37 @@ export class SpatialAuthority {
         fn: (levelId: string, elementIds: string[], elevationDeltaM?: number) => void,
     ): void {
         this._levelRebuildCallback = fn;
+
+        // ── §LEVEL-CASCADE-ARMING (L-7200, lane LEVEL36, 2026-08-23) ─────────
+        //
+        // ⛔ THE CASCADE USED TO BE UNREACHABLE IN A NORMAL SESSION, and this
+        // one line is why. `ensureReconciliationListener()` was called from
+        // exactly ONE place: the tail of `resolveWorldTransform()` (:172).
+        //
+        // MEASURED (both `rg` and `grep -rn`, cross-checked because a single
+        // grep is not proof): `resolveWorldTransform` has exactly ONE
+        // production call site in the whole repo —
+        // `geometry-wall/src/WallFragmentBuilder.ts:1256` — and it sits in the
+        // `else` arm of `if (worldY !== undefined)`. The authoritative path,
+        // `updateWall()`, COMPUTES `worldY` itself
+        // (`WallFragmentBuilder.ts:861`: `level.elevation + slabBaseOffset +
+        // wall.baseOffset`) and passes it in, precisely so the builder does not
+        // reach back into SpatialAuthority — that was the §13/§4 layering fix.
+        //
+        // So on the normal path the resolver is never called, the listener is
+        // never added, and `BimKernel.updateLevel()`'s
+        // `spatial-authority-reconcile` dispatch fired INTO A VOID. Arming was
+        // incidental: it happened only if some other code path called
+        // `buildWall()` without a `worldY` (a miter-adjust rebuild), i.e. only
+        // if the user happened to have drawn intersecting walls first.
+        //
+        // This is the ABSENT-vs-UNREACHABLE distinction (C01 §6 rule 6): the
+        // reconcile machinery was fully AUTHORED and correct — it was simply
+        // never switched on. Registering the callback is definitionally the
+        // moment the listener must exist, so arm it here. Idempotent: the
+        // `_reconciliationListenerRegistered` guard makes repeat registration
+        // free, and the resolver still arms it for direct-resolver callers.
+        this.ensureReconciliationListener();
     }
 
     /**
@@ -313,9 +344,11 @@ export class SpatialAuthority {
                     kind: kind as StrandedKind,
                     reason:
                         `"${kind}" has no reconcile consumer — the level-rebuild callback rebuilds ` +
-                        `Wall (per delivered id) and Slab (per level query) only. A "${kind}" on a ` +
-                        `re-elevated level keeps its old elevation until a per-kind rebuild entry ` +
-                        `point exists (C72 §5.1, gap register PR-07).`,
+                        `Wall and Column (per delivered id) and Slab and Roof (per level query) only. ` +
+                        `A "${kind}" on a re-elevated level keeps its old elevation until a per-kind ` +
+                        `rebuild entry point exists (C72 §5.1, gap register PR-07; per-kind reasons ` +
+                        `are recorded on ReconcilableType in this file, and the user-facing refusal ` +
+                        `is raised by SetLevelHeightCommand — ADR-0345).`,
                 };
             }
             // Legacy embedded openings live INSIDE their host wall's store record.
@@ -425,10 +458,53 @@ export class SpatialAuthority {
 //
 // Re-widening this set requires a consumer that HANDLES the added type
 // (C72 §5.1) — never a name alone.
-export type ReconcilableType = 'Wall' | 'Slab';
+//
+// ── WIDENED 2026-08-23 (lane LEVEL36, L-7202) — WITH ITS CONSUMER ───────────
+//
+// 'Column' and 'Roof' join 'Wall'/'Slab' because the level-rebuild callback in
+// `apps/editor/src/engine/initWallLevelSubscribers.ts` NOW REBUILDS THEM. This
+// is the C72 §5.1 condition satisfied in the only way it may be: the consumer
+// landed first, in the same commit, and a test asserts the delivery.
+//
+// Why exactly these two and not the other four — MEASURED, per builder, by
+// asking one question: does the build path RE-DERIVE the element's world Y
+// from `level.elevation`, or was Y baked in absolutely at create time? Only a
+// re-deriving builder can follow a level move by being re-invoked.
+//
+//   · Column      — `ColumnFragmentBuilder.ts:225,234`: `const elevation =
+//                   level.elevation ?? 0; … resolvedY = elevation + slabOff`.
+//                   RE-DERIVES → wired via `columnBuilder.updateColumn()`.
+//   · Roof        — `RoofFragmentBuilder.ts:305`: `worldY = level
+//                   ? (level.elevation + data.baseOffset) : data.baseOffset`.
+//                   RE-DERIVES → wired via `roofBuilder.updateRoof()`.
+//   · CurtainWall — `CurtainWallBuilder.ts:1094,1801` DOES re-derive
+//                   (`level.elevation + cw.baseOffset`), so it is wirable in
+//                   principle. It stays STRANDED only because its builder is
+//                   constructed in `initUI.ts:2302` — AFTER this wiring seam
+//                   runs — so no handle exists here to call. Adding it is one
+//                   registry entry once that ordering is resolved; it is NOT a
+//                   geometry limitation. Recorded so the reason is not lost.
+//   · Beam        — MEASURED ABSENT: `grep -rn elevation packages/geometry-beam/src/`
+//                   returns ZERO hits (cross-checked with ripgrep). Nothing in
+//                   the beam build path consults level elevation at all, so
+//                   re-invoking it would rebuild the beam in the SAME place.
+//                   Wiring it would be a lie, not a fix.
+//   · Stair       — bakes absolute geometry at create time, and additionally
+//                   SPANS two levels: a stair from Ground to Level 1 cannot
+//                   translate when the gap between them changes, it must
+//                   RE-SOLVE its riser count and going. That is a real design
+//                   task (ADR-0345 §6), not a missing call.
+//   · Furniture   — moves, but NOT here: `position.y` is persisted absolute
+//                   state, so re-seating it is a STORE WRITE and P6 makes that
+//                   the command path's job. `SetLevelHeightCommand` composes
+//                   `ReseatLevelElementsCommand` (furniture + plumbing +
+//                   lighting) into its own undo unit. A store write from this
+//                   render-time callback would be both un-undoable and a P6
+//                   breach, which is why it is deliberately NOT wired here.
+export type ReconcilableType = 'Wall' | 'Slab' | 'Column' | 'Roof';
 
 /** Determined kinds the reconcile does NOT cover — the named C72 §5.1 shortfall. */
-export type StrandedKind = 'Column' | 'Beam' | 'Stair' | 'CurtainWall' | 'Roof' | 'Furniture';
+export type StrandedKind = 'Beam' | 'Stair' | 'CurtainWall' | 'Furniture';
 
 /**
  * C78 §1.1/§1.4-typed determination for one element on a reconciling level.
@@ -444,7 +520,8 @@ export type ReconcileClassification =
     | { outcome: 'DETERMINED-STRANDED'; kind: StrandedKind; reason: string }
     | { outcome: 'UNDETERMINED'; reason: string };
 
-const RECONCILABLE_TYPES: ReadonlySet<ReconcilableType> = new Set<ReconcilableType>(['Wall', 'Slab']);
+const RECONCILABLE_TYPES: ReadonlySet<ReconcilableType> =
+    new Set<ReconcilableType>(['Wall', 'Slab', 'Column', 'Roof']);
 
 function isReconcilable(kind: ReconcilableType | StrandedKind): kind is ReconcilableType {
     return (RECONCILABLE_TYPES as ReadonlySet<string>).has(kind);
