@@ -48,7 +48,9 @@ const tracing = initTracing({ serviceName: SERVICE_NAME });
 // §OBS-TRACING-REACHABLE (L-9960) — SAY what tracing is doing, every boot.
 // L-392 stayed invisible for months because nothing printed "OFF". One line is
 // the difference between "we have observability" and "we have span source code".
-console.info(describeTracing(tracing));
+// (When it REFUSED, `initTracing()` has already warned — do not print the same
+// sentence twice; a duplicated line reads like two independent failures.)
+if (!tracing.refusedReason) console.info(describeTracing(tracing));
 
 // §OBS-TRACING-REACHABLE — the NodeSDK block below is skipped once
 // `initTracing()` has registered a provider, because registering a SECOND
