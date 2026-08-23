@@ -35,6 +35,17 @@
 > **Gate**: `tools/ga-gate/check-material-single-source.ts` — BUILT at stamp time (§7). Its three arms
 > are named there together with the four axes it **cannot** decide.
 > **Changelog**:
+> · 2026-08-23 — **§10.13** (lane MAT50, L-8600..L-8620): the Material Schedule's ELEMENT AXIS, and
+> wall LAYERS. The axis was a hand-typed six-string array and was wrong in **both directions at
+> once** — `Ceiling` was a column that could never tick (10 types, **0** materialIds) while
+> `handrailTypeStore` carried **44 types and 26 distinct materialIds and had no column at all** — so
+> no count could have caught it and the gate now compares **SETS**. ⭐ The deeper finding: `—` meant
+> both *"not used"* and *"cannot be named"*, which is §CONTEXT-DATA-HONESTY with the two values
+> collapsed. Separately, §6.1 was breached for wall layers — the type editor offered a raw
+> `<input type="color">` and **no way to name a material** — while `elementTypeAuthoringAdapters.ts:79`
+> passed layers through verbatim, so the pipe was complete and only the CONTROL was missing (the
+> §10.12 finding, one family over). ⛔ **S10 remains OPEN** and is now blocked on lane ownership
+> plus one undecided design question — see §10.13.f.
 > · 2026-08-23 — **§10.12** (lane OPENUI41, L-7700..L-7705): the hosted openings. §9.10.3 called
 > door/window's row STALE and said the founder's *"often show, often don't"* was **NOT a material
 > defect** — that half stands and is unchanged. What it did not measure is the **authoring** half:
@@ -583,7 +594,21 @@ C70 §7.1 those four axes are **UNPROVEN**, never green.
 - **S10** — a **real material batch carrier**, then the `material` value source and the
   `MaterialFamilies` table (§6.2), under C67 §6 / C68 §5's full checklist. **This is what the
   founder's "via AI" actually depends on**, and the largest remaining piece.
+  ⛔ **STILL OPEN 2026-08-23, and lane MAT50 established that it is now blocked on LANE OWNERSHIP,
+  not on design** (§10.13.f, L-8612): the carrier needs a `BATCH_REPORT_EVENTS` row inside a
+  concurrent lane's exclusion zone, and `batchReportEventsCompleteness.spec.ts` fails any
+  broadcasting handler that lacks one — so shipping the handler alone would turn a GREEN gate RED
+  and reprint the canned "Done" that L-996 exists to remove. ⚠ It also carries an undecided design
+  question: whether the already-live `set-wall-side-finish` (which writes the appearance-only
+  `sideFinishes`, deliberately beside the layer stack) should ALSO name the layer's material, or
+  whether a second phrase should. **Two near-identical sentences writing two different fields is a
+  rival vocabulary in the making** (C68 §7.c).
 - **S11** — SPEC-MATERIALS-REPOSITORY §3.2–§3.5: textures, per-element assignment, the schedule, IFC.
+  ⭐ **PARTIALLY CLOSED 2026-08-23 (lane MAT50, §10.13) — the SCHEDULE half only.** Its element axis
+  is now DERIVED with a both-directions set gate, `handrail` gained the column its 26 real material
+  references had never had, and a family that cannot name a material renders its OWN state instead
+  of the dash that meant two opposite things. ⛔ **Textures, per-element assignment and IFC are
+  untouched**, and the schedule's own axis still reads the TYPE CATALOGUE, not placed elements.
 - **S12** — the C65 §3.3 `declaredProjectScopes.ts` breach on `UserMaterialStore` (§4.6).
 
 ### §8.3 — Concurrent-lane compatibility — a MUST
@@ -2125,3 +2150,120 @@ under them.
   `frameMaterialId`/`leafMaterialId`/`glassMaterialId` (`packages/schemas/src/elements/{Door,Window}.ts`)
   and the legacy stores' `frameFinish.materialId`/`leafFinish.materialId`/`sillFinish.materialId`.
   Production travels the **second**. Deciding which is canonical is L-7714 and is NOT this lane's.
+
+---
+
+## §10.13 — ⭐ THE SCHEDULE'S ELEMENT AXIS, AND THE LAYER THAT COULD NOT NAME A MATERIAL (2026-08-23, lane MAT50)
+
+> **Stamp**: 2026-08-23 · **Lane**: MAT50 · **Rows**: L-8600 – L-8620.
+> **This is §8.2 S11's first half** (*"the schedule"*). ⛔ **S10 is NOT closed** — see §10.13.f.
+
+### §10.13.a — The founder's two asks, and what was actually wrong
+
+> *"COULD YOU PLEASE TRY TO EXTEND AS MUCH AS POSSIBLE TO ELEMENT VS MATERIALS? AND ALL PROPERLY
+> WIRED AND ACCESSIBLE VIA RAC AND UI?"* — looking at Data › Materials › Material Schedule, where
+> almost every element cell was `—`. Then, one axis deeper: *"Can you please add material for each
+> layer? and that the user can change the material via UI and via RAC?"*
+
+The lane brief's reading was that `Ceiling` was a dead column. **That is half right, and the other
+half is the finding**: the axis was wrong in BOTH directions at once, which is why no count anybody
+could have written about it would have been wrong.
+
+| measured 2026-08-23 (runtime probe, not grep) | types | distinct `materialId` | column then |
+|---|---|---|---|
+| wall · floor · slab | 8 · 22 · 14 | 11 · 11 · 13 | yes |
+| door · window | 9 · 8 | 6 · 5 | yes (seeded by §10.12, one day earlier) |
+| **handrail** | **44** | **26** | ⛔ **NONE** |
+| **ceiling** | 10 | **0** | ⚠ yes — could never tick |
+| curtain-wall · plumbing | 20 · 19 | 0 · 0 | none |
+
+⭐ **`handrailTypeStore` is the one that matters**: 26 real master references the founder already
+owns, and the schedule could not show them. A hand-typed `ELEMENT_CATS` array of six strings was
+right about its own length and wrong about its membership, in both directions simultaneously.
+
+### §10.13.b — The rule this mints: **a dash that means two things is the same defect as a missing gate**
+
+`—` meant both *"this family does not use this material"* and *"this family cannot name any
+material."* **§CONTEXT-DATA-HONESTY: failure and empty were the same value.** Three of nine type
+stores are in the second state, so a user reading a Ceiling dash concluded *"no ceiling uses
+concrete"* when the truth was *"no ceiling can name anything."* Those are opposite facts with
+opposite fixes (**C01 §6 rule 6**).
+
+**MUST**: where a family cannot carry a material reference at all, the schedule renders that as its
+OWN state, named in a legend — never as the same glyph used for a real, informative absence.
+
+⛔ **Nothing is deleted to achieve this.** The Ceiling column stays; it stops claiming to be an
+answer. Deleting it would have destroyed the evidence that the gap exists.
+
+### §10.13.c — ABSENT vs UNREACHABLE vs UNSEEDED — a third state the contract now names
+
+Ceiling is **neither absent nor unreachable**: `ceilingSystemTypeStore` is exported,
+`CeilingLayer.materialId?` is declared, and the Material Schedule can reach both. **Zero built-ins
+fill one.** That is a distinct state from the two C01 §6 rule 6 names, and it has a distinct fix
+(seed the catalogue) from both rewiring and building.
+
+⛔ **Seeding it is NOT a tidy-up and was NOT done here.** Per **§10.12.b** a reference added beside a
+cached hex must bring the hex to the master's value in the same change. Measured: the ceiling layer
+is `#F0EEE8`, the nearest master row `gypsum-plasterboard` is `#f0eeea`, and
+`CeilingColourSystem.resolveLayerColour()` returns `materialColor ?? functionColour`. **They differ,
+so seeding recolours every ceiling** — a founder-facing graphics decision (L-8602).
+
+### §10.13.d — The axis is DERIVED, and the gate compares SETS
+
+`apps/editor/src/ui/dataworkbench/materialUsageRegistry.ts`. The collector is **structural** — a
+depth-bounded walk for `materialId` — rather than the six bespoke accessors it replaces
+(`t.frameFinish` / `t.leafFinish` by name), which silently under-report the day a family gains a
+seventh finish slot.
+
+`materialUsageRegistry.test.ts` ARM B asserts **registry ∪ excluded == every `*TypeStore` singleton
+in the repository**, discovered by scanning `packages/`. A store that ships next week is either given
+a column or given a REASON; *"silently missing"* is converted into *"explicitly decided"*.
+
+⚠ **ARM B3 was RED on its first run and was right to be**: it asserted the excluded stores had
+singletons, when *"has no module-level singleton"* is precisely why three of them are excluded. Two
+discoverers now (singletons vs classes), so the distinction cannot quietly re-collapse.
+
+### §10.13.e — §6.1's MUST is now satisfied for WALL LAYERS, and the pipe was never the problem
+
+`WallTypeEditorModal` offered `<input type="color">` and nothing else; `WallTypeSelectorWidget:459`
+pushed new layers with **no `materialId` at all**. So every layer any user has ever authored carries
+an unconstrained hex and no reference — **a §6.1 breach, and a raw colour input is not even the
+"hand-written swatch list" that clause forbids.**
+
+⭐ **`elementTypeAuthoringAdapters.ts:79` is `layers: draft.layers` — verbatim passthrough.** The
+route from modal to store was complete end to end. **The defect was ABSENT authoring, not broken
+wiring**, exactly as §10.12 found for door and window one day earlier, and the fix is a control
+rather than a rewire.
+
+The control is **`buildFinishMaterialSelect` — reused, not rebuilt.** A second picker here would be
+**C68 §7.c**'s anti-pattern *"even when it is shorter"*, and would have drifted from the four honest
+states (`resolved` / `unresolved` / `legacy` / `empty`) immediately. Overrides are marked with a
+one-click reset per §2.2 and §10.12.e, and ⭐ **no new field encodes "is override"** — the state IS
+`materialColor ≠ masterHex(materialId)`, so there is no codec change.
+
+### §10.13.f — What is NOT closed, named rather than left as an absence
+
+- ⛔ **S10 — the RAC half — is NOT closed, and this lane was BLOCKED from closing it by lane
+  ownership, not by effort.** A per-layer material batch verb needs a row in `BATCH_REPORT_EVENTS`
+  (`apps/editor/src/ui/ai/ZeroTokenChatBridge.ts:1297`), which sits inside a concurrent lane's
+  declared exclusion zone, and `batchReportEventsCompleteness.spec.ts` derives its required key set
+  from the handlers themselves: *"Adding a broadcasting handler without a listener now fails here."*
+  ⭐ **Shipping the handler alone would turn a GREEN gate RED and print the canned "Done" over
+  whatever it actually did — L-996 exactly, re-run.** The unblock is ONE row (L-8612).
+- ⚠ **A design question rides with S10 and MUST NOT be decided silently.** *"make all walls interior
+  finish plaster"* already works and writes `sideFinishes` — **an appearance-only field BESIDE the
+  layer stack**, deliberately so, because re-finishing a face must not move the wall's thickness. A
+  new *"…interior layer material oak"* would write `layers[i].materialId`. **Two near-identical
+  sentences writing two different fields is a rival vocabulary in the making** (C68 §7.c). Whether
+  the existing verb should ALSO name the layer's material is a founder/contract call.
+- ⛔ **The `add-wall-layer` refusal is UNTOUCHED and must stay that way.**
+  `CapabilityExecutionSpec.ts:687` refuses to invent a thickness because `MaterialRecord` carries no
+  thickness field — it names the consequence and offers two live alternatives, which is
+  §REFUSING-HALF-NEEDS-ITS-ESCAPE-HATCH done right. The founder's ask is the verb it correctly
+  declines to guess at, **not** a request to loosen it.
+- ⛔ **Only wall layers gained the control.** Floor, slab and ceiling type editors are separate
+  surfaces and are their own slice. Stated plainly rather than reported as *"layers can name
+  materials"*.
+- ⛔ **Curtain-wall and plumbing remain unseeded** (0 of 20 and 0 of 19). Plumbing is additionally
+  not a declared dependency of `apps/editor`, so it is on `EXCLUDED_TYPE_STORES` with that reason
+  rather than added as a third un-tickable column (L-8603).

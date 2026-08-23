@@ -43155,6 +43155,13 @@ a-template-literal** trap this session has already hit in three lanes: the backt
 Reported, not edited — it is another lane's in-flight file. **0 errors attributable to MAT50's
 files** (the same command read RC=0 before that edit landed).
 
+⚠ **Re-measured at lane close: those 6 are GONE** — GRAPH48 fixed them mid-lane. The final reading is
+**RC=2, both in `apps/editor/src/ui/analysis/__tests__/graphCardReachability.spec.ts`** (TS2322,
+`'viewport'` not assignable to `SelectionSource`) — **still GRAPH48's file, still not MAT50's**.
+Recorded as it actually finished rather than as it was first seen, because a stale RED attributed to
+the wrong lane is exactly the defect shape CLAUDE.md keeps correcting. **0 errors in MAT50's files
+at open, mid-lane and close.**
+
 ### L-8620 — verification, run in the FOREGROUND
 
 * `apps/editor` → `materialUsageRegistry.test.ts` **12/12**, `materialScheduleRender.test.ts`
