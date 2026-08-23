@@ -288,14 +288,35 @@ export function renderTypesForLevel(
       elemContainer.appendChild(elemRow);
 
       elemRow.addEventListener('click', () => {
-        if (storeKey === 'roomStore') {
+        const isRoomRow = storeKey === 'roomStore';
+        if (isRoomRow) {
           state.onRoomSelect(el.id);
         } else {
           state.onElementSelect(el.id);
         }
-        window.runtime?.events?.emit('pryzm-audit-room-select', { roomId: el.id, source: 'audit-stack' }); // F.events.12
-        // F.events.6 — pryzm-inspect-room-focus migrated to runtime.events typed bus.
-        window.runtime?.events?.emit('pryzm-inspect-room-focus', { roomId: el.id });
+        // ── §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8201), 2026-08-23 ─────────────
+        //
+        // ⛔ THESE TWO EMITS WERE UNCONDITIONAL AND BOTH CARRY A FIELD CALLED
+        // `roomId`. This ONE line — `emit('pryzm-inspect-room-focus', { roomId:
+        // el.id })` for every family — is what put a WALL id into a room-shaped
+        // slot, and it is verbatim what the founder's console printed back:
+        //
+        //     [DiagnosticMaterialManager] Lens applied: ghost (room: wall_01M0PTPA…)
+        //     [InspectModeCoordinator] Room focused: wall_01M0PTPAWMNKP0B1G841G7XR04
+        //
+        // ⭐ THE NON-ROOM CASE IS NOT DROPPED — it was never carried by this event
+        // in the first place. `selectionBus.select(el.id, 'inspect-panel')` below
+        // already fired on every row, and `InspectModeCoordinator` now subscribes
+        // to it (C27 §4: SelectionBus is the single authorised entry point for all
+        // selection sources). So a wall row reaches the lens by the wire that
+        // actually means "this element is selected", instead of by an event named
+        // for a different concept — and, as a consequence, selecting the same wall
+        // in the 3-D VIEWPORT now reaches it too, which it never did.
+        if (isRoomRow) {
+          window.runtime?.events?.emit('pryzm-audit-room-select', { roomId: el.id, source: 'audit-stack' }); // F.events.12
+          // F.events.6 — pryzm-inspect-room-focus migrated to runtime.events typed bus.
+          window.runtime?.events?.emit('pryzm-inspect-room-focus', { roomId: el.id });
+        }
         selectionBus.select(el.id, 'inspect-panel');
       });
 
