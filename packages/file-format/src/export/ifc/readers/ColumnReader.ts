@@ -1,6 +1,7 @@
 import { ColumnStore } from '@pryzm/geometry-column';
 import { ExportElement, PropertySet } from '../IntermediateModel';
 import { ReaderContext, buildPropertySet, collectIfcPsets } from './ReaderContext';
+import { resolveCommonPset } from './commonPsets';
 import { debug } from '@pryzm/core-app-model';
 
 export class ColumnReader {
@@ -19,10 +20,9 @@ export class ColumnReader {
             if (!geometry) continue;
 
             const propertySets: PropertySet[] = [];
-            if (col.ifcData?.psetCommon) {
-                const ps = buildPropertySet('Pset_ColumnCommon', col.ifcData.psetCommon);
-                if (ps) propertySets.push(ps);
-            }
+            // L-8540 — native columns used to export no Pset_ColumnCommon at all.
+            const colCommon = resolveCommonPset('Pset_ColumnCommon', col as any);
+            if (colCommon) propertySets.push(colCommon);
             if (col.properties && Object.keys(col.properties).length > 0) {
                 const ps = buildPropertySet('Pset_ElementParameters', col.properties as Record<string, any>);
                 if (ps) propertySets.push(ps);

@@ -1,6 +1,7 @@
 import { WallStore } from '@pryzm/geometry-wall';
 import { ExportElement, PropertySet, TriangulatedGeometry } from '../IntermediateModel';
 import { ReaderContext, buildPropertySet, collectIfcPsets } from './ReaderContext';
+import { resolveCommonPset } from './commonPsets';
 import { debug } from '@pryzm/core-app-model';
 
 export class WindowDoorReader {
@@ -19,10 +20,11 @@ export class WindowDoorReader {
             if (!geometry) continue;
 
             const propertySets: PropertySet[] = [];
-            if (win.ifcData?.psetCommon) {
-                const ps = buildPropertySet('Pset_WindowCommon', win.ifcData.psetCommon);
-                if (ps) propertySets.push(ps);
-            }
+            // L-8540 — native windows used to export no Pset_WindowCommon at all.
+            // `fireRating` IS a real field on WindowData, so it reaches the
+            // standard pset here rather than only the PRYZM parameters one.
+            const winCommon = resolveCommonPset('Pset_WindowCommon', win as any);
+            if (winCommon) propertySets.push(winCommon);
             const winProps: Record<string, any> = {
                 Width: win.width,
                 Height: win.height,
@@ -63,10 +65,10 @@ export class WindowDoorReader {
             if (!geometry) continue;
 
             const propertySets: PropertySet[] = [];
-            if (door.ifcData?.psetCommon) {
-                const ps = buildPropertySet('Pset_DoorCommon', door.ifcData.psetCommon);
-                if (ps) propertySets.push(ps);
-            }
+            // L-8540 — native doors used to export no Pset_DoorCommon at all.
+            // `fireRating` IS a real field on DoorData.
+            const doorCommon = resolveCommonPset('Pset_DoorCommon', door as any);
+            if (doorCommon) propertySets.push(doorCommon);
             const doorProps: Record<string, any> = {
                 Width: door.width,
                 Height: door.height

@@ -1,6 +1,7 @@
 import { SlabStore } from '@pryzm/geometry-slab';
 import { ExportElement, PropertySet } from '../IntermediateModel';
 import { ReaderContext, buildPropertySet, collectIfcPsets } from './ReaderContext';
+import { resolveCommonPset } from './commonPsets';
 import { debug } from '@pryzm/core-app-model';
 
 export class SlabReader {
@@ -19,10 +20,9 @@ export class SlabReader {
             if (!geometry) continue;
 
             const propertySets: PropertySet[] = [];
-            if (slab.ifcData?.psetCommon) {
-                const ps = buildPropertySet('Pset_SlabCommon', slab.ifcData.psetCommon);
-                if (ps) propertySets.push(ps);
-            }
+            // L-8540 — native slabs used to export no Pset_SlabCommon at all.
+            const slabCommon = resolveCommonPset('Pset_SlabCommon', slab as any);
+            if (slabCommon) propertySets.push(slabCommon);
             if (slab.properties && Object.keys(slab.properties).length > 0) {
                 const ps = buildPropertySet('Pset_ElementParameters', slab.properties as Record<string, any>);
                 if (ps) propertySets.push(ps);

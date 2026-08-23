@@ -1,6 +1,7 @@
 import { CurtainWallStore } from '@pryzm/geometry-curtain-wall';
 import { ExportElement, PropertySet } from '../IntermediateModel';
 import { ReaderContext, buildPropertySet, collectIfcPsets } from './ReaderContext';
+import { resolveCommonPset } from './commonPsets';
 import { debug } from '@pryzm/core-app-model';
 
 export class CurtainWallReader {
@@ -19,10 +20,9 @@ export class CurtainWallReader {
             if (!geometry) continue;
 
             const propertySets: PropertySet[] = [];
-            if (item.ifcData?.psetCommon) {
-                const ps = buildPropertySet('Pset_CurtainWallCommon', item.ifcData.psetCommon);
-                if (ps) propertySets.push(ps);
-            }
+            // L-8540 — native curtain walls used to export no Common pset at all.
+            const cwCommon = resolveCommonPset('Pset_CurtainWallCommon', item as any);
+            if (cwCommon) propertySets.push(cwCommon);
             if (item.properties && Object.keys(item.properties).length > 0) {
                 const ps = buildPropertySet('Pset_ElementParameters', item.properties as Record<string, any>);
                 if (ps) propertySets.push(ps);

@@ -1,6 +1,7 @@
 import { WallStore } from '@pryzm/geometry-wall';
 import { ExportElement, ElementColor, PropertySet, TriangulatedGeometry } from '../IntermediateModel';
 import { ReaderContext, buildPropertySet, collectIfcPsets } from './ReaderContext';
+import { resolveCommonPset } from './commonPsets';
 import { debug } from '@pryzm/core-app-model';
 
 export class WallReader {
@@ -41,10 +42,13 @@ export class WallReader {
 
             const propertySets: PropertySet[] = [];
             const ifcDataAny = wall.ifcData as any;
-            if (ifcDataAny?.psetCommon) {
-                const ps = buildPropertySet('Pset_WallCommon', ifcDataAny.psetCommon);
-                if (ps) propertySets.push(ps);
-            }
+            // L-8540: this used to be `if (ifcDataAny?.psetCommon)` and NOTHING
+            // else, so a natively-drawn wall exported no Pset_WallCommon at all.
+            // resolveCommonPset keeps an imported pset winning and fills its gaps
+            // from real native fields — it never invents IsExternal/LoadBearing/
+            // ThermalTransmittance, which have no source in the wall schema.
+            const wallCommon = resolveCommonPset('Pset_WallCommon', wall as any);
+            if (wallCommon) propertySets.push(wallCommon);
             if (wall.properties && Object.keys(wall.properties).length > 0) {
                 const ps = buildPropertySet('Pset_ElementParameters', wall.properties as Record<string, any>);
                 if (ps) propertySets.push(ps);
