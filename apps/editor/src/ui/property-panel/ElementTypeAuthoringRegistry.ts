@@ -245,15 +245,51 @@ const AUTHORING: ElementTypeAuthoring[] = [
                 { key: 'sillFinish',  label: 'Sill' },
             ],
             glazingOpacity: true,
+            // §FIX-WINDOW-TYPE-DIMS-DRIFT (L-10070, founder 2026-08-23) — the founder:
+            // *"please check the window type creator — it doesn't have all window
+            // properties"*. He was right, and the drift is measurable as a SET rather
+            // than as an opinion.
+            //
+            // ⭐ MEASURED BOTH DIRECTIONS, 2026-08-23, against `WindowTypeDimensions`
+            // (packages/geometry-window/src/WindowSystemTypeStore.ts:51-108):
+            //   · ARM A (model \ dialog) = **7 MISSING** — sillHeight, sashThickness,
+            //     sashDepth, glazingThickness, rebateDepth, sillThickness, sillOverhang.
+            //     All seven are read by `resolveWindowDimensions()` when the instance
+            //     does not carry its own, which is exactly what makes them properties
+            //     of the TYPE — and a catalogue author could not state any of them.
+            //   · ARM B (dialog \ model) = **0.** Every row named a real field.
+            // The DOOR declaration below has both arms EMPTY and says so in its own
+            // comment — *"Exactly the six `DoorSystemType.dimensions` fields — no more"*.
+            // Window carried no such sentence, and that is precisely where it drifted.
+            //
+            // ⛔ THE FOUNDER'S TWO NAMED FIELDS ARE **NOT** IN THIS LIST, AND THAT IS NOT
+            // AN OVERSIGHT. `Projection (m)` and `Splay all sides (°)` are
+            // `revealProjection` / `revealSplay{Head,Sill,JambLeft,JambRight}`, declared
+            // on the window **INSTANCE** schema (packages/schemas/src/elements/Window.ts:129-134)
+            // and **absent from `WindowTypeDimensions` entirely**. A row here would
+            // render a control writing a key the type record cannot hold, which is a
+            // worse defect than the missing control: the dialog would accept the value
+            // and the type would silently not carry it. Giving a TYPE a reveal needs the
+            // field on `WindowSystemType.dimensions`, the codec
+            // (`hostedSystemTypeCodec.ts`) and the `resolveWindowDimensions` chain — a
+            // model change in `packages/geometry-window` with persistence implications,
+            // logged as L-10071 rather than faked here.
             dimensions: [
                 { key: 'width',                  label: 'Width',           min: 0.3,   max: 6.0,  step: 0.01 },
                 { key: 'doubleWidth',            label: 'Double width',    min: 0.6,   max: 8.0,  step: 0.01,  hint: 'Used when the window is placed as a double.' },
                 { key: 'height',                 label: 'Height',          min: 0.3,   max: 4.0,  step: 0.01 },
+                { key: 'sillHeight',             label: 'Sill height',     min: 0,     max: 2.0,  step: 0.01,  hint: 'How high the sill sits above the floor.' },
                 { key: 'frameThickness',         label: 'Frame face',      min: 0.015, max: 0.20, step: 0.002, hint: 'The number that separates a slim steel frame from a fat uPVC one.' },
                 { key: 'frameDepth',             label: 'Frame depth',     min: 0.02,  max: 0.30, step: 0.005, hint: 'Across the wall reveal.' },
+                { key: 'sashThickness',          label: 'Sash face',       min: 0.01,  max: 0.15, step: 0.002, hint: 'The openable leaf frame captured inside the outer frame.' },
+                { key: 'sashDepth',              label: 'Sash depth',      min: 0.01,  max: 0.15, step: 0.002, hint: 'How far the sash stands proud of the glazing plane.' },
+                { key: 'glazingThickness',       label: 'Glazing unit',    min: 0.004, max: 0.06, step: 0.001, hint: 'Total thickness of the sealed unit — 0.024 for a 4-16-4.' },
+                { key: 'rebateDepth',            label: 'Rebate depth',    min: 0.002, max: 0.05, step: 0.001, hint: 'The pocket in the jamb that captures the glazing.' },
                 { key: 'columnDividerThickness', label: 'Mullion',         min: 0.01,  max: 0.15, step: 0.002, hint: 'The centre post between panes.' },
                 { key: 'rowDividerThickness',    label: 'Transom',         min: 0.01,  max: 0.15, step: 0.002, hint: 'The horizontal bar between rows.' },
                 { key: 'sillDepth',              label: 'Sill projection', min: 0,     max: 0.40, step: 0.005, hint: 'How far the sill board stands proud of the wall.' },
+                { key: 'sillThickness',          label: 'Sill thickness',  min: 0.01,  max: 0.10, step: 0.005, hint: 'Vertical thickness of the sill board.' },
+                { key: 'sillOverhang',           label: 'Sill overhang',   min: 0,     max: 0.20, step: 0.005, hint: 'How far the sill runs past each jamb.' },
             ],
             grid: {
                 columnsKey: 'defaultColumnRatios',

@@ -47366,3 +47366,80 @@ a construction line's primary home is the plan. Named here rather than left to b
 discovered from a screenshot. It is the same shape as L-9309's refusal to build a 3-D arm
 for a tool whose element could not render — *the surface follows the representation, never
 the other way round.*
+
+### L-10070 — ⭐ **THE WINDOW TYPE CREATOR OFFERED 8 OF ITS RECORD'S 15 DIMENSIONS.** Door offered all 6 — and said so in prose, which is why door did not drift (lane LAYERMAT10, 2026-08-23)
+
+Founder: *"Please check the **window type creator** — it doesn't have all window
+properties — **Projection (m)** … **Splay all sides (°)**"*.
+
+⭐ **MEASURED AS A SET, BOTH DIRECTIONS**, against `WindowTypeDimensions`
+(`packages/geometry-window/src/WindowSystemTypeStore.ts:51-108`):
+
+| family | ARM A (record \ dialog) | ARM B (dialog \ record) |
+|---|---|---|
+| **window** | **7 MISSING** — `sillHeight`, `sashThickness`, `sashDepth`, `glazingThickness`, `rebateDepth`, `sillThickness`, `sillOverhang` | 0 |
+| **door** | **0** | **0** |
+
+All seven are read by `resolveWindowDimensions()` when the instance carries none — which
+is exactly what makes them properties of the TYPE — and a catalogue author could not state
+any of them. **Now offered: 15 rows.**
+
+⭐ **WHY DOOR DID NOT DRIFT, AND IT IS NOT LUCK.** The door declaration carries the
+sentence *"Exactly the six `DoorSystemType.dimensions` fields — no more."* Window carried
+no such sentence. A prose promise held for one family and rotted for the other — the same
+shape C03 §4.9 mints a rule for, one table over. It is now an ARTEFACT:
+`apps/editor/src/ui/property-panel/__tests__/hostedTypeDimensionEquivalence.spec.ts`
+compares the declaration against the record's field SET in **both directions** for **both
+families**, parsing the field names out of the declaring source because a TS interface has
+no runtime form — and a hand-listed expectation would be a THIRD copy of the answer.
+**6/6 GREEN; pre-fix exactly ARM A/window failed**, naming the seven.
+
+⭐ **THE DERIVATION IS INTACT — CHECKED, BECAUSE A BROKEN ONE WOULD BE THE BIGGER FINDING.**
+Both the dialog (`FinishTypeEditorModal.ts:462`) and the zero-token panel chat
+(`FinishTypeDraftIntent.ts:140`) read `authoring.finishEditor.dimensions`. Adding seven
+rows to the declaration therefore made seven new controls AND seven new sayable fields,
+with **no** edit to either consumer — the whole existing property-panel suite (12 files,
+185 tests) absorbed them green.
+
+### L-10071 — ⛔ **OPEN: `Projection` and `Splay` are INSTANCE fields. The window TYPE record cannot hold them at all**
+
+⚠ **The founder's two named properties are in NEITHER set above**, and that is the actual
+answer to his report. `revealProjection` and `revealSplay{Head,Sill,JambLeft,JambRight}`
+are declared on the window **INSTANCE** schema
+(`packages/schemas/src/elements/Window.ts:129-134`) and **do not exist on
+`WindowTypeDimensions`**.
+
+⛔ **So a row in the type dialog would have been WORSE than the missing control**: the
+dialog would render it, accept the value, report success, and the type record would
+silently not carry it. Giving a TYPE a reveal needs the fields on
+`WindowSystemType.dimensions`, the codec (`hostedSystemTypeCodec.ts`) and the
+`resolveWindowDimensions` chain — a model change in `packages/geometry-window` with
+persistence implications. **Named, not faked.** The equivalence spec asserts these are
+still absent, so the day someone adds them the test fails and points here.
+
+⚠ **A BRIEFED LANDMINE THAT DOES NOT EXIST IN THE FORM STATED — corrected here so nobody
+refuses this work citing it.** The brief warned that adding these controls would expose a
+live *"reveal projection and splay are applied to the WRONG SIDE"* defect. **Re-measured
+2026-08-23:**
+
+- That sentence in `Window.ts` is **the founder's own 2026-08-22 report being QUOTED inside
+  the rationale for its fix** (§FEAT-REVEAL-DIRECTION, L-3410…L-3416), not a live open
+  defect. `revealDirection: z.enum(['outdoor', 'indoor']).default('outdoor')` **exists** at
+  `Window.ts:129`.
+- **`L-1927` is a different subject entirely**: whether a projection crosses a property
+  boundary, balcony or neighbouring element — not the wrong-side question.
+
+⚠ **What IS still true and must travel with any future reveal control**: PRYZM cannot infer
+which wall face is outdoors. `WallData.frontSide` / `backSide` are declared in three schemas
+and a grep for writers returns **ZERO**, so `'outdoor'` is an authored convention, never a
+resolved fact.
+
+⚠ **And the ganged-control question is NOT decided** (the founder's UI says *"Splay all
+sides"*): splay is **four named scalars, one per side**, deliberately — `Window.ts:83`
+records *"FOUR NAMED SCALARS rather than one scalar plus a mode enum, because the founder
+asked for multiple: 'head and left jamb only' is his photo, and a mode enum cannot express
+it."* ⛔ **A "Splay all sides" control that writes all four would therefore DESTROY a
+per-side set the user made elsewhere.** Whoever builds L-10071 must offer the four, with an
+optional gang that is explicitly a WRITE-ALL action — never a display of four values
+collapsed into one.
+
