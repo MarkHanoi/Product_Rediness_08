@@ -2777,8 +2777,21 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         // so its THREE.js Groups survive ClearProjectCommand unless we dispose here.
         // dispose() calls removeWall() for every wallId, which calls scene.remove(root)
         // + elementRegistry.unregisterRoot() + geometry/material disposal.
-        wallTool.getFragmentBuilder().dispose();
-        console.log('[ProjectIsolation] WallFragmentBuilder disposed — scene cleared of wall geometry.');
+        //
+        // ⚠ §C13-RAILING-SWEEP-GAP (L-8101), guarded 2026-08-23. This call was the ONLY
+        // UNGUARDED statement in a listener whose own comment claims "each guarded
+        // independently so one failure cannot stop the others" — and it sat FIRST, ahead
+        // of the floor-finish, handrail and stair-railing disposals. A throw here (the
+        // WebGPU `usedTimes` L-303 family this very block cites as the reason the
+        // per-element path aborts) took the whole listener down and stranded all three,
+        // so project A's railings reached project B's scene. The claim in the comment
+        // and the code disagreed; the code is now what the comment said.
+        try {
+            wallTool.getFragmentBuilder().dispose();
+            console.log('[ProjectIsolation] WallFragmentBuilder disposed — scene cleared of wall geometry.');
+        } catch (e) {
+            console.error('[ProjectIsolation] WallFragmentBuilder dispose FAILED — wall geometry may survive this switch:', e);
+        }
 
         // §FIX-BUILDER-ISOLATION-LEAK (L-320): the FLOOR-FINISH, HANDRAIL, and
         // STAIR-RAILING builders were OMITTED from this teardown. Like the wall

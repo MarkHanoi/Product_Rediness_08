@@ -1124,6 +1124,37 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
             // Already had a geometry-only bulk clear before this sweep existed.
             { name: 'roomBoundaryBuilder',     builder: roomBoundaryBuilder, via: 'removeAll' },
             { name: 'roomLabelRenderer',       builder: roomLabelRenderer,   via: 'removeAll' },
+            // ── §C13-RAILING-SWEEP-GAP (L-8101), added 2026-08-23 ──────────────────
+            //
+            // These two were LEFT BEHIND when this sweep was created. The header of
+            // `projectScopedBuilderTeardown.ts` records the split: the four L-320
+            // builders (wall, floor-finish, handrail, stair-railing) were to stay in
+            // the older `initTools.ts` sweep, and "the other fifteen" moved here. But
+            // the initTools sweep's FIRST statement was
+            // `wallTool.getFragmentBuilder().dispose()` — UNGUARDED, ahead of the three
+            // `try`-wrapped ones. A throw there (the WebGPU `usedTimes` L-303 family
+            // that this very sweep's comments cite as the reason the per-element path
+            // aborts) skipped floor-finish, handrail AND stair-railing teardown
+            // entirely. Stair-railing teardown was therefore conditional on wall
+            // teardown not throwing, and 36 of project A's stair-railing roots reached
+            // project B's scene in the founder's 2026-08-23 report.
+            //
+            // Listing them HERE as well makes the two sweeps defence-in-depth rather
+            // than a chain: `clearProjectScopedBuilderGeometry` isolates every entry in
+            // its own try/catch and REPORTS what it could not clear, so neither builder
+            // can be stranded by an unrelated failure again. Both are idempotent — a
+            // second dispose() iterates an already-empty Map.
+            //
+            // `via: 'dispose'` is used, and it is PROVEN non-terminal for both, which is
+            // the bar this file's header sets ("a terminal dispose here is a new L-224"):
+            //   grep -n 'removeEventListener|_disposers|_unsub' \
+            //     packages/geometry-handrail/src/HandrailFragmentBuilder.ts \
+            //     packages/geometry-stair/src/StairRailingBuilder.ts   -> 0 hits
+            // Neither holds a subscription handle, so neither can drop one. Both
+            // dispose() bodies only walk their root Map, remove each root from the
+            // scene through the WebGPU-safe release path, and clear their indices.
+            { name: 'handrailBuilder',         builder: handrailBuilder,     via: 'dispose' },
+            { name: 'stairRailingBuilder',     builder: stairRailingBuilder, via: 'dispose' },
         ]);
         console.log(formatBuilderTeardownReport(report));
     });

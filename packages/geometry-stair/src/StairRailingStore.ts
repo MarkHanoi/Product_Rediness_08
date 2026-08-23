@@ -1,6 +1,8 @@
 import { StairRailingConfig } from './StairRailingTypes';
 import { storeEventBus } from '@pryzm/core-app-model';
 import { batchCoordinator } from '@pryzm/core-app-model';
+// §C13-RAILING-STORE-OWNER (L-8102) — see the constructor.
+import { projectScopeRegistry } from '@pryzm/core-app-model';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -17,6 +19,40 @@ const _bus = new DOMEventBus();
  */
 export class StairRailingStore {
     private railings: Map<string, StairRailingConfig> = new Map();
+
+    /**
+     * §C13-RAILING-STORE-OWNER (L-8102) — THIS STORE HAD NO PROJECT-SWITCH OWNER AT ALL.
+     *
+     * Measured 2026-08-23:
+     *   grep -rn "projectScopeRegistry.register" packages/geometry-stair/src/*.ts  -> 0
+     *   grep -ic 'railing' packages/command-registry/src/project/ClearProjectCommand.ts -> 0
+     *
+     * So project A's `StairRailingConfig` records survived every switch, in memory,
+     * indefinitely: `clearAll()` could not reach them (unregistered) and the command's
+     * own hand-written teardown never mentioned railings. They were also invisible to
+     * the data-side arm of `ProjectIsolationAudit`, whose `AUDITED_STORE_GLOBALS` list
+     * does not include `stairRailingStore` — which is exactly why the founder's report
+     * showed `scene.foreignElement×37` with NO accompanying `store.foreignElement`: the
+     * surface most able to hold the residue was the one surface nobody asked.
+     *
+     * Registered from the CONSTRUCTOR because this store is instantiated with `new` in
+     * `initBuilders.ts`, not exported as a module singleton — the same disposition
+     * `CesiumViewport` uses, and the reason `ProjectScopeRegistry.register` is
+     * documented as replace-by-key: a second instance (HMR, or a test) replaces the
+     * entry rather than duplicating it, so `clearAll()` always drives the live one.
+     *
+     * ⚠ Clearing here is unconditionally correct, and that is worth stating because
+     * teardown that deletes restorable state is the opposite failure. Stair railings
+     * have NO snapshot array (`ProjectSnapshot` in ProjectSerializer.ts declares
+     * `stairs`/`handrails` but no railings key) and `ProjectLoader` has no restore
+     * loop for them, so nothing a load would repopulate is being discarded.
+     */
+    constructor() {
+        projectScopeRegistry.register({
+            scopeName: 'stair.railings',
+            clear: () => this.railings.clear(),
+        });
+    }
 
     add(railing: StairRailingConfig): void {
         if (!railing.ifcData) {

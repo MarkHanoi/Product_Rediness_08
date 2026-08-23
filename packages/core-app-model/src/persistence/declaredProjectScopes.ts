@@ -154,7 +154,7 @@ export interface DeclaredProjectScope {
  * changes. The runtime audit stamps this into its report, so a leak report from
  * the field can be tied to the declaration that was in force when it was written.
  */
-export const DECLARED_PROJECT_SCOPE_SET_VERSION = 5;
+export const DECLARED_PROJECT_SCOPE_SET_VERSION = 6;
 
 /**
  * ADR-0298 §1 — the declared expected probe set.
@@ -453,6 +453,47 @@ export const DECLARED_PROJECT_SCOPES: readonly DeclaredProjectScope[] = [
                 + "`'<link-host-unresolved>'` marker, never null: “I hold nothing” and "
                 + '“I hold something I cannot attribute” are the L-713 mistake if they '
                 + 'share a value.',
+        },
+    },
+    {
+        scope: 'render.instancedElements',
+        module: 'apps/editor/src/engine/instancedRendererProjectScope.ts',
+        why: '§C13-INSTANCED-RENDERER-OWNER (L-8100) — THE GPU-INSTANCING RENDERER HAD NO '
+            + 'OWNER AT ALL, and that is how 36 of project A\'s stair-railings plus their '
+            + 'aggregate InstancedMesh reached project B\'s scene in the founder\'s 2026-08-23 '
+            + 'report. `InstancedElementRenderer` is a module singleton holding one '
+            + 'InstancedMesh per (elementType × levelId × geometry × material), parented '
+            + 'straight into world.scene, plus the pick-membership maps that resolve a click '
+            + 'to an element id. Its documented teardown, `clear()`, had ONE production call '
+            + 'site — initScene.ts:708, bound to `clear-project`, AN EVENT WITH ZERO '
+            + 'DISPATCHERS IN THE REPOSITORY (measured with rg and with plain grep -rn; 8 '
+            + 'hits, all listeners or comments; not in the event catalog either). L-224 '
+            + 'verbatim, third recurrence: a teardown that ships, passes its tests, and runs '
+            + 'nowhere. NOTE the group key is (elementType × level × geometry × material) and '
+            + 'contains NO project, so the renderer had no project identity to be torn down '
+            + 'BY — which is why the repair is an OWNER plus a PROBE and not a smarter key. '
+            + 'The probe deliberately does not trust the teardown: `stampInstancedRendererOwner` '
+            + 'refuses to re-stamp while a previous owner is still attached, so a switch on '
+            + 'which the clear did not run reports project A while project B is open, instead '
+            + 'of laundering the leak as clean.',
+        presence: 'module-scope',
+        resets: ['instancedElementRenderer.clear()', '_ownerProjectId = null'],
+        counts: ['instancedElementRenderer.groupCount', '_ownerProjectId'],
+        uncounted: {
+            'instancedElementRenderer.clear()':
+                'COUNTED, under its read literal `instancedElementRenderer.groupCount` in '
+                + '`counts`. The split is the same deliberate one the ai.* scopes use: `resets` '
+                + 'carries the CALL so D3 fails if the teardown step is deleted, `counts` carries '
+                + 'the READ so D4 fails if the probe stops looking. `groupCount === 0` is also '
+                + 'the ONLY route to a null answer, which is what makes the probe independent of '
+                + 'the stamp — an empty renderer is clean whatever the stamp says.',
+            '_ownerProjectId = null':
+                'COUNTED, under the bare identifier `_ownerProjectId` in `counts`. Declared '
+                + 'separately as a reset because dropping the stamp-clear is the ONE edit that '
+                + 'would silently invert this probe: the stamp would survive its own teardown, '
+                + 'every subsequent load would look like a leak, and the resulting permanent red '
+                + 'trains people to ignore the audit — the failure mode C13 §3.10 rates as worse '
+                + 'than having no audit. D3 now fails instead.',
         },
     },
 ];

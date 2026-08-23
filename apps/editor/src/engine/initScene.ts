@@ -169,6 +169,14 @@ import { RoomTagAutoPopulator } from '@pryzm/room-topology';
 // set whenever the model changes, using the SAME idempotent reconciler as the button.
 import { registerSetOut } from '@app/ui/documentation/setOut';
 import { instancedElementRenderer } from '@pryzm/core-app-model/rendering';
+// §C13-INSTANCED-RENDERER-OWNER (L-8100) — IMPORTED FOR ITS MODULE-SCOPE SIDE EFFECT.
+// The import IS the wiring: `instancedRendererProjectScope` registers the
+// `render.instancedElements` ProjectScopedStore + ProjectScopeProbe at module scope,
+// so the GPU-instancing renderer is torn down by `ClearProjectCommand.clearAll()` and
+// is interrogable by the isolation audit. `stampInstancedRendererOwner` is called from
+// the `pryzm-project-loaded` handler below. ⛔ Do not "clean up" this import: without
+// it the owner is absent, and an absent owner is indistinguishable from a clean one.
+import { stampInstancedRendererOwner } from './instancedRendererProjectScope';
 // §PERF instrumentation (L-02/L-03) — gated behind globalThis.__pryzmPerfTrace.
 import { perfTraceOn, perfTime, perfLog, perfDump } from '@pryzm/core-app-model/rendering';
 // §FIX-LOAD-TRAVERSE-BATCH (P2) — per-add geometry-pass gate policy (unit-tested).
@@ -705,13 +713,30 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     });
 
     // 3. Clear the cache when a project is closed / cleared.
-    window.addEventListener('clear-project', () => {
+    //
+    // ⚠ §C13-INSTANCED-RENDERER-OWNER (L-8100), corrected 2026-08-23. This listener
+    // was bound to `'clear-project'`, AN EVENT WITH ZERO DISPATCHERS IN THE REPOSITORY
+    // (measured with rg AND with plain `grep -rn` over apps/packages/plugins/src/
+    // server/tools/scripts — 8 hits, every one a listener or a doc comment; and
+    // `grep -c 'clear-project' packages/event-bus/src/catalog.ts` -> 0, so it is not
+    // even a declared event). So BOTH bodies below were dead: the LevelClipPlaneCache
+    // never cleared on project close, and — far more visibly — the GPU-instancing
+    // renderer was NEVER bulk-cleared on a project switch, which is how 36 of project
+    // A's stair-railings and their aggregate InstancedMesh survived into project B in
+    // the founder's 2026-08-23 report. L-224 verbatim, third recurrence.
+    //
+    // Re-bound to `bim-project-cleared`, which `ClearProjectCommand` really emits
+    // (`_bus.emit('bim-project-cleared', {})`, ClearProjectCommand.ts:265, over
+    // `DOMEventBus` -> `window.dispatchEvent`) on every project-entry path.
+    //
+    // The instanced renderer is NOT re-listed here. Re-pointing one string at another
+    // string is the same fragile shape that just failed; it now has a declared OWNER
+    // (`render.instancedElements`, `instancedRendererProjectScope.ts`) driven by
+    // `projectScopeRegistry.clearAll()`, plus a probe that reports the leak even when
+    // the teardown does not run. The import below is what makes that owner exist.
+    window.addEventListener('bim-project-cleared', () => {
         levelClipPlaneCache.clear();
         console.log('[initScene] LevelClipPlaneCache: cleared on project close.');
-        // Phase 7: release all InstancedMesh GPU buffers on project close.
-        try {
-            instancedElementRenderer.clear();
-        } catch { /* noop */ }
     });
     // ── End Phase 5 LevelClipPlaneCache + StairPlanSymbolRegistry ────────────
 
@@ -1559,6 +1584,13 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     window.runtime?.events?.on('pryzm-project-loaded', (payload: unknown) => { // F.events.9
         const detail = (payload as { projectId?: string; empty?: boolean } | undefined) ?? {};
         const projectId = detail.projectId ?? '<unknown>';
+        // §C13-INSTANCED-RENDERER-OWNER (L-8100) — attribute the GPU-instancing
+        // renderer's CURRENT contents to this project, but ONLY if its teardown ran
+        // (see `stampInstancedRendererOwner`: it refuses to re-stamp over a surviving
+        // owner). Called SYNCHRONOUSLY, before the deferred block, so the stamp is in
+        // place by the time the data-side ProjectIsolationAudit reads the probes on
+        // the next frame.
+        stampInstancedRendererOwner(projectId);
         // Defer one frame so any load-tail root registration has settled.
         getFrameScheduler().scheduleOnce('l325-render-registry-audit', () => {
             try {
