@@ -269,13 +269,29 @@ describe('§FEAT-CONSTRUCTION-BOUNDARY-LINE — dispatchable through the compose
 
     it('R-13: every family the plugin will accept has a COMPLETE row — the table is the gate', async () => {
         // Not a runtime assertion so much as a wiring one: the handler refuses on
-        // `boundaryLineRuleFor`, so a row with a PROPAGATES verdict and no verb would
-        // let an element attach and then be unmovable. Asserted here as well as in the
-        // geometry package because THIS is the layer that consumes it.
+        // `boundaryLineRuleFor`, so an incomplete row would let an element attach and
+        // then be unmovable. Asserted here as well as in the geometry package because
+        // THIS is the layer that consumes it.
+        //
+        // ⚠ CORRECTED, AND THE SUITE CAUGHT IT. This case originally required a
+        // `moveVerb` on every PROPAGATES row, and went RED on `lighting` — which
+        // PROPAGATES through `MoveLightingCommand` while having NO bus route and
+        // therefore no verb (see the lighting row, and AG-4). The requirement was wrong,
+        // not the row: the load-bearing per-row obligation is a SHAPE (how to re-seat
+        // it) plus an ADAPTER, and adapter coverage is asserted where the adapters live
+        // (`moveBoundaryLineCascade.test.ts` COV-1/COV-2). ⭐ The correction had to be
+        // made in THREE places — here, the geometry package's T-1, and the agreement
+        // spec — which is exactly why a verdict change is worth recording rather than
+        // quietly applying.
         for (const r of BOUNDARY_LINE_FAMILY_RULES) {
             expect(boundaryLineRuleFor(r.family)).toBe(r);
-            if (r.verdict === 'PROPAGATES') expect(r.moveVerb).toBeTruthy();
-            else expect(r.reason).toBeTruthy();
+            if (r.verdict === 'PROPAGATES') {
+                // SHAPE is what this layer needs: it decides whether the dispatcher
+                // translates a point, re-seats a span or displaces a polygon.
+                expect(r.shape, `${r.family} must declare its shape`).toBeTruthy();
+            } else {
+                expect(r.reason, `${r.family} REFUSES and must say why`).toBeTruthy();
+            }
         }
     });
 });

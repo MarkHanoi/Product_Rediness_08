@@ -42350,6 +42350,23 @@ about, and just as wrong.** The row carries **no** `moveVerb`, and that absence 
 statement that lighting has no bus route. `AG-4` pins BOTH halves so a later reader cannot "fix"
 either into agreement with the other.
 
+### L-7929 — ✅ CLOSED: ⭐ the lighting correction had to land in THREE assertions, and the third went red
+
+The verdict change in L-7927 is worth recording precisely because of how it propagated. Three
+separate suites asserted *"every PROPAGATES row names a bus verb"*, and the correction reached two
+of them before the third — `boundaryLineReachableThroughComposedRuntime.test.ts` R-13 — went RED on
+`lighting`, which propagates through `MoveLightingCommand` while having **no bus route and therefore
+no verb**.
+
+⭐ **The requirement was wrong, not the row.** The load-bearing per-row obligation is a **SHAPE**
+(how to re-seat the dependent) plus an **ADAPTER**; adapter coverage is asserted where the adapters
+live (`COV-1` / `COV-2`), and a bus verb is optional by design. All three assertions now say the
+same thing, and each carries the reason.
+
+⚠ Recorded because it is the general lesson, not a bookkeeping note: **a verdict change in a table
+consumed by three layers has to be applied at three layers**, and the only reason the third was not
+shipped stale is that it was ASSERTED rather than assumed.
+
 ### L-7928 — ✅ CLOSED: every PROPAGATES row has an EXECUTABLE adapter, checked BOTH ways
 
 A verdict table can claim a cell nothing can execute; C84 calls such a row a **FALSE** ledger
