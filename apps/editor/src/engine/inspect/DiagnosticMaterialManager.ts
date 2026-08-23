@@ -235,9 +235,16 @@ const ANALYSIS_SELECTED_EMISSIVE  = 0x3300aa; // keeps it legible against the gr
  *      would be a 0.15 change he could not distinguish from the bug he reported, so
  *      a wrong guess there would be invisible. At 0.20 he can see in one glance
  *      whether it is what he meant, which is the only way this gets settled.
- *   3. It suits the surface. The Analysis ghost is a LIGHT neutral grey at 0.04–0.10,
- *      so a translucent purple still reads as a distinct wash over it — this is the
- *      "clean pale massing" image he asked for, not a solid repaint of it.
+ *
+ * ⭐ SETTLED 2026-08-23 (L-9210). It got settled exactly that way: the founder read
+ * 0.20 and answered **"correct 80% opaque"**. The reasoning above is kept rather
+ * than deleted because it is WHY the question reached him at all — the falsifiable
+ * value is what produced an answer, and a future reader must not re-open a decision
+ * the founder has now made. `ANALYSIS_SELECTED_OPACITY` is 0.80: a SOLID purple
+ * wash that still lets the light grey ghost read through it.
+ *
+ * ⚠ `depthWrite` MOVES WITH THIS CONSTANT and is not independent — see its own
+ * comment at the material. Changing one without the other is the defect.
  *
  * ⚠ `depthWrite` stays FALSE for the selected material at this alpha (it was true at
  * 0.95): a mostly-transparent surface that writes depth occludes whatever is behind
@@ -246,7 +253,7 @@ const ANALYSIS_SELECTED_EMISSIVE  = 0x3300aa; // keeps it legible against the gr
  *
  * ⭐ IF THIS IS WRONG, CHANGE THIS ONE CONSTANT — nothing else encodes the reading.
  */
-const ANALYSIS_SELECTED_OPACITY   = 0.20;
+const ANALYSIS_SELECTED_OPACITY   = 0.80;
 
 /**
  * §INSPECT-FOCUS-IS-THE-ONLY-COLOUR (L-3511) — THE Inspect blue.
@@ -1443,10 +1450,13 @@ export class DiagnosticMaterialManager {
           opacity:     ANALYSIS_SELECTED_OPACITY,
           transparent: true,
           side:        THREE.DoubleSide,
-          // §ANALYSIS-SELECTION-IS-TRANSPARENT-PURPLE (L-9203) — was `true`, correct
-          // at 0.95 and wrong at 0.20: a mostly-transparent surface that writes depth
-          // occludes what is behind it and sorts badly against the ghost.
-          depthWrite:  false,
+          // §ANALYSIS-SELECTION-IS-TRANSPARENT-PURPLE (L-9203), AMENDED L-9210.
+          // This tracks the ALPHA and must move with it. At 0.20 it had to be
+          // `false` — a mostly-TRANSPARENT surface that writes depth occludes what
+          // is behind it and sorts badly against the ghost. At 0.80 the surface is
+          // mostly OPAQUE, so writing depth is correct again and NOT writing it
+          // makes a solid-looking wash sort behind the grey it is meant to sit on.
+          depthWrite:  true,
         }));
         return;
       }

@@ -248,9 +248,14 @@ describe('§ANALYSIS-OWNS-ITS-PALETTE (L-9200) — Analysis never paints Inspect
     // C18 §1 fixes the HUE and C16 CA-13 makes it mandatory — not a judgement call.
     expect(hexOf(f.wall)).toBe(PRYZM_PURPLE);
     // ⚠ The ALPHA is NOT in any contract (C18's only opacity, 0.55, is for object
-    // placement previews, §3). "80% transparent" is read as alpha 0.20; the reasons
-    // are on `ANALYSIS_SELECTED_OPACITY`. This assertion is here so that flipping the
-    // reading is a deliberate two-line change, not a silent drift.
-    expect(alphaOf(f.wall)).toBeCloseTo(0.20, 5);
+    // placement previews, §3), so it was READ from the founder's words and shipped at
+    // 0.20 as the falsifiable choice — precisely so he could answer.
+    //
+    // ⭐ SETTLED 2026-08-23 (L-9210): he read 0.20 and answered "correct 80% opaque".
+    // This is that two-line change, made deliberately, exactly as this assertion was
+    // built to force. The mechanism worked: a value he could SEE produced a decision.
+    // ⚠ `depthWrite` moves WITH this number (true at 0.80, false at 0.20) — see
+    // `ANALYSIS_SELECTED_OPACITY`. Changing one without the other is the defect.
+    expect(alphaOf(f.wall)).toBeCloseTo(0.80, 5);
   });
 });
