@@ -41429,3 +41429,42 @@ caption }`, mounted through `mountElementPreview()` — the same shape as
 (`SendMessage` → *"No agent named 'OPENUI41' is reachable"*, and no `ListAgents` tool is
 exposed here). Building against a moving interface is how two rival ports get minted.
 **Stubbed = nothing; what is owed is one file plus one registration.**
+
+### L-7861 — ⛔ PRE-EXISTING RED in the STAIR plan specs, established by controlled revert, not asserted
+
+Lane-close sweep of the whole `plantools/__tests__/` directory (2026-08-23, LIFT42):
+**23 files · 356 tests · 19 files pass · 4 files / 7 tests FAIL.**
+
+| file | failing |
+|---|---|
+| `stairCreationModes.spec.ts` | 4 |
+| `stairByWalls.spec.ts` | 1 |
+| `stairPlanCreation.spec.ts` | 1 |
+| `planAutoModeReachability.spec.ts` | 1 (*"CENSUS: every tool the matrix declares with 2+ modes registers an activator that ACCEPTS a mode"*) |
+
+⚠ **NOT THIS LANE, AND THAT MATTERS BECAUSE THIS LANE TOUCHED TWO FILES THOSE SPECS READ**
+— `ToolsAreaLayout.ts` (the tool-activator registrations, which the auto-mode CENSUS
+enumerates) and `elementCreationMatrix.ts` (the declaration the census compares against). A
+lane that changed both and then reported "not mine" on inspection would be guessing.
+
+**Established by CONTROLLED REVERT:** both files were copied aside, the `33b30c9e^` versions
+restored in place, the four specs re-run, and the originals put back
+(`git status --porcelain` on both → clean afterwards). **With this lane's changes absent the
+reading is IDENTICAL — 4 files, 7 failed, 42 passed.** So the lift-activator change and the
+matrix `gap`-text rewrite contribute zero of the seven.
+
+⭐ On a shared tree a suite reading is a photograph of the whole tree, never a verdict on one
+lane — the lane that finds it red must establish WHOSE it is before either claiming it or
+ignoring it. **Owner: the stair family. Not adopted here, and not silently passed over.**
+
+**This lane's own suites at close, all in the FOREGROUND:**
+- `planOnlyToolEscape.spec.ts` → **9/9** (differentiating: 4 fail with the disarm neutralised;
+  D-1 fails with the pool's idle hint neutralised)
+- `liftReachesTheRenderMirror.test.ts` → **5/5** (differentiating: 2 fail with the bridge's
+  `lift.create` case renamed out of the switch)
+- `pointerReachesArmedHandler.spec.ts` → **16/16** · `elementCreationMatrix.spec.ts` → pass
+- `lift` / `pool` / `balcony` reachability suites → **4 files, 39 passed**
+- Root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=0, 0
+  errors** (an earlier mid-session run showed 8 errors in `plugins/boundary-line/**`, another
+  lane's, which that lane then fixed — kept here because a single tsc run on a shared tree is
+  a photograph, not a verdict).
