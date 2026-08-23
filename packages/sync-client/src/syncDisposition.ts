@@ -841,6 +841,51 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
   // `wallIds` / `floorSlabId` / `waterId` are the pool's COMPOSITION references —
   // properties of the pool naming its parts, not second subjects.
   'pool.create':        { kind: 'element-property', subject: 'poolId',  conflict: 'disclose' },
+  // ── THE OTHER TWO C103/C104 COMPOUNDS — §FIX-COMPOUND-SYNC-UNDECLARED (L-7810) ──
+  //
+  // ⭐ THE FOUNDER PLACED A LIFT AND A BALCONY AND THE ADAPTER SAID SO, IN HIS OWN LOG:
+  //
+  //     [YjsDocAdapter] W5-3: command type 'lift.create' has NO sync disposition.
+  //       Its properties are NOT replicated.
+  //
+  // In plain terms: a lift or a balcony placed by one collaborator never reached
+  // another. The adapter named this file and the two legal answers; "not yet declared"
+  // was never one of them (C08). The pool — the third of the three compounds, shipped
+  // the same week — WAS declared, at exactly the row above. So this is not a gap in the
+  // model, it is two rows that were never written, and the shape is settled by the
+  // sibling directly above rather than invented here.
+  //
+  // ⭐ WHY `element-property` AND NOT `not-synced`. All three are ONE gesture that
+  // writes MANY stores, and every non-subject key names a part the compound owns:
+  //   pool     — `wallIds` / `floorSlabId` / `waterId`
+  //   lift     — `enclosureIds` / `landingDoorIds` / `cabinPartIds` / `servedLevels`
+  //   balcony  — `slabId` / `floorId` / `railingIds`
+  // Those are COMPOSITION REFERENCES: properties of the compound naming its members,
+  // not second subjects and not routing. The pool's row already rules on that exact
+  // question in its own comment, and the members are re-derived from the compound
+  // record by the receiving side rather than replicated as independent elements —
+  // which is the same reason the compound is ONE undo entry across six stores.
+  //
+  // ⚠ AND THE HONEST LIMIT, stated because C66 §1.1 forbids writing a claimed
+  // capability the way a measured one is written: declaring these means the payload
+  // reaches the CRDT document and a receiving document can read the properties back.
+  // It does NOT mean the receiving client re-renders a lift — nothing reads the
+  // canonical element map back into local stores yet (L-391), and for the lift that
+  // second gap is REAL and separately logged (L-7820): the lift has no legacy mirror
+  // and no fragment builder on the LOCAL side either. Declaring the disposition closes
+  // the replication question; it does not close the rendering one.
+  'balcony.create':     { kind: 'element-property', subject: 'balconyId', conflict: 'disclose' },
+  // A RESHAPE — absolute `boundary`, exactly like `roof.update`'s absolute geometry.
+  // `hostSegment` and `addedRailingIds` are excluded as DISPATCH INPUTS rather than
+  // balcony state: the handler's own header says `hostSegment` is "passed rather than
+  // remembered … a value read from a store at redo time is a different value if the
+  // wall moved", and `addedRailingIds` are pre-minted ids for slots this reshape adds.
+  // Replicating either would put one caller's redo inputs onto the element record.
+  'balcony.updateProfile': {
+    kind: 'element-property', subject: 'balconyId',
+    exclude: ['hostSegment', 'addedRailingIds'], conflict: 'disclose',
+  },
+  'lift.create':        { kind: 'element-property', subject: 'liftId',    conflict: 'disclose' },
   'roof.create':        { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
   'room.create':        { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
   'structural.create':  { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
@@ -898,6 +943,11 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
   'lighting.delete':    { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{lightingId}` only. See annotation.delete.' },
   'plumbing.delete':    { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{plumbingId}` only. See annotation.delete.' },
   'pool.delete':        { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{poolId}` only, and the handler also removes the pool\'s composed walls/slabs — a CASCADE the tombstone kind must express. See annotation.delete.' },
+  // §FIX-COMPOUND-SYNC-UNDECLARED (L-7811) — the pool's two compound siblings. BOTH
+  // cascades are WIDER than the pool's, which is why each states its own rather than
+  // pointing at `pool.delete` and leaving the reader to assume they match.
+  'balcony.delete':     { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{balconyId}` only, and the handler cascades to the plate slab, the floor finish AND one handrail per FREE EDGE — a VARIABLE-ARITY cascade the tombstone kind must express. See pool.delete and annotation.delete.' },
+  'lift.delete':        { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND, and the WIDEST cascade of the three compounds: `{liftId}` plus an optional `servedLevels` HEAL HINT. The handler removes four enclosure sides (across the wall AND curtainwall stores), one landing door per served storey and five cabin parts — and it also HEALS a void in every slab the shaft penetrated. So the tombstone kind must express a cascade that RESTORES state on other elements, not only one that removes records. A tombstone that replicated the removals and dropped the heal would leave every collaborator with a full-height hole through every floor plate and no lift in it — strictly worse than not replicating the delete at all, which is why this is not-synced rather than approximated. See pool.delete and annotation.delete.' },
   'roof.delete':        { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{roofId}` only. See annotation.delete.' },
   'room.delete':        { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{roomId}` only. See annotation.delete.' },
   'slab.delete':        { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{slabId}` only. See annotation.delete.' },
