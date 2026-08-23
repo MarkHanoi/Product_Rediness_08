@@ -369,37 +369,65 @@ describe('§FIX-LIFT-LOST-BETWEEN-DISPATCH-AND-STORE — the lift reaches the re
         rt.tearDown();
     });
 
-    it('⭐ B-3 R-13 BOTH WAYS: it names the ONE remaining gap, and it GOES QUIET without it', async () => {
+    it('⭐ B-3 R-13 BOTH WAYS: the shaft VOID now rides the mutation channel, and the frame goes quiet', async () => {
         // ═══════════════════════════════════════════════════════════════════════
         // ⛔ THE HALF A PASSING TEST FORGETS. C104 R-13 says a create that produces
         // no visible element must SAY so. The complement is just as binding and is
         // the half that rots: a warning that fires on every successful lift is a
         // warning nobody reads, which fails in exactly the way silence does.
         // ═══════════════════════════════════════════════════════════════════════
+        //
+        // ⭐ REWRITTEN 2026-08-23 (lane MIRROR3, L-9943), AND THE REASON IS THE POINT
+        // OF THE ROW. This arm used to assert that the warning FIRED and CONTAINED
+        // `'slab void(s)'` — i.e. it pinned the DEFECT. L-9403's diagnosis was right
+        // and its scope was wrong: *"there is no `slab.updated` mirror in
+        // initTools.ts"* was true of the WHOLE REPOSITORY, not of the lift
+        // (`grep -c "\.updated'" initTools.ts` -> 0). So the fix was not lift-shaped,
+        // and the moment `element.updated` existed this assertion went red for the
+        // right reason: **a test that asserts a warning is present is satisfied only
+        // while the bug is.**
+        //
+        // ⛔ THE DIAGNOSTIC BLOCK IN THE BRIDGE IS NOT DELETED, and neither is this
+        // arm. Its job was never to carry one row — it is what notices the NEXT member
+        // kind to arrive without a mirror. What changes is the SUBJECT: (a) now proves
+        // the void REACHES the channel, and both halves prove the frame is SILENT
+        // because there is nothing left to say. The generic detector keeps its own
+        // arm at C-1.
         warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-        const { rt, disposeBridge } = await bootWithHost();
+        const { rt, events, disposeBridge } = await bootWithHost();
 
-        // (a) WITH a penetrated slab — the one row this lane did NOT close. The void
-        //     is a REPLACE on an existing slab's `holes`, and every legacy slab bridge
-        //     keys on a CREATE, so no mirror sees it (L-9403).
+        const updated: Record<string, unknown>[] = [];
+        events.on('element.updated', (ev: unknown) => updated.push(ev as Record<string, unknown>));
+
+        // (a) WITH a penetrated slab. The void is a REPLACE on an existing slab's
+        //     `holes`; §MIRROR-UPDATE (L-9942) is the channel that carries it.
         await rt.bus.executeCommand('lift.create', {
             ...basePayload,
             enclosureType: 'standalone-glass',
         });
-        const said = warnings().find((w) => w.includes('§FEAT-LIFT-OBSERVATION-FRAME'));
-        expect(said).toBeDefined();
-        expect(said).toContain('slab void(s)');
-        // ⛔ It refuses the comfortable word: the record is real, undoable and
-        // schedulable, and part of it is invisible. "Failed" and "created" are both
-        // wrong.
-        expect(said).toContain('PARTIAL create');
-        // ⭐ AND IT NO LONGER CLAIMS THE THREE THAT ARE NOW FIXED. A diagnostic that
-        // keeps naming closed gaps is how a reader learns to ignore it.
-        expect(said).not.toContain('curtain-wall enclosure side(s)');
-        expect(said).not.toContain('landing door(s)');
-        expect(said).not.toContain('cabin part(s)');
 
-        // (b) WITHOUT one — a lift on grade, nothing penetrated. SILENT.
+        const voids = updated.filter((e) => e['elementKind'] === 'slab');
+        expect(voids.length, 'the shaft penetrates a plate — that must reach a mirror')
+            .toBeGreaterThan(0);
+        expect(voids[0]!['elementId'], 'keyed by the SLAB it penetrates, not by the lift')
+            .toBe(SLAB_L0);
+        expect(voids[0]!['changedFields']).toEqual(['holes']);
+        expect(voids[0]!['commandType'], 'stamped with the COMPOUND\'s verb, so a reader can tell a cascade from a direct edit')
+            .toBe('lift.create');
+        // ⛔ ONE EVENT PER PENETRATED SLAB, never one per patch — a lift serving ten
+        // storeys must not make the mirror rebuild one plate ten times.
+        expect(new Set(voids.map((e) => e['elementId'])).size).toBe(voids.length);
+
+        // ⭐ AND THE OBSERVATION FRAME IS NOW SILENT, because every member has a
+        // channel. That is R-13's second half: it must go quiet when there is nothing
+        // to say. A warning still naming closed gaps is how a reader learns to ignore
+        // one.
+        expect(warnings().filter((w) => w.includes('§FEAT-LIFT-OBSERVATION-FRAME')))
+            .toEqual([]);
+
+        // (b) WITHOUT one — a lift on grade, nothing penetrated. Also SILENT, and for
+        //     a DIFFERENT reason: there is no void at all. Both silences are correct
+        //     and the arm keeps both so a regression in either is visible.
         warnSpy.mockClear();
         await rt.bus.executeCommand('lift.create', {
             ...basePayload,
@@ -446,6 +474,56 @@ describe('§FIX-LIFT-LOST-BETWEEN-DISPATCH-AND-STORE — the lift reaches the re
         // pins that the NEXT compound to arrive without a case is loud the first time a
         // person uses it, instead of being found in a founder's screenshot of an element
         // count that did not move.
+        //
+        // ⛔ REWRITTEN 2026-08-23 (lane MIRROR3, L-9941) — IT USED TO DRIVE
+        // `pool.create`, AND THAT COUPLING WAS THE BUG IN THE TEST. The pool was the
+        // live example of a caseless compound, so the arm went RED the moment the pool
+        // got its case: **a detector test whose fixture is a real defect is satisfied
+        // only while that defect exists**, and it punishes the fix. The subject is now
+        // a SYNTHETIC record whose type nothing declares, fed to the bridge through the
+        // same `subscribe` seam `composeRuntime` uses — so the arm measures the
+        // DETECTOR, survives every future fix, and needs no verb to stay broken.
+        warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+        let deliver!: (bytes: unknown, record: unknown) => void;
+        const patches = {
+            subscribe: (cb: (b: unknown, r: unknown) => void) => { deliver = cb; return () => {}; },
+        };
+        const events = new EventBus();
+        const dispose = wireCommandEventBridge(patches as never, events);
+
+        // A two-store `add` compound — the exact shape the detector is defined on
+        // (`op === 'add'` && `path.length === 2` && `stores.size > 1`, the
+        // `produceMultiStoreCommand` routing convention).
+        deliver(new Uint8Array(), {
+            id: 'evt-c1',
+            type: 'gazebo.create',
+            payload: { gazeboId: 'g1' },
+            affectedStores: ['wall', 'slab'],
+            audit: { actorId: 'probe', projectId: 'p1' },
+            forward: [
+                { op: 'add', path: ['wall', 'w1'], value: { id: 'w1' } },
+                { op: 'add', path: ['slab', 's1'], value: { id: 's1' } },
+            ],
+            inverse: [],
+        });
+
+        const said = warnings().find((w) => w.includes('§FIX-COMPOUND-SILENT-DROP'));
+        expect(said, 'a caseless multi-store compound must announce itself').toBeDefined();
+        expect(said).toContain('gazebo.create');
+        // It names the stores it wrote, so the reader can go and add the case without
+        // re-deriving the census.
+        expect(said).toMatch(/committed a COMPOUND across \d+ stores/);
+        expect(said).toContain('slab, wall');
+        dispose();
+    });
+
+    it('⭐ C-1b the detector is QUIET for a compound that HAS a case — pool, measured', async () => {
+        // ⭐ THE OTHER DIRECTION, AND IT IS WHAT C-1 USED TO ASSERT INVERTED. `pool.create`
+        // was the standing example of the silent drop; §FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE
+        // (L-9941) gave it a case, so the detector must now say NOTHING about it. Without
+        // this arm the fix would be provable only by the absence of a red line somewhere
+        // else, which is not a proof.
         warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
         const { rt, disposeBridge } = await bootWithHost();
 
@@ -465,12 +543,16 @@ describe('§FIX-LIFT-LOST-BETWEEN-DISPATCH-AND-STORE — the lift reaches the re
             waterId: 'floor_01ARZ3NDEKTSV4RRFFQ69G5H71',
         });
 
-        const said = warnings().find((w) => w.includes('§FIX-COMPOUND-SILENT-DROP'));
-        expect(said).toBeDefined();
-        expect(said).toContain('pool.create');
-        // It names the stores it wrote, so the reader can go and add the case without
-        // re-deriving the census.
-        expect(said).toMatch(/committed a COMPOUND across \d+ stores/);
+        expect(
+            warnings().filter((w) => w.includes('§FIX-COMPOUND-SILENT-DROP')),
+            'the pool has a case now — the silent-drop detector must not still accuse it',
+        ).toEqual([]);
+        // ⚠ It DOES still warn about the water, and that is a different sentence with a
+        // different meaning: the pool is relayed, and ONE of its members has no builder
+        // anywhere (L-9941). "Not mirrored" and "mirrored, one member unrenderable" are
+        // not the same fact and must not read as the same line.
+        const water = warnings().find((w) => w.includes('WATER BODY'));
+        expect(water, 'an invisible member must be NAMED at the layer that knows').toBeDefined();
         disposeBridge();
         rt.tearDown();
     });
