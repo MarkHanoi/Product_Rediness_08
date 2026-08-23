@@ -238,7 +238,8 @@ export { PlanElementDragController, planElementDragController } from './PlanElem
 // ── Sprint M (2026-05-10) — LightingPlanSymbolRenderer ────────────────────────
 
 export type { RenderLightingSymbolsOptions } from './symbols/LightingPlanSymbolRenderer.js';
-export { renderLightingSymbols } from './symbols/LightingPlanSymbolRenderer.js';
+export { renderLightingSymbols, hitTestLightingSymbol, lightingSymbolExtentPx } from './symbols/LightingPlanSymbolRenderer.js';
+export type { LightingSymbolExtentPx } from './symbols/LightingPlanSymbolRenderer.js';
 
 // ── Sprint AH (2026-05-12) — DrawingEditorService ────────────────────────────
 export { drawingEditorService, ANNOTATION_TOOL_IDS } from './DrawingEditorService.js';

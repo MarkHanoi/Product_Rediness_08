@@ -821,7 +821,8 @@ export {
 export type { SceneQualityTier } from './rendering/SceneQualityTierManager.js';
 
 export type { RenderLightingSymbolsOptions } from './views/symbols/LightingPlanSymbolRenderer.js';
-export { renderLightingSymbols } from './views/symbols/LightingPlanSymbolRenderer.js';
+export { renderLightingSymbols, hitTestLightingSymbol, lightingSymbolExtentPx } from './views/symbols/LightingPlanSymbolRenderer.js';
+export type { LightingSymbolExtentPx } from './views/symbols/LightingPlanSymbolRenderer.js';
 
 export type {
     PlanViewCanvasStyle, PlanViewCanvasOptions, PlanViewCanvasRenderOptions,

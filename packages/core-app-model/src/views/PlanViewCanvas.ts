@@ -99,7 +99,7 @@ import { resolveIntentStyle, viewTypeDeclaresCutFill } from '../presentation/Int
 import { getDefaultSystemIntentId } from '../presentation/SystemIntents';
 import { floorPlanUnderlayRef } from './FloorPlanUnderlayRef';
 // Phase L — Lighting plan symbol overlay (placed fixtures)
-import { renderLightingSymbols } from './symbols/LightingPlanSymbolRenderer';
+import { renderLightingSymbols, hitTestLightingSymbol } from './symbols/LightingPlanSymbolRenderer';
 // §FEAT-PLAN-HOSTED-DRAG-HANDLES (founder, 2026-08-07) — the two drag arrows on a
 // selected door/window. Direct file imports (not the barrel) to avoid barrel-at-
 // module-load coupling (memory: SCC). `PlanElementDragController` imports this file
@@ -1448,7 +1448,11 @@ export class PlanViewCanvas {
 
     hitTest(sx: number, sy: number, thresholdPx = 8): string | null {
         const drawing = this._lastViewId ? viewTechnicalDrawingCache.get(this._lastViewId) : null;
-        if (!drawing) return null;
+        // §FIX-LIGHT-PLAN-UNSELECTABLE (L-10081) — `if (!drawing) return null` used to sit
+        // here. It must not short-circuit the lighting fallback at the bottom of this
+        // method: lighting symbols are painted from the STORE, not from the projected
+        // drawing, so they are on screen and clickable even on a plan that has produced
+        // no linework yet (a fresh level, or a projection still in flight).
         let bestId: string | null = null;
         let bestDist = thresholdPx;
 
@@ -1459,7 +1463,7 @@ export class PlanViewCanvas {
         const _hitViewType = (_hitViewId ? viewDefinitionStore.get(_hitViewId)?.viewType : undefined)
             ?? this._viewType;
 
-        (drawing as any).three?.traverse?.((child: THREE.Object3D) => {
+        (drawing as any)?.three?.traverse?.((child: THREE.Object3D) => {
             if (!(child instanceof THREE.LineSegments)) return;
             const posAttr = child.geometry?.getAttribute('position') as THREE.BufferAttribute | undefined;
             if (!posAttr || posAttr.count < 2) return;
@@ -1505,7 +1509,46 @@ export class PlanViewCanvas {
             }
         });
 
-        return bestId;
+        if (bestId !== null) return bestId;
+
+        // ⭐ §FIX-LIGHT-PLAN-UNSELECTABLE (L-10081, founder 2026-08-23: *"I cannot
+        // select the lighting fixture in plan view nor in 3D view"*).
+        //
+        // Everything above walks PROJECTED LINEWORK — `drawing.three` for
+        // `THREE.LineSegments` carrying an element UUID — because that is how every
+        // plan symbol that must be clickable reaches this method: a plan-symbol
+        // BUILDER injects UUID-registered LineSegments into the technical drawing
+        // (door swing, sofa, bed, wardrobe, kitchen, tree, plumbing, stair tread,
+        // column cap — see the injection block in `EdgeProjectorService`).
+        //
+        // LIGHTING IS THE ONE FAMILY THAT DOES NOT. `_renderLightingPlanSymbols()`
+        // above paints its symbol straight onto the 2-D canvas from `LightingStore`,
+        // contributing ZERO LineSegments — so this traverse could never return a
+        // fixture id, on any plan, at any zoom. The symbol was drawn and hit-testable
+        // by nothing. The renderer's own `STROKE_SELECTED` branch is the tell: it has
+        // always been able to PAINT a selected fixture while nothing in plan could
+        // SELECT one.
+        //
+        // ⛔ RUN LAST, AND ONLY ON A MISS. Fixtures sit on the ceiling and their
+        // symbols overlay walls, fills and furniture; competing with the linework
+        // would let a light steal clicks from elements that are already selectable.
+        // Reached only when the linework found nothing, this can ADD a selection and
+        // can never take one away — which is also why it needs no new suppression
+        // switch of its own.
+        //
+        // Same `_levelId` scope, same `worldToScreen`, same per-family extents as the
+        // drawer: what the user aims at IS what is tested, by construction.
+        if (this._viewType === 'plan' ||
+            this._viewType === 'ceiling-plan' ||
+            this._viewType === 'structural-plan') {
+            return hitTestLightingSymbol(
+                sx, sy, this.getPixelsPerUnit(),
+                (wx, wz) => this.worldToScreen(wx, wz),
+                { levelId: this._levelId, grabPx: thresholdPx },
+            );
+        }
+
+        return null;
     }
 
     hitTestAnnotation(sx: number, sy: number, thresholdPx = 12): string | null {
