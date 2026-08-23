@@ -6,7 +6,7 @@
  *             separate; the UBG's vocabulary is the canonical QUERY vocabulary) ·
  *             C71 §4.4 (`[]` may only ever mean "zero results") ·
  *             C78 §4 (relationship direction is a fact, not a convention)
- * ADR:        ADR-0360
+ * ADR:        ADR-0364
  * Issue log:  L-8413 · L-8414 · L-8415 · L-8416
  * SPEC:       docs/03-execution/specs/SPEC-ANALYSIS-RELATIONSHIP-GRAPH-3D.md §3
  *

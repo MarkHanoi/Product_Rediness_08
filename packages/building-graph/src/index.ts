@@ -37,7 +37,7 @@ export {
 
 export type { UbgAdapter, UbgAdapterRegistry } from './adapters.js';
 
-// GRAPH48 / ADR-0360 — ONE graph, SIX projections. A hierarchy view is a subset
+// GRAPH48 / ADR-0364 — ONE graph, SIX projections. A hierarchy view is a subset
 // of the ten declared edge families, never a rival graph (C71 §4.1/§4.2).
 export {
   disciplineOfFamily,

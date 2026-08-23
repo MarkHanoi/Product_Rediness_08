@@ -3,7 +3,7 @@
  *
  * Layer:      L2 (`@pryzm/building-graph`). Pure. No THREE, no DOM, no I/O (P5).
  * Contracts:  C71 §4.2 (the UBG's vocabulary is the canonical query vocabulary)
- * ADR:        ADR-0360 §3 (one graph, six projections)
+ * ADR:        ADR-0364 §3 (one graph, six projections)
  * Issue log:  L-8410 · L-8411 · L-8412
  * SPEC:       docs/03-execution/specs/SPEC-ANALYSIS-RELATIONSHIP-GRAPH-3D.md §2.3
  *
