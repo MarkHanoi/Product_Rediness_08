@@ -330,7 +330,12 @@ describe('computeWallQuantities (pure helper)', () => {
         expect(q.netFootprintArea).toBe(q.grossFootprintArea);
     });
 
-    it('density emits both GrossWeight and NetWeight when volume is defined', () => {
+    // ⭐ L-8530 — this test USED TO ASSERT THE DEFECT. It read
+    // `expect(q.netWeight).toBeCloseTo(6480)` with no openings supplied, i.e. it
+    // pinned NetWeight === GrossWeight as correct. It is not: with the openings
+    // unknown, the net figures are unknown, and emitting them equal to gross
+    // tells a quantity surveyor the wall is solid.
+    it('density with UNKNOWN openings emits GrossWeight only — NetWeight is unknowable', () => {
         const q = computeWallQuantities({
             id: 'w',
             lengthM: 5,
@@ -339,7 +344,40 @@ describe('computeWallQuantities (pure helper)', () => {
             densityKgPerM3: 2400,
         });
         expect(q.grossWeight).toBeCloseTo(6480, 6);
+        expect(q.netWeight).toBeUndefined();
+    });
+
+    it('density with KNOWN-zero openings emits both, and they are equal', () => {
+        // `0` is a different fact from `undefined`: the wall is known to have no
+        // openings, so Net === Gross is a measurement, not a default.
+        const q = computeWallQuantities({
+            id: 'w',
+            lengthM: 5,
+            widthM: 0.2,
+            heightM: 2.7,
+            densityKgPerM3: 2400,
+            openingsAreaM2: 0,
+            openingsVolumeM3: 0,
+        });
+        expect(q.grossWeight).toBeCloseTo(6480, 6);
         expect(q.netWeight).toBeCloseTo(6480, 6);
+    });
+
+    it('density with REAL openings emits a NetWeight that is genuinely lower', () => {
+        const q = computeWallQuantities({
+            id: 'w',
+            lengthM: 5,
+            widthM: 0.2,
+            heightM: 2.7,
+            densityKgPerM3: 2400,
+            openingsAreaM2: 2,            // e.g. one 2 m² window
+            openingsVolumeM3: 2 * 0.2,
+        });
+        expect(q.grossVolume).toBeCloseTo(2.7, 6);
+        expect(q.netVolume).toBeCloseTo(2.3, 6);
+        expect(q.netSideArea).toBeCloseTo(13.5 - 2, 6);
+        expect(q.netWeight).toBeCloseTo(2.3 * 2400, 6);
+        expect(q.netWeight!).toBeLessThan(q.grossWeight!);
     });
 
     it('density alone (no dimensions) emits no weights', () => {
@@ -440,10 +478,35 @@ describe('writeQtoWallBase — per-quantity roundtrip', () => {
         });
     });
 
-    it('all dimensions (no density) → 9 quantities, no weights', () => {
+    // ⭐ L-8530 — was `→ 9 quantities`, listing NetSideArea and NetVolume even
+    // though no openings were supplied. Those two are now correctly withheld.
+    // NetFootprintArea stays: openings are vertical, so a wall's floor-plan
+    // footprint genuinely is not reduced by them.
+    it('all dimensions, openings UNKNOWN → 7 quantities, no Net side/volume, no weights', () => {
         const r = writeQtoWallBase(
             wallRef(),
             { id: 'w', lengthM: 5, widthM: 0.2, heightM: 2.7 },
+            ctx(),
+        );
+        expect(r.quantityCount).toBe(7);
+        const names = Object.keys(quantitiesByName()).sort();
+        expect(names).toEqual(
+            [
+                'GrossFootprintArea',
+                'GrossSideArea',
+                'GrossVolume',
+                'Height',
+                'Length',
+                'NetFootprintArea',
+                'Width',
+            ].sort(),
+        );
+    });
+
+    it('all dimensions + KNOWN openings → the full 9 quantities', () => {
+        const r = writeQtoWallBase(
+            wallRef(),
+            { id: 'w', lengthM: 5, widthM: 0.2, heightM: 2.7, openingsAreaM2: 2, openingsVolumeM3: 0.4 },
             ctx(),
         );
         expect(r.quantityCount).toBe(9);
@@ -463,7 +526,7 @@ describe('writeQtoWallBase — per-quantity roundtrip', () => {
         );
     });
 
-    it('all dimensions + density → 11 quantities (adds GrossWeight + NetWeight)', () => {
+    it('all dimensions + density + KNOWN openings → 11 quantities (adds GrossWeight + NetWeight)', () => {
         const r = writeQtoWallBase(
             wallRef(),
             {
@@ -472,6 +535,10 @@ describe('writeQtoWallBase — per-quantity roundtrip', () => {
                 widthM: 0.2,
                 heightM: 2.7,
                 densityKgPerM3: 2400,
+                // L-8530: without these the Net quantities — and therefore
+                // NetWeight — are correctly withheld, so this would be 8.
+                openingsAreaM2: 0,
+                openingsVolumeM3: 0,
             },
             ctx(),
         );
@@ -665,8 +732,9 @@ describe('writeQtoWallBase — combined / structural', () => {
             ctx(),
         );
         expect(vi.mocked(writeEntityMock)).toHaveBeenCalled();
-        // 9 quantities + 1 qto + 1 rel = 11 entity writes.
-        expect(vi.mocked(writeEntityMock).mock.calls.length).toBe(11);
+        // L-8530: 7 quantities (NetSideArea + NetVolume withheld as UNKNOWN)
+        // + 1 qto + 1 rel = 9 entity writes. Was 11.
+        expect(vi.mocked(writeEntityMock).mock.calls.length).toBe(9);
     });
 });
 
@@ -694,7 +762,8 @@ describe('writeQtoWallBase — OpenTelemetry span (P8)', () => {
             { id: 'wall_attrs', lengthM: 5, heightM: 2.7 },
             ctx(),
         );
-        // Length + Height + GrossSideArea + NetSideArea = 4.
-        expect(capturedSpans[0].attributes.quantityCount).toBe(4);
+        // L-8530: Length + Height + GrossSideArea = 3. NetSideArea is withheld
+        // because the openings were not supplied. Was 4.
+        expect(capturedSpans[0].attributes.quantityCount).toBe(3);
     });
 });

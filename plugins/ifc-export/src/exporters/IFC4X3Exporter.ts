@@ -262,20 +262,50 @@ export async function exportProjectToIFC4X3(
         // Derive Length / Width / Height defensively from the wall payload —
         // base-line distance, thickness, and height respectively. Openings
         // areas / volumes and material density are not yet plumbed; the
-        // defensive picker drops them and the qto still ships with the 9
-        // geometric quantities (Length, Width, Height, GrossFootprintArea,
-        // NetFootprintArea, GrossSideArea, NetSideArea, GrossVolume,
-        // NetVolume). Counted as a Pset for the rollup (IfcElementQuantity
-        // ⊆ IfcPropertySetDefinition).
+        // defensive picker drops them. L-8530: openings ARE now plumbed (see
+        // below), so NetSideArea / NetVolume are real rather than copies of
+        // Gross. Material density is still absent, so Gross/NetWeight remain
+        // correctly unemitted. Counted as a Pset for the rollup
+        // (IfcElementQuantity ⊆ IfcPropertySetDefinition).
         const [wa, wb] = wall.baseLine;
         const wdx = wb.x - wa.x;
         const wdz = wb.z - wa.z;
         const wallLengthM = Math.hypot(wdx, wdz);
+
+        // ⭐ L-8530 — FEED THE OPENINGS. The audit found NetSideArea ===
+        // GrossSideArea and NetVolume === GrossVolume for every wall, because no
+        // caller ever supplied opening figures and the writer defaulted them to
+        // zero. The data was there all along: `Wall.openings` carries each
+        // opening's width and height (see `WallData.openings` /
+        // `packages/schemas/src/elements/Wall.ts` `Opening`).
+        //
+        // An EMPTY openings array is a genuine "this wall has none" — it is
+        // emitted as 0, and the Net quantities ship equal to Gross, correctly.
+        // The quantities are only suppressed when the array itself is absent,
+        // which is the honest UNKNOWN.
+        const openings = (wall as { openings?: ReadonlyArray<{ width?: number; height?: number }> }).openings;
+        let openingsAreaM2: number | undefined;
+        let openingsVolumeM3: number | undefined;
+        if (Array.isArray(openings)) {
+          let area = 0;
+          for (const o of openings) {
+            const ow = Number(o?.width);
+            const oh = Number(o?.height);
+            if (Number.isFinite(ow) && Number.isFinite(oh) && ow > 0 && oh > 0) area += ow * oh;
+          }
+          openingsAreaM2 = area;
+          // An opening is a through-cut, so its volume is its face area times
+          // the wall thickness.
+          if (Number.isFinite(wall.thickness)) openingsVolumeM3 = area * wall.thickness;
+        }
+
         const wallQtyInput: WallQuantityInputs = {
           id: wall.id,
           lengthM: Number.isFinite(wallLengthM) ? wallLengthM : undefined,
           widthM: Number.isFinite(wall.thickness) ? wall.thickness : undefined,
           heightM: Number.isFinite(wall.height) ? wall.height : undefined,
+          ...(openingsAreaM2 !== undefined ? { openingsAreaM2 } : {}),
+          ...(openingsVolumeM3 !== undefined ? { openingsVolumeM3 } : {}),
         };
         const qr = writeQtoWallBase(el.entity, wallQtyInput, {
           api,

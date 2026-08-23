@@ -1,72 +1,37 @@
 /**
- * IFC `GloballyUniqueId` helpers.
+ * IFC `GloballyUniqueId` helpers — **re-exports only**.
  *
- * IFC GUIDs are 22-character base64-style encodings of 128-bit UUIDs using the
- * alphabet `0-9 A-Z a-z _ $`. We rely on `web-ifc`'s native helper for IFC
- * GUID minting (it follows buildingSMART's exact base64 alphabet) and only
- * roll our own when callers need deterministic IDs in tests.
+ * ⭐ L-8502. This file used to hold its own implementation of buildingSMART's
+ * encoder. It was CORRECT (verified: bijective over 20k random UUIDs, first
+ * character always in `0..3`, `max` -> `3$$$$$$$$$$$$$$$$$$$$$`) and it had ZERO
+ * production call sites, while the pipeline the app actually runs
+ * (`packages/file-format/src/export/ifc/**`) wrote raw 36-character UUIDs into
+ * `GlobalId` through an identity function.
  *
- * `globalIdFromUuid` is a port of buildingSMART's reference algorithm:
- *   - Split the 128-bit UUID into 21-bit chunks (right-aligned, MSB-first).
- *   - Encode each chunk into 1, 2, 3, 3, 3, 3, 3, 3 base64 characters
- *     (totalling 22 characters).
+ * The audit's structural finding was two non-communicating pipelines with
+ * divergent feature sets and nothing shared — "not the GUID minter, not the pset
+ * writers, not the spatial writer". Copying this implementation into the other
+ * pipeline would have produced a second copy free to drift from a third.
+ *
+ * So the ONE implementation now lives at `@pryzm/schemas/ifc` (L0 — the only
+ * layer both `@pryzm/file-format` at L3 and this plugin at L6 can import
+ * downward from), and this module is a thin re-export. **There is no longer any
+ * code here that could diverge.** Do not re-implement any of it; add to
+ * `packages/schemas/src/ifc/GlobalId.ts` instead.
+ *
+ * See ADR-0316 (pipeline convergence), ADR-0317 (GlobalId stability), C25 §3.
  */
 
-const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$';
-
-const CHUNK_SIZES: ReadonlyArray<number> = [2, 10, 10, 10, 10, 10, 10, 10] as const;
-
-function encodeChunk(value: number, chars: number): string {
-  let out = '';
-  let v = value;
-  for (let i = 0; i < chars; i += 1) {
-    out = ALPHABET[v & 0x3f] + out;
-    v >>>= 6;
-  }
-  return out;
-}
-
-/**
- * Convert a canonical UUID string (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`) to
- * a 22-character IFC `GloballyUniqueId`.
- */
-export function globalIdFromUuid(uuid: string): string {
-  const hex = uuid.replace(/-/g, '');
-  if (hex.length !== 32 || !/^[0-9a-fA-F]{32}$/.test(hex)) {
-    throw new Error(`Invalid UUID: ${uuid}`);
-  }
-
-  // Split the 128-bit hex into 8 chunks per buildingSMART spec.
-  // Chunk lengths in HEX nibbles (bits / 4): [2, 10, 10, 10, 10, 10, 10, 10]
-  // Total = 2 + 10*7 = 72 bits encoded distinctly… but we actually pack the
-  // 128-bit value into 1-base64 + 7×3-base64 = 22 chars. The classic ref
-  // implementation re-splits the hex into [8,4,4,4,4,4,4]-style → [2,10..],
-  // then encodes the first chunk into 1 base64 char and the rest into 3.
-  // For simplicity (and to avoid 64-bit math), we encode the 128-bit hex via
-  // BigInt then split into the 8 chunk values.
-  const big = BigInt('0x' + hex);
-  const chunks: number[] = new Array(CHUNK_SIZES.length);
-  let remaining = big;
-  for (let i = CHUNK_SIZES.length - 1; i >= 0; i -= 1) {
-    const size = CHUNK_SIZES[i] ?? 0;
-    const chars = i === 0 ? 1 : 3;
-    const mask = (1n << BigInt(chars * 6)) - 1n;
-    chunks[i] = Number(remaining & mask);
-    remaining >>= BigInt(chars * 6);
-    void size;
-  }
-  if (remaining !== 0n) {
-    // 128 bits = 1*6 + 7*18 = 132 bits of encoding space; the top 4 bits are
-    // implicitly zero in any IFC GUID.
-  }
-
-  let out = '';
-  for (let i = 0; i < chunks.length; i += 1) {
-    const chars = i === 0 ? 1 : 3;
-    out += encodeChunk(chunks[i] ?? 0, chars);
-  }
-  return out;
-}
+export {
+    globalIdFromUuid,
+    uuidFromGlobalId,
+    isIfcGlobalId,
+    globalIdFromStableKey,
+    stableUuidFromKey,
+    toIfcGlobalId,
+    IFC_GLOBAL_ID_ALPHABET,
+    IFC_GLOBAL_ID_LENGTH,
+} from '@pryzm/schemas/ifc';
 
 const HEX_CHARS = '0123456789abcdef';
 function toHex(byte: number): string {
@@ -77,6 +42,9 @@ function toHex(byte: number): string {
  * Tiny deterministic UUID builder for tests — accepts a seed string and emits
  * a UUIDv4-shaped value. Not cryptographically random; suitable only for
  * golden-file fixtures.
+ *
+ * Kept here (rather than moved to L0) deliberately: it is a TEST affordance, and
+ * L0 should not grow one. Production determinism is `globalIdFromStableKey`.
  */
 export function deterministicUuid(seed: string): string {
   const bytes = new Uint8Array(16);

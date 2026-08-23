@@ -24,6 +24,10 @@
  *   • The qto attaches to the wall via `IfcRelDefinesByProperties` (the
  *     same relation Psets use — quantity-sets are a sibling of
  *     property-sets under `IfcPropertySetDefinition`).
+ *   • Net values are emitted ONLY when the opening figures are supplied.
+ *     `undefined` openings = UNKNOWN and the Net quantity is omitted; `0` =
+ *     known-to-have-none and the Net quantity is emitted equal to Gross
+ *     (L-8530). Previously `?? 0` collapsed both into "no openings".
  *   • Net values clamp to ≥ 0: if openings exceed the gross area/volume
  *     the net is set to zero (a defensive guard for malformed inputs;
  *     normally caught upstream).
@@ -184,20 +188,33 @@ export function computeWallQuantities(
     if (length !== undefined && height !== undefined) {
         const side = length * height;
         out.grossSideArea = side;
-        const opens = openingsArea ?? 0;
-        out.netSideArea = Math.max(0, side - opens);
+        // ⛔ L-8530 — `openingsArea ?? 0` was the defect. Openings were never
+        // supplied by any caller, so NetSideArea always equalled GrossSideArea
+        // and the file asserted, with the full authority of a standard quantity
+        // set, that a wall full of windows had no openings. A wrong number is
+        // worse than a missing one: a QS reads Net, not the absence of Net.
+        //
+        // `undefined` now means UNKNOWN and suppresses the quantity entirely;
+        // `0` means KNOWN-TO-HAVE-NO-OPENINGS and is emitted. Those are
+        // different facts and they no longer share a value.
+        if (openingsArea !== undefined) {
+            out.netSideArea = Math.max(0, side - openingsArea);
+        }
     }
 
     if (length !== undefined && width !== undefined && height !== undefined) {
         const vol = length * width * height;
         out.grossVolume = vol;
-        const opens = openingsVolume ?? 0;
-        const net = Math.max(0, vol - opens);
-        out.netVolume = net;
+        // L-8530, as above: no opening volume means NetVolume is UNKNOWN.
+        const net = openingsVolume !== undefined
+            ? Math.max(0, vol - openingsVolume)
+            : undefined;
+        if (net !== undefined) out.netVolume = net;
 
         if (density !== undefined) {
             out.grossWeight = vol * density;
-            out.netWeight = net * density;
+            // NetWeight is derived from NetVolume, so it inherits its unknown-ness.
+            if (net !== undefined) out.netWeight = net * density;
         }
     }
 
