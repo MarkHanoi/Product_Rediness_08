@@ -302,6 +302,82 @@ intent resolution had a bad day — strictly worse than the unconditional inject
 **Absence of a decision is not a hide** (§4.5.1: a default is not an override, in its other
 direction).
 
+### §4.3.3 — A DIAGNOSTIC LENS OWNS EMPHASIS, AND EMPHASIS IS ELEMENT-SHAPED (normative; L-8200, 2026-08-23)
+
+**A lens that replaces the materials of the meshes it traverses OWNS every visual distinction the
+user is meant to see while it is active — including "this is the thing I selected". It MUST re-mint
+that emphasis on every application, and it MUST key it on an ELEMENT id resolved for any family,
+never on the identity of one privileged family.**
+
+⭐ **THE MEASUREMENT THAT PRODUCED IT.** Founder, production, WebGL, 2026-08-23: *"INSPECT TAB: when
+I select the room, it highlights in the 3-D view in inspect mode and works perfect. However, when I
+select a wall it highlights for a second — or less — and stops being highlighted."*
+
+`DiagnosticMaterialManager` carried exactly one focus parameter and it was named
+`selectedRoomId: string`. Every lens that can emphasise anything decided it with, verbatim:
+
+```ts
+if (ud.isRoomVolume) {
+  const isSelected = !!(selectedRoomId && ud.roomId === selectedRoomId);
+```
+
+**A wall mesh has no `roomId` and is not `isRoomVolume`, so that comparison is UNREACHABLE FOR A
+WALL BY CONSTRUCTION** — not "wrong for some builders", not "wrong at some times": there is no scene
+in which it can be true. The room *works* for one reason and one only: the jewel is **re-minted by
+the lens itself** on every apply. A wall's only emphasis was `SelectionManager`'s purple overlay,
+which lives OUTSIDE the lens — and the next lens pass repaints it, because a highlight clone carries
+`isHelper`/`sharedGeometry` and **no `type`**, so `resolveGhostRole` classifies it `'non-structural'`
+and it takes the flat 4% white ghost. **One frame. That is the founder's "second — or less",
+measured, not inferred.**
+
+⛔ **THE TEMPTING FIX IS REJECTED BY THIS CLAUSE.** Exempting `userData.isHelper` meshes from the
+ghost pass would let the purple survive — and would also change how `PreviewManager` previews
+(`PreviewManager.ts:121`) and `LevelMassingRenderer` proxies (`LevelMassingRenderer.ts:295`) render
+**with nothing selected**, because they carry the same tag. A lens that stops ghosting whole
+populations to rescue another subsystem's overlay has traded one defect for a wider one. The lens
+owning its own emphasis removes the question instead of answering it — the same move §4.3.1 makes.
+
+⛔ **A SECOND SPECIAL CASE IS FORBIDDEN.** Adding a wall arm beside the room arm is how the third one
+becomes inevitable (C84 EI-8). The focus slot is a `ReadonlySet<string>` of ELEMENT ids resolved
+through an ancestor walk, so a hosted door's untagged sub-mesh (C15 — a hosted element is a group)
+resolves like everything else, and multi-select needs no second shape.
+
+**THREE SKIPS ARE NORMATIVE, each named for the defect it prevents:**
+
+| Skip | Why it must out-rank the focus test |
+|---|---|
+| `ShaderMaterial` | Replacing the OBC `SimpleGrid` material makes `grid.material.uniforms` undefined and every camera move throws on `uZoom`. |
+| `userData.role === 'hit-proxy'` | The ancestor walk resolves an invisible `colorWrite:false` proxy to its element's id. Painting it opaque surfaces a raycast helper as a solid box (L-2031). |
+| room volume / room overlay | The volume owns the §1.3 jewel. A room volume that also stamps `userData.id` would otherwise be repainted by the solid arm and lose its violet. |
+
+**THE TREATMENT IS CHOSEN BY THE SUBJECT'S DIMENSIONALITY, not shared for convenience.** The §1.3
+jewel is a translucent violet **volume** with an opacity pulse; that is right for a room and wrong
+for a wall twice over — a 0.4-opacity skin on a 200 mm solid standing in a 4–10% ghost is
+indistinguishable from the ghost at grazing angles, and an opacity pulse on a solid reads as
+flickering **geometry**. A focused solid is therefore painted **opaque**, in `INSPECT_BLUE`, with an
+emissive lift and **no pulse**, plus a crisp outline as a second axis so one focused element still
+reads inside a family focus already wearing the same blue. That outline is a **child of its mesh at
+identity** — §4.3.1 applies to it in full.
+
+**PALETTE SEPARATION IS BINDING.** Inspect (§INSPECT-FOCUS-IS-THE-ONLY-COLOUR, L-3511 — cyan edge /
+violet room / blue focus) and Analysis (§ANALYSIS-IS-GREY-AND-PURPLE, L-6410 — light grey ghost /
+PRYZM purple `#6600FF`) share the **mechanism** — a set of element ids resolved by the same ancestor
+walk — and MUST NOT share **constants**. The focus post-pass is skipped for the `'analysis'` lens for
+exactly this reason. One shared constant would silently restyle Inspect the next time Analysis moved.
+
+**THE EMPTY SET IS A CONTRACT, NOT AN OPTIMISATION.** With nothing focused the pass MUST return
+before visiting a single mesh, so the founder's standing *"don't compromise graphics"* constraint is
+true **by construction** rather than by argument: no material is replaced and the saved-material
+list does not grow.
+
+⚠ **WHAT THIS CLAUSE DOES NOT ESTABLISH.** It makes emphasis reachable for any family whose mesh —
+or an ancestor — carries `userData.id`. It says nothing about families rendered through
+`InstancedElementRenderer`, which stamps `group.mesh.userData.id = 'instanced-group-<key>'` and
+whose own comment records that *"an InstancedMesh exposes NO per-element `userData.id`"*
+(`InstancedElementRenderer.ts:460,480`). For those the focus is not wrong, it is **unreachable**, and
+the per-family reading is kept in `docs/05-guides/developer/editor-chrome-map.md` §12 rather than
+asserted here.
+
 ### §4.4 — Intent lifecycle
 
 1. A plugin or AI workflow creates an `IntentProposal` and dispatches `ApplyVisibilityIntentCommand`.

@@ -41468,3 +41468,170 @@ ignoring it. **Owner: the stair family. Not adopted here, and not silently passe
   errors** (an earlier mid-session run showed 8 errors in `plugins/boundary-line/**`, another
   lane's, which that lane then fixed — kept here because a single tsc run on a shared tree is
   a photograph, not a verdict).
+
+---
+
+## L-8200..L-8280 — lane INSP46 (2026-08-23): the Inspect focus slot was named for a room, so no wall could ever match it
+
+> **THE REPORT.** *"INSPECT TAB: when I select the **room**, it highlights in the 3-D view in
+> inspect mode and **works perfect**. However, when I select a **wall** it highlights for a second
+> — or less — and **stops being highlighted**. This is not the expected behaviour."*
+
+### L-8200 — CLOSED: the emphasis test was UNREACHABLE FOR A WALL BY CONSTRUCTION
+
+`DiagnosticMaterialManager` carried **one** focus parameter and it was named `selectedRoomId:
+string`. Every lens that can emphasise anything decided it with, verbatim:
+
+```ts
+if (ud.isRoomVolume) {
+  const isSelected = !!(selectedRoomId && ud.roomId === selectedRoomId);
+```
+
+**A wall mesh has no `roomId` and is not `isRoomVolume`.** There is no scene in which that
+comparison is true for a wall — this is not "wrong sometimes", it is unreachable. The room "works
+perfect" for one reason: **the jewel is re-minted BY THE LENS on every apply.** A wall had no
+emphasis path at all.
+
+**MEASURED, not inferred** (`grep -n` on `DiagnosticMaterialManager.ts` at `bb62a15c`): the string
+`selectedRoomId` appeared **21 times**; two of them are the jewel test above, and the other
+nineteen are the parameter being threaded through `applyLens` -> `_applyLensImmediate` -> five lens
+passes. Nineteen sites carrying a room's name for a value that had already stopped being a room id.
+
+**FIX.** `apps/editor/src/engine/inspect/inspectFocus.ts` — a new pure, THREE-free decision leaf
+(sibling of `ghostParticipation.ts`, and for the same reason: a headless test can drive it).
+`resolveFocusRole(subject, focusedIds)` returns `none` / `room-jewel` / `solid-focus`. The slot
+becomes `focusedElementIds: ReadonlySet<string>` end to end. **C84 EI-9: one name, one meaning.**
+
+### L-8201 — CLOSED: what actually made the highlight die one frame later
+
+**THE BRIEF'S HYPOTHESIS — "something re-applies the lens focused on a DIFFERENT element" — is
+HALF RIGHT and is recorded as a CORRECTION.** There is no rogue emitter re-broadcasting a stale
+room. `pryzm-inspect-room-focus` has **exactly four emitters**, established with a plain
+`grep -rn "inspect-room-focus" apps packages plugins src server tools scripts` (no `--include`
+filter, because ripgrep has missed files in this repo twice this week):
+`AuditGridZone.ts:211`, `DiscoveryModeZone.ts:265`, `ProjectTreeZone.ts:298`,
+`RoomTool.ts:379`. Three of the four are room rows; the `df7e8899-...` line in the founder's trace
+is a **second click on a room row**, which is why `[SELECT-CLEARED] reason=about-to-select-
+something-else` names the wall immediately after it (`SelectionManager.ts:2304` runs from
+`selectionBus.select`).
+
+**THE REAL MECHANISM, and it needs no second event.** `SelectionManager._buildGeometryHighlight`
+(`packages/input-host/src/SelectionManager.ts:2664`) clones the wall's meshes into a group added at
+the **scene root**, stamping `userData.isHelper = true` and `userData.sharedGeometry = true` and
+**no `type`**. `resolveGhostRole` therefore classifies each clone `'non-structural'`
+(`ghostParticipation.ts:153`) and the ghost pass repaints it flat white at `0.04`. **The purple
+selection overlay is ghosted by the very lens the user is looking through — one frame after it is
+drawn.** Rooms are immune because they never depended on it.
+
+**THE OBVIOUS FIX WAS REJECTED AND THE REASON IS RECORDED.** Exempting `userData.isHelper` from
+the ghost pass would rescue the purple *and* change how `PreviewManager` previews
+(`PreviewManager.ts:121`) and `LevelMassingRenderer` proxies (`LevelMassingRenderer.ts:295`) render
+**with nothing selected** — they carry the same tag. That breaches the founder's standing *"don't
+compromise graphics"* constraint on a path he did not report. The lens owning emphasis removes the
+question instead of answering it. **The mechanism is pinned as OBSERVED** by
+`InspectWallFocusSurvivesTheNextFrame.test.ts` section 9, so anyone who later does exempt helpers
+must come to that assertion and say so.
+
+### L-8202 — CLOSED: the Inspect tree emitted a ROOM-focus event carrying a WALL id, for every family
+
+`ProjectTreeZone.ts:298` emitted `pryzm-inspect-room-focus` with `{ roomId: el.id }`
+**unconditionally** — walls, doors, columns, everything. That is verbatim what the founder's console
+printed back at him, twice:
+
+```
+[DiagnosticMaterialManager] Lens applied: ghost (room: wall_01M0PTPA0SCYK9G6G2XMDCC8K4)
+[InspectModeCoordinator]    Room focused: wall_01M0PTPAWMNKP0B1G841G7XR04 — jewel applied
+```
+
+Now gated on `storeKey === 'roomStore'`. **The non-room case is not dropped — it was never
+carried by that event anyway.** `selectionBus.select(el.id, 'inspect-panel')` already fired on every
+row, and `InspectModeCoordinator` now subscribes to it (C27 section 4: SelectionBus is *"the single
+authorised entry point for all selection sources"*). **Consequence worth naming: selecting the same
+wall in the 3-D VIEWPORT now reaches the lens too, which it never did** — before this, Inspect's
+focus could only be set by an event with four emitters, three of them room rows.
+
+### L-8203 — CLOSED: the log line named the SLOT, not the VALUE
+
+`Lens applied: ghost (room: ${selectedRoomId})` and `Room focused: ${roomId} — jewel applied` both
+printed wall ids under a label that said "room". **A log that names the slot instead of the value is
+how a wall id in a room field reads as normal for months.** Both now name what the value is:
+`(focus: ...)` and `Inspect focus set from room-focus event: ...`. The focus pass also prints a
+**zero count** with the reason, because a focus of zero renders identically to "nothing was
+selected" — the same honesty half `INSPECT-FOCUS-IS-THE-ONLY-COLOUR` already carries.
+
+### L-8204 — the treatment chosen for a SOLID, and why it is not the room jewel
+
+The section 1.3 jewel is a translucent violet **volume** at 0.40–0.52 with an opacity **pulse**.
+Wrong for a wall twice: a 0.4-opacity skin on a 200 mm solid standing in a 4–10% ghost is
+indistinguishable from the ghost at grazing angles — the emphasis vanishes at exactly the camera
+angles an architect uses — and an opacity pulse on a solid reads as **flickering geometry**, not as
+focus.
+
+**A focused solid is opaque `INSPECT_BLUE` (`0x00aaff`) + `FOCUS_ELEMENT_EMISSIVE` lift, no pulse,
+plus a white outline.** The blue is **not a new colour**: L-3511 already minted it to mean *"this is
+the thing you selected"* on a solid family, and `applyGhostWithFocus` already paints a focused
+CATEGORY with it. The **outline is the second axis** — with a family focus active every wall is
+already blue, so colour alone cannot single one out; white is the only remaining neutral (cyan means
+"structural edge, base ghost" and purple belongs to selection/Analysis). The outline is added via
+`_addOverlayAsChildOf`, so **C09 section 4.3.1 is obeyed**: it is a child of its mesh at identity and
+inherits the explode lift and `.visible` from THREE.
+
+### L-8205 — coexistence with the six lenses, and the Analysis boundary
+
+The focus is **one post-pass after the lens**, not six edits. Running it last makes focus the topmost
+decision, which is what the founder's sentence means. Three lenses (`openings`, `finishes`,
+`assets`) call `_applyGhost` and then paint over it — threading focus through each would mean six
+re-decisions and the sixth would be the one that forgot, which is the exact shape of the defect
+being closed. Under `xray` a focused wall becomes an opaque blue solid inside the transparent shell:
+the one element you asked about, made solid.
+
+**`'analysis'` is excluded.** `_applyAnalysisSelection` already emphasises the selection in
+Analysis' own palette (light grey ghost + PRYZM purple `#6600FF`, L-6410). **Same mechanism —
+a set of element ids resolved by the same ancestor walk — separate palettes.**
+`INSPECT-FOCUS-IS-THE-ONLY-COLOUR` (L-3511) and `ANALYSIS-IS-GREY-AND-PURPLE` (L-6410) each forbid
+the merge from their own end, so the two id-sets are two fields and the constants are two blocks.
+
+### L-8206 — the empty-set fast path is a CONTRACT, not an optimisation
+
+The founder's standing constraint is *"don't compromise graphics"*. `_applyElementFocus` returns
+before visiting a single mesh when the focus set is empty, so **"with nothing selected the scene
+looks exactly as it does today" is true by construction, not by argument** — no mesh is traversed,
+no material is replaced, `_savedMeshes` does not grow. Pinned by
+`InspectWallFocusSurvivesTheNextFrame.test.ts` section 5.
+
+### L-8210 — OPEN (input-host's file): the selection highlight breaches C09 section 4.3.1
+
+`SelectionManager._buildGeometryHighlight` (`SelectionManager.ts:2664-2716`) adds its clone group to
+`world.scene.three` — the **scene root** — with `clone.matrix.copy(mesh.matrixWorld)` and
+`matrixAutoUpdate = false`. That is a **world-transform snapshot on a derived overlay parented away
+from its subject**, which is precisely the shape C09 section 4.3.1 was minted to forbid after the
+Inspect ghost edges did the same thing (L-3510). It is out of this lane's files and was not touched.
+**Predicted symptoms, NOT measured here:** a selection highlight that stays behind when the level
+explode lifts its wall, and one that survives a solo/level filter that hides the wall.
+**Owner: input-host.**
+
+### L-8211 — OPEN: an INSTANCED element cannot be focused, and the reason is structural
+
+`InstancedElementRenderer._createGroup` stamps `group.mesh.userData.id` to a literal
+`instanced-group-<key>` string (`InstancedElementRenderer.ts:480`) and its own comment records the
+constraint at `:460` — *"an InstancedMesh exposes NO per-element `userData.id`"*. So
+`_resolveElementId` on an instanced mesh returns a **group** id, never the element's, and the focus
+set can never match it. This is **UNREACHABLE, not ABSENT** (C01 section 6 rule 6): both ends exist
+and the identity between them does not survive instancing. The per-family reading is the table in
+`docs/05-guides/developer/editor-chrome-map.md` section 12. The fix shape is the one
+`SelectionManager._instanceObbFor` already uses — `getInstanceElementId(slot)` — but it needs a
+per-instance colour attribute rather than a material swap, which is a different change with a
+different blast radius and is not guessed at here.
+
+### L-8280 — lane readings at close (readings, with a timestamp — never states)
+
+- `apps/editor` -> `npx vitest run __tests__/InspectWallFocusSurvivesTheNextFrame.test.ts` ->
+  **1 file, 22 passed** (foreground).
+- **DIFFERENTIATING, by controlled revert** (the three lane files copied to scratchpad, the
+  `bb62a15c` versions restored in place with `git show HEAD:<p> > <p>`, the suite re-run, the
+  originals restored and **md5-verified identical**): **13 failed / 10 passed of 23**. The 23rd was
+  a throwaway probe driving HEAD's **own** `selectedRoomId: string` signature with the wall id — it
+  read `0xC0E0FF` (the structural ghost), never `0x00AAFF`. **So the wall arm is unreachable by
+  construction, not merely by an argument-shape mismatch.** The probe was deleted.
+- Root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` -> **RC=0**.
+  On a shared tree a single tsc run is a photograph of the whole tree, never a verdict on one lane.
