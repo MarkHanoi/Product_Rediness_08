@@ -26,6 +26,7 @@
 import * as THREE from 'three';
 import { setupContextLossHandlers } from '../contextLossHandlers.js';
 import { trackRenderObjectsForRetirement, retireRenderer, isDeliberateDeviceDestroy } from '../rendererRetirement.js';
+import { installEmptyDrawGuard, type EmptyDrawGuardHandle } from '../EmptyDrawGuard.js';
 import type { RendererHandle } from '../RendererHandle.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -101,6 +102,8 @@ export class WebGPURendererAdapter implements RendererHandle {
   private readonly _lostCallbacks     = new Set<() => void>();
   private readonly _restoredCallbacks = new Set<() => void>();
   private _removeContextHandlers: (() => void) | null = null;
+  /** §SCENE6-EMPTY-DRAW-GUARD (L-10002) — null when the backend has no hook. */
+  private _emptyDrawGuard: EmptyDrawGuardHandle | null = null;
 
   private constructor(
     renderer: THREE.WebGLRenderer,
@@ -180,6 +183,25 @@ export class WebGPURendererAdapter implements RendererHandle {
         );
       }
 
+      // ── §SCENE6-EMPTY-DRAW-GUARD (L-10002, C04 §1.4) ────────────────────
+      //
+      // Installed HERE, immediately after init(), for the same structural reason
+      // as the retirement tracker above: the render-object hook is created by
+      // `init()`. Installed BEFORE the pipeline binds, so the guard is the
+      // OUTERMOST link — three's own MRT/post-processing passes chain onto it
+      // rather than replacing it (see `installEmptyDrawGuard`'s chaining note).
+      //
+      // ⚠ WHY THIS IS SAFE TO HAVE ON BY DEFAULT. It skips a draw only on proof
+      // that the draw submits zero vertices — a draw that was already going to
+      // put nothing on the screen. There is no visual difference between the
+      // guarded and unguarded frame; the difference is that the WebGPU command
+      // encoder is not asked to encode a zero-vertex draw, which is the thing
+      // that flickers the entire canvas (AUDIT-C §2.6 / §3.7). A guard that only
+      // ever removes no-ops does not need a flag, and a flag would mean the
+      // founder has to reproduce a whole-canvas flicker before turning it on.
+      const guardHost = renderer as unknown as Parameters<typeof installEmptyDrawGuard>[0];
+      const emptyDrawGuard = installEmptyDrawGuard(guardHost);
+
       // backend.isWebGPUBackend = true  → native WebGPU backend (r183 API)
       // backend.isWebGPUBackend absent  → WebGL2 fallback backend (still TSL-capable)
       const backend = (renderer as unknown as { backend?: WebGPUBackend }).backend;
@@ -189,6 +211,7 @@ export class WebGPURendererAdapter implements RendererHandle {
       // WebGPURenderer extends THREE.WebGLRenderer (r183) — cast is safe.
       const threeCompatible = renderer as unknown as THREE.WebGLRenderer;
       const adapter = new WebGPURendererAdapter(threeCompatible, type);
+      adapter._emptyDrawGuard = emptyDrawGuard;
 
       // ── Wire context-loss recovery (C04 §1.4) ───────────────────────────
       if (isNativeWebGPU) {
@@ -295,6 +318,12 @@ export class WebGPURendererAdapter implements RendererHandle {
   }
 
   dispose(): void {
+    // Uninstall BEFORE retirement: the guard holds a bound reference to the
+    // renderer's own `renderObject`, and restoring the previous function is
+    // what keeps a swapped-in renderer (ADR-0077) from inheriting a closure
+    // over the dead one.
+    this._emptyDrawGuard?.uninstall();
+    this._emptyDrawGuard = null;
     this._removeContextHandlers?.();
     this._lostCallbacks.clear();
     this._restoredCallbacks.clear();

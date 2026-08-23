@@ -80,6 +80,24 @@ export type { PassNode, TSLNode, UniformNode } from './tsl-types.js';
 // Wave A14 (S118) A14-T6: canonical helper for context-loss recovery.
 // Contract C04 §1.4 — renderer-three is the sole THREE owner; recovery lives here.
 
+// ── §SCENE6-EMPTY-DRAW-GUARD (L-10002) ────────────────────────────────────
+// A zero-vertex draw poisons the WebGPU command encoder and flickers the WHOLE
+// canvas, not the offending object (AUDIT-C §2.6/§3.7). Installed by
+// WebGPURendererAdapter; exported so a diagnostic surface can read whether it
+// has ever fired without a `(window as any)` publication (P4).
+export {
+  installEmptyDrawGuard,
+  emptyDrawReason,
+  getEmptyDrawGuardStats,
+  resetEmptyDrawGuardStats,
+} from './EmptyDrawGuard.js';
+export type {
+  EmptyDrawGuardHandle,
+  EmptyDrawGuardStats,
+  RenderObjectArgs,
+  RenderObjectFunctionHost,
+} from './EmptyDrawGuard.js';
+
 export { setupContextLossHandlers } from './contextLossHandlers.js';
 export type { ContextLossOptions } from './contextLossHandlers.js';
 
