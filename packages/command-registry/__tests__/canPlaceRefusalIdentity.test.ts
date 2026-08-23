@@ -120,7 +120,28 @@ describe('§REFUSAL-IDENTITY-CANPLACE — the six command consumers carry the co
         // ACCEPTED (the case below), so the subject here is a raked host whose rake
         // cannot be built at all. The point of this suite is the CODE, not the rule:
         // the refusal must stay attributable to its own arm.
-        const ctx = ctxOf([wall('w1', 8, [], { rakeAngleDeg: 70, curve: { control: { x: 4, y: 0, z: 1 }, segments: 12 } })]);
+        //
+        // ⚠ THE FIXTURE WAS STALE AND THIS TEST WAS RED — corrected 2026-08-23 (OPEN38,
+        //   L-7402). It read `{ rakeAngleDeg: 70, curve: { control: { x: 4, y: 0, z: 1 },
+        //   segments: 12 } }` and was written when `rakeAuthorability` refused EVERY curved
+        //   rake. §FEAT-RAKE-CURVED (L-1062, 2026-08-19) lifted that arm — a raked curved
+        //   wall ships as a CONE — and left behind only the narrow `curved-collapse` arm,
+        //   which this fixture does not trip: measured, its top edge shifts **1.092 m**
+        //   against a tightest turn radius of **16.006 m**. It is a perfectly buildable
+        //   wall, so the refusal it asserted had simply ceased to exist.
+        //
+        //   ⚠ AND THE COLLAPSE ARM COULD NOT HAVE FIRED EVEN ON A WALL THAT DID COLLAPSE,
+        //   which is the finding worth keeping: `canPlace` supplied `rakeAuthorability`
+        //   neither `height` nor `curveMinRadiusM`, so the arm was structurally unreachable
+        //   from every placement path in the repo (L-7401, fixed in `WallOccupancyStore`).
+        //   A stale fixture was therefore hiding a dead gate — the test failed for a reason
+        //   NEXT TO the real defect, which is the most expensive kind of red.
+        //
+        //   The subject is now a rake that is unbuildable BY ITS OWN NUMBER (5° is outside
+        //   [15, 165]), so it cannot go stale behind another lifted arm. The genuine
+        //   collapse case — a tight arc at 20°, shift 8.242 m against radius 2.675 m — is
+        //   asserted where the fix lives, in `OPEN38CanPlaceVerticalArm.test.ts`.
+        const ctx = ctxOf([wall('w1', 8, [], { rakeAngleDeg: 5 })]);
         const v = new CreateWallOpeningCommand({ wallId: 'w1', openingData: { type: 'door', width: 1, offset: 1 } }).canExecute(ctx);
         expect(v.ok).toBe(false);
         expect(v.reason).toMatch(/^\[OCC_HOST_RAKED\]/);

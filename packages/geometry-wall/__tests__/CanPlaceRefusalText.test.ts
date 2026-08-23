@@ -59,10 +59,24 @@ describe('canPlaceRefusalText — the refusal identity reaches the render (GE-09
     // had to be declared — at COMPILE time, before a single test ran. A derived count would
     // have caught none of them. That is the argument for keeping it hand-written, restated
     // rather than re-litigated.
-    expect(roster.length).toBe(8);
-    expect(new Set(roster).size).toBe(8);
+    //
+    // 8 → 9 on 2026-08-23: §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) added
+    // `OCC_OUTSIDE_HOST_PROFILE` — the FIRST VERTICAL arm this validator has ever carried.
+    // Every other member asks a question about the wall's LENGTH; this one asks whether the
+    // opening's whole rectangle sits inside the host's authored elevation outline, which is
+    // a question a rectangle never had to answer (a rectangle's material is present at every
+    // height wherever it is present at all). It exists because `WallProfile.ts` named this
+    // function's vertical blindness as its reason for refusing profile × openings outright,
+    // and that refusal could not lift while the reason still held.
+    //
+    // ⭐ AND THE GUARD EARNED ITS KEEP A SECOND TIME, in the same way: the hand-written
+    // number plus the `Record` sentence map plus the roster `satisfies` named all three
+    // declaration sites at COMPILE time again.
+    expect(roster.length).toBe(9);
+    expect(new Set(roster).size).toBe(9);
     expect(roster).toContain('OCC_CROSSES_HOSTED_OPENING');
     expect(roster).toContain('OCC_PROFILE_UNSUPPORTED');
+    expect(roster).toContain('OCC_OUTSIDE_HOST_PROFILE');
   });
 
   it('names a MISSING identity as missing — never a generic sentence', () => {

@@ -308,7 +308,17 @@ export function detectCollinearMerge(
       const t1 = dot(sub(eEndW, mergedBaseLine[0]), axis);
       const newOffsetM = Math.min(t0, t1);
 
-      const verdict = wallOccupancyStore.canPlace(hypo, newOffsetM, o.width);
+      // §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — `o` is a full `Opening`, so the
+      // re-host question can be asked in TWO dimensions: would this opening still sit
+      // inside the merged wall's outline, not merely inside its length. No `excludeId` is
+      // passed here (the subject is a HYPOTHETICAL re-host onto a different wall, so there
+      // is no self-slot to exclude and nothing for the move-path recovery to find), which
+      // is precisely why these three fields have to be stated.
+      const verdict = wallOccupancyStore.canPlace(hypo, newOffsetM, o.width, undefined, {
+        openingProfile: o.openingProfile,
+        heightM:        o.height,
+        sillHeightM:    o.sillHeight,
+      });
       if (!verdict.valid) {
         transferRefusal =
           `the ${o.type} ${o.elementId} on wall ${partner.id} cannot be re-hosted on the ` +

@@ -250,6 +250,12 @@ export class DoorTool {
             const occ = wallOccupancyStore.canPlace(wallData, rawOffset, width, undefined, {
                 openingProfile: this.openingProfile,
                 heightM:        _dims.height,
+                // §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — a DOOR's sill is 0 BY DEFINITION
+                // (that is what makes it floor-reaching, and what routes it to the outer-boundary
+                // notch walk rather than to a closed hole). `ResolvedDoorDimensions` carries no
+                // sill field precisely because there is nothing to resolve, so the literal here is
+                // the convention stated, not a default guessed.
+                sillHeightM:    0,
             });
             // §REFUSAL-IDENTITY-CANPLACE (GE-09, C58 §1.13.8) — the refusal used to be
             // flattened to a bare state here, so the HUD showed one generic sentence
@@ -494,6 +500,8 @@ export class DoorTool {
         const occupancy = wallOccupancyStore.canPlace(wallData, offset, width, undefined, {
             openingProfile: this.openingProfile,
             heightM:        placeDims.height,
+            // §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — 0 by definition; see the hover check.
+            sillHeightM:    0,
         });
         if (!occupancy.valid) {
             // §REFUSAL-IDENTITY-CANPLACE (GE-09, C58 §1.13.8) — the shared renderer

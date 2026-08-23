@@ -66,7 +66,10 @@
 
 import { COINCIDENT_M } from '@pryzm/geometry-kernel';
 import { WallData, Opening } from './WallTypes';
-import { wallCentrelineLength } from './WallArcParam';
+// §FIX-CANPLACE-RAKE-UNJUDGEABLE (OPEN38, L-7401) — `arcMinTurnRadius` measures the SAME
+// centreline polyline `wallCentrelineLength` walks, which is why the collapse threshold it
+// yields describes the arc the builder will actually draw.
+import { wallCentrelineLength, arcMinTurnRadius } from './WallArcParam';
 // §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812) — the same predicate WallStore uses,
 // so the pre-flight decline and the store's last-line guard can never disagree.
 // §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812) — the SINGLE rake gate: the same one
@@ -78,6 +81,11 @@ import { rakeAuthorability } from './WallRake';
 // §OPENING-PROFILE (L-1200) — the SAME predicate the builders obey, so the pre-flight decline
 // and the geometry cannot disagree about which hosts can carry a curved void.
 import { openingProfileRefusal, isRectangularProfile } from './OpeningProfile';
+// §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — the SINGLE fit predicate. It is imported
+// rather than re-derived here for the reason this file already learned from the rake gate:
+// a second copy of "does this opening sit inside the wall?" would let the placement decline
+// and the body builder answer differently, and the body builder is the one that draws.
+import { resolveWallProfile, wallProfileRectFit, PROFILE_FIT_TOL_M } from './WallProfile';
 // §PRYZM-PERF (INSTR1) — canPlace ran on EVERY pointermove and logged every time.
 // Counters replace that flood; see the block at the OK return in canPlace().
 import { bumpPerf, PERF_KEYS } from '@pryzm/frame-scheduler';
@@ -115,6 +123,28 @@ export type CanPlaceRefusalCode =
     | 'OCC_OFFSET_BEFORE_WALL_START'// requested span starts before the wall
     | 'OCC_SPAN_BEYOND_WALL_END'    // requested span runs past the wall end
     | 'OCC_OVERLAPS_SIBLING'        // 1-D overlap with an existing opening (conflictIds names them)
+    /**
+     * §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — THE VERTICAL ARM, and the FIRST one
+     * this validator has ever had.
+     *
+     * Every arm above is 1-D along the baseline, and this file said so in its own words:
+     * *"The check is purely 1-D along the wall baseline (horizontal extent)."* That was
+     * SUFFICIENT while the only host shape was a rectangle, because a rectangle's material
+     * is present at every height wherever it is present at all — the vertical question has
+     * one answer and the horizontal check already found it.
+     *
+     * It stops being sufficient the moment a host carries an authored elevation outline. A
+     * gable wall is 6 m long and 1.2 m tall at its shoulders; a 1-D check clears a window
+     * at u ∈ [0.2, 1.4] with a head at 2.1 m, and the window hangs in the air above the
+     * roofline. `WallProfile.ts` named this as the reason profile × openings was refused
+     * outright — *"nothing would notice an opening left floating in material the profile
+     * removed. An opening in removed material is worse than a refusal."*
+     *
+     * ⛔ SO THIS ARM LANDS BEFORE THAT REFUSAL LIFTS, NOT WITH IT. The gate has to be able
+     * to say no before anything is allowed to say yes; the reverse ordering leaves a window
+     * of commits in which the model can hold a wall the geometry draws wrongly.
+     */
+    | 'OCC_OUTSIDE_HOST_PROFILE'    // the opening does not fit inside the host's authored elevation outline
     // §C83-S1 — the WALL-SIDE mirror of the five arms above. Those all ask "may
     // this OPENING go here?"; this one asks "may this WALL go here?", and it is
     // the same question about the same volume asked from the other side, so it
@@ -149,6 +179,7 @@ export const CAN_PLACE_REFUSAL_CODES = [
     'OCC_OVERLAPS_SIBLING',
     'OCC_CROSSES_HOSTED_OPENING',
     'OCC_PROFILE_UNSUPPORTED',
+    'OCC_OUTSIDE_HOST_PROFILE',
 ] as const satisfies readonly CanPlaceRefusalCode[];
 
 /** Compile-time completeness: resolves to `never` only when the roster covers the
@@ -245,6 +276,10 @@ const CAN_PLACE_DEFAULT_SENTENCE: Record<CanPlaceRefusalCode, string> = {
     // refusal the user cannot act on is the defect this whole family exists to
     // stop. This sentence is what they read if that prose is ever lost.
     OCC_CROSSES_HOSTED_OPENING:   'this wall would pass through a door or window opening on an existing wall',
+    // §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — fallback only. The real producer is
+    // `wallProfileRectFit`, which always names WHICH edge and BY HOW MANY METRES, because a
+    // refusal about a shape the author drew by hand is unactionable without the number.
+    OCC_OUTSIDE_HOST_PROFILE:     "this opening does not fit inside the wall's edited outline",
 };
 
 /**
@@ -675,10 +710,19 @@ export class WallOccupancyStore {
      * Checks whether a new opening [offsetM, offsetM + widthM] can be placed
      * on `wall` without overlapping any existing opening in wall.openings[].
      *
-     * The check is purely 1-D along the wall baseline (horizontal extent).
-     * Vertical stacking (different sill heights) is NOT permitted — BIM
+     * The SIBLING-CONFLICT check is purely 1-D along the wall baseline (horizontal
+     * extent). Vertical stacking (different sill heights) is NOT permitted — BIM
      * semantics require each horizontal span to be exclusively owned by one
      * opening element (§06-8.5).
+     *
+     * ⚠ THIS PARAGRAPH USED TO OPEN *"The check is purely 1-D"*, FLAT, AND THAT IS NO
+     * LONGER TRUE OF THE FUNCTION — corrected 2026-08-23 (OPEN38, L-7400). It is still
+     * true of the sibling-overlap rule above, which is what the sentence was always about,
+     * but read as a statement about `canPlace` it is now wrong: the host-outline arm
+     * (`OCC_OUTSIDE_HOST_PROFILE`) tests the opening's whole RECTANGLE against the ring's
+     * upper and lower chains. The distinction matters because `WallProfile.ts` cited the
+     * old sentence BY LINE as its reason for refusing profile × openings, and a lifted
+     * refusal that leaves its own justification standing is how folklore is made.
      *
      * @param wall        Frozen WallData — provides openings[] and baseLine
      * @param offsetM     Distance from wall start to LEFT edge of new opening (metres)
@@ -709,7 +753,21 @@ export class WallOccupancyStore {
          * the ~dozen live call sites need no edit to stay correct — they were all placing
          * rectangles and still are.
          */
-        profile?: { openingProfile?: unknown; heightM?: number },
+        profile?: {
+            openingProfile?: unknown;
+            heightM?: number;
+            /**
+             * §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — the opening's SILL, metres above
+             * the wall's base plane. Needed, with `heightM`, by the vertical arm below.
+             *
+             * ⚠ ABSENT IS NOT ZERO. A door's sill genuinely is 0 and a window's is not, so
+             * defaulting an unstated sill to 0 would silently reclassify every window whose
+             * caller forgot it as a floor-reaching door — and then judge it against the wall's
+             * bottom edge instead of its middle. Absent means UNSTATED, and on a profiled host
+             * the arm refuses rather than guesses.
+             */
+            sillHeightM?: number;
+        },
     ): CanPlaceResult {
 
         // §PRYZM-PERF (INSTR1) — total invocations. Counted at ENTRY rather than at
@@ -832,12 +890,44 @@ export class WallOccupancyStore {
         // itself a refusal. With that arm gone, a subject without `curve`/`layers`
         // would have made this branch dead code. It is instead the honest question:
         // is this host's rake authorable AT ALL, given everything about it?
-        const _w = wall as { rakeAngleDeg?: number; curve?: unknown; layers?: ReadonlyArray<unknown> };
+        //
+        // ⛔ §FIX-CANPLACE-RAKE-UNJUDGEABLE (OPEN38, L-7401) — THIS CALL USED TO SUPPLY
+        //    NEITHER `height` NOR `curveMinRadiusM`, AND THEREFORE COULD NEVER REACH THE
+        //    ONE ARM THAT STILL REFUSES A CURVED RAKED HOST.
+        //
+        //    `RakeSubject` says it in as many words: *"ABSENT MEANS UNJUDGEABLE, NOT SAFE …
+        //    the authoritative call — the one at the store write boundary — MUST supply
+        //    both."* `canPlace` IS an authoritative pre-flight (it is the C74 §2 enforcement
+        //    family, per this file's own header), and it supplied neither — so
+        //    `curved-collapse` fell through on every placement, on every wall, always.
+        //    Measured 2026-08-23: `UpdateWallsRakeBatchCommand` was the ONLY caller in the
+        //    repo passing them.
+        //
+        //    Both are in hand here and cost nothing: `wall.height` is on the record, and
+        //    `arcMinTurnRadius` measures the SAME centreline polyline `wallCentrelineLength`
+        //    above already walked. Computed only for a curved host — a straight wall's
+        //    radius is `Infinity` and the arm is a no-op, so spending the walk on it would
+        //    be work for a foregone answer.
+        //
+        //    ⚠ THIS DID NOT MAKE `canPlaceRefusalIdentity.test.ts:118` GREEN, and that is
+        //    the honest finding rather than a disappointment. That fixture is a rake of 70°
+        //    on a gentle arc; its top edge shifts 1.092 m against a turn radius of ~16 m, so
+        //    it does NOT collapse — it is a perfectly buildable cone. The test was written
+        //    when `rakeAuthorability` still refused EVERY curved rake, and §FEAT-RAKE-CURVED
+        //    (L-1062) lifted that arm without it. It was RED at HEAD before this lane
+        //    touched anything; see L-7402.
+        const _w = wall as {
+            rakeAngleDeg?: number; curve?: unknown; layers?: ReadonlyArray<unknown>; height?: number;
+        };
         const rake = rakeAuthorability({
             rakeAngleDeg: _w.rakeAngleDeg,
             curve:        _w.curve,
             layers:       _w.layers,
             openings:     [{}],
+            height:       _w.height,
+            ...(_w.curve != null
+                ? { curveMinRadiusM: arcMinTurnRadius(wall as Parameters<typeof arcMinTurnRadius>[0]) }
+                : {}),
         } as Parameters<typeof rakeAuthorability>[0]);
         if (!rake.ok) {
             return {
@@ -880,6 +970,99 @@ export class WallOccupancyStore {
                     `extends beyond wall length ${wallLengthM.toFixed(3)} m`
                 ),
             };
+        }
+
+        // ── §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — THE VERTICAL ARM ──────────
+        //
+        // ⭐ THE ORDERING THIS ARM EXISTS TO SATISFY. `WallProfile.ts` refuses profile ×
+        // openings outright, and names THIS FUNCTION as the reason: *"`canPlace` is
+        // explicitly 1-D and vertical-blind, so nothing would notice an opening left
+        // floating in material the profile removed. An opening in removed material is worse
+        // than a refusal."* That refusal may not lift until the guard exists. So the guard
+        // lands FIRST, in its own commit, reachable but INERT — no wall in the model can
+        // carry both a profile and an opening while the authorability gate still refuses
+        // it, which is exactly the state `WallProfile.ts` describes as *"the only ordering
+        // in which a refusal can never be reached too late."*
+        //
+        // ⛔ INERT ON A RECTANGLE, AND DELIBERATELY SO. It fires only when the host carries
+        // an authored ring. The implicit rectangle keeps every previous verdict BYTE FOR
+        // BYTE — the same discipline the trailing `profile?` parameter was added under
+        // ("absent ⇒ rectangular ⇒ every existing caller keeps its exact previous verdict").
+        // Teaching this arm to also police a plain wall's head against `wall.height` would
+        // be a different change with a different blast radius: `normaliseWallHoles` already
+        // treats a full-height opening as a WALL SPLIT routed to another builder, not as an
+        // error, so refusing it here would turn a working case into a refusal. Out of scope,
+        // stated rather than left to be discovered.
+        //
+        // ── WHERE THE OPENING'S VERTICAL EXTENT COMES FROM ───────────────────────────
+        //
+        // The signature carries only `offset` and `width`; a fit test needs a sill and a
+        // head. Three sources, in order, and the middle one is why sixteen call sites did
+        // not have to be rewritten:
+        //
+        //   1. The caller said so — `profile.sillHeightM` / `profile.heightM`.
+        //   2. THE MOVE PATH RECOVERS ITSELF. When `excludeId` names an opening already on
+        //      this wall, that opening IS the subject and its own record carries the sill
+        //      and height: a move changes the offset and nothing else. Every move / offset /
+        //      centre command and the hosted-drag path are covered by this with no threading
+        //      at all, and — better — they are covered with the opening's REAL dimensions
+        //      rather than with whatever a caller remembered to pass.
+        //   3. Neither ⇒ UNJUDGEABLE, and unjudgeable is REFUSED here rather than admitted.
+        //      That is the opposite of `rakeAuthorability`'s curved-collapse arm, which
+        //      falls through when height or radius is missing, and the difference is not an
+        //      inconsistency: there, admitting costs a wall that leans too far and is
+        //      visibly wrong; here, admitting is precisely the "opening floating in removed
+        //      material" this arm was built to make impossible. §CONTEXT-DATA-HONESTY asks
+        //      which way the unknown should fail, not that it always fail the same way.
+        const _hostProfile = resolveWallProfile((wall as { wallProfile?: unknown }).wallProfile);
+        if (_hostProfile) {
+            let sill = typeof profile?.sillHeightM === 'number' && Number.isFinite(profile.sillHeightM)
+                ? profile.sillHeightM
+                : undefined;
+            let hgt = typeof profile?.heightM === 'number' && Number.isFinite(profile.heightM)
+                ? profile.heightM
+                : undefined;
+            if (sill === undefined || hgt === undefined) {
+                // (2) — the same dual-field match `excludeId` uses below, because the move
+                // commands pass the hosted ELEMENT id while `Opening.id` is a different key.
+                const self = excludeId
+                    ? wall.openings.find(o => o.id === excludeId || o.elementId === excludeId)
+                    : undefined;
+                if (self) {
+                    sill ??= self.sillHeight;
+                    hgt ??= self.height;
+                }
+            }
+            if (sill === undefined || hgt === undefined) {
+                return {
+                    valid:       false,
+                    conflictIds: [],
+                    code:        'OCC_OUTSIDE_HOST_PROFILE',
+                    reason:
+                        "This wall has an edited outline, so an opening on it has to be checked " +
+                        'against that outline — but this placement did not state the opening\'s ' +
+                        `sill height and height (received sill=${String(sill)}, height=${String(hgt)}). ` +
+                        'Refusing rather than guessing: an opening placed where the outline has cut ' +
+                        'the wall away would be drawn floating in mid-air.',
+                };
+            }
+            const fit = wallProfileRectFit(_hostProfile.ring, {
+                u0: offsetM,
+                u1: offsetM + widthM,
+                v0: sill,
+                v1: sill + hgt,
+                // The SAME classification `normaliseWallHoles` and `profileOpeningRectOf`
+                // make, so the gate and the body builder agree on which openings are notches.
+                floorReaching: sill <= PROFILE_FIT_TOL_M,
+            });
+            if (!fit.ok) {
+                return {
+                    valid:       false,
+                    conflictIds: [],
+                    code:        'OCC_OUTSIDE_HOST_PROFILE',
+                    reason:      fit.reason ?? "This opening does not fit inside the wall's edited outline.",
+                };
+            }
         }
 
         // ── Overlap detection ─────────────────────────────────────────────

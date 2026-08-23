@@ -147,6 +147,18 @@ export interface OpeningCreateOccupancyReader {
     offsetM: number,
     widthM: number,
     excludeId?: string,
+    /**
+     * §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — the VOID's shape and its VERTICAL
+     * extent. Widened here rather than left at four parameters because a narrowed seam that
+     * cannot express the question the real validator asks is not a narrowing, it is a
+     * DIFFERENT validator — and this interface's own doc says why that matters: *"two
+     * implementations that disagreed about the same span on the same wall would be two rival
+     * implementations of C15 §5's occupancy."* On a host carrying an authored elevation
+     * outline, `WallOccupancyStore.canPlace` refuses a placement whose sill and height are
+     * unstated, so a preview that could not state them would refuse every opening on a
+     * profiled wall and report it as the model's verdict.
+     */
+    profile?: { openingProfile?: unknown; heightM?: number; sillHeightM?: number },
   ): { valid: boolean; conflictIds: string[]; code?: CanPlaceRefusalCode; reason?: string };
 }
 
@@ -353,7 +365,11 @@ export class WallOpeningCreateConsequencePlanner
     // Runs only when identity did not already refuse: a duplicate has no meaningful
     // occupancy question, and two refusals for one cause would double-count.
     if (!duplicate) {
-      const occ = this.occupancyBranch(wall, openings, offset, width, id, wallId, kindWord);
+      const occ = this.occupancyBranch(
+        wall, openings, offset, width, id, wallId, kindWord,
+        // §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — both are already on the payload.
+        command.payload.height, command.payload.sillHeight,
+      );
       if (occ.kind === 'undetermined') {
         undetermined.push(occ.undetermined);
       } else {
@@ -437,6 +453,9 @@ export class WallOpeningCreateConsequencePlanner
     elementId: string,
     wallId: string,
     kindWord: string,
+    /** §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — the vertical extent, when stated. */
+    heightM?: number,
+    sillHeightM?: number,
   ):
     | { kind: 'determined'; refusals: readonly ConsequenceRefusal[]; clear: readonly string[] }
     | { kind: 'undetermined'; undetermined: UndeterminedImpact } {
@@ -461,7 +480,7 @@ export class WallOpeningCreateConsequencePlanner
       reason?: string;
     };
     try {
-      result = this.deps.occupancy.canPlace(wall, offset, width);
+      result = this.deps.occupancy.canPlace(wall, offset, width, undefined, { heightM, sillHeightM });
     } catch {
       return {
         kind: 'undetermined',

@@ -97,7 +97,19 @@ export class CreateWallOpeningCommand implements Command {
         // directly — no separate state, no lifecycle management required.
         const offsetM = this.data.openingData.offset ?? 0;
         const widthM  = this.data.openingData.width  ?? 0;
-        const occupancyResult = wallOccupancyStore.canPlace(wall, offsetM, widthM);
+        // §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — the VERTICAL extent travels too.
+        // On a host carrying an authored elevation outline, `canPlace` tests the opening's
+        // whole rectangle against the outline's upper and lower chains, and it REFUSES
+        // rather than guesses when the sill and height are unstated. This is the C74 §2
+        // commit chokepoint, so it is the one call site that must never be the caller that
+        // forgot. `openingData` already carries both — they are read the same way `offsetM`
+        // and `widthM` are, three lines up.
+        // INERT on a wall with no outline: the arm does not run at all there.
+        const occupancyResult = wallOccupancyStore.canPlace(wall, offsetM, widthM, undefined, {
+            openingProfile: this.data.openingData.openingProfile,
+            heightM:        this.data.openingData.height,
+            sillHeightM:    this.data.openingData.sillHeight,
+        });
         if (!occupancyResult.valid) {
             console.warn(
                 `[CreateWallOpeningCommand] canExecute rejected: ${occupancyResult.reason}`,

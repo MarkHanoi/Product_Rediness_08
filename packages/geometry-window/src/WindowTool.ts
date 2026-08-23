@@ -239,6 +239,9 @@ export class WindowTool {
             const occ = wallOccupancyStore.canPlace(wallData, rawOffset, width, undefined, {
                 openingProfile: this.openingProfile,
                 heightM:        this._dims().height,
+                // §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — the SILL, so the host-outline arm can
+                // place the rectangle vertically. A window's sill is authored, never assumed.
+                sillHeightM:    this._dims().sillHeight,
             });
             // §REFUSAL-IDENTITY-CANPLACE (GE-09, C58 §1.13.8) — the refusal used to be
             // flattened to a bare state here, so the HUD showed one generic sentence
@@ -457,6 +460,8 @@ export class WindowTool {
         const occupancy = wallOccupancyStore.canPlace(wallData, offset, width, undefined, {
             openingProfile: this.openingProfile,
             heightM:        height,
+            // §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — already destructured from `_dims()` above.
+            sillHeightM:    sillHeight,
         });
         if (!occupancy.valid) {
             // §REFUSAL-IDENTITY-CANPLACE (GE-09, C58 §1.13.8) — the shared renderer

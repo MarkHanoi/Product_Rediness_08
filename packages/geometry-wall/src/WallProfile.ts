@@ -367,6 +367,375 @@ export function wallProfileVertexUs(ring: ReadonlyArray<WallProfileVertex>): num
     return out.sort((a, b) => a - b);
 }
 
+// ─── The ring as TWO CHAINS — §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) ──────
+//
+// `wallProfileExtentAt` above answers *"how tall is the wall AT u?"*, and that is exactly
+// the question a SWEEP asks. It is NOT the question an OPENING asks, and the difference
+// cost this lane its first design, so it is written down.
+//
+// An opening occupies a SPAN [u0, u1], never a station. Asking `extentAt` at each end of
+// the span and at each ring vertex in between is the obvious test, and it is WRONG at a
+// STEP. Take a ring whose top drops from v = 3 to v = 2 across a VERTICAL edge at u = 2:
+// `wallProfileExtentAt(ring, 2).top` is **3**, because that function takes the EXTREME of
+// every crossing — right for a sweep, which needs the station's full span, and wrong here.
+// A window head at v = 2.5 spanning u ∈ [1.5, 2.5] then passes the vertex test and pokes
+// out of the wall over half its width. Worse, the number a refusal is required to name —
+// *"0.5 m above the roofline"* — is not visible to a station query at all.
+//
+// ⭐ SO THE OPENING QUESTION IS ASKED OF THE CHAINS: the ring split into its LOWER
+//   boundary and its UPPER boundary, each a polyline, each evaluated across the WHOLE span
+//   segment by segment. A piecewise-linear function's extreme over an interval is attained
+//   at a clipped endpoint or at a breakpoint, and a VERTICAL segment contributes BOTH of
+//   its ends — which is precisely the step the station query loses.
+//
+// ⚠ THIS IS NOT A SECOND MODEL OF THE RING. `wallProfileChains` normalises winding with
+//   the SAME `wallProfileSignedArea2` that `buildWallProfileBodyGeometry` normalises with,
+//   and concatenating `bottom` then `top` reproduces that CCW ring vertex for vertex. The
+//   gate and the solid therefore read one ring, not two that agree today (C84 EI-9).
+
+/**
+ * The ring's lower and upper boundaries, as polylines, plus the CCW ring they came from.
+ *
+ * `null` when the ring is not an ELEVATION ring — fewer than three vertices, a non-finite
+ * coordinate, no enclosed area, no `u` extent, or a boundary that doubles back in `u`.
+ * That last one is the honest reading of "this ring has two vertical spans somewhere":
+ * a bottom chain that goes right, then left, then right is not the lower boundary of a
+ * wall elevation, and no top/bottom pair describes it.
+ */
+export interface WallProfileChains {
+    /** Lower boundary, non-decreasing in `u`, from the ring's minimum `u` to its maximum. */
+    readonly bottom: ReadonlyArray<WallProfileVertex>;
+    /** Upper boundary, non-increasing in `u`, from the maximum `u` back to the minimum. */
+    readonly top: ReadonlyArray<WallProfileVertex>;
+    /** The authored ring normalised to counter-clockwise winding in (u, v). */
+    readonly ccw: ReadonlyArray<WallProfileVertex>;
+    readonly uMin: number;
+    readonly uMax: number;
+}
+
+export function wallProfileChains(
+    ring: ReadonlyArray<WallProfileVertex>,
+): WallProfileChains | null {
+    if (!Array.isArray(ring) || ring.length < PROFILE_MIN_VERTICES) return null;
+    for (const p of ring) {
+        if (!p || !Number.isFinite(p.u) || !Number.isFinite(p.v)) return null;
+    }
+    const a2 = wallProfileSignedArea2(ring);
+    if (!Number.isFinite(a2) || Math.abs(a2) / 2 <= PROFILE_MIN_AREA_M2) return null;
+
+    // CCW in (u, v) means: traversing FORWARD, the lower boundary runs left→right and the
+    // upper boundary runs right→left. Normalised rather than refused, exactly as
+    // `buildWallProfileBodyGeometry` normalises it and for the stated reason — a
+    // draughtsman does not think about winding.
+    const ccw = a2 > 0 ? [...ring] : [...ring].reverse();
+
+    let uMin = Infinity, uMax = -Infinity;
+    for (const p of ccw) { if (p.u < uMin) uMin = p.u; if (p.u > uMax) uMax = p.u; }
+    if (!(uMax - uMin > PROFILE_U_TOL_M)) return null;
+
+    // The bottom chain runs from the ring's BOTTOM-LEFT vertex to its BOTTOM-RIGHT one.
+    // Ties on `u` break to the LOWEST `v` at BOTH ends, which is what picks the FOOT of a
+    // vertical end edge rather than its head — and the ring's two end edges are vertical on
+    // every wall elevation, so the tie is the normal case, not the corner case.
+    let iBL = 0, iBR = 0;
+    for (let i = 1; i < ccw.length; i++) {
+        const p = ccw[i]!, bl = ccw[iBL]!, br = ccw[iBR]!;
+        if (p.u < bl.u - PROFILE_U_TOL_M
+            || (Math.abs(p.u - bl.u) <= PROFILE_U_TOL_M && p.v < bl.v)) iBL = i;
+        if (p.u > br.u + PROFILE_U_TOL_M
+            || (Math.abs(p.u - br.u) <= PROFILE_U_TOL_M && p.v < br.v)) iBR = i;
+    }
+    if (iBL === iBR) return null;
+
+    const walk = (from: number, to: number): WallProfileVertex[] | null => {
+        const out: WallProfileVertex[] = [];
+        for (let k = 0, i = from; ; k++, i = (i + 1) % ccw.length) {
+            out.push(ccw[i]!);
+            if (i === to) return out;
+            if (k > ccw.length) return null;   // defensive — unreachable on a simple ring
+        }
+    };
+    const bottom = walk(iBL, iBR);
+    const top = walk(iBR, iBL);
+    if (!bottom || !top) return null;
+
+    // MONOTONICITY IS THE SINGLE-INTERVAL TEST, expressed on the boundary rather than by
+    // counting crossings. `firstMultiIntervalU` samples one `u` per gap and says so ("a
+    // SUFFICIENT test, not a COMPLETE one"); this is complete for the property an opening
+    // actually needs, because a boundary that doubles back in `u` is precisely a ring with
+    // more than one span there.
+    for (let i = 1; i < bottom.length; i++) {
+        if (bottom[i]!.u < bottom[i - 1]!.u - PROFILE_U_TOL_M) return null;
+    }
+    for (let i = 1; i < top.length; i++) {
+        if (top[i]!.u > top[i - 1]!.u + PROFILE_U_TOL_M) return null;
+    }
+    return { bottom, top, ccw, uMin, uMax };
+}
+
+/**
+ * The extreme value of a chain polyline over `[u0, u1]`, or `null` when no segment of the
+ * chain overlaps the span at all.
+ *
+ * ⚠ A VERTICAL segment contributes BOTH of its endpoints. That is the whole reason this
+ *   exists alongside `wallProfileExtentAt` — see the block above.
+ */
+function chainExtremeOverSpan(
+    chain: ReadonlyArray<WallProfileVertex>,
+    u0: number,
+    u1: number,
+    mode: 'min' | 'max',
+): number | null {
+    let best = mode === 'min' ? Infinity : -Infinity;
+    const take = (v: number): void => {
+        best = mode === 'min' ? Math.min(best, v) : Math.max(best, v);
+    };
+    for (let i = 0; i + 1 < chain.length; i++) {
+        const a = chain[i]!, b = chain[i + 1]!;
+        const lo = Math.min(a.u, b.u), hi = Math.max(a.u, b.u);
+        if (hi < u0 - PROFILE_U_TOL_M || lo > u1 + PROFILE_U_TOL_M) continue;
+        const du = b.u - a.u;
+        if (Math.abs(du) <= PROFILE_U_TOL_M) { take(a.v); take(b.v); continue; }
+        const c0 = Math.max(lo, u0), c1 = Math.min(hi, u1);
+        take(a.v + (b.v - a.v) * ((c0 - a.u) / du));
+        take(a.v + (b.v - a.v) * ((c1 - a.u) / du));
+    }
+    return Number.isFinite(best) ? best : null;
+}
+
+/**
+ * Clearance an opening must keep from the ring's own boundary, metres.
+ *
+ * ⭐ DELIBERATELY THE SAME MAGNITUDE AS `WallHoleBodyBuilder.OPENING_EPS_M` (1e-4, C73
+ *   §2.3), and NOT `PROFILE_BOUND_EPS_M` (1e-9). The builder already refuses an opening
+ *   whose head reaches within 0.1 mm of the wall top (`normaliseWallHoles`: *"a full-height
+ *   opening is a wall split, not a hole"*), because a hole TANGENT to the outer boundary is
+ *   not a hole — the extruder produces a pinched, self-touching contour. A gate that
+ *   admitted at 1e-9 what the builder rejects at 1e-4 would hand the builder a case it
+ *   declines, and the wall would silently fall back to a body with no profile in it.
+ */
+export const PROFILE_FIT_TOL_M = 1e-4;
+
+/** An opening's rectangle in the wall's own (u, v) elevation frame. */
+export interface ProfileOpeningRect {
+    /** Left edge — distance along the baseline from `baseLine[0]`. */
+    readonly u0: number;
+    /** Right edge. */
+    readonly u1: number;
+    /** Sill, above the wall's base plane. */
+    readonly v0: number;
+    /** Head, above the wall's base plane. */
+    readonly v1: number;
+    /**
+     * TRUE for a FLOOR-REACHING opening — a door. The body builder carves such an opening
+     * out of the wall's BOTTOM EDGE as a notch rather than as a closed hole
+     * (`WallHoleBodyBuilder`: *"floor-reaching openings are carved out of the bottom edge of
+     * the outer profile so the body remains ONE continuous surface"*), and that walk is only
+     * valid where the ring's own lower boundary is FLAT across the span and sits at the
+     * door's foot. Judged by the `uneven-foot` arm below.
+     */
+    readonly floorReaching?: boolean;
+}
+
+export type ProfileRectFitCode =
+    /** The ring is not an elevation ring at all — see `wallProfileChains`. */
+    | 'ring-not-elevation'
+    /** The opening runs past the `u` extent the ring actually occupies. */
+    | 'span-outside-ring'
+    /** The head is above the ring's UPPER boundary somewhere across the span. */
+    | 'above-top'
+    /** The sill is below the ring's LOWER boundary somewhere across the span. */
+    | 'below-bottom'
+    /** A door whose foot the ring's lower boundary does not meet flat across the span. */
+    | 'uneven-foot';
+
+export interface ProfileRectFit {
+    readonly ok: boolean;
+    readonly code?: ProfileRectFitCode;
+    /** Names the edge AND the metres. Suitable for a store error or a tooltip. */
+    readonly reason?: string;
+    /** How far, in METRES, the rectangle lies outside the material. Absent when `ok`. */
+    readonly overshootM?: number;
+}
+
+const FIT_OK: ProfileRectFit = { ok: true };
+
+/**
+ * Does `rect` lie entirely inside the material the ring encloses?
+ *
+ * ⭐ THE ANSWER NAMES THE NUMBER. A refusal here reaches the author as *"the wall's top
+ *   edge falls to 1.732 m across this opening, and its head is at 2.100 m — 0.368 m of the
+ *   opening would be outside the wall"*, because a refusal that says only "does not fit"
+ *   leaves them to guess which of six numbers to change. That is the founder's standing
+ *   direction on refusals and it is why `overshootM` is on the result as well as in the
+ *   sentence: the caller can offer a nudge without re-deriving it.
+ *
+ * ⚠ THIS IS THE ONE PREDICATE. `WallOccupancyStore.canPlace` asks it before an opening is
+ *   placed, `profileAuthorability` asks it before a profile is written over openings that
+ *   already exist, and `buildWallProfileBodyGeometry` is only ever handed openings that
+ *   passed it. Three questions — *may this opening go here*, *may this ring be applied*,
+ *   *can this solid be built* — are the SAME question from three sides, and answering them
+ *   in three places is how the gate and the geometry drift (C84 EI-9, and the drift
+ *   `PropertyDescriptorGenerator.ts:19-20` records the cost of).
+ */
+export function wallProfileRectFit(
+    ring: ReadonlyArray<WallProfileVertex>,
+    rect: ProfileOpeningRect,
+): ProfileRectFit {
+    const chains = wallProfileChains(ring);
+    if (!chains) {
+        return {
+            ok: false,
+            code: 'ring-not-elevation',
+            reason:
+                'This wall outline is not a simple elevation outline — its upper or lower edge ' +
+                'doubles back on itself, so there is no single "top" and "bottom" for an opening ' +
+                'to sit between. Author the outline as one span per position along the wall, and ' +
+                'cut voids as door or window openings rather than as notches in the outline.',
+        };
+    }
+    const { bottom, top, uMin, uMax } = chains;
+
+    const u0 = Math.min(rect.u0, rect.u1);
+    const u1 = Math.max(rect.u0, rect.u1);
+    const v0 = Math.min(rect.v0, rect.v1);
+    const v1 = Math.max(rect.v0, rect.v1);
+    if (![u0, u1, v0, v1].every((n) => Number.isFinite(n))) {
+        return {
+            ok: false,
+            code: 'span-outside-ring',
+            reason: 'The opening has no finite position or size, so it cannot be checked against the wall outline.',
+        };
+    }
+
+    if (u0 < uMin - PROFILE_FIT_TOL_M || u1 > uMax + PROFILE_FIT_TOL_M) {
+        const over = Math.max(uMin - u0, u1 - uMax);
+        return {
+            ok: false,
+            code: 'span-outside-ring',
+            overshootM: over,
+            reason:
+                `The opening spans ${u0.toFixed(3)}–${u1.toFixed(3)} m along the wall, but the ` +
+                `wall's edited outline only occupies ${uMin.toFixed(3)}–${uMax.toFixed(3)} m — ` +
+                `${over.toFixed(3)} m of the opening would sit where the outline has removed the ` +
+                'wall entirely. Move the opening inside the outline, or extend the outline over it.',
+        };
+    }
+
+    const minTop = chainExtremeOverSpan(top, u0, u1, 'min');
+    const maxBot = chainExtremeOverSpan(bottom, u0, u1, 'max');
+    const minBot = chainExtremeOverSpan(bottom, u0, u1, 'min');
+    if (minTop === null || maxBot === null || minBot === null) {
+        return {
+            ok: false,
+            code: 'ring-not-elevation',
+            reason:
+                'The wall outline does not cover the whole width of this opening, so the opening ' +
+                'cannot be checked against it.',
+        };
+    }
+
+    if (v1 > minTop - PROFILE_FIT_TOL_M) {
+        const over = v1 - minTop;
+        return {
+            ok: false,
+            code: 'above-top',
+            overshootM: over,
+            reason:
+                `The wall's edited outline falls to ${minTop.toFixed(3)} m somewhere across this ` +
+                `opening (${u0.toFixed(3)}–${u1.toFixed(3)} m along the wall), and the opening's ` +
+                `head is at ${v1.toFixed(3)} m — ` +
+                (over > 0
+                    ? `${over.toFixed(3)} m of the opening would be outside the wall. `
+                    : 'the two meet exactly, which leaves no wall above the opening to hold it. ') +
+                'Lower the opening, make it shorter, or raise the outline above it.',
+        };
+    }
+
+    if (rect.floorReaching) {
+        // A DOOR is cut out of the BOTTOM EDGE, so the bottom edge has to be there to cut:
+        // flat across the whole span, and at the door's own foot.
+        const uneven = maxBot - minBot;
+        const offFoot = Math.abs(v0 - minBot);
+        if (uneven > PROFILE_FIT_TOL_M || offFoot > PROFILE_FIT_TOL_M) {
+            const over = Math.max(uneven, offFoot);
+            return {
+                ok: false,
+                code: 'uneven-foot',
+                overshootM: over,
+                reason:
+                    `This is a floor-reaching opening, and the wall's edited outline is not level ` +
+                    `along its foot: across ${u0.toFixed(3)}–${u1.toFixed(3)} m the bottom of the ` +
+                    `outline runs between ${minBot.toFixed(3)} m and ${maxBot.toFixed(3)} m while ` +
+                    `the opening's foot is at ${v0.toFixed(3)} m (a difference of ` +
+                    `${over.toFixed(3)} m). A door is carved out of the wall's bottom edge, so that ` +
+                    'edge must be flat and at the door\'s own level across the whole opening. Move ' +
+                    'the opening onto a level stretch, or level the outline beneath it.',
+            };
+        }
+        return FIT_OK;
+    }
+
+    if (v0 < maxBot + PROFILE_FIT_TOL_M) {
+        const over = maxBot - v0;
+        return {
+            ok: false,
+            code: 'below-bottom',
+            overshootM: over,
+            reason:
+                `The wall's edited outline rises to ${maxBot.toFixed(3)} m somewhere across this ` +
+                `opening (${u0.toFixed(3)}–${u1.toFixed(3)} m along the wall), and the opening's ` +
+                `sill is at ${v0.toFixed(3)} m — ` +
+                (over > 0
+                    ? `${over.toFixed(3)} m of the opening would be outside the wall. `
+                    : 'the two meet exactly, which leaves no wall below the opening to hold it. ') +
+                'Raise the opening, or lower the outline beneath it.',
+        };
+    }
+
+    return FIT_OK;
+}
+
+/**
+ * Read an opening record — an `Opening`, an `OpeningDims`, or anything shaped like one —
+ * as a `(u, v)` rectangle, or `null` when it does not carry enough to be judged.
+ *
+ * ⚠ `null` IS "UNJUDGEABLE", NOT "FINE". The callers must treat it as a refusal on a
+ *   profiled host, and one of them very nearly did the opposite: `WallProfileVariants`
+ *   elicits the gate's sentence with a bare `openings: [{}]` probe, and `canPlace` passes
+ *   `[{}]` to `rakeAuthorability` for the same purpose. A reader that returned "the empty
+ *   rectangle" for those would have made every probe pass and every real check meaningless
+ *   — the §CONTEXT-DATA-HONESTY failure where absent and clear are the same value.
+ */
+export function profileOpeningRectOf(opening: unknown): ProfileOpeningRect | null {
+    if (opening === null || typeof opening !== 'object') return null;
+    const o = opening as {
+        offset?: unknown; width?: unknown; height?: unknown; sillHeight?: unknown; type?: unknown;
+    };
+    const num = (x: unknown): number | null =>
+        typeof x === 'number' && Number.isFinite(x) ? x : null;
+    const offset = num(o.offset);
+    const width = num(o.width);
+    const height = num(o.height);
+    // A missing `sillHeight` is NOT read as 0. `Opening.sillHeight` is REQUIRED in
+    // `WallTypes.ts` ("geometry generation depends on it"), so an absent one means the
+    // caller handed us something that is not an opening — and defaulting it to 0 would
+    // silently turn an unjudgeable record into a door sitting on the floor.
+    const sill = num(o.sillHeight);
+    if (offset === null || width === null || height === null || sill === null) return null;
+    if (!(width > 0) || !(height > 0)) return null;
+    return {
+        u0: offset,
+        u1: offset + width,
+        v0: sill,
+        v1: sill + height,
+        // The SAME classification `normaliseWallHoles` makes ("sill at (or below) the floor
+        // → floor notch (door); else interior hole"), by the SAME epsilon, so the gate and
+        // the builder cannot disagree about which openings are notches.
+        floorReaching: sill <= PROFILE_FIT_TOL_M,
+    };
+}
+
 // ─── Authorability ────────────────────────────────────────────────────────────
 
 /** The subset of a wall this module needs in order to judge a profile. */
