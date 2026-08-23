@@ -106,6 +106,11 @@ import { beamRecordFromCreatedEvent } from './beamCreatedMirror';
 import { curtainWallRecordFromCreatedEvent } from './curtainWallCreatedMirror';
 import { ceilingRecordFromCreatedEvent } from './ceilingCreatedMirror';
 import { registerElementLevelChangeBridge } from './elementLevelChangedMirror';
+// §MIRROR-UPDATE (L-9942) — the SECOND mutation channel. Same extraction rule as its
+// neighbour above: the mirror lives in its own module so a suite can EXECUTE it.
+import { registerElementUpdateBridge } from './elementUpdatedMirror';
+// §FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9944) — the boundary line's 3-D builder.
+import { BoundaryLineMeshBuilder } from './BoundaryLineMeshBuilder';
 import { WindowTool } from '@pryzm/geometry-window';
 import { DoorTool } from '@pryzm/geometry-door';
 import { CurtainWallTool } from '@pryzm/geometry-curtain-wall';
@@ -1390,6 +1395,57 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         console.log('[initTools] §L-946: element.level-changed bus→legacy-store MUTATION bridge registered.');
     }
 
+    // §MIRROR-UPDATE (L-9942/L-9943) — bus → legacy-store MUTATION bridge for FIELD
+    // CHANGES. The SECOND mutation channel in this file, and the first that is not
+    // about `levelId`.
+    //
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ⛔ EVERY OTHER BRIDGE IN THIS FILE IS A `.created`. THAT WAS THE DEFECT.
+    // ═══════════════════════════════════════════════════════════════════════════
+    //     grep -c "\.created'" initTools.ts -> 17      grep -c "\.updated'" -> 0
+    //
+    // `tools/ga-gate/check-mirror-completeness.ts` names the consequence: 123 bus
+    // verbs that write a plugin DTO store and relay to NOTHING, the 13
+    // `*.setMaterial` verbs that had to be turned into refusals because a refusal
+    // was the only honest answer left, the lift shaft that penetrates the floor
+    // plate in the model and not on screen (L-9403), and the pool's void in its
+    // host slab. All one missing channel.
+    //
+    // ⛔ IT IS NOT A GENERAL RELAY, AND MUST NOT BECOME ONE. Which verbs may cross
+    // is declared in `ELEMENT_UPDATE_VERBS` (`CommandEventBridge.ts`) and which
+    // fields may cross into which legacy record is declared in
+    // `LEGACY_UPDATABLE_STORES` (`elementUpdatedMirror.ts`). A verb with no row
+    // stays on the gate's ledger as a NAMED backlog item rather than becoming a
+    // silent copy — a moved wall is not a repainted wall, and `WallStore.update()`
+    // re-runs join resolution on anything handed to it.
+    if (runtime) {
+        registerElementUpdateBridge(runtime.events, {
+            // No casts: the deps are typed structurally, so `tsc` is what proves
+            // these are the LEGACY stores the renderer reads and not the plugin DTO
+            // stores. A cast here would make the wiring un-checkable in exactly the
+            // place the bug lived — the same rule the §L-946 registration above states.
+            slabStore,
+            roofStore,
+            columnStore: columnStoreInstance,
+            // ⚠ THE ONE CAST, AND IT IS THE PRE-EXISTING DISAGREEMENT rather than a
+            // new one: `PryzmRuntime.stores` is typed `StoresSlot` (elements /
+            // hydrate / viewState / project) while `bootstrap.everything.ts` also
+            // hangs every plugin store on it under its `storeKey` at runtime. The
+            // balcony profile bridge below reaches the same object the same way and
+            // says so. Keeping the cast HERE means `elementUpdatedMirror.ts` — the
+            // part a suite executes — needs none at all.
+            pluginRecord: (storeKey, id) => {
+                const slot = runtime.stores as unknown as Record<string, unknown> | undefined;
+                const store = slot?.[storeKey] as
+                    | { getState?: () => Map<string, Record<string, unknown>> }
+                    | undefined;
+                return store?.getState?.().get(id);
+            },
+            viewDependencyTracker,
+        });
+        console.log('[initTools] §MIRROR-UPDATE: element.updated bus→legacy-store MUTATION bridge registered.');
+    }
+
     // §P2.3 (IMPL-PLAN-2026-05-17): bus → legacy-WallStore bridge for wall openings.
     // After a bus `wall.opening.create` or `wall.createOpening` command succeeds,
     // CommandEventBridge emits `wall.opening.created` with the full opening payload.
@@ -1596,6 +1652,137 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             }
         });
         console.log('[initTools] §FT-LIFT: lift.created bus→LiftCompoundMeshBuilder bridge registered.');
+    }
+
+    // §FT-BOUNDARY-LINE (§FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE, L-9944..L-9946 ·
+    // C106 · L-9305): bus → BoundaryLineMeshBuilder.
+    //
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ⭐ THE FOUNDER DREW A BOUNDARY LINE AND SAW NOTHING, AND IT WAS BROKEN ON
+    //    THREE AXES AT ONCE — NOT ONE.
+    // ═══════════════════════════════════════════════════════════════════════════
+    //   · no `case 'boundaryLine.*'` in `CommandEventBridge`  → nothing relayed it;
+    //   · `boundaryLineSolid()` had ZERO production callers   → nothing could draw it;
+    //   · zero `boundaryLine` in either `ProjectSerializer`   → the record dies on save.
+    // The first two are closed (the bridge case, and `BoundaryLineMeshBuilder`). The
+    // THIRD IS NOT, and is named as open at L-9947 rather than left to be discovered:
+    // a boundary line drawn today renders and does not survive a reload.
+    //
+    // ⚠ THIS SUBSCRIBER IS NOT A "MIRROR" LIKE THE SEVENTEEN AROUND IT, for the same
+    // reason §FT-LIFT is not: there is no legacy `boundaryLine` store to mirror INTO,
+    // and there must not be one. `plugins/boundary-line/src/store.ts` opens by
+    // declaring that this family has EXACTLY ONE authority on purpose — C84 EI-1
+    // holding by construction instead of by discipline — so the record goes straight
+    // to a builder rather than being laundered through a rival copy.
+    //
+    // ⭐ WHY IT LISTENS TO THREE EVENTS AND NOT ONE. `created` and `updated` differ
+    // only in dedup and registration; `deleted` disposes. Five verbs reach `updated`
+    // (`update`, `attach`, `detach`, `move`, and any later one) and they all mean the
+    // same thing to a renderer. ⛔ `boundaryLine.move` carries NO `line` — it is the
+    // L-220 distinct-verb bridge to `MoveBoundaryLineCommand`, which declares
+    // `stores: []` and writes through `BoundaryLineStorePort` — so the record is read
+    // from `runtime.stores.boundaryLine`, which for this family IS the authority.
+    if (runtime) {
+        const boundaryLineMeshBuilder = new BoundaryLineMeshBuilder(world.scene.three);
+
+        /** The authoritative record: the commit when the verb carried one, otherwise
+         *  the ONE store. Returns `undefined` when neither can answer — which the
+         *  callers below report BY NAME rather than skipping in silence. */
+        const _boundaryLineRecord = (
+            id: string,
+            fromEvent?: Readonly<Record<string, unknown>>,
+        ): Record<string, unknown> | undefined => {
+            if (fromEvent && typeof fromEvent === 'object') return { ...fromEvent };
+            // ⚠ THE ONE CAST, and it is the pre-existing `StoresSlot` disagreement the
+            // balcony profile bridge documents below — not a new one.
+            const slot = runtime.stores as unknown as Record<string, unknown> | undefined;
+            const store = slot?.['boundaryLine'] as
+                | { getState?: () => Map<string, Record<string, unknown>> }
+                | undefined;
+            return store?.getState?.().get(id);
+        };
+
+        /** The storey datum, in world metres. ⛔ Resolved HERE and handed DOWN as a
+         *  number: a builder that can reach for an elevation can reach for the wrong
+         *  one, and a silent `?? 0` files every line on the ground floor
+         *  (§DIAG-WALL-LEVEL). `elementLevelChangedMirror`'s `_elevationOf` exists for
+         *  exactly this reason and this follows it. */
+        const _boundaryLineElevation = (levelId: string): number => {
+            if (!levelId) return 0;
+            try {
+                const lvl = bimManager.getLevelById(levelId) as { elevation?: number } | undefined;
+                return typeof lvl?.elevation === 'number' ? lvl.elevation : 0;
+            } catch { return 0; }
+        };
+
+        const _drawBoundaryLine = (
+            phase: 'created' | 'updated',
+            id: string,
+            levelId: string,
+            fromEvent?: Readonly<Record<string, unknown>>,
+        ): void => {
+            const record = _boundaryLineRecord(id, fromEvent);
+            if (!record) {
+                console.warn(
+                    `[initTools] §FT-BOUNDARY-LINE: '${id}' ${phase} and carried no record — ` +
+                    `neither the commit nor runtime.stores.boundaryLine could answer, so the ` +
+                    `line will NOT be drawn. (L-9944)`);
+                return;
+            }
+            try {
+                const outcome = boundaryLineMeshBuilder.updateBoundaryLine(
+                    record as unknown as Parameters<BoundaryLineMeshBuilder['updateBoundaryLine']>[0],
+                    _boundaryLineElevation(levelId),
+                );
+                // §FIX-PLAN-VDT-BIMMANAGER — without these two calls a bus-created
+                // element is invisible in PLAN view; the wall, column, beam and lift
+                // bridges each carry the same note. ⚠ There is no plan SYMBOL builder
+                // for this family yet (L-9948), so registering is what makes the id and
+                // its storey KNOWN to the plan pipeline, not what draws it.
+                viewDependencyTracker.registerElement(id, levelId);
+                try { bimManager.registerElement(id, levelId); }
+                catch { /* non-fatal — may already be registered */ }
+
+                if (outcome.drew === 'linework-material-refused') {
+                    // ⛔ C100 §5, surfaced rather than swallowed: volume was asked for
+                    // and could not be painted honestly, so the LINE was drawn and the
+                    // resolver's own sentence is repeated verbatim.
+                    console.warn(
+                        `[initTools] §FT-BOUNDARY-LINE: '${id}' asked for VOLUME and its ` +
+                        `material could not be resolved, so it is drawn as linework. ` +
+                        outcome.reason);
+                } else if (outcome.drew === 'nothing') {
+                    console.warn(`[initTools] §FT-BOUNDARY-LINE: '${id}' drew NOTHING — ${outcome.reason}`);
+                } else {
+                    console.log(
+                        `[initTools] §FT-BOUNDARY-LINE: '${id}' ${phase} → ${outcome.drew}` +
+                        (outcome.drew === 'solid' ? ` (${outcome.slices} segment prism(s))` : ''));
+                }
+            } catch (err) {
+                console.error(
+                    '[initTools] §FT-BOUNDARY-LINE: BoundaryLineMeshBuilder.updateBoundaryLine ' +
+                    'failed — the boundary line will be absent from the 3-D scene:', err);
+            }
+        };
+
+        runtime.events.on('boundaryLine.created', (ev) => {
+            if (!ev.boundaryLineId) return;
+            _drawBoundaryLine('created', ev.boundaryLineId, ev.levelId ?? '', ev.line);
+        });
+        runtime.events.on('boundaryLine.updated', (ev) => {
+            if (!ev.boundaryLineId) return;
+            _drawBoundaryLine('updated', ev.boundaryLineId, ev.levelId ?? '', ev.line);
+        });
+        runtime.events.on('boundaryLine.deleted', (ev) => {
+            if (!ev.boundaryLineId) return;
+            // `removeBoundaryLine` returns whether there was anything to remove, so
+            // "gone" and "was never drawn" stay different facts.
+            const had = boundaryLineMeshBuilder.removeBoundaryLine(ev.boundaryLineId);
+            console.log(
+                `[initTools] §FT-BOUNDARY-LINE: '${ev.boundaryLineId}' deleted — ` +
+                (had ? 'group disposed' : 'nothing was drawn for it'));
+        });
+        console.log('[initTools] §FT-BOUNDARY-LINE: boundaryLine.created/updated/deleted bus→builder bridge registered.');
     }
 
     // §P3.1-CW (IMPL-PLAN-2026-05-17): bus → legacy-CurtainWallStore bridge.

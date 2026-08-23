@@ -395,6 +395,134 @@ export interface RuntimeEvents {
     readonly newElevationY?: number;
   };
 
+  /**
+   * §MIRROR-UPDATE (L-9942) — THE SECOND MUTATION CHANNEL, and the one that
+   * closes the asymmetry `tools/ga-gate/check-mirror-completeness.ts` exists to
+   * measure:
+   *
+   *     grep -c "\.created'"  apps/editor/src/engine/initTools.ts   -> 17
+   *     grep -c "\.updated'"  apps/editor/src/engine/initTools.ts   ->  0
+   *
+   * Every element family could be CREATED and reach the render layer. **None
+   * could be UPDATED and reach it.** `element.level-changed` above is the one
+   * exception and it moves exactly one field, `levelId`. Everything else — a
+   * thickness, a base offset, a hole punched through a floor plate — committed
+   * to the plugin DTO store, reported success, and left the legacy store the
+   * fragment builders / plan projector / IFC exporter / ProjectSerializer all
+   * read holding its own unchanged copy.
+   *
+   * ─── ⭐ WHY THE EVENT CARRIES FIELD **NAMES** AND NOT FIELD **VALUES** ─────
+   * Because a second copy of a value on the wire is a second thing that can be
+   * wrong. The `.created` events carry values and L-927 is the standing receipt
+   * for what that costs: `materialColor`, `layers` and `curve` were each a
+   * separate founder-visible defect, fixed one field at a time, because a field
+   * the emitter's whitelist did not know about could never arrive.
+   *
+   * So this event says WHICH fields the handler committed, and the app-side
+   * mirror (`apps/editor/src/engine/elementUpdatedMirror.ts`) reads their values
+   * out of the PLUGIN store — the store the handler actually wrote. One value,
+   * one owner (C84 EI-9).
+   *
+   * ⚠ THAT MAKES SUBSCRIBER ORDER LOAD-BEARING, AND IT IS MEASURED RATHER THAN
+   * ASSUMED. `PatchEmitter.listeners` is an insertion-ordered `Set`;
+   * `bootstrap()` calls `attachStores(emitter, stores)` (bootstrap.ts:103)
+   * BEFORE `composeRuntime()` calls `wireCommandEventBridge(inner.bus.patches,
+   * events)` (composeRuntime.ts:956), so the plugin store has already applied
+   * the forward patches by the time this event is emitted. The mirror does NOT
+   * rely on that silently: a record it cannot find is a NAMED refusal in the
+   * log, never a quiet no-op (§context-data-honesty — failure and emptiness are
+   * never the same value).
+   *
+   * ⛔ IT IS NOT A GENERAL "COPY EVERY FIELD ACROSS" RELAY, and it must not
+   * become one. A moved wall is not a repainted wall: `WallStore.update()`
+   * clears `_sourceBaseLine` and re-runs join resolution, so a mirror that blind-
+   * copied a baseline would silently un-weld every corner it touched. Which
+   * fields may cross is DECLARED per verb in `ELEMENT_UPDATE_VERBS`
+   * (`CommandEventBridge.ts`) and which family they may cross into is DECLARED
+   * in `LEGACY_UPDATABLE_STORES` (the mirror). A verb with no row emits nothing.
+   */
+  'element.updated': {
+    readonly commandId: string;
+    /** The bus verb that produced this, e.g. `'slab.setThickness'`. Compounds
+     *  stamp their OWN verb here (`'pool.create'` for the host slab's void), so
+     *  a reader can tell a direct edit from a cascade. */
+    readonly commandType: string;
+    /** Element family — selects the legacy store the app-side mirror writes. */
+    readonly elementKind: string;
+    readonly elementId: string;
+    /**
+     * The TOP-LEVEL fields the handler committed, in the PLUGIN record's own
+     * vocabulary. Deep patches collapse to their top-level field (`holes.3` →
+     * `holes`), because the legacy stores this feeds all take whole-field
+     * writes and a sub-path write is exactly the annihilating-partial defect
+     * `SlabStore.changeLevel`'s header records as L-977.
+     *
+     * NEVER empty: the bridge refuses to emit a change that names no field.
+     */
+    readonly changedFields: readonly string[];
+  };
+
+  /**
+   * §FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9944) · C106 · L-9305.
+   *
+   * ⭐ THE FAMILY WITH EXACTLY ONE STORE, AND THEREFORE THE ONE EVENT THAT
+   * CARRIES AN **ID** RATHER THAN A FIELD LIST.
+   *
+   * `plugins/boundary-line/src/store.ts` opens by declaring that this family has
+   * ONE authority on purpose — no legacy geometry twin to drift from. So the
+   * subscriber does not need the record copied onto the wire: it reads the
+   * authoritative record straight out of `runtime.stores.boundaryLine`. `line`
+   * is carried anyway, off the COMMIT, for the two cases where reading the store
+   * would be the weaker answer:
+   *   · it makes the create path independent of subscriber ordering;
+   *   · it is what a test can drive without standing up a store registry.
+   *
+   * ⚠ IT IS ABSENT FOR `boundaryLine.move`, and that absence is information.
+   * The move is the L-220 distinct-verb bridge to `MoveBoundaryLineCommand`
+   * (`initBusHandlers.ts`), which declares `stores: []` and produces NO patches
+   * — it writes the store through `BoundaryLineStorePort`. There is nothing on
+   * the commit to read, so the subscriber falls back to the store, which for
+   * this family is the authority anyway.
+   */
+  'boundaryLine.created': {
+    readonly commandId: string;
+    readonly commandType: 'boundaryLine.create';
+    readonly levelId: string;
+    readonly boundaryLineId: string;
+    /** The committed record, read off the `{op:'add', path:[id]}` patch. */
+    readonly line?: Readonly<Record<string, unknown>>;
+  };
+
+  /**
+   * §FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9944) — the UPDATE half, and the
+   * first `*.updated` mirror this codebase has ever had (the mirror-completeness
+   * gate's census read `0 '*.updated' mirrors` on 2026-08-23).
+   *
+   * `commandType` is deliberately a plain `string` rather than a union: five
+   * verbs reach it (`update`, `attach`, `detach`, `move`, and any later one),
+   * they all mean "this line's record changed, redraw it", and a union here
+   * would have to be edited in lock-step with a table it cannot see — the
+   * `§FIX-CW-BRIDGE-DEAD-ARMS` (L-972) failure shape, inverted.
+   */
+  'boundaryLine.updated': {
+    readonly commandId: string;
+    readonly commandType: string;
+    readonly levelId: string;
+    readonly boundaryLineId: string;
+    /** Present when the verb committed a whole-record patch; ABSENT for
+     *  `boundaryLine.move`, which is a legacy-command bridge with no patches. */
+    readonly line?: Readonly<Record<string, unknown>>;
+  };
+
+  /** §FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9944) — the line is gone; the
+   *  subscriber disposes its group. Carries no record on purpose: there is
+   *  nothing left to describe, and an id is all a removal needs. */
+  'boundaryLine.deleted': {
+    readonly commandId: string;
+    readonly commandType: 'boundaryLine.delete';
+    readonly boundaryLineId: string;
+  };
+
   // ── A25: Remaining-family typed domain events (C11 §5.2) ─────────────────
   // Pattern mirrors 'wall.created' from A24.  Emitted by CommandEventBridge
   // (L2) after each create command succeeds — handlers remain pure / L4.

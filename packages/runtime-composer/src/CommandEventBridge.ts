@@ -169,6 +169,181 @@ function emitLevelChange(
 }
 
 /**
+ * §MIRROR-UPDATE (L-9942) — THE UPDATE CHANNEL, AND WHY IT IS A TABLE.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⛔ ONE ZERO WAS THE WHOLE DEFECT CLASS.
+ * ═══════════════════════════════════════════════════════════════════════════
+ *   grep -c "\.created'"  apps/editor/src/engine/initTools.ts   -> 17
+ *   grep -c "\.updated'"  apps/editor/src/engine/initTools.ts   ->  0
+ *
+ * Seventeen create-mirrors and NOT ONE update-mirror. `element.level-changed`
+ * above is the single exception and it moves exactly one field. Everything else
+ * — a thickness, a base offset, a void punched through a floor plate — landed in
+ * the plugin DTO store, reported success, and never reached the store the
+ * renderer reads. That is the mechanical cause of the 13 `*.setMaterial` verbs
+ * sitting at REFUSES, of the lift's shaft that penetrates the model and not the
+ * screen (L-9403), and of the pool's hole in its host slab.
+ *
+ * ─── ⛔ WHY THIS IS **NOT** "COPY EVERY REPLACE PATCH ACROSS" ───────────────
+ * A moved wall is not a repainted wall. `WallStore.update()` clears
+ * `_sourceBaseLine` and re-runs join resolution; a generic relay that copied a
+ * committed `baseLine` into it would silently un-weld every corner it touched —
+ * §CLAMP-COSHARE-WELD, arrived at from the other direction. And
+ * `SlabStore.update()` is a WHOLE-RECORD replace: handed a one-key partial it
+ * leaves the slab as that one key, frozen, with no diagnostics (L-977, recorded
+ * in `SlabStore.changeLevel`'s own header).
+ *
+ * So a verb crosses only when a person has established WHAT it must re-emit for
+ * the render to be correct, and written the row. A verb with no row emits
+ * nothing and stays on `tools/ga-gate/mirror-debt.json` as a NAMED backlog item.
+ * That is the opposite of a default-open relay, deliberately.
+ *
+ * ─── WHAT A ROW CLAIMS, IN THREE PARTS ─────────────────────────────────────
+ *   1. `kind`   — the family key. It MUST equal a key in `LEGACY_UPDATABLE_STORES`
+ *                 (`apps/editor/src/engine/elementUpdatedMirror.ts`). A row in one
+ *                 table and not the other is the silent half of this defect: the
+ *                 command succeeds, the plugin store is right, and the renderer
+ *                 keeps its own unchanged copy.
+ *   2. `idField`— which payload field names the element.
+ *   3. `fields` — the TOP-LEVEL plugin-record fields this verb may change. The
+ *                 event carries these NAMES; the mirror reads their VALUES out of
+ *                 the plugin store. Not values on the wire: L-927 is the standing
+ *                 receipt for what a value whitelist costs (`materialColor`,
+ *                 `layers` and `curve` were three separate founder-visible
+ *                 defects, each a field the emitter did not know to copy).
+ *
+ * ─── ⚠ THE ROWS THAT ARE **ABSENT**, AND WHY — measured, not assumed ────────
+ *  · `roof.setPitch` — `grep -n "pitch" packages/geometry-roof/src/RoofTypes.ts`
+ *    → **0 hits**. The legacy roof record has no such field, so there is nothing
+ *    to mirror INTO; a row here would write a key no builder reads and report a
+ *    fix. It stays on the debt ledger with that reason.
+ *  · `slab.movePolygon` / `slab.update` / `slab.updatePolygon` — the polygon has
+ *    TWO spellings (`boundary` Vec3[] in the plugin record, `polygon` {x,y}[] in
+ *    the legacy one) and `slab.movePolygon` is already the L-220 distinct verb
+ *    bridged to `UpdateSlabPolygonCommand`, which writes the legacy store itself.
+ *    Adding a rival path here would put two producers on one ring.
+ *  · every `*.setMaterial` — those verbs REFUSE today (§FIX-DEAD-VERB-REFUSE).
+ *    A refusing verb must NOT acquire a mirror while it refuses: that would make
+ *    `canExecute` and this table disagree about whether the verb works.
+ */
+export interface ElementUpdateVerbSpec {
+  /** Family key — selects the legacy store in the app-side mirror's table. */
+  readonly kind: string;
+  /** Payload field naming the element. */
+  readonly idField: string;
+  /** Top-level PLUGIN-record fields this verb may change. Never empty. */
+  readonly fields: readonly string[];
+  /** Why these fields and no others — the part a later reader needs. */
+  readonly note: string;
+}
+
+const ELEMENT_UPDATE_VERBS: Readonly<Record<string, ElementUpdateVerbSpec>> = {
+  // ── slab ────────────────────────────────────────────────────────────────
+  // ⭐ `holes` is THE founder-visible row. `SlabFragmentBuilder` punches
+  // `data.holes` through the capped geometry (`SlabFragmentBuilder.ts:1526`), so
+  // mirroring this one field is the difference between a lift shaft that
+  // penetrates the floor plate and one that only claims to (L-9403).
+  'slab.addHole': {
+    kind: 'slab', idField: 'slabId', fields: ['holes'],
+    note: 'AddSlabHoleHandler does `s.holes.push(...)` — a DEEP patch (`[id,"holes",N]`). '
+        + 'The mirror reads the whole array back rather than replaying the sub-path, because '
+        + 'SlabStore.update is a whole-record replace and a sub-path write is the L-977 '
+        + 'annihilating partial.',
+  },
+  'slab.removeHole': {
+    kind: 'slab', idField: 'slabId', fields: ['holes'],
+    note: 'Symmetric with slab.addHole — `s.holes.splice(...)`, also deep.',
+  },
+  'slab.setThickness': {
+    kind: 'slab', idField: 'slabId', fields: ['thickness'],
+    note: 'Identity mapping: both records spell it `thickness` and the builder re-extrudes '
+        + 'on `bim-slab-updated`.',
+  },
+  'slab.setBaseOffset': {
+    kind: 'slab', idField: 'slabId', fields: ['baseOffset'],
+    note: 'Identity mapping. `SlabFragmentBuilder` re-derives worldY = level.elevation + '
+        + 'baseOffset on every update (C92 §10), so the plate moves without a remove/add.',
+  },
+  'slab.setType': {
+    kind: 'slab', idField: 'slabId', fields: ['systemTypeId', 'materialId', 'materialColor'],
+    note: 'Three fields because the handler writes three, conditionally. `SlabData` carries '
+        + 'all three (SlabTypes.ts:145 systemTypeId, :101 materialId, :100 materialColor) and '
+        + 'the mirror copies only those the plugin record actually holds.',
+  },
+
+  // ── roof ────────────────────────────────────────────────────────────────
+  'roof.setOverhang': {
+    kind: 'roof', idField: 'roofId', fields: ['overhang'],
+    note: 'Legacy `RoofData.overhang` (RoofTypes.ts:84/98). `RoofStore.update` takes a '
+        + 'Partial and emits `bim-roof-updated`, so one field is a legal write here — unlike '
+        + 'the slab, whose update is a whole-record replace.',
+  },
+  'roof.setThickness': {
+    kind: 'roof', idField: 'roofId', fields: ['thickness'],
+    note: 'Legacy `RoofData.thickness` (RoofTypes.ts:61/85/101). Same Partial contract.',
+  },
+
+  // ── column ──────────────────────────────────────────────────────────────
+  'column.setHeight': {
+    kind: 'column', idField: 'columnId', fields: ['height'],
+    note: 'Legacy `ColumnData.height`. ⚠ `ColumnStore.update` takes `Omit<ColumnData,"id"|"type">` '
+        + '— a WHOLE record — so the mirror merges onto the current one; handing it a one-key '
+        + 'partial would be the L-977 defect in a second family.',
+  },
+};
+
+/**
+ * Emit `element.updated` when `record.type` is a declared update verb.
+ *
+ * ⛔ NAMES THE FIELDS THE HANDLER ACTUALLY COMMITTED, not the fields the row
+ * ALLOWS. A `slab.setType` that only changed `systemTypeId` must not announce
+ * `materialColor`: the mirror would then copy a value nobody edited, and a
+ * subsequent "why did my colour change?" would have no trail. The intersection
+ * is taken against `record.forward`, which is the COMMIT (ADR-002 §5).
+ *
+ * A change that touched none of the declared fields emits NOTHING — silence is
+ * correct there, because there is nothing for a renderer to do.
+ */
+function emitElementUpdate(
+  events: EventBus,
+  record: {
+    readonly id: string;
+    readonly type: string;
+    readonly payload: unknown;
+    readonly forward?: readonly { readonly op: string; readonly path: readonly (string | number)[] }[];
+  },
+): void {
+  const spec = ELEMENT_UPDATE_VERBS[record.type];
+  if (spec === undefined) return;
+
+  const p = (record.payload ?? {}) as Record<string, unknown>;
+  const elementId = p[spec.idField];
+  if (typeof elementId !== 'string' || elementId.length === 0) return;
+
+  // Which of the declared fields the commit really touched. Patches from a
+  // single-store `produceCommand` are store-RELATIVE (`[elementId, field, ...]`),
+  // so the field is at index 1 and everything deeper collapses onto it.
+  const allowed = new Set(spec.fields);
+  const touched = new Set<string>();
+  for (const patch of record.forward ?? []) {
+    if (patch.path.length < 2) continue;
+    if (String(patch.path[0]) !== elementId) continue;
+    const field = String(patch.path[1]);
+    if (allowed.has(field)) touched.add(field);
+  }
+  if (touched.size === 0) return;
+
+  events.emit('element.updated', {
+    commandId:     record.id,
+    commandType:   record.type,
+    elementKind:   spec.kind,
+    elementId,
+    changedFields: [...touched],
+  });
+}
+
+/**
  * §FIX-BEAM-CEB-STEEL (L-974) — the committed beam as it appears in the Immer
  * `add` patch produced by `CreateBeamHandler` (`draft[beam.id] = beam`).
  *
@@ -298,6 +473,19 @@ export function wireCommandEventBridge(
       emitLevelChange(events, record);
     } catch (err) {
       console.error('[CommandEventBridge] Failed to emit element.level-changed for type=' +
+        record.type + ':', err);
+    }
+
+    // ── 1c. §MIRROR-UPDATE (L-9942) mutation channel ─────────────────────────
+    // Its own try/catch for the same reason 1b has one: a throw here must not be
+    // able to suppress the seventeen create-mirrors, and a throw there must not
+    // be able to suppress this. Table-driven, so a verb with no row is a
+    // deliberate silence rather than a forgotten one — the ledger
+    // `tools/ga-gate/mirror-debt.json` is where the forgotten ones are counted.
+    try {
+      emitElementUpdate(events, record);
+    } catch (err) {
+      console.error('[CommandEventBridge] Failed to emit element.updated for type=' +
         record.type + ':', err);
     }
 
@@ -1614,35 +1802,353 @@ export function wireCommandEventBridge(
           //     A diagnostic that went quiet because someone removed it is strictly
           //     worse than the bug it was watching for.
           const _liftUnmirrored: string[] = [];
-          const _liftSlabVoids = (record.forward ?? []).filter(
-            (patch) => patch.op === 'replace' && patch.path.length === 3 &&
-                       String(patch.path[0]) === 'slab' && String(patch.path[2]) === 'holes',
-          ).length;
-          if (_liftSlabVoids > 0) {
-            // ⚠ STILL OPEN, AND MEASURED RATHER THAN ASSUMED: the slab store is
-            // patched by REPLACE on `holes`, and there is no `slab.updated` mirror in
-            // initTools.ts — every slab bridge there keys on a CREATE. So the shaft
-            // penetrates the floor plate in the model and not on screen. This is the
-            // one row of C104 §13.2 that this lane did not close, and it is left
-            // SPEAKING rather than quietly dropped. L-9403.
-            _liftUnmirrored.push(
-              `${_liftSlabVoids} slab void(s) — the shaft's penetration is a REPLACE on ` +
-              `an existing slab's 'holes', and every legacy slab bridge keys on a ` +
-              `CREATE, so no mirror sees it; the hole is real in the model and absent ` +
-              `from the 3-D floor plate (L-9403)`);
+          // ⭐ L-9403 IS CLOSED HERE — and the block it was written in is kept,
+          // because its job was never "carry this one row". Measured 2026-08-23
+          // (lane MIRROR3): the lane that landed the lift wrote *"there is no
+          // `slab.updated` mirror in initTools.ts — every slab bridge there keys on
+          // a CREATE"*, and that was true of the whole repository, not just the
+          // lift: `grep -c "\.updated'" apps/editor/src/engine/initTools.ts` → **0**.
+          // The fix is therefore NOT a lift-shaped one. `element.updated`
+          // (§MIRROR-UPDATE, L-9942) is the channel that was missing, the pool's
+          // host-slab void needs exactly the same one, and both now ride it.
+          //
+          // ⛔ ONE EVENT PER PENETRATED SLAB, keyed by the slab's OWN id — never one
+          // per patch. A lift serving ten storeys punches one void per plate, and a
+          // second patch on the same plate must not make the mirror rebuild it twice.
+          const _liftVoidedSlabIds = new Set<string>();
+          for (const patch of record.forward ?? []) {
+            if (patch.op !== 'replace' || patch.path.length !== 3) continue;
+            if (String(patch.path[0]) !== 'slab' || String(patch.path[2]) !== 'holes') continue;
+            const slabId = String(patch.path[1]);
+            if (slabId.length > 0) _liftVoidedSlabIds.add(slabId);
+          }
+          const _liftSlabVoids = _liftVoidedSlabIds.size;
+          for (const slabId of _liftVoidedSlabIds) {
+            events.emit('element.updated', {
+              commandId:     record.id,
+              commandType:   'lift.create',
+              elementKind:   'slab',
+              elementId:     slabId,
+              changedFields: ['holes'],
+            });
           }
           if (_liftUnmirrored.length > 0) {
             console.warn(
               `[CommandEventBridge] §FEAT-LIFT-OBSERVATION-FRAME (L-9400..L-9403): ` +
               `lift ${p.liftId ?? '(unnamed)'} COMMITTED, and reached the legacy mirrors ` +
               `as ${_liftWallSides} wall side(s), ${_liftGlassSides} curtain-wall side(s), ` +
-              `${_liftDoorOpenings} landing-door opening(s) and ${_liftParts.length} ` +
+              `${_liftDoorOpenings} landing-door opening(s), ${_liftSlabVoids} slab void(s) ` +
+              `and ${_liftParts.length} ` +
               `cabin/frame part(s). THE FOLLOWING MEMBERS REACHED NO MIRROR AND WILL NOT ` +
               `RENDER: ` + _liftUnmirrored.join('; ') + '. ' +
               `This is a PARTIAL create, not a failed one and not a complete one — the ` +
               `lift record is real, undoable and schedulable, and part of it is invisible. ` +
               `See docs/02-decisions/contracts/C104-*.md §13.`);
           }
+          break;
+        }
+
+        case 'pool.create': {
+          // §FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9940) · L-9305 · ADR-0124 §3
+          // · C11 §5.2 · C84 EI-9.
+          //
+          // ═══════════════════════════════════════════════════════════════════
+          // ⭐ THE FOUNDER DREW A POOL. IT COMMITTED. NOTHING APPEARED.
+          // ═══════════════════════════════════════════════════════════════════
+          // `pool.create` writes FOUR stores in one patch pair, is undoable, and
+          // reports success. Then it stops: every legacy mirror in `initTools.ts`
+          // keys on the COMMAND TYPE, so none of them fires for a command called
+          // `pool.create`, and the pool's walls, floor and water reached NOTHING.
+          //
+          // ⚠ THE `default:` DETECTOR BELOW ALREADY SAW THIS AND SAID SO — it is
+          // a four-store compound, so `stores.size > 1` is true and it warns. It
+          // warned into a console nobody was reading, once per tab, and the
+          // balcony case above named the pool IN PROSE as the live instance long
+          // before that. A warning is not a mirror. This case is the mirror.
+          //
+          // ⭐ THE IDIOM IS THE BALCONY'S AND THE LIFT'S, REUSED VERBATIM: emit
+          // ONE MEMBER EVENT PER MEMBER, stamped with the MEMBER's OWN verb, so
+          // §P2.1 (wall) and §FT1 (slab) treat a pool's basin exactly as they
+          // treat a hand-drawn wall and a hand-drawn slab. No fifth mirror, no
+          // fifth set of field-mapping bugs, and a pool wall is BY CONSTRUCTION
+          // the same legacy record as a drawn one — which is the whole reason
+          // `plugins/pool/src/store.ts` refuses to keep a private copy of it.
+          //
+          // ⚠ MULTI-STORE PATCH PATHS ARE `[storeKey, id]`, NOT `[id]` — the
+          // `produceMultiStoreCommand` routing convention, same as the balcony
+          // and the lift above. And the geometry is READ OFF THE COMMIT, never
+          // the payload: `buildPoolAssembly` computes every baseline, the floor
+          // ring and the water body, and the payload carries only the outline,
+          // the host id and the pre-minted ids (ADR-002 §5).
+          const p = record.payload as {
+            levelId?: string;
+            poolId?: string;
+            hostSlabId?: string;
+            floorSlabId?: string;
+            waterId?: string;
+            materialId?: string;
+          };
+          const _poolLevelId = p.levelId ?? '';
+          const _poolCommitted = new Map<string, Map<string, Record<string, unknown>>>();
+          for (const patch of record.forward ?? []) {
+            if (patch.op !== 'add' || patch.path.length !== 2) continue;
+            const storeKey = String(patch.path[0]);
+            const memberId = String(patch.path[1]);
+            const value = patch.value as Record<string, unknown> | undefined;
+            if (!value || typeof value !== 'object' || memberId.length === 0) continue;
+            let slice = _poolCommitted.get(storeKey);
+            if (!slice) { slice = new Map(); _poolCommitted.set(storeKey, slice); }
+            slice.set(memberId, value);
+          }
+
+          // (1) THE BASIN WALLS — one real `Wall` per boundary EDGE, each with a
+          //     NEGATIVE `baseOffset` (`-depth`) so it hangs BELOW the level datum
+          //     instead of standing on it. That sign is the whole trick of the
+          //     assembly, and the §P2.1 mirror carries `baseOffset` verbatim — so
+          //     nothing here has to know about it, which is the point of reusing
+          //     the channel rather than minting one.
+          //
+          //     ⛔ ONLY the walls THIS command added: `parentId === poolId`. The
+          //     host slab is patched by REPLACE, not `add`, so it cannot reach this
+          //     loop — but the guard is stated rather than relied upon, because the
+          //     lift's identical loop needs it for a real reason (a wall-hosted
+          //     shaft names a PRE-EXISTING host wall) and a reader comparing the
+          //     two must not conclude one of them is decorative.
+          let _poolWallSides = 0;
+          for (const [wallId, wall] of _poolCommitted.get('wall') ?? []) {
+            if (wall['parentId'] !== p.poolId) continue;
+            events.emit('wall.created', {
+              commandId:   record.id,
+              commandType: 'wall.create',
+              levelId:     (wall['levelId'] as string | undefined) ?? _poolLevelId,
+              wallCount:   1,
+              wallId,
+              baseLine:    wall['baseLine'] as ReadonlyArray<{ x: number; y?: number; z: number }> | undefined,
+              height:      wall['height']     as number | undefined,
+              thickness:   wall['thickness']  as number | undefined,
+              baseOffset:  wall['baseOffset'] as number | undefined,
+              // C100 §2.1 — the MASTER id, so the basin can say what it is made OF
+              // rather than arriving at the render store with only a hex.
+              materialId:  (wall['materialId'] as string | undefined) ?? p.materialId,
+              ...(typeof wall['materialColor'] === 'string'
+                ? { materialColor: wall['materialColor'] as string }
+                : {}),
+            });
+            _poolWallSides++;
+          }
+
+          // (2) THE POOL FLOOR — a real `Slab`, through §FT1.
+          //     ⚠ `slab.created`'s `polygon` is the PLAN convention `{x, y}` where
+          //     `y` carries world Z; the committed record's `boundary` is 3-D world.
+          //     The balcony case makes exactly this conversion for exactly this
+          //     mirror, and getting it wrong lays the basin down in the XY plane.
+          //     `position` is the origin because `SlabFragmentBuilder` adds the
+          //     centroid itself.
+          const _poolFloor = p.floorSlabId
+            ? _poolCommitted.get('slab')?.get(p.floorSlabId)
+            : undefined;
+          let _poolFloorMirrored = false;
+          if (p.floorSlabId && _poolFloor) {
+            const ring = (_poolFloor['boundary'] ?? []) as Array<{ x: number; y: number; z: number }>;
+            events.emit('slab.created', {
+              commandId:    record.id,
+              commandType:  'slab.create',
+              levelId:      (_poolFloor['levelId'] as string | undefined) ?? _poolLevelId,
+              elementCount: 1,
+              id:           p.floorSlabId,
+              // The member id doubles as the IFC guid — deterministic per member,
+              // so two pools can never collide the way they would under the
+              // mirror's `crypto.randomUUID()` fallback (the balcony's reasoning,
+              // and the same one).
+              ifcGuid:      p.floorSlabId,
+              polygon:      ring.map((v) => ({ x: v.x, y: v.z })),
+              position:     { x: 0, y: 0, z: 0 },
+              thickness:    _poolFloor['thickness']  as number | undefined,
+              baseOffset:   _poolFloor['baseOffset'] as number | undefined,
+              materialId:   (_poolFloor['materialId'] as string | undefined) ?? p.materialId,
+            });
+            _poolFloorMirrored = true;
+          }
+
+          // (3) THE VOID IN THE HOST SLAB — through the §MIRROR-UPDATE mutation
+          //     channel, NOT through a create.
+          //
+          //     ⭐ THIS IS THE HALF THAT HAD NO CHANNEL AT ALL UNTIL L-9942. The
+          //     host's `holes` is a whole-array REPLACE on an EXISTING slab
+          //     (`{op:'replace', path:['slab', hostSlabId, 'holes']}`), and every
+          //     legacy slab bridge keys on a CREATE — which is why the lift's
+          //     shaft penetration is recorded at L-9403 as the one row that lane
+          //     could not close. `element.updated` is that missing channel, and
+          //     the pool and the lift now share it.
+          //
+          //     ⛔ It is emitted ONLY when the patch is really there. A pool whose
+          //     host hole failed to commit must not have one announced for it.
+          const _poolHostHoled = (record.forward ?? []).some(
+            (patch) => patch.op === 'replace' && patch.path.length === 3 &&
+                       String(patch.path[0]) === 'slab' &&
+                       String(patch.path[1]) === String(p.hostSlabId ?? '') &&
+                       String(patch.path[2]) === 'holes',
+          );
+          if (_poolHostHoled && p.hostSlabId) {
+            events.emit('element.updated', {
+              commandId:     record.id,
+              commandType:   'pool.create',
+              elementKind:   'slab',
+              elementId:     p.hostSlabId,
+              changedFields: ['holes'],
+            });
+          }
+
+          // (4) ⛔ WHAT STILL CANNOT RENDER — NAMED, COUNTED, AND SAID OUT LOUD.
+          //     C104 §13.3 R-13, applied to a second family: a create that produces
+          //     an invisible member MUST SAY SO, at the layer that knows.
+          //
+          //     ⭐ AND IT GOES QUIET WHEN THERE IS NOTHING TO SAY. A line on every
+          //     successful pool is a line nobody reads, which fails exactly the way
+          //     silence does.
+          //
+          //     ⛔ THE WATER IS NOT SMUGGLED THROUGH AS A SLAB. `water` is its own
+          //     family precisely because a slab's thickness would tie the surface to
+          //     the floor (`PoolAssembly.ts` §4, and `poolWaterLevel.test.ts` pins
+          //     it). Emitting `slab.created` for it to make something blue appear
+          //     would put one id on two families and give the water a thickness it
+          //     does not have — C84 EI-9, and the same refusal the lift made when it
+          //     declined to feed its compound into the massing store.
+          const _poolWaterCount = _poolCommitted.get('water')?.size ?? 0;
+          const _poolUnmirrored: string[] = [];
+          if (_poolWaterCount > 0) {
+            _poolUnmirrored.push(
+              `the WATER BODY (${_poolWaterCount} record(s)) — 'water' has no typed ` +
+              `event, no subscriber and no mesh builder anywhere in the tree; the ` +
+              `basin renders and the water in it does not (L-9941)`);
+          }
+          if (p.hostSlabId && !_poolHostHoled) {
+            _poolUnmirrored.push(
+              `the VOID in host slab '${p.hostSlabId}' — no 'holes' replace patch was ` +
+              `committed, so the pool sits ON the floor plate rather than IN it`);
+          }
+          if (p.floorSlabId && !_poolFloorMirrored) {
+            _poolUnmirrored.push(
+              `the pool FLOOR '${p.floorSlabId}' — no committed slab record was found ` +
+              `in the patches, so the basin has no bottom on screen`);
+          }
+          if (_poolUnmirrored.length > 0) {
+            console.warn(
+              `[CommandEventBridge] §FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9940..L-9941): ` +
+              `pool ${p.poolId ?? '(unnamed)'} COMMITTED, and reached the legacy mirrors as ` +
+              `${_poolWallSides} basin wall(s)` +
+              (_poolFloorMirrored ? ' and 1 floor slab' : '') + '. ' +
+              `THE FOLLOWING MEMBERS REACHED NO MIRROR AND WILL NOT RENDER: ` +
+              _poolUnmirrored.join('; ') + '. ' +
+              `This is a PARTIAL create, not a failed one and not a complete one — the ` +
+              `pool record is real, undoable and schedulable, and part of it is invisible. ` +
+              `See docs/04-reference/ISSUE-LOG.md L-9940.`);
+          }
+          break;
+        }
+
+        case 'boundaryLine.create':
+        case 'boundaryLine.update':
+        case 'boundaryLine.attach':
+        case 'boundaryLine.detach':
+        case 'boundaryLine.move': {
+          // §FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9944) · C106 · L-9305 · C11 §5.2.
+          //
+          // ═══════════════════════════════════════════════════════════════════
+          // ⭐ THE BOUNDARY LINE WAS BROKEN ON THREE AXES AT ONCE, AND ONLY ONE
+          //    OF THEM WAS THIS FILE.
+          // ═══════════════════════════════════════════════════════════════════
+          // Measured 2026-08-23 (AUDIT-B §2.5, re-run by this lane):
+          //   · no `case 'boundaryLine.*'` here          → never reaches a mesh;
+          //   · `boundaryLineSolid()` had ZERO callers   → even a relayed event
+          //     would have found no builder to call;
+          //   · zero `boundaryLine` in either serializer → the record dies on save.
+          //
+          // ⛔ AND THE L-7825 DETECTOR BELOW CANNOT SEE IT. That detector fires on
+          // a MULTI-STORE compound (`path.length === 2` and `stores.size > 1`).
+          // `boundaryLine.create` writes ONE store through `produceCommand`, whose
+          // patch paths are length 1 — so the mechanism that was built to stop the
+          // next silent drop is structurally blind to this family. That is the
+          // "un-mechanised residue" AUDIT-B names, and it is why the STATIC gate
+          // `tools/ga-gate/check-mirror-completeness.ts` had to exist as well:
+          // a runtime detector only speaks about the shapes it was taught, and
+          // only when somebody exercises the verb.
+          //
+          // ⭐ ONE CASE FOR FIVE VERBS, ON PURPOSE. They all mean the same thing to
+          // a renderer — *"this line's record changed, redraw it"* — and the twelve
+          // `.created` cases above are the standing demonstration of what
+          // one-block-per-verb costs (each drifted its own set of dropped fields).
+          // The `phase` split below is create-vs-update ONLY, because the
+          // subscriber's dedup and its VDT registration differ there and nowhere
+          // else.
+          //
+          // ⚠ `boundaryLine.move` HAS NO PATCHES AND THAT IS CORRECT. It is the
+          // L-220 distinct-verb bridge to `MoveBoundaryLineCommand`
+          // (`initBusHandlers.ts`), which declares `stores: []` and writes the store
+          // through `BoundaryLineStorePort`. So `line` is ABSENT for it, and the
+          // subscriber falls back to reading `runtime.stores.boundaryLine` — which
+          // for THIS family is not a fallback at all but the authority
+          // (`plugins/boundary-line/src/store.ts`: one store, deliberately, no
+          // legacy geometry twin to drift from).
+          const p = record.payload as {
+            boundaryLineId?: string;
+            levelId?: string;
+            vertices?: readonly unknown[];
+          };
+          const _blId = typeof p.boundaryLineId === 'string' ? p.boundaryLineId : '';
+          if (_blId.length === 0) break;
+
+          // The whole committed record, when the verb wrote one. `create` writes
+          // `draft[id] = record` (an `add` at path `[id]`); `update` writes
+          // `draft[id] = next` (a `replace` at the same path). `attach`/`detach`
+          // write `rec.attachments = [...]` — path `[id,'attachments']` — so there
+          // is no whole record on the commit and this stays `undefined`.
+          let _blLine: Record<string, unknown> | undefined;
+          for (const patch of record.forward ?? []) {
+            if (patch.path.length !== 1 || String(patch.path[0]) !== _blId) continue;
+            if (patch.op !== 'add' && patch.op !== 'replace') continue;
+            const value = patch.value as Record<string, unknown> | undefined;
+            if (value && typeof value === 'object') _blLine = value;
+          }
+          const _blLevelId = (_blLine?.['levelId'] as string | undefined) ?? p.levelId ?? '';
+
+          if (record.type === 'boundaryLine.create') {
+            events.emit('boundaryLine.created', {
+              commandId:      record.id,
+              commandType:    'boundaryLine.create',
+              levelId:        _blLevelId,
+              boundaryLineId: _blId,
+              ...(_blLine ? { line: _blLine } : {}),
+            });
+          } else {
+            events.emit('boundaryLine.updated', {
+              commandId:      record.id,
+              commandType:    record.type,
+              levelId:        _blLevelId,
+              boundaryLineId: _blId,
+              ...(_blLine ? { line: _blLine } : {}),
+            });
+          }
+          break;
+        }
+
+        case 'boundaryLine.delete': {
+          // §FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9944) · C106 §6.
+          //
+          // ⛔ THE LINE ONLY. `boundary-line/src/handlers/index.ts` and C106 §6 both
+          // state the rule: a boundary line is NOT a compound, `childrenIds` stays
+          // empty, and deleting the setting-out line an architect drew a building
+          // against must not delete the building. So this emits ONE removal for ONE
+          // id and cascades nothing — the asymmetry with `pool.delete` is deliberate
+          // and is written down in two places so a later lane cannot "fix" it.
+          const p = record.payload as { boundaryLineId?: string };
+          const _blDelId = typeof p.boundaryLineId === 'string' ? p.boundaryLineId : '';
+          if (_blDelId.length === 0) break;
+          events.emit('boundaryLine.deleted', {
+            commandId:      record.id,
+            commandType:    'boundaryLine.delete',
+            boundaryLineId: _blDelId,
+          });
           break;
         }
 
