@@ -282,6 +282,46 @@ So it was invisible to **both** halves of the audit, and — unlike an unattribu
 
 ---
 
+### §3.20 — A save may not silently replace a populated project with an empty one (binding; L-10040/L-10041, 2026-08-23)
+
+⛔ **The autosave fence is not enough, and PRYZM's own open path proves it.**
+`SaveOrchestrator` already vetoes a save during a load in three places — `handleMutation()`,
+`executeSave()` and `flushBeforeUnload()` all return early on `isLoading`, and
+`_loadSuppressActive` extends the fence across the fire-and-forget post-load sweep. That is
+**stronger** than the equivalent guard in the Pascal editor, which has only the caller-driven flag.
+
+⚠ **But `PlatformShell.setProjectContext()` DROPS the fence before the data arrives.** On the
+no-local-history path it loads `_makeEmptySnapshot()` to clear the scene, and inside that promise's
+`.then` it calls `orchestrator.setLoading(false)` and `resetDirtyAfterLoad()` and only **then**
+awaits `warmVersionCache()` / `_loadLatestVersionFromServer()`. For the whole of that await the
+scene is empty, the load-suppress latch has already been cleared by the empty load finishing, and
+autosave is armed. And when the server fetch fails and the local restore misses, the project simply
+**stays** empty with the fence down.
+
+Therefore:
+
+1. **A version write whose snapshot carries zero content elements MUST be refused when the latest
+   stored version of the same project carries at least one.** Client: `saveWipeGuard.ts`
+   (`decideVersionWrite`), consumed by `PlatformSaveController.saveVersionInternal`. Server:
+   `server/emptySnapshotGuard.js`, consumed by `POST /api/projects/:id/versions`, which answers
+   **409 `empty_snapshot_rejected`**.
+2. ⭐ **The escape hatch must already exist.** A MANUAL save is explicit intent and is never
+   refused; the server accepts `"force": true`. A refusal whose "yes" branch waits on a decision
+   nobody has made is a regression with a contract citation attached.
+3. **The threshold is ZERO, not a ratio.** Deleting 4 999 of 5 000 walls is real BIM work and is
+   never refused. A "suspicious drop" heuristic keyed on a proportion would refuse legitimate
+   demolition; the narrowest rule that closes anything is the only one permitted here.
+4. **Both counts and the fact that nothing was deleted MUST appear in the refusal message**, on both
+   sides. A refusal that does not say what it refused is a silent failure wearing a guard costume.
+5. **Unknown accepts, always.** An unreadable snapshot shape, an unreadable stored baseline or a
+   failed baseline read all WRITE. An unjustifiable refusal is worse than the hole it closes.
+6. ⚠ **Neither layer may be dropped for the other.** The server protects the durable copy that is
+   the recovery path (C48 §1.16); the client protects the LOCAL history, which
+   `PlatformShell.setProjectContext()` prefers over the server on every open — so a server-only
+   guard still restores an empty project from IndexedDB forever.
+
+---
+
 ## §4 — The normative teardown sequence
 
 When `pryzm-project-switch` fires, the `ProjectLifecycleController` MUST execute the following steps synchronously in this exact order before yielding to any async continuations:

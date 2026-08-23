@@ -105,6 +105,11 @@ export type RejectionCode =
     | 'payload-invalid'
     /** 409 — the server reports a version with this id already exists. */
     | 'server-says-duplicate'
+    /** 409 `empty_snapshot_rejected` — the server refused to bury a populated
+     *  project under an empty snapshot (§GUARD-EMPTY-SNAPSHOT, L-10040). ⭐ This
+     *  is a REFUSAL THAT PROTECTED DATA, and must never be shown as a failure the
+     *  user should work around. */
+    | 'empty-snapshot-refused'
     /** 410 — the server has no such project row. */
     | 'project-missing-on-server'
     /** 412 — a concurrent writer moved the version count under us. */
@@ -219,6 +224,23 @@ export function decideRejectionFate(status: number, body: RejectionBody | null |
     }
 
     if (status === 409) {
+        // §GUARD-EMPTY-SNAPSHOT (L-10040) — the server refused to bury a populated
+        // project under an empty snapshot. ⚠ It shares 409 with the duplicate-id
+        // case and means something entirely different: nothing was stored because
+        // storing it would have DESTROYED the stored state, not because it was
+        // already there. Rendering it as "already there" would tell the founder
+        // their save was redundant when the server was in fact protecting them.
+        if (code === 'empty_snapshot_rejected') {
+            return {
+                action: 'block',
+                code: 'empty-snapshot-refused',
+                scope: 'this-save',
+                retryable: 'never',
+                detail: 'The server refused to replace the stored model with an empty snapshot. '
+                    + 'Nothing on the server was changed or deleted. The next save that carries elements '
+                    + 'is accepted normally; an intentional emptying must be sent with force:true.',
+            };
+        }
         return {
             action: 'block',
             code: 'server-says-duplicate',
@@ -280,6 +302,8 @@ export function describeRejection(code: RejectionCode, scope: RejectionScope): s
             return 'The server rejected this version as invalid. It is saved in this browser only.';
         case 'server-says-duplicate':
             return 'The server already has a version with this id, so this upload was not stored again.';
+        case 'empty-snapshot-refused':
+            return 'The server refused to overwrite your saved model with an empty one. Nothing on the server was changed — your last full save is intact.';
         case 'project-missing-on-server':
             return 'The server has no record of this project, so its versions stayed in this browser.';
         case 'concurrent-edit':

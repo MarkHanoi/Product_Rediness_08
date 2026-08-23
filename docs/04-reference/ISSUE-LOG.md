@@ -45832,3 +45832,503 @@ which cannot be written without a control character.** Rewriting it as
 
 **Both are logged rather than silenced.** A green lint bought with an `eslint-disable` reads as
 coverage and is not — the same defect as a gate suite that aborts silently.
+
+---
+
+### L-9960 — ⭐ PRYZM's 347 tracer sites recorded NOTHING, by construction — the observability layer was itself UNREACHABLE
+
+**Lane OBS4, 2026-08-23.** Source: `docs/04-reference/AUDIT/D-collab-persistence.md` §2.4.
+Contract amended in place: **C10 §2.6** (`§SPAN-REACHABILITY` / `§SPAN-DESTINATION` /
+`§SPAN-SAMPLING` / `§SPAN-PRIVACY`).
+
+#### MEASURED — the defect
+
+| Fact | Reading |
+|---|---|
+| `trace.getTracer(...)` call sites | **347** across **328** files |
+| …under `server/` | **1** (`server/manualAdminZoneStore.js:49`) — so **345 are browser-side** |
+| `span.setAttribute(...)` sites | **1 766** |
+| `PRYZM_TRACING` in any config file (`*.json` / `*.toml` / `*.yml`) | **0** |
+| `PRYZM_TRACING` in `tools/ga-gate/secrets-declarations.json` | **absent** |
+| `define` in `vite.config.ts` | **none at all** |
+| `@opentelemetry/*` packages installed | `api` **only** — `sdk-node`, `exporter-trace-otlp-http`, `semantic-conventions` are NOT installed |
+
+`initTracing()` returned `OFF` unless `PRYZM_TRACING` was truthy and read it from
+`process.env` **only**. `process.env` does not exist in a browser bundle. **The switch
+for 99.7 % of PRYZM's instrumentation had no wire attached to it.**
+
+⛔ **UNREACHABLE, not absent** — the code was correct, the provider was never
+registered, and every browser `trace.getTracer()` returned the API's no-op tracer.
+`check-otel-spans` ZONE A `246/246 instrumented` is a measurement of **source text**.
+It always was. This is the same shape as L-391 / L-809 / L-812, applied to the
+observability layer itself.
+
+⚠ **`server/telemetry.js`'s OTLP block has never executed its success path.** It
+dynamically imports five packages that are not installed, so it falls into its own
+catch and logs "packages not installed" — a documented no-op that reads, in the
+health JSON, like a configured exporter.
+
+#### SHIPPED — A. reachability
+
+- **Server half** — `process.env.PRYZM_TRACING`, unchanged. Node has the variable.
+- **Browser half** — a **build-time `define`** in `vite.config.ts` substituting the
+  bare identifiers `__PRYZM_TRACING__`, `__PRYZM_TRACING_SAMPLE__`,
+  `__PRYZM_TRACING_ENDPOINT__`, `__PRYZM_RELEASE__`, `__PRYZM_ENV__`, fed from
+  `VITE_PRYZM_TRACING` &c.
+
+**Why `define` and not a runtime config endpoint — stated, because the brief demanded
+a choice:** `initTracing()` must complete **synchronously** before the composition root
+opens its first span (`composeRuntime.ts`). An endpoint would either block boot on a
+network round-trip — unacceptable while *"opening takes minutes"* is the founder's live
+complaint — or resolve **after** the first spans were created against the no-op tracer,
+which is the same unreachability one layer along. `server/` routes also belong to
+another lane. **Accepted cost: flipping browser tracing needs a rebuild, not a restart.**
+
+**Why BARE IDENTIFIERS and not `import.meta.env.VITE_PRYZM_TRACING`:**
+`packages/crash-reporter` is a linked workspace package consumed as raw TS whose
+`tsconfig` declares `types: ["node"]` (so `import.meta.env` is a type error without
+pulling `vite/client` into an L1 leaf), and the same file is *also* esbuild-bundled into
+`dist-server-deps/` and run under vitest, where `import.meta.env` is `undefined` and
+`import.meta.env.X` **throws**. `typeof <undeclared>` is safe in all four environments.
+
+⭐ **PROVEN, not asserted** — a real `vite build` over a fixture importing the linked
+package:
+
+```
+flag unset  → readBuildTimeEnv() compiles to  function(){const out={};return out;}
+              (every branch constant-folded + dead-code-eliminated: ZERO runtime cost)
+VITE_PRYZM_TRACING=otlp → literal baked in; the built bundle prints PROBE_MODE=otlp
+```
+
+#### SHIPPED — B. where the spans GO
+
+⛔ **No "on but nowhere" state exists.** Three explicit modes:
+
+| `PRYZM_TRACING` | Destination |
+|---|---|
+| unset | OFF — no provider, no cost |
+| `console` | `ConsoleSpanExporter` (dev) |
+| `otlp` / `1` / `true` / `on` | OTLP/HTTP **JSON** → `OTEL_EXPORTER_OTLP_ENDPOINT` |
+
+**OTLP asked for with no endpoint ⇒ `initTracing()` REFUSES** — stays OFF, populates
+`refusedReason`, logs one loud line **naming the `console` escape hatch** (L-942: a
+refusal that leaves the operator with no next step is its own defect).
+
+New **`packages/crash-reporter/src/OtlpHttpJsonSpanExporter.ts`** — a real OTLP/HTTP
+JSON exporter written in-package, **zero new dependencies** (so no `pnpm-lock` churn),
+working identically in the browser and Node 20+. `server/telemetry.js`'s legacy NodeSDK
+block is retained but now skipped when a provider is already registered, because two
+global providers silently orphan one pipeline.
+
+⛔ **THERE IS STILL NO COLLECTOR, AND THAT IS NOW A NAMED, COSTED DECISION FOR THE
+FOUNDER — C10 §2.6.5**, not a silent no-op. Three options (console-only €0 / vendor
+free tier €0-then-usage / self-hosted OTel Collector + Tempo on Fly ~$2–6/mo plus
+operation). ⚠ **Prices are ASSUMED** — recalled list prices, not fetched from a vendor
+page. Lane recommendation, offered not enacted: **vendor free tier, browser at
+r = 0.05, server at r = 1.0** (the server has ONE tracer site, so tracing it fully is
+free).
+
+#### SHIPPED — C. cost and privacy
+
+**Sampling: `ParentBased(TraceIdRatioBased(0.05))` in OTLP mode, `1.0` in console
+mode**, override via `PRYZM_TRACING_SAMPLE`. `ParentBased` so a child never
+contradicts its parent — half a trace reads as a *fast* operation.
+
+⭐ **The rate is derived from a MEASUREMENT, not chosen for roundness:**
+
+```
+one project-open (281-element shape) = 288 spans, 126 336 bytes OTLP/JSON
+                                     = 439 B/span; ~6 317 B/open at r = 0.05
+```
+
+Unsampled, C66's 1 000-user target at ~20 opens/user/day is **5.8 M spans/day and
+~2.5 GB/day** of egress charged to users' bandwidth. At 5 % it is ~288 K spans/day
+(~8.6 M/month, inside a vendor free tier) and ~6.3 KB/open — **~0.15 %** of the ~4 MB
+of vendor chunks the page already downloads. The test prints the number, so it cannot
+rot silently.
+
+**Privacy — `packages/crash-reporter/src/SpanRedaction.ts`.** Every span passes through
+`RedactingSpanProcessor` before any exporter can see it; the processor is the
+delegate's **only** caller, so no ordering exists in which raw attributes reach the
+wire. Credential-shaped values → `[redacted]`; email-shaped → `[redacted-email]`;
+credential/content-**named** keys dropped whole (a short custom key matches no entropy
+pattern — the key name is the only signal); strings > 256 chars truncated. Numbers,
+booleans, ids and enums are **untouched**, because redaction that deletes the signal is
+another way of shipping nothing.
+
+⭐ **BYOM (C105 §4.4) is the load-bearing case and it is PINNED.** MEASURED: the BYOM
+path (`packages/ai-host/src/byom/**`, `apps/editor/src/ui/ai/byom/**`) carries **ZERO**
+OTel spans, so today a user's key cannot reach one — **but that is a property of the
+current call graph, not an invariant**, and one `span.setAttribute('pryzm.byom.header', h)`
+in a future lane would break it silently. `__tests__/SpanRedaction.test.ts` drives nine
+real-shaped provider credentials (Anthropic / OpenAI / OpenAI-classic / OpenRouter /
+Google / Groq / xAI / bearer-JWT / an unknown vendor) through a real span in both the
+value position and under an innocuous key name, and asserts against the **actual OTLP
+wire payload**. ⚠ Detector patterns are **duplicated** from `ByomRedaction.ts` on
+purpose: `crash-reporter` is L1, `ai-host` is L2, importing upward is a layer violation
+and the exporter must work in a bundle containing no `ai-host`.
+
+**MEASURED, whole-repo, that no existing attribute carries project content:**
+`setAttribute('pryzm.*', …)` assigned from a `.name`/`.label`/`.title`/`.address`/
+`.email`/`.text`/`.query`/`.description`/`.prompt`/`.content`/`.body`/`.path`/`.url`
+property → **0 hits** across `packages/` and `apps/`. Two attributes carry a user
+identifier and are **server-side only**: `pryzm.authz.user`
+(`apps/sync-server/src/authz/PgAuthz.ts:272`) and `pryzm.ws.auth.user`
+(`apps/sync-server/src/auth/WsAuthGate.ts:243`).
+
+`OTEL_EXPORTER_OTLP_HEADERS` (SECRET) is **deliberately not mirrored** to a `VITE_`
+name — it carries the collector auth token and a public bundle would publish it to
+every visitor. `vite.config.ts` hard-codes `__PRYZM_TRACING_HEADERS__` to `undefined`
+so no future edit can wire it by accident.
+
+#### D. What one project-open emits — and what it still does NOT
+
+**288 spans / 126 KB**, essentially all of them CommandBus handler spans, because
+`ProjectLoader` dispatches **one `Create*` command per element**.
+
+⚠ **THE STORAGE LEG STILL HAS NO SPANS.** Measured `getTracer(` count in
+`packages/persistence-client/src/loader/ProjectLoader.ts`,
+`apps/editor/src/engine/persistence/ProjectLoader.ts`,
+`apps/editor/src/ui/platform/ProjectRepository.ts` and `PlatformShell.ts` → **0, 0, 0,
+0**. So tracing now gives **per-command** visibility into an open — which nothing had —
+but says **nothing** about the mirror-read → envelope-parse → inflate → record-parse
+leg that **L-8703** identified as the never-measured one; that leg is covered by
+`§PROBE-OPEN-PATH-STORAGE-LEG`'s always-on console probe. **Complementary, neither
+redundant.**
+
+⛔ **NOT CLAIMED: that this makes opening faster, or that P8 now holds.** It makes the
+switch reachable, the destination explicit, the cost measured and the payload safe.
+
+#### Deliberately NOT done
+
+**`check-otel-spans` Zone B (RC=3)** — instrumentation *coverage*, a different axis, in
+other lanes' files. Reported, left. Reading unchanged by this lane.
+
+#### Files
+
+`packages/crash-reporter/src/{Tracing,SpanRedaction,OtlpHttpJsonSpanExporter,index}.ts` ·
+`packages/crash-reporter/__tests__/{Tracing,SpanRedaction,OtlpHttpJsonSpanExporter}.test.ts` ·
+`vite.config.ts` · `server/telemetry.js` · `packages/runtime-composer/src/composeRuntime.ts`
+(tracing init only) · `tools/ga-gate/secrets-declarations.json` (7 new rows) ·
+`docs/02-decisions/contracts/C10-PERFORMANCE-AND-OBSERVABILITY.md` §2.6.
+
+**Verified in the foreground:** `npx vitest run` in `packages/crash-reporter` →
+**4 files / 56 tests, all passing**; `tsc -p packages/crash-reporter/tsconfig.json
+--noEmit` → **RC=0**.
+
+---
+
+## L-9921 .. L-9922 — THE PLUGIN CONTRACT TYPE LIVED AT L7, AND THAT IS WHY NINE FAMILIES SHIPPED UNDISPATCHABLE (lane PLUGIN2, 2026-08-23)
+
+> **ADR-0367** · amends **C01 §3** + **C11 §6.3** · read-back gate
+> `tools/ga-gate/check-plugin-census-equivalence.ts` (L-9920).
+
+### L-9921 — ⭐ THE ROOT CAUSE WAS A PLACEMENT DECISION, AND THE FILE THAT MADE IT WROTE IT DOWN
+
+`apps/editor/src/PluginRegistry.ts:133` declared `PluginDescriptor` at **L7**.
+`:13-17` recorded the consequence and called it a decision — *"Per-plugin
+`descriptor.ts` files were considered and rejected on those grounds."*
+
+The reasoning is locally correct and globally load-bearing. **A contract type at
+the top of a stack cannot be named by anything below it**, so a plugin could not
+describe itself; so all 28 descriptors were hand-written in one 1,184-line L7
+file; so the census was hand-maintained; so it drifted; so a family whose five
+lines nobody wrote was *registered and undispatchable*.
+
+**That has happened NINE times** — furniture, plumbing, rooms, structural,
+dimensions, lighting, pool (L-5200), lift (L-5700), balcony (L-5600) — each time
+`CommandBus.buildContext` throwing `required store '<key>' is missing from
+HandlerContext.stores` before any mutation, and each time mitigated with one more
+per-family reachability test. **N tests for N families, with the (N+1)th uncovered
+by construction.**
+
+**FIXED.** `PluginRegistration` now lives at **L5**, in
+`packages/plugin-sdk/src/registration.ts`. `plugins/<x>/src/registration.ts`
+importing `@pryzm/plugin-sdk` is a **downward import through the facade**.
+
+⚠ **The name is not `PluginDescriptor`, and that is not fussiness.** The name was
+already taken **twice**: by `plugin-sdk/src/descriptor.ts` (`= PluginManifest`,
+the on-disk manifest envelope, LOCKED for v1.x by ADR-0038 and published to npm)
+and by `runtime-composer/src/types.ts` (the catalogue row `PluginsSlot.list()`
+returns). Three unrelated types sharing one name in one repo **is how a census
+drifts in the first place**. `apps/editor` keeps `PluginDescriptor` as a local
+alias so not one of the 28 call sites moved.
+
+⚠ **Two type parameters, not two imports.** L5 must not name
+`@pryzm/plugin-rooms`' `RoomEventRuntime` — that is an **L5 → L6 upward** edge,
+exactly what this move deletes — nor `runtime-composer`'s `PluginContribution`,
+whose `activate` takes the whole `PryzmRuntime`. Both are supplied by
+`apps/editor`, the only layer that legally knows both.
+
+**MEASURED, before → after:**
+
+```
+check-l7-boundary.ts     (SDK-facade bypasses)  83 files / ceiling 84  →  83 / 84   RC=0   UNCHANGED
+check-layer-boundaries.ts  upward · unclassified · banned 3rd-party
+                                       103 · 15 · 121  →  103 · 15 · 121           UNCHANGED
+check-plugin-census-equivalence.ts   ARM A  25  →  24   ⭐ RATCHET DOWN, baseline re-pinned same commit
+                                     ARM B/E/F  13/5/3  →  13/5/3                  UNCHANGED
+                                     arms C/D/G/H  hard 0  →  hard 0               CLEAN
+                          descriptors authored in a plugin package:  0  →  1
+```
+
+⭐ **The bypass row is the one that had to hold.** It is shrink-only and it did not
+move: the L5 import is *through* the facade, not around it. **No `package.json`
+gained a dependency**, so `pnpm-lock.yaml` is untouched.
+
+**Gate hardened in the same commit:** `MIN_AUTHORED_REFS = 1`. If every
+`ALL_PLUGINS` element reverted to an inline literal, `resolveDescriptorRef()`
+would never run and arm H would report a clean hard-0 **having examined nothing**
+— the failure the gate exists to catch, one level up.
+
+### L-9922 — ⛔ `section.*` WAS REGISTERED AND UNDISPATCHABLE. THE TENTH INSTANCE, AND THE FIRST FOUND BY A GATE
+
+**BROKEN → FIXED.** Found by census arm A, not by a person.
+
+| axis | measured state before |
+|---|---|
+| handlers registered? | **YES** — `engineLauncher.ts:711` calls `registerSectionHandlers(_bus)` on the real runtime bus, since §P3.4-SE |
+| descriptor in `ALL_PLUGINS`? | **NO** — so no `section` key reached `storesAsRecordView(stores)` |
+| what the handlers need | all six declare `affectedStores = ['section']` and read `ctx.stores.section` |
+| result | `CommandBus.buildContext` threw `section.create: required store 'section' is missing from HandlerContext.stores` **before touching anything** |
+
+Two supporting defects, each its own instance of a known shape:
+
+* ⛔ **`plugins/section-view/src/store.ts` (`SectionStore`) existed and was not
+  exported from the plugin barrel.** A barrel that omits a real export is
+  indistinguishable from a package that lacks it — [[grep-silence-has-three-causes]].
+* ⚠ **`engineLauncher` needed no edit.** Its `_bus` is the §OI-053
+  skip-if-present proxy, so the composition root now registers first and that call
+  is an idempotent no-op — the same relationship `registerWallHandlers` already has.
+
+**PROOF:** `apps/editor/__tests__/sectionViewReachableThroughComposedRuntime.test.ts`
+— **8 cases, 8 green**, reading `rt.stores.section` off the REAL
+`bootstrapWithEverything()`. It never builds a store, a stores bag or a bus of its
+own, *because the provider is the thing that breaks and a test that supplies it
+cannot observe its absence.* R-2 is an **identity** assertion (`Object.is`) that
+`ALL_PLUGINS` holds the very object declared in the plugin — a `toEqual` would
+also pass against an inline L7 copy, i.e. against the arrangement this closes.
+`apps/editor/__tests__/bootstrap.everything.test.ts` re-run: **8/8**.
+
+⚠ **WHAT A GREEN RUN DOES NOT ESTABLISH — stated so nobody reads more into it.**
+The six verbs dispatch and their patches reach the bound store. It is **not**
+proven that a person can draw a section: section-view has **no tool activator at
+all**, and C104 R-10 makes a reachability claim inadmissible without a
+pointer-layer proof. It is **not** proven that a section renders.
+
+⭐ **`section.moveLine` STILL REFUSES, and R-6 pins that refusal.** Wiring the
+store closed **one** of its two reasons for being dead; the other stands — no
+production surface dispatches it (`MOVE_COMMAND_BY_TYPE` does not name it) and
+nothing renders, exports or persists this store. **The refusal string itself said
+*"The section plugin also contributes no store through PluginRegistry"*, which
+this change made FALSE, so it was corrected in place** rather than left to rot —
+[[refusing-half-needs-its-escape-hatch]] in reverse: a refusal citing a reason
+that has since been fixed is how a *correct* refusal gets deleted by the next
+reader who checks only the first clause.
+
+### L-9922b — ⛔ SEVEN OF THE REMAINING DARK PLUGINS ARE STUBS. WIRING ONE WOULD MOVE A GATE ARM BY SHIPPING A FAKE
+
+Surveyed while choosing the family to prove. `navigate`, `ai-floorplan`,
+`ai-generative`, `ai-query`, `ai-rules`, `ai-voice`, `ifc-import` and `geospatial`
+export "handler sets" that are **not `CommandHandler`s** — they are
+`{ commandType, handle }` objects whose bodies are `console.debug(...)`.
+`plugins/navigate/src/descriptor.ts` already exists and is a **manifest**, not a
+registration.
+
+⛔ **Wiring any of them would ratchet census arm A down while making the product
+worse** ([[fake-more-capable-than-real]]). They are excluded from ADR-0367 §6's
+ordered backlog **on purpose, and named there as excluded**, so the next lane does
+not read the omission as an oversight and "finish the job".
+
+### L-10040 — ⛔ PRYZM HAD **ZERO** GUARDS AGAINST A SAVE THAT EMPTIES A PROJECT, AND THE OPEN PATH BUILDS THE WINDOW ITSELF
+
+**Status: FIXED (both layers), lane SAFETY8.** Measured before touching anything:
+`rg 'empty_graph|isSuspiciousNodeDrop|empty_snapshot|decideExitFlush|wipeGuard'` over `apps/`,
+`packages/`, `server/`, `server.js`, `src/` → **0 hits**. The Pascal editor has three layers of this
+defence, each with the incident that produced it written beside it (AUDIT-D §3.5).
+
+⭐ **THE PART THE AUDIT GOT WRONG, AND IT MATTERS.** AUDIT-D §6 row 2(a) says PRYZM's `setLoading`
+latch *"already exists but nothing consumes it as a save veto"*. **FALSE, measured.**
+`SaveOrchestrator` vetoes on `isLoading` in **three** places — `handleMutation()` (:239),
+`executeSave()` (:281) and `flushBeforeUnload()` (:359) — and `_loadSuppressActive` extends the fence
+across the fire-and-forget post-load sweep, which Pascal's caller-driven flag does not. **PRYZM's
+`skip-loading` equivalent is the stronger of the two and did not need porting.**
+
+⛔ **THE PATHS A WIPE CAN ACTUALLY ORIGINATE FROM — named, because a guard on a path nothing takes
+is ceremony:**
+
+1. ⭐ **`PlatformShell.setProjectContext()` drops the fence BEFORE the data arrives.** On the
+   no-local-history branch it loads `_makeEmptySnapshot()` to clear the scene, and inside that
+   promise's `.then` it calls `orchestrator.setLoading(false)` **and** `resetDirtyAfterLoad()` and
+   only **then** awaits `warmVersionCache()` / `_loadLatestVersionFromServer()`. For the whole of
+   that await the scene is empty, the load-suppress latch has already been cleared by the empty load
+   completing, and autosave is armed. Any mutation in that window serialises the empty scene as the
+   project's newest version. **This is the same window Pascal's `skip-loading` branch exists for —
+   PRYZM simply re-opens it after the fence closes.**
+2. **The failed open leaves the project empty with the fence down.**
+   `_loadLatestVersionFromServer()` swallows a non-ok response, a `{version:null}` and a fetch/parse
+   error alike, tries `_restoreLatestLocalVersion()`, and on a miss fires
+   `pryzm-project-loaded(empty:true)` and returns. The real model is still on the server. Nothing
+   re-arms a fence. The next autosave buries it.
+3. **`ClearProjectCommand` outside a load bracket.** `bim-project-cleared` resets the dirty flags but
+   does **not** clear `_loadSuppressActive` (deliberately — it fires DURING a load). A clear that is
+   not driven by `ProjectLoader` therefore leaves autosave live over emptied stores; the next
+   mutation writes them. Measured: `new ClearProjectCommand()` has **3** construction sites
+   (`apps/editor/.../ProjectLoader.ts:921`, `packages/persistence-client/.../ProjectLoader.ts:381`,
+   `ImportProjectCommand.ts:479`), so this is currently reachable only through paths that DO bracket
+   it — a latent path, not an active one, and named as such.
+4. ⛔ **THE ONE THAT DESTROYS RATHER THAN BURIES: the in-memory fallback backend.**
+   `server.js` version POST, in-memory path: `if (existing.length > 20) existing.splice(0, existing.length - 20)`.
+   The plan check above it exempts unlimited plans (`maxVersions === -1`), so on the **owner** plan
+   twenty empty autosaves **EVICT THE REAL HISTORY OUTRIGHT**. Every other backend appends, so an
+   empty save there is recoverable from version history; here it is not.
+
+**THE FIX — two layers, and neither may be dropped for the other:**
+
+- **Client** `apps/editor/src/ui/platform/saveWipeGuard.ts` (`decideVersionWrite`, pure/total),
+  consumed by `PlatformSaveController.saveVersionInternal`. Refuses an **autosave** whose snapshot
+  has 0 content elements when the latest stored version has at least 1.
+- **Server** `server/emptySnapshotGuard.js`, consumed by `POST /api/projects/:id/versions` →
+  **409 `empty_snapshot_rejected`**, with `server/projectStore.js#getLatestVersionElementCount` as the
+  narrow stored-side read.
+- ⚠ **The server layer alone is NOT sufficient**, and this is why the client half was written despite
+  the ownership boundary: `setProjectContext()` prefers `versionRepository.getLatestVersion()` over
+  the server on **every** open. A server-only guard protects the durable copy and still restores an
+  empty project from IndexedDB forever.
+
+**WHY IT CANNOT FIRE ON A CORRECT SAVE — the design constraints, all tested:**
+
+- **The threshold is ZERO, never a ratio.** 5 000 → 1 is real demolition work and is written. Pascal
+  uses 4; PRYZM's `elementCount` is genuinely 0 on a fresh project, so 0 is the narrowest rule that
+  closes anything.
+- **The count is DERIVED from the snapshot, never from `body.elementCount`** — that field is client
+  supplied and *defaults to 0 in the route*, so keying on it would 409 any correct client that
+  omitted it. It is derived from **19** arrays (the 14 `elementCount` families plus hosted
+  windows/doors/openings/curtain panels/room bounding lines) and deliberately **excludes `levels` and
+  `grids`**, which `ClearProjectCommand` re-seeds — counting them would make the guard structurally
+  unable to ever fire.
+- **Unknown accepts, on every axis.** Unreadable snapshot shape, unreadable stored baseline, a DB
+  read that throws → the write PROCEEDS.
+- ⭐ **The escape hatch already existed: the Save button.** A manual save is never refused; the server
+  accepts `"force": true`. No new flag, modal or setting.
+- **The refusal clears the dirty hash** (`orchestrator.markClean`, NOT `markCleanLabel` — the status
+  must not read "Saved"). Returning while dirty would re-arm the debounce and re-fire a full
+  serialize every `DEBOUNCE_MS` forever.
+
+**Also fixed, a defect the guard would otherwise have introduced:** the client classified **every**
+409 as `server-says-duplicate`. The new refusal shares that status and means the opposite, so
+`serverSaveRejectionFate.ts` gains `empty-snapshot-refused` — *"the server refused to overwrite your
+saved model with an empty one; your last full save is intact"* — instead of telling the founder his
+save was redundant while the server was in fact protecting him.
+
+**Tests:** `server/__tests__/emptySnapshotGuard.test.ts` + `apps/editor/src/ui/platform/__tests__/saveWipeGuard.spec.ts`.
+⚠ The ratio is deliberate — **one** case proves the refusal fires, the rest prove it does **not** fire
+on anything a correct session does.
+
+### L-10041 — ⚠ `elementCount` IS CLIENT-SUPPLIED AND DEFAULTS TO 0 — KEYING A REFUSAL ON IT WOULD BE THE DEFECT, NOT THE FIX
+
+**Status: NAMED, avoided by design.** `POST /api/projects/:id/versions` destructures
+`elementCount = 0` from the body and stores it verbatim in `project_versions.element_count`.
+
+Two consequences, both load-bearing for L-10040:
+
+1. **Incoming side:** a correct client that omits the field looks EMPTY. Any guard keyed on
+   `body.elementCount` would 409 a legitimate save carrying a full model. The guard therefore derives
+   the count from the snapshot arrays itself.
+2. **Stored side:** the column can under-report a genuinely populated stored version. The guard treats
+   a stored 0 as *"do not refuse"* — **fail-open by construction**, so this can only cost a guard,
+   never invent a rejection.
+
+⚠ **Not fixed, deliberately:** making `element_count` server-derived would change what the column
+means for every existing row and every reader of it. Named here so the next lane that trusts that
+column knows it is an assertion by the client, not a measurement by the server.
+
+### L-10042 — ⛔ THE VERSION SNAPSHOT POST HAS **NO VALUE-LEVEL VALIDATION**, AND WHAT IT PERSISTS IS SERVED BACK TO EVERY PROJECT MEMBER
+
+**Status: SCANNER SHIPPED, REPORT-ONLY. The hole is NOT closed — it is now measured.**
+
+`POST /api/projects/:id/versions` validates with a Zod schema that is `.passthrough()` at **every**
+level and strictly types exactly **one** array (`furniture`). **No string VALUE in that payload has
+ever been looked at.** Snapshots carry texture / GLB / CDN URLs that every other member of the
+project subsequently fetches and renders from our own origin, so a `javascript:` value or an
+internal-network URL written by one member is stored and re-served to the others. Pascal's
+`graph-schema.ts` names **two** real bypasses of exactly this class that it had to close (its Phase
+8 P4 POST bypass and its Phase 10 A2 PUT bypass).
+
+**Shipped:** `server/snapshotUrlScan.js`, wired into the route, **rejecting nothing**. Classes
+detected: dangerous scheme, private/link-local host (incl. the `169.254.169.254` metadata address),
+scheme-relative, unparseable. C0 controls and zero-width characters are stripped **before** scheme
+matching, because a browser executes `java<NUL>script:` and `java<TAB>script:` and a literal prefix
+test does not see them.
+
+⭐ **THE BOUND AND ITS COST, MEASURED — this is the half that is usually asserted.**
+`MAX_SCAN_DEPTH = 48`, `MAX_SCAN_VALUES = 500_000`. Synthetic BIM snapshots, Node 24, median of 9
+with a gc between runs, beside the `JSON.stringify` the route **already** pays for its 50 MB cap:
+
+| size | bounded | values visited | state | unbounded | route `JSON.stringify` |
+|---|---|---|---|---|---|
+| 0.7 MB | 16 ms | 60 815 | FULL | 18 ms | 5 ms |
+| 4.4 MB | 111 ms | 380 015 | FULL | 128 ms | 38 ms |
+| 17.8 MB | 73 ms | 500 000 | **TRUNCATED** | 366 ms | 145 ms |
+| 35.9 MB | 57 ms | 500 000 | **TRUNCATED** | 766 ms | 277 ms |
+
+**The shape is the point, not any single figure:** bounded cost STOPS GROWING once the budget binds
+(the two largest snapshots cost *less* than the 4.4 MB one because they truncate sooner in a denser
+part of the tree), while unbounded cost grows linearly to **766 ms on a 36 MB body, on every
+autosave, on the single request thread**. That is the denial of service the bound refuses — and it is
+one we would have been writing ourselves, which is why the bound came before the rule.
+
+⚠ **A TRUNCATED SCAN IS A SAMPLE, NOT A PROOF.** `findings: []` on a scan that hit its budget means
+*"not looked at"*, and the result carries `truncated` so the two can never be read as one value. A
+truncated scan may never on its own produce a refusal.
+
+⛔ **REPORT-ONLY IS A DECISION, NOT A TODO.** The audit names *"enumerate every URL-bearing snapshot
+field first"* as row 4's prerequisite and **that enumeration was NOT done by this lane** — inventing
+an allowlist without it would 400 legitimate saves. Exit condition, written into the module:
+`dangerous-scheme` and `private-host` become 400s first, because neither has any legitimate use in a
+snapshot and neither needs an allowlist at all.
+
+**No new dependency, no new external call.** Pure in-process work over an already-parsed object; it
+never resolves a host and never leaves the request. The walk is **iterative** — a recursive walk over
+attacker-shaped JSON throws a `RangeError` past the handler, turning the 400 the caller is owed into
+a 500. Tests: `server/__tests__/snapshotUrlScan.test.ts`, including a 20 000-deep nest.
+
+### L-10043 — ⭐ THE CATCH-UP CURSOR LOSES ROWS TO A TIE AT THE PAGE BOUNDARY, AND `nextCatchUpBaseline` BEING CORRECT DOES NOT SAVE IT
+
+**Status: DEFECT DEMONSTRATED + DESIGN + TEST DELIVERED. Implementation handed to lane PERF5, NOT
+shipped by SAFETY8.**
+
+`GET /api/projects/:id/commands` resumes from a TIMESTAMP:
+`WHERE created_at > $2 ORDER BY created_at ASC LIMIT 500`. §FIX-REPLAY-AT-MOST-ONCE (L-814) already
+fixed the clock-skew half and `nextCatchUpBaseline` is correct. **The remaining defect survives that
+fix untouched, because the order the cursor is expressed in is not TOTAL:**
+
+- Postgres `NOW()` is **transaction-start** time, so every row a batched write inserts in one
+  transaction carries the **identical** `created_at`. A multi-level generate writes hundreds this way.
+- When such a run straddles the page boundary the page ends mid-run, the client advances its baseline
+  to that timestamp, asks for `> it`, and **the remainder of the run is never delivered**.
+
+⭐ **Driven, not argued:** `server/__tests__/commandLogCursor.test.ts` builds a 12-row log where six
+rows share one timestamp and drains it at page size 4. The client receives
+`c01 c02 c03 c04 c09 c10 c11 c12` — **four peer edits accepted by the server, acknowledged to their
+author, and silently never delivered.** No error is raised anywhere.
+
+**Design delivered as `server/commandLogCursor.js` (pure, tested, DELIBERATELY UNWIRED):**
+
+- **STEP 1, recommended, no migration:** composite cursor `(created_at, id)` with row-value
+  comparison — `WHERE (created_at, id) > ($2, $3) ORDER BY created_at, id`. Total order over an
+  existing PRIMARY KEY; no tie can straddle a page. Wire cursor `"<iso>|<id>"`. An unrecognised
+  cursor parses to `null` so a mid-migration client falls back rather than getting a 400. Needs
+  `idx_pcl_project_time` widened to `(project_id, created_at, id)`. Proven at page sizes 1 to 50:
+  every row delivered, each exactly once.
+- **STEP 2:** `seq BIGSERIAL` (`project_command_log.id` is `TEXT PRIMARY KEY`, so no ordered integer
+  exists today), mirroring `apps/sync-server`'s already-tested `fromSeq` protocol.
+
+⛔ **THE GOTCHA THAT "AN INTEGER CURSOR IS CORRECT BY CONSTRUCTION" HIDES, and the reason this is a
+design and not a one-line recommendation:** a `BIGSERIAL` is assigned at INSERT and becomes visible
+at COMMIT, and those orders differ. Two concurrent writers take 100 and 101; **101 can commit first**;
+a reader polling in between advances to 101 and row 100 is skipped **forever**. That is strictly worse
+than the defect above — rarer and equally silent. Pascal never meets it because its store is
+single-writer SQLite; PRYZM's is not. Step 2 is only correct with a snapshot watermark
+(`pg_snapshot_xmin`), or seq allocated under the insert's own lock, or seq kept as a hint with the
+composite cursor remaining authoritative. **Do not ship a bare `MAX(seq)` cursor.**

@@ -127,6 +127,27 @@ A nightly job samples 0.1 % of backups + verifies their checksum + signature. In
 > are durable claims about another system and **MUST be persisted**, never held only in memory
 > (see [C05 §3.6 requirement 6](C05-PERSISTENCE-AND-FILE-FORMAT.md)).
 
+> ⭐ **AND A SNAPSHOT MAY BE REASSEMBLED FROM MORE THAN ONE STORED PART — which changes what a
+> digest mismatch is ALLOWED to mean, not what integrity means.**
+> *(Added 2026-08-23 · lane PERF5 · ISSUE-LOG **L-9980**; the rule lives in
+> [C05 §3.8](C05-PERSISTENCE-AND-FILE-FORMAT.md).)* The local version container now stores a
+> project's append-only design journal **once**, with each version holding a cursor into it
+> — **34.33 MB → 2.32 MB (14.8×) for the founder's 20-version history, with all 30 432 records
+> retained**. ⛔ Nothing is trimmed, capped or de-duplicated: this is a change in the number of
+> COPIES, and §1.7's 90-day customer-facing history is untouched by it.
+>
+> Three obligations for this tier:
+> (a) an in-app snapshot that was REASSEMBLED and whose journal could not be supplied in full is
+> reported **NOT COMPARABLE**, and — exactly as the box above requires of an ordinary in-app digest
+> mismatch — it is **not** an integrity incident under this section and MUST NOT page;
+> (b) ⛔ a restore MUST bring back the JOURNAL PART with the version part. A backup that captured the
+> per-version blobs and not the shared journal would restore twenty versions whose cursors name
+> records nothing holds — which reads as a 14.8× smaller backup and IS a silent loss of design
+> history. The parts are one artefact for backup, verification and restore purposes;
+> (c) the SHA-256 + HMAC above still cover the stored artefact as a whole and remain the only basis
+> for any tamper claim — the per-chunk FNV-1a digest inside the container is a corruption tripwire
+> for the reassembly, is unkeyed, and supports no claim about who changed anything.
+
 ### §1.10 — Per-failure-mode runbooks
 
 For each high-priority failure mode, a runbook exists in `docs/04-reference/runbooks/`:
@@ -190,6 +211,35 @@ A customer uninstalling a plugin retains the plugin-data in backups for the stan
 Retention policies MUST NOT vary by customer discipline. Per the C00 governance bar.
 
 Exceptional retention (legal hold, litigation, regulator request) is documented in the customer's account (a "Legal hold" badge with the start date + the source authority). Customers see the badge; the exception is auditable. Per [C22](C22-PRIVACY-AND-PII-TIER.md), the customer is informed of the hold unless the legal authority prohibits disclosure (e.g. national-security letters).
+
+
+### §1.16 — The durable copy REFUSES an empty snapshot over a populated project (binding; L-10040, 2026-08-23)
+
+The server copy is *"the durable authority and the recovery path out of a full local origin"*
+(`PlatformSaveController`, its own words). A backup story that lets the newest server-side version
+become an empty one has no recovery path left to offer: every open restores the LATEST version, so
+an empty latest is a wipe from the seat of whoever opens the project next, on every device.
+
+1. `POST /api/projects/:id/versions` MUST refuse a snapshot carrying **zero** content elements when
+   the project's latest stored version carries at least one, answering **409 `empty_snapshot_rejected`**
+   with **both counts** and the override named in the body. Owner: `server/emptySnapshotGuard.js`.
+2. ⛔ **The refusal deletes, trims and rewrites nothing.** It declines to APPEND. That is the whole
+   of its blast radius, and the refusal message says so.
+3. ⭐ **The trade is stated in both numbers, as C48 requires of every retention decision.** Losing
+   the save of a legitimately-emptied project is rarer and is fully recoverable — version history
+   keeps every prior version, and `"force": true` writes it immediately. Losing a populated project
+   under an empty autosave is neither.
+4. **Unknown accepts.** If the stored baseline cannot be read (backend unreachable, column absent,
+   a shape the guard does not recognise) the write PROCEEDS. A guard that fails closed on its own
+   read error converts a transient DB hiccup into a refusal to save the customer's work.
+5. ⚠ **The in-memory fallback backend is the worst case and the reason this is §1 and not §6.**
+   That path retains only the last 20 versions and splices the oldest off, so twenty empty autosaves
+   EVICT the real history outright — the only configuration in which this defect destroys data
+   rather than merely burying it.
+
+See [C13 §3.20](C13-PROJECT-LIFECYCLE-AND-ISOLATION.md) for the client-side half and for the exact
+open-path window that produces an empty snapshot in the first place. Neither layer may be dropped
+for the other.
 
 ---
 

@@ -52,6 +52,10 @@ import { helmetMiddleware, applyEmbedHeaders, strictCspShadowMiddleware } from '
 import { CSP_REPORT_PATH, cspReportBodyParser, cspReportHandler } from './server/cspReport.js';
 import { isBetaAllowed, BETA_REFUSAL_MESSAGE, BETA_ACCESS_ALLOWLIST } from './server/betaAccessAllowlist.js';
 import { versionLimitFor, aiLimitFor } from './server/planLimits.js';
+// SS-GUARD-EMPTY-SNAPSHOT (L-10040): the server half of the three-layer wipe defence.
+import { countSnapshotElements, decideSnapshotWrite, emptySnapshotRejectionBody } from './server/emptySnapshotGuard.js';
+// SS-SCAN-SNAPSHOT-URLS (L-10042): bounded value-level scan of the untrusted snapshot. REPORT-ONLY.
+import { scanSnapshotForUnsafeUrls, formatScanReport } from './server/snapshotUrlScan.js';
 import { notifyBlockedAccessAttempt, notifierStatus } from './server/accessAttemptNotifier.js';
 // IP-A3 A.5.e: lead-capture sink for the RAC onboarding handoff
 import { LEADS_PATH, leadsBodyParser, leadsHandler } from './server/leads.js';
@@ -3645,6 +3649,103 @@ app.post('/api/projects/:id/versions', authMiddleware, async (req, res) => {
             error: 'Invalid snapshot payload',
             issues: flat,
         });
+    }
+
+    // == SS-GUARD-EMPTY-SNAPSHOT (L-10040) =====================================
+    // Layer 3 of the wipe defence. Refuse to append an EMPTY snapshot on top of a
+    // project whose latest stored version has elements, unless the caller sends
+    // "force": true. Ported from the Pascal editor audit, section 3.5.
+    //
+    // WHY IT MATTERS HERE even though this table is append-only: every open
+    // restores the LATEST version, so an empty latest is a wipe from the seat of
+    // whoever opens it next, on every device. On the in-memory fallback path it is
+    // worse than that: that path keeps only the last 20 rows, so twenty empty
+    // autosaves EVICT the real history outright.
+    //
+    // THE COUNT IS DERIVED FROM THE SNAPSHOT, NEVER from body.elementCount, which
+    // is client supplied and defaults to 0 in the destructuring above. Keying the
+    // refusal on that field would reject a correct client that simply omitted it.
+    //
+    // COST: countSnapshotElements reads at most 20 array lengths off an object
+    // that is already parsed. The stored-side read only runs when the incoming
+    // count is ZERO, so a normal save pays nothing at all.
+    const _incomingElements = countSnapshotElements(snapshot);
+    if (_incomingElements === 0) {
+        let _storedElements = null;
+        try {
+            const _guardSb = await getSupabaseClient();
+            if (_guardSb) {
+                const { data: _lastVersionRow } = await _guardSb
+                    .from('project_versions')
+                    .select('element_count')
+                    .eq('project_id', id)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                _storedElements = _lastVersionRow
+                    ? parseInt(_lastVersionRow.element_count ?? 0, 10)
+                    : null;
+            } else if (getPgPool()) {
+                _storedElements = await pgProjectStore.getLatestVersionElementCount(id);
+            } else {
+                const _memVersions = _versions.get(id) ?? [];
+                const _memLatest = _memVersions[_memVersions.length - 1];
+                _storedElements = _memLatest ? (_memLatest.elementCount ?? null) : null;
+            }
+        } catch (guardReadErr) {
+            // FAIL OPEN, deliberately. If we cannot read the stored baseline we do
+            // not know whether anything would be destroyed, and a refusal we cannot
+            // justify is worse than the hole it closes.
+            console.warn(
+                '[versions] empty-snapshot guard could not read the stored baseline for '
+                + id + '; allowing the write:',
+                guardReadErr?.message,
+            );
+            _storedElements = null;
+        }
+        const _emptyVerdict = decideSnapshotWrite({
+            incomingElementCount: _incomingElements,
+            storedElementCount: _storedElements,
+            force: req.body?.force === true,
+        });
+        if (!_emptyVerdict.accept) {
+            console.warn(
+                '[versions] ' + _emptyVerdict.reason
+                + ' projectId=' + id
+                + ' userId=' + (req.auth?.userId ?? 'anonymous')
+                + ' label=' + String(label).slice(0, 60),
+            );
+            return res.status(409).json(emptySnapshotRejectionBody(_emptyVerdict));
+        }
+    }
+
+    // == SS-SCAN-SNAPSHOT-URLS (L-10042) -- REPORT ONLY, REJECTS NOTHING =======
+    // The Zod schema above is passthrough at every level and strictly types one
+    // array, so no string VALUE in this payload has ever been looked at. Snapshots
+    // carry texture and GLB URLs that every other member of the project later
+    // fetches and renders, which is the class of bypass Pascal names twice.
+    //
+    // BOUNDED on purpose: depth 48 and 500000 values. An unbounded walk over a
+    // 38 MB snapshot on every autosave is a denial of service we would be writing
+    // ourselves; measured, unbounded cost was 819 ms at 18.9 MB and grows
+    // linearly, against 136 ms bounded. See server/snapshotUrlScan.js for the full
+    // table, and for why a truncated scan is a SAMPLE and not a proof.
+    //
+    // It logs what it WOULD have rejected and rejects nothing, so the allowlist
+    // can be built from a week of real saves rather than guessed at. Flipping it
+    // to a refusal before that is what would break a legitimate save.
+    try {
+        const _urlScan = scanSnapshotForUnsafeUrls(snapshot);
+        if (_urlScan.findings.length > 0) {
+            console.warn('[snapshot-url-scan]', formatScanReport(_urlScan, {
+                projectId: id,
+                versionId: typeof clientVersionId === 'string' ? clientVersionId : undefined,
+                bytes: _snapshotBytes,
+            }));
+        }
+    } catch (scanErr) {
+        // A scanner that throws must never be the reason a save fails.
+        console.warn('[snapshot-url-scan] scan failed; the save is unaffected:', scanErr?.message);
     }
 
     // ── Phase 2: Idempotency key deduplication ────────────────────────────────

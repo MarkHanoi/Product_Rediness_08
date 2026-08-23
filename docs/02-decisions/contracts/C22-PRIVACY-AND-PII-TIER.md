@@ -216,6 +216,36 @@ A model prompt routinely carries **PROJECT**-tier data — element names, room p
 
 > ⛔ **OPEN, and it is the gap that matters.** This clause establishes what the PRODUCT says at runtime. It does **NOT** establish that PRYZM's **published privacy notice** has been updated to describe the `user-supplied` path. That is legal copy with a founder owner, and it is unresolved — see [C105 §8.2](./C105-AI-PROVIDER-CREDENTIALS-BYOM.md) and §10.1. **Do not cite C22 §1.13 as evidence of a completed DPA position.**
 
+
+### §1.14 — Untrusted snapshot VALUES are scanned at the boundary, under a STATED bound (binding; L-10042, 2026-08-23)
+
+`POST /api/projects/:id/versions` validates its snapshot against a Zod schema that is
+`.passthrough()` at every level and strictly types exactly one array. **No string VALUE in that
+payload has ever been looked at.** Snapshots carry texture, GLB and CDN URLs that every other member
+of the project subsequently fetches and renders, so a `javascript:` value or a private-network URL
+persisted here is served back to the whole project from our own origin.
+
+1. **Every version snapshot MUST be walked for URL-shaped values at the untrusted boundary.**
+   Owner: `server/snapshotUrlScan.js`. Classes: dangerous scheme, private/link-local host
+   (including the cloud metadata address), scheme-relative, unparseable.
+2. ⛔ **The walk MUST be BOUNDED, and the bound MUST be stated with its measured cost.** An
+   unbounded walk over a 36 MB snapshot on every autosave is a denial of service we would be
+   writing ourselves — **measured 766 ms unbounded at 35.9 MB and growing linearly, against a
+   bounded ceiling of roughly 60–110 ms.** Current bounds: `MAX_SCAN_DEPTH = 48`,
+   `MAX_SCAN_VALUES = 500_000`.
+3. ⚠ **A truncated scan is a SAMPLE, not a proof.** `findings: []` on a scan that hit its budget
+   means "not looked at", not "clean", and the result carries `truncated` so the two can never be
+   read as the same value. **A truncated scan may never on its own produce a refusal.**
+4. **C0 controls and zero-width characters MUST be stripped before scheme matching.** A browser
+   executes `java<NUL>script:` and `java<TAB>script:`; a literal prefix test does not see them.
+5. ⭐ **It ships REPORT-ONLY, and that is a decision, not a TODO.** It logs what it *would* have
+   rejected so the allowlist is built from a week of real founder saves. Refusing before that
+   measurement exists would 400 legitimate saves, which is worse than the hole it closes. The exit
+   condition is written into the module: `dangerous-scheme` and `private-host` become 400s first,
+   because neither has any legitimate use in a snapshot and neither needs an allowlist.
+6. **No new dependency and no new external call.** The scan is pure in-process work over an
+   already-parsed object; it never resolves a host, never fetches, and never leaves the request.
+
 ---
 
 ## §2 — Schema

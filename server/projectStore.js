@@ -843,6 +843,35 @@ export async function getLatestVersionSnapshot(projectId) {
 }
 
 /**
+ * §GUARD-EMPTY-SNAPSHOT (L-10040) — the element count of the latest stored
+ * version, WITHOUT inflating its snapshot.
+ *
+ * This is the "stored" side of the empty-snapshot refusal. It must stay narrow:
+ * the guard runs on the save path, and `getLatestVersionSnapshot` selects the
+ * whole multi-megabyte `snapshot` column to answer a question about one integer.
+ *
+ * Returns `null` when the project has no versions at all. The caller treats
+ * `null` as "nothing to lose, accept" — never as zero.
+ *
+ * @param {string} projectId
+ * @returns {Promise<number|null>}
+ */
+export async function getLatestVersionElementCount(projectId) {
+    const result = await query(
+        `SELECT element_count
+         FROM project_versions
+         WHERE project_id = $1
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [projectId]
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    const n = parseInt(row.element_count ?? 0, 10);
+    return Number.isFinite(n) ? n : null;
+}
+
+/**
  * GAP-11 fix — Command-log delta fetch for reconnect replay.
  *
  * Returns all project_command_log entries for a project created after the

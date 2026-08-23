@@ -30,6 +30,8 @@ import { SaveOrchestrator } from './SaveOrchestrator';
 import { ServerSyncQueue } from './ServerSyncQueue';
 import { EntitlementStore } from '@pryzm/core-app-model';
 import { describeRejection, type RejectionCode, type RejectionScope } from './serverSaveRejectionFate';
+// §GUARD-EMPTY-SNAPSHOT (L-10041) — the client half of the wipe defence.
+import { decideVersionWrite, describeWipeRefusal } from './saveWipeGuard';
 import { Feature } from '@pryzm/core-app-model';
 import { UiPreferences } from '../UiPreferences';
 import { showToast, generateId } from './PlatformToastSystem';
@@ -44,6 +46,10 @@ import type { VersionRecord, SaveStatus, ShellCtx, IProjectSnapshot } from './Pl
 const KNOWN_REJECTION_CODES: ReadonlySet<string> = new Set<RejectionCode>([
     'not-authenticated', 'plan-version-limit', 'not-permitted', 'project-id-not-savable',
     'payload-invalid', 'server-says-duplicate', 'project-missing-on-server', 'concurrent-edit',
+    // §GUARD-EMPTY-SNAPSHOT (L-10040) — added in lock-step with the code itself, so
+    // the server refusal that PROTECTS data cannot fall through to the unclassified
+    // banner copy and be read as an ordinary failure.
+    'empty-snapshot-refused',
     'rejected-unclassified',
 ]);
 
@@ -267,6 +273,60 @@ export class PlatformSaveController {
                     versionLabel: label,
                 });
                 serialisedHash = this.ctx.saveAdapter.stringify(snapshot);
+            }
+
+            // ── §GUARD-EMPTY-SNAPSHOT (L-10041) ───────────────────────────────
+            // Refuse an AUTOSAVE that would replace a populated project with an
+            // empty one. See saveWipeGuard.ts for the exact window this closes:
+            // `PlatformShell.setProjectContext()` drops the autosave fence
+            // (`setLoading(false)`) while the scene is still the empty clear-load
+            // and the real data is one `await` away, so a mutation in that window
+            // — or a server fetch that simply fails — arms an autosave over an
+            // empty model.
+            //
+            // ⭐ COST IS ZERO ON THE NORMAL PATH. The stored baseline is only read
+            // when the snapshot about to be written is itself bare, so a save that
+            // carries elements never pays the `getLatestVersion()` inflate. A bare
+            // save pays one narrow read (§PERF-VERSION-NARROW-READ, ~31 ms), which
+            // is exactly the case that deserves to be checked carefully.
+            //
+            // ⛔ The escape hatch is the Save button: `isAutoSave === false` is
+            // never refused, so a user who really emptied the project is one
+            // existing gesture away from persisting it.
+            if (snapshot.elementCount === 0) {
+                let priorElementCount: number | null = null;
+                try {
+                    priorElementCount = versionRepository.getLatestVersion(this.ctx.projectId)?.elementCount ?? null;
+                } catch {
+                    // Unknown baseline accepts — an unjustifiable refusal is worse
+                    // than the hole it closes.
+                    priorElementCount = null;
+                }
+                const verdict = decideVersionWrite({
+                    incomingElementCount: snapshot.elementCount,
+                    storedElementCount: priorElementCount,
+                    isAutoSave,
+                });
+                if (verdict.action === 'refuse') {
+                    console.error(`[PlatformSaveController] §GUARD-EMPTY-SNAPSHOT — ${verdict.reason} (project ${this.ctx.projectId}, label "${label}")`);
+                    showToast(describeWipeRefusal(verdict), 'error', 6000);
+                    // ⚠ CLEAR THE DIRTY STATE, but do NOT say "Saved".
+                    //
+                    // Returning while still dirty would re-arm the debounce and
+                    // re-fire this refusal every DEBOUNCE_MS — a full serialize plus
+                    // a narrow version read, forever, for a save we have decided not
+                    // to make. Baselining the hash means the SAME empty state does
+                    // not ask again; the moment the model changes (the real data
+                    // arrives, or the user draws), the hash moves and saving resumes
+                    // by itself.
+                    //
+                    // `markClean` and not `markCleanLabel`: the status text must not
+                    // read "Saved" for a version that was refused.
+                    this.orchestrator.markClean(serialisedHash);
+                    this.ctx.statusDot.className = 'plat-status-dot';
+                    this.ctx.statusText.textContent = 'Auto-save paused (model is empty)';
+                    return;
+                }
             }
 
             const version: VersionRecord = {
