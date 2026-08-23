@@ -37,13 +37,23 @@
 //
 // ⚠ WHAT THIS FILE DOES **NOT** PROVE, STATED SO NOBODY READS MORE INTO A GREEN RUN.
 // It proves the six verbs are dispatchable and that their patches reach the store the
-// composition root binds. It does NOT prove a person can draw a section: C104 R-10
-// makes a reachability claim INADMISSIBLE without a pointer-layer proof, and
-// section-view has no tool activator at all — `check-tool-activator-coverage.ts`
-// would report it the moment a `section` tool id were declared. It also does NOT
-// prove the section RENDERS: `section.moveLine` refuses precisely because nothing
-// renders, exports or persists this store yet (see R-6). Wiring the store to the
-// section renderer is Gate G7 and ADR-0367 §6, and is NOT claimed here.
+// composition root binds. It does NOT prove a person can draw a section, and C104
+// R-10 makes a reachability claim INADMISSIBLE without a pointer-layer proof.
+//
+// ⚠ CORRECTED BEFORE ANYONE COULD RELY ON IT. This paragraph first read "section-view
+// has no tool activator at all". **That is false, and the truth is worse** (L-9923):
+// an activator IS registered at `PluginRegistry.ts:1140`, so
+// `check-tool-activator-coverage.ts` counts section-view as COVERED — but the
+// activator reads `window.sectionTool`, and that global is assigned NOWHERE in the
+// tree (one occurrence repo-wide: the read itself). So it always falls through to
+// `section.panel.open`, a verb with exactly ONE occurrence repo-wide — that dispatch
+// — and no handler. `plugins/section-view/src/tool.ts` does dispatch `section.create`,
+// and nothing ever constructs it. A coverage gate keyed on the NAME of a registration
+// is satisfied by its existence, never by its reachability.
+//
+// It also does NOT prove the section RENDERS: `section.moveLine` refuses precisely
+// because nothing renders, exports or persists this store yet (see R-6). Wiring the
+// store to the section renderer is Gate G7 and ADR-0367 §6, and is NOT claimed here.
 
 import { describe, expect, it } from 'vitest';
 import { bootstrapWithEverything } from '../src/bootstrap.everything.js';

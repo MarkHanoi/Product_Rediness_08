@@ -157,9 +157,24 @@ an inline L7 copy, i.e. against the arrangement this ADR ends.
 
 ⚠ **What a green run does NOT establish, stated so nobody reads more into it.** It
 proves the six verbs dispatch and their patches reach the bound store. It does
-**not** prove a person can draw a section (there is no tool activator at all; C104
-R-10 makes a reachability claim inadmissible without a pointer-layer proof), and it
-does **not** prove a section renders. `section.moveLine` still **REFUSES**, and R-6
+**not** prove a person can draw a section — C104 R-10 makes a reachability claim
+inadmissible without a pointer-layer proof — and it does **not** prove a section
+renders.
+
+⚠ **Corrected before publication (L-9923).** This paragraph first read *"there is no
+tool activator at all"*. **False, and the truth is worse.** An activator IS
+registered at `PluginRegistry.ts:1140`, so `check-tool-activator-coverage.ts` counts
+section-view as **COVERED** — while the activator reads `window.sectionTool`, a
+global assigned **nowhere** in the tree (one occurrence repo-wide: the read itself),
+and therefore always falls through to `section.panel.open`, a verb with **one**
+occurrence repo-wide (that dispatch) and **no handler**. `SectionToolbar` dispatches
+`section-new`, which is not one of the six verbs either, and
+`plugins/section-view/src/tool.ts` — the one file that does dispatch `section.create`
+— is never constructed. ⭐ **A coverage gate keyed on the NAME of a registration is
+satisfied by its existence, never by its reachability** — the same name-blindness
+`CLAUDE.md` records for `check:commandmanager`, and the same shape as
+[[unsatisfiable-gate-decomposition-is-the-fix]]. Fixing the pointer path is NOT in
+this ADR's scope; it is logged so the next lane starts from the real state. `section.moveLine` still **REFUSES**, and R-6
 pins that refusal so a later reader cannot delete it on the strength of "the store
 is wired now". The refusal's own text was amended in place: one clause of it
 ("the section plugin also contributes no store through PluginRegistry") became

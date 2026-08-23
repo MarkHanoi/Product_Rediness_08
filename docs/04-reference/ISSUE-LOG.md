@@ -46004,6 +46004,57 @@ switch reachable, the destination explicit, the cost measured and the payload sa
 **`check-otel-spans` Zone B (RC=3)** — instrumentation *coverage*, a different axis, in
 other lanes' files. Reported, left. Reading unchanged by this lane.
 
+#### ⭐ END-TO-END PROOF — the real server composition root, one real span
+
+⛔ **Not a unit test of a pure function** — the boot module `server/telemetry.js` was
+loaded for real, then a span was opened through **the same `@opentelemetry/api` call
+the 347 sites use**. This is the reading that distinguishes "the code is correct" from
+"it runs" ([[committed-is-not-reachable]]):
+
+```
+$ PRYZM_TRACING=console npx tsx <proof>
+[tracing] ON — exporter=console sample=1 (redaction: active)
+PROOF isRecording = true                          ← was FALSE before this lane, by construction
+{
+  resource: { attributes: { 'service.name': 'pryzm-server' } },
+  name: 'pryzm.command.execute',
+  traceId: '85471dc01ecccb757f2bedc91b109ef5',
+  attributes: {
+    'pryzm.command.kind':       'wall.create',    ← signal SURVIVES
+    'pryzm.command.elements':   62,               ← signal SURVIVES
+    'pryzm.byom.authorization': '[redacted]',     ← a real-shaped Anthropic key, GONE
+    'pryzm.owner':              '[redacted-email]'← the founder's address, GONE
+  }
+}
+```
+
+All four server modes were driven live at the real boot module:
+
+| `PRYZM_TRACING` | `OTEL_EXPORTER_OTLP_ENDPOINT` | Observed |
+|---|---|---|
+| unset | — | `[tracing] OFF (PRYZM_TRACING unset)` |
+| `otlp` | unset | `[tracing] REFUSED — …OTEL_EXPORTER_OTLP_ENDPOINT is not set… or use PRYZM_TRACING=console` — printed **once**, provider **not** registered |
+| `console` | — | `[tracing] ON — exporter=console sample=1 (redaction: active)` |
+| `1` | set | `[tracing] ON — exporter=otlp sample=0.05 (redaction: active)` |
+
+And the real `vite.config.ts` was loaded through Vite's own `loadConfigFromFile` in
+both states — flags unset → every `__PRYZM_*__` is the literal `undefined`; flags set →
+the values are baked in **while `__PRYZM_TRACING_HEADERS__` stays `undefined`**, so the
+SECRET collector token cannot reach a public bundle even when everything else is on.
+
+#### Gate readings after this lane (unchanged where they should be)
+
+| Gate | Reading |
+|---|---|
+| `check-otel-spans` | **RC=3 · ZONE A 266/266 · ZONE B 62 of 80 (baseline 52) · ZONE C census 1995/2284** — Zone B **identical** to the audit's reading; this lane did not touch coverage |
+| `check-secrets-register` | **RC=1 DECLARED-LEVEL, 12 findings against 12** — arm a 12, arm b 0, arm c **0**, drift **0**, with `SECRETS-REGISTER.md` regenerated for the 7 new rows |
+
+⛔ **`crash-reporter`'s own new exports carry NO span, deliberately and permanently.**
+A span opened on the export path is exported, which opens a span. `Tracing.ts`
+additionally runs *before* any provider exists to record against. Zone C will list
+these three files forever; a future lane "closing" it here would build an infinite
+recursion with a contract citation attached.
+
 #### Files
 
 `packages/crash-reporter/src/{Tracing,SpanRedaction,OtlpHttpJsonSpanExporter,index}.ts` ·
@@ -46711,3 +46762,45 @@ current GPU draws that without noticing. L-10003 suggests the far larger cost on
 **per-element material objects → shader/PSO compiles**, which a merge batcher does **not** address
 and material dedup does. ⛔ Neither figure has been measured in the browser; both should be, before
 row 1 is scheduled as an **L**.
+
+### L-9923 — ⛔ `check-tool-activator-coverage.ts` COUNTS `section-view` AS **COVERED**. THE ACTIVATOR CANNOT DO ANYTHING. (lane PLUGIN2, 2026-08-23)
+
+**Found by being wrong in public.** L-9922's first draft claimed *"section-view has
+no tool activator at all"*. ⚠ **That was false** — and checking it turned up
+something worse than the claim.
+
+An activator **is** registered, `apps/editor/src/PluginRegistry.ts:1140`. So the
+name-keyed coverage gate is satisfied. Here is what it actually does, every
+occurrence counted repo-wide with `rg`:
+
+| link in the chain | occurrences in the tree | verdict |
+|---|---|---|
+| `runtime.tools.register('section-view', …)` | 1 — `PluginRegistry.ts:1140` | ✅ registered, so the gate is happy |
+| `window.sectionTool` — the global it reads | **1: the read itself.** Assigned nowhere | ⛔ the `if (t?.activate)` branch is **DEAD** |
+| ⇒ fallback `busAdapter.executeCommand('section.panel.open', …)` | **1: that dispatch.** No handler registers it | ⛔ dispatches a verb **that does not exist** |
+| `SectionToolbar` button `commandType: 'section-new'` | not one of the six `section.*` verbs | ⛔ third dead path |
+| `plugins/section-view/src/tool.ts:111` — the ONE file that dispatches `section.create` | class never constructed anywhere | ⛔ unreachable |
+
+⭐ **THE GENERALISATION, AND IT IS THE POINT OF THE ROW.** *A coverage gate keyed on
+the NAME of a registration is satisfied by the registration's EXISTENCE, never by its
+REACHABILITY.* `check-tool-activator-coverage.ts` reports **ARM A uncovered 3/0**
+(balcony, boundary-line, pool) and passes section-view — because section-view has the
+row. This is the same name-blindness `CLAUDE.md` records for `check:commandmanager`
+(a gate that classifies by NAME can be satisfied by RENAMING), and the same shape as
+[[unsatisfiable-gate-decomposition-is-the-fix]]: the right question is not *"is an
+activator registered?"* but *"can this activator ever reach a registered verb?"*
+
+⚠ **Scope, stated so the omission is not read as an oversight.** L-9921/L-9922 moved
+a MECHANISM and proved ONE family at the dispatch layer. **Fixing this pointer path
+is a different job** — it needs `SectionTool` constructed with a canvas ref from
+`runtime.inputHost` (the `TODO(Phase 4)` already written at `PluginRegistry.ts:1139`),
+which is engine territory. ⛔ **NOT fixed here. Logged so the next lane starts from
+the real state instead of from a green gate.**
+
+⭐ **The suggested arm, for whoever takes it:** an activator whose body dispatches a
+verb should have that verb checked against the bus registry — a `section.panel.open`
+with no handler is exactly as dead as a missing activator, and today only one of the
+two is visible. Three of PRYZM's own memories converge here:
+[[committed-is-not-reachable]], [[authored-but-unwired-is-the-bottleneck]] and
+[[verification-dispatch-rendering-three-milestones]] — **dispatch-layer green is one
+of three milestones, and this row is the pointer-layer one coming back red.**
