@@ -337,6 +337,21 @@ the ratchet does not shrink it. Remediation options are costed in ISSUE-LOG **L-
 retention cap is not among them** — it would delete design history the user never agreed to lose, to
 fix a defect that was ours.
 
+> ⭐ **RE-MEASURED 2026-08-23 (lane INTEG51, ISSUE-LOG L-8704) — the ratchet is stopped and the
+> SHAPE is unchanged, so the number went UP, not down.** The founder's live console reads
+> `281 elements, 7 levels, 62 walls, 10 slabs, 31 furniture … temporalGraph **30 432 mutations**`
+> with an integrity suffix of `0x8639ce` = **8 796 110 characters of canonical snapshot** for a model
+> this section measures at **~0.1 MB**. The stored container is **~36.8 MB** across 20 versions
+> (≈ 1.84 MB each), and the count still grows within a single session (30 357 → 30 432 in about an
+> hour of normal editing — which is requirement 1 working: those are *his edits*, not a load replay).
+>
+> **The journal is ~99 % of the payload and is duplicated twenty times**, because a journal is
+> append-only: version *n* is version *n−1* plus a handful of records. Storing it **once per project**,
+> with versions referencing a cursor into it, is a **≈15×** reduction on every write and every open
+> (≈36.8 MB → ≈2.4 MB) **with no record dropped**. ⛔ That is a FORMAT change and a founder decision;
+> it is costed in **L-8704** beside **L-5823** and is **not** authorised by this box. ⛔ **And it is
+> still not a retention cap** — the fix is to stop copying the journal, never to trim it.
+
 ### §3.6 — A version-history WRITE MUST NOT decode the history it is not changing (binding)
 
 > **Added**: 2026-08-22 · lane LOAD30, closes **L-5801** / **L-5802** / **L-5805** / **L-5806** /
@@ -384,10 +399,101 @@ Five requirements, each binding:
    does not today (it returns a `project_versions` row; `version_count` lives on `projects`), which
    is why the lock is currently inert — see ISSUE-LOG **L-5831**.
 
+6. ⭐ **A TRANSIENT UI STATE MUST NOT COST A WHOLE-CONTAINER WRITE.**
+   *(Added 2026-08-23 · lane INTEG51 · ISSUE-LOG **L-8702**. File: `ProjectRepository`
+   `§PERF-SYNCSTATUS-TRANSIENT-NOT-PERSISTED`.)*
+   Requirement 1 made a `syncStatus` flip cheap **per write**; nothing bounded HOW MANY of them one
+   autosave performs. MEASURED from the founder's console — three whole-container writes of the same
+   twenty versions, **~110 MB of IndexedDB traffic to record one autosave of a 281-element model**:
+
+   ```
+   [VersionRepository] 20 version(s) persisted to IndexedDB … ~36.8 MB (38,630,482 chars) compressed
+   [VersionRepository] 20 version(s) persisted to IndexedDB … ~36.8 MB (38,630,478 chars) compressed
+   [VersionRepository] 20 version(s) persisted to IndexedDB … ~36.8 MB (38,630,470 chars) compressed
+   ```
+
+   Write 1 IS the save. Writes 2 and 3 exist only to advance the documented ladder
+   `'local-only' → 'sync-pending' → 'synced'`. **A rung of that ladder may be persisted only if it is
+   still TRUE after a reload.** `'sync-pending'` asserts *an upload is in flight right now*, which no
+   reload can leave true; the value it would otherwise overwrite (`'local-only'` = "not on the
+   server") is the **conservative** one and is exactly what an interrupted upload should read back
+   as. It MUST therefore be held in memory and **overlaid onto every read** — wide and narrow, both
+   container formats — so no surface loses the badge, and the overlay MUST be pruned to the stored
+   ids by the same writer that bounds the blob cache.
+   ⛔ **`'synced'` MUST still be written.** *"The server already has this"* is a durable claim about
+   another system and may not live only in RAM (C48 §1).
+   ⚠ **Naming the residual honestly: the floor with this container shape is TWO writes, not one**
+   (the save, plus one terminal status write). Reaching one requires `syncStatus` to leave the
+   container for a sidecar id→status map — named and costed in L-8702, not shipped blind.
+   ⭐ **A test for this requirement MUST COUNT WRITES, not assert the stored history is correct**: a
+   correctness-only assertion passes identically against the unbounded implementation.
+
 **Not decided by this section:** server-side version retention. The client keeps 20; the server keeps
 everything (`versionLimitFor(plan)` returns `-1` for an uncapped plan — **746** rows for one project,
 each holding a full snapshot). C05 has no retention rule and needs one; ⛔ **pruning a user's stored
 history is a product decision, not a performance change** (ISSUE-LOG **L-5832**, ADR-0356 §7).
+
+### §3.7 — The content-integrity digest: what it may cover, what it may claim, and what happens when it changes (binding)
+
+> **Added**: 2026-08-23 · lane INTEG51, closes **L-8700** / **L-8701**; the third recurrence of
+> **L-334** / **L-360**.
+> Files: `packages/persistence-client/src/loader/SnapshotIntegrity.ts`, `ProjectSerializer`
+> (the stamp), `ProjectLoader` + `PlatformVersionController` (the message).
+
+A snapshot carries a stamped content digest so that corruption or truncation of the stored blob is
+**detected** without any valid project ever being **refused** (C08 P8). Twice before, the digest
+was computed at SAVE over a different representation than at LOAD, and the second occurrence
+false-flagged and bricked a real 1009-element project. It happened a **third** time in production
+on 2026-08-23, on two healthy projects at once.
+
+Five requirements, each binding:
+
+1. ⭐ **THE CANONICAL FORM MUST BE `JSON.stringify`-EQUIVALENT, NOT MERELY "STABLE".** The stored
+   artefact is `JSON.stringify(snapshot)`; a digest computed over anything else is a digest of
+   something that was never stored. Wherever `JSON.stringify` **omits** an object key, the
+   canonicaliser MUST omit it; wherever it renders `null`, the canonicaliser MUST render `null`.
+   The measured breach: a **function**-valued, **symbol**-valued, or `toJSON()`→`undefined` property
+   rendered as `"key":null` at SAVE and vanished at LOAD, and an array **hole** collapsed to nothing
+   instead of `null`. Diagnostic evidence — the digest folds in `canonical.length`, so
+   `stored …5**0432**` vs `computed …5**041d**` reads directly as **328 242 → 328 221, the load
+   side 21 characters shorter**.
+2. ⭐ **A CHANGE TO THE CANONICAL FORM IS A CHANGE OF ALGORITHM AND MUST MOVE THE `algo` TAG.**
+   `fnv1a32-canonical-v1` → `-v2`. A tag that keeps naming the superseded algorithm is a second
+   false statement stacked on the first. The superseded canonicaliser MUST be **retained, not
+   deleted**, so the historical digest stays reproducible and the asymmetry stays demonstrable.
+3. **A DIGEST STAMPED BY A DIFFERENT ALGORITHM IS *NOT COMPARABLE*, WHICH IS NEITHER "CLEAN" NOR
+   "CORRUPT".** Verification MUST report it as `comparable:false` and MUST NOT raise a user-facing
+   warning from it — the same disposition already required for a snapshot MigrationEngine has
+   rewritten in flight, and for the same reason: reporting the difference between two algorithms'
+   outputs as corruption is a fabricated verdict. ⚠ The tolerance is **one save wide** per project;
+   it is not a licence to leave two algorithms live.
+4. ⛔ **THE EXCLUSION SET IS CLOSED AND MUST NOT BE WIDENED TO SILENCE A MISMATCH.** It holds
+   exactly two members — `integrity` (cannot summarise itself) and `versionLabel` (volatile save
+   metadata written after the stamp). **No MODEL member may be added.** Excluding a model member
+   would delete the digest's reason to exist while leaving whatever produced the mismatch in place,
+   and a digest that excludes the largest member of the snapshot is not a digest. Any such change
+   MUST be argued here first, never slipped into the constant.
+5. ⭐ **THE MESSAGE MUST NOT ATTRIBUTE A CAUSE IT HAS NOT ESTABLISHED.** The shipped text read
+   *"The file may be corrupted or was modified outside PRYZM"* and the founder saw it on two healthy
+   projects: the stamp and the bytes disagreed because PRYZM's own canonical form did not mirror
+   `JSON.stringify`. A mismatch message MUST state **what differs** (including the canonical-length
+   Δ), that **the project was loaded in full and nothing was dropped**, and that PRYZM **cannot tell
+   from the stamp alone** whether the difference arose in its own save path or in the stored bytes.
+   ⛔ It MUST NOT name the user's file, or any actor outside PRYZM, as the cause.
+   *A false accusation of corruption is spent credibility: the next true one gets dismissed.*
+
+**A corollary requirement on the TEST, not the code.** The determinism test for this digest was green
+throughout all three occurrences because its fixture was pure JSON — it could not contain the defect,
+so it could not fail on it, while being read as proof that the guarantee held. **The fixture set MUST
+be adversarial by construction**: it MUST contain live-object shapes whose JSON representation differs
+from a structural walk, and at least one assertion MUST *exhibit* the superseded behaviour rather than
+assert its absence. ⛔ **A test whose fixture cannot express the defect is not evidence of its
+absence.**
+
+**Not decided by this section:** whether a snapshot should carry live members `JSON.stringify` cannot
+persist at all. `§L-8701` now NAMES them at save time (`integrity.jsonInvisible` + a console line);
+what to do about any that turn up is a separate finding, because such a member is content being
+dropped on every save regardless of what the digest does with it.
 
 ---
 

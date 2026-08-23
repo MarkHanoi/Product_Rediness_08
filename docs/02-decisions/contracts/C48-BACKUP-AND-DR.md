@@ -113,6 +113,20 @@ Every backup file carries:
 
 A nightly job samples 0.1 % of backups + verifies their checksum + signature. Integrity failures alert ops within 5 minutes. A failed integrity check on a CLASS-1 backup is a SEV-1 incident (per [C42](C42-CUSTOMER-SUPPORT-TIER.md)).
 
+> ⭐ **The IN-APP content digest is a DIFFERENT instrument and must not be read as this one.**
+> *(Added 2026-08-23 · lane INTEG51 · ISSUE-LOG **L-8700**; the rule lives in
+> [C05 §3.7](C05-PERSISTENCE-AND-FILE-FORMAT.md).)* `SnapshotIntegrity.ts` stamps a fast,
+> non-cryptographic FNV-1a digest into each project snapshot to catch byte-corruption or truncation
+> of the locally stored blob. It is **not** a tamper-evidence mechanism and carries no key, so it
+> can never support a claim about who or what changed a file — a distinction that stopped being
+> academic when the shipped mismatch text told two founders their files *"may be corrupted or
+> [were] modified outside PRYZM"* on the strength of it, for a defect in PRYZM's own canonical form.
+> Three obligations follow for this tier: (a) an in-app digest mismatch is **never** an integrity
+> incident under this section and MUST NOT page; (b) the SHA-256 + HMAC above remain the ONLY basis
+> for any tamper claim; and (c) `'synced'`-class facts — *"the server already has this version"* —
+> are durable claims about another system and **MUST be persisted**, never held only in memory
+> (see [C05 §3.6 requirement 6](C05-PERSISTENCE-AND-FILE-FORMAT.md)).
+
 ### §1.10 — Per-failure-mode runbooks
 
 For each high-priority failure mode, a runbook exists in `docs/04-reference/runbooks/`:
