@@ -19,6 +19,7 @@ import {
   SHIPPED_REGIONAL_RATE_COUNT,
   RATE_SOURCE_CANDIDATES,
   ratesShippedWithoutClearedLicence,
+  candidatesWithAVerdictButNoLicenceSentence,
   resolveRegionalRates,
   regionalRateForLine,
   type RegionalRateBook,
@@ -124,20 +125,49 @@ describe('§REGIONAL-COST-ESTIMATE — PRYZM ships ZERO rates, and that is the f
     ]);
   });
 
-  it('every candidate source names WHO must establish its licence, and none says "TBD"', () => {
+  /**
+   * ⚠ REWRITTEN 2026-08-23 (lane RATE53, L-9101). This case used to assert
+   * `expect(c.licence).not.toBe('CLEARED_FOR_REDISTRIBUTION')` for EVERY row —
+   * i.e. it pinned "nobody has cleared anything" as though it were an invariant.
+   * It was not an invariant, it was a STATE, and lane RATE53 changed it by
+   * reading licence texts. One row is now cleared.
+   *
+   * ⛔ THE ASSERTION WAS NOT DELETED, IT WAS REPLACED BY THE RULE IT WAS REACHING
+   * FOR: a cleared row must quote the sentence that cleared it, and a row that
+   * ships a rate must be cleared. Those hold no matter how many rows clear, and
+   * the old form would have had to be weakened every time one did.
+   */
+  it('every candidate names WHO must establish its licence, and none says "TBD"', () => {
     expect(RATE_SOURCE_CANDIDATES.length).toBeGreaterThan(0);
     for (const c of RATE_SOURCE_CANDIDATES) {
-      expect(c.licence).not.toBe('CLEARED_FOR_REDISTRIBUTION');
       expect(c.whatMustBeEstablished.trim().length).toBeGreaterThan(20);
       expect(c.whatMustBeEstablished).not.toMatch(/\bTBD\b/i);
     }
   });
 
-  it('with nothing shipped, the resolver REFUSES and says why — it does not return an empty success', () => {
+  it('⛔ THE RULE THAT REPLACED IT — a READ verdict must quote what it read', () => {
+    // "Cited is not checked": a row claiming CLEARED or REFUSED without the
+    // licence sentence behind it is the exact failure this ledger exists to
+    // prevent. NOT_ESTABLISHED rows are exempt — nothing was read, and they say so.
+    expect(candidatesWithAVerdictButNoLicenceSentence()).toEqual([]);
+    // …and the gate can FAIL, so green means something.
+    expect(candidatesWithAVerdictButNoLicenceSentence([{
+      database: 'Invented Price Book', publisher: 'nobody', geography: 'nowhere',
+      licence: 'CLEARED_FOR_REDISTRIBUTION', granularity: 'per-line-unit-rate',
+      licenceNote: null, whatMustBeEstablished: 'x'.repeat(30),
+    }])).toEqual(['Invented Price Book']);
+  });
+
+  it('with no PER-LINE book shipped, the resolver REFUSES and names the reason it read', () => {
+    // ⚠ The old assertion was `toContain('licensed')`, which passed on a sentence
+    // that said the licences had NOT been read. They have. The refusal must now
+    // name the READ reason, and must not imply the building-level half is empty too.
     const r = resolveRegionalRates(AT_BARCELONA);
     expect(r.tier).toBe('none');
     expect(r.books).toEqual([]);
-    expect(r.statement).toContain('licensed');
+    expect(r.statement).toContain('PER-LINE');
+    expect(r.statement).toMatch(/licences were read/i);
+    expect(r.statement).toMatch(/BUILDING-LEVEL/);
   });
 });
 

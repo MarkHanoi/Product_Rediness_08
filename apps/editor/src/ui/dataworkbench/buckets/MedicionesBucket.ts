@@ -43,11 +43,19 @@ import {
     resolveRegionalRates,
     RATE_SOURCE_CANDIDATES,
     SHIPPED_REGIONAL_RATE_COUNT,
+    // §REGIONAL-BUILDING-COST (L-9100, lane RATE53) — the building-level €/m²,
+    // sourced from an official bulletin. See RegionalBuildingCost.ts.
+    resolveBuildingCostModels,
+    measuredBuiltArea,
+    estimateBuildingCost,
+    SHIPPED_BUILDING_COST_MODEL_COUNT,
     type TakeoffResult,
     type TakeoffLine,
     type RateEntry,
     type RateBook,
     type LineEstimate,
+    type BuildingCostEstimate,
+    type RegionalBuildingCostModel,
 } from '@pryzm/core-app-model';
 import { withHandlerSpan } from '@pryzm/plugin-sdk';
 import { escapeHtml } from './DWHelpers';
@@ -88,6 +96,42 @@ function loadRateBook(runtime: Runtime): RateBook {
 function saveRateBook(runtime: Runtime, book: RateBook): void {
     try { localStorage.setItem(rateKey(runtime), JSON.stringify(book)); }
     catch (e) { console.warn('[Mediciones] rate book could not be saved to this browser:', e); }
+}
+
+// ── §REGIONAL-BUILDING-COST — the typology choice ────────────────────────────
+//
+// ⛔ THE TYPOLOGY IS THE USER'S CHOICE AND HAS NO DEFAULT. In Barcelona's table
+// the group moves the answer by a factor of NINE (259,81 to 2.381,61 €/m²), and
+// PRYZM does not know whether this model is a 4-star hotel, a school or a garage.
+// A default would be a guess with a legal citation attached, so the panel asks
+// once and then remembers the answer. Same storage caveat as the rate book —
+// this browser only.
+
+const BUILDING_GROUP_PREFIX = 'pryzm.mediciones.buildingGroup.';
+
+interface BuildingChoice { groupId: string | null; correctionId: string | null }
+
+function groupKey(runtime: Runtime): string {
+    return BUILDING_GROUP_PREFIX + (runtime?.projectContext?.projectId ?? 'unscoped');
+}
+
+function loadBuildingChoice(runtime: Runtime): BuildingChoice {
+    try {
+        const raw = localStorage.getItem(groupKey(runtime));
+        if (!raw) return { groupId: null, correctionId: null };
+        const p = JSON.parse(raw) as Partial<BuildingChoice>;
+        return {
+            groupId: typeof p.groupId === 'string' && p.groupId ? p.groupId : null,
+            correctionId: typeof p.correctionId === 'string' && p.correctionId ? p.correctionId : null,
+        };
+    } catch {
+        return { groupId: null, correctionId: null };
+    }
+}
+
+function saveBuildingChoice(runtime: Runtime, choice: BuildingChoice): void {
+    try { localStorage.setItem(groupKey(runtime), JSON.stringify(choice)); }
+    catch (e) { console.warn('[Mediciones] building typology choice could not be saved to this browser:', e); }
 }
 
 // ── Small shared bits ─────────────────────────────────────────────────────────
@@ -418,6 +462,129 @@ function estimateChip(c: { estimate: LineEstimate | null }): string {
 }
 
 /**
+ * §REGIONAL-BUILDING-COST (L-9100, lane RATE53) — THE BUILDING-LEVEL ESTIMATE.
+ *
+ * ⭐ THIS IS THE ANSWER TO THE FOUNDER'S QUESTION. He asked for "an average cost
+ * depending on the region", saw 42 lines of NO RATE, and was told PRYZM ships
+ * nothing because every price base is licensed. That was true of PER-TRADE PRICE
+ * BOOKS and false of the class nobody had checked: official bulletins publish
+ * building-cost modules and carry no copyright at all (LPI Art. 13).
+ *
+ * ⛔ THE RULES THIS BLOCK ENCODES:
+ *   • it is a DIFFERENT KIND OF THING from the priced total, and it looks like
+ *     one — its own section, the amber estimate colour, the word ESTIMATE spelled
+ *     out, and "NOT IN THE PRICED TOTAL" adjacent to the figure, not in a footnote;
+ *   • the typology SELECT has an empty first option and no default (see
+ *     `loadBuildingChoice`). Until it is chosen there is no number, only the
+ *     published table — which is itself a real, cited, regional answer;
+ *   • the AREA it multiplies is named as a PROXY, with the take-off lines it came
+ *     from, because PRYZM does not compute superfície construïda;
+ *   • what the €/m² EXCLUDES is listed in full. A figure whose exclusions are
+ *     unstated is read as a project cost, and it is a material-execution cost;
+ *   • ⚠ it WRAPS. No text-overflow:ellipsis anywhere — a truncated provenance is
+ *     a provenance nobody can check.
+ */
+function buildingEstimateBlock(
+    models: readonly RegionalBuildingCostModel[],
+    refusal: string,
+    est: BuildingCostEstimate | null,
+    choice: BuildingChoice,
+    areaMissing: boolean,
+): string {
+    const AMBER = '#8A6100';
+    const head = `<h4 style="margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--app-text);">Regional building estimate</h4>`;
+
+    if (models.length === 0) {
+        return `<section style="margin-top:20px;border-top:2px solid var(--app-border);padding-top:14px;">
+            ${head}
+            <div style="font-size:11px;line-height:1.6;color:var(--app-text-muted);white-space:normal;overflow-wrap:break-word;">
+                ${escapeHtml(refusal)}
+            </div>
+        </section>`;
+    }
+
+    const model = models[0]!;
+    const p = model.provenance;
+
+    const options = model.groups.map((g) => `
+        <option value="${escapeHtml(g.groupId)}"${choice.groupId === g.groupId ? ' selected' : ''}>
+            ${escapeHtml(g.groupId)} — ${escapeHtml(g.label)} · ${escapeHtml(fmt(g.ratePerAreaM2))} ${escapeHtml(model.currency)}/m²
+        </option>`).join('');
+
+    const corrections = model.corrections.map((c) => `
+        <option value="${escapeHtml(c.correctionId)}"${choice.correctionId === c.correctionId ? ' selected' : ''}>
+            ${escapeHtml(c.label)} (× ${escapeHtml(String(c.factor))})
+        </option>`).join('');
+
+    /* The three states this block can be in, and each says which. An empty
+       figure with no explanation is the shape that makes a user think the
+       feature is broken when it is in fact refusing. */
+    const figure = est
+        ? `<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
+               <span style="font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:${AMBER};">Estimate — not a price</span>
+               <span data-building-estimate style="font-size:22px;font-weight:800;color:${AMBER};">${escapeHtml(fmt(est.amount))} ${escapeHtml(est.currency)}</span>
+           </div>
+           <div style="font-size:10.5px;color:var(--app-text-muted);margin-top:2px;">
+               ${escapeHtml(fmt(est.effectiveRatePerAreaM2))} ${escapeHtml(est.currency)}/m² × ${escapeHtml(fmt(est.area.areaM2))} m²
+           </div>`
+        : areaMissing
+            ? `<div style="font-size:11px;font-weight:700;color:#B3261E;">NO BUILT AREA MEASURED</div>
+               <div style="font-size:10.5px;line-height:1.6;color:var(--app-text-muted);white-space:normal;">
+                   The take-off measured no slab, no floor and no room finish, so there is no area to multiply.
+                   PRYZM does <strong>not</strong> derive one from the wall footprint — that would be a second
+                   measurement engine disagreeing with the first. Model the floor slabs and this figure appears.
+               </div>`
+            : `<div style="font-size:11px;font-weight:700;color:${AMBER};">CHOOSE THE BUILDING TYPE</div>
+               <div style="font-size:10.5px;line-height:1.6;color:var(--app-text-muted);white-space:normal;">
+                   The published table above spans a factor of nine — from ${escapeHtml(fmt(model.groups[model.groups.length - 1]!.ratePerAreaM2))}
+                   to ${escapeHtml(fmt(model.groups[0]!.ratePerAreaM2))} ${escapeHtml(model.currency)}/m². PRYZM does not know which
+                   line this project is on, and <strong>will not guess</strong>: the wrong group is a wrong number, not an
+                   approximate one. Pick one and the estimate appears.
+               </div>`;
+
+    return `<section style="margin-top:20px;border-top:2px solid var(--app-border);padding-top:14px;">
+        ${head}
+        <div style="font-size:11px;line-height:1.6;color:var(--app-text-muted);margin-bottom:10px;white-space:normal;overflow-wrap:break-word;">
+            ${escapeHtml(refusal)}
+        </div>
+        <div style="padding:11px 13px;border:1px dashed ${AMBER};border-radius:9px;background:rgba(138,97,0,.06);">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:9px;">
+                <label style="font-size:10px;color:var(--app-text-muted);display:flex;flex-direction:column;gap:3px;flex:1;min-width:220px;">
+                    Building type (published module)
+                    <select data-building-group aria-label="Building type for the regional cost estimate"
+                            style="padding:5px 7px;border:1px solid var(--app-border);border-radius:6px;font-size:11px;background:#fff;color:var(--app-text);max-width:100%;">
+                        <option value=""${choice.groupId ? '' : ' selected'}>— not chosen —</option>
+                        ${options}
+                    </select>
+                </label>
+                <label style="font-size:10px;color:var(--app-text-muted);display:flex;flex-direction:column;gap:3px;flex:1;min-width:200px;">
+                    Correction factor (published)
+                    <select data-building-correction aria-label="Published correction factor"
+                            style="padding:5px 7px;border:1px solid var(--app-border);border-radius:6px;font-size:11px;background:#fff;color:var(--app-text);max-width:100%;">
+                        <option value=""${choice.correctionId ? '' : ' selected'}>New build — no correction</option>
+                        ${corrections}
+                    </select>
+                </label>
+            </div>
+            ${figure}
+            ${est ? `<div style="margin-top:8px;font-size:10px;line-height:1.6;color:var(--app-text);white-space:normal;overflow-wrap:break-word;">${escapeHtml(est.statement)}</div>` : ''}
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(138,97,0,.25);font-size:9.5px;line-height:1.6;color:var(--app-text-muted);white-space:normal;overflow-wrap:break-word;">
+                <strong>Source.</strong> ${escapeHtml(p.database)} — ${escapeHtml(p.publisher)}, ${escapeHtml(p.edition)}.
+                Prices at ${escapeHtml(p.priceDate)}${p.itemCode ? ` · ${escapeHtml(p.itemCode)}` : ''}.
+                <br><strong>Licence.</strong> ${escapeHtml(p.licence.replace(/_/g, ' '))} — ${escapeHtml(p.licenceNote ?? '')}
+                <br><strong>Verify at.</strong> ${escapeHtml(p.sourceToChase)}
+            </div>
+            <details style="margin-top:8px;">
+                <summary style="font-size:10px;font-weight:700;color:${AMBER};cursor:pointer;">What this €/m² does NOT include (${model.notCovered.length})</summary>
+                <ul style="margin:6px 0 0;padding-left:16px;font-size:9.5px;line-height:1.65;color:var(--app-text-muted);white-space:normal;overflow-wrap:break-word;">
+                    ${model.notCovered.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}
+                </ul>
+            </details>
+        </div>
+    </section>`;
+}
+
+/**
  * ⛔ THE PARAGRAPH THE FOUNDER REVERSED, REWRITTEN RATHER THAN DELETED.
  *
  * It used to end: "There is no default and there is no estimate." The ESTIMATE
@@ -427,13 +594,28 @@ function estimateChip(c: { estimate: LineEstimate | null }): string {
  * user unable to tell which of the two rules still applies to them.
  */
 function ratesDisclosure(regionStatement: string): string {
+    /* ⚠ AMENDED 2026-08-23 (lane RATE53, L-9102). This paragraph read "PRYZM
+       ships no rates — 0 of them, to be exact", full stop. Half of that must
+       STOP being true and half must STAY true, so both halves are now counted
+       SEPARATELY from the modules themselves rather than asserted in prose:
+
+         • PER-LINE rates: still 0, and now for a READ reason (BEDEC is a
+           per-seat subscription) rather than an unasked question;
+         • BUILDING-LEVEL modules: 1, Barcelona's, from an official bulletin.
+
+       ⛔ Both numbers are interpolated from the engine's own constants. A count
+       written as a literal here is the shape that rots the moment a second
+       module ships. */
     return `<div style="font-size:9.5px;line-height:1.6;color:var(--app-text-muted);margin-top:8px;white-space:normal;overflow-wrap:break-word;">
-        <strong>PRYZM ships no rates — ${SHIPPED_REGIONAL_RATE_COUNT} of them, to be exact.</strong>
+        <strong>PRYZM ships no per-line rates — ${SHIPPED_REGIONAL_RATE_COUNT} of them, to be exact.</strong>
         Every price in the total above is one you typed or imported: from BEDEC (ITeC), a Base de Precios,
-        SPON'S, RSMeans or your own quotations.
-        <br><strong>Regional estimates</strong> are a separate thing and are shown separately. PRYZM can key a
-        published price base to this project's parcel — and today it holds none to key.
-        ${escapeHtml(regionStatement)}
+        SPON'S, RSMeans or your own quotations. Those licences have now been read, and none of them permits
+        PRYZM to redistribute a per-trade rate — BEDEC is a per-seat access subscription, SPON'S and RSMeans
+        are sold per copy.
+        <br><strong>Regional building estimates are a separate thing, and PRYZM now ships
+        ${SHIPPED_BUILDING_COST_MODEL_COUNT}.</strong> They come from official bulletins, which carry no
+        copyright, and they are a €/m² for the WHOLE building — never a per-line rate, never added to the
+        total above. ${escapeHtml(regionStatement)}
         <br>Rates are stored <strong>in this browser only</strong>: they are not in the project file, they do not
         sync to collaborators, and they are not covered by undo.
     </div>`;
@@ -448,25 +630,36 @@ function ratesDisclosure(regionStatement: string): string {
  * not an engineering backlog item.
  */
 function rateSourceLedger(): string {
+    /* ⚠ RETITLED 2026-08-23 (lane RATE53, L-9102). The heading read "Why there
+       is no estimate". There IS an estimate now, so the ledger's subject changed
+       from an apology to a RECORD: what was read, what it said, and what each
+       verdict permits. The rows that still refuse are unchanged and unhidden. */
     return `<section style="margin-top:20px;border-top:2px solid var(--app-border);padding-top:14px;">
-        <h4 style="margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--app-text);">Why there is no estimate — the licence ledger</h4>
+        <h4 style="margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--app-text);">The licence ledger — what was read, and what it said</h4>
         <div style="font-size:11px;line-height:1.6;color:var(--app-text-muted);margin-bottom:10px;white-space:normal;overflow-wrap:break-word;">
-            A regional estimate needs a published price base, and every one PRYZM could carry is licensed or has a
-            licence nobody has read. The mechanism to hold one is built and a rate book can be imported today;
-            what is missing is a legal clearance, not a feature.
+            A rate PRYZM ships is a legal claim about somebody else's property, so every source below carries the
+            sentence in its licence that decided it. ⭐ The one that cleared is not a price book at all — an official
+            bulletin, which under Spanish law carries no copyright. The per-trade price books remain refused, which
+            is why every line above still reads NO RATE until you type or import one.
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;">
             ${RATE_SOURCE_CANDIDATES.map((c) => `
-                <div style="padding:8px 10px;border:1px solid var(--app-border);border-radius:8px;background:var(--app-panel-bg);">
+                <div style="padding:8px 10px;border:1px solid ${c.licence === 'CLEARED_FOR_REDISTRIBUTION' ? 'rgba(45,125,70,.45)' : 'var(--app-border)'};border-radius:8px;background:var(--app-panel-bg);">
                     <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">
                         <span style="font-size:11px;font-weight:700;color:var(--app-text);">${escapeHtml(c.database)}</span>
                         <span style="font-size:9.5px;color:var(--app-text-muted);">${escapeHtml(c.publisher)} · ${escapeHtml(c.geography)}</span>
                         <span style="margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.06em;border-radius:99px;padding:2px 7px;white-space:nowrap;${
                             c.licence === 'LICENSED_NOT_REDISTRIBUTABLE'
                                 ? 'color:#B3261E;background:rgba(179,38,30,.10);'
-                                : 'color:#8A6100;background:rgba(138,97,0,.10);'
+                                : c.licence === 'CLEARED_FOR_REDISTRIBUTION'
+                                    ? 'color:#2D7D46;background:rgba(45,125,70,.12);'
+                                    : 'color:#8A6100;background:rgba(138,97,0,.10);'
                         }">${escapeHtml(c.licence.replace(/_/g, ' '))}</span>
+                        <span style="font-size:9px;color:var(--app-text-muted);white-space:nowrap;">${escapeHtml(c.granularity.replace(/-/g, ' '))}</span>
                     </div>
+                    ${c.licenceNote
+                        ? `<div style="margin-top:4px;font-size:9.5px;line-height:1.55;color:var(--app-text);white-space:normal;overflow-wrap:break-word;"><strong>Read:</strong> ${escapeHtml(c.licenceNote)}</div>`
+                        : `<div style="margin-top:4px;font-size:9.5px;font-weight:700;color:#8A6100;">NOT READ — no licence text has been opened for this source.</div>`}
                     <div style="margin-top:4px;font-size:10px;line-height:1.55;color:var(--app-text-muted);white-space:normal;overflow-wrap:break-word;">${escapeHtml(c.whatMustBeEstablished)}</div>
                 </div>`).join('')}
         </div>
@@ -497,6 +690,18 @@ function renderCost(panel: HTMLElement, runtime: Runtime): void {
     const costed = applyRates(result, book, regional);
     const s = costed.summary;
     const cur = book.currency || 'EUR';
+
+    /* §REGIONAL-BUILDING-COST (L-9100, lane RATE53) — the BUILDING-LEVEL figure,
+       resolved from the SAME binding through the SAME ladder, and computed by a
+       SEPARATE call that `applyRates` never sees. That separation is the whole
+       safety property: there is no code path by which this number can reach
+       `pricedTotal` or `estimatedTotal`. */
+    const buildingModels = resolveBuildingCostModels(binding);
+    const choice = loadBuildingChoice(runtime);
+    const builtArea = measuredBuiltArea(result);
+    const buildingEstimate = buildingModels.models[0]
+        ? estimateBuildingCost(buildingModels.models[0], choice.groupId, builtArea, choice.correctionId)
+        : null;
 
     if (result.lines.length === 0) {
         panel.innerHTML = emptyState('€', 'Nothing to price yet',
@@ -574,7 +779,11 @@ function renderCost(panel: HTMLElement, runtime: Runtime): void {
                 ${ratesDisclosure(regional.statement)}
             </div>
             <div style="flex:1;overflow:auto;padding:14px 16px;">
-                <div style="display:flex;flex-direction:column;gap:7px;">${rows}</div>
+                ${buildingEstimateBlock(buildingModels.models, buildingModels.statement, buildingEstimate, choice, builtArea === null)}
+                <div style="margin-top:20px;border-top:2px solid var(--app-border);padding-top:14px;">
+                    <h4 style="margin:0 0 10px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--app-text);">Line-by-line — your rates</h4>
+                    <div style="display:flex;flex-direction:column;gap:7px;">${rows}</div>
+                </div>
                 ${rateSourceLedger()}
                 ${coverageBlock(result)}
             </div>
@@ -606,6 +815,21 @@ function renderCost(panel: HTMLElement, runtime: Runtime): void {
     });
     panel.querySelectorAll<HTMLInputElement>('[data-source-for]').forEach((input) => {
         input.addEventListener('change', () => upsert(input.dataset.sourceFor!, { source: input.value }));
+    });
+
+    /* §REGIONAL-BUILDING-COST — the typology and the correction factor. An empty
+       value CLEARS the choice back to "not chosen", which removes the figure
+       entirely rather than falling back to a default group. There is no default
+       group; see `loadBuildingChoice`. */
+    panel.querySelector<HTMLSelectElement>('[data-building-group]')?.addEventListener('change', (ev) => {
+        const v = (ev.target as HTMLSelectElement).value;
+        saveBuildingChoice(runtime, { ...loadBuildingChoice(runtime), groupId: v || null });
+        rerender();
+    });
+    panel.querySelector<HTMLSelectElement>('[data-building-correction]')?.addEventListener('change', (ev) => {
+        const v = (ev.target as HTMLSelectElement).value;
+        saveBuildingChoice(runtime, { ...loadBuildingChoice(runtime), correctionId: v || null });
+        rerender();
     });
 
     panel.querySelector<HTMLInputElement>('[data-currency]')?.addEventListener('change', (ev) => {

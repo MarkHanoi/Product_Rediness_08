@@ -32,7 +32,11 @@
 // who lost money on it.
 
 import { resolveRegisteredJurisdictionAt } from '@pryzm/site-parcel-data';
-import type { CostJurisdictionBinding } from '@pryzm/core-app-model';
+import {
+    SHIPPED_REGIONAL_RATE_COUNT,
+    SHIPPED_BUILDING_COST_MODEL_COUNT,
+    type CostJurisdictionBinding,
+} from '@pryzm/core-app-model';
 import { getCurrentSiteOrigin } from '../../site/siteDispatch';
 
 /**
@@ -93,11 +97,20 @@ export function currentCostJurisdiction(): CostJurisdictionBinding {
 }
 
 /** One line for the console, in the shape of the §JURISDICTION-DIAG log the
- *  founder already reads. An invisible refusal is how a wrong default survives. */
+ *  founder already reads. An invisible refusal is how a wrong default survives.
+ *
+ *  ⚠ CORRECTED 2026-08-23 (lane RATE53, L-9103). The trailing clause read
+ *  "(PRYZM ships NO rate book for any jurisdiction today — see RegionalRates.ts.)"
+ *  and that sentence became FALSE the moment a building-cost module shipped. It
+ *  is now derived from the two engine constants rather than asserted, because a
+ *  hand-written count in a diagnostic is exactly the thing that goes stale
+ *  silently — and a diagnostic nobody can trust is worse than none. */
 export function costJurisdictionDiagLine(b: CostJurisdictionBinding): string {
     return (
         `[Mediciones/5D] §COST-JURISDICTION-DIAG resolution=${b.resolution} ` +
         `jurisdiction=${b.jurisdictionId ?? 'NONE'} country=${b.countryCode ?? 'NONE'} ` +
-        '(PRYZM ships NO rate book for any jurisdiction today — see RegionalRates.ts.)'
+        `(PRYZM ships ${SHIPPED_REGIONAL_RATE_COUNT} per-line regional rates and ` +
+        `${SHIPPED_BUILDING_COST_MODEL_COUNT} building-level cost module(s) — see RegionalRates.ts ` +
+        'and RegionalBuildingCost.ts.)'
     );
 }

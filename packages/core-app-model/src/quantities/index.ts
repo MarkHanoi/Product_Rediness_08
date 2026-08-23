@@ -62,15 +62,51 @@ export type {
   CostJurisdictionBinding,
   RateMatchTier,
   ResolvedRateBooks,
+  JurisdictionKeyed,
 } from './RegionalRates.js';
 export {
   REGIONAL_RATE_BOOKS,
   SHIPPED_REGIONAL_RATE_COUNT,
   RATE_SOURCE_CANDIDATES,
   ratesShippedWithoutClearedLicence,
+  candidatesWithAVerdictButNoLicenceSentence,
   resolveRegionalRates,
   regionalRateForLine,
+  walkJurisdictionLadder,
 } from './RegionalRates.js';
+
+// ── 5D — REGIONAL BUILDING-LEVEL COST (§REGIONAL-BUILDING-COST, L-9100..L-9107,
+//        ADR-0365, lane RATE53, 2026-08-23).
+//
+// ⭐ THE FIRST REGIONAL COST FIGURE PRYZM HAS EVER SHIPPED — ONE, Barcelona's,
+// from a municipal fiscal ordinance published in the BOPB. It carries no
+// copyright (LPI Art. 13) and the BOPB is catalogued CC BY 4.0 on datos.gob.es;
+// both sentences are quoted in the module.
+//
+// ⛔ IT IS A BUILDING-LEVEL €/m², NOT A PER-LINE RATE, and it therefore lives in
+// its own table with its own resolver and its own estimate function. Splitting
+// it across the 42 take-off lines by assumed trade percentages would manufacture
+// 42 unsourced numbers wearing a real citation — see the module header and
+// ADR-0365 §4. `REGIONAL_RATE_BOOKS` is still, correctly, empty.
+export type {
+  BuildingCostGroup,
+  BuildingCostCorrection,
+  RegionalBuildingCostModel,
+  ResolvedBuildingCostModels,
+  MeasuredBuiltArea,
+  BuildingCostEstimate,
+} from './RegionalBuildingCost.js';
+export {
+  ES_BARCELONA_ICIO_2026,
+  REGIONAL_BUILDING_COST_MODELS,
+  SHIPPED_BUILDING_COST_MODEL_COUNT,
+  buildingCostModelsShippedWithoutClearedLicence,
+  buildingCostRowsThatDisagreeWithTheirModule,
+  buildingCostModelsThatDoNotStateTheirExclusions,
+  resolveBuildingCostModels,
+  measuredBuiltArea,
+  estimateBuildingCost,
+} from './RegionalBuildingCost.js';
 
 export type { RateImportResult } from './takeoffCsv.js';
 export { takeoffToCsv, costedTakeoffToCsv, rateBookToCsv, parseRateCsv } from './takeoffCsv.js';

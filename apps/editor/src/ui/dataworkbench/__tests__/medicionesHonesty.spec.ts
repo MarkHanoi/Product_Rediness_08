@@ -129,12 +129,62 @@ describe('MEDICIONES › 5D Cost — no rate is not a zero, and no rate ships', 
         panel.remove();
     });
 
-    it('prices NOTHING out of the box — PRYZM ships no rates', () => {
+    /**
+     * ⚠ AMENDED 2026-08-23 (lane RATE53, L-9102). This case asserted the literal
+     * string "PRYZM ships no rates". That sentence had to CHANGE, because half
+     * of it stopped being true: PRYZM now ships one regional BUILDING-LEVEL cost
+     * module (Barcelona's, from the ICIO fiscal ordinance) while still shipping
+     * ZERO per-line rates.
+     *
+     * ⛔ THE ASSERTION WAS TIGHTENED, NOT LOOSENED. The old string would pass on
+     * a panel that had quietly dropped the disclosure and re-added the words
+     * elsewhere. The new one pins the two claims separately, which is the
+     * distinction a user has to be able to make.
+     */
+    it('prices NOTHING out of the box — PRYZM ships no PER-LINE rates', () => {
         mountCostPanel(panel, null);
         const text = panel.textContent ?? '';
         expect(text).toContain('NO RATE');
         expect(text).toContain('NO LINE IS PRICED');
-        expect(text).toContain('PRYZM ships no rates');
+        expect(text).toContain('PRYZM ships no per-line rates');
+        // ⭐ …and the reason is now READ, not an open question. The panel must
+        // not go back to saying nobody looked.
+        expect(text).toMatch(/licences have now been read/i);
+        expect(text).not.toMatch(/licence nobody has read/i);
+    });
+
+    it('⛔ the em-dash total and the building estimate are DIFFERENT numbers on the page', () => {
+        // DIFFERENTIATING: the single largest error available here is letting a
+        // building-level estimate be read as the priced total. The priced total
+        // must still be an em dash with no rates typed, whatever the estimate says.
+        mountCostPanel(panel, null);
+        const total = panel.querySelector('[style*="font-size:20px"]');
+        expect(total?.textContent?.trim()).toBe('—');
+        expect(panel.textContent ?? '').toContain('not in the total');
+    });
+
+    it('names the licence ledger as a RECORD of what was read, with the sentence behind each verdict', () => {
+        mountCostPanel(panel, null);
+        const text = panel.textContent ?? '';
+        expect(text).toContain('The licence ledger');
+        // The cleared source, and the sentence that cleared it.
+        expect(text).toContain('CLEARED FOR REDISTRIBUTION');
+        expect(text).toContain('No son objeto de propiedad intelectual');
+        // The refused one, and the sentence that refused it.
+        expect(text).toContain('BEDEC');
+        expect(text).toContain('LICENSED NOT REDISTRIBUTABLE');
+        expect(text).toMatch(/períodes de subscripció/);
+    });
+
+    it('⭐ offers the Barcelona building estimate as its own section, never folded into the total', () => {
+        mountCostPanel(panel, null);
+        const text = panel.textContent ?? '';
+        expect(text).toContain('Regional building estimate');
+        // No parcel is pinned in this harness, so the honest answer is a REFUSAL
+        // that names WHICH of the ways geography failed — not an empty box.
+        expect(text).toMatch(/No parcel location has been set/);
+        // ⛔ and no figure may appear alongside that refusal.
+        expect(panel.querySelector('[data-building-estimate]')).toBeNull();
     });
 
     it('renders an em dash where a total would go, never a currency figure', () => {

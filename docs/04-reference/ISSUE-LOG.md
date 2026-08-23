@@ -44362,3 +44362,242 @@ re-opened with a narrower predicate than `userData.isHelper`.
   error**, `packages/core-app-model/src/quantities/RegionalRates.ts:401` *'booksForKey' is declared
   but its value is never read* — **RATE53's file, not this lane's.** Zero errors in this lane's
   files. On a shared tree a tsc run is a photograph of the whole tree, never a verdict on one lane.
+
+### L-8820 — lighting fixtures from previous projects: NARROWED to a latent class, NOT closed
+
+**Founder, 2026-08-23, live deploy:** *"check project isolation — I still saw lighting
+fixtures from previous projects coming."*
+
+⭐ **A THIRD family, and a THIRD distinct mechanism.** No shared root is claimed with
+L-8800 (rooms) or L-8810 (`site.model`), because none was shown.
+
+**What was RULED OUT, each measured:**
+
+- ⛔ **Not a missing store owner.** `LightingStore` is scope-registered and IS cleared by
+  `ClearProjectCommand`; `ImportProjectCommand.ts:120` states it, and `ProjectLoader`
+  step 10b recreates each fixture via `CreateLightingCommand`.
+- ⛔ **Not the L-8100 / ISO45 shape.** `clearProjectGeometry()` **exists** on
+  `LightingFragmentBuilder` (`:1874`) and **is** listed in the `bim-project-cleared`
+  sweep (`initBuilders.ts:1117`, default `via`). The trigger was checked BEFORE the
+  logic: `node scripts/check/check-project-isolation.mjs` → **RC=0**, *"Dead
+  project-lifecycle DOM listeners found: 0"*.
+- ⛔ **Not instanced.** `grep -rn 'InstancedElementRenderer|ElementInstanceBridge'
+  packages/geometry-lighting/src` → **0 hits**. ISO45's instanced-renderer owner cannot
+  cover lighting, so this was never a gap in that fix.
+- ⛔ **Not invisible to the audit for lack of stamps.** The fixture ROOT carries
+  `userData.id` + `elementType:'Lighting'`, **enumerable** (`:391`), and `snapshot.lighting`
+  is in the loader expectation (§L-711). A leaked fixture root **would** be reported as
+  `scene.foreignElement`. That the founder's excerpt named eight rooms and **zero**
+  lighting is therefore evidence the two observations are from different sessions — or
+  that the leaked fixtures are not scene ROOTS. Not resolved from a console excerpt.
+
+**What was FIXED (`§C13-LIGHTING-DETACH-BY-PARENT`):** `remove()` detached with
+`this._scene.remove(group)` — behind `if (this._scene)` — and then deleted the `_roots`
+entry **unconditionally**. `Object3D.remove` is a **silent no-op** when the object is not
+a direct child of the container it is called on. So any fixture that was re-parented, or
+built before `setScene()`, was dropped from the builder's index while staying LIVE in the
+scene: thereafter unreachable by `remove()`, by `clearProjectGeometry()` **and** by
+`dispose()` — i.e. **additive across every subsequent project switch**, which is exactly
+the shape the founder describes. Now `group.removeFromParent()`.
+
+⭐ `RoomBoundaryBuilder.removeRoom` **already documents this exact hazard** and already
+guards it this way (*"`Object3D.remove` is a silent no-op if the mesh has been
+re-parented"*). Lighting did not. One builder had learned the lesson and the fix was
+never generalised — the same shape as L-8800's `LOAD_DERIVED_ELEMENT_TYPES` being wired
+into one half of the audit only.
+
+⛔ **Graphics not compromised.** `removeFromParent()` is behaviourally identical to
+`scene.remove()` for a group parented directly to the scene, which is the normal case; it
+only closes the case where the old call did nothing at all. No fixture can be lost from a
+correct single-project session by this change, and no shared light is touched.
+
+**Tests:** 5 in `packages/geometry-lighting/__tests__/lightingProjectClearDetach.test.ts`
+— real `THREE.Scene`, real builder, assertions on the **scene graph** rather than on the
+builder's bookkeeping (an empty `_roots` map with live geometry still parented is the
+whole defect).
+
+⚠ **HONEST STATUS — NARROWED, NOT PROVEN.** A repo grep found **no** production site that
+re-parents a lighting root, so the fixed defect is a **latent class**, not a demonstrated
+reproduction of the founder's session. The re-parent test's pre-fix failure follows from
+THREE's documented `Object3D.remove` semantics (and from `RoomBoundaryBuilder`'s own
+comment); it was **not** run against a reverted tree, unlike L-8800's pre-fix proof.
+**Do not record this family as closed.**
+
+**The measurement that would settle it, named so it is not re-litigated from theory:**
+reproduce the founder's switch and read the `[C13 VIOLATION]` line. Three outcomes, three
+different next steps — (a) it now names `scene.foreignElement` entries with
+`elementType:'Lighting'` ⇒ a real root-level leak with a producer still to find; (b) it
+names none but the founder still sees fixtures ⇒ they are among the **28 UNATTRIBUTED**
+roots or the newly-counted **orphaned descendants** (L-8802), and the orphan count printed
+beside them is now the discriminator; (c) it is clean and the fixtures are gone ⇒ this was
+the latent class after all. ⭐ **(b) is why L-8802 matters beyond its own row:** the
+founder is describing a leak the gate did not report, which is the concrete instance of
+"unproven and clean must not render the same".
+
+---
+
+## §REGIONAL-BUILDING-COST — L-9100 … L-9107 (lane RATE53, 2026-08-23)
+
+**Founder, verbatim:** *"I requested in 5D cost to have an average cost depending on the
+region/location — **this information can be found — do it**"*. He was looking at Data →
+Mediciones → 5D Cost on a Barcelona project (lat 41.398), seeing `NO LINE IS PRICED. 42
+take-off lines have no rate`. **This is the SECOND time he asked**; on 2026-08-22 he
+reversed the "no estimates" prohibition, lane MEDI14 built the mechanism, and it seeded
+**zero** numbers.
+
+**Decision:** [ADR-0365](../02-decisions/adrs/ADR-0365-a-regional-cost-estimate-is-building-level-and-comes-from-an-official-bulletin.md).
+
+### L-9100 — ⭐ CLOSED: the first regional cost figure PRYZM has ever shipped
+
+`packages/core-app-model/src/quantities/RegionalBuildingCost.ts` ships
+**`ES_BARCELONA_ICIO_2026`** — the ten-group building-cost module table from the
+**Ajuntament de Barcelona's ICIO fiscal ordinance núm. 2.1, Annex A**, published in the
+**Butlletí Oficial de la Província de Barcelona on 2 February 2026, CVE 202610021075**,
+approved by the Plenari del Consell Municipal on 30 January 2026.
+
+Basic module **866,04 €/m²**; groups I–X from **2.381,61** (monumental architecture) down
+to **259,81 €/m²** (outdoor sports facilities), plus the two published correction factors
+(0,4 interior reform · 0,5 partial reform).
+
+⭐ **MEASURED, NOT ASSUMED, AND CHECKED THREE WAYS.** The table was extracted from the PDF
+with `pdftotext -layout` **and again** with `pdftotext -raw`, because the layout mode
+splits wrapped labels across lines and lets the coefficient and value columns slip against
+each other. The raw pass puts each row's coefficient and value adjacent on one line and
+confirmed the pairing. The third check is in CI:
+`buildingCostRowsThatDisagreeWithTheirModule()` asserts every published €/m² equals
+`866,04 × coefficient` to within one cent.
+
+⚠ **Group VI carries the ordinance's own rounding, not ours.** `866,04 × 1,30 = 1.125,852`
+and the ordinance prints **1.125,86**. The **published** number ships, because it is the
+one with legal force and the one a reader checks us against. A test pins that it is *not*
+our rounding.
+
+**Proven at the layer the founder experiences** —
+`apps/editor/src/ui/dataworkbench/__tests__/regionalBuildingEstimate.spec.ts` (9 cases)
+mounts the real 5D panel over a Barcelona jurisdiction and a slab store and reads the DOM:
+with group V chosen and 120 m² measured it renders **171,475.20 EUR** with instrument,
+edition, price date and CVE on screen — and the **priced total is still an em dash**.
+
+### L-9101 — ⭐ CLOSED: the licences were READ, and the old ledger was refusing the wrong product
+
+`RATE_SOURCE_CANDIDATES` previously listed four **unit-price books** — BEDEC, a generic
+*Banco de Precios*, SPON'S, RSMeans — and every row said `NOT_ESTABLISHED` because, in the
+module's own words, *"no licence text was opened in the lane."*
+
+⭐ **The list was missing the entire class that publishes regional building costs openly:
+official-bulletin reference modules.** This is
+`§BULK-VS-QUERY-ENDPOINT-FALSE-REFUSALS` for the tenth time — 9 of 14 "blockers" were once
+refusals about a product nobody needed. `RateSourceCandidate` gained a **`granularity`**
+field so the question *"is the thing I am refusing actually the thing I need?"* cannot be
+skipped, and a **`licenceNote`** field carrying **the sentence that decided the verdict**.
+`candidatesWithAVerdictButNoLicenceSentence()` fails CI on a verdict with no sentence
+behind it — *cited is not checked*.
+
+| Source | Verdict | The sentence that decided it |
+|---|---|---|
+| Ordenança fiscal ICIO Annex A (Barcelona) | ✅ **CLEARED** | **LPI Art. 13:** *"No son objeto de propiedad intelectual las disposiciones legales o reglamentarias…"* — plus **datos.gob.es catalogues the BOPB under CC BY 4.0** |
+| BEDEC (ITeC) | ⛔ **NOT REDISTRIBUTABLE** | *"La llicència d'accés al banc funciona mitjançant períodes de subscripció que es poden contractar per mesos o anys"* — a per-seat, time-boxed **access** licence grants no redistribution. **Absence of a grant is the answer.** |
+| SPON'S · RSMeans | ⛔ **NOT REDISTRIBUTABLE** | Sold per copy / per subscription. Unchanged. |
+| BCCA Andalucía · Madrid · Galicia | ⚠ **NOT_ESTABLISHED — deliberately** | See L-9105. |
+
+⚠ **THE REFUSAL THAT NEARLY STOPPED THIS WAS ABOUT THE WRONG OBJECT.**
+`bop.diba.cat/avis-legal` says *"Queda totalment prohibit distribuir, copiar, modificar o
+trametre tant **el contingut com el codi de les pàgines**…"*. Read at a glance that kills
+the source. Its object is **les pàgines** — the web portal — and a portal's terms cannot
+create a property right in a regulation that Art. 13 places outside intellectual property
+in the first place.
+
+### L-9102 — ⭐ CLOSED: the honesty paragraph was UPDATED, not silenced
+
+The 5D panel said *"PRYZM ships no rates — 0 of them, to be exact."* **Half of that had to
+stop being true and half had to stay true.** Both halves are now counted from the engine's
+own constants rather than written as prose literals: **`SHIPPED_REGIONAL_RATE_COUNT`
+per-line rates (still 0, now for a READ reason) and `SHIPPED_BUILDING_COST_MODEL_COUNT`
+building-level modules (1)**. The ledger's heading changed from *"Why there is no
+estimate"* to *"The licence ledger — what was read, and what it said"*, and every row now
+renders the licence sentence itself.
+
+`medicionesHonesty.spec.ts` was **tightened, not loosened**: it pins the two claims
+separately and asserts the panel does **not** go back to saying *"licence nobody has read"*.
+
+### L-9103 — ⚠ FIXED: a diagnostic that my own change made false
+
+`costJurisdictionDiagLine()` ended `"(PRYZM ships NO rate book for any jurisdiction
+today.)"` — false the moment a module shipped. Now interpolated from the two constants. A
+hand-written count in a diagnostic goes stale silently, and a diagnostic nobody can trust
+is worse than none.
+
+### L-9104 — ⚠ FIXED: the THIRD ADR-0353 citation collision
+
+`RegionalRates.ts` cited *"ADR-0350 §5D, AMENDED by **ADR-0353** §2"*. **ADR-0353 is "A
+reflected ceiling plan is PLAN-HANDED"** (lane VIEWDOC20, same day). Measured:
+`grep -ciE "regional rate|price base|5D|cost estimate" ADR-0353-*.md` → **0**.
+`quantities/index.ts` already records the same defect for lane SEQ27 (L-6301, corrected to
+ADR-0355). **Three lanes shipped on 2026-08-22 and two reached for the same free number.**
+MEDI14's estimate-arm amendment never got one at all; **ADR-0365 is it**, and the citation
+is corrected in place.
+
+### L-9105 — ⛔ OPEN, DELIBERATELY: no per-line rate ships, for anywhere
+
+`SHIPPED_REGIONAL_RATE_COUNT` is **still 0** and every take-off line still reads **NO
+RATE**. BEDEC is the source that would have given per-trade Catalan unit rates and it is
+refused on a read licence.
+
+⛔ **AND THE OBVIOUS BRIDGE IS FORBIDDEN.** A building €/m² could be split across the 42
+lines by assumed trade percentages, and every resulting row would be a number this repo
+invented wearing a real BOPB citation. This take-off's output ends up in tenders. There is
+no such function and none is derivable — ADR-0365 §4, asserted by tests that check
+`BuildingCostEstimate` carries no per-line shape and that the amount never appears anywhere
+in `CostSummary`.
+
+⚠ **BCCA (Andalucía), Comunidad de Madrid and Galicia publish per-trade bases openly and
+several would probably clear** — and were **not** pursued on purpose. They are Andalusian,
+Madrilenian and Galician prices; shipping them could only help a Barcelona project by
+substituting another region's market, which the ladder refuses by design. Pursue them when
+a project in *those* regions needs them, keyed to *those* jurisdictions.
+
+### L-9106 — ⛔ OPEN: RAC reachability — the seam is named and costed, not researched
+
+The 5D panel is done and proven. **The chat path is not**, and this lane chose not to open
+it. Measured:
+
+- `packages/ai-host/src/AIReadModel.ts`'s three `*ForLLM()` shaping methods have **zero
+  callers** — confirmed in TypeScript source, in the **emitted bundles**
+  (`dist/assets/main-*.js` contains the definitions and no call site) and via dynamic
+  string access. Adding a method there would be authored-but-unreachable —
+  `§AUTHORED-BUT-UNWIRED-IS-THE-BOTTLENECK`. ⛔ Do not.
+- **Seam A** — `buildPlannerFacts()` / `buildPlannerPrompt()`,
+  `packages/ai-host/src/intents/LlmPlanner.ts:351-404`, is the only place project facts
+  enter an LLM context window (~15 lines). ⚠ **But production carries neither
+  `CF_WORKER_URL` nor `ANTHROPIC_API_KEY`**, so `planUtterance` returns `unavailable` and
+  the fact would never be read in the founder's deploy.
+- **Seam B — the one that works today with no AI upstream.** The zero-token
+  `action: 'answer'` class: a `readOnly: true` row in `ChatCapabilityRegistry.ts` (beside
+  `visibility-query` at `:663`), a matcher in `ZeroTokenResolver.ts` (`:3207`, `MATCHERS`
+  at `:4832`), a membership route before the switch (`:1474`, avoiding the
+  `MAX_RESOLVER_CASE_ARMS` ratchet), an injected reader on `ResolverContext`, and answer
+  text in a small pure module (`VisibilityIntents.ts:150-168` is an 18-line template).
+  **~40-60 lines across five files.**
+
+**Why not now:** Seam B touches a 4 800-line resolver and a registry policed by
+`check-chat-capability-coverage.ts`, with **four sibling lanes live**. Breaking that gate
+blocks them. This is a costed one-hour follow-up, not a research problem.
+
+### L-9107 — ⚠ REPORTED, NOT FIXED: rates live in the browser only
+
+The panel states it plainly — *"Rates are stored **in this browser only**: not in the
+project file, they do not sync to collaborators, and they are not covered by undo"* — and
+the new typology choice inherits the same storage. **This is a real limitation the founder
+will hit the moment the numbers are useful:** he prices a BOQ, sends the project to a
+collaborator, and the rates are gone.
+
+⛔ **Not fixed here on purpose.** It touches `apps/editor/src/engine/persistence/**` and
+`packages/persistence-client/**`, where lane INTEG51 is live.
+
+**Recommendation.** The rate book is small, JSON-shaped, project-scoped and already
+serialised — it belongs in the project file as a `costRates` section, reached through the
+command bus so it is undoable (P6) and syncs through the existing CRDT path (P8). The
+typology choice is one enum and rides along. ⚠ The migration must treat an existing
+localStorage book as authoritative on first load and then **stop reading it**, or a
+collaborator's rates and a stale local copy will silently disagree — which is the failure
+mode that would make this *worse* than the current honest limitation.
