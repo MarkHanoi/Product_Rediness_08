@@ -29,6 +29,18 @@ import { getThumbnailCacheStore } from './ThumbnailCacheStore';
 import { getVersionCacheStore } from './VersionCacheStore';
 import type { VersionProbe } from './localOnlyProjectFate';
 import { encodeCompressed, decodeCompressed, COMPRESSED_MARKER } from '../../workers/compressCodec';
+// §JOURNAL-SIDECAR (L-9980, C05 §3.8) — the SNAPSHOT-SHAPE half of storing the
+// temporal journal once per project instead of once per version. This module
+// owns the container/codec half; `@pryzm/persistence-client` owns what a
+// detached snapshot looks like and, critically, the rule that an unfaithful
+// reassembly makes the integrity digest NOT COMPARABLE rather than "corrupt"
+// (the fourth possible recurrence of L-334 / L-360 / L-8700).
+import {
+    detachJournalMutations,
+    attachJournalMutations,
+    hashJournalChunk,
+    isJournalExtension,
+} from '@pryzm/persistence-client';
 import { getCompressWorkerPool } from '../../workers/CompressWorkerPool';
 import {
     measureLocalStorageUsage,
@@ -172,7 +184,95 @@ function _saveWorkerOffloadEnabled(): boolean {
  * merely compressed individually instead of jointly.
  */
 const V2_CONTAINER_MARKER = '\x00fflate2\x01';
-interface _V2Entry { i: string; b: string }
+interface _V2Entry {
+    i: string;
+    b: string;
+    /**
+     * §JOURNAL-SIDECAR (L-9980) — this version's CURSOR into the container's
+     * shared journal: how many leading records of it this version holds.
+     *
+     * ⭐ IT IS IN THE ENVELOPE, NOT ONLY INSIDE THE RECORD, AND THAT IS THE
+     * POINT. The whole v2 design rests on the envelope answering questions
+     * without inflating a snapshot (C05 §3.6 req 1). "Does any stored version
+     * still reference the shared journal?" is exactly such a question, and it is
+     * the one that decides whether the journal may be replaced — asking it by
+     * decoding twenty snapshots would reintroduce the cost the envelope exists
+     * to remove.
+     *
+     * ABSENT means this version carries its journal INLINE — either because it
+     * predates this change, or because it was deliberately stored whole (see
+     * `_prepareJournalSlot`). Both open; the read path tells them apart by the
+     * `temporalGraph.mutationsRef` key inside the record, never by this field.
+     */
+    r?: number;
+}
+
+/**
+ * §JOURNAL-SIDECAR (L-9980 … L-9984) — the v3 container. C05 §3.8.
+ *
+ * ⭐ THE MEASUREMENT (ISSUE-LOG L-8704, C05 §3.5 box, re-measured 2026-08-23):
+ * the founder's project is 281 elements and 30 432 `temporalGraph` mutations —
+ * a model of ~0.1 MB and a journal of ~8.7 MB, and the v2 container stores the
+ * journal WHOLE inside every one of twenty versions. ~36.8 MB, of which ~99 %
+ * is twenty near-identical copies of one append-only log.
+ *
+ * v3 keeps the v2 idea (per-version blobs, so a save carries unchanged versions
+ * forward as BYTES) and adds ONE shared, chunked, append-only journal beside
+ * them. Each version stores a CURSOR instead of a copy.
+ *
+ *     v2:  MARKER2 + [ {i,b}, … ]
+ *     v3:  MARKER3 + { f:3, j:{k,n,c:[{b,n,h},…]}, v:[ {i,b,r?}, … ] }
+ *
+ * ⛔ NOTHING IS DELETED, TRIMMED, CAPPED OR DE-DUPLICATED. The record count is
+ * identical before and after; only the number of COPIES changes. The founder has
+ * been shown the count and has not asked to lose any of it (C05 §3.5's "not
+ * decided" clause; ISSUE-LOG L-5823 rules a blind retention cap out by name).
+ *
+ * ⭐ WHY CHUNKED, AND WHY THE CHUNK SIZE IS PART OF THE FORMAT. A single journal
+ * blob would move the copying cost rather than remove it: every autosave would
+ * re-DEFLATE the whole 8.7 MB log to append a handful of records. Chunks of
+ * {@link JOURNAL_CHUNK_RECORDS} make a SEALED chunk immutable, so a save
+ * re-compresses only the tail — the same "carry unchanged bytes forward"
+ * property `_PendingSlot` already gives the versions, applied to the journal.
+ * `k` is stored so a future change to the constant cannot silently invalidate
+ * every sealed chunk on disk.
+ *
+ * ⭐ WHY EACH CHUNK CARRIES ITS OWN DIGEST (`h`). The read path must be able to
+ * tell "this is the journal that was written" from "these bytes have rotted",
+ * WITHOUT re-serialising anything. `h` is computed over the chunk's exact JSON
+ * text — which the read path inflates anyway — so verification is free. It is
+ * what lets an unfaithful reassembly be reported as NOT COMPARABLE instead of
+ * as a corrupt project (see `JournalSidecar.ts`; this is the fourth possible
+ * recurrence of L-334 / L-360 / L-8700 and it is closed by construction).
+ *
+ * ⭐ BACKWARD AND FORWARD, BOTH REAL. A v3 container is written only when there
+ * is a journal to share; a project without one still writes a BYTE-IDENTICAL v2
+ * container. A stored v2 (or v1, or raw JSON) payload keeps decoding exactly as
+ * before — `_parseContainer` handles all of them, flag-independently, exactly as
+ * `_decodeVersionsPayload` already handled v2-vs-v1. And a v3 container may hold
+ * a MIX: entries with a cursor beside entries whose journal is still inline.
+ * That mix is not a transitional wart, it is the migration: an entry written
+ * before this change is never rewritten, it simply ages out of the twenty.
+ */
+const V3_CONTAINER_MARKER = '\x00fflate3\x01';
+
+/**
+ * Records per SEALED journal chunk.
+ *
+ * 2000 × ~250 B ≈ 500 KB of JSON per chunk: large enough that DEFLATE has a
+ * useful window and the chunk list stays short (the founder's 30 432 records are
+ * 16 chunks), small enough that an autosave re-compresses ~500 KB instead of
+ * ~8.7 MB. ⚠ Changing this does NOT invalidate stored chunks — `k` travels in
+ * the container and sealed chunks are only ever reused against their own `k`.
+ */
+const JOURNAL_CHUNK_RECORDS = 2000;
+
+/** One sealed-or-tail journal chunk. `b` may be raw text (see `_decompressJSON`). */
+interface _V3Chunk { b: string; n: number; h: string }
+/** The shared per-project journal: chunk size, total record count, chunks in order. */
+interface _V3Journal { k: number; n: number; c: _V3Chunk[] }
+/** The v3 container envelope. `f` is the format tag; `j` is null when nothing is shared. */
+interface _V3Container { f: 3; j: _V3Journal | null; v: _V2Entry[] }
 
 /**
  * §PERF-VERSION-ENVELOPE-WRITE (L-5801) — one slot of a container being written.
@@ -185,7 +285,28 @@ interface _V2Entry { i: string; b: string }
  * This is the type that lets a save carry 19 unchanged versions forward as BYTES
  * instead of decoding them into `VersionRecord`s it never reads.
  */
-interface _PendingSlot { id: string; blob: string | null; json: string | null }
+interface _PendingSlot {
+    id: string;
+    blob: string | null;
+    json: string | null;
+    /**
+     * §JOURNAL-SIDECAR — the cursor to write into this slot's envelope entry
+     * (`_V2Entry.r`). `undefined` means this version's journal is stored INLINE
+     * inside its own record, which is the pre-change shape and always valid.
+     */
+    ref?: number;
+}
+
+/**
+ * §JOURNAL-SIDECAR — a container write is SLOTS **plus** the shared journal.
+ *
+ * They are one value because they must move together: a slot carrying a cursor
+ * is meaningless without the journal that cursor indexes, and writing one
+ * without the other is the only way this format can lose a record. Threading
+ * them as a pair makes the mistake unrepresentable rather than merely
+ * discouraged.
+ */
+interface _PendingContainer { slots: _PendingSlot[]; journal: _V3Journal | null }
 
 /**
  * §FIX-VERSION-SIZE-LOG-OVERSTATES (L-5806) — report the stored size HONESTLY.
@@ -212,12 +333,220 @@ function _formatPayloadSize(payload: string): string {
  * per-save cost from O(history) back into O(1). Populated on read (when a v2
  * container is decoded) and on every compress. Scoped to ≤ MAX_VERSIONS_STORED
  * per project by {@link _commitVersionContainer}.
+ *
+ * §JOURNAL-SIDECAR — the cached value is the whole ENVELOPE ENTRY, not just the
+ * blob. A v3 entry's cursor (`r`) is as much a part of "what is stored for this
+ * id" as its bytes are; caching the bytes alone and re-deriving the cursor would
+ * be a second source of truth for one fact, and the write path that reuses a
+ * cached blob has no way to re-derive it (it never decoded the record).
  */
-const _versionBlobCache = new Map<string, Map<string, string>>();
-function _blobCacheFor(projectId: string): Map<string, string> {
+const _versionBlobCache = new Map<string, Map<string, _V2Entry>>();
+function _blobCacheFor(projectId: string): Map<string, _V2Entry> {
     let m = _versionBlobCache.get(projectId);
-    if (!m) { m = new Map<string, string>(); _versionBlobCache.set(projectId, m); }
+    if (!m) { m = new Map<string, _V2Entry>(); _versionBlobCache.set(projectId, m); }
     return m;
+}
+
+/**
+ * §JOURNAL-SIDECAR (L-9981) — the in-memory image of a project's shared journal.
+ *
+ * ⭐ IT IS WHAT MAKES THE APPEND-ONLY CLAIM CHECKABLE INSTEAD OF ASSUMED. A
+ * per-version cursor is only a faithful description of the past while the shared
+ * journal really is append-only, and that is NOT guaranteed by the model: a user
+ * who restores an older version and saves from it produces a journal that is not
+ * an extension of the stored one. Without something to compare against, the only
+ * options are to trust it (silently rewriting what older versions mean) or to
+ * rebuild everything on every save (giving the saving back). Holding the records
+ * lets `isJournalExtension` answer it in O(n) reference comparisons with no
+ * `JSON.stringify` of anything — see `JournalSidecar.isJournalExtension`.
+ *
+ * It doubles as a read cache: the open path inflates and verifies the journal
+ * once, and every later read in the session reuses the same array (the stored
+ * chunk digests are compared to decide, never the bytes).
+ *
+ * ⚠ It is a CACHE, never a source of truth. Every entry is reconstructible from
+ * the container, and a cold mirror only costs one inflate.
+ */
+interface _JournalMirror { records: readonly unknown[]; journal: _V3Journal }
+const _journalMirror = new Map<string, _JournalMirror>();
+
+/** The blob-cache value for a slot: its bytes plus the cursor it was written with. */
+function _cacheEntry(slot: _PendingSlot, blob: string): _V2Entry {
+    return slot.ref !== undefined ? { i: slot.id, b: blob, r: slot.ref } : { i: slot.id, b: blob };
+}
+
+/** Two stored journals are the same iff their shape and every chunk digest agree. */
+function _sameJournal(a: _V3Journal | null, b: _V3Journal | null): boolean {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    if (a.k !== b.k || a.n !== b.n || a.c.length !== b.c.length) return false;
+    for (let i = 0; i < a.c.length; i++) if (a.c[i]!.h !== b.c[i]!.h) return false;
+    return true;
+}
+
+/** The stored container, in the ONE shape every reader below wants. */
+interface _ParsedContainer { entries: _V2Entry[]; journal: _V3Journal | null }
+
+/**
+ * §JOURNAL-SIDECAR — parse a stored payload's ENVELOPE, whichever format it is
+ * in, without inflating a single snapshot.
+ *
+ * Returns `null` — never an empty result — for a payload that has no envelope at
+ * all (legacy v1 whole-array blob, or raw JSON). That distinction is the same
+ * one `_envelopeContainer` already draws and for the same reason: collapsing "no
+ * envelope" into "empty envelope" would silently destroy a v1 project's history
+ * on its next save.
+ */
+function _parseContainer(raw: string): _ParsedContainer | null {
+    try {
+        if (raw.startsWith(V3_CONTAINER_MARKER)) {
+            const c = JSON.parse(raw.slice(V3_CONTAINER_MARKER.length)) as _V3Container;
+            if (!c || !Array.isArray(c.v)) return null;
+            const j = c.j;
+            const journal = (j && typeof j.k === 'number' && typeof j.n === 'number' && Array.isArray(j.c)) ? j : null;
+            return { entries: c.v, journal };
+        }
+        if (raw.startsWith(V2_CONTAINER_MARKER)) {
+            const entries = JSON.parse(raw.slice(V2_CONTAINER_MARKER.length)) as _V2Entry[];
+            return Array.isArray(entries) ? { entries, journal: null } : null;
+        }
+    } catch {
+        return null; // undecodable envelope — fall back, never guess
+    }
+    return null;
+}
+
+/**
+ * §JOURNAL-SIDECAR (L-9982) — inflate, VERIFY and flatten a stored journal.
+ *
+ * Every chunk's digest is recomputed over the exact text that was inflated and
+ * compared to the one stored beside it. That costs nothing extra — the text had
+ * to be inflated anyway — and it is what turns "the journal came back" into a
+ * fact rather than an assumption.
+ *
+ * ⛔ ON A DIGEST MISMATCH IT RETURNS THE VERIFIED PREFIX, NOT `null` AND NOT THE
+ * SUSPECT BYTES. Returning `null` would discard verified history to punish one
+ * bad chunk; returning the suspect chunk would silently hand the loader records
+ * whose bytes did not survive. Returning the prefix keeps every record that
+ * verified, makes the shortfall visible to `attachJournalMutations` (which marks
+ * the reassembly inexact, so the integrity digest reports NOT COMPARABLE instead
+ * of accusing the file), and prints the chunk index. Nothing is deleted from
+ * storage in any of these paths.
+ */
+function _readJournalRecords(projectId: string, journal: _V3Journal | null): readonly unknown[] | null {
+    if (!journal || !Array.isArray(journal.c) || journal.c.length === 0) return null;
+    const cached = _journalMirror.get(projectId);
+    if (cached && _sameJournal(cached.journal, journal)) return cached.records;
+
+    const out: unknown[] = [];
+    let intact = true;
+    for (let ci = 0; ci < journal.c.length; ci++) {
+        const ch = journal.c[ci]!;
+        let text: string;
+        try { text = _decompressJSON(ch.b); } catch {
+            console.error(`[VersionRepository] §JOURNAL-SIDECAR chunk ${ci} of "${projectId}" did not inflate; ` +
+                `${out.length} record(s) recovered from the ${ci} chunk(s) before it. Nothing was deleted.`);
+            intact = false; break;
+        }
+        if (hashJournalChunk(text) !== ch.h) {
+            console.error(`[VersionRepository] §JOURNAL-SIDECAR chunk ${ci} of "${projectId}" failed its digest ` +
+                `(stored ${ch.h}, computed ${hashJournalChunk(text)}); ${out.length} record(s) recovered from the ` +
+                `${ci} verified chunk(s) before it. Nothing was deleted, and this is NOT a claim about the project ` +
+                `file — the reassembly is short, so the snapshot digest will report NOT COMPARABLE.`);
+            intact = false; break;
+        }
+        let arr: unknown;
+        try { arr = JSON.parse(text); } catch { intact = false; break; }
+        if (!Array.isArray(arr)) { intact = false; break; }
+        for (const r of arr) out.push(r);
+    }
+    // Only a fully verified read may seed the mirror: the mirror is what the
+    // WRITE path compares against to decide whether the journal is still
+    // append-only, and seeding it from a truncated read would make the next save
+    // believe a shortfall was the real history.
+    if (intact) _journalMirror.set(projectId, { records: out, journal });
+    return out;
+}
+
+/**
+ * §JOURNAL-SIDECAR (L-9983) — lay `records` out as chunks, reusing every SEALED
+ * chunk the prior journal already holds.
+ *
+ * ⭐ THIS IS WHERE THE SAVE-SIDE SAVING COMES FROM, and it is the same trick
+ * `_PendingSlot` plays for versions: a sealed chunk (exactly `k` records) can
+ * never change once the journal is append-only, so its already-DEFLATEd bytes
+ * are carried forward untouched and only the tail is re-compressed. On the
+ * founder's payload that is ~500 KB of DEFLATE per autosave instead of ~8.7 MB.
+ *
+ * ⛔ THE REUSE IS EARNED, NOT ASSUMED. `isJournalExtension` must confirm the new
+ * record list still begins with the prior one; when it cannot (no mirror to
+ * compare against, or a genuinely divergent lineage) every chunk is rebuilt.
+ * That is always correct and merely slower — the one thing it must never do is
+ * carry forward bytes describing records that are no longer there.
+ */
+function _planJournal(
+    records: readonly unknown[],
+    prior: _V3Journal | null,
+    priorRecords: readonly unknown[] | null,
+): _V3Journal | null {
+    if (records.length === 0) return null;
+    const k = prior?.k && prior.k > 0 ? prior.k : JOURNAL_CHUNK_RECORDS;
+
+    let reuse = 0;
+    if (prior && priorRecords !== null && prior.k === k && isJournalExtension(records, priorRecords)) {
+        // Sealed chunks only: chunk i covers [i*k, min((i+1)*k, prior.n)), so the
+        // last chunk is sealed exactly when prior.n is a multiple of k.
+        reuse = Math.min(Math.floor(prior.n / k), prior.c.length);
+    }
+
+    const chunks: _V3Chunk[] = reuse > 0 ? prior!.c.slice(0, reuse) : [];
+    for (let start = chunks.length * k; start < records.length; start += k) {
+        const slice = records.slice(start, Math.min(start + k, records.length));
+        const text = JSON.stringify(slice);
+        chunks.push({ b: _compressJSON(text), n: slice.length, h: hashJournalChunk(text) });
+    }
+    return { k, n: records.length, c: chunks };
+}
+
+/**
+ * §JOURNAL-SIDECAR — assemble the payload for a container write.
+ *
+ * ⭐ NO JOURNAL ⇒ A BYTE-IDENTICAL v2 CONTAINER. A project with no temporal
+ * graph (and every project, until its first save after this change) keeps
+ * writing exactly the bytes it wrote before, so this change cannot alter storage
+ * for anyone it does not benefit.
+ */
+/**
+ * §JOURNAL-SIDECAR — the revert switch, in the same idiom as
+ * `__pryzmSaveWorkerOffload`. DEFAULT ON. With
+ * `globalThis.__pryzmJournalSidecar === false` the WRITE path stores every
+ * journal inline again, exactly as before this change.
+ *
+ * ⭐ THE READ PATH IS DELIBERATELY NOT GATED. A flag that changed what could be
+ * READ would strand every container written while it was on — which is the same
+ * reasoning that made the v2 reader flag-independent (`_decodeVersionsPayload`'s
+ * header). The switch reverts what we WRITE; nothing already on disk becomes
+ * unreadable, in either direction.
+ */
+function _journalSidecarEnabled(): boolean {
+    try {
+        return (globalThis as { __pryzmJournalSidecar?: boolean }).__pryzmJournalSidecar !== false;
+    } catch {
+        return true;
+    }
+}
+
+/**
+ * Projects whose stored container has already been offered the one-time
+ * §JOURNAL-SIDECAR compaction this session — recorded whether it ran or not, so
+ * a project it declined cannot be re-examined on every autosave.
+ */
+const _journalCompacted = new Set<string>();
+
+function _assembleContainer(entries: _V2Entry[], journal: _V3Journal | null): string {
+    if (!journal) return V2_CONTAINER_MARKER + JSON.stringify(entries);
+    const container: _V3Container = { f: 3, j: journal, v: entries };
+    return V3_CONTAINER_MARKER + JSON.stringify(container);
 }
 
 /**
@@ -1047,11 +1376,13 @@ export class LocalVersionRepository implements IVersionRepository {
         const raw = this._rawPayload(projectId);
         if (!raw) return 0;
         try {
-            // v2 container: the count IS the envelope's length. No inflate, no
-            // snapshot parse — this is the whole point of the method.
-            if (raw.startsWith(V2_CONTAINER_MARKER)) {
-                return (JSON.parse(raw.slice(V2_CONTAINER_MARKER.length)) as _V2Entry[]).length;
-            }
+            // v2/v3 container: the count IS the envelope's length. No inflate, no
+            // snapshot parse — this is the whole point of the method. §JOURNAL-SIDECAR:
+            // the shared journal is NOT a version and is not in `entries`, so it can
+            // never be miscounted as one (which is exactly why it lives in a named
+            // field and not as a sentinel row beside the versions).
+            const parsed = _parseContainer(raw);
+            if (parsed) return parsed.entries.length;
             // Legacy v1 whole-array blob / raw JSON — no envelope exists, so the
             // count is only knowable by decoding. Exactly the prior cost.
             return this._decodeVersionsPayload(projectId, raw).length;
@@ -1094,12 +1425,8 @@ export class LocalVersionRepository implements IVersionRepository {
         if (!raw) return { kind: 'counted', count: 0 };
 
         try {
-            if (raw.startsWith(V2_CONTAINER_MARKER)) {
-                return {
-                    kind: 'counted',
-                    count: (JSON.parse(raw.slice(V2_CONTAINER_MARKER.length)) as _V2Entry[]).length,
-                };
-            }
+            const parsed = _parseContainer(raw);   // §JOURNAL-SIDECAR — v2 and v3 alike
+            if (parsed) return { kind: 'counted', count: parsed.entries.length };
             return { kind: 'counted', count: this._decodeVersionsPayload(projectId, raw).length };
         } catch {
             // A payload EXISTS but will not decode. Emphatically not zero — this
@@ -1124,22 +1451,177 @@ export class LocalVersionRepository implements IVersionRepository {
      * `_persistSlots`). Classifying it as an already-compressed blob would write raw
      * JSON into IndexedDB verbatim and permanently inflate the container.
      */
-    private _envelopeSlots(projectId: string): _PendingSlot[] | null {
-        const raw = this._rawPayload(projectId);
-        if (raw === null) return [];               // nothing stored yet — an append is a fresh container
-        if (!raw.startsWith(V2_CONTAINER_MARKER)) return null;  // legacy v1 — caller must decode
-        let entries: _V2Entry[];
-        try {
-            entries = JSON.parse(raw.slice(V2_CONTAINER_MARKER.length)) as _V2Entry[];
-        } catch {
-            return null;                            // undecodable envelope — fall back, never guess
+    /**
+     * §JOURNAL-SIDECAR (L-9981) — turn ONE version into a slot, moving its
+     * temporal journal into the container's shared sidecar when — and only when —
+     * that can be shown to preserve every stored version's meaning.
+     *
+     * Four outcomes, and the three that DON'T share are as important as the one
+     * that does:
+     *
+     *   1. **No journal / the switch is off** → the record is stored whole. Byte
+     *      for byte what this code wrote before the change.
+     *   2. **The new journal EXTENDS the stored one** (the overwhelmingly common
+     *      case: an autosave appends a handful of records) → the record stores a
+     *      cursor and the sidecar grows by re-compressing only its tail chunk.
+     *   3. ⛔ **The new journal DIVERGES and older versions still reference the
+     *      stored one** — the shape produced by restoring an older version and
+     *      saving from it. The sidecar is left ALONE and this record is stored
+     *      WHOLE. Replacing a journal that other cursors index would silently
+     *      change what those versions mean, which is a data loss with no error
+     *      message; paying ~1.8 MB for one version instead is the cheap half of
+     *      that trade.
+     *   4. **The new journal diverges and NOTHING references the stored one** →
+     *      the sidecar is replaced outright. Safe by the same test that made 3
+     *      unsafe, read the other way round, and the envelope answers it without
+     *      inflating anything (`_V2Entry.r`).
+     */
+    private _prepareJournalSlot(
+        projectId: string,
+        record: VersionRecord,
+        current: _PendingContainer,
+        pre: ReturnType<typeof detachJournalMutations> | null = null,
+    ): { slot: _PendingSlot; journal: _V3Journal | null } {
+        const whole = (): { slot: _PendingSlot; journal: _V3Journal | null } => ({
+            slot: { id: record.id, blob: null, json: JSON.stringify(record) },
+            journal: current.journal,
+        });
+        if (!_journalSidecarEnabled()) return whole();
+
+        // `pre` is the caller's already-computed detach (the autosave path needs
+        // the same answer one step earlier, to decide whether compaction is even
+        // worth attempting). Recomputing it would clone the snapshot twice.
+        const det = pre ?? detachJournalMutations(record.snapshot);
+        if (!det.detached || det.mutations === null) return whole();
+        const incoming = det.mutations;
+
+        const priorRecords = _readJournalRecords(projectId, current.journal);
+        let base = current.journal;
+        let baseRecords = priorRecords;
+        if (current.journal !== null && !isJournalExtension(incoming, priorRecords)) {
+            const stillReferenced = current.slots.some(s => s.ref !== undefined && s.id !== record.id);
+            if (stillReferenced) {
+                console.warn(
+                    `[VersionRepository] §JOURNAL-SIDECAR "${projectId}": this save's design journal is not an ` +
+                    `extension of the stored one (${incoming.length} record(s) vs ${current.journal.n}) and ` +
+                    `${current.slots.filter(s => s.ref !== undefined).length} stored version(s) still index it. ` +
+                    `Storing this version's journal inline and leaving the shared one untouched — no record of ` +
+                    `either lineage is altered.`,
+                );
+                return whole();
+            }
+            base = null;          // outcome 4 — nothing indexes it, so it may be replaced
+            baseRecords = null;
         }
-        if (!Array.isArray(entries)) return null;
-        return entries.map(e => (
+
+        const journal = _planJournal(incoming, base, baseRecords);
+        if (journal === null) return whole();
+        _journalMirror.set(projectId, { records: incoming, journal });
+        return {
+            slot: {
+                id: record.id,
+                blob: null,
+                json: JSON.stringify({ ...record, snapshot: det.snapshot }),
+                ref: incoming.length,
+            },
+            journal,
+        };
+    }
+
+    /**
+     * §JOURNAL-SIDECAR (L-9984) — THE MIGRATION, and it is a compaction rather
+     * than a rewrite.
+     *
+     * ⚠ WITHOUT THIS THE CHANGE STILL WORKS, AND STILL DELIVERS — just twenty
+     * autosaves later. Every stored version keeps its inline journal and simply
+     * ages out of the ring, so the container falls by ~1.8 MB per save and lands
+     * at ~2.4 MB after twenty. That lazy path is the SAFE floor and is what runs
+     * if anything below declines. This method exists because the founder's
+     * complaint is about OPENING, and an open pays for the container that is on
+     * disk right now, not the one it will become.
+     *
+     * ⛔ IT DECODES HISTORY, WHICH C05 §3.6 REQUIREMENT 1 EXISTS TO PREVENT — so
+     * it is bounded by construction: at most ONCE per project per session, only
+     * when at least two stored versions carry an inline journal, and never on a
+     * container it has already examined. What it costs (twenty inflates) is the
+     * cost every autosave paid until L-5801, paid once, in exchange for removing
+     * it from every future open.
+     *
+     * ⛔ AND IT DECODES ONE VERSION AT A TIME, ON PURPOSE. Twenty simultaneously
+     * parsed 8.8 MB snapshots is hundreds of megabytes of live objects; the
+     * newest is decoded first to establish the shared journal, and every other
+     * record is released before the next is read. Peak cost is two records.
+     *
+     * ⛔ EVERY VERSION IS CHECKED INDIVIDUALLY AND NOTHING IS ASSUMED. A version
+     * whose journal is not a prefix of the shared one keeps its own, inline. A
+     * version that will not decode is carried forward as its ORIGINAL BYTES,
+     * untouched. There is no path here that drops a record.
+     */
+    private _compactInlineJournals(
+        projectId: string,
+        current: _PendingContainer,
+        shared: readonly unknown[],
+    ): _PendingContainer {
+        if (_journalCompacted.has(projectId)) return current;
+        if (!_journalSidecarEnabled() || shared.length === 0) return current;
+        const inlineCount = current.slots.filter(s => s.ref === undefined).length;
+        if (inlineCount < 2 || current.slots.length === 0) return current;
+        _journalCompacted.add(projectId);            // examined — never re-examined this session
+
+        const t0 = performance.now();
+        const decode = (s: _PendingSlot): VersionRecord | null => {
+            try {
+                const text = s.json ?? _decompressJSON(s.blob ?? '');
+                const r = JSON.parse(text) as VersionRecord;
+                return (r && typeof r === 'object') ? r : null;
+            } catch { return null; }
+        };
+
+        const mirror = _journalMirror.get(projectId);
+        const journal = _planJournal(shared, mirror?.journal ?? null, mirror?.records ?? null);
+        if (journal === null) return current;
+
+        // 2. Every slot, one at a time, keeping only what the next step needs.
+        let converted = 0;
+        const slots = current.slots.map<_PendingSlot>(s => {
+            if (s.ref !== undefined) return s;                 // already a cursor
+            const rec = decode(s);
+            if (!rec) return s;                                // undecodable — carry the bytes forward
+            const det = detachJournalMutations(rec.snapshot);
+            if (!det.detached || det.mutations === null) return s;
+            if (!isJournalExtension(shared, det.mutations)) return s;   // a different lineage — keep it whole
+            converted++;
+            return {
+                id: s.id,
+                blob: null,
+                json: JSON.stringify({ ...rec, snapshot: det.snapshot }),
+                ref: det.mutations.length,
+            };
+        });
+
+        if (converted === 0) return current;
+        _journalMirror.set(projectId, { records: shared, journal });
+        console.log(
+            `[VersionRepository] §JOURNAL-SIDECAR one-time compaction of "${projectId}": ${converted} of ` +
+            `${current.slots.length} stored version(s) now share ONE journal of ${shared.length} record(s) ` +
+            `in ${journal.c.length} chunk(s), instead of holding a copy each. ` +
+            `⛔ No record was dropped — the count is unchanged. ${(performance.now() - t0).toFixed(0)} ms.`,
+        );
+        return { slots, journal };
+    }
+
+    private _envelopeContainer(projectId: string): _PendingContainer | null {
+        const raw = this._rawPayload(projectId);
+        // Nothing stored yet — an append is a fresh container with no shared journal.
+        if (raw === null) return { slots: [], journal: null };
+        const parsed = _parseContainer(raw);
+        if (parsed === null) return null;           // legacy v1 / undecodable — caller must decode
+        const slots = parsed.entries.map<_PendingSlot>(e => (
             typeof e?.b === 'string' && e.b.startsWith(COMPRESSED_MARKER)
-                ? { id: e.i, blob: e.b, json: null }
-                : { id: e.i, blob: null, json: typeof e?.b === 'string' ? e.b : 'null' }
+                ? { id: e.i, blob: e.b, json: null, ref: e.r }
+                : { id: e.i, blob: null, json: typeof e?.b === 'string' ? e.b : 'null', ref: e.r }
         ));
+        return { slots, journal: parsed.journal };
     }
 
     /**
@@ -1170,8 +1652,9 @@ export class LocalVersionRepository implements IVersionRepository {
         const __tRaw = performance.now();
         if (!raw) return null;
         try {
-            if (raw.startsWith(V2_CONTAINER_MARKER)) {
-                const entries = JSON.parse(raw.slice(V2_CONTAINER_MARKER.length)) as _V2Entry[];
+            const __parsed = _parseContainer(raw);
+            if (__parsed) {
+                const entries = __parsed.entries;
                 const __tEnvelope = performance.now();
                 if (entries.length === 0) return null;
                 // ⚠ Storage order IS chronological order: every writer appends and
@@ -1189,16 +1672,35 @@ export class LocalVersionRepository implements IVersionRepository {
                 const __tInflate = performance.now();
                 const __record = JSON.parse(__json) as VersionRecord;
                 const __tParse = performance.now();
+                // §JOURNAL-SIDECAR (L-9980) — the fifth leg of the open. Before this
+                // change the journal arrived inside `__json` and was counted in the
+                // "inflates to N MB" figure above; now it arrives from the shared
+                // sidecar and is timed separately, so the probe keeps saying where
+                // ALL the time goes rather than quietly losing a leg to the fix.
+                const __journal = _readJournalRecords(projectId, __parsed.journal);
+                const __attach = attachJournalMutations(__record.snapshot, __journal);
+                const __tJournal = performance.now();
+                if (__attach.wasDetached && !__attach.exact) {
+                    console.error(
+                        `[VersionRepository] §JOURNAL-SIDECAR "${projectId}": ${__attach.note} ` +
+                        `The project is being opened with every record that could be verified.`,
+                    );
+                }
                 const __tg = (__record.snapshot as { temporalGraph?: { mutations?: unknown[]; edges?: unknown[] } } | undefined)?.temporalGraph;
                 const __ms = (a: number, b: number) => (b - a).toFixed(0);
                 console.log(
                     `[VersionRepository] §PROBE-OPEN-PATH-STORAGE-LEG open "${projectId}": ` +
                     `container ${_formatPayloadSize(raw)} / ${entries.length} version(s) · ` +
                     `newest inflates to ${(__json.length / 1024 / 1024).toFixed(1)} MB ` +
-                    `(temporalGraph ${__tg?.mutations?.length ?? 0} mutations / ${__tg?.edges?.length ?? 0} edges) · ` +
+                    `(temporalGraph ${__tg?.mutations?.length ?? 0} mutations / ${__tg?.edges?.length ?? 0} edges` +
+                    `${__attach.wasDetached
+                        ? `, ${__attach.actual} of them from the shared journal — §JOURNAL-SIDECAR, ` +
+                          `${__parsed.journal?.c.length ?? 0} chunk(s)`
+                        : ', stored inline'}) · ` +
                     `mirror-read ${__ms(__t0, __tRaw)} ms, envelope-parse ${__ms(__tRaw, __tEnvelope)} ms, ` +
-                    `inflate ${__ms(__tEnvelope, __tInflate)} ms, record-parse ${__ms(__tInflate, __tParse)} ms ` +
-                    `= ${__ms(__t0, __tParse)} ms before the loader has seen a single element.`,
+                    `inflate ${__ms(__tEnvelope, __tInflate)} ms, record-parse ${__ms(__tInflate, __tParse)} ms, ` +
+                    `journal-attach ${__ms(__tParse, __tJournal)} ms ` +
+                    `= ${__ms(__t0, __tJournal)} ms before the loader has seen a single element.`,
                 );
                 return _applyTransientStatus(projectId, __record); // L-8702 overlay
             }
@@ -1220,8 +1722,15 @@ export class LocalVersionRepository implements IVersionRepository {
      * The reconstructed records are byte-identical to what was stored.
      */
     private _decodeVersionsPayload(projectId: string, raw: string): VersionRecord[] {
-        if (raw.startsWith(V2_CONTAINER_MARKER)) {
-            const entries = JSON.parse(raw.slice(V2_CONTAINER_MARKER.length)) as _V2Entry[];
+        const parsed = _parseContainer(raw);
+        if (parsed) {
+            const entries = parsed.entries;
+            // §JOURNAL-SIDECAR — inflated and verified ONCE for the whole container,
+            // then shared by reference across every version that holds a cursor. That
+            // sharing is the read-side half of the win: twenty versions used to mean
+            // twenty inflates and twenty parses of the same 8.7 MB log.
+            const journal = _readJournalRecords(projectId, parsed.journal);
+            let __inexact = 0;
             const cache = _blobCacheFor(projectId);
             cache.clear(); // rebuild to exactly the stored ids (drops trimmed-out versions)
             const out: VersionRecord[] = [];
@@ -1231,7 +1740,12 @@ export class LocalVersionRepository implements IVersionRepository {
                 // lives in memory and is overlaid here so every reader (the version
                 // panel's badge above all) sees exactly what it saw before the write
                 // was removed.
-                out.push(_applyTransientStatus(projectId, JSON.parse(_decompressJSON(e.b)) as VersionRecord));
+                const __record = JSON.parse(_decompressJSON(e.b)) as VersionRecord;
+                // §JOURNAL-SIDECAR — put the shared journal back, and count (never
+                // swallow) any version whose cursor the sidecar could not satisfy.
+                const __attach = attachJournalMutations(__record.snapshot, journal);
+                if (__attach.wasDetached && !__attach.exact) __inexact++;
+                out.push(_applyTransientStatus(projectId, __record));
                 // ⛔ §PERF-VERSION-NARROW-READ (L-1300) — CACHE ONLY ACTUALLY-COMPRESSED
                 // BLOBS. The in-session MIRROR is now a v2 container whose newest
                 // entry may hold RAW JSON (it is written before the worker's deflate
@@ -1242,8 +1756,20 @@ export class LocalVersionRepository implements IVersionRepository {
                 // passthrough for unmarked strings, so the DECODE above is correct
                 // either way; it is only the CACHE that must be discriminating.
                 if (e.b.startsWith(COMPRESSED_MARKER)) {
-                    cache.set(e.i, e.b); // reuse these exact bytes on the next save
+                    // §JOURNAL-SIDECAR — the cursor is cached WITH the bytes; see
+                    // `_versionBlobCache`. A blob reused without its cursor would be
+                    // rewritten as though its journal were inline, which is the one
+                    // way a carried-forward byte can start describing the wrong thing.
+                    cache.set(e.i, e.r !== undefined ? { i: e.i, b: e.b, r: e.r } : { i: e.i, b: e.b });
                 }
+            }
+            if (__inexact > 0) {
+                console.error(
+                    `[VersionRepository] §JOURNAL-SIDECAR "${projectId}": ${__inexact} of ${entries.length} ` +
+                    `version(s) could not be given the exact journal their cursor names. Every record that ` +
+                    `verified was attached and NOTHING was deleted; those versions' integrity stamps will ` +
+                    `report NOT COMPARABLE rather than a mismatch.`,
+                );
             }
             return out;
         }
@@ -1277,6 +1803,11 @@ export class LocalVersionRepository implements IVersionRepository {
         // the array it was explicitly given is the right trade against a silent,
         // permanent, on-disk content loss.
         _versionBlobCache.delete(projectId);
+        // §JOURNAL-SIDECAR — same reasoning as the blob cache, one level up. A
+        // wholesale writer can hand us an arbitrary array (`duplicateInto`,
+        // `importProject`, `deleteVersion`); the stored journal it would otherwise
+        // be compared against describes the array it is REPLACING.
+        _journalMirror.delete(projectId);
         this.saveVersionsWithQuota(projectId, versions);
     }
 
@@ -1321,14 +1852,38 @@ export class LocalVersionRepository implements IVersionRepository {
         // The guard restores the invariant the other two writers already state: the
         // v2 envelope is an IDB-primary optimisation, and IDB-absent falls back.
         const store = getVersionCacheStore();
-        const slots = (_saveWorkerOffloadEnabled() && !store.isDisabled())
-            ? this._envelopeSlots(projectId)
+        const container = (_saveWorkerOffloadEnabled() && !store.isDisabled())
+            ? this._envelopeContainer(projectId)
             : null;
-        if (slots !== null) {
-            const fresh: _PendingSlot = { id: version.id, blob: null, json: JSON.stringify(version) };
+        if (container !== null) {
+            // §JOURNAL-SIDECAR (L-9984) — offered once per project per session, and
+            // a no-op for a container that is already sharing. See the method.
+            // §JOURNAL-SIDECAR (L-9981) — the journal leaves the record here, on the
+            // way into the container, and comes back on the way out. Everything
+            // above this line — the sync queue's POST body, PlatformShell's live
+            // record — still sees a snapshot with its journal inline: `detachJournal-
+            // Mutations` clones rather than mutates, precisely so the storage
+            // layer's opinion about where bytes live is invisible to everyone else.
+            //
+            // ⛔ THE DETACH IS DONE FIRST BECAUSE IT IS THE CHEAP QUESTION. It is
+            // two shallow clones and no inflate, and its answer decides whether the
+            // one-time compaction below is worth ATTEMPTING at all — a project with
+            // no temporal journal has nothing to share, and must not pay a single
+            // decode to discover that. (It did, briefly: the sibling suite's
+            // "appends while inflating NOTHING" assertion went 0 → 1 and caught it.
+            // A counted-work assertion earning its keep, exactly as its own header
+            // says it was written to.)
+            const detached = _journalSidecarEnabled()
+                ? detachJournalMutations(version.snapshot)
+                : null;
+            const base = (detached?.detached && detached.mutations)
+                ? this._compactInlineJournals(projectId, container, detached.mutations)
+                : container;
+            const { slot: fresh, journal } = this._prepareJournalSlot(projectId, version, base, detached);
+            const slots = base.slots;
             const at = slots.findIndex(s => s.id === version.id);
             if (at >= 0) slots[at] = fresh; else slots.push(fresh);
-            this._persistSlots(projectId, slots.slice(-MAX_VERSIONS_STORED));
+            this._persistSlots(projectId, slots.slice(-MAX_VERSIONS_STORED), journal);
         } else {
             const versions = this.getVersions(projectId);
             const existingIdx = versions.findIndex(v => v.id === version.id);
@@ -1436,8 +1991,9 @@ export class LocalVersionRepository implements IVersionRepository {
                 // Only ONE version's content changes (its `syncStatus` field), so
                 // only ONE has to be inflated, patched and re-deflated; the other 19
                 // are carried forward as bytes.
-                const slots = this._envelopeSlots(projectId);
-                if (slots !== null) {
+                const container = this._envelopeContainer(projectId);
+                if (container !== null) {
+                    const slots = container.slots;
                     const at = slots.findIndex(s => s.id === versionId);
                     if (at < 0) return; // unknown version — same no-op as before
                     const current = slots[at];
@@ -1446,8 +2002,16 @@ export class LocalVersionRepository implements IVersionRepository {
                     if (record.syncStatus === syncStatus) return; // already there — no rewrite
                     record.syncStatus = syncStatus;
                     _blobCacheFor(projectId).delete(versionId);
-                    slots[at] = { id: versionId, blob: null, json: JSON.stringify(record) };
-                    this._persistSlots(projectId, slots.slice(-MAX_VERSIONS_STORED));
+                    // ⭐ §JOURNAL-SIDECAR — THE CURSOR IS CARRIED, NOT RE-DERIVED, and
+                    // the journal is not touched at all. This path patches ONE enum on
+                    // ONE record; the record's stored form already holds
+                    // `temporalGraph.mutationsRef`, which survives the parse/stringify
+                    // round-trip untouched, so re-attaching a journal here only to
+                    // detach it again would be pure work. Preserving `current.ref`
+                    // keeps the envelope's answer to "does anything still index the
+                    // shared journal?" true.
+                    slots[at] = { id: versionId, blob: null, json: JSON.stringify(record), ref: current.ref };
+                    this._persistSlots(projectId, slots.slice(-MAX_VERSIONS_STORED), container.journal);
                     return;
                 }
                 // Legacy v1 payload — no envelope to patch. Decode, edit, re-persist.
@@ -1477,6 +2041,11 @@ export class LocalVersionRepository implements IVersionRepository {
         // later project reusing memory can't read stale blobs (defensive hygiene).
         _versionBlobCache.delete(projectId);
         _versionSaveSeq.delete(projectId);
+        // §JOURNAL-SIDECAR — the in-memory journal image belongs to the container
+        // that was just removed. Leaving it would let the next save's append-only
+        // check compare against a journal that no longer exists on disk.
+        _journalMirror.delete(projectId);
+        _journalCompacted.delete(projectId);
         try {
             localStorage.removeItem(this.key(projectId));
         } catch {
@@ -1591,12 +2160,41 @@ export class LocalVersionRepository implements IVersionRepository {
      */
     private _persistVersionsIncremental(projectId: string, trimmed: VersionRecord[]): void {
         const cache = _blobCacheFor(projectId);
-        this._persistSlots(projectId, trimmed.map(v => {
+
+        // §JOURNAL-SIDECAR — THE WHOLESALE WRITER, whose records arrive DECODED
+        // (their journals were re-attached by the read that produced them), so the
+        // shared journal has to be re-established from what it was handed rather
+        // than read from the envelope. The newest record's journal is the lineage;
+        // every other record earns its cursor by being a verified prefix of it, and
+        // keeps its journal inline when it is not.
+        //
+        // ⛔ This path is NOT the autosave path (`saveVersionWithMeta` is) — it is
+        // `saveVersions`, `duplicateInto`, `deleteVersion` and `importProject`. It
+        // may therefore be O(history) without contradicting C05 §3.6.
+        const newest = trimmed.length > 0 ? trimmed[trimmed.length - 1]! : null;
+        const newestDet = newest && _journalSidecarEnabled() ? detachJournalMutations(newest.snapshot) : null;
+        const shared = newestDet?.detached ? newestDet.mutations : null;
+        const mirror = _journalMirror.get(projectId);
+        const journal = shared ? _planJournal(shared, mirror?.journal ?? null, mirror?.records ?? null) : null;
+        if (shared && journal) _journalMirror.set(projectId, { records: shared, journal });
+
+        this._persistSlots(projectId, trimmed.map<_PendingSlot>(v => {
             const cached = cache.get(v.id);
-            return cached !== undefined
-                ? { id: v.id, blob: cached, json: null }
-                : { id: v.id, blob: null, json: JSON.stringify(v) };
-        }));
+            // A cached blob was written by THIS module and carries its own cursor;
+            // reusing the bytes without it would rewrite the entry as though its
+            // journal were inline. See `_versionBlobCache`.
+            if (cached !== undefined) return { id: v.id, blob: cached.b, json: null, ref: cached.r };
+            if (!shared || !journal) return { id: v.id, blob: null, json: JSON.stringify(v) };
+            const det = detachJournalMutations(v.snapshot);
+            if (!det.detached || det.mutations === null) return { id: v.id, blob: null, json: JSON.stringify(v) };
+            if (!isJournalExtension(shared, det.mutations)) return { id: v.id, blob: null, json: JSON.stringify(v) };
+            return {
+                id: v.id,
+                blob: null,
+                json: JSON.stringify({ ...v, snapshot: det.snapshot }),
+                ref: det.mutations.length,
+            };
+        }), journal);
     }
 
     /**
@@ -1623,7 +2221,7 @@ export class LocalVersionRepository implements IVersionRepository {
      * with the raw text, which reads back identically because `_decompressJSON` is
      * a passthrough for unmarked strings.
      */
-    private _persistSlots(projectId: string, slots: _PendingSlot[]): void {
+    private _persistSlots(projectId: string, slots: _PendingSlot[], journal: _V3Journal | null): void {
         const cache = _blobCacheFor(projectId);
         const blobs: (string | null)[] = slots.map(s => s.blob);
         const need: { idx: number; key: string; json: string }[] = [];
@@ -1633,7 +2231,7 @@ export class LocalVersionRepository implements IVersionRepository {
 
         // Nothing new to compress → assemble + persist with zero deflate.
         if (need.length === 0) {
-            this._commitSlots(projectId, slots, blobs);
+            this._commitSlots(projectId, slots, blobs, journal);
             return;
         }
 
@@ -1664,11 +2262,19 @@ export class LocalVersionRepository implements IVersionRepository {
             //
             // MEASURED: 236 ms → **38 ms** (6.2×), same payload, same codec.
             const store = getVersionCacheStore();
-            const mirrorEntries: _V2Entry[] = slots.map((s, i) => ({
-                i: s.id,
-                b: blobs[i] ?? s.json ?? 'null',
-            }));
-            store.putVersionsMirrorOnly(projectId, V2_CONTAINER_MARKER + JSON.stringify(mirrorEntries));
+            //
+            // ⚠ §JOURNAL-SIDECAR — THE MIRROR MUST CARRY THE JOURNAL TOO. The mirror
+            // is a real read source until the worker's deflate lands, and a container
+            // holding cursors without the sidecar they index would make an in-session
+            // read reassemble an empty journal — a shortfall that this change is
+            // otherwise built to make impossible. `_assembleContainer` writes the same
+            // v3 envelope the commit will, journal included.
+            const mirrorEntries: _V2Entry[] = slots.map((s, i) => {
+                const e: _V2Entry = { i: s.id, b: blobs[i] ?? s.json ?? 'null' };
+                if (s.ref !== undefined) e.r = s.ref;
+                return e;
+            });
+            store.putVersionsMirrorOnly(projectId, _assembleContainer(mirrorEntries, journal));
             const seq = _bumpVersionSaveSeq(projectId);
             pool.compress(need.map(n => ({ key: n.key, json: n.json })))
                 .then(results => {
@@ -1676,17 +2282,18 @@ export class LocalVersionRepository implements IVersionRepository {
                     for (const n of need) {
                         const b = map.get(n.key) ?? _compressJSON(n.json);
                         blobs[n.idx] = b;
-                        cache.set(n.key, b); // valid regardless of supersession (content is immutable per id)
+                        // valid regardless of supersession (content is immutable per id)
+                        cache.set(n.key, _cacheEntry(slots[n.idx]!, b));
                     }
                     if (_currentVersionSaveSeq(projectId) !== seq) return; // superseded by a newer save
-                    this._commitSlots(projectId, slots, blobs);
+                    this._commitSlots(projectId, slots, blobs, journal);
                 })
                 .catch(() => {
                     // Worker failed mid-flight — synchronous fallback so the save is
                     // never lost (never worse than the pre-P4 behaviour).
-                    for (const n of need) { const b = _compressJSON(n.json); blobs[n.idx] = b; cache.set(n.key, b); }
+                    for (const n of need) { const b = _compressJSON(n.json); blobs[n.idx] = b; cache.set(n.key, _cacheEntry(slots[n.idx]!, b)); }
                     if (_currentVersionSaveSeq(projectId) !== seq) return;
-                    this._commitSlots(projectId, slots, blobs);
+                    this._commitSlots(projectId, slots, blobs, journal);
                 });
             return;
         }
@@ -1694,8 +2301,8 @@ export class LocalVersionRepository implements IVersionRepository {
         // Worker not ready (first save of the session / unavailable) → compress the
         // NEW version(s) synchronously. Still O(new) not O(history), because the
         // unchanged versions reuse their cached blobs.
-        for (const n of need) { const b = _compressJSON(n.json); blobs[n.idx] = b; cache.set(n.key, b); }
-        this._commitSlots(projectId, slots, blobs);
+        for (const n of need) { const b = _compressJSON(n.json); blobs[n.idx] = b; cache.set(n.key, _cacheEntry(slots[n.idx]!, b)); }
+        this._commitSlots(projectId, slots, blobs, journal);
     }
 
     /**
@@ -1706,18 +2313,33 @@ export class LocalVersionRepository implements IVersionRepository {
      *
      * ⛔ EVERY committed entry is COMPRESSED. A slot may legitimately arrive holding
      * raw JSON (the mirror carries the newest entry raw while the worker deflates it,
-     * and {@link _envelopeSlots} may therefore read one back), and writing that raw
+     * and {@link _envelopeContainer} may therefore read one back), and writing that raw
      * text into IndexedDB would permanently inflate the stored container — the exact
      * hazard `_decodeVersionsPayload` refuses to seed the blob cache with. The
      * `_compressJSON` fallback below is that guarantee, not decoration.
      */
-    private _commitSlots(projectId: string, slots: _PendingSlot[], blobs: (string | null)[]): void {
-        const entries: _V2Entry[] = slots.map((s, i) => ({
-            i: s.id,
-            b: blobs[i] ?? _compressJSON(s.json ?? 'null'), // defensive: never store a null blob
-        }));
+    private _commitSlots(
+        projectId: string,
+        slots: _PendingSlot[],
+        blobs: (string | null)[],
+        journal: _V3Journal | null,
+    ): void {
+        const entries: _V2Entry[] = slots.map((s, i) => {
+            const e: _V2Entry = {
+                i: s.id,
+                b: blobs[i] ?? _compressJSON(s.json ?? 'null'), // defensive: never store a null blob
+            };
+            if (s.ref !== undefined) e.r = s.ref;              // §JOURNAL-SIDECAR cursor
+            return e;
+        });
+        // §JOURNAL-SIDECAR — a journal nothing indexes is not written. This is the
+        // ONLY place a sidecar can leave the container, and it can only happen when
+        // the envelope proves every version that referenced it has been trimmed out
+        // of the ring; it is bookkeeping about copies, never a deletion of history.
+        const referenced = entries.some(e => e.r !== undefined);
+        const storedJournal = referenced ? journal : null;
         // Re-scope the cache to precisely the stored ids.
-        _versionBlobCache.set(projectId, new Map(entries.map(e => [e.i, e.b])));
+        _versionBlobCache.set(projectId, new Map(entries.map(e => [e.i, e])));
         // §PERF-SYNCSTATUS-TRANSIENT-NOT-PERSISTED (L-8702) — bound the transient
         // overlay the same way, so a trimmed-out version cannot leave an entry
         // behind for the lifetime of the tab. Same reasoning as the blob cache:
@@ -1727,14 +2349,22 @@ export class LocalVersionRepository implements IVersionRepository {
         if (_pending) {
             for (const id of [..._pending.keys()]) if (!_stored.has(id)) _pending.delete(id);
         }
-        const payload = V2_CONTAINER_MARKER + JSON.stringify(entries);
+        const payload = _assembleContainer(entries, storedJournal);
         getVersionCacheStore().putVersions(projectId, payload); // mirror sync + IDB async, never throws
         // Best-effort: drop any stale legacy localStorage copy so we don't read an
         // outdated payload from the fallback path before the next warm.
         try { localStorage.removeItem(this.key(projectId)); } catch { /* ignore */ }
         console.log(
             `[VersionRepository] ${entries.length} version(s) persisted to IndexedDB ` +
-            `(project "${projectId}", ${_formatPayloadSize(payload)} compressed).`
+            `(project "${projectId}", ${_formatPayloadSize(payload)} compressed` +
+            // §JOURNAL-SIDECAR — say what the container is, not just how big it is.
+            // The whole reason L-8704 needed measuring twice is that this line named
+            // only the part that was small.
+            (storedJournal
+                ? `, §JOURNAL-SIDECAR: ${storedJournal.n} journal record(s) shared across ` +
+                  `${entries.filter(e => e.r !== undefined).length} version(s) in ${storedJournal.c.length} chunk(s)`
+                : '') +
+            `).`
         );
     }
 

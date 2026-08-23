@@ -242,6 +242,26 @@ export {
   type JsonInvisibleMember,
 } from './loader/SnapshotIntegrity.js';
 
+// §JOURNAL-SIDECAR (L-9980, C05 §3.8) — MEASURED: the founder's project stored
+// 30 432 temporal-journal mutations WHOLE inside each of 20 version snapshots,
+// ~99 % of a ~36.8 MB container. The journal is append-only, so version n is
+// version n−1 plus a handful of records. Stored ONCE per project with each
+// version holding a cursor, the same history costs ~2.4 MB. ⛔ Nothing is
+// trimmed, capped or de-duplicated — the record count is unchanged.
+export {
+  JOURNAL_SIDECAR_VERSION,
+  detachJournalMutations,
+  attachJournalMutations,
+  markJournalRehydration,
+  readJournalRehydration,
+  hashJournalChunk,
+  isJournalExtension,
+  type JournalMutationsRef,
+  type JournalDetachOutcome,
+  type JournalAttachOutcome,
+  type JournalRehydration,
+} from './loader/JournalSidecar.js';
+
 // D.4.2 — persistence-half composition root.  Spec:
 // `04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §1` Day-7 STATUS row.
 // Mirror of `@pryzm/renderer/src/SceneBootstrap.ts` (D.4.1 Day-2).

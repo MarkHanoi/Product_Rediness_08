@@ -75,6 +75,32 @@
 // wide — every project re-stamps at v2 the first time it is saved, after which
 // real detection resumes at full strength.
 //
+// ── THE FOURTH MEMBER WAS PREVENTED, NOT DIAGNOSED — §JOURNAL-SIDECAR ───────
+// (L-9980, 2026-08-23.) `ProjectRepository` now stores the temporal journal ONCE
+// per project instead of embedding a full copy inside each of twenty version
+// snapshots (~36.8 MB → ~2.4 MB, C05 §3.5 / §3.8, ISSUE-LOG L-8704). That means
+// a snapshot reaching {@link verifySnapshotChecksum} may have been REASSEMBLED
+// on the way out of storage rather than read whole — which is, exactly, "the
+// digest was computed at SAVE over a different representation than at LOAD".
+// The ignition condition for a FOURTH false "corrupt".
+//
+// It is closed by construction, in three parts, and none of them is an
+// exclusion:
+//   • The stamp is still taken over the WHOLE snapshot with the journal inline,
+//     and verified over a snapshot with the journal inline. Detach/re-attach
+//     both happen strictly BELOW this module. `CHECKSUM_EXCLUDED_TOP_KEYS` is
+//     UNCHANGED and still holds exactly two members — C05 §3.7 req 4 forbids
+//     adding a model member and `temporalGraph` is one.
+//   • Re-attachment restores the exact key set that was detached, and the
+//     canonical form sorts keys, so a faithful reassembly reproduces the digest
+//     bit-for-bit and is compared at FULL strength. Nothing is softened.
+//   • An UNFAITHFUL reassembly is reported as NOT COMPARABLE with its reason
+//     attached — the same disposition as algorithm drift and in-flight
+//     migration, for the same reason. `JournalSidecar.readJournalRehydration()`
+//     is the carrier; it reads a non-enumerable Symbol-keyed marker that
+//     `JSON.stringify`, `Object.keys` and the canonicaliser all ignore, so the
+//     mechanism itself cannot perturb a checksum.
+//
 // ── The no-brick mandate (C08 P8) ────────────────────────────────────────────
 // A checksum MISMATCH is a resolvable SIGNAL, never a brick. This module only
 // COMPUTES and VERIFIES; the loader treats a present-but-mismatched checksum as
@@ -85,6 +111,7 @@
 // Every exported function opens ≥1 OpenTelemetry span (Principle P8).
 
 import { trace, SpanStatusCode, type Attributes, type Span } from '@opentelemetry/api';
+import { readJournalRehydration } from './JournalSidecar.js';
 
 const TRACER = trace.getTracer('@pryzm/persistence-client/integrity', '0.1.0');
 
@@ -496,6 +523,34 @@ export function verifySnapshotChecksum(snapshot: unknown): ChecksumVerification 
         expected,
         expectedBytes: decodeCanonicalLength(expected),
         note: `stamped at schemaVersion ${savedAt} but migrated to ${now} in flight; the pre-migration digest no longer describes this content.`,
+      };
+    }
+
+    // §JOURNAL-SIDECAR (L-9980) — A REASSEMBLED SNAPSHOT THE STAMP DOES NOT
+    // DESCRIBE. The storage layer stores the temporal journal once per project
+    // and gives each version a cursor into it (C05 §3.8). On the way out it puts
+    // the journal back; a FAITHFUL re-attach restores the exact key set the
+    // stamp covered and falls straight through to the full-strength comparison
+    // below — that is the normal case and nothing about it is softened.
+    //
+    // When the re-attach could NOT supply the cursor's exact record count, the
+    // snapshot in hand is genuinely not the one that was stamped. Recomputing
+    // and reporting the difference as corruption would be the FOURTH false
+    // accusation from this module's own history (L-334 → L-360 → L-8700), and
+    // it would be the worst of the four: the file is intact and the difference
+    // was introduced by PRYZM's own read path. Same disposition as the two
+    // cases above, and the note states what actually happened.
+    const rehydration = readJournalRehydration(snapshot);
+    if (rehydration !== undefined && !rehydration.exact) {
+      return {
+        present: true,
+        ok: true,
+        comparable: false,
+        algo,
+        expected,
+        expectedBytes: decodeCanonicalLength(expected),
+        note: `the design journal was reassembled from the project sidecar and is not the ` +
+          `representation this stamp describes (§JOURNAL-SIDECAR) — ${rehydration.note}`,
       };
     }
 

@@ -76,3 +76,23 @@ export {
   type ChecksumReport,
   type JsonInvisibleMember,
 } from './SnapshotIntegrity.js';
+
+// §JOURNAL-SIDECAR (L-9980, C05 §3.8) — the temporal journal is stored ONCE per
+// project and each version holds a cursor into it, instead of a full copy inside
+// every one of twenty snapshots (~36.8 MB → ~2.4 MB, no record dropped).
+// `ProjectRepository` owns the container/codec half; this owns the snapshot shape
+// and the rule that an inexact reassembly makes the integrity digest NOT
+// COMPARABLE rather than "corrupt".
+export {
+  JOURNAL_SIDECAR_VERSION,
+  detachJournalMutations,
+  attachJournalMutations,
+  markJournalRehydration,
+  readJournalRehydration,
+  hashJournalChunk,
+  isJournalExtension,
+  type JournalMutationsRef,
+  type JournalDetachOutcome,
+  type JournalAttachOutcome,
+  type JournalRehydration,
+} from './JournalSidecar.js';
