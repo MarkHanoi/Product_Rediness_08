@@ -780,3 +780,194 @@ export function showTag(
     host.element.appendChild(body);
     host.makeVisible();
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §LEVEL-PROPERTIES (L-7203 / L-7205, lane LEVEL36, 2026-08-23) — THE LEVEL
+// PROPERTIES SURFACE.
+//
+// The founder asked to "select the level, access the level properties and
+// easily change the elements needed". There was NO level-properties surface
+// anywhere in the product: levels were editable only as inline inputs in the
+// Level & Grid rail row.
+//
+// ⭐ THIS DELIBERATELY REUSES THE EXISTING INSPECTOR rather than growing a
+// second properties idiom. The precedent it copies exactly is `showGrid`
+// above: a project-structure datum (not a THREE.Object3D) selected in a rail
+// or a view, announced on the runtime bus, rendered into the SAME `gpp-` panel
+// the user already knows. A rival properties popover would be the defect this
+// repo makes most often.
+//
+// ⭐ IT ALSO CLOSES AN AUTHORED-BUT-UNWIRED PATH (L-7205). The runtime event
+// `pryzm-level-selected` has been in the catalog (`runtime-composer/src/
+// types.ts:1018`) and EMITTED from two production sites in
+// `PlanViewInteraction.ts:1081,1093` — clicking a level head or level line in
+// a section/elevation view — with ZERO subscribers anywhere in the repository
+// (measured with ripgrep AND `grep -rn`). Every one of those clicks announced a
+// selection into a void. Subscribing here makes both entry points live at once.
+
+/** The subset of a BIM level this panel reads. Mirrors `Level` structurally. */
+export type LevelProperties = {
+    id: string;
+    name: string;
+    elevation: number;
+    height?: number;
+    isVisible?: boolean;
+    color?: string;
+    childrenIds?: string[];
+};
+
+/** What an edit handler reports back, so a refusal can be shown inline. */
+export type LevelEditOutcome = { success: boolean; error?: string; info?: string[] } | null;
+
+/**
+ * Populates and shows the property panel for a BIM level.
+ *
+ * Handlers are INJECTED rather than importing the level commands here, so this
+ * module keeps its existing command-import surface and the panel stays unit
+ * testable without a CommandManager.
+ *
+ * `onEditHeight` returns the command result: a refusal is shown INLINE and the
+ * field is snapped back, because a panel still displaying a number the model
+ * rejected reads as though the edit had landed.
+ */
+export function showLevel(
+    host: AnnotationPanelHost,
+    level: LevelProperties,
+    handlers: {
+        onEditName?: (v: string) => void;
+        onEditElevation?: (v: number) => void;
+        onEditVisible?: (v: boolean) => void;
+        onEditHeight?: (v: number) => LevelEditOutcome;
+    },
+): void {
+    host.hide();
+    host.prepareForAnnotation({ elementId: level.id, elementType: 'level' });
+
+    const body = document.createElement('div');
+    body.className = 'gpp-body';
+
+    const header = document.createElement('div');
+    header.className = 'gpp-header';
+    header.textContent = 'Level Properties';
+    body.appendChild(header);
+
+    const childCount = level.childrenIds?.length ?? 0;
+    const typeRow = document.createElement('div');
+    typeRow.className = 'gpp-type-row';
+    typeRow.textContent = `Level Datum · ${childCount} element${childCount === 1 ? '' : 's'}`;
+    body.appendChild(typeRow);
+
+    // Inline refusal line, reused by every editable row below. A refusal has to
+    // land NEXT TO the field that caused it; a toast alone leaves the panel
+    // showing a value the model rejected.
+    const errorRow = document.createElement('div');
+    errorRow.className = 'gpp-error-row';
+    errorRow.style.display = 'none';
+    const showError = (msg: string | null): void => {
+        if (!msg) { errorRow.style.display = 'none'; errorRow.textContent = ''; return; }
+        errorRow.textContent = msg;
+        errorRow.style.display = 'block';
+    };
+
+    const buildRow = (
+        label: string,
+        value: string,
+        opts: { editable: boolean; numeric?: boolean; hint?: string; onCommit?: (v: string) => void },
+    ): HTMLElement => {
+        const row = document.createElement('div');
+        row.className = 'gpp-row';
+        const lbl = document.createElement('div');
+        lbl.className = 'gpp-label';
+        lbl.textContent = label;
+        if (opts.hint) lbl.title = opts.hint;
+        row.appendChild(lbl);
+        if (opts.editable) {
+            const input = document.createElement('input');
+            input.className = 'gpp-value';
+            input.type = opts.numeric ? 'number' : 'text';
+            if (opts.numeric) input.step = '0.1';
+            input.value = value;
+            if (opts.hint) input.title = opts.hint;
+            input.addEventListener('keydown', (e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') input.blur();
+            });
+            input.addEventListener('change', () => opts.onCommit?.(input.value));
+            row.appendChild(input);
+        } else {
+            const val = document.createElement('div');
+            val.className = 'gpp-value';
+            val.textContent = value;
+            row.appendChild(val);
+        }
+        return row;
+    };
+
+    body.appendChild(buildRow('Name', level.name, {
+        editable: true,
+        onCommit: (v) => { if (v.trim()) handlers.onEditName?.(v.trim()); },
+    }));
+
+    // ── Floor-to-floor HEIGHT — the founder's edit ───────────────────────────
+    const heightVal = level.height ?? 3.0;
+    const heightRow = buildRow('Height (m)', heightVal.toFixed(3), {
+        editable: true,
+        numeric: true,
+        hint: 'Floor-to-floor height. Changing this moves every level ABOVE by the same amount, '
+            + 'together with their walls, slabs, columns, roofs, openings and furniture. '
+            + 'Levels below are unaffected.',
+        onCommit: (v) => {
+            const n = parseFloat(v);
+            const input = heightRow.querySelector('input') as HTMLInputElement | null;
+            if (!Number.isFinite(n)) {
+                showError('Height must be a number.');
+                if (input) input.value = heightVal.toFixed(3);
+                return;
+            }
+            const res = handlers.onEditHeight?.(n);
+            if (res && res.success === false) {
+                // Never leave the refused number displayed.
+                showError(res.error ?? 'That height was refused.');
+                if (input) input.value = heightVal.toFixed(3);
+                return;
+            }
+            // ADR-0344: a family that did NOT follow is reported here, by name.
+            const shortfall = res?.info?.find((s) => typeof s === 'string' && s.startsWith('⚠'));
+            showError(shortfall ?? null);
+        },
+    });
+    body.appendChild(heightRow);
+
+    // ── ELEVATION — moves THIS level only ────────────────────────────────────
+    body.appendChild(buildRow('Elevation (m)', level.elevation.toFixed(3), {
+        editable: true,
+        numeric: true,
+        hint: 'Height above project datum. Moves THIS level only — the levels above keep their '
+            + 'own elevations, so this level floor-to-floor height changes instead.',
+        onCommit: (v) => {
+            const n = parseFloat(v);
+            if (Number.isFinite(n)) { showError(null); handlers.onEditElevation?.(n); }
+        },
+    }));
+
+    body.appendChild(buildRow('Elements', String(childCount), { editable: false }));
+
+    const visRow = document.createElement('div');
+    visRow.className = 'gpp-row';
+    const visLbl = document.createElement('div');
+    visLbl.className = 'gpp-label';
+    visLbl.textContent = 'Visible';
+    visRow.appendChild(visLbl);
+    const visCheck = document.createElement('input');
+    visCheck.type = 'checkbox';
+    visCheck.checked = level.isVisible !== false;
+    visCheck.style.marginTop = '2px';
+    visCheck.addEventListener('change', () => handlers.onEditVisible?.(visCheck.checked));
+    visRow.appendChild(visCheck);
+    body.appendChild(visRow);
+
+    body.appendChild(errorRow);
+    body.appendChild(host.buildCloseBtn());
+    host.element.appendChild(body);
+    host.makeVisible();
+}

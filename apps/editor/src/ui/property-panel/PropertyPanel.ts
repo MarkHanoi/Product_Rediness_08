@@ -62,8 +62,14 @@ import {
     showLinearDimension as _showLinearDimension,
     showTag as _showTag,
     showGrid as _showGrid,
+    showLevel as _showLevel,
+    type LevelProperties,
 } from './PropertyPanelAnnotations';
 import type { TagRecord } from './tagSelectionPanel';
+// §LEVEL-PROPERTIES (L-7203) — the two level commands `showLevel()` dispatches.
+// They are DIFFERENT commands on purpose: height translates the stack above
+// (ADR-0345), elevation moves one level. See `showLevel` at the foot of this file.
+import { UpdateLevelCommand, SetLevelHeightCommand } from '@pryzm/command-registry';
 import { _enrichFromStores } from './PropertyPanelStoreEnricher';
 import {
     ElementRenderHost,
@@ -1152,6 +1158,34 @@ export class PropertyPanel {
         // P6 E.5.3: window.commandManager fallback removed; use instance field only.
         const cmdMgr = this._commandManager ?? null;
         _showGrid(this._asAnnotationHost(), cmdMgr, grid);
+    }
+
+    /**
+     * §LEVEL-PROPERTIES (L-7203) — the level-properties surface.
+     *
+     * Called when a level is selected: from the Level & Grid rail row, or from
+     * a level head / level line click in a section or elevation view (both
+     * routed through the `pryzm-level-selected` runtime event — see
+     * `PropertyPanelAdapter._bindLevelSelectedEvent`).
+     *
+     * ⚠ The two numeric fields dispatch DIFFERENT commands and mean different
+     * things. HEIGHT is floor-to-floor and translates every level ABOVE
+     * (`SetLevelHeightCommand`, ADR-0345); ELEVATION moves this level only
+     * (`UpdateLevelCommand`). The height arm returns its result so a refusal
+     * can be rendered inline instead of leaving a rejected number on screen.
+     */
+    public showLevel(level: LevelProperties): void {
+        const cmdMgr = this._commandManager ?? null;
+        _showLevel(this._asAnnotationHost(), level, {
+            onEditName: (name) =>
+                cmdMgr?.execute?.(new UpdateLevelCommand({ levelId: level.id, updates: { name } })),
+            onEditElevation: (elevation) =>
+                cmdMgr?.execute?.(new UpdateLevelCommand({ levelId: level.id, updates: { elevation } })),
+            onEditVisible: (isVisible) =>
+                cmdMgr?.execute?.(new UpdateLevelCommand({ levelId: level.id, updates: { isVisible } })),
+            onEditHeight: (height) =>
+                cmdMgr?.execute?.(new SetLevelHeightCommand({ levelId: level.id, height })) ?? null,
+        });
     }
 
 }

@@ -9,7 +9,22 @@
  * Replaces the 80 px sidebar level section and the bim-dropdown in Layout.ts.
  *
  * Per-level row:
- *   [color-swatch] [name input] [height tag] [elevation input] [visibility toggle] [delete]
+ *   [color-swatch] [name input] [height input] [elevation input] [visibility toggle] [delete]
+ *
+ * ⚠ THE THIRD CELL WAS A READ-ONLY TAG UNTIL 2026-08-23 (L-7201). It is now an
+ * input, and the two numeric cells mean DIFFERENT things and dispatch DIFFERENT
+ * commands — do not merge them:
+ *
+ *   · HEIGHT    — floor-to-floor, i.e. the GAP to the level above. Editing it
+ *                 translates every level ABOVE by the delta, with their
+ *                 contents. → `SetLevelHeightCommand` (ADR-0345).
+ *   · ELEVATION — where this level sits above datum. Editing it moves THIS
+ *                 level only. → `UpdateLevelCommand({ elevation })`.
+ *
+ * Clicking the row (outside any control) sets the active level AND announces
+ * `pryzm-level-selected`, which opens the standard Property Inspector on the
+ * level — the same surface and the same event shape a grid uses. The row grows
+ * no properties idiom of its own; a second one is the defect this repo repeats.
  *
  * "Add Level" computes smart elevation: maxElevation + prevFloorToFloor.
  *
@@ -20,6 +35,7 @@ import { BimManager, Level } from '@pryzm/core-app-model';
 import { AddLevelCommand } from '@pryzm/command-registry';
 import { UpdateLevelCommand } from '@pryzm/command-registry';
 import { DeleteLevelCommand } from '@pryzm/command-registry';
+import { SetLevelHeightCommand, MIN_LEVEL_HEIGHT_M } from '@pryzm/command-registry';
 
 interface LevelManagerPanelProps {
     bimManager: BimManager;
@@ -109,10 +125,19 @@ export class LevelManagerPanel {
 
         const row = document.createElement('div');
         row.className = 'lm-row' + (isActive ? ' lm-row--active' : '');
-        row.title = 'Click to set as active level';
+        row.title = 'Click to select this level and open its properties';
         row.addEventListener('click', (e) => {
-            if ((e.target as HTMLElement).closest('.lm-delete-btn, .lm-vis-btn, .lm-name-input, .lm-elev-input')) return;
+            if ((e.target as HTMLElement).closest(
+                '.lm-delete-btn, .lm-vis-btn, .lm-name-input, .lm-elev-input, .lm-height-input',
+            )) return;
             this.props.projectContext.activeLevelId = level.id;
+            // §LEVEL-PROPERTIES (L-7203) — "select the level, access the level
+            // properties". This reuses the SAME surface every other subject
+            // uses, via the SAME runtime event shape a grid uses
+            // (`pryzm-grid-selected` → `PropertyPanel.showGrid`). A second
+            // properties idiom is the defect this repo makes most often, so the
+            // row deliberately does not grow an expander of its own.
+            this._emitLevelSelected(level);
         });
 
         // Color swatch
@@ -138,12 +163,47 @@ export class LevelManagerPanel {
             }
         });
 
-        // Height tag (floor-to-floor)
+        // ── Height input (floor-to-floor) — L-7201 ───────────────────────────
+        // ⭐ This WAS a read-only <span> tag. The founder asked to change Ground
+        // from 3.0 to 2.9 and see Level 1 follow, which this row could not
+        // express: height was display-only, and even `UpdateLevelCommand
+        // ({height})` fires no reconcile, so writing it moved no geometry.
+        //
+        // Editing height is NOT a property write — it is a rigid translation of
+        // every level ABOVE by the delta. That is `SetLevelHeightCommand`, a
+        // different command from the elevation input beside it (ADR-0345).
         const heightVal = level.height ?? 3.0;
-        const heightTag = document.createElement('span');
-        heightTag.className   = 'lm-height-tag';
-        heightTag.textContent = `${heightVal.toFixed(1)}m`;
-        heightTag.title       = 'Floor-to-floor height';
+        const heightInput = document.createElement('input');
+        heightInput.type      = 'number';
+        heightInput.className = 'lm-height-input';
+        heightInput.value     = heightVal.toFixed(2);
+        heightInput.step      = '0.1';
+        heightInput.min       = String(MIN_LEVEL_HEIGHT_M);
+        heightInput.title     =
+            'Floor-to-floor height (m). Changing this moves every level ABOVE by the same amount, '
+            + 'with their contents. Levels below are unaffected.';
+        heightInput.addEventListener('keydown', (e) => {
+            e.stopPropagation();
+            if (e.key === 'Enter')   heightInput.blur();
+            if (e.key === 'Escape') { heightInput.value = heightVal.toFixed(2); heightInput.blur(); }
+        });
+        heightInput.addEventListener('blur', () => {
+            const newHeight = parseFloat(heightInput.value);
+            if (!isFinite(newHeight) || Math.abs(newHeight - heightVal) < 1e-6) {
+                heightInput.value = heightVal.toFixed(2);
+                return;
+            }
+            const res = this._execute(new SetLevelHeightCommand({ levelId: level.id, height: newHeight }));
+            // ⛔ NEVER leave a refused edit showing the refused number — the row
+            // would read as if the change had landed. Snap back and say why.
+            if (res && res.success === false) {
+                heightInput.value = heightVal.toFixed(2);
+            }
+        });
+
+        const heightUnit = document.createElement('span');
+        heightUnit.className   = 'lm-height-unit';
+        heightUnit.textContent = 'm';
 
         // Elevation input
         const elevInput = document.createElement('input');
@@ -198,7 +258,8 @@ export class LevelManagerPanel {
         row.appendChild(accent);
         row.appendChild(swatch);
         row.appendChild(nameInput);
-        row.appendChild(heightTag);
+        row.appendChild(heightInput);
+        row.appendChild(heightUnit);
         row.appendChild(elevInput);
         row.appendChild(visBtn);
         row.appendChild(delBtn);
@@ -220,12 +281,65 @@ export class LevelManagerPanel {
         this._execute(cmd);
     }
 
-    private _execute(cmd: any): void {
+    /**
+     * Dispatch and RETURN the result — §01 §2.1.
+     *
+     * ⭐ This used to return `void`, which meant a refused command was
+     * indistinguishable from a successful one at the call site: the row kept
+     * showing the number the user typed even when the command had refused it.
+     * A model that displays a value it did not accept is the same class of
+     * defect as one that half-moves in silence.
+     *
+     * Refusals are surfaced HERE, once, so every row control inherits it.
+     */
+    private _execute(cmd: any): { success: boolean; error?: string; info?: string[] } | null {
         const mgr = this.props.getCommandManager();
-        if (mgr) {
-            mgr.execute(cmd);
-        } else {
+        if (!mgr) {
             console.error('[LevelManagerPanel] CommandManager not found');
+            return null;
+        }
+        const res = mgr.execute(cmd) as { success: boolean; error?: string; info?: string[] } | undefined;
+        if (!res) return null;
+
+        if (res.success === false) {
+            this._announce(res.error ?? 'That change was refused.', 'error');
+        } else if (Array.isArray(res.info)) {
+            // ADR-0344: a family that did NOT follow is reported at commit time,
+            // not left for the user to discover by looking. The command marks
+            // that line with the warning glyph; anything else is routine.
+            const shortfall = res.info.find((s) => typeof s === 'string' && s.startsWith('⚠'));
+            if (shortfall) this._announce(shortfall, 'warn');
+        }
+        return res;
+    }
+
+    /** Toast channel, resolved lazily so the panel stays constructible in tests. */
+    private _announce(message: string, kind: 'warn' | 'error'): void {
+        try {
+            const toast = (this.runtime as unknown as {
+                showAppToast?: (m: string, k: 'warn' | 'error') => unknown;
+            } | null)?.showAppToast ?? window.showAppToast;
+            if (typeof toast === 'function') {
+                toast(message, kind);
+                return;
+            }
+        } catch { /* fall through to the console */ }
+        // Never swallow: an un-toastable refusal still has to reach a person.
+        if (kind === 'error') console.error(`[LevelManagerPanel] ${message}`);
+        else console.warn(`[LevelManagerPanel] ${message}`);
+    }
+
+    /**
+     * §LEVEL-PROPERTIES (L-7203) — announce the selected level on the runtime
+     * event bus. `PropertyPanelAdapter` subscribes and calls
+     * `PropertyPanel.showLevel(level)`, exactly as it already does for grids.
+     */
+    private _emitLevelSelected(level: Level): void {
+        try {
+            const events = (this.runtime?.events ?? window.runtime?.events);
+            events?.emit?.('pryzm-level-selected', { levelId: level.id, level, source: 'level-manager-panel' });
+        } catch (err) {
+            console.error('[LevelManagerPanel] failed to announce level selection', err);
         }
     }
 

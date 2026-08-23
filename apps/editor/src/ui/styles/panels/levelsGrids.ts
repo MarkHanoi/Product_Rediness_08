@@ -296,19 +296,60 @@ export const LEVEL_MANAGER_STYLES = `
         padding: 0 3px;
     }
 
-    /* Floor-to-floor height tag */
-    .lm-height-tag {
+    /* Floor-to-floor height — EDITABLE since L-7201 (was a read-only tag).
+       Keeps the violet pill look so the row reads the same at a glance, but it
+       is an input: hover and focus reveal that it takes a value. */
+    .lm-height-input {
+        width: 34px;
         font-size: 9px;
         font-weight: 600;
         font-family: var(--app-font);
         font-variant-numeric: tabular-nums;
-        color: rgba(102,0,255,0.65);
+        color: rgba(102,0,255,0.85);
         background: rgba(102,0,255,0.08);
-        border-radius: 4px;
-        padding: 1px 4px;
+        border: 1px solid transparent;
+        border-radius: 4px 0 0 4px;
+        padding: 1px 1px 1px 4px;
         flex-shrink: 0;
         letter-spacing: 0.02em;
+        text-align: right;
+        outline: none;
+        cursor: pointer;
+        transition: background 0.12s, border-color 0.12s;
+        -moz-appearance: textfield;
+    }
+    .lm-height-input::-webkit-outer-spin-button,
+    .lm-height-input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    .lm-height-input:hover {
+        background: rgba(102,0,255,0.14);
+    }
+    .lm-height-input:focus {
+        cursor: text;
+        background: #ffffff;
+        border-color: var(--app-accent);
+        color: var(--app-accent);
+    }
+
+    /* The "m" that used to live inside the tag's text. Rendered separately so
+       the number itself stays a clean numeric input. */
+    .lm-height-unit {
+        font-size: 9px;
+        font-weight: 600;
+        font-family: var(--app-font);
+        color: rgba(102,0,255,0.65);
+        background: rgba(102,0,255,0.08);
+        border-radius: 0 4px 4px 0;
+        padding: 2px 4px 2px 0;
+        margin-left: -1px;
+        flex-shrink: 0;
         white-space: nowrap;
+    }
+    .lm-height-input:focus + .lm-height-unit {
+        background: #ffffff;
+        color: var(--app-accent);
     }
 
     .lm-elev-input {

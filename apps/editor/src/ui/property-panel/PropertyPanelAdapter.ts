@@ -44,6 +44,35 @@ export class PropertyPanelAdapter {
 
         this._applyStyling();
         this._bindGridSelectedEvent();
+        this._bindLevelSelectedEvent();
+    }
+
+    /**
+     * §LEVEL-PROPERTIES (L-7205) — subscribe to `pryzm-level-selected`.
+     *
+     * ⭐ THIS EVENT WAS EMITTED INTO A VOID. It is declared in the runtime
+     * catalog (`runtime-composer/src/types.ts:1018`) and dispatched from two
+     * production sites — `PlanViewInteraction.ts:1081` (level head click) and
+     * `:1093` (level line click) — with ZERO subscribers anywhere in the repo
+     * (measured with ripgrep AND `grep -rn`, cross-checked). Clicking a level
+     * in a section or elevation view announced a selection nothing received.
+     *
+     * One subscriber makes both those sites live AND serves the new Level &
+     * Grid rail row, so every way of selecting a level opens the same panel.
+     *
+     * The payload may carry only `levelId` (the level-head site does), so the
+     * record is resolved from BimManager when `level` is absent. A payload we
+     * cannot resolve is ignored rather than rendered as a blank panel.
+     */
+    private _bindLevelSelectedEvent(): void {
+        (this.runtime?.events ?? window.runtime?.events)?.on('pryzm-level-selected', (payload: unknown) => {
+            const detail = payload as { levelId?: string; level?: any } | undefined;
+            if (!detail?.levelId) return;
+            const level = detail.level
+                ?? (window.bimManager as { getLevelById?(id: string): unknown } | undefined)?.getLevelById?.(detail.levelId);
+            if (!level) return;
+            this.panel.showLevel(level as Parameters<PropertyPanel['showLevel']>[0]);
+        });
     }
 
     private _bindGridSelectedEvent(): void {

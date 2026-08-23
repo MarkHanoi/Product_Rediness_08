@@ -121,6 +121,35 @@ export class LevelsGridsRailPanel {
             visSection.appendChild(buildToggle('Show Levels', 'levels', false));
             visSection.appendChild(buildToggle('Show Grids',  'grids',  false));
             this._root.appendChild(visSection);
+
+            // ── L-7204: legend at the foot of the card ───────────────────────
+            // The panel is sized to the full remaining viewport height, so
+            // everything below the last control used to be a bare grey void.
+            // `.lg-rail-legend { margin-top: auto }` pushes this to the bottom
+            // and the card now fills the body, so the void is gone.
+            //
+            // It is a LEGEND rather than blank filler because the row above it
+            // genuinely needs one: HEIGHT became editable in L-7201 and now
+            // sits next to ELEVATION, they look alike, and they do very
+            // different things.
+            const legend = document.createElement('div');
+            legend.className = 'lg-rail-legend';
+            const legendRow = (key: string, text: string): HTMLElement => {
+                const row = document.createElement('div');
+                row.className = 'lg-rail-legend-row';
+                const k = document.createElement('span');
+                k.className   = 'lg-rail-legend-key';
+                k.textContent = key;
+                const t = document.createElement('span');
+                t.textContent = text;
+                row.appendChild(k);
+                row.appendChild(t);
+                return row;
+            };
+            legend.appendChild(legendRow('Height', 'Floor-to-floor. Changing it moves every level above, with their contents.'));
+            legend.appendChild(legendRow('Elev', 'Height above datum. Moves this level only.'));
+            legend.appendChild(legendRow('Click', 'Select a level to open its properties.'));
+            this._root.appendChild(legend);
         }
 
         return this._root;

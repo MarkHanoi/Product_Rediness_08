@@ -1059,17 +1059,73 @@ export const TOOLS_RAIL_PANEL_STYLES = `
 `;
 
 export const LEVELS_GRIDS_RAIL_STYLES = `
+    /* ── L-7204: the dead grey area below "Show Grids" ────────────────────
+       NOTE TO EDITORS: no backticks in this comment. A backtick inside a CSS
+       comment inside a .ts template literal TERMINATES the literal, and the
+       parse errors it produces point at the CSS, not at the cause.
+
+       The card SHRINK-WRAPPED its content while RailPanelController
+       (_updatePosition, :196-209) sizes the panel to the full remaining
+       viewport height whenever no user height is saved. .rp-body paints no
+       background of its own, so every pixel the card did not reach showed
+       .rp-panel's --app-bg (#e8edf6) — a large grey void under the last
+       control.
+
+       Fix: let the card FILL the body. 100% resolves against .rp-body's
+       content box; the -16px is this element's own 8px top+bottom margins, so
+       the card ends flush and adds no scrollbar. box-sizing: border-box keeps
+       the 8px padding and 1px border inside that budget. If the percentage
+       ever fails to resolve, min-height simply has no effect and the layout
+       degrades to exactly the old behaviour — no regression risk. */
     .lg-rail-root {
         display: flex;
         flex-direction: column;
         gap: 8px;
         margin: 8px;
         padding: 8px;
+        box-sizing: border-box;
+        min-height: calc(100% - 16px);
         background: var(--app-panel-bg);
         border: 1px solid var(--app-border-light);
         border-radius: var(--app-radius-lg);
         box-shadow: var(--app-shadow-card);
         overflow: hidden;
+    }
+
+    /* Legend pinned to the foot of the card. margin-top: auto is what turns
+       the reclaimed space into something purposeful instead of blank filler —
+       and it earns its place: HEIGHT and ELEVATION now sit side by side in
+       every level row, dispatch different commands, and mean different things
+       (L-7201 / ADR-0345). */
+    .lg-rail-legend {
+        margin-top: auto;
+        padding: 8px;
+        border-top: 1px solid var(--app-border-light);
+        background: var(--app-surface-sunken);
+        border-radius: var(--app-radius-sm);
+        font-size: 9.5px;
+        line-height: 1.5;
+        color: var(--app-text-2);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .lg-rail-legend-row {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+    }
+    .lg-rail-legend-key {
+        flex-shrink: 0;
+        font-weight: 700;
+        font-size: 8.5px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--app-accent);
+        background: rgba(102,0,255,0.08);
+        border-radius: 3px;
+        padding: 1px 4px;
+        white-space: nowrap;
     }
 
     .lg-rail-group-label {
