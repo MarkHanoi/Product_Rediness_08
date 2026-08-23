@@ -931,3 +931,10 @@ export type {
     GraphQueryServiceDeps,
     RoomGraphLike,
 } from './graph/GraphQueryService.js';
+
+// ── BYOM — user-supplied AI provider keys (C103, SPEC-BYOM-PROVIDER-KEYS) ────
+// "Bring Your Own Model". ⚠ NOT the same thing as C22 §1.4 / C08 §8 "BYOK"
+// (customer-managed ENCRYPTION keys) — see C103 §0.1 for the naming collision.
+// The default path is unchanged: with no provider configured, `resolveAiRoute`
+// returns `pryzm-managed` and the chat behaves exactly as it does today.
+export * from './byom/index.js';
