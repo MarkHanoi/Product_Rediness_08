@@ -41168,3 +41168,264 @@ time — 4 of 9 tests red with `findMaterialRecord is not a function` rather tha
   WebGL and a mock would be a fake more capable than the real thing. The blit, the context release
   and the visual result are verified by opening the dialog, not by a test.
 
+
+---
+
+## L-7800..L-7860 — lane LIFT42 (2026-08-23): three compounds, one plan-only session, three DIFFERENT failure modes
+
+⭐ **The founder filed three reports in one session, and together they form a diagnostic
+triangle rather than three bugs.** The balcony is the CONTROL — it proves the session, the
+overlay, the click path and the create pipeline all work end to end — which is precisely
+what makes the other two legible.
+
+| compound | arms | commits | element lands | Escape stops it |
+|---|---|---|---|---|
+| **balcony** | ✅ | ✅ | ✅ **5 elements** (slab + floor + 3 handrails) | ❌ **re-arms** → L-7800 |
+| **lift** | ✅ | ✅ (`lift.create` reached the sync adapter) | ❌ **count unchanged 14→14** → L-7820 | ❌ re-arms |
+| **pool** | ✅ | ❌ **no command at all** | ❌ → L-7850 | ❌ re-arms |
+
+---
+
+### L-7800 — ⭐ CLOSED: Escape tore down the session CHROME and left the TOOL ARMED
+
+> *"Balcony works — but it doesn't have an ESC option. It will create balconies indefinitely."*
+
+Measured in his log: **14 → 19 → 24 → 29** elements, five members per balcony, an Escape
+between each pair.
+
+**TWO mechanisms, both deliberate, neither wrong alone.** (1) `endPlanOnlyToolSession()`
+unwound the mode strip / selection suppression / armed-selection snapshot and left the
+handler armed — its own header stated that as a decision: *"⛔ It deliberately does NOT
+disarm the plan handler."* ⭐ **The premise is true and the conclusion does not follow:**
+the balcony and the lift are SINGLE-CLICK tools that never hold a stroke, so "cancel the
+stroke" cancels nothing and Escape had no observable effect at all. (2) `deactivateAll()`
+cannot disarm it either, BY DESIGN — L-7002's `_programmaticTool` guard exists precisely so
+a ToolManager `'none'` cannot silently put a plan-only tool away. The
+`Handler activated: balcony` line AFTER the Escape is `_onMouseEnter` rebuilding a handler
+for a tool nothing disarmed: **re-entering the pane was itself the re-arm.**
+
+**FIX — two-stage Escape**, `a85b6228`. Stage 1, a stroke is live → cancel it, tool stays
+armed (the pool's outline survives a mis-clicked vertex, §T-B1). Stage 2, nothing to cancel
+→ put the tool away. It asks `hasActiveStroke()`, which was **already on the
+`PlanToolHandler` interface** and needed no new vocabulary.
+
+### L-7801 — ⭐ CLOSED: `activatePlanOnlyTool` had no inverse
+Arming had a function; putting the tool away had none. `disarmPlanOnlyTool()` added.
+`'none'` is not in `ACTIVE_TOOL_KEYS`, so `_onMouseEnter` returns on its first line — that
+is what closes the re-arm.
+
+### L-7802 — ⚠ THE ORDERING TRAP, closed and pinned
+`cancel()` resets `_points`, so anything asking about the stroke AFTERWARDS reads a false
+negative and collapses the two stages into one. Both overlays register keydown on `window`
+in the **CAPTURE** phase at attach — before any session exists — so they are the only place
+that can sample it at the right instant. The decision is therefore driven from the overlay's
+Escape branch; the session's own listener survives as the fallback for an Escape pressed
+with the pointer outside the plan pane, gated on a marker the overlays stamp. **ARM C-1 of
+`planOnlyToolEscape.spec.ts` pins the ordering as its own claim** — it is the one line a
+plausible refactor breaks.
+
+### L-7803 — ⛔ REGRESSION GUARD IN THE OPPOSITE DIRECTION
+The cheap fix for the runaway is to let `notify('none')` disarm plan-only tools, which would
+re-open L-7002 (the tool putting itself away with nothing on screen changing). **ARM A-4
+asserts a `deactivateAll()` still does NOT disarm.**
+
+---
+
+### L-7810..L-7811 — ⭐ CLOSED: `lift.create` and `balcony.create` were never replicated
+`7fcf3834`. The adapter had been saying so in the founder's own console —
+*"W5-3: command type 'lift.create' has NO sync disposition. Its properties are NOT
+replicated."* C08 offers exactly two answers and "not yet declared" is not one.
+`pool.create` — the third compound, shipped the same week — **was** declared, so the shape
+was settled by the sibling rather than invented. Declared: `lift.create` / `balcony.create` /
+`balcony.updateProfile` as `element-property` (composition references are properties of the
+compound naming its members — the pool's row already rules on that), and `lift.delete` /
+`balcony.delete` as NOT-SYNCED with the blocker named. **The lift's delete carries the
+widest cascade of the three and the only one that RESTORES state on other elements** — it
+heals a void in every slab the shaft penetrated. A tombstone that replicated the removals
+and dropped the heal would leave every collaborator with a full-height hole through every
+floor plate and no lift in it, which is strictly worse than not replicating at all.
+
+**MEASURED on the gate, not by reading the diff:** `check-sync-disposition.ts` RC=1 / **17
+findings** before (including all five) → RC=1 / **12** after (none of them these). The gate
+was already red on twelve verbs owned by other families and stays red; this strictly reduces.
+
+### L-7812 — ⛔ OPEN: `check-verb-register.ts` is RC=1 across FOUR lanes
+4 failures naming 8 verbs — the five above plus `floor.setFinishBatch`,
+`room.setColourMode`, `view.setCategoryVisibility`, and a shadowed `sheet.create`. The
+register is GENERATED and regenerating is the documented remedy, but doing it inside this
+lane would sweep three other lanes' verbs into one commit. **Needs a single sweep.** It also
+reports `V4 6 NEW UNKNOWN-liveness verb(s)` including `lift.create` — *"a lone plugin
+produceCommand handler; prove it reaches authoritative state"* — which is an **independent
+corroboration of L-7820**, found by a different gate than the one that led there.
+
+### L-7813 — ⛔ OPEN: a P8 conflict-disclosure test is NON-DETERMINISTIC
+`packages/sync-client/__tests__/property-mutation-sync.test.ts` → *"concurrent height edits
+surface a CRDTConflict naming the property"* flakes on Yjs clientID ordering. **Measured at
+HEAD with this lane's file reverted: 3 failures in 6 runs.** A P8 gate whose green cannot be
+trusted is worse than a red one.
+
+---
+
+### L-7820 — ⭐⭐ CLOSED (PARTIALLY — read L-7822): the lift was lost at `default: break;`
+
+> The command ran. `lift.create` reached the SYNC adapter — that is what emits the W5-3
+> line — and then `[ProjectSerializer] Snapshot created: 14 elements`. **14 before the
+> click, 14 after.** Nothing on screen or in the console said so.
+
+**EXACTLY WHERE.** `CommandEventBridge` is the only relay from a command's committed patches
+to the legacy mirrors that feed the 3-D scene AND the element census. It had a case for
+`balcony.create` — which is why the balcony lands five elements — and **none** for
+`lift.create`, so the lift fell to `default: break;`, a silent drop wearing exhaustiveness
+as a disguise. Measured: `grep -in lift CommandEventBridge.ts` → **0**.
+
+⚠ **THE SECOND HALF OF THE TRAP, and why "but there IS a LiftMeshBuilder" is not a
+rebuttal: THERE ARE TWO LIFT STORES AND THEY ARE DIFFERENT ELEMENTS.** `LiftMeshBuilder` is
+real, is constructed (`initBuilders.ts:985`) and is driven by `bim-lift-added` from
+`LiftStore` — the **LOD-200 MASSING** lift. The compound writes `LiftCompoundStore`. **A
+builder exists, runs, and watches the other store.** UNDO37 hit the identical trap for undo
+(L-7311) and refused to alias them; aliasing them to make it draw would be that same C03
+§4.6 U-2b corruption with a renderer attached. **Not done.**
+
+**THE OTHER THREE CANDIDATES, REFUTED** — recorded because a refuted hypothesis is a finding:
+- *CompositeCommand's unconditional success (L-2401)* — **NOT IT.** `CreateLiftHandler` uses
+  `produceMultiStoreCommand`, dispatches no child command and batches nothing.
+- *The level was created after placement resolved* — **NOT IT.** `canExecute` refuses a
+  served level naming a slab the store lacks, a duplicate storey and a non-finite elevation;
+  every record is present in the plugin stores afterwards (pinned by B-2).
+- *A validation refusal* — **NOT IT.** `LiftCompoundSchema` refuses `wall-hosted` without a
+  `hostWallId`; `standalone-glass` requires no host, and `LiftPlanToolHandler` already
+  surfaces any bus rejection verbatim on the overlay. There was no refusal to surface.
+
+**FIX** `06a4db7b` — the balcony's idiom verbatim: one member event PER MEMBER, stamped with
+the MEMBER's own verb, read out of `record.forward` (the enclosure geometry is computed by
+`buildLiftAssembly` and is not in the payload). The host wall is excluded by
+`parentId === liftId` so a wall-hosted lift cannot mint a duplicate legacy record.
+
+### L-7821 — ⭐ CLOSED: a compound with no case in the bridge is now LOUD
+The balcony case **already said in prose** that the pool had this defect (*"⚠ THAT IS NOT
+HYPOTHETICAL — IT IS THE SWIMMING POOL'S LIVE STATE"*) — and the lift then shipped with the
+identical defect and the identical silence. **A comment is not a detector.** `default:` now
+detects the mechanical signature — a multi-store patch (`path.length === 2`) with no case —
+and warns **once per command TYPE**, naming the stores it wrote. `pool.create` is the live
+case today.
+
+### L-7822 — ⛔ OPEN: a STANDALONE-GLASS lift renders only its LANDING SIDE
+**MIRROR CENSUS, measured with BOTH ripgrep and `grep -rn`** (they have disagreed in this
+repo before):
+
+| event | subscribers | verdict |
+|---|---|---|
+| `wall.created` | **2** | ✅ LIVE |
+| `door.created` | **0** | ⚠ typed event exists, nothing listens |
+| `curtainwall.created` | **0** | ⛔ **no such event is declared at all** |
+
+A **wall-hosted** lift has four `kind:'wall'` sides and now mirrors **completely**. A
+**standalone-glass** lift has one wall (the landing side) + three curtain walls, so three of
+four sides have nowhere to go. **The founder placed the glass type.** They are NOT smuggled
+through as walls — a curtain wall drawn as a wall is a lie about the element (C84 EI-9) —
+they are **reported**, per lift, by name and count, and the message refuses the comfortable
+word: it says **PARTIAL create**, because the record is real, undoable and schedulable while
+part of it is invisible, and both "failed" and "created" would be wrong.
+**Closing it = declare `curtainwall.created` + a mirror.**
+
+### L-7823 — ⛔ OPEN: `door.created` is a channel that reads as live and is dead at the far end
+Declared in `RuntimeEvents`, zero subscribers. The lift's landing doors are therefore not
+emitted at all rather than emitted into nothing — emitting would be the `pryzm:toast` defect
+(L-7005) repeated.
+
+### L-7824 — ⛔ OPEN: `liftPart` has no legacy family and no fragment builder
+Five cabin parts per lift, reported and not rendered.
+
+---
+
+### L-7840 — ⭐ CLOSED: the id `lift` named TWO different elements in TWO registries
+`33b30c9e`. `editor-chrome-map.md` §9.3 measured it; it was **one line**:
+
+```
+runtime.tools           'lift' -> ToolManager.activateLift -> CreateVerticalCirculationCommand
+                                                           -> LOD-200 MASSING lift (2 boxes)
+planToolHandlerRegistry 'lift' -> LiftPlanToolHandler      -> lift.create
+                                                           -> LOD-300 C104 COMPOUND
+```
+
+⛔ **The fix is NOT to merge the two elements** — C104 §1 is explicit that they co-exist
+deliberately and that "cleaning up the duplication" is the single most likely mistake here.
+⭐ **The collision is the NAME.** `runtime.tools`' `lift` activator now calls
+`activatePlanOnlyToolOrExplain('lift', 'Lift')` — the same entry point both live create
+surfaces already use. **Measured before changing it:** `tools.activate('lift')` → **0
+callers**, so nothing changes behaviour today; what changes is that the next caller (the AI
+chat route, C104 §10 axis 4) gets the lift the architect sees rather than a massing box.
+
+### L-7841 — ⛔ OPEN: `ToolManager.activateLift` now has ZERO production callers
+Left in place — `packages/input-host` is not this lane's and a sibling lane is live — rather
+than deleted silently. The massing lift's real callers (residential/office batch executors)
+reach the COMMAND directly, never the tool key.
+
+### L-7842 — ⭐ CLOSED: the key stays REGISTERED, deliberately
+Deleting the row would also have satisfied C84 EI-9 **and broken
+`check-tool-activator-coverage.ts`** — `lift` would have joined `pool`/`balcony` as
+UNCOVERED ("activate() records an active-tool id and arms NOTHING"), the very defect that
+file was written to close. Gate output is **byte-identical before and after**.
+
+---
+
+### L-7850 — ⭐ CLOSED: an armed pool drew ZERO pixels until its first click landed
+
+> *"Swimming pool doesn't get created."*
+
+⚠ **THE COMMIT PATH IS NOT THE DEFECT, measured first.**
+`pointerReachesArmedHandler.spec.ts` A-2 drives three real DOM clicks and a real `dblclick`
+and gets exactly one `pool.create`.
+
+⭐ **REFUTED, and recorded as a correction:** the brief's leading hypothesis was *"a polyline
+tool that never closes its loop never commits"* because its mode is never set.
+`resolveActivePoolDrawMode()` returns a valid default, `activatePlanOnlyTool` mounts a real
+`DrawingModeBar` for the pool's six modes, and A-2 closes a LINEAR pool without touching the
+strip.
+
+**What actually broke:** every arm of `onMouseMove` returns early on `_points.length === 0`,
+so an armed pool was **invisible**. Its two siblings are not — the lift draws a hint on the
+first hover, the balcony previews on the wall. The pool was the ONLY one of the three
+plan-only compounds that showed nothing while armed. `9a7d53fc` adds the idle hint, and it
+**names the closing gesture** — which is the twice-reported *"I created a few lines but the
+creation did not trigger"*: a linear pool is an OPEN POLYLINE until a double-click or Enter
+closes it, and nothing said so.
+
+⛔ **Not fixed by a single-click commit.** The multi-point path IS the feature (the founder's
+spec asked for linear / ortho / circular / ellipse / rectangular).
+
+### L-7851 — ⛔ OPEN: nothing proves his clicks reached the plan pane at all
+His log shows the pool handler re-activating, which `_onMouseEnter` only does after a
+`_onMouseLeave` with **no stroke in progress** — consistent with a pointer entering and
+leaving the pane without ever placing a vertex. That is the measured H1 defect (L-7000):
+clicking the 3-D viewport while a plan-only tool is armed. The session's "is placed in the
+PLAN pane" toast addresses it and the new hint reinforces it; **neither proves it for his
+session.**
+
+### L-7852 — ⛔ OPEN (OPENUI41's file): every balcony mints three handrails naming NO material
+```
+[HandrailFragmentBuilder] §C100-HANDRAIL-MATERIAL-ID 3 handrails have NO RESOLVABLE MATERIAL
+  — no materialId and no colour override … Falling back to #cccccc; the colour on screen is
+  NOT these elements' material.
+```
+A **C100 violation at creation time**. The builder is already honest about it; the fix
+belongs at the create command resolving a real catalogue `materialId`, which needs
+`packages/schemas/src/materials/materialCatalog.ts` — **OPENUI41's file, not edited here.**
+
+### L-7853 — ⛔ OPEN: every balcony member logs `§G3-STALE-EVENT … unregistered element`
+Five per balcony (slab, floor, three handrails), forcing a FULL re-projection instead of an
+incremental graft. **Not investigated this lane** — recorded so it is not rediscovered.
+
+### L-7860 — ⛔ OPEN: the lift's 3-D SHOWROOM PREVIEW — seam named, deliberately NOT built
+The founder asked for the same showroom preview as windows/doors. ⛔ **No second preview
+renderer was built.** OPENUI41's port exists on disk and is **actively being written**
+(`apps/editor/src/ui/element-preview/`, files touched minutes before this lane read them).
+**The seam is exact and the lift is a REGISTRATION, not a fork:**
+`buildLiftPreviewSubject(draft) -> PreviewSubject { key, parts: PreviewPart[], extent,
+caption }`, mounted through `mountElementPreview()` — the same shape as
+`buildWindowPreviewSubject` / `buildDoorPreviewSubject`. The lift's pure side already fits:
+`resolveLiftDimensions()` and `buildLiftAssembly()` are pure and tested.
+⚠ **NOT built because the interface is moving and OPENUI41 was not reachable from this lane**
+(`SendMessage` → *"No agent named 'OPENUI41' is reachable"*, and no `ListAgents` tool is
+exposed here). Building against a moving interface is how two rival ports get minted.
+**Stubbed = nothing; what is owed is one file plus one registration.**

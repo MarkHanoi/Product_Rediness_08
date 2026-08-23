@@ -116,6 +116,68 @@ PRYZM uses **Yjs CRDT + server linearization**. The sync contract:
 - The user MUST choose one version or a manual merge; the system MUST NOT choose automatically.
 - Conflict resolution MUST produce a `source: 'undo'` command that is logged and undoable.
 
+
+#### §3.2.1 — ⛔ AN UNDECLARED VERB IS A CONTRACT BREACH, NOT A BACKLOG ITEM (⭐ NEW 2026-08-23, lane LIFT42, L-7810..L-7813)
+
+> ⭐⭐ **The founder placed a lift, and the adapter told him it would not reach anyone —
+> in his own console, naming this file's counterpart and both legal answers:**
+>
+> ```
+> [YjsDocAdapter] W5-3: command type 'lift.create' has NO sync disposition.
+>   Its properties are NOT replicated.
+> Declare it in packages/sync-client/src/syncDisposition.ts — as an element-property
+>   path, or as NOT-SYNCED with a written reason.
+> ```
+
+**THE RULE.** Every command type dispatched on the bus MUST carry a disposition in
+`packages/sync-client/src/syncDisposition.ts`: either an **`element-property`** path naming
+where the subject id and the properties live, or **`not-synced` with a written reason**.
+⛔ **"Not yet declared" is not a third option.** An undeclared verb does not degrade
+gracefully — it produces the §3.2 failure this contract exists to forbid, in its worst form:
+a collaborator keeps the value from element CREATION, **confidently, forever**. Failure and
+emptiness have the same value. There is no dialog, no diff and no choice, because nothing
+knows a merge was needed.
+
+**AND IT IS DISCOVERED AT THE WORST MOMENT.** The gate
+(`tools/ga-gate/check-sync-disposition.ts`) is a per-verb finding list, not a single
+red/green, and it was ALREADY RED on other families when `lift.create` and `balcony.create`
+were added — so a new undeclared verb joins a crowd and is invisible in it. **The first
+person to learn was the founder, from a runtime warning, while placing an element.**
+
+**R-C08-1 — a new bus verb ships with its disposition IN THE SAME COMMIT.** Not the next one.
+The disposition is three lines; discovering the absence costs a founder session.
+
+**R-C08-2 — a compound's members are PROPERTIES of the compound, never second subjects.**
+Established by the pool and now applied uniformly: `pool.create`'s
+`wallIds`/`floorSlabId`/`waterId`, `lift.create`'s
+`enclosureIds`/`landingDoorIds`/`cabinPartIds`/`servedLevels`, and `balcony.create`'s
+`slabId`/`floorId`/`railingIds` are **composition references** — properties of the compound
+naming the members it owns. They are not routing, and one `subject` key cannot and must not
+name a set.
+
+**R-C08-3 — ⛔ a DELETE whose cascade RESTORES state on other elements must not be
+approximated.** `lift.delete` is the sharpest case in the suite and is declared NOT-SYNCED
+for it. It removes four enclosure sides across two stores, one landing door per served
+storey and five cabin parts — **and it heals a void in every slab the shaft penetrated**
+(C104 §8). A tombstone kind that replicated the removals and dropped the heal would leave
+every collaborator with **a full-height hole through every floor plate and no lift in it** —
+strictly worse than not replicating the delete at all. **When a partial replication is worse
+than none, the answer is `not-synced` with the blocker named, never a best-effort subset.**
+
+**R-C08-4 — ⚠ a declaration is a REPLICATION claim, never a RENDER claim.** C66 §1.1: a
+claimed capability and a measured one must not be written the same way. Declaring a verb here
+means its payload reaches the CRDT document and a receiving document can read the properties
+back. It does **not** mean a receiving client re-renders — nothing reads the canonical
+element map back into local stores yet (L-391), and for the lift the render gap is real on
+the **local** side too (C104 §13). Two independent gaps; closing one does not close the other.
+
+**R-C08-5 — ⛔ A NON-DETERMINISTIC CONFLICT TEST IS WORSE THAN A RED ONE.**
+`packages/sync-client/__tests__/property-mutation-sync.test.ts` → *"concurrent height edits
+surface a CRDTConflict naming the property"* — the single test that asserts §3.2's core
+promise — **flakes on Yjs clientID ordering. Measured 2026-08-23 at HEAD: 3 failures in 6
+runs.** A gate that is green half the time cannot establish that conflicts are disclosed; it
+establishes only that they sometimes are. **L-7813, OPEN.**
+
 ### §3.3 — Command log (collaboration catch-up)
 
 `project_command_log` stores commands for catch-up replay (a late-joining user re-applies the last N commands). Invariants:

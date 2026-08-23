@@ -295,7 +295,7 @@ C01 §6 rule 6. "Reachable" is four measurements, not one.
 |---|---|
 | **1 — store constructed** | ✅ `new LiftCompoundStore()` / `new LiftPartStore()` in `PluginRegistry.ts` |
 | **2 — descriptor with `storeKey`** | ✅ both descriptors present; `lift` in `ELEMENT_PLUGIN_IDS`, `liftPart` in `STORE_ONLY_PLUGIN_IDS` with a written reason. **Proven by `apps/editor/__tests__/liftReachableThroughComposedRuntime.test.ts` — 12 cases, which read `rt.stores.lift` off the real composition root and never build a store** |
-| **3 — something dispatches** | ✅ **CLOSED 2026-08-22 (lane TOOLS34, §FIX-LIFT-UNREACHABLE, L-7020).** `LiftPlanToolHandler` is in the shared `planToolHandlerRegistry`, so **both** plan surfaces have it, and it dispatches **`lift.create`**. An **Architecture** row on **both** live create surfaces (`CreateRailPanel` + `CreatePanelLayout`) arms it. Proven at the pointer layer, not at the bus: `pointerReachesArmedHandler.spec.ts` ARM A-3 dispatches a real DOM `mousedown` on a real plan overlay and asserts exactly one `lift.create` with `enclosureType: 'wall-hosted'`, a resolved `hostWallId`, **two** served storeys, **two** landing-door ids, **four** enclosure ids and **five** cabin-part ids. ⚠ **L-5709 is NOT fully closed — it is narrowed and re-numbered L-7040:** `ToolManager.activateLift` still drives the LEGACY massing command, so the 3-D arm and the plan arm create DIFFERENT THINGS. The palette now offers **only** the compound (the Structure row was removed rather than left as a rival), and the massing command keeps its real callers — the residential and office batch executors |
+| **3 — something dispatches** | ✅ **CLOSED 2026-08-22 (lane TOOLS34, §FIX-LIFT-UNREACHABLE, L-7020).** `LiftPlanToolHandler` is in the shared `planToolHandlerRegistry`, so **both** plan surfaces have it, and it dispatches **`lift.create`**. An **Architecture** row on **both** live create surfaces (`CreateRailPanel` + `CreatePanelLayout`) arms it. Proven at the pointer layer, not at the bus: `pointerReachesArmedHandler.spec.ts` ARM A-3 dispatches a real DOM `mousedown` on a real plan overlay and asserts exactly one `lift.create` with `enclosureType: 'wall-hosted'`, a resolved `hostWallId`, **two** served storeys, **two** landing-door ids, **four** enclosure ids and **five** cabin-part ids. ⭐ **L-5709 / L-7040 CLOSED 2026-08-23 (lane LIFT42, §FIX-LIFT-TWO-COMMANDS-ONE-NAME, L-7840).** This cell used to read: *"L-5709 is NOT fully closed — it is narrowed and re-numbered L-7040: `ToolManager.activateLift` still drives the LEGACY massing command, so the 3-D arm and the plan arm create DIFFERENT THINGS."* It was **one line** — `ToolsAreaLayout.ts:332` registered `runtime.tools`' `lift` activator to `tm.activateLift()`, so the id `lift` named the **LOD-200 massing lift** in `runtime.tools` and the **LOD-300 compound** in `planToolHandlerRegistry` at the same time (C84 EI-9: one word, two results, decided by which surface the user happened to be on). It now calls `activatePlanOnlyToolOrExplain('lift', 'Lift')` — the SAME entry point both live create surfaces already use — so **one id names one element on every surface**. ⛔ The two ELEMENTS remain deliberately separate and §1 / R-8 still forbid merging them; only the NAME collision is closed, and the massing command keeps its real callers, which reach the COMMAND directly and never a tool key. **Measured before changing it:** `grep -rn "tools\.activate('lift'"` → **0 callers**, so nothing changes behaviour today — what changes is that the next caller (axis 4 below) gets the lift the architect sees rather than a massing box that looks like a bug. ⛔ The key stays REGISTERED rather than deleted: deleting it would also satisfy C84 EI-9 **and** break `check-tool-activator-coverage.ts`, putting `lift` alongside `pool`/`balcony` as UNCOVERED — "activate() records an active-tool id and arms NOTHING". ⚠ `ToolManager.activateLift` now has zero production callers and is left in place (`packages/input-host` is another lane's), recorded as **L-7841** |
 | **4 — AI chat** | ⛔ `ChatCommandClassification.ts` classifies unknown verbs class B, so the chat route refuses `lift.create`. **L-5710, OPEN** |
 
 ⚠ **A stale claim corrected.** The brief for this lane stated that `lift` is one of
@@ -393,3 +393,94 @@ is a C47 format question and needs its own blast radius. **Recorded as L-7061, O
   co-existence — it makes the merge §1 forbids happen in the user's head. Until §7 is
   executed, **the palette offers the COMPOUND** and the massing command is reached only
   by the batch executors that need it.
+
+---
+
+## §13 — What a lift RENDERS, and what it does not (⭐ NEW 2026-08-23, lane LIFT42, L-7820..L-7824)
+
+> ⭐⭐ **The founder placed a lift. The command ran. No element landed, and nothing said so.**
+> His console: the status bar read *"Lift: standalone glass · 1.50 × 1.60 m · serves 2 storeys
+> from this level up · click to place"*, the dashed preview drew, `lift.create` reached the
+> **sync adapter** — which is what emits the W5-3 warning, so the command really was
+> dispatched — and then `[ProjectSerializer] Snapshot created: **14 elements**`, unchanged
+> from 14 before the click.
+
+### §13.1 — Where it was lost
+
+**`CommandEventBridge` is the ONLY relay** from a command's committed patches to the legacy
+mirrors that feed the 3-D scene *and* the element census. It carried a case for
+`balcony.create` — which is why the balcony works and lands five elements — and **none** for
+`lift.create`. So the lift fell to `default: break;`: **a silent drop wearing exhaustiveness
+as a disguise.** Measured 2026-08-23: `grep -in lift CommandEventBridge.ts` → **0**.
+
+⚠ **THE SECOND HALF OF THE TRAP, and it is §1's table read as a runtime fact.** *"But there
+IS a `LiftMeshBuilder`"* is not a rebuttal: `LiftMeshBuilder` is real, is constructed
+(`initBuilders.ts:985`) and is driven by `bim-lift-added` from **`LiftStore` — the LOD-200
+massing lift**. `lift.create` writes **`LiftCompoundStore`**. A mesh builder exists, runs, and
+watches the other store. UNDO37 hit the identical trap for undo (L-7311) and correctly refused
+to alias them — *"mapping it is C03 §4.6 U-2b corruption"*. **Aliasing them to make the
+compound draw would be that same corruption with a renderer attached, and is forbidden by
+R-8.**
+
+### §13.2 — The mirror census — ⛔ read this before claiming a lift renders
+
+Measured 2026-08-23 with **both** ripgrep and `grep -rn` (they have disagreed in this repo):
+
+| member store | route | subscribers | verdict |
+|---|---|---|---|
+| `wall` (enclosure sides of `kind:'wall'`) | `wall.created` | **2** | ✅ **MIRRORS AND RENDERS** |
+| `curtainwall` (glass sides) | — | **0** | ⛔ **no `curtainwall.created` event is DECLARED at all** |
+| `door` (landing doors) | `door.created` | **0** | ⚠ event declared, **nothing listens** |
+| `liftPart` (cabin) | — | — | ⛔ no legacy family, no fragment builder |
+| `slab` (voids) | — | — | ⚠ a REPLACE on existing slabs, not a create |
+
+**Therefore, and this is the sentence to quote rather than "the lift renders":**
+
+- a **WALL-HOSTED** lift has four `kind:'wall'` sides and **mirrors completely**;
+- a **STANDALONE-GLASS** lift has one wall (the landing side) + three curtain walls, so
+  **three of its four sides render nothing**. ⭐ *That is the type the founder placed.*
+
+### §13.3 — R-12 · R-13 · R-14 (binding)
+
+- **R-12** ⛔ **A lift member is NEVER mirrored as a member of a different family to make it
+  draw.** Emitting `wall.created` for a curtain-wall enclosure side would put a lift on
+  screen and is forbidden: it is C84 EI-9 (one id, one meaning) and it would make the ELEMENT
+  merge §1 forbids happen in the render store. **The correct closure is to declare
+  `curtainwall.created` and give it a mirror (L-7822), and to give `door.created` a
+  subscriber (L-7823).**
+- **R-13** ⭐ **A create that produces no visible element MUST SAY SO, at the layer that
+  knows.** `CommandEventBridge`'s `lift.create` case reports the un-mirrored members **by
+  store, by count and by reason**, once per lift, and it refuses the comfortable word: it
+  says **PARTIAL create**, because the record is real, undoable and schedulable while part of
+  it is invisible — *"failed"* and *"created"* are both wrong. Silence is the defect; a
+  cheerful success message is the same defect with better manners.
+- **R-14** ⭐ **`default:` in that bridge is not allowed to be silent for a COMPOUND.** The
+  balcony case had already stated *in prose* that the pool had this exact defect (*"⚠ THAT IS
+  NOT HYPOTHETICAL — IT IS THE SWIMMING POOL'S LIVE STATE"*) — and the lift then shipped with
+  the identical defect and the identical silence. **A comment is not a detector.** `default:`
+  now detects the mechanical signature — a multi-store patch (`path.length === 2`, the
+  `produceMultiStoreCommand` routing convention) with no case — and warns once per command
+  TYPE, naming the stores it wrote. Once per TYPE, never per dispatch: a line per click is
+  noise nobody reads, which fails exactly as silence does.
+
+### §13.4 — The reachability axis this adds
+
+§10's four axes measure whether a lift can be **dispatched**. **They cannot see whether it
+can be *seen*** — `liftReachableThroughComposedRuntime.test.ts` says so in its own header
+(*"It does NOT prove that a person can click a Lift button and get one"*) and was green
+throughout the founder's session.
+
+**Axis 5 — RENDER MIRROR:** ⚠ **PARTIAL.** Closed for `wall-hosted`, open for
+`standalone-glass` (L-7822). Proven by
+`apps/editor/__tests__/liftReachesTheRenderMirror.test.ts`, which asserts at
+`runtime.events` — the layer the mirrors actually consume — and **not** at the plugin store
+the older suite reads.
+
+### §13.5 — Sync: `lift.create` is now declared (C08 §3.2, L-7810)
+
+`lift.create` is `element-property` on subject `liftId`; **`lift.delete` is NOT-SYNCED with
+the blocker named**, and its cascade is the widest of the three compounds and the only one
+that **restores** state on other elements — it heals a void in every slab the shaft
+penetrated (§8). A tombstone that replicated the removals and dropped the heal would leave
+every collaborator with a full-height hole through every floor plate and no lift in it, which
+is strictly worse than not replicating the delete at all. See C08 §3.2.
