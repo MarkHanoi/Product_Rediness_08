@@ -48107,3 +48107,118 @@ the heatmap `heightReference` removal), `apps/editor/src/ui/geospatial/contextWa
 `docs/02-decisions/contracts/C12-GEOSPATIAL.md` §12.
 Root `tsc --noEmit` RC=0 · `eslint` RC=0 · new suite 10/10 · `contextSeaMask` +
 `contextTilesReader` unchanged (64/64 with the new suite).
+
+---
+
+### L-10180 — ⭐ **THREE COMPLAINTS, THREE DIFFERENT ANSWERS: one shipped fix, one NAMED LIMIT, one that is MEASURED rather than guessed** (lane FACADE13, 2026-08-23)
+
+Founder: *"could you cut the buildings properly in 3D globe? and ideally **mask the cut area with
+white surfaces**? my building is not visible because probably the parcel is smaller than the 3D
+globe tiles."* Screenshots: a jagged stair-stepped void edge, raw pink/orange tile interior inside
+the cut, and no building in it — while a 3D-Site screenshot proves the building exists.
+
+#### ⭐ §L-452 IS SPENT — the "correct fix" it named HAS shipped, and the note outlived its own measurement
+
+`applyParcelClipToPhotorealTiles` carried, in the present tense: *"THE CORRECT FIX (L-452, not
+this line): stop clipping the tileset at all and instead render the proposal so it is not
+depth-occluded by it — Cesium's newer `Cesium3DTileset.clippingPolygons` cuts a true polygonal
+void rather than the plane-volume approximation that produces the smear, **and is the first thing
+to try**."*
+
+**MEASURED: it was tried, and it is what runs.** The code assigns
+`tileset.clippingPolygons = new Cesium.ClippingPolygonCollection(...)` — not `clippingPlanes`.
+The sentence is now quoted **inside** the notice that retires it rather than deleted, so the next
+reader can see the claim was made and closed; a test pins that ORDER, because deleting it is how
+the same wrong remedy gets re-proposed. This is §CONFIDENT-REGISTER-ROWS in a comment: a prose
+verdict outliving the measurement it was based on.
+
+#### (1) THE JAGGED EDGE — a NAMED LIMIT. No clipping change can smooth it, and the reason is not the tile grid either
+
+Measured against the shipped bundle (`node_modules/cesium/Build/CesiumUnminified/index.js`,
+cesium 1.143):
+
+- `ClippingPolygonCollection.getClippingDistanceTextureResolution` →
+  `min(maximumTextureSize, max(128, ceil(4096 · quality)))`, with **`this.quality = options.quality ?? 1`**
+  and a **LINEAR**-filtered sampler. Over a city plot's own extent that is roughly centimetre
+  precision, anti-aliased. ⭐ **The clip is already at the API's ceiling — raising `quality` buys
+  literally nothing.**
+
+⚠ **So the briefed suspicion ("very likely a tile-resolution limit") is half right and half wrong,
+and the half that is wrong matters.** It is a limit, but not the tile GRID: what is ragged is the
+**SECTION**. A vertical cut through a captured 3-D city mesh crosses roofs, façades and ground at
+many different heights, so the cut face is a stepped cross-section by geometry, and behind it you
+see the mesh's BACK faces. ⭐ **That makes (1) and (2) the SAME defect** — "nothing is covering the
+cut" — not two, which is why one fix closes both.
+
+#### (2) THE EXPOSED INTERIOR — FIXED, exactly as the founder asked
+
+`applyPhotorealVoidCap` fills the void with an opaque neutral-white plug
+(`FORMA_PALETTE.proposedFill`, the same near-white the Forma study paints the model with).
+
+**WHAT A VIEWER SHOULD UNDERSTAND IT TO MEAN — stated, not left implicit:** the void is a **hole we
+made in a photograph**, not a design decision. Left open it reads as a rendering failure; filled
+with a neutral solid it reads as *"this plot is cleared; the captured city stops here."*
+⛔ **It is deliberately NOT textured, tinted or shaded to imitate ground.** Inventing a surface
+where we deleted the evidence would be a worse answer than the hole.
+
+**WHY A SOLID PLUG, NOT A CAP OR A SKIRT:** a downward skirt's walls face OUTWARD, so a camera in
+or above the pit sees their back faces — the exact artefact being fixed. An extruded polygon
+closed on top, sides and bottom is covered from every reachable angle.
+
+- Top at `formaTerrainBaseHeight − 0.05 m` — the building's own datum, minus 5 cm so the design's
+  ground slab wins the depth test instead of z-fighting the plug.
+- Depth 60 m: a **stated generous constant**, not a derived number. The captured section's depth is
+  not measurable, so the honest choice is a constant that exceeds anything a street-level or
+  oblique camera can see through the hole; an over-deep plug costs nothing (it is inside the void).
+- **Re-seated with the model** (`reseatPhotorealVoidCap`, called beside `reseatRealModelOnGlobe`).
+  Created at clip time, which can precede the tile-height clamp by seconds — without this it would
+  hang at ellipsoid 0 while the building rose to real ground.
+- Removed wherever the void is: no parcel, no tileset, `__pryzmPlotClearPhotoreal = false`, clip
+  failure, **Forma mode** (tiles hidden, base reset to 0 — a surviving plug would be a white slab
+  on the Forma ground), project switch, dispose.
+
+#### (3) "MY BUILDING IS NOT VISIBLE" — ⛔ NOT FIXED, and deliberately NOT GUESSED
+
+**The brief was right that this may be a separate defect, and it is the one I could not decide
+statically.** Four causes render identically on screen, and the discriminating evidence is runtime
+state I do not have a capture of:
+
+1. **Anchored OUTSIDE the void.** The model is placed at the **site origin**; the void is cut at
+   the **parcel**. If they disagree the design stands under *un-clipped* tiles — buried — while the
+   void reads perfectly fine a few metres away. ⭐ **The only cause invisible in a screenshot**, and
+   the only one the founder's own theory cannot explain.
+2. **Held hidden for an unresolved ground datum** (§FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF, L-259).
+3. **No real model at all** — `exportFragmentsToGLB` refuses over `REAL_GLB_TRIANGLE_BUDGET` and
+   returns `''`; only the massing exists.
+4. **Seated below the visible tile ground.**
+
+⛔ **THE OBVIOUS HYPOTHESIS WAS TESTED AND IS FALSE.** I expected an unsatisfiable gate of the
+[[unsatisfiable-gate-decomposition-is-the-fix]] shape: the clip removes the tiles over the parcel,
+the ground clamp samples the parcel, the sample hits nothing, the datum never resolves, the model
+stays hidden forever. **`§GLOBE-DONT-MEASURE-THE-HOLE` (L-479) already closed exactly that loop** —
+when `photorealTilesActive`, the in-parcel picks are dropped and the ground is measured from the
+**street ring only**, which is outside the void. And every terminal branch of the clamp reveals the
+building (`retries-exhausted-datum-unknown`), so it cannot be hidden indefinitely. **Measured, not
+assumed — and it is why I did not ship a fix for a loop that is already closed.**
+
+**SHIPPED INSTEAD: the probe that decides it.** `logPhotorealVoidVsBuilding`
+(§PROBE-GLOBE-BUILDING-IN-VOID) fires the moment the void is cut and prints ALL FOUR
+discriminators in one line — `real-model=present|ABSENT` · `shown` · `massing-visible` ·
+**`anchor-in-void=y|n` with the anchor→parcel-centroid separation in metres** · `ground=RESOLVED
+source=… | UNRESOLVED` · `seat=… m ellipsoidal` · `held-hidden-for-ground`. Read-only, guarded, and
+pinned by test to name every candidate — **a probe that omits one silently rules it out.** Per
+[[context-data-honesty-family]]: ship the probe before the fix.
+
+#### Constraints honoured
+
+⛔ The clip was NOT disabled to make the building appear (that is the "clean-but-invisible" state
+the code already rejects). `__pryzmPlotClearPhotoreal = false` was used only as the comparison
+lever it is documented to be, and is not the fix. Nothing was deleted; the cap is additive and its
+failure path leaves the void exactly as it is today.
+
+**Files:** `apps/editor/src/ui/geospatial/CesiumViewport.ts` (`applyPhotorealVoidCap`,
+`clearPhotorealVoidCap`, `reseatPhotorealVoidCap`, `logPhotorealVoidVsBuilding`, the L-452
+retirement, two constants, four clear-sites), `apps/editor/__tests__/photorealVoidCap.test.ts`
+(new, 9 tests incl. the Cesium-bundle measurement),
+`docs/02-decisions/contracts/C12-GEOSPATIAL.md` §7.
+Root `tsc --noEmit` RC=0 · `eslint` RC=0 · 29/29 across this lane's three new suites.

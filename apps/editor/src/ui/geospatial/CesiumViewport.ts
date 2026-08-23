@@ -347,6 +347,27 @@ const GLOBE_GROUND_CLAMP_MAX_RETRIES = 12;
 const GLOBE_GROUND_CLAMP_RETRY_MS = 1200;
 
 /**
+ * §FIX-PHOTOREAL-VOID-CAP (L-10180, founder 2026-08-23) — how far BELOW the building's seat the
+ * white plug that masks the parcel void extends.
+ *
+ * A vertical cut through captured 3-D city mesh exposes a SECTION whose depth is whatever the
+ * capture happens to contain under the plot — basements, undercrofts, the underside of the
+ * surrounding ground. There is no measurement available for that depth, so this is deliberately a
+ * GENEROUS CONSTANT rather than a derived number: it must simply exceed anything a street-level or
+ * oblique camera can see through the hole. 60 m clears an urban block's captured relief with
+ * margin, and an over-deep plug costs nothing — it is entirely inside the void, hidden by its own
+ * top and sides.
+ */
+const PHOTOREAL_VOID_CAP_DEPTH_M = 60;
+/**
+ * §FIX-PHOTOREAL-VOID-CAP — how far below `formaTerrainBaseHeight` the plug's TOP sits. The
+ * building is anchored at exactly that datum and carries its own ground slab, so a coincident
+ * plug top would z-fight it. 5 cm is below anything readable at city scale and guarantees the
+ * design's own slab wins the depth test.
+ */
+const PHOTOREAL_VOID_CAP_SEAT_EPSILON_M = 0.05;
+
+/**
  * §SITE-CINEMATIC-ARRIVAL (founder, 2026-06-17) — the OPPOSITE of the quick
  * snap-zoom. On an interactive location change the camera should establish like
  * a film shot: start FAR/high above the target, then SLOWLY descend with an
@@ -1491,6 +1512,10 @@ export class CesiumViewport {
    *  so the translucent #6600FF buildable-envelope study volume reads on a clear plot.
    *  Null = no parcel committed → nothing suppressed (unchanged behaviour). */
   private committedParcelLonLat: Array<[number, number]> | null = null;
+  /** §FIX-PHOTOREAL-VOID-CAP (L-10180) — the WHITE PLUG that masks the parcel-shaped void cut
+   *  into the photoreal tileset. One entity, created/re-seated/removed alongside the clip
+   *  itself (`applyParcelClipToPhotorealTiles` is the single chokepoint). Null = no void cut. */
+  private photorealVoidCapEntity: Cesium.Entity | null = null;
   /** §CTX-PAN-DEBOUNCE (L-402c) — epoch-ms of the last context (re)load, so a pan can't
    *  trigger repeated multi-second Overpass reloads while the camera is framed on the plot. */
   private contextLastLoadAtMs = 0;
@@ -3621,6 +3646,12 @@ export class CesiumViewport {
     this.globeGroundResolved = false;
     this.globeGroundSource = 'unresolved';
     this.globeBuildingHiddenForGround = false;
+    // §FIX-PHOTOREAL-VOID-CAP (L-10180) — the plug masks a hole in the PHOTOREAL tiles, which are
+    // hidden below in Forma mode. Two reasons it must go with them: there is no cut to mask, and
+    // the base was just reset to 0 three lines up, so a surviving plug would hang at the ellipsoid
+    // under the flat Forma ground. Re-created on the way back out (restorePhotorealMode →
+    // renderFormaMassing → applyParcelClipToPhotorealTiles).
+    this.clearPhotorealVoidCap();
     // §GLOBE-FIRST-FRAME-BASE — drop any pending one-shot re-frame across the mode
     // switch; the next placement re-arms it if it frames against an unresolved base.
     this.formaReframeOnBaseSettle = null;
@@ -5934,6 +5965,14 @@ export class CesiumViewport {
       this.reseatRealModelOnGlobe();
       this.clearFormaMassingEntitiesOnly();
     }
+    // §FIX-PHOTOREAL-VOID-CAP (L-10180) — the white plug is seated on the SAME datum as the
+    // model, so it must ride the SAME re-seat. It is created when the void is cut, which can
+    // precede the tile-height clamp by seconds; without this it would stay at whatever
+    // `formaTerrainBaseHeight` was then (ellipsoid 0 on a cold cache) while the building rose to
+    // the measured ground — a white slab hanging under the design. Unconditional on the
+    // keepPhotoreal path: the cap exists only where a void was cut, and the call is a no-op
+    // otherwise.
+    if (input.keepPhotoreal) this.reseatPhotorealVoidCap();
 
     // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — THE VERTICAL INVARIANT. On the photoreal
     // globe the visible ground is the Google 3D-Tiles MESH (ellipsoidal heights, geoid
@@ -8751,24 +8790,46 @@ export class CesiumViewport {
     // was a BAD TRADE and I got the priority wrong: the void is not merely an occlusion
     // nicety, it is the DEPTH-CLEARING MECHANISM. Without it the proposed building renders
     // BURIED UNDER the tile mesh and cannot be seen at all, which blocks the founder harder
-    // than the corruption did — they could at least evaluate position through a corrupted hole,
-    // but nothing can be evaluated through an opaque one.
+    // than the corruption did.
     //
-    // So: corrupted-but-visible beats clean-but-invisible, until the correct fix lands.
-    // THE CORRECT FIX (L-452, not this line): stop clipping the tileset at all and instead
-    // render the proposal so it is not depth-occluded by it — Cesium's newer
+    // ⭐ §L-452 IS SPENT — RETIRED 2026-08-23 (L-10180), NOT re-justified. This block used to
+    // end: *"THE CORRECT FIX (L-452, not this line): … Cesium's newer
     // `Cesium3DTileset.clippingPolygons` cuts a true polygonal void rather than the
-    // plane-volume approximation that produces the smear, and is the first thing to try.
+    // plane-volume approximation that produces the smear, and is the first thing to try."*
+    // **That fix HAS been tried and IS what runs below** — the code assigns
+    // `tileset.clippingPolygons` (a `ClippingPolygonCollection`), not `clippingPlanes`. Leaving
+    // the sentence standing described an untried remedy that had in fact shipped, which is the
+    // §CONFIDENT-REGISTER-ROWS failure: a prose verdict outliving its own measurement.
+    //
+    // WHAT THE POLYGON CLIP DID AND DID NOT FIX, MEASURED (cesium 1.143):
+    //   • The plane-volume SMEAR is gone. The clip is per-fragment against a signed-distance
+    //     field, and `ClippingPolygonCollection.getClippingDistanceTextureResolution` is
+    //     `min(maximumTextureSize, max(128, ceil(4096 · quality)))` with `quality` defaulting to
+    //     **1** — a 4096² LINEAR-filtered SDF over the parcel's own padded extent, i.e. roughly
+    //     centimetre precision on a city plot. ⚠ Raising `quality` buys NOTHING: it is already
+    //     at the API's practical ceiling. **So the ragged void edge the founder photographed is
+    //     NOT clip precision, and no clipping parameter will smooth it.**
+    //   • What IS ragged is what a vertical cut through a 3-D captured mesh necessarily exposes:
+    //     the SECTION. Roofs, façades and ground inside the parcel are at many heights, so the
+    //     cut face is a stepped cross-section, and behind it you see the mesh's BACK faces —
+    //     the founder's raw pink/orange. That is not a defect in the cut; it is the absence of
+    //     anything covering the cut. The founder named the fix himself: *"mask the cut area with
+    //     white surfaces."* See `applyPhotorealVoidCap` below.
     // Set `globalThis.__pryzmPlotClearPhotoreal = false` to opt OUT and see clean context.
-    if ((globalThis as Record<string, unknown>).__pryzmPlotClearPhotoreal === false) return;
+    if ((globalThis as Record<string, unknown>).__pryzmPlotClearPhotoreal === false) {
+      this.clearPhotorealVoidCap();
+      return;
+    }
 
     try {
       const tileset = this.photorealTileset;
-      if (!tileset) return; // keyless / flat-ground study — nothing to clip.
+      if (!tileset) { this.clearPhotorealVoidCap(); return; } // keyless / flat study — nothing to clip.
       const parcel = this.committedParcelLonLat;
 
-      // No committed parcel → restore the untouched photoreal mesh.
+      // No committed parcel → restore the untouched photoreal mesh (and drop the cap with it —
+      // a white plug with no void under it would be a white slab sitting on the real city).
       if (!parcel || parcel.length < 3) {
+        this.clearPhotorealVoidCap();
         if (tileset.clippingPolygons) {
           tileset.clippingPolygons = undefined as unknown as Cesium.ClippingPolygonCollection;
           console.log('[CesiumViewport][globe] §PLOT-CLEAR-PHOTOREAL — no parcel; photoreal tiles restored (clip removed).');
@@ -8803,15 +8864,182 @@ export class CesiumViewport {
         `[CesiumViewport][globe] §PLOT-CLEAR-PHOTOREAL — parcel-shaped void clipped into the photoreal ` +
           `tileset (${degrees.length / 2}-vertex ring); the proposed design now reads inside real context.`,
       );
+      // §FIX-PHOTOREAL-VOID-CAP (L-10180) — mask the cut with white surfaces, per the founder.
+      this.applyPhotorealVoidCap(parcel);
+      // §PROBE-GLOBE-BUILDING-IN-VOID (L-10180) — one line that says whether the building can
+      // possibly be visible in this void, and if not, WHICH of the causes it is.
+      this.logPhotorealVoidVsBuilding(parcel);
       this.viewer?.scene.requestRender();
     } catch (e) {
       // NICE-TO-HAVE — must NEVER break the globe. Drop the clip, keep the tiles.
       console.warn('[CesiumViewport][globe] §PLOT-CLEAR-PHOTOREAL clip failed — photoreal tiles left un-clipped:', e);
       try {
+        this.clearPhotorealVoidCap();
         if (this.photorealTileset?.clippingPolygons) {
           this.photorealTileset.clippingPolygons = undefined as unknown as Cesium.ClippingPolygonCollection;
         }
       } catch { /* give up silently — the tileset stays as-is */ }
+    }
+  }
+
+  /**
+   * §FIX-PHOTOREAL-VOID-CAP (L-10180, founder 2026-08-23: *"ideally mask the cut area with white
+   * surfaces"*) — fill the parcel-shaped void with a WHITE PLUG so the cut reads as a clean
+   * prepared plot rather than as a ragged hole in captured reality.
+   *
+   * WHAT THE VIEWER SHOULD UNDERSTAND IT TO MEAN, and why it is shaped this way: the void is a
+   * HOLE WE MADE IN A PHOTOGRAPH, not a design decision. Left open it shows the tile mesh's own
+   * section and back faces (the founder's pink/orange) — an artefact a viewer can only read as a
+   * rendering failure. Filled with a neutral white solid it reads as *"this plot has been cleared;
+   * the captured city stops here"*, which is exactly what has happened and is the same visual
+   * language as the Forma white study. ⛔ It is deliberately NOT textured, tinted or shaded to
+   * imitate ground: inventing a surface where we removed the evidence would be a worse answer than
+   * the hole.
+   *
+   * WHY A SOLID PLUG AND NOT A CAP + SKIRT: a downward skirt's walls face OUTWARD from the parcel,
+   * so a camera inside or above the pit sees their back faces — the exact class of artefact being
+   * fixed. An extruded polygon whose TOP sits at the building's own seat and whose bottom sits
+   * `PHOTOREAL_VOID_CAP_DEPTH_M` below it is closed on every side the viewer can reach: from above
+   * the top face covers the section; from the street the outward side faces cover it.
+   *
+   * ⚠ The top is seated a few centimetres BELOW `formaTerrainBaseHeight` — the SAME datum the
+   * building is anchored at — so the model's own ground slab wins the depth test instead of
+   * z-fighting the plug, while the gap stays far below anything visible at city scale. Re-seated
+   * by {@link reseatPhotorealVoidCap} whenever the tile clamp settles the datum, exactly like the
+   * model itself; otherwise a plug placed before the clamp would sit at ellipsoid 0.
+   */
+  private applyPhotorealVoidCap(parcel: ReadonlyArray<readonly [number, number]>): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    try {
+      this.clearPhotorealVoidCap();
+      // A tileset can finish loading while the user is already in the FORMA flat-ground study
+      // (`applyFormaMode` hides every tileset; the clip is still applied to the hidden tiles so it
+      // is correct on the way back). There is no visible hole to mask there, and `formaTerrainBase
+      // Height` is the flat 0 — so a plug built here would be a white slab on the Forma ground.
+      if (this.formaMode) return;
+      const degrees: number[] = [];
+      for (const [lon, lat] of parcel) {
+        if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue;
+        degrees.push(lon, lat);
+      }
+      if (degrees.length < 6) return;
+      const top = this.formaTerrainBaseHeight - PHOTOREAL_VOID_CAP_SEAT_EPSILON_M;
+      const ent = viewer.entities.add({
+        name: 'pryzm-photoreal-void-cap',
+        polygon: {
+          hierarchy: new Cesium.PolygonHierarchy(Cesium.Cartesian3.fromDegreesArray(degrees)),
+          // Cesium entity polygons take `height` as the BOTTOM and `extrudedHeight` as the TOP.
+          height: top - PHOTOREAL_VOID_CAP_DEPTH_M,
+          extrudedHeight: top,
+          material: Cesium.Color.fromCssColorString(FORMA_PALETTE.proposedFill),
+          outline: false,
+          // Opaque: the plug's whole job is to STOP the section behind it being seen.
+          closeTop: true,
+          closeBottom: true,
+          shadows: Cesium.ShadowMode.RECEIVE_ONLY,
+        },
+      });
+      this.photorealVoidCapEntity = ent;
+      console.log(
+        `[CesiumViewport][globe] §FIX-PHOTOREAL-VOID-CAP (L-10180) — void masked with a white plug ` +
+          `(${degrees.length / 2}-vertex parcel, top ${top.toFixed(2)} m = building seat ` +
+          `−${PHOTOREAL_VOID_CAP_SEAT_EPSILON_M} m, depth ${PHOTOREAL_VOID_CAP_DEPTH_M} m). The cut is a ` +
+          `HOLE IN A PHOTOGRAPH, shown as a cleared plot — never a textured invention of ground.`,
+      );
+    } catch (e) {
+      // Cosmetic — a failed cap must never cost the void or the globe.
+      console.warn('[CesiumViewport][globe] §FIX-PHOTOREAL-VOID-CAP failed (void left uncapped):', e);
+    }
+  }
+
+  /** §FIX-PHOTOREAL-VOID-CAP (L-10180) — drop the white plug. Idempotent; never throws. */
+  private clearPhotorealVoidCap(): void {
+    const ent = this.photorealVoidCapEntity;
+    this.photorealVoidCapEntity = null;
+    if (!ent) return;
+    try { this.viewer?.entities.remove(ent); } catch { /* entity/viewer gone */ }
+  }
+
+  /**
+   * §FIX-PHOTOREAL-VOID-CAP (L-10180) — re-seat the plug onto the settled tile ground, mirroring
+   * {@link reseatRealModelOnGlobe}. The cap is created at clip time, which can precede the
+   * `clampToPhotorealTilesThenReplace` datum by seconds; without this it would stay at whatever
+   * `formaTerrainBaseHeight` was then (ellipsoid 0 on a cold cache) while the building rose to the
+   * real ground — a white slab hanging under the design. Idempotent; never throws.
+   */
+  private reseatPhotorealVoidCap(): void {
+    const ent = this.photorealVoidCapEntity;
+    if (!ent || !ent.polygon) return;
+    try {
+      const top = this.formaTerrainBaseHeight - PHOTOREAL_VOID_CAP_SEAT_EPSILON_M;
+      ent.polygon.extrudedHeight = new Cesium.ConstantProperty(top);
+      ent.polygon.height = new Cesium.ConstantProperty(top - PHOTOREAL_VOID_CAP_DEPTH_M);
+      this.viewer?.scene.requestRender();
+    } catch (e) {
+      console.warn('[CesiumViewport][globe] §FIX-PHOTOREAL-VOID-CAP re-seat failed (non-fatal):', e);
+    }
+  }
+
+  /**
+   * §PROBE-GLOBE-BUILDING-IN-VOID (L-10180) — the founder's third complaint was *"my building is
+   * not visible"*, and it has at least four DIFFERENT causes that all look identical on screen.
+   * Guessing between them is exactly the failure this repo has logged as
+   * §CONFIDENT-REGISTER-ROWS, so this probe prints the discriminator instead — every fact needed
+   * to name the cause, in one line, at the moment the void is cut:
+   *
+   *   1. **ANCHORED OUTSIDE THE VOID.** The building is placed at the SITE ORIGIN and the void is
+   *      cut at the PARCEL. If those disagree, the design is standing under un-clipped tiles —
+   *      buried — while the void looks perfectly fine a few metres away. Reported as
+   *      `anchor-in-void=n` plus the separation in metres. ⭐ This is the only cause the founder's
+   *      own theory (*"the parcel is smaller than the 3D globe tiles"*) cannot explain, and the
+   *      only one that is invisible in a screenshot.
+   *   2. **HELD HIDDEN FOR AN UNRESOLVED GROUND DATUM** (§FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF,
+   *      L-259). Reported as `ground=UNRESOLVED` + `shown=n`.
+   *   3. **NO REAL MODEL AT ALL** — `exportFragmentsToGLB` refuses over the triangle budget and
+   *      returns `''`, so only the massing exists. Reported as `real-model=absent`.
+   *   4. **SEATED BELOW THE VISIBLE GROUND** — the datum resolved to a value far under the tile
+   *      street. Reported as the seat height + its source, so it can be compared to the picks.
+   *
+   * Read-only, guarded, never throws. It changes nothing — it only makes the next report decidable.
+   */
+  private logPhotorealVoidVsBuilding(parcel: ReadonlyArray<readonly [number, number]>): void {
+    try {
+      const model = this.realModelOnGlobe;
+      const modelLive = !!model && !model.isDestroyed();
+      const anchor = this.realModelOnGlobeOrigin;
+      let inVoid: 'y' | 'n' | 'n/a' = 'n/a';
+      let sepM = 'n/a';
+      if (anchor && parcel.length >= 3) {
+        inVoid = pointInRingEvenOdd(
+          anchor.lon, anchor.lat, parcel.length, (i) => parcel[i]![0], (i) => parcel[i]![1],
+        ) ? 'y' : 'n';
+        // Separation from the parcel centroid, in metres — a number, not a verdict.
+        let cLon = 0, cLat = 0;
+        for (const [lon, lat] of parcel) { cLon += lon; cLat += lat; }
+        cLon /= parcel.length; cLat /= parcel.length;
+        const dN = (anchor.lat - cLat) * 111_320;
+        const dE = (anchor.lon - cLon) * 111_320 * Math.cos((cLat * Math.PI) / 180);
+        sepM = `${Math.hypot(dE, dN).toFixed(1)} m`;
+      }
+      const massingVisible = this.formaMassingEntities.some(
+        (e) => !this.formaSiteOverlayEntities.has(e) && e.show !== false,
+      );
+      console.log(
+        `[CesiumViewport][globe] §PROBE-GLOBE-BUILDING-IN-VOID (L-10180) — ` +
+          `real-model=${modelLive ? 'present' : 'ABSENT (massing only — check for "REAL GLB declined" above)'} · ` +
+          `shown=${modelLive ? (model!.show ? 'y' : 'n') : 'n/a'} · ` +
+          `massing-visible=${massingVisible ? 'y' : 'n'} · ` +
+          `anchor-in-void=${inVoid} (anchor→parcel-centroid ${sepM}) · ` +
+          `ground=${this.globeGroundResolved ? `RESOLVED source=${this.globeGroundSource}` : 'UNRESOLVED'} ` +
+          `seat=${this.formaTerrainBaseHeight.toFixed(2)} m ellipsoidal · ` +
+          `held-hidden-for-ground=${this.globeBuildingHiddenForGround ? 'y' : 'n'}. ` +
+          `⚠ anchor-in-void=n means the design stands under UN-CLIPPED tiles — buried — while the ` +
+          `void reads correctly elsewhere; that is a DIFFERENT defect from the cut and is not ` +
+          `fixed by changing the cut.`,
+      );
+    } catch (e) {
+      console.warn('[CesiumViewport][globe] §PROBE-GLOBE-BUILDING-IN-VOID threw (non-fatal):', e);
     }
   }
 
@@ -13620,6 +13848,11 @@ export class CesiumViewport {
         this.contextSeaAbort = null;
         this.clearContextSea();
         this.contextSeaAt = null;
+        // §FIX-PHOTOREAL-VOID-CAP (L-10180) — the white plug belongs to ONE parcel's void. It must
+        // never survive into the next project: `formaTerrainBaseHeight` resets to 0 below, so a
+        // stranded plug would hang at the ellipsoid over a different city. Cleared on BOTH modes
+        // (a project switch keeps the viewer and its tileset, but not this site's parcel).
+        this.clearPhotorealVoidCap();
         if (mode === 'dispose') {
           // §A.21.D-GLOBE3 — re-detect photoreal tiles on the next mount (a re-mounted
           // viewport re-loads its tileset), so the context-suppression decision is fresh.

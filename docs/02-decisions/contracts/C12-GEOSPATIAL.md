@@ -304,6 +304,33 @@ baseline tag `snapshot-cesium-3d-globe-working-2026-07-17`; the live-run evidenc
   after the user moved the camera (otherwise the user must manually zoom to find the building). The fire-at-
   most-once latch and the small-settle user-control protection are preserved for jumps at or under the
   threshold. Seam: `CesiumViewport.performInitialReframe`.
+- **MUST (the parcel void is a HOLE IN A PHOTOGRAPH — it MUST be masked, and MUST NOT invent ground).**
+  §PLOT-CLEAR-PHOTOREAL cuts a parcel-shaped void through the tileset so the proposal is not buried. A
+  vertical cut through captured 3-D mesh necessarily exposes a SECTION — roofs, façades and ground at many
+  heights — and the mesh's BACK faces behind it (the founder's raw pink/orange, 2026-08-23). That is not a
+  defect in the cut; it is the absence of anything covering it. The void MUST therefore be filled with an
+  opaque NEUTRAL solid whose top sits at the building's own seat and whose sides and bottom close it
+  (`applyPhotorealVoidCap`, §FIX-PHOTOREAL-VOID-CAP / L-10180). ⛔ It MUST NOT be textured, tinted or shaded
+  to imitate ground: we deleted the evidence, and inventing a surface in its place is a worse answer than the
+  hole. A viewer must be able to read it as *"this plot is cleared; the captured city stops here."*
+  ⚠ The mask is seated on the SAME datum as the model and MUST ride the SAME re-seat — a plug created at clip
+  time, before the tile-height clamp settles, otherwise hangs at ellipsoid 0 under a building that rose to
+  real ground. It MUST be removed wherever the void is (no parcel, no tileset, opt-out, clip failure, Forma
+  mode, project switch, dispose).
+- **MUST NOT (claim a clipping remedy that has shipped).** The §L-452 note in `applyParcelClipToPhotorealTiles`
+  described `Cesium3DTileset.clippingPolygons` as *"the first thing to try"* long after it was what the code
+  ran. Retired 2026-08-23 with its measurement: the clip resolves against a signed-distance field sized
+  `min(maximumTextureSize, max(128, ceil(4096 · quality)))` with `quality` defaulting to **1**, LINEAR-filtered,
+  over the parcel's own extent — **already the API's ceiling**. ⭐ Therefore **the ragged void edge is NOT clip
+  precision and no clipping parameter will smooth it**; a NAMED limit with a cap over it beats a smoothed-over
+  one. Any future note in this area MUST state what was measured and when.
+- **MUST ("my building is not visible" is DECIDED by a probe, never by inspection).** At least four distinct
+  causes render identically: (1) the model anchored OUTSIDE the void, standing under un-clipped tiles — the
+  only cause invisible in a screenshot; (2) held hidden for an unresolved ground datum (§1.4 / L-259); (3) no
+  real model at all, because the GLB export refused over the triangle budget; (4) seated below the visible
+  tile ground. Cutting the void MUST therefore emit the discriminator for ALL FOUR in one line
+  (`logPhotorealVoidVsBuilding`, §PROBE-GLOBE-BUILDING-IN-VOID). A probe that omits a candidate silently rules
+  it out, and choosing between them by reasoning is the §CONFIDENT-REGISTER-ROWS failure this repo has logged.
 - **Reference (read-only):** `apps/editor/src/ui/geospatial/globeGroundAnchor.ts` (pure decisions),
   `CesiumViewport` (`renderRealModelOnGlobe:7530`, `renderFormaMassing:3021`, `resolveFullBuildingHeight:8035`,
   `tileBandsToFullHeight:8081`, `holdGlobeBuildingForUnresolvedGround:4340`, `revealGlobeBuildingForGround:4352`,
@@ -719,3 +746,4 @@ Cesium's one-time `"Entity corridor, ellipse, polygon or rectangle with heightRe
 | 2026-08-19 | **§11 The massing EXTENT contract added (L-1204/L-1205/L-1206/L-1207/L-1208).** Ring precedence: the building wall-loop/slab ring outranks the drawn PARCEL ring (the massing was extruded over the plot line, and its top cap was the pale sheet the founder reported as a broken roof). Height: the placed GLB bounding-SPHERE diameter is banned as a height source (it reported a 20.9 m building as 42.4 m and synthesised 7 phantom storeys); synthetic bands must declare themselves and name their height source. GLB: unsupported materials must be named, one white/glass pair per export tree, and export behaviour asserted through the REAL exporter. |
 | 2026-08-19 | **§1.5.1 the NAMED FRAME FLAG added; §1.5 two "NOT verified" items resolved; §9 progress + §11.4 asymmetry DECIDED (L-1420/L-1421/L-1422/L-1423).** The founder's 3D-Globe Real building rendered as a continent-sized slab in the sky: `minY 2553068.999` is the WGS-84 ECEF **Y** of the **Sydney Opera House** (2 553 076.920) minus **7.921 m**, which is `east_y x_local` for a **9.04 m** house footprint — a derivation, not a magnitude. `GISAreaLayout:556-560` calls `setAnchor()` **unconditionally at GIS init** with that hard-coded default (a call site §1.5 did not know about, and itself L-1423), and the exporter baked `matrixWorld`. §1.5.1 makes the frame boundary **DERIVED** (arm A declared `userData.pryzmSceneFrame`, arm B measured >=100 km, shallowest ancestor, per-root probe, refuse-not-emit). §11.4: glazing reads as glass on the globe via `glazingOverride` — explicitly **NOT** `formaWhite: true`, which would be less realistic; and annotation overlays are stripped by THREE class, never by a name list. **§1.5 and §9 stay OPEN.** |
 | 2026-08-23 | **§12 Forma ground-context layer rules added (L-10160).** The founder's "water rivers … in the forefront overlapping buildings" is §FORMA-CTX-ROAD-RIBBON's BUG 3 one layer over: the waterway centre-lines were the last floating `polyline` layer AND the only one carrying `depthFailMaterial` (which draws a feature *precisely where it is occluded*) AND the one feature `reseatContextGroundFeaturesForBase` deliberately skipped, so on a risen city they sat far below the ground and were painted through it. Waterways are now `corridor` ground ribbons of class-typed NOMINAL width, re-seated with every other layer, dropped where OSM maps the river's real surface. §12.7 records that the `heightReference` console warning belonged to the site-metric heatmap, not the water — and was already being ignored by Cesium. |
+| 2026-08-23 | **§7 photoreal-void MASK + probe rules added (L-10180).** The founder's globe cut exposed the tile mesh's own section and back faces; the void is now filled with an opaque neutral plug seated on the building's datum and re-seated with it, and the plug must never invent ground. §L-452 RETIRED with its measurement: `clippingPolygons` (the fix that note called untried) is what ships, and its signed-distance resolution is already at the API ceiling — so the ragged edge is a NAMED limit, not a tunable. "Building not visible" has four look-alike causes and is now decided by a one-line probe rather than by inspection. |
