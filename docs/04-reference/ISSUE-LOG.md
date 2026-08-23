@@ -41309,7 +41309,27 @@ detects the mechanical signature — a multi-store patch (`path.length === 2`) w
 and warns **once per command TYPE**, naming the stores it wrote. `pool.create` is the live
 case today.
 
-### L-7822 — ⛔ OPEN: a STANDALONE-GLASS lift renders only its LANDING SIDE
+### L-7822 — ⭐ CLOSED 2026-08-23 (lane LIFT56, L-9401) — ⛔ **AND THE DIAGNOSIS BELOW IS WRONG**
+> ⛔⛔ **READ THIS BEFORE THE TABLE. `curtain-wall.created` — HYPHENATED — HAS BEEN
+> DECLARED, EMITTED AND MIRRORED SINCE §P3.1-CW.** The census below grepped
+> `curtainwall.created`, **unhyphenated**, got zero, and wrote *"no such event is declared
+> at all"*. One character. `[[grep-silence-has-three-causes]]`: a grep that returns nothing
+> and a thing that does not exist are **the same value and different facts**.
+>
+> The row is kept verbatim rather than rewritten because **the wrong reading propagated
+> into four artefacts** — this row, C104 §13.2, the `CommandEventBridge` console message
+> the founder pasted, and a test that asserted the partiality — where it then read as
+> settled fact for a day. ⚠ **And its prescription was actively harmful:** *"declare
+> `curtainwall.created` + a mirror"* would have minted a **second** curtain-wall
+> vocabulary beside the live one — C84 EI-9, the rule the same paragraph invoked.
+>
+> **The actual fix was one loop:** the bridge's `lift.create` case now emits
+> `curtain-wall.created` per glass side with `bayWidth` / `bayHeight` (without which
+> `migrateToGridSystem()` yields NaN → 0 mullions → **an empty mesh**, not merely a wrong
+> grid). Proven at `runtime.events` by `liftReachesTheRenderMirror.test.ts` **B-1**.
+
+**(historical, as written 2026-08-23 by lane LIFT42)**
+
 **MIRROR CENSUS, measured with BOTH ripgrep and `grep -rn`** (they have disagreed in this
 repo before):
 
@@ -41328,13 +41348,53 @@ word: it says **PARTIAL create**, because the record is real, undoable and sched
 part of it is invisible, and both "failed" and "created" would be wrong.
 **Closing it = declare `curtainwall.created` + a mirror.**
 
-### L-7823 — ⛔ OPEN: `door.created` is a channel that reads as live and is dead at the far end
-Declared in `RuntimeEvents`, zero subscribers. The lift's landing doors are therefore not
-emitted at all rather than emitted into nothing — emitting would be the `pryzm:toast` defect
-(L-7005) repeated.
+### L-7823 — ⭐ CLOSED 2026-08-23 (lane LIFT56, L-9402) — ⛔ **THE PREMISE WAS THE WRONG CHANNEL**
+**(historical)** *Declared in `RuntimeEvents`, zero subscribers. The lift's landing doors are
+therefore not emitted at all rather than emitted into nothing — emitting would be the
+`pryzm:toast` defect (L-7005) repeated.*
 
-### L-7824 — ⛔ OPEN: `liftPart` has no legacy family and no fragment builder
-Five cabin parts per lift, reported and not rendered.
+> ⭐ **EVERY SENTENCE ABOVE IS TRUE ABOUT `door.created`, AND `door.created` WAS NEVER THE
+> CHANNEL A LANDING DOOR NEEDED.** It is a bare COUNT event —
+> `{commandId, commandType, levelId, elementCount}`, no geometry at all — and **TASK-13
+> removed its CEB case on purpose**, recording that doors use the Committer architecture.
+> Giving it a subscriber, as this row and C104 R-12 both prescribed, would have minted a
+> **second** door channel beside the live one: C84 EI-9.
+>
+> ⭐ **THE LIVE CHANNEL IS `wall.opening.created` (initTools §P2.3), and it does BOTH halves
+> a landing door needs** — `addOpening()` on the legacy wall (**the hole in the shaft**) and
+> `doorStore.add(buildDoorStoreRecord(…))` (**the leaf and the plan swing arc**), through the
+> same one chokepoint a hand-placed door uses, so a lift's door is by construction the same
+> legacy record as a drawn one. The bridge now emits it per landing door. Proven by
+> `liftReachesTheRenderMirror.test.ts` **B-1b**.
+>
+> ⚠ **AND A SECOND, REAL DEFECT WAS FOUND UNDERNEATH IT — see L-9402.** The landing side was
+> emitted with `openings: []` while N `Door` records claimed to be hosted in it, and every
+> door carried `openingId: ''`. A door in front of solid concrete: the schedule counts it,
+> the IFC export has it, and you cannot walk through it. **The wrong-channel diagnosis had
+> hidden a genuine C15 breach that no amount of subscribing to `door.created` would have
+> fixed.**
+
+### L-7824 — ⭐ CLOSED 2026-08-23 (lane LIFT56, L-9400): `liftPart` now has a fragment builder
+**(historical)** *`liftPart` has no legacy family and no fragment builder. Five cabin parts
+per lift, reported and not rendered.*
+
+> ⭐ **THIS ROW WAS EXACTLY RIGHT, AND IT IS THE ONLY ONE OF THE THREE THAT WAS.** Its two
+> siblings (L-7822, L-7823) each named a channel that already existed under a different
+> spelling; this one named something genuinely **ABSENT**. That distinction is the whole
+> value of C01 §6 rule 6 — *absent* and *unreachable* have opposite fixes — and it is why
+> this is the one place a new artefact was **BUILT** rather than connected:
+> `packages/geometry-lift/src/LiftCompoundMeshBuilder.ts`, driven by the newly-declared
+> `lift.created` event through initTools' **§FT-LIFT** subscriber, constructed in
+> `initBuilders.ts` and registered on the `bim-project-cleared` sweep.
+>
+> ⛔ **It is deliberately NOT `LiftMeshBuilder`.** That builder is real, is constructed, and
+> draws the **LOD-200 MASSING** lift from `LiftStore` — a different element. C104 §13.1
+> records this as the trap that hid the whole defect for a day (*"a mesh builder exists,
+> runs, and watches the other store"*). Routing the compound into it is the corruption
+> UNDO37 refused for undo (L-7311) with a renderer attached, and C104 R-8 forbids it.
+>
+> Proven **at the mesh**, not at the store:
+> `packages/geometry-lift/__tests__/LiftCompoundReachesTheMesh.test.ts`, 15 cases.
 
 ---
 
@@ -44601,3 +44661,124 @@ typology choice is one enum and rides along. ⚠ The migration must treat an exi
 localStorage book as authoritative on first load and then **stop reading it**, or a
 collaborator's rates and a stale local copy will silently disagree — which is the failure
 mode that would make this *worse* than the current honest limitation.
+
+---
+
+## §FEAT-LIFT-OBSERVATION-FRAME — L-9400 … L-9407 (lane LIFT56, 2026-08-23)
+
+> **Founder, on the live deploy `2f8d9470`:** *"for lift creation — it does create **only a
+> wall** — but it should create similar to what you see in the image … **it should be exactly
+> the same**; do it architecturally sound"*, with a reference render of a **panoramic /
+> observation lift**: a full-height glazed shaft, a red/maroon painted steel frame (four
+> corner columns, storey ring beams, top-bay cross-bracing), vertical guide rails, a grey
+> steel cabin, and a landing door assembly at each storey.
+
+### L-9400 — ⭐ CLOSED: the observation-lift STRUCTURAL FRAME and GUIDE RAILS, parametric
+`buildLiftAssembly` now emits, as `liftPart` records: **4 corner columns** (pit to overrun),
+**a ring beam per side at every served storey plus the head** (`4 × (n+1)`), **top-bay
+cross-bracing on the three non-landing faces**, and **2 car guide rails**. A 4-storey lift
+gains 32 members; an 11-storey lift gains 54; a 2-storey lift gains 20.
+
+⭐ **"EXACTLY THE SAME" IS THE STANDARD FOR THE LOOK, NOT A LICENCE TO HARD-CODE ONE LIFT.**
+Every member is placed from the footprint corners, the served-level list and
+`resolveLiftDimensions()`. There is not one dimensional literal in the assembly or the
+builder; the six new section sizes live in `LIFT_DIMENSION_DEFAULTS`, which C104 §3 / R-6
+names as one of the only two places a lift dimensional constant may appear. A frame that
+matched only at four storeys would be a picture, not a model.
+
+⛔ **THEY ARE `liftPart` RECORDS, NOT `column` / `beam` RECORDS** — now **C104 R-15**.
+`Column` and `Beam` already render, so emitting them was the cheap answer and it is wrong
+three ways: the structural schedule / load take-down / `IfcColumn` export would count
+**lift-contractor** members as building structure and inflate the steel tonnage by members
+the structural engineer never designed (the `LiftPartTypes.ts` "car floor is not floor area"
+argument); a corner column spans **pit to overrun** so no `levelId` is true of it; and
+`lift.delete` reaps by `childrenIds`, so members in two more stores are two more orphan
+risks.
+
+⭐ **THEIR IDS ARE DERIVED, AND THAT IS STRONGER THAN PRE-MINTING, NOT WEAKER.** CA-2 needs
+ids identical across redo. `derivedShaftPartId(liftId, tag)` is a **pure function**: it
+cannot differ across redo because it is not random, and it cannot be forgotten by a caller
+because there is no caller. Pre-minting was not available anyway — the ring-beam count is a
+function of the served-level count, so the tool would have had to re-derive the assembly's
+own arithmetic to know how many ids to mint (**two producers of one number**). It also meant
+**zero changes to `LiftPlanToolHandler.ts`**, which sibling lane POOL55 was live in.
+
+**Rendered by** `LiftCompoundMeshBuilder` (new). **Proven at the mesh** by
+`LiftCompoundReachesTheMesh.test.ts` — 15 cases, incl. that a top-bay brace really is
+**diagonal** (the case a box-and-offset representation could not pass, and the reason
+`LiftPart.axis` is a **segment**; see **C104 R-16**).
+
+### L-9401 — ⭐ CLOSED: the glass sides reach `curtain-wall.created` — **the event existed**
+See the correction box on **L-7822**. The bridge emits one `curtain-wall.created` per glass
+side, carrying `bayWidth` / `bayHeight` per face (one bay across, storey-height bays up).
+⚠ **Those two are not cosmetic:** the legacy builder's `migrateToGridSystem()` reads them as
+`gridXSpacing` / `gridYSpacing` and yields NaN → 0 mullion counts without finite positives —
+**an empty mesh**. The mirror's defaults (1.2 × 1.5) would not have crashed; they would have
+silently glazed a 1.5 m shaft on a 1.2 m grid, a sliver of a second pane on every face.
+
+### L-9402 — ⭐ CLOSED: the landing doors reach `wall.opening.created` — **and the wall had no holes**
+Two defects, one symptom. The channel half is on **L-7823**. The second half is a genuine
+**C15 breach the wrong-channel diagnosis had hidden**:
+
+- the landing side was emitted with **`openings: []`** while N `Door` records named it as
+  their host, and every door carried **`openingId: ''`**. A door in front of solid concrete —
+  the schedule counts it, the IFC export has it, and you cannot walk through it.
+- The assembly now derives the opening list **once, before the wall it sits in**, and builds
+  **both** the wall's `openings[]` and the `Door` records from it, so the two cannot disagree
+  about how wide the door is or where it sits.
+- `sillHeight` is measured from the **wall base**, which for a shaft wall is the **pit
+  floor** — which is exactly the trick that lets N landing doors be real C15 openings in ONE
+  enclosure side.
+
+### L-9403 — ⛔ OPEN: the SLAB VOIDS still do not reach the 3-D floor plate
+The one row of C104 §13.2 this lane did **not** close, left **speaking** rather than quietly
+dropped. The shaft's penetration is a `replace` on an existing slab's `holes`
+(`path: [slab, id, 'holes']`), and **every** legacy slab bridge in `initTools.ts` keys on a
+**CREATE** — there is no `slab.updated` mirror. So the hole is real in the model, real in
+undo, and absent from the rendered slab. **The bridge's diagnostic names it by count, per
+lift.** Closing it needs a slab-mutation mirror, which is a wider change than a lift (the
+pool punches holes the same way).
+
+### L-9404 — ⭐ CLOSED: the diagnostic now GOES QUIET, and is guarded against deletion
+**C104 R-17.** R-13's *"a create that produces no visible element must SAY so"* has a
+complement that is just as binding and is the half that rots: **a warning that fires on
+every successful lift is a warning nobody reads, which fails in exactly the way silence
+does.** The message now reports only what genuinely cannot render (today: the slab voids),
+and reports **nothing at all** for a lift with nothing outstanding.
+⛔ **The block carries a DO-NOT-DELETE note**: its job is to notice the *next* member kind
+to arrive without a mirror, and a diagnostic removed because "it does not fire any more" is
+worse than the bug it was watching for. Both halves are pinned by
+`liftReachesTheRenderMirror.test.ts` **B-3**.
+
+### L-9405 — ⛔ OPEN: the shaft parts are not in the Tab drill-in cycle
+`LIFT_PART_CYCLE_ORDER` is deliberately left at the **five cabin parts**: its LENGTH is a
+contract — `CreateLiftHandler.canExecute` refuses a payload whose `cabinPartIds.length` does
+not equal it, and `LiftPlanToolHandler` pre-mints exactly that many. Growing it would make
+every existing lift-placement gesture fail validation, from a file in another package.
+So the frame and rails **render and are addressable by id**, and Tab walks the cabin only.
+Closing it needs the cycle to read the record's `childrenIds` by KIND (C104 §2.2 already
+requires the cycle to come from the record, so the mechanism is right; the list is short).
+
+### L-9406 — ⛔ OPEN: a lift does not FOLLOW a level-elevation change
+`shaftBaseOffset` / `shaftHeight` / `carParkOffsetY` are stored on the parent (C104 §4, with
+the argument for the exception). ⚠ **The drift they can suffer is not new** — every enclosure
+side already persists `height` and `baseOffset` derived from the same elevations — but it is
+now named for the whole compound rather than only for its walls. Moving a served level leaves
+the shaft, the ring beams, the landing-door sills and the parked car where they were. This is
+the same family as L-7202's per-kind level-elevation rebuild work.
+
+### L-9407 — ⛔ PRE-EXISTING RED, established by controlled measurement, NOT introduced here
+Two suites fail on `main` **before** this lane's changes, and both are named rather than
+absorbed:
+
+| suite | failure | measured |
+|---|---|---|
+| `apps/editor/__tests__/projectScopedBuilderTeardown.test.ts` | *"subscribes the sweep to bim-project-cleared"* — a **source-text scan** asserting `formatBuilderTeardownReport(` appears within **3000 chars** of `addEventListener('bim-project-cleared'` | **At `HEAD`, before this lane: offset 3903 > 3000 — already RED.** This lane's one-line sweep registration moved it to 3996. ⛔ **Not fixed here: `scene teardown` is sibling lane ISO52's.** The window is a fixed character count in a file that accumulates comments; it will rot again |
+| `apps/editor/__tests__/performUndoRedo.test.ts` | *"every affectedStores key declared by a plugin handler is covered"* — **1 uncovered:** `boundaryLine (declared by boundary-line/AttachToBoundaryLine.ts)` | `plugins/boundary-line/**` is **not touched by this lane** (`git status` confirms). A sibling lane's in-flight work in the shared tree |
+
+⚠ **`tools/ga-gate/check-otel-spans.ts` is also RED and also not this lane's**: **RC=3**,
+Zone B **62 uninstrumented of 80 against a baseline of 52**, naming **10** files. All ten are
+in `packages/command-registry/**`, `plugins/balcony`, `plugins/boundary-line` and
+`plugins/lift/src/handlers/index.ts` — **none of which this lane modified.** CLAUDE.md records
+this gate at *"54 of 70, 2 new files"*; it is now 10, so eight more arrived from sibling lanes
+this session. **The baseline is shrink-only and must not be extended to absorb them.**

@@ -121,6 +121,9 @@ export interface CreateLiftPayload {
     readonly overrunHeight?: number;
     readonly materialId?: string;
     readonly glassMaterialId?: string;
+    /** FEAT-LIFT-OBSERVATION-FRAME (L-9400) — unset resolves to the master row. */
+    readonly frameMaterialId?: string;
+    readonly guideRailMaterialId?: string;
 }
 
 /** The stores a lift touches. All six MUST be declared — see the header. */
@@ -291,6 +294,10 @@ export class CreateLiftHandler implements CommandHandler<CreateLiftPayload, Lift
                     ...(lift.hostWallId ? { hostWallId: lift.hostWallId } : {}),
                     ...(lift.materialId ? { materialId: lift.materialId } : {}),
                     ...(lift.glassMaterialId ? { glassMaterialId: lift.glassMaterialId } : {}),
+                    ...(lift.frameMaterialId ? { frameMaterialId: lift.frameMaterialId } : {}),
+                    ...(lift.guideRailMaterialId
+                        ? { guideRailMaterialId: lift.guideRailMaterialId }
+                        : {}),
                     ...(lift.shaftWidth !== undefined ? { shaftWidth: lift.shaftWidth } : {}),
                     ...(lift.shaftDepth !== undefined ? { shaftDepth: lift.shaftDepth } : {}),
                     ...(lift.shaftWallThickness !== undefined
@@ -324,6 +331,18 @@ export class CreateLiftHandler implements CommandHandler<CreateLiftPayload, Lift
                 childrenIds: [...asm.childrenIds],
                 landingSideId: asm.landingSideId,
                 penetratedSlabIds: asm.slabVoids.map((v) => v.slabId),
+                // FEAT-LIFT-OBSERVATION-FRAME (L-9400) — the resolved vertical span,
+                // written ONCE by the one producer that computes it. See the
+                // `shaftBaseOffset` docstring in `LiftCompoundTypes.ts` for why three
+                // derived scalars are stored on the parent: the enclosure sides this
+                // same assembly emits already persist the identical two numbers as
+                // `height` and `baseOffset`, so this adds no new drift class — and
+                // without them the render layer would have to re-resolve the project
+                // level table, becoming a SECOND producer that could disagree with
+                // the walls.
+                shaftBaseOffset: asm.shaftBaseOffset,
+                shaftHeight: asm.shaftHeight,
+                carParkOffsetY: asm.carParkOffsetY,
             };
 
             // ── THE ONE PATCH PAIR ─────────────────────────────────────────────
@@ -342,6 +361,20 @@ export class CreateLiftHandler implements CommandHandler<CreateLiftPayload, Lift
                     },
                     liftPart: (d) => {
                         for (const p of asm.cabinParts) (d as Record<string, unknown>)[p.id] = p;
+                        // FEAT-LIFT-OBSERVATION-FRAME (L-9400) — the four corner
+                        // columns, the per-storey ring beams, the top-bay bracing and
+                        // the two guide rails. SAME family, SAME store, SAME patch
+                        // pair: they are lift parts, so they land where lift parts
+                        // land and they are undone by the same single Ctrl+Z.
+                        //
+                        // NOT a seventh store and not a second command. C104 R-3 is
+                        // explicit that a new kind of part joins the family that owns
+                        // that kind of thing, and R-4 is explicit that one gesture is
+                        // one patch pair over the DECLARED stores — so adding a store
+                        // here without adding it to `affectedStores` would silently
+                        // drop these from undo routing, and adding one that is not
+                        // needed would widen the blast radius for nothing.
+                        for (const p of asm.shaftParts) (d as Record<string, unknown>)[p.id] = p;
                     },
                     wall: (d) => {
                         for (const s of asm.enclosure) {
@@ -414,6 +447,10 @@ export class CreateLiftHandler implements CommandHandler<CreateLiftPayload, Lift
             ...(cmd.overrunHeight !== undefined ? { overrunHeight: cmd.overrunHeight } : {}),
             ...(cmd.materialId ? { materialId: cmd.materialId } : {}),
             ...(cmd.glassMaterialId ? { glassMaterialId: cmd.glassMaterialId } : {}),
+            ...(cmd.frameMaterialId ? { frameMaterialId: cmd.frameMaterialId } : {}),
+            ...(cmd.guideRailMaterialId
+                ? { guideRailMaterialId: cmd.guideRailMaterialId }
+                : {}),
         };
     }
 }

@@ -169,7 +169,47 @@ export const LiftCompoundSchema = z.object({
 
     materialId: z.string().optional(),
     glassMaterialId: z.string().optional(),
+    /**
+     * §FEAT-LIFT-OBSERVATION-FRAME (L-9400) — the painted steel frame + guide rails.
+     * Unset resolves to `LIFT_FRAME_MATERIAL_ID` / `LIFT_GUIDE_RAIL_MATERIAL_ID`
+     * (C100 §6.1 master ids, never hexes — see `LiftMaterials.ts`).
+     */
+    frameMaterialId: z.string().optional(),
+    guideRailMaterialId: z.string().optional(),
     mark: z.string().optional(),
+
+    // ── §FEAT-LIFT-OBSERVATION-FRAME (L-9400) — THE VERTICAL SPAN, RESOLVED ────
+    //
+    // ⭐ THREE SCALARS, ALL RELATIVE TO THE LIFT'S LEVEL DATUM (`origin.y`), ALL
+    // WRITTEN BY THE HANDLER FROM `buildLiftAssembly`. They are what makes a lift
+    // RENDERABLE without the render layer re-resolving the project's level table.
+    //
+    // ⚠ THE DERIVED-VS-STORED OBJECTION IS REAL AND IS ANSWERED, NOT DODGED. C104
+    // §4 forbids storing a value that can drift from the value it must agree with.
+    // These three are derived from the served levels' elevations, so in principle
+    // they can go stale if a level moves.
+    //
+    // THEY ARE STORED ANYWAY, FOR ONE MEASURED REASON: THE ENCLOSURE ALREADY DOES
+    // IT. Every enclosure side this same assembly emits carries `height:
+    // shaftHeight` and `baseOffset: shaftBaseY - datumY` — the identical two
+    // numbers, already persisted, already in the wall store, already able to go
+    // stale in exactly the same way. Recomputing them in the renderer would create
+    // a SECOND producer that could disagree with the walls, which is strictly worse
+    // than one producer that can go stale. So this introduces no new drift class;
+    // it names the drift that was already there. Level-move re-resolution is a real
+    // gap and is recorded as L-9406, OPEN, for the whole compound rather than
+    // pretended away here.
+    /** Bottom of the shaft (the pit floor), metres relative to the level datum. */
+    shaftBaseOffset: z.number().optional(),
+    /** Pit floor to overrun head, metres. The enclosure sides carry the same value. */
+    shaftHeight: z.number().positive().optional(),
+    /**
+     * The car floor's TOP face when parked, metres relative to the level datum —
+     * i.e. the LOWEST served level. The cabin parts' car-local `offsetY` is measured
+     * from this plane, so it is the one number that turns five car-local boxes into
+     * a car standing at a landing.
+     */
+    carParkOffsetY: z.number().optional(),
 }).refine(
     (v) => v.enclosureType !== 'wall-hosted' || v.hostWallId !== undefined,
     {

@@ -609,6 +609,76 @@ export interface RuntimeEvents {
     readonly elementCount: number;
   };
 
+  /**
+   * Fired after `lift.create` succeeds — §FEAT-LIFT-OBSERVATION-FRAME (L-9400),
+   * C104 §13.
+   *
+   * ═══════════════════════════════════════════════════════════════════════════
+   * ⭐ THIS EVENT CARRIES ONLY THE MEMBERS THAT HAVE NO FAMILY OF THEIR OWN.
+   * ═══════════════════════════════════════════════════════════════════════════
+   * A lift is a COMPOUND, and C104 §13.1 / the balcony's worked example fix the
+   * idiom: a compound emits ONE MEMBER EVENT PER MEMBER, stamped with the MEMBER's
+   * own verb, so the existing legacy mirrors treat each part exactly as if the
+   * architect had drawn it by hand. `lift.create` therefore emits
+   * `wall.created` for its opaque enclosure sides, `curtain-wall.created` for its
+   * glass ones, and `wall.opening.created` for its landing doors — three channels
+   * that already existed, already had live subscribers, and needed connecting
+   * rather than inventing.
+   *
+   * ⚠ THE CABIN, THE FRAME AND THE RAILS HAVE NO SUCH CHANNEL, and that is a
+   * DIFFERENT defect from the other three rather than more of the same. There is no
+   * legacy `liftPart` family to mirror into and there was no fragment builder: the
+   * thing was ABSENT, not unwired. This event is that missing channel, and it
+   * carries exactly the members with nowhere else to go.
+   *
+   * ⛔ IT IS NOT A SECOND WAY TO DRAW THE ENCLOSURE. The walls and the glass are
+   * drawn by their own families' builders from their own records. Emitting them
+   * here as well would put two producers of one surface in the scene — z-fighting,
+   * doubled transmission cost on the WebGL backend, and one id meaning two objects
+   * (C84 EI-9).
+   */
+  'lift.created': {
+    readonly commandId: string;
+    readonly commandType: 'lift.create';
+    /** The lift's BASE level — the storey it is anchored on and filed under. */
+    readonly levelId: string;
+    readonly liftId: string;
+    /** Shaft footprint centre, world coordinates. */
+    readonly origin: { readonly x: number; readonly y: number; readonly z: number };
+    /** Plan angle (radians about world Y). Local -Z is the LANDING side. */
+    readonly rotation: number;
+    readonly enclosureType?: string;
+    /**
+     * Car floor top face when parked, in metres RELATIVE TO THE LEVEL DATUM.
+     * The cabin parts' `offsetY` is measured from this plane, so without it five
+     * car-local boxes have no elevation to stand at. See C104 §4.
+     */
+    readonly carParkOffsetY: number;
+    readonly mark?: string;
+    /**
+     * The committed `liftPart` records: the five cabin parts, the four corner
+     * columns, the per-storey ring beams, the top-bay bracing and the guide rails.
+     *
+     * ⚠ READ OFF THE COMMIT, NOT THE REQUEST (ADR-002 §5). The frame geometry is
+     * computed by `buildLiftAssembly` and is NOT in the command payload, which
+     * carries only the origin, the served levels and the pre-minted ids — so an
+     * event built from the payload would describe a lift that has no frame.
+     */
+    readonly parts: ReadonlyArray<{
+      readonly id: string;
+      readonly kind: string;
+      readonly width: number;
+      readonly depth: number;
+      readonly height: number;
+      readonly offsetY: number;
+      readonly materialId?: string;
+      readonly axis?: {
+        readonly start: { readonly x: number; readonly y: number; readonly z: number };
+        readonly end: { readonly x: number; readonly y: number; readonly z: number };
+      };
+    }>;
+  };
+
   /** Fired after `ceiling.create` or `ceiling.batch.create` succeeds (Sprint A28/A29).
    *  `elementCount` is 1 for single create; N for batch.
    *  §P3.2-CL: `id`, `boundary`, `ceilingHeight`, `thickness` enriched for legacy-store bridge. */

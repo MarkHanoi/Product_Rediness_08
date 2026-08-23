@@ -338,9 +338,35 @@ describe('buildLiftAssembly — refusals', () => {
 describe('buildLiftAssembly — ownership', () => {
     it('childrenIds covers EVERY member, and the HOST WALL is not among them', () => {
         const a = buildLiftAssembly(lift(), IDS, LEVELS);
-        expect(new Set(a.childrenIds)).toEqual(
-            new Set([...IDS.enclosureIds, ...IDS.landingDoorIds, ...IDS.cabinPartIds]),
+        const children = new Set(a.childrenIds);
+
+        // ── Every PRE-MINTED id is owned. ────────────────────────────────────
+        for (const id of [...IDS.enclosureIds, ...IDS.landingDoorIds, ...IDS.cabinPartIds]) {
+            expect(children.has(id), `pre-minted member ${id} is not owned`).toBe(true);
+        }
+
+        // ── ⭐ AND SO IS EVERY DERIVED SHAFT PART (§FEAT-LIFT-OBSERVATION-FRAME,
+        //    L-9400). This assertion used to be a SET EQUALITY against the three
+        //    pre-minted arrays, which is exactly the shape that goes red the moment
+        //    a real new member kind arrives — and it went red for the right reason:
+        //    the corner columns, ring beams, braces and guide rails are new members,
+        //    and they MUST be owned or `lift.delete` leaves a steel tower standing
+        //    (C104 §8). It is now stated as a COVERING relationship instead, so it
+        //    keeps catching an UNOWNED member without having to be re-transcribed
+        //    every time the frame gains a part.
+        expect(a.shaftParts.length).toBeGreaterThan(0);
+        for (const p of a.shaftParts) {
+            expect(children.has(p.id), `derived shaft part ${p.id} is not owned`).toBe(true);
+        }
+
+        // ── Nothing ELSE is owned. The count is the closure of the four sets. ──
+        expect(children.size).toBe(
+            IDS.enclosureIds.length +
+                IDS.landingDoorIds.length +
+                IDS.cabinPartIds.length +
+                a.shaftParts.length,
         );
+
         // A wall-hosted lift BORROWS its host. If the host were a child, deleting the
         // lift would delete the user's wall.
         expect(a.childrenIds).not.toContain('w-host');

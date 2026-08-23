@@ -123,6 +123,7 @@ import {
 import {
     LiftStore,
     LiftMeshBuilder,
+    LiftCompoundMeshBuilder,
     LiftTypeStore,
 } from '@pryzm/geometry-lift';
 
@@ -251,6 +252,16 @@ export interface BuilderRegistry {
     handrailBuilder:          HandrailFragmentBuilder;
     stairMeshBuilder:         StairMeshBuilder;
     liftMeshBuilder:          LiftMeshBuilder;
+    /**
+     * FEAT-LIFT-OBSERVATION-FRAME (L-9400) — the LOD-300 COMPOUND's renderer.
+     *
+     * DELIBERATELY A SECOND BUILDER, NOT A BRANCH INSIDE `liftMeshBuilder`. That one
+     * draws the LOD-200 MASSING lift from `LiftStore`; this one draws the compound's
+     * cabin, steel frame and guide rails from `lift.created`. C104 section 1 / R-8
+     * forbid merging the two ELEMENTS, and one builder reading two stores would be
+     * that merge arriving through the renderer (C104 section 13.1 records the trap).
+     */
+    liftCompoundMeshBuilder:  LiftCompoundMeshBuilder;
     stairLandingBuilder:      StairLandingBuilder;
     stairRailingBuilder:      StairRailingBuilder;
     beamBuilder:              BeamFragmentBuilder;
@@ -984,6 +995,18 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
 
     const liftMeshBuilder = new LiftMeshBuilder(liftStore, scene);
 
+    // FEAT-LIFT-OBSERVATION-FRAME (L-9400). Driven by the `lift.created` bus event
+    // through the FT-LIFT subscriber in initTools.ts — NOT by a store event, because
+    // the compound's records live in the plugin `lift` / `liftPart` Immer stores and
+    // there is no legacy store for it to listen to. That absence was the third of
+    // the founder's three render gaps, and the only one that needed something built
+    // rather than connected.
+    // C13-BUILDER-SCENE-CLEAR: it is ON the `bim-project-cleared` sweep list below.
+    // A lift compound left in the scene across a project switch is a steel tower
+    // standing in the next project — L-8101's shape, which is exactly what happens
+    // to a new builder whose author does not add the row.
+    const liftCompoundMeshBuilder = new LiftCompoundMeshBuilder(scene);
+
     const liftTypeStore = new LiftTypeStore();
 
     console.log('[initBuilders] Lift subsystem initialised');
@@ -1120,6 +1143,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
             { name: 'stairMeshBuilder',        builder: stairMeshBuilder },
             { name: 'stairLandingBuilder',     builder: stairLandingBuilder },
             { name: 'liftMeshBuilder',         builder: liftMeshBuilder },
+            { name: 'liftCompoundMeshBuilder', builder: liftCompoundMeshBuilder }, // L-9400
             { name: 'roomBoundingLineBuilder', builder: roomBoundingLineBuilder },
             // Already had a geometry-only bulk clear before this sweep existed.
             { name: 'roomBoundaryBuilder',     builder: roomBoundaryBuilder, via: 'removeAll' },
@@ -1212,6 +1236,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
         handrailBuilder,
         stairMeshBuilder,
         liftMeshBuilder,
+        liftCompoundMeshBuilder,
         stairLandingBuilder,
         roomBoundingLineBuilder,
         stairRailingBuilder,

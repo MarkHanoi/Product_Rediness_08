@@ -65,12 +65,54 @@ import { z } from 'zod';
  * shaft's landing wall — see `LiftAssembly.ts` section 4 for why those are `Door`
  * records and these are not.
  */
-export const LIFT_PART_KINDS = [
+export const LIFT_CABIN_PART_KINDS = [
     'cabin-structure',
     'cabin-wall-finish',
     'cabin-floor',
     'cabin-ceiling',
     'cabin-door',
+] as const;
+
+/**
+ * The SHAFT parts — §FEAT-LIFT-OBSERVATION-FRAME (L-9400).
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * ⭐ WHY THESE ARE `liftPart` RECORDS AND NOT `column` / `beam` RECORDS.
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * "Compose, do not invent" (the rule `LiftAssembly.ts` states and obeys) points at
+ * `Column` and `Beam` for a steel frame, and those two families already render, so
+ * the cheap answer would have been to emit them. It is the wrong answer, for a
+ * reason C104 R-3 already names:
+ *
+ *   1. A LIFT FRAME IS NOT THE BUILDING FRAME. Every structural schedule, every
+ *      load take-down, every `IfcColumn` export and the structural analysis view
+ *      read the column and beam stores. A lift's corner posts are supplied, priced
+ *      and installed by the LIFT CONTRACTOR as part of the lift package; counting
+ *      them as building columns inflates the structural steel tonnage by members
+ *      the structural engineer never designed. That is a data-integrity defect of
+ *      exactly the shape `LiftPartTypes`'s own header records for a car floor
+ *      counted as floor area.
+ *   2. THEY ARE NOT LEVEL-BOUND EITHER. A corner column spans PIT TO OVERRUN —
+ *      through every storey the shaft passes. `ColumnData` carries a `levelId` and
+ *      is banded per level in plan; there is no single level that is true of it.
+ *   3. `lift.delete` REAPS BY `childrenIds`. A part in the lift's own family is
+ *      deleted with the lift by construction (C104 §8). Spraying members into two
+ *      more stores would add two more chances to leave an orphan behind.
+ *
+ * They are still real, queryable, selectable, materially-specified records — which
+ * is the property C104 R-3 asks the `liftPart` family to provide, and the reason
+ * that family exists at all.
+ */
+export const LIFT_SHAFT_PART_KINDS = [
+    'frame-column',
+    'frame-ring-beam',
+    'frame-brace',
+    'guide-rail',
+] as const;
+
+export const LIFT_PART_KINDS = [
+    ...LIFT_CABIN_PART_KINDS,
+    ...LIFT_SHAFT_PART_KINDS,
 ] as const;
 
 export const LiftPartKind = z.enum(LIFT_PART_KINDS);
@@ -86,6 +128,10 @@ export const LIFT_PART_LABELS: Readonly<Record<LiftPartKind, string>> = Object.f
     'cabin-floor':       'Car floor',
     'cabin-ceiling':     'Car ceiling',
     'cabin-door':        'Car door',
+    'frame-column':      'Shaft frame column',
+    'frame-ring-beam':   'Shaft ring beam',
+    'frame-brace':       'Shaft cross-brace',
+    'guide-rail':        'Car guide rail',
 });
 
 /**
@@ -94,6 +140,18 @@ export const LIFT_PART_LABELS: Readonly<Record<LiftPartKind, string>> = Object.f
  * in. `SelectionManager._buildKcUnitList` sorts the kitchen's units for exactly
  * this reason; this table is the lift's equivalent, and it is data, not a sort
  * comparator, because the order is editorial (outside-in) rather than numeric.
+ */
+/*
+ * ⛔ DO NOT ADD THE SHAFT KINDS TO THE LIST BELOW. Its LENGTH is a contract:
+ * `CreateLiftHandler.canExecute` refuses a payload whose `cabinPartIds.length`
+ * does not equal it, and the plan tool pre-mints exactly that many ids (CA-2).
+ * Growing it here would make every existing lift-placement gesture fail
+ * validation — a five-line edit in one file breaking a tool in another, which is
+ * precisely the coupling `LIFT_SHAFT_PART_KINDS` is kept separate to avoid.
+ *
+ * ⚠ CONSEQUENCE, STATED RATHER THAN HIDDEN: the shaft parts are therefore NOT in
+ * the Tab drill-in cycle yet. They are selectable BY ID and they render; Tab walks
+ * the five cabin parts only. Recorded as L-9405, OPEN.
  */
 export const LIFT_PART_CYCLE_ORDER: readonly LiftPartKind[] = Object.freeze([
     'cabin-structure',
@@ -136,7 +194,61 @@ export const LiftPartSchema = z.object({
     materialId: z.string().optional(),
     /** Schedule mark, e.g. `LF001-CEIL`. */
     mark: z.string().optional(),
+
+    /**
+     * ⭐ §FEAT-LIFT-OBSERVATION-FRAME (L-9400) — THE LINEAR-MEMBER DISCRIMINATOR.
+     *
+     * ═══════════════════════════════════════════════════════════════════════════
+     * PRESENT  -> this part is a LINEAR MEMBER swept along `axis`, in SHAFT-LOCAL
+     *             space, and `width`/`depth` are its SECTION while `height` is its
+     *             LENGTH. Columns, ring beams, cross-braces and guide rails.
+     * ABSENT   -> this part is the axis-aligned CAR-LOCAL box the header describes.
+     *             The five cabin parts. Unchanged, byte for byte.
+     * ═══════════════════════════════════════════════════════════════════════════
+     *
+     * ⛔ IT IS SHAFT-LOCAL, NOT WORLD, AND THAT IS THE WHOLE REASON THE FIELD CAN
+     * EXIST AT ALL. Header point 3 states the invariant this schema is built on —
+     * *"the car's world placement is applied ONCE by the consumer, so 'move the
+     * lift' moves one number and every part follows, and a part can never drift out
+     * of the car."* Baking a WORLD placement into a frame column would break that
+     * for the frame: move the lift and the glass, the doors and the car would
+     * follow while the steel stayed behind, with nothing complaining, because both
+     * values would be individually valid. C104 §4's derived-vs-stored rule, applied
+     * to a placement instead of a dimension.
+     *
+     * Shaft-local space: origin = `lift.origin` projected onto the lift's LEVEL
+     * DATUM, +X across the landing face, +Y up, LOCAL -Z is the landing side — the
+     * SAME frame `LiftAssembly` already uses for the footprint corners, so there is
+     * one convention here and not two. `y` is measured from the level datum, which
+     * is the same datum `Wall.baseOffset` uses on the enclosure sides.
+     *
+     * A brace is a DIAGONAL, which is why this is a segment and not an offset+size:
+     * an `offsetY`-and-box representation cannot express one, and inventing a
+     * rotation triple to carry it would be a second placement vocabulary for the
+     * same family.
+     */
+    axis: z
+        .object({
+            start: z.object({ x: z.number(), y: z.number(), z: z.number() }),
+            end: z.object({ x: z.number(), y: z.number(), z: z.number() }),
+        })
+        .optional(),
 });
+
+/**
+ * Is this part a LINEAR MEMBER (swept along `axis`) rather than a car-local box?
+ *
+ * ⭐ ONE PREDICATE, so the renderer, the inspector and any future quantity
+ * take-off cannot disagree about which of the two geometries a part has. The
+ * discriminator is the PRESENCE OF `axis`, never the `kind` — keying on `kind`
+ * would mean every new kind had to be added to a switch in every consumer, and the
+ * consumer that was missed would silently draw the part in the wrong space.
+ */
+export function isLinearLiftPart(
+    part: Pick<LiftPart, 'axis'>,
+): part is Pick<LiftPart, 'axis'> & { axis: NonNullable<LiftPart['axis']> } {
+    return part.axis !== undefined;
+}
 
 export type LiftPart = z.infer<typeof LiftPartSchema>;
 

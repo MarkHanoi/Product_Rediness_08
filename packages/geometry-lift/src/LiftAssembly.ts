@@ -56,6 +56,13 @@ import { trace } from '@opentelemetry/api';
 import type { Vec3 } from './LiftTypes.js';
 import type { LiftPart, LiftPartKind } from './LiftPartTypes.js';
 import {
+    LIFT_PART_DEFAULT_MATERIAL_IDS,
+    LIFT_FRAME_MATERIAL_ID,
+    LIFT_GLASS_MATERIAL_ID,
+    LIFT_GUIDE_RAIL_MATERIAL_ID,
+    LIFT_LANDING_DOOR_MATERIAL_ID,
+} from './LiftMaterials.js';
+import {
     resolveLiftDimensions,
     type LiftDimensionInput,
     type ResolvedLiftDimensions,
@@ -108,6 +115,9 @@ export interface LiftAssemblyInput extends LiftDimensionInput {
     readonly hostWallId?: string;
     readonly materialId?: string;
     readonly glassMaterialId?: string;
+    /** §FEAT-LIFT-OBSERVATION-FRAME (L-9400) — unset resolves to the master row. */
+    readonly frameMaterialId?: string;
+    readonly guideRailMaterialId?: string;
     readonly metadata?: unknown;
 }
 
@@ -141,6 +151,19 @@ export interface LiftAssembly {
     readonly landingSideId: string;
     readonly landingDoors: readonly Record<string, unknown>[];
     readonly cabinParts: readonly LiftPart[];
+    /**
+     * ⭐ §FEAT-LIFT-OBSERVATION-FRAME (L-9400) — the painted steel tower and the
+     * guide rails: four corner columns pit-to-overrun, a ring beam per side at every
+     * served storey plus the head, cross-bracing in the top bay, and two car guide
+     * rails. Same `liftPart` family as `cabinParts`, same store, same `childrenIds`
+     * — separated here only because their ids are DERIVED rather than pre-minted
+     * (see `derivedShaftPartId`), never because they are a different kind of thing.
+     */
+    readonly shaftParts: readonly LiftPart[];
+    /** Car floor top face when parked, relative to the level datum (C104 §4). */
+    readonly carParkOffsetY: number;
+    /** Pit floor, relative to the level datum. Same value the enclosure carries. */
+    readonly shaftBaseOffset: number;
     readonly slabVoids: readonly LiftSlabVoid[];
     /** Every child id the parent must own — the C103 §2 `childrenIds`. */
     readonly childrenIds: readonly string[];
@@ -148,6 +171,51 @@ export interface LiftAssembly {
 
 /** Side count per type. Type A builds all four; type B keeps a solid landing side. */
 export const ENCLOSURE_SIDE_COUNT = 4;
+
+/**
+ * ⭐ THE DERIVED ID FOR A SHAFT PART — §FEAT-LIFT-OBSERVATION-FRAME (L-9400).
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * WHY THESE ARE DERIVED WHERE EVERY OTHER MEMBER ID IS PRE-MINTED.
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * CA-2 requires member ids to be IDENTICAL across redo, because `execute()` runs
+ * again on redo and a freshly-minted id would produce a DIFFERENT lift the second
+ * time. The compound buys that today by having the TOOL mint every id once and pass
+ * it in — which works, and which means every new member kind needs a matching change
+ * in the tool.
+ *
+ * A pure function of `(liftId, tag)` satisfies CA-2 **more strongly than pre-minting
+ * does**, not less: it cannot differ across redo because it is not random, and it
+ * cannot be forgotten by a caller because there is no caller to forget it. The frame
+ * has a variable member count (four columns, but `4 x (servedLevels + 1)` ring beams)
+ * so pre-minting would have meant the tool computing the assembly's own arithmetic
+ * to know how many ids to mint — two producers of one number, which is the defect
+ * shape C104 §4 exists to prevent.
+ *
+ * ⚠ THE `liftPart_` PREFIX IS KEPT, DELIBERATELY. C84 EI-8 is one vocabulary per
+ * concept: a shaft part is a `liftPart` and its id must say so, exactly as the
+ * pre-minted cabin ids do. What follows the prefix is the parent's own ULID stem
+ * plus a member tag, so the id is unique by construction (one lift owns one frame),
+ * greppable back to its parent, and stable.
+ */
+export function derivedShaftPartId(liftId: string, tag: string): string {
+    const sep = liftId.indexOf('_');
+    const stem = sep >= 0 ? liftId.slice(sep + 1) : liftId;
+    return `liftPart_${stem}_${tag}`;
+}
+
+/** The opening record id for a landing door. Same derivation, same reasons. */
+export function derivedLandingOpeningId(doorId: string): string {
+    const sep = doorId.indexOf('_');
+    const stem = sep >= 0 ? doorId.slice(sep + 1) : doorId;
+    return `opening_${stem}_ld`;
+}
+
+/** A point in SHAFT-LOCAL space (see `LiftPartSchema.axis`). */
+interface LocalPt {
+    readonly x: number;
+    readonly z: number;
+}
 
 /** Rotate a local (x, z) offset by `rot` about Y and translate to world. */
 function toWorld(origin: Vec3, rot: number, lx: number, lz: number): { x: number; z: number } {
@@ -219,6 +287,41 @@ export function buildLiftAssembly(
             const c2 = toWorld(lift.origin, lift.rotation, +hw, +hd);
             const c3 = toWorld(lift.origin, lift.rotation, -hw, +hd);
 
+            // ⭐ THE SAME FOUR CORNERS IN SHAFT-LOCAL SPACE, for the frame members.
+            // ⛔ NOT a second footprint — the SAME one, before `toWorld`. The frame
+            // is stored shaft-local (see `LiftPartSchema.axis`) so that moving the
+            // lift moves the steel with the glass; deriving a local footprint by
+            // un-rotating the world one would be a second producer of the geometry
+            // that must agree with the enclosure, and C104 §4's whole subject is two
+            // values that must agree being computed twice.
+            const l0: LocalPt = { x: -hw, z: -hd }; // front-left  (landing side)
+            const l1: LocalPt = { x: +hw, z: -hd }; // front-right (landing side)
+            const l2: LocalPt = { x: +hw, z: +hd }; // back-right
+            const l3: LocalPt = { x: -hw, z: +hd }; // back-left
+            const localCorners: readonly LocalPt[] = [l0, l1, l2, l3];
+
+            // Local Y is measured from the level datum, exactly as `baseOffset` is.
+            const shaftBaseOffset = shaftBaseY - datumY;
+            const shaftTopOffset = shaftTopY - datumY;
+            /**
+             * ⭐ THE CAR PARKS AT THE LOWEST SERVED LEVEL. Not at the pit floor —
+             * a car resting in its own pit is a car that has crashed. `offsetY` on
+             * every cabin part is measured from this plane (`LiftPartTypes.ts`
+             * header point 3), so this single number is what turns five car-local
+             * boxes into a car standing at a landing.
+             */
+            const carParkOffsetY = lowest - datumY;
+
+            /**
+             * The typical storey height, used as the glazing BAY height so the panes
+             * break at the floors rather than on an arbitrary grid. One served level
+             * has no "between", so the whole shaft is one bay.
+             */
+            const storeyHeight =
+                sorted.length > 1
+                    ? (highest - lowest) / (sorted.length - 1)
+                    : shaftHeight;
+
             // ── 1. THE SLAB VOIDS ────────────────────────────────────────────────
             // The shaft footprint IS the void. One polygon, one source of truth, so
             // the enclosure and every hole it passes through cannot drift apart.
@@ -268,6 +371,41 @@ export function buildLiftAssembly(
                 { a: c3, b: c0, landing: false }, // left
             ];
 
+            // ── 2a. THE LANDING OPENINGS — COMPUTED BEFORE THE WALL THEY SIT IN ──
+            //
+            // ⭐ §FIX-LIFT-DOORS-WITH-NO-HOLE (L-9402). The landing side used to be
+            // emitted with `openings: []` while N `Door` records claimed to be hosted
+            // in it. C15 is unambiguous that a hosted opening lives in its HOST's
+            // opening list — that array is what every wall mesh path subtracts to
+            // punch the hole, what the plan symbol reads to draw the reveal, and what
+            // the legacy §P2.3 mirror dedups against. A door record pointing at a wall
+            // that does not list it is a door in front of solid concrete: the schedule
+            // counts it, the IFC export has it, and you cannot walk through it.
+            //
+            // The doors are therefore derived HERE, once, and BOTH the wall's
+            // `openings[]` and the `Door` records below are built from this one list —
+            // so the two cannot disagree about how wide the door is or where it sits.
+            const doorOffset = Math.max(0, (dims.shaftWidth - dims.doorWidth) / 2);
+            const landingOpenings = sorted.map((lvl, i) => {
+                const doorId = ids.landingDoorIds[i]!;
+                return {
+                    id: derivedLandingOpeningId(doorId),
+                    type: 'door' as const,
+                    doorType: 'single' as const,
+                    offset: doorOffset,
+                    width: dims.doorWidth,
+                    height: dims.doorHeight,
+                    // ⛔ `sillHeight` is measured from the WALL BASE, and the shaft
+                    // wall's base is the PIT FLOOR, not the storey. So a door on
+                    // level k sits `elev(k) - shaftBase` up a single tall wall —
+                    // which is the whole trick that lets N landing doors be real
+                    // C15 openings in ONE enclosure side (see the file header).
+                    sillHeight: Math.max(0, lvl.elevation - shaftBaseY),
+                    elementId: doorId,
+                    levelId: lvl.levelId,
+                };
+            });
+
             const isGlass = lift.enclosureType === 'standalone-glass';
             const enclosure: LiftEnclosureSide[] = sideDefs.map((sd, i) => {
                 const id = ids.enclosureIds[i]!;
@@ -284,20 +422,49 @@ export function buildLiftAssembly(
                     height: shaftHeight,
                     baseOffset: shaftBaseY - datumY,
                 };
+                // The side's own plan length — one glazing bay per face, so a pane
+                // spans the face and the mullions land ON the corner columns rather
+                // than somewhere across the glass.
+                const sideLength = Math.hypot(sd.b.x - sd.a.x, sd.b.z - sd.a.z);
                 const record: Record<string, unknown> = useGlass
                     ? {
                           ...base,
                           type: 'curtainwall',
                           mullionThickness: dims.shaftWallThickness / 4,
                           panelThickness: dims.shaftWallThickness / 4,
+                          // ⭐ §FIX-LIFT-GLASS-EMPTY-MESH (L-9401). `bayWidth` /
+                          // `bayHeight` are NOT decoration: the legacy curtain-wall
+                          // builder's `migrateToGridSystem()` reads them as
+                          // `gridXSpacing` / `gridYSpacing`, and without finite
+                          // positive values it produces NaN -> 0 mullion counts ->
+                          // AN EMPTY MESH. The mirror has defaults (1.2 x 1.5), so
+                          // omitting them would not have crashed — it would have
+                          // silently glazed a 1.5 m shaft on a 1.2 m grid, which is
+                          // a sliver of a second pane on every face.
+                          bayWidth: Math.max(0.1, sideLength),
+                          bayHeight: Math.max(0.1, storeyHeight),
                           panels: [],
-                          ...(lift.glassMaterialId ? { materialId: lift.glassMaterialId } : {}),
+                          materialId:
+                              lift.glassMaterialId ?? LIFT_GLASS_MATERIAL_ID,
                       }
                     : {
                           ...base,
                           type: 'wall',
                           thickness: dims.shaftWallThickness,
-                          openings: [],
+                          // ⭐ THE LANDING SIDE CARRIES THE DOORS' OPENINGS (L-9402).
+                          // The other three sides are blind. See §2a above.
+                          openings: sd.landing
+                              ? landingOpenings.map((o) => ({
+                                    id: o.id,
+                                    type: o.type,
+                                    doorType: o.doorType,
+                                    offset: o.offset,
+                                    width: o.width,
+                                    height: o.height,
+                                    sillHeight: o.sillHeight,
+                                    elementId: o.elementId,
+                                }))
+                              : [],
                           ...(lift.materialId ? { materialId: lift.materialId } : {}),
                       };
                 return {
@@ -318,28 +485,35 @@ export function buildLiftAssembly(
             //
             // They host in the LANDING SIDE, at `sillHeight = elev - shaftBase`, and
             // are centred along it (`offset` measured from the wall start).
-            const landingDoors = sorted.map((lvl, i) => ({
-                id: ids.landingDoorIds[i]!,
+            const landingDoors = landingOpenings.map((o) => ({
+                id: o.elementId,
                 type: 'door',
                 parentId: lift.id,
                 childrenIds: [] as string[],
                 // The door belongs to the LEVEL IT SERVES, not to the lift's base
                 // level — that is what makes it appear on that storey's plan and in
                 // that storey's door schedule.
-                levelId: lvl.levelId,
+                levelId: o.levelId,
                 wallId: landingSide.id,
-                openingId: '',
-                doorType: 'single' as const,
-                width: dims.doorWidth,
-                height: dims.doorHeight,
-                sillHeight: lvl.elevation - shaftBaseY,
+                // ⭐ §FIX-LIFT-DOORS-WITH-NO-HOLE (L-9402) — this was the EMPTY
+                // STRING. `openingId` is the back-reference from the door to the
+                // hole it occupies; blank, the door could never be matched to an
+                // opening in the wall it claims to be hosted in, which is the same
+                // defect as the wall's empty `openings[]` seen from the other end.
+                openingId: o.id,
+                doorType: o.doorType,
+                width: o.width,
+                height: o.height,
+                sillHeight: o.sillHeight,
                 // Centred on the landing side.
-                offset: Math.max(0, (dims.shaftWidth - dims.doorWidth) / 2),
+                offset: o.offset,
                 // A lift landing door is a SLIDING door. Saying so is not cosmetic:
                 // the swing arc is what plan-view clearance checks read, and a hinged
                 // arc drawn into a lift lobby is a clash that does not exist.
                 swing: 'sliding' as const,
-                ...(lift.materialId ? { leafMaterialId: lift.materialId } : {}),
+                // C100 §6.1 — a MASTER id, not a hex. The reference render's dark
+                // grey landing assemblies are `Steel · Powder-Coated Dark Grey`.
+                leafMaterialId: lift.materialId ?? LIFT_LANDING_DOOR_MATERIAL_ID,
             }));
 
             // ── 4. THE CABIN — THE LOD-300 DECOMPOSITION ─────────────────────────
@@ -414,13 +588,162 @@ export function buildLiftAssembly(
                 depth: p.depth,
                 height: p.height,
                 offsetY: p.offsetY,
-                ...(lift.materialId ? { materialId: lift.materialId } : {}),
+                // C100 section 6.1 — a MASTER id per PART KIND, not one id for the
+                // whole car and never a hex. A car is not one material: the sling is
+                // structural steel, the linings and the door are brushed stainless,
+                // the floor is a dark platform. `lift.materialId`, when the author
+                // set one, still wins for all of them — an explicit override is
+                // exactly what an override is for.
+                materialId: lift.materialId ?? LIFT_PART_DEFAULT_MATERIAL_IDS[p.kind],
             }));
+
+            // -- 5. THE STRUCTURAL FRAME AND THE GUIDE RAILS ---------------------
+            // FEAT-LIFT-OBSERVATION-FRAME (L-9400). The founder's reference render.
+            //
+            // NOT DECORATION, AND NOT A HARD-CODED FOUR-STOREY TOWER. Every member
+            // below is placed from `localCorners`, `sorted` and `dims` — so a
+            // two-storey lift gets two rings and an eleven-storey lift gets eleven,
+            // a 3 m x 3 m goods shaft gets a 3 m frame, and none of it is a literal.
+            // "Exactly the same as the render" is the founder's standard for the
+            // LOOK; a geometry that only matched at four storeys would be a picture,
+            // not a model.
+            const frameMaterialId = lift.frameMaterialId ?? LIFT_FRAME_MATERIAL_ID;
+            const railMaterialId = lift.guideRailMaterialId ?? LIFT_GUIDE_RAIL_MATERIAL_ID;
+            const shaftParts: LiftPart[] = [];
+
+            const pushLinear = (
+                tag: string,
+                kind: LiftPartKind,
+                start: { x: number; y: number; z: number },
+                end: { x: number; y: number; z: number },
+                sectionW: number,
+                sectionD: number,
+                materialId: string,
+            ): void => {
+                const len = Math.hypot(end.x - start.x, end.y - start.y, end.z - start.z);
+                // A degenerate member is DROPPED, not emitted at zero length: the
+                // schema's `.positive()` would refuse it and take the whole lift with
+                // it. A shaft one member short is a real lift; a lift that refuses to
+                // be placed because a brace came out 0 mm long is not.
+                if (!(len > 1e-6)) return;
+                shaftParts.push({
+                    id: derivedShaftPartId(lift.id, tag),
+                    type: 'liftPart' as const,
+                    parentId: lift.id,
+                    liftId: lift.id,
+                    kind,
+                    width: sectionW,
+                    depth: sectionD,
+                    // For a LINEAR member `height` is the LENGTH along `axis` — see
+                    // the `axis` docstring in `LiftPartTypes.ts`.
+                    height: len,
+                    offsetY: 0,
+                    materialId,
+                    axis: { start, end },
+                });
+            };
+
+            // (a) FOUR CORNER COLUMNS, pit to overrun. The tall painted posts.
+            const colSize = dims.frameColumnSize;
+            localCorners.forEach((corner, i) => {
+                pushLinear(
+                    `fc${i}`,
+                    'frame-column',
+                    { x: corner.x, y: shaftBaseOffset, z: corner.z },
+                    { x: corner.x, y: shaftTopOffset, z: corner.z },
+                    colSize,
+                    colSize,
+                    frameMaterialId,
+                );
+            });
+
+            // (b) A RING BEAM PER SIDE AT EVERY SERVED STOREY, PLUS THE HEAD.
+            //     Four beams per ring; the ring elevations come from the SERVED
+            //     LEVELS, so inserting a storey adds a ring and a skipped storey does
+            //     not get one — the same property `servedLevelIds` buys for the doors.
+            const ringYs: number[] = [
+                ...sorted.map((l) => l.elevation - datumY),
+                shaftTopOffset,
+            ];
+            ringYs.forEach((ringY, ri) => {
+                for (let side = 0; side < localCorners.length; side++) {
+                    const a = localCorners[side]!;
+                    const b = localCorners[(side + 1) % localCorners.length]!;
+                    pushLinear(
+                        `fb${ri}s${side}`,
+                        'frame-ring-beam',
+                        { x: a.x, y: ringY, z: a.z },
+                        { x: b.x, y: ringY, z: b.z },
+                        dims.frameBeamWidth,
+                        dims.frameBeamDepth,
+                        frameMaterialId,
+                    );
+                }
+            });
+
+            // (c) CROSS-BRACING IN THE TOP BAY — the machine / overrun zone.
+            //     THE LANDING FACE (side 0) IS LEFT CLEAR, deliberately. A diagonal
+            //     across the face the doors are in is a brace through the door head
+            //     at the top landing; observation lifts brace the three blind faces
+            //     for exactly that reason. This is the same "side 0 is special" fact
+            //     the enclosure already encodes, read once rather than restated.
+            const braceBottom = highest - datumY;
+            const braceTop = shaftTopOffset;
+            for (let side = 1; side < localCorners.length; side++) {
+                const a = localCorners[side]!;
+                const b = localCorners[(side + 1) % localCorners.length]!;
+                pushLinear(
+                    `bx${side}a`,
+                    'frame-brace',
+                    { x: a.x, y: braceBottom, z: a.z },
+                    { x: b.x, y: braceTop, z: b.z },
+                    dims.frameBraceSize,
+                    dims.frameBraceSize,
+                    frameMaterialId,
+                );
+                pushLinear(
+                    `bx${side}b`,
+                    'frame-brace',
+                    { x: b.x, y: braceBottom, z: b.z },
+                    { x: a.x, y: braceTop, z: a.z },
+                    dims.frameBraceSize,
+                    dims.frameBraceSize,
+                    frameMaterialId,
+                );
+            }
+
+            // (d) TWO CAR GUIDE RAILS, full height, on the two faces the car is
+            //     guided from — the ones PERPENDICULAR to the landing face, because
+            //     the door is on the landing face and a rail cannot cross it. Inset
+            //     clear of the enclosure so they read as being inside the shaft.
+            const railInset = dims.shaftWallThickness + dims.guideRailDepth / 2;
+            const railX = Math.max(0.02, hw - railInset);
+            const railTags: ReadonlyArray<readonly [string, number]> = [
+                ['gr0', -1],
+                ['gr1', 1],
+            ];
+            for (const [tag, sx] of railTags) {
+                pushLinear(
+                    tag,
+                    'guide-rail',
+                    { x: sx * railX, y: shaftBaseOffset, z: 0 },
+                    { x: sx * railX, y: shaftTopOffset, z: 0 },
+                    dims.guideRailDepth,
+                    dims.guideRailWidth,
+                    railMaterialId,
+                );
+            }
 
             const childrenIds = [
                 ...enclosure.map((e) => e.id),
                 ...landingDoors.map((d) => d.id),
                 ...cabinParts.map((c) => c.id),
+                // THE FRAME IS OWNED, SO IT IS REAPED. C104 section 8: `lift.delete`
+                // removes exactly `childrenIds`, so a member absent from this list is
+                // an ORPHAN that outlives its parent — the stair-void defect that
+                // section 8 calls its own unflattering precedent, with a steel tower
+                // left standing instead of a hole left punched.
+                ...shaftParts.map((p) => p.id),
             ];
 
             span.setAttribute('pryzm.lift.servedLevels', sorted.length);
@@ -428,6 +751,8 @@ export function buildLiftAssembly(
             span.setAttribute('pryzm.lift.slabVoids', slabVoids.length);
             span.setAttribute('pryzm.lift.shaftHeight', shaftHeight);
             span.setAttribute('pryzm.lift.enclosureType', lift.enclosureType);
+
+            span.setAttribute('pryzm.lift.shaftParts', shaftParts.length);
 
             return {
                 dims,
@@ -438,6 +763,9 @@ export function buildLiftAssembly(
                 landingSideId: landingSide.id,
                 landingDoors,
                 cabinParts,
+                shaftParts,
+                carParkOffsetY,
+                shaftBaseOffset,
                 slabVoids,
                 childrenIds,
             };

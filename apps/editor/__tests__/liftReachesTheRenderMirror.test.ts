@@ -42,12 +42,26 @@
  *   ARM A — a WALL-HOSTED lift's enclosure now reaches the legacy mirror. All four
  *           sides are `kind: 'wall'`, `wall.created` has live subscribers, so this
  *           type mirrors COMPLETELY and renders.
- *   ARM B — a STANDALONE-GLASS lift mirrors ONE side (the landing side is a wall; the
- *           other three are curtain walls with no event declared anywhere). The other
- *           three are NOT smuggled through as walls — that would be C84 EI-9 — and the
- *           bridge SAYS SO. ARM B pins the saying-so, because "it says so" is the
- *           founder's first deliverable: a create that produces no visible element must
- *           announce it.
+ *   ARM B — a STANDALONE-GLASS lift. ⭐ REWRITTEN 2026-08-23 (lane LIFT56,
+ *           §FEAT-LIFT-OBSERVATION-FRAME, L-9400..L-9403). This arm used to pin the
+ *           PARTIALITY — one side mirrored, three announced as un-renderable — and it
+ *           was correct to do so while that was true. It is no longer true, and the
+ *           reason is the finding worth keeping:
+ *
+ *             ⛔ THE CENSUS THIS ARM ENCODED WAS MEASURED WITH THE WRONG SPELLING.
+ *             `curtain-wall.created` — HYPHENATED — has been declared, emitted and
+ *             mirrored since §P3.1-CW. The census grepped `curtainwall.created`.
+ *             And a landing door's channel was never `door.created` at all: it is
+ *             `wall.opening.created`, the §P2.3 mirror that punches the hole AND
+ *             writes the `DoorStore` record. Two of the three "missing" channels
+ *             existed and were merely unconnected.
+ *             [[grep-silence-has-three-causes]] — silence is not absence.
+ *
+ *           ARM B now pins that a standalone-glass lift mirrors COMPLETELY: one wall,
+ *           three curtain walls, one opening per served storey, and one `lift.created`
+ *           carrying the cabin + frame. B-3 pins the OTHER half of R-13, which is the
+ *           half a passing test usually forgets — that the diagnostic GOES QUIET when
+ *           there is nothing left to report.
  *   ARM C — the GENERIC detector. Any compound with no case announces itself the first
  *           time it is used. `pool.create` is the live case today.
  */
@@ -133,8 +147,16 @@ async function bootWithHost() {
  * a store nothing subscribes to is exactly the state the founder photographed.
  */
 function captureWallCreated(events: EventBus): Array<Record<string, unknown>> {
+    return captureEvent(events, 'wall.created');
+}
+
+/** The same, for any declared event name. One helper, so a new arm cannot drift. */
+function captureEvent(events: EventBus, name: string): Array<Record<string, unknown>> {
     const seen: Array<Record<string, unknown>> = [];
-    events.on('wall.created', (ev) => { seen.push(ev as unknown as Record<string, unknown>); });
+    (events as unknown as { on: (n: string, f: (e: unknown) => void) => void }).on(
+        name,
+        (ev) => { seen.push(ev as Record<string, unknown>); },
+    );
     return seen;
 }
 
@@ -201,42 +223,193 @@ describe('§FIX-LIFT-LOST-BETWEEN-DISPATCH-AND-STORE — the lift reaches the re
     });
 
     // ── ARM B ────────────────────────────────────────────────────────────────
-    it('B-1 STANDALONE-GLASS: the partial create ANNOUNCES what will not render', async () => {
-        // ⭐ THE FOUNDER'S ACTUAL LIFT — his status bar read "standalone glass". Three
-        // of its four sides are curtain walls, `curtainwall.created` is not a declared
-        // event anywhere, and they are deliberately NOT mirrored as walls (C84 EI-9).
-        // So the deliverable for THIS type is not "it renders" — it is "it stops being
-        // silent", which is the first thing the report asks for.
-        warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    it('⭐ B-1 STANDALONE-GLASS: the THREE GLASS SIDES reach `curtain-wall.created`', async () => {
+        // ⭐ THE FOUNDER'S ACTUAL LIFT — his status bar read "standalone glass", and
+        // what he saw was ONE WALL. Three of its four sides are curtain walls, and the
+        // old reading of this file said no curtain-wall event was declared ANYWHERE.
+        //
+        // ⛔ IT IS DECLARED. `curtain-wall.created`, hyphenated, with a live §P3.1-CW
+        // mirror that maps it onto the legacy `CurtainWallData` and fires
+        // `bim-curtainwall-added`. Nothing needed inventing; the bridge needed to emit
+        // into a channel that was already open. Nothing is smuggled through as a wall,
+        // so R-12 holds — because nothing had to be.
         const { rt, events, disposeBridge } = await bootWithHost();
-        const seen = captureWallCreated(events);
+        const walls = captureWallCreated(events);
+        const glass = captureEvent(events, 'curtain-wall.created');
 
         await rt.bus.executeCommand('lift.create', {
             ...basePayload,
             enclosureType: 'standalone-glass',
         });
 
-        // The landing side IS a wall in both enclosure types, so exactly one mirrors.
-        expect(seen.length).toBe(1);
+        // ONE wall (the landing side, which stays solid so the doors have a host)…
+        expect(walls.length).toBe(1);
+        // …and THREE curtain walls. Before this fix: ZERO.
+        expect(glass.length).toBe(3);
+        expect(new Set([...walls, ...glass].map((e) => e['wallId'] ?? e['id'])))
+            .toEqual(new Set(ENCLOSURE_IDS));
 
-        const said = warnings().find((w) => w.includes('§FIX-LIFT-LOST-BETWEEN-DISPATCH-AND-STORE'));
-        expect(said).toBeDefined();
-        // It names the STORE, the COUNT and the REASON — not "something went wrong".
-        expect(said).toContain('3 curtain-wall enclosure side(s)');
-        expect(said).toContain(String(LANDING_DOOR_IDS.length) + ' landing door(s)');
-        expect(said).toContain(String(CABIN_PART_IDS.length) + ' cabin part(s)');
-        // ⛔ And it refuses the comfortable word. This is a PARTIAL create: the record
-        // is real, undoable and schedulable, and part of it is invisible. Calling that
-        // "failed" or "created" would both be wrong.
-        expect(said).toContain('PARTIAL create');
+        for (const ev of glass) {
+            // ⛔ The mirror's accept-set is the single literal 'curtain-wall.create'
+            // (`ACCEPTED_CURTAIN_WALL_COMMAND_TYPES`). Any other value and the mirror
+            // returns null — three events emitted, nothing accepted.
+            expect(ev['commandType']).toBe('curtain-wall.create');
+            expect(Array.isArray(ev['baseLine'])).toBe(true);
+            expect(typeof ev['height']).toBe('number');
+            // ⚠ WITHOUT THESE TWO THE MESH IS EMPTY, not merely ungridded:
+            // `migrateToGridSystem()` reads them as gridXSpacing/gridYSpacing and
+            // yields NaN -> 0 mullion counts without finite positives.
+            expect(typeof ev['bayWidth']).toBe('number');
+            expect((ev['bayWidth'] as number) > 0).toBe(true);
+            expect(typeof ev['bayHeight']).toBe('number');
+            expect((ev['bayHeight'] as number) > 0).toBe(true);
+            // C100 §6.1 — a MASTER id, never a hex.
+            expect(typeof ev['materialId']).toBe('string');
+            expect(String(ev['materialId'])).not.toMatch(/^#/);
+        }
         disposeBridge();
         rt.tearDown();
     });
 
-    it('B-2 the un-mirrored members really ARE in their plugin stores — absent ≠ unreachable', async () => {
+    it('⭐ B-1b the LANDING DOORS reach `wall.opening.created` — the hole AND the leaf', async () => {
+        // ⭐ AND THE CHANNEL IS NOT `door.created`. That event is a bare count
+        // (`{commandId, commandType, levelId, elementCount}`) whose CEB case TASK-13
+        // removed on purpose — doors use the Committer architecture. The channel that
+        // does the work is §P2.3's `wall.opening.created`, which does BOTH halves:
+        // `addOpening()` on the legacy wall (the hole in the shaft) and
+        // `doorStore.add(buildDoorStoreRecord(...))` (the leaf + the plan swing arc).
+        // Giving `door.created` a subscriber would have minted a SECOND channel for a
+        // concept that already has one — C84 EI-9, the rule the old text invoked.
+        const { rt, events, disposeBridge } = await bootWithHost();
+        const openings = captureEvent(events, 'wall.opening.created');
+
+        await rt.bus.executeCommand('lift.create', {
+            ...basePayload,
+            enclosureType: 'standalone-glass',
+        });
+
+        // One per SERVED LEVEL, which is what `servedLevelIds` buys over a count.
+        expect(openings.length).toBe(SERVED_LEVELS.length);
+        for (const ev of openings) {
+            const o = ev['opening'] as Record<string, unknown>;
+            expect(o['type']).toBe('door');
+            // ⛔ The OPENING id, not the door id. They are two records — the hole and
+            // the thing in it — and §P2.3 dedups the wall on one and the DoorStore on
+            // the other. Collapsing them would make one of the two guards useless.
+            expect(typeof o['id']).toBe('string');
+            expect(String(o['id']).length).toBeGreaterThan(0);
+            expect(o['id']).not.toBe(o['elementId']);
+            expect(LANDING_DOOR_IDS).toContain(o['elementId']);
+            expect(typeof o['width']).toBe('number');
+            expect(typeof o['sillHeight']).toBe('number');
+            // Hosted in the LANDING side, which is one of this lift's own sides.
+            expect(ENCLOSURE_IDS).toContain(ev['wallId']);
+        }
+        disposeBridge();
+        rt.tearDown();
+    });
+
+    it('⭐ B-1c the CABIN, FRAME and GUIDE RAILS reach `lift.created` — the built channel', async () => {
+        // ⭐ THE ONE MEMBER KIND WHOSE ORIGINAL DIAGNOSIS WAS EXACTLY RIGHT: "no legacy
+        // family and no fragment builder". There was nothing to connect, so this is the
+        // one place something was BUILT — `LiftCompoundMeshBuilder`, driven by this
+        // event through initTools' §FT-LIFT subscriber.
+        const { rt, events, disposeBridge } = await bootWithHost();
+        const lifts = captureEvent(events, 'lift.created');
+
+        await rt.bus.executeCommand('lift.create', {
+            ...basePayload,
+            enclosureType: 'standalone-glass',
+        });
+
+        // ONE event for the whole compound, not one per part: the builder rebuilds the
+        // group in a single pass, so N events would be N rebuilds for one gesture.
+        expect(lifts.length).toBe(1);
+        const ev = lifts[0]!;
+        expect(ev['liftId']).toBe(LIFT_ID);
+        const parts = ev['parts'] as Array<Record<string, unknown>>;
+
+        // The five pre-minted cabin parts…
+        const kinds = parts.map((p) => String(p['kind']));
+        for (const id of CABIN_PART_IDS) {
+            expect(parts.some((p) => p['id'] === id), `cabin part ${id} missing`).toBe(true);
+        }
+        // …AND the steel frame the founder's reference is mostly made of.
+        expect(kinds.filter((k) => k === 'frame-column').length).toBe(4);
+        expect(kinds.filter((k) => k === 'guide-rail').length).toBe(2);
+        expect(kinds.filter((k) => k === 'frame-ring-beam').length).toBeGreaterThan(0);
+
+        // ⚠ Without this the car is drawn on the level datum instead of at its lowest
+        // served landing — a car hanging in the shaft at the wrong floor.
+        expect(typeof ev['carParkOffsetY']).toBe('number');
+
+        // The frame members carry an AXIS (they are linear) and a MASTER material id.
+        const col = parts.find((p) => p['kind'] === 'frame-column')!;
+        expect(col['axis']).toBeDefined();
+        expect(typeof col['materialId']).toBe('string');
+        expect(String(col['materialId'])).not.toMatch(/^#/);
+        // The cabin parts do NOT carry an axis — they are car-local boxes.
+        const cab = parts.find((p) => p['kind'] === 'cabin-floor')!;
+        expect(cab['axis']).toBeUndefined();
+        disposeBridge();
+        rt.tearDown();
+    });
+
+    it('⭐ B-3 R-13 BOTH WAYS: it names the ONE remaining gap, and it GOES QUIET without it', async () => {
+        // ═══════════════════════════════════════════════════════════════════════
+        // ⛔ THE HALF A PASSING TEST FORGETS. C104 R-13 says a create that produces
+        // no visible element must SAY so. The complement is just as binding and is
+        // the half that rots: a warning that fires on every successful lift is a
+        // warning nobody reads, which fails in exactly the way silence does.
+        // ═══════════════════════════════════════════════════════════════════════
+        warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const { rt, disposeBridge } = await bootWithHost();
+
+        // (a) WITH a penetrated slab — the one row this lane did NOT close. The void
+        //     is a REPLACE on an existing slab's `holes`, and every legacy slab bridge
+        //     keys on a CREATE, so no mirror sees it (L-9403).
+        await rt.bus.executeCommand('lift.create', {
+            ...basePayload,
+            enclosureType: 'standalone-glass',
+        });
+        const said = warnings().find((w) => w.includes('§FEAT-LIFT-OBSERVATION-FRAME'));
+        expect(said).toBeDefined();
+        expect(said).toContain('slab void(s)');
+        // ⛔ It refuses the comfortable word: the record is real, undoable and
+        // schedulable, and part of it is invisible. "Failed" and "created" are both
+        // wrong.
+        expect(said).toContain('PARTIAL create');
+        // ⭐ AND IT NO LONGER CLAIMS THE THREE THAT ARE NOW FIXED. A diagnostic that
+        // keeps naming closed gaps is how a reader learns to ignore it.
+        expect(said).not.toContain('curtain-wall enclosure side(s)');
+        expect(said).not.toContain('landing door(s)');
+        expect(said).not.toContain('cabin part(s)');
+
+        // (b) WITHOUT one — a lift on grade, nothing penetrated. SILENT.
+        warnSpy.mockClear();
+        await rt.bus.executeCommand('lift.create', {
+            ...basePayload,
+            liftId: 'lift_01ARZ3NDEKTSV4RRFFQ69G5H19',
+            enclosureType: 'standalone-glass',
+            // The SAME served level, minus the slab. `slabId: undefined` is a real
+            // state (the shaft passes through open air), not an error.
+            servedLevels: [{ levelId: 'level-1', elevation: 0 }],
+            enclosureIds: ENCLOSURE_IDS.map((id) => id + 'B'),
+            landingDoorIds: LANDING_DOOR_IDS.map((id) => id + 'B'),
+            cabinPartIds: CABIN_PART_IDS.map((id) => id + 'B'),
+        });
+        expect(warnings().filter((w) => w.includes('§FEAT-LIFT-OBSERVATION-FRAME')))
+            .toEqual([]);
+        disposeBridge();
+        rt.tearDown();
+    });
+
+    it('B-2 every member really IS in its plugin store — absent ≠ unreachable', async () => {
         // C01 §6 rule 6. The warning must describe UNREACHABLE, not ABSENT, and those
-        // have opposite fixes. If the doors and parts were simply never written, the
-        // fix would be in the handler; they ARE written, so the fix is a mirror.
+        // have opposite fixes. If the doors and parts had simply never been written,
+        // the fix would have been in the handler; they ARE written, so the fix was a
+        // mirror — and for two of the three the mirror already existed. This arm is
+        // what made that distinction checkable rather than argued.
         const { rt, disposeBridge } = await bootWithHost();
         await rt.bus.executeCommand('lift.create', {
             ...basePayload,

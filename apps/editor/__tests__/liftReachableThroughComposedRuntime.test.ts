@@ -39,7 +39,7 @@
 import { describe, expect, it } from 'vitest';
 import { bootstrapWithEverything } from '../src/bootstrap.everything.js';
 import { LiftCompoundStore, LiftPartStore } from '@pryzm/plugin-lift';
-import { LIFT_PART_CYCLE_ORDER } from '@pryzm/geometry-lift';
+import { LIFT_PART_CYCLE_ORDER, LIFT_PART_KINDS } from '@pryzm/geometry-lift';
 
 const AUDIT = { actorId: 'u', projectId: 'p', clientId: 'c', timestamp: '' } as const;
 
@@ -224,8 +224,30 @@ describe('§FEAT-LIFT-COMPOUND-SYSTEM — the lift compound is dispatchable thro
         // the blessed C15/ADR-0124 §3 ownership mechanism — C103 §2 — rather than a
         // new compound pattern.
         const lift = rt.stores.lift.getState().get(LIFT_ID) as { childrenIds: string[] };
-        expect(new Set(lift.childrenIds)).toEqual(
-            new Set([...ENCLOSURE_IDS, ...LANDING_DOOR_IDS, ...CABIN_PART_IDS]),
+        const owned = new Set(lift.childrenIds);
+        // ⭐ EVERY PRE-MINTED MEMBER IS OWNED — stated as a COVERING relationship
+        // rather than as a set EQUALITY (§FEAT-LIFT-OBSERVATION-FRAME, L-9400).
+        //
+        // ⚠ THIS ASSERTION USED TO BE `toEqual(new Set([...three arrays]))` AND IT WENT
+        // RED FOR THE RIGHT REASON. The lift now also owns its structural frame — four
+        // corner columns, a ring beam per side per served storey, top-bay bracing and
+        // two guide rails — whose ids are DERIVED from the parent rather than pre-minted
+        // by the tool (a variable member count cannot be pre-minted without the tool
+        // re-deriving the assembly's own arithmetic). A set equality against the
+        // pre-minted arrays can only ever mean "the frame must not exist", so it is
+        // restated as the property that actually matters: nothing the tool minted is
+        // dropped, and nothing is owned that is not a member.
+        for (const id of [...ENCLOSURE_IDS, ...LANDING_DOOR_IDS, ...CABIN_PART_IDS]) {
+            expect(owned.has(id), `pre-minted member ${id} is not owned`).toBe(true);
+        }
+        // ⛔ And the HOST WALL is still not among them — a wall-hosted lift BORROWS its
+        // host, and a `childrenIds` that grew is exactly when that could slip.
+        expect(owned.has(HOST_WALL)).toBe(false);
+        // The closure: enclosure + doors + every liftPart the command wrote. Anything
+        // else in the list is an id the delete would try to reap and could not find.
+        const allParts = (rt.stores.liftPart as LiftPartStore).byLift(LIFT_ID);
+        expect(owned.size).toBe(
+            ENCLOSURE_IDS.length + LANDING_DOOR_IDS.length + allParts.length,
         );
         for (const id of ENCLOSURE_IDS) {
             expect((rt.stores.wall.getState().get(id) as { parentId: string }).parentId).toBe(
@@ -303,9 +325,31 @@ describe('§FEAT-LIFT-COMPOUND-SYSTEM — the lift compound is dispatchable thro
         );
         expect(ceiling).toBeDefined();
         expect(ceiling!.kind).toBe('cabin-ceiling');
-        expect((rt.stores.liftPart as LiftPartStore).byLift(LIFT_ID)).toHaveLength(
-            LIFT_PART_CYCLE_ORDER.length,
+        // ⭐ THE CABIN IS FIVE PARTS, AND THE LIFT IS MORE THAN ITS CABIN.
+        //
+        // ⚠ This used to assert `byLift(LIFT_ID)` had exactly `LIFT_PART_CYCLE_ORDER
+        // .length` members, i.e. that a lift owns FIVE liftParts and no more. It went
+        // red at 33 when the shaft frame landed (§FEAT-LIFT-OBSERVATION-FRAME, L-9400),
+        // and the number was the point: a lift owns its cabin AND its structure.
+        //
+        // Restated so it keeps catching what it was written to catch — a cabin that
+        // silently loses a part — without also forbidding the frame: the CABIN kinds
+        // are exactly the cycle order, one member each, and every other part is a
+        // SHAFT kind rather than an unclassified stray.
+        const byLift = (rt.stores.liftPart as LiftPartStore).byLift(LIFT_ID);
+        const cabinMembers = byLift.filter(
+            (m) => (LIFT_PART_CYCLE_ORDER as readonly string[]).includes(m.kind),
         );
+        expect(cabinMembers).toHaveLength(LIFT_PART_CYCLE_ORDER.length);
+        for (const m of byLift) {
+            expect(
+                (LIFT_PART_KINDS as readonly string[]).includes(m.kind),
+                `part ${m.id} has an unclassified kind '${m.kind}'`,
+            ).toBe(true);
+        }
+        // The frame really is there — a lift that owns only its cabin is the pre-fix
+        // state, and this arm must not go quietly green on it.
+        expect(byLift.length).toBeGreaterThan(LIFT_PART_CYCLE_ORDER.length);
         rt.tearDown();
     });
 

@@ -1388,21 +1388,38 @@ export function wireCommandEventBridge(
           // mirrors treat a lift's enclosure exactly as if the architect had drawn each
           // side by hand. No fourth mirror and no second set of field-mapping bugs.
           //
-          // ⚠ AND THE MIRROR CENSUS IS STATED, NOT ASSUMED, because it is PARTIAL and
-          // a partial fix reported as a whole one is the defect this lane exists to
-          // avoid. Measured 2026-08-23 with BOTH ripgrep and `grep -rn` (they have
-          // disagreed in this repo before), over apps/editor/src + runtime-composer/src:
-          //     'wall.created'        -> 2 subscribers   ✅ LIVE
+          // ⚠ THE MIRROR CENSUS ABOVE WAS MEASURED WITH THE WRONG SPELLING, AND THE
+          // CORRECTION IS THE WHOLE OF L-9401/L-9402. It read:
           //     'door.created'        -> 0 subscribers   ❌ typed event exists, nothing listens
           //     'curtainwall.created' -> 0 subscribers, AND NO SUCH EVENT IS DECLARED
-          // So: a WALL-HOSTED lift has all four enclosure sides of kind 'wall' and
-          // mirrors COMPLETELY. A STANDALONE-GLASS lift has one wall (the landing side)
-          // and three curtain-wall sides, so three of its four sides have nowhere to go.
-          // Those three are NOT mirrored as walls — a curtain wall drawn as a wall is a
-          // lie about the element (C84 EI-9) — they are REPORTED, by name and count, at
-          // the bottom of this case. The founder placed a standalone glass lift, so what
-          // this commit buys him is the landing side plus a console line that names
-          // exactly what is still missing, instead of silence.
+          // and concluded that closing the lift meant DECLARING a curtain-wall event and
+          // giving `door.created` a SUBSCRIBER. Re-measured 2026-08-23 (lane LIFT56),
+          // both halves are false, and both are false in the same direction — the
+          // channel already existed and the search missed it:
+          //
+          //   ⭐ `curtain-wall.created` IS DECLARED (types.ts), IS EMITTED (this file,
+          //      the `curtain-wall.create` case) and HAS A LIVE MIRROR (initTools §P3.1-CW
+          //      -> `curtainWallRecordFromCreatedEvent` -> `curtainWallStoreInstance.add`
+          //      -> `bim-curtainwall-added` -> the curtain-wall builder). The census
+          //      grepped `curtainwall.created`, UNHYPHENATED. One character.
+          //      [[grep-silence-has-three-causes]] — a grep that returns nothing is not
+          //      the same fact as a thing that does not exist.
+          //
+          //   ⭐ A LANDING DOOR'S CHANNEL IS NOT `door.created` AT ALL — it is
+          //      `wall.opening.created`. That is the §P2.3 mirror, and it is the one
+          //      that matters: it punches the OPENING into the legacy wall (so the hole
+          //      appears in the shaft) AND writes the `DoorStore` record through the ONE
+          //      `buildDoorStoreRecord` chokepoint (so the leaf and the plan symbol
+          //      appear). `door.created` is a bare count event with no geometry
+          //      (`{commandId, commandType, levelId, elementCount}`) and TASK-13 removed
+          //      its case here deliberately — doors use the Committer architecture.
+          //      Giving IT a subscriber would have minted a SECOND channel for a concept
+          //      that already has one: C84 EI-9, the very rule the old text invoked.
+          //
+          // So a STANDALONE-GLASS lift now mirrors COMPLETELY: the landing side as a
+          // wall, the three glass sides as curtain walls, the landing doors as C15
+          // openings in the landing side. Nothing is smuggled through as a family it is
+          // not — R-12 holds — because nothing needed to be.
           const p = record.payload as {
             levelId?: string;
             liftId?: string;
@@ -1460,42 +1477,171 @@ export function wireCommandEventBridge(
             _liftWallSides++;
           }
 
-          // (2) ⛔ THE MEMBERS WITH NOWHERE TO GO — NAMED, COUNTED, AND SAID OUT LOUD.
-          //     This is the deliverable the founder's report actually asks for: a create
-          //     that produces no visible element must SAY so. It is one line per lift,
-          //     not per member, and it names the store, the count and the reason, so the
-          //     next reader does not have to re-derive the census above.
+          // (2) THE GLAZED SIDES — AS CURTAIN WALLS, THROUGH THE CHANNEL THAT ALREADY
+          //     EXISTED. §P3.1-CW's mirror maps this straight onto the legacy
+          //     `CurtainWallData` and fires `bim-curtainwall-added`, so a lift's glass
+          //     is built by the SAME builder that builds a hand-drawn curtain wall.
+          //
+          //     ⛔ `commandType` MUST be the literal `'curtain-wall.create'`: the
+          //     mirror's accept-set is exactly that one string
+          //     (`ACCEPTED_CURTAIN_WALL_COMMAND_TYPES`, narrowed by L-972 precisely so a
+          //     value nothing emits cannot survive as a dead arm). Stamping
+          //     `'lift.create'` here would emit three events nothing accepts —
+          //     activation reported, nothing activated.
+          let _liftGlassSides = 0;
+          for (const [cwId, cw] of _liftCommitted.get('curtainwall') ?? []) {
+            if (cw['parentId'] !== p.liftId) continue;
+            events.emit('curtain-wall.created', {
+              commandId:        record.id,
+              commandType:      'curtain-wall.create',
+              levelId:          (cw['levelId'] as string | undefined) ?? _liftLevelId,
+              elementCount:     1,
+              id:               cwId,
+              baseLine:         cw['baseLine'] as ReadonlyArray<{ x: number; y?: number; z: number }> | undefined,
+              height:           cw['height']           as number | undefined,
+              baseOffset:       cw['baseOffset']       as number | undefined,
+              // ⚠ WITHOUT THESE TWO THE MESH IS EMPTY, not merely ungridded. The
+              // legacy builder's `migrateToGridSystem()` reads them as
+              // `gridXSpacing`/`gridYSpacing` and produces NaN -> 0 mullion counts
+              // without finite positives. The assembly sets them per side.
+              bayWidth:         cw['bayWidth']         as number | undefined,
+              bayHeight:        cw['bayHeight']        as number | undefined,
+              mullionThickness: cw['mullionThickness'] as number | undefined,
+              panelThickness:   cw['panelThickness']   as number | undefined,
+              materialId:       (cw['materialId'] as string | undefined) ?? p.materialId,
+              panels:           cw['panels'] as ReadonlyArray<{ id: string }> | undefined,
+            });
+            _liftGlassSides++;
+          }
+
+          // (3) THE LANDING DOORS — AS C15 OPENINGS IN THE LANDING SIDE.
+          //     ⭐ THIS IS THE CHANNEL, AND IT IS NOT `door.created`. §P2.3 does BOTH
+          //     halves of what a landing door needs: `addOpening()` on the legacy wall
+          //     (the HOLE in the shaft) and `doorStore.add(buildDoorStoreRecord(...))`
+          //     (the LEAF and the plan swing symbol) — through the same one chokepoint
+          //     a hand-placed door uses, so a lift's door is by construction the same
+          //     legacy record as a drawn one.
+          //
+          //     ⚠ ORDER IS LOAD-BEARING: the wall loop above ran FIRST, so the landing
+          //     side is already in the legacy `WallStore` when its openings arrive. The
+          //     §P2.3 mirror reads that wall for the dedup guard and for the level id;
+          //     emitting the openings first would land them on a wall that is not there
+          //     yet, and `addOpening` would throw into its own non-fatal catch.
+          const _liftLandingSideId = (() => {
+            const lifts = _liftCommitted.get('lift');
+            const rec = p.liftId ? lifts?.get(p.liftId) : undefined;
+            return rec?.['landingSideId'] as string | undefined;
+          })();
+          let _liftDoorOpenings = 0;
+          for (const [doorId, door] of _liftCommitted.get('door') ?? []) {
+            if (door['parentId'] !== p.liftId) continue;
+            const hostWallId = (door['wallId'] as string | undefined) ?? _liftLandingSideId;
+            if (!hostWallId) continue;
+            events.emit('wall.opening.created', {
+              commandId:   record.id,
+              commandType: 'wall.opening.create',
+              wallId:      hostWallId,
+              opening: {
+                // The opening id the assembly minted, NOT the door id. They are two
+                // records: the hole and the thing in it. `Door.openingId` is the
+                // back-reference, and §P2.3 dedups the wall's `openings[]` on THIS id
+                // while it dedups `DoorStore` on `elementId`.
+                id:         door['openingId'] as string | undefined,
+                elementId:  doorId,
+                type:       'door',
+                doorType:   door['doorType']   as string | undefined,
+                offset:     door['offset']     as number | undefined,
+                width:      door['width']      as number | undefined,
+                height:     door['height']     as number | undefined,
+                sillHeight: door['sillHeight'] as number | undefined,
+                swing:      door['swing']      as string | undefined,
+                levelId:    door['levelId']    as string | undefined,
+                // C100 §6.1 — the MASTER id, forwarded so the leaf can say what it is
+                // made of. `buildDoorStoreRecord` reads it off the opening.
+                materialId: (door['leafMaterialId'] as string | undefined) ?? p.materialId,
+              },
+            });
+            _liftDoorOpenings++;
+          }
+
+          // (4) THE CABIN, THE FRAME AND THE GUIDE RAILS — THE MEMBERS THAT REALLY DID
+          //     HAVE NO FAMILY. ⭐ This is the one place the old diagnosis was exactly
+          //     right (*"no legacy family and no fragment builder"*), so this is the one
+          //     place something new was BUILT rather than connected:
+          //     `LiftCompoundMeshBuilder` (@pryzm/geometry-lift), wired to this event by
+          //     the §FT-LIFT subscriber in initTools.ts.
+          //
+          //     ⛔ ONE EVENT FOR ALL THE PARTS, NOT ONE PER PART. A lift serving ten
+          //     storeys carries ~70 members; the builder rebuilds the compound's whole
+          //     group in one pass, so N events would mean N full rebuilds of the same
+          //     group for one gesture. The per-member idiom exists so EXISTING mirrors
+          //     can be reused; where the consumer is new and is a single compound
+          //     builder, the compound is the right unit.
+          const _liftParts: Array<Record<string, unknown>> = [];
+          for (const [, part] of _liftCommitted.get('liftPart') ?? []) {
+            if (part['parentId'] !== p.liftId) continue;
+            _liftParts.push(part);
+          }
+          const _liftRecord = p.liftId ? _liftCommitted.get('lift')?.get(p.liftId) : undefined;
+          if (p.liftId && _liftRecord && _liftParts.length > 0) {
+            events.emit('lift.created', {
+              commandId:    record.id,
+              commandType:  'lift.create',
+              levelId:      (_liftRecord['levelId'] as string | undefined) ?? _liftLevelId,
+              liftId:       p.liftId,
+              origin:       _liftRecord['origin'] as { x: number; y: number; z: number },
+              rotation:     (_liftRecord['rotation'] as number | undefined) ?? 0,
+              enclosureType: _liftRecord['enclosureType'] as string | undefined,
+              // ⚠ The cabin parts' `offsetY` is measured from the PARKED CAR FLOOR.
+              // Without this number five car-local boxes have no elevation to stand
+              // at and the car would be drawn sitting on the level datum — which for
+              // a lift whose lowest served storey is not the base level is a car
+              // hanging in the shaft at the wrong floor.
+              carParkOffsetY: (_liftRecord['carParkOffsetY'] as number | undefined) ?? 0,
+              mark:         _liftRecord['mark'] as string | undefined,
+              parts:        _liftParts as never,
+            });
+          }
+
+          // (5) ⛔ WHAT STILL CANNOT RENDER — NAMED, COUNTED, AND SAID OUT LOUD.
+          //     R-13 (C104 §13.3): a create that produces no visible element MUST SAY
+          //     SO, at the layer that knows. ⭐ AND IT MUST GO QUIET WHEN THERE IS
+          //     NOTHING TO SAY — a warning that fires on every successful lift is a
+          //     warning nobody reads, which fails in exactly the way silence does.
+          //
+          //     ⛔ DO NOT DELETE THIS BLOCK WHEN THE LAST ROW CLOSES. Its job is to be
+          //     the thing that notices the NEXT member kind to arrive without a mirror.
+          //     A diagnostic that went quiet because someone removed it is strictly
+          //     worse than the bug it was watching for.
           const _liftUnmirrored: string[] = [];
-          const _liftGlass = _liftCommitted.get('curtainwall')?.size ?? 0;
-          const _liftDoors = _liftCommitted.get('door')?.size ?? 0;
-          const _liftParts = _liftCommitted.get('liftPart')?.size ?? 0;
-          if (_liftGlass > 0) {
+          const _liftSlabVoids = (record.forward ?? []).filter(
+            (patch) => patch.op === 'replace' && patch.path.length === 3 &&
+                       String(patch.path[0]) === 'slab' && String(patch.path[2]) === 'holes',
+          ).length;
+          if (_liftSlabVoids > 0) {
+            // ⚠ STILL OPEN, AND MEASURED RATHER THAN ASSUMED: the slab store is
+            // patched by REPLACE on `holes`, and there is no `slab.updated` mirror in
+            // initTools.ts — every slab bridge there keys on a CREATE. So the shaft
+            // penetrates the floor plate in the model and not on screen. This is the
+            // one row of C104 §13.2 that this lane did not close, and it is left
+            // SPEAKING rather than quietly dropped. L-9403.
             _liftUnmirrored.push(
-              `${_liftGlass} curtain-wall enclosure side(s) — no 'curtainwall.created' ` +
-              `event is DECLARED at all, so there is nothing to emit and nothing to ` +
-              `subscribe; mirroring them as walls instead would be C84 EI-9`);
-          }
-          if (_liftDoors > 0) {
-            _liftUnmirrored.push(
-              `${_liftDoors} landing door(s) — 'door.created' IS declared in ` +
-              `RuntimeEvents but has ZERO subscribers, so emitting it would be a ` +
-              `channel that reads as live and is dead at the far end`);
-          }
-          if (_liftParts > 0) {
-            _liftUnmirrored.push(
-              `${_liftParts} cabin part(s) — no legacy family and no fragment builder`);
+              `${_liftSlabVoids} slab void(s) — the shaft's penetration is a REPLACE on ` +
+              `an existing slab's 'holes', and every legacy slab bridge keys on a ` +
+              `CREATE, so no mirror sees it; the hole is real in the model and absent ` +
+              `from the 3-D floor plate (L-9403)`);
           }
           if (_liftUnmirrored.length > 0) {
             console.warn(
-              `[CommandEventBridge] §FIX-LIFT-LOST-BETWEEN-DISPATCH-AND-STORE (L-7820): ` +
-              `lift ${p.liftId ?? '(unnamed)'} COMMITTED to its plugin stores and ` +
-              `${_liftWallSides} of its enclosure side(s) reached the legacy mirror. ` +
-              `THE FOLLOWING MEMBERS REACHED NO MIRROR AND WILL NOT RENDER: ` +
-              _liftUnmirrored.join('; ') + '. ' +
+              `[CommandEventBridge] §FEAT-LIFT-OBSERVATION-FRAME (L-9400..L-9403): ` +
+              `lift ${p.liftId ?? '(unnamed)'} COMMITTED, and reached the legacy mirrors ` +
+              `as ${_liftWallSides} wall side(s), ${_liftGlassSides} curtain-wall side(s), ` +
+              `${_liftDoorOpenings} landing-door opening(s) and ${_liftParts.length} ` +
+              `cabin/frame part(s). THE FOLLOWING MEMBERS REACHED NO MIRROR AND WILL NOT ` +
+              `RENDER: ` + _liftUnmirrored.join('; ') + '. ' +
               `This is a PARTIAL create, not a failed one and not a complete one — the ` +
               `lift record is real, undoable and schedulable, and part of it is invisible. ` +
-              `Closing it means declaring 'curtainwall.created' + a mirror, and giving ` +
-              `'door.created' a subscriber. See docs/02-decisions/contracts/C104-*.md §10.`);
+              `See docs/02-decisions/contracts/C104-*.md §13.`);
           }
           break;
         }

@@ -168,6 +168,8 @@ lift dimensional literal may appear.
 | `landingSideId` | **STORED** | Not recoverable from the flat `childrenIds`, and `lift.delete` needs it. An **identity reference**, not a value that can disagree with itself — the derived-vs-stored rule is about values that can *drift* |
 | `penetratedSlabIds` | **STORED** | So `lift.delete` heals **exactly** the voids it made |
 | the void **loops** | **DERIVED at delete time**, by re-running the pure assembly | Storing a copy would let it drift from the geometry it must match. This is only sound because `buildLiftAssembly` is **deterministic**, which is pinned by a test |
+| `shaftBaseOffset` / `shaftHeight` / `carParkOffsetY` | **STORED** *(added 2026-08-23, L-9400)* | ⚠ **These ARE derived from the served levels' elevations, and storing them is a deliberate exception argued rather than dodged.** The **enclosure already stores the same two numbers**: every side this assembly emits carries `height: shaftHeight` and `baseOffset: shaftBaseY − datumY`, persisted in the wall store, able to go stale in exactly the same way. Recomputing them in the render layer would create a **SECOND producer that could disagree with the walls** — strictly worse than one producer that can go stale. So this adds **no new drift class**; it names the one that was already there. Level-move re-resolution is a real gap for the whole compound and is **L-9406, OPEN** |
+| the shaft **frame** and **guide rails** | **DERIVED, and their IDS are derived too** *(L-9400)* | Their count is a function of the served-level count (`4 × (n+1)` ring beams), so pre-minting them in the tool would make the tool re-derive the assembly's own arithmetic — two producers of one number. `derivedShaftPartId(liftId, tag)` is a **pure function**, which satisfies CA-2 *more strongly* than pre-minting: it cannot differ across redo because it is not random, and it cannot be forgotten by a caller because there is no caller |
 
 ---
 
@@ -193,9 +195,40 @@ assembly detail.
 6. every part carrying **`parentId`** and the parent carrying **`childrenIds`**.
 
 **Explicitly OUT of scope at LOD 300, and named so nobody mistakes absence for a
-defect:** guide rails and brackets, the door operator, the counterweight, the machine
-and its room, ropes, buffers as modelled objects, fixings, control panels, and any
-fire-rating certification data. Those are LOD 350–400.
+defect:** brackets, the door operator, the counterweight, the machine and its room,
+ropes, buffers as modelled objects, fixings, control panels, and any fire-rating
+certification data. Those are LOD 350–400.
+
+> ⭐ **AMENDED 2026-08-23 (lane LIFT56, §FEAT-LIFT-OBSERVATION-FRAME, L-9400).**
+> This list used to open with **"guide rails and brackets"**. **Guide rails were
+> removed from it, and the SHAFT STRUCTURAL FRAME was added to §5's assertable list
+> as item 7.** The reason is a founder directive with a reference render attached —
+> *"it should create similar to what you see in the image … it should be exactly the
+> same"* — showing a **panoramic / observation lift**: a glazed shaft carried by a
+> painted steel frame (four corner columns, a ring beam at every storey, cross-bracing
+> in the top bay), with the car guide rails visible the full height.
+>
+> **This is not scope creep, and the distinction is worth stating because it is what
+> keeps §5 meaningful.** LOD 350–400 is about **fabrication and interface detail** —
+> a rail's *bracket spacing*, its *splice plates*, its *fixings*. A guide rail and a
+> frame column at LOD 300 are what LOD 300 has always meant here: *"a specific system,
+> object or assembly, in terms of quantity, size, shape, location, and orientation."*
+> For an **observation** lift they are also not optional in the way they are for a
+> lift inside a blockwork shaft: **they are the visible building.** A glazed shaft
+> with no frame is a drawing of glass floating in the air.
+>
+> ⛔ **THE MEMBERS ARE `liftPart` RECORDS, NOT `column` / `beam` RECORDS**, and R-15
+> below makes that binding. The short version: a lift's corner posts are supplied,
+> priced and installed by the **lift contractor**, so counting them as building
+> columns inflates the structural-steel tonnage by members the structural engineer
+> never designed — the same data-integrity defect `LiftPartTypes.ts` records for a car
+> floor counted as floor area. They also span **pit to overrun**, through every
+> storey, so no `levelId` is true of them.
+>
+> **7.** a **shaft structural frame** — corner columns spanning pit to overrun, a ring
+> beam per side at every served storey plus the head, and top-bay cross-bracing — plus
+> **car guide rails**, all as separately addressable, dimensioned, materially-specified
+> `liftPart` records.
 
 ---
 
@@ -434,20 +467,87 @@ Measured 2026-08-23 with **both** ripgrep and `grep -rn` (they have disagreed in
 | `liftPart` (cabin) | — | — | ⛔ no legacy family, no fragment builder |
 | `slab` (voids) | — | — | ⚠ a REPLACE on existing slabs, not a create |
 
-**Therefore, and this is the sentence to quote rather than "the lift renders":**
+> ⛔⛔ **THREE OF THOSE FIVE ROWS WERE WRONG, AND TWO OF THEM WERE WRONG BECAUSE OF ONE
+> MISSING HYPHEN. CORRECTED 2026-08-23 (lane LIFT56, L-9401/L-9402).**
+>
+> The table above is **kept verbatim** because the correction is worth more than the
+> table: it is a textbook `[[grep-silence-has-three-causes]]`, and the wrong reading was
+> propagated into a contract, a console message, an ISSUE-LOG row *and* a test's
+> assertions, where it then read as settled fact for a day.
+>
+> | member store | **actual** route | verdict, re-measured 2026-08-23 |
+> |---|---|---|
+> | `wall` | `wall.created` → initTools §P2.1 | ✅ correct as written |
+> | `curtainwall` | **`curtain-wall.created`** → initTools **§P3.1-CW** | ⭐ **DECLARED, EMITTED AND MIRRORED SINCE §P3.1-CW.** The census grepped `curtainwall.created`, **unhyphenated**. The mirror runs `curtainWallRecordFromCreatedEvent` → `curtainWallStoreInstance.add` → `bim-curtainwall-added` → the curtain-wall builder |
+> | `door` | **`wall.opening.created`** → initTools **§P2.3** | ⭐ **`door.created` WAS NEVER THE CHANNEL.** It is a bare count event (`{commandId, commandType, levelId, elementCount}`) whose CEB case **TASK-13 removed deliberately** — doors use the Committer architecture. §P2.3 does both halves a landing door needs: `addOpening()` on the legacy wall (**the hole**) and `doorStore.add(buildDoorStoreRecord(…))` (**the leaf and the plan swing arc**), through the one chokepoint a hand-placed door uses |
+> | `liftPart` | **`lift.created`** → initTools **§FT-LIFT** → `LiftCompoundMeshBuilder` | ⭐ **THIS ROW WAS RIGHT.** There genuinely was no family and no builder, so this is the **one** place something was **BUILT** rather than connected |
+> | `slab` | — | ⚠ **STILL OPEN — L-9403.** Unchanged and correct as written |
+>
+> ⚠ **THE OLD PRESCRIPTION WOULD HAVE MADE THINGS WORSE, NOT MERELY BEEN REDUNDANT.**
+> It said *"closing it means declaring `curtainwall.created` + a mirror, and giving
+> `door.created` a subscriber."* Following it literally would have minted a **second**
+> curtain-wall event beside the live hyphenated one, and a **second** door channel beside
+> `wall.opening.created` — **two rival vocabularies for two concepts that each already
+> had one, which is C84 EI-9**: the very rule the same paragraph invoked to forbid
+> mirroring glass as walls. ⭐ *A correctly-reasoned conclusion drawn from a
+> mis-measured premise is still wrong, and it arrives wearing the contract citation.*
 
-- a **WALL-HOSTED** lift has four `kind:'wall'` sides and **mirrors completely**;
-- a **STANDALONE-GLASS** lift has one wall (the landing side) + three curtain walls, so
-  **three of its four sides render nothing**. ⭐ *That is the type the founder placed.*
+**Therefore, and this is the sentence to quote rather than "the lift renders"
+(REWRITTEN 2026-08-23):**
+
+- a **WALL-HOSTED** lift mirrors completely: four `kind:'wall'` sides;
+- a **STANDALONE-GLASS** lift **also mirrors completely**: the landing side as a wall,
+  the three glass sides as curtain walls, one C15 opening per served storey in the
+  landing side, and the cabin + frame + rails through `lift.created`. ⭐ *That is the
+  type the founder placed, and it was the type that showed him one wall.*
+- **the SLAB VOIDS still do not reach the 3-D floor plate** (L-9403). The shaft is a
+  real penetration in the model and is absent from the rendered slab.
 
 ### §13.3 — R-12 · R-13 · R-14 (binding)
 
 - **R-12** ⛔ **A lift member is NEVER mirrored as a member of a different family to make it
   draw.** Emitting `wall.created` for a curtain-wall enclosure side would put a lift on
   screen and is forbidden: it is C84 EI-9 (one id, one meaning) and it would make the ELEMENT
-  merge §1 forbids happen in the render store. **The correct closure is to declare
+  merge §1 forbids happen in the render store. ~~**The correct closure is to declare
   `curtainwall.created` and give it a mirror (L-7822), and to give `door.created` a
-  subscriber (L-7823).**
+  subscriber (L-7823).**~~
+  > ⭐ **THE RULE STANDS; ITS PRESCRIPTION WAS STRUCK 2026-08-23 (L-9401/L-9402).** Both
+  > channels already existed — `curtain-wall.created` (hyphenated) and
+  > `wall.opening.created` — so the correct closure was to **EMIT INTO THEM**, and
+  > following the struck sentence would have minted two rival vocabularies, breaking the
+  > very rule it is attached to. See the correction box in §13.2. **R-12 held throughout
+  > and was never breached: nothing was mirrored as a family it is not, because nothing
+  > had to be.**
+- **R-15** ⭐ **A lift's structural frame and guide rails are `liftPart` records, NEVER
+  `column` / `beam` records.** *(Added 2026-08-23, L-9400.)* `Column` and `Beam` already
+  render, so emitting them is the cheap answer and it is wrong three ways: (a) the
+  structural schedule, the load take-down and the `IfcColumn`/`IfcBeam` export would count
+  lift-contractor members as **building structure**, inflating the steel tonnage by members
+  the structural engineer never designed; (b) a corner column spans **pit to overrun**, so
+  no `levelId` is true of it and per-level plan banding would lie about it; (c) `lift.delete`
+  reaps by `childrenIds` (§8), and members sprayed into two more stores are two more chances
+  to leave an orphan. This is C104 R-3 applied, not a new rule — *"if a sixth kind of part
+  fits an existing family, it belongs in that family's store"* cuts **both** ways, and a
+  building column is not what a lift's corner post is.
+- **R-16** ⭐ **A lift part's placement is SHAFT-LOCAL or CAR-LOCAL. NEVER world.**
+  *(Added 2026-08-23, L-9400.)* `LiftPart.axis` is a segment in shaft-local space and
+  `offsetY` is measured from the parked car floor; the ONE world transform is applied by the
+  consumer, from `lift.origin` + `lift.rotation`. Baking a world placement into a frame
+  member would mean moving the lift left the steel behind while the glass, the doors and the
+  car followed — **with nothing complaining, because both values would be individually
+  valid.** That is `LiftPartTypes.ts` header point 3, and it is the reason the field could be
+  added at all. The linear/box discriminator is **the presence of `axis`**, read through
+  `isLinearLiftPart()`, never a switch on `kind`: keying on `kind` means every new kind must
+  be added to a switch in every consumer, and the consumer that is missed draws the part in
+  the wrong space, silently.
+- **R-17** ⭐ **The un-mirrored-members diagnostic MUST go quiet when there is nothing to
+  report, and MUST NOT be deleted when the last row closes.** *(Added 2026-08-23, L-9404.)*
+  R-13 has two halves and only one of them is ever tested. A warning that fires on every
+  successful lift is a warning nobody reads, which fails in **exactly** the way silence
+  does — and a diagnostic removed because "it does not fire any more" is how the *next*
+  member kind arrives unannounced. Both halves are pinned by
+  `liftReachesTheRenderMirror.test.ts` B-3, which asserts the message names the remaining
+  gap **and** that a lift with nothing outstanding produces no message at all.
 - **R-13** ⭐ **A create that produces no visible element MUST SAY SO, at the layer that
   knows.** `CommandEventBridge`'s `lift.create` case reports the un-mirrored members **by
   store, by count and by reason**, once per lift, and it refuses the comfortable word: it
@@ -470,11 +570,38 @@ can be *seen*** — `liftReachableThroughComposedRuntime.test.ts` says so in its
 (*"It does NOT prove that a person can click a Lift button and get one"*) and was green
 throughout the founder's session.
 
-**Axis 5 — RENDER MIRROR:** ⚠ **PARTIAL.** Closed for `wall-hosted`, open for
-`standalone-glass` (L-7822). Proven by
-`apps/editor/__tests__/liftReachesTheRenderMirror.test.ts`, which asserts at
-`runtime.events` — the layer the mirrors actually consume — and **not** at the plugin store
-the older suite reads.
+~~**Axis 5 — RENDER MIRROR:** ⚠ **PARTIAL.** Closed for `wall-hosted`, open for
+`standalone-glass` (L-7822).~~
+
+> ⭐ **AXIS 5 RE-MEASURED 2026-08-23 (lane LIFT56).** **CLOSED for BOTH enclosure types,
+> for every member except the slab voids.** Proven by
+> `apps/editor/__tests__/liftReachesTheRenderMirror.test.ts` (8 cases), which asserts at
+> `runtime.events` — the layer the mirrors actually consume — and **not** at the plugin
+> store the older suite reads: A-1/A-2 wall sides · **B-1 three `curtain-wall.created`** ·
+> **B-1b one `wall.opening.created` per served storey** · **B-1c one `lift.created`
+> carrying the cabin, the frame and the rails** · **B-3 the diagnostic both ways** ·
+> C-1 the generic detector.
+>
+> ⚠ **AND AXIS 5 IS STILL NOT "IT RENDERS", WHICH IS WHY AXIS 6 EXISTS.** A mirror event
+> proves the record reached the channel a builder listens on. It does not prove a builder
+> turned it into a mesh — the failure `[[committed-is-not-reachable]]` names, one layer up.
+
+**Axis 6 — MESH** *(⭐ NEW 2026-08-23, L-9400)*: ✅ **CLOSED for the cabin, the frame and
+the guide rails**, by `packages/geometry-lift/__tests__/LiftCompoundReachesTheMesh.test.ts`
+(15 cases). It drives the **production** `LiftCompoundMeshBuilder` over the **production**
+`buildLiftAssembly` output and reads the answers off the `THREE.Mesh` objects the renderer
+puts in the scene: every part kind reaches a mesh, the frame wears the **master's**
+`steel-painted-red-oxide` (read from `MATERIAL_CATALOG`, never transcribed), two materials
+give two colours, a top-bay brace is genuinely **diagonal**, the ring beams **track the
+served storeys**, the frame **follows the shaft footprint**, the car parks at the lowest
+served level, materials are shared **by colour** so instancing survives, and every child is
+non-selectable so the pick resolves to the lift (C15 §12).
+
+⛔ **What axis 6 deliberately does NOT cover:** the glazed enclosure and the landing doors.
+Those are drawn by the **curtain-wall** and **door** families' own builders from their own
+records — drawing them a second time in the lift builder would put two producers of one
+surface in the scene (z-fighting, doubled transmission cost on the WebGL backend, one id
+meaning two objects). Their proof is at the bridge, in axis 5.
 
 ### §13.5 — Sync: `lift.create` is now declared (C08 §3.2, L-7810)
 

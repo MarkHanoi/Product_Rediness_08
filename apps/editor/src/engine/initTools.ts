@@ -271,6 +271,13 @@ export interface ToolsParams {
     liftStore?: LiftStore;
     liftTypeStore?: LiftTypeStore;
     liftMeshBuilder?: any;
+    /**
+     * FEAT-LIFT-OBSERVATION-FRAME (L-9400) — the LOD-300 compound's renderer.
+     * Driven by the FT-LIFT `lift.created` subscriber below. Optional so a headless
+     * or partial boot omits it and the subscriber simply does not register, exactly
+     * as the other builder params behave.
+     */
+    liftCompoundMeshBuilder?: any;
     gridStore: GridStore;
     curtainWallStoreInstance: CurtainWallStore;
     curtainPanelStoreInstance: CurtainPanelStore;
@@ -340,7 +347,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         runtime,
         wallStore, slabStore, columnStoreInstance, beamStore,
         stairStore, stairTypeStore, stairLandingStore, stairRailingStore,
-        liftStore, liftTypeStore,
+        liftStore, liftTypeStore, liftCompoundMeshBuilder,
         gridStore, curtainWallStoreInstance, curtainPanelStoreInstance,
         roofStore, plumbingStore, furnitureStore, handrailStore, openingStore,
         wallSystemTypeStore, slabSystemTypeStore, ceilingStore, floorStore, roomStore,
@@ -1523,6 +1530,72 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             }
         });
         console.log('[initTools] §P2.3: wall.opening.created bus→legacy-store bridge registered.');
+    }
+
+    // §FT-LIFT (§FEAT-LIFT-OBSERVATION-FRAME, L-9400..L-9406 · C104 §13): bus →
+    // LiftCompoundMeshBuilder. THE THIRD OF THE FOUNDER'S THREE RENDER GAPS, AND THE
+    // ONLY ONE THAT NEEDED SOMETHING BUILT RATHER THAN CONNECTED.
+    //
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ⭐ WHY THIS SUBSCRIBER IS NOT A "MIRROR" LIKE THE TEN AROUND IT.
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Every other bridge in this file mirrors a bus record into a LEGACY STORE so an
+    // existing builder can find it. The lift's cabin, steel frame and guide rails
+    // have no legacy store to mirror INTO — `liftPart` is a new family (C104 R-3),
+    // and the console line the founder pasted diagnosed exactly that: *"no legacy
+    // family and no fragment builder"*. It was right. So this hop hands the parts
+    // straight to a builder instead of laundering them through a store that would
+    // exist only to be read once.
+    //
+    // ⛔ AND IT IS **NOT** `liftMeshBuilder`. That builder is real, is constructed
+    // (initBuilders.ts) and draws the LOD-200 MASSING lift out of `LiftStore` —
+    // a DIFFERENT ELEMENT. C104 §13.1 records this as the trap that made the whole
+    // defect invisible for a day: "a mesh builder exists, runs, and watches the
+    // other store". Routing the compound into it to reuse its meshes is the
+    // corruption UNDO37 refused for undo (L-7311) with a renderer attached, and it
+    // is forbidden by C104 R-8.
+    //
+    // ⚠ THE ENCLOSURE IS NOT DRAWN HERE. The opaque sides go through §P2.1
+    // (`wall.created`), the glass through §P3.1-CW (`curtain-wall.created`) and the
+    // landing doors through §P2.3 (`wall.opening.created`) — three channels that
+    // already existed and already had live subscribers. Drawing them a second time
+    // here would put two producers of one surface in the scene: z-fighting, doubled
+    // transmission cost on the WebGL backend, and one id meaning two objects
+    // (C84 EI-9).
+    if (runtime && liftCompoundMeshBuilder) {
+        runtime.events.on('lift.created', (ev) => {
+            if (ev.commandType !== 'lift.create' || !ev.liftId || !ev.origin) return;
+            if (!Array.isArray(ev.parts) || ev.parts.length === 0) return;
+            try {
+                liftCompoundMeshBuilder.updateLift({
+                    id:             ev.liftId,
+                    levelId:        ev.levelId ?? '',
+                    origin:         ev.origin,
+                    rotation:       ev.rotation ?? 0,
+                    enclosureType:  ev.enclosureType,
+                    carParkOffsetY: ev.carParkOffsetY ?? 0,
+                    mark:           ev.mark,
+                    parts:          ev.parts,
+                });
+                // §FIX-PLAN-VDT-BIMMANAGER (lift compound): without these two calls a
+                // bus-created element is invisible in PLAN view — the same root cause
+                // the wall, column and beam bridges above each carry a note about.
+                // A lift that renders in 3-D and not in plan is half a fix.
+                viewDependencyTracker.registerElement(ev.liftId, ev.levelId ?? '');
+                try { bimManager.registerElement(ev.liftId, ev.levelId ?? ''); }
+                catch { /* non-fatal — may already be registered */ }
+                console.log(
+                    '[initTools] §FT-LIFT: lift compound built — ' + ev.liftId +
+                    ' (' + ev.parts.length + ' cabin/frame part(s))',
+                );
+            } catch (err) {
+                console.error(
+                    '[initTools] §FT-LIFT: LiftCompoundMeshBuilder.updateLift failed — ' +
+                    'the cabin, frame and guide rails will be absent:', err,
+                );
+            }
+        });
+        console.log('[initTools] §FT-LIFT: lift.created bus→LiftCompoundMeshBuilder bridge registered.');
     }
 
     // §P3.1-CW (IMPL-PLAN-2026-05-17): bus → legacy-CurtainWallStore bridge.

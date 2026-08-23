@@ -75,6 +75,33 @@ export const LIFT_DIMENSION_DEFAULTS = Object.freeze({
      * short by a storey-and-a-bit's worth of enclosure that must really be built.
      */
     overrunHeight: 3.4,
+
+    // ── §FEAT-LIFT-OBSERVATION-FRAME (L-9400) — THE STRUCTURAL FRAME ───────────
+    // The founder's reference is a PANORAMIC / OBSERVATION lift: a glazed shaft
+    // carried by a painted steel frame — four corner columns, a ring beam at every
+    // storey, and cross-bracing in the top (machine/overrun) bay. Those members are
+    // what a glass shaft is actually built OF: a curtain-walled box with no frame is
+    // a drawing of glass floating in the air.
+    //
+    // ⚠ These are the ONLY new dimensional literals, and they are HERE because C104
+    // §3 / R-6 says a lift dimensional constant may live in exactly two files. They
+    // are not invented numbers — they are the common structural sections for a
+    // 4-storey observation-lift tower:
+    /** Corner-column square hollow section, across flats (m). 120×120 SHS. */
+    frameColumnSize: 0.12,
+    /** Storey ring-beam section width (m), horizontal, across the face. */
+    frameBeamWidth: 0.1,
+    /** Storey ring-beam section depth (m), vertical. */
+    frameBeamDepth: 0.16,
+    /** Top-bay cross-brace square section, across flats (m). 80×80 SHS. */
+    frameBraceSize: 0.08,
+    /**
+     * Guide-rail blade width (m). A T89/B machined guide rail — the standard
+     * passenger-lift rail — has an 89 mm blade. Rounded to 0.09 m at LOD 300.
+     */
+    guideRailWidth: 0.09,
+    /** Guide-rail back depth (m) — the T-section's foot. */
+    guideRailDepth: 0.062,
 } as const);
 
 /** Everything downstream needs, all resolved, no optionals left. */
@@ -95,6 +122,13 @@ export interface ResolvedLiftDimensions {
     readonly carCapacityPersons: number;
     readonly pitDepth: number;
     readonly overrunHeight: number;
+    // §FEAT-LIFT-OBSERVATION-FRAME (L-9400) — the structural frame + guide rails.
+    readonly frameColumnSize: number;
+    readonly frameBeamWidth: number;
+    readonly frameBeamDepth: number;
+    readonly frameBraceSize: number;
+    readonly guideRailWidth: number;
+    readonly guideRailDepth: number;
 }
 
 /** The subset of a lift record this resolver reads. Tier 1 of the chain. */
@@ -162,6 +196,17 @@ export function resolveLiftDimensions(
                     record.carCapacityPersons ?? t?.carCapacityPersons ?? d.carCapacityPersons,
                 pitDepth: record.pitDepth ?? d.pitDepth,
                 overrunHeight: record.overrunHeight ?? d.overrunHeight,
+                // §FEAT-LIFT-OBSERVATION-FRAME (L-9400). No record/systemType tier
+                // yet, deliberately: a frame section is a STRUCTURAL choice, and
+                // offering an override before anything can express one would mint a
+                // parameter with no author. The chain is `default` only, and the
+                // resolver stays the ONE place a lift dimension is read (C104 §3).
+                frameColumnSize: d.frameColumnSize,
+                frameBeamWidth: d.frameBeamWidth,
+                frameBeamDepth: d.frameBeamDepth,
+                frameBraceSize: d.frameBraceSize,
+                guideRailWidth: d.guideRailWidth,
+                guideRailDepth: d.guideRailDepth,
             };
 
             span.setAttribute('pryzm.lift.shaftWidth', out.shaftWidth);
