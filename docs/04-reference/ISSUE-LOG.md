@@ -40223,3 +40223,9 @@ lane's ownership. The next rake lane closes it in one step with the two citation
   Both readings are recorded because both were true, minutes apart, and only one of them is the
   state of the repository — which is the whole reason this section says *readings, never states*.
   A shared tree with concurrent lanes makes a single tsc reading a photograph, not a fact.
+- `npx tsx tools/ga-gate/check-otel-spans.ts` → **RC=3**, Zone A **263/263**, Zone B **60
+  uninstrumented of 78 against a baseline of 52**, Zone C census 1945/2229. ⚠ **None of the eight
+  named files is one this lane touched** — they are `command-registry` and the balcony/lift plugin
+  barrels. `apps/editor/src/engine/undo/` is outside Zone B, so this lane's one new export
+  (`__resetUnorderableReports`, a test seam) does not move it. **Pre-existing and NOT this lane's**;
+  CLAUDE.md's reading of *"54 of 70 against 52"* dated 2026-08-18 is stale — re-run the gate.
