@@ -43013,6 +43013,24 @@ not an omission. Also unshipped and unclaimed: **type objects + `IfcRelDefinesBy
 (`revitTypePsets` is hardcoded to 0), **systems**, **classification**, and **QTO for every family
 except Wall**.
 
+### L-8590 — ⚠ OPEN (observed, NOT changed): a hosted door/window is in no `IfcRelContainedInSpatialStructure`
+
+Seen while reading a real emitted file, not named in the founder's audit. `IfcModelBuilder`
+routes any element with a `hostWallId` into the void/fill path **instead of** the storey's
+containment list, so `door_1` in the sample export appears in `IfcRelFillsElement` and in no
+`IfcRelContainedInSpatialStructure`.
+
+The relationship graph is not broken — the door reaches the storey transitively through
+opening → wall — and most viewers resolve it. But common practice (and what Revit/ArchiCAD
+emit) is for a door to ALSO be contained in its storey, and some MVD checkers require every
+product to be directly contained.
+
+⛔ **Deliberately NOT changed.** This is pre-existing behaviour, the audit did not flag it, and
+I could not consult the IFC4 MVD offline to settle whether direct containment alongside
+`IfcRelFillsElement` is required, permitted, or a double-assignment violation. Changing it on a
+guess would risk introducing a schema violation while fixing a cosmetic one — the opposite of
+what this lane is for. **Named, with the evidence, for someone who can check the spec.**
+
 ### L-8580 — verification, run in the FOREGROUND
 
 * `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=0**.

@@ -19,7 +19,7 @@
  * at L0 so that L3 (`@pryzm/file-format`) and L6 (`@pryzm/plugin-ifc-export`) can
  * both reach it downward; no other placement is layer-legal for both.
  *
- * ADR-0316 (pipeline convergence) · ADR-0317 (GlobalId stability) · C25 §3.
+ * ADR-0362 (pipeline convergence) · ADR-0363 (GlobalId stability) · C25 §3.
  *
  * ## Purity
  *
@@ -184,7 +184,7 @@ export function stableUuidFromKey(key: string): string {
  * the audit asked for. A map has to be persisted, migrated, and garbage-collected,
  * and it is wrong the moment it is not saved. A pure derivation from an identifier
  * that is ALREADY persistent and ALREADY stable (the PRYZM element id) is stable
- * **by construction** — there is no state to lose. See ADR-0317.
+ * **by construction** — there is no state to lose. See ADR-0363.
  *
  * Callers must pass a key that is stable for the life of the thing being named,
  * and unique across the file. Convention used by both pipelines:

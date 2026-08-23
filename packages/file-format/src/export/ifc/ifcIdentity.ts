@@ -50,7 +50,7 @@ export function ifcGlobalId(value: string | null | undefined, stableKey: string)
 
 // ── Stable-key vocabulary ───────────────────────────────────────────────────
 // ⛔ These strings are a persistence format. Changing one silently re-mints every
-//    GlobalId derived from it, in every project. See ADR-0317.
+//    GlobalId derived from it, in every project. See ADR-0363.
 
 /** The element itself. */
 export const elementKey = (pryzmId: string) => `el:${pryzmId}`;
@@ -86,7 +86,9 @@ export const relSpaceBoundaryKey = (relId: string) => `relspaceboundary:${relId}
  * element is still exported, still visible, and unmistakably not placed.
  */
 export const UNASSIGNED_LEVEL_ID = '__PRYZM_UNASSIGNED__';
-export const UNASSIGNED_LEVEL_NAME = 'UNASSIGNED (PRYZM export — source level not found)';
+// ASCII only: STEP escapes non-ASCII as `\X2\2014\X0\`, which is valid but reads as
+// mojibake in a viewer's storey list — the one place this name must be legible.
+export const UNASSIGNED_LEVEL_NAME = 'UNASSIGNED (PRYZM export - source level not found)';
 
 // ── Diagnostics ─────────────────────────────────────────────────────────────
 

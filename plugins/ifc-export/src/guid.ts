@@ -19,7 +19,7 @@
  * code here that could diverge.** Do not re-implement any of it; add to
  * `packages/schemas/src/ifc/GlobalId.ts` instead.
  *
- * See ADR-0316 (pipeline convergence), ADR-0317 (GlobalId stability), C25 §3.
+ * See ADR-0362 (pipeline convergence), ADR-0363 (GlobalId stability), C25 §3.
  */
 
 export {
