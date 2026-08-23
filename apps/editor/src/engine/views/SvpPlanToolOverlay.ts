@@ -63,6 +63,10 @@ import { getStairToolConfig } from '@pryzm/geometry-stair';
 // §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — the ONE floor-finish config chokepoint.
 import { getFloorToolConfig } from '@pryzm/core-app-model/stores';
 import { trace } from '@opentelemetry/api';
+// §FIX-PLAN-TOOL-ESCAPE-RUNAWAY (L-7800) — the two-stage Escape decision for
+// PLAN-ONLY tools (balcony / lift / pool). A no-op for every ToolManager-owned
+// tool, so this import cannot change Escape for wall, slab, roof or any sibling.
+import { planOnlyToolEscape } from '@app/ui/create/activatePlanOnlyTool';
 
 // §FIX-PLAN-WALLTOOL-ARM-ON-ACTIVATE (L-66) — P8: one OTel span per new exported entry point.
 const _svpPlanToolOverlayTracer = trace.getTracer('@pryzm/editor.svp-plan-tool-overlay', '0.1.0');
@@ -662,9 +666,24 @@ export class SvpPlanToolOverlay {
         if (SvpPlanToolOverlay._isFormFieldTarget(e.target)) return;
 
         if (e.key === 'Escape') {
+            // ⭐ §FIX-PLAN-TOOL-ESCAPE-RUNAWAY (L-7800) — SAMPLE THE STROKE BEFORE
+            // CANCELLING IT. `cancel()` resets `_points` / `_loopAnchor`, so anything
+            // that asks afterwards reads a false negative. This overlay is the only
+            // place in the tree that can observe the stroke at the right instant,
+            // which is why the two-stage decision is driven from here rather than
+            // from the session's own (bubble-phase, therefore later) listener.
+            const hadStroke = !!(
+                this._activeHandler as { hasActiveStroke?: () => boolean }
+            ).hasActiveStroke?.();
             this._activeHandler.cancel();
             this._hideSnapTooltip();
             e.preventDefault();
+            // Tell the session's fallback listener this Escape is already accounted
+            // for — see `beginPlanOnlyToolSession`'s `onKey` for why the marker exists.
+            (e as { __pryzmPlanToolEscape?: boolean }).__pryzmPlanToolEscape = true;
+            // A no-op unless a PLAN-ONLY session is live (balcony / lift / pool):
+            // every ToolManager-owned tool keeps the Escape it always had.
+            planOnlyToolEscape(hadStroke);
             // NOT stopImmediatePropagation — let a redundantly-armed 3D tool also
             // reset on Escape (its listener is on document).
             return;

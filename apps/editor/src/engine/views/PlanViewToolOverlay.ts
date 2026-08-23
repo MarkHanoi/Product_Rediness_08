@@ -45,6 +45,9 @@ const _planToolOverlayTracer = trace.getTracer('@pryzm/editor.plan-tool-overlay'
 // capability set (previously north-arrow/scale-bar/matchline were main-only). Fresh
 // instances per overlay keep tool state isolated between the two surfaces.
 import { createPlanToolHandlers } from './plantools/planToolHandlerRegistry';
+// §FIX-PLAN-TOOL-ESCAPE-RUNAWAY (L-7800) — see the identical import in
+// SvpPlanToolOverlay: Escape must mean the same thing on both plan surfaces.
+import { planOnlyToolEscape } from '@app/ui/create/activatePlanOnlyTool';
 
 const PLAN_TOOL_HANDLERS: Readonly<Record<string, PlanToolHandler>> = createPlanToolHandlers();
 
@@ -637,9 +640,19 @@ export class PlanViewToolOverlay {
         if (PlanViewToolOverlay._isFormFieldTarget(e.target)) return;
 
         if (e.key === 'Escape') {
+            // ⭐ §FIX-PLAN-TOOL-ESCAPE-RUNAWAY (L-7800) — SAMPLE THE STROKE BEFORE
+            // CANCELLING IT; `cancel()` wipes it and every later reader sees a false
+            // negative. Mirrors `SvpPlanToolOverlay._onKeyDown` line for line, because
+            // a plan-only tool is armed on BOTH surfaces and Escape must mean the same
+            // thing on each (that parity is what `activatePlanOnlyTool` exists for).
+            const hadStroke = !!(
+                this._activeHandler as { hasActiveStroke?: () => boolean }
+            ).hasActiveStroke?.();
             this._activeHandler.cancel();
             this._hideSnapTooltip();
             e.preventDefault();
+            (e as { __pryzmPlanToolEscape?: boolean }).__pryzmPlanToolEscape = true;
+            planOnlyToolEscape(hadStroke);
             // Deliberately NOT stopImmediatePropagation: the redundantly-armed 3D
             // tool listens for Escape on `document` to deactivate itself — let it.
             return;

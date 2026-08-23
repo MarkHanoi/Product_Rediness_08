@@ -391,11 +391,30 @@ export function beginPlanOnlyToolSession(tool: string, label: string): void {
       }
 
       // ── Escape ends the session ───────────────────────────────────────────────
-      // The handler's OWN Escape (cancel the stroke) is unaffected — it runs on the
-      // overlay's capture-phase listener. This one only unwinds the session chrome and
-      // gives selection back, so Escape means the same thing it means for a 3-D tool.
+      // ⭐ CORRECTED 2026-08-23 (§FIX-PLAN-TOOL-ESCAPE-RUNAWAY, L-7800). This listener
+      // used to be the WHOLE of Escape, and it tore down the session CHROME while
+      // leaving the TOOL ARMED — see `endPlanOnlyToolSession`'s header for the
+      // measured consequence and the founder report that named it.
+      //
+      // The precise decision now lives in the OVERLAY (`planOnlyToolEscape`), because
+      // the overlay is the only surface that can see a half-drawn stroke BEFORE
+      // `cancel()` wipes it. This listener is the FALLBACK for the case the overlay
+      // cannot serve: Escape pressed while the pointer is outside the plan pane, where
+      // both overlays' `_onKeyDown` return early on their focus guard and nothing else
+      // would put the tool away.
+      //
+      // ⚠ THE MARKER IS LOAD-BEARING, AND SO IS THE PHASE. The overlays listen on
+      // `window` in the CAPTURE phase and are registered at attach — i.e. BEFORE this
+      // session exists — so they always run first and always stamp the event before
+      // this bubble-phase listener sees it. Without the marker a mid-stroke Escape
+      // would be cancelled by the overlay (stroke gone, `hasActiveStroke()` now false)
+      // and then disarmed by this listener reading that same false — collapsing the
+      // two-stage gesture into one and destroying the pool's half-drawn outline.
       const onKey = (e: KeyboardEvent): void => {
-        if (e.key === 'Escape') endPlanOnlyToolSession();
+        if (e.key !== 'Escape') return;
+        if ((e as { __pryzmPlanToolEscape?: boolean }).__pryzmPlanToolEscape) return;
+        // No overlay claimed it, so no overlay held a stroke this Escape could cancel.
+        planOnlyToolEscape(false);
       };
       window.addEventListener('keydown', onKey);
       teardown.push((): void => window.removeEventListener('keydown', onKey));
@@ -425,14 +444,138 @@ export function beginPlanOnlyToolSession(tool: string, label: string): void {
 }
 
 /**
+ * Disarm the plan-only tool on every attached plan surface.
+ *
+ * ⭐ §FIX-PLAN-TOOL-ESCAPE-RUNAWAY (L-7801) — THE EXACT INVERSE OF
+ * `activatePlanOnlyTool`, and it did not exist. Arming had a function; putting the
+ * tool away had none, and that asymmetry is the whole defect: `endPlanOnlyToolSession`
+ * unwound the CHROME and left the HANDLER armed, so the very next click in the plan
+ * pane created another element.
+ *
+ * `setActiveTool('none')` is the disarm both overlays already implement
+ * (`_deactivateHandler()`, `_activeTool = 'none'`, `_programmaticTool = false`), and
+ * `'none'` is not in `ACTIVE_TOOL_KEYS`, so `_onMouseEnter`'s first line returns before
+ * it can re-activate anything. That is what closes the founder's re-arm: his log shows
+ * `Handler activated: balcony` AFTER the Escape, which is `_onMouseEnter` rebuilding a
+ * handler for a tool that was never disarmed.
+ *
+ * @returns how many plan surfaces were disarmed.
+ *
+ * P8: emits `pryzm.plan_tools.disarm_plan_only`.
+ */
+export function disarmPlanOnlyTool(): number {
+  return _tracer.startActiveSpan('pryzm.plan_tools.disarm_plan_only', (span) => {
+    try {
+      const overlays: Array<PlanOverlayLike | undefined> = [
+        (window as { planViewToolOverlay?: PlanOverlayLike }).planViewToolOverlay,
+        (window as { svpPlanToolOverlay?: PlanOverlayLike }).svpPlanToolOverlay,
+      ];
+      let surfaces = 0;
+      for (const ov of overlays) {
+        if (ov?.isAttached?.() && typeof ov.setActiveTool === 'function') {
+          try {
+            ov.setActiveTool('none');
+            surfaces++;
+          } catch {
+            /* one overlay mid-teardown must never strand the other */
+          }
+        }
+      }
+      span.setAttribute('pryzm.plan_tools.surfaces', surfaces);
+      return surfaces;
+    } finally {
+      span.end();
+    }
+  });
+}
+
+/**
+ * THE ESCAPE DECISION FOR A PLAN-ONLY TOOL — two stages, the CAD convention.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * ⭐ THE FOUNDER: *"Balcony works — but it doesn't have an ESC option. It will create
+ * balconies indefinitely."* MEASURED IN HIS OWN LOG: element count 14 → 19 → 24 → 29,
+ * five members per balcony, three balconies he did not want.
+ * ═══════════════════════════════════════════════════════════════════════════════
+ *
+ * Stage 1 — THERE IS A HALF-DRAWN STROKE: Escape cancels the stroke and the tool STAYS
+ * ARMED. That is `PlanToolHandler.cancel()`'s documented contract verbatim (*"Handler
+ * resets its multi-step state but stays active (tool remains selected)"*) and it is
+ * what the pool's multi-point outline needs — a mis-clicked vertex must not cost the
+ * architect the tool.
+ *
+ * Stage 2 — THERE IS NOTHING TO CANCEL: Escape PUTS THE TOOL AWAY. For the balcony and
+ * the lift — single-click tools that never hold a stroke — stage 2 is the only stage,
+ * which is exactly why the founder experienced Escape as having no effect at all.
+ *
+ * ⚠ `hadActiveStroke` MUST BE SAMPLED BEFORE `cancel()` RUNS. The caller is the
+ * overlay's own Escape branch for precisely that reason: `cancel()` resets `_points`,
+ * so anything asking afterwards reads a false negative and collapses the two stages
+ * into one. This is not a theoretical ordering — both overlays register their keydown
+ * listener on `window` in the CAPTURE phase at attach time, so they are guaranteed to
+ * run before any bubble-phase listener a session installs later.
+ *
+ * ⛔ A NO-OP WHEN NO PLAN-ONLY SESSION IS LIVE, and that guard is the point. Wall,
+ * slab, roof and every other plan tool is armed through the 3-D `ToolManager`, which
+ * owns its own Escape; disarming those here would make Escape mean two different things
+ * for two families of tool. Only a tool the ToolManager cannot own is disarmed here.
+ *
+ * @param hadActiveStroke whether the armed handler held uncommitted stroke state
+ *        immediately BEFORE `cancel()` ran.
+ * @returns true iff the tool was put away (stage 2).
+ *
+ * P8: emits `pryzm.plan_tools.escape`.
+ */
+export function planOnlyToolEscape(hadActiveStroke: boolean): boolean {
+  return _tracer.startActiveSpan('pryzm.plan_tools.escape', (span) => {
+    try {
+      span.setAttribute('pryzm.plan_tools.had_stroke', hadActiveStroke);
+      span.setAttribute('pryzm.plan_tools.had_session', _session !== null);
+      if (_session === null) {
+        span.setAttribute('pryzm.plan_tools.disarmed', false);
+        return false;
+      }
+      if (hadActiveStroke) {
+        // Stage 1. The overlay has already cancelled the stroke; the tool stays armed
+        // and the chrome stays up, so the next click starts a new outline.
+        span.setAttribute('pryzm.plan_tools.disarmed', false);
+        return false;
+      }
+      const label = _session.tool;
+      disarmPlanOnlyTool();
+      endPlanOnlyToolSession();
+      span.setAttribute('pryzm.plan_tools.disarmed', true);
+      span.setAttribute('pryzm.plan_tools.tool', label);
+      return true;
+    } finally {
+      span.end();
+    }
+  });
+}
+
+/**
  * End the current plan-only tool session: dismiss the strip, give 3-D selection back,
  * drop the armed-selection snapshot, unbind the listeners. Safe to call when no session
  * is live.
  *
- * ⛔ It deliberately does NOT disarm the plan handler. Escape inside a plan tool means
- * "cancel this stroke", not "put the tool away" — that is the plan overlays' own
- * contract (`_activeHandler.cancel()`), and overriding it here would make Escape mean
- * two different things depending on which surface had focus.
+ * ⚠ CORRECTED 2026-08-23 (§FIX-PLAN-TOOL-ESCAPE-RUNAWAY, L-7800) — THIS HEADER USED TO
+ * STATE THE DEFECT AS A DELIBERATE DESIGN DECISION, AND THAT IS WHY IT SURVIVED. It read:
+ *
+ *     "⛔ It deliberately does NOT disarm the plan handler. Escape inside a plan tool
+ *      means 'cancel this stroke', not 'put the tool away' — that is the plan overlays'
+ *      own contract, and overriding it here would make Escape mean two different things
+ *      depending on which surface had focus."
+ *
+ * ⭐ THE PREMISE IS TRUE AND THE CONCLUSION DOES NOT FOLLOW. "Cancel this stroke" is the
+ * right meaning for a tool that HAS a stroke. The balcony and the lift are single-click
+ * tools that never hold one, so for them "cancel the stroke" cancels nothing and Escape
+ * became a key with no observable effect — the founder's report, measured in his own
+ * log as 14 → 19 → 24 → 29 elements with an Escape between each pair.
+ *
+ * This function's job is unchanged — it unwinds the session CHROME and nothing else, so
+ * it remains safe to call on its own. The two-stage decision lives in
+ * `planOnlyToolEscape()` above, and the disarm in `disarmPlanOnlyTool()`; callers that
+ * want "Escape" want `planOnlyToolEscape`, not this.
  *
  * P8: emits `pryzm.plan_tools.end_plan_only_session`.
  */
