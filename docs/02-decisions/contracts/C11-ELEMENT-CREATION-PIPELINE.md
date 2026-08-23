@@ -436,6 +436,61 @@ debt, not a licence for other tools. Retiring `CreateFloorCommand` in favour of 
 
 ---
 
+### §5.5 — ⭐ `affectedStores` IS A PROMISE THE **REGISTRATION** KEEPS, NOT THE HANDLER (NORMATIVE — ADR-0367, L-9921/L-9922)
+
+§5.2 requires every handler to declare `affectedStores`. **That declaration is
+inert on its own.** In production the bus's stores provider is
+`storesAsRecordView(stores)` over `stores[plugin.storeKey]`, accumulated from
+`ALL_PLUGINS` in `bootstrap.everything.ts`. If no registration contributes a
+matching `storeKey`, `CommandBus.buildContext` throws
+
+```
+<verb>: required store '<key>' is missing from HandlerContext.stores
+```
+
+**BEFORE any mutation.** The handler is registered, correct, unit-tested — and
+undispatchable by the application.
+
+⛔ **This is not hypothetical and it is not rare. It has happened TEN times:**
+furniture, plumbing, rooms, structural, dimensions (E-finish.0.E), lighting
+(§LIGHTING-STORE-FIX), pool (L-5200), lift (L-5700), balcony (L-5600) and
+`section-view` (L-9922). The last was registered on the real runtime bus by
+`engineLauncher.ts:711` and threw on **every** dispatch of all six `section.*`
+verbs.
+
+**NORMATIVE — a PR that adds or moves a command handler MUST satisfy all four:**
+
+1. **A registration exists** for the plugin in `ALL_PLUGINS`, authored either
+   inline or — preferred — in `plugins/<x>/src/registration.ts` against the L5
+   `PluginRegistration` contract (C01 §2.1).
+2. **`storeKey` equals the key the handlers read**, which is *not* required to
+   equal the plugin id. `section-view` registers `'section'`;
+   §FIX-DIMENSION-STOREKEY-SINGULAR (L-138) is the same divergence in the other
+   direction. ⚠ Verify against `affectedStores` and `ctx.stores.<key>`, never
+   against the directory name.
+3. **`id` equals the directory name under `plugins/`**, because
+   `check-plugin-census-equivalence.ts` compares that set against `ls plugins/` in
+   both directions.
+4. **The id is listed in `ELEMENT_PLUGIN_IDS`** (or named in
+   `STORE_ONLY_PLUGIN_IDS` with a written reason). ⚠ Omitting it fails nothing
+   loudly — the bootstrap suite's per-plugin storeKey assertion simply stops
+   iterating it. That silent hole is census arm F.
+
+⭐ **PROOF OBLIGATION — a plugin's own suite CANNOT discharge this.** A plugin test
+builds its own stores object and hands it to the bus as the provider; **the
+provider is the thing that breaks**, so a test that supplies it cannot observe its
+absence. `pool.create` passed its own suite for months while being undispatchable.
+The proof must read the store off the **REAL composition root** and construct
+nothing —
+`apps/editor/__tests__/sectionViewReachableThroughComposedRuntime.test.ts` and its
+boundary-line / lift / pool siblings are the pattern.
+
+⚠ **AND IT IS STILL NOT A CLAIM THAT THE FEATURE WORKS.** Dispatchability is one
+axis. C104 R-10 makes a reachability claim inadmissible without a **pointer-layer**
+proof, and neither axis says the element renders. Three separate facts, three
+separate proofs — see [[verification-dispatch-rendering-three-milestones]].
+
+
 ## §6 — Post-command lifecycle
 
 ### §6.1 — Geometry build (frame-deferred)

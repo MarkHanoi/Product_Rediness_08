@@ -92,6 +92,24 @@ const MIN_CATALOG = 30;
 const MIN_ELEMENT = 20;
 
 /**
+ * ⭐ AT LEAST ONE `ALL_PLUGINS` ELEMENT MUST BE A DESCRIPTOR REFERENCE RESOLVED
+ * INTO A PLUGIN PACKAGE (L-9922, 2026-08-23).
+ *
+ * The reference-resolving path and arm H exist for descriptors authored in the
+ * plugin itself (§PLUGIN-DESCRIPTOR-AT-L5). If every element reverted to an
+ * inline object literal, `resolveDescriptorRef` would never run, arm H would
+ * report a clean hard-0 having examined NOTHING, and the whole apparatus would
+ * be dead code reporting success — the exact failure this gate was built to
+ * catch, one level up. `section-view` is the first and currently only member;
+ * this floor rises as descriptors migrate and must never fall.
+ *
+ * ⛔ If this fires, do not lower it. Either a migrated descriptor was reverted
+ * (fix the revert) or the parser stopped recognising the reference shape (fix
+ * the parser).
+ */
+const MIN_AUTHORED_REFS = 1;
+
+/**
  * §PLUGIN-CENSUS-BASELINE — pinned at the FIRST HONEST READING, 2026-08-23
  * (lane PLUGIN2, L-9920). Every entry is the MEMBERSHIP, not a count.
  *
@@ -102,13 +120,22 @@ const MIN_ELEMENT = 20;
  * ⛔ Do not "fix" a red arm by adding its member here.
  */
 const BASELINE = {
-  /** A — on disk, contributes NO store and NO handlers at boot. */
+  /**
+   * A — on disk, contributes NO store and NO handlers at boot.
+   *
+   * ⭐ RATCHETED DOWN 25 → 24 on 2026-08-23 (L-9922): `section-view` left this
+   * arm when `plugins/section-view/src/registration.ts` was authored against the
+   * L5 `PluginRegistration` contract and referenced from `ALL_PLUGINS`. It is
+   * removed from the baseline in the SAME commit as the wiring, per this file's
+   * own shrink-only rule — a ratchet that is not re-pinned is a ratchet that
+   * lets the next regression back in for free.
+   */
   diskWithoutRegistry: [
     'ai-floorplan', 'ai-generative', 'ai-query', 'ai-rules', 'ai-voice',
     'bcf', 'cross', 'dxf', 'export-pdf', 'family-editor', 'geospatial',
     'ifc-export', 'ifc-import', 'ifc-inspector', 'levels', 'multiplayer',
     'navigate', 'plan-view', 'render', 'rhino-import', 'schedules',
-    'section-view', 'sheets', 'toy-cube', 'visibility-intent',
+    'sheets', 'toy-cube', 'visibility-intent',
   ],
   /** B — on disk, absent from what `runtime.plugins.list()` reports. */
   diskWithoutCatalog: [
@@ -526,6 +553,17 @@ function main(): number {
           '  A parser walking nothing would report a clean sweep of nothing.',
       );
     }
+  }
+
+  if (resolvedRefs.length < MIN_AUTHORED_REFS) {
+    die(
+      2,
+      `[${LABEL}] MISCONFIGURED: ${resolvedRefs.length} descriptor reference(s) resolved into a plugin ` +
+        `package < floor ${MIN_AUTHORED_REFS}\n` +
+        '  Arm H and resolveDescriptorRef() would report a clean hard-0 having examined nothing.\n' +
+        '  Either a self-authored descriptor was reverted to an inline literal, or the parser\n' +
+        '  stopped recognising the bare-identifier shape. Do NOT lower the floor.',
+    );
   }
 
   const D = new Set(disk);

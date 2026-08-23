@@ -22,6 +22,19 @@ export {
   type RenderStats,
 } from './SectionViewRenderer.js';
 
+// §PLUGIN-DESCRIPTOR-AT-L5 (L-9921/L-9922) — the plugin's OWN runtime
+// registration + the store it contributes. Both existed on disk and neither was
+// exported from this barrel, which is why `section.*` was registered by
+// engineLauncher and undispatchable for want of a `section` store key. A
+// barrel that omits a real export is indistinguishable from a package that
+// lacks it — see [[grep-silence-has-three-causes]].
+export { sectionViewPluginRegistration } from './registration.js';
+export {
+  SectionStore,
+  type SectionId,
+  type SectionsState,
+} from './store.js';
+
 export {
   SECTION_HANDLER_TYPES,
   buildSectionHandlerSet,

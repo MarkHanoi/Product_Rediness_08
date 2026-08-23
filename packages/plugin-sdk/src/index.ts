@@ -30,6 +30,20 @@ export {
   validateManifest,
 } from './descriptor';
 
+// ── Runtime registration contract (§PLUGIN-DESCRIPTOR-AT-L5, L-9921) ───────
+//
+// ⚠ NOT the same thing as `PluginDescriptor` two lines above. That one is the
+// on-disk `plugin.manifest.json` envelope (ADR-0038, locked for v1.x). THIS is
+// the record a plugin registers with at boot — store key, store factory,
+// handler set, auxiliaries — the type that used to live at
+// `apps/editor/src/PluginRegistry.ts:133` (L7) and therefore could not be named
+// by any plugin. See `registration.ts` for the full argument.
+export type {
+  PluginRegistration,
+  PluginRegistrationDeps,
+  PluginContributionLike,
+} from './registration';
+
 // ── Lifecycle (D2) ─────────────────────────────────────────────────────────
 export {
   definePlugin,

@@ -15,11 +15,41 @@
 // require plugins to import editor types and would reintroduce a cycle).
 // Per-plugin `descriptor.ts` files were considered and rejected on those
 // grounds; the descriptor records below are the single source of truth.
+//
+// ⚠ **THE PARAGRAPH ABOVE IS NO LONGER TRUE, AND IT IS KEPT VERBATIM BECAUSE
+// IT NAMES THE ROOT CAUSE OF NINE SHIPPED DEFECTS.**
+// §PLUGIN-DESCRIPTOR-AT-L5 (L-9921, ADR-0367, lane PLUGIN2, 2026-08-23).
+//
+// The reasoning was locally correct and globally load-bearing. The type was at
+// L7, so a plugin could not name it, so all 28 descriptors had to be hand-written
+// here, so the census was hand-maintained, so it drifted — and a family whose
+// five lines nobody wrote was registered-and-undispatchable. That happened NINE
+// times (furniture, plumbing, rooms, structural, dimensions, lighting, pool,
+// lift, balcony), each caught only after a person tried to use the feature.
+//
+// The type now lives at **L5** as `PluginRegistration` in
+// `packages/plugin-sdk/src/registration.ts`. `plugins/<x>/src/registration.ts`
+// importing `@pryzm/plugin-sdk` is a DOWNWARD import THROUGH THE FACADE — legal
+// under `check-layer-boundaries.ts`, and it does not touch the SDK-bypass
+// ratchet. The objection recorded above is removed rather than argued with.
+//
+// ⛔ MIGRATION IS DELIBERATELY INCOMPLETE, AND SAYING SO IS THE POINT. Exactly
+// ONE plugin is proven end-to-end on the new mechanism (`section-view`, chosen
+// because it was live-broken: registered at engineLauncher:711 with no `section`
+// store key, so all six verbs threw at buildContext). The other 27 descriptors
+// below are UNCHANGED inline literals and both shapes are first-class — moving a
+// mechanism and enabling N families are different risks, and
+// `tools/ga-gate/check-plugin-census-equivalence.ts` parses BOTH shapes (a
+// parser that understood only object literals would report each migrated
+// descriptor as a DELETED registration — a ratchet DOWN that is really the gate
+// going blind). The ordered backlog is ADR-0367 §6.
 
 import type { CommandHandler } from '@pryzm/command-bus';
 import type { Store } from '@pryzm/stores';
 import { SelectionStore, AnnotationStore } from '@pryzm/stores';
 import type { PluginContribution } from '@pryzm/runtime-composer/types';
+// §PLUGIN-DESCRIPTOR-AT-L5 (L-9921) — the registration contract, now at L5.
+import type { PluginRegistration } from '@pryzm/plugin-sdk';
 
 // ── C06 §4 — Task 3.1 (Phase 3) — plugin tool activator imports ─────────────
 //
@@ -71,6 +101,14 @@ import { LiftCompoundStore, LiftPartStore, buildLiftHandlerSet } from '@pryzm/pl
 // legal, surveyed, ONE-SHOT IMMUTABLE, owned by the site subsystem) and NOT
 // `RoomBoundingLine`. See the descriptor below; this import is axis 1 of the four.
 import { BoundaryLineStore, buildBoundaryLineHandlerSet } from '@pryzm/plugin-boundary-line';
+// §PLUGIN-DESCRIPTOR-AT-L5 (L-9922) — ⭐ THE FIRST DESCRIPTOR THIS FILE DOES NOT
+// AUTHOR. `sectionViewPluginRegistration` is declared in
+// `plugins/section-view/src/registration.ts` and referenced below as a bare
+// identifier. It is the only import in this block that brings a WHOLE
+// registration rather than the parts one has to be assembled from — which is the
+// difference between a plugin that describes itself and a plugin this file
+// describes on its behalf.
+import { sectionViewPluginRegistration } from '@pryzm/plugin-section-view';
 
 // ---- Wave 18: 2 non-element plugins with zero-dep handler factories ----
 import { buildSelectionHandlerSet } from '@pryzm/plugin-selection';
@@ -128,51 +166,32 @@ import {
 } from '@pryzm/plugin-view';
 import { ViewRegistry } from '@pryzm/view-state';
 
-/** A registered plugin's runtime contribution. Constructed once at boot
- *  and consumed by `bootstrapWithEverything()`. */
-export interface PluginDescriptor {
-  /** Stable plugin id — matches the `name` field of the package.json
-   *  ("plugin-" prefix dropped for ergonomics). */
-  readonly id: string;
-
-  /** Store key under `runtime.stores[<key>]`.  Empty string means this
-   *  plugin contributes no Store<T> (e.g. the view plugin uses a
-   *  ViewRegistry, registered separately on `runtime.viewRegistry`). */
-  readonly storeKey: string;
-
-  /** Build the canonical store instance.  Returns `undefined` for
-   *  plugins that don't ship a `Store<T>` (view plugin). */
-  readonly buildStore: () => Store<object> | undefined;
-
-  /** Build the handler set for this plugin.  Receives a deps bag
-   *  populated from previously-built plugin contributions (e.g. wall
-   *  needs `wallSystemTypes`).  Each plugin reads only what it needs. */
-  readonly buildHandlers: (deps: PluginDeps) => readonly CommandHandler<unknown>[];
-
-  /** Per-plugin auxiliary objects exposed on the runtime (catalogues,
-   *  registries, ad-hoc stores).  Keyed by a stable string and merged
-   *  into `runtime.auxiliaries`. */
-  readonly buildAuxiliaries?: () => Readonly<Record<string, unknown>>;
-
-  /** F-launch.1 (S81 F.1.01) — UI / panel / toolbar contributions
-   *  surfaced through `runtime.plugins.contributions(kind)`.  Optional
-   *  because not every plugin contributes UI (data-only plugins like
-   *  `selection` ship `undefined` here).  Wired into the `PluginHost`
-   *  constructor by `composeRuntime()` via the `pluginContributions`
-   *  option — see `gatherAllContributions()` below. */
-  readonly contributions?: readonly PluginContribution[];
-
-  /** Task 1.3 (C11 §6.3) — optional runtime event-subscription wiring.
-   *  Called once by `wireAllPluginSubscriptions(runtime)` after
-   *  `composeRuntime()` resolves.  Returns a disposer called during
-   *  runtime tear-down.  Plugins that do not need event subscriptions
-   *  leave this field undefined. */
-  readonly wireSubscriptions?: (runtime: RoomEventRuntime) => () => void;
-}
+/**
+ * A registered plugin's runtime contribution. Constructed once at boot and
+ * consumed by `bootstrapWithEverything()`.
+ *
+ * §PLUGIN-DESCRIPTOR-AT-L5 (L-9921, ADR-0367) — ⭐ THIS IS NOW AN ALIAS, NOT A
+ * DECLARATION. The seven fields moved verbatim to
+ * `packages/plugin-sdk/src/registration.ts` as `PluginRegistration`, at **L5**,
+ * so a plugin can name the contract it fulfils with a legal DOWNWARD import.
+ * The alias is kept because every one of the 28 descriptors below, plus
+ * `bootstrap.everything.ts`, `apps/editor/src/index.ts` and the bootstrap suite,
+ * refers to this name — a rename would have been a 40-site diff on top of a
+ * mechanism change, and the two would have been impossible to review apart.
+ *
+ * The two type arguments are the reason the move was possible at all. L5 may
+ * not import `@pryzm/runtime-composer` (L3 is downward, but its
+ * `PluginContribution.activate` takes the whole `PryzmRuntime`) and MUST NOT
+ * import `@pryzm/plugin-rooms` (L6 — that is an UPWARD edge, the exact thing
+ * being deleted). So both are type PARAMETERS in the SDK and are supplied HERE,
+ * at the only layer that legally knows both.
+ */
+export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>;
 
 /** Deps bag passed to `buildHandlers` — populated incrementally as each
  *  plugin's auxiliaries land.  Typed loosely (each plugin reads its own
- *  keys with a local cast) so the registry can stay free of cycles. */
+ *  keys with a local cast) so the registry can stay free of cycles.
+ *  §PLUGIN-DESCRIPTOR-AT-L5 — alias of the L5 `PluginRegistrationDeps`. */
 export type PluginDeps = Readonly<Record<string, unknown>>;
 
 // ---------------------------------------------------------------------------
@@ -669,6 +688,37 @@ export const ALL_PLUGINS: readonly PluginDescriptor[] = [
       UpdateViewCameraHandler as unknown as CommandHandler<unknown>,
     ],
   },
+
+  // ---- Section view — §PLUGIN-DESCRIPTOR-AT-L5 (L-9922, ADR-0367) ----------
+  //
+  // ⭐ THE ONLY ELEMENT OF THIS ARRAY THAT IS NOT AN OBJECT LITERAL, AND THAT IS
+  // THE ENTIRE DEMONSTRATION. The record is authored in
+  // `plugins/section-view/src/registration.ts` — inside the plugin, at L6,
+  // against a contract at L5. Nothing about section-view is described here any
+  // more; this line only says that it participates.
+  //
+  // ⚠ IT WAS ALSO LIVE-BROKEN, WHICH IS WHY IT WAS CHOSEN OVER A COSMETIC
+  // MIGRATION OF AN ALREADY-WORKING FAMILY. `engineLauncher.ts:711` has been
+  // calling `registerSectionHandlers(_bus)` on the real runtime bus since
+  // §P3.4-SE, so all six `section.*` verbs were REGISTERED. No descriptor
+  // existed, so no `section` key reached `storesAsRecordView(stores)`, and all
+  // six handlers declare `affectedStores = ['section']`. Every dispatch died in
+  // `CommandBus.buildContext` with
+  //     "section.create: required store 'section' is missing from HandlerContext.stores"
+  // before touching anything — the tenth instance of the pool (L-5200) / lift
+  // (L-5700) / lighting shape, and the FIRST found by a gate
+  // (`check-plugin-census-equivalence.ts` arm A) instead of by a person.
+  //
+  // engineLauncher needs no edit: its `_bus` is the §OI-053 skip-if-present
+  // proxy, so the composition root now registers these six FIRST and that call
+  // becomes an idempotent no-op — the same relationship `registerWallHandlers`
+  // already has with the wall descriptor.
+  //
+  // storeKey is `'section'`, NOT `'section-view'`. The id must match the
+  // DIRECTORY (the census gate compares it to `ls plugins/`); the storeKey must
+  // match what the handlers read. §FIX-DIMENSION-STOREKEY-SINGULAR (L-138) is
+  // the same divergence in the other direction.
+  sectionViewPluginRegistration,
 ] as const;
 
 /** Convenience — the element-family ids in registration order.  Pre-
@@ -718,6 +768,14 @@ export const ELEMENT_PLUGIN_IDS = [
   'dimensions',
   'selection',
   'annotations',
+  // §PLUGIN-DESCRIPTOR-AT-L5 (L-9922) — contributes storeKey `'section'` AND six
+  // handlers, so it belongs in the list the bootstrap suite's storeKey assertion
+  // iterates and needs no STORE_ONLY_PLUGIN_IDS exemption. ⚠ Omitting this row
+  // would NOT have failed anything loudly: the descriptor would still boot, and
+  // the per-plugin storeKey assertion would simply never look at it. That silent
+  // hole is arm F of `check-plugin-census-equivalence.ts`, and it is why the row
+  // and the descriptor must land in the SAME commit.
+  'section-view',
 ] as const;
 
 export type ElementPluginId = (typeof ELEMENT_PLUGIN_IDS)[number];

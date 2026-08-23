@@ -68,8 +68,25 @@ type Stores = Readonly<{ section: SectionsState } & Record<string, unknown>>;
  * `execute()` is left intact: it is a correct plugin-store mutation for a host that
  * binds the authoritative store under this key. `canExecute` is the gate the bus honours.
  */
+// ⚠ AMENDED 2026-08-23 (§PLUGIN-DESCRIPTOR-AT-L5, L-9922) — ONE CLAUSE OF THIS
+// REFUSAL WENT STALE AND IS CORRECTED IN PLACE, NOT LEFT TO ROT.
+// It used to end: "The section plugin also contributes no store through
+// PluginRegistry, so in production this verb has no authoritative binding at
+// all." **That is no longer true.** `sectionViewPluginRegistration`
+// (plugins/section-view/src/registration.ts) now contributes `storeKey: 'section'`
+// through `ALL_PLUGINS`, and all six `section.*` verbs dispatch — proven at the
+// composition root by
+// apps/editor/__tests__/sectionViewReachableThroughComposedRuntime.test.ts.
+//
+// ⛔ THE REFUSAL ITSELF STANDS, and R-6 of that suite pins it. Closing the
+// binding closed ONE of the two reasons this verb was dead; the other is
+// untouched — no production surface dispatches it (`MOVE_COMMAND_BY_TYPE` does
+// not name it, nor does any `dragDispatch` site) and nothing renders, exports or
+// persists this store. A refusal citing a reason that has since been fixed is
+// how a correct refusal gets deleted by a later reader who checks only the
+// first clause.
 const SECTION_MOVE_LINE_UNREACHABLE =
-  "section.moveLine writes the detached plugin section store that nothing renders, exports or persists, and NO surface dispatches it — `SECTION_INTENT.MOVE_LINE` is declared in plugins/section-view/src/intent.ts and referenced by nothing. The section plugin also contributes no store through PluginRegistry, so in production this verb has no authoritative binding at all. Moving a section line cannot be committed by any path today; a live route needs a bridge to whatever the section renderer reads, tracked under Gate G7.";
+  "section.moveLine writes the plugin section store that nothing renders, exports or persists, and NO surface dispatches it — `SECTION_INTENT.MOVE_LINE` is declared in plugins/section-view/src/intent.ts and referenced by nothing, and neither MOVE_COMMAND_BY_TYPE nor any 3-D gizmo drag site names this verb. The store IS bound in production since §PLUGIN-DESCRIPTOR-AT-L5 (L-9922), so the binding is no longer the blocker; the missing half is a bridge from this store to whatever the section renderer reads. Moving a section line therefore still cannot be committed by any path a user can reach today, tracked under Gate G7.";
 
 export class MoveSectionLineHandler implements CommandHandler<MoveSectionLinePayload, Stores> {
   readonly type = 'section.moveLine';

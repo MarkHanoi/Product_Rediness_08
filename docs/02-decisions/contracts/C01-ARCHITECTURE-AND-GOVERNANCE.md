@@ -79,6 +79,42 @@ L0    packages/schemas/          — pure Zod schemas; no I/O, no THREE, no DOM
 **"subset"** means the SDK re-exports a curated subset. In the intended end state a
 plugin reaches the platform only through `@pryzm/plugin-sdk`.
 
+### §2.1 — THE EXTENSION CONTRACT LIVES AT **L5**, NOT L7 (NORMATIVE — ADR-0367, L-9921)
+
+⭐ **The type a plugin fulfils in order to be registered is `PluginRegistration`,
+declared at `packages/plugin-sdk/src/registration.ts` — L5.** A plugin describing
+itself is therefore a **downward import through the facade**, which the matrix
+above already permits (`L6 → L5` is ✅) and which the shrink-only SDK-bypass
+ratchet does not count.
+
+⚠ **It used to be at L7** (`apps/editor/src/PluginRegistry.ts:133`), and that one
+placement is the measured root cause of **nine element families shipping fully
+built, fully tested and undispatchable** — furniture, plumbing, rooms, structural,
+dimensions, lighting, pool (L-5200), lift (L-5700), balcony (L-5600). A contract
+type at the top of a stack cannot be named by anything below it, so every
+descriptor had to be hand-written centrally, so the census was hand-maintained, so
+it drifted. **The generalisation worth keeping: which END of the stack a contract
+type sits at decides whether the extension model is open or closed.** An extension
+contract above the code that must satisfy it is not a contract — it is a table.
+
+**NORMATIVE, from this point:**
+
+- ⛔ **No new extension contract may be declared at L6 or L7.** If plugins must
+  implement it, it belongs at L5 or below.
+- ⛔ **L5 may not name an L6 type in order to host a contract.** Where a host type
+  is genuinely needed (`PluginContribution`, the subscription runtime), it is a
+  **type parameter** the composition root supplies — not an upward import. See
+  ADR-0367 §2.2.
+- ⚠ **Naming is part of the contract.** `PluginDescriptor` already meant two other
+  things (the ADR-0038-locked `plugin.manifest.json` envelope in the SDK, and the
+  catalogue row `PluginsSlot.list()` returns). Three types with one name is how a
+  census drifts; a moved contract gets a name that says what it is.
+
+**Read-back:** `tools/ga-gate/check-plugin-census-equivalence.ts` compares
+`ls plugins/` · `ALL_PLUGINS` · `PLUGIN_CATALOG` · `ELEMENT_PLUGIN_IDS` as **SETS
+in both directions** and resolves self-authored descriptors through the import
+statement. **Read the gate, never this paragraph.**
+
 ### Three things in this section that are NOT YET TRUE
 
 Recorded as goals rather than invariants, so nobody reads an aspiration as a
