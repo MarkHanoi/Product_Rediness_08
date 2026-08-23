@@ -35,6 +35,10 @@ import { WallDrawingHUD } from '../WallDrawingHUD';
 // slab's declared mode list + shared mode store that drive it.
 import { DrawingModeBar } from '../DrawingModeBar';
 import { creationModes } from '@app/engine/views/plantools/elementCreationMatrix';
+// §FIX-LIFT-TWO-COMMANDS-ONE-NAME (L-7840) — the compound's arm, and the SAME entry
+// point both live create-palette surfaces already call for the lift. See the
+// `runtime.tools.register('lift', …)` line below for the collision this closes.
+import { activatePlanOnlyToolOrExplain } from '@app/ui/create/activatePlanOnlyTool';
 import {
     setActiveSlabDrawMode,
     resolveActiveSlabDrawMode,
@@ -329,7 +333,58 @@ export function mountToolsArea(
         // argument is a SHAPE, exactly as the `stair` row above.
         runtime.tools.register('stair-path',    (m?) => service.activateStairPathTool((m as StairShapeChoice) ?? 'I'));
         runtime.tools.register('grid',          ()   => { void tm.activateGrid?.(); });
-        runtime.tools.register('lift',          ()   => { void tm.activateLift?.(); });
+        // ⭐⭐ §FIX-LIFT-TWO-COMMANDS-ONE-NAME (L-7840..L-7842) · C104 §1 · C84 EI-9.
+        //
+        // THIS LINE USED TO READ `() => { void tm.activateLift?.(); }`, AND THAT MADE
+        // THE ID `lift` MEAN TWO DIFFERENT ELEMENTS IN TWO REGISTRIES AT ONCE:
+        //
+        //   runtime.tools           'lift' -> ToolManager.activateLift
+        //                                  -> CreateVerticalCirculationCommand
+        //                                  -> the LOD-200 MASSING lift (2 placeholder
+        //                                     boxes, no doors, no slab voids)
+        //   planToolHandlerRegistry 'lift' -> LiftPlanToolHandler
+        //                                  -> `lift.create`
+        //                                  -> the LOD-300 C104 COMPOUND (real Wall /
+        //                                     CurtainWall / Door / LiftPart records,
+        //                                     one landing door per served storey, a
+        //                                     void through every plate it passes)
+        //
+        // One word, two results, decided by which surface the user happened to be on.
+        // `editor-chrome-map.md` §9.3 measured it, C104 §10 axis 3 logged it as L-7040,
+        // and `elementCreationMatrix`'s `lift` row named it as gap (1).
+        //
+        // ⛔ THE FIX IS NOT TO MERGE THE TWO ELEMENTS. C104 §1 is explicit — *"Two
+        // lifts co-exist, deliberately. Do not merge them. The single most likely
+        // mistake a future agent will make in this subsystem is to 'clean up the
+        // duplication' between these two. It is not duplication."* Deleting the massing
+        // lift breaks the residential-building generator, which depends on the
+        // degenerate `base === top` span (§RESI-LIFT-TOP-CAB), and folding the compound
+        // into it would change what every already-generated building means.
+        //
+        // ⭐ SO THE COLLISION IS THE **NAME**, NOT THE ELEMENTS — and the name goes to
+        // the compound, on every surface. `activatePlanOnlyToolOrExplain` is EXACTLY
+        // what both live create-palette surfaces already call for this tool
+        // (`CreateRailPanel` and `CreatePanelLayout` both carry "⛔ NOT
+        // props.toolManager.activateLift()"), so this makes the 3-D/chat/programmatic
+        // arm agree with the palette instead of quietly building a different element.
+        //
+        // ⚠ MEASURED BEFORE CHANGING IT, because "nothing calls it" is a claim:
+        //     grep -rn "tools\.activate('lift'" apps/ packages/ plugins/  -> 0 callers.
+        // So no caller changes behaviour today; what changes is that the NEXT caller —
+        // the AI chat route is the one C104 §10 axis 4 is waiting on — gets the lift the
+        // architect sees on the palette rather than a massing box that looks like a bug.
+        //
+        // ⛔ AND THE KEY STAYS REGISTERED. Deleting the row instead would have satisfied
+        // C84 EI-9 and broken `check-tool-activator-coverage.ts`, which compares SETS of
+        // DECLARED families against REGISTERED activators — `lift` would have joined
+        // `pool` as UNCOVERED, i.e. "activate() records an active-tool id and arms
+        // NOTHING". One id, one meaning, still covered.
+        //
+        // ⚠ `ToolManager.activateLift` now has ZERO production callers and is left in
+        // place rather than deleted: it lives in `packages/input-host`, which this lane
+        // does not own, and the massing lift's real callers reach the COMMAND directly.
+        // Recorded as L-7841 instead of silently rotting.
+        runtime.tools.register('lift',          ()   => { activatePlanOnlyToolOrExplain('lift', 'Lift'); });
         // ⭐ NO HAND-COUNTED TOTAL IN THIS LINE, DELIBERATELY. It used to read
         // "21 tool activators registered" — a literal that had already rotted
         // (the real figure was 20) and, worse, a COUNT: the exact form of

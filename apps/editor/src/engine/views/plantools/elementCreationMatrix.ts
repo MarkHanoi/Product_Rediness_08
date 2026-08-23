@@ -615,16 +615,28 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
         // file's own rule), and this is the former.
         autoIn: [],
         modeSource: 'n/a',
-        gap: 'TWO gaps, named rather than implied. (1) THE 3-D ARM AND THE PLAN ARM '
-           + 'CREATE DIFFERENT THINGS. `ToolManager.activateLift` drives the LEGACY '
-           + 'MASSING command `CreateVerticalCirculationCommand`, NOT `lift.create`; '
-           + 'the plan arm drives the C104 compound. `PluginRegistry.ts` records the '
-           + 'same divergence (L-5709). The palette now offers the COMPOUND only — one '
-           + 'word, one result — and the massing command stays where it is actually '
-           + 'used, in the residential/office batch executors. Collapsing the 3-D '
-           + 'activator onto `lift.create` is L-7040. (2) `ChatCommandClassification` '
-           + 'classifies `lift.create` class B, so the AI chat route still refuses it '
-           + '(L-5710).',
+        gap: '⭐ GAP (1) IS CLOSED — §FIX-LIFT-TWO-COMMANDS-ONE-NAME, L-7840, 2026-08-23. '
+           + 'This string used to read: "THE 3-D ARM AND THE PLAN ARM CREATE DIFFERENT '
+           + 'THINGS. `ToolManager.activateLift` drives the LEGACY MASSING command '
+           + '`CreateVerticalCirculationCommand`, NOT `lift.create` … Collapsing the '
+           + '3-D activator onto `lift.create` is L-7040." That collapse is DONE: '
+           + '`ToolsAreaLayout.ts` now registers `runtime.tools`\' `lift` activator to '
+           + '`activatePlanOnlyToolOrExplain(\'lift\', …)` — the SAME entry point both '
+           + 'live create surfaces use — so the id `lift` names exactly ONE element (the '
+           + 'C104 LOD-300 compound) in BOTH registries. C84 EI-9 satisfied. ⛔ The two '
+           + 'ELEMENTS are still deliberately separate and must not be merged (C104 §1); '
+           + 'only the NAME collision is closed, and the massing command keeps its real '
+           + 'callers in the residential/office batch executors, which reach it directly '
+           + 'rather than through a tool key. ⚠ `ToolManager.activateLift` now has zero '
+           + 'production callers and is left in place (input-host is not this lane\'s), '
+           + 'recorded as L-7841. (2) STILL OPEN: `ChatCommandClassification` classifies '
+           + '`lift.create` class B, so the AI chat route still refuses it (L-5710) — '
+           + 'though a chat route that DID reach `runtime.tools.activate(\'lift\')` would '
+           + 'now get the compound rather than a massing box. (3) NEW, L-7822/L-7823: a '
+           + 'STANDALONE-GLASS lift renders only its landing side. Three of its four '
+           + 'enclosure sides are curtain walls and `curtainwall.created` is not a '
+           + 'declared event anywhere; `CommandEventBridge` says so out loud per lift '
+           + 'rather than dropping them silently.',
     },
 
     // ── Spatial + services ───────────────────────────────────────────────────
