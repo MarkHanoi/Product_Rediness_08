@@ -53,7 +53,14 @@ import { onRuntimeEvent } from '../../engine/runtimeEventBridge';
 
 import { ANALYSIS_TABS, type AnalysisResult, type AnalysisTabId, type AnalysisWidgetDef } from './AnalysisTypes';
 import { invalidateAnalysisReadModel, runQuery, censusSourceTable } from './analysisReadModel';
-import { defaultLayout, loadLayout, saveLayout, type AnalysisLayout } from './analysisLayout';
+import {
+  adoptCatalogueAsKnown,
+  defaultLayout,
+  loadLayout,
+  reconcileLayout,
+  saveLayout,
+  type AnalysisLayout,
+} from './analysisLayout';
 import { WIDGET_CATALOGUE, widgetById } from './widgetCatalogue';
 import {
   FACETS_EVENT,
@@ -452,6 +459,11 @@ export class AnalysisSurface {
     this._destroyCharts();
     this._grid.replaceChildren();
 
+    // §ANALYSIS-STORED-ARRANGEMENT-VS-GROWN-CATALOGUE (L-9002) — FIRST in the
+    // grid, above the cards, because it is about what is MISSING from them.
+    const notice = this._reconcileNotice();
+    if (notice) this._grid.appendChild(notice);
+
     const t0 = Date.now();
     let unreachableAcross = 0;
     let anyIncomplete = false;
@@ -689,6 +701,94 @@ export class AnalysisSurface {
    * to do nothing. The catalogue's `tab` still decides where a widget starts and
    * where a migrated v1 id lands.
    */
+
+  /**
+   * §ANALYSIS-STORED-ARRANGEMENT-VS-GROWN-CATALOGUE (L-9002) — the one-time
+   * question a LEGACY arrangement cannot answer for itself.
+   *
+   * ⭐ WHY THIS IS A QUESTION AND NOT A SILENT FIX. `reconcileLayout` can tell a
+   * removed widget from a new one ONLY when the arrangement recorded which
+   * widgets existed at the time. Arrangements written before that field cannot
+   * be classified, and both guesses are wrong for somebody: auto-placing
+   * resurrects widgets the user deleted; hiding keeps every widget shipped since
+   * invisible, forever, with nothing on screen to say so. So it ASKS — once —
+   * and both answers are one click.
+   *
+   * ⛔ It renders ONLY for the widgets whose catalogue tab is the tab being
+   * looked at. A notice on Overview about a widget that lives on Relationships
+   * is a notice the reader cannot act on where they are standing.
+   *
+   * ⛔ AND IT IS NOT DISMISSIBLE-WITHOUT-ANSWERING. A plain ✕ would put the
+   * arrangement back into the state where the widget is invisible and nothing
+   * says so, which is the defect. The two controls ARE the two answers.
+   */
+  private _reconcileNotice(): HTMLElement | null {
+    const r = reconcileLayout(this._layout);
+    if (!r.legacy || r.unreconciled.length === 0) return null;
+
+    const mine = r.unreconciled.filter((id) => (widgetById(id)?.tab ?? 'overview') === this._layout.activeTab);
+    if (mine.length === 0) return null;
+
+    const box = document.createElement('div');
+    box.className = 'anl-reconcile';
+
+    const head = document.createElement('div');
+    head.className = 'anl-reconcile-head';
+    head.textContent =
+      mine.length === 1
+        ? 'One widget on this tab is not in your saved arrangement'
+        : `${mine.length} widgets on this tab are not in your saved arrangement`;
+    box.appendChild(head);
+
+    const why = document.createElement('p');
+    why.className = 'anl-reconcile-why';
+    why.textContent =
+      'You arranged this dashboard before these shipped, so PRYZM cannot tell whether you removed them or ' +
+      'never had them. It will not guess: guessing one way would bring back widgets you deleted, and guessing ' +
+      'the other would keep new ones hidden with nothing on screen to say so. Choose once — from now on, ' +
+      'anything new appears here on its own.';
+    box.appendChild(why);
+
+    for (const id of mine) {
+      const def = widgetById(id);
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'anl-reconcile-row';
+      row.title = def?.subtitle ?? '';
+      const label = document.createElement('span');
+      label.className = 'anl-reconcile-label';
+      label.textContent = def?.title ?? id;
+      const add = document.createElement('span');
+      add.className = 'anl-reconcile-add';
+      add.textContent = '＋ Add to this tab';
+      row.append(label, add);
+      row.addEventListener('click', () => this._addWidget(id));
+      box.appendChild(row);
+    }
+
+    const foot = document.createElement('div');
+    foot.className = 'anl-reconcile-foot';
+    const keep = document.createElement('button');
+    keep.type = 'button';
+    keep.className = 'anl-reconcile-keep';
+    keep.textContent = 'I removed these on purpose — stop asking';
+    keep.title =
+      'Records that you have seen this catalogue. Your arrangement is not changed in any way; only the ' +
+      'question goes away, and future widgets will appear without asking.';
+    keep.addEventListener('click', () => {
+      // ⛔ Changes `knownWidgets` and NOTHING else — every tab list survives
+      // verbatim. This is the "MUST stay removed" rule being honoured explicitly
+      // rather than inferred.
+      this._layout = adoptCatalogueAsKnown(this._layout);
+      saveLayout(this._layout);
+      void this.refresh();
+    });
+    foot.appendChild(keep);
+    box.appendChild(foot);
+
+    return box;
+  }
+
   private _addWidget(id: string): void {
     if (this._allPlacedIds().includes(id)) return;
     const active = this._layout.activeTab;

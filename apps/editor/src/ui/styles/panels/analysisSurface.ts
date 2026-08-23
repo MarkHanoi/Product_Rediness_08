@@ -1224,4 +1224,86 @@ export const ANALYSIS_SURFACE_STYLES = `
   cursor: pointer;
 }
 
+
+/* ===========================================================================
+   THE ARRANGEMENT-VS-CATALOGUE NOTICE
+   ANALYSIS-STORED-ARRANGEMENT-VS-GROWN-CATALOGUE (L-9002)
+   ===========================================================================
+
+   NO BACKTICKS ANYWHERE IN THIS BLOCK. It lives inside a template literal, and a
+   backtick in a CSS comment terminates it -- the trap that produced six TS parse
+   errors across three lanes in one session (L-8463). Single quotes read
+   identically here.
+
+   It spans the full grid width because it is about the grid, not about one card.
+   Violet-soft ground and the accent border: it is a QUESTION, not a warning, and
+   must not wear the amber of a lower bound. */
+
+.anl-reconcile {
+  grid-column: 1 / -1;
+  border: 1px solid var(--app-accent);
+  border-radius: 8px;
+  background: var(--app-violet-soft);
+  padding: 11px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.anl-reconcile-head {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--app-text);
+}
+.anl-reconcile-why {
+  margin: 0;
+  font-size: 10.6px;
+  line-height: 1.6;
+  color: var(--app-text-2);
+}
+.anl-reconcile-row {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background: var(--app-panel-bg);
+  cursor: pointer;
+  font-family: var(--app-font);
+  padding: 6px 10px;
+  min-height: 30px;
+}
+.anl-reconcile-row:hover { border-color: var(--app-accent); }
+.anl-reconcile-row:focus-visible { outline: none; box-shadow: var(--app-focus-ring); }
+.anl-reconcile-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--app-text);
+}
+.anl-reconcile-add {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--app-accent);
+  white-space: nowrap;
+}
+.anl-reconcile-foot { display: flex; justify-content: flex-end; }
+.anl-reconcile-keep {
+  appearance: none;
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
+  background: var(--app-panel-bg);
+  cursor: pointer;
+  font-family: var(--app-font);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--app-text-muted);
+  padding: 4px 11px;
+  min-height: 24px;
+}
+.anl-reconcile-keep:hover { color: var(--app-accent); border-color: var(--app-accent); }
+.anl-reconcile-keep:focus-visible { outline: none; box-shadow: var(--app-focus-ring); }
+
 `;

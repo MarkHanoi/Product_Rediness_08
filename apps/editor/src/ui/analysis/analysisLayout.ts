@@ -43,7 +43,7 @@
 import { withHandlerSpan } from '@pryzm/plugin-sdk';
 
 import { ANALYSIS_TABS, type AnalysisTabId } from './AnalysisTypes';
-import { DEFAULT_TAB_LAYOUT, widgetById } from './widgetCatalogue';
+import { DEFAULT_TAB_LAYOUT, WIDGET_CATALOGUE, widgetById } from './widgetCatalogue';
 
 const LS_PREFIX = 'pryzm.analysis.layout.';
 
@@ -53,6 +53,35 @@ export interface AnalysisLayout {
   readonly tabs: Readonly<Record<AnalysisTabId, readonly string[]>>;
   /** The tab the user was last on. Restored on reopen. */
   readonly activeTab: AnalysisTabId;
+  /**
+   * The widget ids THE CATALOGUE HELD when this arrangement was written.
+   * §ANALYSIS-STORED-ARRANGEMENT-VS-GROWN-CATALOGUE (L-9000).
+   *
+   * ⭐ THIS FIELD EXISTS TO SEPARATE TWO FACTS THAT WERE ONE STORED VALUE.
+   * `tabs` records which widgets are placed. It cannot say WHY a widget is
+   * absent, and there are two completely different reasons:
+   *
+   *   A. the user REMOVED it            -> must stay removed, forever (rule B);
+   *   B. it DID NOT EXIST when they     -> they never had the chance to decide,
+   *      arranged this dashboard           and hiding it is a silent defect.
+   *
+   * Absent from `knownWidgets` and absent from `tabs` = case B, by construction:
+   * a widget the catalogue did not contain cannot have been removed from a
+   * picker that never listed it. Present in `knownWidgets` and absent from
+   * `tabs` = case A, and it is left alone.
+   *
+   * ⚠ `undefined` is a THIRD answer and is NOT the empty set: it means this
+   * arrangement predates the field, so NEITHER case can be established for any
+   * widget. That state is reconciled by ASKING (see {@link LayoutReconciliation}),
+   * never by guessing — guessing case B would resurrect widgets the user deleted,
+   * and guessing case A would hide every widget shipped since.
+   *
+   * ⛔ It is DERIVED FROM THE LIVE CATALOGUE ON EVERY SAVE, never hand-maintained
+   * and never a version number a human must remember to bump. A stamp somebody
+   * has to remember is the same class of mechanism as a gate that classifies by
+   * NAME: it is satisfied by forgetting.
+   */
+  readonly knownWidgets?: readonly string[];
 }
 
 /** The shape written by builds before §ANALYSIS-TABS. Read-only, never written. */
@@ -77,12 +106,21 @@ interface StoredLayoutShape {
   widgets?: unknown;
   tabs?: unknown;
   activeTab?: unknown;
+  /** §ANALYSIS-STORED-ARRANGEMENT-VS-GROWN-CATALOGUE (L-9000). `unknown` like the
+   *  rest: absent and "not an array" are both answered as `undefined` by the
+   *  readers, which is the legacy signal — never `[]`. */
+  knownWidgets?: unknown;
+}
+
+/** Every widget id this build's catalogue holds. Derived; never hand-maintained. */
+function catalogueIds(): string[] {
+  return WIDGET_CATALOGUE.map((w) => w.id);
 }
 
 function defaults(): AnalysisLayout {
   const tabs = {} as Record<AnalysisTabId, readonly string[]>;
   for (const t of ANALYSIS_TABS) tabs[t.id] = [...DEFAULT_TAB_LAYOUT[t.id]];
-  return { version: 2, tabs, activeTab: 'overview' };
+  return { version: 2, tabs, activeTab: 'overview', knownWidgets: catalogueIds() };
 }
 
 /**
@@ -107,6 +145,137 @@ export function migrateV1(v1: AnalysisLayoutV1): AnalysisLayout {
     (tabs[def?.tab ?? 'overview'] ??= []).push(id);
   }
   return { version: 2, tabs, activeTab: 'overview' };
+}
+
+
+// =============================================================================
+// §ANALYSIS-STORED-ARRANGEMENT-VS-GROWN-CATALOGUE (L-9000 … L-9004)
+// =============================================================================
+//
+// ⭐ THE DEFECT THIS SECTION EXISTS FOR, AND IT WAS SYSTEMIC, NOT LOCAL.
+//
+// The founder opened Analysis -> Relationships and could not find the graph that
+// had just shipped. His tab header read "Relationships 1" and rendered only
+// `relationship-coverage`. Nothing was broken in the graph; nothing was broken in
+// the catalogue. He had ARRANGED that tab before the graph existed, so his stored
+// list was `relationships: ['relationship-coverage']`, and `loadLayout` treated a
+// stored array as the whole truth.
+//
+// ⛔ THE CODE THAT HID IT WAS GOOD CODE AND ITS COMMENT WAS RIGHT. It reads:
+// "an empty stored array is a REAL arrangement ... `undefined` is the different
+// answer 'this tab was never stored', which happens when a build adds a TAB".
+// Every word of that is true. It reasons about a NEW TAB and it does not reason
+// about a NEW WIDGET IN AN EXISTING TAB, and that is the entire gap.
+//
+// ⛔ AND THE BLAST RADIUS WAS NOT ONE WIDGET. Under the old rule, EVERY widget
+// EVERY lane adds from now on is invisible to EVERY existing user, on every
+// project, with no error, no empty state and no log line — while the catalogue
+// entry looks live to whoever wrote it. That is why this is fixed in the layout
+// module rather than by special-casing one id.
+//
+// ⭐ THE SHAPE OF THE BUG IS THE ONE THIS REPOSITORY KEEPS PAYING FOR: ONE STORED
+// VALUE CARRYING TWO OPPOSITE MEANINGS. "absent from `tabs`" meant both "the user
+// removed this" and "this did not exist yet" — the same defect as `-` meaning
+// both "unused" and "unnameable", and "Not assigned to a storey" meaning both
+// "has none" and "we did not ask". The fix is never a better guess; it is
+// recording the second fact, which is what `knownWidgets` does.
+
+/** What {@link reconcileLayout} could and could not establish. */
+export interface LayoutReconciliation {
+  /** The layout to render. Identical to the input unless `autoPlaced` is non-empty. */
+  readonly layout: AnalysisLayout;
+  /**
+   * Widgets PLACED by this pass because they post-date the stored arrangement.
+   * ⭐ Safe by construction: a widget the catalogue did not contain cannot have
+   * been removed from a picker that never listed it, so placing it cannot
+   * overturn a decision the user made.
+   */
+  readonly autoPlaced: readonly string[];
+  /**
+   * ⛔ Widgets this build has that the arrangement does not place, and whose
+   * absence CANNOT be classified because the arrangement predates
+   * `knownWidgets`. Neither auto-placed nor hidden — the surface ASKS.
+   */
+  readonly unreconciled: readonly string[];
+  /** True ⇒ the stored arrangement carries no `knownWidgets` record. */
+  readonly legacy: boolean;
+}
+
+/**
+ * Reconcile a stored arrangement with a catalogue that has grown since.
+ *
+ * PURE and IDEMPOTENT: running it on its own output places nothing further and
+ * reports the same `unreconciled` set, which is what lets the surface call it
+ * whenever it needs the notice without fear of a second placement.
+ *
+ * ⛔ RULE B IS PRESERVED BY CONSTRUCTION, NOT BY A CHECK. A widget listed in
+ * `knownWidgets` but absent from `tabs` is a widget the user removed on purpose.
+ * It is never in `autoPlaced` and never in `unreconciled`; nothing in this
+ * function can put it back. That is not up for negotiation and it is why the
+ * membership test is against `knownWidgets` rather than against the catalogue.
+ *
+ * ⚠ THE LEGACY CASE IS ANSWERED BY ASKING, AND THE REASONING IS WORTH KEEPING.
+ * When `knownWidgets` is absent, both facts are unavailable for every widget, so
+ * either guess is wrong for somebody:
+ *   · guessing "new" resurrects widgets the user deliberately deleted;
+ *   · guessing "removed" hides every widget shipped since they last arranged,
+ *     which is the defect being fixed, permanently and silently.
+ * The asymmetry is real — an unwanted widget costs one click to remove and is
+ * VISIBLE, whereas a hidden one is unrecoverable because the user cannot miss
+ * what they cannot see — but "MUST stay removed" is a hard rule, so this function
+ * refuses to decide and hands the decision to the person who owns it. The prompt
+ * is a ONE-TIME migration artefact: the moment they answer, `knownWidgets` is
+ * recorded and every future widget places itself with no prompt at all.
+ */
+export function reconcileLayout(stored: AnalysisLayout): LayoutReconciliation {
+  const catalogue = catalogueIds();
+  const placed = new Set(ANALYSIS_TABS.flatMap((t) => stored.tabs[t.id]));
+
+  // ⚠ The LEGACY discriminator is the PRESENCE of the field, never a version
+  // number. A number would be a second way of saying the same thing, and two
+  // ways of saying one thing is how they come to disagree.
+  if (stored.knownWidgets === undefined) {
+    return {
+      layout: stored,
+      autoPlaced: [],
+      unreconciled: catalogue.filter((id) => !placed.has(id)),
+      legacy: true,
+    };
+  }
+
+  const known = new Set(stored.knownWidgets);
+  const newSinceStored = catalogue.filter((id) => !known.has(id) && !placed.has(id));
+  if (newSinceStored.length === 0) {
+    return { layout: stored, autoPlaced: [], unreconciled: [], legacy: false };
+  }
+
+  // Each new widget lands on ITS OWN catalogue tab — the same placement rule a
+  // fresh default arrangement uses — appended, so nothing the user ordered moves.
+  const tabs = {} as Record<AnalysisTabId, readonly string[]>;
+  for (const t of ANALYSIS_TABS) tabs[t.id] = [...stored.tabs[t.id]];
+  for (const id of newSinceStored) {
+    const tab = widgetById(id)?.tab ?? 'overview';
+    tabs[tab] = [...tabs[tab], id];
+  }
+
+  return {
+    layout: { ...stored, tabs, knownWidgets: catalogue },
+    autoPlaced: newSinceStored,
+    unreconciled: [],
+    legacy: false,
+  };
+}
+
+/**
+ * Answer the legacy question with "these were deliberate" — adopt the current
+ * catalogue as the known set WITHOUT placing anything.
+ *
+ * ⛔ It changes `knownWidgets` and NOTHING else. Every tab list is untouched, so
+ * the user's arrangement survives verbatim; all that is recorded is that they
+ * have now SEEN this catalogue and decided.
+ */
+export function adoptCatalogueAsKnown(layout: AnalysisLayout): AnalysisLayout {
+  return { ...layout, knownWidgets: catalogueIds() };
 }
 
 function keyFor(projectId: string | null): string {
@@ -155,7 +324,26 @@ export function loadLayout(projectId: string | null = currentProjectId()): Analy
       const active = ANALYSIS_TABS.some((t) => t.id === parsed.activeTab)
         ? (parsed.activeTab as AnalysisTabId)
         : 'overview';
-      return { version: 2, tabs, activeTab: active };
+      // ⛔ `knownWidgets` is read as UNTRUSTED JSON and an absent/!array value
+      // stays `undefined` — it must NOT collapse to `[]`. Empty means "the
+      // catalogue held nothing", which would make every widget look new;
+      // `undefined` means "this arrangement predates the record", which is the
+      // case that gets ASKED about. Merging them would auto-place every widget
+      // into every legacy arrangement and overturn real removals.
+      const knownWidgets = Array.isArray(parsed.knownWidgets)
+        ? (parsed.knownWidgets as unknown[]).filter((w): w is string => typeof w === 'string')
+        : undefined;
+
+      // §ANALYSIS-STORED-ARRANGEMENT-VS-GROWN-CATALOGUE (L-9000) — a widget that
+      // post-dates this arrangement is PLACED here. ⚠ Reconciling on READ and not
+      // writing back is deliberate: a read that silently rewrote the user's stored
+      // arrangement would make opening a dashboard a mutation, and would do it on
+      // a path with no undo. The stamp lands on the next real save.
+      return reconcileLayout(
+        knownWidgets === undefined
+          ? { version: 2, tabs, activeTab: active }
+          : { version: 2, tabs, activeTab: active, knownWidgets },
+      ).layout;
     } catch {
       return defaults();
     }
@@ -178,7 +366,22 @@ export function saveLayout(layout: AnalysisLayout, projectId: string | null = cu
     },
     () => {
       try {
-        localStorage.setItem(keyFor(projectId), JSON.stringify(layout));
+        // ⭐ THE STAMP IS REFRESHED FROM THE LIVE CATALOGUE ON EVERY SAVE, so no
+        // human has to remember to bump anything — a stamp somebody must remember
+        // is satisfied by forgetting.
+        //
+        // ⛔ BUT A LEGACY ARRANGEMENT IS NOT ADOPTED HERE, AND THIS GUARD IS THE
+        // WHOLE POINT. The first draft of this line stamped unconditionally, which
+        // meant ANY unrelated save — reordering a card on Overview, switching the
+        // active tab — would silently record "the user has seen this catalogue"
+        // and the outstanding question would vanish without ever being asked. That
+        // is the invisible-widget defect all over again, one indirection further
+        // back. Legacy stays legacy until the person answers, and the only two
+        // ways out are both explicit: `adoptCatalogueAsKnown()` (the "I removed
+        // these on purpose" control) or a reset to `defaults()`.
+        const stamped: AnalysisLayout =
+          layout.knownWidgets === undefined ? layout : { ...layout, knownWidgets: catalogueIds() };
+        localStorage.setItem(keyFor(projectId), JSON.stringify(stamped));
         return true;
       } catch (e) {
         console.warn('[analysis] the layout could not be saved in this browser:', e);
@@ -216,7 +419,22 @@ export function hydrate(data: unknown, projectId: string | null = currentProject
       tabs[t.id] = Array.isArray(list) ? list.filter((w): w is string => typeof w === 'string') : [...DEFAULT_TAB_LAYOUT[t.id]];
     }
     const active = ANALYSIS_TABS.some((t) => t.id === d.activeTab) ? (d.activeTab as AnalysisTabId) : 'overview';
-    return saveLayout({ version: 2, tabs, activeTab: active }, projectId);
+    // ⛔ THE SECOND SITE, AND IT IS NOT A COPY-PASTE TIDY-UP. The escalation named
+    // only `loadLayout`; this leg carried the IDENTICAL defect. It is dead today
+    // (L-3007 — nothing calls `hydrate` yet), so fixing only the reachable one
+    // would have left a dormant copy of the bug to re-mint itself on the day the
+    // snapshot legs are wired, in a build where nobody would connect the two.
+    // A snapshot written by an older build has no `knownWidgets`, which is
+    // exactly the legacy case, and it is answered the same way.
+    const knownWidgets = Array.isArray(d.knownWidgets)
+      ? (d.knownWidgets as unknown[]).filter((w): w is string => typeof w === 'string')
+      : undefined;
+    const reconciled = reconcileLayout(
+      knownWidgets === undefined
+        ? { version: 2, tabs, activeTab: active }
+        : { version: 2, tabs, activeTab: active, knownWidgets },
+    );
+    return saveLayout(reconciled.layout, projectId);
   });
 }
 
