@@ -64,6 +64,24 @@ export type WallProfileVariantStatus =
     | 'available'
     /** NOT YET. The combination is buildable and someone is building it. */
     | 'unbuilt'
+    /**
+     * ⭐ THE GEOMETRY EXISTS AND IS ASSERTED, BUT THIS ENTRY POINT CANNOT REACH IT
+     * (§FEAT-WALL-PROFILE-OPENINGS, OPEN38 2026-08-23, L-7410).
+     *
+     * Minted because the table had no way to say the true thing. `'unbuilt'` would have been
+     * a LIE about the geometry — a profiled wall hosting doors and windows builds correctly
+     * and `OPEN38ProfileOpeningBody.test.ts` measures it end to end through the real router.
+     * `'available'` would have been a LIE about the affordance: this module's own rule is
+     * that *"an offered-but-unbuilt cell is worse than a closed one, because the user
+     * believes it worked"*, and enabling the button here produces a refusal on click.
+     *
+     * The distinction is worth a member of the union rather than a comment because it is a
+     * whole CLASS of defect in this repo — capability shipped, reachability not — and a
+     * table that can only say "built" or "not built" cannot record it. A cell in this state
+     * is CLOSED (`ok` is false) and its reason must name the WORKING ORDER OF OPERATIONS,
+     * because there always is one: that is what distinguishes it from `'unbuilt'`.
+     */
+    | 'built-not-reachable'
     /** Never — the combination is ill-posed, not merely unwritten. NONE TODAY. */
     | 'impossible';
 
@@ -119,7 +137,41 @@ export const WALL_PROFILE_AXES: ReadonlyArray<WallProfileAxisRow> = [
     { axis: 'raked',  status: 'available' },
     { axis: 'curved', status: 'available' },
     { axis: 'layered',         status: 'unbuilt', owner: 'WJ1 — profile × layers' },
-    { axis: 'hosted-openings', status: 'unbuilt', owner: 'WJ1 — profile × openings' },
+
+    // ✅ THE GEOMETRY IS BUILT — §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400). A profiled wall
+    //    hosts doors and windows: `WallHoleBodyParams.outerRing` makes the body's top edge the
+    //    ring's upper chain instead of a constant, and `wallProfileRectFit` is the one predicate
+    //    the gate, the occupancy store and the builder all refuse with. Assertions:
+    //    `OPEN38ProfileOpeningBody.test.ts` — *"a WINDOW in a GABLE wall — the apex is drawn AND
+    //    the hole is cut"* and *"a DOOR … the notch reaches the floor and the apex survives"*,
+    //    both end to end through `WallFragmentBuilder`.
+    //
+    // ⛔ AND THE ROW IS STILL CLOSED, WHICH IS THE POINT OF THE NEW STATUS. `WallTool`'s
+    //    `enterProfileEditMode` probes the gate with a SYNTHETIC RIGHT TRIANGLE
+    //    (`ring: [{u:0,v:0},{u:length,v:0},{u:length,v:height}]`) chosen when the opening arm
+    //    was category-based, on the stated ground that *"the only arms that can fire are the
+    //    WALL-SHAPE arms"*. That stopped being true the moment the arm became RING-SENSITIVE:
+    //    on a 4×3 m wall the triangle's top edge at u = 1.5 is 1.125 m, so an ordinary window
+    //    now fails a probe about a ring the author never drew. The one-line fix is to probe
+    //    with the wall's IMPLICIT RECTANGLE — the profile every wall already is, which can
+    //    never refuse for an opening reason and still exercises every wall-shape arm. It sits
+    //    in a file owned by another lane and is handed over rather than taken (L-7410).
+    //
+    // ⭐ THE WORKING ORDER OF OPERATIONS EXISTS AND THE REASON MUST NAME IT: edit the outline
+    //    FIRST, then place the doors and windows. That direction is fully live today — it is
+    //    also the founder's request read literally — and it is the difference between this
+    //    status and `'unbuilt'`.
+    {
+        axis: 'hosted-openings',
+        status: 'built-not-reachable',
+        owner: 'OPEN38 — L-7410, WallTool.enterProfileEditMode probe ring',
+        ownReason:
+            'This wall already has doors or windows, and the outline editor cannot be opened on ' +
+            'a wall that does. The wall itself CAN carry both — outline editing and hosted ' +
+            'openings work together — but only in that order today: edit the outline first, then ' +
+            'place the doors and windows. (To edit this wall now, remove its openings, edit the ' +
+            'outline, and put them back.)',
+    },
 ];
 
 /** The wall subset this module reads. Same shape `profileAuthorability` judges. */
@@ -179,8 +231,8 @@ export function gateSentenceForAxis(axis: WallProfileAxis): string | null {
 
 /** What IS available today — named in every refusal, per C16 CA-18. */
 export const WALL_PROFILE_AVAILABLE_TODAY =
-    'Straight, vertical, single-layer walls that host no doors or windows can have their ' +
-    'outline edited today.';
+    'Straight walls with one layer — vertical or raked — and curved walls can have their ' +
+    'outline edited today, and an outline-edited wall can then host doors and windows.';
 
 /**
  * May THIS wall's outline be edited?
@@ -200,13 +252,25 @@ export function wallProfileVariantAvailability(
 
     // `impossible` dominates `unbuilt` when both are present: the stronger claim is the one
     // that describes the author's situation truthfully.
+    // The STRONGEST claim wins, because it is the one that describes the author's situation
+    // truthfully: `impossible` (never) over `unbuilt` (not yet) over `built-not-reachable`
+    // (works, but not from here). ⚠ Note the ordering is by how much it CONSTRAINS the
+    // author, not by how bad it sounds — `built-not-reachable` is last precisely because it
+    // is the only one with a working alternative to offer, and a compound refusal that
+    // advertised that alternative while another axis was genuinely unbuilt would send the
+    // author down a road that ends in a second refusal.
     const status: WallProfileVariantStatus =
-        blocked.some((r) => r.status === 'impossible') ? 'impossible' : 'unbuilt';
+        blocked.some((r) => r.status === 'impossible') ? 'impossible'
+            : blocked.some((r) => r.status === 'unbuilt') ? 'unbuilt'
+                : 'built-not-reachable';
 
     const parts = blocked.map(
         (row) => row.ownReason ?? gateSentenceForAxis(row.axis) ?? `Not available for a ${row.axis} wall.`,
     );
     const lead = status === 'unbuilt' ? 'NOT YET — ' : '';
+    // ⚠ `built-not-reachable` takes NO lead-in. "NOT YET" would be false (it is built) and an
+    //   empty lead lets its own sentence — which names the working order of operations — be
+    //   the first thing read.
 
     return {
         ok: false,

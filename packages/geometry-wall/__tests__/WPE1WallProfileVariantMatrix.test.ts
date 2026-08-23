@@ -86,12 +86,30 @@ describe('§FEAT-WALL-PROFILE-EDIT-MATRIX — what is OFFERED, per variant', () 
         }
     });
 
-    it('LAYERED and HOSTING are still CLOSED, and still UNBUILT rather than impossible', () => {
+    it('LAYERED and HOSTING are still CLOSED — but for DIFFERENT reasons now, and neither is impossible', () => {
         for (const key of ['layered (> 1 band)', 'hosting an opening'] as const) {
             const v = wallProfileVariantAvailability(VARIANTS[key] as never);
             expect(v.ok, key).toBe(false);
-            expect(v.status, key).toBe('unbuilt');
+            expect(v.status, key).not.toBe('impossible');
         }
+        // LAYERED is genuinely UNBUILT — the V2 band slicer extrudes between two HORIZONTAL
+        // planes and has no per-station top.
+        expect(wallProfileVariantAvailability(VARIANTS['layered (> 1 band)'] as never).status)
+            .toBe('unbuilt');
+
+        // ⭐ HOSTING IS NOT. §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) BUILT IT — a profiled
+        //   wall hosts doors and windows, measured end to end in
+        //   `OPEN38ProfileOpeningBody.test.ts` — and the cell is closed only because
+        //   `WallTool.enterProfileEditMode` probes the gate with a synthetic right TRIANGLE
+        //   that an ordinary window cannot fit under. The table gained a status for exactly
+        //   this, because saying 'unbuilt' here would be a lie about the geometry and
+        //   'available' a lie about the button (L-7410).
+        const hosting = wallProfileVariantAvailability(VARIANTS['hosting an opening'] as never);
+        expect(hosting.status).toBe('built-not-reachable');
+        // A cell in that state OWES the author a working order of operations — that is what
+        // distinguishes it from 'unbuilt', so it is asserted rather than left to convention.
+        expect(hosting.reason).toMatch(/edit the outline first/i);
+        expect(hosting.reason).not.toMatch(/NOT YET/);
     });
 
     it('a COMPOUND refusal still names BOTH axes — one axis must not silently win', () => {

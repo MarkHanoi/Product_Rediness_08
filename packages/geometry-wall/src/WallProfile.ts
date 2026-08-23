@@ -85,6 +85,43 @@
 //   • profile x layers  — UNBUILT. The V2 band slicer builds each band by slicing the
 //                         plan footprint and extruding it between two HORIZONTAL Y
 //                         planes; there is no per-station top in that path.
+//                         ⚠ THIS ARM'S BOUNDARY WAS OFF BY ONE AND THAT WAS A LIVE
+//                         SILENTLY-WRONG WALL — §FIX-PROFILE-ONE-LAYER-ROUTING (OPEN38,
+//                         L-7403). The arm refuses `layers.length > 1`; the band path it
+//                         guards is entered on `layers.length > 0` AND RETURNS. So a
+//                         ONE-LAYER profiled wall was ADMITTED here and drawn as a full
+//                         rectangle, ring discarded — and `CreateWallCommand` stamps
+//                         `layers` from the WallSystemType, so a 1-layer "Plain Wall" is
+//                         the founder's ACTUAL wall. Measured: ring 1.500 m at the ends,
+//                         body 3.000 m. This is L-1064's defect exactly, one gate over.
+//                         ⭐ FIXED AT THE ROUTER, NOT AT THE GATE, and the direction
+//                         matters: tightening this arm to `> 0` would have refused a
+//                         profile on EVERY real wall and made the feature unreachable.
+//                         `WallFragmentBuilder`'s layered arm now steps aside for a
+//                         single-layer profiled wall, which IS a plain wall geometrically
+//                         (its `thickness` is Σ layer.thickness over one term). The
+//                         MULTI-layer case is genuinely unbuilt and still refused here.
+//   ✅ profile x openings — BUILT (§FEAT-WALL-PROFILE-OPENINGS, OPEN38 2026-08-23,
+//                         L-7400). The paragraph below was RIGHT about both mechanisms and
+//                         it is kept because it is the reasoning that let the arm be
+//                         lifted — and, uniquely in this family, because it also PRESCRIBED
+//                         THE ORDER the lifting had to happen in, and that order was
+//                         followed. The vertical-aware `canPlace` landed FIRST, in its own
+//                         commit, while this refusal still stood; only then did the
+//                         geometry and this arm move.
+//                           • "the outer boundary is that rectangle" — `WallHoleBodyParams`
+//                             now takes an optional `outerRing`, and the top edge that was
+//                             the constant `yt` is the ring's UPPER CHAIN. The bottom edge
+//                             was already a walk (it dips over every door); the change is
+//                             that both edges are now functions of x.
+//                           • "canPlace is 1-D and vertical-blind" — it has a vertical arm,
+//                             `OCC_OUTSIDE_HOST_PROFILE`, driven by `wallProfileRectFit`.
+//                         ⛔ WHAT SURVIVES IS NARROWER AND PER-OPENING: a ring that CUTS
+//                         AWAY the material an opening sits in is still refused — but by
+//                         MEASUREMENT, naming which edge and by how many metres, rather
+//                         than by category. And a DOOR needs a level foot across its own
+//                         span, because a door is carved out of the outer boundary rather
+//                         than cut as a closed hole; see `uneven-foot`.
 //   • profile x openings — UNBUILT, and the dangerous one. The opening-bearing body
 //                         composes a rectangle minus voids and assumes the outer
 //                         boundary is that rectangle (`WallHoleBodyBuilder.ts:141-151`
@@ -766,7 +803,26 @@ export type ProfileRefusalCode =
      */
     | 'curved-multi-interval'
     | 'layered'
-    | 'hosted-openings';
+    /**
+     * §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — NARROWED, NOT RETIRED. This used to mean
+     * *"this wall hosts an opening"*, a fact about the wall's category. It now means *"one of
+     * this wall's openings does not fit inside this ring"*, a fact about two measurements —
+     * and the reason carries which edge and by how many metres.
+     */
+    | 'hosted-openings'
+    /**
+     * The opening record could not be read as a rectangle, so the fit is UNJUDGEABLE. Named
+     * separately from `hosted-openings` because *"it does not fit"* and *"I could not tell"*
+     * are different verdicts and the author can act on only one of them — collapsing them is
+     * the §CONTEXT-DATA-HONESTY failure where absent and refused share a value.
+     */
+    | 'hosted-openings-unjudgeable'
+    /**
+     * Curve × openings × profile. Each pair is built; the triple is not, because the curved
+     * OPENING builder is a different function from the curved PROFILE builder and does not
+     * read the ring. NOT-YET, not ill-posed.
+     */
+    | 'curved-hosted-openings';
 
 /**
  * The first `u` at which the ring encloses TWO OR MORE separate vertical spans, or null.
@@ -946,17 +1002,90 @@ export function profileAuthorability(subject: ProfileSubject): ProfileAuthorabil
                 'the model said otherwise. Use a single-layer wall type, or leave the profile unset.',
         };
     }
+    // ── §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — THE `hosted-openings` ARM IS
+    //    NARROWED FROM A CATEGORY TO A MEASUREMENT, AND ITS OLD TEXT IS KEPT SO THE
+    //    RETRACTION IS LEGIBLE (C84 §6) — the fourth time in this family. It read:
+    //
+    //      "wall.wallProfile is not supported on a wall that HOSTS DOORS OR WINDOWS: the
+    //       opening-bearing body is built as a rectangle minus voids and assumes that outer
+    //       rectangle, and the occupancy check that guards openings is purely horizontal — so
+    //       nothing would notice an opening left floating in material the profile removed.
+    //       Remove the openings first, or leave the profile unset."
+    //
+    //    ⭐ EVERY CLAUSE WAS TRUE AND BOTH WERE DESCRIPTIONS OF ABSENT CODE — the same shape
+    //      this file's own header already diagnosed for `curved` ("a reason to TESSELLATE",
+    //      "a fact about eight lines"). *"Built as a rectangle minus voids"* was a fact about
+    //      ONE expression: `WallHoleBodyBuilder`'s top edge was the constant `yt` while its
+    //      bottom edge was ALREADY a walk that dips over every door. Giving the top edge the
+    //      ring's upper chain is that expression becoming a function. *"The occupancy check is
+    //      purely horizontal"* was a fact about a validator with no vertical arm; L-7400 gave
+    //      it one, IN ITS OWN COMMIT, BEFORE this text moved — which is the ordering the
+    //      refusal itself demanded and the reason it could be retired honestly rather than
+    //      merely deleted.
+    //
+    // ⛔ WHAT SURVIVES IS PER-OPENING AND CARRIES A NUMBER. The question is no longer "does
+    //    this wall host anything?" but "does THIS opening fit inside THIS ring?", asked with
+    //    `wallProfileRectFit` — the SAME predicate `WallOccupancyStore.canPlace` declines
+    //    with and the SAME one `buildWallHoleBodyGeometry` refuses to cut against. One
+    //    question, one answer, three askers (C84 EI-9).
+    //
+    // ⚠ AND IT IS BIDIRECTIONAL, WHICH IS THE HALF THAT IS EASY TO MISS. This gate runs on
+    //   `WallStore.update` against the MERGED wall, so it is also what happens when an author
+    //   drags a profile vertex DOWN THROUGH AN EXISTING WINDOW: the edit is REFUSED, naming
+    //   the window and the metres. The alternative — moving or clipping the opening to suit
+    //   the new outline — was considered and rejected: it edits an element the author did not
+    //   select in order to honour one they did (C84 EI-2 refuse-don't-narrow, and the
+    //   founder's standing direction that a spatial conflict is always ASKED, never silently
+    //   resolved). The opening is never silently left in removed material either, which was
+    //   the whole point of the original refusal.
     if (subject.openings !== undefined && subject.openings !== null && subject.openings.length > 0) {
-        return {
-            ok: false,
-            code: 'hosted-openings',
-            reason:
-                'wall.wallProfile is not supported on a wall that HOSTS DOORS OR WINDOWS: the ' +
-                'opening-bearing body is built as a rectangle minus voids and assumes that outer ' +
-                'rectangle, and the occupancy check that guards openings is purely horizontal — so ' +
-                'nothing would notice an opening left floating in material the profile removed. ' +
-                'Remove the openings first, or leave the profile unset.',
-        };
+        // ⛔ CURVED × OPENINGS × PROFILE IS STILL REFUSED, AND FOR A MEASURED REASON, NOT AN
+        //    INHERITED ONE. A curved wall's profile is applied as a PER-STATION top/bottom on
+        //    a swept solid (§FEAT-WALL-PROFILE-CURVED), but a curved wall that HOSTS an
+        //    opening is built by `_buildCurvedWallWithOpenings` — a different function, which
+        //    slices radial bands at stations along the arc and never reads the ring. Measured
+        //    2026-08-23: `WallFragmentBuilder`'s profile arm skips arc hosts entirely
+        //    (`if (_hasWallProfile && !(wall.curve && isArcHost(wall)))`), so such a wall
+        //    reaches the opening arm and the profile is DISCARDED. That is the silently-wrong
+        //    wall, so it is refused until the per-station carve exists.
+        if (subject.curve !== undefined && subject.curve !== null) {
+            return {
+                ok: false,
+                code: 'curved-hosted-openings',
+                reason:
+                    'wall.wallProfile is NOT YET supported on a CURVED wall that also hosts doors or ' +
+                    'windows. Each is built today — a curved wall takes an edited outline, and a ' +
+                    'curved wall hosts openings — but by two different builders, and the one that ' +
+                    'cuts the openings does not read the outline, so the outline would be silently ' +
+                    'discarded. Straighten the wall to edit its outline, or leave the outline unset ' +
+                    'and keep the openings.',
+            };
+        }
+        for (let i = 0; i < subject.openings.length; i++) {
+            const rect = profileOpeningRectOf(subject.openings[i]);
+            if (!rect) {
+                return {
+                    ok: false,
+                    code: 'hosted-openings-unjudgeable',
+                    reason:
+                        `wall.wallProfile cannot be judged against hosted opening ${i}: the opening ` +
+                        'record does not carry the offset, width, height and sill height needed to ' +
+                        'test whether it sits inside the outline. Refusing rather than guessing — an ' +
+                        'opening admitted blind is exactly the opening that ends up floating in ' +
+                        'material the outline removed.',
+                };
+            }
+            const fit = wallProfileRectFit(ring, rect);
+            if (!fit.ok) {
+                const id = (subject.openings[i] as { id?: unknown } | null)?.id;
+                const named = typeof id === 'string' && id.length > 0 ? ` "${id}"` : ` ${i}`;
+                return {
+                    ok: false,
+                    code: 'hosted-openings',
+                    reason: `This wall's outline does not fit around the opening${named} on it. ${fit.reason ?? ''}`,
+                };
+            }
+        }
     }
 
     return PROFILE_OK;

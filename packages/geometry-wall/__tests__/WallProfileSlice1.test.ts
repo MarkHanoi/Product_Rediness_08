@@ -191,17 +191,31 @@ describe('§WALL-PROFILE (2) — profileAuthorability', () => {
      *   someone reading the module header — *"A profile on a curve is NOT ill-posed … This
      *   one CAN lift"* — and doing it.
      */
-    it('the TWO remaining unbuilt combinations are refused, each by its own code', () => {
+    it('the ONE remaining unbuilt combination is refused by its own code', () => {
+        // ✅ `hosted-openings` LEFT THIS LIST 2026-08-23 (§FEAT-WALL-PROFILE-OPENINGS, OPEN38,
+        //    L-7400). It read `expect(profileAuthorability({ ...base, openings: [{}] }).code)
+        //    .toBe('hosted-openings')` and it was asserting a CATEGORY refusal: any opening at
+        //    all, on any ring. That arm is now a MEASUREMENT — does THIS opening fit inside
+        //    THIS ring — so the bare `[{}]` probe no longer trips it. It trips the honest
+        //    successor instead, `hosted-openings-unjudgeable`, which is a different verdict and
+        //    deliberately not folded into the first: *"it does not fit"* and *"I could not
+        //    tell"* are things an author can act on differently.
         const base = { wallProfile: GABLE, baseLine: [{ x: 0, z: 0 }, { x: 6, z: 0 }] as const, height: 3 };
         expect(profileAuthorability({ ...base, layers: [{}, {}] }).code).toBe('layered');
-        expect(profileAuthorability({ ...base, openings: [{}] }).code).toBe('hosted-openings');
+        expect(profileAuthorability({ ...base, openings: [{}] }).code).toBe('hosted-openings-unjudgeable');
+        // …and an opening that CAN be judged, and fits, is admitted. Non-vacuity for the line
+        // above: a reader must be able to tell the probe failed for lack of data, not because
+        // openings are still refused.
+        expect(profileAuthorability({
+            ...base, openings: [{ id: 'w1', offset: 2, width: 1.2, height: 1.4, sillHeight: 0.9 }],
+        }).ok, 'a window under the gable ridge is now authorable').toBe(true);
         // …and CURVED is no longer one of them.
         expect(profileAuthorability({
             ...base, curve: { control: { x: 3, y: 0, z: 1.2 }, segments: 12 },
         }).ok, 'a curved wall now takes a profile').toBe(true);
     });
 
-    it('the two REMAINING refusals are worded as UNBUILT, not as ill-posed', () => {
+    it('the REMAINING refusals are worded as UNBUILT, not as ill-posed', () => {
         // ⚠ A REAL DISTINCTION, AND THE FILE THAT PROVES IT IS THIS ONE'S OWN HISTORY. This
         //   test used to police the CURVED sentence; that sentence has since been retired
         //   because the combination was built. Both survivors describe MISSING MACHINERY
@@ -213,9 +227,22 @@ describe('§WALL-PROFILE (2) — profileAuthorability', () => {
         //     `rakeAuthorability` lifted its own curved arm on 2026-08-19 and a raked curved
         //     wall now ships as a cone. There is currently NO ill-posed refusal in this
         //     family to contrast against, which is itself the point.
+        //
+        //   ⭐ AND ONE OF THE TWO HAS SINCE LIFTED, WHICH IS THE STRONGEST EVIDENCE THIS TEST
+        //     WAS WORTH HAVING. It named the opening refusal's mechanism — *"the occupancy
+        //     check is purely horizontal"* — as MISSING MACHINERY rather than as a law, and
+        //     that is exactly how it was closed: `canPlace` was given a vertical arm, in its
+        //     own commit, and only then did the refusal narrow (L-7400). The surviving
+        //     subjects are the layered arm and the curved-hosted-openings arm, both of which
+        //     still describe absent code.
         const base = { wallProfile: GABLE, baseLine: [{ x: 0, z: 0 }, { x: 6, z: 0 }] as const, height: 3 };
-        for (const subj of [{ ...base, layers: [{}, {}] }, { ...base, openings: [{}] }]) {
-            const r = profileAuthorability(subj).reason ?? '';
+        const curvedHosting = {
+            ...base,
+            curve: { control: { x: 3, y: 0, z: 1.2 }, segments: 12 },
+            openings: [{ id: 'w1', offset: 2, width: 1.2, height: 1.4, sillHeight: 0.9 }],
+        };
+        for (const subj of [{ ...base, layers: [{}, {}] }, curvedHosting]) {
+            const r = profileAuthorability(subj as never).reason ?? '';
             expect(r).not.toMatch(/ill-posed|never lifts|impossible/i);
         }
         expect(profileAuthorability({ ...base, layers: [{}, {}] }).reason)
@@ -286,15 +313,43 @@ describe('§WALL-PROFILE (3) — the four write boundaries', () => {
         expect(() => store.update('w-1', { wallProfile: GABLE } as never)).toThrow(/LAYERED wall/);
     });
 
-    it('STORE.addOpening refuses — the door that does NOT go through update()', () => {
-        // The bypass that matters: a gate wired only into `update` is reachable around
-        // by doing the two operations in the other order.
+    it('STORE.addOpening — the door that does NOT go through update() — now ADMITS a fitting window', () => {
+        // The bypass that matters, and it still matters: a gate wired only into `update` is
+        // reachable around by doing the two operations in the other order. What changed is the
+        // VERDICT, not the wiring.
+        //
+        // ✅ THIS ASSERTED `.toThrow(/WALL-PROFILE/)` UNTIL 2026-08-23 (§FEAT-WALL-PROFILE-
+        //    OPENINGS, OPEN38, L-7400), because a profiled wall refused EVERY opening. This
+        //    window sits at u in [2.0, 3.2], where the gable's own upper chain runs 2.667 to
+        //    3.000 m, and its head is at 2.300 m — it is INSIDE the wall, so refusing it was
+        //    never a statement about this window. It is the founder's own case: profile-edit
+        //    the wall, then put a window in it.
         const store = newStore();
         store.add(mk({ profile: GABLE }));
         expect(() => store.addOpening('w-1', {
             id: 'op-1', type: 'window', elementId: 'win-1',
             offset: 2, width: 1.2, height: 1.4, sillHeight: 0.9,
-        } as never)).toThrow(/WALL-PROFILE/);
+        } as never)).not.toThrow();
+    });
+
+    it('STORE.addOpening STILL refuses a window the outline has cut away — with the metres', () => {
+        // ⛔ THE HALF THAT MUST NOT BE LOST. The same window moved to the gable's SHOULDER
+        //    (u in [0.2, 1.4], where the upper chain falls to 2.067 m) has 0.233 m of itself
+        //    outside the wall. `WallStore.addOpening` is the write boundary that does not pass
+        //    through `update()`, so it is the one that has to say so.
+        const store = newStore();
+        store.add(mk({ profile: GABLE }));
+        let msg = '';
+        try {
+            store.addOpening('w-1', {
+                id: 'op-1', type: 'window', elementId: 'win-1',
+                offset: 0.2, width: 1.2, height: 1.4, sillHeight: 0.9,
+            } as never);
+        } catch (e) { msg = (e as Error).message; }
+        expect(msg).toMatch(/WALL-PROFILE/);
+        expect(msg).toContain('2.067');   // where the outline falls to, across this opening
+        expect(msg).toContain('2.300');   // where the head is
+        expect(msg).toContain('0.233');   // by how much it misses
     });
 
     it('NONE of the above fires for a wall with no profile (the inertness control)', () => {

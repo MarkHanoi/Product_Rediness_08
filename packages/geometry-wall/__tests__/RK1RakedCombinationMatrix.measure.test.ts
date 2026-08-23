@@ -727,8 +727,20 @@ describe('RK1 §RK1-MATRIX -- AXIS 5: L-1034 #4, profile-edit reachability by wa
         // The two axes that are still closed, so this cell can still go red for a reason.
         expect(profileAuthorability({ ...base, layers: [{}, {}, {}] } as never).code)
             .toBe('layered');
+        // ✅ THIS CELL INVERTED 2026-08-23 (§FEAT-WALL-PROFILE-OPENINGS, OPEN38, L-7400), the
+        //    same way the two curved cells above inverted — which makes four of this axis's six
+        //    cells that have opened since it was written, and the axis's own value is that it
+        //    RECORDS that rather than being rewritten each time. It read `.toBe('hosted-openings')`
+        //    on the ground that a profiled wall could not host anything at all. The arm is now
+        //    per-opening and dimensional; `{ id: 'o' }` carries no offset, width, height or sill,
+        //    so what it trips is the UNJUDGEABLE arm — a refusal about this PROBE, not about
+        //    profiled walls with openings.
         expect(profileAuthorability({ ...base, openings: [{ id: 'o' }] } as never).code)
-            .toBe('hosted-openings');
+            .toBe('hosted-openings-unjudgeable');
+        // The dimensional truth the cell above can no longer express, asserted beside it.
+        expect(profileAuthorability({
+            ...base, openings: [{ id: 'o', offset: 2, width: 1, height: 1, sillHeight: 0.9 }],
+        } as never).ok, 'a profiled wall now hosts an opening that fits its outline').toBe(true);
     });
 });
 

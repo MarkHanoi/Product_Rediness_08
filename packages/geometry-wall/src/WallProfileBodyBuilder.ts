@@ -55,6 +55,12 @@ import * as THREE from '@pryzm/renderer-three/three';
 // ring is already a question this package answers in exactly one place, and a second
 // shoelace here would be the C84 EI-9 defect in miniature.
 import { wallProfileSignedArea2, type WallProfileVertex } from './WallProfile';
+// §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — the opening-bearing body, which already
+// builds a wall as a `THREE.Shape` in this exact frame and now takes the ring as its OUTER
+// boundary. Delegated to rather than reproduced here: `normaliseWallHoles` is declared the
+// single definition of "extrude-able openings" ("Exported so the body builder AND the test
+// share ONE definition"), and a profiled wall must not become a second opinion on it.
+import { buildWallHoleBodyGeometry, type WallOpeningRect } from './WallHoleBodyBuilder';
 
 /** A mitre-plane normal in WORLD XZ — the same shape `JoinData.startMN` / `endMN` carry. */
 export interface WallProfileMiterNormal { readonly nx: number; readonly nz: number }
@@ -77,6 +83,20 @@ export interface WallProfileBodyParams {
     readonly startMN?: WallProfileMiterNormal | null;
     readonly endMN?: WallProfileMiterNormal | null;
     readonly direction?: { readonly x: number; readonly z: number } | null;
+    /**
+     * §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — doors and windows hosted by this wall.
+     * Empty / absent ⇒ the solid ring, byte-identical to the pre-opening builder.
+     *
+     * ⚠ `length` and `height` are REQUIRED whenever this is non-empty, and only then. They
+     *   are the wall's BOUNDING extent — not the ring's — because `normaliseWallHoles`
+     *   judges an opening against the wall it is hosted by (an opening flush with the wall's
+     *   end, or reaching its top, is a WALL SPLIT routed to another builder, and that stays
+     *   true whatever the ring cut away). The ring's own extent is judged separately, by
+     *   `wallProfileRectFit`.
+     */
+    readonly openings?: ReadonlyArray<WallOpeningRect>;
+    readonly length?: number;
+    readonly height?: number;
 }
 
 /**
@@ -108,6 +128,38 @@ export function buildWallProfileBodyGeometry(
     // think about winding — so it is normalised here rather than refused, which is the
     // same courtesy `normaliseWallHoles` extends to opening rects.
     const pts = a2 > 0 ? ring : [...ring].reverse();
+
+    // ── §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) ─────────────────────────────
+    //
+    // The header's ⛔ line — *"NO OPENINGS, NO LAYERS, NO CURVE — `profileAuthorability`
+    // refuses all three, so this builder is never handed one"* — is now true of two of the
+    // three. It also said, correctly, that *"two of those three refusals are argued as
+    // UNBUILT rather than impossible"*; this is one of them being built.
+    //
+    // ⭐ AND IT IS A DELEGATION, NOT A SECOND BUILDER. `buildWallHoleBodyGeometry` already
+    //   produces a wall as a `THREE.Shape` in the identical frame (local-x along the wall,
+    //   world-Y up, `translate(0, 0, −t/2)`), already walks a bottom edge that dips over
+    //   every door, and already carries `§OPENING-PROFILE`'s arched and circular voids
+    //   natively. The only thing it lacked was a top edge that varies with x. Handing it the
+    //   ring gives it one — so a round-headed window in a gable wall is the SAME code path
+    //   as a square one in a flat wall, which is what "from the same place" requires below
+    //   the UI.
+    //
+    // ⛔ A NULL HERE IS RETURNED, NEVER SWALLOWED INTO THE SOLID RING. Drawing the profile
+    //   and silently dropping the openings is precisely the failure `OPEN38ProfileRoutingProbe`
+    //   measured before this lane started (apex drawn at 3.000 m, hole vertices 0), and it is
+    //   the silently-wrong wall `WallRake.ts:102` forbids. The caller's own fall-back is a
+    //   RECTANGLE with the holes in it — wrong in the other direction, but wrong VISIBLY.
+    if (p.openings && p.openings.length > 0) {
+        if (!Number.isFinite(p.length ?? NaN) || !Number.isFinite(p.height ?? NaN)) return null;
+        const holed = buildWallHoleBodyGeometry({
+            length: p.length!, height: p.height!, thickness, baseOffset,
+            openings: p.openings, outerRing: pts,
+        });
+        if (!holed) return null;
+        applyProfileMiter(holed, pts, p);
+        return holed;
+    }
 
     const shape = new THREE.Shape();
     // `v` is measured above the wall's BASE plane, so world-Y is `baseOffset + v` — the

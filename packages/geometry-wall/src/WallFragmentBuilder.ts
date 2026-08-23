@@ -1580,7 +1580,25 @@ export class WallFragmentBuilder {
         // Curved layered walls: each layer follows the same arc, offset radially.
         // Openings on straight layered walls: supported via LayeredWallOpeningBuilder.
         // ─────────────────────────────────────────────────────────────────────────
-        if (wall.layers && wall.layers.length > 0 && !wall.curve) {
+        // ⛔ §FIX-PROFILE-ONE-LAYER-ROUTING (OPEN38, L-7403) — L-1064's OFF-BY-ONE, LIVE IN
+        //    THE PROFILE GATE. `profileAuthorability` refuses a profile on `layers.length > 1`;
+        //    THIS branch is entered on `> 0` and RETURNS. A ONE-LAYER wall carrying a profile
+        //    was therefore ADMITTED by the gate and drawn here as a full rectangle, the ring
+        //    silently discarded — and `CreateWallCommand` stamps `layers` from the
+        //    WallSystemType, so a 1-layer "Plain Wall" is the founder's ACTUAL wall.
+        //    Measured 2026-08-23 (`OPEN38ProfileRoutingProbe.measure.test.ts` Q1b): the ring
+        //    cut both ends to 1.500 m and the body came back at 3.000 m.
+        //
+        //    The fix routes it to the profile arm rather than refusing it, because a
+        //    single-layer wall IS a plain wall geometrically — its `thickness` is
+        //    Σ layer.thickness over one term — so the profile body is exactly right for it.
+        //    That is also L-1064's own stated lesson: *"lifting it closes the off-by-one by
+        //    removing the boundary rather than by moving it, which is the only fix that
+        //    cannot be off by one again."* A MULTI-layer profiled wall still comes here, and
+        //    the gate still refuses to create one (§PROFILE-LAYERED, unbuilt — the V2 band
+        //    slicer extrudes between two HORIZONTAL planes and has no per-station top).
+        if (wall.layers && wall.layers.length > 0 && !wall.curve
+            && !(_hasWallProfile && wall.layers.length === 1)) {
             const totalThickness = wall.layers.reduce((s: number, l: any) => s + l.thickness, 0);
 
             // ── LAYERED WALL WITH OPENINGS ────────────────────────────────────────
@@ -2216,6 +2234,19 @@ export class WallFragmentBuilder {
             const _pGeo = _profile
                 ? buildWallProfileBodyGeometry({
                     ring: _profile.ring, thickness: wallThickness, baseOffset: wallBaseOffset,
+                    // §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — the doors and windows,
+                    // and the wall's BOUNDING extent that `normaliseWallHoles` judges them
+                    // against. Empty ⇒ the solid ring, byte-identical to the pre-opening
+                    // builder, so an unopened profiled wall does not move a vertex.
+                    openings: (wall.openings ?? []).map((o) => ({
+                        offset: o.offset,
+                        width: o.width,
+                        height: o.height,
+                        sillHeight: o.sillHeight ?? 0,
+                        openingProfile: (o as { openingProfile?: never }).openingProfile,
+                    })),
+                    length: wallLength,
+                    height: wallHeight,
                     // The SAME normals every other body arm consumes, in the SAME world
                     // frame; the builder rotates them into its own frame with `direction`,
                     // which is the same unit vector the mesh's `−angle` rotation encodes.

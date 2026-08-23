@@ -30,6 +30,14 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import { openingOutline, isRectangularProfile, type OpeningProfileKind } from './OpeningProfile';
+// §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — the ring's two boundaries and the ONE fit
+// predicate. Imported rather than re-derived: `wallProfileRectFit` is the same function the
+// occupancy gate and `profileAuthorability` refuse with, so a hole this builder is willing to
+// cut is exactly a hole the model was willing to hold. A second containment test here is how
+// a gate and its geometry drift apart (C84 EI-9).
+import {
+    wallProfileChains, wallProfileRectFit, PROFILE_U_TOL_M, type WallProfileVertex,
+} from './WallProfile';
 
 /** A rectangular opening in the wall face, in wall-local (x along wall) metres. */
 export interface WallOpeningRect {
@@ -66,6 +74,28 @@ export interface WallHoleBodyParams {
     readonly thickness: number;
     readonly baseOffset: number;
     readonly openings: ReadonlyArray<WallOpeningRect>;
+    /**
+     * §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — the wall's AUTHORED elevation outline,
+     * replacing the implicit rectangle as the body's OUTER boundary. Absent ⇒ the rectangle
+     * ⇒ byte-identical output, which is not a hope: for `outerRing` = the rectangle ring the
+     * walk below emits the same five points the literal path emits, in the same order, and
+     * `OPEN38ProfileOpeningBody.test.ts` asserts it.
+     *
+     * ⭐ THIS IS THE WHOLE SHAPE OF THE FEATURE, AND IT IS SMALLER THAN IT LOOKS. The bottom
+     * edge of this builder was ALREADY a non-trivial walk — it dips up and over every
+     * floor-reaching door. The top edge was a single constant `yt`. Making the top edge a
+     * FUNCTION OF x, and letting the existing door walk run along a bottom edge that is also
+     * a function of x, is the entire change. No new extruder, no CSG, no WASM: a
+     * `THREE.Shape` does not care whether its outline has four corners or forty.
+     *
+     * ⚠ THE RING'S FRAME IS (u, v) — `u` along the baseline, `v` ABOVE THE WALL'S BASE PLANE
+     *   — while this builder works in local x and WORLD y. They differ by `baseOffset`, and
+     *   that is the ONE conversion: world y = `baseOffset + v`. It is the identical
+     *   expression `buildWallProfileBodyGeometry` uses, which is why a profiled wall with an
+     *   opening sits on the same datum as one without (C84 EI-9 — `u` and `v` mean exactly
+     *   one thing each).
+     */
+    readonly outerRing?: ReadonlyArray<WallProfileVertex>;
 }
 
 const OPENING_EPS_M = 1e-4;   // C73 §2.3 — 0.1 mm, in wall-local METRES: the margin that keeps a flush opening off the wall ends and stops two merely-touching rects reading as overlapping.
@@ -124,6 +154,26 @@ export function normaliseWallHoles(p: WallHoleBodyParams): NormWallHoles | null 
         }
     }
 
+    // §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — WHEN THE OUTER BOUNDARY IS AN AUTHORED
+    // RING, EVERY OPENING MUST FIT INSIDE IT, and this builder asks independently.
+    //
+    // ⚠ IT IS NOT DEFENCE-IN-DEPTH THEATRE. `wallProfileRectFit` is the SAME predicate
+    //   `profileAuthorability` and `WallOccupancyStore.canPlace` refuse with, so this can
+    //   only fire when the model was mutated behind both — and the honest response to that
+    //   is a `null`, which returns the caller to a body it can draw, never a hole cut
+    //   through the outside of the wall. The alternative (trusting the gate) is exactly the
+    //   arrangement that let a profiled wall render as a rectangle for three days.
+    if (p.outerRing) {
+        const ring = p.outerRing;
+        if (!wallProfileChains(ring)) return null;
+        for (const r of rects) {
+            const fit = wallProfileRectFit(ring, {
+                u0: r.x0, u1: r.x1, v0: r.y0, v1: r.y1, floorReaching: r.floorNotch,
+            });
+            if (!fit.ok) return null;
+        }
+    }
+
     return {
         holes: rects.filter((r) => !r.floorNotch),
         notches: rects.filter((r) => r.floorNotch).sort((a, b) => a.x0 - b.x0),
@@ -152,6 +202,70 @@ export function buildWallHoleBodyGeometry(p: WallHoleBodyParams): THREE.BufferGe
     // floor-reaching opening (door) so its reveal becomes part of the outer boundary,
     // then across the top edge back to the origin. Notches are pre-sorted by x0 and
     // proven non-overlapping above, so the bottom walk is monotonic in x.
+    // ── §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — THE PROFILED OUTER WALK ──────────
+    //
+    // Same walk, two edges instead of one. The bottom runs left→right along the ring's LOWER
+    // chain (dipping over every door exactly as below), then the TOP chain runs right→left
+    // back to the start — where the rectangle path had the single constant `yt`.
+    //
+    // ⭐ FOR THE RECTANGLE RING THIS EMITS THE LITERAL PATH'S OWN POINTS. Its chains are
+    //   bottom = [(0,0),(L,0)] and top = [(L,0),(L,H),(0,H),(0,0)], so the walk is
+    //   (0,0) → (L,0) → (L,H) → (0,H) → (0,0): the four `lineTo`s below, in order. The
+    //   generalisation is therefore checkable against the thing it generalises rather than
+    //   merely believed to agree with it.
+    //
+    // ⚠ WHY A DOOR STILL NEEDS A FLAT FOOT, and why that is a refusal rather than a
+    //   tolerated approximation. A door is not a hole — it is carved OUT OF the outer
+    //   boundary, so the boundary has to be where the door's foot is. Where the ring lifts
+    //   its own lower edge (a wall over an archway) there is nothing at floor level to carve,
+    //   and the walk would emit a jamb that starts in mid-air. `wallProfileRectFit`'s
+    //   `uneven-foot` arm refuses that ABOVE, with the metres, so this walk may assume it.
+    if (p.outerRing) {
+        const chains = wallProfileChains(p.outerRing);
+        if (!chains) return null;
+        const pts: { u: number; v: number }[] = [];
+        const bottom = chains.bottom;
+        let bi = 0;
+        for (const n of notches) {
+            while (bi < bottom.length && bottom[bi]!.u < n.x0 - PROFILE_U_TOL_M) {
+                pts.push({ u: bottom[bi]!.u, v: bottom[bi]!.v }); bi++;
+            }
+            pts.push({ u: n.x0, v: n.y0 });                 // the door's left foot
+            const walk = notchWalk(n);
+            if (walk) for (const pt of walk) pts.push({ u: pt.x, v: pt.y });
+            else {
+                pts.push({ u: n.x0, v: n.y1 });             // up the left jamb to the head
+                pts.push({ u: n.x1, v: n.y1 });             // across the head
+            }
+            pts.push({ u: n.x1, v: n.y0 });                 // down to the right foot
+            // Any lower-chain vertex strictly inside the span is collinear with the foot
+            // (the fit check proved the chain flat there), so dropping it changes nothing.
+            while (bi < bottom.length && bottom[bi]!.u <= n.x1 + PROFILE_U_TOL_M) bi++;
+        }
+        while (bi < bottom.length) { pts.push({ u: bottom[bi]!.u, v: bottom[bi]!.v }); bi++; }
+        for (let i = 0; i < chains.top.length; i++) {
+            const t = chains.top[i]!;
+            const last = pts[pts.length - 1];
+            // The top chain STARTS at the bottom chain's far end — the same vertex, reached
+            // from the other side. Emitting it twice would put a zero-length segment in the
+            // outline; `ExtrudeGeometry` survives that, but it also produces a degenerate
+            // triangle in the cap, which is a real artefact and not merely untidy.
+            if (i === 0 && last
+                && Math.abs(last.u - t.u) <= PROFILE_U_TOL_M
+                && Math.abs(last.v - t.v) <= PROFILE_U_TOL_M) continue;
+            pts.push({ u: t.u, v: t.v });
+        }
+        if (pts.length < 3) return null;
+
+        const pShape = new THREE.Shape();
+        pShape.moveTo(pts[0]!.u, yb + pts[0]!.v);
+        for (let i = 1; i < pts.length; i++) pShape.lineTo(pts[i]!.u, yb + pts[i]!.v);
+        pushHoles(pShape, holes, yb);
+        const pGeo = new THREE.ExtrudeGeometry(pShape, { depth: thickness, bevelEnabled: false, steps: 1 });
+        pGeo.translate(0, 0, -thickness / 2);
+        return pGeo;
+    }
+
     const shape = new THREE.Shape();
     shape.moveTo(0, yb);
     for (const n of notches) {
@@ -185,6 +299,28 @@ export function buildWallHoleBodyGeometry(p: WallHoleBodyParams): THREE.BufferGe
     // into a staircase, not approximated by finer rectangles, and with the continuous reveal
     // (jamb / soffit) faces the Shape-extrude gives for free. The outline is CCW and the outer
     // profile is CCW, so the hole is walked in REVERSE to wind it the opposite way.
+    pushHoles(shape, holes, yb);
+
+    const geo = new THREE.ExtrudeGeometry(shape, {
+        depth: thickness,
+        bevelEnabled: false,
+        steps: 1,
+    });
+    geo.translate(0, 0, -thickness / 2);
+    return geo;
+}
+
+/**
+ * Push one `THREE.Path` hole per interior opening (window) onto `shape`.
+ *
+ * §FEAT-WALL-PROFILE-OPENINGS (OPEN38, L-7400) — EXTRACTED, NOT COPIED. The profiled outer
+ * walk needs the identical holes, and a window is the one part of this builder that is
+ * genuinely indifferent to the outer boundary: a `THREE.Path` hole is valid inside ANY simple
+ * outline, so the rectangle and the ring want the same eight lines. Writing them twice would
+ * have been the C84 EI-9 defect in its cheapest form — and the second copy is exactly where a
+ * later §OPENING-PROFILE change would have been applied to only one of them.
+ */
+function pushHoles(shape: THREE.Shape, holes: ReadonlyArray<NormRect>, yb: number): void {
     for (const h of holes) {
         const path = new THREE.Path();
         const pts = holeWalk(h);
@@ -201,14 +337,6 @@ export function buildWallHoleBodyGeometry(p: WallHoleBodyParams): THREE.BufferGe
         }
         shape.holes.push(path);
     }
-
-    const geo = new THREE.ExtrudeGeometry(shape, {
-        depth: thickness,
-        bevelEnabled: false,
-        steps: 1,
-    });
-    geo.translate(0, 0, -thickness / 2);
-    return geo;
 }
 
 /**

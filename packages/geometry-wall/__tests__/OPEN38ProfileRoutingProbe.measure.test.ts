@@ -1,19 +1,31 @@
 /**
- * OPEN38 — MEASUREMENT ONLY. Probes the two routing questions this lane's design rests on,
- * BEFORE any refusal is relaxed. It asserts what is TRUE TODAY, so that the tier commits can
- * show the change against a pinned "before".
+ * OPEN38 — THE BEFORE/AFTER RECORD for §FEAT-WALL-PROFILE-OPENINGS (L-7400, L-7403).
  *
- * Q1. Does a wall carrying `layers: [ONE layer]` plus a `wallProfile` reach the profile arm?
- *     `profileAuthorability` refuses on `layers.length > 1`; `WallFragmentBuilder`'s LAYERED
- *     body arm is entered on `wall.layers.length > 0` and RETURNS. If those two boundaries
- *     really are one apart, a one-layer profiled wall is ADMITTED by the gate and drawn as a
- *     full rectangle — L-1064's exact shape, in the profile gate rather than the rake gate.
+ * ⭐ IT WAS BANKED AS A "BEFORE" AND IT IS NOW THE "AFTER", WITH THE BEFORE QUOTED. Written
+ *   in the gate commit (a77a4c86) to pin what the build did while the refusal still stood, so
+ *   the geometry commit could show its change against a measurement rather than against a
+ *   memory. Both readings are kept: a test that only ever asserted the fixed behaviour cannot
+ *   tell a later reader what was broken, and this family's whole failure mode is refusals
+ *   whose stated mechanism outlived the mechanism.
  *
- * Q2. Does a wall carrying a profile AND an opening reach the profile arm ahead of the
- *     opening arm? The profile arm is placed first and returns, so the prediction is a
- *     profiled solid with NO hole. Nothing can author that today (the gate refuses), so this
- *     probe writes the field directly to see what the BUILDER would do if the gate lifted —
- *     which is the fact that decides whether the gate may lift alone.
+ * Q1 ASKED: does a wall carrying `layers: [ONE layer]` plus a `wallProfile` reach the profile
+ *     arm? `profileAuthorability` refused on `layers.length > 1` while `WallFragmentBuilder`'s
+ *     LAYERED body arm was entered on `wall.layers.length > 0` and RETURNED — one apart.
+ *     ANSWER: no, it did not. A one-layer profiled wall was ADMITTED by the gate and drawn as
+ *     a full rectangle, which is L-1064's exact shape one gate over, and which mattered
+ *     because `CreateWallCommand` stamps `layers` from the WallSystemType — so a 1-layer
+ *     "Plain Wall" is the founder's ACTUAL wall and the feature was unreachable in production
+ *     while every existing test (all of which build walls with no `layers` key) stayed green.
+ *     FIXED at the router (L-7403): the layered arm now steps aside for a single-layer
+ *     profiled wall. Tightening the GATE to `> 0` instead would have refused a profile on
+ *     every real wall — the direction of the fix is the whole of it.
+ *
+ * Q2 ASKED: does a wall carrying a profile AND an opening reach the profile arm ahead of the
+ *     opening arm? The profile arm is placed first among the body arms and returns.
+ *     ANSWER: yes — so it drew the ring and the opening arms below it never ran. That single
+ *     measurement is what established the refusal could NOT lift on its own: gate and geometry
+ *     had to move together, and the gate had to move first (a77a4c86, then this).
+ *     FIXED (L-7400): `WallHoleBodyParams.outerRing`.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -96,7 +108,7 @@ function topNear(vs: THREE.Vector3[], x: number, z: number, r = 0.35): number {
 }
 
 describe('OPEN38 · routing probe (measurement of the CURRENT build)', () => {
-    it('Q1a — the GATE admits a ONE-layer profiled wall (it refuses only `layers.length > 1`)', () => {
+    it('Q1a — the GATE still admits a ONE-layer profiled wall, and now the BUILDER honours it', () => {
         const verdict = profileAuthorability({
             wallProfile: GABLE,
             baseLine: [{ x: 0, z: 0 }, { x: L, z: 0 }],
@@ -106,7 +118,7 @@ describe('OPEN38 · routing probe (measurement of the CURRENT build)', () => {
         expect(verdict.ok).toBe(true);
     });
 
-    it('Q1b — and the BUILDER draws that wall as a FULL RECTANGLE: the ring is lost', () => {
+    it('Q1b — ✅ FIXED (L-7403): the BUILDER now CUTS that wall. It drew a full rectangle.', () => {
         const layered = bodyVerts(mk({ layers: [{ thickness: T, name: 'Plain' }], profile: GABLE }));
         expect(layered.length).toBeGreaterThan(0);
         // ⚠ INSTRUMENT NOTE, earned on the first run. `topNear(L/2)` came back −Infinity here
@@ -118,9 +130,13 @@ describe('OPEN38 · routing probe (measurement of the CURRENT build)', () => {
         const ys = [...new Set(layered.map(v => Number(v.y.toFixed(4))))].sort((a, b) => a - b);
         // eslint-disable-next-line no-console
         console.log(`[OPEN38 Q1b] layers:[1] + profile → endTop=${endTop.toFixed(4)} distinct y = ${ys.join(', ')} (ring wants 1.5 at the ends, 3.0 at mid-span)`);
-        expect(endTop).toBeCloseTo(H, 3);      // ⛔ un-cut — the profile never reached the body
-        // A body that honoured the ring MUST carry a vertex at the authored end height.
-        expect(ys.some(y => Math.abs(y - 1.5) < 1e-3)).toBe(false);
+        // ── MEASURED BEFORE THE FIX ──
+        //   endTop = 3.0000, distinct y = 0, 3  — the ring authored 1.5 at the ends and the
+        //   body ignored it, because the LAYERED arm is entered on `layers.length > 0` and
+        //   RETURNS while the gate only refuses `> 1`. L-1064's off-by-one, one gate over.
+        // ── MEASURED AFTER ──
+        expect(endTop).toBeCloseTo(1.5, 3);
+        expect(ys.some(y => Math.abs(y - 1.5) < 1e-3)).toBe(true);
     });
 
     it('Q1c — CONTROL: the same wall with NO `layers` key IS cut', () => {
@@ -133,7 +149,7 @@ describe('OPEN38 · routing probe (measurement of the CURRENT build)', () => {
         expect(midTop).toBeCloseTo(H, 3);
     });
 
-    it('Q2 — profile + opening, gate BYPASSED: the builder draws the ring and DROPS the hole', () => {
+    it('Q2 — ✅ FIXED (L-7400): the builder draws the ring AND the hole. It dropped the hole.', () => {
         const opening = {
             id: 'op-1', type: 'window', offset: 2.5, width: 1, height: 1.2,
             sillHeight: 0.9, elementId: 'win-1',
@@ -148,18 +164,26 @@ describe('OPEN38 · routing probe (measurement of the CURRENT build)', () => {
             (Math.abs(v.y - 0.9) < 1e-3 || Math.abs(v.y - 2.1) < 1e-3));
         // eslint-disable-next-line no-console
         console.log(`[OPEN38 Q2] profiled+opening → midTop=${midTop.toFixed(4)} holeVerts=${holeVerts.length}`);
-        expect(midTop).toBeCloseTo(H, 3);       // the RING was drawn …
-        expect(holeVerts.length).toBe(0);       // … and the OPENING was not.
+        // ── MEASURED BEFORE THE FIX ──
+        //   midTop = 3.0000, holeVerts = 0. The profile arm is placed FIRST among the body
+        //   arms and RETURNS, so it drew the ring and the opening arms below it never ran.
+        //   That is why the refusal could not lift on its own: the gate and the geometry had
+        //   to move in the same tier, and the gate had to move first.
+        // ── MEASURED AFTER ──
+        expect(midTop).toBeCloseTo(H, 3);       // the RING is still drawn …
+        expect(holeVerts.length).toBeGreaterThan(0);   // … and now so is the OPENING.
     });
 
-    it('Q2b — and the GATE is what stops that today', () => {
+    it('Q2b — the GATE that stopped it is NARROWED, not removed: this opening FITS', () => {
         const verdict = profileAuthorability({
             wallProfile: GABLE,
             baseLine: [{ x: 0, z: 0 }, { x: L, z: 0 }],
             height: H,
             openings: [{ id: 'op-1', offset: 2.5, width: 1, height: 1.2, sillHeight: 0.9 }],
         } as never);
-        expect(verdict.ok).toBe(false);
-        expect(verdict.code).toBe('hosted-openings');
+        // ── BEFORE ── ok:false, code:'hosted-openings' — for EVERY opening, on category alone.
+        // ── AFTER  ── this window sits under the gable apex, so it fits and is admitted. The
+        //   refusal survives per-opening and with a number; see OPEN38ProfileOpeningBody §C.
+        expect(verdict.ok).toBe(true);
     });
 });
