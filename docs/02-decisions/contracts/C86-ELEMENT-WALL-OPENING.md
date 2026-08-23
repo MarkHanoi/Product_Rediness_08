@@ -1524,3 +1524,76 @@ target, and **the work is the DECLARATION, not the reach** (L-1142).
   chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
   passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
   of this family's geometry store (C16 CA-21), never a `success: true`.
+
+---
+
+### §10.5 — **THE AUTHORING SURFACES OF AN OPENING MUST AGREE** (added 2026-08-23, lane OPENUI41, **L-7700..L-7747**)
+
+An opening is authored on **four** surfaces: the pre-draw type picker, the New/Duplicate Type
+editor, the property inspector, and the Data Workbench element-types panel. Measured 2026-08-23,
+they did not agree, and every disagreement was invisible from inside any one of them.
+
+#### §10.5.a — The measured drift
+
+| axis | door | window | command |
+|---|---|---|---|
+| per-instance finish authoring | **library dropdowns** writing `materialId` (`DoorSection.ts:346-364`) | **free text** writing the derived display string `finishMaterial` (`WindowSection.ts:436`) | `grep -oE "makeField\('[^']+'"` on both |
+| unresolved-`systemTypeId` warning at create | present since 2026-06-25 (`CreateWallOpeningCommand.ts:182`) | **ABSENT** | `grep -n winSysType …` |
+| built-in types carrying a `materialId` | **0 of 9** | **0 of 8** | `grep -n materialId …SystemTypeStore.ts` |
+| attributes the INSPECTOR shows | 16 | 16 | `grep -oE "makeField\('[^']+'"` |
+| attributes the CREATE DIALOG can author | **5** | **5** | `FinishTypeEditorModal.ts` |
+
+**MUST**: a family that ships an authoring surface ships it on **every** surface that authors the
+same field, or records the omission with its blocker. Two surfaces for one concept is how these
+drifted (C65 §3.5), and the drift is only visible to someone holding both files open.
+
+#### §10.5.b — TYPE versus INSTANCE is decided by the STORE, not by preference
+
+**MUST**: an attribute may be authored on the TYPE **only** where the family's own record already
+carries it and every instance placed from that type shares it. For hosted openings that is exactly
+`WindowSystemType.dimensions` / `DoorSystemType.dimensions` — the values
+`resolve{Window,Door}Dimensions` read from the TYPE when the instance does not override them.
+
+⛔ **MUST NOT** promote an instance attribute to the type to close a parity gap. A promoted field
+makes **every** opening on the project move together at the next type edit, which is a worse defect
+than the gap. The splay angles, `revealProjection`, per-instance colour overrides, `mark` and
+`fireRating` stay on the instance.
+
+⚠ **`sillHeight` is the deliberate exclusion**, and it is the closest call:
+`WindowTypeDimensions` DOES declare it, and it is still not authorable on the type, because a sill
+height is a property of the **room** — a kitchen sill and a bedroom sill differ in one building
+using one window type.
+
+#### §10.5.c — The door/window asymmetries are CONSTRUCTION, and each is stated
+
+Two panels differing by accident and two differing on purpose look identical from the outside.
+**MUST**: each surviving asymmetry carries its reason **in the code**, so the next reader does not
+"restore" a group that would write nothing.
+
+- **A window has a reveal and a splay; a door does not.** A window's reveal is a splayed
+  light-admitting return with four independently angled edges (§FEAT-WINDOW-REVEAL). A door's
+  opening is a trafficked void with a lining and a threshold, and `DoorOpening` carries no
+  `revealSplay*` field.
+- **`finishMaterial` derives from a door's LEAF and a window's FRAME**
+  (`CreateWallOpeningCommand.ts:226` vs `:277`). Intentional; now derived from the material
+  reference rather than typed.
+- **A door's subdivision is an ordered list of typed bands; a window's is a rows×columns grid.**
+  The type editor therefore offers a grid for windows and **nothing** for doors: two sliders laid
+  over `defaultSegments` would flatten a half-light door into equal panels, discarding the segment
+  TYPES. ⚠ Deferred with its blocker named (L-7747), never approximated.
+
+#### §10.5.d — An empty control must say which kind of empty it is
+
+**MUST**: a blank field on an opening panel distinguishes **unset** from **unsupported** from
+**unwired**. `Fire Rating` rendered blank; measured, it is fully wired (`WindowTypes.ts:138`
+schema → whole-record spread at `ProjectSerializer.ts:1215` → **read** by `QuantityTakeoff.ts:741`,
+which counts rated vs unrated and folds it into the take-off code). It is **unset**, and unset has
+a consequence: the opening is **measured as unrated**. The placeholder now says so.
+
+⛔ **MUST NOT** elide a control's label. `.dw-label` carried
+`white-space: nowrap; text-overflow: ellipsis` against a fixed 108px track, which cut
+`Splay Bottom (sill) (°)` — in a stack of five splay controls, the elided one is precisely the one
+you cannot identify — and clipped the Reveal Direction note mid-sentence, removing the half that
+said the value is the user's CHOICE and not a detected fact. **An ellipsis is admissible only where
+the full text is recoverable elsewhere.**
+

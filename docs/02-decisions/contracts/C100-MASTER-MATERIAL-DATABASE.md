@@ -35,6 +35,14 @@
 > **Gate**: `tools/ga-gate/check-material-single-source.ts` — BUILT at stamp time (§7). Its three arms
 > are named there together with the four axes it **cannot** decide.
 > **Changelog**:
+> · 2026-08-23 — **§10.12** (lane OPENUI41, L-7700..L-7705): the hosted openings. §9.10.3 called
+> door/window's row STALE and said the founder's *"often show, often don't"* was **NOT a material
+> defect** — that half stands and is unchanged. What it did not measure is the **authoring** half:
+> **ZERO of the 8 built-in window types and ZERO of the 9 built-in door types carried a
+> `materialId` on any finish slot**, and the type editor could not author one, so the correct
+> C100 §2.1 ladder in `windowFinishColour.ts` / `doorFinishColour.ts` had nothing to resolve on any
+> opening ever placed. 34 finish slots seeded; the master gained ONE row rather than having a wrong
+> one mapped onto it. **The resolver was right and the authoring surface could not name a material.**
 > · 2026-08-21 — **§10.11** (lane DIM46, L-3100..L-3105): the record gains **`carbon?`** — an
 > embodied-carbon factor and a density, each **INSEPARABLE from its citation**, and each carrying a
 > `verification` state that is a **separate fact from `source`**. **20 rows ship a factor and ~309
@@ -2003,3 +2011,117 @@ a concrete slab reaches the hand-derived 1084.80 kgCO₂e.
 - **Whether real projects tag enough elements with `materialId` for 6D to cover a meaningful share
   of their volume is UNMEASURED.** The gap ledger is built to answer it; nobody has run it on a real
   project yet.
+
+
+---
+
+## §10.12 — ⭐ THE HOSTED OPENINGS: the ladder was right, the AUTHORING SURFACE could not name a material (2026-08-23, lane OPENUI41)
+
+### §10.12.a — The founder's report, and what was actually wrong
+
+> *"Review the windows (and door) creation … I want **all materials to be dynamic — nothing text**.
+> The materials should be **fetched from real data from the material library**, according to
+> C100."* — with `Finish Material: Steel Frame` circled in red in the window inspector.
+
+The lane brief's reading was *"the catalogue already exists and is already projected, so this is
+almost certainly a **wiring** job, not a data job."* **That is half right, and the other half is
+the finding.**
+
+| measured 2026-08-23 | command | reading |
+|---|---|---|
+| the master is reachable | `grep -c 'params: {' packages/core-app-model/src/materialLibrary.ts` | fine |
+| the RESOLVER is correct and shipped | `sed -n '90,145p' packages/geometry-window/src/windowFinishColour.ts` | **C100 §2.1's ladder, rung by rung, including the unresolved magenta.** Nothing to fix. |
+| built-in **window** types carrying a `materialId` | `grep -n materialId packages/geometry-window/src/WindowSystemTypeStore.ts` | **1 hit — the interface declaration. ZERO of 8 types.** |
+| built-in **door** types carrying a `materialId` | `grep -n materialId packages/geometry-door/src/DoorSystemTypeStore.ts` | **1 hit — the interface declaration. ZERO of 9 types.** |
+| the type editor could author one | `apps/editor/src/ui/property-panel/FinishTypeEditorModal.ts:180-191` | **ABSENT** — a free-text name input and a colour chip |
+| the window INSPECTOR could author one | `packages/geometry-window/src/WindowSection.ts:436` | **ABSENT** — `makeTextInput(win.finishMaterial)` |
+| the door INSPECTOR could author one | `packages/geometry-door/src/DoorSection.ts:346-364` | **PRESENT** — real library dropdowns |
+
+⭐ **So the defect was never in the master, the projection or the ladder. It was that the three
+surfaces which AUTHOR a finish could not NAME a material** — and one of the four could, which is
+why door and window had silently drifted apart. `windowFinishColour.ts:108` reads
+`win.frameFinish.materialId` as its first rung and **nothing in the repository wrote that field per
+window instance**: rung 1 was **DECLARED-BUT-UNREACHABLE for one of the two families.**
+
+⚠ **§9.10.3 is NOT overturned.** It ruled the founder's *"often show, often don't"* was not a
+material defect, and that ruling is untouched. It simply measured the RENDER path and not the
+AUTHORING path, and the authoring path is where the name was being lost.
+
+### §10.12.b — The rule this mints: **seeding an id without aligning the hex would have shipped a LIE**
+
+34 finish slots (16 window + 18 door) gained a `materialId` **and** had `materialColor` set to that
+master row's exact hex.
+
+⛔ **The second half is not tidiness, it is correctness.** `doorFinishColour.ts` rung 1 infers an
+explicit **user OVERRIDE** from the stored hex disagreeing with the finish it derives from, and
+§2.1 requires an override to be *"distinguishable from a colour that was resolved from the
+master"*. A built-in shipping `id ≠ hex` would therefore have read as **"the user deliberately
+overrode this colour"** on every door in every project — and §6.1's MUST would have obliged the UI
+to report that lie faithfully.
+
+**MUST**: when a reference is added to a record that already carries a cached hex, the hex is
+brought to the master's value in the same change. The two are asserted **together** by
+`packages/geometry-door/__tests__/OpeningFinishIsAReference.test.ts`.
+
+### §10.12.c — The master gained a row rather than having a wrong one mapped onto it
+
+`steel-powder-coated-dark` (`#444444`, Metal). The `wt-steel-crittal` frame is a dark powder-coated
+STEEL; the nearest existing rows were `aluminium-powder-coated-dark` (right finish, **wrong
+metal**) and `steel-blackened` (`#1d1f20`, right metal, different product, far darker).
+
+This is the `steel-grating` precedent in `materialCatalog.ts`'s own GROWTH LOG, applied again:
+*"Mapping a real material onto a wrong one to satisfy a gate is how the rival vocabularies got
+written in the first place."* **One row, and its hex is the preset's own, so seeding the reference
+recoloured nothing for that row.**
+
+### §10.12.d — FOUR states, and the two the old control collapsed
+
+`packages/geometry-door/src/FinishMaterialSelect.ts` is now the ONE finish-material picker for both
+families and both tiers. It classifies a slot as `resolved` / `unresolved` / `legacy` / `empty`:
+
+- **`legacy`** — a free-text `name` and no id. Shown as `⚠ "Steel Frame" — not a library
+  material`, and **the string is KEPT in the record until the user replaces it.** The old control
+  rendered this identically to *"nobody has chosen one yet"*. **A user's value is never silently
+  dropped**, which is the migration rule this section binds.
+- **`unresolved`** — an id that names nothing. A different defect with a different fix (the
+  catalogue may be what is wrong), so it gets a different sentence.
+
+⛔ **`suggestMaterialForLegacyName` REFUSES to guess.** Exact normalised label match, then
+whole-word containment, otherwise `undefined`. **`"Steel Frame"` finds nothing, and that is the
+correct answer** — §5's last MUST: *"inference that passes for resolution is the same lie one
+layer up."* A near-miss guess is how `wood-oak` and `wood-walnut` collapsed onto one grey-teal
+(§9.4). Where a suggestion does exist it is offered as a LABELLED OPTION the user must choose.
+
+### §10.12.e — §6.1's MUST on overrides is now satisfied for opening types
+
+The type editor's colour chip writes an **override**; the override is marked with the master's own
+value beside it and a one-click reset. ⭐ **No new field encodes "is override"**: the state IS
+`materialColor ≠ masterHex(materialId)`, exactly as `doorFinishColour.ts` rung 1 already infers one.
+One spelling of one rule, and no codec change.
+
+### §10.12.f — The preview draws from the master, and that is a rendering fact
+
+`apps/editor/src/ui/element-preview/ElementPreviewRenderer.ts` resolves each part's `materialId`
+through `findMaterialById` and applies the master's **colour, metalness and roughness**. An id that
+names nothing renders the designated UNRESOLVED colour and emits **one** diagnostic per distinct id
+(§5). ⭐ *"Materials fetched from the library"* is therefore what lights the pixels, not a label
+under them.
+
+### §10.12.g — What is NOT closed, named rather than left as an absence
+
+- ⛔ **The picker offers T1 only.** §1.1 resolves **T2 then T1**, and `MaterialsBucket.ts` DOES
+  offer T2 ("My Materials") because it sits in `apps/editor` where the `@pryzm/core-app-model` root
+  barrel is already paid for. Reaching `userMaterialStore` from an L2 geometry package would drag
+  the model layer into the door/window bundles. **A user-created material is assignable to an
+  opening from the Data Workbench and not from the inspector.** L-7712.
+- ⛔ **Quantities and carbon still cannot read the reference, and adding it did not change that.**
+  `QuantityTakeoff.ts:789-803` emits the openings line with **no `materials` array at all** and a
+  hard-coded `materialGap` at `:802` naming the real blocker: *"PRYZM models no leaf thickness and
+  no frame section, so there is no VOLUME to attribute … this family can only ever supply m²."*
+  `CarbonModel.ts:244` multiplies `volumeM3 × kgCO2ePerM3`; with no m³ there is nothing to
+  multiply. **The blocker is VOLUME, not the reference** — so this lane logged it (L-7713) rather
+  than half-wiring a number that would have been zero.
+- ⚠ **Two opening material vocabularies still exist**: the kernel's
+  `frameMaterialId`/`leafMaterialId`/`glassMaterialId` (`packages/schemas/src/elements/{Door,Window}.ts`)
+  and the legacy stores' `frameFinish.materialId`/`leafFinish.materialId`/`sillFinish.materialId`.
+  Production travels the **second**. Deciding which is canonical is L-7714 and is NOT this lane's.

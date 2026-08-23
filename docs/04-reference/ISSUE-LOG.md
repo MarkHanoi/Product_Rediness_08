@@ -40888,3 +40888,283 @@ assertion: the test's only production imports are `WallMoveReweld` and `WallType
   `§ELEV-SYMBOL-OPENING` and host-exemption suites included and unregressed.
 - `packages/core-app-model` — `src/quantities/` → **6 files / 126 PASS**, including the three new
   profiled/raked take-off assertions (L-7405).
+
+---
+
+## Lane OPENUI41 — the windows & doors creation review (2026-08-23)
+
+Founder, two requests on one subject: *"Review the windows (and door) creation. I would like in the
+panel a small preview — a 3D canvas scene … like a 3D showroom of a library element. Then I want
+all materials to be dynamic — nothing text … fetched from real data from the material library,
+according to C100."* Then: *"for the window and door panel creation we need to have all those
+attributes. Make it perfect UI/UX — elegant — sound — no shortcuts!"*
+
+Three commits, each shippable and revertable alone: `efe32a0d` (materials) · `141689c1` (preview) ·
+`de663515` (panel parity).
+
+### L-7700 — ⭐ CLOSED: a door/window finish carried a TYPED STRING, not a material reference
+
+`Finish Material: Steel Frame` in the window inspector — the founder's red circle — was
+`makeTextInput(win.finishMaterial)` at `packages/geometry-window/src/WindowSection.ts:436`.
+`finishMaterial` is a DERIVED display string (`WindowTypes.ts:153`, written from
+`frameFinish.name`). Typing into it named nothing: no colour, no carbon factor, no schedule
+identity, not validatable, not exportable. C100 §2.1's *"a hex is not a material"*, one rung lower
+still — **this was not even a hex.**
+
+**FIXED** by replacing it with the two REAL finish slots the record has always carried, each
+writing a `materialId` through the ONE shared picker.
+
+### L-7701 — ⭐ CLOSED: the DOOR inspector already had library dropdowns and the WINDOW did not
+
+`DoorSection.ts:346-364` used `makeMaterialSelect` writing real `materialId`s; the window had a
+free-text box for the same concept. **Same concept, two surfaces, drifted** (C65 §3.5).
+
+⭐ The consequence was not cosmetic: `windowFinishColour.ts:103` — the correct C100 §2.1 ladder —
+reads `win.frameFinish.materialId` as its FIRST rung, and **nothing in the repository wrote that
+field per window instance.** Rung 1 was **DECLARED-BUT-UNREACHABLE** for one of the two families.
+Proven with two methods per the chrome map's rule: the `Grep` tool over `packages/` and
+`grep -n "materialId" packages/geometry-window/src/*.ts` — both returned only the interface
+declaration, the schema and READS.
+
+**FIXED**: the door's private `makeMaterialSelect` is extracted to
+`packages/geometry-door/src/FinishMaterialSelect.ts` and both families import it. ONE definition.
+
+### L-7702 — ⭐ CLOSED: the New/Duplicate Type dialog could not author a material at all
+
+`FinishTypeEditorModal.ts:180-191` rendered a free-text name input and a colour chip per slot, and
+seeded an empty slot as `{ name: slot.label, materialColor: '#cccccc' }` — i.e. it wrote the
+literal string `"Frame"` as if it were a finish NAME. A type created there was born `materialId`-less.
+
+**FIXED**: library picker per slot; an empty slot reads empty; saving without a material is a
+**REFUSES-WITH-REASON** naming the route back. The colour chip now writes an explicit OVERRIDE,
+marked as one with the master's value beside it and a one-click reset (C100 §6.1's MUST).
+
+### L-7703 — CLOSED: the master gained `steel-powder-coated-dark` rather than a wrong row being mapped onto it
+
+The `wt-steel-crittal` frame is a dark powder-coated STEEL at `#444444`. Nearest existing rows:
+`aluminium-powder-coated-dark` (right finish, **wrong metal**) and `steel-blackened` (`#1d1f20`,
+right metal, different product, far darker). Per the `steel-grating` precedent in
+`materialCatalog.ts`'s GROWTH LOG, **the master gained the material**. Its hex is the preset's own,
+so seeding the reference recoloured nothing for that row.
+
+### L-7704 — CLOSED: the window branch of `CreateWallOpeningCommand` had no unresolved-type warning
+
+The door branch has warned since §DOOR-SYSTYPE-RESOLVE-WARN (2026-06-25, `:182-184`) that an
+unresolved `systemTypeId` produces an opening with NO finish and a blank schedule. The window
+branch resolved `winSysType` at `:236` and said nothing. **The identical defect was silent on one
+of the two families for fourteen months.** Warns now; still creates (C100 §5: the unresolved path
+MUST NOT throw).
+
+### L-7705 — ⭐ CLOSED: 34 built-in finish slots seeded, hex ALIGNED in the same change
+
+**0 of 8** window types and **0 of 9** door types carried a `materialId` on any finish slot. All 34
+slots (16 window + 18 door) now do, **and each `materialColor` was set to that master row's exact
+hex.**
+
+⛔ The second half is correctness, not tidiness: `doorFinishColour.ts` rung 1 infers an explicit
+USER OVERRIDE from the id and the hex disagreeing. Shipping `id ≠ hex` would have made every
+built-in read as *"the user deliberately overrode this colour"*, and C100 §6.1 would have obliged
+the UI to report that lie faithfully. Both halves are asserted together by
+`packages/geometry-door/__tests__/OpeningFinishIsAReference.test.ts` (9 tests).
+
+Independently confirmed by `tools/ga-gate/check-material-id-required.ts` → RC=0 with
+**ARM B (a stored materialId that resolves to NOTHING) at 0/0** — not this lane's own test marking
+its own work.
+
+### L-7712 — ⛔ OPEN: the shared finish picker offers T1 only; the Data Workbench offers T2
+
+C100 §1.1 resolves **T2 then T1**. `MaterialsBucket.ts:52-58` offers a "My Materials" optgroup from
+`userMaterialStore`; the new picker does not, because reaching that store from an L2 geometry
+package means importing the `@pryzm/core-app-model` ROOT barrel and dragging the model layer into
+the door/window bundles. **A user-created material is assignable to an opening from the Data
+Workbench and not from the inspector.** Real, logged, not papered over.
+
+### L-7713 — ⛔ OPEN, and adding the reference did NOT change it: openings still cannot reach carbon
+
+`QuantityTakeoff.ts:789-803` emits the openings line with **no `materials` array at all**, and
+`:802` hard-codes the reason: *"a door or window is COUNTED, and its areas are measured — but PRYZM
+models no leaf thickness and no frame section, so there is no VOLUME to attribute to a material.
+Carbon needs m³; this family can only ever supply m² until a joinery section is modelled."*
+`CarbonModel.ts:244` multiplies `volumeM3 × kgCO2ePerM3`; with no m³ there is nothing to multiply,
+and `volumeOfUnattributedLine()` returns **0** for a `ud` line by design.
+
+⭐ **So the honest answer to "can quantities and carbon now read the reference" is NO, and the
+blocker is VOLUME, not the reference.** `OpeningElementLike` (`:130-145`) has no material field of
+any kind. Logged rather than half-wired into a number that would have been zero.
+
+### L-7714 — ⛔ OPEN: TWO opening material vocabularies, and production travels the second
+
+`packages/schemas/src/elements/{Door,Window}.ts` declare `frameMaterialId` / `leafMaterialId` /
+`glassMaterialId`, consumed by the geometry-kernel producers through `resolveMaterialColorSlot`.
+The legacy stores declare `frameFinish.materialId` / `leafFinish.materialId` /
+`sillFinish.materialId`, consumed by `WindowBuilder` / `DoorBuilder` through `resolveMaterialColour`.
+**Production renders through the second.** Deciding which is canonical is not this lane's call.
+
+### L-7720..L-7728 — ⭐ CLOSED: the 3-D showroom. See ADR-0359.
+
+Three files under `apps/editor/src/ui/element-preview/`. Decisions and their reasons are in
+[ADR-0359](../02-decisions/adrs/ADR-0359-an-element-preview-is-a-declarative-subject-through-one-shared-context.md);
+the two worth repeating here:
+
+- **ONE offscreen WebGL context for the whole application, ever.** Browsers cap live contexts and
+  evict the OLDEST — which here is the MAIN VIEWPORT. A renderer per panel would have taken the
+  founder's model off the screen the moment two editors were open.
+- **No animation loop, at all.** No `requestAnimationFrame`, no continuous tick listener; every
+  draw is coalesced through `getFrameScheduler().scheduleOnce`. **An idle preview costs zero
+  frames — it is not cheap, it is not running.** Enforceable because `PreviewSubject.key` names
+  exactly the inputs the image depends on.
+
+### L-7729 — ⭐ THE LANE BRIEF'S P2 CONSTRAINT WAS OVERSTATED, and it is recorded as a correction
+
+The brief: *"⛔ You may not `import * as THREE` in a UI panel. A mini 3-D canvas written the obvious
+way fails CI immediately."*
+
+**Measured** — `tools/ga-gate/check-three-imports.ts`. Its pattern is
+`/^\s*import\b.*\bfrom\s*['"]three(?:\/[^'"]+)?['"]/` and its own header lists
+`'@pryzm/renderer-three/three'` under **"NOT matched (P2-compliant paths through the owner)"**.
+**P2 is "THREE may only be REACHED through its owner", not "USED only inside it."**
+`apps/editor/src/ui` already holds three `WebGLRenderer` sites doing exactly that
+(`FurnitureThumbnailService.ts:62`, `FloatingObjectCarousel.ts:294`, `PIPRenderer.ts:52`) with the
+gate reading 0 violations. ⚠ Designing *around* an invariant that does not say what it was believed
+to say produces an architecture nobody can later justify.
+
+### L-7740 — ⭐ CLOSED: `.dw-label` ELIDED control labels, and it clipped the help note too
+
+`white-space: nowrap; overflow: hidden; text-overflow: ellipsis` against a fixed 108px track. The
+founder's screenshot shows `Splay Bottom (sill) ...` — **and in a stack of FIVE splay controls the
+elided one is precisely the one you cannot identify.** Labels wrap now; `makeField` also sets
+`title` on both families.
+
+### L-7741 — ⭐ CLOSED: the Reveal Direction note was clipped MID-SENTENCE, by the same rule
+
+`dirHelp.className = 'dw-label'` — so the note inherited the ellipsis. It read *"…PRYZM does not
+yet "* and stopped. **The half that was cut is the half that says the value is the user's CHOICE
+and not a detected value** — the entire point of the sentence. Notes now use `.dw-note`, which
+wraps, and the shared helper `appendDwNote` documents why `.dw-label` must not be borrowed.
+
+### L-7742 — CLOSED: both panels grouped; 16 controls in a flat list is a dump, not a panel
+
+Window: Dimensions · Type & Shape · Reveal & Splay · Appearance · Subdivision · Finishes ·
+Performance. Door: Dimensions · Type & Shape · Operation · Members · Appearance · Finishes ·
+Performance. Group names are the CONSTRUCTION vocabulary, not an alphabetisation. Shared chrome in
+`packages/geometry-door/src/DwPanelChrome.ts` — door-side because `geometry-window` already imports
+from `geometry-door` and the reverse edge would be a cycle.
+
+### L-7743 — ⭐ CLOSED: `Fire Rating` was blank with no statement of WHICH kind of blank
+
+Measured before rendering anything, because unset / unsupported / unwired are three different
+statements: schema `WindowTypes.ts:138` + `DoorTypes.ts:95` (exists) → whole-record spread at
+`ProjectSerializer.ts:1215-1216` (persists) → **READ** by `QuantityTakeoff.ts:741`, which counts
+rated vs unrated and folds it into the take-off code and description (`:790`, `:792`, `:798`)
+(consumed).
+
+**So it is UNSET, and unset has a consequence worth stating: the opening is measured as UNRATED.**
+The placeholder now says exactly that. A datalist offers the standard designations without
+FORBIDDING others — fire designations are jurisdictional and a closed list would refuse a correct
+answer from a country nobody thought of. Door and window carry different vocabularies (FD30 vs
+EI30) because the products differ.
+
+### L-7744 — CLOSED: progressive disclosure on the splay, and it AUTO-OPENS when it must
+
+"Splay all sides" LEADS; the four per-edge inputs sit behind a toggle. ⛔ Nothing is hidden behind
+a control that gives no hint it exists: the toggle is always visible, names what it reveals, and
+**auto-opens whenever any per-edge value is already non-zero** — a window with a 12° left jamb can
+never present as though it had none.
+
+### L-7745 — CLOSED: the door/window asymmetries are now STATED in the code
+
+The door panel has no Reveal & Splay group, and that is construction, not an unfinished panel: a
+window's reveal is a splayed light-admitting return with four independently angled edges; a door's
+opening is a trafficked void with a lining and a threshold, and `DoorOpening` carries no
+`revealSplay*` field. ⚠ **Two panels differing by accident and two differing on purpose look
+identical from the outside; only a sentence tells them apart.**
+
+### L-7746 — ⭐⭐ CLOSED: the create dialog could author 5 of the 16 attributes the inspector shows
+
+Measured with `grep -oE "makeField\('[^']+'"`: window inspector **16**, door inspector **16**,
+create dialog **5** (name, description, two finishes, glazing).
+
+⛔ The fix is NOT "copy the inspector's fields into the dialog". Each candidate was tested against
+the STORE — *does the family's record carry it, and is it shared by every instance?* — and only the
+fields under `{Window,Door}SystemType.dimensions` passed, because those are exactly what
+`resolve{Window,Door}Dimensions` read from the TYPE. Declared per family in
+`ElementTypeAuthoringRegistry`, rendered generically (C65 §3.5).
+
+⚠ **`sillHeight` is the deliberate exclusion** even though `WindowTypeDimensions` declares it: a
+sill height is a property of the ROOM — a kitchen sill and a bedroom sill differ in one building
+using one window type. Promoting an instance attribute to the type makes every opening on the
+project move together at the next type edit, **which is a worse defect than the gap it closes.**
+
+### L-7747 — ⛔ OPEN, deferred with its blocker named: the door's segment list editor
+
+A door's subdivision is `defaultSegments` — an ordered list of typed bands (`panel` / `glass` /
+`empty`, each with a height ratio) plus an optional sidelight. The window's is a rows×columns grid
+and gets two sliders. **The door gets nothing rather than an approximation**: two sliders laid over
+a segment list would silently flatten a half-light door into equal bands, DISCARDING the segment
+types the user chose. Needs a list editor.
+
+### L-7760 — ⚠ A BUG FOUND BY BUILDING THE PARITY: the preview's render key was a SUBSET of its inputs
+
+`PreviewSubject.key` listed only `[width, height, frameDepth]`. The moment L-7746 made the frame
+face, mullion, transom and sill projection editable, dragging any of those sliders changed the
+GEOMETRY and not the KEY — the showroom would have sat still while the numbers moved. **A cache key
+that is a subset of its inputs is a stale render, and a preview that lags its own controls is worse
+than no preview.** Fixed; pinned by a per-field test.
+
+### L-7770 — ⚠ CORRECTION: the NUL byte-check recipe used in lane briefs reports a FALSE POSITIVE on every file
+
+`grep -q $'\0' <file>` in Git Bash printed **NUL FOUND** for all eight files checked. The shell
+renders the pattern as an empty string and an empty pattern matches everything. A real check
+(`open(f,'rb').read().count(b'\x00')`) reports **0** for every one. **A check that can only ever
+say yes is not a check** — and this one had been quoted as a verification step.
+
+### L-7771 — ⚠ THE TEMPLATE-LITERAL BACKTICK TRAP BIT AGAIN, third lane this week
+
+The first version of the `.dw-label` CSS comment quoted `` `white-space: nowrap` `` in BACKTICKS
+inside a `.ts` template literal, terminating it. Root tsc → **RC=2**, 8 parse errors in
+`propertyInspector.ts`. 12 backticks replaced with single quotes. The rule is not *"be careful"*,
+it is **"no backticks inside a CSS comment inside a template literal."**
+
+### L-7772 — ⚠ `@pryzm/schemas` does NOT re-export its materials module; the SUBPATH does
+
+The first version of `OpeningFinishIsAReference.test.ts` imported `findMaterialRecord` from
+`@pryzm/schemas`. It **resolved**, imported nothing, and every symbol arrived `undefined` at CALL
+time — 4 of 9 tests red with `findMaterialRecord is not a function` rather than a module error.
+`grep -n materials packages/schemas/src/index.ts` is **empty**; the correct specifier is
+`@pryzm/schemas/materials`. §GREP-SILENCE-HAS-THREE-CAUSES, the barrel-subset variant.
+
+### L-7780 — gate readings at lane close (readings, with a timestamp — never states)
+
+- root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=0**, taken
+  after each of the three commits.
+- `tools/ga-gate/check-three-imports.ts` → **RC=0**, `OK: 0 direct 'three' … importers outside
+  packages/renderer-three/`, 7646 files scanned. The preview added none.
+- `tools/ga-gate/check-raf-count.ts` → **RC=0**, `OK: 1 owner.` The preview added none.
+- `tools/ga-gate/check-material-single-source.ts` → **RC=0**, `PASS - one material vocabulary`.
+- `tools/ga-gate/check-material-id-required.ts` → **RC=0** · ARM A 0/0 · **ARM B 0/0** · ARM C 7/7 ·
+  ARM D 1/1 · ARM E 0/0 · ARM F 3/3. No arm moved; ARM B independently confirms the 34 seeded ids.
+- `packages/geometry-door/__tests__/OpeningFinishIsAReference.test.ts` → **9/9 PASS** (new).
+- `apps/editor/src/ui/element-preview/__tests__/OpeningPreviewSubject.spec.ts` → **16/16 PASS**
+  (new; the directory was NOT in `vitest.config.ts`'s include list, so an unregistered spec would
+  have PASSED by never running — the L-849 shape. Registered in the same commit.)
+- ⚠ **PRE-EXISTING RED, NOT CAUSED HERE**: `packages/geometry-door` full suite → 2 files / 9 tests
+  fail (`DoorPlanSymbolBuilder.detailLevel.test.ts` 6, `DoorPlanSymbolPurity.test.ts` 3), all on
+  plan-symbol hardware segment counts. Established by IMPORT CLOSURE, not by assertion: the first
+  file imports **none** of the symbols this lane touched and fails anyway; the second registers its
+  own synthetic door type and never reads a built-in finish. 115/124 pass.
+- ⚠ **`tools/ga-gate/check-contract-cited-paths.ts` → RC=3, `RATCHET EXCEEDED — 494 unresolved
+  cited paths against a declared level of 490`. NOT THIS LANE, and that is MEASURED, not asserted.**
+  Established by a controlled two-file swap: this lane's `C100` and `C86` were copied aside, the
+  `HEAD` versions restored, the gate re-run, and the originals put back. **At HEAD the gate reads
+  the SAME 494 and the SAME RC=3.** Identical count with and without this lane's ~230 new contract
+  lines, so its sections contribute ZERO unresolved citations. Cross-checked from the other
+  direction with `--list`: the only unresolved citations attributed to `C100`/`C86` are at
+  `C100:350`, `C100:355` and `C86:713` — all far above this lane's new sections (`C100 §10.12` at
+  :2018, `C86 §10.5` at :1530) and all pre-existing. The +4 arrived with another lane's committed
+  contract edits. ⚠ On a shared tree a gate reading is a photograph of the whole tree, never a
+  verdict on one lane — so the lane that finds it red must establish WHOSE it is before either
+  claiming it or raising a baseline. **The baseline was not raised.**
+- ⛔ **NOT MACHINE-CHECKED, and said plainly**: the preview renderer itself. happy-dom has no
+  WebGL and a mock would be a fake more capable than the real thing. The blit, the context release
+  and the visual result are verified by opening the dialog, not by a test.
+
