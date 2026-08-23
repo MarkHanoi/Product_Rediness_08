@@ -40229,3 +40229,198 @@ lane's ownership. The next rake lane closes it in one step with the two citation
   barrels. `apps/editor/src/engine/undo/` is outside Zone B, so this lane's one new export
   (`__resetUnorderableReports`, a test seam) does not move it. **Pre-existing and NOT this lane's**;
   CLAUDE.md's reading of *"54 of 70 against 52"* dated 2026-08-18 is stale — re-run the gate.
+
+---
+
+## Lane LEVEL36 — the Level & Grid height edit and its cascade (2026-08-23)
+
+> Founder: *"In the **Level & Grid** — … the **height of Ground level, instead of 3 I want it to
+> be 2.9**. I would like to **select the level, access the level properties** … if I change the
+> level elevation/height, **all elements connected to it … shall adapt.**"*
+>
+> Governing decision: **ADR-0345**. Applies **ADR-0344** (adapt or refuse by name) with the
+> *level* as host.
+
+### L-7200 — ✅ CLOSED: **the level cascade was UNREACHABLE, not absent — armed only by a fallback branch the authoritative path bypasses**
+
+**This was the root cause, and it is the ABSENT-vs-UNREACHABLE distinction (C01 §6 rule 6) in its
+purest form: the machinery was fully authored and correct, and was never switched on.**
+
+`BimKernel.updateLevel()` (`:370-375`) dispatches `spatial-authority-reconcile` on every
+elevation change. The listener that converts that event into rebuilds is installed by
+`SpatialAuthority.ensureReconciliationListener()` — which had **exactly one caller**: the tail of
+`resolveWorldTransform()` (`SpatialAuthority.ts:172`).
+
+**MEASURED** with ripgrep **and** `grep -rn` (cross-checked — a single grep is not proof):
+`resolveWorldTransform` has **ONE** production call site in the repository,
+`packages/geometry-wall/src/WallFragmentBuilder.ts:1256`, and it sits in the `else` arm of
+`if (worldY !== undefined)`. The authoritative path `updateWall()` **computes `worldY` itself**
+(`WallFragmentBuilder.ts:861` — `level.elevation + slabBaseOffset + wall.baseOffset`) and passes
+it into `buildWall()`, precisely so the builder does not reach back into SpatialAuthority (the
+§13/§4 cross-layer fix).
+
+**Consequence:** on the normal path the resolver is never called, the listener is never added,
+and every reconcile dispatch fired **into a void**. Arming was *incidental* — it happened only if
+something called `buildWall()` without a `worldY` (a miter-adjust rebuild), i.e. only if the user
+had first drawn intersecting walls. **On a fresh project the entire level-elevation cascade was
+dead.**
+
+⚠ **The brief pointed at L-2409 ("the cross-element cascade layer is AUTHORED AND UNWIRED") and
+asked if this was the same. IT IS NOT — that is `plugins/cross`, a different layer.** The level
+reconcile's callback *is* wired in production (`initWallLevelSubscribers.ts:48`, called from
+`engineLauncher.ts:909`). Stopping at "the callback is registered" would have been the wrong
+answer; the defect is one level below it. **Recorded because the plausible hypothesis was wrong
+and the real fault was two hops further down.**
+
+**FIX:** `registerLevelRebuildCallback()` now calls `ensureReconciliationListener()` — registering
+the callback is definitionally the moment the listener must exist. Idempotent behind the existing
+`_reconciliationListenerRegistered` guard.
+
+⭐ **PROVEN DIFFERENTIATING, not assumed.** The fix was temporarily reverted and all three cases
+in `SpatialAuthorityArming.test.ts` failed (`deliveries []` instead of one call); restored, all
+three pass.
+
+⚠ **WHY SIX EXISTING TESTS COULD NOT HAVE CAUGHT IT.** `SpatialAuthority.reconcile.test.ts` covers
+this exact listener, and every case calls `armReconcile()`, whose second line is
+`spatialAuthority.resolveWorldTransform(IDS.wall)` — *"registers the window listener"*. The helper
+arms the very thing whose arming was broken, `SpatialAuthority` is a process singleton, and
+`_reconciliationListenerRegistered` never resets. **A thorough suite was structurally blind to the
+defect it was written to cover.** The pin therefore lives in its **own file**, because Vitest
+isolates module registries per file and that is the only place the singleton is fresh. ⛔ Merging
+it back converts it into a tautology; the file header says so.
+
+### L-7201 — ✅ CLOSED: **floor-to-floor height was a decorative tag, and the command that writes it fires nothing**
+
+`LevelManagerPanel.ts` rendered height as `<span class="lm-height-tag">` — no path from UI to a
+height change existed. **And making it an input would not have been the fix:**
+`UpdateLevelCommand({ updates: { height } })` writes the number and dispatches **nothing**
+(`BimKernel.updateLevel` dispatches only on an `elevation` change). Writing height changed no
+geometry anywhere in the product.
+
+**Root insight:** editing height is **not a property write**. It is a **rigid translation of every
+level ABOVE by δ = new − old** (ADR-0345 §3). That is a different command.
+
+**FIX:** `packages/command-registry/src/levels/SetLevelHeightCommand.ts` (`SET_LEVEL_HEIGHT`).
+`UpdateLevelCommand` keeps its single-level semantics for name / colour / visibility / explicit
+elevation.
+
+⛔ **It deliberately does NOT use `CompositeCommand`** — that class (**L-2401**) returns
+`success: true` *unconditionally in both directions* and counts children *attempted*, not landed.
+This command owns its own snapshot and **verifies every write by RE-READING it back** out of
+`BimManager`, because `updateLevel()` returns `void` and silently no-ops on an unknown id.
+`success = landed === attempted`. The test deletes a level between `execute` and `undo` and
+asserts `success: false` / `"2 of 3"`.
+
+**Refusals quote the numbers and never clamp (C74):** non-positive, below `MIN_LEVEL_HEIGHT_M`
+(0.2 m), above `MAX_LEVEL_HEIGHT_M` (500 m — suggests the mm→m reading), non-finite, unknown
+level, and **level-crossing** on an inconsistent stack, which names both levels and both
+elevations. An unchanged height is an idempotent no-op that mints no undo entry.
+
+### L-7202 — ✅ CLOSED: **the cascade carried two families of eight; Column and Roof were un-stranded WITH their consumers**
+
+`RECONCILABLE_TYPES` was `{Wall, Slab}` — correctly narrowed by an earlier lane (C72 §7). C72 §5.1
+permits re-widening **only with a consumer that HANDLES the type**, so the consumers landed in the
+same commit (`initWallLevelSubscribers.ts`) and the test asserts delivery in **both** directions.
+
+Membership decided by one **measured** question — does the build path RE-DERIVE world Y from
+`level.elevation`, or was Y baked in absolutely?
+
+- **Column** — `ColumnFragmentBuilder.ts:225,234` re-derives → wired (`columnBuilder.updateColumn`).
+- **Roof** — `RoofFragmentBuilder.ts:305` re-derives → wired (`roofBuilder.updateRoof`).
+- **Beam** — ⭐ **MEASURED ABSENT:** `packages/geometry-beam/src/` has **ZERO** `elevation`
+  references (ripgrep **and** `grep -rn`). Re-invoking it would rebuild the beam **in the same
+  place**; wiring it would be a lie, not a fix. **REFUSES BY NAME.**
+- **Stair** — bakes absolute geometry **and spans two levels**; it must **re-solve** its riser
+  count, not translate. **REFUSES BY NAME.**
+- **CurtainWall** — `CurtainWallBuilder.ts:1094,1801` **does** re-derive, so it is wirable; it is
+  stranded only because its builder is constructed at `initUI.ts:2302`, **after** this wiring seam
+  runs. **A build-order problem, not a geometry one — recorded so the reason is not lost.**
+- **Furniture / Plumbing / Lighting** — follow, but **not here**: `position.y` is persisted
+  absolute state, so re-seating is a **store write** and P6 puts that on the command path. The
+  command composes the existing `ReseatLevelElementsCommand` into its own undo unit. ⛔ The
+  callback runs at render time; a store write there would be un-undoable **and** a P6 breach. The
+  callback header now states that boundary.
+
+The PR-10 `roofWallClashAnnouncer` is **retained** and the roof rebuild is ordered **before** it,
+so it sees the new position. It was built because roofs never moved; now a pure level move
+produces no clash and it correctly says nothing, while still catching a roof stranded by its own
+`baseOffset`.
+
+### L-7203 — ✅ CLOSED: **there was no level-properties surface anywhere in the product**
+
+Levels were editable only as inline inputs in the Level & Grid rail row. **FIX:** `showLevel()` in
+`PropertyPanelAnnotations.ts` + `PropertyPanel.showLevel()`, reusing the **existing** inspector.
+
+⭐ **This copies the `showGrid` precedent exactly** — a project-structure datum (not a
+`THREE.Object3D`) announced on the runtime bus and rendered into the same `gpp-` panel — rather
+than growing a second properties idiom, **which is the defect this repo makes most often.** The
+rail row deliberately grew no expander of its own.
+
+Refusals and the did-not-follow notice render **inline, next to the field**, and the field snaps
+back: a panel still displaying a number the model rejected reads as though the edit had landed.
+`LevelManagerPanel._execute` was changed from `void` to returning the `CommandResult` for the same
+reason — a refused edit had been indistinguishable from a successful one at the call site.
+
+### L-7204 — ✅ CLOSED: **the dead grey area below "Show Grids"** (founder arrowed it)
+
+`.lg-rail-root` shrink-wrapped its content while `RailPanelController._updatePosition` (`:196-209`)
+sizes the panel to the **full remaining viewport height** whenever no user height is saved.
+`.rp-body` paints no background, so every pixel the card did not reach showed `.rp-panel`'s
+`--app-bg` (`#e8edf6`).
+
+**FIX:** the card fills the body (`min-height: calc(100% - 16px)` + `box-sizing: border-box`; the
+16 px is its own top+bottom margins, so it ends flush and adds no scrollbar). If the percentage
+ever fails to resolve, `min-height` has no effect and the layout degrades to exactly the old
+behaviour — **no regression risk.** The reclaimed space carries a **legend**, not blank filler,
+and it earns its place: HEIGHT and ELEVATION now sit side by side, look alike, and do very
+different things.
+
+⚠ **COST RECORDED:** the first version of that CSS comment used **backticks** around identifiers.
+A backtick inside a CSS comment inside a `.ts` template literal **terminates the literal** — 11
+parse errors, all pointing at the CSS rather than at the cause. The comment now carries a
+`NOTE TO EDITORS` saying so, and backtick counts were verified even in both style files.
+
+### L-7205 — ✅ CLOSED: **`pryzm-level-selected` was emitted from two production sites into a void**
+
+⭐ **A second authored-but-unwired path, found while building L-7203.** The event is declared in
+the runtime catalog (`packages/runtime-composer/src/types.ts:1018`) and **emitted** from
+`apps/editor/src/engine/views/PlanViewInteraction.ts:1081` (level-head click) and `:1093`
+(level-line click) — with **ZERO subscribers** anywhere in the repository (measured with ripgrep
+**and** `grep -rn`). Every click on a level in a section or elevation view announced a selection
+nothing received.
+
+**FIX:** one subscriber in `PropertyPanelAdapter._bindLevelSelectedEvent` makes **both** existing
+sites live and serves the new rail row, so every way of selecting a level opens the same panel. A
+payload carrying only `levelId` is resolved via `BimManager`; an unresolvable payload is ignored
+rather than rendered as a blank panel.
+
+### L-7206 — gate readings at lane close (readings, with a timestamp — never states)
+
+- `packages/core-app-model` — full suite → **138 files / 1530 PASS.**
+- `packages/core-app-model` — `SpatialAuthorityArming` + `SpatialAuthority.reconcile` → **10 PASS**;
+  ⭐ with the L-7200 fix reverted, the arming file goes **3/3 FAIL**. That inversion is the proof
+  the pin is load-bearing.
+- `packages/command-registry` — `setLevelHeightCascade` (new, **21**) + `seatingDatumAuthority`
+  → **37 PASS.**
+- `apps/editor` — `RoofWallClashAnnounced` (the PR-10 suite on the seam this lane edited) →
+  **8/8 PASS.**
+- `packages/command-registry` — full suite → **103 files PASS / 7 FAIL (926 PASS / 13 FAIL).**
+  ⚠ **Every failing file is wall/window/rake** — `L926MoveReweldPreflightStem`,
+  `L936InteriorLPairMove`, `addWallLayerBatch`, `createWindowsParametricBatch`,
+  `updateElementParameterRakePreflight`, `updateWallsSystemTypeBatch`. **None reference
+  `SetLevelHeight`/`SET_LEVEL_HEIGHT`** (verified by `grep -l`), and this lane's only
+  command-registry changes are one new file, one additive enum member and one barrel line — none
+  of which can turn `wall.layers` from `null` into `undefined`. A **concurrent lane** (L-7300…
+  L-7312, commits `a9ec370a` / `6464b600`) was editing wall rake, wall profile and opening
+  profiles in the same tree, with uncommitted WIP that did not compile
+  (`plugins/wall/src/handlers/CreateWallOpening.ts`). `updateElementParameterRakePreflight` is
+  independently recorded as **pre-existing since 2026-08-19** in **L-7350**.
+- root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` — **three
+  readings, minutes apart, all true when taken:** RC=0 → RC=2 (3 errors, all in the sibling's
+  `WallOccupancyStore.ts`) → RC=2 (4 errors, all in the sibling's `CreateWallOpening.ts`).
+  **Zero errors in any file this lane changed, in every reading.**
+  ⭐ The sibling lane's **L-7380** records the mirror image — a window in which *this* lane's
+  `toolsRail.ts` was the sole source of errors — and closes with a repo-wide **RC=0**.
+  **Two lanes independently observing each other's transients is the strongest available evidence
+  that neither set was structural**, and it is exactly why this section says *readings, never
+  states*: on a shared tree a single tsc run is a photograph, not a fact.

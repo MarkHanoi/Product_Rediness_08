@@ -301,6 +301,32 @@ outlive their reason**.
 > **user** as a toast. That is §5.1's exit route taken honestly: *narrowing a claim to the truth
 > is a fix.* A reader who checks only the consumer count marks this closed and ships the bug.
 
+> ⭐ **§5.1 UPDATED AGAIN 2026-08-23 (lane LEVEL36, ADR-0345, L-7200..L-7202) — the behavioural
+> half above has MOVED, and a deeper fault beneath it is the reason it had barely mattered.**
+>
+> - **The set is now `{Wall, Slab, Column, Roof}`.** It widened **with its consumers in the same
+>   commit** — `columnBuilder.updateColumn` (per delivered id) and `roofBuilder.updateRoof` (per
+>   level query) in `initWallLevelSubscribers.ts` — because §5.1 permits re-widening only on a
+>   consumer that HANDLES the type, never on a name. The stranded set is now
+>   `{Beam, Stair, CurtainWall}`; Furniture, Plumbing and Lighting follow through
+>   `ReseatLevelElementsCommand` composed into `SetLevelHeightCommand`'s undo unit.
+> - ⛔ **THE DEEPER FAULT: the reconcile was UNREACHABLE, and had been.**
+>   `ensureReconciliationListener()` had exactly one caller — the tail of
+>   `resolveWorldTransform()` — and `resolveWorldTransform` has exactly ONE production call site
+>   (`WallFragmentBuilder.ts:1256`), inside the `else` arm of `if (worldY !== undefined)`. The
+>   authoritative path `updateWall()` computes `worldY` itself (`:861`) and never enters that
+>   arm. **So `spatial-authority-reconcile` fired into a void on the normal path**, and arming
+>   was incidental — it required a miter-adjust rebuild, i.e. that the user had already drawn
+>   intersecting walls.
+> - ⭐ **THE LESSON FOR THIS CONTRACT, and it generalises past this file:** every correction
+>   above argued about **WHICH TYPES the consumer handles**, and all of them were downstream of
+>   **WHETHER THE CONSUMER RUNS AT ALL.** A whitelist with a verified consumer, a gate asserting
+>   that consumer exists, and six passing tests all coexisted with a listener that was never
+>   installed. **§5.2's "exported without a consumer" hazard has a twin: a consumer that is
+>   registered but never ARMED.** Counting consumers cannot detect it — only a test that
+>   exercises the trigger through its real entry point can, and the existing suite could not,
+>   because its own helper armed the listener before every assertion (see L-7200).
+
 ---
 
 ## §9 — The host-move matrix: ADAPT or REFUSE, never SILENT

@@ -594,6 +594,42 @@ runtime.events.on('wall.batch.completed', async ({ levelIds }) => {
 - Commands with `source: 'ai'` or `source: 'remote'` MUST NOT be pushed to the undo buffer (C03 §4.2).
 - For batch AI commands: the batch is a single undoable unit. One patch covering all elements in the batch is registered after `BatchCoordinator.endBatch()`.
 
+### §6.4a — ⭐ THE LEVEL DATUM IS AN INPUT TO EVERY CREATE, AND IT MOVES AFTERWARDS (NORMATIVE)
+
+> Added 2026-08-23 (lane LEVEL36, **ADR-0345**, L-7200..L-7202). Binding on **every element
+> family**, alongside **C84 §EI-PROP-e**.
+
+Every create in this pipeline seats its element against `level.elevation`. **That datum is not
+constant for the life of the element** — a user can change a level's elevation, or change the
+floor-to-floor **height** of any level below it, and the whole stack above translates. A creation
+path that is correct at `t=0` and never re-derives is the same defect class as
+`§FIX-INTERIOR-FFL-SEATING`: *a fix for a project nobody edits*.
+
+**A PR that adds an element family MUST state which of these two shapes it uses, and the choice
+is not free — it follows from where the family stores its Y:**
+
+1. **DERIVED-AT-BUILD (preferred).** The builder recomputes world Y from `level.elevation` on
+   every build (`ColumnFragmentBuilder.ts:225`, `RoofFragmentBuilder.ts:305`,
+   `WallFragmentBuilder.ts:861`). Following a level move is then just **re-invoking the builder**,
+   with **no store write and no undo entry**. Register the rebuild entry point in the level
+   reconcile (`initWallLevelSubscribers.ts`) and add the kind to `RECONCILABLE_TYPES`
+   — **together, in one commit** (C72 §5.1).
+2. **PERSISTED-ABSOLUTE.** The record stores an absolute `position.y` (furniture, plumbing,
+   lighting). Re-seating is then a **mutation**, so P6 puts it on the **command** path: compose
+   `ReseatLevelElementsCommand` into the parent command's undo unit. ⛔ **Never** re-seat these
+   from the reconcile callback — it runs at render time, so the write would be un-undoable *and*
+   a P6 breach.
+
+⚠ **A family that fits NEITHER shape must say so by name.** `packages/geometry-beam/src/` contains
+**zero** `elevation` references, so a beam cannot follow a level move at all until its builder
+consults the datum. Such a family is declared **REFUSES** on the C84 §EI-PROP-e table and is
+counted and named to the user at commit time — **it is never left to look as though it followed.**
+
+⭐ **The trap this section exists to prevent:** wiring a rebuild call for a family whose builder
+does not read `level.elevation`. The call succeeds, the element rebuilds **in the same place**,
+and the ledger gains a `PROPAGATES` row that propagates nothing — **a false verdict, which is
+worse than the honest gap it replaced.** Measure the builder before claiming the row.
+
 ### §6.5 — OTel spans
 
 Every command handler MUST open a span at entry and close it at exit:

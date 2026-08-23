@@ -281,14 +281,63 @@ move that strands the dependent are the same integrity defect at different verbs
 > **Reducing a cell from SILENT to REFUSES closes the defect fully.**
 
 > **EI-PROP-c (NORMATIVE) — the shape to copy, and the shape to never ship.**
-> The reference implementation is the level-elevation reconcile: seven element kinds do **not**
-> re-elevate, and each classifies `DETERMINED-STRANDED` with a named reason
-> (`SpatialAuthority.classifyForReconcile`), with the roof's shortfall reaching the **user** as a
-> toast rather than the console. The shape to never ship is
-> `initWallLevelSubscribers.ts:51-52` — `const wall = store.getById(id); if (wall) { … }`, **no
-> `else`, no log** — which silently drops the lighting, plumbing, ceiling, floor and standalone-
-> opening ids that were *delivered to it*. ⭐ **A handler that early-returns without a line is
-> worse than no handler: it reads as coverage.**
+> The reference implementation is the level-elevation reconcile: element kinds that do **not**
+> re-elevate classify `DETERMINED-STRANDED` with a named reason
+> (`SpatialAuthority.classifyForReconcile`), and the shortfall reaches the **user** rather than
+> the console. The shape to never ship is
+> `initWallLevelSubscribers.ts` — `const wall = store.getById(id); if (wall) { … }`, **no
+> `else`, no log** — which silently drops ids that were *delivered to it*.
+> ⭐ **A handler that early-returns without a line is worse than no handler: it reads as
+> coverage.**
+
+> ⚠ **UPDATED 2026-08-23 (lane LEVEL36, ADR-0345, L-7200..L-7202). The paragraph above said
+> "seven element kinds do not re-elevate". THAT COUNT IS NOW THREE, and one of its premises was
+> wrong in a way worth recording.**
+>
+> - **The stranded set shrank `{Column, Beam, Stair, CurtainWall, Roof, Furniture}` → `{Beam,
+>   Stair, CurtainWall}`.** `RECONCILABLE_TYPES` widened to `{Wall, Slab, Column, Roof}` **with
+>   its consumers in the same commit** (C72 §5.1 forbids widening on a name alone), and
+>   Furniture / Plumbing / Lighting now follow via `ReseatLevelElementsCommand` composed into
+>   `SetLevelHeightCommand`'s undo unit.
+> - **Membership is decided by MEASUREMENT, not opinion** — does the family's builder RE-DERIVE
+>   world Y from `level.elevation`, or was Y baked in absolutely at create time? Column
+>   (`ColumnFragmentBuilder.ts:225,234`) and Roof (`RoofFragmentBuilder.ts:305`) re-derive.
+>   **Beam does not: `packages/geometry-beam/src/` contains ZERO `elevation` references**
+>   (ripgrep + `grep -rn`), so re-invoking its builder would rebuild the beam in the same place.
+>   ⭐ **Wiring a family whose builder cannot consult the datum would produce a PROPAGATES row
+>   that propagates nothing — a false verdict on the ledger, which is worse than the SILENT cell
+>   it replaced.** Measure the builder before claiming the cell.
+> - ⛔ **The reconcile callback runs at RENDER time and MUST NOT write to a store.** Furniture,
+>   plumbing and lighting persist an absolute `position.y`, so re-seating them is a mutation —
+>   P6 puts it on the command path, and a write from the callback would be both un-undoable and
+>   a P6 breach. **"Adapts" does not imply "adapts in the subscriber".** Split the verdict from
+>   the venue.
+> - **A cell can be blocked by BUILD ORDER rather than by geometry.** CurtainWall *does*
+>   re-derive (`CurtainWallBuilder.ts:1094,1801`) and is stranded only because its builder is
+>   constructed at `initUI.ts:2302`, **after** the wiring seam. Recorded so a later lane does not
+>   re-derive the false conclusion that curtain walls cannot follow.
+
+> **EI-PROP-e (NORMATIVE) — the LEVEL is a host, and its move has a row.**
+> Added 2026-08-23 (lane LEVEL36, ADR-0345). Changing a level's **floor-to-floor height** is a
+> host move: it rigidly translates every level ABOVE by the delta, and everything on those levels
+> is a dependent. The verdicts, per family:
+>
+> | family | verdict | mechanism |
+> |---|---|---|
+> | Wall · Slab · Column · Roof | **PROPAGATES** | level reconcile → per-kind rebuild |
+> | Door · Window | **PROPAGATES** | hosted (C15) — ride the host wall's rebuild |
+> | Furniture · Plumbing · Lighting | **PROPAGATES** | `ReseatLevelElementsCommand`, same undo unit |
+> | Beam · Stair · CurtainWall | **REFUSES** | counted per affected level and named to the user at commit time |
+>
+> **No cell in this row is SILENT**, which is the EI-PROP-b target state reached for a whole
+> host. A PR that adds an element family MUST place it in this table as well as in the 64-cell
+> matrix — a family that follows a *wall* but not its *level* is still an integrity defect.
+>
+> ⛔ **The cascade is ONE undo, and it MUST NOT be built on `CompositeCommand`** (L-2401 — that
+> class returns `success: true` unconditionally in both directions and counts children
+> *attempted*, not landed). `SetLevelHeightCommand` verifies every write by **re-reading it back**
+> out of `BimManager`, because `updateLevel()` returns `void` and silently no-ops on an unknown
+> id, and reports `landed === attempted`.
 
 > **EI-PROP-d (NORMATIVE).** A propagation channel is not a substitute for a relationship. Six
 > SILENT cells cannot be wired at all because the record holds no edge to walk — `FurnitureData`

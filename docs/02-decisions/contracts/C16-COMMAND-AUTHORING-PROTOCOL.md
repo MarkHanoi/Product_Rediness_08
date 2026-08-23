@@ -291,6 +291,24 @@ satisfied by `affectedStores: [] as const`; CA-17 and CA-18 still bind.
    - **§INSTANCED-ISOLATE-FIX (2026-05-25) — render visibility must cover *both* hide and isolate.** An instanced/aggregated group (one `InstancedMesh` per geometry×material×level for plain batch walls) carries `userData.levelId` + `userData.elementType` but **no per-element `userData.id`** — it stands in for many elements. The hide path matches `userData.levelId` (works), but the **isolate / per-element re-apply / reset** traverses are **id-keyed** and skip id-less objects, so isolation left batch walls visible on every level. A command whose elements may be instanced MUST therefore (a) stamp the real `elementType` on the group (not a generic placeholder), and the visibility layer MUST (b) resolve instanced aggregates **by level (+ type)** in *every* visibility traverse — hide, isolate, re-apply, reset — not only the hide path. Curtain walls were unaffected because their group carries a real id. Fix: `WallInstanceBridge`/`InstancedElementRenderer` stamp `elementType='wall'`; `ProjectVisibilitySection.applyIsolate`/re-apply/`resetAllVisibility` handle `userData.isInstancedGroup` by level/type.
 4. **Re-parenting** (`CHANGE_WALL_LEVEL`, `UPDATE_SLAB_LEVEL`) MUST update **all three** authorities and the render `userData.levelId`, and re-key any instanced membership.
 5. **Level lifecycle** (C13): registrations MUST be torn down on project switch; no per-level state may leak across projects.
+6. **⭐ Editing the LEVEL itself is two different commands — do not merge them** (added 2026-08-23,
+   lane LEVEL36, **ADR-0345**, L-7201). The distinction is not cosmetic; it is the difference
+   between a property write and a cascade:
+   - **`UPDATE_LEVEL`** — name, colour, visibility, or an **explicit elevation**. Single level.
+     `BimKernel.updateLevel()` dispatches `spatial-authority-reconcile` for **that one level**.
+   - **`SET_LEVEL_HEIGHT`** — floor-to-floor **height**, i.e. the GAP to the level above. This is
+     **a rigid translation of every level ABOVE by δ**, not a field write. Levels at or below do
+     not move, and every other level's own height is preserved exactly.
+
+   ⚠ **`UPDATE_LEVEL({ height })` writes the number and fires NOTHING** — `BimKernel.updateLevel`
+   dispatches only on an `elevation` change. A command that sets `height` and expects geometry to
+   follow is authoring a no-op. **This was live in the product**: the Level & Grid panel showed a
+   height tag that no code path could change, and the command that would have changed it moved
+   nothing.
+
+   ⭐ **The general lesson for authors: when a field's meaning is a RELATION between two records
+   (a gap, a span, an offset-from), editing it is a cascade over the relation, not an assignment
+   to the field.** Ask what the number *means* before choosing `UPDATE_*`.
 
 ---
 
@@ -348,6 +366,30 @@ Binding consequences:
   loading overlay), not for undo. Author for the guards; author the undo unit separately, per B-6.
 
 Pinned by `apps/editor/__tests__/batchNestingUndo.test.ts` (I-N1…I-N4) — the nesting half of gate G10.
+
+> ### ⛔ B-8 — a cascade command MUST report what LANDED, not what it attempted
+>
+> Added 2026-08-23 (lane LEVEL36, **ADR-0345** §5, L-7201; the defect is **L-2401**).
+>
+> `CompositeCommand` — the legacy one-undo wrapper — returns `success: true`
+> **unconditionally in BOTH directions** and its `info` counts `this.children.length`, i.e.
+> commands **attempted**, never landed. Generate a building, press Ctrl+Z, and if any child
+> fails to revert the user is told it was undone, half the building remains, and Redo is
+> offered for a state that never existed.
+>
+> **A new multi-target command MUST NOT inherit that shape.** The binding rule:
+>
+> - **Own the snapshot.** Record enough per target to restore it exactly.
+> - **VERIFY BY RE-READING.** Many mutators return `void` and **silently no-op on an unknown
+>   id** — `BimManager.updateLevel()` is literally `if (!level) return;`. A command that trusts
+>   its own writes reports a clean result over a model it did not change. Read the value back
+>   out of the authority and compare.
+> - **`success = landed === attempted`**, and say both numbers in the failure.
+>
+> ⭐ **The regression test must make a target vanish between `execute()` and `undo()`** — that
+> is the case an unconditional `true` passes and an honest command fails. Presence tests cannot
+> tell the two implementations apart.
+> Pinned by `packages/command-registry/__tests__/setLevelHeightCascade.test.ts`.
 
 ### §8.7 — Re-entrancy: `runBatch()` called while a batch is live (binding)
 
