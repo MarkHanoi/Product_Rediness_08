@@ -42173,3 +42173,644 @@ emoji as a Python surrogate pair** — write the character, or do not write it.
   the **chat planner rung only** — `AIElementFactory`, `FloorPlanAIFactory`, `AnnotateViewCommand`
   and `StrategizeBucket` still call PRYZM's proxy unconditionally (C105 §10.6, SPEC §9). The UI copy
   is worded to match that scope rather than overclaiming.
+
+---
+
+## §FEAT-CONSTRUCTION-BOUNDARY-LINE — the AUTHORED setting-out line (lane BOUND43, 2026-08-23)
+
+> Founder: *"New feature — create a **construction boundary line** element (under the
+> **Architecture** tab). We have the side-line boundary from the parcel, but I want to be able
+> to create the **boundary construction line**. After creating it, I could ask via **RAC**:
+> 'create a 3-bedroom apartment on this boundary line' … The UI should be **like the wall, with
+> the same modes for creation — line, ortho, rectangle, ellipse, curve, circle** etc. … **if the
+> user moves the boundary line and this line had slabs and walls, they should move, adapt,
+> propagate with all elements!!** It is a simpler way of design for **early-stage design**. The
+> line could **have volume** also, via a **bool setting on Visibility Intent** (it should have a
+> **category** there too — everywhere!)."*
+
+Contract **C106** · **ADR-0348** · builds on ADR-0344 / ADR-0345.
+
+### L-7900 — ✅ CLOSED: **the element did not exist, and the first thing needed was to say what it is NOT**
+
+Three lines now exist in this repository and confusing two of them corrupts data. C106 §0.2 puts
+the table before any specification:
+
+- **`Parcel.boundary`** — the LEGAL lot outline. Surveyed, recorded, and **ONE-SHOT IMMUTABLE**;
+  [C19 §1.4](../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md) says in as many words that
+  *"there is no `site.editParcelBoundary` command"* and that redrawing it requires replacing the
+  whole Site.
+- **`RoomBoundingLine`** (`core-app-model`, `CommandType.CREATE_ROOM_BOUNDING_LINE`) — an
+  invisible two-point splitter consumed by room DETECTION. Hosts nothing, no volume.
+- **`BoundaryLine`** (new) — authored, editable, and a **HOST**.
+
+⭐ **The founder's own sentence draws the distinction** — *"we **have** the side-line boundary
+from the parcel, **but** I want to create the boundary construction line"* — and **C106 §0.2-a**
+turns it into a rule: no code in this family may read, write, extend or derive from
+`Parcel.boundary`. ⚠ `RoomBoundingLine` was found by LOOKING, not by luck; shipping a third line
+without tabulating the other two is how a vocabulary acquires one word for two concepts.
+
+### L-7901 — ✅ CLOSED: the L0 model — one polyline, and four refines that make bad states unrepresentable
+
+`packages/schemas/src/elements/BoundaryLine.ts`, brand `boundaryLine` in `types/Id.ts`.
+`vertices` is the single source of truth; length, segment count, centroid, every attachment's
+world pose and the extruded solid are COMPUTED (C84 §8.i). `closed` is AUTHORED, not derived, and
+a closed line is an **OPEN loop** — the Slab / Pool / Balcony convention, so a ring handed to any
+of them needs no re-normalisation.
+
+The fourth refine is the one worth naming: **every attachment must name a segment index that
+EXISTS**. A dangling index is the shape that turns a propagation into a silent skip — the
+propagator would find no segment, have nothing to compute, and say nothing. Refusing at parse
+time means the record can never hold one.
+
+### L-7902 — ✅ CLOSED: `ElementCategorySchema` gained `BoundaryLine` (the first of the six VG sites — see L-7950)
+
+### L-7903 — ✅ CLOSED: ⭐ **the propagation mechanism is a PARAMETRIC ANCHOR, and that is the whole feature**
+
+A dependent's world pose is **never stored against the line**. The attachment stores
+`(segmentIndex, t, signed offset)`. Evaluate it against the OLD line → where the thing is;
+evaluate the SAME anchor against the NEW line → where it must go. **The move is a
+re-evaluation, not a synchronisation someone has to remember to run.**
+
+Two details are load-bearing and each was chosen against a plausible alternative that would have
+passed a naive test:
+- **SIGNED offset.** A wall drawn 150 mm inside the boundary stays inside it, on the same side.
+  An unsigned distance mirrors every inset wall to the outside on the first move.
+- **CLAMPED projection.** A point beyond an end belongs to the end. Unclamped, a dependent flies
+  off a shortened line instead of riding its new corner.
+
+### L-7904..L-7907 — ✅ CLOSED: the per-family table — **28 rows, 15 PROPAGATES, 13 REFUSES, NO CELL SILENT**
+
+C84 §EI-PROP applied to a SECOND host, after ADR-0345 applied it to the LEVEL, and it inherits
+that ADR's rule verbatim: ⭐ **the host is a host, and what cannot follow it is NAMED.**
+
+Membership was decided by ONE measured question — *does a command exist that reaches this
+family's AUTHORITATIVE store?* — and "authoritative" was measured, not assumed: `wall.move` and
+`slab.updatePolygon` both EXIST and both write the DETACHED plugin DTO store that nothing
+renders, exports or persists (`plugins/wall/src/handlers/MoveWall.ts` refuses `wall.move` for
+exactly that reason, in its own words).
+
+**REFUSALS, each with a measured reason, not a shrug:**
+- **Door / Window** — HOSTED (C15): an offset along a wall, not a world point. *"Attach the WALL
+  and the door rides it."*
+- **Roof / Ceiling / Floor** — their boundary commands require
+  `cause: { wallId, kind: 'wall-moved' | 'wall-removed' }`, documented *"Why this write happened.
+  Named, never inferred (C79 §4.4 / C75)"*. **A boundary line is not a wall, and a fabricated
+  `wallId` would write FALSE PROVENANCE** — telling every later reader a wall moved when none
+  did, which is worse than the element not following. The fix is a `boundary-line-moved` member
+  on that union: **C79's contract to amend**, named rather than forced (C106 §3.5-b).
+- **Room** — not *cannot*, **must not**. Its polygon carries `detectionMethod`; writing it from a
+  line is two authorities over one polygon (C84 EI-9). **A room follows because its WALLS follow.**
+- **Grid / Level** — DATUMS. Things are set out FROM them.
+- **Pool / Balcony / Lift** — COMPOUNDS; translating a member tears the assembly apart.
+- **Annotation / Dimension** — they belong to a VIEW (C101).
+
+⭐ **STAIR PROPAGATES HERE AND REFUSES FOR A LEVEL, AND THAT IS NOT A CONTRADICTION.** ADR-0345
+refuses a stair on a level-HEIGHT change because the storey gap it spans changed, invalidating
+its riser count — a re-SOLVE. A boundary-line move is horizontal in XZ: the rise is untouched.
+Two hosts, two questions, two answers.
+
+### L-7908 — ✅ CLOSED: dimensions and material — L-127 and C100, at the door
+
+`resolveBoundaryLineDimensions()` is the only source of a boundary-line dimension
+(`record → systemType → documented default`, and it reports WHICH tier answered).
+`resolveBoundaryLineMaterial()` returns THREE answers: `linework` (no volume — legitimately no
+material, and **NOT** a failure), `resolved`, or `unresolved` **with the reason**.
+
+⭐ The gate is at the COMMAND: `boundaryLine.create` and `.update` **refuse** a solid with no
+material. `HandrailFragmentBuilder`'s standing *"3 handrails have NO RESOLVABLE MATERIAL … the
+colour on screen is NOT these elements' material"* — live for every balcony — is the defect this
+makes unreachable rather than repeats.
+
+### L-7909 — ✅ CLOSED: one mode vocabulary, three declarations, COMPARED
+
+The founder's six modes live in the L0 enum, in `@pryzm/geometry-boundary-line`, and in
+`@pryzm/geometry-slab`'s two unions (whose `boundaryLoopVertices()` is the generator). An import
+could couple two of them and could never check the L0 enum (P5 — L0 imports nothing), so the
+three are asserted **EQUAL AS SETS, in both directions**, and the enum is asserted to REFUSE a
+seventh member. Spelled `rectangular`, never `rectangle` (the canonical side of L-1322).
+
+### L-7910..L-7916 — ✅ CLOSED: the plugin, and ⭐ **this family has exactly ONE store**
+
+C84 §1 measures FIVE rival representations per family; rows 2 and 3 (plugin DTO / legacy
+geometry) are the pair that keeps diverging. `boundaryLine` has **no geometry twin**: one class,
+one instance, built by `PluginRegistry`, reachable at `runtime.stores.boundaryLine`.
+
+⚠ **The claim is CHECKED, not written.** `boundaryLineHasOneStore.test.ts` walks
+`packages/`, `plugins/`, `apps/`, `src/`, `server/` with Node's own `readdir` — a scanner sharing
+no ignore logic with ripgrep — and fails on a second `class …BoundaryLineStore` **or** any
+`window.boundaryLineStore` **assignment**. Every family that acquired a geometry twin acquired it
+as a window global first; that door is shut on day one.
+
+**Two defects this lane made and its own suites caught** — recorded, because a refuted draft is
+worth more than a clean story:
+- `produceCommand` returns a **TUPLE** `[next, forward, inverse]`, not an object. Reading it as
+  `{ forward }` yields `undefined` and CommandBus throws at `CommandBus.ts:477`. Ten of thirteen
+  composed-runtime cases went red. **The plugin's own suite would not have run the bus at all.**
+- The store guard **matched itself** (its patterns are literal source text) and reported two
+  declarations and one window assignment, both its own. Fixed by one named self-exclusion and by
+  requiring an **assignment**, so `store.ts` may still explain the rule in prose. ⭐ A guard whose
+  patterns make its own explanation unwritable gets its patterns obfuscated, which is worse.
+
+### L-7920..L-7926 — ✅ CLOSED: the HOST MOVE — ONE undo, and it counts what LANDED
+
+`MoveBoundaryLineCommand` (`packages/command-registry/src/boundaryLine/`), bridged to the bus as
+`boundaryLine.move` in `initBusHandlers` (the L-220 distinct-verb pattern).
+
+⛔ **NOT built on `CompositeCommand`** (L-2401 — `success: true` unconditionally in BOTH
+directions, children counted *attempted*). Children are dispatched with
+`source: 'STRUCTURAL_CASCADE'` from inside `execute()`, so `CommandManagerImpl`
+(§L-874-ONE-UNDO) folds them into the spawning gesture. `success` is `landed === attempted`, and
+the line's own write is verified by **RE-READING it back** (a store write returns `void` and
+silently no-ops on an unknown id — `SetLevelHeightCommand`'s lesson).
+
+⛔ **Changing the vertex COUNT is REFUSED, with both numbers.** Every attachment stores a
+`segmentIndex`; adding or removing a vertex renumbers the segments and would silently re-anchor
+half the dependents to the wrong edge. C74 — never clamp, never guess.
+
+⛔ **And `boundaryLine.update` CANNOT move the line**: `vertices` and `closed` are absent from its
+payload BY CONSTRUCTION. An update that wrote geometry would be a second, quieter move that
+strands every dependent in silence — C84 EI-PROP's SILENT verdict. R-11 asserts the runtime
+agrees: a sneaked-in `vertices` key changes nothing.
+
+### L-7927 — ✅ CLOSED (as a CORRECTION): ⭐ **the lighting verdict was wrong, and wrong PESSIMISTICALLY**
+
+The table's first draft **REFUSED** lighting, quoting `MOVE_UNSUPPORTED_REASON.lighting` from
+`elementMove.ts` verbatim: *"Lighting fixtures have no move command on any surface yet — tracked
+under Gate G7."*
+
+**That sentence is TRUE of the BUS and FALSE of the command layer.** Measured 2026-08-23:
+`packages/command-registry/src/lighting/MoveLightingCommand.ts` **EXISTS**, takes
+`{ elementId, to }`, and writes the lighting store. What is missing is a `MOVE_COMMAND_BY_TYPE`
+row and a 3-D gizmo branch — no SURFACE dispatches it. This cascade dispatches **COMMANDS, not
+bus verbs**, so a light attached to a boundary line follows it.
+
+⚠ Copying the refusal without re-measuring would have shipped a REFUSES cell for a family that
+follows perfectly well — **the inverse of the "PROPAGATES row that propagates nothing" C84 warns
+about, and just as wrong.** The row carries **no** `moveVerb`, and that absence is the honest
+statement that lighting has no bus route. `AG-4` pins BOTH halves so a later reader cannot "fix"
+either into agreement with the other.
+
+### L-7928 — ✅ CLOSED: every PROPAGATES row has an EXECUTABLE adapter, checked BOTH ways
+
+A verdict table can claim a cell nothing can execute; C84 calls such a row a **FALSE** ledger
+entry, worse than the SILENT cell it replaces. `COV-1` fails on a verdict with no adapter;
+`COV-2` fails on an adapter for a family the table REFUSES (a loaded gun — one table edit and
+doors start moving).
+
+### L-7930..L-7938 — ✅ CLOSED: the TOOL, and a POINTER-LAYER proof
+
+`BoundaryLinePlanToolHandler` in the SHARED `planToolHandlerRegistry` (both plan surfaces get it
+by construction — the L-73 parity guarantee), a palette row on **BOTH** create surfaces in the
+SAME commit (landing on only one is L-1380, which the lift committed once already),
+`Alt+Shift+N`, and a shared mode store (`activeBoundaryLineDrawMode.ts`) because there are three
+live surfaces that offer modes.
+
+⭐ **The pointer-layer arm.** C104 R-10 makes a reachability claim **INADMISSIBLE** without one,
+and the reason is paid for: pool, balcony and lift shipped on consecutive days, each with a green
+composed-runtime suite, and all three were unusable by a person.
+`boundaryLinePointerReach.spec.ts` starts from the REAL palette call
+(`activatePlanOnlyToolOrExplain`), attaches the REAL split-view plan overlay, and fires REAL DOM
+`MouseEvent`s. **11 cases, 11 PASS on the first run** — which is itself the finding: the path was
+sound because it was built ON the corrected `activatePlanOnlyTool` seam rather than beside it.
+
+⚠ It is a SEPARATE file from `pointerReachesArmedHandler.spec.ts` on purpose: that spec is owned
+this session by the lane fixing the shared plan-only tool SESSION, and two lanes editing one spec
+on a shared tree is how a fix gets clobbered.
+
+**Two clauses worth keeping:**
+- ⭐ **TWO VERTICES ARE ENOUGH.** A boundary line is a PATH first; a single 10 m run IS a
+  setting-out line. The pool, slab and balcony all need three. Requiring a third point would have
+  made the commonest gesture impossible while every other test still passed (`A-2`).
+- ⭐ **The preview is LINEWORK, never filled.** Filling would make an open polyline look closed
+  and make a closed setting-out line indistinguishable from the slab an architect is about to
+  draw inside it. Dashed PRYZM purple `#6600FF`.
+
+### L-7934 — ⛔ OPEN (declared gap, NOT a defect): no 3-D creation arm
+
+`TOOL_MANAGER_TOOL_KEYS` has no `boundary-line` key, so the tool cannot be armed from the 3-D
+viewport. NOT a missing handler — `boundaryLine.create` is fully dispatchable and the plan arm
+drives it. A setting-out line is a plan gesture by nature (it is drawn against a floor plate).
+The gap is declared ON the creation-matrix row, and `boundary-line` joined the dual-view gap
+ledger in `elementCreationMatrix.spec.ts` with its reason rather than by widening the assertion.
+
+### L-7941 — ✅ CLOSED: the copied `moveVerb` constant is COMPARED, in both directions
+
+`BOUNDARY_LINE_FAMILY_RULES` (L2) copies from `MOVE_COMMAND_BY_TYPE` (L7) because L2 may not
+import L7. A hand-copied constant is the defect this repository logs more often than any other,
+so the COMPARISON ships in the same commit as the copy, at the only layer that can see both.
+`AG-3` catches the OMISSION case: a family the product can already move with no boundary-line
+verdict.
+
+### L-7950..L-7954 — ✅ CLOSED: ⭐ "a category there too — EVERYWHERE" is **SIX** places
+
+Enumerated in C106 §5.5 so the next family can copy the list instead of finding the sixth one
+after a founder report: (1) `ElementCategorySchema`; (2) `VisibilityIntentDefaults.ELEMENT_TYPES`
+— **the DECLARATION**, without which the `solid` bool has nowhere to live; (3)
+`OverridePanel.CATEGORIES` — the per-VIEW toggle; (4) `VGSceneApplicator`'s name map **and** its
+`VGCategory` union; (5) `PenWeightTable` — PROJECTION only, PRYZM purple `#6600FF`, dash `[10,4]`;
+(6) `DATUM_CATEGORIES`.
+
+⭐ **It joins the DATUMS, and it belongs there more literally than the other three.** `grid`,
+`level` and `annotation` are exempt from the solids-do-not-dash ladder because their chain line
+is an ISO 128-24 category convention. A CONSTRUCTION line is that by definition. ⚠ **And the
+exemption is NARROW:** a boundary line with volume has real fabric whose edges obey the ladder
+like anything else. What is exempt is the CENTRELINE. `DrawingZone.test.ts` pins the exact set,
+so this had to state its reason there rather than widen an assertion.
+
+⭐ **THE VOLUME BOOL** — `ElementGraphicsRules.solid?: boolean`. The VIEW's intent wins where it
+has an opinion; the record's `hasVolume` is the fallback. ⚠ `undefined` (*no opinion*) and
+`false` (*this view says linework*) are DIFFERENT VALUES: `??` is correct, `||` silently turns
+every "this view says linework" into "ask the record". `V-4` pins exactly that case.
+
+### L-7960 — ✅ CLOSED: the RAC half, scoped honestly
+
+- **Addressability — ✅ DONE.** `boundaryLine_<ulid>` is a branded L0 id; the record lives in the
+  one store; every verb takes it by id.
+- The six verbs are declared in `CHAT_UNAVAILABLE` **with readable reasons naming the route back
+  to success**, never classified-and-dead. ⛔ **A verb the chat classifies but that generates
+  nothing is the silent-success shape this repository keeps finding.**
+
+**MEASURED**, `check-chat-capability-coverage.ts`: UNDECLARED **15 → 9**. ⚠ The gate was ALREADY
+RED at 9 before this lane (balcony ×4, lift ×3, `room.setColourMode`, `view.setCategoryVisibility`)
+and is RED at 9 after. None of the 9 are this lane's.
+
+### L-7961 — ⛔ OPEN: the apartment generator does not consume a boundary line
+
+The founder's *"create a 3-bedroom apartment on this boundary line"* needs TWO things and only
+one is a boundary-line problem. Addressability is done (L-7960). **Making the generator use the
+line as its footprint is real work in `packages/ai-host/src/generative` /
+`FloorPlanBatchExecutor`, whose plans are seeded from a level's slab outline.** ⛔ NOT stubbed —
+stubbing it would produce exactly the silent success this lane refused elsewhere.
+
+### L-7962 — ✅ CLOSED: all six verbs declare a sync disposition **in the commit that adds them**
+
+`pool.create`, `balcony.create` and `lift.create` each shipped WITHOUT one and each warned at
+runtime (`[YjsDocAdapter] W5-3: command type 'lift.create' has NO sync disposition`) — in plain
+terms, a collaborator never received the element. Three is enough.
+
+⭐ **`.move` is `disclose`, NOT `last-writer-wins`, and the reason is this element's whole
+point:** moving a boundary line carries every wall and slab attached to it. Two collaborators
+dragging the same line are not disagreeing about a line — they are disagreeing about **where a
+building sits**, and a silent LWW would move one architect's scheme under the other.
+⭐ **`.attach` / `.detach` REPLICATE**, which is not obvious enough to leave unsaid: a
+collaborator holding the line but not its attachments would see the line move and the building
+stay — the SILENT half-cascade, arriving over the wire instead of through a bug. `at` / `to` are
+EXCLUDED as dispatch inputs (a cursor position is not element state).
+
+**MEASURED**, `check-sync-disposition.ts`: UNDECLARED **18 → 12**, **0** of the 12 this lane's.
+RC=1 before and after — pre-existing (nine `*.changeLevel`, `room.setColourMode`,
+`view.setCategoryVisibility`).
+
+### L-7963 — ⛔ OPEN, NOT THIS LANE'S TO CLOSE: `API-VERB-REGISTER.md` is stale for 14 verbs
+
+`check-verb-register.ts` → **RC=1**, four failures, three of them RED before this lane. V1 names
+14 verbs with no row, six of them this lane's, and the fix is `--write`.
+
+⛔ **NOT RUN, deliberately.** `--write` rewrites BOTH the generated register AND the in-source
+`UNKNOWN_LIVENESS_BASELINE`, which would silently absorb three other lanes' verbs (balcony, lift,
+rooms) into a shared shrink-only ratchet and drop five rows another lane is accounting for.
+**Doing a sibling lane's baseline edit from inside this one is how a ratchet stops meaning
+anything.**
+
+### L-7964 — ⛔ OPEN: the verb register's UNKNOWN-liveness classifier has a FALSE NEGATIVE for this family
+
+V4 classifies the five plugin verbs UNKNOWN-liveness — *"a lone plugin `produceCommand` handler.
+Prove it reaches authoritative state, or route it through the live path."*
+
+⭐ **For this family that verdict is provably wrong.** The classifier presumes a plugin store is a
+DETACHED DTO mirror — true of every other family and **FALSE here**: `boundaryLine` has no
+geometry twin, and `boundaryLineHasOneStore.test.ts` measures that across
+`packages/plugins/apps/src/server` with a scanner independent of ripgrep. **Recorded rather than
+baselined, because baselining it would file a correct implementation as debt.** The fix is a
+third route in the classifier: *the plugin store IS the authority, proven by a singularity test*.
+
+### L-7965 — ⛔ OPEN: no persistence slice (C84 EI-6)
+
+`BoundaryLine` is not in `SCHEMA_REGISTRY` and `ProjectSerializer` has no boundary-line slice, so
+a boundary line does not survive save/load. **Stated as ABSENT rather than inherited** — C84 EI-6
+makes this a real gap and the honest move is to name it, not to let a later audit discover it.
+⚠ The same shape as C104 §11's `SCHEMA_REGISTRY` half (L-7061): moving a schema into the registry
+changes what validates a persisted project, which is a C47 question.
+
+### L-7966 — ⛔ OPEN: the volume bool is fully modelled and draws NOTHING in 3-D
+
+`boundaryLineSolid()` returns pure data — one footprint ring per segment plus two Y values — and
+is covered by four tests. **No renderer consumes it yet.** ⛔ Do not read C106 §5 as a claim that
+a solid appears on screen: the model, the precedence rule, the intent field, the category and the
+material gate are all live; the mesh is not. Naming this is the difference between a declared gap
+and the "authored but unwired" defect this repository logs most often.
+
+### L-7967 — ⚠ RECORDED: the contract was commissioned as `C105` and is `C106`
+
+Measured mid-lane: `C105-AI-PROVIDER-CREDENTIALS-BYOM.md` was already on disk — **untracked**
+(`git status --short` → `??`), being written by a concurrent lane, with its README row already
+added. Taking C105 anyway would have produced **two contracts under one number**, which is
+strictly worse than any renumbering **and is the one collision `check-contract-index-equivalence.ts`
+cannot detect** (both files would exist; only one row would). C103 remains RESERVED for *Balcony &
+Compound Systems* (L-7060, OPEN) and was not taken either. **75 citations across 41 files were
+renumbered in one named pass.**
+
+### L-7980 — gate readings at lane close (readings, with a timestamp — never states)
+
+- root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=0**, taken
+  after each commit.
+  ⚠ **Filtered for one file this lane does not own.** `packages/ai-host/src/byom/ByomProviders.ts`
+  is **UNTRACKED** (`git status --short` → `??`) and mid-write by a concurrent lane; it emits
+  ~14 TS1005 parse errors. Verified not this lane's by its TRACKED STATE, not by assertion. On a
+  shared tree a single tsc run is a photograph, not a fact — the mirror of L-7480's note.
+  ⚠ One transient **RC=2** window caused by this lane and closed inside it:
+  `VGSceneApplicator`'s `VGCategory` is a CLOSED literal union, so the scene-map row alone did not
+  compile.
+- `packages/geometry-boundary-line` → **2 files / 28 tests, 28 PASS**.
+- `plugins/boundary-line` → **2 PASS** (the singularity scan).
+- `apps/editor/__tests__/boundaryLineReachableThroughComposedRuntime.test.ts` → **13 PASS**.
+- `apps/editor` `boundaryLinePointerReach.spec.ts` → **11 PASS**.
+- `apps/editor` `boundaryLineMoveTableAgreesWithElementMove.spec.ts` → **5 PASS**.
+- `packages/command-registry` `moveBoundaryLineCascade.test.ts` → **12 PASS**.
+- `apps/editor` `elementCreationMatrix.spec.ts` → **150 PASS** (ledger updated in the same commit,
+  with its reason); `drawingModeBar.spec.ts` and `pointerReachesArmedHandler.spec.ts` unregressed;
+  `creationToolShortcuts.test.ts` → **7 PASS**.
+- `packages/core-app-model` `src/drawing/` + `src/presentation/` → **25 files / 288 PASS**.
+- `tools/ga-gate/check-contract-index-equivalence.ts` → **RC=0**, *"arm A 18 = baseline; arms
+  B/C/D clean"* — the C106 row landed in the same commit as the file, so arm A did not move.
+- `tools/ga-gate/check-chat-capability-coverage.ts` → UNDECLARED **15 → 9**; still RED at 9,
+  none of them this lane's.
+- `tools/ga-gate/check-sync-disposition.ts` → UNDECLARED **18 → 12**; still RC=1, none of the 12
+  this lane's.
+- `tools/ga-gate/check-verb-register.ts` → **RC=1**, three of four failures pre-existing; V1 and
+  V4 additions recorded as **L-7963** / **L-7964** rather than absorbed.
+
+---
+
+## L-8100..L-8180 — C13: another project's railings were being drawn inside this project (lane ISO45, 2026-08-23)
+
+The founder opened `proj-1787392224462-0d68ff6c78d7` and the console said:
+
+```
+[C13 VIOLATION] Project-isolation leak detected — 2 finding(s):
+  scene.foreignElement×37  (instanced-group-stair-railing_L1787150975010_36_24_0.500_0.500_0.500_… ;
+                            aada3f1f-… ⇐ stair-railing ; 424416c2-… ⇐ stair-railing ; …)
+  scope.foreignProject×1   (site.model still owned by proj-1787150674754-fe43bbbc18c5)
+⚠ 42/376 scene root(s) UNATTRIBUTED
+```
+
+`L1787150975010` is a level of the project `scope.foreignProject` names. This is the
+[[auth-session-leak-account-switch]] family — client-side carry-over across an identity boundary —
+and it is a trust defect before it is a correctness one.
+
+### L-8100 — ⭐ ROOT: the instanced renderer's teardown was wired to an event **nothing dispatches**
+
+`InstancedElementRenderer.clear()` — the teardown its own header names at step 4, *"When the scene is
+cleared (project close), call clear()"* — had **one** production call site: `initScene.ts:708`, inside
+`window.addEventListener('clear-project', …)`.
+
+⛔ **`'clear-project'` has ZERO dispatchers in this repository.** Cross-checked with two tools,
+because a single grep is not proof:
+
+| command | result |
+|---|---|
+| `rg -n "clear-project" -g "*.{ts,tsx,js,mjs}"` | **8 hits** |
+| `for d in apps packages plugins src server tools scripts; do grep -rn "clear-project" "$d" --include=*.ts --include=*.tsx --include=*.js --include=*.mjs; done | grep -v node_modules` | **8 hits** |
+| `grep -c 'clear-project' packages/event-bus/src/catalog.ts` | **0** |
+
+All eight are listeners or doc comments (`initScene.ts:708`; the invalidation `EVENTS` arrays of
+`ViewRenderCache`, `ViewVisibilityMap`, `SceneBoundsCache`, `TopologyLayer`, `TopologySpatialIndex`).
+Not one `dispatchEvent`, not one `_bus.emit`, and it is not even a **declared** event. The renderer
+was therefore **never bulk-cleared on a project switch, ever**; its only teardown was the per-element
+`unregister()` each builder issues — the path L-320 already documented as abortable mid-sweep.
+
+**This is L-224 verbatim, third recurrence** — a teardown that ships, whose unit tests pass, and which
+runs nowhere ([[committed-is-not-reachable]]).
+
+⭐ **The founder's project-blind-key lead was CONFIRMED, and it is why the repair is an owner rather
+than a better key.** `_hashGeometry` builds
+`${elementType}_${levelId}_${idx}_${vtx}_${x}_${y}_${z}_${material.uuid}` — (elementType × level ×
+geometry × material), **no project**. So the aggregate had no project identity to be torn down *by*.
+
+**FIXED** — `apps/editor/src/engine/instancedRendererProjectScope.ts` registers
+`render.instancedElements` as a `ProjectScopedStore` (driven by `ClearProjectCommand.clearAll()`,
+which runs on every project-entry path) **and** a `ProjectScopeProbe`. Not a re-pointed event string:
+that is the same fragile shape with a different literal in it. The probe deliberately **does not trust
+the teardown** — its stamp is reset *only* inside `clear()`, so a switch on which the teardown failed
+reports project A while B is open rather than laundering the leak as clean.
+
+### L-8101 — the two builders left out of the "complete" sweep, behind the one unguarded call
+
+`projectScopedBuilderTeardown.ts`'s header records the split: the four L-320 builders (wall,
+floor-finish, handrail, stair-railing) stay in the older `initTools` sweep, "the other fifteen" move
+to `initBuilders`. But the `initTools` listener's **first** statement,
+`wallTool.getFragmentBuilder().dispose()`, was the **only unguarded** one — ahead of the three
+`try`-wrapped disposals — in a block whose own comment claims *"each guarded independently so one
+failure cannot stop the others"*. A throw there (the WebGPU `usedTimes` L-303 family this same block
+cites) stranded floor-finish, handrail **and stair-railing** teardown.
+
+**FIXED** — `handrailBuilder` + `stairRailingBuilder` added to the isolating `initBuilders` sweep, and
+the wall call guarded. `via: 'dispose'` is used and is proven non-terminal for both:
+`grep -n 'removeEventListener\|_disposers\|_unsub'` on both builders → **0 hits**, so neither can drop
+a subscription the incoming project needs.
+
+### L-8102 — `StairRailingStore` had no project-switch owner **at all**
+
+`grep -rn "projectScopeRegistry.register" packages/geometry-stair/src/*.ts` → **0**.
+`grep -ic 'railing' packages/command-registry/src/project/ClearProjectCommand.ts` → **0**.
+
+Project A's railing *records* survived every switch in memory, reachable by neither `clearAll()` (not
+registered) nor the command's hand-written list (never mentioned). They were also invisible to the
+audit's **data** arm, because `AUDITED_STORE_GLOBALS` omits `stairRailingStore` — **which is exactly
+why the founder's report showed `scene.foreignElement` with no accompanying `store.foreignElement`.
+The surface most able to hold the residue was the one surface nobody asked.**
+
+**FIXED** — registered as `stair.railings`. Clearing is unconditionally safe: `ProjectSnapshot`
+declares `stairs` and `handrails` but **no railings key**, and `ProjectLoader` has no railing restore
+loop, so nothing a load would repopulate is discarded.
+
+### L-8103 — ⚠ the count **37** was inflated by a permanent false positive
+
+`InstancedElementRenderer` and `InstancedMeshCoalescer` are **two different aggregation systems** and
+the audit modelled only the second. The first stamps a synthetic `userData.id` of the form
+`instanced-group-<key>`, which is `isIdAttributable` — so the element-id arm acted on it, and **no
+snapshot can ever contain `instanced-group-…`**. Every aggregate was reported as a foreign element on
+every load in every project, forever.
+
+**FIXED by ATTRIBUTION, not exemption** — the renderer already stamps `userData.levelId`
+(`_createGroup`, :490) and `snapshot.levels` has been in the expected set since L-711, so the level is
+decidable. New surface **`scene.foreignInstancedGroup`** reports *"level L… ⇐ stair-railing instanced
+aggregate"*. ⛔ The id arm is suppressed **only when the level is readable**; an aggregate with no
+`levelId` falls back to the id arm and is still reported, because it would otherwise vanish through
+the seam `isIdAttributable` exists to close. A test plants exactly that shape.
+
+### L-8104 — 42 UNATTRIBUTED roots were **camouflage**, and the fix is to DECLARE, never to assume
+
+An unattributed root is indistinguishable from a leak, so a pile of legitimate chrome hides the real
+ones. `PROJECT_INDEPENDENT_SCENE_ROOTS` now declares four, each keyed on the name its producer really
+assigns and cited by `file:line` so a rename breaks the declaration instead of silently re-blinding
+the audit: `pryzm-infinite-grid-3d` (InfiniteGrid3D.ts:81), `levelLinesGroup` (LevelVisualizer.ts:109),
+`bimGridsGroup` (BimGridRenderer.ts:60), `__pryzm_ground_shadow_catcher__` (GroundShadowCatcher.ts:35).
+
+⭐ **Declaring costs zero coverage, and that is checked rather than asserted.** Two of the four are
+CONTAINERS whose children carry real ids, and `detectLeaks`' element-id arm is **not** gated on
+`isRoot` — so every child is still visited and still checked against `snapshot.levels` /
+`snapshot.grids`. The declaration removes a wrapper from a list of unknowns, not a check from an
+element. The count is **printed on every verdict** (*"N root(s) DECLARED project-independent (not
+checked, retired by written decision)"*), because an exclusion you cannot count is indistinguishable
+from a check you deleted.
+
+### L-8105 — ⚠ OPEN: `project-loaded` may be a second dead listener
+
+`initScene.ts:690` binds bulk level-clip-plane registration to `'project-loaded'`. It is **absent from
+`packages/event-bus/src/catalog.ts`**, and an independent orphan sweep found **no dispatcher**. But
+that sweep cannot see computed dispatch, and *"may be dead"* is not a verdict — recorded as a **named
+exception** in the new gate arm rather than silently fixed or silently excused. **Needs a runtime
+probe, not more grep.**
+
+### L-8106 — ⚠ the audit **over-declared** its own blindness
+
+`SCENE_GRAPHS_NOT_TRAVERSED` listed *"apps/editor FurnitureDragDropHandler indicatorScene"* as a third
+untraversable graph. **It is not a separate graph.** `FurnitureDragDropHandler.ts:161` assigns
+`this.indicatorScene = world.scene.three` — **the main scene** — and that is the only non-null
+assignment in the file (`:98` declares null, `:196` resets to null). The drop indicator has always
+been inside `window.scene` and has always been traversed.
+
+**CORRECTED, and this is not a narrowing.** §CONTEXT-DATA-HONESTY cuts **both ways**: claiming
+coverage you do not have and claiming blindness you do not have are the same error about the same
+fact. A gap that is not real spends the reader's attention and makes the true gaps look smaller by
+comparison.
+
+### L-8107 — the three untraversable graphs: a verdict per graph
+
+| graph | reachable? | verdict |
+|---|---|---|
+| `cesium viewer.scene.primitives` | in principle (a `PrimitiveCollection` is enumerable) but not from `window.scene` | **NOT unaudited.** It has a registered scope with a real teardown (`gis.cesiumViewport` → `resetProjectScopedState('project-switch')` per live viewport) and a probe answering `getOwningProjectId()`. Audited by **OWNERSHIP, not sweep** — the disposition C13 §7.5 prescribes for a producer a sweep cannot see. Residual gap: the probe counts **8 named fields**, so a primitive added outside them is unseen. A sweep would drag Cesium types into a deliberately THREE-free, DOM-free L4 module for little gain. **Keep declared.** |
+| furniture-carousel private `THREE.Scene` (`FloatingObjectCarousel.ts:305`, verified the only assignment) | only via the carousel instance | **Genuinely a second graph and genuinely unowned**, but it renders the furniture **CATALOGUE**, not placed project elements, so its contents are previews rather than project state. Its GLB-404 handler (:427) adds unstamped grey boxes. **Low risk; the honest close is a probe on the carousel, not a sweep.** |
+| `FurnitureDragDropHandler.indicatorScene` | — | **NOT A GRAPH — see L-8106.** Already traversed. Entry removed. |
+
+### L-8108 — the **1993 inherited descendants**: risk assessed, and it is lower than it looks
+
+A leaked child under a clean parent is invisible to the root sweep. Measured against how the graph is
+actually built, the exposure is small: `detectLeaks`' element-id arm is **not gated on `isRoot`**, so
+every descendant that carries `id`/`elementId` **is** checked individually — the 1993 are the ones
+carrying *no* id, i.e. a wall's layer meshes and a railing's part meshes, which are created by the
+same builder call as their parent and removed with it. The residual case is a foreign group
+*re-parented* under an owned element, which no production code path does today.
+**Verdict: not worth closing with a sweep** — the honest instrument is a probe on any producer that
+parents a subtree it does not own, which is precisely what `views.mountedDrawing` and
+`links.linkedModels` already are.
+
+### L-8110 — the gate that should have caught this had been shipping RED all week
+
+`npm run check:isolation` arm 3: **50 candidates against a baseline of 41**, nine over. ⛔ **None was
+baseline-bumped.** SIX were genuinely project-scoped and got a **real** `projectScopeRegistry` owner
+(`plantools.armedSelection`, `plantools.stairByWallsPlan`, `analysis.readModel`,
+`analysis.graphReadModel`, `diagnostics.lineworkProbe`, `views.underlayViewScope`) — they leave the
+list by being **fixed**. THREE are recorded as NOT-PROJECT-SCOPED with the matched identifier named
+and checked one at a time (`siteViewQuickToggleModel.ts`, `titleBlockContext.ts`,
+`ElementPreviewRenderer.ts`).
+
+⭐ **Two of the six were AUTHORED-BUT-UNWIRED, not merely undeclared** — the same shape as L-8100:
+`__resetStairByWallsForTests` carried the comment *"Test seam + project-switch reset (C48 project
+isolation)"* with **zero** project-switch callers, and `invalidateAnalysisReadModel`'s doc claimed it
+was *"Called on commit and on project load"* while no load path called it.
+
+⚠ For `lineworkProbe` and `underlayViewScope` the project-switch reset is **split** from the test
+reset, differing by exactly one field: `_installed`. A switch that cleared the subscription latch
+would let the next install subscribe a second time — **L-224 one layer down**. Sharing one reset
+between the two callers is how that bug gets written.
+
+⛔ `apps/editor/src/ui/ai/byom/byomDeviceStorage.ts` appeared mid-lane and is **deliberately
+untouched** — it belongs to the concurrently-running BYOK lane, and classifying another lane's
+in-flight file from the outside is how a wrong reason gets written down as a decision.
+
+### L-8111 — the answer to *"is `stairByWalls.ts` on the list because the leak is stair-railings?"*
+
+**COINCIDENCE, and it is worth saying so rather than leaving the reader to assume a connection.**
+`stairByWalls.ts` holds a pending By-Walls **stair plan** (wall ids + geometry), not railing geometry;
+it shares neither a module, a store nor a code path with `StairRailingBuilder`. What is *not*
+coincidence is that both were surfaced by the same instrument: an unwired project-switch reset and an
+unowned module singleton are the same defect wearing two subjects.
+
+### L-8120 — ⚠ FINDING, not fixed here: the instancing kill switch is dead code
+
+`isElementInstancingEnabled` (`ElementInstanceBridge.ts:384`) documents a three-step resolution order
+(per-family override → master override → shipped default) and its body is
+`return _FAMILY_DEFAULTS[family] === true;`. It reads `globalThis.__pryzmElementInstancing` and
+`__pryzmElementInstancingV1` into a local `g` and **never uses it**. So
+`__pryzmElementInstancingV1 = false` — the documented console kill switch, *"a default the user cannot
+back out of on their own machine is a bad trade"* — **does nothing**. Defaults today:
+`window: true, handrail: true, stairRailing: true, column: false, beam: false`.
+**Left unfixed deliberately**: restoring it changes runtime behaviour for three live families and
+belongs in a lane that can browser-test the flip. Recorded so the founder is not told to "turn
+instancing off to check" with a switch that is not connected.
+
+### L-8130 — what is CLOSED and what is NOT
+
+**Closed:** the instanced-aggregate leak (L-8100), the two stranded builders (L-8101), the railing
+store (L-8102), the false-positive aggregate arm (L-8103), 4 of the 42 unattributed roots (L-8104),
+the over-declared graph (L-8106), and all nine gate candidates (L-8110).
+
+**NOT closed, stated rather than implied:**
+* **`scope.foreignProject×1` (`site.model`) is NOT fixed by this lane.** The `site.model` scope *is*
+  registered and *does* have a probe (`siteProjectScope.ts`), so its mechanism is different from the
+  instanced leak's: the owner exists and either did not clear, or cleared and was re-seeded.
+  Diagnosing that needs a runtime trace of the switch ordering, which static reading cannot supply.
+  ⛔ **Do not assume the two findings share a root — the evidence does not say so.**
+* **No deploy, no browser test.** Everything here is proven by the root `tsc` (RC=0), the gates, and
+  the test suites named below.
+* The 36 railing element ids were judged **foreign** (see L-8131), but the exact A-vs-B split of the
+  37 cannot be recovered from the log alone.
+
+### L-8131 — ⭐ **37 = 36 elements + 1 aggregate**, and the rival hypothesis was tested before being rejected
+
+The brief asked whether 37 real railings leaked or one aggregate was being counted per-instance. It is
+neither: **36 distinct railing ELEMENTS plus 1 aggregate MESH.** `buildRailing` adds one `THREE.Group`
+**per railing** stamped `{ id, elementId, elementType:'stair-railing' }`
+(`StairRailingBuilder.ts:285`) *in addition to* registering its balusters as GPU instances, so each
+railing has its own scene root; the 37th id is the aggregate's synthetic `instanced-group-…`.
+
+⚠ **The rival reading was that these are FALSE POSITIVES**, and it had real support:
+`LOAD_DERIVED_ELEMENT_TYPES` already declares `'stair-railing'` as *"Built by StairRailingBuilder from
+the parent stair"* and therefore legitimately absent from the expectation. **Tested and REJECTED on
+evidence:** every `buildRailing` caller requires the railing to already be in `stairRailingStore`
+(`bim-stair-railing-added` / `-updated`, or a `getByStairId` rebuild) — **there is no path that
+creates a railing from a restored stair.** Combined with railings having no snapshot array and no
+loader restore, project B has no mechanism to produce a railing at load. So a `stair-railing` root
+present after loading B is necessarily A's.
+
+⭐ **That makes `'stair-railing'` in `LOAD_DERIVED_ELEMENT_TYPES` itself a mis-declaration**, and it
+implies a separate, unlogged defect: **stair railings do not survive save/load at all.** Not fixed
+here — it is a persistence question, not an isolation one — but it is the reason the leak was visible
+as railings rather than as walls.
+
+### L-8140 — the gate arm that would have caught L-8100
+
+Arm 5b (the L-224 dead-listener guard) could not have caught this: the two failures are **mirror
+images** and it models only one — 5b sees a listener bound to `window` for an event emitted on the
+**typed bus**; L-8100 was a listener bound to an event emitted by **nobody**. 5b is also keyed on
+three hard-coded names, so a fourth dead name was invisible to it however dead it was.
+
+Proving *"nothing dispatches X"* repo-wide is **not decidable by grep** — dispatch happens through
+computed names, and a sweep that assumes otherwise ships false positives, which is how a gate gets
+muted. Measured: **75** listened-but-never-dispatched event names exist and almost all are native
+browser events (`keydown`, `mousedown`, `blur`, …).
+
+So the new arm asks a question with an **authority** behind it: **a project teardown may only be
+triggered by an event DECLARED in `packages/event-bus/src/catalog.ts`** (204 events). An undeclared
+event cannot be emitted by any typed producer, so a teardown wired to one is unwired **by
+construction**. Reads `✓ 3/3 root(s) scanned against 204 declared events; 2 named exception(s), 0 new`.
+**Shrink-only against a NAMED baseline, never a bare count** — a count that stays at 2 while the two
+entries are swapped is a gate that passed while its subject changed completely.
+
+### L-8180 — verification, run in the foreground
+
+* `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=0, 0 errors**.
+* `npm run check:isolation` → arms 1, 2, 4 **RC=0** (incl. the new
+  `✓ §C13-TEARDOWN-TRIGGER-DECLARED`). Arm 3 reports **one** remaining candidate,
+  `byomDeviceStorage.ts`, owned by the concurrent BYOK lane — **not mine to classify.**
+* `npx vitest run __tests__/projectSwitchInstancedRendererIsolation.test.ts` (in `apps/editor`) →
+  **5/5**. **PROVEN RED on the pre-fix tree**: with the owner removed (the exact pre-fix state) the
+  founder-visible assertion fails with `expected [ Array(1) ] to deeply equal []` — one of project A's
+  instanced roots surviving into project B's scene. The scope module was then restored and verified
+  **byte-identical** (`diff` → no output).
+* `npx vitest run src/persistence/` in `packages/core-app-model` → **7 files, 81/81**, unchanged.
+* ⚠ Mid-lane the root `tsc` was **RC=2 with 11 errors, all in
+  `apps/editor/src/engine/inspect/DiagnosticMaterialManager.ts`** — a sibling lane's in-flight edit
+  (+198/−30), not this lane's. Recorded rather than silenced; they were gone by the final run.
