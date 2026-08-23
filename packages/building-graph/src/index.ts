@@ -37,6 +37,39 @@ export {
 
 export type { UbgAdapter, UbgAdapterRegistry } from './adapters.js';
 
+// GRAPH48 / ADR-0360 — ONE graph, SIX projections. A hierarchy view is a subset
+// of the ten declared edge families, never a rival graph (C71 §4.1/§4.2).
+export {
+  disciplineOfFamily,
+  ifcClassLabel,
+  knownFamilies,
+  DISCIPLINE_ORDER,
+  DISCIPLINE_LABEL,
+  DISCIPLINE_BASIS,
+  type Discipline,
+  type ElementFamilyResolver,
+  type IfcClassResolution,
+  type IfcClassResolver,
+} from './discipline.js';
+
+export {
+  HIERARCHY_VIEWS,
+  UNDIRECTED_FAMILIES,
+  viewDef,
+  familyOfNode,
+  projectHierarchy,
+  focusNeighbourhood,
+  describeFocus,
+  edgeKey,
+  type HierarchyView,
+  type HierarchyViewDef,
+  type HierarchyProjection,
+  type HierarchyOptions,
+  type DisciplineBucket,
+  type FamilyBucket,
+  type NeighbourhoodFocus,
+} from './hierarchy.js';
+
 export { withUbgSpan, _resetTracerCache, type UbgMutationOp } from './tracing.js';
 
 // GRAPH.2 — concrete adapters that PROJECT the specialised graphs into the UBG.
