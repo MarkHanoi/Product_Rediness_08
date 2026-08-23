@@ -26,6 +26,16 @@
  */
 
 import type { ElementTypeAuthoring } from './ElementTypeAuthoringRegistry';
+// §OPENING-FINISH-IS-A-REFERENCE (L-7702) — THE fix for the founder's screenshot.
+// The Frame / Sill rows were `<input type="text">` beside a colour chip, so a type
+// authored here was born carrying the STRING "Steel Frame" and no material at all.
+// The picker is imported from the one place it is defined; this modal mints no
+// material vocabulary of its own (C100 SS1.1).
+import {
+    buildFinishMaterialSelect,
+    finishMaterialHex,
+    finishMaterialLabel,
+} from '@pryzm/geometry-door';
 
 /** The draft under edit — a family type record minus identity fields. */
 export type FinishTypeDraft = Record<string, any> & {
@@ -70,7 +80,11 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
         // A draft missing a slot gets an editable empty finish rather than a crash;
         // the adapter's validateDraft still refuses a save without a colour.
         if (!draft[slot.key] || typeof draft[slot.key] !== 'object') {
-            draft[slot.key] = { name: slot.label, materialColor: '#cccccc' };
+            // §OPENING-FINISH-IS-A-REFERENCE (L-7702) — was `{ name: slot.label, ... }`,
+            // which seeded the literal string "Frame" as if it were a finish NAME. An
+            // empty slot must read as empty (C100 SS5): the picker then shows
+            // "- select material -" rather than a plausible-looking value nobody chose.
+            draft[slot.key] = { name: '', materialColor: '' };
         }
     }
 
@@ -168,30 +182,95 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
 
     body.appendChild(preview);
 
-    // ── Finish slots ─────────────────────────────────────────────────────────
+    // ── Finish slots ──────────────────────────────────────────────────────
+    //
+    // ⭐ THIS IS THE FOUNDER'S SCREENSHOT. Each row WAS `[label] [free-text] [colour]`.
+    // It is now `[label] [library material] [colour]`, and the two halves have
+    // different authority (C100 §2.1):
+    //
+    //   • the MATERIAL is the identity — `materialId`, resolved against the master;
+    //   • the COLOUR is a CACHE of that material, written by the picker, never typed;
+    //   • a colour the user changes BY HAND becomes an explicit OVERRIDE, and
+    //     C100 §6.1's MUST is that the UI marks it as one. It is marked, and it is
+    //     reversible — an invisible override is indistinguishable from a stale copy.
+    //
+    // No new field encodes "is override": the state IS `materialColor !== the master's
+    // hex for materialId`, which is exactly how `doorFinishColour.ts` rung 1 already
+    // infers an instance override. One spelling of one rule.
     slots.forEach((slot, i) => {
-        const row = mk('div', 'display:flex;gap:8px;align-items:center;margin-bottom:12px;');
+        const row = mk('div', 'display:flex;gap:8px;align-items:center;margin-bottom:6px;');
         const lab = mk('div', 'flex:0 0 64px;font-weight:600;font-size:12px;');
         lab.textContent = slot.label;
 
-        const nm = mk('input',
-            'flex:1;min-width:0;padding:7px 9px;border:1px solid ' + LINE + ';border-radius:5px;font:inherit;');
-        nm.type = 'text';
-        nm.value = draft[slot.key]?.name ?? '';
-        nm.setAttribute('aria-label', `${slot.label} finish name`);
-        nm.id = `fte-slot-name-${i}`;
-        nm.addEventListener('input', () => { draft[slot.key].name = nm.value; });
+        const picker = buildFinishMaterialSelect({
+            currentId:  draft[slot.key]?.materialId,
+            legacyName: draft[slot.key]?.name,
+            onChange: (id, color, label) => {
+                draft[slot.key] = {
+                    ...draft[slot.key],
+                    name: label,
+                    materialId: id || undefined,
+                    materialColor: color,
+                };
+                col.value = /^#[0-9a-fA-F]{6}$/.test(color) ? color : '#cccccc';
+                refreshOverride();
+                redraw();
+            },
+        });
+        picker.style.flex = '1';
+        picker.style.minWidth = '0';
 
         const col = mk('input',
-            'width:38px;height:32px;padding:1px;border:1px solid ' + LINE + ';border-radius:5px;');
+            'width:38px;height:32px;padding:1px;border:1px solid ' + LINE + ';border-radius:5px;flex-shrink:0;');
         col.type = 'color';
         col.value = /^#[0-9a-fA-F]{6}$/.test(draft[slot.key]?.materialColor ?? '')
             ? draft[slot.key].materialColor : '#cccccc';
-        col.setAttribute('aria-label', `${slot.label} finish colour`);
-        col.addEventListener('input', () => { draft[slot.key].materialColor = col.value; redraw(); });
+        col.setAttribute('aria-label', `${slot.label} finish colour — overrides the material's own colour`);
+        col.id = `fte-slot-colour-${i}`;
 
-        row.append(lab, nm, col);
+        // The override notice: what it is, and the way back. Rendered under the row so
+        // it never reflows the controls.
+        const note = mk('div',
+            'margin:0 0 12px 72px;font-size:11px;display:none;align-items:center;gap:8px;color:' + MUTED + ';');
+        const noteText = mk('span', '');
+        const resetBtn = mk('button',
+            'font:inherit;font-size:11px;padding:1px 7px;border:1px solid ' + PURPLE + ';border-radius:999px;' +
+            'background:#fff;color:' + PURPLE + ';cursor:pointer;font-weight:600;');
+        resetBtn.type = 'button';
+        resetBtn.textContent = 'Reset to material colour';
+        note.append(noteText, resetBtn);
+
+        function refreshOverride(): void {
+            const id = draft[slot.key]?.materialId as string | undefined;
+            const masterHex = finishMaterialHex(id);
+            const current = String(draft[slot.key]?.materialColor ?? '').toLowerCase();
+            const overridden = !!masterHex && !!current && current !== masterHex.toLowerCase();
+            note.style.display = overridden ? 'flex' : 'none';
+            if (overridden) {
+                noteText.textContent =
+                    `Colour overridden — ${finishMaterialLabel(id) ?? id} is ${masterHex}.`;
+            }
+        }
+
+        resetBtn.addEventListener('click', () => {
+            const masterHex = finishMaterialHex(draft[slot.key]?.materialId as string | undefined);
+            if (!masterHex) return;
+            draft[slot.key].materialColor = masterHex;
+            col.value = masterHex;
+            refreshOverride();
+            redraw();
+        });
+
+        col.addEventListener('input', () => {
+            draft[slot.key].materialColor = col.value;
+            refreshOverride();
+            redraw();
+        });
+
+        row.append(lab, picker, col);
         body.appendChild(row);
+        body.appendChild(note);
+        refreshOverride();
     });
 
     // ── Glazing opacity ──────────────────────────────────────────────────────
@@ -259,6 +338,16 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
         if (!name) return 'Give the type a name.';
         if (opts.existingNames.includes(name.toLowerCase())) {
             return 'A type with that name already exists in this project.';
+        }
+        // ⭐ §OPENING-FINISH-IS-A-REFERENCE (L-7702) — REFUSES-WITH-REASON, and it is a
+        // CORRECT state, not a defect. A finish with no library material cannot be
+        // scheduled, cannot be exported to IFC and cannot carry a carbon factor
+        // (C100 §2.1). Refusing here is cheap; discovering it in a take-off six
+        // months later is not. The route back is named: pick one, they are listed.
+        for (const slot of slots) {
+            if (!draft[slot.key]?.materialId) {
+                return `Pick a library material for ${slot.label}.`;
+            }
         }
         return null;
     }

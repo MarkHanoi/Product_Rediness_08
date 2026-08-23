@@ -15,7 +15,11 @@ import { doorStore } from './DoorStore';
 import { openingProfilesFor, OPENING_PROFILE_LABELS, SEGMENTAL_RISE_RATIO } from '@pryzm/geometry-wall';
 import { DoorOpening } from './DoorTypes';
 import { UpdateDoorParameterCommand } from '@pryzm/command-registry';
-import { STANDARD_MATERIAL_LIBRARY } from '@pryzm/core-app-model/material-library';
+// §OPENING-FINISH-IS-A-REFERENCE (L-7700) — the private `makeMaterialSelect` that
+// used to live in this file is now `buildFinishMaterialSelect`, shared with
+// `WindowSection`. Door had library dropdowns and window had a free-text box for
+// the same concept; two surfaces for one rule is how they drifted (C65 §3.5).
+import { buildFinishMaterialSelect } from './FinishMaterialSelect';
 
 /**
  * CSS is now managed by AppTheme.ts (DOOR_SECTION_STYLES in propertyInspector.ts).
@@ -123,72 +127,6 @@ function makeTextInput(current: string, onChange: (v: string) => void): HTMLInpu
     inp.value = current;
     inp.addEventListener('change', () => onChange(inp.value.trim()));
     return inp;
-}
-
-function makeMaterialSelect(
-    currentId: string | undefined,
-    onChange: (materialId: string, materialColor: string, materialLabel: string) => void
-): HTMLElement {
-    const grouped = new Map<string, typeof STANDARD_MATERIAL_LIBRARY>();
-    for (const m of STANDARD_MATERIAL_LIBRARY) {
-        const list = grouped.get(m.category) ?? [];
-        list.push(m);
-        grouped.set(m.category, list);
-    }
-
-    // §FIX-PROPERTIES-PANEL-POLISH — fill the shared value column so the material
-    // dropdown right-edge aligns with every other control in the panel.
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'display:flex;align-items:center;gap:6px;width:100%;min-width:0;';
-
-    const swatch = document.createElement('div');
-    const findColor = (id?: string): string => {
-        if (!id) return '#e0d8d0';
-        const m = STANDARD_MATERIAL_LIBRARY.find(x => x.id === id);
-        if (!m) return '#e0d8d0';
-        const c = m.params.color;
-        if (typeof c === 'number') return '#' + c.toString(16).padStart(6, '0');
-        if (typeof c === 'string') return c;
-        return '#e0d8d0';
-    };
-    swatch.style.cssText = `width:14px;height:14px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,.12);background:${findColor(currentId)};`;
-
-    const sel = document.createElement('select');
-    sel.className = 'dw-select';
-    sel.style.cssText = 'flex:1 1 auto;min-width:0;';
-
-    const blank = document.createElement('option');
-    blank.value = '';
-    blank.textContent = '— select material —';
-    if (!currentId) blank.selected = true;
-    sel.appendChild(blank);
-
-    Array.from(grouped.entries())
-        .sort(([a], [b]) => a.localeCompare(b))
-        .forEach(([cat, mats]) => {
-            const grp = document.createElement('optgroup');
-            grp.label = cat;
-            for (const m of mats) {
-                const o = document.createElement('option');
-                o.value = m.id;
-                o.textContent = m.label;
-                if (m.id === currentId) o.selected = true;
-                grp.appendChild(o);
-            }
-            sel.appendChild(grp);
-        });
-
-    sel.addEventListener('change', () => {
-        const id = sel.value;
-        const color = findColor(id);
-        swatch.style.background = color;
-        const label = STANDARD_MATERIAL_LIBRARY.find(m => m.id === id)?.label ?? id;
-        onChange(id, color, label);
-    });
-
-    wrap.appendChild(swatch);
-    wrap.appendChild(sel);
-    return wrap;
 }
 
 function makeToggle(options: { value: string; label: string }[], current: string, onChange: (v: string) => void): HTMLElement {
@@ -343,24 +281,33 @@ export function buildDoorSection(doorId: string): HTMLElement | null {
         makeTextInput(door.fireRating ?? '', v => dispatch(doorId, { fireRating: v || undefined }))
     ));
 
+    // §OPENING-FINISH-IS-A-REFERENCE (L-7700) — `legacyName` is the half that was
+    // missing. A door placed before openings referenced materials carries
+    // `frameFinish.name === 'Steel Frame'` and no id; the old picker showed that as
+    // "— select material —", making a user's real value and an unset slot the same
+    // value on screen (C100 §5 / §CONTEXT-DATA-HONESTY). The string is now shown AS
+    // a legacy value and is kept in the record until the user replaces it.
     body.appendChild(makeField('Frame Finish',
-        makeMaterialSelect(
-            door.frameFinish?.materialId,
-            (id, color, label) => dispatch(doorId, {
+        buildFinishMaterialSelect({
+            currentId:  door.frameFinish?.materialId,
+            legacyName: door.frameFinish?.name,
+            onChange: (id, color, label) => dispatch(doorId, {
                 frameFinish: { name: label, materialId: id || undefined, materialColor: color },
-                ...(id ? {} : {}),
-            })
-        )
+            }),
+        })
     ));
 
     body.appendChild(makeField('Leaf Finish',
-        makeMaterialSelect(
-            door.leafFinish?.materialId,
-            (id, color, label) => dispatch(doorId, {
+        buildFinishMaterialSelect({
+            currentId:  door.leafFinish?.materialId,
+            legacyName: door.leafFinish?.name,
+            onChange: (id, color, label) => dispatch(doorId, {
                 leafFinish: { name: label, materialId: id || undefined, materialColor: color },
+                // A door's schedule finish is its LEAF (CreateWallOpeningCommand :226).
+                // The window's is its FRAME. Different by construction, not by drift.
                 finishMaterial: label || undefined,
-            })
-        )
+            }),
+        })
     ));
 
     section.appendChild(body);

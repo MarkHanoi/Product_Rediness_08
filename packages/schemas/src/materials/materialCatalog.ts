@@ -23,6 +23,15 @@
 //     one to satisfy a gate is how the rival vocabularies got written in the first
 //     place (C100 §1.1), so the MASTER gained the material instead. Cite
 //     `MATERIAL_CATALOG.length`, never a number from this comment.
+//  +1 2026-08-23 `steel-powder-coated-dark` (L-7703). The `wt-steel-crittal` window
+//     preset's frame is a DARK POWDER-COATED STEEL at `#444444`, and the master had
+//     no such row: the nearest metals were `aluminium-powder-coated-dark` (right
+//     finish, WRONG METAL) and `steel-blackened` (#1d1f20, right metal, a different
+//     product and far darker). Per the `steel-grating` precedent immediately above —
+//     mapping a real material onto a wrong one to satisfy a wiring job is how the
+//     rival vocabularies got written (C100 §1.1) — the MASTER gained the material.
+//     Its hex is the preset's own `#444444`, so seeding the reference recoloured
+//     nothing for this row.
 //
 // TO ADD A MATERIAL: add a row HERE. Never beside it, and never in a projection —
 // a projection maps the master, it never extends it (C84 §1.3).
@@ -48,6 +57,7 @@ export const MATERIAL_CATALOG: readonly MaterialRecord[] = ([
   { source: 'builtin' as const, id: 'steel-stainless-polished', label: "Steel · Stainless Polished", category: 'Metal', color: '#dce0e8', metalness: 1, roughness: 0.05 },
   { source: 'builtin' as const, id: 'steel-galvanised', label: "Steel · Galvanised", category: 'Metal', color: '#b4bac4', metalness: 0.8, roughness: 0.4 },
   { source: 'builtin' as const, id: 'steel-corten', label: "Steel · Corten (Weathering)", category: 'Metal', color: '#8c4a2c', metalness: 0.5, roughness: 0.8 },
+  { source: 'builtin' as const, id: 'steel-powder-coated-dark', label: "Steel · Powder-Coated Dark Grey", category: 'Metal', color: '#444444', metalness: 0.35, roughness: 0.55 },
   { source: 'builtin' as const, id: 'aluminium-anodised-silver', label: "Aluminium · Anodised Silver", category: 'Metal', color: '#c0c4c8', metalness: 0.9, roughness: 0.2 },
   { source: 'builtin' as const, id: 'aluminium-powder-coated-white', label: "Aluminium · Powder-Coated White", category: 'Metal', color: '#f0f0f0', metalness: 0, roughness: 0.55 },
   { source: 'builtin' as const, id: 'aluminium-powder-coated-dark', label: "Aluminium · Powder-Coated Dark Grey", category: 'Metal', color: '#3c3c3c', metalness: 0, roughness: 0.55 },

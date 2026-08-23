@@ -236,6 +236,16 @@ export class CreateWallOpeningCommand implements Command {
                 const winSysType = opening.systemTypeId
                     ? windowSystemTypeStore.getById(opening.systemTypeId)
                     : undefined;
+                // §OPENING-FINISH-IS-A-REFERENCE (L-7704) — DOOR PARITY, and it was missing.
+                // The door branch has warned since §DOOR-SYSTYPE-RESOLVE-WARN (2026-06-25) that
+                // an unresolved `systemTypeId` produces an opening with NO finish and a blank
+                // schedule. The window branch resolved `winSysType` and said nothing, so the
+                // identical defect was silent on one of the two families for fourteen months.
+                // The window is still created — a bad type id is a data problem, not a crash
+                // (C100 §5's "MUST NOT make the unresolved path throw").
+                if (opening.systemTypeId && !winSysType) {
+                    console.warn(`[CreateWallOpeningCommand] window systemTypeId "${opening.systemTypeId}" did not resolve to a window type — window created WITHOUT frame/sill finish (blank schedule, no material reference). Use a real WindowSystemTypeStore id.`);
+                }
 
                 // Contract §03-1.7: Auto-generate a canonical mark (WN-FF-NNN) at creation time.
                 // Use the caller-supplied mark if one was already set; otherwise use MarkGenerator.

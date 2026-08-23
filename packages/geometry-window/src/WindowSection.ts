@@ -23,7 +23,12 @@ import {
 } from './WindowReveal';
 import { WindowOpening } from './WindowTypes';
 import { UpdateWindowParameterCommand } from '@pryzm/command-registry';
-import { injectDwStyles } from '@pryzm/geometry-door';
+// §OPENING-FINISH-IS-A-REFERENCE (L-7701) — the window inspector's `Finish
+// Material` row was a FREE-TEXT box writing the derived display string
+// `finishMaterial`, while the door inspector had already been given real
+// library dropdowns writing a `materialId`. Same concept, two surfaces, drifted.
+// The picker is imported, never re-implemented (C100 §1.1).
+import { injectDwStyles, buildFinishMaterialSelect } from '@pryzm/geometry-door';
 
 /**
  * §WINDOW-AUDIT-2026 (DI cleanup) — WindowSection accepts the CommandManager via
@@ -433,8 +438,42 @@ export function buildWindowSection(windowId: string): HTMLElement | null {
         makeTextInput(win.fireRating ?? '', v => dispatch(windowId, { fireRating: v || undefined }))
     ));
 
-    body.appendChild(makeField('Finish Material',
-        makeTextInput(win.finishMaterial ?? '', v => dispatch(windowId, { finishMaterial: v || undefined }))
+    // §OPENING-FINISH-IS-A-REFERENCE (L-7701) — DOOR PARITY.
+    //
+    // This row used to be `makeField('Finish Material', makeTextInput(win.finishMaterial …))`
+    // — the exact control the founder circled. `finishMaterial` is a DERIVED display
+    // string (`WindowTypes.ts:153`, written from `frameFinish.name`); typing into it
+    // named nothing, carried no colour, no carbon factor and no schedule identity,
+    // and could not be validated or exported (C100 §2.1's *"a hex is not a material"*,
+    // one rung lower still — this was not even a hex).
+    //
+    // It is replaced by the two REAL finish slots the window record has always
+    // carried, each writing a `materialId` the master resolves.
+    // `windowFinishColour.ts:103` — the C100 §2.1 ladder — has read
+    // `frameFinish.materialId` since L-1038 S17 and, until now, NOTHING WROTE IT
+    // per instance: rung 1 was DECLARED-BUT-UNREACHABLE for windows.
+    body.appendChild(makeField('Frame Finish',
+        buildFinishMaterialSelect({
+            currentId:  win.frameFinish?.materialId,
+            legacyName: win.frameFinish?.name,
+            onChange: (id, color, label) => dispatch(windowId, {
+                frameFinish: { name: label, materialId: id || undefined, materialColor: color },
+                // A window's schedule finish is its FRAME (CreateWallOpeningCommand :277).
+                // A door's is its LEAF. Different by construction, not by drift — and
+                // it is now DERIVED from the reference instead of typed by hand.
+                finishMaterial: label || undefined,
+            }),
+        })
+    ));
+
+    body.appendChild(makeField('Sill Finish',
+        buildFinishMaterialSelect({
+            currentId:  win.sillFinish?.materialId,
+            legacyName: win.sillFinish?.name,
+            onChange: (id, color, label) => dispatch(windowId, {
+                sillFinish: { name: label, materialId: id || undefined, materialColor: color },
+            }),
+        })
     ));
 
     section.appendChild(body);

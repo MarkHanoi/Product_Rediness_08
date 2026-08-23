@@ -70,6 +70,19 @@ export { DoorDependencyTracker } from './DoorDependencyTracker';
 export type { DoorTrackerDetermination } from './DoorDependencyTracker';
 export { DoorLevelCleanupHandler } from './DoorLevelCleanupHandler';
 export { buildDoorSection, injectDwStyles, setDoorSectionCommandManager } from './DoorSection';
+// §OPENING-FINISH-IS-A-REFERENCE (L-7700) — THE ONE finish-material picker for
+// hosted openings. Exported from the DOOR package because that is where the
+// implementation already lived (as a private helper); `WindowSection` imports it
+// from here exactly as it already imports `injectDwStyles`. One definition, two
+// families — the alternative was the second copy that produced the drift.
+export {
+    buildFinishMaterialSelect,
+    finishMaterialHex,
+    finishMaterialLabel,
+    finishMaterialState,
+    suggestMaterialForLegacyName,
+} from './FinishMaterialSelect';
+export type { FinishMaterialState, FinishMaterialSelectOptions } from './FinishMaterialSelect';
 
 // ── §FEAT-CURVED-WINDOW-LEAF / §FEAT-CURVED-DOOR-LEAF (L-957) ───────────────
 // The SHARED curved-hosted-leaf geometry, consumed by `DoorBuilder` here and by
