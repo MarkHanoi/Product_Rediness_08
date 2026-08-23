@@ -44,6 +44,14 @@ import type { PatchEmitter } from '@pryzm/command-bus';
 import { LEVEL_CHANGE_VERBS } from '@pryzm/command-bus';
 import type { EventBus } from './EventBus.js';
 
+/**
+ * Command types already reported as un-mirrored compounds — §FIX-COMPOUND-SILENT-DROP
+ * (L-7825). Module-scoped so the warning is once per TYPE for the life of the tab, not
+ * once per dispatch: this fires on real user gestures, and a line per click is noise
+ * nobody reads, which fails in exactly the same way as saying nothing.
+ */
+const _warnedUnmirroredCompounds = new Set<string>();
+
 /** Minimal shape of a committed wall as it appears in the Immer `add` patch
  *  produced by the wall create handlers (`draft[id] = wall`). */
 interface CommittedWall {
@@ -1341,7 +1349,199 @@ export function wireCommandEventBridge(
           break;
         }
 
+        case 'lift.create': {
+          // §FIX-LIFT-LOST-BETWEEN-DISPATCH-AND-STORE (L-7820..L-7824) · C104 · C11 §5.2.
+          //
+          // ═══════════════════════════════════════════════════════════════════
+          // ⭐ THE FOUNDER PLACED A LIFT. THE COMMAND RAN. NO ELEMENT LANDED, AND
+          // NOTHING ANYWHERE SAID SO.
+          // ═══════════════════════════════════════════════════════════════════
+          // His console, in order: the status bar read "Lift: standalone glass ·
+          // 1.50 × 1.60 m · serves 2 storeys from this level up · click to place",
+          // the dashed preview drew, `lift.create` reached the SYNC adapter (that is
+          // what emits the W5-3 warning, so the command really was dispatched) — and
+          // then `[ProjectSerializer] Snapshot created: 14 elements`, unchanged from
+          // 14 before. Between dispatch and the store the lift disappeared in silence.
+          //
+          // ⛔ IT WAS THIS SWITCH. `lift.create` had no case, so it fell to
+          // `default: break;` — which is a SILENT DROP dressed as exhaustiveness.
+          // Measured 2026-08-23, and stated as a pattern because a bare substring
+          // matches this very comment and reports the opposite of the truth:
+          //     grep -nE "^\s+case 'lift\.(create|delete)'" CommandEventBridge.ts
+          //     -> RC=1, zero matches.   (`grep -in lift` over the whole file: 0.)
+          //
+          // ⭐ AND THE SAME TWO-STORES TRAP IS WHY NOTHING ELSE CAUGHT IT. There are
+          // TWO lift stores and they are different elements:
+          //   · `LiftCompoundStore` (plugins/lift) — what `lift.create` writes.
+          //   · `LiftStore` (@pryzm/geometry-lift) — the LOD-200 MASSING lift, which
+          //     emits `bim-lift-added` and IS already rendered by `LiftMeshBuilder`
+          //     (wired at initBuilders.ts:985).
+          // So a mesh builder exists, is constructed, and listens to the OTHER store.
+          // UNDO37 recorded the identical trap for undo (L-7311) and correctly refused
+          // to alias the two — "mapping it is C03 §4.6 U-2b corruption". Feeding the
+          // compound into the massing store to make it draw would be that same
+          // corruption with a renderer attached, and would leave one id meaning two
+          // elements at two levels of detail (C84 EI-9). It is not done here.
+          //
+          // ⭐ THE FIX IS THE BALCONY'S IDIOM, REUSED VERBATIM — emit ONE member event
+          // PER MEMBER, stamped with the MEMBER's OWN verb, so the existing legacy
+          // mirrors treat a lift's enclosure exactly as if the architect had drawn each
+          // side by hand. No fourth mirror and no second set of field-mapping bugs.
+          //
+          // ⚠ AND THE MIRROR CENSUS IS STATED, NOT ASSUMED, because it is PARTIAL and
+          // a partial fix reported as a whole one is the defect this lane exists to
+          // avoid. Measured 2026-08-23 with BOTH ripgrep and `grep -rn` (they have
+          // disagreed in this repo before), over apps/editor/src + runtime-composer/src:
+          //     'wall.created'        -> 2 subscribers   ✅ LIVE
+          //     'door.created'        -> 0 subscribers   ❌ typed event exists, nothing listens
+          //     'curtainwall.created' -> 0 subscribers, AND NO SUCH EVENT IS DECLARED
+          // So: a WALL-HOSTED lift has all four enclosure sides of kind 'wall' and
+          // mirrors COMPLETELY. A STANDALONE-GLASS lift has one wall (the landing side)
+          // and three curtain-wall sides, so three of its four sides have nowhere to go.
+          // Those three are NOT mirrored as walls — a curtain wall drawn as a wall is a
+          // lie about the element (C84 EI-9) — they are REPORTED, by name and count, at
+          // the bottom of this case. The founder placed a standalone glass lift, so what
+          // this commit buys him is the landing side plus a console line that names
+          // exactly what is still missing, instead of silence.
+          const p = record.payload as {
+            levelId?: string;
+            liftId?: string;
+            materialId?: string;
+            enclosureIds?: readonly string[];
+            landingDoorIds?: readonly string[];
+            cabinPartIds?: readonly string[];
+          };
+          const _liftLevelId = p.levelId ?? '';
+
+          // ⚠ MULTI-STORE PATCH PATHS ARE `[storeKey, id]`, NOT `[id]` — the
+          // `produceMultiStoreCommand` routing convention, same as the balcony above.
+          // Reading the COMMIT rather than the request is load-bearing here for the
+          // same reason it is there: the enclosure geometry is computed by
+          // `buildLiftAssembly` and is NOT in the payload, which carries only the
+          // origin, the served levels and the pre-minted ids.
+          const _liftCommitted = new Map<string, Map<string, Record<string, unknown>>>();
+          for (const patch of record.forward ?? []) {
+            if (patch.op !== 'add' || patch.path.length !== 2) continue;
+            const storeKey = String(patch.path[0]);
+            const memberId = String(patch.path[1]);
+            const value = patch.value as Record<string, unknown> | undefined;
+            if (!value || typeof value !== 'object' || memberId.length === 0) continue;
+            let slice = _liftCommitted.get(storeKey);
+            if (!slice) { slice = new Map(); _liftCommitted.set(storeKey, slice); }
+            slice.set(memberId, value);
+          }
+
+          // (1) THE SHAFT ENCLOSURE, wall sides only — the four sides of a wall-hosted
+          //     shaft, or the single landing side of a standalone-glass one. Each is a
+          //     real `Wall` record the assembly already built (`type: 'wall'`, with
+          //     `baseLine` / `height` / `thickness` / `baseOffset`), so the §P2.1 mirror
+          //     builds it exactly as it builds a hand-drawn wall.
+          let _liftWallSides = 0;
+          for (const [wallId, wall] of _liftCommitted.get('wall') ?? []) {
+            // ⛔ ONLY the sides THIS command added. A wall-hosted lift's `hostWallId`
+            // names a PRE-EXISTING wall, and the slab store is patched by REPLACE (the
+            // voids), not `add` — so neither can reach this loop. Re-emitting
+            // `wall.created` for the host would mint a duplicate legacy record.
+            if (wall['parentId'] !== p.liftId) continue;
+            events.emit('wall.created', {
+              commandId:    record.id,
+              commandType:  'wall.create',
+              levelId:      (wall['levelId'] as string | undefined) ?? _liftLevelId,
+              wallCount:    1,
+              wallId,
+              baseLine:     wall['baseLine'] as ReadonlyArray<{ x: number; y?: number; z: number }> | undefined,
+              height:       wall['height']     as number | undefined,
+              thickness:    wall['thickness']  as number | undefined,
+              baseOffset:   wall['baseOffset'] as number | undefined,
+              // ⭐ C100 §2.1 — the MASTER id, forwarded so the shaft can say what it is
+              // made OF rather than arriving at the render store with only a hex.
+              materialId:   (wall['materialId'] as string | undefined) ?? p.materialId,
+            });
+            _liftWallSides++;
+          }
+
+          // (2) ⛔ THE MEMBERS WITH NOWHERE TO GO — NAMED, COUNTED, AND SAID OUT LOUD.
+          //     This is the deliverable the founder's report actually asks for: a create
+          //     that produces no visible element must SAY so. It is one line per lift,
+          //     not per member, and it names the store, the count and the reason, so the
+          //     next reader does not have to re-derive the census above.
+          const _liftUnmirrored: string[] = [];
+          const _liftGlass = _liftCommitted.get('curtainwall')?.size ?? 0;
+          const _liftDoors = _liftCommitted.get('door')?.size ?? 0;
+          const _liftParts = _liftCommitted.get('liftPart')?.size ?? 0;
+          if (_liftGlass > 0) {
+            _liftUnmirrored.push(
+              `${_liftGlass} curtain-wall enclosure side(s) — no 'curtainwall.created' ` +
+              `event is DECLARED at all, so there is nothing to emit and nothing to ` +
+              `subscribe; mirroring them as walls instead would be C84 EI-9`);
+          }
+          if (_liftDoors > 0) {
+            _liftUnmirrored.push(
+              `${_liftDoors} landing door(s) — 'door.created' IS declared in ` +
+              `RuntimeEvents but has ZERO subscribers, so emitting it would be a ` +
+              `channel that reads as live and is dead at the far end`);
+          }
+          if (_liftParts > 0) {
+            _liftUnmirrored.push(
+              `${_liftParts} cabin part(s) — no legacy family and no fragment builder`);
+          }
+          if (_liftUnmirrored.length > 0) {
+            console.warn(
+              `[CommandEventBridge] §FIX-LIFT-LOST-BETWEEN-DISPATCH-AND-STORE (L-7820): ` +
+              `lift ${p.liftId ?? '(unnamed)'} COMMITTED to its plugin stores and ` +
+              `${_liftWallSides} of its enclosure side(s) reached the legacy mirror. ` +
+              `THE FOLLOWING MEMBERS REACHED NO MIRROR AND WILL NOT RENDER: ` +
+              _liftUnmirrored.join('; ') + '. ' +
+              `This is a PARTIAL create, not a failed one and not a complete one — the ` +
+              `lift record is real, undoable and schedulable, and part of it is invisible. ` +
+              `Closing it means declaring 'curtainwall.created' + a mirror, and giving ` +
+              `'door.created' a subscriber. See docs/02-decisions/contracts/C104-*.md §10.`);
+          }
+          break;
+        }
+
         default:
+          // ⛔ §FIX-COMPOUND-SILENT-DROP (L-7825) — `default: break;` USED TO BE THE
+          // WHOLE OF THIS BRANCH, AND IT IS HOW A LIFT DISAPPEARED IN SILENCE.
+          //
+          // A command with no case here is USUALLY fine: most verbs are single-store
+          // mutations whose own handler patch is all anyone needs. The dangerous shape
+          // is narrower and completely mechanical to detect — a MULTI-STORE patch
+          // (`path.length === 2`, the `produceMultiStoreCommand` routing convention)
+          // with no case to relay its members. That is a compound: one gesture that
+          // wrote several stores, whose members every legacy mirror keys on COMMAND
+          // TYPE and therefore cannot see under a compound's name.
+          //
+          // ⭐ THAT DESCRIBES `pool.create` TODAY, and the balcony case above already
+          // said so in prose ("⚠ THAT IS NOT HYPOTHETICAL — IT IS THE SWIMMING POOL'S
+          // LIVE STATE"). A comment is not a detector: the lift shipped afterwards with
+          // the identical defect and the identical silence. So the observation is
+          // MECHANISED here — the next compound to arrive without a case announces
+          // itself the first time a person uses it, instead of being discovered from a
+          // founder's screenshot of an element count that did not move.
+          //
+          // Once per command TYPE, never per dispatch: this fires on real user gestures
+          // and a per-dispatch warning would be noise nobody reads, which is the same
+          // failure as silence.
+          if (!_warnedUnmirroredCompounds.has(record.type)) {
+            const stores = new Set<string>();
+            for (const patch of record.forward ?? []) {
+              if (patch.op === 'add' && patch.path.length === 2) stores.add(String(patch.path[0]));
+            }
+            if (stores.size > 1) {
+              _warnedUnmirroredCompounds.add(record.type);
+              console.warn(
+                `[CommandEventBridge] §FIX-COMPOUND-SILENT-DROP (L-7825): '${record.type}' ` +
+                `committed a COMPOUND across ${stores.size} stores ` +
+                `(${[...stores].sort().join(', ')}) and this bridge has NO case for it. ` +
+                `Its members were written to their plugin stores and relayed to NOTHING: ` +
+                `every legacy mirror keys on the COMMAND TYPE, so none of them fires for a ` +
+                `command by this name. Expect the elements to be absent from the 3-D scene ` +
+                `and from the ProjectSerializer element count, with no other symptom. ` +
+                `Add a case that emits ONE member event PER MEMBER stamped with the ` +
+                `MEMBER's own verb — 'balcony.create' in this file is the worked example.`);
+            }
+          }
           break;
       }
     } catch (err) {
