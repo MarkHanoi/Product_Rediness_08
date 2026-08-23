@@ -1338,11 +1338,27 @@ export function prepareFacadeSunGrid(input: FacadeSunInput): FacadeSunPrep | nul
 //
 // FIX (pure, P2-safe): keep the exterior face rectangles at their REAL positions (the
 // ring edges ARE the real exterior wall lines), but PUNCH each authored opening out of
-// the face — skip the raycast inside an opening (a void receives no wall-surface sun
-// value) AND render the opening as a transparent HOLE in the face texture. The result
-// is the real exterior walls with real windows + doors, reusing the authored geometry.
-// A face with no openings falls back to the solid rectangle exactly as before (the fast
-// preview / fallback tier, A.24). Deterministic; no THREE / DOM.
+// the face — render the opening as a HOLE (alpha 0) in the face texture / atlas cell.
+// The result is the real exterior walls with real windows + doors, reusing the authored
+// geometry. A face with no openings falls back to the solid rectangle exactly as before
+// (the fast preview / fallback tier, A.24). Deterministic; no THREE / DOM.
+//
+// ⚠ §FIX-FACADE-WINDOWS-UNCOLOURED (L-10120, 2026-08-23) — THIS PARAGRAPH USED TO CLAIM the
+// punch also "skip[s] the raycast inside an opening (a void receives no wall-surface sun
+// value)". MEASURED: IT DOES NOT, and never did on either display tier. `CesiumViewport`'s
+// façade lattice (`renderFacadeAnalysis`) enumerates EVERY node of the full face rectangle —
+// `for (let v = 0; v < job.nV; v++) for (let u = 0; u < job.nU; u++) nodes.push(...)` — with no
+// opening test anywhere in the chunk evaluator, so a node that lands inside a window IS
+// raycast, DOES get an intensity, and DOES take part in the study.
+//
+// That matters for ONE number and one only: `normalizeFacadeStudy`'s divisor is the realised
+// MAX wall intensity over all wall nodes, opening nodes included. It is NOT an area integral
+// and NOT a per-face aggregate — every node's own value is `lit / sunSamples.length`, a ratio
+// that no other node's presence or absence can move. So the punch is a DISPLAY exclusion whose
+// effect on the reported field is exactly zero, and masking more of the picture (L-10120's
+// glazing test) leaves every number byte-identical. Keep it that way: excluding opening nodes
+// from the lattice WOULD move the divisor, i.e. rescale every colour on the building, and per
+// C66 §1.1 that is a basis change that has to be declared rather than slipped in.
 
 /** One authored opening (window/door) on a wall, in the metric frame (east = x,
  *  north = z) — the same convention the façade rings use. */
@@ -2123,6 +2139,45 @@ const DRAPE_CAP_CELL_H = 512;        // height texel cap per face cell
 const DRAPE_CAP_ATLAS_W = 4096;      // faceCount·cellW cap (safe WebGL max-texture-size bound)
 /** Face-table columns: 2 texels/face — endpoint A, endpoint B (each E,N as 16-bit rel centroid). */
 const FACE_TABLE_COLS = 2;
+
+/**
+ * §FIX-FACADE-WINDOWS-UNCOLOURED (L-10120, founder 2026-08-23) — the base-colour alpha BELOW
+ * which a drape fragment is GLAZING and therefore carries NO analysis colour.
+ *
+ * ⭐ WHY A MATERIAL TEST AND NOT ONLY THE AUTHORED OPENING RECTANGLES. The opening rects
+ * (`facadeOpeningUvRects`) can only mask an opening the WALL RECORD remembers. On the founder's
+ * own building the study logged `2 opening(s)` for a five-panel, 15.2 m envelope — and
+ * `determineStudyOpenings` (§FIX-FORMA-OPENINGS-UNKNOWN, GR-10) explicitly allows the set to be
+ * UNRECORDED, in which case it is UNKNOWN and never a determined "this building has no windows".
+ * A mask that depends on that set therefore fails exactly where the record is thin, which is the
+ * case the founder photographed.
+ *
+ * The GLB the 3D-Site drape paints does NOT have that gap. `GISAreaLayout` exports it with
+ * `exportFragmentsToGLB(scene, { formaWhite: true })`, and `applyFormaWhiteOverride` remaps
+ * EVERY mesh in the tree to exactly ONE of two export-owned materials
+ * (packages/file-format/src/export/glb/GLBExporter.ts):
+ *   • `pryzm-forma-white-opaque` — `MeshStandardMaterial`, colour `0xF4F4F2`, NOT transparent
+ *     ⇒ glTF `baseColorFactor[3] = 1.0`;
+ *   • `pryzm-forma-white-glass`  — `MeshPhysicalMaterial`, `transparent: true`,
+ *     `opacity = FORMA_WHITE_DEFAULT_GLASS_OPACITY = 0.34`
+ *     ⇒ glTF `baseColorFactor[3] = 0.34`, `alphaMode: BLEND`.
+ * `classifyFormaWhiteRole` assigns the GLASS role from the element type (`window`,
+ * `curtainwall`, `curtain-wall`, `curtainpanel`, `glazing`, `skylight`) walking UP the tree, so a
+ * window's FRAME meshes take it too — the whole window element, not just the pane.
+ *
+ * Cesium runs `materialStage()` BEFORE `customShaderStage()` in `MODIFY_MATERIAL` mode
+ * (cesium 1.143 `ModelFS`), and `MaterialStageFS` sets `material.alpha = baseColorWithAlpha.a`.
+ * So by the time the drape's `fragmentMain` runs, `material.alpha` is 1.0 on every opaque
+ * element and 0.34 on every glazed one — a per-fragment glazing classifier that is COMPLETE
+ * (it cannot miss a window the wall record forgot) and needs no extra geometry, texture or
+ * uniform table. 0.98 sits far above 0.34 and just below 1.0.
+ *
+ * ⚠ SCOPE: this holds for the FORMA-WHITE export the 3D-Site drape uses. It does NOT hold for a
+ * raw-material export (the photoreal globe's `glazingOverride` leaves opaque elements on their
+ * real BIM materials, some of which are legitimately translucent). The drape only ever runs on
+ * `realModelOnForma`; pass 0 to disable the test if that ever stops being true.
+ */
+export const FACADE_DRAPE_GLAZING_ALPHA_MAX = 0.98;
 
 /** Bilinear-sample a face intensity lattice (`v*nU+u`, v0 = bottom) at fractional
  *  (uFrac along 0..1, vFrac up 0..1), skipping null corners and renormalising. Returns

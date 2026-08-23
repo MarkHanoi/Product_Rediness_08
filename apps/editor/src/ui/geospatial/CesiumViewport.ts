@@ -225,6 +225,13 @@ import {
     // (cylindrical) + ROOF (top-down) sun-hours lookup textures a Cesium CustomShader
     // drapes onto the REAL placed GLB model, replacing the separate envelope-prism paint.
     buildRealModelSunDrape,
+    // §FIX-FACADE-WINDOWS-UNCOLOURED (L-10120, founder 2026-08-23) — the base-colour alpha
+    // below which a drape fragment is GLAZING and carries NO analysis colour. The 3D-Site GLB
+    // is exported `formaWhite: true`, which paints EVERY opaque element with one shared opaque
+    // material and EVERY window/curtain-wall/skylight element (frame included) with one shared
+    // translucent glass material — so alpha alone separates glazing from wall, COMPLETELY, and
+    // without depending on the authored openings array being recorded. See the constant's doc.
+    FACADE_DRAPE_GLAZING_ALPHA_MAX,
     type FacadeDrapeFace,
     type RealModelSunDrape,
     type FacadeOpening,
@@ -10611,6 +10618,27 @@ export class CesiumViewport {
                 `${faceJobs.length} face(s), ${holes} opening(s), H ${heightM.toFixed(1)} m, day ${this.siteMetricSunDay}). ` +
                 `No envelope prism painted; no angular wrap.`,
             );
+            // §FIX-FACADE-WINDOWS-UNCOLOURED (L-10120) — say WHICH surfaces the analysis colour was
+            // withheld from and ON WHAT AUTHORITY, because the two masks have different reach and a
+            // reader must not take the opening count above for "every window is excluded".
+            //   • GLAZING (window + curtain-wall + skylight, pane AND frame) — masked from the GLB's
+            //     OWN forma-white glass material, per fragment. Complete; independent of the record.
+            //   • DOORS + the reveals/jambs/heads/sills of an opening — masked only where the wall
+            //     record carried that opening. §FIX-FORMA-OPENINGS-UNKNOWN: an UNRECORDED set is
+            //     UNKNOWN, so it is named here rather than presented as "this building has none".
+            console.log(
+              `[CesiumViewport][forma-facade] §FIX-FACADE-WINDOWS-UNCOLOURED (L-10120) analysis colour WITHHELD from: ` +
+                `GLAZING (per-fragment, base-colour alpha < ${FACADE_DRAPE_GLAZING_ALPHA_MAX} on the forma-white GLB — ` +
+                `covers every window/curtain-wall/skylight incl. frames, whatever the wall record remembers); ` +
+                `+ ${holes} authored opening rect(s) from ${metricOpenings.length} authored opening(s) ` +
+                `${studyDecision.unrecorded
+                  ? '⚠ RELATIONSHIP_NOT_RECORDED — the openings set is UNKNOWN, not determined-empty, so DOORS and ' +
+                    'opening reveals on this building are NOT masked and may carry wall colour'
+                  : '(doors + opening reveals masked from these)'}. ` +
+                `Masked surfaces show the MODEL’S OWN material — not a neutral, not a hole. ` +
+                `No reported quantity changed: the field is per-point and its only divisor (max wall intensity) ` +
+                `is taken over ALL lattice nodes, opening regions included.`,
+            );
             this.logFacadeDrapeQuality(faceJobs, ring.length, drape.cellW, drape.cellH, heightM, LATTICE_SPACING_M);
             return;
           }
@@ -10731,7 +10759,16 @@ export class CesiumViewport {
         `(upsample ≈${(latticeSpacingM / Math.max(0.01, mPerTexelU)).toFixed(1)}×; the ground's is ≈7.5×); ` +
         `samples/face min ${perFace[0]} · median ${med} · max ${perFace[perFace.length - 1]}; ` +
         `${faceJobs.length} coplanar panel(s) merged from ${ringEdgeCount} ring edge(s); ` +
-        `reconstruction σ ${FACADE_RECON_SIGMA_M.toFixed(1)} m; normalisation GLOBAL (one divisor, whole envelope).`,
+        `reconstruction σ ${FACADE_RECON_SIGMA_M.toFixed(1)} m; ` +
+        // §FIX-FACADE-WINDOWS-UNCOLOURED (L-10120) — NAME THE BASIS, not just the scope. "GLOBAL"
+        // said the divisor is shared; it did not say what area it is taken over, and after L-10120
+        // withholds colour from glazing a reader could reasonably assume the divisor followed. It
+        // did not, deliberately: the per-node value is `lit / sunSamples.length` (a ratio, not an
+        // area integral) and the divisor is its max over the SOLID face rectangles — openings
+        // included, reveals not represented at all. Both masks are DISPLAY-only.
+        `normalisation GLOBAL (one divisor = max wall-node intensity, taken over the SOLID face ` +
+        `rectangles INCLUDING opening regions; per-node value = lit/sunSamples, not an area integral). ` +
+        `Ramp is RELATIVE to that max, not absolute hours.`,
     );
   }
 
@@ -10764,10 +10801,39 @@ export class CesiumViewport {
    *     unwrap, whose pole singularity at the footprint centre read as radial spikes from the
    *     roof apex and smeared across faces on rectangular + balconied towers. Balconies / insets
    *     snap to their parent wall (nearest face) → a clean flat gradient, no angular wrap.
-   * Openings (alpha 0) `discard` so the real window/door voids read through. UNLIT so the
-   * analysis colours are the pure ramp, not darkened by the Forma sun (the founder: "only those
-   * colours should render"). A.24 Presentation tier: ONE shader + three small texture uploads,
-   * no per-frame work — inside the device-loss budget.
+   * UNLIT so the analysis colours are the pure ramp, not darkened by the Forma sun (the founder:
+   * "only those colours should render"). A.24 Presentation tier: ONE shader + three small texture
+   * uploads, no per-frame work — inside the device-loss budget.
+   *
+   * §FIX-FACADE-WINDOWS-UNCOLOURED (L-10120, founder 2026-08-23: "windows should NOT be coloured
+   * but all the rest of the surfaces yes"). TWO defects, one symptom.
+   *
+   *   1. **The mask could not see most windows.** The only exclusion was the AUTHORED opening
+   *      rectangle, projected from `formaLastMassingInput.openings` — a set that
+   *      `determineStudyOpenings` (§FIX-FORMA-OPENINGS-UNKNOWN, GR-10) is explicitly allowed to
+   *      report as UNRECORDED/UNKNOWN. On the founder's building the study logged `2 opening(s)`
+   *      across a five-panel 15.2 m envelope, so nearly every window fell outside the mask and
+   *      took wall colour. The drape now ALSO tests each fragment's OWN material: the 3D-Site GLB
+   *      is exported `formaWhite: true`, which gives every opaque element one shared opaque
+   *      material and every window/curtain-wall/skylight element — pane and frame — one shared
+   *      translucent glass material, so `material.alpha < u_pryzmGlazeAlphaMax` identifies glazing
+   *      COMPLETELY and independently of what the wall records remember. Doors are opaque in that
+   *      export and are still masked only by their authored rectangle (stated, not hidden, in the
+   *      drape log line).
+   *   2. **The mask deleted geometry instead of un-colouring it.** Where the rectangle DID hit,
+   *      the shader `discard`ed — so a correctly-recorded window was not "uncoloured", it was
+   *      punched out of the building, along with its reveals and (via the roof lookup) any eave
+   *      overhanging the footprint ring. WHAT A WINDOW SHOWS NOW IS ITS OWN MATERIAL: the same
+   *      translucent glass it shows with the analysis off. Not the ramp, not a neutral grey, not
+   *      a hole. Every other "no analysis value" fragment likewise falls back to the model's own
+   *      material, and this shader can no longer remove anything from the scene.
+   *
+   * THE NUMBERS DID NOT MOVE. The façade field is per-point (`lit / sunSamples.length`) and its
+   * single aggregate — `normalizeFacadeStudy`'s divisor — is the realised max wall intensity over
+   * ALL lattice nodes, opening nodes included (the lattice never skipped them; see the corrected
+   * §FIX-FACADE-ANALYSIS-REAL-GEOMETRY note in `siteMetricGrids.ts`). Masking more of the PICTURE
+   * therefore changes no reported quantity. Excluding those nodes from the lattice WOULD move the
+   * divisor and rescale every colour, so it is deliberately NOT done here.
    *
    * §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272) — DRAPE ONLY THE ENVELOPE. The GLB is the whole
    * BIM model, and the shader coloured EVERY fragment of it — including the interior partitions
@@ -10789,7 +10855,11 @@ export class CesiumViewport {
    * fixed-point endpoints, not colours — must not be interpolated). Returns false if CustomShader
    * is unavailable in this Cesium build (caller falls back to the per-face polygon envelope).
    */
-  private applyRealModelSunDrape(drape: RealModelSunDrape, innerBandM = 0): boolean {
+  private applyRealModelSunDrape(
+    drape: RealModelSunDrape,
+    innerBandM = 0,
+    glazingAlphaMax = FACADE_DRAPE_GLAZING_ALPHA_MAX,
+  ): boolean {
     const model = this.realModelOnForma;
     if (!model || model.isDestroyed()) return false;
     if (typeof Cesium.CustomShader !== 'function') return false;
@@ -10826,6 +10896,9 @@ export class CesiumViewport {
           u_pryzmEncRange: { type: Cesium.UniformType.FLOAT, value: Math.max(1, drape.encodeRange) },
           // §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272) — envelope-only drape. 0 = test disabled.
           u_pryzmInnerBand: { type: Cesium.UniformType.FLOAT, value: Math.max(0, innerBandM) },
+          // §FIX-FACADE-WINDOWS-UNCOLOURED (L-10120) — glazing alpha threshold. 0 = test disabled
+          // (a raw-material GLB, where alpha no longer means "this is a window").
+          u_pryzmGlazeAlphaMax: { type: Cesium.UniformType.FLOAT, value: Math.max(0, glazingAlphaMax) },
           // §L-430 slice 2b — θ (project→true north). REQUIRED FOR CORRECTNESS, not cosmetics:
           // `positionMC` below is the model's LOCAL (project-frame) position, but the face
           // table, centroid and roof bbox this shader compares it against are all built from
@@ -10842,6 +10915,16 @@ export class CesiumViewport {
           '  return (u16 / 65535.0 * 2.0 - 1.0) * u_pryzmEncRange;',
           '}',
           'void fragmentMain(FragmentInput fsInput, inout czm_modelMaterial material) {',
+          // §FIX-FACADE-WINDOWS-UNCOLOURED (L-10120, founder 2026-08-23) — WINDOWS CARRY NO
+          // ANALYSIS COLOUR. `MODIFY_MATERIAL` runs AFTER Cesium's `materialStage`, so `material`
+          // arrives already carrying THIS fragment's own glTF material, and on the forma-white
+          // 3D-Site export `material.alpha` is 1.0 on every opaque element and 0.34 on every
+          // glazed one (pane AND frame — the glass role is assigned from the element type walking
+          // up the tree). Returning here leaves the window EXACTLY as it renders with the
+          // analysis off: its own translucent glass, not a colour, not a neutral, not a hole.
+          // This is deliberately the FIRST test in the shader, so a window is never re-read as
+          // roof, as interior structure, or as any wall texel.
+          '  if (u_pryzmGlazeAlphaMax > 0.0 && material.alpha < u_pryzmGlazeAlphaMax) { return; }',
           '  vec3 p = fsInput.attributes.positionMC;',
           // §L-430 — base ENU mapping (north = −z, §A.21.D54) THEN rotate the project frame
           // onto true north, matching `projectVectorToTrueNorth` exactly:
@@ -10890,7 +10973,11 @@ export class CesiumViewport {
           '      if (dot(nrm, (a + b) * 0.5) < 0.0) { nrm = -nrm; }',
           '      if (d < bestD) { bestD = d; bestIdx = i; bestW = w; bestSigned = dot(frag - a, nrm); }',
           '    }',
-          '    if (bestIdx < 0) { discard; }',
+          // §FIX-FACADE-WINDOWS-UNCOLOURED (L-10120) — was `discard`. A drape that cannot RESOLVE
+          // a fragment must not DELETE it: no face won the projection ⇒ we have no analysis value
+          // for this surface, which is a reason to leave the model's own material alone, never a
+          // reason to punch a see-through hole in the building.
+          '    if (bestIdx < 0) { return; }',
           // ENVELOPE-ONLY: a fragment further than `innerBand` BEHIND its nearest envelope panel is
           // interior structure (a partition, a core wall) exposed through a punched opening — it is
           // not part of the façade study, so it renders as neutral un-analysed material rather than
@@ -10908,7 +10995,21 @@ export class CesiumViewport {
           '    float atlasU = (float(bestIdx) + wIn) / float(count);',
           '    col = texture(u_pryzmWallTex, vec2(atlasU, vFrac));',
           '  }',
-          '  if (col.a < 0.05) { discard; }',
+          // §FIX-FACADE-WINDOWS-UNCOLOURED (L-10120) — was `discard`, and that was a second way to
+          // get a window wrong. Alpha 0 in the lookup means "THIS SURFACE HAS NO ANALYSIS VALUE",
+          // and it arises from THREE causes, none of which is "delete the geometry":
+          //   • an authored window/door opening punched out of the atlas cell
+          //     (`faceUvInOpening`) — the opening's own reveal faces (jamb, head, sill) fall in
+          //     the same rect, and they are genuinely OUTSIDE the study: the lattice is a planar
+          //     grid on the envelope panel with the panel's outward normal, so no node is ever
+          //     evaluated on a reveal. Painting them the panel's value would be fabrication;
+          //   • a wall texel whose lattice corners were all null;
+          //   • a roof texel outside the footprint ring — i.e. every overhanging eave, which
+          //     `discard` was punching straight through.
+          // All three now show the model's OWN material (near-white on the forma-white export),
+          // reading as un-analysed building rather than a hole. Nothing is ever removed from the
+          // scene by this shader any more.
+          '  if (col.a < 0.05) { return; }',
           '  material.diffuse = col.rgb;',
           '  material.alpha = 1.0;',
           '}',

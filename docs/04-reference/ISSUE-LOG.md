@@ -47620,3 +47620,361 @@ ids; lighting has both).
 
 ⛔ `PluginRegistry.ts` is PLUGIN2's file this session, so LIGHT11 did not touch it. `floor`
 and `view` were not examined.
+
+---
+
+### L-10140 — ⭐ **THE PROJECTOR WAS FED A SOLID THAT IS NOT THE WALL: `Matrix4.decompose` CANNOT CARRY A RAKE, AND THE 2-D FEED DECOMPOSED EVERY MESH** (lane ELEV14, 2026-08-24)
+
+Founder, 2026-08-23: *"check why a **raked wall with edited profile** would not render well in
+**elevation**?"* Split view, 3-D left / West Elevation right. The 3-D drew the wall correctly raked
+with its authored profile; the elevation drew **a quadrilateral floating above and left of the
+building outline**, detached from the gable silhouette below it.
+
+⭐ **The model was right and the projection of it was wrong**, which narrows it to the feed. Three
+candidates were named before any code was touched — (i) the projector is FED the wrong geometry,
+(ii) it is fed the wall and projects it wrongly, (iii) it refuses and draws a fallback. **It is
+(i), a FEEDING defect**, and the two CONTROLS are what establish that rather than argue it.
+
+**ROOT.** `NativeElementMeshExporter.exportForView()` — the **single** producer of native geometry
+for plan, section and elevation — seated each proxy mesh with
+
+```ts
+source.matrixWorld.decompose(proxy.position, proxy.quaternion, proxy.scale);   // ⛔
+```
+
+`Matrix4.decompose` takes scale from column **lengths** and a quaternion from the normalised basis.
+A **shear makes that basis non-orthogonal**, so the recomposed `T·R·S` is a *different solid*.
+`EdgeProjectorService` then draws it faithfully (`EdgesGeometry(...).applyMatrix4(mesh.matrixWorld)`,
+`:2892`/`:2906`).
+
+⭐ **A rake IS a shear and it lives in the MATRIX.**
+`WallFragmentBuilder._applyRakeShearToChildren` (`:3302`) premultiplies a real shear onto each
+child's `matrix` with `matrixAutoUpdate = false`. **That same file already states this exact
+impossibility as its reason for excluding raked walls from GPU instancing** (`:1385` — *"GPU
+instancing decomposes a world matrix into T·R·S and a shear is not expressible in TRS"*).
+**Two `T·R·S` bottlenecks, one argument, and only one of them had been acted on.**
+
+**MEASURED** — `NativeElementMeshExporter.rakedShear.probe.test.ts`, worst corner error between the
+model and what the projector is fed, through the real exporter. RED and GREEN both taken:
+
+| case | before | after |
+|---|---|---|
+| plain wall (CONTROL) | 0 | 0 |
+| profile-edited ONLY (CONTROL) | 0 | 0 |
+| raked only | **0.413 m** | 0 |
+| raked + profile — **the founder's wall** | **0.413 m** | 0 |
+| raked + profile, oblique 20° (on the sheet) | **0.433 m** | 0 |
+| raked + profile + an opening (on the sheet) | **0.413 m** | 0 |
+| **SECTION**, same wall | **0.438 m** | 0 |
+| **PLAN**, same wall | **0.438 m** | 0 |
+| cache HIT vs the MISS that filled it | **0.027 m** | 0 |
+
+⭐ **THE CONTROLS ARE THE FINDING.** The feed is exact for a plain wall and exact for a
+profile-edited one — **a profile is baked into the GEOMETRY and geometry is passed by reference, so
+it was never at risk.** It is wrong **only where a shear exists**. Had the probe measured the
+founder's case alone, "raked + profiled walls are broken" would have been the conclusion and the
+profile half would have been fixed for nothing.
+
+⭐ **AND IT WAS NEVER ONLY THE ELEVATION.** Section and plan take the same `exportForView`
+(`ViewController.ts:675`/`:2280`, `initScene.ts:1345`/`:1399`) and were wrong by **0.438 m on the
+same wall**. He reported the view he had open. A defect at a shared feed is not scoped until it is
+re-measured at every consumer of that feed.
+
+**FIX.** `_seatProxy(proxy, elements)` — `matrix.fromArray` + `matrixAutoUpdate = false` +
+`matrixWorldNeedsUpdate`. Applied to **both** producer arms (plain mesh and InstancedMesh) and to
+the §H.2 descriptor cache, whose record changed from ten `T·R·S` numbers to the sixteen matrix
+elements. Safe because **every consumer of a proxy reads `matrixWorld` and nothing else** —
+measured across `EdgeProjectorService` lines 1418, 1553, 1677, 2906, 3667; `position`/`quaternion`/
+`scale` are now meaningless on a proxy and are documented as such.
+
+⚠ **WHY "RAKED-ONLY LOOKED ACCEPTABLE" AND "RAKED + PROFILE DID NOT" — two different paths.** A
+plain unopened raked wall is sheared on the **geometry** (`WallFragmentBuilder.ts:4708`) and was
+never affected. A raked wall also gets an analytic elevation symbol
+(`WallElevationSymbol`, rake applied per station) that replaces its mesh linework entirely. **The
+founder's wall is PROFILED, so that symbol REFUSES (`PROFILED_TOP`) and it falls back to the mesh —
+reaching the matrix shear via the profile arm (`:2278`→`:2353`).** The two features do not compose
+by accident; they compose because they take different routes to the same broken feed.
+
+**Files:** `packages/core-app-model/src/geometry/NativeElementMeshExporter.ts` ·
+`packages/core-app-model/src/geometry/NativeElementMeshExporter.rakedShear.probe.test.ts` (new) ·
+C04 §PROJECTION-FIDELITY §PF.1–§PF.2.
+
+---
+
+### L-10141 — ⚠ **THE §H.2 PROXY CACHE DRIFTED 27 mm BETWEEN THE PASS THAT BUILT IT AND EVERY PASS SERVED FROM IT** (lane ELEV14, 2026-08-24)
+
+A separate consequence of the same `T·R·S` descriptor, and it would have survived a fix applied
+only to the producer. The cache stored the **already-recomposed** transform and recomposed it
+again on each HIT, so the same element moved a further **0.027 m** between its first draw and every
+subsequent one — **a drawing that changes when you re-open it**, on a sheet a builder works from.
+
+⭐ Pinned by its own arm in the probe (*"the second export of the same element is identical to the
+first"*), which was RED at 0.027 m and is now exact. **A descriptor that can only hold `T·R·S`
+re-introduces L-10140 on every cache HIT**, which is why the record changed rather than only the
+producer. ✅ CLOSED with L-10140.
+
+---
+
+### L-10142 — ⛔ **OPEN, NOT THIS LANE'S FILES: `GLBExporter` decomposes the same way, so a raked wall would EXPORT as the wrong solid**
+
+`packages/file-format/src/export/glb/GLBExporter.ts:102` — `clone.matrix.decompose(clone.position,
+clone.quaternion, clone.scale)`. **Identical mechanism to L-10140.** If a raked wall reaches GLB
+export with its shear in the matrix rather than in its geometry, it exports leaning by the wrong
+amount, or not leaning at all.
+
+⚠ **UNMEASURED and therefore NOT CLAIMED** — the export path was not driven, and it is possible the
+walls that reach it are the geometry-sheared kind. `packages/file-format` was outside ELEV14's
+ownership. **The check is one probe: export a raked wall, read the node transforms.** Two other
+`decompose` sites were seen and are NOT this defect —
+`packages/core-app-model/src/rendering/InstancedElementRenderer.ts:788` (instancing, from which
+raked walls are already excluded) and `packages/geometry-window/src/WindowBuilder.ts:1035`
+(`WallRake.ts` records that windows deliberately keep real meshes on a raked host).
+
+---
+
+### L-10100 — ⭐⭐ **"Make all windows Custom window type" → *"There is no window type called "type""* — A REFUSAL THAT CONTRADICTS ITSELF IN ONE SENTENCE** (lane RACTYPE12, 2026-08-23) · ✅ FIXED
+
+**Founder-reported.** He created a window type called **"Custom Window Type"** and typed
+**"Make all windows Custom window type"**. PRYZM answered:
+
+> *"There is no window type called **"type"** in this project. The window types here are: Single
+> Pane (Default), Timber Casement, Timber Double-Hung, Aluminium Commercial, uPVC Casement, uPVC
+> Tilt & Turn, Steel Crittal Style, Aluminium Triple Glazed, **Custom Window Type**."*
+
+It denies his type exists in the clause before the one that lists it. **Registration was FINE** —
+the parser extracted the typeRef as `"type"`.
+
+#### MEASURED mechanism (probe first, fix second — the hypothesis in the brief was right but was not built on until it was driven)
+
+`liftTypeFilter` → `parseFilterClauses` → `makeHostedTypeParser`, on the literal sentence:
+
+| stage | value |
+|---|---|
+| user text | `make all windows custom window type` |
+| `liftTypeFilter` candidate | **`"windows custom"`** — it anchored its right-hand noun on the **SECOND** "window", the one inside his TYPE NAME |
+| `resolveCatalogueRef("windows custom")` | **Custom Window Type** — the domain-noise list drops `window`/`windows`/`type`, so the span reduces to `["custom"]` and resolves *confidently* |
+| rewritten sentence | `make all window type` — **plus a bogus TYPE FILTER on the scope**, so even a correct ref would have retyped only the windows that were already that type |
+| grammar tail | the optional `(?: types?)?` backtracks to empty so the mandatory space can match → **typeRef = `"type"`** |
+
+⭐ **This is the THIRD recurrence of the shape `CatalogueFamilies.ts:307-333` already records
+twice** (§FIX-RAKE-SWALLOWED-AS-TYPE L-1370 → the stair/stair-railing collision L-1441): a grammar
+anchoring on the wrong occurrence of its own noun. The new cause is that **the founder's TYPE NAME
+CONTAINS THE GRAMMAR'S OWN KEYWORDS** — which is not exotic, it is what a default name generator
+produces (`Custom Window Type`, `Custom Slab Type` — the slab twin's dropdown was fixed the same
+day by lane LAYERMAT10, `98976574`).
+
+#### Families measured, BEFORE and AFTER (all seven, four phrasings each)
+
+| family | before | after |
+|---|---|---|
+| **window** | typeRef `"type"` + bogus filter scope | `"custom window type"`, scope `all` |
+| **door** | typeRef `"type"` + bogus filter scope | `"custom door type"`, scope `all` |
+| **wall** | typeRef `"type"` + bogus filter scope | `"custom wall type"`, scope `all` |
+| slab · ceiling · stair · stair-railing | already correct | unchanged |
+
+⛔ **The four that worked were saved by an ACCIDENT, not a guard**: their `domainNoise` lists
+happen to omit the PLURAL (`['slab']`, not `['slab','slabs']`), so `"slabs custom"` failed to
+resolve and no filter was lifted. Adding one plural to any of those lists would have broken them.
+
+#### The fix — THREE independent guards, because either of the first two alone is a sort nobody enforces
+
+1. ⛔ **`FilterScope.liftTypeFilter` (rewrite, not a regex tweak).** A candidate that **BEGINS with
+   the family noun** is a structural MIS-ANCHOR — if the scope word is immediately followed by the
+   noun, the element phrase is already complete ("all windows") and there is no adjective slot.
+   Additionally the lazy first-hit regex is replaced by an **enumeration over every (scope word,
+   noun occurrence) pair, with the LONGEST span the catalogue claims winning** — which also fixes
+   the twin defect `"change all custom window type windows to timber casement"`, where the old
+   code stopped at the `"custom"` prefix and left `"type windows"` in the sentence. Bounds
+   preserved byte-for-byte: same scope words, same `[a-z]` start, same 48-char ceiling, same "no
+   `,`/`;`", and **the catalogue — never this function — still decides what a type name is**.
+2. ⭐ **`makeHostedTypeParser` + `parseWallTypeIntent` (guard).** The grammar now reads the
+   sentence **EXACTLY AS THE USER TYPED IT** first; if that tail is a span the project's catalogue
+   AFFIRMATIVELY claims, that reading wins outright — no filter lift, no keyword stripping, nothing
+   to mis-anchor on. It can only ADD resolutions: with no catalogue injected there is nothing to
+   affirm (today's path, untouched), and a real filter clause leaves the raw grammar either
+   unmatched or holding a tail the existing dimension/rake/colour guards decline.
+3. ⛔ **The refusal may no longer contradict itself** (`CatalogueFamilies.nearbyNames`, shared by
+   the six table families and by the hand-written `set-wall-type` spec — DERIVED, not a second
+   spelling of "contains"). If the span is unresolved but a listed name CONTAINS it — or the span
+   CONTAINS a listed name — the copy says *"I could not read "type" as a complete window type name.
+   Did you mean "Custom Window Type"?"* and offers it. A genuine miss (`"unobtainium"`) still
+   refuses plainly and still lists every real name.
+
+**Files:** `packages/ai-host/src/intents/FilterScope.ts` · `ZeroTokenResolver.ts` ·
+`CatalogueFamilies.ts` · `CapabilityExecutionSpec.ts`.
+**Test:** `packages/ai-host/__tests__/self-referential-type-name.test.ts` (30 — the founder's
+literal, eight phrasings, all seven families × four phrasings, the built-in control per family, the
+filter-lift regressions, and `nearbyNames` in both directions).
+**Verified in the FOREGROUND:** new suite **30/30**; `stair-chat-acceptance` + `filter-scope` +
+`hosted-type-scope-parity` + `wall-rake-near-miss` + `capability-acceptance` +
+`chat-capability-registry` **430/430** (the stair/railing collision is NOT reopened); root
+`tsc --noEmit --skipLibCheck` **RC=0, zero errors repo-wide**; `eslint` on all five files RC=0.
+⚠ The 13 unrelated failures in the full `@pryzm/ai-host` run (apartment-brief `lockBedroomCount`,
+circulation, shellWallMatch diag, stairPosition sweep, ensuite cap) are **pre-existing** — they are
+apartment/house-generator suites stale against already-committed source, and none of them touch the
+four files changed here.
+**Contract:** `C68 §3.d` amended in place with the three binding rules.
+
+---
+
+### L-10120 — ⭐ **THE FAÇADE DRAPE HAD TWO WINDOW MASKS' WORTH OF INTENT AND ONE MASK'S WORTH OF REACH — AND WHERE IT *DID* REACH IT DELETED THE WINDOW INSTEAD OF UN-COLOURING IT** (lane FACADE13, 2026-08-23)
+
+Founder: *"review — analyse and make sound the building façade sun analysis. **Windows should
+NOT be coloured** but all the rest of the surfaces yes, according to sun exposition."* Two red
+arrows, two windows carrying the same sun-hours colour as the wall around them.
+
+**THE BRIEFED HYPOTHESIS IS HALF FALSE — recorded so it is not re-adopted.** The hypothesis was
+*"openings are excluded from the analysis GEOMETRY but not from the COLOUR ATLAS; a window is a
+hole in the mesh but not a hole in UV space, so its texels are computed and painted like any
+other."* **MEASURED 2026-08-23 — it is the OTHER way round.** The colour atlas is the ONE place
+the exclusion *was* implemented: `buildRealModelSunDrape` calls `faceUvInOpening` per texel and
+writes `alpha 0` inside every authored opening rect
+(`apps/editor/src/ui/climate/siteMetricGrids.ts`), and `realModelSunDrape.test.ts:118` has
+pinned that since L-199. The **analysis geometry** is the half that never excluded anything:
+`renderFacadeAnalysis`'s lattice is
+`for (let v = 0; v < job.nV; v++) for (let u = 0; u < job.nU; u++) nodes.push(...)`
+(`CesiumViewport.ts`, the `NodeRef` flatten) with **no opening test anywhere in the chunk
+evaluator**, so a node inside a window is raycast like any other. The in-repo comment claiming
+the punch *"skip[s] the raycast inside an opening"* was **false and is now corrected in place**.
+
+#### The two real defects
+
+**(1) The mask could not SEE most windows.** The only classifier was the authored opening
+rectangle, projected from `formaLastMassingInput.openings` — the wall-store `Wall.openings[]`
+set read by `getFormaOpenings` (`GISAreaLayout.ts:2009`). `determineStudyOpenings`
+(§FIX-FORMA-OPENINGS-UNKNOWN, GR-10) explicitly permits that set to be **UNRECORDED**, i.e.
+UNKNOWN and never a determined "this building has no windows". The founder's own console shows
+the consequence: **`2 opening(s)`** across a **five-panel, 15.2 m** envelope. Nearly every
+window fell outside the mask and took wall colour. **A mask sourced from a record that is
+allowed to be unknown fails hardest exactly where the record is thin — which is the case he
+photographed.**
+
+**(2) Where the mask DID hit, it `discard`ed.** So a correctly-recorded window was not
+"uncoloured" — it was **punched out of the building**. The same `discard` took the opening's
+reveals (jamb/head/sill) and, via the roof lookup's `alpha 0` outside the footprint ring,
+**every eave overhanging the study footprint**. A see-through hole is a different wrong answer,
+not a fix.
+
+#### The fix — a classifier the model carries itself
+
+⭐ **The GLB already knows which fragment is a window, and it does not need the wall record to
+know it.** The 3D-Site model is exported `exportFragmentsToGLB(scene, { formaWhite: true })`,
+and `applyFormaWhiteOverride` (`packages/file-format/src/export/glb/GLBExporter.ts`) remaps
+EVERY mesh in the tree to exactly one of two export-owned materials:
+`pryzm-forma-white-opaque` (not transparent, so glTF `baseColorFactor[3] = 1.0`) and
+`pryzm-forma-white-glass` (`opacity = FORMA_WHITE_DEFAULT_GLASS_OPACITY = 0.34`, so
+`baseColorFactor[3] = 0.34`). `classifyFormaWhiteRole` assigns the glass role from the element
+type walking **UP** the tree (`window`, `curtainwall`, `curtain-wall`, `curtainpanel`,
+`glazing`, `skylight`), so a window's **frame** meshes take it too — the whole element, not
+just the pane.
+
+Cesium 1.143 runs `materialStage()` **before** `customShaderStage()` in `MODIFY_MATERIAL` mode
+(`ModelFS`), and `MaterialStageFS` sets `material.alpha = baseColorWithAlpha.a`. So the drape
+shader receives, per fragment, `1.0` on every opaque element and `0.34` on every glazed one.
+The drape now tests exactly that, **as its first statement**, before the roof/wall split and
+before any material write:
+`if (u_pryzmGlazeAlphaMax > 0.0 && material.alpha < u_pryzmGlazeAlphaMax) { return; }`
+(threshold `FACADE_DRAPE_GLAZING_ALPHA_MAX = 0.98`, wired as a uniform; `0` disables it).
+
+**WHAT A WINDOW SHOWS NOW: its own material** — the same translucent glass it shows with the
+analysis OFF. Not the ramp, not a neutral grey, not a hole. Stated explicitly because a window
+that goes flat grey under analysis is a different wrong answer.
+
+**Every `discard` in that shader is now a `return`** (3 sites, 0 discards left). "This surface
+has no analysis value" no longer means "delete this surface", so glass, reveals, unresolved
+fragments and overhanging eaves all fall back to the model's own material. **This shader can no
+longer remove geometry from the scene.**
+
+#### Reveals — masked, and here is why that is the honest answer, not a shortcut
+
+A reveal (jamb, head, sill) is real wall and does receive sun. It is nevertheless **outside the
+study**: the lattice is a planar grid on the envelope panel evaluated at that panel's outward
+normal, so **no node is ever evaluated on a reveal surface, at a reveal position, or with a
+reveal normal.** Painting a reveal with its parent panel's value would present a number the
+study never computed. It is masked with the opening rect and shows the model's own material.
+This is now C21 §10.11.1.
+
+#### The DENOMINATOR — measured, and deliberately NOT moved
+
+The brief's hard question was whether masking only the paint leaves the numbers wrong.
+**MEASURED: it does not, and the reason is structural.** The façade field is per-point —
+each node's value is `lit / sunSamples.length`, a ratio no other node can move — and the study
+has exactly ONE aggregate: `normalizeFacadeStudy`'s divisor, the realised **max wall-node
+intensity**, taken over the solid face rectangles with **opening regions included**. It is not
+an area integral, so withholding texels from the paint changes **no reported quantity**; the
+CPU drape output is byte-identical (ADR-0110 discipline: display-only).
+
+⛔ **Excluding those NODES from the lattice was considered and rejected.** It would move the
+divisor and rescale every colour on the building — a **basis change**, which per C66 §1.1 must
+be declared at the surface that reports it rather than slipped in behind a visual fix. The
+counter-factual is pinned as a test (ARM C, second case) so the reason is measured, not
+asserted in prose.
+
+**And the basis is now STATED rather than merely scoped.** The quality line said
+`normalisation GLOBAL (one divisor, whole envelope)` — which says the divisor is *shared* and
+says nothing about the *area* it covers. It now reads
+`one divisor = max wall-node intensity, taken over the SOLID face rectangles INCLUDING opening
+regions; per-node value = lit/sunSamples, not an area integral ... Ramp is RELATIVE to that
+max, not absolute hours.`
+
+#### Honesty about what is still record-dependent
+
+**Glazing is masked completely and independently of the wall record. DOORS ARE NOT** — a door
+leaf is opaque in the forma-white export, so it is masked only by its authored rectangle. A
+second log line now names both reaches, and when `determineStudyOpenings` reports
+`RELATIONSHIP_NOT_RECORDED` it says so at the drape, in those words, instead of letting the
+opening count read as complete.
+
+#### Still open (named, not guessed)
+
+- **The legend says `unit: 'h'`; the façade ramp is RELATIVE to the realised max.** No numeric
+  hour figure is presented anywhere for the façade (`lowLabel: 'Shaded'`, `highLabel: 'Sunny'`),
+  so nothing reads as a false quantity today — but label and scale disagree. NOT fixed here
+  because `siteMetricLegend` is shared with the GROUND heatmap, so reconciling it changes what
+  the ground claims too. C21 §10.11.5.
+- **The POLYGON-ENVELOPE fallback tier is untouched.** When no real GLB is placed, the study
+  paints separate textured polygons and HIDES the model (`setBuildingMaterialsVisibleForFacade
+  (false)`), so its punched openings show sky/ground through the hole. No window is visible to
+  colour in that tier, so the founder's report does not reach it; it is a different display
+  contract and was not in scope.
+
+**Files:** `apps/editor/src/ui/geospatial/CesiumViewport.ts` (shader + two log lines),
+`apps/editor/src/ui/climate/siteMetricGrids.ts` (the threshold + its export-coupling rationale;
+the false raycast-skip comment), `apps/editor/__tests__/facadeWindowsUncoloured.test.ts` (new,
+10 tests), `docs/02-decisions/contracts/C21-CLIMATE-INGESTION.md` §10.11.
+Root `tsc --noEmit` RC=0 · `eslint` RC=0 · new suite 10/10 · `realModelSunDrape` +
+`siteMetricGrids` 83/83 unchanged.
+
+---
+
+### L-10121 — ⚠ **OPEN (NOT THIS LANE'S FILE): one `console.log` per 90 ms is why the façade study's own diagnostics are unreadable** (lane FACADE13, 2026-08-23)
+
+Founder: *several hundred consecutive* `[RealSunService] real+offset — alt: ... az: ...` lines
+*from one sun study*.
+
+**MEASURED — the source is exact and it is not a hot render loop.**
+`FormaSiteAnalysisControls.startShadowStudy()`
+(`apps/editor/src/ui/geospatial/FormaSiteAnalysisControls.ts:669`) is a `setTimeout` chain with
+**`TICK_MS = 90`** — **about 11.1 ticks/s** — each calling `pushSunTime()` then
+`environmentAnalysisStore.setSunTime` then `RealSunService._drive()`, which ends in ONE
+`console.log` (`packages/core-app-model/src/rendering/RealSunService.ts:619`). A 60-second
+study run therefore emits **about 667 lines**, which matches the report exactly.
+
+**DOES IT COST ANYTHING? Measured as: no, not materially.** At 11 Hz the log's string build
+(five `toFixed` plus concat) is microseconds; the dominant per-tick cost in the same function is
+the solar solve plus `sunLight.shadow.needsUpdate = true`, a full shadow-map regeneration.
+**The log is noise, not a perf defect.**
+
+⚠ **But it is DESTRUCTIVE noise, and that is the part worth fixing.** It buries the façade
+study's own instrument — the `[CesiumViewport][forma-facade]` drape + quality lines that L-272
+and L-10120 were both measured with. Diagnosing the founder's screenshot means reading past
+several hundred sun lines to find them.
+
+**PROPOSED (not applied):** demote to `console.debug` **and** rate-limit — emit only when
+altitude or azimuth moved at least 0.5 degrees or at least 1 s has passed. That keeps the
+readout for a single manual scrub and collapses a 667-line study to about 60.
+
+⛔ **NOT CHANGED BY THIS LANE.** `RealSunService.ts` sits in
+`packages/core-app-model/src/rendering/` beside `PascalSceneLighting.ts`, which is **LIGHT11's**
+file this session, and the brief instructs not to alter observability another lane is working
+in without messaging it first. Handed over rather than silently changed.
