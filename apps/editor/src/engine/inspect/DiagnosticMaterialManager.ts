@@ -126,6 +126,16 @@ import {
   GHOST_STRUCTURAL_OPACITY as GHOST_STRUCTURAL_OPACITY_SHARED,
   type GhostSubject,
 } from './ghostParticipation';
+// §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — the focus decision is likewise a
+// PURE decision in its own THREE-free leaf. See that file's header for the
+// measurement: the focus slot used to be named `selectedRoomId` and compared
+// `ud.roomId === selectedRoomId`, which is UNREACHABLE for a wall by construction.
+import {
+  resolveFocusRole,
+  toFocusSet,
+  EMPTY_FOCUS,
+  type FocusSubject,
+} from './inspectFocus';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -230,6 +240,38 @@ const FOCUS_ELEMENT_COLOR         = INSPECT_BLUE;
 
 /** Emissive lift on the focused family, so it reads as lit from within. */
 const FOCUS_ELEMENT_EMISSIVE      = 0x0A3A66;
+
+/**
+ * §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — the emissive intensity the focus
+ * treatment uses, named because it now has TWO consumers: the focused CATEGORY
+ * (`applyGhostWithFocus`, L-3511) and the focused ELEMENT (`_applyElementFocus`).
+ * They are the same visual idea at two granularities and must not drift into two
+ * slightly different blues-that-glow-differently — the same argument that made
+ * `INSPECT_BLUE` a name instead of a third literal.
+ */
+const FOCUS_ELEMENT_EMISSIVE_INTENSITY = 0.6;
+
+/**
+ * §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — the outline on a focused ELEMENT.
+ *
+ * ⭐ WHY A SECOND AXIS EXISTS AT ALL. `FOCUS_ELEMENT_COLOR` is reused deliberately
+ * (see `_applyElementFocus`), but that creates one case where colour alone cannot
+ * carry the meaning: with a FAMILY focus active ("INSPECT: Walls"), every wall is
+ * already this blue, so re-painting the SELECTED wall the same blue distinguishes
+ * nothing. Focus at two granularities needs two axes — fill for the family,
+ * fill + OUTLINE for the element.
+ *
+ * ⛔ NOT `GHOST_EDGE_COLOR` (cyan). L-3511 made cyan mean "structural edge, base
+ * ghost lens", and this repo has already recorded that the cyan/blue separation is
+ * load-bearing. A cyan outline on a focused element would put the focus back into
+ * the one colour the whole model already wears.
+ * ⛔ NOT the selection purple. That belongs to `SelectionManager` and to Analysis.
+ *
+ * White is the only remaining neutral, it is maximally legible against the blue
+ * fill, and it cannot be confused with the 4% white non-structural GHOST FILL —
+ * an opaque line and a near-transparent surface do not read as the same thing.
+ */
+const FOCUS_ELEMENT_EDGE_COLOR    = 0xffffff;
 const MISSING_ASSET_COLOR         = 0xffffff;
 const MISMATCH_FINISH_PULSE_MS    = 800;
 const MAX_SCENE_HEIGHT            = 20.0; // metres — Z-Slicer upper bound (§3)
@@ -242,6 +284,27 @@ export class DiagnosticMaterialManager {
   private _activeLens:    InspectLens = 'ghost';
   /** §ANALYSIS-IS-GREY-AND-PURPLE (L-6410) — ids the Analysis lens paints purple. */
   private _analysisSelection: ReadonlySet<string> = new Set<string>();
+  /**
+   * §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — the element ids the INSPECT lenses
+   * emphasise: a room as the §1.3 violet jewel, anything else as the Inspect-blue
+   * solid focus.
+   *
+   * ⛔ THIS FIELD REPLACES A PARAMETER CALLED `selectedRoomId`, AND THE RENAME IS
+   * THE FIX, not cosmetics on top of it. The founder's own console showed
+   * `Lens applied: ghost (room: wall_01M0PTPA…)` — a WALL id printed in a slot
+   * named for a room — and that line read as CORRECT in review precisely because
+   * the name said "room" while the value was an element. C84 EI-9: one name, one
+   * meaning. It is a SET, not a single id, so multi-select needs no second shape
+   * (and so it is the same shape as `_analysisSelection` above — two lenses, one
+   * idea of "what is emphasised", deliberately not two).
+   *
+   * ⚠ SEPARATE FROM `_analysisSelection` ON PURPOSE. Same MECHANISM (a set of
+   * element ids resolved through `_resolveElementId`), different PALETTES —
+   * §INSPECT-FOCUS-IS-THE-ONLY-COLOUR (L-3511) makes Inspect's cyan/violet/blue a
+   * tagged decision and §ANALYSIS-IS-GREY-AND-PURPLE (L-6410) makes Analysis' grey
+   * + PRYZM purple another. Merging the two fields would merge the two surfaces.
+   */
+  private _focusedElementIds: ReadonlySet<string> = EMPTY_FOCUS;
   private _overlayObjects: THREE.Object3D[] = [];
   private _overlayGroup:   THREE.Group | null = null;
   private _active = false;
@@ -262,7 +325,7 @@ export class DiagnosticMaterialManager {
     lens: InspectLens;
     deltaMap: Readonly<DeltaMap>;
     scene: THREE.Scene;
-    selectedRoomId?: string;
+    focusedElementIds: ReadonlySet<string>;
   } | null = null;
 
   // ── Deferred GPU disposal: dispose() is never called during an active frame ─
@@ -317,13 +380,18 @@ export class DiagnosticMaterialManager {
    * still executing the current render pass (which would corrupt TRAA uniforms).
    */
   applyLens(
-    lens:            InspectLens,
-    deltaMap:        Readonly<DeltaMap>,
-    scene:           THREE.Scene,
-    selectedRoomId?: string,
+    lens:              InspectLens,
+    deltaMap:          Readonly<DeltaMap>,
+    scene:             THREE.Scene,
+    focusedElementIds?: Iterable<string> | null,
   ): void {
-    // Always update stored args so the latest lens+selection wins
-    this._pendingApplyLensArgs = { lens, deltaMap, scene, selectedRoomId };
+    // §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — normalise at the ONE public
+    // entry point so `undefined`, `null` and `[]` cannot become three different
+    // internal states downstream.
+    const focus = toFocusSet(focusedElementIds);
+    this._focusedElementIds = focus;
+    // Always update stored args so the latest lens+focus wins
+    this._pendingApplyLensArgs = { lens, deltaMap, scene, focusedElementIds: focus };
 
     // If already scheduled, the existing RAF tick will pick up the updated args
     if (this._pendingApplyLensRafId !== null) return;
@@ -338,17 +406,17 @@ export class DiagnosticMaterialManager {
         this._pendingApplyLensRafId = null;
         const args = this._pendingApplyLensArgs;
         this._pendingApplyLensArgs = null;
-        if (args) this._applyLensImmediate(args.lens, args.deltaMap, args.scene, args.selectedRoomId);
+        if (args) this._applyLensImmediate(args.lens, args.deltaMap, args.scene, args.focusedElementIds);
       },
     );
   }
 
   /** Internal immediate lens application — called by the RAF coalescer only. */
   private _applyLensImmediate(
-    lens:            InspectLens,
-    deltaMap:        Readonly<DeltaMap>,
-    scene:           THREE.Scene,
-    selectedRoomId?: string,
+    lens:              InspectLens,
+    deltaMap:          Readonly<DeltaMap>,
+    scene:             THREE.Scene,
+    focusedElementIds: ReadonlySet<string> = EMPTY_FOCUS,
   ): void {
     if (this._active) {
       this._stopPulse();
@@ -360,22 +428,54 @@ export class DiagnosticMaterialManager {
     this._active     = true;
     this._ensureOverlayGroup(scene);
 
+    // §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — `applyGhostWithFocus` is a PUBLIC
+    // entry point that runs the focus post-pass itself (it has a caller that never
+    // comes through here — `_onElementType`). When the ghost branch delegates to
+    // it, the post-pass has therefore already run, and running it again would
+    // traverse the whole scene a second time for no change. One boolean, set where
+    // the delegation happens, rather than a stateful "did I already" field.
+    let familyFocusRanTheFocusPass = false;
+
     switch (lens) {
       case 'ghost':
         // Re-apply ghost-with-focus if an element type is currently focused;
         // otherwise fall back to the standard ghost lens.
         if (this._focusedElementType) {
           this.applyGhostWithFocus(scene, this._focusedElementType);
+          familyFocusRanTheFocusPass = true;
         } else {
-          this._applyGhost(scene, deltaMap, selectedRoomId);
+          this._applyGhost(scene, deltaMap, focusedElementIds);
         }
         break;
-      case 'spatial':  this._applySpatialHeatmap(scene, deltaMap, selectedRoomId); break;
-      case 'openings': this._applyOpenings(scene, selectedRoomId);                 break;
-      case 'finishes': this._applyFinishes(scene, deltaMap, selectedRoomId);       break;
-      case 'xray':     this._applyXray(scene, deltaMap);                           break;
-      case 'assets':   this._applyAssets(scene, deltaMap, selectedRoomId);         break;
-      case 'analysis': this._applyAnalysisSelection(scene);                        break;
+      case 'spatial':  this._applySpatialHeatmap(scene, deltaMap, focusedElementIds); break;
+      case 'openings': this._applyOpenings(scene, focusedElementIds);                 break;
+      case 'finishes': this._applyFinishes(scene, deltaMap, focusedElementIds);       break;
+      case 'xray':     this._applyXray(scene, deltaMap);                              break;
+      case 'assets':   this._applyAssets(scene, deltaMap, focusedElementIds);         break;
+      case 'analysis': this._applyAnalysisSelection(scene);                           break;
+    }
+
+    // ── §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — the focus POST-PASS ───────
+    //
+    // ⭐ ONE PASS, AFTER THE LENS, FOR EVERY LENS — deliberately not six edits.
+    // The six Inspect lenses paint six different base treatments and three of them
+    // (`openings`, `finishes`, `assets`) call `_applyGhost` and then paint OVER it.
+    // Threading the focus through each would mean each lens re-deciding "does the
+    // focused element survive my pass", six times, and the sixth would be the one
+    // that forgot — which is the exact shape of the defect being closed here (a
+    // room arm that existed and a wall arm that never did).
+    //
+    // Running it LAST makes focus the TOPMOST decision, which is also what the
+    // user's sentence means: *"when I select a wall it should stay highlighted"* —
+    // not "unless the lens had an opinion about walls".
+    //
+    // ⛔ `'analysis'` IS EXCLUDED, and this is the L-6410 / L-3511 boundary.
+    // `_applyAnalysisSelection` already emphasises the selection in Analysis'
+    // OWN palette (light grey ghost + PRYZM purple #6600FF). Running the Inspect
+    // blue over it would put Inspect's colour on the Analysis surface — the one
+    // thing both tags forbid. Same mechanism, separate palettes.
+    if (lens !== 'analysis' && !familyFocusRanTheFocusPass) {
+      this._applyElementFocus(scene, focusedElementIds);
     }
 
     // Defer GPU disposal to the NEXT RAF tick.
@@ -401,7 +501,13 @@ export class DiagnosticMaterialManager {
       () => this._flushDeferredDisposals(),
     );
 
-    console.log(`[DiagnosticMaterialManager] Lens applied: ${lens}${selectedRoomId ? ` (room: ${selectedRoomId})` : ''}`);
+    // §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — this line used to read
+    // `(room: ${selectedRoomId})` and printed a WALL id after the word "room" in
+    // the founder's own console. The label now names what the value IS.
+    console.log(
+      `[DiagnosticMaterialManager] Lens applied: ${lens}`
+      + (focusedElementIds.size > 0 ? ` (focus: ${[...focusedElementIds].join(', ')})` : ''),
+    );
   }
 
   /**
@@ -690,6 +796,30 @@ export class DiagnosticMaterialManager {
   }
 
   /**
+   * §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — build the plain-data `FocusSubject`
+   * that `resolveFocusRole` decides on. The THREE reads live here; the decision is
+   * pure and separately tested, the same split as `_ghostSubject` above.
+   *
+   * ⚠ `elementId` comes from `_resolveElementId`, which walks ANCESTORS. That is
+   * required (a door/window sub-mesh carries no id of its own — C15: a hosted
+   * element is a group) and it is exactly why `resolveFocusRole` must skip the
+   * hit-proxy: an invisible `colorWrite:false` proxy resolves to its element's id
+   * too, and painting it opaque would surface a raycast helper (L-2031).
+   */
+  private _focusSubject(obj: THREE.Mesh): FocusSubject {
+    const ud = obj.userData ?? {};
+    const meshMat = Array.isArray(obj.material) ? obj.material[0] : obj.material;
+    return {
+      elementId:        this._resolveElementId(obj),
+      roomId:           (ud.roomId ?? null) as string | null,
+      isRoomVolume:     !!ud.isRoomVolume,
+      isRoomOverlay:    !!ud.isRoomOverlay,
+      role:             (ud.role ?? null) as string | null,
+      isShaderMaterial: meshMat instanceof THREE.ShaderMaterial,
+    };
+  }
+
+  /**
    * Applies the §1.1 ghost base to a mesh (structural, opening, or non-structural).
    * Adds the cyan LineSegments overlay for structural elements only.
    * Returns true if the mesh was ghost-treated, false if it was skipped.
@@ -853,7 +983,7 @@ export class DiagnosticMaterialManager {
   private _applyGhost(
     scene:          THREE.Scene,
     deltaMap:       Readonly<DeltaMap>,
-    selectedRoomId?: string,
+    focusedElementIds: ReadonlySet<string> = EMPTY_FOCUS,
   ): void {
     this._pulseMeshes = [];
 
@@ -863,7 +993,7 @@ export class DiagnosticMaterialManager {
 
       if (ud.isRoomVolume) {
         // §2.A / §1.3 — volume mesh gets health color or jewel
-        const isSelected = !!(selectedRoomId && ud.roomId === selectedRoomId);
+        const isSelected = resolveFocusRole(this._focusSubject(obj), focusedElementIds) === 'room-jewel';
         const { mat, pulse } = this._makeRoomVolumeMat(ud.roomId ?? '', deltaMap, isSelected);
         this._applyToMesh(obj, mat);
         if (pulse) this._pulseMeshes.push(mat);
@@ -898,7 +1028,7 @@ export class DiagnosticMaterialManager {
   private _applySpatialHeatmap(
     scene:           THREE.Scene,
     deltaMap:        Readonly<DeltaMap>,
-    selectedRoomId?: string,
+    focusedElementIds: ReadonlySet<string> = EMPTY_FOCUS,
   ): void {
     this._pulseMeshes = [];
 
@@ -907,7 +1037,7 @@ export class DiagnosticMaterialManager {
       const ud = obj.userData;
 
       if (ud.isRoomVolume) {
-        const isSelected = !!(selectedRoomId && ud.roomId === selectedRoomId);
+        const isSelected = resolveFocusRole(this._focusSubject(obj), focusedElementIds) === 'room-jewel';
         const { mat, pulse } = this._makeRoomVolumeMat(ud.roomId ?? '', deltaMap, isSelected);
         this._applyToMesh(obj, mat);
         if (pulse) this._pulseMeshes.push(mat);
@@ -990,9 +1120,9 @@ export class DiagnosticMaterialManager {
 
   // ── Lens C: Openings / ADA ────────────────────────────────────────────────
 
-  private _applyOpenings(scene: THREE.Scene, selectedRoomId?: string): void {
+  private _applyOpenings(scene: THREE.Scene, focusedElementIds: ReadonlySet<string> = EMPTY_FOCUS): void {
     // Ghost base (without deltaMap — pass empty map so all volumes render as grey/neutral)
-    this._applyGhost(scene, new Map<string, readonly DeltaEntry[]>(), selectedRoomId);
+    this._applyGhost(scene, new Map<string, readonly DeltaEntry[]>(), focusedElementIds);
 
     scene.traverse(obj => {
       if (!(obj instanceof THREE.Mesh)) return;
@@ -1028,7 +1158,7 @@ export class DiagnosticMaterialManager {
   private _applyFinishes(
     scene:    THREE.Scene,
     deltaMap: Readonly<DeltaMap>,
-    selectedRoomId?: string,
+    focusedElementIds: ReadonlySet<string> = EMPTY_FOCUS,
   ): void {
     const MATERIAL_COLORS: Record<string, number> = {
       'vinyl':            0x44bb77,
@@ -1047,7 +1177,7 @@ export class DiagnosticMaterialManager {
     };
 
     // Ghost base for all non-room elements
-    this._applyGhost(scene, deltaMap, selectedRoomId);
+    this._applyGhost(scene, deltaMap, focusedElementIds);
 
     scene.traverse(obj => {
       if (!(obj instanceof THREE.Mesh)) return;
@@ -1154,9 +1284,9 @@ export class DiagnosticMaterialManager {
   private _applyAssets(
     scene:           THREE.Scene,
     deltaMap:        Readonly<DeltaMap>,
-    selectedRoomId?: string,
+    focusedElementIds: ReadonlySet<string> = EMPTY_FOCUS,
   ): void {
-    this._applyGhost(scene, deltaMap, selectedRoomId);
+    this._applyGhost(scene, deltaMap, focusedElementIds);
 
     const FALLBACK_W = 0.6, FALLBACK_H = 1.0, FALLBACK_D = 0.6;
 
@@ -1298,6 +1428,92 @@ export class DiagnosticMaterialManager {
   }
 
   /**
+   * §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — THE INSPECT FOCUS POST-PASS.
+   *
+   * ⭐ THE TREATMENT, AND WHY IT IS NOT THE ROOM JEWEL. The §1.3 jewel is a
+   * translucent violet VOLUME at 0.40–0.52 opacity with an opacity PULSE. That is
+   * a treatment for a volume — you look THROUGH a room to see it is emphasised,
+   * and the pulse reads because the whole cell breathes. A wall is a SOLID, and
+   * two things go wrong if it is given the same treatment:
+   *   · a 0.4-opacity violet skin on a 200 mm wall standing in a 4–10% ghost is
+   *     barely distinguishable from the ghost itself at grazing angles — the
+   *     emphasis disappears at exactly the camera angles an architect uses;
+   *   · an OPACITY pulse on a solid reads as flickering GEOMETRY, not as focus.
+   *     Rooms get away with it because a room volume is understood to be a
+   *     diagram; a wall is understood to be a wall.
+   *
+   * So a focused solid is painted OPAQUE, depth-writing, in `FOCUS_ELEMENT_COLOR`
+   * with the `FOCUS_ELEMENT_EMISSIVE` lift, and it does NOT pulse.
+   *
+   * ⭐ THE COLOUR IS NOT A NEW ONE. `FOCUS_ELEMENT_COLOR` is `INSPECT_BLUE`, the
+   * value §INSPECT-FOCUS-IS-THE-ONLY-COLOUR (L-3511) already minted to mean
+   * *"this is the thing you selected"* on a solid family, and which
+   * `applyGhostWithFocus` already paints a focused CATEGORY with. Inspect gains
+   * no fourth colour: cyan is "structural edge", violet is "focused room volume",
+   * blue is "focused solid" — one family focus and one element focus now share it,
+   * which is a reference rather than a fifth hex literal.
+   *
+   * ⛔ NOT the selection purple (#6600FF). That is `SelectionManager`'s overlay
+   * colour and Analysis' emphasis colour; putting it here would make Inspect and
+   * Analysis look the same, which L-3511 and L-6410 each forbid from their own end.
+   *
+   * ⚠ THE EMPTY-SET FAST PATH IS A CONTRACT, NOT AN OPTIMISATION. The founder's
+   * standing constraint is *"don't compromise graphics"* — with nothing selected
+   * the scene must look EXACTLY as it does today. Returning here on an empty set
+   * makes that true by construction rather than by argument: no mesh is visited,
+   * no material is replaced, `_savedMeshes` does not grow.
+   */
+  private _applyElementFocus(scene: THREE.Scene, focusedElementIds: ReadonlySet<string>): void {
+    if (focusedElementIds.size === 0) return;
+
+    let painted = 0;
+    scene.traverse(obj => {
+      if (!(obj instanceof THREE.Mesh)) return;
+      if (resolveFocusRole(this._focusSubject(obj), focusedElementIds) !== 'solid-focus') return;
+      this._applyToMesh(obj, new THREE.MeshPhongMaterial({
+        color:             FOCUS_ELEMENT_COLOR,
+        emissive:          new THREE.Color(FOCUS_ELEMENT_EMISSIVE),
+        emissiveIntensity: FOCUS_ELEMENT_EMISSIVE_INTENSITY,
+        side:              THREE.DoubleSide,
+      }));
+      // The second axis (see `FOCUS_ELEMENT_EDGE_COLOR`) — a crisp white outline so
+      // ONE focused wall still reads inside a whole family already painted blue.
+      //
+      // ⭐ C09 §4.3.1 IS OBEYED HERE AND IT IS NOT INCIDENTAL: the outline is added
+      // through `_addOverlayAsChildOf`, so it is a CHILD of the mesh it depicts at
+      // identity. It therefore inherits the explode lift, every ancestor transform
+      // and `.visible` from THREE with nothing to maintain — which is precisely the
+      // clause L-3510 minted after the scene-root, world-transform-snapshot version
+      // of this exact idea produced the founder's "wireframe from every level" and
+      // "outline left behind by explode".
+      //
+      // ⚠ Cost is bounded by the SELECTION, not by the model: the base ghost pass
+      // already builds one EdgesGeometry per structural mesh in the scene, so a
+      // handful more for the focused element is noise against it.
+      const edges   = new THREE.EdgesGeometry(obj.geometry);
+      const lineMat = new THREE.LineBasicMaterial({ color: FOCUS_ELEMENT_EDGE_COLOR, linewidth: 1 });
+      this._addOverlayAsChildOf(obj, new THREE.LineSegments(edges, lineMat));
+      painted++;
+    });
+
+    // §INSPECT-FOCUS-IS-ELEMENT-SHAPED — the honesty half, and the SAME honesty
+    // half `applyGhostWithFocus` carries. A focus of ZERO renders identically to
+    // "nothing was selected", so a focused id that matches no mesh — a stale id, a
+    // level that is not loaded, an element that exists only in a store — must SAY
+    // so. Silence here is how this defect survived: the founder saw no emphasis
+    // and the console said the lens had applied.
+    console.log(
+      `[§INSPECT-FOCUS-IS-ELEMENT-SHAPED] focus=[${[...focusedElementIds].join(', ')}] — `
+      + `${painted} solid mesh(es) in the inspect blue`
+      + (painted === 0
+        ? ' ⚠ ZERO SOLID MESHES MATCHED — if the focused id is a ROOM this is CORRECT '
+          + '(the room jewel is painted by the lens pass, not here); otherwise no mesh in '
+          + 'the scene resolves to this id via userData.id/elementId on itself or an ancestor.'
+        : ''),
+    );
+  }
+
+  /**
    * Replace the set of element ids the Analysis lens treats as selected. Re-applies
    * only when the Analysis lens is the active one, so calling it from a selection
    * subscription is safe in every other workspace.
@@ -1431,7 +1647,7 @@ export class DiagnosticMaterialManager {
         this._applyToMesh(obj, new THREE.MeshPhongMaterial({
           color:             FOCUS_ELEMENT_COLOR,
           emissive:          new THREE.Color(FOCUS_ELEMENT_EMISSIVE),
-          emissiveIntensity: 0.6,
+          emissiveIntensity: FOCUS_ELEMENT_EMISSIVE_INTENSITY,
           side:              THREE.DoubleSide,
         }));
         focused++;
@@ -1453,6 +1669,14 @@ export class DiagnosticMaterialManager {
     // renderer is still executing the frame ('uZoom' TypeError). A direct caller
     // gets the same treatment; without this the leak was one full set of edge
     // clones per category switch.
+    // §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — the ELEMENT focus outranks the
+    // FAMILY focus, and runs after it. Choosing "Walls" in the INSPECT dropdown
+    // paints every wall the inspect blue; having ALSO selected one wall must still
+    // single that one out, otherwise picking a category silently destroys the
+    // selection emphasis the founder was looking at. Both are "focus", at two
+    // granularities, and the finer one wins.
+    this._applyElementFocus(scene, this._focusedElementIds);
+
     getFrameScheduler().scheduleOnce(
       'diagnostic-flush-disposals',
       () => this._flushDeferredDisposals(),

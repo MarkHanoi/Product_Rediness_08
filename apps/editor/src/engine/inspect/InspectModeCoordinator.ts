@@ -32,6 +32,7 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { diagnosticMaterialManager, InspectLens } from './DiagnosticMaterialManager';
+import { toFocusSet, EMPTY_FOCUS } from './inspectFocus';
 import { levelExplodeController } from './LevelExplodeController';
 import { comparisonEngine, selectionBus } from '@pryzm/core-app-model';
 import type { IInspectModeCoordinator } from '@pryzm/editor-ui';
@@ -41,7 +42,15 @@ const MAX_SCENE_HEIGHT = 20.0; // metres — matches DiagnosticMaterialManager c
 export class InspectModeCoordinator implements IInspectModeCoordinator {
   private _scene:           THREE.Scene | null = null;
   private _activeLens:      InspectLens = 'ghost';
-  private _selectedRoomId:  string | undefined;
+  /**
+   * §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — the element ids the Inspect lenses
+   * emphasise. ⛔ THIS FIELD WAS `_selectedRoomId: string | undefined`, and the
+   * name was the bug: `ProjectTreeZone` emitted `pryzm-inspect-room-focus` with
+   * `roomId: el.id` for EVERY family, so a wall id was stored in it and then
+   * compared against `userData.roomId` — a comparison no wall mesh can satisfy.
+   * See `inspectFocus.ts` for the full measurement. C84 EI-9: one name, one meaning.
+   */
+  private _focusedElementIds: ReadonlySet<string> = EMPTY_FOCUS;
 
   /** F.events.2d / F.events.5 / F.events.6 — all subscriptions on runtime.events typed bus.
    *  No DOM addEventListener / removeEventListener in this class. */
@@ -131,7 +140,26 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
       // rewrite `currentIds`. Repainting on them would paint a set that did not
       // move — and, for 'clear', repaint before the bus had cleared it.
       if (ev.type !== 'select' && ev.type !== 'clear') return;
-      this._setAnalysisEmphasis(ev.type === 'clear' ? [] : selectionBus.currentIds);
+      const ids = ev.type === 'clear' ? [] : selectionBus.currentIds;
+      this._setAnalysisEmphasis(ids);
+      // ═══════════════════════════════════════════════════════════════════════
+      // §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — the SAME live wire now also
+      // feeds INSPECT's focus, and that is the point rather than a convenience.
+      // ═══════════════════════════════════════════════════════════════════════
+      // The founder's report is *"when I select a WALL"*, and every surface he can
+      // select a wall from — the 3-D viewport, the plan view, the project browser,
+      // the Inspect panel's own tree — already dispatches on `selectionBus`
+      // (C27 §4 names it "the single authorised entry point for all selection
+      // sources"). Before this line, Inspect's focus could ONLY be set by
+      // `pryzm-inspect-room-focus`, an event with four emitters, three of which
+      // are room rows — so selecting a wall in the VIEWPORT could not reach the
+      // lens at all, and selecting one in the TREE reached it wearing a room's name.
+      //
+      // ⚠ Same shape as the Analysis wire directly above: TWO SOURCES, ONE SINK.
+      // `pryzm-inspect-room-focus` stays (the audit-grid room rows use it and do
+      // NOT go through selectionBus), and both funnel into `_setFocusedElements`
+      // so they cannot become two rival answers to "what is focused".
+      this._setFocusedElements(ids);
     });
 
     // ── Bug fix: restoreFromStorage() fires BEFORE init() — re-check current mode
@@ -142,7 +170,7 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
       const startMode = wc?.getMode?.();
       if (startMode === 'inspect') {
         const deltaMap = comparisonEngine.getDeltaMap();
-        diagnosticMaterialManager.applyLens(this._activeLens, deltaMap, this._scene!, this._selectedRoomId);
+        diagnosticMaterialManager.applyLens(this._activeLens, deltaMap, this._scene!, this._focusedElementIds);
         levelExplodeController.activate();
         console.log('[InspectModeCoordinator] Init catch-up — applied lens for pre-set inspect mode');
       } else if (startMode === 'analysis') {
@@ -152,7 +180,7 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
         // unstyled scene until the user switched modes and back. Both sites read
         // the mode; both must know every mode that paints.
         const deltaMap = comparisonEngine.getDeltaMap();
-        diagnosticMaterialManager.applyLens('analysis', deltaMap, this._scene!, this._selectedRoomId);
+        diagnosticMaterialManager.applyLens('analysis', deltaMap, this._scene!, this._focusedElementIds);
         console.log('[InspectModeCoordinator] Init catch-up — applied lens for pre-set analysis mode');
       }
     });
@@ -183,7 +211,7 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
 
     if (mode === 'inspect') {
       const deltaMap = comparisonEngine.getDeltaMap();
-      diagnosticMaterialManager.applyLens(this._activeLens, deltaMap, this._scene, this._selectedRoomId);
+      diagnosticMaterialManager.applyLens(this._activeLens, deltaMap, this._scene, this._focusedElementIds);
       levelExplodeController.activate();
       console.log(`[InspectModeCoordinator] Entered inspect — lens: ${this._activeLens}`);
     } else if (mode === 'analysis') {
@@ -200,7 +228,7 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
       // adding it here reproduces the bug silently — the `else` does nothing. If a
       // mode is added, it belongs in one of these three arms by explicit choice.
       const deltaMap = comparisonEngine.getDeltaMap();
-      diagnosticMaterialManager.applyLens('analysis', deltaMap, this._scene, this._selectedRoomId);
+      diagnosticMaterialManager.applyLens('analysis', deltaMap, this._scene, this._focusedElementIds);
       console.log(
         `[InspectModeCoordinator] Entered analysis — lens: analysis ` +
         `(light-grey ghost + PRYZM purple selection)`,
@@ -229,6 +257,11 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
   private _onSelectionChanged(payload: unknown): void {
     const ids = (payload as { ids?: readonly string[] })?.ids ?? [];
     this._setAnalysisEmphasis(ids);
+    // §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — the runtime-canonical source
+    // feeds the Inspect sink too, for the same reason it feeds the Analysis one:
+    // it has zero emitters today (see `init()`), and the day it acquires one the
+    // two surfaces must already agree rather than be made to agree afterwards.
+    this._setFocusedElements(ids);
   }
 
   /**
@@ -244,20 +277,47 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
     diagnosticMaterialManager.setAnalysisSelection(ids, this._scene);
   }
 
+  /**
+   * §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — THE ONE SINK for "which elements
+   * the INSPECT lenses emphasise". Sibling of `_setAnalysisEmphasis` above, and
+   * deliberately its sibling rather than its extension: same mechanism (a set of
+   * element ids), separate palettes (L-3511 cyan/violet/blue vs L-6410 grey/purple).
+   *
+   * Three sources reach it — `pryzm-inspect-room-focus` (the audit-grid and
+   * discovery ROOM rows), `selectionBus` (live; every click surface), and the
+   * runtime's `selection.changed` (canonical, currently zero emitters).
+   *
+   * ⚠ RE-APPLIES ONLY WHEN A LENS IS ACTIVE. `isActive()` is false outside
+   * Inspect/Analysis, so a plain 3-D click in Author mode updates the stored set
+   * and paints nothing — and entering Inspect afterwards then shows what is
+   * already selected, which is the behaviour the founder's sentence implies.
+   *
+   * ⛔ The apply is RAF-coalesced inside `applyLens`, so the two sources firing on
+   * the SAME click (a tree row emits room-focus and then `selectionBus.select`)
+   * collapse into ONE application at the next frame with the LAST set winning.
+   * That coalescer is also why the old code's flicker was exactly one frame long.
+   */
+  private _setFocusedElements(ids: Iterable<string>): void {
+    this._focusedElementIds = toFocusSet(ids);
+    if (!this._scene || !diagnosticMaterialManager.isActive()) return;
+    const deltaMap = comparisonEngine.getDeltaMap();
+    diagnosticMaterialManager.applyLens(this._activeLens, deltaMap, this._scene, this._focusedElementIds);
+  }
+
   private _onSetLens(payload: unknown): void {
     const lens = (payload as { lens?: string })?.lens as InspectLens | undefined;
     if (!lens || !this._scene) return;
     this._activeLens = lens;
 
     const deltaMap = comparisonEngine.getDeltaMap();
-    diagnosticMaterialManager.applyLens(lens, deltaMap, this._scene, this._selectedRoomId);
+    diagnosticMaterialManager.applyLens(lens, deltaMap, this._scene, this._focusedElementIds);
     console.log(`[InspectModeCoordinator] Lens set to: ${lens}`);
   }
 
   private _onDeltaUpdated(_payload: unknown): void {
     if (!diagnosticMaterialManager.isActive() || !this._scene) return;
     const deltaMap = comparisonEngine.getDeltaMap();
-    diagnosticMaterialManager.applyLens(this._activeLens, deltaMap, this._scene, this._selectedRoomId);
+    diagnosticMaterialManager.applyLens(this._activeLens, deltaMap, this._scene, this._focusedElementIds);
     console.log('[InspectModeCoordinator] Delta updated — re-applied lens');
   }
 
@@ -269,12 +329,17 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
     const roomId = (payload as { roomId?: string })?.roomId;
     if (!this._scene) return;
 
-    this._selectedRoomId = roomId;
+    // §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — routed through the ONE sink.
+    // This handler used to write the focus field directly AND re-apply, which is
+    // what made it a rival to the selection wire rather than a source feeding it.
+    this._setFocusedElements(roomId ? [roomId] : []);
     if (!diagnosticMaterialManager.isActive()) return;
-
-    const deltaMap = comparisonEngine.getDeltaMap();
-    diagnosticMaterialManager.applyLens(this._activeLens, deltaMap, this._scene, this._selectedRoomId);
-    console.log(`[InspectModeCoordinator] Room focused: ${roomId} — jewel applied`);
+    // ⛔ The old line read `Room focused: ${roomId} — jewel applied` and the
+    // founder's own console printed `Room focused: wall_01M0PTPAWMNKP0B1G841G7XR04`
+    // under it. A log that names the SLOT instead of the VALUE is how a wall id in
+    // a room field reads as normal for months. It now names the event, not a type
+    // it cannot check.
+    console.log(`[InspectModeCoordinator] Inspect focus set from room-focus event: ${roomId ?? '(cleared)'}`);
   }
 
   /**
@@ -347,7 +412,7 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
       diagnosticMaterialManager.clearElementFocus();
       if (diagnosticMaterialManager.isActive()) {
         const deltaMap = comparisonEngine.getDeltaMap();
-        diagnosticMaterialManager.applyLens(this._activeLens, deltaMap, this._scene, this._selectedRoomId);
+        diagnosticMaterialManager.applyLens(this._activeLens, deltaMap, this._scene, this._focusedElementIds);
       }
     } else {
       diagnosticMaterialManager.applyGhostWithFocus(this._scene, elementType);
