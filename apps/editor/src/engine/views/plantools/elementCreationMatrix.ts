@@ -265,12 +265,34 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
         // answers (this file's own rule), and this is the former.
         autoIn: [],
         modeSource: 'shared', // activePoolDrawMode.ts
-        gap: 'No 3-D arm yet: `TOOL_MANAGER_TOOL_KEYS` has no `pool` key, so the tool '
-           + 'cannot be armed from the 3-D viewport. NOT a missing handler — `pool.create` '
-           + 'is fully dispatchable (L-5200) and the plan arm drives it. Adding the 3-D arm '
-           + 'means a `ToolManager` activator, which lane PERF13 owns; handed over in L-5214. '
-           + 'The activator id `pool` is already registered in PluginRegistry so '
-           + 'check-tool-activator-coverage ARM A stays at 0.',
+        gap: 'TWO gaps, and the SECOND is the one that matters — corrected 2026-08-23 '
+           + '(§FIX-PLAN-TOOL-FINISH-GESTURE, L-9306). '
+           + '(1) NO RENDER PATH. CommandEventBridge has no case for pool.create; it '
+           + 'falls straight to its default arm, so no wall.created / slab.created '
+           + 'reaches the initTools legacy mirrors and no mesh is ever built. A '
+           + 'repo-wide search for PoolMeshBuilder / WaterBuilder returns ZERO — there '
+           + 'is no render path AND no render asset. A pool therefore commits four '
+           + 'stores, takes one undo entry, and draws nothing anywhere. Owner: the '
+           + 'lane holding CommandEventBridge (its lift.create case is the idiom to '
+           + 'copy). '
+           + '(2) No 3-D arm: TOOL_MANAGER_TOOL_KEYS has no pool key. '
+           + '⚠ THIS ROW USED TO SAY ONLY (2), AND ADDED “NOT a missing handler — '
+           + 'pool.create is fully dispatchable (L-5200) and the plan arm drives it”. '
+           + 'Both halves are true and together they read as “it works in plan”, which '
+           + 'is what the founder tested three times and it does not: DISPATCHABLE is '
+           + 'not VISIBLE. (2) is ordered BELOW (1) deliberately — a 3-D arm built '
+           + 'first would add a second surface that creates the same invisible '
+           + 'element. '
+           + '⚠ AND THE SENTENCE THIS ROW USED TO END ON IS FALSE. It read “The '
+           + 'activator id pool is already registered in PluginRegistry so '
+           + 'check-tool-activator-coverage ARM A stays at 0”. MEASURED 2026-08-23: '
+           + 'npx tsx tools/ga-gate/check-tool-activator-coverage.ts -> RC=1, '
+           + '“ARM A FAIL — 3 declared tool id(s) have NO registered activator '
+           + '(baseline 0): balcony, boundary-line, pool”. The gate is NOT blind to '
+           + 'this class of gap and is NOT green — it is RED and names all three. What '
+           + 'was wrong was the CLAIM ABOUT the gate, which is the defect shape '
+           + 'CLAUDE.md corrects five times over: read the gate, never the line that '
+           + 'quotes it. Logged as L-9308.',
     },
 
     // ── Architecture ─────────────────────────────────────────────────────────
@@ -479,13 +501,33 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
         // different answers (this file's own rule) and this is the former.
         autoIn: [],
         modeSource: 'shared',   // activeBoundaryLineDrawMode.ts
-        gap: 'No 3-D arm yet: `TOOL_MANAGER_TOOL_KEYS` has no `boundary-line` key, so '
-           + 'the tool cannot be armed from the 3-D viewport. NOT a missing handler -- '
-           + '`boundaryLine.create` is fully dispatchable (proven at the composed '
-           + 'runtime) and the plan arm drives it. A setting-out line is also a PLAN '
-           + 'gesture by nature: it is drawn against a floor plate, which is where an '
-           + 'architect sets a building out. Adding the 3-D arm means a `ToolManager` '
-           + 'activator; recorded in L-7934.',
+        gap: 'TWO gaps, and the SECOND is the one that matters — corrected 2026-08-23 '
+           + '(§FIX-PLAN-TOOL-FINISH-GESTURE, L-9307). '
+           + '(1) NO RENDER PATH. CommandEventBridge has no case for '
+           + 'boundaryLine.create; it falls to its default arm, and because the family '
+           + 'is SINGLE-STORE (produceCommand, patch paths of length 1) the L-7825 '
+           + 'compound detector — which requires a path length of 2 and more than one '
+           + 'store — cannot see it either, so the drop is COMPLETELY SILENT. There '
+           + 'is no mesh builder, no plan-view draw path and no persistence: '
+           + 'boundaryLineSolid() exists with ZERO production callers, and '
+           + 'ProjectSerializer has no boundaryLines field, so the record dies on save. '
+           + 'Owner: the lane holding CommandEventBridge. '
+           + '(2) No 3-D arm: TOOL_MANAGER_TOOL_KEYS has no boundary-line key, and '
+           + 'check-tool-activator-coverage ARM A names it (RC=1, 3/0, measured '
+           + '2026-08-23). '
+           + '⚠ THIS ROW USED TO SAY ONLY (2), AND ADDED “NOT a missing handler — '
+           + 'boundaryLine.create is fully dispatchable (proven at the composed '
+           + 'runtime) and the plan arm drives it”. Both halves are true and '
+           + 'together they read as “it works in plan”; the founder measured '
+           + 'otherwise the day after it shipped. DISPATCHABLE is not VISIBLE. '
+           + 'A setting-out line is also a PLAN gesture by nature: it is drawn against '
+           + 'a floor plate, which is where an architect sets a building out. '
+           + '⭐ A THIRD gap CLOSED 2026-08-23: the six declared modes had NO '
+           + 'production writer — PLAN_ONLY_MODE_STORES carried only pool and balcony, '
+           + 'so no mode strip was ever mounted and every line shipped linear. The '
+           + 'four existing calls to setActiveBoundaryLineDrawMode were ALL inside '
+           + 'boundaryLinePointerReach.spec.ts, which is why its rectangular arm was '
+           + 'green while the mode was unreachable on screen.',
     },
     {
         tool: 'curtain-wall', label: 'Curtain wall',

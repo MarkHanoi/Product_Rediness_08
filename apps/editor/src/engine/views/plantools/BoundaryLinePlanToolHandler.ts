@@ -46,6 +46,9 @@ import {
     activeBoundaryLineLoopMode,
     activeBoundaryLineHasVolume,
 } from './activeBoundaryLineDrawMode';
+// §FIX-PLAN-TOOL-FINISH-GESTURE (L-9301) — the LIVE refusal channel. The overlay draw
+// is the second leg, not the only one; see `notifyPlanToolRefusal`'s header.
+import { notifyPlanToolRefusal, notifyPlanToolCreated } from '@app/ui/create/activatePlanOnlyTool';
 
 /** PRYZM purple — the shared preview colour every plan tool draws in. */
 const STROKE = '#6600ff';
@@ -88,6 +91,17 @@ export class BoundaryLinePlanToolHandler implements PlanToolHandler {
     // ── Interaction ──────────────────────────────────────────────────────────
 
     onMouseMove(pt: WorldPoint): void {
+        // ⭐ §FIX-PLAN-TOOL-FINISH-GESTURE (L-9301) — A REFUSAL OUTLIVES THE POINTER.
+        // The overlay clears the canvas at the head of every sample and this handler
+        // draws NOTHING at zero points, so without this the reason the last gesture
+        // failed is erased by the architect's next 16 ms of mouse movement. It is
+        // cleared by the next CLICK (`onClick`'s first line), because a new attempt is
+        // when the old reason stops being true.
+        if (this._refusal) {
+            this._cursorPoint = pt;
+            this._drawRefusal();
+            return;
+        }
         // Mode is re-read on EVERY sample (the `WallModePicker.getActiveMode()`
         // contract) so a switch on the mode strip applies to the very next click
         // without re-activating the tool and destroying the stroke.
@@ -247,7 +261,16 @@ export class BoundaryLinePlanToolHandler implements PlanToolHandler {
             return;
         }
 
-        void Promise.resolve(dispatch).catch((e: unknown) => {
+        void Promise.resolve(dispatch).then(() => {
+            // ⭐ §FIX-PLAN-TOOL-FINISH-GESTURE (L-9305) — SAY THAT IT EXISTS.
+            // `boundaryLine.create` has no `case` in `CommandEventBridge` and no
+            // renderer anywhere, so the record is real and completely invisible
+            // (measured — see `notifyPlanToolCreated`'s header). Without this line the
+            // founder's *"it doesn't create"* is the only reading available to him.
+            notifyPlanToolCreated(
+                `Boundary line created — ${vertices.length} points${closed ? ', closed' : ''}.`,
+            );
+        }).catch((e: unknown) => {
             // ⭐ SURFACE THE BUS'S OWN REASON, VERBATIM. `canExecute` rejections arrive
             // as `CommandBusError: boundaryLine.create: canExecute rejected — <why>`,
             // and that `<why>` is the most accurate sentence available (a degenerate
@@ -292,6 +315,12 @@ export class BoundaryLinePlanToolHandler implements PlanToolHandler {
         this._refusal = message;
         this._resetStroke();
         this._drawRefusal();
+        // ⭐⭐ §FIX-PLAN-TOOL-FINISH-GESTURE (L-9301) — AND SAY IT WHERE IT SURVIVES.
+        // The overlay draw above is erased by the very next pointer sample. The founder's
+        // *"doesn't actually work — it doesn't create"* is what a computed, correct reason
+        // looks like after it has been painted onto a canvas that is cleared 16 ms later.
+        // `runtime.toasts` is the channel `initUI` uses for every message the user reads.
+        notifyPlanToolRefusal(message);
     }
 
     private _drawRefusal(): void {

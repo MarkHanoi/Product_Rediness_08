@@ -298,6 +298,17 @@ export class PlanViewToolOverlay {
         return this._active && !this._paused && this._activeHandler !== null;
     }
 
+    /**
+     * §FIX-PLAN-TOOL-FINISH-GESTURE (L-9303) — does the handler armed on THIS surface
+     * hold uncommitted stroke state right now? The twin of
+     * `SvpPlanToolOverlay.hasActiveStroke()`; see that method's header for why the
+     * Escape decision has to be asked of the whole TOOL rather than of one pane.
+     */
+    hasActiveStroke(): boolean {
+        if (!this._active || !this._activeHandler) return false;
+        return !!(this._activeHandler as { hasActiveStroke?: () => boolean }).hasActiveStroke?.();
+    }
+
     setActiveTool(tool: string): void {
         if (!this._active) {
             console.warn('[PlanViewToolOverlay] setActiveTool called while not attached — ignored');

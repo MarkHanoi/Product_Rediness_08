@@ -365,6 +365,26 @@ export class SvpPlanToolOverlay {
     }
 
     /**
+     * §FIX-PLAN-TOOL-FINISH-GESTURE (L-9303) — does the handler armed on THIS surface
+     * hold uncommitted stroke state right now?
+     *
+     * ⭐ THE ESCAPE DECISION IS A PROPERTY OF THE TOOL, NOT OF ONE PANE. A plan-only
+     * tool is armed on EVERY attached plan surface at once (`activatePlanOnlyTool`
+     * loops both overlays), and the two hold SEPARATE handler instances from the shared
+     * registry — so the outline lives in exactly one of them. Both overlays listen for
+     * Escape on `window` in the capture phase, and the FIRST to run used to decide the
+     * two-stage gesture from its OWN handler alone. With the main plan surface also up,
+     * that first reader is the EMPTY one: it reports "no stroke", `planOnlyToolEscape`
+     * takes stage 2, and the half-drawn outline in the other pane is disarmed out from
+     * under the architect. This method is what lets `planOnlyToolEscape` ask the
+     * question of the WHOLE tool instead of one arbitrary pane.
+     */
+    hasActiveStroke(): boolean {
+        if (!this._active || !this._activeHandler) return false;
+        return !!(this._activeHandler as { hasActiveStroke?: () => boolean }).hasActiveStroke?.();
+    }
+
+    /**
      * §FIX-PLAN-ELEMENT-TOOL-PARITY (L-95) — C11 element-creation/plan-tools pipeline.
      *
      * Split-view parity for `PlanViewToolOverlay.setActiveTool`. The ContextualEditBar
@@ -661,7 +681,43 @@ export class SvpPlanToolOverlay {
         // perspective: there is no competing 3D view that could intercept the same keys.
         // Only require hover focus when the 3D view is the primary viewport.
         const planViewIsPrimary = Boolean(window.planViewManager?.isActive);
-        if (!this._svpFocused && !planViewIsPrimary) return;
+        // ⭐⭐ §FIX-PLAN-TOOL-FINISH-GESTURE (L-9300) — A PRESERVED STROKE OWNS THE
+        // KEYBOARD, WHEREVER THE POINTER IS.
+        //
+        // THE FOUNDER, on the pool: *"if I create 3 segments on preview and click Enter
+        // the 4th should connect with the first point"*. On the boundary line, minutes
+        // later: *"doesn't actually work — it doesn't create"*. Both tools finish on
+        // **Enter or a double-click**, and both failed at exactly that step.
+        //
+        // ⚠ THE TWO FEATURES IN THIS FILE CONTRADICTED EACH OTHER. `_onMouseLeave`
+        // DELIBERATELY keeps a half-drawn stroke alive when the pointer leaves the pane
+        // (§T-B1 — so a six-point outline does not evaporate because the architect
+        // reached for the toolbar) while setting `_svpFocused = false`. This guard then
+        // threw away the only key that can FINISH that preserved stroke. The stroke was
+        // kept and made unfinishable in the same file.
+        //
+        // ⛔ AND IT WAS A SPLIT-VIEW-ONLY BREAK. `PlanViewToolOverlay._onKeyDown` has no
+        // hover gate at all — `if (!this._activeHandler || this._paused) return;` and
+        // nothing more — so Enter has always worked on the MAIN plan surface. The
+        // founder's working layout is 3-D + the SPLIT pane, which is why he is the one
+        // who found it. MEASURED, `planOnlyToolFinishGesture.spec.ts` ARM B: before this
+        // line, four clicks + `mouseleave` + Enter produced ZERO `pool.create` and ZERO
+        // `boundaryLine.create`; with the pointer left on the pane, both committed.
+        //
+        // ⭐ IT ALSO REPAIRS ESCAPE, AND THAT IS THE `Handler activated: pool` x7 IN HIS
+        // LOG. Escape is decided in this same method, below the guard: with the pointer
+        // off the pane the overlay never claimed it, so the SESSION's bubble-phase
+        // fallback ran `planOnlyToolEscape(false)` — "no overlay held a stroke" — and
+        // DISARMED a tool that was mid-outline. A person whose tool keeps putting itself
+        // away clicks the palette again, which is precisely the repeated-arm shape.
+        //
+        // The stroke test is deliberately narrower than "always listen": with no stroke
+        // in progress this overlay still yields the keyboard exactly as before, so no
+        // 3-D tool armed in parallel loses a key it used to get.
+        const hasStroke = !!(
+            this._activeHandler as { hasActiveStroke?: () => boolean }
+        ).hasActiveStroke?.();
+        if (!this._svpFocused && !planViewIsPrimary && !hasStroke) return;
         // Never hijack keys typed into a text-entry field (dimension inputs, etc.).
         if (SvpPlanToolOverlay._isFormFieldTarget(e.target)) return;
 

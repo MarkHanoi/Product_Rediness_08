@@ -71,6 +71,9 @@ import { resolveActivePoolDrawMode, activePoolLoopMode } from './activePoolDrawM
 // after the fix — a defect introduced by a fix, which is why the snapshot ships in the
 // same commit as the suppression rather than after it.
 import { armedSelectionId } from './armedSelectionSnapshot';
+// §FIX-PLAN-TOOL-FINISH-GESTURE (L-9301) — the LIVE refusal channel. The overlay draw
+// is the second leg, not the only one; see `notifyPlanToolRefusal`'s header.
+import { notifyPlanToolRefusal, notifyPlanToolCreated } from '@app/ui/create/activatePlanOnlyTool';
 
 /** PRYZM purple — the shared preview colour every plan tool draws in. */
 const STROKE = '#6600ff';
@@ -115,6 +118,16 @@ export class PoolPlanToolHandler implements PlanToolHandler {
     // ── Interaction ──────────────────────────────────────────────────────────
 
     onMouseMove(pt: WorldPoint): void {
+        // ⭐ §FIX-PLAN-TOOL-FINISH-GESTURE (L-9301) — A REFUSAL OUTLIVES THE POINTER.
+        // The overlay clears the canvas at the head of every sample, so without this the
+        // reason the last gesture failed is erased by the architect's next 16 ms of
+        // mouse movement — measured, A-4. It is cleared by the next CLICK (`onClick`'s
+        // first line), because a new attempt is when the old reason stops being true.
+        if (this._refusal) {
+            this._cursorPoint = pt;
+            this._drawRefusal();
+            return;
+        }
         // Mode is re-read on EVERY sample (the `WallModePicker.getActiveMode()`
         // contract) so a switch on the mode strip applies to the very next click
         // without re-activating the tool and destroying the stroke.
@@ -349,7 +362,16 @@ export class PoolPlanToolHandler implements PlanToolHandler {
             return;
         }
 
-        void Promise.resolve(dispatch).catch((e: unknown) => {
+        void Promise.resolve(dispatch).then(() => {
+            // ⭐ §FIX-PLAN-TOOL-FINISH-GESTURE (L-9305) — SAY THAT IT EXISTS.
+            // A pool commits four stores and, until `CommandEventBridge` grows a
+            // `case 'pool.create'`, draws NOTHING (measured — see
+            // `notifyPlanToolCreated`'s header). Success and refusal are the same
+            // number of pixels, which is the founder's whole report.
+            notifyPlanToolCreated(
+                `Swimming pool created — ${boundary.length} sides, cut into the slab below.`,
+            );
+        }).catch((e: unknown) => {
             // ⭐ SURFACE THE BUS'S OWN REASON, VERBATIM. `canExecute` rejections
             // arrive as `CommandBusError: pool.create: canExecute rejected — <why>`,
             // and that `<why>` is the most accurate sentence available (duplicate
@@ -488,6 +510,15 @@ export class PoolPlanToolHandler implements PlanToolHandler {
         this._refusal = message;
         this._resetStroke();
         this._drawRefusal();
+        // ⭐⭐ §FIX-PLAN-TOOL-FINISH-GESTURE (L-9301) — AND SAY IT WHERE IT SURVIVES.
+        // The overlay draw above is erased by the very next pointer sample: the overlay
+        // clears the canvas at the head of every `mousemove`, and `_resetStroke()` has
+        // just emptied `_points`, so `onMouseMove` redraws the IDLE HINT over the reason.
+        // Measured in `planOnlyToolFinishGesture.spec.ts` A-4 — the sentence lasted one
+        // frame. `runtime.toasts` is the channel `initUI` uses for every message the user
+        // actually reads (L-7005), and it is why "the swimming pool would not create"
+        // now arrives as "a pool must be cut into a slab" instead of as silence.
+        notifyPlanToolRefusal(message);
     }
 
     private _drawRefusal(): void {
@@ -553,6 +584,22 @@ export class PoolPlanToolHandler implements PlanToolHandler {
 
         if (screenPts.length >= MIN_LOOP_VERTS) this._fillPath(ctx, [...screenPts, ...trailing]);
         this._strokePath(ctx, [...screenPts, ...trailing], false);
+        // ⭐ §FIX-PLAN-TOOL-FINISH-GESTURE (L-9304) — SHOW THE EDGE THAT WILL CLOSE.
+        //
+        // THE FOUNDER: *"if I create 3 segments on preview and click Enter the 4th
+        // should connect with the first point"* — and it always did. `_commit()` treats
+        // `_points` as a RING (first vertex not repeated, the slab/boundary-line
+        // convention), so three segments have always produced a four-sided pool. What
+        // was missing is that NOTHING ON SCREEN SAID SO: the preview stroked an open
+        // polyline, so the closing edge existed only in the commit. Asking a person to
+        // trust an edge they cannot see is how "it doesn't work" gets reported about
+        // something that works.
+        //
+        // Drawn fainter and in a longer dash than the drawn edges, because it is the
+        // edge the TOOL will add, not one the architect has placed. The wall tool has
+        // never needed this: it commits each segment as it goes, so its closing
+        // segment is a real wall the moment Enter lands.
+        this._strokeClosingHint(ctx, [...screenPts, ...trailing]);
 
         if (mode === 'curved' && this._arcMidPt) {
             const m = planCanvas.worldToScreen(this._arcMidPt.worldX, this._arcMidPt.worldZ);
@@ -605,6 +652,34 @@ export class PoolPlanToolHandler implements PlanToolHandler {
         for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i]!.sx, pts[i]!.sy);
         if (close) ctx.closePath();
         ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    /**
+     * §FIX-PLAN-TOOL-FINISH-GESTURE (L-9304) — the edge Enter / double-click will add.
+     *
+     * A pool outline is a RING; the open modes just build it one vertex at a time. Below
+     * three points there is nothing to close, so nothing is drawn — the hint appears at
+     * exactly the moment the gesture becomes finishable, which also makes the sentence
+     * `_hintFor()` prints ("Dbl-click or Enter to close pool") visible at the same instant.
+     */
+    private _strokeClosingHint(
+        ctx: CanvasRenderingContext2D,
+        pts: ReadonlyArray<{ sx: number; sy: number }>,
+    ): void {
+        if (pts.length < MIN_LOOP_VERTS) return;
+        const first = pts[0]!;
+        const last  = pts[pts.length - 1]!;
+        ctx.save();
+        ctx.setLineDash([2, 5]);
+        ctx.lineWidth   = 1;
+        ctx.globalAlpha = 0.55;
+        ctx.strokeStyle = STROKE;
+        ctx.beginPath();
+        ctx.moveTo(last.sx, last.sy);
+        ctx.lineTo(first.sx, first.sy);
+        ctx.stroke();
+        ctx.restore();
         ctx.setLineDash([]);
     }
 

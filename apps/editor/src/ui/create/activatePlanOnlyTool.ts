@@ -65,6 +65,12 @@ import {
   setActiveBalconyDrawMode,
   resolveActiveBalconyDrawMode,
 } from '@app/engine/views/plantools/activeBalconyPlacement';
+// §FIX-PLAN-TOOL-FINISH-GESTURE (L-9302) — the boundary line's mode store. It had a
+// live handler arm for all six modes and NO production writer; see PLAN_ONLY_MODE_STORES.
+import {
+  setActiveBoundaryLineDrawMode,
+  resolveActiveBoundaryLineDrawMode,
+} from '@app/engine/views/plantools/activeBoundaryLineDrawMode';
 import {
   captureArmedSelection,
   clearArmedSelection,
@@ -77,6 +83,41 @@ const _tracer = trace.getTracer('@pryzm/editor.activate-plan-only-tool', '0.1.0'
 interface PlanOverlayLike {
   isAttached?: () => boolean;
   setActiveTool?: (tool: string) => void;
+  /** §FIX-PLAN-TOOL-FINISH-GESTURE (L-9303) — uncommitted stroke on THIS surface. */
+  hasActiveStroke?: () => boolean;
+}
+
+/** Both plan surfaces, in the order `activatePlanOnlyTool` arms them. */
+function planOverlays(): Array<PlanOverlayLike | undefined> {
+  return [
+    (window as { planViewToolOverlay?: PlanOverlayLike }).planViewToolOverlay,
+    (window as { svpPlanToolOverlay?: PlanOverlayLike }).svpPlanToolOverlay,
+  ];
+}
+
+/**
+ * §FIX-PLAN-TOOL-FINISH-GESTURE (L-9303) — is there an uncommitted stroke on ANY
+ * attached plan surface?
+ *
+ * ⭐ THE QUESTION ESCAPE HAS TO ASK, AND THE ONE IT WAS NOT ASKING. A plan-only tool is
+ * armed on EVERY attached plan surface (see `activatePlanOnlyTool` above) and each
+ * surface holds its OWN handler instance from the shared registry, so an in-progress
+ * outline lives in exactly one of them. Both overlays listen for Escape on `window` in
+ * the CAPTURE phase; whichever runs first used to decide the two-stage gesture from its
+ * own handler alone. When the main plan surface is also up, that first reader is the
+ * EMPTY one — it reports "no stroke", stage 2 runs, and the architect's half-drawn pool
+ * in the other pane is disarmed. Asking every surface makes the answer a property of the
+ * TOOL, which is what the two-stage rule was always about.
+ */
+export function anyPlanSurfaceHasStroke(): boolean {
+  for (const ov of planOverlays()) {
+    try {
+      if (ov?.isAttached?.() && ov.hasActiveStroke?.() === true) return true;
+    } catch {
+      /* an overlay mid-teardown must never take Escape with it */
+    }
+  }
+  return false;
 }
 
 export interface PlanToolActivation {
@@ -179,6 +220,62 @@ function notifyUser(message: string, kind: 'info' | 'error'): void {
     /* same */
   }
   if (!delivered) console.warn(`[activatePlanOnlyTool] ${message}`);
+}
+
+/**
+ * §FIX-PLAN-TOOL-FINISH-GESTURE (L-9301) — put a plan-tool REFUSAL in front of a person.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * ⭐ A REFUSAL PAINTED ON THE PREVIEW CANVAS IS ERASED ~16 ms LATER.
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * `PoolPlanToolHandler._refuse` and `BoundaryLinePlanToolHandler._refuse` each draw
+ * their sentence on the overlay canvas — which is the right SECOND channel and was the
+ * only one. `SvpPlanToolOverlay._onMouseMove` (and its main-plan twin) begins EVERY
+ * pointer sample with `ctx.clearRect(...)` and then calls the handler, whose points
+ * `_refuse()` has just reset to zero — so the handler redraws the idle hint, or nothing
+ * at all, over the reason. MEASURED, `planOnlyToolFinishGesture.spec.ts` A-4: after one
+ * `mousemove` the on-screen text was `"Pool · Click the first corner"` and the refusal
+ * was gone.
+ *
+ * ⛔ THAT IS THE WHOLE OF *"the swimming pool would not create"*. The pool refuses when
+ * there is no slab under the outline (`CreatePoolHandler.canExecute`: *"a pool with no
+ * slab to cut into is not a pool; it is a hole in the air"*), which is CORRECT — and the
+ * architect saw a completed rectangle, then silence. C11 §7.6, "a dead click behind a
+ * perfect preview", with the reason computed and thrown away.
+ *
+ * ⭐ `runtime.toasts` IS THE LIVE CHANNEL, and this is exactly what L-7005 established:
+ * `pryzm:toast` had 40+ emitters and ZERO subscribers, while `buildToastsSlot()` renders
+ * real DOM through `showAppToast`. Handlers reuse it here rather than each growing its
+ * own notification ladder.
+ */
+export function notifyPlanToolRefusal(message: string): void {
+  notifyUser(message, 'error');
+}
+
+/**
+ * §FIX-PLAN-TOOL-FINISH-GESTURE (L-9305) — confirm, BY NAME, that the element exists.
+ *
+ * ⛔ THIS IS NOT DECORATION, AND IT IS NOT NOISE ADDED TO EVERY TOOL. It is scoped to
+ * the two families that today create something a person CANNOT SEE, and it is there
+ * because the alternative is indistinguishable from the founder's bug report.
+ *
+ * ⚠ MEASURED 2026-08-23, and it is the finding that reorders this whole lane:
+ *   • `pool.create` has **no `case` in `CommandEventBridge`** — it falls to `default:`,
+ *     so no `wall.created` / `slab.created` reaches the legacy mirrors in `initTools`
+ *     and no mesh is ever built. A repo-wide search for `PoolMeshBuilder` /
+ *     `WaterBuilder` returns ZERO: there is no render path AND no render asset.
+ *   • `boundaryLine.create` falls to the same `default:`, and is dropped even more
+ *     quietly — the L-7825 compound detector requires `patch.path.length === 2` and
+ *     more than one store, and a single-store family satisfies neither, so it warns
+ *     nothing. `boundaryLineSolid()` exists and has zero production callers.
+ *
+ * So both commands succeed, write real records, take one undo entry — and put zero
+ * pixels anywhere. Until the bridge cases land, a confirmation is the ONLY signal that
+ * separates "created" from "silently refused", and shipping the two apart is what
+ * turned a correct refusal into three founder reports. C11 §7.6.
+ */
+export function notifyPlanToolCreated(message: string): void {
+  notifyUser(message, 'info');
 }
 
 /**
@@ -292,7 +389,47 @@ const PLAN_ONLY_MODE_STORES: Readonly<
 > = {
   pool: { write: setActivePoolDrawMode, read: resolveActivePoolDrawMode, label: 'Pool:' },
   balcony: { write: setActiveBalconyDrawMode, read: resolveActiveBalconyDrawMode, label: 'Balcony:' },
+  // ⭐⭐ §FIX-PLAN-TOOL-FINISH-GESTURE (L-9302) — THE BOUNDARY LINE'S STRIP, WHICH
+  // NEVER EXISTED. This table is what mounts the shared `DrawingModeBar`, and
+  // `boundary-line` was not in it — so `beginPlanOnlyToolSession` found no store, built
+  // no bar, and FIVE of the tool's six declared modes were unreachable from any screen.
+  //
+  // ⚠ MEASURED, 2026-08-23, before this row:
+  //     grep -rn "setActiveBoundaryLineDrawMode" apps packages plugins
+  //       -> the DEFINITION, the `__resetForTests` helper, and FOUR CALLS,
+  //          ALL FOUR INSIDE `boundaryLinePointerReach.spec.ts`.
+  //     Production writers: ZERO.
+  // So every boundary line the founder could draw shipped `linear`, and the spec that
+  // proves `rectangular` works proves it by calling the setter the UI does not call.
+  // That is the same shape as the header's own `grep -> 0 hits` for the pool's palette
+  // row (L-5690) and as `activePoolDrawMode`'s "not one production WRITER" note — the
+  // THIRD recurrence in this family. The row is what stops it being a fourth.
+  //
+  // ⛔ NO NEW VOCABULARY. `creationModes('boundary-line')` is still the one declaration;
+  // this only names the store the bar writes into.
+  'boundary-line': {
+    write: setActiveBoundaryLineDrawMode,
+    read: resolveActiveBoundaryLineDrawMode,
+    label: 'Boundary:',
+  },
 };
+
+/**
+ * §FIX-PLAN-TOOL-FINISH-GESTURE (L-9302) — the mode store the STRIP writes for a tool,
+ * or `undefined` when the tool has none (and therefore gets no strip).
+ *
+ * ⭐ EXPOSED SO A TEST CAN DRIVE THE CHANNEL A PERSON HAS, not the setter underneath it.
+ * `boundaryLinePointerReach.spec.ts` set `rectangular` by calling
+ * `setActiveBoundaryLineDrawMode` directly and was green, while this table had no
+ * `boundary-line` row — so no strip was ever mounted and the mode was unreachable on
+ * every screen. A census driven through THIS function fails when the row is missing,
+ * which is the difference between proving the store works and proving the tool does.
+ */
+export function planOnlyToolModeStore(
+  tool: string,
+): { readonly write: (id: string) => void; readonly read: () => string; readonly label: string } | undefined {
+  return PLAN_ONLY_MODE_STORES[tool];
+}
 
 /** One live session at a time — arming a second tool ends the first. */
 interface PlanOnlySession {
@@ -535,7 +672,10 @@ export function planOnlyToolEscape(hadActiveStroke: boolean): boolean {
         span.setAttribute('pryzm.plan_tools.disarmed', false);
         return false;
       }
-      if (hadActiveStroke) {
+      // ⭐ §FIX-PLAN-TOOL-FINISH-GESTURE (L-9303) — OR IN EVERY OTHER PLAN SURFACE.
+      // The caller passes what IT saw before cancelling; the outline may be on the
+      // other pane. See `anyPlanSurfaceHasStroke()` for the measurement.
+      if (hadActiveStroke || anyPlanSurfaceHasStroke()) {
         // Stage 1. The overlay has already cancelled the stroke; the tool stays armed
         // and the chrome stays up, so the next click starts a new outline.
         span.setAttribute('pryzm.plan_tools.disarmed', false);
