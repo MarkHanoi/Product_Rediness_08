@@ -246,7 +246,32 @@ Every response MUST include:
 | `X-Frame-Options` | `SAMEORIGIN` |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` |
 
-CSP is configured per environment. The production CSP MUST block `unsafe-eval` and `unsafe-inline` for scripts. The AI proxy relay (`CF_WORKER_URL`) is the only permitted external API endpoint for AI calls — `api.anthropic.com` MUST NOT be accessible directly from the browser.
+CSP is configured per environment. The production CSP MUST block `unsafe-eval` and `unsafe-inline` for scripts. The AI proxy relay (`CF_WORKER_URL`) is the only permitted external API endpoint for AI calls **made with PRYZM's own key** — `api.anthropic.com` MUST NOT be accessible directly from the browser **on that path**.
+
+### §5.1 — ⭐ AMENDED 2026-08-23 (lane BYOK44): the BYOM exception, and why the rule had to change rather than be worked around
+
+The sentence above was written when **the only AI key in play was PRYZM's**, and for that key it is still exactly right: a browser-reachable `api.anthropic.com` would buy nothing and would widen the policy for no benefit.
+
+[C105](./C105-AI-PROVIDER-CREDENTIALS-BYOM.md) introduces a second kind of key — **the user's own** — and it changes the premise. C105 §0.3 promises the user that their credential *"is stored only on their device, and leaves it only to call the provider they chose."*
+
+⛔ **That promise is TRUE ONLY under a browser-direct topology.** Routing a user's credential through this server to satisfy the letter of §5 would put a third-party secret on PRYZM's wire and in PRYZM's request log. That is not a more conservative reading of the rule — **it is the opposite of the property the rule exists to protect.** So the rule is amended, explicitly and in place, rather than quietly circumvented in the CSP builder.
+
+**The permitted exception, enumerated exhaustively** (`buildConnectSrc()` in `server/securityHeaders.js`, derived from `byomConnectSrcOrigins()` and gated against drift by `server/__tests__/byomKeyGuard.test.ts §BYOM-CSP`):
+
+| Origin | For |
+|---|---|
+| `https://api.anthropic.com` | Claude |
+| `https://api.openai.com` | ChatGPT |
+| `https://generativelanguage.googleapis.com` | Gemini |
+| `https://api.deepseek.com` | DeepSeek |
+| `https://openrouter.ai` | OpenRouter |
+| `http://localhost:11434`, `http://127.0.0.1:11434` | Ollama, on the user's own machine |
+
+**The marginal risk, stated rather than glossed:** `connect-src` already allows roughly twenty-five external origins, so an attacker with script execution on this origin already possesses exfiltration paths. These six add a **destination, not a capability**. The marginal privacy gain — a user credential that never touches PRYZM — is large. That is the trade, made explicitly.
+
+**`PRYZM_BYOM_DISABLED=1` withholds all of them.** An enterprise deployment with a strict egress policy restores the pre-amendment posture at the CSP layer, and the browser then refuses in its own words rather than PRYZM pretending the feature works.
+
+**What is NOT amended:** the `/api/anthropic/*` proxy remains the only permitted path for PRYZM's own key, and `server/byomKeyGuard.js` now **refuses** any request to `/api/anthropic/*` or `/api/ai/*` that carries a third-party provider credential (C105 §4.5) — so the exception widens the browser's reach outward without widening what this server will accept inward.
 
 ---
 

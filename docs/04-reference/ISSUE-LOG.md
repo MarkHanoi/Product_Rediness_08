@@ -41994,3 +41994,162 @@ was a compound whose **last** element was a `tail`, so the shell's exit code was
 two commits are scoped to `plugins/ifc-inspector/**`,
 `apps/editor/src/ui/ifc-tree/**`, one import line in `engineLauncher.ts`, and the
 `apps/editor` manifest + lockfile.
+
+### L-8000 — SHIPPED: per-user AI provider keys (BYOM), chat planner rung — C105 minted, ADR-0360, SPEC-BYOM-PROVIDER-KEYS
+
+Founder ask: *"We have a default algorithm for the RAC and I want to keep it that way — but I would
+like to add this option for each user to add their own API key of whatever AI they use."* Six
+providers (Claude · ChatGPT · Gemini · DeepSeek · OpenRouter · Ollama), a gear in the AI chat header,
+and the reference surface's promise kept: *"stored only on this device and leave it only to call the
+provider you choose."* **93 assertions across four suites, all green.** The default path is
+**unchanged and proven so at the wire**, not by inspection.
+
+### L-8001 — "BYOK" WAS ALREADY TAKEN, AND MEANT SOMETHING ELSE. Naming it that would have put two security postures under one word inside a compliance document.
+
+`C22 §1.4` and `C08 §8` already use **BYOK** for customer-managed **ENCRYPTION** keys — a KMS
+endpoint, `pryzm_users.byok_enabled`, deny-default on key-resolve failure, sold to Enterprise. That
+is data-at-rest for the PROJECT tier and is unrelated to a user-supplied **model** credential.
+Named **BYOM — "Bring Your Own Model"** instead, and C105 §0.1 states the collision explicitly so the
+next reader does not re-merge them. Caught by reading C22 before writing, not after.
+
+### L-8002 — THE TOPOLOGY DECISION: browser → provider DIRECT, and it AMENDS C08 §5 rather than working around it
+
+`C08 §5` said *"`api.anthropic.com` MUST NOT be accessible directly from the browser."* Correct when
+the only key in play was PRYZM's. ⛔ **But the founder's promise — "never sent to PRYZM" — is TRUE
+ONLY under a browser-direct topology.** Proxying a user credential through the BFF to satisfy the
+rule's letter would put a third-party secret on PRYZM's wire and in PRYZM's request log: not a more
+conservative reading, **the negation of the property the rule protects**. So the rule is amended in
+place (`C08 §5.1`) with the six permitted origins enumerated, the marginal risk named
+(`connect-src` already allows ~25 origins — these add a destination, not a capability), and
+`PRYZM_BYOM_DISABLED=1` restoring the old posture for a strict-egress deployment. The alternative
+was to refuse the feature; it was not to ship the sentence while breaking it.
+
+### L-8003 — PER-PROVIDER CORS IS NOT UNIFORM, AND THE WIRE DISAGREES WITH THE DOCS FOR THREE OF SIX
+
+Measured 2026-08-23 by live `OPTIONS` preflight (`Origin: https://example.com`) **and** by reading
+vendor docs, kept as **separate evidence** — which is why the verdict is a four-value union carrying
+its evidence class, not a boolean.
+
+* **Claude** `supported-opt-in` — ⭐ **without `anthropic-dangerous-direct-browser-access: true` the
+  preflight returns 400 with NO `access-control-allow-origin` at all.** Header name/value confirmed
+  verbatim from Anthropic's own SDK source. `anthropic-version: 2023-06-01` still required.
+* **OpenRouter** `supported-documented` — `ACAO: *`, and their docs ship a browser `fetch()` example.
+* **ChatGPT / Gemini / DeepSeek** `supported-undocumented` — the preflight succeeds, **but no
+  official page documents it and OpenAI/Google actively steer callers to a server-side proxy.**
+  Works today; not a vendor guarantee; can be withdrawn without a release note. Surfaced to the user
+  in those words — calling it "supported" would be the C66 §1 violation.
+* **Ollama** `local-opt-in` — see L-8004.
+
+⚠ **Gemini: the key goes in the `x-goog-api-key` HEADER, never `?key=`**, though the older
+reference page still shows the query form. A key in a query string lands in proxy logs, browser
+history and `Referer`.
+
+### L-8004 — ⚠ REFUTED: "mixed content blocks Ollama from an HTTPS page". It does not, and the wrong diagnosis would have produced the wrong advice.
+
+The lane brief and my own initial reading both assumed mixed content blocks `https://app` →
+`http://localhost:11434`. **False.** `localhost` and `127.0.0.1` are **"potentially trustworthy"**
+under W3C Secure Contexts, and Mixed Content delegates entirely to that predicate — loopback is
+**exempt**, and has been in Firefox since v84. The real obstacles are three separate things:
+
+1. **Ollama's own policy** — accepts `127.0.0.1` / `0.0.0.0` origins by default; a page served from
+   `https://…` is not allowed until the user sets `OLLAMA_ORIGINS` and restarts. PRYZM cannot do
+   this for them.
+2. **Local Network Access** — Chrome 142+ gates `public → loopback` behind a **user permission
+   prompt** (not a block). Firefox is following; **exact milestones UNVERIFIED**.
+3. **Safari** — WebKit bug 171934 still **open (NEW)**, so Safari does block it. ⚠ This rests on the
+   bug remaining open, not on a positive vendor statement: **strongly indicated, not confirmed.**
+
+⭐ **Serving PRYZM from `http://localhost` sidesteps all three.** Recorded because the wrong
+diagnosis yields "we can't support Ollama" instead of "here are three switches, and one removes the
+other two". The UI states all of it.
+
+### L-8010 — A TEST CAUGHT THE VAULT COLLAPSING TWO DIFFERENT STATES INTO ONE `null`
+
+`ByomVaultSet.activeProviderId()` required the credential to RESOLVE, so *"the user chose nothing"*
+and *"the user chose Claude but the stored key is gone"* both returned `null` — making a vanished
+key **indistinguishable from a deliberate default**, with no way for the UI to say which had
+happened. `byomVaultAndRoute.test.ts §ROUTE` failed on the second case. Fixed by splitting
+`selectedProviderId()` (raw selection) from `activeProviderId()` (selection that resolves).
+§CONTEXT-DATA-HONESTY, hit inside the very subsystem written to respect it.
+
+### L-8020 — THE DEFAULT PATH IS PROVEN AT THE WIRE, NOT AT A PURE FUNCTION RETURN
+
+[[committed-is-not-reachable]]. The vault, the relay and the route decision can each be perfect
+while the editor calls none of them. `byomPlannerRouting.spec.ts` drives the REAL
+`tryHandleWithPlanner` against REAL browser storage and asserts on **the URL actually fetched**: no
+key ⇒ `/api/anthropic/v1/messages` hit and `api.anthropic.com` never; key enabled ⇒ the reverse,
+with the opt-in header present and **PRYZM's session token absent**. `LlmPlannerBridge.spec.ts`
+re-run **10/10 unchanged**, so the pre-existing ladder-order and no-upstream-skipped guarantees
+survive.
+
+### L-8030 — NO SILENT FALLBACK, AND `planUtterance` WOULD HAVE CAUSED ONE
+
+A rejected user key must fail with the **provider's own reason**. But `planUtterance` catches a
+throwing `complete()` and returns an honest `unavailable` — right for a PRYZM relay failure, and on
+the BYOM arm it would have **swallowed the provider's reason while PRYZM quietly answered on its own
+key**, spending PRYZM's money on the user's request with neither party told. The `ByomProviderError`
+is captured on the way past and re-spoken. Also: `createResilientRelay` exists in `CfWorkerRelay.ts`
+and does exactly the forbidden wrapping — C105 §1.4 names it so nobody reaches for it.
+
+### L-8040 — THE SAVED-KEY MASK LIVED ONLY IN A PLACEHOLDER, WHICH VANISHES THE MOMENT YOU TYPE
+
+`aiProviderKeysPanel.spec.ts` failed asserting the mask was in `textContent`. The gap was real, not
+a bad test: a placeholder cannot answer *"is a key already saved, and is it the one I pasted?"* —
+the question the panel exists to answer. Now visible text, **tail + length** (`••••ry99 (108 chars)`)
+as the vendors' own consoles show it, and **never the vendor prefix** (a prefix identifies the vendor
+and narrows a brute force). Fixed the UI rather than weakening the assertion.
+
+### L-8050 — THE SERVER GUARD'S DETECTORS ARE DELIBERATELY NARROWER THAN THE CLIENT'S. DO NOT HARMONISE THEM.
+
+Both refuse provider keys; the consequence of a false positive differs. The client redactor is a
+**masker** — a false negative is a leak, a false positive is harmless — so it carries a generic
+`[A-Za-z0-9_-]{40,}` arm. The server guard is a **gate**: a false positive **rejects a real user
+request**, and prompt bodies legitimately carry base64 thumbnails, long element ids and pasted CAD
+text. The server therefore matches unambiguous vendor prefixes only. `byomKeyGuard.test.ts` pins the
+**false-positive** behaviour as hard as the true-positive behaviour — seven real architectural
+sentences and an 880-char base64 payload must pass. A guard that ate real prompts would be deleted
+within a week; that half is what makes the first half shippable.
+
+### L-8060 — ⛔ C103 IS RESERVED AND WAS NEARLY TAKEN BY MISTAKE. Minted C105 instead.
+
+`ls contracts/` shows C100 · C101 · C102 · **C104** — C103 absent, which reads as a free slot.
+It is not. **C104 §0.2 reserves C103 for "Balcony & Compound Systems"** (lane BALC21, never landed),
+C104 declares itself an EXTENSION of it, and `activatePlanOnlyTool.ts` + `elementCreationMatrix.ts`
+already cite **C103 §7/§8**. Taking the slot would have orphaned live citations and produced exactly
+the defect C104 §0.2 was written to warn about. **Verified C105 free by grepping docs AND code for
+C105/C106/C107 → zero hits**, then minted there and rewrote all 46 in-flight references.
+`check-contract-index-equivalence.ts` → **RC=0**, arm A 18 = baseline, arms B/C/D clean, **arm D
+"GAP NOT RESERVED: 0"** confirming C103 is properly recorded as reserved.
+
+### L-8070 — ⚠ LANE HAZARD: a Python `io.open(p,'w')` that RAISES ON ENCODE still truncates the file to 0 bytes. `contracts/README.md` was destroyed and restored.
+
+Editing the contracts README, a row string containing an emoji written as a Python `\uXXXX`
+**surrogate PAIR** (Python reads those as two *lone surrogates*, not one character) raised
+`UnicodeEncodeError` **at write time**. `open(...,'w')` had already truncated the file.
+`wc -c` → **0**, against **142888** in HEAD. Recovered with `git checkout --` (the file was
+committed), then re-applied with the safe pattern: **encode to bytes FIRST, write to a temp file,
+`os.replace`** — so an encode failure leaves the original untouched.
+
+Two lessons worth more than the incident: (1) **`grep` returning nothing is not evidence of absence**
+— the [[grep-silence-has-three-causes]] check is what surfaced this, because `grep -n C104 README.md`
+came back empty on a file that had contained three matches minutes earlier; (2) **never write an
+emoji as a Python surrogate pair** — write the character, or do not write it.
+
+### L-8080 — lane BYOK44 readings at close (readings, with a timestamp — never states)
+
+* `cd packages/ai-host && npx vitest run __tests__/byom*.test.ts` → **3 files, 49/49 passed**.
+* `npx vitest run apps/editor/src/ui/ai/__tests__/byomPlannerRouting.spec.ts` → **7/7 passed**.
+* `npx vitest run apps/editor/src/ui/ai/__tests__/aiProviderKeysPanel.spec.ts` → **14/14 passed**.
+* `npx vitest run --config vitest.server.config.ts server/__tests__/byomKeyGuard.test.ts` → **23/23**.
+* `npx vitest run apps/editor/src/ui/ai/__tests__/LlmPlannerBridge.spec.ts` → **10/10, UNCHANGED**
+  (the regression arm — the pre-existing ladder guarantees still hold with BYOM wired in).
+* `npx vitest run --config vitest.server.config.ts` → **42 files, 646/646 passed**.
+* `npx tsx tools/ga-gate/check-contract-index-equivalence.ts` → **RC=0**.
+* `node --check` on `server.js`, `server/byomKeyGuard.js`, `server/securityHeaders.js` → all OK.
+* `pnpm --filter @pryzm/ai-host typecheck 2>&1 | grep -i byom` → **0 lines**. ⚠ The package-level
+  check reports **2523 pre-existing errors** repo-wide under `exactOptionalPropertyTypes`, almost
+  all in `plugins/wall/**`, so it is **not a usable gate here**; the root tsc is.
+* **NOT DONE, stated rather than implied:** no deploy, no browser test on production. BYOM routes
+  the **chat planner rung only** — `AIElementFactory`, `FloorPlanAIFactory`, `AnnotateViewCommand`
+  and `StrategizeBucket` still call PRYZM's proxy unconditionally (C105 §10.6, SPEC §9). The UI copy
+  is worded to match that scope rather than overclaiming.

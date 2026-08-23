@@ -194,6 +194,28 @@ Every non-essential data-processing purpose (analytics, marketing email, AI trai
 
 The default for every new consent purpose is **deny**. A user who has not granted consent for purpose `X` MUST NOT have data processed for purpose `X`. The `check-consent-required` CI gate (§6.7) wraps every annotated entry point with a consent check.
 
+### §1.13 — An AI prompt's DESTINATION is part of its privacy statement, and the two AI paths are different tiers
+
+> ⭐ **Added 2026-08-23 (lane BYOK44).** Governed in full by [C105 §8](./C105-AI-PROVIDER-CREDENTIALS-BYOM.md); this clause exists so C22 is not silent on it.
+>
+> ⚠ **First, a naming warning.** §1.4 above uses **"BYOK"** for customer-managed **encryption** keys. The subject of this clause is a user-supplied **model** credential, which C105 names **BYOM — "Bring Your Own Model"**. Different subject, different threat model, different payer. **The two terms MUST NOT be mixed inside this contract.**
+
+A model prompt routinely carries **PROJECT**-tier data — element names, room programmes, site addresses, client references. Where that data goes therefore differs by AI path, and a single generic privacy sentence would be **false on one of them**:
+
+| Path | Destination | Processor | Covered by PRYZM's DPA? |
+|---|---|---|---|
+| `pryzm-managed` (C09 §2.2) | PRYZM's BFF → CF Worker → Anthropic | **PRYZM**, plus its named sub-processor | Yes |
+| `user-supplied`, hosted (C09 §2.2.1) | the browser → the provider the user chose | **the user's own provider**, under the user's own account | ⛔ **No** |
+| `user-supplied`, local (Ollama) | the user's own machine | **nobody** — the prompt does not leave the device | n/a |
+
+**Normative:**
+
+1. The active path's statement MUST be **derivable at runtime** and MUST be shown to the user on request. `resolveAiRoute().privacyStatement` is the single source; two derivations of one fact is how they come to disagree.
+2. A `user-supplied` prompt MUST NOT be described to the user as covered by PRYZM's processing terms.
+3. The credential itself is **never** PRYZM data of any tier — PRYZM never receives it (C105 §1.3). It is therefore **out of scope for DSAR export (§4.1), for the retention scheduler (§3.3), and for the breach surface (§1.9)**: PRYZM cannot export, retain, or lose what it does not hold. ⚠ This is a genuine *reduction* in PRYZM's exposure, and it is the reason browser-direct was chosen over proxying.
+
+> ⛔ **OPEN, and it is the gap that matters.** This clause establishes what the PRODUCT says at runtime. It does **NOT** establish that PRYZM's **published privacy notice** has been updated to describe the `user-supplied` path. That is legal copy with a founder owner, and it is unresolved — see [C105 §8.2](./C105-AI-PROVIDER-CREDENTIALS-BYOM.md) and §10.1. **Do not cite C22 §1.13 as evidence of a completed DPA position.**
+
 ---
 
 ## §2 — Schema

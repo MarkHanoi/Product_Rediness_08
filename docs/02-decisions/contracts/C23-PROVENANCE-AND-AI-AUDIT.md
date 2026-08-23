@@ -120,6 +120,23 @@ A row MAY include additional optional fields per §2.1; the fields above are the
 
 CI gate: `check-ai-artefact-schema.ts` (§6.1).
 
+#### §1.2.1 — ⭐ WHICH KEY SERVED IT is part of the audit tuple (added 2026-08-23, lane BYOK44)
+
+`model` alone stopped being sufficient the moment a call could be paid for by someone other than PRYZM. Two calls can name the identical model id and yet differ in **who paid, whose quota applied, whose terms governed the prompt, and which organisation's logs hold the request**. An artefact that records only the model cannot tell those apart — and **a response whose origin is ambiguous is unauditable**, which is the failure C23 exists to prevent.
+
+Two further MUST-have fields, governed by [C105 §6](./C105-AI-PROVIDER-CREDENTIALS-BYOM.md):
+
+| Field | Values |
+|---|---|
+| `keyClass` | `'pryzm-managed'` \| `'user-supplied'` |
+| `keyProviderId` | `'pryzm'` \| `anthropic` \| `openai` \| `google` \| `deepseek` \| `openrouter` \| `ollama` |
+
+⛔ **The credential itself MUST NOT appear in an artefact — not in full, not truncated, not hashed-and-truncated, not as a vendor prefix.** A prefix identifies the vendor and narrows a brute force. `routeProvenanceFields()` is the only producer of these fields and returns nothing else that could carry one; `byomVaultAndRoute.test.ts §C23-PROVENANCE` drives it with a real credential and asserts the serialised result cannot contain it.
+
+`reproducibility` (§1.4) is **unaffected**: a BYOM relay call is `'non-deterministic'` exactly as a PRYZM relay call is. BYOM changes the payer, not the determinism.
+
+> ⚠ **Stated as a GAP, not implied as coverage.** §1.1 requires an `AIArtefact` before every model call returns, and **§8.1 already records that the `ProvenanceStore` is not yet built** — so BYOM inherits that gap rather than creating it. What is true today is narrower and worth saying exactly: **the two fields above are DEFINED and COMPUTED on every request** (`routeProvenanceFields`), and the user-facing half is **shipped** — the chat states which key answered, per C105 §7.2. When the store lands, the BYOM arm has nothing to retrofit.
+
 ### §1.3 — ProvenanceGraph edges MUST link artefacts to elements they produce
 
 When an AI workflow's Phase B execute step (per [C09 §3.4](./C09-AI-AND-VISIBILITY-INTENT.md)) dispatches commands that create or mutate elements, every produced element id **MUST** be linked to the originating `AIArtefact.id` via a `ProvenanceEdge` (§2.2). This is the lineage DAG.

@@ -41,11 +41,30 @@ Browser → /api/anthropic/v1/messages (Express + authMiddleware + aiLimiter)
   → 503 error                — if neither is configured
 ```
 
-The browser MUST NOT call `api.anthropic.com` directly. All AI requests flow through the Express `/api/anthropic/*` proxy, which enforces auth, rate limits, and quota.
+The browser MUST NOT call `api.anthropic.com` directly **on this path**. All AI requests **that use PRYZM's key** flow through the Express `/api/anthropic/*` proxy, which enforces auth, rate limits, and quota.
+
+> ⚠ **Amended 2026-08-23 (lane BYOK44, C105 §3.1).** This paragraph used to end at the full stop after *"directly"*, with no qualifier — and read literally it forbids the one topology under which a **user-supplied** provider key can keep its promise. The two bolded qualifiers are the amendment. The unqualified rule remains correct and binding **for PRYZM's own key**, which is the only key it was written about. See §2.2.1 and [C08 §5.1](./C08-COLLABORATION-AND-SECURITY.md).
+
+### §2.2.1 — BYOM: a SECOND upstream, owned by [C105](./C105-AI-PROVIDER-CREDENTIALS-BYOM.md)
+
+A user may supply their own provider credential (Claude · ChatGPT · Gemini · DeepSeek · OpenRouter · Ollama). When they have done so **and selected it**, that request takes a different topology:
+
+```
+Browser → the provider the user chose, DIRECTLY
+  (PRYZM's server is NOT on the path; the key never reaches it)
+```
+
+The two paths are discriminated by **one pure function**, `resolveAiRoute()` in `packages/ai-host/src/byom/ByomRoute.ts`, returning `keyClass: 'pryzm-managed' | 'user-supplied'`. Relay construction, chat attribution, provenance and privacy tier all read **that same value** — none of them re-derives it.
+
+⛔ **§2.2 above is UNCHANGED for the default path, and that is normative, not incidental.** A user with no BYOM provider configured — and a user who has *saved* a key but not *selected* it — MUST get bit-for-bit today's behaviour: same proxy, same quota, same spend accounting, same model id. **C105 §1.1**, proven at the wire by `byomPlannerRouting.spec.ts §DEFAULT-UNCHANGED`.
+
+**Current scope:** BYOM routes the **chat planner rung only**. `AIElementFactory`, `FloorPlanAIFactory`, `AnnotateViewCommand` and `StrategizeBucket` still use §2.2 unconditionally. A deliberate first scope, declared at C105 §10.6 — not an oversight.
 
 ### §2.3 — AI quota enforcement
 
-`enforceAIQuota(userId, tokens)` in `server/planStore.js` MUST be called before any AI call. If the user has exceeded their plan quota, the call MUST be rejected with HTTP 429 and a user-visible quota message. Quota counters reset monthly.
+`enforceAIQuota(userId, tokens)` in `server/planStore.js` MUST be called before any AI call **on the §2.2 path**. If the user has exceeded their plan quota, the call MUST be rejected with HTTP 429 and a user-visible quota message. Quota counters reset monthly.
+
+> ⚠ **Amended 2026-08-23 (lane BYOK44).** **Quota MUST NOT apply to a `user-supplied` request** ([C105 §1.5](./C105-AI-PROVIDER-CREDENTIALS-BYOM.md)) — metering someone else's spend against your quota is wrong. Note that this requires **no bypass and no exemption branch**: a BYOM request never reaches the route that calls `enforceAIQuota`, so the rule above is satisfied vacuously rather than weakened. The same holds for `ai-spend`: PRYZM's ledger records **0** because PRYZM paid 0 (C105 §1.6), and PRYZM deliberately does **not** guess the user's own cost (C105 §5.2).
 
 ### §2.4 — In-process workflow registration (the AiPlane, L7.5)
 
