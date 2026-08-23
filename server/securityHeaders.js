@@ -175,6 +175,54 @@ export function buildConnectSrc(env = process.env, isProd = IS_PROD) {
         'https://api.worldpop.org',
     ];
 
+    // ── §BYOM — user-supplied AI provider origins (C103 §3.3) ──────────────
+    //
+    // ⚠ THIS AMENDS C08 §5, WHICH SAID `api.anthropic.com` MUST NOT be reachable
+    // from the browser. That rule was written when the ONLY key in play was
+    // PRYZM's, and it was correct then: a browser-reachable Anthropic origin
+    // bought nothing and widened the policy. BYOM changes the premise. The key
+    // is the USER'S, and the founder's promise — "stored only on this device,
+    // and leaves it only to call the provider you choose" — is TRUE ONLY under a
+    // browser-direct topology. Proxying it through this server to satisfy the
+    // old rule would put a third-party credential on PRYZM's wire and in
+    // PRYZM's logs, i.e. it would break the security property the rule exists
+    // to protect, in order to preserve the rule's letter. See C103 §3.1 for the
+    // full argument and C08 §5.1 for the amended text.
+    //
+    // The marginal CSP risk is small and worth naming honestly: this policy
+    // already allows ~25 external origins, so an attacker with script execution
+    // on this origin already has exfiltration paths. What these six add is a
+    // destination, not a capability. The marginal PRIVACY benefit — the key
+    // never touching PRYZM — is large.
+    //
+    // ⛔ SINGLE SOURCE OF TRUTH: this list MUST equal `byomConnectSrcOrigins()`
+    // in `packages/ai-host/src/byom/ByomProviders.ts`. It is duplicated here only
+    // because this is CommonJS-era server JS that cannot import the TS registry
+    // at module init. The duplication is GATED, not hoped for —
+    // `server/__tests__/byomCspParity.test.ts` fails if the two ever diverge,
+    // which is exactly the drift that made the NASA/WorldPop and R2 entries
+    // above ship broken.
+    //
+    // Set PRYZM_BYOM_DISABLED=1 to withhold them: an enterprise deployment with
+    // a strict egress policy can switch the whole feature off at the CSP layer,
+    // and the UI then reports the browser's own refusal rather than pretending.
+    if (env.PRYZM_BYOM_DISABLED !== '1') {
+        src.push(
+            'https://api.anthropic.com',
+            'https://api.openai.com',
+            'https://generativelanguage.googleapis.com',
+            'https://api.deepseek.com',
+            'https://openrouter.ai',
+            // Ollama on the user's own machine. ⚠ CSP permits it; that is NOT the
+            // same as the browser permitting it — Chrome 142+ and recent Firefox
+            // gate local-network requests behind a permission prompt, and Safari
+            // refuses loopback from an https page outright (C103 §3.4). Allowing
+            // the origin here removes OUR obstacle, not theirs.
+            'http://localhost:11434',
+            'http://127.0.0.1:11434',
+        );
+    }
+
     // §L-570-CSP (2026-07-21) — the Cloudflare R2 asset origin (furniture GLB
     // catalogue + the L-571 context PMTiles). THE SAME MISTAKE AS THE NASA/WorldPop
     // entry NOTED DIRECTLY ABOVE: the client re-host landed, this allowlist entry

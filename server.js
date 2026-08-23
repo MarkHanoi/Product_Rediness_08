@@ -14,6 +14,7 @@ import { dirname, join } from 'path';
 import { existsSync, readdirSync } from 'fs';
 import { enforceAIQuota, getUserPlan, setUserPlan, getAIUsageStats, maybeAutoGrantOwner } from './server/planStore.js';
 import { aiLimiter, globalLimiter, apiLimiter } from './server/rateLimiter.js';
+import { byomKeyGuard } from './server/byomKeyGuard.js';
 import { isPryzmAdmin } from './server/adminAllowlist.js';
 import { saveManualAdminZone, resolveManualAdminZone } from './server/manualAdminZoneStore.js';
 import { v1Router } from './server/api/v1/routes.js';
@@ -372,6 +373,17 @@ app.options('*', cors(expressCorsOptions())); // pre-flight for all routes
 
 // ── H1: Global rate limiter — applied to all /api/* routes ───────────────────
 app.use('/api', globalLimiter);
+
+// ── §BYOM key guard (C103 §4.5) ───────────────────────────────────
+// A user's own AI provider key must NEVER reach a PRYZM server. The client keeps
+// that by construction (packages/ai-host/src/byom/ has no edge to this origin);
+// this is the SECOND wall, for the realistic accident of a user pasting their key
+// into the chat box — which would otherwise land it in this proxy's request log
+// and then be forwarded upstream. Mounted AFTER express.json so it can read a
+// parsed body, and on the AI routes only, because those are the only ones a
+// provider key could plausibly ride along with.
+app.use('/api/anthropic', byomKeyGuard);
+app.use('/api/ai', byomKeyGuard);
 
 // C51 §3.1.2.2 — CSP violation report sink (public, unauthenticated). Mounted
 // ahead of any auth gating; its own parser handles the application/csp-report +
