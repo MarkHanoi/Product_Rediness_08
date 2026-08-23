@@ -449,7 +449,28 @@ export class LightingFragmentBuilder {
         const group = this._roots.get(id);
         if (!group) return;
         this._detachLight(id, group);
-        if (this._scene) this._scene.remove(group);
+        // §C13-LIGHTING-DETACH-BY-PARENT (L-8820) — `removeFromParent()`, NOT
+        // `this._scene.remove(group)`.
+        //
+        // `Object3D.remove` is a SILENT NO-OP when the object is not a direct child of
+        // the container it is called on. This method then went on to `_roots.delete(id)`
+        // regardless, so any fixture that was ever re-parented — or built while
+        // `_scene` was still unset, since the whole detach sat behind `if (this._scene)`
+        // — was dropped from the builder's index while staying live in the scene:
+        // permanently unreachable by `remove()`, by `clearProjectGeometry()` and by
+        // `dispose()`, and therefore ADDITIVE across project switches. That is the
+        // founder's "lighting fixtures from previous projects coming".
+        //
+        // `RoomBoundaryBuilder.removeRoom` already documents this exact hazard and
+        // already guards it this way; lighting did not. Behaviour is IDENTICAL for the
+        // normal case (a group parented directly to the scene), so no correct
+        // single-project session can lose a fixture by this change — it only closes the
+        // case where the old call did nothing at all.
+        //
+        // ⚠ NARROWED, NOT PROVEN AS THE FOUNDER'S ROOT: a repo grep found no site that
+        // re-parents a lighting root, so this is a latent-class repair, not a
+        // demonstrated reproduction. See L-8820 for what is still open.
+        group.removeFromParent();
         group.traverse((obj: THREE.Object3D) => {
             if ((obj as THREE.Mesh).isMesh) {
                 const mesh = obj as THREE.Mesh;

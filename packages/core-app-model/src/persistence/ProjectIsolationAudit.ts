@@ -85,6 +85,7 @@ import {
     DECLARED_PROJECT_SCOPE_NAMES,
     DECLARED_PROJECT_SCOPE_SET_VERSION,
     DECLARED_SCOPES_REQUIRING_PRESENCE,
+    LOAD_DERIVED_ELEMENT_TYPES,
 } from './declaredProjectScopes';
 
 export interface IsolationLeakReport {
@@ -459,6 +460,42 @@ export interface SceneCoverage {
      * {@link SceneObjectLike.attributedByAncestor}.
      */
     readonly inheritedCount: number;
+    /**
+     * §C13-ORPHAN-DESCENDANT-CENSUS (L-8802) — THE OBJECTS THAT WERE COUNTED NOWHERE.
+     *
+     * A non-root object is filed as "attributed BY INHERITANCE" only when
+     * `hasIdBearingAncestor` finds an id above it. When it does NOT — a descendant of an
+     * ancestor that is itself unattributed — the old loop hit `continue` and the object
+     * left the census entirely: not a root, not inherited, not unattributed. It is not
+     * checked by `detectLeaks` either, because with no id of its own the element-id arm
+     * has nothing to test.
+     *
+     * So it was invisible to BOTH halves of the audit, and — unlike the unattributed
+     * roots, which at least print a ⚠ — it was invisible in a way no reader could
+     * notice. That is the precise seam this file's `isIdAttributable` comment records an
+     * object VANISHING through, reproduced one level down in the coverage summariser
+     * that exists to prevent it.
+     *
+     * ⚠ This number is NOT a leak count and must never be read as one. It is the size of
+     * the audit's blind spot below the root line. It shrinks when producers stamp their
+     * subtrees, never by being netted away.
+     */
+    readonly orphanedDescendantCount: number;
+    /**
+     * §C13-DERIVED-ELEMENT-LEVEL-ARM (L-8800) — load-derived elements decided CLEAN by a
+     * project-unique level. Reported so "moved off the element-id arm" is a visible
+     * quantity rather than a silent one.
+     *
+     * `undefined` when the caller supplied no expectation — "not computed" and "zero"
+     * are different facts (§CONTEXT-DATA-HONESTY) and must not print the same.
+     */
+    readonly derivedAttributedByLevel?: number;
+    /**
+     * §C13-DERIVED-ELEMENT-LEVEL-ARM — load-derived elements sitting on
+     * {@link AMBIGUOUS_DEFAULT_LEVEL_ID}, i.e. decided by a level EVERY project has.
+     * These are NOT decided. Counted separately so they are never banked as clean.
+     */
+    readonly derivedOnAmbiguousLevel?: number;
     /** {@link SCENE_GRAPHS_NOT_TRAVERSED}, carried so every renderer of a verdict
      *  states the limitation without having to remember to. */
     readonly excludedGraphs: readonly string[];
@@ -511,19 +548,51 @@ function classifyUnattributedRoot(ud: Record<string, unknown>, type: string, nam
  * singletons; anything else is geometry the audit is blind to, and is named — and
  * now CLASSIFIED — here rather than silently counted as clean.
  */
-export function summariseSceneCoverage(sceneObjects: Iterable<SceneObjectLike>): SceneCoverage {
+export function summariseSceneCoverage(
+    sceneObjects: Iterable<SceneObjectLike>,
+    expectedIds?: ReadonlySet<string> | null,
+): SceneCoverage {
     let rootCount = 0;
     let inheritedCount = 0;
+    let orphanedDescendantCount = 0;
+    let derivedAttributedByLevel = 0;
+    let derivedOnAmbiguousLevel = 0;
+    const derivedSeen = new Set<string>();
     const unattributed: string[] = [];
     const declaredIndependent: string[] = [];
     for (const obj of sceneObjects) {
+        const udAny = (obj.userData ?? {}) as Record<string, unknown>;
+        // §C13-DERIVED-ELEMENT-LEVEL-ARM (L-8800) — census the derived elements the
+        // element-id arm no longer judges. NOT root-gated, because derived geometry is
+        // routinely parented under a host (a railing under its stair), exactly as the
+        // id arm is not root-gated. Deduped by element id so a room's fill mesh and its
+        // volume mesh — same id, two meshes — count once.
+        if (expectedIds != null) {
+            const dLvl = loadDerivedLevelId(udAny);
+            if (dLvl !== null && expectedIds.has(dLvl)) {
+                const did = sceneElementId(udAny) ?? `${obj.type ?? ''}:${obj.name ?? ''}`;
+                if (!derivedSeen.has(did)) {
+                    derivedSeen.add(did);
+                    if (dLvl === AMBIGUOUS_DEFAULT_LEVEL_ID) derivedOnAmbiguousLevel += 1;
+                    else derivedAttributedByLevel += 1;
+                }
+            }
+        }
         if (obj.isRoot !== true) {
             // §C13-AUDIT-BLIND-CLASSES — a descendant of an id-bearing root is
             // attributed by INHERITANCE and never checked. Count it; do not accuse
             // it (a wall's layer meshes are legitimately unstamped, and an audit that
             // cries wolf on every part mesh gets muted, which costs what
             // under-counting costs).
-            if (obj.attributedByAncestor === true) inheritedCount += 1;
+            if (obj.attributedByAncestor === true) { inheritedCount += 1; continue; }
+            // §C13-ORPHAN-DESCENDANT-CENSUS (L-8802) — no id-bearing ancestor AND no id
+            // of its own: inherited from nothing, checked by nothing. This branch used
+            // to be a bare `continue` and the object left the audit's books entirely.
+            // Count it under its own heading; it is blindness, not cleanliness.
+            if (sceneElementId(udAny) === null
+                && GEOMETRY_BEARING_TYPES.has(obj.type ?? '')) {
+                orphanedDescendantCount += 1;
+            }
             continue;
         }
         rootCount += 1;
@@ -549,6 +618,11 @@ export function summariseSceneCoverage(sceneObjects: Iterable<SceneObjectLike>):
         unattributed,
         declaredIndependent,
         inheritedCount,
+        orphanedDescendantCount,
+        // `undefined`, not 0, when no expectation was supplied — "not computed" and
+        // "none found" are different facts and must not render the same.
+        derivedAttributedByLevel: expectedIds != null ? derivedAttributedByLevel : undefined,
+        derivedOnAmbiguousLevel: expectedIds != null ? derivedOnAmbiguousLevel : undefined,
         excludedGraphs: SCENE_GRAPHS_NOT_TRAVERSED,
     };
 }
@@ -575,8 +649,31 @@ function formatExcludedGraphs(c: SceneCoverage): string {
     const declaredNote = declared.length > 0
         ? ` · ${declared.length} root(s) DECLARED project-independent (not checked, retired by written decision in PROJECT_INDEPENDENT_SCENE_ROOTS): [${declared.join(', ')}]`
         : '';
+    // §C13-ORPHAN-DESCENDANT-CENSUS (L-8802) — the objects that were counted NOWHERE
+    // until this line existed. Printed on the CLEAN verdict as well as the violation
+    // one, because a blind spot that only surfaces when something else already failed
+    // is exactly the blind spot that gets read as cleanliness.
+    const orphans = (typeof c.orphanedDescendantCount === 'number' ? c.orphanedDescendantCount : 0) > 0
+        ? ` · ⚠ ${c.orphanedDescendantCount} descendant(s) ORPHANED — no id of their own AND no `
+          + `id-bearing ancestor, so they are attributed by NOTHING and checked by NOTHING; `
+          + `blindness, not cleanliness`
+        : '';
+    // §C13-DERIVED-ELEMENT-LEVEL-ARM (L-8800) — how many objects the element-id arm no
+    // longer judges, and how many of those the LEVEL arm could not judge either.
+    const dAttr = c.derivedAttributedByLevel;
+    const dAmb = c.derivedOnAmbiguousLevel;
+    const derivedNote = typeof dAttr === 'number'
+        ? ` · ${dAttr} load-derived element(s) attributed BY LEVEL instead of by element id `
+          + `(rooms/railings/landings/openings/panels/annotations are re-derived after the `
+          + `expectation is published, so their ids can never be in it)`
+          + (typeof dAmb === 'number' && dAmb > 0
+              ? ` · ⚠ ${dAmb} of them sit on the universal default level `
+                + `"${AMBIGUOUS_DEFAULT_LEVEL_ID}", which EVERY project has — those are `
+                + `UNDECIDED, not clean`
+              : '')
+        : '';
     return (
-        `${declaredNote}${inherited} · this count covers ONE scene graph (window.scene) and EXCLUDES ` +
+        `${declaredNote}${inherited}${orphans}${derivedNote} · this count covers ONE scene graph (window.scene) and EXCLUDES ` +
         `${graphs.length} graph(s) it cannot traverse: [${graphs.join('; ')}]`
     );
 }
@@ -664,6 +761,85 @@ function instancedGroupLevelId(ud: Record<string, unknown>): string | null {
 }
 
 /**
+ * §C13-DERIVED-ELEMENT-LEVEL-ARM (L-8800) — the level a LOAD-DERIVED element belongs
+ * to, for the element types that are re-derived DURING a load and can therefore never
+ * appear in `__pryzmLoadedProjectExpectation`.
+ *
+ * ── THE DEFECT THIS CLOSES — §L-711, FOURTH RECURRENCE ──────────────────────
+ *
+ * Founder's console, 2026-08-23, opening `proj-1787483901080-e63b318a95bb`:
+ *
+ *   scene.foreignElement×8 (d6654ac1-… ⇐ room "room-overlay-d6654ac1-…"; …)
+ *
+ * Every one of those eight is a `RoomBoundaryBuilder` floor fill
+ * (`RoomBoundaryBuilder.ts:348` sets `mesh.name = \`room-overlay-${room.id}\``,
+ * `:339/:341` stamp `userData.id` + `userData.type='room'`). They were reported as
+ * residue of a PREVIOUS project. They are not. They are project B's OWN rooms, and
+ * the audit could not possibly have said otherwise, because:
+ *
+ *   • `ProjectLoader.ts:~2826` publishes the expectation from the SNAPSHOT ARRAYS and
+ *     says so in its own comment — *"Derived state (redetected rooms, room-bounding-
+ *     lines, annotations) is intentionally NOT part of the audited surface, so it is
+ *     not included here."* There is no `snapshot.rooms` push and there was never meant
+ *     to be one.
+ *   • `ProjectLoader.ts:~2882` then runs `__phase('redetect_sweep')` — the per-level
+ *     `ReDetectRoomsCommand` sweep — AFTER that publish. So a redetected room's id is
+ *     outside the expected set BY CONSTRUCTION, on every load, in every project,
+ *     forever.
+ *
+ * `LOAD_DERIVED_ELEMENT_TYPES` (declaredProjectScopes.ts:518) already names this exact
+ * class and already lists `'room'` — *"ReDetectRoomsCommand re-derives these on every
+ * load."* It was declared for the §L-325 RENDER-side audit and wired there
+ * (`initScene.ts:1622`) and NOWHERE ELSE: `grep -rn LOAD_DERIVED_ELEMENT_TYPES` over
+ * apps/packages/plugins returns the declaration, the barrel re-exports, its own unit
+ * test and that single consumer. The SCENE-side arm in this file never read it. So one
+ * half of the audit knew these ids were underivable and the other half accused them.
+ *
+ * ── WHY AN ATTRIBUTION AND NOT AN EXEMPTION ─────────────────────────────────
+ *
+ * ⛔ Adding `'room'` to an exemption list would be the wrong repair and a dangerous
+ * one: `LOAD_DERIVED_ELEMENT_TYPES` also contains `'stair-railing'`, and project A's
+ * stair-railings surviving into project B is EXACTLY the real leak §C13-INSTANCED-
+ * RENDERER-OWNER (L-8100) shipped hours earlier. An exemption would have retro-blinded
+ * the audit to the leak it had just caught.
+ *
+ * So this is the `instancedGroupLevelId` repair applied one class over: a derived
+ * element carries the LEVEL it was derived onto, and levels ARE in the expectation
+ * (§L-711 / §C13-SCENE-ID-KEY put `snapshot.levels` there). A room redetected into
+ * project B carries a level of project B and is clean; a room overlay left behind by
+ * project A carries a level of project A and is STILL A FINDING — reported under its
+ * own surface, `scene.foreignDerivedElement`, so it can never be confused with the
+ * id-arm count. The stamps are real and cited: `RoomBoundaryBuilder.ts:343` (fill) and
+ * `:408` (volume); `StairRailingBuilder.ts:290/303`; `StairMeshBuilder.ts:199/206/213`.
+ *
+ * ⛔ Returns null when the type is not load-derived OR when no `levelId` is readable,
+ * and the caller MUST then leave the object on the element-id arm. A derived element
+ * whose level cannot be read is NOT clean — it is undecidable, and undecidable falls
+ * through to the stricter check rather than to silence. Never render unknown as clean.
+ *
+ * ⚠ NAMED RESIDUAL BLINDNESS, because an unstated limit is the defect this whole file
+ * exists to prevent: level ids are project-unique ONLY when they are minted per project
+ * (`L1787150975010`). `'L0'` is the UNIVERSAL default — `ClearProjectCommand.ts:~259`
+ * resets `activeLevelId` to it on every clear — so if project A and project B BOTH
+ * carry a level literally called `L0`, a derived element of A sitting on `L0` is
+ * indistinguishable from one of B. That case is not decided by this arm and is not
+ * claimed to be; it is COUNTED and printed by `formatSceneCoverage` as
+ * `derivedOnAmbiguousLevel` rather than netted into the clean total.
+ */
+function loadDerivedLevelId(ud: Record<string, unknown>): string | null {
+    const type = sceneElementType(ud);
+    if (typeof type !== 'string' || !LOAD_DERIVED_ELEMENT_TYPES.includes(type)) return null;
+    const levelId = ud.levelId;
+    return typeof levelId === 'string' && levelId.length > 0 ? levelId : null;
+}
+
+/**
+ * §C13-DERIVED-ELEMENT-LEVEL-ARM — the level id that cannot discriminate between
+ * projects, because every project has one. See the ⚠ clause on {@link loadDerivedLevelId}.
+ */
+export const AMBIGUOUS_DEFAULT_LEVEL_ID = 'L0';
+
+/**
  * PURE leak detector — no window, no THREE, no I/O. Unit-testable in isolation.
  * Returns a report when a leak is found, else null.
  */
@@ -719,6 +895,11 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
     // synthetic group id: one aggregate per (elementType × level × geometry × material),
     // and a project switch leaves one per shard.
     const foreignInstancedGroups = new Map<string, string>();
+    // §C13-DERIVED-ELEMENT-LEVEL-ARM (L-8800) — load-derived elements (rooms, railings,
+    // landings, openings, curtain panels, annotations) whose stamped `levelId` names a
+    // level the loaded project does not have. Deduped by element id, exactly as the id
+    // arm is: a room's fill mesh and its volume mesh carry the SAME id and are ONE leak.
+    const foreignDerived = new Map<string, string>();
 
     for (const obj of sceneObjects) {
         const ud = (obj.userData ?? {}) as Record<string, unknown>;
@@ -844,8 +1025,41 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
                 }
             }
         }
+        // §C13-DERIVED-ELEMENT-LEVEL-ARM (L-8800) — a LOAD-DERIVED element is attributed
+        // by the LEVEL it was derived onto, never by an element id that no snapshot can
+        // ever contain. See `loadDerivedLevelId` for why the id arm is the wrong
+        // instrument here and why an EXEMPTION would have been the wrong repair.
+        //
+        // `derivedLevel !== null` is ALSO the flag that suppresses the id arm below —
+        // the same seam-free handoff `instancedLevel` uses. When the level is readable
+        // the element is fully decided here; when it is NOT readable this stays null and
+        // the object falls through to the id arm and is still reported. Unknown never
+        // becomes clean.
+        let derivedLevel: string | null = null;
+        if (idKnown && !isExemptSceneSingleton(ud)) {
+            derivedLevel = loadDerivedLevelId(ud);
+            if (derivedLevel !== null) {
+                const did = sceneElementId(ud);
+                if (!expectedIds!.has(derivedLevel)) {
+                    // Project A's derived geometry, still drawn inside project B.
+                    const key = did ?? name ?? '<unnamed-derived>';
+                    if (!foreignDerived.has(key)) {
+                        foreignDerived.set(
+                            key,
+                            `${key} ⇐ ${String(sceneElementType(ud))} derived onto level `
+                            + `${derivedLevel}, which is NOT a level of ${projectId}`
+                            + `${name ? ` (scene name "${name}")` : ''}`,
+                        );
+                    }
+                }
+                // The CLEAN and AMBIGUOUS dispositions are a CENSUS, not a finding, and
+                // are counted by `summariseSceneCoverage` so they print on the clean
+                // verdict too. A count that only appears when something else already
+                // failed cannot tell a reader that nothing failed for a bad reason.
+            }
+        }
         // A BIM element whose id is NOT part of the loaded project is foreign.
-        if (idKnown && instancedLevel === null && !isExemptSceneSingleton(ud)) {
+        if (idKnown && instancedLevel === null && derivedLevel === null && !isExemptSceneSingleton(ud)) {
             const id = sceneElementId(ud);
             if (id !== null && sceneElementType(ud) != null && !expectedIds!.has(id)) {
                 foreignSceneIdSet.add(id);
@@ -913,6 +1127,11 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
     if (foreignSceneIds.length)   findings.push({ surface: 'scene.foreignElement',  count: foreignSceneIds.length, details: foreignSceneIds.slice(0, 20), identities: foreignSceneIds.slice(0, 20).map(id => foreignSceneIdentity.get(id) ?? id) });
     if (foreignCoalesced.size)    findings.push({ surface: 'scene.foreignCoalescedRoot', count: foreignCoalesced.size, details: [...foreignCoalesced.keys()].slice(0, 20), identities: [...foreignCoalesced.values()].slice(0, 20) });
     if (foreignInstancedGroups.size) findings.push({ surface: 'scene.foreignInstancedGroup', count: foreignInstancedGroups.size, details: [...foreignInstancedGroups.keys()].slice(0, 20), identities: [...foreignInstancedGroups.values()].slice(0, 20) });
+    // §C13-DERIVED-ELEMENT-LEVEL-ARM (L-8800) — its OWN surface, never merged into
+    // `scene.foreignElement`. The two arms answer different questions off different
+    // evidence (an id that must be in the snapshot vs a level that must be), and a
+    // reader who cannot tell them apart cannot tell a real leak from an expectation gap.
+    if (foreignDerived.size)      findings.push({ surface: 'scene.foreignDerivedElement', count: foreignDerived.size, details: [...foreignDerived.keys()].slice(0, 20), identities: [...foreignDerived.values()].slice(0, 20) });
     if (foreignStoreCount > 0)    findings.push({ surface: 'store.foreignElement',  count: foreignStoreCount, details: foreignStoreDetails });
     if (globals.length > 0)       findings.push({ surface: 'window.globals',        count: globals.length, details: globals });
     if (foreignScopes.length)     findings.push({ surface: 'scope.foreignProject',   count: foreignScopes.length, details: foreignScopes });
@@ -1137,10 +1356,15 @@ function runAudit(
 ): { report: IsolationLeakReport | null; coverage: SceneCoverage } {
     const scene = gatherSceneObjects();
     const { readable, unreadable } = gatherStoreElements();
-    const coverage = summariseSceneCoverage(scene ?? []);
+    // §C13-DERIVED-ELEMENT-LEVEL-ARM (L-8800) — resolved ONCE and shared, so the census
+    // in the coverage clause and the findings in `detectLeaks` can never be computed
+    // against two different expectations. Two rival denominators for one subject is the
+    // defect CLAUDE.md records for the commandManager counters; do not re-split this.
+    const expectedIds = resolveExpectedIds(projectId, emptyHint);
+    const coverage = summariseSceneCoverage(scene ?? [], expectedIds);
     const report = detectLeaks({
         projectId,
-        expectedIds: resolveExpectedIds(projectId, emptyHint),
+        expectedIds,
         sceneObjects: scene ?? [],
         sceneReadable: scene !== null,
         storeElements: readable,
@@ -1263,6 +1487,51 @@ export function installProjectIsolationAudit(): void {
  * fact that identifies the outgoing project. Report-only; ADR-0298's no-auto-repair
  * rule is untouched.
  */
+/**
+ * §C13-SCOPE-WITNESS (L-8810) — PRINT THE EVIDENCE THAT SAYS WHICH ROOT IT IS.
+ *
+ * A `scope.foreignProject` finding on `site.model` has TWO possible mechanisms and
+ * they render identically today — the §CONTEXT-DATA-HONESTY shape in its purest form,
+ * because they need OPPOSITE fixes:
+ *
+ *   (a) A TEARDOWN LEAK — project A's site survived the switch in memory.
+ *   (b) A DATA DEFECT — project B's own snapshot carries `site.projectId = A`, and
+ *       `ProjectLoader.restoreSiteState` writes it back verbatim AFTER
+ *       `ClearProjectCommand` correctly nulled the store. The teardown works
+ *       perfectly and the probe is reporting the truth about the FILE.
+ *
+ * The previous lane read this finding as (a), said it "needs a runtime trace", and
+ * deferred it. The trace was run and it is (b): `restoreSiteState` is invoked
+ * unconditionally on every load and its null branch also resets, so after any
+ * `ProjectLoader.load()` the store holds `snapshot.site` or nothing — an in-memory
+ * survivor cannot reach the audit through that path at all.
+ *
+ * ⭐ THE WITNESS IS ALREADY IN THE PROBE AND WAS BEING THROWN AWAY. `site.model`'s
+ * `describe()` returns `{ siteId, projectId, … }`, and `siteCreate.ts:35` mints
+ * `deterministicSiteId(projectId) = \`site_${projectId}\``. So the site id is DERIVABLE
+ * from the project id, which makes the pair a two-witness test:
+ *
+ *   • `siteId === 'site_' + owner`  → internally CONSISTENT. The record was minted for
+ *     the owning project and copied wholesale — a snapshot/duplication defect (b).
+ *   • otherwise                     → the pair DISAGREES; some writer produced a
+ *     mismatched record, which points at an authored write rather than a copy.
+ *
+ * ⛔ This function REPORTS and never repairs (ADR-0298). It does not re-stamp the site,
+ * and deliberately so: silently re-stamping would turn the verdict green while
+ * destroying the evidence of which project the parcel data actually came from. That
+ * is a founder-level call, logged as L-8811, not a patch.
+ */
+export function describeScopeWitness(detail: unknown, owner: string): string {
+    if (detail == null || typeof detail !== 'object') return '';
+    const siteId = (detail as { siteId?: unknown }).siteId;
+    if (typeof siteId !== 'string' || siteId.length === 0) return '';
+    return siteId === `site_${owner}`
+        ? ` [witness: siteId="${siteId}" is the deterministic id OF ${owner}, so the record is `
+          + `internally consistent — this is a SNAPSHOT/duplication defect, NOT a teardown leak]`
+        : ` [witness: siteId="${siteId}" does NOT derive from ${owner} — the id/projectId pair `
+          + `DISAGREE, which points at a mismatched authored write, not a wholesale copy]`;
+}
+
 function describeFindingDetails(f: IsolationLeakReport['findings'][number]): string {
     const d = f.details;
     if (d == null) return '';
@@ -1271,10 +1540,12 @@ function describeFindingDetails(f: IsolationLeakReport['findings'][number]): str
         const rows = d as Array<{ store: string; ids: string[] }>;
         return ` (${rows.slice(0, 3).map(r => `${r.store}: ${r.ids.slice(0, 2).join(', ')}${r.ids.length > 2 ? ', …' : ''}`).join('; ')})`;
     }
-    // scope.foreignProject — [{ scope, owningProjectId }]
+    // scope.foreignProject — [{ scope, owningProjectId, detail? }]
     if (Array.isArray(d) && d.length > 0 && typeof d[0] === 'object' && d[0] !== null && 'owningProjectId' in (d[0] as object)) {
-        const rows = d as Array<{ scope: string; owningProjectId: string }>;
-        return ` (${rows.slice(0, 3).map(r => `${r.scope} still owned by ${r.owningProjectId}`).join('; ')})`;
+        const rows = d as Array<{ scope: string; owningProjectId: string; detail?: unknown }>;
+        return ` (${rows.slice(0, 3).map(r =>
+            `${r.scope} still owned by ${r.owningProjectId}${describeScopeWitness(r.detail, r.owningProjectId)}`,
+        ).join('; ')})`;
     }
     // scope.probeFailed — [{ scope, error }]
     if (Array.isArray(d) && d.length > 0 && typeof d[0] === 'object' && d[0] !== null && 'error' in (d[0] as object)) {
