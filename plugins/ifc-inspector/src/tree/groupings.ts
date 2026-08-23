@@ -199,8 +199,7 @@ export function groupBySpatial(sources: readonly IfcTreeSource[]): Grouping {
 
   const root: IfcGroup[] = [];
   // Build the nest by walking each element's chain.
-  const index = new Map<string, { group: IfcGroup; children: Map<string, string> }>();
-  const mutable = new Map<string, { key: string; label: string; ids: string[]; kids: string[] }>();
+  const mutable = new Map<string, { key: string; label: string; ids: string[] }>();
   const childrenOf = new Map<string, string[]>();
   const rootKeys: string[] = [];
   const unplaced: string[] = [];
@@ -215,12 +214,12 @@ export function groupBySpatial(sources: readonly IfcTreeSource[]): Grouping {
       const key = `${rung.level}:${rung.id}`;
       let slot = mutable.get(key);
       if (!slot) {
-        slot = { key, label: rung.name, ids: [], kids: [] };
+        slot = { key, label: rung.name, ids: [] };
         mutable.set(key, slot);
         if (parentKey === null) {
           if (!rootKeys.includes(key)) rootKeys.push(key);
         } else {
-          const sib = childrenOf.get(parentKey) ?? [];
+          const sib: string[] = childrenOf.get(parentKey) ?? [];
           if (!sib.includes(key)) sib.push(key);
           childrenOf.set(parentKey, sib);
         }

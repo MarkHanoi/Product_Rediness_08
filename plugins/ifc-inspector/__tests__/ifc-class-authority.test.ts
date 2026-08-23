@@ -201,10 +201,15 @@ describe('§IFC-TREE-AUTHORITY — export reachability of the classes it produce
 
     // Measured at the time of writing. If this set CHANGES, read it — a growth
     // means a new class was minted with no way to export it.
+    //
+    // ⭐ IT ALREADY EARNED ITS KEEP. First reading included 'IfcGrid'; this
+    // assertion then FAILED on a re-run because lane IFCEXP49 added
+    // `'IfcGrid': WEBIFC.IFCGRID` to IFC_CLASS_MAP mid-session, closing L-8305.
+    // The pin detected a real shared-tree change rather than a flake — which is
+    // precisely why it compares a SET and not a count.
     expect(notEmittable).toEqual([
       'IfcAnnotation',
       'IfcFurniture',
-      'IfcGrid',
       'IfcLightFixture',
       'IfcSanitaryTerminal',
     ]);

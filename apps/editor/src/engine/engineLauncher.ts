@@ -69,6 +69,14 @@ import '../ui/inspect/AuditStack';
 // Side-effect import, because nothing else needs to hold a reference to it.
 import '../ui/analysis/AnalysisSurface';
 import '../ui/data/DataCommandCenter';
+// §IFC-TREE-ATTACH (L-8370..L-8376) — the "PRYZM tree / IFC tree" toggle in the
+// Inspect header, plus the IFC primitive tree it switches to. Side-effect
+// import for the same reason AuditStack's is: it self-attaches and nothing
+// needs to hold a reference. It edits NO existing file — it appends into the
+// Inspect header's existing `.aud-header-actions` slot at runtime, so it cannot
+// collide with the lane restructuring `ui/inspect/**`, and it degrades to one
+// warning if those selectors ever stop matching.
+import '../ui/ifc-tree/IfcTreeAttachment';
 import { registerWallPerfBench } from './WallPerfBench';
 import { registerWallHandlers } from '@pryzm/plugin-wall';
 import { registerRoomHandlers } from '@pryzm/plugin-rooms';
