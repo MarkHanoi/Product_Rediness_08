@@ -656,6 +656,54 @@ measure it. Ratified from L-1204 / L-1205 (founder 2026-08-19); supersedes nothi
 
 ---
 
+## §12 — Forma ground-context layers: geometry kind, seat, and depth (§FIX-FORMA-WATERWAY-GROUND-RIBBON, L-10160)
+
+> Added 2026-08-23 after the founder: *"can you review the water rivers in the 3D Site view? They are in the forefront overlapping buildings … which they should not."* This is the FOURTH report of one defect shape in this view — §FORMA-CTX-ROAD-RIBBON (ADR-0095, 2026-07-01) records it verbatim for roads: *"the white lines draped straight THROUGH the buildings"* — and it recurred because the fix was applied per LAYER and never written down as a rule the next layer had to satisfy. §12 is that rule.
+
+The 3D-Site (Forma) view draws OSM context as flat features on a synthetic ground: landuse, parks, roads, rail, water areas, waterway centre-lines, the sea. They share one datum and one depth budget, so they are governed together.
+
+### §12.1 — A ground-context feature MUST be ground GEOMETRY, never a floating line
+
+A linear context feature (road, rail track, river, canal) MUST be rendered as a **`corridor` of metric width** (or a `polygon` for an areal one). It MUST NOT be rendered as a `polyline` seated at a fixed height.
+
+**Rationale, measured twice.** A polyline has no ground footprint: it is a screen-space ribbon hung at one altitude, so the surrounding context buildings — which extrude upward from that same altitude — are pierced by it at every crossing. That is precisely what ADR-0095 root-caused for roads. A corridor is a ground polygon with no `extrudedHeight`; it **cannot** rise into a building, at any camera altitude, by construction rather than by tuning.
+
+### §12.2 — A ground-context feature MUST NOT ask the renderer to skip the depth test
+
+`depthFailMaterial`, `disableDepthTestDistance` and per-feature render-order forcing are **FORBIDDEN** on this layer set. `depthFailMaterial` in particular draws the feature *precisely where it is occluded* — a river behind a tower is painted **over** the tower, at full opacity, **by configuration**. It is not a z-fight, a sorting accident or a terrain-precision artefact, and it is not fixable by nudging heights.
+
+⛔ The inverse fix is equally forbidden: making the feature win the depth test (or drawing it last) hides the symptom by making the water deliberately overdraw the city. A context layer earns its place by being **occluded correctly**, not by being visible unconditionally.
+
+### §12.3 — The seat is an ABSOLUTE scalar height, and every layer MUST be re-seatable
+
+Forma runs with `globe.depthTestAgainstTerrain = false`, so a `clampToGround` / `CLAMP_TO_GROUND` ground primitive has no terrain stencil to classify into and renders **nothing** on baked terrain (§CTX-ABS-SEAT, L-635). Every ground-context feature therefore carries an **absolute scalar `height`**, seated on the settled city ground.
+
+Because terrain settles **asynchronously and upward** (Madrid ~700 m, Burgos ~912 m), that scalar MUST be re-writable in place by `reseatContextGroundFeaturesForBase`. **A feature that carries its height inside its vertex positions is not re-seatable and is therefore non-conformant** — it will sit hundreds of metres below the settled ground on a high city.
+
+⚠ The waterway centre-line was exactly that feature, and its exemption was recorded in the re-seat's own doc as harmless (*"thin, low-visibility"*). It was not harmless, because it was **compounded** by the §12.2 breach: wrong height AND painted through everything at that wrong height. Neither alone produces the founder's picture; together they produce it exactly. **When a layer is exempted from an invariant, the exemption's safety MUST be argued against the layer's OTHER settings, not against the invariant alone.**
+
+### §12.4 — Stacking order is a single declared ladder
+
+The per-layer offsets above the settled base are one ordered set, owned by `reseatContextGroundFeaturesForBase` and stated there: landuse `+0.005` < parks `+0.01` < roads / sea `+0.02` < water `+0.03`. A new layer MUST take a place in that ladder explicitly. Prose at a call site that contradicts the number is a defect in its own right — the water loader carried *"sit water just BELOW the road hair-line"* beside a seat that has always been **above** roads.
+
+### §12.5 — A NOMINAL width MUST be labelled nominal, and MUST yield to a measured surface
+
+A `waterway=*` or `highway=*` way is a centre-line; its ribbon width is a **class-typed nominal stand-in**, never a surveyed width, and it MUST be described as such wherever it is reported (the §GETCAPABILITIES-IS-NOT-AN-INVENTORY discipline: surveyed ≠ nominal ≠ normative).
+
+Where the same feature is ALSO mapped as an area — OSM maps a large river both as `waterway=river` and as `natural=water` / `waterway=riverbank` — the **measured polygon wins and the centre-line MUST be dropped**, or a fabricated band is drawn on top of a real surface. The test MUST be a majority of the way's vertices inside the area, not "any vertex": a tributary meets a mapped river at its confluence and must still be drawn.
+
+### §12.6 — Suppressed on the photoreal globe
+
+These are FORMA-only flat features. When `photorealTilesActive`, the 3D tiles already carry the real roads, water, greenery, rail and trees, so every layer in this set MUST be cleared rather than drawn over them. (Pre-existing and unchanged by L-10160; recorded here so the set is governed as one.)
+
+### §12.7 — A console warning is EVIDENCE, and MUST name its own subject
+
+Cesium's one-time `"Entity corridor, ellipse, polygon or rectangle with heightReference must also have a defined height. heightReference will be ignored"` was read, reasonably, as proof that the water layer never clamped. **It was not the water layer.** MEASURED: the water polygons carry an explicit `height`, and the waterways were `polyline`s — a type the message does not even name. The sole emitter was the **site-metric heatmap rectangle**, where `heightReference` sat beside a deliberately-omitted `height` and was, per `GroundGeometryUpdater.getGeometryHeight` (cesium 1.143), **already being ignored** — the omitted height plus `classificationType: TERRAIN` is what made it a ground primitive. The redundant property is removed: no pixel changes, and a warning that misdirected one investigation stops misdirecting the next.
+
+- **Reference (read-only):** `apps/editor/src/ui/geospatial/CesiumViewport.ts` (`loadContextWater`, `loadContextRoads`, `loadContextRail`, `loadContextSea`, `reseatContextGroundFeaturesForBase`, `paintMetricTexture`) · `apps/editor/src/ui/geospatial/contextWater.ts` (`waterwayKind`, `waterwayDuplicatesArea`) · `apps/editor/__tests__/formaWaterwayGroundRibbon.test.ts`.
+
+---
+
 ## §6 — Contract History
 
 | Date | Change |
@@ -670,3 +718,4 @@ measure it. Ratified from L-1204 / L-1205 (founder 2026-08-19); supersedes nothi
 | 2026-07-29 | **§10 Baked-terrain quantized-mesh encoding invariants added (L-639, ADR-0278).** Interior/west-hemisphere cities rendered white because the coarse z0 root tile was horizon-culled: the vertex-centroid bounding centre of a pole-spanning tile collapses to the geocentre → a zero horizon-occlusion point → Cesium always culls the root → 0 tiles render. Fix (MUST): rectangle-centre bounding centre (§10.1) + never-cull occludee for wide-angle tiles (§10.2) + version-stamped tileset URL (§10.3) + decode-the-tile verification (§10.4). Proven by `computeTileVisibility` + decoded R2 bytes (`occMag 0→10000`); Burgos/Madrid render full relief. |
 | 2026-08-19 | **§11 The massing EXTENT contract added (L-1204/L-1205/L-1206/L-1207/L-1208).** Ring precedence: the building wall-loop/slab ring outranks the drawn PARCEL ring (the massing was extruded over the plot line, and its top cap was the pale sheet the founder reported as a broken roof). Height: the placed GLB bounding-SPHERE diameter is banned as a height source (it reported a 20.9 m building as 42.4 m and synthesised 7 phantom storeys); synthetic bands must declare themselves and name their height source. GLB: unsupported materials must be named, one white/glass pair per export tree, and export behaviour asserted through the REAL exporter. |
 | 2026-08-19 | **§1.5.1 the NAMED FRAME FLAG added; §1.5 two "NOT verified" items resolved; §9 progress + §11.4 asymmetry DECIDED (L-1420/L-1421/L-1422/L-1423).** The founder's 3D-Globe Real building rendered as a continent-sized slab in the sky: `minY 2553068.999` is the WGS-84 ECEF **Y** of the **Sydney Opera House** (2 553 076.920) minus **7.921 m**, which is `east_y x_local` for a **9.04 m** house footprint — a derivation, not a magnitude. `GISAreaLayout:556-560` calls `setAnchor()` **unconditionally at GIS init** with that hard-coded default (a call site §1.5 did not know about, and itself L-1423), and the exporter baked `matrixWorld`. §1.5.1 makes the frame boundary **DERIVED** (arm A declared `userData.pryzmSceneFrame`, arm B measured >=100 km, shallowest ancestor, per-root probe, refuse-not-emit). §11.4: glazing reads as glass on the globe via `glazingOverride` — explicitly **NOT** `formaWhite: true`, which would be less realistic; and annotation overlays are stripped by THREE class, never by a name list. **§1.5 and §9 stay OPEN.** |
+| 2026-08-23 | **§12 Forma ground-context layer rules added (L-10160).** The founder's "water rivers … in the forefront overlapping buildings" is §FORMA-CTX-ROAD-RIBBON's BUG 3 one layer over: the waterway centre-lines were the last floating `polyline` layer AND the only one carrying `depthFailMaterial` (which draws a feature *precisely where it is occluded*) AND the one feature `reseatContextGroundFeaturesForBase` deliberately skipped, so on a risen city they sat far below the ground and were painted through it. Waterways are now `corridor` ground ribbons of class-typed NOMINAL width, re-seated with every other layer, dropped where OSM maps the river's real surface. §12.7 records that the `heightReference` console warning belonged to the site-metric heatmap, not the water — and was already being ignored by Cesium. |

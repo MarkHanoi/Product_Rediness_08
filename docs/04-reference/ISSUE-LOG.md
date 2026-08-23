@@ -47978,3 +47978,132 @@ readout for a single manual scrub and collapses a 667-line study to about 60.
 `packages/core-app-model/src/rendering/` beside `PascalSceneLighting.ts`, which is **LIGHT11's**
 file this session, and the brief instructs not to alter observability another lane is working
 in without messaging it first. Handed over rather than silently changed.
+
+---
+
+### L-10160 — ⭐ **THE RIVER WAS DRAWN OVER THE BUILDINGS BY CONFIGURATION, NOT BY ACCIDENT — `depthFailMaterial` PAINTS A LINE *PRECISELY WHERE IT IS OCCLUDED*** (lane FACADE13, 2026-08-23)
+
+Founder: *"can you review the water rivers in the 3D Site view? They are in the **forefront
+overlapping buildings** etc… which they should not."* Two pale-blue ribbons crossing the whole
+frame at a constant altitude, through buildings, at street-level camera.
+
+#### ⛔ The briefed hypothesis was WRONG, and following it would have edited the wrong file
+
+The brief pointed at Cesium's console warning *"Entity corridor, ellipse, polygon or rectangle
+with heightReference must also have a defined height. heightReference will be ignored"* as the
+cause — heightReference ignored ⇒ never clamps ⇒ floats. **MEASURED: that warning is not the
+water layer's, and it could not be.**
+
+- `grep heightReference apps/editor/src/ui/geospatial/*.ts` → **3 hits**, none in the water path.
+- The water **polygons** carry an explicit `height: base`, so they never trip it.
+- The **waterways** were `polyline`s — a geometry type **the message does not even name**.
+- The sole emitter is the **site-metric heatmap RECTANGLE** (`paintMetricTexture`), where
+  `heightReference: CLAMP_TO_GROUND` sits beside a *deliberately omitted* `height`.
+
+⭐ And there it was already inert: `GroundGeometryUpdater.getGeometryHeight` (cesium 1.143,
+verified in `node_modules/cesium/Build/CesiumUnminified/index.js`) warns and returns `undefined`
+whenever `height` is absent and `heightReference !== NONE`. The omitted height **plus**
+`classificationType: TERRAIN` is what makes that rectangle a terrain-classified ground primitive
+— which is the intent. **The property was doing nothing.** It is removed: no pixel changes, and a
+warning that misdirected one investigation stops misdirecting the next. (C12 §12.7.)
+
+#### ⭐ The real cause: this is §FORMA-CTX-ROAD-RIBBON's BUG 3, one layer over
+
+`§FORMA-CTX-ROAD-RIBBON` (ADR-0095, founder 2026-07-01) records the identical symptom on the
+identical view, in the founder's own words: *"roads were drawn as raw floating POLYLINES at a
+fixed height above the ground (`arcType: NONE`, `clampToGround: false`), so on the flat Forma
+ground they hung in mid-air and — because the context BUILDINGS extrude upward from the same
+ground — the white lines draped straight THROUGH the buildings ('really bad' per the founder's
+screenshots)."* Roads, rail and parks were migrated to flat ground `corridor`/`polygon` geometry.
+**The waterways were not.** They were the last floating-polyline layer in the view — and they
+carried two aggravations the roads never had:
+
+**(1) `depthFailMaterial`.** Cesium draws a polyline **where it FAILS the depth test**, i.e.
+precisely where it is BEHIND something. The river was therefore painted at full opacity over
+every building in front of it. ⭐ **That is the "forefront" half of the report and it is a
+configured behaviour** — not a z-fight, not a sorting accident, and not fixable by nudging a
+height.
+
+**(2) It was the ONE ground feature `reseatContextGroundFeaturesForBase` deliberately SKIPPED.**
+That function's own doc said so: *"Waterway POLYLINES carry their height in the positions (no
+scalar) — left as-is (thin, low-visibility)."* So on a city whose terrain settles upward (Madrid
+~700 m, Burgos ~912 m) the ribbon stayed at the load-time base, hundreds of metres below the
+ground — and (1) drew it through that ground anyway.
+
+⭐ **Neither alone produces the founder's picture. Together they produce it exactly:** a
+constant-altitude pale-blue band spanning the frame, in front of everything. The exemption in (2)
+was argued as safe against the invariant it broke, and never against the layer's *other*
+settings. That is now a named rule (C12 §12.3).
+
+#### The fix
+
+Waterway centre-lines are **flat ground `corridor` ribbons**, byte-for-byte the treatment the
+ROAD ribbon uses — `corridor` + `cornerType: ROUNDED` + absolute scalar `height: base` + no
+`extrudedHeight` + **no depth-test bypass of any kind**. A ground corridor cannot rise into a
+building by construction, and it is occluded by Cesium's ordinary opaque depth pass — the same
+pass that already makes the road ribbon disappear behind buildings in the founder's own
+screenshots.
+
+⛔ **This is the opposite of the forbidden fix.** Nothing was given priority, drawn last, or
+exempted from depth. An existing depth-test **bypass was removed**.
+
+Being a scalar, the seat is now visible to the L-635 re-seat, which could not touch the old
+polyline's baked-in per-position heights: `lift(this.contextWaterEntities, 'corridor', 0.03)`
+joins the polygon lift on the same list at the same offset. **The ground stack is unchanged** —
+landuse +0.005 < parks +0.01 < roads/sea +0.02 < water +0.03.
+
+#### B — what each of the TWO water features should be, stated
+
+- **Water AREAS** (lake, pond, reservoir, `waterway=riverbank`, `natural=water`) — a **measured
+  surface**. Already correct: a flat ground polygon at the settled seat. Unchanged.
+- **Waterway CENTRE-LINES** (`waterway=river|stream|canal|drain|ditch`) — **a line, with no
+  area**. It cannot be drawn as a river surface honestly, so it is drawn as a ground ribbon of
+  **class-typed NOMINAL width** (river 14 m, canal 9, stream 4, drain/ditch 2, unknown 6 —
+  the same shape as `roadWidthM`), and the log line **says the width is nominal**. The
+  `waterway` tag was previously DROPPED by the parser, which is why the renderer had nothing to
+  size a ribbon with and fell back to a fixed 3-px screen line; it is now carried as
+  `ContextWaterway.kind`. An unrecognised tag (weir, lock gate, dock, absent) takes the
+  conservative default — never a guess wearing a class name.
+
+#### C — duplication, checked in BOTH places it could occur
+
+- **Sea vs water: NO duplication.** `loadContextWater` draws only `collection.areas` +
+  `collection.ways` and never `collection.sea`; `loadContextSea` (L-642 Phase A) is the single
+  sea path, with its own §FIX-SEA-COVERAGE-GATE. ONE render path, verified by reading both.
+- **Within the inland set: duplication WAS possible and is now suppressed.** OSM maps a large
+  river BOTH as a `waterway=river` centre-line AND as its wetted polygon, and `waterFromElements`
+  splits those into `areas` and `ways` — both reached the renderer. Invisible while the
+  centre-line was a hairline; as a metric ribbon it becomes a **nominal band laid over a measured
+  surface**. `waterwayDuplicatesArea` (pure) drops a centre-line when the **majority** of its
+  vertices fall inside a drawn area. A majority, not "any vertex", because a tributary touches
+  the mapped river's polygon at its confluence and must still draw — the simpler rule would break
+  the network at every junction.
+
+#### A — clamp or suppress?
+
+**Both, and the split already existed.** On the **photoreal globe** the tiles carry the real
+water and the whole Forma water layer is already cleared (`if (this.photorealTilesActive) { …
+clearContextWater() }`) — asserted by test so it stays. The founder's screenshot is the **3D
+Site** flat-ground view, where water is a Forma feature that SHOULD be drawn; there the answer is
+to seat it on the ground and let it be occluded, which is this fix.
+
+#### Still open (named, with the reason it is not a guess)
+
+- **The ground stack is a single settled datum, not per-vertex terrain.** Every context layer
+  (roads, rail, parks, sea, water) is seated by ONE scalar for the whole city, so on strong
+  relief a long ribbon still cuts the hillside it crosses. Making water follow terrain per-vertex
+  would require `sampleTerrainMostDetailed` **and would have to move roads/rail/parks with it**,
+  or the layers would separate from each other — a bigger change than this report, and it would
+  regress the §CTX-ABS-SEAT (L-635) finding that `clampToGround` renders NOTHING under Forma's
+  `depthTestAgainstTerrain = false`. Not attempted; named.
+- **NOT PROVEN HEADLESSLY: that a given pixel of river is behind a given building.** That needs
+  the browser. What IS proven is that the path asks for no depth bypass and that its geometry +
+  seat now match the road layer the founder has already accepted as correct.
+
+**Files:** `apps/editor/src/ui/geospatial/CesiumViewport.ts` (waterway corridor, re-seat, log,
+the heatmap `heightReference` removal), `apps/editor/src/ui/geospatial/contextWater.ts`
+(`ContextWaterwayKind`, `waterwayKind`, `waterwayDuplicatesArea`),
+`apps/editor/__tests__/formaWaterwayGroundRibbon.test.ts` (new, 10 tests),
+`docs/02-decisions/contracts/C12-GEOSPATIAL.md` §12.
+Root `tsc --noEmit` RC=0 · `eslint` RC=0 · new suite 10/10 · `contextSeaMask` +
+`contextTilesReader` unchanged (64/64 with the new suite).

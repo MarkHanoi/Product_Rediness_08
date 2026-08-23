@@ -21,10 +21,21 @@ export interface ContextWaterArea {
     readonly ring: ReadonlyArray<readonly [number, number]>;
     readonly osmId: number;
 }
+/** §FIX-FORMA-WATERWAY-GROUND-RIBBON (L-10160) — the OSM `waterway=*` class of a centre-line.
+ *  It exists ONLY to pick a NOMINAL ribbon width; it is never a surveyed channel width. */
+export type ContextWaterwayKind = 'river' | 'canal' | 'stream' | 'drain' | 'ditch' | 'waterway';
+
 export interface ContextWaterway {
     /** Open polyline as [lon,lat] pairs (a river / stream / canal centre-line). */
     readonly coords: ReadonlyArray<readonly [number, number]>;
     readonly osmId: number;
+    /**
+     * §FIX-FORMA-WATERWAY-GROUND-RIBBON (L-10160) — the `waterway` tag, carried so the renderer can
+     * pick a class-typed NOMINAL ribbon width exactly as `loadContextRoads` does from `highway`.
+     * ⚠ The tag was previously DROPPED here, which is why the renderer had nothing to size a ribbon
+     * with and fell back to a fixed 3-pixel screen-space polyline. `'waterway'` = tag absent/unknown.
+     */
+    readonly kind: ContextWaterwayKind;
 }
 export interface ContextWaterCollection {
     readonly type: 'ContextWaterCollection';
@@ -73,6 +84,49 @@ export function emptyWaterCollection(): ContextWaterCollection {
     return { type: 'ContextWaterCollection', areas: [], ways: [], sea: [] };
 }
 
+/** §FIX-FORMA-WATERWAY-GROUND-RIBBON (L-10160) — narrow an OSM `waterway` tag to the classes we
+ *  size a ribbon for. Anything else (weir, dock, lock_gate, an absent tag) is `'waterway'`, which
+ *  takes the conservative default width — never a guess dressed as a class. */
+export function waterwayKind(tag: string | undefined): ContextWaterwayKind {
+    switch (tag) {
+        case 'river': case 'riverbank': return 'river';
+        case 'canal': return 'canal';
+        case 'stream': return 'stream';
+        case 'drain': return 'drain';
+        case 'ditch': return 'ditch';
+        default: return 'waterway';
+    }
+}
+
+/**
+ * §FIX-FORMA-WATERWAY-GROUND-RIBBON (L-10160) — is this centre-line a DUPLICATE of a water AREA
+ * we are already drawing?
+ *
+ * OSM maps a large river BOTH ways: `waterway=river` as a centre-line AND `natural=water` /
+ * `waterway=riverbank` as the real wetted polygon. `waterFromElements` splits those into `areas`
+ * and `ways`, so both reach the renderer. While the centre-line was a 3-pixel hairline that
+ * overlap was invisible; as a metric ground ribbon it becomes a second, differently-shaped band
+ * of NOMINAL width laid over the river's ACTUAL surface — a fabricated edge on top of a real one.
+ *
+ * The area is the better answer whenever it exists, so the centre-line is dropped when the
+ * MAJORITY of its vertices fall inside one. A majority (not "any vertex") because a tributary
+ * that merely joins a mapped river touches its polygon at the confluence and must still draw.
+ * PURE + deterministic; no I/O, no Cesium.
+ */
+export function waterwayDuplicatesArea(
+    way: ContextWaterway,
+    areas: ReadonlyArray<ContextWaterArea>,
+): boolean {
+    if (areas.length === 0 || way.coords.length === 0) return false;
+    let inside = 0;
+    for (const pt of way.coords) {
+        for (const a of areas) {
+            if (a.ring.length >= 4 && pointInRing(pt, a.ring)) { inside++; break; }
+        }
+    }
+    return inside * 2 > way.coords.length;
+}
+
 /** Parse Overpass `out geom` elements into water areas + waterways + a coastline-derived
  *  SEA mask. Shared by the §OVERPASS-PROXY path and the direct-mirror fallback below. The
  *  `bbox` is needed to clip the (unbounded) coastline into a closed sea surface (L-185). */
@@ -94,7 +148,11 @@ function waterFromElements(elements: OverpassWay[], bbox: Bbox): ContextWaterCol
         if (isArea && el.geometry.length >= 4) {
             areas.push({ ring: el.geometry.map((p) => [p.lon, p.lat] as const), osmId: el.id });
         } else {
-            ways.push({ coords: el.geometry.map((p) => [p.lon, p.lat] as const), osmId: el.id });
+            ways.push({
+                coords: el.geometry.map((p) => [p.lon, p.lat] as const),
+                osmId: el.id,
+                kind: waterwayKind(el.tags?.['waterway']),
+            });
         }
     }
     const sea = buildSeaMaskFromCoastline(coastlines, bbox).map(
@@ -139,7 +197,7 @@ function waterFromTileFeatures(features: ContextTileFeature[], bbox: Bbox): Cont
             if (isArea && ring.length >= 4) {
                 areas.push({ ring: coords, osmId });
             } else {
-                ways.push({ coords, osmId });
+                ways.push({ coords, osmId, kind: waterwayKind(tags['waterway']) });
             }
         }
     }

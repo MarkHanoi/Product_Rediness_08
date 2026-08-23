@@ -88,7 +88,17 @@ import { CONFIDENT_VIOLET_CSS, PROVISIONAL_GREY_CSS, SUGGESTED_AMBER_CSS } from 
 import type { MassingSolid } from "@pryzm/site-parcel-data";
 import { CONTEXT_WIDE_HALF_DEG, CONTEXT_SEA_HALF_DEG } from "./contextExtents";
 import { fetchContextRoads, type ContextRoadCollection } from "./contextRoads";
-import { fetchContextWater, buildSeaMaskFromCoastline, type ContextWaterCollection } from "./contextWater";
+import {
+    fetchContextWater,
+    buildSeaMaskFromCoastline,
+    // §FIX-FORMA-WATERWAY-GROUND-RIBBON (L-10160) — a waterway centre-line has no area, so its
+    // ribbon width is NOMINAL and class-typed (`ContextWaterwayKind`), and it is dropped entirely
+    // where OSM already maps the river's real wetted surface (`waterwayDuplicatesArea`) — a
+    // measured polygon always beats a nominal band drawn on top of it.
+    waterwayDuplicatesArea,
+    type ContextWaterwayKind,
+    type ContextWaterCollection,
+} from "./contextWater";
 // §FEAT-FORMA-SEA-CONTEXT (L-637) — the live coastline supplement only exists to compensate for
 // the BAKED tiles lacking a coastline layer, so it is gated on the baked-tiles path being active.
 import { contextTilesEnabled } from "./contextTiles";
@@ -6922,10 +6932,17 @@ export class CesiumViewport {
   /**
    * §CTX-GROUND-FEATURES-RESEAT (L-635) — lift the ALREADY-PLACED context ROAD / PARK / WATER entities
    * onto the settled terrain ground, mirroring {@link reseatContextPlacementsForBase} for buildings.
-   * These flat features are seated by a single scalar `height` (roads = corridor.height; parks/water
-   * areas = polygon.height), so re-seating is just rewriting that one number per entity. Waterway
-   * POLYLINES carry their height in the positions (no scalar) — left as-is (thin, low-visibility). No
-   * network, no clear, no AbortController — structurally cannot race. Fully guarded; never throws.
+   * These flat features are seated by a single scalar `height` (roads + waterways = corridor.height;
+   * parks/water areas = polygon.height), so re-seating is just rewriting that one number per entity.
+   * No network, no clear, no AbortController — structurally cannot race. Fully guarded; never throws.
+   *
+   * ⚠ §FIX-FORMA-WATERWAY-GROUND-RIBBON (L-10160) — this paragraph used to end *"Waterway POLYLINES
+   * carry their height in the positions (no scalar) — left as-is (thin, low-visibility)"*. That
+   * exemption was the second half of the founder's 2026-08-23 "rivers in the forefront overlapping
+   * buildings" report: the skipped feature was ALSO the only one drawn with `depthFailMaterial`, so
+   * it did not merely sit at the wrong height on a risen city — it was painted THROUGH the terrain
+   * and the buildings at that wrong height. Waterways are `corridor` ground ribbons now and are
+   * re-seated with everything else; the exemption is gone, not merely re-justified.
    */
   private reseatContextGroundFeaturesForBase(): void {
     const viewer = this.viewer;
@@ -6939,7 +6956,9 @@ export class CesiumViewport {
       for (const ent of entities) {
         try {
           const g = kind === 'polygon' ? ent.polygon : ent.corridor;
-          if (!g || !g.height) continue;                   // e.g. a waterway polyline has neither — skip.
+          // Skip an entity that does not carry THIS geometry kind (the water list holds both
+          // polygons and corridors), or one whose height was never seated as a scalar.
+          if (!g || !g.height) continue;
           g.height = new Cesium.ConstantProperty(base + offset);
           n++;
         } catch { /* skip one entity; the re-seat must never break the pass. */ }
@@ -6953,6 +6972,14 @@ export class CesiumViewport {
     // risen terrain (Madrid ~700 m) instead of staying ~700 m under it.
     lift(this.contextSeaEntities, 'polygon', 0.02);
     lift(this.contextWaterEntities, 'polygon', 0.03);
+    // §FIX-FORMA-WATERWAY-GROUND-RIBBON (L-10160) — waterway centre-lines are now `corridor`
+    // ground ribbons, so they finally HAVE the scalar height this pass rewrites. They were the one
+    // ground feature this function skipped (see the doc above: "Waterway POLYLINES carry their
+    // height in the positions (no scalar) — left as-is"), which is why on a city whose terrain
+    // settles upward they stayed hundreds of metres under the ground — and, being drawn with
+    // `depthFailMaterial`, were painted through it. SAME list, SAME +0.03 seat: the two geometry
+    // kinds coexist in `contextWaterEntities` and each lift skips what it does not own.
+    lift(this.contextWaterEntities, 'corridor', 0.03);
     if (n > 0) viewer.scene.requestRender();
     console.log(
       `[CTX-DIAG] ground-features re-seat: ${n} road/park/water entity(ies) lifted onto settled ` +
@@ -9354,13 +9381,18 @@ export class CesiumViewport {
       Cesium.Cartesian3.fromDegrees(lon, lat, 0),
     );
     const invEnu = Cesium.Matrix4.inverse(enu, new Cesium.Matrix4());
-    // Sit water just BELOW the road hair-line but still above the ground plane so
-    // roads draw over it and it never z-fights the flat ground.
+    // Ground-stack seat. §CTX-GROUND-FEATURES-RESEAT (L-635) owns the ordering and states it as
+    // "parks below roads below water" — landuse +0.005, parks +0.01, roads/sea +0.02, water +0.03 —
+    // so water reads over the street grid where a river crosses under a bridge. (The comment that
+    // stood here claimed the opposite, "just BELOW the road hair-line", while the number has always
+    // been ABOVE roads; corrected rather than left to mislead the next reader. §FIX-FORMA-WATERWAY-
+    // GROUND-RIBBON L-10160. The offset itself is UNCHANGED — this is not a z-order change.)
     const base = this.formaTerrainBaseHeight + 0.03;
     const waterFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.water).withAlpha(0.85);
-    const waterLine = Cesium.Color.fromCssColorString(FORMA_PALETTE.water).withAlpha(0.95);
 
     let placed = 0;
+    let areasPlaced = 0;
+    let waysPlaced = 0;
     // Filled lake/pond/reservoir polygons.
     for (const area of collection.areas) {
       try {
@@ -9380,12 +9412,56 @@ export class CesiumViewport {
           },
         });
         this.contextWaterEntities.push(ent);
-        placed++;
+        placed++; areasPlaced++;
       } catch { /* skip one malformed area */ }
     }
-    // River/stream/canal centre-lines.
+    // ── River/stream/canal centre-lines → FLAT GROUND RIBBONS ────────────────────────────────
+    //
+    // §FIX-FORMA-WATERWAY-GROUND-RIBBON (L-10160, founder 2026-08-23: "the water rivers … are in
+    // the forefront overlapping buildings … which they should not").
+    //
+    // ⭐ THIS IS §FORMA-CTX-ROAD-RIBBON's BUG 3, ONE LAYER OVER. That fix (ADR-0095, 2026-07-01)
+    // records the identical root cause on the identical founder report: *"roads were drawn as raw
+    // floating POLYLINES at a fixed height above the ground (`arcType: NONE`,
+    // `clampToGround: false`) … the white lines draped straight THROUGH the buildings"*. Roads,
+    // rail and parks were all migrated to flat ground `corridor`/`polygon` geometry. **The
+    // waterways were not**, so they were the last floating-polyline layer in the view — and they
+    // carried TWO aggravations the roads never did:
+    //
+    //   1. `depthFailMaterial` — Cesium draws a polyline WHERE IT FAILS THE DEPTH TEST, i.e.
+    //      precisely where it is BEHIND something. The river was therefore painted at full
+    //      opacity over every building in front of it, BY CONFIGURATION. That is the "forefront"
+    //      half of the report, and it is not a z-fight or a sorting accident.
+    //   2. It was the ONE ground feature `reseatContextGroundFeaturesForBase` (§CTX-GROUND-
+    //      FEATURES-RESEAT, L-635) deliberately SKIPS — its own doc says *"Waterway POLYLINES
+    //      carry their height in the positions (no scalar) — left as-is (thin, low-visibility)"*.
+    //      So on a city whose terrain settles upward (Madrid ~700 m) the ribbon stayed at the
+    //      load-time base, hundreds of metres below the ground — and (1) drew it through that
+    //      ground anyway. A constant-altitude ribbon crossing the whole frame is exactly what
+    //      those two produce together; neither alone produces it.
+    //
+    // ⛔ NOT fixed by touching depth state or render order — the opposite: the depth-test BYPASS
+    // is removed, and the feature becomes real ground geometry that buildings occlude normally.
+    //
+    // ⚠ WHAT A CENTRE-LINE HONESTLY IS. A `waterway=*` way has no area, so a ribbon width is
+    // NOMINAL — a class-typed stand-in (same shape as `roadWidthM`), never a surveyed channel
+    // width. Where OSM also maps the river's real wetted polygon we prefer THAT and drop the
+    // centre-line (`waterwayDuplicatesArea`), so the nominal width is only ever used where there
+    // is no measured surface to use instead.
+    const waterwayWidthM = (kind: ContextWaterwayKind): number => {
+      switch (kind) {
+        case 'river': return 14;
+        case 'canal': return 9;
+        case 'stream': return 4;
+        case 'drain': case 'ditch': return 2;
+        default: return 6;
+      }
+    };
+    let waywaysDroppedAsDuplicate = 0;
     for (const way of collection.ways) {
       try {
+        // Prefer the mapped water SURFACE over a nominal ribbon laid on top of it.
+        if (waterwayDuplicatesArea(way, collection.areas)) { waywaysDroppedAsDuplicate++; continue; }
         const positions = way.coords.map(([flon, flat]) => {
           const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
           const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
@@ -9394,21 +9470,33 @@ export class CesiumViewport {
         if (positions.length < 2) continue;
         const ent = viewer.entities.add({
           name: 'pryzm-forma-context-waterway',
-          polyline: {
+          corridor: {
             positions,
-            width: 3,
-            clampToGround: false, // §CTX-ABS-SEAT (L-635) — clampToGround renders nothing on baked terrain (depthTestAgainstTerrain=false); the positions already carry the absolute base height.
-            arcType: Cesium.ArcType.NONE,
-            material: waterLine,
-            depthFailMaterial: new Cesium.ColorMaterialProperty(waterLine),
+            width: waterwayWidthM(way.kind),
+            // §CTX-ABS-SEAT (L-635) — an ABSOLUTE scalar height, not CLAMP_TO_GROUND (Forma sets
+            // globe.depthTestAgainstTerrain=false, so a clamped ground primitive has no terrain
+            // stencil to paint into and renders NOTHING on baked terrain). Identical to the road
+            // ribbon's seat — and, being a SCALAR, it is now visible to the L-635 re-seat, which
+            // could not touch the old polyline's baked-in per-position heights.
+            height: base,
+            cornerType: Cesium.CornerType.ROUNDED,
+            material: waterFill,
+            outline: false,
           },
         });
         this.contextWaterEntities.push(ent);
-        placed++;
+        placed++; waysPlaced++;
       } catch { /* skip one malformed waterway */ }
     }
     viewer.scene.requestRender();
-    console.log(`[CesiumViewport][forma] FORMA-CTX-WATER rendered: ${placed} inland water feature(s) (lakes/rivers; the sea is the standing §FEAT-FORMA-SEA-CONTEXT layer).`);
+    console.log(
+      `[CesiumViewport][forma] §FIX-FORMA-WATERWAY-GROUND-RIBBON (L-10160) FORMA-CTX-WATER rendered: ` +
+        `${placed} inland water feature(s) — ${areasPlaced} mapped surface(s) + ` +
+        `${waysPlaced} centre-line(s) as FLAT GROUND RIBBONS of NOMINAL ` +
+        `class width (was floating 3-px polylines carrying a depth-FAIL material, i.e. painted ` +
+        `THROUGH the buildings by configuration); ${waywaysDroppedAsDuplicate} centre-line(s) dropped as a ` +
+        `duplicate of a mapped surface. The sea is the standing §FEAT-FORMA-SEA-CONTEXT layer.`,
+    );
   }
 
   /**
@@ -11472,7 +11560,21 @@ export class CesiumViewport {
         ),
         ...(drape
           ? {
-              heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+              // §FIX-FORMA-WATERWAY-GROUND-RIBBON (L-10160) — `heightReference` REMOVED here, and
+              // this is a DIAGNOSTIC fix, not a rendering one. It was the sole source of Cesium's
+              // one-time warning *"Entity corridor, ellipse, polygon or rectangle with
+              // heightReference must also have a defined height. heightReference will be ignored"*,
+              // and that warning cost a real investigation: it was read as evidence that the WATER
+              // layer never clamped, which sent the search to a feature that emits no such warning
+              // (its polygons carry an explicit `height`, and its waterways are polylines — a type
+              // the message does not even name).
+              //
+              // MEASURED in cesium 1.143: `GroundGeometryUpdater.getGeometryHeight` warns and
+              // returns undefined whenever `height` is absent and `heightReference !== NONE`. So
+              // the property was already doing NOTHING here — an omitted `height` plus
+              // `classificationType: TERRAIN` is what makes this a terrain-classified ground
+              // primitive, which is exactly the intent. Dropping the ignored property changes no
+              // pixel and removes a console line that asserted a defect the code does not have.
               classificationType: Cesium.ClassificationType.TERRAIN,
             }
           : { height: base + up }),
