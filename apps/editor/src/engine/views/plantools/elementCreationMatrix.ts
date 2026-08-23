@@ -439,6 +439,55 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
         modeSource: 'shared',   // wallModePicker + activeWallSystemType
     },
     {
+        // §FEAT-CONSTRUCTION-BOUNDARY-LINE (founder, 2026-08-23) — L-7932 · C105.
+        //
+        //   "The UI should be like the wall, with the same modes for creation --
+        //    line, ortho, rectangle, ellipse, curve, circle etc."
+        //
+        // Declared IMMEDIATELY after the wall because that is the parity claim: the
+        // boundary line spreads the SAME `WALL_DRAW_MODES` constant the wall spreads,
+        // so "like the wall" is true by construction rather than by hand-copying three
+        // rows. `DrawingModeBar` reads `creationModes('boundary-line')` from here, so
+        // the in-draw strip cannot drift from the palette.
+        //
+        // ⛔ THIS IS NOT THE PARCEL BOUNDARY. `Parcel.boundary` (C19 §1.4) is the legal
+        // lot outline -- surveyed, recorded, and ONE-SHOT IMMUTABLE; C19 §1.4 says in as
+        // many words that there is no `site.editParcelBoundary` command. This is an
+        // AUTHORED construction line, and it is a HOST: what is attached to it moves
+        // when it moves (C105 §3).
+        tool: 'boundary-line', label: 'Boundary Line',
+        views: ['plan'],
+        modes: [
+            // The founder's "line, ortho ... curve" -- the SAME three constants every
+            // boundary-drawing tool spreads, so parity is by construction.
+            ...WALL_DRAW_MODES,
+            // ...and "rectangle, ellipse, circle". Ids match `BOUNDARY_LINE_LOOP_MODES`
+            // in @pryzm/geometry-boundary-line, which is itself `BoundaryLoopMode` from
+            // @pryzm/geometry-slab -- the module that turns each mode into real
+            // vertices. Same ids, same generator, same keys as the slab / floor /
+            // ceiling / pool rows; no seventh private shape picker is minted.
+            //
+            // ⭐ SPELLED `rectangular`, NOT `rectangle` -- the canonical side of the
+            // L-1322 split, chosen once so there is nothing to reconcile later.
+            { id: 'rectangular', key: 'Q', label: 'Rectangular', description: 'Closed setting-out loop from two opposite corners' },
+            { id: 'circular',    key: 'I', label: 'Circular',    description: 'Closed setting-out loop from centre and rim' },
+            { id: 'elliptical',  key: 'E', label: 'Elliptical',  description: 'Closed setting-out loop from centre and bounding corner' },
+        ],
+        // No AUTO. A construction line is the architect's DECISION about where the
+        // scheme sits; deriving it from existing geometry would be answering the
+        // question the tool exists to ask. "Not applicable" and "not implemented" are
+        // different answers (this file's own rule) and this is the former.
+        autoIn: [],
+        modeSource: 'shared',   // activeBoundaryLineDrawMode.ts
+        gap: 'No 3-D arm yet: `TOOL_MANAGER_TOOL_KEYS` has no `boundary-line` key, so '
+           + 'the tool cannot be armed from the 3-D viewport. NOT a missing handler -- '
+           + '`boundaryLine.create` is fully dispatchable (proven at the composed '
+           + 'runtime) and the plan arm drives it. A setting-out line is also a PLAN '
+           + 'gesture by nature: it is drawn against a floor plate, which is where an '
+           + 'architect sets a building out. Adding the 3-D arm means a `ToolManager` '
+           + 'activator; recorded in L-7934.',
+    },
+    {
         tool: 'curtain-wall', label: 'Curtain wall',
         views: ['plan', '3d'],
         modes: [

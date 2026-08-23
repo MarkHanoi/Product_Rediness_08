@@ -185,6 +185,29 @@ export function mountCreatePanel(
                             },
                         },
                         {
+                            // §FEAT-CONSTRUCTION-BOUNDARY-LINE (founder, 2026-08-23) —
+                            // L-7933 · C105. THE SECOND CREATE SURFACE.
+                            // `CreatePanelLayout` and `CreateRailPanel` are both live
+                            // (L-1380 records what happens when only one of them learns
+                            // about a tool: the capability exists on one surface and
+                            // silently does not on the other), so the boundary-line row
+                            // lands on both in the same commit.
+                            //
+                            // ⛔ NOT the cadastral parcel boundary (C19 §1.4 — legal,
+                            // surveyed, ONE-SHOT IMMUTABLE, and with no edit command at
+                            // all, deliberately). This is the AUTHORED setting-out line.
+                            //
+                            // ⛔ NOT `props.toolManager.activate…` —
+                            // `TOOL_MANAGER_TOOL_KEYS` has no `boundary-line` key by
+                            // design; the tool is PLAN-ONLY and the creation matrix
+                            // declares that rather than pretending otherwise.
+                            label: "Boundary Line",
+                            icon: "material-symbols:polyline-outline",
+                            action: () => {
+                                activatePlanOnlyToolOrExplain('boundary-line', 'Boundary Line');
+                            },
+                        },
+                        {
                             label: "Room",
                             icon: PryzmIcons.pryzmRoom,
                             children: {

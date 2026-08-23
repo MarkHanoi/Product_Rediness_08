@@ -144,7 +144,16 @@ describe('§FEAT-DUAL-VIEW-CREATION-MATRIX — the creation matrix is real, not 
             // ledger because `LiftPlanToolHandler` shipped, so the row now declares
             // BOTH views and the list SHRANK — which this comment's own instruction
             // says to tighten for, not to absorb. It was four; it is three.
-            expect(gaps).toEqual(['balcony', 'lighting', 'pool']);
+            //
+            // ⭐ UPDATED 2026-08-23 (§FEAT-CONSTRUCTION-BOUNDARY-LINE, L-7932):
+            // `boundary-line` JOINS this ledger, plan-only, and — like `balcony` — it is
+            // plan-only DELIBERATELY rather than pending. A setting-out line is drawn
+            // against a floor plate, which is where an architect sets a building out;
+            // the 3-D arm needs a `ToolManager` activator and is declared as a gap on
+            // the row itself (L-7934). The list therefore GREW, and the growth is
+            // recorded here with its reason rather than absorbed by widening the
+            // assertion — which is the instruction this comment already carried.
+            expect(gaps).toEqual(['balcony', 'boundary-line', 'lighting', 'pool']);
         });
 
         it('reports the LATENT mode-desync risks (the shape of the founder\'s AUTO bug)', () => {

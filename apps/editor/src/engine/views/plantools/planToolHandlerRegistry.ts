@@ -46,6 +46,12 @@ import { BalconyPlanToolHandler }      from './BalconyPlanToolHandler';
 // lift is a placed footprint the way a column is: plan is its natural surface, which is
 // exactly what `elementCreationMatrix` named as the matrix's highest-value open hole.
 import { LiftPlanToolHandler }         from './LiftPlanToolHandler';
+// §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7931) — the plan route that makes the AUTHORED
+// construction / setting-out line reachable (C105). Registered beside the grid because
+// both are SETTING-OUT geometry: an architect lays a scheme out against them before
+// deciding what stands on them. ⛔ NOT the cadastral `Parcel.boundary` (C19 §1.4 —
+// legal, surveyed, ONE-SHOT IMMUTABLE) and NOT `RoomBoundingLine`.
+import { BoundaryLinePlanToolHandler } from './BoundaryLinePlanToolHandler';
 import { StairPlanToolHandler }        from './StairPlanToolHandler';
 import { StairPathPlanToolHandler }    from './StairPathPlanToolHandler';
 import { BeamPlanToolHandler }         from './BeamPlanToolHandler';
@@ -90,7 +96,7 @@ const _registryTracer = trace.getTracer('@pryzm/editor.plan-tool-registry', '0.1
 /** The canonical, ordered list of every plan-view tool key. */
 export const PLAN_TOOL_KEYS = [
     'wall', 'room', 'column', 'linear-dim', 'door', 'window', 'slab', 'pool',
-    'balcony', 'lift', 'stair',
+    'balcony', 'lift', 'boundary-line', 'stair',
     'stair-path', 'beam', 'roof', 'curtain-wall', 'ceiling', 'floor', 'railing',
     'furniture', 'lighting', 'plumbing', 'opening', 'grid', 'section-mark',
     'elevation-mark', 'move', 'rotate', 'align', 'copy-place', 'text-note', 'element-tag',
@@ -137,6 +143,13 @@ export function createPlanToolHandlers(): Record<string, PlanToolHandler> {
                 // lift's palette row had already committed once, by landing on
                 // `CreatePanelLayout` and not on `CreateRailPanel`.
                 'lift':               new LiftPlanToolHandler(),
+                // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7931) — the AUTHORED
+                // setting-out line. Registering it in this shared factory is what
+                // gives BOTH plan surfaces the tool at once (the L-73 parity
+                // guarantee) rather than only the main overlay — the L-1380 defect
+                // the lift's palette row had already committed once by landing on
+                // `CreatePanelLayout` and not on `CreateRailPanel`.
+                'boundary-line':      new BoundaryLinePlanToolHandler(),
                 'stair':              new StairPlanToolHandler(),
                 'stair-path':         new StairPathPlanToolHandler(),
                 'beam':               new BeamPlanToolHandler(),

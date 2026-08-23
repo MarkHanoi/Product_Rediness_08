@@ -87,6 +87,18 @@ export const CREATION_TOOL_SHORTCUTS: Readonly<Record<string, string>> = {
     // family is named after — the nearest free combo with a mnemonic left in it, the
     // precedent `Balcony` and `Potted Plants` both set.
     'Lift':                 'Alt+Shift+V',
+    // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7933) — the AUTHORED setting-out line, filed
+    // under ARCHITECTURE beside the wall because it is what an architect draws BEFORE
+    // the walls.
+    //
+    // ⚠ NOT `Alt+B` (Room Bounding) and NOT `Alt+Shift+B` (Bathroom) — and that was
+    // MEASURED, not assumed: all 26 bare `Alt+<letter>` combos are already allocated,
+    // and `assertNoShortcutCollisions()` runs at IMPORT time, so a collision would
+    // throw the editor's own boot rather than fail quietly. This follows the precedent
+    // `Balcony`, `Lift` and `Potted Plants` set — take the nearest free combo with any
+    // mnemonic left in it. ⭐ `N` for the boundary li**N**e / setting-out **N**otation;
+    // `Alt+N` itself is Slab Opening, so the Shift tier is the free one.
+    'Boundary Line':        'Alt+Shift+N',
     'Ramp':                 'Alt+P',
     'Ceiling':              'Alt+C',
     'Auto Ceiling':         'Alt+Shift+C',

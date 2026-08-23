@@ -773,6 +773,44 @@ export class CreateRailPanel {
                         },
                     },
                     {
+                        // §FEAT-CONSTRUCTION-BOUNDARY-LINE (founder, 2026-08-23) —
+                        // L-7933 · C105 · ADR-0348.
+                        //
+                        //   "New feature - create a construction boundary line element
+                        //    (under the ARCHITECTURE tab). We have the side-line boundary
+                        //    from the parcel, but I want to be able to create the boundary
+                        //    CONSTRUCTION line."
+                        //
+                        // ⭐ UNDER ARCHITECTURE, WHERE HE ASKED FOR IT, AND BESIDE THE
+                        // WALL — because a setting-out line is what an architect draws
+                        // BEFORE the walls, and because it offers the wall's own six
+                        // creation modes.
+                        //
+                        // ⛔ IT IS NOT THE PARCEL BOUNDARY, and the founder's own sentence
+                        // makes the distinction: "we HAVE the side-line boundary from the
+                        // parcel". `Parcel.boundary` (C19 §1.4) is the LEGAL lot outline —
+                        // surveyed, recorded, and ONE-SHOT IMMUTABLE; there is deliberately
+                        // no `site.editParcelBoundary` command anywhere. This row creates a
+                        // DIFFERENT element, in its own store, with its own contract.
+                        //
+                        // ⛔ NOT `this._activateTool('boundary-line')`. That routes to
+                        // `runtime.tools.activate()` — the 3-D ToolManager — and
+                        // `TOOL_MANAGER_TOOL_KEYS` has no `boundary-line` key BY DESIGN (a
+                        // setting-out line is a PLAN gesture; the creation matrix declares
+                        // the 3-D gap rather than pretending). Calling it would report
+                        // activation and activate nothing — the founder's "Create Stair"
+                        // defect exactly.
+                        //
+                        // ⭐ AND IT LANDS ON BOTH CREATE SURFACES IN THE SAME COMMIT.
+                        // L-1380 is what happens when only one of them learns about a tool.
+                        label:    'Boundary Line',
+                        shortcut: 'Alt+Shift+N',
+                        icon:     'material-symbols:polyline-outline',
+                        action: () => {
+                            activatePlanOnlyToolOrExplain('boundary-line', 'Boundary Line');
+                        },
+                    },
+                    {
                         label:    'Ramp',
                         shortcut: 'Alt+P',
                         icon:     PryzmIcons.pryzmRamp,
