@@ -297,7 +297,7 @@
     },
     {
       "gate": "../rac-conformance/certification/gates/check-authored-state-protection.ts",
-      "runner": "rac-conformance/certification (certify.ts)",
+      "runner": "certify",
       "addedAt": "2026-08-12",
       "builtBy": "BIM 3.0 · BIM30-REASONING-LOOP-PLAN.md R8 · STR-06 §14-15 · C75 §1-§2/§2.7 · BIM30-CONTRACT-REVIEW-PART-E §6 finding E-13",
       "residency": "tools/rac-conformance/certification/gates/ per BIM30-READINESS-GATES §2.1a. The boundary test — does this gate need something that does not exist until something runs? — answers YES. Three of its five clauses drive live runtime state: the authority question is asked over rooms held in a REAL RoomStore, and the load-bearing clause DISPATCHES the real room.delete through the real CommandBus into the real plugins/rooms handler and the real window.commandManager bridge, then reads the store back to see what survived. A source scan cannot see a deletion; C75 §6.3(d) concedes exactly this about its own three static provenance gates, which is why E-13 exists.",

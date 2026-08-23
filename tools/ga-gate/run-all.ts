@@ -213,6 +213,21 @@ const GATES: Gate[] = [
   // round-trip. Shrink-only from the 2026-08-19 measurement; exits 3 on breach, 2 when
   // it cannot measure, so could-not-measure never aliases with measured-a-failure.
   { name: 'material-id-required (C100 §2.1/§9)',      script: 'check-material-id-required.ts' },
+  // §MATERIAL-MAPS-AND-TILING (L-1700..L-1705, C100 §10.2.c/§10.9) — REGISTERED
+  // 2026-08-23 (L-9801). It was committed on 2026-08-22 in b58500d7/08296995 and
+  // registered in NOTHING — the third time in this same C100 material block that a
+  // gate was built, cited by its contract as the enforcement, and never wired. It
+  // is the exact failure the row four lines above records for
+  // check-material-single-source.ts, repeated by the lane that read that comment.
+  // ⭐ FIRST REGISTERED READING, MEASURED 2026-08-23: RC=0, hard-fail-at-zero, no
+  // baseline and no ledger row — 340 catalogue rows, 50 carrying maps (34
+  // procedural · 16 file-backed), 34/34 generators live and referenced. It reads
+  // the '/items/' prefix out of catalogAssetUrl.ts and the loadable extension set
+  // out of MaterialResolver.ts rather than transcribing either, so it cannot drift
+  // from the resolver. It names four axes it does NOT check (file existence, CORS,
+  // declared size vs image, metre UVs on non-slab surfaces) — its green is not a
+  // claim that a texture appears on screen.
+  { name: 'material-maps-tiling (C100 §10.2.c/§10.9 · L-1700)', script: 'check-material-maps-tiling.ts' },
   // C15 §8.1 / C86 WO-B-3 (2026-08-19) — the hosted-opening dual-write gate. C15
   // §8.1's OWN stated enforcement was "a code-review checklist item", i.e. nothing,
   // and it had measurably failed on the two most-used door/window gestures. This
@@ -630,6 +645,19 @@ const GATES: Gate[] = [
   // on every run. GE-08 stays UNPROVEN for those two — do not cite this as closure.
   { name: 'cross-process-determinism (C73 §5.4b, partial)', script: 'check-cross-process-determinism.ts' },
   { name: 'gate-subject-floors (R5/L-811)',           script: 'check-gate-subject-floors.ts' },
+  // §RUNTIME-ARG-OMITTED (L-1873/L-1893) — REGISTERED 2026-08-23 (L-9801). Committed
+  // 2026-08-21 in b86766a2 as "the tripwire that ends guessing", after the SAME
+  // one-missing-positional-argument defect shipped four times in a single day
+  // (L-1633 SheetEditor · L-1860 ViewPropertiesPanel · L-1890 OverridePanel ·
+  // L-1892 ViewTemplateManagerPanel). It then ran nowhere for two days, so the
+  // fifth recurrence would have been found the same way as the first four: a
+  // founder reporting that a feature "does nothing".
+  // ⭐ FIRST REGISTERED READING, MEASURED 2026-08-23: RC=0 at "21 <= baseline 21" —
+  // 4959 files scanned, 214 classes with an optional trailing runtime param, ARM A
+  // 21/21 named bare-construction sites, ARM B 0. It is a SHRINK-ONLY RATCHET
+  // sitting AT its ceiling, so it needs no debt row (it passes today) but the 22nd
+  // occurrence turns this suite red — which is the entire point of registering it.
+  { name: 'runtime-arg-omitted (L-1893 · optional-runtime silent death)', script: 'check-runtime-arg-omitted.ts' },
   // ─── L-960 / L-1221 (2026-08-19, lane REG1) — the DOCUMENT-SIDE gates ───────
   // Every other gate in this list polices CODE. These two police the CONTRACT
   // SUITE that governs the code, and they exist because
@@ -659,17 +687,62 @@ const GATES: Gate[] = [
 // renamed, and the invariant is enforced below so the next copy-paste fails loudly
 // instead of inflating coverage: a suite that miscounts ITSELF cannot be the
 // authority on whether anything else is honest.
+// §MANIFEST-ERROR-IS-NOT-A-SILENCER (L-9900 · 2026-08-23) — THE BLAST RADIUS RULE.
+//
+// Four checks in this file used to `process.exit(1)` BEFORE the loop: duplicate
+// rows, a gate on both ledgers, a newly-measured entry with no exit condition, and
+// an inventory row whose file does not exist. Each is a real failure and each stays
+// a failure. What was wrong was the RADIUS: on 2026-08-23 two missing JSON strings
+// in `gate-newly-measured.json` aborted the entire merge-blocking suite after nine
+// lines, and P1 single-compose, P2 three-imports, P3 raf-count, P5 domain-purity,
+// layer-boundaries and 125 others DID NOT EXECUTE. Two absent strings bought total
+// silence across the whole enforcement apparatus — and the CI billing outage meant
+// no run reported it (AUDIT-E §4.5, L-9800).
+//
+// The same lesson was already learned once in this file and written down twelve
+// lines below §GATE-AUTHORED-BUT-UNWIRED: "a gate runner that stops reporting the
+// moment it finds one problem teaches people to stop running it, which is how this
+// suite ended up unwired in the first place (L-774)." That fix was applied to ONE
+// of the five early aborts. This is the rule generalised to the rest.
+//
+// ⚠ THE RULE DOES NOT MOVE — a metadata failure is a REAL failure and this runner
+// still exits non-zero for it. Three properties, all required:
+//   1. it is announced LOUDLY at the point of detection, before anything runs;
+//   2. it is scoped — it disqualifies THAT ENTRY (the gate's own result becomes an
+//      error, and its ledger row may not absorb its exit code) and nothing else;
+//   3. it is re-printed at the END and forces exit 1, so 130 gates of scrollback
+//      cannot bury it and nobody can mistake a metadata failure for a clean run.
+//
+// The distinction being drawn is the one this repo keeps paying for: a broken
+// INSTRUMENT and a broken TREE are different facts, and a runner that reports the
+// first by destroying all readings of the second has published neither.
+const manifestErrors: string[] = [];
+/** Scripts this run must NOT execute (their file is missing) — never silently dropped. */
+const excludedScripts = new Set<string>();
+/** script → why its ledger row is disqualified from absorbing a non-zero exit. */
+const unabsorbable = new Map<string, string>();
+
+function recordManifestError(headline: string, body: string): void {
+  const block = `[ga-gate/run-all] ❌ ${headline}\n${body}`;
+  manifestErrors.push(block);
+  console.error(`\n${block}`);
+}
+
 const dupes = [...new Map<string, number>(
   GATES.map((g) => [g.script, GATES.filter((x) => x.script === g.script).length]),
 ).entries()].filter(([, n]) => n > 1);
 if (dupes.length > 0) {
-  console.error(
-    `\n[ga-gate/run-all] ❌ ${dupes.length} gate script(s) registered more than once:\n`
-    + dupes.map(([s, n]) => `    - ${s}  ×${n}`).join('\n')
-    + '\n  A duplicate row inflates every count this runner prints. Remove it.',
+  recordManifestError(
+    `${dupes.length} gate script(s) registered more than once:`,
+    dupes.map(([s, n]) => `    - ${s}  ×${n}`).join('\n')
+    + '\n  A duplicate row inflates every count this runner prints. Remove it.'
+    + '\n  This run executes each distinct script ONCE and still exits 1 for the duplicate row.',
   );
-  process.exit(1);
 }
+// Deduplicated execution list. GATES stays the INVENTORY (what is registered);
+// RUN_LIST is what this process actually spawns, so the printed denominator is the
+// number of distinct subjects rather than the number of rows.
+const RUN_LIST: Gate[] = [...new Map(GATES.map((g) => [g.script, g])).values()];
 
 let anyFailed = false;
 
@@ -784,12 +857,16 @@ try {
 // which is a coin toss dressed as a policy.
 const inBoth = [...newlyMeasured.keys()].filter((s) => baseline.has(s));
 if (inBoth.length > 0) {
-  console.error(
-    `\n[ga-gate/run-all] ❌ ${inBoth.length} gate(s) are on BOTH gate-debt.json and gate-newly-measured.json:\n`
-    + inBoth.map((s) => `    - ${s}`).join('\n')
-    + '\n  DECLARED DEBT and NEWLY MEASURED are mutually exclusive claims. Pick one.',
+  // §MANIFEST-ERROR-IS-NOT-A-SILENCER — scoped, not fatal-here. The ambiguity is
+  // real and unresolvable BY THIS RUNNER, so neither ledger gets to absorb these
+  // gates' exit codes; every other gate still reports.
+  recordManifestError(
+    `${inBoth.length} gate(s) are on BOTH gate-debt.json and gate-newly-measured.json:`,
+    inBoth.map((s) => `    - ${s}`).join('\n')
+    + '\n  DECLARED DEBT and NEWLY MEASURED are mutually exclusive claims. Pick one.'
+    + '\n  Until one is struck, NEITHER row may absorb these gates — they are graded as errors.',
   );
-  process.exit(1);
+  for (const s of inBoth) unabsorbable.set(s, 'its row is on BOTH ledgers, so neither claim is legible');
 }
 
 // Every entry MUST carry an exit condition and a review date. This is not a schema
@@ -797,15 +874,42 @@ if (inBoth.length > 0) {
 // amnesty, and BIM30-READINESS-GATES §2.3 / C70 §5.4 both turn on debt having a
 // declared way out. An entry without one is rejected at load rather than tolerated
 // at read time, so the file cannot acquire open-ended members by accident.
-const incomplete = [...newlyMeasured.values()].filter((e) => !e.exitCondition || !e.reviewBy);
-if (incomplete.length > 0) {
-  console.error(
-    `\n[ga-gate/run-all] ❌ ${incomplete.length} gate-newly-measured.json entr(ies) lack an exitCondition or a reviewBy:\n`
-    + incomplete.map((e) => `    - ${e.gate}`).join('\n')
+//
+// ⚠ THE REJECTION IS THE POINT AND IT STAYS. What changed on 2026-08-23 (L-9900) is
+// only the RADIUS: a malformed row disqualifies ITS OWN gate — the row may not
+// absorb that gate's exit code, and the run exits 1 — while the other gates execute
+// and report. See §MANIFEST-ERROR-IS-NOT-A-SILENCER above for why the previous
+// `process.exit(1)` here was the single most expensive line in the suite.
+const KNOWN_RUNNERS = new Set(['ga-gate', 'certify']);
+const malformed = [...newlyMeasured.values()]
+  .map((e) => {
+    const why: string[] = [];
+    if (!e.exitCondition) why.push('no exitCondition');
+    if (!e.reviewBy) why.push('no reviewBy');
+    // A `runner` this file does not recognise is the SAME defect wearing a
+    // different hat: the entry is graded by nobody. `newlyFixed` grades only
+    // `runner ?? 'ga-gate' === 'ga-gate'` and the disclosure block prints only
+    // `runner === 'certify'`, so an unrecognised third value falls through BOTH
+    // and the row is neither enforced nor disclosed — it just sits there reading
+    // as coverage. Validated here rather than trusted from the TS interface,
+    // which describes a JSON file no compiler checks.
+    if (e.runner !== undefined && !KNOWN_RUNNERS.has(e.runner)) {
+      why.push(`unrecognised runner ${JSON.stringify(e.runner)} (expected 'ga-gate' or 'certify')`);
+    }
+    return { entry: e, why };
+  })
+  .filter((m) => m.why.length > 0);
+if (malformed.length > 0) {
+  recordManifestError(
+    `${malformed.length} gate-newly-measured.json entr(ies) are malformed:`,
+    malformed.map((m) => `    - ${m.entry.gate}  (${m.why.join(' · ')})`).join('\n')
     + '\n  A category with no exit is how "temporary" becomes permanent. Name what makes'
-    + '\n  the entry leave, and the date by which that must be re-argued.',
+    + '\n  the entry leave, and the date by which that must be re-argued.'
+    + '\n  These rows may NOT absorb their gates\' exit codes; every other gate still runs.',
   );
-  process.exit(1);
+  for (const m of malformed) {
+    unabsorbable.set(m.entry.gate, `its gate-newly-measured.json row is malformed (${m.why.join(' · ')})`);
+  }
 }
 
 // §NEWLY-MEASURED-EXPIRES — the bound is enforced, or it is a comment.
@@ -825,6 +929,8 @@ const failedNewly: string[] = [];
 const failedRatchet: string[] = [];
 const failedMisconfigured: string[] = [];
 const failedRegression: string[] = [];
+/** §MANIFEST-ERROR-IS-NOT-A-SILENCER — failing gates whose ledger row is unreadable. */
+const failedLedgerMalformed: string[] = [];
 
 // §MISSING-GATE-IS-NOT-DEBT (L-812) — a gate whose FILE does not exist is not a
 // failing gate; it is a lie in the inventory. C01 §5 named five hard-fail gates
@@ -946,18 +1052,22 @@ if (existsSync(CERT_GATES_DIR)) {
   }
 }
 
-const missing = GATES.filter((g) => !existsSync(join(__dir, g.script)));
+const missing = RUN_LIST.filter((g) => !existsSync(join(__dir, g.script)));
 if (missing.length > 0) {
-  console.error(
-    `\n[ga-gate/run-all] ❌ ${missing.length} GATE SCRIPT(S) DO NOT EXIST:\n`
-    + missing.map((g) => `    - ${g.script}  (${g.name})`).join('\n')
+  // §MANIFEST-ERROR-IS-NOT-A-SILENCER — a row with no file cannot be executed, so
+  // it is EXCLUDED and reported. It is not a reason to stop measuring the tree.
+  recordManifestError(
+    `${missing.length} GATE SCRIPT(S) DO NOT EXIST:`,
+    missing.map((g) => `    - ${g.script}  (${g.name})`).join('\n')
     + '\n  An inventory entry with no file behind it is worse than an omission: it reads as'
-    + '\n  coverage. Write the gate or delete the row — the debt baseline cannot excuse this.',
+    + '\n  coverage. Write the gate or delete the row — the debt baseline cannot excuse this.'
+    + '\n  These rows are EXCLUDED from this run (nothing to spawn) and are never counted as passing.',
   );
-  process.exit(1);
+  for (const g of missing) excludedScripts.add(g.script);
 }
 
-for (const gate of GATES) {
+for (const gate of RUN_LIST) {
+  if (excludedScripts.has(gate.script)) continue;
   const scriptPath = join(__dir, gate.script);
   const result = spawnGate(scriptPath);
   const code = result.status ?? 1;
@@ -1012,6 +1122,22 @@ for (const gate of GATES) {
     // broken" without opening a file. If those two print the same, the category
     // has bought nothing.
     const newly = newlyMeasured.get(gate.script);
+    // §MANIFEST-ERROR-IS-NOT-A-SILENCER (L-9900) — checked FIRST, ahead of both
+    // ledgers. A gate whose ledger row is malformed or ambiguous is graded as an
+    // ERROR: the row is exactly the artefact that would have excused the failure,
+    // and a row that cannot be read cannot excuse anything. This is the scoped
+    // consequence that replaced the whole-suite abort.
+    const disqualified = unabsorbable.get(gate.script);
+    if (disqualified) {
+      failedLedgerMalformed.push(gate.script);
+      console.error(
+        `\n[ga-gate/run-all] ❌ LEDGER-MALFORMED: ${gate.name} (exit ${code}) — ${disqualified}.`
+        + `\n  The gate FAILS and no ledger row is legible enough to absorb it. Fix the row (or the`
+        + `\n  finding); until then this counts as an error, not as declared debt.`,
+      );
+      anyFailed = true;
+      continue;
+    }
     if (baseline.has(gate.script)) {
       failedDebt.push(gate.script);
       console.error(`\n[ga-gate/run-all] 🟡 KNOWN-DEBT: ${gate.name} (exit ${code}) — somebody CHOSE to ship this (gate-debt.json).`);
@@ -1096,8 +1222,24 @@ console.log(
   + `\n[ga-gate/run-all]    🔵 ${failedNewly.length} newly measured     (gate-newly-measured.json — the instrument arrived; nothing got worse)`
   + `\n[ga-gate/run-all]    ❌ ${failedRatchet.length} ratchet exceeded   (exit 3 — never absorbable by either ledger)`
   + `\n[ga-gate/run-all]    ❌ ${failedMisconfigured.length} misconfigured      (exit 2 — never absorbable by either ledger)`
-  + `\n[ga-gate/run-all]    ❌ ${failedRegression.length} regression         (on no ledger — something BROKE)`,
+  + `\n[ga-gate/run-all]    ❌ ${failedRegression.length} regression         (on no ledger — something BROKE)`
+  + `\n[ga-gate/run-all]    ❌ ${failedLedgerMalformed.length} ledger-malformed   (the row that would excuse it is unreadable)`
+  + `\n[ga-gate/run-all]    ⛔ ${excludedScripts.size} not executed       (registered with no file — reported, never counted as passing)`,
 );
+
+// §MANIFEST-ERROR-IS-NOT-A-SILENCER (L-9900) — announced at detection, ENFORCED
+// here. Printing it once at the top and then emitting 130 gate results would let a
+// metadata failure scroll away, which is the silencer failure wearing the opposite
+// costume. It is repeated verbatim at the bottom and it forces exit 1.
+if (manifestErrors.length > 0) {
+  console.error(
+    `\n[ga-gate/run-all] ══ ${manifestErrors.length} MANIFEST ERROR(S) — the INSTRUMENT is broken, not (only) the tree ══\n`
+    + manifestErrors.map((b) => b.split('\n').map((l) => `  ${l}`).join('\n')).join('\n\n')
+    + '\n\n  Every gate above still ran and its reading stands. These are separate failures'
+    + '\n  about the SUITE ITSELF, and they block on their own.',
+  );
+  anyFailed = true;
+}
 
 // Entries this runner does not execute are disclosed, never counted. Claiming a
 // verdict on a gate you did not run is the fabricating-compile-gate shape.
@@ -1125,7 +1267,11 @@ if ((convResult.status ?? 1) !== 0) {
 }
 console.log('[ga-gate/run-all] ────────────────────────────────────────────────\n');
 
-const GATE_COUNT = GATES.length;
+// The denominator is DISTINCT SUBJECTS ACTUALLY SPAWNED, never the row count: a
+// duplicated row and an inventory row with no file both inflate `GATES.length`
+// while proving nothing, which is the miscount §FIX-GATE-REGISTERED-TWICE exists
+// to refuse.
+const GATE_COUNT = RUN_LIST.length - excludedScripts.size;
 const declaredDebt = failedDebt.length;
 const newlyMeasuredCount = failedNewly.length;
 
