@@ -699,6 +699,39 @@ and radius, so an offending mesh names itself in production.
    hashes `light.castShadow` per-**light**, not per-caster-mesh; `ShadowNode.updateShadow()` redraws
    the depth map every frame with whatever casters exist. Rebuilding on geometry is unnecessary and
    destructive.
+   > ⭐ **EXTENDED 2026-08-23 (lane LIGHT11, L-10080) — read the second half of "per-LIGHT", because
+   > it is the half that costs money.** Rule 8 has always been quoted for its *reassuring* direction:
+   > a new caster MESH is free. The same sentence carries the opposite obligation, and nothing stated
+   > it: **a new LIGHT is not free.** Because the key is hashed per light, ANY change to the live
+   > light SET — one more light, one fewer, or the SAME COUNT with a different light OBJECT — changes
+   > the cache key and rebuilds **every material program in the scene**. The WebGL sibling of the
+   > fact is already normative in `packages/core-app-model/src/lighting/LiveLightBudget.ts`
+   > §PERF-LIGHT-COST-MODEL (2): `numPointLights` is part of `WebGLPrograms
+   > .getProgramCacheKeyParameters`.
+   >
+   > **NORMATIVE, and it binds any subsystem that owns a bounded set of live lights (today: the
+   > fixture live-light budget):** a budget that stays at N must keep the SAME N light OBJECTS.
+   > Retiring a light and minting a replacement is a full program rebuild wearing the disguise of an
+   > unchanged count.
+   >
+   > ⛔ **THIS WAS A LIVE DEFECT, NOT A HYPOTHETICAL.** MEASURED 2026-08-23: placing 8 fixtures one
+   > at a time at the `performance` tier (budget 3) minted **8 distinct `THREE.PointLight` objects** —
+   > `LightingFragmentBuilder._syncAllLights` attached the newcomer before detaching the fixture it
+   > displaced, so the displaced light was discarded and a fresh one allocated on **every** placement.
+   > The founder reported it as *"placing a lighting freezes the scene"*. Fixed by pooling the light
+   > objects and running detach-before-attach; pinned by
+   > `packages/geometry-lighting/__tests__/liveLightIdentityStable.test.ts`, whose assertions are on
+   > object IDENTITY and not on count — **a count assertion passes on the broken tree**, which is why
+   > this went unseen.
+   >
+   > ⚠ **What is NOT established:** the millisecond cost of one such rebuild. There is no GPU in Node
+   > (`apps/bench` states this at `render-pass-cost.bench.ts`), so the churn is measured and the ms is
+   > inferred from this rule plus the PSO-compile storms `BatchCoordinator`
+   > §FIX-POST-GEOMETRY-COMPILE-V2 records. **Do not quote a ms figure for it.** Still open: the first
+   > `budget` placements legitimately change the COUNT and so still rebuild — bounding that needs
+   > either a compile-warm hook or a permanently-stable light count, and the latter charges every
+   > fixture-free scene a per-frame BRDF cost. Undecided, and it needs the in-browser orbit-FPS
+   > capture `LiveLightBudget.ts` already names as the missing bench.
 9. **Two renderers must not share one light's shadow state.** `world.renderer` (OBC
    `PostproductionRenderer`, a **WebGLRenderer**) and `window.pryzmRenderer` (**WebGPURenderer**)
    draw the same scene and see the same key light, which has exactly one `shadow.map` slot. The OBC

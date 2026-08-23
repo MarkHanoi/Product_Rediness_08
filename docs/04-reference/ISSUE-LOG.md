@@ -47443,3 +47443,180 @@ per-side set the user made elsewhere.** Whoever builds L-10071 must offer the fo
 optional gang that is explicitly a WRITE-ALL action — never a display of four values
 collapsed into one.
 
+
+---
+
+### L-10080 — ⭐ **THE SHADOW LATCH *WAS* ARMED FOR LIGHTING. THE FREEZE IS A FRESH `PointLight` OBJECT ON EVERY SINGLE PLACEMENT** (lane LIGHT11, 2026-08-23)
+
+Founder: *"why does placing a lighting **freeze the scene**?"*
+
+⛔ **THE BRIEFED HYPOTHESIS IS FALSE, AND IT IS RECORDED HERE SO IT IS NOT RE-ADOPTED.**
+The hypothesis was that the §FIX-SHADOW-WALLCOMMIT-DESTROY latch is armed for a WALL
+commit and not for lighting creation. **MEASURED 2026-08-23:** `bim-lighting-added` and
+`bim-lighting-updated` are BOTH members of `GEOMETRY_CASTER_MUTATION_EVENTS`
+(`apps/editor/src/engine/geometryMutationEvents.ts:90`), which IS `_pascalGeomEvents`
+(`apps/editor/src/engine/initScene.ts:4001`), whose listener `_debouncedGeomAdded` calls
+`_armWallCommitShadowFreeze()` **synchronously** — before `builder.add()` touches the
+scene, because `LightingStore.add()` emits the event before `CreateLightingCommand` calls
+the builder. Lighting has armed that latch since §GEOM-CASTER-EVENT-CHOKEPOINT (L-1189);
+it was one of the families the chokepoint existed to cover. **A second special case must
+not be added for it.**
+
+**WHICH GESTURES ARM THE LATCH, MEASURED, AS A SET:** the 41 events in
+`GEOMETRY_CASTER_MUTATION_EVENTS` — wall · slab · ceiling · floor · column · beam · roof ·
+curtainwall · stair (+`-geometry-updated`, landing, railing) · lift · handrail · railing ·
+door · window · opening · furniture · plumbing · **lighting**. **WHICH DO NOT:** the 9 in
+`NON_CASTER_BIM_EVENTS`, each carrying a written reason — clipboard, level add/update,
+room add/update, room bounding-line add/update, lift-type, stair-type. There is **no third
+state**: `apps/editor/__tests__/geometryCasterEvents.test.ts` reads
+`packages/event-bus/src/catalog.ts` and fails if any `bim-*-added|updated` is in neither,
+so a family cannot be born outside the freeze without a human classifying it in writing.
+
+⭐ **WHAT IS ACTUALLY UN-GUARDED — MEASURED.** At the `performance` tier the live-light
+budget is **3**. Placing **8** fixtures one at a time minted **8 distinct
+`THREE.PointLight` objects** — one per placement, forever — although the live COUNT pins
+at 3 after the third. `_syncAllLights` ran ONE interleaved pass over `_roots` in insertion
+order; the newcomer is inserted LAST, so it was attached (mint a light) **before** the
+fixture it displaced was detached (that light discarded).
+
+**WHY A NEW OBJECT COSTS A FULL SHADER REBUILD** — the rule this repo already ratified,
+`LiveLightBudget.ts` §PERF-LIGHT-COST-MODEL (2): `numPointLights` is part of THREE's
+program cache key, and on the WebGPU/TSL path **C04 §SHADOW rule 8 is normative that
+`LightsNode.customCacheKey()` hashes PER LIGHT.** Per LIGHT, not per count. A swapped light
+OBJECT rebuilds every material program in the scene **even when the count is unchanged** —
+which is why the stall was not confined to the first three fixtures.
+
+⚠ **MEASURED vs ASSUMED, AND THE SPLIT IS NOT BLURRED.** The object churn (8 for 8) is
+MEASURED and pinned by `packages/geometry-lighting/__tests__/liveLightIdentityStable.test.ts`
+(3 of 4 tests fail on the pre-fix tree). The **millisecond** cost of one program rebuild is
+**NOT measured** — there is no GPU in Node (`render-pass-cost.bench.ts`) — and rests on the
+cost model above plus the PSO-compile storms `BatchCoordinator`
+§FIX-POST-GEOMETRY-COMPILE-V2 records. **No ms figure is claimed by this row.** The
+389.9 ms compile figure that circulated for this lane belongs to a different measurement
+and is not evidence about lighting.
+
+**FIXED** (`5cb68ea5`, `packages/geometry-lighting/src/LightingFragmentBuilder.ts`):
+`_syncAllLights` runs **detach-then-attach in two passes**, and `_lightPool` parks a
+retired `PointLight` (bounded at the live budget) which `_attachLight` pops before minting.
+Every field is reassigned unconditionally, so a recycled light is indistinguishable from a
+fresh one. Same photometry, same budget ladder, same `castShadow = false` — only the
+ALLOCATION is reused, and the shadow path is untouched.
+
+⚠ **STILL OPEN, and deliberately not closed here:** the FIRST `budget` placements (0→1→2→3)
+still change `numPointLights` and therefore still rebuild every program. Bounding that needs
+either a compile-warm hook in `renderer-three` (SCENE6's territory) or a stable
+count — and a stable count means carrying `budget` live lights on a scene with no fixtures
+at all, which is a real per-frame BRDF cost on every scene. **Not decided; needs the
+in-browser orbit-FPS capture `LiveLightBudget.ts` already names as the missing bench.**
+
+---
+
+### L-10081 — ⭐ **THE PLAN LIGHTING SYMBOL WAS PAINTED AND HIT-TESTABLE BY NOTHING — AND THE 3-D HALF OF THE SAME REPORT IS NOT A REGISTRATION FAILURE AT ALL** (lane LIGHT11, 2026-08-23)
+
+Founder: *"I **cannot select the lighting fixture in plan view nor in 3D view**."*
+**Two views, two different causes.** Established separately; only one is a pick defect.
+
+⭐ **THE 3-D HALF: THE BRIEFED PREMISE IS FALSIFIED.** *"Lighting never registers for
+picking"* is not what the machinery does. Driven end-to-end — real
+`LightingFragmentBuilder.add()` into a real `THREE.Scene`, real `SelectionManager.init()`,
+real `_ensureSelectableCache`, real `_buildElementRegistry` — a placed fixture MEASURES as:
+
+    SCENE ROOTS WITH id : ["light_probe_1|Lighting|Group"]
+    SELECTABLE CACHE    : 5   (root Group + 4 child meshes)
+    PICK REGISTRY IDS   : ["light_probe_1"]
+    kindOf              : Lighting        objectFor: OK
+    findSelectableRoot(childMesh) -> light_probe_1
+
+`'lighting'` has been in `SelectionManager.SEMANTIC_TYPES` since
+§SELECT-SEMANTIC-TYPE-NAMES, and all four of
+`bim-lighting-added|removed|updated|placed` are in `cacheInvalidationEvents`
+(`SelectionManager.ts:1165`) — so this is NOT the L-1190 handrail shape (a dead event key)
+either. The GPU pick's Group path (`collectVisibleMeshes`) covers a compound fixture.
+
+⛔ **THE EVIDENCE OFFERED FOR THE PREMISE COULD NOT HAVE SHOWN IT.** The founder's
+`doorsRegistered=0 windowsRegistered=1` line counts DOOR and WINDOW ids and nothing else —
+**there is no lighting counter in `[PickDiag]` at all** — so *"never a lighting count"* was
+never evidence. That instrument has already produced two wrong rows this way:
+§PICKDIAG-CASING (L-1173) found a missing `.toLowerCase()` had pinned `doorsRegistered` at
+**0 BY CONSTRUCTION**, and **L-912/L-913 were both written off it.** Reading a third
+conclusion out of the same counter would have been the same mistake.
+
+⚠ **SO THE 3-D REPORT IS STILL OPEN**, and nothing is claimed about it beyond *"it is not
+pick registration"*. The candidates not yet separated: the lighting TOOL stays armed until
+Escape (so clicks place rather than select — but that is true of every tool); a downlight
+canister is ~6.5 cm and may simply be a hard target; or the selection resolves and the
+PROPERTY PANEL is what looks empty. ⛔ Whoever takes it must reproduce in the browser, not
+re-read the counter.
+
+⭐ **THE PLAN HALF IS REAL, AND IT IS STRUCTURAL — NOT A TUNING MISS.**
+`PlanViewCanvas.hitTest()` resolves an element by traversing the projected TECHNICAL
+DRAWING for `THREE.LineSegments` carrying an element UUID, **and by nothing else.** Every
+plan symbol that must be clickable reaches it the same way: a plan-symbol **BUILDER**
+injects UUID-registered LineSegments into the drawing — door swing, sofa, bed, wardrobe,
+kitchen, tree, plumbing, stair tread, column cap (`EdgeProjectorService`'s injection block,
+*"the A-FURN layer (UUID-registered for selection)"*).
+
+**Lighting is the ONE family that does not.** `renderLightingSymbols` paints its symbol
+straight onto the 2-D canvas from `LightingStore` and contributes **ZERO LineSegments**, so
+`hitTest()` could never return a fixture id — on any plan, at any zoom. ⭐ **The renderer's
+own `STROKE_SELECTED` branch is the tell**: it has always been able to PAINT a selected
+fixture while nothing in plan could SELECT one.
+
+**FIXED** (`d1101ff6`): `lightingSymbolExtentPx()` is now ONE per-family extent table read
+by BOTH the drawer and the new `hitTestLightingSymbol()`, so the mark and its hit region
+cannot drift; `PlanViewCanvas.hitTest()` consults it **LAST and only on a miss**, so it can
+ADD a selection and can never take one away from the linework. The `if (!drawing) return
+null` early-out was removed (traverse optional-chained) because lighting symbols come from
+the STORE and are on screen even before any linework exists. 5 of the 7 new tests in
+`PlanViewCanvas.lightingHitTest.test.ts` fail on the pre-fix tree.
+
+---
+
+### L-10082 — ⚠ **LIGHTING HAS THREE UNMIRRORED VERBS IN THE MIRROR LEDGER, AND THEY ARE A DIFFERENT CHANNEL FROM THE ONE THE FOUNDER IS ON** (lane LIGHT11, 2026-08-23)
+
+`tools/ga-gate/mirror-debt.json` holds **6 lighting rows**, measured 2026-08-23:
+
+| verb | kind |
+|---|---|
+| `lighting.delete` | **UNMIRRORED** |
+| `lighting.setEmergency` | **UNMIRRORED** |
+| `lighting.setIntensity` | **UNMIRRORED** |
+| `lighting.changeLevel` | mirrored-elsewhere (§L-946 `element.level-changed`) |
+| `lighting.move` | refuses (§FIX-DEAD-VERB-REFUSE) |
+| `lighting.setMaterial` | refuses (§FIX-DEAD-VERB-REFUSE) |
+
+The gate reads **156 rows · 109 UNMIRRORED · 47 declared-exempt** (RC=0). Three of the 109
+are lighting: they write the **plugin DTO store** (`plugins/lighting/src/store.ts`) and have
+no `CommandEventBridge` case, so they commit, report success, and change nothing the user
+can see.
+
+⚠ **DO NOT CONFLATE THEM WITH L-10080/L-10081.** The founder's live gestures run the
+**command-registry** path — `CreateLightingCommand` → `window.lightingStore` +
+`window.lightingFragmentBuilder` — which does reach the render layer. The three UNMIRRORED
+rows are the PRYZM-3 plugin verbs, a parallel channel. **Deleting a fixture through the
+plugin verb is silently a no-op on screen; deleting it through the editor is not.**
+
+⛔ **NOT FIXED HERE — the fix is in another lane's files.** It needs a case in
+`packages/runtime-composer/src/CommandEventBridge.ts` and a subscriber in
+`apps/editor/src/engine/initTools.ts`, both owned by MIRROR3. Closing all three moves the
+gate's UNMIRRORED count 109 → 106.
+
+---
+
+### L-10083 — ⚠ **ARM F OF THE PLUGIN CENSUS: `lighting` IS A ONE-LINE ROW IN ANOTHER LANE'S FILE** (lane LIGHT11, 2026-08-23)
+
+`npx tsx tools/ga-gate/check-plugin-census-equivalence.ts` → RC=0, **ARM F = 3 (baseline 3)
+→ floor, lighting, view** — *before* and *after* this lane's two commits. It did not move,
+and the reason is stated rather than left as an unexplained flat number.
+
+**MEASURED for the `lighting` third:** the descriptor at
+`apps/editor/src/PluginRegistry.ts:590-595` already contributes BOTH a non-empty
+`storeKey: 'lighting'` AND a handler set (`buildLightingHandlerSet()`), so the storeKey
+assertion at `apps/editor/__tests__/bootstrap.everything.test.ts:134` would **PASS** for it
+today — it simply never iterates it, because `'lighting'` is missing from
+`ELEMENT_PLUGIN_IDS` (`PluginRegistry.ts:732`). **Adding the row moves ARM F 3 → 2 and
+needs no `STORE_ONLY_PLUGIN_IDS` exemption** (that list exists for storeKey-without-handlers
+ids; lighting has both).
+
+⛔ `PluginRegistry.ts` is PLUGIN2's file this session, so LIGHT11 did not touch it. `floor`
+and `view` were not examined.
