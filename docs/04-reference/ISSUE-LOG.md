@@ -40219,3 +40219,7 @@ lane's ownership. The next rake lane closes it in one step with the two citation
   ⚠ **every error is in `apps/editor/src/ui/styles/panels/toolsRail.ts`**, a file this lane never
   touched and which a sibling lane was editing live (the error count moved 11 → 3 between two runs
   minutes apart). **Zero errors in any file this lane changed.**
+- ⭐ **RE-READ at lane close, after the sibling finished: root tsc → RC=0, ZERO errors repo-wide.**
+  Both readings are recorded because both were true, minutes apart, and only one of them is the
+  state of the repository — which is the whole reason this section says *readings, never states*.
+  A shared tree with concurrent lanes makes a single tsc reading a photograph, not a fact.
