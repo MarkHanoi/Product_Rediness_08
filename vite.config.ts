@@ -176,8 +176,72 @@ function itemCatalogPlugin(): Plugin {
   };
 }
 
+// ---------------------------------------------------------------------------
+// §OBS-TRACING-REACHABLE (L-9960) — THE BROWSER HALF OF THE TRACING SWITCH.
+//
+// MEASURED 2026-08-23: 347 `trace.getTracer(...)` call sites live across 328
+// files; exactly ONE of them is under `server/`. All the rest run in the
+// browser, where `process.env` does not exist. `initTracing()` read the flag
+// from `process.env` ONLY, this file had NO `define` at all, and `PRYZM_TRACING`
+// appeared in ZERO configuration file — so the switch for 99.7 % of PRYZM's
+// instrumentation had no wire attached. Every browser `trace.getTracer()`
+// returned the API's no-op tracer, by construction.
+//
+// This block is that wire. Why BARE IDENTIFIERS rather than
+// `import.meta.env.VITE_PRYZM_TRACING`:
+//   • `packages/crash-reporter` is a LINKED WORKSPACE consumed as raw TS. A
+//     bare-identifier `define` is applied by esbuild/Rollup across the whole
+//     module graph including linked packages; the implicit `import.meta.env.*`
+//     substitution is documented for app source, not guaranteed there.
+//   • `crash-reporter/tsconfig.json` declares `types: ["node"]`, so
+//     `import.meta.env` would be a TYPE ERROR in that package without dragging
+//     `vite/client` into an L1 leaf. A `declare const` costs nothing.
+//   • The SAME source file is also bundled by esbuild into `dist-server-deps/`
+//     for the production server, and run under vitest. `typeof <undeclared>` is
+//     safe in both; `import.meta.env.X` throws when `import.meta.env` is
+//     undefined, which it is under Node.
+//
+// The value is read from the BUILD environment, so `VITE_PRYZM_TRACING=1
+// pnpm build` (or a Fly/CI build secret) turns it on. ⚠ It is baked at build
+// time — flipping it needs a rebuild, which is the accepted cost of not
+// blocking editor boot on a config round-trip (see Tracing.ts's header).
+const defineTracing = (): Record<string, string> => {
+  // `VITE_`-prefixed first (the repo's client-config convention, see
+  // tools/ga-gate/secrets-declarations.json), falling back to the bare server
+  // name so a single variable can configure both halves of one deploy.
+  const pick = (...names: string[]): string | undefined => {
+    for (const n of names) {
+      const v = process.env[n];
+      if (typeof v === 'string' && v.length > 0) return v;
+    }
+    return undefined;
+  };
+  // `'undefined'` (the JS literal, not the string) so `typeof X === 'undefined'`
+  // is constant-folded to the OFF branch and the whole thing tree-shakes away.
+  const lit = (v: string | undefined): string => (v === undefined ? 'undefined' : JSON.stringify(v));
+  return {
+    __PRYZM_TRACING__: lit(pick('VITE_PRYZM_TRACING', 'PRYZM_TRACING')),
+    __PRYZM_TRACING_SAMPLE__: lit(pick('VITE_PRYZM_TRACING_SAMPLE', 'PRYZM_TRACING_SAMPLE')),
+    // ⚠ The browser cannot reach a collector that is not publicly addressable
+    // and CORS-enabled. This is the PUBLIC ingest URL, and it is baked into a
+    // public bundle by design — the same posture as VITE_CESIUM_TOKEN.
+    __PRYZM_TRACING_ENDPOINT__: lit(
+      pick('VITE_OTEL_EXPORTER_OTLP_ENDPOINT', 'VITE_PRYZM_TRACING_ENDPOINT'),
+    ),
+    // ⛔ DELIBERATELY *NOT* fed from `OTEL_EXPORTER_OTLP_HEADERS`. That server
+    // variable is classified SECRET (it carries the collector auth token);
+    // baking it into a public bundle would publish it to every visitor. A
+    // browser exporter must use an ingest endpoint that authenticates by URL
+    // path/origin, or go through a same-origin proxy route.
+    __PRYZM_TRACING_HEADERS__: 'undefined',
+    __PRYZM_RELEASE__: lit(pick('VITE_PRYZM_RELEASE', 'PRYZM_RELEASE')),
+    __PRYZM_ENV__: lit(pick('VITE_PRYZM_ENV', 'PRYZM_ENV', 'NODE_ENV')),
+  };
+};
+
 // @ts-ignore
 export default defineConfig({
+  define: defineTracing(),
   plugins: [cesium(), itemCatalogPlugin(), stubNodeBuiltinsForBrowserPlugin(), stubCoreJsForEsnextPlugin()],
   esbuild: {
     jsx: 'automatic',

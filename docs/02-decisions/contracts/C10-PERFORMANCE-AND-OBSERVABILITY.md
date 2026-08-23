@@ -78,6 +78,14 @@ NFTs 1–17 exist as of Wave 13 (2026-05-01) ✅. NFT 18 added Wave A16 (2026-05
 
 **Every new exported function MUST add ≥ 1 OpenTelemetry span.** This is a merge blocker.
 
+> ⛔ **READ §2.6 BEFORE QUOTING ANY NUMBER FROM §2.3.** Until **2026-08-23** every
+> span this contract mandates **recorded nothing and exported nowhere in the
+> browser, by construction** — the switch that enables the tracer provider had no
+> wire attached to it on the client. `ZONE A 246/246 instrumented` was, and for any
+> build that does not set `VITE_PRYZM_TRACING` still is, a measurement of **source
+> text**, not of behaviour. **Coverage and reachability are two different axes and
+> §2.3 measures only the first.**
+
 ### §2.1 — Span naming convention
 
 ```ts
@@ -133,6 +141,210 @@ Silent post-runBatch polls (wait-until-store-mutation, wait-until-room-named, et
 - `pollDescription` (what was being waited on)
 
 This converts the otherwise-invisible silent latency into an observable metric so an operator can answer "why did the apartment build take 8 s instead of 2 s?" without console-archaeology. The two reference sites today are `apartment.wall-poll-completed` + `apartment.room-name-completed` (`e0a4b44`).
+
+---
+
+### §2.6 — §SPAN-REACHABILITY, §SPAN-DESTINATION, §SPAN-SAMPLING, §SPAN-PRIVACY
+
+> **Added 2026-08-23, lane OBS4 (ISSUE-LOG `L-9960`), from
+> [`docs/04-reference/AUDIT/D-collab-persistence.md` §2.4](../../04-reference/AUDIT/D-collab-persistence.md).**
+> §2.1–§2.3 govern whether a span is **written**. This section governs whether it is
+> **recorded, delivered, affordable and safe.** They are four separate axes and only
+> the first had a contract.
+
+#### §2.6.0 — What was measured (the defect this section exists to close)
+
+| Fact | Reading | Command |
+|---|---|---|
+| `trace.getTracer(...)` call sites | **347** across **328** files | `grep -rn "getTracer(" packages apps plugins server server.js src tools \| grep -v node_modules \| wc -l` |
+| …of those, under `server/` | **1** (`server/manualAdminZoneStore.js:49`) | `grep -rn "getTracer(" server server.js` |
+| `span.setAttribute(...)` sites | **1 766** | `grep -rn "span\.setAttribute" packages apps plugins server \| wc -l` |
+| Configuration files setting `PRYZM_TRACING` | **0** | `grep -rn PRYZM_TRACING --include=*.json --include=*.toml --include=*.yml .` |
+| `PRYZM_TRACING` in `secrets-declarations.json` | **absent** | — |
+| `define` in `vite.config.ts` | **none at all** | — |
+| OTLP exporter packages installed | **none** — `@opentelemetry/api` only | `ls node_modules/@opentelemetry/` |
+
+⛔ **The switch for 345 of the 347 tracer sites had no wire.** `initTracing()` read
+`PRYZM_TRACING` from `process.env` only; `process.env` does not exist in a browser
+bundle. This is **UNREACHABLE, not absent** — the code was correct and could not be
+turned on. Fixing only the server half would have moved **0.3 %** of the
+instrumentation.
+
+#### §2.6.1 — §SPAN-REACHABILITY (binding)
+
+**A build MUST be able to register a real tracer provider, and MUST SAY whether it
+did.** Two mechanisms, because the two halves are different problems:
+
+| Half | Mechanism | Why |
+|---|---|---|
+| **Server** | `process.env.PRYZM_TRACING`, read at `server/telemetry.js` | Node has the variable. |
+| **Browser** | **build-time `define`** in `vite.config.ts` → the bare identifiers `__PRYZM_TRACING__`, `__PRYZM_TRACING_SAMPLE__`, `__PRYZM_TRACING_ENDPOINT__`, `__PRYZM_RELEASE__`, `__PRYZM_ENV__`, fed from `VITE_PRYZM_TRACING` &c. | `initTracing()` **must complete synchronously** before the composition root opens its first span (`composeRuntime.ts`). A runtime config endpoint would either block boot on a network round-trip — unacceptable while "opening takes minutes" is the live complaint — or resolve *after* the first spans were already created against the no-op tracer, which is the same unreachability one layer along. |
+
+⚠ **Bare identifiers, NOT `import.meta.env.X`**, and the reason is structural:
+`packages/crash-reporter` is a **linked workspace package consumed as raw TS**, its
+`tsconfig` declares `types: ["node"]` (so `import.meta.env` is a type error without
+dragging `vite/client` into an L1 leaf), and the *same file* is additionally bundled
+by esbuild into `dist-server-deps/` and run under vitest, where `import.meta.env` is
+`undefined` and `import.meta.env.X` **throws**. `typeof <undeclared>` is safe in all
+four environments.
+
+**PROVEN, not asserted** (2026-08-23, real `vite build` over a fixture importing the
+linked package):
+
+- flag **unset** → `readBuildTimeEnv()` compiles to `function(){const out={};return out;}` — every branch constant-folded and dead-code-eliminated, **zero runtime cost**;
+- `VITE_PRYZM_TRACING=otlp` → the literal is baked in and the built bundle prints `PROBE_MODE=otlp`.
+
+**COST OF THE CHOICE, stated:** flipping browser tracing needs a **rebuild**, not a
+restart. Accepted — tracing is not an emergency switch, and `VITE_*` is already how
+this repo configures the client (11 declared rows in `secrets-declarations.json`).
+
+**Every composition root MUST log `describeTracing(handle)` at boot.** L-392 stayed
+invisible for months because nothing ever printed `OFF`.
+
+#### §2.6.2 — §SPAN-DESTINATION (binding)
+
+⛔ **A span created and dropped is the same defect one layer along. There is no
+"on but nowhere" state.**
+
+| `PRYZM_TRACING` | Destination | Endpoint required? |
+|---|---|---|
+| unset / unrecognised | **OFF** — no provider, no cost | — |
+| `console` | `ConsoleSpanExporter` (dev) | no |
+| `otlp` / `1` / `true` / `on` | OTLP/HTTP **JSON** → `OTEL_EXPORTER_OTLP_ENDPOINT` | **yes** |
+
+**When OTLP is asked for and no endpoint is set, `initTracing()` REFUSES**: it stays
+OFF, returns a populated `refusedReason`, and logs one loud line **that names the
+`console` escape hatch** (a refusal whose "no" branch leaves the operator with no next
+step is its own defect — L-942).
+
+The exporter is **`packages/crash-reporter/src/OtlpHttpJsonSpanExporter.ts`**, written
+in-package and taking **zero new dependencies**. ⚠ `server/telemetry.js`'s NodeSDK
+block dynamically imports five `@opentelemetry/*` packages that **are not installed**,
+so it has never executed its success path — it falls into its own catch and logs
+"packages not installed". It is retained but is **not** the path that works, and it is
+now skipped whenever `initTracing()` already registered a provider (two global
+providers silently orphan one pipeline).
+
+⛔ **`OTEL_EXPORTER_OTLP_HEADERS` (classification SECRET) MUST NOT be mirrored to a
+`VITE_` name.** It carries the collector auth token; a public bundle would publish it
+to every visitor. `vite.config.ts` hard-codes `__PRYZM_TRACING_HEADERS__` to
+`undefined` so no future edit wires it by accident. A browser exporter MUST use an
+ingest endpoint that authenticates by URL/origin, or a same-origin proxy route.
+
+#### §2.6.3 — §SPAN-SAMPLING (binding)
+
+**Sampling is `ParentBased(TraceIdRatioBased(r))`. Default `r` = `0.05` in OTLP mode,
+`1.0` in `console` mode.** Override with `PRYZM_TRACING_SAMPLE` /
+`VITE_PRYZM_TRACING_SAMPLE`. `ParentBased` so a child never contradicts its parent —
+half a trace is worse than none, because it reads as a *fast* operation.
+
+**MEASURED, not chosen for roundness** (`packages/crash-reporter/__tests__/OtlpHttpJsonSpanExporter.test.ts`,
+which prints the reading so it cannot rot silently):
+
+```
+one project-open (281-element shape) = 288 spans,
+126 336 bytes OTLP/JSON = 439 B/span; ~6 317 bytes per open at r = 0.05
+```
+
+| | unsampled | at `r = 0.05` |
+|---|---|---|
+| per open | 288 spans · **126 KB** | ~14 spans · **~6.3 KB** |
+| C66 1 000-user target, ~20 opens/user/day | **5.8 M spans/day · ~2.5 GB/day** | ~288 K spans/day · ~8.6 M/month |
+
+2.5 GB/day of egress is **charged to users' bandwidth** for telemetry they did not ask
+for, and is past every vendor free tier. ~6.3 KB per open is **~0.15 %** of the ~4 MB
+of vendor chunks the page already downloads. 5 % still *sees* a slow open: at 20
+opens/day one user contributes a fully-traced open roughly daily, and the founder can
+trace his own session at `PRYZM_TRACING_SAMPLE=1`.
+
+⚠ **Head sampling, not tail** — decided per trace at creation, so the un-sampled 95 %
+cost nothing to create and nothing to send. Tail sampling needs a collector-side
+policy and belongs to whoever provisions the collector.
+
+#### §2.6.4 — §SPAN-PRIVACY (binding)
+
+**Every span MUST pass through `RedactingSpanProcessor` before any exporter can see
+it.** It wraps the batching processor and is its **only** caller, so there is no
+ordering in which raw attributes reach the wire.
+
+| Rule | Effect |
+|---|---|
+| credential-shaped values | → `[redacted]` (Anthropic, OpenAI, OpenRouter, Google, Groq, xAI, bearer, JWT, plus a generic ≥40-char high-entropy arm for vendors PRYZM has not enumerated) |
+| email-shaped values | → `[redacted-email]` (covers `PRYZM_OWNER_EMAIL` and every end user) |
+| credential/content-**named** keys | value dropped whole: `apikey`, `secret`, `password`, `credential`, `token`, `authorization`, `cookie`, `session`, `email`, `prompt`, `utterance`, `content`, `body`, `payload`, `snapshot`, `filename`, `filepath` — because a short custom key matches no entropy pattern and the **key name is the only signal** |
+| any string > **256 chars** | truncated with a marker — a span attribute is a LABEL, not a payload |
+| numbers / booleans / ids / enums | **untouched** — redaction that deletes the signal is another way of shipping nothing |
+
+Span **names** and **event** names/attributes are scrubbed on the same path.
+
+⭐ **BYOM is the load-bearing case.** [C105 §4.4](C105-AI-PROVIDER-CREDENTIALS-BYOM.md)
+binds that a user-supplied provider key must never reach "a log, a telemetry span, an
+error report, a project file, or a network request to PRYZM". **MEASURED 2026-08-23:
+the BYOM path (`packages/ai-host/src/byom/**`, `apps/editor/src/ui/ai/byom/**`) carries
+ZERO OTel spans**, so today the key cannot reach one — but that is a property of the
+current call graph, **not an invariant**, and one `span.setAttribute('pryzm.byom.header', h)`
+in a future lane would break it silently. `__tests__/SpanRedaction.test.ts` pins the
+containment at the **export boundary** for nine real-shaped provider credentials, in
+both the value position and under an innocuous key name, asserted against the **actual
+OTLP wire payload**. ⚠ The detector patterns are **duplicated** from
+`ByomRedaction.ts` on purpose: `crash-reporter` is L1 and `ai-host` is L2, so importing
+upward is a layer violation and the exporter must work in a bundle with no `ai-host`.
+
+**MEASURED, whole-repo, that no existing attribute carries project content:** every
+`setAttribute('pryzm.*', …)` value assigned from a `.name` / `.label` / `.title` /
+`.address` / `.email` / `.text` / `.query` / `.description` / `.prompt` / `.content` /
+`.body` / `.path` / `.url` property → **0 hits** across `packages/` and `apps/`. The
+attributes that exist are ids, counts, ratios, enums and status strings. Two carry a
+user identifier and are **server-side only**: `pryzm.authz.user`
+(`apps/sync-server/src/authz/PgAuthz.ts:272`) and `pryzm.ws.auth.user`
+(`apps/sync-server/src/auth/WsAuthGate.ts:243`).
+
+#### §2.6.5 — ⭐ THE COLLECTOR DECISION — the founder's, and NOT taken here
+
+⛔ **There is no collector.** §2.6.1–§2.6.4 make every option a one-variable change
+rather than a code change; **choosing one is a spend decision and is deliberately not
+made by a lane.** ⚠ The prices below are **ASSUMED** — list prices recalled at time of
+writing, **not fetched from a vendor page in this lane**. Confirm before committing.
+
+| # | Option | Cost (ASSUMED) | Buys | Costs |
+|---|---|---|---|---|
+| **1** | **Console-only in dev, OFF in prod** (today, minus the silence) | **€0** | A developer can trace a local repro end-to-end with one env var. | **Nothing in production.** The founder's "opens take minutes" stays undiagnosable from here. |
+| **2** | **Vendor, free tier** — Grafana Cloud (~50 GB traces/mo, 14-day retention) or Honeycomb (~20 M events/mo) or Axiom / Baselime | **€0** until the tier, then usage-priced | Production traces with **zero ops**. At `r = 0.05` the measured 8.6 M spans/month for 1 000 users fits inside Honeycomb's event budget with headroom. | Third-party data processor → a **DPA + privacy-policy line** is required, which §2.6.4's redaction makes defensible but does not remove. Vendor lock on query language. |
+| **3** | **Self-hosted** — OTel Collector + Grafana Tempo on Fly.io, traces in R2/S3 | **~$2–6/mo** for one `shared-cpu-1x` 512 MB machine + object storage; **plus** the real cost: **setup and ongoing operation** | No third-party processor; data stays on infrastructure PRYZM already runs (Fly + R2 are both in use). Tail sampling becomes possible. | An extra service to run, upgrade and page on. A collector that falls over silently re-creates this whole defect. |
+
+**Lane recommendation, offered not enacted: Option 2 on a free tier, browser at
+`r = 0.05`, server at `r = 1.0`** — the server has **1** tracer site, so tracing it
+fully is free, while the browser has 345 and is the half that costs bandwidth. Revisit
+when the free tier is actually exceeded, at which point Option 3's operational cost is
+being compared against a real invoice rather than a guess.
+
+⛔ **Until an option is chosen, the honest statement is `PRYZM_TRACING` unset ⇒ OFF ⇒
+"instrumented in source, recording nothing in production."** §2.3's Zone A figure MUST
+be reported that way (see the box under §2).
+
+#### §2.6.6 — What one project-open emits
+
+`ProjectLoader` dispatches **one `Create*` command per element** (its own header
+documents the ordering), and every one of those is an instrumented Zone A CommandBus
+handler. For the founder's real project (**281 elements / 7 levels**, ISSUE-LOG
+`L-8704`) that is the **288 spans / 126 KB** measured in §2.6.3.
+
+⚠ **AND THE STORAGE LEG STILL HAS NO SPANS.** Measured: `getTracer(` in
+`packages/persistence-client/src/loader/ProjectLoader.ts`,
+`apps/editor/src/engine/persistence/ProjectLoader.ts`,
+`apps/editor/src/ui/platform/ProjectRepository.ts`, `PlatformShell.ts` → **0, 0, 0, 0**.
+So turning tracing on gives **per-command** visibility into an open (which nothing had)
+but says **nothing** about the mirror-read → envelope-parse → inflate → record-parse
+leg that `L-8703` identified as the unmeasured one; that leg is covered by
+`§PROBE-OPEN-PATH-STORAGE-LEG`'s always-on console probe. **The two are complementary
+and neither is redundant.** Adding spans to the open path is instrumentation
+*coverage* — `check-otel-spans` Zone B, a different axis, not this section.
+
+#### §2.6.7 — Exit conditions
+
+1. A collector option in §2.6.5 is chosen and `OTEL_EXPORTER_OTLP_ENDPOINT` is set for at least one environment.
+2. A gate asserts that a production bundle built with `VITE_PRYZM_TRACING=1` actually registers a provider (`isTracingEnabled()` true in a prod smoke test) — otherwise §2.6.1 is a rule that nothing enforces, which is the failure shape this contract keeps recording.
+3. The open path acquires spans, so §2.6.6's "storage leg has none" row can be deleted rather than annotated.
 
 ---
 

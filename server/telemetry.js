@@ -28,7 +28,7 @@
  *               @opentelemetry/semantic-conventions
  */
 
-import { initTracing } from '@pryzm/crash-reporter';
+import { initTracing, describeTracing } from '@pryzm/crash-reporter';
 
 const SERVICE_NAME = process.env.OTEL_SERVICE_NAME ?? 'pryzm-server';
 const ENDPOINT     = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
@@ -43,9 +43,28 @@ const ENDPOINT     = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
 // CI, and default production are byte-for-byte unchanged. When the richer OTLP
 // NodeSDK path below is actually installed AND configured, it registers its own
 // provider afterwards and takes over. `initTracing()` is idempotent.
-initTracing({ serviceName: SERVICE_NAME });
+const tracing = initTracing({ serviceName: SERVICE_NAME });
 
-if (ENDPOINT) {
+// §OBS-TRACING-REACHABLE (L-9960) — SAY what tracing is doing, every boot.
+// L-392 stayed invisible for months because nothing printed "OFF". One line is
+// the difference between "we have observability" and "we have span source code".
+console.info(describeTracing(tracing));
+
+// §OBS-TRACING-REACHABLE — the NodeSDK block below is skipped once
+// `initTracing()` has registered a provider, because registering a SECOND
+// global provider silently orphans the first one's processor: spans would be
+// scrubbed-and-exported by one pipeline or the other depending on import order,
+// which is exactly the kind of "works, sometimes" observability this lane exists
+// to remove. `PRYZM_TRACING` is therefore the switch; this block is the legacy
+// richer path for a deploy that installs the five packages and does NOT set it.
+//
+// ⚠ MEASURED 2026-08-23: `ls node_modules/@opentelemetry/` → `api` ONLY.
+// `sdk-node`, `exporter-trace-otlp-http` and `semantic-conventions` are NOT
+// installed, so this block has never executed its success path — it falls into
+// its own catch and logs "packages not installed". It is retained (nothing is
+// deleted) but it is NOT the path that makes tracing work; `initTracing()` above
+// carries a dependency-free OTLP/HTTP JSON exporter that needs no install.
+if (ENDPOINT && !tracing.enabled) {
     // Use dynamic imports so missing packages produce a clear warning rather
     // than a fatal startup error.
     (async () => {
@@ -107,8 +126,17 @@ if (ENDPOINT) {
             );
         }
     })();
+} else if (tracing.enabled) {
+    // `initTracing()` owns the pipeline — flush it on the way out so the last
+    // batch is not lost when the process exits.
+    process.on('beforeExit', async () => {
+        try { await tracing.shutdown(); }
+        catch (err) { console.error('[telemetry] tracing shutdown error:', err); }
+    });
 } else {
-    // No endpoint configured — this is expected in local dev and CI.
-    // Spans created via @opentelemetry/api are no-ops (backed by the
+    // No endpoint configured AND PRYZM_TRACING unset — expected in local dev and
+    // CI. Spans created via @opentelemetry/api are no-ops (backed by the
     // NoopTracerProvider that @opentelemetry/api ships with).
+    // ⛔ This is NOT a silent state any more: `describeTracing()` above printed
+    // either "OFF (PRYZM_TRACING unset)" or the REFUSED reason.
 }

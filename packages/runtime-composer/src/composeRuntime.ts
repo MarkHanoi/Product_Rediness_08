@@ -156,7 +156,7 @@ import {
   buildWorkspaceSurface,
   type WorkspaceSurface,
 } from '@pryzm/renderer-three';
-import { installGlobalHandlers, initTracing } from '@pryzm/crash-reporter';
+import { installGlobalHandlers, initTracing, describeTracing } from '@pryzm/crash-reporter';
 // W3-2 — visibility intent: the evaluator (read), the store (write), and the
 // handler set that joins a user gesture to the store.
 //
@@ -920,10 +920,25 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     const toasts = buildToastsSlot(opts.showAppToast ?? null);
     // L-392 — register a REAL global OTel tracer provider at the composition
     // root so the codebase's P8 spans stop being no-ops. Idempotent and OFF by
-    // default: it does nothing unless PRYZM_TRACING is set (dev/test pay zero
-    // cost; prod stays opt-in until an OTLP collector is provisioned). Must run
-    // BEFORE any span is opened below.
-    initTracing({ serviceName: 'pryzm-editor' });
+    // default. Must run BEFORE any span is opened below.
+    //
+    // §OBS-TRACING-REACHABLE (L-9960) — this call was UNREACHABLE in the browser
+    // until 2026-08-23. `initTracing()` read `PRYZM_TRACING` from `process.env`,
+    // which does not exist in a browser bundle, and `vite.config.ts` carried no
+    // `define`, so 345 of the repo's 347 tracer sites could not be switched on
+    // by any means. The flag now also arrives as a BUILD-TIME constant
+    // (`vite.config.ts` → `__PRYZM_TRACING__`), which is why this line needs no
+    // argument: `initTracing()` reads both halves itself.
+    //
+    // ⛔ It is still OFF unless the build was given the flag, and it REFUSES
+    // (loudly, staying off) if asked for OTLP with no collector endpoint —
+    // a provider with nowhere to send is the same defect one layer along.
+    const _tracing = initTracing({ serviceName: 'pryzm-editor' });
+    // SAY what it is doing. A deploy that believes it has observability and has
+    // none is precisely the L-392 failure; one console line prevents the repeat.
+    if (_tracing.enabled || _tracing.refusedReason) {
+        console.info(describeTracing(_tracing));
+    }
 
     // Wave 19 (Phase 3D) — install crash-reporter global handlers at boot.
     // Idempotent; funnels window.onerror + unhandledrejection into the lazy
