@@ -340,11 +340,43 @@ shadow-dropped legacy command used to do.
   `packages/command-registry/__tests__/createCommandTargetIdentity.test.ts`, which walks every
   create command and fails if an executed command's `targetIds` omits an id it created.
 - **U-10 (cross-stack order)** While two undo stacks exist, both MUST carry a commit timestamp
-  (`PatchPair.timestamp` stamped by `CommandBus` at push; `Command.timestamp` at construction) and
+  (`PatchPair.timestamp`; `Command.timestamp` at construction) and
   `performUndo`/`performRedo` MUST order across them chronologically — undo reverts the NEWEST
   pending entry, redo replays the OLDEST. A commandManager-ONLY tool path (3D door, window,
   lighting, column, floor, ceiling, curtain-wall, lift, slab-opening, level) otherwise gets jumped
   over by an older ring-buffer entry beneath it.
+  > ⚠ **AMENDED 2026-08-23 (§UNDO-ORDERING-KEY, L-7300..L-7302, lane UNDO37) — THE RULE WAS RIGHT
+  > AND ITS ADDRESS WAS WRONG.** The parenthetical above used to read *"`PatchPair.timestamp`
+  > **stamped by `CommandBus` at push**"*, naming ONE producer. **There are eight**, and six of them
+  > shipped minting entries with no timestamp at all: `initBusHandlers.ts` :825
+  > (`element.changeType`, ANY store key), :1596 (furniture), :1647 (floor), :1703 (**slab**),
+  > :1798 (ceiling), and `commitAnnotationSet.ts:165` (annotation). Only `CommandBus.ts:591` and
+  > `initBusHandlers.ts:1335` (`wall.updateDimensions`) supplied one. **An obligation written as one
+  > caller's is an obligation the other seven never knew they had.**
+  >
+  > **THE BINDING RULE IS NOW: `RingBufferUndoStack.push()` MUST stamp a commit timestamp on any
+  > `PatchPair` that arrives without one, and MUST NOT overwrite one that is supplied.** Every entry
+  > the stack hands back through `current()` / `peek()` / `listEntries()` therefore carries a finite
+  > numeric ordering key **by construction**, and no push site — present or future — can mint an
+  > unorderable entry. A producer that knows the true commit instant still supplies it and wins.
+  > Gated by `packages/runtime-undo-stack/__tests__/ring-buffer-ordering-key.test.ts`.
+  >
+  > **AND: ABSENCE OF AN ORDERING KEY IS NEVER A VERDICT.** `_cmEntryIsNewer` opened with
+  > `if (typeof pairTime !== 'number') return false`, which is not a tie-break but an
+  > **unconditional win for the ring buffer**, however much newer the legacy entry is. That is
+  > verbatim the inversion this same rule forbids one clause below for `gestureId` — *"absence must
+  > never mean membership"* — and it cost the founder his wall edits: three
+  > `UPDATE_ELEMENT_PARAMETER` writes (rake 80°, rake 70°, a profile edit — all commandManager-ONLY,
+  > because `element.updateParameters` declares `stores: []`), and a Ctrl+Z that reverted a
+  > **slab**. A comparator that cannot order a pair MUST report that it cannot
+  > (`performUndoRedo._reportUnorderable`), never decide silently — U-4 applied to the ordering
+  > decision. Reproduced and pinned by
+  > `apps/editor/__tests__/L7300RakeProfileUndoCrossStack.test.ts` (6 cases; all 6 fail without the
+  > stamping).
+  >
+  > **NOT A LICENCE TO ORDER BY CLOCK PROXIMITY.** The stamp answers *when an entry was committed*.
+  > It still MUST NOT be used to infer *which gesture produced it* — that remains `gestureId`'s
+  > question and the U-10 amendment of 2026-08-12 stands unchanged.
   > ⚠ **AMENDED 2026-08-12 (§UNDO-GESTURE-ID landed).** This rule's last sentence used to infer a
   > dual-dispatch twin from an **id overlap** between the two top entries — wall-clock-adjacent
   > membership wearing an id costume, and the mechanism behind the 250 ms gesture race (three
@@ -501,6 +533,28 @@ create-handler affectedStores key") enforces the table below so a future key dri
 property edits (hosted two-part undo — §4.7 follow-up 1); `section.create` (`['section']`) and
 `structural.create` (`['structural']`) have no `window.<x>Store`, so they rely on the legacy
 fallback; `level` is Path-A by design. These do not regress the covered set above.
+
+**⭐ AND THE THIRD CLASS, NAMED 2026-08-23 (L-7310..L-7312) BECAUSE "routes to `commandManager`" WAS
+BEING READ AS "is undoable".** A key can be uncovered in three ways, and only two of them are
+above. `balcony` (`balcony.create` → `['balcony','slab','floor','handrail']`), `lift` and `liftPart`
+(`lift.create` → `['lift','liftPart','wall','curtainwall','door','slab']`) are **REACHABLE and
+STRANDED**: the stores ARE constructed (`apps/editor/src/PluginRegistry.ts:436/484/489`), the
+`storeKey`s ARE declared so the handlers dispatch, and the verbs ARE reached from the UI
+(`BalconyPlanToolHandler.ts:271`, `LiftPlanToolHandler.ts:218`). So a **real `PatchPair` is minted**,
+`_covered()` declines it — coverage is all-or-nothing and the compound's own key has no adapter, even
+though its `slab`/`floor`/`handrail`/`wall` co-stores do — and the legacy stack holds nothing.
+**Ctrl+Z is a total no-op.** They are declared in `UNMAPPED_BUS_STORE_KEYS` with `owner: 'nothing'`
+so `_reportStranded` tells the user (§EI-7c); the gap is DECLARED, not closed.
+This is the opposite reading from `pool`/`water` (L-980), which are unreachable and therefore mint
+nothing — **the two must not be excused with the same sentence.**
+
+> ⛔ **`lift` MUST NOT be mapped to `window.liftStore`.** That global exists
+> (`initBuilders.ts:983`) and holds the **LOD-200 MASSING lift**, a different store from the C104
+> compound `lift.create` writes (`PluginRegistry.ts:461` states this). Mapping it would satisfy
+> `_covered()` and then apply an inverse patch to a store that never received the forward — **U-2b
+> verbatim**, which is not a failed undo but a corruption of authoritative state. The adapter these
+> families need is the COMPOUND store on the window, or U-7's single store; it is not the nearest
+> global with a matching name.
 
 **Adapter call-arity is part of the contract (§ANN-UNDO-ARITY, 2026-08-07, `352edcfe`).**
 `elementUndoStoreAdapter` drives field-level inverse patches through

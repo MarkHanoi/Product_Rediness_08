@@ -39979,3 +39979,243 @@ are **not** in `packages/schemas/src/elements/` and not in `SCHEMA_REGISTRY` —
 `packages/geometry-lift/`. The split is deliberate: id brands are additive and cannot break a
 consumer, whereas moving the Zod schemas changes **what validates a persisted project**, which is a
 C47 format question and deserves its own blast radius. Recorded in C104 §11 in place.
+
+## §UNDO-ORDERING-KEY — L-7300..L-7380 (lane UNDO37, 2026-08-23)
+
+> **The founder, verbatim:** *"**Undo / redo should also impact making a wall raked, and making an
+> edit to the profile** — however in a test it doesn't seem like [it does]."*
+>
+> Two features, one Ctrl+Z, and it reverted a **slab**.
+
+### L-7300 — ⭐ ROOT CAUSE: a ring-buffer entry with NO ordering key wins UNCONDITIONALLY
+
+The founder's console, three wall edits then one Ctrl+Z:
+
+```
+[CommandManager] EXECUTE: UPDATE_ELEMENT_PARAMETER
+[CommandManager] snapshot commandType="UPDATE_ELEMENT_PARAMETER (ad)" scope=[wall] elapsed=0.2ms
+[UpdateElementParameterCommand] §DIAG-PARAM-REBUILD rebuilding wall/wall_01M0NJ9B6F… rakeAngleDeg=80
+  … rakeAngleDeg=70 on the same wall … then [WallTool] §FEAT-WALL-PROFILE-EDIT entered …
+[Undo] ring-buffer applied — stores: slab  ids: slab_01M0NJ79M2…  shadow-dropped cm entries: 0
+[Redo] ring-buffer applied — stores: slab
+```
+
+All three edits travel `element.updateParameters`, whose bus handler declares
+`stores: [] as const` and bridges to `_cmExec` (`initBusHandlers.ts:2217`). So the record carries no
+patches, `CommandBus` skips the ring push (`isEmptyPatchRecord`), and all three live on the
+**commandManager stack ONLY**. `performUndo` then asks `_cmEntryIsNewer(pair, cm)`, which opened:
+
+```ts
+const pairTime = pair?.timestamp;
+if (typeof pairTime !== 'number') return false;
+```
+
+⭐ **That early return is not a tie-break. It is an unconditional win for the ring buffer** — however
+much newer the legacy entry is. `PatchPair.timestamp`'s own doc called it *"Optional for backwards
+compatibility (pre-existing fixtures omit it → ring-buffer-first behaviour is preserved)"*, which
+reads as an affordance and was in fact the routing rule.
+
+**This is the rule the file states one function lower and violates one function higher.**
+`_isSameGestureTwin`'s doc says of `gestureId`: *"Absence must never mean membership — 'no id ⇒ join
+the previous gesture' is the original bug wearing a new name."* The identical inversion sat on
+`timestamp`, unnoticed, because absence there produced a **routing** verdict rather than a
+**membership** one.
+
+**MEASURED, not argued** (`apps/editor/__tests__/L7300RakeProfileUndoCrossStack.test.ts`): with the
+stamping disabled the six cases fail and the harness prints the founder's two lines byte-for-byte,
+including `shadow-dropped cm entries: 0` and the `[Redo] … stores: slab` tail. With it enabled, all
+six pass.
+
+### L-7301 — the census: **6 of the 8 production ring-buffer push sites minted an unstamped entry**
+
+| # | Site | `timestamp` | `gestureId` |
+|---|------|-------------|-------------|
+| 1 | `packages/command-bus/src/CommandBus.ts:591` | ✅ | ✅ |
+| 2 | `apps/editor/src/engine/initBusHandlers.ts:825` — `element.changeType`, **any** store key | ❌ | ❌ |
+| 3 | `initBusHandlers.ts:1335` — `wall.updateDimensions` | ✅ | ❌ |
+| 4 | `initBusHandlers.ts:1596` — `element.changeType` furniture | ❌ | ❌ |
+| 5 | `initBusHandlers.ts:1647` — `element.changeType` floor | ❌ | ❌ |
+| 6 | `initBusHandlers.ts:1703` — `element.changeType` **slab** | ❌ | ❌ |
+| 7 | `initBusHandlers.ts:1798` — `element.changeType` ceiling | ❌ | ❌ |
+| 8 | `apps/editor/src/ui/documentation/commitAnnotationSet.ts:165` — annotation | ❌ | ❌ |
+
+Cross-checked with `ripgrep` (the `Grep` tool) **and** `grep -rn` over `apps packages plugins tools
+src server`, per the standing rule that one grep is not proof. Both agree on the same eight.
+
+⭐ **Site 6 mints `affectedStores: ['slab']` — the exact store the founder's Ctrl+Z reverted.**
+
+⭐ **WHY SEVEN PRODUCERS SHIPPED WITHOUT THE KEY.** C03 §4.6 **U-10** requires it on both stacks, and
+its parenthetical named the producer: *"`PatchPair.timestamp` stamped by `CommandBus` at push"*. An
+obligation attached to ONE caller is an obligation the other seven never knew they had. The rule was
+right; its address was wrong.
+
+### L-7302 — the fix is the GENERAL rule at the chokepoint, not a second special case
+
+`RingBufferUndoStack.push()` now stamps commit time on any pair that arrives without one
+(`packages/runtime-undo-stack/src/RingBufferUndoStack.ts`), so **every stored entry is orderable by
+construction** and no push site — present or future — can mint an unorderable one. A supplied
+timestamp is never overwritten. The clock is `Date.now` by default (the SAME clock
+`Command.timestamp` reads — a shared clock is what makes a cross-stack comparison mean anything) and
+injectable only so a test can prove the stamp is the stack's doing.
+
+**Three alternatives were considered and rejected, with reasons:**
+
+- ⛔ **Special-case `UPDATE_ELEMENT_PARAMETER` in the comparator.** The door/window case is already
+  special-cased there; a second makes the third inevitable. The lane brief forbade it and was right.
+- ⛔ **Edit the six call sites.** Six copies of one rule with nothing enforcing it — the shape
+  `_unionTargetIds` (U-9) and `ELEMENT_STORE_ROUTES` (L-947) each closed by moving the rule to the
+  one place every caller passes through.
+- ⛔ **Make `PatchPair.timestamp` a required field.** It would force the six sites at compile time
+  and then be satisfied by six hand-written `Date.now()`s that can still drift. The stack's own
+  invariant is stronger and needs no cooperation.
+
+**NOT A BEHAVIOUR CHANGE FOR THE DUAL-DISPATCH SITES, and that is checkable rather than hoped for.**
+At all six unstamped sites the legacy command is **constructed before** the ring push (`_cmExec` /
+`commandManager.execute` precede `rb.push` at :825, :1596, :1647, :1703, :1798 and
+`commitAnnotationSet.ts:154-165`), so `cmTime <= pairTime`, `_cmEntryIsNewer` still returns `false`,
+and their ring-buffer-first routing is byte-identical. **The only decision that changes is the one
+that was wrong: an unrelated, newer legacy entry is no longer jumped over.**
+
+`_reportUnorderable` (new, in `performUndoRedo.ts`) NAMES the residual case instead of deciding
+silently — C03 §4.6 U-4's honesty rule applied to the ordering decision. It should be unreachable in
+production; **if it ever appears in a console, a producer bypassed `push()`.**
+
+### L-7303 — ⚠ REFUTED: `scope=[wall]` vs `stores: slab` is **not** a scope/apply mismatch
+
+The lane brief called this *"the smoking gun — a snapshot declaring a scope the applier ignores"*.
+Measured: it is not one entry disagreeing with itself. `scope=[wall]` is `CommandManagerImpl`'s
+Contract 01 §2.2 **transaction snapshot scope** for the LEGACY entry — correct, and per-`elementType`
+since L-947. `stores: slab` is the `affectedStores` of a **different entry on the other stack**. The
+two lines are consistent; the defect is that the arbiter chose the wrong **entry**. The brief's
+instinct that the two lines together were the tell was right; the mechanism it named was not.
+
+### L-7304 — ⚠ the brief's arbitration lead: RIGHT about the decision point, and one of its three candidates was the answer
+
+It named `_cmEntryIsNewer` and offered three causes — *"a missing timestamp, a command type the
+comparator does not recognise, or a snapshot that never reached the stack at all"*. Measured:
+
+- **"a command type the comparator does not recognise" — REFUTED.** The comparator reads no command
+  type at all; it compares two numbers and a gesture id.
+- **"a snapshot that never reached the stack" — REFUTED.** `UpdateElementParameterCommand` sets no
+  `nonUndoable`, the `snapshot commandType=…` log proves `!isLoad && !inGenBatch`, and
+  `CommandManagerImpl.execute` pushes it (`:515`). The entry was there.
+- **"a missing timestamp" — CONFIRMED**, and generalised: not one missing timestamp but a missing
+  *class* of them, six sites wide.
+
+### L-7305 — REDO is fixed by the same key, and is asserted separately
+
+`performRedo`'s `haveBothTimes` guard has the mirror shape: without both keys it falls back to
+`_lastSource` — *"whichever stack the last undo used"* — which is a guess, not chronology. The
+founder's `[Redo] ring-buffer applied — stores: slab` is that fallback, reached because the undo had
+mis-routed first. With the key present, `[Redo]` replays the rake and the slab never moves
+(`L7300RakeProfileUndoCrossStack.test.ts`, arm *"REDO — redo replays the RAKE, not the slab"*).
+
+### L-7306 — rake and profile share ONE cause; the profile command's own semantics were already sound
+
+`WallTool._commitWallProfile` prefers `runtime.bus.executeCommand('element.updateParameters', …)` and
+falls back to `commandManager.execute(new UpdateElementParameterCommand(…))` — **both routes end in
+the same command**, and both land on the legacy stack only. So the rake and the profile are the same
+victim of the same arbiter, not two defects.
+
+The profile command's undo itself was NOT broken and is not changed here:
+`packages/geometry-wall/__tests__/WPE1WallProfileUndo.test.ts` already measures author → undo and
+clear → undo on the **real** `WallStore`, including the `undefined`-not-`null` clear that Zod would
+otherwise reject. Re-run 2026-08-23: **21/21 PASS** with `WPE1WallProfileEditMode`.
+
+### L-7307 — one profile edit is ONE undo step, measured at the layer where it could stop being one
+
+A profile edit can move many vertices. The only route from the overlay to the model is
+`WallProfileEditor`'s `onCommit`, called from exactly two places (`:215` clear, `:352` apply), each
+carrying the **whole** ring. New arm in `WPE1WallProfileEditMode.test.ts`: three vertex insertions
+inside one gesture, `onCommit` not called mid-gesture, then Apply → **called once, with all seven
+vertices**. So one profile edit is one `UpdateElementParameterCommand`, one history entry, one
+Ctrl+Z.
+
+### L-7310..L-7312 — balcony / lift / liftPart are REACHABLE **and** stranded (the opposite of pool/water)
+
+The `performUndoRedo.test.ts` coverage gate had been RED since the compounds landed:
+
+```
+uncovered affectedStores keys … + [ "balcony (…CreateBalcony.ts)", "lift (…CreateLift.ts)",
+                                    "liftPart (…CreateLift.ts)" ]
+```
+
+Measured on the four axes L-980 used for pool/water — and the reading is the **inverse**, which is
+why pool's excuse does not fit: (1) the stores ARE constructed (`PluginRegistry.ts:436` / `:484` /
+`:489`); (2) the `storeKey`s ARE declared, so `CommandBus.buildContext` resolves and the handlers
+dispatch; (3) the verbs ARE dispatched from the UI (`BalconyPlanToolHandler.ts:271`,
+`LiftPlanToolHandler.ts:218`); (4) so a **real PatchPair is minted**, `_covered()` declines it
+(coverage is all-or-nothing and `balcony` has no adapter, though `slab`/`floor`/`handrail` do), and
+the legacy stack holds nothing. **Ctrl+Z is a total no-op for both families.**
+
+Declared in `UNMAPPED_BUS_STORE_KEYS` with `owner: 'nothing'` so `_reportStranded` names the dead
+store to the user (§EI-7c) instead of the keypress failing silently. **Not covered — declared.**
+
+⛔ **`lift` is deliberately NOT mapped to `window.liftStore`**, which is the tempting one-liner: that
+global IS assigned (`initBuilders.ts:983`) and holds the **LOD-200 MASSING lift**, a different store
+from the C104 compound the plugin handler writes (`PluginRegistry.ts:461` says so in place). Mapping
+it would satisfy `_covered()` and then apply an inverse patch to a store that never received the
+forward — **C03 §4.6 U-2b verbatim**, which is not a failed undo but a corruption of authoritative
+state.
+
+### L-7320 — C03 §4.6 **U-10** amended: the obligation is the ring buffer's, not `CommandBus`'s
+
+Amended in place (`docs/02-decisions/contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md`). The rule is
+unchanged; its **address** moved to `RingBufferUndoStack.push()`, and the rule that absence of an
+ordering key is never a verdict is stated explicitly, beside the `gestureId` sentence it mirrors.
+C85 gains the rake/profile undo row (§Undo).
+
+### L-7330 — ⛔ OPEN: `gestureId` is absent from **all seven** non-`CommandBus` push sites
+
+Read from source, not executed — stated as such. The seven hand-rolled pushes are dual dispatches
+(each runs `_cmExec` / `commandManager.execute` for the same gesture), and neither half carries a
+shared `gestureId`. `_isSameGestureTwin` therefore cannot recognise them, and the U-8 shadow-drop
+cannot either — `dropEntriesForTargets` requires every target to be **absent** from the stores, and
+`element.changeType` swaps a type rather than deleting the element. So the legacy twin survives a
+ring-buffer undo of the same gesture and the user gets a **phantom second Ctrl+Z**.
+
+⛔ **NOT fixed here, deliberately.** Stamping `gestureId` at those sites would newly classify those
+pairs as twins, which changes both the ordering decision AND the drop decision for seven verbs at
+once; nothing in this lane's measurement covers that blast radius. It needs its own lane with its
+own before/after on each verb. **It is a separate defect from L-7300 and does not gate the rake or
+the profile**, both of which push no ring entry at all.
+
+### L-7350 — ⛔ OPEN, PRE-EXISTING (not this lane): `updateElementParameterRakePreflight.test.ts` is 3 RED against a DELIBERATE retraction
+
+```
+× REFUSES a rake on a LAYERED OPENING-HOSTING wall at canExecute — store never reached
+× the refusal replaces what used to be a FATAL throw from inside execute()
+× REFUSES a rake on a CURVED wall — the arm that survives
+    AssertionError: expected true to be false      (i.e. canExecute now says ok)
+```
+
+**Not caused by this lane, and the chain is checkable:** the test imports only
+`UpdateElementParameterCommand` → `rakeAuthorability` (`packages/geometry-wall/src/WallRake.ts`).
+Neither file is touched by this lane's commits, and `WallRake.ts` is unmodified in the working tree.
+`WallRake.ts` last changed **`c9715b8a`, 2026-08-19** (§FEAT-RAKE-CURVED — *"⛔ DO NOT RESTORE THE
+BLANKET REFUSAL"*); the test last changed **`627b8a43`, 2026-08-18**. The layered arm was likewise
+lifted by **§FEAT-RAKE-LAYERED-OPENINGS / L-1064** (`WallRake.ts:491`). **So the code is right and
+the test asserts refusals the founder asked to be removed** — it has been RED for four days.
+
+⛔ **Deliberately NOT "fixed" here.** Rewriting three refusal expectations without the C85
+subject-matter mandate risks green-washing a real regression, and `WallRake.ts` is outside this
+lane's ownership. The next rake lane closes it in one step with the two citations above.
+
+### L-7380 — gate readings at lane close (readings, with a timestamp — never states)
+
+- `apps/editor` — `L7300RakeProfileUndoCrossStack` → **6/6 PASS**; with the stamping disabled in
+  `push()`, **6/6 FAIL**. That inversion is the proof the suite is load-bearing.
+- `apps/editor` — `performUndoRedo` → **24/24 PASS** (was **23/24**; L-7310..L-7312 closed the RED).
+- `apps/editor` — `undoGestureOrdering` + `SlabUndoDestroysLegacyRecord` +
+  `L7300RakeProfileUndoCrossStack` → **3 files / 14 PASS.**
+- `packages/runtime-undo-stack` → **4 files / 32 PASS** (incl. the new `ring-buffer-ordering-key`, 7).
+- `packages/command-bus` → **11 files / 113 PASS.**
+- `packages/geometry-wall` — `WPE1WallProfileEditMode` + `WPE1WallProfileUndo` → **21/21 PASS.**
+- `packages/command-registry` — `ringBufferUndoRevertLatch`, `undoShadowDropScope`,
+  `undoHistoryView`, `generationUndoCoalesce`, `updateElementParameterSnapshotScope`,
+  `updateWallsRakeBatch` → **78 PASS**; `updateElementParameterRakePreflight` → **3 FAIL**,
+  pre-existing since 2026-08-19, evidence in **L-7350**.
+- root `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=2**, and
+  ⚠ **every error is in `apps/editor/src/ui/styles/panels/toolsRail.ts`**, a file this lane never
+  touched and which a sibling lane was editing live (the error count moved 11 → 3 between two runs
+  minutes apart). **Zero errors in any file this lane changed.**

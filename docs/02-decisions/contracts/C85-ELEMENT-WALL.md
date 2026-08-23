@@ -460,8 +460,45 @@ parameter undo **is** audit-neutral — and that is exactly why the other eight 
 falls to `[]` and **every opening is stripped from the wall** (C84 EI-7b). `childrenIds` gets an
 explicit skip `:301`; `levelId` a routed path `:321-332`.
 
+### W-U-5 — RAKE and PROFILE are commandManager-ONLY, and that is what made them jumpable (L-7300)
+
+**Measured 2026-08-23, lane UNDO37.** `rakeAngleDeg` and `wallProfile` are BOTH written by the
+generic `UpdateElementParameterCommand`, reached through `element.updateParameters` — whose bus
+handler declares **`stores: [] as const`** and bridges to `_cmExec` (`initBusHandlers.ts:2217`). The
+record therefore carries no patches, `CommandBus` skips the ring push (`isEmptyPatchRecord`), and
+**both fields' undo lives ENTIRELY on the legacy stack.** `WallTool._commitWallProfile`'s two routes
+(bus-preferred, `commandManager.execute` fallback) end in the same command, so this holds either way.
+
+That is a legitimate routing, and it is exactly the class U-10 exists to protect: a
+commandManager-ONLY entry must be undone before an OLDER ring-buffer entry beneath it. It was not.
+Six of the eight ring-buffer push sites minted entries with no commit timestamp, and
+`performUndoRedo._cmEntryIsNewer` read a missing key as an unconditional win for the ring buffer —
+so the founder raked a wall twice, edited its profile, pressed Ctrl+Z, and **a slab was reverted**.
+Root cause and fix are C03 §4.6 U-10 (amended in place); ISSUE-LOG L-7300..L-7302.
+
+Two properties of this family that the fix depends on, both measured rather than assumed:
+
+- **ONE profile edit is ONE undo step, however many vertices moved.** `WallProfileEditor` reaches
+  the model only through `onCommit`, called from exactly two sites (`:215` clear, `:352` apply), each
+  carrying the WHOLE ring — so N vertex edits inside a gesture produce one command, one history
+  entry, one Ctrl+Z. Pinned by `WPE1WallProfileEditMode.test.ts`
+  (*"an N-vertex edit is ONE commit, not one per vertex"*).
+- **The command's own inverse was never the defect.** `WPE1WallProfileUndo.test.ts` already measures
+  author → undo and clear → undo on the REAL `WallStore`, including the `undefined`-not-`null` clear
+  that Zod would otherwise reject. Undo of the rake likewise replays the captured previous value and
+  restores the audit envelope (W-U-3). **The write and its inverse were sound; the ARBITER between
+  the two stacks was not** — which is why no amount of testing `UpdateElementParameterCommand` in
+  isolation would have found this.
+
 ### TO-BE — normative
 
+- **W-U-5n.** A wall attribute whose only undo entry is on the legacy stack (today: `rakeAngleDeg`,
+  `wallProfile`, and every other `element.updateParameters` field) MUST be regression-tested
+  ACROSS THE TWO STACKS — with a ring-buffer entry present and older — never against the command
+  alone. `apps/editor/__tests__/L7300RakeProfileUndoCrossStack.test.ts` is that test for this family;
+  it asserts the WALL record moved and NO other store did, and all six of its cases fail without the
+  fix. A per-command assertion cannot see a mis-route, because the command is not the thing that
+  routes.
 - **W-U-1n.** ADR-0331 §D3 (route the forward patch through `elementUndoStoreAdapter`) is the named
   exit for W-U-1. ⚠ C84 §9 records it as **never executed**; the SPEC sequences a one-verb probe
   first. Pinned by `busCreateUndoLeavesPluginStore.test.ts` (C84 §5 #1) — **which will pass today
