@@ -353,12 +353,30 @@ describe('§ANALYSIS-CATALOGUE — the refusals name their gap', () => {
       expect(w.query!.cost.length).toBeGreaterThan(0);
       // Take-off widgets are O(n·m) and MUST be manual — never on-commit.
       if (w.query!.source === 'takeoff') expect(w.refresh, `${w.id} runs an O(n·m) scan on commit`).toBe('manual');
-      // ⛔ The graph source is the ONLY consumer of `relationship`, and it is
-      // manual: re-solving an O(n²) force layout on every commit would make a
-      // dashboard the reason a frame is dropped (ADR-0343 §D.3).
+      // ⛔ The graph source is the ONLY consumer of `relationship`, and it must
+      // NEVER be `on-commit`: re-solving a force layout on every wall move would
+      // make a dashboard the reason a frame is dropped (ADR-0343 §D.3).
+      //
+      // ⚠ NARROWED 2026-08-23 (lane GRAPH48, §GRAPH-FOCUS-FROM-MODEL, L-8420).
+      // This arm asserted `toBe('manual')`, with the rationale *"re-solves an
+      // O(n²) layout on commit"*. BOTH HALVES OF THAT RATIONALE HAVE MOVED and
+      // the assertion had become stricter than the invariant it was protecting:
+      //
+      //   · the layout is no longer O(n²). §PERF-GRAPH-BARNES-HUT (L-6620) made
+      //     the repulsion pass a Barnes-Hut tree at O(n log n);
+      //   · a SELECTION re-solves nothing at all. `graphViewState`'s layout cache
+      //     is keyed on the node set, so a selection change reuses the existing
+      //     positions — which is also what stops the picture rearranging under the
+      //     reader's cursor every time they click.
+      //
+      // And the founder's request needs the selection path: *"select an element in
+      // the PRYZM view and the graph will display all element topology
+      // relationships"* is unreachable while the card refuses to re-render on a
+      // selection. So the REAL invariant — never on-commit — is what is asserted
+      // now, and `manual` / `on-selection` are both allowed.
       if (w.query!.source === 'graph') {
         expect(w.query!.groupBy, `${w.id} reads the UBG on a non-relational axis`).toBe('relationship');
-        expect(w.refresh, `${w.id} re-solves an O(n²) layout on commit`).toBe('manual');
+        expect(w.refresh, `${w.id} re-solves its layout on every commit`).not.toBe('on-commit');
       }
       if (w.query!.groupBy === 'relationship') {
         expect(w.query!.source, `${w.id} groups by relationship off a non-graph source`).toBe('graph');

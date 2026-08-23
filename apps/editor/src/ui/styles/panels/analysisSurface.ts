@@ -1134,4 +1134,94 @@ export const ANALYSIS_SURFACE_STYLES = `
 .anl-facets-clear:hover { color: var(--app-accent); border-color: var(--app-accent); }
 .anl-facets-clear:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 1px; }
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE 3-D RELATIONSHIP GRAPH + ITS CATEGORY TREE
+   §GRAPH-3D-VIEWPORT / §GRAPH-HIERARCHY-VIEWS (L-8440 … L-8462)
+   ═══════════════════════════════════════════════════════════════════════════
+
+   ⛔ WHITE AND PURPLE, NO BLACK — §BRAND. The viewport's ground is a very soft
+   white→violet sweep (set inline in 'GraphViewport.ts', because a canvas frame's
+   gradient must not depend on this sheet having loaded before the first draw),
+   and everything below it reads off the same '--app-*' tokens every other card on
+   this surface uses. No colour is minted here.
+
+   ⚠ The category rows are BUTTONS, not list items, and that is not decoration:
+   clicking one picks a FACET (ADR-0358), so it must be reachable by keyboard and
+   must announce itself as pressable. A '<div role="button">' would have been the
+   shortcut and would have been worse. */
+
+.anl-gv-root { display: block; margin: 0; }
+.anl-gv-frame { width: 100%; }
+.anl-gv-canvas { display: block; width: 100%; height: 100%; }
+
+.anl-cat-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--app-border);
+}
+
+.anl-cat-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 7px;
+  padding: 2px 0;
+}
+.anl-cat-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--app-text);
+}
+
+.anl-cat-row {
+  appearance: none;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--app-font);
+  padding: 3px 8px 3px 22px;   /* indented under its discipline head */
+  min-height: 22px;
+}
+.anl-cat-row:hover { border-color: var(--app-accent); background: var(--app-violet-soft); }
+.anl-cat-row:focus-visible { outline: none; box-shadow: var(--app-focus-ring); }
+
+.anl-cat-row-name {
+  font-size: 10.4px;
+  font-weight: 600;
+  color: var(--app-text-2);
+  flex: 0 0 auto;
+}
+/* The IFC column is deliberately quiet and deliberately ALLOWED TO WRAP: it very
+   often holds a full sentence explaining why a class could NOT be resolved, and
+   truncating that to an ellipsis would turn a stated non-answer back into a
+   blank — which is the failure the sentence exists to prevent. */
+.anl-cat-row-ifc {
+  font-size: 9.6px;
+  line-height: 1.5;
+  color: var(--app-text-muted);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The two sliders on the graph toolbar. They sit INSIDE an '.anl-scope-label', so
+   the label text and the control read as one unit. */
+.anl-scope-label > input[type='range'] {
+  vertical-align: middle;
+  margin-left: 6px;
+  width: 74px;
+  accent-color: var(--app-accent);
+  cursor: pointer;
+}
+
 `;

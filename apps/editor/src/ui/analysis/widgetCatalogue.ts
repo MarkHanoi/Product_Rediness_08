@@ -161,7 +161,8 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
     kind: 'graph',
     title: 'Relationship graph',
     subtitle:
-      'Elements as nodes, typed relations as edges, read live off the Building Graph. Click a node to select it.',
+      'Elements as nodes, typed relations as edges, read live off the Building Graph. Six views of ONE graph; ' +
+      'click a node to select it in 3-D, or select an element in 3-D to see its relationships here.',
     query: {
       id: 'graph:relationship',
       source: 'graph',
@@ -169,10 +170,22 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
       measure: 'count',
       cost: 'O(n)',
     },
-    // ⛔ NOT 'on-commit'. The graph maintains itself on the frame bus at its own
-    // cadence; re-rendering an O(n²) force layout on every wall move would make
-    // a dashboard the reason a frame is dropped, which §D.3 forbids outright.
-    refresh: 'manual',
+    // ⚠ CHANGED 2026-08-23, 'manual' → 'on-selection' (§GRAPH-FOCUS-FROM-MODEL,
+    // L-8420). It is the founder's second sentence: *"select an element in the
+    // PRYZM view and the graph will display all element topology relationships"*.
+    // Nothing re-rendered this card on a selection, so that direction did not
+    // exist — `_renderSelectionWidgets()` skips every widget that is not
+    // 'on-selection'.
+    //
+    // ⛔ STILL NOT 'on-commit', and the original reason is INTACT: the graph
+    // maintains itself on the frame bus at its own cadence, and re-solving a force
+    // layout on every wall move would make a dashboard the reason a frame is
+    // dropped (§D.3). A SELECTION is different in kind — it is rare, it is user-
+    // initiated, and it re-solves NOTHING: `graphViewState`'s layout cache is keyed
+    // on the node set, so a selection change reuses the existing positions. That
+    // cache is also what stops the picture rearranging under the reader's cursor
+    // every time they click, which is the legibility half of the same decision.
+    refresh: 'on-selection',
     span: 2,
     notBuilt: null,
   },

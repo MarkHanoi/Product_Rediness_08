@@ -79,14 +79,47 @@ import {
   scopeSentence,
   graphLevelFilter,
   setGraphLevelFilter,
+  GRAPH_NODE_CAP,
+  type GraphProjection,
 } from './graphReadModel';
-import { censusPlacement, censusLevels } from './analysisReadModel';
+import { censusPlacement, censusLevels, getCensus } from './analysisReadModel';
 import { AREA_STANDARDS, areaStandard, setAreaStandard } from './areaStandards';
 import { renderNodeLink, renderEdgeLegend } from './nodeLinkSvg';
+import {
+  HIERARCHY_VIEWS,
+  DISCIPLINE_ORDER,
+  describeFocus,
+  familyOfNode,
+  focusNeighbourhood,
+  projectHierarchy,
+  type ElementFamilyResolver,
+  type HierarchyProjection,
+} from '@pryzm/building-graph';
+import {
+  GRAPH_VIEW_EVENT,
+  buildGraphSubject,
+  dataUrlToBlob,
+  downloadFile,
+  graphFocusDepth,
+  graphLabels,
+  graphMode,
+  graphNodeScale,
+  graphOrbit,
+  graphView,
+  resetGraphViewState,
+  serialiseNetwork,
+  setGraphFocusDepth,
+  setGraphLabels,
+  setGraphMode,
+  setGraphNodeScale,
+  setGraphView,
+} from './graphViewState';
+import { mountGraphViewport, type GraphViewportHandle } from './GraphViewport';
 import { SeriesFocus, markSeries } from './seriesFocus';
 
 import {
   seriesColour,
+  CAT_UNASSIGNED,
   type AnalysisAxis,
   type AnalysisFigure,
   type AnalysisResult,
@@ -812,40 +845,42 @@ function levelScopePicker(): HTMLElement {
 }
 
 /**
- * The node-link relationship diagram — the picture the founder asked for.
+ * The relationship graph — §GRAPH-3D-VIEWPORT + §GRAPH-HIERARCHY-VIEWS (L-8440…).
  *
- * ⭐ THREE THINGS SHIP TOGETHER ON THIS CARD, AND THE OTHER TWO ARE NOT GARNISH:
- *   1. the diagram;
- *   2. a LIVENESS sentence, because until L-3251 the only honest label for this
- *      graph was "stale by construction" and there was no code path that could
- *      say it. A relational view on a surface the reader takes for live must
- *      state which it is;
- *   3. a TRUNCATION notice when the model exceeds the node cap, because a
- *      reader counts what they can see and a silently-clipped graph understates
- *      the building's connectivity.
+ * ⭐ WHAT SHIPS ON THIS CARD, AND WHY NONE OF IT IS GARNISH:
+ *   1. the SCOPE control (storey) — every figure below is a figure ABOUT the
+ *      universe it names, so it sits above everything it governs;
+ *   2. the LIVENESS strip — until L-3251 the only honest label for this graph was
+ *      "stale by construction" and there was no code path that could say it;
+ *   3. the VIEW selector — six projections of ONE graph (ADR-0364). Each carries
+ *      its own basis line and, when empty, its own NAMED cause;
+ *   4. the 2D / 3D toggle — the same graph, the same layout algorithm, the same
+ *      counts, drawn two ways;
+ *   5. the CATEGORY tree — discipline → family → count, with the IFC class where
+ *      the authority is wired and a named non-answer where it is not;
+ *   6. the FOCUS readout — what the current model selection reaches, stated with
+ *      every operand so the reader can check it;
+ *   7. the TRUNCATION notice — a reader counts what they can see, and a silently
+ *      clipped graph understates the building's connectivity.
  *
- * ⛔ Renders ONCE. No animation, no rAF (P3). STR-14 §4.1's "living blob" is a
- * real deliverable and it is not a dashboard card's to schedule.
+ * ⛔ Renders ONCE per change. No animation, no rAF (P3) — the 3-D viewport draws
+ * on demand through the frame scheduler and costs zero frames while idle.
  */
 export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result: AnalysisResult): void {
   const g = projectGraph(censusPlacement());
 
-  // ── The scope control, ABOVE everything it governs ─────────────────────────
-  // §ANALYSIS-GRAPH-LEVEL-FILTER (L-3620). It sits first because every figure
-  // under it is a figure ABOUT the universe it names; a scope control below the
-  // picture would let a reader read the picture before learning what it is of.
+  // ── Scope, above everything it governs ─────────────────────────────────────
   host.appendChild(levelScopePicker());
 
-  // ── The liveness strip: it qualifies everything below it ───────────────────
+  // ── Liveness: it qualifies everything below it ─────────────────────────────
   const live = el('div', `anl-strip ${g.liveness?.freshness === 'stale' ? 'anl-strip--err' : 'anl-strip--ok'}`);
   live.appendChild(el('span', 'anl-strip-text', livenessSentence(g.liveness)));
   host.appendChild(live);
 
   // ── The scope statement, on its OWN plate ──────────────────────────────────
-  // ⛔ 'anl-scope', never 'anl-strip--warn'. The founder's rule: a filter and a
-  // truncation must never render identically. This says what universe you are
-  // looking at; the amber strip below says what the tool could not deliver
-  // inside it. Same card, two different kinds of fact, two different plates.
+  // ⛔ 'anl-scope', never 'anl-strip--warn'. A filter and a truncation must never
+  // render identically: this says what universe you are looking at, the amber
+  // strip below says what the tool could not deliver inside it.
   const scope = el('div', 'anl-scope');
   scope.appendChild(el('span', 'anl-scope-text', scopeSentence(g.scope)));
   host.appendChild(scope);
@@ -862,76 +897,407 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
     return;
   }
 
-  if (g.nodes.length === 0) {
-    host.appendChild(
-      el(
-        'p',
-        'anl-empty',
-        'The graph projected successfully and contains no nodes. See the relationship-coverage card for which ' +
-          'edge families are wired — four of the ten cannot be populated in this build at all, so an empty ' +
-          'diagram may be a gap in the projection rather than a building with no relationships.',
-      ),
-    );
+  // ── The view selector, and the projection it produces ──────────────────────
+  host.appendChild(viewSelector());
+
+  const families = censusFamilies();
+  const projection = projectHierarchy(g.nodes, g.edges, graphView(), {
+    families,
+    // ⛔ NO IFC RESOLVER YET, AND THAT IS DELIBERATE. Lane IFCTREE47 owns the
+    // single PRYZM-type → IFC-class authority and its files were untracked when
+    // this shipped, so `null` makes every IFC cell say "not resolved yet" rather
+    // than guess. Wiring it is ONE argument; re-deriving the map here would be a
+    // fifth rival table (there are already four).
+    ifc: null,
+  });
+
+  const basis = el('div', 'anl-scope');
+  basis.appendChild(el('span', 'anl-scope-text', projection.def.basis));
+  host.appendChild(basis);
+
+  if (projection.empty !== null) {
+    // ⛔ THE NAMED CAUSE, NEVER A BLANK CANVAS. The System view reaches this on
+    // every model and it must read as a fact about the product, not a broken
+    // feature. The toolbar still ships, so the reader can leave the empty view.
+    host.appendChild(graphToolbar(host, projection, g));
+    host.appendChild(el('p', 'anl-empty', projection.empty));
+    host.appendChild(categoryTree(projection));
     return;
   }
 
-  // Stable colour index per edge type and per node kind, so the legend, the
-  // lines and the nodes agree and do not renumber between renders.
-  const edgeTypeIndex = new Map<string, number>();
-  for (const e of g.edges) if (!edgeTypeIndex.has(e.type)) edgeTypeIndex.set(e.type, edgeTypeIndex.size);
-  const groupIndex = new Map<string, number>();
-  for (const n of g.nodes) if (!groupIndex.has(n.kind)) groupIndex.set(n.kind, groupIndex.size);
+  // ── The focus: what the model selection reaches ────────────────────────────
+  //
+  // ⭐ §GRAPH-FOCUS-FROM-MODEL (L-8420) — THE FOUNDER'S SECOND SENTENCE. Selecting
+  // a wall in the PRYZM viewport dispatches on `selectionBus`; this card reads the
+  // CURRENT selection and lights that element's typed neighbourhood. The rest is
+  // dimmed, never removed, so every count above stays true.
+  const selected = selectionBus.currentIds ?? [];
+  const focus = selected.length > 0
+    ? focusNeighbourhood(projection, [...selected], graphFocusDepth())
+    : null;
+  if (focus) {
+    const strip = el('div', 'anl-scope');
+    strip.appendChild(el('span', 'anl-scope-text', describeFocus(focus, projection.def.label)));
+    host.appendChild(strip);
+  }
 
-  const degrees = nodeDegrees(g.edges);
-  const nodes = g.nodes.map((n) => ({
-    id: n.id,
-    label: readableLabel(n),
-    group: n.kind,
-    weight: degrees.get(n.id) ?? 1,
-  }));
+  // ── Stable colour indices, shared by BOTH modes and the legend ─────────────
+  const edgeTypeIndex = new Map<string, number>();
+  for (const t of projection.edgeCounts.keys()) if (!edgeTypeIndex.has(t)) edgeTypeIndex.set(t, edgeTypeIndex.size);
+  const groupIndex = new Map<string, number>();
+  const familyOf = new Map<string, string>();
+  const labelOf = new Map<string, string>();
+  for (const n of projection.nodes) {
+    const fam = familyOfNode(n, families) ?? n.kind;
+    familyOf.set(n.id, fam);
+    labelOf.set(n.id, readableLabel(n));
+    if (!groupIndex.has(fam)) groupIndex.set(fam, groupIndex.size);
+  }
+
+  const degrees = nodeDegrees(projection.edges);
 
   if (g.truncated) {
     host.appendChild(
       el(
         'p',
         'anl-strip anl-strip--warn',
-        `Showing the ${g.nodes.length} most-connected of ${g.totalNodes} elements — a force layout is O(n²) and ` +
-          'above this a node-link diagram is a hairball. Every count on this card is therefore a lower bound.',
+        `Showing the ${g.nodes.length} most-connected of ${g.totalNodes} elements — the layout is Barnes-Hut ` +
+          `O(n log n) and ${GRAPH_NODE_CAP} is the largest size measured inside a 100 ms one-shot budget. ` +
+          'Every count on this card is therefore a lower bound.',
       ),
     );
   }
 
-  const focus = new SeriesFocus(host);
+  host.appendChild(graphToolbar(host, projection, g));
+
+  const focusCtl = new SeriesFocus(host);
   const box = el('div', 'anl-nodelink-box');
   host.appendChild(box);
-  renderNodeLink(box, nodes, g.edges, {
-    width: 620,
-    height: 380,
-    edgeTypeIndex,
-    groupIndex,
-    // H4 — click-through to selection, the join between the chart and the model.
-    // Same dispatch shape `selectFigure()` uses, so a graph node and a donut
-    // slice select identically. P6-safe: selection is intent, not mutation.
-    onPick: (id) => selectionBus.dispatch({ type: 'select', source: 'analytics', elementIds: [id] }),
-    // §ANALYSIS-SERIES-FOCUS (L-3610) — the founder's sentence applied to the
-    // picture he described it about: the picked node, its relations and its
-    // neighbours lead; everything else goes dormant and STAYS ON SCREEN.
-    focus,
-  });
 
-  const counts = new Map<string, number>();
-  for (const e of g.edges) counts.set(e.type, (counts.get(e.type) ?? 0) + 1);
+  if (graphMode() === '3d') {
+    const handle = mountGraphViewport(box, {
+      subject: buildGraphSubject({
+        projection,
+        degrees,
+        nodeColour: (id) => seriesColour(groupIndex.get(familyOf.get(id) ?? '') ?? 0, familyOf.get(id)),
+        edgeColour: (t) => seriesColour(edgeTypeIndex.get(t) ?? 0, t),
+        focus,
+        scale: graphNodeScale(),
+        caption: `${projection.def.label} — ${projection.nodes.length} elements, ${projection.edges.length} relations`,
+      }),
+      labels: graphLabels(),
+      labelOf: (id) => labelOf.get(id) ?? id,
+      // The orbit is owned OUTSIDE the widget so a re-render (which every
+      // selection causes) does not snap the camera back to the default.
+      orbit: graphOrbit(),
+      // ⛔ The SAME dispatch the 2-D card and every other surface uses (C27 §4).
+      // A private event here would be a second idea of what "selected" means.
+      onPick: (id) => selectionBus.dispatch({ type: 'select', source: 'analytics', elementIds: [id] }),
+    });
+    // ⚠ MOUNT, SWAP, THEN DISPOSE — in that order. Disposing first would drop the
+    // shared WebGL mount count to zero between the two, forcing a context loss and
+    // an immediate re-creation on a surface whose whole design is one context.
+    const previous = _liveViewport;
+    _liveViewport = handle;
+    previous?.dispose();
+  } else {
+    if (_liveViewport) {
+      _liveViewport.dispose();
+      _liveViewport = null;
+    }
+    const nodes = projection.nodes.map((n) => ({
+      id: n.id,
+      label: labelOf.get(n.id) ?? n.id,
+      group: familyOf.get(n.id) ?? n.kind,
+      weight: degrees.get(n.id) ?? 1,
+    }));
+    renderNodeLink(box, nodes, projection.edges, {
+      width: 620,
+      height: 380,
+      edgeTypeIndex,
+      groupIndex,
+      onPick: (id) => selectionBus.dispatch({ type: 'select', source: 'analytics', elementIds: [id] }),
+      focus: focusCtl,
+    });
+  }
+
   // The legend is also a QUERY surface: a row lights its whole relation family.
-  renderEdgeLegend(host, edgeTypeIndex, counts, focus);
+  // ⚠ Built from `projection.edgeCounts`, which includes families that produced
+  // NOTHING — a legend listing only what fired cannot tell the reader what did not.
+  const counts = new Map<string, number>();
+  for (const [t, n] of projection.edgeCounts) counts.set(t, n);
+  renderEdgeLegend(host, edgeTypeIndex, counts, focusCtl);
+
+  if (projection.undirected.size > 0) {
+    host.appendChild(
+      el(
+        'p',
+        'anl-card-foot',
+        `⚠ ${[...projection.undirected].join(' and ')} are drawn UNDIRECTED. The topology test behind them is a ` +
+          'SYMMETRIC overlap, so an edge means "these two touch", never "this one contains that one".',
+      ),
+    );
+  }
+
+  host.appendChild(categoryTree(projection));
 
   host.appendChild(
     el(
       'p',
       'anl-card-foot',
-      `${g.truncated ? '≥ ' : ''}${g.edges.length} drawn relationship(s) of ${g.totalEdges} projected  ·  ` +
-        `${nodes.length} of ${g.totalNodes} elements  ·  node size = degree  ·  colour = element kind`,
+      `${g.truncated ? '≥ ' : ''}${projection.edges.length} drawn relationship(s) of ${g.totalEdges} projected  ·  ` +
+        `${projection.nodes.length} of ${g.totalNodes} elements  ·  node size = √degree  ·  colour = element family` +
+        (projection.unresolvedFamilyCount > 0
+          ? `  ·  ⚠ ${projection.unresolvedFamilyCount} node(s) have no family the census can resolve, so every ` +
+            'category count is a floor'
+          : ''),
     ),
   );
+}
+
+/**
+ * The live 3-D viewport, if one is mounted.
+ *
+ * ⛔ MODULE-SCOPED AND DISPOSED ON EVERY RE-RENDER. The card is rebuilt whole on
+ * each refresh, and a viewport left behind would keep a mount registered against
+ * the shared WebGL context forever — the refcount would never reach zero and the
+ * context would never be released, which is exactly the leak
+ * `releasePreviewMount()` exists to prevent.
+ */
+let _liveViewport: GraphViewportHandle | null = null;
+
+/** Called by the surface when the Analysis workspace closes. */
+export function disposeGraphViewport(): void {
+  _liveViewport?.dispose();
+  _liveViewport = null;
+}
+
+/**
+ * The element census, as a family resolver.
+ *
+ * ⭐ THE CENSUS — NOT THE UBG `kind` — IS THE AUTHORITY on what an element is:
+ * three of the five UBG adapters stamp the generic `'element'` on every endpoint
+ * they materialise. `familyOfNode` applies that precedence; this supplies the
+ * census side of it, built from the SAME memoised snapshot every other figure on
+ * this surface is computed over.
+ *
+ * ⛔ `undefined` means THE CENSUS DOES NOT CLAIM THIS ID — a synthetic `rule:*` or
+ * `circulation:*` node, or an element in a store outside the declared table. It is
+ * not "an element of unknown discipline", and `disciplineOfFamily` keeps it in its
+ * own named row rather than inside a count.
+ */
+function censusFamilies(): ElementFamilyResolver {
+  const snap = getCensus();
+  const map = new Map<string, string>();
+  for (const group of snap.groups) {
+    for (const rec of group.records) map.set(rec.id, group.key);
+  }
+  return { familyOf: (id) => map.get(id) };
+}
+
+/** The six-view selector. §GRAPH-HIERARCHY-VIEWS. */
+function viewSelector(): HTMLElement {
+  const bar = el('div', 'anl-scope-bar');
+  bar.appendChild(el('span', 'anl-scope-label', 'Relationships'));
+  const active = graphView();
+  for (const v of HIERARCHY_VIEWS) {
+    const b = el('button', `anl-scope-chip${v.id === active ? ' anl-scope-chip--on' : ''}`, v.label);
+    b.type = 'button';
+    b.title = v.basis;
+    b.setAttribute('aria-pressed', String(v.id === active));
+    b.addEventListener('click', () => setGraphView(v.id));
+    bar.appendChild(b);
+  }
+  return bar;
+}
+
+/**
+ * 2D/3D, labels, node size, focus depth, reset, and the two exports.
+ *
+ * ⛔ EVERY CONTROL HERE CHANGES HOW THE GRAPH IS DRAWN, NEVER WHAT IT COUNTS.
+ * ADR-0358 §3: a control that silently narrowed a denominator while the card's own
+ * basis line still described the whole model would be H1 failed at the source
+ * layer. Nothing on this bar re-runs a query.
+ */
+function graphToolbar(
+  host: HTMLElement,
+  projection: HierarchyProjection,
+  g: GraphProjection,
+): HTMLElement {
+  const bar = el('div', 'anl-scope-bar');
+
+  const chip = (label: string, on: boolean, title: string, go: () => void): HTMLElement => {
+    const b = el('button', `anl-scope-chip${on ? ' anl-scope-chip--on' : ''}`, label);
+    b.type = 'button';
+    b.title = title;
+    b.setAttribute('aria-pressed', String(on));
+    b.addEventListener('click', go);
+    return b;
+  };
+
+  bar.appendChild(el('span', 'anl-scope-label', 'Draw'));
+  bar.appendChild(
+    chip('3D', graphMode() === '3d', 'Navigable 3-D graph — drag to orbit, click a node to select it in the model', () =>
+      setGraphMode('3d'),
+    ),
+  );
+  bar.appendChild(
+    chip('2D', graphMode() === '2d', 'The same graph, the same layout algorithm and the same counts, drawn as SVG', () =>
+      setGraphMode('2d'),
+    ),
+  );
+  bar.appendChild(
+    chip('Labels', graphLabels(), 'Show a name beside each node', () => setGraphLabels(!graphLabels())),
+  );
+
+  // Node size. ⚠ A slider, not a free number: the clamp lives in
+  // `setGraphNodeScale` and the control must not be able to ask for a value the
+  // state refuses — two rival ideas of the same limit is how they drift apart.
+  const sizeWrap = el('label', 'anl-scope-label', 'Node size');
+  const size = document.createElement('input');
+  size.type = 'range';
+  size.min = '0.4';
+  size.max = '2.5';
+  size.step = '0.1';
+  size.value = String(graphNodeScale());
+  size.title = 'Node radius multiplier. Radius tracks the SQUARE ROOT of degree, so AREA carries the quantity.';
+  size.addEventListener('change', () => setGraphNodeScale(Number(size.value)));
+  sizeWrap.appendChild(size);
+  bar.appendChild(sizeWrap);
+
+  const depthWrap = el('label', 'anl-scope-label', 'Focus hops');
+  const depth = document.createElement('input');
+  depth.type = 'range';
+  depth.min = '1';
+  depth.max = '4';
+  depth.step = '1';
+  depth.value = String(graphFocusDepth());
+  depth.title =
+    'How far from the selected element the highlighted neighbourhood reaches. It is stated on the card, because ' +
+    '"its relations" and "its relations, and theirs" are different claims.';
+  depth.addEventListener('change', () => setGraphFocusDepth(Number(depth.value)));
+  depthWrap.appendChild(depth);
+  bar.appendChild(depthWrap);
+
+  bar.appendChild(
+    chip('Reset view', false, 'Restore the default orientation, zoom, view, labels and node size', () => {
+      resetGraphViewState();
+      const o = graphOrbit();
+      o.yaw = -0.62;
+      o.pitch = 0.22;
+      o.zoom = 1;
+      window.dispatchEvent(new CustomEvent(GRAPH_VIEW_EVENT));
+    }),
+  );
+
+  bar.appendChild(
+    chip(
+      'Export network data',
+      false,
+      'Download this view as JSON — WITH its storey scope, its liveness and its truncation state',
+      () => {
+        downloadFile(
+          `pryzm-network-${projection.view}.json`,
+          'application/json',
+          serialiseNetwork(projection, {
+            scope: scopeSentence(g.scope),
+            liveness: livenessSentence(g.liveness),
+            truncated: g.truncated,
+            totalNodes: g.totalNodes,
+            totalEdges: g.totalEdges,
+          }),
+        );
+      },
+    ),
+  );
+
+  bar.appendChild(
+    chip('Export PNG', false, 'Download the picture exactly as drawn, labels included', () => {
+      // ⛔ 3-D ONLY, AND IT SAYS SO rather than exporting a blank file. The 2-D card
+      // is SVG; a PNG of it needs a rasteriser this lane did not build, and a button
+      // that hands the reader an empty image is worse than one that explains itself.
+      const url = _liveViewport?.toPngDataUrl() ?? null;
+      if (!url) {
+        host.appendChild(
+          el(
+            'p',
+            'anl-strip anl-strip--warn',
+            'PNG export is available in 3D. The 2D card is SVG and this lane did not build a rasteriser for it — ' +
+              'rather than hand you an empty image, the button says so. Switch to 3D and press it again.',
+          ),
+        );
+        return;
+      }
+      const blob = dataUrlToBlob(url);
+      if (blob) downloadFile(`pryzm-network-${projection.view}.png`, 'image/png', blob);
+    }),
+  );
+
+  return bar;
+}
+
+/**
+ * Root → Discipline → Family, with counts and the IFC class.
+ *
+ * ⭐ CLICKING A FAMILY IS A FACET, NOT A SET OF IDS. It goes through `toggleFacet`
+ * on the `category` axis, so "walls" composes with "level 1" picked on another
+ * card (ADR-0358). Dispatching the family's ids directly would forget which
+ * question produced them, and the next pick would REPLACE rather than narrow —
+ * which is the exact bug L-6602 fixed.
+ *
+ * ⛔ The two absence rows render in the NAMED NEUTRAL, never in the categorical
+ * rotation: `unclassified` and `unresolved` are answers ABOUT the model, not
+ * categories OF it, and a colour from the rotation would promote them into one.
+ */
+function categoryTree(projection: HierarchyProjection): HTMLElement {
+  const wrap = el('div', 'anl-cat-tree');
+  wrap.appendChild(
+    el(
+      'p',
+      'anl-card-foot',
+      'Element categories in this view. ⚠ Discipline is assigned per FAMILY, not per element — PRYZM authors no ' +
+        'per-wall load-bearing flag, so this is a family tally and never a structural analysis.',
+    ),
+  );
+
+  if (projection.buckets.length === 0) {
+    wrap.appendChild(el('p', 'anl-empty', 'No elements participate in this view, so there is nothing to categorise.'));
+    return wrap;
+  }
+
+  for (const b of projection.buckets) {
+    const head = el('div', 'anl-cat-head');
+    const swatch = el('span', 'anl-nodelink-swatch');
+    swatch.style.background =
+      b.discipline === 'unresolved' || b.discipline === 'unclassified'
+        ? CAT_UNASSIGNED
+        : seriesColour(DISCIPLINE_ORDER.indexOf(b.discipline), b.discipline);
+    head.appendChild(swatch);
+    head.appendChild(el('span', 'anl-cat-label', `${b.label} (${b.count})`));
+    head.title = b.basis;
+    wrap.appendChild(head);
+
+    for (const f of b.families) {
+      const row = el('button', 'anl-cat-row');
+      row.type = 'button';
+      row.title = `${f.ifcClass}. Click to filter every card on this surface to ${f.family}.`;
+      row.appendChild(el('span', 'anl-cat-row-name', `${f.family} (${f.count})`));
+      row.appendChild(el('span', 'anl-cat-row-ifc', f.ifcClass));
+      row.addEventListener('click', () =>
+        toggleFacet('category', {
+          key: f.family,
+          label: f.family,
+          value: f.count,
+          unit: 'ud',
+          basis: `Elements of family ${f.family} participating in the ${projection.def.label} view.`,
+          elementIds: [...f.ids],
+          qualifiers: [],
+        }),
+      );
+      wrap.appendChild(row);
+    }
+  }
+  return wrap;
 }
 
 /**

@@ -67,6 +67,7 @@ import {
 import {
   AREA_STANDARD_EVENT,
   GRAPH_SCOPE_EVENT,
+  disposeGraphViewport,
   completenessStrip,
   renderChart,
   renderGraph,
@@ -77,6 +78,7 @@ import {
   renderTreemap,
   renderUnknownWidget,
 } from './widgetRenderers';
+import { GRAPH_VIEW_EVENT } from './graphViewState';
 
 type ChartJS = typeof import('chart.js');
 
@@ -363,6 +365,17 @@ export class AnalysisSurface {
       void this.refresh();
     });
 
+    // §GRAPH-HIERARCHY-VIEWS / §GRAPH-3D-VIEWPORT (L-8450). ⛔ ALSO NOT an
+    // invalidation, and for the same reason as the two above: switching view,
+    // switching 2D/3D, moving the node-size slider or changing the focus depth
+    // changes HOW the graph is DRAWN, never what any figure on this surface
+    // COUNTS. Dropping the census cache here would make choosing a view pay for a
+    // full 18-store rescan that changes nothing on screen.
+    window.addEventListener(GRAPH_VIEW_EVENT, () => {
+      if (!this._visible) return;
+      void this.refresh();
+    });
+
     // Selection widgets are `refresh: 'on-selection'` — they alone re-render
     // here, because a selection change does not change any other figure.
     selectionBus.subscribe(() => {
@@ -406,6 +419,14 @@ export class AnalysisSurface {
     // later and finds a subset highlighted by a click they made in another
     // session of attention.
     clearFacets();
+
+    // §GRAPH-3D-VIEWPORT (L-8443). ⛔ RELEASE THE SHARED WebGL MOUNT. The 3-D graph
+    // registers against the SAME refcount every element showroom uses, and that
+    // refcount is what decides when the one offscreen context is released. A
+    // viewport left mounted after the workspace closes would pin the context for
+    // the life of the tab — and a pinned context still counts against the browser's
+    // cap, whose eviction victim is the main viewport.
+    disposeGraphViewport();
   }
 
   // ── Rendering ───────────────────────────────────────────────────────────────
