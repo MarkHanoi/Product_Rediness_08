@@ -241,6 +241,28 @@ this"* and *"I have no entry for this"* with the same value.
 > determine a consequence**, so a family in this state answers UNDETERMINED by construction and
 > must say so.
 
+> **§4.4 — DIRECTION AS DRAWN. MUST. Added 2026-08-23 (lane GRAPH48, L-8415).** §4.1 makes the
+> direction of consequence a declared fact. This clause binds the other end: **a surface that DRAWS
+> a relationship may not assert a direction the underlying test did not measure.** An arrowhead, an
+> indent, a parent/child nesting or a "contains" label is a directional claim, and a reader takes it
+> as one.
+>
+> The measured instance this clause is written from: the Unified Building Graph's **`bounds`** edge
+> is projected from the TopologyLayer's `intersects`, which is a **SYMMETRIC** bounding-box overlap
+> (`graphReadModel.ts` `EDGE_FAMILIES`, L-3255). `A --bounds--> B` therefore does **NOT** mean *"A
+> contains B"*; the stored direction is an artefact of which element the adapter iterated first.
+> Any view that drew an arrowhead on it would be asserting containment that nothing in the estate
+> measured.
+>
+> **MUST:** a relationship family whose producing test is symmetric is carried as **undirected** to
+> every consumer that renders it, and the renderer states the fact. `projectHierarchy` returns an
+> `undirected` set and `serialiseNetwork` writes `directed: false` per edge, so an exported network
+> cannot lose the caveat that the card carried.
+>
+> **MUST NOT:** re-derive a direction from node kind, id order, or which endpoint the reader
+> selected. A plausible direction is worse than a stated absence of one, for the same reason
+> C100 §5 forbids substituting a colour on failure "in a way indistinguishable from success".
+
 ---
 
 ## §5 — D · Dependency discovery
@@ -827,6 +849,39 @@ would decide it.
 | **U-INV-12** | A generator's clear is plan-bound and refuses on authored state (§18.1, §18.2) |
 | **U-INV-13** | The confirmation requirement is a pure function of the plan, never of the verb (§16.1, §16.2) |
 | **U-INV-14** | No observer mutates authoritative state on a path where safe-mode guarantees are required, outside the plan (§1.2d) |
+| **U-INV-15** | A surface that DISPLAYS relationships states which families it could not show, and why, per family — an empty relationship view names its own cause and is never a blank canvas (§4.4, §19.4) |
+
+> **§19.4 — U-INV-15, stated. MUST. Added 2026-08-23 (lane GRAPH48, L-8414).** U-INV-2 forbids a
+> consequence path returning `[]` to mean *"I could not determine"*. This is the same rule at the
+> PRESENTATION layer, where it has its own failure mode: **an empty picture and a broken picture
+> look identical, and the reader believes the picture.**
+>
+> A surface that displays relationships MUST, per relation family it claims to show, be able to
+> distinguish and state:
+>
+> 1. **the family produced nothing in THIS model** — a fact about the building;
+> 2. **the family has no production writer** — a fact about the product;
+> 3. **the family is PARKED** under C71 §2.2 — declared, deliberately not required, and per
+>    C71 §2.3 **not a gap**;
+> 4. **the projection did not run or was unreachable** — a fact about the tool.
+>
+> These are four different answers and a blank canvas is none of them. The measured instance: the
+> UBG's `servesZone` family has no writer *because there is no zone model to write from* — no `zone`
+> element kind exists among the 29 declared, there is no zone store, and `SemanticGraph.ts:57` marks
+> its own member `// (future)`. A System-based relationship view is therefore empty on **every**
+> model, permanently, and correctly.
+>
+> **MUST NOT: fill such a view by inventing the missing model.** An invented zone taxonomy would
+> make the view look complete while asserting a structure the product does not have — strictly
+> worse than the honest blank. Per C71 §2.5 a parked family becomes required only via an ADR naming
+> its first **consumer**; a writer-first unparking is forbidden, and a *renderer*-first unparking is
+> the same defect with a picture attached.
+>
+> **The corollary for CAPS.** A view that draws a subset of what it projected must say so, must say
+> by how much, and must mark every derived count as a lower bound — and it must NEVER render that
+> the same way it renders a scope the reader chose. A filter is the reader asking for less; a
+> truncation is the tool delivering less. Rendering them alike teaches the reader to distrust a
+> number that is not in doubt, and to trust one that is.
 
 > **§19.1 — the no-partial-credit rule, applied across the product. MUST.** C70 §3.2 forbids
 > partial credit **along** the Golden Chain; C78 forbids it **across** the element × relationship

@@ -2,7 +2,7 @@
 
 **Lane:** GRAPH48 · **Date of every measurement below: 2026-08-23** · **Issue log:** L-8400 … L-8480
 **Governing contracts:** C71 (graph & topology vocabulary) · C78 (universal relationship & consequence)
-**ADR:** ADR-0360 (one graph, six projections) · builds on ADR-0343, ADR-0358, ADR-0058, ADR-0320
+**ADR:** ADR-0364 (one graph, six projections) · builds on ADR-0343, ADR-0358, ADR-0058, ADR-0320
 **Files:** `apps/editor/src/ui/analysis/**` · `packages/building-graph/**`
 
 ---
@@ -128,7 +128,7 @@ paying for.
 
 ## §3 — What is genuinely new, and the shape each new thing takes
 
-### §3.1 — One graph, six projections (**ADR-0360**)
+### §3.1 — One graph, six projections (**ADR-0364**)
 
 **⛔ THE SIX VIEWS ARE NOT SIX GRAPHS.** C71 §4.2 makes the UBG's vocabulary *"the canonical QUERY
 vocabulary"* with the other stores mapping onto it; C71 §4.1 forbids merging the stores. A view is

@@ -43032,3 +43032,408 @@ except Wall**.
   regex version false-positived on `IFCGEOMETRICREPRESENTATIONCONTEXT('Model',…)`, whose attribute #1
   is a `ContextIdentifier`; whitelisting entity names instead would have silently stopped checking
   any entity nobody remembered to add.
+
+---
+
+## Lane MAT50 — element × material: the derived axis, and the layer that could not name a material (2026-08-23)
+
+> **Founder**: *"COULD YOU PLEASE TRY TO EXTEND AS MUCH AS POSSIBLE TO ELEMENT VS MATERIALS? AND ALL
+> PROPERLY WIRED AND ACCESSIBLE VIA RAC AND UI?"* then, one axis deeper: *"Can you please add
+> material for each layer? and that the user can change the material via UI and via RAC?"*
+> Contract: **C100 §8.2 S11** (the schedule) and **§6.1** (every surface populated from the master).
+
+### L-8600 — ⭐ CLOSED: `Ceiling` was a column that could never tick, and it is UNSEEDED, not absent
+
+The Material Schedule's element axis was a hand-typed six-string `ELEMENT_CATS` array beside five
+hand-written `mark()` calls. **`Ceiling` had a column and no marker** — 329 dashes, forever.
+
+⛔ **ABSENT vs UNREACHABLE was established before fixing, per C01 §6 rule 6.** It is NEITHER:
+`ceilingSystemTypeStore` **is** exported from `@pryzm/core-app-model/stores`, and
+`CeilingLayer.materialId?` **is** declared (`CeilingTypes.ts:15`). Measured at RUNTIME, not by grep:
+**10 built-in ceiling types, ZERO materialIds.** The state is **UNSEEDED** — the store and the field
+both exist and no built-in fills one. Fix: the column is KEPT (nothing deleted) and now renders a
+third state rather than a dash.
+
+### L-8601 — ⭐ CLOSED: `handrailTypeStore` carries 26 distinct materialIds and had NO column at all
+
+The inverse of L-8600, and the one a count could never have found. **44 built-in handrail types, 26
+distinct materialIds**, fully seeded, and entirely invisible in the schedule. Real data the founder
+owns, with no way to see it. Now a column, and it ticks.
+
+⚠ **The lane brief named only L-8600.** Both directions were wrong at once, which is why the
+replacement gate compares **SETS, never counts** — the same lesson CLAUDE.md records for the
+contract index after five recurrences.
+
+### L-8604 — ⭐ CLOSED (the CLASS behind L-8600): one dash carried two opposite meanings
+
+`—` meant both *"this family does not use this material"* and *"this family cannot name any
+material"*. **§CONTEXT-DATA-HONESTY — failure and empty were the same value.** Three of nine type
+stores are in the second state, so a Ceiling dash asserted something the data never said. Split into
+`∅` with its own legend naming the affected families.
+
+Measured 2026-08-23 · **seeded**: wall 11 · floor 11 · slab 13 · handrail 26 · door 6 · window 5 ·
+**unseeded**: ceiling 0 · curtain-wall 0 · plumbing 0.
+
+### L-8602 — ⛔ OPEN: seeding Ceiling CHANGES PIXELS, so it is a founder decision, not a tidy-up
+
+Per **C100 §10.12.b** a reference added to a record already carrying a cached hex must bring the hex
+to the master's value **in the same change**, or the disagreement reads downstream as a deliberate
+user OVERRIDE. Measured: the ceiling layer is `#F0EEE8`; the nearest master row
+`gypsum-plasterboard` is `#f0eeea`. **They differ**, and `resolveLayerColour()` returns
+`materialColor ?? functionColour` — so seeding recolours ceilings. Not done under the standing
+"do not compromise graphics" constraint. Same for curtain-wall.
+
+### L-8603 — ⛔ OPEN (excluded with a reason): `PlumbingSystemTypeStore` — 19 types, 0 materialIds
+
+Adding it would mint a third un-tickable column, and it is **not a declared dependency of
+`apps/editor`**, so it would drag a `package.json` + `pnpm-lock` change (frozen-lockfile risk across
+seven live lanes) to buy a column that cannot answer. On `EXCLUDED_TYPE_STORES` with that reason;
+add it **with** its seeding, never before.
+
+### L-8610 — ⭐ CLOSED: a wall layer could not NAME a material — ABSENT, not unreachable
+
+`WallTypeEditorModal` offered `<input type="color">` and nothing else, and
+`WallTypeSelectorWidget:459` pushed new layers with **no `materialId` at all**. So every layer any
+user has ever authored carries an unconstrained hex and no reference — a **C100 §6.1** breach
+(*"populated from the master, never a hand-written swatch list"*; a raw colour input is not even a
+swatch list).
+
+⭐ **The pipe was already complete**: `elementTypeAuthoringAdapters.ts:79` is `layers: draft.layers`,
+verbatim passthrough. Nothing needed rewiring — the fix is a CONTROL. This is **C100 §10.12**'s
+finding (*"the surfaces which AUTHOR a finish could not NAME a material"*) one family over from
+door/window, and it reuses that lane's `buildFinishMaterialSelect` rather than minting a rival
+(C68 §7.c). Overrides are marked with a reset, per §2.2 / §10.12.e, with **no new field** — the state
+IS `materialColor ≠ masterHex(materialId)`.
+
+### L-8612 — ⛔ OPEN, and BLOCKED ON ANOTHER LANE'S FILE: the RAC half of the per-layer ask
+
+The founder's *"change the material … via RAC"* needs a batch verb. It cannot be completed by this
+lane, and the blocker is structural rather than a matter of effort:
+
+* `BATCH_REPORT_EVENTS` lives in **`apps/editor/src/ui/ai/ZeroTokenChatBridge.ts:1297`** — inside
+  lane **BYOK44**'s declared exclusion zone.
+* `batchReportEventsCompleteness.spec.ts` **derives the required key set from the handlers
+  themselves**: *"Adding a broadcasting handler without a listener now fails here."*
+
+⭐ So shipping the handler alone would turn a **currently-GREEN gate RED** and would print the
+canned *"Done"* over whatever it actually did — **L-996 exactly, re-run**. Stopped and reported
+rather than half-built. The unblock is ONE row: `'wall.setLayerMaterialBatch':
+'pryzm-wall-layer-material-batch-report'`.
+
+⚠ **A design question rides with it and should NOT be decided silently**: *"make all walls interior
+finish plaster"* already works and writes `sideFinishes` — an **appearance-only field beside the
+layer stack** (`SetWallSideFinishCommand` header). A new *"…interior layer material oak"* would write
+`layers[i].materialId`. Two near-identical sentences writing two different fields is a rival
+vocabulary in the making (C68 §7.c). Whether the existing verb should ALSO name the layer's material
+is a founder/contract call, not a lane's.
+
+### L-8613 — ⛔ OPEN (NOT this lane's): 6 TS parse errors in GRAPH48's `analysisSurface.ts`
+
+`NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **6 errors, all in
+`apps/editor/src/ui/styles/panels/analysisSurface.ts`** (TS1005/TS1109 at :1144–:1151), a file
+modified in the working tree by lane **GRAPH48**. It is the **backtick-inside-a-CSS-comment-inside-
+a-template-literal** trap this session has already hit in three lanes: the backticked
+`GraphViewport.ts` at :1143 and the backticked `<div role="button">` at :1151 terminate the literal.
+Reported, not edited — it is another lane's in-flight file. **0 errors attributable to MAT50's
+files** (the same command read RC=0 before that edit landed).
+
+### L-8620 — verification, run in the FOREGROUND
+
+* `apps/editor` → `materialUsageRegistry.test.ts` **12/12**, `materialScheduleRender.test.ts`
+  **7/7**, `wallLayerMaterialAuthoring.test.ts` **9/9**.
+* ⭐ **Proven at the layer the founder experiences, never at a pure function return**
+  (§COMMITTED-IS-NOT-REACHABLE): the schedule suite mounts the real `mountMaterialSchedule()` into a
+  real DOM and reads back a ticking Handrail column and a Ceiling column rendering `∅` and never
+  `—`; the authoring suite opens the real modal and fires a real `change` on the real picker.
+* ⚠ **ARM B3 of the registry gate was RED on first run and was RIGHT to be** — it asserted the
+  excluded stores had singletons, when *"has no module-level singleton"* is precisely why three of
+  them are excluded. Two discoverers now (singletons vs classes) so it cannot re-collapse.
+* ⚠ One test assertion was wrong and the PRODUCT was right: `STANDARD_MATERIAL_LIBRARY` is the
+  THREE-typed projection, so `params.color` is a `THREE.Color`, not a hex string. Re-pointed at the
+  L0 `MATERIAL_CATALOG` — an **independent** source, not the product's own helper, which would have
+  been circular (§PROBE-CAN-BE-WRONG-THREE-WAYS).
+
+
+---
+
+### L-8400 — ⭐ CLOSED: the Phase-1 audit — twelve of twenty capabilities already shipped
+
+**Lane GRAPH48, 2026-08-23.** The founder asked for the Analytics graph rebuilt against the
+BIMUniXchange IFC Network Analyzer. Phase 1 was an audit and it changed the plan: of twenty
+requested capabilities, **twelve already ship** and are reused by direct import — `graphReadModel`,
+`nodeLinkSvg`, the Barnes-Hut layout, the 320-node measured cap, `selectionFacets`, `seriesFocus`,
+the UBG and its ten edge families, the per-family reality verdicts, `seriesColour`, the edge legend,
+the level scope and one of the two selection directions.
+
+Full table with one command per row: `docs/03-execution/specs/SPEC-ANALYSIS-RELATIONSHIP-GRAPH-3D.md` §1.
+
+### L-8401 — ⭐ CLOSED: the bidirectional selection was HALF true, and the missing half was the ask
+
+The lane brief read *"the bidirectional selection he is asking for may ALREADY WORK"*. **Half true.**
+
+- **graph → 3-D WORKED**, end to end, verified by reading the whole path rather than assuming the
+  dispatch lands: `widgetRenderers.ts:915` → `selectionBus` → `InspectModeCoordinator.ts:136` →
+  `DiagnosticMaterialManager.ts:1521`. The Analysis surface is a 50 %-width right panel
+  (`#anl-surface { position: fixed; right: 0; width: 50% }`), so the 3-D viewport is on screen
+  beside the graph while the click happens.
+- **⛔ 3-D → graph DID NOT EXIST.** `relationship-graph` was `refresh: 'manual'` and
+  `_renderSelectionWidgets()` skips every widget that is not `'on-selection'`. Selecting a wall in
+  the viewport changed nothing on the relationships tab. **That is the founder's second sentence and
+  it was unbuilt.** Closed by L-8420.
+
+⚠ A limit on the direction that DID work, recorded so nobody reports it as a defect: the purple is
+painted only while the Analysis lens is ACTIVE (`DiagnosticMaterialManager.ts:1523`). A graph click
+made from another workspace updates the stored set and paints nothing until the user enters Analysis.
+
+### L-8402 — ⚠ OPEN: `nodeLinkSvg.ts` is the INTENDED shared renderer, not the only one
+
+There are **four** node-link implementations and `nodeLinkSvg.ts` is the newest and smallest.
+`wc -l apps/editor/src/ui/graph/*.ts apps/editor/src/ui/living-graph/*.ts apps/editor/src/ui/rooms/RoomGraphPanel.ts`
+→ **5,911 lines** outside the shared module (`BuildingGraphOverlay` 1,031 + `graphLayout` 257; the
+Living Graph's 8 files 3,194; `RoomGraphPanel` 561).
+
+**This lane did not collapse them and does not claim to.** Migrating three live overlays was not its
+remit and doing it blind is the larger risk — the same judgement L-3257 already recorded. Its
+commitment is narrower and enforceable: **it added no fifth.** Owner: unassigned.
+
+⭐ One of the four already solves the founder's second sentence, ROOM-shaped:
+`LivingGraphOverlay.reflectGraphFocusFromModel()` (`:1032`) resolves a picked element to its room and
+focuses that node. That is the pattern, not the answer — the founder asked for the picked ELEMENT's
+topology, not its room's.
+
+### L-8410 — ⭐ CLOSED: the discipline taxonomy is layered ON the IFC authority, not a fifth copy of it
+
+Structural / Architecture / MEP / Equipment / Spatial with per-family counts.
+`packages/building-graph/src/discipline.ts` maps element FAMILY → discipline; the IFC class arrives
+through an **injected `IfcClassResolver`** whose return shape is exactly lane IFCTREE47's
+`plugins/ifc-inspector/src/tree/ifc-class-authority.ts`.
+
+⛔ No fifth PRYZM-type → IFC-class map was written. The fact already has four homes
+(`CoreElement.ts`, `IfcModelBuilder.ts`, `FragmentReader.ts`, C25 §2) and IFCTREE47 is reconciling
+them.
+
+⛔ **Two absence rows kept apart:** `unclassified` (a known family deliberately placed nowhere — a
+grid is a datum) vs `unresolved` (family unknown). Merging them would hide a real gap inside a
+deliberate one. The generic UBG kind `'element'` resolves to `unresolved` on purpose: three of the
+five adapters stamp it on every endpoint they materialise, and folding that into a named bucket
+makes every bucket unfalsifiable.
+
+### L-8411 — ⚠ OPEN: the IFC class column is a DECLARED SEAM, unresolved until IFCTREE47 lands
+
+`git status --porcelain plugins/ifc-inspector` → `?? plugins/ifc-inspector/src/tree/` (2026-08-23);
+`SendMessage` to lane IFCTREE47 returned *"No agent named 'IFCTREE47' is reachable"*. An import
+across an untracked path is a build that breaks the moment either lane commits alone.
+
+So `projectHierarchy` is called with `ifc: null` and every IFC cell renders a NAMED non-answer —
+never a guess, never a blank. **Wiring it is one argument and no logic moves.**
+
+### L-8412 — ⛔ OPEN (by-catch, not this lane's file): `BeamStore` reads a wall field the schema never declares
+
+Found while establishing that discipline cannot be assigned per element.
+`packages/core-app-model/src/stores/BeamStore.ts:408` reads `wall.loadBearing`:
+
+```
+if (wall.loadBearing && this.isPointNearWall(point, wall, tolerance)) { … }
+```
+
+`packages/schemas/src/elements/Wall.ts` declares **no** `loadBearing` field, `WallStore` writes
+none, and `packages/ai-host/src/RuleEngine.ts:617` filters walls on `loadBearing === undefined` —
+i.e. it EXPECTS the absence. So the guarded branch is structurally unreachable: it is not a
+condition that is usually false, it is a condition that can never be true. Same shape as
+[[unsatisfiable-gate-decomposition-is-the-fix]].
+
+**Not fixed here** — it is a beam/wall-family question and touching it would put this lane inside
+C84's per-element block for no benefit to the graph. Owner: the beam family.
+
+### L-8413 — ⭐ CLOSED: six hierarchy views are six PROJECTIONS of one graph
+
+Element / Spatial / System / Room / Topology / Mixed, each a SUBSET of the UBG's ten declared edge
+families (`packages/building-graph/src/hierarchy.ts`). C71 §4.1 forbids merging the three graph
+stores and §4.2 makes the UBG's vocabulary the canonical QUERY vocabulary — so six builders would
+have minted six rival ideas of what the building is.
+
+Node selection is **edge-driven**: a view keeps a node only when an edge of its families touches it,
+so every count is exact for what is drawn and an orphan is never drawn under a heading that promised
+a relationship. `mixed` enumerates its ten by hand rather than spreading `UBG_EDGE_TYPES`, so an
+eleventh family must be admitted by a person.
+
+### L-8414 — ⭐ CLOSED: the System view is empty on every model, and it says why
+
+⛔ `servesZone` has **no writer because there is no zone model to write from**: no `zone` element
+kind among the 29 declared, no zone store, no system-side element that could be the `from` endpoint,
+and `SemanticGraph.ts:57` marks its own member `// (future)`. It is **PARKED** under C71 §2.2, and
+C71 §2.3 says parked is **not a gap**.
+
+So the view renders a sentence naming all of that — including the separation from the large, real
+URBAN zoning subsystem, whose subject is a PARCEL and which references no element id — rather than a
+blank canvas that reads as a broken feature.
+
+⛔ **Filling it would mean inventing a zone model, which is strictly worse than the honest blank.**
+Per C71 §2.5 the family becomes required only via an ADR naming its first CONSUMER. Ratified into
+**C78 §19.4 / U-INV-15**.
+
+### L-8415 — ⭐ CLOSED: `bounds` is drawn UNDIRECTED, and C78 §4.4 now says so for every surface
+
+The TopologyLayer test behind `bounds` is `intersects`, a **SYMMETRIC** bounding-box overlap
+(L-3255). `A --bounds--> B` does **NOT** mean "A contains B" — the direction is an artefact of
+adapter iteration order. An arrowhead would assert containment nothing measured.
+
+`projectHierarchy` returns an `undirected` set; the card prints the caveat; `serialiseNetwork` writes
+`directed: false` per edge so an exported network cannot lose what the card carried. Ratified into
+**C78 §4.4**.
+
+⚠ The second warning travels with it and must not be dropped: **`bounds` emitted NOTHING in
+production until 2026-08-21** (L-3253), because its id universe read `window.pryzmScene`, which
+nothing in this repository ever assigned.
+
+### L-8420 — ⭐ CLOSED: "select an element in PRYZM and the graph shows its topology"
+
+`relationship-graph` moved from `refresh: 'manual'` to `'on-selection'`, and the card now reads
+`selectionBus.currentIds` and lights `focusNeighbourhood(projection, selected, depth)`.
+
+The neighbourhood is a BFS to a **stated, clamped 1..4 hops**, traversed **UNDIRECTED even where the
+edge is directed** — a door `hostedIn` a wall points AT the wall, and following out-edges only would
+report the adapter's iteration order rather than the building. It returns a **set to emphasise**,
+never a smaller graph: dormant, not gone, so every count above stays true.
+
+⛔ A seed with no node in the view is REPORTED, not silently dropped: *"the Unified Building Graph is
+a projection, not a census — a node exists only where an adapter projected a relationship touching
+it"*. A bare "0 relationships" would have read as a broken dashboard.
+
+### L-8430 — ⭐ CLOSED: ONE Barnes-Hut, two dimensionalities — and the 2-D picture proven unmoved
+
+A 3-D layout needs an octree where `nodeLinkSvg` used a quadtree. Rather than a second tree, the
+cell became `2^D`-ary (`forceLayoutND.ts`) and both layouts call it.
+
+⛔ **The 2-D output is BIT-IDENTICAL, measured rather than asserted.** The PREVIOUS implementation
+was run over four sizes straddling the exact/Barnes-Hut switch — **12 · 59 · 60 · 140** — and
+captured to `forceLayout2dBaseline.json` *before the refactor existed*. `graphLayout3d.spec.ts`
+compares every coordinate with **`toBe`**, not `toBeCloseTo`: the claim is bit-identity and a
+tolerance would pass on the very drift the test exists to catch.
+
+Arithmetic preserved expression for expression: axis-ordered squared distance (bit-for-bit
+`dx*dx + dy*dy` at D=2), `size[0]` as the opening denominator (the old `c.w`, not a max extent), and
+a **branched** repulsion constant rather than `Math.pow(area, 1)` — an approximated operation that
+could have cost a last bit in every existing diagram for nothing.
+
+### L-8431 — ⭐ CLOSED: the 3-D seeding is a Fibonacci sphere, closed form, no RNG
+
+Deterministic by construction — no `Math.random`, no rejection sampling. Asserted: two runs over one
+graph are identical; the cloud genuinely uses the third axis (a generalisation that silently
+collapsed `z` would pass every bounds check while drawing a flat picture in a 3-D viewport); and
+80 coincident ids exercise the depth-24 floor rather than blowing the stack.
+
+### L-8440 — ⭐ CLOSED: the 3-D graph reuses the ONE WebGL port; it does not create a second context
+
+⛔ **A `WebGLRenderer` for the Analysis card was REJECTED.** Browsers cap live WebGL contexts
+(commonly 8–16) and silently kill the OLDEST when a new one is created — in this application the
+oldest is **the main viewport**. `ElementPreviewRenderer` was written to prevent exactly that; a
+graph renderer would have been the same defect in a graph's costume, against the standing *"don't
+compromise graphics"*.
+
+The graph is a second SUBJECT for one rig: an `InstancedMesh` of spheres (ONE draw call for 320
+nodes — instancing is not defeated here because colour is per INSTANCE, never per material, which is
+what defeated it in the main viewport) plus one vertex-coloured `LineSegments`.
+
+- **P2** — THREE only via `@pryzm/renderer-three/three`; **no THREE type crosses into
+  `ui/analysis/` in either direction.**
+- **P3** — no rAF, no ticker, no loop; every draw coalesced through
+  `getFrameScheduler().scheduleOnce`. An idle 3-D graph costs zero frames.
+
+### L-8441 — ⭐ CLOSED: picking is 2-D, from the projection that drew the frame
+
+The renderer returns each node's projected SCREEN position after a draw, so hit-testing is "which
+disc contains the cursor, frontmost wins". Three payoffs: no THREE type leaks; labels are drawn into
+the 2-D canvas at full device resolution and stay crisp where an in-scene sprite would be resampled
+by the blit; and **the pick cannot disagree with what was drawn**, because it is computed from the
+very projection that drew it.
+
+Nodes behind the camera are excluded rather than clamped — a mirrored projection would put a label
+naming the wrong element in the wrong place.
+
+### L-8442 — ⚠ OPEN: PNG export is 3-D only, and the button says so
+
+The 2-D card is SVG; a PNG of it needs a rasteriser this lane did not build. Pressing Export PNG in
+2D appends a strip explaining that and telling the reader to switch to 3D — rather than handing them
+an empty image, which is worse than a button that explains itself.
+
+### L-8443 — ⭐ CLOSED: the 3-D viewport joins the SHARED WebGL mount refcount
+
+`acquirePreviewMount()` on mount, `releasePreviewMount()` on dispose, and `disposeGraphViewport()`
+called from `AnalysisSurface._hide()`. Without this the graph would have worked until the last
+element-showroom panel closed and then lost its context underneath it — an intermittent blank
+viewport whose cause is in another file entirely. The card also disposes the previous viewport
+**after** mounting the next, so the refcount never touches zero between renders.
+
+### L-8451 — ⭐ CLOSED: the ORBIT lives outside the widget, because the card is rebuilt on every selection
+
+Making the card `'on-selection'` (L-8420) means it is rebuilt whole on every click. A widget-owned
+orbit would therefore snap the camera back to the default every time the founder selected a wall —
+throwing away the orientation he had just chosen in order to look at that wall. The orbit object is
+owned by `graphViewState` and mutated in place.
+
+### L-8452 — ⭐ CLOSED: the layout is CACHED on the node set, and the reason is LEGIBILITY
+
+Two reasons, and the second is the important one. **Cost:** a 320-node solve on every click would
+make a dashboard the reason a frame is dropped (ADR-0343 §D.3). **Legibility:** if the picture
+rearranged every time the reader picked a node, they could never build a mental map of their own
+building — the thing they clicked would be somewhere new each time. A stable layout is what makes
+*"this cluster is the west wing"* a thought a person can have.
+
+⚠ The key names the node SET, never its size: two different graphs of the same size are different
+buildings, and a count-keyed cache would draw one building's layout under another's ids.
+
+### L-8460 — ⭐ CLOSED: Export Network Data carries its caveats, not just its data
+
+A JSON file has no strip above it saying *"storey-scoped, truncated, possibly stale"*. So the
+envelope carries the scope sentence, the liveness sentence, the truncation flag, the PRE-cap totals,
+the view's basis, its empty state if it had one, the discipline tree with its per-family IFC answer,
+and `directed: false` on every symmetric family. It also states outright that it is a **projection,
+not a census**.
+
+⚠ `generatedAt` is a timestamp, not a version: this file is a photograph, not something the product
+reads back. The UBG is deliberately NOT persisted (`building-graph/src/types.ts` §GR-17) and
+re-importing this would create precisely the stale-snapshot hazard that decision avoids.
+
+### L-8461 — ⚠ NARROWED (not deleted): one pre-existing assertion in `analysisHonesty.spec.ts`
+
+It required every `source: 'graph'` widget to be `refresh: 'manual'`, justified as *"re-solves an
+O(n²) layout on commit"*. **Both halves of that rationale had moved:** the layout is O(n log n) since
+§PERF-GRAPH-BARNES-HUT (L-6620), and a SELECTION re-solves nothing at all (L-8452). The assertion had
+become stricter than the invariant it protected, and it blocked the founder's second sentence.
+
+It now asserts the REAL invariant — `.not.toBe('on-commit')` — with the reasoning written in place.
+⛔ The `on-commit` prohibition is untouched: re-solving on every wall move is still forbidden.
+
+### L-8462 — ⚠ OPEN: the bound for the founder's largest model, stated per surface
+
+- **2-D SVG and 3-D viewport share ONE cap**, `GRAPH_NODE_CAP = 320`. Two caps would let the 2D and
+  3D tabs of one card disagree about the same building.
+- **The UBG holds 430 nodes** on the founder's current model → 320 of 430 drawn (74 %; it was 60 of
+  430 = 14 % before L-6620). The truncation notice states the cap, the total and marks every derived
+  count `≥`.
+- **⛔ The 111,263-element IFC model is NOT in this graph and the card must not imply it is.** The
+  UBG is a projection, not a census: a node exists only where an adapter projected a relationship
+  touching it, and an imported IFC file creates no adapter edges. Showing "320 of 111,263" would
+  imply the rest were merely undrawn.
+- **Discipline and family counts** come from the element census — 18 declared stores, memoised
+  `O(n)` — which is written down and reports an unreachable store rather than folding it into zero.
+
+### L-8463 — ⭐ CLOSED, and it CLOSES lane MAT50's L-8613: the backtick-in-a-CSS-comment trap, again
+
+Lane MAT50 reported six TS parse errors in `apps/editor/src/ui/styles/panels/analysisSurface.ts`
+(TS1005/TS1109 at :1144–:1151) while this lane's edit was in flight, and their diagnosis was exactly
+right: **a backtick inside a CSS comment inside a template literal terminates the literal.** The
+offenders were the backticked `GraphViewport.ts` and the backticked `<div role="button">` in a
+comment this lane had just appended.
+
+⭐ **Their report is the reason this was caught in the same turn rather than at the next build**, and
+it is the third recurrence of this trap in one session. Fixed by stripping every backtick from the
+appended block (single quotes read identically in a CSS comment) and restoring the literal's
+terminator. Re-measured immediately after:
+`NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **RC=0, 0 errors**.
+
+⚠ The general rule, since three lanes have now paid for it: **the analysis stylesheet is ONE
+template literal from `export const … = \u0060` to the closing `\u0060;`.** Anything appended to it —
+including prose in a `/* … */` — may not contain a backtick. `sed -n '$p'` on the file after any
+append, and a `tsc` run, is the cheap check.
