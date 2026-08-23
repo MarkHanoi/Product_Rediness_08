@@ -938,3 +938,91 @@ capability.** STATE: **DECLARED-BUT-UNREACHABLE** (L-7502).
   `npx vitest run apps/editor/src/engine/views/plantools/__tests__/elementCreationMatrix.spec.ts` ·
   `pnpm --filter @pryzm/editor exec vitest run __tests__/creationToolShortcuts.test.ts`
 * Defects opened by this map: **ISSUE-LOG L-7500 … L-7510**.
+
+---
+
+## §13 — INSPECT FOCUS, per element family — which families can be highlighted in Inspect
+
+> **Why this section exists.** The founder reported *"when I select a **wall** it highlights for a
+> second — or less — and stops being highlighted"* while a room *"works perfect"*. That was one
+> defect (`ISSUE-LOG` L-8200: the focus slot was named `selectedRoomId` and compared against
+> `userData.roomId`, which no wall mesh can satisfy) — but **the fix's reach is per-family**, and
+> without this table the same report arrives again next week naming a different family. Measured
+> **2026-08-23**, lane INSP46, at commit `4ba23fcf`.
+
+### §13.0 — The one predicate every row is measured against
+
+`DiagnosticMaterialManager._resolveElementId(obj)` walks the THREE ancestor chain and returns the
+first `userData.id ?? userData.elementId` it finds. **A family can be focused if — and only if — a
+mesh that survives the lens pass resolves, through that walk, to the id `selectionBus` carries.**
+Two things break that, and they break it differently:
+
+* **Instancing.** `InstancedElementRenderer._createGroup` stamps
+  `group.mesh.userData.id = 'instanced-group-<key>'` and parents the mesh at the **scene root**
+  (`InstancedElementRenderer.ts:480,490`), outside the element's group. Its own comment at `:460`:
+  *"an InstancedMesh exposes NO per-element `userData.id`"*. So the element's id appears on no
+  visible mesh.
+* **The hit-proxy rescue.** Most instanced families still keep one invisible `colorWrite:false`
+  proxy inside the element's own group for raycasting. Since `4ba23fcf` the focus pass paints that
+  proxy **as a last resort** — only for a selected element, and only when no ordinary mesh of that
+  element was painted (L-8211). A family with **no proxy** has nothing left.
+
+The STATE vocabulary is §0's, unchanged: **ACTIVE** · **DECLARED-BUT-UNREACHABLE** · **ABSENT**.
+
+⚠ **Two search tools were used for every negative**, per §0. The per-family sweep ran Bash
+`grep -rn` for `userData.id =`, `userData.elementId =`, `userData = {`, `userData: {`,
+`Object.assign(*userData`, and for the instancing wiring `.register(`, `_instanceBridge`,
+`setInstanceBridge`, `__pryzmElementInstancingV1`; the `Grep` tool re-ran the negatives
+independently. Both agreed on every "no bridge" verdict below.
+
+### §13.1 — The table
+
+| Family | id reachable from a painted mesh? | Where the id is stamped | Instanced? | STATE |
+|---|---|---|---|---|
+| **room** | YES — the volume mesh itself | `RoomBoundaryBuilder.ts:405` (volume), `:340` (overlay) | NO | **ACTIVE** — and by the §1.3 violet **jewel**, not the solid blue. This is the path that always worked. |
+| **slab** | YES — the leaf mesh itself | `SlabFragmentBuilder.ts:1719` (mesh), `:544` (root) | NO | **ACTIVE** |
+| **stair** | YES — group *and* mesh | `StairMeshBuilder.ts:183` (group), `:184` (mesh) | NO | **ACTIVE** |
+| **floor** | ancestor group | `FloorPanelBuilder.ts:147` | NO | **ACTIVE** |
+| **ceiling** | ancestor group | `CeilingPanelBuilder.ts:240` | NO | **ACTIVE** |
+| **roof** | ancestor group | `RoofFragmentBuilder.ts:281` | NO | **ACTIVE** |
+| **door** | ancestor group (sub-meshes untagged — C15) | `DoorBuilder.ts:578`, applied `:591` | NO | **ACTIVE** |
+| **lighting** | ancestor group | `LightingFragmentBuilder.ts:390-391` | NO | **ACTIVE** |
+| **curtain-wall** | ancestor group | `CurtainWallBuilder.ts:1334` | **ALWAYS**, but via its **own** `CurtainWallInstanceManager`, whose `InstancedMesh` is a **child of the element's group** (`CurtainWallBuilder.ts:1189-1193`) | **ACTIVE** — ⭐ the only always-instanced family that stays resolvable, and the reason is structural: it did not use `InstancedElementRenderer`. |
+| **wall** | ancestor group; **via the hit-proxy when instanced** | `WallFragmentBuilder.ts:1049`; proxy `:1509-1532` | **CONDITIONAL** — geometric gate, not a flag: instanced whenever the bridge is injected (`engineLauncher.ts:547`) *and* the wall is simple. `WallFragmentBuilder.ts:1303` estimates **70-85% qualify** | **ACTIVE** (both paths, since `4ba23fcf`) |
+| **window** | ancestor group; **via the hit-proxy when instanced** | `WindowBuilder.ts:805`; proxy `:1119` | **CONDITIONAL, default ON** (`ElementInstanceBridge.ts:332-338`) | **ACTIVE** — ⚠ when instanced the emphasis is the opening's **bounding box**, not the frame silhouette. Legible, but stated. |
+| **column** | ancestor group; **via the hit-proxy when instanced** | `ColumnFragmentBuilder.ts:301` / `:399`; proxy `:436` | **CONDITIONAL, default OFF** (`ElementInstanceBridge.ts:332-338`) | **ACTIVE** |
+| **beam** | ancestor group; **via the hit-proxy when instanced** | `BeamFragmentBuilder.ts:378` / `:494`; proxy `:529` | **CONDITIONAL, default OFF** (`ElementInstanceBridge.ts:332-338`) | **ACTIVE** |
+| **handrail** | ancestor group — the **rail** and **infill** stay real meshes (`:416`, `:424`, `:472`) | `HandrailFragmentBuilder.ts:360` | **CONDITIONAL, default ON**, **balusters + posts only** (`:535`, `:576`) | **PARTIAL.** The rail is painted, so a focused handrail is visibly focused. ⛔ Its **instanced balusters and posts are not** — `geometry-handrail` has **no hit-proxy** (established with BOTH `grep -rn "hit-proxy" packages/geometry-handrail/src/*.ts` → 0 and the `Grep` tool → *No matches found*), so those members have no per-element geometry to paint. |
+| **stair-railing** | **NO** when instanced — and instancing is **ON by default** | `StairRailingBuilder.ts:286` (group), `:299` (children) — but the children are removed on the instanced path | **CONDITIONAL, default ON** (`ElementInstanceBridge.ts:332-338`) | ⛔ **DECLARED-BUT-UNREACHABLE.** `StairRailingBuilder.ts:212` **deliberately adds no hit-proxy** — *"that would re-add a per-member mesh and partly defeat the instancing win"*. So a railing member has no per-element geometry of any kind. **This is the one family the fix does not reach.** (`ISSUE-LOG` L-8211.) |
+| **furniture** | ancestor group survives, but is **emptied** when instanced | `FurnitureFragmentBuilder.ts:101` | **CONDITIONAL, default OFF** (`__pryzmFurnitureInstancingV1`, `FurnitureInstanceBridge.ts:127`) | **ACTIVE today** (flag off). ⚠ **LATENT UNREACHABLE**: `FurnitureFragmentBuilder.ts:369-372` sets `root.visible = false` and empties the group, so with the flag ON no mesh exists under it at all — and unlike wall/window/column/beam there is no proxy. Turning that flag on breaks focus for furniture. |
+
+### §13.2 — What the fix does NOT establish
+
+* **Two families lose members to instancing, and they lose different amounts.** `stair-railing`
+  loses EVERYTHING (no member survives, no proxy exists) and is therefore
+  DECLARED-BUT-UNREACHABLE; `handrail` loses only its balusters and posts while the rail survives,
+  so it reads as focused but incompletely. **Those are two different verdicts and this table keeps
+  them apart** — collapsing them into one "instancing breaks focus" row would hide the fact that a
+  handrail *does* highlight.
+* **The `ElementInstanceBridge` defaults are read from the code, not assumed:**
+  `window: true, column: false, beam: false, handrail: true, stairRailing: true`
+  (`ElementInstanceBridge.ts:332-338`). Flipping `column`/`beam` on does **not** break their focus —
+  both keep a hit-proxy (`ColumnFragmentBuilder.ts:436`, `BeamFragmentBuilder.ts:529`).
+* **No row here was clicked.** This is static wiring — what the lens can resolve — measured from the
+  builders. It does not establish that a click in the viewport reaches `selectionBus` for every
+  family; that needs a browser and is the same boundary §0 draws for the rest of this map.
+* **The room's treatment is different by design**, not by omission: a room gets the translucent
+  violet §1.3 jewel with a pulse; every other family gets the opaque `INSPECT_BLUE` solid focus with
+  a white outline and no pulse. The argument is in **C09 §4.3.3** and `ISSUE-LOG` L-8204 — a volume
+  treatment on a solid disappears at grazing angles, and an opacity pulse on a solid reads as
+  flickering geometry.
+
+### §13.3 — Re-run these before trusting a row
+
+```bash
+pnpm --filter @pryzm/editor exec vitest run __tests__/InspectWallFocusSurvivesTheNextFrame.test.ts
+grep -rn "userData.id =\|userData.elementId =" packages/geometry-*/src   # both tools, per §0
+grep -n "elementInstancingDefaults\|__pryzmElementInstancingV1" packages/core-app-model/src/rendering/ElementInstanceBridge.ts
+```
+
+Defects opened by this section: **ISSUE-LOG L-8210, L-8211**.

@@ -394,7 +394,7 @@ or an ancestor — carries `userData.id`. It says nothing about families rendere
 `InstancedElementRenderer`, which stamps `group.mesh.userData.id = 'instanced-group-<key>'` and
 whose own comment records that *"an InstancedMesh exposes NO per-element `userData.id`"*
 (`InstancedElementRenderer.ts:460,480`). For those the focus is not wrong, it is **unreachable**, and
-the per-family reading is kept in `docs/05-guides/developer/editor-chrome-map.md` §12 rather than
+the per-family reading is kept in `docs/05-guides/developer/editor-chrome-map.md` §13 rather than
 asserted here.
 
 ### §4.4 — Intent lifecycle

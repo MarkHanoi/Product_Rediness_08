@@ -41618,10 +41618,30 @@ constraint at `:460` — *"an InstancedMesh exposes NO per-element `userData.id`
 `_resolveElementId` on an instanced mesh returns a **group** id, never the element's, and the focus
 set can never match it. This is **UNREACHABLE, not ABSENT** (C01 section 6 rule 6): both ends exist
 and the identity between them does not survive instancing. The per-family reading is the table in
-`docs/05-guides/developer/editor-chrome-map.md` section 12. The fix shape is the one
-`SelectionManager._instanceObbFor` already uses — `getInstanceElementId(slot)` — but it needs a
-per-instance colour attribute rather than a material swap, which is a different change with a
-different blast radius and is not guessed at here.
+`docs/05-guides/developer/editor-chrome-map.md` section 13.
+
+**CLOSED IN PART, 2026-08-23 (`4ba23fcf`), and the per-family reading is NOT uniform:**
+- **wall / window / column / beam** keep an invisible `role: 'hit-proxy'` mesh inside a group that
+  carries the element id (`WallFragmentBuilder.ts:1532`, `WindowBuilder.ts:1119`,
+  `ColumnFragmentBuilder.ts:436`, `BeamFragmentBuilder.ts:529`). The focus pass now paints that
+  proxy as a **last resort** — only for a selected element, only when no ordinary mesh of that
+  element was painted. **ACTIVE.**
+- **handrail** is **PARTIAL**: its rail and infill stay real meshes (`HandrailFragmentBuilder.ts:416`,
+  `:424`, `:472`) and are painted, but its **instanced balusters and posts are not** — the package
+  has no hit-proxy at all. Established with BOTH tools:
+  `grep -rn "hit-proxy" packages/geometry-handrail/src/*.ts` returns none, and the `Grep` tool
+  returns *No matches found*.
+- **stair-railing** remains ⛔ **DECLARED-BUT-UNREACHABLE** and is the one family with nothing left
+  to paint: `StairRailingBuilder.ts:212` deliberately adds no hit-proxy — *"that would re-add a
+  per-member mesh and partly defeat the instancing win"* — and railing instancing is **ON by
+  default** (`ElementInstanceBridge.ts:332-338`). The zero-match console line names it by name.
+- **furniture** is **LATENT**: instancing is OFF by default, but `FurnitureFragmentBuilder.ts:369-372`
+  sets `root.visible = false` and empties the group, and there is no proxy — so turning
+  `__pryzmFurnitureInstancingV1` on breaks furniture focus.
+
+The remaining fix shape for stair-railing is the one `SelectionManager._instanceObbFor` already
+uses — `getInstanceElementId(slot)` — but it needs a per-instance colour attribute rather than a
+material swap, which is a different change with a different blast radius and is not guessed at here.
 
 ### L-8280 — lane readings at close (readings, with a timestamp — never states)
 
