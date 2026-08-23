@@ -9,6 +9,7 @@ import { safeDisposeMaterial, safeDisposeMaterials } from '@pryzm/renderer-three
 // §GPU-RESOURCE-LIFETIME (ADR-0297 INVARIANT L2) — "DETACH now, RELEASE at the
 // boundary". See _disposeWallGroupChildren() / removeWallFragments() below.
 import { detachAndReleaseChildren, scheduleGpuRelease } from '@pryzm/renderer-three';
+import { markSharedGpuResource } from '@pryzm/renderer-three';
 import { WallData, Opening, FragmentEntityMapping, WallLayer } from './WallTypes';
 import { WALL_DEFAULT_BODY_COLOUR } from './WallDefaultBodyColour';
 // §FEAT-WALL-SIDE-FINISH — the per-side override, resolved ONCE, in a pure module.
@@ -172,6 +173,52 @@ export interface WallFragment {
 
 
 // ─── buildMiterPrism is now in MiterPrismBuilder.ts (imported above) ──────────
+
+/**
+ * §SCENE6-PROXY-MAT-IS-ONE-MATERIAL (L-10003) — the ONE hit-proxy material, shared
+ * by every instanced wall.
+ *
+ * MEASURED (`SCENE6InstancingRejectCensus.measure.test.ts`, 2026-08-23): a corpus of
+ * **364 free-standing walls that are 100 % instanced** puts **364 meshes** into the
+ * scene carrying **364 distinct `MeshBasicMaterial` INSTANCES for 1 distinct visual
+ * signature**. Every one of them is this proxy, and every one was `new`.
+ *
+ * ⭐ WHY THAT IS NOT COSMETIC. On the WebGPU backend a material object is a
+ * node-material compile, and PSO compilation is O(unique material × vertex-layout ×
+ * render-state tuples) — `BatchCoordinator.ts` measures it at ~3 ms per variant and
+ * names it as the seed of an 8 000 ms LONGTASK → device loss. 363 needless material
+ * objects is 363 needless compiles. This is the exact defect
+ * `§PERF-INSTANCE-MATERIAL-DEDUP` (L-131 P6, `materialSignature.ts`) was written for:
+ * *"builders that mint a FRESH THREE.Material on every element … give every element a
+ * UNIQUE uuid"*.
+ *
+ * ⛔ AND IT CANNOT COMPROMISE GRAPHICS, which is why this one is safe to share where a
+ * body material would not be. The proxy exists ONLY so `SelectionManager`'s raycast can
+ * hit an instanced wall (§INSTANCED-SELECTION-FIX). It is
+ * `colorWrite: false, depthWrite: false` — it writes NOTHING to the colour buffer and
+ * NOTHING to the depth buffer, carries no colour, no map, no per-wall state, and is
+ * never mutated. Two walls sharing it is unobservable by construction; there is no
+ * property on it that could bleed. The per-wall **geometry** is still per-wall (walls
+ * differ in length/height/thickness) and is still disposed per wall.
+ *
+ * ⚠ `markSharedGpuResource` IS LOAD-BEARING, NOT DECORATION. `_disposeWallGroupChildren`
+ * → `detachAndReleaseChildren` → `scheduleGpuRelease(child, disposeMaterials=true)` frees
+ * a child's material on every rebuild. Sharing WITHOUT the stamp would have the first
+ * wall rebuild dispose the material all its siblings still draw with — trading 363
+ * compiles for the destroyed-resource fault class this repo has already paid for twice
+ * (ADR-0297 INVARIANT L1 exists for precisely this: ownership is a property of the
+ * RESOURCE, visible to every disposer, not a fact each builder has to know).
+ */
+let _sharedHitProxyMaterial: THREE.MeshBasicMaterial | null = null;
+
+function _hitProxyMaterial(): THREE.MeshBasicMaterial {
+    if (_sharedHitProxyMaterial === null) {
+        _sharedHitProxyMaterial = markSharedGpuResource(
+            new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }),
+        );
+    }
+    return _sharedHitProxyMaterial;
+}
 
 export class WallFragmentBuilder {
     private scene: THREE.Scene;
@@ -1526,8 +1573,7 @@ export class WallFragmentBuilder {
                 const baseOff    = wall.baseOffset ?? 0;
 
                 const proxyGeo  = new THREE.BoxGeometry(wallLen, wall.height, wall.thickness);
-                const proxyMat  = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
-                const proxyMesh = new THREE.Mesh(proxyGeo, proxyMat);
+                const proxyMesh = new THREE.Mesh(proxyGeo, _hitProxyMaterial());
 
                 proxyMesh.userData = { role: 'hit-proxy' };
                 // Centre of wall in wallGroup local space:
