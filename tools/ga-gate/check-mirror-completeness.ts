@@ -282,14 +282,48 @@ function pluginStoreKeys(): { keys: Set<string>; files: number; classes: number 
 // ABSENT. A bare substring search over this file reports the exact opposite of
 // the truth — the bridge says so itself, twice, in as many words. Comments are
 // stripped before matching for that reason.
-function bridgeCases(): { cases: Set<string>; lines: number } {
+function bridgeChannels(): { cases: Set<string>; lines: number; tableVerbs: Set<string> } {
   const abs = path.join(ROOT, BRIDGE_REL);
   if (!existsSync(abs)) fail2(`the bridge file is missing: ${BRIDGE_REL}`);
   const src = readFileSync(abs, 'utf8');
   const cases = new Set<string>();
+  const tableVerbs = new Set<string>();
   let lines = 0;
+  // ⭐ A DECLARED CHANNEL IS NOT ALWAYS A `case`, AND THIS GATE USED TO BELIEVE IT
+  // WAS. Widened 2026-08-23 (lane MIRROR3), when the mutation channels landed.
+  //
+  // The bridge relays a MUTATION through a TABLE rather than a switch arm, and it
+  // says why in its own header: a level change is one verb per family with a
+  // DIFFERENT payload spelling in each, so `case` blocks would be a copy-paste per
+  // family — *"which is exactly how the `.created` cases drifted"*.
+  // `ELEMENT_UPDATE_VERBS` (§MIRROR-UPDATE, L-9942) has the same shape for the same
+  // reason.
+  //
+  // ⛔ READING ONLY `case` ARMS WOULD HAVE REPORTED `slab.addHole` AS UNMIRRORED
+  // WHILE A LIVE CHANNEL CARRIED IT. That is a gate wrong in the SAFE direction,
+  // which is still a gate whose number does not mean what it says — and worse, it
+  // would push the next author to write a `case` to satisfy the gate instead of a
+  // row to satisfy the design.
+  //
+  // ⚠ SCOPED TO THE TABLE BODY, NEVER FILE-WIDE. A bare `'verb': {` matcher over
+  // this file would swallow every object literal in two thousand lines of them. The
+  // scan opens on `const <TABLE>` at column 0 and closes on the first `};` at column
+  // 0 — the same discipline as the comment strip below, and for the same reason:
+  // this file documents ABSENT cases by QUOTING them, so anything matched loosely
+  // reports the opposite of the truth.
+  const TABLE_HEADS = ['ELEMENT_UPDATE_VERBS'];
+  let inTable = false;
   for (const raw of src.split('\n')) {
     const line = raw.trim();
+    if (!inTable && TABLE_HEADS.some((t) => raw.startsWith('const ' + t))) { inTable = true; continue; }
+    if (inTable) {
+      if (raw.startsWith('};')) { inTable = false; continue; }
+      if (!(line.startsWith('//') || line.startsWith('*') || line.startsWith('/*'))) {
+        const t = /^'([A-Za-z0-9_.-]+)'\s*:\s*\{/.exec(line);
+        if (t !== null) tableVerbs.add(t[1]!);
+      }
+      continue;
+    }
     // Strip anything that starts a comment: `//`, `/*`, `*` continuation.
     if (line.startsWith('//') || line.startsWith('*') || line.startsWith('/*')) continue;
     const m = /^case\s+'([A-Za-z0-9_.-]+)'\s*:/.exec(line);
@@ -297,7 +331,7 @@ function bridgeCases(): { cases: Set<string>; lines: number } {
     cases.add(m[1]!);
     lines++;
   }
-  return { cases, lines };
+  return { cases, lines, tableVerbs };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -385,10 +419,18 @@ if (storeClasses !== STORE_KEYS.size) {
   console.warn(`[${LABEL}] ⚠ ${storeClasses} \`extends Store\` class(es) but ${STORE_KEYS.size} literal key(s). A class whose key is not a literal is INVISIBLE to this gate.`);
 }
 
-const { cases: BRIDGE_CASES, lines: bridgeCaseLines } = bridgeCases();
+const { cases: BRIDGE_CASES, lines: bridgeCaseLines, tableVerbs: BRIDGE_TABLE_VERBS } =
+  bridgeChannels();
+// ⛔ THE HONESTY FLOOR STAYS ON THE CASE ARMS ALONE. Folding the table into it would
+// let a broken `case` regex be masked by a working table one — a floor that can be
+// satisfied by the thing it is not watching is not a floor.
 if (BRIDGE_CASES.size < MIN_BRIDGE_CASES) {
   fail2(`only ${BRIDGE_CASES.size} case arm(s) parsed out of ${BRIDGE_REL}; floor is ${MIN_BRIDGE_CASES}. The case regex or the comment strip is wrong.`);
 }
+/** Every verb the bridge relays, by EITHER mechanism. A `case` arm and a row in a
+ *  mutation table are both DECLARED CHANNELS — and neither is an executed proof.
+ *  See the NOT-ESTABLISHED note this gate prints on every run. */
+const BRIDGE_CHANNELS = new Set<string>([...BRIDGE_CASES, ...BRIDGE_TABLE_VERBS]);
 
 const LEVEL_CHANGE = levelChangeVerbs();
 
@@ -405,7 +447,7 @@ for (const [verb, row] of VERBS) {
 const COVERED = new Set<string>();
 const UNCOVERED = new Map<string, VerbRow>();
 for (const [verb, row] of NEEDS) {
-  if (BRIDGE_CASES.has(verb)) COVERED.add(verb);
+  if (BRIDGE_CHANNELS.has(verb)) COVERED.add(verb);
   else UNCOVERED.set(verb, row);
 }
 
@@ -439,7 +481,12 @@ const armB: Array<{ verb: string; why: string }> = [];
 for (const r of debt.rows) {
   if (!VERBS.has(r.verb)) { armB.push({ verb: r.verb, why: 'the verb no longer exists in any handler root' }); continue; }
   if (!NEEDS.has(r.verb)) { armB.push({ verb: r.verb, why: 'the verb no longer declares a plugin DTO store' }); continue; }
-  if (BRIDGE_CASES.has(r.verb)) { armB.push({ verb: r.verb, why: `it now HAS a \`case '${r.verb}'\` in ${BRIDGE_REL} — paid debt must leave the ledger` }); }
+  if (BRIDGE_CHANNELS.has(r.verb)) {
+    const how = BRIDGE_CASES.has(r.verb)
+      ? "a `case '" + r.verb + "'` arm"
+      : 'an `ELEMENT_UPDATE_VERBS` row (the table-driven mutation channel)';
+    armB.push({ verb: r.verb, why: `it now HAS ${how} in ${BRIDGE_REL} — paid debt must leave the ledger` });
+  }
 }
 
 // ARM D — a CLASSIFICATION that no longer holds. `refuses` and
@@ -518,7 +565,8 @@ if (WRITE) {
 // ── report ──────────────────────────────────────────────────────────────────
 console.log(`[${LABEL}] subject: ${filesRead} handler file(s) · ${VERBS.size} verb(s) · ` +
   `${STORE_KEYS.size} plugin DTO store key(s) from ${storeFiles} store file(s) · ` +
-  `${BRIDGE_CASES.size} bridge case arm(s) (${bridgeCaseLines} line(s)) in ${BRIDGE_REL}`);
+  `${BRIDGE_CASES.size} bridge case arm(s) (${bridgeCaseLines} line(s)) + ` +
+  `${BRIDGE_TABLE_VERBS.size} mutation-table verb(s) in ${BRIDGE_REL}`);
 console.log(`[${LABEL}] verbs that WRITE a plugin DTO store: ${NEEDS.size} ` +
   `— ${COVERED.size} with a bridge case, ${UNCOVERED.size} without.`);
 

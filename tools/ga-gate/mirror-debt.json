@@ -1,6 +1,6 @@
 {
   "$schema": "https://pryzm.dev/schemas/mirror-debt.json",
-  "note": "THE MIGRATION BACKLOG. Every row is a bus verb that writes a plugin DTO store and has no CommandEventBridge case. SHRINK-ONLY: a verb leaves this file in the same commit that gives it a bridge case (or removes its plugin-store write). Rows with kind \"UNMIRRORED\" are DEFECTS with a row, not exemptions. See tools/ga-gate/check-mirror-completeness.ts.",
+  "note": "THE MIGRATION BACKLOG. Every row is a bus verb that writes a plugin DTO store and has no CommandEventBridge channel -- neither a `case` arm nor an `ELEMENT_UPDATE_VERBS` row. SHRINK-ONLY: a verb leaves this file in the same commit that gives it a channel (or removes its plugin-store write). Rows with kind \"UNMIRRORED\" are DEFECTS with a row, not exemptions. A row whose reason still begins \"SEEDED BACKLOG\" has NOT been investigated -- that text is a placeholder, and replacing it with a measured sentence is the first half of closing the row. See tools/ga-gate/check-mirror-completeness.ts.",
   "rows": [
     {
       "verb": "annotation.delete",
@@ -145,46 +145,6 @@
       "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
     },
     {
-      "verb": "boundaryLine.attach",
-      "kind": "UNMIRRORED",
-      "stores": [
-        "boundaryLine"
-      ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
-    },
-    {
-      "verb": "boundaryLine.create",
-      "kind": "UNMIRRORED",
-      "stores": [
-        "boundaryLine"
-      ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
-    },
-    {
-      "verb": "boundaryLine.delete",
-      "kind": "UNMIRRORED",
-      "stores": [
-        "boundaryLine"
-      ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
-    },
-    {
-      "verb": "boundaryLine.detach",
-      "kind": "UNMIRRORED",
-      "stores": [
-        "boundaryLine"
-      ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
-    },
-    {
-      "verb": "boundaryLine.update",
-      "kind": "UNMIRRORED",
-      "stores": [
-        "boundaryLine"
-      ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
-    },
-    {
       "verb": "ceiling.changeLevel",
       "kind": "mirrored-elsewhere",
       "stores": [
@@ -247,14 +207,6 @@
         "column"
       ],
       "reason": "MEASURED: `canExecute` cannot return valid on any path, or the handler returns the C16 CA-18 refusal-as-a-value shape beside an empty patch pair. The verb is deliberately dead (§FIX-DEAD-VERB-REFUSE). It MUST NOT acquire a mirror while it refuses — a mirror would relay a mutation the handler never makes. It leaves this file when the refusal is lifted."
-    },
-    {
-      "verb": "column.setHeight",
-      "kind": "UNMIRRORED",
-      "stores": [
-        "column"
-      ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
     },
     {
       "verb": "column.setMaterial",
@@ -830,17 +782,6 @@
       "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
     },
     {
-      "verb": "pool.create",
-      "kind": "UNMIRRORED",
-      "stores": [
-        "pool",
-        "slab",
-        "wall",
-        "water"
-      ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
-    },
-    {
       "verb": "pool.delete",
       "kind": "UNMIRRORED",
       "stores": [
@@ -849,7 +790,7 @@
         "wall",
         "water"
       ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
+      "reason": "OPEN, AND ITS SIBLING `pool.create` IS NOW CLOSED (lane MIRROR3, 2026-08-23). What is missing is a DELETE channel, not an update one: `element.updated` carries field writes and nothing in this bridge emits a removal. ~23 rows on this ledger are `*.delete` and they all need the same one thing — an `element.deleted` channel plus a per-family `remove(id)` adapter. That is the single largest remaining group here and it is a coherent next lane, not a per-family fix."
     },
     {
       "verb": "roof.addSkylight",
@@ -908,31 +849,15 @@
       "reason": "MEASURED: `canExecute` cannot return valid on any path, or the handler returns the C16 CA-18 refusal-as-a-value shape beside an empty patch pair. The verb is deliberately dead (§FIX-DEAD-VERB-REFUSE). It MUST NOT acquire a mirror while it refuses — a mirror would relay a mutation the handler never makes. It leaves this file when the refusal is lifted."
     },
     {
-      "verb": "roof.setOverhang",
-      "kind": "UNMIRRORED",
-      "stores": [
-        "roof"
-      ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
-    },
-    {
       "verb": "roof.setPitch",
       "kind": "UNMIRRORED",
       "stores": [
         "roof"
       ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
+      "reason": "MEASURED AND DELIBERATELY NOT MIRRORED (lane MIRROR3, 2026-08-23). `grep -n \"pitch\" packages/geometry-roof/src/RoofTypes.ts` -> 0 HITS: the legacy roof record has no `pitch` field at all, so there is nothing to mirror INTO. An ELEMENT_UPDATE_VERBS row here would write a key no builder reads and REPORT A FIX. The real work is to establish where a roof's slope lives in the render record and whether `pitch` is derived from it — that is a roof-family question (C97), not a channel question. The channel exists and is waiting."
     },
     {
       "verb": "roof.setShape",
-      "kind": "UNMIRRORED",
-      "stores": [
-        "roof"
-      ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
-    },
-    {
-      "verb": "roof.setThickness",
       "kind": "UNMIRRORED",
       "stores": [
         "roof"
@@ -988,14 +913,6 @@
       "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
     },
     {
-      "verb": "slab.addHole",
-      "kind": "UNMIRRORED",
-      "stores": [
-        "slab"
-      ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
-    },
-    {
       "verb": "slab.changeLevel",
       "kind": "mirrored-elsewhere",
       "stores": [
@@ -1025,23 +942,7 @@
       "stores": [
         "slab"
       ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
-    },
-    {
-      "verb": "slab.removeHole",
-      "kind": "UNMIRRORED",
-      "stores": [
-        "slab"
-      ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
-    },
-    {
-      "verb": "slab.setBaseOffset",
-      "kind": "UNMIRRORED",
-      "stores": [
-        "slab"
-      ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
+      "reason": "MEASURED AND DELIBERATELY NOT MIRRORED (lane MIRROR3, 2026-08-23). This verb is ALREADY the L-220 DISTINCT-VERB bridge: `initBusHandlers.ts` registers it onto `UpdateSlabPolygonCommand`, which writes the LEGACY store directly (`ctx.stores.slabStore.update()` -> `bim-slab-updated` -> SlabFragmentBuilder). A plugin handler also claims the name, which is why it appears here. Adding a mirror would put TWO producers on one ring. The correct fix is to remove the rival plugin handler, not to relay it. NOTE: this row's kind should become `legacy-direct` once that is verified end to end."
     },
     {
       "verb": "slab.setMaterial",
@@ -1052,28 +953,12 @@
       "reason": "MEASURED: `canExecute` cannot return valid on any path, or the handler returns the C16 CA-18 refusal-as-a-value shape beside an empty patch pair. The verb is deliberately dead (§FIX-DEAD-VERB-REFUSE). It MUST NOT acquire a mirror while it refuses — a mirror would relay a mutation the handler never makes. It leaves this file when the refusal is lifted."
     },
     {
-      "verb": "slab.setThickness",
-      "kind": "UNMIRRORED",
-      "stores": [
-        "slab"
-      ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
-    },
-    {
-      "verb": "slab.setType",
-      "kind": "UNMIRRORED",
-      "stores": [
-        "slab"
-      ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
-    },
-    {
       "verb": "slab.update",
       "kind": "UNMIRRORED",
       "stores": [
         "slab"
       ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
+      "reason": "MEASURED AND DELIBERATELY NOT MIRRORED (lane MIRROR3, 2026-08-23). `UpdateSlabHandler` does `Object.assign(slab, updates)` — an OPEN field set, so no ELEMENT_UPDATE_VERBS row can enumerate what it may write, and the whole point of that table is that a field crosses only when somebody established it must. Blocked on the POLYGON SPELLING SPLIT: the plugin record holds `boundary` as `{x,y,z}[]` (world) and the legacy record holds `polygon` as `{x,y}[]` (plan, y = world Z). Until those are one shape, or this verb is narrowed to a declared field list, it stays here."
     },
     {
       "verb": "slab.updatePolygon",
@@ -1081,7 +966,7 @@
       "stores": [
         "slab"
       ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
+      "reason": "MEASURED AND DELIBERATELY NOT MIRRORED (lane MIRROR3, 2026-08-23). Same polygon spelling split as `slab.update`: `boundary` `{x,y,z}[]` (plugin, world) vs `polygon` `{x,y}[]` (legacy, plan with y = world Z). The translation is writable — `vec3RingsToPlanRings` in `elementUpdatedMirror.ts` already does it for `holes` — but a POLYGON move must also re-seat everything hosted on the slab, which `UpdateSlabPolygonCommand` does and a field copy does not. Mirroring the ring alone would move the plate out from under its walls."
     },
     {
       "verb": "stair.batch.create",
