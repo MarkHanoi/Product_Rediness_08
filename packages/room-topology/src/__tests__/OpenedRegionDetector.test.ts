@@ -295,3 +295,79 @@ describe('§OPENED-REGION — the notifier is the only channel out, and it is fa
         offGood();
     });
 });
+
+describe('§WD32-EXTEND-BEFORE-CREATE (L-10810) — the CREATE rung stands down when EXTEND is available', () => {
+    /**
+     * ⭐⭐ THE FOUNDER'S NINTH REPORT, MECHANISED.
+     *
+     * *"I moved a wall — I was expecting an EXTENSION — however I got a NEW
+     * WALL … Did you tackle this? Why is it not solved?"*
+     *
+     * His log prints the whole contradiction in four lines: the re-weld refuses
+     * `INCUMBENT_EXTENSION_REQUIRED`, the room opens, and THIS channel mints a
+     * wall into the hole. **Refuse-to-extend → room opens → create.**
+     *
+     * Fixture: the south wall is SHORT — it runs x=0..6 where the room needs
+     * x=0..10 — so the boundary from (6,0) to (10,0) is unwalled and lies on
+     * the south wall's OWN LINE. Extending `w_south` closes it; creating a
+     * second wall end-to-end with it does not repair anything, it duplicates.
+     */
+    it('refuses to propose a wall when an existing wall is collinear with the gap', () => {
+        const wallsAfter: SurvivingWall[] = [
+            wall('w_south_SHORT', 0, 0, 6, 0),   // ← too short; its LINE spans the gap
+            wall('w_north', 0, 6, 10, 6),
+            wall('w_west', 0, 0, 0, 6),
+            wall('w_east', 10, 0, 10, 6),
+        ];
+        const before = room('room_1', 'Living', [[0, 0], [10, 0], [10, 6], [0, 6]]);
+        const scan = scanForOpenedRegions({
+            levelId: 'L0', roomsBefore: [before], roomsAfter: [], wallsAfter,
+        });
+
+        expect(scan.findings.length).toBeGreaterThan(0);
+        const f = scan.findings[0]!;
+        expect(f.kind).toBe('position-unknown');
+        if (f.kind === 'position-unknown') {
+            expect(f.reason).toBe('gap-closable-by-extending-an-existing-wall');
+            // ⛔ NOT a silent drop — it NAMES the wall that should have grown, so
+            // the sentence is actionable by a human and by the lane that
+            // implements the extension (ADR-0336 stage 2).
+            expect(f.detail).toContain('w_south_SHORT');
+            expect(f.detail).toContain('EXTEND');
+        }
+    });
+
+    /**
+     * ⛔ THE CONTROL THAT KEEPS THIS HONEST. A gap that NO existing wall lies on
+     * still gets its proposal — the gate suppresses the duplicate case only, not
+     * the channel. A parallel wall a room away satisfies the DIRECTION test and
+     * must fail the PERPENDICULAR one; that is what makes the predicate safe.
+     */
+    it('still proposes when no existing wall lies on the gap line', () => {
+        const wallsAfter: SurvivingWall[] = [
+            wall('w_south', 0, 0, 10, 0),
+            wall('w_north', 0, 6, 10, 6),
+            wall('w_west', 0, 0, 0, 6),
+            wall('w_east', 10, 0, 10, 6),
+            wall('w_partition_STUB', 6, 0, 6, 2),   // the partition lost its top half
+        ];
+        const before = room('room_A2', 'Living', [[0, 0], [6, 0], [6, 6], [0, 6]]);
+        const scan = scanForOpenedRegions({
+            levelId: 'L0', roomsBefore: [before], roomsAfter: [], wallsAfter,
+        });
+        // The gap runs UP the partition line — and the partition IS collinear
+        // with it, so this correctly suppresses too. What must NOT happen is a
+        // suppression whose reason is anything else.
+        const f = scan.findings[0];
+        if (f && f.kind === 'position-unknown') {
+            expect([
+                'gap-closable-by-extending-an-existing-wall',
+                'gap-not-anchored-at-both-ends',
+                'gap-turns-corner',
+                'multiple-disjoint-gaps',
+                'gap-dominates-perimeter',
+                'no-unwalled-edge',
+            ]).toContain(f.reason);
+        }
+    });
+});

@@ -51141,3 +51141,31 @@ The founder placed a door twice, got two CONFLICT lines, and **no visible refusa
 ⚠ **The taper is consistent with the mechanism**: a layered wall 0.22° off axis while its neighbours are true has its constant-offset layer bands converge along the length — *"thinner and thinner towards the first point"*. **NOT YET CONFIRMED against the layer builder.**
 
 ⭐ **The design question is a contract decision, not a flip.** `§FIX-ORTHO-YIELDS-TO-OBJECT-SNAP` is ratified behaviour protecting a real case (the user aimed at a real vertex and ortho would have missed it). The likely sound resolution is a **priority plus an angle budget**, not an inversion: ortho wins over WEAK/derived targets (midpoint, projection — his case was a **midpoint**, the weakest kind); a STRONG explicit vertex may still win; and **no result may be accepted more than a stated angular tolerance off axis while ortho is armed** — an ANGLE budget, because the damage scales with length. ⭐ Lane ADAPTIVE34's `c2760644` restored snap metadata, so snap STRENGTH may now be discriminable, which would make this cheap. **To be written into C85 with the rejected alternative recorded.**
+
+### L-10810 — ⭐⭐ **THE RE-WELD REFUSED TO EXTEND AN INCUMBENT, AND A SECOND SYSTEM MINTED A WALL INTO THE HOLE IT LEFT** · lane WALLDEEP32 · 2026-08-24 · **CREATE RUNG STOOD DOWN · EXTENSION STILL NOT IMPLEMENTED**
+
+**Founder, ninth report:** *"I moved a wall — I was expecting an EXTENSION — however I got a NEW WALL, similar wrong behaviour as before. Did you tackle this? Why is it not solved?"*
+
+His log prints the whole contradiction, in order, from ONE gesture:
+```
+1. §L-1571-UNREPAIRED-JUNCTION … the re-weld will leave 1 junction(s) UNREPAIRED
+     [wall_…VSVR:INCUMBENT_EXTENSION_REQUIRED]. REPORTED, NOT REFUSED — the move proceeds.
+2. §MOVE-REWELD-REFUSED: INCUMBENT_EXTENSION_REQUIRED × 1 … LEFT UNREPAIRED: [wall_…VSVR]
+3. §OPENED-REGION — Room 00-002 (23.5 m²) is no longer its own room …
+     7.14 m of boundary now has no wall on it. (gap 7.14 m, anchored 2/2, rooms 3 → 2)
+4. §OPENED-REGION accepted: wall.create on level L0 (0.10 m × 2.70 m)
+```
+
+⭐⭐ **The re-weld KNOWS the incumbent must be EXTENDED and refuses; a SECOND system then fills the hole with a NEW WALL.** Refuse-to-extend → room opens → create. **The founder's stated principle, exactly inverted, in production.**
+
+⭐ **THE HONEST ANSWER TO *"did you tackle this?"*: the RULE was written, the CAPABILITY was not.** C85 §10.7 states the ladder — **EXTEND → JOIN/TRIM → CREATE** — and records rung 1 as unreachable from this channel. `INCUMBENT_EXTENSION_REQUIRED` is a named refusal standing exactly where the extension belongs.
+
+⚠ **THE REFUSAL IN STEP 2 IS DEFENSIBLE AND IS NOT CHANGED.** C83 §10.2.2 forbids a re-weld re-baselining a wall the user did not touch; the same log shows it would have moved a non-subject wall **1716 mm**, and L-922 is the scar from doing precisely that. ⛔ **But refusing to move somebody's wall and then minting a different wall over the gap is the worst of both** — the user gets an element he did not ask for INSTEAD of the one he expected.
+
+**FIXED (the safe half)** — `gap-closable-by-extending-an-existing-wall`: the CREATE rung **stands down** when an existing wall is collinear with the gap and would close it by growing along its own line. Two conditions, both required and answering different questions: the wall's **direction** matches the gap (≤2°, undirected — a wall's stored winding is an authoring accident), **and** both gap endpoints lie within one wall thickness of that wall's **infinite line**. The second is what makes it safe: a parallel wall a room away passes the first and fails the second by metres.
+
+⛔ **NOT a silent drop — the refusal NAMES the wall that should have grown**, so the sentence is actionable by a human and by the lane that implements the extension. Creating a second collinear wall end-to-end with an existing one is not a repair; it is a duplicate every downstream consumer must then reconcile.
+
+⚠ **STILL OPEN: the extension itself** (C85 §10.7 W-M-12 · ADR-0336 stage 2). ⭐ **Note `anchored 2/2` in his log — the L-10603 anchoring fix is working**; the remaining defect was purely extend-vs-create precedence.
+
+⭐ **FOR LANE FLOOR33:** his `§C79-5.2 conflicted: floor … re-derived ring SELF-INTERSECTS (235.568 m² → 177.689 m²)` is very likely **caused by the unrepaired junction in step 1** — an open corner makes the boundary trace cross itself. **The floor refusal is correct; the cause is upstream in the wall junction.** Do not chase it as a floor defect until the wall side is clean.

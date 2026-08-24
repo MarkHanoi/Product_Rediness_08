@@ -152,6 +152,26 @@ const MAX_GAP_FRACTION_OF_PERIMETER = 0.5;
  */
 const GAP_STRAIGHTNESS_MAX_DEVIATION_M = 0.15;
 /** Interior-sample grid resolution per axis when testing region containment. */
+/**
+ * §WD32-EXTEND-BEFORE-CREATE (L-10810) — how nearly parallel an existing wall
+ * must be to the proposed gap before extending it counts as the same line.
+ *
+ * 2° is deliberately TIGHT. This predicate only ever SUPPRESSES a proposal, so a
+ * false positive costs the user a wall he wanted; a false negative costs nothing
+ * he does not already have. At 2° a 7 m gap admits ~244 mm of lateral drift over
+ * its length, which the perpendicular test below bounds independently and far
+ * more tightly. Both must hold.
+ */
+const COLLINEAR_MAX_ANGLE_RAD = 0.035;  // ~2°
+
+/**
+ * …and how far off that wall's own infinite line the gap may sit. One wall
+ * thickness: inside that band the extended wall's BODY would cover the gap, so
+ * "extend it" is a true statement about the geometry and not merely about the
+ * centrelines.
+ */
+const COLLINEAR_MAX_OFFSET_M = DEFAULT_WALL_THICKNESS_M;
+
 const CONTAINMENT_GRID = 9;
 /** Fraction of a region's interior samples that must land inside a candidate successor. */
 const CONTAINMENT_MIN_FRACTION = 0.7;
@@ -241,7 +261,48 @@ export type UnknownPositionReason =
      * (C85 §12 W-R-3, ADR-0336 stage 2). A refusal that names the missing
      * capability is honest; a floating wall is not.
      */
-    | 'gap-not-anchored-at-both-ends';
+    | 'gap-not-anchored-at-both-ends'
+    /**
+     * §WD32-EXTEND-BEFORE-CREATE (L-10810) — an EXISTING wall is collinear with
+     * this gap and simply extending it would close it. Minting a new wall across
+     * it would leave two collinear walls meeting end-to-end where the user has
+     * one wall that is too short.
+     *
+     * ── THE FOUNDER'S NINTH REPORT, AND THE CHAIN HIS LOG PRINTS IN FULL ─────
+     *
+     * *"I moved a wall — I was expecting an EXTENSION — however I got a NEW
+     * WALL … Did you tackle this? Why is it not solved?"*
+     *
+     * ```
+     * 1. §L-1571-UNREPAIRED-JUNCTION … the re-weld will leave 1 junction(s)
+     *      UNREPAIRED [wall_…VSVR:INCUMBENT_EXTENSION_REQUIRED]
+     * 2. §MOVE-REWELD-REFUSED: INCUMBENT_EXTENSION_REQUIRED × 1
+     * 3. §OPENED-REGION — Room 00-002 … 7.14 m of boundary now has no wall on it
+     * 4. §OPENED-REGION accepted: wall.create on level L0
+     * ```
+     *
+     * ⭐⭐ **The re-weld KNOWS the incumbent must be EXTENDED and refuses; a
+     * SECOND system then fills the hole it left with a NEW WALL.** Refuse-to-
+     * extend → room opens → create. That is the founder's stated principle
+     * exactly inverted, and the two systems were contradicting each other with
+     * no channel between them.
+     *
+     * ⚠ THE REFUSAL IN STEP 2 IS DEFENSIBLE AND IS NOT CHANGED HERE. C83 §10.2.2
+     * forbids a re-weld from re-baselining a wall the user did not touch — the
+     * same log shows it would have moved a non-subject wall **1716 mm**, and
+     * L-922 is the scar from doing exactly that. ⛔ **But refusing to move
+     * somebody's wall and then minting a different wall on top of the gap is the
+     * worst of both**: the user gets an element he did not ask for INSTEAD of the
+     * one he expected.
+     *
+     * ⭐ So this closes the contradiction from the side that is safe to close
+     * before production: **the CREATE rung stands down when rung 1 (EXTEND) is
+     * geometrically available.** It does not implement the extension — that is
+     * C85 §10.7 W-M-12 / ADR-0336 stage 2 — and it says so, naming the wall that
+     * should have grown. A refusal that names the missing capability is honest;
+     * a phantom wall is not.
+     */
+    | 'gap-closable-by-extending-an-existing-wall';
 
 /** The proposed closing segment, in world XZ, with the evidence that produced it. */
 export interface OpenedRegionGap {
@@ -598,6 +659,39 @@ function assessRegion(
         };
     }
 
+    // ⭐⭐ §WD32-EXTEND-BEFORE-CREATE (L-10810) — RUNG 1 BEFORE RUNG 3.
+    //
+    // C85 §10.7 states the repair ladder — EXTEND, then JOIN/TRIM, then CREATE —
+    // and records that this channel can only ever perform the third rung. The
+    // founder watched that happen: the re-weld refused `INCUMBENT_EXTENSION_
+    // REQUIRED`, the room opened, and this proposal minted a wall across the
+    // hole. *"I was expecting an EXTENSION — however I got a NEW WALL."*
+    //
+    // ⛔ The ladder cannot be climbed here (there is no extend capability in this
+    // module), but the CREATE rung can STAND DOWN when rung 1 is visibly
+    // available — and it must, because creating a second collinear wall
+    // end-to-end with an existing one is not a repair, it is a duplicate that
+    // every downstream consumer then has to reconcile.
+    //
+    // ⚠ NOT a silent drop: the refusal NAMES the wall that should have grown, so
+    // the sentence is actionable by a human and by the lane that implements the
+    // extension (ADR-0336 stage 2).
+    const extendable = wallCollinearWithGap(startPt, endPt, walls);
+    if (extendable) {
+        return {
+            ...base,
+            kind: 'position-unknown',
+            reason: 'gap-closable-by-extending-an-existing-wall',
+            detail:
+                `${base.roomName} (${areaM2.toFixed(1)} m²) stopped being a closed room and ` +
+                `${lengthM.toFixed(2)} m of its former boundary now has no wall on it — but wall ` +
+                `${extendable.id} already lies on that exact line. The repair is to EXTEND that ` +
+                `wall, not to create a second one end-to-end with it, so no new wall is proposed. ` +
+                `(Extending an existing wall is not yet something I can do automatically — ` +
+                `C85 §10.7 W-M-12.)`,
+        };
+    }
+
     const anchorText = 'both ends land on walls that are still there';
 
     return {
@@ -671,6 +765,45 @@ function extendToNearestWall(
  * PURE. No stores, no THREE, no DOM, no clock. Every threshold is a named constant at
  * the top of this file with the reason it holds its value.
  */
+/**
+ * §WD32-EXTEND-BEFORE-CREATE (L-10810) — is an EXISTING wall simply too short?
+ *
+ * Returns the wall that is collinear with `[a,b]` and would close it by growing
+ * along its own line, or `undefined` when no such wall exists and a new one is
+ * genuinely the only option.
+ *
+ * ⭐ TWO CONDITIONS, BOTH REQUIRED, and they answer different questions:
+ *   · the wall's DIRECTION matches the gap's (within `COLLINEAR_MAX_ANGLE_RAD`)
+ *     — it points the same way;
+ *   · BOTH gap endpoints lie within `COLLINEAR_MAX_OFFSET_M` of the wall's own
+ *     INFINITE line — it is the same line, not a parallel one a room away.
+ *
+ * The second is what makes this safe: a parallel wall on the far side of the
+ * room satisfies the first and fails the second by metres.
+ */
+function wallCollinearWithGap(
+    a: RoomVertex, b: RoomVertex, walls: readonly SurvivingWall[],
+): SurvivingWall | undefined {
+    const gx = b.x - a.x, gz = b.z - a.z;
+    const gLen = Math.hypot(gx, gz);
+    if (gLen < 1e-6) return undefined;
+    for (const w of walls) {
+        const wx = w.end.x - w.start.x, wz = w.end.z - w.start.z;
+        const wLen = Math.hypot(wx, wz);
+        if (wLen < 1e-6) continue;
+        // Direction, as an UNDIRECTED line angle: a wall's stored winding is an
+        // authoring accident, so |sin| is the whole test (mirrors the re-weld
+        // engine's own `MIN_ANGLE_RAD` convention).
+        const sinAng = Math.abs(gx * wz - gz * wx) / (gLen * wLen);
+        if (sinAng > Math.sin(COLLINEAR_MAX_ANGLE_RAD)) continue;
+        // Perpendicular distance of BOTH gap ends from the wall's infinite line.
+        const off = (p: RoomVertex): number =>
+            Math.abs((p.x - w.start.x) * wz - (p.z - w.start.z) * wx) / wLen;
+        if (off(a) <= COLLINEAR_MAX_OFFSET_M && off(b) <= COLLINEAR_MAX_OFFSET_M) return w;
+    }
+    return undefined;
+}
+
 export function scanForOpenedRegions(input: OpenedRegionScanInput): OpenedRegionScan {
     const { levelId, roomsBefore, roomsAfter, wallsAfter } = input;
 
