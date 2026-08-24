@@ -2964,9 +2964,25 @@ const CAPABILITIES: readonly ChatCapability[] = [
     description: 'generate a whole building (residential / house / office) on the site',
     verbs: ['generate', 'create', 'build', 'make'],
     aliases: ['residential building', 'house', 'office building', 'office tower', 'building'],
-    // targets:'global' — generation is SITE-scoped, not element-scoped: it
-    // reads the parcel boundary, never the selection, so there is no element
-    // target set to prove (same ruling as set-rhino-material). scopeModes n/a.
+    // targets:'global' — generation is SITE-scoped, not element-scoped: there is
+    // no element target set to prove (same ruling as set-rhino-material).
+    // scopeModes n/a.
+    //
+    // ⚠ THIS COMMENT USED TO END "it reads the parcel boundary, NEVER THE
+    // SELECTION", and §GEN-ON-BOUNDARY-LINE (L-7961 · C106 §7.2) made that false.
+    // Corrected in the SAME commit that made it false, because a capability table
+    // that lies is precisely the disease this file's header (lines 33-41) says it
+    // exists to cure — `ElementCapabilities` advertising Mirror/Offset/Scale on
+    // seven families that refuse at `canExecute`.
+    //
+    // WHAT IS TRUE NOW: generation reads the parcel boundary by DEFAULT, and reads
+    // a SELECTED `boundaryLine` when the sentence asks to build on one ("create a
+    // 5-storey residential building on this boundary line"). The selection is one
+    // rung of a ladder — explicit pick → the one closed line on the active level →
+    // refuse naming the count — and every rung after the first is resolved at the
+    // execution layer, which is why `targets` stays 'global': there is still no
+    // element SET this capability operates ON. It reads at most one element to
+    // decide WHERE to build, and builds nothing on that element.
     targets: 'global',
     parameters: [
       {
@@ -2989,6 +3005,20 @@ const CAPABILITIES: readonly ChatCapability[] = [
         required: false,
         valueSource: 'user-text',
         example: '2-bed and 3-bed',
+      },
+      {
+        // §GEN-ON-BOUNDARY-LINE (L-7961 · C106 §7.2) — declared because the
+        // capability really accepts it now. An undeclared parameter is the
+        // mirror-image of an overclaimed target: both make this table disagree
+        // with the code it describes.
+        name: 'footprint',
+        description:
+          'where to build: the site parcel by default, or a drawn boundary line ("on this boundary line"). ' +
+          'A selected line wins; otherwise the one CLOSED line on the active level is used, and two or ' +
+          'more closed lines refuse by naming the count rather than guessing.',
+        required: false,
+        valueSource: 'user-text',
+        example: 'on this boundary line',
       },
     ],
     scope: 'global',
@@ -3330,12 +3360,22 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   //       ✅ DONE: `boundaryLine_<ulid>` is a branded L0 id, the record lives in the
   //       ONE store at `runtime.stores.boundaryLine`, and every verb below takes it by
   //       id. Nothing further is needed to REFER to a boundary line.
-  //   (b) the apartment GENERATOR must consume it as its footprint. ⛔ NOT DONE, and
-  //       not stubbed: it is a real piece of work inside the generative pipeline
-  //       (`packages/ai-host/src/generative`, `FloorPlanBatchExecutor`), whose plans are
-  //       currently seeded from a level's slab outline. Logged as L-7961, OPEN.
+  //   (b) the GENERATOR must consume it as its footprint. ✅ DONE 2026-08-24
+  //       (§GEN-ON-BOUNDARY-LINE, L-7961 CLOSED). ⚠ THIS BULLET READ "⛔ NOT DONE, and
+  //       not stubbed … Logged as L-7961, OPEN" — corrected in the commit that closed it.
+  //       It is NOT wired the way this bullet predicted, and the difference matters:
+  //       nothing was added to `packages/ai-host/src/generative` /
+  //       `FloorPlanBatchExecutor`. The `generate-building` capability already drove
+  //       three orchestrators that each accept an EXPLICIT footprint polygon, so the
+  //       whole change was giving the existing seam a second footprint SOURCE
+  //       (`apps/editor/src/ui/generation/boundaryLineFootprint.ts` — a pure resolver)
+  //       instead of teaching a generator a new input. One verb, one pipeline.
   //
-  // ⛔ SO THE VERBS BELOW ARE DECLARED UNAVAILABLE RATHER THAN CLASSIFIED-AND-DEAD.
+  // ⛔ THE VERBS BELOW STAY UNAVAILABLE, AND THAT IS UNCHANGED BY (b). They are the
+  // line's own AUTHORING verbs — draw, move, attach, update, delete — every one of
+  // which needs a pointer rather than a sentence. Building ON a line is a different
+  // question from AUTHORING one, and closing the first does not make the second
+  // speakable. Declared unavailable rather than classified-and-dead:
   // A verb that the chat CLASSIFIES but that generates nothing is the silent-success
   // shape this repository keeps finding; a named refusal with the route back to success
   // is the honest answer while (b) is open. Each sentence tells the user what to do

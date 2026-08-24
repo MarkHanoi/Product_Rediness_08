@@ -1119,7 +1119,17 @@ export type SemanticIntent =
    */
   | {
       readonly intent: 'generate-building';
-      readonly typology: 'residential-building' | 'house' | 'office';
+      /**
+       * ⭐ `null` means THE SENTENCE NAMED A BUILDING BUT NOT WHICH KIND
+       * (§GEN-TYPOLOGY-NAMED, L-10771) — e.g. the founder's *"create the building
+       * from the photo … 5 story buildings"*. It is carried rather than dropped so
+       * the apply arm can refuse by NAMING THE MISSING WORD and listing the three
+       * real options. Before this, such a sentence matched nothing at all and the
+       * chat said "I'm not sure how to help with that yet" while knowing precisely
+       * which token was absent. It is never defaulted to a typology: a wrong
+       * building is worse than a question.
+       */
+      readonly typology: 'residential-building' | 'house' | 'office' | null;
       /** TOTAL storey count asked for (ground included), or null when the
        *  sentence named none — the summary then STATES the default used. */
       readonly floors: number | null;
@@ -1127,6 +1137,27 @@ export type SemanticIntent =
       readonly mix?: { readonly T1?: boolean; readonly T2?: boolean; readonly T3?: boolean; readonly T4?: boolean };
       /** Optional roof-form hint (house only): "with a flat roof". */
       readonly roofKind?: 'flat' | 'gable' | 'hip';
+      /**
+       * §GEN-ON-BOUNDARY-LINE (L-7961 · C106 §7.2) — the user asked to build on a
+       * BOUNDARY LINE rather than on the site parcel: *"create the building on this
+       * boundary line"*, *"…within the boundary I drew"*.
+       *
+       * ⭐ THIS IS AN INTENT FLAG, NOT A FOOTPRINT. The resolver is pure L2 and
+       * cannot read the boundary-line store, so it records only that the SENTENCE
+       * asked for it. Which line, whether it is closed, whether it sits inside the
+       * parcel — all of that is decided at the execution layer by
+       * `resolveBoundaryLineFootprint`, exactly as the site facts (boundary present,
+       * envelope height cap) already are. The alternative — a resolver that guesses
+       * geometry it cannot see — is the shape this file's own header refuses.
+       */
+      readonly onBoundaryLine?: boolean;
+      /**
+       * The boundary line the user POINTED AT, read from `ctx.selection`. This is the
+       * one part of the choice the resolver CAN make purely: a selected line is an
+       * explicit choice and beats any implicit search. Absent ⇒ the execution layer
+       * runs the ladder (the one closed line on the level, else refuse naming the count).
+       */
+      readonly boundaryLineId?: string;
     }
   /**
    * §GEN-CHAT-APARTMENT (RAC U5b.2, founder P0 2026-08-10) — "create a 3
@@ -2555,6 +2586,26 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       // ruled on by the SAME controllers the onboarding modal drives, and
       // their refusals come back verbatim via 'pryzm-generation-report'.
       const t = si.typology;
+      // ⭐ §GEN-TYPOLOGY-NAMED (L-10771) — the sentence named a BUILDING but not
+      // which KIND. Name the missing word rather than shrugging: the parser knew
+      // exactly which token was absent, so saying "I'm not sure how to help" would
+      // be withholding information we hold. One word from the user unblocks it.
+      if (t === null) {
+        return {
+          kind: 'refusal', intent: 'generate-building',
+          reason:
+            `I can generate a building — I just need to know WHICH KIND, and that's the one word ` +
+            `your message is missing. Say "residential building" (apartments over a shared core), ` +
+            `"house" (1–3 storeys, single family) or "office building"` +
+            (si.floors !== null ? `, and I'll keep the ${si.floors} storeys you asked for.` : '.'),
+          suggestions: si.floors !== null
+            ? [
+                `generate a ${si.floors}-storey residential building`,
+                `generate a ${si.floors}-storey office building`,
+              ]
+            : ['generate a 5-storey residential building', 'generate a 2-storey house'],
+        };
+      }
       const label = t === 'residential-building' ? 'residential building' : t === 'house' ? 'house' : 'office tower';
       if (si.floors !== null && (!Number.isInteger(si.floors) || si.floors < 1)) {
         return {
@@ -2605,18 +2656,43 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         : t === 'house' ? '2-storey (default)'
         : t === 'office' ? '40-storey (default)'
         : '6-storey (default: ground + 5)';
-      const siteLabel = t === 'office'
+      // §GEN-ON-BOUNDARY-LINE — say WHICH footprint will be built on, before
+      // Confirm. The user who drew a setting-out line inside their parcel must be
+      // able to see, on the card, that the line is what will be used — otherwise a
+      // build on the whole parcel looks identical to a build on the line until the
+      // geometry appears.
+      const useBoundaryLine = si.onBoundaryLine === true || si.boundaryLineId !== undefined;
+      const siteLabel = useBoundaryLine
+        ? (si.boundaryLineId !== undefined
+            ? 'on the boundary line you have selected'
+            : 'on the closed boundary line you drew')
+        : t === 'office'
         ? 'on the site (circular plate fitted inside the plot)'
         : 'from the site boundary';
       // Stated contract (the executors' real behaviour): generation ADDS new
       // levels/elements alongside what is drawn — it does not replace existing
-      // work — and the whole build coalesces into ONE undo entry under the
-      // beginBuildingGeneration lease. The height gate line is the doctrine's
-      // hard stopper made visible before Confirm.
+      // work. The height gate line is the doctrine's hard stopper made visible
+      // before Confirm.
+      //
+      // ⚠ §GEN-UNDO-IS-STAGED (L-10772) — this sentence used to promise "as one
+      // coherent undo". MEASURED, that is only true of the STRUCTURE.
+      // `beginBuildingGeneration` is an overlay + WebGL-swap lease, not an undo
+      // lease (read its header): the structural build is one `runBatch` → one undo
+      // entry, and each finish stage (floors, ceilings, furniture, lighting)
+      // dispatches its OWN `runBatch` → its own entry. Ctrl+Z after a full
+      // generation therefore steps back through the LIGHTING first, not the
+      // building.
+      //
+      // ⭐ THE SPLIT IS DELIBERATE AND IS KEPT: collapsing five stages into one
+      // undo would make "undo just the furniture" impossible without destroying
+      // the building, and re-furnishing re-lights (§FURNISH-ALWAYS-LIGHTS). The
+      // fix is to STATE the truth, in the user's words, not to change the
+      // behaviour to make the sentence shorter.
       const summary =
         `Generate a ${floorsLabel} ${label}${mixLabel} ${siteLabel} — ` +
-        `it builds new levels and elements alongside what's drawn (nothing is replaced), as one coherent undo. ` +
-        `The recorded envelope height cap is enforced before building.`;
+        `it builds new levels and elements alongside what's drawn (nothing is replaced). ` +
+        `The recorded envelope height cap is enforced before building. ` +
+        `Undo steps back one stage at a time: lighting, then furniture, then ceilings, then the building itself.`;
       return {
         kind: 'commands', intent: 'generate-building',
         summary,
@@ -2629,6 +2705,11 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
               ? { typologies: { T1: si.mix?.T1 === true, T2: si.mix?.T2 === true, T3: si.mix?.T3 === true, T4: si.mix?.T4 === true } }
               : {}),
             ...(si.roofKind !== undefined && t === 'house' ? { roofKind: si.roofKind } : {}),
+            // §GEN-ON-BOUNDARY-LINE (L-7961 · C106 §7.2) — the footprint SOURCE.
+            // Both fields are omitted entirely on the ordinary site-parcel path, so
+            // that payload keeps its exact pre-existing shape.
+            ...(useBoundaryLine ? { footprintSource: 'boundary-line' as const } : {}),
+            ...(si.boundaryLineId !== undefined ? { boundaryLineId: si.boundaryLineId } : {}),
           },
         }],
         // A whole building is consequential — Confirm card before it runs.
@@ -4637,11 +4718,37 @@ const GEN_FLOORS_RE =
 const GEN_MIX_RE = /\b([1-4]|one|two|three|four)[\s-]bed(?:room)?s?\b|\bt([1-4])\b/g;
 const GEN_ROOF_RE = /\b(flat|gable|hip)(?:ped)? roof\b/;
 
+/**
+ * §GEN-ON-BOUNDARY-LINE (L-7961 · C106 §7.2) — the sentence asked to build on the
+ * drawn setting-out line rather than on the site parcel.
+ *
+ * Deliberately generous, because the founder's own phrasings vary and narrowing the
+ * vocabulary is the failure mode this repo has ruled against: *"define a boundary
+ * with the boundary line WITHIN the site boundary"*, *"on this boundary line"*,
+ * *"inside the boundary I drew"*. A false POSITIVE here is cheap — the execution
+ * layer runs the same ladder it would have run anyway and refuses honestly if there
+ * is no usable line. A false NEGATIVE silently builds on the wrong footprint, which
+ * is the expensive direction.
+ */
+const GEN_ON_BOUNDARY_LINE_RE =
+    /\b(?:on|in|inside|within|along|from)\s+(?:the\s+|this\s+|that\s+|my\s+)?(?:drawn\s+|selected\s+)?boundar(?:y|ies)(?:\s*-?\s*line)?\b|\bboundary\s*-?\s*line\b/;
+
+/**
+ * §GEN-TYPOLOGY-NAMED (L-10771) — a building noun with NO typology qualifier.
+ * Matching this CLAIMS the utterance so the apply arm can refuse by naming the
+ * missing word, instead of the whole sentence silently missing every matcher.
+ *
+ * ⛔ `apartment` is NOT here on purpose — see the note at the call site: bare
+ * "create a 3 bedroom apartment" is `generate-apartment-layout`'s sentence.
+ */
+const GEN_GENERIC_BUILDING_NOUN_RE = /\b(?:buildings?|blocks?|towers?|developments?|schemes?)\b/;
+
 /** Parse a building-generation sentence into the semantic intent — SHARED by
  *  the tier-0 grammar and the NL classifier (the parseWallTypeIntent pattern).
  *  Returns null (a miss) when no building-typology noun appears. */
 export function parseGenerateBuildingIntent(
   text: string,
+  ctx?: ResolverContext,
 ): Extract<SemanticIntent, { intent: 'generate-building' }> | null {
   if (!GEN_BUILDING_VERB_RE.test(text)) return null;
   // Element-level asks are someone else's sentence ("make the house walls
@@ -4658,7 +4765,56 @@ export function parseGenerateBuildingIntent(
     : /\bresidential\b|\bapartment (?:building|block|tower)\b|\bblock of flats\b|\bmulti[\s-]family\b/.test(text) ? 'residential-building'
     : /\bhouse\b|\bvilla\b/.test(text) ? 'house'
     : null;
-  if (typology === null) return null;
+  if (typology === null) {
+    // ⭐ §GEN-TYPOLOGY-NAMED (L-10771) — THE FOUNDER'S OWN SENTENCE LANDED HERE.
+    //
+    //     "create the building from the photo suited to the given space: 5 story buildings"
+    //
+    // It carries a creation verb and a storey count, and `GEN_FLOORS_RE` parses
+    // "5 story" perfectly — but it names no typology, so this function returned
+    // `null`, every later matcher missed too, and the chat answered "I'm not sure
+    // how to help with that yet." A resolver that knows EXACTLY which token it
+    // lacked and then shrugs is the same silence this repo has been closing all day.
+    //
+    // So a GENERIC building noun now CLAIMS the utterance and carries
+    // `typology: null` to the apply arm, which refuses by naming the missing word
+    // and the three real options. Claiming-then-refusing is strictly better than
+    // missing: the user learns the ONE word to add.
+    //
+    // ⛔ IT DOES NOT GUESS A TYPOLOGY. Defaulting "the building" to residential
+    // would silently produce a multi-family block for someone who meant a house —
+    // a wrong building is worse than a question. C74: name what was measured and
+    // what was needed.
+    //
+    // ⛔ "apartment" IS DELIBERATELY EXCLUDED from the generic set: bare "create a
+    // 3 bedroom apartment" belongs to `generate-apartment-layout` (fill the walls
+    // already drawn), and claiming it here would steal that sentence. Only the
+    // qualified "apartment building/block/tower" reaches residential, above.
+    if (!GEN_GENERIC_BUILDING_NOUN_RE.test(text)) return null;
+  }
+
+  // §GEN-ON-BOUNDARY-LINE — did the SENTENCE ask for the drawn line as the site?
+  const onBoundaryLine = GEN_ON_BOUNDARY_LINE_RE.test(text);
+  //
+  // ⭐ THE SENTENCE DECIDES THE SOURCE; THE SELECTION ONLY DECIDES WHICH LINE.
+  //
+  // This guard is not defensive tidiness — it closes a scope-drift defect that the
+  // acceptance test caught on the first run of this feature. Without the
+  // `onBoundaryLine &&`, a user who had a boundary line selected (they had just
+  // drawn it, so of course it was selected) and then typed the ordinary sentence
+  // "generate a 3-storey residential building" would have had their building
+  // silently moved off the site parcel and onto the line — a DIFFERENT building
+  // from the one they asked for, with nothing in the transcript saying so.
+  //
+  // Selection is a weaker signal than words: it is a side effect of having just
+  // drawn something. So it refines an intent the sentence already expressed, and
+  // never creates one. `elementType` arrives lower-cased from the bridge
+  // (`storeRegistry` type key → `toLowerCase()`), so compare in that shape.
+  const selectedBoundaryLineId = onBoundaryLine
+    ? ctx?.selection?.find(
+        (s) => s.elementType.replace(/[^a-z]/gi, '').toLowerCase() === 'boundaryline',
+      )?.elementId
+    : undefined;
 
   const f = GEN_FLOORS_RE.exec(text);
   const floors = f === null
@@ -4690,10 +4846,15 @@ export function parseGenerateBuildingIntent(
     floors,
     ...(mix !== undefined ? { mix } : {}),
     ...(roofKind !== undefined ? { roofKind } : {}),
+    // §GEN-ON-BOUNDARY-LINE — carried ONLY when true / present, so an ordinary
+    // site-parcel generation keeps its exact existing payload shape (the
+    // capability-acceptance suite asserts that payload with `toEqual`).
+    ...(onBoundaryLine ? { onBoundaryLine: true } : {}),
+    ...(selectedBoundaryLineId !== undefined ? { boundaryLineId: selectedBoundaryLineId } : {}),
   };
 }
 
-const matchGenerateBuilding: Matcher = (text) => parseGenerateBuildingIntent(text);
+const matchGenerateBuilding: Matcher = (text, ctx) => parseGenerateBuildingIntent(text, ctx);
 
 // §GEN-CHAT-APARTMENT (RAC U5b.2, founder P0) — "create a 3 bedroom apartment"
 // (fills the walls already drawn), as distinct from "generate a 3-storey

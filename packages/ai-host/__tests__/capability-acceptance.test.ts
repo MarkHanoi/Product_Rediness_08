@@ -2406,6 +2406,125 @@ describe('§GEN-CHAT — "generate a 3-storey residential building"', () => {
     expect(o.commands[0]!.payload).toEqual({ typology: 'office', floors: 5 });
   });
 
+  // ─── §GEN-ON-BOUNDARY-LINE (L-7961 · C106 §7.2) ──────────────────────────
+  //
+  // ⭐ REACHABILITY, NOT EXISTENCE. These start from a SENTENCE and assert what
+  // lands on the BUS. A test that called `resolveBoundaryLineFootprint` directly
+  // would prove the resolver works and nothing about whether the founder can get
+  // to it — which is the exact failure mode this whole lane was opened to fix
+  // (C106 §7.2 had a working generator and no way to reach it from a boundary line).
+
+  it('"on this boundary line" reaches the bus as a boundary-line footprint source', () => {
+    const r = resolveUtterance(
+      'create a 5-storey residential building on this boundary line',
+      ctxOf(),
+    );
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    // ONE command — still `generation.building`, still the single pipeline.
+    expect(r.commands).toHaveLength(1);
+    expect(r.commands[0]!.type).toBe('generation.building');
+    expect(r.commands[0]!.payload).toEqual({
+      typology: 'residential-building',
+      floors: 5,
+      footprintSource: 'boundary-line',
+    });
+  });
+
+  it('a SELECTED boundary line rides the payload by id — the explicit pick wins', () => {
+    const r = resolveUtterance(
+      'generate a 5-storey residential building on the boundary line',
+      ctxOf(sel('boundaryline', 'boundaryLine_01J9ABCDEF')),
+    );
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toMatchObject({
+      footprintSource: 'boundary-line',
+      boundaryLineId: 'boundaryLine_01J9ABCDEF',
+    });
+  });
+
+  it('⭐ a SELECTED line does NOT hijack a sentence that never mentioned one', () => {
+    // THE SCOPE-DRIFT GUARD, and it is the assertion this feature most needed.
+    //
+    // A user who has just drawn a boundary line still HAS it selected. If selection
+    // alone switched the footprint source, their next ordinary sentence would build
+    // a different building from the one they asked for and say nothing about it.
+    //
+    // The rule this locks: THE SENTENCE decides the source; the SELECTION only
+    // decides WHICH line, and only once the sentence has asked for one. Selection is
+    // a side effect of having just drawn something — a weaker signal than words.
+    const r = resolveUtterance(
+      'generate a 3-storey residential building',
+      ctxOf(sel('boundaryline', 'boundaryLine_UNMENTIONED')),
+    );
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    // Byte-for-byte the pre-feature payload: neither new key may leak in.
+    expect(r.commands[0]!.payload).toEqual({ typology: 'residential-building', floors: 3 });
+  });
+
+  it('the Confirm summary NAMES the boundary line, so the footprint is visible before building', () => {
+    const r = resolveUtterance(
+      'create a 5-storey residential building on this boundary line',
+      ctxOf(),
+    );
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.summary).toContain('boundary line');
+    expect(r.summary).not.toContain('from the site boundary');
+  });
+
+  // ─── §GEN-UNDO-IS-STAGED (L-10772) ───────────────────────────────────────
+  it('the Confirm summary tells the truth about undo — staged, not one entry', () => {
+    const r = resolveUtterance('generate a 5-storey residential building', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    // MEASURED: `beginBuildingGeneration` is an overlay/WebGL lease, not an undo
+    // lease. Each finish stage dispatches its own runBatch → its own undo entry.
+    // The old copy promised "as one coherent undo", which was false.
+    expect(r.summary).not.toContain('one coherent undo');
+    expect(r.summary).toContain('lighting');
+    expect(r.summary).toContain('furniture');
+  });
+
+  // ─── §GEN-TYPOLOGY-NAMED (L-10771) — the founder's own sentence ───────────
+  it('a building noun with NO typology REFUSES BY NAMING the missing word (was: silent miss)', () => {
+    // The founder typed this. On HEAD it matched no typology, returned null from
+    // every matcher, and the chat said "I'm not sure how to help with that yet"
+    // while the parser knew exactly which token was absent.
+    const r = resolveUtterance(
+      'create the building from the photo suited to the given space: 5 story buildings',
+      ctxOf(),
+    );
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    // It names WHICH word is missing and lists the real options…
+    expect(r.reason).toContain('WHICH KIND');
+    expect(r.reason).toContain('residential building');
+    expect(r.reason).toContain('house');
+    expect(r.reason).toContain('office building');
+    // …and it does NOT throw away the storey count he already gave.
+    expect(r.reason).toContain('5');
+    expect(r.suggestions).toContain('generate a 5-storey residential building');
+  });
+
+  it('the typology refusal never GUESSES — no generation.building command is emitted', () => {
+    const r = resolveUtterance('create a 5 storey building', ctxOf());
+    expect(r.kind).toBe('refusal');
+    // A wrong building is worse than a question: nothing may be dispatched here.
+    if (r.kind === 'commands') expect(r.commands).toHaveLength(0);
+  });
+
+  it('bare "create a 3 bedroom apartment" is NOT stolen by the generic building noun', () => {
+    // `apartment` is deliberately excluded from the generic set: this sentence
+    // belongs to generate-apartment-layout (fill the walls already drawn).
+    const r = resolveUtterance('create a 3 bedroom apartment', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.type).toBe('generation.apartment');
+  });
+
   it('apartment-mix hints reach the payload as T1–T4 flags', () => {
     const r = resolveUtterance('create a residential building with 2-bed and 3-bed apartments', ctxOf());
     expect(r.kind).toBe('commands');

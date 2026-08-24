@@ -42,6 +42,15 @@ export interface GenerationBuildingPayload {
     readonly floors?: number;
     readonly typologies?: { readonly T1?: boolean; readonly T2?: boolean; readonly T3?: boolean; readonly T4?: boolean };
     readonly roofKind?: 'flat' | 'gable' | 'hip';
+    /**
+     * §GEN-ON-BOUNDARY-LINE (L-7961 · C106 §7.2) — build on a drawn BOUNDARY LINE
+     * instead of the site parcel. Absent ⇒ the parcel, exactly as before.
+     */
+    readonly footprintSource?: 'boundary-line';
+    /** The specific line, when the user had one SELECTED. Absent with
+     *  `footprintSource:'boundary-line'` ⇒ run the ladder (the one closed line on
+     *  the active level, else refuse naming the count). */
+    readonly boundaryLineId?: string;
 }
 
 /** The `generation.apartment` payload the resolver emits (§GEN-CHAT-APARTMENT
@@ -105,6 +114,112 @@ async function readSiteFootprint(rt: PryzmRuntime): Promise<{ x: number; z: numb
     return pts;
 }
 
+/**
+ * §GEN-ON-BOUNDARY-LINE (L-7961 · C106 §7.2) — read the drawn BOUNDARY LINE the user
+ * wants built on, and turn it into a footprint.
+ *
+ * ⭐ TYPOLOGY-AGNOSTIC BY CONSTRUCTION. This resolves a POLYGON and nothing else. It
+ * does not know what will be built on it, and all three arms below accept an explicit
+ * footprint already (`ResidentialBuildingRequest.footprint`,
+ * `officeRequestFromBrief(md, footprint)`, `HouseFromBoundaryOptions.footprint`), so
+ * the spine gains a second footprint SOURCE without gaining a single typology branch.
+ *
+ * The store read and the parcel read happen HERE; every judgement happens in the pure
+ * `resolveBoundaryLineFootprint`, which is why the ladder and every refusal string are
+ * unit-testable in plain Node without standing up a runtime.
+ */
+async function readBoundaryLineFootprint(
+    rt: PryzmRuntime,
+    explicitId: string | undefined,
+): Promise<{ ok: true; footprint: { x: number; z: number }[]; note: string } | { ok: false; reason: string }> {
+    const { resolveBoundaryLineFootprint } = await import('./boundaryLineFootprint.js');
+
+    // The ONE authority for this family — C106 §1: `boundaryLine` has no geometry
+    // twin, so this store IS the record, not a DTO mirror of one.
+    const store = (rt as unknown as {
+        stores?: { boundaryLine?: { getState?(): Map<string, unknown> } };
+    }).stores?.boundaryLine;
+    const state = store?.getState?.();
+    if (state === undefined) {
+        // ⚠ UNREADABLE is not EMPTY (§CONTEXT-DATA-HONESTY). Say which one it is.
+        return {
+            ok: false,
+            reason:
+                'I can\'t read the boundary-line store in this session, so I can\'t tell whether you ' +
+                'have a line drawn. Reload the editor and try again — I won\'t guess a footprint.',
+        };
+    }
+
+    const lines: Array<{
+        id: string; levelId: string; closed: boolean;
+        vertices: { x: number; z: number }[]; name?: string | undefined;
+    }> = [];
+    for (const [id, raw] of state) {
+        const r = raw as {
+            levelId?: string; closed?: boolean; name?: string;
+            vertices?: ReadonlyArray<{ x?: number; z?: number }>;
+        } | undefined;
+        if (r === undefined) continue;
+        lines.push({
+            id,
+            levelId: typeof r.levelId === 'string' ? r.levelId : '',
+            closed: r.closed === true,
+            vertices: (r.vertices ?? [])
+                .filter((v) => typeof v?.x === 'number' && typeof v?.z === 'number')
+                .map((v) => ({ x: v.x as number, z: v.z as number })),
+            name: typeof r.name === 'string' ? r.name : undefined,
+        });
+    }
+
+    const { resolveActiveLevelId } = await import('../apartment-layout/activeLevel.js');
+    // ⚠ The RAW parcel, deliberately — the founder's test is "within the SITE
+    // boundary", the legal lot outline (C19 §1.4), not the C58 buildable envelope
+    // (which is inset by setbacks and would refuse a perfectly legal line that
+    // merely sits in a setback strip).
+    const parcel = rt.siteModelStore?.getParcelBoundary()?.polygon ?? null;
+
+    const res = resolveBoundaryLineFootprint({
+        lines,
+        explicitId,
+        activeLevelId: resolveActiveLevelId() ?? undefined,
+        parcel: parcel !== null && parcel.length >= 3
+            ? parcel.map((p) => ({ x: p.x, z: p.z }))
+            : null,
+    });
+    if (!res.ok) return { ok: false, reason: res.reason };
+
+    return {
+        ok: true,
+        footprint: res.footprint.map((p) => ({ x: p.x, z: p.z })),
+        // Always say WHICH line was used and how it was chosen — a build on the
+        // wrong line that says nothing is the silent-success shape this lane exists
+        // to stop.
+        note:
+            res.how === 'explicit'
+                ? `Built on the boundary line you selected (${res.lineLabel}, ${Math.round(res.areaM2)} m²).`
+                : `Built on ${res.lineLabel} — the only closed boundary line on this level (${Math.round(res.areaM2)} m²).`,
+    };
+}
+
+/**
+ * The ONE footprint decision for every typology: the drawn boundary line when the
+ * sentence asked for it, else the site parcel exactly as before.
+ */
+async function resolveGenerationFootprint(
+    rt: PryzmRuntime,
+    cmd: GenerationBuildingPayload,
+): Promise<
+    | { ok: true; footprint: { x: number; z: number }[]; note: string | null }
+    | { ok: false; reason: string }
+> {
+    const wantsLine = cmd.footprintSource === 'boundary-line' || cmd.boundaryLineId !== undefined;
+    if (wantsLine) {
+        const res = await readBoundaryLineFootprint(rt, cmd.boundaryLineId);
+        return res.ok ? { ok: true, footprint: res.footprint, note: res.note } : res;
+    }
+    return { ok: true, footprint: await readSiteFootprint(rt), note: null };
+}
+
 // ─── The residential arm ─────────────────────────────────────────────────────
 
 /** One controller instance for the chat's headless path. Deliberately NOT a
@@ -117,7 +232,9 @@ async function readSiteFootprint(rt: PryzmRuntime): Promise<{ x: number; z: numb
 let _resiController: import('../residential-building/ResidentialBuildingController.js').ResidentialBuildingController | null = null;
 
 async function runResidential(rt: PryzmRuntime, cmd: GenerationBuildingPayload): Promise<void> {
-    const footprint = await readSiteFootprint(rt);
+    const src = await resolveGenerationFootprint(rt, cmd);
+    if (!src.ok) { emitReport(false, [src.reason]); return; }
+    const footprint = src.footprint;
     if (footprint.length < 3) {
         emitReport(false, ['there is no site boundary to build on — draw a plot first, then ask again.']);
         return;
@@ -147,6 +264,9 @@ async function runResidential(rt: PryzmRuntime, cmd: GenerationBuildingPayload):
     const lines = res.report !== undefined && res.report.length > 0
         ? [...res.report]
         : [`Built the residential building (${res.apartmentCount ?? 0} apartments).`];
+    // §GEN-ON-BOUNDARY-LINE — name the footprint that was actually used. Only when
+    // it was NOT the parcel: on the ordinary path the transcript is unchanged.
+    if (src.note !== null) lines.unshift(src.note);
     emitReport(true, lines);
 }
 
@@ -158,8 +278,25 @@ async function runHouse(rt: PryzmRuntime, cmd: GenerationBuildingPayload): Promi
     if (cmd.roofKind !== undefined) md['roofKind'] = cmd.roofKind;
     const { storeyCount, options } = houseRequestFromBrief(md);
 
+    // §GEN-ON-BOUNDARY-LINE — the house arm takes the SAME resolved footprint via
+    // `HouseFromBoundaryOptions.footprint`. Only overridden when a line was asked
+    // for; otherwise the mapper's own footprint decision is untouched.
+    const wantsLine = cmd.footprintSource === 'boundary-line' || cmd.boundaryLineId !== undefined;
+    let lineNote: string | null = null;
+    let lineFootprint: { x: number; z: number }[] | null = null;
+    if (wantsLine) {
+        const src = await readBoundaryLineFootprint(rt, cmd.boundaryLineId);
+        if (!src.ok) { emitReport(false, [src.reason]); return; }
+        lineFootprint = src.footprint;
+        lineNote = src.note;
+    }
+
     const { generateHouseFromBoundary } = await import('../house-layout/houseFromBoundary.js');
-    const res = await generateHouseFromBoundary(rt, storeyCount, { ...options, autoBuild: true });
+    const res = await generateHouseFromBoundary(rt, storeyCount, {
+        ...options,
+        ...(lineFootprint !== null ? { footprint: lineFootprint } : {}),
+        autoBuild: true,
+    });
     if (!res.ok) {
         emitReport(false, [res.reason ?? 'the house generator refused without a reason']);
         return;
@@ -167,13 +304,16 @@ async function runHouse(rt: PryzmRuntime, cmd: GenerationBuildingPayload): Promi
     const lines = res.report !== undefined && res.report.length > 0
         ? [...res.report]
         : [`Built the ${storeyCount}-storey house.`];
+    if (lineNote !== null) lines.unshift(lineNote);
     emitReport(true, lines);
 }
 
 // ─── The office arm ──────────────────────────────────────────────────────────
 
 async function runOffice(rt: PryzmRuntime, cmd: GenerationBuildingPayload): Promise<void> {
-    const footprint = await readSiteFootprint(rt);
+    const src = await resolveGenerationFootprint(rt, cmd);
+    if (!src.ok) { emitReport(false, [src.reason]); return; }
+    const footprint = src.footprint;
     const md: Record<string, unknown> = {};
     // The office mapper's own default is 40 storeys; only override when the
     // sentence named a count (the resolver already refused > 40).
@@ -189,6 +329,7 @@ async function runOffice(rt: PryzmRuntime, cmd: GenerationBuildingPayload): Prom
     const lines = res.report !== undefined && res.report.length > 0
         ? [...res.report]
         : [`Built a ${request.stories}-storey office tower (${res.deskCount ?? 0} desks).`];
+    if (src.note !== null) lines.unshift(src.note);
     emitReport(true, lines);
 }
 
