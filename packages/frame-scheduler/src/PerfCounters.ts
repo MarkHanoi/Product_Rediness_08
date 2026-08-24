@@ -343,6 +343,70 @@ export const PERF_KEYS = {
   FURNISH_LEVEL_RUNS: 'furnish.levelRuns',
   FURNISH_LEVEL_MS: 'furnish.levelMs',
 
+  // ── The WALL MOVE gesture (§WALL30-MOVE-COST, L-10520) ────────────────────
+  //
+  // Founder, 2026-08-24: *"Move / propagates doesn't always work … looks slow,
+  // not well performance."* The gesture had NO row on `window.pryzmPerf.report()`
+  // at all — the same hole §FURNISH-PERF closed for the level switch. Every
+  // number below is a fact one wall drag produces, so the cost can be READ
+  // rather than reasoned about from a console transcript.
+  //
+  // ⭐ Read `wall.move.gestures` FIRST. Everything under it is a MULTIPLE of it:
+  // a healthy drag is 1 gesture → 1 reweld → 1 graft → 1 topology rebuild pair.
+  // Any row that is a multiple of the gesture count is duplicated work.
+  WALL_MOVE_GESTURES: 'wall.move.gestures',
+  /**
+   * ⭐ §WALL30-DRAG-COALESCE (L-10522) — per-mousemove re-weld dispatches AVOIDED.
+   *
+   * `PlanElementDragController` writes the wall store on EVERY mousemove. Three
+   * subsystems defer on `__wallDragInProgress`; the re-weld service did not, so
+   * one drag dispatched one full `CascadeWallBaselineCommand` PER FRAME. This
+   * counts the frames now deferred — read it against `wall.move.gestures`, which
+   * should be 1 per drag.
+   */
+  WALL_MOVE_DRAG_DEFERRED: 'wall.move.dragFramesDeferred',
+  /** Gestures whose re-weld ran against the memoised PRE-DRAG pose rather than
+   *  the zero-delta drag-end snapshot. See §WALL30-DRAG-COALESCE. */
+  WALL_MOVE_DRAG_COALESCED: 'wall.move.dragCoalescedGestures',
+  WALL_MOVE_REWELD_MS: 'wall.move.reweldMs',
+  /** Baseline re-seats this gesture actually dispatched (subject + partners). */
+  WALL_MOVE_REWELD_ENTRIES: 'wall.move.reweldEntries',
+  /** Junctions the engine REFUSED to close — left open, by name, in the log. */
+  WALL_MOVE_REWELD_REFUSED: 'wall.move.reweldRefused',
+  /** Partners the engine declined as not-applicable (already seated, preserved…). */
+  WALL_MOVE_REWELD_NA: 'wall.move.reweldNotApplicable',
+  /**
+   * §L-10520 — the subject seat, split by the reason there was no entry. These
+   * three were ONE indistinguishable log clause ("NO subject entry") and that
+   * ambiguity is most of the founder's *"propagates doesn't always work"*: two
+   * of the three are the correct answer and one is a genuine open joint.
+   */
+  WALL_MOVE_SUBJECT_ENTRY: 'wall.move.subjectEntryEmitted',
+  WALL_MOVE_SUBJECT_ALREADY_CLOSED: 'wall.move.subjectAlreadyClosed',
+  WALL_MOVE_SUBJECT_DECLINED: 'wall.move.subjectSeatDeclined',
+  WALL_MOVE_SUBJECT_NO_CORNER: 'wall.move.subjectNoCornerOffered',
+  WALL_MOVE_SUBJECT_COLLAPSE: 'wall.move.subjectWouldCollapse',
+
+  // ── View re-projection: WHY the O(dirty) graft arm was not taken ──────────
+  //
+  // `REPROJECT_FULL` counts the declines; it does not say which of them. The
+  // §DIAG-GRAFT-FALLTHROUGH line in `initScene` prints ONE sentence
+  // ("graft produced nothing — the dirty elements contributed no linework")
+  // for THREE different causes, and only one of them is that sentence. These
+  // separate them.
+  /** A second `_flush()` was requested while one was already in flight. Each
+   *  overlap is a generation collision: the loser's `setIfCurrent` is rejected
+   *  and it falls to the O(N) full arm. This is the count to drive to 0. */
+  REPROJECT_FLUSH_OVERLAP: 'view.reprojectFlushOverlap',
+  /** Flushes that offered the driver a graft-eligible element set. */
+  REPROJECT_GRAFT_OFFERED: 'view.reprojectGraftOffered',
+  /** Views demoted to the full arm because a NON-graft-eligible element type
+   *  (door/window/furniture/stair/column/roof) touched them in the same flush. */
+  REPROJECT_GRAFT_DEMOTED_TYPE: 'view.reprojectGraftDemotedByType',
+  /** Views demoted because the flush also took a coarse dirtying (delete, batch,
+   *  §G3 stale-id fallback). */
+  REPROJECT_GRAFT_DEMOTED_COARSE: 'view.reprojectGraftDemotedCoarse',
+
   // ── One-shot notes ────────────────────────────────────────────────────────
   NOTE_IN_BATCH: 'note.gestureRanInsideBatch',
   NOTE_PROJECT_LOAD_ACTIVE: 'note.projectLoadActive',

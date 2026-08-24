@@ -70,8 +70,36 @@ import {
     // how L-942 shipped broken twice. One derivation, two consumers.
     attributeWallTopology,
 } from './WallTopologyIntegrity';
+// §WALL30-MOVE-COST (L-10520) — the wall MOVE gesture had no row on
+// `window.pryzmPerf.report()`, so *"slow, not well performance"* could only be
+// argued from a console transcript. Off by default: one typed-global read when
+// disarmed, and every key below is a literal constant per the PerfCounters
+// "NEVER FORMAT EAGERLY" rule.
+import { addPerfTime, bumpPerf, isPerfOn, PERF_KEYS } from '@pryzm/frame-scheduler';
 
 type WallEventType = 'add' | 'update' | 'remove';
+
+/**
+ * §WALL30-DRAG-COALESCE (L-10522) — how long a deferred pre-drag pose stays
+ * evidence. A drag is seconds at most; beyond this the memo is assumed to belong
+ * to a gesture that ended without a settle write, and is discarded rather than
+ * applied to whatever moves that wall next. Absent-evidence must not be reused
+ * as evidence (§CONTEXT-DATA-HONESTY).
+ */
+const DRAG_MEMO_TTL_MS = 60_000;
+
+/**
+ * Monotonic clock that costs NOTHING when the counters are disarmed — which is
+ * production, always, unless the founder armed them. Returns 0 when off, and
+ * `addPerfTime` is itself a no-op then, so the pair contributes one global read
+ * per gesture rather than two `performance.now()` calls.
+ */
+function perfNow(): number {
+    if (!isPerfOn()) return 0;
+    return typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now();
+}
 
 /** The three WallStore surfaces this service reads. `subscribe` MUST forward
  *  prevState (§STEP7) — without it there is no "as of before the move". */
@@ -281,14 +309,48 @@ export function summariseNotApplicable(n: MoveReweldNotApplicable): string {
  */
 export function summariseSubjectSeat(s: MoveReweldSubjectSeat): string {
     if (s.cornersOffered.length === 0) return 'subject: no corner offered';
+    // §L-10520 — SPLIT THE SEATS. `seatedOn` is the union of "was already there"
+    // and "had to move to get there", and printing only the union is what made
+    // the founder's two lines look like two behaviours (see the `alreadyClosed`
+    // field doc in WallMoveReweld.ts).
+    const closed = s.alreadyClosed?.length ?? 0;
+    const moved  = s.seatedOn.length - closed;
     const parts = [
         `subject: ${s.cornersOffered.length} corner(s) offered`,
-        `${s.seatedOn.length} seated`,
+        closed > 0 && moved > 0 ? `${s.seatedOn.length} seated (${moved} re-seated, ${closed} already closed)`
+        : closed > 0            ? `${s.seatedOn.length} seated (ALL already closed — nothing to re-seat)`
+        :                         `${s.seatedOn.length} seated (all re-seated)`,
     ];
     if (s.declined.length > 0) {
         parts.push(`${s.declined.length} DECLINED [${s.declined.map(summariseNotApplicable).join(', ')}]`);
     }
-    parts.push(s.entryEmitted ? 'entry emitted' : 'NO subject entry');
+    // ⭐ §L-10520 — NEVER PRINT A BARE "NO subject entry" AGAIN.
+    //
+    // Founder, 2026-08-24, comparing two lines from ONE session and reporting
+    // them as evidence that propagation is unreliable:
+    //
+    //     …2 corner(s) offered, 2 seated, entry emitted
+    //     …2 corner(s) offered, 2 seated, NO subject entry
+    //
+    // ONE rule produced both, and it has always been this: the subject emits a
+    // baseline entry IFF at least one of its endpoints had to MOVE to reach a
+    // corner. Absent that, there is no entry because there is nothing to write.
+    // The old clause stated the absence and withheld the cause, which is the
+    // L-921 defect shape this file has closed twice already — so the cause is
+    // now part of the sentence and the three ways to reach it are distinct.
+    if (s.entryEmitted) {
+        parts.push('entry emitted');
+    } else if (s.suppressed) {
+        // Handled by the SUPPRESSED clause below; naming it twice would imply
+        // two findings where there is one.
+        parts.push('no subject entry');
+    } else if (closed > 0 && closed === s.seatedOn.length && s.declined.length === 0) {
+        parts.push('no subject entry NEEDED (every corner was already closed — this is a success)');
+    } else if (s.declined.length > 0) {
+        parts.push('⛔ NO subject entry — the corner(s) above were DECLINED, so this joint is LEFT OPEN');
+    } else {
+        parts.push('⛔ NO subject entry and no stated cause — §L-10520-UNEXPLAINED');
+    }
     if (s.suppressed) parts.push(`SUPPRESSED:${s.suppressed}`);
     return parts.join(', ');
 }
@@ -297,6 +359,17 @@ export class WallMoveReweldService {
     private unsubscribe?: () => void;
     /** §REENTRANT-SET: our own dispatch must not feed our own event path. */
     private propagating = false;
+
+    /**
+     * §WALL30-DRAG-COALESCE (L-10522) — the pose the in-flight drag STARTED at.
+     *
+     * Set on the first mousemove of a wall drag (the only frame whose `prevState`
+     * is the pre-drag wall) and consumed by the settle write on release. Holding
+     * ONE wall is deliberate and sufficient: `PlanElementDragController` drags
+     * exactly one element, and a memo keyed by a wall the release does not
+     * mention would be a memo nothing ever clears.
+     */
+    private _dragMemo: { wallId: string; preDrag: WallData; atMs: number } | null = null;
 
     private readonly isJoinResolving: () => boolean;
     private readonly isCascadeApplying: () => boolean;
@@ -325,8 +398,102 @@ export class WallMoveReweldService {
         // compensate the user's Ctrl+Z (the founder's identical-screenshots bug).
         if (this.deps.commandManagerRef.current?.isReverting?.()) return;
 
+        // ⭐⭐ §WALL30-DRAG-COALESCE (L-10522) — ONE RE-WELD PER GESTURE, FROM THE
+        //    POSE THE GESTURE STARTED AT.
+        //
+        // ── THE DEFECT (founder, 2026-08-24: "move / propagates doesn't always
+        //    work"; "slow, not well performance") ────────────────────────────
+        //
+        // `PlanElementDragController._moveWall` writes the store on EVERY
+        // mousemove (`ws.update`, PlanElementDragController.ts:486). ADR-061
+        // raises `window.__wallDragInProgress` at drag activation precisely so
+        // the expensive consumers defer to release — that controller's own
+        // comment says the flag exists *"so exactly one cascade runs on
+        // release"* and names THREE consumers: `WallRebuildCoordinator`,
+        // `RoomTopologyObserver`, `ViewDependencyTracker`.
+        //
+        // ⛔ THIS SERVICE WAS NEVER ADDED TO THAT LIST. Measured 2026-08-24:
+        // `grep __wallDragInProgress packages/geometry-wall/` → ZERO hits. So a
+        // wall drag dispatched a full `CascadeWallBaselineCommand` PER FRAME —
+        // each one an undo entry, an O(all walls) `evaluateWallPlacement` per
+        // entry, and N partner store writes that re-dirty the spatial index,
+        // the topology layer and the autosave debounce.
+        //
+        // ── AND IT IS ALSO THE CORRECTNESS BUG, WHICH IS THE HALF THAT MATTERS ─
+        //
+        // The per-frame `prevState` is the PREVIOUS MOUSEMOVE's pose, so
+        // `computeMoveReweldCensus` was handed a millimetre delta as "the move".
+        // `alongMoverReach = movedDisplacement · cot θ + weldTol` then collapses
+        // to ≈ `weldTol`, and step 1 keeps only partners still welded to that
+        // one-frame-old segment. Whether a partner survives therefore depended
+        // on WHERE THE MOUSE FRAMES LANDED — i.e. on drag speed and sampling
+        // rate. That is exactly "sometimes it propagates and sometimes it does
+        // not", and it is why the same wall behaved differently twice in one
+        // session.
+        //
+        // ⭐ The founder's own log corroborates the mechanism independently:
+        // `CORNER_OFF_SUBJECT_SEGMENT(9183/663 mm)`. With
+        // `weldTol = DEFAULT_SNAP_RADIUS = 0.5 m`, a limit of 663 mm implies
+        // `movedDisplacement · cot θ = 163 mm` — a PER-FRAME delta, not the
+        // metre-scale drag he actually performed. The number is the fingerprint
+        // of this path.
+        //
+        // ── WHY THE LATCH ALONE IS NOT THE FIX ──────────────────────────────
+        //
+        // `onEnd` clears the flag BEFORE the authoritative
+        // `wall.updateBaseline` commit, and by then the store ALREADY HOLDS the
+        // final baseline (the last mousemove wrote it). So the commit's
+        // `wallStore.update` emits `prevState.baseLine === wall.baseLine`, the
+        // displacement gate below reads 0, and the drag-end re-weld returns
+        // early. Adding the latch without this memo would stop wall propagation
+        // ENTIRELY — correctness first, and that failure mode is why the memo
+        // exists rather than a bare `return`.
+        //
+        // So: while the drag is live, remember the FIRST pre-drag snapshot and
+        // do no work; on release, reason from that snapshot. The re-weld then
+        // runs ONCE, over the WHOLE gesture, deterministically.
+        //
+        // ⚠ The 3D gizmo path is unaffected by construction: it is visual-only
+        // during the drag and writes the store once at mouse-up, so it records
+        // no memo and takes the identical path it took before.
+        const dragLive = typeof window !== 'undefined'
+            && (window as unknown as { __wallDragInProgress?: boolean }).__wallDragInProgress === true;
+        if (dragLive) {
+            // Memoise the pose the gesture STARTED at — the first deferred
+            // frame's `prevState` is the pre-drag wall — and never overwrite it
+            // with a later frame, or the delta shrinks back to one frame.
+            if (prevState && (!this._dragMemo || this._dragMemo.wallId !== wall.id)) {
+                this._dragMemo = { wallId: wall.id, preDrag: prevState, atMs: Date.now() };
+            }
+            bumpPerf(PERF_KEYS.WALL_MOVE_DRAG_DEFERRED);
+            return;
+        }
+
+        // Release (or a non-drag write): consume the memo. Consumed
+        // UNCONDITIONALLY — a cancelled drag restores the original baseline
+        // through this same path, and consuming it there is what stops a stale
+        // pre-drag pose leaking into a later, unrelated move of the same wall.
+        const memo = this._dragMemo && this._dragMemo.wallId === wall.id
+            // A memo that outlived its gesture is not evidence. The window is
+            // generous (a slow drag is seconds); the guard exists so an
+            // abandoned drag that never wrote again cannot poison a move made
+            // minutes later.
+            && (Date.now() - this._dragMemo.atMs) < DRAG_MEMO_TTL_MS
+            ? this._dragMemo
+            : null;
+        this._dragMemo = null;
+        if (memo) bumpPerf(PERF_KEYS.WALL_MOVE_DRAG_COALESCED);
+
+        // §WALL30-DRAG-COALESCE — ONE "before" for the whole method. Every
+        // consumer of the pre-move pose (the displacement gate, the census's
+        // `prevBaseLine`, the §L-926 host thickness and the §WALL-TOPOLOGY-
+        // INTEGRITY before/after diff) must read the SAME snapshot, or the weld
+        // engine and the probe reason about different worlds — the exact drift
+        // §L-990 exists to prevent.
+        const prevSnapshot = memo?.preDrag ?? prevState;
+
         // No prevState → no diff basis ('add' has none; defensive on 'update').
-        const prevBL = prevState?.baseLine;
+        const prevBL = prevSnapshot?.baseLine;
         const newBLAtEmit = wall.baseLine;
         if (!prevBL || !newBLAtEmit || prevBL.length < 2 || newBLAtEmit.length < 2) return;
 
@@ -408,6 +575,18 @@ export class WallMoveReweldService {
         }
         if (partners.length === 0) return;
 
+        // §WALL30-MOVE-COST (L-10520) — THE GESTURE COUNTER, and it goes HERE.
+        //
+        // This line is the last statement every committed baseline move passes
+        // through before any weld work happens: the latches, the "did it
+        // actually move" displacement gate and the partner resolution are all
+        // above it. Counting here therefore means `wall.move.gestures` is
+        // exactly "wall drags that reached the weld engine" — the denominator
+        // every other row on the report divides by. Counting at the subscriber
+        // head instead would fold in every colour/opening `update` and make the
+        // number useless, which is why it is not there.
+        bumpPerf(PERF_KEYS.WALL_MOVE_GESTURES);
+        const _reweldT0 = perfNow();
         const plan = computeMoveReweldCensus(
             {
                 id: wall.id,
@@ -420,12 +599,37 @@ export class WallMoveReweldService {
                 // the partners were welded to, so its thickness is the one that
                 // defines the body they were welded to; `moved` is the fallback
                 // for a move event that carried no previous thickness.
-                thickness: prevState?.thickness ?? moved.thickness,
+                // §WALL30-DRAG-COALESCE — `prevSnapshot`, not `prevState`: on a
+                // coalesced drag the pre-DRAG wall is the geometry the partners were
+                // welded to, and the drag-end snapshot is one frame old.
+                thickness: prevSnapshot?.thickness ?? moved.thickness,
             },
             partners,
             { weldTol: this.deps.weldTol?.() ?? DEFAULT_SNAP_RADIUS },
         );
         const entries = plan.entries;
+
+        // §WALL30-MOVE-COST (L-10520) — the engine's own verdict, as numbers.
+        // Keys are literal constants (the PerfCounters "NEVER FORMAT EAGERLY"
+        // rule); the whole block is one arithmetic pass over arrays that already
+        // exist, and `bumpPerf` returns on a single global read when disarmed.
+        addPerfTime(PERF_KEYS.WALL_MOVE_REWELD_MS, perfNow() - _reweldT0);
+        if (entries.length > 0) bumpPerf(PERF_KEYS.WALL_MOVE_REWELD_ENTRIES, entries.length);
+        if (plan.refusals.length > 0) bumpPerf(PERF_KEYS.WALL_MOVE_REWELD_REFUSED, plan.refusals.length);
+        if (plan.notApplicable.length > 0) bumpPerf(PERF_KEYS.WALL_MOVE_REWELD_NA, plan.notApplicable.length);
+        {
+            // ⭐ The subject seat, split the same four ways the log clause now
+            // splits it. `subjectEntryEmitted` vs `subjectAlreadyClosed` is the
+            // distinction the founder's two lines could not be told apart by;
+            // `subjectSeatDeclined` is the only one of the four that means a
+            // joint was genuinely left open by the subject's own failure.
+            const s = plan.subjectSeat;
+            if (s.entryEmitted) bumpPerf(PERF_KEYS.WALL_MOVE_SUBJECT_ENTRY);
+            else if (s.suppressed) bumpPerf(PERF_KEYS.WALL_MOVE_SUBJECT_COLLAPSE);
+            else if (s.declined.length > 0) bumpPerf(PERF_KEYS.WALL_MOVE_SUBJECT_DECLINED);
+            else if (s.cornersOffered.length === 0) bumpPerf(PERF_KEYS.WALL_MOVE_SUBJECT_NO_CORNER);
+            else bumpPerf(PERF_KEYS.WALL_MOVE_SUBJECT_ALREADY_CLOSED);
+        }
 
         // §L-921-NO-SILENT-HALF — a junction that CANNOT be closed without
         // moving an incumbent (C83 §10.2.2) is a fact the user must be told.
@@ -504,7 +708,7 @@ export class WallMoveReweldService {
             // The founder's session ended on exactly this branch (2 refusals,
             // 1 subject-only re-seat) and the corruption it left was named by
             // four different subsystems and by nothing that read them together.
-            this.auditLevelTopology(wall.id, moved.levelId, prevBL, prevState?.thickness);
+            this.auditLevelTopology(wall.id, moved.levelId, prevBL, prevSnapshot?.thickness);
             return;
         }
 
@@ -630,7 +834,7 @@ export class WallMoveReweldService {
         // with rather than the one mid-write. A cascade that SUCCEEDS can still
         // leave the level corrupt: it repairs the junctions it has entries for
         // and is silent about the ones it refused.
-        this.auditLevelTopology(wall.id, moved.levelId, prevBL, prevState?.thickness);
+        this.auditLevelTopology(wall.id, moved.levelId, prevBL, prevSnapshot?.thickness);
     }
 
     /**

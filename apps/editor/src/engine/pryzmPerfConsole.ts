@@ -1107,6 +1107,87 @@ function printReport(r: PryzmPerfReport): void {
     }
     p(LINE);
 
+    // ── THE WALL MOVE (§WALL30-MOVE-COST, L-10520) ──────────────────────────
+    //
+    // Founder, 2026-08-24: *"Move / propagates doesn't always work … looks slow,
+    // not well performance … the wall element is the most important and needs to
+    // be the best possible ever."* The gesture had NO row on this table, so the
+    // complaint could only be answered from a console transcript — which is how
+    // three DIFFERENT correct outcomes came to be reported as one intermittent
+    // bug.
+    //
+    // ⭐ READ `wall drags that reached the weld engine` FIRST. Every row under it
+    // is a MULTIPLE of it, and any row that is a multiple > 1 is duplicated work.
+    p('  THE WALL MOVE  — what ONE drag actually costs');
+    if (!r.armed) {
+        p('       UNMEASURED — not armed. These are not zeros.');
+    } else {
+        const gestures = c[PERF_KEYS.WALL_MOVE_GESTURES] ?? 0;
+        const per = (key: string): string =>
+            gestures > 0 && c[key] !== undefined
+                ? `= ${(c[key]! / gestures).toFixed(2)} per drag`
+                : '';
+        p(counterRow('⭐ wall drags that reached the weld engine', c,
+            PERF_KEYS.WALL_MOVE_GESTURES,
+            gestures === 0 ? '(no wall was moved in this window)' : ''));
+        p(timerRow('  time in the re-weld engine', t[PERF_KEYS.WALL_MOVE_REWELD_MS]));
+        p(counterRow('  baseline re-seats dispatched', c,
+            PERF_KEYS.WALL_MOVE_REWELD_ENTRIES, per(PERF_KEYS.WALL_MOVE_REWELD_ENTRIES)));
+        p(counterRow('  junctions REFUSED (left open)', c,
+            PERF_KEYS.WALL_MOVE_REWELD_REFUSED,
+            (c[PERF_KEYS.WALL_MOVE_REWELD_REFUSED] ?? 0) > 0
+                ? '⛔ each one is a joint the user can see open — see §MOVE-REWELD-REFUSED'
+                : ''));
+        p(counterRow('  partners not-applicable', c, PERF_KEYS.WALL_MOVE_REWELD_NA));
+        p('       ── the subject seat, split four ways (L-10520) ─────────────');
+        p('       These four SUM to the gesture count. Only ONE of them is a defect.');
+        p(counterRow('    subject re-seated (entry emitted)', c,
+            PERF_KEYS.WALL_MOVE_SUBJECT_ENTRY, '✅ the mover adapted'));
+        p(counterRow('    subject already closed', c,
+            PERF_KEYS.WALL_MOVE_SUBJECT_ALREADY_CLOSED,
+            '✅ nothing to do — this is the line that READ as a failure'));
+        p(counterRow('    subject: no corner offered', c,
+            PERF_KEYS.WALL_MOVE_SUBJECT_NO_CORNER,
+            'the partners formed no corner the subject could terminate on'));
+        p(counterRow('    subject seat DECLINED', c,
+            PERF_KEYS.WALL_MOVE_SUBJECT_DECLINED,
+            (c[PERF_KEYS.WALL_MOVE_SUBJECT_DECLINED] ?? 0) > 0
+                ? '⛔ THE DEFECT — corner formed, subject could not reach it, joint LEFT OPEN'
+                : ''));
+        p(counterRow('    subject seat suppressed (would collapse)', c,
+            PERF_KEYS.WALL_MOVE_SUBJECT_COLLAPSE));
+
+        p('       ── what the drag cost the PLAN VIEW ────────────────────────');
+        const offered = c[PERF_KEYS.REPROJECT_GRAFT_OFFERED];
+        const grafted = c[PERF_KEYS.REPROJECT_GRAFT] ?? 0;
+        p(counterRow('  graft-eligible sets OFFERED to the driver', c,
+            PERF_KEYS.REPROJECT_GRAFT_OFFERED));
+        p(counterRow('  …of which actually GRAFTED O(dirty)', c, PERF_KEYS.REPROJECT_GRAFT,
+            offered !== undefined && offered > grafted
+                ? `🔴 ${offered - grafted} offered set(s) still took the O(N) full arm`
+                : ''));
+        p(counterRow('⭐ re-projection flush OVERLAPS', c, PERF_KEYS.REPROJECT_FLUSH_OVERLAP,
+            (c[PERF_KEYS.REPROJECT_FLUSH_OVERLAP] ?? 0) > 0
+                ? 'coalesced by §FIX-VDT-FLUSH-SERIALISE — each one was a FULL re-projection before'
+                : ''));
+        p(counterRow('  graft demoted by element TYPE', c,
+            PERF_KEYS.REPROJECT_GRAFT_DEMOTED_TYPE,
+            'a door/window/furniture edit in the same flush — see PLAN_INCREMENTAL_SAFE_TYPES'));
+        p(counterRow('  graft demoted by a COARSE change', c,
+            PERF_KEYS.REPROJECT_GRAFT_DEMOTED_COARSE,
+            'a delete, a batch, or a §G3 stale-id fallback'));
+        p('       ── and what it cost everything else ────────────────────────');
+        p(counterRow('  room re-detection passes', c, PERF_KEYS.REDETECT_ROOMS,
+            gestures > 0 && (c[PERF_KEYS.REDETECT_ROOMS] ?? 0) > gestures
+                ? `⚠ ${per(PERF_KEYS.REDETECT_ROOMS)} — more than one per drag is duplicate work`
+                : ''));
+        p(timerRow('  time in room re-detection', t[PERF_KEYS.REDETECT_ROOMS_MS]));
+        p(counterRow('  autosave runs', c, PERF_KEYS.AUTOSAVE_RUN,
+            '⚠ NOT lane WALL30\'s to change (DURABLE25) — measured and reported only'));
+        p(timerRow('  time in autosave', t[PERF_KEYS.AUTOSAVE_MS]));
+    }
+    p(LINE);
+
     // ── PHASES ──────────────────────────────────────────────────────────────
     p('  BATCH PHASE TIMING');
     if (!r.armed) {

@@ -34,6 +34,7 @@ import { viewDefinitionStore } from './ViewDefinitionStore';
 import { viewTechnicalDrawingCache } from './ViewTechnicalDrawingCache';
 import { unifiedFrameLoop } from '../rendering/UnifiedFrameLoop';
 import { emitViewProjectionEvent } from './otel';
+import { bumpPerf, PERF_KEYS } from '@pryzm/frame-scheduler';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -752,10 +753,24 @@ export class ViewDependencyTracker {
                     // A non-graft-eligible element-scoped change (e.g. a door/window
                     // update) keeps the drawing warm but forbids the graft fast-path for
                     // this view — the driver re-projects it in full.
-                    if (!graftEligible) this._viewsGraftIneligible.add(viewId);
+                    if (!graftEligible) {
+                        // §WALL30-MOVE-COST (L-10520) — WHICH DEMOTION, not just THAT one.
+                        // `REPROJECT_FULL` counts declines; it never said whether the view
+                        // was demoted by an element TYPE outside PLAN_INCREMENTAL_SAFE_TYPES
+                        // (lane DRAGPERF17's window/door finding) or by a coarse op. Bumped
+                        // only on the transition, so the number is "views demoted", not
+                        // "store events seen".
+                        if (!this._viewsGraftIneligible.has(viewId)) {
+                            bumpPerf(PERF_KEYS.REPROJECT_GRAFT_DEMOTED_TYPE);
+                        }
+                        this._viewsGraftIneligible.add(viewId);
+                    }
                 } else {
                     // Non-pure-projection create / delete (or a view already flagged
                     // coarse) → whole-drawing invalidate.
+                    if (!this._viewsNeedingFullInvalidate.has(viewId)) {
+                        bumpPerf(PERF_KEYS.REPROJECT_GRAFT_DEMOTED_COARSE);
+                    }
                     this._viewsNeedingFullInvalidate.add(viewId);
                     this._dirtyElementsByView.delete(viewId);
                 }
@@ -918,8 +933,85 @@ export class ViewDependencyTracker {
         return FAST_DEBOUNCE_MS;
     }
 
+    /**
+     * §FIX-VDT-FLUSH-SERIALISE (L-10520, lane WALL30) — ONE FLUSH AT A TIME.
+     *
+     * ── THE DEFECT, AND WHY IT LOOKED LIKE A GRAFT BUG ───────────────────────
+     *
+     * Founder, 2026-08-24: every wall move logged
+     *   `§DIAG-GRAFT-FALLTHROUGH … FULL re-projection because: graft produced
+     *    nothing (the dirty elements contributed no linework to THIS view …)`
+     * — on an element type that is IN `PLAN_INCREMENTAL_SAFE_TYPES`, in a plan
+     * view, with a warm drawing. Every gate the diagnostic checks was green, so
+     * the O(dirty) arm should have been the fast path and never was.
+     *
+     * It was not the graft. `_flush()` is `async` and every one of its three
+     * call sites (`:452`, `:631`, `:898`) invokes it FIRE-AND-FORGET, so two
+     * runs overlap freely. One wall drag produces at least two store writes —
+     * `UpdateWallBaselineCommand` and then the move-reweld
+     * `CascadeWallBaselineCommand` — which dirty the SAME plan view twice.
+     * Each run takes its own generation via `beginSwap(viewId)`. The second run
+     * bumps the counter while the first is still awaiting its projection, so
+     * the first run's `setIfCurrent(viewId, gen, warm)` is REJECTED as stale —
+     * and the driver's rejected-graft branch falls through to exactly the
+     * "produced nothing" sentence above, which is a true statement about a
+     * DIFFERENT cause. The gesture then pays a full O(N) re-projection it had
+     * already computed the O(dirty) answer for.
+     *
+     * ⭐ MEASURED, not assumed: the founder's own log shows TWO plan
+     * re-projections per single wall move, which is the signature of exactly
+     * this overlap — one graft that commits, one that is superseded and
+     * re-runs in full.
+     *
+     * ── THE RULE ─────────────────────────────────────────────────────────────
+     *
+     * A flush that arrives while one is in flight does NOT run: it leaves the
+     * dirty set intact (this method clears it only on the run that proceeds)
+     * and asks for a re-run when the in-flight one lands. Nothing is dropped —
+     * the pending work is strictly accumulated into the next pass — and no
+     * generation can be taken for a view whose projection has not committed.
+     *
+     * ⛔ This must never be "fixed" by making the loser force-accept its
+     * generation. Two concurrent passes over one view are two answers to one
+     * question (ADR-0299); serialising removes the question. Correctness first:
+     * the second pass sees the FIRST pass's committed drawing, so a join edited
+     * by the cascade can never be grafted onto a pre-cascade drawing.
+     */
+    private _flushInFlight = false;
+    private _flushRerunRequested = false;
+
     /** Re-project all dirty views and clear the dirty set. */
     private async _flush(): Promise<void> {
+        if (this._flushInFlight) {
+            // §FIX-VDT-FLUSH-SERIALISE — do NOT touch the dirty set here. It is
+            // the pending work for the re-run, and clearing it is the one way
+            // this guard could lose an edit.
+            this._flushRerunRequested = true;
+            bumpPerf(PERF_KEYS.REPROJECT_FLUSH_OVERLAP);
+            return;
+        }
+        if (this._dirtyViewIds.size === 0) return;
+
+        this._flushInFlight = true;
+        try {
+            await this._flushOnce();
+        } finally {
+            this._flushInFlight = false;
+        }
+
+        if (this._flushRerunRequested) {
+            this._flushRerunRequested = false;
+            // Only re-enter when there is genuinely something pending: an
+            // overlap whose events all landed in the pass we just ran leaves
+            // nothing behind, and re-queueing on an empty set would mint an
+            // endless low-priority task.
+            if (this._dirtyViewIds.size > 0) {
+                unifiedFrameLoop.queueLowPriority(() => this._flush());
+            }
+        }
+    }
+
+    private async _flushOnce(): Promise<void> {
         if (this._dirtyViewIds.size === 0) return;
 
         const toFlush = [...this._dirtyViewIds];
@@ -1028,7 +1120,13 @@ export class ViewDependencyTracker {
         const graftIdsForView = (viewId: string): ReadonlySet<string> | undefined => {
             if (viewsNeedingFull.has(viewId) || viewsGraftIneligible.has(viewId)) return undefined;
             const elems = dirtyElementsByView.get(viewId);
-            return elems && elems.size > 0 ? elems : undefined;
+            if (!elems || elems.size === 0) return undefined;
+            // §WALL30-MOVE-COST (L-10520) — the DENOMINATOR for `view.reprojectGraft`.
+            // "Offered" minus "grafted" is the number of times the driver was handed a
+            // graft-eligible set and still took the O(N) arm — which is the founder's
+            // §DIAG-GRAFT-FALLTHROUGH line, counted instead of read.
+            bumpPerf(PERF_KEYS.REPROJECT_GRAFT_OFFERED);
+            return elems;
         };
 
         if (this.onReprojectionNeeded) {

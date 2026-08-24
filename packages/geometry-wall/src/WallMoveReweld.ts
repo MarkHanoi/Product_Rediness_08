@@ -796,8 +796,48 @@ export interface MoveReweldNotApplicable {
 export interface MoveReweldSubjectSeat {
     /** Partner ids whose corner was offered to the subject to terminate on. */
     readonly cornersOffered: readonly string[];
-    /** Partner ids whose corner the subject actually seated an endpoint on. */
+    /**
+     * Partner ids whose corner the subject's endpoint ended up on — the UNION of
+     * `alreadyClosed` and the corners it actually had to move to reach.
+     *
+     * ⚠ L-10520 — READ `alreadyClosed` BEFORE CONCLUDING ANYTHING FROM THIS. Two
+     * semantically opposite outcomes have always landed in this one array (see
+     * `alreadyClosed` below), and the founder's 2026-08-24 report
+     * (*"move / propagates doesn't always work"*) is largely that conflation
+     * read back out of the console.
+     */
     readonly seatedOn: readonly string[];
+    /**
+     * ⭐ §L-10520 — THE HALF OF `seatedOn` THAT REQUIRED NO WORK.
+     *
+     * Partner ids whose corner the subject's endpoint was ALREADY on, to within
+     * `MIN_DISPLACEMENT` (1 µm). This is the ordinary outcome of a perpendicular
+     * drag against 90° L-partners: the subject slides along its partners' lines,
+     * so the new intersection lands exactly on the endpoint it already had and
+     * there is nothing to rewrite.
+     *
+     * ── WHY IT IS A FIELD AND NOT A COMMENT ──────────────────────────────────
+     *
+     * The founder compared two lines from ONE session and reported them as an
+     * inconsistency:
+     *
+     *     …2 corner(s) offered, 2 seated, entry emitted    | partners accounted 2/2
+     *     …2 corner(s) offered, 2 seated, NO subject entry | partners accounted 2/2
+     *
+     * Both are CORRECT and they are the same rule: an entry is emitted iff at
+     * least one seat had to MOVE an endpoint. The first gesture moved one; the
+     * second found both endpoints already on their corners. Nothing in the line
+     * said so, because `seatedOn` counted both cases identically — so "2 seated,
+     * NO subject entry" read as "it found the corners and failed to act on them"
+     * when it means "the joints were already closed".
+     *
+     * Pinned by `L945PartnerOutcomeCensus.test.ts` (§DEGREE-2 mutual-corner),
+     * which has asserted `seatedOn: ['A'], entryEmitted: false` since §L-945 —
+     * i.e. the BEHAVIOUR was already correct and already covered; only the
+     * report was ambiguous. `seatedOn` is deliberately left as the union so that
+     * assertion, and every other pinned expectation, is byte-unchanged.
+     */
+    readonly alreadyClosed: readonly string[];
     /** Corners the subject declined, each keyed by the partner that formed it. */
     readonly declined: readonly MoveReweldNotApplicable[];
     /** True when an entry rewriting the subject's own baseline was emitted. */
@@ -999,7 +1039,7 @@ export function computeMoveReweldCensus(
         return {
             entries, refusals, consideredPartnerIds, notApplicable,
             subjectSeat: {
-                cornersOffered: [], seatedOn: [], declined: [], entryEmitted: false,
+                cornersOffered: [], seatedOn: [], alreadyClosed: [], declined: [], entryEmitted: false,
             },
         };
     }
@@ -1290,6 +1330,8 @@ export function computeMoveReweldCensus(
     // open here, and before this the only trace was the subject's absence from a
     // list it was never guaranteed to be in.
     const seatedOn: string[] = [];
+    /** §L-10520 — the subset of `seatedOn` that needed no write. See the field doc. */
+    const alreadyClosed: string[] = [];
     const seatDeclined: MoveReweldNotApplicable[] = [];
     let subjectEntryEmitted = false;
     let subjectSuppressed: 'SUBJECT_WOULD_COLLAPSE' | undefined;
@@ -1305,7 +1347,14 @@ export function computeMoveReweldCensus(
                 // The subject's endpoint is ALREADY on this corner — the joint
                 // is closed and needs no entry. Recorded so it reads as "closed"
                 // rather than as the identical-looking "declined" below.
+                //
+                // §L-10520 — and recorded SEPARATELY as well, because "closed"
+                // and "re-seated" are opposite facts about whether this gesture
+                // did any work, and until now the reader got one array holding
+                // both. `seatedOn` keeps the union so every pinned expectation
+                // is unchanged.
                 seatedOn.push(partnerId);
+                alreadyClosed.push(partnerId);
                 continue;
             }
             // §L-872 T-SEAT-GUARD, §L-932-CORRECTED.
@@ -1383,6 +1432,7 @@ export function computeMoveReweldCensus(
         subjectSeat: {
             cornersOffered: cornersOnMoved.map(c => c.partnerId),
             seatedOn,
+            alreadyClosed,
             declined: seatDeclined,
             entryEmitted: subjectEntryEmitted,
             ...(subjectSuppressed ? { suppressed: subjectSuppressed } : {}),

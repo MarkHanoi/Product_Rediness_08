@@ -164,6 +164,29 @@ class AdjacencyGraph {
         this._kinds.clear();
     }
 
+    /**
+     * §WALL30-ADJ-DELTA (L-10521) — every edge exactly once, canonicalised.
+     *
+     * The rebuild in `TopologyLayer._ensureFresh()` had no way to say WHICH
+     * relationships it had just stopped believing in, because nothing could
+     * enumerate the graph. `getEdges(id)` answers per element and double-counts
+     * across the pair; this returns the `a|b` canonical key set, which is what a
+     * before/after diff needs.
+     */
+    allEdgeKeys(): Set<string> {
+        const keys = new Set<string>();
+        for (const [id, neighbours] of this._adj) {
+            for (const n of neighbours) keys.add(this._edgeKey(id, n));
+        }
+        return keys;
+    }
+
+    /** Canonical `a|b` key for one pair — public so the rebuild diff can build
+     *  the same keys `allEdgeKeys()` returns without duplicating the rule. */
+    edgeKeyFor(a: string, b: string): string {
+        return this._edgeKey(a, b);
+    }
+
     private _getOrCreate(id: string): Set<string> {
         let s = this._adj.get(id);
         if (!s) { s = new Set<string>(); this._adj.set(id, s); }
@@ -341,7 +364,34 @@ export class TopologyLayer {
     private _ensureFresh(): void {
         if (!this._dirty) return;
 
-        const prevEdgeCount = this._adjacency.elementCount;
+        // ⭐ §WALL30-ADJ-DELTA (L-10521) — WHAT THIS REBUILD STOPPED BELIEVING.
+        //
+        // Founder, 2026-08-24, two consecutive lines from one wall move:
+        //     [TopologyLayer] Adjacency rebuilt — 9 element(s), 6 adjacency edge(s)
+        //     [TopologyLayer] Adjacency rebuilt — 9 element(s), 5 adjacency edge(s)
+        // Same nine elements, one fewer relationship. A join disappeared and the
+        // ONLY trace was a smaller integer — nobody could say which pair, and the
+        // event this method emits declared `removed: []` while it was happening.
+        //
+        // Two facts were missing and both are recoverable here, because the graph
+        // is fully rebuilt from scratch every time:
+        //   1. WHICH pair(s) went, by name — printed below.
+        //   2. That any went at all, ON THE BUS — `removed` was hard-coded `[]`,
+        //      so a rebuild could delete every edge in the model and every
+        //      subscriber would be told only about additions.
+        //
+        // ⚠ MEASURED, and stated as such: this diff SAYS a pair is no longer
+        // adjacent. It does not say the join was lost WRONGLY — a wall genuinely
+        // dragged away from its neighbour SHOULD lose the edge. Distinguishing
+        // those is the reweld's job (see `WallMoveReweldService`
+        // §MOVE-REWELD-DISPATCH); this line exists so the question can be asked
+        // about a named pair instead of an integer.
+        const prevEdgeKeys = this._adjacency.allEdgeKeys();
+        // ⚠ `prevEdgeCount` used to be assigned `elementCount` — the number of
+        // NODES with at least one neighbour, under a name that says EDGES. It is
+        // only read as a `> 0` emit guard so nothing broke, but the guard now
+        // uses the quantity it names.
+        const prevEdgeCount = prevEdgeKeys.size;
         this._adjacency.clear();
 
         const added:   AdjacencyRelationship[] = [];
@@ -390,18 +440,52 @@ export class TopologyLayer {
 
         this._dirty = false;
 
+        // §WALL30-ADJ-DELTA (L-10521) — the pairs this rebuild no longer holds.
+        // `added` is every edge the fresh scan produced, so anything in the
+        // previous key set that is absent from it is a relationship that has
+        // GONE. Reconstructed as real `AdjacencyRelationship`s (kind unknowable
+        // after the fact — the pair is what matters, and 'adjacentTo' is the
+        // conservative label) so subscribers get the same shape the delete path
+        // at `_handleStoreChange` already gives them.
+        const nextEdgeKeys = new Set<string>(
+            added.map(r => this._adjacency.edgeKeyFor(r.sourceId, r.targetId)),
+        );
+        const removed: AdjacencyRelationship[] = [];
+        for (const key of prevEdgeKeys) {
+            if (nextEdgeKeys.has(key)) continue;
+            const sep = key.indexOf('|');
+            const a = key.slice(0, sep);
+            const b = key.slice(sep + 1);
+            removed.push({ sourceId: a, targetId: b, kind: 'adjacentTo' });
+            changed.add(a);
+            changed.add(b);
+        }
+
         if (added.length > 0 || prevEdgeCount > 0) {
             topologyEventBus.emit({
                 affectedIds: Array.from(changed),
                 added,
-                removed: [],
+                // ⛔ Was hard-coded `[]`. A rebuild that drops a join is the one
+                // event a topology subscriber most needs, and it was the one
+                // this bus structurally could not carry.
+                removed,
                 timestamp: Date.now(),
             });
         }
 
         console.log(
             `[TopologyLayer] Adjacency rebuilt — ${elementIds.length} element(s), ` +
-            `${added.length} adjacency edge(s).`,
+            `${added.length} adjacency edge(s)` +
+            (removed.length > 0
+                // ⭐ THE LINE THE FOUNDER'S 6→5 NEEDED. Named pairs, capped so a
+                // project-load rebuild (where every edge is legitimately "new")
+                // cannot turn one console line into a wall of text.
+                ? `, ⚠ ${removed.length} LOST since the last rebuild ` +
+                  `[${removed.slice(0, 8).map(r => `${r.sourceId}↔${r.targetId}`).join(', ')}` +
+                  `${removed.length > 8 ? `, +${removed.length - 8} more` : ''}]` +
+                  ` — §WALL30-ADJ-DELTA: a lost edge is EITHER a wall genuinely moved apart ` +
+                  `OR a join the re-weld failed to close; check §MOVE-REWELD-DISPATCH for these ids.`
+                : '.'),
         );
     }
 
