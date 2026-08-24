@@ -1060,3 +1060,18 @@ export type {
 // union (26 members). `ElementFamilySchedules` needs it to enumerate "all the
 // elements" without minting a 27th rival list of family names.
 export type { StoreType } from './ElementRegistry.js';
+
+// §SHEET-PAPER-IS-THE-SHEETS (L-10684) — the ONE resolver of how big a sheet is
+// and where its title-block fields land. Consumers must call these instead of
+// reading `template.paperWidth`, which is what made the Paper dropdown
+// ornamental.
+export {
+    resolveSheetPaper,
+    placeSheetOnPaper,
+    titleBlockFieldsOnPaper,
+    titleBlockRevisionZoneOnPaper,
+    titleBlockStripLeftMm,
+    titleBlockFitsPaper,
+    titleBlockContentTopMm,
+} from './views/SheetPaperResolution.js';
+export type { ResolvedSheetPaper, SheetPaperPlacement, PaperBearingSheet } from './views/SheetPaperResolution.js';

@@ -41,6 +41,8 @@ import { svg2pdf } from 'svg2pdf.js';
 
 import { sheetStore }                from '@pryzm/core-app-model';
 import { titleBlockStore } from '@pryzm/core-app-model/views';
+import { placeSheetOnPaper } from '@pryzm/core-app-model/views';  // §SHEET-PAPER-IS-THE-SHEETS (L-10684)
+import type { SheetPaperPlacement } from '@pryzm/core-app-model/views';
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { resolveViewportScale } from '@pryzm/core-app-model';
@@ -119,41 +121,31 @@ class PdfExportServiceImpl {
             ? (titleBlockStore.get(sheet.titleBlock) ?? titleBlockStore.getDefault())
             : titleBlockStore.getDefault();
 
-        const pW = template.paperWidth;   // mm
-        const pH = template.paperHeight;  // mm
-
-        // §SHEET-PAPER-HAS-ONE-AUTHORITY (L-10684) — REPORT the divergence; do
-        // not paper over it.
+        // §SHEET-PAPER-IS-THE-SHEETS (L-10684) — AUTHORITY MOVED.
         //
-        // The founder's sheet reads `Paper: A0` and `Title Block: A3 Standard`
-        // simultaneously, and his exported page is A3 — because THE PAGE SIZE
-        // COMES FROM THE TITLE BLOCK, on all four surfaces (this one, the sheet
-        // editor canvas, the SVG/print export and the DXF export), while
-        // `SheetDefinition.paperSize` is read by nothing but a dropdown's
-        // selected state and an info label.
+        // This block used to read `template.paperWidth/paperHeight` and then
+        // WARN that the sheet disagreed: the founder's sheet said `Paper: A0`,
+        // his title block said A3, and the PDF came out 420×297 with a console
+        // line explaining that the title block had won. The disclosure was the
+        // right first move and the wrong final one — a console line reaches the
+        // person who pressed Export; the page reaches everyone downstream.
         //
-        // ⛔ This is NOT fixed by silently preferring `sheet.paperSize`: the
-        // title block's field positions are absolute millimetres from the paper
-        // LEFT edge (`x: 305` on a 420 mm page), so re-pointing the page size
-        // without re-anchoring the block would throw every field off the sheet.
-        // The re-anchoring is the real work and it is COSTED, not started here
-        // (C102 §5.5). What is unacceptable in the meantime is the SILENCE —
-        // a sheet that says A0 and prints A3 with no line anywhere saying which
-        // one won.
-        const declared = (sheet as { paperSize?: string }).paperSize;
-        if (declared && declared !== 'custom') {
-            const iso: Record<string, [number, number]> = {
-                A0: [1189, 841], A1: [841, 594], A2: [594, 420], A3: [420, 297], A4: [297, 210],
-            };
-            const want = iso[declared];
-            if (want && !(Math.abs(want[0] - pW) < 1 && Math.abs(want[1] - pH) < 1)) {
-                console.warn(
-                    `[PdfExportService] §SHEET-PAPER-HAS-ONE-AUTHORITY (L-10684) — sheet '${sheet.sheetNumber}' ` +
-                    `declares paperSize=${declared} (${want[0]}×${want[1]}mm) but its title block ` +
-                    `'${template.name}' is ${pW}×${pH}mm. THE TITLE BLOCK WINS: this PDF is ` +
-                    `${pW}×${pH}mm. Choose a title block matching the paper.`,
-                );
-            }
+        // The sheet's Paper is now the authority. `placeSheetOnPaper` takes the
+        // SIZE from `sheet.paperSize` and the ORIENTATION from the title block
+        // (neither control is redundant, so neither is discarded) and re-anchors
+        // the block's fields to the resolved page — the same
+        // `field.x - (paperWidth - borderWidth)` transform this file already
+        // performed inline, completed rather than invented.
+        //
+        // ⛔ The refusal path survives, with a REASON instead of a rule: a paper
+        // the block does not fit on is refused by name, with both numbers, and
+        // the template's own paper is used. Drawing a 180 mm strip on a 210 mm
+        // page would put the block off the sheet — worse than the defect.
+        const placement = placeSheetOnPaper(sheet, template);
+        const pW = placement.widthMm;    // mm
+        const pH = placement.heightMm;   // mm
+        if (placement.refusal) {
+            console.warn(`[PdfExportService] §SHEET-PAPER-IS-THE-SHEETS (L-10684) — ${placement.refusal}`);
         }
 
         // ── jsPDF document ────────────────────────────────────────────────────
@@ -170,8 +162,7 @@ class PdfExportServiceImpl {
         pdf.rect(BORDER_MARGIN, BORDER_MARGIN, pW - 2 * BORDER_MARGIN, pH - 2 * BORDER_MARGIN);
 
         // ── Title block panel border ──────────────────────────────────────────
-        const tbW  = template.borderWidth;   // right-side panel width (mm)
-        const tbX0 = pW - tbW;
+        const tbX0 = placement.stripLeftMm;   // left edge of the right-side strip (mm)
         pdf.setLineWidth(0.35);
         pdf.line(tbX0, BORDER_MARGIN, tbX0, pH - BORDER_MARGIN);
 
@@ -311,7 +302,7 @@ class PdfExportServiceImpl {
         }
 
         // ── Title block fields ─────────────────────────────────────────────────
-        this._drawTitleBlock(pdf, sheet, template, pW, pH, ctx);
+        this._drawTitleBlock(pdf, sheet, placement, pH, ctx);
 
         // PV-04 / C75 §7.7 — a flattened sheet PDF carries no ValueProvenance
         // mapping; the absence is recorded BY NAME in the document metadata
@@ -339,12 +330,15 @@ class PdfExportServiceImpl {
     private _drawTitleBlock(
         pdf: jsPDF,
         sheet: TitleBlockSheet,
-        template: { paperWidth: number; paperHeight: number; borderWidth: number; fields: any[] },
-        pW: number,
+        // §SHEET-PAPER-IS-THE-SHEETS (L-10684) — the PLACEMENT, not the raw
+        // template. The fields carried here are already re-anchored to the page
+        // being drawn, so this method no longer needs to know which paper the
+        // template was authored for.
+        placement: SheetPaperPlacement,
         pH: number,
         ctx: TitleBlockContext,
     ): void {
-        const tbX0 = pW - template.borderWidth;
+        const tbX0 = placement.stripLeftMm;
 
         // §SHEET-TITLE-BLOCK-HAS-A-SOURCE (L-3806) — ONE producer for these
         // values. This map used to be built inline here, and identically (and
@@ -359,7 +353,7 @@ class PdfExportServiceImpl {
         // mistake for a revision code.
         const fieldValues = resolveTitleBlockValues(sheet, ctx);
 
-        for (const field of template.fields) {
+        for (const field of placement.fields) {
             // TitleBlock coordinates: x is absolute mm from paper left, y is from paper bottom.
             // jsPDF y is from paper top.
             const fx = tbX0 + (field.x - tbX0);

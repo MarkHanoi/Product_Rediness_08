@@ -55,6 +55,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import { sheetStore }               from '@pryzm/core-app-model';
 import { titleBlockStore } from '@pryzm/core-app-model/views';
+import { placeSheetOnPaper } from '@pryzm/core-app-model/views';  // §SHEET-PAPER-IS-THE-SHEETS (L-10684)
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
 import { annotationDxfBridge, AnnotationDxfBridgeOptions } from './AnnotationDxfBridge';
 import { PocheFillBuilder } from '@pryzm/core-app-model/views';
@@ -132,8 +133,14 @@ class DxfExportServiceImpl {
             ? (titleBlockStore.get(sheet.titleBlock) ?? titleBlockStore.getDefault())
             : titleBlockStore.getDefault();
 
-        const paperWidthMm  = template.paperWidth;
-        const paperHeightMm = template.paperHeight;
+        // §SHEET-PAPER-IS-THE-SHEETS (L-10684) — a DXF that disagrees with the
+        // PDF about the page size of the same sheet is the same defect one file
+        // format further on, so this surface resolves through the one authority
+        // too. Identity when sheet and title block already agree.
+        const placement     = placeSheetOnPaper(sheet, template);
+        const paperWidthMm  = placement.widthMm;
+        const paperHeightMm = placement.heightMm;
+        if (placement.refusal) console.warn(`[DxfExportService] ${placement.refusal}`);
 
         // OBC paper options — margin is the uniform border from all four edges.
         const paper = {

@@ -123,6 +123,17 @@ class SheetStoreImpl {
         issueDate?:   string;
         issuedBy?:    string;
         status?:      SheetStatus;
+        /**
+         * §SHEET-PAPER-IS-THE-SHEETS (L-10684) — the Paper dropdown's key.
+         *
+         * ⛔ IT WAS MISSING HERE, AND THAT IS THE WHOLE DEFECT. The sheet editor
+         * has always patched `{ paperSize: 'A0' }` through `UpdateSheetCommand`,
+         * and this method silently ignored the key because it did not declare
+         * it — the call site cast the patch `as any`, so nothing complained.
+         * The one working writer, `setPaperSize`, had zero callers. So "I picked
+         * A0 and got A3" was a write that never happened, hidden by a cast.
+         */
+        paperSize?:   PaperSize;
     }): boolean {
         const sheet = this._sheets.get(sheetId);
         if (!sheet) return false;
@@ -136,6 +147,7 @@ class SheetStoreImpl {
         if (patch.issueDate   !== undefined) sheet.issueDate   = patch.issueDate;
         if (patch.issuedBy    !== undefined) sheet.issuedBy    = patch.issuedBy;
         if (patch.status      !== undefined) sheet.status      = patch.status;
+        if (patch.paperSize   !== undefined) sheet.paperSize   = patch.paperSize;
 
         // Legacy: if viewIds patch provided and no viewports patch, convert
         if (patch.viewIds !== undefined && patch.viewports === undefined) {

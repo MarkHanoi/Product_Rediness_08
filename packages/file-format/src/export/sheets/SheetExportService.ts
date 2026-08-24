@@ -29,6 +29,7 @@ import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { sheetStore } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { titleBlockStore } from '@pryzm/core-app-model/views';
+import { placeSheetOnPaper } from '@pryzm/core-app-model/views';  // §SHEET-PAPER-IS-THE-SHEETS (L-10684)
 // §SHEET-TITLE-BLOCK-HAS-A-SOURCE (L-3806) — the ONE producer of title block
 // field values. Both export paths below built their own five-key map against a
 // template declaring eleven fields; one of them rebuilt it INSIDE the per-field
@@ -125,8 +126,14 @@ class SheetExportServiceImpl {
             ? (titleBlockStore.get(sheet.titleBlock) ?? titleBlockStore.getDefault())
             : titleBlockStore.getDefault();
 
-        const pW = template.paperWidth;
-        const pH = template.paperHeight;
+        // §SHEET-PAPER-IS-THE-SHEETS (L-10684) — the sheet's Paper is the
+        // authority; the title block supplies the ORIENTATION and the strip.
+        // Identity when the two already agree, which is every sheet authored
+        // before this change.
+        const placement = placeSheetOnPaper(sheet, template);
+        const pW = placement.widthMm;
+        const pH = placement.heightMm;
+        if (placement.refusal) console.warn(`[SheetExportService] ${placement.refusal}`);
 
         const ns   = 'http://www.w3.org/2000/svg';
         const svgEl = document.createElementNS(ns, 'svg');
@@ -178,14 +185,13 @@ class SheetExportServiceImpl {
         }
 
         // Title block fields
-        const tbX = pW - template.borderWidth;
         // §SHEET-TITLE-BLOCK-HAS-A-SOURCE (L-3806) — resolved ONCE, outside the
         // loop. It was being rebuilt per field, which allocated a fresh map for
         // every one of the eleven fields and made the duplication easy to miss.
         const fieldValues = resolveTitleBlockValues(sheet, ctx);
-        for (const field of template.fields) {
+        for (const field of placement.fields) {
             const fieldEl = document.createElementNS(ns, 'text');
-            const fx = tbX + (field.x - (pW - template.borderWidth));
+            const fx = field.x;
             const fy = pH - field.y;
             fieldEl.setAttribute('x',           `${fx}`);
             fieldEl.setAttribute('y',           `${fy}`);
@@ -226,6 +232,14 @@ class SheetExportServiceImpl {
         const template = sheet.titleBlock
             ? (titleBlockStore.get(sheet.titleBlock) ?? titleBlockStore.getDefault())
             : titleBlockStore.getDefault();
+
+        // §SHEET-PAPER-IS-THE-SHEETS (L-10684) — the print layer is laid out in
+        // PERCENTAGES of the paper, so it needs the resolved paper too or the
+        // printed page disagrees with the PDF about the same sheet.
+        const placement = placeSheetOnPaper(sheet, template);
+        const paperWmm  = placement.widthMm;
+        const paperHmm  = placement.heightMm;
+        if (placement.refusal) console.warn(`[SheetExportService/print] ${placement.refusal}`);
 
         // Remove any existing print layer
         const existing = document.getElementById('pryzm-print-layer');
@@ -269,20 +283,20 @@ class SheetExportServiceImpl {
         // Title block
         const tbEl = document.createElement('div');
         tbEl.className = 'sh-titleblock';
-        tbEl.style.width = `${(template.borderWidth / template.paperWidth) * 100}%`;
+        tbEl.style.width = `${(template.borderWidth / paperWmm) * 100}%`;
 
         // §SHEET-TITLE-BLOCK-HAS-A-SOURCE (L-3806) — one producer, shared with
         // the SVG path above, the PDF exporter and the sheet editor panel.
         const fields = resolveTitleBlockValues(sheet, ctx);
 
-        for (const field of template.fields) {
+        for (const field of placement.fields) {
             const zone = document.createElement('div');
             zone.style.cssText = `
                 position: absolute;
-                left:   ${((field.x - (template.paperWidth - template.borderWidth)) / template.borderWidth) * 100}%;
-                bottom: ${(field.y / template.paperHeight) * 100}%;
+                left:   ${((field.x - placement.stripLeftMm) / template.borderWidth) * 100}%;
+                bottom: ${(field.y / paperHmm) * 100}%;
                 width:  ${(field.width  / template.borderWidth) * 100}%;
-                height: ${(field.height / template.paperHeight) * 100}%;
+                height: ${(field.height / paperHmm) * 100}%;
                 border: 0.5px solid #aaa;
                 padding: 1px 2px;
                 box-sizing: border-box;
@@ -307,8 +321,8 @@ class SheetExportServiceImpl {
 
         // DOC-3.5: Viewports — composed vector output when a TechnicalDrawing is
         // cached; labelled placeholder for views not yet projected.
-        const usableW = template.paperWidth  - template.borderWidth;
-        const usableH = template.paperHeight;
+        const usableW = paperWmm - template.borderWidth;
+        const usableH = paperHmm;
 
         // Fractional width/height used for positioning (matching pre-DOC-3.5 layout)
         const VP_W_FRAC = 0.30;
@@ -323,7 +337,7 @@ class SheetExportServiceImpl {
             const vpHMm = usableH * VP_H_FRAC;
 
             // Percentage-based position for the CSS-layout print layer
-            const leftPct   = (vp.position.x / usableW) * (100 * (1 - template.borderWidth / template.paperWidth));
+            const leftPct   = (vp.position.x / usableW) * (100 * (1 - template.borderWidth / paperWmm));
             const bottomPct = (vp.position.y / usableH) * 100;
 
             const vpEl = document.createElement('div');

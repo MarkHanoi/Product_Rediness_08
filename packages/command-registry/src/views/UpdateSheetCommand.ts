@@ -14,7 +14,7 @@
 
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { sheetStore } from '@pryzm/core-app-model';
-import type { SheetDefinition, SheetViewport, RevisionEntry, SheetStatus } from '@pryzm/core-app-model';
+import type { SheetDefinition, SheetViewport, RevisionEntry, SheetStatus, PaperSize } from '@pryzm/core-app-model';
 
 export interface UpdateSheetPatch {
     sheetNumber?: string;
@@ -27,6 +27,12 @@ export interface UpdateSheetPatch {
     issueDate?:   string;
     issuedBy?:    string;
     status?:      SheetStatus;
+    /**
+     * §SHEET-PAPER-IS-THE-SHEETS (L-10684) — the Paper dropdown's key.
+     * Undeclared until now, which is why `dispatchUpdateSheetField` had to cast
+     * its patch `as any` and the write silently evaporated in `SheetStore`.
+     */
+    paperSize?:   PaperSize;
 }
 
 export class UpdateSheetCommand implements Command {
@@ -77,6 +83,9 @@ export class UpdateSheetCommand implements Command {
             issueDate:   snap.issueDate,
             issuedBy:    snap.issuedBy,
             status:      snap.status,
+            // L-10684 — undo must restore the paper too, or changing Paper
+            // becomes an unundoable act.
+            paperSize:   snap.paperSize,
         });
         return { success: ok, affectedElementIds: [this.sheetId] };
     }

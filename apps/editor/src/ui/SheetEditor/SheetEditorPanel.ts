@@ -37,6 +37,7 @@ import { sheetStore } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { resolveViewportScale } from '@pryzm/core-app-model';  // §SHEET-ONE-SCALE-RESOLUTION (L-10682)
 import { titleBlockStore } from '@pryzm/core-app-model';
+import { placeSheetOnPaper } from '@pryzm/core-app-model';  // §SHEET-PAPER-IS-THE-SHEETS (L-10684)
 import type { SheetDefinition, SheetViewport } from '@pryzm/core-app-model';
 import type { ViewDefinition } from '@pryzm/core-app-model';
 import { viewportPreviewRenderer } from '@pryzm/core-app-model';
@@ -564,8 +565,15 @@ export class SheetEditorPanel {
             ? (titleBlockStore.get(sheet.titleBlock) ?? titleBlockStore.getDefault())
             : titleBlockStore.getDefault();
 
-        const paperW = template.paperWidth;
-        const paperH = template.paperHeight;
+        // §SHEET-PAPER-IS-THE-SHEETS (L-10684) — the sheet's Paper is the
+        // authority now, not the title block's. `placeSheetOnPaper` resolves the
+        // size from `sheet.paperSize` (orientation from the template) and
+        // re-anchors the fields to it; when the two agree — every sheet authored
+        // before this change — it returns exactly the numbers it was given.
+        const placement = placeSheetOnPaper(sheet, template);
+        const paperW = placement.widthMm;
+        const paperH = placement.heightMm;
+        if (placement.refusal) console.warn(`[SheetEditorPanel] ${placement.refusal}`);
 
         const availW = Math.max(600, window.innerWidth  * 0.78 - 64);
         const availH = Math.max(400, window.innerHeight * 0.85 - 80);
@@ -609,10 +617,10 @@ export class SheetEditorPanel {
         // never a placeholder that looks like data.
         const fieldValues = resolveTitleBlockValues(sheet, gatherTitleBlockContext(this.runtime));
 
-        for (const field of template.fields) {
+        for (const field of placement.fields) {
             const zone = document.createElement('div');
             zone.className    = 'sh-titleblock-field';
-            zone.style.left   = `${(field.x - (paperW - template.borderWidth)) * sf}px`;
+            zone.style.left   = `${(field.x - placement.stripLeftMm) * sf}px`;
             zone.style.bottom = `${field.y * sf}px`;
             zone.style.width  = `${field.width * sf}px`;
             zone.style.height = `${field.height * sf}px`;

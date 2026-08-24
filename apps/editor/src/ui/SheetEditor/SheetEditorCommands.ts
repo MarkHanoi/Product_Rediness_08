@@ -8,13 +8,14 @@
  */
 
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
-import type { SheetDefinition, SheetViewport } from '@pryzm/core-app-model';
+import type { SheetDefinition, SheetViewport, SheetStatus, PaperSize } from '@pryzm/core-app-model';
 import type { ViewDefinition } from '@pryzm/core-app-model';
 import { AddViewportToSheetCommand } from '@pryzm/command-registry';
 import { MoveViewportCommand } from '@pryzm/command-registry';
 import { RemoveViewportFromSheetCommand } from '@pryzm/command-registry';
 import { UpdateViewportScaleCommand } from '@pryzm/command-registry';
 import { UpdateSheetCommand } from '@pryzm/command-registry';
+import type { UpdateSheetPatch } from '@pryzm/command-registry';
 import { AddRevisionToSheetCommand } from '@pryzm/command-registry';
 import { ApplySheetLayoutPresetCommand } from '@pryzm/command-registry';
 import { AddDataPanelToSheetCommand } from '@pryzm/command-registry';
@@ -195,8 +196,33 @@ export function dispatchUpdateSheetField(sheetId: string, key: string, value: st
         console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: dispatchUpdateSheetField');
         return;
     }
-    const patch: Record<string, string> = { [key]: value };
-    const cmd = new UpdateSheetCommand(sheetId, patch as any);
+    // §SHEET-PAPER-IS-THE-SHEETS (L-10684) — THE CAST IS GONE, AND THAT IS THE
+    // POINT.
+    //
+    // This built `{ [key]: value }` and handed it over as `patch as any`. The
+    // `as any` was not a convenience: it was the reason "I picked A0 and got A3"
+    // could exist. `paperSize` was declared by neither `UpdateSheetPatch` nor
+    // `SheetStore.update()`, so the write evaporated silently — the one thing
+    // the type system was there to say, it had been told not to say. An
+    // unrecognised key is now REFUSED BY NAME instead of dispatched into a
+    // handler that will ignore it.
+    const patch: UpdateSheetPatch = {};
+    switch (key) {
+        case 'sheetNumber': patch.sheetNumber = value; break;
+        case 'name':        patch.name        = value; break;
+        case 'revision':    patch.revision    = value; break;
+        case 'issueDate':   patch.issueDate   = value; break;
+        case 'issuedBy':    patch.issuedBy    = value; break;
+        case 'titleBlock':  patch.titleBlock  = value; break;
+        // Both come from a <select> whose options ARE the union's members, so
+        // the narrowing is at the widget, not a guess.
+        case 'status':      patch.status      = value as SheetStatus; break;
+        case 'paperSize':   patch.paperSize   = value as PaperSize;   break;
+        default:
+            console.warn(`[SheetEditorCommands] unknown sheet field '${key}' — not dispatched`);
+            return;
+    }
+    const cmd = new UpdateSheetCommand(sheetId, patch);
     dispatchSheetCommand('dispatchUpdateSheetField', cmd);
 }
 

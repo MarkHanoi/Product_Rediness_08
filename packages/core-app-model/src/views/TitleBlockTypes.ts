@@ -81,11 +81,27 @@ export interface TitleBlockTemplate {
 
 // ── Standard paper sizes ───────────────────────────────────────────────────────
 
-/** Standard ISO paper sizes in mm (landscape). */
+/**
+ * Standard paper sizes in mm (LANDSCAPE — width ≥ height). Portrait is the same
+ * pair swapped; `resolveSheetPaper` in `SheetPaperResolution.ts` does the swap
+ * from the title block's orientation, so orientation is never tabulated twice.
+ *
+ * ⭐ THE ANSI ROWS ARE NOT DECORATION (L-10684). `SheetDefinition.paperSize`
+ * has always admitted `'ANSI-A' | 'ANSI-B' | 'ANSI-C' | 'ANSI-D'` and the Paper
+ * dropdown has always offered them, while this table stopped at A4 — so those
+ * four entries named sizes the product could not express. Now that the sheet's
+ * paper is the authority, an unlisted key silently falls back to the title
+ * block's own paper, which is precisely the "picked A0, got A3" shape. Added
+ * from ANSI/ASME Y14.1 (inches × 25.4, exact).
+ */
 export const PAPER_SIZES: Record<string, { width: number; height: number }> = {
-    'A0': { width: 1189, height: 841  },
-    'A1': { width: 841,  height: 594  },
-    'A2': { width: 594,  height: 420  },
-    'A3': { width: 420,  height: 297  },
-    'A4': { width: 297,  height: 210  },
+    'A0':     { width: 1189,  height: 841   },
+    'A1':     { width: 841,   height: 594   },
+    'A2':     { width: 594,   height: 420   },
+    'A3':     { width: 420,   height: 297   },
+    'A4':     { width: 297,   height: 210   },
+    'ANSI-A': { width: 279.4, height: 215.9 },   // 11    × 8.5 in
+    'ANSI-B': { width: 431.8, height: 279.4 },   // 17    × 11  in
+    'ANSI-C': { width: 558.8, height: 431.8 },   // 22    × 17  in
+    'ANSI-D': { width: 863.6, height: 558.8 },   // 34    × 22  in
 } as const;
