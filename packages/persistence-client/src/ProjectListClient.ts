@@ -254,8 +254,17 @@ export class ProjectListClient {
     readonly pagesFetched: number;
     readonly reason: 'server-declared-no-more' | 'short-page' | 'page-budget-exhausted' | 'server-does-not-paginate';
   }> {
-    const pageSize = opts?.pageSize ?? 200;
-    const maxPages = opts?.maxPages ?? 25;
+    // ⚠ 50, NOT the server's 200 ceiling, and the reason is payload size rather
+    // than politeness. `GET /api/v1/projects` selects `p.thumbnail` inline
+    // (`server/projectStore.js:418`), and a thumbnail is a base64 data URL that
+    // `ProjectRepository`'s own §HUB-THUMBNAIL-STORAGE note measures at
+    // "~5–500 KB" each. A 200-row page would therefore be up to FOUR TIMES the
+    // JSON the hub already downloads per request. Enumerating in 50-row pages
+    // keeps every individual response exactly the size it is today and pays for
+    // completeness in request COUNT, which is the cheap axis. ⛔ Do not raise this
+    // to 200 without first moving thumbnails out of the list row (L-10405).
+    const pageSize = opts?.pageSize ?? 50;
+    const maxPages = opts?.maxPages ?? 40;
 
     const seen = new Set<string>();
     const projects: ProjectSummary[] = [];

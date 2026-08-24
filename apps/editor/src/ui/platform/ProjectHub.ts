@@ -128,6 +128,10 @@ export class ProjectHub {
         // project. Awaiting both warms relocates that bloat into IndexedDB (and strips
         // inline thumbnails) FIRST, so the single reconcile write lands in a lean
         // localStorage.
+        // ⚠ §FIX-PREVIEW-WAITS-ON-VERSION-HISTORY (L-10402) — the two warms now run
+        // CONCURRENTLY rather than in series. L-148's invariant is unchanged (both
+        // settle before the first sync write); what changed is that the grid repaint
+        // no longer waits for the version warm. See `_warmThenSync`.
         void this._warmThenSync();
     }
 
@@ -139,11 +143,59 @@ export class ProjectHub {
      * a cold cache).
      */
     private async _warmThenSync(): Promise<void> {
-        try { await warmVersionCache(); } catch { /* non-fatal — server version fallback covers cold reads */ }
-        try { await warmThumbnailCache(); } catch { /* non-fatal — server thumbnailUrl / placeholder still render */ }
+        // ── §FIX-PREVIEW-WAITS-ON-VERSION-HISTORY (L-10402) ──────────────────
+        //
+        // ⭐ THE ~1 SECOND OF PLACEHOLDER CARDS. The founder: *"it looks like a
+        // bug"* — the hub paints "BIM Project" skeletons, then ~1 s later the real
+        // previews. The cause is this function's ORDER, and nothing else.
+        //
+        // MEASURED (the mechanism, from the code): `warmVersionCache()` opens a
+        // cursor over EVERY row of the `versions` object store and materialises
+        // each project's entire compressed version container into a `Map`
+        // (`VersionCacheStore.warm()`). `warmThumbnailCache()` was `await`ed
+        // strictly BEHIND that, and the first repaint behind that again. So the
+        // previews were gated on reading the complete version history of every
+        // project the user has ever made — which the grid does not use at all.
+        //
+        // ⚠ ESTIMATED (the magnitude, and stated separately on purpose): ~100
+        // projects of up to 45 versions each. The §JOURNAL-SIDECAR work (L-9980,
+        // 2026-08-23) cut the container 14.8× — 34.33 MB → 2.32 MB at the
+        // founder's largest project — so this is materially cheaper than it was
+        // last week, and the residual cost here is NOT measured. ⭐ The fix does
+        // not depend on the magnitude: the grid has no use for version history at
+        // any size, so the dependency is pure cost whatever it currently is.
+        //
+        // ⛔ NOT the fix, and worth stating because it is the intuitive one: the
+        // console line `0 painted from the durable server column` does NOT mean
+        // the durable path is dead, and painting FROM the server would be
+        // strictly SLOWER — a network round-trip in place of an in-memory mirror
+        // read. That line is the correct output of a warm cache; the note at
+        // §FIX-THUMBNAIL-DURABILITY / L-1283 below already says so.
+        //
+        // ⛔ Nor is removing the skeleton the fix. The placeholder lives inside
+        // the same `.ph-card-thumb` box as the real `<img>`
+        // (`ProjectHubTemplates.ts:435-441`), so the swap costs no reflow — an
+        // empty card would be strictly worse. Make the real content ARRIVE
+        // sooner instead.
+        //
+        // ⚠ L-148 IS PRESERVED EXACTLY. Its invariant is that BOTH migrations
+        // complete before the first server-sync `saveProject*` index write — not
+        // that they run in series, and not that the paint waits for them. The two
+        // warms touch disjoint storage (`pryzm-project-thumbnails` +
+        // `bim-projects-index` vs `pryzm-project-versions` +
+        // `bim-project-<id>-versions`), so running them concurrently is safe, and
+        // `syncFromServer()` still runs only after BOTH have settled.
+        const versionWarm = warmVersionCache().catch(() => { /* non-fatal — server version fallback covers cold reads */ });
+        const thumbWarm = warmThumbnailCache().catch(() => { /* non-fatal — server thumbnailUrl / placeholder still render */ });
+
+        // Repaint the moment the previews are available, WITHOUT waiting for the
+        // version history. This is the line that removes the flash.
+        await thumbWarm;
         this.refreshGrid();
-        // Sync projects from server AFTER the warms so the reconcile pass sees the
-        // migrated (lean) index. Sync also fills localStorage across sessions.
+
+        // Sync projects from server AFTER both warms so the reconcile pass sees
+        // the migrated (lean) index. Sync also fills localStorage across sessions.
+        await versionWarm;
         await this.syncFromServer();
     }
 
