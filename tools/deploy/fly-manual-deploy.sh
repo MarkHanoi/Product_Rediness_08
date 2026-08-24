@@ -139,6 +139,65 @@ for pair in "VITE_GLB_URL=$GLB" "VITE_CONTEXT_TILES_URL=$TILES"; do
   esac
 done
 
+# ── §OBS-TRACING-COLLECTOR (L-10300) — the BROWSER half of the tracing switch ──
+#
+# 346 of the repo's 347 `trace.getTracer()` sites are in the browser, and the
+# browser flag is INLINED BY VITE AT BUILD TIME (C10 §2.6.1) — so it is a
+# --build-arg, exactly like the four above, and NOT something `fly secrets` can
+# repair afterwards. The server half is a runtime secret instead; see fly.toml.
+#
+# ⛔ THIS BLOCK IS ADDITIVE AND CANNOT BREAK THE EXISTING FOUR. It runs AFTER
+# their fail-closed guard, reads only its own variables, and every one of them
+# defaults EMPTY. Empty is OFF **by construction**: `vite.config.ts`'s `pick()`
+# requires `v.length > 0`, so an empty value bakes the JS literal `undefined`,
+# `typeof __PRYZM_TRACING__ === 'undefined'` folds to the OFF branch, and the
+# tracing path is dead-code-eliminated. That is deliberately UNLIKE VITE_GLB_URL,
+# where empty is a cliff — which is why these are NOT added to the abort above.
+#
+# ⛔ AND THEY ARE NOT RECOVERED FROM THE LIVE BUNDLE, on purpose. Recovery is
+# what makes §3.5 safe for the four, but it is also SELF-PERPETUATING (§L-776):
+# once traced, every later deploy would silently keep tracing on and keep paying
+# for it. Tracing is opt-in per deploy, from the environment, or it is off.
+#
+#   VITE_PRYZM_TRACING=console  tools/deploy/fly-manual-deploy.sh
+#   VITE_PRYZM_TRACING=otlp VITE_OTEL_EXPORTER_OTLP_ENDPOINT=https://… \
+#     VITE_PRYZM_TRACING_SAMPLE=0.05  tools/deploy/fly-manual-deploy.sh
+TRACING="${VITE_PRYZM_TRACING:-}"
+TRACING_SAMPLE="${VITE_PRYZM_TRACING_SAMPLE:-}"
+TRACING_ENDPOINT="${VITE_OTEL_EXPORTER_OTLP_ENDPOINT:-}"
+
+# FAIL CLOSED, but ONLY on a mode that was explicitly asked for. `initTracing()`
+# already refuses an endpoint-less OTLP at runtime — but it would do so in a
+# bundle that took ~25 minutes to build and ship (§4.2). Catching it here costs
+# nothing and saves the whole round trip. Empty TRACING skips this entirely.
+case "$TRACING" in
+  ""|off) ;;
+  console)
+    echo "  ⚠ TRACING: console — spans go to the browser console. Debug builds only." ;;
+  otlp|1|true|on)
+    if [ -z "$TRACING_ENDPOINT" ]; then
+      echo "ABORT: VITE_PRYZM_TRACING='$TRACING' asks for OTLP export but" >&2
+      echo "  VITE_OTEL_EXPORTER_OTLP_ENDPOINT is empty. The built bundle would REFUSE" >&2
+      echo "  at boot (C10 §2.6.2) — a 25-minute deploy that ships tracing-off anyway." >&2
+      echo "  Set the endpoint, or use VITE_PRYZM_TRACING=console." >&2
+      exit 1
+    fi
+    case "$TRACING_ENDPOINT" in
+      http://*|https://*) ;;
+      *) echo "ABORT: VITE_OTEL_EXPORTER_OTLP_ENDPOINT='$TRACING_ENDPOINT' is not an" >&2
+         echo "  absolute URL. The browser posts to it cross-origin; it must be a" >&2
+         echo "  publicly addressable, CORS-enabled ingest URL. (If this looks like a" >&2
+         echo "  Windows path, see §MSYS-PATHCONV above.)" >&2
+         exit 1 ;;
+    esac
+    echo "  ⚠ TRACING: otlp → $TRACING_ENDPOINT (PUBLIC — baked into the bundle)" ;;
+  *)
+    echo "ABORT: VITE_PRYZM_TRACING='$TRACING' is not a recognised mode." >&2
+    echo "  Use: console | otlp | (empty = off).  A value the runtime does not" >&2
+    echo "  recognise parses to OFF, which would ship a bundle you believe is traced." >&2
+    exit 1 ;;
+esac
+
 GIT_SHA="$(git rev-parse HEAD)"
 GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -148,6 +207,7 @@ echo "build-arg lengths — cesium:${#CESIUM} google:${#GOOGLE}   (expect 257 / 
 echo "build-arg VITE_GLB_URL           = '$GLB'"
 echo "build-arg VITE_CONTEXT_TILES_URL = '$TILES'"
 echo "build-arg GIT_SHA=$GIT_SHA GIT_BRANCH=$GIT_BRANCH BUILT_AT=$BUILT_AT"
+echo "build-arg VITE_PRYZM_TRACING     = '${TRACING:-<empty → tracing OFF>}'"
 
 # --depot=false forces the LEGACY builder app, which (unlike the managed/Depot
 # builder) can be resized. fly-builder-autumn-headland-88 was raised to 16GB on
@@ -169,7 +229,10 @@ flyctl deploy --depot=false --remote-only -a "$APP" --yes \
   --build-arg GIT_SHA="$GIT_SHA" \
   --build-arg GIT_BRANCH="$GIT_BRANCH" \
   --build-arg BUILT_AT="$BUILT_AT" \
-  --build-arg RUN_NUMBER=manual
+  --build-arg RUN_NUMBER=manual \
+  --build-arg VITE_PRYZM_TRACING="$TRACING" \
+  --build-arg VITE_PRYZM_TRACING_SAMPLE="$TRACING_SAMPLE" \
+  --build-arg VITE_OTEL_EXPORTER_OTLP_ENDPOINT="$TRACING_ENDPOINT"
 
 cat <<'PROOF'
 

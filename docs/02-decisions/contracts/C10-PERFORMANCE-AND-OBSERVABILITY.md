@@ -117,11 +117,15 @@ const span = tracer.startSpan('pryzm.<package>.<operation>');
 >
 > | Zone | Subject | Reading |
 > |---|---|---|
-> | **A** | CommandBus handlers, zero tolerance | **246 / 246** instrumented |
-> | **B** | command-registry + app handlers + plugin barrels | **54 uninstrumented of 70**, baseline **52** — **the failure**, 2 new files |
-> | **C** | §CENSUS, **NOT GATED** | **1772 of 2023** files declaring an exported function have **NO span** |
+> | Zone | Subject | Reading **2026-08-18** (stale) | Reading **2026-08-24** (lane TELEM20) |
+> |---|---|---|---|
+> | **A** | CommandBus handlers, zero tolerance | 246 / 246 | **266 / 266** instrumented, 307 read · 2 marker-exempt |
+> | **B** | command-registry + app handlers + plugin barrels | 54 of 70, baseline 52 — **2** over | **62 of 80**, baseline **52** — ⛔ **10 over**, still the failure |
+> | **C** | §CENSUS, **NOT GATED** | 1772 of 2023 | **1998 of 2287** files declaring an exported function have **NO span** (5136 read) |
 >
-> ⛔ **P8's "every new exported function" clause is therefore measured for ZERO files** — it lives entirely in the ungated Zone C. State it as **NOT-YET-TRUE**. Zone B's baseline is **shrink-only**; fix the two files, never widen it.
+> ⛔ **P8's "every new exported function" clause is therefore measured for ZERO files** — it lives entirely in the ungated Zone C. State it as **NOT-YET-TRUE**. Zone B's baseline is **shrink-only**; fix the files, never widen it.
+>
+> ⚠ **THE 2026-08-18 ROW WAS QUOTED AS CURRENT FOR SIX DAYS AND UNDERSTATED THE BREACH FIVE-FOLD.** It is **10** files over, not 2, and only one of the two files it named is still among them. Eight more accrued between 2026-08-19 and 2026-08-23 across five different lanes — none of them tonight's. **Every zone moved.** Re-run the gate; the row above is a dated snapshot, and the whole reason it carries two columns is so the next reader can see that it rots. §2.6.7 ⁴ carries the ruling this contract owes the gate.
 
 ### §2.4 — User-facing observability events (toasts + polls)
 
@@ -163,6 +167,18 @@ This converts the otherwise-invisible silent latency into an observable metric s
 | `PRYZM_TRACING` in `secrets-declarations.json` | **absent** | — |
 | `define` in `vite.config.ts` | **none at all** | — |
 | OTLP exporter packages installed | **none** — `@opentelemetry/api` only | `ls node_modules/@opentelemetry/` |
+
+> ⚠ **Rows 4–7 of that table are a 2026-08-23 SNAPSHOT and four of them have since
+> been closed. Do not quote them as current.** Re-measured **2026-08-24**, lane
+> TELEM20: `secrets-declarations.json` carries **5** tracing rows; `vite.config.ts`
+> carries `defineTracing()` with **6** defines; `@opentelemetry/{resources,sdk-trace-base}`
+> **are** installed (as `@pryzm/crash-reporter` dependencies — `ls node_modules/@opentelemetry/`
+> shows only `api` because pnpm keeps the rest under `packages/crash-reporter/node_modules/`,
+> which is why that command reads as a false negative); and `PRYZM_TRACING` now
+> reaches the runtime through `fly.toml` (server) and `Dockerfile` + `deploy-fly.yml`
+> + `fly-manual-deploy.sh` (browser). **The one row that is still true is the one
+> that matters: no environment SETS it, so tracing is OFF. That is now a decision,
+> §2.6.5, not a missing wire.**
 
 ⛔ **The switch for 345 of the 347 tracer sites had no wire.** `initTracing()` read
 `PRYZM_TRACING` from `process.env` only; `process.env` does not exist in a browser
@@ -301,26 +317,87 @@ user identifier and are **server-side only**: `pryzm.authz.user`
 
 #### §2.6.5 — ⭐ THE COLLECTOR DECISION — the founder's, and NOT taken here
 
-⛔ **There is no collector.** §2.6.1–§2.6.4 make every option a one-variable change
-rather than a code change; **choosing one is a spend decision and is deliberately not
-made by a lane.** ⚠ The prices below are **ASSUMED** — list prices recalled at time of
-writing, **not fetched from a vendor page in this lane**. Confirm before committing.
+> **Rewritten 2026-08-24, lane TELEM20 (ISSUE-LOG `L-10300`).** The previous
+> revision made the case for each option but did **not** say which line changes,
+> so "a one-variable change" was a claim, not an instruction. It is now an
+> instruction. §2.6.1–§2.6.4 did the choice-independent work; **this section is
+> the whole remaining decision.**
 
-| # | Option | Cost (ASSUMED) | Buys | Costs |
+##### What a span does RIGHT NOW — MEASURED 2026-08-24, not inferred
+
+⛔ **A span is not "exported to nowhere". It is never constructed.** With
+`PRYZM_TRACING` unset, `trace.getTracer(…).startSpan(…)` returns a
+**`NonRecordingSpan`** whose trace id is **all zeros** — dropped at the API,
+before any provider or exporter exists. Every one of the **1 766**
+`span.setAttribute()` calls is therefore also a no-op. The two failure modes have
+different fixes and this is the cheaper one: **nothing is broken, nothing is
+leaking, a switch is off.**
+
+| `PRYZM_TRACING` | `tracer.constructor` | `span.constructor` | `isRecording()` | trace id |
 |---|---|---|---|---|
-| **1** | **Console-only in dev, OFF in prod** (today, minus the silence) | **€0** | A developer can trace a local repro end-to-end with one env var. | **Nothing in production.** The founder's "opens take minutes" stays undiagnosable from here. |
-| **2** | **Vendor, free tier** — Grafana Cloud (~50 GB traces/mo, 14-day retention) or Honeycomb (~20 M events/mo) or Axiom / Baselime | **€0** until the tier, then usage-priced | Production traces with **zero ops**. At `r = 0.05` the measured 8.6 M spans/month for 1 000 users fits inside Honeycomb's event budget with headroom. | Third-party data processor → a **DPA + privacy-policy line** is required, which §2.6.4's redaction makes defensible but does not remove. Vendor lock on query language. |
-| **3** | **Self-hosted** — OTel Collector + Grafana Tempo on Fly.io, traces in R2/S3 | **~$2–6/mo** for one `shared-cpu-1x` 512 MB machine + object storage; **plus** the real cost: **setup and ongoing operation** | No third-party processor; data stays on infrastructure PRYZM already runs (Fly + R2 are both in use). Tail sampling becomes possible. | An extra service to run, upgrade and page on. A collector that falls over silently re-creates this whole defect. |
+| unset (**production today**) | `ProxyTracer` | `NonRecordingSpan` | `false` | `0000…0000` |
+| `console` | `Tracer` | `SpanImpl` | `true` | real |
+| `otlp`, no endpoint | `ProxyTracer` | `NonRecordingSpan` | `false` | `0000…0000` — **REFUSED, and it says so** |
 
-**Lane recommendation, offered not enacted: Option 2 on a free tier, browser at
-`r = 0.05`, server at `r = 1.0`** — the server has **1** tracer site, so tracing it
-fully is free, while the browser has 345 and is the half that costs bandwidth. Revisit
-when the free tier is actually exceeded, at which point Option 3's operational cost is
-being compared against a real invoice rather than a guess.
+##### The wire is now complete and OFF. Both halves, and they are different.
 
-⛔ **Until an option is chosen, the honest statement is `PRYZM_TRACING` unset ⇒ OFF ⇒
-"instrumented in source, recording nothing in production."** §2.3's Zone A figure MUST
-be reported that way (see the box under §2).
+⭐ **This is the part that did not exist before 2026-08-24.** `PRYZM_TRACING`
+appeared in **zero** runtime configuration file, so even a founder who had chosen
+a collector had nowhere to put the value.
+
+| Half | Sites | Where the value goes | Takes effect |
+|---|---|---|---|
+| **Server** | **1** of 347 | `flyctl secrets set` → `process.env` → `server/telemetry.js` | machine restart, **~30 s, no rebuild** |
+| **Browser** | **346** of 347 | repo variable → `deploy-fly.yml` → **`Dockerfile` ARG** → `vite.config.ts` `define` → `__PRYZM_TRACING__` | **REBUILD** (~8 min CI) |
+
+⚠ **The `Dockerfile` ARG was the missing link and its absence was silent.** Docker
+accepts an undeclared `--build-arg` without error and bakes nothing (DEPLOY
+CONTRACT §3.2), so passing `VITE_PRYZM_TRACING` before this existed would have
+looked exactly like success. All three tracing ARGs default **empty**, and empty
+is OFF **by construction**: `defineTracing()`'s `pick()` requires `length > 0`, so
+an empty value bakes the literal `undefined` and the tracing path is
+dead-code-eliminated. ⛔ That is deliberately **unlike** `VITE_GLB_URL`, where
+empty is a cliff — which is why the tracing args are **not** in the deploy
+script's fail-closed guard and **cannot** break the existing four.
+
+##### The three options — and the exact line
+
+**Costs are ASSUMED** (list prices recalled at time of writing, not fetched from a
+vendor page). Confirm before committing money.
+
+| # | Option | Cost | ⭐ THE LINE THAT CHANGES |
+|---|---|---|---|
+| **1** | **Console-only** — dev on, prod off | **€0** | Nothing to deploy. Locally: `PRYZM_TRACING=console npm run dev` (server) · `VITE_PRYZM_TRACING=console pnpm build` (browser). **Works today, needs no decision.** |
+| **2** | **Vendor free tier** — Grafana Cloud / Honeycomb / Axiom / Baselime | **€0** to the tier, then usage-priced | **Server:** `flyctl secrets set PRYZM_TRACING=otlp OTEL_EXPORTER_OTLP_ENDPOINT=https://<vendor> OTEL_EXPORTER_OTLP_HEADERS='<auth>=<token>' -a pryzm`. **Browser:** set repo variables `VITE_PRYZM_TRACING=otlp` + `VITE_OTEL_EXPORTER_OTLP_ENDPOINT=<public CORS-enabled ingest URL>`, then redeploy. |
+| **3** | **Self-hosted** — OTel Collector + Tempo on Fly, traces in R2 | **~$2–6/mo** machine + storage, **plus** setup and ongoing operation | Same two lines as Option 2, pointing at your own collector — **after** you have built and are running one. |
+
+Two sentences each, no more:
+
+1. **Console-only** buys a developer an end-to-end local trace for zero money and zero signup, and needs nothing from you. It buys **nothing in production**, so "opening takes minutes" stays undiagnosable from here.
+2. **Vendor free tier** buys production traces with zero ops, and at `r = 0.05` the measured 8.6 M spans/month for 1 000 users fits inside the free budgets with headroom. It adds a third-party data processor, so it needs a **DPA and a privacy-policy line** — which §2.6.4's redaction makes defensible but does not remove.
+3. **Self-hosted** keeps every byte on infrastructure PRYZM already pays for and makes tail sampling possible. It is a service you must run, upgrade and be paged for, and **a collector that falls over silently re-creates this exact defect**.
+
+⛔ **A recommendation is not a decision, and this lane did not take one.** Offered:
+**Option 2 on a free tier, browser `r = 0.05`, server `r = 1.0`** — the server has
+**1** tracer site so tracing it fully is free, while the browser has 346 and is the
+half that spends someone's bandwidth. ⚠ **Option 1 is the correct choice if the
+answer tonight is "not yet"** — it is already working, costs nothing, and leaves
+Options 2 and 3 one variable away.
+
+##### How to know it worked — do not infer it
+
+Every composition root prints **exactly one** `[tracing] …` line per boot, stating
+`OFF` / `REFUSED — <reason>` / `ON — exporter=… sample=…`. L-392 stayed invisible
+for months because nothing ever printed `OFF`.
+
+```bash
+flyctl logs -a pryzm | grep '\[tracing\]'     # server
+# browser: open the console on app.pryzm.so and look for the same line
+```
+
+⛔ **`OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` have been in `fly.toml`
+since ADR-055 and neither turns anything on.** They NAME a provider that is never
+registered. Their presence is exactly why this looked configured for months.
 
 #### §2.6.6 — What one project-open emits
 
@@ -342,9 +419,10 @@ and neither is redundant.** Adding spans to the open path is instrumentation
 
 #### §2.6.7 — Exit conditions
 
-1. A collector option in §2.6.5 is chosen and `OTEL_EXPORTER_OTLP_ENDPOINT` is set for at least one environment.
-2. A gate asserts that a production bundle built with `VITE_PRYZM_TRACING=1` actually registers a provider (`isTracingEnabled()` true in a prod smoke test) — otherwise §2.6.1 is a rule that nothing enforces, which is the failure shape this contract keeps recording.
+1. A collector option in §2.6.5 is chosen and `OTEL_EXPORTER_OTLP_ENDPOINT` is set for at least one environment. ⭐ **As of 2026-08-24 this is the ONLY remaining blocker and it is a decision, not work** — §2.6.5 names the exact line for each of the three options.
+2. A gate asserts that a production bundle built with `VITE_PRYZM_TRACING=1` actually registers a provider (`isTracingEnabled()` true in a prod smoke test) — otherwise §2.6.1 is a rule that nothing enforces, which is the failure shape this contract keeps recording. ⚠ **STILL OPEN.** TELEM20 proved the chain by measurement (`ARG` → `ENV` → `defineTracing()` → `__PRYZM_TRACING__ = "otlp"`, and a real span emitted from `server/manualAdminZoneStore.js` through the real `server/telemetry.js` bootstrap), but **a measurement in a lane report is not a gate** and this one will rot exactly like the rows above.
 3. The open path acquires spans, so §2.6.6's "storage leg has none" row can be deleted rather than annotated.
+4. ⭐ **NEW — `check-otel-spans.ts` Zone B is RED and the contract owes it a ruling.** Measured 2026-08-24: **62 uninstrumented of 80** against a shrink-only baseline of **52** → **10 files over, exit 3**. The gate's own `§RATCHET-P8-ZONE-B` note already asks this contract the question and has been waiting since 2026-08-11: **is a plugin `handlers/index.ts` registration barrel, or a pure key-copy helper, an "exported function" that owes a span?** Three of the ten are registration barrels and one (`lighting/lightingAuthoredParams.ts`) is a 14-key copy loop on the per-element load path, where a span would be **decoration that multiplies span volume on exactly the hot path §2.6.3 costed**. ⛔ Until C10 rules, the baseline stays shrink-only and files get **real** spans or none — satisfying a regex by decorating a helper is the same defect as satisfying a name-based gate by renaming.
 
 ---
 

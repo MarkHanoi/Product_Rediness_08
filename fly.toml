@@ -79,6 +79,45 @@ kill_timeout = "10s"
   OTEL_SERVICE_NAME = "pryzm-editor"
   OTEL_RESOURCE_ATTRIBUTES = "service.name=pryzm-editor,deployment.environment=production"
 
+  # ─── ⭐ §OBS-TRACING-COLLECTOR (L-10300) — THE SERVER TRACING SWITCH ───────
+  #
+  # ⛔ TRACING IS OFF IN PRODUCTION RIGHT NOW. The two variables above have been
+  # here since ADR-055 and neither of them turns anything on: `OTEL_SERVICE_NAME`
+  # only NAMES a provider that is never registered. MEASURED 2026-08-24 (lane
+  # TELEM20): with `PRYZM_TRACING` unset, `trace.getTracer(...).startSpan()`
+  # returns a `NonRecordingSpan` whose trace id is all zeros — the span is
+  # DROPPED AT THE API, before any provider or exporter exists, so all 1 766
+  # `span.setAttribute()` calls are no-ops too. This is not "exported to
+  # nowhere"; nothing is ever constructed to export.
+  #
+  # ⭐ TO TURN THE SERVER HALF ON — ONE COMMAND, NO REBUILD, ~30 s machine restart:
+  #
+  #     flyctl secrets set PRYZM_TRACING=console -a pryzm          # → stdout
+  #     flyctl logs -a pryzm | grep '\[tracing\]'                  # → proof
+  #
+  # or, once a collector exists (the founder's decision — C10 §2.6.5):
+  #
+  #     flyctl secrets set PRYZM_TRACING=otlp \
+  #                        OTEL_EXPORTER_OTLP_ENDPOINT=https://<collector> \
+  #                        OTEL_EXPORTER_OTLP_HEADERS='x-api-key=…' -a pryzm
+  #
+  # ⛔ `otlp` WITHOUT an endpoint does not degrade quietly: `initTracing()`
+  # REFUSES, stays off, and logs one line naming the missing variable and the
+  # `console` escape hatch. Every boot prints exactly one `[tracing] …` line
+  # stating OFF / REFUSED / ON — L-392 stayed invisible for months precisely
+  # because nothing ever printed `OFF`.
+  #
+  # ⚠ DELIBERATELY NOT SET HERE, AND THAT IS THE POINT. A `PRYZM_TRACING = ""`
+  # row in this block would be an image-level env var racing a Fly secret of the
+  # same name, and which of the two wins is exactly the sort of ambiguity that
+  # makes an observability switch untrustworthy. `flyctl secrets set` is the
+  # single, unambiguous owner of this variable. Read the boot line, not this file.
+  #
+  # ⚠ THIS SWITCHES THE SERVER ONLY — 1 of the repo's 347 tracer sites. The
+  # other 346 are in the BROWSER, where the flag is baked at BUILD time
+  # (`VITE_PRYZM_TRACING` → Dockerfile ARG → `vite.config.ts` define), so
+  # flipping the browser half needs a REBUILD, not a secret. C10 §2.6.1.
+
 # ─── HTTP edge ──────────────────────────────────────────────────────────────
 [http_service]
   # Must match Dockerfile EXPOSE + PORT env.

@@ -421,6 +421,28 @@ jobs:
           echo "build-arg VITE_GLB_URL           = '${GLB_URL_CLEAN}'   (public; empty = keep local /items/)"
           echo "build-arg VITE_CONTEXT_TILES_URL = '${TILES_URL_CLEAN}' (public; empty = live Overpass fallback)"
 
+          # §OBS-TRACING-COLLECTOR (L-10300). Empty = OFF by construction (see the env:
+          # block). FAIL CLOSED only on a mode that was explicitly asked for: an
+          # endpoint-less `otlp` builds a bundle that REFUSES at boot, so catching it here
+          # saves the whole build+deploy round trip. An unset variable skips this entirely,
+          # which is why adding it cannot affect a deploy that does not use it.
+          TRACING_CLEAN="$(strip "${VITE_PRYZM_TRACING_RAW-}")"
+          TRACING_SAMPLE_CLEAN="$(strip "${VITE_PRYZM_TRACING_SAMPLE_RAW-}")"
+          TRACING_ENDPOINT_CLEAN="$(strip "${VITE_OTEL_EXPORTER_OTLP_ENDPOINT_RAW-}")"
+          case "$TRACING_CLEAN" in
+            ""|off) echo "build-arg VITE_PRYZM_TRACING     = '' (tracing OFF — no collector chosen, C10 §2.6.5)" ;;
+            console) echo "build-arg VITE_PRYZM_TRACING     = 'console' ⚠ spans to the browser console" ;;
+            otlp|1|true|on)
+              if [ -z "$TRACING_ENDPOINT_CLEAN" ]; then
+                echo "::error::VITE_PRYZM_TRACING='$TRACING_CLEAN' asks for OTLP but vars.VITE_OTEL_EXPORTER_OTLP_ENDPOINT is empty — the bundle would REFUSE at boot (C10 §2.6.2). Set the endpoint or use 'console'."
+                exit 1
+              fi
+              echo "build-arg VITE_PRYZM_TRACING     = 'otlp' → ${TRACING_ENDPOINT_CLEAN} (PUBLIC, baked in)" ;;
+            *)
+              echo "::error::VITE_PRYZM_TRACING='$TRACING_CLEAN' is not a recognised mode (console | otlp | empty). An unrecognised value parses to OFF, shipping a bundle you believe is traced."
+              exit 1 ;;
+          esac
+
           # §DEPLOY-VERSION (2026-08-05) — GET /version provenance (server.js). Real
           # values from the Actions context, matching the Dockerfile's runtime-stage
           # ARG/ENV names exactly. BUILT_AT is computed here (not passed by the
@@ -441,6 +463,9 @@ jobs:
               --build-arg GIT_BRANCH="$GITHUB_REF_NAME" \
               --build-arg BUILT_AT="$BUILT_AT" \
               --build-arg RUN_NUMBER="$GITHUB_RUN_NUMBER" \
+              --build-arg VITE_PRYZM_TRACING="$TRACING_CLEAN" \
+              --build-arg VITE_PRYZM_TRACING_SAMPLE="$TRACING_SAMPLE_CLEAN" \
+              --build-arg VITE_OTEL_EXPORTER_OTLP_ENDPOINT="$TRACING_ENDPOINT_CLEAN" \
               --strategy=rolling \
               --wait-timeout=5m 2>&1 | tee "/tmp/fly-attempt-$attempt.log"
             code=${PIPESTATUS[0]}
@@ -477,6 +502,26 @@ jobs:
           # the client reader (L-513b) does not exist yet. Set the repo variable
           # `VITE_CONTEXT_TILES_URL` to https://pub-….r2.dev/tiles/ only AFTER both.
           VITE_CONTEXT_TILES_URL_RAW: ${{ vars.VITE_CONTEXT_TILES_URL }}
+          # ⭐ §OBS-TRACING-COLLECTOR (L-10300) — the BROWSER half of the tracing switch.
+          # 346 of the repo's 347 `trace.getTracer()` sites run in the browser, where the
+          # flag is INLINED BY VITE AT BUILD TIME — so it belongs here, on the build, and
+          # a Fly runtime secret does nothing for it (fly.toml carries the SERVER half).
+          # ⛔ ALL THREE ARE EMPTY BY DEFAULT AND EMPTY MEANS OFF BY CONSTRUCTION:
+          # vite.config.ts's `pick()` requires length > 0, so an unset repo variable bakes
+          # the literal `undefined` and the whole tracing path is dead-code-eliminated.
+          # Setting `vars.VITE_PRYZM_TRACING` is therefore the ONLY change needed to start
+          # recording browser spans — but it does nothing until a collector exists
+          # (C10 §2.6.5, the founder's decision). `vars`, not `secrets`, because the value
+          # is CONFIG and a redacted log would hide the one diagnostic that matters.
+          # ⛔ `otlp` REQUIRES VITE_OTEL_EXPORTER_OTLP_ENDPOINT — without it the bundle
+          # REFUSES at boot rather than dropping spans silently (C10 §2.6.2).
+          VITE_PRYZM_TRACING_RAW: ${{ vars.VITE_PRYZM_TRACING }}
+          VITE_PRYZM_TRACING_SAMPLE_RAW: ${{ vars.VITE_PRYZM_TRACING_SAMPLE }}
+          # ⚠ PUBLIC by design — inlined into a bundle every visitor downloads. Must be a
+          # CORS-enabled ingest URL. ⛔ There is NO VITE_ mirror of
+          # OTEL_EXPORTER_OTLP_HEADERS: that carries the collector auth token and
+          # vite.config.ts hard-codes __PRYZM_TRACING_HEADERS__ to `undefined`.
+          VITE_OTEL_EXPORTER_OTLP_ENDPOINT_RAW: ${{ vars.VITE_OTEL_EXPORTER_OTLP_ENDPOINT }}
 
       # ───────────────────────────────────────────────────────────────────────
       # §L-570-BUNDLE-PROOF — PROVE the base URL is in the SHIPPED bundle.

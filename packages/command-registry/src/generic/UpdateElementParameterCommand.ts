@@ -19,6 +19,11 @@
  *   commandManager.execute(cmd);
  */
 
+// §OBS-TRACING-COLLECTOR (L-10300) — P8 / C10 §2. `@opentelemetry/api` directly,
+// NOT `@pryzm/plugin-sdk`'s `withHandlerSpan`: command-registry is L2 and
+// plugin-sdk is L5, so the helper would be an upward import. This is the same
+// in-package idiom `boundaryLine/MoveBoundaryLineCommand.ts` already uses.
+import { trace, SpanStatusCode, type Tracer } from '@opentelemetry/api';
 import { Command, CommandResult, CommandValidationResult, CommandContext, SerializedCommand, CommandType, StoreKey } from '../types';
 import { doorStore } from '@pryzm/geometry-door';
 import { windowStore } from '@pryzm/geometry-window';
@@ -45,6 +50,16 @@ import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
 export const UPDATE_ELEMENT_PARAMETER_TYPE = CommandType.UPDATE_ELEMENT_PARAMETER;
+
+/**
+ * §OBS-TRACING-COLLECTOR (L-10300). Resolved per call, NOT cached at module load:
+ * `initTracing()` runs at the composition root and a tracer captured before it
+ * would be bound to the API's no-op provider for the life of the process — the
+ * same "instrumented but recording nothing" shape this lane exists to remove.
+ */
+function _tracer(): Tracer {
+    return trace.getTracer('@pryzm/command-registry');
+}
 
 export interface UpdateElementParameterInput {
     elementId: string;
@@ -577,7 +592,61 @@ export class UpdateElementParameterCommand implements Command {
         };
     }
 
+    /**
+     * §OBS-TRACING-COLLECTOR (L-10300) — P8 / C10 §2. This is the generic
+     * single-element mutation path: EVERY inspector edit of EVERY element family
+     * lands here, so it is one of the highest-value spans in the registry, and it
+     * was uninstrumented (`check-otel-spans.ts` Zone B).
+     *
+     * The span wraps the whole body via `_executeTraced` rather than being opened
+     * and closed around each of the eleven `return` statements — a span that a new
+     * early-return can silently escape is worse than none, because the trace then
+     * shows an operation that never ended.
+     *
+     * ⚠ ATTRIBUTES ARE IDS, COUNTS AND ENUMS ONLY (C10 §2.6.4). `parameters` holds
+     * user-authored VALUES and is deliberately never attached — only its key COUNT
+     * and the success/refusal shape, which is what an operator actually needs.
+     */
     execute(context: CommandContext): CommandResult {
+        return _tracer().startActiveSpan('pryzm.element.update-parameter', (span) => {
+            try {
+                span.setAttribute('pryzm.command_type', String(UPDATE_ELEMENT_PARAMETER_TYPE));
+                span.setAttribute('pryzm.element_id', this.input.elementId);
+                span.setAttribute('pryzm.element_type', this.input.elementType);
+                span.setAttribute(
+                    'pryzm.parameter_count',
+                    Object.keys(this.input.parameters ?? {}).length,
+                );
+                const result = this._executeTraced(context);
+                span.setAttribute('error', result.success !== true);
+                span.setAttribute(
+                    'pryzm.affected_element_count',
+                    result.affectedElementIds?.length ?? 0,
+                );
+                if (result.success !== true) {
+                    // The refusal REASON is our own generated text, never user content —
+                    // and it is the single most useful field when an edit "did nothing".
+                    span.setStatus({
+                        code: SpanStatusCode.ERROR,
+                        message: result.error ?? result.info?.[0] ?? 'refused',
+                    });
+                }
+                return result;
+            } catch (err) {
+                span.setAttribute('error', true);
+                span.setStatus({
+                    code: SpanStatusCode.ERROR,
+                    message: err instanceof Error ? err.message : String(err),
+                });
+                if (err instanceof Error) span.recordException(err);
+                throw err;
+            } finally {
+                span.end();
+            }
+        });
+    }
+
+    private _executeTraced(context: CommandContext): CommandResult {
         const { elementId, elementType, parameters } = this.input;
         const store = this.resolveStore(elementType, context);
 

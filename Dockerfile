@@ -143,6 +143,42 @@ ENV VITE_GLB_URL=${VITE_GLB_URL}
 # step needed to switch the 3D-Site context onto static tiles once they are baked.
 ARG VITE_CONTEXT_TILES_URL=""
 ENV VITE_CONTEXT_TILES_URL=${VITE_CONTEXT_TILES_URL}
+# ─── §OBS-TRACING-COLLECTOR (L-10300) — THE BROWSER HALF OF THE TRACING SWITCH ──
+# MEASURED 2026-08-24: 347 `trace.getTracer()` sites, 346 of them in the browser,
+# and a span created with tracing OFF is a `NonRecordingSpan` with an all-zero
+# trace context — DROPPED AT THE API, before any provider or exporter exists.
+# `vite.config.ts`'s `defineTracing()` reads these three names at BUILD time and
+# bakes them in as `__PRYZM_TRACING__` &c. (C10 §2.6.1); until this block existed
+# the Dockerfile declared no such ARG, so a `--build-arg VITE_PRYZM_TRACING=…`
+# was accepted by Docker and baked NOTHING — the exact silent-failure trap the
+# deploy contract §3.2 documents.
+#
+# ⛔ ALL THREE DEFAULT EMPTY AND EMPTY MEANS OFF, BY CONSTRUCTION, NOT BY LUCK.
+# `defineTracing()`'s `pick()` requires `v.length > 0`, so an empty value yields
+# the JS literal `undefined`, `typeof __PRYZM_TRACING__ === 'undefined'` folds to
+# the OFF branch, and the whole tracing path is dead-code-eliminated at zero
+# runtime cost. An unset ARG and an empty ARG are therefore the SAME safe state
+# here — which is deliberately UNLIKE `VITE_GLB_URL` above, where empty is a
+# cliff. Adding these cannot affect a deploy that does not pass them.
+#
+# VALUES: `console` (stdout — dev/debug only, unsampled) · `otlp` (OTLP/HTTP JSON,
+# and then VITE_OTEL_EXPORTER_OTLP_ENDPOINT is REQUIRED or the bundle refuses at
+# boot and logs why) · anything else / empty → OFF.
+ARG VITE_PRYZM_TRACING=""
+ENV VITE_PRYZM_TRACING=${VITE_PRYZM_TRACING}
+# Head sample ratio 0..1. Empty → `initTracing()`'s own default: 0.05 in otlp
+# mode, 1.0 in console mode (C10 §2.6.3 carries the arithmetic — 288 spans and
+# 126 KB per project-open unsampled, ~6.3 KB at 0.05).
+ARG VITE_PRYZM_TRACING_SAMPLE=""
+ENV VITE_PRYZM_TRACING_SAMPLE=${VITE_PRYZM_TRACING_SAMPLE}
+# ⚠ PUBLIC by design — inlined into a bundle every visitor downloads, same
+# posture as VITE_CESIUM_TOKEN. It MUST be an ingest endpoint that is safe to
+# publish and CORS-enabled for the app origin. ⛔ There is deliberately NO
+# `VITE_`-prefixed mirror of OTEL_EXPORTER_OTLP_HEADERS: that variable carries
+# the collector auth token (classification SECRET) and `vite.config.ts` hard-codes
+# `__PRYZM_TRACING_HEADERS__` to `undefined` so no future edit can leak it.
+ARG VITE_OTEL_EXPORTER_OTLP_ENDPOINT=""
+ENV VITE_OTEL_EXPORTER_OTLP_ENDPOINT=${VITE_OTEL_EXPORTER_OTLP_ENDPOINT}
 RUN pnpm run build:docker
 
 # Prune dev-only deps from node_modules so the runtime stage can copy a smaller tree.

@@ -48870,3 +48870,198 @@ What the next lane inherits, measured by others and not re-derived here:
 - ⭐ **The level scope rides for free.** §FIX-HOSTED-TYPE-SCOPE-TAIL (L-10220) fixed the shared tail
   for every catalogue family, so *"…all slabs in ground level…"* already parses correctly today. Any
   slab colour/material capability built on `CapabilityExecutionSpec` inherits it with no work.
+---
+
+### L-10300 — ⭐⭐ **347 TRACER SITES, ZERO RECORDING — AND A SPAN IS NOT "EXPORTED TO NOWHERE", IT IS NEVER CONSTRUCTED** · lane TELEM20 · 2026-08-24 · **WIRE CLOSED / DECISION OPEN**
+
+**The complaint, as received:** *"347 OpenTelemetry tracer sites are wired and reachable.
+NONE are recording. `PRYZM_TRACING` is set in zero runtime configs, so every span is
+constructed and dropped."* Cause 4 of 5 in the Pascal production-readiness audit
+(`docs/04-reference/audit/D-collab-persistence.md`).
+
+⭐ **HALF OF THAT SENTENCE IS WRONG, AND THE WRONG HALF HAS A DIFFERENT FIX.** MEASURED
+2026-08-24 by running it, not by reading it:
+
+| `PRYZM_TRACING` | tracer | span | `isRecording()` | trace id |
+|---|---|---|---|---|
+| unset (**production today**) | `ProxyTracer` | `NonRecordingSpan` | `false` | `0000…0000` |
+| `console` | `Tracer` | `SpanImpl` | `true` | real |
+| `otlp`, no endpoint | `ProxyTracer` | `NonRecordingSpan` | `false` | `0000…0000` — **REFUSED, loudly** |
+
+**Nothing is constructed and nothing is dropped.** `initTracing()` returns before touching an
+exporter, no provider is ever registered, and `trace.getTracer()` hands back the API's built-in
+no-op. Every one of the **1 766** `span.setAttribute()` calls is a no-op too. **This is the
+cheap failure, not the expensive one:** no allocation, no leak, no wasted egress — a switch is
+off. A "constructed and dropped" defect would have meant paying the full cost of tracing for
+none of the benefit, and would have needed a code fix; this needed a **wire and a decision**.
+
+#### What was ALREADY done, and was not credited
+
+⚠ **The audit finding and this brief both predate lane OBS4 (L-9960, 2026-08-23), which had
+already built almost all of it.** `packages/crash-reporter/src/Tracing.ts` carries a real
+`BasicTracerProvider`, a dependency-free `OtlpHttpJsonSpanExporter`, `RedactingSpanProcessor`,
+`ParentBased(TraceIdRatioBased)` sampling and a REFUSE-don't-drop policy; `vite.config.ts`
+carries the six build-time `define`s; both composition roots call `initTracing()` and print
+`describeTracing()`. **Re-measuring before rebuilding is the only reason this lane did not
+rewrite a working module.** ([[committed-is-not-reachable]] in reverse: it *was* reachable —
+what was missing was a place to put the value.)
+
+#### The actual gap: `PRYZM_TRACING` had nowhere to be set
+
+**MEASURED: `PRYZM_TRACING` appeared in exactly one file, `tools/ga-gate/secrets-declarations.json`
+— a DECLARATION, not a config.** So a founder who had already chosen a collector had nowhere
+to put the endpoint. Closed on both halves, which are genuinely different problems:
+
+| Half | Sites | Wire added | Takes effect |
+|---|---|---|---|
+| **Server** | **1** of 347 | `fly.toml` `[env]` block documents `flyctl secrets set PRYZM_TRACING=…` | machine restart, **~30 s, no rebuild** |
+| **Browser** | **346** of 347 | `Dockerfile` `ARG VITE_PRYZM_TRACING` (+ `_SAMPLE`, + `VITE_OTEL_EXPORTER_OTLP_ENDPOINT`) → `deploy-fly.yml` → `fly-manual-deploy.sh` | **REBUILD** |
+
+⭐ **THE `Dockerfile` ARG WAS THE LOAD-BEARING MISSING LINK, AND ITS ABSENCE WAS SILENT.**
+Docker accepts an *undeclared* `--build-arg` without error and bakes nothing (DEPLOY CONTRACT
+§3.2 — the same trap that shipped `VITE_CESIUM_ION_TOKEN`). Passing `VITE_PRYZM_TRACING`
+before tonight would have looked **exactly like success**: green build, green deploy, zero spans.
+
+⛔ **`fly.toml` deliberately does NOT set `PRYZM_TRACING = ""`.** An image-level env var racing
+a Fly secret of the same name is precisely the ambiguity that makes an observability switch
+untrustworthy. `flyctl secrets set` is the single unambiguous owner. The block says so.
+
+#### Why adding a 10th build-arg could not break the existing four
+
+The deploy contract §3.6 fails closed on an empty `VITE_*` because for those four **empty is a
+cliff** (`VITE_GLB_URL` empty ⇒ every furniture GLB 404s). ⭐ **For tracing, empty is OFF by
+construction, not by luck:** `defineTracing()`'s `pick()` requires `v.length > 0`, so an empty
+value bakes the JS literal `undefined`, `typeof __PRYZM_TRACING__ === 'undefined'` folds to the
+OFF branch, and the whole path is dead-code-eliminated at zero runtime cost. The tracing args
+are therefore **outside** the fail-closed guard and run **after** it. Simulated all five modes
+against the real script: unset → rc=0 silently; `console` → rc=0; `otlp` with no endpoint →
+**rc=1 abort**; `otlp` + endpoint → rc=0; `conosle` (typo) → **rc=1 abort**.
+
+⭐ **The typo arm matters more than it looks.** `parseMode()` maps any unrecognised value to
+OFF, so a misspelled mode would ship a bundle the operator *believes* is traced — the L-392
+failure with extra steps. It aborts before the ~25-minute upload instead.
+
+#### PROVEN, in the foreground, not asserted
+
+1. **Real server boot** — `node --import tsx server.js` with `PRYZM_TRACING=console`; first line
+   of output: `[tracing] ON — exporter=console sample=1 (redaction: active)`.
+2. **Real span, real module, real bootstrap** — `import './server/telemetry.js'` (server.js:3)
+   then `resolveManualAdminZone(...)` → `ConsoleSpanExporter` printed
+   `name: 'pryzm.manual_admin_zone.resolve'`, `traceId: 2416d261…`, `service.name: pryzm-server`.
+   ⚠ **Not reachable over HTTP in a probe boot** — the server's ONE tracer site is behind
+   `isPryzmAdmin()`'s hard-coded allowlist *and* the beta-access gate (signup → 503).
+3. **Redaction is live on the export path** — a span attribute set to `someone@example.com`
+   reached the exporter as `[redacted-email]`.
+4. **The new ARG names actually reach vite** — loading the real `vite.config.ts` with the
+   Dockerfile's `ENV` names set yields `__PRYZM_TRACING__ = "otlp"`,
+   `__PRYZM_TRACING_ENDPOINT__ = "https://…"`, and `__PRYZM_TRACING_HEADERS__` **still
+   `undefined`** (the SECRET auth token cannot leak into a public bundle by config).
+
+#### ⛔ STILL OPEN — and it is the founder's, not a lane's
+
+**No collector exists.** C10 §2.6.5 is rewritten to name **the exact line that changes** for each
+of the three options (console-only / vendor free tier / self-hosted Tempo), two sentences each.
+⚠ Prices there are **ASSUMED**, not fetched. **Option 1 is the correct answer if tonight's answer
+is "not yet"** — it works today, costs nothing, and leaves the other two one variable away.
+
+
+
+---
+
+### L-10301 — ⚠ **OPEN, NOT THIS LANE'S FILES: `check-otel-spans.ts` Zone B is 10 files over baseline, not 2 — and 4 of them SHOULD NOT get a span** · lane TELEM20 · 2026-08-24
+
+**The brief said two files. MEASURED 2026-08-24, `npx tsx tools/ga-gate/check-otel-spans.ts` →
+RC=3: `ZONE B … 62 uninstrumented of 80 (baseline allows 52)` — TEN over.**
+
+The "2 files" figure came from `CLAUDE.md`'s 2026-08-18 reading (`54 of 70`). ⚠ **Only one of
+the two files it named is still among the breaching set**, and the other eight accrued between
+**2026-08-19 and 2026-08-23** across five unrelated lanes. **None of them landed tonight** —
+`git log -1` on each confirms. Every zone moved: A is 266/266 (was 246/246), C is 1998/2287
+(was 1772/2023). **A hand-copied gate reading rotted inside six days**, which is the same defect
+shape as the contract-count box in `CLAUDE.md`.
+
+| File | Last touched | Verdict |
+|---|---|---|
+| `command-registry/src/generic/UpdateElementParameterCommand.ts` | 08-23 | ⭐ **FIXED THIS LANE** |
+| `command-registry/src/lighting/lightingAuthoredParams.ts` | 08-20 | ⛔ **should NOT get a span** |
+| `command-registry/src/boundaryLine/boundaryLineDependentAdapters.ts` | 08-23 | real debt |
+| `command-registry/src/floors/floorFinishPattern.ts` | 08-21 | real debt |
+| `command-registry/src/handrails/CreateHandrailRunOnSlabCommand.ts` | 08-19 | real debt |
+| `command-registry/src/stair/stairPiercedLevels.ts` | 08-20 | real debt |
+| `command-registry/src/stair/StairVoidCascade.ts` | 08-20 | real debt |
+| `plugins/balcony/src/handlers/index.ts` | 08-22 | ⛔ registration barrel |
+| `plugins/boundary-line/src/handlers/index.ts` | 08-23 | ⛔ registration barrel |
+| `plugins/lift/src/handlers/index.ts` | 08-22 | ⛔ registration barrel |
+
+#### ⭐ Why four of the ten were deliberately left alone
+
+**The gate is FILE-level: `SPAN_CALL_RE` passes a file that contains `startSpan(` ANYWHERE.**
+So all ten could be made green in twenty minutes by decorating them. ⛔ **That would be the
+same defect as satisfying a name-based gate by renaming** — the failure `CLAUDE.md` records
+against the three rival `commandManager` counters.
+
+- `lightingAuthoredParams.ts` is a **14-key copy loop**, called once per lighting element on the
+  project-open path. A span there is not observability, it is **span volume on exactly the hot
+  path C10 §2.6.3 costed at 439 B/span**.
+- The three `handlers/index.ts` files are **registration barrels** (`registerXHandlers`). The
+  gate's own `§RATCHET-P8-ZONE-B` note flagged this on 2026-08-11: *"a registration barrel
+  arguably performs no operation worth a span. If C10 agrees, they become a documented
+  exemption rather than debt — but that is a CONTRACT decision."* **It has been waiting 13 days.**
+
+⛔ **The baseline was NOT extended** — it is shrink-only and stays 52. The gate is still RED at
+**9 over** (was 10). **Reporting it as fixed would be worse than leaving it red.**
+
+#### What WAS fixed, and why that one earned it
+
+`UpdateElementParameterCommand.execute()` is the **generic single-element mutation path — every
+inspector edit of every element family lands there**, and it was uninstrumented. Wrapped whole
+via a private `_executeTraced`, **not** by opening/closing a span around each of its eleven
+`return` statements: a span a new early-return can silently escape is worse than none, because
+the trace then shows an operation that never ended. Attributes are ids, counts and enums only —
+`parameters` holds user-authored values and is deliberately never attached (C10 §2.6.4).
+
+⚠ **`@opentelemetry/api` directly, NOT `@pryzm/plugin-sdk`'s `withHandlerSpan`** —
+`command-registry` is L2 and `plugin-sdk` is L5, so the helper would be an **upward import**.
+Same in-package idiom `boundaryLine/MoveBoundaryLineCommand.ts` already uses. ⚠ The tracer is
+resolved **per call, never cached at module load**: a tracer captured before `initTracing()`
+runs is bound to the no-op provider for the life of the process — L-392 all over again.
+
+**NEXT:** C10 owes the barrel/pure-helper ruling (tracked as C10 §2.6.7 ⁴). Then the five real
+debt files get real spans and the baseline shrinks by eight.
+
+
+
+
+---
+
+### L-10302 — ⚠ **NOT THIS LANE'S FILE: `updateElementParameterRakePreflight.test.ts` asserts a refusal the founder ORDERED REMOVED five days ago** · lane TELEM20 · 2026-08-24
+
+Running the two suites covering L-10301's one code change surfaced **3 failed / 34 passed** in
+`packages/command-registry/__tests__/updateElementParameterRakePreflight.test.ts`. ⭐ **They are
+not the change's fault, and the proof is in the source, not in a re-run** (this box could not
+complete a baseline vitest run inside 10 minutes — worker startup alone timed out once at 81 s
+and a completed run spent **683 s in transform**):
+
+```
+✗ 'REFUSES a rake on a CURVED wall — the arm that survives'  (test.ts:110)
+    expect(rakeCmd('w-curved', 70).canExecute(ctx).ok).toBe(false)
+    - false   + true
+```
+
+**`packages/geometry-wall/src/WallRake.ts` says, in its own comment:**
+
+> *"⚠ THE BLANKET `curved` REFUSAL THAT STOOD HERE IS LIFTED … ⛔ DO NOT RESTORE THE BLANKET
+> REFUSAL. The founder asked for curved raked walls and curved layered raked walls by name."*
+
+`git log`: the lift is **`476cbfa2`, 2026-08-19** (`feat(L-1062/§FEAT-RAKE-CURVED)`). The test
+was last touched **`627b8a43`, 2026-08-18** — **the day before.** ⭐ **The test is stale against
+a deliberate, founder-mandated behaviour change and has been RED at HEAD for five days.**
+
+**Causality, stated as structure rather than as a re-run:** this lane's diff on
+`UpdateElementParameterCommand.ts` is **+69 / −0**, confined to lines 19–24 (imports), 51–61
+(`_tracer()`) and 592–652 (the `execute` wrapper). **`canExecute()` is at line 275** and is not
+touched by any hunk. A purely additive diff that does not enter a method cannot change that
+method's verdict. ⚠ **MEASURED: root `tsc` RC=0 repo-wide. ASSUMED-but-strongly-evidenced: that
+these 3 were already red before this lane.** Owner is the rake lane, not TELEM20 —
+**delete the stale assertions or restate them as the CONE behaviour `WallRake.ts` now ships.**
+
