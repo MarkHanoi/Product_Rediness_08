@@ -52535,3 +52535,49 @@ places answer the QUESTION."*
 **The rule this yields:** for any guard, dedup or latch, the census question is **not** *"where is it
 set?"* but *"where is it CLEARED, and can every producer reach that site?"* A flag whose clearing
 event one producer never emits is dead for that producer — silently, and only for them.
+
+---
+
+### L-11000..L-11011 — ⭐ **REGISTER: photo → facade reconstruction (C108) — and the artefact the brief was written about is NOT IN THE REPOSITORY** · lane FACADE53 · 2026-08-24
+
+**Block allocated `L-11000..L-11099`, proven free before use** (`rg 'L-11[0-9]{3}'` repo-wide → **0
+matches, 0 files**). Two lanes collided on L-ids earlier today; this one measured first.
+
+**Contract:** [C108 — Facade Reconstruction From Image](../02-decisions/contracts/C108-FACADE-RECONSTRUCTION-FROM-IMAGE.md)
+· **ADR:** [ADR-0371](../02-decisions/adrs/ADR-0371-a-facade-reconstruction-is-a-measurement-not-a-likeness.md)
+· **SPEC:** [SPEC-FACADE-RECONSTRUCTION-PIPELINE](../03-execution/specs/SPEC-FACADE-RECONSTRUCTION-PIPELINE.md)
+
+| Id | Row | Status |
+|---|---|---|
+| **L-11000** | The photo→facade subsystem did not exist. Root row for the lane. | CLOSED by Milestone 1 |
+| **L-11001** | ⛔ **The founder's photograph is not on disk** — it was attached to a conversation. **Every quantitative claim the subsystem makes today is about SYNTHETIC inputs with known ground truth and about nothing else.** | **OPEN — blocks C108 ACTIVE** |
+| **L-11002** | `FacadeIR` lives in the engine package, not L0 `packages/schemas`. Promotion deferred: it changes what validates a persisted project (**C47**), and `packages/schemas` is a contended file set (the C104 §11 precedent). | OPEN |
+| **L-11003** | CLI decodes **PNG only** (`node:zlib`, zero deps). The browser path is format-complete. | OPEN (won't-fix candidate) |
+| **L-11004** | Curvature (brief §12) yields a **residual deviation**, not a radius. One uncalibrated image does not determine a radius. | OPEN by design |
+| **L-11005** | `protrusion.depth` is **UNKNOWN** (brief §11). Only the soffit/shadow band cue is measured. *"Never hallucinate exact dimensions."* | OPEN by design |
+| **L-11006** | **FacadeIR → BIM elements** (brief §24) is NOT built. Milestone 2, bound by C11 / C16 / C84 / C85–C99 / C15. | OPEN |
+| **L-11007** | The UI panel is **not registered on the ribbon / C82 capability surface**; it mounts standalone. C107 §14's rule: a rail button that arms nothing is worse than no button. | OPEN |
+| **L-11008** | **No GA gate asserts the synthetic corpus runs in CI.** Deleting it today fails no build. | OPEN |
+| **L-11009** | No automatic scale estimator, by design. Scale is **user-supplied or unknown**; there is no third source. | OPEN by design |
+| **L-11010** | The crop cap is proven against **synthetic** chrome only. Real screenshot chrome is untested. | **OPEN** |
+| **L-11011** | Foreground rejection (brief §2 — people, cars, plants, trees, neighbouring buildings) is **mitigated by periodicity, not solved**. Clutter landing on a comb node is not rejected today. | **OPEN** |
+
+**⭐ The finding worth keeping, and it is not about facades.** The brief was written around one
+photograph the lane could not see. The tempting move was to write code that *implies* it processed
+the image — measurements in a comment, a threshold "tuned for the sample". Instead the lane built
+the ten-facade synthetic corpus brief §19 already asked for, **and C108 §0.2 records the absence as
+the subsystem's primary honesty invariant rather than as a footnote.**
+
+**A pipeline that passes A–J synthetically and then FAILS on the real photograph is a GOOD outcome**
+— it names exactly which assumption reality breaks. A pipeline tuned to one photograph proves
+nothing, and is unfalsifiable by construction. This is [[fake-more-capable-than-real]] inverted:
+there, a fake built from the header could not falsify the header; here, a corpus built from *known
+truth* is the only thing that can falsify the engine while the real input is unavailable.
+
+**Second finding — the licence question was never reached, by construction.** Brief §20 requires a
+licence + **model-weight licence** + commercial-use audit before any dependency lands. The
+founder's own §20 and the [GenRecon spike](../03-execution/spikes/spike-genrecon-generative-reconstruction.md) §4
+independently found **nvdiffrast/nvdiffrec are NVIDIA source-available, NON-COMMERCIAL — blocking
+for a commercial SaaS**. Keeping the engine classical and DOM-free made the browser (and
+`node:zlib`) the decoder, so **C108 §7.1 reports ZERO new dependencies**. *The cheapest way to pass
+a licence audit is to have nothing to audit.*

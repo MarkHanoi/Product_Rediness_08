@@ -239,8 +239,18 @@ whose CI run did not succeed (§L-540-CI-GATE). Read `ci.yml`'s header before as
 
 `docs/02-decisions/contracts/README.md` (the "C00" contract-suite index) is **the authoritative
 enumeration of the suite — always defer to it over any range written here.** It indexes
-**C01–C100 + C24.1**; **`C61` is the ONLY RESERVED, unminted slot** — ~~C76~~ **was MINTED
+**C01–C108 + C24.1**; **`C61` and `C103` are the RESERVED, unminted slots** — ~~C76~~ **was MINTED
 2026-08-19** (`baa98eba`, Platform & API Surface). The suite governs every implementation decision.
+
+> ⚠ **Corrected 2026-08-24 (lane FACADE53) — the SIXTH recurrence of the count/range shape.** This
+> paragraph read **`C01–C100`** and **`C61` is the ONLY RESERVED slot**. Both were false: **C101–C107
+> were on disk** (seven contracts outside the stated ordering, among them C104 / C106 / C107 — three
+> element-family contracts), and **`C103` is a SECOND unminted slot, and a WORSE one: UNMINTED-AND-CITED**
+> (five source files plus C104 §0.2 cite it; L-7060, OPEN). This lane minted **C108** (Facade
+> Reconstruction From Image) and moved **the row and the range in the same commit**. ⛔ **Do not
+> re-transcribe:** `npx tsx tools/ga-gate/check-contract-index-equivalence.ts` → **RC=0 · 107 files ·
+> 90 rows · max id C108 · reserved C61, C103 · arm A 18 = baseline · arms B/C/D clean.**
+> **Read the gate, never this line.**
 
 > ⚠ **Corrected 2026-08-18 — and this is the FOURTH recurrence of one defect shape.** This
 > paragraph and the conflict-resolution order below both read **`C01–C68 + C24.1`**, leaving
