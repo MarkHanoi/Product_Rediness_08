@@ -28,6 +28,11 @@ import { canDo, type OperationId } from '@pryzm/input-host';
 // may be TWO. `selectedGridInAnyPane()` is the ONE authority for which pane holds the
 // selection; `gridEditAvailability` is the ONE answer to what may be OFFERED for it.
 import { selectedGridInAnyPane, clearGridSelectionInAllPanes } from '@app/engine/views/viewPanes';
+// §CANVAS2D-SUBJECT-DELETE-SEAM (L-10340) — the grid delete route is SHARED with
+// initUI's keyboard-Delete arm. Two lanes had written it twice; one operation gets
+// one route (C84 EI-4a). The seam's file carries the measured reason a grid delete
+// cannot use `runtime.bus.executeCommand` yet.
+import { dispatchCanvasSubjectDelete } from '@app/engine/views/canvasSubjectDelete';
 import { gridEditAvailability, type GridEditSubject } from '@pryzm/core-app-model';
 // §MULTI-SELECT-SHIFT (L-1552) — the C27 §4 authority on WHAT IS SELECTED. The bar
 // arms operations, and an operation armed against ONE element while FIVE are
@@ -761,18 +766,13 @@ export class ContextualEditBar {
     private _deleteSelectedGrid(): boolean {
         const hit = selectedGridInAnyPane();
         if (!hit) return false;
-        const cm = window.commandManager as unknown as
-            | { execute(cmd: unknown): { success?: boolean; info?: string[]; error?: string } | undefined }
-            | undefined;
-        if (!cm || typeof cm.execute !== 'function') {
-            // C16 CA-18 / C84 EI-2 — refuse LOUDLY through the channel this class already
-            // owns, never return silently from a delete the user asked for.
-            this._declineOperation('Delete', 'the command system is not ready');
-            return true;
-        }
-        const res = cm.execute(new RemoveGridCommand({ gridId: hit.gridId }));
-        if (res && res.success === false) {
-            this._declineOperation('Delete', res.error ?? res.info?.join('; ') ?? 'the model refused the delete');
+        // C16 CA-18 / C84 EI-2 — refuse LOUDLY through the channel this class already
+        // owns, never return silently from a delete the user asked for. The seam
+        // normalises BOTH refusal kinds — no command system, and the model saying no —
+        // into one sentence, so neither can reach the user as a silent success.
+        const outcome = dispatchCanvasSubjectDelete(new RemoveGridCommand({ gridId: hit.gridId }));
+        if (!outcome.ok) {
+            this._declineOperation('Delete', outcome.reason ?? 'the model refused the delete');
             return true;
         }
         // Clear the now-dangling selection in EVERY pane — a stale `_selectedGridId`

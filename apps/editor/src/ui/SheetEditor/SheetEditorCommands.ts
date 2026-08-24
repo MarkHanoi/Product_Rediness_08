@@ -34,6 +34,68 @@ import { layoutEngine } from '@pryzm/core-app-model';
 import type { LayoutPresetKey } from '@pryzm/core-app-model';
 import type { DataPanel } from '@pryzm/core-app-model';
 
+// ── §SHEET-DISPATCH-SEAM (L-10340) ─────────────────────────────────────────
+//
+// The ONE place this module reaches the legacy command manager.
+//
+// Thirteen dispatchers each carried the identical preamble: read the global,
+// warn when it is absent, execute, and (in eleven of the thirteen) drop the
+// result on the floor. Two of the thirteen were added on 2026-08-21/22 by
+// copying the eleven above them — which is how a shrink-only P6 ratchet moved
+// BACKWARDS without any lane intending a new bypass (L-10340).
+//
+// Collapsing them is not a rename dodge: there is now genuinely ONE dispatch,
+// so the Phase E.5.x migration named in all thirteen TODOs becomes an edit to
+// this function rather than thirteen separate edits.
+//
+// ⚠ WHY `runtime.bus.executeCommand` IS NOT USED HERE YET — measured, not
+// assumed (L-10340):
+//   • it is `async` and returns `Promise<EventRecord>`, while every caller
+//     below is synchronous and two of them return a value to their caller;
+//   • it THROWS its refusal (`CommandBus.executeCommand` converts a failed
+//     `canExecute` into a thrown error) rather than returning it, so the
+//     resize arm at the bottom of this file could not read `res.success`;
+//   • ⭐ for the three verbs that ARE bridged, the bus route ENDS AT THIS SAME
+//     CALL. `initBusHandlers.ts` registers `sheet.addViewport`, `sheet.create`
+//     and `sheet.moveViewport` as `fn: (cmd) => { _cmExec(new
+//     AddViewportToSheetCommand(cmd)); }` — the SAME legacy Command classes
+//     constructed below, dispatched through `_cmExec`, whose body is
+//     `window.commandManager` + `cm.execute`. Routing there would relocate the
+//     legacy call into the one file the ratchet excludes, and would ADDITIONALLY
+//     discard the verdict, because `_cmExec` is declared `: void`.
+//   • the other ten commands below (export, layout preset, data panel, intent,
+//     revision, scale, crop) have NO bridge at all, and `'sheet.executeCommand'`
+//     — the generic escape hatch declared in `packages/command-bus/src/commands.ts`
+//     — is bridged by nothing.
+//   • `plugins/sheets`' own ten `sheet.*` handlers are NOT a route either: their
+//     `registerSheetHandlers()` has ZERO production callers and is deliberately
+//     left unregistered (L-1590, §FIX-SHEET-ADDVIEWPORT-SHADOW MT-03) because it
+//     writes a DETACHED DTO shadow store rather than the authoritative
+//     `core-app-model` sheetStore.
+// Until a sheet verb writes the authoritative store AND returns its refusal
+// synchronously, this seam IS the route.
+interface SheetDispatch {
+    /** FALSE when the command manager was absent, so nothing was dispatched. */
+    readonly dispatched: boolean;
+    /** The legacy CommandResult — read by the callers that report a refusal. */
+    readonly result?: { success?: boolean; error?: string } | undefined;
+}
+
+function dispatchSheetCommand(
+    label: string,
+    cmd:   unknown,
+    meta:  unknown = { source: 'HUMAN_DIRECT' },
+): SheetDispatch {
+    const mgr = window.commandManager as unknown as
+        | { execute(c: unknown, o?: unknown): { success?: boolean; error?: string } | undefined }
+        | undefined;
+    if (!mgr || typeof mgr.execute !== 'function') {
+        console.warn(`[SheetEditorCommands] commandManager not available — ${label} dropped`);
+        return { dispatched: false };
+    }
+    return { dispatched: true, result: mgr.execute(cmd, meta) };
+}
+
 // ── Core mutation dispatchers ──────────────────────────────────────────────
 
 /**
@@ -55,11 +117,6 @@ export function dispatchAddViewport(
         console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: dispatchAddViewport');
         return;
     }
-    const mgr = window.commandManager; // TODO(E.5.x): replace with runtime.bus.executeCommand — Phase E.5.x
-    if (!mgr) {
-        console.warn('[SheetEditorCommands] commandManager not available');
-        return;
-    }
     const offset = sheet.viewports.length * 30;
     const cmd = new AddViewportToSheetCommand({
         sheetId:    sheet.id,
@@ -69,7 +126,7 @@ export function dispatchAddViewport(
         scale:      view.output?.scale ?? 50,
         viewType:   view.viewType,
     });
-    mgr.execute(cmd, { source: 'HUMAN_DIRECT' });
+    if (!dispatchSheetCommand('dispatchAddViewport', cmd).dispatched) return;
     console.log(
         `[SheetEditorCommands] Added view "${view.name}" to sheet "${sheet.sheetNumber}"` +
         (position ? ` at (${position.x.toFixed(1)}, ${position.y.toFixed(1)})mm` : ' (auto-placed)'),
@@ -114,13 +171,10 @@ export function dispatchMoveViewport(
         console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: dispatchMoveViewport');
         return false;
     }
-    const mgr = window.commandManager; // TODO(E.5.x): replace with runtime.bus.executeCommand — Phase E.5.x
-    if (!mgr) {
-        console.warn('[SheetEditorCommands] commandManager not available — viewport move dropped');
-        return false;
-    }
-    mgr.execute(new MoveViewportCommand(sheetId, vpId, newPosition), { source: 'HUMAN_DIRECT' });
-    return true;
+    return dispatchSheetCommand(
+        'dispatchMoveViewport',
+        new MoveViewportCommand(sheetId, vpId, newPosition),
+    ).dispatched;
 }
 
 export function dispatchRemoveViewport(sheetId: string, vpId: string): void {
@@ -128,10 +182,8 @@ export function dispatchRemoveViewport(sheetId: string, vpId: string): void {
         console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: dispatchRemoveViewport');
         return;
     }
-    const mgr = window.commandManager; // TODO(E.5.x): replace with runtime.bus.executeCommand — Phase E.5.x
-    if (!mgr) return;
     const cmd = new RemoveViewportFromSheetCommand(sheetId, vpId);
-    mgr.execute(cmd, { source: 'HUMAN_DIRECT' });
+    if (!dispatchSheetCommand('dispatchRemoveViewport', cmd).dispatched) return;
     console.log(`[SheetEditorCommands] Removed viewport ${vpId}`);
 }
 
@@ -140,11 +192,9 @@ export function dispatchUpdateSheetField(sheetId: string, key: string, value: st
         console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: dispatchUpdateSheetField');
         return;
     }
-    const mgr = window.commandManager; // TODO(E.5.x): replace with runtime.bus.executeCommand — Phase E.5.x
-    if (!mgr) return;
     const patch: Record<string, string> = { [key]: value };
     const cmd = new UpdateSheetCommand(sheetId, patch as any);
-    mgr.execute(cmd, { source: 'HUMAN_DIRECT' });
+    dispatchSheetCommand('dispatchUpdateSheetField', cmd);
 }
 
 // ── SC-6: Export dialog ────────────────────────────────────────────────────
@@ -233,14 +283,12 @@ export function showExportDialog(sheet: SheetDefinition): void {
             console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: showExportDialog/confirmBtn');
             return;
         }
-        const mgr = window.commandManager; // TODO(E.5.x): replace with runtime.bus.executeCommand — Phase E.5.x
-        if (!mgr) return;
         const cmd = new ExportSheetCommand({
             sheetId: sheet.id,
             format:  selectedFormat,
             dpi:     selectedFormat === 'png' ? parseInt(dpiInput.value, 10) || 150 : undefined,
         });
-        mgr.execute(cmd, { source: 'HUMAN_DIRECT' });
+        if (!dispatchSheetCommand('showExportDialog/export', cmd).dispatched) return;
         backdrop.remove();
     });
 
@@ -282,8 +330,6 @@ export function buildLayoutSection(
                 console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: buildLayoutSection/presetBtn');
                 return;
             }
-            const mgr = window.commandManager; // TODO(E.5.x): replace with runtime.bus.executeCommand — Phase E.5.x
-            if (!mgr) return;
             const template = sheet.titleBlock
                 ? (titleBlockStore.get(sheet.titleBlock) ?? titleBlockStore.getDefault())
                 : titleBlockStore.getDefault();
@@ -294,7 +340,7 @@ export function buildLayoutSection(
                 paperH:    template.paperHeight,
                 marginMm:  10,
             });
-            mgr.execute(cmd, { source: 'HUMAN_DIRECT' });
+            dispatchSheetCommand('buildLayoutPresetSection/apply', cmd);
         });
         grid.appendChild(btn);
     }
@@ -350,8 +396,6 @@ export function buildDataPanelSection(sheet: SheetDefinition): HTMLElement {
                 console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: buildDataPanelSection/addBtn');
                 return;
             }
-            const mgr = window.commandManager; // TODO(E.5.x): replace with runtime.bus.executeCommand — Phase E.5.x
-            if (!mgr) return;
             const panel: DataPanel = {
                 id:        crypto.randomUUID(),
                 panelType: t.type,
@@ -360,7 +404,7 @@ export function buildDataPanelSection(sheet: SheetDefinition): HTMLElement {
                 query:     t.type === 'metric' ? 'walls' : undefined,
             };
             const cmd = new AddDataPanelToSheetCommand({ sheetId: sheet.id, panel });
-            mgr.execute(cmd, { source: 'HUMAN_DIRECT' });
+            dispatchSheetCommand('buildDataPanelSection/add', cmd);
         });
         sec.appendChild(btn);
     }
@@ -383,10 +427,8 @@ export function buildDataPanelSection(sheet: SheetDefinition): HTMLElement {
                     console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: buildDataPanelSection/removeBtn');
                     return;
                 }
-                const mgr = window.commandManager; // TODO(E.5.x): replace with runtime.bus.executeCommand — Phase E.5.x
-                if (!mgr) return;
                 const cmd = new RemoveDataPanelFromSheetCommand({ sheetId: sheet.id, panelId: panel.id });
-                mgr.execute(cmd, { source: 'HUMAN_DIRECT' });
+                dispatchSheetCommand('buildDataPanelSection/remove', cmd);
             });
             item.appendChild(nameEl);
             item.appendChild(removeBtn);
@@ -430,14 +472,12 @@ export function buildIntentSection(sheet: SheetDefinition): HTMLElement {
             console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: buildIntentSection/textarea.change');
             return;
         }
-        const mgr = window.commandManager; // TODO(E.5.x): replace with runtime.bus.executeCommand — Phase E.5.x
-        if (!mgr) return;
         const cmd = new SetSheetCompositionIntentCommand({
             sheetId:           sheet.id,
             compositionIntent: textarea.value.trim(),
             audience:          audienceSelect.value as any || undefined,
         });
-        mgr.execute(cmd, { source: 'HUMAN_DIRECT' });
+        dispatchSheetCommand('buildIntentSection/textarea', cmd);
     });
     sec.appendChild(textarea);
 
@@ -451,13 +491,11 @@ export function buildIntentSection(sheet: SheetDefinition): HTMLElement {
             console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: buildIntentSection/audienceSelect.change');
             return;
         }
-        const mgr = window.commandManager; // TODO(E.5.x): replace with runtime.bus.executeCommand — Phase E.5.x
-        if (!mgr) return;
         const cmd = new SetSheetCompositionIntentCommand({
             sheetId:  sheet.id,
             audience: audienceSelect.value as any || undefined,
         });
-        mgr.execute(cmd, { source: 'HUMAN_DIRECT' });
+        dispatchSheetCommand('buildIntentSection/audience', cmd);
     });
     audienceRow.appendChild(audienceLabel);
     audienceRow.appendChild(audienceSelect);
@@ -540,8 +578,7 @@ export function buildRevisionFormEl(
             date,
             issuedBy:    by,
         });
-        const mgr = window.commandManager; // TODO(E.5.x): replace with runtime.bus.executeCommand — Phase E.5.x
-        if (mgr) mgr.execute(cmd, { source: 'HUMAN_DIRECT' });
+        dispatchSheetCommand('buildRevisionForm/save', cmd);
         onDone();
     };
 
@@ -599,10 +636,9 @@ export function buildInlineScaleOverlay(
             console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: buildInlineScaleOverlay/apply');
             return;
         }
-        const mgr = window.commandManager; // TODO(E.5.x): replace with runtime.bus.executeCommand — Phase E.5.x
-        if (mgr) mgr.execute(
+        dispatchSheetCommand(
+            'buildInlineScaleOverlay/apply',
             new UpdateViewportScaleCommand(sheet.id, vp.id, n),
-            { source: 'HUMAN_DIRECT' },
         );
     };
 
@@ -938,15 +974,14 @@ export function buildResizeHandles(
 
                 // ONE command per GESTURE, not per pointermove: a drag must be a
                 // single undo step. That is why nothing dispatches in onMove.
-                const mgr = window.commandManager; // TODO(E.5.x): runtime.bus.executeCommand
-                if (!mgr) {
+                const { dispatched, result: res } = dispatchSheetCommand(
+                    'viewportResize/commit',
+                    new SetViewportCropCommand(sheet.id, vp.id, last),
+                );
+                if (!dispatched) {
                     console.error('[SheetEditorCommands] Engine not yet initialised — resize ignored');
                     return;
                 }
-                const res = mgr.execute(
-                    new SetViewportCropCommand(sheet.id, vp.id, last),
-                    { source: 'HUMAN_DIRECT' },
-                ) as { success?: boolean; error?: string } | undefined;
                 if (res && res.success === false) {
                     console.warn(`[SheetEditorCommands] resize refused: ${res.error ?? 'unknown reason'}`);
                     return;

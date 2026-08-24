@@ -155,6 +155,15 @@ let _annotationSeedAttempted = false;
 // single z-layer/no-overlap policy instead of a hand-picked bottom/z-index.
 import { launcherRailStyle }        from '@app/ui/layout/zLayers';
 
+// §CANVAS2D-SUBJECT-DELETE-SEAM (L-10340) — the three Canvas2D subjects that are
+// selectable but are NOT THREE `Object3D`s (annotation L-703, grid L-1107, level
+// L-1109) share ONE dispatch point. It lives beside `viewPanes` because
+// `ContextualEditBar` reaches the same grid route from the contextual bar, and two
+// lanes had written that route twice. The file carries the full rationale,
+// including the measured reason each of the three cannot use
+// `runtime.bus.executeCommand` yet (ADR-0318 store-unification debt).
+import { dispatchCanvasSubjectDelete } from '@app/engine/views/canvasSubjectDelete';
+
 // ── Params interface ──────────────────────────────────────────────────────────
 
 export interface UIParams {
@@ -2456,16 +2465,9 @@ export async function initUI(p: UIParams): Promise<void> {
             getSelectedAnnotationId: () => window.__pryzmSelectedAnnotationId,
             getAnnotationById: (id) => annotationStore.getById(id),
             deleteAnnotation: (id) => {
-                const cm = window.commandManager as unknown as
-                    | { execute(cmd: unknown): { success?: boolean; info?: string[]; error?: string } | undefined }
-                    | undefined;
-                if (!cm || typeof cm.execute !== 'function') {
-                    _annDeleteFailed = 'Command system not ready';
-                    return;
-                }
-                const res = cm.execute(new DeleteAnnotationCommand(id));
-                if (res && res.success === false) {
-                    _annDeleteFailed = res.error ?? res.info?.join('; ') ?? 'The model refused the delete';
+                const outcome = dispatchCanvasSubjectDelete(new DeleteAnnotationCommand(id));
+                if (!outcome.ok) {
+                    _annDeleteFailed = outcome.reason ?? 'The model refused the delete';
                     return;
                 }
                 window.__pryzmSelectedAnnotationId = null;
@@ -2499,18 +2501,11 @@ export async function initUI(p: UIParams): Promise<void> {
         if (!selectionManager.selectedObject) {
             const gridHit = selectedGridInAnyPane();
             if (gridHit) {
-                const cm = window.commandManager as unknown as
-                    | { execute(cmd: unknown): { success?: boolean; info?: string[]; error?: string } | undefined }
-                    | undefined;
-                if (!cm || typeof cm.execute !== 'function') {
-                    // C16 CA-18 / C84 EI-2 — refuse LOUDLY and name why. Never
-                    // return silently from a delete the user actually asked for.
-                    toast('Grid not deleted — command system not ready', 'warn');
-                    return;
-                }
-                const res = cm.execute(new RemoveGridCommand({ gridId: gridHit.gridId }));
-                if (res && res.success === false) {
-                    toast(`Grid not deleted — ${res.error ?? res.info?.join('; ') ?? 'the model refused the delete'}`, 'warn');
+                // C16 CA-18 / C84 EI-2 — refuse LOUDLY and name why. Never
+                // return silently from a delete the user actually asked for.
+                const outcome = dispatchCanvasSubjectDelete(new RemoveGridCommand({ gridId: gridHit.gridId }));
+                if (!outcome.ok) {
+                    toast(`Grid not deleted — ${outcome.reason}`, 'warn');
                     return;
                 }
                 // Clear the (now-dangling) selection in EVERY pane, not just the
@@ -2542,19 +2537,12 @@ export async function initUI(p: UIParams): Promise<void> {
         if (!selectionManager.selectedObject) {
             const levelHit = selectedLevelInAnyPane();
             if (levelHit) {
-                const cm = window.commandManager as unknown as
-                    | { execute(cmd: unknown): { success?: boolean; info?: string[]; error?: string } | undefined }
-                    | undefined;
-                if (!cm || typeof cm.execute !== 'function') {
-                    toast('Level not deleted — command system not ready', 'warn');
-                    return;
-                }
-                const res = cm.execute(new DeleteLevelCommand({ levelId: levelHit.levelId }));
-                if (res && res.success === false) {
+                const outcome = dispatchCanvasSubjectDelete(new DeleteLevelCommand({ levelId: levelHit.levelId }));
+                if (!outcome.ok) {
                     // The command's OWN sentence — "cannot delete a level that still
                     // contains elements", "cannot delete the last level" — reaches the
                     // user, so a refused delete is never reported as a completed one.
-                    toast(`Level not deleted — ${res.error ?? res.info?.join('; ') ?? 'the model refused the delete'}`, 'warn');
+                    toast(`Level not deleted — ${outcome.reason}`, 'warn');
                     return;
                 }
                 clearLevelSelectionInAllPanes();

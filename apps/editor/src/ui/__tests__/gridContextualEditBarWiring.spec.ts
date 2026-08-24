@@ -97,9 +97,28 @@ describe('§GRID-CONTEXTUAL-EDIT — Delete is a real route, not a dead button',
     it('a refused or impossible grid delete DECLINES OUT LOUD', () => {
         // C16 CA-18 / C84 EI-2. `_declineOperation` routes to `bim-operation-error`, which
         // the operation overlay renders — never a silent `return`.
+        //
+        // §CANVAS2D-SUBJECT-DELETE-SEAM (L-10340) — the two refusal kinds this used to
+        // pin SEPARATELY ("the command system is not ready" / `res.error`) are now
+        // normalised by `dispatchCanvasSubjectDelete`, which is SHARED with initUI's
+        // keyboard-Delete arm so the grid route exists once. The assertion did not get
+        // weaker: it now pins that EVERY not-ok outcome declines, which is the property
+        // the two hand-written branches were each half of.
         const arm = CEB_SRC.slice(CEB_SRC.indexOf('_deleteSelectedGrid(): boolean'));
-        expect(arm).toMatch(/_declineOperation\('Delete', 'the command system is not ready'\)/);
-        expect(arm).toMatch(/_declineOperation\('Delete', res\.error/);
+        expect(arm).toMatch(/dispatchCanvasSubjectDelete\(new RemoveGridCommand/);
+        expect(arm).toMatch(/if \(!outcome\.ok\)/);
+        expect(arm).toMatch(/_declineOperation\('Delete', outcome\.reason/);
+    });
+
+    it('the bar no longer reaches the command manager through the window global', () => {
+        // The seam owns the dispatch, so this class holds NO copy of it. A second copy
+        // is how the grid route came to exist twice, and how a shrink-only P6 ratchet
+        // moved backwards without any lane intending a new bypass (L-10340).
+        const arm = CEB_SRC.slice(
+            CEB_SRC.indexOf('_deleteSelectedGrid(): boolean'),
+            CEB_SRC.indexOf('_refreshButtonVisibility(elementType: string)'),
+        );
+        expect(arm).not.toContain('window.commandManager');
     });
 
     it('handling INCLUDES refusing — it must not fall through after declining', () => {
