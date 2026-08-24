@@ -1555,9 +1555,38 @@ export class WallRebuildCoordinator {
                     if (!ring || ring.length === 0) return '';
                     return ring.map(v => `${mm(v.u)},${mm(v.v)}`).join(';');
                 })();
+                // ⭐⭐ §GRAPH43-SYSTEMTYPE-IS-A-JUNCTION-INPUT (L-10806) — THE FOURTH
+                //    RECURRENCE OF §DIAG-INVALIDATION-COMPLETENESS, AND THE FIRST
+                //    WHERE THE FIELD WAS CLASSIFIED AND CLASSIFIED **WRONGLY**.
+                //
+                // `LevelSignatureCompleteness.test.ts` listed `systemTypeId` under
+                // `nonGeometric` with the reason *"resolves to layers/thickness,
+                // both covered"*. ⛔ **That reason is false.** `systemTypeId` is
+                // threaded into the V2 junction solve as its OWN field (`:1909`,
+                // §FIX-WALL-V2-EXISTING-CORNER-IMMUTABLE / L-130 — *"so it freezes
+                // an existing same-type L-corner when a DIFFERENT-type wall
+                // joins"*) and `JunctionResolverV2` compares it directly
+                // (`sysTypeOf`, `:418`). **Two walls with identical layers and
+                // thickness but different system types resolve their corner
+                // DIFFERENTLY.**
+                //
+                // ⭐ AND THE CONSEQUENCE REACHES FURTHER THAN PIXELS. This gate sits
+                // UPSTREAM of everything: when it returns, `_flush` never reaches
+                // `writeJoinedToEdgesForLevel` (:1958), so the `joinedTo` graph
+                // keeps edges derived under the OLD system type. C71 §3.4 makes
+                // stale-edge removal part of the writer — and a writer that never
+                // runs cannot remove anything. **This is the `joinedTo` staleness
+                // SOURCE, measured** (C85 §10.8, SPEC-LIVING-WALL-RELATIONSHIPS W3).
+                //
+                // ⚠ Conservative by construction: adding a field can only make
+                // `anyProgress` TRUE more often, never less. A system type does not
+                // oscillate, so this cannot resurrect the ADR-0129 no-progress loop
+                // — and it deliberately does NOT move the writer above the guard,
+                // which L-97 exists to prevent.
+                const st = (w as { systemTypeId?: string }).systemTypeId ?? '';
                 parts.push(
                     `${w.id}:${mm(bl[0].x)},${mm(bl[0].z)}>${mm(bl[1].x)},${mm(bl[1].z)}` +
-                    `#${mm(w.thickness)}h${mm(w.height)}b${mm(w.baseOffset)}|o[${ops}]|l[${lys}]|c[${cv}]|m[${mat}]|r[${rk}${pf}]`,
+                    `#${mm(w.thickness)}h${mm(w.height)}b${mm(w.baseOffset)}|o[${ops}]|l[${lys}]|c[${cv}]|m[${mat}]|r[${rk}${pf}]|st[${st}]`,
                 );
             }
             parts.sort();

@@ -54,6 +54,10 @@ function baseWall(): Record<string, unknown> {
         materialId: 'mat-a',
         materialColor: '#ffffff',
         rakeAngleDeg: 90,
+        // §GRAPH43 (L-10806) — present on the fixture at last: the inventory
+        // below DECLARED this field while `baseWall()` did not carry it, so the
+        // classification was never actually exercised against anything.
+        systemTypeId: 'sys-a',
     };
 }
 
@@ -90,6 +94,13 @@ const GEOMETRY_FIELDS: Array<{ field: string; mutate: (w: Record<string, unknown
     { field: 'materialColor',    mutate: w => { w.materialColor = '#ff0000'; } },
     // The one that cost three deploys. Kept explicitly so a regression is named.
     { field: 'rakeAngleDeg',     mutate: w => { w.rakeAngleDeg = 70; } },
+    // ⭐⭐ §GRAPH43-SYSTEMTYPE-IS-A-JUNCTION-INPUT (L-10806) — the fourth
+    //    recurrence, and the first where the field was CLASSIFIED AND WRONGLY SO.
+    //    It sat in `nonGeometric` below reading *"resolves to layers/thickness,
+    //    both covered"*. It does not: it is threaded into the V2 junction solve as
+    //    its OWN field and compared directly there, so two walls with identical
+    //    layers and thickness resolve their shared corner DIFFERENTLY.
+    { field: 'systemTypeId',     mutate: w => { w.systemTypeId = 'sys-b'; } },
 ];
 
 describe('§DIAG-INVALIDATION-COMPLETENESS — the level signature covers every geometry input', () => {
@@ -132,6 +143,9 @@ describe('§DIAG-INVALIDATION-COMPLETENESS — the level signature covers every 
             'baseLine', 'thickness', 'height', 'baseOffset',
             'openings', 'layers', 'curve', 'materialId', 'materialColor',
             'rakeAngleDeg',
+            // ⭐ MOVED FROM `nonGeometric` 2026-08-24 (§GRAPH43, L-10806). See the
+            //   correction note below — the old reason was measurably false.
+            'systemTypeId',
         ]);
         // Fields that legitimately do NOT affect built geometry. Each is listed
         // with the reason, so removing one from this list is a deliberate act.
@@ -139,7 +153,6 @@ describe('§DIAG-INVALIDATION-COMPLETENESS — the level signature covers every 
             'id',             // identity, already in the per-wall key
             'levelId',        // selects which signature the wall belongs to
             '_renderVersion', // a counter DERIVED from edits, not an input
-            'systemTypeId',   // resolves to layers/thickness, both covered
             'name', 'metadata', 'locked', 'visible', 'tags',
         ]);
 
@@ -147,6 +160,24 @@ describe('§DIAG-INVALIDATION-COMPLETENESS — the level signature covers every 
         const present = Object.keys(baseWall());
         const unclassified = present.filter(k => !declared.has(k));
 
+        // ⛔⛔ CORRECTED 2026-08-24 (§GRAPH43-SYSTEMTYPE-IS-A-JUNCTION-INPUT,
+        //    L-10806) — `systemTypeId` WAS LISTED HERE AS NON-GEOMETRIC, reading
+        //    *"resolves to layers/thickness, both covered"*. **That reason is
+        //    measurably false**, and it is worse than an omission: an omission is
+        //    an oversight, whereas a wrong classification with a stated reason
+        //    reads as a decision somebody already checked.
+        //
+        //    `systemTypeId` is threaded into the V2 junction solve as its OWN
+        //    field (`WallRebuildCoordinator.ts:1909`,
+        //    §FIX-WALL-V2-EXISTING-CORNER-IMMUTABLE / L-130 — *"so it freezes an
+        //    existing same-type L-corner when a DIFFERENT-type wall joins"*) and
+        //    `JunctionResolverV2` compares it directly (`sysTypeOf`, `:418`).
+        //    Identical layers + identical thickness + different system type
+        //    ⇒ a DIFFERENT resolved corner.
+        //
+        //    ⚠ And it was never exercised: `baseWall()` did not carry the field,
+        //    so `present` never contained it and this inventory passed vacuously
+        //    over its own wrong entry. The fixture now carries it.
         expect(
             unclassified,
             `Unclassified WallData field(s): ${unclassified.join(', ')}. ` +
@@ -154,5 +185,43 @@ describe('§DIAG-INVALIDATION-COMPLETENESS — the level signature covers every 
             `case in GEOMETRY_FIELDS above — otherwise editing it silently renders nothing ` +
             `(L-813). If it does not, add it to nonGeometric with a reason.`,
         ).toEqual([]);
+    });
+
+    /**
+     * ⭐⭐ §GRAPH43 (L-10806) — THE CONSEQUENCE THAT REACHES FURTHER THAN PIXELS,
+     *    AND THE REASON THIS ONE IS NOT JUST ANOTHER INVENTORY ROW.
+     *
+     * This gate sits UPSTREAM of everything. When `_flush` returns on it, it never
+     * reaches `writeJoinedToEdgesForLevel` (`WallRebuildCoordinator.ts:1958`) — so
+     * the `joinedTo` GRAPH keeps edges derived under the old system type.
+     * [C71 §3.4](../../../docs/02-decisions/contracts/C71-GRAPH-AND-TOPOLOGY.md)
+     * makes stale-edge removal *"part of the writer, not a follow-up"*, and **a
+     * writer that never runs cannot remove anything.**
+     *
+     * That is the `joinedTo` staleness SOURCE this lane was asked to measure
+     * before fixing (C85 §10.8, SPEC-LIVING-WALL-RELATIONSHIPS W3) — and it is
+     * NOT the mechanism the lane was briefed with. The brief said the writer sits
+     * after a no-progress `return`, which is TRUE but is not by itself a defect:
+     * if no wall moved, no junction moved either. **The defect is that the gate
+     * cannot SEE a change that does move junctions.**
+     *
+     * ⛔ The fix is therefore in the SIGNATURE, not in the guard's placement.
+     * Moving the writer above the `return` would re-open the self-re-arming flush
+     * loop L-97 exists to break (see ADR-0129).
+     */
+    it('§GRAPH43 — a system-type change moves the signature, so the joinedTo writer is reached', () => {
+        const a = baseWall();
+        const b = baseWall();
+        b.systemTypeId = 'sys-b';
+
+        // Same geometry in every other respect — identical layers AND thickness,
+        // which is exactly what the old `nonGeometric` reason claimed was enough.
+        expect(a.layers).toEqual(b.layers);
+        expect(a.thickness).toBe(b.thickness);
+
+        // ⭐ RED before the fix: the two signatures were byte-identical, `anyProgress`
+        //   stayed false, `_flush` returned, and the joinedTo edges were never
+        //   re-emitted.
+        expect(sig([b])).not.toBe(sig([a]));
     });
 });
