@@ -51647,3 +51647,141 @@ the snap type — but the behaviour it was delivering is now the reversed one. *
 this row.**
 
 **Commit:** `aa5cc461`.
+
+---
+
+## L-10800 — ⛔⛔ **A T-JUNCTION HAS TWO DIRECTIONS AND THE WELD ENGINE ASKS ONLY ONE: a join closed to 0 mm reported as "not found by 1002 mm", and an 85.7 m² room died** ✅ INSTRUMENTED (GRAPH43, 2026-08-24)
+
+**Reported by the founder, 2026-08-24, PRODUCTION**, verbatim:
+
+> *"how mature is the typology algorithm and the relationship graphs? how conscious is the wall and
+> room system? … one interior partition adapted … but the other did not … we probably lost a room …
+> **I was expecting the wall to extend** … we need a sound relationship graph and consciousness in
+> all elements - and an architect human would have seen this - why not the algorithm?"*
+
+His console:
+
+```
+§MOVE-REWELD-DISPATCH: moved wall wall_…F58EE… → 3 partner(s) via joinedTo-graph
+  → 1 baseline re-seat(s), 0 junction(s) refused, 2 not-applicable [
+      …F0DP3… : DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE(1002/500 mm),
+      …VXZQ… : DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE(1256/500 mm)]
+  | subject: no corner offered | partners accounted 3/3
+
+§OPENED-REGION: Room 00-004 (85.7 m²) is no longer its own room — it has merged into the
+  space next to it. 3.42 m of the boundary it used to have now has no wall on it.
+```
+
+### ⛔ TWO HYPOTHESES MEASURED AND REFUTED BEFORE ANYTHING WAS CHANGED
+
+1. **REFUTED — *"it is an endpoint-to-endpoint measure, which is the wrong question for a T."*** It
+   is not. `WallMoveReweld.ts` uses `distToSegment` on **both** arms (`:1235`, `:1236`, `:1268`,
+   `:1269`) — point-to-**segment** throughout, and the two arms are symmetric with each other.
+2. **REFUTED, and this one is dangerous — *"a declared join 1002 mm from any plausible weld is
+   probably stale data."*** ⛔ **A 1002 mm reading is fully compatible with a join closed to 0 mm.**
+   Never spend this number as staleness evidence; that inference is how **L-922** dragged three
+   perimeter doors.
+
+### ⭐ THE MECHANISM — the asymmetry is DIRECTIONAL, not point-versus-segment
+
+A T has a **GUEST** (endpoint lands) and a **HOST** (body is landed on). Every geometric test in the
+partner loop takes a **PARTNER** endpoint and measures it against the **SUBJECT's** segment. The
+mirror question — *is the SUBJECT's endpoint on the PARTNER's segment?* — is asked **nowhere in the
+engine**. A T satisfies exactly one of the two, so when the subject is the guest the engine measures
+a pair of points with no bearing on the joint, and reports the partner's **arm length** as a gap.
+
+### THE CONTROL — one join, closed to 0 mm, three partner lengths
+
+```
+subject [(0,0)→(0,3)] dragged 0.6 m east; partner passes EXACTLY through (0,3)
+
+west arm 0.400 m   → ENTRY, welds normally
+west arm 1.002 m   → DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE(1002/500 mm)
+west arm 2.000 m   → DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE(1900/500 mm)
+```
+
+**Same topology, same closed joint, opposite verdicts — decided by how long the other wall is.**
+
+### AND THE CONFLATION, measured on HEAD in ONE census
+
+```
+RAIL   real join this gesture DESTROYED (gap 600 mm) → DECLARED_JOIN_NOT_FOUND(600/500)
+KEEP   join closed to 0 mm, perfectly healthy        → DECLARED_JOIN_NOT_FOUND(2000/500)
+GHOST  never joined, 20 m away                       → DECLARED_JOIN_NOT_FOUND(18004/500)
+```
+
+**Three geometrically opposite facts, one name, one bucket, `0 junction(s) refused`.** That is
+[C72 §9.2](../02-decisions/contracts/C72-PROPAGATION-AND-PREVSTATE.md) exactly: *"«nothing to do»
+and «never wired» the same value"*.
+
+⚠ **NOT that the product is silent.** The PRYZM AI narration is articulate, numerate and the
+strongest part of this family (C85 §10.8.0 records it verbatim, as a floor no fix may reduce). The
+breach is that **one engine's census could not tell the product WHICH of C72 §9's two terminal
+states was reached.**
+
+### THE DISCRIMINATOR for *"one adapted, one did not"*
+
+**Which wall owns the endpoint at the T.** Partition-as-guest → `classifyWeldAuthorship` →
+`computeStemFollow` → **extends correctly**. Subject-as-guest → **binned before authorship is ever
+classified**, so `§WD32-EXTEND-BEFORE-CREATE` never runs. ⭐ **The missing capability is an
+ORDERING, not a geometry primitive.**
+
+**Fix (instrument):** `5c3434dc` — `SUBJECT_GUEST_JOIN_INTACT` / `SUBJECT_GUEST_JOIN_BROKEN_BY_MOVE`
+/ `SUBJECT_GUEST_JOIN_RESTORED_BY_MOVE`, with `DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE` narrowed to
+the only reading that may honestly mean *stale record*. **No decision changed** — same `continue`,
+new label and new number. **Contract:** C85 §10.7 W-M-13 and the whole of **C85 §10.8**.
+**Plan:** `docs/03-execution/specs/SPEC-LIVING-WALL-RELATIONSHIPS.md`.
+
+⚠ **UNPROVEN, and stated so:** whether the founder's two partitions **were** guest-side Ts. His
+console signature was reproduced **exactly** from an ordinary valid T-junction — which proves the
+signature cannot be used as staleness evidence by anybody — but not that his geometry was that.
+`5c3434dc` is the instrument that answers it on his next gesture.
+
+---
+
+## L-10801 — ⛔ **"Every junction this move touched was left exactly as it was" — TRUE of the geometry, FALSE of the relationships, printed as reassurance on the one branch where a room had just died** ✅ FIXED (GRAPH43, 2026-08-24)
+
+Follow-on from **L-10800**, and found **by shipping the fix for it**.
+
+`5c3434dc` made the fact EXIST. It did not make anyone SEE it: `summariseNotApplicable` is
+console-only **and says so at its own definition**, so a destroyed relationship was routed as a
+diagnostic while its downstream cost — `§OPENED-REGION: Room 00-004 (85.7 m²) …` — reached the user
+through a different channel that no reader could reconcile with it.
+
+### ⭐ THE DEFECT THE FIX FOUND
+
+The first attempt added the second count to `§MOVE-REWELD-DISPATCH` only, and the test went red:
+
+> ⛔ **That line never fires for this gesture.** An **empty plan is the NORMAL outcome when every
+> declared partner is guest-side**, so the founder's room-destroying gesture ends on
+> **`§MOVE-REWELD-EMPTY-PLAN`** — whose closing sentence was:
+>
+> *"Every junction this move touched was left exactly as it was."*
+>
+> **True of the partners' GEOMETRY — nothing moved — and FALSE of the RELATIONSHIPS.** It read as
+> reassurance on the one branch where the model had just been damaged.
+
+Patching only the dispatch line would have left the one branch that matters **exactly as silent as
+it was**.
+
+### WHAT SHIPPED
+
+- Both verdict lines carry `N declared join(s) BROKEN` beside `N junction(s) refused` — **different
+  sets**, and a line carrying only the first reads as a clean gesture. Measured: his console said
+  `0 junction(s) refused` on the same gesture the AI told him *"creates 1 problem(s) in the model
+  that were not there before"*.
+- `§MOVE-REWELD-EMPTY-PLAN` stops making the false claim; where a join broke it names which, by how
+  many mm, that no wall was moved to repair it, why, and that a room should be expected to open.
+- A non-zero broken set reaches `this.report()` — the **same sink a refusal uses** — plus a
+  `console.warn`, because `engineLauncher.ts` composes this service **without** `onConsequence`
+  (§L-936-EMITTER-HONESTY).
+
+⚠ **Still NOT a refusal**, deliberately — the engine has no arm that can act on a guest-side T, so a
+refusal would claim a decision nobody took. ⛔ **Only the broken set is user-facing**; reporting the
+whole not-applicable census would bury the refusals that matter (§L-921 inverted). Both are pinned
+by controls (`§NOT-A-REFUSAL`, `§QUIET`).
+
+⭐ Adopted from lane **ROOM44 / C94's P2.6**, which identified this emitter as the reconciliation
+point and correctly declined to edit a `geometry-wall` file across the boundary.
+
+**Commit:** `1bf3a790`. **Contract:** C85 §10.8.3 W-L-3, §10.8.2 AS-IS #19.
