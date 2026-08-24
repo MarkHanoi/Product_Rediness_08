@@ -37,12 +37,35 @@
  *   1. GEOMETRY — the slab on the active level whose boundary CONTAINS the pool
  *      outline's centroid. This is the natural gesture: draw the pool on the
  *      terrace and the terrace is the host, with nothing to select first.
- *   2. SELECTION — an explicitly selected slab. This is the `OpeningPlanToolHandler`
- *      convention and it is kept as the OVERRIDE for the case geometry cannot
- *      settle: overlapping slabs, or a pool deliberately cut into a slab it is not
- *      centred on.
- *   3. REFUSE, BY NAME (C16 CA-18). Never "silently create nothing", and never
- *      invent a host. The refusal says which of the two routes to use.
+ *   2. SELECTION — an explicitly selected slab, as the TIE-BREAK when two or more
+ *      slabs contain the outline, and as the OVERRIDE for a pool deliberately cut
+ *      into a slab it is not centred on.
+ *   3. REFUSE, BY NAME (C16 CA-18). Never "silently create nothing", never invent a
+ *      host, and never pick one of several arbitrarily.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * ⛔ §FIX-POOL-HOST-FROM-GEOMETRY (L-10820) — STEPS 1 AND 2 WERE BOTH DEAD, AND
+ *    STEP 3 TOLD THE ARCHITECT TO USE THEM.
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * THE FOUNDER: *"check the pool — is not working — no matter if i select the slab
+ * before or after (actually there should not be the need of selecting the slab — it
+ * should be like when you place a window in a wall — you don't need to select the
+ * wall — same)."* Both orders failed, and they failed for two INDEPENDENT reasons:
+ *
+ *   • GEOMETRY (step 1) searched for a field no store has. `_candidateSlabs` read
+ *     `rec.boundary`, but the legacy `SlabData` the browser actually holds spells its
+ *     outline `polygon: {x, y}[]` — LOCAL, with `y` on the Z axis — and has no
+ *     `boundary` field at all. Its other source, `window.runtime.stores['slab']`, is
+ *     `undefined` in every session: the composed runtime's `stores` is a `StoresSlot`
+ *     with five NAMED members and no index signature. Both reads were kept alive
+ *     purely by a hand-written `window as unknown as …` cast.
+ *   • SELECTION (step 2) was gated on `id.startsWith('slab')`, and his slab's id is
+ *     `c0ba8bda-77a4-4f24-a248-fbc78aebed56` — a bare UUID from the 3-D `SlabTool`.
+ *
+ * Each is documented at the method that carried it. The lesson they share is the one
+ * the test file states: every pool suite before this was green because each installed
+ * `runtime.stores.slab` with a `boundary` field — a fixture built from this header's
+ * CLAIMS rather than from the runtime, which therefore could not falsify them.
  *
  * ⚠ MEASURED CAVEAT, STATED RATHER THAN HIDDEN. The lookup reads the plugin slab
  * DTO store when the runtime exposes it, and falls back to the legacy
@@ -55,12 +78,21 @@
  * duality; the duality is pre-existing and is recorded as L-5215.
  */
 
-import { createId } from '@pryzm/schemas';
+import { createId, isId } from '@pryzm/schemas';
 import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import {
     boundaryLoopVertices, boundaryLoopRefusal, BOUNDARY_LOOP_GESTURE,
     arcSegmentThroughMidpoint, orthoConstrain,
 } from '@pryzm/geometry-slab';
+// §FIX-POOL-HOST-FROM-GEOMETRY (L-10820) — THE CANONICAL LOCAL→WORLD LIFT, REUSED.
+// `SlabData.polygon` is `{x, y}` in the slab's LOCAL frame, where `y` carries the
+// plan-Z axis, and `position` is its world origin. That rule is stated in three
+// places already (`SlabColumnCoupling.ts:73-78`, `RegionBoundarySources.ts:53`,
+// `CreateHandrailRunOnSlabCommand.ts:118-127`) and `slabWorldRing` is the tested
+// one — `command-registry/__tests__/HandrailBySlab.test.ts` asserts it. A fourth
+// hand-rolled copy here is how the three drift apart, so this imports rather than
+// re-derives (C84 §8.d: a comment is not a synchronisation mechanism).
+import { slabWorldRing } from '@pryzm/command-registry';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import { resolveActivePoolDrawMode, activePoolLoopMode } from './activePoolDrawMode';
 // §FIX-PLAN-TOOL-POINTER-UNREACHABLE (L-7004) — the slab that was selected AT THE
@@ -82,12 +114,42 @@ const FILL_A = 'rgba(102,0,255,0.10)';
 /** The minimum vertices any closed outline needs. Not a dimension — a topology fact. */
 const MIN_LOOP_VERTS = 3;
 
-/** A slab record as this handler needs to read it — deliberately the narrowest shape. */
+/**
+ * A slab record as this handler needs to read it — deliberately the narrowest shape.
+ *
+ * ⭐ `ring` IS ALREADY WORLD X/Z. §FIX-POOL-HOST-FROM-GEOMETRY (L-10820): this used to
+ * be `boundary?: {x, z}[]` copied straight off the record, and that single field name
+ * is what closed the founder's geometric route. THREE stores can answer "which slabs
+ * exist" here and they do not agree on the spelling:
+ *
+ *   • plugin DTO (`plugins/slab/src/store.ts`, the Zod `Slab`) → `boundary: Vec3[]`,
+ *     already world;
+ *   • legacy engine (`geometry-slab/src/SlabTypes.ts:85-99`) → `polygon: {x, y}[]`
+ *     where `y` IS the Z axis and the ring is LOCAL to `position`.
+ *
+ * The legacy record has NO `boundary` field whatsoever, so `rec.boundary` read
+ * `undefined` for every slab in a real project and `_resolveHostSlab` skipped all of
+ * them. Normalising to ONE world ring at the point of reading is what stops a second
+ * reader from having to know that — and is why the field is named `ring`, not
+ * `boundary`: it is a computed world outline, not a stored field of either store.
+ */
 interface HostSlabCandidate {
     readonly id: string;
     readonly levelId?: string;
-    readonly boundary?: ReadonlyArray<{ x: number; z: number }>;
+    readonly ring?: ReadonlyArray<{ x: number; z: number }>;
 }
+
+/**
+ * The outcome of asking "which slab is this pool cut into?".
+ *
+ * A discriminated answer rather than `string | null`, because the THREE ways of not
+ * finding a host need THREE different sentences — and the one thing the founder's
+ * session proves is that a refusal naming a route the tool has closed is worse than
+ * no refusal at all (C16 CA-18).
+ */
+type HostResolution =
+    | { readonly hostId: string; readonly reason?: undefined }
+    | { readonly hostId: null; readonly reason: string };
 
 export class PoolPlanToolHandler implements PlanToolHandler {
     private _ctx:         PlanToolDrawContext | null = null;
@@ -329,12 +391,59 @@ export class PoolPlanToolHandler implements PlanToolHandler {
         const boundary = this._points.map(p => ({ x: p.worldX, y: 0, z: p.worldZ }));
 
         const host = this._resolveHostSlab(boundary, levelId);
-        if (!host) {
-            // ⛔ C16 CA-18 — the refusal names BOTH routes back to success. "A pool
-            // with no slab to cut into is not a pool; it is a hole in the air."
+        if (host.hostId === null) {
+            // ⛔ C16 CA-18 — the refusal names a route that is actually OPEN.
+            //
+            // ⭐ §FIX-POOL-HOST-FROM-GEOMETRY (L-10820). This used to be ONE sentence
+            // for all three failures: *"A pool must be cut into a slab. Draw it over a
+            // slab on this level, or select the slab first and draw again."* Both
+            // halves of that instruction were impossible at the time it was printed —
+            // geometry could not resolve a host at all (`_candidateSlabs` read a field
+            // no store has), and "select the slab first" was gated on an id PREFIX the
+            // founder's slab did not carry. A product that instructs an impossible
+            // action is the L-10686 / L-10682 family (intent stored, nothing moved;
+            // value shown, nothing dispatched), and this was the third instance.
+            //
+            // The sentence now comes from the resolver, which is the only thing that
+            // knows WHICH of the three worlds this is.
+            this._refuse(host.reason);
+            return;
+        }
+
+        // ⭐⭐ §FIX-POOL-HOST-FROM-GEOMETRY (L-10821) — THE HOST IS FOUND BUT MAY NOT BE
+        // ADDRESSABLE, AND THAT IS A DIFFERENT SENTENCE FROM "THERE IS NO SLAB HERE".
+        //
+        // MEASURED, not theorised. `Pool.hostSlabId` is `idRef('slab')`
+        // (schemas/src/elements/Pool.ts:82) → `/^slab_[0-9A-HJKMNP-TV-Z]{26}$/`, and
+        // `defineElement` applies the same regex to `Slab.id` itself
+        // (base/BaseNode.ts:35-41). So a slab whose id is NOT canonical cannot exist in
+        // the plugin DTO store the bus reads, and naming it as a host earns a raw
+        // `CommandBusError: pool.create: canExecute rejected — Expected slab_<ulid> id`.
+        //
+        // ⚠ THAT IS THE FOUNDER'S SLAB. His console reads
+        // `id=c0ba8bda-77a4-4f24-a248-fbc78aebed56 type=Slab` — a bare UUID, because
+        // only `SlabPlanToolHandler` mints `createId('slab')`. The 3-D `SlabTool`
+        // (SlabTool.ts:431), `SlabPickWallsController` (:219) and `ProjectLoader`
+        // (which restores whatever id was saved) all go through the LEGACY
+        // `CreateSlabCommand`/`commandManager`, which never meets Zod — so those slabs
+        // live in the legacy store ONLY and carry uncanonical ids.
+        //
+        // ⛔ NOT PAPERED OVER BY MINTING A NEW ID HERE. The host is an EXISTING element;
+        // inventing an id for it would name a slab that does not exist and cut the hole
+        // in nothing. And NOT fixed by relaxing the schema either — that would let
+        // `pool.create` reference a slab the bus still cannot find, trading a legible
+        // refusal for a silent no-op. The real repair is that slabs have two id
+        // vocabularies and only one of them reaches the bus; that is a slab-seam
+        // migration, it is recorded as the open half of this defect, and it is NOT
+        // something to half-do underneath a pool tool.
+        //
+        // What belongs HERE is telling the truth: the tool found the host, and cannot
+        // use it, and why.
+        if (!isId(host.hostId, 'slab')) {
             this._refuse(
-                'A pool must be cut into a slab. Draw it over a slab on this level, '
-                + 'or select the slab first and draw again.',
+                'This pool is over a slab that was created before the current slab format '
+                + `("${host.hostId}"), and the pool command cannot reference it yet. Draw a new `
+                + 'slab with the Slab tool over this area and put the pool on that one.',
             );
             return;
         }
@@ -345,7 +454,7 @@ export class PoolPlanToolHandler implements PlanToolHandler {
         const payload = {
             poolId:      createId('pool'),
             levelId,
-            hostSlabId:  host,
+            hostSlabId:  host.hostId,
             boundary,
             wallIds:     boundary.map(() => createId('wall')),
             floorSlabId: createId('slab'),
@@ -390,73 +499,223 @@ export class PoolPlanToolHandler implements PlanToolHandler {
     // ── Host-slab resolution ─────────────────────────────────────────────────
 
     /**
-     * The slab this pool is cut into, or `null`.
+     * The slab this pool is cut into, or a NAMED reason why there is none.
      *
-     * GEOMETRY FIRST, then SELECTION. See the file header for why that order and
-     * why the fallback is kept rather than dropped.
+     * ⭐ GEOMETRY DECIDES. §FIX-POOL-HOST-FROM-GEOMETRY (L-10820) — the founder:
+     * *"there should not be the need of selecting the slab — it should be like when
+     * you place a window in a wall — you don't need to select the wall — same."*
+     * That is exactly the `OpeningPlanToolHandler` rule for a window: the host is
+     * whatever the gesture LANDS ON, resolved by containment, and selection plays no
+     * part in the ordinary case. A window's host is found by proximity to a wall
+     * CENTRELINE (a 1-D chord); a pool's is found by point-in-polygon against a slab
+     * RING. A slab is horizontal and a pool is drawn in plan directly over it, so the
+     * containment test is strictly SIMPLER than the wall case — no offset, no
+     * perpendicular distance, no reach tolerance to tune.
+     *
+     * SELECTION IS NOT A FALLBACK ANY MORE — IT IS A TIE-BREAK, and only that. It is
+     * kept (never deleted) because it is the only honest answer to overlapping slabs,
+     * which geometry genuinely cannot settle.
+     *
+     * ⛔ AMBIGUITY IS A QUESTION, NEVER A COIN TOSS. Two slabs under one outline and
+     * nothing selected is REFUSED with the count, not resolved by iteration order.
+     * The founder's standing rule is ASK, never auto-edit; silently cutting a hole in
+     * whichever slab the store happened to yield first is an auto-edit with a 50%
+     * chance of being wrong, and the wrong one is a hole in a floor somebody meant to
+     * keep.
      */
     private _resolveHostSlab(
         boundary: ReadonlyArray<{ x: number; z: number }>,
         levelId: string,
-    ): string | null {
-        const centroid = this._centroidOf(boundary);
+    ): HostResolution {
+        const centroid   = this._centroidOf(boundary);
+        const candidates = this._candidateSlabs();
+        const onLevel    = candidates.filter(
+            s => s.levelId === undefined || s.levelId === levelId,
+        );
 
-        for (const slab of this._candidateSlabs()) {
-            if (slab.levelId !== undefined && slab.levelId !== levelId) continue;
-            const ring = slab.boundary;
+        const containing: HostSlabCandidate[] = [];
+        for (const slab of onLevel) {
+            const ring = slab.ring;
             if (!ring || ring.length < MIN_LOOP_VERTS) continue;
-            if (pointInPolygonXZ(centroid.x, centroid.z, ring)) return slab.id;
+            if (pointInPolygonXZ(centroid.x, centroid.z, ring)) containing.push(slab);
         }
 
-        // OVERRIDE — an explicitly selected slab wins when geometry cannot settle
-        // it (overlapping slabs, or a pool deliberately off-centre from its host).
-        return this._selectedSlabId();
+        // ── ONE slab under the outline: the ordinary case, and the whole feature ──
+        if (containing.length === 1) return { hostId: containing[0]!.id };
+
+        const selected = this._selectedSlabId(candidates);
+
+        // ── MORE THAN ONE: the selection disambiguates, or we ASK ────────────────
+        if (containing.length > 1) {
+            if (selected && containing.some(s => s.id === selected)) {
+                return { hostId: selected };
+            }
+            return {
+                hostId: null,
+                reason:
+                    `${containing.length} slabs overlap here, so it is not clear which one the `
+                    + 'pool should be cut into. Select the slab you mean BEFORE choosing the Pool '
+                    + 'tool, then draw again.',
+            };
+        }
+
+        // ── NONE contains it. An explicitly selected slab is still a legitimate
+        //    OVERRIDE — a pool deliberately cut off-centre from its host — and that
+        //    intent is unambiguous because the architect stated it.
+        if (selected) return { hostId: selected };
+
+        // ── Say WHICH of the two "no host" worlds this is. They are different
+        //    problems and they have different fixes, so they get different sentences
+        //    (§CONTEXT-DATA-HONESTY: "no slab exists" and "you drew it off the slab"
+        //    must not be the same value).
+        if (onLevel.length === 0) {
+            return {
+                hostId: null,
+                reason:
+                    'There is no slab on this level, and a pool is a hole cut into one. '
+                    + 'Draw the terrace or floor slab first, then draw the pool on top of it.',
+            };
+        }
+        return {
+            hostId: null,
+            reason:
+                `The pool outline is not over any of the ${onLevel.length} slab(s) on this level. `
+                + 'Draw it inside a slab — the slab underneath becomes its host automatically.',
+        };
     }
 
     /**
-     * Every slab this handler can see, preferring the PLUGIN DTO store because that
-     * is the store `CreatePoolHandler.canExecute` will read. Reading the legacy
-     * store alone would let this handler name a host the bus then refuses — the
-     * detached-DTO-mirror condition described in the file header.
+     * The world X/Z outline of ONE slab record, from whichever store produced it.
+     *
+     * ⚠ TWO SPELLINGS, AND THE SECOND ONE IS THE PRODUCTION ONE. The plugin DTO
+     * record (the Zod `Slab`) carries `boundary: Vec3[]` in WORLD coordinates. The
+     * legacy engine record (`SlabData`) carries `polygon: {x, y}[]` where `y` is the
+     * Z axis and the ring is LOCAL to `position`. `boundary` is tried first because
+     * when it is present it needs no lift; `polygon` goes through `slabWorldRing`,
+     * the tested canonical conversion, because getting that lift wrong puts the probe
+     * at the world origin instead of on the slab — a silent, plausible-looking wrong
+     * answer rather than a visible failure.
+     */
+    private _ringOf(rec: unknown): ReadonlyArray<{ x: number; z: number }> | undefined {
+        const r = rec as {
+            boundary?: ReadonlyArray<{ x?: number; z?: number }>;
+            polygon?: ReadonlyArray<{ x: number; y: number }>;
+            position?: { x: number; y: number; z: number };
+        };
+        const b = r?.boundary;
+        if (Array.isArray(b) && b.length >= MIN_LOOP_VERTS
+            && typeof b[0]?.x === 'number' && typeof b[0]?.z === 'number') {
+            return b as ReadonlyArray<{ x: number; z: number }>;
+        }
+        return slabWorldRing({ polygon: r?.polygon, position: r?.position }) ?? undefined;
+    }
+
+    /**
+     * Every slab this handler can see, from EVERY store that can answer — merged, not
+     * raced.
+     *
+     * ⛔ §FIX-POOL-HOST-FROM-GEOMETRY (L-10820). This method used to read exactly two
+     * sources and `return` after the first that was non-empty. BOTH were wrong in
+     * production and the early return meant the second never got a chance to be:
+     *
+     *   1. `window.runtime.stores['slab']` — **`undefined` in every real session.**
+     *      `window.runtime` is the COMPOSED `PryzmRuntime` (engineLauncher.ts:179) and
+     *      its `stores` is a `StoresSlot`: five NAMED members, no index signature
+     *      (runtime-composer/src/types.ts:2800-2834). The read compiled only because
+     *      it goes through a hand-written `window as unknown as { runtime?: { stores?:
+     *      Record<string, …> } }` cast asserting a shape the runtime does not have —
+     *      an `any` seam standing exactly where the defect lived.
+     *   2. `window.slabStore.getAll()` read as `rec.boundary` — and `SlabData` has no
+     *      `boundary` field at all (SlabTypes.ts:85-99). Every candidate therefore
+     *      arrived with `boundary: undefined` and was skipped by the containment loop.
+     *
+     * Source 1 IS RETAINED, not deleted: it is the correct read for the day the
+     * composed runtime does expose per-kind plugin stores, and it costs one optional
+     * chain. What changed is that it is no longer the only one consulted, and no
+     * source short-circuits the others — a slab present in exactly one store is still
+     * a slab the architect can see on screen, so it must be a slab this tool can host
+     * on. First writer of an id wins; later sources fill gaps.
      */
     private _candidateSlabs(): readonly HostSlabCandidate[] {
-        const out: HostSlabCandidate[] = [];
+        const byId = new Map<string, HostSlabCandidate>();
+        const add = (id: string | undefined, rec: unknown): void => {
+            if (!id || byId.has(id)) return;
+            const r = rec as { levelId?: string };
+            byId.set(id, { id, levelId: r?.levelId, ring: this._ringOf(rec) });
+        };
 
-        // 1. The plugin DTO store — the one the bus reads.
-        const pluginSlabs = (window as unknown as {
-            runtime?: { stores?: Record<string, { getState?: () => Map<string, unknown> }> };
-        }).runtime?.stores?.['slab'];
+        const runtime = (window as unknown as {
+            runtime?: {
+                stores?: {
+                    readonly elements?: { get?: (kind: string) => unknown };
+                    readonly [key: string]: unknown;
+                };
+            };
+        }).runtime;
+
+        // 1. A per-kind plugin DTO store, IF the composed runtime ever exposes one.
+        //    Retained deliberately — see the header. Today this yields nothing.
+        const pluginSlabs = runtime?.stores?.['slab'] as
+            { getState?: () => Map<string, unknown> } | undefined;
         const state = pluginSlabs?.getState?.();
-        if (state) {
-            for (const [id, rec] of state) {
-                const r = rec as { levelId?: string; boundary?: { x: number; z: number }[] };
-                out.push({ id, levelId: r.levelId, boundary: r.boundary });
-            }
+        if (state && typeof state[Symbol.iterator] === 'function') {
+            for (const [id, rec] of state) add(id, rec);
         }
-        if (out.length > 0) return out;
 
-        // 2. The legacy engine store — what the other plan tools read today.
+        // 2. ⭐ THE ADR-0318 AUTHORITATIVE ELEMENT STORE — the one the composed runtime
+        //    really does expose, and the one `ProjectSerializer` and the fragment
+        //    builders read. `storeRegistry.register('slab', slabStore)`
+        //    (composeRuntime.ts:1621-1628) registers the SAME geometry-slab singleton
+        //    that `window.slabStore` points at, so this and source 3 usually agree —
+        //    but reaching it through the runtime rather than a window global is the
+        //    supported route, and it is the one that survives TASK-08.
+        const authoritative = runtime?.stores?.elements?.get?.('slab') as
+            { getAll?: () => unknown[] } | undefined;
+        for (const rec of authoritative?.getAll?.() ?? []) {
+            add((rec as { id?: string })?.id, rec);
+        }
+
+        // 3. The legacy engine store — what every other plan tool reads today.
         const legacy = window.slabStore as unknown as { getAll?: () => unknown[] } | undefined; // TODO(TASK-08)
         for (const rec of legacy?.getAll?.() ?? []) {
-            const r = rec as { id?: string; levelId?: string; boundary?: { x: number; z: number }[] };
-            if (r?.id) out.push({ id: r.id, levelId: r.levelId, boundary: r.boundary });
+            add((rec as { id?: string })?.id, rec);
         }
-        return out;
+
+        return [...byId.values()];
     }
 
     /**
-     * An explicitly selected slab id, if the current selection is one.
+     * An explicitly selected slab id, if the current selection is one — the TIE-BREAK
+     * for overlapping slabs, no longer the fallback for "geometry found nothing".
      *
      * THREE readings, strongest first, and the third is the one L-7004 added:
-     *   1. the live selection's `userData` (a slab mesh is selected right now);
-     *   2. the live selection's id, when it carries the `slab` prefix;
+     *   1. the live selection's `userData.elementType === 'slab'` (a slab mesh is
+     *      selected right now — the only reading that carries its own type evidence);
+     *   2. the live selection's id, when a slab with that id exists;
      *   3. ⭐ the ARM-TIME snapshot — because arming this tool DISABLES selection and
      *      `setEnabled(false)` unselects everything, so by the time the architect has
      *      drawn the outline readings 1 and 2 are both empty BY CONSTRUCTION. The
      *      snapshot is taken immediately before the suppression; see
      *      `armedSelectionSnapshot.ts`.
+     *
+     * ⛔ §FIX-POOL-HOST-FROM-GEOMETRY (L-10820) — READINGS 2 AND 3 WERE `id.startsWith
+     * ('slab')`, AND THAT IS WHY "SELECT THE SLAB FIRST" NEVER WORKED. The founder's
+     * console names his slab `c0ba8bda-77a4-4f24-a248-fbc78aebed56` — a bare UUID.
+     * Only `SlabPlanToolHandler` mints `createId('slab')` → `slab_<ULID>`; the 3-D
+     * `SlabTool` (SlabTool.ts:431), `SlabPickWallsController` (:219) and every slab
+     * restored by `ProjectLoader` use `crypto.randomUUID()`. So the snapshot L-7004
+     * added specifically to keep this route alive was captured correctly and then
+     * thrown away one line later by a string test.
+     *
+     * The question is now answered by IDENTITY — "is there a slab with this id?" —
+     * against the same candidate set geometry just searched. A gate that classifies by
+     * NAME is satisfied by renaming and defeated by not-renaming; asking the store is
+     * the only form of the question that cannot be wrong about an id it can see.
      */
-    private _selectedSlabId(): string | null {
+    private _selectedSlabId(candidates: readonly HostSlabCandidate[]): string | null {
+        const isSlab = (id: string | null | undefined): id is string =>
+            !!id && candidates.some(c => c.id === id);
+
         const sel = (window as unknown as {
             selectionManager?: {
                 getSelectedId?: () => string | null;
@@ -468,9 +727,9 @@ export class PoolPlanToolHandler implements PlanToolHandler {
             return obj.userData.id;
         }
         const id = sel?.getSelectedId?.();
-        if (id && id.startsWith('slab')) return id;
+        if (isSlab(id)) return id;
         const armed = armedSelectionId();
-        return armed && armed.startsWith('slab') ? armed : null;
+        return isSlab(armed) ? armed : null;
     }
 
     /** Plan centroid of a ring (vertex average — sufficient for a containment probe). */
