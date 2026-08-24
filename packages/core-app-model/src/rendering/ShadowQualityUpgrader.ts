@@ -461,9 +461,23 @@ export class ShadowQualityUpgrader {
         if (!enabled) {
             // Turn shadows OFF: clear castShadow on the upgraded lights. The light-owned
             // shadow map is deliberately LEFT ALONE (§SHADOW-MAP-REALLOC-AT-BOUNDARY /
-            // ADR-0111): on the WebGPU node path, clearing castShadow makes THREE's own
-            // AnalyticLightNode drop its ShadowNode (and the map) on its own schedule;
-            // destroying it from here is the mid-submit use-after-free this fix removes.
+            // ADR-0111): destroying it from HERE is the mid-submit use-after-free this
+            // fix removed, and that half stands.
+            //
+            // ⚠⚠ CORRECTED 2026-08-24 (lane SHADOW24, L-10380) — the OTHER half of this
+            // comment was false. It said clearing castShadow makes three's AnalyticLightNode
+            // "drop its ShadowNode (and the map) on its OWN SCHEDULE", implying that schedule
+            // is safe. It is not: three r183.2 drops it inside AnalyticLightNode.setup()
+            // (:267-270), which runs during nodeBuilder.build(), which Renderer
+            // ._renderObjectDirect reaches AFTER backend.beginRender() opened the encoder.
+            // And the free is LATENT (RenderObjects.js:127-129), so it detonates on an
+            // unrelated LATER frame — which is why runShadowCasterMutation(), a guard wrapped
+            // around THIS WRITE, never covered it.
+            //
+            // The ordering now comes from the frame owner, not from this call site:
+            // RenderPipelineManager._orderPendingCasterReleasesAtBoundary() detects the caster
+            // fingerprint change at the next boundary and performs three's own release there.
+            // See C04 §SHADOW.2 rule 14.
             this._lightsShadowDisabled = [];
             for (const snap of this._snapshots) {
                 const light = snap.light;

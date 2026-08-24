@@ -778,6 +778,52 @@ and radius, so an offending mesh names itself in production.
 
 13. **A freeze means “reuse the map you already have.” A renderer that has never run its depth pass has no map to reuse (NORMATIVE, L-1482).** Asserting `autoUpdate = false` onto such a renderer is not a freeze, it is a permanent suppression — and on the classic WebGL path a permanent suppression is not “no shadows”, it is **no lit geometry at all** (rule 12, steps 5-7). ⭐ Ask *“can this gate ever become true?”* before asking *“why is the viewport empty?”*
 
+14. **`light.castShadow` is a FREE trigger, its free is LATENT, and it MUST be ordered at the frame boundary (NORMATIVE, L-10380, 2026-08-24).**
+    Rule 6 covers the RESIZE trigger (`shadow.mapSize`) and says nothing about the three triggers
+    that FREE the `ShadowDepthTexture` outright. MEASURED against the installed three r183.2:
+
+    | # | trigger | three consumes it in | when |
+    |---|---------|----------------------|------|
+    | T1 | `light.castShadow` → `false` | `AnalyticLightNode.setup()` **:267-270** → `ShadowNode._reset()` **:769** → `shadowMap.dispose()` | inside `nodeBuilder.build()` |
+    | T2 | `renderer.shadowMap.type` / `.enabled` change | `ShadowNode.setup()` **:615-622** → same `_reset()` | inside `nodeBuilder.build()` |
+    | T3 | `light.dispose()` / `light.dispatchEvent({type:'dispose'})` | `AnalyticLightNode` listener **:99-107** → `disposeShadow()` | **SYNCHRONOUSLY, on the calling tick** |
+
+    The target's depth texture is named `ShadowDepthTexture` verbatim at `ShadowNode.js:396`.
+
+    ⭐ **T1/T2 do NOT fire when the flag is written.** `nodeBuilder.build()`
+    (`NodeManager.js:224/229/301`) is reached LAZILY from `Renderer._renderObjectDirect`
+    (`Renderer.js:3381-3395`), **after `backend.beginRender(renderContext)` (`Renderer.js:1641`)
+    opened the frame's command encoder.** Worse, `RenderObjects.get` only re-reads a render
+    object's cache key when `material.version` bumped or `needsUpdate` is set
+    (`RenderObjects.js:127-129`) — so the flip sits **latent for an unbounded number of frames**
+    and detonates on an unrelated later event. A **lighting-fixture placement is a reliable
+    detonator**, because rule 8's per-LIGHT hashing means a new `PointLight` moves
+    `LightsNode.customCacheKey()` even at `castShadow = false`.
+
+    ⛔ **THIS IS WHY THE FAMILY KEPT RECURRING WITH A GUARD IN PLACE** (L-25 → L-39 → L-64 →
+    L-908 → L-10380). `RenderPipelineManager.runShadowCasterMutation()` pauses submits AROUND THE
+    WRITE and its window has closed long before three frees anything; the
+    §GPU-CASTER-RELEASE-CHOKEPOINT arm keys on a MESH release and never sees a light at all.
+
+    **REQUIRED:** never write `light.castShadow` bare on a live scene. Enqueue it
+    (`scheduleShadowCasterFlip(light, false)` in `@pryzm/renderer-three`), or let the DERIVED arm
+    `RenderPipelineManager._orderPendingCasterReleasesAtBoundary()` collect it: at the frame
+    boundary it reads the fingerprint three itself keys on — `LightsNode.customCacheKey()` plus
+    `shadowMap.type/.enabled`, which `NodeManager.getCacheKey` folds into every render object
+    (`NodeManager.js:441-447`) — and on a change performs three's OWN release there
+    (`light.dispatchEvent({type:'dispose'})`, never an external `.destroy()`), resets the compiled
+    node states in the same step, and holds the submit-pause window across the recompile.
+    The reset is not optional: the graph compiled while the light WAS casting still binds the map
+    just freed.
+
+    ⚠ **T3 has no detector and cannot have one** — the free is already done before the next
+    boundary. `light.dispose()` on a shadow-casting light is forbidden from any non-boundary tick.
+
+    **Enforced by** `packages/renderer-three/__tests__/shadowCasterFlipAtBoundary.test.ts` — ARM A
+    characterises T1/T2/T3 against REAL three r183 objects (so the premise is falsifiable, not
+    asserted in a comment); ARM C drives a real `RenderPipelineManager.render()` boundary against a
+    BARE `castShadow = false` and was RED before the derived arm landed.
+
 ### §SHADOW.3 — Debugging protocol (follow in order; do not skip to code)
 
 L-205 cost ten attempts because it was debugged by inference. Every wrong answer was internally

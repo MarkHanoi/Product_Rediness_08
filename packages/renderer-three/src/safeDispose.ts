@@ -608,6 +608,197 @@ export function drainShadowMapReallocQueue(): number {
     return realloced;
 }
 
+
+/* ── §SHADOW-CASTER-FLIP-AT-BOUNDARY (L-10380) ───────────────────────────────
+ *
+ * ⭐ THE SECOND HALF OF §SHADOW-MAP-REALLOC-AT-BOUNDARY, AND THE HALF THAT WAS
+ *    MISSING. The realloc queue above orders the ONE trigger that RESIZES a
+ *    light-owned shadow map (`shadow.mapSize`). MEASURED against the installed
+ *    three r183.2, there are THREE MORE triggers that FREE it outright, and none
+ *    of them went through any queue:
+ *
+ *      T1  `light.castShadow` → false.  `AnalyticLightNode.setup()`
+ *          (AnalyticLightNode.js:267-270) responds with
+ *          `this.shadowNode.dispose()` → `ShadowNode._reset()` (ShadowNode.js:769)
+ *          → `this.shadowMap.dispose()`. That target's depth texture is named
+ *          `ShadowDepthTexture` verbatim at ShadowNode.js:396.
+ *      T2  `renderer.shadowMap.type` change. `ShadowNode.setup()`
+ *          (ShadowNode.js:615-622) compares `_currentShadowType` and calls the
+ *          same `_reset()`.
+ *      T3  `light.dispose()` / `light.dispatchEvent({type:'dispose'})`.
+ *          `AnalyticLightNode` subscribes to it (AnalyticLightNode.js:99-107)
+ *          and calls `disposeShadow()` SYNCHRONOUSLY, from whatever tick fired it.
+ *
+ * ── WHY T1/T2 ARE THE FOUNDER'S "Destroyed texture … used in a submit" ───────
+ * T1 and T2 do NOT fire when the flag is WRITTEN. They fire on the next
+ * node-graph BUILD, and three r183 builds LAZILY, INSIDE the frame's open command
+ * encoder: `Renderer._renderObjectDirect` (Renderer.js:3381-3395) →
+ * `RenderObject.getNodeBuilderState()` (RenderObject.js:379) →
+ * `NodeManager.getForRender()` → `nodeBuilder.build()` (NodeManager.js:224/229/301)
+ * — all of it AFTER `backend.beginRender(renderContext)` (Renderer.js:1641).
+ * So the free lands between `beginRender` and `Queue.submit()` of the SAME frame,
+ * which is the founder's message verbatim:
+ *
+ *   Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+ *    - While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_1"]])
+ *
+ * ⛔ AND THE DELAY IS WHY A PAUSE-AROUND-THE-WRITE GUARD CANNOT FIX IT.
+ * `RenderObjects.get` only re-reads the cache key when `material.version` bumped
+ * or `renderObject.needsUpdate` is set (RenderObjects.js:127-129), so a caster
+ * flip can sit LATENT for many frames and detonate on an unrelated event — a
+ * fixture placement, a material swap, a new mesh. `runShadowCasterMutation()`
+ * pauses submits AROUND THE WRITE; by the time the free actually happens its
+ * window has long closed. That is why this family kept recurring WITH a guard in
+ * place (L-25 → L-39 → L-64 → L-908 → here).
+ *
+ * ── THE ORDERING, AND WHY IT IS SAFE ────────────────────────────────────────
+ * `releaseLightOwnedShadowNow()` performs three's OWN release — the sanctioned
+ * `'dispose'` event, exactly as `RenderPipelineManager._recreateLightOwnedShadowMaps()`
+ * already does on the recovery ladder — at the FRAME BOUNDARY, where no encoder is
+ * open. Afterwards `AnalyticLightNode.shadowNode === null`, so the build that runs
+ * mid-encode later finds nothing left to free and the T1/T2 branch is a no-op.
+ * External code still never destroys a light-owned texture directly (ADR-0111 /
+ * C04 §SHADOW): the light's own node does it, at an instant we choose.
+ *
+ * ⚠ The CALLER must invalidate the compiled node states in the SAME boundary step
+ * (`RenderPipelineManager._resetCompiledNodeStates()`), because the graph compiled
+ * while the light WAS casting still binds the map we just freed. Release without
+ * that reset trades a mid-encode free for a stale binding — see
+ * `RenderPipelineManager._orderPendingCasterReleasesAtBoundary()`, the single
+ * production caller, which does both inside the submit-pause window.
+ */
+
+/**
+ * Structural shape of a THREE `Light` that owns a shadow map. Structural so this
+ * module still needs no THREE value import (P2) and the tests need no GPU.
+ */
+export interface ShadowOwningLight {
+    /** THREE stamps this on every light. */
+    isLight?: boolean;
+    /** The caster flag three hashes into `LightsNode.customCacheKey()`. */
+    castShadow?: boolean;
+    /** `LightShadow` — `map` is the light-owned render target, or null. */
+    shadow?: { map?: unknown } | null;
+    /** `Object3D.dispatchEvent` — three's sanctioned signal to the light's node. */
+    dispatchEvent?: (event: { type: string }) => void;
+    /** Diagnostics only. */
+    id?: number;
+    name?: string;
+}
+
+/** True iff `light` currently owns an ALLOCATED shadow render target. */
+export function lightOwnsLiveShadowMap(light: ShadowOwningLight | null | undefined): boolean {
+    if (!light || !light.shadow) return false;
+    const map = (light.shadow as { map?: unknown }).map;
+    return map !== null && map !== undefined;
+}
+
+/**
+ * The lights carrying a LATENT, three-side free: they have stopped casting, but
+ * their `AnalyticLightNode` still holds a `ShadowNode` whose `shadowMap` is live.
+ * The next node-graph build — whenever it happens, and it happens MID-ENCODE —
+ * will free it. This is the predicate the frame owner acts on.
+ *
+ * O(#lights) and allocation-free on the empty result, so it is safe per frame.
+ */
+export function lightsWithPendingCasterRelease(
+    lights: Iterable<ShadowOwningLight> | null | undefined,
+): ShadowOwningLight[] {
+    const out: ShadowOwningLight[] = [];
+    if (!lights) return out;
+    for (const light of lights) {
+        if (light && light.castShadow === false && lightOwnsLiveShadowMap(light)) out.push(light);
+    }
+    return out;
+}
+
+/**
+ * §SHADOW-CASTER-FLIP-AT-BOUNDARY — perform three's OWN release of a light-owned
+ * shadow map NOW. MUST be called only from a frame boundary (no command encoder
+ * open); the whole point is to move the free off the mid-encode build.
+ *
+ * Dispatches the `'dispose'` event the light's `AnalyticLightNode` subscribes to
+ * (AnalyticLightNode.js:107) — NOT `light.dispose()`, which would also tear down
+ * the light itself — then nulls `shadow.map`, because `ShadowNode._reset()` nulls
+ * only the NODE's reference and leaves `LightShadow.map` pointing at the corpse
+ * (§L-819). Never throws.
+ *
+ * @returns true iff a live map was actually released.
+ */
+export function releaseLightOwnedShadowNow(light: ShadowOwningLight | null | undefined): boolean {
+    if (!lightOwnsLiveShadowMap(light) || !light) return false;
+    try {
+        light.dispatchEvent?.({ type: 'dispose' });
+        (light.shadow as { map?: unknown }).map = null;
+        return true;
+    } catch (err) {
+        console.warn(
+            '[renderer-three] §SHADOW-CASTER-FLIP-AT-BOUNDARY release failed (non-fatal):',
+            err instanceof Error ? err.message : err,
+        );
+        return false;
+    }
+}
+
+/** Pending caster-flag writes, keyed by light. Last write per light wins. */
+const _casterFlipQueue = new Map<ShadowOwningLight, boolean>();
+
+/**
+ * §SHADOW-CASTER-FLIP-AT-BOUNDARY — request a frame-ordered change to a light's
+ * `castShadow` flag. The WRITE itself is deferred to the boundary, exactly as
+ * §SHADOW-MAPSIZE-WRITE-AT-BOUNDARY (L-819) defers the `mapSize` write, so the
+ * flag and the allocated shadow map can only ever disagree AT the boundary.
+ *
+ * O(1), touches no GPU state, callable from any tick (tier gate, sun driver,
+ * store listener). The caller must NOT write `light.castShadow` itself, must NOT
+ * call `light.dispose()`, and must NOT dispose `light.shadow.map` — all three are
+ * the defect this queue removes.
+ *
+ * ⚠ This is the OPT-IN half. The frame owner also runs a DERIVED arm that catches
+ * a bare write anyway (`_orderPendingCasterReleasesAtBoundary`), so a call site
+ * that forgets this function is still ordered — the queue exists so a caller that
+ * KNOWS it is flipping a caster does not have to wait one frame for the detector.
+ */
+export function scheduleShadowCasterFlip(
+    light: ShadowOwningLight | null | undefined,
+    castShadow: boolean,
+): void {
+    if (!light) return;
+    _casterFlipQueue.set(light, castShadow);
+}
+
+/** Number of caster flips awaiting the boundary (diagnostics + tests). */
+export function pendingShadowCasterFlipCount(): number {
+    return _casterFlipQueue.size;
+}
+
+/**
+ * §SHADOW-CASTER-FLIP-AT-BOUNDARY — apply every queued caster flip and, for each
+ * light that STOPS casting while still owning a live map, perform three's own
+ * release here at the boundary rather than leaving it latent for a mid-encode
+ * build. MUST be called only at a frame boundary. Never throws.
+ *
+ * @returns the number of light-owned shadow maps actually released.
+ */
+export function drainShadowCasterFlipQueue(): number {
+    if (_casterFlipQueue.size === 0) return 0;
+    const batch = Array.from(_casterFlipQueue.entries());
+    _casterFlipQueue.clear();
+    let released = 0;
+    for (const [light, wanted] of batch) {
+        try {
+            light.castShadow = wanted;
+            if (wanted === false && releaseLightOwnedShadowNow(light)) released++;
+        } catch (err) {
+            console.warn(
+                '[renderer-three] §SHADOW-CASTER-FLIP-AT-BOUNDARY flip failed (non-fatal):',
+                err instanceof Error ? err.message : err,
+            );
+        }
+    }
+    return released;
+}
+
 /**
  * §GPU-RESOURCE-LIFETIME — the canonical ELEMENT-MUTATION teardown: detach every
  * child of `root` from the scene graph NOW, and release their GPU resources at

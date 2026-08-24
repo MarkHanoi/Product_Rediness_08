@@ -49065,3 +49065,186 @@ method's verdict. ⚠ **MEASURED: root `tsc` RC=0 repo-wide. ASSUMED-but-strongl
 these 3 were already red before this lane.** Owner is the rake lane, not TELEM20 —
 **delete the stale assertions or restate them as the CONE behaviour `WallRake.ts` now ships.**
 
+
+---
+
+### L-10380 — ⭐⭐ **"THE VIEWPORT FAILED TO RENDER" — THE SHADOW TEXTURE IS FREED BY `castShadow = false`, AND THE FREE IS *LATENT*, WHICH IS WHY FIVE GUARDS MISSED IT** · lane SHADOW24 · 2026-08-24 · **CLOSED (path proven, chokepoint shipped, regression RED-then-GREEN)**
+
+**Founder, verbatim:** *"this is happening often — and can not [be] in production"*. Modal *"The
+viewport failed to render."*, dead canvas, **120 consecutive declined frames at gate
+`pipelineError`**, §L-966 auto-recovery budget **EXHAUSTED (2/2)**. GPU report:
+
+```
+Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+ - While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_1"]])
+```
+
+⛔ **THE ERROR HANDLING WAS CORRECT AND IS UNTOUCHED.** §RECOVERY-MUST-REFUSE is right (a
+light-owned shadow map is unreachable from `_rebuildPipeline()`), and the 2-attempt bound is right
+(an unbounded recover→same-fault→recover cycle pins the GPU). Neither was changed. The bug was
+upstream, exactly as the founder said.
+
+#### THE PATH, NAMED AND MEASURED (three r183.2, from `node_modules`, not from memory)
+
+PRYZM contains **zero** sites that free a `ShadowDepthTexture`. Only three does, and only from
+`ShadowNode._reset()` (`ShadowNode.js:769` → `this.shadowMap.dispose()`; the depth texture is named
+`ShadowDepthTexture` at `:396`). `_reset()` has exactly three doors, and **the shadow-map realloc
+queue covers none of them** — it covers `mapSize`, a fourth, resize-only door:
+
+| # | trigger | consumed by | when |
+|---|---------|-------------|------|
+| **T1** | `light.castShadow` → `false` | `AnalyticLightNode.setup()` **:267-270** → `shadowNode.dispose()` | inside `nodeBuilder.build()` |
+| **T2** | `renderer.shadowMap.type` / `.enabled` change | `ShadowNode.setup()` **:615-622** → `_reset()` | inside `nodeBuilder.build()` |
+| **T3** | `light.dispose()` / `dispatchEvent({type:'dispose'})` | `AnalyticLightNode` listener **:99-107** | **SYNCHRONOUSLY, on the calling tick** |
+
+⭐ **AND `nodeBuilder.build()` RUNS INSIDE THE OPEN ENCODER.**
+`Renderer._renderObjectDirect` (`Renderer.js:3381-3395`) → `RenderObject.getNodeBuilderState()`
+(`RenderObject.js:379`) → `NodeManager.getForRender()` → `nodeBuilder.build()`
+(`NodeManager.js:224/229/301`) — all of it **after `backend.beginRender(renderContext)`
+(`Renderer.js:1641`)**. The free therefore lands between `beginRender` and `Queue.submit()` of the
+same frame. That is the founder's message, encoder name included.
+
+⭐⭐ **THE PART NOBODY HAD: THE FREE IS NOT CO-TEMPORAL WITH THE WRITE.**
+`RenderObjects.get` only re-reads a render object's cache key when `material.version` bumped or
+`needsUpdate` is set (`RenderObjects.js:127-129`). So `castShadow = false` **arms** the free and
+walks away; it detonates on an unrelated LATER event that forces a node rebuild.
+
+⛔ **THIS IS WHY THE EXISTING GUARDS COULD NOT WORK, AND THE REPO SAID SO WITHOUT KNOWING IT.**
+`runShadowCasterMutation()` (§FIX-SHADOW-TIER-CASTER-DESTROY, L-908) pauses submits **around the
+write** — its window closes macrotasks before three frees anything. §GPU-CASTER-RELEASE-CHOKEPOINT
+(L-1290) keys on a **mesh** release and never sees a light. `setShadowReallocFrozen` sets
+`autoUpdate=false`, which the T1/T2 path does not consult at all. Five iterations of this family
+(L-25 → L-39 → L-64 → L-908 → here) each fixed a *caller*; none reached the *ordering*.
+
+#### THE DETONATOR, AND THE FOUNDER'S HYPOTHESIS SCORED HONESTLY
+
+His console showed `elemType=Lighting` immediately before the crash, and he proposed *"the queue
+handles RESOLUTION changes but not LIGHT REMOVAL"*.
+
+- ⭐ **RIGHT in substance.** Light **removal/disposal** (T3) is a real, completely unordered free,
+  and no queue covers it. That half of the hypothesis is confirmed and is now written into the
+  contract.
+- ⚠ **WRONG in the specific mechanism he suspected.** LIGHT11's per-placement `PointLight` churn
+  does **not** destroy a shadow map: fixture lights are `castShadow = false`
+  (`LightingFragmentBuilder.ts:1525`) and own no shadow resource. **What they do is detonate
+  someone else's armed charge** — C04 §SHADOW.2 rule 8 hashes `LightsNode.customCacheKey()` **per
+  LIGHT**, so adding a shadowless fixture light changes the cache key and forces the node rebuild
+  in which a previously-written `castShadow = false` finally frees the key light's texture,
+  mid-encode. **Measured, in the test:** `customCacheKey()` moves when a `castShadow=false`
+  `PointLight` joins the set.
+- ⚠ **The freeze branch is NOT implicated.** `_shadowFrozenState` gates only
+  `drainShadowMapReallocQueue()`; it has no relationship to the T1/T2 path, which reads neither
+  `autoUpdate` nor `needsUpdate`. His second candidate is eliminated, not deferred.
+
+#### THE FIX — AT THE CHOKEPOINT, IN TWO ARMS
+
+`packages/renderer-three/src/safeDispose.ts` — **§SHADOW-CASTER-FLIP-AT-BOUNDARY**, the sibling of
+§SHADOW-MAP-REALLOC-AT-BOUNDARY, for the doors that FREE rather than resize:
+`scheduleShadowCasterFlip` / `pendingShadowCasterFlipCount` / `drainShadowCasterFlipQueue`, plus
+the shared primitive `releaseLightOwnedShadowNow()` (dispatch three's own `'dispose'` — never an
+external `.destroy()` — then null `shadow.map`, because `_reset()` leaves `LightShadow.map`
+pointing at the corpse, §L-819) and the predicate `lightsWithPendingCasterRelease()`.
+
+`RenderPipelineManager` — **the DERIVED arm, and the one that matters**:
+`_orderPendingCasterReleasesAtBoundary()` runs at the frame boundary beside the existing drains and
+compares **the fingerprint three itself keys the node cache on** —
+`renderer.lighting.getNode(scene).customCacheKey()` (both public: `Renderer.js:264`,
+`LightsNode.js:117/419`) plus `shadowMap.type/.enabled`, which `NodeManager.getCacheKey` folds into
+every render object (`NodeManager.js:441-447`). On a change it performs three's own release **at
+the boundary**, resets the compiled node states in the same step (mandatory — the graph compiled
+while the light WAS casting still binds the map just freed; only `_resetCompiledNodeStates()`
+reaches a cached `nodeBuilderState`), and holds the submit-pause window across the recompile.
+
+⭐ **It observes the RELEASE PRECONDITION, not the BIM event** — so it catches a **bare**
+`light.castShadow = false` from any call site, present or future, guarded or not. Cost when nothing
+changed: one `customCacheKey()` over the scene's handful of lights, allocation-free. **Not a scene
+traverse** — the L-1151/L-1155 defect class is deliberately avoided. Inert on the WebGL2 fallback.
+
+⛔ **Nothing was compromised to make it stop.** Shadows stay on, quality unchanged, no tier lowered,
+no `castShadow` disabled. The founder's standing constraint is intact.
+
+#### THE REGRESSION — RED BEFORE, GREEN AFTER, PROVEN BY REVERTING
+
+`packages/renderer-three/__tests__/shadowCasterFlipAtBoundary.test.ts`, 13 tests:
+- **ARM A — the mechanism, against REAL three r183.2** (`DirectionalLightNode`, `LightsNode`, real
+  event plumbing). Characterisation, not self-confirmation: it would go red if three changed.
+  A(1) `setup()` frees the ShadowNode synchronously at `castShadow=false`; A(2) the light's own
+  `'dispose'` event reaches `disposeShadow()` and the LIGHT survives; A(3) `customCacheKey()` moves
+  when a shadowless fixture light joins; A(4) the flag write alone moves the fingerprint **while
+  `shadow.map` is still live** — the latency, pinned.
+- **ARM B** — the funnel: nothing on the mutation tick, flip + release at the drain, `map` nulled;
+  a bare write leaves the free latent (the control).
+- **ARM C — the regression.** Drives a real `RenderPipelineManager.render()` boundary against a
+  **bare** `castShadow = false`. **WATCHED RED:** with
+  `this._orderPendingCasterReleasesAtBoundary()` commented out →
+  `AssertionError: expected +0 to be 1` at `boundaryCasterReleaseCount`. Restored → 13/13 green.
+  Also pinned: a steady caster set costs nothing (no release, no reset, no pause), a fixture-light
+  placement moves the fingerprint but frees nothing, and the arm is inert on WebGL2.
+
+Full `@pryzm/renderer-three` suite: **467 passed**, 1 pre-existing unrelated failure —
+`casterReleaseChokepoint.test.ts` ARM C names a NEW in-place dispose,
+`packages/geometry-lift/src/LiftCompoundMeshBuilder.ts (1)`, landed by another lane and outside
+this lane's ownership. **Not touched, not baselined away.**
+
+#### DOCS AMENDED IN PLACE (both said something FALSE)
+
+- **ADR-0111** — its lifecycle contract read *"a **persistent** shadow-pass drop MAY clear
+  `castShadow` (letting THREE reclaim the map **on its own schedule**)"*. "Its own schedule" is
+  inside an open encoder, and "persistent, not per-frame" was never the property that made it safe.
+  Struck, superseded by the boundary rule, with the ORIGINAL nav-LOD decision explicitly preserved.
+- **C04 §SHADOW.2 — new normative rule 14**, with the T1/T2/T3 table and the latency, because rule
+  6 covered only the RESIZE trigger.
+- **Two source comments corrected** (`PascalSceneLighting.setShadowsSuppressed`,
+  `ShadowQualityUpgrader.setShadowsEnabled`) — both asserted the free happens "on its own schedule,
+  never mid-submit". Comment-only; no behaviour change.
+
+#### WHAT IS STILL OPEN, STATED PLAINLY
+
+1. ⚠ **T3 has no detector and cannot have one** — `light.dispose()` frees synchronously, before any
+   boundary exists to catch it. `RealSunService.ts:382` (`this._sunLight.dispose()`) is the one live
+   site; it is on the legacy standalone-sun path (skipped whenever a Pascal key-light host is bound)
+   and it removes the light from the scene first, so it is narrow — but it is real, and it is now
+   forbidden by the amended contract rather than merely unnoticed.
+2. ⚠ **`RealSunService.ts:589`** (`this._sunLight.castShadow = isAboveHorizon`) is a bare T1 write
+   on the same legacy path. The derived arm now orders it; migrating it to
+   `scheduleShadowCasterFlip()` would save one frame and is left as tidy-up.
+3. ⛔ **Not proven: WHICH production write armed the founder's specific crash.** The mechanism, the
+   latency and the detonator are all measured; the *identity* of the armed charge is not, because it
+   requires a live browser session. The candidates are enumerated above and the derived arm covers
+   all of them by construction — which is precisely why the fix does not depend on knowing.
+4. **No static gate yet** for bare `light.castShadow =` writes. The derived arm makes one optional
+   rather than load-bearing, but a shrink-only sweep (the ARM C shape) would make the funnel's
+   coverage visible. ~1h.
+
+---
+
+### L-10390 — ⚠ `pipelineError` DECLINES FRAMES FOREVER: THE LATCH CANNOT CLEAR ITSELF, AND ITS ONLY EXIT IS A HUMAN CLICK · lane SHADOW24 · 2026-08-24 · **OPEN (logged, not fixed — see verdict)**
+
+The founder's second half: even with L-10380's crash removed, **120 consecutive frames declined at
+`pipelineError`** leaves a dead canvas with only *"Reload viewport"*.
+
+**MEASURED — can the latch ever clear itself? NO, and deliberately.**
+
+- `_hasPipelineError = true` is set by the refusal branches
+  (`RenderPipelineManager.ts` ~4239 / ~4273) and by `_failLoudly`.
+- It is cleared **only** by a successful pipeline BUILD (`_buildPipeline` / `_buildPhase3Pipeline`)
+  or the camera-update rebuild — i.e. only by something that drives a rebuild.
+- Once §L-966's budget is spent, **nothing drives one.** `_attemptAutoRecovery` refuses at
+  `2/2`, and `_resetAutoRecoveryBudgetForNewDevice()` re-arms the budget for **exactly one** event —
+  a brand-new GPU device after device loss. Its own docblock states that first-load and
+  project-switch deliberately do NOT re-arm (that pairing is how L-663 was built).
+
+⭐ **VERDICT: this is NOT the `refusing-half-needs-its-escape-hatch` shape.** The "yes" branch does
+come — `recoverPipeline()`, the public lever behind `ViewportCrashGuard`'s *Reload viewport*. The
+escape hatch exists; it is a **human** one by design, because an automatic one is the L-663 spin the
+bound was added to stop.
+
+⛔ **NOT FIXED, and cheapness was the test the founder set.** Making it self-heal means deciding
+*when* a spent budget is stale for a fault the app cannot prove is gone — a policy question about
+§L-966's bound, not a code change. Touching it from this lane would have weakened the one guard the
+brief said must stay. **Left open with the mechanism written down.**
+
+⭐ **The cheap half that IS worth doing (not done here, ~1h):** the crash dialog does not say the
+canvas is frozen, only that a render failed. `getFrameSkipReport().consecutiveSkips` already counts
+it — surfacing *"the viewport has been frozen for N frames"* in the dialog costs one string and
+turns a mystery into a status. Wants a UI lane.

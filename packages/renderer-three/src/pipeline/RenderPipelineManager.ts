@@ -99,6 +99,17 @@ import {
     // the BIM event that led to it.
     setShadowCasterReleaseObserver,
     pendingGpuReleaseCount,
+    // §SHADOW-CASTER-FLIP-AT-BOUNDARY (L-10380) — the SECOND derived arm, keyed on
+    // the LIGHT rather than on the mesh. three r183 frees a light-owned shadow map
+    // from inside a node-graph build, and it builds INSIDE the frame's open command
+    // encoder, so a caster flip written on any tick detonates mid-submit — at an
+    // arbitrary later frame, which is why a guard wrapped around the WRITE never
+    // covered it. See the block comment in safeDispose.ts.
+    drainShadowCasterFlipQueue,
+    lightsWithPendingCasterRelease,
+    lightOwnsLiveShadowMap,
+    releaseLightOwnedShadowNow,
+    type ShadowOwningLight,
 } from '../safeDispose';
 const _bus = new DOMEventBus();
 /**
@@ -1160,6 +1171,19 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // until the first unfrozen frame (the thaw's needsUpdate covers regen).
         if (!this._shadowFrozenState) drainShadowMapReallocQueue();
 
+        // ── §SHADOW-CASTER-FLIP-AT-BOUNDARY (L-10380) ────────────────────────
+        // The FREE half of the same problem. `drainShadowMapReallocQueue` above
+        // orders a shadow map's RESIZE; these two order its DESTRUCTION.
+        //   (a) the opt-in funnel, for writers that route their `castShadow` flip
+        //       through `scheduleShadowCasterFlip()`; and
+        //   (b) the DERIVED detector, which catches a BARE write from any call site
+        //       — present or future, guarded or not — by comparing the fingerprint
+        //       three itself keys the node cache on.
+        // Both must run at the boundary: three performs this free from inside a
+        // node-graph build, which happens INSIDE the frame's open command encoder.
+        drainShadowCasterFlipQueue();
+        this._orderPendingCasterReleasesAtBoundary();
+
         // ── §L-328 SS-FIX-ELEVATION-VIEW-ZERO-SIZE-RENDER-TARGET (P1) ─────────
         // NEVER submit a render pass against a zero-size / incomplete framebuffer.
         // Creating a documentation view (elevation) spins up a split pane whose render
@@ -1800,6 +1824,133 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._casterReleaseGuardArmed  = false;
         this._casterReleaseGuardFrames = 0;
         setTimeout(() => { this._endShadowRebuildGuard(); }, 0);
+    }
+
+    /* ── §SHADOW-CASTER-FLIP-AT-BOUNDARY (L-10380) ─────────────────────────────
+     *
+     * ⭐ THE THIRD DERIVED GUARD, AND THE ONE KEYED ON THE LIGHT.
+     *
+     * `runShadowCasterMutation` is keyed on the CALLER remembering; the
+     * §GPU-CASTER-RELEASE-CHOKEPOINT arm above is keyed on a MESH release. Neither
+     * covers a `light.castShadow` flip, and MEASURED against three r183.2 that flip
+     * is the thing that actually frees the `ShadowDepthTexture`
+     * (AnalyticLightNode.js:267-270 → ShadowNode._reset() → shadowMap.dispose()).
+     *
+     * ⛔ AND IT DOES NOT FREE IT WHEN THE FLAG IS WRITTEN. The free happens on the
+     * next node-graph BUILD, and `RenderObjects.get` only re-reads the cache key
+     * when `material.version` bumped or `renderObject.needsUpdate` is set
+     * (RenderObjects.js:127-129) — so the flip sits LATENT for an unbounded number
+     * of frames and detonates on an unrelated event (a fixture placement, a
+     * material swap, a new mesh), INSIDE that frame's open command encoder. A guard
+     * wrapped around the WRITE has closed long before. That is why this family
+     * recurred with a guard in place: L-25 → L-39 → L-64 → L-908 → here.
+     *
+     * ── WHAT THIS ARM OBSERVES ─────────────────────────────────────────────────
+     * Not the BIM event, not the write — the STATE three itself keys on. At the
+     * frame boundary it reads `renderer.lighting.getNode(scene).customCacheKey()`
+     * (LightsNode.js:117-141 — a hash of every light's `id` and `castShadow`) plus
+     * `shadowMap.type` / `.enabled`, which `NodeManager.getCacheKey` folds into every
+     * render object's key (NodeManager.js:441-447). When that fingerprint moves, a
+     * rebuild is coming and any light that has stopped casting while still owning a
+     * live map carries a pending free. We perform that free HERE, at the boundary,
+     * via three's own sanctioned `'dispose'` signal — so the mid-encode build finds
+     * `shadowNode === null` and frees nothing.
+     *
+     * ⚠ THE RESET IS NOT OPTIONAL. The node graph compiled while the light WAS
+     * casting still binds the map we just freed, so `_resetCompiledNodeStates()`
+     * runs in the same boundary step and the whole thing sits inside the
+     * ref-counted submit-pause window — the frame that recompiles is one we do not
+     * submit. Without the reset this would trade a mid-encode free for a stale
+     * binding, which is the same crash wearing a different message.
+     *
+     * COST: `customCacheKey()` is O(#lights) — a Pascal key/fill/rim plus the
+     * fixture live-light budget, single digits — and allocates nothing when the
+     * fingerprint is unchanged, which is every frame but the rare ones. It is NOT
+     * a scene traverse; the L-1151/L-1155 defect class is deliberately avoided.
+     * Inert on the WebGL2 fallback, which owns its own shadowMap.
+     */
+    private _lastCasterFingerprint: number | null = null;
+    private _lastShadowMapTypeSeen: number | null = null;
+    private _lastShadowMapEnabledSeen: boolean | null = null;
+    /** Cumulative count of boundary-ordered light-owned shadow releases (diagnostics). */
+    private _boundaryCasterReleases = 0;
+
+    /** Total light-owned shadow maps this manager has released at a frame boundary. */
+    get boundaryCasterReleaseCount(): number { return this._boundaryCasterReleases; }
+
+    private _orderPendingCasterReleasesAtBoundary(): void {
+        if (!this._webGpuActive) return;
+        // Already inside a paused window (a rebuild, a mesh-release window, a tier
+        // mutation): the fingerprint is deliberately NOT recorded, so a change that
+        // lands during the pause is still seen on the first unpaused boundary.
+        if (this._shadowRebuildPaused) return;
+
+        const renderer = this._renderer as unknown as {
+            lighting?: { getNode?(scene: unknown): { customCacheKey?(): number; getLights?(): unknown[] } | null };
+            shadowMap?: { type?: number; enabled?: boolean };
+        } | null;
+        const scene = this._scene;
+        if (!renderer || !scene) return;
+
+        let lightsNode: { customCacheKey?(): number; getLights?(): unknown[] } | null = null;
+        let fingerprint = 0;
+        let shadowType: number | null = null;
+        let shadowEnabled: boolean | null = null;
+        try {
+            lightsNode = renderer.lighting?.getNode?.(scene) ?? null;
+            if (!lightsNode || typeof lightsNode.customCacheKey !== 'function') return;
+            fingerprint   = lightsNode.customCacheKey();
+            shadowType    = renderer.shadowMap?.type ?? null;
+            shadowEnabled = renderer.shadowMap?.enabled ?? null;
+        } catch {
+            // A backend mid-swap, or a renderer that predates the node path. Never
+            // let a diagnostic read kill the frame.
+            return;
+        }
+
+        const first        = this._lastCasterFingerprint === null;
+        const setChanged   = !first && fingerprint   !== this._lastCasterFingerprint;
+        const typeChanged  = !first && (shadowType    !== this._lastShadowMapTypeSeen ||
+                                        shadowEnabled !== this._lastShadowMapEnabledSeen);
+        this._lastCasterFingerprint      = fingerprint;
+        this._lastShadowMapTypeSeen      = shadowType;
+        this._lastShadowMapEnabledSeen   = shadowEnabled;
+        if (!first && !setChanged && !typeChanged) return;
+
+        let lights: unknown[] = [];
+        try { lights = lightsNode.getLights?.() ?? []; } catch { return; }
+        // A shadow-TYPE change makes three `_reset()` EVERY live shadow node
+        // (ShadowNode.js:615-622), not only the ones that stopped casting.
+        const candidates: ShadowOwningLight[] = typeChanged
+            ? (lights as ShadowOwningLight[]).filter((l) => lightOwnsLiveShadowMap(l))
+            : lightsWithPendingCasterRelease(lights as ShadowOwningLight[]);
+        if (candidates.length === 0) return;
+
+        // Pause submits FIRST: the reset below recompiles the node graph, and the
+        // frame that recompiles must not be a frame we submit.
+        this._beginShadowRebuildGuard();
+        let released = 0;
+        for (const light of candidates) {
+            if (releaseLightOwnedShadowNow(light)) released++;
+        }
+        // Nothing may still BIND the maps we just freed. This is the documented
+        // §L-819 companion — a pipeline rebuild cannot reach a cached
+        // nodeBuilderState, only this can.
+        this._resetCompiledNodeStates();
+        this._boundaryCasterReleases += released;
+        // The fingerprint we recorded above was read BEFORE the release; re-read it
+        // so the next frame compares against the settled state rather than
+        // re-triggering on our own mutation.
+        try { this._lastCasterFingerprint = lightsNode.customCacheKey?.() ?? fingerprint; }
+        catch { /* keep the pre-release value; a spurious extra pass is harmless */ }
+        setTimeout(() => { this._endShadowRebuildGuard(); }, 0);
+        console.log(
+            `[RenderPipelineManager] §SHADOW-CASTER-FLIP-AT-BOUNDARY released ${released} ` +
+            `light-owned shadow map(s) AT THE FRAME BOUNDARY (${typeChanged ? 'shadowMap type/enabled' : 'caster set'} ` +
+            'changed). three would have freed these from inside a node build, i.e. inside an open ' +
+            'command encoder — "Destroyed texture [ShadowDepthTexture] used in a submit". ' +
+            'Compiled node states reset; submits resume next macrotask.',
+        );
     }
 
     scheduleShadowRebuild(): void {

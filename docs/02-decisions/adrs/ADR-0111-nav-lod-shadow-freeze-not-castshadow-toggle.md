@@ -74,11 +74,61 @@ so it never lets a texture be destroyed:
 
 ## Shadow-lifecycle contract (updated)
 
+> ⚠⚠ **CORRECTED 2026-08-24 (lane SHADOW24, L-10380) — the third bullet below was FALSE, and it
+> is the sentence this whole family kept regressing through.** It read, and still reads for the
+> record: *"A **persistent** shadow-pass drop MAY clear `castShadow` (letting THREE reclaim the map
+> on its own schedule), but MUST NOT be driven from a per-frame / per-motion event."*
+>
+> **"On its own schedule" is INSIDE AN OPEN COMMAND ENCODER, and the schedule is not the caller's
+> tick.** MEASURED against the installed three r183.2:
+> ```
+> node_modules/three/src/nodes/lighting/AnalyticLightNode.js
+>   :267-270  } else if ( this.shadowNode !== null ) { this.shadowNode.dispose(); … }
+> node_modules/three/src/nodes/lighting/ShadowNode.js
+>   :769-780  _reset() { … this.shadowMap.dispose(); this.shadowMap = null; … }
+>   :396      depthTexture.name = 'ShadowDepthTexture';
+> ```
+> `AnalyticLightNode.setup()` runs during `nodeBuilder.build()`
+> (`NodeManager.js:224/229/301`), which `RenderObject.getNodeBuilderState()`
+> (`RenderObject.js:379`) reaches LAZILY from `Renderer._renderObjectDirect`
+> (`Renderer.js:3381-3395`) — **after `backend.beginRender(renderContext)` (`Renderer.js:1641`)
+> has opened the frame's encoder.** So the free lands between `beginRender` and `Queue.submit()`,
+> which is the founder's message verbatim:
+> `Destroyed texture [Texture "ShadowDepthTexture"] used in a submit. — While calling
+> [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_1"]])`.
+>
+> ⛔ **AND THE FREE IS LATENT, WHICH IS WHY EVERY GUARD BUILT AROUND THE WRITE MISSED IT.**
+> `RenderObjects.get` only re-reads a render object's cache key when `material.version` bumped or
+> `needsUpdate` is set (`RenderObjects.js:127-129`). A caster flip therefore sits pending for an
+> unbounded number of frames and detonates on an UNRELATED later event — a lighting-fixture
+> placement, a material swap, a new mesh. `RenderPipelineManager.runShadowCasterMutation()`
+> (§FIX-SHADOW-TIER-CASTER-DESTROY, L-908) pauses submits AROUND THE WRITE; by the time three
+> actually frees the texture that window has long closed. **"Persistent, not per-frame" was never
+> the property that made a bare clear safe. Nothing makes a bare clear safe.**
+>
+> **The rule that replaces it is the fourth bullet below** (§SHADOW-CASTER-FLIP-AT-BOUNDARY).
+> ADR-0111's ORIGINAL decision — that a *transient* nav-LOD suppression must freeze and must never
+> touch `castShadow` — is UNAFFECTED and still binding.
+
 - **No shadow depth texture is ever `.destroy()`-ed within the frame it is submitted.**
 - A **transient** (per-motion) shadow-pass suppression MUST freeze the map
   (`autoUpdate=false`), never clear `castShadow` and never dispose a shadow texture.
-- A **persistent** shadow-pass drop MAY clear `castShadow` (letting THREE reclaim the
-  map on its own schedule), but MUST NOT be driven from a per-frame / per-motion event.
+- ~~A **persistent** shadow-pass drop MAY clear `castShadow` (letting THREE reclaim the
+  map on its own schedule), but MUST NOT be driven from a per-frame / per-motion event.~~
+  **SUPERSEDED 2026-08-24 — see the correction box above and the next bullet.**
+- **A `castShadow` clear — persistent or not — MUST be ORDERED AT THE FRAME BOUNDARY
+  (§SHADOW-CASTER-FLIP-AT-BOUNDARY, L-10380).** Either enqueue it with
+  `scheduleShadowCasterFlip(light, false)` (drained by the frame owner in
+  `RenderPipelineManager.render()`), or rely on the DERIVED arm
+  `RenderPipelineManager._orderPendingCasterReleasesAtBoundary()`, which compares the fingerprint
+  three itself keys the node cache on (`LightsNode.customCacheKey()` +
+  `renderer.shadowMap.type/.enabled`, folded into every render object by
+  `NodeManager.js:441-447`) and, on a change, performs three's OWN release at the boundary —
+  the sanctioned `light.dispatchEvent({type:'dispose'})`, not an external `.destroy()`. It then
+  resets the compiled node states in the same boundary step, because the graph compiled while the
+  light WAS casting still binds the map just freed, and holds the submit-pause window across the
+  recompile. External code still never destroys a light-owned texture (rule 6 / C04 §SHADOW.2.6);
+  the light's own node does, at an instant the frame owner chooses.
 - Any explicit shadow-map dispose (size change / level change / restore) routes through
   the deferred post-submit path (`§SHADOW-DEVICE-LOSS-FIX`,
   `ShadowQualityUpgrader._deferReleaseShadowMap`).
@@ -88,6 +138,12 @@ so it never lets a texture be destroyed:
   reallocates a shadow render target INSIDE `render()` whenever `mapSize` changes while
   `autoUpdate=true`; freezing is the only way to keep that realloc off the in-flight
   submit. The one regen at the new resolution lands on the thaw frame.
+- **`light.dispose()` on a shadow-casting light is a SYNCHRONOUS free from whatever tick calls it**
+  (`AnalyticLightNode.js:99-107` subscribes to the light's own `'dispose'` event). It is the one
+  trigger the boundary detector cannot see coming, because the damage is already done before the
+  next boundary. Route a light teardown through `releaseLightOwnedShadowNow()` at a boundary, or
+  remove the light and let the detector collect it — never call `light.dispose()` from a store
+  listener, a command handler or a service teardown while the viewport is live.
 
 ## Load-time sibling — `§FIX-SHADOW-LOAD-TIER-DESTROY` (founder issue L-39, 2026-07-02)
 

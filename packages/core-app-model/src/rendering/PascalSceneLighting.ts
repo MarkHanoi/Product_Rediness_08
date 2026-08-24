@@ -386,9 +386,25 @@ export class PascalSceneLighting {
      * when the key light is created. Fully reversible: setShadowsSuppressed(false)
      * restores the light's originally-configured castShadow.
      *
-     * NOTE: does NOT dispose any GPU texture (respects §SHADOW-DEVICE-LOSS-FIX —
-     * clearing castShadow lets THREE reclaim the shadow map on its own schedule,
-     * never mid-submit).
+     * ⚠⚠ CORRECTED 2026-08-24 (lane SHADOW24, L-10380). This note used to read:
+     * "does NOT dispose any GPU texture (respects §SHADOW-DEVICE-LOSS-FIX — clearing
+     * castShadow lets THREE reclaim the shadow map on its own schedule, NEVER
+     * MID-SUBMIT)." The last three words were FALSE, and they are the founder's P0.
+     *
+     * MEASURED in the installed three r183.2: clearing castShadow makes
+     * AnalyticLightNode.setup() (:267-270) call shadowNode.dispose() → ShadowNode
+     * ._reset() (:769) → shadowMap.dispose(). setup() runs during nodeBuilder.build(),
+     * which Renderer._renderObjectDirect reaches AFTER backend.beginRender() opened the
+     * frame's command encoder — i.e. EXACTLY mid-submit. And it is LATENT: RenderObjects
+     * .get only re-reads the cache key on a material.version bump (:127-129), so the free
+     * lands on some unrelated LATER frame (a fixture placement, a material swap).
+     *
+     * This method still writes castShadow directly and that is now SAFE, but not for the
+     * reason the old note gave: RenderPipelineManager._orderPendingCasterReleasesAtBoundary()
+     * (§SHADOW-CASTER-FLIP-AT-BOUNDARY) sees the caster fingerprint move at the next frame
+     * boundary and performs three's own release THERE, with the compiled node states reset
+     * and submits paused. See C04 §SHADOW.2 rule 14 and ADR-0111's amended lifecycle
+     * contract. Still true, and still load-bearing: this method disposes NOTHING itself.
      *
      * @param suppressed  true ⇒ no shadow pass; false ⇒ restore configured shadows.
      */

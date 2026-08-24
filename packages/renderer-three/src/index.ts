@@ -193,8 +193,25 @@ export {
   setShadowCasterReleaseObserver,
   hasShadowCasterReleaseObserver,
   subtreeHasShadowCaster,
+  // §SHADOW-CASTER-FLIP-AT-BOUNDARY (L-10380) — the SIBLING of the realloc queue,
+  // for the three triggers that FREE a light-owned shadow map instead of resizing
+  // it. three r183 executes all of them inside a node-graph build, and it builds
+  // LAZILY inside the frame's open command encoder, so a bare 'light.castShadow =
+  // false' is a mid-submit free with an arbitrary delay. The frame owner drains
+  // this at the boundary AND runs a derived detector for call sites that never
+  // reach it.
+  scheduleShadowCasterFlip,
+  pendingShadowCasterFlipCount,
+  drainShadowCasterFlipQueue,
+  releaseLightOwnedShadowNow,
+  lightOwnsLiveShadowMap,
+  lightsWithPendingCasterRelease,
 } from './safeDispose.js';
-export type { ReallocatableLightShadow, ShadowCasterReleaseObserver } from './safeDispose.js';
+export type {
+  ReallocatableLightShadow,
+  ShadowCasterReleaseObserver,
+  ShadowOwningLight,
+} from './safeDispose.js';
 
 // §RETIRE-RENDERER-DETACHES-LISTENERS (L-948) — the single seam for retiring a
 // renderer. `retireRenderer()` replaces every bare `renderer.dispose()` on a live
