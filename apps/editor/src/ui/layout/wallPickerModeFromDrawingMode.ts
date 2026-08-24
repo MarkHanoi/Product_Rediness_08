@@ -17,11 +17,58 @@
  * the OTHER surface — the founder clicks a mode, switches view, and draws something
  * else (`ToolsAreaLayout.ts` line ~631 records that exact failure for the loop modes).
  *
- * ⚠ THIS IS A REAL, STILL-OPEN ARCHITECTURAL DEBT, NOT A FEATURE. Two types for one
- * concept means the bridge must be exhaustive forever, and a bridge that ends in a
- * bare `return 'linear'` is not. Collapsing them onto ONE mode source is the actual
- * fix and is out of this lane's scope; this module makes the bridge HONEST in the
- * meantime and gives that collapse a single place to happen.
+ * ── THE ANSWER TO "ONE MODE SOURCE, OR A WRITTEN REASON FOR TWO" ───────────
+ *
+ * (Founder directive, 2026-08-24, via the coordinator. The earlier revision of this
+ * header called the split "still-open debt … out of this lane's scope". That was
+ * half right and is superseded by the finding below.)
+ *
+ * ⭐ THE QUESTION HAS TWO HALVES AND THEY HAVE OPPOSITE ANSWERS.
+ *
+ * ── STATE: TWO SOURCES ARE CORRECT. DO NOT MERGE THEM. ─────────────────
+ *
+ * `CurtainWallPlanToolHandler.ts:14,28` records **CW-1 (2026-04)**, and it is a
+ * production bug caused by exactly the merge this directive could be read as asking
+ * for. Verbatim: *"Root cause: handler was reading `window.wallModePicker.getActiveMode()`
+ * which defaults to `'ortho'` (set by wall tool activation)."* The curtain-wall tool
+ * inherited the WALL tool's armed mode and drew "always ortho".
+ *
+ * The reason is structural, not incidental: **each tool has its own MODE SET and its
+ * own DEFAULT.** The wall picker defaults to `'ortho'` and offers seven modes
+ * including three closed-loop runs; the curtain wall defaults to `'linear'` and offers
+ * four; the slab family offers `linear | ortho | curved` plus its own rectangle /
+ * region / hollow / pickWalls. A single shared mode CELL cannot hold "the mode the
+ * user last chose" for tools that do not agree on what the modes ARE. Merging the
+ * state re-creates CW-1 in whichever direction the last activation ran.
+ *
+ * ── VOCABULARY: ONE IS REQUIRED, AND UNTIL 2026-08-24 THERE WERE TWO. ─────
+ *
+ * ⛔ THIS is the half that was actually broken, and it is what the founder hit. One
+ * CONCEPT ("the wall is in ortho") had two independent TYPES — the `WallDrawingMode`
+ * ENUM and the `WallPickerMode` STRING — related by a hand-written five-line closure
+ * that ended `return 'linear'`. Nothing forced the two spellings to agree, so:
+ *   · `'polyline_ortho'` (lower-case) satisfied the ENUM's type via a cast and matched
+ *     none of its values — L-10760;
+ *   · `LINE_ORTHO` had no picker string and silently became `'linear'`;
+ *   · the three loop modes had none either, so every loop call site had to set the
+ *     picker BY HAND beside the activation.
+ *
+ * THE COLLAPSE, as implemented:
+ *   1. `resolveWallDrawingMode` (geometry-wall) is THE reader. Every spelling of a
+ *      mode — enum value, picker string, HUD label, hyphenated, any case — resolves
+ *      through ONE alias table, and an unrecognised one is REPORTED, never guessed.
+ *   2. `PICKER_MODE_BY_DRAWING_MODE` below is THE writer, an EXHAUSTIVE `Record` over
+ *      the enum: a new member without a picker string is a COMPILE ERROR.
+ *   3. The two tables are bound by a ROUND-TRIP LAW, tested: for every `WallPickerMode`
+ *      `p`, `wallPickerModeFromDrawingMode(resolveWallDrawingMode(p).mode) === p`. The
+ *      relation is many-to-one (four enum members mean `'linear'`), so the law is
+ *      stated in the direction where it must hold rather than as a false bijection.
+ *   4. The CAST is gone from the activator (`ToolsAreaLayout`, `runtime.tools.register('wall')`)
+ *      — the exact site the founder's string travelled through.
+ *
+ * So: **one VOCABULARY, enforced in three places; two STATE cells, deliberately, with
+ * CW-1 as the reason.** That is the written answer. ⛔ Do not "finish the job" by
+ * pointing the curtain-wall or slab handlers at `window.wallModePicker`.
  *
  * ── THE DEFECT THIS MODULE REMOVES ───────────────────────────────────────────
  *

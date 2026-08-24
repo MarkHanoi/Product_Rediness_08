@@ -50,6 +50,7 @@ import { WallPlanToolHandler } from '../WallPlanToolHandler';
 import type { WorldPoint } from '../PlanToolHandler';
 import { WallDrawingMode } from '@pryzm/geometry-wall';
 import { wallPickerModeFromDrawingMode } from '@app/ui/layout/wallPickerModeFromDrawingMode';
+import { resolveWallDrawingMode } from '@pryzm/geometry-wall';
 
 const SEG_START: WorldPoint = { worldX: 0, worldZ: 0 };
 /** 45° to both axes — the loudest possible departure, so nothing is a rounding story. */
@@ -168,5 +169,38 @@ describe('§FIX-ORTHO-CANNOT-FALL-BACK-TO-LINEAR — the plan/3-D mode bridge', 
         expect(String(spy.mock.calls[0]?.[0] ?? '')).toContain('not-a-wall-mode');
         expect(fallback).toBe('linear');
         spy.mockRestore();
+    });
+
+    // ── ARM 5 — THE ROUND-TRIP LAW: ONE VOCABULARY, ENFORCED ────────────
+    it('ARM 5: the READER and the WRITER cannot drift — every picker mode round-trips', () => {
+        // ⭐ THE COLLAPSE, AS A LAW. Two tables relate the two vocabularies:
+        //   READER  `resolveWallDrawingMode` — every spelling → a WallDrawingMode
+        //   WRITER  `wallPickerModeFromDrawingMode` — a WallDrawingMode → a picker string
+        // Nothing forced them to agree, and "nothing forced two spellings to agree" is
+        // the whole of L-10760. This binds them.
+        //
+        // ⚠ STATED IN THE DIRECTION WHERE IT MUST HOLD, not as a false bijection: the
+        // relation is MANY-TO-ONE (SINGLE / POLYLINE / POLYLINE_MIXED / POLYLINE_MIXED_2
+        // all mean 'linear'), so enum → picker → enum cannot round-trip and asserting it
+        // would be asserting a falsehood. picker → enum → picker is the true law.
+        const PICKER_MODES = ['linear', 'ortho', 'curved', 'rectangular', 'circular', 'elliptical'] as const;
+        const rows: string[] = [];
+        for (const p of PICKER_MODES) {
+            const enumMode = resolveWallDrawingMode(p, 'ARM 5 round-trip').mode;
+            const back = wallPickerModeFromDrawingMode(enumMode);
+            rows.push(`${p} → ${enumMode} → ${back}`);
+            expect(back, `round-trip for picker mode '${p}'`).toBe(p);
+        }
+        console.log('[ORTHO42 BRIDGE ARM 5] ' + rows.join('  ·  '));
+
+        // ⛔ 'byslab' is DELIBERATELY absent from that list and from the resolver's alias
+        // table. By Slab is an ACTION — it reads a selected slab and emits a whole run
+        // with no pointer gesture — not a drawing mode. Mapping it onto one would arm a
+        // rubber-band the user never asked for (C65 §3.9: no affordance without an
+        // implementation), so it is REPORTED as unrecognised rather than silently drawn.
+        const spy2 = vi.spyOn(console, 'error').mockImplementation(() => {});
+        expect(resolveWallDrawingMode('byslab', 'ARM 5').recognised).toBe(false);
+        expect(spy2).toHaveBeenCalledTimes(1);
+        spy2.mockRestore();
     });
 });

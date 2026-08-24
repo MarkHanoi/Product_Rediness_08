@@ -20,7 +20,7 @@ import {
     type ByWallsWall,
 } from '@app/engine/views/plantools/stairByWalls';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
-import { WallDrawingMode } from '@pryzm/geometry-wall';
+import { WallDrawingMode, resolveWallDrawingMode } from '@pryzm/geometry-wall';
 // §FIX-ORTHO-CANNOT-FALL-BACK-TO-LINEAR — the `WallPickerMode` type moved WITH the
 // mapper that was the only thing here using it; it is still exported from
 // `../WallModePicker` and still the plan surface's vocabulary. Nothing was deleted.
@@ -180,7 +180,20 @@ export function mountToolsArea(
     // are deleted in Phase E sub-phase landings (E.1–E.17).
     if (runtime?.tools?.register) {
         const tm = props.toolManager;
-        runtime.tools.register('wall',          (m?) => service.activateWallTool((m as WallDrawingMode) ?? WallDrawingMode.POLYLINE_ORTHO));
+        // ⭐ §FIX-ORTHO-CANNOT-FALL-BACK-TO-LINEAR — THE CAST THAT STARTED IT, REMOVED.
+        // This read `(m as WallDrawingMode)`. `m` is the tool slot's untyped `mode?: string`,
+        // and `as` ASSERTS — it converts nothing and checks nothing — so the rail's
+        // `'polyline_ortho'` reached `WallTool.drawingMode` intact, matched no `===`, and
+        // ortho was silently inert while the picker still read "Orthogonal". `resolveWallDrawingMode`
+        // is a CONVERSION: it normalises the spelling and reports an unrecognised one by name.
+        // An ABSENT mode is still POLYLINE_ORTHO — that is the rail's documented default and is
+        // a different fact from an unreadable one, which is why the `??` is on `m` and not on the
+        // resolution.
+        runtime.tools.register('wall',          (m?) => service.activateWallTool(
+            m === undefined || m === null
+                ? WallDrawingMode.POLYLINE_ORTHO
+                : resolveWallDrawingMode(m, "runtime.tools.activate('wall')").mode,
+        ));
         runtime.tools.register('curtain-wall',  (m?) => tm.activateCurtainWall?.(m ?? 'SINGLE'));
         runtime.tools.register('door',          (m?) => tm.activateDoor?.(m ?? 'single'));
         runtime.tools.register('window',        (m?) => tm.activateWindow?.(m ?? 'single'));
