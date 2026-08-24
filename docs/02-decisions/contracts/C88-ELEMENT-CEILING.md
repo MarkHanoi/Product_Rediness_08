@@ -614,14 +614,25 @@ ceiling in a room with a jog shallower than roughly one wall half-thickness was 
 **centreline** ring — overrunning every bounding wall by half its thickness and overstating its area
 by ~12.8 %. See C89 FF-2 for the measurement table and the root cause.
 
-### CF-3 — ⛔ THE CEILING HOST BINDING IS ALSO DROPPED BY THE LOADER
+### CF-3 — ⛔ A CEILING FOLLOWS A MOVED WALL ONLY IF IT HAS A `sketch`
 
-`CeilingData` declares `hostRoomId`, `coveredRoomIds` and `boundingWallIds`
-(`CeilingTypes.ts:195-199`), and the serializer saves them. **The loader restores none of them:**
-`ProjectLoader.ts:1235-1249` builds its `CreateCeilingCommand` payload from thirteen fields and
-passes no `hostRoomId`, no `coveredRoomIds`, no `boundingWallIds` and no `boundarySource` — the
-identical omission measured for the floor loader at `:1269-1283`. **The ceiling's host relationship
-is destroyed by every save/load cycle.** Full table and the ABSENT-vs-UNREACHABLE framing: C89 FF-4.
+The geometry follow is **LIVE for ceilings** — `CeilingHostDependencyTracker` is bootstrapped at
+`initTools.ts:998-1011` and drives `UpdateCeilingBoundaryCommand` on a wall move. It keys on
+`sketch.outerLoop.edges[].hostId`, **not** on `hostRoomId` and **not** on `boundingWallIds`.
+
+⛔ **`ceilingCreatedMirror.ts:164-165` — the bus create path — mints NO `sketch`**, so a ceiling
+drawn with the plan tool is filed `unattributed` and cannot follow its walls until the project is
+reopened (the load path rebuilds it through `CreateCeilingCommand`, which does mint one at `:220`).
+Identical to the floor asymmetry; the full table, the normative rule and the ⛔ "do not re-run the
+generator on wall move" prohibition are in **[C89 §FF-4](C89-ELEMENT-FLOOR.md)**.
+
+⚠ **Separately, the ceiling host binding is saved and then dropped by the loader.** `CeilingData`
+declares `hostRoomId`, `coveredRoomIds` and `boundingWallIds` (`CeilingTypes.ts:195-199`) and the
+serializer saves them, but `ProjectLoader.ts:1235-1249` built its `CreateCeilingCommand` payload
+from thirteen fields and passed none of them — the identical omission measured for the floor loader.
+That governs the **MATERIALS** follow (`RoomFinishSyncService` writes `finishSpec` only, never a
+boundary), not the geometry follow. Repaired for both families by §FIX-FINISH-HOST-SURVIVES-RELOAD;
+`boundingWallIds` restoration remains open. See C89 §FF-4a.
 
 ### CF-4 — ⛔ NOT MEASURED by this lane
 

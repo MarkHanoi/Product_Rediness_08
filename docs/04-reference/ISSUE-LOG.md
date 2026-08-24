@@ -50514,31 +50514,65 @@ room-topology suite 327/327, root `tsc` RC=0.
 
 ---
 
-### L-10641 — ⛔ **THE FLOOR *AND* CEILING HOST BINDING IS SAVED AND THEN DROPPED BY THE LOADER** · lane FLOOR33 · 2026-08-24 · **OPEN**
+### L-10641 — ⛔ **A FLOOR/CEILING DRAWN WITH THE PLAN TOOL CANNOT FOLLOW A MOVED WALL — IT HAS NO `sketch`** · lane FLOOR33 · 2026-08-24 · **OPEN**
 
 Founder: *"I moved a perimeter wall and the FLOOR FINISH DID NOT ADAPT."*
 
-The binding fields are **NOT absent.** `FloorData` (`FloorTypes.ts:312-315`) and `CeilingData`
-(`CeilingTypes.ts:195-199`) each declare `hostRoomId`, `coveredRoomIds` and `boundingWallIds`, and
-`ProjectSerializer.ts:1372` saves them (`deepStrip` of the whole record). **The loader restores none
-of them:** `ProjectLoader.ts:1269-1283` (floor) and `:1235-1249` (ceiling) each pass thirteen fields
-and **no `hostRoomId`, no `coveredRoomIds`, no `boundingWallIds`, no `boundarySource`.**
+> ⚠ **THIS ROW WAS REWRITTEN THE SAME DAY, AND THE FIRST VERSION IS THE LESSON.** It first said the
+> cause was the loader dropping `hostRoomId`. **Wrong — the geometry follow never consults
+> `hostRoomId`.** A confident, plausible attribution written before the follow path was traced;
+> the honest blank would have been safer. **Trace the mechanism before naming the cause.**
 
-⛔ **The host relationship is therefore destroyed by every save/load cycle, in both families** — the
-data is on disk and the loader throws it away. Any adaptivity built on `hostRoomId` would work until
-the first reload and silently stop afterwards.
+⭐ **THE FOLLOW IS LIVE AND IT WORKS — it just cannot see his floors.**
+`FloorHostDependencyTracker` / `CeilingHostDependencyTracker` are bootstrapped in production
+(`initTools.ts:983-1011`). A wall drag runs `wall.updateBaseline` →
+`WallStore.emit('update', wall, prevState)` → `onWallUpdated` → `reprojectFinishBoundary` →
+`UpdateFloorBoundaryCommand` / `UpdateCeilingBoundaryCommand`, one wall move = one Ctrl+Z.
 
-⚠ Separately, `boundingWallIds` is **hard-coded `[]`** by the UI creation path
-(`initTools.ts:2328`), so a plan-tool floor never records which walls bound it even before a reload.
-The legacy `CreateFloorCommand.ts:350` does populate it — two creation paths, one honouring C79 §9.3
-and one not (already recorded as C89 EI-9).
+⛔ **It keys on `sketch.outerLoop.edges[].hostId`** — `FinishHostDependencyTracker.ts:289` is
+`if (!rec.sketch) return null;`, and a sketchless record is filed `unattributed`. **Three production
+create paths mint no sketch**, including the founder's: the plan tool's bus mirror
+`initTools.ts:2327-2330`, `ceilingCreatedMirror.ts:164-165`, and
+`plugins/floor/src/handlers/CreateFloor.ts:136-139`. Only `CreateFloorCommand.ts:350` /
+`CreateCeilingCommand.ts:220` mint one.
 
-⭐ **ABSENT ≠ UNREACHABLE** (C01 §6 rule 6): the concept exists; one field is never written by this
-path and the other is written and not restored. **Not** "floors have no host binding".
+⭐ **CONSEQUENCE, and it is a strange one:** a finish drawn in this session cannot follow a wall;
+the SAME finish after a reload is rebuilt through `CreateFloorCommand`, gains a sketch, and can.
+**Adaptivity currently depends on whether the project has been reopened since the finish was drawn.**
 
-**NOT MEASURED:** whether any wall-move cascade would consume the binding if it survived.
-`RoomFinishSyncService` writes only `finishSpec` (material/colour), never a boundary. Fixing the
-loader is necessary but **not sufficient** for the founder's expectation. Contract: C89 §FF-4.
+FIX OWED: mint the sketch on every create path (a composition change — the bus mirror has no wall or
+room store in scope). ⛔ **Do NOT fix it by re-running the generator on wall move** — that discards
+manual edits and is worse than not following. Contract: C89 §FF-4, C88 §CF-3.
+
+⚠ `boundingWallIds` on a FLOOR is written at create and **never meaningfully read** — the only
+apparent reader, `DuplicateFloorPlanCommand._carryFinishReferences`, recomputes from the sketch edges
+and `void`s the parameter. A claim on the record with no consumer, never refreshed after a wall move.
+
+---
+
+### L-10641a — ⚠ **THE `hostRoomId` BINDING IS SAVED AND THEN DROPPED BY BOTH LOADERS** · lane FLOOR33 · 2026-08-24 · **FIXED for `hostRoomId`, OPEN for `boundingWallIds`**
+
+`FloorData` (`FloorTypes.ts:312-315`) and `CeilingData` (`CeilingTypes.ts:195-199`) each declare
+`hostRoomId`, `coveredRoomIds` and `boundingWallIds`, and `ProjectSerializer.ts:1372` saves them.
+**Neither loader restored any of them:** `ProjectLoader.ts:1269-1283` (floor) and `:1235-1249`
+(ceiling) each passed thirteen fields and no binding at all — so the host relationship was destroyed
+by every save/load cycle in both families.
+
+This governs the **MATERIALS** follow, not geometry: `RoomFinishSyncService` (wired
+`initBuilders.ts:1104-1110`) matches on `f.hostRoomId === roomId` and writes `finishSpec` colour and
+material only — the string `boundary` does not appear in the file. So the symptom of the loss is
+*"room finish material stops propagating after a reload"*, **not** the founder's non-adapting floor.
+
+FIXED by §FIX-FINISH-HOST-SURVIVES-RELOAD: both loaders now pass `hostRoomId`, plus
+`boundarySource: 'explicit-polygon'`. ⛔ **That flag is load-bearing, not cosmetic** — restoring the
+host re-arms `_resolveBoundary`, whose undeclared branch insets any ring still coinciding with the
+room centreline. On a project saved before L-10640 that ring IS a centreline fall-back, so without
+the flag the loader would silently "correct" stored geometry on open, hiding the defect and changing
+a scheduled quantity. A persisted ring is the FILE's stated geometry and is stored verbatim.
+
+STILL OPEN: `boundingWallIds` is not restored (needs payload work), and is hard-coded `[]` by the UI
+create path anyway (`initTools.ts:2328`). ⭐ **ABSENT ≠ UNREACHABLE** (C01 §6 rule 6): the concept
+exists; one field is never written by this path, the other was written and not restored.
 
 ---
 
@@ -50565,3 +50599,153 @@ all cases; on some yes"*.
 established.** Settling it needs the winding and vertex list of a real reported floor **before and
 after** a reload, plus what `FloorPanelBuilder` does with the stored winding. ⛔ **Do not repair
 geometry at render time** — that hides the data loss and leaves the saved file wrong.
+
+---
+
+## L-10660 — the split-view plan pane DREW the snap and never DELIVERED it, so L-935's fix was dead in the founder's own layout ✅ FIXED (ADAPTIVE34, 2026-08-24)
+
+**Founder-facing symptom (latent, never separately reported):** in the split-view plan pane, an
+explicit object snap — a wall midpoint or endpoint — is shown under the cursor, and the committed
+geometry ignores it and obeys the orthogonal lock instead.
+
+**MEASURED at `f159ed7a`.** `SvpPlanToolOverlay` builds the `WorldPoint` handed to an armed handler
+at **two** sites, and both discarded the snap's identity:
+
+```
+:627  (hover)  pt = { worldX: snapResult.worldX, worldZ: snapResult.worldZ };
+:778  (_toWorld — the CLICK path, reached from _onMouseDown:597)
+               if (snap) return { worldX: snap.worldX, worldZ: snap.worldZ };
+```
+
+`PlanViewToolOverlay._toWorld` (`:542-549`) carries `snapType` **and** `snapSourceId`. So the two
+plan surfaces handed their handlers structurally different points, and the split pane's were
+always anonymous.
+
+⛔ **THE CONSEQUENCE.** `isStrongSnap(pt)` (`PlanToolHandler.ts:193`) is
+`!!pt.snapType && pt.snapType !== 'nearest'` — **permanently false in the split pane, for every
+point ever delivered**. Its only consumer is `WallPlanToolHandler`, which guards **three** branches
+with it (`:733`, `:750`, `:758`). All three are **L-935's fix** — the founder-reported production
+defect whose committed end point landed **636 mm** from where he clicked. **L-935 was fixed in the
+main plan view and left LIVE in the split pane**, which `boundaryLinePointerReach.spec.ts` records
+as the founder's working layout (*"his console named `SvpPlanToolOverlay` every time"*).
+
+⚠ **DRAWN, NOT DELIVERED.** `_lastSnapInfo` still fed the snap indicator and tooltip, so the pane
+rendered a midpoint glyph under the cursor while the geometry obeyed ortho. **No amount of looking
+at the screen could have found this.**
+
+⭐ **THE DURABLE FINDING — IT IS L-73 ONE LAYER DOWN.** `planToolHandlerRegistry` unified the
+handler **SET** across both plan surfaces *"BY CONSTRUCTION, so it can never drift again"*, and it
+did exactly that. **What it never unified is the CONTEXT those handlers are handed.** Two overlays
+hand-constructing one value is the same standing hazard the registry's own header warns about,
+moved from the map to the payload. **Unifying a registry does not unify what the registry's
+members are given.**
+
+**FIX:** both sites now mirror `PlanViewToolOverlay._toWorld` field-for-field.
+**PROOF:** `apps/editor/src/engine/views/plantools/__tests__/svpSnapMetadataReachesHandler.spec.ts`
+— 5 arms at the **pointer layer** (C104 R-10): real overlay, real canvas, real DOM `MouseEvent`s.
+**5/5 FAIL at the pre-fix tree** (`expected undefined to be 'midpoint'`; `isStrongSnap` `expected
+false to be true`) and 5/5 pass after. ARM E asserts the *contract* — every field the engine
+resolved survives — rather than a hand-copied field list, so it keeps biting when a field is added.
+⚠ The 4 pre-existing failures in `plantools/__tests__` (`planAutoModeReachability`, `stairByWalls`,
+`stairCreationModes`, `stairPlanCreation` — 7 tests) were verified **identical before and after**
+this change and are **not** caused by it.
+
+---
+
+## L-10661 — `PlanSnapEngine` discards WHICH element a point snapped to, for 9 of its 11 candidates ⚠ OPEN (C107 §11 D-5)
+
+**MEASURED.** `packages/core-app-model/src/views/PlanSnapEngine.ts` constructs **eleven** snap
+candidates. **Exactly two carry a `sourceId`** — `:461` `grid-line` and `:475`
+`grid-intersection`. The nine that come from real building geometry carry **none**: `endpoint`
+(`:263`, `:267`, `:367`), `midpoint` (`:280`), `perpendicular` (`:386`, `:422`), `nearest`
+(`:432`), `intersection` (`:444`).
+
+⭐ **The engine walks the wall to compute the endpoint and then discards which wall it was.**
+
+⚠ **The 3-D system does not have this gap.** `SnapManager` (`packages/snapping`) carries
+`sourceId`, `sourceType`, `levelId` and `levelScope` on **every** candidate — `WallSnapProvider`
+stamps `sourceType: 'wall'`, `SlabSnapProvider` stamps `levelId`. **They are two separate snap
+systems and only one can name a host.**
+
+**Why it matters beyond cosmetics:** any feature needing a *live reference* to the thing a point
+came from — a parametric anchor `(hostId, segmentIndex, t, offset)`, the device
+[C106 §3.2](../02-decisions/contracts/C106-ELEMENT-CONSTRUCTION-BOUNDARY-LINE.md) already proved
+out — **cannot be authored from a plan gesture**. This is the measurement that forced
+[ADR-0370](../02-decisions/adrs/ADR-0370-an-adaptive-component-is-its-own-kind-and-stage-1-does-not-re-solve.md)
+to rule the adaptive component's stage 1 **non-re-solving**. ⛔ **Fixing this GATES C107 D-6.**
+
+---
+
+## L-10662 — ADAPTIVE COMPONENTS: the founder asked three times; it was never built and never contracted ⚠ CONTRACTED, BUILD OPEN (C107 / ADR-0370, 2026-08-24)
+
+> *"I want a new category under a new tab: like ARCHITECTURE — STRUCTURE — ADAPTIVE COMPONENTS …
+> I define the points from walls, slabs and core systems and it creates a 'wall' which I can then
+> customise and create layers. This can be done in plan view / 3D view etc."*
+> …and, correcting it: *"the adaptive component doesn't need to become a wall afterwards — not for now."*
+
+⛔ **ABSENT, and the absence is MEASURED** (C01 §6 rule 6) across all four C84 §3.5.1 axes, the
+second worktree and `git grep HEAD`: `AdaptiveComponent`, `adaptivePoint`, `placementPoint`,
+`PointBasedFamily`, `pointBased`, `controlPointDriven`, `shapeHandlePoint` → **0 hits**;
+`plugins/` contains `adaptive` **zero times**; all ~290 repo-wide hits are unrelated senses
+(per-frame drain budget, camera near plane, LRU sizing, image thresholding, arc tessellation,
+chunk sizing, CFD, Stripe pricing). ⭐ **In a session that found FIFTEEN built-but-unreachable
+surfaces, establishing that this one is honestly unbuilt is itself the finding.**
+
+**CLOSED BY THIS PASS:** [C107](../02-decisions/contracts/C107-ELEMENT-ADAPTIVE-COMPONENT.md)
+minted with its README row in the same commit (`check-contract-index-equivalence.ts` RC=0, arm A
+18 = baseline, arms B/C/D clean), ratified by ADR-0370. **STILL OPEN:** the build, C107 §11
+D-1…D-10. ⛔ **No palette row, rail section or tool handler was added** — deliberately. C107 §14
+binds the UI change to land **with** D-9, because an eighth rail button that arms nothing would be
+the sixteenth unreachable surface.
+
+---
+
+## L-10663 — "core systems" is NOT MEASURED — it is not a term this codebase defines ⚠ OPEN, NEEDS FOUNDER
+
+The founder's phrase is *"points from walls, slabs and **core systems**"*. Walls and slabs are
+measured and have snap providers (`WallSnapProvider`, `SlabSnapProvider`). **"Core systems" does
+not resolve to anything in this repository.**
+
+⭐ **Recorded as a question rather than guessed at** (C107 §12 R-5). It must be answered before
+C107 D-5 scopes which snap providers gain source identity — the candidates are the structural core
+(lift shaft + stair enclosure), the MEP/Services riser, or the `verticalCirculation` massing
+record, and they are **not** the same thing.
+
+---
+
+## L-10664 — the right-hand rail's fifth section: the founder says **MEP**, the code says **Services** ⚠ OPEN, NEEDS FOUNDER
+
+⭐ **The founder's own UI measurement was VERIFIED CORRECT.** He listed the right-hand rail as
+*"1. Architecture 2. Structure 3. Interiors 4. Landscape 5. MEP 6. Grids and Levels 7.
+Annotation"*, and `apps/editor/src/ui/tools-panel/ToolsPanelController.ts:58-105` declares exactly
+seven `SectionDef`s in exactly that order — **with one naming discrepancy**: row 5 is labelled
+**`Services`** (`CREATE_SERVICES`, `setActiveDiscipline('services')`).
+
+⛔ **Not silently reconciled.** If **MEP** is canonical it is a rename across `SectionDef.label`,
+the `ToolsSectionId` union (`ToolsPanelTypes.ts:70`), the icon and the discipline key. His call.
+
+⚠ **Related, and worse:** the two live create surfaces do not agree with each other either — the
+rail accordion has Architecture/Structure/**Services**/Interiors/Landscape while
+`CreatePanelLayout.CREATE_CONFIG` has Architecture/Structure/**Plumbing**/**Interior**/**Outdoor**.
+That is L-1380's split showing in the category vocabulary itself.
+
+---
+
+## L-10665 — ⛔ THERE IS NO TAB SYSTEM, and lanes keep being asked for "a new tab" ⚠ RECORDED (2026-08-24)
+
+**MEASURED.** No `role="tab"`, no tablist, in any create surface. What exists is four different
+things, none of them tabs:
+
+1. rail **section buttons** opening a floating panel — `ToolsPanelController.SectionDef` (7 rows)
+2. a discipline **accordion** — `CreateRailPanel._buildSections()` (5 hardcoded `DisciplineSection`)
+3. a drill-down **nav stack** — `CreatePanelLayout.CREATE_CONFIG` (5 categories, untyped `any`)
+4. separator-delimited **groups** — `DrawingToolbar` (`'structure' | 'opening' | …`), a command-bus
+   toolbar that is **not** a create surface at all
+
+⭐ **The repo already reads the founder's "tab" as "discipline section"**, and has twice:
+`CreateRailPanel.ts:782` quotes him asking for the construction boundary line *"under the
+ARCHITECTURE tab"*, and it shipped as an accordion row. The lift did the same.
+
+**The durable rule:** *"a new tab"* costs an **eighth `SectionDef`** (union member + section entry +
+icon + panel + the matching `CREATE_CONFIG` category, L-1380, same commit + rail CSS) — six edits,
+S–M, pure UI. ⛔ **It must never ship ahead of something for it to arm.**

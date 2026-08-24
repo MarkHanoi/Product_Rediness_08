@@ -769,12 +769,57 @@ call sites delegate to the one store-injected `resolveRoomFinishBoundary` → `d
 BIM-integrity defect that reaches schedules and IFC, so the agreement is pinned by test rather than
 left to the mirroring holding.
 
-### FF-4 — ⛔ THE HOST BINDING IS WRITTEN, SAVED, AND THEN **DROPPED BY THE LOADER** (both families)
+### FF-4 — ⛔ WHY A FINISH DOES NOT FOLLOW A MOVED WALL: **IT HAS NO `sketch`**, NOT "no binding"
 
-The founder also reported (2026-08-24) that moving a perimeter wall did **not** move the floor
-finish. The binding fields are **NOT absent** — `FloorData` declares all three
-(`FloorTypes.ts:312-315`) and `CeilingData` declares the same three (`CeilingTypes.ts:195-199`).
-The defect is in what is written and what survives:
+The founder reported (2026-08-24) that moving a perimeter wall did **not** move the floor finish.
+
+> ⚠ **CORRECTED WITHIN THE HOUR OF FIRST DRAFTING, AND THE FIRST DRAFT IS THE INSTRUCTIVE PART.**
+> This section first blamed the loader dropping `hostRoomId` (FF-4a below). **That is a real defect,
+> but it is NOT the mechanism of the geometry follow, which never consults `hostRoomId`.** The first
+> draft was a confident, plausible, WRONG attribution written before the follow path had been
+> traced — precisely the failure C84 §9 records. **Trace the mechanism before naming the cause.**
+
+**THE GEOMETRY FOLLOW IS LIVE, AND IT KEYS ON `sketch.outerLoop.edges[].hostId`.**
+`FloorHostDependencyTracker` / `CeilingHostDependencyTracker` are constructed and bootstrapped in
+production at `initTools.ts:983-1011`. A wall drag runs `wall.updateBaseline` →
+`WallStore.emit('update', wall, prevState)` → `FinishHostDependencyTracker.onWallUpdated` →
+`reprojectFinishBoundary` → `UpdateFloorBoundaryCommand` / `UpdateCeilingBoundaryCommand`
+(one wall move = one Ctrl+Z).
+
+⛔ **THE FOLLOW REACHES ONLY FINISHES THAT CARRY A `sketch`.**
+`FinishHostDependencyTracker.ts:289` is `if (!rec.sketch) return null;` — a record with no sketch
+is filed under `unattributed` and the cascade cannot see it. **Only `CreateFloorCommand` /
+`CreateCeilingCommand` mint a sketch.** Three production create paths mint none:
+
+| Path | Site | Sketch? |
+|---|---|---|
+| **The plan tool's bus mirror — ⭐ THE FOUNDER'S PATH** | `initTools.ts:2327-2330` (§P3.2-FL) | ⛔ **NO** — writes `coveredRoomIds`, `hostRoomId`, `boundingWallIds: []`, and no `sketch` |
+| Ceiling bus mirror | `ceilingCreatedMirror.ts:164-165` | ⛔ **NO** |
+| Plugin DTO handler | `plugins/floor/src/handlers/CreateFloor.ts:136-139` | ⛔ **NO** |
+| Load path | `CreateFloorCommand.ts:350` / `CreateCeilingCommand.ts:220` | ✅ **YES**, with real `boundingWallIds` |
+
+⭐ **HENCE THE ASYMMETRY THE FOUNDER FELT:** a finish drawn with the plan tool in this session has
+no sketch and cannot follow a wall; the same finish **after a reload** is rebuilt through
+`CreateFloorCommand`, gains a sketch, and *can*. **A finish's ability to follow its walls currently
+depends on whether the project has been reopened since it was drawn.** Residual cases are served
+only by the §L-2090 late-attribution repair, which needs the injected
+`attributeFinishAgainstMovedWall` hook, a `prevState`, and matching `levelId`.
+
+**NORMATIVE:** every creation path MUST mint the sketch, or the finish MUST declare itself
+unattributed. ⛔ **Do not "fix" this by re-running the generator on every wall move** — that would
+discard any manual edit the architect made and is worse than not following.
+
+⚠ `boundingWallIds` on a FLOOR is **written at create and never meaningfully read.** The one
+apparent reader, `DuplicateFloorPlanCommand._carryFinishReferences`, recomputes from the sketch
+edges and explicitly `void`s the parameter it was passed. It is a claim on the record with no
+consumer, it is never refreshed after a wall move, and **the follow does not use it.**
+
+#### FF-4a — the `hostRoomId` half: written, saved, and **dropped by the loader** (both families)
+
+This is the **MATERIALS** follow — `RoomFinishSyncService` (wired `initBuilders.ts:1104-1110`)
+writes only `finishSpec` colour and material, **never a boundary** — plus `RoomFinishResolver`.
+The binding fields are **NOT absent**: `FloorData` declares all three (`FloorTypes.ts:312-315`) and
+`CeilingData` the same three (`CeilingTypes.ts:195-199`). The defect is in what survives:
 
 | Field | Written at create? | Saved? | **Restored on load?** |
 |---|---|---|---|

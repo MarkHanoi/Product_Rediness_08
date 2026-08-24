@@ -1246,6 +1246,11 @@ export class ProjectLoader {
                             finishSpec:   ceiling.finishSpec,
                             holeElements: ceiling.holeElements,
                             createdBy:    ceiling.metadata?.createdBy ?? ceiling.createdBy,
+                            // §FIX-FINISH-HOST-SURVIVES-RELOAD (L-10641) — identical omission and
+                            // identical repair to the floor loader below; see the reasoning there.
+                            // The ceiling's host binding was saved and dropped in the same way.
+                            hostRoomId:   ceiling.hostRoomId,
+                            boundarySource: 'explicit-polygon',
                         });
                         const r = exec(cmd);
                         r.success ? result.loaded++ : this.recordFail(result, `Ceiling ${ceiling.id}`, r);
@@ -1280,6 +1285,24 @@ export class ProjectLoader {
                             serviceHoles: floor.serviceHoles,
                             hostSlabId:   floor.hostSlabId,
                             createdBy:    floor.metadata?.createdBy ?? floor.createdBy ?? 'project-load',
+                            // §FIX-FINISH-HOST-SURVIVES-RELOAD (L-10641) — the host room was
+                            // WRITTEN at create, SAVED by the serializer, and then DROPPED here:
+                            // this payload carried thirteen fields and none of them the binding,
+                            // so `hostRoomId` and `coveredRoomIds` were destroyed by every
+                            // save/load cycle. Any adaptivity built on the host would have worked
+                            // until the first reload and silently stopped afterwards.
+                            hostRoomId:   floor.hostRoomId,
+                            // ⛔ AND THE BOUNDARY MUST NOT BE RE-DERIVED FROM IT. Restoring the
+                            // host re-arms `_resolveBoundary`, whose UNDECLARED branch insets any
+                            // ring that still coincides with the room centreline. On a project
+                            // saved before L-10640 that ring IS a centreline fall-back, so the
+                            // loader would silently "correct" stored geometry on open — hiding the
+                            // defect and changing a scheduled quantity without saying so. A
+                            // persisted ring is by definition the FILE's stated geometry, which is
+                            // exactly what this flag means (see `CreateFloorPayload.boundarySource`),
+                            // so it is stored VERBATIM. Repairing already-damaged saves is a
+                            // migration, and it is owed separately.
+                            boundarySource: 'explicit-polygon',
                         });
                         const r = exec(cmd);
                         r.success ? result.loaded++ : this.recordFail(result, `Floor ${floor.id}`, r);
