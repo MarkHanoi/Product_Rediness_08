@@ -35,6 +35,10 @@ export {
     stairAuthoredLayoutDiffers,
 } from './StairParameterReconciler';
 export type { StairDerivedGeometry } from './StairParameterReconciler';
+// §STAIR-SECOND-RUN-DIRECTION (L-10270) — the founder's "modify the direction of
+// the second run afterwards". Pure derivation + mirror; the ONE gate both the
+// property panel and UpdateStairParametersCommand consult.
+export * from './StairSecondRunDirection';
 export * from './StairTypeStore';
 export * from './StairValidationAuthority';
 export * from './StairGeometryLimits';

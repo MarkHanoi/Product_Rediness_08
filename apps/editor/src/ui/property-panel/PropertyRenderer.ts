@@ -59,7 +59,10 @@ export function renderPropertyRow(
         const inp = document.createElement('input');
         inp.type = 'number';
         inp.className = 'gpp-input' + (errMsg ? ' error' : '');
-        inp.value = currentValue !== undefined && currentValue !== null ? String(currentValue) : '';
+        // §PROP-PANEL-RAW-FLOAT (L-10280) — DISPLAY only. See formatDisplayNumber.
+        inp.value = currentValue !== undefined && currentValue !== null
+            ? (typeof currentValue === 'number' ? formatDisplayNumber(currentValue) : String(currentValue))
+            : '';
         if (descriptor.min !== undefined) inp.min = String(descriptor.min);
         if (descriptor.max !== undefined) inp.max = String(descriptor.max);
         if (descriptor.step !== undefined) inp.step = String(descriptor.step);
@@ -267,8 +270,42 @@ export function renderSection(
     return container;
 }
 
+// ─── §PROP-PANEL-RAW-FLOAT (L-10280) — round for DISPLAY, never for STORAGE ───
+//
+// FOUNDER, from the stair DEFINITION PROPERTIES sheet (2026-08-23):
+//   Riser Height (m)  0.1777777777777778
+//   Tread Depth (m)   0.26961245339649037
+// Seventeen decimal places in a BIM properties panel. Both are DERIVED — riser
+// height is `levelHeight / riserCount` (StairParameterReconciler:75), tread depth
+// is `polylineLength / totalSteps` (StairPathAdapter) — so they are honest
+// binary fractions being printed raw by `String(value)`.
+//
+// ⛔ THE STORED VALUE MUST NOT BE ROUNDED. `riserHeight × riserCount` has to equal
+// the storey height exactly or the top flight does not meet its landing — the
+// invariant `UpdateStairParametersCommand.canExecute` checks against
+// STAIR_CONSTRAINTS.HEIGHT_TOLERANCE. This formats the STRING only; the number in
+// the store is untouched, and an untouched input never enters the draft (the
+// number field writes to `draft` on its `input` event alone), so a rounded
+// display can never be committed by merely LOOKING at the panel.
+//
+// PRECISION: 4 decimals. Not a taste call — 1e-4 is the significance threshold
+// this repo already uses for model-space lengths (C73 §2.3, the `EPS_M` in
+// StairParameterReconciler / StairSecondRunDirection): 0.1 mm in metres. Printing
+// past the precision the model itself treats as identical is printing noise.
+// A value that would round AWAY to zero falls back to 3 significant figures
+// rather than displaying "0" — a nonzero quantity must never read as absent
+// (§CONTEXT-DATA-HONESTY).
+export function formatDisplayNumber(v: number): string {
+    if (!Number.isFinite(v)) return String(v);
+    if (Number.isInteger(v)) return String(v);
+    const rounded = parseFloat(v.toFixed(4));
+    if (rounded === 0 && v !== 0) return String(parseFloat(v.toPrecision(3)));
+    return String(rounded);
+}
+
 function formatValue(val: any): string {
     if (val === undefined || val === null) return '—';
+    if (typeof val === 'number') return formatDisplayNumber(val);
     if (typeof val === 'object') return JSON.stringify(val).substring(0, 60);
     return String(val);
 }

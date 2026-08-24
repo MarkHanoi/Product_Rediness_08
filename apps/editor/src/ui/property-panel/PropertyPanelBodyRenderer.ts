@@ -29,6 +29,10 @@ import { buildCurtainPanelEditor }  from './CurtainPanelEditor';
 // §STAIR-LEVEL-SPAN-CHANGE (L-1533) — Base/Top level were READONLY rows, so the
 // two ends of a stair's span could be seen and never changed (founder item 0.2).
 import { buildStairLevelSpanSection } from './StairLevelSpanWidget';
+// §STAIR-SECOND-RUN-DIRECTION (L-10270) — the founder's 'modify the direction of
+// the second run afterwards'. Same mount point, same reason as the level span:
+// turning a second run is not a field write but a mirror of the flights.
+import { buildStairSecondRunSection } from './StairSecondRunWidget';
 import { buildDoorSection }         from '@pryzm/geometry-door';
 import { buildWindowSection }       from '@pryzm/geometry-window';
 import { RoofPropertySheet }        from './RoofPropertySheet';
@@ -352,6 +356,8 @@ export function _renderElementToContainer(
         // re-solve of the whole stair (see StairLevelSpanWidget's header).
         const stairSpan = buildStairLevelSpanSection(elementData as Record<string, unknown>);
         if (stairSpan) body.appendChild(stairSpan);
+        const stairSecondRun = buildStairSecondRunSection(elementData as Record<string, unknown>);
+        if (stairSecondRun) body.appendChild(stairSecondRun);
     }
 
     const validationBanner = document.createElement('div');

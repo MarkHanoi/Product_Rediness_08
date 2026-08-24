@@ -11,6 +11,17 @@ import { StairData, StairProperties, STAIR_CONSTRAINTS } from '@pryzm/geometry-s
 // The re-solve is pure and lives beside the creation-path span resolver; the
 // accept-set is the three authorities that already exist, never a fourth.
 import { evaluateStairLevelSpanChange } from '@pryzm/geometry-stair';
+// §STAIR-SECOND-RUN-DIRECTION (L-10270) — the ONE gate + the mirror. The panel
+// calls the SAME `stairSecondRunEligibility`, so it cannot offer a flip this
+// command would refuse (the split §STAIR-ONE-LIMIT-AUTHORITY / L-1430 charged
+// this family for once already).
+import {
+    stairSecondRunEligibility,
+    stairSecondRunField,
+    mirrorStairSecondRun,
+    deriveStairSecondRunHandedness,
+    type StairRunHandedness,
+} from '@pryzm/geometry-stair';
 import { GenerateStairGeometryCommand } from './GenerateStairGeometryCommand';
 // §STAIR-VOID-FOLLOWS-SPAN (L-1532, closes L-1432) — a parameter edit must move
 // EVERY void this stair owns, in every horizontal family, on every deck — and
@@ -52,6 +63,27 @@ export interface UpdateStairParametersInput {
          */
         baseLevelId?: string;
         topLevelId?: string;
+        /**
+         * ⭐ §STAIR-SECOND-RUN-DIRECTION (L-10270) — the founder's "modify,
+         * afterwards, the DIRECTION OF THE SECOND RUN" for L and U stairs.
+         *
+         * TWO FIELDS, TWO SHAPES, and they are NOT interchangeable:
+         *   `turnDirection` → L only (which way the 90° turn goes)
+         *   `secondRunSide` → U only (which side the 180° return run sits on)
+         * `stairSecondRunField(shape)` is the ONE table that maps shape → field;
+         * supplying the wrong one for the shape is REFUSED by name, never
+         * silently translated.
+         *
+         * ⛔ NOT A FLAG WRITE. Writing the flag alone is a DEAD CONTROL on any
+         * PATH-AUTHORED stair — `deriveStairGeometry` returns null for those
+         * (`stairHasAuthoredFlightGeometry`) and `reconcilePathAuthoredStairLayout`
+         * preserves the DRAWN flight directions, so the flag would flip in the
+         * record and the mesh would never move. This command therefore writes the
+         * MIRRORED FLIGHTS AND LANDINGS as well (`mirrorStairSecondRun`), which
+         * both reconcilers then reproduce idempotently.
+         */
+        turnDirection?: 'left' | 'right';
+        secondRunSide?: 'left' | 'right';
     };
 }
 
@@ -157,6 +189,12 @@ export class UpdateStairParametersCommand implements Command {
             blockingIssues.push(...span.refusals);
         }
 
+        // §STAIR-SECOND-RUN-DIRECTION (L-10270).
+        const turn = this._resolveSecondRunChange(stair as unknown as StairData);
+        if (turn && !turn.ok) {
+            blockingIssues.push(...turn.refusals);
+        }
+
         if (blockingIssues.length > 0) {
             return { ok: false, reason: blockingIssues[0], blockingIssues, warnings };
         }
@@ -228,6 +266,43 @@ export class UpdateStairParametersCommand implements Command {
         }
         if (this.updates.treadDepth !== undefined) updatedStair.treadDepth = this.updates.treadDepth;
         if (this.updates.typeId !== undefined) updatedStair.typeId = this.updates.typeId;
+
+        // ⭐ §STAIR-SECOND-RUN-DIRECTION (L-10270) — resolved HERE, not read from
+        // canExecute's run, for the same reason the span change is: `redo()` calls
+        // `execute()` directly and never re-validates, and the resolve is a pure
+        // function of the stair the store currently holds.
+        const turn = this._resolveSecondRunChange(stair as unknown as StairData);
+        if (turn && !turn.ok) {
+            // A refusal reaching execute() means the caller skipped canExecute.
+            // Refuse identically rather than writing a flag the geometry ignores.
+            return { success: false, affectedElementIds: [], info: turn.refusals };
+        }
+        if (turn?.ok && turn.mirror) {
+            // ⛔ FLIGHTS AND LANDINGS, NOT JUST THE FLAG. See the `turnDirection`
+            // doc comment on the input type: the flag alone is a dead control on
+            // every path-authored stair.
+            //
+            // ⚠ ORDERING: a span change above may have rewritten `updatedStair.flights`
+            // (new per-flight riser counts). The mirror is applied ON TOP of that —
+            // it reflects DIRECTIONS and POSITIONS and never touches `riserCount`,
+            // so the two edits compose instead of clobbering one another.
+            const spanFlights = updatedStair.flights;
+            updatedStair.flights = turn.mirror.flights.map((f, i) => ({
+                ...f,
+                riserCount: spanFlights?.[i]?.riserCount ?? f.riserCount,
+            }));
+            updatedStair.landings = [...turn.mirror.landings];
+            if (turn.mirror.turnDirection !== undefined) updatedStair.turnDirection = turn.mirror.turnDirection;
+            if (turn.mirror.secondRunSide !== undefined) updatedStair.secondRunSide = turn.mirror.secondRunSide;
+        } else if (turn?.ok && !turn.mirror) {
+            // The stair already faces the requested way AS BUILT. Nothing to mirror —
+            // but re-stamp the flag so a record whose stamp had DRIFTED from its
+            // geometry (the defect StairSecondRunDirection.ts's header measures)
+            // converges instead of staying wrong forever.
+            const field = stairSecondRunField(stair.shape as never);
+            if (field === 'turnDirection') updatedStair.turnDirection = turn.want;
+            else if (field === 'secondRunSide') updatedStair.secondRunSide = turn.want;
+        }
         if (this.updates.properties !== undefined) {
             updatedStair.properties = { ...stair.properties, ...this.updates.properties };
         }
@@ -306,8 +381,86 @@ export class UpdateStairParametersCommand implements Command {
         const GEOMETRY_KEYS = [
             'width', 'riserHeight', 'treadDepth', 'typeId', 'properties',
             'baseLevelId', 'topLevelId',
+            // §STAIR-SECOND-RUN-DIRECTION (L-10270) — both are already declared as
+            // geometry params by `ElementRebuildRegistry` for the GENERIC path; this
+            // list is the same set for THIS path, and the two must not disagree.
+            'turnDirection', 'secondRunSide',
         ] as const;
         return GEOMETRY_KEYS.some(k => this.updates[k] !== undefined);
+    }
+
+    /**
+     * ⭐ §STAIR-SECOND-RUN-DIRECTION (L-10270) — resolve AND validate a second-run
+     * direction change. Returns `null` when the payload asks for none.
+     *
+     * ⛔ THIS FUNCTION OWNS NO RULES, exactly like `_resolveSpanChange` above. The
+     * eligibility question ("does this stair HAVE a turnable second run, and which
+     * field owns it?") is answered by `stairSecondRunEligibility` in
+     * @pryzm/geometry-stair — the SAME function the property panel calls to decide
+     * whether to render a control. One authority, two readers; a second copy here
+     * is the shape that produced §STAIR-ONE-LIMIT-AUTHORITY (L-1430).
+     *
+     * Every refusal names WHAT WAS ASKED and WHAT THIS STAIR IS (the founder's
+     * standing doctrine that a refusal carries both numbers).
+     */
+    private _resolveSecondRunChange(
+        stair: StairData,
+    ): { ok: true; want: StairRunHandedness; mirror: ReturnType<typeof mirrorStairSecondRun> }
+        | { ok: false; refusals: string[] }
+        | null {
+        const wantTurn = this.updates.turnDirection;
+        const wantSide = this.updates.secondRunSide;
+        if (wantTurn === undefined && wantSide === undefined) return null;
+
+        if (wantTurn !== undefined && wantSide !== undefined) {
+            return {
+                ok: false,
+                refusals: [
+                    'turnDirection (L) and secondRunSide (U) were both supplied. A stair has one shape, ' +
+                    'so exactly one of them owns its second run — supply the one that matches the shape.',
+                ],
+            };
+        }
+
+        const elig = stairSecondRunEligibility(stair);
+        if (!elig.ok) return { ok: false, refusals: [elig.reason] };
+
+        // ⛔ The field must match the SHAPE. Silently translating one into the other
+        // would make `secondRunSide` on an L look like it worked while meaning
+        // something the L geometry never reads.
+        const suppliedField = wantTurn !== undefined ? 'turnDirection' : 'secondRunSide';
+        if (suppliedField !== elig.field) {
+            return {
+                ok: false,
+                refusals: [
+                    `"${suppliedField}" does not govern a ${elig.shape}-shaped stair. ` +
+                    `A ${elig.shape} stair's second run is set by "${elig.field}"` +
+                    (elig.field === 'turnDirection'
+                        ? ' (which way the 90° turn goes).'
+                        : ' (which side the 180° return run sits on).'),
+                ],
+            };
+        }
+
+        const want = (wantTurn ?? wantSide) as StairRunHandedness;
+        if (want !== 'left' && want !== 'right') {
+            return { ok: false, refusals: [`"${String(want)}" is not a direction. Use "left" or "right".`] };
+        }
+
+        // `mirrorStairSecondRun` returns null when the stair ALREADY faces `want` as
+        // built — which is a success with nothing to do, not a refusal. The caller
+        // still re-stamps the flag so a drifted record converges.
+        return { ok: true, want, mirror: mirrorStairSecondRun(stair, want) };
+    }
+
+    /**
+     * The second-run handedness this stair is BUILT with — derived from the flight
+     * geometry, never read off the stamped flag. Exposed so a caller (the panel,
+     * a RAC verb, a test) can read back the OUTCOME from the same authority the
+     * command wrote against (C16 §5.1 CA-21).
+     */
+    static builtSecondRunHandedness(stair: StairData): StairRunHandedness | null {
+        return deriveStairSecondRunHandedness(stair);
     }
 
     /**

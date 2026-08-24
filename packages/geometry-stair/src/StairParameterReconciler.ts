@@ -266,12 +266,38 @@ export function reconcilePathAuthoredStairLayout(
             if (isSwitchbackAt(flights, i)) {
                 // U-2: landing is lateral; the next run starts one tread forward and
                 // one width across (StairPathAdapter's switchback startOverride).
+                //
+                // ⭐ §STAIR-SECOND-RUN-DIRECTION (L-10270) — THE SIDE IS READ, NOT
+                // ASSUMED. This was `const p = perpXZ(dir)`, i.e. HARDCODED LEFT,
+                // and it was the last straggler on an axis the rest of the family
+                // already honours: `StairMeshBuilder` §STAIR-U-LANDING-SIDE (:573)
+                // and `StairRailingBuilder` (:903) both mirror to the real side.
+                // A right-folded U therefore had its return run re-chained to the
+                // LEFT by any parameter edit — the run jumped across flight 1 when
+                // the architect changed the width. (Path-authored U stairs are the
+                // common case here: `StairPathAdapter:208` stamps
+                // `secondRunSide ?? 'left'` regardless of what was drawn, so the
+                // STAMP could not be trusted to fix it either.)
+                //
+                // The side is taken from the SIGN OF THE EXISTING LATERAL OFFSET —
+                // the drawn truth, and the identical rule
+                // `deriveStairSecondRunHandedness` states for the U case in
+                // `StairSecondRunDirection.ts`. Only the SIGN is used, so a stale
+                // magnitude (an un-reconciled width) cannot mislead it. Falls back
+                // to the stamped `secondRunSide`, then to LEFT — so a legacy
+                // left-folded stair reconciles byte-identically to before.
                 const p = perpXZ(dir);
+                const priorStart = flights[i + 1]?.startOverride;
+                let sideSign = stair.secondRunSide === 'right' ? -1 : 1;
+                if (priorStart) {
+                    const lateral = (priorStart.x - pos.x) * p.x + (priorStart.z - pos.z) * p.z;
+                    if (Math.abs(lateral) > 1e-4) sideSign = lateral > 0 ? 1 : -1;   // C73 §2.3 — 0.1 mm, METRES.
+                }
                 outLandings.push({ ...existing, depth, center: undefined });
                 pos = {
-                    x: pos.x + dir.x * treads[i] + p.x * width,
+                    x: pos.x + dir.x * treads[i] + p.x * width * sideSign,
                     y: pos.y,
-                    z: pos.z + dir.z * treads[i] + p.z * width,
+                    z: pos.z + dir.z * treads[i] + p.z * width * sideSign,
                 };
             } else {
                 const center: Vec3 = {
