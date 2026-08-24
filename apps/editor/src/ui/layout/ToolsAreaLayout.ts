@@ -21,7 +21,13 @@ import {
 } from '@app/engine/views/plantools/stairByWalls';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { WallDrawingMode } from '@pryzm/geometry-wall';
-import { WallModePicker, type WallPickerMode } from '../WallModePicker';
+// §FIX-ORTHO-CANNOT-FALL-BACK-TO-LINEAR — the `WallPickerMode` type moved WITH the
+// mapper that was the only thing here using it; it is still exported from
+// `../WallModePicker` and still the plan surface's vocabulary. Nothing was deleted.
+import { WallModePicker } from '../WallModePicker';
+// The plan/3-D mode bridge, exhaustive and loud. See its header for why two
+// vocabularies exist for one concept and why that is still open debt.
+import { wallPickerModeFromDrawingMode } from './wallPickerModeFromDrawingMode';
 import { CurtainWallModePicker, type CurtainWallPickerMode } from '../CurtainWallModePicker';
 import { CurtainWallDrawingHUD } from '../CurtainWallDrawingHUD';
 import { DoorModePicker } from '../DoorModePicker';
@@ -578,12 +584,20 @@ export function mountToolsArea(
         });
     };
 
-    /** Map 3D WallDrawingMode enum → WallPickerMode string read by plan-view handlers. */
-    const _drawingModeToPickerMode = (m: WallDrawingMode): WallPickerMode => {
-        if (m === WallDrawingMode.POLYLINE_ORTHO) return 'ortho';
-        if (m === WallDrawingMode.POLYLINE_ARC)   return 'curved';
-        return 'linear';
-    };
+    /**
+     * Map 3D WallDrawingMode enum → WallPickerMode string read by plan-view handlers.
+     *
+     * ⭐ §FIX-ORTHO-CANNOT-FALL-BACK-TO-LINEAR (founder 2026-08-24) — this WAS a
+     * three-line closure ending `return 'linear'`, and that bare fall-through silently
+     * answered "I do not recognise this mode" with the name of the LEAST-CONSTRAINED
+     * one. `LINE_ORTHO` — a real ortho mode the 3-D tool honours — landed on it, so
+     * one switch armed ORTHO in the 3-D pane and FREE-ANGLE in the plan pane. It now
+     * lives in `wallPickerModeFromDrawingMode.ts` as an EXHAUSTIVE `Record` over the
+     * enum (a new member without a picker string is a compile error) fronted by the
+     * shared `resolveWallDrawingMode`, which reports an unrecognised spelling by name.
+     * The aliasing kept here so existing call sites read unchanged.
+     */
+    const _drawingModeToPickerMode = wallPickerModeFromDrawingMode;
 
     const _origActivateWall = service.activateWallTool.bind(service);
     service.activateWallTool = (mode: WallDrawingMode) => {
