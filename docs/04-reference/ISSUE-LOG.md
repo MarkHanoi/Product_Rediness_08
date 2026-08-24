@@ -52180,3 +52180,171 @@ family uses (`_snapOrtho`, `_applyOrthoLock`). That found every path that matter
 **and missed three implementations of the same idea under three other names** — one of which
 (`resolveOrthoSnap`) is a real user-facing ortho lock on a real drawing surface. **Grep the IDEA,
 not the identifier**, when the question is "how many places answer this?".
+
+---
+
+## L-10802 — ⛔ **THE WALL LAYER PREDICTED A ROOM CONSEQUENCE IT NEVER MEASURED — in a commit this lane had shipped an hour earlier** ✅ FIXED (GRAPH43, 2026-08-24)
+
+Self-correction on `1bf3a790`, prompted by lane ROOM44's relay.
+
+Two sentences in `WallMoveReweldService.ts` ended *"Expect a room to open downstream."*
+⛔ **That is the WALL layer predicting a ROOM consequence it never measured**, and it can simply be
+wrong: a broken junction whose region was already open, or whose partition bounded no loop, opens no
+room at all. A prediction stated in the voice of a measurement is §CONTEXT-DATA-HONESTY verbatim.
+
+⭐ **The room vocabulary already exists and is somebody else's**: `§ROOM-LOSS-CENSUS`
+(`packages/command-registry/src/rooms/roomLossCensus.ts`, `308f81c1`, C94 §TOBE.5). It fires where
+rooms actually die and reports the **authored-vs-auto split alongside every count** — because
+*"deleted 3 rooms"* and *"deleted 3 auto-numbered, never-touched rooms"* argue for opposite answers.
+
+⚠ **ROOM44 measured why a SECOND implementation is worse than none**: its own first attempt derived
+authorship from `Object.keys(room.finishes).length > 0` and **every untouched room came back
+AUTHORED**, because `RoomStore` writes all three finish surfaces explicitly, `undefined` included.
+All 23 of its unit arms passed — the fixtures shared the wrong assumption.
+
+**Resolution — OPTION 1: the wall side composes NO room-loss sentence.** It reports the WALL fact
+(which junctions it left unrepaired, by how many mm, that it has no arm for them) and **cites**
+`§ROOM-LOSS-CENSUS` by name. Two censuses, two questions.
+
+⛔ **And the LAYER is not what forbids it.** ROOM44 asked for this to be checked rather than assumed;
+measured: `@pryzm/command-registry` is **already** a declared dependency of `@pryzm/geometry-wall`
+with live imports in `WallTool.ts`, `OpeningTool.ts` and `RoomBoundingLineTool.ts`. Importing
+`roomLossCensus` would add **no new edge**. It is forbidden because **one fact must have one
+authority**, not because the import would fail.
+
+**Commit:** `8e3699ff`. Pinned by `§NO-ROOM-VOCABULARY` (no prediction AND no room count / m² / room
+name, in any of the three surfaces).
+
+---
+
+## L-10803 — ⭐⭐ **"I WAS EXPECTING THE WALL TO EXTEND" — the wall now does. Rung 1 of the repair ladder, reached at last** ✅ FIXED (GRAPH43, 2026-08-24)
+
+Founder ruling, 2026-08-24: **a declared relationship is INTENT — restore it.**
+
+The EXTEND capability had existed and been correct for months (`computeStemFollow`). It never ran for
+a **guest-side T** — the SUBJECT's own endpoint on a partner's body — because the partner was binned
+as not-applicable **before `classifyWeldAuthorship` was ever reached** (L-10800).
+⭐ **The missing capability was an ORDERING, not a geometry primitive.**
+
+⛔ **EXACTLY ONE REPAIR IS PERMITTED: the host GROWS ALONG ITS OWN LINE.** It is never slid sideways
+to chase the subject — that is a TRANSLATION of a wall the user did not touch, C83 §10.2.2, and
+**L-922's exact signature** (an interior move dragged a perimeter baseline 2.19 m and re-seated three
+hosted doors, one clamped 0.541 → 0.000 m). A perpendicular break is **REPORTED and nothing moves**
+(`§NO-SLIDE`).
+
+### ⭐⭐ AND THE `MAX_FOLLOW_GAIN` GUARD THE BRIEF DEMANDED IS UNREACHABLE — proven, not assumed
+
+A fixture that TRIPS it was attempted; **none exists.** `foot` is the ORTHOGONAL PROJECTION of the
+subject's endpoint onto the partner's line, and **a projection is a CONTRACTION**: the foot travels
+`|v|·cosθ ≤ |v| ≤ movedDisplacement`, and the old foot lay ON the body, so the grow ≤ the foot's
+travel. **Therefore extension ≤ the user's own drag — a gain of ≤1×, never 3×.**
+
+Measured over a 6-angle × 4-drag sweep (0–80°, 0.2–3.0 m): **every entry at ratio 0.667, none above
+1.0.** That is a STRONGER property than the guard — the corner arm needed its 3× cap because
+`1/sinθ` let a 2 m drag move an untouched wall **14.14 m**. ⚠ The guard is **retained** as a backstop
+against a future change to how `foot` is derived, documented as currently unreachable. ⛔ Do not
+delete it as dead code and do not write a test claiming to exercise it.
+
+**Commit:** `aa1eeba1`. `moveReweldPreflight` gains `'host-extension'` alongside the two existing
+roles — ⛔ re-testing it by raw endpoint displacement would classify a GROW as a DRAG.
+⭐ `§SIGNATURE`: the founder's exact gesture now repairs **BOTH** partitions, at one undo.
+
+---
+
+## L-10804 — ⭐⭐ **"the wall that moved did not adapt to the new shape driven by the angle" is L-10800 seen from the SUBJECT's side** ✅ CLOSED BY `aa1eeba1` (GRAPH43, 2026-08-24)
+
+> *"a wall moved along - but **one adjacent wall did not follow correctly** and **the wall that moved
+> did not adapt to the new shape driven by the angle**"* (2026-08-24, testing `0589a36c`)
+
+Briefed as possibly two defects. **Measured: one.**
+
+| Fact | Value | Source |
+|---|---|---|
+| Endpoint-cluster + T-projection band | **`JUNCTION_BAND_FLOOR_M = 0.20 m`** | `JunctionResolverV2.ts:225` |
+| What falling outside it does | *"those drifted corner endpoints fell into SEPARATE single-endpoint clusters → **no junction → BOTH walls got a square cap** → the corner opened"* | same file, §RESI-L0-CORNER-CLOSE |
+
+A guest-side T left open by 600 mm is **3× outside that band**, so the junction ceases to exist for
+the resolver — and both symptoms follow from that one fact: the **partner** never follows, **and** the
+**subject** gets a square cap instead of an end condition cut for the new angle.
+⭐ `aa1eeba1` closes the gap to **0 mm** — back inside the band.
+
+**⛔ Ruled OUT, recorded so nobody re-opens them:** the re-weld's empty-plan early `return` (it is in a
+SUBSCRIBER; `WallRebuildCoordinator` is a different subscriber and still runs); the per-wall build
+memo (`_buildKey` folds `composeWallGeometryHash(wall, joinData, …)` and `joinData` **is** the
+resolved junction data); render-staleness (plan **and** 3-D were both wrong in his screenshot).
+
+⚠ **NOT MEASURED:** `§SAME-ROOT` asserts the gap against the resolver's **published** band, not by
+executing `resolveJunctions`. *"The mitre is now cut at the new angle"* is **inferred from the band**.
+
+**Commit:** `444caade`. **Contract:** C85 §10.8.6.
+
+---
+
+## L-10805 — **A wall move may be refused only on IMPOSSIBLE or INCUMBENT — the founder's ruling was TRUE BY ACCIDENT and stated NOWHERE** ✅ FIXED (GRAPH43, 2026-08-24)
+
+Founder ruling, 2026-08-24: a move that destroys a room is **INADVISABLE, not IMPOSSIBLE — proceed
+and report.** ⛔ *"Do NOT refuse the move."* Merging two rooms by moving a wall is a legitimate
+architectural act; geometry cannot tell it from an accident, and refusing would block real work.
+
+⭐ **THE HONEST FINDING: THERE WAS NOTHING TO RECLASSIFY.** Measured before writing any code — every
+existing refusal was already on the right side of the ruling, and `WallMoveClashProposal`'s two arms
+are the incumbent breach (C83 §10.2.2) and a wall∩opening clash. Neither refuses on a consequence.
+
+⛔ **And that is exactly why it shipped.** The rule was correct *by accident* and stated *nowhere* —
+a success criterion with no term for the property that matters. Nothing stopped a future lane adding
+`ROOM_WOULD_BE_LOST` as a refusal and quietly reversing a founder ruling.
+
+`MoveRefusalGround = 'IMPOSSIBLE' | 'INCUMBENT'` is now the closed set of permitted grounds;
+`moveRefusalGround()` is exhaustive by construction, so **adding a refusal reason without classifying
+it is a COMPILE ERROR**. A name-based arm additionally fails any reason reading as a room / loop /
+region / topology outcome — ⚠ name-based, and the limitation is stated rather than hidden.
+
+**Commit:** `c212d537`. **Contract:** C85 §10.8.3 W-L-6, §10.8.4 Ruling 2.
+
+---
+
+## L-10806 — ⛔⛔ **`systemTypeId` was classified NON-GEOMETRIC with a stated reason, and the reason was false: the FOURTH recurrence of §DIAG-INVALIDATION-COMPLETENESS** ✅ FIXED (GRAPH43, 2026-08-24)
+
+The `joinedTo` staleness **SOURCE**, measured — and it is **not** the mechanism the lane was briefed
+with.
+
+⛔ **WHAT THE BRIEFING SAID, AND WHY IT IS NOT THE DEFECT.** *"`writeJoinedToEdgesForLevel` sits after
+a no-progress guard's `return`."* TRUE (guard `:1677`, writer `:1958`) but **not by itself a
+defect**: the guard fires only when the level's wall signature is byte-identical, and if no wall
+moved then no junction moved either. **The defect is that the gate cannot SEE a change that does move
+junctions.**
+
+⭐⭐ **THE FIELD WAS NOT MERELY OMITTED — IT WAS CLASSIFIED, AND WRONGLY.**
+`LevelSignatureCompleteness.test.ts` listed it under `nonGeometric`:
+
+```
+'systemTypeId',   // resolves to layers/thickness, both covered
+```
+
+**That reason is measurably false.** `systemTypeId` is threaded into the V2 junction solve as its OWN
+field (`WallRebuildCoordinator.ts:1909`, §FIX-WALL-V2-EXISTING-CORNER-IMMUTABLE / L-130 — *"so it
+freezes an existing same-type L-corner when a DIFFERENT-type wall joins"*) and `JunctionResolverV2`
+compares it directly (`sysTypeOf`, `:418`). **Identical layers + identical thickness + different
+system type ⇒ a DIFFERENT resolved corner.**
+
+⚠ **A wrong classification with a stated reason is worse than an omission** — an omission reads as an
+oversight; a reason reads as a decision somebody already checked.
+⚠ **And it was never exercised**: `baseWall()` did not carry the field, so the FIELD INVENTORY passed
+**vacuously** over its own wrong entry.
+
+⭐ **The consequence reaches further than pixels.** The gate is UPSTREAM of everything: when `_flush`
+returns on it, it never reaches `writeJoinedToEdgesForLevel`, so the `joinedTo` graph keeps edges
+derived under the old system type. [C71 §3.4](../02-decisions/contracts/C71-GRAPH-AND-TOPOLOGY.md)
+makes stale-edge removal *"part of the writer, not a follow-up"* — **and a writer that never runs
+cannot remove anything.**
+
+⛔ **So the fix is in the SIGNATURE, not in the guard's placement.** Moving the writer above the
+`return` would re-open the self-re-arming flush loop L-97 exists to break (ADR-0129). Nothing was
+moved. ⚠ Conservative by construction: adding a field can only make `anyProgress` TRUE more often,
+and a system type does not oscillate.
+
+**The fourth recurrence** — after §WALL-FINISH-RENDERS (L-1670), §WALL-RAKE-INVALIDATION (ADR-0310)
+and §WALL-JOIN-LOAD-DEFER (L-1490). **That test file exists precisely to close the class, and the
+class defeated it by supplying a plausible reason.**
+
+**Commit:** `734d632c`.
