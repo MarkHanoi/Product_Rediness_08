@@ -62,14 +62,23 @@ const UNKNOWN: Extract<OpenedRegionFinding, { kind: 'position-unknown' }> = {
     detail: 'Bedroom (24.0 m²) … Which one you meant to keep is genuinely unknown.',
 };
 
-/** A stand-in chat surface plus a stand-in bus, so the whole ask→dispatch path runs. */
-function harness(answer: boolean | undefined) {
+/**
+ * A stand-in chat surface plus a stand-in bus, so the whole ask→dispatch path runs.
+ *
+ * `rooms` (§WD32-B, L-10811) is the stand-in `window.roomStore`. `undefined` publishes
+ * NO store at all — which is the pre-existing behaviour every arm above relies on, and
+ * is also the third state `originalRecordSurvives` must distinguish from "removed".
+ */
+function harness(answer: boolean | undefined, rooms?: readonly string[]) {
     const said: string[] = [];
     const asked: string[] = [];
     const executeCommand = vi.fn(async () => ({ success: true }));
     (globalThis as { window?: unknown }).window = {
         runtime: { bus: { executeCommand } },
         bimManager: { getLevelById: () => ({ height: 3.0 }) },
+        ...(rooms
+            ? { roomStore: { getById: (id: string) => (rooms.includes(id) ? { id } : undefined) } }
+            : {}),
     };
     if (answer !== undefined) {
         registerChatPromptHost({
@@ -471,5 +480,84 @@ describe('chatPromptHost — the accessor queues rather than dropping a line', (
         const said: string[] = [];
         registerChatPromptHost({ say: t => { said.push(t); }, confirm: async () => false });
         expect(said).toEqual(['noticed something']);
+    });
+});
+
+/**
+ * §WD32-B-DO-NOT-NAME-WHAT-WAS-NOT-RESTORED (L-10811) — C94 §TOBE.6 RM-2.
+ *
+ * ## THE DEFECT THESE ARMS PIN
+ *
+ * The success line was, unconditionally:
+ *
+ *     Done — an interior wall now closes Room 00-004. Ctrl+Z undoes it in one step.
+ *
+ * `finding.roomName` comes from the BEFORE snapshot. When the region lost its identity
+ * claim, that record was REMOVED with no snapshot at `ReDetectRoomsCommand.ts:105-112`,
+ * and the region re-closes as a fresh `crypto.randomUUID()` with an empty name
+ * (`RoomDetectionEngine.ts:511,515,516`). ⛔ **So the product announced it had closed
+ * "Room 00-004" at the exact moment no Room 00-004 existed anywhere in the model** —
+ * C78 §2 failing in the one sentence the user actually reads. C94 §TOBE.1.2.
+ *
+ * ## WHY THREE ARMS AND NOT ONE
+ *
+ * The old line was not always wrong. When two regions merge, exactly one keeps its
+ * record (`RoomDetectionEngine.ts:1129-1131`, one claim per existing room); if this
+ * finding's room is the keeper, naming it is simply true. And a harness with no store
+ * at all must not be read as "the room was removed" — failure and emptiness are not the
+ * same value (C74; C94 §14 R4). Each arm asserts a MEASURED state of the store, never a
+ * `success: true`.
+ */
+describe('§WD32-B — the success line may not name a record the recovery did not restore', () => {
+    it('⛔ RED BEFORE THE FIX: says the name/number/occupancy were NOT restored when the record is gone', async () => {
+        // The store is REACHABLE and does NOT hold room_A — i.e. the re-derivation
+        // dropped it. This is the founder's measured case.
+        const h = harness(true, []);
+        await presentOpenedRegion(OPENED);
+
+        const done = h.said.find(t => t.startsWith('Done —'));
+        expect(done).toBeDefined();
+        // The defect, stated exactly: it must not claim the named room is what closed.
+        expect(done).not.toContain('now closes Living');
+        // And it must say what was actually lost, naming it so the user can recognise it.
+        expect(done).toContain('NEW room');
+        expect(done).toContain('Living');
+        expect(done).toContain('were not restored');
+        // ⛔ It must NOT promise the name back — the tombstone (C94 RM-3) is not built.
+        expect(done).not.toMatch(/restore it\?|bring it back|recovered/i);
+    });
+
+    it('still names the room when the record genuinely survived the merge', async () => {
+        const h = harness(true, ['room_A']);
+        await presentOpenedRegion(OPENED);
+
+        const done = h.said.find(t => t.startsWith('Done —'));
+        expect(done).toContain('now closes Living');
+        expect(done).not.toContain('were not restored');
+    });
+
+    it('claims NEITHER outcome when there is no store to ask — an unknown is not a loss', async () => {
+        // No `rooms` argument ⇒ no `window.roomStore` at all (a node harness, or a boot
+        // ordering where it is not yet published). `undefined`, not `false`.
+        const h = harness(true);
+        await presentOpenedRegion(OPENED);
+
+        const done = h.said.find(t => t.startsWith('Done —'));
+        expect(done).toBeDefined();
+        expect(done).not.toContain('now closes Living');   // not established
+        expect(done).not.toContain('were not restored');   // also not established
+        expect(done).toContain('closes that region');
+        expect(done).toContain('Ctrl+Z');
+    });
+
+    it('the wall is still dispatched in every case — this changes wording, never behaviour', async () => {
+        for (const rooms of [undefined, [] as string[], ['room_A']]) {
+            __resetOpenedRegionProposalState();
+            __resetChatPromptHost();
+            const h = harness(true, rooms);
+            await presentOpenedRegion(OPENED);
+            expect(h.executeCommand).toHaveBeenCalledTimes(1);
+            expect(h.executeCommand.mock.calls[0][0]).toBe('wall.create');
+        }
     });
 });

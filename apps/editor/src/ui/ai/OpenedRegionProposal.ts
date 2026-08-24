@@ -108,6 +108,10 @@ function activeProjectId(): string | null {
 function win(): {
     bimManager?: { getLevelById?: (id: string) => { height?: number } | undefined };
     runtime?: { bus?: { executeCommand?: (type: string, payload: unknown) => Promise<unknown> } };
+    // §WD32-B-DO-NOT-NAME-WHAT-WAS-NOT-RESTORED (L-10811) — read-only, one lookup,
+    // used solely to decide whether the success line may name the room. See
+    // `originalRecordSurvives`.
+    roomStore?: { getById?: (id: string) => unknown };
 } | undefined {
     return typeof window === 'undefined' ? undefined : (window as never);
 }
@@ -122,6 +126,33 @@ function gapKey(f: OpenedRegionFinding): string {
 function levelHeight(levelId: string): number | undefined {
     try {
         return win()?.bimManager?.getLevelById?.(levelId)?.height;
+    } catch {
+        return undefined;
+    }
+}
+
+/**
+ * §WD32-B-DO-NOT-NAME-WHAT-WAS-NOT-RESTORED (L-10811) — does the room this finding is
+ * ABOUT still exist as a record?
+ *
+ * ⭐ THREE-VALUED ON PURPOSE, and the third value is the point.
+ *   `true`      — the record is still in the store; naming it is truthful.
+ *   `false`     — it was removed by the re-derivation; naming it would assert a
+ *                 restoration that did not happen.
+ *   `undefined` — there is no store to ask (a node harness, or a boot ordering where
+ *                 `window.roomStore` is not yet published). **NOT the same as `false`.**
+ *                 Collapsing it into `false` would state a loss that was never measured
+ *                 — the §CONTEXT-DATA-HONESTY rule this contract family keeps paying
+ *                 for: failure and emptiness are not the same value (C74; C94 §14 R4).
+ *
+ * PURE apart from the single lookup; never throws (a store that rejects an unknown id
+ * is answering, not failing, and an accessor that is absent is not an error here).
+ */
+function originalRecordSurvives(roomId: string): boolean | undefined {
+    try {
+        const getById = win()?.roomStore?.getById;
+        if (typeof getById !== 'function') return undefined;
+        return getById(roomId) != null;
     } catch {
         return undefined;
     }
@@ -325,9 +356,47 @@ export async function presentOpenedRegion(finding: OpenedRegionFinding): Promise
         // P6 — the ordinary canonical verb on the ordinary bus. One command, one
         // undo entry, identical to drawing the wall by hand.
         await bus.executeCommand(offer.commandType, offer.payload);
+        // ⭐⭐ §WD32-B-DO-NOT-NAME-WHAT-WAS-NOT-RESTORED (L-10811) — C94 §TOBE.6 RM-2.
+        //
+        // This line USED TO READ, unconditionally:
+        //
+        //     `Done — an interior wall now closes ${finding.roomName}.`
+        //
+        // ⛔ `finding.roomName` is read from the BEFORE snapshot — the room record as
+        // it was *prior* to the re-derivation that produced this finding. When that
+        // record lost its identity claim it was REMOVED, with no snapshot, at
+        // `ReDetectRoomsCommand.ts:105-112`, and the region now re-closes as a FRESH
+        // `crypto.randomUUID()` with an empty name and number
+        // (`RoomDetectionEngine.ts:511,515,516`). So the product announced that it had
+        // closed "Room 00-004" at the exact moment there was no Room 00-004 anywhere
+        // in the model — C78 §2 (element identity) failing in the one sentence the
+        // user is actually reading. Measured and recorded as C94 §TOBE.1.2.
+        //
+        // ⚠ THE OLD LINE WAS NOT ALWAYS WRONG, which is why this is a BRANCH and not
+        // a deletion. When two regions merge, exactly one of them keeps its record
+        // (the `used` set at `RoomDetectionEngine.ts:1129-1131` allows one claim per
+        // existing room). If THIS finding's room is the one that kept it, naming it is
+        // simply true. One store lookup is what separates the two cases, and guessing
+        // either way would be a §CONTEXT-DATA-HONESTY failure in the other direction.
+        //
+        // ⛔ It deliberately does NOT promise the name back. Restoring the authored
+        // meaning of a dropped room is C94 §TOBE.6 RM-3 (the tombstone), it is not
+        // built, and a sentence that implied it was would be worse than this one.
+        const survived = originalRecordSurvives(finding.roomId);
         chatSay(
-            `Done — an interior wall now closes ${finding.roomName}. ` +
-            `Ctrl+Z undoes it in one step.`,
+            survived === true
+                ? `Done — an interior wall now closes ${finding.roomName}. ` +
+                  `Ctrl+Z undoes it in one step.`
+                : survived === false
+                    ? `Done — an interior wall now closes that region. ` +
+                      `It comes back as a NEW room: the name, number and occupancy that ` +
+                      `${finding.roomName} carried were not restored with it. ` +
+                      `Ctrl+Z undoes the wall in one step.`
+                    // `undefined` = the store could not be reached, so neither branch is
+                    // established. Say only what IS established (C74 — an unknown is not
+                    // a no), and name neither outcome.
+                    : `Done — an interior wall now closes that region. ` +
+                      `Ctrl+Z undoes it in one step.`,
         );
         console.log(
             `[OpenedRegionProposal] §OPENED-REGION accepted: wall.create on level ${finding.levelId} ` +
