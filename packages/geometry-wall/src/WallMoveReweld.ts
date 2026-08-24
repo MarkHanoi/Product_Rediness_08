@@ -974,11 +974,42 @@ export type MoveReweldNotApplicableReason =
      * changed; the DECISION did not.** Every partner that reaches this line was
      * being dropped identically before the code that names it existed.
      *
-     * ⭐ SO WHAT IT ACTUALLY TELLS YOU: if a wall looks unadapted ON SCREEN while
-     * this line reports `(0/500 mm)`, the store is RIGHT and the defect is
-     * DOWNSTREAM OF THE CASCADE — in rendering, invalidation, or the mesh cache.
-     * Do not go looking for it in this engine. The `summariseNotApplicable`
-     * sentence says exactly that, so the next reader cannot repeat the mistake.
+     * ⛔⛔ **CORRECTED 2026-08-24 (lane WELD52, ISSUE-LOG L-10830). THE PARAGRAPH
+     * THAT STOOD HERE NAMED THE WRONG SUBSYSTEM AND COST AN HOUR.** It read:
+     *
+     * > *"⭐ SO WHAT IT ACTUALLY TELLS YOU: if a wall looks unadapted ON SCREEN
+     * > while this line reports `(0/500 mm)`, the store is RIGHT and the defect is
+     * > DOWNSTREAM OF THE CASCADE — in rendering, invalidation, or the mesh cache.
+     * > Do not go looking for it in this engine."*
+     *
+     * The founder read that on 2026-08-24 and briefed a lane onto GPU
+     * invalidation. **The weld had been performed by a DIFFERENT SERVICE**
+     * (`SlabWallConnectivityService`), and this arm was reporting its footprint.
+     * The store being right was the ONLY true clause; the inference drawn from it
+     * was not, and the previous revision put it in the console as a conclusion.
+     *
+     * ⭐ WHAT IT ACTUALLY TELLS YOU, LIMITED TO WHAT IS MEASURED: a partner
+     * endpoint is within `weldTol` of the subject's POST-move line and was NOT
+     * within `weldTol` of its PRE-move line. That is the whole finding.
+     *
+     * ⛔ WHO PUT IT THERE IS NOT MEASURED AND MUST NOT BE ASSERTED.
+     * `MoveReweldPartner` (:90) carries a CURRENT baseline and no pre-gesture
+     * pose, so *"it never left the new line"*, *"the subject slid onto a
+     * stationary partner"* and *"an earlier authority moved it onto the new line
+     * THIS gesture"* are indistinguishable from this measurement. Three causes,
+     * one number.
+     *
+     * ⭐ THE ONE CANDIDATE THAT IS EVIDENCED RATHER THAN GUESSED:
+     * `SlabWallConnectivityService` subscribes to the same `wallStore` 'update'
+     * event and is constructed FIRST **on purpose** — `engineLauncher.ts` §03
+     * says so in as many words (*"Constructed AFTER the slab service so its
+     * subscriber runs second: corner welds land first, and already-seated
+     * partners fall below computeMoveReweld's displacement floor"*), and
+     * `WallStore.subscribe` is FIFO. **This outcome is therefore the DESIGNED,
+     * PREDICTED result of a declared ordering on any slab-loop corner** — which
+     * is what makes it a success, and also why `EMPTY-PLAN` over such partners is
+     * a rival service's footprint rather than a failure. `summariseNotApplicable`
+     * now says that and stops there.
      */
     | 'PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT'
     /**

@@ -390,11 +390,45 @@ export function summariseNotApplicable(n: MoveReweldNotApplicable): string {
         return `${n.partnerId}:${n.reason}${nums} ⇒ the moved wall's endpoint is ON this partner's `
              + `BODY at the NEW pose: the T is CLOSED IN THE STORE and needs no re-weld`;
     }
+    // ⭐⭐ §WELD52-SAY-WHAT-YOU-MEASURED (L-10830) — THIS SENTENCE NAMED A
+    //    SUBSYSTEM IT CANNOT OBSERVE, AND THE NAME WAS WRONG.
+    //
+    // It used to end: *"If it looks unadapted on screen, the defect is DOWNSTREAM
+    // of this cascade (render / invalidation / mesh cache), NOT in the weld
+    // engine"*. The founder read exactly that on 2026-08-24, concluded the store
+    // was correct and the renderer stale, and briefed a lane onto GPU
+    // invalidation. ⛔ THE WELD HAD BEEN PERFORMED BY A DIFFERENT SERVICE. An
+    // hour went to the wrong subsystem on the authority of a sentence that had
+    // measured none of it.
+    //
+    // ⛔ WHAT THIS ENGINE CAN AND CANNOT SEE, STATED RATHER THAN ASSUMED.
+    // `MoveReweldPartner` carries the partner's CURRENT baseline and NO
+    // pre-gesture pose (WallMoveReweld.ts:92). So "this partner never left the
+    // new line" and "an earlier authority moved it ONTO the new line during THIS
+    // gesture" are the same measurement here. The engine is not entitled to pick
+    // one, and it must certainly not skip both and name a third.
+    //
+    // ⭐ IT CAN, HOWEVER, NAME THE CANDIDATE — because the ordering is DECLARED,
+    // not guessed. `SlabWallConnectivityService` subscribes to the same
+    // `wallStore` 'update' event and is constructed FIRST, deliberately
+    // (`engineLauncher.ts` §03: *"Constructed AFTER the slab service so its
+    // subscriber runs second: corner welds land first"*). `WallStore.subscribe`
+    // is FIFO (`:1725` push / `:1769` for-of). On a slab-loop corner its cascade
+    // has therefore ALREADY COMMITTED by the time this line prints, and an exact
+    // 0 mm reading is that cascade's fingerprint — a computed intersection — not
+    // a coincidence. That is a place to LOOK, offered with its evidence; it is
+    // not a verdict, and the sentence must never harden into one.
     if (n.reason === 'PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT') {
-        return `${n.partnerId}:${n.reason}${nums} ⇒ this partner is ALREADY ON the moved wall's `
-             + `NEW line: the join is CORRECT IN THE STORE and needs no re-weld. If it looks `
-             + `unadapted on screen, the defect is DOWNSTREAM of this cascade (render / `
-             + `invalidation / mesh cache), NOT in the weld engine`;
+        return `${n.partnerId}:${n.reason}${nums} ⇒ MEASURED: this partner's endpoint is on the `
+             + `moved wall's NEW line and was NOT on its PRE-move line. The join is CLOSED IN THE `
+             + `STORE and this engine has nothing to re-weld. ⚠ WHO CLOSED IT IS NOT MEASURED HERE: `
+             + `this engine sees no pre-gesture pose for a partner, so "it never left the new line" `
+             + `and "another authority moved it there THIS gesture" are indistinguishable from the `
+             + `number above. ⛔ Do NOT read this as a render / invalidation / mesh-cache defect — `
+             + `this sentence asserted exactly that until L-10830 and it was wrong. LOOK FIRST at `
+             + `the other weld authority on this same gesture: SlabWallConnectivityService shares `
+             + `this wallStore 'update' and is constructed FIRST (engineLauncher §03), so on a `
+             + `slab-loop corner its cascade has already committed when this prints`;
     }
     return `${n.partnerId}:${n.reason}${nums}`;
 }

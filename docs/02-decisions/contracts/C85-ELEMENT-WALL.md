@@ -1573,8 +1573,37 @@ junction-resolver suite.
   snapping. No justification for it as a weld number exists anywhere in this contract.
 - **The 3D-vs-plan divergence.** `PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT(0/500 mm)` is a **success**
   — the store is right — while the founder reported an unadapted wall in 3D and a correct one in
-  plan. The engine's own text already routes this *"DOWNSTREAM … render / invalidation / mesh
-  cache"*. **Nobody has measured it there.** It is not a weld defect and must not be chased as one.
+  plan.
+
+  > ⛔ **CORRECTED 2026-08-24 (lane WELD52, ISSUE-LOG L-10830). THIS BULLET ROUTED THE READER TO
+  > THE WRONG SUBSYSTEM, AND SOMEBODY FOLLOWED IT.** It ended: *"The engine's own text already
+  > routes this «DOWNSTREAM … render / invalidation / mesh cache». **Nobody has measured it
+  > there.** It is not a weld defect and must not be chased as one."*
+  >
+  > The founder read the engine's text on `bc3aa61b`, concluded the store was correct and the
+  > renderer stale, and briefed a lane onto GPU invalidation. **The weld had been performed by a
+  > DIFFERENT SERVICE.** The bullet's own hedge — *"nobody has measured it there"* — was the true
+  > half, and it was printed underneath a routing instruction that overrode it.
+  >
+  > ⭐ **THE FIRST PLACE TO LOOK IS THE OTHER WELD AUTHORITY, NOT THE RENDERER.**
+  > `SlabWallConnectivityService` subscribes to the same `wallStore` 'update' event as
+  > `WallMoveReweldService` and is constructed FIRST **on purpose** — `engineLauncher.ts` §03 says
+  > so in as many words (*"Constructed AFTER the slab service so its subscriber runs second:
+  > corner welds land first, and already-seated partners fall below computeMoveReweld's
+  > displacement floor"*), and `WallStore.subscribe` is FIFO. So on any slab-loop corner this
+  > outcome is the **DESIGNED, PREDICTED** result of a declared ordering, and `EMPTY-PLAN` over
+  > such partners is **the first authority's footprint, observed by the second** — not a failure
+  > of either, and not evidence about rendering.
+  >
+  > Measured by `packages/command-registry/__tests__/WELD52TwoWeldAuthorities.measure.test.ts`:
+  > one gesture, **one dispatch** from the slab service, both slab-loop partners seated on the
+  > moved wall's new line at **0 mm**. `summariseNotApplicable` no longer asserts a cause it
+  > cannot observe (`WELD52PartnerAlreadyWeldedHonesty.test.ts`).
+  >
+  > ⚠ **The 3D-vs-plan divergence itself remains genuinely UNMEASURED** and stays on this list.
+  > What is removed is the *instruction about where to look*, which was never measured at all.
+  > The same false routing survives in **C89 §920** and **SPEC-LIVING-WALL-RELATIONSHIPS §297**;
+  > both are owned elsewhere and are NOT corrected here.
 - **Undo behaviour of anything in W-L-4.** A cascade that extends a partition to repair a broken
   join must compose into the spawning gesture as a `STRUCTURAL_CASCADE` child (C81, one undo). The
   existing entries do; a guest-side arm has never been built, so this is untested by construction.

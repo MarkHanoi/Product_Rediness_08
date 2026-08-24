@@ -256,12 +256,34 @@ function computeMovedWallEndpointsEntry(
     };
 }
 
+/**
+ * ⭐ §WELD52-COUNT-THE-EVENTS (L-10831) — WHICH PASS IS SPEAKING.
+ *
+ * `planWeldEntriesForSlab` runs TWICE per wall move, by design: once as the
+ * PRE-FLIGHT dry run (`previewSlabConnectivityWeld`, consulted by
+ * `wallPlacementGate.gateWallMove` BEFORE the wall is allowed to move) and once
+ * from the store SUBSCRIBER (`onWallUpdated`) after it has. Only the second
+ * dispatches anything.
+ *
+ * ⛔ THE DIAGNOSTIC DID NOT KNOW THAT. `§L-925-DIRECTION-STABLE` printed the
+ * identical line from both passes, so the founder's console showed one wall
+ * drag as TWO welds of the same wall onto the same corner with the same span
+ * (2026-08-24). A reader counts events, and there was nothing in either line to
+ * count them by. The pre-flight's line is a PREDICTION about a move that has not
+ * happened; the subscriber's is a RECORD of one that has.
+ *
+ * Neither line is removed — the pre-flight's prediction is exactly what makes a
+ * refusal explicable before the fact. They are LABELLED, so the count is right.
+ */
+type WeldPass = 'PRE-FLIGHT' | 'COMMIT';
+
 /** §WALL-AUDIT-2026-W1 pure-compute — see the class delegator for the contract notes. */
 function computeNearestEndpointEntry(
     wallId: string,
     corner: { x: number; y: number },
     wallStore: WallStoreRef,
     prevSeg: Seg2 | null = null,
+    pass: WeldPass = 'COMMIT',
 ): CascadeWallBaselineEntry | null {
     const wall = wallStore.getById(wallId);
     if (!wall) return null;
@@ -317,10 +339,17 @@ function computeNearestEndpointEntry(
     // function's header for why (a) is never the right answer on this path.
     const ordered = orderByIncumbentHeading(newBaseLine, wall.baseLine);
     if (ordered.swapped) {
+        // §WELD52-COUNT-THE-EVENTS (L-10831) — the pass is the FIRST token, so
+        // two lines per gesture read as one prediction and one record rather
+        // than as two welds. See the `WeldPass` doc above.
         console.log(
-            `[SlabWallConnectivityService] §L-925-DIRECTION-STABLE wall ${wallId}: the new ` +
-            `corner (${corner.x.toFixed(3)}, ${corner.y.toFixed(3)}) lies PAST this wall's ` +
-            `far endpoint, so the weld was emitted as an endpoint-only change with the ` +
+            `[SlabWallConnectivityService] §L-925-DIRECTION-STABLE [${pass}] wall ${wallId}: ` +
+            (pass === 'PRE-FLIGHT'
+                ? `this is the DRY RUN asked by gateWallMove BEFORE the move — nothing is ` +
+                  `dispatched from this pass. `
+                : `this is the COMMITTED pass from the store subscriber. `) +
+            `The new corner (${corner.x.toFixed(3)}, ${corner.y.toFixed(3)}) lies PAST this ` +
+            `wall's far endpoint, so the weld was emitted as an endpoint-only change with the ` +
             `baseLine heading preserved (guard option (b)) — span ` +
             `[${ordered.baseLine[0].x.toFixed(3)}, ${ordered.baseLine[0].z.toFixed(3)}] → ` +
             `[${ordered.baseLine[1].x.toFixed(3)}, ${ordered.baseLine[1].z.toFixed(3)}]. ` +
@@ -339,6 +368,10 @@ function planWeldEntriesForSlab(
     batch: CascadeWallBaselineEntry[],
     prevSeg: Seg2 | null,
     resolveStore?: ResolveStoreRef,
+    // §WELD52-COUNT-THE-EVENTS (L-10831) — forwarded to the entry builders so
+    // the §L-925 line names the pass that produced it. Defaults to COMMIT: a
+    // caller that does not say is the subscriber, which is the one that writes.
+    pass: WeldPass = 'COMMIT',
 ): void {
     const edges = slab.sketch!.outerLoop.edges;
     const n = edges.length;
@@ -388,7 +421,7 @@ function planWeldEntriesForSlab(
                     );
                     if (corner && cornerUsable(corner)) {
                         cornerPrevCurr = corner;
-                        const entry = computeNearestEndpointEntry(prevHE.hostId, corner, wallStore, prevSeg);
+                        const entry = computeNearestEndpointEntry(prevHE.hostId, corner, wallStore, prevSeg, pass);
                         if (entry) batch.push(entry);
                     }
                 }
@@ -407,7 +440,7 @@ function planWeldEntriesForSlab(
                     );
                     if (corner && cornerUsable(corner)) {
                         cornerCurrNext = corner;
-                        const entry = computeNearestEndpointEntry(nextHE.hostId, corner, wallStore, prevSeg);
+                        const entry = computeNearestEndpointEntry(nextHE.hostId, corner, wallStore, prevSeg, pass);
                         if (entry) batch.push(entry);
                     }
                 }
@@ -732,7 +765,7 @@ export function previewSlabConnectivityWeld(
 
         const batch: CascadeWallBaselineEntry[] = [];
         for (const slab of slabs) {
-            planWeldEntriesForSlab(movedWallId, slab, shim, batch, prevSeg, resolveShim);
+            planWeldEntriesForSlab(movedWallId, slab, shim, batch, prevSeg, resolveShim, 'PRE-FLIGHT');
         }
         if (batch.length === 0) {
             return {
@@ -1137,7 +1170,7 @@ export class SlabWallConnectivityService {
         batch: CascadeWallBaselineEntry[],
         prevSeg: Seg2 | null,
     ): void {
-        planWeldEntriesForSlab(movedWallId, slab, wallStore, batch, prevSeg);
+        planWeldEntriesForSlab(movedWallId, slab, wallStore, batch, prevSeg, undefined, 'COMMIT');
     }
     /**
      * §WALL-AUDIT-2026-W1: Apply the queued cascade entries.
