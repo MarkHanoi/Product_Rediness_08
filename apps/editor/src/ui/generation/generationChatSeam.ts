@@ -51,6 +51,20 @@ export interface GenerationBuildingPayload {
      *  `footprintSource:'boundary-line'` ⇒ run the ladder (the one closed line on
      *  the active level, else refuse naming the count). */
     readonly boundaryLineId?: string;
+    /**
+     * §GEN-FACADE-INTENT (L-10773) — façade description in the user's words, mapped
+     * onto the FOUR `ResidentialBuildingRequest` fields that already existed
+     * (§RESI-PREVIEW-OPTIONS) and that this payload used to discard.
+     */
+    readonly facade?: {
+        readonly groundCommercialCurtain?: boolean;
+        readonly balconies?: boolean;
+        readonly facadeColor?: string;
+        readonly roofGarden?: boolean;
+    };
+    /** Recognised façade description the generator CANNOT produce. Repeated on the
+     *  post-build transcript: the Confirm card is seen once, the report persists. */
+    readonly facadeUnavailable?: readonly string[];
 }
 
 /** The `generation.apartment` payload the resolver emits (§GEN-CHAT-APARTMENT
@@ -250,6 +264,17 @@ async function runResidential(rt: PryzmRuntime, cmd: GenerationBuildingPayload):
         md['T3'] = cmd.typologies.T3 === true;
         md['T4'] = cmd.typologies.T4 === true;
     }
+    // §GEN-FACADE-INTENT (L-10773) — hand the façade description to the SAME brief
+    // mapper the onboarding modal fills in. These are the exact metadata keys
+    // `residentialRequestFromBrief` already reads; nothing new is invented here, and
+    // the chat stops being the one entry point that discards them.
+    if (cmd.facade !== undefined) {
+        const f = cmd.facade;
+        if (f.groundCommercialCurtain === true) md['groundCommercialCurtain'] = true;
+        if (f.balconies === false) md['balconies'] = false;
+        if (f.roofGarden === true) md['roofGarden'] = true;
+        if (typeof f.facadeColor === 'string') md['facadeColor'] = f.facadeColor;
+    }
     const { request } = residentialGenerationFromBrief(md, footprint);
 
     const { ResidentialBuildingController } = await import('../residential-building/ResidentialBuildingController.js');
@@ -267,6 +292,12 @@ async function runResidential(rt: PryzmRuntime, cmd: GenerationBuildingPayload):
     // §GEN-ON-BOUNDARY-LINE — name the footprint that was actually used. Only when
     // it was NOT the parcel: on the ordinary path the transcript is unchanged.
     if (src.note !== null) lines.unshift(src.note);
+    // §GEN-FACADE-INTENT — repeat what could NOT be built, on the transcript that
+    // persists. A build that quietly discarded half the description would read as a
+    // complete success, and the user would conclude the generator had tried.
+    if (cmd.facadeUnavailable !== undefined && cmd.facadeUnavailable.length > 0) {
+        lines.push(`Not built, as flagged before you confirmed: ${cmd.facadeUnavailable.join('; ')}.`);
+    }
     emitReport(true, lines);
 }
 

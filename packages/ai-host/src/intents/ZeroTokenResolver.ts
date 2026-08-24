@@ -171,6 +171,10 @@ import {
   type PropertyDrivenIntentId,
 } from './PropertyVocabulary.js';
 import { exampleColorNames, resolveColorRef } from './colorRef.js';
+// §GEN-FACADE-INTENT (L-10773) — the pure façade vocabulary table. One-way
+// dependency, like DeleteFamilies / DimensionFamilies: this file imports the table;
+// the table imports nothing from here.
+import { facadeUnavailableSentence, parseFacadeIntent } from './FacadeIntent.js';
 // resolveFinishRef is the GRAMMAR's finish recognizer (word-window scan);
 // the refusal copy (exampleFinishNames) moved into CapabilityExecutionSpec.
 import { finishRefCandidates, resolveFinishRef } from './finishRef.js';
@@ -1151,6 +1155,19 @@ export type SemanticIntent =
        * geometry it cannot see — is the shape this file's own header refuses.
        */
       readonly onBoundaryLine?: boolean;
+      /**
+       * §GEN-FACADE-INTENT (L-10773) — façade description in the user's own words,
+       * split into what CAN be honoured and what cannot. Both halves are carried:
+       * dropping `unavailable` here would put the silent half-ignored sentence back.
+       */
+      readonly facade?: {
+        readonly groundCommercialCurtain?: boolean;
+        readonly balconies?: boolean;
+        readonly facadeColor?: string;
+        readonly roofGarden?: boolean;
+      };
+      readonly facadeApplied?: readonly string[];
+      readonly facadeUnavailable?: readonly string[];
       /**
        * The boundary line the user POINTED AT, read from `ctx.selection`. This is the
        * one part of the choice the resolver CAN make purely: a selected line is an
@@ -2688,11 +2705,17 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       // the building, and re-furnishing re-lights (§FURNISH-ALWAYS-LIGHTS). The
       // fix is to STATE the truth, in the user's words, not to change the
       // behaviour to make the sentence shorter.
+      // §GEN-FACADE-INTENT — the user's own description reflected back, and the
+      // parts that will NOT happen named BEFORE Confirm rather than after the build.
+      const facadeApplied = si.facadeApplied ?? [];
+      const facadeLabel = facadeApplied.length > 0 ? ` with ${facadeApplied.join(', ')}` : '';
+      const facadeGap = facadeUnavailableSentence(si.facadeUnavailable ?? []);
       const summary =
-        `Generate a ${floorsLabel} ${label}${mixLabel} ${siteLabel} — ` +
+        `Generate a ${floorsLabel} ${label}${mixLabel}${facadeLabel} ${siteLabel} — ` +
         `it builds new levels and elements alongside what's drawn (nothing is replaced). ` +
         `The recorded envelope height cap is enforced before building. ` +
-        `Undo steps back one stage at a time: lighting, then furniture, then ceilings, then the building itself.`;
+        `Undo steps back one stage at a time: lighting, then furniture, then ceilings, then the building itself.` +
+        (facadeGap !== '' ? ` ${facadeGap}` : '');
       return {
         kind: 'commands', intent: 'generate-building',
         summary,
@@ -2710,6 +2733,16 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
             // that payload keeps its exact pre-existing shape.
             ...(useBoundaryLine ? { footprintSource: 'boundary-line' as const } : {}),
             ...(si.boundaryLineId !== undefined ? { boundaryLineId: si.boundaryLineId } : {}),
+            // §GEN-FACADE-INTENT (L-10773) — the four façade fields
+            // `residentialBriefMapper` has carried since §RESI-PREVIEW-OPTIONS and
+            // that this payload used to drop on the floor. Omitted entirely when the
+            // sentence described nothing, so the plain payload is unchanged.
+            ...(si.facade !== undefined ? { facade: si.facade } : {}),
+            // Carried to the execution layer so the post-build transcript can repeat
+            // what was NOT done — the Confirm card is seen once, the report persists.
+            ...(si.facadeUnavailable !== undefined && si.facadeUnavailable.length > 0
+              ? { facadeUnavailable: si.facadeUnavailable }
+              : {}),
           },
         }],
         // A whole building is consequential — Confirm card before it runs.
@@ -4840,6 +4873,15 @@ export function parseGenerateBuildingIntent(
   const roof = typology === 'house' ? GEN_ROOF_RE.exec(text) : null;
   const roofKind = roof === null ? undefined : (roof[1] as 'flat' | 'gable' | 'hip');
 
+  // §GEN-FACADE-INTENT (L-10773) — the founder's photograph, described in words.
+  // Residential only: the four fields it maps onto are `ResidentialBuildingRequest`
+  // fields, and claiming them for a house or an office would be the overclaimed-
+  // capability defect in miniature.
+  const facadeParse = typology === 'residential-building' ? parseFacadeIntent(text) : null;
+  const facade = facadeParse !== null && Object.keys(facadeParse.intent).length > 0
+    ? facadeParse.intent
+    : undefined;
+
   return {
     intent: 'generate-building',
     typology,
@@ -4851,6 +4893,11 @@ export function parseGenerateBuildingIntent(
     // capability-acceptance suite asserts that payload with `toEqual`).
     ...(onBoundaryLine ? { onBoundaryLine: true } : {}),
     ...(selectedBoundaryLineId !== undefined ? { boundaryLineId: selectedBoundaryLineId } : {}),
+    ...(facade !== undefined ? { facade } : {}),
+    ...(facadeParse !== null && facadeParse.applied.length > 0 ? { facadeApplied: facadeParse.applied } : {}),
+    ...(facadeParse !== null && facadeParse.unavailable.length > 0
+      ? { facadeUnavailable: facadeParse.unavailable }
+      : {}),
   };
 }
 

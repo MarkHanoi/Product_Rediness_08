@@ -2525,6 +2525,82 @@ describe('§GEN-CHAT — "generate a 3-storey residential building"', () => {
     expect(r.commands[0]!.type).toBe('generation.apartment');
   });
 
+  // ─── §GEN-FACADE-INTENT (L-10773) — the founder's PHOTOGRAPH, in words ────
+  //
+  // He showed a 5-storey urban apartment block: arcaded ground floor with
+  // shopfronts, rounded corners, deep continuous balconies, green glazed tile,
+  // oxblood timber shutters, a glass-block stair core. Photo→façade extraction is
+  // OUT OF SCOPE (that is GenRecon, not V1); these prove the DESCRIPTION works.
+
+  it('an arcaded ground floor + balconies + a colour reach the payload as real fields', () => {
+    const r = resolveUtterance(
+      'create a 5-storey residential building with an arcaded ground floor, deep balconies and a green façade',
+      ctxOf(),
+    );
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    const payload = r.commands[0]!.payload as { facade?: Record<string, unknown> };
+    // These four fields have existed on ResidentialBuildingRequest since
+    // §RESI-PREVIEW-OPTIONS; the chat used to drop every one of them.
+    expect(payload.facade).toMatchObject({ groundCommercialCurtain: true, balconies: true });
+    expect(typeof payload.facade?.['facadeColor']).toBe('string');
+  });
+
+  it('⭐ what it CANNOT map is named BEFORE Confirm — and it still builds the rest', () => {
+    // THE ASSERTION THIS WHOLE STAGE EXISTS FOR. Without it the generator would
+    // build a plain block with an arcade and balconies, say "Built the residential
+    // building", and never mention that rounded corners, glazed tile and shutters
+    // were discarded — so the user would conclude it had tried and failed.
+    const r = resolveUtterance(
+      'create a 5-storey residential building with an arcaded ground floor, rounded corners, ' +
+        'deep balconies, green glazed tile and timber shutters',
+      ctxOf(),
+    );
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+
+    // It STILL BUILDS — a partial map is not a refusal.
+    expect(r.commands[0]!.type).toBe('generation.building');
+    const payload = r.commands[0]!.payload as { facadeUnavailable?: string[] };
+
+    // …and it names each thing it cannot do, with the reason attached.
+    expect(payload.facadeUnavailable).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('rounded corners'),
+        expect.stringContaining('glazed-tile'),
+        expect.stringContaining('shutters'),
+      ]),
+    );
+    // Named on the CONFIRM CARD, not only afterwards: before is a choice, after is
+    // an apology.
+    expect(r.summary).toContain('rounded corners');
+    expect(r.summary).toContain("I can't do 3 parts of that and I'll build the rest");
+  });
+
+  it('"without balconies" REMOVES them — negation is not swallowed by the noun', () => {
+    const r = resolveUtterance('generate a 5-storey residential building without balconies', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    const payload = r.commands[0]!.payload as { facade?: Record<string, unknown> };
+    expect(payload.facade).toMatchObject({ balconies: false });
+  });
+
+  it('a plain sentence carries NO facade keys at all (open language costs nothing)', () => {
+    const r = resolveUtterance('generate a 4-storey residential building', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toEqual({ typology: 'residential-building', floors: 4 });
+  });
+
+  it('façade language is NOT claimed for a house or an office (no overclaimed fields)', () => {
+    // The four fields are ResidentialBuildingRequest fields. Claiming them for
+    // another typology would be the overclaimed-capability defect in miniature.
+    const h = resolveUtterance('generate a 2-storey house with balconies', ctxOf());
+    expect(h.kind).toBe('commands');
+    if (h.kind !== 'commands') return;
+    expect(h.commands[0]!.payload).not.toHaveProperty('facade');
+  });
+
   it('apartment-mix hints reach the payload as T1–T4 flags', () => {
     const r = resolveUtterance('create a residential building with 2-bed and 3-bed apartments', ctxOf());
     expect(r.kind).toBe('commands');
