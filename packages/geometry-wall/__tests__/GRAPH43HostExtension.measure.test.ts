@@ -113,6 +113,58 @@ describe('§GRAPH43 §EXTEND — the host grows to keep the T', () => {
     });
 
     /**
+     * ⭐⭐ §SAME-ROOT — THE FOUNDER'S **SECOND** SYMPTOM IS THIS SAME DEFECT SEEN
+     *    FROM THE SUBJECT'S SIDE, AND THIS ARM IS THE MEASUREMENT THAT PROVES IT.
+     *
+     * > *"a wall moved along - but **one adjacent wall did not follow correctly**
+     * > and **the wall that moved did not adapt to the new shape driven by the
+     * > angle**"* (2026-08-24, on `0589a36c`, i.e. before any of this landed)
+     *
+     * Those read as two defects. **They are one.** `JunctionResolverV2`'s
+     * endpoint-cluster and T-projection band is `JUNCTION_BAND_FLOOR_M = 0.20 m`,
+     * and its own header states the consequence of falling outside it verbatim:
+     *
+     * > *"those drifted corner endpoints fell into SEPARATE single-endpoint
+     * > clusters → **no junction → BOTH walls got a square cap** → the corner
+     * > opened."*
+     *
+     * So a guest-side T that this engine leaves open by 600 mm is **3× outside
+     * the band**. The junction ceases to exist for the resolver, and therefore:
+     *   • the PARTNER never follows  ← symptom 1
+     *   • the SUBJECT gets a square cap instead of an end condition cut for the
+     *     new angle  ← symptom 2, *"did not adapt to the new shape driven by the
+     *     angle"*
+     *
+     * ⭐ `§GRAPH43-EXTEND-THE-HOST` closes the gap to **0 mm**, which is back
+     * inside the band — so the resolver sees the junction again and BOTH end
+     * conditions recompute. **One root, one fix.**
+     *
+     * ⚠ SCOPE, STATED HONESTLY: this asserts the gap either side of the repair
+     * against the resolver's published band. It does **not** execute
+     * `resolveJunctions`, so *"the mitre is now cut at the new angle"* is
+     * INFERRED FROM THE BAND, not measured end-to-end here. That end-to-end
+     * proof belongs in the junction-resolver suite and is NOT MEASURED.
+     */
+    it('§SAME-ROOT: the break is 3× outside the 0.20 m junction band; the repair is inside it', () => {
+        /** `JunctionResolverV2.JUNCTION_BAND_FLOOR_M`, in mm. Not imported — it is
+         *  not exported — so it is restated with its source, per C73 §2.2. */
+        const JUNCTION_BAND_MM = 200;
+
+        // BEFORE the repair: the subject's endpoint (2, 5.6) against rail's body,
+        // which ends at (2, 5).
+        const gapBeforeMm = Math.round(Math.hypot(2 - 2, 5.6 - 5) * 1000);
+        expect(gapBeforeMm).toBe(600);
+        expect(gapBeforeMm).toBeGreaterThan(JUNCTION_BAND_MM);   // ⛔ no junction ⇒ square cap
+
+        // AFTER: the host grew to the foot, so the endpoint is ON its body.
+        const e = entryFor(computeMoveReweldCensus(movedPast, [rail], { weldTol: WELD_TOL }), 'rail')!;
+        const gapAfterMm = Math.round(
+            Math.hypot(e.newBaseLine[1]!.x - 2, e.newBaseLine[1]!.z - 5.6) * 1000);
+        expect(gapAfterMm).toBe(0);
+        expect(gapAfterMm).toBeLessThan(JUNCTION_BAND_MM);       // ✅ junction exists again
+    });
+
+    /**
      * ⛔⛔ §NO-SLIDE — THE MOST IMPORTANT ARM IN THIS FILE, AND THE ONE THAT KEEPS
      *    THIS FIX FROM BECOMING L-922.
      *
