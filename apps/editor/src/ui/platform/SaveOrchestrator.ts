@@ -55,6 +55,35 @@ export interface SaveOrchestratorOptions {
  * 'bim-store-mutated' is a single synthetic aggregator event that each store
  * should emit on any write (Option A from the implementation plan). The full
  * list below ensures backward compatibility while stores are migrated.
+ *
+ * ⛔ §VIEWLOAD36-AUTHORING-IS-A-MUTATION (L-10700) — READ THIS BEFORE ADDING A STORE.
+ *
+ * "Option A" NEVER LANDED. `bim-store-mutated` is dispatched by exactly ONE
+ * production file (`PlatformProjectBrowser.ts:161`); `StoreEventBus` — the bus
+ * every store DOES emit into — dispatches no window event at all. So this list is
+ * not a "backward-compatibility" fallback, it is THE WHOLE TRIGGER, and anything
+ * absent from it is a subsystem whose authored work is never saved.
+ *
+ * It held forty `bim-*` ELEMENT events and nothing else. Views, sheets, schedules
+ * and annotations are all serialised by `ProjectSerializer` and were all missing,
+ * so authoring them marked the project CLEAN: no debounce armed, no
+ * `beforeunload` flush (it returns early on `!hasDirtyChanges`), nothing written.
+ * The founder authored an RCP, a Structural plan, a Render view, a Drafting view
+ * and a sheet, closed the tab, and reopened a project carrying exactly the six
+ * views `DefaultViewsManager` mints from code and the sixteen schedules
+ * `ScheduleStore.seedDefaultSchedules()` seeds from code. Nothing was dropped by
+ * the loader — nothing was ever written.
+ *
+ * ⭐ THE RULE, so this cannot rot again: **if `ProjectSerializer` persists a
+ * store, that store's authoring events belong in this list.** A store added to
+ * the snapshot and not added here is silent data loss, not a missing feature.
+ * `viewSheetAuthoringSurvivesReload.test.ts` drives the REAL stores against a
+ * REAL orchestrator and fails if any of the four families stops arming a save.
+ *
+ * ⚠ `*:store-loaded` / `*:store-reset` are deliberately NOT here: they fire from
+ * `deserialize()` / `reset()` — i.e. DURING a load — and are load lifecycle, not
+ * authoring. (`isLoading` would discard them anyway; keeping them out means the
+ * list does not depend on that guard being correct.)
  */
 const MUTATION_EVENTS: ReadonlyArray<string> = [
     'bim-store-mutated',
@@ -78,6 +107,34 @@ const MUTATION_EVENTS: ReadonlyArray<string> = [
     'bim-curtainwall-added', 'bim-curtainwall-removed',
     'bim-window-added',      'bim-window-removed',
     'bim-door-added',        'bim-door-removed',
+
+    // ── §VIEWLOAD36-AUTHORING-IS-A-MUTATION (L-10700) — the DOCUMENT families ──
+    //
+    // Every name below is dispatched by a store that `ProjectSerializer` writes
+    // into the snapshot (`viewDefinitions:1459`, `sheets:1538`, `schedules:1541`),
+    // so every one of them changes what a save would write.
+
+    // ViewDefinitionStore (core-app-model/views/ViewDefinitionStore.ts) — the RCP,
+    // Structural, Render and Drafting views the founder lost are `vd:view-created`.
+    'vd:view-created',       'vd:view-updated',       'vd:view-deleted',
+    'vd:view-range-changed', 'vd:drawing-scale-changed',
+    'vd:projection-changed', 'vd:rules-changed',
+    'vd:template-changed',   'vd:template-override-changed',
+    'vd:design-option-changed',
+
+    // SheetStore — `sd:sheet-updated` also covers viewport add/remove/move/scale,
+    // which is how a sheet's PLACED VIEWS are persisted (the "a001 — SWEG" sheet
+    // carried two viewports and neither the sheet nor the viewports were saved).
+    'sd:sheet-created',      'sd:sheet-updated',      'sd:sheet-deleted',
+
+    // ScheduleStore — a user-authored schedule is lost the same way; the sixteen
+    // a fresh project shows are `seedDefaultSchedules()` output, not saved data.
+    'sched:schedule-created', 'sched:schedule-updated', 'sched:schedule-deleted',
+
+    // AnnotationStore (plugins/annotations) has NO window events of its own — it
+    // emits only on `storeEventBus`, which dispatches nothing. It broadcasts
+    // 'bim-store-mutated' (already first in this list) as of L-10701; see
+    // `plugins/annotations/src/subsystem/AnnotationStore.ts`.
 ];
 
 /**

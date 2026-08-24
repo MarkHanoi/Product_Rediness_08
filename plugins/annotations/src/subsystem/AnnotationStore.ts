@@ -7,7 +7,19 @@
  * Contract compliance:
  *   §01 §3.3 — Implements ElementStore-like interface
  *   §3.8     — Publishes via storeEventBus singleton
- *   §05 §7.8 — No bim-* / @thatopen/ui elements; no DOM
+ *   §05 §7.8 — No bim-* / @thatopen/ui elements.
+ *
+ *   ⚠ CORRECTED 2026-08-24 (lane VIEWLOAD36, L-10701): this line read "…; no DOM".
+ *   It no longer does. `_armAutosave()` dispatches ONE `window` CustomEvent
+ *   ('bim-store-mutated' — an EVENT NAME, not a `bim-*` custom element) per
+ *   authored mutation, because `storeEventBus` reaches no `window` listener and
+ *   `SaveOrchestrator`'s trigger is a `window`-event allowlist. Without it every
+ *   annotation and dimension in a session was silently unsaveable (C102 §13).
+ *   ⛔ Stated as a KNOWN DEVIATION rather than left as a false compliance claim.
+ *   It is the same accepted-with-debt pattern `ViewDefinitionStore` / `SheetStore`
+ *   carry (`window.dispatchEvent(...) // TODO(TASK-15)`), and it retires the same
+ *   way: when a store-bus→save bridge exists, delete `_armAutosave()` and restore
+ *   this line.
  */
 
 import { AnnotationElement, DimensionElement } from './AnnotationTypes';
@@ -365,7 +377,39 @@ export class AnnotationStore {
         };
     }
 
+    /**
+     * §VIEWLOAD36-AUTHORING-IS-A-MUTATION (L-10701) — arm autosave.
+     *
+     * ⛔ THE HOLE THIS CLOSES. This store emitted ONLY on `storeEventBus`, and
+     * `StoreEventBus` dispatches no `window` event whatsoever — so nothing this
+     * store did ever reached `SaveOrchestrator`, whose trigger is a `window`-event
+     * allowlist. `ProjectSerializer:1548` writes `annotations` into every snapshot,
+     * so annotations and dimensions WERE saved — but only when some OTHER family
+     * (a wall, a door) happened to mark the project dirty in the same session. A
+     * drafting view, whose entire content is annotations, marked the project clean
+     * and was never written. Same root as the lost views/sheets (L-10700).
+     *
+     * 'bim-store-mutated' is the synthetic aggregator `SaveOrchestrator` already
+     * listens for (first entry of its MUTATION_EVENTS list), so this needs no new
+     * event name and no change in the platform layer. `LegacyCommandManagerAdapter`
+     * (runtime-undo-stack) also listens; for it this is an undo-availability
+     * refresh, which is more correct when fired, not less.
+     *
+     * ⚠ Deliberately NOT emitted per storeEventBus event elsewhere: this fires from
+     * the two `_notify*` fan-outs only, i.e. once per authored annotation/dimension
+     * mutation, and the orchestrator coalesces the burst behind its 2.5 s debounce.
+     */
+    private _armAutosave(): void {
+        if (typeof window === 'undefined') return;
+        try {
+            window.dispatchEvent(new CustomEvent('bim-store-mutated', { detail: {} }));
+        } catch (e) {
+            console.error('[AnnotationStore] autosave broadcast failed:', e);
+        }
+    }
+
     private _notifyDim(type: AnnotationEventType, dim: DimensionElement): void {
+        this._armAutosave();
         this._dimListeners.forEach(l => {
             try { l(type, dim); } catch (e) {
                 console.error('[AnnotationStore] dimension listener error:', e);
@@ -383,6 +427,7 @@ export class AnnotationStore {
     }
 
     private _notify(type: AnnotationEventType, ann: AnnotationElement): void {
+        this._armAutosave();   // §VIEWLOAD36-AUTHORING-IS-A-MUTATION (L-10701)
         this._listeners.forEach(l => {
             try { l(type, ann); } catch (e) {
                 console.error('[AnnotationStore] listener error:', e);

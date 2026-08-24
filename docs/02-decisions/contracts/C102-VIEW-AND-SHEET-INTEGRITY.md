@@ -38,7 +38,14 @@
 - **Evidence**: measured in the MAIN worktree on **2026-08-22** by `grep -n` / line-numbered read.
   Every claim carries `file:line`. Unverifiable cells read **NOT MEASURED**.
 
-> ## THE TWO ONE-LINE VERDICTS
+> ## THE ONE-LINE VERDICTS
+>
+> ⛔⛔ **(0) — ADDED 2026-08-24, lane VIEWLOAD36, and it outranks the two below.**
+> **AUTHORING A VIEW OR A SHEET DID NOT MARK THE PROJECT DIRTY, SO IT WAS NEVER SAVED.** The
+> writer and the loader are both sound and `DefaultViewsManager` cannot clobber — the break was
+> upstream of all three, in `SaveOrchestrator.MUTATION_EVENTS`, which listed forty `bim-*`
+> ELEMENT events and no view, sheet, schedule or annotation event at all. A project reopened
+> showing `Views 6` / `Schedules 16` is showing CODE OUTPUT, not restored data. **→ §13.**
 >
 > **(1) THE VIEW→TEMPLATE BINDING HAS NO WRITER, AND HAS NOT HAD ONE FOR SIXTEEN WEEKS.**
 > `ViewDefinition.viewTemplateId` is written only by `SetViewTemplateCommand` and
@@ -376,6 +383,118 @@ pane hosting.** §0.1. Five contracts already answer those.
 
 ---
 
+## §13 — PERSISTENCE ROUND TRIP — a view or a sheet must survive the session that authored it
+
+*Added 2026-08-24, lane VIEWLOAD36 (L-10700..L-10702). Measured in the MAIN worktree; every claim
+carries `file:line`, and the RED-first reading is named.*
+
+### THE ONE-LINE VERDICT
+
+> ⛔ **AUTHORING A VIEW OR A SHEET DID NOT MARK THE PROJECT DIRTY, SO IT WAS NEVER SAVED.**
+> Not written and dropped — **never written.** The founder authored an RCP, a Structural plan, a
+> Render view, a Drafting view and a sheet (`a001 — SWEG`, two viewports), closed the tab, reopened
+> the project and got `Views 6` / `Schedules 16`. **Six is exactly what `DefaultViewsManager`
+> mints from code and sixteen is exactly what `ScheduleStore.seedDefaultSchedules()` seeds from
+> code.** He was looking at a freshly-defaulted project, and neither number was ever restored data.
+
+### §13.1 — THE FOUR HYPOTHESES, AND WHICH ONE SURVIVED
+
+⭐ Recorded in full **including the three that were refuted**, because each is the obvious first
+guess and each will be guessed again.
+
+| # | Hypothesis | Verdict | Evidence |
+|---|---|---|---|
+| 1 | The **writer** omits them | ⛔ **REFUTED** | `ProjectSerializer.ts:1459` `viewDefinitions`, `:1538` `sheets`, `:1541` `schedules` — all three in the single snapshot literal, unconditional, no `length > 0 ? … : undefined` guard |
+| 2 | The **loader** never reads them | ⛔ **REFUTED** | `ProjectLoader.ts:2255-2257` `viewDefinitionStore.deserialize(...)`, `:2322-2324` `sheetStore.deserialize(...)`, `:2328-2334` `scheduleStore.deserialize(...)` |
+| 3 | `DefaultViewsManager` **clobbers** the restore | ⛔ **REFUTED** | `ensureDefaultViews()` (`DefaultViewsManager.ts:632`) is strictly create-if-missing on all six ids; `deserialize()` clears and repopulates from the payload. Ordering cannot produce this outcome |
+| 4 | Authoring never **arms the save** | ⭐ **THE ROOT** | `SaveOrchestrator.ts:88` `MUTATION_EVENTS` — the window-event allowlist that is the ONLY autosave trigger — held **forty `bim-*` element events and nothing else** |
+
+**Why hypothesis 4 is not merely "a missing entry".** `SaveOrchestrator`'s own comment says
+`bim-store-mutated` is *"a single synthetic aggregator event that each store should emit on any
+write (Option A)"*. **Option A never landed.** Measured: `bim-store-mutated` is dispatched by
+exactly ONE production file (`PlatformProjectBrowser.ts:161`), and `StoreEventBus` — the bus every
+store DOES emit into (`ViewDefinitionStore.ts:166`, `SheetStore.ts:110`, `ScheduleStore.ts:111`,
+`plugins/annotations/.../AnnotationStore.ts:109`) — **dispatches no window event whatsoever.** So the
+list was never a compatibility fallback; it was the whole trigger, and every store outside it was
+silently unsaveable. `CommandManagerImpl.execute()` dispatches nothing either, so going through the
+bus verb (`view.createDefinition` → `initBusHandlers.ts:2589`) does not help.
+
+**How the loss completes.** With the project marked clean, `executeSave()` never runs (no debounce
+armed) **and `flushBeforeUnload()` returns early on `!hasDirtyChanges`** — so even closing the tab,
+the one gesture that exists to catch unsaved work, wrote nothing.
+
+### §13.2 — RT-1 THE ROUND-TRIP INVARIANT — **NORMATIVE**
+
+> **If `ProjectSerializer` persists a store, that store's AUTHORING events MUST be members of
+> `SaveOrchestrator.MUTATION_EVENTS`.** A store added to the snapshot and not added to that list is
+> **silent data loss, not a missing feature** — the snapshot field will be present, correctly typed,
+> correctly restored, and permanently empty.
+
+Binding on every PR that adds a store to `ProjectSnapshot`. Three corollaries:
+
+- **RT-1a — the round trip is THREE legs, not two.** `arm → serialize → restore`. Leg 2 and leg 3
+  were green throughout this defect. ⛔ **A test that exercises only serialize/deserialize proves
+  nothing about whether the data is ever saved**, and one was passing the entire time.
+- **RT-1b — `*:store-loaded` / `*:store-reset` are NOT authoring events.** They fire from
+  `deserialize()` / `reset()`, i.e. during a load. They are deliberately excluded so the list does
+  not depend on the `isLoading` guard being correct.
+- **RT-1c — a system-default TOP-UP after a restore IS a mutation and MUST arm a save.** When a
+  snapshot predates a default view, `ensureDefaultViews()` mints it on `vd:store-loaded`; that is a
+  new record and must be persisted. Measured and asserted deliberately, not tolerated as a leak.
+
+### §13.3 — RT-2 THE PROOF MUST NAME AUTHORED IDS — **NORMATIVE**
+
+> ⛔ **A view-persistence test that asserts "some views exist" passes on the six system defaults and
+> establishes nothing.** Every assertion MUST name an authored id and its `viewType`.
+
+`apps/editor/__tests__/viewSheetAuthoringSurvivesReload.test.ts` — 10 tests. Authors one view per
+lost family (`ceiling-plan`, `structural-plan`, `render`, `drafting`) plus the two-viewport sheet,
+round-trips both stores, and asserts each authored id comes back **with its kind and name, alongside
+the six defaults**. **RED-first reading, measured with the fix stripped: 7 of 10 FAIL.** The 3 that
+passed are exactly the pure store round trips — which is the finding, restated as a test result.
+
+### §13.4 — WHAT WAS FIXED, AND WHAT IS STILL OPEN
+
+| Family | Snapshot field | Before | After |
+|---|---|---|---|
+| ViewDefinition | `viewDefinitions` | ⛔ 10 `vd:*` authoring events unlisted | ✅ listed (`SaveOrchestrator.ts`) |
+| SheetDefinition (incl. viewports) | `sheets` | ⛔ 3 `sd:*` events unlisted | ✅ listed |
+| ScheduleDefinition | `schedules` | ⛔ 3 `sched:*` events unlisted | ✅ listed |
+| Annotation / Dimension | `annotations` | ⛔ **no window event existed at all** | ✅ `_notify` / `_notifyDim` broadcast `bim-store-mutated` (L-10701) |
+
+⚠ **The annotation half matters to THIS contract even though C101 owns annotations:** a Drafting
+view's entire content is annotations, so restoring the view record without arming a save for what is
+drawn on it would return an empty sheet of paper.
+
+### §13.5 — RESOLVED: which persistence copy the app builds
+
+⭐ **This closes open question 8 of the register below, which called it *"the sharpest open question
+in both contracts"*.** `apps/editor/src/engine/initPersistence.ts:41-43` imports
+`./persistence/ProjectSerializer` and `./persistence/ProjectLoader` — **the `apps/editor` copies.**
+`packages/persistence-client/src/loader/` carries a near-identical rival pair (`ProjectSerializer.ts`
+:872/:936/:939, `ProjectLoader.ts`:1124/:1190/:1196) that this path does not import. ⛔ **The lane fix
+was applied to neither serializer — the defect was upstream of both** — but any future fix inside a
+serializer or loader must go to the `apps/editor` copy or it will not run.
+
+### §13.6 — NOT MEASURED, for this section
+
+1. ⛔ **Recoverability of already-saved projects: the data was never written, so there is nothing to
+   restore.** This is an inference from the founder's screenshot (six defaults ⇒ the last stored
+   version carried no authored views) plus a sound loader, **not** a read of his stored snapshot —
+   no lane had database access. If a stored version DID carry them, the loader would have restored
+   them, and it did not.
+2. **The server round trip is unproven here.** The suite exercises the two store round trips and the
+   dirty-trigger leg in happy-dom. That the bytes reach Postgres and return is not measured.
+3. **`ProjectSerializer.serialize()` itself is not booted** by the suite (it needs a live
+   `BimManager`); the `serialize()` calls it makes are the store-level ones the snapshot embeds.
+4. **`vd:sync-state-changed` is deliberately NOT in the trigger list.** `syncState` is collaborative
+   state written by the sync engine, not authoring. Whether it should persist is **NOT MEASURED**.
+5. **No gate enforces RT-1.** The suite fails if one of the four named families regresses; a FIFTH
+   store added to the snapshot tomorrow would be lost exactly as these four were, and nothing would
+   say so. ⭐ **This is the shape that produced the defect and it is not yet closed.**
+
+---
+
 ## NOT MEASURED — the honest register
 
 ⛔ Gaps, not clearances (C84 EI-1b).
@@ -388,7 +507,10 @@ pane hosting.** §0.1. Five contracts already answer those.
 5. **What an unbound view renders with** (§12).
 6. **Sheet-viewport annotation crop** honouring (§11 DELTA-7).
 7. **`vg.takeLatestIntentVersion` reachability** — the verb is registered; its control is not traced.
-8. **Whether the app builds `apps/editor/src/engine/persistence/` or `packages/persistence-client/`.**
+8. ⭐ **RESOLVED 2026-08-24 (lane VIEWLOAD36) — see §13.5: the app builds the `apps/editor` copy**
+   (`initPersistence.ts:41-43`). The original entry is kept verbatim below so the resolution reads
+   as a correction rather than a silent edit.
+   **Whether the app builds `apps/editor/src/engine/persistence/` or `packages/persistence-client/`.**
    Both contain a `ViewTemplateToIntentMigration.ts`. C85 calls the `packages/` copy dead; C101 §0
    measured it. **Unresolved, and it decides whether the migration cited throughout this contract is
    the one that runs.** This is the sharpest open question in both contracts.
