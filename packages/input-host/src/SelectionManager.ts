@@ -35,6 +35,7 @@ import { decideReresolveFate } from './reresolveFate';
 // §FIX-PICK-CACHE-STORE-BUS (L-1194) — the family-agnostic store channel every
 // ElementStore must publish through (§3.5). Replaces enumerating DOM event names.
 import { storeEventBus } from '@pryzm/core-app-model';
+import { isRealElementId, isRenderAggregateId } from '@pryzm/core-app-model/render-aggregate-identity';
 // §MULTI-SELECT-SHIFT (L-1550) — the SelectionBus is the C27 §4 authority on WHAT IS
 // SELECTED. `MarqueeSelectionTool`, in this same package, already imports it; this
 // class is the surface that until now did not, which is precisely why the bus went
@@ -2262,7 +2263,9 @@ export class SelectionManager implements ISelectionManager {
      */
     private _applyAdditivePick(obj: THREE.Object3D, elementIdOverride?: string): boolean {
         const id = elementIdOverride ?? (obj.userData?.id as string | undefined);
-        if (!id || id.startsWith('instanced-group-')) return false;
+        // §TOPO-AGGREGATE-IS-NOT-AN-ELEMENT (L-10530) — was a hand-rolled
+        // `!id || id.startsWith('instanced-group-')`. One predicate, one place.
+        if (!isRealElementId(id)) return false;
 
         const current = selectionBus.currentIds;
         if (current.includes(id)) {
@@ -2429,7 +2432,7 @@ export class SelectionManager implements ISelectionManager {
         // highlight this method just applied — the user is looking at a highlighted
         // group; what they must not get is a second surface naming an id for it.
         if (elementId && !this._suppressBusMirror && !selectionBus.isDispatching) {
-            if (elementId.startsWith('instanced-group-')) {
+            if (isRenderAggregateId(elementId)) {   // §TOPO-AGGREGATE-IS-NOT-AN-ELEMENT (L-10530)
                 if (selectionBus.currentIds.length > 0) {
                     selectionBus.dispatch({ type: 'clear', source: '3d-canvas', elementIds: [] });
                 }

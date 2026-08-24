@@ -15,6 +15,11 @@ export * from './LevelScoped3DCullingService.js';
 export * from './LevelMassingRenderer.js';
 export * from './HDRIEnvironmentManager.js';
 export * from './InstancedElementRenderer.js';
+// §TOPO-AGGREGATE-IS-NOT-AN-ELEMENT (L-10530) — the canonical "is this a real
+// element id?" predicate, beside the minter that makes the question necessary.
+// Also reachable as `@pryzm/core-app-model/render-aggregate-identity` for
+// consumers that must not pull the renderer barrel in at module load.
+export * from './renderAggregateIdentity.js';
 export * from './InstanceGroup.js';
 export * from './SharedMaterialCache.js';
 export * from './PanoramaCapture.js';

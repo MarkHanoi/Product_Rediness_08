@@ -38,6 +38,7 @@ import { gridEditAvailability, type GridEditSubject } from '@pryzm/core-app-mode
 // arms operations, and an operation armed against ONE element while FIVE are
 // selected is the founder's edit landing where they did not ask for it.
 import { selectionBus } from '@pryzm/core-app-model';
+import { isRenderAggregateId } from '@pryzm/core-app-model/render-aggregate-identity';
 import { RemoveGridCommand } from '@pryzm/command-registry';
 import type { JoinTool } from '@pryzm/input-host';
 import type { CutTool } from '@pryzm/input-host';
@@ -1152,7 +1153,7 @@ export class ContextualEditBar {
         // updated to carry the resolved id), decline loudly rather than arming an
         // operation that is guaranteed to fail deep inside a command with a
         // WALL_NOT_FOUND the user never sees.
-        if (id.startsWith('instanced-group-')) {
+        if (isRenderAggregateId(id)) {   // §TOPO-AGGREGATE-IS-NOT-AN-ELEMENT (L-10530)
             this._declineOperation(
                 opLabel,
                 'the click resolved to an instanced render group rather than a single element — click the element again',

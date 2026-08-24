@@ -1,6 +1,7 @@
 // @migration S91-WIRE: moved from src/topology/TopologySpatialIndex.ts (intra-src L7.5)
 import * as THREE from '@pryzm/renderer-three/three';
 import { storeEventBus } from '@pryzm/core-app-model';
+import { realElementIdOf } from '@pryzm/core-app-model/render-aggregate-identity';
 
 /**
  * @file src/topology/TopologySpatialIndex.ts
@@ -369,7 +370,16 @@ export class TopologySpatialIndex {
         const box = new THREE.Box3();
 
         for (const child of this._scene.children) {
-            const id: string | undefined = child.userData?.id;
+            // ⭐ §TOPO-AGGREGATE-IS-NOT-AN-ELEMENT (L-10530) — was
+            // `const id = child.userData?.id; if (!id) continue;`, which indexed
+            // `InstancedElementRenderer` batches under their SYNTHETIC
+            // `instanced-group-<key>` handle. A batch's bounds are the union AABB
+            // of every instance in it — for a level's worth of walls, the whole
+            // storey — so the index handed that box to `findNearby`/`getBounds`
+            // as though it were one element. `realElementIdOf` returns undefined
+            // for render-owned objects; consumers opt IN to aggregates, never
+            // inherit them. See the module header for the two prior recurrences.
+            const id = realElementIdOf(child);
             if (!id) continue;
             if (child.userData?.isPreview === true) continue;
             if (child.userData?.isHelper === true) continue;

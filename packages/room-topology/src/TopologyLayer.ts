@@ -38,6 +38,7 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import { storeEventBus, StoreChangeEvent } from '@pryzm/core-app-model';
+import { realElementIdOf, isRenderAggregateId, RENDER_AGGREGATE_ID_PREFIX } from '@pryzm/core-app-model/render-aggregate-identity';
 import { topologySpatialIndex } from './TopologySpatialIndex';
 import type { BoundingBox } from './TopologySpatialIndex';
 
@@ -406,13 +407,63 @@ export class TopologyLayer {
         }
 
         // Collect all element IDs from scene children (O(N_groups))
+        //
+        // ⭐ §TOPO-AGGREGATE-IS-NOT-AN-ELEMENT (L-10530) — THE FOUNDER'S `bc3aa61b`
+        // CONSOLE LINE. This loop read `child.userData?.id` and filtered only
+        // `isPreview` / `isHelper`, so `InstancedElementRenderer` batches entered
+        // the graph as NODES under their synthetic `instanced-group-<key>` handle:
+        //
+        //   ⚠ 2 LOST since the last rebuild
+        //   [instanced-group-wall_L0_36_24_0.500_0.500_0.500_60d1ae8d-… ↔ wall_01M0TREP…,
+        //    instanced-group-wall_L0_36_24_0.500_0.500_0.500_60d1ae8d-… ↔ wall_01M0TRE4…]
+        //
+        // That is a GPU InstancedMesh batch — a geometry+material+level CACHE KEY —
+        // sitting beside real wall ids as an adjacency participant. It also inflated
+        // the `N element(s)` this method prints, and `getAdjacentElements('wall_X')`
+        // returned it to every caller: the building graph (`extractTopologySnapshot`),
+        // room adjacency, the AI world model. C71 §1.1 — an edge is a record of a
+        // relationship that came into being; a render batch is in no relationship
+        // with anything, it IS the thing.
+        //
+        // `realElementIdOf` is the ONE predicate (`@pryzm/core-app-model/
+        // render-aggregate-identity`); `ProjectIsolationAudit` hit this same seam at
+        // §C13-INSTANCED-GROUP-ARM. Do not re-roll the test here.
         const elementIds: string[] = [];
+        let syntheticUnmarked = 0;
+        const syntheticSample: string[] = [];
         for (const child of this._scene.children) {
-            const id: string | undefined = child.userData?.id;
-            if (!id) continue;
             if (child.userData?.isPreview === true) continue;
             if (child.userData?.isHelper === true) continue;
+
+            // ── TRIPWIRE (§TOPO-AGGREGATE-IS-NOT-AN-ELEMENT) ──────────────────
+            // Two INDEPENDENT axes answer "is this a render aggregate?": the
+            // authoritative `userData.isInstancedGroup` flag, and the id prefix.
+            // They agree for every object `InstancedElementRenderer` mints. An
+            // object bearing a synthetic id WITHOUT the flag is a NEW producer
+            // that forgot the marker — the next recurrence of this defect — and it
+            // is named here, at the moment it is rejected, rather than discovered
+            // in a console six months later.
+            const rawId: unknown = child.userData?.id;
+            if (isRenderAggregateId(rawId) && child.userData?.isInstancedGroup !== true) {
+                syntheticUnmarked++;
+                if (syntheticSample.length < 4) syntheticSample.push(String(rawId));
+            }
+
+            const id = realElementIdOf(child);
+            if (!id) continue;
             elementIds.push(id);
+        }
+
+        if (syntheticUnmarked > 0) {
+            console.error(
+                `[TopologyLayer] ⛔ §TOPO-AGGREGATE-IS-NOT-AN-ELEMENT — ${syntheticUnmarked} scene ` +
+                `object(s) carry a synthetic render id but NOT userData.isInstancedGroup ` +
+                `[${syntheticSample.join(', ')}]. A producer is minting an ` +
+                `\`${RENDER_AGGREGATE_ID_PREFIX}…\` id without the opt-in marker. They were kept ` +
+                `OUT of the topology graph by the id arm, but every other consumer that ` +
+                `filters on the FLAG alone is currently treating them as BIM elements. ` +
+                `Fix the producer — stamp isInstancedGroup — do not widen this check.`,
+            );
         }
 
         // For each element, find spatially nearby elements and classify

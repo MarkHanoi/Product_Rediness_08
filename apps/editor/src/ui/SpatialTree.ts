@@ -191,12 +191,25 @@ export function createSpatialTree(runtime: import('@pryzm/runtime-composer/types
                 // What changed is that the match now produces an id LIST which is
                 // recorded as intent, instead of an in-place `.visible` write.
                 //
-                // ⚠ One real narrowing, stated rather than hidden: objects that carry
-                // `levelId` but NO `userData.id` (instanced aggregate groups) were
-                // swept by the old code and are not addressable as element intent.
-                // They are handled by ProjectVisibilitySection's §INSTANCED-ISOLATE-FIX
-                // path, which still owns aggregates; this panel never had a coherent
-                // story for them (it also reset them on every tree refresh).
+                // ⚠ CORRECTED 2026-08-24 (§TOPO-AGGREGATE-IS-NOT-AN-ELEMENT, L-10530).
+                // This comment used to read: "objects that carry `levelId` but NO
+                // `userData.id` (instanced aggregate groups) were swept by the old code
+                // and are not addressable as element intent." THAT IS FALSE, and it was
+                // measured false: `InstancedElementRenderer._createGroup` stamps BOTH —
+                // `userData.id = \`instanced-group-${key}\`` (:480) AND `userData.levelId`
+                // (:490). So aggregates DO match `idsMatching` above, and their SYNTHETIC
+                // id — a geometry+material+level cache key naming no store row — is what
+                // this panel records as element visibility intent.
+                //
+                // ⛔ NOT changed here, deliberately. Excluding aggregates (via
+                // `realElementIdOf` from `@pryzm/core-app-model/render-aggregate-identity`,
+                // the canonical predicate) would stop level-hide reaching instanced walls
+                // through this panel, which is a GRAPHICS regression, not a fix. The right
+                // repair is to resolve each aggregate to its per-instance element ids — the
+                // resolution `MarqueeSelectionTool` already performs — and that needs its
+                // own lane with a visibility fixture. `ProjectVisibilitySection`'s
+                // §INSTANCED-ISOLATE-FIX path addresses aggregates by (levelId, elementType)
+                // and remains the only surface with a coherent story for them.
                 setVisibilityByIds(
                     idsMatching((ud) => ud?.levelId === level.id),
                     levelVisible,

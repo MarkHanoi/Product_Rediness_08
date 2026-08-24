@@ -30,6 +30,7 @@
     "./comparison": "./src/comparison/index.ts",
     "./remediation": "./src/remediation/index.ts",
     "./rendering": "./src/rendering/index.ts",
+    "./render-aggregate-identity": "./src/rendering/renderAggregateIdentity.ts",
     "./pascal-lighting": "./src/rendering/PascalSceneLighting.ts",
     "./neutral-studio-environment": "./src/rendering/NeutralStudioEnvironment.ts",
     "./lighting": "./src/lighting/index.ts",
