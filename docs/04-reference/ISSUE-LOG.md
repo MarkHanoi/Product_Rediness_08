@@ -51916,11 +51916,43 @@ ADR-0297 L1/L2, ADR-0299 `§RECOVERY-MUST-REFUSE` (unweakened).
 
 ---
 
-## L-10762 — ⭐⭐ **ONE ORTHO GESTURE COMMITS TWO WALL LENGTHS — 1464 mm APART AT 45°. The 3-D WALL TOOL is the outlier, 1 of 8** ⚠ OPEN — MEASURED, NOT CHANGED, AWAITING FOUNDER RULING (ORTHO42, 2026-08-24)
+## L-10762 — ⭐⭐ **ONE ORTHO GESTURE COMMITS TWO WALL LENGTHS — 1464 mm APART AT 45°. The 3-D WALL TOOL is the outlier, 1 of 8** ✅ RULED + IMPLEMENTED (ORTHO42, 2026-08-24)
 
-⛔ **NOTHING WAS CHANGED.** This row is a MEASUREMENT and a decision request. The founder's
-standing rule for spatial behaviour is **ASK, never auto-edit**, and this alters the length of
-every ortho wall drawn by free drag from here on.
+> ⭐⭐ **RULED 2026-08-24 — `§RULING-ORTHO-IS-THE-PERPENDICULAR-FOOT`, commit `b3d891d0`.**
+> The founder chose **PROJECTION — the perpendicular foot**. The endpoint tracks the cursor's
+> perpendicular foot on the axis: moving sideways does not change the length, moving along the
+> axis grows it.
+>
+> **His reasoning was his own earlier ruling turned back on itself — ORTHO IS A MODE, NOT AN
+> AID.** Under rotation a 5 m drag at 80°, a gesture almost entirely *perpendicular* to the
+> chosen axis, still produced a 5 m wall. A wall growing out of a motion with almost no
+> component along it is the mode **reinterpreting** a magnitude the user never made along that
+> axis. Projection constrains the gesture; rotation reinterpreted it.
+>
+> ⚠ **He was shown the census below — that this moves SEVEN paths rather than one, and reverses
+> part of his own 2026-08-06 directive — and chose it anyway.** ⛔ Do not "simplify" back toward
+> the cheaper migration.
+>
+> **Delta at 45° on a 5 m drag: 1464 mm → 0 mm.** Sideways sweep with the axial component frozen
+> at 4.000 m: plan wall was 4000 → 5587 mm, now **4000 mm throughout, in both panes**.
+>
+> **ONE IMPLEMENTATION:** `packages/geometry-kernel/src/math/orthoConstraint.ts`
+> (`orthoConstrainXZ`). `geometry-slab/orthoConstrain`, `geometry-wall/orthoLockXZ` and the two
+> private handler copies are all ADAPTERS over it now — one behaviour, four names, nothing
+> deleted. ⛔ **It lives in the kernel because of a CYCLE, not for tidiness:** `geometry-slab`
+> and `geometry-wall` depend on **each other**, so neither can host the shared rule without a
+> module-init edge across that cycle — this repo's standing white-screen failure mode. The
+> kernel depends on neither.
+>
+> ⛔ **The 45° tie-break (`>`, not `>=`) is preserved deliberately**, so the one tool that
+> already projected commits byte-identical geometry.
+>
+> **The prepared-change recipe below was followed as written**, including re-citing the
+> 2026-08-06 directive — which ⭐ **still holds**: it said these tools must AGREE with the wall
+> tool, and they still do. Now the 3-D wall tool, which that pass missed, agrees too. Only
+> *which* rule they agree on changed.
+
+⛔ **THE ROW BELOW IS THE PRE-RULING MEASUREMENT, KEPT AS THE RECORD OF WHAT WAS DECIDED FROM.**
 
 Surfaced while closing L-10760/L-10761: both surfaces commit at **exactly 0.000° off axis**, so
 every angle-based test in that lane passed on both — and they still disagree about **LENGTH**.
@@ -52080,3 +52112,71 @@ modes had none either, so every loop call site set the picker **by hand**.
 mode. Mapping it onto one would arm a rubber-band the user never asked for (C65 §3.9).
 
 **Commit:** `7b96504c`.
+
+---
+
+## L-10764 — ⚠ **THE ANGLE-STEP LOCK STILL ROTATES, SO IT NOW DISAGREES WITH ORTHO BY THE SAME 1464 mm** ⚠ OPEN — REPORTED, DELIBERATELY NOT ACTED ON (ORTHO42, 2026-08-24)
+
+**A direct consequence of L-10762's ruling, found while sweeping for it, and reported rather than
+swept up.**
+
+`WallPlanToolHandler._snapAngle` — the configurable degree-step direction lock — **still ROTATES**:
+it snaps the direction to the nearest `stepDeg` multiple and **preserves the radial distance**. Ortho
+now **projects**. At **step = 90°** the two are the same constraint by definition, and they now
+commit **different lengths** — the same 5000 mm vs 3536 mm at 45°, a **1464 mm** disagreement.
+
+### WHY IT WAS NOT CHANGED
+
+The coordinator's condition was explicit: *"Angle-step is NOT in scope unless your measurement says
+it shares the code path. If it does, say so before changing it — that is a separate behaviour with
+its own history."*
+
+**Measured: it does NOT share the path.** `_snapAngle` is a separate function from `_snapOrtho`, it
+is reached from a separate branch of `_resolveConstrainedPoint`, and it has its own history (the
+`getAngleStep()` contract on `wallModePicker`, default 15°). The founder ruled on **ORTHO**.
+⛔ Extending a ruling past what was ruled is how a second undocumented rival rule gets minted —
+which is the whole shape of L-10760.
+
+### WHAT NEEDS DECIDING
+
+1. Should the degree-step lock also take the **perpendicular foot**? The same argument applies —
+   at step 15°, a drag mostly perpendicular to the chosen ray still yields a full-length segment.
+2. ⚠ **Or is `_snapAngle` reachable at all?** Measured: `_resolveConstrainedPoint` routes to it via
+   `mode !== 'linear' && mode !== 'curved' && mode !== 'byslab'`, and the wall picker exposes no
+   "angle" mode — so today it is reached only by the **loop** modes and by an **unrecognised** mode
+   string. If it has no live user gesture, the honest fix may be to **retire the branch**, not to
+   harmonise it. That is a reachability question, not a geometry one, and it should be answered
+   before either.
+
+⛔ **Do not "harmonise" this quietly.** If it turns out to be reachable, it is a founder-facing
+behaviour change of the same size as L-10762 and deserves the same table.
+
+**Pinned in:** `apps/editor/src/engine/views/plantools/__tests__/orthoLengthDivergence.measure.spec.ts`
+(header, "DELIBERATELY OUT OF SCOPE") and `L935OrthoMidpointConflict.measure.spec.ts` ARM A/control,
+which asserts that angle-step still yields to a strong snap — the L-935 rule ortho no longer follows.
+
+---
+
+## L-10765 — ⭐ **THE ORTHO SWEEP FOUND THREE MORE "ortho" IMPLEMENTATIONS THAN THE CENSUS COUNTED — all correctly out of scope, and now NAMED so none becomes a ninth semantics** ✅ CLASSIFIED (ORTHO42, 2026-08-24)
+
+L-10762's census counted **8** ortho paths in the wall/slab families. The coordinator's condition
+for the ruling was: *"A path you did not find is a ninth ortho semantics — and it will be the one
+that surfaces as his next report."* A wider sweep (`snapToAxis*`, `_orthoSnap`, `orthoSnap`,
+`axisLock`, `constrainToAxis`, and the raw `Math.abs(dx) > Math.abs(dz)` shape) found **three more
+implementations** that the census had not counted. **All three are correctly out of scope** — but
+the reason differs for each, and that reason is what stops them being rediscovered as a defect.
+
+| implementation | why it is NOT the ortho rule |
+|---|---|
+| `geometry-slab/SlabSnapUtils.snapToAxisOrDiagonal` | The **45°/90° assist on SlabTool's LINEAR branch**, not its ortho branch — `SlabTool.ts:1002-1016` selects `orthoConstrain` for `'ortho'` and this only in the `else`. A different mode with its own history. |
+| `apps/editor/src/ui/geospatial/orthoSnap.resolveOrthoSnap` | The **site-boundary map tool**. Relative to the **previous edge** (not world cardinals), in **screen pixels**, with a ±8° tolerance band. ⭐ And it **already PROJECTS** — *"returns the cursor PROJECTED onto the nearest right-angle ray"* — so it already agrees with the ruling. |
+| `file-format/import/dxf/DxfToBimTracer.snapToAxis` | An **import heuristic** over file geometry, cleaning up near-axis DXF lines. Not a user gesture; no cursor, no drag, no length to reinterpret. |
+
+Plus the one the census did name: `StairCreationController._snapOrtho` returns a **unit direction**
+and never touches a magnitude, so it cannot disagree about length.
+
+⚠ **The lesson worth keeping:** the census was built by grepping the two function NAMES the wall
+family uses (`_snapOrtho`, `_applyOrthoLock`). That found every path that mattered for the ruling
+**and missed three implementations of the same idea under three other names** — one of which
+(`resolveOrthoSnap`) is a real user-facing ortho lock on a real drawing surface. **Grep the IDEA,
+not the identifier**, when the question is "how many places answer this?".
