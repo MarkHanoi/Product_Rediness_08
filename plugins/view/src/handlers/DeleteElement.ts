@@ -57,11 +57,11 @@ import {
   type UndeterminedReason,
   type ValidationResult,
 } from '@pryzm/plugin-sdk';
-import {
-  DeleteElementCommand,
-  DeleteOpeningCommand,
-  DeleteLightingCommand,
-} from '@pryzm/command-registry';
+// §DELETE-ONE-ROUTE (L-10813) — the elementType -> command mapping used to live here
+// as an if/else chain AND, differently, inside `BimService.deleteSelected`. Two
+// surfaces, two answers to "which command deletes this?", and the ROOM gap was in
+// both (C84 EI-9). It is now one function, and this handler consumes it.
+import { resolveDeleteCommand } from '@pryzm/command-registry';
 
 export interface DeleteElementPayload {
   readonly elementId: string;
@@ -120,17 +120,15 @@ export const DeleteElementHandler: CommandHandler<DeleteElementPayload, Record<s
 
       try {
         // E3: Route to the correct specialised legacy command based on elementType.
-        // opening and lighting have their own undo-aware command classes;
-        // everything else goes through the general DeleteElementCommand.
-        const elementType = (cmd.elementType ?? '').toLowerCase();
-        let res: { success?: boolean; info?: string[]; error?: string } | undefined;
-        if (elementType === 'opening') {
-          res = cm.execute(new DeleteOpeningCommand(cmd.elementId));
-        } else if (elementType === 'lighting') {
-          res = cm.execute(new DeleteLightingCommand(cmd.elementId));
-        } else {
-          res = cm.execute(new DeleteElementCommand(cmd.elementId), { source: cmd.source ?? 'BUS' });
-        }
+        // `opening`, `lighting` and — since L-10813 — `room` have their own undo-aware
+        // command classes; everything else goes through the general DeleteElementCommand
+        // and its store probe. ⛔ The mapping lives in ONE place now; do not re-add a
+        // chain here (C94 §13 DELTA #2).
+        const res: { success?: boolean; info?: string[]; error?: string } | undefined =
+          cm.execute(
+            resolveDeleteCommand(cmd.elementId, cmd.elementType),
+            { source: cmd.source ?? 'BUS' },
+          );
 
         // ⚠ `res === undefined` is NOT treated as failure. Several legacy command
         // paths return nothing on the happy path, and calling those a refusal would

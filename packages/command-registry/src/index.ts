@@ -227,6 +227,8 @@ export * from './rooms/ApplyPredictedRoomGeometryCommand';
 export * from './rooms/BatchCreateRoomsCommand';
 export * from './rooms/CreateRoomCommand';
 export * from './rooms/DeleteRoomCommand';
+// §DELETE-ONE-ROUTE (L-10813) — the single authority for which command deletes what.
+export * from './resolveDeleteCommand';
 export * from './rooms/DetectAllRoomsCommand';
 export * from './rooms/DetectRoomFromWallsCommand';
 export * from './rooms/GenerativeDesignApplyCommand';

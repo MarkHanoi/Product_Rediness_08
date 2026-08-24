@@ -1,5 +1,5 @@
 import { aiService } from '@pryzm/ai-host';
-import { DeleteElementCommand, AddLevelCommand, CreateWallsOnAllSlabsCommand } from '@pryzm/command-registry';
+import { resolveDeleteCommand, AddLevelCommand, CreateWallsOnAllSlabsCommand } from '@pryzm/command-registry';
 import { WallDrawingMode } from '@pryzm/geometry-wall';
 import { StairSetupPanel } from '@app/ui/StairSetupPanel';
 import { StairLevelRequiredPanel } from '@app/ui/StairLevelRequiredPanel';
@@ -243,11 +243,18 @@ export class BimService implements IBimService {
             return;
         }
 
-        // The KIND is only ever used to word the answer. It is deliberately NOT
-        // lower-cased or matched against anything: `SlabFragmentBuilder` mints
-        // `elementType: 'Slab'` while walls mint `'wall'`, and `DeleteElementCommand`
-        // reads no type string at all — it self-discovers by store probe. Branching
-        // on this string is what a reader would be tempted to add here; do not.
+        // The KIND words the answer, and — since §DELETE-ONE-ROUTE (L-10813) — is also
+        // handed to `resolveDeleteCommand`, which owns the elementType -> command
+        // mapping for the whole repo.
+        //
+        // ⛔ THE ORIGINAL INSTRUCTION HERE STILL STANDS, and is why the string is PASSED
+        // rather than TESTED. It read: *"deliberately NOT lower-cased or matched against
+        // anything — `SlabFragmentBuilder` mints `elementType: 'Slab'` while walls mint
+        // `'wall'` … branching on this string is what a reader would be tempted to add
+        // here; do not."* That trap is real and unchanged. Handing the tag to the single
+        // authority that normalises casing in ONE place is the opposite of branching on
+        // it locally — and it is what lets the Delete BUTTON finally remove a ROOM,
+        // which `DeleteElementCommand`'s store probe cannot reach (C94 §13 DELTA #2).
         const kind = String(selected.userData?.elementType ?? selected.userData?.type ?? 'element');
         const id = selected.userData?.id;
         if (!id) {
@@ -267,7 +274,7 @@ export class BimService implements IBimService {
             return;
         }
 
-        const result = manager.execute(new DeleteElementCommand(id));
+        const result = manager.execute(resolveDeleteCommand(id, kind));
         if (result && result.success === false) {
             const why = result.error
                 ?? (Array.isArray(result.info) ? result.info[0] : undefined)
