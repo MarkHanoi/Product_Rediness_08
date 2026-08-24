@@ -33,6 +33,12 @@ import {
     getUserRole, listMembers, upsertMember, updateMemberRole, removeMember,
     listMembersFromSupabase, upsertMemberInSupabase, updateMemberRoleInSupabase,
     removeMemberFromSupabase, getMemberFromSupabase,
+    // §FIX-MEMBERS-PG-WRITE-PATH (closes L-806(b)) — backend-selecting
+    // orchestrators (supabase → postgres → memory) that also REPORT which store
+    // answered. The routes call these; the per-backend functions above are kept
+    // exported because the orchestrators and the tests both use them directly.
+    listMembersForProject, resolveInviteTarget, upsertMemberForProject,
+    updateMemberRoleForProject, removeMemberForProject,
     // §FIX-ACCESS-MEMBERSHIP (L-336) — the in-memory membership source for the
     // access gate. Needed because without Supabase there is NO PG write path for
     // members: the add-member route falls back to `upsertMember()`, which writes
@@ -4538,14 +4544,25 @@ app.get('/api/projects/:id/members', authMiddleware, async (req, res) => {
         return res.status(403).json({ error: 'Forbidden — no access to this project.' });
     }
     try {
+        // §FIX-MEMBERS-PG-WRITE-PATH (L-806(b)) — three backends, fixed priority,
+        // and the answer now NAMES the store that produced it. Previously this
+        // read the volatile in-process Map on every PG-only deployment (i.e. on
+        // PRODUCTION) and returned `{members: []}` with HTTP 200, which the modal
+        // rendered as a confident "0 members / No members yet".
         const supabase = await getSupabaseClient();
-        const members = supabase
-            ? await listMembersFromSupabase(supabase, id)
-            : listMembers(id);
-        res.json({ members });
+        const { members, source } = await listMembersForProject({
+            supabase, pool: getPgPool(), projectId: id,
+        });
+        res.json({ members, source });
     } catch (err) {
+        // §FIX-MEMBERS-ABSENT-VS-UNREACHABLE — a read that FAILED must never
+        // reduce to an empty list. 503 + a machine code, so the client can say
+        // "could not load" instead of "nobody is on this project" (C01 §6 r6).
         console.error('[api/members] GET error:', err);
-        res.status(500).json({ error: 'Internal server error.' });
+        res.status(503).json({
+            error: 'Could not read the project member list — the member store is unreachable. This is NOT a report that the project has no members.',
+            code: 'members_store_unavailable',
+        });
     }
 });
 
@@ -4561,28 +4578,16 @@ app.post('/api/projects/:id/members', authMiddleware, async (req, res) => {
     }
     try {
         const supabase = await getSupabaseClient();
+        const pool = getPgPool();
 
-        // §ADD-PEOPLE (2026-05-22): the invite field accepts "User ID or email"
-        // (ProjectMemberPanel placeholder). When an EMAIL is supplied, resolve it
-        // to the PRYZM userId via pryzm_users so invite-by-email completes — the
-        // POST body otherwise requires a raw userId nobody knows. Requires a DB
-        // connection; the invitee must already have a PRYZM account.
-        if (typeof targetUserId === 'string' && targetUserId.includes('@')) {
-            if (!supabase) {
-                return res.status(400).json({ error: 'Inviting by email requires the database connection.' });
-            }
-            const { data: u } = await supabase
-                .from('pryzm_users')
-                .select('id')
-                .ilike('email', targetUserId.trim())   // case-insensitive exact match (no wildcards)
-                .maybeSingle();
-            if (!u?.id) {
-                return res.status(404).json({ error: `No PRYZM user found with email "${targetUserId}". Ask them to sign up first.` });
-            }
-            targetUserId = u.id;
-        }
-
-        // Resolve caller's project role
+        // ── Permission FIRST, target resolution SECOND ───────────────────────
+        // Deliberate REORDER, and it is a TIGHTENING, never a widening: the
+        // inputs to `resolveProjectRole` are byte-identical to before, so the
+        // verdict is identical — it simply now runs BEFORE the directory
+        // lookup. Previously ANY authenticated caller could POST an email here
+        // and read back "no PRYZM user found with …" vs a role error, i.e. probe
+        // the user directory for account existence without ever passing the
+        // invite_member check. No caller gains an ability; one loses an oracle.
         const project = supabase
             ? (await supabase.from('projects').select('owner_id').eq('id', id).single()).data
             : null;
@@ -4593,10 +4598,43 @@ app.post('/api/projects/:id/members', authMiddleware, async (req, res) => {
             return res.status(403).json({ error: 'Forbidden — only lead_appointed or appointing_party may add members.' });
         }
 
-        const member = supabase
-            ? await upsertMemberInSupabase(supabase, id, targetUserId, role, userId)
-            : upsertMember(id, targetUserId, role, userId);
-        res.status(201).json({ member });
+        // §ADD-PEOPLE (2026-05-22): the invite field accepts "User ID or email"
+        // (ProjectMemberPanel placeholder). When an EMAIL is supplied it is
+        // resolved to the PRYZM userId — the POST body otherwise requires a raw
+        // userId nobody knows. The invitee must already have a PRYZM account.
+        //
+        // §FIX-MEMBERS-PG-WRITE-PATH — this used to hard-400 with "Inviting by
+        // email requires the database connection." the moment Supabase was
+        // absent. On production Supabase IS absent and the database connection
+        // is FINE (Postgres, DATABASE_URL): the message named a cause that was
+        // not the cause. `resolveInviteTarget` now tries Supabase, then the
+        // Postgres `pryzm_users` directory, and only reports "no user directory"
+        // (503) when neither exists — which is the truth in that one case.
+        const resolved = await resolveInviteTarget({ supabase, pool, target: targetUserId });
+        if (!resolved.ok) {
+            return res.status(resolved.status).json({ error: resolved.error, code: resolved.code });
+        }
+        targetUserId = resolved.userId;
+
+        let written;
+        try {
+            written = await upsertMemberForProject({
+                supabase, pool, projectId: id, userId: targetUserId, role, invitedBy: userId,
+            });
+        } catch (writeErr) {
+            // 23503 = foreign_key_violation. `project_members.project_id`
+            // REFERENCES projects(id): a project that exists only in the browser
+            // (never synced) genuinely cannot carry member rows. Say THAT, rather
+            // than "Internal server error" — the two have opposite fixes.
+            if (writeErr?.code === '23503') {
+                return res.status(409).json({
+                    error: 'This project is not stored in the database yet, so members cannot be attached to it. Save/sync the project first, then invite.',
+                    code: 'project_not_persisted',
+                });
+            }
+            throw writeErr;
+        }
+        res.status(201).json({ member: written.member, source: written.source });
     } catch (err) {
         console.error('[api/members] POST error:', err);
         res.status(500).json({ error: 'Internal server error.' });
@@ -4622,11 +4660,13 @@ app.patch('/api/projects/:id/members/:uid/role', authMiddleware, async (req, res
             return res.status(403).json({ error: 'Forbidden — insufficient role to change member roles.' });
         }
 
-        const member = supabase
-            ? await updateMemberRoleInSupabase(supabase, id, uid, role)
-            : updateMemberRole(id, uid, role);
+        // §FIX-MEMBERS-PG-WRITE-PATH — same three-backend priority as the GET,
+        // so a role changed here is the role the access gate reads back.
+        const { member, source } = await updateMemberRoleForProject({
+            supabase, pool: getPgPool(), projectId: id, userId: uid, role,
+        });
         if (!member) return res.status(404).json({ error: 'Member not found.' });
-        res.json({ member });
+        res.json({ member, source });
     } catch (err) {
         console.error('[api/members] PATCH role error:', err);
         res.status(500).json({ error: 'Internal server error.' });
@@ -4649,11 +4689,10 @@ app.delete('/api/projects/:id/members/:uid', authMiddleware, async (req, res) =>
             return res.status(403).json({ error: 'Forbidden — insufficient role to remove members.' });
         }
 
-        if (supabase) {
-            await removeMemberFromSupabase(supabase, id, uid);
-        } else {
-            removeMember(id, uid);
-        }
+        // §FIX-MEMBERS-PG-WRITE-PATH — a removal that only mutated the volatile
+        // Map left the `project_members` row in place, so the removed member
+        // kept their access across the next restart.
+        await removeMemberForProject({ supabase, pool: getPgPool(), projectId: id, userId: uid });
         res.status(204).end();
     } catch (err) {
         console.error('[api/members] DELETE error:', err);

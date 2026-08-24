@@ -31,6 +31,15 @@ export const PROJECT_MEMBER_PANEL_STYLES = `
 .mp-pending-badge { font-size:10px; padding:2px 6px; background:#fff7ed; color:#d97706; border-radius:8px; border:1px solid #fed7aa; }
 .mp-empty { text-align:center; color:var(--app-text-muted,#888); font-size:13px; padding:24px 0; }
 .mp-loading { text-align:center; color:var(--app-text-muted,#888); font-size:13px; padding:16px 0; opacity:0.7; }
+/* §FIX-MEMBERS-ABSENT-VS-UNREACHABLE — the failure state must look nothing like
+   the empty state. mp-empty is muted-grey and centred (a calm "nothing here");
+   the load-failure block below is the red mp-error card with its own detail
+   line and a retry, so the two can never be mistaken for one another at a glance.
+   NB: no backticks in this comment — the whole block is a JS template literal. */
+.mp-error-detail { font-size:11px; color:#b91c1c; margin-top:4px; opacity:0.9; }
+.mp-retry-btn { margin-top:8px; padding:4px 12px; font-size:12px; font-weight:600; color:#dc2626; background:#fff; border:1px solid #fecaca; border-radius:5px; cursor:pointer; transition:all 0.15s; }
+.mp-retry-btn:hover { background:#fef2f2; }
+.mp-source-notice { font-size:11px; color:#d97706; background:#fff7ed; border:1px solid #fed7aa; border-radius:5px; padding:6px 10px; margin-top:8px; }
 `;
 
 export const CDE_VERSION_PANEL_STYLES = `

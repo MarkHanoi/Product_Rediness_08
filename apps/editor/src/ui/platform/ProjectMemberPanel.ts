@@ -30,9 +30,31 @@ export interface ProjectMember {
     acceptedAt?: number | null;
 }
 
+/**
+ * Which store answered the members read.
+ *
+ * §FIX-MEMBERS-ABSENT-VS-UNREACHABLE — `[]` from `'postgres'` is a MEASUREMENT
+ * ("this project has no members"). `[]` from `'memory'` is a volatile
+ * in-process Map that nothing durable ever writes to, so it means "unknown".
+ * The panel must not render those two as the same sentence.
+ */
+export type MemberSource = 'supabase' | 'postgres' | 'memory';
+
+/** Optional richer return from `onLoadMembers` — a plain array is still accepted. */
+export interface MemberLoadResult {
+    readonly members: ProjectMember[];
+    readonly source?: MemberSource | string | null;
+}
+
 export interface ProjectMemberPanelCallbacks {
-    /** Load current members from server */
-    onLoadMembers: (projectId: string) => Promise<ProjectMember[]>;
+    /**
+     * Load current members from server.
+     *
+     * MUST REJECT when the read fails. Resolving with `[]` on a failed fetch is
+     * the defect this panel is built against: "the request failed" and "there
+     * are no members" are opposite facts with opposite fixes (C01 §6 rule 6).
+     */
+    onLoadMembers: (projectId: string) => Promise<ProjectMember[] | MemberLoadResult>;
     /** Invite a new member */
     onInviteMember: (projectId: string, userId: string, role: CDERole) => Promise<ProjectMember>;
     /** Change a member's role */
@@ -53,6 +75,23 @@ export class ProjectMemberPanel {
     private members: ProjectMember[] = [];
     private loading = false;
     private error: string | null = null;
+
+    /**
+     * §FIX-MEMBERS-ABSENT-VS-UNREACHABLE — TRUE only after a load that actually
+     * SUCCEEDED. `members.length` is meaningless until then, so nothing may
+     * render a count, an empty-state, or the word "members" off it.
+     *
+     * THE DEFECT THIS EXISTS TO STOP (production, 2026-08-24): the members
+     * request failed and the modal showed "Project Members — 0 members" over
+     * "No members yet. Invite your first collaborator below." A request that
+     * FAILED was presented as a successful answer meaning EMPTY. That reading is
+     * strictly worse than no reading: the founder's next action would have been
+     * to re-invite people who were already there.
+     */
+    private loaded = false;
+
+    /** Which backend answered the successful read; null until one has. */
+    private source: string | null = null;
 
     /** Phase B (S73-WIRE) — runtime threaded by parent. */
     public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -91,10 +130,26 @@ export class ProjectMemberPanel {
     private async loadMembers(): Promise<void> {
         this.loading = true;
         this.error = null;
+        // Drop the previous reading BEFORE the request. A stale count rendered
+        // next to a fresh error is its own small lie.
+        this.loaded = false;
+        this.source = null;
         this.render();
         try {
-            this.members = await this.callbacks.onLoadMembers(this.projectId);
+            const result = await this.callbacks.onLoadMembers(this.projectId);
+            if (Array.isArray(result)) {
+                this.members = result;
+                this.source = null;
+            } else {
+                this.members = Array.isArray(result?.members) ? result.members : [];
+                this.source = typeof result?.source === 'string' ? result.source : null;
+            }
+            // Set ONLY on the success path — this is the flag every count and
+            // empty-state below is gated on.
+            this.loaded = true;
         } catch (e: any) {
+            this.members = [];
+            this.loaded = false;
             this.error = e?.message ?? 'Failed to load members';
         } finally {
             this.loading = false;
@@ -114,17 +169,56 @@ export class ProjectMemberPanel {
                     </svg>
                     Project Members
                 </h3>
-                <span class="mp-count">${this.members.length} member${this.members.length !== 1 ? 's' : ''}</span>
+                <span class="mp-count">${this.renderCount()}</span>
             </div>
 
             ${this.loading ? '<div class="mp-loading">Loading members…</div>' : ''}
-            ${this.error ? `<div class="mp-error">${this.escHtml(this.error)}</div>` : ''}
+            ${this.error ? this.renderLoadError() : ''}
 
-            ${!this.loading && !this.error ? this.renderMemberList() : ''}
+            ${this.loaded ? this.renderMemberList() : ''}
+            ${this.loaded ? this.renderSourceNotice() : ''}
 
             ${this.canInvite() ? this.renderInviteForm() : ''}
         `;
         this.attachListeners();
+    }
+
+    /**
+     * §FIX-MEMBERS-ABSENT-VS-UNREACHABLE — the count is a MEASUREMENT and may
+     * only be printed when a measurement exists. Before this, the header read
+     * `${this.members.length} members` unconditionally, so a failed request
+     * printed the literal string "0 members" — the exact sentence the founder
+     * saw on production over a request that had 400'd.
+     */
+    private renderCount(): string {
+        if (this.loading) return 'Loading…';
+        if (this.error) return 'count unavailable';
+        if (!this.loaded) return 'count unavailable';
+        return `${this.members.length} member${this.members.length !== 1 ? 's' : ''}`;
+    }
+
+    /**
+     * The failure state. It must say WHAT failed and offer the retry, and it
+     * must never be mistakable for an empty project.
+     */
+    private renderLoadError(): string {
+        return `
+            <div class="mp-error" role="alert">
+                <div><strong>Could not load the member list.</strong></div>
+                <div class="mp-error-detail">${this.escHtml(this.error ?? '')}</div>
+                <div class="mp-error-detail">This is not a report that the project has no members — the list is unknown until this read succeeds.</div>
+                <button class="mp-retry-btn" id="mp-retry-btn" type="button">Retry</button>
+            </div>
+        `;
+    }
+
+    /**
+     * A successful read from the volatile in-process Map is still not a durable
+     * fact. Saying so is cheap; discovering it after a restart is not.
+     */
+    private renderSourceNotice(): string {
+        if (this.source !== 'memory') return '';
+        return `<div class="mp-source-notice">Membership on this server is held in memory only — invites will not survive a restart.</div>`;
     }
 
     private renderMemberList(): string {
@@ -139,7 +233,14 @@ export class ProjectMemberPanel {
     }
 
     private renderMemberRow(m: ProjectMember): string {
-        const initial = (m.displayName ?? m.userId ?? '?')[0].toUpperCase();
+        // §FIX-MEMBERS-ROW-SHAPE — the Supabase read path returned RAW snake_case
+        // rows (`user_id`), so `displayName` and `userId` were BOTH undefined
+        // here: `undefined[0]` threw and blanked the whole modal, and
+        // `escHtml(undefined)` threw on `.replace`. The server now normalises
+        // every backend to one shape, but a UI that CRASHES on a missing field
+        // is a second defect, so both reads are made total.
+        const label = m.displayName || m.userId || m.email || 'Unknown member';
+        const initial = (label.trim()[0] ?? '?').toUpperCase();
         const roleLabel = CDE_ROLE_LABELS[m.role] ?? m.role;
         const pending = !m.acceptedAt;
 
@@ -152,7 +253,7 @@ export class ProjectMemberPanel {
         ` : `<span class="mp-role-label">${this.escHtml(roleLabel)}</span>`;
 
         const removeBtn = this.canRemove() ? `
-            <button class="mp-remove-btn" data-user-id="${this.escHtml(m.userId)}" title="Remove member" aria-label="Remove ${this.escHtml(m.displayName ?? m.userId)}">
+            <button class="mp-remove-btn" data-user-id="${this.escHtml(m.userId)}" title="Remove member" aria-label="Remove ${this.escHtml(label)}">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                 </svg>
@@ -164,7 +265,7 @@ export class ProjectMemberPanel {
                 <div class="mp-avatar">${initial}</div>
                 <div class="mp-member-info">
                     <div class="mp-member-name">
-                        ${this.escHtml(m.displayName ?? m.userId)}
+                        ${this.escHtml(label)}
                         ${pending ? '<span class="mp-pending-badge">Pending</span>' : ''}
                     </div>
                     ${m.email ? `<div class="mp-member-email">${this.escHtml(m.email)}</div>` : ''}
@@ -207,6 +308,13 @@ export class ProjectMemberPanel {
     }
 
     private attachListeners(): void {
+        // §FIX-MEMBERS-ABSENT-VS-UNREACHABLE — a failure state without a way out
+        // is only half honest (see the "refusing half needs its escape hatch"
+        // rule, L-942): telling the user the read failed obliges us to let them
+        // retry it without reopening the modal.
+        this.el.querySelector<HTMLButtonElement>('#mp-retry-btn')
+            ?.addEventListener('click', () => { void this.loadMembers(); });
+
         // Role change dropdowns
         this.el.querySelectorAll<HTMLSelectElement>('.mp-role-select').forEach(select => {
             select.addEventListener('change', async () => {
@@ -284,8 +392,9 @@ export class ProjectMemberPanel {
         if (el) { el.style.display = 'none'; el.textContent = ''; }
     }
 
-    private escHtml(s: string): string {
-        return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));
+    private escHtml(s: string | null | undefined): string {
+        if (s === null || s === undefined) return '';
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));
     }
 
     destroy(): void {

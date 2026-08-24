@@ -40,7 +40,7 @@ import { planThumbnailReconcile, describeThumbnailResolution } from './thumbnail
 import { uploadProjectThumbnail, describeUploadOutcome } from './thumbnailUpload';
 import { EntitlementStore } from '@pryzm/core-app-model';
 import { getPlanDisplayName, PLAN_LIMITS } from '@pryzm/core-app-model';
-import { ProjectMemberPanel, ProjectMember } from './ProjectMemberPanel';
+import { ProjectMemberPanel, ProjectMember, MemberLoadResult } from './ProjectMemberPanel';
 import { CDERole } from '@pryzm/protocol';
 import { apiFetch } from '@pryzm/core-app-model';
 import { OwnerSettingsPanel } from './OwnerSettingsPanel';
@@ -1413,13 +1413,31 @@ export class ProjectHub {
         const callbacks = {
             currentUserRole,
             isOwner,
-            onLoadMembers: async (pid: string): Promise<ProjectMember[]> => {
+            // §FIX-MEMBERS-ABSENT-VS-UNREACHABLE — this MUST reject on a failed
+            // read and MUST NOT reduce a failure to []. It also forwards the
+            // server's `source` so the panel can tell "postgres says zero" from
+            // "an in-memory Map says zero", which are not the same fact.
+            onLoadMembers: async (pid: string): Promise<MemberLoadResult> => {
                 const res = await apiFetch(`/api/projects/${pid}/members`, {
                     headers: { 'Content-Type': 'application/json' },
                 });
-                if (!res.ok) throw new Error(await res.text());
-                const { members } = await res.json();
-                return members;
+                if (!res.ok) {
+                    // Carry the STATUS CODE into the message. "400" and "503"
+                    // send the reader to different places, and a bare
+                    // "Failed to load" sends them nowhere.
+                    const body = await res.json().catch(() => null);
+                    const detail = (body && typeof body.error === 'string')
+                        ? body.error
+                        : await res.text().catch(() => '');
+                    throw new Error(`HTTP ${res.status} — ${detail || res.statusText || 'no detail returned'}`);
+                }
+                const body = await res.json().catch(() => null);
+                if (!body || !Array.isArray(body.members)) {
+                    // A 200 whose body is not a member list is a failed read
+                    // wearing a success code. Do not render it as "0 members".
+                    throw new Error('HTTP 200 but the response carried no member list — the read did not produce an answer.');
+                }
+                return { members: body.members as ProjectMember[], source: body.source ?? null };
             },
             onInviteMember: async (pid: string, userId: string, role: CDERole): Promise<ProjectMember> => {
                 const res = await apiFetch(`/api/projects/${pid}/members`, {
