@@ -305,6 +305,28 @@ export function summariseNotApplicable(n: MoveReweldNotApplicable): string {
     const nums = n.measuredMm != null
         ? `(${n.measuredMm}${n.limitMm != null ? `/${n.limitMm}` : ''} mm)`
         : '';
+    // ⭐⭐ §WD32-SAY-WHAT-THE-NUMBER-MEANS (L-10790) — ONE OUTCOME IS ROUTINELY
+    //    READ AS ITS OPPOSITE, AND IT COST A PRODUCTION ROLLBACK SCARE.
+    //
+    // `PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT(0/500 mm)` means the partner's
+    // endpoint is EXACTLY ON the subject's post-move line — the joint is CLOSED
+    // IN THE DATA and there is nothing for this engine to do. It is a SUCCESS.
+    //
+    // ⛔ On 2026-08-24 it was read as *"the cascade is doing nothing"* and taken
+    // as evidence that the arm naming it had no-opped the whole re-weld. It had
+    // not: the arm sits inside a pre-existing `continue`, so it changed the LABEL
+    // and not the DECISION. A near-rollback of a correct commit followed.
+    //
+    // A bare reason code plus two numbers is not enough when the reason's
+    // SIGNIFICANCE is counter-intuitive, so this one carries its own reading —
+    // including where to look INSTEAD when the screen disagrees with it. That is
+    // the same rule §L-921 applied to refusals, applied to a success.
+    if (n.reason === 'PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT') {
+        return `${n.partnerId}:${n.reason}${nums} ⇒ this partner is ALREADY ON the moved wall's `
+             + `NEW line: the join is CORRECT IN THE STORE and needs no re-weld. If it looks `
+             + `unadapted on screen, the defect is DOWNSTREAM of this cascade (render / `
+             + `invalidation / mesh cache), NOT in the weld engine`;
+    }
     return `${n.partnerId}:${n.reason}${nums}`;
 }
 

@@ -50903,3 +50903,241 @@ the live system lacks**. `new TitleBlockStore(...)` is never called outside its 
 `BUILTIN_TITLE_BLOCK_TEMPLATES` has no non-test consumer. ⛔ **The portrait/vertical title block and
 user-placed fields the founder asked for should ADOPT or EXTEND this, never mint a third system.**
 This is the [authored-but-unwired] shape again.
+
+## L-10700 — ⛔⛔ P0 DATA LOSS: authored VIEWS and SHEETS were NEVER SAVED — the autosave trigger listed only `bim-*` element events ✅ FIXED (VIEWLOAD36, 2026-08-24)
+
+Founder: *"In a previous session I created — RCP plan, Structural, Render, Draft view AND a Sheet. I
+closed the session, opened a new tab, logged in, opened the project — and NONE were there. Why?"* His
+panel showed `Views 6` and `Schedules 16`.
+
+⭐⭐ **SIX is exactly what `DefaultViewsManager.ensureDefaultViews()` mints from code and SIXTEEN is
+exactly what `ScheduleStore.seedDefaultSchedules()` seeds from code** (counted: 16 entries in the
+`defaults` array, `ScheduleStore.ts:128-245`; the doc comment above it still says "3 built-in" and is
+stale). **Neither number was ever restored data** — so "schedules survived, views did not" was never
+true, and the contrast that was expected to hand over the fix did not exist.
+
+⛔ **THREE HYPOTHESES REFUTED, MEASURED:**
+- The **writer** is sound — `ProjectSerializer.ts:1459/:1538/:1541` put `viewDefinitions` / `sheets` /
+  `schedules` in every snapshot, unconditionally.
+- The **loader** is sound — `ProjectLoader.ts:2255/:2322/:2328` read all three back.
+- `DefaultViewsManager` **cannot clobber** — `ensureDefaultViews()` (`:632`) is strictly
+  create-if-missing; `deserialize()` clears then repopulates from the payload. This was the leading
+  suspect and the ordering cannot produce the reported outcome.
+
+⭐ **THE ROOT, upstream of all three:** `SaveOrchestrator.MUTATION_EVENTS` (`:88`) — the window-event
+allowlist that is the **only** autosave trigger — held **forty `bim-*` ELEMENT events and nothing
+else**. No `vd:*`, no `sd:*`, no `sched:*`. Authoring a view left the project marked **CLEAN**: no
+debounce armed, and `flushBeforeUnload()` returns early on `!hasDirtyChanges`, so **closing the tab
+wrote nothing either.** The file's own comment claims `bim-store-mutated` is *"a synthetic aggregator
+event that each store should emit"* — **that never landed**: it is dispatched by exactly ONE
+production file (`PlatformProjectBrowser.ts:161`), and `StoreEventBus`, which every store DOES emit
+into, dispatches **no window event at all**. `CommandManagerImpl.execute()` dispatches nothing
+either, so routing through the bus verb does not help.
+
+**FIX** — `apps/editor/src/ui/platform/SaveOrchestrator.ts`: the 10 `vd:*`, 3 `sd:*` and 3 `sched:*`
+AUTHORING events added (⛔ `*:store-loaded` / `*:store-reset` deliberately excluded — they fire during
+a load). **PROOF** — `apps/editor/__tests__/viewSheetAuthoringSurvivesReload.test.ts`, 10 tests,
+asserting AUTHORED ids and kinds (a "some views exist" assertion passes on the six defaults and
+proves nothing). **RED-first with the fix stripped: 7 of 10 FAIL**; the 3 that pass are the pure
+store round trips — which were green throughout the defect and are exactly why it went unnoticed.
+
+⛔ **HIS ALREADY-SAVED PROJECTS CANNOT BE RECOVERED.** The work was never written to any snapshot, so
+there is nothing in storage to restore. (If any stored version HAD carried the views, the loader —
+which is sound — would have restored them, and it did not.) ⚠ Inferred from the screenshot plus the
+measured loader, **not** from a read of his stored snapshot; no lane had database access.
+
+Contract: **C102 §13** (new — the persistence round-trip invariant, RT-1/RT-2).
+
+## L-10701 — ⛔ ANNOTATIONS AND DIMENSIONS ALSO NEVER ARMED A SAVE — the store dispatched NO window event at all ✅ FIXED (VIEWLOAD36, 2026-08-24)
+
+Same root as L-10700, one family further. `plugins/annotations/src/subsystem/AnnotationStore.ts`
+emitted **only** on `storeEventBus` (`:109/:160/:173/:300/:317/:330`), and `StoreEventBus` dispatches
+nothing to `window` — so nothing this store did ever reached `SaveOrchestrator`. `ProjectSerializer`
+:1548 writes `annotations` into every snapshot, so annotations were saved **only when some unrelated
+family happened to mark the project dirty in the same session**.
+
+⭐ **This is why the founder's Drafting view matters here and not only in C101: a drafting view's
+entire content IS annotations.** Restoring the view record without arming a save for what is drawn on
+it returns a blank sheet of paper. Fixed by broadcasting `bim-store-mutated` from the two `_notify*`
+fan-outs — the aggregator `SaveOrchestrator` already listens for, so no new event name and no change
+in the platform layer. `clear()` / `deserialize()` deliberately do not notify, so a load cannot be
+mistaken for authoring. `pnpm --filter @pryzm/plugin-annotations test` → **9 files / 122 tests pass**.
+
+## L-10702 — ⚠ NOTHING ENFORCES "a persisted store's authoring events must arm a save" ⚠ OPEN (VIEWLOAD36, 2026-08-24)
+
+The L-10700 suite fails if one of the FOUR named families regresses. **A fifth store added to
+`ProjectSnapshot` tomorrow would be lost exactly as these four were, and nothing would say so** — the
+snapshot field would be present, correctly typed, correctly restored, and permanently empty. C102
+§13.2 states the invariant (RT-1) as normative; it has **no gate**. ⭐ The natural gate compares the
+SET of stores `ProjectSerializer` serialises against the SET of authoring events in
+`MUTATION_EVENTS` — a set comparison, never a count, for the reason
+`check-contract-index-equivalence.ts` gives.
+
+⚠ Related, measured and NOT fixed: `ScheduleStore.seedDefaultSchedules()`'s doc comment says *"Seeds
+the 3 built-in schedules (Doors, Windows, Walls)"* and it seeds **16**. A stale count in a comment is
+how the "Schedules 16 means schedules survived" misreading started.
+
+## L-10740 — ⭐⭐ The parcel shade "MIRRORS to one side outwards" — a REAL reflection, but NOT in θ. `rotateX(+π/2)` vs `rotateX(-π/2)`, 100 lines apart in one file ✅ FIXED (PARCEL38, 2026-08-24)
+
+Founder: *"Check the parcel shade in PRYZM view — not always, but often the shade is not correct — it
+sort of MIRRORS to one side outwards."* Screenshot: a grey parcel shape and a violet shade reading as
+offset/reflected from each other.
+
+⛔⛔ **THE LEADING HYPOTHESIS — a θ SIGN FLIP — IS REFUTED, with a negative control.** His session logged
+`theta = -44.87°` where an earlier Barcelona session logged `+43.40°`. Measured
+(`apps/editor/__tests__/parcelShadeIsNotMirrored.test.ts`, 25 cases, an **asymmetric L-shaped** parcel):
+- The θ chain (`deriveProjectNorthAngleFromParcel` → the `dispatchParcelBoundary` de-rotation →
+  `sceneXZToEnu`) is a **proper rotation, determinant +1**, round-tripping to **1e-9 m** at θ = -44.87°.
+- **Negating θ STILL preserves signed area exactly.** A wrong-signed θ misplaces a parcel by 2θ; it can
+  never mirror it. Reflection and rotation are different group elements.
+- **θ ∈ (-45°, +45°] BY THE FOLD**, so a negative θ is ordinary. -44.87° and +43.40° are two different
+  plots, two different angles — not a regression.
+- ⚠ **But the fold IS BISTABLE at ±45° and the Cerdà grid sits exactly there**: a 0.3° change in the
+  dominant edge flips θ by 90°. Self-cancelling end-to-end (the round-trip holds at 45.13°), so not the
+  bug — but it is why θ "changes sign between sessions" in one city, and the most available wrong answer.
+
+⭐ **THE ROOT — in a RASTERISER, not the frame.** `apps/editor/src/ui/site/ParcelBoundarySceneRenderer.ts`:
+`buildFill` rotated a shape built in `(x, -z)` by **`rotateX(+π/2)`**, while `buildEnvelopeVolume` — 100
+lines below, same file, **identical shape construction** — used **`rotateX(-π/2)`** and spelled the algebra
+out correctly. `Matrix4.makeRotationX(+π/2)` sends `(u, v, 0) → (u, 0, +v)`, so the parcel FILL landed at
+scene `z = -p.z`: **mirrored about the scene X axis** relative to the outline it exists to fill and to the
+envelope shade beside it. The frame origin is the parcel's FIRST VERTEX (`parcelFrameOrigin`), so the
+mirror line runs through a plot **CORNER** and the reflected copy lands wholly on the far side — the
+founder's "to one side outwards", exactly. **Fix: one sign.**
+
+⚠ **WHY IT SURVIVED:** `side: THREE.DoubleSide` hides the flipped normals, and **an axis-aligned rectangle
+is its own mirror** — so every symmetric test plot passed vacuously. Only a CHIRAL fixture can falsify a
+reflection; test 1 of the new suite proves the L-parcel is chiral before asserting anything else.
+
+⭐⭐ **THE PROBE COULD NEVER HAVE CAUGHT IT — and the ARM IS WORTH MORE THAN THE FIX.**
+`§SITE-FRAME-PROBE` printed `FRAME VERDICT: CONSISTENT` on the founder's own defective session and **was
+not lying**. Its only term is `deriveProjectNorthAngleFromParcel(ring) ≈ 0`, which folds **mod 90°** and
+reads only the dominant EDGE DIRECTION. Proven in the suite: a **mirrored** ring re-derives residual 0; a
+**90°-rotated** ring re-derives residual 0; a consistently-applied **wrong-signed θ** re-derives 0.
+*A success criterion with no term for the thing that is wrong reports success forever.* This is the same
+defect class WALLDEEP32 proved on walls. **NEW:** pure `detectRingFrameDisagreement` +
+`ringSignedAreaXZ` (`sceneEnuFrame.ts`) and a `SHADE VERDICT:` line on the probe — comparing the parcel
+boundary against the buildable-envelope ring (two INDEPENDENT pipelines that must land in one frame) on
+`displaced` (an inset's centroid MUST be inside its parcel — strongest), `oversized`, and `reflected`
+(opposite winding — **reported separately as the WEAKEST term**, since a producer using the other winding
+convention trips it too). It also closes the hole `PARCEL-3D-OFFSET-INVESTIGATION-2026-08-05.md` §5 named:
+*"the probe only checks the BOUNDARY, not the buildable envelope ring"* — one arm, two reported defects.
+
+**Normative:** C12 §9 clause 8 (chirality clause — orientation-preserving MUST + chiral-fixture MUST +
+rectangle MUST-NOT) · ADR-0115 §Remaining item 2 amended in place.
+**Verified:** root `tsc` RC=0 · `check:isolation` RC=0 · 75/75 across 8 frame/parcel suites.
+⚠ **NOT verified in a browser** — no live repro available in this environment; the reflection is proven
+against REAL `THREE.ShapeGeometry`/`ExtrudeGeometry`/`rotateX`, and the production source text is pinned
+so the two builders cannot drift apart again.
+
+## L-10741 — ⛔ The `§CULL-PROBE` printed THREE FALSE `want~` VALUES — all three "anomalies" were a HEALTHY tile ✅ FIXED (PARCEL38, 2026-08-24)
+
+The founder's log carried
+`§CULL-PROBE root(1,0) vis=0(0=NONE/2=FULL) … bvCtrMag=3189094(want~6.38e6) occPtMag=10000.0000(want~1.0)`
+— three numbers that look alarming and were flagged as a possible second, more serious defect. **Measured
+against the Cesium bundle and `tools/context-bake/terrain.mjs`: there is NO defect. All three expectations
+the probe printed are wrong, and wrong PESSIMISTICALLY.**
+- **`vis=0` is `PARTIAL` — VISIBLE.** The legend `0=NONE/2=FULL` was **fabricated**. Cesium's `Visibility`
+  is **`NONE = -1, PARTIAL = 0, FULL = 1`**; a culled tile prints **-1**, and **2 is not a value
+  `computeTileVisibility` can return**. PARTIAL is the only correct answer for a hemisphere-sized OBB with
+  the camera inside a city. ⚠ **ADR-0278's own narrative mis-read the same enum**; its real evidence was
+  `occPtMag=0.0000` plus an independent R2 byte decode, which stand on their own.
+- **`bvCtrMag = 3189094` is arithmetically FORCED** for a level-0 root: the field is an OBB centre Cesium
+  derives **from the tile rectangle**, and a hemisphere-spanning tile centres at `R_eq/2 + h/2 = 3189094`
+  — matching to the digit. `want~6.38e6` is impossible at that level.
+  ⛔ **AND THIS FIELD CANNOT SEE THE BUG THE PROBE EXISTS FOR:** the L-639/ADR-0278 D1 defect is the
+  quantized-mesh **HEADER** bounding-sphere centre (`root.data.terrainData._boundingSphere.center`), a
+  different field. The Cesium-derived OBB is immune to a garbage header centre — the probe was testing an
+  object that could not fail.
+- **`occPtMag = 10000` is our OWN `HORIZON_OCC_NEVER_CULL = 1e4` sentinel** (C12 §10.2, ADR-0278 D2)
+  reading back HEALTHY. `want~1.0` predates that decision by one day and applies only to NARROW tiles.
+
+**Fix:** the probe now decodes the enum (`vis=0=PARTIAL/VISIBLE`), derives the centre expectation from the
+tile LEVEL, names the header field it does **not** read, and states the 1e4 sentinel. **Normative:** C12
+§10.2a — an expected value MUST be derived or cited, never the hypothesis of the day; a *pessimistic*
+false `want~` manufactures bug reports and burns a lane per paste.
+
+⚠ **`§PROBE-GLOBE-BUILDING-IN-VOID` (`real-model=ABSENT · ground=UNRESOLVED · anchor-in-void=n`) was NOT
+investigated** — the probe states it is a DIFFERENT defect from the cut and that was respected. Still open.
+
+### L-10800 — ⭐⭐ **THE SUBJECT SEAT WAS JUDGED AGAINST A POSE THAT NEVER EXISTED — AND L-10602 TURNED THAT FROM COSMETIC INTO DESTRUCTIVE** · lane WALLDEEP32 · 2026-08-24 · **FIXED**
+
+**Founder, seventh report:** *"I moved a wall connected to an ANGLED (non-ortho) wall and ortho walls. I moved it OUTWARDS and it behaved GOOD. Then INWARDS and the wall did NOT adapt."*
+
+⭐ **REPRODUCED.** A perimeter with one **160° obtuse** partner `P` and one **orthogonal** partner `W`:
+```
+160° OUT → entries [P]      W:CORNER_RETRACTED_SUBJECT_DECLINED(3879/500 mm)
+160° IN  → entries [P, W]   (no decline at all)
+```
+`W` is a plain 90° corner. Its own angle-derived reach is `0·cot 90° + weldTol` = **500 mm**. It measured **3879 mm** — because the subject-seat loop **mutates `sx/sz/ex/ez` as it seats each corner and measured the next corner against the already-moved values.** `P`'s corner had dragged the subject's endpoint 3.4 m along its own axis first. **Nothing about `W` changed; only the order in which its neighbour was processed** — and that order is the `joinedTo` graph's arbitrary iteration order.
+
+⛔ **THE ORDER-DEPENDENCE PREDATES THIS LANE. MAKING IT DESTRUCTIVE DID NOT.** Before [L-10602](#) a declined seat was cosmetic — the subject simply failed to seat. L-10602 made a declined seat **RETRACT the partner's follow**, so an arbitrary iteration order began **withdrawing a correct orthogonal weld**. That is the founder's *"the wall did NOT adapt"*, and the outward/inward asymmetry is the two partners swapping which is processed first.
+
+**FIX** — every corner in `cornersOnMoved` was computed against the subject's **committed** new centreline `newS→newE`; judging them against a half-mutated version asks a question about a pose that never existed. The measurement moves back to `newS`/`newE`, making each corner's verdict a property of the **junction alone**, independent of the other partners and of their order — which is what it always claimed to be. Seating still accumulates into `sx…ez`; only the MEASUREMENT moved.
+
+⚠ Pinned by `§OBTUSE` in `WALLDEEP32DirectionInversion.measure.test.ts`, which sweeps 90°→160° in **both** directions and asserts the two are mirror images. **That control was written to exonerate the gain cap and caught this instead.**
+
+---
+
+### L-10801 — ⛔ **"YOUR COMMIT NO-OPPED THE CASCADE" — REFUTED FROM THE DIFF. THE LABEL CHANGED; THE DECISION DID NOT** · lane WALLDEEP32 · 2026-08-24 · **NOT A DEFECT**
+
+A production rollback of `f159ed7a` was proposed on this reading of the founder's log:
+```
+§MOVE-REWELD-EMPTY-PLAN … 0 re-weld entries and 0 refusals.
+  Per-partner outcome: [wall_…:PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT(0/500 mm),
+                        wall_…:PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT(0/500 mm)]
+```
+
+⛔ **THE ARM CANNOT HAVE CAUSED THIS. It lives INSIDE a pre-existing `continue`.** Measured with `git show f159ed7a^`:
+```
+BEFORE:  if (dS > weldTol && dE > weldTol) { na('NOT_WELDED_TO_SUBJECT_PREV_SEGMENT'); continue; }
+AFTER :  if (dS > weldTol && dE > weldTol) { …second measurement picks the LABEL…; continue; }
+```
+**Same condition, same `continue`, different name.** Every partner reaching that line was being dropped identically before the code that names it existed — reported as `NOT_WELDED_TO_SUBJECT_PREV_SEGMENT(2259/500 mm)`, which is **precisely the founder's third and fifth reports, both from before the commit.**
+
+⭐⭐ **AND THE NUMBER MEANS THE OPPOSITE OF WHAT IT WAS READ TO MEAN.** `(0/500 mm)` is the distance to the subject's **POST-move** line. Reading **0** means the partner's endpoint lies **exactly on it** — **the partner FOLLOWED and the joint is CLOSED IN THE STORE.** It is a success line.
+
+⭐ **The contrast that settles it:** `DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE(588/500)` measures `min` over **both** poses, so it reads a real distance when a partner is near neither. Both arms measure correctly; the two numbers answer different questions. **Neither arm is broken.**
+
+**ACTION TAKEN** — the outcome now carries its own reading, because a bare reason code plus two numbers is not enough when the significance is counter-intuitive (§L-921's rule, applied to a *success* rather than a refusal):
+> *"⇒ this partner is ALREADY ON the moved wall's NEW line: the join is CORRECT IN THE STORE and needs no re-weld. If it looks unadapted on screen, the defect is DOWNSTREAM of this cascade (render / invalidation / mesh cache), NOT in the weld engine."*
+
+---
+
+### L-10770 — ⛔ **REFUTED HYPOTHESIS, KEPT AS A CONTROL: the no-progress guard does NOT eat the mid-flush write** · lane WALLDEEP32 · 2026-08-24 · **REFUTED**
+
+Reports 6/7 (*"3D wrong, PLAN CORRECT"*, *"sometimes when I move quickly"*, *"creating a door sometimes fixes it"*) pointed hard at `§FIX-WALLFLUSH-NOPROGRESS-GUARD`: it records `_levelWallSig(levelId, store)` by **re-reading the live store AFTER the rebuild**, so a write landing DURING a flush would be recorded as *"built"* without having been built.
+
+⭐ The corroboration looked decisive — `WallRebuildCoordinator` documents the founder's exact workaround at `:1674`: *"the reason 'create any element' repaired it (a create MOVES the signature)"*, and that guard has eaten a real change **three times** before (L-1490, §WALL-RAKE-INVALIDATION, L-1670).
+
+⛔ **IT IS STILL WRONG.** `WD32MidFlushWriteControl.test.ts` §REPRO drives exactly that race — a store write to a second wall fired from **inside** the builder, mid-flush — and the mesh rebuilds correctly. **A mechanism being real, documented, and previously guilty three times is not evidence that it is guilty this time.**
+
+The file is **kept, not deleted**: it pins that a mid-flush write reaches the mesh, and it stops the next lane spending the same hours. ⚠ *"3D wrong, plan right"* remains **UNEXPLAINED**; `WallFragmentBuilder`'s own `_lastBuiltVersion` / `composeWallGeometryHash` caches are **NOT MEASURED** and are the next place to look.
+
+---
+
+### L-10780 — ⚠ **A REFUSED DOOR IS A CONSOLE LINE AND NOTHING ELSE** · lane WALLDEEP32 · 2026-08-24 · **OPEN (reported, not fixed — not this lane's file)**
+
+```
+[WallOccupancyStore] CONFLICT: new=[1.358,2.284]m vs existing 3576e389-… [1.163,2.089]m
+  on wall wall_01M0T70DW03GMJDF2F82AN3N0Q
+```
+The founder placed a door twice, got two CONFLICT lines, and **no visible refusal on screen**. The refusal is correct — the opening overlaps an existing one — but a `console.warn` is a developer trace, not a user-facing message (C79 §10.6, the same surface `§MOVE-REWELD-REFUSED` is missing).
+
+⭐ **It also cost diagnostic time:** he was creating the door as a *workaround* for the propagation symptom, so *"the door did not help"* was read as evidence about the cascade when in fact **the door was never created.**
+
+---
+
+### L-10790 — ⚠ **ORTHO YIELDS TO A MIDPOINT SNAP AND BUYS 18.4 mm FOR 0.22° OF AXIS ERROR** · lane WALLDEEP32 · 2026-08-24 · **OPEN — NOT STARTED, next in queue**
+
+**Founder, eighth report:** *"Layered walls … I was drawing in ORTHO mode — still went off a little … the white thin layer gets thinner and thinner towards the first point of the segment. When drawing ortho it should ALWAYS be respected."*
+```
+§FIX-ORTHO-YIELDS-TO-OBJECT-SNAP — over-constrained second point: ORTHO DROPPED,
+  the midpoint snap WINS. Ortho would have moved the end 18.4 mm;
+  the accepted segment sits 0.22° OFF AXIS.
+```
+⭐ **The log prints both sides of the trade and the trade is bad**: 18.4 mm bought at authoring time, against 0.22° of axis error whose damage **scales with length**. His same log shows `554 mm from centreline EXCEEDS hostSnap 200 mm` on two junctions. ⚠ **NOT YET VERIFIED that the 554 mm descends from this segment.**
+
+⚠ **The taper is consistent with the mechanism**: a layered wall 0.22° off axis while its neighbours are true has its constant-offset layer bands converge along the length — *"thinner and thinner towards the first point"*. **NOT YET CONFIRMED against the layer builder.**
+
+⭐ **The design question is a contract decision, not a flip.** `§FIX-ORTHO-YIELDS-TO-OBJECT-SNAP` is ratified behaviour protecting a real case (the user aimed at a real vertex and ortho would have missed it). The likely sound resolution is a **priority plus an angle budget**, not an inversion: ortho wins over WEAK/derived targets (midpoint, projection — his case was a **midpoint**, the weakest kind); a STRONG explicit vertex may still win; and **no result may be accepted more than a stated angular tolerance off axis while ortho is armed** — an ANGLE budget, because the damage scales with length. ⭐ Lane ADAPTIVE34's `c2760644` restored snap metadata, so snap STRENGTH may now be discriminable, which would make this cheap. **To be written into C85 with the rejected alternative recorded.**

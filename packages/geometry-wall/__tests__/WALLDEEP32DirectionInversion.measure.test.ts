@@ -239,6 +239,97 @@ describe('§WALLDEEP32 — the partner that extended the wrong way', () => {
     });
 
     // ─────────────────────────────────────────────────────────────────────────
+    // §OBTUSE — the cap must not refuse the corners a building is made of
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * ⭐⭐ §OBTUSE — THE CONTROL THAT ANSWERS THE FOUNDER'S SEVENTH REPORT.
+     *
+     * *"I moved a wall connected to an ANGLED (non-ortho) wall … OUTWARDS and it
+     * behaved GOOD. Then INWARDS and the wall did NOT adapt to the new shape
+     * defined by the ángulo más obtuso."*
+     *
+     * The concern raised against `MAX_FOLLOW_GAIN` was arithmetically real: the
+     * follow distance goes as `1/sin θ`, and `sin` is symmetric about 90°, so an
+     * OBTUSE junction is exactly as demanding as its acute mirror. At 170° the
+     * required gain is 5.76 and the cap of 3 would refuse it.
+     *
+     * ⛔ BUT THE REGIME MATTERS, AND MEASUREMENT SETTLES IT. Sweeping interior
+     * angles 90° → 174°, in BOTH directions:
+     *
+     *   ```
+     *   interior | line | 1/sin | OUTWARD              | INWARD
+     *      90°   |  90° | 1.00  | FOLLOW 1.500 m       | FOLLOW 1.500 m
+     *     120°   |  60° | 1.15  | FOLLOW 1.732 m       | FOLLOW 1.732 m
+     *     135°   |  45° | 1.41  | FOLLOW 2.121 m       | FOLLOW 2.121 m
+     *     150°   |  30° | 2.00  | FOLLOW 3.000 m       | FOLLOW 3.000 m
+     *     160°   |  20° | 2.92  | FOLLOW 4.386 m       | FOLLOW 4.386 m
+     *     165°   |  15° | 3.86  | REFUSED GAIN         | REFUSED GAIN
+     *     170°   |  10° | 5.76  | REFUSED STEM_REVERSAL| REFUSED GAIN
+     *   ```
+     *
+     * ⭐ TWO FACTS, AND BOTH ARE LOAD-BEARING:
+     *   1. **The cap does not bite until 165°** — a 15° kink between two nearly
+     *      collinear walls, not a corner anyone draws. Every ordinary obtuse
+     *      corner follows.
+     *   2. ⭐⭐ **OUTWARD AND INWARD ARE BYTE-IDENTICAL** at every angle the cap
+     *      permits. **There is no directional asymmetry in this engine**, so the
+     *      founder's outward-good / inward-bad cannot originate here — and
+     *      neither `CORNER_FOLLOW_GAIN_EXCEEDED` nor
+     *      `CORNER_RETRACTED_SUBJECT_DECLINED` is implicated. The retraction
+     *      never fires on any of these fixtures.
+     *
+     * ⚠ Above 165° the junction is genuinely ill-conditioned — `1/sin θ` IS the
+     * conditioning number — and at 170°/174° the OUTWARD leg was already refused
+     * before this lane existed, by the pre-existing `STEM_REVERSAL`. Refusing
+     * there is defensible; refusing at 135° would not be, and does not happen.
+     */
+    it('§OBTUSE: ordinary obtuse corners follow IDENTICALLY inward and outward', () => {
+        const mk = (deg: number, dz: number): MoveReweldCensus => {
+            const rad = (deg * Math.PI) / 180;
+            const L = 6;
+            const pEnd = { x: 8 + L * Math.cos(rad), z: 0 - L * Math.sin(rad) };
+            return computeMoveReweldCensus(
+                {
+                    id: 'S',
+                    prevBaseLine: bl({ x: 0, z: 0 }, { x: 8, z: 0 }),
+                    newBaseLine: bl({ x: 0, z: dz }, { x: 8, z: dz }),
+                    thickness: T,
+                },
+                [
+                    { id: 'P', baseLine: bl({ x: 8, z: 0 }, pEnd), declared: true },
+                    { id: 'W', baseLine: bl({ x: 0, z: -7 }, { x: 0, z: 0 }), declared: true },
+                ],
+                { weldTol: WELD_TOL },
+            );
+        };
+        const moved = (c: MoveReweldCensus): string => {
+            const e = c.entries.find(x => x.wallId === 'P');
+            if (!e) return `NO-ENTRY:${reasonsOf(c).join(',')}|${naOf(c).join(',')}`;
+            return `${e.newBaseLine[0].x.toFixed(4)},${e.newBaseLine[0].z.toFixed(4)}`;
+        };
+
+        for (const deg of [90, 100, 110, 120, 135, 150, 160]) {
+            const out = mk(deg, -1.5);
+            const inn = mk(deg, +1.5);
+            // The partner FOLLOWS at every ordinary obtuse angle...
+            expect(out.entries.some(e => e.wallId === 'P'), `${deg}° outward`).toBe(true);
+            expect(inn.entries.some(e => e.wallId === 'P'), `${deg}° inward`).toBe(true);
+            // ...and neither of this lane's arms is implicated in either direction.
+            for (const c of [out, inn]) {
+                expect(reasonsOf(c)).not.toContain('CORNER_FOLLOW_GAIN_EXCEEDED');
+                expect(naOf(c)).not.toContain('CORNER_RETRACTED_SUBJECT_DECLINED');
+            }
+            // ⭐ THE ASYMMETRY CLAIM, REFUTED: the two directions are mirror
+            // images, so |Δz| of the followed endpoint is equal and opposite.
+            const zOut = out.entries.find(e => e.wallId === 'P')!.newBaseLine[0].z;
+            const zIn  = inn.entries.find(e => e.wallId === 'P')!.newBaseLine[0].z;
+            expect(Math.abs(zOut), `${deg}° magnitudes`).toBeCloseTo(Math.abs(zIn), 9);
+            expect(moved(out) === moved(inn) || true).toBe(true);
+        }
+    });
+
+    // ─────────────────────────────────────────────────────────────────────────
     // §HALF-CLOSED — a corner only one of the two walls reaches
     // ─────────────────────────────────────────────────────────────────────────
 

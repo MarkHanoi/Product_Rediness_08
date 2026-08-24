@@ -875,6 +875,27 @@ export type MoveReweldNotApplicableReason =
      * PREV segment — and a single distance cannot distinguish "this joint was
      * already repaired" from "this joint never existed". Both are "far from
      * where the wall used to be". The second measurement is the whole fix.
+     *
+     * ⭐⭐ READ THE NUMBER CORRECTLY — IT HAS ALREADY BEEN MISREAD ONCE, IN
+     *    PRODUCTION, AND IT COST A ROLLBACK SCARE (2026-08-24).
+     *
+     * A reading of `(0/500 mm)` means the partner's endpoint lies EXACTLY ON the
+     * subject's POST-MOVE line. **That is positive evidence that the partner
+     * FOLLOWED and the joint is CLOSED IN THE DATA.** It is a SUCCESS.
+     *
+     * ⛔ It was read instead as *"the cascade is doing nothing"*, and the
+     * conclusion drawn was that this arm had no-opped the whole re-weld. It had
+     * not, and could not have: this arm lives INSIDE the pre-existing
+     * `if (dS > weldTol && dE > weldTol)` block, which already ended in
+     * `continue` (`f159ed7a^`, `NOT_WELDED_TO_SUBJECT_PREV_SEGMENT`). **The label
+     * changed; the DECISION did not.** Every partner that reaches this line was
+     * being dropped identically before the code that names it existed.
+     *
+     * ⭐ SO WHAT IT ACTUALLY TELLS YOU: if a wall looks unadapted ON SCREEN while
+     * this line reports `(0/500 mm)`, the store is RIGHT and the defect is
+     * DOWNSTREAM OF THE CASCADE — in rendering, invalidation, or the mesh cache.
+     * Do not go looking for it in this engine. The `summariseNotApplicable`
+     * sentence says exactly that, so the next reader cannot repeat the mistake.
      */
     | 'PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT'
     /**
@@ -1578,8 +1599,53 @@ export function computeMoveReweldCensus(
         let sx = newS.x, sz = newS.z, ex = newE.x, ez = newE.z;
         let changed = false;
         for (const { at: corner, reachM, partnerId } of cornersOnMoved) {
-            const dToS = Math.hypot(corner.x - sx, corner.z - sz);
-            const dToE = Math.hypot(corner.x - ex, corner.z - ez);
+            // ⭐⭐ §WD32-SEAT-IS-JUDGED-AGAINST-THE-COMMITTED-POSE (L-10800) —
+            //    MEASURE FROM `newS`/`newE`, NEVER FROM THE RUNNING `sx…ez`.
+            //
+            // ── THE DEFECT, AND IT WAS MINE (2026-08-24, same day as L-10602) ──
+            //
+            // This loop MUTATES `sx/sz/ex/ez` as it seats each corner, and it used
+            // to measure the NEXT corner against those already-moved values. So
+            // the verdict for corner #2 depended on what corner #1 did — and
+            // therefore on the PARTNER ORDER, which is the `joinedTo` graph's
+            // arbitrary iteration order.
+            //
+            // ⛔ MEASURED, founder's seventh report ("moved OUTWARDS and it
+            // behaved GOOD, then INWARDS and the wall did NOT adapt"). A
+            // perimeter with one 160° obtuse partner `P` and one orthogonal
+            // partner `W`:
+            //
+            //     160° OUT → entries [P]      W:CORNER_RETRACTED_SUBJECT_DECLINED(3879/500)
+            //     160° IN  → entries [P, W]   (no decline at all)
+            //
+            // `W` is a plain 90° corner whose own reach is `0·cot90° + weldTol`
+            // = 500 mm. It was measured against a subject endpoint that `P`'s
+            // corner had already dragged 3.4 m along the wall's own axis, so it
+            // read 3879 mm and was declined. **Nothing about W changed; only the
+            // order in which its neighbour was processed.**
+            //
+            // ⭐⭐ AND `§CORNER_RETRACTED_SUBJECT_DECLINED` MADE IT DESTRUCTIVE.
+            // The order-dependence predates this lane, but it was cosmetic: the
+            // subject simply failed to seat. L-10602 then made a declined seat
+            // RETRACT the partner's follow — so an arbitrary iteration order
+            // began WITHDRAWING a correct orthogonal weld. That is the founder's
+            // *"the wall did NOT adapt"*, and the outward/inward asymmetry is the
+            // fixture's two partners swapping which one is processed first.
+            //
+            // ── THE FIX, AND WHY IT IS THE CORRECT ONE AND NOT A PATCH ─────────
+            //
+            // Every corner in `cornersOnMoved` was computed against the subject's
+            // COMMITTED new centreline `newS→newE`. Judging those corners against
+            // a half-mutated version of that line asks a question about a pose
+            // that never existed. Measuring from `newS`/`newE` makes each corner's
+            // verdict a property of the JUNCTION alone — independent of the other
+            // partners and of their order — which is what it always claimed to be.
+            //
+            // ⚠ Seating still ACCUMULATES into `sx…ez`: two corners may legitimately
+            // move the two different endpoints, and that composition is correct and
+            // unchanged. Only the MEASUREMENT moves back to the committed pose.
+            const dToS = Math.hypot(corner.x - newS.x, corner.z - newS.z);
+            const dToE = Math.hypot(corner.x - newE.x, corner.z - newE.z);
             const d = Math.min(dToS, dToE);
             if (d < MIN_DISPLACEMENT) {
                 // The subject's endpoint is ALREADY on this corner — the joint
