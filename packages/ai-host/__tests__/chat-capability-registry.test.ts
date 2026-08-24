@@ -265,6 +265,12 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       'set-stair-dimensions': ['stair'],
       'set-stair-type': ['stair'],
       'set-stair-railing-type': ['stair-railing'],
+      // §FEAT-CHAT-LIGHTING-TYPES (L-10220) — ONE kind. 'light' and
+      // 'lightfixture' are spellings element.changeType tolerates on the way in;
+      // `normalizeElementKind` does not fold them, and the storeRegistry key is
+      // 'lighting', so claiming them here would be a claim about a kind nothing
+      // enumerates.
+      'set-lighting-type': ['lighting'],
       // §FEAT-WINDOW-REVEAL-RAC (L-3202 … L-3204) — five capabilities, ONE kind.
       // The reveal is a property of the opening, so a literal is exactly right
       // here: there is no register to drift against.
@@ -639,7 +645,29 @@ describe('§GATE-FANOUT-RATCHET — the number of families that undo in N steps'
    * it — and prefer threading a gestureId (§12.3) or minting the batch verb,
    * either of which LOWERS it.
    */
-  const FANOUT_CEILING = 3;
+  //
+  // ⚠ RAISED 3 → 4 ON 2026-08-24, DELIBERATELY, BY LANE RACLIGHT16
+  // (§FEAT-CHAT-LIGHTING-TYPES, L-10220), and here is the reason the block above
+  // demands.
+  //
+  // `set-lighting-type` rides `element.changeType`, which is SINGULAR and has no
+  // batch twin — measured: no `lighting.updateSystemTypeBatch` verb exists, and
+  // `lighting.setMaterial` (the only lighting verb that could look like a bulk
+  // channel) sits at disposition REFUSES with `affectedStores: NONE`, one of the
+  // thirteen §FIX-MATERIAL-DEAD-DISPATCH exhibits.
+  //
+  // ⛔ THE ALTERNATIVE WAS WORSE, AND THAT IS THE ARGUMENT. Routing a bulk
+  // lighting type change through a generic store write to buy one undo entry
+  // would bypass the branch that REFUSES an id outside
+  // `BUILT_IN_LIGHTING_TYPES` — and `LightingFragmentBuilder` switches on
+  // `fixtureType`, so an unvalidated value builds NOTHING, silently. One undo
+  // step at the cost of invisible fixtures is not a trade this repository takes.
+  //
+  // ⭐ AND THE COMPLIANT FIX IS UNCHANGED BY THIS ROW: the `gestureId` seam
+  // (C78 §12.3) fixes all FOUR at once, which is why it is a two-lane job and
+  // not four. This number goes back down when that lands — never by a family
+  // quietly leaving the table.
+  const FANOUT_CEILING = 4;
 
   it(`no more than ${FANOUT_CEILING} capabilities dispatch one command per element`, () => {
     const fanOut = Object.entries(EXECUTION_SPECS)

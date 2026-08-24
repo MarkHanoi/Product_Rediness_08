@@ -524,6 +524,15 @@ const KNOWN_VALUE_SOURCES = new Set([
   // are pure metadata; the probe-shape arms below activate with their first
   // consumer.
   'project-rooms', 'orientation', 'level-range',
+  // ⭐ §FEAT-CHAT-LIGHTING-TYPES (L-10220) — and the TWO STALE ONES beside it.
+  //
+  // `stair-types` / `handrail-types` shipped with L-1441 on 2026-08-20 and were
+  // never added here, so this gate has been reporting two of its own families as
+  // *"unknown valueSource — nothing can resolve it"* ever since: a HARD arm
+  // failing on capabilities that are correct, which is the gate lying about the
+  // subject rather than the subject being wrong. Both resolve through
+  // `publishedCatalogues.ts` and both are proved by CATALOGUE_SOURCES below.
+  'stair-types', 'handrail-types', 'lighting-types',
 ]);
 
 // ADR-0315 U2.5 — the scope modes a capability may declare in `scopeModes`.
@@ -921,6 +930,22 @@ const CATALOGUE_SOURCES: ReadonlyMap<string, { file: string; exported: string }>
   ['finish', {
     file: 'packages/ai-host/src/intents/finishRef.ts',
     exported: 'resolveFinishRef',
+  }],
+  // §FEAT-CHAT-STAIR-TYPES (L-1441) / §FEAT-CHAT-LIGHTING-TYPES (L-10220) — the
+  // three families whose catalogue is a PUBLISHED L2 table read by the pure
+  // resolver rather than injected by the editor bridge. Same obligation: the
+  // reader must exist, or the chat parses a type name with nothing behind it.
+  ['stair-types', {
+    file: 'packages/ai-host/src/intents/publishedCatalogues.ts',
+    exported: 'publishedStairTypeCatalogue',
+  }],
+  ['handrail-types', {
+    file: 'packages/ai-host/src/intents/publishedCatalogues.ts',
+    exported: 'publishedRailingTypeCatalogue',
+  }],
+  ['lighting-types', {
+    file: 'packages/ai-host/src/intents/publishedCatalogues.ts',
+    exported: 'publishedLightingTypeCatalogue',
   }],
 ]);
 

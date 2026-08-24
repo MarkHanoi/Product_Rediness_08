@@ -24,10 +24,20 @@
 // belongs here only when its batch verb reaches the GEOMETRY store the builders
 // read, through a command in `packages/command-registry`. Today:
 //
-//   window  → window.updateSystemTypeBatch   → UpdateWindowSystemTypeCommand
-//   door    → door.updateSystemTypeBatch     → UpdateDoorSystemTypeCommand
-//   slab    → slab.updateSystemTypeBatch     → UpdateSlabLayersCommand      (U7.2)
-//   ceiling → ceiling.updateSystemTypeBatch  → UpdateCeilingLayersCommand   (U7.2)
+//   window   → window.updateSystemTypeBatch  → UpdateWindowSystemTypeCommand
+//   door     → door.updateSystemTypeBatch    → UpdateDoorSystemTypeCommand
+//   slab     → slab.updateSystemTypeBatch    → UpdateSlabLayersCommand      (U7.2)
+//   ceiling  → ceiling.updateSystemTypeBatch → UpdateCeilingLayersCommand   (U7.2)
+//   stair    → stair.updateParameters        → UpdateStairParametersCommand (L-1441)
+//   stair-railing → element.changeType       → UpdateStairRailingCommand    (L-1441)
+//   lighting → element.changeType            → UpdateLightingParametersCommand
+//                                                                          (L-10220)
+//
+// ⚠ THIS LIST IS HAND-MAINTAINED AND IT ROTTED ONCE ALREADY: the two stair rows
+// shipped 2026-08-20 and were never added here, so a reader of this block on
+// 2026-08-24 counted FOUR families against a table holding SIX. The table below
+// is the authority; when they disagree, `CATALOGUE_FAMILIES.length` wins. The
+// list survives because it names the ROUTE, which the table does not.
 //
 // WALL is deliberately NOT in this table. Its grammar is entangled with the
 // colour and rake grammars that share the "make all walls …" opening and must
@@ -44,7 +54,12 @@
 // repository keeps re-producing — and this block was being read as current.
 //
 // ⭐ AND THE FRAMING WAS WRONG AT THE TOP. This list reads as "these families
-// have no machinery". They do. `element.changeType`
+// have no machinery". They do — and LIGHTING is the first one moved out of this
+// block on the strength of that sentence alone (§FEAT-CHAT-LIGHTING-TYPES,
+// L-10220, 2026-08-24). It cost a table row, a published-catalogue reader and a
+// registry entry; no command, no store and no builder was touched. ⭐ The
+// remaining bullets should be read as a QUEUE, not as a set of refusals.
+// `element.changeType`
 // (apps/editor/src/engine/initBusHandlers.ts:1518) routes SIXTEEN families —
 // wall, furniture, floor, slab, door, window, ceiling, plumbing, stair,
 // column, beam, stair-railing, HANDRAIL, roof, lighting, CURTAIN-WALL — each
@@ -112,10 +127,11 @@
 //     because it lacks machinery, but because "railing" names both and the
 //     disambiguation is a decision, exactly as it is for floor vs slab.
 //
-// ⚠ PURITY, RESTATED HONESTLY (2026-08-20). This paragraph used to read "PURE —
-// no DOM, no stores, no I/O", full stop. The stair families make that one word
-// too strong: through `publishedCatalogues.ts` this module now READS two
-// published L2 type tables (`BUILT_IN_STAIR_TYPES`, `handrailTypeStore`). Still
+// ⚠ PURITY, RESTATED HONESTLY (2026-08-20; re-counted 2026-08-24). This
+// paragraph used to read "PURE — no DOM, no stores, no I/O", full stop. The
+// stair families make that one word too strong: through `publishedCatalogues.ts`
+// this module now READS three published L2 type tables (`BUILT_IN_STAIR_TYPES`,
+// `handrailTypeStore`, `BUILT_IN_LIGHTING_TYPES`). Still
 // no DOM, still no I/O, still no commands and still nothing written — but a
 // claim of "no stores" that is not literally true is how a comment stops being
 // evidence. Injected catalogues remain the PREFERRED channel and win whenever
@@ -132,6 +148,7 @@ import type { ResolverContext } from './ZeroTokenResolver.js';
 // editor bridge's catalogue channel carries only slab + ceiling today. See
 // that module's header for why forwarding a raw ref would be unsafe here.
 import {
+  publishedLightingTypeCatalogue,
   publishedRailingTypeCatalogue,
   publishedStairTypeCatalogue,
 } from './publishedCatalogues.js';
@@ -148,7 +165,12 @@ export type CatalogueFamilyIntentId =
   // commands and different catalogues, and the two sentences differ by one
   // word. See the table rows for the collision guard that keeps them apart.
   | 'set-stair-railing-type'
-  | 'set-stair-type';
+  | 'set-stair-type'
+  // §FEAT-CHAT-LIGHTING-TYPES (L-10220) — the founder's *"change all lightings
+  // in ground level to X"*. The FIRST family added after the block above
+  // corrected its own framing: lighting was never missing machinery, only
+  // PUBLICATION. See the table row for what that turned out to cost.
+  | 'set-lighting-type';
 
 /** The catalogue lookup a family needs, however it was injected. */
 export interface CatalogueLookup {
@@ -231,6 +253,25 @@ export interface CatalogueFamily {
   /** Refs this family must never claim, with the capability that owns them
    *  ("change all doors to left swing" is a swing ask). */
   readonly rejectRef?: (ref: string) => boolean;
+  /**
+   * §FEAT-CHAT-LIGHTING-TYPES (L-10220) — the spatial scope kinds this family
+   * can answer CORRECTLY, forwarded to `CapabilityExecutionSpec.spatialKinds`.
+   *
+   * ⭐ MEASURED, and it is a defect being closed rather than a preference.
+   * `makeHostedTypeParser` passes `orientationWord: undefined` unconditionally,
+   * so NO catalogue family's grammar can produce an orientation scope. The
+   * generic arm honours it anyway — and the editor's orientation descriptor
+   * carries no `elementKind`, so it answers "facing south" with the WALLS that
+   * face south. A fan-out family then fans its per-element verb over WALL ids
+   * and refuses once per wall: reach that exists only as a defect, which is the
+   * exact wording `set-room-occupancy` used when it introduced the field.
+   *
+   * ⚠ Set on the three FAN-OUT rows only. window / door / slab / ceiling
+   * declare `orientation` in `scopeModes` today and their batch commands filter
+   * by id, so narrowing them is a separate, declared decision — not a side
+   * effect of this one.
+   */
+  readonly spatialKinds?: readonly ('level' | 'room' | 'orientation')[];
 }
 
 /**
@@ -332,6 +373,19 @@ export const CATALOGUE_FAMILIES: readonly CatalogueFamily[] = [
     mismatchPrefix: 'Ceiling types apply to ceilings',
     suggestions: ['change all ceilings to plasterboard 12.5mm'],
     lookup: generic('ceiling'),
+    // ⛔ §FEAT-CHAT-LIGHTING-TYPES (L-10220) — THE COLLISION PUBLISHING LIGHTING
+    // CREATES, guarded the same way the stair/railing one is.
+    //
+    // "change all ceiling lights to downlight" hits THIS row first: the grammar
+    // matches "…all ceiling", finds no place phrase, and hands the rest over as
+    // typeRef **"lights to downlight"** — a confident ceiling-type refusal over
+    // a sentence about luminaires. Measured on this grammar 2026-08-24.
+    //
+    // The lighting row cannot claim it either (its nouns must follow the scope
+    // word, and "ceiling" does not), so declining here makes the sentence a
+    // MISS rather than a wrong answer. ⛔ That is the intended outcome: "ceiling
+    // lights" is a real ask nothing serves yet, and a miss says so.
+    rejectRef: (ref) => /^(?:lights?|lamps?|luminaires?|lighting|fixtures?)\b/i.test(ref),
   },
   // ─────────────────────────────────────────────────────────────────────────
   // §FEAT-CHAT-STAIR-TYPES (L-1441) — the founder's two sentences, verbatim:
@@ -407,6 +461,9 @@ export const CATALOGUE_FAMILIES: readonly CatalogueFamily[] = [
       'change all stair railings to stainless cable railing',
     ],
     lookup: (ctx) => generic('stair-railing')(ctx) ?? publishedRailingTypeCatalogue(),
+    // ⛔ NOT orientation — a railing has no facade, and the arm's orientation
+    // descriptor returns WALLS. See `CatalogueFamily.spatialKinds`.
+    spatialKinds: ['level', 'room'],
   },
   {
     intent: 'set-stair-type',
@@ -439,6 +496,99 @@ export const CATALOGUE_FAMILIES: readonly CatalogueFamily[] = [
     // BEGINS with a railing noun is a railing sentence this grammar mis-read;
     // declining it (rather than refusing) lets the railing family claim it.
     rejectRef: (ref) => /^(?:railings?|balustrades?|handrails?|guardrails?)\b/i.test(ref),
+    spatialKinds: ['level', 'room'],
+  },
+  // ─────────────────────────────────────────────────────────────────────────
+  // §FEAT-CHAT-LIGHTING-TYPES (L-10220) — the founder's sentence, verbatim:
+  //   *"change all lightings in ground level to 'X'"*
+  //
+  // ⭐ THE MACHINERY WAS ALREADY THERE, EXACTLY AS THE HEADER SAYS. What this
+  // row cost was one table entry, one published-catalogue reader and one
+  // registry declaration. What it EXPOSED cost more, and is the finding:
+  //
+  //   ⛔ THE LEVEL SCOPE IN HIS SENTENCE DID NOT WORK FOR ANY FAMILY. This
+  //   table's grammar factory carried the FIFTH hand-written spelling of the
+  //   scope tail — `on` hard-wired to LEVEL, `in the` hard-wired to ROOM — so
+  //   "in ground level" matched nothing at all and the phrase LEAKED INTO THE
+  //   TYPE REF. window / door / slab / ceiling / stair / stair-railing were all
+  //   broken the same way and nobody had reported it. Fixed for all seven at
+  //   once in `makeHostedTypeParser` (§FIX-HOSTED-TYPE-SCOPE-TAIL), which is
+  //   the shape this file already demands: extend the table, never special-case
+  //   the newest row.
+  //
+  // ── WHY LIGHTING QUALIFIES WHERE column / beam DO NOT ───────────────────
+  //
+  // The rule at the top of this file is that a family needs a NAMED catalogue,
+  // not a closed enum. Lighting looks like the enum case and is not:
+  // `LightingFixtureType` IS a union, but `BUILT_IN_LIGHTING_TYPES`
+  // (@pryzm/geometry-lighting) is a real `{id, name, description, mount}` table
+  // over it — 12 named families + the 20 LOD-200 rows, by construction — and it
+  // is the SAME table the properties-panel picker renders and the SAME one
+  // `element.changeType`'s lighting branch validates against. column/beam have
+  // no such table: their `profile`/`sectionType` is bare enum members with no
+  // display names, so a refusal there could list nothing. MEASURED 2026-08-24.
+  //
+  // ── THE ROUTE, AND WHAT IT IS NOT ──────────────────────────────────────
+  //
+  // ⛔ NOT `lighting.setMaterial`, and not any `plugins/lighting` DTO verb.
+  // Six lighting rows sit in `tools/ga-gate/mirror-debt.json` (`lighting.delete`
+  // / `.setEmergency` / `.setIntensity` / `.setMaterial` / `.move` /
+  // `.changeLevel`) — the plugin DTO channel, which nothing renders. This row
+  // rides `element.changeType`, whose lighting branch REFUSES an id the
+  // catalogue does not know and otherwise dispatches
+  // `UpdateLightingParametersCommand`: `lightingStore.update(...)` followed by
+  // an explicit `lightingFragmentBuilder.update(record)`, because a fixture's
+  // whole geometry switches on its type. Pinned end-to-end by
+  // `packages/command-registry/__tests__/lightingTypeSwap.test.ts`.
+  {
+    intent: 'set-lighting-type',
+    // `storeRegistry` registers the lighting store under exactly this key
+    // (apps/editor initStores.ts:127 `r('lighting', stores.lightingStore)`), so
+    // both the 'all' and the LEVEL scope enumerate through the same path every
+    // other family uses. Lighting records carry their own `levelId`, so the
+    // bridge's level arm filters them directly — no host derivation.
+    elementKind: 'lighting',
+    // What users call them. The founder typed "lightings"; `(?:lighting)s?`
+    // already covers that, and these are the words the rest of us use.
+    nounAliases: ['light', 'light fixture', 'lighting fixture', 'lamp', 'luminaire'],
+    busCommand: 'element.changeType',
+    idsField: 'elementId',
+    fanOutPerId: true,
+    typePayload: (id) => ({ elementType: 'lighting', newTypeId: id }),
+    typeNoun: 'lighting type',
+    // ⚠ `${elementKind}s` would be "lightings" — the founder's own word, but not
+    // one PRYZM should speak back at him in a summary. C78's rule: the product
+    // reads the user's spelling and replies in the product's.
+    nounPlural: 'lights',
+    noSelectionReason:
+      'No lights are selected — select a light, or say "change all lights to pendant" to retype every one.',
+    mismatchPrefix: 'Lighting types apply to light fixtures',
+    suggestions: [
+      'change all lights to pendant',
+      'change all lights in ground level to recessed downlight',
+    ],
+    // The generic channel first (a project catalogue always wins), then the
+    // published table. Unlike stair this fallback carries NO limiting note, and
+    // `publishedLightingTypeCatalogue`'s header states the measurement that
+    // earns the difference: the set it can resolve is exactly the set the route
+    // will accept.
+    lookup: (ctx) => generic('lighting')(ctx) ?? publishedLightingTypeCatalogue(),
+    // ⛔ ANOTHER CAPABILITY'S SENTENCES, declined rather than refused — the same
+    // mechanism `set-door-type` uses for "left swing".
+    //
+    // "turn all the lights off" / "make all lights brighter" are switching and
+    // dimming asks. Neither has a chat route yet (`lighting.setIntensity` is an
+    // UNMIRRORED plugin DTO verb), so a MISS is the honest answer and a
+    // catalogue refusal listing 32 fixture names would not be.
+    //
+    // ⭐ WHOLE-REF, NEVER A SUBSTRING, and that is load-bearing: two real
+    // fixture names are "Emergency Downlight (Maintained)" and "Up/Down Wall
+    // Sconce". A `\bdown\b` or `\bon\b` substring test would deny type names
+    // this family exists to accept — the L-10100 rule (a refusal may not deny a
+    // name it lists) applied one layer earlier, at the claim.
+    rejectRef: (ref) =>
+      /^(?:on|off|dim|dimmer|dimmed|bright|brighter|brightness|intensity)$/i.test(ref.trim()),
+    spatialKinds: ['level', 'room'],
   },
 ];
 
@@ -474,6 +624,8 @@ export function catalogueFamilySpec(
     suggestions: family.suggestions,
     destructive: false,
     ...(family.fanOutPerId === true ? { fanOutPerId: true as const } : {}),
+    // §FEAT-CHAT-LIGHTING-TYPES (L-10220) — see `CatalogueFamily.spatialKinds`.
+    ...(family.spatialKinds !== undefined ? { spatialKinds: family.spatialKinds } : {}),
     resolveValue: (si, ctx): SpecValueOutcome => {
       // §FEAT-CHAT-STAIR-TYPES — the payload shape is the FAMILY's, because
       // "change the type" is one gesture carried by three different payloads.

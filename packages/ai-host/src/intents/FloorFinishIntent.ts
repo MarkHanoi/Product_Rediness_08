@@ -95,8 +95,30 @@ const FLOOR_NOUN = /\b(?:floors?|flooring)\b/;
 
 /** Element nouns that belong to a DIFFERENT family's grammar. A sentence naming
  *  one of these is not this capability's, and guessing between floor and slab is
- *  the coin-flip `CatalogueFamilies.ts` refuses to make. */
-const OTHER_FAMILY_NOUN = /\b(?:walls?|ceilings?|roofs?|slabs?|stairs?|doors?|windows?)\b/;
+ *  the coin-flip `CatalogueFamilies.ts` refuses to make.
+ *
+ * ⭐⭐ §FEAT-CHAT-LIGHTING-TYPES (L-10220) — `lamp` / `luminaire` / `lighting`
+ * JOINED THE LIST, and the reason is a measured mis-claim, not tidiness.
+ *
+ * Three of the twelve named lighting fixtures are FLOOR LAMPS. Measured
+ * 2026-08-24, before this line changed:
+ *
+ *   "change all lights to brass arc floor lamp"  → set-floor-finish, ref "brass"
+ *   "change all lights to wood post floor lamp"  → set-floor-finish, ref "lights wood post"
+ *   "change the lighting type to brass arc floor lamp" → set-floor-finish, "brass"
+ *
+ * ⛔ THAT IS NOT A MISS, IT IS A DESTRUCTIVE MIS-CLAIM: the first sentence would
+ * have repainted every floor in the project BRASS while the user was talking about
+ * light fixtures. `FLOOR_NOUN` matched the word "floor" inside a FIXTURE NAME —
+ * the §FIX-SELF-REFERENTIAL-TYPE-NAME shape (L-10100) one family over, with
+ * ANOTHER family's noun doing the damage instead of its own.
+ *
+ * ⚠ BARE "light" / "lights" IS DELIBERATELY ABSENT. "change the floor to light
+ * oak" is a real finish sentence and `Wood · Oak (Light)` is a real entry;
+ * rejecting on the adjective would break the capability in order to protect it.
+ * The fixture NOUNS are what disambiguate, so they are what is listed. */
+const OTHER_FAMILY_NOUN =
+  /\b(?:walls?|ceilings?|roofs?|slabs?|stairs?|doors?|windows?|lamps?|luminaires?|lightings?)\b/;
 
 /**
  * "the living room floor" / "this kitchen floor" — a room named WITHOUT a

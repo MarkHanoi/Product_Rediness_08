@@ -293,6 +293,12 @@ const VALUE_SOURCE_PHRASE: Readonly<Record<CapabilityValueSource, string>> = {
   // resolver cannot reach.
   'stair-types': 'a BUILT-IN stair type NAME ("Monolithic Concrete", "Steel Open Riser")',
   'handrail-types': "a railing type NAME from the project's railing catalogue (\"Frameless Glass Balustrade\")",
+  // §FEAT-CHAT-LIGHTING-TYPES (L-10220). ⭐ "the catalogue" and not "the
+  // project's": BUILT_IN_LIGHTING_TYPES is the WHOLE accepted set here, because
+  // element.changeType's lighting branch validates against that same table. The
+  // stair wording above hedges because its source is a SUBSET; this one must not,
+  // or the model learns to hedge about a catalogue with nothing outside it.
+  'lighting-types': 'a lighting fixture type NAME from the fixture catalogue ("Recessed Downlight", "Linear Pendant", "Brass Arc Floor Lamp")',
   finish: 'a finish name ("plaster", "limewash")',
   'project-levels': 'a level reference — a name ("Level 2") or a number ("2")',
   color: 'a colour name ("white", "light grey") or a #hex string',

@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@pryzm/geometry-kernel": "workspace:*",
+    "@pryzm/geometry-lighting": "workspace:*",
     "@opentelemetry/api": "^1.9.0",
     "@pryzm/ai-cost": "workspace:*",
     "@pryzm/command-bus": "workspace:*",

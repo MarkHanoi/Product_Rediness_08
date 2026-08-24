@@ -923,6 +923,25 @@ export type SemanticIntent =
       readonly scope: IntentScope;
     }
   /**
+   * §FEAT-CHAT-LIGHTING-TYPES (L-10220) — the founder's *"change all lightings
+   * in ground level to X"*.
+   *
+   * Same arm shape, same table, same fan-out trade as the stair pair:
+   * `element.changeType` has no batch twin, so N fixtures are N undo steps and
+   * `dispatchCommands` says so out loud.
+   *
+   * ⭐ The LEVEL half of his sentence is why this entry is worth reading. It
+   * was not a lighting gap — the shared scope tail had never been wired into
+   * this table's grammar factory at all, so "in ground level" leaked into the
+   * type reference for every catalogue family. See §FIX-HOSTED-TYPE-SCOPE-TAIL
+   * in `makeHostedTypeParser`.
+   */
+  | {
+      readonly intent: 'set-lighting-type';
+      readonly typeRef: string;
+      readonly scope: IntentScope;
+    }
+  /**
    * §REFUSE-STAIR-SPAN (L-1444) — "create a stair from ground to level 5
    * connected to this wall — in L shape". Parsed IN ORDER TO REFUSE
    * ACCURATELY: every clause it understood is named back to the user, so the
@@ -4127,16 +4146,55 @@ function makeHostedTypeParser(
   aliases: readonly string[] = [],
 ): (text: string, ctx?: ResolverContext) => { typeRef: string; scope: IntentScope } | null {
   const nouns = [noun, ...aliases].map(nounSrc).join('|');
+  // ⭐⭐ §FIX-HOSTED-TYPE-SCOPE-TAIL (L-10220) — THE FIFTH SPELLING OF THE SCOPE
+  // TAIL, and it was the one serving SIX families at once.
+  //
+  // This factory carried the pre-L-1201 hand-written tail:
+  //
+  //     (?: on (?:the )?(?:levels?|floors?)?\s*([\w .-]+?)| in the ([\w .-]+?))?
+  //
+  // — `on` hard-wired to LEVEL, `in the` hard-wired to ROOM, and `at` /
+  // `inside` / `within` / a bare `in` not understood at all. Exactly the defect
+  // L-1201 removed from the dimension grammars, L-1261 from the wall-finish
+  // grammar and L-1372 from the rake grammar — whose own comment predicted this
+  // one: *"so there is no fifth spelling to fix next time"*. There was one, here,
+  // unnoticed, because nobody had typed the sentence that reaches it.
+  //
+  // MEASURED on the founder's literal, 2026-08-24, BEFORE this change:
+  //
+  //   "change all lightings in ground level to downlight"
+  //     → the tail matches NOTHING ("in ground level" is not "in the …")
+  //     → typeRef = "in ground level to downlight", scope = 'all'
+  //     → "There is no lighting type called 'in ground level to downlight'…"
+  //
+  // A confident refusal over a real fixture name, AND a project-wide scope where
+  // the user restricted to one level. The second half is the dangerous one: had
+  // the ref resolved, the sentence would have retyped every light in the
+  // building. **A level scope that silently widens is worse than no level scope.**
+  //
+  // It now shares `SPATIAL_TAIL_SRC`, so window / door / slab / ceiling / stair /
+  // stair-railing / lighting all read a place phrase the same way every other
+  // grammar in this package does. ⛔ The claim surface is NOT widened: a sentence
+  // with no place phrase parses exactly as before, and an `unusable` place ("this
+  // floor" with no active level) DECLINES rather than falling back to a wider
+  // scope (C68 §7.d).
   const scopedRe = new RegExp(
     `^(?:change|set|make|convert|swap|turn) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL})` +
     // §FIX-HOSTED-TYPE-SCOPE-PHRASING — byte-identical to WALL_TYPE_RE's.
-    `(?: selected)?(?: of)?(?: the)? (?:${nouns})s?` +
-    // RAC U8 — the SAME spatial captures the colour/rake grammars use, so
-    // "change all doors on level 2 to fire doors" reaches the one arm that
-    // already knows how to resolve a level.
-    `(?: on (?:the )?(?:levels?|floors?)?\\s*([\\w .-]+?)| in the ([\\w .-]+?))?` +
+    `(?: selected)?(?: of)?(?: the)? (?:${nouns})s?${SPATIAL_TAIL_SRC}` +
     // §FIX-HOSTED-TYPE-SCOPE-PHRASING — the leading article, as WALL_TYPE_RE
     // already strips it: "make all the stairs A monolithic concrete".
+    `(?:'s)?(?: types?)?(?: (?:to|into|as|be))? (?:a |an |the )?(.+)$`,
+  );
+  // ⭐ THE SAME SHAPE WITHOUT A PLACE PHRASE — for the "longest catalogue claim
+  // wins" arbitration below. The tail is OPTIONAL and the engine prefers to match
+  // it, so a TYPE NAME carrying a preposition ("Pendant on Cable") would split
+  // into a bogus room scope plus a truncated ref. C68 §3.d already rules on this
+  // for the noun collision, and the ruling is the same here: the span the
+  // project's catalogue AFFIRMATIVELY CLAIMS wins.
+  const scopedNoTailRe = new RegExp(
+    `^(?:change|set|make|convert|swap|turn) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL})` +
+    `(?: selected)?(?: of)?(?: the)? (?:${nouns})s?` +
     `(?:'s)?(?: types?)?(?: (?:to|into|as|be))? (?:a |an |the )?(.+)$`,
   );
   const singularRe = new RegExp(
@@ -4148,11 +4206,28 @@ function makeHostedTypeParser(
   const runShape = (
     source: string,
     catalogue: ((ref: string) => { id: string; name: string } | null) | undefined,
+    ctx: ResolverContext | undefined,
   ): { typeRef: string; base: IntentScope } | null => {
-    const scoped = scopedRe.exec(source);
+    const clean = (raw: string): string =>
+      raw.trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
+    let scoped = scopedRe.exec(source);
+    // §FIX-HOSTED-TYPE-SCOPE-TAIL (L-10220) — a matched place phrase that leaves a
+    // ref the catalogue does NOT know, where dropping the phrase leaves one it
+    // DOES, was never a place phrase. This can only ADD a resolution: with no
+    // catalogue injected, or with neither ref known, the tail reading stands.
+    if (scoped !== null && scoped[3] !== undefined && catalogue !== undefined
+        && catalogue(clean(scoped[5]!)) === null) {
+      const flat = scopedNoTailRe.exec(source);
+      if (flat !== null && catalogue(clean(flat[2]!)) !== null) scoped = flat;
+    }
     const singular = scoped === null ? singularRe.exec(source) : null;
     if (scoped === null && singular === null) return null;
-    const typeRef = (scoped?.[4] ?? singular![1]!).trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
+    // Groups 2/3/4 are `SPATIAL_TAIL_SRC`'s (leading level noun, place phrase,
+    // trailing level noun) and group 5 is the type ref. `scopedNoTailRe` has no
+    // tail groups at all, so its ref sits at group 2 and group 5 reads undefined.
+    const typeRef = clean(
+      scoped === null ? singular![1]! : (scoped[5] ?? scoped[2]!),
+    );
     if (typeRef.length === 0) return null;
     // "make all windows 1m wide" is a DIMENSION ask, not a type ask — never claim it.
     // §FIX-CHAT-TYPEREF-SWALLOW (RAC U9, U10 drain): the list was missing the
@@ -4183,7 +4258,20 @@ function makeHostedTypeParser(
     }
     if (scoped === null) return { typeRef, base: 'selection' };
     const isAll = new RegExp(`^${WALL_SCOPE_ALL}$`).test(scoped[1]!);
-    const base = wallScopeBase(isAll, undefined, scoped[2]?.trim(), scoped[3]?.trim());
+    // The SHARED classifier: the preposition never decides the scope KIND, the
+    // NOUN does (SpatialScopeTail.ts). When `scopedNoTailRe` won there are no
+    // tail groups, and `none` is exactly the right reading.
+    const tail = scoped[5] === undefined
+      ? { kind: 'none' as const }
+      : readSpatialTail(scoped[2], joinTailPhrase(scoped[3], scoped[4]), ctx);
+    // ⛔ A place WAS named and cannot be resolved ("this floor" with no active
+    // level). DECLINE — never widen to the whole project (C68 §7.d).
+    if (tail.kind === 'unusable') return null;
+    const base = wallSpatialScopeBase(
+      isAll,
+      undefined,
+      tail.kind === 'scope' ? tail.scope : undefined,
+    );
     if (base === null) return null;
     return { typeRef, base };
   };
@@ -4212,12 +4300,12 @@ function makeHostedTypeParser(
     //     tail the guards above decline, so the lift still runs;
     //   • only an EXACTLY-KNOWN type name short-circuits, which is the one
     //     reading that cannot be a mis-parse.
-    const raw = runShape(text, catalogue);
+    const raw = runShape(text, catalogue, ctx);
     if (raw !== null && catalogue !== undefined && catalogue(raw.typeRef) !== null) {
       return { typeRef: raw.typeRef, scope: raw.base };
     }
     const lifted = parseFilterClauses(text, noun, catalogue);
-    const hit = lifted.stripped === text ? raw : runShape(lifted.stripped, catalogue);
+    const hit = lifted.stripped === text ? raw : runShape(lifted.stripped, catalogue, ctx);
     if (hit === null) return null;
     return { typeRef: hit.typeRef, scope: withFilters(hit.base, lifted.filters) };
   };

@@ -488,6 +488,26 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
       'change the stair type to timber closed string',
     ],
   },
+  {
+    // §FEAT-CHAT-LIGHTING-TYPES (L-10220) — the founder's lighting sentence and
+    // its neighbours. `scopedSel`, not `sel`: this family fans out, so
+    // `fanOutPerId` implies `requireResolvedIds` and an 'all' sentence needs a
+    // resolver before there are ids to fan over.
+    //
+    // ⭐ The SECOND phrasing is the founder's literal, level scope and all. It
+    // parsed as typeRef "in ground level to recessed downlight" at project-wide
+    // scope before §FIX-HOSTED-TYPE-SCOPE-TAIL, so it belongs in the acceptance
+    // corpus rather than only in the fix's own regression file.
+    id: 'set-lighting-type',
+    ctx: scopedSel('lighting'),
+    scoped: true,
+    phrasings: [
+      'change all lights to pendant',
+      'change all lightings in ground level to recessed downlight',
+      'make all the lights linear pendant',
+      'change the lighting type to brass arc floor lamp',
+    ],
+  },
   // ── RAC U7.1 — the PROPERTY VOCABULARY families ─────────────────────────
   // These reach applySemanticIntent through the ONE generic property arm and
   // the ONE table-compiled grammar; nothing about them is hand-written.

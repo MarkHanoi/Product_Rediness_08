@@ -65,6 +65,11 @@
 // imported `BEAM_CONSTRAINTS` rather than re-typing the numbers.
 
 import { BUILT_IN_STAIR_TYPES } from '@pryzm/geometry-stair';
+// §FEAT-CHAT-LIGHTING-TYPES (L-10220) — the lighting fixture catalogue, read
+// from the SAME frozen table `element.changeType`'s lighting branch validates
+// against (`getLightingTypeDefinition`). See `publishedLightingTypeCatalogue`
+// for why this family needs NO limiting note, unlike stair.
+import { BUILT_IN_LIGHTING_TYPES } from '@pryzm/geometry-lighting';
 import { handrailTypeStore } from '@pryzm/core-app-model/stores';
 import type { CatalogueLookup } from './CatalogueFamilies.js';
 
@@ -135,4 +140,32 @@ export function publishedRailingTypeCatalogue(): CatalogueLookup | null {
     return null;
   }
   return lookupOver(all);
+}
+
+/**
+ * §FEAT-CHAT-LIGHTING-TYPES (L-10220) — the lighting fixture catalogue.
+ *
+ * ⭐ THIS ONE IS NOT A STOPGAP, AND THE DIFFERENCE IS MEASURED, NOT ASSUMED.
+ *
+ * The stair fallback carries a `note` because `BUILT_IN_STAIR_TYPES` is a
+ * SUBSET of what a project may hold: a user-authored stair type lives on the
+ * project's own `StairTypeStore` instance, so a name absent HERE may still be
+ * present THERE, and saying so is the difference between an honest limit and a
+ * lie by omission.
+ *
+ * Lighting has no such gap. `element.changeType`'s lighting branch
+ * (`initBusHandlers.ts:2075`) refuses any id `getLightingTypeDefinition()` does
+ * not know — and that function is `BUILT_IN_LIGHTING_TYPES.find(...)` over THIS
+ * ARRAY. So the set this lookup can resolve is EXACTLY the set the route will
+ * accept: a name it cannot find is a name the command would have rejected, and
+ * a name it finds is one the command is guaranteed to take. There is no third
+ * catalogue to disclose, so a `note` would state a limit that does not exist —
+ * which is the same defect as omitting one that does.
+ *
+ * ⛔ NOTHING IS TRANSCRIBED. No fixture id and no display name is typed out
+ * here; the twelve named families and the twenty LOD-200 rows both arrive by
+ * construction, exactly as they do for the properties-panel picker.
+ */
+export function publishedLightingTypeCatalogue(): CatalogueLookup | null {
+  return lookupOver(BUILT_IN_LIGHTING_TYPES.map((t) => ({ id: t.id, name: t.name })));
 }

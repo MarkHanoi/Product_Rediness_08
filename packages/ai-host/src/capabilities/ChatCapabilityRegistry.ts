@@ -152,6 +152,18 @@ export type CapabilityValueSource =
    *  authored) — the same object element.changeType's stair-railing branch
    *  resolves against, so a name this resolves is a name that branch accepts. */
   | 'handrail-types'
+  /**
+   * §FEAT-CHAT-LIGHTING-TYPES (L-10220) — the lighting fixture catalogue,
+   * `BUILT_IN_LIGHTING_TYPES` (@pryzm/geometry-lighting): 12 named families +
+   * the 20 LOD-200 rows, by construction.
+   *
+   * ⭐ NO "built-in only" caveat, and the difference from `stair-types` is
+   * MEASURED, not stylistic: `element.changeType`'s lighting branch validates
+   * against `getLightingTypeDefinition()`, which reads THIS SAME ARRAY. The set
+   * this source can resolve is exactly the set the route will accept, so there
+   * is no third catalogue for a refusal to be silent about.
+   */
+  | 'lighting-types'
   /** Finish names ("plaster", "limewash"), resolved by the ONE table in
    *  packages/ai-host/src/intents/finishRef.ts (materialLibrary-transcribed). */
   | 'finish'
@@ -2490,6 +2502,60 @@ const CAPABILITIES: readonly ChatCapability[] = [
       'make all the stairs monolithic concrete',
       'change all stairs to steel open riser',
       'change the stair type to timber closed string',
+    ],
+  },
+  // ─── §FEAT-CHAT-LIGHTING-TYPES (L-10220) — the founder's lighting sentence ───
+  //
+  //     "change all lightings in ground level to X"
+  //
+  // ⭐ A PUBLICATION, NOT AN IMPLEMENTATION. `CatalogueFamilies.ts`' own header
+  // already said so: `element.changeType` has routed sixteen families with
+  // ring-buffer undo parity since L-623, lighting among them, and the properties
+  // panel has offered the type picker since §FEAT-ELEMENT-TYPE-PICKER-REGISTRY.
+  // Only the CHAT had never been told. C84 EI-3 is directional — what the UI
+  // offers, the pipeline must accept — and this row closes it in the cheap
+  // direction.
+  //
+  // ⚠ FAN-OUT, like the stair pair: `element.changeType` is singular and there
+  // is no `lighting.updateSystemTypeBatch`, so N fixtures are N undo steps.
+  // `dispatchCommands` states that out loud ("undo with Ctrl+Z (N steps)"); it
+  // is a disclosed trade carried on `CatalogueFamily.fanOutPerId`, not an
+  // omission. The batch verb is the follow-up that upgrades N steps to one.
+  {
+    id: 'set-lighting-type',
+    description: 'change the lighting fixture type',
+    verbs: ['change', 'set', 'convert', 'swap', 'make', 'turn'],
+    aliases: ['lighting type', 'light type', 'fixture type', 'luminaire'],
+    refusalLabel: 'lighting type',
+    targets: ['lighting'],
+    parameters: [
+      {
+        name: 'type',
+        description: 'the lighting fixture type, by catalogue name or id',
+        required: true,
+        valueSource: 'lighting-types',
+        example: 'Recessed Downlight',
+      },
+    ],
+    scope: 'all',
+    // ⛔ NO 'orientation'. A luminaire has no facade, and the arm's orientation
+    // descriptor answers with WALLS — see CatalogueFamilies.spatialKinds, which
+    // makes the ARM refuse it too rather than leaving the declaration to police
+    // a reach the code still had (C68 §6.3-G3).
+    scopeModes: ['all', 'selection', 'level', 'room'],
+    destructive: false,
+    busCommand: 'element.changeType',
+    probe: { intent: 'set-lighting-type', typeRef: 'Recessed Downlight', scope: 'selection' },
+    commandProof: {
+      file: 'packages/command-registry/src/lighting/UpdateLightingParametersCommand.ts',
+      mustMention: ['lightingStore', 'fixtureType', 'lightingFragmentBuilder'],
+      note: "element.changeType's lighting branch (initBusHandlers.ts) REFUSES any id getLightingTypeDefinition() does not know — the same BUILT_IN_LIGHTING_TYPES table this capability's valueSource resolves against, so a name the chat resolves is a name the branch accepts. It then dispatches UpdateLightingParametersCommand, whose affectedStores is ['lighting'], which writes ctx.stores.lightingStore and then calls lightingFragmentBuilder.update(record) explicitly, because a fixture's whole geometry switches on fixtureType. Keyed by elementId, so its reachable set is that one lighting element and nothing else. Pinned end-to-end by packages/command-registry/__tests__/lightingTypeSwap.test.ts.",
+    },
+    examples: [
+      'change all lights to pendant',
+      'change all lightings in ground level to recessed downlight',
+      'make all the lights linear pendant',
+      'change the lighting type to brass arc floor lamp',
     ],
   },
   {

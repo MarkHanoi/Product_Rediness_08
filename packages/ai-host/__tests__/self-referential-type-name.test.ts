@@ -166,6 +166,19 @@ const FAMILIES: readonly FamilyCase[] = [
     noise: ['railing'],
   },
   {
+    // §FEAT-CHAT-LIGHTING-TYPES (L-10220) — the seventh catalogue family, added
+    // the day after this file landed. Its default-name generator produces
+    // exactly the shape that broke window/door/wall ("Custom Lighting Type"),
+    // and the plural the user types ("lights") is NOT the element kind
+    // ("lighting"), so it exercises the alias path as well.
+    kind: 'lighting',
+    plural: 'lights',
+    intent: 'set-lighting-type',
+    custom: { id: 'custom-lighting-type', name: 'Custom Lighting Type' },
+    builtIn: { id: 'recessed_downlight', name: 'Recessed Downlight' },
+    noise: ['lighting'],
+  },
+  {
     // ⛔ NOT a catalogue-table family — a hand-written spec whose refusal copy
     // is the founding incident's verbatim wording. It broke identically, so it
     // is pinned identically.
