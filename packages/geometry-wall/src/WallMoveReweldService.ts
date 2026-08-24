@@ -744,6 +744,54 @@ export class WallMoveReweldService {
                 });
             }
         }
+
+        // ⭐⭐ §GRAPH43-A-BROKEN-JOIN-IS-A-CONSEQUENCE (L-10801, C85 §10.8.3 W-L-3)
+        //    — THE ONE NOT-APPLICABLE THAT IS A REAL LOSS MUST REACH THE SAME
+        //    SINK A REFUSAL DOES.
+        //
+        // `5c3434dc` made the fact EXIST (`SUBJECT_GUEST_JOIN_BROKEN_BY_MOVE`:
+        // the subject's endpoint was on this partner's BODY before the move and
+        // is not after it — a join that was CLOSED is now OPEN). It did not make
+        // anyone SEE it: `summariseNotApplicable` is console-only and says so at
+        // its own definition, so a destroyed relationship was routed as a
+        // diagnostic while its downstream cost — `§OPENED-REGION: Room 00-004
+        // (85.7 m²) is no longer its own room` — reached the user through an
+        // entirely different channel that could not be reconciled with it.
+        //
+        // ⚠ IT IS STILL NOT A REFUSAL, AND THAT IS DELIBERATE. This engine has
+        // no arm that can act on a guest-side T (C85 §10.7 W-M-13), so calling it
+        // a refusal would claim a decision that was never taken — the inverse of
+        // §L-921, and the failure mode C71 names as a word asserting more than
+        // the code did. What is fixed here is the ROUTING, not the disposition;
+        // the disposition is gated on the founder ruling framed in C85 §10.8.4.
+        //
+        // ⛔ ONLY THE BROKEN SET IS USER-FACING. The rest of the not-applicable
+        // census stays on the console: putting a routine non-event in front of
+        // the user buries the refusals that matter, which is §L-921 inverted and
+        // is what `L936ReweldEmitterHonesty` pins.
+        //
+        // §L-936-EMITTER-HONESTY — audible EVEN WITH NO SINK, for the same reason
+        // the refusal branch above is: `engineLauncher.ts` composes this service
+        // without `onConsequence`.
+        const brokenJoins = plan.notApplicable.filter(
+            n => n.reason === 'SUBJECT_GUEST_JOIN_BROKEN_BY_MOVE');
+        if (brokenJoins.length > 0) {
+            console.warn(
+                `[WallMoveReweldService] §MOVE-REWELD-JOIN-BROKEN: moved wall ${wall.id} — ` +
+                `${brokenJoins.length} DECLARED join(s) that were CLOSED before this move are now ` +
+                `OPEN, and this engine has no arm that can repair them: ` +
+                `[${brokenJoins.map(n => `${n.partnerId}(${n.measuredMm} mm)`).join(', ')}]`,
+                { detail: brokenJoins.map(summariseNotApplicable) },
+            );
+            this.report({
+                movedWallId: wall.id,
+                stage: 'plan',
+                reason: 'SUBJECT_GUEST_JOIN_BROKEN_BY_MOVE',
+                partnerIds: brokenJoins.map(n => n.partnerId),
+                detail: brokenJoins.map(summariseNotApplicable),
+            });
+        }
+
         if (entries.length === 0) {
             // §L-936-EMITTER-HONESTY — THE SILENCE THAT COST SIX REPORTS.
             //
@@ -771,7 +819,31 @@ export class WallMoveReweldService {
                     `Per-partner outcome: ` +
                     `[${plan.notApplicable.map(summariseNotApplicable).join(', ')}]. ` +
                     `${summariseSubjectSeat(plan.subjectSeat)}. ` +
-                    `Every junction this move touched was left exactly as it was.`
+                    // ⭐⭐ §GRAPH43-A-BROKEN-JOIN-IS-A-CONSEQUENCE (L-10801) — THE
+                    //    CLOSING SENTENCE WAS FALSE ON EXACTLY THE GESTURE THAT
+                    //    MATTERS, AND THIS IS THE BRANCH THAT MATTERS.
+                    //
+                    // *"Every junction this move touched was left exactly as it
+                    // was"* is true of the PARTNERS' geometry — nothing was
+                    // moved — and false of the RELATIONSHIPS. A guest-side T that
+                    // this move pulled apart was NOT left as it was: it was
+                    // CLOSED before the gesture and is OPEN after it. The
+                    // sentence read as reassurance on the one branch where the
+                    // model had just been damaged, and ⛔ **the founder's
+                    // room-destroying gesture ends here, not on the DISPATCH
+                    // line** — an empty plan is the normal outcome when every
+                    // declared partner is guest-side.
+                    //
+                    // ⚠ The reassuring wording is KEPT verbatim for the case it
+                    // was written for and is true of; it is only replaced when
+                    // the census says a join was broken.
+                    (brokenJoins.length === 0
+                        ? `Every junction this move touched was left exactly as it was.`
+                        : `⛔ NOT every junction was left as it was: ${brokenJoins.length} DECLARED ` +
+                          `join(s) that were CLOSED before this move are now OPEN ` +
+                          `[${brokenJoins.map(n => `${n.partnerId}(${n.measuredMm} mm)`).join(', ')}] ` +
+                          `— no wall was moved to repair them, because this engine has no arm ` +
+                          `that can (C85 §10.7 W-M-13). Expect a room to open downstream.`)
                 );
             }
             // §WALL-TOPOLOGY-INTEGRITY — THE PATH THAT MOST NEEDS THE PROBE.
@@ -886,6 +958,21 @@ export class WallMoveReweldService {
                 (plan.refusals.length > 0
                     ? ` [${plan.refusals.map(r => `${r.partnerId}:${r.reason}`).join(', ')}]`
                     : '') +
+                // ⭐ §GRAPH43-A-BROKEN-JOIN-IS-A-CONSEQUENCE (L-10801) — THE SECOND
+                //   COUNT, BECAUSE `refusals` AND `broken joins` ARE DIFFERENT SETS
+                //   AND ONE LINE CARRYING ONLY THE FIRST READS AS A CLEAN GESTURE.
+                //
+                // Measured, founder's session 2026-08-24: this line said
+                // `0 junction(s) refused` on the same gesture the PRYZM AI told
+                // him *"creates 1 problem(s) in the model that were not there
+                // before"*. Both sentences were TRUE and they answer different
+                // questions; published side by side they read as one verdict, and
+                // the verdict they read as is the wrong one.
+                //
+                // ⚠ Adopted from lane ROOM44 / C94's P2.6, which identified this
+                // emitter as the reconciliation point and correctly declined to
+                // edit a `geometry-wall` file across the boundary.
+                `, ${plan.notApplicable.filter(n => n.reason === 'SUBJECT_GUEST_JOIN_BROKEN_BY_MOVE').length} declared join(s) BROKEN` +
                 `, ${plan.notApplicable.length} not-applicable` +
                 (plan.notApplicable.length > 0
                     ? ` [${plan.notApplicable.map(summariseNotApplicable).join(', ')}]`
