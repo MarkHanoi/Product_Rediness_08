@@ -790,6 +790,19 @@ bracketed at both edges.
   future third phase would need the latch replaced by the full derivation, not another
   exception bolted onto it.
 - **The HIDE rows of §10.5 still run their subscriptions while hidden** (L-1025).
+- ⭐ **The phase gates CHROME. It does NOT gate the ENGINE BOOT** — added **2026-08-24**
+  (lane EARTH31, [L-10560](../../04-reference/ISSUE-LOG.md), [ADR-0369](../adrs/ADR-0369-the-onboarding-globe-is-built-before-the-engine-boot-not-after-it.md)).
+  `'onboarding-globe'` is declared at the open gesture (§10.3), and `panelDefaults.ts` +
+  `elementAuthoringContext.ts` both read it — but `engineLauncher.bootstrap()` does not.
+  So in the guided globe phase the editor still boots ~23 element subsystems, ~30 tool
+  bridges, ~80 bus registrations and 37 stores that a globe uses **none** of, measured at
+  **2,633 ms** in front of the globe on the founder's own `§STARTUP-BUDGET` run.
+  ⛔ **Do not read this as licence to gate the boot on `AppPhase` casually.** ADR-0369 §7
+  Stage 3 states the shape (defer O5/O6/O9 behind a guaranteed `ensureEngineReady()`) and
+  its precondition: read the new `boot:*` marks first, because until 2026-08-24 nothing
+  named which stage owned those seconds. **A deferral without a wire and a test proving
+  the wire is the "built but unreachable" defect**, and it would land on the authoring
+  path — the worst place in the app for it.
 
 ---
 

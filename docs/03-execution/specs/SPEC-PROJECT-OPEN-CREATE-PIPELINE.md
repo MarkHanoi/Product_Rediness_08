@@ -10,6 +10,14 @@
 > the pipeline is understood and the perf targets are anchored to a written baseline.
 > **Companion perf item**: `PRYZM3-MASTER-STATUS.md §11 → OI-053`. **Related**: the
 > create-path DB resilience is `DAILY-USE-FIX-LOG-2026-05-20.md Round 50` (§SERVER-503-…).
+>
+> ⭐ **AMENDED 2026-08-24** (lane EARTH31 · [L-10560](../../04-reference/ISSUE-LOG.md) ·
+> [ADR-0369](../../02-decisions/adrs/ADR-0369-the-onboarding-globe-is-built-before-the-engine-boot-not-after-it.md)):
+> §3 gains row **O3b — globe pre-warm**, and §5 gains subs **f** (done: the boot now NAMES its own
+> stages, so §5-b's *"needs profiler"* is retired), **g** (done: O3b), **h** and **i** (open: the
+> globe's REVEAL is still gated on `pryzm-project-loaded`, and `AppPhase` still does not gate the
+> boot). §6 gains check **3b**. ⛔ The founder's ask is *"PRYZM Earth should come INSTANTLY"* —
+> **O3b guarantees the globe is READY by the reveal; sub h is what moves the reveal itself.**
 
 ---
 
@@ -65,6 +73,7 @@ panels are **tab singletons** (`main.ts`): `engineLauncher` bootstrap runs **onc
 | O1 | Resolve + fetch project | `PlatformRouter._openProjectViaRuntime`, `ProjectListClient.list/get` | Network; gated by §2 C4. | — |
 | O2 | Compose runtime | `composeRuntime()` | Builds L1 stores + L2 `CommandBus` + **registers the authoritative plugin handlers** + view-registry. Once per tab. | Once per tab. |
 | O3 | Renderer pre-warm | `rendererPrewarm`, `initScene` Phase-5 | **Already optimised** — prewarm ≈200–300 ms; Phase-5 consume skips a ~2.4 s LONGTASK. | Keep. |
+| O3b | **Globe pre-warm** | `eagerGlobeStart.prewarmGlobe`, `GISAreaLayout.ensureGisInitialized` | **Added 2026-08-24 (ADR-0369 / L-10560).** The Cesium analogue of O3: `PlatformRouter.showOnboarding` constructs + mounts the ONE `CesiumViewport` **warm-hidden** before O4 begins; `consumePrewarmedGlobe()` hands it to the boot. Was measured at `globe:eager-init-start +2633ms` — i.e. **after O4–O8** — because its only consumer was inside O8. `null` from the consumer means "construct cold" and is a first-class path. | Keep. **Stage 2 (ADR-0369 §7) still owes the REVEAL**, which is gated on `pryzm-project-loaded`. |
 | O4 | Scene init | `initScene` | TopologyLayer, FrustumCulling, ViewRenderCache, frame loop, RenderPipelineManager phase ramp (SSGI/outlines). Several 100–1000 ms LONGTASKs. `§I2 usedTimes` dispose/recreate churn. | Slice / defer. |
 | O5 | Builder init | `initBuilders` | ALL element subsystems (wall, slab, ceiling, floor, room, roof, plumbing, opening, door/window, furniture, lighting, handrail, stair, beam, grid, …) initialised **serially**. A prime LONGTASK suspect. | rAF-slice / lazy per-type. |
 | O6 | Tool init | `initTools` | Tools + the `§P2.1/§P3.x` bus→legacy-store **event bridges** (`wall.created` listeners, etc.). | — |
@@ -117,10 +126,14 @@ LONGTASKs of **844 ms** + **1008 ms** (plus 6× 130–280 ms) during O4–O8; FP
 | Sub | Item | Status |
 |-----|------|--------|
 | **a** | Idempotent handler registration (§4) — kill the ~25–50 duplicate-register throws/logs. | ✅ **Done 2026-05-24** |
-| **b** | rAF-slice / defer the O5 (`initBuilders`) + O7 (`initDataPlatform`) LONGTASKs. | 🔍 Open (needs profiler) |
+| **b** | rAF-slice / defer the O5 (`initBuilders`) + O7 (`initDataPlatform`) LONGTASKs. | 🔍 Open — **⚠ "needs profiler" is no longer true**: `boot:*` marks (sub **f**) name each stage. Read them before slicing. |
 | **c** | O-INV-1 (no re-bootstrap per open) is **already satisfied** (engine is a `_bootstrapped`-guarded tab singleton — verified 2026-05-24). Remaining lever: defer non-critical subsystems (DataWorkbench, Portfolio, AI panels) off the **cold-boot** critical path so the one-time boot is lighter. | 🔍 Open (cold-boot deferral only) |
 | **d** | `RenderPipelineManager` phase-ramp churn (`§I2 pipeline.usedTimes` dispose/recreate during SSGI/outline activation). | 🔍 Open |
 | **e** | O10 hydrate: batch commands + incremental projection (`EdgeProjector` 0% cache hit on rapid create — see OI-054). | 🔍 Open |
+| **f** | **Name the boot's stages on the EXISTING instrument.** `boot:engine-start` · `boot:scene-done` · `boot:builders-done` · `boot:tools-done` · `boot:bus-handlers-done` · `boot:data-platform-done` · `boot:ui-done` — mapping 1:1 onto O4/O5/O6/O9/O7/O8 above, so a §STARTUP-BUDGET reading is quotable against THIS table. Before them, the founder's run showed `onboarding:shown +0ms` followed by `globe:eager-init-start +2633ms` with **nothing named in between**. | ✅ **Done 2026-08-24** (lane EARTH31, L-10560) |
+| **g** | **Move the onboarding globe's construction off the critical path** — O3b above. | ✅ **Done 2026-08-24** (ADR-0369 Stage 1) |
+| **h** | **Ungate the location step from `pryzm-project-loaded`** so PRYZM Earth is *revealed* before the engine finishes booting, while draw-commit → generate keep waiting for it. ⚠ This is the half the founder actually experiences as "instantly"; O3b only guarantees the globe is READY by then. | 🔍 Open — **ADR-0369 §7 Stage 2**, costed, browser verification mandatory |
+| **i** | **Phase-gate the boot on `AppPhase`** (`panelDefaults.ts` already declares `'onboarding-globe' \| 'canvas'` at the open gesture, §L-1186, and already gates panel defaults + element authoring — it does NOT gate the engine boot). Defer O5/O6/O9 in the globe phase behind a guaranteed `ensureEngineReady()`. | 🔍 Open — **ADR-0369 §7 Stage 3**; precondition is ONE founder-run `boot:*` table (sub **f**), not a guess |
 
 ---
 
@@ -129,5 +142,6 @@ LONGTASKs of **844 ms** + **1008 ms** (plus 6× 130–280 ms) during O4–O8; FP
 1. `npm run dev`, open the browser console, open a project. Record the LONGTASK list + FPS lows.
 2. Confirm **zero** `handler already registered` lines (O-INV-2). ✅ after §4.
 3. Open a **second** project in the same tab — confirm the full engine bootstrap (O2/O4–O9) does NOT re-run (O-INV-1); only teardown + O10.
+3b. **(added 2026-08-24, ADR-0369)** Confirm the second open did not regress from the globe pre-warm: it must take the **cold** path — `showOnboarding` is not on it, so no prewarm is requested and `consumePrewarmedGlobe()` returns `null`. Expect **no** `§STARTUP-GLOBE-PREWARM — ADOPTED` line on a hub open.
 4. Compare LONGTASK count/duration + time-to-interactive against the baseline in §5.
 5. Element creation, undo (OI-054), and plan re-projection still work after each change.

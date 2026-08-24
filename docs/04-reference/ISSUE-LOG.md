@@ -50148,3 +50148,104 @@ return `thumbnail_url`, and drop `p.thumbnail` from `PROJECT_COLUMNS`. `rowToSum
 already prefers `row.thumbnail_url ?? row.thumbnail`, so the client half is **already
 written**. ⚠ Note the related standing decision [[furniture-glb-404-object-storage]] —
 object storage is already the answer to a neighbouring problem.
+
+---
+
+### L-10560 — ⭐⭐ **THE GLOBE WAS ALREADY "EAGER" AND STILL STRICTLY BEHIND THE ENTIRE ENGINE BOOT: ITS ONLY CONSUMER WAS THE *LAST* STAGE OF `bootstrap()`** · lane EARTH31 · 2026-08-24 · **STAGE 1 LANDED · STAGES 2–3 COSTED, NOT BUILT**
+
+**Founder mandate:** *"I want to make the project start-up as quick, reliable, fast, robust and
+architecturally sound as possible. **PRYZM Earth should come INSTANTLY — now I need to wait a few
+seconds — it should just pop up instantly.**"*
+
+⭐ **MEASURED from his own instrument** (`§STARTUP-BUDGET`, which already existed — no rival was
+minted):
+
+```
+onboarding:shown        +0ms
+cesium:warm-start       +0ms
+[cesiumWarmup] Cesium viewport chunk pre-warmed in 122 ms
+      … the ENTIRE BIM ENGINE BOOTS HERE …
+globe:eager-init-start  +2633ms
+```
+
+**The chunk is warm at 122 ms. The VIEWER does not begin constructing until 2,633 ms.**
+
+**F1 ⭐⭐ — the root is a correct seam with its consumer in the wrong place, and it is STRUCTURAL,
+not a tuning miss.** `§STARTUP-EAGER-GLOBE` (2026-08-10) had already diagnosed the serial globe and
+shipped a one-shot flag. Verified from source, not inferred from the log:
+
+`requestEagerGlobeStart()` → **`mountGISArea`** ← `Layout.ts:92` ← **`initUI`** ← the **LAST**
+stage of `engineLauncher.bootstrap()`, after
+`initScene → initBuilders → initTools → initBusHandlers → registerAllStores → initDataPlatform`.
+
+⛔ So "eager" meant *eager relative to `toggleGIS(true)`* and was still **serial after the whole
+engine** — ~23 element subsystems, ~30 tool bridges, ~80 bus registrations and 37 stores that the
+onboarding globe uses **none** of. No amount of "start it earlier inside `mountGISArea`" could have
+helped, because `mountGISArea` itself is unreachable until the boot's final stage.
+
+**FIX (Stage 1, landed `017b09a3`) — the shape was already in this repo.**
+`rendering/rendererPrewarm.ts` solved the identical problem for the WebGPU renderer
+(`prewarmRenderer()` off the critical path → `consumePrewarmedRenderer()` in `initScene` Phase 5 →
+*"2,401 ms LONGTASK skipped"*). `engine/eagerGlobeStart.ts` now carries the same two verbs —
+`prewarmGlobe()` at `PlatformRouter.showOnboarding`, `consumePrewarmedGlobe()` adopted by
+`ensureGisInitialized`. `requestEagerGlobeStart` / `consumeEagerGlobeStart` are **unchanged**.
+
+**F2 ⛔ — the deferral has a wire AND a test proving the wire.** The adoption replaces **exactly
+two** steps (construction, `mount()`). `_resolveCameraHostReady`, the `CesiumThreeBridge`, the
+geocode box and the `SiteBoundaryDrawTool` run on **BOTH** arms; a test case pins their source
+order after the adoption. An `if (prewarmed) { … }` around them would be the *"built but
+unreachable"* defect wearing a perf fix's name — the shape this session met **fourteen** times.
+
+**F3 ⛔ — `null` from the consumer is a FIRST-CLASS answer**, not an error path: a hub open, a deep
+link, a reopen-after-reload, a failed prewarm and a second `mountGISArea` all take the **cold**
+branch, byte-for-byte the pre-change code. **There is no path on which a globe fails to appear
+because the prewarm did not fire.** This is also why the **second project open cannot regress**:
+`showOnboarding` is not on that path, so no prewarm is even requested.
+
+**F4 ⭐ — the test double cannot be more capable than the subject, and that is MEASURED.**
+`eagerGlobeStart.ts` exports `REAL_GLOBE_SATISFIES_THE_SEAM`, a conditional type asserting the real
+`CesiumViewport` is assignable to the four-method seam. Injecting a method the real class lacks
+produced `eagerGlobeStart.ts(144,14): error TS2322: Type 'true' is not assignable to type 'never'`.
+Injection reverted.
+
+**F5 ⭐ — the 2.5-second hole had NOTHING named inside it.** Seven marks added to the existing
+instrument — `boot:engine-start · boot:scene-done · boot:builders-done · boot:tools-done ·
+boot:bus-handlers-done · boot:data-platform-done · boot:ui-done` — mapping **1:1** onto
+`SPEC-PROJECT-OPEN-CREATE-PIPELINE` §3's O4/O5/O6/O9/O7/O8. Passive: no phase is gated by a mark.
+⚠ That spec's sub-**b** said *"needs profiler"*; it no longer does.
+
+**F6 ⛔⛔ — WHAT STAGE 1 DOES **NOT** FIX, stated plainly so nobody quotes this row wrongly.**
+Stage 1 removes the globe's **CONSTRUCTION** from the critical path. It does **not** remove the
+engine boot from in front of the globe's **REVEAL**. The reveal chain is, and remains:
+
+```
+engine boot + ProjectLoader → `pryzm-project-loaded` → briefBootstrap.onLoaded
+   → startOnboardingStepFlow() → renderLocationStep() → pryzmToggleGIS(true)
+```
+
+`briefBootstrap` arms that listener **before** issuing the create, and it fires only after the full
+bootstrap. What improves: at the reveal the globe is already mounted, sized and streaming, so the
+flip is a visibility change rather than a cold construction. What does not: **the instant he first
+sees PRYZM Earth is still engine-gated.** ⭐ **Stage 2 (ADR-0369 §7) is the half that moves it** —
+split the gate so `location` opens on *project-created + globe ready* while draw-commit → generate
+keep waiting for the engine. Costed, browser verification mandatory, **not built in this lane**.
+
+**F7 ⚠ — the phase machinery gates CHROME, not the BOOT.** `panelDefaults.ts` declares
+`'onboarding-globe' | 'canvas'` at the open gesture (§L-1186) and already gates panel defaults and
+element authoring; `engineLauncher.bootstrap()` reads it nowhere. Gating O5/O6/O9 on it is **ADR-0369
+§7 Stage 3** — the largest lever and correctly LAST, because its precondition is one founder-run
+`boot:*` table (F5), not a guess. Recorded in `C06 §10.7` in place.
+
+**VERIFIED (measured, not assumed):** new suite **14/14 PASS** · root `tsc --noEmit` **RC=0** ·
+`npm run check:isolation` **RC=0** (unchanged) · six GIS/Cesium/isolation suites: **11 failures
+BEFORE the change and the same 11 AFTER** (stale scope lists + a live sibling lane's work) —
+**zero new failures**. ⛔ **NOT verified in a browser** — the before/after wall-clock for
+`globe:prewarm-done` vs `globe:eager-init-start` needs the founder's own run.
+
+**ADJACENT, already logged by siblings — not duplicated here:** the hub's 50 inline base64
+thumbnails is **L-10405** (lane DURABLE25) and is the HUB's paint cost, not the globe's; the
+`THREE.Clock` deprecation is **L-10460** (lane STARTUP27).
+
+**Artefacts:** `apps/editor/__tests__/globePrewarmBeforeEngineBoot.test.ts` ·
+[ADR-0369](../02-decisions/adrs/ADR-0369-the-onboarding-globe-is-built-before-the-engine-boot-not-after-it.md) ·
+`SPEC-PROJECT-OPEN-CREATE-PIPELINE` §3 row **O3b** + §5 subs **f/g/h/i** · `C06 §10.7`.
