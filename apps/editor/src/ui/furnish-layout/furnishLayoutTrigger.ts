@@ -373,7 +373,7 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
         // Idempotency: `state.fired` flips on whichever path lands first; the
         // other one becomes a no-op.
         //
-        // ⭐ §CEILING-ALWAYS-FURNISHES (L-10770, 2026-08-24) — `fired` IS RESET ON EVERY
+        // ⭐ §CEILING-ALWAYS-FURNISHES (L-10820, 2026-08-24) — `fired` IS RESET ON EVERY
         // CEILING EVENT, and that reversal is the whole fix. Read the hazard first, then
         // why it is now safe.
         //
@@ -433,7 +433,7 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
         const fireFurnish = (
             source: 'ceiling-event' | 'fallback-timeout',
             ceilingOutcome?: CeilingOutcome,
-            /** §LEVEL-IS-EXPLICIT (L-10770) — the storey whose ceilings just committed,
+            /** §LEVEL-IS-EXPLICIT (L-10820) — the storey whose ceilings just committed,
              *  read off the `ceiling.layout-executed` payload. Forwarded so the executor
              *  furnishes THAT level instead of falling back to `resolveActiveLevel()`.
              *  Mirrors §LIGHT-LEVEL-IS-EXPLICIT (L-1394) one stage downstream. Undefined
@@ -522,7 +522,7 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
                 );
                 return;
             }
-            // ⭐ §CEILING-ALWAYS-FURNISHES (L-10770) — EVERY ceiling link furnishes once.
+            // ⭐ §CEILING-ALWAYS-FURNISHES (L-10820) — EVERY ceiling link furnishes once.
             // The residential pipeline emits one `ceiling.layout-executed` PER LEVEL from
             // its serialised queue and never emits `apartment.layout-executed`, so without
             // this reset only the FIRST storey was ever furnished (and a second build

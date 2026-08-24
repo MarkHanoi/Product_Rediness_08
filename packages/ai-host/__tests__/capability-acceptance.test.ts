@@ -2475,7 +2475,7 @@ describe('§GEN-CHAT — "generate a 3-storey residential building"', () => {
     expect(r.summary).not.toContain('from the site boundary');
   });
 
-  // ─── §GEN-UNDO-IS-STAGED (L-10772) ───────────────────────────────────────
+  // ─── §GEN-UNDO-IS-STAGED (L-10822) ───────────────────────────────────────
   it('the Confirm summary tells the truth about undo — staged, not one entry', () => {
     const r = resolveUtterance('generate a 5-storey residential building', ctxOf());
     expect(r.kind).toBe('commands');
@@ -2488,7 +2488,7 @@ describe('§GEN-CHAT — "generate a 3-storey residential building"', () => {
     expect(r.summary).toContain('furniture');
   });
 
-  // ─── §GEN-TYPOLOGY-NAMED (L-10771) — the founder's own sentence ───────────
+  // ─── §GEN-TYPOLOGY-NAMED (L-10821) — the founder's own sentence ───────────
   it('a building noun with NO typology REFUSES BY NAMING the missing word (was: silent miss)', () => {
     // The founder typed this. On HEAD it matched no typology, returned null from
     // every matcher, and the chat said "I'm not sure how to help with that yet"
@@ -2525,7 +2525,7 @@ describe('§GEN-CHAT — "generate a 3-storey residential building"', () => {
     expect(r.commands[0]!.type).toBe('generation.apartment');
   });
 
-  // ─── §GEN-FACADE-INTENT (L-10773) — the founder's PHOTOGRAPH, in words ────
+  // ─── §GEN-FACADE-INTENT (L-10823) — the founder's PHOTOGRAPH, in words ────
   //
   // He showed a 5-storey urban apartment block: arcaded ground floor with
   // shopfronts, rounded corners, deep continuous balconies, green glazed tile,

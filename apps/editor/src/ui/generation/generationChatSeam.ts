@@ -52,7 +52,7 @@ export interface GenerationBuildingPayload {
      *  the active level, else refuse naming the count). */
     readonly boundaryLineId?: string;
     /**
-     * §GEN-FACADE-INTENT (L-10773) — façade description in the user's words, mapped
+     * §GEN-FACADE-INTENT (L-10823) — façade description in the user's words, mapped
      * onto the FOUR `ResidentialBuildingRequest` fields that already existed
      * (§RESI-PREVIEW-OPTIONS) and that this payload used to discard.
      */
@@ -264,7 +264,7 @@ async function runResidential(rt: PryzmRuntime, cmd: GenerationBuildingPayload):
         md['T3'] = cmd.typologies.T3 === true;
         md['T4'] = cmd.typologies.T4 === true;
     }
-    // §GEN-FACADE-INTENT (L-10773) — hand the façade description to the SAME brief
+    // §GEN-FACADE-INTENT (L-10823) — hand the façade description to the SAME brief
     // mapper the onboarding modal fills in. These are the exact metadata keys
     // `residentialRequestFromBrief` already reads; nothing new is invented here, and
     // the chat stops being the one entry point that discards them.

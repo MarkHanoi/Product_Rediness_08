@@ -1,4 +1,4 @@
-// §GEN-FACADE-INTENT (L-10773) — façade language for `generate-building`.
+// §GEN-FACADE-INTENT (L-10823) — façade language for `generate-building`.
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 // THE FOUNDER SHOWED A PHOTOGRAPH, NOT A FORM

@@ -171,7 +171,7 @@ import {
   type PropertyDrivenIntentId,
 } from './PropertyVocabulary.js';
 import { exampleColorNames, resolveColorRef } from './colorRef.js';
-// §GEN-FACADE-INTENT (L-10773) — the pure façade vocabulary table. One-way
+// §GEN-FACADE-INTENT (L-10823) — the pure façade vocabulary table. One-way
 // dependency, like DeleteFamilies / DimensionFamilies: this file imports the table;
 // the table imports nothing from here.
 import { facadeUnavailableSentence, parseFacadeIntent } from './FacadeIntent.js';
@@ -1125,7 +1125,7 @@ export type SemanticIntent =
       readonly intent: 'generate-building';
       /**
        * ⭐ `null` means THE SENTENCE NAMED A BUILDING BUT NOT WHICH KIND
-       * (§GEN-TYPOLOGY-NAMED, L-10771) — e.g. the founder's *"create the building
+       * (§GEN-TYPOLOGY-NAMED, L-10821) — e.g. the founder's *"create the building
        * from the photo … 5 story buildings"*. It is carried rather than dropped so
        * the apply arm can refuse by NAMING THE MISSING WORD and listing the three
        * real options. Before this, such a sentence matched nothing at all and the
@@ -1156,7 +1156,7 @@ export type SemanticIntent =
        */
       readonly onBoundaryLine?: boolean;
       /**
-       * §GEN-FACADE-INTENT (L-10773) — façade description in the user's own words,
+       * §GEN-FACADE-INTENT (L-10823) — façade description in the user's own words,
        * split into what CAN be honoured and what cannot. Both halves are carried:
        * dropping `unavailable` here would put the silent half-ignored sentence back.
        */
@@ -2603,7 +2603,7 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       // ruled on by the SAME controllers the onboarding modal drives, and
       // their refusals come back verbatim via 'pryzm-generation-report'.
       const t = si.typology;
-      // ⭐ §GEN-TYPOLOGY-NAMED (L-10771) — the sentence named a BUILDING but not
+      // ⭐ §GEN-TYPOLOGY-NAMED (L-10821) — the sentence named a BUILDING but not
       // which KIND. Name the missing word rather than shrugging: the parser knew
       // exactly which token was absent, so saying "I'm not sure how to help" would
       // be withholding information we hold. One word from the user unblocks it.
@@ -2691,7 +2691,7 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       // work. The height gate line is the doctrine's hard stopper made visible
       // before Confirm.
       //
-      // ⚠ §GEN-UNDO-IS-STAGED (L-10772) — this sentence used to promise "as one
+      // ⚠ §GEN-UNDO-IS-STAGED (L-10822) — this sentence used to promise "as one
       // coherent undo". MEASURED, that is only true of the STRUCTURE.
       // `beginBuildingGeneration` is an overlay + WebGL-swap lease, not an undo
       // lease (read its header): the structural build is one `runBatch` → one undo
@@ -2733,7 +2733,7 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
             // that payload keeps its exact pre-existing shape.
             ...(useBoundaryLine ? { footprintSource: 'boundary-line' as const } : {}),
             ...(si.boundaryLineId !== undefined ? { boundaryLineId: si.boundaryLineId } : {}),
-            // §GEN-FACADE-INTENT (L-10773) — the four façade fields
+            // §GEN-FACADE-INTENT (L-10823) — the four façade fields
             // `residentialBriefMapper` has carried since §RESI-PREVIEW-OPTIONS and
             // that this payload used to drop on the floor. Omitted entirely when the
             // sentence described nothing, so the plain payload is unchanged.
@@ -4767,7 +4767,7 @@ const GEN_ON_BOUNDARY_LINE_RE =
     /\b(?:on|in|inside|within|along|from)\s+(?:the\s+|this\s+|that\s+|my\s+)?(?:drawn\s+|selected\s+)?boundar(?:y|ies)(?:\s*-?\s*line)?\b|\bboundary\s*-?\s*line\b/;
 
 /**
- * §GEN-TYPOLOGY-NAMED (L-10771) — a building noun with NO typology qualifier.
+ * §GEN-TYPOLOGY-NAMED (L-10821) — a building noun with NO typology qualifier.
  * Matching this CLAIMS the utterance so the apply arm can refuse by naming the
  * missing word, instead of the whole sentence silently missing every matcher.
  *
@@ -4799,7 +4799,7 @@ export function parseGenerateBuildingIntent(
     : /\bhouse\b|\bvilla\b/.test(text) ? 'house'
     : null;
   if (typology === null) {
-    // ⭐ §GEN-TYPOLOGY-NAMED (L-10771) — THE FOUNDER'S OWN SENTENCE LANDED HERE.
+    // ⭐ §GEN-TYPOLOGY-NAMED (L-10821) — THE FOUNDER'S OWN SENTENCE LANDED HERE.
     //
     //     "create the building from the photo suited to the given space: 5 story buildings"
     //
@@ -4873,7 +4873,7 @@ export function parseGenerateBuildingIntent(
   const roof = typology === 'house' ? GEN_ROOF_RE.exec(text) : null;
   const roofKind = roof === null ? undefined : (roof[1] as 'flat' | 'gable' | 'hip');
 
-  // §GEN-FACADE-INTENT (L-10773) — the founder's photograph, described in words.
+  // §GEN-FACADE-INTENT (L-10823) — the founder's photograph, described in words.
   // Residential only: the four fields it maps onto are `ResidentialBuildingRequest`
   // fields, and claiming them for a house or an office would be the overclaimed-
   // capability defect in miniature.

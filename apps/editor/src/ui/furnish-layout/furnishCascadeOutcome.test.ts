@@ -20,7 +20,7 @@
 // cannot silently reintroduce the hazard the lighting cascade had."*
 //
 // That sentence was RIGHT about the hazard and WRONG about the remedy, and the
-// cost was measured (L-10770): because the ceiling handler never reset `fired`,
+// cost was measured (L-10820): because the ceiling handler never reset `fired`,
 // and because **the residential pipeline never emits `apartment.layout-executed`**
 // (`ResidentialBuildingExecutor.ts:851`, `:3073` — it drives `triggerCeilingLayout`
 // directly, once per level), a 5-storey residential building furnished exactly
@@ -194,7 +194,7 @@ describe('furnishLayoutTrigger — ceiling outcome carrying + §CHAIN-TIMEOUT do
     });
 });
 
-// ─── §CEILING-ALWAYS-FURNISHES (L-10770) — the RESIDENTIAL fan-out ───────────
+// ─── §CEILING-ALWAYS-FURNISHES (L-10820) — the RESIDENTIAL fan-out ───────────
 //
 // These reproduce the residential pipeline's ACTUAL event shape, which is the
 // only shape that exposed the defect:
@@ -221,7 +221,7 @@ describe('§CEILING-ALWAYS-FURNISHES — a multi-storey residential build furnis
         vi.advanceTimersByTime(1);
     };
 
-    it('THREE per-level ceiling commits furnish THREE times — not once (the L-10770 defect)', async () => {
+    it('THREE per-level ceiling commits furnish THREE times — not once (the L-10820 defect)', async () => {
         const { events, fired } = await freshInstall();
 
         // NO apartment.layout-executed — the residential pipeline never emits it.

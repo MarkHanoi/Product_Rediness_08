@@ -418,15 +418,59 @@ in one store; delete removes one record from one store.
 > lives in the ONE store at `runtime.stores.boundaryLine`; every verb takes it by id.
 > Nothing further is required to REFER to a boundary line.
 
-> **§7.2 — GENERATOR CONSUMPTION. ⛔ NOT DONE, AND NOT STUBBED.** The apartment generator
-> seeds its plans from a level's slab outline (`ai-host/src/generative`,
-> `FloorPlanBatchExecutor`). Teaching it to accept a boundary-line footprint is real work
-> in that pipeline. **L-7961, OPEN.**
+> **§7.2 — GENERATOR CONSUMPTION. ✅ DONE 2026-08-24** (lane GEN50, `ecc3a643`).
+> **L-7961 CLOSED.**
+>
+> ⚠ **THIS CLAUSE PREVIOUSLY READ "⛔ NOT DONE, AND NOT STUBBED … L-7961, OPEN", AND ITS
+> ESTIMATE OF WHERE THE WORK LIVED WAS WRONG. Recorded, not silently overwritten.** It said:
+> *"The apartment generator seeds its plans from a level's slab outline
+> (`ai-host/src/generative`, `FloorPlanBatchExecutor`). Teaching it to accept a
+> boundary-line footprint is real work in that pipeline."*
+>
+> ⭐ **NOTHING WAS ADDED TO THAT PIPELINE.** No generator learned a new input, no verb was
+> minted, and no second pipeline was created. The `generate-building` capability
+> (`generation.building`, live since RAC U5b.2) already drove three orchestrators that
+> **each accept an EXPLICIT footprint polygon** — `ResidentialBuildingRequest.footprint`,
+> `officeRequestFromBrief(md, footprint)`, `HouseFromBoundaryOptions.footprint`. The whole
+> change was therefore giving the existing seam a second footprint **SOURCE**:
+> `apps/editor/src/ui/generation/boundaryLineFootprint.ts`, a PURE resolver, behind one
+> shared `resolveGenerationFootprint` in `generationChatSeam.ts`. **Zero typology branches
+> were added to the spine.**
+>
+> **§7.2-a (NORMATIVE) — THE LADDER.** A generation resolves its line by: (1) an EXPLICIT
+> line the user selected; (2) else the ONE **closed** line on the active level; (3) else
+> **REFUSE, NAMING THE COUNT.** Two closed lines on one level is a real authoring state and
+> picking one silently builds the wrong scheme.
+>
+> **§7.2-b (NORMATIVE) — THE SENTENCE DECIDES THE SOURCE; THE SELECTION ONLY DECIDES WHICH
+> LINE.** A selected boundary line must NEVER, on its own, redirect a generation away from
+> the site parcel. A user who has just drawn a line still has it selected, so selection is a
+> side effect of authoring, not an instruction — it refines an intent the words expressed
+> and never creates one.
+>
+> **§7.2-c (NORMATIVE) — AN OPEN LINE IS REFUSED BY NAME, NEVER CLOSED BY GUESS.** `closed`
+> is AUTHORED (§2), so joining last→first on the user's behalf invents an edge the architect
+> did not draw and then builds storeys on it. The refusal quotes the vertex count and names
+> the route back (Enter while drawing, or a rectangular/circular mode).
+>
+> **§7.2-d (NORMATIVE) — THIS RESOLVER DOES NOT RULE ON FEASIBILITY, AND MUST NEVER LEARN
+> TO.** It owns only what the generator cannot know: closed, degenerate, inside the site.
+> *"Is this plate big enough for N storeys?"* belongs to `orchestrateResidentialBuilding`,
+> which already quotes BOTH the measured plate width AND its own `MIN_PLATE_WIDTH_M`.
+> ⚠ **No area may be quoted as a feasibility threshold** — see §RESI-REFUSAL-TRUE in
+> `residentialError.ts`: an invented `RESIDENTIAL_MIN_PLATE_M2 = 400` once told the founder
+> his 674 m² plot was too small, and the measured truth is that a **720 m² plate refuses
+> while a 272 m² plate builds**. The binding quantity is the SHORT SIDE, not the area.
 
-> **§7.3 (NORMATIVE).** ⛔ While §7.2 is open, the boundary-line verbs are declared in
-> `CHAT_UNAVAILABLE` **with readable reasons naming the route back to success** — never
-> classified-and-dead. **A verb the chat classifies but that generates nothing is the
-> silent-success shape this repository keeps finding.**
+> **§7.3 (NORMATIVE).** ⛔ The boundary-line verbs stay declared in `CHAT_UNAVAILABLE`
+> **with readable reasons naming the route back to success** — never classified-and-dead.
+> **A verb the chat classifies but that generates nothing is the silent-success shape this
+> repository keeps finding.**
+>
+> ⚠ **§7.2 CLOSING DOES NOT RELAX THIS, and the distinction is easy to get wrong.** Those six
+> verbs are the line's own AUTHORING verbs — draw, move, attach, update, delete — every one of
+> which needs a **pointer**, not a sentence. **Building ON a line is a different question from
+> AUTHORING one**, and answering the first does not make the second speakable.
 
 ---
 
@@ -440,7 +484,7 @@ in one store; delete removes one record from one store.
 > | 1 · something CONSTRUCTS the store | ✅ | `PluginRegistry` descriptor |
 > | 2 · a `storeKey` is declared | ✅ | same descriptor; `boundaryLineReachableThroughComposedRuntime.test.ts` R-1 reads `rt.stores.boundaryLine` off the REAL composition root and never builds a store |
 > | 3 · something DISPATCHES | ✅ | `BoundaryLinePlanToolHandler` in the SHARED plan registry (both plan surfaces, L-73) + a palette row on **BOTH** create surfaces (L-1380) |
-> | 4 · the AI classifies it | ✅ as a **named refusal** (§7.3); the generative half is **L-7961 OPEN** |
+> | 4 · the AI classifies it | ✅ **both halves.** The authoring verbs are a **named refusal** (§7.3); the GENERATIVE half is **LIVE** — `generation.building` accepts a boundary-line footprint (§7.2, L-7961 CLOSED 2026-08-24), proven from a chat SENTENCE to the bus payload in `capability-acceptance.test.ts`, not from a direct resolver call |
 
 > **§8.2 (NORMATIVE) — C104 R-10 APPLIES.** A reachability claim is **INADMISSIBLE**
 > without a **pointer-layer** proof. `boundaryLinePointerReach.spec.ts` starts from the

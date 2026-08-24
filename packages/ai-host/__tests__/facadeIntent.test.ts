@@ -1,4 +1,4 @@
-// §GEN-FACADE-INTENT (L-10773) — the façade vocabulary table.
+// §GEN-FACADE-INTENT (L-10823) — the façade vocabulary table.
 //
 // The chat-path reachability proofs live in `capability-acceptance.test.ts` (sentence
 // → bus payload). THESE lock the table's own behaviour: the two halves it must always

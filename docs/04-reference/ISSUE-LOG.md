@@ -42527,7 +42527,15 @@ every "this view says linework" into "ask the record". `V-4` pins exactly that c
 RED at 9 before this lane (balcony ×4, lift ×3, `room.setColourMode`, `view.setCategoryVisibility`)
 and is RED at 9 after. None of the 9 are this lane's.
 
-### L-7961 — ⛔ OPEN: the apartment generator does not consume a boundary line
+### L-7961 — ✅ **CLOSED 2026-08-24 (lane GEN50, `ecc3a643`): the generator now consumes a boundary line**
+
+> ⭐ **CLOSED NOT WHERE THIS ROW PREDICTED.** The row below (kept verbatim) expected the work to
+> land in `packages/ai-host/src/generative` / `FloorPlanBatchExecutor`. **Nothing was added there.**
+> `generation.building` already drove three orchestrators that each accept an EXPLICIT footprint
+> polygon, so the fix was a second footprint SOURCE — a pure resolver behind one shared
+> `resolveGenerationFootprint` — with **no new verb, no new generator and zero typology branches**.
+> See C106 §7.2 and L-10820..L-10824. **The original text follows, uncorrected, because an estimate
+> that was wrong is worth more on the record than deleted.**
 
 The founder's *"create a 3-bedroom apartment on this boundary line"* needs TWO things and only
 one is a boundary-line problem. Addressability is done (L-7960). **Making the generator use the
@@ -52402,3 +52410,128 @@ and §WALL-JOIN-LOAD-DEFER (L-1490). **That test file exists precisely to close 
 class defeated it by supplying a plausible reason.**
 
 **Commit:** `734d632c`.
+
+---
+
+### L-10820 — ✅ **FIXED: a 5-storey residential building furnished ONE storey — the dedup was reset by an event the residential pipeline never emits** · lane GEN50 · 2026-08-24
+
+**Founder-visible.** He asked for a 5-storey building. He would have got furniture on **one floor**,
+never understood why, and got **none at all** on his next attempt in the same session.
+
+`furnishLayoutTrigger` guards `fireFurnish()` on a module-level `state.fired`, and `fired` was reset
+in **exactly one place**: the `apartment.layout-executed` handler. **The residential pipeline never
+emits that event** — `ResidentialBuildingExecutor` says so twice in its own comments (`:851`,
+`:3073`) and works around it by calling `triggerCeilingLayout` directly, once per level, through a
+serialised per-level queue. So level A furnished, levels B–E hit `fired === true` and returned, and
+`fired` then stayed true for the module lifetime.
+
+⭐ **THE FIX IS THE PROVEN SIBLING, MIRRORED WHOLE.** `lightingLayoutTrigger` has run the same shape
+safely since §FURNISH-ALWAYS-LIGHTS: it resets `fired` on **both** its events **and** carries a
+one-shot `fallbackFired` flag that swallows exactly one late upstream event after a §CHAIN-TIMEOUT
+fallback. **Only half that pattern had ever been copied** into the furnish trigger — the reset was
+withheld *because* the guard was missing. §CEILING-ALWAYS-FURNISHES restores the other half.
+**Reset and guard are ONE mechanism**; a future edit keeping one and dropping the other reopens
+either this defect or the double-fire.
+
+⚠ **The sibling test file's header asserted the OPPOSITE** — that the tests existed to stop *"a future
+§CEILING-ALWAYS-FURNISHES-style reset"*. Right about the hazard, wrong about the remedy. Corrected
+**in place**, quoting the old sentence, so the reversal is legible.
+
+**RED-FIRST, ON A COUNT:** HEAD `5 failed | 6 passed` — `AssertionError: expected 1 to be 3`;
+fixed `11 passed`. Redness proven by snapshotting to scratchpad and copying `git show HEAD:` over the
+file — **no `git stash`** (the stack is global across worktrees).
+
+**Commit:** `507df91d`.
+
+---
+
+### L-10821 — ✅ **FIXED: the founder's own sentence matched NO matcher, and the resolver knew exactly which word was missing** · lane GEN50 · 2026-08-24
+
+> *"create the building from the photo suited to the given space: 5 story buildings"*
+
+It carries a creation verb and a storey count — `GEN_FLOORS_RE` parses `"5 story"` perfectly — but it
+names **no typology**, so `parseGenerateBuildingIntent` returned `null`, every later matcher missed,
+and the chat said *"I'm not sure how to help with that yet."*
+
+A generic building noun now **claims** the utterance and carries `typology: null` to the apply arm,
+which refuses by **naming the missing word**, listing the three real options, and **keeping the storey
+count already given**. ⛔ It does **not** guess: defaulting *"the building"* to residential would
+silently produce a multi-family block for someone who meant a house, and **a wrong building is worse
+than a question**. `apartment` is excluded from the generic set so bare *"create a 3 bedroom
+apartment"* still reaches `generation.apartment`.
+
+**Commit:** `ecc3a643`.
+
+---
+
+### L-10822 — ✅ **FIXED: the Confirm card promised "one coherent undo" and that was only true of the structure** · lane GEN50 · 2026-08-24
+
+**MEASURED:** `beginBuildingGeneration` is an **overlay + WebGL-swap lease, not an undo lease** (read
+its header — its two stated jobs are the proactive WebGPU→WebGL swap and the continuous overlay).
+The structural build is one `runBatch` → one undo entry; **each finish stage dispatches its OWN
+`runBatch` → its own entry.** So Ctrl+Z after a full generation steps back through the **lighting**
+first, not the building.
+
+⭐ **The split is DELIBERATE and was KEPT.** Collapsing five stages into one undo would make *"undo
+just the furniture"* impossible without destroying the building, and re-furnishing re-lights
+(§FURNISH-ALWAYS-LIGHTS). **The behaviour was not changed to make the sentence shorter** — the copy
+now states the truth in the user's own terms: *"Undo steps back one stage at a time: lighting, then
+furniture, then ceilings, then the building itself."*
+
+**Commit:** `ecc3a643`.
+
+---
+
+### L-10823 — ✅ **SHIPPED: the four façade fields the chat had been dropping on the floor** · lane GEN50 · 2026-08-24
+
+`residentialBriefMapper.ts` has carried `groundCommercialCurtain`, `balconies`, `facadeColor` and
+`roofGarden` since 2026-06-24 (§RESI-PREVIEW-OPTIONS), and the onboarding modal has been setting them
+all along. ⭐ **The chat payload discarded all four**: the founder could pick "commercial shopfront
+ground floor" in the wizard, but *saying* it did nothing **and said nothing**. Threading four live
+fields — not inventing a façade language.
+
+⛔ **NOT AN ENUM.** Standing founder direction on this shape is **open language, never a narrowed
+vocabulary**. Nothing rejects a sentence for containing unknown words. **Photo → façade extraction
+stays out of scope** (GenRecon, not V1).
+
+⭐ **The half that matters is `FACADE_UNAVAILABLE`** — recognised façade description the generator
+**cannot** produce, each with a stated reason, named **before Confirm** and repeated on the transcript.
+Without it, *"…arcaded ground floor, rounded corners, deep balconies and green glazed tile"* would
+build a block with an arcade and balconies, report success, and never mention the two it dropped —
+so the user would conclude it had **tried and failed**. Precedent copied, not invented:
+`CHAT_UNAVAILABLE` and `ElementTypeAuthoringRegistry`'s UNAVAILABLE list.
+
+**Two bugs it shipped with for one iteration, both caught by its own tests:** colour resolved on only
+ONE side of the noun (*"façade in green"* worked, *"green façade"* was silently dropped); and generic
+nouns (`building`, `block`, `walls`) anchored the colour scan and **won on position** — *"create a
+residential BUILDING with a green façade"* anchored on *"a residential building"* and never reached
+the colour. **An anchor that matches everywhere identifies nothing.**
+
+**Commit:** `5a64eb1a`.
+
+---
+
+### L-10824 — ⭐ **REGISTER: "grep the identifier" missed it twice in one day — and the second shape is worse than the first** · lane GEN50 · 2026-08-24
+
+**Filed beside L-10765 (ORTHO42), which found the same class three hours earlier:** *"a census that
+greps IDENTIFIERS measures how many places use a NAME; a census that greps the IDEA measures how many
+places answer the QUESTION."*
+
+**Two distinct failures, and they are not the same difficulty:**
+
+1. **A regex that could not match.** The lane brief asserted *"there is NO `building.generate` chat
+   verb… the generators exist, the chat cannot reach them."* The search had required the **verb
+   second** (`…generate` / `…create`). The capability is **`generation.building`** — **noun second**.
+   It could not have been found however carefully the grep was re-run, and the absence was then
+   reported as the very authored-but-unreachable defect the repo keeps logging. **Building on that
+   premise would have minted a rival pipeline beside `generationChatSeam.ts`, whose own header
+   forbids exactly that.**
+
+2. ⭐ **A grep that SUCCEEDS and still hides the bug (L-10820).** `grep furnish` finds
+   `furnishLayoutTrigger` immediately. The trigger **reads correctly in isolation**. The defect is
+   only visible when you ask a question no identifier answers: **"who RESETS this dedup, and does the
+   residential path ever send that event?"** Reading the identifier was never going to be enough.
+
+**The rule this yields:** for any guard, dedup or latch, the census question is **not** *"where is it
+set?"* but *"where is it CLEARED, and can every producer reach that site?"* A flag whose clearing
+event one producer never emits is dead for that producer — silently, and only for them.
