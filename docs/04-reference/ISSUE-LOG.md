@@ -51785,3 +51785,103 @@ by controls (`§NOT-A-REFUSAL`, `§QUIET`).
 point and correctly declined to edit a `geometry-wall` file across the boundary.
 
 **Commit:** `1bf3a790`. **Contract:** C85 §10.8.3 W-L-3, §10.8.2 AS-IS #19.
+
+---
+
+### L-10500 — ⭐⭐ **"WHY IS THIS RECURRENT?" — BECAUSE THE ANTI-RECURRENCE GATE WAS BASELINED TO TOLERATE THE SEVEN BYPASSES THAT BROKE ITS OWN PREMISE** · lane GPU45 · 2026-08-24 · **ROOT CAUSE OF THE RECURRENCE PROVEN; SEVEN SITES CLOSED; ARM C NOW HARD-0**
+
+**Founder:** *"I have raised this already a few times - but it is a recurrent issue - why?"* —
+`The viewport failed to render.` on `app.pryzm.so`, WebGPU, with
+`Destroyed texture [Texture "ShadowDepthTexture"] used in a submit`, `§RECOVERY-MUST-REFUSE`
+refusing correctly, `§L-966-BOUNDED-AUTO-RECOVERY` exhausting 2/2, and
+`§L900-FRAME-SKIP-ATTRIBUTION` reporting 120 declined frames.
+
+#### The question that mattered was not "what frees the texture" — it was "why did SIX prior fixes miss"
+
+**Two hypotheses were REFUTED by measurement before anything was changed. Both are recorded
+because each was confidently held.**
+
+1. ⛔ **REFUTED — "there is no deferred-destruction mechanism; add one."** There is a complete
+   one, and it is good: `scheduleGpuRelease`/`drainGpuReleaseQueue`,
+   `scheduleShadowMapRealloc`/`drainShadowMapReallocQueue`,
+   `scheduleShadowCasterFlip`/`drainShadowCasterFlipQueue`, all drained at the frame boundary in
+   `RenderPipelineManager.render()` (`:1142`, `:1172`, `:1184-1185`). **Exactly one function
+   resizes a light-owned shadow map (`safeDispose.ts:596`) and exactly one frees it (`:731`).**
+   The originating grep for `onSubmittedWorkDone|retireQueue|deferredDestroy|pendingDestroy`
+   returned empty because **those are not the names this repo uses** — a NAME-GUESS false
+   negative, i.e. the [[grep-silence-has-three-causes]] failure, committed inside a brief that
+   warned against it. **ABSENT, UNREACHABLE and PRESENT-UNDER-ANOTHER-NAME are three different
+   findings** (C01 §6 rule 6).
+2. ⛔ **REFUTED — "a bare `castShadow = false` write frees the map in-line, so the boundary arm
+   is an after-the-fact detector."** The repo had already measured the opposite, at
+   `safeDispose.ts:640-655`: *"T1 and T2 do NOT fire when the flag is WRITTEN. They fire on the
+   next node-graph BUILD, and three r183 builds LAZILY, INSIDE the frame's open command
+   encoder."* Because the free is **latent**, `_orderPendingCasterReleasesAtBoundary()` — which
+   runs at the TOP of `render()`, before any encoding — reaches the light **before** the build
+   that would free it. That path is correctly ordered **by design**, and C04 §SHADOW rule 14
+   already names T1/T2/T3.
+
+#### The actual mechanism
+
+**C04 §3.1.2a rule 6** makes the shadow-ordering window **DERIVED** from the release rather than
+from the event. **Rule 7 states the premise that makes rule 6 true:** the funnel MUST have no
+bypass, *"so a bypass silently invalidates the derivation rather than merely leaking."*
+
+`casterReleaseChokepoint.test.ts` **ARM C** exists to prove that premise. When lane GPU1 minted
+it (L-1290, 2026-08-19) it **measured EIGHT bypasses, closed two, and BASELINED SIX** — naming
+them, in its own words, as *"a list of work"* for a later lane.
+
+⭐ **So the gate written to establish a safety property instead recorded, and tolerated, the
+exceptions that removed it.** A baselined bypass is not debt with a ceiling; it is the guard
+reporting a property it does not have. Every fix in the ladder — **L-25 → L-39 → L-64 → L-908 →
+L-930 → L-1290 → L-10380** — correctly ordered a trigger that *does* traverse the funnel, while
+these builders went on freeing GPU memory **on the mutation tick**, invisible to the derived
+guard.
+
+**Where the six sat is the whole answer to "why does it follow a project open?":**
+
+| Site | Path | Fires |
+|---|---|---|
+| `LightingFragmentBuilder.remove` | `clearProjectGeometry()` → **C13 project-switch sweep** | once per fixture, on the clear tick |
+| `WallJunctionInfillManager.update` ×2 | every wall create/move | **continuously through a project LOAD** |
+| `WallJunctionInfillManager.clearAll` | level switch / close | mid-session |
+| `WallFragmentBuilder` seam-merge | per wall built | during LOAD |
+| `LiftMeshBuilder.removeLift` | `clearProjectGeometry()` | project switch |
+
+⭐ **A SEVENTH was never in the baseline at all:** `LiftCompoundMeshBuilder.removeLift`, also on
+`clearProjectGeometry()`. **A shrink-only baseline of NAMES cannot report a bypass born after it
+was written** — an independent reason this arm could never have stayed a ratchet.
+
+Two sites (`LiftMeshBuilder`, `LiftCompoundMeshBuilder`) additionally had **both halves of
+ADR-0297 L2 inverted**: they freed inside a `traverse()` and only detached afterwards, so the
+meshes were parented into the render graph with their buffers already gone.
+
+#### Fix
+
+All seven now **DETACH on their own tick and RELEASE at the frame boundary** via
+`scheduleGpuRelease()`. `disposeMaterials` is `false` wherever materials are shared or pooled
+(ADR-0297 L1) and `true` only for `LiftMeshBuilder`, whose materials are minted per lift — so
+each site's previous release semantics are preserved exactly. **No graphics change: no shadow
+disabled, no quality lowered, nothing deleted.** The diagnostic layer is untouched.
+
+**The tripwire:** ARM C `BASELINE` is now `[]` — **hard-0**. A bypass fails **by name at the
+moment it is introduced**, which is what turns *"fixed once"* into *"cannot silently return"*.
+
+**Cost (C10):** bounded by **one frame**. `drainGpuReleaseQueue()` runs at the top of every
+`render()`, deliberately before every early-return, so it drains even while the viewport is
+zero-size, suspended or paused; under sustained churn the high-water mark is one frame of
+mutations, not unbounded.
+
+#### ⚠ What this does NOT establish
+
+- **NOT proven to be the founder's exact `ShadowDepthTexture` message.** These sites free
+  **buffers**; the sibling signature is `Destroyed buffer … used in a submit`. What IS proven is
+  that they break the **premise of the shadow guard**, on precisely the founder's two paths.
+- ARM C matches **TEXT, not an AST** (a comment containing the literal trips it), and scans only
+  `packages/geometry-*/**/{Builder,Manager}.ts` — **`apps/**`, `plugins/**` and `*Tool.ts` are
+  out of scope and unmeasured.**
+- **Phase 3 (recovery) NOT built.** The 120 declined frames and the manual "Reload viewport" are
+  a real gap, deliberately left open and not attempted under this lane.
+
+**Commit:** `e57676ce`. **Contract:** C04 §3.1.2a rule 7 (enforcement changed to hard-0),
+ADR-0297 L1/L2, ADR-0299 `§RECOVERY-MUST-REFUSE` (unweakened).

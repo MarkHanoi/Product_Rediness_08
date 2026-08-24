@@ -376,9 +376,37 @@ Folded from ADR-0297's "C04 amendment" section, as amended 2026-08-07:
 7. **Therefore the release funnel MUST have no bypass.** An element builder MUST NOT call
    `geometry.dispose()` / `material.dispose()` on a mesh in place; rule 6 is only true while
    rule 2 is universal, so a bypass silently invalidates the derivation rather than merely
-   leaking. Gated shrink-only by
+   leaking. Gated by
    `packages/renderer-three/__tests__/casterReleaseChokepoint.test.ts` ARM C, which walks the
    `packages/geometry-*` trees rather than consulting a maintained list.
+
+   > ⭐ **ENFORCEMENT CHANGED 2026-08-24 (lane GPU45, L-10500): ARM C is now HARD-0. It was
+   > shrink-only, and the tolerance was the defect.**
+   >
+   > This rule states the PREMISE that makes rule 6 true. When it was minted, ARM C measured
+   > **eight** bypasses, closed two, and **baselined the remaining six** — so the gate written to
+   > establish a safety property instead recorded, and tolerated, the exceptions that removed it.
+   > A baselined bypass is not "debt with a ceiling"; it is the guard reporting a property it
+   > does not have. **That is why the family kept recurring through fixes that were each
+   > individually correct** (L-25 → L-39 → L-64 → L-908 → L-930 → L-1290 → L-10380): every one of
+   > them ordered a trigger that *does* traverse the funnel, while these builders went on freeing
+   > on the mutation tick.
+   >
+   > Two of the six sat on the **C13 project-switch sweep** (`LightingFragmentBuilder.remove`,
+   > reached from `clearProjectGeometry()`) and three ran on **every wall change**
+   > (`WallJunctionInfillManager.update`/`clearAll`) — i.e. continuously through a project LOAD.
+   > A **seventh**, `LiftCompoundMeshBuilder.removeLift`, was **never in the baseline at all**:
+   > a shrink-only baseline of NAMES cannot report a bypass born after it was written, which is
+   > an independent reason this arm could not stay a ratchet.
+   >
+   > All seven were migrated to `scheduleGpuRelease()` and `BASELINE` is now `[]`. **Never add a
+   > name back.** The migration is mechanical, so a builder that appears to need an exception
+   > does not have one — it has a bug.
+   >
+   > ⚠ **Two limits of this arm, stated so it is not over-read.** It matches **TEXT, not an AST**,
+   > so prose in a comment containing the literal will trip it. And it scans only
+   > `packages/geometry-*/**/{Builder,Manager}.ts` — `apps/**`, `plugins/**` and `*Tool.ts`
+   > (transient drawing previews) are **out of scope and unmeasured**.
 8. **A guard that pauses submits MUST be bounded.** An unbounded submit pause is a frozen
    viewport — the same shape as an unbounded recovery retry (rule 4). The derived window caps
    at `MAX_CASTER_RELEASE_PAUSED_FRAMES` consecutive frames and degrades to the batch-level
