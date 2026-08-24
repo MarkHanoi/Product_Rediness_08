@@ -49662,6 +49662,332 @@ stack, one file over.
 
 ---
 
+### L-10400 — ⭐⭐ **THE 47 "LOCAL-ONLY" PROJECTS WERE A PAGE OF 50 READ AS THE WHOLE ACCOUNT** · lane DURABLE25 · 2026-08-24 · **FIXED**
+
+**The complaint, as received** — the founder's console, verbatim:
+
+> *"§PROBE-LOCAL-ONLY-VERSION-EXPOSURE — **47 project(s) exist ONLY in this browser**:
+> they are absent from the server … a sign-out would lose them."*
+
+⭐ **THEY ARE ALMOST CERTAINLY NOT ABSENT FROM THE SERVER.** MEASURED 2026-08-24, by
+reading every list path rather than the warning:
+
+| path | cap | pagination |
+|---|---|---|
+| `server/projectStore.js:372` (PG — **the live one**, via `GET /api/v1/projects`) | `LIMIT 50` | none |
+| `server/projectStore.js:353` (in-memory fallback) | `slice(0, 50)` | none |
+| `server.js:2927` (Supabase) | `.limit(50)` | none |
+
+`server/dbMigrate.js:67` names it outright: *"ORDER BY updated_at DESC LIMIT 50: the
+hub's first query on every load."* No offset, no total, no `hasMore`, anywhere.
+
+**The founder's same boot printed `thumbnails: 50 row(s)` — the list SATURATED at its
+cap — and then 47 + 3 unmatched local rows. Fifty sent, fifty unmatched.**
+`ProjectHub.syncFromServer()` built `new Set(summaries.map(s => s.id))` and read
+`!serverIds.has(id)` as *"the server does not have this project"*. That is a question a
+page cannot answer. Before L-1289 the reconciler **deleted** rows on exactly this
+reasoning; after L-1289 it kept them and reported them as at-risk. **Both verdicts were
+drawn from an inadmissible premise.**
+
+#### ⭐ The ruling
+
+**Absence may only be concluded from a COMPLETE enumeration.** And — the part that makes
+this more than a paging bug — **a saturated page is indistinguishable from a complete
+one**. A user with exactly 50 projects and a user with 500 produce the identical
+response. So `rowCount >= limit` does not mean "truncated"; it means completeness is
+**UNKNOWN**, and unknown must never be resolved in the destructive direction.
+
+Same shape as **L-1289** (`count === 0` read as "the user has nothing"), as
+[[getcapabilities-is-not-an-inventory]] (a capabilities document read as a layer
+inventory), and as [[context-data-honesty-family]] (failure and empty are the same
+value). **Third recurrence of one defect in this subsystem in two days.**
+
+#### What shipped
+
+- **`apps/editor/src/ui/platform/serverListCompleteness.ts`** (new, pure) —
+  `complete | truncated | unknown`, deliberately three arms, never a boolean.
+  `mayConcludeAbsence()` is the gate the purge branch must now pass. ⭐ **It works
+  against the ALREADY-DEPLOYED server**: with no `hasMore` field, 50-of-50 is already
+  the honest "unknown", so the client stops harming itself before any server ships.
+- **`ProjectHub`** — `_fetchSummaries()` returns completeness with the rows; the purge
+  branch is skipped **whole** when absence is not concludable, *including the version
+  probe*. ⚠ Skipping the probe is deliberate: a `keep`/`refuse` ruling drawn from an
+  inadmissible premise is not a safer ruling, it is the same error with a decision
+  attached. The false *"exist ONLY in this browser"* warning is replaced by one that
+  says residency is **UNDETERMINED**.
+- **Server (additive, defaults unchanged)** — `listProjects(userId, {limit, offset})`;
+  `GET /api/v1/projects?limit=&offset=` returns `hasMore`, computed by over-fetching
+  ONE row rather than a second `COUNT(*)`. ⚠ `ORDER BY` gained `p.id DESC`: `updated_at`
+  is not unique, and OFFSET paging over a non-total order **silently skips rows** — a
+  paging fix that loses projects would be worse than the bug it replaces.
+- **`ProjectListClient.listPage()` / `listAll()`** — bounded enumeration that returns
+  `complete: false` rather than swallowing it. ⛔ `buildPersistence` forwards `listAll`
+  **only if the raw client implements one**; synthesising one over `list()` would answer
+  *"yes, that is everything"* from a single page, which is the false certainty being
+  removed.
+
+**Root tsc RC=0 · 12 new assertions · 25 existing editor + 40 server tests green.**
+
+#### ⚠ What this does NOT establish
+
+**It does not prove the 47 are safe.** It proves the client had no basis for saying they
+were not. Which of the two it is becomes **determinable** once the paginated route is
+deployed and the hub enumerates in full — see L-10403.
+
+---
+
+### L-10401 — ⭐ **SIGN-OUT DELETES THE PLACE L-1310 RETAINS REFUSED UPLOADS, SILENTLY** · lane DURABLE25 · 2026-08-24 · **FIXED**
+
+`purgeUserScopedClientState()` (`AuthModal.ts`) deletes **every** IndexedDB database
+whose name contains `pryzm`. That is the §AUTH-SESSION-LEAK control and it must stay.
+But `pryzm-project-versions` is one of them, and it holds two things that exist nowhere
+else: the version-history snapshots (`VersionCacheStore.ts:40`, and `warmVersionCache()`
+MIGRATES the legacy localStorage blobs into it, so after the first warm it is the ONLY
+copy), and — since **L-1310** — the **retained payloads of uploads the server refused**.
+
+⭐ **So L-1310 stopped `ServerSyncQueue` throwing rejected uploads away, and `signOut()`
+was still throwing away the place it keeps them** — silently, on a click labelled
+"Sign out", with no indication that anything was at stake.
+
+#### The ruling
+
+**A destructive action must not be silent about what it destroys, and when it cannot
+establish that it is safe, it must ask.**
+
+⛔ **The purge is NOT weakened.** A narrower purge would trade a loss the user can be
+warned about for a cross-tenant leak they cannot. ⛔ Nor are the at-risk payloads copied
+somewhere the purge misses — that is the leak, rebuilt by hand. **The fix is CONSENT.**
+
+#### What shipped
+
+- **`unsyncedWorkGuard.ts`** (new, pure policy + registry). `signOut()` counts what is
+  provably unsynced, names it, and asks. **Cancelling changes NOTHING**, and the hub call
+  site was reordered so `client.signOut()` (server token invalidation) runs only AFTER
+  consent — the old order would have killed the session even when the user declined,
+  leaving them signed out on the server, still holding the work, and unable to upload it.
+  **No dialog available ⇒ do not destroy.**
+- ⚠ **It warns on EVIDENCE, not suspicion** — server-refused and never-offered uploads
+  only. It deliberately does **not** warn on "missing from the server list", because that
+  is L-10400's unproven inference; chaining it into a scary dialog would be the same
+  defect wearing a warning label, and **a guard everybody clicks through protects less
+  than no guard at all**.
+- ⚠ **The account-switch path deliberately does NOT ask** — a second identity is already
+  authenticated, so pausing the purge for a dialog re-opens §AUTH-SESSION-LEAK-2. It
+  logs the loss instead.
+- **Registry, not import**: `ServerSyncQueue` pushes a probe DOWN into the guard (which
+  imports nothing), so no module cycle forms — §SCC-NO-BARREL-ACCESS-AT-MODULE-LOAD.
+
+**11 new assertions**, including: a throwing probe becomes `unreadable`, never a silent
+zero — the one outcome that must be impossible is a crashed guard falling through to the
+silent destructive path.
+
+---
+
+### L-10402 — ⭐ **THE 1-SECOND PLACEHOLDER FLASH IS THE VERSION WARM, NOT THE THUMBNAILS** · lane DURABLE25 · 2026-08-24 · **FIXED**
+
+**The complaint:** the hub paints placeholder cards ("BIM Project" + an initial glyph),
+then ~1 s later the real previews. *"It looks like a bug."*
+
+`ProjectHub._warmThenSync()` read:
+
+    await warmVersionCache();      // ← every project's ENTIRE version history
+    await warmThumbnailCache();
+    this.refreshGrid();            // ← the previews appear HERE
+
+**MEASURED — the mechanism, from the code.** `warmVersionCache()` cursors **every row** of
+the `versions` object store and materialises each project's whole compressed version
+container into a `Map` (`VersionCacheStore.warm()`). `warmThumbnailCache()` was `await`ed
+strictly behind it, and the first repaint behind that again. **The grid uses none of it.**
+
+⚠ **ESTIMATED — the magnitude, and separated on purpose.** ~100 projects of up to 45
+versions each. **§JOURNAL-SIDECAR (L-9980, 2026-08-23) already cut the container 14.8×**
+(34.33 MB → 2.32 MB at the founder's largest project), so this is materially cheaper than
+it was last week and **the residual cost is NOT measured here.** ⭐ The fix does not
+depend on the number: the grid has no use for version history at any size, so the
+dependency is pure cost whatever it currently is. If the flash persists after this ships,
+the next reading to take is `§PROBE-OPEN-PATH-STORAGE-LEG`, not another guess.
+
+#### ⛔ Two intuitive fixes, both wrong — stated because both were proposed
+
+1. **"Paint from the durable server column instead."** The console's
+   `0 painted from the durable server column` is the **correct output of a warm cache**
+   — `resolveProjectThumbnail` puts local first by design, and the note at
+   §FIX-THUMBNAIL-DURABILITY / L-1283 already says so. Painting from the server would be
+   **strictly slower**: a network round-trip replacing an in-memory mirror read.
+2. **"Remove the skeleton."** It occupies the same `.ph-card-thumb` box as the real
+   `<img>` (`ProjectHubTemplates.ts:435-441`), so the swap costs **no reflow**. An empty
+   card is worse than a placeholder.
+
+#### What shipped
+
+The two warms now run **concurrently**; the repaint awaits only the thumbnail warm.
+⚠ **L-148 is preserved exactly** — its invariant is that both migrations complete before
+the first server-sync index write, not that they run in series. `syncFromServer()` still
+runs only after both settle, and a test asserts it.
+
+**3 assertions, FALSIFIED FIRST:** run against the pre-fix ordering, 2 of the 3 fail.
+A test that cannot fail proves nothing.
+
+---
+
+### L-10403 — ⚠ **OPEN: ARE THE 3 CONTRADICTED PROJECTS RECOVERABLE? — NOW DETERMINABLE, NOT YET DETERMINED** · lane DURABLE25 · 2026-08-24 · **OPEN**
+
+Three projects (`proj-1786862007045-…` and `proj-1786860858444-…` claiming **45**
+versions, `proj-1786806055544-…` claiming **37** — created **2026-08-15/16**) carry index
+rows asserting version history the local version store no longer holds. L-1289 correctly
+refuses to purge them.
+
+**The honest answer, stated plainly rather than left encouraging:**
+
+- **If those rows exist on the server** — which L-10400 shows is the likely case, since
+  they are among the 50 that fell outside a 50-row page — then `project_versions` holds
+  their history and they are **fully recoverable**; the local IndexedDB copy was merely a
+  cache, and it was purged.
+- **If they do not** — the local store was the only copy, and it is **gone**. No
+  client-side artefact survives the IndexedDB purge, and no backfill can invent it.
+
+⛔ **The client could not tell these apart before L-10400, and that is the finding.** The
+same truncated list that manufactured "47 local-only" also made recoverability
+unknowable. **After the paginated route deploys, the hub enumerates in full and the
+answer is simply whether those three ids appear** — with `versionCount` on the row.
+
+**NEXT:** deploy, re-read the boot console, and close this row with a measured verdict.
+⛔ Do not report these three as recoverable until that reading exists.
+
+---
+
+### L-10404 — ⚠ **OPEN: THERE IS STILL NO VERSION BACKFILL, AND ONE MAY NOT BE NEEDED** · lane DURABLE25 · 2026-08-24 · **OPEN / DECISION**
+
+MEASURED: `ProjectHub.ts` contains `backfillToServer` for **thumbnails only** (`:232`);
+**no equivalent exists for project versions** — the brief's premise is confirmed.
+
+⭐ **But building one now would be the wrong move, and the reason is L-10400.** A version
+backfill re-uploads local history for projects believed absent from the server. The set
+of "absent" projects was **manufactured by a truncated list**. Backfilling against that
+set would push ~47 projects × up to 45 versions — **potentially gigabytes** — for
+projects that, on the evidence, the server already has. That is not a safety net; it is a
+self-inflicted load spike founded on the same misreading.
+
+**The correct order, and it is not negotiable:**
+1. Deploy pagination (L-10400) so the hub can enumerate in full.
+2. Read the boot console: how many projects are *genuinely* absent from a COMPLETE list?
+3. **Only then** size a backfill — batched, resumable, cancellable, visible — against a
+   real number.
+
+⚠ Meanwhile the exposure is covered from the other end: **L-1310** retains refused
+uploads instead of discarding them, and **L-10401** refuses to destroy them without
+consent. **Nothing is being silently lost while this row is open.**
+
+---
+
+### L-10480 — ⭐⭐ **THE ISOLATION GATE IS HONEST AND ITS UNIVERSE IS TOO SMALL: 61 SUBSYSTEMS ARE TORN DOWN, 13 ARE VERIFIED** · lane ISO28 · 2026-08-24 · **RED FIXED · PROBE SHIPPED · ASYNC GAP RECORDED**
+
+**The question was "why does `check:isolation` pass while the founder still finds isolation
+bugs?" The answer is arithmetic, not a broken gate.**
+
+`ProjectIsolationAudit` can only audit what `declaredProjectScopes.ts` declares. ADR-0298's
+doctrine is correct and must not be weakened — but a declaration naming N owners audits
+exactly N subsystems. **MEASURED 2026-08-24:**
+
+| Quantity | Before | After |
+|---|---|---|
+| **Declared** scopes (probe + teardown + `resets`/`counts`) | **11** | **13** |
+| `projectScopeRegistry` scopes (teardown only, **no probe**) | 61 | 61 |
+| Undeclared module-level project-scoped candidates | 47 (2 NEW ⇒ RC=3) | **45** |
+| ⛔ **NEVER SWEPT AT ALL** (same heuristic, rest of repo) | **106** | **106** |
+
+⛔ **THE SWEEP LOOKS AT TWO DIRECTORIES.** `CANDIDATE_ROOTS` is
+`['apps/editor/src/ui', 'apps/editor/src/engine']` — **97 packages and 48 plugins are never
+examined.** Re-running the gate's OWN regex and word list over the rest of the tree (4,980
+files, tests + already-swept roots excluded) surfaces **106 further files**: `packages/**`
+**100**, `plugins/**` **5**, other `apps/**` **1** — including `ai-host/src/AiHost.ts`,
+`ai-host/src/graph/GraphQueryService.ts`, `command-bus/src/gestureScope.ts`,
+`command-registry/src/catalogue/resolveCatalogueRef.ts`.
+
+⚠ **CANDIDATES, NOT CONFIRMED LEAKS** — same word-match heuristic, and some (the several
+`tracing.ts` tracer memos) are near-certainly false positives. **The finding is not "106
+leaks"; it is that nothing has ever LOOKED.** Honest population: **13 verified vs ~151
+candidates.** ⭐ Widening `CANDIDATE_ROOTS` is the cheapest next move — one array literal
+plus triage — and it is deliberately left to a follow-up rather than dumped on the baseline
+by this lane.
+
+⛔ **61 torn down, 13 verified.** A teardown with no probe is the L-224 / L-8100 artefact:
+one that ships, passes its tests, and is never checked against the world. **That gap — not
+any single leak — is why green and broken coexist.** ⭐ ABSENT vs UNDER-APPLIED (C01 §6
+rule 6): the probe API, the declaration and a planted-leak negative control **all already
+existed and are correct**. This is **UNDER-APPLIED**, so the fix is *apply it wider*, never
+*build a rival*.
+
+**1 — THE RED WAS SHIPPED, AND BOTH FLAGS WERE TRUE POSITIVES.** `check:isolation` was
+**RC=3** on an ancestor of the live SHA. Neither file was the heuristic word-match that
+covers most of the baseline:
+
+- `apps/editor/src/ui/analysis/graphViewState.ts` — the force-solved layout, a map from
+  **element id → position**: a partial disclosure of Project A's element id set to a reader
+  looking at Project B. ⚠ The cache key is `view|nodeCount|edgeCount|ids.join(',')` and
+  **contains no project**, so a smarter key was never the repair — colliding ids produce the
+  same key and there is no cache miss to stop the swap. Plus the orbit camera pose.
+- `apps/editor/src/ui/analysis/widgetRenderers.ts` — a **live WebGL viewport** holding
+  Project A's geometry and one refcount on the single shared offscreen context, whose
+  eviction victim (per the file's own header) is the **main viewport**.
+
+⭐ **ROOT: not a broken teardown — the ABSENCE of a lifecycle.** `grep -rn "pryzm-project"
+apps/editor/src/ui/analysis/` returned **nothing at all**. The surface's only teardown,
+`disposeGraphViewport()`, was reached solely from `AnalysisSurface._hide()` — which fires
+when the reader **leaves the workspace**, never when the project changes under it. Switching
+project with the tab open disposed **nothing**.
+
+⚠ **A doc comment asserted the missing lifecycle.** `resetGraphViewState()` was documented
+as *"used by 'Reset view' and by a project switch"*; the second half had been **false since
+the card shipped**. **That is L-694a in prose** — exactly why a reviewer would not go looking
+for the absent owner. Corrected in the same commit.
+
+**FIXED:** two declared owners (`analysis.graphView`, `analysis.graphViewport`), registered
+at **module scope** as import side effects, each stamping ownership **on the resource** (the
+L-694b lesson — a probe that models fields answers honestly about its model and falsely
+about the world). Split into two scopes deliberately: a cache and a GPU mount have different
+disposal semantics. `check:isolation` **RC=0**.
+
+**2 — THE A→B RUNTIME PROBE, AND THE NEGATIVE CONTROL FIRED.**
+`apps/editor/src/ui/analysis/__tests__/analysisProjectIsolationAtoB.spec.ts` — **6/6 green**.
+⛔ It asserts on the **absence of A**, never on "B loaded correctly": B renders from B's
+stores either way, so that test passes identically in a clean world and a leaking one. ARM 3
+drives teardown **only** through `projectScopeRegistry.clearAll()` — never the owner's own
+clear — because calling the teardown directly measures a pure function, not a wiring
+(*committed ≠ reachable*).
+
+⭐ **Verified by MUTATION, not by assertion.** Deleting the `projectScopeRegistry.register`
+call turned **ARM 3 RED** (*expected […] to include 'analysis.graphView'*) **and**,
+independently, the static gate **RC=1** (*D6 … does not call `projectScopeRegistry.register(`
+on import*). **Two instruments, one mutation, both fired.** Code restored; both green.
+
+**3 — ⚠ OPEN, AND THE LARGEST KNOWN HOLE: IN-FLIGHT ASYNC HAS NO MECHANISM.** C13 §3.6
+requires that Project A's async must not execute in B's context. **MEASURED: it names two
+cases and is enforced by nothing.** `projectEpoch|projectGeneration|loadGeneration|switchEpoch`
+across `apps/editor/src` + `packages/core-app-model/src` → **ZERO hits.** Nothing anywhere
+lets an in-flight operation discover the project changed under it.
+
+⛔ **Invisible to every static check AND to the runtime audit**, structurally:
+
+> **Work that lands after the switch is stamped with the NEW project, because ownership is
+> stamped at COMPLETION time rather than REQUEST time.** The probe reads a consistent stamp
+> and reports clean while holding the old project's data.
+
+**Demonstrated, not hypothesised** — ARM 5 asserts the wrong-but-current behaviour: a graph
+solved from A's projection landing after the switch reports `owningProjectId === 'proj-B'`
+while holding A's element ids. **Every declared owner shares this shape.**
+
+**Repair (COSTED, NOT BUILT — needs an ADR):** a monotonic **project epoch** bumped on
+`pryzm-project-switch`, captured **by value at request time**, compared at completion; a
+mismatch discards rather than writes. That turns §3.6 from two hand-named call sites into an
+invariant a gate can count. ⛔ Not attempted here — it touches every async boundary in the
+app. **Until then §3.6 MUST NOT be described as enforced.**
+
+**Contract:** C13 **§3.21** (universe limit), **§3.22** (async gap), **§7.1b** (the A→B probe
+obligations + the fire-the-control rule) — all amended in place. Declaration set version 6 → 7.
+
+---
+
 ### L-10420 — ⭐⭐ **"THE POLICY IS REPORT-ONLY, SO NOTHING BROKE" — AND THE ONE LINE IT REPORTED WOULD HAVE KILLED CESIUM OUTRIGHT ON THE DAY ANYONE ENFORCED IT** · lane CSP26 · 2026-08-24 · **CALLER NAMED + LOAD-PATH CLOSED; PROMOTION STILL BLOCKED (named)**
 
 The founder's production console, first line on load at `https://app.pryzm.so`:
@@ -49778,3 +50104,47 @@ specific enough that nobody re-measured it.
 reads **494 with C51 reverted to `HEAD`** as well. Zero of this lane's citations land in the
 unresolved set. Owner is whoever added the four (C101/C102, minted 2026-08-21, are the likely
 source).
+
+
+---
+
+### L-10405 — ⭐ **THE PROJECT LIST SHIPS UP TO 50 BASE64 THUMBNAILS INLINE — AND PASCAL'S SCHEMA IS THE COMPARISON WORTH TAKING** · lane DURABLE25 · 2026-08-24 · **OPEN**
+
+The founder asked how PRYZM's persistence compares to Pascal's, and specifically how
+Pascal lists and opens projects fast. ⛔ **The answer is NOT "copy Pascal's persistence
+model."** `docs/04-reference/audit/D-collab-persistence.md` already measured that PRYZM
+is decisively better where it counts — Pascal has **no CRDT**, whole-scene last-writer-wins,
+a 409 path that never advances `versionRef` (so a dismissed conflict leaves the session
+**permanently unable to save**), and a remote apply that full-replaces the store **then
+clears history**, destroying unsaved edits *and* the undo stack that could have recovered
+them (audit §5.4: PRYZM **0 SILENT** across 402 driven merges). ⚠ And Pascal's real
+multiplayer layer is not in the public repo, so only what is there has been judged.
+
+⭐ **But ONE thing in Pascal's schema is straightforwardly better, and it bears directly on
+the founder's speed complaint.** Pascal's list head (`sqlite-scene-store.ts:619–660`)
+carries `thumbnail_url TEXT` — a **URL** — plus denormalised `node_count` and `size_bytes`,
+with indexes on `(owner_id, updated_at DESC)`.
+
+**PRYZM's list row carries the thumbnail BYTES.** `server/projectStore.js:418` selects
+`p.thumbnail`, and `ProjectRepository`'s own §HUB-THUMBNAIL-STORAGE note measures a
+thumbnail at **"~5–500 KB"** as a base64 data URL. So `GET /api/v1/projects` can return
+**up to 50 of those inline, in one JSON body, on every hub load** — plausibly multiple
+megabytes before a single card paints. This is the same mistake §HUB-THUMBNAIL-STORAGE
+already fixed *on the client* (bytes were bloating the localStorage index past quota);
+**the server projection was never given the same treatment.**
+
+A URL would let the browser's own HTTP cache do the work — conditional requests, parallel
+fetches, no base64 33 % inflation — and shrink the list response to metadata.
+
+⚠ **This is ALSO why `ProjectListClient.listAll()` pages at 50 and not at the server's
+200 ceiling.** A 200-row page would be up to **four times** the JSON the hub already
+downloads per request. Enumerating in 50-row pages keeps every individual response exactly
+the size it is today and pays for completeness in request COUNT, the cheap axis.
+⛔ **Do not raise that page size until thumbnails leave the list row.**
+
+**NEXT (not this lane — it is a server projection + storage decision):** move thumbnails to
+object storage (or a dedicated `GET /api/v1/projects/:id/thumbnail` with cache headers),
+return `thumbnail_url`, and drop `p.thumbnail` from `PROJECT_COLUMNS`. `rowToSummary`
+already prefers `row.thumbnail_url ?? row.thumbnail`, so the client half is **already
+written**. ⚠ Note the related standing decision [[furniture-glb-404-object-storage]] —
+object storage is already the answer to a neighbouring problem.
