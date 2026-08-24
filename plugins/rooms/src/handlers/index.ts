@@ -16,6 +16,8 @@ import { RedetectRoomsHandler } from './RedetectRooms.js';
 import { RegenerateRoomsHandler } from './RegenerateRooms.js';
 import { RenameRoomHandler } from './RenameRoom.js';
 import { CreateTemplateHandler } from './CreateTemplate.js';
+// §ROOM-TOMBSTONE (L-10814) — the APPLY half of the DERIVATION + TOMBSTONE ruling.
+import { RestoreRoomMeaningHandler } from './RestoreRoomMeaning.js';
 
 export const ROOM_HANDLER_TYPES = [
   'room.create',
@@ -37,6 +39,11 @@ export const ROOM_HANDLER_TYPES = [
   // design and what closes it.
   'room.regenerate',
   'room.rename',
+  // §ROOM-TOMBSTONE (L-10814) / C94 RM-3 — restores the NAME/NUMBER/OCCUPANCY of a
+  // room a re-detection destroyed, onto the new room that replaced it. ⛔ MEANING
+  // only: it writes no id and no geometry, because the founder's ruling granted
+  // durable LOSS, not durable identity. One command, one Ctrl+Z.
+  'room.restoreMeaning',
   'template.create',
   // §FIX-TEMPLATE-ASSIGN-SHADOW (MT-03) — 'template.assignToNode' is NOT
   // declared here. It has a live §E.5.7 bridge in initBusHandlers.ts:2352, and
@@ -65,6 +72,7 @@ export function buildRoomHandlerSet(): readonly CommandHandler<unknown>[] {
     new RecomputeRoomBoundaryHandler() as unknown as CommandHandler<unknown>,
     new RedetectRoomsHandler() as unknown as CommandHandler<unknown>,
     new RegenerateRoomsHandler() as unknown as CommandHandler<unknown>,
+    new RestoreRoomMeaningHandler() as unknown as CommandHandler<unknown>,
     RenameRoomHandler as unknown as CommandHandler<unknown>,
     CreateTemplateHandler as unknown as CommandHandler<unknown>,
   ];

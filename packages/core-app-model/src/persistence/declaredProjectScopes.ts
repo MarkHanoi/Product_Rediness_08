@@ -422,6 +422,40 @@ export const DECLARED_PROJECT_SCOPES: readonly DeclaredProjectScope[] = [
         // (`subscribed`) so its value is still visible in a leak report.
     },
     {
+        scope: 'ai.roomMeaningRestoreProposal',
+        module: 'apps/editor/src/ui/ai/RoomMeaningRestoreProposal.ts',
+        why: '§ROOM-TOMBSTONE (L-10814) / C94 RM-3 — the THIRD surface of the offer family, '
+            + 'declared for the same §L-910-CLASS reason as its two siblings. The tombstone '
+            + 'offer de-duplicates per LEVEL while a card is on screen, and level ids are '
+            + 'not unique across projects: a switch mid-answer strands `lvl-0` in `asking` '
+            + "forever, because the `finally` that clears it only runs when that promise "
+            + 'settles — and that level would then never be offered a restore again in the '
+            + 'new project. ⛔ The failure mode here is WORSE than a leak in the sibling '
+            + 'scopes: a stale `_owningProjectId` attached to a live offer would attribute '
+            + "one project's lost room to another project's building.",
+        presence: 'module-scope',
+        resets: ['asking.clear()', '_owningProjectId = null'],
+        counts: ['asking.size', '_owningProjectId'],
+        uncounted: {
+            'asking.clear()':
+                'COUNTED, under its read literal `asking.size` in `counts`. Same deliberate '
+                + 'split as `ai.openedRegionProposal` — the CALL is pinned by D3 so deleting '
+                + 'the teardown step fails, the READ is pinned by D4 so the probe going '
+                + 'blind fails.',
+            '_owningProjectId = null':
+                'COUNTED, under the bare identifier `_owningProjectId` in `counts`. Declared '
+                + 'separately as a reset so that dropping the stamp-clear — which would '
+                + 'leave a stale owner attached to a cleared container — fails D3 rather '
+                + 'than silently degrading the report.',
+        },
+        // NOT in `resets`, deliberately, and for the identical reason as its sibling:
+        // `installed` latches the subscription to `roomMeaningNotifier`, which is
+        // app-lifetime state, not project state. Clearing it on a project switch would let
+        // the next bootstrap subscribe a SECOND time and ask every restore question twice.
+        // It is reported through describe() (`installed`) so it stays visible in a leak
+        // report.
+    },
+    {
         scope: 'links.linkedModels',
         module: 'apps/editor/src/engine/links/linkedModelScope.ts',
         why: '§C13-LINKED-MODEL-OWNER (ADR-0346, L-2900) — THE FIRST SANCTIONED '

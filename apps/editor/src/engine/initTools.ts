@@ -138,6 +138,8 @@ import { RoomDetectionEngine } from '@pryzm/room-topology';
 import { RoomTopologyObserver } from '@pryzm/room-topology';
 // §OPENED-REGION (L-880) — the OFFER half of "a wall move left a region open".
 import { initOpenedRegionProposals } from '../ui/ai/OpenedRegionProposal';
+// §ROOM-TOMBSTONE (L-10814) — the OFFER half of "a re-detection destroyed an authored room".
+import { initRoomMeaningRestoreProposals } from '../ui/ai/RoomMeaningRestoreProposal';
 import { RoomTool } from '@pryzm/room-topology';
 import { RoomBoundingLineTool } from '@pryzm/geometry-wall';
 
@@ -2935,6 +2937,17 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         initOpenedRegionProposals();
     } catch (e) {
         console.warn('[initTools] §OPENED-REGION offer channel not installed (non-fatal):', e);
+    }
+
+    // §ROOM-TOMBSTONE (L-10814) — C94 RM-3, the founder's DERIVATION + TOMBSTONE ruling.
+    // When a re-detection destroys a room the user had NAMED, its meaning is kept and
+    // offered back if the region closes again as a new room. Installed here, beside the
+    // detector, rather than in the chat panel — the panel is created lazily and a
+    // question the user never sees is the same as no question. Idempotent.
+    try {
+        initRoomMeaningRestoreProposals();
+    } catch (e) {
+        console.warn('[initTools] §ROOM-TOMBSTONE offer channel not installed (non-fatal):', e);
     }
 
     // ── RoomTool ──────────────────────────────────────────────────────────────

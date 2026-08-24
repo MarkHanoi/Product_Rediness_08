@@ -229,6 +229,9 @@ export * from './rooms/CreateRoomCommand';
 export * from './rooms/DeleteRoomCommand';
 // §DELETE-ONE-ROUTE (L-10813) — the single authority for which command deletes what.
 export * from './resolveDeleteCommand';
+// §ROOM-TOMBSTONE (L-10814) — durable LOSS, offered back. C94 RM-3.
+export * from './rooms/roomTombstoneRegister';
+export * from './rooms/roomLossCensus';
 export * from './rooms/DetectAllRoomsCommand';
 export * from './rooms/DetectRoomFromWallsCommand';
 export * from './rooms/GenerativeDesignApplyCommand';
