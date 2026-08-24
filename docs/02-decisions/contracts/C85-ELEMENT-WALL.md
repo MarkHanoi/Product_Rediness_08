@@ -1340,7 +1340,9 @@ the middle row of that table with a different arm length in it.
   **COST:** no new geometry primitive and no new traversal. One mirror-direction branch that routes
   a guest-side T into the existing stem path, under the existing `MAX_FOLLOW_GAIN = 3` bound and the
   existing degenerate-stub and reversal guards. Same `O(declared partners)`, same once-per-gesture
-  cadence. ⚠ **Gated on §10.8.4** — it moves a wall the user did not touch.
+  cadence.
+  ✅ **SHIPPED 2026-08-24 (`aa1eeba1`), on the founder's ruling that a declared relationship is INTENT and is to be restored.** The arm sits where the bin was. ⛔ **Exactly one repair is permitted: the host GROWS ALONG ITS OWN LINE.** It is never slid sideways to chase the subject — that is a TRANSLATION of a wall the user did not touch, C83 §10.2.2, and L-922's signature; a perpendicular break is REPORTED and nothing moves (`§NO-SLIDE`).
+  ⭐⭐ **AND THE `MAX_FOLLOW_GAIN` BOUND THIS CLAUSE DEMANDED TURNED OUT TO BE UNREACHABLE — PROVEN, NOT ASSUMED.** `foot` is the ORTHOGONAL PROJECTION of the subject's endpoint onto the partner's line, and a projection is a CONTRACTION: the foot travels `|v|·cosθ ≤ |v| ≤ movedDisplacement`, and the old foot lay ON the body, so the grow ≤ the foot's travel. **Therefore extension ≤ the user's own drag — a gain of ≤1×, never 3×.** Measured across a 6-angle × 4-drag sweep (0–80°, 0.2–3.0 m): every entry at ratio **0.667**, none above 1.0. That is a STRONGER property than the guard — the corner arm needed its 3× cap because `1/sinθ` let a 2 m drag move an untouched wall 14.14 m; **this arm cannot over-extend at all.** ⚠ The guard is RETAINED as a backstop against a future change to how `foot` is derived and is documented as currently unreachable. ⛔ Do not delete it as dead code and do not write a test claiming to exercise it.
 
 - **W-L-5 — ⚠ RAISED TO C72, NOT DECIDED HERE. «REFUSE» IS DOING DUTY FOR TWO DIFFERENT ACTS.**
   C72 §9.1's REFUSES is about **the dependent not adapting** while the host's move stands. The
@@ -1367,6 +1369,8 @@ the middle row of that table with a different arm length in it.
   INADVISABLE?** That is a design judgement, it is §10.8.4's second open question, and this
   contract does not answer it.
   **COST:** none. It is a routing rule over classifications that already exist.
+  ✅ **SHIPPED 2026-08-24 (`c212d537`), and the finding is that THERE WAS NOTHING TO RECLASSIFY.** Founder ruling: a move that destroys a room is **INADVISABLE, not IMPOSSIBLE — proceed and report**; *"do NOT refuse the move."* Measured first: every existing refusal was already on the right side of it, and `WallMoveClashProposal`'s two arms are the incumbent breach and a wall∩opening clash — neither refuses on a consequence.
+  ⭐ **So the value is the EXHAUSTIVENESS, not the mapping.** The rule was true *by accident* and stated *nowhere* — a success criterion with no term for the property that matters. `MoveRefusalGround = 'IMPOSSIBLE' | 'INCUMBENT'` is now the closed set of grounds this engine may refuse on, `moveRefusalGround()` is exhaustive by construction, and **adding a refusal reason without classifying it is a COMPILE ERROR.** A future lane cannot add `ROOM_WOULD_BE_LOST` without overturning a founder ruling in the open.
 
 - **W-L-7 — DAMAGE MUST NOT ACCUMULATE MONOTONICALLY WITHOUT A LEDGER — AND ⛔ MUST NOT BE SWEPT.**
   Measured: ~7 moves in one session, each adding findings, nothing removing any;
@@ -1405,7 +1409,29 @@ the middle row of that table with a different arm length in it.
 
 ---
 
-### 10.8.4 ⭐⭐ THE UNDECIDED QUESTION — framed with both costs, and deliberately NOT resolved
+### 10.8.4 ⭐⭐ THE QUESTION — framed with both costs, and ✅ RULED 2026-08-24
+
+> ✅ **BOTH RULINGS GIVEN 2026-08-24, and both are implemented.** They are recorded here in the
+> section that framed them, so the options and their costs stay readable beside the answer
+> rather than being overwritten by it.
+>
+> **RULING 1 — a declared relationship is INTENT. RESTORE IT.** Founder: *"I was expecting the
+> wall to **extend** — why not?"* and *"we need a sound relationship graph and **consciousness**
+> in all elements — and an architect human would have seen this."* The T-junction is a
+> **commitment**, not a coincidence of coordinates. ⭐ Materially safer than it looked when the
+> question was framed: §10.8.2 AS-IS #14 refuted the *"the record might be stale"* hazard this
+> was gated on, so the arm is not restoring a relationship that might be garbage — it repairs
+> one that was **measurably intact until this gesture**. → **W-L-4, `aa1eeba1`.**
+>
+> **RULING 2 — losing a room is INADVISABLE, not IMPOSSIBLE. PROCEED AND REPORT.**
+> ⛔ *"Do NOT refuse the move."* Merging two rooms by moving a wall is a legitimate
+> architectural act; geometry cannot tell it from an accident, and refusing would block real
+> work. → **W-L-6, `c212d537`.**
+
+> ⚠ **The option table below is KEPT, not deleted.** A ruling whose alternatives have been
+> erased cannot be revisited when the evidence changes — and this section's own history is the
+> argument: the hazard that gated Ruling 1 was refuted by a measurement taken *after* the
+> question was written.
 
 > **When a declared relationship and the geometry disagree, is the relationship the INTENT to be
 > restored, or a STALE RECORD to be discarded?**
@@ -1478,21 +1504,63 @@ justified as a **weld** tolerance. That is a `NOT MEASURED` below, not a claim.
 
 ---
 
-### 10.8.6 MIGRATION PATH — ordered, with the reason for the order
+### 10.8.6 ⭐⭐ THE TWO SYMPTOMS ARE ONE DEFECT — measured against the resolver's own band
+
+> **Founder, 2026-08-24, testing `0589a36c` (i.e. before any of §10.8 landed):**
+> *"a wall moved along - but **one adjacent wall did not follow correctly** and **the wall that
+> moved did not adapt to the new shape driven by the angle**"*
+
+Those read as two defects and were briefed as possibly two. **They are one**, and the evidence is
+`JunctionResolverV2`'s own header:
+
+| Fact | Value | Source |
+|---|---|---|
+| Endpoint-cluster + T-projection band | **`JUNCTION_BAND_FLOOR_M = 0.20 m`** | `JunctionResolverV2.ts:225` |
+| What falling outside it does | *"those drifted corner endpoints fell into SEPARATE single-endpoint clusters → **no junction → BOTH walls got a square cap** → the corner opened"* | same file, §RESI-L0-CORNER-CLOSE |
+
+A guest-side T left open by 600 mm is **3× outside that band**, so the junction ceases to exist for
+the resolver — and both of his symptoms follow from that single fact:
+
+- the **PARTNER** never follows → *"one adjacent wall did not follow correctly"*
+- the **SUBJECT** gets a square cap instead of an end condition cut for the new angle → *"the wall
+  that moved did not adapt to the new shape driven by the angle"*
+
+⭐ **W-L-4 (`aa1eeba1`) closes the gap to 0 mm — back inside the band — so the resolver sees the
+junction again and BOTH end conditions recompute. One root, one fix.**
+
+**⛔ Ruled OUT along the way, so nobody re-opens them:**
+
+- **NOT the re-weld service's empty-plan early return.** That `return` is in a SUBSCRIBER;
+  `WallRebuildCoordinator` is a different subscriber and still runs.
+- **NOT the per-wall build memo.** `_buildKey` folds `composeWallGeometryHash(wall, joinData, …)`
+  and `joinData` **is** the wall's resolved junction data, so a changed junction re-keys the wall.
+  The §WALL-RAKE-JOINT-ONE-EDIT-BEHIND and §WALL-FINISH-RENDERS folds are already present.
+- **NOT render-staleness.** The store is genuinely wrong here — which matches his screenshot
+  showing plan **and** 3-D both wrong.
+
+⚠ **NOT MEASURED, and the test says so rather than claiming otherwise:** `§SAME-ROOT` asserts the
+gap either side of the repair against the resolver's **published** band (600 mm > 200 mm before;
+0 mm < 200 mm after). It does **not** execute `resolveJunctions`, so *"the mitre is now cut at the
+new angle"* is **inferred from the band, not measured end-to-end**. That proof belongs in the
+junction-resolver suite.
+
+---
+
+### 10.8.7 MIGRATION PATH — ordered, with the reason for the order
 
 | # | Step | Gate on | Why here |
 |---|---|---|---|
 | **1** | ✅ **Split the conflated verdict** (`5c3434dc`) | nothing | **The instrument before the cure.** It needs no design decision, it closes the C72 §9.2 breach at the naming level, and it is the only thing that can tell us which of the three the founder's 1002 mm case actually was |
 | **2** | ✅ **DONE (`1bf3a790`)** — W-L-3: dual counts on **both** verdict lines; a broken join routed to the user sink | nothing | Zero geometry, zero risk, and it makes step 1 visible to a human instead of only to a test |
 | **3** | **Fix the `joinedTo` staleness SOURCE** (C71 §3.4; the flush behind the no-progress `return`) | founder-approved already | **Precondition for every disposition option.** While the graph can go stale, steps 4–6 are compensating for a defect one layer down. ⛔ Does NOT include the stored-degree rule |
-| **4** | **W-L-6** — write the REFUSE-BEFORE / REPORT-AFTER rule and route existing classifications through it | ⚠ **founder ruling: is a lost room IMPOSSIBLE or INADVISABLE?** | Costs nothing to implement and decides the shape of step 5 |
-| **5** | **W-L-4** — route a guest-side T into the existing stem path (the ordering fix) | ⚠ **founder ruling: §10.8.4** | The founder's headline complaint, and the room side is already standing down waiting for it. Cheap in code, **not cheap in consequence** — it moves walls |
+| **4** | ✅ **DONE (`c212d537`)** — W-L-6: RULED **INADVISABLE — proceed and report**. Nothing needed reclassifying; the ruling is now enforced by an exhaustive classifier | ruling given | The rule stops being true by accident |
+| **5** | ✅ **DONE (`aa1eeba1`)** — W-L-4: RULED **the relationship is INTENT; restore it**. The host now GROWS along its own line to keep the T | ruling given | ⭐ **The founder's headline complaint, closed** — and §10.8.6 shows it closes his SECOND symptom too |
 | **6** | **W-L-5** — raise the two-senses-of-REFUSE question to C72 | platform | A C72 amendment, not a C85 edit. Sequenced last because steps 1–5 are all legal under either reading |
 | **7** | **W-L-7** — the finding ledger (durability, W-M-10) | needs persistence design | The largest of these and the least urgent: it improves the model's memory, not any single gesture |
 
 ---
 
-### 10.8.7 NOT MEASURED — the honest register for this section
+### 10.8.8 NOT MEASURED — the honest register for this section
 
 - **Whether the founder's two partitions WERE guest-side Ts.** This lane reproduced his console
   signature **exactly** from an ordinary valid T-junction — which proves the signature cannot be

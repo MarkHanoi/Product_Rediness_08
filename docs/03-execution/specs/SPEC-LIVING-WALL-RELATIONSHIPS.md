@@ -111,9 +111,9 @@ Kept in the table because the order only makes sense with it at the top.
 
 ---
 
-### W4 — Write the REFUSE-BEFORE / REPORT-AFTER routing rule
+### W4 — ✅ DONE (`c212d537`). The REFUSE-BEFORE / REPORT-AFTER rule
 
-**Gate:** ⚠ **founder ruling #2** (§3). **Contract:** C85 §10.8.3 W-L-6. **Risk:** low in code, high
+**Gate:** ✅ **RULED INADVISABLE — proceed and report.** **Contract:** C85 §10.8.3 W-L-6. **Risk:** low in code, high
 in product feel.
 
 | | |
@@ -126,9 +126,9 @@ in product feel.
 
 ---
 
-### W5 — ⭐ Route a guest-side T into the existing stem path (the founder's headline complaint)
+### W5 — ✅ DONE (`aa1eeba1`). ⭐ The host GROWS along its own line to keep the T
 
-**Gate:** ⚠ **founder ruling #1** (§3). **Contract:** C85 §10.8.3 W-L-4, §10.7 W-M-12 / W-M-13.
+**Gate:** ✅ **RULED: the relationship is INTENT; restore it.** **Contract:** C85 §10.8.3 W-L-4, §10.7 W-M-12 / W-M-13.
 **Risk:** ⛔ **highest in this plan — it moves a wall the user did not touch.**
 
 | | |
@@ -233,8 +233,8 @@ behaviour.
 | **W1** ✅ | — | none | The instrument. Tells us which of the three the founder's case actually was |
 | **W2** ✅ | none | minimal | A human can see a destroyed relationship. Closes C72 §9.2 at the reporting level |
 | **W3** | approved | medium | Removes the confound under every option in Ruling 1 |
-| **W4** | Ruling 2 | low | One stated rule instead of two behaviours chosen by code path |
-| **W5** | Ruling 1 | ⛔ high | **The founder's headline complaint.** The room survives |
+| **W4** ✅ | ruled | low | One stated rule instead of two behaviours chosen by code path |
+| **W5** ✅ | ruled | ⛔ high | **The founder's headline complaint.** The room survives |
 | **W6** | platform | none | C72 stops conflating two acts |
 | **W7** | design | medium | The model stops degrading in one direction only |
 | **W8** | coordination | none | The combined competence envelope becomes statable |
