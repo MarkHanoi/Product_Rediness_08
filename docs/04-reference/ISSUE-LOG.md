@@ -5688,6 +5688,22 @@ since a plain wall or a mid-span start may not fail.
 
 ## L-935 — A POLYLINE WALL **TAPERS** WHEN THE SECOND POINT SNAPS TO A NON-ALIGNED MIDPOINT
 
+> ⛔⛔ **THE VERDICT OF THIS ROW WAS REVERSED BY FOUNDER RULING ON 2026-08-24 — see
+> [L-10761](#l-10761--️-founder-ruling-ortho-is-a-mode-not-an-aid--l-935-is-reversed--implemented-ortho42-2026-08-24).**
+> Shown this fix's own chip live (*"ortho off · snap wins · 1.9° off axis (ortho would miss
+> 494 mm)"*), the founder answered: *"why this ortho off snap wins is even available? i dont want
+> that: if ortho is in place - ortho is what need - no other cases"*. **ORTHO IS A MODE, NOT AN
+> AID**: with ortho armed the committed segment is axis-aligned and an explicit snap is PROJECTED
+> onto the ortho ray, with the projection disclosed in mm and degrees.
+>
+> ⭐ **WHAT THIS ROW ESTABLISHED IS STILL TRUE AND IS NOT REVERSED:** the 636 mm miss was real, it
+> was made SILENTLY, and the **silence** was the defect. That half is carried forward — the tool
+> still reports the conflict with both numbers, with the verdict inverted. The **taper** hypothesis
+> is still REFUTED (ARM B/ARM C), and that finding is verdict-free.
+>
+> ⛔ Everything below is kept **VERBATIM** as the record of what was measured and why the opposite
+> conclusion was drawn from it. It is persuasive. **Do not "restore" it by re-reasoning from it.**
+
 **Reported by the founder, 2026-08-17, PRODUCTION.** **Severity: HIGH — the model is geometrically
 invalid.** A wall has ONE thickness. A wall that is thicker at one end than the other is not a wall.
 
@@ -51438,3 +51454,196 @@ MEASURED FROM SOURCE (⛔ the COST is not measured, and this row does not claim 
 this lane's ownership.
 
 ---
+
+---
+
+## L-10760 — ⛔⛔ **ORTHO DREW 45.000° DIAGONALS: the rail armed the tool with `"polyline_ortho"` and every `=== POLYLINE_ORTHO` is UPPER-CASE** ✅ FIXED (ORTHO42, 2026-08-24)
+
+**Reported by the founder, 2026-08-24, PRODUCTION**, verbatim:
+
+> *"if the wall MODE: is ORTHO - it can not -not draw ortho - it can not fall back to linear - okay?
+> check and fix it!"*
+
+Screenshot: a long diagonal along the bottom-left of the plate and several angled segments, drawn
+with ORTHO showing in the UI.
+
+### ⭐ IT IS NOT L-935. What ruled that out, before anything was changed
+
+1. **His log contains NO `§FIX-ORTHO-YIELDS-TO-OBJECT-SNAP` line.** That branch logs at commit
+   whenever it drops ortho by more than `COINCIDENT_M`. It never fired.
+2. **His log shows `[WallTool]`, never `[WallPlanToolHandler]`** — the **3-D** tool
+   (`packages/geometry-wall/src/WallTool.ts`) drew these, a different implementation from the plan
+   handler where L-935 lives.
+3. **His log shows `WallTool deactivated` immediately after the create** — which happens only in a
+   **NON-POLYLINE** mode. That is the second symptom, and it has the same cause as the first.
+
+### MEASURED ROOT CAUSE — one string, both symptoms
+
+```
+CreateRailPanel  -> wallToolbarContribution.activate(runtime)
+                 -> runtime.tools.activate('wall', 'polyline_ortho')   <- LOWER-case
+ToolsAreaLayout:177 -> service.activateWallTool(m as WallDrawingMode)
+                 -> ToolManager.activateWall -> WallTool.activate(mode)
+                 -> this.drawingMode = mode
+```
+
+`WallDrawingMode.POLYLINE_ORTHO === 'POLYLINE_ORTHO'` — UPPER-case — and **`as` is a CAST: it
+asserts a type, converts nothing, checks nothing.** `drawingMode` therefore held a string matching
+**no branch anywhere in `WallTool`**: `_applyOrthoLock`'s ortho predicate was FALSE (free angle) and
+the `isPolyline` five-way list was FALSE (one segment, then deactivate).
+
+⭐ **THE FAILURE AND A LEGITIMATE VALUE WERE THE SAME VALUE** (C01 §6 rule 6): *"the caller named
+ORTHO in a spelling I do not know"* and *"the caller asked for free-angle"* were byte-identical, and
+silent. That is why the fix is a resolver and not a one-character edit — the edit fixes **today's**
+caller.
+
+### MEASURED IN DEGREES OFF THE NEAREST CARDINAL AXIS — never a boolean
+
+A wall 0.22° off axis and one 45° off axis both pass *"ortho was applied"*.
+
+```
+contribution mode "polyline_ortho"   cursor (4, 4)
+PRE-FIX   committed (4.000000, 4.000000)   offAxis 45.000°
+POST-FIX  committed (4.000000, 0.000000)   offAxis  0.000°
+
+six spellings, PRE-FIX:  POLYLINE_ORTHO 0.000° · LINE_ORTHO 0.000° ·
+                         polyline_ortho 45.000° · polyline-ortho 45.000° ·
+                         ortho 45.000° · Orthogonal 45.000°
+POST-FIX:                all six 0.000°
+```
+
+### THE FIX — `e6d47536` (3-D tool) · `d1c271b5` (the plan/3-D bridge)
+
+- **`packages/geometry-wall/src/WallDrawingModeResolver.ts`** — ONE table for the vocabulary. Every
+  spelling that NAMES ortho resolves to ortho. An unrecognised value resolves to `SINGLE`
+  (byte-for-byte what an unknown string already did, so nothing working changes) and is **REPORTED
+  by name with the accepted set** — console **and** the viewport status line. It deliberately does
+  NOT invent an ortho constraint for an unknown word: that is the same lie inverted.
+- **`WallTool.activate` / `switchDrawingMode`** normalise at the two choke points every arming path
+  reaches; **`_applyOrthoLock`** and the Tab predicate ask the shared resolver instead of two `===`,
+  so no direct assignment to the `drawingMode` field can turn ORTHO into free angle by spelling.
+- **The two call sites** that shipped the lower-case literal now pass the enum's own value.
+- **`apps/editor/src/ui/layout/wallPickerModeFromDrawingMode.ts`** — the plan/3-D bridge. It was
+  `if POLYLINE_ORTHO … if POLYLINE_ARC … return 'linear'`, so **`LINE_ORTHO` — a real ortho mode —
+  fell through to `'linear'`** and one switch armed ORTHO in the 3-D pane and FREE-ANGLE in the plan
+  pane. Now an **EXHAUSTIVE `Record<WallDrawingMode, WallPickerMode>`**: adding an enum member
+  without deciding its picker string is a **compile error**.
+
+### ⚠ STILL OPEN — TWO VOCABULARIES FOR ONE CONCEPT
+
+The 3-D tool reads the `WallDrawingMode` ENUM; the plan handler reads a `WallPickerMode` STRING off
+`window.wallModePicker`. **One user-facing "ORTHO" switch, two types, one hand-maintained bridge.**
+That bridge is now exhaustive and loud, but collapsing the two onto ONE mode source is the actual
+fix and was out of this lane's scope. ⚠ `window.wallModePicker` **already has this history**:
+`CurtainWallPlanToolHandler.ts:14,28` records **CW-1 (2026-04)**, an *"always ortho"* bug caused by
+that handler sharing the same global.
+
+**Tests (all measure the ANGLE):** `apps/editor/__tests__/WallOrthoModeStringAngle.test.ts` (drives
+the REAL `_applyOrthoLock` with the REAL string the REAL production contribution passes — PROVEN RED
+against HEAD at 45.000°) · `.../plantools/__tests__/wallModeReachesBothSurfaces.measure.spec.ts`.
+
+---
+
+## L-10761 — ⭐⭐ **FOUNDER RULING: ORTHO IS A MODE, NOT AN AID — L-935 IS REVERSED** ✅ IMPLEMENTED (ORTHO42, 2026-08-24)
+
+⛔ **This is a dated FOUNDER RULING, not a bug fix.** It reverses **L-935**
+(`§FIX-ORTHO-YIELDS-TO-OBJECT-SNAP`, 2026-08-17), which the **same founder** asked for, with a
+**measured 636 mm** behind it.
+
+Shown that fix's own chip live on his own screen —
+
+```
+ortho off · snap wins · 1.9° off axis (ortho would miss 494 mm)
+```
+
+— he answered, verbatim:
+
+> *"why this ortho off snap wins is even available? i dont want that: if ortho is in place - ortho is
+> what need - no other cases"*
+
+He was told explicitly that this contradicts his 2026-08-17 request and its measurement, and **ruled
+again**. Twice: once in general terms (L-10760's directive), once seeing the actual behaviour.
+
+### THE RULE
+
+**When ortho is armed, the committed segment IS axis-aligned.** *"No other cases"* is the operative
+phrase — no escape hatch, no modifier-key bypass, no tolerance band under which the snap wins.
+L-935's three arguments all reason from *"ortho is an auxiliary constraint"*; the founder has now
+said it is not one, and that premise is his to set.
+
+### THE SNAP IS PROJECTED, NOT DISCARDED
+
+Ortho constrains the **direction**; the snapped point still carries real positional information
+**along** it. `_snapOrtho` rotates the snap onto the nearest cardinal ray **keeping its distance**,
+so the wall is axis-aligned **and** as long as the user's reach to the feature they aimed at.
+Dropping to the raw cursor would honour neither.
+
+### ⭐ L-935's REAL FINDING IS CARRIED FORWARD, INVERTED
+
+What L-935 measured was a wall committed **636 mm from the click, SILENTLY**. **The silence was the
+defect; the verdict was the founder's to choose.** So the note, the chip and the commit log all
+survive with the verdict flipped: *"ORTHO HELD, your **midpoint** snap was **PROJECTED** onto the
+axis, **636.0 mm** from the snapped point, **9.12°** off axis."* `_orthoYield` → `_snapProjected`;
+the *"ortho off · snap wins"* label is **gone because the STATE is gone** — it was **not** silenced
+while the yield stayed in place.
+
+### ⚠ THE COST, MEASURED AND NAMED
+
+In L-935's own fixture the committed wall is axis-aligned at `(4, 0)` and therefore **does NOT form
+the junction** with the 9.12°-off host — **0 mitred corners** (`L935…measure.spec.ts` ARM B, now
+reversed). That is the trade the founder chose. The tool **discloses** it at commit rather than
+bending the wall to hide it.
+
+### ⚠ THREE FILES THAT ASSERTED THE OPPOSITE RULE WERE AMENDED IN THE SAME COMMIT
+
+Leaving them is `1360a010` — *"the contract carried TWO OPPOSITE answers to one question for five
+days"* — which this repo has already logged once.
+
+- `PlanToolHandler.ts` `WorldPointSnapType` — *"an explicit object snap always wins"* now carries the
+  ORTHO exception by name.
+- `packages/snapping/src/types.ts` `isExplicitObjectSnap` — a TRUE now means *"explicit enough that
+  projecting it must be REPORTED"*, not *"it wins"*.
+- `WallTool.lastSnapWasExplicitObject` — the bit no longer decides **whether ortho applies**, only
+  **what is reported**.
+
+The L-935 rationale is kept **VERBATIM** under the ruling in every file, marked SUPERSEDED: it is
+persuasive, and deleting it is how it gets "restored" by someone re-reasoning from scratch.
+
+### ⚠ SCOPE — THE RULING IS ORTHO-ONLY
+
+The configurable **ANGLE-STEP** lock keeps L-935's behaviour. He ruled on ortho; extending a ruling
+past what was ruled is how a second undocumented rival rule gets minted. `ARM A/control` pins the
+difference.
+
+### ⚠ IT ALSO KILLED THE `?? 'linear'` SILENT DEFAULT (independent of the ruling)
+
+`WallPlanToolHandler._getMode()` ended `?? 'linear'`, turning **three** facts into one value: *"the
+user picked linear"*, *"`window.wallModePicker` is ABSENT"*, *"the picker exposes no
+`getActiveMode`"*. The last two are **wiring failures**, and `'linear'` is the **least-constrained**
+mode. Now the last mode **actually read** survives and the absence is **reported by name**.
+⛔ The memory is an **INSTANCE FIELD, not module state** — `npm run check:isolation` caught the first
+draft (candidate sweep **45 → 46**) because a module `let` **survives a project switch**. The gate
+was **not silenced**: the state moved onto the handler that owns the drawing session.
+
+### MEASURED (`.../plantools/__tests__/orthoIsAModeNotAnAid.measure.spec.ts`, PROVEN RED against HEAD)
+
+```
+ARM 1  snap 1.9° off axis at 14.9 m — the geometry that makes ortho miss 494 mm, i.e. his chip
+       PRE   committed (14.891808, -0.494012)   offAxis 1.900°
+       POST  committed (14.900000,  0.000000)   offAxis 0.000°, reach 14.900 m kept,
+             snap miss 494 mm DISCLOSED
+ARM 2  ORTHO armed, then the mode source goes dark MID-SESSION (same handler)
+       PRE   offAxis 45.000°     POST  offAxis 0.000° + console.error naming UNREADABLE / ABSENT
+ARM 3  LINEAR still free-angle at 45.000° — the fix cannot "solve" the report by constraining
+       everything
+```
+
+### ⚠ AFFECTS ANOTHER LANE'S SAME-DAY WORK
+
+**L-10660 (ADAPTIVE34, 2026-08-24)** shipped hours earlier to make L-935's fix *reachable in the
+split-view plan pane*, which had been discarding the snap's identity. That plumbing fix is still
+correct and still needed — the snap identity must reach the handler for the **disclosure** to name
+the snap type — but the behaviour it was delivering is now the reversed one. **Read L-10660 with
+this row.**
+
+**Commit:** `aa5cc461`.
