@@ -114,8 +114,80 @@ export function extractPathConstants(source: string): Record<string, string> {
 // ── Argument splitting ───────────────────────────────────────────────────────
 
 /**
+ * §FIX-SCAN-REGEX-LITERAL-BLINDNESS (COLLAB47, 2026-08-24) — the tokeniser
+ * below could not tell a REGEX LITERAL from a division, so a regex whose BODY
+ * contains a quote character opened a string state that never closed.
+ *
+ * THE LIVE INSTANCE, and it is inside the very file this gate audits:
+ *
+ *     server.js:3599
+ *     const m = ifMatchHeader.replace(/"/g, '').match(/^v(\d+)$/);
+ *
+ * That `/"/g` sits INSIDE `app.post('/api/projects/:id/versions', …)`. The
+ * scanner entered `"`-string state on it and swallowed **7,572 characters
+ * across 154 lines** as string content. The route's argument list therefore
+ * never balanced at its own `});` — the parser ran on until brace depth
+ * happened to return to zero ~1,300 lines later, and reported THAT blob as the
+ * route's arguments. `middleware` and `authenticated` for the version-save
+ * route have been computed from 1,300 lines of unrelated source ever since.
+ *
+ * It did not FAIL, which is the point: it was green while measuring garbage,
+ * and it stayed green only by luck — the accidental zero-crossing depends on
+ * the brace parity of everything in between, so ANY edit in that window flips
+ * the gate from "silently wrong" to "unterminated app.post(". That is how this
+ * was found: a members-route change 1,000 lines away turned it red.
+ *
+ * Scope of the fix, deliberately narrow: `splitCallArgs` is used ONLY by
+ * {@link scanWriteRoutes}. `stripComments` / `blankStringLiterals` have the
+ * SAME blindness and are imported by six other gates (`check-project-isolation`,
+ * `check-layer-boundaries`, `check-no-commandmanager`, `check-graph-write-
+ * coverage`, `sourceScan`, `projectIsolationAnchors`), so changing them moves
+ * readings this lane did not measure. That hole is REPORTED, not silently
+ * widened into here.
+ *
+ * Regex-vs-division is decided the way every hand-written JS tokeniser decides
+ * it: by the last significant code character. A `/` after a value (identifier,
+ * literal, `)`, `]`) is division; after an operator, a delimiter, or one of the
+ * prefix keywords it starts a regex. Character classes are honoured, so `/[/]/`
+ * does not terminate early.
+ */
+const REGEX_PREFIX_KEYWORDS = new Set([
+  'return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void',
+  'throw', 'case', 'do', 'else', 'yield', 'await',
+]);
+
+/** True when the `/` at `slashIndex` begins a regex literal rather than a division. */
+function isRegexLiteralStart(source: string, slashIndex: number, lastSignificant: string): boolean {
+  if (lastSignificant === '') return true;
+  if ('([{,;:=!&|?+-*%~^<>'.includes(lastSignificant)) return true;
+  // A keyword directly before the slash (`return /x/`, `case /x/`) also opens a
+  // regex, even though its last character is an identifier character.
+  if (/[A-Za-z_$]/.test(lastSignificant)) {
+    const before = source.slice(Math.max(0, slashIndex - 24), slashIndex);
+    const word = /([A-Za-z_$][\w$]*)\s*$/.exec(before);
+    return word !== null && REGEX_PREFIX_KEYWORDS.has(word[1]);
+  }
+  return false;
+}
+
+/** Index just past the closing `/` of the regex literal starting at `start`. */
+function skipRegexLiteral(source: string, start: number): number {
+  let i = start + 1;
+  let inClass = false;
+  for (; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === '\\') { i++; continue; }
+    if (ch === '\n') return i;           // unterminated on this line — bail, do not run away
+    if (inClass) { if (ch === ']') inClass = false; continue; }
+    if (ch === '[') { inClass = true; continue; }
+    if (ch === '/') return i;            // caller's loop `i++` steps past the flags' first char
+  }
+  return source.length;
+}
+
+/**
  * Split the argument list of a call at top-level commas, honouring nesting and
- * string/template/comment context. Returns the raw argument texts.
+ * string/template/regex/comment context. Returns the raw argument texts.
  *
  * `openIndex` must point at the `(` of the call. Returns `null` when the call
  * is unterminated (truncated source), which callers MUST treat as a scan
@@ -128,13 +200,16 @@ export function splitCallArgs(source: string, openIndex: number): string[] | nul
   let start = openIndex + 1;
   let i = openIndex;
   let quote: string | null = null;
+  // Last non-whitespace character seen in CODE context (comments and string
+  // bodies excluded) — the discriminator for regex-vs-division.
+  let lastSignificant = '';
 
   for (; i < source.length; i++) {
     const ch = source[i];
     const prev = source[i - 1];
 
     if (quote) {
-      if (ch === quote && prev !== '\\') quote = null;
+      if (ch === quote && prev !== '\\') { quote = null; lastSignificant = ch; }
       continue;
     }
     if (ch === "'" || ch === '"' || ch === '`') { quote = ch; continue; }
@@ -150,13 +225,21 @@ export function splitCallArgs(source: string, openIndex: number): string[] | nul
       i = end === -1 ? source.length : end + 1;
       continue;
     }
-    if (ch === '(' || ch === '[' || ch === '{') { depth++; continue; }
+    // Regex literal — MUST be tested after the two comment forms above.
+    if (ch === '/' && isRegexLiteralStart(source, i, lastSignificant)) {
+      i = skipRegexLiteral(source, i);
+      lastSignificant = '/';
+      continue;
+    }
+    if (ch === '(' || ch === '[' || ch === '{') { depth++; lastSignificant = ch; continue; }
     if (ch === ')' || ch === ']' || ch === '}') {
       depth--;
       if (depth === 0) { args.push(source.slice(start, i)); return args; }
+      lastSignificant = ch;
       continue;
     }
     if (ch === ',' && depth === 1) { args.push(source.slice(start, i)); start = i + 1; }
+    if (!/\s/.test(ch)) lastSignificant = ch;
   }
   return null; // unterminated
 }
