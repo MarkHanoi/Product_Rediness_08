@@ -255,3 +255,148 @@ export async function canUserAccessProject(userId, projectId, { supabase, pgPool
         return { allowed: false, reason: 'internal error during access check' };
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §FIX-OWNER-READ-ON-PG (COLLAB49, 2026-08-24) — closes the invite half of
+// L-806(b): the project OWNER could not invite anyone to their OWN project.
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// THE DEFECT
+// ----------
+// `server.js`s three members WRITE routes each opened with:
+//
+//     const project = supabase
+//         ? (await supabase.from('projects').select('owner_id').eq('id', id).single()).data
+//         : null;
+//     const ownerId = project?.owner_id ?? null;
+//
+// Production runs PostgreSQL via DATABASE_URL and `getSupabaseClient()` returns
+// null there, so `ownerId` was ALWAYS null and the very next line --
+// `if (userId === projectOwnerId) return 'lead_appointed'` inside
+// `resolveProjectRole` -- could never fire. The rule "the project owner may
+// invite collaborators to their own project" was already WRITTEN; what was
+// missing was the code that READS the owner out of the store the owner is
+// actually kept in. A permission check reading an empty store denies a user it
+// was written to allow. That is the same missing-Postgres-branch shape as
+// L-806(b) one route further on, failing closed instead of open.
+//
+// WHAT THIS IS NOT
+// ----------------
+// This grants NOBODY a new ability. `owner_id` is already the column the
+// `projects` table has always carried, `canUserAccessProject` above already
+// reads it on all three backends, and the `userId === projectOwnerId` arm is
+// already in `resolveProjectRole`. This function only makes that arm read a
+// REAL value on the backend production actually runs.
+//
+// SOURCE PRIORITY is deliberately the SAME as `canUserAccessProject`:
+// supabase -> postgres -> in-memory. If the ACCESS GATE and the OWNER READ
+// disagreed about who owns a project, one of them would be wrong on every
+// deployment where both can answer.
+
+/**
+ * Reads the STORED owner of a project. Answers a pure READ question -- it
+ * makes no authorization decision of its own.
+ *
+ * `source` matters for the same reason it does in `projectMembers.js`:
+ * `{ownerId: null, source: 'postgres', found: true}` is a project row whose
+ * owner column is genuinely null, while `{ownerId: null, found: false}` means
+ * no store had the project at all. Callers that cannot tell those apart cannot
+ * tell ABSENT from UNREACHABLE (C01 §6 rule 6).
+ *
+ * A Postgres error PROPAGATES -- it is not degraded into "no owner", which
+ * would silently become a 403 for the legitimate owner. That mirrors the
+ * pre-existing owner read in the versions/transition route, which is the
+ * in-repo precedent for exactly this query.
+ *
+ * @param {{supabase?: object|null, pool?: object|null, projectsMap?: {get: Function}|null, projectId: string}} ctx
+ * @returns {Promise<{ownerId: string|null, source: 'supabase'|'postgres'|'memory'|'none', found: boolean}>}
+ */
+export async function readProjectOwnerId({ supabase = null, pool = null, projectsMap = null, projectId }) {
+    if (!projectId || typeof projectId !== 'string') {
+        return { ownerId: null, source: 'none', found: false };
+    }
+
+    // ── Path 1: Supabase ─────────────────────────────────────────────────────
+    // `maybeSingle()` rather than `single()`: "no rows" must be a clean fall
+    // through to the next store, not a PGRST116 error. The call sites this
+    // replaces used `single()` and read `.data` off the error result, so they
+    // already treated an error as "no owner"; this keeps that outcome and stops
+    // manufacturing the error in the first place.
+    if (supabase) {
+        try {
+            const { data, error } = await supabase
+                .from('projects')
+                .select('owner_id')
+                .eq('id', projectId)
+                .maybeSingle();
+            if (error) {
+                console.error('[projectAccess] Supabase owner read failed (falling through):', error.message);
+            } else if (data) {
+                return { ownerId: data.owner_id ?? null, source: 'supabase', found: true };
+            }
+        } catch (sbErr) {
+            console.error('[projectAccess] Supabase owner read threw (falling through):', sbErr.message);
+        }
+    }
+
+    // ── Path 2: PostgreSQL -- THE BRANCH THAT DID NOT EXIST ──────────────────
+    if (pool) {
+        const { rows } = await pool.query(
+            'SELECT owner_id FROM projects WHERE id = $1 LIMIT 1',
+            [projectId],
+        );
+        if (rows && rows.length > 0) {
+            return { ownerId: rows[0].owner_id ?? null, source: 'postgres', found: true };
+        }
+    }
+
+    // ── Path 3: In-memory ────────────────────────────────────────────────────
+    // Covers PRYZM_FORCE_INMEMORY / no-DATABASE_URL deployments and the
+    // create-then-invite race, exactly as path 3 of `canUserAccessProject`
+    // does. Without it the owner of a project in a dev process could not invite
+    // to it either -- the same defect, a different store.
+    const project = projectsMap?.get?.(projectId);
+    if (project) {
+        return { ownerId: project.ownerId ?? project.owner_id ?? null, source: 'memory', found: true };
+    }
+
+    return { ownerId: null, source: 'none', found: false };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// `resolveProjectRole` — MOVED HERE from server.js by COLLAB49, 2026-08-24,
+// body unchanged.
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// It lives beside `canUserAccessProject` because the two answer the SAME
+// question at different strengths: "may this user touch this project, and as
+// what?". Keeping them in one module is what stops the ACCESS GATE and the ROLE
+// GATE from reading two different stores — which is exactly the split that
+// produced L-806(b), where `canUserAccessProject` read `project_members` from
+// Postgres while every members route read a volatile in-process Map.
+//
+// It is also, plainly, why the founder's case failed: this function was private
+// to a 240 KB module that binds ports at import time, so no test could reach it.
+import { getMemberFromSupabase, getUserRole } from './projectMembers.js';
+
+/**
+ * Resolves the requesting user's CDE role for a given project.
+ * Project owner/platform-owner always has 'lead_appointed' (or as specified).
+ * Falls through to member record lookup.
+ *
+ * @param {object|null} supabase
+ * @param {string} projectId
+ * @param {string} userId
+ * @param {string|null} projectOwnerId  The STORED owner — see `readProjectOwnerId`.
+ * @param {boolean} isOwner             true for the PLATFORM owner plan, not the project owner.
+ * @returns {Promise<string|null>} an ISO 19650 role key, or null (⇒ deny).
+ */
+export async function resolveProjectRole(supabase, projectId, userId, projectOwnerId, isOwner) {
+    if (isOwner) return 'lead_appointed';
+    if (userId === projectOwnerId) return 'lead_appointed';
+    if (supabase) {
+        const row = await getMemberFromSupabase(supabase, projectId, userId);
+        return row?.role ?? null;
+    }
+    return getUserRole(projectId, userId);
+}

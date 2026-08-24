@@ -215,17 +215,34 @@ describe('toMemberDTO — one shape for three backends', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ⚠ TEXT ARMS. These read server.js as a string — see the header for why.
+// ⚠ TEXT ARMS. These read shipped source as a string — see the header for why.
+//
+// §FIX-OWNER-READ-ON-PG (COLLAB49, 2026-08-24) — ARMs 11 and 12 used to read
+// `server.js`, because that is where the four members HANDLER BODIES lived. They
+// now live in `server/projectMembersRoutes.js`; the four `app.<verb>(…)`
+// REGISTRATIONS deliberately stayed in `server.js` so that
+// `tools/ga-gate/check-write-route-auth.ts` — which scans `server.js` and only
+// `server.js` — keeps seeing all three mutating routes. So these arms now read
+// the file that holds the thing each one is actually asserting about: the
+// registrations from `server.js`, the handler bodies from the routes module.
+// The ASSERTIONS are unchanged in intent and strength.
+//
+// Route-level BEHAVIOUR (status codes, and the SQL a handler actually issues) is
+// pinned in `projectMembersOwnerCanInvite.test.ts`, which mounts these very
+// handlers on a throwaway express app and drives them over real HTTP — the thing
+// no text arm can do.
 // ─────────────────────────────────────────────────────────────────────────────
-describe('server.js wiring (source-text arms)', () => {
+describe('members route wiring (source-text arms)', () => {
     const REPO = resolve(__dirname, '../..');
     const serverJs = readFileSync(join(REPO, 'server.js'), 'utf8');
+    const routesJs = readFileSync(join(REPO, 'server', 'projectMembersRoutes.js'), 'utf8');
 
     it('ARM 10 — the false "requires the database connection" literal is gone', () => {
         expect(serverJs).not.toContain('Inviting by email requires the database connection');
+        expect(routesJs).not.toContain('Inviting by email requires the database connection');
     });
 
-    it('ARM 11 — the members routes call the backend-selecting orchestrators', () => {
+    it('ARM 11 — the members handlers call the backend-selecting orchestrators', () => {
         for (const fn of [
             'listMembersForProject',
             'resolveInviteTarget',
@@ -234,15 +251,30 @@ describe('server.js wiring (source-text arms)', () => {
             'removeMemberForProject',
         ]) {
             // twice each: the import, and at least one call site.
-            expect(serverJs.split(fn).length - 1).toBeGreaterThanOrEqual(2);
+            expect(routesJs.split(fn).length - 1, `${fn} import + call site`).toBeGreaterThanOrEqual(2);
+        }
+    });
+
+    it('ARM 11b — all four routes are still REGISTERED in server.js behind authMiddleware', () => {
+        // The write-route-auth gate scans server.js only. If these registrations
+        // ever migrate into a router module, three mutating routes silently leave
+        // that gate's surface — which is the exact "the audit lost sight of the
+        // artefact" failure the gate exists to end.
+        for (const reg of [
+            "app.get('/api/projects/:id/members', authMiddleware,",
+            "app.post('/api/projects/:id/members', authMiddleware,",
+            "app.patch('/api/projects/:id/members/:uid/role', authMiddleware,",
+            "app.delete('/api/projects/:id/members/:uid', authMiddleware,",
+        ]) {
+            expect(serverJs, reg).toContain(reg);
         }
     });
 
     it('ARM 12 — the members GET no longer answers a failed read with HTTP 500 "Internal server error"', () => {
         // The GET handler now returns a 503 carrying `members_store_unavailable`,
         // so the client can distinguish "could not read" from "read zero rows".
-        const get = serverJs.slice(serverJs.indexOf("app.get('/api/projects/:id/members'"));
-        const handler = get.slice(0, get.indexOf("app.post('/api/projects/:id/members'"));
+        const get = routesJs.slice(routesJs.indexOf('async function list(req, res)'));
+        const handler = get.slice(0, get.indexOf('async function invite(req, res)'));
         expect(handler).toContain('members_store_unavailable');
         expect(handler).toContain('res.status(503)');
     });
