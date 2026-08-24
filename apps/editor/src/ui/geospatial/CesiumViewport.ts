@@ -9685,11 +9685,11 @@ export class CesiumViewport {
         default: return 6;
       }
     };
-    let waywaysDroppedAsDuplicate = 0;
+    let waysDroppedAsDuplicate = 0;
     for (const way of collection.ways) {
       try {
         // Prefer the mapped water SURFACE over a nominal ribbon laid on top of it.
-        if (waterwayDuplicatesArea(way, collection.areas)) { waywaysDroppedAsDuplicate++; continue; }
+        if (waterwayDuplicatesArea(way, collection.areas)) { waysDroppedAsDuplicate++; continue; }
         const positions = way.coords.map(([flon, flat]) => {
           const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
           const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
@@ -9722,7 +9722,7 @@ export class CesiumViewport {
         `${placed} inland water feature(s) — ${areasPlaced} mapped surface(s) + ` +
         `${waysPlaced} centre-line(s) as FLAT GROUND RIBBONS of NOMINAL ` +
         `class width (was floating 3-px polylines carrying a depth-FAIL material, i.e. painted ` +
-        `THROUGH the buildings by configuration); ${waywaysDroppedAsDuplicate} centre-line(s) dropped as a ` +
+        `THROUGH the buildings by configuration); ${waysDroppedAsDuplicate} centre-line(s) dropped as a ` +
         `duplicate of a mapped surface. The sea is the standing §FEAT-FORMA-SEA-CONTEXT layer.`,
     );
   }
