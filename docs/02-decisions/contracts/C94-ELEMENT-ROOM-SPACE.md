@@ -849,3 +849,462 @@ The pass still does real work on a **lone** dangling endpoint, which is what its
   stack-capture cost per warn line is **NOT measured** and must not be claimed as a win.
 - Whether any of the founder's 30 measurements were real breaks at all. The pre-repair reading
   cannot be re-interpreted after the fact; only a re-run on the fixed audit can say.
+
+---
+
+# §TOBE-ROOM — THE ROOM AS A LIVING ENTITY, AT A STATED PERFORMANCE COST
+
+> **Added 2026-08-24 by lane ROOM44**, from the founder's direction: *"document the TO BE — what the
+> room system needs to become for it to be a **living entity without being a performance issue**"*,
+> and his naming of **wall and room as the two critical operators**. The wall half is
+> [C85](C85-ELEMENT-WALL.md), owned by lane GRAPH43.
+>
+> **⛔ NOTHING ABOVE THIS LINE IS REWRITTEN.** §0–§15, §L-1032, the RAC section and §DIAG-ROOM-LOOP
+> are the measured AS-IS record and stay as they are. Where a clause here supersedes one above, it
+> **names it and points at it**; §TOBE.9 collects the AS-IS pointers that have since rotted, as
+> dated corrections rather than as edits.
+>
+> **Cites, does not restate.** [C72 §9](C72-PROPAGATION-AND-PREVSTATE.md) *(ADAPT or REFUSE, never
+> SILENT)* is the **spine of this section** · [C71 §1](C71-GRAPH-AND-TOPOLOGY.md) the six edge
+> semantics and §4 *"the three graphs stay separate"* ·
+> [C78 §2](C78-UNIVERSAL-RELATIONSHIP-CONTRACT.md) *A · Element identity*, §6 *E · Dependency
+> freshness*, §8 *G · UNDETERMINED semantics*, §11 *J · Reconciliation*, §14 *M · Persistence* ·
+> [C83](C83-SPATIAL-VALIDITY-AND-DESIGN-LOGIC.md) IMPOSSIBLE / INADVISABLE / FINE ·
+> [C84](C84-ELEMENT-INTEGRITY.md) EI-1…EI-13 · [C10 §1](C10-PERFORMANCE-AND-OBSERVABILITY.md) the
+> NFTs and §1.1 the measurement methodology · [C73](C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md) the
+> tolerance register.
+>
+> **Measured at HEAD `0589a36c`, 2026-08-24.** Every `file:line` below was re-read for this section;
+> where a number could not be measured from source it says **NOT MEASURED** and does not guess.
+
+---
+
+## §TOBE.0 — ⛔ THE PREMISE THIS LANE WAS GIVEN WAS WRONG, AND THE CORRECTION IS THE FIRST FINDING
+
+This lane was briefed with the following, from the founder's production console:
+
+```
+RoomDetectionEngine: Detected 5 → 4 room(s)
+[BimManager] Unregistered element 746ae083-…
+§OPENED-REGION: Room 00-004 (85.7 m²) is no longer its own room — it has merged
+  into the space next to it. 3.42 m of the boundary it used to have now has no
+  wall on it. (gap 3.42 m, anchored 2/2, rooms 5 → 4, listeners=1)
+```
+
+…and with the reading: *"An 85.7 m² room was DELETED as a side effect of dragging a wall,
+**silently**. A re-derived room cannot be 'damaged', it can only cease to exist, so **there is
+nothing to report and nothing to recover**."*
+
+**Measured: the word *silently* is false, and so are both halves of the sentence after it.** The
+console line quoted as evidence of silence **is itself the report**. It is produced by
+`packages/room-topology/src/RoomTopologyObserver.ts:1116-1120`, from a finding computed by
+`scanForOpenedRegions` at `:1101`, and the same finding is carried to the user's chat by
+`apps/editor/src/ui/ai/OpenedRegionProposal.ts:272` as an **Accept/Cancel card** which, on Accept,
+dispatches one ordinary `wall.create` (`:248`, `:327`) and closes the region in **one undo step**.
+The founder's own session ends `Done — an interior wall now closes Room 00-004. Ctrl+Z undoes it in
+one step.` (`:328-331`).
+
+### §TOBE.0.1 — ⭐⭐ THE DETECTION-AND-NARRATION LAYER IS THE STRONGEST PART OF THIS FAMILY
+
+Recorded here **before** any defect, because a TO-BE section that reads as though nothing works is
+as false as the silence claim it corrects — and because the parts named here are the ones a
+refactor is most likely to break.
+
+| What works | Where | Why it must be preserved |
+|---|---|---|
+| **A before/after room-set comparison at the re-derivation chokepoint** | `RoomTopologyObserver.ts:1101` → `OpenedRegionDetector.ts` (932 lines, pure, THREE-free, DOM-free, store-free) | It is the ONLY place in the repo that can say *"a region that used to be a room is not one any more"*. No store, no graph and no diagnostic can answer that — the module's own header measures all three candidates and rejects them |
+| **Six named refusals instead of a confident wrong answer** | `OpenedRegionDetector.ts:567,578,589,603,649,684` | [C71 §4.4](C71-GRAPH-AND-TOPOLOGY.md) / [C74](C74-CONSTRAINT-HONESTY.md). §TOBE.2 enumerates them |
+| **`§WD32-EXTEND-BEFORE-CREATE` — the CREATE rung stands down when EXTEND is available** | `OpenedRegionDetector.ts:662-690` | ⭐ This is the founder's *"extension, not a new partition"* principle, **already implemented**. §TOBE.1.1 |
+| **A guarantee the question reaches a human, with a measurable fallback** | `chatPromptHost.ts` (§PROMPT-REACHES-A-HUMAN, L-881) · `getSurfaceDiagnostics().fallbackPrompts` | *"A console line is not a user-facing message"* — the rule this family paid for and the rest of the repo should adopt |
+| **`listeners=N` printed with every finding** | `RoomTopologyObserver.ts:1113` | Distinguishes *"the offer ran and could not reach a surface"* from *"no offer was ever subscribed"*. A previous build could not tell them apart and it cost a founder test cycle |
+| **Silence when nothing was lost** | `OpenedRegionDetector.ts` header, *"SILENCE IS A FEATURE"* | A wall move that grows a room produces no finding. A system that cries wolf gets muted |
+| **Identity carried across re-derivation for rooms that survive** | `RoomDetectionEngine.ts:1139` `id: match.id, // preserve ID so undo works` | §9.2 above; still true, still load-bearing |
+
+⛔ **No TO-BE clause below may be implemented by weakening any row of this table.**
+
+### §TOBE.0.2 — WHAT IS ACTUALLY WRONG, stated in one sentence
+
+> **The room's EXTENT is a first-class, self-healing, narrated, user-recoverable quantity.
+> The room's MEANING — its name, number, occupancy, department, finishes, IFC identity, tag anchor
+> and schedule row — is not. The recovery restores the shape, cannot restore the record, and reports
+> success using the name of the record it did not restore.**
+
+That is the whole of §TOBE.1, and everything after it is either the cost of fixing it or the
+boundary of what is already fixed.
+
+---
+
+## §TOBE.1 — ⭐⭐⭐ THE CENTRAL QUESTION: does a room have identity that survives its walls changing?
+
+### §TOBE.1.1 — The founder's objection, and the fact that the code already agrees with him
+
+> **Founder, same day:** *"the new partition being created is also present — **NOT the extension of
+> existing wall as requested**."* And, recorded verbatim inside the detector itself
+> (`OpenedRegionDetector.ts:254-256`): *"the algorithm should just extend the wall to connect with
+> whatever it can."*
+
+**This is not an open defect on the room side. It was closed by §WD32-EXTEND-BEFORE-CREATE
+(L-10810).** `OpenedRegionDetector.ts:662-690` runs **RUNG 1 (EXTEND) BEFORE RUNG 3 (CREATE)**: when
+an existing wall is collinear with the gap and merely too short, the detector emits
+`reason: 'gap-closable-by-extending-an-existing-wall'` (`:684`) — a `position-unknown` finding that
+**names the wall that should have grown and offers no wall at all**.
+
+Its docstring (`:275-305`) reconstructs the contradiction from the founder's own log, and the
+reconstruction is the most valuable paragraph in this family:
+
+```
+1. §L-1571-UNREPAIRED-JUNCTION … the re-weld will leave 1 junction(s)
+     UNREPAIRED [wall_…VSVR:INCUMBENT_EXTENSION_REQUIRED]
+2. §MOVE-REWELD-REFUSED: INCUMBENT_EXTENSION_REQUIRED × 1
+3. §OPENED-REGION — Room 00-002 … 7.14 m of boundary now has no wall on it
+4. §OPENED-REGION accepted: wall.create on level L0
+```
+
+> ⭐⭐ *"The re-weld KNOWS the incumbent must be EXTENDED and refuses; a SECOND system then fills the
+> hole it left with a NEW WALL. Refuse-to-extend → room opens → create. That is the founder's stated
+> principle exactly inverted, and the two systems were contradicting each other with no channel
+> between them."*
+
+⚠ **The step-2 refusal is correct and must not be "fixed".**
+[C83 §10.2.2](C83-SPATIAL-VALIDITY-AND-DESIGN-LOGIC.md) forbids a re-weld from re-baselining a wall
+the user did not touch; the same log shows it would have moved a non-subject wall **1716 mm**, and
+L-922 is the scar from doing exactly that.
+
+**⇒ The missing capability is a wall EXTENSION verb, and it is not this contract's to build.** The
+detector defers it by name to **[C85 §10.7 W-M-12](C85-ELEMENT-WALL.md) / ADR-0336 stage 2**. C94
+cites that and does not restate it. **What C94 owes is the room-side clause: RM-1 in §TOBE.6.**
+
+> **⚠ HONEST RESIDUAL — the founder's `Done — an interior wall now closes Room 00-004` line is not
+> explained by this.** Either that session predates L-10810, or the 3.42 m gap had no collinear
+> donor wall and CREATE was correctly the only available rung. **This lane cannot tell which from
+> source alone** — it needs the build SHA of that session. Recorded in §TOBE.10, not guessed. The
+> second branch is a real and undecided question in its own right: **R-2**, §TOBE.8.
+
+### §TOBE.1.2 — ⭐⭐ WHAT THE RECOVERY ACTUALLY RECOVERED — the identity ledger, measured
+
+**The question:** after `§OPENED-REGION` closes the gap, **is the recovered room the SAME room, or a
+new one wearing the same shape?**
+
+**Measured from source. It is a new one.** The chain, with every step at a `file:line`:
+
+| # | Step | Site | Consequence for identity |
+|---|---|---|---|
+| 1 | Wall moves; observer debounces 150 ms and re-detects | `RoomTopologyObserver.ts:39` `DEBOUNCE_MS = 150`, `:427` | — |
+| 2 | Faces are re-walked; **each detected face is minted fresh** | `RoomDetectionEngine.ts:511` `id: crypto.randomUUID()`, `:515` `name: ''`, `:516` `roomNumber: ''` | Every re-derivation starts from **no identity at all** |
+| 3 | `mergeWithExisting` re-attaches identity by **Jaccard overlap of `boundingWallIds`** | `:1073`; threshold `STRUCTURAL_MATCH_MIN_OVERLAP = 0.34` (`:146`); centroid fallback `CENTROID_MATCH_RADIUS = 2.0` m (`:127`) | Identity is **re-earned by geometric similarity on every mutation** |
+| 4 | `used` enforces **one claim per existing room** (PARTITION-FIX) | `:1129-1131` | When two before-rooms merge into ONE after-room, **exactly one of them can keep its record** |
+| 5 | The unmatched before-room is **removed, with no snapshot taken** | `ReDetectRoomsCommand.ts:105-112` — `roomStore.remove` `:107`, `bimManager.unregisterElement` `:108`, `elementRegistry.unregister` `:109`, `semanticGraphManager.removeAllRelationshipsForElement` `:110`, `roomSpatialIndex.remove` `:111` | ⛔ **`RoomData` — `name`, `roomNumber`, `department`, `occupancyType`, `occupancyLoad`, `programmeArea`, `finishes`, `colour`, `opacity`, `properties`, `ifcData`, `revitId`, `phase` — is destroyed. Nothing captures it.** This is the `[BimManager] Unregistered element 746ae083-…` in the founder's log |
+| 6 | The command is `nonUndoable` and `undo()` restores nothing | `ReDetectRoomsCommand.ts:65`; `:256-258` `return { success: true, affectedElementIds: [] }` | ⛔ **`undo()` reports SUCCESS while restoring nothing** — [C84 EI-7](C84-ELEMENT-INTEGRITY.md), and a `success: true` for work not done, the shape [C16 CA-18](C16-COMMAND-AUTHORING-PROTOCOL.md) forbids |
+| 7 | User Accepts the offer → `wall.create` → observer re-detects again | `OpenedRegionProposal.ts:327` | The region closes and a face is detected at the old coordinates |
+| 8 | That face runs `mergeWithExisting` against `existing` — **which no longer contains the lost room** | `ReDetectRoomsCommand.ts:88` `roomStore.getByLevel(levelId)` | ⛔ **There is nothing left to match.** The only candidate is the merged neighbour, and `used` awards it to **one** half |
+| 9 | The other half falls through to `return d` | `RoomDetectionEngine.ts:1135` | ⛔ **A fresh `crypto.randomUUID()`, empty name, empty number**, renumbered by `assignUniqueRoomNumbers` |
+
+> ⛔ **THE MEASURED VERDICT.** The recovered room is a **new record wearing the old shape**. Its
+> `id` is new — so every `boundedBy` / `adjacentTo` / `connectedTo` edge, every schedule row keyed by
+> room id, every IFC `IfcSpace` identity and every annotation reference that pointed at
+> `746ae083-…` now points at nothing. Its `name` and `roomNumber` are regenerated. Its
+> `occupancyType`, `department`, `programmeArea`, `finishes`, `properties`, `ifcData`, `revitId` and
+> `phase` are **gone, and not recoverable by any undo.**
+>
+> ⛔ **AND THE CONFIRMATION MESSAGE NAMES THE RECORD IT DID NOT RESTORE.**
+> `OpenedRegionProposal.ts:328-331` renders `Done — an interior wall now closes ${finding.roomName}`,
+> and `finding.roomName` is read from the **BEFORE** snapshot (`OpenedRegionDetector.ts:713`) — i.e.
+> from the record deleted at step 5. **The product tells the user it restored "Room 00-004" at the
+> exact moment there is no Room 00-004 anywhere in the model.** That is
+> [C78 §2](C78-UNIVERSAL-RELATIONSHIP-CONTRACT.md) *A · Element identity* failing at the one moment
+> the user is watching, and it is the single most misleading sentence this family emits.
+
+⚠ **A WORSE VARIANT, and it is a mechanism, not a hypothesis.** At step 8, when the partition is
+restored, **both** halves score a similar Jaccard against the merged record, and the tie is broken
+by **centroid distance to the merged room's centroid** (`:1122-1126`), then by id. That quantity has
+no semantic meaning. **So the surviving name / occupancy / IFC identity can land on the OTHER
+half** — the neighbour's record attached to the recovered polygon, or the reverse. **Silent
+misattribution is worse than loss**, because loss is visible and misattribution reads as correct.
+⚠ **Which half wins in the founder's specific geometry is NOT MEASURED** — it depends on his
+coordinates. The *mechanism* is at `:1122-1131` and is not in doubt.
+
+### §TOBE.1.3 — ⛔ THE UNDECIDED QUESTION, WITH BOTH FAILURE MODES COSTED
+
+**⛔ THIS LANE DOES NOT DECIDE THIS.** It is the largest architectural choice in the family and it is
+the founder's. Recorded as **R-1** in §TOBE.8. Both options are stated with the failure class each
+creates, because *"persist it"* is **not** obviously right.
+
+| | **OPTION A — PURE DERIVATION (today, made honest)** | **OPTION B — PERSISTENT ROOM IDENTITY** |
+|---|---|---|
+| **What a room IS** | A view over wall topology. `RoomData` is a cache with authored fields glued on | A first-class element with a durable id, reconciled against geometry |
+| **Cheap because** | ⭐ **Never stale, never disagrees with what is drawn, no reconciliation pass, no freshness class, no conflict UI.** These are real virtues, not accidents | — |
+| **Costs** | ⛔ Authored meaning is destroyed by geometry edits (§TOBE.1.2); undo cannot restore it. Ids are unstable, so **no downstream system may key on a room id** — schedules, IFC identities, sheet references and annotations are all built on sand | Reconciliation on every mutation ([C78 §11](C78-UNIVERSAL-RELATIONSHIP-CONTRACT.md) *J*); a persisted room can go **stale** ([C78 §6](C78-UNIVERSAL-RELATIONSHIP-CONTRACT.md) *E*) and **disagree with what is drawn** |
+| **New failure class** | None new — the existing one is total and silent | ⛔ A whole class: a room record whose stored boundary no longer matches its walls. Requires **UNDETERMINED** as a first-class state ([C78 §8](C78-UNIVERSAL-RELATIONSHIP-CONTRACT.md) *G*), a reconciliation pass, and a user-visible *"this room no longer matches its walls"* affordance |
+| **What breaks if we choose it and are wrong** | Every schedule, IFC export and sheet reference silently re-points or blanks after an ordinary wall drag. **Discovered late, at the worst moment: at export** | Rooms drift from the model and the user sees two answers to *"what shape is this room?"*. **Discovered early, and loudly** |
+| **Against [C72 §9](C72-PROPAGATION-AND-PREVSTATE.md)** | The room ADAPTS its extent — the ledger's `room ← wall` cell is `PROPAGATES` and correct. But its **meaning** neither adapts nor refuses: **SILENT**, which §9.2 forbids | Extent ADAPTS; meaning REFUSES by name when it cannot follow — exactly §9.1's second terminal state |
+| **[C66](C66-CONCURRENCY-AND-SCALE.md) / collaboration** | Two users editing walls on one level derive two room sets with two id sets. **No CRDT identity to merge on** | A durable id is a merge key. [C78 §14](C78-UNIVERSAL-RELATIONSHIP-CONTRACT.md) *M · Persistence* becomes answerable |
+| **Precedent already in this contract** | — | ⭐ §14 R1: `levelId` is an authored fact the store REFUSES to change (`RoomStore.ts:302-304` **throws**). ⚠ **Option B does not overturn [§L-1032](#l-1032--the-storey-axis-change-level-and-duplicate-to-level)** — a room's STOREY can stay derived while its MEANING is durable. Those are different axes and §L-1032 only rules on the first |
+
+> ⭐ **A THIRD SHAPE EXISTS AND MAY BE THE ANSWER: OPTION A + A TOMBSTONE.** Keep derivation exactly
+> as it is — never stale, never disagreeing — and make the **loss** durable rather than the room. At
+> `ReDetectRoomsCommand.ts:105-112`, before `remove()`, capture the full `RoomData` into a
+> level-scoped **orphaned-meaning register**; when a later re-detection produces an unmatched face
+> whose centroid falls inside a tombstoned polygon, **OFFER** the user its former name / occupancy /
+> finishes rather than silently re-applying them (the founder's standing *"always ASK, never
+> auto-edit"*). It buys back everything §TOBE.1.2 loses, adds **no** staleness class, and is bounded
+> by *rooms lost in this session*, not by N. **This is RM-3, it is cheap, and it does not pre-empt
+> R-1** — it is compatible with either ruling.
+> ⚠ It does **not** buy back id stability, so it does **not** unblock schedules or IFC identities.
+> That half genuinely needs R-1.
+
+---
+
+## §TOBE.2 — THE COMPETENCE BOUNDARY OF `§OPENED-REGION`, stated exactly
+
+The recovery in the founder's log succeeded because the finding read **`anchored 2/2`**. That is a
+precondition, not a detail. Measured, the mechanism has **six** declared exits, and only one of them
+produces an offer.
+
+| Exit | Site | What the user gets |
+|---|---|---|
+| **OFFER** — a wall proposal at the region's own former coordinates | `OpenedRegionDetector.ts:695-718` → `OpenedRegionProposal.ts:184` | Accept/Cancel card; Accept = one `wall.create`, one undo |
+| `no-unwalled-edge` | `:567` | Narration only — *the region stopped being a room and yet every metre of its former perimeter still has a wall on it* |
+| `gap-dominates-perimeter` | `:578` | Narration only — *"the region was not opened, it was demolished; one wall does not restore it"* |
+| `multiple-disjoint-gaps` | `:589` | Narration only — *"picking the longest would be a coin-flip presented as a decision"* |
+| `gap-turns-corner` | `:603` | Narration only — one straight wall cannot close a bent run |
+| `gap-not-anchored-at-both-ends` | `:649`, re-asserted at the consumer `OpenedRegionProposal.ts:211` | Narration only. ⭐ The founder **accepted one at 1/2** and got *"a random wall not connected to any other — corrupted and angled in plan view"* (`OpenedRegionProposal.ts:196-199`) |
+| `gap-closable-by-extending-an-existing-wall` | `:684` | Narration only, **naming the donor wall**. §TOBE.1.1 |
+
+> ⭐ **THE BOUNDARY, IN ONE LINE: recovery is available only for a SINGLE, STRAIGHT, BOTH-ENDS-ANCHORED
+> gap that no existing wall could close by growing. Every other shape of damage is NARRATED and NOT
+> REPAIRABLE by this mechanism.** That is [C72 §9.1](C72-PROPAGATION-AND-PREVSTATE.md)'s *REFUSES*
+> branch, correctly implemented — **and §9.3 says so explicitly: reducing a cell to REFUSES is a
+> legitimate fix.** ⛔ **This section does not ask for those refusals to be replaced with guesses.**
+>
+> ⚠ **What it does ask:** every one of those six exits leaves the user with a **damaged model and no
+> next step**. A refusal that names the missing capability is honest; a refusal that leaves the user
+> with no route forward at all is honest **and unfinished**. RM-4.
+
+---
+
+## §TOBE.3 — WHAT DOES *NOT* FOLLOW: the room is a living entity for its EXTENT only
+
+The [C72 §9.4](C72-PROPAGATION-AND-PREVSTATE.md) ledger
+(`tools/rac-conformance/certification/gates/host-move-propagation-matrix.json`, 64 cells) is the
+authority here, **not this table** — read the gate. Measured 2026-08-24, the room-touching cells:
+
+| Cell | Ledger verdict | What it means for "living entity" |
+|---|---|---|
+| `room ← wall` | **PROPAGATES** | ✅ The extent follows. This is the cell the recovery lives in |
+| `room ← slab` | **PROPAGATES** | ⚠ ledger note: *"wiring proven, behaviour UNPROVEN"* — no test drives it |
+| `room ← room boundary` | **PROPAGATES** | ⚠ ledger note: *"also undriven by any test"* |
+| `room ← level` | ⛔ **SILENT** | `RoomTopologyObserver.attach` has no level subscription and no reconcile listener |
+| `room tag ← wall` | ⛔ **SILENT** | ⭐ *"the refresh writes only `parameters`, so the label and area update while the **ANCHOR strands**"* |
+| `room tag ← room boundary` | ⛔ **SILENT** | *"area drift refreshes the text, the position stays at the old centroid"* |
+| `annotation / dimension ← room boundary` | ⛔ **SILENT** | *"no production code mints a room StableReference and the resolver has no room branch"* |
+| `lighting ← room boundary` | ⛔ **SILENT** | `roomId` resolved at create/move time only. *"Deliberate, but unannounced at the moment it matters"* |
+| `furniture ← room boundary` | ⛔ **SILENT** | `FurnitureData` carries **no `roomId`** — [C72 §9.5](C72-PROPAGATION-AND-PREVSTATE.md): nothing propagates along an edge that cannot be recorded |
+| `ceiling finish ← room boundary` | ⛔ **SILENT** | `RoomFinishSyncService` writes only `finishSpec`; *"its guard early-returns with no log"* |
+
+> ⭐⭐ **THIS TABLE IS THE DIFFERENCE BETWEEN A DERIVED VIEW AND A LIVING ENTITY, IN LEDGER FORM.**
+> The room's **shape** propagates. Everything that makes it a *named, scheduled, drawn, furnished,
+> lit* entity does not. **A room tag whose text updates while its anchor strands is the exact visual
+> of a room that has geometry and no identity** — and it is a cell the gate already counts.
+>
+> ⛔ **C94 does not re-derive these verdicts and must never restate the ledger** — that is
+> [C72 §9.4](C72-PROPAGATION-AND-PREVSTATE.md)'s own rule and the shape §0.1 of that contract names.
+> C94's obligation is narrower and is RM-5: **the room-side half of the SILENT cells — publishing a
+> stable room reference other families can hold — cannot be built under Option A**, because there is
+> no stable room id to publish. **That is R-1 blocking four ledger cells**, and it is the strongest
+> single argument in the pack.
+
+---
+
+## §TOBE.4 — THE WALL/ROOM SEAM — **RESERVED**
+
+> ⏸ **Deliberately empty, 2026-08-24.** The claim that belongs here — who owns loop closure, whose
+> tolerance governs, and where `§DIAG-PARTITION-REACH` belongs — is a **cross-contract** claim shared
+> with [C85](C85-ELEMENT-WALL.md) (lane GRAPH43). It has been flagged to the orchestrator with its
+> evidence and is **held out of this commit pending GRAPH43's confirmation**, precisely so the two
+> contracts cannot end up carrying two opposite answers — the failure this repo has already logged
+> once. **It will be written here, once, after both lanes agree.**
+>
+> The two facts that are C94's alone and are safe to record now:
+> - `RoomDetectionEngine._reconnectDanglingEnds` (`:838`) mutates an **in-memory segment array**
+>   feeding `buildWallGraph` (`:437`) and **writes no `WallStore` record**. Its constants are
+>   `CORNER_CONNECTED_TOL_M = 0.30` (`:849`), `REACH_MAX_M = 1.25` (`:854`),
+>   `REACH_COLLINEAR_MIN = 0.9` (`:857`), `SPAN_MARGIN_M = 0.05` (`:859`), `SNAP_FLOOR = 0.20`
+>   (`:860`); `_snapNearbyCorners` runs first at **0.30 m** (`:398`).
+> - ⛔ **Neither layer publishes its tolerance to the other, so nobody can state the combined
+>   competence envelope.** That is a real defect independent of who owns what, it is
+>   [C73](C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md)-shaped, and it is RM-6.
+>
+> ⛔ **C94 asserts nothing about which wall-side tolerance is correct.** Those are C85's to judge.
+
+---
+
+## §TOBE.5 — ONE GESTURE, TWO CENSUSES, ONE VERDICT
+
+The founder's gesture reported **`0 junction(s) refused`** (`WallMoveReweldService.ts:860`) while
+`§OPENED-REGION` simultaneously reported an 85.7 m² room merging away. **Both are true, and they
+answer different questions:**
+
+| Census | Set it counts | Where |
+|---|---|---|
+| `N junction(s) refused` | **junction re-seats the re-weld declined**, per partner wall | `WallMoveReweldService.ts:860`, from `plan.refusals` |
+| `§OPENED-REGION` findings | **regions that stopped being rooms**, per level | `RoomTopologyObserver.ts:1116` |
+
+> ⛔ **The defect is not that either number is wrong. It is that a gesture publishes a per-junction
+> verdict and no per-gesture one**, so `0 junction(s) refused` reads as *"this move was clean"* when
+> it means only *"no junction re-seat was declined"*. That is [C74](C74-CONSTRAINT-HONESTY.md)'s
+> failure-vs-emptiness shape at the reporting layer, and §DIAG.1 above records the identical shape
+> inside this family already (*"the two halves of that line came from different arrays and neither
+> described the other"*). RM-7.
+
+---
+
+## §TOBE.6 — THE NORMATIVE CLAUSES
+
+⛔ **Every clause carries (a) the MEASURED failure it answers, (b) what recomputes, (c) on what N,
+(d) what bounds it.** A clause without all four is not usable and must not be added here.
+⭐ **Ship the instrument before the cure** — RM-0 comes first for that reason.
+
+| # | Clause | Measured failure it answers | What recomputes · on what N · what bounds it |
+|---|---|---|---|
+| **RM-0** | ⭐ **INSTRUMENT FIRST. Every room record destroyed by a re-derivation is COUNTED and NAMED before any behaviour changes** — id, name, number, area, occupancy, whether it carried authored data, and the cause (`merged` / `no-longer-detected`). Emitted at the drop site, not reconstructed later | §TOBE.1.2 step 5: rooms are removed at `ReDetectRoomsCommand.ts:107` with **no record of any kind**. Today nobody can say how often this happens or to what | **Cost: O(dropped rooms per re-detect), typically 0.** One object per drop, one console line. **Bounded by** the drop loop it already sits in — it adds no pass. ⛔ Log-gated per [C10 §7](C10-PERFORMANCE-AND-OBSERVABILITY.md) so a 7-level load does not print thousands of lines |
+| **RM-1** | **A room-boundary loss that is closable by EXTENDING an existing wall must never be closed by CREATING one** | Founder: *"NOT the extension of existing wall as requested"* | ✅ **ALREADY IMPLEMENTED** at `OpenedRegionDetector.ts:662-690`. C94's obligation is to **keep the CREATE rung subordinate** and to consume the extension verb when [C85 §10.7 W-M-12](C85-ELEMENT-WALL.md) / ADR-0336 stage 2 ships. **Cost: none new** |
+| **RM-2** | ⛔ **A recovery message MUST NOT name a record the recovery did not restore** | `OpenedRegionProposal.ts:328-331` says `Done — an interior wall now closes Room 00-004` when no Room 00-004 exists (§TOBE.1.2) | **Cost: zero.** A string change plus one store read to say what the region is called *now*. ⛔ **This is the cheapest clause in the section and the most user-visible** |
+| **RM-3** | **The authored meaning of a room destroyed by a re-derivation is retained as a level-scoped tombstone, and OFFERED — never auto-applied — to a later unmatched face whose centroid falls inside it** | §TOBE.1.2 steps 5–9: `name`/`occupancy`/`finishes`/`ifcData` destroyed, `undo()` restores nothing | **Cost: O(rooms lost this session) memory, O(tombstones × unmatched faces) point-in-polygon at match time — both ~0 in the normal case.** **Bounded by** a per-level cap and a session lifetime; ⛔ it must be **project-scoped** and torn down on project switch per [C13](C13-PROJECT-LIFECYCLE-AND-ISOLATION.md)/ADR-0298 — the exact leak `OpenedRegionProposal.ts:376-398` already documents for its own maps |
+| **RM-4** | **Every one of `§OPENED-REGION`'s six refusals must leave the user a NEXT STEP** — at minimum *"these two rooms are now one; do you want to re-draw the boundary?"* | §TOBE.2: six exits, all narration-only, all leaving a damaged model with no route forward | **Cost: zero compute** — the finding already exists and already reaches the chat. This is wording plus, where the user says yes, an ordinary tool activation |
+| **RM-5** | **A room must be able to publish a reference other families can hold** (`room tag`, annotation, lighting, schedules) | [C72 §9.4](C72-PROPAGATION-AND-PREVSTATE.md) ledger: `room tag ← wall`, `room tag ← room boundary`, `annotation ← room boundary`, `lighting ← room boundary` are all **SILENT** (§TOBE.3) | ⛔ **BLOCKED ON R-1.** Under Option A there is no stable id to publish. **Do not schedule this before the ruling** — it is the authored-but-unwired hazard [C72 §9.5](C72-PROPAGATION-AND-PREVSTATE.md) names |
+| **RM-6** | **The room-side and wall-side loop-closure tolerances must be declared in ONE cited register**, so the combined competence envelope is stateable | §TOBE.4: two healers, two tolerance sets, no shared vocabulary | **Cost: zero runtime.** A [C73](C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md) register entry per constant. ⏸ **Held pending the GRAPH43 seam agreement** |
+| **RM-7** | **A gesture that publishes a per-junction verdict must also publish a per-gesture one**, or must not be read as a verdict on the gesture | §TOBE.5: `0 junction(s) refused` beside a lost 85.7 m² room | **Cost: zero** — both numbers already exist in the same gesture; this is one line that reports them together |
+| **RM-8** | **`ReDetectRoomsCommand.undo()` must not return `success: true` for work it did not do** | `ReDetectRoomsCommand.ts:256-258` | **Cost: zero.** ⚠ The `nonUndoable` **geometry** decision at `:57-64` is **sound and is not reopened** (§10, R5 above). What is wrong is the **return value**, and separately the `detectionVersion` ratchet §9.3 already records |
+| **RM-9** | **Delete must work on a room from the UI** — route both surfaces to the working `room.delete` verb | `DeleteElementCommand` `grep -c roomStore` → **0**, re-measured at `0589a36c`. §13 DELTA #2 | **Cost: zero.** ⛔ **Do NOT add a room branch to `DeleteElementCommand`** — [C84 EI-4a](C84-ELEMENT-INTEGRITY.md), one route per intent, and a better command already exists (§6.3) |
+
+> ⭐ **Note what is NOT in this table.** No clause proposes a new detection pass, a new observer, a
+> new store, a new event or a per-frame computation. **Eight of the nine cost zero or near-zero
+> compute**, because the expensive machinery — detection, comparison, narration, consent — **already
+> exists and already runs**. The gap in this family is not capability. It is that the capability
+> does not carry identity through, and does not say so.
+
+---
+
+## §TOBE.7 — PERFORMANCE: THE BUDGET IS THE CONSTRAINT, NOT A CAVEAT
+
+Room detection runs on **every** wall mutation. Any richer room model multiplies that, and this repo
+has already shipped a re-weld that ran once per mousemove. So the budget is stated **before** the
+capability, per [C10 §1](C10-PERFORMANCE-AND-OBSERVABILITY.md).
+
+### §TOBE.7.1 — What runs today, measured from source
+
+| Stage | Site | Complexity |
+|---|---|---|
+| Debounce per level | `RoomTopologyObserver.ts:39` `DEBOUNCE_MS = 150`; `:40` `CW_DEBOUNCE_MS = 800`; `:42` `MAX_DEBOUNCE_RESETS = 12` | ⚠ **the debounce INVERTS under load** — the observer's own header `:99-101` records that 12 resets exhaust the guard and force-fire |
+| `_snapNearbyCorners` | `:1404-1405` — `for i` / `for j = i+1` over `n` endpoints | **O(S²)**, S = segments on the level (n = 2S) |
+| `_reconnectDanglingEnds` | `:909-914`, `:937` | **O(S²)** |
+| `_splitAtTJunctions` | `:1655`, `:1667` | **O(S²)** |
+| `_diagRoomLoop` | `:610` | measured **~0.20 ms** at the founder's ~56 segments/level (§DIAG.6, node, 20-rep mean). ⚠ §DIAG.6 also records the **devtools stack-capture cost per `console.warn` is NOT measured** |
+| `mergeWithExisting` | `:1073` | **O(D × E)** claim enumeration, D = detected faces, E = existing rooms |
+| `scanForOpenedRegions` | `RoomTopologyObserver.ts:1101` | containment tests **O(B × A)** (before × after rooms) + perimeter sampling × surviving walls, **per lost room** |
+
+⇒ **A re-detect is pairwise-quadratic in segments per level, and it runs once per 150 ms of wall
+edit activity.** At the founder's measured ~56 segments/level that is ~3 000 pair tests — trivial.
+**At a real 500-segment floor plate it is ~250 000 per re-detect, and at 2 000 segments ~4 000 000.**
+
+> ⛔ **NOT MEASURED, and it is the most important unmeasured number in this family:** the wall-clock
+> cost of one `detectRoomsForLevel` at 500 and at 2 000 segments, in the browser. §DIAG.6 measured
+> only the audit, in node. ⛔ **No capability in §TOBE.6 may be justified by "detection is cheap"
+> until that curve exists.** [C10 §1.1](C10-PERFORMANCE-AND-OBSERVABILITY.md) governs how it is taken.
+
+### §TOBE.7.2 — The budget discipline, normative
+
+1. **A room capability MUST NOT add a pass.** Every §TOBE.6 clause rides inside a loop that already
+   runs (RM-0 inside the drop loop; RM-3 inside the same; RM-2/RM-4/RM-7 are strings). ⛔ **A clause
+   that needs its own traversal of the level is out of budget and must be refused or redesigned.**
+2. **Per-gesture, not per-frame.** Everything here hangs off the existing debounced re-detect
+   chokepoint. ⛔ **Nothing in this family may subscribe to the frame bus.**
+3. **Cost is declared with the capability or the capability is not admitted** — the four columns of
+   §TOBE.6, no exceptions.
+4. **Log volume is a performance budget too.** [C10 §7](C10-PERFORMANCE-AND-OBSERVABILITY.md)
+   log-gating applies to RM-0; a 7-level load must not print per-room lines. `ProjectLoader.ts:2807`
+   already records this exact churn as a defect.
+5. ⭐ **The instrument must be measured before it is trusted** — §DIAG.6's honesty about the
+   unmeasured `console.warn` cost is the standard, not an exception to it.
+6. **Under Option B (R-1), the reconciliation pass is a NEW pass** and therefore violates rule 1 on
+   its face. ⛔ **If the founder rules for Option B, the reconciliation must be shown to fit inside
+   the existing re-detect, or the ruling must knowingly buy a new pass.** That trade must be put to
+   him explicitly; it must not be discovered afterwards.
+
+---
+
+## §TOBE.8 — ⛔ UNDECIDED — THE FOUNDER'S RULINGS
+
+⛔ **This lane does not decide these and has not pre-empted them. No RM clause blocked on a ruling
+may be implemented before it.**
+
+### R-1 — Does a room have identity that survives its walls changing, or is it a pure derivation?
+
+Costed in full at **§TOBE.1.3** (Option A / Option B / Option A + tombstone). **Blocks RM-5**, blocks
+any room-keyed schedule, IFC identity or sheet reference, and determines whether §TOBE.7.2 rule 1 is
+being knowingly bought out. **RM-3 (tombstone) is compatible with either ruling and does not
+pre-empt it.**
+
+### R-2 — What should happen when a boundary is lost and NO existing wall can be extended to close it?
+
+The `anchored 2/2` case in the founder's log took the CREATE rung because — on the evidence
+available — no collinear donor existed (§TOBE.1.1). **Three answers, none obviously right:**
+
+| Answer | For | Against |
+|---|---|---|
+| **(a) Mint the wall** (today, when EXTEND is unavailable) | The room comes back; one undo; the coordinates are the room's own, not invented | ⛔ The user gets an element **he did not author**, which is the founder's own objection generalised |
+| **(b) Refuse and ASK** — *"this region lost 3.42 m of boundary and no existing wall can reach it; draw one?"* then activate the wall tool pre-seeded | ⭐ Matches the founder's standing **"always ASK, never auto-edit"** and [C83](C83-SPATIAL-VALIDITY-AND-DESIGN-LOGIC.md)'s INADVISABLE band | The room stays merged until the user acts; a schedule taken in between is wrong |
+| **(c) Leave them merged and say so** — record the merge as a first-class event, offer nothing | Cheapest; never authors geometry; strictly honest | The model is silently *different* from what the user drew, and (with RM-0 absent today) unrecorded |
+
+⚠ **These are not mutually exclusive** — (c) + (b) is a coherent product, and RM-0 is a precondition
+for all three. **The founder decides.**
+
+### R-3 — Should the identity tie-break at `RoomDetectionEngine.ts:1122-1126` be allowed to run at all?
+
+When two before-rooms merge, exactly one keeps its record and the winner is chosen by **centroid
+distance**, a quantity with no semantic meaning (§TOBE.1.2). **The alternative is to refuse: award
+the record to NEITHER, tombstone both, and ask.** That is more honest and strictly more disruptive.
+⚠ **This is a smaller question than R-1 but it is not implied by it** — either ruling on R-1 leaves
+R-3 open.
+
+---
+
+## §TOBE.9 — CORRECTIONS TO THE AS-IS ABOVE (dated, not edited away)
+
+⛔ Per [C84 §0](C84-ELEMENT-INTEGRITY.md) the AS-IS text is the record and is not rewritten. These
+are the pointers that have rotted since the 2026-08-18 stamp, re-measured at **`0589a36c`,
+2026-08-24**.
+
+| AS-IS clause | What it says | Measured 2026-08-24 |
+|---|---|---|
+| **§9.2** | the matcher is at `RoomDetectionEngine.ts:914-948`, the carry at `:957-973` | ⚠ **STALE — the file has grown to 1806 lines.** `mergeWithExisting` is at **`:1073`**; the claim loop at **`:1092-1131`**; the carry block at **`:1137-1160`**, with `id: match.id` at **`:1139`**. ⭐ The **constants are unchanged and still resolve**: `CENTROID_MATCH_RADIUS = 2.0` `:127`, `STRUCTURAL_MATCH_MIN_OVERLAP = 0.34` `:146`. **The finding is intact; only the pointers moved** |
+| **§6.2, bullet 2** | *"`BimService.ts:172` executes, `:173` `unselectAll()` regardless, return value discarded"* | ⛔ **CLOSED 2026-08-24 by `0589a36c`** (§DELETE-MUST-ANSWER, L-1403). `BimService.deleteSelected()` (`:223`) now reads the result, refuses **by name to console AND toast**, and ⭐ **keeps the selection on refusal** |
+| **§6.2, bullet 1** | *"`DeleteElement.ts:63` returns `{forward:[],inverse:[]}` UNCONDITIONALLY — a returned failure is invisible"* | ⛔ **CLOSED.** `plugins/view/src/handlers/DeleteElement.ts:139-155` converts an explicit `success: false` into a `capabilityRefused` |
+| **§6 heading** | *"BOTH UI PATHS FAIL, AND BOTH SWALLOW THE FAILURE"* | ⚠ **HALF STALE, and the surviving half is sharper.** **Neither path swallows any more.** But `DeleteElementCommand` still has **`grep -c roomStore` → 0** (re-measured), so a room delete is now a **LOUD REFUSAL** rather than a silent no-op. **The user still cannot delete a room.** §13 DELTA #2 stands; **DELTA #3 is banked** |
+| **§14 R8** | *"Delete does nothing on a room — NOT A REFUSAL, a silent failure"* | ⚠ **It is now a refusal, and a named one.** Upgrade from ⛔ to ⚠: the honesty defect is closed, the capability gap is not |
+
+> ⭐ **Two of these five were corrections to prose this lane was briefed with as fact.** Both were
+> refuted by re-reading HEAD rather than by argument. That is the standing instruction working:
+> **re-measure, never re-transcribe.**
+
+---
+
+## §TOBE.10 — NOT MEASURED (this section only; §15 above is unchanged)
+
+1. ⛔ **Wall-clock cost of `detectRoomsForLevel` at 500 and 2 000 segments, in the browser.** The
+   most important unmeasured number here (§TOBE.7.1). §DIAG.6 measured the audit only, in node.
+2. ⛔ **The build SHA of the founder's `Done — an interior wall now closes Room 00-004` session.**
+   Without it, whether that CREATE preceded §WD32-EXTEND-BEFORE-CREATE or correctly had no donor is
+   **undetermined** (§TOBE.1.1). ⭐ It is answerable in one question and worth asking.
+3. **Which half wins the §TOBE.1.2 step-8 tie-break in the founder's geometry.** The mechanism is
+   measured; the outcome depends on his coordinates.
+4. **Whether any downstream consumer actually keys on a room id today** — `ScheduleExtractor`,
+   `RoomReader`/`space.ts` IFC identity, sheet references. **This sizes R-1 and was not traced.**
+5. **Whether `roomSpatialIndex` is correctly restored after an UPDATE-class undo** — §15 item 7,
+   still open, and now load-bearing for RM-3.
+6. **The frequency of room loss in real use.** ⛔ Unknowable until RM-0 ships. **This is the whole
+   argument for instrument-before-cure.**
+7. **`RoomGraphService` node/edge loss** — the founder's `5 nodes, 5 door edges` → `4 nodes, 3 door
+   edges` (`packages/spatial-index/src/RoomGraphService.ts:345`). The log line is measured; **whether
+   the graph rebuild is correct or is losing edges it should keep was NOT traced by this lane.**
+8. **The wall/room seam** — §TOBE.4, deliberately reserved pending cross-lane agreement with C85.
