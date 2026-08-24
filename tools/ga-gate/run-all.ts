@@ -253,9 +253,14 @@ const GATES: Gate[] = [
   // other will overstate the coverage of both.
   //
   // ⚠ It is the only gate in this list that IMPORTS PRODUCTION MODULES AND RUNS
-  // THEM, so it is slower than its neighbours (~20 s) and it can fail for a
-  // reason none of the static gates can: a handler module that stops loading
-  // under node. That reads as exit 2 (UNPROVEN), never as a pass.
+  // THEM, and it is the SLOWEST gate here: **88 s wall, measured 2026-08-24 on an
+  // otherwise-idle tree** (`time npx tsx tools/ga-gate/check-mirror-reachability.ts`
+  // → RC=0). ⛔ That number is MEASURED, not estimated — this comment first said
+  // "~20 s", which was a guess and was wrong by 4×. Re-time it rather than
+  // trusting this line.
+  //
+  // It can also fail for a reason none of the static gates can: a handler module
+  // that stops loading under node. That reads as exit 2 (UNPROVEN), never a pass.
   { name: 'mirror-reachability (C16 §5.1 CA-21 · L-10320)', script: 'check-mirror-reachability.ts' },
   // C15 §8.1 / C86 WO-B-3 (2026-08-19) — the hosted-opening dual-write gate. C15
   // §8.1's OWN stated enforcement was "a code-review checklist item", i.e. nothing,
