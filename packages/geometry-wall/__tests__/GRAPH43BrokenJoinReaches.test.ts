@@ -229,6 +229,53 @@ describe('§GRAPH43 §REACHES — a destroyed join reaches the user sink', () =>
     });
 
     /**
+     * ⛔⛔ §GRAPH43-THE-WALL-SIDE-DOES-NOT-DESCRIBE-ROOMS (L-10802) — THE WALL
+     *    LAYER MUST NOT PREDICT A ROOM CONSEQUENCE IT NEVER MEASURED.
+     *
+     * FAILS ON `1bf3a790` — a commit from THIS LANE, one hour old. Two of its
+     * sentences ended *"Expect a room to open downstream."* **That is a
+     * prediction stated in the voice of a measurement**, and it can simply be
+     * wrong: a broken junction whose region was already open, or whose partition
+     * bounded no loop, opens no room at all. §CONTEXT-DATA-HONESTY verbatim.
+     *
+     * ⭐ The room vocabulary exists and belongs to lane ROOM44 / C94 §TOBE.5 —
+     * `§ROOM-LOSS-CENSUS`, which fires where rooms actually die and reports the
+     * **authored-vs-auto split alongside every count**, because *"deleted 3
+     * rooms"* and *"deleted 3 auto-numbered, never-touched rooms"* argue for
+     * opposite answers.
+     *
+     * ⚠ ROOM44 measured why a SECOND implementation is worse than none: its own
+     * first attempt read authorship off `Object.keys(room.finishes).length > 0`
+     * and **every untouched room came back AUTHORED**, because `RoomStore` writes
+     * all three finish surfaces explicitly. All 23 of its unit arms passed —
+     * the fixtures shared the wrong assumption.
+     *
+     * ⛔ And the LAYER is not what forbids it: `@pryzm/command-registry` is
+     * already a declared dependency of this package with live imports. **One
+     * fact, one authority** is the reason.
+     */
+    it('§NO-ROOM-VOCABULARY: the wall lines report the WALL fact and cite the room census', () => {
+        const h = makeHarness();
+        try {
+            h.store.translate('spur', 0, 2.6);
+            const said = [h.verdictLine(), ...h.warns, ...h.reports.flatMap(r => r.detail)].join(' | ');
+
+            // ⛔ No prediction, in any of the three surfaces.
+            expect(said).not.toContain('Expect a room');
+            expect(said).not.toMatch(/room .{0,20}(will|would|is likely|expect)/i);
+            // ⛔ And no room MEASUREMENT either — no count, no area, no name.
+            expect(said).not.toMatch(/\d+\s*m²/);
+            expect(said).not.toMatch(/Room\s+\d/);
+
+            // ✅ The WALL fact is present, with its millimetres.
+            expect(said).toContain('rail');
+            expect(said).toContain('600');
+            // ✅ And the room question is handed to its owner by name.
+            expect(said).toContain('ROOM-LOSS-CENSUS');
+        } finally { h.restore(); }
+    });
+
+    /**
      * ⚠ THE DISPOSITION IS UNCHANGED, AND THIS ARM IS THE PROOF. A broken join is
      * NOT promoted to a refusal: the engine has no arm that can act on a
      * guest-side T, so a refusal would claim a decision nobody took. Acting on it

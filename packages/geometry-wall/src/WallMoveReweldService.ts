@@ -281,6 +281,44 @@ export function describeReweldRefusal(r: MoveReweldRefusal): string {
 }
 
 /**
+ * ⛔⛔ §GRAPH43-THE-WALL-SIDE-DOES-NOT-DESCRIBE-ROOMS (L-10802) — A BINDING
+ *    RULE ON EVERY SENTENCE COMPOSED IN THIS FILE, AND IT WAS BREACHED BY THE
+ *    COMMIT DIRECTLY ABOVE IT (`1bf3a790`, fixed within the hour).
+ *
+ * Two of this file's sentences ended *"Expect a room to open downstream."*
+ * **That is the wall layer PREDICTING a room consequence it never measured**,
+ * and it can simply be wrong: a broken junction whose region was already open,
+ * or whose partition bounded no loop, opens no room at all. A prediction stated
+ * in the voice of a measurement is §CONTEXT-DATA-HONESTY's defect verbatim.
+ *
+ * ⭐ THE ROOM VOCABULARY EXISTS AND IS SOMEBODY ELSE'S: §ROOM-LOSS-CENSUS
+ * (`packages/command-registry/src/rooms/roomLossCensus.ts`, lane ROOM44 /
+ * [C94](../../../docs/02-decisions/contracts/C94-ELEMENT-ROOM-SPACE.md) §TOBE.5),
+ * which fires where rooms actually die (`ReDetectRoomsCommand`) and reports the
+ * **authored-vs-auto split alongside every count** — because *"deleted 3 rooms"*
+ * and *"deleted 3 auto-numbered, never-touched rooms"* argue for opposite
+ * answers.
+ *
+ * ⚠ AND ROOM44 MEASURED WHY A SECOND IMPLEMENTATION WOULD BE WORSE THAN NONE:
+ * its own first attempt derived authorship from `Object.keys(room.finishes)
+ * .length > 0`, and **every untouched room read as AUTHORED** — `RoomStore`
+ * writes all three finish surfaces explicitly, `undefined` included. All 23 of
+ * its unit arms passed, because the fixtures were built from the same wrong
+ * assumption. Shipped, it would have reported 100% authored on every model.
+ *
+ * ⭐ SO: TWO CENSUSES, TWO QUESTIONS (C94 §TOBE.5). This engine reports the WALL
+ * fact — which junctions it left unrepaired, by how many mm, and that it has no
+ * arm for them. It CITES the room census and never paraphrases, predicts or
+ * duplicates it.
+ *
+ * ⛔ — and the layer is NOT what forbids it. Measured 2026-08-24:
+ * `@pryzm/command-registry` is already a declared dependency of this package
+ * with live imports in `WallTool.ts`, `OpeningTool.ts` and
+ * `RoomBoundingLineTool.ts`, so importing `roomLossCensus` here would add no new
+ * edge. **It is forbidden because one fact must have one authority**, not
+ * because the import would not resolve.
+ */
+/**
  * §L-945 — one compact `id:REASON(measured/limit mm)` token per partner that
  * produced neither an entry nor a refusal.
  *
@@ -339,8 +377,8 @@ export function summariseNotApplicable(n: MoveReweldNotApplicable): string {
              + `endpoint on its BODY and the move pulled that endpoint OFF it. The join was REAL `
              + `and is now OPEN by the measured gap. NOTHING WAS DONE ABOUT IT: this engine only `
              + `asks whether a PARTNER endpoint sits on the SUBJECT, never the mirror question, so `
-             + `there is no arm that can extend or trim here (C85 §10.7 W-M-13). Expect a room to `
-             + `open downstream`;
+             + `there is no arm that can extend or trim here (C85 §10.7 W-M-13). Whether any ROOM `
+             + `was lost is §ROOM-LOSS-CENSUS's question, not this engine's — read that line, not this one`;
     }
     if (n.reason === 'SUBJECT_GUEST_JOIN_INTACT' || n.reason === 'SUBJECT_GUEST_JOIN_RESTORED_BY_MOVE') {
         return `${n.partnerId}:${n.reason}${nums} ⇒ the moved wall's endpoint is ON this partner's `
@@ -843,7 +881,8 @@ export class WallMoveReweldService {
                           `join(s) that were CLOSED before this move are now OPEN ` +
                           `[${brokenJoins.map(n => `${n.partnerId}(${n.measuredMm} mm)`).join(', ')}] ` +
                           `— no wall was moved to repair them, because this engine has no arm ` +
-                          `that can (C85 §10.7 W-M-13). Expect a room to open downstream.`)
+                          `that can (C85 §10.7 W-M-13). Whether a ROOM was lost is §ROOM-LOSS-CENSUS's ` +
+                          `question and it MEASURES it — this line does not predict it.`)
                 );
             }
             // §WALL-TOPOLOGY-INTEGRITY — THE PATH THAT MOST NEEDS THE PROBE.
