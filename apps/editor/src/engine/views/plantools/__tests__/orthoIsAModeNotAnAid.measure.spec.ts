@@ -152,9 +152,14 @@ describe('§RULING-ORTHO-IS-A-MODE-NOT-AN-AID — the plan wall tool', () => {
 
         // PRE-RULING: 1.900° — the exact number on his chip. "No other cases."
         expect(deg).toBeLessThan(1e-9);
-        // The snap was PROJECTED, not discarded: the reach to the feature survives.
-        expect(Math.hypot(end.x, end.z)).toBeCloseTo(SNAP_DIST_M, 9);
-        // …and the cost is his chip's other number, disclosed rather than silent.
+        // The snap was PROJECTED, not discarded. ⛔ AMENDED by the SECOND ruling
+        // (§RULING-ORTHO-IS-THE-PERPENDICULAR-FOOT, same day): this asserted the full
+        // reach `SNAP_DIST_M` survived, because `_snapOrtho` then ROTATED the snap onto
+        // the ray keeping its distance. It now takes the perpendicular FOOT, so the
+        // surviving length is the axial component, 14.9 · cos(1.9°) = 14.891808 m.
+        expect(Math.hypot(end.x, end.z)).toBeCloseTo(SNAP_DIST_M * Math.cos(SNAP_OFF_AXIS_DEG * DEG), 9);
+        // …and the cost is his chip's other number, disclosed rather than silent. It is
+        // UNCHANGED by the second ruling at this angle: 494 mm.
         expect(missMm).toBeCloseTo(494, 0);
     });
 

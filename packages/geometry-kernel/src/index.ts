@@ -33,6 +33,17 @@ export {
   isParallel,
 } from './tolerance.js';
 
+// §RULING-ORTHO-IS-THE-PERPENDICULAR-FOOT (founder ruling, 2026-08-24) — THE ortho
+// constraint for the whole repo, in ONE function. It lives here and not in
+// geometry-slab or geometry-wall because those two DEPEND ON EACH OTHER and the
+// kernel depends on neither: this is the only home that is a tree, not a cycle.
+// See the module header for the ruling, the census it moved, and the tie-break.
+export {
+  orthoConstrainXZ,
+  offAxisDegXZ,
+  type OrthoPointXZ,
+} from './math/orthoConstraint.js';
+
 export { produceWall, type WallProducer } from './producers/wall.js';
 export { composeWallGeometryHash, WALL_HASH_SCHEMA_VERSION } from './producers/_internal/composeWallGeometryHash.js';
 export { computeOpeningWorldPos } from './producers/_internal/computeOpeningWorldPos.js';

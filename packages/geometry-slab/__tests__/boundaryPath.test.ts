@@ -39,23 +39,42 @@ describe('boundaryPath — the shared linear/ortho/curved model', () => {
     });
   });
 
-  describe('orthoConstrain — the WALL rule, not the dominant-axis projection', () => {
-    it('snaps the DIRECTION to 90° and PRESERVES the radial distance', () => {
-      // A 45° drag of length 5 must give a 5 m axis segment — NOT the 3.53 m the
-      // old floor/ceiling projection produced.
-      const raw = { x: 3, z: 4 };            // |raw| = 5, angle ≈ 53°
+  // ⛔⛔ THE VERDICT OF THIS BLOCK WAS REVERSED BY FOUNDER RULING ON 2026-08-24
+  // (§RULING-ORTHO-IS-THE-PERPENDICULAR-FOOT). It used to assert the ROTATE rule —
+  // "PRESERVES the radial distance" — and that a projection would be WRONG.
+  //
+  // He was shown a measured table in which one ortho gesture committed TWO lengths
+  // (identical 0.000° angles, up to 1464 mm apart on a 5 m drag) and ruled for
+  // PROJECTION: the endpoint is the cursor's perpendicular FOOT on the axis, so
+  // sideways motion does not change the length. His reasoning was his own earlier
+  // ruling turned back on itself — ORTHO IS A MODE, NOT AN AID: under rotation a
+  // 5 m drag at 80° (a gesture almost entirely PERPENDICULAR to the axis) still
+  // produced a 5 m wall, which is the mode reinterpreting a magnitude the user never
+  // made along that axis.
+  //
+  // ⭐ THE 2026-08-06 DIRECTIVE THAT CREATED THIS FILE STILL HOLDS. It said these
+  // tools must AGREE with the wall tool. They still do — and now the 3-D wall tool,
+  // which that pass missed and which had projected all along, agrees too. Only WHICH
+  // rule they agree on changed.
+  describe('orthoConstrain — the perpendicular foot (founder ruling, 2026-08-24)', () => {
+    it('PROJECTS onto the nearer axis — the perpendicular component is dropped', () => {
+      // A drag to (3, 4): |raw| = 5, angle ~53°, nearer the +Z axis.
+      // ROTATE gave 5 m (the radial distance). PROJECT gives 4 m (the z-component).
+      // That 1 m is the divergence this ruling closed, on this exact fixture.
+      const raw = { x: 3, z: 4 };
       const v = orthoConstrain(S, raw);
-      expect(Math.hypot(v.x - S.x, v.z - S.z)).toBeCloseTo(5, 12);
-      // 53° rounds to 90° → the +Z axis.
       expect(v.x).toBeCloseTo(0, 12);
-      expect(v.z).toBeCloseTo(5, 12);
+      expect(v.z).toBeCloseTo(4, 12);
+      expect(Math.hypot(v.x - S.x, v.z - S.z)).toBeCloseTo(4, 12);
     });
 
-    it('is NOT the dominant-axis projection the floor/ceiling handlers used to use', () => {
-      const raw = { x: 3, z: 4 };
-      const projected = { x: S.x, z: raw.z };  // the OLD rule (dz > dx ⇒ keep z)
-      const v = orthoConstrain(S, raw);
-      expect(v.z).not.toBeCloseTo(projected.z, 6); // 5 vs 4 — a 1 m disagreement
+    it('sideways cursor motion does NOT change the length (the property the ruling bought)', () => {
+      // Axial component frozen; only the perpendicular offset moves. Under ROTATE
+      // this grew 4000 → 5587 mm. Under PROJECT it cannot move at all.
+      for (const perp of [0, 0.5, 1, 2, 3, 3.9]) {
+        const v = orthoConstrain(S, { x: 4, z: perp });
+        expect(Math.hypot(v.x - S.x, v.z - S.z), `perp ${perp}`).toBeCloseTo(4, 12);
+      }
     });
 
     it('snaps to whichever of the four cardinals is nearest', () => {
@@ -65,13 +84,21 @@ describe('boundaryPath — the shared linear/ortho/curved model', () => {
     });
 
     it('is exactly orthogonal for every input (the §STRICT-ORTHO guarantee)', () => {
+      // ⚠ THE ORTHOGONALITY HALF IS UNTOUCHED BY THE RULING — that is the guarantee
+      // this case is named for and it held under both rules. The LENGTH assertion
+      // below changed: it read `toBeCloseTo(r)` (the radial distance survives) and
+      // now asserts the projected magnitude, which is |r·cos| onto the nearer axis.
       for (let deg = 0; deg < 360; deg += 7) {
         const r = 3.7;
         const raw = { x: Math.cos(deg * Math.PI / 180) * r, z: Math.sin(deg * Math.PI / 180) * r };
         const v = orthoConstrain(S, raw);
         // One component is (numerically) zero — the definition of axis-aligned.
         expect(Math.min(Math.abs(v.x), Math.abs(v.z))).toBeLessThan(1e-9);
-        expect(Math.hypot(v.x, v.z)).toBeCloseTo(r, 9);
+        // The surviving component is whichever of the two was larger.
+        const expected = Math.max(Math.abs(raw.x), Math.abs(raw.z));
+        expect(Math.hypot(v.x, v.z)).toBeCloseTo(expected, 9);
+        // …and it is never LONGER than the drag — a projection cannot invent reach.
+        expect(Math.hypot(v.x, v.z)).toBeLessThanOrEqual(r + 1e-9);
       }
     });
 

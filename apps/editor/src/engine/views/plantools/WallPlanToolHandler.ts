@@ -38,7 +38,7 @@ import {
 import { isStrongSnap, type PlanToolHandler, type PlanToolDrawContext, type WorldPoint } from './PlanToolHandler';
 // §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — the "is this actually a conflict?" test.
 // CONSUMED from the kernel's declared tolerance policy (C73 §2.2), never minted here.
-import { COINCIDENT_M } from '@pryzm/geometry-kernel';
+import { COINCIDENT_M, orthoConstrainXZ } from '@pryzm/geometry-kernel';
 import { computeSetOutDimensions, solveSetOutPoint, type SetOutSegment, type SetOutDimension } from './setOutDimensions';
 // §FIX-SPLIT-WALL-SYSTEMTYPE (L-98) — surface-independent active wall system type, so a
 // wall drawn in the SPLIT plan pane carries the same layered systemTypeId as the MAIN view.
@@ -108,17 +108,26 @@ function _wallLoopMode(mode: string): BoundaryLoopMode | null {
          : null;
 }
 
+/**
+ * ⛔ §RULING-ORTHO-IS-THE-PERPENDICULAR-FOOT (FOUNDER RULING, 2026-08-24) — THIS
+ * FUNCTION'S SEMANTIC CHANGED, AND IT IS THE ONE THE FOUNDER SAW.
+ *
+ * It used to ROTATE: snap the DIRECTION to the nearest cardinal and PRESERVE the
+ * radial distance, so a 5 m drag gave a 5 m wall at ANY cursor angle. It now
+ * PROJECTS onto the perpendicular foot. On his own fixture, at 45°, that is
+ * 5000 mm → 3536 mm — a 1464 mm difference, 29.3% of the drag.
+ *
+ * Now an ADAPTER over the kernel's single implementation, translating `WorldPoint`
+ * to the pure `{x,z}` the shared rule speaks. ⛔ Do not re-inline the maths: a
+ * private copy here is exactly how the plan tool and the 3-D tool came to commit
+ * two different lengths for one gesture.
+ */
 function _snapOrtho(start: WorldPoint, raw: WorldPoint): WorldPoint {
-    const dx    = raw.worldX - start.worldX;
-    const dz    = raw.worldZ - start.worldZ;
-    const angle   = Math.atan2(dz, dx);
-    const step    = Math.PI / 2;
-    const snapped = Math.round(angle / step) * step;
-    const dist    = Math.hypot(dx, dz);
-    return {
-        worldX: start.worldX + Math.cos(snapped) * dist,
-        worldZ: start.worldZ + Math.sin(snapped) * dist,
-    };
+    const v = orthoConstrainXZ(
+        { x: start.worldX, z: start.worldZ },
+        { x: raw.worldX,   z: raw.worldZ   },
+    );
+    return { worldX: v.x, worldZ: v.z };
 }
 
 function _snapAngle(start: WorldPoint, raw: WorldPoint, stepDeg: number): WorldPoint {

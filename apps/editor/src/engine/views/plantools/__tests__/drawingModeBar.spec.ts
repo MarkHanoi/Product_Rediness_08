@@ -158,11 +158,18 @@ describe('§FEAT-PERSISTENT-MODE-BAR — the wall\'s control, on slab/floor/ceil
             pills().find(b => b.dataset.mode === 'ortho')!.click();
 
             // The handler re-reads the mode per interaction, so this click is ortho-
-            // constrained: a diagonal drag lands on an axis, preserving the radius.
+            // constrained: a diagonal drag lands on an axis.
+            //
+            // ⛔ AMENDED by §RULING-ORTHO-IS-THE-PERPENDICULAR-FOOT (founder ruling,
+            // 2026-08-24). This read "preserving the radius" and asserted 5 — the ROTATE
+            // rule. Ortho now takes the PERPENDICULAR FOOT, so a (3,4) drag keeps its
+            // z-component: 4, not 5. ⭐ THE SUBJECT OF THIS TEST IS UNCHANGED — it exists
+            // to prove the mode switch reaches the very next click, and the axis-alignment
+            // assertion above is what proves it. Only the length constant moved.
             author.click(resolveActiveSlabDrawMode(), { x: 3, z: 4 });
             const p = author.points[1]!;
             expect(Math.min(Math.abs(p.x), Math.abs(p.z))).toBeLessThan(1e-9);
-            expect(Math.hypot(p.x, p.z)).toBeCloseTo(5, 9);
+            expect(Math.hypot(p.x, p.z)).toBeCloseTo(4, 9);
         });
 
         it('switching to CURVED mid-polyline keeps the vertices and starts an arc', () => {

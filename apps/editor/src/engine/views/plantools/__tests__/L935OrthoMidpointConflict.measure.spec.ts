@@ -276,18 +276,24 @@ describe('§RULING-ORTHO-IS-A-MODE-NOT-AN-AID (was L-935) — ortho direction vs
 
         // ⭐ THE RULING: the committed segment IS axis-aligned. No exceptions.
         expect(offAxisDeg).toBeLessThan(1e-9);
-        // The snap was PROJECTED, not discarded: `_snapOrtho` rotates it onto the nearest
-        // cardinal ray KEEPING ITS DISTANCE, so the wall is as long as the user's reach to
-        // the feature they aimed at (4.000 m here), just axis-aligned.
-        expect(Math.hypot(end.x, end.z)).toBeCloseTo(SNAP_DIST_M, 9);
-        // …which puts the committed end 636.0 mm from the snapped midpoint. THAT NUMBER IS
-        // THE COST OF THE RULING and it is the same 636 mm L-935 measured — the founder has
-        // now seen this behaviour live and chosen it, twice. It is DISCLOSED, not silent.
-        expect(missM * 1000).toBeCloseTo(636.0, 1);
+        // ⛔ AMENDED BY THE SECOND RULING (§RULING-ORTHO-IS-THE-PERPENDICULAR-FOOT,
+        // 2026-08-24). This asserted `toBeCloseTo(SNAP_DIST_M)` — that `_snapOrtho`
+        // rotated the snap onto the ray KEEPING ITS DISTANCE, so the wall stayed as
+        // long as the user's reach (4.000 m). The founder has since ruled for the
+        // PERPENDICULAR FOOT, so the surviving length is the snap's component ALONG
+        // the axis: 4 · cos(9.12°) = 3.949434 m.
+        expect(Math.hypot(end.x, end.z)).toBeCloseTo(SNAP_DIST_M * Math.cos(SNAP_OFF_AXIS_DEG * DEG), 9);
+
+        // …which puts the committed end 634.0 mm from the snapped midpoint. ⭐ THAT
+        // NUMBER IS NOW EXACTLY THE PERPENDICULAR OFFSET THAT WAS DROPPED — the miss
+        // and the discarded component are the same quantity under projection, which
+        // they were not under rotation (636.0 mm, a chord, not a perpendicular).
+        // Two millimetres of difference, and it is the whole change of meaning.
+        expect(missM * 1000).toBeCloseTo(634.0, 1);
 
         // AND IT SAYS SO, with both numbers. L-935's disclosure, verdict inverted.
         expect(noteAtPreview).not.toBeNull();
-        expect(noteAtPreview!.missM * 1000).toBeCloseTo(636.0, 1);
+        expect(noteAtPreview!.missM * 1000).toBeCloseTo(634.0, 1);
         expect(noteAtPreview!.offAxisDeg).toBeCloseTo(SNAP_OFF_AXIS_DEG, 9);
     });
 
@@ -318,8 +324,12 @@ describe('§RULING-ORTHO-IS-A-MODE-NOT-AN-AID (was L-935) — ortho direction vs
             const { dispatched, noteAtPreview } = drawSecondPoint('ortho', pt);
             expect(dispatched).toHaveLength(1);
             const end = dispatched[0]!.baseLine[1]!;
-            // Ortho-locked to +x at the cursor's own distance — byte-identical to pre-fix.
-            expect(end.x).toBeCloseTo(SNAP_DIST_M, 12);
+            // Ortho-locked to +x. ⛔ AMENDED by §RULING-ORTHO-IS-THE-PERPENDICULAR-FOOT:
+            // this read `toBeCloseTo(SNAP_DIST_M)` — the cursor's own RADIAL distance.
+            // The endpoint is now the cursor's perpendicular FOOT on +x, i.e. its
+            // x-component, 4 · cos(9.12°) = 3.949434 m. The DIRECTION lock is untouched
+            // and that is what this arm exists to protect.
+            expect(end.x).toBeCloseTo(M.x, 12);
             expect(end.z).toBeCloseTo(0, 12);
             // Nothing was dropped, so nothing is claimed.
             expect(noteAtPreview).toBeNull();

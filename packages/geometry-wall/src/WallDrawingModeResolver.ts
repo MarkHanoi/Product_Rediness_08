@@ -49,6 +49,8 @@
  */
 
 import { WallDrawingMode } from './WallTypes';
+// §RULING-ORTHO-IS-THE-PERPENDICULAR-FOOT — THE ortho rule, consumed from the kernel.
+import { orthoConstrainXZ } from '@pryzm/geometry-kernel';
 
 /** Every real member of the enum, as strings. Derived — never hand-listed. */
 const MEMBERS = new Set<string>(Object.values(WallDrawingMode));
@@ -150,18 +152,26 @@ export function isOrthoDrawingMode(mode: unknown): boolean {
 }
 
 /**
- * THE ortho lock, as pure XZ arithmetic: project `point` onto whichever cardinal axis
- * through `start` it is closer to. Extracted from `WallTool._applyOrthoLock` unchanged
- * so the tool and its tests cannot answer the question differently — the same reason
- * L-935 collapsed three copies of that body into one method.
+ * THE ortho lock for the 3-D wall tool — now an ADAPTER onto the ONE implementation in
+ * `@pryzm/geometry-kernel`.
+ *
+ * ⭐ §RULING-ORTHO-IS-THE-PERPENDICULAR-FOOT (founder ruling, 2026-08-24). THIS TOOL'S
+ * BEHAVIOUR DOES NOT CHANGE — it already projected, and the ruling picked projection.
+ * What changed is that it is no longer this tool's PRIVATE answer: the same function
+ * now serves the plan wall tool, the curtain wall, the slab, floor, ceiling, pool and
+ * boundary-line tools, which until today ROTATED and disagreed with it by up to
+ * 1464 mm on a 5 m drag.
+ *
+ * ⛔ The body is DELEGATED, not copied. Copying it back would recreate exactly the
+ * defect the ruling closes: two functions that both mean "apply ortho" and are free to
+ * drift. The kernel is the host because `geometry-wall` and `geometry-slab` depend on
+ * EACH OTHER, so neither can hold the shared rule without a module-init cycle.
  */
 export function orthoLockXZ(
     start: { readonly x: number; readonly z: number },
     point: { readonly x: number; readonly z: number },
 ): { x: number; z: number } {
-    const dx = Math.abs(point.x - start.x);
-    const dz = Math.abs(point.z - start.z);
-    return dx > dz ? { x: point.x, z: start.z } : { x: start.x, z: point.z };
+    return orthoConstrainXZ(start, point);
 }
 
 /**

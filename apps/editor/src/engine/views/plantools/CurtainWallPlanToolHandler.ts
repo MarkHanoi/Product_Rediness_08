@@ -35,6 +35,8 @@
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import { CurtainWallBuilder } from '@pryzm/geometry-curtain-wall';
 import { createId } from '@pryzm/schemas';
+// §RULING-ORTHO-IS-THE-PERPENDICULAR-FOOT — THE ortho rule, consumed from the kernel.
+import { orthoConstrainXZ } from '@pryzm/geometry-kernel';
 // §P2.2 (IMPL-PLAN-2026-05-17): CreateCurtainWallCommand + window.commandManager bridge (P4.4).
 // Curtain wall creation is now bus-only via the initBusHandlers §E.5.4 bridge.
 
@@ -79,16 +81,25 @@ function _mullionDepth(deps?: Partial<CurtainWallPlanToolHandlerDependencies>): 
     return typeof depth === 'number' && depth > 0 ? depth : DEFAULT_MULLION_DEPTH;
 }
 
+/**
+ * ⛔ §RULING-ORTHO-IS-THE-PERPENDICULAR-FOOT (FOUNDER RULING, 2026-08-24) — semantic
+ * changed from ROTATE (preserve the radial distance) to PROJECT (the perpendicular
+ * foot), in step with the wall, slab, floor, ceiling, pool and boundary-line tools.
+ * Sideways cursor motion no longer lengthens the run.
+ *
+ * ⚠ THIS HANDLER KEEPS ITS OWN MODE SOURCE — that part is UNCHANGED and must stay.
+ * CW-1 (2026-04, see the file header) is the production bug caused by sharing
+ * `window.wallModePicker`. Sharing the ortho MATHS is safe and required; sharing the
+ * mode STATE is the defect. They are different questions.
+ *
+ * Now an ADAPTER over the kernel's single implementation.
+ */
 function _snapOrtho(start: WorldPoint, raw: WorldPoint): WorldPoint {
-    const dx      = raw.worldX - start.worldX;
-    const dz      = raw.worldZ - start.worldZ;
-    const angle   = Math.atan2(dz, dx);
-    const snapped = Math.round(angle / (Math.PI / 2)) * (Math.PI / 2);
-    const dist    = Math.hypot(dx, dz);
-    return {
-        worldX: start.worldX + Math.cos(snapped) * dist,
-        worldZ: start.worldZ + Math.sin(snapped) * dist,
-    };
+    const v = orthoConstrainXZ(
+        { x: start.worldX, z: start.worldZ },
+        { x: raw.worldX,   z: raw.worldZ   },
+    );
+    return { worldX: v.x, worldZ: v.z };
 }
 
 /**

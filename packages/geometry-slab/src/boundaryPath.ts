@@ -34,6 +34,11 @@
  */
 
 import { arcSegmentThroughMidpoint, type ArcVertex2D } from './boundaryArc';
+// §RULING-ORTHO-IS-THE-PERPENDICULAR-FOOT — THE ortho rule, consumed from the kernel
+// (C73 §2.2 pattern: a rule the whole repo must answer identically is not re-minted
+// at the call site). The kernel is the only home that is not inside the
+// geometry-slab ↔ geometry-wall dependency cycle.
+import { orthoConstrainXZ } from '@pryzm/geometry-kernel';
 
 export type { ArcVertex2D };
 
@@ -53,23 +58,40 @@ export function isBoundaryDrawMode(v: unknown): v is BoundaryDrawMode {
 }
 
 /**
- * THE ortho constraint — a verbatim mirror of `WallPlanToolHandler._snapOrtho`.
+ * THE ortho constraint for every slab-family boundary — now an ADAPTER onto the ONE
+ * implementation in `@pryzm/geometry-kernel`.
  *
- * Snaps the DIRECTION from `start` to the nearest 90° cardinal while PRESERVING
- * the radial distance `|raw − start|`. This is what "ortho constrains as walls
- * do" means, and it is not the same as projecting onto the dominant axis.
+ * ⛔ §RULING-ORTHO-IS-THE-PERPENDICULAR-FOOT (FOUNDER RULING, 2026-08-24) — THE
+ * SEMANTIC CHANGED HERE, AND IT MOVES SEVEN TOOLS AT ONCE.
+ *
+ * This function used to ROTATE: snap the DIRECTION to the nearest 90° cardinal while
+ * PRESERVING the radial distance `|raw − start|`. It now PROJECTS — the endpoint is
+ * the cursor's perpendicular FOOT on the nearer axis, so sideways cursor motion no
+ * longer changes the length. Measured before the change, on a 5 m drag:
+ *
+ *     cursor 30°   ROTATE 5000 mm   PROJECT 4330 mm   Δ  670 mm
+ *     cursor 45°   ROTATE 5000 mm   PROJECT 3536 mm   Δ 1464 mm   ← worst, 29.3%
+ *     axial frozen at 4.000 m, cursor swept sideways to 3.9 m:
+ *                  ROTATE 4000 → 5587 mm      PROJECT 4000 mm throughout
+ *
+ * The founder's reasoning is his own ruling turned back on itself — ORTHO IS A MODE,
+ * NOT AN AID. Under rotation a 5 m drag at 80°, a gesture almost entirely
+ * PERPENDICULAR to the chosen axis, still produced a 5 m wall: the mode
+ * REINTERPRETING a magnitude the user never made along that axis.
+ *
+ * ⭐ THE 2026-08-06 DIRECTIVE IN THIS FILE'S HEADER STILL HOLDS. It said the slab,
+ * floor and ceiling tools must offer the SAME OPTIONS as walls — they must AGREE.
+ * They still do, and now the 3-D wall tool (which that pass missed, and which had
+ * projected all along) agrees too. What changed is WHICH rule they agree on — the
+ * question 2026-08-06 never asked.
+ *
+ * ⛔ The body is DELEGATED, not copied: `geometry-slab` and `geometry-wall` depend on
+ * each other, so neither can host the shared rule without a module-init cycle. The
+ * kernel depends on neither. One implementation, three names, no cycle.
  */
 export function orthoConstrain(start: ArcVertex2D, raw: ArcVertex2D): ArcVertex2D {
-  const dx = raw.x - start.x;
-  const dz = raw.z - start.z;
-  const angle = Math.atan2(dz, dx);
-  const step = Math.PI / 2;
-  const snapped = Math.round(angle / step) * step;
-  const dist = Math.hypot(dx, dz);
-  return {
-    x: start.x + Math.cos(snapped) * dist,
-    z: start.z + Math.sin(snapped) * dist,
-  };
+  const v = orthoConstrainXZ(start, raw);
+  return { x: v.x, z: v.z };
 }
 
 /**
