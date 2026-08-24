@@ -30,6 +30,8 @@ import { sheetStore } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { titleBlockStore } from '@pryzm/core-app-model/views';
 import { placeSheetOnPaper } from '@pryzm/core-app-model/views';  // §SHEET-PAPER-IS-THE-SHEETS (L-10684)
+// §TITLE-BLOCK-TEXT-HAS-ONE-UNIT (L-10689) — the ONE producer of title-block lettering size.
+import { titleBlockValueCapMm, titleBlockLabelCapMm, capMmToSvgUnits, capMmToPrintVh } from './PaperTextStandard';
 // §SHEET-TITLE-BLOCK-HAS-A-SOURCE (L-3806) — the ONE producer of title block
 // field values. Both export paths below built their own five-key map against a
 // template declaring eleven fields; one of them rebuilt it INSIDE the per-field
@@ -195,7 +197,15 @@ class SheetExportServiceImpl {
             const fy = pH - field.y;
             fieldEl.setAttribute('x',           `${fx}`);
             fieldEl.setAttribute('y',           `${fy}`);
-            fieldEl.setAttribute('font-size',   `${field.fontSize ?? 7}`);
+            // §TITLE-BLOCK-TEXT-HAS-ONE-UNIT (L-10689) — this document's user
+            // unit IS one paper millimetre (`viewBox="0 0 pW pH"` +
+            // `width="{pW}mm"`), so writing the DECLARED POINT NUMBER here drew
+            // it as millimetres: `a1-standard`'s project name came out at
+            // 6.444 mm of cap height against the PDF's 2.273 mm — 2.8× the same
+            // field on the same sheet. It now goes through the one converter.
+            // ⚠ THIS IS THE SURFACE THAT VISIBLY SHRINKS, and it is the one that
+            // was furthest from the declared value.
+            fieldEl.setAttribute('font-size',   `${capMmToSvgUnits(titleBlockValueCapMm(field.fontSize))}`);
             fieldEl.setAttribute('font-family', 'Arial, sans-serif');
             fieldEl.setAttribute('fill',        '#111');
             if (field.bold) fieldEl.setAttribute('font-weight', '700');
@@ -304,12 +314,19 @@ class SheetExportServiceImpl {
                 font-family: sans-serif;
             `;
 
+            // §TITLE-BLOCK-TEXT-HAS-ONE-UNIT (L-10689) — the print layer places
+            // everything in PERCENTAGES of the paper and then sized its text in
+            // CSS px, the one thing on it not proportional to the page: on a
+            // printed sheet those millimetres depended on the print scale and
+            // were related to the paper by nothing. `vh` against a layer that IS
+            // the page restores the proportion, so the printed page and the PDF
+            // agree about the same sheet.
             const lbl = document.createElement('div');
-            lbl.style.cssText = 'font-size:6px; color:#888; text-transform:uppercase; letter-spacing:0.3px;';
+            lbl.style.cssText = `font-size:${capMmToPrintVh(titleBlockLabelCapMm(), paperHmm)}vh; color:#888; text-transform:uppercase; letter-spacing:0.3px;`;
             lbl.textContent   = field.label;
 
             const val = document.createElement('div');
-            val.style.cssText = `font-size:${field.fontSize ?? 8}px; color:#111; overflow:hidden; white-space:nowrap; ${field.bold ? 'font-weight:700;' : ''}`;
+            val.style.cssText = `font-size:${capMmToPrintVh(titleBlockValueCapMm(field.fontSize), paperHmm)}vh; color:#111; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; ${field.bold ? 'font-weight:700;' : ''}`;
             val.textContent   = fields[field.key] ?? '';
 
             zone.appendChild(lbl);

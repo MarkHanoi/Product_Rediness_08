@@ -48,6 +48,8 @@ import { sheetProjectionOrchestrator } from './SheetProjectionOrchestrator';
 // own five-key map against a template declaring eleven fields.
 import { resolveTitleBlockValues } from '@pryzm/file-format/sheets';
 import { gatherTitleBlockContext } from './titleBlockContext';
+// §TITLE-BLOCK-TEXT-HAS-ONE-UNIT (L-10689) — the ONE producer of title-block lettering size.
+import { titleBlockValueCapMm, titleBlockLabelCapMm, capMmToEditorPx } from '@pryzm/file-format/sheets';
 import { dataPanelRenderer } from '@pryzm/core-app-model';
 import { sheetCommentStore } from '@pryzm/core-app-model';
 import type { SheetComment } from '@pryzm/core-app-model';
@@ -625,15 +627,30 @@ export class SheetEditorPanel {
             zone.style.width  = `${field.width * sf}px`;
             zone.style.height = `${field.height * sf}px`;
 
+            // §TITLE-BLOCK-TEXT-HAS-ONE-UNIT (L-10689) — the paper term was
+            // `n * 0.6`, which converts points to nothing, and the `max(5|6, …)`
+            // was a SCREEN-PIXEL floor standing in for a paper size. On A3 that
+            // floor swallowed every declared difference: project name, sheet
+            // number and "Drawn" all rendered at 3.580 mm of cap height — the
+            // template's whole typographic hierarchy, gone, and the size moved
+            // with the browser window.
+            //
+            // The paper term is now correct and the SCREEN floor is kept
+            // deliberately and named: at fit-to-window (~1.15 px/mm) the paper
+            // floor of 1.8 mm is 2.07 px, unreadable on a monitor. A screen is
+            // not paper — the same reason `PlanViewAnnotationRenderer` has this
+            // shape and L-10681 left it alone. The difference is that the floor
+            // now guards a real millimetre instead of substituting for one, so
+            // zooming in converges on the PDF rather than on a different drawing.
             const labelEl = document.createElement('div');
             labelEl.className   = 'sh-titleblock-field-label';
             labelEl.textContent = field.label;
-            labelEl.style.fontSize = `${Math.max(5, (field.fontSize ?? 6) * 0.45 * sf)}px`;
+            labelEl.style.fontSize = `${capMmToEditorPx(titleBlockLabelCapMm(), sf)}px`;
 
             const valueEl = document.createElement('div');
             valueEl.className   = 'sh-titleblock-field-value';
             valueEl.textContent = fieldValues[field.key] ?? '';
-            valueEl.style.fontSize = `${Math.max(6, (field.fontSize ?? 8) * 0.6 * sf)}px`;
+            valueEl.style.fontSize = `${capMmToEditorPx(titleBlockValueCapMm(field.fontSize), sf)}px`;
             if (field.bold) valueEl.classList.add('sh-titleblock-field-value--bold');
 
             zone.appendChild(labelEl);

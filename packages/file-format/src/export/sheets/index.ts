@@ -50,6 +50,17 @@ export {
     letteringHeightFromEm,
     subordinateEmMm,
     lineAdvanceFromEm,
+    // §TITLE-BLOCK-TEXT-HAS-ONE-UNIT (L-10689) — one fontSize was read as
+    // points, millimetres and pixels by three surfaces drawing the same sheet.
+    PT_TO_MM,
+    EDITOR_MIN_TEXT_PX,
+    mmToPt,
+    titleBlockValueCapMm,
+    titleBlockLabelCapMm,
+    capMmToPdfPt,
+    capMmToSvgUnits,
+    capMmToEditorPx,
+    capMmToPrintVh,
 } from './PaperTextStandard';
 
 // §SHEET-CHROME-IS-NOT-THE-DRAWING (L-3804) — the screen-vs-print policy. The
