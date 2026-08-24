@@ -624,7 +624,24 @@ export class SvpPlanToolOverlay {
                     screenX:  e.clientX,
                     screenY:  e.clientY,
                 };
-                pt = { worldX: snapResult.worldX, worldZ: snapResult.worldZ };
+                // §ADPT34-A-SNAP-MUST-SURVIVE-THE-HANDOFF (L-10660) — carry the snap's
+                // IDENTITY onto the WorldPoint, exactly as `PlanViewToolOverlay._toWorld`
+                // does. Before this, both SVP construction sites built a bare
+                // `{ worldX, worldZ }`, so every point a handler received in the SPLIT
+                // pane had `snapType === undefined` — which makes `isStrongSnap(pt)`
+                // permanently false and silently disables all three of L-935's
+                // "an explicit object snap beats ortho / angle-lock / alignment
+                // inference" branches in `WallPlanToolHandler`. The snap was DRAWN
+                // (`_lastSnapInfo` feeds the indicator + tooltip) but never DELIVERED,
+                // so the pane looked like it was snapping while the committed geometry
+                // obeyed ortho. L-73 unified the handler SET across both plan surfaces;
+                // it did not unify the CONTEXT those handlers are handed.
+                pt = {
+                    worldX:       snapResult.worldX,
+                    worldZ:       snapResult.worldZ,
+                    snapType:     snapResult.snapType,
+                    snapSourceId: snapResult.sourceId,
+                };
             } else {
                 pt = this._planCanvas.screenToWorld(sx, sy);
             }
@@ -775,7 +792,18 @@ export class SvpPlanToolOverlay {
         const sx   = clientX - rect.left;
         const sy   = clientY - rect.top;
         const snap = this._snapSvc.querySnap(sx, sy);
-        if (snap) return { worldX: snap.worldX, worldZ: snap.worldZ };
+        // §ADPT34-A-SNAP-MUST-SURVIVE-THE-HANDOFF (L-10660) — the CLICK path. Same
+        // defect, second site: `onClick` resolves its point through here, so a snap
+        // could not reach a handler's commit branch either. Mirrors
+        // `PlanViewToolOverlay._toWorld` field-for-field.
+        if (snap) {
+            return {
+                worldX:       snap.worldX,
+                worldZ:       snap.worldZ,
+                snapType:     snap.snapType,
+                snapSourceId: snap.sourceId,
+            };
+        }
         return this._planCanvas.screenToWorld(sx, sy);
     }
 
