@@ -12,7 +12,7 @@
  *   §07      — No server routes; client-side only
  */
 
-import type { TitleBlockTemplate } from './TitleBlockTypes';
+import type { TitleBlockTemplate, TitleBlockFieldZone } from './TitleBlockTypes';
 
 // ── Pre-seeded templates ───────────────────────────────────────────────────────
 
@@ -81,13 +81,143 @@ const A3_TEMPLATE: TitleBlockTemplate = {
     revisionZone: { x: 305, y: 120, width: 100, rowHeight: 10, maxRows: 5 },
 };
 
+// ── §TITLE-BLOCK-IS-BLOCK-LOCAL (L-10688) ──────────────────────────────────────
+//
+// THE FOUNDER, 2026-08-24: *"landscape / vertical (portrait) title block"* —
+// recorded earlier as *"portrait title block doesn't exist"*.
+//
+// ⭐ IT LITERALLY DID NOT EXIST. Measured: this store held THREE templates, all
+// LANDSCAPE (A0 1189×841, A1 841×594, A3 420×297). Every one of the four
+// surfaces that draws a sheet — `SheetEditorPanel`, `PdfExportService`,
+// `SheetExportService` (SVG + HTML), `DxfExportService` — takes the paper size
+// from `template.paperWidth/paperHeight` (that is L-10684), and the editor's
+// Title Block dropdown is populated from `titleBlockStore.getAll()`. So the
+// product had no way to express a portrait sheet at all: not a missing control,
+// a missing ROW.
+//
+// ─── WHY A BUILDER AND NOT SEVEN MORE LITERALS ─────────────────────────────
+// The three hand-written templates above place every field in ABSOLUTE mm from
+// the PAPER's left edge (`x: 305` on a 420 mm page). That convention is exactly
+// what L-10684 is blocked on and what L-10687's unwired S38 system gets right:
+// a field belongs to the BLOCK, not to the paper, and the block's position on
+// the paper is a separate fact.
+//
+// ⭐ So the good idea from L-10687 is ADOPTED here rather than the system being
+// swapped for it: this builder authors fields in BLOCK-LOCAL mm and converts to
+// the absolute convention at the one line marked below. Seven more literals
+// would have hard-coded the paper width into seventy field coordinates and made
+// the L-10684 re-anchoring seven times larger.
+//
+// ⛔ THE THREE EXISTING TEMPLATES ARE NOT TOUCHED — not re-generated, not
+// re-derived, not "cleaned up". Every sheet the founder has already authored
+// carries `titleBlock: 'a1-standard'`, and regenerating those numbers would
+// move fields on drawings that already exist. Additive only: new ids, new rows,
+// nothing renamed and nothing deleted. `titleBlockStandardFieldPositions.test.ts`
+// pins the old three in millimetres precisely so a later lane cannot "tidy"
+// them into the builder without the gate going red.
+
+/** Round to 0.1 mm — a drafting tolerance, and it keeps the emitted templates
+ *  readable and exactly assertable in a test. */
+function _mm(v: number): number {
+    return Math.round(v * 10) / 10;
+}
+
+/**
+ * Author one right-hand-strip title block from BLOCK-LOCAL geometry.
+ *
+ * The strip is full paper height and `blockWidth` wide, flush to the paper's
+ * right edge — which is the shape all four consumers already draw
+ * (`tbX0 = paperWidth - borderWidth`). That is why this needs no consumer
+ * change: only the numbers are new.
+ *
+ * The row rhythm is proportional to `blockWidth` (s = blockWidth / 120, the A3
+ * strip being the reference), so an A4 block is not an A0 block's text shrunk
+ * onto a smaller page — every field keeps its ratio to the strip it sits in.
+ */
+function buildStripTitleBlock(
+    id:          string,
+    name:        string,
+    paperWidth:  number,
+    paperHeight: number,
+    blockWidth:  number,
+): TitleBlockTemplate {
+    const s     = blockWidth / 120;
+    const pad   = 5 * s;
+    const w     = blockWidth - 2 * pad;
+    const third = (w - 4 * s) / 3;
+    const half  = (w - 4 * s) / 2;
+
+    // ⭐ THE ONE CONVERSION from block-local to the absolute convention the
+    // live template shape uses. When L-10684 re-anchors the fields, this line
+    // is what changes — not seventy coordinates.
+    const abs = (localX: number): number => _mm(paperWidth - blockWidth + localX);
+
+    const fields: TitleBlockFieldZone[] = [
+        { key: 'projectName',    label: 'Project',      x: abs(pad),                      y: _mm(108 * s), width: _mm(w),        height: _mm(14 * s), fontSize: _mm(7 * s), bold: true },
+        { key: 'projectAddress', label: 'Address',      x: abs(pad),                      y: _mm(90  * s), width: _mm(w),        height: _mm(14 * s), fontSize: _mm(5 * s) },
+        { key: 'sheetNumber',    label: 'Sheet No.',    x: abs(pad),                      y: _mm(70  * s), width: _mm(0.58 * w), height: _mm(14 * s), fontSize: _mm(8 * s), bold: true },
+        { key: 'revision',       label: 'Rev.',         x: abs(pad + 0.62 * w),           y: _mm(70  * s), width: _mm(0.38 * w), height: _mm(14 * s), fontSize: _mm(8 * s), bold: true },
+        { key: 'sheetName',      label: 'Sheet Title',  x: abs(pad),                      y: _mm(52  * s), width: _mm(w),        height: _mm(14 * s), fontSize: _mm(6 * s), bold: true },
+        { key: 'scale',          label: 'Scale',        x: abs(pad),                      y: _mm(36  * s), width: _mm(half),     height: _mm(12 * s), fontSize: _mm(6 * s) },
+        { key: 'date',           label: 'Date',         x: abs(pad + half + 4 * s),       y: _mm(36  * s), width: _mm(half),     height: _mm(12 * s), fontSize: _mm(6 * s) },
+        { key: 'drawnBy',        label: 'Drawn',        x: abs(pad),                      y: _mm(22  * s), width: _mm(third),    height: _mm(10 * s), fontSize: _mm(5 * s) },
+        { key: 'checkedBy',      label: 'Checked',      x: abs(pad + third + 2 * s),      y: _mm(22  * s), width: _mm(third),    height: _mm(10 * s), fontSize: _mm(5 * s) },
+        { key: 'approvedBy',     label: 'Approved',     x: abs(pad + 2 * (third + 2 * s)),y: _mm(22  * s), width: _mm(third),    height: _mm(10 * s), fontSize: _mm(5 * s) },
+        { key: 'contractNo',     label: 'Contract No.', x: abs(pad),                      y: _mm(8   * s), width: _mm(w),        height: _mm(10 * s), fontSize: _mm(5 * s) },
+    ];
+
+    return {
+        id,
+        name,
+        paperWidth,
+        paperHeight,
+        borderWidth: blockWidth,
+        fields,
+        revisionZone: { x: abs(pad), y: _mm(128 * s), width: _mm(w), rowHeight: _mm(10 * s), maxRows: 5 },
+    };
+}
+
+// ── Portrait templates (L-10688) — the founder's ask #3 ────────────────────────
+//
+// ISO A sizes rotated: width < height. Nothing above changes; these are new
+// rows with new ids, immediately selectable in the editor's Title Block
+// dropdown (which reads `getAll()`) and honoured by the editor canvas, the PDF,
+// the SVG/HTML print path and the DXF, because all four read paperWidth /
+// paperHeight from the template they are handed.
+
+const A0_PORTRAIT = buildStripTitleBlock('a0-portrait', 'A0 Portrait',  841, 1189, 180);
+const A1_PORTRAIT = buildStripTitleBlock('a1-portrait', 'A1 Portrait',  594,  841, 160);
+const A2_PORTRAIT = buildStripTitleBlock('a2-portrait', 'A2 Portrait',  420,  594, 140);
+const A3_PORTRAIT = buildStripTitleBlock('a3-portrait', 'A3 Portrait',  297,  420, 110);
+const A4_PORTRAIT = buildStripTitleBlock('a4-portrait', 'A4 Portrait',  210,  297,  90);
+
+// ── Landscape gaps (L-10688) — A2 and A4 had no template either ────────────────
+//
+// Measured alongside the portrait gap and fixed in the same pass: the Paper
+// dropdown offers A0–A4, but only A0/A1/A3 had a title block, so choosing A2 or
+// A4 fell back to `getDefault()` (A1) and silently produced an A1 sheet. Same
+// defect family as L-10684 — a control offering a value the system cannot
+// honour.
+
+const A2_LANDSCAPE = buildStripTitleBlock('a2-standard', 'A2 Standard', 594, 420, 140);
+const A4_LANDSCAPE = buildStripTitleBlock('a4-standard', 'A4 Standard', 297, 210,  90);
+
 // ── TitleBlockStore ────────────────────────────────────────────────────────────
 
 class TitleBlockStoreImpl {
     private _templates: Map<string, TitleBlockTemplate> = new Map([
+        // ⛔ The original three keep their positions AND their numbers — see
+        // §TITLE-BLOCK-IS-BLOCK-LOCAL above. Appending, never reordering.
         ['a0-standard', A0_TEMPLATE],
         ['a1-standard', A1_TEMPLATE],
         ['a3-standard', A3_TEMPLATE],
+        ['a2-standard', A2_LANDSCAPE],
+        ['a4-standard', A4_LANDSCAPE],
+        ['a0-portrait', A0_PORTRAIT],
+        ['a1-portrait', A1_PORTRAIT],
+        ['a2-portrait', A2_PORTRAIT],
+        ['a3-portrait', A3_PORTRAIT],
+        ['a4-portrait', A4_PORTRAIT],
     ]);
 
     getAll(): TitleBlockTemplate[] {
