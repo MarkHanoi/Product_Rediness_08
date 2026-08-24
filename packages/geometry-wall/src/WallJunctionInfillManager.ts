@@ -13,6 +13,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+import { scheduleGpuRelease } from '@pryzm/renderer-three';
 import { JunctionInfillData } from './WallJunctionInfill';
 
 export class WallJunctionInfillManager {
@@ -59,7 +60,12 @@ export class WallJunctionInfillManager {
         for (const [key, mesh] of this._meshes) {
             if (!newKeys.has(key)) {
                 scene.remove(mesh);
-                mesh.geometry.dispose();
+                // §GPU-RESOURCE-LIFETIME L2 / C04 §3.1.2a rule 7 (L-10500) — see the
+                // note on `clearAll()`. `disposeMaterials = false`: `this._material` is
+                // ONE shared material for every infill mesh and is builder-owned
+                // (freed in `dispose()`); releasing it here would free a material the
+                // surviving infills still bind (ADR-0297 L1).
+                scheduleGpuRelease(mesh, false);
                 this._meshes.delete(key);
             }
         }
@@ -69,7 +75,13 @@ export class WallJunctionInfillManager {
             const existing = this._meshes.get(infill.clusterKey);
             if (existing) {
                 scene.remove(existing);
-                existing.geometry.dispose();
+                // §GPU-RESOURCE-LIFETIME L2 / C04 §3.1.2a rule 7 (L-10500) — THE HOTTEST
+                // OF THE SIX BYPASS SITES. `update()` runs on every wall create/move,
+                // so during a project LOAD of N walls this freed junction-prism GPU
+                // buffers in place, on the load tick, once per rebuilt cluster, while
+                // the render loop was still submitting. Junction infills fill the wall
+                // corners and are promoted to shadow casters like the walls they weld.
+                scheduleGpuRelease(existing, false);
                 this._meshes.delete(infill.clusterKey);
             }
 
@@ -94,7 +106,10 @@ export class WallJunctionInfillManager {
     clearAll(scene: THREE.Scene): void {
         for (const [key, mesh] of this._meshes) {
             scene.remove(mesh);
-            mesh.geometry.dispose();
+            // §GPU-RESOURCE-LIFETIME L2 / C04 §3.1.2a rule 7 (L-10500) — detach on this
+            // tick, release at the frame boundary. This is the level-switch / close
+            // path, so it fired mid-session with the viewport live.
+            scheduleGpuRelease(mesh, false);
             this._meshes.delete(key);
         }
     }

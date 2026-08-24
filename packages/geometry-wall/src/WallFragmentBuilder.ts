@@ -3539,7 +3539,19 @@ export class WallFragmentBuilder {
 
             for (const m of parts) {
                 wallGroup.remove(m);
-                m.geometry.dispose();
+                // §GPU-RESOURCE-LIFETIME L2 / C04 §3.1.2a rule 7 (L-10500) — the
+                // pre-merge segment meshes were live in the scene until the line above,
+                // so a frame already encoded this tick may still reference their index
+                // and vertex buffers. Freeing them in place here is the ADR-0297 L2
+                // violation the founder's "Destroyed … used in a submit" family is made
+                // of, and it bypassed the §GPU-CASTER-RELEASE-CHOKEPOINT funnel — on
+                // WALL geometry, which is the dominant shadow caster in a BIM scene.
+                // This runs per wall during a project LOAD (the seam-merge path).
+                //
+                // disposeMaterials = FALSE preserves the previous behaviour exactly:
+                // only the geometry was freed here. Wall materials come from the
+                // builder's shared cache and are not this loop's to release (ADR-0297 L1).
+                scheduleGpuRelease(m, false);
             }
             wallGroup.add(mesh);
 

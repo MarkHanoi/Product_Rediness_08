@@ -45,6 +45,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+import { scheduleGpuRelease } from '@pryzm/renderer-three';
 // §FIX-LIGHT-NIGHT-CONTRIBUTION (2026-08-06) — these consts used to come from the
 // `@pryzm/core-app-model` ROOT barrel, which reaches them only by a long chain
 // (index → stores/index → stores/LightingTypes.js) while this package owns an
@@ -513,12 +514,32 @@ export class LightingFragmentBuilder {
         // re-parents a lighting root, so this is a latent-class repair, not a
         // demonstrated reproduction. See L-8820 for what is still open.
         group.removeFromParent();
-        group.traverse((obj: THREE.Object3D) => {
-            if ((obj as THREE.Mesh).isMesh) {
-                const mesh = obj as THREE.Mesh;
-                if (!Array.isArray(mesh.geometry)) mesh.geometry.dispose();
-            }
-        });
+        // §GPU-RESOURCE-LIFETIME L2 / C04 §3.1.2a rule 7 (L-10500) — RELEASE AT THE
+        // FRAME BOUNDARY, never in place.
+        //
+        // This used to traverse the subtree and free each mesh's geometry in place,
+        // right here, on the mutation tick. Two defects in one line, and the second is
+        // the one that kills the viewport:
+        //   (a) ADR-0297 L2 directly — the buffers are freed while a command buffer
+        //       encoded from THIS frame may still reference them, which is the
+        //       "Destroyed buffer … used in a submit" / "setIndexBuffer … not of type
+        //       'GPUBuffer'" family; and
+        //   (b) it BYPASSED the release funnel, so §GPU-CASTER-RELEASE-CHOKEPOINT's
+        //       observer was never notified. Every fixture body here is `castShadow =
+        //       true`, so this is precisely a shadow-CASTER teardown — the one event
+        //       the chokepoint exists to open a submit-pause + shadow-freeze window
+        //       across. C04 §3.1.2a rule 6 ("the window is DERIVED from the RELEASE")
+        //       is only true while rule 2 is universal; a bypass does not merely leak,
+        //       it silently invalidates the derivation.
+        //
+        // `clearProjectGeometry()` calls this for EVERY fixture, so on a project switch
+        // the whole fixture caster set was torn down on one tick with submits live.
+        //
+        // disposeMaterials = FALSE: fixture materials come from the builder-owned
+        // `_matCache` / `_lensMatCache` pools and are shared across fixtures; they are
+        // freed by `dispose()` (terminal) only. Passing true here would free a pooled
+        // material still bound by every other fixture — ADR-0297 L1.
+        scheduleGpuRelease(group, false);
         elementRegistry.unregisterRoot(id);
         this._roots.delete(id);
         // A freed budget slot must be reclaimed by the next-nearest dark fixture.

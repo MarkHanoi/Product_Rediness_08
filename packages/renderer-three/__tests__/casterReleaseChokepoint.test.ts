@@ -259,17 +259,35 @@ describe('§GPU-CASTER-RELEASE-CHOKEPOINT — ARM C: the funnel is claimed, and 
         offenders.sort();
 
         /**
-         * BASELINE, measured 2026-08-19 (lane GPU1). It was EIGHT sites across five
-         * files; `StairLandingBuilder` (2 of them) is closed by this change, which is
-         * how a shrink-only ratchet is supposed to move. The rest are named so the
-         * next lane inherits a list of work, not a mystery.
+         * ⭐ THE BASELINE IS NOW EMPTY — THIS ARM IS HARD-0 (lane GPU45, 2026-08-24).
+         *
+         * ⛔ NEVER ADD A NAME BACK. Read this before you are tempted to:
+         *
+         * C04 §3.1.2a rule 7 is BINDING and says the release funnel MUST have no
+         * bypass, because rule 6 ("the shadow-ordering window is DERIVED from the
+         * RELEASE") *is only true while rule 2 is universal*. A tolerated bypass does
+         * not leak — it silently invalidates the derivation. So a BASELINED bypass is
+         * not "debt with a ceiling", it is the guard reporting a safety property it
+         * does not have.
+         *
+         * That is exactly what happened. Lane GPU1 (2026-08-19, L-1290) derived the
+         * chokepoint, wrote THIS arm to prove nothing bypassed it, measured EIGHT
+         * bypasses, and baselined the remaining SIX — and this comment then described
+         * them as "a list of work" for a later lane. Two of those six
+         * (`LightingFragmentBuilder.remove`, reached from `clearProjectGeometry()`)
+         * sat on the C13 project-switch sweep, and three
+         * (`WallJunctionInfillManager.update`/`clearAll`) ran on every wall change,
+         * i.e. continuously through a project LOAD. Both are the paths in the founder's
+         * two crash logs. The discipline was correct, complete and deliberately built;
+         * the gate that was supposed to establish its premise tolerated the exceptions
+         * that broke it. That is why L-25 → L-39 → L-64 → L-908 → L-930 → L-1290 →
+         * L-10380 kept "fixing" this family without stopping it.
+         *
+         * All six were migrated to `scheduleGpuRelease()` / `detachAndReleaseChildren()`
+         * in L-10500. The migration is mechanical, so the honest ceiling is ZERO: a new
+         * builder that needs an exception does not have one — it has a bug.
          */
-        const BASELINE = [
-            'packages/geometry-lift/src/LiftMeshBuilder.ts (1)',
-            'packages/geometry-lighting/src/LightingFragmentBuilder.ts (1)',
-            'packages/geometry-wall/src/WallFragmentBuilder.ts (1)',
-            'packages/geometry-wall/src/WallJunctionInfillManager.ts (3)',
-        ];
+        const BASELINE: readonly string[] = [];
 
         const newOffenders = offenders.filter((o) => !BASELINE.includes(o));
         expect(

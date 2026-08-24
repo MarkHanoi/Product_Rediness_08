@@ -68,6 +68,7 @@
 // If the glass is missing, the bug is in the mirror, not here.
 
 import * as THREE from '@pryzm/renderer-three/three';
+import { scheduleGpuRelease } from '@pryzm/renderer-three';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { resolveMaterialColour } from '@pryzm/core-app-model';
 import { isLinearLiftPart, type LiftPart } from './LiftPartTypes.js';
@@ -312,15 +313,20 @@ export class LiftCompoundMeshBuilder {
     removeLift(liftId: string): void {
         const group = this.roots.get(liftId);
         if (!group) return;
-        group.traverse((obj) => {
-            const mesh = obj as THREE.Mesh;
-            // ⛔ GEOMETRY ONLY. The materials are MODULE-SCOPED and SHARED across
-            // every lift in the scene (see `_sharedMaterials`); disposing one here
-            // would black out every other lift's frame until a full scene rebuild —
-            // the §BEAM-AUDIT-2026-C3 defect, avoided by naming it.
-            if (mesh.geometry) mesh.geometry.dispose();
-        });
+        // §GPU-RESOURCE-LIFETIME L2 / C04 §3.1.2a rule 7 (L-10500) — DETACH now,
+        // RELEASE at the frame boundary. This used to free the part geometry inside a
+        // `traverse()` on the mutation tick, and only detach afterwards: both halves of
+        // ADR-0297 L2 inverted, on a path `clearProjectGeometry()` drives for every
+        // lift during the C13 project-switch sweep.
+        //
+        // ⛔ GEOMETRY ONLY, STILL. The materials are MODULE-SCOPED and SHARED across
+        // every lift in the scene (see `_sharedMaterials`); disposing one here would
+        // black out every other lift's frame until a full scene rebuild — the
+        // §BEAM-AUDIT-2026-C3 defect, avoided by naming it. `disposeMaterials = false`
+        // is how that same rule is expressed through the funnel (ADR-0297 L1).
         if (this.scene) this.scene.remove(group);
+        group.removeFromParent();
+        scheduleGpuRelease(group, false);
         this.roots.delete(liftId);
     }
 

@@ -18,6 +18,7 @@
 // builder). Heights are resolved from the level table the caller injects.
 
 import * as THREE from '@pryzm/renderer-three/three';
+import { scheduleGpuRelease } from '@pryzm/renderer-three';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { LiftData, DEFAULT_LIFT_PROPERTIES } from './LiftTypes';
 import { LiftStore } from './LiftStore';
@@ -180,14 +181,26 @@ export class LiftMeshBuilder {
     removeLift(liftId: string, _isPreview = false): void {
         const group = this.liftRoots.get(liftId);
         if (!group) return;
-        group.traverse((obj) => {
-            const mesh = obj as THREE.Mesh;
-            if (mesh.geometry) mesh.geometry.dispose();
-            const mat = (mesh as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
-            if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
-            else if (mat) mat.dispose();
-        });
+        // §GPU-RESOURCE-LIFETIME L2 / C04 §3.1.2a rule 7 (L-10500) — DETACH on this
+        // tick, RELEASE at the frame boundary.
+        //
+        // The previous code had BOTH halves of ADR-0297 L2 inverted: it disposed the
+        // geometry and materials in a `traverse()` FIRST and only then removed the
+        // group from the scene. So for the whole of that traverse the meshes were
+        // still parented into the render graph while their GPU buffers were already
+        // freed — the exact shape ADR-0297 L2 (a)+(b) forbids, and reachable from
+        // `clearProjectGeometry()`, i.e. the project-switch sweep.
+        //
+        // It also bypassed the release funnel, so §GPU-CASTER-RELEASE-CHOKEPOINT never
+        // opened its submit-pause window even though lift car/shaft meshes are promoted
+        // to shadow casters by `PascalSceneLighting._enableShadowsOnScene()`.
+        //
+        // disposeMaterials = TRUE preserves the previous behaviour exactly: lift
+        // materials are minted per-lift (`new THREE.MeshStandardMaterial`, :135/:150),
+        // not drawn from a shared cache, so this builder is their sole owner (ADR-0297 L1).
         if (this.scene) this.scene.remove(group);
+        group.removeFromParent();
+        scheduleGpuRelease(group, true);
         this.liftRoots.delete(liftId);
     }
 
