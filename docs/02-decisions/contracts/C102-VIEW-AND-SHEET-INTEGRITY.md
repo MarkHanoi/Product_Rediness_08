@@ -203,6 +203,97 @@ bound views is NOT MEASURED**, and wiring a verb whose cascade is unmeasured is 
 
 ---
 
+## §5 — SHEET OUTPUT INTEGRITY — the issued document (added 2026-08-24, lane PDFSHEET35, L-10680…L-10685)
+
+> ⚠ **§5 did not exist.** This contract is named *View **& Sheet** Integrity* and ran §4 → §6; every
+> rule in it governed the VIEW half. The four findings below all came from one founder report about
+> an exported PDF, and none of them had a clause to be measured against.
+>
+> ⭐ **A sheet is a contract document.** The test for every rule here is not "does the export
+> succeed" but **"can the person holding the paper tell what they are holding"**.
+
+### §5.1 — Annotation lettering is a PAPER dimension — **NORMATIVE, and it is a number**
+
+The full standard (heights, leading, stroke, the cap-height/em conversion, and the before/after
+measurement) is **[SPEC-AUTODIMENSION §12.14](../../03-execution/specs/SPEC-AUTODIMENSION.md)**,
+which is where the repo's GA drafting standard lives. It is normative-by-reference and is not
+restated here, so the two cannot drift. The binding consequences for this contract:
+
+- **S-OI-1.** ⛔ **No annotation may reach paper below a 1.8 mm CAP HEIGHT** (ISO 3098 nominal
+  series floor). A style asking for less is **CLAMPED, not obeyed**.
+- **S-OI-2.** ⭐ **Text height is INVARIANT under drawing scale.** 1:50 and 1:100 viewports of the
+  same plan letter identically. Any path where the scale denominator moves the emitted text size is
+  a defect.
+- **S-OI-3.** ⛔ **Sheet text is FILLED and carries no stroke.** The measured defect was a **1.00 mm
+  stroke inherited from the annotation group's `stroke` attribute at SVG's initial
+  `stroke-width: 1`** — one paper millimetre — which svg2pdf reproduces as `fillThenStroke`. Room
+  labels came out as dense dark smudges beside clean linework.
+- **S-OI-4.** `AnnotationStyle.textSizeMm` is a **cap height** (the CAD/ISO meaning); SVG/PDF
+  `font-size` is an **em**. One conversion, one place
+  (`packages/file-format/src/export/sheets/PaperTextStandard.ts`). Passing one straight to the other
+  under-draws every annotation by **28 %**, which is what shipped.
+- **Gate:** `packages/file-format/__tests__/sheet-paper-text-standard.test.ts` — it asserts
+  MILLIMETRES. A test proving `<text>` elements exist would have passed throughout the defect.
+
+### §5.2 — A viewport has ONE scale, and every surface resolves it the same way
+
+- **S-OI-5.** ⭐ **`resolveViewportScale(vp, view)`** (`core-app-model/views/SheetDefinitionTypes`)
+  is THE resolution: the viewport's own override → the view's authored `output.scale` → **100**.
+  Every label, every composition and every export MUST call it.
+- **AS-IS that produced the rule (measured 2026-08-24):** for a viewport with no stored scale, the
+  four surfaces the user READS defaulted to **50** and the five that DRAW defaulted to **100**. The
+  viewport rendered at 1:100 and printed *"1:50"* on itself, and the sidebar's
+  `if (n !== (vp.scale ?? 50))` guard meant **choosing the displayed value dispatched nothing** —
+  the founder's *"I can't change the scale"*. The control had been shipped (ADR-0340); the default
+  had not been agreed.
+- **S-OI-6.** A viewport has **no stored size**. Its paper footprint is `extent × 1000 ÷ scale`, so
+  changing the scale MUST resize the frame in paper mm, not merely relabel it. Scale changes go
+  through `UpdateViewportScaleCommand` (C16), and therefore undo.
+
+### §5.3 — Paper size has ONE authority, and today it is NOT the sheet — **DISCLOSED, not fixed**
+
+- **AS-IS (measured 2026-08-24).** Page size is read from the **title block template** on all four
+  surfaces (sheet editor canvas, PDF, SVG/print, DXF). `SheetDefinition.paperSize` is written by a
+  patch key `SheetStore.update()` does not handle and read only by a dropdown's selected state and
+  an info label — the one working writer, `SheetStore.setPaperSize`, has **zero callers**. So a
+  sheet can read *"Paper: A0 · Title Block: A3 Standard"* and export a **420 × 297 mm** page.
+- **S-OI-7.** ⛔ **The divergence MUST be reported by name at export.** It now is
+  (`§SHEET-PAPER-HAS-ONE-AUTHORITY`, L-10684), stating which side won. **Silence is the defect being
+  closed here; the authority itself is NOT yet moved.**
+- **S-OI-8 (TO-BE, COSTED NOT BUILT).** Moving the authority to `SheetDefinition.paperSize` requires
+  the title block's field coordinates to become **block-relative**. They are currently absolute
+  millimetres from the paper's LEFT edge (`x: 305` on a 420 mm page), so re-pointing the page size
+  alone would throw every field off the sheet. See §5.5.
+
+### §5.4 — A dated view on an issued drawing MUST say so on the page
+
+- **S-OI-9.** ⭐ When a raster (3D / render / walkthrough) viewport embeds a **cached capture rather
+  than a live frame**, the PDF MUST disclose it **on the paper**. Previously the age was measured
+  and written to the **console** only, and the on-screen badge is deliberately suppressed in print
+  (`chromeFor('print').snapshotBadge === false`) — so the reader of the document, who is not the
+  person who pressed Export, had no way to tell a current view from a 76-second-old one.
+- ⛔ **It is a NOTE, not a refusal.** The sheet editor hides the 3D surface (L-1470), so a snapshot
+  is the NORMAL case for that leg; refusing the normal case would remove the capability rather than
+  make it honest.
+- **S-OI-10.** Letterboxing inside a raster viewport is **aspect preservation and is correct** —
+  `fitLetterbox` never stretches, and `barFraction` is reported so a caller can see how much of the
+  frame is not the drawing. A large margin (e.g. **63.1 × 90.0 mm inside 120.0 × 90.0 mm — 47 %**)
+  means the CAPTURE's aspect does not match the placed frame, not that the fit failed. ⚠ **NOT
+  MEASURED:** whether a raster viewport's default 120 × 90 mm frame should instead be born at the
+  capture's aspect.
+
+### §5.5 — NOT MEASURED / NOT BUILT — the honest register for the sheet half
+
+| Ask | State | Cost |
+|---|---|---|
+| Title block **field selection + placement** by the user | ⭐ **The live template IS data-driven** — a flat `TitleBlockFieldZone[]` of `{key,label,x,y,width,height,fontSize,bold}`. Exposing WHICH fields render is small. Exposing WHERE needs block-relative coordinates first (§5.3). | field on/off: **S** · drag-and-drop designer: **L — do not start without an ADR** |
+| **Portrait / vertical** title block | ⛔ **Does not exist in the live system.** All three seeded templates (A0/A1/A3) are landscape right-edge strips; `TitleBlockTemplate` has no orientation or anchor field. | **M** |
+| A second, better-shaped title-block system | ⚠ **Already written and UNWIRED** — `plugins/sheets/src/title-block.ts` + `packages/schemas/src/sheet/title-block.ts` model block-local mm, `defaultLayout.anchor`, `align`/`yAnchor`, and carry `computeTitleBlockRect(template, sheetW, sheetH)` — exactly the paper-relative function the live system lacks. ⛔ **Extend or adopt; do not mint a third.** | adoption: **M** |
+| **Layout presets** position content for the selected paper | ⛔ **INERT.** `layoutEngine.resolve()` has **zero production callers** and `ResolvedPosition` zero consumers; `ApplySheetLayoutPresetCommand` writes `sheet.layoutRules` and **nothing turns rules into `SheetViewport.position`**. The buttons store intent and move nothing. Four of six presets never read the paper size at all. | **M** |
+| Title-block text height | ⚠ **Measured, not yet standardised.** jsPDF `setFontSize` is POINTS regardless of the document unit, so seeded fields render **1.41–3.88 mm of em** (≈ 0.99–2.72 mm cap) — the 4 pt labels are **below §5.1's floor**. The on-screen editor scales the same number as if it were px (`× 0.6` / `× 0.45`, floored at 6/5 px), so screen and PDF disagree. **§5.1 does not yet bind the title block.** | **S** |
+
+---
+
 ## §6 — VERBS
 
 Four `vg.*` verbs are registered (`initBusHandlers.ts:2526, :2532, :2538, :2732`). Five commands are

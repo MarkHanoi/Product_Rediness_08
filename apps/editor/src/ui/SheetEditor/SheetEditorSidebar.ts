@@ -9,6 +9,7 @@
 
 import { sheetStore } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
+import { resolveViewportScale } from '@pryzm/core-app-model';  // §SHEET-ONE-SCALE-RESOLUTION (L-10682)
 import { titleBlockStore } from '@pryzm/core-app-model';
 import type { SheetDefinition } from '@pryzm/core-app-model';
 import type { ViewDefinition } from '@pryzm/core-app-model';
@@ -246,7 +247,10 @@ export function buildViewportPropsSection(sheet: SheetDefinition, opts: SidebarO
     const sl = document.createElement('span'); sl.className = 'sh-prop-label'; sl.textContent = 'Scale';
 
     const SCALE_PRESETS = [5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000];
-    const currentScale  = vp.scale ?? 50;
+    // §SHEET-ONE-SCALE-RESOLUTION (L-10682) — the dropdown showed 1:50 for a
+    // viewport drawn at 1:100, and the guard below then refused to dispatch when
+    // the founder chose the value it was showing him.
+    const currentScale  = resolveViewportScale(vp, view);
     const isCustom      = !SCALE_PRESETS.includes(currentScale);
 
     const scaleInputGroup = document.createElement('div');
@@ -279,7 +283,7 @@ export function buildViewportPropsSection(sheet: SheetDefinition, opts: SidebarO
     si.style.flex    = '0 0 auto';
 
     const applyScale = (n: number) => {
-        if (!isNaN(n) && n > 0 && n !== (vp.scale ?? 50)) {
+        if (!isNaN(n) && n > 0 && n !== resolveViewportScale(vp, view)) {
             const cmd = new UpdateViewportScaleCommand(sheet.id, vp.id, n);
             const mgr = window.commandManager; // TODO(E.5.x): replace with runtime.bus.executeCommand — Phase E.5.x
             if (mgr) mgr.execute(cmd, { source: 'HUMAN_DIRECT' });

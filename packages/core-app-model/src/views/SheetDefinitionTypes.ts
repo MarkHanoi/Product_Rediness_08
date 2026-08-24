@@ -227,6 +227,53 @@ export interface SheetDefinition {
     documentPhase?:     string;
 }
 
+// ── §SHEET-ONE-SCALE-RESOLUTION (L-10682) ──────────────────────────────────────
+
+/**
+ * THE ONE DEFINITION of "what scale is this viewport drawn at".
+ *
+ * ─── THE DEFECT ────────────────────────────────────────────────────────────
+ * The founder, 2026-08-24: *"I select a view placed on the sheet and CAN'T
+ * CHANGE THE SCALE."*
+ *
+ * ⭐ The control was never missing. `SheetEditorSidebar` has had a scale
+ * dropdown wired to `UpdateViewportScaleCommand` since ADR-0340, and there are
+ * two more (the on-canvas chip bar and the focus-mode toolbar). What was missing
+ * was AGREEMENT ABOUT THE DEFAULT. Measured 2026-08-24, for a viewport whose
+ * `scale` is `undefined`:
+ *
+ *   · everything the user READS defaulted to **50** — the sidebar dropdown, the
+ *     on-canvas chip bar, the focus toolbar, and the `1:N` label under the
+ *     viewport (`SheetEditorPanel._buildViewportEl`);
+ *   · everything that DRAWS defaulted to **100** — `composeSheetViewport`,
+ *     `composeForPlacement`, the PDF, the resize-handle crop maths, and this
+ *     type's own doc comment above.
+ *
+ * So the viewport rendered at 1:100 and printed "1:50" on itself — and the
+ * sidebar's guard is `if (n !== (vp.scale ?? 50))`, which means **choosing 1:50,
+ * the value it was already showing him, dispatched nothing at all.** A control
+ * that silently no-ops on the value it displays is indistinguishable from a
+ * control that does not work.
+ *
+ * ─── THE RESOLUTION ────────────────────────────────────────────────────────
+ * One function, the rule this interface already documented: the viewport's own
+ * override, else the view's authored output scale, else 100. Every reader and
+ * every renderer calls it, so the label and the geometry cannot diverge again.
+ *
+ * `view` is accepted as a structural shape rather than a `ViewDefinition` so the
+ * export layer can resolve a scale without importing the view store.
+ */
+export function resolveViewportScale(
+    vp?: { scale?: number | undefined } | null,
+    view?: { output?: { scale?: number | undefined } | undefined } | null,
+): number {
+    const own = vp?.scale;
+    if (typeof own === 'number' && Number.isFinite(own) && own > 0) return own;
+    const authored = view?.output?.scale;
+    if (typeof authored === 'number' && Number.isFinite(authored) && authored > 0) return authored;
+    return 100;
+}
+
 // ── Backwards-compatible viewIds accessor helper ───────────────────────────────
 
 /**

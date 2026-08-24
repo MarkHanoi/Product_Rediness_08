@@ -35,6 +35,7 @@
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { sheetStore } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
+import { resolveViewportScale } from '@pryzm/core-app-model';  // §SHEET-ONE-SCALE-RESOLUTION (L-10682)
 import { titleBlockStore } from '@pryzm/core-app-model';
 import type { SheetDefinition, SheetViewport } from '@pryzm/core-app-model';
 import type { ViewDefinition } from '@pryzm/core-app-model';
@@ -682,7 +683,7 @@ export class SheetEditorPanel {
             // land visibly away from where it was released. The size is the
             // composed paper footprint — the same number the viewport will be
             // rendered at — so the placement and the render agree.
-            const probe = composeSheetViewport({ viewId, scale: view.output?.scale ?? 50 });
+            const probe = composeSheetViewport({ viewId, scale: resolveViewportScale(null, view) });
             const halfW = probe.resolved ? probe.widthMm  / 2 : 0;
             const halfH = probe.resolved ? probe.heightMm / 2 : 0;
 
@@ -876,7 +877,9 @@ export class SheetEditorPanel {
         canvasH: number,
     ): HTMLElement {
         const view     = viewDefinitionStore.get(vp.viewId);
-        const scale    = vp.scale ?? 50;
+        // §SHEET-ONE-SCALE-RESOLUTION (L-10682) — this printed `1:${vp.scale ?? 50}`
+        // under a viewport that `composeSheetViewport` had drawn at `?? 100`.
+        const scale    = resolveViewportScale(vp, view);
 
         // ── §SHEET-COMPOSITE-ON-SHEET (L-1630) ────────────────────────────
         // Compose the REAL drawing first, because the viewport's paper size is
@@ -1428,7 +1431,7 @@ export class SheetEditorPanel {
         this._vpFocusState = {
             vpId:        vp.id,
             viewId:      view.id,
-            scaleDenom:  vp.scale ?? 100,
+            scaleDenom:  resolveViewportScale(vp, viewDefinitionStore.get(vp.viewId)),
             activeTool:  'select',
             dimPoints:   [],
             annotations: prevAnnotations,

@@ -50749,3 +50749,157 @@ ARCHITECTURE tab"*, and it shipped as an accordion row. The lift did the same.
 **The durable rule:** *"a new tab"* costs an **eighth `SectionDef`** (union member + section entry +
 icon + panel + the matching `CREATE_CONFIG` category, L-1380, same commit + rail CSS) — six edits,
 S–M, pure UI. ⛔ **It must never ship ahead of something for it to arm.**
+
+---
+
+## L-10680 — ⭐ THE ROOM LABELS WERE A SMUDGE BECAUSE EVERY GLYPH IN THE PDF WAS STROKED WITH A 1 mm PEN — and the cap height was 1.79 mm against a standard that did not exist ✅ FIXED (PDFSHEET35, 2026-08-24)
+
+**Founder, 2026-08-24:** *"Exporting sheets to PDF — can you make it sound? The text of the rooms — labels — is not readable."*
+Each room label was a dense dark blob; the linework beside it was clean and correct.
+
+⭐ **THE DECISIVE MEASUREMENT, taken from the emitted SVG rather than the symptom.** The composer
+emits `width="174.1mm" … viewBox="0 0 174.100 190.500"`, so **one SVG user unit is one paper
+millimetre** and every number below is already in mm.
+
+| | BEFORE | AFTER |
+|---|---|---|
+| room **name** cap height | **1.79 mm** (`font-size="2.500"` × Arial capHeight 0.716) | **2.500 mm** |
+| room **number** | **1.61 mm** | **2.250 mm** |
+| room **area** | **1.43 mm** — the worst reading | **2.000 mm** |
+| glyph **stroke** | **1.00 mm** | **none** |
+| baseline advance | 2.500 mm = **1.397 h** | 3.625 mm = **1.45 h** |
+
+⭐ **THE DOMINANT TERM WAS INHERITED, NOT WRITTEN.** `SVGCompositeRenderer` opened its annotation
+layer as `<g id="annotations" fill="#1a2035" stroke="#1a2035">` and **not one `<text>` beneath it ever
+set `stroke-width`** — so every glyph took SVG's initial `stroke-width: 1`, one user unit, **one paper
+millimetre**. `svg2pdf.js` reproduces that exactly (`getTextRenderingMode` → `fillThenStroke`, then
+`setLineWidth(1.0)`, verified in `node_modules/svg2pdf.js/dist/svg2pdf.es.js:446,507,2592`). A 1 mm
+pen around a ~0.22 mm Arial stem makes every stem ~1.2 mm: counters fill, glyphs bridge, and rows
+2.5 mm apart with ±0.5 mm of bleed each **overlap by 0.29 mm**. ISO 3098-0 type B puts lettering line
+width at **d = 0.1 h** — 1 mm on a 1.79 mm cap is **5.6 ×** that, applied on top of a solid fill.
+
+⭐ **THE SECOND DEFECT WAS A UNIT CONFUSION.** `AnnotationStyle.textSizeMm` is *declared*
+"paper-space text height in mm" — which in DXF group 40, Revit and ISO 3098's `h` means the **CAP
+HEIGHT** — and was handed straight to SVG `font-size`, which means the **EM**. **Every annotation on
+every sheet was 28 % short of its declared height.**
+
+⭐ **THE STANDARD DID NOT EXIST TO CHECK AGAINST.** `SPEC-AUTODIMENSION` §12 is the repo's GA drafting
+standard and §12.11 fixes a *lineweight* hierarchy, but neither it nor C34/C101/C102 stated a text
+height in millimetres. The only number in the repo was `ANNOTATION_TEXT_HEIGHT_MAX_MM = 100` — **a
+ceiling with no floor**. Written: **SPEC-AUTODIMENSION §12.14** (ISO 3098-0 type B: h floor 1.8 mm,
+default 2.5 mm, b ≥ 1.4 h, text FILLED) and **C102 §5.1**.
+
+**Fix** — `packages/file-format/src/export/sheets/PaperTextStandard.ts` (new, the one producer) +
+`SVGCompositeRenderer.ts`: the annotation group carries no `stroke`, every `<text>` carries
+`stroke="none"`, `font-size = h ÷ 0.716`, subordinate rows are floored at 1.8 mm, and stacked tags
+advance 1.5 h.
+**Gate** — `packages/file-format/__tests__/sheet-paper-text-standard.test.ts` (16 assertions).
+⭐ **It asserts MILLIMETRES.** A test proving `<text>` elements were drawn would have passed
+before this bug and after it — the glyphs were always there.
+
+## L-10681 — the SWEEP: every other text-bearing annotation shared both defects ✅ FIXED with L-10680 (PDFSHEET35, 2026-08-24)
+
+All **19** text-bearing kinds the sheet renderer draws — dimensions (linear/angular/radius/slope),
+text notes, element/door/window tags, keynotes, spot elevations, level tags, grid bubbles, section /
+elevation / callout marks, level datum lines, section grid lines and roof slope arrows — were emitted
+through the same stroked group and the same em/cap confusion. The sub-line multipliers (`× 0.75`,
+`× 0.8`, `× 0.85`, `× 0.9`) drove **eight** of them below the 1.8 mm floor. All are now clamped and
+unstroked, and the sweep is a single assertion in the gate.
+
+⚠ **NOT FIXED, and reported rather than hidden — the two OTHER text surfaces:**
+- **`PlanViewAnnotationRenderer` (on-canvas plan view)** sizes text as `Math.max(9, mmToPx(textSizeMm))`
+  — a **screen-pixel floor**, so it has neither the cap-height conversion nor a paper-space guarantee.
+  It is a different renderer to a different surface and was left alone deliberately.
+- **The TITLE BLOCK** is drawn with jsPDF `setFontSize`, which is **POINTS regardless of the document
+  unit**: seeded fields render **1.41–3.88 mm of em** (≈ 0.99–2.72 mm cap), so the 4 pt labels are
+  **below §5.1's floor**. The on-screen editor scales the same number as if it were px. Logged in
+  C102 §5.5 as **S**.
+
+## L-10682 — ⭐⭐ "I CAN'T CHANGE THE SCALE": the control was shipped; the DEFAULT was not agreed, so the dropdown showed the one value that dispatched nothing ✅ FIXED (PDFSHEET35, 2026-08-24)
+
+**Founder, 2026-08-24:** *"I select a view placed on the sheet and CAN'T CHANGE THE SCALE."*
+
+⭐ **THE CONTROL WAS NEVER MISSING.** `SheetEditorSidebar:283` has dispatched
+`UpdateViewportScaleCommand` since ADR-0340, and there are **two more** scale controls (the on-canvas
+chip bar and the focus-mode toolbar). **What was missing was one default.** Measured for a viewport
+whose `scale` is `undefined`:
+
+- everything the user **READS** defaulted to **50** — sidebar dropdown, chip bar, focus toolbar, and
+  the `1:N` label under the viewport (`SheetEditorPanel:879`);
+- everything that **DRAWS** defaulted to **100** — `composeSheetViewport`, `composeForPlacement`, the
+  PDF, the DXF/print exports, the resize-handle crop maths, and `UpdateViewportScaleCommand.undo`.
+
+So the viewport **rendered at 1:100 and printed "1:50" on itself** — and the sidebar's guard is
+`if (n !== (vp.scale ?? 50))`, which means **choosing 1:50, the value it was showing him, dispatched
+nothing at all.** A control that no-ops on the value it displays is indistinguishable from a broken one.
+
+**Fix** — `resolveViewportScale(vp, view)` in `core-app-model/views/SheetDefinitionTypes.ts`: the
+viewport override → the view's authored `output.scale` → **100**, which is the rule that interface's
+own doc comment already stated. All **thirteen** call sites repointed. Also hardens 0/NaN/∞, which
+would otherwise reach the composer as `extentM × 1000 ÷ scale`.
+**Gate** — `packages/core-app-model/src/views/__tests__/viewportScaleResolution.test.ts`.
+Contract — **C102 §5.2**. ✅ Viewport size is composed, never stored, so a scale change already
+resizes the frame in paper mm.
+
+## L-10683 — a 76-second-old 3D snapshot went onto an issued drawing with nothing on the PAPER saying so ✅ FIXED (PDFSHEET35, 2026-08-24)
+
+The staleness was already **measured and logged** — good instinct, wrong channel. A console line
+reaches the person who pressed Export; a sheet is read by everyone downstream of them, and the
+on-screen badge is deliberately suppressed in print (`chromeFor('print').snapshotBadge === false`).
+A PDF embedding a frame of a model that has since changed, with no mark on the page, is a
+documentation-integrity defect. The PDF now prints
+`SNAPSHOT — captured <ISO> (<n>s before export), not a live view` inside the raster frame.
+⛔ **A note, not a refusal** — the sheet editor hides the 3D surface (L-1470), so a snapshot is the
+NORMAL case for that leg; refusing it would delete the capability rather than make it honest.
+Contract — **C102 §5.4**.
+
+⭐ **`63.1×90.0mm in a 120.0×90.0mm viewport (47% paper margin)` is CORRECT, not a fitting bug.**
+`fitLetterbox` preserves aspect and never stretches; the capture's own aspect (0.70) simply does not
+match the placed frame (1.33). ⚠ Whether a raster viewport should be BORN at its capture's aspect is
+NOT MEASURED (C102 §5.4 S-OI-10).
+
+## L-10684 — ⚠ `Paper: A0` + `Title Block: A3 Standard` exports a 420×297 mm page, because PAPER SIZE COMES FROM THE TITLE BLOCK ⚠ DISCLOSED, authority NOT yet moved (PDFSHEET35, 2026-08-24)
+
+Measured: all four surfaces (sheet editor canvas, PDF, SVG/print, DXF) read `template.paperWidth/Height`.
+`SheetDefinition.paperSize` is **write-dead** — the UI patches a key `SheetStore.update()` does not
+handle and `UpdateSheetPatch` does not declare (the call site casts `as any`), while the one working
+writer `SheetStore.setPaperSize` has **zero callers** — and **read-dead**: its only readers are a
+dropdown's selected state and an info label. **This is almost certainly the whole "improve the title
+block" complaint** — his page is A3 with a 120 mm block, which on a sheet he believes is A0 reads as
+"tiny block on a mostly-empty page".
+
+⛔ **NOT silently re-pointed.** The title block's field coordinates are absolute mm from the paper's
+LEFT edge (`x: 305` on a 420 mm page), so preferring `sheet.paperSize` without making them
+block-relative would throw every field off the sheet. **What shipped is the disclosure**: export now
+warns by name, stating which side won. Contract — **C102 §5.3**, with the re-anchoring costed in §5.5.
+
+## L-10685 — `Views on Sheet: 0` while both views showed `✓ placed` and the canvas drew two viewports ✅ FIXED (PDFSHEET35, 2026-08-24)
+
+⭐ **NEITHER EXPRESSION WAS WRONG.** `sheet.viewports.length` is the right number and
+`new Set(sheet.viewports.map(vp => vp.viewId))` is the right badge. The defect was **FRESHNESS**:
+`sheetStore.get()` returns a **deep clone**, `ViewPropertiesPanel` captured one at click time, and it
+was — measured — **the only sheet consumer in the repo with no `sd:sheet-updated` subscription**.
+Select a sheet while empty, place two views, and the clone says zero forever. Every other reader
+(sidebar badges, the Drawing Register via `SheetIndexService`, the canvas hint) recomputes and was
+correct. Fixed by arming a live refresh; deletion of the shown sheet hides the panel rather than
+leaving it describing something gone.
+
+## L-10686 — ⛔ SHEET LAYOUT PRESETS ARE INERT — the six buttons store intent and move nothing ⚠ OPEN (PDFSHEET35, 2026-08-24)
+
+`layoutEngine.resolve()` has **zero production callers** and `ResolvedPosition` **zero consumers**.
+`ApplySheetLayoutPresetCommand` writes `sheet.layoutRules`; **nothing ever turns those rules into
+`SheetViewport.position`**. Four of the six presets (`single-centred`, `plan-two-sections`,
+`four-up`, `detail-sheet`) do not read the paper size at all — they take `_paper` and use hard-coded
+mm literals. Costed **M** in C102 §5.5. ⚠ This is why the founder's exported sheet looks unarranged:
+choosing a preset genuinely does nothing to the page.
+
+## L-10687 — ⚠ A SECOND, BETTER-SHAPED TITLE-BLOCK SYSTEM IS ALREADY WRITTEN AND UNWIRED ⚠ OPEN (PDFSHEET35, 2026-08-24)
+
+`plugins/sheets/src/title-block.ts` + `packages/schemas/src/sheet/title-block.ts` model **block-local
+mm coordinates**, `defaultLayout.anchor` (`bottom-left|bottom-right|top-left|top-right`),
+`align`/`yAnchor`, `borderLines`, `logoArea`, and font size **in mm rather than points** — and carry
+`computeTitleBlockRect(template, sheetWidthMm, sheetHeightMm)`, **exactly the paper-relative function
+the live system lacks**. `new TitleBlockStore(...)` is never called outside its own doc comment and
+`BUILTIN_TITLE_BLOCK_TEMPLATES` has no non-test consumer. ⛔ **The portrait/vertical title block and
+user-placed fields the founder asked for should ADOPT or EXTEND this, never mint a third system.**
+This is the [authored-but-unwired] shape again.

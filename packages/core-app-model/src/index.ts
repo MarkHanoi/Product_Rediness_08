@@ -640,7 +640,7 @@ export type { ActivePlanDrawingRef } from './views/ActivePlanDrawingRef.js';
 export { activePlanDrawingRef } from './views/ActivePlanDrawingRef.js';
 export { ViewVisibilityMap } from './views/ViewVisibilityMap.js';
 export type { RevisionEntry, SheetViewport, SheetStatus, SheetDefinition, PaperSize, OutputConfig, SheetDefinitionStoreSnapshot } from './views/SheetDefinitionTypes.js';
-export { getViewIds } from './views/SheetDefinitionTypes.js';
+export { getViewIds, resolveViewportScale } from './views/SheetDefinitionTypes.js';
 export { FastPathProjectorService } from './views/FastPathProjectorService.js';
 export { ifcProjectionStore, IFC_PROJECTION_CHANGED_EVENT } from './views/IFCProjectionStore.js';
 export type { IFCProjectionStoreImpl } from './views/IFCProjectionStore.js';

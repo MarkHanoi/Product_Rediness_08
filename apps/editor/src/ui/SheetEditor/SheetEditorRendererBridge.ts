@@ -16,6 +16,9 @@ import type { ViewDefinition } from '@pryzm/core-app-model';
 import { viewportPreviewRenderer } from '@pryzm/core-app-model';
 import { viewportThumbnailRenderer } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
+// §SHEET-ONE-SCALE-RESOLUTION (L-10682) — the label and the geometry read the
+// SAME default. They used to read 50 and 100 respectively.
+import { resolveViewportScale } from '@pryzm/core-app-model';
 import { UpdateViewportScaleCommand } from '@pryzm/command-registry';
 // §SHEET-COMPOSITE-ON-SHEET (L-1630) — THE producer of "a view on a sheet".
 // Deliberately the subpath, not the root barrel: the root drags jsPDF, jszip,
@@ -62,7 +65,7 @@ export function composeSheetViewport(
 ): ComposedViewportSvg {
     return composeViewportSvg({
         viewId: vp.viewId,
-        scale:  vp.scale ?? 100,
+        scale:  resolveViewportScale(vp, viewDefinitionStore.get(vp.viewId)),
         // §SHEET-VIEWPORT-CROP (L-1840) — the crop rides the SAME producer as the
         // drawing itself, which is the whole reason it is safe: the sheet, the PDF
         // and the print layer cannot disagree about what the crop shows, because

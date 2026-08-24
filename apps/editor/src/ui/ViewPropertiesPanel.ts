@@ -7,6 +7,9 @@ import type { UpdateViewDefinitionPatch } from '@pryzm/command-registry';
 import { visibilityIntentStore } from '@pryzm/core-app-model/presentation';
 import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
 import type { SheetDefinition } from '@pryzm/core-app-model';
+// §SHEET-A-COUNTER-MUST-BE-LIVE (L-10685) — this panel showed a clone captured
+// at click time; the store is the only live source.
+import { sheetStore } from '@pryzm/core-app-model';
 import type { ViewScheduleDefinition as ScheduleDefinition } from '@pryzm/core-app-model';
 import type { DetailLevel } from '@pryzm/core-app-model';
 
@@ -38,6 +41,9 @@ export class ViewPropertiesPanel {
     // Phase II: tracks the currently displayed ViewDefinition id
     // (public getter used by ProjectBrowserPanel to check which definition is open)
     private _selectedViewDefinitionId: string | null = null;
+    /** §SHEET-A-COUNTER-MUST-BE-LIVE (L-10685) — the sheet currently on show, if any. */
+    private _shownSheetId: string | null = null;
+    private _sheetRefreshBound: (() => void) | null = null;
     get selectedViewDefinitionId(): string | null { return this._selectedViewDefinitionId; }
 
     private _cutFillVisibility: Map<THREE.Mesh, boolean> = new Map();
@@ -486,6 +492,7 @@ export class ViewPropertiesPanel {
      */
     showFromDefinition(def: ViewDefinition): void {
         this._selectedViewDefinitionId = def.id;
+        this._shownSheetId             = null;  // L-10685 — a view is not a sheet
         this.selectedView             = null;
         this._clearContent();
         this.element.style.display    = 'block';
@@ -1074,7 +1081,46 @@ export class ViewPropertiesPanel {
         this.selectedView              = null;
         this._clearContent();
         this.element.style.display     = 'block';
+        this._shownSheetId             = sheet.id;
         this._renderSheetProperties(sheet);
+        this._armSheetLiveRefresh();
+    }
+
+    /**
+     * §SHEET-A-COUNTER-MUST-BE-LIVE (L-10685) — re-render this panel when the
+     * sheet it is showing changes.
+     *
+     * ─── THE DEFECT ────────────────────────────────────────────────────────
+     * The founder's Sheet Identity panel read **`Views on Sheet: 0`** while the
+     * Available Views list beside it marked both views **`✓ placed`** and the
+     * canvas plainly drew two viewports.
+     *
+     * ⭐ NEITHER EXPRESSION IS WRONG. `sheet.viewports.length` is the right
+     * number and `new Set(sheet.viewports.map(vp => vp.viewId))` is the right
+     * badge. The defect is FRESHNESS: `sheetStore.get()` returns a DEEP CLONE,
+     * this panel captured one at click time, and — measured 2026-08-24 — it was
+     * the only sheet consumer in the repo with no `sd:sheet-updated`
+     * subscription. Select a sheet while it is empty, place two views, and the
+     * clone still says zero forever. Every other reader (the sidebar badges, the
+     * Drawing Register via `SheetIndexService`, the canvas hint) recomputes.
+     *
+     * A counter that contradicts the thing it counts is worse than no counter:
+     * a drawing register built on the belief that this panel is live would be
+     * wrong in the same direction.
+     */
+    private _armSheetLiveRefresh(): void {
+        if (this._sheetRefreshBound) return;
+        this._sheetRefreshBound = () => {
+            const id = this._shownSheetId;
+            if (!id || this.element.style.display === 'none') return;
+            const fresh = sheetStore.get(id);
+            // The sheet was deleted while its properties were open. Hide rather
+            // than leave a stale identity panel describing something gone.
+            if (!fresh) { this._shownSheetId = null; this.hide(); return; }
+            this._clearContent();
+            this._renderSheetProperties(fresh);
+        };
+        window.addEventListener('sd:sheet-updated', this._sheetRefreshBound);
     }
 
     /**
@@ -1083,6 +1129,7 @@ export class ViewPropertiesPanel {
      */
     showSchedule(schedule: ScheduleDefinition): void {
         this._selectedViewDefinitionId = null;
+        this._shownSheetId             = null;  // L-10685
         this.selectedView              = null;
         this._clearContent();
         this.element.style.display     = 'block';

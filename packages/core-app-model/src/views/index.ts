@@ -128,7 +128,7 @@ export type {
     RevisionEntry, SheetViewport, SheetStatus, SheetDefinition,
     PaperSize, OutputConfig, SheetDefinitionStoreSnapshot,
 } from './SheetDefinitionTypes.js';
-export { getViewIds } from './SheetDefinitionTypes.js';
+export { getViewIds, resolveViewportScale } from './SheetDefinitionTypes.js';
 
 export { FastPathProjectorService } from './FastPathProjectorService.js';
 

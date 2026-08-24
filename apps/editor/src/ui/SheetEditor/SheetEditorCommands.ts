@@ -30,6 +30,7 @@ import { resizeCropByEdgeDelta, currentCropFromComposition } from '@pryzm/file-f
 import type { EdgeDeltaMm } from '@pryzm/file-format/sheets';
 import { titleBlockStore } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
+import { resolveViewportScale } from '@pryzm/core-app-model';  // §SHEET-ONE-SCALE-RESOLUTION (L-10682)
 import { layoutEngine } from '@pryzm/core-app-model';
 import type { LayoutPresetKey } from '@pryzm/core-app-model';
 import type { DataPanel } from '@pryzm/core-app-model';
@@ -123,7 +124,9 @@ export function dispatchAddViewport(
         viewportId: `vp-${crypto.randomUUID()}`,
         viewId:     view.id,
         position:   position ?? { x: 50 + offset, y: 100 + offset },
-        scale:      view.output?.scale ?? 50,
+        // §SHEET-ONE-SCALE-RESOLUTION (L-10682) — a viewport is BORN with an
+        // explicit scale so nothing downstream has to guess one.
+        scale:      resolveViewportScale(null, view),
         viewType:   view.viewType,
     });
     if (!dispatchSheetCommand('dispatchAddViewport', cmd).dispatched) return;
@@ -600,7 +603,7 @@ export function buildInlineScaleOverlay(
     sheet:    SheetDefinition,
     viewType: string,
 ): HTMLElement {
-    const currentScale = vp.scale ?? 50;
+    const currentScale = resolveViewportScale(vp, viewDefinitionStore.get(vp.viewId));
     const PRESETS = viewType === 'elevation' || viewType === 'section'
         ? [10, 20, 50, 100, 200]
         : [20, 50, 100, 200, 500];
@@ -910,7 +913,7 @@ export function buildResizeHandles(
     if (!composed) return [];
     if (!(scaleFactor > 0) || !Number.isFinite(scaleFactor)) return [];
 
-    const scaleDenom = vp.scale ?? 100;
+    const scaleDenom = resolveViewportScale(vp, viewDefinitionStore.get(vp.viewId));
     const baseCrop = vp.crop ?? currentCropFromComposition(composed, scaleDenom);
     if (!baseCrop) return [];
 
