@@ -1547,8 +1547,35 @@ refusal: it is a delete.**
 > same premise as the code cannot falsify the premise** — and it was hiding in the one field this
 > module's own header had just cleared for `colour`.
 
-⚠ **STILL OPEN AND UNCHANGED BY ANY OF THE ABOVE:** **R-1**, **R-2**, **R-3** (§TOBE.8) · **RM-3**
-the tombstone · **RM-4** the next-step refusals · **RM-5** the stable room reference (blocked on
+### §TOBE.11.1 — ⭐⭐ **R-1 RULED 2026-08-24: DERIVATION + TOMBSTONE**
+
+> **The founder took the third option** — the one §TOBE.1.3 recorded as *"a third shape exists and
+> may be the answer"*, not either of the two the lane was asked to cost.
+> **Keep derivation exactly as it is. Make the LOSS durable instead of the room. OFFER the former
+> name / number / occupancy back — never re-apply it.**
+
+| Clause | SHA | What shipped | What it did NOT do |
+|---|---|---|---|
+| **RM-3** *(register)* | `72ed4450` | `roomTombstoneRegister` — an authored room's meaning is captured as it dies at `ReDetectRoomsCommand.ts:105-112`, and matched back to the face that later closes over it (centroid-in-polygon **plus** an area-similarity floor). **Bounded at 32 per level, FIFO, session- AND project-scoped** — by *authored rooms lost on one level in one session*, never by N | ⛔ **NOT persistence.** A tombstone does not survive a reload and is never written to the project file — that would be a second store of room meaning, i.e. the identity the ruling declined |
+| **RM-3** *(offer)* | `a53d4d64` | The chat Confirm — *"Kitchen (48.0 m²) was lost when its boundary changed, and this space is now a new room. Restore its name…?"* — and on Confirm **one** `room.restoreMeaning`, a new bus verb bridging to `UpdateRoomCommand`: **one command, one Ctrl+Z** | ⛔ **Writes meaning only** — no `id`, no geometry, an explicit key allowlist, and an empty patch is a typed refusal |
+
+> ⛔ **WHAT THE RULING DID NOT GRANT, and it was chosen knowingly.** **No persistent room id.** Rooms
+> remain a pure function of wall topology. **RM-5 stays blocked and the four
+> [C72 §9.4](C72-PROPAGATION-AND-PREVSTATE.md) SILENT cells stay silent.** A tombstone restores
+> **MEANING, never IDENTITY** — the recovered room keeps a fresh `crypto.randomUUID()`, so a room tag
+> or schedule row anchored to the lost room stays pointing at nothing.
+> ⭐ **The offer says so, before the user answers** — the honesty condition the founder attached to
+> the ruling, held in ONE string (`describeTombstoneLimits`) so it cannot drift across call sites.
+> **This is the same discipline as `db165a09`, which refused to promise a name back before the
+> mechanism existed. It exists now, so the promise is made — and bounded in the same breath.**
+
+> ⭐ **R-3's mechanism is now BUILT AND WAITING.** `captureRoomTombstone` takes a `RoomData` and knows
+> nothing about *why* it was dropped, so the P2.3 branch at `RoomDetectionEngine.ts:1122-1131` can
+> call it for the losing half of a merge — or for **both** halves — with **no change** to the
+> register. ⛔ **R-3 is still OPEN and is not answered by the R-1 ruling.**
+
+⚠ **STILL OPEN AND UNCHANGED BY ANY OF THE ABOVE:** ~~R-1~~ **RULED — see §TOBE.11.1** · **R-2**,
+**R-3** (§TOBE.8) · ~~RM-3~~ **SHIPPED** · **RM-4** the next-step refusals · **RM-5** the stable room reference (blocked on
 R-1, and blocking four [C72 §9.4](C72-PROPAGATION-AND-PREVSTATE.md) ledger cells) · **RM-6**/**RM-7**.
 ⛔ **Nothing shipped here restores the authored meaning of a lost room. The census MEASURES the
 loss; it does not prevent it.**
