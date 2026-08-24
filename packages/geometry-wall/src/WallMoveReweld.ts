@@ -197,7 +197,7 @@ export interface MoveReweldEntry {
      * copy of a geometric predicate — the drift that file's own header warns
      * against — so the engine that decided it says so instead.
      */
-    role?: 'dependent-stem' | 'mutual-corner';
+    role?: 'dependent-stem' | 'mutual-corner' | 'host-extension';
 }
 
 /**
@@ -763,7 +763,19 @@ export type MoveReweldRefusalReason =
      * The corner is real and the direction is right; the DISTANCE is not a
      * re-weld. See `MAX_FOLLOW_GAIN` for the two measured fixtures.
      */
-    | 'CORNER_FOLLOW_GAIN_EXCEEDED';
+    | 'CORNER_FOLLOW_GAIN_EXCEEDED'
+    /**
+     * ⭐ §GRAPH43-EXTEND-THE-HOST (L-10803) — the subject's endpoint left this
+     * partner's body, the partner's own LINE still passes under it, but growing
+     * the partner far enough to re-cover it would extend a wall the user did not
+     * touch by more than `MAX_FOLLOW_GAIN` × his own drag.
+     *
+     * Same bound and same argument as `CORNER_FOLLOW_GAIN_EXCEEDED` (§10.7
+     * W-M-1), applied to the guest-side arm: `1/sin θ` and "the line still
+     * passes under it" are both correct geometry and neither is a licence.
+     * The join is LEFT OPEN and NAMED rather than a wall being grown metres.
+     */
+    | 'HOST_EXTENSION_GAIN_EXCEEDED';
 
 export interface MoveReweldRefusal {
     readonly partnerId: string;
@@ -1404,8 +1416,121 @@ export function computeMoveReweldCensus(
                     continue;
                 }
                 if (wasGuest) {
-                    // The gesture BROKE a join that was real. `guestNew` is the
-                    // gap it opened — the number the user needed and never got.
+                    // ⭐⭐ §GRAPH43-EXTEND-THE-HOST (L-10803) — RUNG 1 OF THE C85
+                    //    §10.7 REPAIR LADDER, REACHED AT LAST.
+                    //
+                    // The gesture BROKE a join that was real. The founder, on
+                    // this exact gesture: *"I was expecting the wall to EXTEND
+                    // — why not?"* and *"an architect human would have seen
+                    // this."* He is right, and until now the answer was that the
+                    // partner was BINNED here, before `classifyWeldAuthorship`
+                    // could ever classify it. **The missing capability was an
+                    // ORDERING, not a geometry primitive.**
+                    //
+                    // ⛔ AND THERE IS EXACTLY ONE REPAIR THIS ENGINE MAY MAKE.
+                    // The host may GROW ALONG ITS OWN LINE. It may NOT be slid
+                    // sideways to chase the subject: that is a TRANSLATION of a
+                    // wall the user did not touch, it is C83 §10.2.2, and it is
+                    // L-922's exact signature (an interior move dragged a
+                    // perimeter baseline 2.19 m and re-seated three hosted
+                    // doors, one clamped 0.541 → 0.000 m). So the arm below
+                    // repairs ONLY when the partner's own line still passes
+                    // under the subject's new endpoint, and reports the loss
+                    // untouched when it does not.
+                    const guestPrevPt = distToSegment(prevS, ps, pe) <= distToSegment(prevE, ps, pe)
+                        ? prevS : prevE;
+                    const guestNewPt = guestPrevPt === prevS ? newS : newE;
+                    const frame = inSegmentFrame(guestNewPt, ps, pe);
+                    const partnerLenM = dist(ps, pe);
+                    if (frame && Math.abs(frame.offset) <= weldTol && partnerLenM > EPSILON_ZERO) {
+                        // The foot: the subject's new endpoint projected onto the
+                        // partner's own line. Extending TO it makes the guest-side
+                        // distance exactly 0.
+                        //
+                        // ⚠ EXACTLY to the foot, never past it. Overshooting by a
+                        // half-thickness to make a "proper" mitred T is a DIFFERENT
+                        // decision with a different owner (`WallJunctionInfill`),
+                        // and inventing an overshoot here would be this engine
+                        // deciding how the joint is DRAWN, which it does not own.
+                        const d = sub(pe, ps);
+                        const foot: Pt = {
+                            x: ps.x + (d.x / partnerLenM) * frame.axial,
+                            z: ps.z + (d.z / partnerLenM) * frame.axial,
+                        };
+                        // Which end grows? `axial` is measured from `ps`, so a
+                        // negative reading is past the START and a reading beyond
+                        // the length is past the END. A foot INSIDE the body cannot
+                        // reach here — it would have made `isGuest` true.
+                        const growStart = frame.axial < 0;
+                        const oldEnd = growStart ? ps : pe;
+                        const farEnd = growStart ? pe : ps;
+                        const extensionM = dist(oldEnd, foot);
+                        // ⭐⭐ §10.7 W-M-1 AS A BACKSTOP, AND THE PROOF THAT THIS ARM
+                        //    CANNOT OVER-EXTEND IN THE FIRST PLACE.
+                        //
+                        // The corner arm NEEDS this bound: its corner slides
+                        // `1/sin θ` along the partner, so a 2 m drag moved an
+                        // untouched wall 14.14 m (§10.7 AS-IS #1). **This arm is
+                        // different in kind, and the difference is provable.**
+                        //
+                        // `foot` is the ORTHOGONAL PROJECTION of the subject's
+                        // endpoint onto the partner's line, and a projection is a
+                        // CONTRACTION: the foot travels `|v|·cosθ ≤ |v|`, where `v`
+                        // is that endpoint's own displacement, which is itself
+                        // ≤ `movedDisplacement` by that value's definition. The old
+                        // foot lay ON the body, so the grow is
+                        // `newFootAxial − partnerLen ≤ newFootAxial − oldFootAxial`
+                        // = the foot's travel. Therefore **extension ≤ the user's
+                        // own drag, always** — a gain of ≤1×, never 3×.
+                        //
+                        // Measured across a 6-angle × 4-drag sweep (0–80°, 0.2–3.0 m):
+                        // **every entry came back at ratio 0.667, none above 1.0.**
+                        // §BOUNDED-BY-CONSTRUCTION pins that as the real invariant.
+                        //
+                        // ⚠ THE GUARD IS KEPT ANYWAY AND IS CURRENTLY UNREACHABLE.
+                        // It is a backstop against a future change to how `foot` is
+                        // derived — the moment that stops being a projection, the
+                        // proof above dies silently and this is what catches it.
+                        // ⛔ Do NOT delete it as dead code, and do NOT write a test
+                        // that claims to exercise it: no fixture can, and one that
+                        // appears to is measuring something else.
+                        const followCap = MAX_FOLLOW_GAIN * movedDisplacement + weldTol;
+                        if (extensionM > followCap) {
+                            refusals.push({
+                                partnerId: partner.id,
+                                reason: 'HOST_EXTENSION_GAIN_EXCEEDED',
+                                beyondMm: Math.round(extensionM * 1000),
+                                limitMm: Math.round(followCap * 1000),
+                            });
+                            continue;
+                        }
+                        // A grow can only lengthen, so a collapse is unreachable
+                        // here — asserted rather than assumed, because "unreachable"
+                        // is what every guard in this file was before it was needed.
+                        const newLenM = dist(foot, farEnd);
+                        if (newLenM < DEGENERATE_STUB_LENGTH || newLenM < partnerLenM) {
+                            na(partner.id, 'SUBJECT_GUEST_JOIN_BROKEN_BY_MOVE', guestNew, weldTol);
+                            continue;
+                        }
+                        const a0 = partner.baseLine[0], b0 = partner.baseLine[1];
+                        const grown = (src: Point3D): Point3D => ({ x: foot.x, y: src.y, z: foot.z });
+                        entries.push({
+                            wallId: partner.id,
+                            newBaseLine: growStart ? [grown(a0), { ...b0 }] : [{ ...a0 }, grown(b0)],
+                            prevBaseLine: [{ ...a0 }, { ...b0 }],
+                            role: 'host-extension',
+                        });
+                        // ⛔ NOT pushed to `cornersOnMoved`. The subject's endpoint
+                        // lands on this partner's BODY, not at its end — offering
+                        // that point as a corner for the subject to terminate on
+                        // would shorten the subject to its own guest foot, which is
+                        // §L-872's scar verbatim. Same reason a stem never offers one.
+                        continue;
+                    }
+                    // The partner's own line no longer runs under the subject's
+                    // new endpoint, so no amount of GROWING can restore this join
+                    // and SLIDING it is forbidden. `guestNew` is the gap it opened
+                    // — the number the user needed and never got.
                     na(partner.id, 'SUBJECT_GUEST_JOIN_BROKEN_BY_MOVE', guestNew, weldTol);
                     continue;
                 }

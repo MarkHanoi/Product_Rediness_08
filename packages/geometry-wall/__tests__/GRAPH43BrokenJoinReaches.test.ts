@@ -107,7 +107,7 @@ function makeHarness(opts?: { healthyOnly?: boolean }) {
     const store = new StoreDouble();
     store.add(wall('spur', [0, 3], [2, 3]));
     store.add(wall('rail', [2, 1], [2, 5]));
-    store.add(wall('keep', [0, 1], [0, 9]));
+    store.add(wall('keep', [-2, 3], [9, 3]));
 
     const edges: Record<string, string[]> = opts?.healthyOnly === true
         ? { spur: ['keep'] }
@@ -157,14 +157,14 @@ describe('§GRAPH43 §REACHES — a destroyed join reaches the user sink', () =>
     it('§REACHES: the broken join is reported, by name, with its partner', () => {
         const h = makeHarness();
         try {
-            h.store.translate('spur', 0, 2.6);
+            h.store.translate('spur', 3.2, 0);
 
             const broken = h.reports.filter(r => r.reason === 'SUBJECT_GUEST_JOIN_BROKEN_BY_MOVE');
             expect(broken).toHaveLength(1);
             expect(broken[0]!.movedWallId).toBe('spur');
             expect(broken[0]!.partnerIds).toEqual(['rail']);
             // The sentence must carry the measured gap, not merely the code.
-            expect(broken[0]!.detail.join(' ')).toContain('600');
+            expect(broken[0]!.detail.join(' ')).toContain('1200');
         } finally { h.restore(); }
     });
 
@@ -177,11 +177,11 @@ describe('§GRAPH43 §REACHES — a destroyed join reaches the user sink', () =>
     it('§AUDIBLE: it warns to the console too, naming the wall and the gap', () => {
         const h = makeHarness();
         try {
-            h.store.translate('spur', 0, 2.6);
+            h.store.translate('spur', 3.2, 0);
             const w = h.warns.find(x => x.includes('§MOVE-REWELD-JOIN-BROKEN')) ?? '';
             expect(w).toContain('spur');
             expect(w).toContain('rail');
-            expect(w).toContain('600');
+            expect(w).toContain('1200');
         } finally { h.restore(); }
     });
 
@@ -195,7 +195,7 @@ describe('§GRAPH43 §REACHES — a destroyed join reaches the user sink', () =>
     it('§BOTH-COUNTS: the verdict line says a join was BROKEN, and stops claiming otherwise', () => {
         const h = makeHarness();
         try {
-            h.store.translate('spur', 0, 2.6);
+            h.store.translate('spur', 3.2, 0);
             const line = h.verdictLine();
             expect(line).toContain('§MOVE-REWELD-EMPTY-PLAN');
             // ⭐ FAILS ON `bd45650d`, and this is the sharpest arm in the file:
@@ -206,7 +206,7 @@ describe('§GRAPH43 §REACHES — a destroyed join reaches the user sink', () =>
             expect(line).not.toContain('Every junction this move touched was left exactly as it was');
             expect(line).toContain('NOT every junction was left as it was');
             expect(line).toContain('rail');
-            expect(line).toContain('600');
+            expect(line).toContain('1200');
         } finally { h.restore(); }
     });
 
@@ -219,7 +219,7 @@ describe('§GRAPH43 §REACHES — a destroyed join reaches the user sink', () =>
     it('§QUIET: a gesture that breaks nothing reports nothing to the user', () => {
         const h = makeHarness({ healthyOnly: true });
         try {
-            h.store.translate('spur', 0, 2.6);
+            h.store.translate('spur', 3.2, 0);
             expect(h.reports.filter(r => r.reason === 'SUBJECT_GUEST_JOIN_BROKEN_BY_MOVE'))
                 .toHaveLength(0);
             // The reassuring sentence is KEPT verbatim where it is TRUE.
@@ -257,7 +257,7 @@ describe('§GRAPH43 §REACHES — a destroyed join reaches the user sink', () =>
     it('§NO-ROOM-VOCABULARY: the wall lines report the WALL fact and cite the room census', () => {
         const h = makeHarness();
         try {
-            h.store.translate('spur', 0, 2.6);
+            h.store.translate('spur', 3.2, 0);
             const said = [h.verdictLine(), ...h.warns, ...h.reports.flatMap(r => r.detail)].join(' | ');
 
             // ⛔ No prediction, in any of the three surfaces.
@@ -269,7 +269,7 @@ describe('§GRAPH43 §REACHES — a destroyed join reaches the user sink', () =>
 
             // ✅ The WALL fact is present, with its millimetres.
             expect(said).toContain('rail');
-            expect(said).toContain('600');
+            expect(said).toContain('1200');
             // ✅ And the room question is handed to its owner by name.
             expect(said).toContain('ROOM-LOSS-CENSUS');
         } finally { h.restore(); }
@@ -284,7 +284,7 @@ describe('§GRAPH43 §REACHES — a destroyed join reaches the user sink', () =>
     it('§NOT-A-REFUSAL: the count of refusals is still zero, and nothing moved', () => {
         const h = makeHarness();
         try {
-            h.store.translate('spur', 0, 2.6);
+            h.store.translate('spur', 3.2, 0);
             expect(h.verdictLine()).toContain('0 re-weld entries and 0 refusals');
             expect(h.reports.filter(r => r.reason.startsWith('INCUMBENT')))
                 .toHaveLength(0);

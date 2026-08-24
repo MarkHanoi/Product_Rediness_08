@@ -271,6 +271,12 @@ export function describeReweldRefusal(r: MoveReweldRefusal): string {
         // not just the two lengths, because the ratio is the fact: the founder
         // could see a wall had moved too far but had no way to see that it had
         // moved SEVEN TIMES further than he dragged.
+        case 'HOST_EXTENSION_GAIN_EXCEEDED':
+            return `HOST_EXTENSION_GAIN_EXCEEDED: the moved wall's end left ${r.partnerId}'s body, `
+                 + `and ${r.partnerId}'s own line still runs under it — but growing it far enough to `
+                 + `catch up means extending a wall you did not touch by ${r.beyondMm} mm, past the `
+                 + `${r.limitMm} mm this gesture allows. The junction is LEFT OPEN rather than a wall `
+                 + `you did not touch being grown that far`;
         case 'CORNER_FOLLOW_GAIN_EXCEEDED':
             return `CORNER_FOLLOW_GAIN_EXCEEDED: ${r.partnerId} shares this corner with the moved `
                  + `wall, but closing it would move that wall ${r.beyondMm} mm — past the `

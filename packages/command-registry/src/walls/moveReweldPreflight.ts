@@ -507,7 +507,23 @@ function _previewMoveReweld(
             // refuses to keep. L-942 is what counting it here cost — every
             // wall-move that broke a junction was hard-blocked in production.
             const role = (e as { role?: string }).role;
-            if (role === 'dependent-stem' || role === 'mutual-corner') continue;
+            // ⭐ §GRAPH43-EXTEND-THE-HOST (L-10803) — 'host-extension' joins the two
+            // roles above for the SAME reason they are here: the verdict is
+            // CONSUMED, not re-derived. The engine stamps it only after measuring
+            // that (a) the `joinedTo` graph DECLARED this partner, (b) the
+            // subject's endpoint was ON that partner's body before the move and
+            // is not after it, and (c) the partner's OWN LINE still runs under
+            // the subject's new endpoint — so the repair is a pure GROW along
+            // that line with the far endpoint untouched.
+            //
+            // ⛔ That is the opposite of L-922, which this incumbent test exists
+            // to catch: L-922 was a wall TRANSLATED sideways (both endpoints
+            // displaced, hosted doors dragged with it). A host-extension moves
+            // ONE endpoint, ALONG the wall's own axis, and can only lengthen.
+            // Re-testing it here by raw endpoint displacement would classify a
+            // grow as a drag and block the founder's *"I was expecting the wall
+            // to extend"* on the strength of a distance that means the opposite.
+            if (role === 'dependent-stem' || role === 'mutual-corner' || role === 'host-extension') continue;
             const before = wallStore.getById(e.wallId);
             const bl = before?.baseLine as readonly Point3D[] | undefined;
             if (!bl || bl.length < 2) continue;

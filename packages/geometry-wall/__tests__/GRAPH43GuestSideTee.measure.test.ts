@@ -193,6 +193,29 @@ const movedPast: MoveReweldMovedWall = {
 const railPartition: MoveReweldPartner =
     { id: 'RAIL', baseLine: bl([2, 1], [2, 5]), declared: true };
 
+/**
+ * ⭐⭐ FIXTURE C — THE BREAK **`§GRAPH43-EXTEND-THE-HOST` CANNOT REPAIR**, and it
+ *    is what keeps the reporting arms in this file alive.
+ *
+ * `L-10803` shipped rung 1 of the repair ladder: when the subject slides PAST a
+ * host's end but stays on that host's own LINE, the host now GROWS to keep the
+ * T. Fixture B's break is therefore **repaired** and no longer reaches the
+ * not-applicable census — see `GRAPH43HostExtension.measure.test.ts` §EXTEND.
+ *
+ * ⛔ **This one cannot be repaired, and must never be.** The subject drags
+ * PERPENDICULAR to the host, so `RAIL`'s own line no longer passes under its
+ * endpoint. The only thing that could close this join is sliding `RAIL`
+ * sideways — a TRANSLATION of a wall the user did not touch, C83 §10.2.2, and
+ * L-922's exact signature. So the engine reports the loss and moves nothing,
+ * which is what the arms below measure.
+ */
+const movedSideways: MoveReweldMovedWall = {
+    id: 'S',
+    prevBaseLine: bl([0, 3], [2, 3]),
+    newBaseLine: bl([3.2, 3], [5.2, 3]),
+    thickness: T,
+};
+
 describe('§GRAPH43 §THE-BREAK — a gesture that destroys a real join, named as such', () => {
     /**
      * ⭐⭐ THE ROOM-DESTROYING OUTCOME, WHICH HAD NO NAME ANYWHERE ON HEAD.
@@ -205,22 +228,26 @@ describe('§GRAPH43 §THE-BREAK — a gesture that destroys a real join, named a
      * that this engine's census cannot distinguish a destroyed relationship from
      * a healthy one.
      */
-    it('§THE-BREAK: the join was closed to 0 mm and is now open by 600 mm', () => {
-        const census = computeMoveReweldCensus(movedPast, [railPartition], { weldTol: WELD_TOL });
+    it('§THE-BREAK: an UNREPAIRABLE break is named, with the gap it opened', () => {
+        // ⭐ UPDATED 2026-08-24 (L-10803). This arm used to run FIXTURE B, whose
+        //   break the host-extension now REPAIRS — so it moved to the fixture
+        //   that cannot be repaired. The assertion is unchanged in substance:
+        //   a destroyed relationship gets its own name and its own number.
+        const census = computeMoveReweldCensus(movedSideways, [railPartition], { weldTol: WELD_TOL });
         const na = naOf(census, 'RAIL')!;
         expect(na).toBeDefined();
 
         expect(na.reason).toBe('SUBJECT_GUEST_JOIN_BROKEN_BY_MOVE');
         // The REAL gap this gesture opened, and the tolerance it had to clear.
-        expect(na.measuredMm).toBe(600);
+        expect(na.measuredMm).toBe(1200);
         expect(na.limitMm).toBe(500);
 
-        // ⛔ Still not a refusal, deliberately: the engine has NO ARM that can act
-        //    on a guest-side T, so calling it a refusal would claim a decision
-        //    that was never taken. C85 §10.8 puts the disposition to the founder.
+        // ⛔ Not a refusal: the engine took no decision, it simply has no arm that
+        //    can GROW into this one. C85 §10.8 W-L-4 / §10.8.4.
         expect(census.refusals).toHaveLength(0);
-        // ⛔ And nothing was extended — the founder's *"I was expecting the wall
-        //    to extend"*, measured.
+        // ⛔ And nothing was moved — which here is the CORRECT outcome, not the
+        //    defect. Repairing this would mean sliding a wall the user never
+        //    touched (§NO-SLIDE in GRAPH43HostExtension.measure.test.ts).
         expect(census.entries.some(e => e.wallId === 'RAIL')).toBe(false);
     });
 
@@ -232,9 +259,11 @@ describe('§GRAPH43 §THE-BREAK — a gesture that destroys a real join, named a
         // Both partners host the subject's endpoints. WEST end on `KEEP` (which
         // runs east–west, so the northward drag keeps that T closed only if KEEP
         // moves with it — it does not; use a north–south rail instead).
+        // KEEP runs EAST-WEST through the subject's west end, so an eastward
+        // drag slides that endpoint ALONG it and the T stays closed.
         const keep: MoveReweldPartner =
-            { id: 'KEEP', baseLine: bl([0, 1], [0, 9]), declared: true };
-        const census = computeMoveReweldCensus(movedPast, [railPartition, keep], { weldTol: WELD_TOL });
+            { id: 'KEEP', baseLine: bl([-2, 3], [9, 3]), declared: true };
+        const census = computeMoveReweldCensus(movedSideways, [railPartition, keep], { weldTol: WELD_TOL });
 
         const reasons = Object.fromEntries(census.notApplicable.map(n => [n.partnerId, n.reason]));
         expect(reasons['RAIL']).toBe('SUBJECT_GUEST_JOIN_BROKEN_BY_MOVE');
@@ -264,7 +293,7 @@ describe('§GRAPH43 §THE-DISCRIMINATOR — why ONE partition adapted and the ot
      * `subject: no corner offered` — a stem never offers the subject a corner,
      * and a guest-side T never gets far enough to offer one.
      */
-    it('§SIGNATURE: 1 entry, 0 refusals, 2 dropped, no corner offered', () => {
+    it('§SIGNATURE: the gesture that lost him a room now repairs BOTH partitions', () => {
         const stem: MoveReweldPartner =
             { id: 'STEM', baseLine: bl([1, 3], [1, -2]), declared: true };
         const keep: MoveReweldPartner =
@@ -274,20 +303,46 @@ describe('§GRAPH43 §THE-DISCRIMINATOR — why ONE partition adapted and the ot
             movedPast, [railPartition, keep, stem], { weldTol: WELD_TOL },
         );
 
-        // 1 baseline re-seat — and it is the wall whose ENDPOINT was on the subject.
-        expect(census.entries.filter(e => e.wallId !== 'S').map(e => e.wallId)).toEqual(['STEM']);
-        // 0 junction(s) refused.
+        // ⭐⭐ UPDATED 2026-08-24 (L-10803), AND THIS IS THE POINT OF THE LANE.
+        //
+        // This arm used to assert the founder's console verbatim — `1 baseline
+        // re-seat(s), 0 junction(s) refused, 2 not-applicable` — i.e. ONE
+        // partition adapting and the other silently dropped. **That line is now
+        // unreachable on this fixture**, and the assertion below is what
+        // replaced it.
+        //
+        //   • `STEM` — partition's endpoint on the SUBJECT's body. Followed
+        //     before this lane and still does (`computeStemFollow`).
+        //   • `RAIL` — the SUBJECT's endpoint on the PARTITION's body. **Dropped
+        //     before this lane; now GROWS to keep the T** (`host-extension`).
+        //
+        // "one interior partition adapted … but the other did not" is now
+        // BOTH ADAPTED, in one gesture, at one undo.
+        const byId = Object.fromEntries(
+            census.entries.filter(e => e.wallId !== 'S').map(e => [e.wallId, e.role]));
+        expect(Object.keys(byId).sort()).toEqual(['RAIL', 'STEM']);
+        expect(byId['STEM']).toBe('dependent-stem');
+        expect(byId['RAIL']).toBe('host-extension');
+
+        // Still zero refusals — and now that is a TRUE clean gesture rather than
+        // a silence, because the third partner is a named success.
         expect(census.refusals).toHaveLength(0);
-        // 2 not-applicable — and they are the two the SUBJECT is a guest of.
-        expect(census.notApplicable.map(n => n.partnerId).sort()).toEqual(['KEEP', 'RAIL']);
-        // | subject: no corner offered.
+        expect(census.notApplicable.map(n => n.partnerId)).toEqual(['KEEP']);
+        expect(census.notApplicable[0]!.reason).toBe('SUBJECT_GUEST_JOIN_INTACT');
+
+        // ⛔ And the repair does NOT offer the subject a corner to seat on: the
+        //   subject's endpoint is on RAIL's BODY, and terminating the subject
+        //   there would shorten it to its own guest foot (§L-872's scar).
         expect(census.subjectSeat.cornersOffered).toHaveLength(0);
-        // | partners accounted 3/3.
-        expect(
-            census.entries.filter(e => e.wallId !== 'S').length
-            + census.refusals.length
-            + census.notApplicable.length,
-        ).toBe(3);
+
+        // §PARTITION: every partner in exactly one bucket, none invented.
+        const all = [
+            ...census.entries.map(e => e.wallId).filter(id => id !== 'S'),
+            ...census.refusals.map(r => r.partnerId),
+            ...census.notApplicable.map(n => n.partnerId),
+        ];
+        expect(new Set(all).size).toBe(all.length);
+        expect([...all].sort()).toEqual(['KEEP', 'RAIL', 'STEM']);
     });
 });
 
