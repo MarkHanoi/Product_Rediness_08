@@ -148,6 +148,7 @@ All spec files, sorted by filename. Numbered `SPEC-NN` (gaps: 14, 16–20, 22, 2
 | `SPEC-LIVE-SINGLE-OPTION-LAYOUT-MODAL` | [SPEC-LIVE-SINGLE-OPTION-LAYOUT-MODAL — one best layout, living graph, live slider/graph editing](./SPEC-LIVE-SINGLE-OPTION-LAYOUT-MODAL.md) |
 | `SPEC-LIVING-BUILDING-GRAPH` | [SPEC — Living Building Graph (A.21.D17) v1.1](./SPEC-LIVING-BUILDING-GRAPH.md) |
 | `SPEC-LIVING-DESIGN-PARAMETERS` | [SPEC-LIVING-DESIGN-PARAMETERS — slider-driven, live-regenerating design parameters](./SPEC-LIVING-DESIGN-PARAMETERS.md) |
+| `SPEC-LIVING-WALL-RELATIONSHIPS` | [SPEC — The Living Wall: relationship propagation on move](./SPEC-LIVING-WALL-RELATIONSHIPS.md) |
 | `SPEC-MATERIALS-REPOSITORY` | [SPEC — Materials Repository (central, user-managed, element-fed)](./SPEC-MATERIALS-REPOSITORY.md) |
 | `SPEC-NONRECT-APARTMENTS-CORRIDOR-FIRST` | [SPEC — Non-rectangular apartments (corridor-first reshape-not-drop)](./SPEC-NONRECT-APARTMENTS-CORRIDOR-FIRST.md) |
 | `SPEC-OFFICE-GENERATION-ENGINE` | [SPEC — Office Generation Engine](./SPEC-OFFICE-GENERATION-ENGINE.md) |
