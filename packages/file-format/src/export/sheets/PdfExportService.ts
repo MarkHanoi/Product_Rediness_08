@@ -43,6 +43,7 @@ import { sheetStore }                from '@pryzm/core-app-model';
 import { titleBlockStore } from '@pryzm/core-app-model/views';
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
+import { resolveViewportScale } from '@pryzm/core-app-model';
 import { viewportPreviewRenderer, fitLetterbox } from '@pryzm/core-app-model/presentation';
 import { composeForPlacement, viewportPaperRect } from './ViewportSvgComposer';
 import { chromeFor } from './SheetRenderTarget';
@@ -121,6 +122,40 @@ class PdfExportServiceImpl {
         const pW = template.paperWidth;   // mm
         const pH = template.paperHeight;  // mm
 
+        // §SHEET-PAPER-HAS-ONE-AUTHORITY (L-10684) — REPORT the divergence; do
+        // not paper over it.
+        //
+        // The founder's sheet reads `Paper: A0` and `Title Block: A3 Standard`
+        // simultaneously, and his exported page is A3 — because THE PAGE SIZE
+        // COMES FROM THE TITLE BLOCK, on all four surfaces (this one, the sheet
+        // editor canvas, the SVG/print export and the DXF export), while
+        // `SheetDefinition.paperSize` is read by nothing but a dropdown's
+        // selected state and an info label.
+        //
+        // ⛔ This is NOT fixed by silently preferring `sheet.paperSize`: the
+        // title block's field positions are absolute millimetres from the paper
+        // LEFT edge (`x: 305` on a 420 mm page), so re-pointing the page size
+        // without re-anchoring the block would throw every field off the sheet.
+        // The re-anchoring is the real work and it is COSTED, not started here
+        // (C102 §5.5). What is unacceptable in the meantime is the SILENCE —
+        // a sheet that says A0 and prints A3 with no line anywhere saying which
+        // one won.
+        const declared = (sheet as { paperSize?: string }).paperSize;
+        if (declared && declared !== 'custom') {
+            const iso: Record<string, [number, number]> = {
+                A0: [1189, 841], A1: [841, 594], A2: [594, 420], A3: [420, 297], A4: [297, 210],
+            };
+            const want = iso[declared];
+            if (want && !(Math.abs(want[0] - pW) < 1 && Math.abs(want[1] - pH) < 1)) {
+                console.warn(
+                    `[PdfExportService] §SHEET-PAPER-HAS-ONE-AUTHORITY (L-10684) — sheet '${sheet.sheetNumber}' ` +
+                    `declares paperSize=${declared} (${want[0]}×${want[1]}mm) but its title block ` +
+                    `'${template.name}' is ${pW}×${pH}mm. THE TITLE BLOCK WINS: this PDF is ` +
+                    `${pW}×${pH}mm. Choose a title block matching the paper.`,
+                );
+            }
+        }
+
         // ── jsPDF document ────────────────────────────────────────────────────
         const orientation = pW >= pH ? 'landscape' : 'portrait';
         const pdf = new jsPDF({
@@ -144,7 +179,10 @@ class PdfExportServiceImpl {
         let resolvedCount = 0;
 
         for (const vp of sheet.viewports) {
-            const scale = vp.scale ?? 100;
+            // §SHEET-ONE-SCALE-RESOLUTION (L-10682) — the same resolution the
+            // composition uses, so the "1:N" stamped on the sheet is the scale
+            // the drawing was actually composed at.
+            const scale = resolveViewportScale(vp, viewDefinitionStore.get(vp.viewId));
 
             const drawing = viewTechnicalDrawingCache.get(vp.viewId);
 
@@ -480,10 +518,39 @@ class PdfExportServiceImpl {
             return false;
         }
 
+        // §SHEET-A-DATED-VIEW-SAYS-SO (L-10683) — DISCLOSE THE STALENESS ON THE
+        // PAGE, not only in the console.
+        //
+        // The age was already measured and logged above, and that was the right
+        // instinct — but a console line reaches the person who pressed Export,
+        // and a sheet is read by everyone downstream of them. A PDF that embeds
+        // a frame of a model that has since changed, with nothing on the paper
+        // saying so, is a documentation-integrity defect (C102 §5.4): the reader
+        // has no way to tell a current view from a dated one.
+        //
+        // It is a NOTE, not a refusal. The founder's own framing — *"the drawing
+        // should say so or the export should refuse"* — and refusing would make
+        // the 3D leg unusable in exactly the situation it exists for (the sheet
+        // editor hides the 3D surface, L-1470, so a snapshot is the NORMAL case,
+        // not the exceptional one). Refusing the normal case is not integrity.
+        if (capture.capturedAt !== null) {
+            const ageS = Math.round((Date.now() - capture.capturedAt) / 1000);
+            const stamped = new Date(capture.capturedAt).toISOString().slice(0, 16).replace('T', ' ');
+            pdf.setFontSize(5);
+            pdf.setTextColor('#b45309');
+            pdf.text(
+                `SNAPSHOT — captured ${stamped} (${ageS}s before export), not a live view`,
+                x + fit.dx + 1,
+                y + fit.dy + fit.dh - 1.5,
+            );
+            pdf.setTextColor('#111111');
+        }
+
         console.log(
             `[PdfExportService] embedded 3D raster for viewId=${viewId}: ` +
             `${fit.dw.toFixed(1)}×${fit.dh.toFixed(1)}mm in a ${w.toFixed(1)}×${h.toFixed(1)}mm ` +
-            `viewport (${(fit.barFraction * 100).toFixed(0)}% paper margin)`,
+            `viewport (${(fit.barFraction * 100).toFixed(0)}% paper margin)` +
+            `${capture.capturedAt !== null ? ' — staleness DISCLOSED on the page (L-10683)' : ''}`,
         );
         return true;
     }

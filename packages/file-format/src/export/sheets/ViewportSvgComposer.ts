@@ -46,6 +46,10 @@
 import { trace } from '@opentelemetry/api';
 
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model/views';
+import { viewDefinitionStore } from '@pryzm/core-app-model/views';
+// §SHEET-ONE-SCALE-RESOLUTION (L-10682) — the sheet editor's label and this
+// composer's geometry used to default to 50 and 100 respectively.
+import { resolveViewportScale } from '@pryzm/core-app-model/views';
 import { TechnicalDrawingBounds } from '@pryzm/core-app-model/views';
 import type { VGCategoryStyle } from '@pryzm/core-app-model';
 import { annotationStore } from '@pryzm/plugin-annotations';
@@ -359,7 +363,7 @@ export function composeForPlacement(
     return composeViewportSvg({
         ...extra,
         viewId: vp.viewId,
-        scale:  vp.scale ?? 100,
+        scale:  resolveViewportScale(vp, viewDefinitionStore.get(vp.viewId)),
         ...(vp.crop ? { cropWorldM: vp.crop } : {}),
     });
 }

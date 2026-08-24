@@ -31,6 +31,27 @@ export type {
 export { SVGCompositeRenderer } from './SVGCompositeRenderer';
 export type { SVGViewBox, SVGPochePolygon, PochePolygon } from './SVGCompositeRenderer';
 
+// §SHEET-TEXT-IS-PAPER-LETTERING (L-10680) — THE one definition of how tall
+// annotation lettering is on an issued sheet. `AnnotationStyle.textSizeMm` is
+// declared as a CAP HEIGHT (the CAD/ISO 3098 meaning) and SVG/PDF `font-size` is
+// an EM; passing one straight to the other drew every annotation 28 % short.
+// Exported so a second surface converts the same way instead of inventing a
+// second ratio. Normative statement: SPEC-AUTODIMENSION §12.14.
+export {
+    CAP_HEIGHT_RATIO,
+    MIN_PAPER_TEXT_HEIGHT_MM,
+    DEFAULT_PAPER_TEXT_HEIGHT_MM,
+    LINE_ADVANCE_RATIO,
+    ISO_LETTERING_STROKE_RATIO,
+    ISO_3098_HEIGHT_SERIES_MM,
+    MIN_PAPER_TEXT_EM_MM,
+    letteringHeightMm,
+    emFromLetteringHeight,
+    letteringHeightFromEm,
+    subordinateEmMm,
+    lineAdvanceFromEm,
+} from './PaperTextStandard';
+
 // §SHEET-CHROME-IS-NOT-THE-DRAWING (L-3804) — the screen-vs-print policy. The
 // sheet editor (L7) and every export surface read the SAME policy from here, so
 // an affordance cannot be chrome on one surface and ink on the other.

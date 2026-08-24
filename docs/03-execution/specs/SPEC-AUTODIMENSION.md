@@ -370,6 +370,77 @@ Clean perimeter dimension strings · minimal internal dimensions · centred room
 offsets · no overlapping annotations · strong wall hierarchy · readable diagonal façades · balanced
 white space · **immediate comprehension within a few seconds of viewing.**
 
+
+### §12.14 — ⭐ ANNOTATION TEXT HEIGHT ON PAPER — NORMATIVE (added 2026-08-24, lane PDFSHEET35, L-10680)
+
+> ⚠ **This clause did not exist until an exported PDF was unreadable.** §12.11 fixed a
+> LINEWEIGHT hierarchy and §12.5–§12.8 said where tags go, but **nothing anywhere in the repo
+> stated a text height in millimetres** — not here, not `C34`, not `C101`, not `C102`. The only
+> number was `ANNOTATION_TEXT_HEIGHT_MAX_MM = 100`: a ceiling with no floor. The founder,
+> 2026-08-24: *"Exporting sheets to PDF — the text of the rooms, labels, is not readable."*
+> Room labels came out as dense dark smudges beside clean, correct linework.
+>
+> ⭐ **Everything below is a NUMBER, deliberately, because the absence of a number is what let
+> the defect ship.** The gate is `packages/file-format/__tests__/sheet-paper-text-standard.test.ts`
+> and the one producer is `packages/file-format/src/export/sheets/PaperTextStandard.ts`.
+
+**Basis: ISO 3098-0 lettering type B**, the standard the rest of §12's ISO/RIBA framing already
+assumes. Its parameters, all expressed against the nominal lettering height **h**:
+
+| Parameter | ISO 3098-0 type B | PRYZM emits |
+|---|---|---|
+| **h — lettering height** = the CAP HEIGHT, on paper, at any drawing scale | nominal series **1.8 · 2.5 · 3.5 · 5 · 7 · 10 · 14 · 20 mm** | see the table below |
+| **b — minimum baseline-to-baseline spacing** | **≥ 1.4 h** | **1.5 h** |
+| **d — lettering line width** | **0.1 h** | **0 — sheet text is FILLED, never stroked** |
+
+**Per-annotation heights (h, in mm on the issued sheet):**
+
+| Annotation | h (mm) | Note |
+|---|---|---|
+| **⛔ ABSOLUTE FLOOR — any annotation, any sheet** | **1.8** | first member of the ISO series; below it the counters close under reproduction. A style asking for less is **CLAMPED, not obeyed**. |
+| Room name · dimension value · door/window/grid/level tag mark | **2.5** | the default (`DEFAULT_ANNOTATION_STYLE.textSizeMm`) |
+| Subordinate row of a stacked tag (room number, area, `W:900 H:2100`) | **0.8–0.9 × primary, floored at 1.8** | a ratio may never take a row under the floor |
+| View / drawing title | 3.5 | not yet emitted by the sheet composer — see §13.5 |
+
+⛔ **h is a PAPER dimension and is INVARIANT under drawing scale.** A 1:50 and a 1:100 viewport of
+the same plan letter identically. Any code path where changing the scale denominator changes the
+emitted text size is a defect, and the invariance is asserted directly.
+
+⭐ **h is a CAP HEIGHT, not an em, and the two are not interchangeable.**
+`AnnotationStyle.textSizeMm` is declared *"paper-space text height in mm"*; in every CAD lineage —
+DXF group 40, Revit text types, ISO 3098's own `h` — **text height means the cap height**. In SVG
+and PDF, `font-size` means the **em**. The conversion is
+`font-size = h ÷ CAP_HEIGHT_RATIO`, with **`CAP_HEIGHT_RATIO = 0.716`** for the Arial/Helvetica
+family the annotation layer is fixed to (Arial capHeight = 1467/2048). **Handing `h` straight to
+`font-size` under-draws every annotation by 28 %** — which is exactly what shipped, and it is why
+the conversion now lives in ONE module and the font stack is fixed at the layer rather than chosen
+per element.
+
+⛔ **Sheet text is FILLED. It carries no stroke.** ISO's `d = 0.1 h` describes a *pen plotting* a
+letterform, not a pen added on top of a solid fill. Emitting both is not "bold" — it is a smear.
+
+#### §12.14.1 — MEASURED, before and after (one plate, the same assertions)
+
+Taken from the emitted SVG, not from the symptom. The composer emits
+`width="<W>mm" … viewBox="0 0 <W> <H>"`, so **one SVG user unit is one paper millimetre** and every
+number below is already in mm.
+
+| | BEFORE (HEAD) | AFTER |
+|---|---|---|
+| room **name** cap height | **1.79 mm** ⛔ | **2.500 mm** ✅ |
+| room **number** cap height | **1.61 mm** ⛔ | **2.250 mm** ✅ |
+| room **area** cap height | **1.43 mm** ⛔ *(worst reading)* | **2.000 mm** ✅ |
+| glyph stroke | **1.00 mm** ⛔ *(= 5.6 × ISO `d`, on top of the fill)* | **none** ✅ |
+| baseline advance | 2.500 mm = **1.397 h** — the ISO minimum to three figures, zero margin | 3.625 mm = **1.45 h** ✅ |
+| net effect | rows' ink overlapped by **0.29 mm** → one blob | three separated rows |
+
+⭐ **The 1.00 mm stroke was the dominant term, and it was INHERITED, not written.** The layer opened
+`<g id="annotations" fill="#1a2035" stroke="#1a2035">` and no `<text>` beneath it ever set
+`stroke-width`, so every glyph took SVG's initial `stroke-width: 1` — one user unit — **one paper
+millimetre**. `svg2pdf.js` reproduces that faithfully (`getTextRenderingMode` → `fillThenStroke`,
+then `setLineWidth(1.0)`), so the PDF stroked a ~0.22 mm Arial stem with a 1 mm pen: stems ~1.2 mm,
+counters filled, adjacent rows bridged. **A test asserting that glyphs were drawn would have passed
+throughout.** Assert millimetres.
 ---
 
 ## §13 — MEASURED GAP against §12 — UPDATED 2026-08-21 (§GA-EDITORIAL-LAYER, L-1620…L-1622)

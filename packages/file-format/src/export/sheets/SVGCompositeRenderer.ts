@@ -26,6 +26,13 @@ import { PocheFillBuilder, PochePolygon } from '@pryzm/core-app-model/views';
 import type { VGCategoryStyle } from '@pryzm/core-app-model';
 import type { AnnotationElement } from '@pryzm/plugin-annotations';
 import { HatchPatternLibrary, type SvgHatchDef } from './HatchPatternLibrary';
+import {
+    letteringHeightMm,
+    emFromLetteringHeight,
+    subordinateEmMm,
+    lineAdvanceFromEm,
+    letteringHeightFromEm,
+} from './PaperTextStandard';
 
 // ── Re-export for consumers that import only from this module ─────────────────
 export type { PochePolygon };
@@ -388,7 +395,25 @@ export class SVGCompositeRenderer {
             const DEF_COLOR = '#1a2035';
             const DEF_FONT  = 'Arial, Helvetica, sans-serif';
 
-            lines.push(`  <g id="annotations" fill="${DEF_COLOR}" stroke="${DEF_COLOR}" font-family="${DEF_FONT}">`);
+            // §SHEET-TEXT-IS-PAPER-LETTERING (L-10680) — ⛔ THIS GROUP MUST NOT
+            // CARRY A `stroke`.
+            //
+            // It used to open `stroke="${DEF_COLOR}"`, and not one `<text>` under
+            // it set `stroke-width` — so every glyph inherited SVG's initial
+            // `stroke-width: 1`, which in this document is ONE PAPER MILLIMETRE
+            // (the viewBox is 1 user unit = 1 mm). svg2pdf.js reproduces that
+            // faithfully: `getTextRenderingMode` sees a stroke and returns
+            // `fillThenStroke`, then `setLineWidth(1.0)`. A 1 mm pen around a
+            // 0.22 mm Arial stem is what the founder saw as a dense dark smudge
+            // where the room labels should be.
+            //
+            // Every SHAPE in the switch below sets its own `stroke` — either
+            // inline or via a `<g stroke=… stroke-width=…>` wrapper — so nothing
+            // was relying on this inheritance. Dropping it costs no linework and
+            // is verified by `sheet-paper-text-standard.test.ts`. `<text>` also
+            // carries `stroke="none"` explicitly, so a future stroked wrapper
+            // cannot silently reintroduce this.
+            lines.push(`  <g id="annotations" fill="${DEF_COLOR}" font-family="${DEF_FONT}">`);
 
             for (const ann of this._annotations) {
                 const s    = ann.style ?? {};
@@ -398,7 +423,24 @@ export class SVGCompositeRenderer {
                 const lc   = s.lineColor ?? DEF_COLOR;
                 const tc   = s.textColor ?? DEF_COLOR;
                 const lw   = f(s.lineWeight ?? 0.25);
-                const tsz  = s.textSizeMm ?? 2.5;
+                // §SHEET-TEXT-IS-PAPER-LETTERING (L-10680) — `textSizeMm` is
+                // DECLARED as "paper-space text height in mm", which in every CAD
+                // lineage (DXF group 40, ISO 3098 `h`) means the CAP HEIGHT. SVG
+                // `font-size` means the EM. This line used to hand one straight to
+                // the other, so a style asking for 2.5 mm lettering drew a 1.79 mm
+                // capital — 28 % short, and BELOW the 1.8 mm ISO 3098 floor. The
+                // conversion happens here and nowhere else.
+                //
+                // `tsz` therefore remains the EM in mm, so every `tsz * k` piece of
+                // furniture below (bubble radii, box sizes, baseline nudges) keeps
+                // its existing proportion to the glyph — the symbols grow with the
+                // text they wrap instead of drifting apart from it.
+                const hMm  = letteringHeightMm(s.textSizeMm);
+                const tsz  = emFromLetteringHeight(hMm);
+                /** A subordinate row's em — a ratio of the primary, never below the floor. */
+                const sub  = (k: number) => subordinateEmMm(tsz, k);
+                /** ISO 3098-0 type B: baseline advance b ≥ 1.4 h. We emit 1.5 h. */
+                const lead = lineAdvanceFromEm(tsz);
                 const font = s.fontFamily ?? DEF_FONT;
                 const arrSz = s.arrowSizeMm ?? 2.0;
 
@@ -437,7 +479,7 @@ export class SVGCompositeRenderer {
                             lines.push(`    <g stroke="${lc}" fill="none" stroke-width="${lw}">`);
                             lines.push(`      <line x1="${f(p0.x)}" y1="${f(p0.y)}" x2="${f(p1.x)}" y2="${f(p1.y)}"/>`);
                             lines.push(`    </g>`);
-                            lines.push(`    <text x="${f(midX)}" y="${f(midY - 1)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(label)}</text>`);
+                            lines.push(`    <text stroke="none" x="${f(midX)}" y="${f(midY - 1)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(label)}</text>`);
                             break;
                         }
 
@@ -445,7 +487,7 @@ export class SVGCompositeRenderer {
                         case 'slope-dim': {
                             if (!p0) break;
                             const slope = p.slopeRatio ?? p.slope ?? '1:10';
-                            lines.push(`    <text x="${f(p0.x)}" y="${f(p0.y)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(String(slope))}</text>`);
+                            lines.push(`    <text stroke="none" x="${f(p0.x)}" y="${f(p0.y)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(String(slope))}</text>`);
                             break;
                         }
 
@@ -456,7 +498,7 @@ export class SVGCompositeRenderer {
                             const bold   = p.bold   ? 'bold'   : 'normal';
                             const italic = p.italic ? 'italic' : 'normal';
                             const rows = text.split('\n');
-                            lines.push(`    <text x="${f(p0.x)}" y="${f(p0.y)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" font-weight="${bold}" font-style="${italic}">`);
+                            lines.push(`    <text stroke="none" x="${f(p0.x)}" y="${f(p0.y)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" font-weight="${bold}" font-style="${italic}">`);
                             for (let ri = 0; ri < rows.length; ri++) {
                                 const dy = ri === 0 ? '0' : `${f(tsz * 1.4)}`;
                                 lines.push(`      <tspan x="${f(p0.x)}" dy="${dy}">${_esc(rows[ri])}</tspan>`);
@@ -493,7 +535,7 @@ export class SVGCompositeRenderer {
                             lines.push(`    <g stroke="${lc}" stroke-width="${lw}" fill="none">`);
                             lines.push(`      <polygon points="${f(p0.x)},${f(p0.y - arrSz)} ${f(p0.x + arrSz * 0.6)},${f(p0.y)} ${f(p0.x)},${f(p0.y + arrSz)} ${f(p0.x - arrSz * 0.6)},${f(p0.y)}" fill="${lc}"/>`);
                             lines.push(`    </g>`);
-                            lines.push(`    <text x="${f(p0.x + arrSz + 0.5)}" y="${f(p0.y + tsz * 0.35)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}">${_esc(val)}</text>`);
+                            lines.push(`    <text stroke="none" x="${f(p0.x + arrSz + 0.5)}" y="${f(p0.y + tsz * 0.35)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}">${_esc(val)}</text>`);
                             break;
                         }
 
@@ -502,7 +544,7 @@ export class SVGCompositeRenderer {
                             if (!p0) break;
                             const key = p.keynoteKey ?? p.code ?? '';
                             lines.push(`    <circle cx="${f(p0.x)}" cy="${f(p0.y)}" r="${f(tsz * 0.8)}" stroke="${lc}" stroke-width="${lw}" fill="white"/>`);
-                            lines.push(`    <text x="${f(p0.x)}" y="${f(p0.y + tsz * 0.35)}" font-size="${f(tsz * 0.85)}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(key)}</text>`);
+                            lines.push(`    <text stroke="none" x="${f(p0.x)}" y="${f(p0.y + tsz * 0.35)}" font-size="${f(sub(0.85))}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(key)}</text>`);
                             break;
                         }
 
@@ -542,7 +584,7 @@ export class SVGCompositeRenderer {
                             lines.push(`      <polygon points="${tri}" fill="${lc}"/>`);
                             lines.push(`      <line x1="${f(p0.x)}" y1="${f(p0.y)}" x2="${f(p0.x + vb.widthMm * 0.2)}" y2="${f(p0.y)}" stroke-dasharray="4 2"/>`);
                             lines.push(`    </g>`);
-                            lines.push(`    <text x="${f(p0.x + arrSz + 1)}" y="${f(p0.y + tsz * 0.35)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}">${_esc(label2)}</text>`);
+                            lines.push(`    <text stroke="none" x="${f(p0.x + arrSz + 1)}" y="${f(p0.y + tsz * 0.35)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}">${_esc(label2)}</text>`);
                             break;
                         }
 
@@ -557,7 +599,7 @@ export class SVGCompositeRenderer {
                                 lines.push(`      <line x1="${f(p0.x)}" y1="${f(p0.y)}" x2="${f(p1.x)}" y2="${f(p1.y)}"/>`);
                             }
                             lines.push(`    </g>`);
-                            lines.push(`    <text x="${f(p0.x)}" y="${f(p0.y + tsz * 0.35)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="middle" font-weight="bold">${_esc(gname)}</text>`);
+                            lines.push(`    <text stroke="none" x="${f(p0.x)}" y="${f(p0.y + tsz * 0.35)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="middle" font-weight="bold">${_esc(gname)}</text>`);
                             break;
                         }
 
@@ -572,8 +614,8 @@ export class SVGCompositeRenderer {
                             lines.push(`      <circle cx="${f(p0.x)}" cy="${f(p0.y)}" r="${f(r2)}" fill="white"/>`);
                             lines.push(`      <circle cx="${f(p1.x)}" cy="${f(p1.y)}" r="${f(r2)}" fill="white"/>`);
                             lines.push(`    </g>`);
-                            lines.push(`    <text x="${f(p0.x)}" y="${f(p0.y - 0.5)}" font-size="${f(tsz * 0.8)}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(det)}</text>`);
-                            lines.push(`    <text x="${f(p0.x)}" y="${f(p0.y + tsz * 0.9)}" font-size="${f(tsz * 0.8)}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(ref)}</text>`);
+                            lines.push(`    <text stroke="none" x="${f(p0.x)}" y="${f(p0.y - 0.5)}" font-size="${f(sub(0.8))}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(det)}</text>`);
+                            lines.push(`    <text stroke="none" x="${f(p0.x)}" y="${f(p0.y + tsz * 0.9)}" font-size="${f(sub(0.8))}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(ref)}</text>`);
                             break;
                         }
 
@@ -590,8 +632,8 @@ export class SVGCompositeRenderer {
                             lines.push(`      <circle cx="${f(p0.x)}" cy="${f(p0.y)}" r="${f(r3)}" fill="white"/>`);
                             lines.push(`      <line x1="${f(p0.x)}" y1="${f(p0.y)}" x2="${f(ax)}" y2="${f(ay)}"/>`);
                             lines.push(`    </g>`);
-                            lines.push(`    <text x="${f(p0.x)}" y="${f(p0.y - 0.5)}" font-size="${f(tsz * 0.8)}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(det2)}</text>`);
-                            lines.push(`    <text x="${f(p0.x)}" y="${f(p0.y + tsz * 0.9)}" font-size="${f(tsz * 0.8)}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(ref2)}</text>`);
+                            lines.push(`    <text stroke="none" x="${f(p0.x)}" y="${f(p0.y - 0.5)}" font-size="${f(sub(0.8))}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(det2)}</text>`);
+                            lines.push(`    <text stroke="none" x="${f(p0.x)}" y="${f(p0.y + tsz * 0.9)}" font-size="${f(sub(0.8))}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(ref2)}</text>`);
                             break;
                         }
 
@@ -608,8 +650,8 @@ export class SVGCompositeRenderer {
                                 lines.push(`      <line x1="${f(p0.x + bw / 2)}" y1="${f(p0.y)}" x2="${f(p1.x)}" y2="${f(p1.y)}"/>`);
                             }
                             lines.push(`    </g>`);
-                            lines.push(`    <text x="${f(p0.x)}" y="${f(p0.y - 0.3)}" font-size="${f(tsz * 0.85)}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(det3)}</text>`);
-                            lines.push(`    <text x="${f(p0.x)}" y="${f(p0.y + tsz)}" font-size="${f(tsz * 0.85)}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(ref3)}</text>`);
+                            lines.push(`    <text stroke="none" x="${f(p0.x)}" y="${f(p0.y - 0.3)}" font-size="${f(sub(0.85))}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(det3)}</text>`);
+                            lines.push(`    <text stroke="none" x="${f(p0.x)}" y="${f(p0.y + tsz)}" font-size="${f(sub(0.85))}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(ref3)}</text>`);
                             break;
                         }
 
@@ -627,13 +669,35 @@ export class SVGCompositeRenderer {
                             const roomName = p.roomName ?? '';
                             const roomNum  = p.roomNumber ?? '';
                             const area     = p.areaLabel ?? (typeof p.area === 'number' ? `${p.area.toFixed(2)} m²` : '');
+
+                            // §SHEET-TEXT-IS-PAPER-LETTERING (L-10680) — the rows
+                            // used to sit at `y − tsz`, `y` and `y + 1.2·tsz`, i.e.
+                            // a baseline advance of exactly 1.00 em. Measured
+                            // against the cap height that actually drew, that is
+                            // 1.40 h — ISO 3098-0 type B's MINIMUM line spacing to
+                            // three figures, with zero margin. Add the ±0.5 mm of
+                            // stroke bleed each row was carrying and the rows
+                            // overlapped by 0.29 mm: the founder's smudge.
+                            //
+                            // `lead` is 1.5 h, and the block is CENTRED on the room
+                            // centroid rather than hung off it, so a two-line tag
+                            // (no room number) is not pulled off-centre — §12.5
+                            // places a room tag AT the centroid.
+                            const rows: { text: string; em: number; bold: boolean }[] = [];
+                            if (roomName) rows.push({ text: roomName, em: tsz,       bold: true  });
+                            if (roomNum)  rows.push({ text: roomNum,  em: sub(0.9),  bold: false });
+                            if (area)     rows.push({ text: area,     em: sub(0.8),  bold: false });
+                            if (rows.length === 0) break;
+
+                            const top = p0.y - ((rows.length - 1) * lead) / 2;
                             lines.push(`    <g font-family="${font}" text-anchor="middle">`);
-                            lines.push(`      <text x="${f(p0.x)}" y="${f(p0.y - tsz)}" font-size="${f(tsz)}" fill="${tc}" font-weight="bold">${_esc(roomName)}</text>`);
-                            if (roomNum) {
-                                lines.push(`      <text x="${f(p0.x)}" y="${f(p0.y)}" font-size="${f(tsz * 0.9)}" fill="${tc}">${_esc(roomNum)}</text>`);
-                            }
-                            if (area) {
-                                lines.push(`      <text x="${f(p0.x)}" y="${f(p0.y + tsz * 1.2)}" font-size="${f(tsz * 0.8)}" fill="${tc}">${_esc(area)}</text>`);
+                            for (let ri = 0; ri < rows.length; ri++) {
+                                const r  = rows[ri];
+                                // Baseline sits half a cap height BELOW the row's
+                                // centre line, so the row is optically centred.
+                                const by = top + ri * lead + letteringHeightFromEm(r.em) * 0.5;
+                                const bw = r.bold ? ' font-weight="bold"' : '';
+                                lines.push(`      <text stroke="none" x="${f(p0.x)}" y="${f(by)}" font-size="${f(r.em)}" fill="${tc}"${bw}>${_esc(r.text)}</text>`);
                             }
                             lines.push(`    </g>`);
                             break;
@@ -661,7 +725,7 @@ export class SVGCompositeRenderer {
                             lines.push(`      <polygon points="${f(p0.x)},${f(p0.y)} ${f(p0.x + arrSz)},${f(p0.y - arrSz)} ${f(p0.x + arrSz)},${f(p0.y + arrSz)}" fill="${lc}"/>`);
                             lines.push(`    </g>`);
                             const label3 = [levelNm, elevStr].filter(Boolean).join(' — ');
-                            lines.push(`    <text x="${f(p0.x - 1)}" y="${f(p0.y - 1)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="end">${_esc(label3)}</text>`);
+                            lines.push(`    <text stroke="none" x="${f(p0.x - 1)}" y="${f(p0.y - 1)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="end">${_esc(label3)}</text>`);
                             break;
                         }
 
@@ -675,8 +739,8 @@ export class SVGCompositeRenderer {
                             lines.push(`      <circle cx="${f(p0.x)}" cy="${f(p0.y)}" r="${f(r4)}" fill="white"/>`);
                             lines.push(`      <circle cx="${f(p1.x)}" cy="${f(p1.y)}" r="${f(r4)}" fill="white"/>`);
                             lines.push(`    </g>`);
-                            lines.push(`    <text x="${f(p0.x)}" y="${f(p0.y + tsz * 0.35)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="middle" font-weight="bold">${_esc(gname2)}</text>`);
-                            lines.push(`    <text x="${f(p1.x)}" y="${f(p1.y + tsz * 0.35)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="middle" font-weight="bold">${_esc(gname2)}</text>`);
+                            lines.push(`    <text stroke="none" x="${f(p0.x)}" y="${f(p0.y + tsz * 0.35)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="middle" font-weight="bold">${_esc(gname2)}</text>`);
+                            lines.push(`    <text stroke="none" x="${f(p1.x)}" y="${f(p1.y + tsz * 0.35)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="middle" font-weight="bold">${_esc(gname2)}</text>`);
                             break;
                         }
 
@@ -688,7 +752,7 @@ export class SVGCompositeRenderer {
                             const tipX   = p0.x + arrSz * 2 * Math.cos(ang);
                             const tipY   = p0.y + arrSz * 2 * Math.sin(ang);
                             lines.push(...this._svgArrow(p0, { x: tipX, y: tipY }, lc, lw, arrSz));
-                            lines.push(`    <text x="${f(p0.x)}" y="${f(p0.y - 1)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(String(slope2))}</text>`);
+                            lines.push(`    <text stroke="none" x="${f(p0.x)}" y="${f(p0.y - 1)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(String(slope2))}</text>`);
                             break;
                         }
 
@@ -819,7 +883,7 @@ export class SVGCompositeRenderer {
         out.push(...this._svgArrow({ x: bx2, y: by2 }, { x: ax2, y: ay2 }, lc, lw, arrSz));
         out.push(`    </g>`);
         // Label
-        out.push(`    <text x="${f(midX)}" y="${f(midY - textOff)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="middle" transform="rotate(${f(angle)},${f(midX)},${f(midY - textOff)})">${_esc(valStr)}</text>`);
+        out.push(`    <text stroke="none" x="${f(midX)}" y="${f(midY - textOff)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="middle" transform="rotate(${f(angle)},${f(midX)},${f(midY - textOff)})">${_esc(valStr)}</text>`);
 
         return out;
     }
@@ -863,7 +927,7 @@ export class SVGCompositeRenderer {
         out.push(`    <g stroke="${lc}" stroke-width="${lw}" fill="none">`);
         out.push(`      <path d="M ${f(sx)} ${f(sy)} A ${f(r)} ${f(r)} 0 ${large} 1 ${f(ex)} ${f(ey)}"/>`);
         out.push(`    </g>`);
-        out.push(`    <text x="${f(lx)}" y="${f(ly)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(label)}</text>`);
+        out.push(`    <text stroke="none" x="${f(lx)}" y="${f(ly)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(label)}</text>`);
 
         return out;
     }
@@ -909,7 +973,7 @@ export class SVGCompositeRenderer {
             `    <g stroke="${lc}" stroke-width="${lw}">`,
             `      <rect x="${f(pos.x - w / 2)}" y="${f(pos.y - h / 2)}" width="${f(w)}" height="${f(h)}" fill="white" rx="1"/>`,
             `    </g>`,
-            `    <text x="${f(pos.x)}" y="${f(pos.y + tsz * 0.35)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(label)}</text>`,
+            `    <text stroke="none" x="${f(pos.x)}" y="${f(pos.y + tsz * 0.35)}" font-size="${f(tsz)}" fill="${tc}" font-family="${font}" text-anchor="middle">${_esc(label)}</text>`,
         ];
     }
 
@@ -922,7 +986,11 @@ export class SVGCompositeRenderer {
         font: string,
     ): string[] {
         const f = (n: number) => n.toFixed(3);
-        const lineH = tsz * 1.3;
+        // §SHEET-TEXT-IS-PAPER-LETTERING (L-10680) — ISO 3098-0 type B baseline
+        // advance, from the ONE producer. 1.3 em happened to clear the 1.4 h
+        // minimum, but only by accident of the em/cap ratio; deriving it means a
+        // future font-metric change moves both together.
+        const lineH = lineAdvanceFromEm(tsz);
         const blockH = lineH * textLines.length + 2;
         const blockW = Math.max(...textLines.map(t => t.length)) * tsz * 0.6 + 3;
 
@@ -934,7 +1002,7 @@ export class SVGCompositeRenderer {
         for (let i = 0; i < textLines.length; i++) {
             const y = pos.y - (textLines.length - 1) * lineH / 2 + i * lineH;
             const bold = i === 0 ? ' font-weight="bold"' : '';
-            out.push(`      <text x="${f(pos.x)}" y="${f(y + tsz * 0.35)}" font-size="${f(i === 0 ? tsz : tsz * 0.85)}"${bold}>${_esc(textLines[i])}</text>`);
+            out.push(`      <text stroke="none" x="${f(pos.x)}" y="${f(y + tsz * 0.35)}" font-size="${f(i === 0 ? tsz : subordinateEmMm(tsz, 0.85))}"${bold}>${_esc(textLines[i])}</text>`);
         }
         out.push(`    </g>`);
         return out;
