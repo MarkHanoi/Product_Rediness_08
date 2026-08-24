@@ -32,6 +32,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+import { installFinishHostConsole } from './finishHostConsole';
 import * as OBC from '@thatopen/components';
 
 import { SelectionManager } from '@pryzm/input-host';
@@ -1009,6 +1010,12 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         attributeFinishAgainstMovedWall,
     );
     ceilingHostDependencyTracker.bootstrap();
+
+    // §FINISH-HOST-CONSOLE — the founder asked for this by name (2026-08-24).
+    // The two trackers above decide, per finish, WHICH walls it follows — and that
+    // decision was invisible from inside the running product, so "the floor didn't
+    // adapt" and "the floor is not bound to that wall" looked identical. Read-only.
+    installFinishHostConsole();
 
     // ── Roof follow — §ROOF-FOLLOWS-WALL (L-924 · GR-12 · C79 §5) ────────────
     // The FOURTH follow path, and the reachability half of 16ef37b0: that commit

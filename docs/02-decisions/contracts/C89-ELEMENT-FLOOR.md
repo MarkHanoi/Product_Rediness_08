@@ -865,3 +865,120 @@ until the first reload and silently stop afterwards.
   defect is independent of it and fires on a **perfect** room polygon, so it is not inherited — but a
   finish built from a broken room is still wrong, and ⛔ **must not be "corrected" in the floor
   layer**, which would hide the upstream defect.
+
+### FF-6 — ⭐ "PERIMETER ADAPTS, INTERIOR PARTITIONS DO NOT": `outerLoop` IS **NOT** THE ANSWER (L-10800, 2026-08-24)
+
+Founder, after testing `1705a88c`: *"Floor not well fitting the space — taking shortcuts — also not
+updating / adapting: **on PERIMETER changes it adapts, but on INTERIOR PARTITIONS it does not.**"*
+
+The obvious reading is that `FinishHostDependencyTracker.hostEdgesOf` walks `outerLoop` only
+(`FinishHostDependencyTracker.ts:290`, and its own docstring says *"Outer loop only"*), so an
+interior partition cannot be seen. ⛔ **MEASURED, THAT READING IS WRONG, AND ACTING ON IT WOULD HAVE
+FIXED NOTHING.** Two facts refute it:
+
+1. **A partition that BOUNDS the room IS an outer-loop edge.** A room's ring is bounded by *all* its
+   walls — partitions included. The finish ring is that ring inset, and `buildRoomFinishBoundarySketch`
+   emits one edge per ring edge, index-aligned. A bounding partition is therefore already on the
+   outer loop and already followable.
+2. **`innerLoops` are HOLES, not partitions.** `FloorTypes.ts:222` types them as cut-outs
+   (`SlabRegionTracer.ts:910-918` mints them only for traced holes). A partition dividing a space
+   makes no hole. **Wiring the finish tracker to walk `innerLoops` would add zero coverage for this
+   symptom** — it is the right fix for a different defect (a finish around a lift core) and must not
+   be sold as this one.
+
+#### FF-6.1 — THE ACTUAL MECHANISM: the candidate set is `room.boundingWallIds`, and a broken join is not in it
+
+`buildRoomFinishBoundarySketch` is **§2.1 constrained, not §2.2 searched**: *"candidates are exactly
+`room.boundingWallIds`, which the planar face walk produced from the half-edges that BUILT this
+room's ring"*. An edge that matches no candidate is emitted as a **`freeLine`**
+(`roomBoundarySketch.ts:295,333`), and the tracker keeps only `type === 'hostReference'` — so
+**a `freeLine` edge is permanently and silently invisible to the follow.**
+
+Two gates decide it, and the founder's own log trips both:
+
+| Gate | Value | His log |
+|---|---|---|
+| `DIR_TOL` | `0.985` (~10°) | his walls are 0.22° off axis — **passes**, direction is not the problem |
+| `PERP_TOL_M` | **`0.20` (200 mm)** | `endpoint 793 mm from centreline EXCEEDS hostSnap 200 mm` — ⛔ **fails** |
+| Membership of `room.boundingWallIds` | from the planar face walk | `unresolvedLoopBreaks=1`, `10 error room(s)`, and WALLDEEP32's `INCUMBENT_EXTENSION_REQUIRED … junctions LEFT UNREPAIRED` — *"VISUALLY CLOSED and TOPOLOGICALLY OPEN"* |
+
+⭐ **A wall whose junction is topologically OPEN never enters the planar face walk, so it is never in
+`boundingWallIds`, so the finish edge along it is a `freeLine`.** And this is **exactly** the split
+the founder observed: his perimeter walls were drawn first and join cleanly; his interior partitions
+are where the unrepaired junctions are.
+
+⭐ **THE SAME `freeLine` ALSO EXPLAINS "TAKING SHORTCUTS".** An unattributed edge gets **inset 0** in
+`deriveRoomFinishBoundary` while its neighbours get `thickness/2`. That edge stays on the wall
+centreline while the others pull back — a visible mis-fit, and a mixed-inset ring that is the very
+input most likely to bow-tie. **This is one defect wearing two faces, not two defects.**
+
+> ⛔ **THEREFORE THE RESIDUAL SYMPTOMS ARE INHERITED, AND MUST NOT BE REPAIRED HERE.** Widening
+> `PERP_TOL_M` past 200 mm to "catch" a wall 793 mm away would be attributing by proximity — the
+> precise §2.2/§2.3 anti-pattern that produces a WRONG `hostId` (a finish following the neighbour's
+> partition). ⛔ **Do not widen it.** The repair is the junction, and it is WALLDEEP32's.
+> ⚠ Judge nothing else in this area until the wall cascade propagates again: at time of writing it
+> is a no-op in production (`PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT(0/500 mm)` on every partner), so
+> **every room under test is bounded by walls that did not move.**
+
+#### FF-6.2 — ⛔ THE REAL CAPABILITY GAP: a partition STRICTLY INSIDE a finish is invisible to everything
+
+Distinct from the above, and genuinely absent rather than merely unreachable: a partition drawn
+*through* an already-finished space is **neither an outer-loop edge nor a hole**. No structure
+records it, so no tracker can react to it. **Cost to close: the finish would need a "divided-by"
+relationship the sketch has no slot for** — a new edge kind or a new loop kind, plus a producer, plus
+a consequence rule. That is a capability, not a wiring fix, and it is **NOT** attempted here.
+
+#### FF-6.3 — ⭐ NORMATIVE: WHAT A PARTITION THAT DIVIDES A FINISHED SPACE MUST DO
+
+**A finish MUST NOT silently span a wall that now separates two rooms.** Its area is a scheduled,
+priced quantity (`ScheduleExtractor.ts:102`); a finish reported as one 40 m² room when it is now two
+20 m² rooms is a wrong number on a bill, and it is wrong *silently*, which is the failure mode this
+estate treats as worst.
+
+**THE RULE — REFUSE AND SURFACE. The finish keeps its geometry unchanged and is marked STALE, naming
+the dividing wall and both areas.** No geometry is edited without the architect saying so.
+
+**What was REJECTED, and why — recorded so it is not silently revisited:**
+
+| Option | Verdict |
+|---|---|
+| **Span silently** (today's behaviour) | ⛔ **REJECTED.** Reports a knowingly wrong quantity. C74: an unresolved constraint may not be drawn as a value |
+| **Auto-split into two finishes** | ⛔ **REJECTED.** It cannot be done without inventing answers the user never gave — which side keeps the material, the layers, the label, the IFC GUID? A GUID cannot be in two places. It also silently destroys an authored surface |
+| **Auto-shrink to one side** | ⛔ **REJECTED.** Same invention, plus it deletes area with no record |
+| **Re-run the generator over the room** | ⛔ **REJECTED, and standing.** Discards every manual edit. Already prohibited for wall moves; dividing a room is not an exception |
+| **⭐ Refuse + surface as STALE, naming the wall and both numbers** | ✅ **ADOPTED.** C16 CA-18 (a refusal that names its reason is conformance); the founder's own standing direction on spatial validity — *always ASK, never auto-edit* |
+
+⚠ **STATUS: the rule is now DECLARED; it is NOT YET ENFORCED.** Nothing detects the division today
+(FF-6.2). This section exists so the behaviour is specified before it is built, rather than being
+settled by whatever the first implementation happens to do.
+
+#### FF-6.4 — SLABS DO **NOT** SHARE THE FINISH FOLLOW PATH
+
+The founder named slabs alongside floors. They are a **separate mechanism**, and on one axis a
+better one:
+
+| | Finish (floor / ceiling) | Slab |
+|---|---|---|
+| Tracker | `FinishHostDependencyTracker` | `SlabDependencyTracker` — a different class |
+| Loops walked | ⛔ `outerLoop` **only** (`:290`) | ✅ `[outerLoop, ...innerLoops]` (`:143`) |
+| Attribution | `room.boundingWallIds`, `PERP_TOL_M = 200 mm` | `SlabRegionTracer`, its own rules |
+| Known narrow failure | `freeLine` on any unattributable edge | **a CURVED wall can never host-reference** — `SlabRegionTracer.ts:326`: more than one chord ⇒ `hostId = null`, reason `'curved'` |
+
+⭐ **So "fix floors and slabs" is two fixes, not one**, and the slab's gap is the curved-wall refusal,
+not the `freeLine` path above. Slab work is **NOT** in this lane's ownership and is reported, not done.
+
+#### FF-6.5 — THE INSTRUMENT (`window.pryzmFinishHosts()`)
+
+The founder asked for *"more logs to check after on console"*. The decisive fact — **which walls a
+given finish is watching** — was computed at create time, printed only behind `__pryzmFloorDiag`, and
+gone by the time anyone noticed a finish not following. `apps/editor/src/engine/finishHostConsole.ts`
+reads the LIVE records on demand and keeps the three readings apart, which is the whole point:
+
+- `NO SKETCH` — never recorded; follows nothing, ever.
+- `sketch, 0 hosts` — every edge attributed to nothing.
+- `sketch, N hosts` — follows exactly those N, **and it prints the wall ids in full** so they can be
+  cross-referenced against a wall log. Partially-attributed finishes are called out explicitly,
+  because a ring with some free edges is what "not fitting / taking shortcuts" looks like.
+
+`window.pryzmFinishHosts.forWall("wall_…")` answers the inverse. ⛔ **Read-only by construction** — an
+instrument that repaired what it measured would destroy the evidence it exists to show.

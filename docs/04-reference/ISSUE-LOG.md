@@ -51169,3 +51169,272 @@ His log prints the whole contradiction, in order, from ONE gesture:
 ⚠ **STILL OPEN: the extension itself** (C85 §10.7 W-M-12 · ADR-0336 stage 2). ⭐ **Note `anchored 2/2` in his log — the L-10603 anchoring fix is working**; the remaining defect was purely extend-vs-create precedence.
 
 ⭐ **FOR LANE FLOOR33:** his `§C79-5.2 conflicted: floor … re-derived ring SELF-INTERSECTS (235.568 m² → 177.689 m²)` is very likely **caused by the unrepaired junction in step 1** — an open corner makes the boundary trace cross itself. **The floor refusal is correct; the cause is upstream in the wall junction.** Do not chase it as a floor defect until the wall side is clean.
+
+---
+
+### L-10800 — ⭐ **"PERIMETER ADAPTS, INTERIOR PARTITIONS DO NOT" — `outerLoop` IS NOT THE ANSWER; A `freeLine` EDGE IS** · lane FLOOR33 · 2026-08-24 · **ROOT NAMED, repair is WALLDEEP32's**
+
+Founder, after testing `1705a88c`: *"Floor not well fitting the space — taking shortcuts — also not
+updating / adapting: on PERIMETER changes it adapts, but on INTERIOR PARTITIONS it does not."*
+
+⛔ **THE OBVIOUS EXPLANATION WAS PROPOSED AND IS REFUTED BY TEST.** `FinishHostDependencyTracker`
+walks `outerLoop` only (`:290`, and its docstring says so), which suggests an interior partition
+cannot be seen. **False, and acting on it would have fixed nothing:**
+
+1. **A partition that BOUNDS the room IS an outer-loop edge** — the room ring is bounded by *all* its
+   walls, partitions included, and the finish ring is that ring inset. Pinned by test 1 of
+   `packages/command-registry/__tests__/finishFreeLineIsInvisibleToFollow.test.ts` (6/6 green).
+2. **`innerLoops` are HOLES, not partitions** (`FloorTypes.ts:222`; minted only for traced holes at
+   `SlabRegionTracer.ts:910-918`). A partition makes no hole, so wiring the finish tracker to walk
+   `innerLoops` adds **zero** coverage for this symptom. It is the right fix for a different defect.
+
+⭐ **THE ACTUAL MECHANISM.** `buildRoomFinishBoundarySketch` is §2.1 **CONSTRAINED, not §2.2
+searched**: candidates are exactly `room.boundingWallIds`. An edge matching no candidate is emitted
+as a **`freeLine`** (`roomBoundarySketch.ts:295,333`), and the tracker keeps only
+`type === 'hostReference'` — so **a `freeLine` edge is permanently and silently invisible to the
+follow.** Three gates decide it, and the founder's log trips two:
+
+| Gate | Value | His log |
+|---|---|---|
+| `DIR_TOL` | 0.985 (~10°) | walls 0.22° off axis — **passes**; direction is NOT the problem |
+| `PERP_TOL_M` | **0.20 (200 mm)** | `endpoint 793 mm from centreline EXCEEDS hostSnap 200 mm` — ⛔ fails |
+| membership of `room.boundingWallIds` | planar face walk | `unresolvedLoopBreaks=1`, 10 error rooms, `INCUMBENT_EXTENSION_REQUIRED … junctions LEFT UNREPAIRED` — *"VISUALLY CLOSED and TOPOLOGICALLY OPEN"* — ⛔ fails |
+
+⭐ **A wall whose junction is topologically OPEN never enters the planar face walk, is never in
+`boundingWallIds`, and its finish edge is therefore a `freeLine`.** That is exactly the founder's
+split: perimeter walls were drawn first and join cleanly; the interior partitions are where the
+unrepaired junctions are.
+
+⭐⭐ **THE SAME `freeLine` ALSO EXPLAINS "TAKING SHORTCUTS"** — an unattributed edge gets **inset 0**
+in `deriveRoomFinishBoundary` while its neighbours get `thickness/2`, so it stays on the wall
+centreline while the others pull back. **One defect wearing two faces.**
+
+⛔ **NOT REPAIRED HERE, DELIBERATELY.** Widening `PERP_TOL_M` to catch a wall 793 mm away is
+attribution by proximity — the §2.2/§2.3 anti-pattern that yields a WRONG `hostId` (a finish
+following the neighbour's partition). **Do not widen it.** The repair is the junction (WALLDEEP32).
+⚠ Also note the wall cascade was a **no-op in production** at time of measurement
+(`PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT(0/500 mm)`), so every room under test was bounded by walls
+that did not move — judge nothing else in this area until that is fixed.
+
+⚠ **SEPARATE, GENUINE CAPABILITY GAP (C89 §FF-6.2):** a partition drawn *through* an already-finished
+space is **neither an outer-loop edge nor a hole**. Nothing records it, so nothing can react. Closing
+it needs a "divided-by" relationship the sketch has no slot for — a new edge or loop kind, a
+producer, and a consequence rule. **NOT attempted.** The normative behaviour is now declared in
+C89 §FF-6.3 (**refuse and surface as STALE**, with auto-split / auto-shrink / silent-span / re-run
+all explicitly rejected and the reasons recorded), so it is specified before it is built.
+
+⚠ **SLABS ARE A SEPARATE MECHANISM** (C89 §FF-6.4): `SlabDependencyTracker`, not
+`FinishHostDependencyTracker` — and it **does** walk `[outerLoop, ...innerLoops]` (`:143`). Its known
+narrow failure is different: `SlabRegionTracer.ts:326` gives `hostId = null` reason `'curved'` for any
+wall tessellating to more than one chord, so **a curved wall can never host-reference a slab edge.**
+"Fix floors and slabs" is two fixes, not one. Slabs are not in this lane's ownership.
+
+⭐ **INSTRUMENT SHIPPED** (the founder asked for it by name): `window.pryzmFinishHosts()` —
+`apps/editor/src/engine/finishHostConsole.ts`. Per finish: area, vertex count, **the wall ids it
+follows in full**, host/free edge counts, `hostRoomId`, and stored `boundingWallIds`. It keeps the
+three readings apart — **NO SKETCH** (never recorded) vs **sketch with 0 hosts** (all edges failed to
+attribute) vs **N hosts** — and calls out PARTIAL attribution, which is what "not fitting / taking
+shortcuts" looks like. `window.pryzmFinishHosts.forWall("wall_…")` answers the inverse.
+⛔ Read-only by construction.
+
+## L-10720 — ⛔⛔ A DEAD END ONE CLICK DEEP IN ONBOARDING: `◉ 3D Site` DISPOSED THE 2D MAP THE USER WAS DRAWING ON, AND THE STEP COULD NEVER LEAVE ✅ FIXED (STARTUP37, 2026-08-24)
+
+**Founder, 2026-08-24, at "STEP 2 OF 4 · DRAW YOUR PLOT":**
+
+> *"I clicked **Split view → 3D Site** — I normally don't click there — but the **2D GIS view went
+> BLACK**, then I tried to make it work to continue and **things got worse**."*
+
+His log named it outright:
+
+```
+[SiteBoundaryMap2D] [gis] map2d: disposed
+[onboarding-step] draw idle tick — waiting (tab-hidden)
+```
+
+**THE MECHANISM, end to end, from source:**
+
+| # | step | file |
+|---|---|---|
+| 1 | `◉ 3D Site` click → `segmentClickIntents` → `view.pane.solo(right)` | `SiteViewQuickToggle.ts:241` |
+| 2 | reducer vacates every OTHER occupied pane | `paneLayoutStore.ts` `case 'view.pane.solo'` |
+| 3 | pass-1 unmount loop calls `host.unmount()` on LEFT | `PaneHost.ts:230-234` |
+| 4 | `mapMounter.unmount()` → `map2dHandle.dispose()` | `GISAreaLayout.ts:5198` |
+| 5 | the disposer **`delete`s `window.pryzmBoundaryDrawSurfaceReadyAt`** | `SiteBoundaryMap2D.ts:2319` |
+| 6 | the wizard's watchdog reads exactly that stamp | `OnboardingStepController.ts:1447` |
+| 7 | `decideDrawIdleAction` → `wait / surface-not-ready`, **forever**, re-arming every 60 s | `drawIdleWatchdog.ts:108` |
+
+⭐ **Step 7 is why it is a DEAD END and not merely a bad view switch.** The watchdog's *only*
+possible output is the default-plot OFFER, and line 108 short-circuits before it can ever be
+reached. `enterDrawPhaseWhenSurfaceReady()` — the one thing that waits for a draw surface — is a
+ONE-SHOT gate that self-terminates at `OnboardingStepController.ts:1754` once it has revealed the
+banner, and nothing re-arms it. The step needed the map, the map was gone, and the wizard had no
+verb for "bring it back". Drawing a plot was **unresumable**.
+
+⚠ **The 3D pane he switched TO was correctly empty** (`no authored walls and no parcel boundary
+yet`, `§ENVELOPE-RESOLVE-DIAG — NO ring available`, `massing rendered: 0 wall(s)`). ⛔ **All three
+of those lines are HONEST and were left alone** — they are how the failure was diagnosable. The
+defect was the reachable dead end, never the reporting.
+
+**THE RULE CHOSEN — `§ONBOARDING-STEP-PINS-ITS-SURFACE`, and it is stated because two rival rules
+were available and both are worse:**
+
+> **A view a caller has PINNED may not be VACATED from the pane layout. It may be MOVED, and
+> everything that does not vacate it stays fully available.**
+
+- ⛔ **NOT "keep the map mounted but hidden".** A MapLibre map in a `display:none` pane still
+  stamps `pryzmBoundaryDrawSurfaceReadyAt`, so the wizard would be told a drawing surface exists
+  while the user can see nothing — and the idle offer would then fire over an invisible map. That
+  trades a dead end for a LIE.
+- ⛔ **NOT "disable the view controls during onboarding".** He asked to look at the 3D; removing
+  the capability to fix one of its outcomes is the wrong trade. Under the chosen rule his exact
+  click is refused **and he keeps both surfaces** — 2D on the left, live 3D on the right, which is
+  what he was reaching for.
+
+**ENFORCED IN THE MODEL, NOT THE BUTTON.** Three surfaces can move a view — the quick-toggle bar,
+the two per-pane `PaneViewPicker`s, and any programmatic caller — and `PaneLayoutStore.dispatch` is
+the ONE seam all three cross. Guarding the button would have fixed the founder's instance and left
+the class open. `PaneLayoutStore.pinView(viewType, reason)` + a `pinRejection(next)` arm beside the
+existing `guard(next)`; `describeSiteViewQuickToggle` and `describePaneViewOptions` both
+DISABLE-AND-EXPLAIN with the same reason, so the refusal is visible before the click, not after it.
+
+**THE DRIVER IS `AppPhase`, NOT A NEW FLAG.** `mountSiteAuthoringPanes` pins `site-map-2d` while
+`appPhase() === 'onboarding-globe'` and releases it on `onAppPhaseChanged`. That is the phase
+concept `panelDefaults.ts` already declares at the open gesture (§L-1186) and already uses to gate
+panel defaults and element authoring — extended, not rivalled.
+
+⚠ **THE PIN GUARDS `dispatch` ONLY, and that is deliberate.** `unmountSiteAuthoringPanes()` →
+`shell.dispose()` does not dispatch, so generate-time teardown and project close are untouched.
+
+**Files:** `apps/editor/src/engine/views/paneLayoutStore.ts` ·
+`siteViewQuickToggleModel.ts` · `paneViewOptions.ts` · `SiteViewQuickToggle.ts` ·
+`PaneViewPicker.ts` · `apps/editor/src/ui/layout/GISAreaLayout.ts`
+**Test:** `apps/editor/src/engine/__tests__/onboardingDrawSurfacePinned.spec.ts` — 13 cases,
+including the founder's exact click, the MOVE-is-allowed arm, the unsatisfiable-gate guard (a pin
+on a not-yet-hosted view must refuse nothing, or the split could never mount), and a
+no-pin-means-no-change regression arm.
+
+---
+
+## L-10721 — ⚠ THE WIZARD COULD LOSE ITS DRAWING SURFACE AND HAD NO VERB TO ASK FOR IT BACK ✅ FIXED (STARTUP37, 2026-08-24)
+
+L-10720 closes the routes we KNOW about. ⛔ **It is not the whole class.** The older result /
+Forma view bars (`applyResultView` → `applyBimDualPane`, `panelDefaults.ts` marks `view-mode-bars`
+`ALWAYS('open')` and `essential: true`) tear the whole pane shell down **without dispatching**, so
+no pane-store pin can see them — and a future surface could do the same.
+
+⭐ **A step that can lose its surface must be able to ASK FOR IT BACK, whatever took it.**
+`§DRAW-SURFACE-IS-RECOVERABLE`: `renderDrawingStep()` now watches the SAME readiness stamp on the
+SAME cadence the phase gate already polls (`drawSurfaceReadyAtMs()` / `DRAW_SURFACE_POLL_MS` — ⛔ no
+second notion of "is there a map"), and on a ready→gone transition swaps the banner for a stated
+message plus ONE button, *"Bring the drawing map back"*.
+
+⚠ **It never re-mounts by itself** — the founder's standing rule is ASK, never auto-edit. The
+recovery uses TWO EXISTING entry points and mints no machinery: `pryzmMountSiteAuthoringPanes()`
+first (a no-op if the shell is still mounted, which is exactly why there is a step 2), then
+`pryzmStartBoundaryDraw()` — the single-pane surface the location step ALREADY falls back to when
+the split is not wired, so it is a proven path, not a rescue-only branch nothing exercises.
+
+**Files:** `apps/editor/src/ui/onboarding/OnboardingStepController.ts`
+(`watchDrawSurface` / `recoverDrawSurface`).
+
+---
+
+## L-10722 — ⭐ THE STARTUP INSTRUMENT NAMED THE ENGINE BOOT, BUT THE FOUNDER'S COMPLAINT IS LONGER THAN THE BOOT — THREE LEGS HAD NO MARK ON EITHER SIDE ✅ FIXED (STARTUP37, 2026-08-24)
+
+EARTH31's `boot:*` family (L-10560) named `initScene → … → initUI`. The mandate is *"from the
+moment the user adds the **LOCATION** until the **SPLIT VIEW** arrives"*, which is a longer
+interval — and **three legs of it were unnamed by any mark**, so even a perfect founder run could
+not attribute the wait. Added to the EXISTING `startupBudget.ts` (⛔ no rival instrument, all
+passive):
+
+- **`runtime:composed`** — `SPEC-PROJECT-OPEN-CREATE-PIPELINE` §3 **O2**. The spec's table had the
+  row; the instrument had no mark.
+- **`boot:ensure-requested` / `boot:heavy-wiring-done`** — ⭐ **the leg nobody knew was there.**
+  `workspaceMount.ensure()` (`src/main.ts`) awaits `_heavyWiringDone` — the Wave-1.5 deferral that
+  constructs the 2,433-LOC `PlatformShell` plus four module-load singleton hand-offs — **BEFORE
+  `startEngine()` is called at all.** It sits between `onboarding:shown` and `boot:engine-start`,
+  so every reader of the founder's log has silently charged it to the engine boot, *because the
+  next mark is what it is NAMED after*. It may be 0 ms. Nothing had measured it.
+- **`open:project-loaded`** — ⭐ **THE GATE**, marked inside `briefBootstrap`'s one-shot
+  `pryzm-project-loaded` handler: the exact instant the location step is allowed to open. Read
+  against `boot:ui-done`, the gap is **O10, the snapshot hydrate** — the one leg of the founder's
+  complaint with no mark on either side of it.
+
+⛔ **This lane could NOT produce the reading itself, and says so rather than estimating.** The
+`boot:*` marks only appear in a run that reaches `engineLauncher.bootstrap()`, which requires an
+**authenticated project open**. A local production-mode build (`vite build` RC=0 · `NODE_ENV=production`
+server · headless Chromium) reaches the landing page, composes the runtime and pre-warms the
+renderer (`[RendererPrewarm] webgl-fallback renderer pre-warmed in 187 ms`) and stops there:
+`window.runtime` is not exposed before the boot, and the only credentials that would open a project
+are the founder's own (signing up a throwaway account would have written to his live Supabase).
+⭐ **So the deliverable became making the NEXT run complete instead of guessing at this one.**
+
+---
+
+## L-10723 — ⛔ ADR-0369 STAGE 2 WOULD HAVE REVEALED A CARD OVER A BLACK SCREEN — THE REVEAL VERB LIVES IN THE BOOT'S LAST STAGE ⚠ ADR AMENDED, NOT BUILT (STARTUP37, 2026-08-24)
+
+ADR-0369 §7 Stage 2 proposed ungating the location step from `pryzm-project-loaded` on the claim
+that it needs only *"a project record and a globe"*. **It needs a third thing**, and that thing is
+produced by the boot's LAST stage:
+
+| what `renderLocationStep()` calls | installed by | when |
+|---|---|---|
+| `window.pryzmToggleGIS(true)` — **the reveal itself** | `mountGISArea` (`GISAreaLayout.ts:1468`) | inside `initUI` |
+| `window.pryzmGetSiteEntryCameraHost()` | `mountGISArea` | inside `initUI` |
+| `window.pryzmGetSiteEntryCameraHostReady()` | `mountGISArea` | inside `initUI` |
+
+`GlobeHeroSearch` calls the toggle **optionally** (`w.pryzmToggleGIS?.(active)`), so a location step
+opened before `initUI` would render the card, run the geocode, and **silently no-op the reveal** —
+PRYZM Earth would never appear. ⛔ Strictly worse than the wait it replaces.
+
+⭐⭐ **THE USEFUL HALF: Stage 2's GOAL is better served by Stage 3's MECHANISM.** Deferring
+`initBuilders` / `initTools` / `initBusHandlers` / `initDataPlatform` while
+`phase === 'onboarding-globe'` makes `initUI` — and therefore `mountGISArea`, `pryzmToggleGIS` and
+the reveal — arrive immediately after `initScene`. The reveal chain in ADR-0369 §6 is then
+**unchanged**: no split gate in `briefBootstrap`, no second owner of "is the globe visible", no new
+seam. **Stage 3 is promoted from "largest and correctly last" to "the answer"; Stage 2 is demoted,
+not deleted.**
+
+⛔ **Neither was BUILT here, and the reason is the same one EARTH31 gave for refusing Stage 3:**
+Stage 3's stated precondition is one founder-run `boot:*` table, and L-10722 records why this lane
+could not produce it. Deferring `initBuilders` on a guess risks every authoring path. The marks are
+now complete (L-10722); the next founder run makes the decision, and the pairs to read are tabled
+in ADR-0369 §8.1.
+
+---
+
+## L-10724 — ⚠ FOUR CESIUM RESIZES IN ONE TRANSITION: NOT REDUNDANT CALLS ON A STABLE SIZE, AND *"scheduleOnce"* DOES NOT COALESCE ⚠ OPEN — MECHANISM RECORDED, COST NOT MEASURED (STARTUP37, 2026-08-24)
+
+```
+resize (external-reflow (multi-pane host)) — canvas 949x915
+resize — canvas 1910x915
+resize — canvas 1920x920
+resize — canvas 1070x915
+```
+
+MEASURED FROM SOURCE (⛔ the COST is not measured, and this row does not claim it is):
+
+1. There is exactly ONE log template — `CesiumViewport.forceResizeAndRender` (`:13660`). Four lines
+   = four calls; only `reason` differs.
+2. **Three of the four come from ONE function.** `cesiumMounter.mount` runs
+   `reparentContainerTo(paneEl)` → `setVisible(true)` → `reparentContainerTo(paneEl)`
+   (`GISAreaLayout.ts:5250-5252`); the fourth is the store subscriber.
+   `SiteAuthoringPaneShell` calls `controller.resize()` from **four uncoordinated sites** (divider
+   `mousemove`, `mouseup`, `window.resize`, the store subscriber) with **no debounce** — its header
+   states the no-rAF intent deliberately (P3).
+3. ⭐ **Each logged call queues a SILENT second `viewer.resize()`** via
+   `scheduler.scheduleOnce('cesium-force-resize', …)` — and `FrameScheduler` mints a **unique id
+   per call** (`onceSeq` → `once:<reason>:<seq>`, `FrameScheduler.ts:110-115`). **The name says
+   "once" and N calls schedule N passes.** Four logged resizes are eight `viewer.resize()` calls,
+   four of them invisible.
+4. ⚠ **The four sizes DIFFER** (949 → 1910 → 1920 → 1070), so the container genuinely laid out four
+   times. **This is layout thrash, not a redundant call on a stable size** — debouncing inside
+   `CesiumViewport` would hide the log without removing the work. The fix belongs in the pane
+   shell's resize fan-out.
+
+⚠ It IS inside the founder's *"until the split view arrives"* interval (the split mount is
+`reveal:split-mounted`), but at its very tail. ⛔ **Not optimised here** — the brief's own rule is
+*do not optimise a stage you have not measured*, and `SiteAuthoringPaneShell`'s fan-out is outside
+this lane's ownership.
+
+---
