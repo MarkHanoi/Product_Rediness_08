@@ -14,12 +14,31 @@
 // ── Layout Rule Specs ──────────────────────────────────────────────────────────
 
 /**
- * Anchors a block to a specific edge of the paper area.
- * offset: distance in mm from the edge.
+ * Anchors a block to a specific edge — or CORNER — of the paper area.
+ * offset: distance in mm from the edge(s).
+ *
+ * ── §PRESETS-MUST-PLACE (L-10686) — why the four corners were added ────────
+ * The four edge values plus `center` cannot express "bottom-LEFT". `left`
+ * resolves y to the vertical centre and `bottom` resolves x to the horizontal
+ * centre, so the `plan-two-sections` preset — whose own description reads
+ * *"Section A bottom-left, Section B bottom-right"* — anchored BOTH sections to
+ * `edge: 'bottom'` and therefore resolved them to the IDENTICAL x,y: one
+ * viewport exactly on top of the other, dead centre-bottom.
+ *
+ * That was never observable because nothing ever called `layoutEngine.resolve()`
+ * (L-10686: the six preset buttons stored rules and moved nothing). The moment
+ * the presets actually place viewports, it becomes the founder's complaint in a
+ * new form, so it is fixed in the same change.
+ *
+ * ADDITIVE: four new literals on a union. Every rule already persisted on a
+ * sheet keeps its meaning, and `resolve()` handles the old five exactly as
+ * before.
  */
 export interface LayoutRuleAnchor {
     type:   'anchor';
-    edge:   'left' | 'right' | 'top' | 'bottom' | 'center';
+    edge:
+        | 'left' | 'right' | 'top' | 'bottom' | 'center'
+        | 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right';
     offset: number;
 }
 

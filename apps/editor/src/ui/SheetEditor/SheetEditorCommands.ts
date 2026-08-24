@@ -26,7 +26,7 @@ import { SetViewportCropCommand } from '@pryzm/command-registry';
 // §SHEET-RESIZE-IS-A-CROP (L-3809) — a viewport has no size of its own, so a
 // resize handle changes what it SHOWS. The arithmetic is the inverse of the
 // composer's framing and lives beside it, never duplicated here.
-import { resizeCropByEdgeDelta, currentCropFromComposition } from '@pryzm/file-format/sheets';
+import { resizeCropByEdgeDelta, currentCropFromComposition, composeForPlacement } from '@pryzm/file-format/sheets';
 import type { EdgeDeltaMm } from '@pryzm/file-format/sheets';
 import { titleBlockStore } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
@@ -336,12 +336,45 @@ export function buildLayoutSection(
             const template = sheet.titleBlock
                 ? (titleBlockStore.get(sheet.titleBlock) ?? titleBlockStore.getDefault())
                 : titleBlockStore.getDefault();
+
+            // §PRESETS-MUST-PLACE (L-10686) — measure, then dispatch.
+            //
+            // TWO numbers were wrong here, and both of them put viewports where
+            // the user cannot see them:
+            //
+            //  · `paperW` was the FULL paper width. `PaperParams.w` documents
+            //    itself as "Paper usable width in mm (AFTER title block
+            //    removed)", so every right-anchored preset placed its viewport
+            //    underneath the title-block strip.
+            //  · No sizes were passed at all, so the engine fell back to
+            //    "40 % of the usable area" for every block — meaning a preset
+            //    could not centre, right-align or stack anything correctly,
+            //    because a block's position depends on its own extent.
+            //
+            // A viewport has no stored size; it is as big as its drawing at its
+            // scale. `composeForPlacement` is the ONE producer of that number
+            // (it is what the canvas and the PDF both frame with), so the
+            // arrangement and the render cannot disagree.
+            const blockSizes = sheet.viewports.flatMap(vp => {
+                try {
+                    const composed = composeForPlacement(vp);
+                    if (!composed.resolved) return [];
+                    return [{ id: vp.id, w: composed.widthMm, h: composed.heightMm }];
+                } catch (err) {
+                    // An unresolvable view is not a reason to refuse the whole
+                    // arrangement — the engine's fallback size still places it.
+                    console.warn(`[SheetEditorCommands] preset size probe failed for viewport '${vp.id}':`, err);
+                    return [];
+                }
+            });
+
             const cmd = new ApplySheetLayoutPresetCommand({
                 sheetId:   sheet.id,
                 presetKey: preset.key as LayoutPresetKey,
-                paperW:    template.paperWidth,
+                paperW:    template.paperWidth - template.borderWidth,
                 paperH:    template.paperHeight,
                 marginMm:  10,
+                blockSizes,
             });
             dispatchSheetCommand('buildLayoutPresetSection/apply', cmd);
         });
