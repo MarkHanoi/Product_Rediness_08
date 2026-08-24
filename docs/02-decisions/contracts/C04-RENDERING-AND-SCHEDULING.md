@@ -1088,6 +1088,49 @@ reintroduce the phantom that §WALL-AUDIT-2026-W7's guard exists to prevent.
 - Memory cost of preallocating 512 slots in a shard that ends up holding three instances
   (32 KB of matrix buffer per shard, believed negligible, **not** measured).
 
+### §INST.7 — ⭐⭐ WIRING IS NOT COVERAGE: instancing covers **0%** of a realistic building (NORMATIVE, added 2026-08-24, lane STARTUP27, L-10440)
+
+**RULE.** No log line, doc line or contract line may describe an instanced family as *active*,
+*wired* or *working* without stating **what fraction of a realistic model it actually instances.**
+Wiring and coverage are different facts, and the gap between them was total.
+
+`[InstancedElementRenderer] wired — Phase 7 GPU instancing active.` is a true statement about
+wiring. **MEASURED** (`packages/geometry-wall/__tests__/STARTUP27ProjectOpenScale.measure.test.ts`,
+real builder, real `InstancedElementRenderer`, existing `§PRYZM-PERF` per-clause counters):
+
+| scale | walls | instanced | inst % | `reject.hasOpenings` | mitre rejects |
+|---|---|---|---|---|---|
+| 1×   |    200 | **0** | **0.0%** |    200 |  40 |
+| 20×  |  3 960 | **0** | **0.0%** |  3 960 | 144 |
+| 100× | 20 240 | **0** | **0.0%** | 20 240 | 160 |
+| 100× **control** (`openings: []`, nothing else changed) | 20 240 | 20 080 | **99.2%** | 0 | 160 |
+
+⭐ **ONE clause accounts for the ENTIRE rejection.** `_hasOpenings` disqualifies a wall before rake,
+profile, curve or mitre are consulted, and in a real building essentially every wall carries a door
+or a window. Curve, rake, layers and profile reject **zero** walls at every scale.
+
+⛔ **The predicate is CORRECT and must not be relaxed to raise the number.** A T·R·S instance matrix
+cannot express a hole, a shear or a non-rectangular silhouette; removing a clause ships a
+silently-wrong wall. The defect recorded here is that **the coverage cost of a correct guard was
+never measured**, not that the guard is wrong.
+
+**Consequences, measured on the same run:** the opening-bearing arm allocates **8.09 materials per
+wall** against **0.02** on the instanced arm — flat across all three scales, i.e. a per-wall
+constant — giving **163 680 material constructions and 102 960 scene meshes at 100×**, against
+**321 materials in 40 groups** for the identical control geometry. `dedupInstanceMaterial` is
+reached only from the instanced arm.
+
+⚠ **The prior hypothesis — that corner mitres dominate the rejection — is REFUTED.** Mitres reject
+160 walls of 20 240 at 100×. Corner count grows with the PERIMETER, opening count grows with the
+BUILDING, so the mitre clause matters *less* as the model scales, not more.
+
+⚠ **NOT MEASURED:** GPU upload, shader/PSO compile, first paint, and whether
+`LevelScoped3DCullingService`'s ≥4000-element massing-LOD escalation — which **both** the 20× and
+100× models cross — produces an acceptable view. That last one is a product question that needs a
+browser and the founder's eyes; see ADR-0368 §6 R2 for the two costed remediation directions and
+the reason a geometry-merge batcher is **not** one of them (L-10013: it makes merged walls
+unclickable).
+
 ---
 
 ## §CAM-NEAR — the perspective near plane SCALES WITH STANDOFF (NORMATIVE, added 2026-08-21, lane CAM1, L-2070..L-2072)

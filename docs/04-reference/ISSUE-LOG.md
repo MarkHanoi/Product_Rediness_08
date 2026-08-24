@@ -48870,6 +48870,7 @@ What the next lane inherits, measured by others and not re-derived here:
 - ⭐ **The level scope rides for free.** §FIX-HOSTED-TYPE-SCOPE-TAIL (L-10220) fixed the shared tail
   for every catalogue family, so *"…all slabs in ground level…"* already parses correctly today. Any
   slab colour/material capability built on `CapabilityExecutionSpec` inherits it with no work.
+
 ---
 
 ### L-10300 — ⭐⭐ **347 TRACER SITES, ZERO RECORDING — AND A SPAN IS NOT "EXPORTED TO NOWHERE", IT IS NEVER CONSTRUCTED** · lane TELEM20 · 2026-08-24 · **WIRE CLOSED / DECISION OPEN**
@@ -48964,8 +48965,6 @@ of the three options (console-only / vendor free tier / self-hosted Tempo), two 
 ⚠ Prices there are **ASSUMED**, not fetched. **Option 1 is the correct answer if tonight's answer
 is "not yet"** — it works today, costs nothing, and leaves the other two one variable away.
 
-
-
 ---
 
 ### L-10301 — ⚠ **OPEN, NOT THIS LANE'S FILES: `check-otel-spans.ts` Zone B is 10 files over baseline, not 2 — and 4 of them SHOULD NOT get a span** · lane TELEM20 · 2026-08-24
@@ -49030,41 +49029,124 @@ runs is bound to the no-op provider for the life of the process — L-392 all ov
 debt files get real spans and the baseline shrinks by eight.
 
 
-
-
 ---
 
-### L-10302 — ⚠ **NOT THIS LANE'S FILE: `updateElementParameterRakePreflight.test.ts` asserts a refusal the founder ORDERED REMOVED five days ago** · lane TELEM20 · 2026-08-24
+### L-10320 — ⭐⭐ **"THE GATE IS GREEN AND THE SCREEN DOES NOT REPAINT": THE MIRROR GATE PROVED A CHANNEL WAS *SPELLED*, SO IT WAS GIVEN AN ARM THAT *DISPATCHES THE VERB*** · lane MIRROR21 · 2026-08-24 · **CLOSED (arm shipped, 7 rows ledgered)**
 
-Running the two suites covering L-10301's one code change surfaced **3 failed / 34 passed** in
-`packages/command-registry/__tests__/updateElementParameterRakePreflight.test.ts`. ⭐ **They are
-not the change's fault, and the proof is in the source, not in a re-run** (this box could not
-complete a baseline vitest run inside 10 minutes — worker startup alone timed out once at 81 s
-and a completed run spent **683 s in transform**):
+`tools/ga-gate/check-mirror-completeness.ts` passed, and then printed — in its own words, on every
+run:
 
 ```
-✗ 'REFUSES a rake on a CURVED wall — the arm that survives'  (test.ts:110)
-    expect(rakeCmd('w-curved', 70).canExecute(ctx).ok).toBe(false)
-    - false   + true
+⚠ NOT ESTABLISHED: that any covered verb's event reaches a subscriber, a legacy record, or a mesh.
 ```
 
-**`packages/geometry-wall/src/WallRake.ts` says, in its own comment:**
+⭐ **That sentence is cause 2 of 5 in the Pascal audit (`docs/04-reference/AUDIT/B-commands-store.md`)
+and it is the distance between "gate green" and "the founder's click repaints the screen."** A `case`
+arm in `CommandEventBridge.ts` is a **DECLARED** channel. Nothing measured that anything travelled
+down it.
 
-> *"⚠ THE BLANKET `curved` REFUSAL THAT STOOD HERE IS LIFTED … ⛔ DO NOT RESTORE THE BLANKET
-> REFUSAL. The founder asked for curved raked walls and curved layered raked walls by name."*
+**Shipped: `tools/ga-gate/check-mirror-reachability.ts` (§MIRROR-REACH) — ARM E, the EXECUTED one.**
+It builds the production wiring minus the editor (real `CommandBus`, real `PatchEmitter`, real
+`attachStores`, real plugin `Store` subclasses, the real `CommandEventBridge`, a real `EventBus`),
+**dispatches 14 named verbs for real**, and grades each on the events that actually fired.
 
-`git log`: the lift is **`476cbfa2`, 2026-08-19** (`feat(L-1062/§FEAT-RAKE-CURVED)`). The test
-was last touched **`627b8a43`, 2026-08-18** — **the day before.** ⭐ **The test is stale against
-a deliberate, founder-mandated behaviour change and has been RED at HEAD for five days.**
+#### ⭐ THE READING — MEASURED 2026-08-24, `RC=0`
 
-**Causality, stated as structure rather than as a re-run:** this lane's diff on
-`UpdateElementParameterCommand.ts` is **+69 / −0**, confined to lines 19–24 (imports), 51–61
-(`_tracer()`) and 592–652 (the `execute` wrapper). **`canExecute()` is at line 275** and is not
-touched by any hunk. A purely additive diff that does not enter a method cannot change that
-method's verdict. ⚠ **MEASURED: root `tsc` RC=0 repo-wide. ASSUMED-but-strongly-evidenced: that
-these 3 were already red before this lane.** Owner is the rake lane, not TELEM20 —
-**delete the stale assertions or restate them as the CONE behaviour `WallRake.ts` now ships.**
+| verdict | n | verbs |
+|---|---|---|
+| `REACHES-SUBSCRIBER` | **7** | `lighting.create` · `lighting.changeLevel` · `slab.create` · `slab.setThickness` · `slab.addHole` · `roof.create` · `roof.setOverhang` |
+| `NO-TYPED-EVENT` ⛔ | **4** | `lighting.setIntensity` · `lighting.setEmergency` · `lighting.delete` · `roof.addSkylight` |
+| `REFUSED` | **3** | `lighting.setMaterial` · `slab.setMaterial` · `roof.setMaterial` |
 
+⭐ **THE DISCRIMINATION THE OLD GATE STRUCTURALLY COULD NOT MAKE, IN ONE RUN.**
+`slab.setThickness` and `slab.setMaterial` are the **same family**, the **same store key** (`slab`),
+the **same handler shape**. One reads `REACHES-SUBSCRIBER` (its patch → `element.updated` →
+`apps/editor/src/engine/elementUpdatedMirror.ts`); the other reads `REFUSED` — the bus threw at
+`canExecute` with the §FIX-DEAD-VERB-REFUSE text. **The only variable left is reachability, and the
+instrument separates them.** `roof.setOverhang` vs `roof.addSkylight` is the same contrast on a
+second family, so the reading is not one plugin's quirk.
+
+⛔ **`lighting.delete` is the worst row in the file.** It produces a real `remove` patch and fires no
+typed event — the bridge has **no `*.deleted` channel for any family except `boundaryLine`**. A light
+deleted through the bus leaves its legacy record and its mesh on screen. *A delete that leaves the
+object visible is indistinguishable from a delete that failed.*
+
+#### ARM E2 — 9 declared channels that reach nobody (STATIC, and labelled STATIC)
+
+The bridge emits **27** distinct typed event names. **Nine have no `.on('…')` anywhere in
+`apps/`, `plugins/` or `packages/` outside tests:** `annotation.created`, `ceiling.layer-updated`,
+`dimension.created`, `floor.layer-updated`, `grid.created`, `plumbing.created`, `room.created`,
+`slab.layer-updated`, `structural.created`. ⚠ `slab.layer-updated` is the sharp one: a slab's
+**thickness** reaches the renderer through `element.updated` and its **layer composition** does not
+— two channels emitted from adjacent case blocks in the same file.
+
+#### ⭐ THE NEGATIVE CONTROL FIRED — proven, not asserted
+
+Copying `check-no-dark-test-files.ts`'s discipline, `selfTest()` plants **five** synthetic handlers
+and pushes them through the **same** classifier and the **REAL** bridge, on every run:
+
+| planted | must read | why |
+|---|---|---|
+| `zzcontrol.mutate` | `NO-TYPED-EVENT` | the founder-defect arm |
+| `zzcontrol.refuse` | `REFUSED` | the dead-verb arm |
+| `zzcontrol.explode` | `UNPROVEN` | ⛔ validates, then throws mid-`execute` — must **not** read `REFUSED` |
+| `room.create` | `TYPED-EVENT-NO-SUB` | the orphan-channel arm |
+| `lighting.create` | `REACHES-SUBSCRIBER` | ⭐ **satisfiability proof** — green is reachable (L-716) |
+
+⛔ **The fifth control exists because the first draft was wrong, and wrong in this gate's own
+signature way.** `measureOne()` catches everything `bus.executeCommand` can throw, and two different
+states arrive through that one `catch`: a real `canExecute` refusal, and a handler that validated and
+then blew up (or a fixture payload the lane wrote wrong). The draft graded **both** `REFUSED` — i.e.
+it would have printed *"this verb is deliberately dead, §FIX-DEAD-VERB-REFUSE"* over an instrument
+that measured nothing. `[[context-data-honesty-family]]`: failure and emptiness printing the same
+value. Only the exact `canExecute rejected` form now reads `REFUSED`; anything else reads `UNPROVEN`
+and exits 2. Commit `f83265a7`.
+
+**EXECUTED PROOF THAT THE ARM CAN GO RED.** The classifier was temporarily sabotaged to return
+`REACHES-SUBSCRIBER` unconditionally — the classic optimistic gate. Result: **`RC=2`**, three
+controls named by exact verb and exact expected-vs-measured verdict, headline *"a PLANTED control did
+not come back with its expected verdict — this run is a BLIND COMPARATOR and its green would mean
+nothing."* All **seven** ledger arms were likewise driven red by mutating the ledger one row at a
+time (new finding · changed verdict · paid debt not struck · row naming a verb no fixture dispatches
+· malformed row · new orphan · paid orphan) — every one `RC=1` with the right headline.
+
+#### ⛔ WHAT IT DOES NOT COVER — say it before quoting the green
+
+1. **The subscriber is NAMED, not RUN.** The emit half is executed; the listen half is a name match.
+   `initTools.ts` cannot load outside a browser (its transitive `svg2pdf.js` import refuses), so no
+   gate in `tools/ga-gate/` can execute a mirror callback.
+2. **The legacy RECORD is not inspected** — the boundaryLine defect is invisible here.
+3. **No mesh.** That layer is `LiftCompoundReachesTheMesh.test.ts` /
+   `BeamMasterMaterialReachesMesh.test.ts`, per-family vitest suites.
+4. **The serializer is still nobody's gate.**
+5. ⛔ **App-registered `BridgeSpec` verbs are INVISIBLE.** `element.changeType` lives in
+   `apps/editor/src/engine/initBusHandlers.ts`, which will not import outside a browser bundle — so
+   this arm sees **plugin handlers only**. The live/dead contrast is carried by
+   `slab.setThickness` vs `slab.setMaterial` instead, which is a *stricter* control anyway.
+6. **14 verbs, not 351.** The 156-row backlog stays in `mirror-debt.json`; this file does not restate it.
+
+#### Design notes worth keeping
+
+- ⭐ **The verdicts are PINNED, never ordered on a lattice.** `REFUSED → NO-TYPED-EVENT` would read as
+  "improvement" on a lattice and it is the opposite: a dead verb re-enabled with no mirror behind it
+  — `[[refusing-half-needs-its-escape-hatch]]` run backwards. Every row's `exitCondition` says so
+  explicitly: *lifting the `slab.setMaterial` refusal alone FAILS this gate.*
+- ⭐ **Fixtures seed themselves through the production `*.create` verb.** A hand-written store record
+  is a fake built from the header (`[[fake-more-capable-than-real]]`) and would turn every "record
+  not found" refusal into a false dead-verb reading.
+- ⭐ **`attachStores` is the real production patch route** (`apps/editor/src/bootstrap.ts:103`).
+  ⚠ Found while wiring: **`HandlerResult.nextStates` is consumed by NOTHING in production** — every
+  handler returns it and only tests read it. The harness therefore does not use it either.
+- **Honesty floors, each exiting 2:** zero `UNPROVEN` fixtures · ≥6 fixtures must actually MUTATE (an
+  all-refused run would read as a confident discovery) · ≥20 emitted names · ≥10 subscribed names ·
+  controls must fire.
+
+**Files:** `tools/ga-gate/check-mirror-reachability.ts` (new) ·
+`tools/ga-gate/mirror-reachability-ledger.json` (new, 7 `notReaching` + 9 `orphanChannels`, each with
+a `reason` and an `exitCondition`) · `tools/ga-gate/run-all.ts` (one `GATES` row, registered directly
+beneath its sibling) · `tools/ga-gate/check-mirror-completeness.ts` (its NOT-ESTABLISHED banner now
+names the arm **and its limits** — the first clause is covered *for a named set*, the other two are
+still nobody's gate).
 
 ---
 
@@ -49248,3 +49330,332 @@ brief said must stay. **Left open with the mechanism written down.**
 canvas is frozen, only that a render failed. `getFrameSkipReport().consecutiveSkips` already counts
 it — surfacing *"the viewport has been frozen for N frames"* in the dialog costs one string and
 turns a mystery into a status. Wants a UI lane.
+---
+
+### L-10302 — ⚠ **NOT THIS LANE'S FILE: `updateElementParameterRakePreflight.test.ts` asserts a refusal the founder ORDERED REMOVED five days ago** · lane TELEM20 · 2026-08-24
+
+Running the two suites covering L-10301's one code change surfaced **3 failed / 34 passed** in
+`packages/command-registry/__tests__/updateElementParameterRakePreflight.test.ts`. ⭐ **They are
+not the change's fault, and the proof is in the source, not in a re-run** (this box could not
+complete a baseline vitest run inside 10 minutes — worker startup alone timed out once at 81 s
+and a completed run spent **683 s in transform**):
+
+```
+✗ 'REFUSES a rake on a CURVED wall — the arm that survives'  (test.ts:110)
+    expect(rakeCmd('w-curved', 70).canExecute(ctx).ok).toBe(false)
+    - false   + true
+```
+
+**`packages/geometry-wall/src/WallRake.ts` says, in its own comment:**
+
+> *"⚠ THE BLANKET `curved` REFUSAL THAT STOOD HERE IS LIFTED … ⛔ DO NOT RESTORE THE BLANKET
+> REFUSAL. The founder asked for curved raked walls and curved layered raked walls by name."*
+
+`git log`: the lift is **`476cbfa2`, 2026-08-19** (`feat(L-1062/§FEAT-RAKE-CURVED)`). The test
+was last touched **`627b8a43`, 2026-08-18** — **the day before.** ⭐ **The test is stale against
+a deliberate, founder-mandated behaviour change and has been RED at HEAD for five days.**
+
+**Causality, stated as structure rather than as a re-run:** this lane's diff on
+`UpdateElementParameterCommand.ts` is **+69 / −0**, confined to lines 19–24 (imports), 51–61
+(`_tracer()`) and 592–652 (the `execute` wrapper). **`canExecute()` is at line 275** and is not
+touched by any hunk. A purely additive diff that does not enter a method cannot change that
+method's verdict. ⚠ **MEASURED: root `tsc` RC=0 repo-wide. ASSUMED-but-strongly-evidenced: that
+these 3 were already red before this lane.** Owner is the rake lane, not TELEM20 —
+**delete the stale assertions or restate them as the CONE behaviour `WallRake.ts` now ships.**
+
+
+---
+
+### L-10440 — ⭐⭐ **"GPU INSTANCING ACTIVE" COVERS *ZERO PERCENT* OF A REAL BUILDING — AND THE PAUSE THAT WAS MEANT TO PROTECT THE WHOLE LOAD WAS RELEASED BEFORE THE FIRST ELEMENT ARRIVED** · lane STARTUP27 · 2026-08-24 · **BENCHMARK SHIPPED · ONE FIX LANDED · TWO REMEDIATIONS COSTED, NOT BUILT**
+
+**Founder mandate:** *"Our projects are still small — they will likely be 20× and 100× larger …
+I need to make sure the project's opening and startup is sound … quick, fast, robust."*
+
+⭐ **Deliverable #1 is the instrument, not an opinion:**
+`packages/geometry-wall/__tests__/STARTUP27ProjectOpenScale.measure.test.ts` — a synthetic
+multi-storey building at **1× / 20× / 100×** driven through the **real** wall half of project open
+(`refreshV2Cache` → `WallJoinResolver.resolveLevel` → `buildWall`), with a **control row** at every
+scale that changes `openings` and nothing else. Instancing counts come from the **existing**
+`§PRYZM-PERF` per-clause counters; group counts from the **real** `InstancedElementRenderer`. No
+rival instrument was minted. Full table + reproduce command: **ADR-0368**, and the normative
+reading is **C04 §INST.7**.
+
+| scale | walls | TOTAL ms | instanced | inst % | `reject.hasOpenings` | materials | scene meshes |
+|---|---|---|---|---|---|---|---|
+| 1× realistic | 200 | 1 548 | **0** | **0.0%** | 200 | 1 680 | 1 080 |
+| 20× realistic | 3 960 | 13 372 | **0** | **0.0%** | 3 960 | 32 400 | 20 520 |
+| 100× realistic | 20 240 | **98 606** | **0** | **0.0%** | 20 240 | **163 680** | **102 960** |
+| 100× **control** (`openings: []`) | 20 240 | 109 847 | **20 080** | **99.2%** | 0 | **321** | 20 280 |
+
+**F1 ⭐⭐ — instancing covers 0.0% at EVERY scale, and ONE clause is the whole reason.**
+`_hasOpenings` disqualifies a wall before rake/profile/curve/mitre are consulted. The control row
+instances 80% / 96.4% / 99.2% of the identical geometry, so the arm is wired and works — the only
+difference is openings. ⚠ **The brief's own hypothesis (corner mitres dominate) is REFUTED:** mitres
+reject **160** of 20 240 at 100×; openings reject **20 240**. Corners grow with the perimeter,
+openings grow with the building.
+⛔ **The predicate is CORRECT — a T·R·S matrix cannot express a hole.** The defect is that the
+coverage cost of a correct guard was never measured. ⛔ **Not relaxed by this lane** (shared with
+DRAGPERF17's landed work; relaxing it ships silently-wrong walls).
+
+**F2 ⭐⭐ — 510× more materials.** 8.09 materials/wall on the opening arm vs **0.02** on the
+instanced arm, **flat across all three scales** (8.40 → 8.18 → 8.09) — a per-wall constant, not a
+startup constant. `dedupInstanceMaterial` is reached only from the instanced arm. This is the
+audit's "364 materials for one visual signature", scaled.
+
+**F3 ⭐ — the wall half alone of a 100× open is ~98.6 s**, of which `buildWall` is 72.9 s. ⛔ This
+**excludes** GPU upload, shader compile and first paint, so it is a **floor, not the user's wait**.
+
+**F4 ⚠ — junction resolve is superlinear past 20×, and only past 20×.** Per level: 40 walls → 31 ms;
+220 → 99 ms (*sub*linear, the `_detect` spatial grid working); 1012 → **1085 ms** (4.6× walls,
+**11× time**). `_detect` is bucketed; `_handleMultiWallClusters` → `detectJunctionClusters` runs
+*before* it and is **a named suspect, NOT an isolated root cause.**
+
+**F5 ⚠ — UNEXPLAINED, recorded because it was measured:** the 100× **control** is *slower* than the
+subject on `specCache` (8 186 vs 3 952 ms) and `resolve` (42 405 vs 21 694 ms). ⛔ **Build no
+argument on this row until it is explained.**
+
+**F6 ⚠ — the massing-LOD question is UNMEASURED and is a PRODUCT question.**
+`LevelScoped3DCullingService` escalates at **≥4000 elements**; the 20× model is at 3 960 *walls*
+before slabs/doors/windows, so **the founder crosses it at 20×, not 100×.** ⭐ **The massing view he
+has never seen becomes his DEFAULT.** Whether that is acceptable needs a browser and his eyes; this
+harness cannot answer it and does not pretend to.
+
+---
+
+**⭐ THE FIX THAT LANDED — §STARTUP27-PAUSE-OUTLIVES-THE-LOAD**
+`apps/editor/src/engine/initPersistence.ts` (`loadDelegate.load`)
+
+The `finally` carried the comment *"Resume after load (**synchronous** — ProjectLoader.load is
+sync)"*. **It is not sync.** `ProjectLoader.load` is `async … : Promise<LoadResult>`
+(`ProjectLoader.ts:375`) and yields per chunk (`:842`). The body was `return loader.load(...)` — it
+returned the **promise**, so the `finally` ran the instant the loader was *entered*.
+
+⭐ **Both pauses were therefore a NO-OP, and had been for as long as the comment was wrong.**
+`window.roomTopologyObserver.pause()` (§R-8) and `syncStateEngine.pause()` (Data Platform Phase 6
+§6.2) were released microseconds later, before a single element was hydrated. Everything they exist
+to suppress — **room re-detection per wall-load event, sync-state recompute over a half-hydrated
+store** — ran for the entire import. F3 measures the window they were meant to cover: **~98.6 s at
+100×.**
+
+Fix: `async load` + `return await loader.load(...)`, plus a monotonic `_loadGeneration` guard so
+only the **newest** load may resume. ⚠ **The guard is not belt-and-braces:**
+`SyncStateEngine._paused` is a **boolean, not a counter** (`SyncStateEngine.ts:126`), so without it
+a project switch would have load A's resume un-pause load B mid-hydration — trading one bug for a
+narrower one. C72 §4.2 still holds: a throw inside `load` still resumes.
+⚠ **Caller behaviour is unchanged** — `PlatformVersionController.ts:393` already awaited the same
+promise; only the moment of `resume()` moves.
+
+---
+
+**⚠ OBSERVATION FOR LANE ISO28 (isolation was handed off mid-lane — reported, NOT fixed):**
+- `npm run check:isolation` prints `✗ 1 failure(s)` naming `apps/editor/src/ui/analysis/graphViewState.ts`
+  and `widgetRenderers.ts` as module-level project-scoped state with no declared owner
+  (candidates **47 now vs 45 baselined**). ⚠ **The npm script's own exit code was measured as `1`**
+  when the gate is run directly; a `| tail` pipeline reports `0` because that is *tail's* exit code
+  — ⛔ do not quote an RC taken through a pipe.
+- ⛔ **No cross-project leak was observable from this harness** — it constructs a fresh `THREE.Scene`
+  + `InstancedElementRenderer` per row and never performs a project SWITCH. **That is an absence of
+  measurement, not a clean bill of health.** A switch-at-100× leak test is the evidence ISO28 wants
+  and it does not exist yet.
+
+**⚠ ALSO LOGGED, NOT CHASED:** `THREE.Clock: This module has been deprecated. Please use
+THREE.Timer instead.` — see L-10460.
+
+**⛔ DELIBERATELY NOT CHANGED:** the instancing predicate (graphics correctness, shared with
+DRAGPERF17) · `LevelScoped3DCullingService` thresholds (needs the founder's eyes first) ·
+`buildPersistence.openProject`'s serial `streamLoad`-after-boot (ADR-0368 §6 R3 — real, costed,
+jointly owned) · any geometry-merge batcher (**L-10013** refuted it: merged walls become
+unclickable because the pick scene is built from *visible* meshes).
+
+### L-10460 — `THREE.Clock` deprecation warning on boot · lane STARTUP27 · 2026-08-24 · **LOGGED, NOT FIXED**
+
+`THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.` on the boot console.
+Cosmetic; no measured cost. Recorded so it is not re-discovered as a finding. Owner: whichever lane
+next touches the animation/frame path.
+
+---
+
+### L-10340 — ⭐⭐ **A SHRINK-ONLY P6 RATCHET WENT BACKWARDS, AND EVERY LANE THAT PUSHED IT WAS RIGHT: THE "CORRECT PATH" IT POINTS AT ENDS IN `window.commandManager.execute()` INSIDE THE ONE FILE THE GATE DOES NOT COUNT** · lane CMDMGR22 · 2026-08-24 · **2 of 3 arms CLOSED · literal arm OPEN (needs a founder decision)**
+
+`tools/ga-gate/check-no-commandmanager.ts` exited 3 — *"WORSE THAN DECLARED: literal 12 > 11 ·
+window 71 > 62 · cm.execute 68 > 62"*. All three shrink-only arms had risen.
+
+**⛔ THE BRIEF'S DATING WAS WRONG, AND IT MATTERED.** The regression was attributed to "tonight's
+fleet of ~10 lanes". Measured: `git log -G` over `7460da09..HEAD` (2026-08-24) returns **zero**
+commits touching any of the three patterns. Replaying the gate against `git archive` trees dates
+every added site to **2026-08-19 – 08-22** — lanes HR1/HR2/HR3 (handrail), SV1/SV2 (grid
+contextual edit), the L-1054 curtain-wall panel-type fix, and the sheets lanes. **Last green
+commit: `9b1c8947` (2026-08-18) at exactly 11 / 62 / 62.**
+
+**MEASURED per-file delta (gate's own scanner, comments stripped, strings blanked):**
+
+| file | window | cm.execute | literal | kind |
+|---|---|---|---|---|
+| `engine/initUI.ts` | +2 | +4 | — | production |
+| `ui/ContextualEditBar.ts` | +1 | +2 | — | production |
+| `ui/SheetEditor/SheetEditorCommands.ts` | +2 | — | — | production |
+| `ui/property-panel/replaceCurtainPanelType.ts` | — | — | **+1** | production |
+| `ui/__tests__/sheetViewportInteraction.spec.ts` | +2 | — | — | **test** |
+| `ui/__tests__/sheetViewportPlacement.spec.ts` | +2 | — | — | **test** |
+
+**Production/test split: 5 window + 6 cm.execute + 1 literal production · 4 window test.** Three
+further raw hits are **comments** (`copyPayloads.ts`, `duplicateToLevel.ts`,
+`gridContextualEditBarWiring.spec.ts`) and correctly score zero — the L-835 comment-lexer port
+works.
+
+#### ⭐⭐ WHY TEN LANES INDEPENDENTLY REACHED FOR THE SAME "SHORTCUT" — IT IS NOT A SHORTCUT
+
+The gate's remedy line says *"migrate to `window.runtime?.bus?.executeCommand()`"*. Measured, that
+instruction is unfollowable at these sites, for four independent reasons:
+
+1. **The bus route ENDS at the same call.** `initBusHandlers.ts` — the ONE file counters B and C
+   exclude — defines `_cmExec`, whose body is `window.commandManager` + `cm.execute(cmd, options)`.
+   It has **91 call sites**. So for ~40 verbs, "dispatch through the bus" *relocates* the legacy
+   call into the exempt file rather than removing it. The L6 plugin handlers do it too
+   (`plugins/rooms/src/handlers/DeleteRoom.ts`, `MoveRoom.ts`, `SetRoomMaterial.ts`,
+   `SetRoomNumber.ts`, `SetRoomOccupancy.ts`, `SetRoomHeightOffset.ts` each read
+   `window.commandManager`). **The gate measures a SPELLING and a FILE PATH, not a mutation path.**
+2. **`_cmExec` is declared `: void` and DISCARDS the verdict.** The file's own comment says it:
+   *"a bridge calling it reports success for a command the legacy layer just refused BY NAME"*.
+   Every one of these lanes existed to stop a refused delete being reported as a success
+   (L-703, L-1107, L-1109, L-951). **The sanctioned bridge is the thing that eats the refusal.**
+   `_cmExecOrRefuse` exists but **throws**, and has 2 call sites against 91.
+3. **`CommandBus.executeCommand` is `async` and throws its refusal.** It returns
+   `Promise<EventRecord<T>>` and converts a failed `canExecute` into a thrown error. Every new site
+   is synchronous and two return a verdict to their own caller
+   (`_deleteSelectedGrid(): boolean`, `replaceCurtainPanelType(): Result`).
+4. **⭐ For three of four subjects the bus verb writes a DIFFERENT STORE than the UI reads** —
+   ADR-0318 store-unification debt, surfacing as rival implementations:
+   - **annotation** — `annotation.delete` writes `ctx.stores.annotation`; the annotations live in
+     the ADR-0119 subsystem `annotationStore`. This is L-703, already shipped and fixed once.
+   - **grid** — `grid.delete` (`plugins/grid/src/handlers/DeleteGrid.ts`) writes the plain
+     `GridsState` record; `RemoveGridCommand` writes the `gridStore` the renderer and
+     `selectedGridInAnyPane()` read. `initBusHandlers` bridges `grid.update` and `grid.add` —
+     and **no** `grid.delete`.
+   - **curtain panel** — `curtain-wall.setPanelType` writes `stores.curtainwall[id].panels[]` with
+     `{kind, materialId}`; `ReplacePanelTypeCommand` writes `curtainPanelStore` with
+     `{panelType (13-member union), materialOverride, offsetFromCentreline, hostedDoor, materialId}`.
+     **The verb cannot express three of the five fields the founder's control sets.**
+   - **level** — no `level.delete` verb exists anywhere.
+   - **sheet** — ⭐ the sharpest case, and it CORRECTS this lane's own first reading. Three sheet
+     verbs ARE bridged, and their bridge bodies are
+     `fn: (cmd) => { _cmExec(new AddViewportToSheetCommand(cmd)); }` — **the SAME legacy Command
+     classes `SheetEditorCommands.ts` constructs directly.** Dispatching `sheet.addViewport` and
+     calling `mgr.execute(new AddViewportToSheetCommand(…))` reach the same class through the same
+     `window.commandManager.execute`; **one is counted and one is not.** The other ten sheet
+     commands have no bridge at all, `'sheet.executeCommand'` is bridged by nothing, and
+     `plugins/sheets`' own ten `sheet.*` handlers are dead by design — `registerSheetHandlers()`
+     has ZERO production callers and is deliberately unregistered (L-1590 /
+     §FIX-SHEET-ADDVIEWPORT-SHADOW MT-03) because it writes a DETACHED DTO shadow store instead
+     of the authoritative `core-app-model` sheetStore.
+
+**The proof that these lanes were not being lazy:** the BIM-element arm of the very same
+`initUI.deleteSelected` function **does** use the bus — `await bus.executeCommand('element.delete', …)`
+reading `EventRecord.refusal`. Same function, same lane, same night. **The choice tracks verb
+availability exactly.**
+
+#### ⚠ THE GATE RANKS THE BEST-ARCHITECTED SITE AS THE MOST SEVERE VIOLATION
+
+`replaceCurtainPanelType.ts` takes its manager by **explicit DI** (`args.commandManager`) — no
+global — and therefore trips counter **A**, whose ceiling is a hard **0**.
+`SheetEditorCommands.ts` reaches for the **global** and names it `mgr`, so it trips only the softer
+counter B and escapes counter C entirely, because `mgr.execute` is neither `cm.execute` nor
+`commandManager.execute`. **Three counters, three spellings: the gate pushes lanes toward globals
+with creative variable names.** That is roadmap §7B.5's name-blindness, observed in the wild.
+
+**⛔ And the literal `+1` is the price of a DEAD CONTROL BECOMING LIVE.** Before `c19004eb`,
+`CurtainSubElementPanel.ts` contained **no `.execute(` at all** — the panel-type control dispatched
+nothing (*"the DI struct it needed was never passed"*). There was no prior dispatch to migrate. The
+only edit that would have kept counter A at 11 was **leaving the button dead**.
+
+#### What this lane changed — ⛔ NO renames, NO baseline raised, NO `LEDGERED_` constant touched
+
+Two consolidations, each correct on its own terms and each creating the seam the migration needs:
+
+- **`engine/views/canvasSubjectDelete.ts` (new)** — ONE dispatch point for the three Canvas2D
+  non-`Object3D` subjects. Four hand-copied copies of the same eleven lines existed across two
+  files and three lanes (`initUI`'s three arms, whose own comments say each "mirrors the arm
+  above", plus `ContextualEditBar`'s independent fourth copy of the grid one). **Two lanes writing
+  one route twice is a defect on its own terms — one operation, one route (C84 EI-4a).** Callers
+  keep what legitimately differs (which command, which sentence, which panes to clear).
+  `initUI.ts` and `ContextualEditBar.ts` now hold **zero** copies.
+- **`SheetEditorCommands.ts`** — thirteen dispatchers each carried an identical four-line preamble,
+  and all thirteen carried the SAME `// TODO(E.5.x): replace with runtime.bus.executeCommand`.
+  Two of the thirteen were added in 2026-08-21/22 by copying the eleven above them — which is
+  precisely how a shrink-only ratchet moves backwards with nobody intending a new bypass.
+  Collapsed to one `dispatchSheetCommand()` seam, so the E.5.x migration becomes **one** edit.
+
+**MEASURED, gate re-run each time:**
+
+| arm | last green (`9b1c8947`) | found (RED) | after this lane | verdict |
+|---|---|---|---|---|
+| literal | 11 | **12** | **12** | ⚠ **OPEN** |
+| window | 62 | **71** | **56** | ✅ under, by 6 |
+| cm.execute | 62 | **68** | **62** | ✅ at baseline |
+
+`check-commandmanager-any.ts` unchanged at **25 / 25 (RC=0)**. Affected specs **47/47 pass**
+(`deleteSelectedCensus`, `sheetViewportInteraction`, `sheetViewportPlacement`,
+`gridContextualEditBarWiring` — the last gained an assertion, per §L-9941: the subject moved, the
+assertions got STRONGER, nothing was deleted).
+
+#### ⚠ THE LITERAL ARM IS LEFT RED ON PURPOSE — IT NEEDS A DECISION, NOT A LANE
+
+`replaceCurtainPanelType.ts:110` is **not migratable today** (reason 4 above: the verb drops three
+of five fields and writes a store the panel does not read). The three available moves are:
+
+1. **Revert the control to dead** — unacceptable; it is the L-1054 fix.
+2. **Rename `args.commandManager`** — ⛔ this is exactly roadmap §7B.5's failure mode, and would
+   silence counter A while changing nothing.
+3. **Admit it to the documented set.** The other 11 literal sites are recorded in ISSUE-LOG §8 as
+   *"each verified by hand; every one regresses if migrated today"*. This site meets that
+   description precisely. Admitting it means `LEDGERED_LITERAL 11 → 12`, **which this lane will
+   not do unilaterally** — the gate's own text says *"Remove the new call site(s) — do NOT raise a
+   `LEDGERED_` constant"*, and a ratchet you could silence in ten seconds is the one you must not
+   silence (C68 §6.8.4).
+
+**The real exit is ADR-0318 store-unification** — one store per subject, so a bus verb writes what
+the UI reads. Until then counter A cannot reach 0 by migration, only by leaving controls dead.
+
+#### ⚠ Recommendation NOT taken, recorded for the founder: the gate counts TEST HARNESSES
+
+4 of the 9 window sites are `window.commandManager = {…}` **stubs** in two spec files — a test
+standing up the global that the code under test reads. That is not a P6 bypass. The gate has twice
+been made more precise on exactly this ground (§FIX-P6-GATE-PRECISION L-835 excluded
+`executeChunked` and diagnostics-about-the-subject), and both times the note was *"the number should
+MEAN what the gate says it means"*, not a relaxation. **This lane did not touch the gate** — the
+arms came back without it, and a test-exclusion looks too much like a baseline extension to take
+unilaterally at 03:00.
+
+**Files:** `apps/editor/src/engine/views/canvasSubjectDelete.ts` (new),
+`apps/editor/src/engine/initUI.ts`, `apps/editor/src/ui/ContextualEditBar.ts`,
+`apps/editor/src/ui/SheetEditor/SheetEditorCommands.ts`,
+`apps/editor/src/ui/__tests__/gridContextualEditBarWiring.spec.ts`.
+
+---
+
+### L-10341 — ⚠ `check-cast-count.ts` is RED at 101/100 from an UNCOMMITTED sibling lane · lane CMDMGR22 · 2026-08-24 · **OPEN — NOT THIS LANE'S FILES**
+
+Observed while verifying that CMDMGR22's own `as unknown as` casts had not moved P4's tripwire.
+`npx tsx tools/ga-gate/check-cast-count.ts` → **RC=3**, *"repo-wide 101 `(window as any)` cast(s) >
+baseline 100"*.
+
+**It is not CMDMGR22's** — all five files this lane touched contain **zero** `(window as any)`.
+The two offending casts are in `apps/editor/src/ui/analysis/graphViewState.ts` and
+`apps/editor/src/ui/analysis/widgetRenderers.ts`, both **modified-but-uncommitted** in the shared
+tree alongside `ui/platform/*` — a live sibling lane's working set. The gate will fail for them at
+commit time. Flagged rather than fixed: ⛔ editing another live lane's uncommitted files is the
+mis-attribution hazard that cost three commits on 2026-08-23.
+
+**The SAME file also breaks root `tsc`.** `NODE_OPTIONS=--max-old-space-size=8192 npx tsc -p
+tsconfig.json --noEmit --skipLibCheck` → **RC=2, exactly 2 errors, both in `graphViewState.ts`**:
+`(25,1) TS6192: All imports in import declaration are unused` and `(173,5) TS6133:
+'_layoutProjectId' is declared but its value is never read`. **Zero errors in any of CMDMGR22's
+five files** — the tree will hard-fail a Fly build until that lane cleans up
+(⭐ [[build-uses-stricter-root-tsc]]).
+
+⛔ **AND THAT LANE CLOBBERED THIS LOG.** CMDMGR22 appended L-10340/L-10341, verified them present
+(`grep -c` → 2, 49414 lines), and minutes later both entries were **gone**, the file re-emerging at
+49474 lines ending in lane STARTUP27's L-10460. A read-modify-write of a 49k-line shared file
+silently drops any concurrent append. This entry was re-appended from a scratchpad copy. **Appending
+to ISSUE-LOG.md is not safe under a live fleet** — the same shared-tree hazard as the global stash
+stack, one file over.

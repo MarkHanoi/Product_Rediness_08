@@ -348,8 +348,19 @@ export function initPersistence(params: {
     // previous load's cancelled flag to true, preventing stale state hydration.
     let _cancelCurrentLoad: (() => void) | null = null;
 
+    /**
+     * §STARTUP27-PAUSE-OUTLIVES-THE-LOAD (L-10440) — monotonic load id.
+     *
+     * Only the NEWEST in-flight load may resume the two suspended subsystems. Without
+     * this, the fix below trades one bug for a narrower one: on a project switch, load
+     * A's `finally` would resume topology + sync while load B is still hydrating,
+     * because `SyncStateEngine._paused` is a BOOLEAN, not a counter
+     * (`SyncStateEngine.ts:126`) — so B's `pause()` cannot survive A's `resume()`.
+     */
+    let _loadGeneration = 0;
+
     const loadDelegate: IProjectLoadDelegate = {
-        load: (snapshot) => {
+        load: async (snapshot) => {
             // Cancel any in-flight load from a previous project switch
             _cancelCurrentLoad?.();
 
@@ -365,6 +376,7 @@ export function initPersistence(params: {
 
             let cancelled  = false;
             _cancelCurrentLoad = () => { cancelled = true; };
+            const _myGeneration = ++_loadGeneration;
 
             // §R-8: Pause topology observer during hydration so wall load events
             // do not trigger redundant room re-detection before rooms are restored.
@@ -387,14 +399,43 @@ export function initPersistence(params: {
                     toolManager.commandManager,
                     serializeStores.provenanceStore,
                 );
-                return loader.load(snapshot as any, () => cancelled);
+                return await loader.load(snapshot as any, () => cancelled);
             } finally {
-                // Resume after load (synchronous — ProjectLoader.load is sync)
-                window.roomTopologyObserver?.resume();
+                // ⚠ §STARTUP27-PAUSE-OUTLIVES-THE-LOAD (L-10440) — CORRECTED IN PLACE.
+                //
+                // This comment used to read *"Resume after load (synchronous —
+                // ProjectLoader.load is sync)"*. **It is not sync.** `ProjectLoader.load`
+                // is declared `async load(...): Promise<LoadResult>`
+                // (`ProjectLoader.ts:375`) and yields per chunk at `:842`. The old body
+                // `return loader.load(...)` returned the PROMISE, so this `finally` ran
+                // the instant the loader was *entered* — the two `pause()` calls above
+                // were released microseconds later, before a single element had been
+                // hydrated.
+                //
+                // ⭐ THE PAUSES WERE THEREFORE A NO-OP, and had been for as long as the
+                // comment was wrong. Everything §R-8 and Data Platform Phase 6 §6.2
+                // exist to suppress — room re-detection per wall-load event, sync-state
+                // recompute over a half-hydrated store — ran for the WHOLE import.
+                // Measured cost of the work they were meant to guard, lane STARTUP27:
+                // the wall half of a 100x open is ~98.6 s over 20,240 walls
+                // (`STARTUP27ProjectOpenScale.measure.test.ts`), and that is the window
+                // this suppression was supposed to cover and did not.
+                //
+                // `await` above is what closes it: the `finally` now runs after the
+                // loader has actually finished. C72 §4.2 still holds — a throw inside
+                // `load` still resumes, because `finally` still runs on the throw path.
+                //
+                // The generation guard is NOT belt-and-braces: `SyncStateEngine._paused`
+                // is a boolean (`SyncStateEngine.ts:126`), so on a project switch the
+                // OLD load's resume would otherwise un-pause the NEW load that is still
+                // hydrating. Only the newest load may resume.
+                if (_myGeneration === _loadGeneration) {
+                    window.roomTopologyObserver?.resume();
 
-                // ── Data Platform Phase 6 §6.5: Resume SyncStateEngine after load ──
-                // Flushes any pending recomputes accumulated during load hydration.
-                syncStateEngine.resume();
+                    // ── Data Platform Phase 6 §6.5: Resume SyncStateEngine after load ──
+                    // Flushes any pending recomputes accumulated during load hydration.
+                    syncStateEngine.resume();
+                }
             }
         },
     };

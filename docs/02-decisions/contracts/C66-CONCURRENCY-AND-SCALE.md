@@ -33,6 +33,33 @@ A tier is **HELD** only when a k6 run at that VU count passes the §6 thresholds
 
 > **§1.2 — MUST.** Every tier row carries a document-size assumption, because per-user cost is dominated by document size, not by user count (§2.3). A user count alone is meaningless.
 
+> **§1.3 — the CLIENT-side cost of those document-size assumptions is now MEASURED, and it is the
+> half that fails first** (added 2026-08-24, lane STARTUP27, L-10440, ADR-0368).
+>
+> §1.2 is right that document size dominates — but every tier row's element budget had only ever
+> been reasoned about as a *server* cost. **MEASURED** on the real wall-open path
+> (`refreshV2Cache` → `WallJoinResolver.resolveLevel` → `buildWall`;
+> `packages/geometry-wall/__tests__/STARTUP27ProjectOpenScale.measure.test.ts`):
+>
+> | walls | wall-half of project open | per-wall |
+> |---|---|---|
+> | 200 | 1.5 s | 7.7 ms |
+> | 3 960 | 13.4 s | 3.4 ms |
+> | 20 240 | **98.6 s** | 4.9 ms |
+>
+> ⛔ **That figure EXCLUDES GPU upload, shader compile and first paint — it is a floor, not the
+> user's wait**, and it is walls only, not the whole element census a tier row counts.
+>
+> **Consequences for the table above.** The **Scale** row's *"≤ 10,000 elements"* sits inside the
+> superlinear region: junction resolve is *sub*linear to ~220 walls/level and **superlinear beyond**
+> (4.6× the walls for 11× the time). The **GA** row's *"≤ 2,000 elements"* crosses
+> `LevelScoped3DCullingService`'s ≥4000-element massing-LOD escalation once doors, windows and slabs
+> are counted alongside walls.
+>
+> **MUST.** A tier's element budget MUST NOT be raised on server evidence alone. The client-side
+> open cost is measured by the harness above and MUST be re-read when a budget moves — a tier whose
+> server can serve 10,000 elements and whose client takes ninety seconds to open them is not HELD.
+
 ---
 
 ## §2 — Per-instance limits
