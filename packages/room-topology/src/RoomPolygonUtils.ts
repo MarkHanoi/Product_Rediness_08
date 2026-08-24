@@ -1272,13 +1272,26 @@ export function deriveRoomFinishBoundary(
   // `maxInset`, not zero. The gate therefore allows the pullback to range over
   // [0, maxInset] with a tolerance, and catches only excursions BEYOND what any
   // edge asked for. That is what the 540 mm gap and the 40 mm overshoot were.
-  // MIDPOINTS, not vertices — see `_measurePullbackSpreadAtMidpoints` for why
-  // gating on the vertex measurement rejects a correct L-shaped inset.
-  const spreadAll = _measurePullbackSpreadAtMidpoints(centreline, inner);
+  // §FIX-FINISH-SHORT-EDGE-FALSE-REJECT (L-10640) — EDGES, not points. The band and
+  // the tolerance below are UNCHANGED and still the right ones; what changed is the
+  // object they are measured on. Vertices (v1) carried a corner term and rejected a
+  // correct L-shape; midpoints-to-nearest-source-point (v2) carried a corner term on
+  // any SHORT edge and rejected every room with a jog shallower than about one inset
+  // — the founder's "with smaller variation they simply ALIGN", because the refusal
+  // ships the CENTRELINE ring and the finish aligns with the wall centrelines instead
+  // of stopping at their inner faces. `measureAttributedPullback` reads each derived
+  // edge against the source edge LINE it is parallel to, which is the actual claim a
+  // constant-distance inset makes, and carries no corner term at any edge length.
+  const spreadAll = measureAttributedPullback(centreline, inner);
   const SPREAD_TOL = 0.005; // 5 mm — well under the 40 mm smallest observed defect
+  // A ring that is mostly bevel — i.e. mostly unattributable — cannot be shown to be
+  // an inset at all, so it may not pass by being unmeasurable (C74: unknown is not a
+  // value). Half the derived perimeter must attribute to a source edge line.
+  const MIN_ATTRIBUTED_FRAC = 0.5;
   const pullbackSane =
     ok &&
     inner.length >= 3 &&
+    spreadAll.attributedFrac >= MIN_ATTRIBUTED_FRAC &&
     spreadAll.max <= maxInset + SPREAD_TOL &&
     spreadAll.min >= -SPREAD_TOL;
 
@@ -1294,8 +1307,15 @@ export function deriveRoomFinishBoundary(
       ? `centreline ⚠ (inset REFUSED: ${outcome.kind === 'fallback' ? outcome.reason : 'unknown'})`
       : !areaSane
         ? `centreline ⚠ (inset DEGENERATE by area: ${innerArea.toFixed(2)}m² vs base ${baseArea.toFixed(2)}m²)`
-        : `centreline ⚠ (inset DEGENERATE by SHAPE: pullback ranged ${(spreadAll.min * 1000).toFixed(0)}..${(spreadAll.max * 1000).toFixed(0)}mm ` +
-          `but no edge asked for more than ${(maxInset * 1000).toFixed(0)}mm — the ring held its AREA while losing its SHAPE)`;
+        : spreadAll.attributedFrac < MIN_ATTRIBUTED_FRAC
+          ? `centreline ⚠ (inset UNATTRIBUTABLE: only ${(spreadAll.attributedFrac * 100).toFixed(0)}% of the derived perimeter lies parallel to any source edge, ` +
+            `so the ring cannot be SHOWN to be a constant-distance inset — it is refused rather than assumed)`
+          : `centreline ⚠ (inset DEGENERATE by SHAPE: edge-attributed pullback ranged ${(spreadAll.min * 1000).toFixed(0)}..${(spreadAll.max * 1000).toFixed(0)}mm ` +
+            `but no edge asked for more than ${(maxInset * 1000).toFixed(0)}mm — the ring held its AREA while losing its SHAPE. ` +
+            // The historical point-based measure, printed BECAUSE it is the one that
+            // used to decide this: if these two disagree, the ring has a short edge and
+            // the old gate would have false-rejected it (L-10640).
+            `[historical nearest-point measure: ${(() => { const h = _measurePullbackSpreadAtMidpoints(centreline, inner); return `${(h.min * 1000).toFixed(0)}..${(h.max * 1000).toFixed(0)}mm`; })()}])`;
   onDiag?.(
     `boundary=${why} ` +
     `edges=${matchedEdges}/${centreline.length} maxInset=${(maxInset * 1000).toFixed(0)}mm door-gaps=${doorGaps} ` +
@@ -1430,6 +1450,19 @@ export function ringsCoincide(
  * Midpoints carry no corner term, so on a true inset they read the inset
  * distance and nothing else. Same reason the W2-A roof-offset oracle samples
  * midpoints rather than vertices.
+ *
+ * ⛔ **THAT LAST SENTENCE IS FALSE FOR SHORT EDGES, AND THAT IS L-10640.** A
+ * midpoint carries no corner term only while the edge is LONG relative to the
+ * inset. Once an edge is shorter than about twice the inset — which is exactly
+ * what a SMALL JOG in a room boundary produces — the nearest point of the SOURCE
+ * ring to that midpoint stops being its own source edge and becomes a source
+ * CORNER, or the source edge on the far side of the jog. The function then
+ * reports a distance LARGER than the inset for a ring that is a mathematically
+ * exact constant-distance inset, the gate below rejects it, and the CENTRELINE
+ * ring ships — the L-240 overshoot, reintroduced by the guard written to prevent
+ * it. **This function is NO LONGER THE GATE.** It is retained because it is the
+ * honest historical measurement and it explains the refusal when one happens; the
+ * gate is now `measureAttributedPullback`. See §FIX-FINISH-SHORT-EDGE-FALSE-REJECT.
  */
 function _measurePullbackSpreadAtMidpoints(
   source: ReadonlyArray<RoomVertex>,
@@ -1444,6 +1477,160 @@ function _measurePullbackSpreadAtMidpoints(
   }
   if (mids.length === 0) return { min: 0, max: 0 };
   return _measurePullbackSpread(source, mids);
+}
+
+/**
+ * §FIX-FINISH-SHORT-EDGE-FALSE-REJECT (L-10640, lane FLOOR33) — THE GATE'S MEASUREMENT,
+ * TAKEN ON THE OBJECT THAT ACTUALLY CARRIES THE INVARIANT.
+ *
+ * ⭐ THE INVARIANT HAS ALWAYS BEEN THE RIGHT ONE; THE OBJECT WAS WRONG TWICE.
+ * A true constant-distance inset is a property of EDGES, not of points: derived edge
+ * `e` must lie on the inward offset LINE of the source edge it came from, at that
+ * edge's inset. Every point-based proxy — vertices (v1), then midpoints-to-nearest-
+ * source-point (v2) — measures a DIFFERENT quantity that happens to agree with the
+ * invariant on long, gently-turning rings and disagrees with it near a corner. v1
+ * disagreed at every corner (100·√2). v2 fixed that and disagrees at every SHORT
+ * EDGE, which is what a small jog in a room boundary is.
+ *
+ * MEASURED (lane FLOOR33, 4 m × 3 m room, 200 mm walls ⇒ 100 mm inset, one jog on the
+ * far side; the inset produced is EXACT to 0.0000 mm on every edge in every row):
+ *
+ *   jog depth   v2 (midpoint→nearest) reads   gate verdict     shipped area
+ *     300 mm            ≤ 105 mm              inner-face ✓      11.18 m²  correct
+ *     150 mm            ≤ 105 mm              inner-face ✓      10.91 m²  correct
+ *     100 mm              112 mm              ⛔ REJECTED       12.20 m²  +12.75 %
+ *      50 mm              125 mm              ⛔ REJECTED       12.10 m²  +12.77 %
+ *      20 mm              110 mm              ⛔ REJECTED       12.04 m²  +12.78 %
+ *
+ * The reads are reproducible arithmetic, not noise: at a 100 mm jog the derived jog
+ * edge's midpoint sits 100 mm in from its own source edge but √(100² + 50²) = 112 mm
+ * from the source CORNER, which is nearer; at a 50 mm jog the nearest source feature
+ * is the far side of the jog at 100 + 50/2 = 125 mm. The founder's report — *"when
+ * there is smaller variation they tend to simply ALIGN"* — is this threshold: below a
+ * jog depth of roughly one inset, the finish snaps back out to the wall CENTRELINES
+ * and visibly aligns with them.
+ *
+ * ⭐ THIS MEASUREMENT IS STRICTLY STRONGER, NOT WEAKER. The defect the spread gate was
+ * built to catch (§W2A-SPREAD-IS-THE-GATE — a similarity scale toward the centroid,
+ * which holds its AREA while losing its SHAPE) is still caught, and caught harder: a
+ * scale keeps every edge PARALLEL to its source, so every edge is attributable and its
+ * pullback is read exactly — 300 mm on the short edges of the recorded 20 m × 4 m case
+ * against a 100 mm ask, far outside the band. Nothing that failed before passes now.
+ *
+ * ⚠ WHAT IT DOES NOT MEASURE, stated rather than implied. Two kinds of derived edge are
+ * not an offset of ANY source edge and so cannot be band-checked:
+ *   • a BEVEL edge inserted by the miter clamp at a runaway corner; and
+ *   • a THRESHOLD RISER — the short connector that steps the finish down from the wall
+ *     face to the centreline across a door gap. A riser is perpendicular to the wall it
+ *     leaves, and therefore PARALLEL to the room's side walls, which is why attribution
+ *     needs the proximity test in the loop and not merely a direction test.
+ * Both are excluded from the band and counted instead. `attributedFrac` is the share of
+ * derived PERIMETER that was attributable; the caller refuses below half, so a ring that
+ * is mostly unattributable can never buy its way past this gate by being unmeasurable
+ * (C74 — an unresolved constraint may not be drawn as a value).
+ *
+ * Winding-aware (the inward normal follows the source ring's signed area), so a CW ring
+ * reads positive pullbacks rather than silently inverted ones. Pure, O(n·m); n,m ≤ 256.
+ */
+export function measureAttributedPullback(
+  source: ReadonlyArray<RoomVertex>,
+  derived: ReadonlyArray<RoomVertex>,
+): { min: number; max: number; attributedFrac: number } {
+  const PARALLEL_DOT = 0.985; // ~10° — the same cone `_wallForFinishEdge` uses.
+  if (source.length < 3 || derived.length < 3) return { min: 0, max: 0, attributedFrac: 0 };
+
+  // Inward is +1 × the left normal for a CCW ring, −1 for a CW one.
+  const inward = computeSignedArea(source as RoomVertex[]) >= 0 ? 1 : -1;
+
+  // Pre-compute each source edge's unit direction, a point on its line, and its length
+  // (the SEGMENT is needed to attribute, the LINE to measure — see the loop).
+  const src: Array<{ px: number; pz: number; ux: number; uz: number; len: number }> = [];
+  for (let j = 0; j < source.length; j++) {
+    const p = source[j]!, q = source[(j + 1) % source.length]!;
+    const dx = q.x - p.x, dz = q.z - p.z;
+    const len = Math.hypot(dx, dz);
+    if (len < 1e-9) continue;
+    src.push({ px: p.x, pz: p.z, ux: dx / len, uz: dz / len, len });
+  }
+  if (src.length === 0) return { min: 0, max: 0, attributedFrac: 0 };
+
+  let min = Infinity, max = 0;
+  let attributedLen = 0, totalLen = 0;
+
+  for (let i = 0; i < derived.length; i++) {
+    const a = derived[i]!, b = derived[(i + 1) % derived.length]!;
+    const dx = b.x - a.x, dz = b.z - a.z;
+    const len = Math.hypot(dx, dz);
+    if (len < 1e-9) continue;
+    totalLen += len;
+    const ux = dx / len, uz = dz / len;
+    const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
+
+    // ⭐ ATTRIBUTE WITH THE SEGMENT, MEASURE WITH THE LINE. These are two different
+    // jobs and conflating them is wrong in both directions:
+    //   • Attributing by distance to the infinite LINE lets a far-away PARALLEL source
+    //     edge steal the match. On a room with a 150 mm jog, the derived edge beyond
+    //     the jog sits 100 mm from its own source edge but only 50 mm from the
+    //     EXTENSION of the source edge on the other side of the jog, so it attributed
+    //     across the jog and read a pullback of −50 mm — an outset, on a ring that is
+    //     an exact 100 mm inset. (Measured, lane FLOOR33, before this line existed.)
+    //   • Attributing by SEGMENT overlap alone fails the short-edge case this whole
+    //     function exists for: a 100 mm jog's derived edge is pushed clear of its own
+    //     source segment's span by the neighbouring offsets, so it overlaps nothing.
+    // Point-to-SEGMENT distance decides WHICH source edge (it is small only for the
+    // genuinely adjacent one, and it degrades gracefully to the endpoint when the
+    // derived edge has slid past the span). The pullback is then the perpendicular to
+    // that segment's LINE, which is the quantity a constant-distance inset actually
+    // claims and which carries no corner term at any edge length.
+    let best = Infinity;         // signed pullback of the winning attribution
+    let bestDist = Infinity;     // point-to-SEGMENT distance to the nearest PARALLEL source
+    let nearestAnyDist = Infinity; // point-to-SEGMENT distance to the nearest source, any direction
+    for (const s of src) {
+      // Distance from the derived midpoint to the source SEGMENT (clamped projection).
+      const vx = mx - s.px, vz = mz - s.pz;
+      let t = vx * s.ux + vz * s.uz;
+      t = t < 0 ? 0 : t > s.len ? s.len : t;
+      const dist = Math.hypot(vx - s.ux * t, vz - s.uz * t);
+      if (dist < nearestAnyDist) nearestAnyDist = dist;
+      if (Math.abs(ux * s.ux + uz * s.uz) < PARALLEL_DOT) continue;
+      if (dist >= bestDist) continue;
+      bestDist = dist;
+      // Signed perpendicular distance to the LINE, inward-positive.
+      best = (vx * -s.uz + vz * s.ux) * inward;
+    }
+
+    // ⛔ PARALLEL IS NOT ENOUGH — PROXIMITY DECIDES. A derived edge may only be read as
+    // the offset of a source edge if that source edge is also (one of) the NEAREST source
+    // features to it. Without this, a CONNECTOR edge — the short riser that steps the
+    // finish down from the wall face to the centreline at a door THRESHOLD — is parallel
+    // to the side walls of the room and gets attributed to one of them metres away. On the
+    // recorded 6 m × 4 m door fixture that read a pullback of 2550 mm against a 100 mm ask
+    // and refused a correct threshold ring. A riser's nearest source feature is the wall it
+    // steps down FROM, which is perpendicular to it, so this one comparison separates
+    // "offset of that edge" from "merely parallel to that edge".
+    //
+    // ⭐ Deliberately SCALE-FREE — a ratio between two measured distances, not a tolerance
+    // in millimetres. A distance threshold here would have to be expressed in terms of the
+    // inset, and the centroid-shrink defect this gate exists to catch produces edges FAR
+    // from their source (302 mm against a 100 mm ask on the recorded 20 m × 4 m case) —
+    // exactly the reading that must NOT be excused as unattributable. Under this rule the
+    // shrunk edge still attributes (its own source edge remains its nearest feature) and is
+    // still rejected, while the riser does not.
+    const ATTRIB_EPS = 1e-6;
+    if (!Number.isFinite(best) || bestDist > nearestAnyDist + ATTRIB_EPS) {
+      continue; // unattributable (bevel / threshold riser) — reported, not gated.
+    }
+    attributedLen += len;
+    if (best < min) min = best;
+    if (best > max) max = best;
+  }
+
+  if (attributedLen <= 0) return { min: 0, max: 0, attributedFrac: 0 };
+  return {
+    min: Number.isFinite(min) ? min : 0,
+    max,
+    attributedFrac: totalLen > 0 ? attributedLen / totalLen : 0,
+  };
 }
 
 function _measurePullbackSpread(
