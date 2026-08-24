@@ -346,6 +346,7 @@ export * from './views/AddDataPanelToSheetCommand';
 export * from './views/AddRevisionToSheetCommand';
 export * from './views/AddViewportToSheetCommand';
 export * from './views/ApplySheetLayoutPresetCommand';
+export * from './views/TitleBlockTemplateCommands';   // §TITLE-BLOCK-EDIT-FORKS (L-10690)
 export * from './views/AssignViewTemplateToViewCommand';
 export * from './views/CreateDetailViewCommand';
 export * from './views/CreatePhaseFilterCommand';

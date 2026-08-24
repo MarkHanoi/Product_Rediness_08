@@ -240,6 +240,193 @@ class TitleBlockStoreImpl {
     getDefault(): TitleBlockTemplate {
         return JSON.parse(JSON.stringify(A1_TEMPLATE));
     }
+
+    // ── §TITLE-BLOCK-EDIT-FORKS (L-10690) — the WRITE API ────────────────────
+    //
+    // The founder's ask #4: *"user-configurable field placement"*. This class had
+    // a PRIVATE MAP AND NO WRITE API AT ALL — no add, no update, no delete, no
+    // serialize. Its own header says "Read-only store … no mutations needed in
+    // Phase S3", which was true when three code-seeded templates were the whole
+    // library and is exactly what made the ask impossible rather than merely
+    // unbuilt.
+    //
+    // ⛔ THE BINDING RULE: A BUILT-IN IS NEVER MUTATED IN PLACE.
+    // Editing one FORKS it to a new id. Every sheet he has already issued
+    // references its template BY ID (`titleBlock: 'a1-standard'`), so mutating
+    // `a1-standard` would silently redraw drawings that have already gone out.
+    // `fork()` is therefore the only way user editing begins, `update()` refuses
+    // a built-in id outright, and `isBuiltin()` is the single definition of which
+    // ids are protected — read from the seeded set, never from a hand-kept list
+    // that can drift.
+
+    private readonly _builtinIds: ReadonlySet<string> = new Set(this._templates.keys());
+
+    /** True for the ten code-seeded templates. These are never mutated, never
+     *  deleted, and never persisted into a project snapshot. */
+    isBuiltin(templateId: string): boolean {
+        return this._builtinIds.has(templateId);
+    }
+
+    /** The user-authored templates only — what a project snapshot carries. */
+    userTemplates(): TitleBlockTemplate[] {
+        return [...this._templates.values()]
+            .filter(t => !this._builtinIds.has(t.id))
+            .map(t => JSON.parse(JSON.stringify(t)));
+    }
+
+    private _dispatch(eventName: string, detail: object): void {
+        // Window events, not just an internal bus: `SaveOrchestrator` listens on
+        // `window`, and a store that emits only internally is precisely how the
+        // founder's views and sheets were never saved (L-10700/L-10701).
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent(eventName, { detail }));
+        }
+    }
+
+    /**
+     * Copy a template under a new id so the user can edit the copy.
+     *
+     * Returns the new template, or `null` when the source does not exist or the
+     * new id is taken. Forking a USER template is allowed too — that is just
+     * "duplicate", and it is the same operation.
+     */
+    fork(sourceId: string, newId: string, newName: string): TitleBlockTemplate | null {
+        const src = this._templates.get(sourceId);
+        if (!src) return null;
+        if (this._templates.has(newId)) return null;
+        const copy: TitleBlockTemplate = JSON.parse(JSON.stringify(src));
+        copy.id = newId;
+        copy.name = newName;
+        this._templates.set(newId, copy);
+        this._dispatch('tb:template-created', { templateId: newId, forkedFrom: sourceId });
+        return JSON.parse(JSON.stringify(copy));
+    }
+
+    /**
+     * Replace a USER template's definition.
+     *
+     * ⛔ Refuses a built-in id and says why. A silent no-op here would look
+     * exactly like the `paperSize` write that evaporated (L-10684) — the caller
+     * would believe it had saved a layout it had not.
+     */
+    update(templateId: string, next: TitleBlockTemplate): boolean {
+        if (this._builtinIds.has(templateId)) {
+            console.warn(
+                `[TitleBlockStore] §TITLE-BLOCK-EDIT-FORKS (L-10690) — refusing to mutate built-in ` +
+                `'${templateId}'. Sheets already issued reference it by id. Call fork() first.`,
+            );
+            return false;
+        }
+        if (!this._templates.has(templateId)) return false;
+        const copy: TitleBlockTemplate = JSON.parse(JSON.stringify(next));
+        copy.id = templateId;                       // the id is not editable through here
+        this._templates.set(templateId, copy);
+        this._dispatch('tb:template-updated', { templateId });
+        return true;
+    }
+
+    /**
+     * Move / resize ONE field, in BLOCK-LOCAL millimetres.
+     *
+     * ⭐ This is the whole of "user-configurable field placement", and it is a
+     * one-field write rather than a new coordinate system because the block-local
+     * work already shipped: `buildStripTitleBlock` authors in block-local mm and
+     * `SheetPaperResolution.titleBlockFieldsOnPaper` re-anchors to any paper. The
+     * argument here is the offset from the STRIP's left edge, so a layout the user
+     * draws on an A3 sheet is the same layout on an A0 one.
+     */
+    setFieldPlacement(
+        templateId: string,
+        fieldKey:   string,
+        placement:  { localX?: number; y?: number; width?: number; height?: number },
+    ): boolean {
+        if (this._builtinIds.has(templateId)) {
+            console.warn(
+                `[TitleBlockStore] §TITLE-BLOCK-EDIT-FORKS (L-10690) — refusing to move a field on ` +
+                `built-in '${templateId}'. Call fork() first.`,
+            );
+            return false;
+        }
+        const t = this._templates.get(templateId);
+        if (!t) return false;
+        const f = t.fields.find(x => x.key === fieldKey);
+        if (!f) return false;
+
+        const stripLeft = t.paperWidth - t.borderWidth;
+        if (placement.localX !== undefined && Number.isFinite(placement.localX)) {
+            f.x = _mm(stripLeft + placement.localX);
+        }
+        if (placement.y      !== undefined && Number.isFinite(placement.y))      f.y      = _mm(placement.y);
+        if (placement.width  !== undefined && Number.isFinite(placement.width)  && placement.width  > 0) f.width  = _mm(placement.width);
+        if (placement.height !== undefined && Number.isFinite(placement.height) && placement.height > 0) f.height = _mm(placement.height);
+
+        this._dispatch('tb:template-updated', { templateId, fieldKey });
+        return true;
+    }
+
+    /**
+     * Put a previously-deleted USER template back, id and all.
+     *
+     * Exists so `DeleteTitleBlockTemplateCommand.undo()` restores THE TEMPLATE
+     * rather than something shaped like it. Mirrors `SheetStore.restore`.
+     * ⛔ Refuses to shadow a built-in id, same as every other write here.
+     */
+    restore(template: TitleBlockTemplate): boolean {
+        if (!template?.id) return false;
+        if (this._builtinIds.has(template.id)) return false;
+        this._templates.set(template.id, JSON.parse(JSON.stringify(template)));
+        this._dispatch('tb:template-created', { templateId: template.id, restored: true });
+        return true;
+    }
+
+    /** Remove a USER template. Built-ins are never deleted. */
+    delete(templateId: string): boolean {
+        if (this._builtinIds.has(templateId)) {
+            console.warn(`[TitleBlockStore] §TITLE-BLOCK-EDIT-FORKS (L-10690) — built-in '${templateId}' cannot be deleted.`);
+            return false;
+        }
+        if (!this._templates.delete(templateId)) return false;
+        this._dispatch('tb:template-deleted', { templateId });
+        return true;
+    }
+
+    // ── Persistence (L-10690) ───────────────────────────────────────────────
+    //
+    // ⛔ ONLY USER TEMPLATES ARE WRITTEN. The ten built-ins come from code, and
+    // baking a copy of them into every snapshot would freeze today's geometry
+    // into files that then never pick up a correction — the same reason
+    // `DefaultViewsManager` mints its six rather than storing them.
+
+    serialize(): { version: 1; templates: TitleBlockTemplate[] } {
+        return { version: 1, templates: this.userTemplates() };
+    }
+
+    deserialize(data: unknown): void {
+        this.clearUserTemplates();
+        if (!data || typeof data !== 'object') return;
+        const snap = data as { version?: number; templates?: unknown };
+        if (snap.version !== 1 || !Array.isArray(snap.templates)) return;
+        for (const raw of snap.templates as TitleBlockTemplate[]) {
+            if (!raw?.id || !raw?.name || !Array.isArray(raw.fields)) continue;
+            // A snapshot that names a built-in id is not allowed to shadow it.
+            if (this._builtinIds.has(raw.id)) continue;
+            this._templates.set(raw.id, JSON.parse(JSON.stringify(raw)));
+        }
+        this._dispatch('tb:store-loaded', { count: this.userTemplates().length });
+    }
+
+    /**
+     * C13 teardown: drop every user template, keep the built-ins.
+     *
+     * Templates are PROJECT-scoped by ruling — one practice's block travels with
+     * the project it was authored in — so carrying them across a project switch
+     * would be a cross-project leak of exactly the kind C13 exists to prevent.
+     */
+    clearUserTemplates(): void {
+        for (const id of [...this._templates.keys()]) {
+            if (!this._builtinIds.has(id)) this._templates.delete(id);
+        }
+    }
 }
 
 export const titleBlockStore = new TitleBlockStoreImpl();
@@ -248,3 +435,16 @@ export type { TitleBlockStoreImpl };
 // VIEW-SYSTEM-AUDIT-2026 F5.5 — register with StoreRegistry (read-only library).
 import { storeRegistry } from '../StoreRegistry';
 storeRegistry.register('title-block', titleBlockStore as unknown as import('../StoreRegistry').BimStore);
+
+// §TITLE-BLOCK-EDIT-FORKS (L-10690) — C13 project-scope teardown.
+//
+// The moment this store is serialized into a project snapshot it holds
+// project-scoped state, and `check:isolation` requires a registry entry for
+// exactly that reason: without one, switching projects carries one project's
+// title blocks into the next. `clear` drops the user templates; the built-ins
+// are code and need no reseed.
+import { projectScopeRegistry } from '../persistence/ProjectScopeRegistry.js';
+projectScopeRegistry.register({
+    scopeName: 'titleBlockStore',
+    clear: () => titleBlockStore.clearUserTemplates(),
+});

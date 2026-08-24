@@ -44,6 +44,17 @@ export { SetSheetLayoutRuleCommand } from './SetSheetLayoutRuleCommand';
 export { ApplySheetLayoutPresetCommand } from './ApplySheetLayoutPresetCommand';
 export type { SetSheetLayoutRuleParams } from './SetSheetLayoutRuleCommand';
 export type { ApplySheetLayoutPresetParams } from './ApplySheetLayoutPresetCommand';
+// §TITLE-BLOCK-EDIT-FORKS (L-10690) — user-configurable field placement
+export {
+    ForkTitleBlockTemplateCommand,
+    SetTitleBlockFieldPlacementCommand,
+    DeleteTitleBlockTemplateCommand,
+} from './TitleBlockTemplateCommands';
+export type {
+    ForkTitleBlockTemplateParams,
+    SetTitleBlockFieldPlacementParams,
+    TitleBlockFieldPlacementMm,
+} from './TitleBlockTemplateCommands';
 // Phase SC-5 — Data Panels
 export { AddDataPanelToSheetCommand } from './AddDataPanelToSheetCommand';
 export { UpdateDataPanelCommand } from './UpdateDataPanelCommand';

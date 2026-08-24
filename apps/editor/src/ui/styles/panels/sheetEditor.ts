@@ -119,6 +119,17 @@ export const SHEET_EDITOR_STYLES = `
         box-sizing: border-box;
         overflow: hidden;
     }
+    /* §TITLE-BLOCK-EDIT-FORKS (L-10690) — a field the user may place. Dashed
+       accent border, so "this is editable" is visible without a mode toggle and
+       without redrawing anything on export (this class is editor-only). */
+    .sh-titleblock-field--editable {
+        border: 0.5px dashed #6600FF;
+        background: rgba(102, 0, 255, 0.04);
+    }
+    .sh-titleblock-field--editable:hover {
+        background: rgba(102, 0, 255, 0.10);
+        outline: 1px solid #6600FF;
+    }
     .sh-titleblock-field-label {
         font-size: 6px;
         color: #888;

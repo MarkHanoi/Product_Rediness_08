@@ -131,6 +131,14 @@ const MUTATION_EVENTS: ReadonlyArray<string> = [
     // a fresh project shows are `seedDefaultSchedules()` output, not saved data.
     'sched:schedule-created', 'sched:schedule-updated', 'sched:schedule-deleted',
 
+    // TitleBlockStore — §TITLE-BLOCK-EDIT-FORKS (L-10690) LEG 3 of 3, and the leg
+    // that actually failed the founder in L-10700: the store was correct and
+    // NOTHING MARKED THE PROJECT DIRTY, so no debounce armed and
+    // `flushBeforeUnload()` returned early on `!hasDirtyChanges`. A user's own
+    // title block is authored work and is lost the same way.
+    // ⛔ `tb:store-loaded` is deliberately EXCLUDED — it fires during a load.
+    'tb:template-created',   'tb:template-updated',   'tb:template-deleted',
+
     // AnnotationStore (plugins/annotations) has NO window events of its own — it
     // emits only on `storeEventBus`, which dispatches nothing. It broadcasts
     // 'bim-store-mutated' (already first in this list) as of L-10701; see

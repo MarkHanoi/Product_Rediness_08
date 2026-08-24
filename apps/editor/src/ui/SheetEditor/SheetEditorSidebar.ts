@@ -21,6 +21,7 @@ import type { SheetComment } from '@pryzm/core-app-model';
 import { VIEW_TYPE_ICONS, VIEW_DRAG_MIME } from './SheetEditorContracts';
 import type { SidebarOpts } from './SheetEditorContracts';
 import { buildLayoutSection, buildDataPanelSection, buildIntentSection, buildRevisionFormEl } from './SheetEditorCommands';
+import { buildTitleBlockSection } from './SheetEditorCommands';   // §TITLE-BLOCK-EDIT-FORKS (L-10690)
 import DOMPurify from 'dompurify';
 
 // ── Public: top-level sidebar builder ─────────────────────────────────────
@@ -32,6 +33,10 @@ export function buildSidebar(sheet: SheetDefinition, opts: SidebarOpts): HTMLDiv
     sidebar.appendChild(buildSheetPropsSection(sheet, opts));
     sidebar.appendChild(buildViewportPropsSection(sheet, opts));
     sidebar.appendChild(buildLayoutSection(sheet, (key, value) => opts.updateSheetField(sheet.id, key, value)));
+    // §TITLE-BLOCK-EDIT-FORKS (L-10690) — the founder's ask #4. Sits beside the
+    // Paper control because paper, title block and field placement are one
+    // decision to the person making it.
+    sidebar.appendChild(buildTitleBlockSection(sheet, (key, value) => opts.updateSheetField(sheet.id, key, value)));
     sidebar.appendChild(buildDataPanelSection(sheet));
     sidebar.appendChild(buildIntentSection(sheet));
     sidebar.appendChild(buildRevisionSection(sheet, opts));

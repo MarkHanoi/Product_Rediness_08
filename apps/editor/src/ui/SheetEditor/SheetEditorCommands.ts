@@ -18,6 +18,9 @@ import { UpdateSheetCommand } from '@pryzm/command-registry';
 import type { UpdateSheetPatch } from '@pryzm/command-registry';
 import { AddRevisionToSheetCommand } from '@pryzm/command-registry';
 import { ApplySheetLayoutPresetCommand } from '@pryzm/command-registry';
+// §TITLE-BLOCK-EDIT-FORKS (L-10690) — user-configurable field placement.
+import { ForkTitleBlockTemplateCommand } from '@pryzm/command-registry';
+import { SetTitleBlockFieldPlacementCommand } from '@pryzm/command-registry';
 import { AddDataPanelToSheetCommand } from '@pryzm/command-registry';
 import { RemoveDataPanelFromSheetCommand } from '@pryzm/command-registry';
 import { ExportSheetCommand } from '@pryzm/command-registry';
@@ -428,6 +431,151 @@ export function buildLayoutSection(
     paperRow.appendChild(paperLabel);
     paperRow.appendChild(paperSelect);
     sec.appendChild(paperRow);
+
+    return sec;
+}
+
+// ── §TITLE-BLOCK-EDIT-FORKS (L-10690) — user-configurable field placement ──
+
+/** Snap to half a millimetre. A drag is a gesture, not a measurement; a title
+ *  block laid out on 0.5 mm steps is tidy on paper and still free-form. */
+function _snapMm(v: number): number {
+    return Math.round(v * 2) / 2;
+}
+
+/**
+ * Make one title-block field zone draggable, writing BLOCK-LOCAL millimetres.
+ *
+ * The zone is positioned at `(field.x - stripLeftMm) * sf` from the strip's left
+ * edge and `field.y * sf` from the paper bottom, so the inverse of a pointer
+ * delta is a division by `sf` — and the Y axis flips, because screen Y grows
+ * downward and paper Y grows up.
+ *
+ * ⛔ P6: the drag mutates NOTHING directly. It previews with a CSS transform and
+ * dispatches ONE command on release, so the whole gesture is one undo step
+ * rather than a hundred.
+ */
+export function attachTitleBlockFieldDrag(
+    zone:        HTMLElement,
+    templateId:  string,
+    fieldKey:    string,
+    sf:          number,
+    startLocalX: number,
+    startY:      number,
+): void {
+    zone.style.cursor = 'move';
+    zone.title = `Drag to place — ${fieldKey}`;
+
+    zone.addEventListener('pointerdown', (down: PointerEvent) => {
+        if (down.button !== 0) return;
+        down.preventDefault();
+        down.stopPropagation();
+        zone.setPointerCapture(down.pointerId);
+
+        const x0 = down.clientX;
+        const y0 = down.clientY;
+        let dxMm = 0;
+        let dyMm = 0;
+
+        const onMove = (mv: PointerEvent) => {
+            dxMm = _snapMm((mv.clientX - x0) / sf);
+            dyMm = _snapMm((y0 - mv.clientY) / sf);   // screen down = paper down
+            zone.style.transform = `translate(${dxMm * sf}px, ${-dyMm * sf}px)`;
+        };
+
+        const onUp = () => {
+            zone.removeEventListener('pointermove', onMove);
+            zone.removeEventListener('pointerup', onUp);
+            zone.style.transform = '';
+            if (dxMm === 0 && dyMm === 0) return;   // a click, not a drag
+
+            if (!window.__pryzmInitComplete) {
+                console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: titleBlockFieldDrag');
+                return;
+            }
+            const cmd = new SetTitleBlockFieldPlacementCommand({
+                templateId,
+                fieldKey,
+                placement: {
+                    // Clamped at 0 so a field cannot be dragged off the left edge
+                    // of its own strip, where nothing would ever draw it again.
+                    localX: Math.max(0, _snapMm(startLocalX + dxMm)),
+                    y:      Math.max(0, _snapMm(startY      + dyMm)),
+                },
+            });
+            dispatchSheetCommand('titleBlockFieldDrag', cmd);
+        };
+
+        zone.addEventListener('pointermove', onMove);
+        zone.addEventListener('pointerup', onUp);
+    });
+}
+
+/**
+ * The Title Block section: duplicate-then-edit, and nothing else.
+ *
+ * ⛔ THE BINDING RULE IS ENFORCED IN THE UI'S SHAPE, not only in the store.
+ * While a sheet carries a BUILT-IN title block there is no edit affordance at
+ * all — only "Duplicate & edit". Fields become draggable the moment the sheet
+ * is on a copy. That way the refusal is never something the user runs into: it
+ * is something the interface never offered.
+ */
+export function buildTitleBlockSection(
+    sheet:         SheetDefinition,
+    onUpdateField: (key: string, value: string) => void,
+): HTMLElement {
+    const sec = document.createElement('div');
+    sec.className = 'sh-layout-section';
+
+    const label = document.createElement('div');
+    label.className   = 'sh-layout-label';
+    label.textContent = 'Title Block Layout';
+    sec.appendChild(label);
+
+    const currentId = sheet.titleBlock ?? titleBlockStore.getDefault().id;
+    const current   = titleBlockStore.get(currentId) ?? titleBlockStore.getDefault();
+
+    if (titleBlockStore.isBuiltin(current.id)) {
+        const btn = document.createElement('button');
+        btn.className   = 'sh-preset-btn';
+        btn.type        = 'button';
+        btn.textContent = 'Duplicate & edit';
+        btn.title =
+            `'${current.name}' is a built-in and is never edited in place — sheets you have ` +
+            `already issued reference it by id. This makes a copy for this project and moves ` +
+            `this sheet onto it.`;
+        btn.addEventListener('click', () => {
+            if (!window.__pryzmInitComplete) {
+                console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: titleBlockFork');
+                return;
+            }
+            const newId = `tb-${crypto.randomUUID().slice(0, 8)}`;
+            const cmd = new ForkTitleBlockTemplateCommand({
+                sourceId: current.id,
+                newId,
+                newName:  `${current.name} (custom)`,
+            });
+            if (!dispatchSheetCommand('titleBlockFork', cmd).dispatched) return;
+            // Point THIS sheet at the copy. Separate command on purpose: the fork
+            // is a project-library act and the repoint is a sheet act, and undoing
+            // the repoint should not silently destroy a template the user may have
+            // already put on another sheet.
+            onUpdateField('titleBlock', newId);
+        });
+        sec.appendChild(btn);
+
+        const note = document.createElement('div');
+        note.className = 'sh-paper-size-label';
+        note.style.cssText = 'margin-top:6px; line-height:1.35;';
+        note.textContent = 'Built-in — duplicate it to move the fields.';
+        sec.appendChild(note);
+    } else {
+        const note = document.createElement('div');
+        note.className = 'sh-paper-size-label';
+        note.style.cssText = 'line-height:1.35;';
+        note.textContent = `Editing "${current.name}" — drag any field on the sheet to place it. Snaps to 0.5 mm.`;
+        sec.appendChild(note);
+    }
 
     return sec;
 }

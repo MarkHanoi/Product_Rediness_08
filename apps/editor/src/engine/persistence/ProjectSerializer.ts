@@ -98,6 +98,8 @@ import { dxfOverlayStore } from '@pryzm/file-format';
 // ADR-0346 (L-2900) — the host's linked-model REFERENCE table. Never elements.
 import { linkedModelStore } from '../links/LinkedModelStore';
 import { sheetStore } from '@pryzm/core-app-model';
+// L-10690 LEG 1 of 3 — a store can be perfectly correct and still never save.
+import { titleBlockStore } from '@pryzm/core-app-model';
 import { scheduleStore } from '@pryzm/core-app-model';
 import { userMaterialStore } from '@pryzm/core-app-model'; // #105 Materials Repository
 import { annotationStore } from '@pryzm/plugin-annotations';
@@ -438,6 +440,20 @@ export interface ProjectSnapshot {
     schedules?: {
         version: 1;
         schedules: any[];
+    };
+    /**
+     * §TITLE-BLOCK-EDIT-FORKS (L-10690) — USER-AUTHORED title-block templates.
+     *
+     * Only the user's own templates. The ten built-ins are code and are reseeded
+     * by the store, so baking copies of them into every snapshot would freeze
+     * today's geometry into files that then never pick up a correction.
+     *
+     * Optional for backward compat: a snapshot written before ask #4 has no
+     * templates, which is correctly "none", not "lost".
+     */
+    titleBlocks?: {
+        version: 1;
+        templates: any[];
     };
     /**
      * #105 Materials Repository — user-created/uploaded material store snapshot.
@@ -1536,6 +1552,9 @@ export class ProjectSerializer {
 
             // Phase III — Sheets (SheetDefinition records, viewports)
             sheets: sheetStore.serialize() as ProjectSnapshot['sheets'],
+            // L-10690 LEG 1 of 3 — the WRITE. Without this the store is right
+            // and the work is still gone on reload (L-10700).
+            titleBlocks: titleBlockStore.serialize() as ProjectSnapshot['titleBlocks'],
 
             // Phase III — Schedules (ScheduleDefinition records)
             schedules: scheduleStore.serialize() as ProjectSnapshot['schedules'],

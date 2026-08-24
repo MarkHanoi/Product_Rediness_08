@@ -48,6 +48,7 @@ import { sheetProjectionOrchestrator } from './SheetProjectionOrchestrator';
 // own five-key map against a template declaring eleven fields.
 import { resolveTitleBlockValues } from '@pryzm/file-format/sheets';
 import { gatherTitleBlockContext } from './titleBlockContext';
+import { attachTitleBlockFieldDrag } from './SheetEditorCommands';   // §TITLE-BLOCK-EDIT-FORKS (L-10690)
 // §TITLE-BLOCK-TEXT-HAS-ONE-UNIT (L-10689) — the ONE producer of title-block lettering size.
 import { titleBlockValueCapMm, titleBlockLabelCapMm, capMmToEditorPx } from '@pryzm/file-format/sheets';
 import { dataPanelRenderer } from '@pryzm/core-app-model';
@@ -566,6 +567,11 @@ export class SheetEditorPanel {
         const template = sheet.titleBlock
             ? (titleBlockStore.get(sheet.titleBlock) ?? titleBlockStore.getDefault())
             : titleBlockStore.getDefault();
+        // L-10690 — the id ACTUALLY in force, which is not `sheet.titleBlock`
+        // when that names a template this project does not have (a sheet copied
+        // from elsewhere, or a snapshot written before the template was deleted).
+        // Resolving it once means the drag affordance and the drawing agree.
+        const templateId = template.id;
 
         // §SHEET-PAPER-IS-THE-SHEETS (L-10684) — the sheet's Paper is the
         // authority now, not the title block's. `placeSheetOnPaper` resolves the
@@ -655,6 +661,26 @@ export class SheetEditorPanel {
 
             zone.appendChild(labelEl);
             zone.appendChild(valueEl);
+
+            // §TITLE-BLOCK-EDIT-FORKS (L-10690) — the founder's ask #4.
+            //
+            // Fields are draggable ONLY on a user template. While the sheet is on
+            // a built-in there is no affordance at all, so the "duplicate first"
+            // rule is never a refusal the user runs into — it is something the
+            // interface never offered. The drag writes BLOCK-LOCAL mm, which is
+            // why a layout drawn on A3 is the same layout on A0.
+            if (!titleBlockStore.isBuiltin(templateId)) {
+                zone.classList.add('sh-titleblock-field--editable');
+                attachTitleBlockFieldDrag(
+                    zone,
+                    templateId,
+                    field.key,
+                    sf,
+                    field.x - placement.stripLeftMm,
+                    field.y,
+                );
+            }
+
             tb.appendChild(zone);
         }
 

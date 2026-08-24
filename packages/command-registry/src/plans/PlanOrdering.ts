@@ -206,6 +206,10 @@ export class PlanOrdering {
         // Phase SC-4 — Parametric Layout Engine
         [CommandType.SET_SHEET_LAYOUT_RULE]:        5,
         [CommandType.APPLY_SHEET_LAYOUT_PRESET]:    5,
+        // §TITLE-BLOCK-EDIT-FORKS (L-10690)
+        [CommandType.FORK_TITLE_BLOCK_TEMPLATE]:       5,
+        [CommandType.SET_TITLE_BLOCK_FIELD_PLACEMENT]: 5,
+        [CommandType.DELETE_TITLE_BLOCK_TEMPLATE]:     5,
         // Phase SC-5 — Data Panels
         [CommandType.ADD_DATA_PANEL_TO_SHEET]:      5,
         [CommandType.UPDATE_DATA_PANEL]:            5,

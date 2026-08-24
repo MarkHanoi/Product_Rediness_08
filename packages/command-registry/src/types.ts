@@ -294,6 +294,10 @@ export enum CommandType {
     // Phase SC-4 — Parametric Layout Engine
     SET_SHEET_LAYOUT_RULE             = 'SET_SHEET_LAYOUT_RULE',
     APPLY_SHEET_LAYOUT_PRESET         = 'APPLY_SHEET_LAYOUT_PRESET',
+    // §TITLE-BLOCK-EDIT-FORKS (L-10690) — user-configurable field placement
+    FORK_TITLE_BLOCK_TEMPLATE         = 'FORK_TITLE_BLOCK_TEMPLATE',
+    SET_TITLE_BLOCK_FIELD_PLACEMENT   = 'SET_TITLE_BLOCK_FIELD_PLACEMENT',
+    DELETE_TITLE_BLOCK_TEMPLATE       = 'DELETE_TITLE_BLOCK_TEMPLATE',
     // Phase SC-5 — Data Panels
     ADD_DATA_PANEL_TO_SHEET           = 'ADD_DATA_PANEL_TO_SHEET',
     UPDATE_DATA_PANEL                 = 'UPDATE_DATA_PANEL',

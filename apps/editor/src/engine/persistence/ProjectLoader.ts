@@ -72,6 +72,8 @@ import { visibilityIntentStore } from '@pryzm/core-app-model/presentation';
 import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
 import { runVGToIntentMigration, prewarmIntentStyleCache } from '@pryzm/core-app-model';
 import { sheetStore } from '@pryzm/core-app-model';
+// L-10690 LEG 2 of 3 — the READ.
+import { titleBlockStore } from '@pryzm/core-app-model';
 import { scheduleStore } from '@pryzm/core-app-model';
 import { userMaterialStore } from '@pryzm/core-app-model'; // #105 Materials Repository
 import { requirementStore, assetCatalogStore, buildDefaultAssetCatalog } from '@pryzm/core-app-model';
@@ -2317,6 +2319,20 @@ export class ProjectLoader {
         // (setTimeout 0) precisely so it can never fail a project open.
         try { prewarmIntentStyleCache(); } catch { /* §SWALLOW-OPTIONAL */ }
     }, 0);
+
+            // §TITLE-BLOCK-EDIT-FORKS (L-10690) LEG 2 of 3 — restore the user's
+            // own title-block templates BEFORE the sheets that reference them by
+            // id, so a sheet carrying `titleBlock: 'tb-user-...'` never resolves
+            // through `getDefault()` on the way in and renders as an A1 for one
+            // frame.
+            //
+            // ⛔ `deserialize` is called UNCONDITIONALLY. A snapshot with no
+            // `titleBlocks` key is a project with no user templates, and the
+            // store must be cleared to match it — skipping the call would leave
+            // the PREVIOUS project's templates in place, which is the C13 leak
+            // this store's scope registration exists to prevent.
+            titleBlockStore.deserialize((snapshot as any).titleBlocks);
+            console.log('[ProjectLoader] Title-block templates restored from snapshot');
 
             // Phase III: Restore Sheet store from snapshot
             if ((snapshot as any).sheets) {
