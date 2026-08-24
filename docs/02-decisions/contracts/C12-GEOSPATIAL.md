@@ -458,6 +458,59 @@ bug per city: a θ-pivot *displacement* in Barcelona (Cerdà folds θ≈45° on 
    terrain-on; shipping terrain-on first re-ships L-629 by construction. Sequenced as T0→T3 in the
    Part-3 build order.
 
+8. **⭐⭐ THE FRAME MAPPING MUST BE ORIENTATION-PRESERVING, AND SOME GATE MUST HAVE A TERM FOR IT
+   (L-10740, 2026-08-24).** Every clause above is about *rotation and translation*. **None of them
+   has a term for a REFLECTION**, and a reflection is what the founder actually photographed:
+   *"the parcel shade in PRYZM view … often the shade is not correct — it sort of MIRRORS to one
+   side outwards."*
+   - **MEASURED, so the θ half is settled and must not be re-litigated:** the θ chain
+     (`deriveProjectNorthAngleFromParcel` → the `dispatchParcelBoundary` de-rotation →
+     `sceneXZToEnu`) is a **proper rotation, determinant +1**, and round-trips an *asymmetric*
+     parcel to 1e-9 m at every Barcelona bearing including the founder's θ = −44.87°. **A wrong
+     SIGN on θ is a ROTATION, never a mirror** — negating θ preserves signed area exactly. θ ∈
+     (−45°, +45°] **by the fold**, so a negative θ is ordinary, not a regression:
+     `apps/editor/__tests__/parcelShadeIsNotMirrored.test.ts`.
+   - **⚠ The fold IS bistable at ±45°, which is where the Cerdà grid sits.** A 0.3° change in the
+     dominant edge flips θ by 90°. That is why one Barcelona session logs `−44.87°` and another
+     `+43.40°`. It is self-cancelling end-to-end (the round-trip holds at 45.13°), so it is **not**
+     the displacement bug — but it MUST be stated, because it is the single most available wrong
+     explanation for one.
+   - **The actual reflection was in a RASTERISER, not the frame:**
+     `ParcelBoundarySceneRenderer.buildFill` rotated a shape built in `(x, −z)` by `rotateX(+π/2)`
+     while `buildEnvelopeVolume`, 100 lines below it in the same file with identical shape
+     construction, used `rotateX(−π/2)`. `Matrix4.makeRotationX(+π/2)` sends `(u, v, 0) → (u, 0,
+     +v)`, so the parcel FILL landed at scene `z = −p.z`: mirrored about the scene X axis relative
+     to the outline it exists to fill and to the envelope shade beside it. Because the frame origin
+     is the parcel's FIRST VERTEX (`parcelFrameOrigin`), that mirror line runs through a **corner**
+     of the plot, so the reflected copy lands wholly on the far side of it — the founder's "to one
+     side outwards", exactly.
+   - **MUST:** any scene⇄world or shape⇄scene mapping introduced under this section MUST be
+     orientation-preserving end-to-end, and MUST be pinned by a test using a **CHIRAL** fixture.
+     ⛔ **MUST NOT** use a rectangle or any axis-symmetric plot to demonstrate frame correctness: an
+     axis-aligned rectangle **is its own mirror**, so every such test passes vacuously. This is why
+     the defect survived — `side: THREE.DoubleSide` hides the flipped normals, and no symmetric
+     fixture can falsify a reflection.
+   - **MUST:** the `check-scene-frame-single-owner` gate of clause 4 MUST include a
+     **chirality/signed-area** term. `|area|` is rotation-invariant AND reflection-invariant, so
+     every existing check that reports an absolute area — `polygonCentroidAndAreaXZ` included — is
+     reflection-blind by construction.
+   - **SHIPPED as the interim:** `detectRingFrameDisagreement` (`sceneEnuFrame.ts`, pure + tested)
+     and the `SHADE VERDICT:` arm on `§SITE-FRAME-PROBE`. It compares the parcel boundary against
+     the buildable-envelope ring — two INDEPENDENT pipelines that must land in one frame — on three
+     terms: `displaced` (an inset's centroid MUST lie inside its parcel — a geometric impossibility,
+     the strongest term), `oversized`, and `reflected` (opposite winding — **deliberately reported
+     separately as the WEAKEST term**, since a producer emitting the other winding convention trips
+     it too). It also closes the hole the 2026-08-05 stale-async-zoning investigation named in its
+     own §5 (*"the probe only checks the BOUNDARY, not the buildable envelope ring"*), so one arm
+     covers two separately-reported defects.
+   - **⛔ THE LESSON, which is the part that generalises:** `§SITE-FRAME-PROBE` printed
+     `FRAME VERDICT: CONSISTENT` on the founder's own defective session and **was not lying**. Its
+     only term is `deriveProjectNorthAngleFromParcel(ring) ≈ 0`, which folds **mod 90°** and reads
+     only the dominant EDGE DIRECTION — so a mirrored ring is still "square", a 90°-rotated ring is
+     still "square", and a consistently-applied wrong-signed θ re-derives to 0. **A success
+     criterion with no term for the thing that is wrong reports success forever.** When a probe and
+     a founder disagree, the probe's TERMS are the thing to audit first, before its readings.
+
 **What one SiteFrame dissolves at once:** the Barcelona parcel/envelope θ-pivot displacement (one θ,
 one pivot), terrain-in-Site z-fighting + the L-584/L-585 reseat (one `sampleGround`), the
 heatmap-on-terrain occlusion (the overlay reads θ+ground from the frame), and the L-604 ECEF
@@ -553,6 +606,36 @@ culled. This is safe: a per-city bake has no far-side geometry to over-render.
 
 **MUST NOT**: emit `(0,0,0)`. Cesium treats a geocentre occludee as *always below the horizon* → the
 tile is *always* culled.
+
+> ⚠⚠ **§10.2a — THE `§CULL-PROBE` THAT VERIFIES THIS CLAUSE PRINTED THREE FALSE EXPECTATIONS
+> (L-10741, corrected 2026-08-24).** The founder pasted
+> `§CULL-PROBE root(1,0) vis=0(0=NONE/2=FULL) … bvCtrMag=3189094(want~6.38e6) occPtMag=10000.0000(want~1.0)`
+> as evidence of a defect. **All three numbers are CORRECT and the probe was the only thing claiming
+> otherwise — it read a healthy tile as an alarm.** Measured against the Cesium bundle and
+> `tools/context-bake/terrain.mjs`, not re-transcribed:
+> - **`vis=0` means `PARTIAL` — VISIBLE.** The legend `0=NONE / 2=FULL` was **fabricated**; Cesium's
+>   `Visibility` is **`NONE = −1, PARTIAL = 0, FULL = 1`**. A culled tile prints **−1**, and **2 is
+>   not a value `computeTileVisibility` can return**. `PARTIAL` is moreover the *only* correct answer
+>   for a hemisphere-sized OBB with the camera inside a city. ⚠ **ADR-0278's own narrative mis-read
+>   this same enum**; its real evidence was `occPtMag=0.0000` plus an independent R2 byte decode,
+>   both of which stand without it.
+> - **`bvCtrMag ≈ 3.19e6` is arithmetically FORCED for a level-0 root**, not a fault. The field is an
+>   `OrientedBoundingBox` centre Cesium derives **from the tile rectangle**; a level-0 tile spans a
+>   hemisphere, so its centre sits at `R_eq/2 + h/2 = 3 189 094` — matching the founder's reading to
+>   the digit. `want~6.38e6` is impossible at that level.
+>   ⛔ **AND THIS FIELD CANNOT SEE THE DEFECT THE PROBE EXISTS FOR.** The §10.1 / ADR-0278 D1 bug is
+>   the **quantized-mesh HEADER** bounding-sphere centre — a *different* field
+>   (`root.data.terrainData._boundingSphere.center`). The Cesium-derived OBB is immune to a garbage
+>   header centre, so the probe was testing an object that could not fail.
+> - **`occPtMag = 10000` is THIS CLAUSE'S OWN `HORIZON_OCC_NEVER_CULL` sentinel reading back as
+>   healthy.** `want~1.0` predates ADR-0278 D2 by one day and was never revised; `≈1` is correct only
+>   for **narrow** tiles, never for a wide-angle/z0 root.
+>
+> **MUST**: a diagnostic that prints an expected value MUST have that expectation **derived or cited**
+> — from the enum, from the encoder constant, or from a closed form — never from the hypothesis of the
+> day. ⛔ A probe printing a false `want~` is its own defect, and a *pessimistic* false `want~` is the
+> worse kind: it manufactures bug reports and burns a lane per paste. The probe now decodes the enum,
+> derives the centre expectation from the tile LEVEL, and names the header field it does **not** read.
 
 ### §10.3 — Tileset URL MUST be version-stamped; bump on every bake-output change
 
@@ -747,3 +830,4 @@ Cesium's one-time `"Entity corridor, ellipse, polygon or rectangle with heightRe
 | 2026-08-19 | **§1.5.1 the NAMED FRAME FLAG added; §1.5 two "NOT verified" items resolved; §9 progress + §11.4 asymmetry DECIDED (L-1420/L-1421/L-1422/L-1423).** The founder's 3D-Globe Real building rendered as a continent-sized slab in the sky: `minY 2553068.999` is the WGS-84 ECEF **Y** of the **Sydney Opera House** (2 553 076.920) minus **7.921 m**, which is `east_y x_local` for a **9.04 m** house footprint — a derivation, not a magnitude. `GISAreaLayout:556-560` calls `setAnchor()` **unconditionally at GIS init** with that hard-coded default (a call site §1.5 did not know about, and itself L-1423), and the exporter baked `matrixWorld`. §1.5.1 makes the frame boundary **DERIVED** (arm A declared `userData.pryzmSceneFrame`, arm B measured >=100 km, shallowest ancestor, per-root probe, refuse-not-emit). §11.4: glazing reads as glass on the globe via `glazingOverride` — explicitly **NOT** `formaWhite: true`, which would be less realistic; and annotation overlays are stripped by THREE class, never by a name list. **§1.5 and §9 stay OPEN.** |
 | 2026-08-23 | **§12 Forma ground-context layer rules added (L-10160).** The founder's "water rivers … in the forefront overlapping buildings" is §FORMA-CTX-ROAD-RIBBON's BUG 3 one layer over: the waterway centre-lines were the last floating `polyline` layer AND the only one carrying `depthFailMaterial` (which draws a feature *precisely where it is occluded*) AND the one feature `reseatContextGroundFeaturesForBase` deliberately skipped, so on a risen city they sat far below the ground and were painted through it. Waterways are now `corridor` ground ribbons of class-typed NOMINAL width, re-seated with every other layer, dropped where OSM maps the river's real surface. §12.7 records that the `heightReference` console warning belonged to the site-metric heatmap, not the water — and was already being ignored by Cesium. |
 | 2026-08-23 | **§7 photoreal-void MASK + probe rules added (L-10180).** The founder's globe cut exposed the tile mesh's own section and back faces; the void is now filled with an opaque neutral plug seated on the building's datum and re-seated with it, and the plug must never invent ground. §L-452 RETIRED with its measurement: `clippingPolygons` (the fix that note called untried) is what ships, and its signed-distance resolution is already at the API ceiling — so the ragged edge is a NAMED limit, not a tunable. "Building not visible" has four look-alike causes and is now decided by a one-line probe rather than by inspection. |
+| 2026-08-24 | **§9 clause 8 (the ORIENTATION/chirality clause) + §10.2a (the cull-probe's false expectations) added (L-10740/L-10741).** The founder's *"the parcel shade in PRYZM view … sort of MIRRORS to one side outwards"* was a REAL reflection — but **not in the θ frame**. MEASURED: the θ chain is a proper rotation (det +1) and round-trips an *asymmetric* parcel to 1e-9 m at θ = −44.87°; a wrong SIGN on θ is a rotation, never a mirror; θ ∈ (−45°, +45°] by the fold, so a negative θ is ordinary — though the fold **is bistable at ±45°**, which is exactly where the Cerdà grid sits and why one session logs −44.87° and another +43.40°. The reflection was in `ParcelBoundarySceneRenderer.buildFill`: `rotateX(+π/2)` on a shape built in `(x, −z)`, 100 lines from `buildEnvelopeVolume`'s correct `rotateX(−π/2)` with identical shape construction. It survived because `DoubleSide` hides the flipped normals and **an axis-aligned rectangle is its own mirror**, so every symmetric fixture passed vacuously. `§SITE-FRAME-PROBE` printed `CONSISTENT` throughout and was not lying — its one term folds **mod 90°**, so a mirror, a 90° flip and a consistently wrong-signed θ all re-derive to 0. New `SHADE VERDICT:` arm + pure `detectRingFrameDisagreement` (displaced / oversized / reflected), which also closes the envelope-ring hole the 2026-08-05 stale-async-zoning investigation named. §10.2a: all THREE `want~` values the `§CULL-PROBE` printed were wrong and wrong *pessimistically* — `vis=0` is `PARTIAL`/VISIBLE (Cesium is NONE=−1), `bvCtrMag≈3.19e6` is forced for a level-0 root, and `occPtMag=1e4` is §10.2's own sentinel reading back healthy. |

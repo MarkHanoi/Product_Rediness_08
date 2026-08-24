@@ -98,6 +98,10 @@ import {
     projectVectorToTrueNorth,
     trueVectorToProjectNorth,
 } from '../site/overlay/projectTrueNorth';
+// §PARCEL-SHADE-NOT-MIRRORED (L-10740) — the C73 canonical point-in-polygon, for the reflection
+// arm at the foot of this file. Same kernel body every other straddle test in the geospatial
+// layer delegates to, so the arm cannot disagree with the sea clip or the façade study.
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 
 /** ENU offset from the site origin, metres. True north. */
 export interface EnuEastNorth {
@@ -147,4 +151,155 @@ export function enuToSceneXZ(east: number, north: number, projectNorthRad = 0): 
 export function projectHeadingToTrueBearingDeg(headingDeg: number, projectNorthRad = 0): number {
     const deg = headingDeg + (projectNorthRad * 180) / Math.PI;
     return ((deg % 360) + 360) % 360;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// §PARCEL-SHADE-NOT-MIRRORED (L-10740) — THE REFLECTION ARM. ⭐ WORTH MORE THAN THE FIX.
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// Founder 2026-08-24: "the parcel shade in PRYZM view … often the shade is not correct — it sort
+// of MIRRORS to one side outwards." The live `§SITE-FRAME-PROBE` printed
+// `FRAME VERDICT: CONSISTENT` on that very session.
+//
+// ⛔ IT WAS NOT LYING — IT HAD NO TERM FOR THIS. The probe's single test is
+// `deriveProjectNorthAngleFromParcel(storedRing) ≈ 0` ("is the ring square in the authoring
+// frame?"). That derivation folds its answer into (−45°, +45°] **mod 90°** and reads only the
+// dominant EDGE DIRECTION. Therefore:
+//   • a MIRRORED ring is still square              ⇒ residual 0 ⇒ CONSISTENT;
+//   • a ring rotated by exactly 90° is still square ⇒ residual 0 ⇒ CONSISTENT;
+//   • a WRONG-SIGNED θ is a rotation, and applied consistently it re-derives to 0 as well.
+// All three are proven, not argued, in `apps/editor/__tests__/parcelShadeIsNotMirrored.test.ts`.
+// A success criterion with no term for the thing that is wrong reports success forever.
+//
+// WHAT THE ARM CHECKS, and why each term is NON-VACUOUS. It compares the two rings the founder is
+// actually comparing on screen — the PARCEL BOUNDARY and the BUILDABLE ENVELOPE / shade — which
+// are produced by INDEPENDENT pipelines that must nonetheless land in ONE frame:
+//   • `displaced`  — the envelope is an INSET of the parcel, so its centroid MUST lie inside the
+//                    parcel ring. That is a geometric impossibility, not a tolerance, which makes
+//                    it the strongest of the three. It fires on a mirror (which throws the shade
+//                    across the plot CORNER the frame origin sits on) AND on the 2026-08-05
+//                    stale-async zoning race (a NEIGHBOURING parcel's envelope drawn in this
+//                    parcel's frame) — a defect that investigation explicitly recorded as
+//                    invisible to this probe.
+//   • `oversized`  — an inset can never enclose more area than the ring it was inset from.
+//   • `reflected`  — the two rings wind in OPPOSITE directions. Signed area is the chirality
+//                    primitive: a rotation preserves it exactly, a reflection negates it. ⚠ This
+//                    is the WEAKEST of the three and is reported separately for that reason — a
+//                    producer that merely emits the opposite winding convention trips it too.
+//                    Read it as "these two rings were not built by the same frame logic", never
+//                    as a proven reflection on its own.
+// Silent (`ok`) whenever there is nothing to compare: an absent or degenerate envelope is not a
+// defect, and a diagnostic that invents findings out of missing data is its own bug.
+// ─────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * SIGNED shoelace area of a scene-XZ ring, m². ⭐ The chirality primitive: its SIGN is the ring's
+ * winding, which a rotation preserves exactly and a reflection negates. Everything that reports
+ * `|area|` — including `polygonCentroidAndAreaXZ` in the viewport — is reflection-blind by
+ * construction, which is precisely how a mirror survives every existing frame check.
+ */
+export function ringSignedAreaXZ(ring: ReadonlyArray<SceneXZ> | null | undefined): number {
+    if (!ring || ring.length < 3) return 0;
+    let a = 0;
+    for (let i = 0; i < ring.length; i++) {
+        const p = ring[i]!;
+        const q = ring[(i + 1) % ring.length]!;
+        a += p.x * q.z - q.x * p.z;
+    }
+    return a / 2;
+}
+
+/** Area-weighted centroid of a scene-XZ ring, falling back to the vertex mean when degenerate. */
+function ringCentroidXZ(ring: ReadonlyArray<SceneXZ>): SceneXZ {
+    let a2 = 0, ax = 0, az = 0;
+    for (let i = 0; i < ring.length; i++) {
+        const p = ring[i]!;
+        const q = ring[(i + 1) % ring.length]!;
+        const cross = p.x * q.z - q.x * p.z;
+        a2 += cross;
+        ax += (p.x + q.x) * cross;
+        az += (p.z + q.z) * cross;
+    }
+    if (Math.abs(a2) > 1e-9) return { x: ax / (3 * a2), z: az / (3 * a2) };
+    let sx = 0, sz = 0;
+    for (const p of ring) { sx += p.x; sz += p.z; }
+    return { x: sx / ring.length, z: sz / ring.length };
+}
+
+/** The verdict of {@link detectRingFrameDisagreement}. `ok` = no term fired. */
+export interface RingFrameDisagreement {
+    /** True when NO term fired — including when there was nothing to compare. */
+    readonly ok: boolean;
+    /** The two rings wind in opposite directions. Weakest term — see the block note above. */
+    readonly reflected: boolean;
+    /** The inner ring's centroid lies OUTSIDE the outer ring. Strongest term. */
+    readonly displaced: boolean;
+    /** The inner ring encloses more area than the outer. An inset cannot grow. */
+    readonly oversized: boolean;
+    /** Human-readable summary naming the mechanism — safe to print verbatim in a probe line. */
+    readonly note: string;
+}
+
+const NOTHING_TO_COMPARE: RingFrameDisagreement = {
+    ok: true, reflected: false, displaced: false, oversized: false,
+    note: 'no envelope ring to compare against the boundary — nothing asserted',
+};
+
+/**
+ * ⭐ THE ARM `§SITE-FRAME-PROBE` was missing: does the buildable-envelope ring sit in the SAME
+ * frame as the parcel boundary it was derived from? Pure, deterministic and total — it never
+ * throws and never reports a finding it cannot support. See the block note above for why each
+ * term is non-vacuous and which of them is weak.
+ *
+ * @param outer the committed parcel boundary, scene-XZ metres (authoring frame).
+ * @param inner the buildable-envelope / shade ring, expected to be an INSET of `outer`.
+ */
+export function detectRingFrameDisagreement(
+    outer: ReadonlyArray<SceneXZ> | null | undefined,
+    inner: ReadonlyArray<SceneXZ> | null | undefined,
+): RingFrameDisagreement {
+    if (!outer || outer.length < 3 || !inner || inner.length < 3) return NOTHING_TO_COMPARE;
+
+    const outerArea = ringSignedAreaXZ(outer);
+    const innerArea = ringSignedAreaXZ(inner);
+    if (Math.abs(outerArea) < 1e-6 || Math.abs(innerArea) < 1e-6) return NOTHING_TO_COMPARE;
+
+    const reflected = Math.sign(outerArea) !== Math.sign(innerArea);
+    // 1 % headroom: a legitimate inset is strictly smaller, and floating-point noise on a ring
+    // that was NOT inset (the §L-619 upper-bound footprint, which IS the parcel) must not fire.
+    const oversized = Math.abs(innerArea) > Math.abs(outerArea) * 1.01;
+    const c = ringCentroidXZ(inner);
+    const displaced = !pointInPolygonXZ(c.x, c.z, outer);
+
+    if (!reflected && !displaced && !oversized) {
+        return {
+            ok: true, reflected: false, displaced: false, oversized: false,
+            note: 'envelope ring agrees with the boundary frame (same winding, centroid inside, '
+                + 'area <= parcel) — no reflection or displacement detectable',
+        };
+    }
+    const parts: string[] = [];
+    if (displaced) {
+        parts.push(
+            `DISPLACED — the envelope centroid (${c.x.toFixed(1)}, ${c.z.toFixed(1)}) lies OUTSIDE `
+            + 'the parcel ring. An inset cannot do that. Either the shade is MIRRORED about the '
+            + 'frame origin (which sits on a parcel CORNER, so the mirror lands wholly to one side '
+            + '— the founder’s "mirrors to one side outwards"), or this envelope belongs to a '
+            + 'DIFFERENT parcel drawn in this one’s frame (the §STALE-ASYNC-ZONING race)',
+        );
+    }
+    if (oversized) {
+        parts.push(
+            `OVERSIZED — envelope |area| ${Math.abs(innerArea).toFixed(0)} m² > parcel `
+            + `${Math.abs(outerArea).toFixed(0)} m². An inset ring can never enclose more than the `
+            + 'ring it was inset from',
+        );
+    }
+    if (reflected) {
+        parts.push(
+            'OPPOSITE WINDING — the two rings have opposite signed area, so they were not built by '
+            + 'the same frame logic. ⚠ WEAK ON ITS OWN: a producer emitting the other winding '
+            + 'convention trips this too. Trust it alongside DISPLACED, not by itself',
+        );
+    }
+    return { ok: false, reflected, displaced, oversized, note: parts.join(' · ') };
 }

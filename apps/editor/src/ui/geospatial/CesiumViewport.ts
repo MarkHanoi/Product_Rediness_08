@@ -130,7 +130,7 @@ import { pointInRingEvenOdd, pointInPolygonXZ } from "@pryzm/geometry-kernel";
 import { trace } from "@opentelemetry/api";
 // §L-430 slice 2b — the scene(PROJECT-north) → ENU(TRUE-north) frame boundary, extracted
 // headless so it is unit-testable (this file is not). See sceneEnuFrame.ts for why.
-import { sceneXZToEnu } from "./sceneEnuFrame";
+import { sceneXZToEnu, detectRingFrameDisagreement } from "./sceneEnuFrame";
 // §SITE-FRAME-PROBE (L-536) — the SAME pure derivation the authoring frame is DEFINED by, so the
 // probe below can re-derive θ from the very ring it is about to draw and report a VERDICT instead
 // of three numbers a reader has to interpret. See the probe block in renderFormaMassing.
@@ -4851,6 +4851,29 @@ export class CesiumViewport {
         //
         // The residual is folded into (−45°, +45°] mod 90° by the derivation itself, so a value
         // near ±45° is "as far from square as it is possible to be", not a large number.
+        //
+        // ⭐⭐ §PARCEL-SHADE-NOT-MIRRORED (L-10740) — THE ARM THIS PROBE DID NOT HAVE.
+        //
+        // Founder 2026-08-24: "the parcel shade in PRYZM view … often the shade is not correct —
+        // it sort of MIRRORS to one side outwards." This probe printed `FRAME VERDICT: CONSISTENT`
+        // on that very session, and it was not lying — IT HAD NO TERM FOR A REFLECTION.
+        // `deriveProjectNorthAngleFromParcel` folds mod 90° and reads only the dominant EDGE
+        // DIRECTION, so a MIRRORED ring is still "square" (residual 0 ⇒ CONSISTENT), a ring
+        // rotated by exactly 90° is still "square", and a consistently-applied WRONG-SIGNED θ
+        // re-derives to 0 as well. Proven, not argued:
+        // `apps/editor/__tests__/parcelShadeIsNotMirrored.test.ts`.
+        //
+        // The missing term compares the two rings the user is ACTUALLY comparing on screen — the
+        // parcel boundary and the buildable-envelope shade — which come from INDEPENDENT pipelines
+        // that must land in ONE frame. `detectRingFrameDisagreement` is pure and lives beside
+        // `sceneXZToEnu`; see its block comment for why each of its three terms is non-vacuous and
+        // which one is weak. It also closes a hole the 2026-08-05 stale-async-zoning
+        // investigation named explicitly ("the probe only checks the BOUNDARY, not the buildable
+        // envelope ring"), so ONE arm covers two separately-reported defects.
+        const shadeCheck = detectRingFrameDisagreement(
+          boundary,
+          input.envelope?.solids?.[0]?.ring ?? null,
+        );
         const thetaDeg = (thetaRad * 180) / Math.PI;
         const residualDeg = (deriveProjectNorthAngleFromParcel(boundary) * 180) / Math.PI;
         const SQUARE_TOL_DEG = 0.5;
@@ -4880,6 +4903,12 @@ export class CesiumViewport {
             `offsetFromOrigin=${Math.hypot(dEast, dNorth).toFixed(1)} m (E ${dEast.toFixed(1)}, N ${dNorth.toFixed(1)}) ` +
             `verts=${boundary.length}\n` +
             `  FRAME VERDICT: ${verdict}\n` +
+            // §PARCEL-SHADE-NOT-MIRRORED (L-10740) — the reflection/displacement arm, printed as
+            // its OWN verdict. It is deliberately NOT folded into FRAME VERDICT above: that line
+            // answers "is θ applied once?", this one answers "is the shade in the same frame as
+            // the parcel?", and merging two questions into one verdict is how the first one came
+            // to be read as an answer to the second.
+            `  SHADE VERDICT: ${shadeCheck.ok ? 'CONSISTENT' : '⚠ FRAME DISAGREEMENT'} — ${shadeCheck.note}\n` +
             `  TRANSLATION: offset ≫ plot size ⇒ ORIGIN mismatch (L-521 family). offset ≈ the plot's ` +
             `own first-vertex→centroid distance (tens of metres on a city lot) ⇒ fine.\n` +
             `  ⚠ NOT A BUG IF: you are comparing the 2D boundary to the PURPLE volume. That is the ` +
@@ -8602,11 +8631,39 @@ export class CesiumViewport {
         // state: 0=START 1=LOADING 2=DONE 3=FAILED; R=renderable; U=upsampled; ts=terrainState.
         const lz = gAny._surface?._levelZeroTiles ?? [];
         const lzDump = lz.map((t) => `L0(${t.x},${t.y})st${t.state ?? '?'}${t.renderable ? 'R' : '-'}${t.upsampledFromParent ? 'U' : ''}ts${t.data?.terrainState ?? '?'}`).join(' ');
-        // §CULL-PROBE (L-639) — the DECISIVE question: root(0,0) is DONE+renderable but renders 0. Ask Cesium
-        // WHY. computeTileVisibility → 0=NONE (culled, the bug) / 1=PARTIAL / 2=FULL. Plus the tile's stored
-        // min/max height, its bounding-volume CENTRE magnitude (want ~6.38e6 = ellipsoid surface; ~0 = a
-        // geocentre-collapsed encode), and the horizon occlusion-point magnitude (want ~1.0 scaled; ~6.3e6 =
-        // the unscaled-ECEF encoder bug that horizon-culls the whole shell). One paste ends the guessing.
+        // §CULL-PROBE (L-639) — the DECISIVE question: a root tile is DONE+renderable but renders 0. Ask
+        // Cesium WHY.
+        //
+        // ⚠⚠ CORRECTED 2026-08-24 (L-10741). ALL THREE of this probe's stated expectations were WRONG,
+        // and they were wrong PESSIMISTICALLY — they turned a healthy reading into an alarm. The founder
+        // pasted `vis=0 … bvCtrMag=3189094(want~6.38e6) occPtMag=10000.0000(want~1.0)` as evidence of a
+        // defect; every one of those three numbers is CORRECT and this probe was the only thing claiming
+        // otherwise. A probe that prints a false `want~` is its own bug (measured against the Cesium
+        // bundle + `tools/context-bake/terrain.mjs`, not re-transcribed):
+        //
+        //   • `vis` — the legend `0=NONE / 1=PARTIAL / 2=FULL` was FABRICATED. Cesium's `Visibility` is
+        //     **NONE = −1, PARTIAL = 0, FULL = 1**. So `vis=0` means **PARTIAL — the tile is VISIBLE and
+        //     will be refined**, not culled; a culled tile prints −1, and 2 is not a value this function
+        //     can return. PARTIAL is also the ONLY correct answer for a hemisphere-sized OBB with the
+        //     camera inside a city. The label is decoded below so the raw integer can no longer mislead.
+        //     (ADR-0278's own narrative mis-read this enum too; its real evidence was `occPtMag=0.0000`
+        //     plus an independent R2 byte decode, both of which stand on their own.)
+        //   • `bvCtrMag` — `want~6.38e6` is ARITHMETICALLY IMPOSSIBLE for a level-0 root. This reads an
+        //     `OrientedBoundingBox` centre that Cesium derives FROM THE TILE RECTANGLE, and a level-0
+        //     tile spans a whole hemisphere, so its OBB centre sits at `R_eq/2 + h/2 ≈ 3.19e6`. The
+        //     founder's 3189094 matches that closed form to the digit.
+        //     ⛔ AND THIS FIELD CANNOT SEE THE BUG THE PROBE WAS WRITTEN FOR: the L-639 / ADR-0278 D1
+        //     defect was the QUANTIZED-MESH HEADER's bounding-sphere centre, a different field
+        //     (`root.data.terrainData._boundingSphere.center`). The Cesium-derived OBB is immune to a
+        //     garbage header centre. Read the header field if that is the hypothesis under test.
+        //   • `occPtMag` — `want~1.0` predates ADR-0278 D2 by one day and was never revised. `10000` is
+        //     OUR OWN sentinel `HORIZON_OCC_NEVER_CULL = 1e4` (`tools/context-bake/terrain.mjs`),
+        //     normative in C12 §1.4a: a wide-angle or degenerate tile is encoded to never horizon-cull.
+        //     So `occPtMag=10000.0000` is the FIX READING BACK AS HEALTHY. `~1.0` (unit scaled space) is
+        //     correct only for NARROW city tiles.
+        //
+        // Plus the tile's stored min/max height. One paste ends the guessing — but only if the `want~`
+        // it prints is true, which is the whole lesson here.
         let cullDump = '';
         try {
           const surf = gAny._surface as unknown as { tileProvider?: { computeTileVisibility?: (t: unknown, fs: unknown, o: unknown) => number }; _occluders?: unknown };
@@ -8624,7 +8681,12 @@ export class CesiumViewport {
             const cMag = c ? Math.sqrt(c.x * c.x + c.y * c.y + c.z * c.z) : -1;
             const op = root.data?.occludeePointInScaledSpace;
             const opMag = op ? Math.sqrt(op.x * op.x + op.y * op.y + op.z * op.z) : -1;
-            cullDump = ` | §CULL-PROBE root(${root.x},${root.y}) vis=${vis}(0=NONE/2=FULL) minH=${tbr?.minimumHeight?.toFixed(0)} maxH=${tbr?.maximumHeight?.toFixed(0)} bvCtrMag=${cMag.toFixed(0)}(want~6.38e6) occPtMag=${opMag.toFixed(4)}(want~1.0)`;
+            // Decode the enum rather than printing a bare integer under a fabricated legend (L-10741).
+            const visLabel = vis === -1 ? 'NONE/CULLED' : vis === 0 ? 'PARTIAL/VISIBLE' : vis === 1 ? 'FULL/VISIBLE' : `UNKNOWN(${vis})`;
+            // A level-0 root's OBB centre is forced to R_eq/2; only a FINER tile approaches the surface.
+            const rootLevel = (root as unknown as { level?: number }).level ?? 0;
+            const wantCtr = rootLevel === 0 ? '~3.19e6 = R_eq/2, forced for a LEVEL-0 root' : '~6.38e6 = ellipsoid surface';
+            cullDump = ` | §CULL-PROBE root(${root.x},${root.y})L${rootLevel} vis=${vis}=${visLabel}(Cesium: NONE=-1/PARTIAL=0/FULL=1) minH=${tbr?.minimumHeight?.toFixed(0)} maxH=${tbr?.maximumHeight?.toFixed(0)} bvCtrMag=${cMag.toFixed(0)}(want ${wantCtr}; NOT the header centre — this field cannot see the ADR-0278 D1 bug) occPtMag=${opMag.toFixed(4)}(want 1e4 = HORIZON_OCC_NEVER_CULL for a wide/z0 tile, ~1.0 only for narrow city tiles; 0 = the ADR-0278 D1 defect)`;
           } else {
             cullDump = ` | §CULL-PROBE missing root=${!!root} tp=${!!tp?.computeTileVisibility} fs=${!!fs}`;
           }

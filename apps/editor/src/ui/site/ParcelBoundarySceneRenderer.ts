@@ -275,9 +275,27 @@ export class ParcelBoundarySceneRenderer {
             shape.closePath();
 
             const geo = new THREE.ShapeGeometry(shape);
-            // Rotate the XY shape flat onto the XZ ground plane (+X stays, the
-            // shape's +Y maps to scene -Z), then lift to the ground offset.
-            geo.rotateX(Math.PI / 2);
+            // §PARCEL-SHADE-NOT-MIRRORED (L-10740) — ⛔ THE SIGN HERE WAS `+Math.PI / 2`, AND THAT
+            // WAS THE FOUNDER'S MIRROR. The comment above it already described the CORRECT
+            // behaviour ("the shape's +Y maps to scene -Z"); the call did the opposite.
+            // `Matrix4.makeRotationX(θ)` is [[1,0,0],[0,cos,−sin],[0,sin,cos]], so at θ = +π/2 a
+            // shape point (u, v, 0) lands at (u, 0, **+v**) — and this shape is built at
+            // v = −p.z, so every vertex landed at scene z = −p.z: the fill REFLECTED about the
+            // scene X axis relative to the outline it exists to fill. Because the frame origin is
+            // the parcel's FIRST VERTEX (`parcelFrameOrigin`), that mirror line runs through a
+            // CORNER of the plot, so the reflected copy lands wholly on the far side of it —
+            // exactly the founder's "it sort of MIRRORS to one side outwards".
+            //
+            // ⚠ WHY IT SURVIVED SO LONG: `side: THREE.DoubleSide` hides the flipped normals, and
+            // an axis-aligned rectangle is its OWN mirror — so every symmetric test plot passed.
+            // Only a CHIRAL parcel can falsify this, which is what the L-shaped fixture in
+            // `apps/editor/__tests__/parcelShadeIsNotMirrored.test.ts` exists to be.
+            //
+            // ⭐ `buildEnvelopeVolume` below has ALWAYS used `-Math.PI / 2` and spells the algebra
+            // out correctly. The two builders sat 100 lines apart in this file with identical
+            // shape construction and OPPOSITE rotation signs; that disagreement IS the defect the
+            // founder photographed. Keep them identical.
+            geo.rotateX(-Math.PI / 2);
             geo.translate(0, GROUND_Y_OFFSET, 0);
 
             const mat = new THREE.MeshBasicMaterial({

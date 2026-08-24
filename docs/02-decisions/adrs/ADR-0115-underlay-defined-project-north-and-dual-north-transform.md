@@ -247,6 +247,47 @@ site. Fix (additive):
      every mapping is the identity. Completing the inventory is a HARD PRECONDITION of item 8;
      enabling the producer first would place migrated and unmigrated geometry in two different
      frames — the building splits across bearings, and nothing throws.
+     > ⚠ **The "θ is still 0 everywhere" sentence above is SPENT — item 8 shipped the producer, and
+     > θ measures ≈ ±45° on live Barcelona parcels.** Kept as written because the *reasoning* is
+     > still the reasoning; see C12 §9 clause 5, which records the sequencing as spent and requires
+     > the remaining migration to assume θ ≠ 0 and gate it.
+
+   > ⭐⭐ **AMENDED 2026-08-24 (L-10740) — θ IS NOT THE MIRROR. MEASURED, and this is the half of
+   > the finding worth keeping.** Founder: *"the parcel shade in PRYZM view — not always, but often
+   > the shade is not correct — it sort of MIRRORS to one side outwards."* The obvious reading was a
+   > **sign flip on θ** (his session logged `theta = −44.87°` where an earlier Barcelona session
+   > logged `+43.40°`). ⛔ **REFUTED, with a negative control**
+   > (`apps/editor/__tests__/parcelShadeIsNotMirrored.test.ts`, 25 cases):
+   > - The whole chain — `deriveProjectNorthAngleFromParcel` → the item-8 de-rotation →
+   >   `sceneXZToEnu` — is a **proper rotation, determinant +1**. It round-trips an **asymmetric**
+   >   (chiral) parcel to 1e-9 m at every Barcelona bearing, θ = −44.87° included.
+   > - **Negating θ still preserves signed area exactly.** A wrong-signed θ misplaces the parcel by
+   >   2θ; it can never mirror it. Reflection and rotation are different group elements and no sign
+   >   error on a rotation angle produces one.
+   > - **θ ∈ (−45°, +45°] BY THE FOLD** (item 5), so a negative θ is ordinary. −44.87° and +43.40°
+   >   are two different plots, two different angles — not a regression.
+   > - ⚠ **But the fold IS bistable at ±45°, and the Cerdà grid sits exactly there.** A 0.3° change
+   >   in the dominant edge flips θ by 90°. That is self-cancelling end-to-end (the round-trip holds
+   >   at 45.13°) so it is not a displacement bug — but it is the single most available *wrong*
+   >   explanation for one, and it is why θ appears to "change sign between sessions" in one city.
+   >
+   > **The real reflection was in a RASTERISER, downstream of this ADR entirely:**
+   > `ParcelBoundarySceneRenderer.buildFill` rotated a shape built in `(x, −z)` by `rotateX(+π/2)`
+   > while `buildEnvelopeVolume` — 100 lines below it, same file, identical shape construction —
+   > used `rotateX(−π/2)`. So the parcel FILL landed at scene `z = −p.z`, mirrored about the scene
+   > X axis relative to both the outline and the envelope shade. The frame origin is the parcel's
+   > FIRST vertex, so the mirror line runs through a plot **corner** and the copy lands wholly to
+   > one side: the founder's words, precisely.
+   >
+   > ⛔ **THE LESSON FOR THIS ADR'S OWN VERIFICATION STRATEGY.** Item 2 above says its end-to-end
+   > test "is the one that catches a θ applied in the WRONG DIRECTION — such a θ round-trips
+   > perfectly and so survives a round-trip test, which is the trap here." That is right, and it is
+   > **still not enough**: neither that test nor `§SITE-FRAME-PROBE` has a term for a **reflection**,
+   > because both reason in `|area|` and in an angle folded **mod 90°**. An axis-aligned rectangle
+   > **is its own mirror**, so every symmetric fixture passes vacuously — which is exactly why this
+   > survived. **Any future frame test under this ADR MUST use a CHIRAL fixture and MUST assert
+   > SIGNED area.** The new arm is `detectRingFrameDisagreement` (`sceneEnuFrame.ts`) + the
+   > `SHADE VERDICT:` line on the probe; the normative form is **C12 §9 clause 8**.
 3. ~~**Persist the underlay raster beyond localStorage** (large data URLs) — carried over from
    ADR-0259.~~ **DONE (2026-07-03, L-58, `§FIX-SITE-OVERLAY-RENDER-AND-FLOW`).** The site-plan
    overlay raster now lives in IndexedDB (`SiteOverlayRasterStore`, per-project, mirroring the
