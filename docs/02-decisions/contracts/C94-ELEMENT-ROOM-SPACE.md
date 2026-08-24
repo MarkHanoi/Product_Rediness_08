@@ -1516,3 +1516,39 @@ use is unknowable until RM-0 ships"*. We are otherwise about to design against a
 6. **No second preservation mechanism** — §9.3's `preserveMetadata` exists and is unconsumed; §13 DELTA #5 owns it.
 7. **No overturning of [§L-1032](#l-1032--the-storey-axis-change-level-and-duplicate-to-level).** A room's STOREY stays derived under either R-1 ruling; only its MEANING is in question.
 8. **No edit to `C85`, `WallMoveReweld*`, `Slab*` or `WallPlanToolHandler`/`WallTool`** — other lanes are live in these files.
+
+---
+
+## §TOBE.11 — SHIPPED (living record, appended never rewritten) — lane ROOM44, 2026-08-24
+
+⛔ **This section records what LANDED, so no reader takes an RM clause or a DELTA row above as
+still-open when it is closed.** The clauses themselves are not edited — [C84 §0](C84-ELEMENT-INTEGRITY.md).
+
+| Clause | SHA | What shipped | What it did NOT do |
+|---|---|---|---|
+| **RM-2** | `db165a09` | §WD32-B-DO-NOT-NAME-WHAT-WAS-NOT-RESTORED. The recovery no longer announces it closed *"Room 00-004"* when that record was deleted. **A BRANCH, not a deletion** — when the finding's room is the merge keeper (`RoomDetectionEngine.ts:1129-1131`) naming it is true, and one `getById` separates the cases. **Three-valued**: `undefined` (no store to ask) is NOT folded into "removed" | ⛔ **Does not promise the name back** — that is RM-3, unbuilt. A test arm pins the absence |
+| **RM-0** | `308f81c1` | §ROOM-LOSS-CENSUS. Every room dropped at `ReDetectRoomsCommand.ts:105-112` is counted and named, **with `authored` as its own number**, printed even when zero. O(dropped), inside the loop that already runs, one line for N rooms, suppressed on load/generation but still carried on the result | ⛔ **Does not classify merged-vs-vanished** — `OpenedRegionDetector` owns that (EI-9) |
+| **RM-9** | `66f60f5e` | §DELETE-ONE-ROUTE. **The user can delete a room**, from both surfaces, and one undo restores it with its authored name. The `elementType → command` mapping was written **twice** — a chain in `plugins/view` and a direct construction in `BimService` — with the room gap in both; it is now one `resolveDeleteCommand` | ⛔ **No room arm in `DeleteElementCommand`** (EI-4a). An arm pins that it still refuses a room, because that refusal is the reason the route exists |
+| **§TOBE.4** | `1f785312` | The wall/room seam, settled with [C85 §10.8.5](C85-ELEMENT-WALL.md) | ⛔ RM-6/P2.5 (the shared tolerance register) stays **GATED** |
+
+⇒ **§13 DELTA #2 is CLOSED** (`66f60f5e`); **DELTA #3 was closed by another lane** at `0589a36c`
+(§TOBE.9). **§14 R8** — *"Delete does nothing on a room"* — is now **neither a silent failure nor a
+refusal: it is a delete.**
+
+> ⭐⭐ **THE FINDING WORTH CARRYING OUT OF THIS LANE, recorded because it nearly went the other way.**
+> The census's first authorship predicate asked `Object.keys(room.finishes).length > 0`. Against the
+> REAL `RoomStore` **every untouched room read as authored** — `RoomStore.ts:95-100` normalises the
+> finishes record by writing all three surfaces explicitly, `undefined` and all, so `.length === 3`
+> on a room nobody has opened. **Shipped, it would have reported 100% authored on every model and
+> argued for persistent identity (R-1 Option B) on evidence that was never there** — corrupting the
+> exact ruling it exists to inform, *confidently, with a number attached*.
+> ⚠ **Twenty-three unit arms passed against hand-built fixtures, because the fixtures were built
+> from the same wrong assumption.** Only driving the real store broke it. **A fake built from the
+> same premise as the code cannot falsify the premise** — and it was hiding in the one field this
+> module's own header had just cleared for `colour`.
+
+⚠ **STILL OPEN AND UNCHANGED BY ANY OF THE ABOVE:** **R-1**, **R-2**, **R-3** (§TOBE.8) · **RM-3**
+the tombstone · **RM-4** the next-step refusals · **RM-5** the stable room reference (blocked on
+R-1, and blocking four [C72 §9.4](C72-PROPAGATION-AND-PREVSTATE.md) ledger cells) · **RM-6**/**RM-7**.
+⛔ **Nothing shipped here restores the authored meaning of a lost room. The census MEASURES the
+loss; it does not prevent it.**
