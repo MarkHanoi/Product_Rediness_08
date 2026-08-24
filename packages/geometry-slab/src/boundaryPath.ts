@@ -10,7 +10,33 @@
  *   "During SLAB creation, FLOOR FINISH creation and CEILING creation I want the
  *    SAME OPTIONS as during WALL creation — ORTHO, LINEAR, CURVE etc."
  *
- * Before this module the three tools disagreed three ways:
+ * ⛔⛔ THE ORTHO HALF OF THIS HEADER IS SUPERSEDED — 2026-08-24,
+ *    §RULING-ORTHO-IS-THE-PERPENDICULAR-FOOT (founder ruling, commit b3d891d0).
+ *    KEPT VERBATIM BELOW, NOT DELETED, because its argument is still the honest
+ *    record of why rotation was chosen and a deleted rationale gets re-derived.
+ *
+ *    ⭐ WHAT THE ORIGINAL ARGUMENT ACTUALLY WAS: **parity with the wall tool** —
+ *    'numerically NOT what the wall tool does'. It was never an argument that
+ *    preserving the radial distance is geometrically RIGHT. Projection satisfies
+ *    that same goal, and satisfies it BETTER.
+ *
+ *    ⭐⭐ AND THE PREMISE WAS UNSATISFIABLE AS STATED. 'The wall rule' had TWO
+ *    answers on 2026-08-06: `WallPlanToolHandler._snapOrtho` ROTATED, while the
+ *    3-D `WallTool._applyOrthoLock` PROJECTED — and still does. This pass mirrored
+ *    one wall tool without noticing the other, so 'match the wall' could not be
+ *    satisfied by either choice. Parity is now real for the first time: all eight
+ *    paths answer identically.
+ *
+ *    ⚠ AND SO: THE FLOOR AND CEILING HANDLERS WERE RIGHT BEFORE THIS FILE EXISTED.
+ *    They projected; they were changed to rotate to match the wrong sibling. The
+ *    3-4-5 case below — 'a diagonal drag of 3 m gave a ~2.1 m segment' — was
+ *    reported here as the DRIFT. It was the correct behaviour, and it is restored.
+ *
+ *    ⚠ The founder's directive itself (quoted above) asked for the same OPTIONS
+ *    and the same PANEL — which modes are offered. The ortho MATHS was an
+ *    implementation choice made here, not something he specified. It still holds.
+ *
+ * Before this module the three tools disagreed three ways:   [SUPERSEDED — see above]
  *   • WallPlanToolHandler._snapOrtho  — snaps the DIRECTION to the nearest 90°
  *     cardinal and PRESERVES the radial distance (a diagonal drag of 3 m gives a
  *     3 m orthogonal segment).
@@ -20,8 +46,10 @@
  *   • SlabPlanToolHandler — no ortho mode at all, and SlabTool (3D) applied an
  *     always-on 45°/90° `snapToAxisOrDiagonal` the user could not turn off.
  *
- * `orthoConstrain` below is the WALL rule, verbatim, and is now the only ortho
- * rule any slab-family boundary tool may use (C11 §3 — parity by construction).
+ * `orthoConstrain` below is THE ortho rule for every slab-family boundary tool
+ * (C11 §3 — parity by construction). ⛔ It is no longer 'the WALL rule, verbatim':
+ * since 2026-08-24 it is the PERPENDICULAR FOOT, shared with the wall tools rather
+ * than copied from one of them. See its own doc comment for the ruling.
  *
  * ARC SEGMENTS reuse `boundaryArc.ts` (already the shared wall-identical arc
  * model); boundaries remain POLYGONS by schema and an arc enters by
@@ -75,9 +103,14 @@ export function isBoundaryDrawMode(v: unknown): v is BoundaryDrawMode {
  *                  ROTATE 4000 → 5587 mm      PROJECT 4000 mm throughout
  *
  * The founder's reasoning is his own ruling turned back on itself — ORTHO IS A MODE,
- * NOT AN AID. Under rotation a 5 m drag at 80°, a gesture almost entirely
- * PERPENDICULAR to the chosen axis, still produced a 5 m wall: the mode
+ * NOT AN AID. Under rotation a wall could GROW out of a cursor motion with ZERO
+ * component along its own axis — the table above, where the axial component is frozen
+ * at 4.000 m and only the perpendicular offset moves: 4000 → 5587 mm. That is the mode
  * REINTERPRETING a magnitude the user never made along that axis.
+ *
+ * ⚠ NOT the "5 m drag at 80°" example an earlier draft used — that one is WRONG: at
+ * 80° the nearer cardinal is the OTHER axis, so the drag is nearly AXIAL and the rules
+ * differ by only 76 mm. The worst case is 45°, at 1464 mm.
  *
  * ⭐ THE 2026-08-06 DIRECTIVE IN THIS FILE'S HEADER STILL HOLDS. It said the slab,
  * floor and ceiling tools must offer the SAME OPTIONS as walls — they must AGREE.

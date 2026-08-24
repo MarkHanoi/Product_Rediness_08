@@ -51924,10 +51924,21 @@ ADR-0297 L1/L2, ADR-0299 `§RECOVERY-MUST-REFUSE` (unweakened).
 > axis grows it.
 >
 > **His reasoning was his own earlier ruling turned back on itself — ORTHO IS A MODE, NOT AN
-> AID.** Under rotation a 5 m drag at 80°, a gesture almost entirely *perpendicular* to the
-> chosen axis, still produced a 5 m wall. A wall growing out of a motion with almost no
-> component along it is the mode **reinterpreting** a magnitude the user never made along that
-> axis. Projection constrains the gesture; rotation reinterpreted it.
+> AID.** Under rotation a wall could **grow out of a cursor motion with ZERO component along
+> its own axis**. MEASURED: axial component frozen at 4.000 m, perpendicular offset swept to
+> 3.9 m — rotation grew the wall **4000 → 5587 mm (+1587 mm)**; projection cannot move it at
+> all. That is the mode **reinterpreting** a magnitude the user never made along that axis.
+> Projection constrains the gesture; rotation reinterpreted it.
+>
+> ⚠ **CORRECTION, recorded rather than quietly dropped.** This ruling was first illustrated
+> — to the founder and in the first draft of these artefacts — as *"a 5 m drag at 80° still
+> gives a 5 m wall"*. **That example is WRONG.** At 80° the NEARER cardinal is the *other*
+> axis, so that drag is almost entirely **axial** and the two rules differ by only **76 mm**.
+> The real worst case is **45° — 1464 mm on a 5 m drag, 29.3%** — where the two axes are
+> equidistant. The ruling is unaffected; the illustration was not. **A correct ruling defended
+> by a wrong illustration is fragile**, so the wrong one is named here and corrected at all
+> five sites it had reached (kernel header, `boundaryPath.ts`, `boundaryPath.test.ts`, the
+> measure spec, and this row). It also stands, uncorrectable, in commit body `b3d891d0`.
 >
 > ⚠ **He was shown the census below — that this moves SEVEN paths rather than one, and reverses
 > part of his own 2026-08-06 directive — and chose it anyway.** ⛔ Do not "simplify" back toward
@@ -52115,7 +52126,42 @@ mode. Mapping it onto one would arm a rubber-band the user never asked for (C65 
 
 ---
 
-## L-10764 — ⚠ **THE ANGLE-STEP LOCK STILL ROTATES, SO IT NOW DISAGREES WITH ORTHO BY THE SAME 1464 mm** ⚠ OPEN — REPORTED, DELIBERATELY NOT ACTED ON (ORTHO42, 2026-08-24)
+## L-10764 — ⚠⚠ **THE ANGLE-STEP LOCK STILL ROTATES — AND THE REACHABILITY ANSWER IS WORSE THAN THE QUESTION: IT SILENTLY DEFORMS EVERY RECTANGULAR WALL LOOP** ⚠ OPEN — MEASURED, AWAITING FOUNDER DECISION (ORTHO42, 2026-08-24)
+
+> ⭐⭐ **REACHABILITY: SETTLED — IT IS REACHABLE, AND BY A SHIPPED USER GESTURE.**
+> The instruction was *"reachability comes before geometry"*: if nothing reaches `_snapAngle`,
+> the divergence below is theoretical. **It is not theoretical.**
+>
+> `_resolveConstrainedPoint` is called at `onClick` **one line BEFORE** the closed-loop dispatch
+> (`_wallLoopMode(mode)`), and its angle-step branch fires on
+> `mode !== 'linear' && mode !== 'curved' && mode !== 'byslab'`. All three shipped loop modes —
+> **RECTANGULAR, CIRCULAR, ELLIPTICAL** — therefore have their **second click snapped to a 15°
+> multiple**, silently.
+>
+> **MEASURED** (`loopModeAngleSnap.measure.spec.ts`, driving the real handler). User clicks the
+> opposite corner of a rectangular wall run at **(5, 1)** — 11.31° off +X. `_snapAngle` rotates
+> it to the 15° ray keeping the 5.0990 m radius → **(4.9253, 1.3197)**:
+>
+> ```
+> RECTANGULAR   asked 5.000 x 1.000 m   committed 4.9253 x 1.3197 m
+>               -> 75 mm SHORT in X, 320 mm LONG in Z, across 4 walls, silently
+> CIRCULAR      asked r = 5.0990 m      committed r = 5.0990 m   (unharmed)
+> ```
+>
+> ⭐ **THE IRONY IS THE EXACT PROPERTY THE FOUNDER JUST RULED AGAINST.** Rotation preserves the
+> RADIAL DISTANCE, and a circle defined by centre + rim depends on nothing else — so the circle
+> survives untouched while the rectangle, which depends on BOTH components, is deformed. The
+> same property is harmless in one mode and a silent geometry error in the next.
+>
+> ⚠ **The FIRST click is unconstrained** (`_resolveConstrainedPoint` returns early with no
+> anchor), so the defect is entirely in the second click — the one that defines the shape.
+>
+> ⛔ **STILL NOT FIXED, and now for a stronger reason than before.** The call site's own comment
+> says the intent was SNAP support — *"The anchor still resolves through the shared constraint
+> chain, so a drum can be snapped onto existing geometry"* — **not** an angle lock. That reads as
+> an unintended side effect, but reading intent is not being told. *"What should constrain a
+> rectangular loop's second corner — nothing, ortho, or a degree step?"* is a founder-facing
+> question about spatial behaviour, and his standing rule is **ASK, never auto-edit**.
 
 **A direct consequence of L-10762's ruling, found while sweeping for it, and reported rather than
 swept up.**
@@ -52141,17 +52187,17 @@ which is the whole shape of L-10760.
 
 1. Should the degree-step lock also take the **perpendicular foot**? The same argument applies —
    at step 15°, a drag mostly perpendicular to the chosen ray still yields a full-length segment.
-2. ⚠ **Or is `_snapAngle` reachable at all?** Measured: `_resolveConstrainedPoint` routes to it via
-   `mode !== 'linear' && mode !== 'curved' && mode !== 'byslab'`, and the wall picker exposes no
-   "angle" mode — so today it is reached only by the **loop** modes and by an **unrecognised** mode
-   string. If it has no live user gesture, the honest fix may be to **retire the branch**, not to
-   harmonise it. That is a reachability question, not a geometry one, and it should be answered
-   before either.
+2. ✅ **ANSWERED — `_snapAngle` IS reachable** (see the banner above). The wall picker exposes no
+   "angle" mode, so it is never reached as a *drawing mode* — but it IS reached by all three
+   **closed-loop** modes, whose second click it deforms. So "retire the branch" is no longer the
+   cheap option: the branch is load-bearing on a shipped gesture and something must replace it
+   there. **The two questions are now one decision:** what constrains a loop's second click, and
+   does the degree-step lock (if it ever gets a UI) project or rotate.
 
 ⛔ **Do not "harmonise" this quietly.** If it turns out to be reachable, it is a founder-facing
 behaviour change of the same size as L-10762 and deserves the same table.
 
-**Pinned in:** `apps/editor/src/engine/views/plantools/__tests__/orthoLengthDivergence.measure.spec.ts`
+**Pinned in:** `apps/editor/src/engine/views/plantools/__tests__/loopModeAngleSnap.measure.spec.ts` (the loop deformation, measured — ⛔ that spec is GREEN on a WRONG behaviour and says so; invert it when this is fixed) · `apps/editor/src/engine/views/plantools/__tests__/orthoLengthDivergence.measure.spec.ts`
 (header, "DELIBERATELY OUT OF SCOPE") and `L935OrthoMidpointConflict.measure.spec.ts` ARM A/control,
 which asserts that angle-step still yields to a strong snap — the L-935 rule ortho no longer follows.
 
@@ -52180,6 +52226,14 @@ family uses (`_snapOrtho`, `_applyOrthoLock`). That found every path that matter
 **and missed three implementations of the same idea under three other names** — one of which
 (`resolveOrthoSnap`) is a real user-facing ortho lock on a real drawing surface. **Grep the IDEA,
 not the identifier**, when the question is "how many places answer this?".
+
+⭐⭐ **STATED AS THE ONE TRANSFERABLE SENTENCE, so the next census inherits it:**
+**A census that greps IDENTIFIERS measures how many places use a NAME; a census that greps the
+IDEA measures how many places answer the QUESTION — and only the second number tells you what a
+ruling will cost.** Here the two differed by three, on a question whose whole point was "which of
+these is the outlier?". The identifier sweep would have shipped the ruling with three unexamined
+answers still live, and the first one to surface would have looked like a NEW defect rather than
+a known exclusion.
 
 ---
 

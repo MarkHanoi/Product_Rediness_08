@@ -8,11 +8,16 @@
 // not change the wall's length; moving ALONG the axis grows it. (AutoCAD/Revit.)
 //
 // His reasoning is his own earlier ruling turned back on itself — ORTHO IS A MODE, NOT
-// AN AID. Under the rule this replaces, a 5 m drag at 80° — a gesture almost entirely
-// PERPENDICULAR to the chosen axis — still produced a 5 m wall. A wall growing out of a
-// motion with almost no component along it is the mode REINTERPRETING a magnitude the
-// user never made along that axis. Projection constrains the gesture; rotation
-// reinterpreted it.
+// AN AID. Under the rule this replaces, a wall could GROW out of a cursor motion with
+// ZERO component along its own axis — ARM 2 below is exactly that gesture: axial frozen
+// at 4.000 m, perpendicular swept to 3.9 m, rotation 4000 → 5587 mm. That is the mode
+// REINTERPRETING a magnitude the user never made along that axis. Projection constrains
+// the gesture; rotation reinterpreted it.
+//
+// ⚠ AN EARLIER DRAFT ILLUSTRATED THIS WITH "a 5 m drag at 80° still gives a 5 m wall".
+// THAT IS WRONG, and ARM 1's own table refutes it: at 80° the NEARER cardinal is the
+// other axis, so the drag is nearly AXIAL and the two rules differ by only 76 mm. The
+// worst case is 45° at 1464 mm, where the two axes are equidistant.
 //
 // ⚠ HE WAS SHOWN THE COST AND CHOSE IT ANYWAY. The census (below) put the 3-D wall
 // tool ALONE on projection — 1 of 8 — so the ruling moved SEVEN paths, not one, and it

@@ -47,10 +47,12 @@ describe('boundaryPath — the shared linear/ortho/curved model', () => {
   // (identical 0.000° angles, up to 1464 mm apart on a 5 m drag) and ruled for
   // PROJECTION: the endpoint is the cursor's perpendicular FOOT on the axis, so
   // sideways motion does not change the length. His reasoning was his own earlier
-  // ruling turned back on itself — ORTHO IS A MODE, NOT AN AID: under rotation a
-  // 5 m drag at 80° (a gesture almost entirely PERPENDICULAR to the axis) still
-  // produced a 5 m wall, which is the mode reinterpreting a magnitude the user never
-  // made along that axis.
+  // ruling turned back on itself — ORTHO IS A MODE, NOT AN AID: under rotation a wall
+  // could GROW out of a cursor motion with ZERO component along its own axis (axial
+  // frozen at 4.000 m, perpendicular swept to 3.9 m: 4000 → 5587 mm), which is the mode
+  // reinterpreting a magnitude the user never made along that axis.
+  // ⚠ NOT the "5 m drag at 80°" example an earlier draft used — that one is WRONG: at
+  // 80° the nearer cardinal is the OTHER axis, so the rules differ by only 76 mm there.
   //
   // ⭐ THE 2026-08-06 DIRECTIVE THAT CREATED THIS FILE STILL HOLDS. It said these
   // tools must AGREE with the wall tool. They still do — and now the 3-D wall tool,
