@@ -53,6 +53,11 @@ import { FloorTool } from '@pryzm/geometry-slab';
 // §C83-S5 — the floor-finish overlap gate. Injected into FloorTool below so an
 // L2 tool can refuse and TELL THE USER without importing an L7 surface.
 import { gateFloorFinishPlacement } from '@app/engine/consequence/floorFinishGate';
+// §WPE-CHROME-LAYER (L-10200) — the wall-profile overlay lives at L7 because it uses the
+// app's shared `makeDraggable` / `makeResizable` chrome, which `packages/geometry-wall` (L2)
+// may not import. This is the ONE place it is handed to the tool; without this line the
+// "Edit Profile" button on a wall refuses out loud instead of opening.
+import { WallProfileEditor } from '@app/ui/WallProfileEditor';
 import { SlabDimensionsEditor } from '@app/ui/property-panel/SlabDimensionsEditor';
 // §FEAT-SLAB-DRAW-MODES — the surface-independent slab drawing-mode store.
 import { resolveActiveSlabDrawMode } from '@app/engine/views/plantools/activeSlabDrawMode';
@@ -859,6 +864,13 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         getCurrentVisualStyle,
         bimManager,
         commandManager,
+        // §WPE-CHROME-LAYER (L-10200) — THE WIRE. `WallTool.enterProfileEditMode` opens the
+        // wall-elevation outline editor through this factory; the overlay is an L7 DOM panel
+        // (draggable by its title bar, resizable by its corner grip) and L2 cannot construct
+        // it. Asserted from source by
+        // `packages/geometry-wall/__tests__/WPE1WallProfileEditMode.test.ts`, because a wire
+        // nobody tests is how a shipped feature becomes a dead button.
+        createProfileEditor: () => new WallProfileEditor(),
         // E.5.x (E-bus.1) — forward composed runtime so WallTool can use
         // runtime.bus.executeCommand('wall.create' / 'wall.createFromSlab')
         // instead of commandManager.execute(CreateWallCommand).

@@ -8,8 +8,11 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./store": "./src/WallStore.ts"
+    "./store": "./src/WallStore.ts",
+    "./profile": "./src/WallProfile.ts",
+    "./profile-editor": "./src/WallProfileEditor.ts"
   },
+  "x-pryzm-exports-note": "§WPE-CHROME-LAYER (L-10200) — './profile' and './profile-editor' are PURE subpaths so an app-layer panel can reach the wall-profile MODEL without pulling the barrel. WallProfile.ts imports only WallArcParam.ts, which imports nothing; WallProfileEditor.ts imports only a type from WallProfile.ts. No THREE, no DOM, no @thatopen at module scope. The barrel drags SlabTool -> @thatopen/ui, which evaluates `class extends HTMLElement` at module scope — that is why this package's vitest.config.ts needs happy-dom. Adding exports entries changes no dependency, so pnpm-lock.yaml is untouched. ⛔ Every key inside `exports` must start with '.': a '//' comment key there is ERR_INVALID_PACKAGE_CONFIG, which is why this note lives at the top level.",
   "files": ["src"],
   "scripts": {
     "test": "vitest run",

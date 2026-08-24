@@ -40,7 +40,11 @@ import { evaluateWallPlacement, wallCrossesOpeningRefusalText } from './WallCros
 // rather than re-stated: `profileAuthorability` is the SAME function `WallStore.update` and
 // `UpdateElementParameterCommand.canExecute` consult, so the refusal the user reads here and
 // the refusal the command would produce cannot drift (C84 EI-9, one answer per question).
-import { WallProfileEditor } from './WallProfileEditor';
+// §WPE-CHROME-LAYER (L-10200) — TYPE ONLY. The overlay is DOM and lives at L7
+// (`apps/editor/src/ui/WallProfileEditor.ts`) so it can use the app's shared drag/resize
+// chrome; this file holds only the port and receives an instance via
+// `WallToolCallbacks.createProfileEditor`.
+import type { WallProfileEditorPort } from './WallProfileEditor';
 import {
     profileAuthorability,
     resolveWallProfile,
@@ -2148,7 +2152,7 @@ export class WallTool {
     /** The wall currently being profile-edited, or null. */
     public profileEditWallId: string | null = null;
     /** Lazily created on first `enterProfileEditMode()` and reused thereafter. */
-    private profileEditor: WallProfileEditor | null = null;
+    private profileEditor: WallProfileEditorPort | null = null;
 
     /**
      * Enter profile edit mode for the given wall.
@@ -2224,7 +2228,25 @@ export class WallTool {
             return;
         }
 
-        this.profileEditor ??= new WallProfileEditor();
+        // §WPE-CHROME-LAYER (L-10200) — the overlay comes from the composition root.
+        //
+        // ⛔ A MISSING WIRE MUST BE LOUD. Returning quietly here is how a shipped feature
+        // becomes a dead button ([[committed-is-not-reachable]], thirteen instances of it in
+        // this repo in one session) — and it is the exact defect the WITHHELD "Edit Profile"
+        // button existed to avoid in the first place. So an unwired host gets a sentence
+        // naming the missing seam, not silence.
+        this.profileEditor ??= this.callbacks.createProfileEditor?.() ?? null;
+        if (!this.profileEditor) {
+            this.showStatus(
+                'Outline editing is unavailable in this host: no profile editor was supplied '
+                + '(WallToolCallbacks.createProfileEditor).',
+            );
+            console.warn(
+                '[WallTool] §WPE-CHROME-LAYER — enterProfileEditMode called but no '
+                + 'createProfileEditor factory was injected. See initTools.ts.',
+            );
+            return;
+        }
         this.isInProfileEditMode = true;
         this.profileEditWallId = wallId;
         this.profileEditor.activate(

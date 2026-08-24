@@ -4,6 +4,7 @@ import { Point3D } from '@pryzm/core-app-model';
 import { VisualStyle } from '@pryzm/core-app-model/material-library';
 import { WallStore } from './WallStore';
 import type { WallProfile } from './WallProfile';
+import type { WallProfileEditorPort } from './WallProfileEditor';
 import type { OpeningProfileKind } from './OpeningProfile';
 
 export enum WallToolState {
@@ -560,6 +561,26 @@ export interface WallToolCallbacks {
      * supply this field.
      */
     commandManager?: any;
+
+    /**
+     * §WPE-CHROME-LAYER (L-10200) — build the wall-profile editor OVERLAY.
+     *
+     * ⚠ WHY THIS IS INJECTED RATHER THAN CONSTRUCTED. The overlay is a DOM dialog that must
+     * be DRAGGABLE and RESIZABLE (the founder's ask, 2026-08-24), and the two shared helpers
+     * that do that — `apps/editor/src/ui/makeDraggable.ts` and `.../makeResizable.ts` — are
+     * L7. `packages/geometry-wall` is L2 and may not import L7, so the panel moved UP to
+     * `apps/editor/src/ui/WallProfileEditor.ts` and reaches the tool through this factory.
+     * What stayed at L2 is the PORT (`WallProfileEditorPort`), the subject, the callbacks,
+     * the 50 mm authoring grid and the implicit rectangle — model facts, not dialog facts.
+     *
+     * ⛔ OPTIONAL IN THE TYPE, NOT OPTIONAL IN PRACTICE. When absent,
+     * `enterProfileEditMode` REFUSES OUT LOUD via `showStatus` instead of returning quietly
+     * — an unwired seam must be visible, not silent ([[committed-is-not-reachable]]). That
+     * `initTools.ts` actually supplies it is asserted from source by
+     * `__tests__/WPE1WallProfileEditMode.test.ts`, alongside the `window.wallTool`
+     * assertion that already guards the other half of the same chain.
+     */
+    createProfileEditor?: () => WallProfileEditorPort;
 
     // ── §WALL-AUDIT-2026-W4: dependencies previously read from window globals ──
     /**

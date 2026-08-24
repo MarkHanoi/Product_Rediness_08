@@ -48222,3 +48222,214 @@ retirement, two constants, four clear-sites), `apps/editor/__tests__/photorealVo
 (new, 9 tests incl. the Cesium-bundle measurement),
 `docs/02-decisions/contracts/C12-GEOSPATIAL.md` §7.
 Root `tsc --noEmit` RC=0 · `eslint` RC=0 · 29/29 across this lane's three new suites.
+
+---
+
+### L-10200 — ⭐ **"MAKE THE PROFILE PANEL DRAGGABLE AND RESIZABLE" WAS NOT EXPRESSIBLE: THE DIALOG WAS BUILT INSIDE AN L2 GEOMETRY PACKAGE, AND BOTH SHARED CHROME HELPERS ARE L7** (lane PROFUI15, 2026-08-24)
+
+Founder, 2026-08-24: *"Please make the **wall edit profile panel resizable and draggable** —
+**architecturally sound**."* The panel is the *"Edit Wall Profile — 10.106 m long, 2.700 m high"*
+modal.
+
+⭐ **The request could not be satisfied from where the panel lived, and that is the finding.**
+`packages/geometry-wall/src/WallProfileEditor.ts` was **359 lines of `document.createElement`,
+`createElementNS`, pointer handlers and a keyboard listener inside an L2 geometry package.** The
+app's two shared panel-chrome helpers are both **L7**:
+
+| helper | path | layer |
+|---|---|---|
+| `makeDraggable` | `apps/editor/src/ui/makeDraggable.ts` | L7 |
+| `makeResizable` | `apps/editor/src/ui/makeResizable.ts` | L7 |
+| the panel | `packages/geometry-wall/**` | **L2** (`eslint.config.js:155`) |
+
+L2 may not import L7. So the only two ways to deliver the founder's sentence *from where the code
+was* were **(i) an upward import the layer gate exists to catch**, or **(ii) a third hand-rolled
+dragger.** Measured, (ii) is already the disease: the repo carries **five rival panel-chrome
+implementations** — the two shared helpers above, plus hand-rolled `_makeDraggable` copies in
+`rooms/RoomGraphPanel.ts:534`, `rooms/EvacuationSimulatorPanel.ts:418`,
+`property-inspector/RoomPathfinderPanel.ts:414` and `property-panel/PropertyPanel.ts:243`, the last
+of which also hand-rolls its own `_makeResizable:356`.
+
+⚠ **Two things the lane brief asserted were measured FALSE, and both mattered:**
+1. *"only one file in `ui/` hand-rolls a drag"* — **four do** (list above).
+2. *"drag is REUSE, resize is new machinery"* — **`makeResizable` already existed**
+   (`apps/editor/src/ui/makeResizable.ts:34`, consumed by `RACChatbotPanel.ts:367` and
+   `OnboardingStepController.ts:514`). Writing one would have minted rival number six.
+
+#### The decision — (b) MOVE THE PANEL UP. What was rejected, and why
+
+| option | verdict |
+|---|---|
+| **(a) move the helpers down to `packages/ui-base`** | ⛔ **REFUTED BY MEASUREMENT.** `ui-base` is **L3** (`eslint.config.js:190`); `geometry-wall` is **L2** (`:155`). L2 → L3 is *upward*. The brief proposed this as the likely home; it swaps one violation for another. |
+| **(a′) move them down to a NEW zero-dependency floor package** (the `frame-scheduler` / `procedural-textures` precedent) | ⛔ **REJECTED FOR THIS LANE, NOT ON MERIT.** It is the best eventual home. But a new workspace needs a tree-wide `pnpm install` to mint the `node_modules` symlink (all 127 `@pryzm/*` links live at the repo root — `apps/editor/node_modules/@pryzm/geometry-wall` does not exist and the existing import already resolves through the root), and **two sibling lanes were live in this shared tree**. Rewriting `pnpm-lock.yaml` under them is the documented collision. **Logged as L-10202, not dropped.** |
+| **(c) inject the chrome into the L2 panel** | ⛔ **DOMINATED.** Identical forgettable-wire risk to (b), strictly less benefit: the DOM stays at L2, so the *next* chrome need re-runs this whole argument. |
+| **(b) move the PANEL up** | ✅ **CHOSEN.** Zero `package.json` dependency changes, zero lockfile risk, both helpers become ordinary downward imports, **no new chrome machinery at all**, and 359 lines of DOM leave an L2 geometry package. |
+
+**The split.** DOM → `apps/editor/src/ui/WallProfileEditor.ts` (L7). What stayed at L2 is what is a
+statement about a *wall* rather than about a *dialog*: `WallProfileEditorSubject`,
+`WallProfileEditorCallbacks`, the new `WallProfileEditorPort`, `WALL_PROFILE_SNAP_M` (the 50 mm
+authoring grid — **one definition**, C84 EI-9; the panel's hint line now derives its *"no 50 mm
+grid"* sentence from that constant, so the words and the snap cannot drift) and
+`wallProfileEditorRectangle()`. `WallTool` holds the **port** and receives an instance via
+`WallToolCallbacks.createProfileEditor`, wired once in `initTools.ts`.
+
+⚠ **A port nobody implements is a dead feature with an interface attached** — this session found
+thirteen built-but-unwired surfaces. **Two guards, deliberately both:** `enterProfileEditMode`
+**refuses out loud** (`showStatus`) when the factory is absent rather than returning quietly; and
+`WPE1WallProfileEditMode.test.ts` asserts **from source** that `initTools.ts` really passes it —
+the same static-link assertion that already pins `window.wallTool`, added as link **(2b)** of the
+same chain.
+
+⛔ **No layer number moved.** `check-layer-boundaries.ts` before and after this lane is
+**byte-identical**: `103/102 upward · 15/13 unclassified · 121/113 restricted`. ⚠ **The gate is
+already RED at HEAD, and was before this lane touched anything** — recorded here so the next reader
+does not attribute it. `CLAUDE.md` and `eslint.config.js` were **not** amended: no package changed
+layer.
+
+**Files:** `packages/geometry-wall/src/WallProfileEditor.ts` (359 → 123 lines: port + model
+conventions, zero DOM), `.../src/WallTypes.ts` (`createProfileEditor`), `.../src/WallTool.ts`
+(type-only import, port field, loud refusal), `.../package.json` (two **pure** `exports` subpaths,
+`./profile` + `./profile-editor`, so the L7 panel reaches the model without dragging the barrel's
+`@thatopen/ui` module-scope `class extends HTMLElement`; **`exports` changes touch no dependency, so
+`pnpm-lock.yaml` is untouched** — and every key inside `exports` must start with `.`, so the
+rationale lives in a top-level `x-pryzm-exports-note`, not a `"//"` key, which is
+`ERR_INVALID_PACKAGE_CONFIG`), `apps/editor/src/ui/WallProfileEditor.ts` (**new**),
+`apps/editor/src/engine/initTools.ts` (the wire),
+`apps/editor/__tests__/wallProfileEditorChrome.test.ts` (**new**, 30 tests),
+`packages/geometry-wall/__tests__/WPE1WallProfileEditMode.test.ts` (16 tests).
+
+---
+
+### L-10201 — ⭐ **THE RESIZE WAS THE DANGEROUS HALF: A PANEL THAT DRAWS A WALL TO SCALE CAN SILENTLY START PRODUCING WRONG METRES, AND NO DRAG TEST WOULD NOTICE** (lane PROFUI15, 2026-08-24)
+
+"Resizable" reads like chrome. It is not. This panel draws a **10.106 m × 2.700 m** wall and reads
+the vertices the user drags **back out of pixels**, through the same map that put them there. A
+resize that changed the aspect ratio, or changed `pad` in the forward map but not the inverse, would
+keep looking right and start committing **wrong `{u, v}` to the model** — through
+`UpdateElementParameterCommand`, into the wall record, into the geometry.
+
+**The mapping, now stated once in the file and pinned by test:**
+
+```
+x = pad + u * scale                 u = (x - pad) / scale
+y = pad + (height - v) * scale      v = height - (y - pad) / scale
+```
+
+`scale` is **ONE number for BOTH axes**, so the drawing's aspect ratio *is* the wall's at every
+size. `pad` and `scale` appear identically in the forward and inverse maps. **A resize changes
+`scale` and `pad` and nothing else** — the ring is stored in **metres** and is never rescaled,
+which is exactly why the area reported after a resize is the area before it.
+
+#### Proved at the founder's numbers, with the scale proved to actually move
+
+His screen reads **"4 vertices, enclosed area 25.666 m2"**. The rectangle would be
+10.106 × 2.700 = **27.286 m²**, so the outline on his screen is an **authored** one — the suite uses
+the trapezoid `(0,0) (10.106,0) (10.106,2.3793) (0,2.700)`, which encloses **25.6657 m²** and prints
+as **`25.666`**. Across six canvas boxes from `880×460` down to `64×64`:
+
+- the status line is **identical** at every size (and back at the top again — a one-way drift would
+  survive a monotonic sweep);
+- **not one vertex moves** (deep equality against the pre-resize ring);
+- the drawn wall extent keeps `length/height` to **10 decimal places**;
+- `toModel(toPx(p)) === p` to **9 decimal places** for every vertex, at every size;
+- a **real vertex drag after a resize** lands on the metres it was aimed at (7.5 m, 1.85 m).
+
+⚠ **AND THE SCALE IS ASSERTED TO ACTUALLY CHANGE FIRST.** An invariance test over a value that
+never moved is vacuous — [[fake-more-capable-than-real]] in miniature.
+
+#### ⭐ Five mutations, because a suite that has never failed has not been tested
+
+Green on the first run is when to distrust a suite. Each mutation was applied to the shipped file,
+run, and reverted:
+
+| # | mutation | caught by |
+|---|---|---|
+| 1 | inverse map uses `MAX_PAD_PX` instead of the live `_pad` | **3** tests (round-trip, vertex drag, post-resize drag) |
+| 2 | separate `_scaleY` — the drawing stretches to fill the box | **2** (aspect ratio, SVG box) |
+| 3 | **the resize rescales the RING** — the exact defect the brief named | **2** (area + vertex identity, absurd-box guard) |
+| 4 | drag handle → `.wpe-panel` | **1** (title-bar drag) |
+| 5 | drag handle → `.wpe-canvas-wrap` | **2** — ⭐ **including the canvas guard, which mutation 4 had passed VACUOUSLY** |
+
+Mutation 5 is the one worth keeping. **⛔ "A press on the canvas does not drag the panel" passed
+under mutation 4 for the wrong reason:** a broken handle selector kills drag *entirely* rather than
+misplacing it, so nothing dragged and the guard asserted nothing. It took a mutation that made the
+canvas a **working** handle to prove that test can fail.
+
+#### A / C / D as delivered
+
+**A. Drag by the title bar only.** `makeDraggable(root, '.wpe-titlebar', ['.wpe-resize-grip'])`.
+A press on the SVG starts no drag; a **vertex** drag reshapes the outline and leaves `style.left` /
+`style.top` untouched. Both pinned.
+
+**C. Apply is never unreachable.** The root is `display:flex; flex-direction:column`; the **only**
+`overflow:hidden` box is the canvas wrapper (`min-height:0`, `flex:1 1 auto`), and the action row is
+a `flex:0 0 auto` **sibling** of it with `flex-wrap:wrap`, so four buttons become two lines instead
+of clipping. `makeResizable` gets explicit floors **360 × 300** — its own defaults are 280 × 180,
+below this panel's hint line plus buttons. ⚠ **What this cannot prove:** happy-dom does not lay
+out, so "the row is visible" is not asserted; **"Apply still commits after `refitTo(64, 64)`"** is,
+and that is the behavioural half.
+
+**D. Position and size are NOT PERSISTED — decided, not deferred.** (1) It is a modal edit session
+on one wall, opened from a contextual action and closed by Apply/Cancel/Esc — not a standing
+preference. (2) **C78 §19.5 / U-INV-16** (lane GRAPH48): *a stored decision must record the universe
+it was made against*. A stored px box is replayable only against viewport size, DPR **and the
+aspect ratio of the wall it was sized for** — a 10.106 × 2.700 wall and a 1.2 × 4.0 wall want
+opposite boxes. Storing it without that universe is the defect U-INV-16 names; storing it *with*
+that universe is a panel-layout subsystem, not a line in this file. (3) `makeDraggable` already
+reserves the seam (`TODO(F.6.5) → runtime.persistence.panelLayout`); when F.6.5 lands **every**
+panel gets persistence under one universe-recording rule.
+
+Root `tsc --noEmit` **RC=0, 0 errors** · `eslint` on this lane's four authored files **0 problems**
+· **30/30** app-layer + **16/16** L2 + **190/190** across 14 wall-profile-adjacent suites.
+
+---
+
+### L-10202 — ⛔ **OPEN, DEFERRED ON PURPOSE: PANEL CHROME HAS NO HOME BELOW L7, SO EVERY PACKAGE-LEVEL PANEL FACES THE SAME WALL L-10200 HIT** (lane PROFUI15, 2026-08-24)
+
+L-10200 moved **one** panel up. It did not establish an invariant, and saying so is the point.
+
+**Measured 2026-08-24** — `grep -rl "document.createElement" packages/*/src`: **21 packages build
+DOM**, led by `core-app-model` (22 files), `input-host` (11), `file-format` (8),
+**`geometry-wall` (6 files, 34 call sites — five files remain after this lane)**, `geometry-stair`
+(5), `geometry-furniture` (5), `geometry-door` (4), `ai-host` (4), `geometry-slab` (3). So the
+L2-builds-DOM condition is **systemic**, not one file's mistake — and the layer gate cannot see any
+of it, because DOM is not an upward import.
+
+**The durable fix is (a′) from L-10200:** `makeDraggable` + `makeResizable` are **zero-runtime-
+dependency DOM leaves** (`makeDraggable`'s only import is an `import type`, for a parameter it does
+not use). They sit at L7 by accident of authorship, and that accident is what forces every new
+consumer to choose between an upward import and a copy. The precedent is already written into the
+layer table: `procedural-textures` — *"leaf, ZERO imports … placed at the FLOOR"* — and
+`frame-scheduler` — *"imports NOTHING; consumed by eleven L2 geometry-* packages"*. A
+`@pryzm/panel-chrome` at **L1** (not L0 — L0 forbids DOM) would let both helpers be consumed from
+L2 **and** L7, with `apps/editor/src/ui/make{Draggable,Resizable}.ts` reduced to re-export shims so
+all eight existing call sites stay untouched.
+
+⛔ **NOT DONE HERE, and the reason is operational, not architectural:** a new workspace needs a
+tree-wide `pnpm install` to mint its `node_modules` symlink, and **two sibling lanes were live in
+this shared tree**. It also does **not** fix the panel's misplacement, which is why (b) was the
+right call for the founder's actual request even in a quiet tree.
+
+**Blocked on:** a quiet tree. **Prerequisite for:** retiring the four hand-rolled `_makeDraggable`
+copies and `PropertyPanel._makeResizable` onto one implementation.
+
+---
+
+### L-10203 — ⚠ **NOT THIS LANE'S FILES: two `apps/editor` suites are RED at HEAD, on inputs byte-identical to HEAD** (lane PROFUI15, 2026-08-24)
+
+Recorded so a later reader does not attribute them to L-10200/L-10201.
+
+- `apps/editor/__tests__/MaterialDispatch.test.ts` → *"ceiling / floor / roof / curtain-wall:
+  correct id field + updates bag"*. Subject: `src/ui/property-inspector/MaterialDispatch.ts`.
+- `apps/editor/__tests__/projectScopedBuilderTeardown.test.ts` → *"subscribes the sweep to
+  bim-project-cleared"*, expecting the window after `addEventListener('bim-project-cleared'` to
+  contain `formatBuilderTeardownReport(`. Subject: `src/engine/initBuilders.ts`.
+
+**Neither subject file appears in this lane's diff and neither is modified in the working tree**
+(`git status --porcelain` on both: clean). Byte-identical inputs give byte-identical verdicts, so
+these fail at HEAD independently of this lane. **Owners: whoever last touched
+`MaterialDispatch.ts` / `initBuilders.ts`.**
+
+Likewise `tools/ga-gate/check-layer-boundaries.ts` is **RED at HEAD** — `103/102 upward ·
+15/13 unclassified · 121/113 restricted` — measured **before** this lane edited anything, and
+byte-identical after.

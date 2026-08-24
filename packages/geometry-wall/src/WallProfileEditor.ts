@@ -2,12 +2,23 @@
  * WallProfileEditor — §FEAT-WALL-PROFILE-EDIT (the founder's "I REQUIRED A PROFILE EDIT
  * FEATURE (MODE)" for WALLS).
  *
- * WHAT WAS MISSING, stated plainly. `WallProfile.ts` has owned the MODEL, the ONE
- * authorability gate and the persistence since Slice 1; `WallProfileBodyBuilder.ts` made
- * the body DRAW. Nothing authored the field. `ContextualEditBar.ts:1002` recorded the
- * absence in those words and deliberately withheld the button, because floor and ceiling
- * had already shipped an "Edit Profile" button that did nothing. This file is the thing
- * whose absence that comment was describing.
+ * ⭐ §WPE-CHROME-LAYER (L-10200, 2026-08-24). THIS FILE USED TO BUILD THE DIALOG.
+ *
+ * It declared 359 lines of `document.createElement`, an SVG surface, pointer handlers, a
+ * keyboard listener and four buttons — inside an **L2 geometry package**. Nothing about that
+ * was a layering *violation* (DOM is not an upward import), which is exactly why it survived:
+ * the layer gate cannot see it. What it did instead was make the panel **unreachable by the
+ * app's own panel chrome**. `apps/editor/src/ui/makeDraggable.ts` and
+ * `apps/editor/src/ui/makeResizable.ts` are L7; `packages/geometry-wall` is L2; L2 may not
+ * import L7. So the founder's ask — *"make the wall edit profile panel resizable and
+ * draggable"* — was, at HEAD, **not expressible without either a layer violation or a fifth
+ * hand-rolled copy of a dragger this repo already has two shared versions of**.
+ *
+ * The DOM therefore MOVED UP, to `apps/editor/src/ui/WallProfileEditor.ts`, where the two
+ * shared helpers are ordinary downward imports. Nothing was deleted: the same class, the same
+ * behaviour, plus the chrome. What stayed HERE is what belongs at L2 — the SUBJECT the editor
+ * is opened on, the CALLBACKS it commits through, the authoring grid, the implicit rectangle,
+ * and the PORT the tool holds. Those are statements about a wall, not about a dialog.
  *
  * ─── WHY A DOM/SVG EDITOR AND NOT A COPY OF SlabProfileEditor ─────────────────
  *
@@ -15,27 +26,22 @@
  * a horizontal plane in the scene, so a 3-D handle at (x, 0, z) and an authored vertex are
  * the same point, and a plan camera looks straight down it. A wall profile is authored in
  * the wall's OWN ELEVATION frame (u along the baseline, v above the base plane —
- * `WallProfile.ts` fixes that convention and this file does not re-derive it). There is no
- * camera in this repo guaranteed to be looking at that plane, so a 3-D handle editor would
- * have had to first BUILD an elevation view of an arbitrary wall, align a camera to it,
- * and keep the two in sync — three unbuilt things standing between the founder and a
+ * `WallProfile.ts` fixes that convention and neither this file nor the panel re-derives it).
+ * There is no camera in this repo guaranteed to be looking at that plane, so a 3-D handle
+ * editor would have had to first BUILD an elevation view of an arbitrary wall, align a camera
+ * to it, and keep the two in sync — three unbuilt things standing between the founder and a
  * feature whose model, gate, persistence and geometry are already finished.
  *
  * So the proven pattern is mirrored where it is the same and only where it is the same:
  * ONE editor object, an `activate` / `deactivate` pair that is idempotent, a commit
- * callback that the TOOL turns into a command (this class never touches a store or a bus —
+ * callback that the TOOL turns into a command (the panel never touches a store or a bus —
  * the same split `SlabProfileEditor` makes when it hands `_commitProfileEdit` a polygon and
- * knows nothing about `UpdateSlabPolygonCommand`), and a cancel callback. What differs is
- * the surface: an SVG of the wall's elevation, drawn to scale, which is exactly the drawing
- * a profile IS.
+ * knows nothing about `UpdateSlabPolygonCommand`), and a cancel callback.
  *
- * ⛔ NO THREE, NO STORE, NO COMMAND BUS in this file. P2 (`import * as THREE` outside
- * `renderer-three` fails CI) is satisfied by construction, and P6 is satisfied because the
- * only way anything here reaches the model is the `onCommit` callback the tool supplies.
+ * ⛔ NO THREE, NO STORE, NO COMMAND BUS, and — since L-10200 — NO DOM in this file.
  */
 
 import type { WallProfileVertex } from './WallProfile';
-import { wallProfileSignedArea2, PROFILE_MIN_AREA_M2, PROFILE_MIN_VERTICES } from './WallProfile';
 
 /** Everything the editor needs to draw a wall's elevation. Deliberately NOT a WallData —
  *  the editor must not be able to read anything it has no business reading. */
@@ -55,305 +61,63 @@ export interface WallProfileEditorCallbacks {
     onCancel(): void;
 }
 
-const PAD_PX = 44;
-const HANDLE_R = 7;
-/** Authoring grid, metres. Hold Shift while dragging for a free value. */
-const SNAP_M = 0.05;
-
-function snap(x: number, on: boolean): number {
-    return on ? Math.round(x / SNAP_M) * SNAP_M : x;
-}
-function clamp(x: number, lo: number, hi: number): number {
-    return x < lo ? lo : x > hi ? hi : x;
-}
-
-export class WallProfileEditor {
-    private _root: HTMLElement | null = null;
-    private _svg: SVGSVGElement | null = null;
-    private _poly: SVGPolygonElement | null = null;
-    private _handleLayer: SVGGElement | null = null;
-    private _status: HTMLElement | null = null;
-    private _subject: WallProfileEditorSubject | null = null;
-    private _cbs: WallProfileEditorCallbacks | null = null;
-
-    private _ring: WallProfileVertex[] = [];
-    private _scale = 1;          // px per metre
-    private _dragIndex: number | null = null;
-    private _onKeyDown: ((e: KeyboardEvent) => void) | null = null;
-
-    get isActive(): boolean { return this._root !== null; }
-
-    /** TEST SEAM — the working ring, so a headless test can assert edits without pointers. */
-    get ring(): ReadonlyArray<WallProfileVertex> { return this._ring; }
-
-    /**
-     * Open the editor over the given wall. Idempotent: activating while already active on
-     * ANY wall closes the previous session first, so two overlays can never co-exist.
-     */
-    activate(subject: WallProfileEditorSubject, cbs: WallProfileEditorCallbacks): void {
-        this.deactivate();
-        this._subject = subject;
-        this._cbs = cbs;
-        this._ring = subject.ring && subject.ring.length >= PROFILE_MIN_VERTICES
-            ? subject.ring.map((p) => ({ u: p.u, v: p.v }))
-            : this._rectangle(subject);
-        this._build();
-        this._redraw();
-    }
-
-    /** Close the overlay and drop every listener. Safe to call any number of times. */
-    deactivate(): void {
-        if (this._onKeyDown) {
-            window.removeEventListener('keydown', this._onKeyDown, true);
-            this._onKeyDown = null;
-        }
-        this._root?.remove();
-        this._root = null;
-        this._svg = null;
-        this._poly = null;
-        this._handleLayer = null;
-        this._status = null;
-        this._subject = null;
-        this._cbs = null;
-        this._ring = [];
-        this._dragIndex = null;
-    }
-
-    private _rectangle(s: WallProfileEditorSubject): WallProfileVertex[] {
-        return [
-            { u: 0, v: 0 },
-            { u: s.length, v: 0 },
-            { u: s.length, v: s.height },
-            { u: 0, v: s.height },
-        ];
-    }
-
-    // ── geometry <-> pixels ──────────────────────────────────────────────────
-    private _x(u: number): number { return PAD_PX + u * this._scale; }
-    private _y(v: number): number { return PAD_PX + (this._subject!.height - v) * this._scale; }
-    private _u(x: number): number { return (x - PAD_PX) / this._scale; }
-    private _v(y: number): number { return this._subject!.height - (y - PAD_PX) / this._scale; }
-
-    // ── UI ───────────────────────────────────────────────────────────────────
-    private _build(): void {
-        const s = this._subject!;
-        const maxW = Math.min(920, Math.max(420, window.innerWidth - 160));
-        const maxH = Math.min(520, Math.max(240, window.innerHeight - 320));
-        this._scale = Math.min(
-            (maxW - PAD_PX * 2) / Math.max(s.length, 1e-3),
-            (maxH - PAD_PX * 2) / Math.max(s.height, 1e-3),
-        );
-        const w = s.length * this._scale + PAD_PX * 2;
-        const h = s.height * this._scale + PAD_PX * 2;
-
-        const root = document.createElement('div');
-        root.id = 'wall-profile-editor';
-        root.setAttribute('data-wall-id', s.wallId);
-        root.style.cssText =
-            'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1000000;' +
-            'background:#fff;color:#1a1a1a;border:1px solid #d8d8e0;border-radius:12px;' +
-            'box-shadow:0 18px 60px rgba(0,0,0,.28);padding:16px 18px 14px;' +
-            'font:13px/1.4 system-ui,sans-serif;';
-
-        const title = document.createElement('div');
-        title.style.cssText = 'font-weight:600;margin-bottom:8px;';
-        title.textContent =
-            `Edit Wall Profile - ${s.length.toFixed(3)} m long, ${s.height.toFixed(3)} m high`;
-        root.appendChild(title);
-
-        const svgNS = 'http://www.w3.org/2000/svg';
-        const svg = document.createElementNS(svgNS, 'svg') as SVGSVGElement;
-        svg.setAttribute('width', String(w));
-        svg.setAttribute('height', String(h));
-        svg.style.cssText = 'display:block;background:#fafafe;border-radius:8px;touch-action:none;';
-
-        // The wall's own extent — the box a profile may only CUT inside (`WallProfile.ts`:
-        // "A profile SUBTRACTS from the rectangle; it never grows it").
-        const bound = document.createElementNS(svgNS, 'rect');
-        bound.setAttribute('x', String(PAD_PX));
-        bound.setAttribute('y', String(PAD_PX));
-        bound.setAttribute('width', String(s.length * this._scale));
-        bound.setAttribute('height', String(s.height * this._scale));
-        bound.setAttribute('fill', 'none');
-        bound.setAttribute('stroke', '#c9c9d6');
-        bound.setAttribute('stroke-dasharray', '5 4');
-        svg.appendChild(bound);
-
-        const poly = document.createElementNS(svgNS, 'polygon') as SVGPolygonElement;
-        poly.setAttribute('fill', 'rgba(102,0,255,0.13)');
-        poly.setAttribute('stroke', '#6600FF');
-        poly.setAttribute('stroke-width', '2');
-        svg.appendChild(poly);
-
-        const handles = document.createElementNS(svgNS, 'g') as SVGGElement;
-        svg.appendChild(handles);
-
-        svg.addEventListener('pointermove',  (e) => this._onPointerMove(e as PointerEvent));
-        svg.addEventListener('pointerup',    () => this._onPointerUp());
-        svg.addEventListener('pointerleave', () => this._onPointerUp());
-        root.appendChild(svg);
-
-        const status = document.createElement('div');
-        status.style.cssText = 'margin:8px 2px 4px;color:#555;min-height:16px;';
-        root.appendChild(status);
-
-        const hint = document.createElement('div');
-        hint.style.cssText = 'margin:2px 2px 10px;color:#8a8a96;font-size:12px;max-width:640px;';
-        hint.textContent =
-            'Drag a vertex to reshape. Click a hollow midpoint to insert a vertex. ' +
-            'Double-click a vertex to delete it. Shift = free (no 50 mm grid). ' +
-            'Esc = cancel, Enter = apply.';
-        root.appendChild(hint);
-
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
-        row.appendChild(this._button('Reset to rectangle', '#f2f2f7', '#1a1a1a', () => {
-            this._ring = this._rectangle(this._subject!);
-            this._redraw();
-        }));
-        row.appendChild(this._button('Clear profile', '#f2f2f7', '#1a1a1a', () => {
-            this._cbs?.onCommit(null);
-        }));
-        row.appendChild(this._button('Cancel', '#f2f2f7', '#1a1a1a', () => this._cbs?.onCancel()));
-        row.appendChild(this._button('Apply', '#6600FF', '#fff', () => this._commit()));
-        root.appendChild(row);
-
-        document.body.appendChild(root);
-        this._root = root;
-        this._svg = svg;
-        this._poly = poly;
-        this._handleLayer = handles;
-        this._status = status;
-
-        this._onKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') { e.stopPropagation(); this._cbs?.onCancel(); }
-            else if (e.key === 'Enter') { e.stopPropagation(); this._commit(); }
-        };
-        window.addEventListener('keydown', this._onKeyDown, true);
-    }
-
-    private _button(label: string, bg: string, fg: string, onClick: () => void): HTMLButtonElement {
-        const b = document.createElement('button');
-        b.textContent = label;
-        b.style.cssText =
-            `background:${bg};color:${fg};border:1px solid rgba(0,0,0,.08);border-radius:7px;` +
-            'padding:7px 13px;cursor:pointer;font:inherit;font-weight:600;';
-        b.addEventListener('click', (e) => { e.preventDefault(); onClick(); });
-        return b;
-    }
-
-    private _redraw(): void {
-        if (!this._poly || !this._handleLayer) return;
-        this._poly.setAttribute(
-            'points',
-            this._ring.map((p) => `${this._x(p.u)},${this._y(p.v)}`).join(' '),
-        );
-
-        const svgNS = 'http://www.w3.org/2000/svg';
-        this._handleLayer.replaceChildren();
-
-        // Edge-insertion targets first, so the vertex handles sit above them.
-        for (let i = 0; i < this._ring.length; i++) {
-            const a = this._ring[i]!;
-            const b = this._ring[(i + 1) % this._ring.length]!;
-            const mid = document.createElementNS(svgNS, 'circle');
-            mid.setAttribute('cx', String((this._x(a.u) + this._x(b.u)) / 2));
-            mid.setAttribute('cy', String((this._y(a.v) + this._y(b.v)) / 2));
-            mid.setAttribute('r', String(HANDLE_R - 2));
-            mid.setAttribute('fill', '#fff');
-            mid.setAttribute('stroke', '#b9a2ff');
-            mid.style.cursor = 'copy';
-            const at = i;
-            mid.addEventListener('pointerdown', (e) => {
-                e.stopPropagation();
-                this._ring.splice(at + 1, 0, { u: (a.u + b.u) / 2, v: (a.v + b.v) / 2 });
-                this._redraw();
-            });
-            this._handleLayer.appendChild(mid);
-        }
-
-        for (let i = 0; i < this._ring.length; i++) {
-            const p = this._ring[i]!;
-            const c = document.createElementNS(svgNS, 'circle');
-            c.setAttribute('cx', String(this._x(p.u)));
-            c.setAttribute('cy', String(this._y(p.v)));
-            c.setAttribute('r', String(HANDLE_R));
-            c.setAttribute('fill', '#6600FF');
-            c.setAttribute('stroke', '#fff');
-            c.setAttribute('stroke-width', '2');
-            c.style.cursor = 'grab';
-            const idx = i;
-            c.addEventListener('pointerdown', (e) => {
-                e.stopPropagation();
-                this._dragIndex = idx;
-            });
-            c.addEventListener('dblclick', (e) => {
-                e.stopPropagation();
-                this._deleteVertex(idx);
-            });
-            this._handleLayer.appendChild(c);
-        }
-
-        this._setStatus();
-    }
-
-    private _deleteVertex(idx: number): void {
-        // A ring below PROFILE_MIN_VERTICES cannot bound an area — the gate would refuse it,
-        // so the editor refuses to PRODUCE one rather than offering an edit that cannot commit.
-        if (this._ring.length <= PROFILE_MIN_VERTICES) {
-            this._setStatus(`A profile needs at least ${PROFILE_MIN_VERTICES} vertices.`);
-            return;
-        }
-        this._ring.splice(idx, 1);
-        this._redraw();
-    }
-
-    private _onPointerMove(e: PointerEvent): void {
-        if (this._dragIndex === null || !this._svg || !this._subject) return;
-        const r = this._svg.getBoundingClientRect();
-        const s = this._subject;
-        const u = clamp(snap(this._u(e.clientX - r.left), !e.shiftKey), 0, s.length);
-        const v = clamp(snap(this._v(e.clientY - r.top),  !e.shiftKey), 0, s.height);
-        this._ring[this._dragIndex] = { u, v };
-        this._redraw();
-    }
-
-    private _onPointerUp(): void {
-        this._dragIndex = null;
-    }
-
-    /** Enclosed area of the working ring, square metres. */
-    private _area(): number {
-        return Math.abs(wallProfileSignedArea2(this._ring)) / 2;
-    }
-
-    private _setStatus(msg?: string): void {
-        if (!this._status) return;
-        this._status.textContent = msg
-            ?? `${this._ring.length} vertices, enclosed area ${this._area().toFixed(3)} m2`;
-        this._status.style.color = msg ? '#b3261e' : '#555';
-    }
-
-    /**
-     * Hand the working ring to the tool. Pre-checks only what the editor can answer
-     * LOCALLY (vertex count and enclosed area); every other judgement — bounds, curve,
-     * layers, hosted openings — belongs to `profileAuthorability`, which the command path
-     * consults, and is NOT re-implemented here (C84 EI-9: one answer per question).
-     */
-    private _commit(): void {
-        if (this._ring.length < PROFILE_MIN_VERTICES) {
-            this._setStatus(`A profile needs at least ${PROFILE_MIN_VERTICES} vertices.`);
-            return;
-        }
-        if (!(this._area() > PROFILE_MIN_AREA_M2)) {
-            this._setStatus('This outline encloses no area - the wall would render as nothing.');
-            return;
-        }
-        this._cbs?.onCommit(this._ring.map((p) => ({ u: p.u, v: p.v })));
-    }
-
+/**
+ * §WPE-CHROME-LAYER (L-10200) — the seam `WallTool` holds.
+ *
+ * The tool must be able to open, close and talk back to an editor WITHOUT knowing that the
+ * editor is a DOM dialog, because at L2 it cannot see one. `apps/editor` supplies the
+ * implementation through `WallToolCallbacks.createProfileEditor`; this interface is the
+ * whole of what the tool is allowed to assume about it.
+ *
+ * ⚠ A port whose implementation nobody supplies is a dead feature with an interface attached
+ * — [[committed-is-not-reachable]], and thirteen instances of it were found in this repo in
+ * one session. Two things stop that here, and BOTH are deliberate:
+ *   1. `WallTool.enterProfileEditMode` REFUSES OUT LOUD when no factory was supplied
+ *      (`showStatus`), rather than returning quietly;
+ *   2. `WPE1WallProfileEditMode.test.ts` asserts, from source, that `initTools.ts` actually
+ *      passes `createProfileEditor` — the same static-link assertion that already pins
+ *      `window.wallTool`, and for the same reason: a missing static link still breaks the
+ *      chain, and a chain is only as good as the link nobody tested.
+ */
+export interface WallProfileEditorPort {
+    /** TRUE while an overlay is open. */
+    readonly isActive: boolean;
+    /** Open the editor over the given wall. MUST be idempotent — activating while already
+     *  active closes the previous session first, so two overlays can never co-exist. */
+    activate(subject: WallProfileEditorSubject, cbs: WallProfileEditorCallbacks): void;
+    /** Close the overlay and drop every listener. MUST be safe to call any number of times. */
+    deactivate(): void;
     /** Surface a refusal the TOOL obtained from the gate. The editor owns no refusal text. */
-    showRefusal(text: string): void {
-        this._setStatus(text);
-    }
+    showRefusal(text: string): void;
+}
+
+/**
+ * The authoring grid, metres. Hold Shift while dragging for a free value.
+ *
+ * ⚠ THIS LIVES AT L2 ON PURPOSE. It is a statement about how a wall profile may be authored,
+ * not about how a dialog behaves, and C84 EI-9 is one answer per question: if the panel
+ * carried its own copy, the hint text ("no 50 mm grid") and the value actually snapped to
+ * could drift apart without a single test failing.
+ */
+export const WALL_PROFILE_SNAP_M = 0.05;
+
+/** Snap `x` (metres) to {@link WALL_PROFILE_SNAP_M} when `on`; otherwise pass it through. */
+export function wallProfileEditorSnap(x: number, on: boolean): number {
+    return on ? Math.round(x / WALL_PROFILE_SNAP_M) * WALL_PROFILE_SNAP_M : x;
+}
+
+/**
+ * The implicit rectangle every wall already is — the only honest starting outline for a wall
+ * with no authored profile (`WallProfile.ts`'s round-trip guarantee: a profile SUBTRACTS from
+ * the rectangle, it never grows it).
+ */
+export function wallProfileEditorRectangle(
+    s: Pick<WallProfileEditorSubject, 'length' | 'height'>,
+): WallProfileVertex[] {
+    return [
+        { u: 0, v: 0 },
+        { u: s.length, v: 0 },
+        { u: s.length, v: s.height },
+        { u: 0, v: s.height },
+    ];
 }
