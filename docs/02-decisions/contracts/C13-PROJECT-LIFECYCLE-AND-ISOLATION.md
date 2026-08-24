@@ -329,6 +329,120 @@ Therefore:
    `PlatformShell.setProjectContext()` prefers over the server on every open — so a server-only
    guard still restores an empty project from IndexedDB forever.
 
+### §3.21 — The declaration's UNIVERSE is the limit of the audit, and it is currently 13 (binding; L-10480, 2026-08-24)
+
+**⭐ THE GATE IS HONEST AND ITS UNIVERSE IS TOO SMALL. Those are different defects with
+opposite fixes, and conflating them is why "the gate is green" and "the founder still
+sees leaks" have coexisted.**
+
+`ProjectIsolationAudit` can only ever audit what `declaredProjectScopes.ts` declares.
+ADR-0298's doctrine — *the audit checks reality against a DECLARATION* — is correct and
+must not be weakened. But a declaration that names N owners audits exactly N subsystems,
+and everything project-scoped that was never declared is **invisible to the audit by
+construction, not by accident**.
+
+**MEASURED 2026-08-24** (`npx tsx tools/ga-gate/check-declared-project-scopes.ts`, RC=0):
+
+| Quantity | Reading | What it means |
+|---|---|---|
+| **Declared scopes** (probe + teardown + `resets`/`counts`) | **13** | The audit's entire universe. |
+| `projectScopeRegistry` scopes (teardown only, no probe) | **61** | Cleared on switch; **nothing proves the clear worked**. |
+| Distinct `scopeName` literals in source | **66** | — |
+| **Undeclared** module-level project-scoped candidates | **45** | Heuristic sweep, shrink-only baseline. |
+| ⛔ **NEVER SWEPT AT ALL** — same heuristic, rest of repo | **106** | `packages/**` **100** · `plugins/**` **5** · other `apps/**` **1**. |
+
+⛔ **AND THE SWEEP ONLY LOOKS AT TWO DIRECTORIES.** `CANDIDATE_ROOTS` in
+`check-declared-project-scopes.ts` is `['apps/editor/src/ui', 'apps/editor/src/engine']`.
+**97 packages and 48 plugins are never examined for undeclared project-scoped state.**
+Re-running the gate's OWN regex and OWN word list over the rest of the tree (measured
+2026-08-24, 4,980 files, tests and already-swept roots excluded) surfaces **106 further
+files** — among them `packages/ai-host/src/AiHost.ts`,
+`packages/ai-host/src/graph/GraphQueryService.ts`, `packages/command-bus/src/gestureScope.ts`
+and `packages/command-registry/src/catalogue/resolveCatalogueRef.ts`.
+
+⚠ **These 106 are CANDIDATES, not confirmed leaks** — it is the same word-match heuristic,
+which is why the in-repo baseline carries triage notes rather than a bare list, and some
+(e.g. the several `tracing.ts` tracer memos) are near-certainly false positives. **The
+finding is not "106 leaks"; it is that nothing has ever LOOKED.** So the honest population
+is **13 verified against ~151 candidates**, and widening `CANDIDATE_ROOTS` is the cheapest
+next move against the founder's report — it costs one array literal plus the triage of
+whatever it surfaces.
+
+⛔ **So 61 subsystems are TORN DOWN and only 13 are VERIFIED.** The gap between those two
+numbers — not any single leak — is the answer to "why does the gate pass while isolation
+bugs keep arriving". A teardown with no probe is exactly the artefact L-224 and L-8100
+both describe: one that ships, passes its tests, and is never checked against the world.
+
+**Binding consequences:**
+
+1. **A new `projectScopeRegistry.register()` SHOULD be accompanied by a
+   `registerProjectScopeProbe()` and a declaration entry.** A teardown without a probe is
+   an unverified claim, and it may not be described as isolation.
+2. **The declared count is a RATCHET that must rise.** It may never be reduced to make a
+   gate green; an owner is removed only when its state is genuinely dissolved.
+3. ⛔ **Neither the candidate baseline nor the declared set may be narrowed to pass.** The
+   gate's own output binds this: *"Fix the code or edit the declaration deliberately — do
+   not narrow the check until it passes."*
+
+**What L-10480 closed, and how it was found.** The gate was **RED in production** (RC=3,
+ancestor of the live SHA) on two files, and **both flags were TRUE POSITIVES rather than
+the heuristic word-matches that cover most of the baseline**:
+
+- `apps/editor/src/ui/analysis/graphViewState.ts` — the force-solved graph layout, a map
+  from **element id → position**, i.e. a partial disclosure of Project A's element id set
+  to a reader looking at Project B, plus the orbit camera pose.
+- `apps/editor/src/ui/analysis/widgetRenderers.ts` — a **live WebGL viewport** holding
+  Project A's geometry and one refcount on the single shared offscreen context.
+
+⭐ **The root was not a broken teardown; it was the ABSENCE of a lifecycle.** Measured:
+`grep -rn "pryzm-project" apps/editor/src/ui/analysis/` returned **nothing at all** — the
+whole Analysis surface had zero project-lifecycle wiring. Its only teardown,
+`disposeGraphViewport()`, was reached solely from `AnalysisSurface._hide()`, which fires
+when the reader **leaves the workspace**, never when the project changes under it.
+Switching project with the Analysis tab open therefore disposed nothing.
+
+⚠ **A doc comment asserted the lifecycle that did not exist.** `resetGraphViewState()` was
+documented as *"used by 'Reset view' and by a project switch"*; the second half had been
+false since the card shipped. **That is the L-694a defect in prose** — it is precisely why
+a reviewer would not go looking for the owner that was missing. Both scopes are now
+declared (`analysis.graphView`, `analysis.graphViewport`), registered at module scope, and
+the comment is corrected.
+
+### §3.22 — In-flight async has NO general mechanism; §3.6 is enforced by nothing (recorded, NOT closed; L-10480, 2026-08-24)
+
+**⭐ THIS IS THE LARGEST KNOWN HOLE IN C13 AND IT IS STATED AS OPEN, NOT SOLVED.**
+
+§3.6 requires that *"async operations dispatched during Project A's session MUST NOT
+execute in Project B's context"*. It names **two** cases (`rooms.redetect` frame-yielded
+dispatches; `FrameScheduler.scheduleOnce` disposers). **MEASURED 2026-08-24: there is no
+general mechanism behind it and no gate in front of it.** A repo-wide search for
+`projectEpoch|projectGeneration|loadGeneration|switchEpoch|__pryzmEpoch` across
+`apps/editor/src` and `packages/core-app-model/src` returns **ZERO hits**. Nothing anywhere
+lets an in-flight operation discover that the project changed underneath it.
+
+⛔ **This class is invisible to EVERY static check and to the runtime audit alike**, and
+the reason is structural rather than incidental:
+
+> **An operation that lands after the switch is stamped with the NEW project, because the
+> stamp is taken when the work COMPLETES rather than when it was REQUESTED.** The probe
+> then reads a consistent stamp and reports the surface clean while it holds the old
+> project's data.
+
+This is demonstrated, not hypothesised — `analysisProjectIsolationAtoB.spec.ts` **ARM 5**
+asserts the wrong-but-current behaviour: a graph solved from Project A's projection that
+lands after the switch reports `owningProjectId === 'proj-B'` while holding A's element
+ids. **Every declared owner in the repo shares this shape**, because ownership is stamped
+at completion time everywhere.
+
+**The structural repair (NOT YET BUILT — needs an ADR and a costed plan):** a monotonic
+**project epoch** incremented on `pryzm-project-switch`, captured by value at REQUEST time,
+and compared at completion; a mismatch discards the result instead of writing it. That
+turns §3.6 from a rule about two named call sites into an invariant a gate can count. It
+is deliberately not attempted in this lane: it touches every async boundary in the app.
+
+⚠ **Until that exists, §3.6 must not be described as enforced.** It is a rule with two
+hand-named instances and no mechanism.
+
 ---
 
 ## §4 — The normative teardown sequence
@@ -456,6 +570,39 @@ A new GA gate script `tools/ga-gate/check-project-isolation.ts` MUST verify:
 1. `BatchCoordinator` exports a `forceReset()` method.
 2. `engineLauncher.ts` registers a `pryzm-project-switch` listener that calls `batchCoordinator.forceReset()`.
 3. `window.__wallRebuildControl` exports a `reset()` method (or equivalent teardown surface).
+
+### §7.1b — The A→B RUNTIME probe, and why a "did B load?" test is worthless (binding; L-10480)
+
+⛔ **A TEST THAT ASSERTS PROJECT B LOADED CORRECTLY PROVES NOTHING ABOUT ISOLATION.**
+Project B renders from B's live stores whether or not A's state is still in the heap, so
+such a test passes **identically** in a clean world and a leaking one. **An isolation
+test MUST assert on the ABSENCE OF A**, by name and by count.
+
+The reference implementation is
+`apps/editor/src/ui/analysis/__tests__/analysisProjectIsolationAtoB.spec.ts`
+(**6/6 green, measured 2026-08-24**). Any new declared owner SHOULD carry an equivalent.
+Its five obligations, in the order that makes them differentiating:
+
+1. **ARM 0 — check against the DECLARATION**, not against the code under test
+   (ADR-0292). Deleting an entry to green a gate must turn this arm red.
+2. **ARM 1 — the probe reports the STAMPED project, never the LIVE one.** A probe that
+   answered "whichever project is open" could never disagree with the world.
+3. ⛔ **ARM 3 — REACHABILITY. Drive the teardown ONLY through
+   `projectScopeRegistry.clearAll()`**, the path `ClearProjectCommand` actually takes —
+   **never by calling the owner's own clear function.** Calling the teardown directly
+   measures a pure function, not a wiring; that is the *committed ≠ reachable* defect, and
+   it is how four fixes in one session came to run nowhere.
+4. **ARM 4 — an unattributable holding answers a MARKER, never `null`** (§CONTEXT-DATA-HONESTY /
+   L-713): *"I hold nothing"* and *"I hold something I cannot attribute"* may not share a value.
+5. ⚠ **ARM 5 — record the known gap as an assertion of CURRENT behaviour**, so it turns red
+   the day someone closes it (§3.22).
+
+**⭐ THE NEGATIVE CONTROL MUST BE SHOWN TO FIRE. An instrument never seen to fire is not
+evidence.** Verified by mutation on 2026-08-24: deleting the `projectScopeRegistry.register`
+call from `graphViewState.ts` turned **ARM 3 RED** (*expected […] to include
+'analysis.graphView'*) and, independently, the static gate **RC=1** (*D6 … does not call
+`projectScopeRegistry.register(` on import*). **Two instruments, one mutation, both fired**;
+the code was then restored and both returned green.
 
 ### §7.2 — E2E integration test
 

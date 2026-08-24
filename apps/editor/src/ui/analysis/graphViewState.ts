@@ -22,6 +22,9 @@
  * writes (P6).
  */
 
+import { projectScopeRegistry, registerProjectScopeProbe } from '@pryzm/core-app-model';
+import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+
 import {
   HIERARCHY_VIEWS,
   type HierarchyProjection,
@@ -29,6 +32,7 @@ import {
   type NeighbourhoodFocus,
 } from '@pryzm/building-graph';
 
+import { resolveActiveProjectId } from '../../engine/project/activeProjectId';
 import { forceLayout3D } from './forceLayoutND';
 import { normaliseToCube, type GraphSubject, type GraphNodeMark, type GraphLinkMark } from '../element-preview/GraphPreviewSubject';
 
@@ -96,12 +100,29 @@ export function setGraphFocusDepth(v: number): void {
 }
 
 /**
- * ⛔ Reset the whole card to its opening state. Used by "Reset view" and by a
- * project switch.
+ * ⛔ Reset the card's CONTROLS to their opening state. Used by "Reset view", and
+ * reached on a project switch through `clearAnalysisGraphScope()` below.
+ *
+ * ⚠ CORRECTED 2026-08-24 (L-10480). This doc read "Used by 'Reset view' and by a
+ * project switch". The first half was true; **the second half was false, and had
+ * been since the card shipped.** Measured: the only production caller was
+ * `widgetRenderers.ts:1184` (the Reset-view button), and `grep -rn 'pryzm-project'
+ * apps/editor/src/ui/analysis/` returned NOTHING — the entire Analysis surface had
+ * zero project-lifecycle wiring. A comment asserting a lifecycle that no caller
+ * implements is the L-694a shape in prose: it is exactly why a reviewer would not
+ * go looking for the owner that did not exist. The wiring now exists (see the
+ * §C13-ANALYSIS-GRAPH-OWNER block at the foot of this file), which is what makes
+ * this sentence true rather than aspirational.
  *
  * ⚠ It does NOT announce. Every caller re-renders immediately afterwards, and an
  * event here would make a project switch redraw a card that is about to be
  * rebuilt anyway.
+ *
+ * ⛔ It does NOT clear the LAYOUT CACHE or the ORBIT — those are project-scoped
+ * resources with a declared owner, and `clearAnalysisGraphScope()` is what clears
+ * them. "Reset view" deliberately keeps the layout: re-solving a 320-node graph
+ * because the reader pressed a button that says *view* would be the cost defect
+ * ADR-0343 §D.3 forbids.
  */
 export function resetGraphViewState(): void {
   _view = 'topology';
@@ -152,10 +173,45 @@ export function graphOrbit(): { yaw: number; pitch: number; zoom: number } {
 let _layoutKey: string | null = null;
 let _layoutPos: Map<string, readonly [number, number, number]> | null = null;
 
+/**
+ * §C13-ANALYSIS-GRAPH-OWNER (L-10480) — WHICH PROJECT THE CACHED LAYOUT BELONGS TO.
+ *
+ * ⭐ THE STAMP IS ON THE RESOURCE, NOT INFERRED FROM IT. ADR-0298's open question —
+ * "should the declaration also carry WHAT each owner must reset?" — was answered by
+ * L-694b: a probe that models FIELDS answers honestly about its own model and falsely
+ * about the world. `_layoutKey` cannot be that stamp. It is
+ * `view|nodeCount|edgeCount|ids.join(',')`, so it identifies a GRAPH SHAPE, not a
+ * project: two projects whose element ids collide (a template duplicated, a snapshot
+ * restored under new covers, any id scheme that is not globally unique) would produce
+ * the SAME key and Project A's node positions would be drawn under Project B's ids
+ * with no cache miss to stop it. Stamping the owner explicitly makes that
+ * unrepresentable rather than merely unlikely.
+ */
+let _layoutProjectId: string | null = null;
+
+/**
+ * Resolve the project the layout is being computed for, through the ONE canonical
+ * resolver rather than a second, quietly-divergent copy.
+ *
+ * Never throws: a stamp failure must not break a dashboard render. A null stamp is
+ * reported HONESTLY by the probe below — §CONTEXT-DATA-HONESTY, "I hold nothing" and
+ * "I hold something I cannot attribute" must never be the same value.
+ */
+function activeProjectId(): string | null {
+  try {
+    const rt = (typeof window !== 'undefined' ? window.runtime : undefined) as
+      PryzmRuntime | undefined;
+    return rt ? resolveActiveProjectId(rt) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Test seam — drop the cached layout. */
 export function _resetGraphLayoutCacheForTest(): void {
   _layoutKey = null;
   _layoutPos = null;
+  _layoutProjectId = null;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -214,6 +270,9 @@ export function buildGraphSubject(input: SubjectInputs): GraphSubject {
   if (_layoutKey !== key || _layoutPos === null) {
     _layoutKey = key;
     _layoutPos = normaliseToCube(forceLayout3D(ids, pairs, 600, 600, 600));
+    // §C13-ANALYSIS-GRAPH-OWNER — stamp the owner in the same statement group that
+    // mints the resource, so the two can never drift apart.
+    _layoutProjectId = activeProjectId();
   }
   const pos = _layoutPos;
 
@@ -381,3 +440,90 @@ export function dataUrlToBlob(dataUrl: string): Blob | null {
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return new Blob([bytes], { type: mime });
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §C13-ANALYSIS-GRAPH-OWNER (L-10480) — the declared C13 owner for this surface
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// Contract: C13 §3.10 (every switch-reset surface has exactly ONE named owner;
+//           the audit enumerates OWNERS, not symptoms) · ADR-0298 §1/§2.
+//
+// ⭐ WHY THIS BLOCK EXISTS — MEASURED, NOT SUSPECTED.
+//
+// `tools/ga-gate/check-declared-project-scopes.ts` flagged this file as holding
+// module-level project-scoped state with NO declared owner, and the flag was a TRUE
+// POSITIVE, not the heuristic word-match that covers most of the debt list. The
+// Analysis surface had ZERO project-lifecycle wiring of any kind — measured, not
+// asserted: `grep -rn 'pryzm-project' apps/editor/src/ui/analysis/` returned nothing
+// at all. So on a project switch WITH THE ANALYSIS WORKSPACE OPEN:
+//
+//   • `_layoutPos` still held Project A's node positions, keyed by Project A's
+//     element ids, and
+//   • `_orbit` still held the camera pose the reader had chosen over Project A.
+//
+// `disposeGraphViewport()` — the one teardown this surface did have — is called ONLY
+// from `AnalysisSurface._hide()`, i.e. when the reader LEAVES the workspace. Switching
+// project while the workspace is visible never hides it, so nothing ran.
+//
+// ⚠ THE LAYOUT CACHE IS THE CONFIDENTIALITY SURFACE, not the orbit. It is a map from
+// ELEMENT ID to a position, so it is a partial disclosure of Project A's element id
+// set to whoever is looking at Project B — the same class of risk the
+// `ProjectScopeRegistry` header records for the leaked IFC/DXF overlays.
+//
+// ⛔ REGISTERED AT MODULE SCOPE, as an import side effect (ADR-0298 D6). Registration
+// from a mount function is what let L-712 exist: an early return skipped it, and an
+// owner that never registered was indistinguishable from an owner that answered
+// "clean". If this module is in the heap, it HAS registered.
+
+/**
+ * C13 teardown for the analysis graph card.
+ *
+ * Idempotent, synchronous, non-throwing — the `projectScopeRegistry` contract.
+ */
+export function clearAnalysisGraphScope(): void {
+  _layoutKey = null;
+  _layoutPos = null;
+  _layoutProjectId = null;
+  // The camera pose over the graph cube. Reset with the layout it framed: an orbit
+  // kept across a switch would seat Project B's first render at an angle chosen to
+  // look at a cluster of Project A's that no longer exists.
+  _orbit.yaw = -0.62;
+  _orbit.pitch = 0.22;
+  _orbit.zoom = 1;
+  resetGraphViewState();
+}
+
+/**
+ * ADR-0298 probe — which project's layout this module is holding.
+ *
+ * `null` means "no layout cached", which is always clean. A layout whose owner could
+ * not be resolved answers `'<graph-layout-project-unresolved>'` rather than `null`:
+ * §CONTEXT-DATA-HONESTY — "I hold nothing" and "I hold something I cannot attribute"
+ * must never collapse to the same value. That collapse IS the L-713 defect, the
+ * fourth appearance of this family.
+ */
+export function getAnalysisGraphOwningProjectId(): string | null {
+  if (_layoutPos === null) return null;
+  return _layoutProjectId ?? '<graph-layout-project-unresolved>';
+}
+
+/** What is being held, for the leak report. Never throws. */
+export function describeAnalysisGraphScope(): Record<string, unknown> {
+  return {
+    cachedNodes: _layoutPos?.size ?? 0,
+    layoutKeyView: _layoutKey?.split('|')[0] ?? null,
+    stampedProjectId: _layoutProjectId,
+    orbitSeated: _orbit.yaw !== -0.62 || _orbit.pitch !== 0.22 || _orbit.zoom !== 1,
+  };
+}
+
+projectScopeRegistry.register({
+  scopeName: 'analysis.graphView',
+  clear: () => { clearAnalysisGraphScope(); },
+});
+
+registerProjectScopeProbe({
+  scope: 'analysis.graphView',
+  owningProjectId: () => getAnalysisGraphOwningProjectId(),
+  describe: () => describeAnalysisGraphScope(),
+});

@@ -68,7 +68,16 @@
 
 import type { Chart, ChartConfiguration } from 'chart.js';
 
-import { selectionBus, UNIT_LABEL, type CoverageState } from '@pryzm/core-app-model';
+import {
+  selectionBus,
+  UNIT_LABEL,
+  projectScopeRegistry,
+  registerProjectScopeProbe,
+  type CoverageState,
+} from '@pryzm/core-app-model';
+import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+
+import { resolveActiveProjectId } from '../../engine/project/activeProjectId';
 
 import { toggleFacet } from './selectionFacets';
 
@@ -999,11 +1008,15 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
     // an immediate re-creation on a surface whose whole design is one context.
     const previous = _liveViewport;
     _liveViewport = handle;
+    // §C13-ANALYSIS-VIEWPORT-OWNER — stamp the owner in the same statement group
+    // that takes the handle, so the two can never drift apart.
+    _liveViewportProjectId = viewportActiveProjectId();
     previous?.dispose();
   } else {
     if (_liveViewport) {
       _liveViewport.dispose();
       _liveViewport = null;
+      _liveViewportProjectId = null;
     }
     const nodes = projection.nodes.map((n) => ({
       id: n.id,
@@ -1066,10 +1079,40 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
  */
 let _liveViewport: GraphViewportHandle | null = null;
 
-/** Called by the surface when the Analysis workspace closes. */
+/**
+ * §C13-ANALYSIS-VIEWPORT-OWNER (L-10480) — which project the live mount belongs to.
+ *
+ * Stamped on the resource at mount time, for the L-694b reason: a probe that infers
+ * ownership cannot answer for a resource that carries no project field, and
+ * `GraphViewportHandle` carries none.
+ */
+let _liveViewportProjectId: string | null = null;
+
+/** Never throws — a stamp failure must not break a mount. See `graphViewState`. */
+function viewportActiveProjectId(): string | null {
+  try {
+    const rt = (typeof window !== 'undefined' ? window.runtime : undefined) as
+      PryzmRuntime | undefined;
+    return rt ? resolveActiveProjectId(rt) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Called by the surface when the Analysis workspace closes, AND by the C13
+ * project-switch teardown registered at the foot of this file.
+ *
+ * ⚠ THOSE ARE NOT THE SAME TRIGGER, and assuming they were is the defect L-10480
+ * found. `_hide()` fires when the reader LEAVES the workspace. Switching project
+ * with the workspace still open never hides it — so before the registration below,
+ * a project switch disposed nothing and Project A's viewport kept its mount on the
+ * shared WebGL refcount, with Project A's geometry still in it.
+ */
 export function disposeGraphViewport(): void {
   _liveViewport?.dispose();
   _liveViewport = null;
+  _liveViewportProjectId = null;
 }
 
 /**
@@ -1317,3 +1360,50 @@ function readableLabel(node: { id: string; kind: string; props?: Record<string, 
   const suffix = under > 0 ? node.id.slice(under + 1, under + 5) : node.id.slice(0, 4);
   return `${node.kind} ${suffix}`;
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §C13-ANALYSIS-VIEWPORT-OWNER (L-10480) — the declared C13 owner for the mount
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// Contract: C13 §3.10 · ADR-0298 §1/§2. Sibling owner: `analysis.graphView` in
+// `graphViewState.ts`, which owns the layout cache and the orbit.
+//
+// ⭐ TWO SCOPES, NOT ONE, AND THE SPLIT IS DELIBERATE. A cache and a GPU mount have
+// different disposal semantics: dropping a Map is free and always safe, while
+// disposing a viewport releases a refcount on the ONE shared offscreen WebGL context
+// and must happen exactly once. Folding them into a single scope would have made the
+// probe answer for two resources it could only describe as one, which is the
+// COMPLETENESS half of the L-694b defect.
+//
+// ⛔ MODULE-SCOPE registration, as an import side effect (ADR-0298 D6).
+
+/**
+ * ADR-0298 probe — which project the live 3-D viewport belongs to.
+ *
+ * `null` means nothing is mounted, which is always clean. A mount whose owner could
+ * not be resolved answers `'<graph-viewport-project-unresolved>'`, never `null`:
+ * §CONTEXT-DATA-HONESTY — an unattributable holding is not an empty one.
+ */
+export function getGraphViewportOwningProjectId(): string | null {
+  if (_liveViewport === null) return null;
+  return _liveViewportProjectId ?? '<graph-viewport-project-unresolved>';
+}
+
+/** What is being held, for the leak report. Never throws. */
+export function describeGraphViewport(): Record<string, unknown> {
+  return {
+    mounted: _liveViewport !== null,
+    stampedProjectId: _liveViewportProjectId,
+  };
+}
+
+projectScopeRegistry.register({
+  scopeName: 'analysis.graphViewport',
+  clear: () => { disposeGraphViewport(); },
+});
+
+registerProjectScopeProbe({
+  scope: 'analysis.graphViewport',
+  owningProjectId: () => getGraphViewportOwningProjectId(),
+  describe: () => describeGraphViewport(),
+});

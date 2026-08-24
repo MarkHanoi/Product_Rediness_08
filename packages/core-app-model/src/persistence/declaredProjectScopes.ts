@@ -154,7 +154,7 @@ export interface DeclaredProjectScope {
  * changes. The runtime audit stamps this into its report, so a leak report from
  * the field can be tied to the declaration that was in force when it was written.
  */
-export const DECLARED_PROJECT_SCOPE_SET_VERSION = 6;
+export const DECLARED_PROJECT_SCOPE_SET_VERSION = 7;
 
 /**
  * ADR-0298 §1 — the declared expected probe set.
@@ -494,6 +494,110 @@ export const DECLARED_PROJECT_SCOPES: readonly DeclaredProjectScope[] = [
                 + 'every subsequent load would look like a leak, and the resulting permanent red '
                 + 'trains people to ignore the audit — the failure mode C13 §3.10 rates as worse '
                 + 'than having no audit. D3 now fails instead.',
+        },
+    },
+    {
+        scope: 'analysis.graphView',
+        module: 'apps/editor/src/ui/analysis/graphViewState.ts',
+        why: '§C13-ANALYSIS-GRAPH-OWNER (L-10480) — THE ENTIRE ANALYSIS SURFACE HAD ZERO '
+            + 'PROJECT-LIFECYCLE WIRING. Measured, not asserted: `grep -rn "pryzm-project" '
+            + 'apps/editor/src/ui/analysis/` returned NOTHING, and the surface\'s only '
+            + 'teardown (`disposeGraphViewport`) had exactly one caller — '
+            + '`AnalysisSurface._hide()`, which fires when the reader LEAVES the workspace, '
+            + 'not when the project changes under it. So switching project with the Analysis '
+            + 'tab open carried Project A\'s force-solved node layout into Project B. '
+            + 'THE LAYOUT CACHE IS A CONFIDENTIALITY SURFACE, not a cosmetic one: it maps '
+            + 'ELEMENT ID -> position, so it discloses part of Project A\'s element id set to '
+            + 'whoever is looking at Project B — the same class of risk the ProjectScopeRegistry '
+            + 'header records for the leaked IFC/DXF overlays. NOTE the cache key is '
+            + '`view|nodeCount|edgeCount|ids.join(",")` and contains NO project, so a smarter '
+            + 'key was never the repair: two projects with colliding element ids produce the '
+            + 'SAME key and there is no cache miss to stop the swap. The repair is an OWNER '
+            + 'plus an explicit STAMP. This file also carried a doc comment claiming '
+            + '`resetGraphViewState()` was "used by a project switch" — false since the card '
+            + 'shipped, and corrected in the same commit: a comment asserting a lifecycle no '
+            + 'caller implements is the L-694a defect in prose.',
+        presence: 'module-scope',
+        resets: [
+            '_layoutKey = null',
+            '_layoutPos = null',
+            '_layoutProjectId = null',
+            '_orbit.yaw = -0.62',
+            'resetGraphViewState()',
+        ],
+        counts: ['_layoutPos', '_layoutProjectId'],
+        uncounted: {
+            '_layoutPos = null':
+                'COUNTED, under its read literal `_layoutPos` in `counts`. The split is the '
+                + 'deliberate one `render.instancedElements` uses: `resets` carries the '
+                + 'ASSIGNMENT so D3 fails if the teardown step is deleted, `counts` carries the '
+                + 'bare READ so D4 fails if the probe stops looking. `_layoutPos === null` is '
+                + 'also the ONLY route to a null answer, which makes the probe independent of '
+                + 'the stamp — an empty cache is clean whatever the stamp says.',
+            '_layoutProjectId = null':
+                'COUNTED, under the bare identifier `_layoutProjectId` in `counts`. Declared '
+                + 'separately as a reset because dropping the stamp-clear is the ONE edit that '
+                + 'would silently invert this probe: the stamp would survive its own teardown '
+                + 'and every subsequent load would look like a leak, training people to ignore '
+                + 'the audit — the failure C13 §3.10 rates worse than having no audit.',
+            '_layoutKey = null':
+                'NOT COUNTED, deliberately. The key is a DERIVED shape descriptor '
+                + '(`view|nodeCount|edgeCount|ids`), never an ownership fact — it is exactly '
+                + 'the field that CANNOT distinguish two projects, which is why the stamp had '
+                + 'to be added. It is reset so a stale key can never resurrect a dropped cache; '
+                + 'counting it would add a field that is null precisely when `_layoutPos` is.',
+            '_orbit.yaw = -0.62':
+                'NOT COUNTED. The orbit is yaw/pitch/zoom over the NORMALISED unit cube '
+                + '(`normaliseToCube`), so it holds no project-derived coordinate — unlike '
+                + 'L-694b\'s `cameraSeatedAt`, which held real lat/lon and was the one thing '
+                + 'the founder could see. It is RESET because an angle chosen to look at a '
+                + 'cluster of Project A\'s would seat Project B\'s first render at a pose framing '
+                + 'something that no longer exists; it is not COUNTED because a camera angle '
+                + 'cannot tell you WHICH project it was chosen over. Counting it would let a '
+                + 'reader who merely orbited Project B\'s own graph read as a leak.',
+            'resetGraphViewState()':
+                'NOT COUNTED. Resets the card CONTROLS (view, 2D/3D, labels, node scale, focus '
+                + 'depth) — UI preferences with no project content, carried across a switch '
+                + 'harmlessly. Reset for consistency with the layout they describe, not because '
+                + 'they leak; counting them would report a reader who changed a dropdown.',
+        },
+    },
+    {
+        scope: 'analysis.graphViewport',
+        module: 'apps/editor/src/ui/analysis/widgetRenderers.ts',
+        why: '§C13-ANALYSIS-VIEWPORT-OWNER (L-10480) — the sibling of `analysis.graphView`, '
+            + 'and SPLIT FROM IT ON PURPOSE. `_liveViewport` is a live 3-D WebGL mount holding '
+            + "Project A's graph geometry AND one refcount on the ONE shared offscreen context "
+            + 'the element showrooms also use. A cache and a GPU mount have different disposal '
+            + 'semantics — dropping a Map is free and idempotent, releasing a context refcount '
+            + 'must happen exactly once — so folding them into a single scope would force one '
+            + 'probe to answer for two resources it could only describe as one, which is the '
+            + 'COMPLETENESS half of L-694b. Before this entry the only disposal was '
+            + '`AnalysisSurface._hide()`; a project switch with the workspace open disposed '
+            + 'NOTHING, so the mount survived and the refcount never fell — pinning a context '
+            + 'whose eviction victim, per the file\'s own header, is the MAIN VIEWPORT.',
+        presence: 'module-scope',
+        resets: [
+            '_liveViewport?.dispose()',
+            '_liveViewport = null',
+            '_liveViewportProjectId = null',
+        ],
+        counts: ['_liveViewport', '_liveViewportProjectId'],
+        uncounted: {
+            '_liveViewport?.dispose()':
+                'COUNTED, under its read literal `_liveViewport` in `counts`. `resets` carries '
+                + 'the DISPOSE CALL so D3 fails if the release of the shared WebGL refcount is '
+                + 'ever dropped — the one step whose deletion is invisible in every test that '
+                + 'does not own a GPU.',
+            '_liveViewport = null':
+                'COUNTED, under the bare identifier `_liveViewport` in `counts`. Declared '
+                + 'separately so D3 fails if the handle is disposed but not dropped: a disposed '
+                + 'handle still held is a use-after-free the probe would otherwise report as a '
+                + 'live mount belonging to the new project.',
+            '_liveViewportProjectId = null':
+                'COUNTED, under the bare identifier `_liveViewportProjectId` in `counts`. Same '
+                + 'reason as `analysis.graphView`: a stamp that survives its own teardown '
+                + 'inverts the probe into a permanent false red.',
         },
     },
 ];
