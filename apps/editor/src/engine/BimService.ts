@@ -172,26 +172,111 @@ export class BimService implements IBimService {
         else if (mode === 'hip_roof') roofTool.enterHipRoofMode();
     }
 
+    /**
+     * §DELETE-MUST-ANSWER (L-1403) — the shared sink for THREE of the user's delete
+     * routes: the ContextualEditBar Delete button, that bar's own `Del` key, and the
+     * SelectionOverlay Delete item.
+     *
+     * FOUNDER, live 2026-08-24: *"Also the slab can not be deleted? why?"* — while
+     * his snapshot climbed to `25 elements, 1 levels, 16 walls, 8 slabs`.
+     *
+     * ⭐ HIS LOG NAMES THIS METHOD. It carries
+     * `[§SELECT-CLEARED] reason=unspecified id=4fd18c72-… type=Slab`, and
+     * `reason=unspecified` is `SelectionManager.unselectAll`'s DEFAULT parameter —
+     * this was the one delete route calling it with no argument. That line IS the
+     * delete attempt, and it fired **unconditionally, after a result nobody read**:
+     *
+     *     manager.execute(command);            // ← result DISCARDED
+     *     this.selectionManager.unselectAll(); // ← ran either way
+     *
+     * `DeleteElementCommand` refuses by RETURNING (`{ success: false, error }`), and
+     * its terminal refusal is `Element ${id} not found in any store`. So a refused
+     * delete looked, from the user's chair, exactly like a successful one: the
+     * highlight vanished and the element stayed. **That is the whole complaint.**
+     *
+     * This is the shape §CENSUS-DELETESELECTED (L-1109) closed for the KEYBOARD
+     * route in `initUI` — *"the BIM `Object3D` arm reported SUCCESS
+     * unconditionally"* — and left open here, on the route with the visible button.
+     *
+     * FOUR SILENT EXITS ARE NOW FOUR NAMED ANSWERS. Every one of them previously
+     * produced no console line, no toast and no change: nothing selected; a
+     * selection carrying no element id; no command manager; and the refusal above.
+     *
+     * ⛔ ON A REFUSAL THE SELECTION SURVIVES. It is the user's only handle on the
+     * thing that would not delete — clearing it takes the handle away and makes the
+     * refusal indistinguishable from a success. On a real delete it clears as before,
+     * now NAMING ITSELF so `reason=deleted` is legible in exactly the log that could
+     * not answer this question.
+     *
+     * ⚠ THE `no manager` BRANCH USED TO CALL `selectionManager.deleteSelected()`.
+     * **`SelectionManager` has no such method anywhere in the repo** — that branch
+     * was a guaranteed `TypeError`, never a delete under any circumstance. Nothing
+     * that worked has been removed; an always-throwing call is replaced by an answer.
+     *
+     * ⚠ NOT ESTABLISHED, and stated so nobody reads more into this than it proves:
+     * whether the founder's delete REFUSED or succeeded-without-removing. Only his
+     * `[CommandManager] EXECUTE: DELETE_ELEMENT` / `REFUSED DELETE_ELEMENT` line
+     * settles that, and it was not in the excerpt. What IS established is that a
+     * refusal here was invisible — which is why the question could not be answered
+     * from his console at all.
+     */
     deleteSelected() {
-        if (this.selectionManager.selectedObject) {
-            if (isIfcImportedElement(this.selectionManager.selectedObject)) {
-                void deleteIfcImportedElement(this.selectionManager.selectedObject, {
-                    selectionManager: this.selectionManager,
-                });
-                return;
-            }
-            const id = this.selectionManager.selectedObject.userData.id;
-            if (id) {
-                const command = new DeleteElementCommand(id);
-                const manager = this.commandManager;
-                if (manager) {
-                    manager.execute(command);
-                    this.selectionManager.unselectAll();
-                } else {
-                    this.selectionManager.deleteSelected();
-                }
-            }
+        // A refusal is an ANSWER, and it goes to both channels: the console (for the
+        // founder's log) and the shared toast bus (for his eyes, mid-gesture). The
+        // toast is best-effort — a refusal must never depend on the UI channel being
+        // up, or the silent case comes straight back (§CONTEXT-DATA-HONESTY).
+        const refuse = (reason: string): void => {
+            console.warn(`[BimService] §DELETE-MUST-ANSWER delete not performed — ${reason}`);
+            try {
+                window.runtime?.events?.emit('pryzm:toast', { message: reason, severity: 'warning' });
+            } catch { /* the answer must survive a missing toast channel */ }
+        };
+
+        const selected = this.selectionManager.selectedObject;
+        if (!selected) {
+            refuse('Nothing is selected, so there is nothing to delete.');
+            return;
         }
+
+        if (isIfcImportedElement(selected)) {
+            void deleteIfcImportedElement(selected, { selectionManager: this.selectionManager });
+            return;
+        }
+
+        // The KIND is only ever used to word the answer. It is deliberately NOT
+        // lower-cased or matched against anything: `SlabFragmentBuilder` mints
+        // `elementType: 'Slab'` while walls mint `'wall'`, and `DeleteElementCommand`
+        // reads no type string at all — it self-discovers by store probe. Branching
+        // on this string is what a reader would be tempted to add here; do not.
+        const kind = String(selected.userData?.elementType ?? selected.userData?.type ?? 'element');
+        const id = selected.userData?.id;
+        if (!id) {
+            refuse(
+                `The selected ${kind} carries no element id, so it cannot be deleted. `
+                + 'Select the element itself rather than one of its parts.',
+            );
+            return;
+        }
+
+        const manager = this.commandManager;
+        if (!manager) {
+            refuse(
+                `The ${kind} was not deleted — the command manager is not available in `
+                + 'this session, so no delete could be dispatched.',
+            );
+            return;
+        }
+
+        const result = manager.execute(new DeleteElementCommand(id));
+        if (result && result.success === false) {
+            const why = result.error
+                ?? (Array.isArray(result.info) ? result.info[0] : undefined)
+                ?? 'the command refused and gave no reason';
+            refuse(`The ${kind} ${String(id).slice(0, 8)} was NOT deleted: ${why}`);
+            return; // ⛔ keep the selection — see the header.
+        }
+
+        this.selectionManager.unselectAll('deleted');
     }
 
     undo() {
