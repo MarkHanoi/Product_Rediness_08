@@ -926,6 +926,92 @@ export type MoveReweldNotApplicableReason =
      */
     | 'DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE'
     /**
+     * ⭐⭐ §GRAPH43-A-T-HAS-TWO-DIRECTIONS (L-10800) — THE JOIN IS REAL, THE
+     *    ENGINE MEASURED THE WRONG PAIR, AND IT IS STILL NOT ACTED ON.
+     *
+     * A T-junction has a GUEST (the wall whose ENDPOINT lands) and a HOST (the
+     * wall whose BODY is landed on). This engine asks exactly ONE of the two
+     * questions a T can pose — *"is a PARTNER endpoint on the SUBJECT's
+     * segment?"* (`dS`/`dE` above, and their post-move twins). It never asks the
+     * mirror question, *"is the SUBJECT's endpoint on the PARTNER's segment?"*
+     *
+     * ⛔ SO WHEN THE SUBJECT IS THE T's GUEST, A PERFECTLY CLOSED JOIN MEASURES
+     * AS ABSENT — and the number it reports is the PARTNER'S ARM LENGTH, which
+     * is not a gap and is not evidence of anything.
+     *
+     * MEASURED 2026-08-24 (lane GRAPH43), one fixture, one join, three partner
+     * lengths. Subject `[(0,0)->(0,3)]` dragged 0.6 m east; partner passes
+     * EXACTLY through `(0,3)`, i.e. the joint is closed to **0 mm** in every row:
+     *
+     * | partner's west arm | verdict on HEAD                                   |
+     * |--------------------|---------------------------------------------------|
+     * | 0.400 m            | **ENTRY** — welds normally                        |
+     * | 1.002 m            | `DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE(1002/500)` |
+     * | 2.000 m            | `DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE(1900/500)` |
+     *
+     * **Same topology, same closed joint, opposite verdicts — decided by how LONG
+     * the other wall happens to be.** A partition shorter than `2 × weldTol`
+     * welds; a longer one is declared not to exist. His console line
+     * `DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE(1002/500 mm)` is row 2 verbatim.
+     *
+     * ⚠ **THIS REFUTES THE READING THE DOC ABOVE INVITES.** `DECLARED_JOIN_NOT_
+     * FOUND_AT_EITHER_POSE` is documented as *"two authorities disagree"*, which
+     * reads as *"the graph is probably stale"*. **A 1002 mm reading is fully
+     * compatible with a join that is closed to 0 mm.** It is not evidence of
+     * staleness and must never again be spent as such — the L-922 regression is
+     * what happens when a wall is dragged on a bad inference about a join.
+     *
+     * ── THE THREE CODES BELOW, AND WHY THREE ────────────────────────
+     *
+     * `notApplicable` was doing the work of three different verdicts at once:
+     * *"there was never a join"*, *"the record is stale"* and *"the join is real
+     * and I have no arm that can reach it"*. C72 §9 forbids the third option a
+     * host-move may take — SILENT — and this was it. Splitting them needs no
+     * design decision from anybody, and it is the instrument that tells the next
+     * lane WHICH of the three any given production line actually is.
+     *
+     * ⚠ **NO DECISION CHANGES HERE.** All three sit inside the same pre-existing
+     * `continue`. The LABEL and the NUMBER change; the engine does exactly what
+     * it did before. Acting on them is C85 §10.7 W-M-13 and is gated on a founder
+     * ruling (C85 §10.8).
+     *
+     * ── `SUBJECT_GUEST_JOIN_INTACT` ────────────────────────────────
+     * The subject's endpoint was on the partner's body BEFORE the move and still
+     * is AFTER it: the subject slid along its host. Nothing to do. **A SUCCESS**,
+     * the same class of fact as `PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT`.
+     */
+    | 'SUBJECT_GUEST_JOIN_INTACT'
+    /**
+     * ⭐⭐ §GRAPH43-A-T-HAS-TWO-DIRECTIONS (L-10800) — **THE ROOM-DESTROYING
+     *    OUTCOME, AND UNTIL THIS CODE EXISTED IT HAD NO NAME ANYWHERE.**
+     *
+     * The subject's endpoint WAS on the partner's body before the move and is
+     * NOT after it. The gesture BROKE a join that was real and closed. The
+     * partner is the wall the founder expected to EXTEND.
+     *
+     * `measuredMm` is **the real gap the gesture opened** — the distance from the
+     * subject's nearer endpoint to the partner's segment at the NEW pose.
+     * Contrast the number the old code printed for the same event: the partner's
+     * arm length. On the reproduction fixture the old line said `1002 mm` and the
+     * true gap was `600 mm`, the drag itself.
+     *
+     * ⛔ THIS IS THE LINE THAT MUST NEVER AGAIN BE READ AS A NON-EVENT. Its
+     * downstream consequence, same session, same gesture:
+     * `§OPENED-REGION: Room 00-004 (85.7 m²) is no longer its own room ... 3.42 m
+     * of the boundary it used to have now has no wall on it`, against a cascade
+     * that reported `0 junction(s) refused`.
+     */
+    | 'SUBJECT_GUEST_JOIN_BROKEN_BY_MOVE'
+    /**
+     * §GRAPH43-A-T-HAS-TWO-DIRECTIONS (L-10800) — the subject's endpoint was NOT
+     * on the partner's body before the move and IS after it. The declared edge
+     * describes the post-move world: an earlier cascade in the same gesture had
+     * already repaired it, or the drag itself landed the subject on its host.
+     * **A SUCCESS**, and the guest-side twin of
+     * `PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT`.
+     */
+    | 'SUBJECT_GUEST_JOIN_RESTORED_BY_MOVE'
+    /**
      * §WD32-A-CORNER-ONLY-ONE-WALL-REACHES-IS-NOT-A-CORNER (L-10602) — this
      * partner's follow was computed, emitted, and then RETRACTED because the
      * subject could not reach the same corner (its seat was declined by the
@@ -1284,6 +1370,53 @@ export function computeMoveReweldCensus(
             // wall on the level and proximity is the only filter it has; turning
             // that into refusals would report a refusal per unrelated wall.
             if (partner.declared === true) {
+                // ⭐⭐ §GRAPH43-A-T-HAS-TWO-DIRECTIONS (L-10800) — ASK THE MIRROR
+                //    QUESTION BEFORE CONCLUDING THE JOIN IS NOT THERE.
+                //
+                // Everything above measures PARTNER endpoints against the
+                // SUBJECT's segment. That is one of the two questions a
+                // T-junction can pose, and it is the wrong one whenever the
+                // SUBJECT is the T's guest — its own endpoint on the PARTNER's
+                // body. In that pose the partner's endpoints are its ARM LENGTHS
+                // away from the subject's line, so a join closed to 0 mm reports
+                // as ~1 m absent and the verdict is decided by how long the other
+                // wall happens to be. The reason-code doc above carries the
+                // three-row measurement.
+                //
+                // ⚠ DECLARED ARM ONLY, deliberately, for the same reason
+                // `DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE` is: the level-scan
+                // fallback offers EVERY wall on the level, and a mirror test that
+                // fired on all of them would report a guest-join per unrelated
+                // wall the subject happens to point at.
+                //
+                // ⛔ NO DECISION CHANGES. All four exits below are the same
+                // `continue` this branch already ended in; only the NAME and the
+                // NUMBER change. Acting on a real-but-unreachable join is
+                // C85 §10.7 W-M-13 and is gated on a founder ruling (C85 §10.8).
+                const guestPrev = Math.min(
+                    distToSegment(prevS, ps, pe), distToSegment(prevE, ps, pe));
+                const guestNew = Math.min(
+                    distToSegment(newS, ps, pe), distToSegment(newE, ps, pe));
+                const wasGuest = guestPrev <= weldTol;
+                const isGuest = guestNew <= weldTol;
+                if (wasGuest && isGuest) {
+                    na(partner.id, 'SUBJECT_GUEST_JOIN_INTACT', guestNew, weldTol);
+                    continue;
+                }
+                if (wasGuest) {
+                    // The gesture BROKE a join that was real. `guestNew` is the
+                    // gap it opened — the number the user needed and never got.
+                    na(partner.id, 'SUBJECT_GUEST_JOIN_BROKEN_BY_MOVE', guestNew, weldTol);
+                    continue;
+                }
+                if (isGuest) {
+                    na(partner.id, 'SUBJECT_GUEST_JOIN_RESTORED_BY_MOVE', guestNew, weldTol);
+                    continue;
+                }
+                // Neither wall's endpoint is on the other's body, at either pose.
+                // THIS is the reading that may legitimately mean a stale record —
+                // and only this one. It is what the branch above always claimed to
+                // be measuring and, for a guest-side T, never was.
                 na(partner.id, 'DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE',
                     Math.min(dS, dE, dSNew, dENew), weldTol);
                 continue;

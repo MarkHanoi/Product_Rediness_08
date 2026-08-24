@@ -321,6 +321,31 @@ export function summariseNotApplicable(n: MoveReweldNotApplicable): string {
     // SIGNIFICANCE is counter-intuitive, so this one carries its own reading —
     // including where to look INSTEAD when the screen disagrees with it. That is
     // the same rule §L-921 applied to refusals, applied to a success.
+    // ⭐⭐ §GRAPH43-A-T-HAS-TWO-DIRECTIONS (L-10800) — THE ONE NOT-APPLICABLE
+    //    THAT IS A REAL LOSS, AND IT MUST NOT READ LIKE ITS NEIGHBOURS.
+    //
+    // Every other token on this line is a non-event or a success. This one says
+    // a join that was CLOSED before the gesture is OPEN after it, and the
+    // downstream cost of exactly this token, in the founder's own session, was
+    // `§OPENED-REGION: Room 00-004 (85.7 m²) is no longer its own room`.
+    //
+    // ⚠ It is still a not-applicable and NOT a refusal, deliberately: the engine
+    // has no arm that can act on a guest-side T, so calling it a refusal would
+    // claim a decision was taken when none was. C85 §10.8 is where that is put to
+    // the founder. What is fixed here is the CONFLATION, not the disposition:
+    // this outcome shared one bucket with two non-events and a success.
+    if (n.reason === 'SUBJECT_GUEST_JOIN_BROKEN_BY_MOVE') {
+        return `⛔ ${n.partnerId}:${n.reason}${nums} ⇒ this partner HOSTED the moved wall's `
+             + `endpoint on its BODY and the move pulled that endpoint OFF it. The join was REAL `
+             + `and is now OPEN by the measured gap. NOTHING WAS DONE ABOUT IT: this engine only `
+             + `asks whether a PARTNER endpoint sits on the SUBJECT, never the mirror question, so `
+             + `there is no arm that can extend or trim here (C85 §10.7 W-M-13). Expect a room to `
+             + `open downstream`;
+    }
+    if (n.reason === 'SUBJECT_GUEST_JOIN_INTACT' || n.reason === 'SUBJECT_GUEST_JOIN_RESTORED_BY_MOVE') {
+        return `${n.partnerId}:${n.reason}${nums} ⇒ the moved wall's endpoint is ON this partner's `
+             + `BODY at the NEW pose: the T is CLOSED IN THE STORE and needs no re-weld`;
+    }
     if (n.reason === 'PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT') {
         return `${n.partnerId}:${n.reason}${nums} ⇒ this partner is ALREADY ON the moved wall's `
              + `NEW line: the join is CORRECT IN THE STORE and needs no re-weld. If it looks `
