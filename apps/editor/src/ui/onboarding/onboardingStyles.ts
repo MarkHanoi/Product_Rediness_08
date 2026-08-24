@@ -836,6 +836,19 @@ export const ONBOARDING_STYLES = `
   justify-content: flex-start;
   margin-top: 3px;
 }
+/* SS FIX-DRAW-BANNER-OVERFLOW -- the hidden attribute MUST WIN over the rule
+   above. The UA stylesheet rule for [hidden] is specificity (0,1,0); the rule
+   above is (0,2,0), so setting .hidden = true on ANY .os-footer sets the
+   attribute and changes NOTHING. The draw banner has TWO .os-footer children
+   (the Back/Skip row and the surface-lost row) that are meant to be mutually
+   exclusive -- so BOTH rendered at once, in a row-direction body, and the hint
+   column was squeezed to its longest word ("double-" / "click or" on their own
+   lines) while the lost-message overflowed the card onto the map.
+   The .rac- ancestor of this sheet had .rac-footer[hidden] (~line 246); the
+   .os- port dropped it, and UX1-DRAW-PHASE-GATE (~line 495) already records the
+   identical precedence bug for the overlay ROOT. Same fix, same reason, applied
+   to the sibling it was never applied to. */
+.os-onboarding-overlay .os-footer[hidden] { display: none; }
 
 /* ── DRAW phase — NON-BLOCKING presentation (tested defect fix) ─────────────────
    During "DRAW YOUR PLOT" the user must SEE and CLICK the map. The overlay stops
@@ -913,7 +926,13 @@ export const ONBOARDING_STYLES = `
   margin: 0;
   color: var(--app-text-2);
   font-size: 11px;
-  white-space: normal;
+  /* SS FIX-DRAW-BANNER-OVERFLOW -- the hint is now short enough to sit on ONE
+     line inside the banner, so pin it there. The old value (normal) is what let
+     a flex sibling squeeze this column to its own min-content width, i.e. its
+     longest word, and render one word per line. Kept ALONGSIDE the hidden-attr
+     fix, not instead of it: that one removes the squeezing sibling, this one
+     stops the column collapsing if another ever appears. */
+  white-space: nowrap;
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-footer {
   flex: 0 0 auto;

@@ -1779,7 +1779,7 @@ export class OnboardingStepController {
         const hint = document.createElement('p');
         hint.className = 'os-hint os-draw-instruction';
         // §L-384 — advertise the new edit affordances (undo/redo + Esc-clear) inline.
-        hint.textContent = 'Click each corner · Ctrl+Z undo · double-click or Enter to close · Esc clears';
+        hint.textContent = 'Click corners · Enter closes · Ctrl+Z · Esc clears';
         body.appendChild(hint);
 
         const footer = document.createElement('div');
@@ -1798,7 +1798,7 @@ export class OnboardingStepController {
         useDefault.type = 'button';
         useDefault.className = 'os-btn os-btn--ghost';
         useDefault.setAttribute('data-testid', 'onboarding-draw-usedefault');
-        useDefault.textContent = 'Skip drawing — use a default plot';
+        useDefault.textContent = 'Skip';
         footer.appendChild(useDefault);
         body.appendChild(footer);
 
@@ -1850,12 +1850,12 @@ export class OnboardingStepController {
         const lostMsg = document.createElement('p');
         lostMsg.className = 'os-status';
         lostMsg.setAttribute('data-testid', 'onboarding-draw-surface-lost');
-        lostMsg.textContent = 'The 2D drawing map was closed, so there is nothing to draw on right now.';
+        lostMsg.textContent = 'Drawing map closed.';
         const bringBack = document.createElement('button');
         bringBack.type = 'button';
         bringBack.className = 'os-btn os-btn--primary';
         bringBack.setAttribute('data-testid', 'onboarding-draw-bring-back-map');
-        bringBack.textContent = 'Bring the drawing map back';
+        bringBack.textContent = 'Reopen map';
         lost.appendChild(lostMsg);
         lost.appendChild(bringBack);
         body.appendChild(lost);
@@ -1870,11 +1870,11 @@ export class OnboardingStepController {
             // existed. Saying "was closed" there would be a confident lie about a state
             // this lane can actually reach, so the copy follows `everSeen`.
             lostMsg.textContent = everSeen
-                ? 'The 2D drawing map was closed, so there is nothing to draw on right now.'
-                : 'The 2D drawing map has not opened yet, so there is nothing to draw on.';
+                ? 'Drawing map closed.'
+                : 'Drawing map not open yet.';
             bringBack.textContent = everSeen
-                ? 'Bring the drawing map back'
-                : 'Open the drawing map';
+                ? 'Reopen map'
+                : 'Open map';
         });
     }
 
