@@ -121,17 +121,28 @@ export const DEFAULT_SNAP_PRIORITIES: Record<SnapType, number> = {
 };
 
 /**
- * §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — is this snap an EXPLICIT gesture at a
- * NAMED FEATURE of existing geometry, as opposed to a background convenience?
+ * Is this snap an EXPLICIT gesture at a NAMED FEATURE of existing geometry, as opposed
+ * to a background convenience?
  *
  * The distinction decides an OVER-CONSTRAINED input. An ortho / angle lock constrains
  * a segment's DIRECTION; a snap constrains its END POINT. When the snapped point does
- * not lie on the locked ray the two cannot both hold, and exactly one must be dropped.
- * The Revit/AutoCAD convention — and the one `PlanToolHandler.ts` already declares for
- * the plan-view tools ("an explicit object snap always wins") — is that the explicit
- * gesture beats the aid. This predicate is the ONE place that boundary is drawn, so
- * the 3-D and plan tools cannot answer it differently. It lives beside `SnapType`
- * rather than in a tool because it is a property of the snap TAXONOMY.
+ * not lie on the locked ray the two cannot both hold. This predicate is the ONE place
+ * that boundary is drawn, so the 3-D and plan tools cannot answer it differently. It
+ * lives beside `SnapType` rather than in a tool because it is a property of the snap
+ * TAXONOMY — and it is still exactly that after the ruling below; what changed is what
+ * the CONSUMERS do with the answer, not where the line sits.
+ *
+ * ⛔ §RULING-ORTHO-IS-A-MODE-NOT-AN-AID (founder ruling, 2026-08-24). This block used
+ * to conclude: "The Revit/AutoCAD convention — and the one `PlanToolHandler.ts` already
+ * declares — is that the explicit gesture beats the aid." **That is no longer true for
+ * ORTHO.** Shown the behaviour live, the founder ruled: *"if ortho is in place - ortho
+ * is what need - no other cases"*. Ortho is a MODE, not an aid: with ortho armed the
+ * committed segment IS axis-aligned and an explicit snap is PROJECTED onto the ortho
+ * ray, with the projection disclosed in mm and degrees. The ANGLE-STEP lock keeps the
+ * old convention — the ruling was about ortho and was not generalised past it.
+ *
+ * So a TRUE from this predicate now means "this snap is explicit enough that dropping
+ * or projecting it must be REPORTED", which is the half of L-935 that survives.
  *
  * FALSE for the three background families, and only those:
  *   · `NEAREST`  — the low-priority "somewhere on that thing" fallback. Mirrors

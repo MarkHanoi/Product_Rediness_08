@@ -168,8 +168,22 @@ export interface PlanToolDrawContext {
  * Object-snap families that may be attached to a WorldPoint by the overlay.
  * Mirrors PlanSnapType in PlanViewInteraction.ts. When a handler sees one of
  * the "strong" snaps (everything except 'nearest'), it MUST respect the snap
- * verbatim and skip auxiliary constraints like ortho / angle locks — this is
- * the Revit/AutoCAD convention: an explicit object snap always wins.
+ * verbatim and skip auxiliary constraints like ANGLE-STEP locks — the
+ * Revit/AutoCAD convention: an explicit object snap beats a background aid.
+ *
+ * ⛔ EXCEPTION — ORTHO. §RULING-ORTHO-IS-A-MODE-NOT-AN-AID (founder ruling,
+ * 2026-08-24): **ortho is a MODE, not an aid.** When ortho is armed the committed
+ * segment IS axis-aligned and a strong snap does NOT override it — the snapped
+ * point is PROJECTED onto the ortho ray and the projection is disclosed with both
+ * numbers. Founder, verbatim, having been shown the opposite behaviour live:
+ * *"if ortho is in place - ortho is what need - no other cases"*.
+ *
+ * ⚠ This sentence previously read "an explicit object snap always wins", flat, and
+ * `WallPlanToolHandler` cited it as one of three reasons for the behaviour the
+ * founder has now reversed. It is amended HERE, in the same commit as the handler,
+ * deliberately: two files asserting opposite rules is `1360a010` — "the contract
+ * carried TWO OPPOSITE answers to one question for five days" — and this repo has
+ * already logged that failure once.
  */
 export type WorldPointSnapType =
     | 'endpoint'

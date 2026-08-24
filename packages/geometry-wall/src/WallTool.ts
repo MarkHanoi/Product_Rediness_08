@@ -9,7 +9,11 @@ import { WallToolState, WallToolCallbacks, WallDrawingMode } from './WallTypes';
 // the measured root cause: this tool was being armed with `'polyline_ortho'`, which
 // is not a member of `WallDrawingMode`, so every `=== POLYLINE_ORTHO` was false and
 // ortho was inert while the picker still read "Orthogonal".
-import { resolveWallDrawingMode, isOrthoDrawingMode, orthoLockXZ } from './WallDrawingModeResolver';
+import { resolveWallDrawingMode, isOrthoDrawingMode, orthoLockXZ, offAxisDeg } from './WallDrawingModeResolver';
+// §RULING-ORTHO-IS-A-MODE-NOT-AN-AID — "is the snap MATERIALLY off the ortho ray?".
+// CONSUMED from the kernel's declared tolerance policy (C73 §2.2), never minted here —
+// the same constant the plan handler's half of this ruling uses.
+import { COINCIDENT_M } from '@pryzm/geometry-kernel';
 import { WallStore } from './WallStore';
 import { WallIntentResolver, WallAnchor } from './WallIntentResolver';
 import { WallPathBuilder, PathBuilderMode } from './WallPathBuilder';
@@ -218,17 +222,37 @@ export class WallTool {
     private isOrthoOverride = false;
 
     /**
-     * §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — did the LAST `getSnappedPoint()` land
-     * on an EXPLICIT object snap (a named feature of existing geometry), rather than a
-     * raw cursor point or a weak fallback?
+     * Did the LAST `getSnappedPoint()` land on an EXPLICIT object snap (a named feature
+     * of existing geometry), rather than a raw cursor point or a weak fallback?
      *
-     * `getSnappedPoint` returns a bare `Vector3`, so the classification that decided the
-     * ortho question inside it would otherwise be lost by the time `onPointerDown`
-     * re-applies ortho to the committed point — and the commit would silently overrule
-     * the preview. This field carries the one bit across, and `onPointerDown` reads it
-     * IMMEDIATELY after its own `getSnappedPoint()` call, so it is never stale.
+     * `getSnappedPoint` returns a bare `Vector3`, so this classification would otherwise
+     * be lost by the time `onPointerDown` sees the point. This field carries the one bit
+     * across, and `onPointerDown` reads it IMMEDIATELY after its own `getSnappedPoint()`
+     * call, so it is never stale.
+     *
+     * ⚠ §RULING-ORTHO-IS-A-MODE-NOT-AN-AID (founder 2026-08-24) — WHAT THIS BIT DECIDES
+     * HAS CHANGED. Under §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) it decided WHETHER
+     * ORTHO APPLIED: `true` meant the ortho lock was skipped and the snap committed
+     * verbatim. It no longer does. Ortho is a MODE and applies unconditionally; this bit
+     * now selects only what is REPORTED — whether the commit tells the user their snap
+     * was projected onto the axis, and by how much. Do not restore the old meaning.
      */
     private lastSnapWasExplicitObject = false;
+
+    /**
+     * §RULING-ORTHO-IS-A-MODE-NOT-AN-AID (founder 2026-08-24) — L-935's disclosure with
+     * the verdict INVERTED, for the 3-D tool.
+     *
+     * Set by `_applyOrthoLock` whenever the lock materially moved a point that came from
+     * an EXPLICIT object snap: the snap was projected onto the ortho ray, not honoured
+     * verbatim. Read by `onPointerDown` immediately after its own lock call — never
+     * stale — so the commit can say what happened to the snap, in mm and degrees.
+     *
+     * ⛔ Ortho is a MODE. This field exists so the projection is DISCLOSED, never so it
+     * can be reconsidered: what L-935 actually measured was a 636 mm move made SILENTLY,
+     * and the silence is the part that must not come back.
+     */
+    private snapProjectedByOrtho: { missM: number; offAxisDeg: number } | null = null;
 
     private statusOverlay: HTMLElement | null = null;
 
@@ -906,18 +930,29 @@ export class WallTool {
         // getSnappedPoint's built-in ortho logic). Only applies during DRAWING — the start
         // point itself has no reference, so constraining it would always snap to origin.
         //
-        // §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — and NOT when the point came from an
-        // explicit object snap. Re-applying it there is what made the COMMIT overrule the
-        // PREVIEW: `getSnappedPoint` had already decided the over-constrained case in the
-        // snap's favour, and this block silently undid that decision one line later.
+        // §RULING-ORTHO-IS-A-MODE-NOT-AN-AID (founder 2026-08-24) — the `&&
+        // !this.lastSnapWasExplicitObject` guard L-935 added here is REMOVED. Ortho is a
+        // MODE: it applies on every branch, so the preview and the commit still cannot
+        // diverge (they now agree the other way — `getSnappedPoint` locks too).
         if (
             this.state === WallToolState.DRAWING
             && this.startPoint
-            && !this.lastSnapWasExplicitObject
         ) {
             const orthoed = this._applyOrthoLock(snappedPoint);
             snappedPoint.setX(orthoed.x);
             snappedPoint.setZ(orthoed.z);
+
+            // …AND SAY SO. L-935's disclosure, verdict inverted: what it measured was a
+            // 636 mm move made SILENTLY, and the silence is the half that must not return.
+            const projected = this.snapProjectedByOrtho;
+            if (projected) {
+                const line =
+                    `ORTHO HELD — your snap was projected onto the axis: ` +
+                    `${(projected.missM * 1000).toFixed(0)} mm from the snapped point, ` +
+                    `${projected.offAxisDeg.toFixed(1)}° off axis.`;
+                console.log('[WallTool] §RULING-ORTHO-IS-A-MODE-NOT-AN-AID — ' + line);
+                this.showStatus('Wall Tool: ' + line);
+            }
         }
 
         // Ensure we strictly snap to first point if we are close to it in polyline modes
@@ -1252,14 +1287,23 @@ export class WallTool {
             const result = this.snapManager.snap(worldPoint, screenPos, false, _snapTolerance);
             if (result.snapped) {
                 point = result.point;
-                // §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — an EXPLICIT object snap
-                // beats the ortho lock. See `_applyOrthoLock`; the classification comes
-                // from the shared `isExplicitObjectSnap` so this tool and the plan tool
-                // cannot answer the question differently. An absent candidate cannot be
-                // classified, so it is treated as NOT explicit — the pre-L-935 behaviour.
+                // §RULING-ORTHO-IS-A-MODE-NOT-AN-AID (founder ruling, 2026-08-24) —
+                // REVERSES §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) on this line.
+                //
+                // It read: `return this.lastSnapWasExplicitObject ? point : this._applyOrthoLock(point)`
+                // — an explicit object snap BEAT the ortho lock. The founder was shown that
+                // behaviour live ("ortho off · snap wins · 1.9° off axis") and ruled:
+                //   "if ortho is in place - ortho is what need - no other cases"
+                // Ortho is a MODE, not an aid. The lock now runs on EVERY branch; the snap
+                // is PROJECTED onto the ortho ray (its distance along the axis is kept) and
+                // `_applyOrthoLock` records the miss so the commit discloses it. The
+                // classification is still computed and still comes from the shared
+                // `isExplicitObjectSnap` — it now selects what gets REPORTED, not what gets
+                // committed. An absent candidate cannot be classified, so it is treated as
+                // NOT explicit, exactly as before.
                 this.lastSnapWasExplicitObject =
                     !!result.candidate && isExplicitObjectSnap(result.candidate.type);
-                return this.lastSnapWasExplicitObject ? point : this._applyOrthoLock(point);
+                return this._applyOrthoLock(point);
             }
             // SnapManager ran but found nothing — its visualizer is already hidden.
         }
@@ -1285,7 +1329,12 @@ export class WallTool {
                 // service's low-priority "somewhere along that line" fallback and is the
                 // only one that is NOT an explicit gesture (the `NEAREST` of this family).
                 this.lastSnapWasExplicitObject = snap2D.snapType !== 'on-edge';
-                if (this.lastSnapWasExplicitObject) return point;
+                // §RULING-ORTHO-IS-A-MODE-NOT-AN-AID — this line used to be
+                // `if (this.lastSnapWasExplicitObject) return point;`, i.e. an explicit
+                // projected-drawing snap escaped the ortho lock. Under the founder's
+                // ruling ortho is a MODE: the snap is projected onto the ray, and
+                // `_applyOrthoLock` records the miss so the commit can disclose it.
+                if (this.lastSnapWasExplicitObject) return this._applyOrthoLock(point);
             }
         }
 
@@ -1322,8 +1371,24 @@ export class WallTool {
         // an alias-tolerant predicate here means no assignment can turn ORTHO into free
         // angle by spelling alone.
         const isOrtho = isOrthoDrawingMode(this.drawingMode) || this.isOrthoOverride;
+        this.snapProjectedByOrtho = null;
         if (!isOrtho || !this.startPoint) return point;
         const locked = orthoLockXZ(this.startPoint, point);
+
+        // §RULING-ORTHO-IS-A-MODE-NOT-AN-AID (founder 2026-08-24) — when the point being
+        // locked came from an EXPLICIT object snap, the snap has just been PROJECTED onto
+        // the ortho ray rather than honoured verbatim. Record both numbers so the commit
+        // can disclose it. Only a MATERIAL move is worth announcing: a snap already on the
+        // ray gives nothing up (COINCIDENT_M, consumed from the kernel — C73 §2.2).
+        if (this.lastSnapWasExplicitObject) {
+            const missM = Math.hypot(point.x - locked.x, point.z - locked.z);
+            if (missM >= COINCIDENT_M) {
+                this.snapProjectedByOrtho = {
+                    missM,
+                    offAxisDeg: offAxisDeg(this.startPoint, { x: point.x, z: point.z }),
+                };
+            }
+        }
         return new THREE.Vector3(locked.x, point.y, locked.z);
     }
 

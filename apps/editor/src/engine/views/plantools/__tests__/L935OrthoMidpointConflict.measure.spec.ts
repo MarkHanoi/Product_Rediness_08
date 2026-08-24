@@ -1,5 +1,35 @@
 // @vitest-environment happy-dom
 //
+// ╔══════════════════════════════════════════════════════════════════════════════════╗
+// ║ ⛔ THE VERDICT IN THIS FILE WAS REVERSED BY FOUNDER RULING ON 2026-08-24.        ║
+// ║    §RULING-ORTHO-IS-A-MODE-NOT-AN-AID. Read this box before ARM A.               ║
+// ╚══════════════════════════════════════════════════════════════════════════════════╝
+//
+// The founder was shown this fix's own chip, live, on his own screen —
+//     "ortho off · snap wins · 1.9° off axis (ortho would miss 494 mm)"
+// — and answered, verbatim:
+//
+//     "why this ortho off snap wins is even available? i dont want that:
+//      if ortho is in place - ortho is what need - no other cases"
+//
+// He was told explicitly that this reverses what he asked for on 2026-08-17, with the
+// measured 636 mm below as its justification, and ruled again. **ORTHO IS A MODE, NOT
+// AN AID: when ortho is armed the committed segment IS axis-aligned. No exceptions.**
+//
+// WHAT SURVIVES UNCHANGED, and why this file was NOT deleted:
+//   • THE MEASUREMENT. 636 mm, and the fact that the pre-L-935 code made that move
+//     SILENTLY, is the real finding here and it is still true. The silence was the
+//     defect; the VERDICT was the founder's to set, and he has now set it the other way.
+//     The disclosure therefore survives with its verdict inverted — the tool now says
+//     "ORTHO HELD, your snap was projected, here is the miss in mm" (ARM A below).
+//   • ARM B and ARM C, untouched: the TAPER hypothesis is refuted either way, and ARM C
+//     is the permanent record that even the defect's own scene had ONE thickness.
+//   • The whole rationale below, verbatim. It is persuasive and it is what would
+//     re-derive the reversed behaviour if someone re-reasoned from scratch. It is kept
+//     as HISTORY, not as the rule. ⛔ Do not "restore" L-935 by reading it.
+//
+// ── THE ORIGINAL L-935 RECORD (2026-08-17) — SUPERSEDED, KEPT VERBATIM ───────────────
+//
 // L-935 — §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP.
 //
 // FOUNDER REPORT (2026-08-17, PRODUCTION): draw a wall polyline in ORTHOGONAL mode;
@@ -144,7 +174,9 @@ function drawSecondPoint(mode: string, pt: WorldPoint) {
     const { h, dispatched, anyH } = harness(mode);
     h.onClick(SEG_START);
     h.onMouseMove(pt);
-    const noteAtPreview = anyH._orthoYield as { missM: number; offAxisDeg: number } | null;
+    // §RULING-ORTHO-IS-A-MODE-NOT-AN-AID — the note is `_snapProjected` now; it carries
+    // the same two numbers with the verdict inverted (see the field's doc).
+    const noteAtPreview = anyH._snapProjected as { missM: number; offAxisDeg: number } | null;
     h.onClick(pt);
     return { dispatched, anyH, noteAtPreview };
 }
@@ -215,11 +247,15 @@ const guestSpec = (end: { x: number; z: number }): LevelWallSpec => ({
     id: 'wall_L935GUEST', startXZ: { x: 0, z: 0 }, endXZ: end, thickness: THICKNESS_M,
 });
 
-describe('L-935 §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP — ortho direction vs midpoint-snap end', () => {
+describe('§RULING-ORTHO-IS-A-MODE-NOT-AN-AID (was L-935) — ortho direction vs midpoint-snap end', () => {
     beforeEach(() => { vi.restoreAllMocks(); });
 
     // ── ARM A — THE TOOL: which constraint wins ──────────────────────────────
-    it('ARM A: the wall LANDS ON the snapped midpoint, and ortho is the constraint dropped', () => {
+    //
+    // ⛔ REVERSED BY FOUNDER RULING 2026-08-24. This test previously asserted the
+    // OPPOSITE — "the wall LANDS ON the snapped midpoint, and ortho is the constraint
+    // dropped". Both readings of the same fixture are recorded in the numbers below.
+    it('ARM A: ORTHO HOLDS at 0.000° off axis; the snap is PROJECTED and the projection is disclosed', () => {
         const snapped: WorldPoint = { worldX: M.x, worldZ: M.z, snapType: 'midpoint' };
         const { dispatched, noteAtPreview } = drawSecondPoint('ortho', snapped);
 
@@ -227,27 +263,40 @@ describe('L-935 §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP — ortho direction vs midpoin
         const end = dispatched[0]!.baseLine[1]!;
         const missM = Math.hypot(end.x - M.x, end.z - M.z);
         const committedAngleDeg = Math.atan2(end.z - SEG_START.worldZ, end.x - SEG_START.worldX) / DEG;
+        // THE measure the founder's rule is about: departure from the nearest cardinal
+        // axis, in degrees. A boolean cannot tell 1.9° (his chip) from 45°.
+        const offAxisDeg = Math.abs(committedAngleDeg - Math.round(committedAngleDeg / 90) * 90);
 
         console.log(
-            '[L-935 ARM A] committedEnd=(%s, %s)  snappedMidpoint=(%s, %s)  MISS=%s mm  angle=%s°',
+            '[RULING ARM A] committedEnd=(%s, %s)  snappedMidpoint=(%s, %s)  ' +
+            'snapMISS=%s mm  committedAngle=%s°  offAxis=%s°',
             end.x.toFixed(6), end.z.toFixed(6), M.x.toFixed(6), M.z.toFixed(6),
-            (missM * 1000).toFixed(6), committedAngleDeg.toFixed(3),
+            (missM * 1000).toFixed(1), committedAngleDeg.toFixed(3), offAxisDeg.toFixed(6),
         );
 
-        // THE FIX: the explicit object snap is honoured EXACTLY. Pre-fix this was 636.0 mm.
-        expect(missM).toBeLessThan(COINCIDENT_M);
-        // …and the segment therefore takes the TRUE direction to the snap, not the ortho ray.
-        expect(committedAngleDeg).toBeCloseTo(-SNAP_OFF_AXIS_DEG, 9);
+        // ⭐ THE RULING: the committed segment IS axis-aligned. No exceptions.
+        expect(offAxisDeg).toBeLessThan(1e-9);
+        // The snap was PROJECTED, not discarded: `_snapOrtho` rotates it onto the nearest
+        // cardinal ray KEEPING ITS DISTANCE, so the wall is as long as the user's reach to
+        // the feature they aimed at (4.000 m here), just axis-aligned.
+        expect(Math.hypot(end.x, end.z)).toBeCloseTo(SNAP_DIST_M, 9);
+        // …which puts the committed end 636.0 mm from the snapped midpoint. THAT NUMBER IS
+        // THE COST OF THE RULING and it is the same 636 mm L-935 measured — the founder has
+        // now seen this behaviour live and chosen it, twice. It is DISCLOSED, not silent.
+        expect(missM * 1000).toBeCloseTo(636.0, 1);
 
-        // AND IT SAID SO, with both numbers — the dropped constraint is on the record,
-        // not resolved behind the user's back.
+        // AND IT SAYS SO, with both numbers. L-935's disclosure, verdict inverted.
         expect(noteAtPreview).not.toBeNull();
-        // The gap ortho WOULD have opened is the defect's own 636 mm.
         expect(noteAtPreview!.missM * 1000).toBeCloseTo(636.0, 1);
         expect(noteAtPreview!.offAxisDeg).toBeCloseTo(SNAP_OFF_AXIS_DEG, 9);
     });
 
-    it('ARM A/control: angle-step mode was ALREADY doing this — the branches now agree', () => {
+    // ⚠ ORTHO AND ANGLE-STEP NOW DIFFER, DELIBERATELY. The founder ruled on ORTHO
+    // ("if ortho is in place - ortho is what need - no other cases"); he said nothing
+    // about the configurable degree-step mode, and it keeps L-935's rule. Recorded here
+    // rather than silently generalised — extending a ruling past what was ruled is how
+    // a second undocumented rival rule gets minted.
+    it('ARM A/control: angle-step mode still yields to a strong snap — the ruling is ORTHO-only', () => {
         // `_resolveConstrainedPoint`'s angle-step branch has always been guarded with
         // `!isStrongSnap(pt)`. Ortho was the only branch that was not. This pins the
         // agreement so the two cannot drift apart again.
@@ -290,21 +339,30 @@ describe('L-935 §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP — ortho direction vs midpoin
     });
 
     // ── ARM B — THE DERIVED SOLID, as the tool now produces it ───────────────
-    it('ARM B: the wall the tool now commits meets the host AND keeps ONE thickness', () => {
+    //
+    // ⛔ THIS ARM ALSO REVERSED, AND IT NAMES THE COST OF THE RULING OUT LOUD.
+    // It used to assert "the T-junction the founder was drawing now actually forms"
+    // (`mitredCorners > 0`). Under §RULING-ORTHO-IS-A-MODE-NOT-AN-AID the committed end
+    // is axis-aligned at (4, 0) — 636 mm from the off-axis host — so IT DOES NOT FORM.
+    // The tool now discloses that at commit (ARM A's note); it does not hide it, and it
+    // does not silently bend the wall to hide it. Recorded here so the trade is visible
+    // to whoever reads this next, not discovered in production.
+    it('ARM B: ortho holds, so the off-axis host is NOT met — the cost, measured, and still ONE thickness', () => {
         const snapped: WorldPoint = { worldX: M.x, worldZ: M.z, snapType: 'midpoint' };
         const { dispatched } = drawSecondPoint('ortho', snapped);
         const bl = dispatched[0]!.baseLine;
         const scene = [hostSpec, guestSpec({ x: bl[1]!.x, z: bl[1]!.z })];
 
         const { worstDeviationM, mitredCorners, report } = measureFootprints(scene);
-        console.log('[L-935 ARM B]\n' + report);
-        console.log('[L-935 ARM B] mitred corners=%d  WORST deviation from ±halfT = %s mm',
+        console.log('[RULING ARM B]\n' + report);
+        console.log('[RULING ARM B] mitred corners=%d  WORST deviation from ±halfT = %s mm',
             mitredCorners, (worstDeviationM * 1000).toFixed(4));
 
-        // The T-junction the founder was drawing now actually forms…
-        expect(mitredCorners).toBeGreaterThan(0);
-        // …and every side corner still sits at exactly ±halfT: ONE thickness. The fix
-        // buys the reach WITHOUT trading it for the thickness defect it was accused of.
+        // THE COST: 636 mm is far outside the 0.20 m junction band, so no junction forms.
+        // The founder chose this over a wall that is not axis-aligned. It is not silent.
+        expect(mitredCorners).toBe(0);
+        // …and every side corner still sits at exactly ±halfT: ONE thickness. The taper
+        // hypothesis stays refuted under either verdict — that finding is verdict-free.
         expect(worstDeviationM).toBeLessThan(COINCIDENT_M);
     });
 
