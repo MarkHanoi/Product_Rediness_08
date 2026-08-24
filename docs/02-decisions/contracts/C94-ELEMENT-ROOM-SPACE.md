@@ -1115,26 +1115,66 @@ authority here, **not this table** — read the gate. Measured 2026-08-24, the r
 
 ---
 
-## §TOBE.4 — THE WALL/ROOM SEAM — **RESERVED**
+## §TOBE.4 — THE WALL/ROOM SEAM — ⭐ SETTLED 2026-08-24, BY TWO LANES MEASURING SEPARATELY
 
-> ⏸ **Deliberately empty, 2026-08-24.** The claim that belongs here — who owns loop closure, whose
-> tolerance governs, and where `§DIAG-PARTITION-REACH` belongs — is a **cross-contract** claim shared
-> with [C85](C85-ELEMENT-WALL.md) (lane GRAPH43). It has been flagged to the orchestrator with its
-> evidence and is **held out of this commit pending GRAPH43's confirmation**, precisely so the two
-> contracts cannot end up carrying two opposite answers — the failure this repo has already logged
-> once. **It will be written here, once, after both lanes agree.**
->
-> The two facts that are C94's alone and are safe to record now:
-> - `RoomDetectionEngine._reconnectDanglingEnds` (`:838`) mutates an **in-memory segment array**
->   feeding `buildWallGraph` (`:437`) and **writes no `WallStore` record**. Its constants are
->   `CORNER_CONNECTED_TOL_M = 0.30` (`:849`), `REACH_MAX_M = 1.25` (`:854`),
->   `REACH_COLLINEAR_MIN = 0.9` (`:857`), `SPAN_MARGIN_M = 0.05` (`:859`), `SNAP_FLOOR = 0.20`
->   (`:860`); `_snapNearbyCorners` runs first at **0.30 m** (`:398`).
-> - ⛔ **Neither layer publishes its tolerance to the other, so nobody can state the combined
->   competence envelope.** That is a real defect independent of who owns what, it is
->   [C73](C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md)-shaped, and it is RM-6.
->
-> ⛔ **C94 asserts nothing about which wall-side tolerance is correct.** Those are C85's to judge.
+> **This section was published RESERVED and deliberately empty**, because the claim in it is shared
+> with [C85](C85-ELEMENT-WALL.md) and *"one boundary described two opposite ways in two contracts"*
+> is a failure this repo has already logged. It is now written, once, after both lanes agreed.
+
+**⛔ THE AUTHORITY IS [C85 §10.8.5](C85-ELEMENT-WALL.md), NOT THIS SECTION.** It carries the
+ownership table (which layer owns what, with each side's tolerances and what each one mutates).
+⛔ **C94 does not restate it** — a table restated in prose is a table that rots, and this contract
+has already recorded three independent counts of one family's verbs disagreeing (§0.1). If this
+section and C85 §10.8.5 disagree, **C85 wins and this section is stale.**
+
+### §TOBE.4.1 — What was settled, and how
+
+Both lanes were briefed that `§DIAG-PARTITION-REACH` is *"a second subsystem quietly healing what
+the first one broke, with a different tolerance and no shared vocabulary"* — i.e. **accidental
+architecture**. C94 contested it on measurement; C85 re-measured **independently** and recorded:
+*"Lane ROOM44 (C94) contested that, and on re-measurement here ROOM44 is right."*
+
+> ⭐ **THE ARRANGEMENT IS CORRECT BY DESIGN, and the reason is one sentence: a READ-SIDE graph
+> repair may legitimately be MORE PERMISSIVE than a WRITE-SIDE one, because it cannot corrupt the
+> model.** Forgiving 1.25 m when deciding whether a loop closes *for the purpose of naming a room*
+> is sound; forgiving 1.25 m when *moving somebody's wall* is not. **The two numbers differ because
+> the two acts differ** — not because two subsystems drifted apart.
+
+**The C94-side fact that carries that verdict**, and the one this contract owns:
+`RoomDetectionEngine._reconnectDanglingEnds` (`:838`) operates on an **in-memory copy** of the
+segment array feeding `buildWallGraph` (`:437`) and **writes no `WallStore` record**. Its constants
+are `CORNER_CONNECTED_TOL_M = 0.30` (`:849`), `REACH_MAX_M = 1.25` (`:854`),
+`REACH_COLLINEAR_MIN = 0.9` (`:857`), `SPAN_MARGIN_M = 0.05` (`:859`), `SNAP_FLOOR = 0.20` (`:860`);
+`_snapNearbyCorners` runs first at **0.30 m** (`:398`). C85 verified the in-memory-copy half
+independently.
+
+### §TOBE.4.2 — The division of labour, stated once so both contracts can cite it
+
+| Question | Owner | Where |
+|---|---|---|
+| *"Did this region stop being a room?"* | **ROOM** | `OpenedRegionDetector`, §TOBE.0.1 |
+| *"Where is the missing boundary, and may I say so?"* | **ROOM** | the six refusals, §TOBE.2 |
+| *"Should an existing wall GROW to close it?"* | **ROOM decides it is needed; WALL performs it** | `OpenedRegionDetector.ts:662-690` stands CREATE down and names the donor; the verb is [C85 §10.7 W-M-12](C85-ELEMENT-WALL.md) / ADR-0336 stage 2 (§TOBE.1.1, RM-1) |
+| *"May this baseline move?"* | ⛔ **WALL, exclusively** | C94 asserts nothing here |
+
+### §TOBE.4.3 — ⛔ THE ONE REAL DEFECT AT THE SEAM — still open
+
+**Neither layer publishes its tolerance to the other**, so nobody can state the **combined
+competence envelope**: the band in which the room layer will report a closed loop that the wall
+layer would refuse to weld. Both contracts now record this identically, and C85 adds — as a
+`NOT MEASURED`, not a claim — that `DEFAULT_SNAP_RADIUS = 0.5` is *inherited from snapping and has
+never been justified as a **weld** tolerance*.
+
+> ⛔ **RM-6 / P2.5 REMAINS GATED.** Agreeing on ownership is **not** building the register, and the
+> seam being settled must not create momentum into work that is not done. The fix is a shared, cited
+> [C73](C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md) register. ⛔ **C94 asserts nothing about which
+> wall-side number is correct** — those are C85's to judge.
+
+> ⚠ **RECORDED FOR THE METHOD, not for the credit.** Main briefed BOTH lanes the same wrong way.
+> One lane contested it with measurement, the other re-measured and agreed, and the contracts now
+> say the same thing for the same reason. **Two lanes correcting the brief is why this pair of
+> contracts is worth trusting** — and it is the third time in this lane that re-measuring beat
+> re-transcribing (§TOBE.0, §TOBE.9, here).
 
 ---
 
