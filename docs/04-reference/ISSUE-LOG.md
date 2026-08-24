@@ -51878,8 +51878,22 @@ mutations, not unbounded.
   **buffers**; the sibling signature is `Destroyed buffer … used in a submit`. What IS proven is
   that they break the **premise of the shadow guard**, on precisely the founder's two paths.
 - ARM C matches **TEXT, not an AST** (a comment containing the literal trips it), and scans only
-  `packages/geometry-*/**/{Builder,Manager}.ts` — **`apps/**`, `plugins/**` and `*Tool.ts` are
-  out of scope and unmeasured.**
+  `packages/geometry-*/**/{Builder,Manager}.ts`.
+- ⚠ **THE RESIDUE IS NOW MEASURED, not merely disclaimed — 19 files outside ARM C's scope still
+  contain an in-place `.geometry/.material.dispose()`:** **8 in `plugins/**`**
+  (`wall/committer/selection-highlight.ts`, `dimensions/committer/geometry-bridge.ts`,
+  `toy-cube/committer.ts`, and 5 `annotations/tools/*`) and **11 in `apps/editor/src`**
+  (incl. `engine/views/EdgeProjectorService.ts`, `engine/ViewController.ts`,
+  `engine/preview/PreviewManager.ts`, `engine/inspect/DiagnosticMaterialManager.ts`, the 3
+  `ui/furniture-carousel/*`, `ui/element-preview/ElementPreviewRenderer.ts`,
+  `ui/dataworkbench/DataVisualizerService.ts`, `ui/kitchen`/`ui/wardrobe` tools).
+  **Not all are defects** — thumbnail/preview renderers own a private offscreen renderer and
+  `*Tool.ts` owns transient previews, which is why GPU1 scoped the arm to builders. But the
+  live-scene ones (`selection-highlight`, `ViewController`, `EdgeProjectorService`) are the same
+  shape as the seven closed here and **are unmeasured by any gate today.** Extending the arm was
+  deliberately NOT done in this lane: several of those files are owned by other lanes
+  (ORTHO42 / GRAPH43). **This list is the next lane's work, and — per the lesson above — a list
+  is not an enforcement.**
 - **Phase 3 (recovery) NOT built.** The 120 declined frames and the manual "Reload viewport" are
   a real gap, deliberately left open and not attempted under this lane.
 
