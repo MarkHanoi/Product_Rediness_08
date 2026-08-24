@@ -135,6 +135,24 @@ the fastest path to a verdict if terrain ever fails to render again.
 
 ## Verification
 
-- Client: `§CULL-PROBE root(0,0) vis=2(FULL) occPtMag=10000 renderedTerrainTiles>0`.
+- ⛔ ~~Client: `§CULL-PROBE root(0,0) vis=2(FULL) occPtMag=10000 renderedTerrainTiles>0`.~~
+  **RETRACTED 2026-08-24 (L-10741) — `vis=2` WAS NEVER OBSERVABLE.** Cesium's `Visibility` enum is
+  **`NONE = −1, PARTIAL = 0, FULL = 1`**; `computeTileVisibility` cannot return `2`. This line was
+  back-derived from `§CULL-PROBE`'s own **fabricated** legend (`0=NONE/2=FULL`), not measured, and
+  `ISSUE-LOG.md` L-639 ratified the same unreachable value as its pass criterion.
+  ⭐ **THE COST: `vis=0` is the HEALTHY POST-FIX reading** — `PARTIAL`, i.e. visible and refining,
+  which is the only correct answer for a hemisphere-sized OBB with the camera inside a city. So this
+  ADR ratified a correct log as a failure, and the founder's 2026-08-24 paste of a *healthy* terrain
+  line was escalated as a suspected second defect on the strength of it. **The `occPtMag=10000` half
+  of the line is real and stands** (it is D2's own `HORIZON_OCC_NEVER_CULL` sentinel), as does
+  `renderedTerrainTiles>0`. See C12 §10.2a.
+  ⚠ The narrative above that reads *"`vis=0` = the root tile is horizon-culled"* is the same
+  mis-reading; the **real** evidence for D1/D2 was `occPtMag=0.0000` plus the independent byte decode
+  below — a `(0,0,0)` occludee provably fails `isScaledSpacePointVisiblePossiblyUnderEllipsoid` and
+  returns `Visibility.NONE = −1`. That evidence is untouched and the decisions stand.
 - R2 tile bytes (independent decode): header `centerMag=6378188` (was 0), `occMag=10000` (was 0).
+  ⚠ **Still the ONLY sound arm — and it is not automated.** The "decode the emitted root tile off R2"
+  SHOULD above is implemented by **no script**: `tools/phase3-probes/probe-v8-terrain-posting.mjs`
+  reads the header's centre scalars and heights but skips both the occlusion point (bytes 64–87) and
+  the bounding-sphere centre vector. C12 §10.2a records this as an open gap.
 - Visual: interior cities render shaded relief with buildings seated on the ground.

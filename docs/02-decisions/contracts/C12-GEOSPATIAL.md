@@ -631,6 +631,22 @@ tile is *always* culled.
 >   healthy.** `want~1.0` predates ADR-0278 D2 by one day and was never revised; `≈1` is correct only
 >   for **narrow** tiles, never for a wide-angle/z0 root.
 >
+> ⛔⛔ **AND THE FALSE LEGEND WAS RATIFIED AS AN ACCEPTANCE CRITERION.** `ISSUE-LOG.md` L-639 records
+> its verification as *"`§CULL-PROBE vis 0→2(FULL)`"*, and **ADR-0278 repeats it**. **`2` is not in
+> `computeTileVisibility`'s codomain** — it can return only `−1 / 0 / 1` — so that pass criterion was
+> never observable and was back-derived from the probe's own wrong legend, not measured. ⭐ **The
+> consequence is the whole reason this cost a lane: `vis=0` is the HEALTHY POST-FIX reading, and it is
+> the reading the fix actually produces — so a correct log was ratified to look like a failure.** The
+> two byte-level measurements in that same L-639 entry (`centerMag 0→6378188`, `occMag 0→10000`) are
+> real and stand.
+>
+> ⚠ **OPEN GAP (not closed here):** ADR-0278 and `CITY-REPLICATION-STANDARD.md` both make "decode the
+> emitted root tile off R2 and assert `centerMag ≈ 6.38e6`, `occMag > 1`" a SHOULD before shipping a
+> city. **No script implements it** — `grep -rn "centerMag\|occMag" tools/` returns nothing, and
+> `tools/phase3-probes/probe-v8-terrain-posting.mjs` decodes the header's centre scalars and heights
+> but **skips both the occlusion point (bytes 64–87) and the bounding-sphere centre vector**. So the
+> one invariant pair §10.1/§10.2 declare MUST is verified by no automated check on either side.
+>
 > **MUST**: a diagnostic that prints an expected value MUST have that expectation **derived or cited**
 > — from the enum, from the encoder constant, or from a closed form — never from the hypothesis of the
 > day. ⛔ A probe printing a false `want~` is its own defect, and a *pessimistic* false `want~` is the
