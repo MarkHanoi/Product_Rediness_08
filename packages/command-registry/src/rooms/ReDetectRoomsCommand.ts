@@ -54,7 +54,7 @@ import {
 // ruling. Capture the MEANING of an authored room as it dies; offer it back when the
 // region comes home. ⛔ Offer only — nothing here applies anything.
 import {
-  captureRoomTombstone, findTombstoneFor, consumeTombstone, roomMeaningNotifier,
+  captureRoomTombstone, findTombstonesFor, consumeTombstone, roomMeaningNotifier,
 } from './roomTombstoneRegister';
 
 // ── Command ───────────────────────────────────────────────────────────────────
@@ -241,10 +241,15 @@ export class ReDetectRoomsCommand implements Command {
       // reads the store sees the finished level rather than a half-built one. Matching is
       // O(new rooms x tombstones on this level), and BOTH factors are normally zero.
       for (const room of offers) {
-        const tombstone = findTombstoneFor(room);
-        if (!tombstone) continue;
-        consumeTombstone(tombstone);     // offered at most once — see the register
-        roomMeaningNotifier.publish({ levelId: this.levelId, roomId: room.id, tombstone });
+        const candidates = findTombstonesFor(room);
+        if (candidates.length === 0) continue;
+        // ⭐ §MERGE-AWARDS-NOBODY (L-10815) — TWO OR MORE candidates means two authored
+        // rooms merged here and the engine awarded the merged face to nobody. The user
+        // is offered the choice; ALL of them are consumed either way, because the
+        // question has been put once and re-asking on the next wall nudge is the
+        // nagging that gets a channel muted.
+        for (const t of candidates) consumeTombstone(t);
+        roomMeaningNotifier.publish({ levelId: this.levelId, roomId: room.id, candidates });
       }
 
       // Phase D — D-1: SemanticGraph — adjacentTo and connectedTo after all rooms are created.

@@ -18,7 +18,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { RoomStore } from '@pryzm/room-topology';
 import { ReDetectRoomsCommand } from '../src/rooms/ReDetectRoomsCommand';
 import {
-    captureRoomTombstone, findTombstoneFor, consumeTombstone, clearRoomTombstones,
+    captureRoomTombstone, findTombstonesFor, consumeTombstone, clearRoomTombstones,
     listTombstones, describeTombstoneLimits, describeRoomTombstoneState,
     roomMeaningNotifier, MAX_TOMBSTONES_PER_LEVEL,
     type RoomMeaningOffer,
@@ -121,25 +121,25 @@ describe('§ROOM-TOMBSTONE — the bound the ruling was chosen for', () => {
 describe('§ROOM-TOMBSTONE — matching a region that came home', () => {
     it('matches a face whose shape contains the lost room’s centroid', () => {
         captureRoomTombstone(roomAt(5, 0, 0, 4, AUTHORED));
-        expect(findTombstoneFor(roomAt(6, 0, 0, 4))!.meaning.name).toBe('Kitchen');
+        expect(findTombstonesFor(roomAt(6, 0, 0, 4))[0]!.meaning.name).toBe('Kitchen');
     });
 
     it('⛔ refuses a face somewhere else entirely', () => {
         captureRoomTombstone(roomAt(7, 0, 0, 4, AUTHORED));
-        expect(findTombstoneFor(roomAt(8, 50, 50, 4))).toBeUndefined();
+        expect(findTombstonesFor(roomAt(8, 50, 50, 4))).toHaveLength(0);
     });
 
     it('⛔ refuses a face of wildly different area even when it contains the centroid', () => {
         // A 4 m room died; a 20 m hall now covers the spot. Same place, different room.
         captureRoomTombstone(roomAt(9, 0, 0, 4, AUTHORED));
-        expect(findTombstoneFor(roomAt(10, 0, 0, 20))).toBeUndefined();
+        expect(findTombstonesFor(roomAt(10, 0, 0, 20))).toHaveLength(0);
     });
 
     it('is offered at most once — a declined question is answered, not re-asked', () => {
         const t = captureRoomTombstone(roomAt(11, 0, 0, 4, AUTHORED))!;
-        expect(findTombstoneFor(roomAt(12, 0, 0, 4))).toBeDefined();
+        expect(findTombstonesFor(roomAt(12, 0, 0, 4))).toHaveLength(1);
         consumeTombstone(t);
-        expect(findTombstoneFor(roomAt(13, 0, 0, 4))).toBeUndefined();
+        expect(findTombstonesFor(roomAt(13, 0, 0, 4))).toHaveLength(0);
     });
 });
 
@@ -219,9 +219,10 @@ describe('§ROOM-TOMBSTONE — the round trip, through the real command', () => 
         expect(roomStore.getById(originalId)).toBeUndefined();
 
         // ⭐ THE ROUND TRIP, on measured values: same strings out as went in.
-        expect(offer.tombstone.meaning.name).toBe('Kitchen');
-        expect(offer.tombstone.meaning.roomNumber).toBe('G.101');
-        expect(offer.tombstone.meaning.occupancyType).toBe('kitchen');
+        expect(offer.candidates).toHaveLength(1);
+        expect(offer.candidates[0]!.meaning.name).toBe('Kitchen');
+        expect(offer.candidates[0]!.meaning.roomNumber).toBe('G.101');
+        expect(offer.candidates[0]!.meaning.occupancyType).toBe('kitchen');
 
         // ⛔ AND NOTHING WAS APPLIED. ASK, never auto-edit.
         const recovered = roomStore.getById(offer.roomId)!;

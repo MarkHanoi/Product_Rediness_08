@@ -33,8 +33,8 @@
  * behave differently would be two things for the user to learn.
  */
 
-import { roomMeaningNotifier, describeTombstoneLimits } from '@pryzm/command-registry';
-import type { RoomMeaningOffer } from '@pryzm/command-registry';
+import { roomMeaningNotifier, describeTombstoneLimits, isMergeOffer } from '@pryzm/command-registry';
+import type { RoomMeaningOffer, RoomTombstone } from '@pryzm/command-registry';
 import { chatSay, chatConfirm } from './chatPromptHost';
 import { projectScopeRegistry, registerProjectScopeProbe } from '@pryzm/core-app-model';
 import { resolveActiveProjectId } from '../site/siteDispatch';
@@ -47,6 +47,8 @@ let _owningProjectId: string | null = null;
 
 function win(): {
     runtime?: { bus?: { executeCommand?: (type: string, payload: unknown) => Promise<unknown> } };
+    /** Read-only, one lookup - see `applyMeaning` for why the target is re-checked. */
+    roomStore?: { getById?: (id: string) => unknown };
 } | undefined {
     return typeof window === 'undefined' ? undefined : (window as never);
 }
@@ -67,29 +69,51 @@ function activeProjectId(): string | null {
     }
 }
 
-/**
- * The question, as the user reads it.
- *
- * ⭐ It names the room and its area so the user can recognise WHICH room is being talked
- * about — the same reason `§OPENED-REGION` states its gap in metres. It lists only what
- * is actually being offered, never a generic "details", so Confirm is informed consent.
- */
-export function buildRestoreSummary(offer: RoomMeaningOffer): string {
-    const m = offer.tombstone.meaning;
+/** The details a candidate is offering, listed so Confirm is informed consent. */
+function listDetails(t: RoomTombstone): string {
+    const m = t.meaning;
     const parts: string[] = [];
     if (m.name) parts.push(`name “${m.name}”`);
     if (m.roomNumber) parts.push(`number ${m.roomNumber}`);
     if (m.occupancyType) parts.push(`type ${m.occupancyType}`);
     if (m.department) parts.push(`department ${m.department}`);
-    const listed = parts.length > 0 ? parts.join(', ') : 'its details';
+    return parts.length > 0 ? parts.join(', ') : 'its details';
+}
 
-    const area = offer.tombstone.census.areaM2;
-    const label = m.name ?? m.roomNumber ?? 'A room';
+function labelOf(t: RoomTombstone): string {
+    return t.meaning.name ?? t.meaning.roomNumber ?? 'A room';
+}
 
+/** The SINGLE-LOSS question: one room died and this space is it, come home. */
+export function buildRestoreSummary(offer: RoomMeaningOffer): string {
+    const t = offer.candidates[0]!;
     return (
-        `${label} (${area.toFixed(1)} m²) was lost when its boundary changed, and this space `
-        + `is now a new room. Restore its ${listed}? `
+        `${labelOf(t)} (${t.census.areaM2.toFixed(1)} m²) was lost when its boundary changed, and `
+        + `this space is now a new room. Restore its ${listDetails(t)}? `
         + describeTombstoneLimits()
+    );
+}
+
+/**
+ * The MERGE question - §MERGE-AWARDS-NOBODY (L-10815), C94 R-3.
+ *
+ * ⭐⭐ IT MUST SAY A MERGE HAPPENED, NOT THAT A ROOM WAS LOST. Those are different
+ * events and the user needs to tell them apart: one room vanishing is a repair problem,
+ * two rooms becoming one is a design change they probably made on purpose. Naming both
+ * rooms is also the only way the user can see WHICH two merged.
+ *
+ * ⭐ AND "NEITHER" IS ONE CLICK. Cancel here ends the whole exchange - a merged space
+ * very often wants a new name rather than either old one, so the cheapest answer must be
+ * the one that invents nothing. Confirm opens the per-room choice.
+ */
+export function buildMergeSummary(offer: RoomMeaningOffer): string {
+    const named = offer.candidates
+        .map(t => `${labelOf(t)} (${t.census.areaM2.toFixed(1)} m²)`)
+        .join(' and ');
+    return (
+        `Two rooms were merged here - ${named}. The merged space is a new room with no name `
+        + `of its own, and neither room’s details were applied to it. Restore one of them? `
+        + `Cancel to leave it unnamed, which is often the right answer for a merged space.`
     );
 }
 
@@ -98,53 +122,105 @@ export function buildRestoreSummary(offer: RoomMeaningOffer): string {
  * asked, so a test can await it.
  */
 export async function presentRoomMeaningOffer(offer: RoomMeaningOffer): Promise<void> {
+    if (offer.candidates.length === 0) return;
     if (asking.has(offer.levelId)) return;
     asking.add(offer.levelId);
     _owningProjectId = activeProjectId();
     try {
-        const answer = await chatConfirm(buildRestoreSummary(offer));
-        if (answer === undefined) {
-            // §PROMPT-REACHES-A-HUMAN — "nobody could be asked", NOT a decline. Reachable
-            // only with no `document` at all (a node harness); `chatConfirm` escalates to
-            // a visible fallback card before it would ever return this in a browser.
-            console.error(
-                '[RoomMeaningRestoreProposal] §PROMPT-REACHES-A-HUMAN — a room’s details could be '
-                + 'restored and there was no surface to put the question to. NOT asked, NOT answered, '
-                + 'NOT declined.',
-                { levelId: offer.levelId, roomId: offer.roomId },
-            );
+        if (isMergeOffer(offer.candidates)) {
+            // Stage 1 - say what happened, and let "neither" be a single Cancel.
+            const open = await chatConfirm(buildMergeSummary(offer));
+            if (open === undefined) { reportNoSurface(offer); return; }
+            if (!open) {
+                chatSay('Left unnamed — the merged space keeps a fresh name of its own.');
+                return;
+            }
+            // Stage 2 - one room at a time, in the order they were lost. Declining every
+            // one lands back on "neither", so the user can never be trapped into picking.
+            for (const t of offer.candidates) {
+                const take = await chatConfirm(
+                    `Restore ${labelOf(t)}’s details — ${listDetails(t)}? `
+                    + describeTombstoneLimits(),
+                );
+                if (take === undefined) { reportNoSurface(offer); return; }
+                if (take) { await applyMeaning(offer, t); return; }
+            }
+            chatSay('Left unnamed — neither room’s details were applied.');
             return;
         }
+
+        const answer = await chatConfirm(buildRestoreSummary(offer));
+        if (answer === undefined) { reportNoSurface(offer); return; }
         if (!answer) {
             chatSay('Left as it is — the new room keeps its own name.');
             return;
         }
-
-        const bus = win()?.runtime?.bus;
-        if (!bus?.executeCommand) {
-            chatSay('I could not reach the command bus, so nothing was changed.');
-            return;
-        }
-
-        const m = offer.tombstone.meaning;
-        // P6 — the ordinary canonical verb on the ordinary bus. ONE command, ONE undo.
-        // ⛔ No `id`: the ruling granted durable LOSS, never durable identity.
-        await bus.executeCommand('room.restoreMeaning', { roomId: offer.roomId, ...m });
-
-        chatSay(
-            `Done — this room is ${m.name ?? m.roomNumber ?? 'restored'} again. `
-            + 'Ctrl+Z undoes it in one step.',
-        );
-        console.log(
-            `[RoomMeaningRestoreProposal] §ROOM-TOMBSTONE restored onto ${offer.roomId} `
-            + `on level ${offer.levelId}`,
-        );
+        await applyMeaning(offer, offer.candidates[0]!);
     } catch (err) {
         console.warn('[RoomMeaningRestoreProposal] offer failed (non-fatal):', err);
         chatSay('Something went wrong restoring those details, so nothing was changed.');
     } finally {
         asking.delete(offer.levelId);
     }
+}
+
+/**
+ * §PROMPT-REACHES-A-HUMAN (L-881) - "nobody could be asked", NOT a decline. Reachable
+ * only with no `document` at all (a node harness); `chatConfirm` escalates to a visible
+ * fallback card before it would ever return `undefined` in a browser.
+ */
+function reportNoSurface(offer: RoomMeaningOffer): void {
+    console.error(
+        '[RoomMeaningRestoreProposal] §PROMPT-REACHES-A-HUMAN — a room’s details could be '
+        + 'restored and there was no surface to put the question to. NOT asked, NOT answered, '
+        + 'NOT declined.',
+        { levelId: offer.levelId, roomId: offer.roomId },
+    );
+}
+
+/**
+ * Dispatch the ONE command that puts a chosen tombstone’s meaning onto the new room.
+ *
+ * ⚠ IT RE-CHECKS THAT THE TARGET STILL EXISTS. Between the question being asked and
+ * answered the user may have pressed Ctrl+Z, which re-runs detection and can replace the
+ * room this offer names. Writing onto a vanished id would be refused by
+ * `UpdateRoomCommand.canExecute` anyway, but refusing HERE lets us say what happened
+ * instead of surfacing a bare command failure the user cannot act on.
+ *
+ * ⚠ `undefined` (no store to ask) is NOT treated as "gone" - the same three-valued
+ * discipline as §WD32-B. An unknown is not a no.
+ */
+async function applyMeaning(offer: RoomMeaningOffer, chosen: RoomTombstone): Promise<void> {
+    const w = win();
+    let stillThere: boolean | undefined;
+    try {
+        const getById = w?.roomStore?.getById;
+        stillThere = typeof getById === 'function' ? getById(offer.roomId) != null : undefined;
+    } catch { stillThere = undefined; }
+
+    if (stillThere === false) {
+        chatSay(
+            'That space changed again before you answered, so nothing was applied. '
+            + 'Move the walls back and I will offer it again.',
+        );
+        return;
+    }
+
+    const bus = w?.runtime?.bus;
+    if (!bus?.executeCommand) {
+        chatSay('I could not reach the command bus, so nothing was changed.');
+        return;
+    }
+
+    // P6 - the ordinary canonical verb on the ordinary bus. ONE command, ONE undo.
+    // ⛔ No `id`: the ruling granted durable LOSS, never durable identity.
+    await bus.executeCommand('room.restoreMeaning', { roomId: offer.roomId, ...chosen.meaning });
+
+    chatSay(`Done — this room is ${labelOf(chosen)} again. Ctrl+Z undoes it in one step.`);
+    console.log(
+        `[RoomMeaningRestoreProposal] §ROOM-TOMBSTONE restored onto ${offer.roomId} `
+        + `on level ${offer.levelId}`,
+    );
 }
 
 /**

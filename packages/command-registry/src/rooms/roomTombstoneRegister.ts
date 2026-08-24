@@ -117,12 +117,22 @@ export interface RoomTombstone {
     readonly seq: number;
 }
 
-/** A recovered face that a tombstone can speak for. Nothing has been applied. */
+/**
+ * A recovered face that one or more tombstones can speak for. Nothing has been applied.
+ *
+ * ⭐ `candidates` is a LIST, and that is not over-generality — it is §MERGE-AWARDS-NOBODY
+ * (L-10815, C94 R-3). A single lost room that comes home offers ONE candidate; a MERGE of
+ * two authored rooms offers TWO, because the founder ruled that neither may be awarded
+ * silently and the user chooses (or chooses neither). **One offer shape covers both**, so
+ * there is no merge-specific record and no second code path to keep in step.
+ *
+ * Ordered most-recently-lost first.
+ */
 export interface RoomMeaningOffer {
     readonly levelId: string;
-    /** The NEW room's id. ⚠ Deliberately different from the lost one — see the header. */
+    /** The NEW room's id. ⚠ Deliberately different from every lost one — see the header. */
     readonly roomId: string;
-    readonly tombstone: RoomTombstone;
+    readonly candidates: readonly RoomTombstone[];
 }
 
 type OfferListener = (offer: RoomMeaningOffer) => void;
@@ -207,38 +217,54 @@ export function captureRoomTombstone(room: RoomData): RoomTombstone | undefined 
 }
 
 /**
- * Find the tombstone that can speak for a freshly-detected, unmatched room.
+ * Every tombstone that can speak for a freshly-detected, unmatched room.
  *
- * The candidate must contain the tombstone's own centroid AND be of comparable area.
- * Most-recent-first, so a region lost twice offers what it most recently was.
- * Returns `undefined` freely — no match is the normal case and is not a failure.
+ * A candidate qualifies when the recovered face CONTAINS the lost room's centroid.
+ * Ordered most-recently-lost first, so a region lost twice offers what it most recently
+ * was, first. An empty result is the normal case and is not a failure.
+ *
+ * ⭐ RETURNS A LIST BECAUSE A MERGE HAS TWO ANSWERS (§MERGE-AWARDS-NOBODY, L-10815).
+ * When two authored rooms merge, the detection engine now awards the merged face to
+ * NOBODY and both rooms are tombstoned; the merged face then contains BOTH their
+ * centroids, so both surface here and the user picks — or picks neither.
+ *
+ * ⚠ THE AREA GUARD IS APPLIED ONLY TO A LONE CANDIDATE. A merged space is legitimately
+ * much larger than either room that fed it — that is what merging IS — so testing each
+ * half against the merged area would reject exactly the case this exists to serve. With
+ * two or more candidates the CONTAINMENT of both centroids is itself the evidence, and it
+ * is stronger than an area ratio. With one candidate there is no such corroboration, so
+ * the guard stays and stops a tombstone claiming an unrelated face that merely covers its
+ * old spot.
  */
-export function findTombstoneFor(room: RoomData): RoomTombstone | undefined {
+export function findTombstonesFor(room: RoomData): readonly RoomTombstone[] {
     try {
         const polygon = room?.boundary?.polygon;
         const area = room?.computed?.area;
-        if (!polygon || polygon.length < 3 || typeof area !== 'number') return undefined;
+        if (!polygon || polygon.length < 3 || typeof area !== 'number') return [];
 
         const list = _byLevel.get(String(room.levelId ?? ''));
-        if (!list || list.length === 0) return undefined;
+        if (!list || list.length === 0) return [];
 
+        const hits: RoomTombstone[] = [];
         for (let i = list.length - 1; i >= 0; i--) {
             const t = list[i]!;
-            const c = t.census;
-            if (c.areaM2 > 0 && area > 0) {
-                const ratio = Math.min(c.areaM2, area) / Math.max(c.areaM2, area);
-                if (ratio < TOMBSTONE_AREA_SIMILARITY_MIN) continue;
-            }
             const centroid = centroidOf(t.polygon);
             // §C73-PIP-CANONICAL — `(px, pz, polygon)`, three args. Measured from
             // `RoomPolygonUtils.ts:169`; a two-arg call silently threw into this
             // function's own catch and every match came back `undefined`.
-            if (pointInPolygon(centroid.x, centroid.z, polygon as RoomVertex[])) return t;
+            if (pointInPolygon(centroid.x, centroid.z, polygon as RoomVertex[])) hits.push(t);
         }
-        return undefined;
+        if (hits.length === 1) {
+            const c = hits[0]!.census;
+            if (c.areaM2 > 0 && area > 0) {
+                const ratio = Math.min(c.areaM2, area) / Math.max(c.areaM2, area);
+                if (ratio < TOMBSTONE_AREA_SIMILARITY_MIN) return [];
+            }
+        }
+        return hits;
     } catch (err) {
         console.warn('[roomTombstoneRegister] match failed (non-fatal):', err);
-        return undefined;
+        return [];
     }
 }
 
@@ -267,6 +293,18 @@ export function consumeTombstone(tombstone: RoomTombstone): void {
 export function describeTombstoneLimits(): string {
     return 'This restores the room’s details only. It is a new room, so anything anchored to '
         + 'the old one — a room tag, a schedule row — stays pointing at nothing.';
+}
+
+/**
+ * Did this offer arise from a MERGE (two or more rooms) rather than a single loss?
+ *
+ * ⭐ The user must be able to tell the two events apart: *"a room was lost"* and *"two
+ * rooms became one"* are different things that happened to their model, and the second
+ * one very often WANTS a new name rather than either old one. Exported so the copy and
+ * the tests agree on the definition instead of each counting the list themselves.
+ */
+export function isMergeOffer(candidates: readonly RoomTombstone[]): boolean {
+    return candidates.length >= 2;
 }
 
 /** Every tombstone currently held, newest first. Read-only; for probes and tests. */

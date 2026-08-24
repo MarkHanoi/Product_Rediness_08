@@ -1126,9 +1126,78 @@ export class RoomDetectionEngine {
       used.add(c.room.id);
     }
 
+    // ⭐⭐ §MERGE-AWARDS-NOBODY (L-10815) — FOUNDER RULING on C94 R-3, 2026-08-24:
+    // **REFUSE TO AWARD. TOMBSTONE BOTH HALVES. OFFER.**
+    //
+    // THE DEFECT THIS CLOSES. When two existing rooms merge into ONE detected face, both
+    // claim it and the loop above awards it to whichever claim sorts first. After
+    // `overlap` the tie-break is `dist` — the claimant centroid's distance to the
+    // detected centroid — and on a genuine merge the two overlaps are near-identical, so
+    // the winner was in practice decided by CENTROID PROXIMITY, a quantity with no
+    // semantic meaning. The survivor then carried one room's polygon under the OTHER
+    // room's name, number, occupancy and IFC identity.
+    //
+    // ⛔ That is not data loss, it is SILENT MISATTRIBUTION: a model that reads correct
+    // and EXPORTS WRONG. Losing a name is visible; a wrong name is not.
+    //
+    // ⚠⚠ THE FIRST IMPLEMENTATION OF THIS RULE WAS WRONG, AND AN EXISTING TEST CAUGHT
+    // IT. It read "a face claimed by two or more distinct rooms is contested", on the
+    // reasoning that `STRUCTURAL_MATCH_MIN_OVERLAP = 0.34` is calibrated so a mere
+    // neighbour never files a claim. **That reasoning was measured against the wrong
+    // shape.** The constant's own note reasons about two rooms sharing ONE party wall out
+    // of 4+4 (≈0.14). But two rooms formed by PARTITIONING one rectangle share THREE
+    // walls — both long sides and the partition — so each scores 3/5 = 0.6 against the
+    // other's face and files a perfectly ordinary claim. Under the first rule, MOVING A
+    // SHARED PARTITION (a reshape, where both rooms plainly survive) read as a merge and
+    // both rooms lost their names. `roomIdentityByStructure.test.ts` PART 3 —
+    // *"two DIFFERENT existing rooms keep their OWN identities across a shared-wall
+    // move"* — failed, and it was right to.
+    //
+    // ⭐ THE CORRECTED RULE: competition alone is not a merge. **A merge is competition
+    // where the loser has nowhere else to go.** A face is CONTESTED when two or more
+    // distinct rooms claimed it AND at least one of those claimants ended the assignment
+    // with no face of its own. On a shared-wall move both rooms are assigned — each to
+    // its own face — so nothing is contested and both keep their identities. On a real
+    // merge there is only one face, so exactly one claimant is left with nothing, and the
+    // award is withdrawn from both.
+    //
+    // ⛔ THE SPLIT DIRECTION IS UNTOUCHED. This counts DISTINCT ROOMS PER FACE; the
+    // PARTITION-FIX case is the transpose — one room, two faces — where every face has a
+    // single claimant, so no face is ever contested by it.
+    const contestedFaces = new Set<number>();
+    {
+      const roomsPerFace = new Map<number, Set<string>>();
+      for (const c of claims) {
+        const set = roomsPerFace.get(c.di) ?? new Set<string>();
+        set.add(c.room.id);
+        roomsPerFace.set(c.di, set);
+      }
+      const placed = new Set<string>();
+      for (const room of assigned.values()) placed.add(room.id);
+
+      for (const [di, roomIds] of roomsPerFace) {
+        if (roomIds.size < 2) continue;                       // uncontested
+        let orphaned = false;
+        for (const id of roomIds) if (!placed.has(id)) { orphaned = true; break; }
+        if (!orphaned) continue;                              // a reshape: all claimants placed
+        contestedFaces.add(di);
+        assigned.delete(di);                                  // nobody wins
+        // Seeding `used` withholds every claimant from the remaining award path in one
+        // line: `_findBestCentroidMatch` takes `used` as its exclusion set, so a room
+        // party to a merge cannot be quietly re-awarded to some other face by proximity.
+        for (const id of roomIds) used.add(id);
+      }
+    }
+
     return detected.map((d, di) => {
       // Structural match first; centroid only for what structure could not place.
-      const match = assigned.get(di) ?? this._findBestCentroidMatch(d, existing, used);
+      // ⛔ §MERGE-AWARDS-NOBODY — a CONTESTED face takes neither path. Falling through
+      // to the centroid fallback would re-introduce the arbitrary award the ruling
+      // removed, by the other door: the nearest centroid within 2 m is exactly the
+      // kind of proximity answer that has no semantic meaning here.
+      const match = contestedFaces.has(di)
+        ? undefined
+        : (assigned.get(di) ?? this._findBestCentroidMatch(d, existing, used));
       if (!match) return d;
 
       used.add(match.id);
