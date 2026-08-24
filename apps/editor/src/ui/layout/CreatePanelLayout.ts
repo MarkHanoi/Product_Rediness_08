@@ -156,7 +156,8 @@ export function mountCreatePanel(
                             // has no `balcony` key by design; the tool is PLAN-ONLY and the
                             // creation matrix declares that rather than pretending otherwise.
                             label: "Balcony",
-                            icon: "material-symbols:balcony",
+                            // §FEAT-NEW-CATEGORY-ICONS (L-10500) — was `material-symbols:balcony`.
+                            icon: PryzmIcons.pryzmBalcony,
                             action: () => {
                                 activatePlanOnlyToolOrExplain('balcony', 'Balcony');
                             },
@@ -179,7 +180,8 @@ export function mountCreatePanel(
                             //
                             // ⛔ NOT `props.toolManager.activateLift()`. See above.
                             label: "Lift",
-                            icon: "material-symbols:elevator-outline",
+                            // §FEAT-NEW-CATEGORY-ICONS (L-10500) — was `material-symbols:elevator-outline`.
+                            icon: PryzmIcons.pryzmLift,
                             action: () => {
                                 activatePlanOnlyToolOrExplain('lift', 'Lift');
                             },
@@ -202,7 +204,8 @@ export function mountCreatePanel(
                             // design; the tool is PLAN-ONLY and the creation matrix
                             // declares that rather than pretending otherwise.
                             label: "Boundary Line",
-                            icon: "material-symbols:polyline-outline",
+                            // §FEAT-NEW-CATEGORY-ICONS (L-10500) — was `material-symbols:polyline-outline`.
+                            icon: PryzmIcons.pryzmBoundaryLine,
                             action: () => {
                                 activatePlanOnlyToolOrExplain('boundary-line', 'Boundary Line');
                             },

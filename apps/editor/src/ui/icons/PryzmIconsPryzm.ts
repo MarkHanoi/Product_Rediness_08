@@ -11,6 +11,13 @@ const BL  = 'fill="none" stroke="currentColor" stroke-width="2"   stroke-linecap
 const BD  = 'fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"';
 const BDD = 'fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3,2"';
 const BP  = 'fill="none" stroke="currentColor" stroke-width="3"   stroke-linecap="round" stroke-linejoin="round"';
+// §FEAT-NEW-CATEGORY-ICONS (L-10500) — a PRIMARY-weight dashed pen. `BDD` is the
+// 1.1 px SECONDARY dash used for hidden/back edges inside a solid; a construction
+// line is not a hidden edge of something else — the dash IS its primary identity
+// (C09 §4.6.4, and `PenWeightTable`'s `'boundary-line'` row draws it dashed for the
+// same reason). Rendering that at secondary weight would make the one icon whose
+// subject is a line read fainter than every icon whose subject is a solid.
+const BLD = 'fill="none" stroke="currentColor" stroke-width="2"   stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7,4"';
 
 function blk(shapes: string, vb: string, size = 28): string {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" width="${size}" height="${size}" style="display:block">${shapes}</svg>`;
@@ -646,6 +653,110 @@ export const pryzmColumnRound = blk(`
 <line x1="83.18" y1="30.78" x2="91.44" y2="27.19" ${BL}/>
 <line x1="91.5" y1="27.19" x2="100.0" y2="30.73" ${BL}/>
 <line x1="99.79" y1="95.28" x2="95.64" y2="100.0" ${BL}/>
+`, '-4 -4 108 108');
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §FEAT-NEW-CATEGORY-ICONS (founder, 2026-08-24) — L-10500.
+//
+//   "Can you create nice icons for new categories following the pattern we have
+//    in SVG? This will be BALCONY / LIFT and BOUNDARY LINE."
+//
+// ⭐ THESE THREE ROWS WERE THE ONLY `material-symbols:` STRINGS IN THE WHOLE
+//    ARCHITECTURE PALETTE. Measured 2026-08-24 across BOTH create surfaces
+//    (`CreatePanelLayout.ts` and `CreateRailPanel.ts` — L-1380's rule that a
+//    capability must land on both): every other Architecture row resolves to a
+//    `PryzmIcons.pryzm*` glyph from this file, and balcony / lift / boundary-line
+//    resolved to `material-symbols:balcony`, `material-symbols:elevator-outline`
+//    and `material-symbols:polyline-outline`. They are rendered through a
+//    DIFFERENT path too — `PryzmIcons.iconFromName(...)` rather than
+//    `PryzmIcons.sized(...)` (`CreateRailPanel.ts:381-383`) — so the three newest
+//    tools were the three that did not look like PRYZM.
+//
+// ─── THE PROJECTION IS NOT A CHOICE, IT IS THE SET'S ─────────────────────────
+// Every axonometric glyph here is drawn on ONE basis, recovered by measuring
+// `pryzmRoom`'s own edges rather than by picking a pleasing angle:
+//
+//   dirX (right + down)  ≈ (+50, +20)   slope +0.40
+//   dirZ (right + up)    ≈ (+32, −13)   slope −0.40
+//
+// (`pryzmRoom` runs `0.15,15.7 → 60.91,39.69`, slope +0.395, and
+// `99.51,24.3 → 60.82,39.7`, slope −0.398.) The three glyphs below are built on
+// that basis at the same `-4 -4 108 108` viewBox, so they sit in the same
+// projection as Wall, Slab, Roof, Stair, Room and Column instead of merely near
+// them. Weights follow the same convention: `BL` for the read-me-first outline,
+// `BD` for secondary/back edges, `BLD` for a construction dash.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Balcony — a cantilevered plate off a wall face, balustraded on its three free
+ * edges. C103's compound, drawn as what it is: slab + handrail + host wall.
+ *
+ * The HOST WALL is drawn (in `BD`, secondary) rather than omitted. A balcony is a
+ * HOSTED compound — `BalconyPlanToolHandler`'s first mode snaps it to a wall — and
+ * a plate floating free would picture the one thing the tool cannot make.
+ */
+export const pryzmBalcony = blk(`
+<line x1="42" y1="39" x2="92" y2="59" ${BD}/>
+<line x1="42" y1="39" x2="42" y2="13" ${BD}/>
+<line x1="92" y1="59" x2="92" y2="33" ${BD}/>
+<line x1="42" y1="13" x2="92" y2="33" ${BD}/>
+<polygon points="10,52 60,72 92,59 42,39" fill="none" ${BL}/>
+<line x1="10" y1="52" x2="10" y2="60" ${BL}/>
+<line x1="60" y1="72" x2="60" y2="80" ${BL}/>
+<line x1="92" y1="59" x2="92" y2="67" ${BL}/>
+<polyline points="10,60 60,80 92,67" fill="none" ${BL}/>
+<line x1="10" y1="52" x2="10" y2="34" ${BD}/>
+<line x1="60" y1="72" x2="60" y2="54" ${BD}/>
+<line x1="92" y1="59" x2="92" y2="41" ${BD}/>
+<line x1="42" y1="39" x2="42" y2="21" ${BD}/>
+<line x1="26" y1="45" x2="26" y2="27" ${BD}/>
+<line x1="35" y1="62" x2="35" y2="44" ${BD}/>
+<line x1="76" y1="65" x2="76" y2="47" ${BD}/>
+<polyline points="42,21 10,34 60,54 92,41" fill="none" ${BL}/>
+`, '-4 -4 108 108');
+
+/**
+ * Lift — the shaft, with the ISO crossed-diagonal car symbol on its plate and a
+ * two-leaf landing door on the near face.
+ *
+ * ⭐ THE CROSS IS THE SYMBOL, NOT DECORATION. A crossed rectangle is how a lift
+ * reads on an architectural plan, so the glyph carries the same mark the drawing
+ * does. Without it a bare axonometric box is indistinguishable from a column or a
+ * duct at 28 px, which is the size this is actually rendered at.
+ */
+export const pryzmLift = blk(`
+<polygon points="18,62 58,78 86,67 46,51" fill="none" ${BL}/>
+<line x1="18" y1="62" x2="86" y2="67" ${BD}/>
+<line x1="58" y1="78" x2="46" y2="51" ${BD}/>
+<line x1="18" y1="62" x2="18" y2="28" ${BL}/>
+<line x1="58" y1="78" x2="58" y2="44" ${BL}/>
+<line x1="86" y1="67" x2="86" y2="33" ${BL}/>
+<line x1="46" y1="51" x2="46" y2="17" ${BD}/>
+<polygon points="18,28 58,44 86,33 46,17" fill="none" ${BL}/>
+<polygon points="25,65 51,75 51,49 25,39" fill="none" ${BD}/>
+<line x1="38" y1="70" x2="38" y2="44" ${BD}/>
+`, '-4 -4 108 108');
+
+/**
+ * Boundary Line — the AUTHORED setting-out polyline: a dashed closed ring with a
+ * node at every vertex it was clicked at.
+ *
+ * ⭐ DASHED, AND CLOSED, ON PURPOSE — both halves are the feature.
+ *  · DASHED is the element's identity, not a style: `PenWeightTable`'s
+ *    `'boundary-line'` row is `[10, 4]` and `BoundaryLinePlanToolHandler` previews
+ *    `setLineDash([10, 4])`. An icon drawn solid would name a different object.
+ *  · CLOSED, with the nodes shown, pictures the gesture the founder asked for —
+ *    click the vertices, press ENTER, get a RING (§FIX-BOUNDARY-LINE-ENTER-CLOSES).
+ *
+ * ⛔ NOT the cadastral parcel outline (C19 §1.4 — legal, surveyed, immutable). The
+ * nodes are what distinguishes them: this is a line somebody DREW.
+ */
+export const pryzmBoundaryLine = blk(`
+<polygon points="8,56 50,82 94,58 52,32" fill="none" ${BLD}/>
+<rect x="4"  y="52" width="8" height="8" ${BL}/>
+<rect x="46" y="78" width="8" height="8" ${BL}/>
+<rect x="90" y="54" width="8" height="8" ${BL}/>
+<rect x="48" y="28" width="8" height="8" ${BL}/>
 `, '-4 -4 108 108');
 
 /** Architecture (category icon) — source: Architecture.SVG (34 lines) */

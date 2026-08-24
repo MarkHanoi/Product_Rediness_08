@@ -162,10 +162,37 @@ const SYSTEM_PEN_TABLE: Partial<Record<PenZone, Partial<Record<string, PenStyle>
         // Absent zones fall to `FALLBACK_PEN`, which is the correct and stated behaviour
         // for a category the zone does not apply to.
         //
-        // ⭐ PRYZM purple `#6600FF`, the brand's construction-geometry colour and the
-        // same one `BoundaryLinePlanToolHandler` previews in — so what the architect
-        // aims at and what lands are the same colour rather than two.
-        'boundary-line': pen(0.13, '#6600ff', [10, 4]),
+        //
+        // ═══ ⭐ BLACK, AND THAT OVERTURNS THE PURPLE THIS ROW SHIPPED WITH (L-10503) ═══
+        //
+        // The founder, 2026-08-24, verbatim: *"please make the boundary construction
+        // line DASHED BLACK by default."* This row previously read `#6600ff` with the
+        // rationale *"the same colour `BoundaryLinePlanToolHandler` previews in — so
+        // what the architect aims at and what lands are the same colour rather than
+        // two."*
+        //
+        // That argument was sound and it is still REJECTED, because it optimised the
+        // wrong pair. The PREVIEW is tool chrome — drawn on the overlay canvas, alive
+        // for the two seconds a gesture lasts, and PRYZM purple is what EVERY plan tool
+        // previews in (`STROKE = '#6600ff'` in all of them). The COMMITTED line is
+        // DRAWING, and a drawing is printed, exported to DXF and read by a contractor.
+        // Matching the committed line to the transient preview made the setting-out
+        // line the ONE datum on the sheet that is not a drafting colour — `grid` is
+        // `#0000cc`, `level` is `#334155`, `annotation` is `#000000`. It now joins them.
+        //
+        // ⚠ THE DASH IS UNCHANGED AND IS NOT A ZONE DASH. `[10, 4]` is an ISO 128-24
+        // category convention for a DATUM — the same exemption `grid` `[8, 4]` and
+        // `level` `[5, 3]` take from C09 §4.6.4's *"dashed ONLY for true hidden edges"*,
+        // which is why `DATUM_CATEGORIES` exists and why the ladder guard skips these
+        // four explicitly.
+        //
+        // ⛔ AND THIS DOES NOT TOUCH 3-D. `BoundaryLineMeshBuilder`'s
+        // `BOUNDARY_LINE_PEN_HEX` is still `#6600ff` and is DELIBERATELY left so — see
+        // that constant's own header, and §L-426. The pen table governs the 2-D
+        // DRAWING; the 3-D scene has its own (C09-pen-shaped) authority, and they are
+        // allowed to differ because a viewport is not a sheet. Collapsing them would be
+        // a second bug wearing the first one's fix as a disguise.
+        'boundary-line': pen(0.13, '#000000', [10, 4]),
     },
 
     // ── BEYOND zone — past the cut plane, DELIBERATELY still shown. ──
@@ -357,7 +384,17 @@ export function categoryFromFlags(flags: {
     isFurniture?: boolean;
     isHandrail?:  boolean;
     isWindow?:    boolean;
+    /**
+     * §FIX-BOUNDARY-LINE-INVISIBLE-IN-PLAN (L-10502) — the construction / setting-out
+     * line. Optional, like the three flags above it, so no existing caller changes.
+     */
+    isBoundaryLine?: boolean;
 }): string {
+    // ⭐ FIRST. `boundary-line` is a DATUM (`DrawingZone.DATUM_CATEGORIES`), and a datum
+    // must not be claimed by a fabric family that happens to also match. It cannot
+    // collide today — `A-CONS` shares no substring with the ten fabric layers — and
+    // ordering it first means it still cannot when an eleventh is added.
+    if (flags.isBoundaryLine) return 'boundary-line';
     if (flags.isWall)      return 'wall';
     if (flags.isCol)       return 'column';
     if (flags.isDoor)      return 'door';
@@ -411,5 +448,10 @@ export function penCategoryForLayerTag(layerTag: string): string {
         isFurniture: /A-FURN|furniture/i.test(layerTag),
         isHandrail:  /A-HRAL|handrail/i.test(layerTag),
         isWindow:    /A-GLAZ|window/i.test(layerTag),
+        // ⚠ `A-CONS|boundary-line`, NOT a bare /boundary/. `RoomBoundingLine` is a
+        // different object entirely (an invisible room-detection splitter — C106 §0.2
+        // tabulates all three "boundary" things this repo owns), and a loose regex would
+        // hand it the construction-line pen the first time anything projected one.
+        isBoundaryLine: /A-CONS|boundary-line/i.test(layerTag),
     });
 }

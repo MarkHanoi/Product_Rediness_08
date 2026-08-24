@@ -41,6 +41,23 @@ export interface UpdateBoundaryLinePayload {
     readonly materialId?: string;
     readonly materialColor?: string;
     readonly name?: string;
+    /**
+     * ⭐ §FEAT-BOUNDARY-LINE-PINNED (L-10504) — THE UNPIN ROUTE, and it belongs HERE.
+     *
+     * `pinned` is the one geometry-ADJACENT field that is not geometry: flipping it
+     * moves nothing, renumbers no segment and re-anchors no attachment, so it is
+     * exactly the class of change this payload exists for. §40 §3 draws the same line
+     * for grids — `TogglePinGridCommand` is an ordinary update, while the geometry it
+     * guards is refused.
+     *
+     * ⛔ AND WITHOUT IT THE PIN WOULD BE A TRAP. A default of `true` with no way to
+     * clear it is not "pinned", it is "immutable", and the founder asked for the
+     * former. `[[refusing-half-needs-its-escape-hatch]]` (L-942) is the standing
+     * receipt: a gate whose "yes" branch goes nowhere is a REGRESSION with a contract
+     * citation attached. The refusal in `MoveBoundaryLineCommand` names this field by
+     * name so the user is told which door to open.
+     */
+    readonly pinned?: boolean;
 }
 
 export class UpdateBoundaryLineHandler
@@ -91,6 +108,8 @@ implements CommandHandler<UpdateBoundaryLinePayload, Stores> {
         for (const k of [
             'hasVolume', 'height', 'thickness', 'baseOffset',
             'systemTypeId', 'materialId', 'materialColor', 'name',
+            // §FEAT-BOUNDARY-LINE-PINNED (L-10504) — see the payload field's note.
+            'pinned',
         ] as const) {
             const v = cmd[k];
             if (v !== undefined) patch[k] = v;

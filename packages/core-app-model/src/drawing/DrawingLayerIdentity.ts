@@ -107,6 +107,14 @@ export const ISO_LAYER_TO_VG_CATEGORY: Readonly<Record<string, string>> = {
     'A-CEIL': 'ceiling',
     'A-GRID': 'grid',
     'A-LEVL': 'level',
+    // §FIX-BOUNDARY-LINE-INVISIBLE-IN-PLAN (L-10502) — the construction / setting-out
+    // line's ISO layer. It sits beside `A-GRID` and `A-LEVL` because it is the same
+    // KIND of thing: a DATUM, not building fabric (`DrawingZone.DATUM_CATEGORIES`
+    // already lists `boundary-line` alongside `grid` and `level`, and
+    // `VGSceneApplicator` already maps the scene nodes to the same category). Without
+    // this row a boundary line's linework is UNCLASSIFIED, so the VG governance panel
+    // has no toggle for it and the founder cannot hide his own setting-out lines.
+    'A-CONS': 'boundary-line',
     // Structural discipline (ISO 13567) — see the note above.
     'S-COLS': 'column',
     'S-BEAM': 'beam',

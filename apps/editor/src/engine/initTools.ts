@@ -116,6 +116,8 @@ import { registerElementLevelChangeBridge } from './elementLevelChangedMirror';
 import { registerElementUpdateBridge } from './elementUpdatedMirror';
 // §FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9944) — the boundary line's 3-D builder.
 import { BoundaryLineMeshBuilder } from './BoundaryLineMeshBuilder';
+// §FIX-BOUNDARY-LINE-INVISIBLE-IN-PLAN (L-10502) — the 2-D sibling of the builder above.
+import { installBoundaryLinePlanSymbolBuilder, type BoundaryLinePlanEntry } from './BoundaryLinePlanSymbolBuilder';
 import { WindowTool } from '@pryzm/geometry-window';
 import { DoorTool } from '@pryzm/geometry-door';
 import { CurtainWallTool } from '@pryzm/geometry-curtain-wall';
@@ -1794,7 +1796,48 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 `[initTools] §FT-BOUNDARY-LINE: '${ev.boundaryLineId}' deleted — ` +
                 (had ? 'group disposed' : 'nothing was drawn for it'));
         });
-        console.log('[initTools] §FT-BOUNDARY-LINE: boundaryLine.created/updated/deleted bus→builder bridge registered.');
+
+        // ⭐ §FIX-BOUNDARY-LINE-INVISIBLE-IN-PLAN (L-10502) — THE PLAN HALF, INSTALLED HERE.
+        //
+        // The founder: *"I could see the boundary line in 3D view but NOT in plan view —
+        // which is where we define it and where I saw the preview."* The 3-D bridge above
+        // is why he saw it in 3-D; nothing was the reason he saw it in plan, because no
+        // plan-symbol producer existed for this family. The note eight lines up said so
+        // — *"there is no plan SYMBOL builder for this family yet (L-9948), so registering
+        // is what makes the id and its storey KNOWN to the plan pipeline, not what draws
+        // it"* — and that sentence is now out of date in the good direction.
+        //
+        // ⭐ THE READER IS INSTALLED HERE RATHER THAN THE STORE, and that is the point.
+        // `EdgeProjectorService` imports the builder at module load, long before a runtime
+        // exists, so it cannot be handed a store. `initTools` already owns BOTH lookups
+        // this needs — `runtime.stores.boundaryLine` (with its ONE documented cast) and
+        // `_boundaryLineElevation` — so the closure below reuses them verbatim instead of
+        // minting a second route to the family's single authority (C106 §1 / C84 EI-1).
+        //
+        // ⚠ IT RE-READS THE STORE ON EVERY PROJECTION, deliberately. No cache: the plan
+        // is re-projected when `viewDependencyTracker` says the level changed, and a
+        // producer holding its own snapshot is how a moved line keeps drawing where it
+        // used to be. `ColumnPlanSymbolBuilder` states the same rule (§02 §1.2).
+        installBoundaryLinePlanSymbolBuilder((levelId: string): readonly BoundaryLinePlanEntry[] => {
+            const slot = runtime.stores as unknown as Record<string, unknown> | undefined;
+            const store = slot?.['boundaryLine'] as
+                | { getState?: () => Map<string, Record<string, unknown>> }
+                | undefined;
+            const state = store?.getState?.();
+            if (!state) return [];
+            const elevation = _boundaryLineElevation(levelId);
+            const out: BoundaryLinePlanEntry[] = [];
+            for (const record of state.values()) {
+                if (record['levelId'] !== levelId) continue;
+                out.push({
+                    record: record as unknown as BoundaryLinePlanEntry['record'],
+                    baseElevation: elevation,
+                });
+            }
+            return out;
+        });
+
+        console.log('[initTools] §FT-BOUNDARY-LINE: boundaryLine.created/updated/deleted bus→builder bridge registered, plan-symbol reader installed.');
     }
 
     // §P3.1-CW (IMPL-PLAN-2026-05-17): bus → legacy-CurtainWallStore bridge.

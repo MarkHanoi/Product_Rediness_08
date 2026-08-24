@@ -96,6 +96,12 @@ import { windowPlanSymbolBuilder } from '@pryzm/geometry-window';
 // §FIX-PLAN-LAYERED-WALL-SYMBOL (L-62) — internal layer-boundary lines for LAYERED walls in
 // plan (the wall's OUTER footprint is already projected; this adds the core+finish lines).
 import { wallLayerPlanSymbolBuilder } from '@pryzm/geometry-wall';
+// §FIX-BOUNDARY-LINE-INVISIBLE-IN-PLAN (L-10502) — the construction / setting-out line's
+// plan producer. It is the FIRST thing this family has ever had on this seam: the founder
+// could see a boundary line in 3-D and not in plan, and the reason was that nothing emitted
+// linework for it, NOT that a camera layer was wrong (the plan pane is Canvas2D and has no
+// camera). See that builder's header for the refuted hypothesis and the measurement.
+import { boundaryLinePlanSymbolBuilder } from '../BoundaryLinePlanSymbolBuilder';
 // §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) / C09 §4.6.4a — the wall's ISO 13567 / Revit
 // FUNCTION (envelope vs. partition). geometry-wall owns the wall semantics; core-app-model owns
 // the pen. This service is the ONE place the fact crosses from the model into the drawing.
@@ -3927,6 +3933,23 @@ export class EdgeProjectorService {
             viewDef.viewType === 'structural-plan'
         ) {
             if (_symbolGate('wall')) wallLayerPlanSymbolBuilder.inject(drawing, viewDef);
+        }
+
+        // §FIX-BOUNDARY-LINE-INVISIBLE-IN-PLAN (L-10502) — the construction / setting-out line.
+        //
+        // ⭐ Gated on `'boundary-line'`, which is the family's OWN intent key — the one
+        // `VisibilityIntentDefaults`, `VGSceneApplicator` and `DATUM_CATEGORIES` already
+        // spell that way. Passing any other string would silently resolve a different
+        // family's visibility and the gate would answer a question nobody asked.
+        //
+        // Same plan-family triple as the wall, column and stair injectors above: a
+        // ground-plane setting-out line is edge-on and meaningless in elevation/section.
+        if (
+            viewDef.viewType === 'plan' ||
+            viewDef.viewType === 'detail' ||
+            viewDef.viewType === 'structural-plan'
+        ) {
+            if (_symbolGate('boundary-line')) boundaryLinePlanSymbolBuilder.inject(drawing, viewDef);
         }
 
         // §FEAT-PLUMBING-PLAN-ELEV-SYMBOLS (L-221 P3) — elevation symbol injection.

@@ -189,12 +189,98 @@ export class BoundaryLinePlanToolHandler implements PlanToolHandler {
         if (this._points.length >= MIN_PATH_VERTS) this._commit(false);
     }
 
+    /**
+     * ⭐ §FIX-BOUNDARY-LINE-ENTER-CLOSES (founder, 2026-08-24) — L-10501 · C84 EI-9.
+     *
+     * THE ONE closure predicate for this tool. ENTER and the on-screen hint both ask
+     * THIS, so the hint can never advertise a key that refuses — the exact defect
+     * `CurtainWallTool._canClosePolyline()` was minted to kill (C87 §13.8 CW-Poly-1:
+     * its HUD button was labelled `↵` while ENTER was bound to *finish*, and the key
+     * that actually closed was `C`, advertised nowhere).
+     *
+     * THREE vertices, not two, and the floor is the SCHEMA's, not a taste:
+     * `BoundaryLine`'s second refine is *"A closed boundary line needs at least 3
+     * vertices"*. Asking here means a refusable ring is refused BEFORE the gesture
+     * ends, rather than surfacing as a Zod message after the architect thought he had
+     * drawn one.
+     *
+     * ⛔ NOT reused from the wall, and that is a MEASURED decision rather than a
+     * shrug. `WallPlanToolHandler`'s rule (`:376` — `_wallSegmentCount >= 2 &&
+     * _polylineFirstPoint && _wallFirstPoint`) is expressed over THREE pieces of
+     * wall-private state that this tool does not have and must not grow: the wall
+     * commits ONE `wall.create` PER SEGMENT as you click, so its "close" means *emit
+     * one more segment back to the origin*. A boundary line accumulates vertices and
+     * commits ONE record carrying a `closed` FLAG, so its "close" means *set the flag*
+     * — the schema's third refine explicitly forbids repeating the first vertex to
+     * signal closure. Same word, two different operations; sharing the predicate would
+     * force one of them to lie. C87 §13.8 already recorded that wall exposes nothing
+     * to reuse and that its own rule is re-typed FIVE times with the copies DRIFTED;
+     * extracting those five is a lane of its own and is NOT done here.
+     */
+    private _canClosePolyline(): boolean {
+        return !activeBoundaryLineLoopMode()
+            && this._arcMidPt === null
+            && this._points.length >= MIN_LOOP_VERTS;
+    }
+
+    /**
+     * Close the chain back to its origin and commit it as a RING.
+     *
+     * ⚠ IT ADDS NO VERTEX. `closed: true` IS the closing segment — the schema refuses
+     * a closed line whose last vertex repeats its first (*"must be an OPEN loop"*), and
+     * `BoundaryLineMeshBuilder` re-closes the polyline itself for drawing. Pushing
+     * `this._points[0]` here would produce a record that fails `canExecute` at the bus
+     * and a zero-length final segment if it did not.
+     *
+     * ⚠ AND IT RESETS THE STROKE, via `_commit`'s tail. C84 EI-9 — a close that draws
+     * the ring but leaves the tool's own state dirty is a half-fix; `CurtainWallTool`'s
+     * `C`-key alias carried exactly that bug (it omitted `_polySegmentCount = 0`) until
+     * it was made to delegate. `_commit()` cannot early-return here because
+     * `_canClosePolyline()` has already guaranteed `length >= MIN_LOOP_VERTS`, which is
+     * the `need` it checks.
+     */
+    private _closePolyline(): void {
+        if (!this._canClosePolyline()) return;
+        this._commit(true);
+    }
+
     onKeyDown(e: KeyboardEvent): boolean {
-        if (e.key === 'Enter' && this._points.length >= MIN_PATH_VERTS
-            && !activeBoundaryLineLoopMode() && !this._arcMidPt) {
-            e.preventDefault();
-            this._commit(false);
-            return true;
+        // ⭐ §FIX-BOUNDARY-LINE-ENTER-CLOSES (L-10501) — ENTER CLOSES THE RING.
+        //
+        // ⛔ IT DID NOT. The founder: *"I started to define the lines in plan view, and
+        // once I was happy, to connect back to the first point I clicked ENTER, but the
+        // line did not connect as a wall does."* He was right, and the mechanism was one
+        // argument: this branch called `this._commit(false)`. Every ENTER produced an
+        // OPEN path, however many vertices had been clicked and wherever the last one
+        // sat — so the gesture that exists to close a loop was the gesture that
+        // guaranteed it stayed open. `closed` is AUTHORED on this family (the schema
+        // says so in as many words), and nothing in the plan tool ever authored it true
+        // outside the rectangle/circle/ellipse modes.
+        //
+        // ENTER now CLOSES when there is a ring to close, and FINISHES otherwise — two
+        // vertices are a chain, not a loop, and finishing it is the only correct reading
+        // (the previous behaviour is preserved exactly there). Same ladder as
+        // `CurtainWallTool`'s ENTER after C87 §13.8.
+        //
+        // ⚠ DOUBLE-CLICK IS DELIBERATELY *NOT* CHANGED TO MATCH, and this is the one
+        // place this tool must NOT copy the wall. `WallPlanToolHandler.onDoubleClick`
+        // closes, because a wall chain has no meaningful open form to commit. A boundary
+        // line's open form is FIRST-CLASS — `MIN_PATH_VERTS` is 2 precisely because *"a
+        // single 10 m run is a perfectly good setting-out line"* — so if double-click
+        // closed too, there would be NO gesture left that finishes an open path. The
+        // two keys therefore mean two different things, and the hint says which is which
+        // rather than leaving the architect to discover it.
+        if (e.key === 'Enter' && !activeBoundaryLineLoopMode() && !this._arcMidPt) {
+            if (this._canClosePolyline()) {
+                e.preventDefault();
+                this._closePolyline();
+                return true;
+            }
+            if (this._points.length >= MIN_PATH_VERTS) {
+                e.preventDefault();
+                this._commit(false);
+                return true;
+            }
         }
         if (e.key === 'Backspace' && this._arcMidPt) {
             this._arcMidPt = null;
@@ -399,14 +485,24 @@ export class BoundaryLinePlanToolHandler implements PlanToolHandler {
     private _hintFor(mode: string): string {
         const label = mode === 'ortho' ? 'Orthogonal' : mode === 'curved' ? 'Curved' : 'Linear';
         const volume = activeBoundaryLineHasVolume() ? ' · VOLUME on' : '';
+        // ⭐ §FIX-BOUNDARY-LINE-ENTER-CLOSES (L-10501) — THE HINT ASKS THE PREDICATE.
+        // It does not re-derive "can I close?" from a vertex count of its own: a hint
+        // that names ENTER while ENTER refuses teaches the architect the feature is
+        // broken, which is precisely how the founder's report reads. One rule, two
+        // readers.
         if (mode === 'curved' && this._points.length > 0) {
-            return this._arcMidPt
-                ? 'Curved · Click the arc END point · Backspace to re-pick midpoint'
-                : `Curved · Click the arc MIDPOINT${this._points.length >= MIN_PATH_VERTS ? ' · Enter to finish' : ''}`;
+            if (this._arcMidPt) return 'Curved · Click the arc END point · Backspace to re-pick midpoint';
+            const tail = this._canClosePolyline()
+                ? ' · Enter to CLOSE · Dbl-click to finish open'
+                : (this._points.length >= MIN_PATH_VERTS ? ' · Enter to finish' : '');
+            return `Curved · Click the arc MIDPOINT${tail}`;
+        }
+        if (this._canClosePolyline()) {
+            return `${label}${volume} · Enter to CLOSE the ring · Dbl-click to finish it open`;
         }
         const missing = MIN_PATH_VERTS - this._points.length;
         return this._points.length >= MIN_PATH_VERTS
-            ? `${label}${volume} · Dbl-click or Enter to finish the boundary line`
+            ? `${label}${volume} · Dbl-click or Enter to finish · 1 more point to close a ring`
             : `${label}${volume} · ${missing} more point${missing !== 1 ? 's' : ''} needed`;
     }
 

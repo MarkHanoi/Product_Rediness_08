@@ -208,6 +208,44 @@ export const BoundaryLine = defineElement('boundaryLine', {
 
   /** Free-text name shown in the browser and the property panel. */
   name: z.string().optional(),
+
+  /**
+   * ⭐ §FEAT-BOUNDARY-LINE-PINNED (founder, 2026-08-24) — L-10504 · C106 · §40 §3.
+   *
+   * The founder: *"It should be PINNED but SELECTABLE."*
+   *
+   * ⭐ THE SEMANTIC IS BORROWED, NOT MINTED, AND THAT MATTERS. `Grid.isPinned`
+   * (`BimKernel.ts:71`) already means EXACTLY this and has since §40 §3: *"its geometry
+   * … is locked against mutation. Visual, naming and visibility updates remain
+   * allowed."* `GridStore.update()` enforces it, `TogglePinGridCommand` flips it,
+   * `BimGridRenderer` draws the pinned grid in amber with a pin glyph — and a pinned
+   * grid stays fully selectable and inspectable throughout. That is the founder's
+   * sentence, already ratified, already implemented once. Inventing a second word
+   * (`locked`, `frozen`, `readonly`) for the same idea is how one concept becomes two
+   * that drift, which is the C84 EI-9 failure this repo keeps paying for.
+   *
+   * ⚠ THE SPELLING DIFFERS FROM THE GRID'S ON PURPOSE. The grid's field is `isPinned`
+   * because `Grid` is a legacy `BimKernel` interface whose booleans all carry the `is`
+   * prefix (`isVisible`, `isPinned`). Every boolean on THIS element is bare
+   * (`closed`, `hasVolume`), and matching the family it lives in beats matching the
+   * family it borrowed from — a reader of this schema should not have to know where
+   * the idea came from. The MEANING is identical and that is what is shared.
+   *
+   * ⭐ DEFAULT `true` — A SETTING-OUT LINE ARRIVES PINNED. This is the one place the
+   * default is not merely conservative: a construction line exists to be built
+   * AGAINST, so an architect drags walls, slabs and columns onto it all day. If it
+   * were draggable it would be the thing most likely to be nudged by accident, and
+   * nudging it carries every dependent with it (C106 §3). The founder asked for
+   * pinned-by-default and the geometry of the gesture agrees with him.
+   *
+   * ⛔ PINNED IS **NOT** HIDDEN, AND **NOT** UNSELECTABLE. Nothing in selection,
+   * hit-testing, snapping, the property panel or visibility reads this field — by
+   * design. It is read in exactly one place, `MoveBoundaryLineCommand.canExecute`,
+   * which is the ONE route to this element's geometry (`boundaryLine.update` refuses
+   * `vertices` and `closed` outright — see `UpdateBoundaryLinePayload`). One field,
+   * one reader, one meaning.
+   */
+  pinned: z.boolean().default(true),
 })
   // (1) A boundary line with zero length is not a line. Mirrors the Wall and Slab
   //     non-degeneracy refines: a zero-length run would produce an undefined

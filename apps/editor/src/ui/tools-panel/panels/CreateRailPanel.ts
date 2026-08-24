@@ -733,7 +733,8 @@ export class CreateRailPanel {
                         // "Create Stair" defect exactly.
                         label:    'Balcony',
                         shortcut: 'Alt+Shift+A',
-                        icon:     'material-symbols:balcony',
+                        // §FEAT-NEW-CATEGORY-ICONS (L-10500) — was `material-symbols:balcony`.
+                        icon:     PryzmIcons.pryzmBalcony,
                         action: () => {
                             activatePlanOnlyToolOrExplain('balcony', 'Balcony');
                         },
@@ -767,7 +768,8 @@ export class CreateRailPanel {
                         // through, in ONE undo entry.
                         label:    'Lift',
                         shortcut: 'Alt+Shift+V',
-                        icon:     'material-symbols:elevator-outline',
+                        // §FEAT-NEW-CATEGORY-ICONS (L-10500) — was `material-symbols:elevator-outline`.
+                        icon:     PryzmIcons.pryzmLift,
                         action: () => {
                             activatePlanOnlyToolOrExplain('lift', 'Lift');
                         },
@@ -805,7 +807,8 @@ export class CreateRailPanel {
                         // L-1380 is what happens when only one of them learns about a tool.
                         label:    'Boundary Line',
                         shortcut: 'Alt+Shift+N',
-                        icon:     'material-symbols:polyline-outline',
+                        // §FEAT-NEW-CATEGORY-ICONS (L-10500) — was `material-symbols:polyline-outline`.
+                        icon:     PryzmIcons.pryzmBoundaryLine,
                         action: () => {
                             activatePlanOnlyToolOrExplain('boundary-line', 'Boundary Line');
                         },

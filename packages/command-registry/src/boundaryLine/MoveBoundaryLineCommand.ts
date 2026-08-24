@@ -175,6 +175,35 @@ export class MoveBoundaryLineCommand implements Command {
         if (!line) {
             return { ok: false, reason: `Boundary line "${this.payload.boundaryLineId}" not found.` };
         }
+        // ⭐ §FEAT-BOUNDARY-LINE-PINNED (L-10504) · C106 · §40 §3 — THE PIN, ENFORCED AT
+        // THE ONE PLACE THE GEOMETRY CAN CHANGE.
+        //
+        // The founder: *"It should be PINNED but SELECTABLE."* Those are two different
+        // subsystems and only ONE of them is here. SELECTABLE is not implemented by
+        // anything in this file — it is implemented by NOT touching selection at all, and
+        // by `BoundaryLinePlanSymbolBuilder` registering the plan linework's element UUID
+        // so `PlanViewCanvas.hitTest()` can resolve it. PINNED is this check.
+        //
+        // ⭐ IT IS FIRST, BEFORE EVERY OTHER VALIDATION, AND THAT IS DELIBERATE. A pinned
+        // line refuses a WELL-FORMED move as firmly as a malformed one, so asking about
+        // shape first would let a malformed drag on a pinned line report the wrong reason
+        // — the user would fix the vertex count and be refused again for the real cause.
+        // Answer the question that is actually blocking.
+        //
+        // ⚠ THE REFUSAL NAMES THE WAY OUT. C16 CA-18 / C74: never clamp, never guess, and
+        // never leave the user holding a "no" with no door. `boundaryLine.update` accepts
+        // `pinned`, so the sentence below says exactly that.
+        if (line.pinned) {
+            return {
+                ok: false,
+                reason:
+                    `Boundary line "${this.payload.boundaryLineId}" is PINNED, so its geometry is `
+                    + `locked and ${line.attachments.length} attached element(s) stay where they are. `
+                    + `A setting-out line is pinned by default because it is what everything else is `
+                    + `built against. Unpin it first (boundaryLine.update with pinned: false), then `
+                    + `move it. It stays selectable and inspectable either way — nothing was moved.`,
+            };
+        }
         const v = this.payload.vertices;
         if (!Array.isArray(v) || v.length < 2) {
             return { ok: false, reason: 'A boundary line needs at least 2 vertices.' };
