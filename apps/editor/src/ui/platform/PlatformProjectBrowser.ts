@@ -652,40 +652,106 @@ export class PlatformProjectBrowser {
         overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
 
         const body = overlay.querySelector('#plat-members-body') as HTMLElement;
-        apiFetch(`/api/projects/${this.ctx.projectId}/members`)
-            .then(r => r.json())
-            .then(({ members }) => {
-                if (!members || members.length === 0) {
-                    body.innerHTML = `<div style="text-align:center;color:#888;padding:24px;font-size:13px;">No team members yet.<br><small>Add members from the Project Hub context menu.</small></div>`;
-                    return;
-                }
-                const roleLabel: Record<string, string> = {
-                    appointing_party: 'Appointing Party', lead_appointed: 'Lead Appointed',
-                    team_manager: 'Team Manager', team_member: 'Team Member', viewer: 'Viewer',
-                };
-                body.innerHTML = `
-                    <div style="display:flex;flex-direction:column;gap:6px;">
-                        ${members.map((m: any) => {
-                            const name = m.display_name || m.user_id || 'Unknown';
-                            const initials = name.slice(0, 2).toUpperCase();
-                            return `
-                                <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#f8f9fc;border-radius:8px;border:1px solid #dde3f0;">
-                                    <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#6600FF,#8B3FF2);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;">${initials}</div>
-                                    <div style="flex:1;min-width:0;">
-                                        <div style="font-size:13px;font-weight:600;color:#1a2035;">${this.escHtml(name)}</div>
-                                        ${m.email ? `<div style="font-size:11px;color:#888;">${this.escHtml(m.email)}</div>` : ''}
-                                    </div>
-                                    <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:rgba(102,0,255,0.1);color:#6600FF;">${roleLabel[m.role] ?? m.role}</span>
-                                    ${!m.accepted_at ? `<span style="font-size:10px;padding:2px 6px;background:#fff7ed;color:#d97706;border-radius:8px;border:1px solid #fed7aa;">Pending</span>` : ''}
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                `;
-            })
-            .catch(() => {
-                body.innerHTML = `<div style="text-align:center;color:#dc2626;padding:24px;font-size:13px;">Could not load members.</div>`;
-            });
+        void this.loadWorkspaceMembersInto(body);
+    }
+
+    /**
+     * §FIX-MEMBERS-ABSENT-VS-UNREACHABLE (COLLAB47, 2026-08-24) — the SECOND
+     * surface that rendered a failed members read as a confident empty one.
+     *
+     * The pre-fix body was `apiFetch(url).then(r => r.json()).then(({members}) =>
+     * { if (!members || members.length === 0) → "No team members yet." })`.
+     * `res.ok` was NEVER CHECKED, so an HTTP 400 / 403 / 503 whose body is
+     * `{error: "..."}` yields `members === undefined` and lands in the
+     * empty-state branch. A request that FAILED is presented as a successful
+     * answer meaning "nobody is on this project" — C01 §6 rule 6, ABSENT and
+     * UNREACHABLE reported as the same value, and the two have opposite fixes.
+     * The `.catch()` below it only ever covered a NETWORK failure, which is why
+     * the founder's 400 never reached it.
+     *
+     * The identical defect in `ProjectMemberPanel` is what this lane was called
+     * for; fixing only the one the founder happened to open would leave the next
+     * failure free to lie on the other.
+     */
+    private async loadWorkspaceMembersInto(body: HTMLElement): Promise<void> {
+        body.innerHTML = `<div style="text-align:center;color:#888;padding:24px;">Loading members…</div>`;
+        try {
+            const res = await apiFetch(`/api/projects/${this.ctx.projectId}/members`);
+            if (!res.ok) {
+                // Carry the STATUS CODE through. "400" and "503" send the reader
+                // to different places; a bare "could not load" sends them nowhere.
+                const payload = await res.json().catch(() => null);
+                const detail = payload && typeof payload.error === 'string' ? payload.error : (res.statusText || '');
+                throw new Error(`HTTP ${res.status}${detail ? ` — ${detail}` : ''}`);
+            }
+            const payload = await res.json().catch(() => null);
+            const members = payload && Array.isArray(payload.members) ? payload.members : null;
+            if (members === null) {
+                // A 200 whose body carries no member list is a failed read
+                // wearing a success code. It is not "zero members".
+                throw new Error('HTTP 200 but the response carried no member list.');
+            }
+            this.renderWorkspaceMembers(body, members, typeof payload.source === 'string' ? payload.source : null);
+        } catch (e: unknown) {
+            this.renderWorkspaceMembersError(body, e instanceof Error ? e.message : String(e));
+        }
+    }
+
+    /** The failure state — it must never be mistakable for an empty project. */
+    private renderWorkspaceMembersError(body: HTMLElement, detail: string): void {
+        body.innerHTML = `
+            <div id="plat-members-error" role="alert" style="color:#dc2626;padding:20px 16px;font-size:13px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;">
+                <div style="font-weight:700;">Could not load the member list.</div>
+                <div style="margin-top:4px;font-size:11px;color:#b91c1c;">${this.escHtml(detail)}</div>
+                <div style="margin-top:4px;font-size:11px;color:#b91c1c;">This is not a report that the project has no members — the list is unknown until this read succeeds.</div>
+                <button id="plat-members-retry" type="button" style="margin-top:10px;padding:4px 12px;font-size:12px;font-weight:600;color:#dc2626;background:#fff;border:1px solid #fecaca;border-radius:5px;cursor:pointer;">Retry</button>
+            </div>
+        `;
+        // §L-942 — a refusal owes the user its escape hatch.
+        body.querySelector<HTMLButtonElement>('#plat-members-retry')
+            ?.addEventListener('click', () => { void this.loadWorkspaceMembersInto(body); });
+    }
+
+    private renderWorkspaceMembers(body: HTMLElement, members: unknown[], source: string | null): void {
+        if (members.length === 0) {
+            const volatile = source === 'memory'
+                ? `<br><small style="color:#d97706;">Membership on this server is held in memory only — invites will not survive a restart.</small>`
+                : '';
+            body.innerHTML = `<div id="plat-members-empty" style="text-align:center;color:#888;padding:24px;font-size:13px;">No team members yet.<br><small>Add members from the Project Hub context menu.</small>${volatile}</div>`;
+            return;
+        }
+        const roleLabel: Record<string, string> = {
+            appointing_party: 'Appointing Party', lead_appointed: 'Lead Appointed',
+            team_manager: 'Team Manager', team_member: 'Team Member', viewer: 'Viewer',
+        };
+        body.innerHTML = `
+            <div style="display:flex;flex-direction:column;gap:6px;">
+                ${members.map((raw) => {
+                    // Both shapes are accepted on purpose: the Postgres/Supabase
+                    // rows are snake_case and the in-memory store is camelCase.
+                    // A reader that knows only one renders every member as
+                    // "Unknown" against the other — silently.
+                    const m = raw as Record<string, unknown>;
+                    const str = (v: unknown): string => (typeof v === 'string' && v.length > 0 ? v : '');
+                    const name = str(m.display_name) || str(m.displayName) || str(m.user_id) || str(m.userId) || str(m.email) || 'Unknown';
+                    const email = str(m.email);
+                    const role = str(m.role);
+                    const accepted = m.accepted_at ?? m.acceptedAt ?? null;
+                    const initials = name.slice(0, 2).toUpperCase();
+                    return `
+                        <div class="plat-member-row" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#f8f9fc;border-radius:8px;border:1px solid #dde3f0;">
+                            <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#6600FF,#8B3FF2);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;">${this.escHtml(initials)}</div>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size:13px;font-weight:600;color:#1a2035;">${this.escHtml(name)}</div>
+                                ${email ? `<div style="font-size:11px;color:#888;">${this.escHtml(email)}</div>` : ''}
+                            </div>
+                            <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:rgba(102,0,255,0.1);color:#6600FF;">${this.escHtml(roleLabel[role] ?? role)}</span>
+                            ${!accepted ? `<span style="font-size:10px;padding:2px 6px;background:#fff7ed;color:#d97706;border-radius:8px;border:1px solid #fed7aa;">Pending</span>` : ''}
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
     }
 
     // ── CDE Document State Modal ──────────────────────────────────────────────
