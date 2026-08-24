@@ -4549,10 +4549,10 @@ const _projectMembersHandlers = makeProjectMembersHandlers({
     getProjectsMap: () => pgProjectStore.imProjectsMapAdapter,
     isPlatformOwner: (userId) => getUserPlan(userId) === 'owner',
     canAccessProject: (userId, projectId) => _httpCanAccess(userId, projectId),
-    // Injected verbatim, positional signature unchanged, so the move cannot
-    // alter a single authorization verdict.
-    resolveProjectRole: (supabase, projectId, userId, ownerId, isOwner) =>
-        resolveProjectRole(supabase, projectId, userId, ownerId, isOwner),
+    // Injected verbatim — every argument passed straight through, including the
+    // §FIX-ROLE-READ-ON-PG `opts.pool`, so the wrapper cannot silently drop the
+    // Postgres branch the handler asked for.
+    resolveProjectRole,
 });
 
 app.get('/api/projects/:id/members', authMiddleware, _projectMembersHandlers.list);
@@ -4601,7 +4601,13 @@ app.post('/api/projects/:id/versions/:vid/transition', authMiddleware, async (re
             }
         }
 
-        const callerRole = await resolveProjectRole(supabase, id, userId, ownerId, isOwner);
+        // §FIX-ROLE-READ-ON-PG (COLLAB49) — this route already read `owner_id`
+        // from Postgres (the comment above says why), but the ROLE fallback did
+        // not: a real `project_members` row still resolved through the in-memory
+        // Map and granted nothing here either. Threading the pool closes that on
+        // the transition route too. No new rule; the same row, read where it
+        // actually lives.
+        const callerRole = await resolveProjectRole(supabase, id, userId, ownerId, isOwner, { pool: getPgPool() });
 
         const opts = { reason, revisionCode, suitabilityCode, structuredName };
         const result = supabase

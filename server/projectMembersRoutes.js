@@ -59,10 +59,11 @@ import {
  * @property {(userId: string, projectId: string) => Promise<boolean>} canAccessProject
  *           `server.js`'s `_httpCanAccess` — owner-or-member read gate.
  * @property {(supabase: object|null, projectId: string, userId: string,
- *            projectOwnerId: string|null, isOwner: boolean) => Promise<string|null>} resolveProjectRole
- *           `server.js`'s role resolver. Injected verbatim, positional signature
- *           unchanged, so this extraction cannot alter a single authorization
- *           verdict.
+ *            projectOwnerId: string|null, isOwner: boolean,
+ *            opts?: {pool?: object|null}) => Promise<string|null>} resolveProjectRole
+ *           `server/projectAccess.js`'s role resolver, injected so a test can
+ *           supply the real one against a fake pool. The handlers pass
+ *           `{pool: getPgPool()}` — see §FIX-ROLE-READ-ON-PG.
  */
 
 /** Every dependency is required — a missing one must fail loudly at wiring time,
@@ -181,7 +182,11 @@ export function makeProjectMembersHandlers(deps) {
             // §FIX-OWNER-READ-ON-PG — `ownerId` now comes from whichever store
             // actually holds the project. See `ownerIdFor` above.
             const ownerId = await ownerIdFor(supabase, id);
-            const callerRole = await resolveProjectRole(supabase, id, userId, ownerId, isOwner);
+            // §FIX-ROLE-READ-ON-PG (COLLAB49) — the pool is threaded through so a
+            // REAL `project_members` row resolves to a REAL role on a PostgreSQL
+            // deployment. Without it this fell through to an empty in-process Map
+            // and 403'd a collaborator the access gate had already admitted.
+            const callerRole = await resolveProjectRole(supabase, id, userId, ownerId, isOwner, { pool: getPgPool() });
 
             if (!hasPermission(callerRole, 'invite_member', isOwner)) {
                 return res.status(403).json({ error: 'Forbidden — only lead_appointed or appointing_party may add members.' });
@@ -242,7 +247,11 @@ export function makeProjectMembersHandlers(deps) {
             const supabase = await getSupabaseClient();
             // §FIX-OWNER-READ-ON-PG — was `supabase ? … : null`, i.e. null on PG.
             const ownerId = await ownerIdFor(supabase, id);
-            const callerRole = await resolveProjectRole(supabase, id, userId, ownerId, isOwner);
+            // §FIX-ROLE-READ-ON-PG (COLLAB49) — the pool is threaded through so a
+            // REAL `project_members` row resolves to a REAL role on a PostgreSQL
+            // deployment. Without it this fell through to an empty in-process Map
+            // and 403'd a collaborator the access gate had already admitted.
+            const callerRole = await resolveProjectRole(supabase, id, userId, ownerId, isOwner, { pool: getPgPool() });
 
             if (!hasPermission(callerRole, 'change_role', isOwner)) {
                 return res.status(403).json({ error: 'Forbidden — insufficient role to change member roles.' });
@@ -270,7 +279,11 @@ export function makeProjectMembersHandlers(deps) {
             const supabase = await getSupabaseClient();
             // §FIX-OWNER-READ-ON-PG — was `supabase ? … : null`, i.e. null on PG.
             const ownerId = await ownerIdFor(supabase, id);
-            const callerRole = await resolveProjectRole(supabase, id, userId, ownerId, isOwner);
+            // §FIX-ROLE-READ-ON-PG (COLLAB49) — the pool is threaded through so a
+            // REAL `project_members` row resolves to a REAL role on a PostgreSQL
+            // deployment. Without it this fell through to an empty in-process Map
+            // and 403'd a collaborator the access gate had already admitted.
+            const callerRole = await resolveProjectRole(supabase, id, userId, ownerId, isOwner, { pool: getPgPool() });
 
             if (!hasPermission(callerRole, 'remove_member', isOwner)) {
                 return res.status(403).json({ error: 'Forbidden — insufficient role to remove members.' });

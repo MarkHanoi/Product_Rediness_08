@@ -379,24 +379,98 @@ export async function readProjectOwnerId({ supabase = null, pool = null, project
 // to a 240 KB module that binds ports at import time, so no test could reach it.
 import { getMemberFromSupabase, getUserRole } from './projectMembers.js';
 
+// ── §FIX-ROLE-READ-ON-PG (COLLAB49, 2026-08-24) ──────────────────────────────
+//
+// THE SECOND HALF OF THE SAME DEFECT. `resolveProjectRole` spoke exactly two
+// backends — Supabase, or the volatile in-process Map behind `getUserRole()`.
+// Production speaks NEITHER: it runs PostgreSQL via DATABASE_URL, and
+// `getSupabaseClient()` returns null there. So on production a REAL
+// `project_members` row — written by the very POST route this file also serves,
+// read correctly by `canUserAccessProject` twenty lines up, and enough to admit
+// the user to the project's Socket.io room — granted NOTHING to the invite /
+// change-role / remove-member routes. It fell through to an empty Map, resolved
+// to `null`, and 403'd.
+//
+// That is the same missing-Postgres-branch shape as L-806(b), on the third and
+// last surface of it. The row already exists; nothing here decides who may do
+// what. It only reads the role out of the store the role is actually kept in.
+//
+// ⛔ DENY-BY-DEFAULT IS UNCHANGED AND MUST STAY UNCHANGED. No row ⇒ no role ⇒
+// the caller's `hasPermission(null, …)` is false ⇒ 403, exactly as before. A row
+// carrying a role string the matrix does not know is refused rather than
+// guessed at, the same way `_validRole` already governs `canUserAccessProject`.
+// A missing branch must never become a permissive branch.
+
+/**
+ * Reads ONE user's `project_members` role out of PostgreSQL.
+ *
+ * Served by the table's `UNIQUE (project_id, user_id)` constraint index
+ * (dbMigrate.js §4), so this is an index probe, not a scan, on an authorization
+ * path that runs on every members write.
+ *
+ * A pool error PROPAGATES. Degrading it into "no role" would turn a transient
+ * blip into a silent, permanent-looking 403 for a legitimate collaborator —
+ * the §FIX-DEGRADE-HONESTY (L-789) defect. The caller's own catch turns it into
+ * a 500, which is at least the truth: we could not read.
+ *
+ * @returns {Promise<string|null>} a role string as stored, or null when absent.
+ */
+export async function readProjectMemberRole(pool, projectId, userId) {
+    const { rows } = await pool.query(
+        `SELECT role FROM project_members WHERE project_id = $1 AND user_id = $2 LIMIT 1`,
+        [projectId, userId],
+    );
+    return rows?.[0]?.role ?? null;
+}
+
 /**
  * Resolves the requesting user's CDE role for a given project.
  * Project owner/platform-owner always has 'lead_appointed' (or as specified).
  * Falls through to member record lookup.
+ *
+ * Source priority for the membership read is supabase → postgres → in-memory —
+ * the SAME order `canUserAccessProject` uses, so the room-join gate and the
+ * members-write gate cannot disagree about a user's role.
  *
  * @param {object|null} supabase
  * @param {string} projectId
  * @param {string} userId
  * @param {string|null} projectOwnerId  The STORED owner — see `readProjectOwnerId`.
  * @param {boolean} isOwner             true for the PLATFORM owner plan, not the project owner.
+ * @param {{pool?: object|null}} [opts] `pool` is the Postgres pool. Omitting it
+ *        preserves the pre-2026-08-24 behaviour exactly (supabase → in-memory).
  * @returns {Promise<string|null>} an ISO 19650 role key, or null (⇒ deny).
  */
-export async function resolveProjectRole(supabase, projectId, userId, projectOwnerId, isOwner) {
+export async function resolveProjectRole(supabase, projectId, userId, projectOwnerId, isOwner, opts = {}) {
     if (isOwner) return 'lead_appointed';
-    if (userId === projectOwnerId) return 'lead_appointed';
+    // TIGHTENING, not a widening: previously a bare `userId === projectOwnerId`,
+    // which would have granted `lead_appointed` had both sides ever been null or
+    // undefined together. No current call site can produce that — the routes pass
+    // `req.auth?.userId ?? 'anonymous'` — but an authorization boundary should not
+    // depend on that remaining true.
+    if (userId && projectOwnerId && userId === projectOwnerId) return 'lead_appointed';
+
     if (supabase) {
         const row = await getMemberFromSupabase(supabase, projectId, userId);
-        return row?.role ?? null;
+        // `_validRole` added here for the same reason it guards the Supabase
+        // branch of `canUserAccessProject`: refuse data the matrix cannot parse.
+        // Observably identical — `hasPermission` already rejected any role string
+        // outside the matrix — but the refusal is now stated, not incidental.
+        return _validRole(row?.role);
     }
-    return getUserRole(projectId, userId);
+
+    // ── The branch that did not exist ────────────────────────────────────────
+    const pool = opts?.pool ?? null;
+    if (pool) {
+        const role = _validRole(await readProjectMemberRole(pool, projectId, userId));
+        if (role) return role;
+        // No PG row: fall through to the in-memory Map below rather than
+        // returning null here. That is deliberate and it is NOT a widening —
+        // this exact fallback is what the pre-fix code did on the Postgres
+        // deployment (it called `getUserRole()` unconditionally). Removing it
+        // would REVOKE the only membership that works today on a self-host or
+        // dev process that has both a pool and pre-existing in-memory members.
+    }
+
+    return _validRole(getUserRole(projectId, userId));
 }
