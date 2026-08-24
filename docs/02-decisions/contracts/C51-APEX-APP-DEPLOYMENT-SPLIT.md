@@ -129,11 +129,123 @@ The app's CSP is emitted by [`server/securityHeaders.js`](../../../server/securi
 
 Two blockers remain before `check-app-strict-csp` can pass (blocker 3 — `connect-src` — was **RESOLVED + shipped 2026-06-02**, see §3.1.2.2):
 
-1. **`script-src 'unsafe-eval'` → `'wasm-unsafe-eval'`.** `'unsafe-eval'` is currently required by Three.js shader compilation + Cesium's internal `eval()` (documented in `securityHeaders.js:83-90`). Tracked for removal in **Phase J** (ADR-0247 WebGPU worker migration). Flipping it now breaks 3D rendering + geospatial. Needs a full-app run to verify after the eval paths are gone.
+1. **`script-src 'unsafe-eval'` → `'wasm-unsafe-eval'`.** ⚠ **This row previously read *"required by Three.js shader compilation + Cesium's internal `eval()`… tracked for removal in Phase J (ADR-0247 WebGPU worker migration)"*. Both halves were wrong, and one of them was a guess wearing a citation.** Three.js does not eval anything (GLSL goes to `gl.shaderSource`, which `script-src` does not govern — measured 2026-08-07, zero `eval(`/`new Function(` in the 1.87 MB `vendor-three-*` chunk), so **Phase J / ADR-0247 was never the gating work**, and *"Cesium's internal `eval()`"* named no caller. The caller is now NAMED and the load-path half is CLOSED — see §3.1.2.3; the promotion criteria are §3.1.2.4.
 2. **`style-src 'unsafe-inline'` → `'self'`.** The editor injects its theme as a runtime `<style>` block (`injectAppTheme()` in `apps/editor/src/ui/styles/AppTheme.ts`). Removing `'unsafe-inline'` requires migrating CSS-in-JS to a hashed/nonce'd stylesheet or an external `.css` link. Non-trivial; needs its own slice.
 3. ~~**`connect-src`**~~ — **RESOLVED 2026-06-02** (§3.1.2.2): config-derived `buildConnectSrc` ships the exact `SUPABASE_URL`-derived origin (wildcard fallback), drops the dead AI entry, and makes insecure `ws:` dev-only. Residual (scope blanket `wss:`) deferred to a CSP-reporting-driven slice — see §3.1.2.2.
 
 Therefore `check-app-strict-csp` (§7) stays **deferred** — it cannot pass until (1)+(2) ship (blocker 3 is done). This note is the closure roadmap; flipping `script-src`/`style-src` is its own tested PR (each needs a full-app run).
+
+##### §3.1.2.3 — `script-src`: the eval callers, NAMED (MEASURED 2026-08-24 · L-10420 · lane CSP26)
+
+§3.1.2.2 shipped the strict policy in the report-only slot precisely so this directive could be
+narrowed *"from real production telemetry rather than guesswork"*. The founder read the first line
+of that telemetry in his production console on **2026-08-24**:
+
+> *"Evaluating a string as JavaScript violates the following Content Security Policy directive
+> because `'unsafe-eval'` is not an allowed source of script: `"script-src 'self' 'wasm-unsafe-eval'
+> blob:"`. The policy is report-only, so the violation has been logged but no further action has
+> been taken."*
+
+That is the **shadow** policy reporting, not the enforced one — nothing was broken. It is also the
+first genuinely actionable datum this mechanism has produced, and it has now been resolved to a
+file, a line and a column.
+
+**Method (MEASURED, not grepped).** Headless Chromium was pointed at the shipped `dist/` behind the
+shadow's exact `script-src`, and the DOM `securitypolicyviolation` event — which carries
+`sourceFile` / `lineNumber` / `columnNumber` — was captured in both `report` and `enforce`
+disposition. A static scan cannot see a minifier-renamed alias or a dynamically-built call; this
+does not have that failure mode. (⚠ A grep *had* already been run here, on 2026-08-07, and its
+conclusion — "Three.js does not eval" — was true but was mistaken for the whole answer. That is the
+[[probe-can-be-wrong-three-ways]] discipline, and it is why the row above is rewritten rather than
+extended.)
+
+**THE CALLER**
+
+```
+directive=script-src  blocked=eval  source=/cesium/Cesium.js  line=17925  col=49
+```
+
+`dist/cesium/Cesium.js:17925:49` is the **Knockout 3.5.1** UMD prelude, vendored inside **CesiumJS
+1.143.0** (`node_modules/cesium/Build/Cesium/Cesium.js`, byte 5628397):
+
+```js
+var t = this || (0,eval)("this")      // the classic "get the global object" idiom
+```
+
+The Cesium bundle carries a **top-level `"use strict"`** (byte 848), so inside that plain-called
+IIFE `this` is `undefined`, the `||` does **not** short-circuit, and the indirect `eval` **runs at
+module-evaluation time**. `vite-plugin-cesium` injects `<script src="/cesium/Cesium.js">` as the
+**first, parser-blocking tag in `<head>`**, so it fires on **every page, including the marketing
+landing page**, before anything else executes — exactly "the first line on load".
+
+⭐ **This is world (a): a dependency we do not control. It is NOT cosmetic.** Measured in **enforce**
+disposition, unpatched: the `EvalError` escapes the top-level IIFE, evaluation of the whole bundle
+aborts, and **`typeof window.Cesium === 'undefined'`** — the entire geospatial subsystem is dead.
+**Anyone promoting this policy to enforcing without this fix would have taken 3D Site down, and it
+would have read as an unrelated outage.**
+
+**THE FIX — and what was rejected.** `stripCesiumLoadTimeEvalPlugin()` in
+[`vite.config.ts`](../../../vite.config.ts) (§CSP-CESIUM-KNOCKOUT-EVAL) rewrites the single
+occurrence to `globalThis` after `vite-plugin-cesium` copies the bundle — semantics-preserving
+(indirect `eval("this")` evaluates in global sloppy scope and returns the global object, which is
+what `globalThis` *is*), **byte-length-preserving** so line/column offsets in this un-source-mapped
+vendor bundle keep pointing where they did, and **fail-closed**: anything other than exactly one
+occurrence throws and stops the build.
+
+| Rejected | Why |
+|---|---|
+| Add `'unsafe-eval'` to the shadow | It is already granted in the **enforced** policy; the entire point is to remove it. ⛔ **CSP cannot scope `'unsafe-eval'`** — there is no per-script, per-hash or per-origin form of that keyword. "Grant it narrowly, just for Cesium" is not a thing that exists. |
+| `pnpm patch cesium` | A unified diff over a 5.9 MB minified bundle whose hunk is one multi-megabyte line. Unreviewable, and it rots silently on a version bump. |
+| `defer` / dynamic-`import()` Cesium (APPLICATION-PERFORMANCE-LEDGER §8.1 item 5) | **Delays** the eval; never removes it. Worth doing — for a different reason. |
+| Swap the dependency | There is no substitute for the geospatial subsystem. Not a real option. |
+
+**VERIFIED END-TO-END** through a real `vite build` with the plugin registered, then a browser load
+of that output under the **ENFORCED** strict policy: **0 violations, 0 page errors, `window.Cesium`
+present**, and `new Cesium.Viewer(...)` with PRYZM's exact options (`CesiumViewport.ts:2059` — every
+Knockout widget disabled) constructs with **zero `script-src` violations**. So Cesium's *other*
+Knockout eval (`parseBindingsString`, the data-bind compiler) is **not on PRYZM's path**.
+
+##### §3.1.2.4 — Can `script-src` be PROMOTED to enforcing? **NOT YET — and this is exactly what blocks it**
+
+⛔ **NO.** The app-shell load path is clean after §3.1.2.3, but the load path is not the app. The
+same measurement enumerated everything else that can still `eval`, split honestly:
+
+**BENIGN — measured, not blockers.** Each short-circuits or self-heals in a browser:
+
+| Site | Shape | Why it is not a blocker |
+|---|---|---|
+| `vendor-dxf-*.js` | lodash `root` detection `Function("return this")()` | `self` is truthy first; the call is never evaluated. |
+| `vendor-thatopen-*.js` ×2, `jszip.min-*.js` | `setimmediate` polyfill `new Function(""+S)` | Reached only if `setImmediate` is called with a **string**. Nothing does. |
+| `packages/ai-host/src/workflows/VoiceCommand.ts:111`, `packages/constraint-solver/src/engine.ts:497` | **PRYZM's own — the only two** — `new Function('s','return import(s)')`, a deliberate bundler-opaque dynamic import | Both gated on an env var read from `process.env`, which the browser does not have; both return their mock **before** reaching the call. Delete them when those adapters ship. |
+| `domain-engine-*.js` | **Zod 4.4.3** — a JIT capability probe `new Function("")` plus `Doc.compile()` validator codegen | ⭐ **Self-healing.** The probe sits inside Zod's own `try/catch`; under an enforced policy Zod reports once and falls back to its jitless interpreter. Measured: enforce + the Cesium fix = **1 report, 0 errors**. ⛔ We deliberately do **not** set `z.config({ jitless: true })` — that buys console quiet with a repo-wide validation slowdown *today*, while the enforced policy still permits the JIT. |
+
+**REAL BLOCKERS — Emscripten `new Function` invoker codegen, which runs during embind type
+registration (i.e. at WASM-module init, i.e. it would throw):**
+
+| Chunk | Trigger |
+|---|---|
+| `vendor-rhino3dm-*.js` ×2 **and** `public/libs/rhino3dm/rhino3dm.js` ×2 | Rhino import (`RhinoImporter.ts:72`, `setLibraryPath('/libs/rhino3dm/')`) |
+| `manifold-*.js` ×2 | boolean geometry |
+| `cesium/Cesium.js` ×2 (bytes 2563266 / 2575513) | Cesium's own WASM glue |
+| `index-DS-*.js` ×6 | `ndarray` typed-constructor codegen, lazy-loaded from the domain-engine chunk |
+
+⚠ **None of these was exercised by the load-path measurement, and §3.1.2.2's own warning applies
+verbatim: silence over a window that never ran them proves nothing.** The promotion criteria are
+therefore explicit:
+
+1. The Cesium load-path fix ships (**DONE** — §3.1.2.3).
+2. The shadow is watched across a window that actually runs **an IFC import, a Rhino import, a
+   boolean geometry op and a 3D-site session** — the four surfaces above.
+3. Each `new Function` blocker either reports clean (the codegen is not reached) or is closed on its
+   own terms. **`'unsafe-eval'` cannot be scoped, so there is no partial promotion** — the enforced
+   `script-src` narrows all at once or not at all.
+4. Only then does `SCRIPT_SRC_PROD` in `server/securityHeaders.js` become
+   `["'self'", "'wasm-unsafe-eval'", 'blob:']`, and `check-app-strict-csp` (§7) loses blocker (1).
+
+**Until then the enforced policy keeps `'unsafe-eval'` and the shadow keeps reporting.** ⭐ What
+changed is that its reports are now a **named, catalogued** list instead of an open question: a
+`script-src` report from a source **not in the tables above is a NEW eval caller** — most likely a
+dependency bump — and must be treated as one.
 
 ##### §3.1.2.2 — `connect-src` resolution (RATIFIED + IMPLEMENTED 2026-06-02)
 
@@ -390,7 +502,7 @@ Five went live 2026-06-02 — the three apex-output gates (`npm run check:apex`)
 | `check-apex-size` | `scripts/check/check-apex-size.mjs` | ✅ **LIVE** (`npm run check:apex`) | Sums gzipped byte size of `dist-apex/` (excludes `_headers`/`_redirects`/dotfiles **and streamed media, which is measured on its own 24 MB raw budget** — §6.1.3.1); fails if either budget is exceeded. Enforces §6.1.3. | Phase A |
 | `check-apex-no-auth-cookies` | `scripts/check/check-apex-no-auth-cookies.mjs` | ✅ **LIVE** (`npm run check:apex`) | Scans the apex build output (`dist-apex/`) + the pre-render source for any `Set-Cookie` / `document.cookie` / `req.cookies` / `res.cookie(` usage (comment lines skipped). Enforces §2.2.1. | Phase A (with the first apex deploy) |
 | `check-no-product-routes-in-docs-site` | `scripts/check/check-no-product-routes-in-docs-site.mjs` | ✅ **LIVE** (`npm run check:docs-site`, in the `apex-gates` CI job) | Fails any PR adding `apps/docs-site/src/pages/{index,pricing,manifesto,trust,start,solutions,resources}.astro` (or successors). Enforces §2.1.5 + §8 + the ADR-0255 retirement. The 5 marketing pages + `gen-docs-site-pricing.mjs` + `pricing.json` were deleted (A.17.x.14); only `404.astro` remains in the docs-site. | Phase A close |
-| `check-app-strict-csp` | `scripts/check/check-app-strict-csp.mjs` | ⚪ planned | Lints `server.js` middleware + the SPA build for inline `<script>` without nonce, `unsafe-inline` / `unsafe-eval` in the CSP header, missing `default-src 'self'`. Enforces §3.1.2. **Deferred — §3.1.2.1: blocker 3 (`connect-src`) RESOLVED 2026-06-02; 2 remain (Three.js/Cesium `unsafe-eval` → Phase J · CSS-in-JS `unsafe-inline` → nonce migration), each needs a full-app run.** | Phase A (gates the Fly deploy) |
+| `check-app-strict-csp` | `scripts/check/check-app-strict-csp.mjs` | ⚪ planned | Lints `server.js` middleware + the SPA build for inline `<script>` without nonce, `unsafe-inline` / `unsafe-eval` in the CSP header, missing `default-src 'self'`. Enforces §3.1.2. **Deferred — §3.1.2.1: blocker 3 (`connect-src`) RESOLVED 2026-06-02; 2 remain. Blocker 1 (`unsafe-eval`) is NOT "Three.js/Cesium → Phase J" — that was refuted 2026-08-24; its callers are NAMED in §3.1.2.3, the load-path one is REMOVED, and the promotion criteria are §3.1.2.4. Blocker 2 (CSS-in-JS `unsafe-inline`) still needs the nonce migration.** | Phase A (gates the Fly deploy) |
 | `check-route-surface-assignment` | `scripts/check/check-route-surface-assignment.mjs` | ✅ **LIVE** (`npm run check:route-surface`, in the `apex-gates` CI job) | Statically asserts `server.js` 301-redirects every apex marketing path (`/pricing` · `/manifesto` · `/trust`) to `APEX_ORIGIN` under an `app.pryzm.so` host guard, and that `apps/editor/src/router.ts` reaches in-app marketing via the `?page=` slot rather than owning an apex path. Enforces §3.2.1 + §5. Behaviour also tested in `security-gates-adr-055.test.ts` §5 (T5.1–T5.3). | Phase A |
 | `check-dns-map-honoured` | runtime probe + alert | ⚪ planned | Periodic DNS resolution check against §4; alerts on a `pryzm.so` resolution drift (e.g. CNAME flipped to Fly). | Phase A close |
 

@@ -49659,3 +49659,122 @@ five files** — the tree will hard-fail a Fly build until that lane cleans up
 silently drops any concurrent append. This entry was re-appended from a scratchpad copy. **Appending
 to ISSUE-LOG.md is not safe under a live fleet** — the same shared-tree hazard as the global stash
 stack, one file over.
+
+---
+
+### L-10420 — ⭐⭐ **"THE POLICY IS REPORT-ONLY, SO NOTHING BROKE" — AND THE ONE LINE IT REPORTED WOULD HAVE KILLED CESIUM OUTRIGHT ON THE DAY ANYONE ENFORCED IT** · lane CSP26 · 2026-08-24 · **CALLER NAMED + LOAD-PATH CLOSED; PROMOTION STILL BLOCKED (named)**
+
+The founder's production console, first line on load at `https://app.pryzm.so`:
+
+> *"Evaluating a string as JavaScript violates the following Content Security Policy directive
+> because `'unsafe-eval'` is not an allowed source of script: `"script-src 'self'
+> 'wasm-unsafe-eval' blob:"`. **The policy is report-only**, so the violation has been logged but
+> no further action has been taken."*
+
+That is `strictCspShadowMiddleware` (C51 §3.1.2.2) working exactly as designed — the **shadow**
+policy reporting, not the enforced one. ⭐ **Which is precisely why it was worth chasing: a
+report-only violation is a dress rehearsal for an outage, and this one had a body count.**
+
+**THE CALLER — MEASURED, NOT GREPPED.** Headless Chromium against the shipped `dist/` behind the
+shadow's exact `script-src`, reading the DOM `securitypolicyviolation` event (`sourceFile` /
+`lineNumber` / `columnNumber`), in both dispositions:
+
+```
+directive=script-src  blocked=eval  source=/cesium/Cesium.js  line=17925  col=49
+```
+
+`dist/cesium/Cesium.js:17925:49` — byte 5628397 of `node_modules/cesium/Build/Cesium/Cesium.js`
+(**CesiumJS 1.143.0**) — is the **Knockout 3.5.1** UMD prelude:
+
+```js
+var t = this || (0,eval)("this")
+```
+
+⭐ **The `||` does NOT save it, and that is the whole mechanism.** Cesium's bundle opens with a
+top-level `"use strict"` (byte 848), so inside that plain-called IIFE `this` is `undefined`, the
+short-circuit fails open, and the indirect `eval` runs **at module-evaluation time**.
+`vite-plugin-cesium` injects `<script src="/cesium/Cesium.js">` as the **first, parser-blocking tag
+in `<head>`** — so it fires on **every page, marketing landing page included**, before anything
+else executes. Hence "first line on load", verbatim.
+
+⚠ **IT IS NOT COSMETIC — measured in ENFORCE disposition, unpatched:**
+
+```
+[pageerror] EvalError: Evaluating a string as JavaScript violates ... script-src 'self' 'wasm-unsafe-eval' blob:
+typeof window.Cesium  ->  undefined
+```
+
+The `EvalError` escapes the top-level IIFE, evaluation of the whole 5.9 MB bundle aborts, and the
+Cesium global is never defined. **The entire geospatial subsystem — 3D Site, context, terrain,
+Forma massing — dies, on every page, and it would have read as an unrelated outage.** This is world
+(a): a dependency we do not control.
+
+**THE FIX.** `stripCesiumLoadTimeEvalPlugin()` in `vite.config.ts` (§CSP-CESIUM-KNOCKOUT-EVAL)
+rewrites the single occurrence to `globalThis` after `vite-plugin-cesium` copies the bundle.
+Semantics-preserving (indirect `eval("this")` evaluates in global sloppy scope and returns the
+global object — which is what `globalThis` *is*), **byte-length-preserving** (padded, so line/column
+offsets in this un-source-mapped vendor bundle keep pointing where they did), **fail-closed**
+(anything but exactly one occurrence throws and stops the build), and ordered by
+`closeBundle: { sequential: true }` rather than by array position, because Rollup runs `closeBundle`
+hooks in PARALLEL and a race against the copy loses on a fast disk.
+
+**VERIFIED END-TO-END, through a real `vite build`:** plugin fired · `(0,eval)` occurrences in the
+built `Cesium.js` = **0** · byte length identical · then that output loaded in a browser under the
+**ENFORCED** strict policy → **0 violations, 0 page errors, `window.Cesium` present**, and
+`new Cesium.Viewer(...)` with PRYZM's exact options (`CesiumViewport.ts:2059`, every Knockout widget
+disabled) constructed with **zero `script-src` violations** — so Cesium's *other* Knockout eval
+(`parseBindingsString`) is not on PRYZM's path either.
+
+⛔ **WHAT WAS REJECTED, and why it matters more than what was chosen:**
+- **Adding `'unsafe-eval'`** — it is *already* granted in the enforced policy; removing it is the
+  entire point. ⭐ **And CSP cannot scope `'unsafe-eval'`**: there is no per-script, per-hash or
+  per-origin form of that keyword. "Grant it narrowly, just for Cesium" **is not a thing that
+  exists.** Anyone who believes they have fenced it has not.
+- **`pnpm patch cesium`** — a unified diff over a 5.9 MB minified bundle whose hunk is one
+  multi-megabyte line. Unreviewable.
+- **`defer` / dynamic-`import()` Cesium** (APPLICATION-PERFORMANCE-LEDGER §8.1 item 5) — **delays**
+  the eval, never removes it. Worth doing, for a different reason.
+- **`z.config({ jitless: true })`** to silence Zod's ~22 reports per load — buys console quiet with
+  a repo-wide validation slowdown *today*, while the enforced policy still permits the JIT. The
+  browser already makes this decision correctly on its own (below).
+
+**CAN THE HEADER BE PROMOTED TO ENFORCING? ⛔ NO — NOT YET.** The app-shell load path is clean now;
+the load path is not the app. Full named inventory in **C51 §3.1.2.4**. In short:
+
+- **BENIGN, measured:** `vendor-dxf-*` (lodash `Function("return this")()` — `self` wins first);
+  `vendor-thatopen-*` ×2 + `jszip.min-*` (`setimmediate`'s string branch, never taken);
+  **PRYZM's own two and only two** — `packages/ai-host/src/workflows/VoiceCommand.ts:111` and
+  `packages/constraint-solver/src/engine.ts:497`, both `new Function('s','return import(s)')`, both
+  gated on a `process.env` var the browser does not have, so both return their mock *before* the
+  call; and **Zod 4.4.3**, which is ⭐ **self-healing** — its JIT capability probe sits in its own
+  `try/catch`, so under enforcement it reports once and falls back to the jitless interpreter
+  (measured: enforce + the Cesium fix = **1 report, 0 errors**, down from 23).
+- **REAL BLOCKERS — Emscripten `new Function` invoker codegen, which runs at WASM-module init:**
+  `vendor-rhino3dm-*` ×2 **and** `public/libs/rhino3dm/rhino3dm.js` ×2 (Rhino import) ·
+  `manifold-*` ×2 (boolean geometry) · `cesium/Cesium.js` ×2 (Cesium's own WASM glue) ·
+  `index-DS-*` ×6 (`ndarray` typed-ctor codegen).
+  ⚠ **None was exercised**, and this file's own §CSP-STRICT-SHADOW warning applies verbatim:
+  *silence over a window that never ran them proves nothing.* Promotion needs the shadow watched
+  across an IFC import, a Rhino import, a boolean op and a 3D-site session — and because
+  `'unsafe-eval'` cannot be scoped, **there is no partial promotion.**
+
+⭐ **The durable change is not the one-token patch — it is that the shadow's reports are now a
+CATALOGUE instead of an open question.** A `script-src` report from a source not in the C51 §3.1.2.4
+tables is a **NEW** eval caller (most likely a dependency bump) and must be treated as one. The
+`script-src` arm of the shadow is therefore **kept**, not retired the way `style-src` was: style-src's
+finding was closed (a nonce migration — a work item), whereas script-src still has unexercised
+surfaces and is the only live detector for a new one.
+
+⚠ **CORRECTED IN PLACE:** C51 §3.1.2.1 blocker (1) had read *"required by Three.js shader
+compilation + Cesium's internal `eval()` … tracked for removal in **Phase J** (ADR-0247 WebGPU
+worker migration)"*. **Both halves were wrong.** Three.js does not eval (GLSL goes to
+`gl.shaderSource`, which `script-src` does not govern — established 2026-08-07), so **Phase J was
+never the gating work**; and *"Cesium's internal `eval()`"* named no file, no line, and no
+mechanism — it was a guess wearing a citation, and it stood for months precisely because it sounded
+specific enough that nobody re-measured it.
+
+⚠ **NOT THIS LANE'S — PRE-EXISTING, MEASURED:** `tools/ga-gate/check-contract-cited-paths.ts` is
+**RC=3, 494 unresolved against a declared level of 490**. Proven not to be this lane's: the gate
+reads **494 with C51 reverted to `HEAD`** as well. Zero of this lane's citations land in the
+unresolved set. Owner is whoever added the four (C101/C102, minted 2026-08-21, are the likely
+source).

@@ -1,4 +1,4 @@
-import { readdirSync, existsSync, readFileSync, realpathSync } from 'node:fs';
+import { readdirSync, existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vite';
@@ -177,6 +177,126 @@ function itemCatalogPlugin(): Plugin {
 }
 
 // ---------------------------------------------------------------------------
+// §CSP-CESIUM-KNOCKOUT-EVAL (L-10420, lane CSP26) — REMOVE THE ONE `eval` THAT
+// RUNS ON EVERY PAGE LOAD.
+//
+// THE CALLER, NAMED AND MEASURED (2026-08-24, headless Chromium against the
+// shipped `dist/`, `securitypolicyviolation` event, not a grep):
+//
+//   directive=script-src  blocked=eval
+//   source=/cesium/Cesium.js  line=17925  col=49
+//
+// That is byte 5628397 of `node_modules/cesium/Build/Cesium/Cesium.js`
+// (CesiumJS 1.143.0), inside the **Knockout 3.5.1** UMD prelude that Cesium
+// vendors for its Widgets:
+//
+//   var t = this || (0,eval)("this")            // ← the global-object idiom
+//
+// The whole Cesium bundle carries a top-level `"use strict"` (byte 848), so
+// inside that plain-called IIFE `this` is `undefined`, the `||` does NOT
+// short-circuit, and the indirect `eval` RUNS — at module-evaluation time.
+// `vite-plugin-cesium` injects `<script src="/cesium/Cesium.js">` as the
+// FIRST, parser-blocking tag in `<head>`, so this fires on EVERY page,
+// including the marketing landing page, before anything else executes. It is
+// the founder's "first line in the console" verbatim.
+//
+// ⚠ IT IS NOT COSMETIC. Measured with the same probe in ENFORCE mode:
+// unpatched → `EvalError` escapes the top-level IIFE, `Cesium.js` evaluation
+// aborts, and `typeof window.Cesium === 'undefined'` — the entire geospatial
+// subsystem is dead. Patched → 0 violations, `window.Cesium` present, and
+// `new Cesium.Viewer(...)` with PRYZM's exact options (CesiumViewport.ts:2059,
+// every knockout widget disabled) constructs cleanly with ZERO script-src
+// violations. So the day someone promotes the C51 §3.1.2 shadow policy to
+// enforcing, THIS is what would have white-screened production.
+//
+// WHY A BUILD-TIME REWRITE AND NOT SOMETHING ELSE — the rejected options:
+//   • Add `'unsafe-eval'`: it is already granted in the ENFORCED policy; the
+//     entire point is to remove it. CSP cannot scope `'unsafe-eval'` to one
+//     script, so there is no "narrow allowance" to grant — it is all-or-
+//     nothing for the whole document.
+//   • `pnpm patch cesium`: a unified diff over a 5.9 MB minified bundle whose
+//     hunk is one multi-megabyte line. Unreviewable.
+//   • `defer` / dynamic-import Cesium (the perf item in
+//     APPLICATION-PERFORMANCE-LEDGER §8.1): DELAYS the eval, never removes it.
+//     Worth doing, for a different reason.
+//
+// The substitution is semantics-preserving: indirect `eval("this")` evaluates
+// in global sloppy scope and returns the global object, which is exactly what
+// `globalThis` is. It is padded to the SAME BYTE LENGTH so every line/column
+// in this un-source-mapped vendor bundle keeps pointing where it did.
+//
+// ⛔ FAIL-CLOSED, DELIBERATELY. Anything other than exactly one occurrence
+// throws and stops the build. A patch that silently finds nothing is how a
+// removed `eval` comes back invisibly — and the whole defect being closed here
+// is a security claim that nobody re-measured.
+// ---------------------------------------------------------------------------
+const CESIUM_EVAL_NEEDLES = ['(0,eval)("this")', "(0,eval)('this')"] as const;
+
+export function stripCesiumLoadTimeEvalPlugin(): Plugin {
+  // Resolved from Vite (absolute) rather than hard-coded to `<cwd>/dist`, so an
+  // `--outDir` override cannot silently leave an un-patched bundle behind.
+  let outDir = resolve(process.cwd(), 'dist');
+  return {
+    name: 'pryzm-strip-cesium-load-time-eval',
+    apply: 'build',
+    enforce: 'post',
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir);
+    },
+    closeBundle: {
+      // `vite-plugin-cesium` copies Cesium.js into the output dir in its OWN
+      // `closeBundle`, and Rollup runs `closeBundle` hooks in PARALLEL.
+      // `sequential: true` is what makes this run after that copy has settled;
+      // without it the rewrite races the copy and loses on a fast disk.
+      sequential: true,
+      order: 'post',
+      handler() {
+        const target = resolve(outDir, 'cesium', 'Cesium.js');
+        if (!existsSync(target)) {
+          throw new Error(
+            `[csp-cesium-eval] ${target} does not exist after the build. ` +
+              'vite-plugin-cesium is expected to have copied it. If Cesium was ' +
+              'removed from the build, delete this plugin and record it in ' +
+              'docs/02-decisions/contracts/C51-APEX-APP-DEPLOYMENT-SPLIT.md §3.1.2.3.',
+          );
+        }
+        const src = readFileSync(target, 'utf8');
+        const hits = CESIUM_EVAL_NEEDLES.map((n) => ({ n, i: src.indexOf(n) })).filter(
+          (h) => h.i !== -1,
+        );
+        const total = CESIUM_EVAL_NEEDLES.reduce(
+          (acc, n) => acc + src.split(n).length - 1,
+          0,
+        );
+        if (total !== 1) {
+          throw new Error(
+            `[csp-cesium-eval] expected EXACTLY 1 knockout \`(0,eval)("this")\` in ` +
+              `${target}, found ${total}. This gate is fail-closed on purpose. ` +
+              'If Cesium/Knockout removed it upstream, delete this plugin and update ' +
+              'C51 §3.1.2.3 + server/securityHeaders.js. If the idiom merely changed ' +
+              'shape, update CESIUM_EVAL_NEEDLES — do NOT weaken the CSP instead.',
+          );
+        }
+        const { n } = hits[0]!;
+        const replacement = 'globalThis'.padEnd(n.length, ' ');
+        const out = src.replace(n, replacement);
+        if (out.length !== src.length) {
+          throw new Error(
+            '[csp-cesium-eval] byte length changed; the replacement must be padded to ' +
+              'the needle length so line/column offsets in this un-source-mapped bundle hold.',
+          );
+        }
+        writeFileSync(target, out);
+        console.log(
+          `[csp-cesium-eval] removed the load-time \`${n}\` from ${target} ` +
+            '(Knockout 3.5.1 global-object idiom → globalThis) — C51 §3.1.2.3 / L-10420.',
+        );
+      },
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // §OBS-TRACING-REACHABLE (L-9960) — THE BROWSER HALF OF THE TRACING SWITCH.
 //
 // MEASURED 2026-08-23: 347 `trace.getTracer(...)` call sites live across 328
@@ -242,7 +362,17 @@ const defineTracing = (): Record<string, string> => {
 // @ts-ignore
 export default defineConfig({
   define: defineTracing(),
-  plugins: [cesium(), itemCatalogPlugin(), stubNodeBuiltinsForBrowserPlugin(), stubCoreJsForEsnextPlugin()],
+  plugins: [
+    cesium(),
+    // §CSP-CESIUM-KNOCKOUT-EVAL (L-10420) — MUST stay after cesium(); it rewrites
+    // the file cesium() copies. Ordering is enforced by the hook, not by this
+    // array (see the plugin's `sequential: true`), but keep them adjacent so the
+    // dependency is readable.
+    stripCesiumLoadTimeEvalPlugin(),
+    itemCatalogPlugin(),
+    stubNodeBuiltinsForBrowserPlugin(),
+    stubCoreJsForEsnextPlugin(),
+  ],
   esbuild: {
     jsx: 'automatic',
     jsxImportSource: 'react',

@@ -302,6 +302,85 @@ const CONNECT_SRC = buildConnectSrc();
 // the shadow reports nothing for `script-src` over a representative window, this
 // list becomes ["'self'", "'wasm-unsafe-eval'", 'blob:'] — and not before.
 //
+// ⭐ §CSP-EVAL-CALLERS-NAMED (L-10420, lane CSP26, 2026-08-24) — THE SURFACES
+// ARE NO LONGER "elsewhere". THEY ARE NAMED, AND THE LOAD-PATH ONE IS GONE.
+//
+// The paragraph above ends "the eval lives elsewhere (Cesium / a WASM glue path
+// / a worker chunk)". That was an honest ADMISSION OF IGNORANCE, and it stood
+// for fifteen days. It has now been MEASURED — headless Chromium, the shipped
+// `dist/`, the strict shadow's exact script-src, reading the DOM
+// `securitypolicyviolation` event (which carries sourceFile/line/column), not a
+// grep. The founder's console line reproduces verbatim from ONE file:
+//
+//   directive=script-src blocked=eval source=/cesium/Cesium.js line=17925 col=49
+//
+// …which is the **Knockout 3.5.1** UMD prelude `var t = this || (0,eval)("this")`
+// vendored inside **CesiumJS 1.143.0**. Cesium's bundle is top-level
+// `"use strict"`, so `this` is `undefined` in that plain-called IIFE, the `||`
+// does not short-circuit, and the indirect eval RUNS at module-evaluation time —
+// in the FIRST, parser-blocking <script> of every page, marketing included.
+// ⚠ In ENFORCE mode the EvalError aborts the whole bundle and
+// `window.Cesium` is `undefined` — the entire geospatial subsystem, dead. That
+// is what promoting this policy would have cost, and it would have read as an
+// unrelated outage.
+//
+// ⭐ THAT CALLER IS REMOVED AT BUILD TIME — see `stripCesiumLoadTimeEvalPlugin`
+// in `vite.config.ts` (§CSP-CESIUM-KNOCKOUT-EVAL). Byte-length-preserving
+// rewrite to `globalThis`, fail-closed on anything but exactly one occurrence.
+// Verified through a real `vite build` + a browser load under the ENFORCED
+// strict policy: 0 violations, `window.Cesium` present, and
+// `new Cesium.Viewer(...)` with PRYZM's exact options (CesiumViewport.ts:2059 —
+// every knockout widget disabled) constructs with ZERO script-src violations.
+//
+// ⛔ SO WHY IS 'unsafe-eval' STILL HERE? Because the app-shell load path is not
+// the whole app. What the same measurement found still standing, on paths a
+// static page load does not exercise:
+//
+//   BENIGN — measured, short-circuits before eval in a browser, NOT blockers:
+//     • `vendor-dxf-*.js`  — lodash `root` detection `Function("return this")()`;
+//       `self` is truthy first, so it never evaluates.
+//     • `vendor-thatopen-*.js` ×2, `jszip.min-*.js` — the `setimmediate`
+//       polyfill's `new Function(""+S)`, reached only if `setImmediate` is
+//       called with a STRING. Nothing does.
+//     • PRYZM's OWN — and there are exactly TWO, both the same deliberate
+//       bundler-opaque dynamic-import idiom `new Function('s','return import(s)')`:
+//       `packages/ai-host/src/workflows/VoiceCommand.ts:111` (gated on
+//       `WHISPER_TRANSCRIBER_URL`) and
+//       `packages/constraint-solver/src/engine.ts:497` (gated on
+//       `PLANEGCS_WASM_URL`). Both read the gate from `process.env`, which the
+//       browser does not have, so both return their mock BEFORE reaching the
+//       `Function` call. They are the two sites to delete when those adapters
+//       ship — not a reason to keep 'unsafe-eval'.
+//     • `domain-engine-*.js` — **Zod 4.4.3**: one capability probe
+//       (`const i = Function; new i("")`) plus `Doc.compile()`'s validator
+//       codegen. ⭐ SELF-HEALING: the probe is inside Zod's own try/catch, so
+//       under an ENFORCED policy Zod reports once and falls back to its jitless
+//       interpreter. Measured: enforce + the Cesium patch = 1 report, 0 errors.
+//       ⛔ We deliberately do NOT set `z.config({ jitless: true })` — that would
+//       buy console quiet with a repo-wide validation slowdown, today, while the
+//       enforced policy still permits the JIT. Let the browser decide.
+//
+//   REAL BLOCKERS — Emscripten `new Function` INVOKER CODEGEN, which runs during
+//   embind type registration, i.e. at WASM-module init, i.e. it would throw:
+//     • `vendor-rhino3dm-*.js` ×2 AND `public/libs/rhino3dm/rhino3dm.js` ×2
+//       (Rhino import — `createNamedFunction` + the emval method-caller;
+//       RhinoImporter.ts:72 `setLibraryPath('/libs/rhino3dm/')`)
+//     • `manifold-*.js` ×2          (boolean geometry)
+//     • `cesium/Cesium.js` ×2       (Cesium's own embind glue)
+//     • `index-DS-*.js` ×6          (`ndarray` typed-ctor codegen, lazy-loaded
+//                                    from the domain-engine chunk)
+//   None of these was exercised by the load-path measurement, and per this
+//   file's own §CSP-STRICT-SHADOW warning, SILENCE OVER A WINDOW THAT NEVER RAN
+//   THEM PROVES NOTHING. Promotion needs the shadow watched across a real IFC
+//   import, a Rhino import, a boolean op and a 3D-site session.
+//
+// ⛔ AND THE STRUCTURAL POINT: CSP CANNOT SCOPE `'unsafe-eval'`. There is no
+// per-script, per-origin or hash-scoped form of it — it is all-or-nothing for
+// the whole document. So "grant it narrowly for Cesium" is not a thing that
+// exists; the only tightening tools are REMOVING the caller (done, for the load
+// path) or isolating the offender in a separate document/origin. Do not add
+// `'unsafe-eval'` anywhere new believing it can be fenced.
+//
 // 'unsafe-inline' is granted ONLY in development for Vite HMR injected scripts.
 // ES module scripts loaded via <script type="module"> do not require it in prod.
 const SCRIPT_SRC_PROD = ["'self'", "'unsafe-eval'", 'blob:'];
@@ -395,8 +474,22 @@ const STRICT_CSP_SHADOW_DIRECTIVES = {
     // warned not to cover. Tightening on that evidence alone would have white-
     // screened production.
     //
-    // Kept at 'wasm-unsafe-eval' so the shadow keeps NAMING which surfaces still
-    // eval — that is the remaining work item, and silence here would erase it.
+    // ⭐ NAMED 2026-08-24 (L-10420, lane CSP26) — "elsewhere" is over. The
+    // load-path caller was Knockout 3.5.1's `(0,eval)("this")` inside CesiumJS
+    // 1.143.0 (`/cesium/Cesium.js:17925:49`), it is REMOVED at build time by
+    // `stripCesiumLoadTimeEvalPlugin` in `vite.config.ts`, and the FULL inventory
+    // of what remains — benign vs real blocker, per chunk — is written out above
+    // `SCRIPT_SRC_PROD`. Read that before touching this line.
+    //
+    // Kept at 'wasm-unsafe-eval' — NOT retired the way style-src was. The
+    // difference is that style-src's finding was closed (a nonce migration, a
+    // work item), whereas script-src still has UNEXERCISED surfaces: the
+    // Emscripten embind codegen in the Rhino / manifold / ndarray / Cesium-WASM
+    // chunks has never been loaded under this policy. This arm is the only live
+    // detector for a NEW eval caller arriving in a dependency bump, and silence
+    // here would erase both facts. ⚠ Its remaining noise is ~22 reports per page
+    // load from Zod 4's JIT — expected, self-healing, catalogued above; do NOT
+    // read those as new findings, and do NOT silence them by weakening the arm.
     scriptSrc: ["'self'", "'wasm-unsafe-eval'", 'blob:'],
 
     // BLOCKER 2 — style-src 'self'. `injectAppTheme()` writes CSS-in-JS, which
