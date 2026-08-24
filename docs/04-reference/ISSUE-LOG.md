@@ -48678,3 +48678,195 @@ re-placing the model. Whether that round-trip disposes what it replaces is **unc
 **Files:** `packages/geometry-wall/__tests__/DRAGPERF17OpeningDragChurn.measure.test.ts` (new),
 `packages/geometry-window/__tests__/DRAGPERF17WindowRebuildChurn.measure.test.ts` (new).
 **No production code changed** — the measurement said there was nothing here to fix.
+
+---
+
+### L-10270 — ⭐ Stair second-run direction was BUILT, PERSISTED and UNREACHABLE — and the stamped field LIES · lane STAIRDIR19 · 2026-08-23 · **CLOSED**
+
+**Founder:** *"Once a stair in **L or U shape** is created — we should be able to **afterwards
+modify, via RAC and via the UI properties panel, the DIRECTION OF THE SECOND RUN**."* Screenshot:
+STAIR SR001, DEFINITION PROPERTIES — Width / Riser Height / Tread Depth / Accessibility / Material /
+Stringer / Nosing / Handrail / Type. **No turn control anywhere.**
+
+**MEASURED — this was a PUBLICATION job, not a feature build.** `turnDirection` (L) and
+`secondRunSide` (U) were already on the record, already read by `StairParameterReconciler`,
+`StairMeshBuilder:573` and `StairRailingBuilder:903`, and already registered as geometry params by
+`ElementRebuildRegistry:63`. **The fourteenth *built correctly, unreachable* of the session.**
+
+**⭐ BUT PUBLISHING THE FIELD ALONE WOULD HAVE SHIPPED A LIE — and that is why it stayed dark.**
+The record flag and the flight geometry are written by TWO INDEPENDENT SOURCES and disagree on most
+stairs: `StairCreationController.getFinalInput()` takes flight 2 from the DRAWN `dir2` while
+stamping the separately-latched `_turnDirection`; and four non-controller paths stamp a CONSTANT
+`'left'` (`StairPathAdapter:207`, `StairPath3DToolHandler:221`, `StairPathPlanToolHandler:180`,
+`StairPlanToolHandler:209`). **The last is provable:** with `flight1Dir = (0,0,1)` it emits
+`flight2Dir = (1,0,0)`; the LEFT perpendicular of `(0,0,1)` is `(-1,0,0)`. **It stamps 'left' on a
+stair that turns RIGHT.** A toggle bound to the flag would have read "Left" on a stair the architect
+can see turning right — worse than an absent control.
+
+**CURE.** The displayed handedness is **DERIVED FROM THE FLIGHT GEOMETRY**, never from the stamp
+(`deriveStairSecondRunHandedness`) — the precedent `stairByWalls.ts:318` already set for creation.
+The flip writes **flights AND landings AND the flag**, because the flag alone is a dead control on
+any path-authored stair (`deriveStairGeometry` bails; `reconcilePathAuthoredStairLayout` preserves
+the drawn directions). Turning is a **reflection about run 1's own axis**, so run 1 — and the
+stair's start point — is pointwise fixed. `stairSecondRunStampIsStale()` SAYS when the two disagree
+instead of silently preferring one.
+
+**⚠ ONE STRAGGLER FIXED, SAID LOUDLY.** `reconcilePathAuthoredStairLayout`'s switchback branch had
+`perpXZ(dir)` **hardcoded LEFT** while `StairMeshBuilder` and `StairRailingBuilder` both honour the
+real side. A right-folded U therefore had its return run dragged across flight 1 by **any** width
+edit. It now reads the side from the existing lateral offset (the drawn truth), falling back to the
+stamp, then to left — so legacy left-folded stairs reconcile byte-identically. Pinned by test.
+
+**⛔ NOT DECIDED, withheld in the panel's own register (`levelChangeVerbs.ts:348`):** whether a flip
+that lands the run in a wall / off the slab should be allowed, warned or refused. **No clearance
+check for stairs exists.** The flip neither refuses nor relocates, and the panel says so.
+**FOUNDER QUESTION open** — see the RAC handoff spec §4.
+
+**RAC — ⛔ HANDOFF ONLY.** `packages/ai-host/**` is lane RACLIGHT16's. Capability name, phrasings,
+scope modes and refusal texts: `docs/03-execution/specs/SPEC-STAIR-SECOND-RUN-RAC-HANDOFF.md`.
+
+**PROVED (49 new tests, all foreground):** flip → **rebuild does not undo it** on BOTH reconciler
+branches → the saved record carries flag *and* flights → **undo returns the previous direction** →
+redo is stable. Refusals for straight / curved / 3-run / wrong-field. `null` never renders as "left".
+
+**Files:** `packages/geometry-stair/src/StairSecondRunDirection.ts` (new),
+`packages/geometry-stair/src/StairParameterReconciler.ts`, `packages/geometry-stair/src/index.ts`,
+`packages/command-registry/src/stair/UpdateStairParametersCommand.ts`,
+`apps/editor/src/ui/property-panel/StairSecondRunWidget.ts` (new),
+`apps/editor/src/ui/property-panel/PropertyPanelBodyRenderer.ts`, + 3 spec files.
+**`ElementRebuildRegistry.ts` was READ and NOT changed** — it already declared both fields.
+
+---
+
+### L-10280 — Seventeen decimal places in the DEFINITION PROPERTIES panel · lane STAIRDIR19 · 2026-08-23 · **CLOSED**
+
+Visible in the same screenshot as L-10270, and **not** what the founder asked about — he could just
+see it while reading the panel:
+
+```
+Riser Height (m)   0.1777777777777778
+Tread Depth (m)    0.26961245339649037
+```
+
+Both are **derived** — `levelHeight / riserCount` (`StairParameterReconciler:75`) and
+`polylineLength / totalSteps` (`StairPathAdapter`) — so they are honest binary fractions that
+`PropertyRenderer`'s `String(currentValue)` was printing raw, for **every** numeric row of **every**
+element family, not just stair.
+
+**⛔ THE STORED VALUE IS NOT ROUNDED.** `riserHeight × riserCount` must equal the storey height or
+the top flight misses its landing. `formatDisplayNumber()` formats the **string** only; an untouched
+number input never enters the draft (it writes to `draft` on its `input` event alone), so a rounded
+display cannot be committed by merely looking at the panel.
+
+**Precision: 4 decimals** — not a taste call. `1e-4` is the significance threshold this repo already
+uses for model-space lengths (C73 §2.3, the `EPS_M` in `StairParameterReconciler`): **0.1 mm in
+metres.** A value that would round away to zero falls back to 3 significant figures rather than
+displaying `0` — a nonzero quantity must never read as absent (§CONTEXT-DATA-HONESTY).
+
+**Files:** `apps/editor/src/ui/property-panel/PropertyRenderer.ts`,
+`apps/editor/src/ui/property-panel/__tests__/propertyDisplayRounding.spec.ts` (new).
+
+---
+
+### L-10220 — "change all lightings in ground level to X" · lane RACLIGHT16 · 2026-08-24 · **CLOSED**
+
+The founder's sentence. Two independent defects sat under it and **only one was about lighting.**
+
+**(a) The family was unpublished, not unbuilt.** `CatalogueFamilies.ts`' own header already said so:
+`element.changeType` has routed sixteen families with ring-buffer undo parity since L-623, lighting
+among them, and the properties panel has offered a type picker since
+§FEAT-ELEMENT-TYPE-PICKER-REGISTRY. Only the CHAT had never been told — a C84 EI-3 breach in the
+cheap direction. Cost: one table row, one published-catalogue reader, one registry entry. **No
+command, store or builder was touched.**
+
+**⭐ Lighting's types are a NAMED CATALOGUE, not a closed enum** (the question that keeps column and
+beam out). `LightingFixtureType` IS a union, but `BUILT_IN_LIGHTING_TYPES` is a real
+`{id, name, description, mount}` table over it — **32 entries** (12 named families + the 20 LOD-200
+rows, by construction) — and it is the SAME table the panel renders and the SAME one
+`element.changeType`'s lighting branch validates against. So the set the chat can resolve is exactly
+the set the route accepts; unlike `stair-types` it needs no "built-ins only" caveat.
+
+**(b) ⛔ THE LEVEL SCOPE WAS BROKEN FOR EVERY CATALOGUE FAMILY, AND HAD BEEN SILENTLY.**
+`makeHostedTypeParser` carried the **fifth** hand-written spelling of the scope tail
+(`on` ⇒ level, `in the` ⇒ room, bare `in` / `at` / `inside` / `within` understood by nothing) —
+the defect L-1201 removed from the dimension grammars, L-1261 from wall-finish and L-1372 from rake,
+whose comment said *"there is no fifth spelling to fix next time"*. Measured before the fix:
+
+```
+"change all lightings in ground level to recessed downlight"
+  → typeRef "in ground level to recessed downlight" · scope 'all'
+```
+
+The place phrase leaked into the type ref **and the project-wide scope survived**. window / door /
+slab / ceiling / stair / stair-railing were all broken identically and nobody had reported it.
+⛔ The second half is the dangerous one: had the ref resolved, the sentence would have retyped every
+fixture in the building. **A level scope that silently widens is worse than no level scope.**
+
+**(c) ⛔ A DESTRUCTIVE MIS-CLAIM publishing lighting would have made reachable.** Three of the twelve
+named fixtures are FLOOR lamps, and `set-floor-finish`'s `FLOOR_NOUN` matched the word "floor"
+**inside the fixture name**:
+
+```
+"change all lights to brass arc floor lamp" → set-floor-finish, finishRef "brass"
+```
+
+— every floor in the project repainted brass while the user was talking about luminaires. Fixed by
+adding the fixture NOUNS (`lamp` / `luminaire` / `lighting`) to `OTHER_FAMILY_NOUN`. ⚠ Bare
+`light` / `lights` is deliberately absent: "change the floor to light oak" is a real finish sentence
+and `Wood · Oak (Light)` is a real entry.
+
+**Route (measured, not assumed).** ⛔ NOT `lighting.setMaterial` and not any `plugins/lighting` DTO
+verb — six lighting rows sit in `tools/ga-gate/mirror-debt.json` on the channel nothing renders. The
+family rides `element.changeType` → `UpdateLightingParametersCommand` (`affectedStores: ['lighting']`)
+→ `lightingStore.update` **then an explicit `lightingFragmentBuilder.update(record)`**, because a
+fixture's whole geometry switches on `fixtureType`. `check-mirror-completeness` reads **156/156 both
+before and after** — correctly: this verb is a bus handler, not a plugin DTO store write, so it was
+never in that ledger.
+
+**Read-back (C16 §5.1 CA-21).** `lighting-chat-acceptance.test.ts` D-block runs the REAL command and
+reads the record back out of the store the builder reads: two Ground fixtures carry the new
+`fixtureType` and were rebuilt; **the Level 1 fixture is untouched and was never rebuilt.**
+
+**Also closed, incidentally:** `check-chat-capability-coverage` had been reporting `stair-types` and
+`handrail-types` as *"unknown valueSource — nothing can resolve it"* since L-1441 (a HARD arm failing
+on correct capabilities — the gate lying about its subject). Both are now known and both are proved
+by `CATALOGUE_SOURCES`. Its "undeclared spatial reach" ratchet went **4/2 (FAIL) → 2/2 (within)**
+because the three fan-out families now declare `spatialKinds: ['level','room']` — a luminaire has no
+facade, and the arm's orientation descriptor returns WALLS.
+
+**Files:** `packages/ai-host/src/intents/CatalogueFamilies.ts`,
+`packages/ai-host/src/intents/publishedCatalogues.ts`,
+`packages/ai-host/src/intents/ZeroTokenResolver.ts`,
+`packages/ai-host/src/intents/FloorFinishIntent.ts`,
+`packages/ai-host/src/intents/LlmPlanner.ts`,
+`packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts`,
+`tools/ga-gate/check-chat-capability-coverage.ts`,
+`packages/ai-host/__tests__/lighting-chat-acceptance.test.ts` (new, 21 assertions),
+`packages/ai-host/__tests__/{self-referential-type-name,capability-acceptance,chat-capability-registry}.test.ts`.
+
+---
+
+### L-10221 — Slab MATERIAL and COLOUR from chat · lane RACLIGHT16 · 2026-08-24 · **OPEN — NOT WIRED, DELIBERATELY**
+
+> *"Make slab material and colour possible to change via RAC"*
+
+⛔ **NOT ATTEMPTED IN THIS LANE, and the reason is the session clock, not a blocker.** The lighting
+work above landed and the founder closed the session; wiring half of this would have shipped exactly
+the defect he hit repeatedly today. **The declared refusal at
+`ChatCapabilityRegistry.ts` (`'slab.setMaterial'` → *"Materials are not connected to chat yet"*)
+stands, unchanged and still true.**
+
+What the next lane inherits, measured by others and not re-derived here:
+
+- **The two halves are different problems.** `slab` paints the **material**
+  (`SlabFragmentBuilder.ts:692`); `wall` paints the **layer colour** and never reads `materialId`
+  (`WallFragmentBuilder.ts:2118`) — lane LAYERMAT10 (L-10064..L-10067, `9eb13870`) measured this and
+  deliberately did **not** reconcile them. ⛔ Do not assume `parseWallColorIntent`'s shape transfers.
+- **MATERIAL has no proven carrier.** `slab.setMaterial` is one of the 13 `*.setMaterial` verbs at
+  disposition `REFUSES` / `affectedStores: NONE` (ADR-0117, §FIX-MATERIAL-DEAD-DISPATCH). C100 §6.2:
+  *"no carrier, not no resolver."*
+- **The `BATCH_REPORT_EVENTS` row** (`ZeroTokenChatBridge.ts:1297`) that stopped lane MAT50 is
+  reportedly free now. It is one row — but it is the row **after** the carrier, not instead of it.
+- ⭐ **The level scope rides for free.** §FIX-HOSTED-TYPE-SCOPE-TAIL (L-10220) fixed the shared tail
+  for every catalogue family, so *"…all slabs in ground level…"* already parses correctly today. Any
+  slab colour/material capability built on `CapabilityExecutionSpec` inherits it with no work.

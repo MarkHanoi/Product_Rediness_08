@@ -1514,6 +1514,18 @@ and an EI-3 breach with the offered affordance and the refusing verb **rendered 
 ### 4F.9 — THE DELTA (ordered; each item names its invariant and its proof)
 
 1. **Route `element.changeType` to the chat for the eleven dark families** — EI-3, EI-4a.
+   ⭐ **LIGHTING IS DONE — 2026-08-24, lane RACLIGHT16 (L-10220), and it cost a TABLE ROW.**
+   `set-lighting-type` is a `CATALOGUE_FAMILIES` entry riding `element.changeType` →
+   `UpdateLightingParametersCommand`; the executed read-back this item demands is
+   `packages/ai-host/__tests__/lighting-chat-acceptance.test.ts` D-block, which reads `fixtureType`
+   back **out of the store the fragment builder reads** and asserts the builder was asked to rebuild
+   that record and no other. **No command, store or builder was written.** ⚠ It is the CHEAPEST of
+   the eleven, not a template for handrail: lighting's branch already RESOLVES from `newTypeId`
+   alone (it validates against `getLightingTypeDefinition`), which is precisely the property the
+   handrail warning below says handrail lacks. **Ten remain.**
+   ⭐ **And a family that qualifies needs no catalogue INJECTION** — lighting reads the published L2
+   table through `publishedCatalogues.ts`, the same channel the stair pair uses, so item 2 is not a
+   prerequisite for a family whose branch validates its own id.
    Proof: **executed read-back of the geometry store per family** (C16 CA-21), never `success:true`.
    Start with **handrail** — the founder's named case.
    ⚠ **The handrail branch does NOT resolve `newTypeId` → fields; the CALLER materialises the type
@@ -1540,11 +1552,26 @@ and an EI-3 breach with the offered affordance and the refusing verb **rendered 
    a refused batch **rejects**, dispatched with **no** CustomEvent subscriber.
 4. **Declare the spatial modes the arms already honour** — EI-9. Proof: the gate's
    `undeclared spatial reach` ratchet falls **26 → 0**.
+   ⚠ **Re-measured 2026-08-24: the ratchet reads 2/2, not 26.** It had risen to **4/2 (FAIL)** when
+   the stair pair shipped without declaring the `orientation` reach their arm still had. The fix was
+   NOT to declare it: `makeHostedTypeParser` passes `orientationWord: undefined` unconditionally, so
+   **no catalogue family's grammar can produce an orientation scope at all**, and the arm's
+   orientation descriptor carries no `elementKind` — it answers *"facing south"* with the WALLS that
+   face south, which a fan-out family would then refuse once per wall. The three fan-out rows now
+   carry `spatialKinds: ['level','room']`, so the ARM refuses it too. ⭐ **Declaring reach and
+   REMOVING reach both close this item; prefer the one that makes the capability smaller and truer.**
 5. **Give `create-wall` a subject axis and route it to `wall.createFromSlab`** — EI-4a. Proof: the
    selected-slab utterance creates walls **and** the tool button (#3) is repointed at the same verb in
    the same change.
 6. **Feed `batchCatalogue`'s 17 live `prompt` strings to the resolver** — EI-4a, EI-3.
-7. **Fix the four families whose type is a NAMELESS union** — furniture, plumbing, column, beam. A
+7. **Fix the four families whose type is a NAMELESS union** — furniture, plumbing, column, beam.
+   ⚠ **LIGHTING WAS NEVER ONE OF THESE, and the distinction is the test to apply (measured
+   2026-08-24).** `LightingFixtureType` IS a bare union — but `BUILT_IN_LIGHTING_TYPES` is a real
+   `{id, name, description, mount}` table over it (32 entries), and it is the SAME table the
+   properties panel renders and the SAME one the `element.changeType` branch validates against. ⭐ So
+   the question is **not** *"is the type a union?"* — it is *"does a `{id,name}` table over that
+   union exist, and is it the one the ROUTE validates against?"* Ask it of furniture / plumbing /
+   column / beam before assuming a catalogue must be minted. A
    refusal cannot list options that have no display names, so these need `{id,name}` catalogues
    *before* they can join, and that is a C65 element-type question, not a RAC one. **Declared, not
    silently missing.**
