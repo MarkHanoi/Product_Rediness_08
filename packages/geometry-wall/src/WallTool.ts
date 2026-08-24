@@ -4,6 +4,12 @@ import * as OBC from '@thatopen/components';
 import { ProjectContext } from '@pryzm/core-app-model';
 import { CreateWallCommand, CreateWallsFromSlabCommand } from '@pryzm/command-registry';
 import { WallToolState, WallToolCallbacks, WallDrawingMode } from './WallTypes';
+// §FIX-ORTHO-CANNOT-FALL-BACK-TO-LINEAR (founder 2026-08-24) — the drawing-mode
+// vocabulary and the ortho lock, resolved in ONE place. See the module header for
+// the measured root cause: this tool was being armed with `'polyline_ortho'`, which
+// is not a member of `WallDrawingMode`, so every `=== POLYLINE_ORTHO` was false and
+// ortho was inert while the picker still read "Orthogonal".
+import { resolveWallDrawingMode, isOrthoDrawingMode, orthoLockXZ } from './WallDrawingModeResolver';
 import { WallStore } from './WallStore';
 import { WallIntentResolver, WallAnchor } from './WallIntentResolver';
 import { WallPathBuilder, PathBuilderMode } from './WallPathBuilder';
@@ -368,6 +374,24 @@ export class WallTool {
     }
 
     async activate(mode: WallDrawingMode = WallDrawingMode.SINGLE): Promise<void> {
+        // ── §FIX-ORTHO-CANNOT-FALL-BACK-TO-LINEAR (founder 2026-08-24) ───────────
+        // THE choke point. Every arming path in the app lands here —
+        // `ToolManager.activateWall` → here, and `BimService.activateWallTool` → here —
+        // and the parameter is TYPED `WallDrawingMode` while the callers reach it
+        // through `runtime.tools.activate(family, mode?: string)`, whose payload is a
+        // bare string that arrives via `(m as WallDrawingMode)`. A cast asserts; it
+        // does not convert. `'polyline_ortho'` therefore reached `this.drawingMode`
+        // intact and matched NOTHING, so the ortho lock and the polyline branch were
+        // both silently off. Resolve once, here, and report when the word is unknown.
+        const _res = resolveWallDrawingMode(mode, 'WallTool.activate');
+        mode = _res.mode;
+        // Loud in the VIEWPORT too, not only the console: the user is the one who can
+        // see that the wall came out diagonal. C16 CA-18 — name the reason. Emitted
+        // AFTER the normal prompt below so it is not overwritten by it.
+        const _unrecognised = _res.recognised ? null :
+            `Wall Tool: drawing mode "${_res.raw}" not recognised — drawing FREE-ANGLE. ` +
+            `Re-pick a mode (L / O / C) to constrain it.`;
+
         if (this.isActive) {
             this.drawingMode = mode;
             this.cancel(); // clear() inside resets pathBuilder to 'Line'
@@ -378,6 +402,7 @@ export class WallTool {
                 mode === WallDrawingMode.CURVED_WALL || mode === WallDrawingMode.POLYLINE_ARC
                     ? 'Arc' : 'Line'
             );
+            if (_unrecognised) this.showStatus(_unrecognised);
             return;
         }
 
@@ -401,6 +426,9 @@ export class WallTool {
                 this.pathBuilder.setMode('Line');
                 this.showStatus('Wall Tool: Click to set start point');
             }
+            // §FIX-ORTHO-CANNOT-FALL-BACK-TO-LINEAR — last word, so the unrecognised-mode
+            // warning is the line the user is left looking at.
+            if (_unrecognised) this.showStatus(_unrecognised);
 
             // Apply current visual style immediately with whatever HDRI is already cached.
             this.fragmentBuilder.setVisualStyle(this.callbacks.getCurrentVisualStyle());
@@ -632,6 +660,13 @@ export class WallTool {
      * CONTRACT: §05 §7.1 — no direct store mutations; §01 §1.2 — tool layer only.
      */
     switchDrawingMode(newMode: WallDrawingMode): void {
+        // §FIX-ORTHO-CANNOT-FALL-BACK-TO-LINEAR — the SECOND way a mode string reaches
+        // `this.drawingMode` (mid-draw L / O / C, via BimService.switchWallDrawingMode).
+        // It is typed `WallDrawingMode` and reached through the same untyped tool-slot
+        // payload as `activate`, so it needs the same resolution or the two entry points
+        // disagree about the word "ortho" — which is the defect, one layer up.
+        newMode = resolveWallDrawingMode(newMode, 'WallTool.switchDrawingMode').mode;
+
         if (!this.isActive) {
             // Tool not yet running — just cache the mode for the next activate()
             this.drawingMode = newMode;
@@ -1275,15 +1310,21 @@ export class WallTool {
      * now, so preview and commit cannot diverge again.
      */
     private _applyOrthoLock(point: THREE.Vector3): THREE.Vector3 {
-        const isOrtho = this.drawingMode === WallDrawingMode.LINE_ORTHO ||
-                        this.drawingMode === WallDrawingMode.POLYLINE_ORTHO ||
-                        this.isOrthoOverride;
+        // §FIX-ORTHO-CANNOT-FALL-BACK-TO-LINEAR (founder 2026-08-24) — the predicate was
+        // a pair of `===` against enum members, so a mode that NAMED ortho in any other
+        // spelling ('polyline_ortho', which is exactly what the rail passes) evaluated
+        // FALSE and this whole method became a no-op. The lock now asks the shared
+        // resolver whether the mode names ortho, and the projection itself is the shared
+        // `orthoLockXZ` — one body, so preview and commit still cannot diverge (L-935).
+        //
+        // ⛔ BOTH halves are needed. `activate`/`switchDrawingMode` normalise on the way
+        // in, but `drawingMode` is a plain field that other code paths assign directly;
+        // an alias-tolerant predicate here means no assignment can turn ORTHO into free
+        // angle by spelling alone.
+        const isOrtho = isOrthoDrawingMode(this.drawingMode) || this.isOrthoOverride;
         if (!isOrtho || !this.startPoint) return point;
-        const dx = Math.abs(point.x - this.startPoint.x);
-        const dz = Math.abs(point.z - this.startPoint.z);
-        return dx > dz
-            ? new THREE.Vector3(point.x, point.y, this.startPoint.z)
-            : new THREE.Vector3(this.startPoint.x, point.y, point.z);
+        const locked = orthoLockXZ(this.startPoint, point);
+        return new THREE.Vector3(locked.x, point.y, locked.z);
     }
 
     private onKeyDown(event: KeyboardEvent): void {
@@ -1332,8 +1373,10 @@ export class WallTool {
         if (event.key === 'Tab' && this.state === WallToolState.DRAWING) {
             event.preventDefault();
 
-            const isOrthoMode = this.drawingMode === WallDrawingMode.LINE_ORTHO ||
-                                 this.drawingMode === WallDrawingMode.POLYLINE_ORTHO;
+            // §FIX-ORTHO-CANNOT-FALL-BACK-TO-LINEAR — same question as `_applyOrthoLock`,
+            // so the same answer: Tab must not decide "this is not an ortho mode" on a
+            // spelling the lock itself accepts.
+            const isOrthoMode = isOrthoDrawingMode(this.drawingMode);
 
             if (isOrthoMode) {
                 // Original behaviour: toggle orthogonal override

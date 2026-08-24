@@ -42,11 +42,29 @@ export const wallToolbarContribution = {
   icon: 'wall',
   shortcut: 'Alt+W',
   activate: (runtime: WallContributionRuntime): void => {
-    // Mirrors the legacy `_activateTool('wall', 'polyline_ortho')` call
-    // site in `CreateRailPanel._buildSections()`.  Keeping the mode
+    // Mirrors the legacy `_activateTool('wall', WallDrawingMode.POLYLINE_ORTHO)`
+    // call site in `CreateRailPanel._buildSections()`.  Keeping the mode
     // string identical guarantees the contribution-driven path and the
     // legacy hard-coded path converge on the same `WallTool` activator
     // registered in `apps/editor/src/bootstrap.render.everything.ts`.
-    runtime.tools.activate('wall', 'polyline_ortho');
+    //
+    // ⭐ §FIX-ORTHO-CANNOT-FALL-BACK-TO-LINEAR (founder 2026-08-24). This line
+    // read `'polyline_ortho'`, LOWER-CASE, and that was the founder's diagonal
+    // walls. It travels `runtime.tools.activate` → `ToolsAreaLayout`'s activator
+    // → `(m as WallDrawingMode)` → `WallTool.activate` → `this.drawingMode`.
+    // Every member of `WallDrawingMode` is UPPER-case and `as` is a cast, not a
+    // conversion, so `this.drawingMode` held a string matching NO branch: the
+    // ortho lock was inert AND the polyline branch was off (one segment, then
+    // "WallTool deactivated" — both lines are in his console log).
+    //
+    // ⛔ Do NOT lower-case this again to "match" a UI string. The literal is
+    // deliberately the enum's own value; the tool ALSO resolves aliases now
+    // (`WallDrawingModeResolver`), but a call site that names the mode correctly
+    // is the first line of defence, not the second. This package cannot import
+    // `@pryzm/geometry-wall` for the enum itself — see the file header on why it
+    // takes no static dep — so the value is written out and pinned by
+    // `apps/editor/__tests__/WallOrthoModeStringAngle.test.ts`, which resolves
+    // THIS string through the real resolver and measures the committed angle.
+    runtime.tools.activate('wall', 'POLYLINE_ORTHO');
   },
 } as const;

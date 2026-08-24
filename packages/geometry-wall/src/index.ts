@@ -11,6 +11,19 @@
 export * from './WallTypes';
 export * from './WallDataSchema';
 
+// ── §FIX-ORTHO-CANNOT-FALL-BACK-TO-LINEAR (founder 2026-08-24) ────────────────
+// THE drawing-mode vocabulary, resolved in one place, plus the ortho lock and the
+// off-axis MEASURE that says whether it actually held. Exported because the arming
+// surfaces (apps/editor's rail, tools area and plan handler) must resolve the word
+// "ortho" the same way this tool does — a second table is how they came to disagree.
+export {
+    resolveWallDrawingMode,
+    isOrthoDrawingMode,
+    orthoLockXZ,
+    offAxisDeg,
+    type WallDrawingModeResolution,
+} from './WallDrawingModeResolver';
+
 // ── §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — the wall's ISO 13567 / Revit FUNCTION ──
 // The drawing layer weights the pen by it, so the eye can find the building's envelope.
 // It is a property of the TYPE (declared), never of the wall's thickness (inferred).

@@ -614,7 +614,14 @@ export class CreateRailPanel {
                                 contrib.activate(this.runtime);
                                 return;
                             }
-                            if (!this._activateTool('wall', 'polyline_ortho')) {
+                            // ⭐ §FIX-ORTHO-CANNOT-FALL-BACK-TO-LINEAR (founder
+                            // 2026-08-24) — this read `'polyline_ortho'`, LOWER-CASE,
+                            // while the third line below already used the enum. The
+                            // two branches of one button armed two different modes:
+                            // a lower-case string is not a `WallDrawingMode` member,
+                            // so it matched no `===` in `WallTool` and the ortho lock
+                            // was inert. Pass the enum's own value on every branch.
+                            if (!this._activateTool('wall', WallDrawingMode.POLYLINE_ORTHO)) {
                                 service.activateWallTool(WallDrawingMode.POLYLINE_ORTHO);
                             }
                         },
