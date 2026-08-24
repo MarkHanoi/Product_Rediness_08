@@ -242,6 +242,21 @@ const GATES: Gate[] = [
   // gate appended to the bottom of a list is the one nobody reads next time.
   { name: 'plugin-census-equivalence (C01/C11 · L-9920)', script: 'check-plugin-census-equivalence.ts' },
   { name: 'mirror-completeness (C68 §5.a · L-9940)',      script: 'check-mirror-completeness.ts' },
+  // ⭐ ARM E of the gate above — the EXECUTED one (lane MIRROR21, L-10320).
+  //
+  // `mirror-completeness` passes and then prints, in its own words, that it has
+  // NOT ESTABLISHED that any covered verb's event reaches a subscriber: a `case`
+  // arm is a DECLARED channel. This gate DISPATCHES a named set of verbs through
+  // a real CommandBus + the real CommandEventBridge and records what actually
+  // came out. It is registered IMMEDIATELY BELOW its sibling on purpose — the two
+  // answer one question at two layers and a reader who quotes one without the
+  // other will overstate the coverage of both.
+  //
+  // ⚠ It is the only gate in this list that IMPORTS PRODUCTION MODULES AND RUNS
+  // THEM, so it is slower than its neighbours (~20 s) and it can fail for a
+  // reason none of the static gates can: a handler module that stops loading
+  // under node. That reads as exit 2 (UNPROVEN), never as a pass.
+  { name: 'mirror-reachability (C16 §5.1 CA-21 · L-10320)', script: 'check-mirror-reachability.ts' },
   // C15 §8.1 / C86 WO-B-3 (2026-08-19) — the hosted-opening dual-write gate. C15
   // §8.1's OWN stated enforcement was "a code-review checklist item", i.e. nothing,
   // and it had measurably failed on the two most-used door/window gestures. This

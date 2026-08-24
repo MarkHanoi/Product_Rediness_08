@@ -82,6 +82,18 @@
  *    RENDER/PERSIST/EXPORT store; `LiftCompoundReachesTheMesh.test.ts` and
  *    `BeamMasterMaterialReachesMesh.test.ts` are what that looks like. A green
  *    reading here means "the drop is not SILENT", never "the element renders".
+ *
+ *    ⭐ **ARM E EXISTS NOW, AND IT COVERS THE FIRST CLAUSE FOR A NAMED SET ONLY.**
+ *    `tools/ga-gate/check-mirror-reachability.ts` (§MIRROR-REACH, L-10320)
+ *    DISPATCHES 14 named verbs through a real `CommandBus`, real `attachStores`,
+ *    real plugin `Store` subclasses and the real `CommandEventBridge`, and grades
+ *    each on the events that ACTUALLY fired. It reads `slab.setThickness`
+ *    (same family, same store) REACHES-SUBSCRIBER and `slab.setMaterial` REFUSED
+ *    in the same run, which is the discrimination this gate structurally cannot
+ *    make. ⛔ It is FOURTEEN verbs, not 351; its listen half is a name match; and
+ *    it can see PLUGIN handlers only, because `initBusHandlers.ts` (where
+ *    `element.changeType` lives) will not load outside a browser. Read its own
+ *    §WHAT-THIS-DOES-NOT-COVER before quoting its green as coverage.
  * ⛔ It does not check the serializer. `boundaryLine` had a third break — zero
  *    occurrences in either `ProjectSerializer` — and no arm here would have seen
  *    it. That is a sibling gate somebody still has to write.
@@ -629,8 +641,12 @@ if (armD.length > 0) {
 
 if (rc === 0) {
   console.log(`\n[${LABEL}] ✓ within the named ledger (${UNCOVERED.size} uncovered / ${debt.rows.length} listed), both directions clean.`);
-  console.log(`[${LABEL}] ⚠ NOT ESTABLISHED: that any covered verb's event reaches a subscriber, a legacy record, or a mesh.`);
-  console.log(`[${LABEL}]   A bridge case is a DECLARED channel. C16 §5.1 CA-21 wants an executed read-back —`);
+  console.log(`[${LABEL}] ⚠ NOT ESTABLISHED HERE: that any covered verb's event reaches a subscriber, a legacy record, or a mesh.`);
+  console.log(`[${LABEL}]   A bridge case is a DECLARED channel. C16 §5.1 CA-21 wants an executed read-back.`);
+  console.log(`[${LABEL}]   ⭐ The FIRST clause now has an arm: check-mirror-reachability.ts (§MIRROR-REACH, L-10320) DISPATCHES a`);
+  console.log(`[${LABEL}]   NAMED SET of verbs through a real CommandBus + the real CommandEventBridge and reads the events that`);
+  console.log(`[${LABEL}]   actually fired. ⛔ A NAMED SET — 14 verbs, not the ${UNCOVERED.size} counted above — and its listen half is a`);
+  console.log(`[${LABEL}]   name match, not an execution. The legacy-record and mesh clauses are still nobody's gate:`);
   console.log(`[${LABEL}]   see LiftCompoundReachesTheMesh.test.ts / BeamMasterMaterialReachesMesh.test.ts.`);
 }
 process.exit(rc);

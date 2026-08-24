@@ -1,0 +1,63 @@
+{
+  "$schema": "https://pryzm.dev/schemas/mirror-reachability-ledger.json",
+  "note": "§MIRROR-REACH (L-10320) — the EXECUTED half of §MIRROR-COMPLETENESS. Every `notReaching` row was DISPATCHED through a real CommandBus + the real CommandEventBridge by tools/ga-gate/check-mirror-reachability.ts, and the verdict is what actually came out. SHRINK-ONLY, and the verdicts are PINNED rather than ordered: any change to a row's verdict fails, because REFUSED -> NO-TYPED-EVENT is a dead verb re-enabled with no mirror behind it, which is worse and not better. A row LEAVES this file only when its verb measures REACHES-SUBSCRIBER, in the same commit that makes it so.",
+  "exitCondition": "This file is EMPTY when every verb in the named fixture set reaches a subscriber and every typed event the bridge emits has a listener. It is NEVER made empty by deleting a fixture: `goneRows` fails a ledger row whose verb no fixture dispatches, precisely so a shrinking subject cannot read as a shrinking ledger.",
+  "measuredAt": "2026-08-24",
+  "measuredBy": "lane MIRROR21 — npx tsx tools/ga-gate/check-mirror-reachability.ts",
+  "notReaching": [
+    {
+      "verb": "lighting.setIntensity",
+      "verdict": "NO-TYPED-EVENT",
+      "reason": "MEASURED, EXECUTED: the handler validated, ran, and produced 1 forward patch against the `lighting` plugin DTO store. The only event that reached the EventBus was the generic `command.executed`. Nothing in CommandEventBridge relays it, so the legacy LightingStore the LightingFragmentBuilder reads never hears about the change — the fixture keeps its old brightness on screen and loses the new one on reload. mirror-debt.json carries this verb as kind=UNMIRRORED; this row is the executed proof of that classification.",
+      "exitCondition": "STRUCK when a row is added to ELEMENT_UPDATE_VERBS in CommandEventBridge.ts (or a `case` arm is written) AND `elementUpdatedMirror.ts` moves the intensity onto the legacy record, so a re-run measures REACHES-SUBSCRIBER. NOT struck by adding the bridge row alone — that would only move it to TYPED-EVENT-NO-SUB, which this ledger scores as a different, still-failing state."
+    },
+    {
+      "verb": "lighting.setEmergency",
+      "verdict": "NO-TYPED-EVENT",
+      "reason": "MEASURED, EXECUTED: same shape as lighting.setIntensity — 1 forward patch to the `lighting` DTO store, zero typed events. The ISO 50293 emergency override is authored, undoable, persisted to a store no renderer reads, and invisible. mirror-debt.json kind=UNMIRRORED.",
+      "exitCondition": "STRUCK when the verb emits a typed event that elementUpdatedMirror (or a family mirror) subscribes to and a re-run measures REACHES-SUBSCRIBER."
+    },
+    {
+      "verb": "lighting.delete",
+      "verdict": "NO-TYPED-EVENT",
+      "reason": "MEASURED, EXECUTED: 1 forward patch (a `remove`) against the `lighting` DTO store and zero typed events. ⛔ This is the WORST of the four in this file: the bridge has no `*.deleted` channel for any family except boundaryLine, so a deleted light fixture is removed from the DTO store while its legacy record and its mesh stay on screen. A delete that leaves the object visible is indistinguishable from a delete that failed.",
+      "exitCondition": "STRUCK when a delete channel exists (`lighting.deleted`, or a family-agnostic `element.deleted` table in the shape of ELEMENT_UPDATE_VERBS) with a subscriber that removes the legacy record, and a re-run measures REACHES-SUBSCRIBER."
+    },
+    {
+      "verb": "roof.addSkylight",
+      "verdict": "NO-TYPED-EVENT",
+      "reason": "MEASURED, EXECUTED: 1 forward patch to the `roof` DTO store, zero typed events. Deliberately in the named set on a DIFFERENT family from the lighting rows, so that four NO-TYPED-EVENT readings cannot be dismissed as one plugin's quirk: roof.setOverhang, the fixture immediately before it, is on ELEMENT_UPDATE_VERBS and measures REACHES-SUBSCRIBER against the same store in the same run. The variable is the bridge row, nothing else. mirror-debt.json kind=UNMIRRORED.",
+      "exitCondition": "STRUCK when `roof.addSkylight` gets an ELEMENT_UPDATE_VERBS row (its sibling roof.setOverhang is the worked idiom) and a re-run measures REACHES-SUBSCRIBER."
+    },
+    {
+      "verb": "lighting.setMaterial",
+      "verdict": "REFUSED",
+      "reason": "MEASURED, EXECUTED: the bus threw at canExecute — 'LightingData has no materialId/materialColor. A light fixture's colour lives in its per-fixture parameter blocks'. ⚠ This is a DIFFERENT refusal from its twelve siblings: it is a DATA-MODEL refusal, not a reachability one, so fixing the mirror would not lift it. Kept in the named set precisely because an instrument that cannot tell those two refusals apart is reporting a category, not a measurement — the verbatim refusal text is printed on every run so a reader can see which one it is.",
+      "exitCondition": "STRUCK when LightingData carries an addressable material field AND the verb reaches a subscriber. If the family decides a fixture's colour will always live in its parameter blocks, this row is struck by RETIRING the verb — not by re-baselining it."
+    },
+    {
+      "verb": "slab.setMaterial",
+      "verdict": "REFUSED",
+      "reason": "MEASURED, EXECUTED: the bus threw at canExecute with the §FIX-DEAD-VERB-REFUSE text — 'It writes the plugin DTO store, which is a FRESH instance built by PluginRegistry and is read by no renderer, no 2-D projector, no IFC exporter and no persistence path'. ⭐ THE CONTROL CASE FOR THIS WHOLE GATE: `slab.setThickness` and `slab.addHole` write the SAME store, in the SAME family, through the SAME handler shape, and both measure REACHES-SUBSCRIBER in the SAME run. The refusal is honest and it is still a capability the founder does not have — the chat and the property panel can change a slab's thickness but not its material.",
+      "exitCondition": "STRUCK when the refusal is lifted AND the verb measures REACHES-SUBSCRIBER — i.e. the mirror lands first and the refusal second. ⛔ Lifting the refusal alone moves this row to NO-TYPED-EVENT, which the gate scores as a REGRESSION, not progress: that is the §FIX-MATERIAL-DEAD-DISPATCH defect being re-created with the honesty removed."
+    },
+    {
+      "verb": "roof.setMaterial",
+      "verdict": "REFUSED",
+      "reason": "MEASURED, EXECUTED: the same §FIX-DEAD-VERB-REFUSE text as slab.setMaterial, on a second family, so the reading is a family-independent property of the `*.setMaterial` verb shape rather than one plugin's decision. Its sibling roof.setOverhang measures REACHES-SUBSCRIBER in the same run against the same store.",
+      "exitCondition": "STRUCK when the refusal is lifted AND the verb measures REACHES-SUBSCRIBER, in that order. See slab.setMaterial."
+    }
+  ],
+  "orphanChannelsNote": "ARM E2 — STATIC, and only static: a NAME MATCH for `.on('<event>')` across apps/ plugins/ packages/ excluding tests. These are channels CommandEventBridge really emits and nothing anywhere listens for. They are not dispatched by any fixture, so nothing here is claimed to be executed.",
+  "orphanChannels": [
+    { "event": "annotation.created", "reason": "The bridge emits it from `case 'annotation.create'`; no file outside tests subscribes. Annotations created through the bus reach no legacy-store mirror.", "exitCondition": "STRUCK when a subscriber for `annotation.created` exists outside tests — or when the case arm is removed because annotation creation is proven to reach the render layer by another route, which must be NAMED here, not assumed." },
+    { "event": "dimension.created", "reason": "Emitted from `case 'dimension.create'`; nothing subscribes. Same shape as annotation.created and almost certainly the same fix.", "exitCondition": "STRUCK when a subscriber for `dimension.created` exists outside tests, or the case arm is removed with the alternative route named." },
+    { "event": "grid.created", "reason": "Emitted from `case 'grid.create'`; nothing subscribes.", "exitCondition": "STRUCK when a subscriber for `grid.created` exists outside tests, or the case arm is removed with the alternative route named." },
+    { "event": "room.created", "reason": "Emitted from `case 'room.create'`; nothing subscribes. ⭐ Also this gate's TYPED-EVENT-NO-SUB negative control — selfTest() plants a synthetic handler on `room.create` every run and requires that verdict, so if a subscriber ever appears the control fails LOUDLY and this row must be re-pointed at another orphan rather than quietly deleted.", "exitCondition": "STRUCK when a subscriber for `room.created` exists outside tests — at which point the selfTest control MUST be moved to another orphan channel in the same commit, or the gate exits 2 as a blind comparator." },
+    { "event": "plumbing.created", "reason": "Emitted from `case 'plumbing.create'`; nothing subscribes.", "exitCondition": "STRUCK when a subscriber for `plumbing.created` exists outside tests, or the case arm is removed with the alternative route named." },
+    { "event": "structural.created", "reason": "Emitted from `case 'structural.create'`; nothing subscribes.", "exitCondition": "STRUCK when a subscriber for `structural.created` exists outside tests, or the case arm is removed with the alternative route named." },
+    { "event": "slab.layer-updated", "reason": "Emitted from `case 'slab.updateLayers'`; nothing subscribes. ⚠ Distinct from `element.updated`, which slab.setThickness uses and which DOES have a subscriber — so a slab's thickness reaches the renderer and its LAYER COMPOSITION does not, through two channels in the same case block.", "exitCondition": "STRUCK when a subscriber for `slab.layer-updated` exists outside tests, or the emit is folded into the `element.updated` channel that already has one." },
+    { "event": "ceiling.layer-updated", "reason": "Emitted from `case 'ceiling.updateLayers'`; nothing subscribes. Same shape as slab.layer-updated.", "exitCondition": "STRUCK when a subscriber exists outside tests, or the emit is folded into `element.updated`." },
+    { "event": "floor.layer-updated", "reason": "Emitted from `case 'floor.updateLayers'`; nothing subscribes. Same shape as slab.layer-updated.", "exitCondition": "STRUCK when a subscriber exists outside tests, or the emit is folded into `element.updated`." }
+  ]
+}
