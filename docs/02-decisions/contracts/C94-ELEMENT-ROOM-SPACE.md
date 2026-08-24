@@ -1308,3 +1308,171 @@ are the pointers that have rotted since the 2026-08-18 stamp, re-measured at **`
    edges` (`packages/spatial-index/src/RoomGraphService.ts:345`). The log line is measured; **whether
    the graph rebuild is correct or is losing edges it should keep was NOT traced by this lane.**
 8. **The wall/room seam** — §TOBE.4, deliberately reserved pending cross-lane agreement with C85.
+
+---
+
+# §TOBE-PLAN — THE ORDERED IMPLEMENTATION PLAN FOR §TOBE-ROOM
+
+> **Added 2026-08-24 by lane ROOM44 (Stage 2 of 3).** Derived from §TOBE-ROOM and from nothing else:
+> **every item below traces to an RM clause in [§TOBE.6](#tobe6--the-normative-clauses) or a ruling
+> in [§TOBE.8](#tobe8---undecided--the-founders-rulings).** An item with no clause behind it does not
+> belong here.
+>
+> **Why this lives in C94 and not in a SPEC.** Every item is the execution of a clause stated forty
+> lines above it; a SPEC would be a **second copy of the same ordering**, and this contract has
+> already recorded three independent counts of one family's verbs disagreeing (§0.1). CLAUDE.md's
+> conflict order also puts contracts **above** SPECs, so splitting a binding clause from its plan
+> across two tiers would let the weaker document drift. ⛔ **If this plan and §TOBE.6 disagree,
+> §TOBE.6 wins and this plan is stale — which is a defect, not a discrepancy to live with.**
+>
+> **Ordering principle: MEASURE → TELL THE TRUTH → RECOVER → then, and only then, RESTRUCTURE.**
+> ⭐ *Ship the instrument before the cure.* Nothing in Wave 0 changes behaviour; nothing in Wave 1
+> needs a ruling; nothing in Wave 2 may start before its gate opens.
+>
+> **Every item carries a test that FAILS ON TODAY'S HEAD and asserts a MEASURED QUANTITY** — a room
+> count, an m², a gap in mm, a field's presence — never a `success: true`.
+> ([C16 CA-21](C16-COMMAND-AUTHORING-PROTOCOL.md); the *committed-≠-reachable* rule.)
+
+---
+
+## §PLAN.0 — WAVE 0: MEASURE. No behaviour change, no ruling, ships immediately.
+
+⭐ **The whole justification for this wave: §TOBE.10 item 6 — *"the frequency of room loss in real
+use is unknowable until RM-0 ships"*. We are otherwise about to design against an anecdote.**
+
+### P0.1 — `RM-0` · The room-loss census
+
+| | |
+|---|---|
+| **What changes** | At `packages/command-registry/src/rooms/ReDetectRoomsCommand.ts:105-112`, before `roomStore.remove(r.id)`, emit one structured record per dropped room: `id`, `name`, `roomNumber`, `computed.area`, `occupancyType`, **whether it carried any authored field at all**, and the cause. Nothing else changes; the drop still happens |
+| **Files** | `ReDetectRoomsCommand.ts` only (⚠ owned by no other live lane) |
+| **Cost at N** | **O(rooms dropped per re-detect), typically 0.** One object + one gated line inside a loop that already runs. **Adds no pass** (§TOBE.7.2 rule 1) |
+| **Log discipline** | ⛔ Gated per [C10 §7](C10-PERFORMANCE-AND-OBSERVABILITY.md). `ProjectLoader.ts:2807` already records per-room churn on a 7-level load as a defect — this must not re-mint it. Suppressed while `__pryzmLoadActive()`, exactly as `BimKernel.ts:331` already does |
+| **Unblocks** | §TOBE.10 item 6; sizes **R-1**, **R-2** and **R-3** with real numbers instead of one session |
+| **Test (RED on HEAD)** | `roomLossIsCounted.spec.ts` — build a 2-room level, delete the shared partition, run the re-detect, assert **exactly one** loss record naming the dropped room's **id and area in m²**. RED today because no emitter exists |
+| **Risk** | ⭐ **Lowest in the plan.** Additive, inside an existing loop, no return value changes |
+
+### P0.2 — `§TOBE.7` · The detection cost curve
+
+| | |
+|---|---|
+| **What changes** | A bench that runs `detectRoomsForLevel` at **56 / 250 / 500 / 1000 / 2000** segments on one level and reports the wall-clock curve, alongside the pass breakdown (`_snapNearbyCorners`, `_reconnectDanglingEnds`, `_splitAtTJunctions`, `buildWallGraph`, face walk) |
+| **Files** | a new bench beside `apps/bench/src/benches/*.bench.ts`; pattern already in-family at `packages/room-topology/src/__tests__/diagRoomLoopCost.test.ts` |
+| **Cost at N** | none — it is the measurement |
+| **Unblocks** | ⛔ **Every cost claim in §TOBE.7.** Until it exists, *"detection is cheap"* is inadmissible, and **rule 6 of §TOBE.7.2 cannot be put to the founder honestly** — we cannot tell him what Option B's reconciliation pass would cost on top of a curve we have not drawn |
+| **Test (RED on HEAD)** | The bench IS the artefact. Its committed assertion is the shape, not the constant: **the curve is quadratic in segments** (the ratio between 500 and 1000 exceeds 3×), asserted so a future linearisation is visible |
+| **Risk** | ⭐ None to production — bench-only. ⚠ Its numbers are **node**, not browser; it must say so in its own header, as §DIAG.6 does |
+| **Honesty** | ⚠ §DIAG.6 already records that the **devtools stack-capture cost per `console.warn` is NOT measured**. This bench does not measure it either and must not be read as though it does |
+
+---
+
+## §PLAN.1 — WAVE 1: TELL THE TRUTH, THEN RECOVER. No ruling needed. Each item ships alone.
+
+### P1.1 — `RM-2` · ⭐ The confirmation must not name a record it did not restore
+
+| | |
+|---|---|
+| **Why first in this wave** | **Cheapest change in the plan and the most user-visible.** It is the sentence the founder reads at the end of a successful recovery, and it is false (§TOBE.1.2) |
+| **What changes** | `apps/editor/src/ui/ai/OpenedRegionProposal.ts:328-331`. The success line stops asserting that *"Room 00-004"* is closed and instead states what is true: the region is closed, it comes back as a **new** room, and **its name, number and occupancy were not carried over** |
+| **Files** | `OpenedRegionProposal.ts` only |
+| **Cost at N** | **Zero.** One string, plus at most one `roomStore` read to name the region as it is now |
+| **Depends on** | nothing. ⭐ It is **upgraded** by P1.3 (once a tombstone exists the same sentence can *offer* the old identity back) but it must not wait for it — an honest sentence now beats a better one later |
+| **Test (RED on HEAD)** | `recoveryMessageDoesNotNameALostRoom.spec.ts` — drive a merge that drops a **named** room, accept the offer, assert the success string **does not contain the dropped room's name** while `roomStore.getById(droppedId)` is `undefined`. RED today: the string is built from `finding.roomName` |
+| **Risk** | ⚠ **Do not over-correct into alarm.** *"SILENCE IS A FEATURE"* (§TOBE.0.1) — the sentence must stay one calm line. This is wording, and wording is the deliverable |
+
+### P1.2 — `RM-4` · Every refusal leaves the user a next step
+
+| | |
+|---|---|
+| **What changes** | Each of the six `position-unknown` reasons (§TOBE.2) gains a **next step**, not a new guess: *"these two rooms are now one — re-draw the boundary?"*, and on yes, activate the wall tool pre-seeded at the region's own former coordinates |
+| **Files** | `packages/room-topology/src/OpenedRegionDetector.ts` (reason text only) · `apps/editor/src/ui/ai/OpenedRegionProposal.ts` (the offer) |
+| **Cost at N** | **Zero compute.** The finding already exists and already reaches the chat |
+| **⛔ Constraint** | **This must not weaken a single refusal.** [C72 §9.3](C72-PROPAGATION-AND-PREVSTATE.md): *reducing a cell to REFUSES is a legitimate fix* — the six refusals are correct and stay. What is added is a route forward **after** the refusal, never a replacement for it |
+| **Test (RED on HEAD)** | `everyOpenedRegionRefusalOffersANextStep.spec.ts` — table-driven over **all six** reasons; each must yield a non-empty next-step. Table-driven on purpose: a **seventh** reason added later fails the test rather than slipping through silently ([C84 EI-1b](C84-ELEMENT-INTEGRITY.md), a blank reads as fine) |
+| **Risk** | ⚠ Touches the chat surface. Must go through `chatPromptHost` (§PROMPT-REACHES-A-HUMAN), never a `console` line |
+
+### P1.3 — `RM-3` · The tombstone: make the LOSS durable, not the room
+
+| | |
+|---|---|
+| **What changes** | A level-scoped register capturing the full `RoomData` at `ReDetectRoomsCommand.ts:105-112` before removal. When a later re-detection produces an **unmatched** face whose centroid falls inside a tombstoned polygon, **OFFER** its former name / number / occupancy / finishes |
+| **⛔ OFFER, never auto-apply** | The founder's standing *"always ASK, never auto-edit"*. ⚠ Auto-applying would mint a second authority for *"what is this room called?"* — the precise argument [§L-1032](#l-1032--the-storey-axis-change-level-and-duplicate-to-level) uses to refuse a level dropdown, and it would apply here with equal force |
+| **Files** | `ReDetectRoomsCommand.ts` (capture) · a new module in `packages/room-topology` (register) · `OpenedRegionProposal.ts` or a sibling (offer) |
+| **Cost at N** | **Memory O(rooms lost this session)**; **match cost O(tombstones × unmatched faces)** point-in-polygon — both ~0 in the normal case, because both factors are normally 0. **Bounded by** a per-level cap on tombstones |
+| **⛔ Project scope** | Must register with `projectScopeRegistry` and tear down on project switch ([C13](C13-PROJECT-LIFECYCLE-AND-ISOLATION.md) / ADR-0298). ⭐ **The exact leak is already documented next door**: `OpenedRegionProposal.ts:376-398` records how level-keyed state carried across a project switch silences a real question on an unrelated project's `lvl-0` |
+| **Depends on** | **P0.1** — the capture point is the same line, and shipping the census first means the tombstone is added to a site that is already proven to fire |
+| **Unblocks** | Upgrades P1.1's sentence from *"was not carried over"* to *"restore it?"* |
+| **Test (RED on HEAD)** | `roomMeaningSurvivesAMergeAndBack.spec.ts` — name a room, set its occupancy, delete the partition (room lost), restore the partition, assert the offer carries **the same name and occupancy strings**, and assert **nothing was applied without consent**. RED today: the data is destroyed at `:107` |
+| **Risk** | ⚠ **Medium — the only Wave-1 item that adds state.** Two named hazards: the C13 leak above, and a tombstone matching a face that is genuinely a *different* room. Mitigation: centroid-in-polygon **plus** a floor on area similarity, and it **offers**, so a wrong guess costs a declined prompt, not a corrupted model |
+| **⚠ Relationship to R-1** | **Compatible with either ruling and does not pre-empt it** (§TOBE.1.3). ⛔ It does **not** buy back id stability and therefore does **not** unblock RM-5, schedules or IFC identities |
+
+### P1.4 — `RM-9` · Delete must work on a room (§13 DELTA #2)
+
+| | |
+|---|---|
+| **What changes** | Both UI surfaces route a room selection to the working **`room.delete`** verb, which is sound and restores four side-registrations (§1.2, §6.3) |
+| **⛔ Constraint** | **Do NOT add a room branch to `DeleteElementCommand`.** [C84 EI-4a](C84-ELEMENT-INTEGRITY.md) — one route per user intent; adding a branch mints the second answer EI-9 forbids when a better command already exists |
+| **Files** | `plugins/view/src/handlers/DeleteElement.ts` · `apps/editor/src/engine/BimService.ts` |
+| **⚠ COLLISION** | ⛔ **Both files were changed hours ago by `0589a36c` (§DELETE-MUST-ANSWER, L-1403).** That lane closed the *swallow*; this item closes the *capability*. **Sequenced deliberately AFTER it, and last in Wave 1**, to avoid re-touching a file mid-flight. **Re-measure both files at HEAD before editing** |
+| **Cost at N** | **Zero** — a routing decision on one selection |
+| **Test (RED on HEAD)** | `roomDeleteReachesRoomDeleteVerb.spec.ts` — select a room, delete from **each** surface, assert `roomStore.getById(id)` is `undefined` **and** that one Ctrl+Z brings it back **with its name**. RED today: `DeleteElementCommand` greps `roomStore` → **0**, so the delete refuses |
+| **Bonus, free** | ⭐ Room's delete verb already restores **more** than it removed (`DeleteRoomCommand.ts:79-96`), so the undo half of that test should pass the moment the routing lands |
+
+### P1.5 — `RM-8` · `ReDetectRoomsCommand.undo()` must not claim success
+
+| | |
+|---|---|
+| **What changes** | `ReDetectRoomsCommand.ts:256-258` stops returning `{ success: true }` for work it did not do |
+| **⚠ HONEST SIZING — this is the LOWEST-VALUE item in the plan and is listed last for that reason** | The command is `nonUndoable` (`:65`), so the manager does not call `undo()` on it. **The change is very likely inert at runtime.** It is worth doing because a `success: true` for work not done is the shape [C16 CA-18](C16-COMMAND-AUTHORING-PROTOCOL.md) forbids and the next reader will take it at face value — **not** because it fixes an observed bug |
+| **⛔ Do not conflate** | The `nonUndoable` **geometry** decision at `:57-64` is **sound and is not reopened** (§10, §14 R5). Only the return value is wrong — and separately the `detectionVersion` ratchet that §9.3 and §13 DELTA #5 already own |
+| **Test (RED on HEAD)** | Assert the returned shape directly. ⚠ **The test must state in its own header that this path is not reached in production**, or it will be read as proof of a fix that changes nothing |
+
+---
+
+## §PLAN.2 — WAVE 2: GATED. ⛔ Do not start any item before its gate opens.
+
+| # | Item | Clause | ⛔ GATE | Why it cannot start early |
+|---|---|---|---|---|
+| **P2.1** | **Publish a stable room reference** other families can hold (room tag anchor, annotation, lighting, schedules) | **RM-5** | ⛔ **R-1** | Under pure derivation **there is no stable id to publish**. Building the subscriber before the field exists is the authored-but-unwired hazard [C72 §9.5](C72-PROPAGATION-AND-PREVSTATE.md) names. ⭐ **This one item closes four SILENT ledger cells** (§TOBE.3) and is the strongest argument in the R-1 pack |
+| **P2.2** | **The no-donor answer** — mint / ask-and-pre-seed / leave-merged-and-say-so | **R-2** | ⛔ **R-2** | Three coherent products; the founder's *"always ASK"* points at (b) but (c) is cheapest and strictly honest. ⚠ They are **not mutually exclusive** — (c)+(b) is a coherent answer. **P0.1's numbers should be in front of him when he rules** |
+| **P2.3** | **Refuse the centroid tie-break** — award the record to neither half, tombstone both, ask | **R-3** | ⛔ **R-3** | More honest, strictly more disruptive. **Cheap to build once ruled** — it is a branch at `RoomDetectionEngine.ts:1122-1131` and it reuses P1.3's register wholesale |
+| **P2.4** | **Consume the wall EXTENSION verb** so the CREATE rung is never reached when a wall could grow | **RM-1** | ⛔ **[C85 §10.7 W-M-12](C85-ELEMENT-WALL.md) / ADR-0336 stage 2** | ⭐ **The room side is ALREADY DONE** — `OpenedRegionDetector.ts:662-690` stands CREATE down and names the donor. What is missing is the verb to call. **C94 owes only the consumption, and C85 owes the capability** |
+| **P2.5** | **One cited tolerance register** across the room-side and wall-side loop-closure constants | **RM-6** | ⛔ **the §TOBE.4 seam agreement with C85** | ⛔ C94 **asserts nothing about which wall-side number is correct** — that is C85's to judge. What C94 can state alone is that **nobody can currently state the combined competence envelope** |
+| **P2.6** | **The per-gesture verdict** beside the per-junction one | **RM-7** | ⛔ **cross-lane** | ⚠ The emitter is `packages/geometry-wall/src/WallMoveReweldService.ts:860` — **another lane's file.** ROOM44 must not edit it. Either C85's lane lands it, or it lands after both settle |
+
+---
+
+## §PLAN.3 — WHAT SHIPS INDEPENDENTLY, AND WHAT THE CRITICAL PATH IS
+
+**Independent — any order, any time, no gate:** P0.1 · P0.2 · P1.1 · P1.2 · P1.5.
+**One real dependency inside the plan:** P1.3 depends on P0.1 (same capture site).
+**One sequencing constraint, not a dependency:** P1.4 goes last in Wave 1 to avoid re-touching two files another lane changed today.
+
+> ⭐ **THE CRITICAL PATH IS NOT CODE. IT IS `R-1`.** Six of the nine RM clauses are already
+> implemented, or cost near-zero and need no ruling. **P2.1 — the one item that turns a room from a
+> derived view into something other families can hold onto — is blocked on a single founder
+> decision, and every week it is open is a week the four SILENT ledger cells stay silent.**
+> **P0.1 exists to make sure that decision is taken against numbers rather than against one
+> session's console.**
+
+> ⚠ **AND `R-3` MUST NOT BE ALLOWED TO QUEUE BEHIND `R-1`.** They are different rulings about
+> different risks, and **R-3's is the one a user cannot catch.** Losing a room's name is *visible* —
+> the room comes back blank and the user sees it. **Misattribution is not**: a surviving name,
+> occupancy and IFC identity landing on the WRONG half of a merge, decided by centroid distance
+> (`RoomDetectionEngine.ts:1122-1131`), produces a model that reads as correct and exports as wrong.
+> ⛔ **Neither R-1 ruling implies an answer to R-3**, and P2.3 is cheap once ruled — a branch at one
+> site, reusing P1.3's register wholesale. **It should be put to the founder in the same pack, not
+> after it.**
+
+## §PLAN.4 — WHAT THIS PLAN DELIBERATELY DOES NOT PROPOSE
+
+⛔ Recorded so a later reader does not mistake absence for oversight:
+
+1. **No new detection pass, observer, store, event or per-frame computation.** §TOBE.7.2 rule 1.
+2. **No weakening of any `§OPENED-REGION` refusal.** §TOBE.0.1 and [C72 §9.3](C72-PROPAGATION-AND-PREVSTATE.md).
+3. **No room branch in `DeleteElementCommand`.** [C84 EI-4a](C84-ELEMENT-INTEGRITY.md).
+4. **No reopening of `room.redetect`'s `nonUndoable` geometry decision.** §14 R5.
+5. **No re-derivation of the [C72 §9.4](C72-PROPAGATION-AND-PREVSTATE.md) ledger inside C94.** Read the gate.
+6. **No second preservation mechanism** — §9.3's `preserveMetadata` exists and is unconsumed; §13 DELTA #5 owns it.
+7. **No overturning of [§L-1032](#l-1032--the-storey-axis-change-level-and-duplicate-to-level).** A room's STOREY stays derived under either R-1 ruling; only its MEANING is in question.
+8. **No edit to `C85`, `WallMoveReweld*`, `Slab*` or `WallPlanToolHandler`/`WallTool`** — other lanes are live in these files.
