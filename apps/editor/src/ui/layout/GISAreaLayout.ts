@@ -25,6 +25,7 @@ import {
     isPanelOpen,
     panelAbsent,
     setAppPhase,
+    appPhase,
     resetPanelLayout,
     onPanelLayoutReset,
     onAppPhaseChanged,
@@ -5305,6 +5306,48 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // right=3d-site). §C59 Phase 2 invariant 3: the STORE is the single write path —
         // calling `controller.applyLayout` here would land the layout on the renderers but
         // leave the store (and therefore every pane's view picker) showing something else.
+        // ════════════════════════════════════════════════════════════════════
+        // §ONBOARDING-STEP-PINS-ITS-SURFACE (L-10720) — the 2D map may not be evicted
+        // while the guided setup flow is what the user is doing.
+        //
+        // THE DEFECT (founder 2026-08-24, at "STEP 2 OF 4 · DRAW YOUR PLOT"): one click
+        // on `◉ 3D Site` soloed the right pane, `mapMounter.unmount()` below disposed
+        // the MapLibre map he was drawing on — `[gis] map2d: disposed` — and the wizard
+        // sat on `draw idle tick — waiting` forever, because its readiness stamp
+        // (`window.pryzmBoundaryDrawSurfaceReadyAt`) is deleted by that disposer and
+        // nothing in the flow could ask for the map back. A DEAD END, one click deep,
+        // in the primary onboarding path. See `PaneLayoutStore.pinView` for the full
+        // finding and for why the rule is "may not be VACATED" rather than either
+        // "keep it hidden" or "disable the view controls".
+        //
+        // ⭐ THE PHASE IS THE DRIVER, NOT A NEW FLAG. `AppPhase` already means exactly
+        // "is there a BIM canvas yet, or is the user still in the guided globe flow"
+        // (`panelDefaults.ts`), it is already declared at the open gesture (§L-1186),
+        // and it already gates panel defaults and element authoring. C06 §10.7 records
+        // that it gates the engine boot nowhere; this extends the SAME concept to the
+        // pane layout rather than minting a second onboarding state.
+        //
+        // ⚠ The pin only refuses a DISPATCH. Shell teardown (`unmountSiteAuthoringPanes`
+        // at generate-time, project close) does not dispatch, so the normal end of the
+        // flow is untouched — verified in `onboardingDrawSurfaceNotEvictable.spec.ts`.
+        try {
+            if (appPhase() === 'onboarding-globe') {
+                const release = shell.store.pinView(
+                    'site-map-2d',
+                    'The 2D site map is where you draw your plot — it stays on screen until you '
+                    + 'have drawn one or skipped drawing. The 3D Site is live beside it.',
+                );
+                // Released the moment the guided flow ends (the wizard's `dispose()` is
+                // the ONE place that sets `'canvas'`), so nothing about the editor's
+                // normal pane behaviour is changed by this.
+                const unsubPhase = onAppPhaseChanged(() => {
+                    if (appPhase() !== 'onboarding-globe') { release(); unsubPhase(); }
+                });
+            }
+        } catch (e) {
+            console.warn('[gis][panes] §ONBOARDING-STEP-PINS-ITS-SURFACE pin failed (non-fatal — the split still mounts):', e);
+        }
+
         const layout = siteAuthoringDefaultLayout();
         const applied = shell.store.dispatch({ type: 'view.pane.set-layout', layout });
         if (!applied.ok) {

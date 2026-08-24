@@ -28,6 +28,10 @@ import { installGlobalHandlers } from '@pryzm/crash-reporter';
 // delegates to `warmEngineModule()` so the onboarding pre-warm and the real boot
 // reuse a SINGLE chunk download (see the comment on `loadEngine`).
 import { warmEngineModule } from '@app/engine/engineWarmup';
+// §STARTUP-BUDGET (L-10722) — the EXISTING instrument. ⛔ Not a rival timer: three legs
+// of the founder's project-start were unnamed by ANY mark, so a complete reading was
+// impossible even from a perfect run. See the call sites below.
+import { markStartupPhase } from '@app/engine/startupBudget';
 
 // ── PRYZM 1 SUNSET FLAG (S61 D1, additive) ────────────────────────────────────
 // `?pryzm1=1` is the *opt-in* test route for the upcoming D5 default flip.
@@ -337,10 +341,20 @@ async function bootPlatform(): Promise<void> {
 
     const workspaceMount = {
         ensure: async (): Promise<void> => {
+            // §STARTUP-BUDGET (L-10722) — ⭐ THE LEG NO MARK NAMED. `openProject` step 2
+            // calls this, and the FIRST thing it does is await `_heavyWiringDone` — the
+            // Wave-1.5 deferral that constructs the 2,433-LOC `PlatformShell` plus four
+            // module-load singleton hand-offs. On the founder's own run that wait sits
+            // between `onboarding:shown` and `boot:engine-start`, and it was attributed to
+            // the engine boot by everyone reading the log, because the boot is what the
+            // next mark is called. It may be 0 ms or it may be most of the hole; nothing
+            // measured it. These two marks bracket it so the next reading answers that.
+            markStartupPhase('boot:ensure-requested');
             // Wave 1.5: gate engine boot on the deferred PlatformShell + singleton
             // hand-offs. `initPersistence.ts` calls `injectDelegates()` on
             // `window.platformShell` once the engine boots; that must exist first.
             if (_heavyWiringDone !== null) await _heavyWiringDone;
+            markStartupPhase('boot:heavy-wiring-done');
             // Phase A.6 close — forward the composed runtime so initUI
             // can route toasts via `runtime.toasts.show(...)`.
             await startEngine(runtimeRef.current);
@@ -439,6 +453,12 @@ async function bootPlatform(): Promise<void> {
     // The only residual bridge responsibility is engine boot: `ensure()` lazy-
     // starts the legacy EngineBootstrap on first project-open (idempotent).
     // DELETE when the renderer is mounted from boot (Phase D.3).
+    // §STARTUP-BUDGET — O2 (`SPEC-PROJECT-OPEN-CREATE-PIPELINE` §3) is COMPOSED.
+    // Everything before this mark is module download + evaluation + the L1 store /
+    // L2 bus / authoritative-handler build; everything after it is the per-project
+    // open. The spec's O-table had a row for it and the instrument had no mark, so
+    // 'is the wait the compose or the boot?' could only be guessed at.
+    markStartupPhase('runtime:composed');
     runtime.persistence.attachEngineBootstrap({ ensure: () => workspaceMount.ensure() });
 
     // Phase B.4 (S73-WIRE) — wire the composed runtime into PanelManager so

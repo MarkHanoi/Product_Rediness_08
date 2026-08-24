@@ -119,6 +119,74 @@ export class PaneLayoutStore {
         return this._splitMemory != null;
     }
 
+    // ── §ONBOARDING-STEP-PINS-ITS-SURFACE (L-10720) ──────────────────────────
+    //
+    // THE MEASURED DEFECT (founder 2026-08-24, onboarding STEP 2 OF 4 "DRAW YOUR PLOT"):
+    // one click on `◉ 3D Site` in the quick-toggle dispatched `view.pane.solo(right)`,
+    // this reducer vacated the LEFT pane, `mapMounter.unmount()` ran
+    // `SiteBoundaryMap2D.dispose()` — `[gis] map2d: disposed` — and that disposer
+    // `delete`s `window.pryzmBoundaryDrawSurfaceReadyAt`. `OnboardingStepController`'s
+    // draw watchdog reads exactly that stamp, so it was pinned on
+    // `action:'wait' because:'surface-not-ready'` FOREVER, re-arming every 60 s
+    // (`[onboarding-step] draw idle tick — waiting`). The step needed the map, the map
+    // was gone, and nothing in the wizard could ask for it back. ⛔ A DEAD END in the
+    // primary onboarding path, reachable by one click on a control the UI offers.
+    //
+    // ⭐ THE RULE CHOSEN, AND WHY IT IS THIS ONE AND NOT THE OTHER TWO:
+    //
+    //   **A view a caller has PINNED may not be VACATED from the layout. Everything
+    //   that does not vacate it stays fully available.**
+    //
+    //   · NOT "keep the map mounted but hidden". A MapLibre map in a `display:none`
+    //     pane still stamps `pryzmBoundaryDrawSurfaceReadyAt`, so the wizard would be
+    //     told there is a drawing surface while the user can see nothing — the idle
+    //     offer would then fire over an invisible map. That trades a dead end for a
+    //     lie, which is worse.
+    //   · NOT "disable the view controls during onboarding". That removes a capability
+    //     the user legitimately wants (he asked to look at the 3D) to fix a problem
+    //     caused by ONE of its outcomes. Under this rule the founder's exact click on
+    //     `◉ 3D Site` while the split is live is refused — he KEEPS the 2D map AND
+    //     keeps seeing the 3D beside it, which is what he was reaching for.
+    //
+    // ⛔ IT IS ENFORCED IN THE MODEL, NOT IN THE BUTTON. Three surfaces can move a
+    // view — the quick-toggle bar, the two per-pane `PaneViewPicker`s, and any
+    // programmatic caller — and `dispatch` is the one seam all three cross (this
+    // class's whole reason for existing). Guarding the button would fix the founder's
+    // instance and leave the class open.
+    //
+    // ⚠ IT GUARDS `dispatch` ONLY, which is exactly right: shell TEARDOWN
+    // (`unmountSiteAuthoringPanes` → `shell.dispose()`) does not dispatch, so
+    // generate-time and project-close teardown are untouched by a live pin.
+    private readonly pinned = new Map<ViewType, string>();
+
+    /**
+     * Declare `viewType` LOAD-BEARING for whatever the user is currently doing.
+     * `reason` is shown to the user verbatim (the disable-or-explain rule), so write
+     * it as a sentence a person can act on, not as an error code.
+     *
+     * Returns the un-pin. Idempotent per view type: pinning an already-pinned view
+     * replaces the reason and the newest disposer is the live one.
+     */
+    pinView(viewType: ViewType, reason: string): () => void {
+        this.pinned.set(viewType, reason);
+        this.notify();
+        let released = false;
+        return () => {
+            if (released) return;
+            released = true;
+            if (this.pinned.get(viewType) === reason) {
+                this.pinned.delete(viewType);
+                this.notify();
+            }
+        };
+    }
+
+    /** The live pins — `viewType → user-facing reason`. Read by the quick toggle and
+     *  the pane pickers so they DISABLE-AND-EXPLAIN instead of dispatching a refusal. */
+    pinnedViews(): ReadonlyMap<ViewType, string> {
+        return this.pinned;
+    }
+
     /** Bind (or re-bind) the imperative shell. */
     setApplier(applier: PaneLayoutApplier | null): void {
         this.applier = applier;
@@ -151,6 +219,12 @@ export class PaneLayoutStore {
 
         const guard = this.guard(next);
         if (guard) return this.reject(guard);
+
+        // §ONBOARDING-STEP-PINS-ITS-SURFACE — refuse BEFORE the applier runs, for the
+        // same reason `guard` does: once `applyLayout` has unmounted a renderer the
+        // surface is gone and "reject" no longer means "nothing changed".
+        const pin = this.pinRejection(next);
+        if (pin) return this.reject(pin);
 
         let pending: Promise<void> | undefined;
         if (this.applier) {
@@ -253,6 +327,29 @@ export class PaneLayoutStore {
             `That layout would put two ${c.rendererKind} views in panes ` +
             `[${c.panes.join(', ')}] — there is only one ${c.rendererKind} instance app-wide.`
         );
+    }
+
+    /**
+     * §ONBOARDING-STEP-PINS-ITS-SURFACE — would `next` VACATE a pinned view?
+     *
+     * ⛔ "Vacate", not "move". A pinned view that changes panes is still on screen and
+     * still drawable, so `assign(right, 'site-map-2d')` (which MOVES the singleton) is
+     * allowed. Only its DISAPPEARANCE from every pane is refused.
+     *
+     * ⚠ And only when it was actually mounted a moment ago. A pin on a view that is not
+     * currently hosted refuses nothing — otherwise the very `set-layout` that first
+     * mounts the pinned view would be rejected by its own pin, which is the
+     * unsatisfiable-gate shape (§L-716): a guard whose satisfied state is unreachable.
+     */
+    private pinRejection(next: PaneLayout): string | null {
+        if (this.pinned.size === 0) return null;
+        for (const [viewType, reason] of this.pinned) {
+            const hostedNow = Object.values(this._layout).includes(viewType);
+            if (!hostedNow) continue;
+            const hostedNext = Object.values(next).includes(viewType);
+            if (!hostedNext) return reason;
+        }
+        return null;
     }
 
     private reject(reason: string): PaneLayoutDispatchResult {

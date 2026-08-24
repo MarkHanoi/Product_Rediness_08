@@ -301,6 +301,10 @@ export function mountPaneViewPicker(opts: PaneViewPickerOptions): PaneViewPicker
             paneId,
             registry,
             mountableKinds: store.mountableKinds(),
+            // §ONBOARDING-STEP-PINS-ITS-SURFACE (L-10720) — the store refuses a choice
+            // that would evict the view the current step depends on; this makes the
+            // refusal VISIBLE in the menu instead of silent on click.
+            pinnedViews: store.pinnedViews(),
         });
         for (const o of options) popup.appendChild(renderOption(o));
 

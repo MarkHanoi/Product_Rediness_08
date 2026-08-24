@@ -44,8 +44,40 @@
 //     guessed at. These name it. They map 1:1 onto SPEC-PROJECT-OPEN-CREATE-PIPELINE §3's
 //     O4/O5/O6/O9/O7/O8 rows, deliberately, so a reading here is quotable against that spec.
 //
+// ⭐ ADDED 2026-08-24 (lane STARTUP37, §STARTUP-BUDGET-NAMES-THE-WHOLE-OPEN, L-10722) — three
+// more marks, for one reason: EARTH31's `boot:*` family named the ENGINE BOOT, and the founder's
+// complaint is *"from the moment the user adds the LOCATION until the SPLIT VIEW arrives"*, which
+// is a LONGER interval than the boot. Even a perfect run could not attribute it, because three
+// legs of that interval had no mark on either side of them:
+//
+//   · runtime:composed — SPEC-PROJECT-OPEN-CREATE-PIPELINE §3 O2 (`composeRuntime()`). The
+//     spec's table had the row; the instrument had no mark. Everything before it is module
+//     download + evaluation; everything after it is the per-project open.
+//
+//   · boot:ensure-requested / boot:heavy-wiring-done — ⭐ the Wave-1.5 `_heavyWiringDone` await
+//     at the TOP of `workspaceMount.ensure()` (`src/main.ts`), which constructs the 2,433-LOC
+//     `PlatformShell` plus four singleton hand-offs BEFORE `startEngine()` is even called. It
+//     sits between `onboarding:shown` and `boot:engine-start`, so every reader of the founder's
+//     log has silently charged it to the engine boot — the next mark is what it is NAMED after.
+//     It may be 0 ms; nothing had measured it.
+//
+//   · open:project-loaded — ⭐ THE GATE. `briefBootstrap`'s one-shot `pryzm-project-loaded`
+//     handler, i.e. the exact instant the location step is allowed to open (ADR-0369 §6). Read
+//     it against `boot:ui-done`: that gap is O10, the snapshot hydrate, and it is the leg that
+//     decides whether ADR-0369 §7 Stage 3 (boot less) is the whole answer or only half of it.
+//
 // ⛔ These are MARKS, not gates. Adding one must never change what runs or in what order — the
 // "passive mark recorder" clause above is the whole contract of this module.
+//
+// ⚠ THE VOCABULARY IS NOW COMPLETE ACROSS THE FOUNDER'S INTERVAL, in this order on a cold
+// onboarding run: onboarding:shown → cesium:warm-start → globe:prewarm-start/-done →
+// runtime:composed → boot:ensure-requested → boot:heavy-wiring-done → boot:engine-start →
+// boot:scene-done → boot:builders-done → boot:tools-done → boot:bus-handlers-done →
+// boot:data-platform-done → boot:ui-done → globe:eager-init-start/-done → open:project-loaded →
+// location-step:open → geocode:start/end → context-warm:start/done → flight:parcel-arrival →
+// reveal:content-ready → reveal:flight-settled → reveal:split-mounted → parcel:committed →
+// envelope:dispatched → enter-canvas. ⭐ A run that skips a mark is itself a finding — say which
+// one, do not average over it.
 //
 // P8: every exported function carries an OTel span.
 

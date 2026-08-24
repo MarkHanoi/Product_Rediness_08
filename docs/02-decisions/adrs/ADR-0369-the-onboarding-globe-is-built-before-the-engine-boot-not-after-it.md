@@ -1,8 +1,11 @@
 # ADR-0369 — The onboarding globe is BUILT before the engine boot, not after it
 
-- **Status:** ACCEPTED (Stage 1, landed) · PROPOSED (Stages 2–3 in §7, costed, not built)
-- **Date:** 2026-08-24
-- **Lane:** EARTH31 · **Issue:** [L-10560](../../04-reference/ISSUE-LOG.md)
+- **Status:** ACCEPTED (Stage 1, landed) · **Stage 2 REDIRECTED, Stage 3 PROMOTED** (§7, amended
+  2026-08-24 by lane STARTUP37 — the reveal verb was found to live at the END of the boot, which
+  changes which stage is the answer) · both still NOT BUILT
+- **Date:** 2026-08-24 (amended 2026-08-24, lane STARTUP37)
+- **Lane:** EARTH31 · **Issue:** [L-10560](../../04-reference/ISSUE-LOG.md) ·
+  amended by **STARTUP37** ([L-10720..L-10723](../../04-reference/ISSUE-LOG.md))
 - **Supersedes / amends:** amends **§STARTUP-EAGER-GLOBE** (2026-08-10) in place — same seam,
   same file, the consumer moved. Supersedes nothing.
 - **Governed by:** `C02` (composition root & boot) · `C13` (project lifecycle & isolation) ·
@@ -174,6 +177,89 @@ renders and geocodes with `pryzm-project-loaded` **never fired**, and that the g
 `site.updateLocation` dispatches correctly pre-boot, and (b) that
 `OnboardingStepController.start()`'s `resetAppPhaseForNewProject()` bracket (§L-1186) still opens
 and closes exactly once. **Cost:** one lane, browser verification mandatory.
+
+### ⭐⭐ AMENDMENT 2026-08-24 (lane STARTUP37) — STAGE 2 AS WRITTEN WOULD REVEAL A CARD OVER A BLACK SCREEN
+
+⚠ **Stage 2 above assumes the location step only needs "a project record and a globe". It needs a
+THIRD thing, and that thing is produced by the boot's LAST stage.** Verified from source, not
+inferred:
+
+| what `renderLocationStep()` calls | who installs it | when |
+|---|---|---|
+| `window.pryzmToggleGIS(true)` — **the reveal itself** | `mountGISArea` (`GISAreaLayout.ts:1468`) | inside `initUI` |
+| `window.pryzmGetSiteEntryCameraHost()` | `mountGISArea` (`GISAreaLayout.ts:~1486`) | inside `initUI` |
+| `window.pryzmGetSiteEntryCameraHostReady()` | `mountGISArea` | inside `initUI` |
+
+`initUI` is `boot:ui-done` — the LAST stage of `engineLauncher.bootstrap()`. `GlobeHeroSearch`
+calls the toggle as `w.pryzmToggleGIS?.(active)`, so a location step opened before `initUI` would
+**silently no-op the reveal**: the card renders, the geocode runs, and PRYZM Earth never appears.
+⛔ That is strictly worse than the wait it replaces, and it is the founder's own complaint made
+permanent instead of shorter.
+
+⭐ **THE CONSEQUENCE FOR THE PLAN, and it is the useful half of this amendment: Stage 2's GOAL is
+better served by Stage 3's MECHANISM.** If `initBuilders` / `initTools` / `initBusHandlers` /
+`initDataPlatform` are deferred while `phase === 'onboarding-globe'`, then `initUI` — and therefore
+`mountGISArea`, `pryzmToggleGIS` and the reveal — arrives immediately after `initScene`. The reveal
+chain in §6 is then **unchanged**: no split gate in `briefBootstrap`, no second owner of "is the
+globe visible", no new seam. **The wait collapses by whatever O5+O6+O9+O7 actually cost, and
+nothing about WHO reveals the globe moves.** Stage 3 is therefore not merely "largest and last" —
+it is the one that answers the mandate.
+
+⛔ **Stage 2 is NOT deleted, it is DEMOTED and RESHAPED.** It becomes worth doing only if a
+`boot:*` reading shows the hydrate (`boot:ui-done` → `open:project-loaded`), not the boot, owns the
+time — and in that case it needs a fourth deliverable nobody had costed: a reveal verb that does
+not depend on `mountGISArea`. Stage 1 already put the mounted viewport behind
+`eagerGlobeStart.consumePrewarmedGlobe()`, so the shape exists; ⚠ giving it a `reveal()` would
+create a SECOND owner of globe visibility, which §4's own "changes WHEN it is BUILT, never WHO
+decides it is SHOWN" rule exists to prevent. That trade must be made deliberately, not as a side
+effect of splitting a gate.
+
+### ⛔ WHAT STARTUP37 DID **NOT** DO, AND WHY — stated as plainly as §6
+
+**It did not build Stage 2 or Stage 3, because it could not produce the reading they are
+conditioned on.** §7 Stage 3's precondition is *"ONE founder-run `boot:*` table"*, and §8's marks
+only appear in a run that reaches `engineLauncher.bootstrap()` — which requires an **authenticated
+project open**. A local production-mode build (`vite build` RC=0, `NODE_ENV=production` server,
+headless Chromium) reaches the landing page, composes the runtime and pre-warms the renderer
+(`[RendererPrewarm] webgl-fallback renderer pre-warmed in 187 ms`), and stops there:
+`window.runtime` is not exposed before the boot, and the only credentials that would open a project
+are the founder's own. Signing up a throwaway account would have written to his live Supabase.
+
+⭐ **So the honest deliverable was to make the NEXT run complete rather than to guess at this one**
+— see §8.1. ⛔ Deferring `initBuilders` on a guess is exactly what EARTH31 refused to do for a
+stated reason; the reason has not changed just because the marks now exist.
+
+### §8.1 — Also landed (STARTUP37): the instrument now spans the founder's WHOLE interval
+
+§8's `boot:*` family named the ENGINE BOOT. The mandate is *"from the moment the user adds the
+LOCATION until the SPLIT VIEW arrives"*, which is longer, and **three legs of it had no mark on
+either side** — so even a perfect founder run could not attribute it. Three marks were added to the
+**existing** `startupBudget.ts` (⛔ no rival instrument, and all passive):
+
+- **`runtime:composed`** — `SPEC-PROJECT-OPEN-CREATE-PIPELINE` §3 **O2**. The spec's table had the
+  row; the instrument had no mark.
+- **`boot:ensure-requested` / `boot:heavy-wiring-done`** — ⭐ the Wave-1.5 `_heavyWiringDone` await
+  at the TOP of `workspaceMount.ensure()` (`src/main.ts`), which builds the 2,433-LOC
+  `PlatformShell` plus four singleton hand-offs **before `startEngine()` is called at all**. It sits
+  between `onboarding:shown` and `boot:engine-start`, so every reader of the founder's log — this
+  ADR included — has silently charged it to the engine boot, because the next mark is what it is
+  NAMED after. It may be 0 ms. **Nothing had measured it.**
+- **`open:project-loaded`** — ⭐ **THE GATE**, marked inside `briefBootstrap`'s one-shot
+  `pryzm-project-loaded` handler: the exact instant the location step is allowed to open.
+
+⭐ **HOW TO READ THE NEXT RUN, in one line each:**
+
+| pair | what the gap IS | what a LARGE gap means |
+|---|---|---|
+| `onboarding:shown` → `runtime:composed` | module download + evaluation + O2 | the bundle, not the boot |
+| `boot:ensure-requested` → `boot:heavy-wiring-done` | the `PlatformShell` deferral | a leg nobody knew was there |
+| `boot:engine-start` → `boot:ui-done`, stage by stage | O4/O5/O6/O9/O7/O8 | **Stage 3 is the answer** |
+| `boot:ui-done` → `open:project-loaded` | O10, the snapshot hydrate | Stage 3 is only half; the load path owns it (that path is VIEWLOAD36's) |
+| `open:project-loaded` → `location-step:open` | the wizard's own hand-off | should be ~0 |
+
+⛔ **Do not deduce which stage owns the founder's wait without reading those pairs.** Every
+hypothesis about this pipeline — including the two this ADR itself advanced — has been wrong at
+least once.
 
 ### Stage 3 — phase-gate the engine boot on `AppPhase` · ⭐ largest, and correctly LAST
 

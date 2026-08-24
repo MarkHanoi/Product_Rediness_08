@@ -69,6 +69,7 @@
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { startOnboardingStepFlow } from './OnboardingStepController.js';
+import { markStartupPhase } from '../../engine/startupBudget.js';
 import { setActiveBrief } from '../apartment-layout/activeBrief.js';
 import { resolveGenerateRoute } from './typologyChoiceModel.js';
 
@@ -237,6 +238,21 @@ async function handleBriefReady(
         if (fired) return;
         fired = true;
         onLoaded.dispose();
+        // §STARTUP-BUDGET (L-10722) — ⭐ THE GATE ITSELF, named at last.
+        //
+        // This handler IS the thing standing between the founder adding a location and
+        // PRYZM Earth appearing: `renderLocationStep()` (and therefore
+        // `pryzmToggleGIS(true)`) cannot run until this line does, and this line cannot
+        // run until the FULL engine bootstrap + the project hydrate have finished
+        // (`buildPersistence.openProject` steps 2 and 4). ADR-0369 §6 states the chain;
+        // nothing measured WHERE in it the time goes.
+        //
+        // Read `open:project-loaded` against `boot:ui-done`: the gap between them is O10
+        // — the snapshot hydrate + the load-path work — and it is the ONE leg of his
+        // complaint that had no mark on either side of it. A large gap means the hydrate
+        // owns his wait; a near-zero gap means the boot does, and ADR-0369 §7 Stage 3 is
+        // the whole answer. ⛔ Do not deduce which without reading this pair.
+        markStartupPhase('open:project-loaded');
         console.log('[onboarding-bootstrap] pryzm-project-loaded — project ready', {
             projectId: p.projectId,
             empty: p.empty,

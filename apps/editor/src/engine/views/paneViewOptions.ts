@@ -66,6 +66,17 @@ export interface PaneViewOptionsInput {
      * `null`/undefined ⇒ skip the runtime check (used by pure tests of the static half).
      */
     readonly mountableKinds?: ReadonlySet<RendererKind> | null;
+    /**
+     * §ONBOARDING-STEP-PINS-ITS-SURFACE (L-10720) — `store.pinnedViews()`: views a
+     * caller has declared LOAD-BEARING for what the user is doing right now, mapped to
+     * the reason to show them. Rule 4b below refuses any choice that would VACATE one.
+     *
+     * ⭐ This picker is the SECOND of the three surfaces that can move a view (the
+     * quick-toggle bar and a programmatic caller are the others), and the founder's
+     * dead end proved they must not disagree: the store refuses all three, and each
+     * one that has a UI disables-and-explains rather than declining on click.
+     */
+    readonly pinnedViews?: ReadonlyMap<ViewType, string> | null;
 }
 
 /** Pretty pane name for reasons ("the right pane"). Pure string shaping. */
@@ -94,6 +105,7 @@ export function describePaneViewOptions(input: PaneViewOptionsInput): PaneViewOp
     const registry = input.registry ?? VIEW_TYPE_REGISTRY;
     const { layout, paneId } = input;
     const mountable = input.mountableKinds ?? null;
+    const pinned = input.pinnedViews ?? null;
 
     return listPaneViewTypes(registry).map((viewType): PaneViewOption => {
         const d = registry[viewType];
@@ -141,6 +153,20 @@ export function describePaneViewOptions(input: PaneViewOptionsInput): PaneViewOp
                     `${c.panes.map(describePaneName).join(' and ')} — there is only one ` +
                     `${c.rendererKind} instance app-wide.`,
             };
+        }
+
+        // 4b. §ONBOARDING-STEP-PINS-ITS-SURFACE (L-10720) — would this choice VACATE a
+        //     pinned view? Asked of the SAME `hypothetical` layout rule 4 just built, so
+        //     the singleton MOVE semantics are already folded in: choosing `site-3d` for
+        //     the pane that holds the pinned 2D map evicts the map (refused), while
+        //     choosing the pinned map ITSELF for the other pane merely moves it (allowed).
+        if (pinned && pinned.size > 0) {
+            for (const [pinnedView, reason] of pinned) {
+                const hostedNow = Object.values(layout).includes(pinnedView);
+                if (!hostedNow) continue;
+                if (Object.values(hypothetical).includes(pinnedView)) continue;
+                return { ...base, state: 'unavailable', enabled: false, reason };
+            }
         }
 
         const otherPane = findOtherPaneShowing(layout, viewType, paneId);

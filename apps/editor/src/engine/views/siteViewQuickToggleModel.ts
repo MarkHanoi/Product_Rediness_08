@@ -185,6 +185,19 @@ export interface SiteViewQuickToggleInput {
     readonly mountableKinds?: ReadonlySet<RendererKind> | null;
     readonly registry?: Readonly<Record<ViewType, ViewTypeDescriptor>>;
     /**
+     * §ONBOARDING-STEP-PINS-ITS-SURFACE (L-10720) — `store.pinnedViews()`: views a
+     * caller has declared LOAD-BEARING for what the user is doing right now, mapped to
+     * the reason to show them. See `PaneLayoutStore.pinView` for the full finding.
+     *
+     * ⭐ WHY THE BAR NEEDS THIS AT ALL, when the store already refuses. Because
+     * DISABLE-OR-EXPLAIN is this bar's stated rule (`describePaneViewOptions`' four
+     * refused entries are the precedent): a live-looking button that silently declines
+     * on click teaches the user the app is broken. The store's guard is the
+     * belt-and-braces behind the disabled button, not a substitute for it — exactly the
+     * relationship this file's header already describes for availability.
+     */
+    readonly pinnedViews?: ReadonlyMap<ViewType, string> | null;
+    /**
      * §GLOBE-QUICK-TOGGLE — the framing this control LAST COMMANDED. Defaults to `'site'`.
      *
      * ⚠ IT IS THE CONTROL'S MEMORY OF ITS OWN COMMAND, NOT A CAMERA READING, and that
@@ -234,6 +247,25 @@ function occupiedCount(layout: PaneLayout): number {
 }
 
 /**
+ * §ONBOARDING-STEP-PINS-ITS-SURFACE — the reason a click on `candidate` is refused,
+ * or `null`. Exported-shaped as a helper so the derivation lives in ONE place and the
+ * unit tests can hit it through {@link describeSiteViewQuickToggle} alone.
+ */
+function pinnedElsewhereReason(
+    pinned: ReadonlyMap<ViewType, string> | null,
+    layout: PaneLayout,
+    candidate: ViewType,
+): string | null {
+    if (!pinned || pinned.size === 0) return null;
+    for (const [viewType, reason] of pinned) {
+        if (viewType === candidate) continue;
+        if (paneHosting(layout, viewType) === null) continue;
+        return reason;
+    }
+    return null;
+}
+
+/**
  * ⭐ THE MODEL. Pure: `layout` in, segments out. No store, no DOM, no renderer.
  */
 export function describeSiteViewQuickToggle(
@@ -242,6 +274,7 @@ export function describeSiteViewQuickToggle(
     const registry = input.registry ?? VIEW_TYPE_REGISTRY;
     const { layout } = input;
     const mountable = input.mountableKinds ?? null;
+    const pinned = input.pinnedViews ?? null;
     const occupied = occupiedCount(layout);
 
     const segments = (Object.keys(registry) as ViewType[])
@@ -284,6 +317,21 @@ export function describeSiteViewQuickToggle(
                         `${d.label} needs the ${d.rendererKind} renderer, which is not `
                         + 'loaded in this workspace.',
                 };
+            }
+            // PINNED half — §ONBOARDING-STEP-PINS-ITS-SURFACE (L-10720).
+            //
+            // ⭐ THE DERIVATION, and it is exact rather than a re-implementation of the
+            // reducer: EVERY click on this bar ends in a `solo` of ONE pane holding THIS
+            // segment's view (`segmentClickIntents` below — `[solo]` or `[assign, solo]`,
+            // never anything else). So a click on segment X vacates pinned view P iff
+            // `P !== X`. Nothing else about the layout can change that.
+            //
+            // ⚠ Only when P is CURRENTLY hosted. A pin on a view that is not on screen
+            // refuses nothing — otherwise the click that would BRING IT BACK would be
+            // disabled by its own pin, which is the unsatisfiable-gate shape (§L-716).
+            const pinRefusal = pinnedElsewhereReason(pinned, layout, viewType);
+            if (pinRefusal) {
+                return { ...base, enabled: false, reason: pinRefusal };
             }
             return { ...base, enabled: true };
         });

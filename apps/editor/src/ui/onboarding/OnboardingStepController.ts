@@ -1821,6 +1821,135 @@ export class OnboardingStepController {
             for (const c of this.cleanups.splice(0)) { try { c(); } catch { /* ignore */ } }
             void this.fallbackDefaultRectToConfirm('user-skip-draw');
         });
+
+        // ── §DRAW-SURFACE-IS-RECOVERABLE (L-10721) — the escape hatch ────────
+        //
+        // THE DEFECT this closes (founder 2026-08-24): switching the site view away from
+        // the 2D map DISPOSED it (`[gis] map2d: disposed`), and that disposer deletes the
+        // readiness stamp this step reads. The idle watchdog then answered
+        // `surface-not-ready` forever (`[onboarding-step] draw idle tick — waiting`) and
+        // the step had NO way back: `enterDrawPhaseWhenSurfaceReady()` is a ONE-SHOT gate
+        // that self-terminates once it has revealed this banner, nothing here subscribes
+        // to the map's disposal, and the two buttons above LEAVE the draw rather than
+        // restore it. The user could abandon drawing; he could not resume it.
+        //
+        // §ONBOARDING-STEP-PINS-ITS-SURFACE (L-10720, `PaneLayoutStore.pinView`) now stops
+        // the pane-layout routes from evicting the map at all. ⛔ THIS IS STILL NOT
+        // REDUNDANT, and the distinction is the whole point: the pin closes the routes we
+        // KNOW about (the quick-toggle bar, both pane pickers, any programmatic dispatch),
+        // while the older result/Forma view bars tear the whole pane shell down WITHOUT
+        // dispatching, and a future surface could too. The pin is the fix; this is the
+        // guarantee — a step that can lose its surface must be able to ASK FOR IT BACK,
+        // whatever took it.
+        //
+        // ⚠ It never re-mounts by itself. The founder's standing rule is ASK, never
+        // auto-edit: the banner states what happened and offers ONE button.
+        const lost = document.createElement('div');
+        lost.className = 'os-footer';
+        lost.hidden = true;
+        const lostMsg = document.createElement('p');
+        lostMsg.className = 'os-status';
+        lostMsg.setAttribute('data-testid', 'onboarding-draw-surface-lost');
+        lostMsg.textContent = 'The 2D drawing map was closed, so there is nothing to draw on right now.';
+        const bringBack = document.createElement('button');
+        bringBack.type = 'button';
+        bringBack.className = 'os-btn os-btn--primary';
+        bringBack.setAttribute('data-testid', 'onboarding-draw-bring-back-map');
+        bringBack.textContent = 'Bring the drawing map back';
+        lost.appendChild(lostMsg);
+        lost.appendChild(bringBack);
+        body.appendChild(lost);
+
+        bringBack.addEventListener('click', () => { this.recoverDrawSurface(); });
+
+        this.watchDrawSurface((present, everSeen) => {
+            lost.hidden = present;
+            hint.hidden = !present;
+            // ⚠ TWO REACHABLE STATES, TWO TRUE SENTENCES. `enterDrawPhaseWhenSurfaceReady()`
+            // also reveals this step on its 45 s TIMEOUT — with no surface ever having
+            // existed. Saying "was closed" there would be a confident lie about a state
+            // this lane can actually reach, so the copy follows `everSeen`.
+            lostMsg.textContent = everSeen
+                ? 'The 2D drawing map was closed, so there is nothing to draw on right now.'
+                : 'The 2D drawing map has not opened yet, so there is nothing to draw on.';
+            bringBack.textContent = everSeen
+                ? 'Bring the drawing map back'
+                : 'Open the drawing map';
+        });
+    }
+
+    /**
+     * §DRAW-SURFACE-IS-RECOVERABLE (L-10721) — poll the draw surface's readiness stamp and
+     * report PRESENCE changes while the draw step is on screen.
+     *
+     * ⚠ It reuses `drawSurfaceReadyAtMs()` and `DRAW_SURFACE_POLL_MS` — the SAME stamp and
+     * the same cadence `enterDrawPhaseWhenSurfaceReady()` already waits on — rather than
+     * minting a second notion of "is there a map". A rival signal here is exactly how the
+     * two halves of one readiness question end up disagreeing.
+     *
+     * ONE timer, cleared by ONE cleanup: `renderDrawingStep` can be re-entered (the confirm
+     * step's "← Back to drawing"), and a poll that registered a cleanup per tick would
+     * accumulate one closure every 200 ms.
+     */
+    private watchDrawSurface(onPresenceChange: (present: boolean, everSeen: boolean) => void): void {
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        let last: boolean | null = null;
+        let everSeen = false;
+        const stop = (): void => { if (timer !== null) { clearTimeout(timer); timer = null; } };
+        const tick = (): void => {
+            if (this.disposed || this.step !== 'draw') { stop(); return; }
+            const present = this.drawSurfaceReadyAtMs() !== null;
+            if (present) everSeen = true;
+            if (present !== last) {
+                last = present;
+                if (!present) {
+                    console.warn(
+                        '[onboarding-step] §DRAW-SURFACE-IS-RECOVERABLE — the 2D draw surface is GONE ' +
+                        '(window.pryzmBoundaryDrawSurfaceReadyAt was cleared, i.e. SiteBoundaryMap2D ' +
+                        'disposed). The idle watchdog will correctly report "surface-not-ready" until ' +
+                        'it returns; offering the user a way to bring it back rather than stalling.',
+                    );
+                }
+                try { onPresenceChange(present, everSeen); } catch { /* presentation only */ }
+            }
+            timer = setTimeout(tick, DRAW_SURFACE_POLL_MS);
+        };
+        tick();
+        this.addCleanup(stop);
+    }
+
+    /**
+     * §DRAW-SURFACE-IS-RECOVERABLE (L-10721) — the user asked for the drawing map back.
+     *
+     * TWO EXISTING entry points, tried in the order that gives the better surface first;
+     * ⛔ neither is new machinery:
+     *   1. `pryzmMountSiteAuthoringPanes()` — re-mounts the 2D-map-left / 3D-Site-right
+     *      split this flow normally uses. A no-op when the shell is still mounted (its own
+     *      "already mounted" early return), which is exactly why there is a step 2.
+     *   2. `pryzmStartBoundaryDraw()` — the single-pane draw surface on `#container`. It
+     *      is the fallback the location step ALREADY uses when the split is not wired, so
+     *      it is a proven path rather than a rescue-only branch nothing else exercises.
+     *
+     * `watchDrawSurface` decides whether it worked — this function claims nothing.
+     */
+    private recoverDrawSurface(): void {
+        const w = window as unknown as {
+            pryzmMountSiteAuthoringPanes?: () => void;
+            pryzmStartBoundaryDraw?: () => void;
+        };
+        console.log('[onboarding-step] §DRAW-SURFACE-IS-RECOVERABLE — restoring the 2D draw surface on request.');
+        try { w.pryzmMountSiteAuthoringPanes?.(); } catch (e) {
+            console.warn('[onboarding-step] re-mounting the site-authoring split threw (falling through):', e);
+        }
+        const t = setTimeout(() => {
+            if (this.disposed || this.step !== 'draw') return;
+            if (this.drawSurfaceReadyAtMs() !== null) return;
+            console.log('[onboarding-step] §DRAW-SURFACE-IS-RECOVERABLE — the split produced no map; using the single-pane draw surface.');
+            try { w.pryzmStartBoundaryDraw?.(); } catch (e) {
+                console.warn('[onboarding-step] pryzmStartBoundaryDraw threw — the banner\u2019s Back / Skip drawing remain the way out:', e);
+            }
+        }, 800);
+        this.addCleanup(() => clearTimeout(t));
     }
 
     /**

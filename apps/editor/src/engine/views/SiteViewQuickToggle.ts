@@ -132,6 +132,12 @@ export function mountSiteViewQuickToggle(
             layout: opts.store.getLayout(),
             canRestoreSplit: opts.store.canRestoreSplit(),
             mountableKinds: opts.mountableKinds?.() ?? null,
+            // §ONBOARDING-STEP-PINS-ITS-SURFACE (L-10720) — DISABLE-AND-EXPLAIN the
+            // segments whose click would evict a view the current step depends on
+            // (during onboarding: the 2D map the user is drawing the plot on). The
+            // store refuses them anyway; showing them live and letting them decline on
+            // click is what taught the founder the app was broken.
+            pinnedViews: opts.store.pinnedViews(),
             globeFraming,
             // No camera ports wired ⇒ there is no way back, so the model refuses the way out
             // (see `canReturnToSite` — the gate is deliberately on the outbound click).
