@@ -44,6 +44,11 @@ import { RoomDetectionEngine, polygonAABB } from '@pryzm/room-topology';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 import { roomSpatialIndex } from '@pryzm/core-app-model';
 import { assignUniqueRoomNumbers, resolveRoomLevelPrefix } from './RoomNumbering';
+// §ROOM-LOSS-CENSUS (L-10812) — C94 §TOBE.6 RM-0. See the drop loop below.
+import {
+  classifyRoomLoss, formatRoomLossLine, roomCensusSuppressed,
+  type RoomLossRecord,
+} from './roomLossCensus';
 
 // ── Command ───────────────────────────────────────────────────────────────────
 
@@ -102,14 +107,45 @@ export class ReDetectRoomsCommand implements Command {
       const existingIds = new Set(existing.map(r => r.id));
 
       // 1. Drop rooms that no longer exist in the new detection set.
+      //
+      // ⭐⭐ §ROOM-LOSS-CENSUS (L-10812) — C94 §TOBE.6 RM-0. THIS LOOP IS WHERE A ROOM
+      // DIES. `roomStore.remove` takes NO snapshot, `undo()` below is a no-op and this
+      // command is `nonUndoable`, so every authored field on this record — name, number,
+      // occupancy, department, finishes, ifcData, revitId, phase — is destroyed here and
+      // is not recoverable by any undo (C94 §TOBE.1.2, measured).
+      //
+      // Until now that happened with NO record of any kind, so nobody could say how often
+      // it happens or to what. C94 §TOBE.10 item 6: *"the frequency of room loss in real
+      // use is unknowable until RM-0 ships"* — and all three open rulings in C94 §TOBE.8
+      // rest on one console excerpt from one session.
+      //
+      // ⛔ IT ADDS NO PASS. The classification rides INSIDE the loop that already runs
+      // (C94 §TOBE.7.2 rule 1), is O(dropped) — normally zero — and emits ONE line for
+      // the whole set rather than one per room, because `ProjectLoader.ts:2807` already
+      // records per-element console churn as a real main-thread cost.
+      const lost: RoomLossRecord[] = [];
       for (const r of existing) {
         if (newIds.has(r.id)) continue;          // preserved — leave registrations in place
+        lost.push(classifyRoomLoss(r));
         try { roomStore.remove(r.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
         try { ctx.bimManager.unregisterElement(r.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
         try { elementRegistry.unregister(r.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
         try { semanticGraphManager.removeAllRelationshipsForElement(r.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
         try { roomSpatialIndex.remove(r.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
       }
+
+      // §ROOM-LOSS-CENSUS — report the whole drop set once, AFTER the loop.
+      //
+      // ⚠ SUPPRESSED, NOT DISABLED, during a project restore or a building generation
+      // (§LOAD-REDETECT-FREEZE / §GEN-LOG-GATING): those paths legitimately drop and
+      // re-add rooms wholesale, and counting that as user-visible loss would make the
+      // number useless for the ruling it exists to inform.
+      //
+      // `console.warn`, not `debug`: a room the user may have named, scheduled and put on
+      // a sheet has just been destroyed unrecoverably. That is not debug-level, and the
+      // line beside it — `[BimManager] Unregistered element …` — never said what was lost.
+      const censusLine = lost.length > 0 ? formatRoomLossLine(this.levelId, lost) : undefined;
+      if (censusLine && !roomCensusSuppressed()) console.warn(censusLine);
 
       // 2. Add or update rooms.
       // ROBUSTNESS-FIX (Apr 2026): Per-room try/catch.  Previously a single
@@ -241,7 +277,15 @@ export class ReDetectRoomsCommand implements Command {
 
       this.targetIds = [...this.createdIds];
       console.debug(`[ReDetectRoomsCommand] Level '${this.levelId}' (prefix ${levelPrefix}): ${this.createdIds.length} room(s) detected`);
-      return { success: true, affectedElementIds: [...this.createdIds] };
+      // §ROOM-LOSS-CENSUS — the census also rides out on the RESULT, not only the
+      // console, so a caller (or a future aggregator) can read it without scraping text.
+      // Carried even when the console line was suppressed: suppression is about log
+      // volume, never about withholding the fact from a reader that asked for it.
+      return {
+        success: true,
+        affectedElementIds: [...this.createdIds],
+        ...(censusLine ? { info: [censusLine] } : {}),
+      };
     } catch (err: any) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error('[ReDetectRoomsCommand] Error:', msg, err);

@@ -46,7 +46,35 @@ export function resolveRoomLevelPrefix(levelId: string, ctx: CommandContext): st
  * `padStart(2)` and the sequence is `padStart(3)` — both are MINIMA, and a project
  * with 100+ levels or 1000+ rooms on one level overflows them.
  */
-const MINTED_ROOM_NAME_RE = /^Room \d{2,}-\d{3,}$/;
+const MINTED_NUMBER_SHAPE = String.raw`\d{2,}-\d{3,}`;
+
+const MINTED_ROOM_NAME_RE = new RegExp(`^Room ${MINTED_NUMBER_SHAPE}$`);
+
+/**
+ * §L-10812 (C94 §TOBE.6 RM-0) — the NUMBER sibling of `isSystemMintedRoomName`.
+ *
+ * True when `roomNumber` has the shape `assignUniqueRoomNumbers` mints below, i.e.
+ * the system produced it and it is NOT evidence that a human typed anything.
+ *
+ * ⭐ IT SHARES `MINTED_NUMBER_SHAPE` WITH ITS SIBLING RATHER THAN RESTATING IT.
+ * This file's own header already records that a SECOND copy of the name predicate
+ * exists (`ai-host/src/intents/roomAutoLabel.ts`) and that collapsing the two is the
+ * open exit condition on L-4510. Minting a THIRD rival here — a hand-written
+ * `/^\d{2,}-\d{3,}$/` two lines from the constant that already says it — would be the
+ * same defect again, in the same file, with the warning visible on screen (C84 EI-9).
+ *
+ * ⚠ CONSERVATIVE BY DESIGN, and it is the direction that matters. A human who types
+ * a number that happens to match the minted shape (`00-005`) is read as SYSTEM, so
+ * the authored count in the census UNDERSTATES rather than overstates. An overstated
+ * "authored" count would argue for persistent identity (C94 R-1) on evidence that was
+ * never there; an understated one cannot.
+ */
+const MINTED_ROOM_NUMBER_RE = new RegExp(`^${MINTED_NUMBER_SHAPE}$`);
+
+export function isSystemMintedRoomNumber(roomNumber: string | undefined | null): boolean {
+  if (!roomNumber) return true;
+  return MINTED_ROOM_NUMBER_RE.test(roomNumber);
+}
 
 /**
  * True when `name` is a name the SYSTEM produced and may therefore replace.
