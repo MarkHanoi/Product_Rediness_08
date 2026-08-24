@@ -41,6 +41,7 @@ import {
 } from '../types';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { RoomDetectionEngine, polygonAABB } from '@pryzm/room-topology';
+import type { RoomData } from '@pryzm/room-topology';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 import { roomSpatialIndex } from '@pryzm/core-app-model';
 import { assignUniqueRoomNumbers, resolveRoomLevelPrefix } from './RoomNumbering';
@@ -49,6 +50,12 @@ import {
   classifyRoomLoss, formatRoomLossLine, roomCensusSuppressed,
   type RoomLossRecord,
 } from './roomLossCensus';
+// §ROOM-TOMBSTONE (L-10814) — C94 §TOBE.6 RM-3, the founder's DERIVATION + TOMBSTONE
+// ruling. Capture the MEANING of an authored room as it dies; offer it back when the
+// region comes home. ⛔ Offer only — nothing here applies anything.
+import {
+  captureRoomTombstone, findTombstoneFor, consumeTombstone, roomMeaningNotifier,
+} from './roomTombstoneRegister';
 
 // ── Command ───────────────────────────────────────────────────────────────────
 
@@ -127,6 +134,10 @@ export class ReDetectRoomsCommand implements Command {
       for (const r of existing) {
         if (newIds.has(r.id)) continue;          // preserved — leave registrations in place
         lost.push(classifyRoomLoss(r));
+        // §ROOM-TOMBSTONE — durable LOSS, not a durable room. Returns undefined (and
+        // keeps nothing) when the room carried no authored meaning, which is the common
+        // case; the register is bounded by authored rooms lost per level per session.
+        captureRoomTombstone(r);
         try { roomStore.remove(r.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
         try { ctx.bimManager.unregisterElement(r.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
         try { elementRegistry.unregister(r.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
@@ -156,6 +167,8 @@ export class ReDetectRoomsCommand implements Command {
       // log and skip the bad room so the rest of the batch still appears.
       this.createdIds = [];
       const skipped: Array<{ id: string; reason: string }> = [];
+      /** Fresh, unmatched rooms — candidates for a §ROOM-TOMBSTONE offer (below). */
+      const offers: RoomData[] = [];
       for (const room of withNumbers) {
         try {
           const isNew = !existingIds.has(room.id);
@@ -163,6 +176,12 @@ export class ReDetectRoomsCommand implements Command {
             roomStore.add(room);
             try { ctx.bimManager.registerElement(room.id, room.levelId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             try { elementRegistry.registerSemantic(room.id, 'room'); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            // §ROOM-TOMBSTONE — a room that is NEW here got no identity from
+            // `mergeWithExisting`, i.e. it is a fresh crypto.randomUUID() with an
+            // auto-minted name. If an authored room died where this one now stands, its
+            // meaning is offerable. ⛔ PUBLISHED AS A QUESTION, never applied: the
+            // founder's ruling is ASK, never auto-edit.
+            offers.push(room);
           } else {
             // Preserved room: data may have changed (boundingWalls, area,
             // centroid). Update the store entry but leave registry/bimManager
@@ -216,6 +235,16 @@ export class ReDetectRoomsCommand implements Command {
         } catch (err) {
           console.warn('[ReDetectRoomsCommand] SpatialIndex insert failed:', err);
         }
+      }
+
+      // §ROOM-TOMBSTONE — publish AFTER every room is in the store, so a subscriber that
+      // reads the store sees the finished level rather than a half-built one. Matching is
+      // O(new rooms x tombstones on this level), and BOTH factors are normally zero.
+      for (const room of offers) {
+        const tombstone = findTombstoneFor(room);
+        if (!tombstone) continue;
+        consumeTombstone(tombstone);     // offered at most once — see the register
+        roomMeaningNotifier.publish({ levelId: this.levelId, roomId: room.id, tombstone });
       }
 
       // Phase D — D-1: SemanticGraph — adjacentTo and connectedTo after all rooms are created.
