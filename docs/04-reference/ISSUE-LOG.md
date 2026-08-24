@@ -50620,6 +50620,20 @@ geometry at render time** — that hides the data loss and leaves the saved file
 
 ## L-10660 — the split-view plan pane DREW the snap and never DELIVERED it, so L-935's fix was dead in the founder's own layout ✅ FIXED (ADAPTIVE34, 2026-08-24)
 
+> ⭐ **NOTE FOR ADAPTIVE34 — YOUR FIX IS STILL CORRECT AND IS NOW MORE NECESSARY, NOT LESS.**
+> Hours after this landed, **L-935's VERDICT was reversed by founder ruling** (see
+> **L-10761**, ORTHO42, 2026-08-24): with ortho armed, an explicit object snap no longer
+> WINS — it is **projected onto the ortho ray**, and the projection is **disclosed** with
+> both numbers.
+>
+> ⛔ **That does NOT make this row's plumbing obsolete.** The disclosure names the snap
+> (*"your **midpoint** snap was projected…"*) and fires only for a **strong** snap — both
+> of which require exactly what you fixed: the snap's **identity** reaching the handler.
+> Before this fix `SvpPlanToolOverlay` built the `WorldPoint` at two sites and discarded
+> `snapType`, so in the split pane the new disclosure would be **silent** and the tool would
+> treat every snap as a bare cursor point. **The behaviour being delivered changed; the
+> need for the delivery did not.**
+
 **Founder-facing symptom (latent, never separately reported):** in the split-view plan pane, an
 explicit object snap — a wall midpoint or endpoint — is shown under the cursor, and the committed
 geometry ignores it and obeys the orthogonal lock instead.
@@ -51899,3 +51913,170 @@ mutations, not unbounded.
 
 **Commit:** `e57676ce`. **Contract:** C04 §3.1.2a rule 7 (enforcement changed to hard-0),
 ADR-0297 L1/L2, ADR-0299 `§RECOVERY-MUST-REFUSE` (unweakened).
+
+---
+
+## L-10762 — ⭐⭐ **ONE ORTHO GESTURE COMMITS TWO WALL LENGTHS — 1464 mm APART AT 45°. The 3-D WALL TOOL is the outlier, 1 of 8** ⚠ OPEN — MEASURED, NOT CHANGED, AWAITING FOUNDER RULING (ORTHO42, 2026-08-24)
+
+⛔ **NOTHING WAS CHANGED.** This row is a MEASUREMENT and a decision request. The founder's
+standing rule for spatial behaviour is **ASK, never auto-edit**, and this alters the length of
+every ortho wall drawn by free drag from here on.
+
+Surfaced while closing L-10760/L-10761: both surfaces commit at **exactly 0.000° off axis**, so
+every angle-based test in that lane passed on both — and they still disagree about **LENGTH**.
+
+### THE TWO RULES
+
+| | rule | intuition |
+|---|---|---|
+| **ROTATE** | snap the DIRECTION to the nearest cardinal, **preserve the radial distance** `\|cursor − start\|` | *"the length you drag is the length you get"* |
+| **PROJECT** | drop the perpendicular component; the endpoint is the perpendicular **foot** on the nearer axis | the AutoCAD/Revit ortho convention |
+
+### ARM 1 — ONE 5.000 m DRAG, ORTHO ARMED, BOTH TOOLS 0.000° OFF AXIS
+
+```
+cursor  0°   PLAN 5000 mm   3-D 5000 mm   Δ    0 mm
+cursor  5°   PLAN 5000 mm   3-D 4981 mm   Δ   19 mm
+cursor 15°   PLAN 5000 mm   3-D 4830 mm   Δ  170 mm
+cursor 30°   PLAN 5000 mm   3-D 4330 mm   Δ  670 mm
+cursor 44°   PLAN 5000 mm   3-D 3597 mm   Δ 1403 mm
+cursor 45°   PLAN 5000 mm   3-D 3536 mm   Δ 1464 mm   ← WORST, 29.3% of the drag
+cursor 60°   PLAN 5000 mm   3-D 4330 mm   Δ  670 mm
+cursor 80°   PLAN 5000 mm   3-D 4924 mm   Δ   76 mm
+cursor 89°   PLAN 5000 mm   3-D 4999 mm   Δ    1 mm
+```
+
+### ARM 2 — SIDEWAYS MOTION, ZERO AXIAL CHANGE (axial frozen at 4.000 m)
+
+```
+perp 0.0 m   PLAN 4000 mm   3-D 4000 mm
+perp 1.0 m   PLAN 4123 mm   3-D 4000 mm
+perp 2.0 m   PLAN 4472 mm   3-D 4000 mm
+perp 3.9 m   PLAN 5587 mm   3-D 4000 mm    ← +1587 mm from PURE SIDEWAYS motion
+```
+
+⭐ **The sharpest statement of the difference:** under ROTATE the wall **grows out of a cursor
+motion with zero component along it**. Under PROJECT, moving sideways does nothing — that is the
+invariant the AutoCAD convention buys.
+
+### ⭐⭐ WHICH IS THE OUTLIER — BY COUNT, NOT BY ARGUMENT
+
+**ROTATE — 7 tools, 3 implementations:** `geometry-slab/boundaryPath.orthoConstrain` (consumed by
+**SlabTool — a 3-D tool**, `FloorPlanToolHandler`, `CeilingPlanToolHandler`, `PoolPlanToolHandler`,
+`BoundaryLinePlanToolHandler`) · `WallPlanToolHandler._snapOrtho` · `CurtainWallPlanToolHandler._snapOrtho`.
+
+**PROJECT — 1 tool:** `WallTool._applyOrthoLock` / `orthoLockXZ`.
+
+*Not comparable:* `StairCreationController._snapOrtho` returns a **unit direction** and never
+touches a magnitude.
+
+⭐ **IT IS NOT A "PLAN vs 3-D" SPLIT.** `SlabTool` is a 3-D tool and it ROTATES. **The 3-D WALL
+tool is the outlier — 1 of 8** — and the split runs between it and everything else *including its
+own 3-D neighbours*.
+
+⭐⭐ **AND ROTATE IS NOT AN ACCIDENT.** `geometry-slab/boundaryPath.ts` was written **2026-08-06 on
+a founder directive** — *"During SLAB creation, FLOOR FINISH creation and CEILING creation I want
+the SAME OPTIONS as during WALL creation"* — and the floor and ceiling handlers, **which until then
+PROJECTED, were deliberately CHANGED to rotate** because projection *"is not what the wall tool
+does"*. `boundaryPath.test.ts` pins it **green today**: *"A 45° drag of length 5 must give a 5 m
+axis segment — NOT the 3.53 m the old floor/ceiling projection produced."*
+
+### DOWNSTREAM DEPENDENCIES — MEASURED, AND THE ANSWER IS "ALMOST NONE"
+
+- ⭐ **TYPED LENGTH IS IMMUNE.** `_computeLockedEndPoint` runs **after** the ortho constraint and
+  normalises direction × typed length. The direction is already axial by then, so a user who types
+  a length gets an **identical** wall under either rule. The choice only affects the **free-drag**
+  gesture.
+- Wall length is **derived** from `baseLine` everywhere. Schedules, dimension chains and the length
+  field read committed geometry, not the gesture. **Nothing reads "drag distance".**
+- The only artefacts that encode the radial-distance semantic are `boundaryPath.ts`'s documented
+  contract and `boundaryPath.test.ts`.
+
+### THE PREPARED CHANGE — so the ruling is ONE commit, not a new investigation
+
+**IF HE RULES *PROJECT* (harmonise onto the 3-D wall tool):**
+1. `geometry-slab/src/boundaryPath.ts` → `orthoConstrain` body becomes the projection (7 tools
+   follow automatically).
+2. `boundaryPath.test.ts` → two assertions invert (`5 m` → `4 m` on the `(3,4)` fixture) and the
+   *"is NOT the dominant-axis projection"* case is retired with a superseded banner.
+3. `WallPlanToolHandler._snapOrtho` + `CurtainWallPlanToolHandler._snapOrtho` → delete the private
+   copies, consume `orthoConstrain`.
+4. `orthoLengthDivergence.measure.spec.ts` ARM 1/2/4 → the Δ column becomes 0 and the spec converts
+   from a divergence tripwire into a **parity** tripwire.
+5. ⚠ **The 2026-08-06 founder directive must be re-cited**, because this reverses the decision it
+   produced for floor/ceiling.
+
+**IF HE RULES *ROTATE* (harmonise onto everything else — FEWER moving parts):**
+1. `packages/geometry-wall/src/WallDrawingModeResolver.ts` → `orthoLockXZ` becomes the rotate rule
+   (**one function**; `WallTool._applyOrthoLock` already delegates to it).
+2. `orthoLengthDivergence.measure.spec.ts` ARM 1/2/4 → same conversion to a parity tripwire.
+3. Nothing else moves. `boundaryPath.ts`, its test and the 2026-08-06 directive all stand.
+
+### ⚠ THE PRIVATE-COPY DEBT, NAMED
+
+The ortho maths exists in **three copies** (`WallPlanToolHandler._snapOrtho`,
+`CurtainWallPlanToolHandler._snapOrtho`, `orthoConstrain`). Collapsing them was **deliberately NOT
+done** while this ruling is open — collapsing first would bake in an answer. ARM 3 of the spec
+proves the three agree today (plan handler ≡ `orthoConstrain` to 1e-9 on five fixtures), so the
+collapse is safe **once he rules**.
+
+**Spec:** `apps/editor/src/engine/views/plantools/__tests__/orthoLengthDivergence.measure.spec.ts`
+(4 arms, green — it measures and pins today's state; ARM 4 goes RED if either side moves without a
+decision). **Commit:** `3936601d`.
+
+---
+
+## L-10763 — ⭐ **"ONE MODE SOURCE OR A WRITTEN REASON FOR TWO": the question has TWO HALVES with OPPOSITE answers** ✅ ANSWERED + COLLAPSED (ORTHO42, 2026-08-24)
+
+Founder directive, 2026-08-24, following L-10760. The answer is written into
+`apps/editor/src/ui/layout/wallPickerModeFromDrawingMode.ts`'s header so it travels with the code.
+
+### STATE — TWO SOURCES ARE CORRECT. ⛔ DO NOT MERGE THEM.
+
+**The naive collapse has already failed here, in the opposite direction.**
+`CurtainWallPlanToolHandler.ts:14,28` records **CW-1 (2026-04)**, verbatim: *"Root cause: handler
+was reading `window.wallModePicker.getActiveMode()` which defaults to `'ortho'` (set by wall tool
+activation)."* The curtain-wall tool inherited the wall tool's armed mode and drew **"always
+ortho"**.
+
+The reason is **structural**: each tool has its own **mode set** and its own **default**. Wall
+defaults to `'ortho'` with seven modes including three closed-loop runs; curtain wall defaults to
+`'linear'` with four; the slab family offers `linear|ortho|curved` plus rectangle/region/hollow/
+pickWalls. **A single shared mode CELL cannot hold "the mode the user last chose" for tools that do
+not agree on what the modes ARE.** ⛔ Do not "finish the job" by pointing the curtain-wall or slab
+handlers at `window.wallModePicker`.
+
+### VOCABULARY — ONE IS REQUIRED, AND UNTIL TODAY THERE WERE TWO
+
+⛔ **This is the half that was actually broken, and it is what the founder hit.** One CONCEPT ("the
+wall is in ortho") had two independent **TYPES** — the `WallDrawingMode` ENUM and the
+`WallPickerMode` STRING — related by a hand-written five-line closure ending `return 'linear'`.
+Nothing forced the spellings to agree: `'polyline_ortho'` satisfied the enum's **type** via a cast
+while matching none of its **values** (L-10760); `LINE_ORTHO` had no picker string; the three loop
+modes had none either, so every loop call site set the picker **by hand**.
+
+**THE COLLAPSE:**
+1. `resolveWallDrawingMode` is **THE READER** — every spelling resolves through ONE alias table; an
+   unrecognised one is **reported**, never guessed.
+2. `PICKER_MODE_BY_DRAWING_MODE` is **THE WRITER** — an exhaustive `Record` over the enum; a new
+   member without a picker string is a **compile error**.
+3. ⭐ **THE ROUND-TRIP LAW** binds them (ARM 5): for every `WallPickerMode` `p`,
+   `wallPickerModeFromDrawingMode(resolveWallDrawingMode(p).mode) === p`. Measured, all six:
+   `linear→POLYLINE→linear` · `ortho→POLYLINE_ORTHO→ortho` · `curved→POLYLINE_ARC→curved` ·
+   `rectangular→RECTANGULAR_LOOP→rectangular` · `circular→CIRCULAR_LOOP→circular` ·
+   `elliptical→ELLIPTICAL_LOOP→elliptical`.
+   ⚠ Stated in the direction where it **must** hold, not as a false bijection — the relation is
+   **many-to-one** (four enum members mean `'linear'`), so `enum→picker→enum` cannot round-trip and
+   asserting it would be asserting a falsehood.
+4. ⭐ **THE CAST IS GONE.** `ToolsAreaLayout`'s `runtime.tools.register('wall')` read
+   `(m as WallDrawingMode)` — *the exact site the founder's string travelled through*. `as`
+   **asserts**; it converts nothing and checks nothing. It is now
+   `resolveWallDrawingMode(m, …).mode`, a **conversion**. An ABSENT mode is still `POLYLINE_ORTHO`
+   — the rail's documented default, and a **different fact** from an unreadable one, which is why
+   the `??` is on `m` and not on the resolution.
+
+⛔ **`'byslab'` stays deliberately OUT of the vocabulary**, and ARM 5 pins that too: By Slab is an
+**ACTION** — it reads a selected slab and emits a whole run with no pointer gesture — not a drawing
+mode. Mapping it onto one would arm a rubber-band the user never asked for (C65 §3.9).
+
+**Commit:** `7b96504c`.
