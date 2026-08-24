@@ -99,8 +99,51 @@ export function cloneWithBakedWorldTransform(
     clone.matrix.copy(element.matrixWorld);
   }
 
-  clone.matrix.decompose(clone.position, clone.quaternion, clone.scale);
-  clone.matrixAutoUpdate = true;
+  // ── §GLB-SHEAR-SURVIVES-THE-EXPORT (L-10142) ──────────────────────────────
+  //
+  // ⭐ **THE ONE LINE THIS FIX IS**, and it is the same one ELEV14 (`4c1af611`) wrote into
+  // `NativeElementMeshExporter._seatProxy` for the 2-D feed. `matrixAutoUpdate = false` is
+  // what makes the assignment STICK: with it on, the very next `updateMatrixWorld` — and,
+  // decisively, `GLTFWriter.processNodeAsync` itself (`GLTFExporter.js:2392`,
+  // `if (object.matrixAutoUpdate) object.updateMatrix()`) — recomposes `matrix` from the
+  // clone's position/quaternion/scale and silently discards the world matrix baked above.
+  //
+  // ⛔ **DO NOT "TIDY" THIS BACK INTO A `decompose`.** `Matrix4.decompose` takes scale from
+  // column LENGTHS and a quaternion from a basis that a SHEAR has made non-orthogonal, so the
+  // recomposed T·R·S is A DIFFERENT SOLID. A rake IS a shear, and hosted leaves carry it on
+  // the very node this function seats: `WindowBuilder.ts:1244-1251` and `DoorBuilder.ts:790-797`
+  // write `z ↦ z + k·y` straight onto the leaf GROUP's `matrix` — and that group is an export
+  // ROOT (`WindowBuilder.ts:979` adds it to the scene; `:806` stamps `elementType: 'Window'`).
+  // MEASURED cost of the old form, on the emitted BYTES, in
+  // `glb-export-raked-shear.probe.test.ts`:
+  //
+  //     plain wall (CONTROL)                        0        m
+  //     profile-edited wall (CONTROL)               0        m
+  //     raked wall BODY (shear on a CHILD)          0        m
+  //     WINDOW on a raked, profiled wall            0.172    m   ← the founder's floating pane
+  //     DOOR on the same wall                       0.300    m
+  //     the same, georeferenced (the 3D-Site path)  0.172    m
+  //
+  // ⭐ THE CONTROLS ARE THE FINDING. A profile lives in the GEOMETRY and `clone(true)` copies
+  // geometry BY REFERENCE, so it was never at risk. A rake on the wall BODY lives on the wall
+  // group's CHILDREN — `Object3D.copy` carries `matrix`/`matrixAutoUpdate` whole
+  // (`Object3D.js:1601-1607`) — so it was not at risk either. ONLY a shear seated on an export
+  // ROOT broke. "Raked walls export wrong" would have been the wrong conclusion and would have
+  // fixed the wall half for nothing.
+  //
+  // glTF is NOT the constraint: `GLTFWriter` defaults `trs: false` (`GLTFExporter.js:649`) and
+  // emits `nodeDef.matrix = object.matrix.elements` — a full 16-float affine, shear included.
+  // The format could always carry this; only the seating threw it away.
+  //
+  // `position` / `quaternion` / `scale` are reset to identity and are MEANINGLESS on an export
+  // clone — every downstream reader goes through `matrixWorld` (`Box3.setFromObject`,
+  // `getWorldPosition`) or through `matrix` (`GLTFWriter`). Leaving the SOURCE's stale LOCAL
+  // T·R·S on them would make the object quietly self-contradictory; identity says "not used".
+  clone.position.set(0, 0, 0);
+  clone.quaternion.identity();
+  clone.scale.set(1, 1, 1);
+  clone.matrixAutoUpdate = false;
+  clone.matrixWorldNeedsUpdate = true;
 
   return clone;
 }

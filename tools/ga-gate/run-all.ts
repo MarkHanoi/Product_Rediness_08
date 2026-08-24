@@ -691,6 +691,16 @@ const GATES: Gate[] = [
   // ⚠ The register sized the first of these at "119+ defects". It measures 491.
   { name: 'contract-cited-paths (L-960 · REGISTER §0)',        script: 'check-contract-cited-paths.ts' },
   { name: 'contract-index-equivalence (REGISTER §1 · C00)',    script: 'check-contract-index-equivalence.ts' },
+
+  // §SHEAR-SURVIVES-TRANSPORT (L-10142 · lane GLBSHEAR18, 2026-08-24). ONE root, THREE
+  // consumers, each found by the founder looking at a picture: plan/section/elevation
+  // (0.413 m adrift, L-10140), the §H.2 proxy cache (27 mm, L-10141), and the 3D-Site /
+  // 3D-Globe REAL GLB (windows 0.172 m and doors 0.300 m out of their own holes, L-10142).
+  // `Matrix4.decompose` cannot carry a shear, and a rake IS a shear —
+  // `WallFragmentBuilder.ts:1385` has said exactly that in prose since L-955, as its reason
+  // for excluding raked walls from instancing. The argument was written down three times and
+  // enforced zero times, so the third consumer shipped anyway.
+  { name: 'shear-survives-transport (L-10142 · C04 §PF)',      script: 'check-shear-survives-transport.ts' },
 ];
 
 // §FIX-GATE-REGISTERED-TWICE (2026-08-11, C9). `check-report-payload-discard.ts`

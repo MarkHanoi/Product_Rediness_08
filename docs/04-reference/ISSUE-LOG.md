@@ -47715,20 +47715,128 @@ producer. ✅ CLOSED with L-10140.
 
 ---
 
-### L-10142 — ⛔ **OPEN, NOT THIS LANE'S FILES: `GLBExporter` decomposes the same way, so a raked wall would EXPORT as the wrong solid**
+### L-10142 — ⭐ **CONFIRMED AND FIXED: THE 3D-SITE "REAL" GLB DECOMPOSED EVERY EXPORT ROOT, SO WINDOWS ON A RAKED WALL EXPORTED 0.172 m OUT OF THEIR OWN HOLES** (predicted by lane ELEV14; measured + closed by lane GLBSHEAR18, 2026-08-24) · ✅ FIXED
 
-`packages/file-format/src/export/glb/GLBExporter.ts:102` — `clone.matrix.decompose(clone.position,
-clone.quaternion, clone.scale)`. **Identical mechanism to L-10140.** If a raked wall reaches GLB
-export with its shear in the matrix rather than in its geometry, it exports leaning by the wrong
-amount, or not leaning at all.
+**Founder-reported, independently of the prediction:** *"Check windows in 3D Site view hosted on a
+raked, edited-profile wall — they don't display good."* Screenshot: 3D Site → **Real**, panes
+visibly floating off the façade, one detached and skewed at an angle the wall does not have.
 
-⚠ **UNMEASURED and therefore NOT CLAIMED** — the export path was not driven, and it is possible the
-walls that reach it are the geometry-sheared kind. `packages/file-format` was outside ELEV14's
-ownership. **The check is one probe: export a raked wall, read the node transforms.** Two other
-`decompose` sites were seen and are NOT this defect —
-`packages/core-app-model/src/rendering/InstancedElementRenderer.ts:788` (instancing, from which
-raked walls are already excluded) and `packages/geometry-window/src/WindowBuilder.ts:1035`
-(`WallRake.ts` records that windows deliberately keep real meshes on a raked host).
+`packages/file-format/src/export/glb/GLBExporter.ts:102` —
+`clone.matrix.decompose(clone.position, clone.quaternion, clone.scale)` in
+`cloneWithBakedWorldTransform`. **Identical mechanism to L-10140.** `Matrix4.decompose` takes scale
+from column LENGTHS and a quaternion from a basis a SHEAR has made non-orthogonal, so the recomposed
+T·R·S is a DIFFERENT SOLID.
+
+⭐ **The founder's screenshot IS this path, MEASURED not assumed.** `CesiumViewport.ts:986` —
+`formaBuildingFidelity` defaults to `'real'`, and both REAL arms (`[gis][globe]`
+`GISAreaLayout.ts:3778` → `renderRealModelOnGlobe`; `[gis][forma6]` `:3997` →
+`renderRealModelOnForma`) call `exportFragmentsToGLB`. His console carried
+`🚀 Starting GLB Export` → `📦 Blob size: 270052 bytes` → `REAL model placed on photoreal tiles`.
+
+**MEASURED end-to-end on the emitted GLB BYTES** — `glb-export-raked-shear.probe.test.ts` runs the
+real `exportFragmentsToGLB`, decodes the JSON + BIN chunks by hand, reads the `POSITION` accessor
+floats, composes the glTF node tree, and compares EXPORTED WORLD VERTICES against the AUTHORED ones.
+Worst per-vertex error, RED → GREEN:
+
+| case | before | after |
+|---|---|---|
+| plain wall (CONTROL) | 0 | 0 |
+| profile-edited wall (CONTROL) | 0 | 0 |
+| raked wall BODY (CONTROL) | 0 | 0 |
+| **WINDOW on a raked, profiled wall** | **0.172 m** | 0 |
+| **DOOR on the same wall** | **0.300 m** | 0 |
+| the same, georeferenced under `GIS_BIM_ROOT` (the production arm) | **0.172 m** | 0 |
+
+⭐ **THE CONTROLS ARE THE FINDING, and they invert the obvious diagnosis.** A profile lives in the
+GEOMETRY and `clone(true)` copies geometry BY REFERENCE, so it was never at risk. A rake on the wall
+BODY lives on the wall group's **CHILDREN** (`_applyRakeShearToChildren` iterates
+`wallGroup.children`), and `Object3D.copy` carries `matrix`/`matrixWorld`/`matrixAutoUpdate` whole
+(`Object3D.js:1601-1607`), so **the wall exported correctly the entire time**. Only a shear seated on
+an export **ROOT** broke — and the only elements that carry one there are the HOSTED LEAVES:
+`WindowBuilder.ts:1249` and `DoorBuilder.ts:792` write `z ↦ z + k·y` straight onto the leaf GROUP,
+and that group IS an export root (`WindowBuilder.ts:979` adds it to the scene, `:806` stamps
+`elementType`). "Raked walls export wrong" would have fixed the wall half for nothing.
+
+**glTF was never the constraint, and `GLTFExporter` does NOT re-decompose — but only if you let it.**
+`GLTFWriter` defaults `trs: false` (`GLTFExporter.js:649`) and emits
+`nodeDef.matrix = object.matrix.elements` — a full 16-float affine, shear included. ⚠ **However**
+`processNodeAsync` runs `if (object.matrixAutoUpdate) object.updateMatrix()` (`:2392`) first, which
+rebuilds `matrix` from position/quaternion/scale and silently discards anything assigned. The old
+code set `clone.matrixAutoUpdate = true`, so the shear was destroyed **twice**. `matrixAutoUpdate =
+false` is what makes the fix stick — the same one line ELEV14 called *"THE ONE LINE THIS WHOLE FIX
+IS"*.
+
+**FIX** — `cloneWithBakedWorldTransform` seats the world matrix WHOLE (`matrix.copy` /
+`multiplyMatrices` + `matrixAutoUpdate = false`), and resets `position`/`quaternion`/`scale` to
+identity so the clone cannot be quietly self-contradictory. No consumer regressed: everything
+downstream reads `matrixWorld` (`Box3.setFromObject`, `getWorldPosition`) or `matrix` (`GLTFWriter`).
+7 GLB suites / 52 tests green.
+
+⭐ **A GATE, because this root has now surfaced in THREE consumers from one cause** —
+`tools/ga-gate/check-shear-survives-transport.ts`, registered in `run-all.ts`. First reading **RC=0**
+over 5 017 files. It does NOT ban `decompose`; it bans it on a transform read off a **scene object**
+(`X.matrixWorld.decompose(…)` / `X.matrix.decompose(…)`), which is exactly the line the defect falls
+on. Measured across the repo, every legitimate call is legitimate for the SAME structural reason —
+its input is an INSTANCE or CAMERA matrix, T·R·S by construction, and the instancing producers
+exclude raked/profiled elements *because* TRS cannot carry a shear. Four arms: **A** transport
+decompose, hard-0 against a named register, failing in BOTH directions (3/3); **B** each allowance
+names the EXCLUSION that makes it safe and the gate verifies that literal still exists — delete
+`!_hostRaked` from `WindowBuilder` and the allowance goes VOID rather than becoming a lie; **C** every
+direct `.matrix` write (the shear PRODUCERS) must be registered, so adding a fourth forces a re-check
+of the transports — *precisely the sequence that produced this defect*, since §RAKE-HOSTED-OPENING
+was added and the exporters were never revisited; **D** a shrink-only census (3/3) of the remaining
+instance-matrix decomposes.
+
+The two `decompose` sites ELEV14 cleared are re-confirmed clear, and now with a *derived* reason
+rather than a cited one: `InstancedElementRenderer.ts:788` and `SelectionManager.ts:3205/3283`
+decompose instance matrices from `getMatrixAt`; `WindowBuilder.ts:1035` is the window's own
+instancing arm and is guarded by `!_hostRaked` at `:913`.
+
+---
+
+### L-10260 — ⛔ **OPEN, NOT THIS LANE'S FILES: the Forma MASSING prism cannot represent a rake or an edited profile AT ALL — no matrix is involved** (found by lane GLBSHEAR18 while measuring L-10142, 2026-08-24)
+
+`apps/editor/src/ui/geospatial/CesiumViewport.ts:5183-5203` — each storey's shell is drawn as a
+Cesium `polygon` with `height: bandBottom`, `extrudedHeight: bandTop`, `perPositionHeight: false`.
+That is a **vertical extrusion of one planar ring**: the top ring IS the base ring, and the top is
+ONE SCALAR for the whole storey.
+
+⛔ **This is a structural impossibility, not a precision loss.** A **rake** offsets the top footprint
+laterally from the base — inexpressible, because there is no second ring. An **edited profile** makes
+the top edge non-flat — inexpressible, because there is one `extrudedHeight`. The per-wall fallback
+(`extrudeWallsAsBoxes`, same file) is boxes and fails identically. **MEASURED:** `grep -n
+rakeAngleDeg apps/editor/src/ui/geospatial/CesiumViewport.ts` → **zero hits**; the massing path does
+not read the rake anywhere.
+
+⚠ **This is NOT what the founder photographed.** `formaBuildingFidelity` defaults to `'real'`
+(`:986`), his screenshot is 3D Site → **Real**, and Real is the GLB path fixed in L-10142. This
+defect is reachable only in **Massing** fidelity. Logged so it is not re-diagnosed as the same bug —
+**it is a second, independent defect with a different fix** (a per-vertex top ring, i.e.
+`perPositionHeight` with an explicit top polygon, or dropping to the real GLB for raked/profiled
+storeys). `apps/editor/src/ui/geospatial/**` belongs to lane **FACADE13**, so it is logged and NOT
+touched here.
+
+---
+
+### L-10261 — ⚠ **OPEN, NOT THIS LANE'S FILES: the GLB export runs TWICE per globe round-trip — and the two are not duplicates** (found by lane GLBSHEAR18, 2026-08-24)
+
+Founder's console shows `🚀 Starting GLB Export` twice per round-trip. **MEASURED:** there are two
+distinct Cesium REAL exporters in `apps/editor/src/ui/layout/GISAreaLayout.ts`, and they request
+**different payloads**:
+
+| site | tag | options | placement |
+|---|---|---|---|
+| `:3778` | `[gis][globe]` | `{ glazingOverride: true, stripAnnotationOverlays: true }` | `renderRealModelOnGlobe` |
+| `:3997` | `[gis][forma6]` | `{ formaWhite: true, stripAnnotationOverlays: true }` | `renderRealModelOnForma` |
+
+⛔ **They cannot simply be de-duplicated.** One is the photoreal globe (real BIM materials, glass
+override only — §FIX-GLOBE-REAL-GLAZING L-1422); the other is the Forma white STUDY. Collapsing them
+needs a decision about caching one serialisation and applying the material override per-consumer, not
+a dedupe. Each full export walks the scene, clones every root and serialises — on the founder's
+313-root building that is the expensive half of the round-trip.
+
+Not fixed here: `apps/editor/src/ui/layout/**` is outside this lane, and lane **DRAGPERF17** is
+investigating GPU resource churn and may own it.
 
 ---
 
@@ -48433,3 +48541,140 @@ these fail at HEAD independently of this lane. **Owners: whoever last touched
 Likewise `tools/ga-gate/check-layer-boundaries.ts` is **RED at HEAD** — `103/102 upward ·
 15/13 unclassified · 121/113 restricted` — measured **before** this lane edited anything, and
 byte-identical after.
+
+---
+
+### L-10240 — ⭐⭐ **"MOVING A WINDOW ON A RAKED, PROFILE-EDITED WALL — TERRIBLE PERFORMANCE, THEN THE WebGL COLLAPSED": THE DRAG DOES *NOT* LEAK, AND IT IS NOW PROVEN PER FRAME** (lane DRAGPERF17, 2026-08-24)
+
+**The founder's report:** *"check why the WebGL — while moving a window ghosted on a raked,
+edited-profile wall (it seems performance is terrible) — collapsed."*
+
+The live hypothesis was a per-frame GPU leak: a ghost-drag that re-cuts the most expensive wall in
+the system every pointermove, allocating and never freeing, until the device runs out of memory and
+is lost. **That hypothesis is REFUTED, and refuted by counting rather than by reading.**
+
+#### ⭐ THE LEDGER — every `BufferGeometry` and every `Material` CONSTRUCTED vs DISPOSED, per drag frame
+
+Counted from three.js's own monotonic `id` counters (a *construction* count, immune to pooling,
+cloning and caching) against wrapped `dispose` prototypes. 30 pointermove frames, +20 mm each,
+`drainGpuReleaseQueue()` between frames exactly as `RenderPipelineManager.render()` does.
+
+**LEG 1 — `WallFragmentBuilder.updateWall` (the void re-cut).**
+`packages/geometry-wall/__tests__/DRAGPERF17OpeningDragChurn.measure.test.ts`
+
+| wall variant | geo created/frame | geo disposed/frame | mat created/frame | mat disposed/frame | scene meshes | queue left | ms/frame |
+|---|---|---|---|---|---|---|---|
+| plain-vertical **(CONTROL)** | 12.0 | 17.0 | 9.0 | 12.0 | 6 → 6 | 0 | 5.90 |
+| raked-only | 18.0 | 24.0 | 9.0 | 12.0 | 6 → 6 | 0 | 4.80 |
+| profile-only | 2.0 | 3.0 | 2.0 | 3.0 | 1 → 1 | 0 | 2.03 |
+| **raked+profile (THE FOUNDER'S)** | **2.0** | **3.0** | **2.0** | **3.0** | **1 → 1** | **0** | **2.03** |
+
+**LEG 2 — `WindowBuilder.rebuild` (frame, glass, sill, reveal).**
+`packages/geometry-window/__tests__/DRAGPERF17WindowRebuildChurn.measure.test.ts`
+
+| host | geo created/frame | geo disposed/frame | mat created/frame | `_sharedFrameMats` | `_sharedGlassMats` | scene objs | queue left | ms/frame |
+|---|---|---|---|---|---|---|---|---|
+| plain host **(CONTROL)** | 12.0 | 12.0 | 0.0 | 2 → 2 | 1 → 1 | 14 → 14 | 0 | 1.70 |
+| **raked host @80°** | **12.0** | **12.0** | **0.0** | **2 → 2** | **1 → 1** | **14 → 14** | **0** | **1.23** |
+
+⭐ **Creates ≈ disposes on BOTH legs.** The deferred-release queue drains to **0**. The scene-graph
+mesh count is **flat**. `WindowBuilder`'s shared material caches — the one structure whose entries
+`dispose()` deliberately never frees — are **flat**, so no material is minted per frame. **There is
+no unbounded per-frame allocation anywhere in the window ghost-drag path.**
+
+⛔ **So the fix is NOT a leak fix, and optimising this path would be optimising something innocent.**
+Per the lane brief: *"If they balance, the cause is elsewhere and say so."* This row is that
+saying-so, and the two suites carry **hard LEAK GATES** (`geoDisposed/geoCreated > 0.9`, cache size
+unchanged, scene count flat, queue empty) so the balance cannot silently rot — which is worth more
+than a fix, because this class recurs.
+
+#### ⛔ FOUR HYPOTHESES KILLED BY MEASUREMENT — recorded so nobody re-spends the hour
+
+1. **"The raked + profile-edited wall is excluded from instancing, so it is the expensive one."**
+   **CORRELATED, NOT CAUSAL.** `WallFragmentBuilder.ts:1438` reads
+   `isSimpleWall = … && !_hasOpenings && … && isVerticalRake(…) && … && !_hasWallProfile`.
+   **`!_hasOpenings` disqualifies ANY opening-bearing wall** — so a wall hosting a window never
+   reaches the rake or profile clauses at all. His wall left the instanced arm because it *has a
+   window*, which is true of every window-bearing wall in every project. And the ledger above shows
+   the raked+profile variant is the **cheapest of the four** (2 geo/frame vs 12 for plain), because
+   the profiled arm builds ONE body mesh instead of per-opening segments.
+2. **"`ConsequencePreviewService` is the ghost path — start there."** **It is not in this path at
+   all.** `triggerConsequencePreview` has **exactly one production caller**
+   (`MovePlanToolHandler.ts:258`), gated to a **wall MOVE**. No opening drag reaches the consequence
+   surface. (`window.setOffset` *is* in `CONSEQUENCE_NORMALIZERS`, which is what makes the pointer
+   look right — but nothing dispatches a preview for it.)
+3. **"The per-pointermove store write storms the room-topology redetect."** **Already guarded.**
+   `RoomTopologyObserver` (`:391`) skips any wall `update` for which
+   `_isOpeningsOnlyDelta(prevWall, wall)` holds, and `_computeWallSig` deliberately omits openings.
+   A window offset change fires **zero** redetects.
+4. **"A profiled wall builds no window frame — that *is* the word 'ghosted'."** **Killed by
+   `skipLegacyFrame`.** The profile arm (`WallFragmentBuilder.ts:2278`) is first among the body arms
+   and `return`s at `:2360` without calling `createWindowFrame`/`createDoorFrame`, and a bare probe
+   does measure 5 `window-part` meshes on a plain wall vs **0** on a profiled one. But in production
+   `WallRebuildCoordinator.resolveOpeningRenderMap` sets `skipLegacyFrame: true` for every opening
+   present in `windowStore`/`doorStore` (`WallRebuildCoordinator.ts:36`/`:72`), so the legacy frame is
+   suppressed on **every** arm and `WindowBuilder` owns the mesh. The probe difference is a
+   test-harness artefact of passing `renderMap: undefined`, **not** a production defect.
+
+#### ⚠ WHAT IS STILL OPEN — the O(level) cost that IS on his gesture, in a file this lane does not own
+
+**`window` and `door` are NOT graft-eligible for plan re-projection, and `wall` is.**
+`ViewDependencyTracker.PLAN_INCREMENTAL_SAFE_TYPES` (`:68`) is exactly
+`{ wall, slab, beam, ceiling, floor }`. The tracker's own comment (`:750-757`) states the
+consequence verbatim: *"A non-graft-eligible element-scoped change (e.g. a door/window update) …
+forbids the graft fast-path for this view — the driver re-projects it in full."*
+
+A window ghost-drag writes `WallStore.updateWindow` per pointermove; the `WindowDependencyTracker`
+cascade re-emits a **`window`** store update; every plan view on the level is marked
+`_viewsGraftIneligible` and falls to the **300 ms** debounce instead of the 48 ms graft debounce.
+The debounce is pure re-arm (no force-fire, unlike `RoomTopologyObserver`), so this does **not** run
+per frame — but **every micro-pause longer than 300 ms mid-drag fires one FULL whole-level
+re-projection** (EdgeProjector + HiddenLineRemoval + `NativeElementMeshExporter`), synchronously.
+
+⭐ **This is where "raked" may finally be causal, and it is NOT where anyone was looking.** Lane
+ELEV14 landed `4c1af611` **the same day**, adding a raked-shear decomposition path to
+`NativeElementMeshExporter` (+80 lines) and `OpeningElevationSymbolBuilder` — so each full
+re-projection of a **raked** wall is now strictly more expensive than of a vertical one. **NOT
+MEASURED by this lane** — stated as the next probe, not as a finding.
+
+⛔ **The obvious fix is WRONG:** adding `window`/`door` to `PLAN_INCREMENTAL_SAFE_TYPES` would graft
+them without their whole-view symbol pass and **drop their plan symbol** — the set's own header says
+so. The real fix is a symbol-aware graft. **Owner: whoever owns `packages/core-app-model/src/views`.**
+
+⚠ **Also unmeasured, and it is the one mechanism that would convert slowness INTO collapse:** the
+release queue drains only inside `RenderPipelineManager.render()`. If the main thread is pegged hard
+enough that the frame never runs, the queue grows while the store keeps enqueueing. Every reading
+above drains once per frame, i.e. **assumes a healthy frame boundary**. A starved-boundary arm is the
+next thing to add to these two suites.
+
+#### ✅ THE RETIREMENT QUESTION, ANSWERED: an OOM device-loss does NOT retire silently
+
+Asked because `WebGPURendererAdapter.ts:222` wires `gpuDevice.lost.then(…)` but **nothing in
+production registers `onContextLost`** — `adapter._lostCallbacks` is empty (only tests and doc
+comments call it). The real ladder is a **second** handler on the same device, in
+`apps/editor/src/rendering/createRenderer.ts:526`, and on `reason: "unknown"` it:
+
+1. logs the raw `reason`/`message`, then asks `isDeliberateDeviceDestroy(info)`
+   (`rendererRetirement.ts` — `'destroyed'` is our own `device.destroy()`, not a fault);
+2. shows the user **"Recovering renderer…"**, waits 2 s for GPU GC, retires via `retireRenderer()`
+   and rebuilds — **up to `MAX_WEBGPU_DEVICE_LOSSES = 2`**;
+3. past the cap, drops to **WebGL safe-mode** (WebGL2 backend, DPR=1, shadows off, post-FX off) and
+   **stops re-arming** the WebGPU loss handler, so the thrash loop ends;
+4. if the browser then blocks all GL contexts, enters ONE terminal state and shows
+   **"Renderer unavailable — please reload the page"**.
+
+**So: it restores, and if it cannot it degrades, and if it cannot do that it says so.** ⚠ The one
+gap worth a later fix: the terminal CTA does **not** say *why* — `_enterTerminalReloadState(reason)`
+takes a reason and logs it to console but shows a generic string. **Logged, not fixed:**
+`renderer-three` is load-bearing for every view and this lane proved nothing that justifies touching it.
+
+#### Also observed, NOT this lane's file
+
+The founder's console shows `ProjectLifecycleController` running a **full GLB export twice**
+(3,459 triangles, 266 KB then 270 KB) during a globe round-trip, plus `§FIX-GLOBE-REENTRY-MODEL-LOST`
+re-placing the model. Whether that round-trip disposes what it replaces is **unchecked**.
+**Owner: lane FACADE13 (`apps/editor/src/ui/geospatial/**`).**
+
+**Files:** `packages/geometry-wall/__tests__/DRAGPERF17OpeningDragChurn.measure.test.ts` (new),
+`packages/geometry-window/__tests__/DRAGPERF17WindowRebuildChurn.measure.test.ts` (new).
+**No production code changed** — the measurement said there was nothing here to fix.
