@@ -2636,6 +2636,19 @@ export interface AuthClientLike {
  *  read from `runtime.persistence.projectListStore` instead). */
 export interface PersistenceClientLike {
   list(): Promise<readonly unknown[]>;
+  /**
+   * §FIX-A-PAGE-IS-NOT-AN-INVENTORY (L-10400) — enumerate EVERY project and say
+   * whether the enumeration finished.
+   *
+   * ⚠ OPTIONAL, deliberately. `list()` returns at most one server page (50 rows
+   * by default) and cannot say whether more exist; callers that reason about
+   * ABSENCE — "the server does not have this project" — must not use it. This
+   * method exists so they have something they can. It is optional so the several
+   * hand-rolled `PersistenceClientLike` stubs across the test suite keep
+   * compiling; a caller feature-detects and falls back to `list()` with the
+   * completeness left UNKNOWN, which is the honest reading.
+   */
+  listAll?(): Promise<{ readonly projects: readonly unknown[]; readonly complete: boolean }>;
   create(name: string): Promise<unknown>;
   delete(id: string): Promise<void>;
   rename(id: string, name: string): Promise<unknown>;

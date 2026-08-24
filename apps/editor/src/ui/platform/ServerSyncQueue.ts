@@ -32,6 +32,11 @@ import {
     type RejectionRetryTrigger,
     type RejectionScope,
 } from './serverSaveRejectionFate';
+// §FIX-SIGN-OUT-IS-A-DESTRUCTIVE-ACT (L-10401) — this queue is the one place
+// that KNOWS what has not reached the server, and `signOut()` is the one place
+// that destroys it. The registry couples them without an import cycle: the
+// guard imports nothing, and the dependency points DOWN from here into it.
+import { registerUnsyncedWorkProbe, type UnsyncedWorkReport } from './unsyncedWorkGuard';
 
 // ── Backoff schedule (Phase 2) ────────────────────────────────────────────────
 
@@ -356,10 +361,43 @@ export class ServerSyncQueue {
 
         this.loadPersistedQueue();
 
+        // §FIX-SIGN-OUT-IS-A-DESTRUCTIVE-ACT (L-10401) — registered AFTER
+        // `loadPersistedQueue()`, so a sign-out pressed on the very first paint
+        // already sees the items restored from the previous session. Registering
+        // before the load would report an empty queue for exactly the window in
+        // which the user is most likely to sign out (a fresh tab).
+        this._unregisterWorkProbe = registerUnsyncedWorkProbe(() => this.reportUnsyncedWork());
+
         if (this.queue.length > 0) {
             console.log(`[ServerSyncQueue] Resuming ${this.queue.length} queued item(s) from previous session`);
             this.scheduleFlush(3000);
         }
+    }
+
+    /** §FIX-SIGN-OUT-IS-A-DESTRUCTIVE-ACT (L-10401) — de-registration handle. */
+    private _unregisterWorkProbe: (() => void) | null = null;
+
+    /**
+     * §FIX-SIGN-OUT-IS-A-DESTRUCTIVE-ACT (L-10401) — what this queue would lose
+     * if the `pryzm-project-versions` database were deleted right now.
+     *
+     * ⚠ Counts only what is PROVABLY not on the server: items the server refused
+     * (`blocked`) and items never accepted (everything else in the queue — only a
+     * 2xx removes an item, per L-1310). It deliberately does NOT count "projects
+     * missing from the server list", because that list is a page of 50 and
+     * absence from it proves nothing (L-10400, `serverListCompleteness.ts`).
+     * A warning built on an unproven inference is a warning users learn to
+     * dismiss, which would cost more than it saves.
+     */
+    reportUnsyncedWork(): UnsyncedWorkReport {
+        let blockedSaves = 0;
+        let pendingSaves = 0;
+        const projectIds = new Set<string>();
+        for (const item of this.queue) {
+            if (item.blocked) blockedSaves++; else pendingSaves++;
+            projectIds.add(item.projectId);
+        }
+        return { source: 'sync-queue', blockedSaves, pendingSaves, projectIds: [...projectIds] };
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -547,6 +585,11 @@ export class ServerSyncQueue {
         this.cancelFlush();
         window.removeEventListener('online', this.onlineHandler);
         window.removeEventListener('offline', this.offlineHandler);
+        // §FIX-SIGN-OUT-IS-A-DESTRUCTIVE-ACT (L-10401) — a disposed queue must
+        // stop answering, or a stale instance would keep reporting items the live
+        // queue no longer holds and the warning would become noise.
+        try { this._unregisterWorkProbe?.(); } catch { /* registry is best-effort */ }
+        this._unregisterWorkProbe = null;
     }
 
     // ── Flush logic ───────────────────────────────────────────────────────────

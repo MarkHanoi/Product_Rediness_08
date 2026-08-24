@@ -329,7 +329,12 @@ export class PlatformRouter {
         });
 
         window.addEventListener('pryzm-sign-out', () => { // §33-NAV-FIX — platform-lifetime bus (see pryzm-go-hub above)
-            signOut();
+            // §FIX-SIGN-OUT-IS-A-DESTRUCTIVE-ACT (L-10401) — `signOut()` now returns
+            // false when the user declines a warning about work that exists only in
+            // this browser. Honour it: navigating to the landing page after a
+            // cancelled sign-out would tear down the hub while the session is still
+            // live, which reads as "it signed me out anyway".
+            if (!signOut()) return;
             const platformRoot = document.getElementById(ROOT_ID);
             if (platformRoot) {
                 platformRoot.style.display = '';

@@ -192,11 +192,110 @@ export class ProjectListClient {
 
   /** GET /api/v1/projects → ProjectSummary[]. */
   async list(): Promise<ProjectSummary[]> {
-    const json = await this.req<{ data: ServerProjectRow[] } | ServerProjectRow[]>(
-      'GET', '/api/v1/projects',
-    );
-    const rows = Array.isArray(json) ? json : json.data;
-    return rows.map(rowToSummary);
+    return (await this.listPage()).projects;
+  }
+
+  /**
+   * §FIX-A-PAGE-IS-NOT-AN-INVENTORY (L-10400) — one page, WITH the server's own
+   * statement about whether more rows exist.
+   *
+   * `list()` above has always returned at most 50 rows and never said so, and
+   * `ProjectHub.syncFromServer()` read that page as the user's complete project
+   * list — concluding that every local project missing from it was absent from
+   * the server. On the founder's account the page came back saturated at 50 and
+   * fifty further projects were reported as existing only in the browser.
+   *
+   * `hasMore` is `undefined` against a server that predates the change; that is
+   * a THIRD state and must not be read as `false`. The caller decides what an
+   * unanswered question means — see `serverListCompleteness.ts`.
+   */
+  async listPage(opts?: { limit?: number; offset?: number }): Promise<{
+    readonly projects: ProjectSummary[];
+    readonly limit?: number;
+    readonly offset?: number;
+    readonly hasMore?: boolean;
+  }> {
+    const q: string[] = [];
+    if (typeof opts?.limit === 'number') q.push(`limit=${encodeURIComponent(String(opts.limit))}`);
+    if (typeof opts?.offset === 'number') q.push(`offset=${encodeURIComponent(String(opts.offset))}`);
+    const path = q.length > 0 ? `/api/v1/projects?${q.join('&')}` : '/api/v1/projects';
+
+    const json = await this.req<
+      { data: ServerProjectRow[]; limit?: number; offset?: number; hasMore?: boolean } | ServerProjectRow[]
+    >('GET', path);
+
+    if (Array.isArray(json)) return { projects: json.map(rowToSummary) };
+    return {
+      projects: json.data.map(rowToSummary),
+      limit: typeof json.limit === 'number' ? json.limit : undefined,
+      offset: typeof json.offset === 'number' ? json.offset : undefined,
+      hasMore: typeof json.hasMore === 'boolean' ? json.hasMore : undefined,
+    };
+  }
+
+  /**
+   * §FIX-A-PAGE-IS-NOT-AN-INVENTORY (L-10400) — enumerate EVERY project, and
+   * report honestly when the enumeration could not be completed.
+   *
+   * ⛔ `complete: false` is a real outcome, not an error to swallow. It happens
+   * against an old server (no `hasMore`, so a saturated page proves nothing) and
+   * when the page budget below is exhausted. A caller that treats an incomplete
+   * enumeration as complete re-creates the exact defect this method exists to
+   * remove, which is why the flag is returned rather than logged.
+   *
+   * ⚠ BOUNDED BY DESIGN. `maxPages` caps the request count so a paging bug on
+   * either side (a server that always says `hasMore`, an offset that stops
+   * advancing) degrades into "incomplete", never into an unbounded request loop
+   * against the founder's own API on hub load.
+   */
+  async listAll(opts?: { pageSize?: number; maxPages?: number }): Promise<{
+    readonly projects: ProjectSummary[];
+    readonly complete: boolean;
+    readonly pagesFetched: number;
+    readonly reason: 'server-declared-no-more' | 'short-page' | 'page-budget-exhausted' | 'server-does-not-paginate';
+  }> {
+    const pageSize = opts?.pageSize ?? 200;
+    const maxPages = opts?.maxPages ?? 25;
+
+    const seen = new Set<string>();
+    const projects: ProjectSummary[] = [];
+    let offset = 0;
+
+    for (let page = 0; page < maxPages; page++) {
+      const res = await this.listPage({ limit: pageSize, offset });
+
+      for (const p of res.projects) {
+        // De-duplicate across pages. Rows can shift between requests (a project
+        // saved mid-enumeration moves to the top of an `updated_at DESC` order),
+        // and a duplicate would inflate counts the hub renders.
+        if (!seen.has(p.id)) { seen.add(p.id); projects.push(p); }
+      }
+
+      // The server does not paginate at all (pre-L-10400). It answered with
+      // whatever its own default was; a full page proves nothing either way.
+      if (res.hasMore === undefined) {
+        const saturated = res.projects.length >= (res.limit ?? pageSize);
+        return {
+          projects,
+          complete: !saturated,
+          pagesFetched: page + 1,
+          reason: saturated ? 'server-does-not-paginate' : 'short-page',
+        };
+      }
+
+      if (!res.hasMore) {
+        return { projects, complete: true, pagesFetched: page + 1, reason: 'server-declared-no-more' };
+      }
+
+      // ⚠ Guard against a server that says `hasMore` while returning nothing —
+      // otherwise the offset never advances and this loops until `maxPages`.
+      if (res.projects.length === 0) {
+        return { projects, complete: false, pagesFetched: page + 1, reason: 'page-budget-exhausted' };
+      }
+      offset += res.projects.length;
+    }
+
+    return { projects, complete: false, pagesFetched: maxPages, reason: 'page-budget-exhausted' };
   }
 
   /** POST /api/v1/projects { name } → ProjectSummary. */

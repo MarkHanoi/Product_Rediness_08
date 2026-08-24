@@ -78,6 +78,15 @@ export async function buildPersistenceSlot(opts: BuildPersistenceOptions): Promi
   // methods stay on the raw client so escape-hatch tests are not affected.
   const client: PersistenceClientLike = {
     list:         () => rawClient.list(),
+    // §FIX-A-PAGE-IS-NOT-AN-INVENTORY (L-10400) — forwarded only when the
+    // underlying client actually implements it. Synthesising a `listAll` that
+    // delegates to `list()` and reports `complete: true` would be worse than not
+    // offering one at all: it would answer "yes, that is everything" from a
+    // single page, which is precisely the false certainty this method exists to
+    // remove. A missing capability must stay missing.
+    ...(typeof (rawClient as PersistenceClientLike).listAll === 'function'
+      ? { listAll: () => (rawClient as Required<PersistenceClientLike>).listAll() }
+      : {}),
     create:       (name)             => controller.create(name),
     delete:       (id)               => controller.delete(id),
     rename:       (id, name)         => controller.rename(id, name),

@@ -25,6 +25,11 @@ import { injectAppTheme } from '../styles/AppTheme';
 import { PlatformUser, signOut } from './AuthModal';
 import { projectRepository, versionRepository, ProjectMeta, warmThumbnailCache, warmVersionCache, probeCachedThumbnail, seedCachedThumbnail } from './ProjectRepository';
 import { decideLocalOnlyProjectFate } from './localOnlyProjectFate';
+// §FIX-A-PAGE-IS-NOT-AN-INVENTORY (L-10400) — the server list is a PAGE (50 rows,
+// `server/projectStore.js`). Absence from it is not absence from the server, and
+// this module is the gate that keeps the two apart. See its header for the
+// founder's 50-of-50 reading that made the distinction unavoidable.
+import { assessListCompleteness, mayConcludeAbsence, describeCompleteness, type ListCompleteness } from './serverListCompleteness';
 // §FIX-THUMBNAIL-DURABILITY — thumbnail residency is reconciled on EVERY sync,
 // independently of the metadata-freshness gate below. See thumbnailReconcile.ts
 // for the full evidence chain; in short: sign-out deletes the IndexedDB preview
@@ -182,9 +187,20 @@ export class ProjectHub {
      */
     private async syncFromServer(): Promise<void> {
         try {
-            const summaries = await this._fetchSummaries();
-            if (summaries === null) return;
+            const reading = await this._fetchSummaries();
+            if (reading === null) return;
+            const { summaries, completeness } = reading;
 
+            // §FIX-A-PAGE-IS-NOT-AN-INVENTORY (L-10400) — ⭐ THE AUTHORITY GATE.
+            //
+            // `serverIds` is a set of the rows the server CHOSE TO SEND, not of
+            // the rows it holds. Every list path is capped (50 by default), so
+            // `!serverIds.has(id)` means "not in this page" — and only when the
+            // page is a complete enumeration does that also mean "not on the
+            // server". `canConcludeAbsence` is that distinction, and the purge
+            // branch below is now the only consumer of `serverIds` that may act
+            // on absence.
+            const canConcludeAbsence = mayConcludeAbsence(completeness);
             const serverIds = new Set(summaries.map(s => s.id));
 
             // §FIX-LOCALSTORAGE-QUOTA-RESIDUAL (L-148) — accumulate ALL reconcile
@@ -288,8 +304,25 @@ export class ProjectHub {
             // §PROBE-LOCAL-ONLY-VERSION-EXPOSURE (L-1288) — see the census below.
             const localOnlyWithVersions: string[] = [];
             const refusedToPurge: string[] = [];
+            const notInThisPage: string[] = [];
             for (const lp of localById.values()) {
                 if (serverIds.has(lp.id)) continue;
+
+                // ── §FIX-A-PAGE-IS-NOT-AN-INVENTORY (L-10400) ────────────────
+                //
+                // ⭐ THE PAGE DID NOT ENUMERATE THE SERVER, SO ABSENCE IS NOT A
+                // FACT ABOUT THE SERVER. Collect the id and stop — no purge, no
+                // "exists only in this browser" claim, no version probe.
+                //
+                // ⚠ The probe is skipped ON PURPOSE, not as an oversight. Running
+                // it would produce a `keep`/`refuse` ruling and a warning naming
+                // these projects as at-risk local-only work, which is exactly the
+                // false alarm the founder received: fifty projects reported as
+                // existing nowhere but his browser, on the strength of a list
+                // that returned its first fifty rows and stopped. A ruling drawn
+                // from an inadmissible premise is not a safer ruling; it is the
+                // same error with a decision attached.
+                if (!canConcludeAbsence) { notInThisPage.push(lp.id); continue; }
 
                 // ⭐ §FIX-RECONCILE-NEVER-PURGE-ON-CONTRADICTION (L-1289) — THE PURGE
                 // DECISION IS NO LONGER A COUNT COMPARISON.
@@ -384,6 +417,34 @@ export class ProjectHub {
                 );
             }
 
+            // ── §FIX-A-PAGE-IS-NOT-AN-INVENTORY (L-10400) ──────────────────────
+            //
+            // ⭐ THE CORRECTION TO THE LINE ABOVE. On the founder's 2026-08-24 boot
+            // that warning named FORTY-SEVEN projects as existing "ONLY in this
+            // browser", and the neighbouring one named three more as damaged.
+            // Both counts were drawn from a server list that returned exactly 50
+            // rows — its cap. Fifty sent, fifty unmatched: the unmatched ones were
+            // overwhelmingly the SECOND PAGE, which nothing had asked for.
+            //
+            // ⚠ THIS LINE DOES NOT CLAIM THEY ARE SAFE EITHER. It claims only that
+            // residency is UNDETERMINED, which is the whole of what the data
+            // supports. Against a paginating server this branch does not run at
+            // all, and the projects are either enumerated (so present) or genuinely
+            // absent and reported as such above.
+            if (notInThisPage.length > 0) {
+                console.warn(
+                    `[ProjectHub] §FIX-A-PAGE-IS-NOT-AN-INVENTORY — ${notInThisPage.length} local project(s) are ` +
+                    `NOT IN THIS PAGE of the server list, and the list is ${describeCompleteness(completeness)}. ` +
+                    'That is NOT evidence they are missing from the server, so they were neither purged nor ' +
+                    'reported as local-only. Residency is UNDETERMINED until the list can be enumerated in full ' +
+                    `(GET /api/v1/projects?limit=&offset=, L-10400). ids: ${notInThisPage.join(', ')}`,
+                );
+            }
+            console.log(
+                `[ProjectHub] §FIX-A-PAGE-IS-NOT-AN-INVENTORY server list: ${describeCompleteness(completeness)} — ` +
+                `absence ${canConcludeAbsence ? 'IS' : 'is NOT'} concludable from it.`,
+            );
+
             // §FIX-THUMBNAIL-DURABILITY / §CONTEXT-DATA-HONESTY — one census line
             // for the WHOLE plan, so projects the freshness gate skipped (exactly
             // the ones whose purged preview was just restored) are still visible
@@ -467,17 +528,45 @@ export class ProjectHub {
      *
      * Returns `null` on any non-OK / network failure (the caller logs
      * and continues so an offline hub still renders from cache).
+     *
+     * §FIX-A-PAGE-IS-NOT-AN-INVENTORY (L-10400) — ⭐ IT NOW RETURNS COMPLETENESS
+     * ALONGSIDE THE ROWS, and that is the point of the change. Every leg below is
+     * page-limited (50 rows by default, `server/projectStore.js`), and the caller
+     * uses the result to decide whether local projects are ABSENT from the server
+     * — a question a page cannot answer. Returning a bare array made the limit
+     * invisible at the one call site that reasons about absence.
      */
-    private async _fetchSummaries(): Promise<ProjectSummary[] | null> {
+    private async _fetchSummaries(): Promise<{ summaries: ProjectSummary[]; completeness: ListCompleteness } | null> {
         if (this.runtime) {
-            const summaries = await this.runtime.persistence.client.list() as ProjectSummary[];
-            return Array.isArray(summaries) ? summaries : null;
+            // Prefer full enumeration when the composed client offers it. This is
+            // the only leg that can establish completeness positively; `list()`
+            // below leaves it to be inferred from a row count.
+            const client = this.runtime.persistence.client;
+            if (typeof client.listAll === 'function') {
+                const all = await client.listAll() as { projects: ProjectSummary[]; complete: boolean };
+                if (!Array.isArray(all?.projects)) return null;
+                return {
+                    summaries: all.projects,
+                    // ⚠ `complete: false` is forwarded as `serverDeclaredHasMore: true`
+                    // — the enumerator ran out of budget or the server would not
+                    // paginate, and either way rows exist that are not here.
+                    completeness: assessListCompleteness({
+                        rowCount: all.projects.length,
+                        serverDeclaredHasMore: all.complete ? false : true,
+                    }),
+                };
+            }
+            const summaries = await client.list() as ProjectSummary[];
+            if (!Array.isArray(summaries)) return null;
+            // No `hasMore` available: completeness is INFERRED from whether the
+            // page came back saturated at the server's default limit.
+            return { summaries, completeness: assessListCompleteness({ rowCount: summaries.length }) };
         }
         const res = await apiFetch('/api/projects');
         if (!res.ok) return null;
         const { projects } = await res.json() as { projects?: Array<Record<string, unknown>> };
         if (!Array.isArray(projects)) return null;
-        return projects
+        const mapped = projects
             .filter(p => typeof p.id === 'string' && typeof p.name === 'string')
             .map(p => {
                 const updatedAtIso = typeof p.updated_at === 'string' ? p.updated_at
@@ -502,6 +591,10 @@ export class ProjectHub {
                 }
                 return summary;
             });
+        // ⚠ The v0 `/api/projects` leg has NO paging at all — it is hard-capped
+        // at 50 (`server.js:2927` / `projectStore.js`) with no way to ask for
+        // more. Its completeness can only ever be inferred, never established.
+        return { summaries: mapped, completeness: assessListCompleteness({ rowCount: mapped.length }) };
     }
 
     // ── Shell HTML ────────────────────────────────────────────────────────────
@@ -728,12 +821,19 @@ export class ProjectHub {
         // if the server call fails the local logout still completes (the
         // token is gone from this browser regardless).
         el.querySelector('#ph-sign-out')?.addEventListener('click', () => {
+            // §FIX-SIGN-OUT-IS-A-DESTRUCTIVE-ACT (L-10401) — ⚠ ORDER CHANGED, AND
+            // THE ORDER IS THE POINT. The consent gate lives inside `signOut()`, so
+            // it must run BEFORE the server token is invalidated: the old sequence
+            // fired `client.signOut()` first, which would have killed the session
+            // even when the user then declined — leaving them signed out on the
+            // server, still holding the local work, and unable to upload any of it.
+            // A cancelled sign-out must change NOTHING.
+            if (!signOut()) return;
             if (this.runtime) {
                 void this.runtime.persistence.client.signOut().catch(err => {
                     console.warn('[ProjectHub] runtime.persistence.client.signOut failed (continuing local logout):', err);
                 });
             }
-            signOut();
             this.callbacks.onSignOut();
         });
 

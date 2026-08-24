@@ -31,6 +31,12 @@
  */
 
 import { injectAppTheme } from '../styles/AppTheme';
+// §FIX-SIGN-OUT-IS-A-DESTRUCTIVE-ACT (L-10401) — the consent gate on `signOut()`.
+// ⚠ `unsyncedWorkGuard` imports NOTHING, deliberately: holders of at-risk work
+// (ServerSyncQueue, which sits ABOVE this module) push probes down into its
+// registry rather than being imported up here, so no cycle can form.
+// See §SCC-NO-BARREL-ACCESS-AT-MODULE-LOAD.
+import { assessSignOutRisk, collectUnsyncedWorkReports, formatSignOutWarning } from './unsyncedWorkGuard';
 import { Plan, PlanStatus } from '@pryzm/core-app-model';
 import { DOMEventBus } from '@pryzm/event-bus';
 import {
@@ -203,7 +209,55 @@ export function purgeUserScopedClientState(label = 'purge'): void {
     }
 }
 
-export function signOut(): void {
+/**
+ * §FIX-SIGN-OUT-IS-A-DESTRUCTIVE-ACT (L-10401) — ASK BEFORE DESTROYING.
+ *
+ * `purgeUserScopedClientState()` below deletes `pryzm-project-versions`, which
+ * holds both the version-history snapshots and — since L-1310 — the RETAINED
+ * payloads of uploads the server refused. L-1310 stopped `ServerSyncQueue`
+ * throwing those away; this function was still throwing away the place it keeps
+ * them, silently, on a click labelled "Sign out".
+ *
+ * ⛔ The purge itself is NOT weakened: it is the §AUTH-SESSION-LEAK control, and
+ * a narrower purge trades a loss the user can be warned about for a cross-tenant
+ * leak they cannot. The fix is consent, not exemption.
+ *
+ * @param opts.confirm  Injected so the policy is testable without a DOM.
+ *                      Defaults to `window.confirm`. If it returns `false` the
+ *                      sign-out is ABANDONED and nothing is removed.
+ * @returns `true` when sign-out proceeded, `false` when the user cancelled.
+ *          ⚠ Callers MUST honour `false` — see `ProjectHub` / `PlatformRouter`.
+ */
+export function signOut(opts?: { confirm?: (message: string) => boolean }): boolean {
+    // ── Consent gate ─────────────────────────────────────────────────────────
+    // Wrapped whole: a guard that throws must never fall through to the
+    // destructive path, so any failure here is logged and treated as "no
+    // evidence of at-risk work" rather than being allowed to abort the check
+    // in a way that hides it.
+    try {
+        const risk = assessSignOutRisk(collectUnsyncedWorkReports());
+        if (risk.action === 'warn') {
+            console.warn(
+                `[signOut] §FIX-SIGN-OUT-IS-A-DESTRUCTIVE-ACT — ${risk.reason}: ${risk.headline}`,
+            );
+            const ask = opts?.confirm
+                ?? ((m: string) => (typeof window !== 'undefined' && typeof window.confirm === 'function')
+                    ? window.confirm(m)
+                    // No dialog available (headless / embedded). ⭐ Default to NOT
+                    // destroying: the un-askable case must fail toward keeping data.
+                    : false);
+            if (!ask(formatSignOutWarning(risk))) {
+                console.warn('[signOut] §FIX-SIGN-OUT-IS-A-DESTRUCTIVE-ACT — CANCELLED by the user. Nothing was cleared.');
+                return false;
+            }
+            console.warn(
+                `[signOut] §FIX-SIGN-OUT-IS-A-DESTRUCTIVE-ACT — user confirmed; proceeding and losing ${risk.atRisk} item(s).`,
+            );
+        }
+    } catch (e) {
+        console.warn('[signOut] unsynced-work guard threw — proceeding (guard is advisory, never a blocker):', e);
+    }
+
     // Sign-out = remove the auth keys + purge ALL user-scoped caches + hard reload.
     try { localStorage.removeItem(AUTH_STORAGE_KEY); } catch (e) { console.warn('[signOut] auth storage clear failed:', e); }
     try { localStorage.removeItem(AUTH_TOKEN_KEY);   } catch (e) { console.warn('[signOut] auth token clear failed:', e); }
@@ -219,6 +273,7 @@ export function signOut(): void {
         try { window.location.reload(); }
         catch (e) { console.error('[signOut] location.reload() failed:', e); }
     }, 50);
+    return true;
 }
 
 /**
@@ -245,6 +300,28 @@ export function installAccountSwitchGuard(): void {
                 `[AccountSwitchGuard] §AUTH-SESSION-LEAK-2 identity changed (${detail.previousUserId} → ${detail.userId}) — ` +
                 `purging previous user's client caches + reloading so the new account sees ONLY its own projects.`,
             );
+            // §FIX-SIGN-OUT-IS-A-DESTRUCTIVE-ACT (L-10401) — ⛔ THIS PATH CANNOT ASK,
+            // AND MUST NOT. A different identity is ALREADY authenticated in this
+            // tab; pausing the purge to show a dialog would leave User A's caches
+            // readable by User B for as long as the dialog stayed open, which is the
+            // exact leak §AUTH-SESSION-LEAK-2 closes. Consent belongs on the
+            // deliberate `signOut()` gesture, where the previous user is still the
+            // one at the keyboard.
+            //
+            // What this path owes instead is HONESTY: state the loss, so it appears
+            // in the console rather than being discovered later as missing work.
+            try {
+                const risk = assessSignOutRisk(collectUnsyncedWorkReports());
+                if (risk.action === 'warn') {
+                    console.error(
+                        `[AccountSwitchGuard] §FIX-SIGN-OUT-IS-A-DESTRUCTIVE-ACT — ${risk.headline} ` +
+                        'This purge CANNOT be declined (a second identity is already signed in), so ' +
+                        'the loss is recorded here rather than prevented. ' + risk.detail.split('\n\n')[0],
+                    );
+                }
+            } catch (e) {
+                console.warn('[AccountSwitchGuard] unsynced-work report failed:', e);
+            }
             try { purgeUserScopedClientState('AccountSwitchGuard'); }
             catch (e) { console.warn('[AccountSwitchGuard] purge failed:', e); }
             setTimeout(() => {

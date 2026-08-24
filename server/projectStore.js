@@ -329,8 +329,69 @@ const memberOrOwner = (alias, p) =>
  * Uses LEFT JOIN LATERAL to get the most recent version's element_count in a
  * single query without reading the `snapshot` column. The hub can now detect
  * empty projects without opening them.
+ *
+ * ⚠ §FIX-A-PAGE-IS-NOT-AN-INVENTORY (L-10400) — the ORDER BY gained `, p.id DESC`.
+ * That is not cosmetic: `updated_at` is not unique (a batch write stamps many
+ * rows in the same millisecond), and OFFSET paging over a NON-TOTAL order can
+ * silently SKIP rows between pages. A paging fix whose pages lose projects would
+ * be a worse version of the bug it replaces, so the sort key is made total.
  */
-export async function listProjects(userId) {
+/**
+ * §FIX-A-PAGE-IS-NOT-AN-INVENTORY (L-10400) — the default page size, named.
+ *
+ * ⚠ It was a bare `50` written three times (here, `server.js:2927`, and the
+ * `slice` below) and NOTHING told a caller it existed. The Project Hub read the
+ * resulting page as the user's complete project list and concluded that every
+ * local project missing from it did not exist on the server — which, on the
+ * founder's account, was FIFTY projects, and which the reconciler resolved by
+ * deleting them until L-1289 stopped it.
+ *
+ * The cap itself is right: an unbounded list query on the hub's first paint is
+ * how a large account times out. What was missing is any way for a caller to ask
+ * for the REST, or to learn that a rest exists.
+ */
+export const PROJECT_LIST_DEFAULT_LIMIT = 50;
+/** Hard ceiling on a caller-supplied `limit`, so paging cannot become an
+ *  unbounded query by another name. */
+export const PROJECT_LIST_MAX_LIMIT = 200;
+
+/**
+ * Normalise caller-supplied paging into safe integers.
+ * Invalid / absent input falls back to the historical defaults, so every
+ * existing caller is bit-for-bit unchanged.
+ *
+ * @param {{ limit?: unknown, offset?: unknown }} [opts]
+ * @param {number} [maxLimit] ceiling to clamp to.
+ *
+ * ⚠ `maxLimit` exists for ONE reason and it is a real bug, not a nicety. The v1
+ * route answers `hasMore` by asking for `limit + 1` rows and checking whether the
+ * extra one came back. If the store clamped that probe to the same ceiling the
+ * CALLER is held to, then a caller asking for exactly `PROJECT_LIST_MAX_LIMIT`
+ * would have its probe silently clamped back to `PROJECT_LIST_MAX_LIMIT` — and
+ * `hasMore` would report **false on the one page most likely to have more**. The
+ * store therefore allows one row of headroom above the public ceiling; only the
+ * route's caller-facing normalisation uses the ceiling itself.
+ */
+export function normalizeListPaging(opts = {}, maxLimit = PROJECT_LIST_MAX_LIMIT) {
+    const rawLimit = Number(opts.limit);
+    const rawOffset = Number(opts.offset);
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0
+        ? Math.min(Math.floor(rawLimit), maxLimit)
+        : PROJECT_LIST_DEFAULT_LIMIT;
+    const offset = Number.isFinite(rawOffset) && rawOffset > 0 ? Math.floor(rawOffset) : 0;
+    return { limit, offset };
+}
+
+/**
+ * @param {string} userId
+ * @param {{ limit?: number, offset?: number }} [opts] paging. Omitted → the
+ *        historical single page of {@link PROJECT_LIST_DEFAULT_LIMIT}, so every
+ *        pre-existing caller behaves exactly as before.
+ */
+export async function listProjects(userId, opts) {
+    // +1 of headroom above the public ceiling so the route's `hasMore` probe row
+    // is never clamped away — see `normalizeListPaging`.
+    const { limit, offset } = normalizeListPaging(opts, PROJECT_LIST_MAX_LIMIT + 1);
     // §SERVER-V1-INMEMORY-FALLBACK — no pool → list from in-memory map.
     //
     // ⚠ §FIX-ACCESS-MEMBERSHIP (L-336) — this branch stays OWNER-ONLY, stated
@@ -350,7 +411,7 @@ export async function listProjects(userId) {
             if (row.owner_id === userId) rows.push(row);
         }
         rows.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
-        return rows.slice(0, 50);
+        return rows.slice(offset, offset + limit);
     }
     const result = await query(
         `SELECT
@@ -368,9 +429,9 @@ export async function listProjects(userId) {
              LIMIT  1
          ) v ON true
          WHERE ${memberOrOwner('p', '$1')}
-         ORDER BY p.updated_at DESC
-         LIMIT 50`,
-        [userId]
+         ORDER BY p.updated_at DESC, p.id DESC
+         LIMIT $2 OFFSET $3`,
+        [userId, limit, offset]
     );
     return result.rows;
 }

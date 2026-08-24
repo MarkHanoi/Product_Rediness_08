@@ -478,13 +478,45 @@ function classifyV1Error(err, endpoint, userId) {
     };
 }
 
-/** GET /api/v1/projects → ProjectSummary[]. */
+/**
+ * GET /api/v1/projects[?limit=&offset=] → ProjectSummary[].
+ *
+ * §FIX-A-PAGE-IS-NOT-AN-INVENTORY (L-10400) — THE RESPONSE NOW SAYS WHETHER IT
+ * IS COMPLETE.
+ *
+ * This route has always returned at most 50 rows (`pgProjectStore.listProjects`,
+ * `LIMIT 50`) and said nothing about it. `ProjectHub.syncFromServer()` built a
+ * `Set` of the returned ids and treated every local project outside that set as
+ * *absent from the server* — a conclusion a page cannot support. On the founder's
+ * account the page came back SATURATED (50 of 50) and fifty further projects were
+ * reported as existing "ONLY in this browser"; before L-1289 the reconciler
+ * deleted rows on exactly that reasoning.
+ *
+ * Two additions, both backward-compatible — `data` is unchanged in shape and an
+ * old client that ignores `meta` sees precisely the old behaviour:
+ *   • `limit` / `offset` query params, so a caller can enumerate everything;
+ *   • `hasMore`, computed by asking for ONE row beyond the page. That extra row
+ *     is never returned — it exists only to answer "is there more?" without a
+ *     second COUNT(*) query over the whole table.
+ *
+ * ⭐ `hasMore` is reported as a definite `true`/`false`, never omitted, so the
+ * client's fallback inference ("a full page might be truncated") is superseded by
+ * a fact. See `apps/editor/src/ui/platform/serverListCompleteness.ts`.
+ */
 v1Router.get('/projects', async (req, res) => {
     const userId = req.auth?.userId;
     if (!userId || userId === 'anonymous') return res.status(401).json({ error: 'Authentication required.' });
     try {
-        const rows = await pgProjectStore.listProjects(userId);
-        return ok(res, rows);
+        const { limit, offset } = pgProjectStore.normalizeListPaging({
+            limit: req.query?.limit,
+            offset: req.query?.offset,
+        });
+        // Over-fetch by one: the presence of row `limit + 1` IS the answer to
+        // "is there more", and costs one row rather than a second query.
+        const probed = await pgProjectStore.listProjects(userId, { limit: limit + 1, offset });
+        const hasMore = probed.length > limit;
+        const rows = hasMore ? probed.slice(0, limit) : probed;
+        return ok(res, rows, { limit, offset, hasMore });
     } catch (err) {
         const { status, body } = classifyV1Error(err, 'GET /api/v1/projects', userId);
         return res.status(status).json(body);
