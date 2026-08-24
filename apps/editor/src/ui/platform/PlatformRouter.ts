@@ -71,7 +71,7 @@ import { ensureEngineWarm } from '@app/engine/engineWarmup';
 // counterpart of the engine warm above (same start-earlier-skip-nothing shape), plus the one
 // end-to-end startup phase budget every startup perf claim is measured against.
 import { ensureCesiumWarm } from '@app/engine/cesiumWarmup';
-import { requestEagerGlobeStart } from '@app/engine/eagerGlobeStart';
+import { requestEagerGlobeStart, prewarmGlobe } from '@app/engine/eagerGlobeStart';
 import { beginStartupBudget, markStartupPhase } from '@app/engine/startupBudget';
 // PRYZM-EARTH-ONBOARDING PRD Phase 2 — DOM-free typology-seed resolver (see
 // resolveSeededTypologyId.ts header for why this lives outside PlatformRouter).
@@ -707,6 +707,30 @@ export class PlatformRouter {
         // `toggleGIS(true)` is a visibility flip instead of a cold viewer construction. One-shot;
         // consumed by `mountGISArea` during the boot.
         requestEagerGlobeStart();
+        // §STARTUP-GLOBE-PREWARM (founder 2026-08-24: "PRYZM Earth should come INSTANTLY", L-10560)
+        // — the flag above was correct and its CONSUMER was in the wrong place. `mountGISArea` is
+        // reached from `initUI`, the LAST stage of `engineLauncher.bootstrap()`, so on the
+        // founder's own §STARTUP-BUDGET run the Cesium chunk was warm at 122 ms and the viewer did
+        // not begin constructing until `globe:eager-init-start +2633ms`. Everything between those
+        // two marks is `initScene → initBuilders → initTools → initBusHandlers → registerAllStores
+        // → initDataPlatform`, and the onboarding globe uses none of it.
+        //
+        // So CONSTRUCT + MOUNT the viewport HERE, warm-hidden, in genuine parallel with the boot
+        // that has not started yet; `mountGISArea` ADOPTS it (`consumePrewarmedGlobe()`) instead
+        // of constructing one. Same two verbs as `rendererPrewarm` / `consumePrewarmedRenderer`,
+        // which already did exactly this for the WebGPU renderer.
+        //
+        // ⛔ This changes WHEN the globe is BUILT, never WHO decides it is SHOWN — it mounts
+        // warm-hidden and the reveal stays the location step's `pryzmToggleGIS(true)`.
+        // ⛔ Best-effort: if the prewarm never fires or fails, `mountGISArea` constructs cold
+        // exactly as before. There is no path where the globe fails to appear because of this.
+        // ⚠ `#container` is a STATIC element of index.html (it lives under `#dck-workspace`, behind
+        // `#platform-root`'s z-index 9990), so it is laid out with real dimensions at this point —
+        // which is precisely what the eager path needs and what the old 0×0 mount lacked.
+        prewarmGlobe({
+            parent: document.getElementById('container'),
+            runtime: this.runtime ?? null,
+        });
 
         const registry = this.runtime?.typology?.registry;
         if (!registry) {

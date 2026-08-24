@@ -47,6 +47,12 @@ import { WallInstanceBridge, WallMoveReweldService } from '@pryzm/geometry-wall'
 // not import command-registry at module load, §SCC).
 import { CascadeWallBaselineCommand, isCascadeWallBaselineApplying } from '@pryzm/command-registry';
 import { semanticGraphManager } from '@pryzm/core-app-model';
+// §STARTUP-BUDGET / §STARTUP-BOOT-STAGES (L-10560) — the boot's own stage marks. The
+// founder's run showed a 2.5-second gap between `cesium:warm-start` and
+// `globe:eager-init-start` with NOTHING named inside it, so the next lane had to guess
+// which stage to attack. These marks name it. Passive: one `performance.now()` and one
+// array push per stage — no phase is gated, delayed or skipped because of a mark.
+import { markStartupPhase } from './startupBudget';
 import { initScene }          from './initScene';
 import { initDataPlatform }   from './initDataPlatform';
 import { initBuilders }       from './initBuilders';
@@ -172,6 +178,8 @@ export async function bootstrap(
     // See REGRESSION-DIAGNOSIS.md §2 for the full root-cause analysis.
     if (runtime) window.runtime = runtime as typeof window.runtime;
 
+    markStartupPhase('boot:engine-start'); // §STARTUP-BUDGET — the engine boot begins HERE.
+
     // ── §PRYZM-PERF (INSTR1) — install `window.pryzmPerf` ────────────────────
     // Installed EARLY and unconditionally, for two reasons that are really one:
     // the founder tests in PRODUCTION on real hardware (localhost dev starves the
@@ -274,6 +282,7 @@ export async function bootstrap(
         navManager, viewController, gridToggleService,
         fragments, gltfLoader, updateIfManualMode,
     } = await initScene(container, runtime ?? null);
+    markStartupPhase('boot:scene-done'); // §STARTUP-BUDGET
 
     const highlighter = components.get(OBCF.Highlighter);
     highlighter.setup({ world }); highlighter.enabled = true;
@@ -403,6 +412,7 @@ export async function bootstrap(
         // initWallLevelSubscribers below; see its header for the coverage table.
         columnBuilder, roofBuilder,
     } = await initBuilders({ scene: world.scene.three as THREE.Scene, bimManager, projectContext });
+    markStartupPhase('boot:builders-done'); // §STARTUP-BUDGET
     bimManager.setRoofStore(roofStore);
     bimManager.setGridStore(gridStore); // OI-044: inject GridStore into BimManager
     spatialAuthority.setRoofStore(roofStore);
@@ -434,6 +444,7 @@ export async function bootstrap(
         slabBuilder, plumbingBuilder, furnitureBuilder, stairMeshBuilder,
         floorBuilder, handrailBuilder, stairRailingBuilder,
     });
+    markStartupPhase('boot:tools-done'); // §STARTUP-BUDGET
     window.bimWorld = world;
     inspector.setRoofStore(roofStore);
     // §R4-FIX: thread commandManager into the PropertyPanel so that room-panel,
@@ -558,6 +569,7 @@ export async function bootstrap(
     );
     initBatchLifecycle({ world });
     initBusHandlers(runtime);
+    markStartupPhase('boot:bus-handlers-done'); // §STARTUP-BUDGET
     // ── F.events.2b: vi:instance-updated dispatch bridge → runtime.events ─────
     // ViewIntentInstanceStore is a package-tier singleton that cannot import
     // runtime-composer (circular-dep violation). We inject a typed emitter here
@@ -1042,6 +1054,7 @@ export async function bootstrap(
     registerAllStores(toRegistryBundle(authoritativeStores));
 
     initDataPlatform({ world, selectionManager, updateInspector }, runtime ?? null);
+    markStartupPhase('boot:data-platform-done'); // §STARTUP-BUDGET
 
     // ── UI ────────────────────────────────────────────────────────────────────
     await initUI({
@@ -1058,6 +1071,7 @@ export async function bootstrap(
         unselectAll, updateIfManualMode,
     });
 
+    markStartupPhase('boot:ui-done'); // §STARTUP-BUDGET — `initUI` is where `mountGISArea` runs.
     // §FIX-CW-CTRL-REREGISTER: CurtainWallBuilder is constructed inside initUI — re-inject.
     batchCoordinator.registerBuilderControls(
         window.__wallRebuildControl,

@@ -38,7 +38,10 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 // §STARTUP-EAGER-GLOBE (founder 2026-08-10) — the one-shot onboarding→engine-boot seam that asks
 // this layout to start the Cesium init in parallel with the rest of the boot, plus the startup
 // budget marks the eager path reports on.
-import { consumeEagerGlobeStart } from '../../engine/eagerGlobeStart';
+// §STARTUP-GLOBE-PREWARM (L-10560) — `consumePrewarmedGlobe` is the ADOPTION half: the viewport
+// may already have been constructed + mounted (warm-hidden) by `PlatformRouter.showOnboarding`,
+// BEFORE this engine boot began. `null` means "construct it cold", which is the untouched path.
+import { consumeEagerGlobeStart, consumePrewarmedGlobe } from '../../engine/eagerGlobeStart';
 import { markStartupPhase } from '../../engine/startupBudget';
 // L-445 — `getLastBuildableEnvelope` is the FULL envelope incl. the derivation trace (facts
 // card only; legitimately null after a reload, and shown as such rather than fabricated).
@@ -559,7 +562,6 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             import('../geospatial/SiteBoundaryDrawTool'),
         ]).then(async ([{ CesiumViewport }, Cesium, { CesiumThreeBridge }, { mountSiteGeocodeSearchBox }, { SiteBoundaryDrawTool }]) => {
             if (!cesiumViewport) {
-                cesiumViewport = new CesiumViewport(viewport, runtime ?? null /* B-runtime-thread CesiumViewport */);
                 // §L-446 — resolve CAPTURED-THEN-WINDOW, the pattern §L-412 already established
                 // here and `getFormaBoundary` uses for the store. The captured `runtime` is NULL
                 // on the live boot path by DESIGN (`createMainLayout(props, null)`); `window.runtime`
@@ -573,13 +575,43 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                             | import('@pryzm/runtime-composer/types').PryzmRuntime
                             | undefined) ?? null
                         : null);
-                cesiumViewport.setRuntime(resolvedRuntime);
-                // §STARTUP-EAGER-GLOBE — in eager mode the container lays out INVISIBLY so the
-                // viewer is created at real dimensions and base-imagery tiles stream during the
-                // engine boot, instead of starting 0×0 and waiting for the visibility flip.
-                if (mode === 'eager') cesiumViewport.enterWarmHiddenState();
-                await cesiumViewport.mount();
-                console.log(`GIS: Cesium viewer mounted successfully (${mode} init)`);
+
+                // §STARTUP-GLOBE-PREWARM (L-10560) — ADOPT a viewport that was already constructed
+                // AND mounted (warm-hidden) at the onboarding seam, BEFORE this engine boot began.
+                //
+                // ⚠ THE ADOPTION REPLACES EXACTLY TWO STEPS — construction and `mount()`. Every
+                // line below it (the readiness resolve, the bridge, the geocode box, the boundary
+                // tool, the console hooks) still runs, on BOTH arms. An `if (prewarmed) { … }` that
+                // skipped past them would be the "deferral that never fires" defect wearing a perf
+                // fix's name, so the two arms MERGE here rather than branching around the wiring.
+                //
+                // ⛔ `null` is the NORMAL answer on every path that is not a globe-first onboarding
+                // (a hub click, a deep link, a reopen-after-reload), and on a prewarm that failed.
+                // It means "construct cold" — the `else` arm, byte for byte what this code did
+                // before the prewarm existed. There is no path on which a globe fails to appear
+                // because the prewarm did not fire.
+                //
+                // ⛔ A prewarm still IN FLIGHT is AWAITED, never raced: `consumePrewarmedGlobe()`
+                // returns the one shared promise, so at most ONE CesiumViewport is ever built.
+                const prewarmed = await consumePrewarmedGlobe();
+                if (prewarmed) {
+                    cesiumViewport = prewarmed;
+                    cesiumViewport.setRuntime(resolvedRuntime);
+                    console.log(
+                        `[gis] §STARTUP-GLOBE-PREWARM — ADOPTED the prewarmed Cesium viewport ` +
+                        `(${mode} init): construction + mount already ran in parallel with the ` +
+                        'engine boot, so this path pays nothing for them.',
+                    );
+                } else {
+                    cesiumViewport = new CesiumViewport(viewport, runtime ?? null /* B-runtime-thread CesiumViewport */);
+                    cesiumViewport.setRuntime(resolvedRuntime);
+                    // §STARTUP-EAGER-GLOBE — in eager mode the container lays out INVISIBLY so the
+                    // viewer is created at real dimensions and base-imagery tiles stream during the
+                    // engine boot, instead of starting 0×0 and waiting for the visibility flip.
+                    if (mode === 'eager') cesiumViewport.enterWarmHiddenState();
+                    await cesiumViewport.mount();
+                    console.log(`GIS: Cesium viewer mounted successfully (${mode} init)`);
+                }
                 // §SITE-ENTRY-GLOBE-READY — the viewer is genuinely live now (mount() above
                 // already awaited `resolveReady()`); a camera command issued from here on lands
                 // on the real viewer, not a dropped no-op. (Visibility is a separate flip —

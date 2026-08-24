@@ -26,6 +26,27 @@
 // flight:parcel-arrival · reveal:content-ready · reveal:flight-settled · reveal:split-mounted ·
 // parcel:committed · envelope:dispatched · enter-canvas. Add phases; do not rename them.
 //
+// ⭐ ADDED 2026-08-24 (lane EARTH31, §STARTUP-GLOBE-PREWARM / §STARTUP-BOOT-STAGES, L-10560) —
+// two families, both because the founder's own run had a 2.5-second hole in it that no mark
+// named:
+//
+//   · globe:prewarm-start / globe:prewarm-done — the Cesium viewport's CONSTRUCTION + MOUNT,
+//     which now begins at the onboarding seam instead of at the tail of the engine boot. Read
+//     `globe:prewarm-done` against `globe:eager-init-start`: the gap between them is the boot
+//     time the globe NO LONGER SPENDS WAITING. (`globe:eager-init-start/-done` are retained and
+//     unchanged — on the prewarmed path they now bracket an ADOPTION, not a construction, so a
+//     near-zero delta there is the success signal, not a missing measurement.)
+//
+//   · boot:engine-start · boot:scene-done · boot:builders-done · boot:tools-done ·
+//     boot:bus-handlers-done · boot:data-platform-done · boot:ui-done — the engine boot's own
+//     stages. Before these, `onboarding:shown +0ms` was followed by `globe:eager-init-start
+//     +2633ms` with NOTHING named in between, so "which stage costs the 2.5 s?" could only be
+//     guessed at. These name it. They map 1:1 onto SPEC-PROJECT-OPEN-CREATE-PIPELINE §3's
+//     O4/O5/O6/O9/O7/O8 rows, deliberately, so a reading here is quotable against that spec.
+//
+// ⛔ These are MARKS, not gates. Adding one must never change what runs or in what order — the
+// "passive mark recorder" clause above is the whole contract of this module.
+//
 // P8: every exported function carries an OTel span.
 
 import { trace } from '@opentelemetry/api';
