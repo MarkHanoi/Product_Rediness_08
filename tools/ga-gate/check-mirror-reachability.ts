@@ -60,10 +60,17 @@
  *   `PATCH-DROPPED`        the handler produced patches for a store key that no
  *                          `Store` is registered under (§FIX-SILENT-PATCH-DROP,
  *                          L-811). Measured via `attachStores`' own callback.
- *   `UNPROVEN`             the harness could not construct the subject (import
- *                          failed / the fixture payload was rejected for a
- *                          SHAPE reason). ⛔ Never counted as a pass, never
- *                          counted as a fail — it trips a floor.
+ *   `UNPROVEN`             the harness could not construct the subject: the module
+ *                          would not import, or the handler VALIDATED and then
+ *                          threw mid-`execute`. ⛔ Never a pass, never a fail —
+ *                          it trips a floor and exits 2.
+ *                          ⭐ A THROW IS NOT A REFUSAL, and keeping them apart is
+ *                          the difference between a measurement and a lie:
+ *                          `CommandBus` refuses with the exact form
+ *                          `<verb>: canExecute rejected — <reason>`, and ANY other
+ *                          throw is a broken instrument. Grading it `REFUSED`
+ *                          would print *"this verb is deliberately dead"* over a
+ *                          fixture the harness got wrong.
  *
  * ⚠ THE VERDICTS ARE PINNED EXACTLY, NOT ORDERED ON A LATTICE. A lattice would
  * let `REFUSED` → `NO-TYPED-EVENT` read as "improvement", and it is the
@@ -116,11 +123,16 @@
  *     backlog belongs to `mirror-debt.json`; this file does not restate it.
  *
  * ─── NEGATIVE + POSITIVE CONTROL, EXECUTED ON EVERY RUN (C70 §5.6) ─────────
- * `selfTest()` plants four SYNTHETIC handlers and pushes them through the SAME
+ * `selfTest()` plants five SYNTHETIC handlers and pushes them through the SAME
  * `measureOne()` and the REAL bridge:
  *   · `zzcontrol.mutate` — a verb the bridge has no case for → must read
  *     `NO-TYPED-EVENT`. If it reads anything else the defect detector is blind.
  *   · `zzcontrol.refuse` — `canExecute` always false → must read `REFUSED`.
+ *   · `zzcontrol.explode` — `canExecute` passes, `execute` throws → must read
+ *     `UNPROVEN`, NEVER `REFUSED`. This control exists because the two arrive at
+ *     `measureOne()` through the SAME `catch`, and the earlier draft of this file
+ *     graded both `REFUSED` — i.e. it would have reported a fixture I got wrong
+ *     as a deliberately-dead verb, with a citation attached.
  *   · `room.create`      — a REAL bridge case whose event nobody subscribes to
  *                          → must read `TYPED-EVENT-NO-SUB`.
  *   · `lighting.create`  — a REAL bridge case with a REAL subscriber → must read
@@ -321,8 +333,17 @@ function classify(
   const typed = seen.filter((e) => e !== 'command.executed');
   const subscribers = [...new Set(typed.flatMap((e) => census.get(e) ?? []))];
   let verdict: Verdict;
-  if (detail !== undefined && seen.length === 0) verdict = 'REFUSED';
-  else if (dropped.length > 0) verdict = 'PATCH-DROPPED';
+  // ⛔ A REFUSAL AND A THROW ARE NOT THE SAME READING, AND CONFLATING THEM IS HOW
+  // THIS GATE WOULD LIE IN THE DIRECTION THAT COSTS MOST. `CommandBus` refuses
+  // with a message of the exact form `<verb>: canExecute rejected — <reason>`
+  // (CommandBus.ts). ANY OTHER throw is a fixture the harness got wrong, a
+  // handler that blew up mid-`execute`, or a module that changed shape — and
+  // grading that `REFUSED` would print "this verb is deliberately dead" over a
+  // BROKEN INSTRUMENT. It is `UNPROVEN`, which trips a floor and exits 2.
+  // (§CONTEXT-DATA-HONESTY: failure and emptiness must not be the same value.)
+  if (detail !== undefined && seen.length === 0) {
+    verdict = /canExecute rejected/.test(detail) ? 'REFUSED' : 'UNPROVEN';
+  } else if (dropped.length > 0) verdict = 'PATCH-DROPPED';
   else if (typed.length === 0) verdict = 'NO-TYPED-EVENT';
   else if (subscribers.length === 0) verdict = 'TYPED-EVENT-NO-SUB';
   else verdict = 'REACHES-SUBSCRIBER';
@@ -488,7 +509,7 @@ async function runFamilies(census: Map<string, string[]>): Promise<{ readings: R
 // `CommandEventBridge` decides what comes out. That is what makes the positive
 // control a satisfiability proof rather than a tautology: nothing in this file
 // can make the bridge emit `lighting.created` except the bridge's own case arm.
-function plantedHandler(type: string, opts: { refuse?: boolean } = {}): unknown {
+function plantedHandler(type: string, opts: { refuse?: boolean; throwInExecute?: boolean } = {}): unknown {
   return {
     type,
     affectedStores: ['zzcontrol'] as const,
@@ -497,6 +518,9 @@ function plantedHandler(type: string, opts: { refuse?: boolean } = {}): unknown 
         ? { valid: false, reason: 'PLANTED CONTROL — this handler refuses by construction' }
         : { valid: true },
     execute: (_ctx: unknown, cmd: any) => {
+      if (opts.throwInExecute === true) {
+        throw new Error('PLANTED CONTROL — this handler validates and then blows up mid-execute');
+      }
       const id = String(cmd?.id ?? 'ctl-1');
       return {
         forward: [{ op: 'add', path: [id], value: { id, levelId: cmd?.levelId ?? 'lvl-1' } }],
@@ -518,7 +542,9 @@ async function controlRig(): Promise<Rig> {
   const emitter = new PatchEmitter();
   const bus = new CommandBus({
     emitter,
-    storesProvider: (ids: readonly string[]) => Object.fromEntries(ids.map((i) => [i, stores[i] ? {} : {}])),
+    // The control's far side is the EVENT, not the store, so an empty snapshot is
+    // the honest answer: the planted handlers do not read `ctx.stores` at all.
+    storesProvider: (ids: readonly string[]) => Object.fromEntries(ids.map((i) => [i, {}])),
   });
   const rig: Rig = { bus, events: new EventBus(), stores, seen: [], dropped: [] };
   attachStores(emitter, stores, { onUnknownStore: (k: string) => { rig.dropped.push(k); } });
@@ -531,11 +557,13 @@ async function controlRig(): Promise<Rig> {
 async function selfTest(census: Map<string, string[]>): Promise<{ ok: boolean; lines: string[] }> {
   const lines: string[] = [];
   let ok = true;
-  const cases: { verb: string; refuse?: boolean; expect: Verdict; why: string }[] = [
+  const cases: { verb: string; refuse?: boolean; throwInExecute?: boolean; expect: Verdict; why: string }[] = [
     { verb: 'zzcontrol.mutate', expect: 'NO-TYPED-EVENT',
       why: 'a verb that MUTATES and has no bridge case — the founder-defect arm' },
     { verb: 'zzcontrol.refuse', refuse: true, expect: 'REFUSED',
       why: 'a verb whose canExecute cannot pass — the dead-verb arm' },
+    { verb: 'zzcontrol.explode', throwInExecute: true, expect: 'UNPROVEN',
+      why: '⛔ validates, then THROWS mid-execute — must NOT be graded REFUSED. A broken instrument reported as a deliberately-dead verb is the worst reading this gate could produce' },
     { verb: 'room.create', expect: 'TYPED-EVENT-NO-SUB',
       why: 'a REAL bridge case whose event name nobody subscribes to — the orphan-channel arm' },
     { verb: 'lighting.create', expect: 'REACHES-SUBSCRIBER',
@@ -544,7 +572,7 @@ async function selfTest(census: Map<string, string[]>): Promise<{ ok: boolean; l
   for (const c of cases) {
     try {
       const rig = await controlRig();
-      rig.bus.register(plantedHandler(c.verb, { refuse: c.refuse }));
+      rig.bus.register(plantedHandler(c.verb, { refuse: c.refuse, throwInExecute: c.throwInExecute }));
       const r = await measureOne(rig, c.verb, { id: 'ctl-1', levelId: 'lvl-1', kind: 'downlight', origin: { x: 0, y: 0, z: 0 } }, census);
       if (r.verdict === c.expect) {
         lines.push(`✓ fired — ${c.verb} → ${r.verdict}  (${c.why})`);
