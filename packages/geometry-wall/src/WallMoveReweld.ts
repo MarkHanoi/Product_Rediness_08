@@ -744,6 +744,77 @@ function computeStemFollow(
  * corner is left open and nobody is told), which is the same defect wearing the
  * other hat.
  */
+/**
+ * ⭐⭐ §GRAPH43-REFUSE-BEFORE-VS-REPORT-AFTER (L-10805) — THE FOUNDER'S RULING,
+ *    ENCODED IN THE TYPE SYSTEM SO IT CANNOT BE QUIETLY REVERSED.
+ *
+ * ── THE RULING, 2026-08-24 ──────────────────────────────────────────────────
+ *
+ * On whether a wall move that DESTROYS A ROOM should be blocked:
+ * **INADVISABLE, not IMPOSSIBLE. Proceed and report.** Merging two rooms by
+ * moving a wall is a legitimate architectural act that an architect performs
+ * deliberately; geometry cannot tell that from an accident, and refusing would
+ * block real work. C83's framework is IMPOSSIBLE / INADVISABLE / FINE, and the
+ * standing rule is *"always ASK, never auto-edit"* — never *refuse* by default.
+ *
+ * ── WHY THIS FUNCTION EXISTS WHEN IT RECLASSIFIES NOTHING ───────────────────
+ *
+ * Measured 2026-08-24: **every existing member is already on the right side of
+ * the ruling**, and `WallMoveClashProposal`'s two refusal arms are the
+ * incumbent breach (C83 §10.2.2) and a wall∩opening clash — neither is a
+ * downstream-consequence refusal. **There was nothing to reclassify.**
+ *
+ * ⭐ So the value is not the mapping, it is the EXHAUSTIVENESS. The rule was
+ * true by accident and stated nowhere, which is this repository's most-logged
+ * defect shape: *a success criterion with no term for the property that
+ * actually matters.* Adding a member to the union without classifying it is now
+ * a COMPILE ERROR (the `never` arm below), and classifying one as a
+ * consequence-refusal is a TEST failure. A future lane cannot add
+ * `ROOM_WOULD_BE_LOST` as a refusal without deliberately overturning a founder
+ * ruling in the open.
+ *
+ * ⛔ THE ONLY TWO GROUNDS ON WHICH THIS ENGINE MAY REFUSE A MOVE:
+ *   **IMPOSSIBLE** — the model cannot hold the result at all (a wall and an
+ *   opening cannot occupy one volume; a wall cannot be a degenerate stub;
+ *   a wall cannot come out end-for-end).
+ *   **INCUMBENT** — completing it would move a wall the USER DID NOT TOUCH,
+ *   further than this gesture allows. This is L-922 protection and is about
+ *   authorship, not about consequences.
+ *
+ * ⛔ NOT A GROUND: a DOWNSTREAM CONSEQUENCE — a room opening, a loop breaking,
+ * a topology finding appearing. Those are REPORTED, at one undo, and the room
+ * half of that report belongs to §ROOM-LOSS-CENSUS and not to this package
+ * (§GRAPH43-THE-WALL-SIDE-DOES-NOT-DESCRIBE-ROOMS, L-10802).
+ */
+export type MoveRefusalGround = 'IMPOSSIBLE' | 'INCUMBENT';
+
+/**
+ * The ground on which each refusal stands. Exhaustive by construction: the
+ * `never` arm makes an unclassified member a compile error.
+ */
+export function moveRefusalGround(reason: MoveReweldRefusalReason): MoveRefusalGround {
+    switch (reason) {
+        // ── INCUMBENT: it would move a wall the user did not touch ───────────
+        case 'INCUMBENT_EXTENSION_REQUIRED':
+        case 'CORNER_FOLLOW_GAIN_EXCEEDED':
+        case 'HOST_EXTENSION_GAIN_EXCEEDED':
+        case 'STEM_EXTENSION_EXCEEDS_CAP':
+            return 'INCUMBENT';
+        // ── IMPOSSIBLE: the model cannot hold the result ─────────────────────
+        case 'STEM_REVERSAL':            // a wall end-for-end
+        case 'STEM_COLLAPSE':            // a degenerate stub the mesh path cannot draw
+        case 'STEM_HOST_NO_LONGER_BENEATH': // a seat with nothing under it
+        case 'AMBIGUOUS_WELD_AUTHORSHIP':   // a coin-flip between two opposite edits
+            return 'IMPOSSIBLE';
+        default: {
+            // ⛔ Adding a member to `MoveReweldRefusalReason` without classifying
+            //    it lands here and FAILS TO COMPILE. That is the point.
+            const _exhaustive: never = reason;
+            return _exhaustive;
+        }
+    }
+}
+
 export type MoveReweldRefusalReason =
     /** A CORNER partner would have to be LENGTHENED to close the joint (C83 §10.2.2). */
     | 'INCUMBENT_EXTENSION_REQUIRED'
