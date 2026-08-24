@@ -134,6 +134,30 @@ export interface MoveReweldPartner {
      *  on (the letter is redundant with it — `55a2eda3`). Absent ⇒ MEASURED, not
      *  refused; see the corrected note above. */
     junctionDegree?: number;
+    /**
+     * §WD32-DECLARED-JOIN-OUTRANKS-PROXIMITY (L-10600) — did the `joinedTo`
+     * graph NAME this partner, or did a level scan merely offer it?
+     *
+     * ⭐ THE FOUNDER'S THIRD REPORT IS THE REASON THIS FIELD EXISTS:
+     *
+     *     §MOVE-REWELD-EMPTY-PLAN: moved wall …866V — 2 partner(s) considered
+     *       via joinedTo-graph [wall_…66MC, wall_…MSD], 0 re-weld entries and
+     *       0 refusals. Per-partner outcome:
+     *       [66MC:NOT_WELDED_TO_SUBJECT_PREV_SEGMENT(2259/500 mm),
+     *        MSD:NOT_WELDED_TO_SUBJECT_PREV_SEGMENT(2263/500 mm)]
+     *
+     * The DECLARED relationship was found and a geometric proximity test then
+     * overruled it — quietly, as a `notApplicable`, which is the vocabulary for
+     * *"there was nothing here to close"*. On the level-scan arm that is exactly
+     * right: the partner set is every wall on the level and proximity is the
+     * only filter there is. On the GRAPH arm it is a CONTRADICTION between two
+     * authorities, and a contradiction reported as a non-event is the defect
+     * class this whole file exists to abolish.
+     *
+     * Absent ⇒ treated as NOT declared, so every existing caller and fixture
+     * keeps byte-identical behaviour.
+     */
+    declared?: boolean;
 }
 
 export interface MoveReweldOptions {
@@ -260,6 +284,66 @@ const MIN_ANGLE_RAD = 0.1; // ~5.7°, mirrors WallJoinResolver's near-parallel s
 // COINCIDENT_M (model-point sameness, 6 orders wider).
 /** Displacements below this are noise, not a weld worth committing. */
 const MIN_DISPLACEMENT = 1e-6;
+
+/**
+ * §WD32-FOLLOW-GAIN-IS-BOUNDED (L-10601) — the largest multiple of the USER'S
+ * OWN drag by which this engine may move a wall the user did not touch.
+ *
+ * ── THE DEFECT, REPRODUCED BEFORE IT WAS FIXED ───────────────────────────────
+ *
+ * `WALLDEEP32DirectionInversion.measure.test.ts` fixture `D-c`: a 1.5 m drag of
+ * a perimeter wall moved its partner's welded endpoint **7.08 m**, from (8, 0)
+ * to (1.08, −1.50) — through the subject and out the far side — and the census
+ * reported `0 refused`, `2 corners offered`, `2 seated`, `entry emitted`. That
+ * is the founder's line verbatim, and one wall had visibly extended the wrong
+ * way. Fixture `ARC-2` is worse: a **2 m** drag, a **14.14 m** partner
+ * displacement, and an 8 m subject that came out **22 m** long.
+ *
+ * ── WHY NOTHING CAUGHT IT, WHICH IS THE PART WORTH REMEMBERING ───────────────
+ *
+ * There WAS a guard, and it is the one the founder's second report shows
+ * working: `STEM_REVERSAL`. It asks *"did this wall flip end-for-end?"* — and
+ * in both fixtures above the answer is honestly NO. The partner did not flip;
+ * it grew, in the correct direction along its own line, by seven times the
+ * distance anything actually moved. **A guard whose question is "did it invert"
+ * cannot see "did it travel a plausible distance", and those are different
+ * questions about the same wall.**
+ *
+ * The two arms had different ceilings, and that is the whole asymmetry:
+ *
+ *   STEM path   `displacementM > maxExtension`               → drag + weldTol
+ *   CORNER path `displacement > alongPartnerReach`, where
+ *               `alongPartnerReach = max(maxExtension,
+ *                                        drag · (1/sin θ) + weldTol)`
+ *
+ * §L-932 introduced `1/sin θ` for a real and correct reason — at 30° a corner
+ * genuinely slides 2× the drag along the partner, and capping it at the drag
+ * silently dropped every angled junction. But `1/sin θ` is bounded only by
+ * `MIN_ANGLE_RAD` (5.73°), where it reaches **10.02**. So the ceiling on moving
+ * somebody else's wall was "ten times the user's gesture", set by a constant
+ * that exists to decide something else entirely.
+ *
+ * ── WHY 3, STATED AS A POLICY AND NOT DRESSED UP AS A DERIVATION ─────────────
+ *
+ * This is a DECLARED POLICY CONSTANT (C73 §2.2 — declared with its derivation,
+ * never minted at a call site), not a physical quantity. It separates two
+ * MEASURED populations:
+ *
+ *   · §L-932's own named fixture is a **30°** junction — gain **2.00**. It is
+ *     the case this cap must not regress, and it clears 3 with margin.
+ *   · The two inversion fixtures are **12.2°** (gain 4.72) and **8.1°**
+ *     (gain 7.07). Both are refused at 3.
+ *
+ * 3 ⇔ θ ≥ 19.47°. Below that a junction is ill-conditioned enough that the
+ * honest answer is a REFUSAL carrying both numbers — which the user sees — and
+ * not a silent seven-metre extension that the log calls a success.
+ *
+ * ⚠ IT BOUNDS THE FOLLOW ONLY, NEVER THE SUBJECT. Extending the wall the user
+ * is dragging is C83 §10.1 — the newcomer adapting — and is not capped here.
+ * `alongMoverReach` is untouched, so every §L-932 subject-seat fixture is
+ * byte-identical.
+ */
+const MAX_FOLLOW_GAIN = 3;
 
 const toPt = (p: Point3D): Pt => ({ x: p.x, z: p.z });
 
@@ -672,7 +756,14 @@ export type MoveReweldRefusalReason =
     /** §L-926 — the required extension exceeds the §POST-RESOLVE-OVEREXTEND cap. */
     | 'STEM_EXTENSION_EXCEEDS_CAP'
     /** §L-926 — the host slid out from under the stem's foot; there is nothing to seat on. */
-    | 'STEM_HOST_NO_LONGER_BENEATH';
+    | 'STEM_HOST_NO_LONGER_BENEATH'
+    /**
+     * §WD32-FOLLOW-GAIN-IS-BOUNDED (L-10601) — closing this corner would move a
+     * wall the user did not touch by more than `MAX_FOLLOW_GAIN` × the drag.
+     * The corner is real and the direction is right; the DISTANCE is not a
+     * re-weld. See `MAX_FOLLOW_GAIN` for the two measured fixtures.
+     */
+    | 'CORNER_FOLLOW_GAIN_EXCEEDED';
 
 export interface MoveReweldRefusal {
     readonly partnerId: string;
@@ -768,7 +859,66 @@ export type MoveReweldNotApplicableReason =
     /** Stem path: the stem's own line is near-parallel to the host's, so there is no T to re-form. */
     | 'STEM_NEAR_PARALLEL_NO_SEAT'
     /** Stem path: the stem's foot is already on the host's new body. */
-    | 'STEM_ALREADY_SEATED';
+    | 'STEM_ALREADY_SEATED'
+    /**
+     * §WD32-DECLARED-JOIN-OUTRANKS-PROXIMITY (L-10600) — THE FOUNDER'S THIRD
+     * REPORT, ANSWERED.
+     *
+     * The partner is not welded to the subject's PREV segment, and it IS welded
+     * to the subject's NEW one: somebody has already moved it to where this
+     * gesture would have put it. **That is a success and it must never again
+     * print as `NOT_WELDED_TO_SUBJECT_PREV_SEGMENT`,** which reads as a lost
+     * relationship and sent three separate readings of one console down the
+     * wrong path.
+     *
+     * ⚠ WHY THE OLD CODE COULD NOT SAY THIS. It measured ONE distance — to the
+     * PREV segment — and a single distance cannot distinguish "this joint was
+     * already repaired" from "this joint never existed". Both are "far from
+     * where the wall used to be". The second measurement is the whole fix.
+     */
+    | 'PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT'
+    /**
+     * §WD32-DECLARED-JOIN-OUTRANKS-PROXIMITY (L-10600) — the `joinedTo` graph
+     * NAMED this partner, and neither of its endpoints is within `weldTol` of the
+     * subject's pre-move segment OR its post-move one. Two authorities disagree
+     * about one relationship, and this is the record of that.
+     *
+     * ⛔ IT IS A NOT-APPLICABLE AND NOT A REFUSAL, AND THAT WAS A DECISION MADE
+     * AGAINST THE FIRST DRAFT OF THIS FIX. The first draft raised it to a refusal
+     * on the reasoning that a contradiction between two authorities deserves to be
+     * audible. **The repository's own fixtures refuted that**:
+     * `L936ReweldEmitterHonesty.test.ts` builds a harness whose `joinedTo` answer
+     * legitimately includes walls that are joined AT THE LEVEL but not to the
+     * subject at that segment, and asserts `0 junction(s) refused` over it. The
+     * graph OVER-REPORTS by design, so refusing on every over-report would put a
+     * refusal in front of the user for a routine non-event — L-921 inverted, noise
+     * where there is no finding.
+     *
+     * ⚠ SO THIS NAMES THE FACT AND DOES NOT ACT ON IT, WHICH IS DELIBERATELY HALF
+     * THE JOB. The other half — attempting the weld from the DECLARED relationship
+     * when proximity cannot find it — is the founder's *"a live entity aware of all
+     * elements around it"*, and it is a behavioural widening that would move walls
+     * on the strength of a graph edge. It is specified in C85 §10.7 W-M-4 as
+     * NOT-YET-TRUE and staged in ADR-0336; it was NOT shipped before production,
+     * because a widening that moves walls cannot be validated by the evidence
+     * available tonight. Naming the fact is what lets the next lane measure it.
+     */
+    | 'DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE'
+    /**
+     * §WD32-A-CORNER-ONLY-ONE-WALL-REACHES-IS-NOT-A-CORNER (L-10602) — this
+     * partner's follow was computed, emitted, and then RETRACTED because the
+     * subject could not reach the same corner (its seat was declined by the
+     * §L-872/§L-932 reach guard one loop later).
+     *
+     * ⭐ Founder, on the refusal text he was shown: *"are the mitred joins still
+     * connected and linked?"* — the honest answer for a half-closed corner is
+     * NO: the mitre would be drawn closed over a real gap. Moving ONE of the two
+     * walls to a meeting point the other never reaches does not close a joint;
+     * it relocates the gap and makes it harder to see. Leaving both walls where
+     * they are keeps the gap where the user can see it and where
+     * `auditWallTopology` can name it.
+     */
+    | 'CORNER_RETRACTED_SUBJECT_DECLINED';
 
 /**
  * A partner this engine considered and correctly left alone, with the number
@@ -1064,6 +1214,59 @@ export function computeMoveReweldCensus(
         const dS = distToSegment(ps, prevS, prevE);
         const dE = distToSegment(pe, prevS, prevE);
         if (dS > weldTol && dE > weldTol) {
+            // ⭐⭐ §WD32-DECLARED-JOIN-OUTRANKS-PROXIMITY (L-10600) — TAKE THE
+            //    SECOND MEASUREMENT BEFORE PASSING JUDGEMENT.
+            //
+            // This branch used to report ONE number: how far the partner is from
+            // where the subject USED to be. The founder's third report is that
+            // number and nothing else:
+            //
+            //     [66MC:NOT_WELDED_TO_SUBJECT_PREV_SEGMENT(2259/500 mm),
+            //      MSD:NOT_WELDED_TO_SUBJECT_PREV_SEGMENT(2263/500 mm)]
+            //
+            // and both readings of it — his and the lane brief's — concluded the
+            // same wrong thing: *"a move larger than the weld tolerance makes the
+            // engine forget the walls were ever joined."*
+            //
+            // ⛔ THAT IS ARITHMETICALLY IMPOSSIBLE AND THE FIXTURES SAY SO. A
+            // STATIONARY partner welded at the old corner sits ON `[prevS,prevE]`
+            // — it IS an endpoint of that segment — so its distance to it is 0
+            // however far the subject then travels. `WALLDEEP32DirectionInversion`
+            // moves a perimeter wall 2 m, four times the 500 mm tolerance, and
+            // both partners weld normally. The gate does not scale with the drag,
+            // and it never did.
+            //
+            // ⭐ So 2259 mm ≈ the 2260 mm move is not noise, it is a FINGERPRINT:
+            // those partners were ~one move-length from the pre-move line, i.e.
+            // sitting on the POST-move line. They had ALREADY FOLLOWED. The
+            // engine was looking at a repaired joint and calling it a lost one,
+            // because one distance cannot tell "already fixed" from "never there".
+            //
+            // Measure both. The two answers are opposite facts and now have
+            // opposite names.
+            const dSNew = distToSegment(ps, newS, newE);
+            const dENew = distToSegment(pe, newS, newE);
+            if (dSNew <= weldTol || dENew <= weldTol) {
+                na(partner.id, 'PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT',
+                    Math.min(dSNew, dENew), weldTol);
+                continue;
+            }
+            // Welded to NEITHER pose. If the `joinedTo` graph NAMED this partner,
+            // two authorities now contradict each other about one relationship,
+            // and §L-945's vocabulary has no word for that: `notApplicable` means
+            // *"there was nothing here to close"*, which is a claim this engine is
+            // not entitled to make about a join somebody else recorded. Refuse it
+            // instead — audible, both numbers, and it reaches the user through the
+            // consequence sink `report()` already drives.
+            //
+            // ⚠ ONLY on the declared arm. The level-scan fallback offers EVERY
+            // wall on the level and proximity is the only filter it has; turning
+            // that into refusals would report a refusal per unrelated wall.
+            if (partner.declared === true) {
+                na(partner.id, 'DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE',
+                    Math.min(dS, dE, dSNew, dENew), weldTol);
+                continue;
+            }
             // Was never joined here — as far as THIS geometry is concerned. The
             // `joinedTo` graph said otherwise, and the disagreement is now on
             // the record instead of being resolved silently in the graph's
@@ -1253,6 +1456,41 @@ export function computeMoveReweldCensus(
                 });
                 continue;
             }
+            // ⭐⭐ §WD32-FOLLOW-GAIN-IS-BOUNDED (L-10601) — THE GUARD THE
+            //    `reversed` TEST ABOVE CANNOT BE.
+            //
+            // `reversed` asks *"would this wall flip end-for-end?"*. In both
+            // measured inversion fixtures the answer is honestly NO: the partner
+            // grows along its own line, in the correct direction, by SEVEN TIMES
+            // the distance the user dragged. That is a different question, so it
+            // needs a different guard — and until now there was none on this arm,
+            // because step 4's `alongPartnerReach` is `1/sin θ`-scaled and rides
+            // all the way to `MIN_ANGLE_RAD`, where it permits a 10× follow.
+            //
+            // ⛔ THE STEM ARM HAS ALWAYS HAD THE TIGHT CAP (`maxExtension`,
+            // i.e. drag + weldTol) and that is why the founder's SECOND report
+            // shows a clean `STEM_REVERSAL` refusal on the same geometric event
+            // his FIRST report shows passing silently. One subject, two arms, two
+            // ceilings, two verdicts. This closes that asymmetry from the loose
+            // side — the corner arm may still follow further than the stem arm
+            // when the ANGLE genuinely demands it, up to `MAX_FOLLOW_GAIN`, but
+            // never without limit.
+            //
+            // ⚠ It is deliberately checked HERE and not folded into step 4: step 4
+            // gates the INCUMBENT path too, and the incumbent path moves nobody.
+            // Tightening it there would refuse corners that are currently reported
+            // as `INCUMBENT_PRESERVED_SUBJECT_ADAPTS` — a success — and turn them
+            // into refusals. Every decision on every other arm is byte-unchanged.
+            const followLimitM = movedDisplacement * MAX_FOLLOW_GAIN + weldTol;
+            if (displacement > followLimitM) {
+                refusals.push({
+                    partnerId: partner.id,
+                    reason: 'CORNER_FOLLOW_GAIN_EXCEEDED',
+                    beyondMm: Math.round(displacement * 1000),
+                    limitMm: Math.round(followLimitM * 1000),
+                });
+                continue;
+            }
             const newPartnerBase: ReweldBaseline = weldedIsStart
                 ? [{ ...partner.baseLine[0], x: corner.x, z: corner.z }, partner.baseLine[1]]
                 : [partner.baseLine[0], { ...partner.baseLine[1], x: corner.x, z: corner.z }];
@@ -1398,6 +1636,62 @@ export function computeMoveReweldCensus(
                     measuredMm: Math.round(d * 1000),
                     limitMm: Math.round(reachM * 1000),
                 });
+                // ⭐⭐ §WD32-A-CORNER-ONLY-ONE-WALL-REACHES-IS-NOT-A-CORNER
+                //    (L-10602) — RETRACT THE PARTNER'S FOLLOW.
+                //
+                // Founder: *"are the mitred joins still connected and linked —
+                // otherwise explain why?"* For this outcome the honest answer was
+                // NO, and the engine was making it worse rather than reporting it.
+                //
+                // The partner loop has already EMITTED a `mutual-corner` entry for
+                // this corner — it was judged on the partner's side alone, one loop
+                // earlier, and pushed unconditionally. Reaching this line means the
+                // SUBJECT then could not seat there. So the plan as it stood moved
+                // one of the two walls to a meeting point the other never arrives
+                // at: the gap is not closed, it is RELOCATED, and it is relocated
+                // onto a wall the user did not touch.
+                //
+                // ⛔ A half-closed corner is worse than an open one. Open, the
+                // topology probe names it, the mitre pass declines to form it, and
+                // the user can see it. Half-closed, an incumbent has silently moved
+                // and the drawing shows a corner that is not there — the founder's
+                // *"drawn closed without actually meeting"*, with an extra wall
+                // displaced for nothing.
+                //
+                // So the junction is restored to ALL-OR-NOTHING: retract the entry,
+                // record why against the same partner id, and leave both walls
+                // exactly where the user left them. This is the only place in this
+                // engine where an entry is withdrawn, and it is withdrawn because
+                // the fact that invalidates it is not knowable until here.
+                //
+                // ⚠ SCOPE, AND IT WAS NARROWED BY A FAILING CONTROL, NOT BY
+                // PREFERENCE. `bands === undefined` means the subject carried no
+                // thickness and `classifyWeldAuthorship` could not tell a CORNER
+                // from a T-STEM — every partner then takes the corner path by
+                // default, and `reachM` is pinned to `weldTol`. In that state a
+                // declined subject seat is the §L-872 T-SEAT-GUARD doing its job
+                // on what is probably a T, NOT evidence of a half-closed corner:
+                // a stem's foot lands on the host's BODY and the host's own
+                // endpoint is SUPPOSED to stay where it is.
+                //
+                // ⛔ Retracting there withdrew the mandatory stem follow and broke
+                // both no-thickness fixtures in
+                // `L926StemFollowAuthorship.measure.test.ts` — the exact regression
+                // §L-926 exists to prevent (interior stems left 773 mm off their
+                // host, rooms 6 → 4). So the retraction fires only when authorship
+                // was ANSWERABLE, i.e. when this really was judged a corner.
+                const retractIdx = bands
+                    ? entries.findIndex(e => e.wallId === partnerId && e.role === 'mutual-corner')
+                    : -1;
+                if (retractIdx >= 0) {
+                    entries.splice(retractIdx, 1);
+                    notApplicable.push({
+                        partnerId,
+                        reason: 'CORNER_RETRACTED_SUBJECT_DECLINED',
+                        measuredMm: Math.round(d * 1000),
+                        limitMm: Math.round(reachM * 1000),
+                    });
+                }
                 continue;
             }
             if (dToS <= dToE) { sx = corner.x; sz = corner.z; } else { ex = corner.x; ez = corner.z; }

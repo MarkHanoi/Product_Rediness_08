@@ -50249,3 +50249,224 @@ thumbnails is **L-10405** (lane DURABLE25) and is the HUB's paint cost, not the 
 **Artefacts:** `apps/editor/__tests__/globePrewarmBeforeEngineBoot.test.ts` ·
 [ADR-0369](../02-decisions/adrs/ADR-0369-the-onboarding-globe-is-built-before-the-engine-boot-not-after-it.md) ·
 `SPEC-PROJECT-OPEN-CREATE-PIPELINE` §3 row **O3b** + §5 subs **f/g/h/i** · `C06 §10.7`.
+
+### L-10600 — ⭐⭐ **ONE DISTANCE ANSWERED A THREE-WAY QUESTION, AND THE REPOSITORY'S OWN FIXTURE HAD ALREADY MIS-NAMED IT** · lane WALLDEEP32 · 2026-08-24 · **FIXED**
+
+**Founder, three separate reports, reading his own console:**
+```
+[66MC:NOT_WELDED_TO_SUBJECT_PREV_SEGMENT(2259/500 mm),
+ MSD:NOT_WELDED_TO_SUBJECT_PREV_SEGMENT(2263/500 mm)]
+[wall_…866V: NOT_WELDED_TO_SUBJECT_PREV_SEGMENT(1670/500 mm)]
+```
+
+⛔ **THE HYPOTHESIS EVERYONE FORMED FROM THIS — *"any move larger than the 500 mm weld tolerance
+makes the cascade conclude the walls were never joined"* — IS REFUTED BY EXECUTED CONTROL.**
+`WALLDEEP32DirectionInversion.measure.test.ts` §CONTROL-BIG-MOVE moves a perimeter wall **2.26 m,
+4.5× the tolerance**, and welds both partners normally. It cannot be otherwise: a stationary partner
+welded at the old corner **sits ON the pre-move segment** — it *is* an endpoint of it — so its
+distance is **0** however far the subject subsequently travels. **The gate does not scale with the
+drag and never did.**
+
+⭐ **WHAT THE NUMBERS ACTUALLY ARE: a fingerprint.** 2259 ≈ the 2260 mm move; 1670 = the 1670 mm
+move. Those partners were **one move-length from the pre-move line, i.e. sitting on the POST-move
+line — they had already followed.** The engine was looking at a repaired joint and calling it a lost
+one, because **one distance cannot separate *"already repaired"* from *"never there"*.**
+
+⭐⭐ **AND THE REPOSITORY ALREADY KNEW.** `L945PartnerOutcomeCensus.test.ts` builds a fixture it
+names `alreadyMoved` / `bEastAlreadyMoved`, documents it in prose as *"a partner that another
+cascade has ALREADY re-seated onto the subject's NEW line"* — and then asserted the outcome code
+`NOT_WELDED_TO_SUBJECT_PREV_SEGMENT`. **The fixture named the situation correctly and pinned the
+wrong name for it.** The founder paid for the difference across three reports.
+
+**FIX** — take the second measurement. `PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT` (a **success**) and
+`DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE` (a contradiction between the graph and the geometry) are
+now distinct outcomes. C85 §10.7 W-M-5.
+
+⚠ **HALF THE JOB, DELIBERATELY.** *Acting* on the contradiction — re-welding from the declared
+`joinedTo` edge when proximity cannot corroborate it — was drafted as a REFUSAL and **refuted within
+the hour** by `L936ReweldEmitterHonesty.test.ts`, whose harness builds a `joinedTo` answer that
+legitimately includes walls joined AT THE LEVEL but not to the subject at that segment, and asserts
+`0 junction(s) refused` over exactly such a partner. **The graph over-reports by design.** Widening
+the weld would move walls on the strength of that over-report. **NOT shipped before production.**
+C85 §10.7 W-M-4 · ADR-0336 stage 2.
+
+---
+
+### L-10601 — ⭐⭐ **A 2 m DRAG MOVED AN UNTOUCHED WALL 14 m AND THE CASCADE REPORTED `0 refused`** · lane WALLDEEP32 · 2026-08-24 · **FIXED**
+
+**Founder:** *"the other wall got extended but in the WRONG DIRECTION."* His line:
+```
+→ 3 baseline re-seat(s), 0 junction(s) refused, 0 not-applicable
+  | subject: 2 corner(s) offered, 2 seated (all re-seated), entry emitted
+  | partners accounted 2/2
+```
+**Total success on every axis it measures.**
+
+⭐ **ROOT, REPRODUCED BEFORE IT WAS FIXED.** The mutual-corner arm's extension cap is
+`max(maxExtension, drag · (1/sin θ) + weldTol)` and `1/sin θ` is bounded only by `MIN_ANGLE_RAD`
+(5.73°), where it reaches **10.02**. Fixture `ARC-2`: a **2 m** drag moved a partner **14.14 m**.
+Fixture `D-c`: a **1.5 m** drag moved a partner **7.08 m**, through the subject and out the far side.
+Subject 8 m → **22 m**.
+
+⭐⭐ **WHY NOTHING CAUGHT IT — THE ASYMMETRY IS THE EVIDENCE.** A guard exists and the founder's
+SECOND report shows it working: `STEM_REVERSAL`. It asks *"did this wall flip end-for-end?"* and in
+both inversions the honest answer is **NO** — the wall grew, correctly oriented, seven times too
+far. **"Did it invert" and "did it travel a plausible distance" are different questions about the
+same wall.** The STEM arm caps at `drag + weldTol`; the CORNER arm did not. **One subject, two arms,
+two ceilings, two verdicts.**
+
+⚠ **THE CURVED WALL IS HOW YOU REACH A SHALLOW ANGLE FROM SQUARE-LOOKING GEOMETRY.**
+`MoveReweldPartner` carries `baseLine` and nothing else, so a curved wall enters as its **CHORD**.
+The wall the user sees leaves its endpoint along the **tangent** — near-perpendicular, which is why
+the corner *looks* right. The chord's angle is unrelated. **That is the entanglement between the
+founder's curve and a defect that is not about curves.**
+
+**FIX** — `MAX_FOLLOW_GAIN = 3` (θ ≥ 19.47°), bounding the FOLLOW only; extending the wall the user
+drags stays uncapped (C83 §10.1). ⛔ **The `1/sin θ` term is NOT removed** — §L-932 exists because
+capping at the drag silently dropped every angled junction, and its own named fixture is a **30°
+junction, gain 2.00**, pinned here as a control. C85 §10.7 W-M-1/W-M-2, §12 R-14.
+
+---
+
+### L-10602 — ⚠ **A CORNER ONLY ONE OF THE TWO WALLS REACHES — THE ANSWER TO "ARE THE MITRED JOINS STILL CONNECTED?"** · lane WALLDEEP32 · 2026-08-24 · **FIXED (engine) · OPEN (durability)**
+
+A partner's follow is emitted in the partner loop; whether the SUBJECT can reach the same corner is
+not known until the seat loop. When the subject declined, the plan kept the partner entry — **moving
+one of the two walls to a meeting point the other never arrives at.** The gap is not closed, it is
+**relocated, onto a wall the user did not touch.**
+
+⭐ **THE HONEST ANSWER TO HIS QUESTION IS NO.** Measured in his own console:
+```
+VISUALLY_CLOSED_TOPOLOGICALLY_OPEN … 71 mm apart … the corner is drawn CLOSED
+  and the endpoints do not meet
+§WALL-TOPOLOGY-CORRUPT level='L0' — 13 finding(s) across 19 wall(s)
+```
+The mitre pass closes on proximity (71 mm is inside `snapRadius`); `RoomDetectionEngine` sees the
+loop **break** (`rooms 9 → 8`); the slab's edge degrades to `freeLine` and stops following. **What it
+costs IFC / DXF / quantity take-off is NOT MEASURED** and is the open question that matters most for
+a delivered drawing.
+
+**FIX** — `CORNER_RETRACTED_SUBJECT_DECLINED`: the follow is withdrawn and both walls stay where the
+user left them. ⛔ A half-closed corner is worse than an open one — open, the probe names it and the
+user can see it. ⚠ Scoped to **answerable authorship**: with no host thickness the engine cannot
+tell a corner from a T, and retracting there withdrew the mandatory §L-926 stem follow. **Caught by
+control, not by review.**
+
+⛔ **STILL OPEN — THE FINDING IS NOT DURABLE.** `auditWallTopology` emits a `console.warn` and writes
+**nothing to the model**: no field on `WallData`, no schema slot, no register. On reload the
+corruption is still in the geometry and the knowledge of it is gone. C85 §10.7 W-M-10 · ADR-0336
+stage 3.
+
+---
+
+### L-10603 — ⭐⭐ **`anchored 1/2` WAS MEASURED, PRINTED, AND THEN NOT USED FOR ANYTHING** · lane WALLDEEP32 · 2026-08-24 · **FIXED**
+
+**Founder:** *"a random wall not connected to any other — corrupted and angled in plan view."* The
+console had already computed the reason and put it **inside the offer**:
+```
+§OPENED-REGION … The proposal is that exact stretch … one end lands on a wall that is
+  still there, the other does not — CHECK IT BEFORE ACCEPTING. (gap 1.65 m, anchored 1/2)
+```
+**The anchor count was a caveat in a sentence where it needed to be a precondition on the branch.**
+
+⛔ **A SEGMENT ANCHORED AT ONE END HAS NO DEFENSIBLE GEOMETRY** — its free end is wherever the old
+room's boundary sampling stopped, so its **angle is an artefact**, not a measurement. There is no
+version of that wall a reviewer could sensibly accept. Told that the headline defect was the missing
+consent step, the founder corrected it: *"even if it was a proposal — clearly wrong one."* **He is
+right; the consent gap is the lesser issue.**
+
+**FIX** — `gap-not-anchored-at-both-ends`, a `position-unknown` refusal alongside the module's three
+existing ones (`multiple-disjoint-gaps`, `gap-turns-corner`, `gap-dominates-perimeter` — all of them
+*"the position is not determined"*, which is exactly this). Enforced at **both** the detector and
+`buildOpenedRegionOffer`. The refusal names the gap length and the anchor count (C83 §10.3).
+
+⚠ **A TEST PINNED THE OLD BEHAVIOUR AND WAS REVERSED, NOT DELETED** —
+`OpenedRegionProposal.test.ts` asserted that an un-anchored segment still produced an offer *as long
+as the prose said so*. Disclosing a flaw does not make an offer well-formed; it makes an
+unacceptable option with a footnote.
+
+⭐ **HIS STATED TARGET, KEPT AS THE NORTH STAR:** *"the algorithm should just extend the wall to
+connect with whatever it can"*, and *"the first step always should be to EXTEND — instead of
+CREATE."* **C85 §10.7 now states the ladder — EXTEND → JOIN/TRIM → CREATE — and records that rung 1
+is unreachable from this repair path at all** (`OpenedRegionDetector` proposes segments; it has no
+extend capability). **A channel that can only CREATE will always CREATE.** W-M-12 · ADR-0336 stage 2.
+
+⚠ **AND ONE CLAIM IN THE BRIEF IS NOT SUPPORTED:** the offer does **not** auto-apply.
+`presentOpenedRegion` awaits `chatConfirm(offer.summary)` and dispatches only on a truthy answer. An
+auto-accept was **NOT reproduced**.
+
+---
+
+### L-10604 — ⛔ **A `wall.create` WITH NO `id` SUCCEEDS AND IS NEVER REPLICATED — THE AUTHOR SEES THE WALL, A COLLABORATOR DOES NOT** · lane WALLDEEP32 · 2026-08-24 · **ONE HOLE FIXED · CLASS OPEN (C68 / P8)**
+
+```
+[YjsDocAdapter] W5-3: 'wall.create' declares subject key 'id' but the payload carried
+  NO non-empty string there. Nothing was replicated for this dispatch.
+```
+
+⭐ **TWO CONTRACTS DISAGREE, AND THE DISAGREEMENT IS THE FINDING.** `CreateWall.canExecute`
+**permits** an absent id — *"omit id to auto-generate"* (`CreateWall.ts:199`) — and mints a ULID
+inside the handler. The **sync layer reads the subject key off the PAYLOAD before the handler runs.**
+So the command succeeds, the wall appears, and replication silently does nothing.
+
+⚠ **SCOPE, MEASURED so it is not overstated:** `OpenedRegionProposal` was the **only** production
+`wall.create` dispatcher that omitted it. `WallPlanToolHandler.ts:618`, `PreviewManager.ts:312` and
+`CopyPlanToolHandler.ts:320` all mint with `createId('wall')` first, and `WallPlanToolHandler.ts:540`
+states the rule in a comment. **FIXED** at that one site.
+
+⛔ **THE CLASS IS OPEN AND NO GATE ENFORCES IT.** *"Every bus dispatch that creates an element must
+carry its own id"* is C68 / P8, not a wall matter. C85 §12 R-17.
+
+---
+
+### L-10605 — ⚠ **THE TWO SLAB SERVICES STILL RUN PER MOUSEMOVE — `7584999b` FIXED THE RE-WELD AND NOT ITS TWO SIBLINGS** · lane WALLDEEP32 · 2026-08-24 · **OPEN (reported, not changed)**
+
+`grep -rn __wallDragInProgress packages/geometry-slab/` → **ZERO hits** (measured 2026-08-24). Both
+`SlabDependencyTracker` (re-projects the slab polygon) and `SlabWallConnectivityService` (re-welds
+neighbour walls, dispatching its own `CascadeWallBaselineCommand`) subscribe to `wallStore` with no
+drag latch — **the exact defect WALL30 closed in `WallMoveReweldService` hours earlier, in the two
+services it did not reach.**
+
+⭐ **AND THE FOUNDER'S SLAB QUESTION IS ANSWERED — HIS PREMISE WAS WRONG, WHICH IS WORTH SAYING
+PLAINLY.** The brief asserted the host attribution is *"RECORDED AT CREATION AND NEVER CONSUMED"*.
+**REFUTED.** `HostReferenceEdge.hostId` has real production readers — `WallFaceResolver.resolve`,
+`SlabDependencyTracker.registerSlab`/`reprojectStoredPolygon`, `SlabWallConnectivityService`,
+`SlabFragmentBuilder`, `remapHostReferences`, `wallPlacementGate`. The grep that returned only
+`packages/ai-host/**` was matching **`hostWallId`**, a *different* relationship (opening → wall).
+
+⭐⭐ **THE REAL REASON HIS SLAB DID NOT ADAPT IS ONE LINE IN THE TRACER:**
+```
+SlabRegionTracer.ts:326 — hostId = isStraight && w.id ? w.id : null
+```
+**A curved edge can never BE host-referenced.** His region committed *9 host-referenced edges, 39
+free (curved=38, ambiguous=1)*, and `resolveLoopVerdict` pushes a `freeLine` edge's geometry
+**verbatim** and marks it `preserved` — **frozen by construction.** So at most 9 of his 48 edges
+could ever follow, and the curved 38 could not. ⛔ **Not a missing consumer — a missing
+capability**, and it is the same blindness as L-10601's chord. C85 §10.7 AS-IS #11/#12,
+W-M-6/W-M-11.
+
+---
+
+### L-10606 — ⚠ **§L-875 FIXED THE "NEAREST-TO-THE-NEW-CORNER" RULE IN ONE OF THE TWO BRANCHES THAT HAS IT** · lane WALLDEEP32 · 2026-08-24 · **OPEN (reported, not changed)**
+
+`SlabWallConnectivityService.computeNearestEndpointEntry` keeps a legacy branch, taken when
+`prevSeg` is absent, that chooses which endpoint follows by **distance to the new corner** — the
+rule its own §L-875 comment forbids: *"which endpoint follows the junction is answered by which
+endpoint WAS AT the junction, **never** by which is nearest to the new corner."*
+
+⭐ This is **exactly** the mechanism the lane brief proposed for the founder's inversion, and it is
+worth recording that the brief's hypothesis was **REFUTED for the path that actually ran**: the
+re-weld engine keys on the **PREV SEGMENT**, and a 28-configuration sweep (4 perimeter shapes ×
+every wall × 7 drag vectors) found **zero** wrong-endpoint picks and **zero** subject double-claims.
+The forbidden rule is real and it lives here instead.
+
+⚠ **NOT MEASURED:** whether any production caller omits `prevSeg`. Reachability, not correctness, is
+the open question.
+
+---
+
+### L-10620 — ⚠ **A PROJECT SAVED WITH GEOMETRY AND NO SITE GEOREFERENCE** · lane WALLDEEP32 (observed, NOT owned) · 2026-08-24 · **OPEN / UNOWNED**
+
+`§L-489/§L-545 — SAVING A PROJECT WITH GEOMETRY BUT NO SITE GEOREFERENCE … site=NULL walls=8
+status='degraded'`. Observed in the founder's console during the wall investigation. **Reported
+only** — outside this lane's ownership and not chased.

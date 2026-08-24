@@ -49,6 +49,9 @@
  */
 
 import { openedRegionNotifier } from '@pryzm/room-topology';
+// §WD32-A-CREATE-WITHOUT-AN-ID-IS-NEVER-REPLICATED (L-10604) — see the `id`
+// field on `OpenedRegionWallPayload` for why this offer must mint its own.
+import { createId } from '@pryzm/schemas';
 import type { OpenedRegionFinding } from '@pryzm/room-topology';
 import { chatSay, chatConfirm } from './chatPromptHost';
 import { projectScopeRegistry, registerProjectScopeProbe } from '@pryzm/core-app-model';
@@ -126,6 +129,35 @@ function levelHeight(levelId: string): number | undefined {
 
 /** The `wall.create` payload this offer would dispatch, exactly as the wall tool builds it. */
 export interface OpenedRegionWallPayload {
+    /**
+     * ⭐⭐ §WD32-A-CREATE-WITHOUT-AN-ID-IS-NEVER-REPLICATED (L-10604).
+     *
+     * THE MEASURED DEFECT, from the founder's fourth console:
+     *
+     *     [YjsDocAdapter] W5-3: 'wall.create' declares subject key 'id' but the
+     *       payload carried NO non-empty string there. Nothing was replicated
+     *       for this dispatch.
+     *
+     * `CreateWall.canExecute` ACCEPTS an absent id — *"omit id to auto-generate"*
+     * (`CreateWall.ts:199`) — and mints a ULID inside the handler. So the command
+     * succeeds, the wall appears, and the SYNC layer, which reads the subject key
+     * off the PAYLOAD before the handler runs, has nothing to key on and silently
+     * replicates nothing.
+     *
+     * ⛔ IN A SHARED PROJECT THE AUTHOR SEES THIS WALL AND A COLLABORATOR DOES
+     * NOT. That is a silent divergence, and it is C68 / P8 territory, not merely
+     * a wall one.
+     *
+     * ⚠ MEASURED, so the scope is not overstated: this is the ONLY production
+     * `wall.create` dispatcher that omitted the id. `WallPlanToolHandler.ts:618`,
+     * `PreviewManager.ts:312` and `CopyPlanToolHandler.ts:320` all mint one with
+     * `createId('wall')` first, and `WallPlanToolHandler.ts:540` states the rule
+     * in a comment. This offer was written against the HANDLER's contract, which
+     * permits omission, rather than against the SYNC layer's, which does not —
+     * and the two contracts disagree. **The disagreement itself is the finding**
+     * and is recorded in C85 §12 W-R-4; this field closes the one live hole.
+     */
+    readonly id: string;
     readonly levelId: string;
     readonly baseLine: readonly [{ x: number; y: number; z: number }, { x: number; y: number; z: number }];
     readonly thickness: number;
@@ -154,6 +186,39 @@ export function buildOpenedRegionOffer(finding: OpenedRegionFinding): OpenedRegi
     const { gap } = finding;
     if (!(gap.lengthM > 0.05)) return undefined;
 
+    // ⭐⭐ §WD32-A-PROPOSAL-NEEDS-BOTH-ANCHORS (L-10603) — THE SAME PRECONDITION,
+    //    ASSERTED AGAIN AT THE CONSUMER.
+    //
+    // `scanForOpenedRegions` now refuses to emit a `region-opened` finding below
+    // two anchors, so this branch should be unreachable. It is written anyway,
+    // because "should be unreachable" is what the anchor count WAS before the
+    // founder accepted one at 1/2 and got a wall joined to nothing:
+    //
+    //     …anchored 1/2 → "a random wall not connected to any other —
+    //       corrupted and angled in plan view"
+    //
+    // ⛔ The rule is not "warn the user about a half-anchored wall". It is that a
+    // half-anchored segment has NO DEFENSIBLE ANGLE — its far end is wherever the
+    // old room's boundary sampling stopped — so there is no version of it a
+    // reviewer could sensibly accept. A gate that offers an unacceptable option
+    // is worse than one that stays silent: it manufactures work and, on accept,
+    // corrupt geometry.
+    //
+    // Two independent checks for one rule is deliberate here and not duplication
+    // for its own sake: the DETECTOR owns "is this position determined?" and this
+    // function owns "is this offer well-formed?". They are the same number this
+    // once, and a future caller that builds a finding by hand meets the rule too.
+    if (gap.anchoredEndpoints < 2) {
+        console.warn(
+            `[OpenedRegionProposal] §WD32-A-PROPOSAL-NEEDS-BOTH-ANCHORS — NOT offering a wall for ` +
+            `${finding.roomName}: only ${gap.anchoredEndpoints} of the ${gap.lengthM.toFixed(2)} m ` +
+            `stretch's 2 endpoints lands on a surviving wall, so the segment's angle is an artefact ` +
+            `of where the old boundary stopped. Extending an existing wall is the repair; minting a ` +
+            `floating one is not.`,
+        );
+        return undefined;
+    }
+
     const thickness = gap.thicknessM && gap.thicknessM > 0 ? gap.thicknessM : FALLBACK_THICKNESS_M;
     const height = gap.heightM && gap.heightM > 0
         ? gap.heightM
@@ -166,11 +231,12 @@ export function buildOpenedRegionOffer(finding: OpenedRegionFinding): OpenedRegi
         ? `matching wall ${gap.matchedWallId} (${thickness.toFixed(2)} m thick, ${height.toFixed(2)} m high)`
         : `no surviving wall was close enough to copy — using ${thickness.toFixed(2)} m thickness and ${height.toFixed(2)} m height`;
 
-    const anchorSentence = gap.anchoredEndpoints === 2
-        ? 'Both ends meet walls that are still standing.'
-        : gap.anchoredEndpoints === 1
-            ? 'One end meets a wall that is still standing; the other does not — check it before you confirm.'
-            : 'NEITHER end meets a surviving wall. This is the boundary the room used to have, but nothing currently joins it.';
+    // §WD32-A-PROPOSAL-NEEDS-BOTH-ANCHORS (L-10603) — ONE SENTENCE, because there
+    // is now only one state that reaches here. The two "…but check it before you
+    // confirm" variants this used to carry were the defect in miniature: prose
+    // asking the user to validate a geometry the system had already measured as
+    // indefensible. The guard above answers it instead.
+    const anchorSentence = 'Both ends meet walls that are still standing.';
 
     const summary =
         `${finding.detail}\n` +
@@ -181,6 +247,11 @@ export function buildOpenedRegionOffer(finding: OpenedRegionFinding): OpenedRegi
         summary,
         commandType: 'wall.create',
         payload: {
+            // §WD32-A-CREATE-WITHOUT-AN-ID-IS-NEVER-REPLICATED (L-10604) — minted
+            // HERE, at the dispatch site, exactly as every other production
+            // `wall.create` caller does. Not inside the handler, because the sync
+            // layer reads it off the payload before the handler is ever entered.
+            id: createId('wall'),
             levelId: finding.levelId,
             baseLine: [
                 { x: gap.start.x, y: 0, z: gap.start.z },

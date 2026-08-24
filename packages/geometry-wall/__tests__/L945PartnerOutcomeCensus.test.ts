@@ -130,11 +130,26 @@ describe('§L-945 §REACHABLE — every silent `continue` reports its own reason
         expect(na.measuredMm).toBeGreaterThan(500);
         expectPartition(census, 'A', ['F']);
 
-        // The already-re-seated shape is NOT this reason — its endpoint at
-        // (0,0.6) is 0.6 m from the prev line, which exceeds weldTol 0.5. Same
-        // code, and worth pinning because it is the production mechanism.
+        // ⭐⭐ UPDATED 2026-08-24 (lane WALLDEEP32, L-10600). This block's own prose
+        // — written above, unchanged — describes a partner *"that another cascade
+        // has ALREADY re-seated onto the subject's NEW line"*, and it then asserted
+        // the outcome code `NOT_WELDED_TO_SUBJECT_PREV_SEGMENT`, i.e. the code for
+        // *"this partner was never joined here"*.
+        //
+        // **The fixture named the situation correctly and pinned the wrong name for
+        // it, and the founder paid for the difference.** His console, three separate
+        // reports, read `NOT_WELDED_TO_SUBJECT_PREV_SEGMENT(2259/500 mm)` and
+        // `(1670/500 mm)` — in each case ≈ ONE MOVE LENGTH, the fingerprint of a
+        // partner already sitting on the post-move line — and two readers concluded
+        // from it that a move larger than the weld tolerance destroys the join. It
+        // does not: `WALLDEEP32DirectionInversion.measure.test.ts` §CONTROL-BIG-MOVE
+        // moves a wall 4.5× the tolerance and welds both partners.
+        //
+        // One distance cannot separate "already repaired" from "never there". The
+        // engine now takes the second measurement, and this assertion pins the
+        // opposite — and correct — fact.
         const c2 = computeMoveReweldCensus(host, [alreadyMoved]);
-        expect(outcomeOf(c2, 'B', 'A')).toBe('NOT_WELDED_TO_SUBJECT_PREV_SEGMENT');
+        expect(outcomeOf(c2, 'B', 'A')).toBe('PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT');
         expect(c2.entries).toEqual([]);
         expect(c2.refusals).toEqual([]);
         expectPartition(c2, 'A', ['B']);
@@ -452,9 +467,13 @@ describe('§L-945 §SIGNATURE — "2 partners, 1 re-seat, 0 refused" now reconci
         expect(census.refusals).toEqual([]);
 
         // ── the FOURTH fact, which did not exist before ─────────────────────
-        expect(outcomeOf(census, 'B', 'A')).toBe('NOT_WELDED_TO_SUBJECT_PREV_SEGMENT');
+        // ⭐ SHARPENED 2026-08-24 (L-10600) — see the long note in §REACHABLE. The
+        // fixture's own name for B is `bEastAlreadyMoved`; the outcome code now
+        // agrees with the variable name. `measuredMm` becomes the distance to the
+        // pose B IS welded to (0), not the pose it is not (600).
+        expect(outcomeOf(census, 'B', 'A')).toBe('PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT');
         const bNa = census.notApplicable.find(n => n.partnerId === 'B')!;
-        expect(bNa.measuredMm).toBe(600);   // B's endpoint is 0.600 m off A's PREV line
+        expect(bNa.measuredMm).toBe(0);     // B's endpoint is ON A's NEW line
         expect(bNa.limitMm).toBe(500);      // …against a 0.500 m weldTol
 
         // …and the arithmetic reconciles, which `2 = 1 + 0` never did.

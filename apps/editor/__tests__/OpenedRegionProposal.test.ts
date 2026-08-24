@@ -111,11 +111,51 @@ describe('§OPENED-REGION — the offer is a question carrying the canonical bus
         expect(offer.summary).toContain('no surviving wall was close enough to copy');
     });
 
-    it('states the anchoring honestly, including when the segment floats', () => {
+    /**
+     * ⚠ THIS EXPECTATION WAS REVERSED ON 2026-08-24 (lane WALLDEEP32, L-10603),
+     * and the reversal is the point, so the old one is recorded rather than
+     * deleted. It read:
+     *
+     *     it('states the anchoring honestly, including when the segment floats')
+     *       expect(buildOpenedRegionOffer({…anchoredEndpoints: 0})!.summary)
+     *         .toContain('NEITHER end meets a surviving wall');
+     *
+     * i.e. it pinned that a segment anchored to NOTHING still produced an OFFER,
+     * as long as the offer's prose said so. That prose is honest and the offer is
+     * not: the founder accepted one at `anchored 1/2` and got, verbatim, *"a
+     * random wall not connected to any other — corrupted and angled in plan
+     * view."* Told that the headline defect was the missing consent step, he
+     * corrected it: *"even if it was a proposal — clearly wrong one."*
+     *
+     * ⛔ A half- or un-anchored segment has NO DEFENSIBLE ANGLE — its free end is
+     * wherever the old room's boundary sampling stopped. There is no version of
+     * that wall a reviewer could sensibly accept, so disclosing the flaw in the
+     * summary does not make the offer well-formed; it makes it an unacceptable
+     * option with a footnote. The test now pins the refusal.
+     */
+    it('§WD32: offers ONLY when both ends anchor, and refuses outright otherwise', () => {
         expect(buildOpenedRegionOffer(OPENED)!.summary)
             .toContain('Both ends meet walls that are still standing');
-        expect(buildOpenedRegionOffer({ ...OPENED, gap: { ...OPENED.gap, anchoredEndpoints: 0 } })!.summary)
-            .toContain('NEITHER end meets a surviving wall');
+        expect(buildOpenedRegionOffer({ ...OPENED, gap: { ...OPENED.gap, anchoredEndpoints: 1 } }))
+            .toBeUndefined();
+        expect(buildOpenedRegionOffer({ ...OPENED, gap: { ...OPENED.gap, anchoredEndpoints: 0 } }))
+            .toBeUndefined();
+    });
+
+    /**
+     * §WD32-A-CREATE-WITHOUT-AN-ID-IS-NEVER-REPLICATED (L-10604). Measured from
+     * the founder's console:
+     *
+     *     [YjsDocAdapter] W5-3: 'wall.create' declares subject key 'id' but the
+     *       payload carried NO non-empty string there. Nothing was replicated.
+     *
+     * `CreateWall.canExecute` permits an absent id and mints one internally, so
+     * the wall appeared for him and would have appeared for nobody else.
+     */
+    it('§WD32: the payload carries a minted wall id, so the dispatch replicates', () => {
+        const offer = buildOpenedRegionOffer(OPENED)!;
+        expect(typeof offer.payload.id).toBe('string');
+        expect(offer.payload.id).toMatch(/^wall_[0-9A-HJKMNP-TV-Z]{26}$/);
     });
 
     it('leaves the "can be undone with Ctrl+Z" tail to the card — this really is ONE command', () => {

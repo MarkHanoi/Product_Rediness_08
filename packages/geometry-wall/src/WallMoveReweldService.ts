@@ -267,6 +267,16 @@ export function describeReweldRefusal(r: MoveReweldRefusal): string {
             return `STEM_HOST_NO_LONGER_BENEATH: ${r.partnerId} terminates on the moved wall, but `
                  + `after the move that wall no longer passes beneath it — the seat would fall `
                  + `${r.beyondMm} mm off its end, past the ${r.limitMm} mm allowed — refused`;
+        // §WD32-FOLLOW-GAIN-IS-BOUNDED (L-10601). The sentence names the RATIO,
+        // not just the two lengths, because the ratio is the fact: the founder
+        // could see a wall had moved too far but had no way to see that it had
+        // moved SEVEN TIMES further than he dragged.
+        case 'CORNER_FOLLOW_GAIN_EXCEEDED':
+            return `CORNER_FOLLOW_GAIN_EXCEEDED: ${r.partnerId} shares this corner with the moved `
+                 + `wall, but closing it would move that wall ${r.beyondMm} mm — past the `
+                 + `${r.limitMm} mm this gesture allows, because the junction is too shallow for `
+                 + `the corner to be where the drag says it is. The joint is LEFT OPEN rather `
+                 + `than a wall you did not touch being extended that far`;
     }
 }
 
@@ -570,6 +580,21 @@ export class WallMoveReweldService {
                     baseLine: this.toBaseline(p.baseLine),
                     junctionType: j?.junctionType,
                     junctionDegree: j?.junctionDegree,
+                    // §WD32-DECLARED-JOIN-OUTRANKS-PROXIMITY (L-10600) — WHICH
+                    // AUTHORITY PUT THIS PARTNER IN THE LIST.
+                    //
+                    // `q.ok` is the joinedTo graph answering positively: it NAMED
+                    // these walls as joined to the subject. The `else` arm is the
+                    // level scan, where the partner set is every wall on the level
+                    // and the graph refused to answer at all — there is no declared
+                    // relationship there to contradict.
+                    //
+                    // The engine needs the distinction because the SAME geometric
+                    // outcome means opposite things on the two arms: "not welded to
+                    // either pose" is a routine non-event for a random wall on the
+                    // level, and a contradiction between two authorities for a wall
+                    // the graph asserted. See `MoveReweldPartner.declared`.
+                    declared: q.ok,
                 });
             }
         }

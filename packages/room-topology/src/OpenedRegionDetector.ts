@@ -197,7 +197,51 @@ export type UnknownPositionReason =
     | 'no-unwalled-edge'
     | 'gap-dominates-perimeter'
     | 'multiple-disjoint-gaps'
-    | 'gap-turns-corner';
+    | 'gap-turns-corner'
+    /**
+     * §WD32-A-PROPOSAL-NEEDS-BOTH-ANCHORS (L-10603) — fewer than TWO of the
+     * proposed segment's endpoints land on a wall that is still standing.
+     *
+     * ── THE FOUNDER'S FOURTH REPORT, AND WHY THIS IS A REFUSAL ───────────────
+     *
+     * He moved an interior partition and got, in his words, *"a random wall not
+     * connected to any other — corrupted and angled in plan view."* The console
+     * had ALREADY MEASURED the reason and printed it inside the offer:
+     *
+     *     §OPENED-REGION … The proposal is that exact stretch, at the
+     *     coordinates the room already had — one end lands on a wall that is
+     *     still there, the other does not — CHECK IT BEFORE ACCEPTING.
+     *     (gap 1.65 m, anchored 1/2, rooms 9 → 8)
+     *
+     * ⭐ **The anchor count was computed, printed, and then not used for
+     * anything.** It was a caveat in a sentence where it needed to be a
+     * precondition on the branch.
+     *
+     * ⛔ A SEGMENT ANCHORED AT ONE END HAS NO DEFENSIBLE GEOMETRY. Its far end
+     * is wherever the room's former boundary sampling happened to stop, so its
+     * ANGLE is an artefact of the sampling, not a measurement of anything. There
+     * is no version of that wall a reviewer could sensibly accept — which is why
+     * this is not a proposal with a warning attached. It is noise wearing a
+     * proposal's clothes, and offering it manufactures work and, when accepted,
+     * corrupt geometry.
+     *
+     * Founder, when told the headline defect was that the offer auto-applied
+     * without consent: *"even if it was a proposal — clearly wrong one."* He is
+     * right, and it reorders the two: the consent gap is real and separate; the
+     * PRIMARY defect is that this was offered at all.
+     *
+     * ── WHAT THE RIGHT ANSWER LOOKS LIKE, STATED SO IT IS NOT LOST ───────────
+     *
+     * Founder: *"the algorithm should just extend the wall to connect with
+     * whatever it can."* ⭐ **EXTENDING an existing wall to a reachable anchor is
+     * the sound repair; MINTING a new element floating at one end is not.** That
+     * is a capability this detector does not have — it proposes segments, it
+     * does not author extensions — so this lane REFUSES rather than half-builds,
+     * and the extension path is recorded as the follow-on work
+     * (C85 §12 W-R-3, ADR-0336 stage 2). A refusal that names the missing
+     * capability is honest; a floating wall is not.
+     */
+    | 'gap-not-anchored-at-both-ends';
 
 /** The proposed closing segment, in world XZ, with the evidence that produced it. */
 export interface OpenedRegionGap {
@@ -516,11 +560,45 @@ function assessRegion(
     const donor = nearestWall(midpoint(startPt, endPt), walls);
     const lengthM = dist(startPt, endPt);
 
-    const anchorText = anchored === 2
-        ? 'both ends land on walls that are still there'
-        : anchored === 1
-            ? 'one end lands on a wall that is still there, the other does not — check it before accepting'
-            : 'NEITHER end lands on a surviving wall — this segment is the room\'s former edge, but nothing currently meets it';
+    // ⭐⭐ §WD32-A-PROPOSAL-NEEDS-BOTH-ANCHORS (L-10603) — THE PRECONDITION THIS
+    //    FUNCTION MEASURED AND THEN DID NOT APPLY.
+    //
+    // `anchored` is computed six lines up and, until now, was spent entirely on
+    // the WORDING of an offer that went out regardless. The founder accepted one
+    // at `anchored 1/2` and got a wall joined to nothing at one end, at an angle
+    // the sampling chose rather than the geometry.
+    //
+    // It belongs here, with the module's three existing refusals, because it is
+    // the same kind of fact they are: `multiple-disjoint-gaps` refuses because
+    // WHICH gap is unknown; `gap-turns-corner` refuses because one straight wall
+    // cannot close it; this refuses because WHERE THE FAR END GOES is unknown.
+    // All three are "the position is not determined", which is exactly what
+    // `position-unknown` means — so this needs no new channel, no new consumer
+    // branch, and no new user-facing surface. It joins a queue that already
+    // behaves correctly.
+    //
+    // ⚠ THE REFUSAL STILL CARRIES BOTH NUMBERS. The gap length and the anchor
+    // count are in the sentence, so a reader can see the size of the miss rather
+    // than be told "no" — C83 §10.3, applied to a repair channel rather than a
+    // weld.
+    if (anchored < 2) {
+        return {
+            ...base,
+            kind: 'position-unknown',
+            reason: 'gap-not-anchored-at-both-ends',
+            detail:
+                `${base.roomName} (${areaM2.toFixed(1)} m²) stopped being a closed room and ` +
+                `${lengthM.toFixed(2)} m of its former boundary now has no wall on it — but only ` +
+                `${anchored} of that stretch's 2 endpoints lands on a wall that is still standing. ` +
+                `A wall built across it would be joined to nothing at ` +
+                `${anchored === 1 ? 'one end' : 'either end'}, and its angle would be an artefact of ` +
+                `where the old room's boundary happened to stop rather than a measurement of ` +
+                `anything. No wall is proposed. To close this gap, EXTEND an existing wall to reach ` +
+                `it — a new element floating at one end is a corrupt wall, not a repair.`,
+        };
+    }
+
+    const anchorText = 'both ends land on walls that are still there';
 
     return {
         ...base,
