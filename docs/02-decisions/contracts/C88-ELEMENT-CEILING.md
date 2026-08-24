@@ -579,3 +579,55 @@ divergence §7.4 names, which is why the hook was added to both in one commit (`
   ADR-0344 ledger. `RoomFinishSyncService` listens to `bim-room-updated` but writes only
   `finishSpec` — material and colour — and early-returns with no log; no boundary or sketch
   re-derivation exists on that path.
+
+---
+
+## §CEILING-STOPS-AT-THE-INNER-FACE — the ceiling boundary rule is **C89 §FINISH-STOPS-AT-THE-INNER-FACE**, not a copy of it (L-10640, lane FLOOR33, 2026-08-24)
+
+Founder, 2026-08-24, extending a floor-finish report: *"this should apply in the same way to
+ceilings"*. **It does — and not by convention: by shared code.**
+
+> ⭐ **THIS CONTRACT WAS SILENT ON THE FACE QUESTION.** As with C89, a grep for
+> `inner face|inner-face|centreline|which face` over this file returned no boundary rule. The rule
+> lived only in the code comment §FIX-CEILING-INNER-FACE-PARITY.
+
+### CF-1 — NORMATIVE
+
+**A room-derived ceiling boundary stops at the BOUNDING WALLS' INNER FACES**, per-edge, by that
+edge's wall `thickness / 2` — **the same rule and the same code as the floor finish.** The
+authoritative statement, the door-threshold rule, the skirting note and the fail-safe semantics are
+in **[C89 §FINISH-STOPS-AT-THE-INNER-FACE FF-1](C89-ELEMENT-FLOOR.md)**. ⛔ **Do not restate them
+here** — a second copy is exactly how the two families would drift.
+
+### CF-2 — ONE CONVERSION, PINNED BY TEST
+
+`CeilingPlanToolHandler._innerFacePolygon` (`:374`) and `CreateCeilingCommand._resolveBoundary`
+(`:286`) both delegate to the single store-injected `resolveRoomFinishBoundary`, which is the same
+entry point the three floor call sites use (C89 FF-3 lists all five). **A floor and a ceiling in the
+same room can therefore never report different areas** — a difference would be a BIM-integrity
+defect reaching schedules and IFC, so it is pinned by test in
+`packages/room-topology/src/__tests__/finishShortEdgeFalseReject.test.ts` rather than left to the
+verbatim mirroring holding.
+
+**Consequence: the L-10640 defect was a CEILING defect too, and its fix is a ceiling fix.** A
+ceiling in a room with a jog shallower than roughly one wall half-thickness was shipping the room's
+**centreline** ring — overrunning every bounding wall by half its thickness and overstating its area
+by ~12.8 %. See C89 FF-2 for the measurement table and the root cause.
+
+### CF-3 — ⛔ THE CEILING HOST BINDING IS ALSO DROPPED BY THE LOADER
+
+`CeilingData` declares `hostRoomId`, `coveredRoomIds` and `boundingWallIds`
+(`CeilingTypes.ts:195-199`), and the serializer saves them. **The loader restores none of them:**
+`ProjectLoader.ts:1235-1249` builds its `CreateCeilingCommand` payload from thirteen fields and
+passes no `hostRoomId`, no `coveredRoomIds`, no `boundingWallIds` and no `boundarySource` — the
+identical omission measured for the floor loader at `:1269-1283`. **The ceiling's host relationship
+is destroyed by every save/load cycle.** Full table and the ABSENT-vs-UNREACHABLE framing: C89 FF-4.
+
+### CF-4 — ⛔ NOT MEASURED by this lane
+
+- The ceiling bus bridge (`initTools.ts`, `ceiling.created` at `:1962`) applies **no winding
+  normalisation**, mirroring the floor bridge, while the load path's `ensureCCW` equivalent does.
+  The floor asymmetry is recorded at C89 FF-5; **whether it has the same 3-D consequence for
+  ceilings is NOT MEASURED.**
+- No ceiling-side geometry follow on wall move was found. `RoomFinishSyncService` writes only
+  `finishSpec` (material and colour), as this contract's ADR-0344 note already records.

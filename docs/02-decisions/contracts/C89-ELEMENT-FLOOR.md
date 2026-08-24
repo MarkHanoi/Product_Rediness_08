@@ -666,3 +666,157 @@ mirror can be fixed cheaply and should be first.
   finish is seated on its slab at creation and re-seated only when the FINISH changes — never when
   the slab moves; and `floorStore` is not among `SpatialAuthority`'s probed stores, so a floor id
   on a re-elevated level is delivered fail-open and dropped with no log.
+
+---
+
+## §FINISH-STOPS-AT-THE-INNER-FACE — WHICH FACE A FINISH STOPS AT, and the gate that refused the correct answer (L-10640, lane FLOOR33, 2026-08-24)
+
+> ⭐ **THIS SECTION EXISTS BECAUSE THE CONTRACT WAS SILENT.** Before it,
+> `grep -niE 'inner face|inner-face|centreline|skirting|which face' C89-ELEMENT-FLOOR.md`
+> returned **ZERO hits** — the contract graded *"most complete of the twelve"* did not say where a
+> floor finish stops. C88 (ceiling) was equally silent. The rule existed only in code comments
+> (§FIX-FLOOR-FINISH-BOUNDARY-UI-VS-BATCH / §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS, L-213/L-240),
+> which is why it could be lost to a guard with no document to check it against.
+
+### FF-1 — THE FACE RULE (binding, both families)
+
+**A room-derived floor finish stops at the BOUNDING WALLS' INNER FACES.** The room boundary polygon
+runs along wall **CENTRELINES**; a finish built on that ring overshoots into every bounding wall by
+half its thickness. Each edge is therefore inset by that edge's wall `thickness / 2`.
+
+| Axis | NORMATIVE |
+|---|---|
+| Face | **INNER FACE** of the bounding wall — never the centreline, never the outer face |
+| Per-edge | The inset is **per edge**, from *that* edge's wall. Mixed wall thicknesses give a mixed inset; this is correct, not a defect |
+| Door threshold | A door run stays **ON the centreline (inset 0)** so the finishes of adjacent rooms meet under the threshold |
+| Skirting | **NOT a boundary modifier.** `finishSpec.coveSkirting` is a finish property; it does **not** move the boundary. A finish runs to the inner face whether or not a skirting is specified |
+| Ceiling | **IDENTICAL rule, and it is the SAME CODE** — see FF-3. The founder asked (2026-08-24) whether this applies to ceilings; it does, and no rival derivation exists to disagree |
+| Fail-safe | When the inset is refused the **centreline ring** ships, and it is **LOUD** (`boundary=centreline ⚠ (…)`). ⛔ **A centreline fall-back is a KNOWN-WRONG QUANTITY, not a neutral default** — see FF-2 |
+
+⭐ **A FINISH IS A QUANTITY SURFACE.** Its area goes on a schedule and into a bill
+(`ScheduleExtractor.ts:102`). A boundary that silently reaches the centreline overstates a measured
+area by roughly `perimeter × thickness / 2` — **+12.8 % on the rooms measured below.** Any future
+change here is a change to a priced number and must be measured as one.
+
+### FF-2 — ⛔ THE GATE REFUSED A CORRECT ANSWER AND SHIPPED THE WRONG ONE (L-10640)
+
+Founder, 2026-08-24: *"Floor finishes sometimes don't limit themselves to the space of the room
+defined by the walls … when [there is] smaller variation they tend to simply ALIGN — but they
+should not!"*
+
+**Both halves of that sentence were ONE defect, and it was NOT simplification.** `RoomPolygonUtils`
+produced a **mathematically exact** constant-distance inner-face ring; `deriveRoomFinishBoundary`'s
+shape gate then discarded it and shipped the centreline ring — which overruns every bounding wall
+(*"doesn't limit itself to the room"*) and visibly aligns the finish edge with the wall centrelines
+(*"they simply align"*).
+
+**MEASURED** — 4 m × 3 m room, 200 mm walls ⇒ 100 mm inset, one jog on the far side. ⭐ **Room and
+floor vertex counts are EQUAL in every row: nothing was being simplified, and no vertex was lost.**
+
+| jog depth | inset produced | gate verdict | shipped area | vs correct |
+|---|---|---|---|---|
+| 300 mm | exact, 0.0000 mm | `inner-face ✓` | 11.18 m² | correct |
+| 150 mm | exact, 0.0000 mm | `inner-face ✓` | 10.91 m² | correct |
+| **100 mm** | exact, 0.0000 mm | ⛔ **REJECTED** | 12.20 m² | **+12.75 %** |
+| **50 mm** | exact, 0.0000 mm | ⛔ **REJECTED** | 12.10 m² | **+12.77 %** |
+| **20 mm** | exact, 0.0000 mm | ⛔ **REJECTED** | 12.04 m² | **+12.78 %** |
+
+**ROOT — the invariant was right; the OBJECT it was measured on was wrong, for the third time.**
+The gate measured each derived edge **MIDPOINT** to the nearest point of the **SOURCE RING**, on the
+stated reasoning that *"midpoints carry no corner term"*. That holds only while an edge is LONG
+relative to the inset. **A small jog IS a short edge**: at a 100 mm jog the midpoint is 100 mm from
+its own source edge but √(100² + 50²) = 112 mm from the source **CORNER**, which is nearer. The
+threshold sits at a jog depth of about one inset — exactly the founder's *"smaller variation"*.
+
+> ⚠ **THE RECURRENCE IS THE LESSON.** v1 gated on **vertices** and carried a corner term at every
+> corner (it rejected a plain L-shaped room). v2 gated on **midpoints** and carried one at every
+> short edge. Both were point proxies for a property of **EDGES**. `measureAttributedPullback`
+> (exported — the decision was previously unobservable, the same landmine `InsetOutcome` was created
+> to remove) reads each derived **edge** against the source edge **LINE** it is parallel to.
+> Attribution needs two guards, both found by measurement and both regression-tested: the
+> **SEGMENT** decides *which* source edge while the **LINE** measures the distance (infinite lines
+> let an edge attribute *across* a 150 mm jog and read −50 mm, an outset, on an exact 100 mm inset);
+> and a source edge may only claim a derived edge if it is also that edge's **NEAREST** source
+> feature (a door **threshold riser** is perpendicular to the wall it leaves and therefore parallel
+> to the room's side walls — it attributed to one 2.55 m away and read 2550 mm).
+
+**The replacement is STRICTLY STRONGER.** The centroid shrink the gate exists to catch — which holds
+its AREA while losing its SHAPE, so the area gate is blind to it — is still caught and caught
+harder: a similarity scale keeps every edge parallel, so every edge attributes and the short edges
+read 302 mm against a 100 mm ask. Pinned as an explicit test.
+
+**Tests**: `packages/room-topology/src/__tests__/finishShortEdgeFalseReject.test.ts` — a **threshold
+SWEEP across the inset**, not a spot check. ⛔ **Do not collapse it to one room.** The predecessor
+gate passed its suite because every fixture in it had long edges; a single well-proportioned room
+cannot detect this class of defect.
+
+### FF-3 — ⭐ THERE IS **ONE** ROOM→FINISH CONVERSION, AND BOTH FAMILIES USE IT
+
+The founder's ceiling extension asked whether floors and ceilings could disagree about where a room
+ends. **They cannot — there is no second implementation to drift.** Measured: all five production
+call sites delegate to the one store-injected `resolveRoomFinishBoundary` → `deriveRoomFinishBoundary`.
+
+| Call site | Family |
+|---|---|
+| `apps/editor/src/engine/views/plantools/FloorPlanToolHandler.ts:611` | floor |
+| `apps/editor/src/engine/views/plantools/CeilingPlanToolHandler.ts:374` | ceiling |
+| `packages/command-registry/src/floors/CreateFloorCommand.ts:460` | floor |
+| `packages/command-registry/src/ceilings/CreateCeilingCommand.ts:286` | ceiling |
+| `packages/command-registry/src/floors/CreateFloorsByRoomTypeCommand.ts:480` | floor (batch) |
+
+`CeilingPlanToolHandler._innerFacePolygon` is a documented **verbatim mirror** of the floor's.
+**NORMATIVE: keep it one.** A floor and a ceiling in the same room reporting different areas is a
+BIM-integrity defect that reaches schedules and IFC, so the agreement is pinned by test rather than
+left to the mirroring holding.
+
+### FF-4 — ⛔ THE HOST BINDING IS WRITTEN, SAVED, AND THEN **DROPPED BY THE LOADER** (both families)
+
+The founder also reported (2026-08-24) that moving a perimeter wall did **not** move the floor
+finish. The binding fields are **NOT absent** — `FloorData` declares all three
+(`FloorTypes.ts:312-315`) and `CeilingData` declares the same three (`CeilingTypes.ts:195-199`).
+The defect is in what is written and what survives:
+
+| Field | Written at create? | Saved? | **Restored on load?** |
+|---|---|---|---|
+| `hostRoomId` | ✅ bus bridge `initTools.ts:2330` | ✅ `deepStrip` of the whole record, `ProjectSerializer.ts:1372` | ⛔ **NO** |
+| `coveredRoomIds` | ✅ `initTools.ts:2327` | ✅ | ⛔ **NO** |
+| `boundingWallIds` | ⛔ **hard-coded `[]`** at `initTools.ts:2328` — the UI path never records which walls bound the finish (the legacy `CreateFloorCommand.ts:350` does) | ✅ (as `[]`) | ⛔ **NO** |
+
+**MEASURED**: the loader's `CreateFloorCommand` payload (`ProjectLoader.ts:1269-1283`) passes
+**thirteen** fields and **none** of `hostRoomId`, `coveredRoomIds`, `boundingWallIds` or
+`boundarySource`. The ceiling loader (`ProjectLoader.ts:1235-1249`) passes thirteen and **also none
+of them**. ⛔ **So the host relationship is destroyed by every save/load cycle, in both families** —
+the data is on disk and the loader throws it away. Any adaptivity built on `hostRoomId` would work
+until the first reload and silently stop afterwards.
+
+> ⭐ **STATE THIS PRECISELY, because ABSENT and UNREACHABLE are different findings** (C01 §6 rule 6).
+> The binding **concept exists** for both families. `boundingWallIds` is **never written by the UI
+> creation path**; `hostRoomId` **is written and then not restored**. Neither is "floors have no host
+> binding at all".
+
+### FF-5 — ⛔ WHAT THIS LANE DID **NOT** ESTABLISH
+
+- **The "corrupt after reload" report is NOT explained by this section, and the leading hypothesis
+  was NOT SUPPORTED by measurement.** A floor ring driven through the real save→load transforms
+  (`deepStrip`-equivalent → JSON → the `ProjectLoader.ts:1272` field read → `validateFloorPolygon` →
+  `ensureFloorCCW`) preserved **vertex count, vertex ORDER and area exactly** on 4/6/8-vertex rings.
+  ⛔ **Do not record "the serializer scrambles vertex order" as a finding — it was tested and it did
+  not.** What the round trip *does* change is **winding**, below.
+- **⚠ A REAL CREATE/LOAD ASYMMETRY, cause NOT established.** `FloorTypes.ts` declares the invariant
+  *"Polygon vertices are CCW when viewed from above (Y+)"*, and the two paths do not agree about
+  enforcing it: the **bus create path stores `polygon: ev.polygon` verbatim with NO `ensureCCW`**
+  (`initTools.ts:2305`; the ceiling bridge likewise), while the **load path applies `ensureCCW`**
+  (`CreateFloorCommand.ts:268`). A floor created clockwise therefore stores clockwise — violating its
+  own declared invariant — and silently flips to counter-clockwise on the next reload. That is a
+  normal-direction change and is a **candidate** for the founder's *"in 3D not visible in all cases;
+  on some yes"*. It is **NOT MEASURED against `FloorPanelBuilder`**, and it does **not** explain the
+  diagonal lines seen in plan. Settling it needs the winding of a real reported floor before and
+  after a reload, plus what the builder does with it.
+- **Whether any wall-move cascade reaches a finish at all** is NOT MEASURED here. What is known:
+  `RoomFinishSyncService` writes only `finishSpec` — material and colour — and no boundary
+  (recorded in C88's ADR-0344 note), so it is not a geometry follow.
+- The founder's log shows real room-graph damage (`unresolvedLoopBreaks=1`, 10 error rooms,
+  `farEndpointsOver1m=254`). ⛔ **That is WALLDEEP32's root and is NOT repaired here.** The FF-2
+  defect is independent of it and fires on a **perfect** room polygon, so it is not inherited — but a
+  finish built from a broken room is still wrong, and ⛔ **must not be "corrected" in the floor
+  layer**, which would hide the upstream defect.

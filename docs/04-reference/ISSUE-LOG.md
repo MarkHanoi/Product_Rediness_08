@@ -50470,3 +50470,98 @@ the open question.
 `§L-489/§L-545 — SAVING A PROJECT WITH GEOMETRY BUT NO SITE GEOREFERENCE … site=NULL walls=8
 status='degraded'`. Observed in the founder's console during the wall investigation. **Reported
 only** — outside this lane's ownership and not chased.
+
+---
+
+### L-10640 — ⭐ **FLOOR AND CEILING FINISHES "ALIGN" TO THE WALL CENTRELINE ON A SMALL JOG** · lane FLOOR33 · 2026-08-24 · **CLOSED** (`1705a88c`)
+
+Founder: *"Floor finishes sometimes don't limit themselves to the space of the room defined by the
+walls … when [there is] smaller variation they tend to simply ALIGN — but they should not!"* —
+extended the same day to ceilings.
+
+**Both halves were ONE defect, and it was NOT simplification.** `insetPolygonToInnerFaces` produced a
+**mathematically exact** inner-face ring (0.0000 mm error on every edge); `deriveRoomFinishBoundary`'s
+shape gate then discarded it and shipped the room's **CENTRELINE** ring — which overruns every
+bounding wall by half its thickness and visibly aligns the finish with the wall centrelines.
+
+MEASURED (4 m × 3 m room, 200 mm walls ⇒ 100 mm inset; **room and floor vertex counts EQUAL in every
+row — nothing was simplified**):
+
+| jog | gate verdict | shipped | correct | error |
+|---|---|---|---|---|
+| 300 / 150 mm | `inner-face ✓` | 11.18 / 10.91 m² | same | — |
+| 100 / 50 / 20 mm | ⛔ REJECTED | 12.20 / 12.10 / 12.04 m² | 10.82 / 10.73 / 10.68 m² | **+12.8 %** |
+
+ROOT: the gate measured each derived edge **MIDPOINT** to the nearest point of the **SOURCE RING**,
+on the reasoning that *"midpoints carry no corner term"* — true only while an edge is LONG relative
+to the inset. **A small jog IS a short edge.** Third recurrence of one shape: v1 gated on vertices
+(corner term at every corner), v2 on midpoints (corner term at every short edge); both were point
+proxies for a property of **EDGES**.
+
+FIX: `measureAttributedPullback` reads each derived **edge** against the source edge **LINE** it is
+parallel to. Band and tolerance unchanged; only the measured object changed. Two attribution guards,
+both found by measurement: the **SEGMENT** decides which source edge and the **LINE** measures (else
+an edge attributes *across* a 150 mm jog and reads −50 mm); and a source edge may only claim a
+derived edge that is also *nearest* to it (else a door **threshold riser**, parallel to the room's
+side walls, attributes to one 2.55 m away and reads 2550 mm). **Strictly stronger** — the centroid
+shrink the gate exists to catch still reads 302 mm against a 100 mm ask.
+
+⭐ **ONE conversion serves BOTH families** (five call sites → `resolveRoomFinishBoundary`), so the
+ceiling half is fixed by the same commit; floor/ceiling area agreement is now pinned by test.
+Contract: **C89 §FINISH-STOPS-AT-THE-INNER-FACE** (new — the contract was previously SILENT on which
+face a finish stops at) and **C88 §CEILING-STOPS-AT-THE-INNER-FACE**. Tests: 19 new, full
+room-topology suite 327/327, root `tsc` RC=0.
+
+---
+
+### L-10641 — ⛔ **THE FLOOR *AND* CEILING HOST BINDING IS SAVED AND THEN DROPPED BY THE LOADER** · lane FLOOR33 · 2026-08-24 · **OPEN**
+
+Founder: *"I moved a perimeter wall and the FLOOR FINISH DID NOT ADAPT."*
+
+The binding fields are **NOT absent.** `FloorData` (`FloorTypes.ts:312-315`) and `CeilingData`
+(`CeilingTypes.ts:195-199`) each declare `hostRoomId`, `coveredRoomIds` and `boundingWallIds`, and
+`ProjectSerializer.ts:1372` saves them (`deepStrip` of the whole record). **The loader restores none
+of them:** `ProjectLoader.ts:1269-1283` (floor) and `:1235-1249` (ceiling) each pass thirteen fields
+and **no `hostRoomId`, no `coveredRoomIds`, no `boundingWallIds`, no `boundarySource`.**
+
+⛔ **The host relationship is therefore destroyed by every save/load cycle, in both families** — the
+data is on disk and the loader throws it away. Any adaptivity built on `hostRoomId` would work until
+the first reload and silently stop afterwards.
+
+⚠ Separately, `boundingWallIds` is **hard-coded `[]`** by the UI creation path
+(`initTools.ts:2328`), so a plan-tool floor never records which walls bound it even before a reload.
+The legacy `CreateFloorCommand.ts:350` does populate it — two creation paths, one honouring C79 §9.3
+and one not (already recorded as C89 EI-9).
+
+⭐ **ABSENT ≠ UNREACHABLE** (C01 §6 rule 6): the concept exists; one field is never written by this
+path and the other is written and not restored. **Not** "floors have no host binding".
+
+**NOT MEASURED:** whether any wall-move cascade would consume the binding if it survived.
+`RoomFinishSyncService` writes only `finishSpec` (material/colour), never a boundary. Fixing the
+loader is necessary but **not sufficient** for the founder's expectation. Contract: C89 §FF-4.
+
+---
+
+### L-10642 — ⚠ **FLOOR/CEILING WINDING: THE CREATE PATH DOES NOT ENFORCE THE INVARIANT THE LOAD PATH DOES** · lane FLOOR33 · 2026-08-24 · **OPEN, cause NOT established**
+
+Founder: *"I closed and opened the same project — some floors, before looking good, after reopening
+are now CORRUPTED / broken in plan view. In 3D they are not visible in all cases; on some yes."*
+
+⛔ **The leading hypothesis was REFUTED by measurement.** Driving a floor ring through the real
+save→load transforms (`deepStrip`-equivalent → JSON → the `ProjectLoader.ts:1272` field read →
+`validateFloorPolygon` → `ensureFloorCCW`) preserved **vertex count, vertex ORDER and area exactly**
+on 4/6/8-vertex rings. **Do not record "the serializer scrambles vertex order" as a finding — it was
+tested and it did not.**
+
+⚠ What the round trip **does** change is **WINDING**, and there is a real asymmetry.
+`FloorTypes.ts` declares *"Polygon vertices are CCW when viewed from above (Y+)"*, but the bus create
+path stores `polygon: ev.polygon` verbatim with **no `ensureCCW`** (`initTools.ts:2305`; the ceiling
+bridge at `:1962` likewise), while the load path **does** apply it (`CreateFloorCommand.ts:268`). A
+floor created clockwise stores clockwise — violating its own declared invariant — and silently flips
+on the next reload. That is a normal-direction change and a **candidate** for *"in 3D not visible in
+all cases; on some yes"*.
+
+⛔ **It does NOT explain the diagonal lines seen in plan, and no cause for those has been
+established.** Settling it needs the winding and vertex list of a real reported floor **before and
+after** a reload, plus what `FloorPanelBuilder` does with the stored winding. ⛔ **Do not repair
+geometry at render time** — that hides the data loss and leaves the saved file wrong.
