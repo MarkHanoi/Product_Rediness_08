@@ -1574,8 +1574,48 @@ refusal: it is a delete.**
 > call it for the losing half of a merge — or for **both** halves — with **no change** to the
 > register. ⛔ **R-3 is still OPEN and is not answered by the R-1 ruling.**
 
-⚠ **STILL OPEN AND UNCHANGED BY ANY OF THE ABOVE:** ~~R-1~~ **RULED — see §TOBE.11.1** · **R-2**,
-**R-3** (§TOBE.8) · ~~RM-3~~ **SHIPPED** · **RM-4** the next-step refusals · **RM-5** the stable room reference (blocked on
+### §TOBE.11.2 — ⭐⭐ **R-3 RULED 2026-08-24: A MERGE AWARDS THE RECORD TO NOBODY**
+
+> **REFUSE TO AWARD. TOMBSTONE BOTH HALVES. OFFER.** Shipped as `aa77f672`
+> (§MERGE-AWARDS-NOBODY, L-10815).
+
+**The failure closed is SILENT MISATTRIBUTION, not loss.** §TOBE.1.2 measured it: when two
+rooms merged, the survivor was chosen — after a near-identical `overlap` — by **centroid
+distance**, and then carried one room's polygon under the **other** room's name, number,
+occupancy and IFC identity. ⭐ **Losing a name is visible; a wrong name is not.** That is the
+one a user can ship to a client without ever noticing.
+
+| | |
+|---|---|
+| **The rule** | A detected face is **CONTESTED** when two or more distinct rooms claimed it **AND at least one claimant ended the assignment with no face of its own.** A contested face is awarded to nobody, every claimant is withheld from *all* award paths (including the centroid fallback), both are tombstoned, and the user is offered the choice |
+| **The copy** | Says a **merge** happened, names both rooms, and states that **neither** was applied. ⭐ **"Neither" is ONE click** — a merged space often wants a new name rather than either old one |
+| **⛔ Unchanged** | The **split** direction (one room, two faces) is untouched — PARTITION-FIX still awards. An ordinary **reshape** still keeps its identity. Still **no persistent identity**: the merged space is a new room with a new id |
+| **Reuse** | ⭐ **No second capture path and no merge-specific record.** The dropped rooms flow through the same `captureRoomTombstone` (RM-3). Matching now returns a **list**, so ONE offer shape covers a single loss (1 candidate) and a merge (2) |
+| **Ctrl+Z of the merge** | Checked, per the ruling's condition 5. Both halves return **unnamed**; the offer is put **once** across an undo/redo cycle; and the apply path **re-checks the target still exists**, so confirming a stale card says so instead of failing opaquely |
+
+> ⚠⚠ **THE FIRST IMPLEMENTATION OF THIS RULE WAS WRONG, AND A PRE-EXISTING TEST CAUGHT IT.**
+> Recorded because the reasoning error is more instructive than the fix. The first rule was
+> *"a face claimed by two or more distinct rooms is contested"*, argued from
+> `STRUCTURAL_MATCH_MIN_OVERLAP`'s own note that a mere neighbour never files a claim. **That
+> note reasons about two rooms sharing ONE party wall out of 4+4 (≈0.14).** But two rooms
+> formed by **partitioning one rectangle** share **three** walls — both long sides and the
+> partition — so each scores **3/5 = 0.6** against the other's face and files an ordinary
+> claim. Under the first rule, **moving a shared partition — a reshape where both rooms
+> plainly survive — read as a merge and both rooms lost their names.**
+> `roomIdentityByStructure.test.ts` PART 3 failed, and it was right to.
+> ⭐ **The correction: competition alone is not a merge — a merge is competition where the
+> LOSER HAS NOWHERE ELSE TO GO.** It also satisfies the ruling's *"impossible, not unlikely"*
+> condition better than the first rule did, because no face with an orphaned claimant is ever
+> awarded at all.
+> ⛔ **The lesson is not "the threshold is subtle". It is that a constant's stated rationale
+> was measured against one shape and reused against another.** The same class as the
+> §TOBE.11 `finishes` refutation, and the third time in this lane that a real store or a real
+> test overturned a confident argument.
+
+⚠ **STILL OPEN AND UNCHANGED BY ANY OF THE ABOVE:** ~~R-1~~ **RULED — §TOBE.11.1** · ~~R-3~~
+**RULED — §TOBE.11.2** · **R-2** (§TOBE.8) — ⭐ *and the tombstone changes that question: "leave
+merged and say so" is far more defensible now that the meaning is recoverable* · ~~RM-3~~
+**SHIPPED** · **RM-4** the next-step refusals · **RM-5** the stable room reference (blocked on
 R-1, and blocking four [C72 §9.4](C72-PROPAGATION-AND-PREVSTATE.md) ledger cells) · **RM-6**/**RM-7**.
 ⛔ **Nothing shipped here restores the authored meaning of a lost room. The census MEASURES the
 loss; it does not prevent it.**
