@@ -669,6 +669,31 @@ function canonicalRingKey(ring: ReadonlyArray<RegionPoint2D>): string {
 }
 
 /**
+ * §REFUSE-SLIVER-REGION-HOLE (L-1401) — the MEAN WIDTH of a ring, in metres.
+ *
+ * `area / (perimeter / 2)` is the width of the rectangle with this ring's area and
+ * this ring's perimeter. It is the scale-free way to ask *"does this ring enclose
+ * space, or does it merely run up a line and back down it?"* — an area threshold
+ * alone cannot: the founder's sliver measures **0.0997 m²**, which is larger than
+ * any absolute epsilon one could safely apply to a real 0.1 m² light well.
+ *
+ * Returns `Infinity` for a degenerate perimeter so the caller's `<` comparison
+ * keeps such a ring rather than dropping it on a division by zero — a ring must
+ * never be discarded because a measurement failed (§CONTEXT-DATA-HONESTY).
+ */
+export function ringMeanWidthM(ring: ReadonlyArray<RegionPoint2D>): number {
+    if (ring.length < 3) return Infinity;
+    let perimeter = 0;
+    for (let i = 0; i < ring.length; i++) {
+        const p = ring[i]!;
+        const q = ring[(i + 1) % ring.length]!;
+        perimeter += Math.hypot(q.x - p.x, q.y - p.y);
+    }
+    if (!(perimeter > 0) || !Number.isFinite(perimeter)) return Infinity;
+    return Math.abs(polygonArea(ring)) / (perimeter / 2);
+}
+
+/**
  * §REGION-ANNULUS (ADR-0329 D2) — outer ring plus the holes inside it.
  *
  * Every field is a ring the SAME walk produced; nothing here is re-derived and no
@@ -755,7 +780,59 @@ export function findAttributedRegionWithHolesAtPoint(
         if (pointInPolygon(click, ring)) continue;
         if (!ring.every(p => pointInPolygon(p, outerRing))) continue;
         seen.add(key);
-        candidates.push({ loop, ring, area: Math.abs(polygonArea(ring)) });
+
+        // §REFUSE-SLIVER-REGION-HOLE (L-1401) — ⭐ A ZERO-WIDTH RING IS NOT A HOLE.
+        //
+        // MEASURED, founder's live model 2026-08-24: `hole[0] (4 vertices)` at
+        // x = −11.322 / −11.352 / −11.336 / −11.324 (spread **30 mm**) and
+        // y = 10.760 / 3.734 / −0.045 / 11.233 (spread **11.3 m**) — a ring that runs
+        // 11 m up a line and 11 m back down it. `SlabFragmentBuilder` then CORRECTLY
+        // refused it as non-simple (§REFUSE-NONSIMPLE-SLAB-RING / ADR-0299
+        // §RECOVERY-MUST-REFUSE) and degraded the whole slab to an 11.38 × 21.06 m
+        // PLAIN BOX — the "rectangular, shifted away" the founder reported. **The
+        // refusal was right; the input was wrong, and this is where it was minted.**
+        //
+        // HOW A SLIVER GETS BUILT. The walk welds nodes at REGION_WELD_TOLERANCE_M.
+        // When ONE long chord (an existing slab's edge, a parcel edge) spans the same
+        // run as a CHAIN of shorter chords that is not exactly collinear with it, the
+        // two share both welded end nodes and enclose a face millimetres wide. That
+        // face is a fully-formed cycle: `length >= 3` holds, it does not contain the
+        // click, every vertex lies inside `outer` — so before this it was adopted.
+        // ⭐ It is built ENTIRELY from anonymous chords: the founder's 3D trace read
+        // `no-wall-id=6` where the same gesture in a project WITHOUT the extra slabs
+        // read `no-wall-id=2`, and 6 − 2 = 4 = this ring's vertex count.
+        //
+        // WHY MEAN WIDTH AND NOT AREA. The sliver measures **0.0997 m²** — bigger
+        // than any absolute epsilon that would still be safe for a real 0.1 m² duct
+        // shaft. `area / (perimeter / 2)` is 0.0088 m for the sliver and 2.2 m for a
+        // 4 × 5 m room: three orders of magnitude of separation, and scale-free.
+        //
+        // WHY THIS THRESHOLD. `REGION_WELD_TOLERANCE_M` is the band at which THIS
+        // WALK already decided two points are ONE point. A face thinner than that
+        // band is thinner than the graph can represent, so calling it an enclosed
+        // space contradicts the walk that produced it. That is the identical argument
+        // `canonicalRingKey` makes twenty lines up (C73 §2.1 — reuse the caller's
+        // declared domain tolerance rather than minting a rival literal here).
+        //
+        // ⛔ IT SAYS WHAT IT DROPPED. A ring discarded in silence is the failure shape
+        // this whole defect family is made of, so the area in m² and the vertex count
+        // both go to the console — if this ever fires on a real hole, the line names
+        // it (§CONTEXT-DATA-HONESTY / ADR-0299: a refusal is a MEASUREMENT).
+        const area = Math.abs(polygonArea(ring));
+        const meanWidth = ringMeanWidthM(ring);
+        if (meanWidth < REGION_WELD_TOLERANCE_M) {
+            console.warn(
+                '[SlabRegionTracer] §REFUSE-SLIVER-REGION-HOLE dropped a degenerate ring '
+                + `before the hole set: ${ring.length} vertices, area ${area.toFixed(4)} m², `
+                + `mean width ${(meanWidth * 1000).toFixed(1)} mm — below the walk's own weld `
+                + `tolerance of ${(REGION_WELD_TOLERANCE_M * 1000).toFixed(0)} mm, so it encloses `
+                + 'no space and is NOT a hole. It would have been refused as non-simple '
+                + 'downstream and degraded the slab to a plain box (ADR-0299).',
+            );
+            continue;
+        }
+
+        candidates.push({ loop, ring, area });
     }
 
     // Pass 2 — keep only the OUTERMOST candidates. A candidate contained by a strictly
