@@ -416,7 +416,62 @@ export function buildAttributedClosedLoops(
         const kb = `${v}-${u}`;
         const existing = edgeHost.get(kf);
         if (existing) {
-            if (existing.hostId !== seg.hostId) {
+            // §FIX-ANONYMOUS-CHORD-IS-NOT-A-RIVAL-HOST (L-1402) — ⛔ `null` IS NOT A
+            // RIVAL CLAIM.
+            //
+            // MEASURED, founder's two projects, same session, same build:
+            //   3D   16 host-referenced across 16 wall(s), 6 free, **ambiguous=0**
+            //   PLAN  0 host-referenced across  0 wall(s), 22 free, **ambiguous=11**
+            // and 0-across-0 in the OTHER project too, the one where 3D attributes 15
+            // of 17 perfectly. Two implementations of one question, disagreeing
+            // totally rather than marginally — and `ambiguous` is the term that
+            // separates them. `ambiguous` means the edges ARE on walls; the matcher
+            // was refusing to choose.
+            //
+            // WHY THE PLAN SURFACE AND NOT THE 3D ONE. `RegionBoundarySources` emits
+            // every NON-WALL boundary — slab edges, the parcel ring, curtain walls —
+            // ANONYMOUSLY (`hostId: null`), and its header says why: a parcel edge
+            // given a wall id would make the slab follow a wall that does not exist.
+            // The plan search set carried `18 slab edge(s)` and a `parcel boundary
+            // present (17 edge(s))` beside its 16 walls.
+            //
+            // ⭐⭐ AND THOSE SLABS WERE THEMSELVES MADE BY REGION, so each polygon lies
+            // EXACTLY on the walls that bounded it. Every later trace then saw a wall
+            // chord and an anonymous slab chord on the SAME welded node pair, decided
+            // "two rivals disagree", and threw the wall id away. The more region slabs
+            // the user made, the fewer walls any region could follow — the founder's
+            // "it got worse as I retried", exactly.
+            //
+            // WHAT `ambiguous` IS ACTUALLY FOR. `ATTRIBUTION_RULE` states it as *"two
+            // DIFFERENT WALLS welded onto the same ring edge"*, and refusing THAT is
+            // right: following the wrong wall is strictly worse than following none.
+            // An anonymous chord names NO host, so there is nothing to disagree with.
+            // Collapsing a good attribution against it was not caution — it was
+            // discarding a measurement in favour of an absence
+            // (§CONTEXT-DATA-HONESTY).
+            //
+            // THE FOUR CASES, ordered so none can shadow another:
+            //   1. already ambiguous  → STAYS ambiguous. Two real walls have disagreed
+            //      and no later chord — anonymous or not — may resurrect a choice
+            //      between them.
+            //   2. same host id       → agreement, nothing to do (unchanged).
+            //   3. either side is null→ the null side abstains; keep/take the ATTRIBUTED
+            //      one. Symmetric, so the outcome cannot depend on the order
+            //      `assembleRegionBoundary` happens to emit its sources in.
+            //   4. two different ids  → ambiguous, exactly as before.
+            if (existing.reason === 'ambiguous') {
+                // Case 1 — settled. Deliberately no-op.
+            } else if (existing.hostId === seg.hostId) {
+                // Case 2 — the two chords agree.
+            } else if (seg.hostId === null) {
+                // Case 3a — an anonymous chord abstains; the attributed one stands.
+            } else if (existing.hostId === null) {
+                // Case 3b — the attributed chord upgrades a previously anonymous edge.
+                const attribution = { hostId: seg.hostId, hostType: seg.hostType, reason: seg.reason };
+                edgeHost.set(kf, attribution);
+                edgeHost.set(kb, attribution);
+            } else {
+                // Case 4 — two DIFFERENT walls. The refusal ATTRIBUTION_RULE exists for.
                 const ambiguous = { hostId: null, reason: 'ambiguous' as const };
                 edgeHost.set(kf, ambiguous);
                 edgeHost.set(kb, ambiguous);
