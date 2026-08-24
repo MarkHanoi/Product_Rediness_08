@@ -372,8 +372,55 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
         // warning, so a single bad stage doesn't strand the whole pipeline.
         // Idempotency: `state.fired` flips on whichever path lands first; the
         // other one becomes a no-op.
-        interface ChainState { fired: boolean; timer: ReturnType<typeof setTimeout> | null }
-        const state: ChainState = { fired: false, timer: null };
+        //
+        // ⭐ §CEILING-ALWAYS-FURNISHES (L-10770, 2026-08-24) — `fired` IS RESET ON EVERY
+        // CEILING EVENT, and that reversal is the whole fix. Read the hazard first, then
+        // why it is now safe.
+        //
+        // THE DEFECT. `fired` used to be reset in exactly ONE place: the
+        // `apartment.layout-executed` handler below. **The residential pipeline never
+        // emits that event** — `ResidentialBuildingExecutor` says so twice in its own
+        // comments (`:851`, `:3073`) and works around it by calling `triggerCeilingLayout`
+        // directly, once per level, through its serialised per-level queue. So on a
+        // 5-storey residential building:
+        //
+        //   level A's ceilings commit → `fired` is still its initial false → furnish fires;
+        //   levels B..E commit        → `fired` is true → `fireFurnish` RETURNS. Never furnished.
+        //
+        // and `fired` then stayed true for the lifetime of the module, so a SECOND
+        // residential build in the same session furnished ZERO levels. The founder asked
+        // for a 5-storey building and would have got furniture on one floor, then none.
+        //
+        // ⚠ THIS FILE'S SIBLING TEST HEADER PREVIOUSLY WARNED AGAINST EXACTLY THIS RESET
+        // — *"so a future §CEILING-ALWAYS-FURNISHES-style reset cannot silently
+        // reintroduce the hazard the lighting cascade had"*. That warning was RIGHT about
+        // the hazard and WRONG about the remedy: the answer is not to withhold the reset
+        // (which is what starved every level after the first), it is to take the reset
+        // TOGETHER WITH the one-shot guard that made it safe downstream. Half the pattern
+        // was copied; this restores the other half.
+        //
+        // THE PROVEN SIBLING, MIRRORED WHOLE. `lightingLayoutTrigger` has run the same
+        // shape safely since §FURNISH-ALWAYS-LIGHTS: it resets `fired` on BOTH of its
+        // events and carries a **one-shot `fallbackFired`** flag that swallows exactly
+        // ONE late upstream event after a §CHAIN-TIMEOUT fallback already fired. That is
+        // what keeps "reset on every event" from becoming a double-fire. It is copied
+        // here verbatim in intent, not reinvented.
+        //
+        // WHAT EACH FLAG NOW MEANS:
+        //   `fired`        — furnish has been fired for the CURRENT chain link (one level).
+        //   `fallbackFired`— the §CHAIN-TIMEOUT path fired for this run, so the NEXT
+        //                    `ceiling.layout-executed` is the late one and must be
+        //                    swallowed once (the double-furniture guard) rather than
+        //                    treated as a new level.
+        interface ChainState {
+            fired: boolean;
+            /** §CEILING-ALWAYS-FURNISHES — one-shot late-event guard, mirroring
+             *  `lightingLayoutTrigger`'s flag of the same name. Set by the fallback path,
+             *  consumed (and cleared) by the single late ceiling event that follows it. */
+            fallbackFired: boolean;
+            timer: ReturnType<typeof setTimeout> | null;
+        }
+        const state: ChainState = { fired: false, fallbackFired: false, timer: null };
         const FALLBACK_MS = 12_000;
         /** §FURNISH-DROP-SURFACING (2026-08-13) — what the cascade knows about
          *  the ceiling stage that preceded furnish; same shape as the furnish
@@ -383,9 +430,22 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
         type CeilingOutcome =
             | { state: 'completed'; placedCount: number; roomCount?: number }
             | { state: 'dropped'; reason: string };
-        const fireFurnish = (source: 'ceiling-event' | 'fallback-timeout', ceilingOutcome?: CeilingOutcome): void => {
+        const fireFurnish = (
+            source: 'ceiling-event' | 'fallback-timeout',
+            ceilingOutcome?: CeilingOutcome,
+            /** §LEVEL-IS-EXPLICIT (L-10770) — the storey whose ceilings just committed,
+             *  read off the `ceiling.layout-executed` payload. Forwarded so the executor
+             *  furnishes THAT level instead of falling back to `resolveActiveLevel()`.
+             *  Mirrors §LIGHT-LEVEL-IS-EXPLICIT (L-1394) one stage downstream. Undefined
+             *  on the fallback path (nothing announced a level) — the executor's
+             *  active-level fallback then applies exactly as before. */
+            levelId?: string,
+        ): void => {
             if (state.fired) return;
             state.fired = true;
+            // Arm the one-shot late-event guard only on the timeout path: the NEXT ceiling
+            // event after a fallback fire is the slow run's late announcement, not a new level.
+            state.fallbackFired = source === 'fallback-timeout';
             if (state.timer !== null) { clearTimeout(state.timer); state.timer = null; }
             if (source === 'fallback-timeout') {
                 console.warn(`[furnish-layout] §CHAIN-TIMEOUT — no ceiling.layout-executed within ${FALLBACK_MS} ms — firing furnish anyway.`);
@@ -397,7 +457,12 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
             // packages/runtime-composer/src/types.ts (out of L-CHAIN territory).
             setTimeout(() => {
                 (runtime.events as unknown as { emit?: (k: string, p: unknown) => void } | undefined)
-                    ?.emit?.('furnish.layout-execute', { ceilingOutcome });
+                    ?.emit?.('furnish.layout-execute', {
+                        ceilingOutcome,
+                        // Only thread a level we were actually told about — an undefined key
+                        // would be indistinguishable from "no level announced" downstream.
+                        ...(typeof levelId === 'string' && levelId.length > 0 ? { levelId } : {}),
+                    });
             }, 0);
         };
         /** Read the ceiling outcome off a `ceiling.layout-executed` payload:
@@ -428,6 +493,8 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
             // New chain — clear any leftover state from a previous run.
             if (state.timer !== null) clearTimeout(state.timer);
             state.fired = false;
+            // A brand-new run cannot owe a late event to the previous one.
+            state.fallbackFired = false;
             state.timer = setTimeout(() => {
                 state.timer = null;
                 fireFurnish('fallback-timeout', {
@@ -441,12 +508,33 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
             // drives furnish itself per storey; skip the cascade so furniture
             // isn't placed twice. Apartment runs leave the guard false → unchanged.
             if (isHouseFanoutActive()) return;
-            // §CHAIN-NO-DOUBLE-FIRE — unlike the lighting cascade's furnish
-            // handler, this handler deliberately does NOT reset `state.fired`:
-            // a LATE ceiling event after the fallback already fired furnish for
-            // this run is dedup'd by `fired` and must stay that way (locked by
-            // furnishCascadeOutcome.test.ts).
-            fireFurnish('ceiling-event', outcomeFromCeilingPayload(payload));
+            // §CHAIN-NO-DOUBLE-FIRE — the fallback already fired furnish for this run, so
+            // THIS is the late event from the slow (>12 s) ceiling stage. Swallow exactly
+            // this one (one-shot), which is what makes the reset below safe. Verbatim the
+            // guard `lightingLayoutTrigger` uses on its `furnish.layout-executed` handler.
+            if (state.fallbackFired) {
+                state.fallbackFired = false;
+                console.warn(
+                    '[furnish-layout] §CHAIN-NO-DOUBLE-FIRE — late ceiling.layout-executed after the ' +
+                    '§CHAIN-TIMEOUT fallback already fired furnish for this run; NOT re-firing ' +
+                    '(double-furniture guard). NOTE: that furnish ran with ceilingOutcome=dropped; ' +
+                    'the ceilings that just landed were not part of it.',
+                );
+                return;
+            }
+            // ⭐ §CEILING-ALWAYS-FURNISHES (L-10770) — EVERY ceiling link furnishes once.
+            // The residential pipeline emits one `ceiling.layout-executed` PER LEVEL from
+            // its serialised queue and never emits `apartment.layout-executed`, so without
+            // this reset only the FIRST storey was ever furnished (and a second build
+            // furnished none at all). The one-shot guard above is what keeps this from
+            // re-firing on a late event — reset and guard are one mechanism, not two.
+            if (state.timer !== null) { clearTimeout(state.timer); state.timer = null; }
+            state.fired = false;
+            // §LEVEL-IS-EXPLICIT — the ceiling executor stamps `levelId` on its payload
+            // (the residential queue filters on it), so forward the storey that was just
+            // enclosed rather than letting the furnish executor guess from a global.
+            const ceiledLevelId = (payload as { levelId?: string } | undefined)?.levelId;
+            fireFurnish('ceiling-event', outcomeFromCeilingPayload(payload), ceiledLevelId);
         });
         console.log('[furnish-layout] auto-fire on ceiling.layout-executed: wired (§CHAIN-TIMEOUT fallback: ' + FALLBACK_MS + ' ms).');
     }
