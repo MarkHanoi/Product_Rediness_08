@@ -1259,6 +1259,7 @@ the middle row of that table with a different arm length in it.
 | **16** | **`§WD32-EXTEND-BEFORE-CREATE` NEVER RUNS FOR THIS CASE.** The extend capability exists and is correct (`computeStemFollow`), but the partner is dropped as not-applicable **before authorship classification is reached**. ⭐ **The missing capability is an ORDERING, not a geometry primitive** | partner loop, the `dS > weldTol && dE > weldTol` gate at `:1237` sits above `classifyWeldAuthorship` at `:1310` |
 | **17** | **THE CENSUS AND THE NARRATION ANSWER DIFFERENT QUESTIONS AND ARE PUBLISHED AS ONE VERDICT.** `0 junction(s) refused` on the same gesture the AI told the user *"creates 1 problem(s) … that were not there before"*. `refusals` and `topology findings` are **different sets**; nothing says so, and no line carries both | founder's console, same gesture |
 | **18** | **`notApplicable` never reaches the user sink.** `describeReweldRefusal` drives `report()`; `summariseNotApplicable` is console-only and says so at its definition. A destroyed relationship was routed as a diagnostic | `WallMoveReweldService.ts` `summariseNotApplicable` doc |
+| **19** | ⭐⭐ **THE FOUNDER'S ROOM-DESTROYING GESTURE DOES NOT END ON THE DISPATCH LINE AT ALL — IT ENDS ON `§MOVE-REWELD-EMPTY-PLAN`, WHOSE CLOSING SENTENCE WAS FALSE.** An empty plan is the **normal** outcome when every declared partner is guest-side, and that branch ended *"Every junction this move touched was left exactly as it was."* **True of the partners' GEOMETRY — nothing moved — and false of the RELATIONSHIPS**, so it read as reassurance on the one branch where the model had just been damaged. ⚠ Found only because a fix aimed at the dispatch line went red | `WallMoveReweldService.ts`, the `entries.length === 0` branch; `GRAPH43BrokenJoinReaches.test.ts` §BOTH-COUNTS |
 
 #### ⛔ TWO HYPOTHESES MEASURED AND REFUTED — recorded so they are not re-proposed
 
@@ -1321,6 +1322,7 @@ the middle row of that table with a different arm length in it.
   T, so calling it a refusal would claim a decision that was never taken (C71 anti-pattern: a name
   that asserts more than the code did). What is fixed is the **routing**, not the disposition.
   **COST:** zero geometry. One integer already computed, one string, one routing decision.
+  ✅ **SHIPPED 2026-08-24 (`1bf3a790`).** Both verdict lines carry the second count; a non-zero broken set reaches `report()` **and** `console.warn` (§L-936 — `engineLauncher.ts` composes no sink); the false closing sentence is emitted only where it is true. ⚠ Still **not** a refusal, with `§NOT-A-REFUSAL` and `§QUIET` as the two controls.
 
 - **W-L-4 — ⛔ NOT-YET-TRUE, AND IT IS THE FOUNDER'S HEADLINE COMPLAINT. THE REPAIR LADDER MUST BE
   REACHABLE FROM THE WELD ENGINE, AND ITS CHEAPEST RUNG IS AN ORDERING FIX, NOT NEW GEOMETRY.**
@@ -1481,7 +1483,7 @@ justified as a **weld** tolerance. That is a `NOT MEASURED` below, not a claim.
 | # | Step | Gate on | Why here |
 |---|---|---|---|
 | **1** | ✅ **Split the conflated verdict** (`5c3434dc`) | nothing | **The instrument before the cure.** It needs no design decision, it closes the C72 §9.2 breach at the naming level, and it is the only thing that can tell us which of the three the founder's 1002 mm case actually was |
-| **2** | **W-L-3** — dual counts on the dispatch line; route a broken join to the user sink | nothing | Zero geometry, zero risk, and it makes step 1 visible to a human instead of only to a test |
+| **2** | ✅ **DONE (`1bf3a790`)** — W-L-3: dual counts on **both** verdict lines; a broken join routed to the user sink | nothing | Zero geometry, zero risk, and it makes step 1 visible to a human instead of only to a test |
 | **3** | **Fix the `joinedTo` staleness SOURCE** (C71 §3.4; the flush behind the no-progress `return`) | founder-approved already | **Precondition for every disposition option.** While the graph can go stale, steps 4–6 are compensating for a defect one layer down. ⛔ Does NOT include the stored-degree rule |
 | **4** | **W-L-6** — write the REFUSE-BEFORE / REPORT-AFTER rule and route existing classifications through it | ⚠ **founder ruling: is a lost room IMPOSSIBLE or INADVISABLE?** | Costs nothing to implement and decides the shape of step 5 |
 | **5** | **W-L-4** — route a guest-side T into the existing stem path (the ordering fix) | ⚠ **founder ruling: §10.8.4** | The founder's headline complaint, and the room side is already standing down waiting for it. Cheap in code, **not cheap in consequence** — it moves walls |

@@ -75,7 +75,7 @@ Kept in the table because the order only makes sense with it at the top.
 
 ---
 
-### W2 — Publish the loss. Dual counts on the dispatch line, and route a broken join to the user sink
+### W2 — ✅ DONE (`1bf3a790`). Publish the loss: dual counts on the verdict lines, and route a broken join to the user sink
 
 **Gate:** none. **Contract:** C85 §10.8.3 W-L-3. **Risk:** minimal — no geometry.
 
@@ -87,6 +87,7 @@ Kept in the table because the order only makes sense with it at the top.
 | **⚠ What it must NOT do** | It must **not** promote the broken join to a `refusal`. The engine has no arm that can act on a guest-side T; calling it a refusal claims a decision that was never taken. It must also **not** put a not-applicable census in front of the user — that buries the refusals that matter (§L-921 inverted). **Only the non-zero broken count is user-facing** |
 | **Test — must fail on HEAD** | Assert the dispatch summary for the §THE-BREAK fixture contains **both** integers, and that the broken-join count reaches the consequence sink. Assert a gesture with only `INTACT` partners routes **nothing** to the user |
 | **Cost** | Zero geometry. One integer already computed, one string, one routing decision |
+| ⭐ **WHAT SHIPPING IT TAUGHT** | The first attempt patched `§MOVE-REWELD-DISPATCH` only, and the test went red because **that line never fires for this gesture**: an empty plan is the NORMAL outcome when every declared partner is guest-side, so the founder's case ends on `§MOVE-REWELD-EMPTY-PLAN`. ⛔ That branch closed with *"Every junction this move touched was left exactly as it was"* — true of the partners' geometry, **false of the relationships**. Both lines now carry the count and the false sentence is emitted only where it is true (C85 §10.8.2 AS-IS #19) |
 | **⭐ ADOPTED FROM C94** | This item **IS lane ROOM44 / C94's P2.6**, routed here rather than done across the boundary. ROOM44 identified the per-gesture verdict emitter as `WallMoveReweldService.ts` — the `§MOVE-REWELD-DISPATCH` assembly and its `accounted !== partners.length` control — and correctly declined to edit a `geometry-wall` file. **CONFIRMED: it is the right site, it is this lane's, and W2 is where it lands.** The room layer needs it because a `§OPENED-REGION` finding and a `0 junction(s) refused` verdict currently describe the same gesture and cannot be reconciled by any reader |
 
 ---
@@ -228,7 +229,7 @@ behaviour.
 | Step | Gate | Risk | Buys |
 |---|---|---|---|
 | **W1** ✅ | — | none | The instrument. Tells us which of the three the founder's case actually was |
-| **W2** | none | minimal | A human can see a destroyed relationship. Closes C72 §9.2 at the reporting level |
+| **W2** ✅ | none | minimal | A human can see a destroyed relationship. Closes C72 §9.2 at the reporting level |
 | **W3** | approved | medium | Removes the confound under every option in Ruling 1 |
 | **W4** | Ruling 2 | low | One stated rule instead of two behaviours chosen by code path |
 | **W5** | Ruling 1 | ⛔ high | **The founder's headline complaint.** The room survives |
