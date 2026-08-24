@@ -1083,6 +1083,21 @@ wrong really — because the first step always should be to EXTEND — instead o
   will always CREATE, and will report success for doing the most destructive available thing.
   ADR-0336 stage 2.
 
+- **W-M-13 — ⛔ NOT-YET-TRUE, AND IT IS THE ONE THE FOUNDER ACTUALLY REPORTED. A T-JUNCTION HAS TWO
+  DIRECTIONS AND THE WELD ENGINE ASKS ONLY ONE OF THEM.** Every geometric test in the partner loop
+  measures a **PARTNER endpoint** against the **SUBJECT's segment**; the mirror question — *is the
+  SUBJECT's endpoint on the PARTNER's segment?* — is asked nowhere. A T satisfies exactly one of the
+  two, so a **guest-side T** (the subject's own endpoint on a partner's body) is invisible to this
+  engine, and the number it reports is the partner's **arm length**, not a gap.
+  ⭐ **Measured 2026-08-24 (lane GRAPH43): one join closed to 0 mm, three partner lengths — 0.400 m
+  welds normally, 1.002 m reports `DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE(1002/500)`, 2.000 m reports
+  the same code at `(1900/500)`. Same topology, opposite verdicts, decided by how long the other wall
+  is.** ✅ **SHIPPED as MEASUREMENT** (`5c3434dc` — `SUBJECT_GUEST_JOIN_INTACT` /
+  `..._BROKEN_BY_MOVE` / `..._RESTORED_BY_MOVE`, no decision changed). ⛔ **NOT shipped as
+  disposition**: routing a guest-side T into `computeStemFollow` moves a wall the user did not touch
+  and is gated on the founder ruling framed in **§10.8.4**. The full treatment, with costs, is
+  **§10.8** — W-L-1..W-L-8.
+
 ### ⭐ THE ANSWER TO *"ARE THE MITRED JOINS STILL CONNECTED AND LINKED?"* — measured, and it is NO
 
 A junction the cascade refuses is **left open, and the mitre is drawn over the gap anyway.** The
@@ -1126,6 +1141,376 @@ was reported is worse again. **(W-M-10.)**
   consent; that is NOT what the code does.** `OpenedRegionProposal.presentOpenedRegion` awaits
   `chatConfirm(offer.summary)` and dispatches only on a truthy answer. An auto-accept was not
   reproduced. The offer's *content* was the defect (W-M-8), and that is fixed.
+
+---
+
+## 10.8 THE LIVING WALL — what this family must BECOME, and what each capability is allowed to cost
+
+> **Added 2026-08-24 · lane GRAPH43 · [L-10800..L-10806](../../04-reference/ISSUE-LOG.md).**
+> Founder: *"how mature is the typology algorithm and the relationship graphs? how conscious is
+> the wall and room system? … one interior partition adapted … but the other did not … we probably
+> lost a room … **I was expecting the wall to extend** … we need a sound relationship graph and
+> consciousness in all elements — and an architect human would have seen this — why not the
+> algorithm?"* And, on the shape of the answer: *"document what would make the system sound …
+> what the wall system needs to become for it to be **a living entity without being a performance
+> issue**."*
+>
+> ⭐ **THIS IS THE FIRST SECTION OF C85 THAT IS ABOUT A CAPABILITY RATHER THAN A DEFECT.** §10.6 and
+> §10.7 are measured records of things that went wrong. This one states what "living" has to mean
+> in a form a program can check, and — because the founder asked for it in the same sentence —
+> **what each capability is permitted to recompute, how often, and over what N.** A clause without
+> a declared cost is not usable here and is not admitted below.
+>
+> ⛔ **IT SUPERSEDES NOTHING ABOVE.** Every AS-IS row in §10.5–§10.7 stands as measured. Where a
+> clause here supersedes an earlier reading, it says so and cross-references; it does not
+> overwrite. (§10.7 R-16 carries a dated correction box pointing here.)
+
+---
+
+### 10.8.0 ⭐⭐ WHAT ALREADY WORKS — read this before proposing anything
+
+**The single largest risk to this section is that it reads as though nothing works.** That would be
+as false as the claim it replaces. **The user-facing narration is the strongest part of this
+family**, and it is measured, not asserted — verbatim from the founder's 2026-08-24 production
+session:
+
+> *"That drag **MOVED an existing wall** — it did not create one. Wall wall_…966 travelled 3.9 m,
+> and that move creates 1 problem(s) in the model that were not there before: • BODY_CROSSING
+> @(-16.694,33.314): … pass THROUGH each other — neither terminates at the crossing, so this is not
+> a junction of any kind. The shortest stranded stub is 259 mm against a 100 mm end-cap reach…
+> Press Ctrl+Z to put it back — one step undoes the whole gesture."*
+
+> *"**I did not move** wall wall_…4NS there. **That wall's own position is clear of every opening**
+> — what follows is NOT about where you put it. Moving it requires re-welding the junction it makes
+> with wall_…XXB, and **that re-weld cannot be done soundly; moving without it would leave the
+> corner open — so I did neither. Nothing has changed.** … that door occupies 1.271–2.197 m along
+> the wall and this wall would occupy 1.708–1.911 m, overlapping by 0.203 m. A wall and a door or
+> window opening cannot occupy the same volume — the wall says solid, the opening says void, and
+> the model cannot hold both. **Move it 0.64 m back along the host wall, or 0.49 m further along the
+> host wall — either position is clear.**"*
+
+**That second passage IS a living entity, and the capability the founder is asking for therefore
+already exists on at least one path.** It does five things this section treats as the standard:
+
+| # | What the narration does | Where the rule already lives |
+|---|---|---|
+| **N-1** | Separates *"the subject's own position is fine"* from *"its CONSEQUENCE is not"* | C83 §10.1/§10.2 authorship |
+| **N-2** | Names the finding from a **closed vocabulary** (`BODY_CROSSING`, `STEM_REVERSAL`, `VISUALLY_CLOSED_TOPOLOGICALLY_OPEN`) | C71 §1, C78 §8.1 |
+| **N-3** | Carries **both numbers**, in the user's units | C74, C79 §5.2.2, C83 §10.3 |
+| **N-4** | States what the model DID — *"so I did neither. Nothing has changed."* | C72 §9.1 |
+| **N-5** | ⭐ **Proposes concrete resolutions** — *"0.64 m back, or 0.49 m further"* | nothing; this is ahead of every contract |
+
+> ⛔ **NOTHING BELOW MAY REDUCE N-1..N-5.** A "fix" that makes the wall adapt more and narrate less
+> is a regression, and it would be the second time this family lost a working behaviour to a
+> plausible improvement (§10.7 AS-IS #1; §CLAMP-COSHARE-WELD).
+
+Three further things are working and must be preserved: the §L-945 census **partitions** every
+partner (entries ⊎ refusals ⊎ not-applicable, asserted as a control on every fixture); the refusal
+vocabulary is **closed by the type**, not by convention; and `§WALL-TOPOLOGY-ATTRIBUTION` correctly
+separates *"CREATED by this gesture"* from *"ALREADY STANDING"* rather than blaming the current
+edit for inherited damage.
+
+---
+
+### 10.8.1 ⭐⭐ THE SPINE — C72 §9 ALREADY FORBIDS THIS. It is not an undocumented gap; it is an element-level breach of a platform rule that has been written down since 2026-08-21
+
+[C72 §9](C72-PROPAGATION-AND-PREVSTATE.md) — *"The host-move matrix: ADAPT or REFUSE, never
+SILENT"* — is binding on this family and is not restated here. Its §9.2 is the clause:
+
+> *"**SILENT** — neither adapting nor refusing — is not a permitted third state … each makes
+> «nothing to do» and «never wired» the same value."*
+
+**⛔ THE OBVIOUS READING OF THAT IS WRONG FOR THIS FAMILY, AND THE WRONG READING WAS BRIEFED TWICE
+TODAY.** *"The wall system fails silently"* is **false** — §10.8.0 is the evidence. The breach is
+narrower, and stating it narrowly is what makes it fixable:
+
+> ⭐ **The wall family speaks, and one engine's census cannot tell the product WHICH of C72 §9's
+> two terminal states was reached.** `WallMoveReweld`'s `notApplicable` bucket was carrying
+> geometrically opposite facts under one name, so every consumer downstream — the dispatch line,
+> the topology attribution, the AI narration, and any future gate — received *"nothing to do"* for
+> an event that had destroyed a relationship. **That is C72 §9.2 exactly: two states, one value.**
+
+**MEASURED on `e6d47536` (today's HEAD before this lane), ONE census, three partners:**
+
+| Partner | What is actually true of the join | HEAD's verdict |
+|---|---|---|
+| `RAIL` | **The gesture DESTROYED it.** Closed to 0 mm before, open by **600 mm** after | `DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE(600/500 mm)` |
+| `KEEP` | **Perfectly healthy.** Closed to **0 mm** before AND after | `DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE(2000/500 mm)` |
+| `GHOST` | **Never joined.** 20 m away in both poses, in both directions | `DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE(18004/500 mm)` |
+
+**Three opposite facts. One name. One bucket. `0 junction(s) refused`.** The founder's own line is
+the middle row of that table with a different arm length in it.
+
+> ✅ **CLOSED AT THE NAMING LEVEL 2026-08-24, `5c3434dc`** — `SUBJECT_GUEST_JOIN_INTACT`,
+> `SUBJECT_GUEST_JOIN_BROKEN_BY_MOVE`, `SUBJECT_GUEST_JOIN_RESTORED_BY_MOVE`, with
+> `DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE` narrowed to the one reading that may honestly mean
+> *"stale record"*. ⛔ **NOT closed at the disposition level** — the engine still does nothing about
+> a broken join, and that is W-L-4 below, gated on §10.8.4.
+
+---
+
+### 10.8.2 AS-IS — measured 2026-08-24 in `packages/geometry-wall/src/WallMoveReweld.ts` (lane GRAPH43)
+
+| # | Measured | Evidence |
+|---|---|---|
+| **13** | ⭐⭐ **THE WELD ENGINE ASKS ONE OF THE TWO QUESTIONS A T-JUNCTION POSES.** A T has a **GUEST** (endpoint lands) and a **HOST** (body is landed on). Every geometric test in the partner loop takes a **PARTNER endpoint** and measures it against the **SUBJECT's segment**. The mirror question — *is the SUBJECT's endpoint on the PARTNER's segment?* — is asked **nowhere in the engine** | `:1235`, `:1236`, `:1268`, `:1269` — four `distToSegment` calls, all one direction |
+| **14** | **CONSEQUENCE: a join closed to 0 mm reports as ~1 m absent, and the number reported is the PARTNER'S ARM LENGTH.** One fixture, one join, three partner lengths, joint closed to 0 mm in every row: west arm **0.400 m → welds normally**; **1.002 m → `DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE(1002/500)`**; **2.000 m → same code at (1900/500)**. ⭐ **Same topology, same closed joint, opposite verdicts — decided by how long the other wall happens to be** | `GRAPH43GuestSideTee.measure.test.ts` §THE-CONTROL |
+| **15** | ⭐ **THE DISCRIMINATOR FOR THE FOUNDER'S *"one adapted, one did not"* IS WHICH WALL OWNS THE ENDPOINT AT THE T.** Partition-as-guest → `classifyWeldAuthorship` → `computeStemFollow` → **extends correctly**. Subject-as-guest → binned before authorship is ever classified. Both are T-junctions; the graph declares both; only one has an arm | §THE-DISCRIMINATOR / §SIGNATURE, reproducing `1 re-seat · 0 refused · 2 not-applicable · subject: no corner offered` |
+| **16** | **`§WD32-EXTEND-BEFORE-CREATE` NEVER RUNS FOR THIS CASE.** The extend capability exists and is correct (`computeStemFollow`), but the partner is dropped as not-applicable **before authorship classification is reached**. ⭐ **The missing capability is an ORDERING, not a geometry primitive** | partner loop, the `dS > weldTol && dE > weldTol` gate at `:1237` sits above `classifyWeldAuthorship` at `:1310` |
+| **17** | **THE CENSUS AND THE NARRATION ANSWER DIFFERENT QUESTIONS AND ARE PUBLISHED AS ONE VERDICT.** `0 junction(s) refused` on the same gesture the AI told the user *"creates 1 problem(s) … that were not there before"*. `refusals` and `topology findings` are **different sets**; nothing says so, and no line carries both | founder's console, same gesture |
+| **18** | **`notApplicable` never reaches the user sink.** `describeReweldRefusal` drives `report()`; `summariseNotApplicable` is console-only and says so at its definition. A destroyed relationship was routed as a diagnostic | `WallMoveReweldService.ts` `summariseNotApplicable` doc |
+
+#### ⛔ TWO HYPOTHESES MEASURED AND REFUTED — recorded so they are not re-proposed
+
+- **REFUTED: *"`DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE` is an endpoint-to-endpoint measure, which is
+  the wrong question for a T."*** It is not. `distToSegment` is used on **both** arms and they are
+  symmetric with each other. There is no endpoint/segment asymmetry anywhere in the engine. The
+  brief's instinct was right and its mechanism was wrong: the asymmetry is **directional**, not
+  point-versus-segment.
+- **REFUTED, AND THIS ONE IS DANGEROUS: *"a declared join measuring 1002 mm from any plausible weld
+  is probably stale data."*** AS-IS #14 shows `1002/500 mm` produced by a join **closed to 0 mm**.
+  ⛔ **A large reading on this code is not evidence of staleness and must never again be spent as
+  such.** Dragging a wall on that inference is L-922's exact shape. `WallMoveReweld.ts`'s own
+  reason-code documentation invited this reading (*"two authorities disagree"*) and has been
+  corrected in place.
+
+---
+
+### 10.8.3 TO-BE — normative. Every clause carries its COST, per the founder's constraint
+
+> **The constraint, stated once and binding on all of W-L-1..W-L-8:** *a living entity **without
+> being a performance issue***. A wall that revalidates every relationship on every mousemove is
+> not living, it is unusable — and this repo has shipped that defect once already (`7584999b`: the
+> re-weld ran **once per mousemove** off a millimetre delta). The budget language is
+> [C10](C10-PERFORMANCE-AND-OBSERVABILITY.md) and §10.5's invalidation keys; this section does not
+> restate them, it declares against them.
+
+- **W-L-1 — A RELATIONSHIP IS BIDIRECTIONAL OR IT IS NOT A RELATIONSHIP.** Every geometric
+  predicate applied to a **declared** edge MUST be evaluated in **both** directions before the edge
+  may be treated as unsupported. A test that can only see one of a T's two roles does not measure
+  the relationship; it measures an accident of authoring order.
+  **COST:** four extra `distToSegment` per declared partner, per **committed** move —
+  `O(declared partners)`, typically 2–4, never `O(walls on level)`. It rides inside the existing
+  `__wallDragInProgress` coalescing gate, so it runs **once per gesture, not once per frame**.
+  ✅ **SHIPPED as measurement** (`5c3434dc`). ⛔ **NOT-YET-TRUE as disposition** — see W-L-4.
+
+- **W-L-2 — EVERY DECLARED EDGE LEAVES A MOVE WITH ONE OF C78 §6.4's FOUR DISPOSITIONS, AND THE
+  PRODUCT CAN SAY WHICH.** [C78 §6.4](C78-UNIVERSAL-RELATIONSHIP-CONTRACT.md) requires *"A moved"*
+  to resolve to exactly one of: **(i)** B's geometry re-derives · **(ii)** B's relationship is
+  re-evaluated and may break · **(iii)** B is unaffected **by construction** · **(iv)**
+  UNDETERMINED with a §8 reason. The wall family's mapping, now complete for the declared arm:
+
+  | C78 §6.4 | Wall verdict | Note |
+  |---|---|---|
+  | (i) re-derives | `MoveReweldEntry` (stem follow / mutual corner) | the case that works |
+  | (ii) re-evaluated **and may break** | `SUBJECT_GUEST_JOIN_BROKEN_BY_MOVE` | ⭐ **had no name before `5c3434dc`** |
+  | (iii) unaffected by construction | `SUBJECT_GUEST_JOIN_INTACT` · `..._RESTORED_BY_MOVE` · `PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT` | successes, and they must not print like losses |
+  | (iv) UNDETERMINED | `DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE` | now the **only** reading that may mean *stale record* |
+
+  ⭐ **C78 §6.3 records that move-time invalidation is UNPROVEN for EVERY family and that «move is
+  the dominant edit in the product».** This is the wall family's first arm against it, and it is
+  worth saying plainly that the estate has no other.
+  **COST:** zero beyond W-L-1 — a classification over distances already computed.
+
+- **W-L-3 — A BROKEN DECLARED JOIN IS A CONSEQUENCE, NOT A DIAGNOSTIC, AND MUST REACH THE USER
+  SINK.** The dispatch line MUST carry **both counts** — `N junction(s) refused` **and**
+  `M declared join(s) broken` — because they are different sets (AS-IS #17) and a reader given only
+  the first will conclude the gesture was clean. A non-zero `M` MUST reach the same sink
+  `describeReweldRefusal` already drives.
+  ⚠ **It is still NOT a refusal**, deliberately: the engine has no arm that can act on a guest-side
+  T, so calling it a refusal would claim a decision that was never taken (C71 anti-pattern: a name
+  that asserts more than the code did). What is fixed is the **routing**, not the disposition.
+  **COST:** zero geometry. One integer already computed, one string, one routing decision.
+
+- **W-L-4 — ⛔ NOT-YET-TRUE, AND IT IS THE FOUNDER'S HEADLINE COMPLAINT. THE REPAIR LADDER MUST BE
+  REACHABLE FROM THE WELD ENGINE, AND ITS CHEAPEST RUNG IS AN ORDERING FIX, NOT NEW GEOMETRY.**
+  §10.7's ladder is **EXTEND → JOIN/TRIM → CREATE**. Rung 1 exists, is correct, and is exercised
+  every day: `computeStemFollow`. **It never runs for a guest-side T because the partner is binned
+  as not-applicable before `classifyWeldAuthorship` is reached** (AS-IS #16). The founder's *"I was
+  expecting the wall to extend"* is that ordering, and nothing else.
+  ⭐ **The room side of this is DONE and is waiting on the wall side by name in code.**
+  `OpenedRegionDetector.ts:662–690` (§WD32-EXTEND-BEFORE-CREATE, L-10810) now **stands the CREATE
+  rung down** when a collinear donor exists, emits
+  `reason: 'gap-closable-by-extending-an-existing-wall'`, **names the wall that should have grown**,
+  and defers the extension itself to *"C85 §10.7 W-M-12"* — this contract, cited from that file.
+  **Nothing performs the extension.** That is the whole of the remaining gap for
+  *"I was expecting an EXTENSION, however I got a NEW WALL."*
+  **COST:** no new geometry primitive and no new traversal. One mirror-direction branch that routes
+  a guest-side T into the existing stem path, under the existing `MAX_FOLLOW_GAIN = 3` bound and the
+  existing degenerate-stub and reversal guards. Same `O(declared partners)`, same once-per-gesture
+  cadence. ⚠ **Gated on §10.8.4** — it moves a wall the user did not touch.
+
+- **W-L-5 — ⚠ RAISED TO C72, NOT DECIDED HERE. «REFUSE» IS DOING DUTY FOR TWO DIFFERENT ACTS.**
+  C72 §9.1's REFUSES is about **the dependent not adapting** while the host's move stands. The
+  narration in §10.8.0 does something C72 §9 has no vocabulary for: it **refuses the SUBJECT's own
+  gesture on account of a dependent** — *"so I did neither. Nothing has changed."* Both are
+  legitimate; they are not the same act; and which one a user gets is currently decided by **which
+  code path the gesture happened to enter**. ⛔ **This is a platform question and a probable C72
+  amendment, not a C85 decision.** Recorded here because the wall family is where both behaviours
+  are observable in one session.
+
+- **W-L-6 — REFUSE-BEFORE vs REPORT-AFTER MUST BE CHOSEN BY A STATED RULE, NOT BY CODE PATH.** The
+  proposed rule, keyed on [C83](C83-SPATIAL-VALIDITY-AND-DESIGN-LOGIC.md)'s existing
+  IMPOSSIBLE / INADVISABLE / FINE split:
+
+  | Class | Disposition | Live example |
+  |---|---|---|
+  | **IMPOSSIBLE** — the model cannot hold the result | **REFUSE BEFORE.** Do not mutate; propose alternatives with numbers (N-5) | wall ∩ door opening — *"the wall says solid, the opening says void"* — already shipped |
+  | **INADVISABLE** — valid geometry the user may genuinely want | **PROCEED, REPORT, ONE UNDO** (§L-942-UNBLOCK) | `BODY_CROSSING` after a deliberate 3.9 m drag |
+  | **FINE** | proceed silently | — |
+
+  ⭐ **AND THE CASE THIS LANE FOUND DOES NOT FIT EITHER ROW: the result is valid wall geometry that
+  DESTROYS A ROOM.** `§OPENED-REGION: Room 00-004 (85.7 m²) is no longer its own room … 3.42 m of
+  the boundary it used to have now has no wall on it.` **Is losing a room IMPOSSIBLE or
+  INADVISABLE?** That is a design judgement, it is §10.8.4's second open question, and this
+  contract does not answer it.
+  **COST:** none. It is a routing rule over classifications that already exist.
+
+- **W-L-7 — DAMAGE MUST NOT ACCUMULATE MONOTONICALLY WITHOUT A LEDGER — AND ⛔ MUST NOT BE SWEPT.**
+  Measured: ~7 moves in one session, each adding findings, nothing removing any;
+  `§WALL-TOPOLOGY-ATTRIBUTION` honestly reports *"0 CREATED by this gesture; 3 ALREADY STANDING"*.
+  Honest, and it means the model degrades in one direction only. TO-BE: findings MUST be **durable
+  on the model or re-derived on load** (§10.7 W-M-10, already NOT-YET-TRUE) and the standing set
+  MUST be either a **shrink-only obligation** or an **explicitly accepted debt list** — the same
+  ratchet discipline the GA gates use.
+  ⛔ **CONVERGENCE MUST NOT BE PURSUED BY AN AUTOMATIC SWEEP.** A pass that repairs standing
+  findings edits geometry the user did not touch **in this gesture**, at N× the blast radius of
+  L-922, and it would do so without the one thing that makes the re-weld defensible: a gesture to
+  bound it by. **COST of the ledger:** `O(findings)` per commit, over numbers already computed.
+  **COST of a sweep:** unbounded and unattributable — **do not build one.**
+
+- **W-L-8 — THE COST DISCIPLINE ITSELF IS NORMATIVE.** Every capability added to this family MUST
+  declare, at its definition site (C73 §2.2), **what it recomputes · at what cadence · over what N
+  · and what bounds it.** Three hard rules, all of them things this repo has already paid for:
+  1. ⛔ **Nothing on this list may run on a per-mousemove path.** The coalescing gate is
+     `__wallDragInProgress`, and §10.7 AS-IS #10 records that `packages/geometry-slab/` has **zero
+     hits** for it — `SlabDependencyTracker` and `SlabWallConnectivityService` both still run per
+     mousemove. **That is one live breach; do not add a second.**
+  2. **Relationship work is `O(declared partners)`, never `O(walls on level)`.** The moment a
+     capability needs every wall, it needs `packages/spatial-index`, and needing the index is a
+     design review, not an implementation detail.
+  3. **A capability that cannot state its N does not ship.** `NOT MEASURED` is an acceptable
+     answer; an unstated cost is not.
+
+  | Capability | Recomputes | Cadence | N | Bound |
+  |---|---|---|---|---|
+  | W-L-1 bidirectional test | 4 × `distToSegment` per partner | once per **committed** move | declared partners (2–4) | `__wallDragInProgress` |
+  | W-L-2 disposition | a comparison over W-L-1's distances | same | same | — |
+  | W-L-3 dual counts | string formatting | same | same | — |
+  | W-L-4 guest-side extend | one stem-follow solve per broken join | same | broken joins (0–2) | `MAX_FOLLOW_GAIN = 3`, stub + reversal guards |
+  | W-L-7 finding ledger | set difference over existing findings | once per commit | standing findings | shrink-only ratchet |
+  | ⛔ automatic sweep | unbounded | — | — | **NOT PERMITTED** |
+
+---
+
+### 10.8.4 ⭐⭐ THE UNDECIDED QUESTION — framed with both costs, and deliberately NOT resolved
+
+> **When a declared relationship and the geometry disagree, is the relationship the INTENT to be
+> restored, or a STALE RECORD to be discarded?**
+>
+> ⛔ **This contract does not answer it. The founder decides.** His standing rule for spatial
+> validity is *"always ASK, never auto-edit"*, and every option below except one moves a wall he
+> did not touch.
+
+**FIRST, A MEASURED NARROWING that changes the shape of the question.** Before `5c3434dc` this had
+to be asked of every `DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE`. It no longer does: AS-IS #14 proves a
+large reading on that code is compatible with a **perfect** join, so most of what looked ambiguous
+was never ambiguous — it was mismeasured. **After the split, the genuinely ambiguous set is only the
+edges with no join in EITHER direction at EITHER pose.** The question is now asked of a much smaller
+population, and *how much smaller* is the first thing the instrument will tell us from the founder's
+next gesture.
+
+| Option | What it does | Cost if RIGHT | Failure mode if WRONG |
+|---|---|---|---|
+| **REPAIR** | Extend/trim the partition to restore the declared join (what the founder expected) | The room survives; the gesture does what a human architect would have done | ⛔ **Drags a wall the user never touched, on the strength of a graph edge.** This is L-922's exact shape. On a stale edge it produces a wall that moved for no visible reason |
+| **REFUSE** | Block the move that would break the join, with both numbers | Nothing is destroyed; the user is told precisely why | Blocks legitimate edits. A stale edge becomes an **unopenable door**: the user cannot move a wall and cannot see what is holding it |
+| **REPORT & PROCEED** | Move, then narrate the break, one undo (§L-942-UNBLOCK) | No new geometry risk; the user keeps full agency; matches the working `BODY_CROSSING` path | The room is still destroyed — the founder still loses 85.7 m² and gets a paragraph about it. **This is closest to today's behaviour plus honesty** |
+| **ASK** | Offer the repair as a proposal with the donor named and the numbers stated | Matches his standing rule exactly; nothing moves without consent | A modal per gesture is unusable at scale. ⚠ And §10.7 W-M-8 is the scar: **an offer nobody could correctly accept manufactures work** — *"even if it was a proposal — clearly wrong one."* An ASK is only safe if the proposal is well-formed, which is why W-L-4's guards are a precondition and not a nicety |
+
+**THE SECOND OPEN QUESTION, and it gates W-L-6:** **is the loss of a room IMPOSSIBLE (refuse before)
+or INADVISABLE (proceed and report)?** A wall may legitimately be moved to merge two rooms — that is
+a normal design act. It may also destroy 85.7 m² by accident. **The geometry cannot tell these
+apart; only intent can**, which is an argument for ASK and against both silent options.
+
+#### ⚠ THE THIRD THING, and it is a precondition rather than an option
+
+**A stale `joinedTo` edge is a WRITER defect, and [C71 §3.4](C71-GRAPH-AND-TOPOLOGY.md) already
+makes it one:** *"Stale-edge removal is part of the writer, not a follow-up … idempotency prevents
+duplicates, never staleness."* An earlier lane measured that
+`WallRebuildCoordinator.writeJoinedToEdgesForLevel` sits **after a no-progress guard's `return`**, so
+a gated-out flush never rewrites the graph. **If the graph can go stale, every option above is being
+asked to compensate for a defect one layer down.** Fixing the staleness **source** is a precondition
+for REPAIR and makes REFUSE far safer.
+⛔ **BOUNDARY, recorded because it is founder-set:** he has approved fixing the staleness **source**
+and has **NOT** approved amending the stored-degree rule (`isMutualCorner` letting a STORED
+`junctionDegree` override a live count). That needs a **C83 §10.6.3 amendment he has not granted**,
+and no lane may take it as implied by this section.
+
+---
+
+### 10.8.5 THE SEAM WITH THE ROOM FAMILY — confirmed by independent measurement, and it is NOT the defect it was briefed as
+
+> ⚠ **A framing correction, recorded because two contracts describing one boundary in opposite terms
+> is a failure this repo has already logged.** This lane was briefed that `§DIAG-PARTITION-REACH` is
+> *"a second subsystem quietly healing what the first one broke, with a different tolerance and no
+> shared vocabulary"* — i.e. accidental architecture. **Lane ROOM44 (C94) contested that, and on
+> re-measurement here ROOM44 is right.**
+
+| Layer | Owns | Tolerances | Mutates |
+|---|---|---|---|
+| **ROOM** (`packages/room-topology`) | DETECTION of a lost loop, NARRATION of it, and read-side graph repair | `REACH_MAX_M = 1.25` · `CORNER_CONNECTED_TOL_M = 0.30` · `REACH_COLLINEAR_MIN = 0.9` | ⭐ **an in-memory copy only** — `RoomDetectionEngine._reconnectDanglingEnds` operates on `walls.map(w => ({ …start.clone(), …end.clone() }))` feeding `buildWallGraph`, and writes **no `WallStore` record** (verified independently by this lane) |
+| **WALL** (`packages/geometry-wall`) | REPAIR BY EXTENSION, and every write to a baseline | `DEFAULT_SNAP_RADIUS = 0.5` · `MAX_FOLLOW_GAIN = 3` | **authored geometry** |
+
+> ⭐ **THE ARRANGEMENT IS CORRECT BY DESIGN: a READ-SIDE graph repair may legitimately be MORE
+> PERMISSIVE than a WRITE-SIDE one, because it cannot corrupt the model.** 1.25 m of forgiveness
+> when deciding whether a loop closes for the purpose of *naming a room* is sound; 1.25 m of
+> forgiveness when *moving somebody's wall* is not. The two numbers differ because the two acts
+> differ.
+
+**The one real defect at the seam** (ROOM44's (c), and this lane agrees): **neither layer publishes
+its tolerance to the other**, so nobody can state the combined competence envelope — the band in
+which the room layer will report a closed loop that the wall layer would refuse to weld. A shared,
+cited tolerance register (C73) closes it. ⚠ **The wall-side numbers are C85's to judge and are
+judged nowhere yet**; `DEFAULT_SNAP_RADIUS = 0.5` is inherited from snapping and has never been
+justified as a **weld** tolerance. That is a `NOT MEASURED` below, not a claim.
+
+---
+
+### 10.8.6 MIGRATION PATH — ordered, with the reason for the order
+
+| # | Step | Gate on | Why here |
+|---|---|---|---|
+| **1** | ✅ **Split the conflated verdict** (`5c3434dc`) | nothing | **The instrument before the cure.** It needs no design decision, it closes the C72 §9.2 breach at the naming level, and it is the only thing that can tell us which of the three the founder's 1002 mm case actually was |
+| **2** | **W-L-3** — dual counts on the dispatch line; route a broken join to the user sink | nothing | Zero geometry, zero risk, and it makes step 1 visible to a human instead of only to a test |
+| **3** | **Fix the `joinedTo` staleness SOURCE** (C71 §3.4; the flush behind the no-progress `return`) | founder-approved already | **Precondition for every disposition option.** While the graph can go stale, steps 4–6 are compensating for a defect one layer down. ⛔ Does NOT include the stored-degree rule |
+| **4** | **W-L-6** — write the REFUSE-BEFORE / REPORT-AFTER rule and route existing classifications through it | ⚠ **founder ruling: is a lost room IMPOSSIBLE or INADVISABLE?** | Costs nothing to implement and decides the shape of step 5 |
+| **5** | **W-L-4** — route a guest-side T into the existing stem path (the ordering fix) | ⚠ **founder ruling: §10.8.4** | The founder's headline complaint, and the room side is already standing down waiting for it. Cheap in code, **not cheap in consequence** — it moves walls |
+| **6** | **W-L-5** — raise the two-senses-of-REFUSE question to C72 | platform | A C72 amendment, not a C85 edit. Sequenced last because steps 1–5 are all legal under either reading |
+| **7** | **W-L-7** — the finding ledger (durability, W-M-10) | needs persistence design | The largest of these and the least urgent: it improves the model's memory, not any single gesture |
+
+---
+
+### 10.8.7 NOT MEASURED — the honest register for this section
+
+- **Whether the founder's two partitions WERE guest-side Ts.** This lane reproduced his console
+  signature **exactly** from an ordinary valid T-junction — which proves the signature cannot be
+  used as evidence of staleness by anybody — but it does not prove his geometry was that. **The
+  instrument shipped in step 1 answers this on his next gesture, and until then the attribution is
+  UNPROVEN.**
+- **How many production `DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE` lines were actually guest-side Ts.**
+  Zero sessions measured post-split.
+- **Whether `DEFAULT_SNAP_RADIUS = 0.5` is the right WELD tolerance.** It is inherited from
+  snapping. No justification for it as a weld number exists anywhere in this contract.
+- **The 3D-vs-plan divergence.** `PARTNER_ALREADY_WELDED_TO_NEW_SEGMENT(0/500 mm)` is a **success**
+  — the store is right — while the founder reported an unadapted wall in 3D and a correct one in
+  plan. The engine's own text already routes this *"DOWNSTREAM … render / invalidation / mesh
+  cache"*. **Nobody has measured it there.** It is not a weld defect and must not be chased as one.
+- **Undo behaviour of anything in W-L-4.** A cascade that extends a partition to repair a broken
+  join must compose into the spawning gesture as a `STRUCTURAL_CASCADE` child (C81, one undo). The
+  existing entries do; a guest-side arm has never been built, so this is untested by construction.
+- **Curvature.** §10.7 W-M-6 records that the engine reasons about a curved wall's **chord**.
+  Everything in §10.8 inherits that blindness unchanged, and a guest-side T against a curved host is
+  therefore doubly unmeasured.
 
 ---
 
@@ -1191,7 +1576,7 @@ not a fourth copy — `rakeShearPerMetre` (`WallRake.ts:245`) is already declare
 | **R-13** | ⭐ **§RAKE-JOINT-OVERTRIM — a raked wall whose mitre corner drifts further than the wall is LONG cannot be closed by two prisms, and the refusal MUST be named.** | `WallPipelineV2.ts` **§JOIN1-DEGRADATION-IS-NOT-SILENT**; `rakeJointRefusals()`; [L-1270](../../04-reference/ISSUE-LOG.md) | ⚠ **PARTIAL — the refusal is now HONEST, the geometry is still WRONG, and both halves are binding.** ⭐ THE INVARIANT: *a mitre corner belongs to TWO walls, so the decision to loft it is a property of the CORNER, never of one wall.* Today it is decided per wall and they can disagree; when they do, the corner is exact at the floor and open at the top by the difference. ⛔ **DO NOT delete the orientation guard.** It measurably closes the gap to 0 in every case — and does so with a self-intersecting bow-tie top face. A negative top area is REAL geometry, not float noise: **the joint has consumed the wall's top**. Trading a visible hole for an inside-out solid is not a fix. ⛔ **DO NOT close the gap cosmetically** — stretching or re-anchoring geometry to hide a wedge is the same class as clamping a malformed elevation to horizontal, and [§CLAMP-COSHARE-WELD](../../04-reference/ISSUE-LOG.md) records that **moving a shared baseline surfaced doubled walls**. ⛔ **DO NOT add a second rake rule** — `WallRake.rakeAuthorability` is the ONE authority and this condition is not expressible there anyway: it depends on the wall's NEIGHBOURS and HEIGHT, and it would wrongly refuse a rake that renders perfectly on an unjoined wall. ⭐ **THE ONE ADMISSIBLE FIX** is the height-varying mitre this contract has already named twice (row 17): the wall is **clipped at the elevation where its top face degenerates**, so two leaning walls meet along a LINE rather than a vertical edge. That changes `WallPolygonExtruder`'s contract — a wall whose top is a line, not a face — and is deliberately NOT attempted inside L-1270 |
 | **R-14** | ⭐ **`CORNER_FOLLOW_GAIN_EXCEEDED` — a re-weld refuses to move a wall the user did not touch further than `MAX_FOLLOW_GAIN` × his own drag** | `WallMoveReweld.ts` `MAX_FOLLOW_GAIN`; §10.7 W-M-1 | ✅ **SHIPPED 2026-08-24 (WALLDEEP32, L-10601).** ⛔ **DO NOT remove this to "restore" a follow.** Without it a 2 m drag moved an untouched wall **14.14 m** and the cascade reported `0 refused` — the founder's *"extended but in the WRONG DIRECTION"*. ⚠ The `1/sin θ` reach it bounds is CORRECT geometry and must not be deleted either: §L-932 exists because capping at the drag silently dropped every angled junction. The fix is a BOUND on the gain, not the removal of the term |
 | **R-15** | ⭐ **`gap-not-anchored-at-both-ends` — a topology repair refuses to PROPOSE a wall unless both endpoints land on standing walls** | `OpenedRegionDetector.ts`; `OpenedRegionProposal.buildOpenedRegionOffer`; §10.7 W-M-8 | ✅ **SHIPPED 2026-08-24 (L-10603).** The anchor count was already MEASURED and printed — it was spent on the wording of an offer that went out anyway. ⛔ **DO NOT reinstate the "…check it before accepting" variants.** Founder, on being told the missing consent step was the headline defect: *"even if it was a proposal — clearly wrong one."* A gate that offers an option nobody could accept manufactures work and corrupt geometry. Enforced at BOTH producer and consumer, deliberately |
-| **R-16** | ⚠ **`DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE` — NAMED, and deliberately NOT a refusal** | `WallMoveReweld.ts`; §10.7 W-M-4 | ⚠ **HALF-SHIPPED, AND SAID SO.** The first draft made it a refusal; `L936ReweldEmitterHonesty.test.ts` refuted that within the hour — the `joinedTo` graph legitimately names walls joined AT THE LEVEL but not to the subject at that segment, and that fixture asserts `0 junction(s) refused` over exactly such a partner. **The graph over-reports by design.** So the contradiction is named and not acted on. ⛔ **Acting on it — re-welding from the declared edge when proximity cannot corroborate it — is a behavioural widening that MOVES WALLS on the strength of a graph edge, and it was NOT shipped before production.** ADR-0336 stage 2 |
+| **R-16** | ⚠ **`DECLARED_JOIN_NOT_FOUND_AT_EITHER_POSE` — NAMED, and deliberately NOT a refusal** | `WallMoveReweld.ts`; §10.7 W-M-4 | ⚠ **HALF-SHIPPED, AND SAID SO.** The first draft made it a refusal; `L936ReweldEmitterHonesty.test.ts` refuted that within the hour — the `joinedTo` graph legitimately names walls joined AT THE LEVEL but not to the subject at that segment, and that fixture asserts `0 junction(s) refused` over exactly such a partner. **The graph over-reports by design.** So the contradiction is named and not acted on. ⛔ **Acting on it — re-welding from the declared edge when proximity cannot corroborate it — is a behavioural widening that MOVES WALLS on the strength of a graph edge, and it was NOT shipped before production.** ADR-0336 stage 2 <br><br>⚠ **CORRECTED 2026-08-24 (lane GRAPH43, L-10800) — THE READING THIS ROW INVITES IS REFUTED, THOUGH ITS DISPOSITION STANDS.** *"The graph over-reports by design"* is true and is not in question. What is refuted is the inference every reader drew from a LARGE number on this code — that the edge is probably stale. **A `(1002/500 mm)` reading is fully compatible with a join closed to 0 mm**, because for a guest-side T the engine measures the partner's ARM LENGTH (§10.8.2 AS-IS #14, W-M-13). ⛔ Never spend this number as staleness evidence; that inference is how L-922 dragged three perimeter doors. The code is now narrowed to the one reading that may honestly mean *stale record* — no join in EITHER direction at EITHER pose — and three guest-side verdicts carry the rest (`5c3434dc`). |
 | **R-17** | ⛔ **NOT REFUSED, AND IT SHOULD BE: a `wall.create` dispatched with no `id` succeeds and is never replicated** | `CreateWall.ts:199` (*"omit id to auto-generate"*) vs `YjsDocAdapter` W5-3; §10.7 W-M-9 | ⚠ **THE HANDLER CONTRACT AND THE SYNC CONTRACT DISAGREE, and no gate enforces either.** The handler mints internally; the sync layer reads the subject key off the PAYLOAD before the handler runs. Result: the author sees the wall, a collaborator does not. **One live hole closed** (`OpenedRegionProposal`, the only production dispatcher that omitted it — `WallPlanToolHandler.ts:618`, `PreviewManager.ts:312` and `CopyPlanToolHandler.ts:320` all mint first). ⛔ The general rule is C68 / P8 and is unenforced |
 
 ### Explicitly NOT REFUSED, and that is a finding
