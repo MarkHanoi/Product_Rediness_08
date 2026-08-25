@@ -90,6 +90,7 @@ import { applyRingBufferSide, fromJsonPointer, type ApplyRingBufferOutcome } fro
 import type { PatchPair, PatchSide } from '@pryzm/runtime-undo-stack';
 import { adaptElementStoreMap, type PatchApplicableAdapter } from './elementUndoStoreAdapter.js';
 import { boundaryLineUndoAdapter, resolveBoundaryLineStoreFromWindow } from './pluginStoreUndoAdapter.js';
+import { liftCompoundUndoAdapter, liftPartUndoAdapter, resolveLiftStoresFromWindow } from './liftUndoAdapter.js';
 
 const _tracer = trace.getTracer('pryzm-engine');
 
@@ -454,6 +455,20 @@ export function buildUndoStoreMap(): Record<string, PatchApplicableAdapter | und
     // pluginStoreUndoAdapter.ts for why this is not the sheet/schedule shape
     // problem, and why lazy resolution is the honest form of "present".
     boundaryLine: boundaryLineUndoAdapter(resolveBoundaryLineStoreFromWindow),
+
+    // §LIFT94 (L-11340, 2026-08-25) — CLOSES L-7311 + L-7312. The two rows below
+    // this map used to describe as "REACHABLE AND STRANDED" now have real adapters,
+    // so the six-store `lift.create` PatchPair is COVERED end to end and Ctrl+Z is
+    // no longer a total no-op. Same lazy-resolution shape as boundaryLine above.
+    //
+    // ⛔ NEITHER ROW POINTS AT `window.liftStore`. That global holds the LOD-200
+    // MASSING lift (C104 §1) — a different store — and the ban on aliasing it is
+    // still in force and still stated in UNMAPPED_BUS_STORE_KEYS' preamble below.
+    // These resolve `runtime.stores.lift` / `.liftPart`, the stores PluginRegistry
+    // actually builds for the C104 compound. See liftUndoAdapter.ts for why the
+    // render half is a registered sink rather than a re-emitted bus event.
+    lift:     liftCompoundUndoAdapter(resolveLiftStoresFromWindow),
+    liftPart: liftPartUndoAdapter(resolveLiftStoresFromWindow),
   };
 }
 
@@ -568,8 +583,18 @@ export const UNMAPPED_BUS_STORE_KEYS: Readonly<Record<string, { readonly owner: 
   // state. An adapter here needs the COMPOUND store on the window (or, better, U-7's
   // single store), not the nearest global with a matching name.
   balcony:  { owner: 'nothing', reason: 'REACHABLE AND STRANDED (L-7310) — BalconyStore is built and `balcony.create` dispatches from BalconyPlanToolHandler, but there is no `window.balconyStore`, so the ring entry is never covered and nothing on the legacy stack reverts it.' },
-  lift:     { owner: 'nothing', reason: 'REACHABLE AND STRANDED (L-7311) — LiftCompoundStore is built and `lift.create` dispatches from LiftPlanToolHandler. `window.liftStore` exists but holds the LOD-200 MASSING lift, a DIFFERENT store; aliasing it would breach C03 §4.6 U-2b. No adapter is claimed.' },
-  liftPart: { owner: 'nothing', reason: 'REACHABLE AND STRANDED (L-7312) — LiftPartStore is built and is written by `lift.create` (a part is never created alone, C104 §2). No `window.liftPartStore` exists.' },
+  // ⭐ §LIFT94 (L-11340, 2026-08-25) — `lift` and `liftPart` ARE NO LONGER HERE.
+  // Both now carry real adapters in `buildUndoStoreMap()` above
+  // (`liftCompoundUndoAdapter` / `liftPartUndoAdapter`), resolving
+  // `runtime.stores.lift` / `.liftPart` lazily at apply time. L-7311 and L-7312 are
+  // CLOSED. The ⛔ ban in the preamble above — do not alias `window.liftStore`, it is
+  // the LOD-200 massing lift — is kept verbatim because it is what the fix obeyed,
+  // not something the fix made obsolete: the adapters deliberately do NOT read it.
+  //
+  // `balcony` below is the SAME SHAPE and is deliberately still open (L-7310): its
+  // `affectedStores` names `slab` / `floor` / `handrail` alongside `balcony`, and the
+  // lane that closed the lift did not measure the balcony's render seam, so claiming
+  // it by symmetry would be exactly the unmeasured assertion C84 §9 warns about.
   // ── §UNDO93 (L-11321, 2026-08-25) — the two keys ARM 1 COULD NOT SEE. ────────
   //
   // Neither of these is new, and neither was hidden by anything subtle: ARM 1's

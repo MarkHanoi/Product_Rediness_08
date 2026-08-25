@@ -241,6 +241,8 @@ import type { WallSystemTypeStore } from '@pryzm/geometry-wall';
 import type { SlabSystemTypeStore } from '@pryzm/geometry-slab';
 
 import { installProjectIsolationAudit } from '@pryzm/core-app-model';
+// §LIFT94 (L-11340) — the undo/redo render seam for the C104 lift compound.
+import { registerLiftRenderSink } from './undo/liftUndoAdapter.js';
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -1675,6 +1677,23 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             }
         });
         console.log('[initTools] §FT-LIFT: lift.created bus→LiftCompoundMeshBuilder bridge registered.');
+
+        // §LIFT94 (L-11340) — THE SECOND ROAD TO THE SAME BUILDER: undo/redo.
+        //
+        // The subscriber above is driven by `lift.created`, relayed by
+        // `CommandEventBridge` from a COMMAND RECORD. An undo is not a command, so the
+        // bridge never sees it and the compound would stay on screen after Ctrl+Z —
+        // the render half of L-7311. The boundary line solves this by re-emitting its
+        // family's bus events; a lift cannot, because there is no `'lift.deleted'` key
+        // in `RuntimeEvents` and `on`/`emit` are keyed `K extends keyof TMap`.
+        //
+        // So the undo adapter is handed the SAME builder instance instead. One source
+        // of render truth, two roads, and no untyped second event channel.
+        registerLiftRenderSink({
+            update: (input) => { liftCompoundMeshBuilder.updateLift(input as never); },
+            remove: (liftId) => { liftCompoundMeshBuilder.removeLift(liftId); },
+        });
+        console.log('[initTools] §LIFT94: lift undo/redo render sink registered (L-11340).');
     }
 
     // §FT-BOUNDARY-LINE (§FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE, L-9944..L-9946 ·
