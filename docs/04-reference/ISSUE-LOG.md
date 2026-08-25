@@ -52718,3 +52718,38 @@ façade suites with no regression.
 ⚠ **L-11001 STANDS AND THIS DOES NOT WEAKEN IT.** Case L is SYNTHETIC. A green run says what the
 algorithm does on a façade of that SHAPE with known ground truth; **it says nothing about his phone
 camera**, and reading it as "his building works" is exactly the substitution C108 §0.2 forbids.
+
+---
+
+## §FACADECAL64-CASE-M (lane FACADECAL64, 2026-08-25) — the SECOND real photograph: the strip and the railings mint structure, and corpus case M pins it
+
+⭐ **The founder ran a SECOND real photograph through the pipeline (live build `862f58c5`) — 7
+storeys × 5 window bays, ONE full-height glazed feature strip (glass blocks) in the centre, balcony
+railings overlapping the window bottoms, dark shutter slats. The engine read 7 zones (CORRECT) ×
+7 bays (WRONG), stamped archness 0.87–0.98 on RECTANGULAR windows, and matched 23 / 4 features /
+7 outliers where the case-L class predicts ~35 matched.** This is **L-11001's first falsification
+of the OPENING-DERIVED lattice** (L-10971's fix): the openings are a stronger signal than the wall
+profile, but clutter ATTACHED TO the openings votes with them. The panel's honesty held — SOURCES
+DISAGREE was shown, periodicity 0.43 — which is C108 §3.4's cross-check doing its job.
+
+⛔ The photograph is NOT in this repository (C108 §0.2). **Corpus case M** (`5e4cc138`,
+`packages/facade-reconstruction/src/testing/syntheticFacades.ts`) draws the CLASS — 7 zones ×
+5 window bays, a full-height dark-glazed strip crossed by light slab faces at every floor, railings
+18% over each window bottom with arced top edges and 12 px wings, dark-on-dark shutter slats — and
+reproduces the signature on FIRST run, no noise needed: **bays 6 (drawn 5) · matched 42 (drawn 35)
+· features 10 (drawn 1) · archness 1.00 on all 30 drawn-rectangular windows · outliers 0 · zones 7
+CORRECT · SOURCES DISAGREE fired (openings 7×6 vs profile 4×3).** Pinned by
+`packages/facade-reconstruction/__tests__/caseM.probe.test.ts` (5 tests, the L-10947 pattern —
+today's WRONG values asserted AS wrong, so the fix turns the file red and announces itself). A–L
+stay green (46/46). ⚠ **What differs from the real run, stated rather than chased:** case M mints
+ONE phantom bay where the real photograph minted two, and it INFLATES matched to 42 where the real
+run DEFLATED to 23 (camera noise loses windows; the synthetic loses none) — same mechanism,
+opposite sign. ⛔ Per C108 §9, no fix below may be a threshold chosen because case M passes; it
+must hold A–M green simultaneously.
+
+| Id | Finding | Status |
+|---|---|---|
+| **L-11120** | ⭐ **ROOT ROW — the second real photograph falsified the opening-derived lattice, and case M reproduces the failure class synthetically.** The three defect mechanisms are L-11121 (phantom bays), L-11122 (feature lost to the grid), L-11123 (spurious archness). The reproduction is the deliverable of this lane slice; the fixes are owed against corpus cases A–M as a set, never against this case alone (C108 §9.4). | **REPRODUCED** `5e4cc138` — fixes owed under L-11121..L-11123 |
+| **L-11121** | ⛔ **A FULL-HEIGHT FEATURE STRIP MINTS A PHANTOM BAY, at full support, indistinguishable to the clusterer from a real bay.** The strip's dark glazing is crossed by light slab faces at every floor, so brief §10's "one vertically continuous object" arrives at the detector as SEVEN window-sized chunks stacked in a column. In `deriveLatticeFromOpenings` (`packages/facade-reconstruction/src/reconstruction/geometry/openingLattice.ts:127`): the two-sided size band (`:137`) ADMITS the 64×63 chunks (median opening size ~48–72, band factor 2.5); gap clustering (`:162`) seats their column as its own line; and the support filter (`:183`) reads support **7** against a median of 6–7 — a PERFECT bay by every test the stage runs. **Nothing in the vote asks whether a column's voters are slices of ONE object or DISTINCT repeating openings** — vertical adjacency/continuity of the voters is not examined. Measured: case M bays 6 (drawn 5), repeatX 6; the real photograph read 7 (two phantoms — its second is not yet reproduced and may be railing-edge structure). | **OPEN** |
+| **L-11122** | ⛔ **THE STRIP IS LOST AS A FEATURE — §3.8's vertical-continuity rule runs AFTER detection has already split the object it exists to protect.** The feature/outlier classifier (`packages/facade-reconstruction/src/index.ts:366`, S13) keys on `zoneSpan >= 2` PER BLOB — but `findBlobs` (`packages/facade-reconstruction/src/reconstruction/openings/detect.ts:86`) delivered the strip as 7 single-zone chunks, so each chunk matches a phantom-column cell as an "opening" and the drawn feature count reads **0 of 1**. Meanwhile **10 phantom features are minted**: the strip's dark mass shifts Otsu's threshold upward, the soffit-shadow bands (luma 96) become detectable, the strip splits each band into left+right segments, and every segment straddles a zone boundary → `zoneSpan 2` → `features[]`. Case M: matched 42 (drawn 35), features 10 (drawn 1), outliers 0. The real photograph's 4 features / 7 outliers are the same confusion at camera noise. | **OPEN** |
+| **L-11123** | ⛔ **A DARK RAILING WIDER THAN ITS WINDOW MAKES A RECTANGULAR WINDOW MEASURE AS AN ARCH — archness 1.00 on 30 of 30 drawn-rectangular windows (the real photograph: 0.87–0.98).** The railing overlaps the window's bottom 18% and extends 12 px past each jamb, so 4-connectivity merges the two into ONE blob whose bbox is railing-wide. Its `topProfile` (`packages/facade-reconstruction/src/reconstruction/openings/detect.ts:161`) is DEEP at the wing columns (~36 px below the window head) and FLAT over the window — and `fitArchImpl` (`:215`) least-squares-fits that with a LARGE amplitude at high n, then reports `archness = amplitude / halfWidth ≈ 1.0` (`:313`). The 5%-margin trim (`:266`) does not reach the 12 px wings. ⭐ The five TRUE arcade arches still read 0.87–1.00 with the railing-free heads — the measurement is right when the blob is the opening; the defect is that the blob is opening+railing. Any fix must keep the arcade reading arched (the probe's non-vacuity twin asserts it). | **OPEN** |
