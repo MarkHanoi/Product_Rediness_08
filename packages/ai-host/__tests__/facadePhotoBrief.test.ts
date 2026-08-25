@@ -137,11 +137,19 @@ describe('§GEN-PHOTO-BRIEF — the soffit cue ⇒ balconies (L-11021: NOT protr
 });
 
 describe('§GEN-PHOTO-BRIEF — ⛔ what the photograph may NEVER supply', () => {
-    it('never emits a facadeColour: there is no colour-extraction stage', async () => {
+    it('§L-11128 — emits facadeColor ONLY at or above the floor, as the exact S17 hex; names it either way', async () => {
         for (const c of [caseA(), caseC(), caseD(), caseJ()]) {
-            const brief = mapFacadeIRToPhotoBrief(await reconstructFacade(c.image));
-            expect('facadeColor' in brief.facade).toBe(false);
-            expect(brief.notUsed.some((n) => n.includes('COLOUR'))).toBe(true);
+            const result = await reconstructFacade(c.image);
+            const brief = mapFacadeIRToPhotoBrief(result);
+            const wall = result.diagnostics.colour.wall;
+            const conf = result.diagnostics.colour.confidence;
+            if (wall !== null && conf !== null && conf >= 0.5) {
+                expect(brief.facade.facadeColor).toBe(wall.hex);
+                expect(brief.read.some((r) => r.label.startsWith('a façade colour of #') && !r.belowFloor)).toBe(true);
+            } else {
+                expect('facadeColor' in brief.facade).toBe(false);
+                expect(brief.notUsed.some((n) => n.includes('COLOUR'))).toBe(true);
+            }
         }
     });
 
@@ -155,7 +163,7 @@ describe('§GEN-PHOTO-BRIEF — ⛔ what the photograph may NEVER supply', () =>
         expect(brief.notUsed.some((n) => n.includes('L-11012'))).toBe(true);
         // ⛔ Nothing tile-shaped is in the applied façade fields.
         expect(Object.keys(brief.facade).every((k) =>
-            ['groundCommercialCurtain', 'balconies', 'roofGarden'].includes(k),
+            ['groundCommercialCurtain', 'balconies', 'roofGarden', 'facadeColor'].includes(k),
         )).toBe(true);
     });
 

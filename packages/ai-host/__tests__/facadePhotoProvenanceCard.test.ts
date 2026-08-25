@@ -123,13 +123,15 @@ describe('§GEN-PHOTO-BRIEF — ⭐⭐ the "Not used" row, the one that must nev
         expect(JSON.stringify(payload.facade ?? {}).toLowerCase()).not.toContain('tile');
     });
 
-    it('always names SIZE and COLOUR as things the photograph did not supply', async () => {
+    it('always names SIZE as not supplied, and names the COLOUR wherever it landed (§L-11128)', async () => {
         const { summary } = await cardFor('generate a residential building', caseC().image);
         const notUsed = rowOf(summary, 'Not used');
-        // These two are what a user most naturally assumes a photo carried. Saying
-        // so out loud costs one line; discovering it after the build costs trust.
+        // SIZE never comes from an image. COLOUR now does — so it is either READ on
+        // the photo row (at or above the floor) or named on Not-used with its number.
         expect(notUsed).toContain('SIZE');
-        expect(notUsed).toContain('COLOUR');
+        expect(summary).toMatch(/a façade colour of #[0-9a-f]{6}|the façade COLOUR — read #[0-9a-f]{6}/);
+        // The OPENING colour is measured and reported, never applied (no route to the leaves).
+        expect(notUsed).toContain('OPENING colour');
     });
 
     it('never asks for a colour it has already been given', async () => {
@@ -147,9 +149,12 @@ describe('§GEN-PHOTO-BRIEF — ⭐⭐ the "Not used" row, the one that must nev
         expect(notUsed).not.toContain('and I will apply it');
     });
 
-    it('still asks for a colour when the sentence gave none', async () => {
+    it('when the sentence gave no colour: applies the photo\'s reading at or above the floor, else still asks', async () => {
         const { summary } = await cardFor('generate a residential building', caseC().image);
-        expect(rowOf(summary, 'Not used')).toContain('and I will apply it');
+        const applied = /applying .*the façade colour #[0-9a-f]{6} read from the wall/.test(summary);
+        const asked = rowOf(summary, 'Not used').includes('and I will apply it');
+        // Exactly one of the two — never both, never neither.
+        expect(applied !== asked).toBe(true);
     });
 
     it('is never empty on a real reconstruction — a silent row would be the defect', async () => {

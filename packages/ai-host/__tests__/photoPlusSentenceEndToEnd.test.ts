@@ -152,17 +152,33 @@ describe('§CHAT-ATTACH-E2E — the photo fills what the sentence left unsaid', 
         expect((p.facade as { groundCommercialCurtain?: boolean }).groundCommercialCurtain).toBe(true);
     });
 
-    it('⛔ carries NO facadeColor — there is no colour-extraction stage in C108', async () => {
-        // A colour on the payload would be a claim about where a value came from,
-        // and the photograph did not supply it.
+    it('§L-11128 — carries the WALL colour the photo read when the sentence names none, and the spoken colour when the sentence names one', async () => {
         const brief = await briefFrom(caseC().image);
-        const p = payloadOf(
+        const silent = payloadOf(
             resolveUtterance(
                 'create a residential building as per the image on the current boundary line',
                 ctxWithPhoto(brief),
             ),
         );
-        expect((p.facade as { facadeColor?: string }).facadeColor).toBeUndefined();
+        const fromPhoto = (silent.facade as { facadeColor?: string }).facadeColor;
+        if (brief.facade.facadeColor !== undefined) {
+            // At or above the floor: the payload carries EXACTLY the measured hex.
+            expect(fromPhoto).toBe(brief.facade.facadeColor);
+            expect(fromPhoto).toMatch(/^#[0-9a-f]{6}$/);
+        } else {
+            // Under the floor: nothing is invented.
+            expect(fromPhoto).toBeUndefined();
+        }
+        // WORDS WIN: a colour in the sentence overrides whatever the photo read.
+        const spoken = payloadOf(
+            resolveUtterance(
+                'create a residential building with a green façade as per the image on the current boundary line',
+                ctxWithPhoto(brief),
+            ),
+        );
+        const fromWords = (spoken.facade as { facadeColor?: string }).facadeColor;
+        expect(fromWords).toMatch(/^#[0-9a-f]{6}$/i);
+        if (brief.facade.facadeColor !== undefined) expect(fromWords).not.toBe(brief.facade.facadeColor);
     });
 });
 

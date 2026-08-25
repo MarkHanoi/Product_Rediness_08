@@ -25,9 +25,11 @@
 //     `metersPerUnit` from a storey-height prior). So the building's SIZE comes
 //     from the FOOTPRINT — the boundary line or the site parcel — and never from
 //     the image. Nothing in this file emits a length.
-//  2. ⛔ COLOUR. There is no colour-extraction stage in C108 and this file does not
-//     add one. `facadeColor` is left UNSET here and can only arrive from the user's
-//     WORDS, through `FacadeIntent.ts`'s existing colour vocabulary.
+//  2. COLOUR — §L-11128. S17 measures the WALL colour (median between the openings,
+//     uniformity share as confidence). This file passes it at or above the floor and
+//     names it either way; the sentence's colour still wins in the resolver's merge.
+//     The tile PATTERN remains refused (item 3) — a colour is a number, a pattern is
+//     a falsified stage.
 //  3. ⛔ TILE PITCH IS FALSIFIED, NOT MERELY UNPROVEN (L-11012). `surface/tiling.ts`
 //     returns the OPENING LATTICE instead of the tile pitch, at confidence
 //     0.69–0.79, and 2x/3x the truth on clean input. It is tagged UNVERIFIED in the
@@ -150,8 +152,8 @@ export interface FacadePhotoBrief {
     /** True when a storey count WAS read but sits under the floor: ASK, never
      *  silently use it and never silently drop it. */
     readonly storeysBelowFloor: boolean;
-    /** The façade fields the photo supports at or above the floor. ⛔ Never
-     *  carries `facadeColor` — see the header. */
+    /** The façade fields the photo supports at or above the floor — including,
+     *  since §L-11128, `facadeColor` from the S17 wall reading. */
     readonly facade: FacadeIntent;
     /**
      * ⭐⭐ §GEN-FACADE-OPENINGS (L-11080) — THE OPENING LATTICE ITSELF: bays, bands,
@@ -239,6 +241,8 @@ export function mapFacadeIRToPhotoBrief(result: FacadeReconstructionResult): Fac
         groundCommercialCurtain?: boolean;
         balconies?: boolean;
         roofGarden?: boolean;
+        /** §L-11128 — from the S17 colour stage, at or above the floor only. */
+        facadeColor?: string;
     } = {};
 
     const zones = ir.facade.zones;
@@ -430,12 +434,39 @@ export function mapFacadeIRToPhotoBrief(result: FacadeReconstructionResult): Fac
         'the building SIZE — a photograph carries no metres unless you set a reference dimension, so ' +
         'the footprint decides the size, never the image',
     );
-    // ⛔ COLOUR — there is no colour-extraction stage, and this is said out loud
-    // rather than left as a silent absence.
-    notUsed.push(
-        `${PHOTO_NOT_USED_COLOUR_PREFIX} — nothing here reads colour out of an image. Say it in ` +
-        'words ("a green façade") and I will apply it',
-    );
+    // ── COLOUR (§L-11128) — S17 now MEASURES it: the median of the wall between the
+    // openings, with a uniformity share as its confidence. The tile PATTERN stays
+    // refused (L-11012); the tile's COLOUR is a number. The sentence still wins —
+    // the resolver merges words over photo — this only fills what words left unsaid.
+    const colour = diagnostics.colour;
+    const colourConfidence = colour?.confidence ?? null;
+    if (colour?.wall !== null && colour?.wall !== undefined) {
+        const label = `a façade colour of ${colour.wall.hex} (the wall between the openings)`;
+        if (atOrAboveFloor(colourConfidence)) {
+            facade.facadeColor = colour.wall.hex;
+            read.push({ label, confidence: colourConfidence, belowFloor: false });
+        } else {
+            read.push({ label, confidence: colourConfidence, belowFloor: true });
+            notUsed.push(
+                `${PHOTO_NOT_USED_COLOUR_PREFIX} — read ${colour.wall.hex} at confidence ` +
+                `${colourConfidence === null ? 'UNKNOWN' : colourConfidence.toFixed(2)}, under the floor. ` +
+                'Say it in words ("a green façade") and I will apply it',
+            );
+        }
+        if (colour.openings !== null) {
+            // Reported, NOT applied: there is no proven route from a colour to the
+            // window leaves/shutters in the generator. Naming it is the honest half.
+            notUsed.push(
+                `the OPENING colour — read ${colour.openings.hex} inside the windows (shutters, ` +
+                'glass, curtains); the generator has no route from a colour to the window leaves yet',
+            );
+        }
+    } else {
+        notUsed.push(
+            `${PHOTO_NOT_USED_COLOUR_PREFIX} — no rectified façade to read it from. Say it in ` +
+            'words ("a green façade") and I will apply it',
+        );
+    }
 
     // ── ⭐⭐ THE OPENING LATTICE — the measurement the four booleans could not carry ──
     // §GEN-FACADE-OPENINGS (L-11080 · C108 Milestone 2, L-11006). Before this, the

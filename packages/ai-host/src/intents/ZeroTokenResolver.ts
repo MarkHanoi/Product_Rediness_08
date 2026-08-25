@@ -2839,9 +2839,9 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       // ── §GEN-PHOTO-BRIEF (L-11020) — MERGE, then SHOW WHAT CAME FROM WHERE ──
       //
       // ⛔ THE SENTENCE WINS EVERY FIELD IT SPEAKS TO. The photo fills only what the
-      // words left unsaid. `facadeColor` is deliberately absent from the photo side
-      // and cannot appear here: there is no colour-extraction stage in C108 and this
-      // lane did not add one.
+      // words left unsaid — INCLUDING, since §L-11128, `facadeColor`: the S17 stage
+      // measures the wall colour and the mapper passes it only at or above its floor.
+      // The spread order below is the precedence: words last, so words win.
       const photoFacadeFields = photo?.facade ?? {};
       const mergedFacade =
         photo === undefined
@@ -2862,6 +2862,10 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         }
         if (photoFacadeFields.balconies === true && si.facade?.balconies === undefined) {
           photoFacadeApplied.push('balconies');
+        }
+        // §L-11128 — colour read from the photograph and NOT overridden by words.
+        if (typeof photoFacadeFields.facadeColor === 'string' && si.facade?.facadeColor === undefined) {
+          photoFacadeApplied.push(`the façade colour ${photoFacadeFields.facadeColor} read from the wall`);
         }
         // §HONESTY65-ARCHES-ROW (L-11152) — arcade built ⇒ SAY SO. The removed
         // "can't do arches" row is replaced by the positive fact, on the same
@@ -2902,10 +2906,10 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
             `${r.label} (${describeConfidence(r.confidence)}` +
             `${r.belowFloor ? `, UNDER my ${FACADE_PHOTO_CONFIDENCE_FLOOR.toFixed(2)} floor` : ''})`,
         );
-        // ROW 2 — WHAT HIS WORDS SUPPLIED. ⛔ The façade COLOUR lives on this row
-        // and can live nowhere else: there is no colour-extraction stage in C108
-        // and this lane did not add one. A colour on the photo row would be a lie
-        // about where a value came from.
+        // ROW 2 — WHAT HIS WORDS SUPPLIED. The façade COLOUR lives here when the
+        // sentence named it; since §L-11128 the photograph can read one too (S17),
+        // and that reading appears on the PHOTO row with its own confidence. The
+        // merge is words-over-photo, and the overridden reading is named.
         const fromWords: string[] = [label];
         if (effectiveFloors !== null && !floorsFromPhoto) fromWords.push(`${effectiveFloors} storeys`);
         fromWords.push(...facadeApplied);
@@ -2933,13 +2937,22 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         // this layer can say it correctly — the row is still SHOWN (the photograph
         // genuinely supplied no colour), it is just no longer asking for something
         // it already has.
-        const colourFromWords = mergedFacadeOut?.facadeColor !== undefined;
+        const colourFromWords = si.facade?.facadeColor !== undefined;
+        const colourFromPhoto = photoFacadeFields.facadeColor;
         notUsedRows = photo.notUsed.map((n) =>
           colourFromWords && n.startsWith(PHOTO_NOT_USED_COLOUR_PREFIX)
-            ? `${PHOTO_NOT_USED_COLOUR_PREFIX} — not read from the image (nothing here reads colour ` +
-              `out of a photo); it came from your words instead`
+            ? `${PHOTO_NOT_USED_COLOUR_PREFIX} — it came from your words instead, and words win ` +
+              `over the photograph's reading`
             : n,
         );
+        // §L-11128 — the photo DID read a usable colour, but the sentence named one:
+        // words win, and the overridden reading is named rather than silently lost.
+        if (colourFromWords && typeof colourFromPhoto === 'string') {
+          notUsedRows.push(
+            `${PHOTO_NOT_USED_COLOUR_PREFIX} read from the wall (${colourFromPhoto}) — ` +
+              `it came from your words instead, and words win over the photograph's reading`,
+          );
+        }
         photoBlock =
           `\n\nFrom the photo: ${fromPhoto.length > 0 ? fromPhoto.join(DOT) : 'nothing usable'}` +
           (photoFacadeApplied.length > 0 ? ` → applying ${photoFacadeApplied.join(DOT)}` : '') +

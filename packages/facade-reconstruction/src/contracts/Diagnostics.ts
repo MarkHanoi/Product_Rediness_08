@@ -151,6 +151,17 @@ export interface FacadeDiagnostics {
     readonly soffits: readonly { readonly y: number; readonly bandHeight: number; readonly drop: number }[];
     /** brief §18 — "confidence heatmap", one value per cell, row-major. */
     readonly confidenceHeatmap: readonly (number | null)[];
+    /**
+     * §L-11128 — measured colour (S17). REPORTING only: the wall's and the matched
+     * openings' median RGB with a uniformity `share`; `confidence` is the wall
+     * share when a facade plane exists and `null` (UNKNOWN) otherwise. The mapper's
+     * own floor decides whether it reaches a building; nothing here does.
+     */
+    readonly colour: {
+        readonly wall: { readonly hex: string; readonly share: number; readonly samples: number } | null;
+        readonly openings: { readonly hex: string; readonly share: number; readonly samples: number } | null;
+        readonly confidence: number | null;
+    };
     /** Human-readable trace: what each stage did, and what it REFUSED to do. */
     readonly notes: readonly string[];
 }

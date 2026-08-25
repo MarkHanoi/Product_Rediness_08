@@ -60,6 +60,7 @@ import {
 import { findBlobs, fitArch, otsuThreshold } from './reconstruction/openings/detect.js';
 import { measureCurvature } from './reconstruction/curvature/residual.js';
 import { detectSoffits } from './reconstruction/projections/soffit.js';
+import { measureColour } from './reconstruction/surface/colour.js';
 import { measureSurface } from './reconstruction/surface/tiling.js';
 import { unknownScale } from './reconstruction/scale/referenceDimension.js';
 
@@ -485,6 +486,16 @@ function runPipeline(image: RasterImage, opts: FacadeReconstructionOptions): Fac
         `openings: ${assigned.size} matched to cells, ${features.length} feature(s), ${outliers.length} outlier(s)`,
     );
 
+    // ── S17 COLOUR (§L-11128) — the wall between the openings, and the openings ──
+    // Measured on the RECTIFIED colour raster with every detected blob masked out
+    // of the wall sample; reported, never gated here (the mapper's floor decides).
+    const colour = measureColour(
+        quad === null ? null : rectified,
+        diagBlobs.map((b) => ({ bbox: b.bbox, matched: b.matchedCell !== null })),
+        quad !== null,
+    );
+    notes.push(...colour.notes);
+
     // ── S15 SOFFITS (brief §11) ──────────────────────────────────────────────
     //
     // ⚠ THE STRUCTURE ROWS, NOT THE LATTICE BOUNDARIES. Those are different lines and
@@ -655,6 +666,7 @@ function runPipeline(image: RasterImage, opts: FacadeReconstructionOptions): Fac
         vanishingPoints: { horizontal: vpH, vertical: vpV },
         facadeQuad: { quad, status: quadStatus, confidence: quad === null ? null : quadConfidence },
         rectified: { image: quad === null ? null : rectified, aspect },
+        colour: { wall: colour.wall, openings: colour.openings, confidence: colour.confidence },
         rows: rowsDiag,
         cols: colsDiag,
         lattice: {
