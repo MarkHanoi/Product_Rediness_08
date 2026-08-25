@@ -50,6 +50,30 @@ describe('§FORMA-WHITE-MATERIAL — classifyFormaWhiteRole', () => {
     expect(classifyFormaWhiteRole(undefined, brick)).toBe('opaque');
   });
 
+  it('§CW90 item 6 — a curtain PANEL with the authored glazing material reads as glass', () => {
+    // The founder's exact shape: `glass-ultra-clear` from the material catalogue
+    // is a MeshStandardMaterial — transparent + opacity 0.18, NO transmission,
+    // depthWrite left true — stamped on a mesh whose own elementType is
+    // 'CurtainWallPart' (which shadows the parent group's 'CurtainWall').
+    const glassUltraClear = new THREE.MeshStandardMaterial({
+      color: 0xeef8ff, transparent: true, opacity: 0.18,
+    });
+    expect(classifyFormaWhiteRole('CurtainWallPart', glassUltraClear)).toBe('glass');
+    expect(classifyFormaWhiteRole('CurtainPanel', glassUltraClear)).toBe('glass');
+    expect(classifyFormaWhiteRole('curtain-panel', glassUltraClear)).toBe('glass');
+    expect(classifyFormaWhiteRole('CurtainPanelInstanced', glassUltraClear)).toBe('glass');
+  });
+
+  it('§CW90 item 6 — a MULLION part and a STONE panel stay opaque (no forced glass invariant)', () => {
+    const anodisedAlu = new THREE.MeshStandardMaterial({ color: 0x999999 });
+    // A mullion is also elementType 'CurtainWallPart' — its opaque material decides.
+    expect(classifyFormaWhiteRole('CurtainWallPart', anodisedAlu)).toBe('opaque');
+    // A marble/metal infill PANEL must not be repainted as glass either —
+    // CurtainWallInstanceManager forces no glass invariant, and neither may we.
+    expect(classifyFormaWhiteRole('CurtainPanel', anodisedAlu)).toBe('opaque');
+    expect(classifyFormaWhiteRole('CurtainPanelInstanced', anodisedAlu)).toBe('opaque');
+  });
+
   it('accepts a material array (uses the first) and a null material', () => {
     const glass = new THREE.MeshPhysicalMaterial({ transmission: 0.7 });
     const brick = new THREE.MeshStandardMaterial({ color: 0x333333 });

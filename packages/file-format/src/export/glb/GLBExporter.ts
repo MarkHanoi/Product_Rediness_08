@@ -374,9 +374,38 @@ const GLASS_ELEMENT_TYPES = new Set<string>([
   'window',
   'curtainwall',
   'curtain-wall',
-  'curtainpanel',
   'glazing',
   'skylight',
+]);
+
+/**
+ * §CW90 item 6 — curtain PANEL / part element types, classified by their
+ * AUTHORED material rather than unconditionally.
+ *
+ * The founder's report: a `SystemPanel_Glass` panel (materialId
+ * `glass-ultra-clear`) rendered OPAQUE in the 3-D Site while windows read as
+ * glass. Both classifier arms missed it, measured:
+ *   • the type walk stops at the leaf's own `userData.elementType` —
+ *     `'CurtainWallPart'` (CurtainWallBuilder :1230/:2035) — which was in NO
+ *     set, shadowing the parent group's glass-eligible `'CurtainWall'`;
+ *   • the material is a `MeshStandardMaterial` from the catalogue row
+ *     (`glass-ultra-clear`: transparent + opacity 0.18, NO `transmission`,
+ *     `depthWrite` left true), so the physical-glass sniff missed too.
+ *
+ * ⛔ These kinds must NOT go into `GLASS_ELEMENT_TYPES` wholesale:
+ * `'CurtainWallPart'` covers MULLIONS as well as panels, and a panel may be
+ * marble or metal — `CurtainWallInstanceManager` deliberately forces no glass
+ * invariant ("⚠ NO GLASS INVARIANTS ARE FORCED HERE"). So a curtain
+ * panel/part is glass exactly when its authored material says transparent —
+ * the glazing catalogue rows do, stone/metal infills and mullions do not.
+ * (`'curtainpanel'` moved here FROM the unconditional set for the same
+ * reason: a marble panel repainted as forma glass was the inverse defect.)
+ */
+const CURTAIN_PANEL_ELEMENT_TYPES = new Set<string>([
+  'curtainpanel',
+  'curtain-panel',
+  'curtainpanelinstanced',
+  'curtainwallpart',
 ]);
 
 /**
@@ -401,14 +430,22 @@ export function classifyFormaWhiteRole(
   elementType: string | undefined,
   material: THREE.Material | THREE.Material[] | null | undefined,
 ): FormaWhiteRole {
-  if (elementType && GLASS_ELEMENT_TYPES.has(elementType.toLowerCase())) return 'glass';
+  const lt = elementType?.toLowerCase();
+  if (lt !== undefined && GLASS_ELEMENT_TYPES.has(lt)) return 'glass';
   const mat = Array.isArray(material) ? material[0] : material;
-  if (mat) {
-    const m = mat as THREE.Material & {
-      transmission?: number;
-      transparent?: boolean;
-      depthWrite?: boolean;
-    };
+  const m = mat as (THREE.Material & {
+    transmission?: number;
+    transparent?: boolean;
+    depthWrite?: boolean;
+  }) | null | undefined;
+  // §CW90 item 6 — a curtain panel/part follows its AUTHORED material: the
+  // glazing catalogue rows are `transparent: true` (depthWrite untouched, no
+  // transmission — which is why the arms below missed them), stone/metal
+  // panels and mullions are not. See CURTAIN_PANEL_ELEMENT_TYPES.
+  if (lt !== undefined && CURTAIN_PANEL_ELEMENT_TYPES.has(lt)) {
+    return m?.transparent === true ? 'glass' : 'opaque';
+  }
+  if (m) {
     if (typeof m.transmission === 'number' && m.transmission > 0) return 'glass';
     if (m.transparent === true && m.depthWrite === false) return 'glass';
   }
