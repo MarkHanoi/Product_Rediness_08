@@ -76,25 +76,55 @@ export function overlayFacadeQuad(d: FacadeDiagnostics): RasterImage {
     return out;
 }
 
-/** brief §18 — horizontal floor/zone lines and vertical bay lines, rectified. */
+/** A dashed line, for the reading that was NOT used. */
+function dashed(image: RasterImage, x0: number, y0: number, x1: number, y1: number, c: Rgba): void {
+    const steps = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0)));
+    for (let i = 0; i <= steps; i++) {
+        if (i % 10 >= 5) continue;
+        const t = i / steps;
+        blend(image, x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, c);
+    }
+}
+
+/**
+ * brief §18 — horizontal floor/zone lines and vertical bay lines, rectified.
+ *
+ * ⭐ SOLID CYAN IS THE LATTICE THAT WAS USED. Dashed grey is the RIVAL reading —
+ * the projection-profile comb when the openings were believed, and nothing when the
+ * profile was. Both are drawn because C108 §3.4 keeps both alive and a disagreement
+ * between them is the most useful thing this picture can show.
+ *
+ * ⚠ This layer used to draw ONLY the comb teeth. On the founder's first real
+ * photograph the comb period was half the facade, so it drew ONE line on a building
+ * with seven storeys and he correctly read that as the pipeline seeing one floor.
+ * The comb is not the lattice and has not been since 2026-08-25 (L-10971).
+ */
 export function overlayStructure(d: FacadeDiagnostics): RasterImage | null {
     const rect = d.rectified.image;
     if (rect === null) return null;
     const out = clone(rect);
+    const rival: Rgba = { r: 0x70, g: 0x70, b: 0x7a, a: 0.7 };
+
+    for (const b of d.lattice.zones.boundaries) line(out, 0, b, out.width - 1, b, CYAN);
+    for (const b of d.lattice.bays.boundaries) line(out, b, 0, b, out.height - 1, CYAN);
+
     const rows = d.rows;
     const cols = d.cols;
-    if (rows !== null && rows.period !== null && rows.phase !== null) {
+    if (d.lattice.zones.source === 'openings' && rows !== null && rows.period !== null && rows.phase !== null) {
         for (let p = rows.phase; p < out.height; p += rows.period) {
-            line(out, 0, p, out.width - 1, p, CYAN);
+            dashed(out, 0, p, out.width - 1, p, rival);
         }
-        for (const b of rows.breaks) line(out, 0, b, out.width - 1, b, AMBER);
     }
-    if (cols !== null && cols.period !== null && cols.phase !== null) {
+    if (d.lattice.bays.source === 'openings' && cols !== null && cols.period !== null && cols.phase !== null) {
         for (let p = cols.phase; p < out.width; p += cols.period) {
-            line(out, p, 0, p, out.height - 1, CYAN);
+            dashed(out, p, 0, p, out.height - 1, rival);
         }
-        for (const b of cols.breaks) line(out, b, 0, b, out.height - 1, AMBER);
     }
+    // AMBER = a periodicity BREAK (brief §14) — where the comb stops fitting. Still
+    // worth drawing whichever source won: it is a measurement about the facade.
+    if (rows !== null) for (const b of rows.breaks) line(out, 0, b, out.width - 1, b, AMBER);
+    if (cols !== null) for (const b of cols.breaks) line(out, b, 0, b, out.height - 1, AMBER);
+
     if (d.symmetry.axisX !== null) {
         const x = d.symmetry.axisX * out.width;
         line(out, x, 0, x, out.height - 1, PRYZM_PURPLE);

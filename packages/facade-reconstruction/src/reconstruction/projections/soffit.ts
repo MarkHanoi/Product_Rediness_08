@@ -42,6 +42,33 @@ function rowBandMean(img: GrayImage, y0: number, y1: number): number {
 }
 
 /**
+ * The WALL LEVEL of a reference band, as a high percentile of its pixels.
+ *
+ * ⛔ NOT THE MEAN, and the difference is the whole stage (§L-10974). The reference
+ * band is "the facade in daylight", and on a real facade it contains WINDOWS. On
+ * corpus case L the openings fill 60% of every bay, so the band's MEAN reads ~104
+ * where the wall is ~200 — and a soffit at ~94 then shows a drop of 10 against a
+ * `soffitMinDrop` of 12, so every balcony on the building is silently missed. The
+ * mean is measuring the windows; the percentile measures the wall.
+ *
+ * Deterministic: an explicit ascending sort and an index, never a hash order
+ * (C108 §5.2).
+ */
+function wallLevel(img: GrayImage, y0: number, y1: number, percentile: number): number {
+    const from = Math.max(0, y0);
+    const to = Math.min(img.height, y1);
+    if (to <= from) return 0;
+    const values: number[] = [];
+    for (let y = from; y < to; y++) {
+        for (let x = 0; x < img.width; x++) values.push(img.data[y * img.width + x]!);
+    }
+    if (values.length === 0) return 0;
+    values.sort((a, b) => a - b);
+    const i = Math.min(values.length - 1, Math.max(0, Math.round((values.length - 1) * percentile)));
+    return values[i]!;
+}
+
+/**
  * Fraction of columns in a row that are darker than `reference` by `minDrop`.
  *
  * ⭐ THE CRITERION THAT STOPS EVERY WINDOW ROW READING AS A BALCONY. A soffit is a
@@ -60,12 +87,74 @@ function rowDarkCoverage(img: GrayImage, y: number, reference: number, minDrop: 
 }
 
 /**
- * Find soffit/shadow bands beneath the given slab lines.
+ * Grow a contiguous dark band away from `y` in `direction`, against a reference
+ * taken on the OTHER side. Returns the band's extent in rows and its mean drop.
+ */
+function growBand(
+    rectified: GrayImage,
+    y: number,
+    direction: -1 | 1,
+    maxSearch: number,
+    refHeight: number,
+    opts: FacadeReconstructionOptions,
+): { band: number; drop: number; terminated: boolean } {
+    const h = rectified.height;
+    // The reference sits IMMEDIATELY on the far side of the line. Local, because the
+    // wall's level varies down a facade and a reference taken two window-rows away
+    // is a measurement of a different piece of wall.
+    const refFrom = direction === 1 ? y - refHeight : y + 1;
+    const reference = wallLevel(rectified, refFrom, refFrom + refHeight, opts.soffitReferencePercentile);
+    if (reference <= 0) return { band: 0, drop: 0, terminated: false };
+    let band = 0;
+    let dropSum = 0;
+    let terminated = false;
+    for (let d = 1; d <= maxSearch; d++) {
+        const row = y + direction * d;
+        if (row < 0 || row >= h) break;
+        const drop = reference - rowBandMean(rectified, row, row + 1);
+        // ⛔ And it must be dark ACROSS the row, not on average — see the header.
+        if (
+            drop < opts.soffitMinDrop ||
+            rowDarkCoverage(rectified, row, reference, opts.soffitMinDrop) < opts.soffitMinCoverage
+        ) {
+            terminated = true;
+            break;
+        }
+        band = d;
+        dropSum += drop;
+    }
+    return { band, drop: band > 0 ? dropSum / band : 0, terminated };
+}
+
+/**
+ * Find soffit/shadow bands adjacent to the given slab lines.
  *
- * The reference is the band ABOVE the slab line (facade wall in daylight); the
- * candidate is the band below (soffit, in shade). A projecting slab casts; a flush
- * facade does not. The band is grown downward while it stays darker than the
- * reference by `soffitMinDrop`, and its height is what gets reported.
+ * The reference is the wall on the far side of the line (facade in daylight); the
+ * candidate is the band on the near side (soffit, in shade). A projecting slab
+ * casts; a flush facade does not. The band is grown while it stays darker than the
+ * reference by `soffitMinDrop` AND dark across `soffitMinCoverage` of the row, and
+ * its height is what gets reported.
+ *
+ * ── ⚠ WHY THE SEARCH RUNS BOTH WAYS (§L-10974, measured 2026-08-25) ──────────
+ * It used to search DOWNWARD only, on the reasoning that a soffit is beneath a
+ * slab. That is true of the SOFFIT and false of the LINE the stage is handed.
+ * `slabRows` are peaks of the row gradient profile, and a shadow band has TWO
+ * strong edges — its top and its bottom. `findPeaks` suppresses peaks closer
+ * together than `minPeakSeparationFraction` of the height, so as soon as the band
+ * is THINNER than that separation the two edges collapse into ONE surviving peak,
+ * and which one survives is decided by a fraction of a level.
+ *
+ * Measured: corpus case D (4 storeys, band 10 rows, separation 8) keeps both edges
+ * and reports three balconies. Corpus case L (7 zones, band 7.6 rows, separation
+ * 10) keeps ONE — and it is the band's BOTTOM, so a downward search reads wall and
+ * every balcony on the building is silently missed. ⭐ The failure grows with the
+ * STOREY COUNT, which is why four synthetic storeys never showed it and the
+ * founder's seven-storey building would have.
+ *
+ * Which side of a detected edge the shade lies on is a MEASUREMENT, so it is
+ * measured: both directions are grown, the longer run wins (ties -> downward, so
+ * the choice is a total order), and cues whose bands overlap are the same band seen
+ * from both ends and are merged.
  */
 export function detectSoffits(
     rectified: GrayImage,
@@ -75,27 +164,46 @@ export function detectSoffits(
     const h = rectified.height;
     const maxSearch = Math.max(2, Math.round(h * opts.soffitSearchFraction));
     const refHeight = Math.max(2, Math.round(h * 0.02));
-    const out: SoffitCue[] = [];
+    const found: { top: number; bottom: number; drop: number }[] = [];
 
     for (const y of [...slabRows].sort((a, b) => a - b)) {
-        const reference = rowBandMean(rectified, y - refHeight * 2, y - refHeight);
-        if (reference <= 0) continue;
-        let band = 0;
-        let dropSum = 0;
-        for (let d = 1; d <= maxSearch && y + d < h; d++) {
-            const level = rowBandMean(rectified, y + d, y + d + 1);
-            const drop = reference - level;
-            if (drop < opts.soffitMinDrop) break;
-            // ⛔ And it must be dark ACROSS the row, not on average — see the header.
-            if (rowDarkCoverage(rectified, y + d, reference, opts.soffitMinDrop) < opts.soffitMinCoverage) {
-                break;
+        const down = growBand(rectified, y, 1, maxSearch, refHeight, opts);
+        const up = growBand(rectified, y, -1, maxSearch, refHeight, opts);
+        const useDown = down.band >= up.band;
+        const chosen = useDown ? down : up;
+        if (chosen.band < 2) continue;
+        // ⛔ A SOFFIT IS A BAND, SO IT HAS TWO EDGES. A run that stopped because it
+        // reached the image edge or the search cap never found its far side, and is
+        // therefore a half-plane: the sky above a parapet (corpus K2/K3) and case
+        // B's full-width ground opening both satisfy every other criterion and are
+        // both rejected here. Without this, adding the upward search would have
+        // traded one silent miss for three confident inventions.
+        if (!chosen.terminated) continue;
+        found.push(
+            useDown
+                ? { top: y, bottom: y + chosen.band, drop: chosen.drop }
+                : { top: y - chosen.band, bottom: y, drop: chosen.drop },
+        );
+    }
+
+    // Merge overlapping bands: one shadow band found from its top and again from its
+    // bottom is ONE balcony, and reporting it twice would double every count a
+    // consumer makes of them.
+    found.sort((a, b) => a.top - b.top || a.bottom - b.bottom);
+    const out: SoffitCue[] = [];
+    let last: { top: number; bottom: number; drop: number } | null = null;
+    for (const f of found) {
+        if (last !== null && f.top < last.bottom) {
+            if (f.bottom - f.top > last.bottom - last.top) {
+                last.top = f.top;
+                last.bottom = f.bottom;
+                last.drop = f.drop;
+                out[out.length - 1] = { y: last.top, bandHeight: last.bottom - last.top, drop: last.drop };
             }
-            band = d;
-            dropSum += drop;
+            continue;
         }
-        if (band >= 2) {
-            out.push({ y, bandHeight: band, drop: dropSum / band });
-        }
+        last = { ...f };
+        out.push({ y: f.top, bandHeight: f.bottom - f.top, drop: f.drop });
     }
     return out;
 }

@@ -241,6 +241,16 @@ export interface FacadeReconstructionOptions {
      * reports three balconies it does not have.
      */
     soffitMinCoverage: number;
+    /**
+     * Percentile of the reference band taken as THE WALL LEVEL.
+     *
+     * ⛔ Not the mean. The reference band is the facade in daylight and a real
+     * facade has WINDOWS in it: on case L the openings fill 60% of every bay, so the
+     * band's mean reads ~104 where the wall reads ~200 and the soffit drop vanishes
+     * below `soffitMinDrop`. 0.75 is the standard robust choice — it survives a
+     * reference band that is up to three-quarters dark.
+     */
+    soffitReferencePercentile: number;
 
     // ── S16 surface (brief §13) ──────────────────────────────────────────────
     /** Min autocorrelation peak for a tiling pattern to be reported as `grid`. */
@@ -339,6 +349,7 @@ export const DEFAULT_OPTIONS: Readonly<FacadeReconstructionOptions> = Object.fre
     soffitSearchFraction: 0.25,
     soffitMinDrop: 12,
     soffitMinCoverage: 0.75,
+    soffitReferencePercentile: 0.75,
 
     surfaceMinPeak: 0.35,
 });
