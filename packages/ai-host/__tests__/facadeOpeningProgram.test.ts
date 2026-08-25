@@ -17,6 +17,8 @@ import { reconstructFacade } from '@pryzm/facade-reconstruction';
 import { CASE_L_TRUTH, caseA, caseC, caseL } from '@pryzm/facade-reconstruction/testing';
 import { SEGMENTAL_RISE_RATIO } from '@pryzm/geometry-wall';
 
+import { mapFacadeIRToPhotoBrief } from '../src/intents/FacadePhotoBrief.js';
+import { resolveUtterance, type ResolverContext, type ZeroTokenResolution } from '../src/intents/ZeroTokenResolver.js';
 import {
     PROFILE_CANONICAL_ARCHNESS,
     extractFacadeOpeningProgram,
@@ -272,5 +274,71 @@ describe('§GEN-FACADE-OPENINGS — end to end on the founder\'s image CLASS', (
         });
         expect(plan.openings.length).toBeGreaterThan(0);
         expect(plan.openings.every((o) => o.openingProfile === 'rectangular')).toBe(true);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ⭐⭐ REACHABILITY. [[committed-is-not-reachable]] — a pure function that returns
+// the right object proves NOTHING if no payload ever carries it. The founder's
+// building came out a plain white box while `mapFacadeIRToPhotoBrief` was already
+// green, because the CHANNEL stopped at four booleans. These assertions are about
+// the channel.
+describe('§GEN-FACADE-OPENINGS — the lattice REACHES the generation payload', () => {
+    let seq = 0;
+    const ctxWithPhoto = (photoFacade: ReturnType<typeof mapFacadeIRToPhotoBrief>): ResolverContext => ({
+        selection: [],
+        levels: [{ id: 'L0', name: 'Level 0', elevation: 0 }],
+        activeLevelId: 'L0',
+        mintId: () => `m2-${++seq}`,
+        photoFacade,
+    });
+    const payloadOf = (r: ZeroTokenResolution): Record<string, unknown> => {
+        if (r.kind !== 'commands') throw new Error(`expected commands, got "${r.kind}"`);
+        const cmd = r.commands.find((c) => c.type === 'generation.building');
+        if (cmd === undefined) throw new Error('no generation.building command');
+        return cmd.payload as Record<string, unknown>;
+    };
+    /** The founder's sentence, verbatim from the brief that opened this lane. */
+    const SENTENCE = 'GENERATE 5-STOREY RESIDENTIAL BUILDING WITH THE FACADE AS PER THE ATTACHED PHOTO';
+
+    it('⭐⭐ carries `facadeOpeningProgram` on the generation.building payload', async () => {
+        const brief = mapFacadeIRToPhotoBrief(await reconstructFacade(caseL().image));
+        const payload = payloadOf(resolveUtterance(SENTENCE, ctxWithPhoto(brief)));
+        const program = payload['facadeOpeningProgram'] as FacadeOpeningProgram | undefined;
+        expect(program).toBeDefined();
+        // The numbers the corpus generator DREW, arriving at the executor's door.
+        expect(program!.bays).toBe(CASE_L_TRUTH.bays);
+        expect(program!.bands).toBe(CASE_L_TRUTH.zones);
+        expect(program!.cells.length).toBeGreaterThan(4);
+    });
+
+    it('⭐ THE SENTENCE STILL WINS ON COUNT — 5 storeys asked, 7 bands measured', async () => {
+        const brief = mapFacadeIRToPhotoBrief(await reconstructFacade(caseL().image));
+        const payload = payloadOf(resolveUtterance(SENTENCE, ctxWithPhoto(brief)));
+        // He typed FIVE. The photograph shows SEVEN. The existing precedence is
+        // reused, not re-decided: the payload's storey count is the sentence's, and
+        // the lattice rides alongside it as RHYTHM.
+        expect(payload['floors']).toBe(5);
+        expect((payload['facadeOpeningProgram'] as FacadeOpeningProgram).bands).toBe(CASE_L_TRUTH.zones);
+    });
+
+    it('⛔ omits the lattice entirely when no photograph was attached', () => {
+        const ctx: ResolverContext = {
+            selection: [], levels: [{ id: 'L0', name: 'Level 0', elevation: 0 }],
+            activeLevelId: 'L0', mintId: () => `m2-${++seq}`,
+        };
+        const payload = payloadOf(resolveUtterance(SENTENCE, ctx));
+        expect(payload['facadeOpeningProgram']).toBeUndefined();
+    });
+
+    it('⛔ NAMES the upper floors as NOT built from the photo, before he confirms', async () => {
+        const brief = mapFacadeIRToPhotoBrief(await reconstructFacade(caseL().image));
+        expect(brief.openings).not.toBeNull();
+        // Only the GROUND storey is laid out from the measured lattice today. Claiming
+        // the whole elevation while building one storey of it is the silent-half-success
+        // C108 §0.3 exists to stop.
+        expect(brief.notUsed.join(' ')).toContain('UPPER-floor window rhythm');
+        // And the sill, which the IR cannot supply at all (C108 §1.1 — no x/y).
+        expect(brief.notUsed.join(' ')).toContain('sill height');
     });
 });

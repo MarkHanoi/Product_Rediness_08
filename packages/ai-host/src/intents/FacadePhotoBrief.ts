@@ -52,6 +52,7 @@ import type {
 } from '@pryzm/facade-reconstruction';
 
 import type { FacadeIntent } from './FacadeIntent.js';
+import { extractFacadeOpeningProgram, type FacadeOpeningProgram } from './FacadeOpeningProgram.js';
 
 // ─── The thresholds. Each one names the corpus reading that fixes it. ────────
 
@@ -152,6 +153,24 @@ export interface FacadePhotoBrief {
     /** The façade fields the photo supports at or above the floor. ⛔ Never
      *  carries `facadeColor` — see the header. */
     readonly facade: FacadeIntent;
+    /**
+     * ⭐⭐ §GEN-FACADE-OPENINGS (L-11080) — THE OPENING LATTICE ITSELF: bays, bands,
+     * per-cell size FRACTIONS and a CONTINUOUS archness.
+     *
+     * This is the field the four booleans above could never be. `facade` says
+     * "this ground floor is arcaded, yes/no"; this says HOW MANY BAYS, HOW WIDE
+     * EACH OPENING IS RELATIVE TO ITS CELL, and HOW ARCHED ITS HEAD IS. The
+     * founder's ~35 measured openings had nowhere to go before it existed.
+     *
+     * `null` when the image supports no lattice — the same refusal this file's
+     * two early returns make, so the two halves of the bridge cannot disagree
+     * about whether an image is a façade.
+     *
+     * ⛔ HELD BELOW THE CONFIDENCE FLOOR, exactly like every other reading. A
+     * lattice read at UNKNOWN confidence is not a lattice worth building from
+     * (C108 §4.3 — unknown in ⇒ unknown out).
+     */
+    readonly openings: FacadeOpeningProgram | null;
     /** Every reading, applied or not, each with its confidence. */
     readonly read: readonly FacadePhotoReading[];
     /** Detected, and NOT fed into generation — with the reason, always. */
@@ -235,6 +254,7 @@ export function mapFacadeIRToPhotoBrief(result: FacadeReconstructionResult): Fac
             storeysConfidence: null,
             storeysBelowFloor: true,
             facade: {},
+            openings: null,
             read: [
                 {
                     label: zones.length > 0 ? `${zones.length} horizontal band(s)` : 'no horizontal bands',
@@ -263,6 +283,7 @@ export function mapFacadeIRToPhotoBrief(result: FacadeReconstructionResult): Fac
             storeysConfidence: null,
             storeysBelowFloor: true,
             facade: {},
+            openings: null,
             read: [
                 { label: `${zones.length} horizontal band(s)`, confidence: planeConfidence, belowFloor: true },
                 { label: `${openingCount} opening(s)`, confidence: planeConfidence, belowFloor: true },
@@ -416,11 +437,70 @@ export function mapFacadeIRToPhotoBrief(result: FacadeReconstructionResult): Fac
         'words ("a green façade") and I will apply it',
     );
 
+    // ── ⭐⭐ THE OPENING LATTICE — the measurement the four booleans could not carry ──
+    // §GEN-FACADE-OPENINGS (L-11080 · C108 Milestone 2, L-11006). Before this, the
+    // whole photo → generator channel was `groundCommercialCurtain` / `balconies` /
+    // `roofGarden` / `facadeColor`, and the founder's ~35 measured openings, five
+    // arches and five bays had NOWHERE TO GO. His building came out a plain white box
+    // with balconies — and it had balconies only because `balconies` happened to be
+    // one of the four.
+    const program = extractFacadeOpeningProgram(ir);
+    let openings: FacadeOpeningProgram | null = null;
+    if (program !== null) {
+        const usable = atOrAboveFloor(program.confidence);
+        read.push({
+            label:
+                `an opening lattice of ${program.bays} bay(s) x ${program.bands} band(s), ` +
+                `${program.cells.length} opening(s)`,
+            confidence: program.confidence,
+            belowFloor: !usable,
+        });
+        if (usable) {
+            openings = program;
+            // ⛔ WHAT THE LATTICE STILL CANNOT SAY, said out loud. The IR's opening node
+            // is `{ a, b, n, archness }` (C108 §1.1) — semi-axes and a head shape, with
+            // NO x/y. So the photograph fixes an opening's SIZE relative to its cell and
+            // NOT its position inside it, and the sill comes from the generator.
+            notUsed.push(
+                'where each opening sits INSIDE its cell — the IR measures the SIZE and head shape ' +
+                'of an opening but not its position (C108 §1.1), so the generator supplies the ' +
+                'sill height rather than a number I read off the image',
+            );
+        } else {
+            notUsed.push(
+                `the opening lattice (${program.bays} bay(s) x ${program.bands} band(s)) — read at ` +
+                `${describeConfidence(program.confidence)}, under the ` +
+                `${FACADE_PHOTO_CONFIDENCE_FLOOR.toFixed(2)} floor, so the generator uses its own ` +
+                'window rhythm instead of one I am not confident in',
+            );
+        }
+    } else {
+        notUsed.push(
+            'the window rhythm — I could not recover an opening lattice from this image, so the ' +
+            'generator places windows by its own rule rather than by anything I measured',
+        );
+    }
+    // ⛔ THE UPPER-FLOOR RHYTHM IS NOT BUILT FROM THE PHOTOGRAPH, AND THAT IS SAID
+    // BEFORE HE CONFIRMS. The residential generator derives upper-storey windows from
+    // the APARTMENT LAYOUT — every habitable room must reach a façade for daylight —
+    // and that rule outranks a photograph's rhythm. Only the GROUND storey is built
+    // from the measured lattice today (L-11082). Claiming the whole elevation while
+    // building one storey of it would be the silent-half-success this contract exists
+    // to stop.
+    if (openings !== null) {
+        notUsed.push(
+            'the UPPER-floor window rhythm — only the GROUND storey is built from the measured ' +
+            'lattice today. Above it the windows follow the apartment layout, because every room ' +
+            'has to reach a façade for daylight and that rule outranks a photograph',
+        );
+    }
+
     return {
         storeys,
         storeysConfidence,
         storeysBelowFloor,
         facade,
+        openings,
         read,
         notUsed,
         refusal: null,

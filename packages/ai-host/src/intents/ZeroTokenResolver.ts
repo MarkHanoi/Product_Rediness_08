@@ -2953,6 +2953,20 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
             // §GEN-PHOTO-BRIEF (L-11020) — the MERGED façade: the sentence's fields,
             // plus whatever the photograph supplied that the words did not.
             ...(mergedFacadeOut !== undefined ? { facade: mergedFacadeOut } : {}),
+            // ⭐⭐ §GEN-FACADE-OPENINGS (L-11080 · C108 Milestone 2, L-11006) — THE OPENING
+            // LATTICE ITSELF. `facade` above is four booleans and a colour, and until this
+            // field existed that was the ENTIRE channel from a photograph to the generator:
+            // the founder's ~35 measured openings, five arches and five bays had nowhere to
+            // go, and his building came out a plain white box with balconies.
+            //
+            // ⛔ Present ONLY when the lattice was read AT OR ABOVE the confidence floor —
+            // `mapFacadeIRToPhotoBrief` holds it back otherwise and says so in `notUsed`,
+            // because C108 §4.3's "unknown in ⇒ unknown out" makes an unconfident lattice
+            // something to ASK about, never something to build.
+            //
+            // ⛔ NOT A LENGTH ANYWHERE. Every number in it is a ratio or a count; the metres
+            // still come from the footprint (C108 §2.2, L-11009).
+            ...(photo?.openings != null ? { facadeOpeningProgram: photo.openings } : {}),
             // Carried to the execution layer so the post-build transcript can repeat
             // what was NOT done — the Confirm card is seen once, the report persists.
             ...(si.facadeUnavailable !== undefined && si.facadeUnavailable.length > 0
