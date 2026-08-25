@@ -84,6 +84,15 @@ export interface CreatePoolPayload {
   readonly freeboard?: number;
   readonly systemTypeId?: string;
   readonly materialId?: string;
+  /**
+   * §POOL95 — the WATER's authored render intent (tier 1). Distinct from
+   * `materialId`, which is the BASIN's construction finish: see the field
+   * docstrings on `Pool`. Carried here so an authored appearance survives the
+   * dispatch — without it tier 1 is reachable in the model and unreachable
+   * through the bus, which is a dead tier with extra steps.
+   */
+  readonly waterColor?: string;
+  readonly waterOpacity?: number;
   /** Resolved system type (tier 2 of the dimension chain). */
   readonly systemType?: PoolSystemType;
 }
@@ -228,6 +237,11 @@ export class CreatePoolHandler implements CommandHandler<CreatePoolPayload, Pool
       ...(cmd.freeboard !== undefined ? { freeboard: cmd.freeboard } : {}),
       ...(cmd.systemTypeId ? { systemTypeId: cmd.systemTypeId } : {}),
       ...(cmd.materialId ? { materialId: cmd.materialId } : {}),
+      // §POOL95 — `!== undefined`, not truthiness: `waterOpacity: 0` is an authored,
+      // deliberately invisible water and a truthy test would drop it on the floor
+      // here exactly as `||` would drop it in the resolver (WR-4).
+      ...(cmd.waterColor !== undefined ? { waterColor: cmd.waterColor } : {}),
+      ...(cmd.waterOpacity !== undefined ? { waterOpacity: cmd.waterOpacity } : {}),
     };
   }
 }

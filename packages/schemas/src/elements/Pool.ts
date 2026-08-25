@@ -115,6 +115,31 @@ export const Pool = defineElement('pool', {
    */
   freeboard: z.number().nonnegative().optional(),
 
+  /**
+   * §POOL95 — THE WATER'S AUTHORED RENDER INTENT. Tier 1 of the SAME chain every
+   * dimension above uses (`record → systemType → documented default`), and
+   * optional for the same L-127 reason: "unset" means *resolve me*.
+   *
+   * ⚠ THESE ARE NOT `materialId` / `materialColor`, AND THE DISTINCTION IS THE
+   * WHOLE OF ADR-0124 §4.2. Those two describe what the pool is BUILT of — the
+   * concrete of the walls and the floor slab, which is what the assembly stamps
+   * them onto. The water is not built of anything; it is a body of water, and
+   * giving it a construction material is the "blue slab" conflation wearing a
+   * different type name. Two axes, two fields, and `poolWaterRenderIntent.test.ts`
+   * WR-5 pins that the basin's finish never leaks onto the water.
+   *
+   * ⛔ WHY THEY LIVE ON `Pool` AND NOT ONLY ON `Water`. `Water` already carries
+   * `color` / `opacity` — but the water record is COMPUTED by `buildPoolAssembly`
+   * from the pool, so a value authored only on the water is overwritten the next
+   * time the assembly re-runs. The pool record is the assembly's INPUT, so this is
+   * where an authored intent survives. `Water.color` / `Water.opacity` remain the
+   * resolved OUTPUT the renderer and the schedule read — one carries intent, the
+   * other carries the answer, and merging them would make the water's appearance
+   * unrepresentable across a rebuild.
+   */
+  waterColor: z.string().optional(),
+  waterOpacity: z.number().min(0).max(1).optional(),
+
   /** Pool system type — tier 2 of the dimension-resolution chain. */
   systemTypeId: z.string().optional(),
   materialId: z.string().optional(),

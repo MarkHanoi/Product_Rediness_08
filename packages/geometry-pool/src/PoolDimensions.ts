@@ -70,7 +70,17 @@ export interface PoolSystemType {
  *    conventional gap that stops the pool overtopping. **This is the field that
  *    makes "the water level below the coping" representable at all** — the founder's
  *    named regret case for the "water is just a blue slab" shortcut (ADR-0124 §4).
- *  • `waterColor` / `waterOpacity` — "transparent, blueish", per the brief.
+ *  • `waterColor` `#2E86C1` — "transparent, blueish", per the brief. A mid
+ *    cerulean: the blue channel dominates both others, which is what
+ *    `poolWaterRenderIntent.test.ts` WR-1 actually asserts (re-tuning the hex is
+ *    free; turning the water grey or green is not).
+ *  • `waterOpacity` 0.3 — ⭐ THE FOUNDER'S FIGURE, AND IT IS A COMPLEMENT.
+ *    He asked for *"a box with 70% TRANSPARENCY in blue"*. Transparency and
+ *    opacity are complements, so 70% transparent IS `opacity: 0.3`, and writing
+ *    `0.7` here would ship the number he said while showing the opposite of what
+ *    he asked for — nearly solid water. This value was 0.55 before §POOL95 (45%
+ *    transparent), which was nobody's stated figure; it is now his, and it is
+ *    still a DEFAULT, overridable at both stronger tiers.
  */
 export const POOL_DIMENSION_DEFAULTS = {
   depth: 1.2,
@@ -78,7 +88,7 @@ export const POOL_DIMENSION_DEFAULTS = {
   floorThickness: 0.3,
   freeboard: 0.1,
   waterColor: '#2E86C1',
-  waterOpacity: 0.55,
+  waterOpacity: 0.3,
 } as const;
 
 /** The fully-resolved dimension set. Every field is REQUIRED — resolution is total. */
@@ -104,11 +114,18 @@ export interface ResolvedPoolDimensions {
  * @param systemType its resolved system type, if any (tier 2)
  */
 export function resolvePoolDimensions(
-  pool: Pick<Pool, 'depth' | 'wallThickness' | 'floorThickness' | 'freeboard'>,
+  pool: Pick<
+    Pool,
+    'depth' | 'wallThickness' | 'floorThickness' | 'freeboard' | 'waterColor' | 'waterOpacity'
+  >,
   systemType?: PoolSystemType,
 ): ResolvedPoolDimensions {
   return _tracer.startActiveSpan('pryzm.pool.resolveDimensions', (span) => {
     try {
+      // ⚠ `??`, NEVER `||`. An authored `waterOpacity: 0` — invisible water, which
+      // the schema admits (`min(0)`) — is FALSY, so `||` would read it as "unset"
+      // and silently restore the default: the architect turns the water off and it
+      // stays on. Pinned by `poolWaterRenderIntent.test.ts` WR-4.
       const pick = <T>(fromRecord: T | undefined, fromType: T | undefined, fallback: T): T =>
         fromRecord ?? fromType ?? fallback;
 
@@ -117,8 +134,12 @@ export function resolvePoolDimensions(
         wallThickness:  pick(pool.wallThickness,  systemType?.wallThickness,  POOL_DIMENSION_DEFAULTS.wallThickness),
         floorThickness: pick(pool.floorThickness, systemType?.floorThickness, POOL_DIMENSION_DEFAULTS.floorThickness),
         freeboard:      pick(pool.freeboard,      systemType?.freeboard,      POOL_DIMENSION_DEFAULTS.freeboard),
-        waterColor:     pick(undefined,           systemType?.waterColor,     POOL_DIMENSION_DEFAULTS.waterColor),
-        waterOpacity:   pick(undefined,           systemType?.waterOpacity,   POOL_DIMENSION_DEFAULTS.waterOpacity),
+        // ⭐ §POOL95 — TIER 1 WAS A LITERAL `undefined` HERE, for both fields, so the
+        // architect's own override was structurally unreachable: `Pool` carried no
+        // such field to read. The chain is documented as three tiers in this file's
+        // header and was two for the water's appearance. It is three now.
+        waterColor:     pick(pool.waterColor,     systemType?.waterColor,     POOL_DIMENSION_DEFAULTS.waterColor),
+        waterOpacity:   pick(pool.waterOpacity,   systemType?.waterOpacity,   POOL_DIMENSION_DEFAULTS.waterOpacity),
       };
 
       span.setAttribute('pryzm.pool.depth', resolved.depth);
