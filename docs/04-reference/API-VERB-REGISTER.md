@@ -24,7 +24,7 @@ change, not a rename — see C69 §2.
 | — of the LIVE, credited by the §L-946 mirror channel | 12 of 12 level-change verb(s) |
 | authoritative store NONE or UNKNOWN | 217 |
 | sync UNDECLARED (property verbs) | 2 |
-| chat UNDECLARED | 13 |
+| chat UNDECLARED | 12 |
 
 These numbers are re-derived on every run. Do not transcribe them anywhere else
 (C64 §2.13) — cite this file.
@@ -147,7 +147,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `element.setGraphicOverride` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `element.updateDimensionsBatch` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-window-dimensions |
 | `element.updateMark` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'elementId' (disclose) | classified D |
-| `element.updateOpeningProfileBatch` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | UNDECLARED |
+| `element.updateOpeningProfileBatch` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-window-shape |
 | `element.updateParameters` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'elementId' (disclose) | capability: set-height |
 | `elementType.create` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | classified C |
 | `elementType.delete` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified C |

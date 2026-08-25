@@ -1466,6 +1466,17 @@ export const BATCH_REPORT_EVENTS: Readonly<Record<string, string>> = {
         // a bridge that never reported would read as success
         // (§FIX-REPORT-PAYLOAD-DISCARD).
         'element.updateDimensionsBatch': 'pryzm-dimensions-batch-report',
+        // §CHAT-OPENING-SHAPE (L-10944) — the SHAPE sibling, registered in the
+        // SAME breath as the handler that broadcasts it. L-996 exists because a
+        // handler shipped its real report onto an event nobody subscribed to,
+        // and `executeSlice` then printed the PLANNED summary plus "Done" for
+        // 42-of-42, 0-of-42 and never-ran alike. That matters more here than
+        // usual: this command's most interesting outcomes are REFUSALS with
+        // reasons (a curved host cannot carry a curved head; a door may not be
+        // circular), and an unheard report would turn every one of them into a
+        // cheerful "Done". `batchReportEventsCompleteness.spec.ts` goes RED if
+        // this row is missing — and it did.
+        'element.updateOpeningProfileBatch': 'pryzm-opening-profile-batch-report',
         // The wall family rides the verb that shipped in VERBS-CMD and has been
         // dead for want of a grammar ever since; its report event already
         // existed, only nothing could reach it.
