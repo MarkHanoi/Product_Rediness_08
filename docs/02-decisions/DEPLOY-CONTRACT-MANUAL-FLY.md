@@ -380,7 +380,32 @@ nobody's machine.
 asked *"is it non-empty?"* — 39 characters of garbage passes that test.
 
 **Fixed in the script (both defences, because either alone is bypassable):**
-1. `export MSYS_NO_PATHCONV=1` + `export MSYS2_ARG_CONV_EXCL='*'`.
+1. `MSYS2_ARG_CONV_EXCL='*' MSYS_NO_PATHCONV=1` applied as a **COMMAND PREFIX on the single
+   `flyctl` invocation** (script line 222) — NEVER exported into the shell.
+
+   > ⛔ **Corrected 2026-08-25 — and this line's OLD text cost a real deploy run.** It read
+   > *"`export MSYS_NO_PATHCONV=1` + `export MSYS2_ARG_CONV_EXCL='*'`"*, phrased as an
+   > operator instruction. Following it verbatim **breaks the script before it builds
+   > anything**: `WORK="$(mktemp -d)"` is an MSYS path, `/mingw64/bin/curl` is a NATIVE
+   > Windows binary, and with path conversion disabled globally the script's own
+   > `curl -fsS "$SITE/" -o "$WORK/index.html"` writes to a `C:	mp\u2026` that does not exist:
+   >
+   > ```
+   > → recovering build-args from the LIVE bundle at https://pryzm.fly.dev
+   > curl: (23) client returned ERROR on write of 2038 bytes
+   > DEPLOY_RC=23
+   > ```
+   >
+   > **`RC=23` is not a network fault and not a code fault** — it is this guard applied too
+   > widely, and it looks nothing like its cause. The script says so at its own line 96
+   > (*"The obvious fix, `MSYS_NO_PATHCONV=1`, is WORSE: this script's own `curl -o`…"*), and
+   > §6.6.1 already recorded the global export as STALE. **It was corrected in §6.6.1 and left
+   > standing HERE**, so a reader who lands on §6.5.2 first still gets the broken advice — the
+   > same shape as every count/range defect in `CLAUDE.md`: the correction moved, the
+   > original did not.
+   >
+   > ⭐ **The guard is NARROW ON PURPOSE.** It must cover the flyctl args and nothing else.
+   > Scope it to the one command; do not put it in your environment.
 2. A **fail-closed shape check**: each URL arg must be root-relative (`/…`) or an absolute
    `http(s)://` URL, or the script aborts naming §MSYS-PATHCONV and how to re-run.
 
