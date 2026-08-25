@@ -96,6 +96,9 @@ importers:
       '@pryzm/expr-eval':
         specifier: workspace:*
         version: link:packages/expr-eval
+      '@pryzm/facade-reconstruction':
+        specifier: workspace:*
+        version: link:packages/facade-reconstruction
       '@pryzm/family-instance':
         specifier: workspace:*
         version: link:packages/family-instance

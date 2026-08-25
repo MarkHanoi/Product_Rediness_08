@@ -91,6 +91,9 @@ import { CLIMATE_PANEL_STYLES } from './panels/climatePanel';
 import { SITE_INSPECTOR_PANEL_STYLES } from './panels/siteInspectorPanel';
 import { DESIGN_PARAMS_PANEL_STYLES } from './panels/designParamsPanel';
 import { INSPECT_PANEL_STYLES } from './panels/inspectPanel';
+// C108 §6.3 — the facade-from-photo panel (frp-). Its overlays are a DELIVERABLE,
+// not debugging leftovers: against a real photograph they are the only oracle there is.
+import { FACADE_RECONSTRUCTION_STYLES } from './panels/facadeReconstruction';
 // §UX2-ATTRIBUTION-CHROME — the Cesium ion / Google Maps credit strip, restyled
 // onto the panel idiom. NOT removable: see the module header for the ion + Google
 // Maps Platform terms and for why "Upgrade for commercial use" is an ACCOUNT fact,
@@ -239,7 +242,8 @@ export function injectAppTheme(): void {
         + CLIMATE_PANEL_STYLES
         + SITE_INSPECTOR_PANEL_STYLES
         + DESIGN_PARAMS_PANEL_STYLES
-        + INSPECT_PANEL_STYLES, UI_SCALE);
+        + INSPECT_PANEL_STYLES
+        + FACADE_RECONSTRUCTION_STYLES, UI_SCALE);
     if (!existing) document.head.appendChild(style);
 }
 

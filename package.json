@@ -132,6 +132,7 @@
     "@pryzm/event-bus": "workspace:*",
     "@pryzm/email-transport": "workspace:*",
     "@pryzm/expr-eval": "workspace:*",
+    "@pryzm/facade-reconstruction": "workspace:*",
     "@pryzm/family-instance": "workspace:*",
     "@pryzm/family-loader": "workspace:*",
     "@pryzm/family-runtime": "workspace:*",

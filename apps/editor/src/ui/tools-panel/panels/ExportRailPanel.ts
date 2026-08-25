@@ -21,6 +21,11 @@ import type { ToolsRailController } from '../ToolsRailController';
 import type { ToolsPanelProps } from '../ToolsPanelTypes';
 import * as PryzmIcons from '../../icons/PryzmIcons';
 import { getImportedIfcElementCount } from '@pryzm/file-format';
+// C108 / SPEC-FACADE-RECONSTRUCTION-PIPELINE §4 — the reachability leg. Direct
+// import + call, exactly as PhysicsPanel opens the solar panel: an engine whose
+// only door is a console function is the authored-but-unreachable shape with a
+// nicer name (L-11007).
+import { openFacadeReconstructionPanel } from '../../facade/FacadeReconstructionPanel';
 
 interface ExportAction {
     id:      string;
@@ -49,7 +54,7 @@ export class ExportRailPanel {
         const groups = [
             {
                 label: 'Import',
-                items: actions.filter(a => ['import-revit-guided', 'import-rhino', 'import-ifc', 'import-pdf-image', 'import-dxf-dwg', 'import-manager'].includes(a.id)),
+                items: actions.filter(a => ['import-revit-guided', 'import-rhino', 'import-ifc', 'import-pdf-image', 'import-dxf-dwg', 'import-facade-photo', 'import-manager'].includes(a.id)),
             },
             {
                 label: 'Export',
@@ -114,6 +119,17 @@ export class ExportRailPanel {
                 icon:    'material-symbols:upload-file',
                 variant: 'default',
                 action:  () => service.importIfc(),
+            },
+            {
+                // C108 — PHOTO -> FACADE GEOMETRY -> PRYZM BIM. It sits in the IMPORT
+                // group because that is what it is: a photograph is a source file,
+                // and this is the tool that reads one. Milestone 1 stops at the IR —
+                // nothing is committed to the model yet (C108 §8.2).
+                id:      'import-facade-photo',
+                label:   'Facade from Photo',
+                icon:    'material-symbols:photo-camera',
+                variant: 'default',
+                action:  () => { openFacadeReconstructionPanel(); },
             },
             {
                 id:      'import-manager',
