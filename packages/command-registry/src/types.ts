@@ -81,6 +81,14 @@ export enum CommandType {
     // child dispatch, so ADR-0314 D3's one-dispatch-one-rebuild contract holds
     // per element while the gesture stays one undo entry.
     UPDATE_ELEMENT_DIMENSIONS_BATCH = 'UPDATE_ELEMENT_DIMENSIONS_BATCH',
+    // §CHAT-OPENING-SHAPE (L-10943) — reshape a RESOLVED id set of hosted
+    // openings in ONE undo step ("change all windows to segmental"). The SHAPE
+    // twin of the row above, and a separate command rather than a field on it
+    // because a profile change is not a dimension write: it must reach
+    // `wall.openings[]` through the hosted-opening command's `updateOpening`
+    // hop, or the wall keeps cutting a rectangle under a curved frame
+    // (C86 §11 #1). Composes UpdateWindow/DoorParameterCommand per id.
+    UPDATE_OPENING_PROFILE_BATCH = 'UPDATE_OPENING_PROFILE_BATCH',
     MOVE_DOOR = 'MOVE_DOOR',
     UPDATE_WINDOW_FRAME_COLOR = 'UPDATE_WINDOW_FRAME_COLOR',
     MOVE_WINDOW = 'MOVE_WINDOW',

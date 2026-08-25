@@ -264,6 +264,20 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
       'Not the late-bound "all" seam: this verb never carries "all". Needs a ' +
       'multi-subject disposition kind, which is a sync-client change.',
   },
+  // §CHAT-OPENING-SHAPE (L-10944) — "change all windows to segmental". The SHAPE
+  // sibling of the row above, and it shares that row's reason EXACTLY: an
+  // explicit `elementIds: string[]`, never 'all', so this is the multi-subject
+  // shape rather than the late-bound seam. ⛔ Stated in full rather than
+  // cross-referenced, because a disposition whose reason is "same as the one
+  // above" stops being true the moment the one above is edited.
+  'element.updateOpeningProfileBatch': {
+    kind: 'not-synced',
+    reason:
+      'SHAPE: subject is `elementIds: string[]` — a MULTI-subject payload, which ' +
+      'ElementPropertyDisposition (one `subject` key -> one id string) cannot express. ' +
+      'Not the late-bound "all" seam: this verb never carries "all". Needs a ' +
+      'multi-subject disposition kind, which is a sync-client change.',
+  },
   'wall.updateSystemTypeBatch': {
     kind: 'not-synced',
     reason: 'SEAM: same late-bound `wallIds: "all"` subject as wall.updateColorBatch.',

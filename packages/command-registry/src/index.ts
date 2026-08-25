@@ -115,6 +115,10 @@ export * from './generic/DeleteElementsBatchCommand';
 // UpdateElementParameterCommand per id with every requested dimension in one
 // child dispatch (ADR-0314 D2's "per-family batch command", not a fan-out).
 export * from './generic/UpdateElementDimensionsBatchCommand';
+// §CHAT-OPENING-SHAPE (L-10943) — the SHAPE twin of the batch above. Composes
+// UpdateWindow/DoorParameterCommand per id, because those are the only route
+// that carries a profile all the way to `wall.openings[]`.
+export * from './generic/UpdateOpeningProfileBatchCommand';
 // The declarative rebuild registry is the documented extension point for making a new
 // parametric element's parameter edits reach its geometry ("adding a new parametric
 // element = registering one descriptor here"), and it is what decides whether a given

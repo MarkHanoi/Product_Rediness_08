@@ -18,6 +18,7 @@ import { SetViewUnderlayHandler } from './SetViewUnderlay.js';
 import { DeleteElementHandler } from './DeleteElement.js';
 import { DeleteElementsBatchHandler } from './DeleteElementsBatch.js';
 import { UpdateElementDimensionsBatchHandler } from './UpdateElementDimensionsBatch.js';
+import { UpdateOpeningProfileBatchHandler } from './UpdateOpeningProfileBatch.js';
 import { HideElementInViewHandler } from './HideElementInView.js';
 import { IsolateElementInViewHandler } from './IsolateElementInView.js';
 import { SetElementGraphicOverrideHandler } from './SetElementGraphicOverride.js';
@@ -47,6 +48,15 @@ export {
   type UpdateElementDimensionsBatchDims,
   type DimensionsBatchReport,
 } from './UpdateElementDimensionsBatch.js';
+// §CHAT-OPENING-SHAPE (L-10944) — N reshapes, ONE undo entry. The SHAPE sibling
+// of the dimensions batch above; separate because a profile must reach
+// `wall.openings[]` through the hosted-opening command's `updateOpening` hop.
+export {
+  UpdateOpeningProfileBatchHandler,
+  OPENING_PROFILE_BATCH_REPORT_EVENT,
+  type UpdateOpeningProfileBatchPayload,
+  type OpeningProfileBatchReport,
+} from './UpdateOpeningProfileBatch.js';
 export { HideElementInViewHandler, type HideElementInViewPayload } from './HideElementInView.js';
 export { IsolateElementInViewHandler, type IsolateElementInViewPayload } from './IsolateElementInView.js';
 export { SetElementGraphicOverrideHandler, type SetElementGraphicOverridePayload } from './SetElementGraphicOverride.js';
@@ -101,6 +111,7 @@ const ALL_HANDLERS = [
   DeleteElementHandler,
   DeleteElementsBatchHandler,
   UpdateElementDimensionsBatchHandler,
+  UpdateOpeningProfileBatchHandler,
   HideElementInViewHandler,
   IsolateElementInViewHandler,
   SetElementGraphicOverrideHandler,
