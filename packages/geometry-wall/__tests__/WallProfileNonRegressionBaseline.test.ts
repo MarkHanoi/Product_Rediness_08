@@ -355,14 +355,36 @@ const CASES: readonly Case[] = [
 const L = (...rows: string[]): string => rows.join('\n');
 
 const BASELINE: Readonly<Record<string, string>> = Object.freeze({
+    // ── §WJFIX96-RETAG (2026-08-25, L-11329) — RE-CAPTURED, TAG ONLY, GEOMETRY FROZEN ──
+    // The FIVE `_` rows in this object — the three P1a rows here and the two LEGACY-miter
+    // rows below — are the two arms of `createWallBodyFragment`, the opening-FREE plain
+    // body. They stamped `role:'geometry'` and no `elementType`, so the mesh reached
+    // `EdgeProjectorService` with nothing to resolve an ISO layer from and landed on
+    // `projection-visible`: outside A-WALL, outside the pen table, outside the cut gate,
+    // outside the poché. That is the founder's L-275 pair of screenshots ("no door → a
+    // hollow outline; door → a properly filled poché") reached by ABSENCE of a tag rather
+    // than by its CASE — which is why L-275's canonical-key normaliser could not close it.
+    //
+    //   WHAT MOVED: the leading tag token, `_` → `WallPart`, on five rows.
+    //   WHAT DID NOT: every `n=`, every `s=`, every `bb=` — byte-identical, verified in the
+    //   failure diff before this edit (5 rows changed, all numbers equal on every one).
+    // Same shape, and the same permitted exception, as §WJFIX92-RETAG below: the digest is
+    // reporting a userData tag, not geometry. If a NUMBER ever moves on these rows, that IS
+    // the forbidden case the header names.
+    //
+    // ⛔ NOT the §DIAG-OPENING-VOID fix L-11329 was filed as. That census is consulted only
+    // when the wall HAS openings, and these rows are the zero-openings arm; the two
+    // conditions are disjoint. `P1c`/`P2` — the opening-bearing rows — already read
+    // `WallPart`/`WallLayer` and were never blind to it. See
+    // `apps/editor/__tests__/wjfix96PlainWallBodyOnAWall.test.ts`.
     'P1a-plain-vertical': L(
-        '_ n=36 s=8026.200000 bb=[0.000000,0.000000,-0.100000..6.000000,3.000000,0.100000]',
+        'WallPart n=36 s=8026.200000 bb=[0.000000,0.000000,-0.100000..6.000000,3.000000,0.100000]',
     ),
     'P1a-plain-raked': L(
-        '_ n=36 s=8809.951391 bb=[0.000000,0.000000,-0.100000..6.000000,3.000000,0.903848]',
+        'WallPart n=36 s=8809.951391 bb=[0.000000,0.000000,-0.100000..6.000000,3.000000,0.903848]',
     ),
     'P1a-plain-raked-JOINED': L(
-        '_ n=48 s=16869.431875 bb=[0.000000,0.000000,-0.100000..6.100000,3.000000,0.903848]',
+        'WallPart n=48 s=16869.431875 bb=[0.000000,0.000000,-0.100000..6.100000,3.000000,0.903848]',
     ),
     'P1b-v2-layered-vertical': L(
         'WallLayer n=36 s=7863.750000 bb=[0.000000,0.000000,-0.125000..6.000000,3.000000,-0.025000]',
@@ -440,8 +462,10 @@ const BASELINE: Readonly<Record<string, string>> = Object.freeze({
     // They now differ by exactly the shear, and §(A3) below asserts the DIFFERENCE — and
     // the arithmetic behind it — rather than the old equality. Retained rather than
     // rewritten from scratch (C84 §6) so the closed defect stays legible.
+    // (leading tag `_` → `WallPart` 2026-08-25 — §WJFIX96-RETAG, see the note at the top of
+    //  this object; the numbers on this row are untouched.)
     'LEGACY-miter-plain': L(
-        '_ n=36 s=8960.400000 bb=[0.000000,0.000000,-0.100000..6.000000,3.000000,0.100000]',
+        'WallPart n=36 s=8960.400000 bb=[0.000000,0.000000,-0.100000..6.000000,3.000000,0.100000]',
     ),
     // ── §RK1-REBASELINE (2026-08-19) — RE-CAPTURED, AND THE DEFECT IT PINNED IS GONE ──
     // This row USED to be byte-identical to `LEGACY-miter-plain`, and §(A3) below explains
@@ -452,8 +476,10 @@ const BASELINE: Readonly<Record<string, string>> = Object.freeze({
     //   and the vertex count is UNCHANGED at 36 — the same prism, sheared, not a different
     //   body. A3b now asserts that same number directly, so this digest is not the only
     //   thing standing between the defect and its return.
+    // (leading tag `_` → `WallPart` 2026-08-25 — §WJFIX96-RETAG, see the note at the top of
+    //  this object; the numbers on this row are untouched.)
     'LEGACY-miter-raked': L(
-        '_ n=36 s=9734.505222 bb=[0.000000,0.000000,-0.100000..6.000000,3.000000,0.903848]',
+        'WallPart n=36 s=9734.505222 bb=[0.000000,0.000000,-0.100000..6.000000,3.000000,0.903848]',
     ),
 });
 

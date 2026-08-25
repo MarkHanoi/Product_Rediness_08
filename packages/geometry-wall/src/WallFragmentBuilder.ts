@@ -4593,6 +4593,42 @@ export class WallFragmentBuilder {
                 const meshV2 = new THREE.Mesh(worldGeom, material);
                 meshV2.userData = {
                     id: wall.id,
+                    // §WJFIX96 (L-11329) — THE OPENING-FREE PLAIN BODY IS A WALL PART, AND
+                    // SAYING SO IS WHAT PUTS IT ON A-WALL.
+                    //
+                    // ⛔ NOT for the reason L-11329 was filed. That row said this site was
+                    // "the PLAIN-WALL twin" of the §DIAG-OPENING-VOID false positive
+                    // §WJFIX92 F-1 fixed for the layered arm. Measured (probe-wjfix96-01):
+                    // it is NOT. `createWallBodyFragment` has exactly ONE call site, and it
+                    // is guarded by `wall.openings.length === 0`, while the coordinator's
+                    // void census is only consulted `if (_openings.length > 0)` — the two
+                    // conditions are disjoint, so this mesh can never be the thing that
+                    // census fails to see. A plain wall WITH an opening builds `'WallPart'`
+                    // segments and already reads voidCut=true.
+                    //
+                    // The REAL consumer this omission reached is the drawing layer.
+                    // `EdgeProjectorService` resolves each mesh's ISO layer from
+                    // `userData.elementType`, falling back to `wallId` + `layerIndex`
+                    // (:2866-2877). This mesh had none of the three, so
+                    // `resolveProjectionLayer(undefined)` returned `projection-visible` —
+                    // outside A-WALL, outside the pen table, outside the cut gate and
+                    // outside the poché, exactly as that file's own header describes for
+                    // L-257 / L-261 / L-275. Measured: openings-free plain wall → 1 mesh,
+                    // 1 on `projection-visible`; the SAME wall with a window → A-WALL. That
+                    // is the founder's L-275 pair of screenshots ("no door → a hollow
+                    // outline; door → a properly filled poché") reached by ABSENCE of a tag
+                    // rather than by its CASE — which is why L-275's canonical-key
+                    // normaliser, correct as it is, could not close it.
+                    //
+                    // C84 EI-9 — `'WallPart'` is the word this repo already uses for "a mesh
+                    // that is part of a wall's body": the curved plain arm (:2519), every
+                    // opening segment (:2895-:3073), the merged body (:3533), the
+                    // hole-extrude body (:3654), the CSG single volume (:3397) and the
+                    // profile arm's unlayered branch (:3867). `'WallLayer'` would be FALSE
+                    // here — this arm runs only when the wall has no layer stack at all.
+                    // Inert to the three sweeps that REMOVE `'WallPart'` children
+                    // (:3378, :3454, :3666): all three run only on the openings > 0 branch.
+                    elementType: 'WallPart',
                     materialId: wall.materialId,
                     materialColor: wall.materialColor,
                     role: 'geometry',
@@ -4733,6 +4769,12 @@ export class WallFragmentBuilder {
         const mesh = new THREE.Mesh(geometry, material);
         mesh.userData = {
             id: wall.id,
+            // §WJFIX96 (L-11329) — the legacy MiterPrism twin of the V2 arm above. Same
+            // omission, same consumer, same word; the reasoning is written out in full at
+            // the `meshV2.userData` site in this method. Both arms of
+            // `createWallBodyFragment` must agree, or the wall's ISO layer would depend on
+            // which body pipeline happened to survive the §V2-SPIKE-GUARD.
+            elementType: 'WallPart',
             materialId: wall.materialId,
             materialColor: wall.materialColor,
             role: 'geometry',
