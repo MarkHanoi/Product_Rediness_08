@@ -16,6 +16,11 @@
 import { randomBytes } from 'crypto';
 import { query, withTransaction, getPgPool } from './pgClient.js';
 import { ProjectConflictError, VersionLimitError, PreconditionFailedError, ProjectGoneError } from './errors.js';
+// §SHARE101 — pure labelling helpers ("is this row mine, or shared with me?").
+// Kept in their own module so all three backends (PG, Supabase, in-memory) produce
+// ONE shape, and so the honesty rule about UNKNOWN membership is stated once.
+import { labelProjectsForCaller } from './projectShareLabel.js';
+import { hasPermission } from './permissions.js';
 
 // §SERVER-V1-INMEMORY-FALLBACK (DAILY-USE 2026-05-21, Round 40) — last-resort
 // in-memory fallback so the architect can create / list / open projects even
@@ -144,14 +149,21 @@ export function imGetProject(projectId) {
     return _toV0Project(_inMemoryProjects.get(projectId) ?? null);
 }
 
-/** All v0-shaped rows (optionally owner-filtered), newest-first. */
+/**
+ * All v0-shaped rows (optionally owner-filtered), newest-first.
+ *
+ * §SHARE101 — labelled like every other backend, but with `membershipKnown: false`.
+ * This map holds no roles, so it can prove OWNERSHIP and cannot disprove
+ * MEMBERSHIP; `sharedWithMe` therefore comes back `null` (unknown) rather than
+ * `false` (a claim). See `projectShareLabel.js` for why the third state exists.
+ */
 export function imListProjects(userId) {
     const out = [];
     for (const row of _inMemoryProjects.values()) {
         if (!userId || row.owner_id === userId) out.push(_toV0Project(row));
     }
     out.sort((a, b) => b.updatedAt - a.updatedAt);
-    return out;
+    return labelProjectsForCaller(out, userId, { membershipKnown: false });
 }
 
 /** Create-or-update the in-memory row; returns the v0-shaped row. */
@@ -405,21 +417,58 @@ export async function listProjects(userId, opts) {
     // would look complete and silently omit exactly one deployment shape. Note
     // the related half of L-806 — on a PG-only deployment membership writes do
     // not persist at all.
+    //
+    // §SHARE101 — that reasoning STANDS for which rows are returned, but it does
+    // NOT license this branch to answer the SECOND question ("is this shared with
+    // me?") with a confident `false`. It cannot tell. `labelProjectsForCaller` is
+    // therefore called with `membershipKnown: false`, which yields
+    // `sharedWithMe: null` — UNKNOWN, not NOT-SHARED. A dev-only fallback that
+    // cannot express membership must refuse to claim it rather than silently
+    // return owner-only results dressed as a complete answer.
     if (!_hasPool()) {
         const rows = [];
         for (const row of _inMemoryProjects.values()) {
             if (row.owner_id === userId) rows.push(row);
         }
         rows.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
-        return rows.slice(offset, offset + limit);
+        return labelProjectsForCaller(rows.slice(offset, offset + limit), userId, {
+            membershipKnown: false,
+        });
     }
+    // §SHARE101 — `m.role` is projected so the row can say HOW the caller reached
+    // it. Three notes on the shape, because each was a real decision:
+    //
+    //  1. LEFT JOIN, not a second query. `project_members` carries
+    //     `UNIQUE (project_id, user_id)` (dbMigrate.js §4), so joining on BOTH
+    //     columns matches AT MOST ONE row — the join cannot multiply the result
+    //     set, which is the hazard `memberOrOwner`'s EXISTS was written to avoid.
+    //     With the uniqueness guaranteed by the constraint, the join is safe and
+    //     the role is free.
+    //
+    //  2. The `WHERE` keeps `memberOrOwner` rather than becoming
+    //     `m.user_id IS NOT NULL OR p.owner_id = $1`. The predicate that decides
+    //     WHO SEES WHAT is a security boundary; it is pinned by
+    //     `projectStore-membership-reads.test.ts` and shared verbatim with four
+    //     other reads. Rewriting it as a side effect of adding a display field
+    //     would move a security boundary inside a labelling change — exactly the
+    //     shape L-336 part 2 refused to do to the WRITE paths.
+    //
+    //  3. COST, measured against the query's existing work (lane PERF100 is
+    //     simultaneously reducing this endpoint's cost — this must not add to it):
+    //     the join is an index-only probe of `idx_project_members_user_project
+    //     (user_id, project_id)` — the index L-788 landed FOR this direction —
+    //     once per candidate row, ≤ 51 rows per page. That is strictly cheaper
+    //     than the `LEFT JOIN LATERAL` already running once per row over
+    //     `project_versions`, whose rows carry TOASTed multi-MB snapshots. Net
+    //     addition: ~50 unique-btree lookups, sub-millisecond. No new round trip.
     const result = await query(
         `SELECT
              p.id, p.name, p.owner_id, p.version_count, p.thumbnail,
              p.is_archived, p.is_starred, p.description,
              p.updated_at, p.created_at,
              COALESCE(v.element_count, 0) AS latest_element_count,
-             (v.id IS NULL)               AS is_empty
+             (v.id IS NULL)               AS is_empty,
+             m.role                       AS member_role
          FROM projects p
          LEFT JOIN LATERAL (
              SELECT id, element_count
@@ -428,12 +477,14 @@ export async function listProjects(userId, opts) {
              ORDER  BY created_at DESC
              LIMIT  1
          ) v ON true
+         LEFT JOIN project_members m
+                ON m.project_id = p.id AND m.user_id = $1
          WHERE ${memberOrOwner('p', '$1')}
          ORDER BY p.updated_at DESC, p.id DESC
          LIMIT $2 OFFSET $3`,
         [userId, limit, offset]
     );
-    return result.rows;
+    return labelProjectsForCaller(result.rows, userId);
 }
 
 export async function createProject(name, userId) {
