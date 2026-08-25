@@ -14,4 +14,8 @@ export * from './LightingTypeDefinitions';
 export * from './LightingRoomResolver';
 export { LightingStore } from './LightingStore';
 export { LightingFragmentBuilder } from './LightingFragmentBuilder';
+// §LIGHT-BUDGET-HONESTY (L-11420) — the per-fixture "am I actually emitting, and
+// if not, WHY" verdict. Exported so a property panel can render the refusal with
+// its numbers instead of leaving the user to guess (C16 CA-18).
+export type { LiveLightState } from './LightingFragmentBuilder';
 export { LightingTool } from './LightingTool';

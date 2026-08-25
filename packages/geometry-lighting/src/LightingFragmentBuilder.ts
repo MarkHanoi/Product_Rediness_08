@@ -95,6 +95,40 @@ import {
     type Lod200FixtureRow,
 } from '@pryzm/core-app-model/lod200-fixtures';
 
+// ── §LIGHT-BUDGET-HONESTY (L-11420) ───────────────────────────────────────────
+
+/**
+ * Why one fixture is, or is not, contributing real illumination.
+ *
+ * ⭐ Every field is a NUMBER THE USER CAN ACT ON, not a boolean verdict. "Not
+ * lit" on its own is the silent refusal C16 CA-18 forbids; "not lit, rank 5 of
+ * 12, budget 3, tier performance" tells the user both what happened and which
+ * lever moves it. See `_syncAllLights` for why this had to exist.
+ */
+export interface LiveLightState {
+    /** Element id. Present on `liveLightDiagnostics()` rows; absent on the stamp. */
+    readonly id?: string;
+    /** True when this fixture owns a real THREE light and illuminates the room. */
+    readonly lit: boolean;
+    /** 1-based position in the distance-to-focus ranking. 1 = nearest the camera. */
+    readonly rank: number;
+    /** How many fixtures competed. */
+    readonly total: number;
+    /** How many of them could win — `LIVE_LIGHT_BUDGET_BY_TIER[tier]`. */
+    readonly budget: number;
+    /** The render tier in force, or `null` if none has been reported yet. */
+    readonly tier: SceneQualityTier | null;
+    /**
+     * True when a real focus provider (the camera) is wired. FALSE means the
+     * ranking fell back to distance-from-ORIGIN — still deterministic, but no
+     * longer "nearest the camera", and that distinction is exactly the kind of
+     * silent degradation this struct exists to stop hiding.
+     */
+    readonly focused: boolean;
+    /** The whole explanation as one sentence, or `null` when lit. */
+    readonly reason: string | null;
+}
+
 // ── Shared materials (one per builder instance) ───────────────────────────────
 
 const _matCache = new Map<string, THREE.MeshStandardMaterial>();
@@ -393,6 +427,26 @@ export class LightingFragmentBuilder {
 
     /** Number of fixtures that currently own a real THREE light. */
     get liveLightCount(): number { return this._lights.size; }
+
+    /**
+     * §LIGHT-BUDGET-HONESTY (L-11420) — why each fixture is, or is not, emitting.
+     *
+     * The founder's question was *"why do some lighting products produce light
+     * depending on random factors?"*. Nothing was random; nothing was VISIBLE
+     * either, which is the actual defect. This is the read side of the per-fixture
+     * verdict stamped by `_syncAllLights` — ordered nearest-focus first, so the
+     * caller sees the same ranking the budget applied.
+     *
+     * Returns an EMPTY array before the first sync, never a fabricated ranking.
+     */
+    liveLightDiagnostics(): readonly LiveLightState[] {
+        const out: LiveLightState[] = [];
+        for (const [id, group] of this._roots) {
+            const s = group.userData.liveLight as LiveLightState | undefined;
+            if (s) out.push({ ...s, id });
+        }
+        return out.sort((a, b) => a.rank - b.rank);
+    }
 
     /** Call once after THREE.Scene is available. */
     setScene(scene: THREE.Object3D): void {
@@ -780,9 +834,16 @@ export class LightingFragmentBuilder {
 
         const innerR = p.radius * 0.8;
         const innerGeo = new THREE.RingGeometry(innerR * 0.7, innerR, SEG_BODY);
-        const innerMat = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#c8a000'),
-            emissive: new THREE.Color('#c8a000'),
+        // §LIGHT-BUDGET-HONESTY (L-11421) — POOLED, was `new MeshStandardMaterial`.
+        // MEASURED: this was the ONE per-instance material left in the whole builder
+        // (32 families probed; `pendant` alone leaked 1 material per fixture, every
+        // other family shared cleanly). `pendant` is the most-placed decorative
+        // fixture there is, so a kitchen of twelve of them minted twelve identical
+        // gold rings — twelve shader programs where one would do, and the exact
+        // per-instance-material defect that has already cost this project its
+        // instancing once (see `_lod200Cone`'s note on the same trap).
+        const innerMat = sharedMat('#c8a000', {
+            emissive: '#c8a000',
             emissiveIntensity: 0.3,
             roughness: 0.2, metalness: 0.8,
             side: THREE.DoubleSide,
@@ -1315,6 +1376,7 @@ export class LightingFragmentBuilder {
     private _syncAllLights(): void {
         const byId = new Map(this._getAllData().map(d => [d.id, d]));
         const focus = this._focusProvider?.() ?? { x: 0, y: 0, z: 0 };
+        const focused = this._focusProvider !== null;
 
         const candidates = [...this._roots.entries()].map(([id, group]) => ({
             id,
@@ -1323,8 +1385,51 @@ export class LightingFragmentBuilder {
             z: group.position.z,
         }));
 
-        const { live } = selectLiveLights(candidates, this.liveLightBudget, focus);
+        const { live, dark, budget } = selectLiveLights(candidates, this.liveLightBudget, focus);
         const liveSet = new Set(live);
+
+        // ⭐ §LIGHT-BUDGET-HONESTY (L-11420, founder: "WHY DO SOME LIGHTING PRODUCTS
+        // PRODUCE LIGHT DEPENDING ON RANDOM FACTORS?").
+        //
+        // The budget is not random — it is `selectLiveLights`, which ranks by distance
+        // to the focus point (the camera) and takes the top N, ties broken on `id`. It
+        // is fully deterministic GIVEN a focus. What made it look random is that BOTH
+        // of its inputs are invisible: the tier (which sets N — 3 on `performance`, and
+        // a RESTORED USER PIN can hold a scene there forever) and the camera position
+        // at the moment of the last add/remove. A fixture placed 4th simply never lit,
+        // and nothing anywhere said why.
+        //
+        // C16 CA-18 / C74 — refuse BY NAME, WITH THE NUMBERS, never silently. So every
+        // fixture now carries its own verdict and the arithmetic behind it. This is a
+        // STAMP on render-side `userData`, not a store write (P6): the builder owns the
+        // THREE group, and `liveLightDiagnostics()` is the read side for any UI.
+        //
+        // `enumerable: true` by plain assignment — the property panel copies the
+        // selection with a SPREAD, which takes enumerable own properties only. That is
+        // the same trap that silently dropped `id`/`elementType` in `add()`.
+        const rank = new Map<string, number>();
+        live.forEach((id, i) => rank.set(id, i + 1));
+        dark.forEach((id, i) => rank.set(id, live.length + i + 1));
+        for (const [id, group] of this._roots) {
+            const lit = liveSet.has(id);
+            group.userData.liveLight = {
+                lit,
+                rank: rank.get(id) ?? 1,
+                total: candidates.length,
+                budget,
+                tier: this._tier ?? null,
+                focused,
+                // The whole sentence, pre-composed, so a caller cannot render a
+                // half-truth by picking two of the five numbers.
+                reason: lit
+                    ? null
+                    : `Not lit: this scene's "${this._tier ?? 'default (no tier reported)'}" render tier allows `
+                      + `${budget} live fixture light${budget === 1 ? '' : 's'}, and this fixture ranks `
+                      + `${rank.get(id) ?? '?'} of ${candidates.length} by distance from the camera. `
+                      + `It still shows its lit lens, but it does not illuminate the room. `
+                      + `Raise the render quality tier, or move the camera nearer, to light it.`,
+            } satisfies LiveLightState;
+        }
 
         // ⭐ §FIX-LIGHT-PLACE-FREEZE (L-10080) — DETACH BEFORE ATTACH, IN TWO PASSES.
         //
