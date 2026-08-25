@@ -414,7 +414,13 @@ export function determineCategoryElements(
     // An UNKNOWN category is not an empty one — the old `default: return []`
     // conflated "this label names no store" with "this store is empty".
     const storeKey = _categoryStoreKey(catLabel);
-    if (!storeKey && catLabel !== 'Roofs') {
+    // §LIFT94 (L-11342) — `Lifts` joins `Roofs` as a category with NO window global.
+    // Both read a store off the bag/runtime instead, so `_categoryStoreKey` correctly
+    // returns nothing for them and the refusal below would be a FALSE refusal: it
+    // would tell the user the label names no known store, when in fact the store
+    // exists and is simply not a global. ⚠ Grow this set only for categories whose
+    // store is genuinely reachable another way — never to silence a real unknown.
+    if (!storeKey && catLabel !== 'Roofs' && catLabel !== 'Lifts') {
         return {
             kind: 'undetermined', scope, reason: 'RELATIONSHIP_NOT_READABLE',
             detail: `"${catLabel}" does not name a known store, so its contents were never read`,
@@ -428,6 +434,20 @@ export function determineCategoryElements(
         return {
             kind: 'undetermined', scope, reason: 'RELATIONSHIP_NOT_READABLE',
             detail: `${storeKey} is not available yet — the store was never read, ` +
+                    'so an empty category was NOT determined',
+        };
+    }
+
+    // §LIFT94 (L-11342) — the SAME readiness guard as above, for the category whose
+    // store is NOT a window global and therefore skips it. Without this, a lift
+    // category read before the runtime is composed returns `[]` and the card prints a
+    // confident "0 Lifts" — and "the runtime is not up yet" and "there are no lifts"
+    // would be the same value on screen, which is exactly the class of defect this
+    // whole `determined` / `undetermined` split exists to prevent.
+    if (catLabel === 'Lifts' && !bag.runtime?.stores?.lift) {
+        return {
+            kind: 'undetermined', scope, reason: 'RELATIONSHIP_NOT_READABLE',
+            detail: 'runtime.stores.lift is not available yet — the store was never read, ' +
                     'so an empty category was NOT determined',
         };
     }
@@ -475,6 +495,14 @@ function _rawCategoryElements(bag: UBPBag, catLabel: string): any[] {
         case 'Furniture':         return window.furnitureStore?.getAll?.()    ?? [];
         case 'Lighting Fixtures': return window.lightingStore?.getAll?.()     ?? [];
         case 'Stairs':            return window.stairStore?.getAll?.()        ?? [];
+        // §LIFT94 (L-11342) — the C104 lift COMPOUND, off the composed runtime.
+        // ⛔ NOT `window.liftStore`: that is the LOD-200 MASSING lift (C104 §1), a
+        // different element, and rendering its records here would show the user rows
+        // that do not correspond to anything the lift tool created.
+        // ⚠ `getAll()` is deliberately absent: `Store` (packages/stores/src/Store.ts)
+        // exposes `getState(): ReadonlyMap`, not the legacy `getAll()` the fifteen rows
+        // above rely on. Reading the map is the store's real interface, not a shim.
+        case 'Lifts':             return [...((bag.runtime?.stores?.lift as { getState?(): Map<string, any> } | undefined)?.getState?.()?.values() ?? [])];
         case 'Handrails':         return window.handrailStore?.getAll?.()     ?? [];
         case 'Columns':           return window.columnStore?.getAll?.()       ?? [];
         case 'Beams':             return window.beamStore?.getAll?.()         ?? [];
@@ -513,6 +541,11 @@ export function getSubType(catLabel: string, el: any): string {
         case 'Furniture':         return el.furnitureType   || el.type || 'Standard';
         case 'Lighting Fixtures': return el.fixtureType     || el.type || 'Standard';
         case 'Stairs':            return el.stairType       || el.type || 'Standard';
+        // §LIFT94 (L-11342) — `enclosureType` ('wall-hosted' / 'standalone') is the
+        // real discriminator on a `LiftCompound` record (LiftCompoundTypes.ts) and is
+        // the field a user would group by. `liftTypeId` is the catalogue reference
+        // (C104 §6's 6-person default), preferred when set.
+        case 'Lifts':             return el.liftTypeId      || el.enclosureType || 'Standard';
         case 'Handrails':         return el.handrailType    || el.type || 'Standard';
         case 'Columns':           return el.columnType      || el.type || 'Standard';
         case 'Beams':             return el.beamType        || el.type || 'Standard';

@@ -146,3 +146,71 @@ describe('NEGATIVE CONTROL — present stores never refuse', () => {
     expect(() => categoryCountOrUnknown(bag, 'Walls')).not.toThrow();
   });
 });
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §LIFT94 (L-11342) — THE LIFT IS IN THE MODEL-ELEMENTS CARD
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// THE FOUNDER: *"lift is not in the model elements within the project browser"*.
+// Measured 2026-08-25: `grep -rln lift apps/editor/src/ui/ViewBrowser/` returned
+// NOTHING. Not hidden, not filtered, not mis-counted — never declared.
+//
+// ⛔ THE TRAP THIS PINS. `window.liftStore` IS assigned (initBuilders.ts:983) and it
+// is the LOD-200 MASSING lift, a DIFFERENT element (C104 §1). The obvious one-line
+// "fix" — `case 'Lifts': return window.liftStore.getAll()` — would have shown the
+// user rows that correspond to nothing the lift tool ever created, which is worse
+// than the empty card they had. The last test below is the guard against that.
+
+describe('§LIFT94 — the Lifts category reads the C104 COMPOUND store', () => {
+  const liftBag = (records: Record<string, unknown>[] | null) => ({
+    roofStore: null,
+    runtime: records === null
+      ? null
+      : { stores: { lift: { getState: () => new Map(records.map((r, i) => [`l${i}`, r])) } } },
+  } as unknown as UBPBag);
+
+  it('"Lifts" is a KNOWN label — it must not be refused as naming no store', () => {
+    // Before §LIFT94 this returned `undetermined / "does not name a known store"`,
+    // because `_categoryStoreKey` has no `Lifts` row and never will: the compound
+    // store is not a window global. `Roofs` established the precedent.
+    const d = determineCategoryElements(liftBag([]), 'Lifts');
+    expect(d.kind, 'Lifts must be a determined, readable category').toBe('determined');
+  });
+
+  it('a populated compound store reports its REAL count', () => {
+    const d = determineCategoryElements(
+      liftBag([{ id: 'a', enclosureType: 'wall-hosted' }, { id: 'b', enclosureType: 'standalone' }]),
+      'Lifts',
+    );
+    expect(d.kind).toBe('determined');
+    if (d.kind === 'determined') expect(d.elements).toHaveLength(2);
+    expect(categoryCountOrUnknown(liftBag([{ id: 'a' }]), 'Lifts')).toBe(1);
+  });
+
+  it('an ABSENT runtime is UNDETERMINED, never a confident "0 Lifts"', () => {
+    // The whole point of this file, applied to the new category: "the runtime is not
+    // composed yet" and "this project has no lifts" must not be the same value.
+    const d = determineCategoryElements(liftBag(null), 'Lifts');
+    expect(d.kind).toBe('undetermined');
+    if (d.kind === 'undetermined') expect(d.detail).toContain('runtime.stores.lift is not available yet');
+    expect(categoryCountOrUnknown(liftBag(null), 'Lifts')).toBeNull();
+  });
+
+  it('a genuinely EMPTY compound store is a determined 0 — the negative control', () => {
+    expect(categoryCountOrUnknown(liftBag([]), 'Lifts')).toBe(0);
+  });
+
+  it('⛔ it does NOT read `window.liftStore` — that is the LOD-200 MASSING lift', () => {
+    // Plant the massing global with records that would be visibly wrong if read.
+    w.liftStore = withN(99);
+    try {
+      expect(categoryCountOrUnknown(liftBag([{ id: 'only-one' }]), 'Lifts'),
+        'the card must show the COMPOUND store, not the massing store (C104 §1)').toBe(1);
+      expect(categoryCountOrUnknown(liftBag(null), 'Lifts'),
+        'and it must still refuse when the compound store is unreachable, ' +
+        'even though a same-named global happens to exist').toBeNull();
+    } finally {
+      delete w.liftStore;
+    }
+  });
+});
