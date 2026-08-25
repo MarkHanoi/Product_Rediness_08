@@ -938,3 +938,27 @@ export type {
 // The default path is unchanged: with no provider configured, `resolveAiRoute`
 // returns `pryzm-managed` and the chat behaves exactly as it does today.
 export * from './byom/index.js';
+
+// ── §CHAT-PHOTO-REFERENCE (L-10901) — the image clause in a chat sentence ────
+// "as per the image" / "from the photo" / "like the picture". The LANGUAGE half
+// of "the sentence asked for a photograph"; whether one is ATTACHED is UI state
+// the chat panel holds, and the two are joined in `ZeroTokenChatBridge`. Exported
+// so the ONE composition site can read the rule rather than restate it.
+export { readImageReference, missingImageRefusal } from './intents/FacadePhotoReference.js';
+export type { ImageReferenceReading } from './intents/FacadePhotoReference.js';
+
+// ── §GEN-PHOTO-BRIEF (L-11020) — façade IR -> generation brief ──────────────
+// The ONE mapping from `reconstructFacade()`'s output to the fields
+// `generation.building` already carries. Exported because the chat panel (L7)
+// must run it — the reconstruction happens in the browser, where the decode is,
+// and the MEASUREMENT RULE must not be restated there (a client may not own one).
+export {
+    mapFacadeIRToPhotoBrief,
+    describePhotoBrief,
+    describeConfidence,
+    FACADE_PHOTO_CONFIDENCE_FLOOR,
+    GROUND_ARCH_THRESHOLD,
+    BALCONY_COVERAGE_THRESHOLD,
+    PHOTO_NOT_USED_COLOUR_PREFIX,
+} from './intents/FacadePhotoBrief.js';
+export type { FacadePhotoBrief, FacadePhotoReading } from './intents/FacadePhotoBrief.js';

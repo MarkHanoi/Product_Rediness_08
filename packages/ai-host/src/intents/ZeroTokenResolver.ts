@@ -4953,6 +4953,31 @@ const GEN_STOREY_WORDS: Readonly<Record<string, number>> = {
 };
 const GEN_FLOORS_RE =
   /(?:^|\s)(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)[\s-](?:storeys?|stor(?:y|ies)|floors?|levels?)\b/;
+/**
+ * §CHAT-ATTACH-STOREYS-ALT (L-10902) — storey counts `GEN_FLOORS_RE` cannot see,
+ * because it requires the shape `<number> <storey-noun>` and an architect does
+ * not always write in that order.
+ *
+ * Probed misses, all of them things this founder plausibly types:
+ *
+ *     "storeys: 5"        a spec-shaped line, noun first
+ *     "G+4"               ⭐ standard architectural notation
+ *     "ground plus 4"     the same thing, spelled out
+ *
+ * ⭐ THE `G+N` SEMANTIC IS STATED, NOT ASSUMED. `G+4` is GROUND PLUS FOUR UPPER
+ * FLOORS = 5 TOTAL, and `floors` on this payload is the TOTAL including ground
+ * (see the field's own doc comment). So the capture is incremented by one, ONCE,
+ * here — the single place that translation happens. Getting this wrong builds a
+ * building one storey short and looks entirely plausible while doing it.
+ *
+ * ⛔ These are FALLBACKS, tried only after `GEN_FLOORS_RE` misses, so no sentence
+ * that parses today can change meaning.
+ */
+const GEN_FLOORS_NOUN_FIRST_RE =
+  /\b(?:storeys?|stor(?:y|ies)|floors?|levels?)\s*(?:count|number)?\s*[:=]\s*(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/;
+const GEN_GROUND_PLUS_RE =
+  /\b(?:g|gf|ground(?:\s*floor)?)\s*(?:\+|plus)\s*(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|eleven)\b/;
+
 const GEN_MIX_RE = /\b([1-4]|one|two|three|four)[\s-]bed(?:room)?s?\b|\bt([1-4])\b/g;
 const GEN_ROOF_RE = /\b(flat|gable|hip)(?:ped)? roof\b/;
 
@@ -4968,8 +4993,35 @@ const GEN_ROOF_RE = /\b(flat|gable|hip)(?:ped)? roof\b/;
  * is no usable line. A false NEGATIVE silently builds on the wrong footprint, which
  * is the expensive direction.
  */
+/*
+ * ⚠ WIDENED 2026-08-25 (§CHAT-ATTACH-BOUNDARY-ADJ, L-10900) — MEASURED MISS, and
+ * it was the founder's own sentence one word short.
+ *
+ * The determiner slot was a CLOSED LIST — `the|this|that|my` optionally followed
+ * by `drawn|selected`. Probed against the phrasings in his brief:
+ *
+ *     "on the current boundary line"   HIT   (via the second alternative)
+ *     "on the current boundary"        MISS  ← "current" is in no list
+ *     "within the current boundary"    MISS
+ *     "on the active boundary"         MISS
+ *     "on the existing boundary"       MISS
+ *     "on the plot boundary"           MISS
+ *
+ * So dropping ONE word — "line" — from the sentence he actually wrote silently
+ * moved the building off the line he had just drawn and onto the site parcel,
+ * with nothing in the transcript saying so. That is the exact scope-drift defect
+ * the paragraph above describes, arriving through the OTHER door.
+ *
+ * ⛔ THE FIX IS NOT A LONGER LIST — a longer closed list is the narrowed
+ * vocabulary the founder has ruled against, and it would have missed the next
+ * adjective too. The slot is now up-to-three ADJECTIVE WORDS, which is generous
+ * by construction. Punctuation is a natural barrier (`[a-z]+` cannot cross a
+ * comma), so an unrelated later clause cannot be bridged into: "on the site, add
+ * the boundary" does not match, and neither does "on the site and add a boundary"
+ * (four words). Verified by probe in both directions before landing.
+ */
 const GEN_ON_BOUNDARY_LINE_RE =
-    /\b(?:on|in|inside|within|along|from)\s+(?:the\s+|this\s+|that\s+|my\s+)?(?:drawn\s+|selected\s+)?boundar(?:y|ies)(?:\s*-?\s*line)?\b|\bboundary\s*-?\s*line\b/;
+    /\b(?:on|in|at|inside|within|along|from|using|use)\s+(?:[a-z]+\s+){0,3}boundar(?:y|ies)(?:\s*-?\s*line)?\b|\bboundar(?:y|ies)\s*-?\s*line\b/;
 
 /**
  * §GEN-TYPOLOGY-NAMED (L-10821) — a building noun with NO typology qualifier.
@@ -4991,7 +5043,24 @@ export function parseGenerateBuildingIntent(
   if (!GEN_BUILDING_VERB_RE.test(text)) return null;
   // Element-level asks are someone else's sentence ("make the house walls
   // white", "create a window …") — never claimed as generation.
-  if (GEN_ELEMENT_NOUN_RE.test(text)) return null;
+  //
+  // ⚠ §CHAT-ATTACH-ROOF-FORM-DEAD (L-10903) — THE ROOF-FORM PHRASE IS MASKED
+  // FROM THIS GUARD, AND WITHOUT THAT `GEN_ROOF_RE` WAS UNREACHABLE CODE.
+  //
+  // MEASURED: `parseGenerateBuildingIntent('create a 3-storey house with a gable
+  // roof')` returned **null** — a MISS, so the chat answered "I'm not sure how to
+  // help with that yet". `GEN_ELEMENT_NOUN_RE` contains `roofs?`, and EVERY string
+  // `GEN_ROOF_RE` can match ("flat roof" / "gable roof" / "hipped roof") contains
+  // the word `roof`. So the element guard fired first on every sentence the roof
+  // matcher existed to read, and `roofKind` could never be set by any utterance.
+  // A whole declared feature, dead since it was written — the
+  // [[authored-but-unwired-is-the-bottleneck]] shape inside one function.
+  //
+  // The mask is NARROW on purpose: only the ROOF-FORM phrase is removed, so
+  // "make the house roof white" still carries a bare `roof`, still trips the
+  // guard, and still belongs to the colour capability. Verified in both
+  // directions before landing.
+  if (GEN_ELEMENT_NOUN_RE.test(text.replace(GEN_ROOF_RE, ' '))) return null;
   // "make" claims only the creation shape ("make a house", "make me a new
   // office building") — "make the house white" is NOT a generation ask.
   if (/^make\b/.test(text) && !/^make (?:me )?(?:a|an|another|new)\b/.test(text)) return null;
@@ -5055,9 +5124,27 @@ export function parseGenerateBuildingIntent(
     : undefined;
 
   const f = GEN_FLOORS_RE.exec(text);
-  const floors = f === null
+  let floors = f === null
     ? null
     : /^\d+$/.test(f[1]!) ? Number(f[1]) : (GEN_STOREY_WORDS[f[1]!] ?? null);
+  // §CHAT-ATTACH-STOREYS-ALT (L-10902) — the two fallbacks, in that order and
+  // only on a miss. `G+N` adds the ground floor to reach a TOTAL (see the
+  // constant's header); the noun-first form already names a total.
+  if (floors === null) {
+    const nf = GEN_FLOORS_NOUN_FIRST_RE.exec(text);
+    if (nf !== null) {
+      const w = nf[1]!;
+      floors = /^\d+$/.test(w) ? Number(w) : (GEN_STOREY_WORDS[w] ?? null);
+    }
+  }
+  if (floors === null) {
+    const gp = GEN_GROUND_PLUS_RE.exec(text);
+    if (gp !== null) {
+      const w = gp[1]!;
+      const upper = /^\d+$/.test(w) ? Number(w) : (GEN_STOREY_WORDS[w] ?? null);
+      floors = upper === null ? null : upper + 1;
+    }
+  }
 
   // Apartment-mix hints — residential only ("with 2-bed and 3-bed apartments").
   let mix: { T1?: boolean; T2?: boolean; T3?: boolean; T4?: boolean } | undefined;
