@@ -524,6 +524,10 @@ export class PlatformProjectBrowser {
             'import-manager':      ['runtime.events→pryzm-import-manager-toggle (initUI ImportManagerPanel)', hasBus],
             'import-pdf':          ['window.toggleFloorPlanPanel', typeof w.toggleFloorPlanPanel === 'function'],
             'import-dxf':          ['window.toggleDxfPanel', typeof w.toggleDxfPanel === 'function'],
+            // C108 — reachable unconditionally: the dynamic import needs no bus and
+            // no window global, so the only way it can fail is a chunk load error,
+            // which the case's .catch names on the console.
+            'import-facade-photo': ['dynamic import FacadeReconstructionPanel.openFacadeReconstructionPanel', true],
             'print':               ['window.print', typeof window.print === 'function'],
         };
 
@@ -609,6 +613,21 @@ export class PlatformProjectBrowser {
                 break;
             case 'import-manager':
                 window.runtime?.events?.emit('pryzm-import-manager-toggle', {}); // F.events.13
+                break;
+            case 'import-facade-photo':
+                // ⭐ C108 — opened by DYNAMIC import on purpose. The facade
+                // reconstruction engine is ~5k lines; a static import here would pull
+                // it into the platform-shell chunk for every session that never opens
+                // the panel. This file's header forbids BIM engine imports for the
+                // same reason. The panel is a singleton, so repeat clicks re-focus it.
+                void import('../facade/FacadeReconstructionPanel')
+                    .then(m => { m.openFacadeReconstructionPanel(); })
+                    .catch(err => {
+                        // C74 — a failure that names what it tried. A silent catch here
+                        // is indistinguishable from a dead button, which is the exact
+                        // defect this case exists to close.
+                        console.error('[ProjectHub] §HUB-FACADE-PANEL failed to load FacadeReconstructionPanel', err);
+                    });
                 break;
             case 'print':
                 window.print();

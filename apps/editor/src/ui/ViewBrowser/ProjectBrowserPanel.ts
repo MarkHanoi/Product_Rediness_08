@@ -480,6 +480,14 @@ export class ProjectBrowserPanel {
             buildItem('<rect x="1" y="1" width="14" height="14" rx="2"/><path d="M4 4h3.5L11 8l-3.5 4H4V4z"/>', 'Import DXF / DWG', 'import-dxf'),
             buildItem('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>', 'Import Revit (via IFC)', 'import-revit-guided'),
             buildItem('<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 12h8M12 8l4 4-4 4"/>', 'Import Rhino (.3dm)', 'import-rhino'),
+            // ⭐ C108 — PHOTO → FACADE GEOMETRY → PRYZM BIM. It belongs in this
+            // group because a photograph is a source file, exactly like a DXF or an
+            // IFC. It was authored into ExportRailPanel first and was UNREACHABLE:
+            // that rail is not the panel this hub renders, and the binding test
+            // passed because it built its own rail instead of opening this one.
+            // ProjectBrowserPanel is the surface the user actually opens — the
+            // entry point has to exist HERE or the feature does not exist.
+            buildItem('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>', 'Facade from Photo', 'import-facade-photo', 'C108'),
             buildItem('<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>', 'Print / Export PDF', 'print'),
             buildItem('<line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/>', 'Import Manager', 'import-manager'),
         ], false));

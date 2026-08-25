@@ -122,6 +122,11 @@ export default defineConfig({
       // written for a tree that had moved. A suite this config does not select
       // does not exist, and "never ran" and "passed" print the same value.
       'apps/editor/src/ui/links/__tests__/**/*.spec.ts',
+      // ⭐ C108 — added with §FACADE-PANEL-REACHABILITY. The include list is an
+      // ALLOWLIST: a spec outside it is not skipped, it is never discovered, and
+      // `vitest run <path>` prints "No test files found" rather than failing. That
+      // is the same authored-but-unreachable shape as the button this suite guards.
+      'apps/editor/src/ui/facade/__tests__/**/*.spec.ts',
       // §XSS-SINK-SCAN (L-407): the GA-gate HTML-sink classifier + the repo-wide
       // ratchet assertion. Pure Node (fs + string analysis); lives here because
       // `test:root` is the only suite CI runs over non-package tooling.
