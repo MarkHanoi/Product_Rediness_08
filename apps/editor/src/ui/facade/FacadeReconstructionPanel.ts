@@ -629,15 +629,17 @@ export class FacadeReconstructionPanel {
                         ? `grid, pitch ${fmt(f.surface.scaleX, 4)} × ${fmt(f.surface.scaleY, 4)}`
                         : 'none',
                 confidence: f.surface.confidence,
-                // ⚠ THE HONEST GAP, STATED WHERE IT IS READ. S16 has NO corpus case:
-                // neither C108 §6.1 nor SPEC §5 declares ground truth for tile pitch,
-                // so nothing in the test suite proves this number measures tiling.
-                // Measured on corpus case A — a plain window grid with no tiling at
-                // all — S16 returns `grid` at the OPENING LATTICE pitch. Displaying
-                // it like a measurement is exactly what this lane was told not to do.
+                // ⚠ THE HONEST GAP, STATED WHERE IT IS READ (L-11012). S16 has no
+                // corpus case, and when the missing ground truth was built as a probe
+                // it FALSIFIED the stage rather than confirming it: with openings
+                // present, tile pitches of 5, 8, 10, 16 and 20 px ALL return ~0.20 ×
+                // ~0.25 — the 5-bay × 4-storey opening lattice — at confidence
+                // 0.69–0.79. Displaying that like a measurement is exactly what this
+                // panel must not do, so the row is rendered AND tagged.
                 caveat:
-                    'UNVERIFIED. S16 has no corpus case, and on a plain window grid with no tiling it ' +
-                    'reports the OPENING LATTICE as a tile pitch. Do not read this row as a measurement.',
+                    'UNVERIFIED — this is not a measurement (L-11012). Probed against KNOWN tile ' +
+                    'pitches, S16 returns the OPENING LATTICE on any facade with openings, whatever ' +
+                    'the real pitch is, and locks onto a 2× or 3× harmonic without them.',
             },
             {
                 label: 'Scale',

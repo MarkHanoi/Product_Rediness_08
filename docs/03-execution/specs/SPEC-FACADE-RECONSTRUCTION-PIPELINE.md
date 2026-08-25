@@ -264,6 +264,30 @@ never an average. ⛔ **If an input is unknown, the output is unknown** (C108 §
 computed number to a known one; the CLI produces JSON + overlay PNGs from a PNG input; the UI
 mounts and runs end to end on an uploaded image. **Then report and stop.**
 
+> ⭐ **MET 2026-08-25 — all three legs, and the middle one had never been written.** The corpus
+> passed on 2026-08-24 (`1bd0e2f5`, 30/30) and the register then recorded Milestone 1 as CLOSED
+> with **two of these three legs non-existent** — `tools/facade-reconstruct/` and
+> `apps/editor/src/ui/facade/` were empty directories. See the L-11007 correction: a row reading
+> *"the panel is not registered"* cannot be told apart by a reader from *"there is no panel"*.
+>
+> | Leg | Where | SHA | Reading |
+> |---|---|---|---|
+> | corpus | `packages/facade-reconstruction/__tests__/corpus.test.ts` | `1bd0e2f5` | **30/30**, 14 declared cases present |
+> | CLI | `tools/facade-reconstruct/reconstruct.ts` | `de608dfe` | case A → plane 0.79 · 4×5 lattice · 20 openings · repeatX 5 / repeatY 4 · 10 overlay PNGs |
+> | panel | `apps/editor/src/ui/facade/` | `8ab7edef` | **10/10** spec; the rail button is BUILT, CLICKED and asserted to mount the panel |
+>
+> ⛔ **What the exit condition does NOT establish, and never could: L-11001.** Every number above
+> is about synthetic input with known ground truth. **The engine has still never seen a real
+> photograph.** The moment it does, expect failures — that is the point of having built a corpus
+> instead of tuning to one image, not a setback.
+>
+> ⚠ **And one stage inside the green corpus is NOT certified: S16 `surface/tiling.ts`.** FACADE55
+> built the missing ground truth as a probe and it FALSIFIED the stage — on a facade with openings
+> it returns the opening lattice as the tile pitch, at high confidence, for every pitch tested. No
+> corpus case was added because the only pitches that pass are the ones that pass, which is the
+> overfit C108 §9 forbids. Full measurement in **L-11012**; the CLI and the panel both render the
+> value tagged UNVERIFIED.
+
 ---
 
 ## 5. The synthetic corpus (brief §19) — the ONLY thing proven today

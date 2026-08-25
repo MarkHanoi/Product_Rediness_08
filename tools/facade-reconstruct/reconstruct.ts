@@ -180,10 +180,13 @@ function summarise(ir: FacadeIR, d: FacadeDiagnostics, imagePath: string): strin
     L.push('    (C108 §3.10, L-11005). The soffit BAND is measured; the depth is not.');
     L.push('  · CURVATURE RADIUS is null in Milestone 1 (C108 §3.9, L-11004). One');
     L.push('    uncalibrated image says the edges bend, not by what radius.');
-    L.push('  · SURFACE / TILING has NO CORPUS CASE covering its pitch (this lane\'s honest');
-    L.push('    gap #1). The stage runs and the number above is what it computed — nothing');
-    L.push('    in the test suite proves that number is the tile pitch. Treat it as');
-    L.push('    UNVERIFIED, not as a measurement.');
+    L.push('  · SURFACE / TILING is UNVERIFIED and the surface row above is NOT a measurement');
+    L.push('    (L-11012). S16 was probed against KNOWN tile pitches and the probe FALSIFIED it:');
+    L.push('    on a facade with openings it returns the OPENING LATTICE for every pitch tested');
+    L.push('    (~0.20 x ~0.25 whether the tiles are 5px or 20px) at confidence 0.69-0.79, and');
+    L.push('    without openings it locks onto a 2x or 3x HARMONIC at pitches 8, 16 and 20. No');
+    L.push('    corpus case was added: the only pitches that pass are the ones that pass, and a');
+    L.push('    case chosen for that reason is the overfit C108 §9 forbids.');
     L.push('  · THIS ENGINE\'S CORPUS IS SYNTHETIC (L-11001, OPEN). Every threshold was');
     L.push('    fixed against images the generator drew. A real photograph is the first');
     L.push('    thing that can falsify it — failures here are the POINT, not a setback.');
