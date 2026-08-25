@@ -204,6 +204,40 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
       'make the selected doors 2.1m high',
     ],
   },
+  // ── §CHAT-OPENING-SHAPE (L-10945) — the opening-PROFILE families ──────────
+  //
+  // §HONESTY65-CHAT-AXIS-TESTS (L-11153): both capabilities shipped with a
+  // dedicated acceptance file (opening-shape-chat-acceptance.test.ts, 31 tests)
+  // and NO family HERE — so "every declared capability has an acceptance
+  // family" went red the day they landed. These phrasings are drawn from that
+  // file's green set; the deep grammar coverage (catalogue-first guard, the
+  // door-cannot-be-circular refusal, orientation) stays there.
+  {
+    id: 'set-window-shape',
+    ctx: scopedSel('window'),
+    scoped: true,
+    phrasings: [
+      // THE FOUNDER'S SENTENCE, verbatim — the refusal that opened L-10945.
+      'change all windows to segmental type',
+      'change all windows to segmental',
+      'make all windows arched',
+      'make all windows circular',
+      'change the shape of all windows to segmental',
+      'change all windows to rectangular',
+      'change all windows on level 2 to segmental',
+    ],
+  },
+  {
+    id: 'set-door-shape',
+    ctx: scopedSel('door'),
+    scoped: true,
+    phrasings: [
+      'change all doors to arched',
+      'change all doors to segmental',
+      'make all doors rectangular',
+      'make all doors segmental',
+    ],
+  },
   {
     id: 'set-wall-dimensions',
     ctx: scopedSel('wall'),

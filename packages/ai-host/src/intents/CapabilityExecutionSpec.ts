@@ -974,7 +974,19 @@ export function applyExecutionSpec(
       // could only mean walls, which is why the dimension families declared
       // `spatialKinds: ['level','room']` and named the gap rather than claiming
       // reach that existed only as a defect.
-      baseDescriptor = { kind: 'orientation', orientation: base.orientation, elementKind: kind };
+      //
+      // ⛔ §HONESTY65-CHAT-AXIS-TESTS (L-11153) — WALLS STAY BYTE-IDENTICAL, on
+      // the WIRE, not merely in the answer. L-10946's own doctrine is "absent
+      // elementKind still means WALLS, byte-identically, so every existing
+      // caller keeps its answer" — and then this line stamped
+      // `elementKind: 'wall'` onto every wall capability's descriptor anyway,
+      // changing the pinned wire shape the acceptance suite asserts (the bridge
+      // ignores 'wall' explicitly, so the field carried no information there).
+      // The hop is for HOSTED-OPENING kinds; a wall descriptor keeps its
+      // pre-L-10946 shape.
+      baseDescriptor = kind === 'wall'
+        ? { kind: 'orientation', orientation: base.orientation }
+        : { kind: 'orientation', orientation: base.orientation, elementKind: kind };
     }
     const descriptor: ScopeDescriptor = scope.kind === 'filter'
       ? { kind: 'filter', base: baseDescriptor, filters: scope.filters, elementKind: kind }

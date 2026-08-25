@@ -561,8 +561,30 @@ const UNCONNECTED_TOPICS: readonly UnconnectedTopic[] = [
     commands: ['wall.transform'],
   },
   {
+    // §HONESTY65-CHAT-AXIS-TESTS (L-11153) — NARROWED (not excluded), 2026-08-25.
+    //
+    // `set-window-shape` / `set-door-shape` are LIVE (§CHAT-OPENING-SHAPE,
+    // L-10945) and both advertise "opening shape" (the window one also "opening
+    // profile"). This topic matched the bare noun `opening`, so it fired inside
+    // the very labels `describeCapabilitiesFor('door'/'window')` prints — a
+    // refusal that denies what its own sentence advertises, which is the L-998
+    // invariant (§FIX-BARE-FINISH-SELF-CONTRADICTS) exactly.
+    //
+    // ── WHY NOT `excludeKinds` ─────────────────────────────────────────────
+    // The distinction is not the KIND, it is the SENTENCE — the same reasoning
+    // as the `position` topic above (L-1032): "cut an opening in the wall next
+    // to the door" is still an honest gap (`wall.createOpening` has no chat
+    // route), while "change the opening shape" is live. So the narrowing is a
+    // lookahead for the SHAPE vocabulary and nothing else; no word is removed
+    // from the match (RAC free-form doctrine — vocabulary is moved, never
+    // deleted). A shape-shaped sentence the grammar misses is a MISS and
+    // reaches the LLM: better an honest "I'm not sure" than a confident denial
+    // of something the chat can do.
     label: 'openings',
-    match: /\b(?:opening|openings|cut a hole|punch|hole in)\b/,
+    match: new RegExp(
+      String.raw`^(?![\s\S]*\bopening\s+(?:shape|profile)s?\b)` +
+      String.raw`[\s\S]*\b(?:opening|openings|cut a hole|punch|hole in)\b`,
+    ),
     commands: ['wall.createOpening', 'wall.opening.create'],
   },
   {
