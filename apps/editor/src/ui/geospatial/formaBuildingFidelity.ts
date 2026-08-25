@@ -57,6 +57,19 @@ export function buildingGeometrySignature(input: {
     curve?: { control: { x: number; z: number }; segments?: number } | null;
   }>;
   openings: ReadonlyArray<{ a: { x: number; z: number }; height: number }>;
+  /**
+   * §CW90 item 7 — curtain walls. ABSENT FROM THE SIGNATURE ENTIRELY before
+   * this field existed, which was the whole of the founder's "curtain walls
+   * don't appear in site 3D until an unrelated edit": creating one changed no
+   * term, so `decideFormaRealPlacement` returned 'reuse-placed' and the GLB
+   * was never re-exported. Any unrelated wall/slab/furniture edit flipped the
+   * signature and the next export swept the curtain walls in with it.
+   * Optional so every existing caller/test keeps its exact prior signature
+   * string when the field is not passed.
+   */
+  curtainWalls?: ReadonlyArray<{
+    a: { x: number; z: number }; b: { x: number; z: number }; height: number;
+  }>;
   slabCount: number;
   roofCount: number;
   stairCount: number;
@@ -77,8 +90,15 @@ export function buildingGeometrySignature(input: {
   for (const o of input.openings) {
     mix(o.a.x * 100); mix(o.a.z * 100); mix(o.height * 100);
   }
+  // §CW90 item 7 — a curtain wall's endpoints + height enter the hash so a
+  // create/move/resize flips the signature exactly as a wall's does.
+  for (const cw of input.curtainWalls ?? []) {
+    mix(cw.a.x * 100); mix(cw.a.z * 100); mix(cw.b.x * 100); mix(cw.b.z * 100);
+    mix(cw.height * 100);
+  }
   return [
     input.walls.length,
+    (input.curtainWalls ?? []).length,
     input.openings.length,
     input.slabCount,
     input.roofCount,

@@ -37,6 +37,8 @@
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { CurtainWallData } from '@pryzm/geometry-curtain-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+// §CW90 item 7 (§G3-STALE-FIX-CW, the COMMAND path) — see execute().
+import { viewDependencyTracker } from '@pryzm/core-app-model';
 import { batchCoordinator } from '@pryzm/core-app-model';
 // §PERF-2026-Q2-CW-CREATE/F4 — Route window-event dispatch through the
 // builder's placement-mode accumulator when the user is interactively
@@ -186,6 +188,17 @@ export class CreateCurtainWallCommand implements Command {
             // GUID so external tools (Solibri, BIMcollab) keep their linkage.
             ifcData: { guid: this.payload.ifcGuid ?? this.payload.id, ifcClass: 'IfcCurtainWall' }
         };
+
+        // 0️⃣ §CW90 item 7 (§G3-STALE-FIX-CW — the COMMAND path). The bus mirror
+        // (initTools §P3.1-CW) registers the wall in the ViewDependencyTracker
+        // BEFORE add(), because add() synchronously drives CurtainPanelSyncHandler,
+        // which fires one storeEventBus event PER PANEL (`<cwId>::row:col`) — and
+        // the VDT attributes a panel to its parent only if the PARENT is already
+        // registered. This command — the 3-D tool / by-slab / load path — never
+        // did, so every create through it produced a `[VDT] §G3-STALE-EVENT …
+        // fallback to store-type view only` storm, one line per panel, and the
+        // affected views were COARSE-marked instead of targeted.
+        viewDependencyTracker.registerElement(this.payload.id, this.payload.levelId);
 
         // 1️⃣ Store first — emits storeEventBus → subscriber in main.ts triggers builder.build()
         context.stores.curtainWallStore.add(cwData);

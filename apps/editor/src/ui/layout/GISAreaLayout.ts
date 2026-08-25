@@ -3907,10 +3907,34 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         }
     };
 
+    // §CW90 item 7 — the curtain-wall reader the signature (and the
+    // authored-building gate) was missing. Same read-only idiom as
+    // getFormaWalls; tolerant of an absent store → [].
+    const getFormaCurtainWalls = (): Array<{
+        a: { x: number; z: number }; b: { x: number; z: number }; height: number;
+    }> => {
+        const cwStore = storeRegistry.getStoreForType('curtainwall') as unknown as
+            | { getAll?: () => Array<{
+                  baseLine?: Array<{ x: number; z: number }>;
+                  height?: number;
+              }> }
+            | undefined;
+        const all = cwStore?.getAll?.() ?? [];
+        const out: Array<{ a: { x: number; z: number }; b: { x: number; z: number }; height: number }> = [];
+        for (const cw of all) {
+            const a = cw?.baseLine?.[0];
+            const b = cw?.baseLine?.[cw.baseLine.length - 1];
+            if (!a || !b) continue;
+            out.push({ a: { x: a.x, z: a.z }, b: { x: b.x, z: b.z }, height: cw.height ?? 3 });
+        }
+        return out;
+    };
+
     const computeBuildingSignature = (): string => {
         try {
             return `${countIfcSceneMeshes()}|` + buildingGeometrySignature({
                 walls: getFormaWalls(),
+                curtainWalls: getFormaCurtainWalls(),
                 openings: getFormaOpenings(),
                 slabCount: getFormaSlabs().length,
                 roofCount: getFormaRoofs().length,
@@ -3944,6 +3968,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // building even when no NATIVE element exists (see countIfcSceneMeshes).
             const hasAuthoredBuilding =
                 getFormaWalls().length > 0 ||
+                // §CW90 item 7 — a curtain-wall-only building IS an authored
+                // building; without this term it reported "no authored building"
+                // and real-model placement was skipped entirely.
+                getFormaCurtainWalls().length > 0 ||
                 getFormaSlabs().length > 0 ||
                 getFormaRoofs().length > 0 ||
                 getFormaStairs().length > 0 ||

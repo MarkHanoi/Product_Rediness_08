@@ -91,6 +91,33 @@ describe('FORMA.6 buildingGeometrySignature (re-export cache key)', () => {
     );
   });
 
+  it('§CW90 item 7 — CREATING a curtain wall flips the signature (the invisible-until-unrelated-edit root)', () => {
+    const before = buildingGeometrySignature(base);
+    const withCw = buildingGeometrySignature({
+      ...base,
+      curtainWalls: [{ a: { x: 0, z: 4 }, b: { x: 5, z: 4 }, height: 3 }],
+    });
+    expect(withCw).not.toBe(before);
+  });
+
+  it('§CW90 item 7 — MOVING or RESIZING a curtain wall flips the signature like a wall', () => {
+    const cw = { a: { x: 0, z: 4 }, b: { x: 5, z: 4 }, height: 3 };
+    const s1 = buildingGeometrySignature({ ...base, curtainWalls: [cw] });
+    const moved = buildingGeometrySignature({
+      ...base, curtainWalls: [{ ...cw, b: { x: 6, z: 4 } }],
+    });
+    const taller = buildingGeometrySignature({
+      ...base, curtainWalls: [{ ...cw, height: 5 }],
+    });
+    expect(moved).not.toBe(s1);
+    expect(taller).not.toBe(s1);
+  });
+
+  it('§CW90 item 7 — omitting the field keeps every pre-existing signature byte-identical', () => {
+    const withEmpty = buildingGeometrySignature({ ...base, curtainWalls: [] });
+    expect(withEmpty).toBe(buildingGeometrySignature(base));
+  });
+
   it('is stable across element ADD even when counts overlap (hash distinguishes positions)', () => {
     const a = { ...base, walls: [base.walls[0]!] };
     const b = { ...base, walls: [base.walls[1]!] };

@@ -36,7 +36,7 @@ import { Command, CommandType, CommandValidationResult, CommandResult, Serialize
 import * as THREE from '@pryzm/renderer-three/three';
 import { CurtainWallData } from '@pryzm/geometry-curtain-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
-import { batchCoordinator } from '@pryzm/core-app-model';
+import { batchCoordinator, viewDependencyTracker } from '@pryzm/core-app-model';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -234,6 +234,10 @@ export class CreateCurtainWallsFromSlabCommand implements Command {
                 // §2.4 redo symmetry: use cwId as IFC GUID for deterministic stability across redo
                 ifcData: { guid: cwId, ifcClass: 'IfcCurtainWall' }
             };
+
+            // §CW90 item 7 (§G3-STALE-FIX-CW) — VDT registration BEFORE add(),
+            // for the same panel-attribution reason as CreateCurtainWallCommand.
+            viewDependencyTracker.registerElement(cwId, levelId);
 
             // §2.7: store.add() → storeEventBus → subscriber in main.ts → builder.build()
             curtainWallStore.add(cwData);
