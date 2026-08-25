@@ -85,7 +85,7 @@
 // PURE — regex sources and one classifier. No I/O, no stores; the active level
 // arrives through the injected `ResolverContext`, as everywhere else.
 
-import type { IntentSpatialScope } from './ScopeDescriptor.js';
+import type { Compass4, IntentSpatialScope } from './ScopeDescriptor.js';
 import type { ResolverContext } from './ZeroTokenResolver.js';
 
 /** The prepositions English uses to place a thing. ONE alternation, shared —
@@ -108,6 +108,132 @@ export const LEVEL_NOUN_SRC = String.raw`(?:levels?|floors?|storeys?|stor(?:y|ie
  * override an explicit "level 2".
  */
 export const STOREY_NAME_SRC = String.raw`(?:ground|basement|attic|penthouse|mezzanine)`;
+
+// ─── §CHAT-ORIENTATION-IS-NOT-A-ROOM (L-10941) — THE THIRD SCOPE KIND ────────
+//
+// ⭐ THE FOUNDER TYPED **"Make all windows in the south facade 0.1 meters sill
+// height, 3 meters height and 1.5 meters wide"** and was answered:
+//
+//     "I can't find a room 'south'. The rooms here are: 00-001 (Room 00-001)."
+//
+// A confident refusal that lists ONE axis's inventory as though it were the
+// whole language — the same defect shape as the window-type refusal this lane's
+// sibling fix retires. And it happened HERE, in the classifier whose own header
+// declares the ruling it was breaking: **"The preposition does not determine the
+// scope kind. The NOUN does."** The classifier knew two nouns — LEVEL and
+// (by fallthrough) ROOM — so "south facade" fell through to ROOM and produced a
+// refusal quoting a room name the founder never typed.
+//
+// ⛔ THE ORIENTATION AXIS WAS NOT MISSING. That is the measurement that matters,
+// and it corrects the working hypothesis this lane started from. `Compass4`,
+// `ORIENTATION_TO_COMPASS`, `IntentSpatialScope.orientation`,
+// `BaseScopeDescriptor.orientation`, `COMPASS_WORD` and the editor bridge's
+// θ-threaded `facadeOrientationService.facadesByOrientation` arm ALL SHIPPED
+// with ADR-0315 U3. What was missing is that only ONE grammar could produce the
+// scope — the wall COLOUR/RAKE grammars' inline `(north|south|east|west)-facing`
+// adjective — so a compass phrase in the SHARED TAIL every other grammar reads
+// was invisible. The axis existed; the tail could not spell it.
+//
+// ── THE DEFINITION, STATED BEFORE IT IS IMPLEMENTED ─────────────────────────
+//
+// "The south facade" MEANS: the exterior walls whose OUTWARD NORMAL (away from
+// the bounded room's centroid) falls in the southern quadrant of the compass
+// frame rotated by the project's `trueNorth`. That is not a new definition — it
+// is `FacadeOrientationMath.orientationFromNormal`'s, already shipped, already
+// θ-threaded, already the one the wall grammars resolve through. This module
+// adopts it rather than minting a rival.
+//
+//   • THE TOLERANCE IS A QUADRANT — ±45° about the compass point, so the four
+//     directions PARTITION the circle and every exterior wall has exactly one.
+//     A wall at 35° from south IS south. That constant lives with the math
+//     (`orientationFromNormal`), not here; naming a second tolerance in the
+//     grammar is how two answers to one question get minted.
+//   • A CURVED OR FACETED FACADE is answered per WALL, not per building: each
+//     wall segment classifies on its own normal, so a faceted bay contributes
+//     its south-ish segments and not its east-ish ones. A single curved wall
+//     resolves on its baseline chord, which is what the shipped service does.
+//   • A HOSTED OPENING inherits its HOST WALL's orientation. A window has no
+//     independent facade; it faces where the wall it is cut into faces.
+//
+// ── ⛔ A ROOM REALLY CALLED "South" STAYS REACHABLE ─────────────────────────
+//
+// The project gets the FIRST SAY, exactly as the catalogue does in
+// `makeHostedTypeParser` ("only an EXACTLY-KNOWN name short-circuits"). If
+// `ctx.rooms` holds a room whose name or number matches the phrase, the phrase
+// is that ROOM and the compass reading never runs. Only a phrase the project
+// does NOT affirmatively claim as a room can be read as an orientation — so
+// this can turn a REFUSAL into a resolution, and can never turn one resolution
+// into a different one.
+
+/** Compass words → the four-point letter. Adjectival and abbreviated forms
+ *  included; a user says "southern elevation" and "S facade" as readily as
+ *  "south". ⛔ Words only — the facade NOUNS are stripped separately, so this
+ *  table never has to grow a row per phrase. */
+const COMPASS_TOKENS: Readonly<Record<string, Compass4>> = Object.freeze({
+  north: 'N', northern: 'N', northerly: 'N', northward: 'N', n: 'N',
+  south: 'S', southern: 'S', southerly: 'S', southward: 'S', s: 'S',
+  east: 'E', eastern: 'E', easterly: 'E', eastward: 'E', e: 'E',
+  west: 'W', western: 'W', westerly: 'W', westward: 'W', w: 'W',
+});
+
+/** The nouns and participles a compass word hangs on. None of them carries a
+ *  direction; all of them are stripped before the compass table is consulted,
+ *  which is what makes "south", "south facade", "southern elevation",
+ *  "south-facing side" and "the walls facing south" ONE input. */
+const FACADE_NOUN_SRC = String.raw`(?:fa(?:c|ç)ades?|elevations?|aspects?|sides?|faces?|facing` +
+  String.raw`|frontages?|fronts?|exteriors?|exterior|externals?|external|outsides?|walls?|wall)`;
+const FACADE_NOUN_RE = new RegExp(`^${FACADE_NOUN_SRC}$`);
+
+/** Determiners and connectives that never carry a direction either. */
+const ORIENTATION_NOISE_RE = /^(?:the|a|an|of|on|to|all|every|each|and|is|are|that|which|it|its)$/;
+
+/**
+ * ⭐ THE ORIENTATION AXIS PROBE — every phrasing of a compass reference, or
+ * null. Shared by the tail classifier below, by the wall grammars' inline
+ * adjective and by `QualifierAxes`, so the three cannot disagree about what
+ * counts as a direction.
+ *
+ * ⛔ A phrase carrying words this axis does not know is NOT an orientation with
+ * noise in it — it is another axis's phrase with a collision. "South Wing
+ * Kitchen" must stay a room name. Every word must be a compass token, a facade
+ * noun or noise, and at least one must be a compass token; and the compass
+ * tokens must all agree, so "north south corridor" resolves to nothing.
+ */
+export function resolveCompassRef(phrase: string): Compass4 | null {
+  const words = phrase
+    .toLowerCase()
+    // ⭐ "façade" is how an architect spells it, and stripping the cedilla as
+    // punctuation split it into "fa"+"ade" — two words the axis does not know,
+    // so the whole phrase stopped being an orientation. Fold diacritics FIRST.
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/["'`]/g, '')
+    .replace(/[-_/]+/g, ' ')
+    .replace(/[^a-z ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter((w) => w.length > 0);
+  if (words.length === 0) return null;
+  let found: Compass4 | null = null;
+  for (const w of words) {
+    const c = COMPASS_TOKENS[w];
+    if (c !== undefined) {
+      if (found !== null && found !== c) return null; // "north south" — argues both ways.
+      found = c;
+      continue;
+    }
+    if (FACADE_NOUN_RE.test(w) || ORIENTATION_NOISE_RE.test(w)) continue;
+    return null; // a word this axis does not know ⇒ not an orientation phrase.
+  }
+  return found;
+}
+
+/** Every compass word the axis understands — for refusal copy and for the
+ *  equivalence test that stops a second table being written. */
+export function compassWords(): readonly string[] {
+  return Object.keys(COMPASS_TOKENS);
+}
 
 /**
  * The embeddable tail. THREE capture groups, in order:
@@ -212,7 +338,40 @@ export function readSpatialTail(
   // A bare storey NAME — "the ground floor" spoken as "ground", "the basement".
   if (STOREY_NAME_RE.test(raw)) return level(raw);
 
+  // ⭐ §CHAT-ORIENTATION-IS-NOT-A-ROOM (L-10941) — THE THIRD NOUN CLASS.
+  //
+  // "in the south facade" / "on the north elevation" / "in the western side".
+  // Placed HERE, after every level reading and BEFORE the room fallthrough,
+  // because that is exactly where the founder's sentence was falling through to
+  // `roomRef: 'south'` and earning "I can't find a room 'south'".
+  //
+  // ⛔ THE PROJECT GETS THE FIRST SAY. A room the project AFFIRMATIVELY CLAIMS
+  // by this name or number is that room — the same arbitration
+  // `makeHostedTypeParser` uses for a catalogue name, and the reason a building
+  // with a "South Wing" or a room literally called "South" keeps working. This
+  // branch can therefore only turn a REFUSAL into a resolution; it can never
+  // turn one resolution into a different one.
+  if (!namesARoom(raw, ctx)) {
+    const compass = resolveCompassRef(raw);
+    if (compass !== null) return { kind: 'scope', scope: { kind: 'orientation', orientation: compass } };
+  }
+
   return { kind: 'scope', scope: { kind: 'room', roomRef: raw } };
+}
+
+/** Does the project affirmatively claim this phrase as a room? Name or number,
+ *  case- and space-insensitive — the same forgiveness the room resolver applies
+ *  downstream. Absent `rooms` ⇒ NOT a claim (the snapshot is optional, and an
+ *  unreadable list must never be read as an empty one). */
+function namesARoom(phrase: string, ctx: ResolverContext | undefined): boolean {
+  const rooms = ctx?.rooms;
+  if (rooms === undefined || rooms.length === 0) return false;
+  const want = phrase.trim().toLowerCase().replace(/\s+/g, ' ');
+  return rooms.some((r) => {
+    const name = (r.name ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const number = (r.roomNumber ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+    return (name.length > 0 && name === want) || (number.length > 0 && number === want);
+  });
 }
 
 /**
