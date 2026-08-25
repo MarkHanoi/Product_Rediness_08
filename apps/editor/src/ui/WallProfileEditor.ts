@@ -83,13 +83,11 @@ import {
 } from '@pryzm/geometry-wall/profile';
 import { makeDraggable } from './makeDraggable';
 import { makeResizable } from './makeResizable';
-
-/** Widest breathing space around the drawing, px. Shrinks with the panel — see `_padFor`. */
-const MAX_PAD_PX = 44;
-/** ⛔ FLOOR. Below this the dashed wall-extent rectangle touches the SVG edge and the corner
- *  vertex handles are half-clipped, so a vertex the user can see becomes one they cannot grab. */
-const MIN_PAD_PX = 10;
-const HANDLE_R = 7;
+// §OUTLINE81 (C86 §10.6 rule 4) — the SVG drawing surface is EXTRACTED so this modal and the
+// window outline section are two CALLERS of one surface. Everything dimensional this file used
+// to own (px↔metre map, refit arithmetic, handles, drag/snap/clamp) lives there now, verbatim;
+// this file keeps what is the MODAL's: chrome, buttons, keyboard, status text, the commit gate.
+import { ElevationOutlineSurface } from './ElevationOutlineSurface';
 
 /**
  * C. MINIMUM PANEL SIZE — the floor below which the hint line or a button would become
@@ -105,15 +103,9 @@ const HANDLE_R = 7;
  */
 const MIN_PANEL_W = 360;
 const MIN_PANEL_H = 300;
-/** Smallest canvas box `refitTo` will fit a drawing into. > `2 * MIN_PAD_PX`, so scale > 0. */
-const MIN_CANVAS_PX = 64;
-/** ⛔ A scale of 0 collapses every vertex onto one pixel and makes `_u`/`_v` divide by zero. */
-const MIN_SCALE = 1e-3;
 /** Used only when the host cannot measure (happy-dom reports every box as 0). */
 const FALLBACK_CHROME_PX = 168;
 const PANEL_PAD_X = 18;
-
-const SVG_NS = 'http://www.w3.org/2000/svg';
 
 function clamp(x: number, lo: number, hi: number): number {
     return x < lo ? lo : x > hi ? hi : x;
@@ -121,20 +113,12 @@ function clamp(x: number, lo: number, hi: number): number {
 
 export class WallProfileEditor implements WallProfileEditorPort {
     private _root: HTMLElement | null = null;
-    private _svg: SVGSVGElement | null = null;
-    private _bound: SVGRectElement | null = null;
-    private _poly: SVGPolygonElement | null = null;
-    private _handleLayer: SVGGElement | null = null;
+    private _surface: ElevationOutlineSurface | null = null;
     private _canvasWrap: HTMLElement | null = null;
     private _status: HTMLElement | null = null;
     private _subject: WallProfileEditorSubject | null = null;
     private _cbs: WallProfileEditorCallbacks | null = null;
 
-    private _ring: WallProfileVertex[] = [];
-    /** px per metre — ONE number for BOTH axes, which is what keeps the drawing to scale. */
-    private _scale = 1;
-    private _pad = MAX_PAD_PX;
-    private _dragIndex: number | null = null;
     private _onKeyDown: ((e: KeyboardEvent) => void) | null = null;
     private _onWinResize: (() => void) | null = null;
     private _disposers: Array<() => void> = [];
@@ -146,24 +130,25 @@ export class WallProfileEditor implements WallProfileEditorPort {
     // ── TEST SEAMS ───────────────────────────────────────────────────────────
     // Every one of these is a READ. They exist because the dimensional half of this panel is
     // the half that can silently produce WRONG COORDINATES, and a drag test would not notice.
+    // Since §OUTLINE81 they FORWARD to the extracted surface — same numbers, same meanings.
 
     /** The working ring, in METRES. Pixels are derived from it; it is never derived from them. */
-    get ring(): ReadonlyArray<WallProfileVertex> { return this._ring; }
+    get ring(): ReadonlyArray<WallProfileVertex> { return this._surface?.ring ?? []; }
     /** Current uniform scale, px per metre. */
-    get pxPerMetre(): number { return this._scale; }
+    get pxPerMetre(): number { return this._surface?.pxPerMetre ?? 1; }
     /** Current drawing inset, px. */
-    get padPx(): number { return this._pad; }
+    get padPx(): number { return this._surface?.padPx ?? 44; }
     /** The panel root, or null when closed. */
     get rootElement(): HTMLElement | null { return this._root; }
     /** Exactly what the status line is telling the author right now. */
     get statusText(): string { return this._status?.textContent ?? ''; }
     /** Model (metres) → SVG pixels. */
     toPx(p: WallProfileVertex): { x: number; y: number } {
-        return { x: this._x(p.u), y: this._y(p.v) };
+        return this._surface!.toPx(p);
     }
     /** SVG pixels → model (metres). The exact inverse of {@link toPx} at every panel size. */
     toModel(x: number, y: number): WallProfileVertex {
-        return { u: this._u(x), v: this._v(y) };
+        return this._surface!.toModel(x, y);
     }
 
     /**
@@ -174,11 +159,11 @@ export class WallProfileEditor implements WallProfileEditorPort {
         this.deactivate();
         this._subject = subject;
         this._cbs = cbs;
-        this._ring = subject.ring && subject.ring.length >= PROFILE_MIN_VERTICES
-            ? subject.ring.map((p) => ({ u: p.u, v: p.v }))
-            : wallProfileEditorRectangle(subject);
-        this._build();
-        this._redraw();
+        this._build(
+            subject.ring && subject.ring.length >= PROFILE_MIN_VERTICES
+                ? subject.ring.map((p) => ({ u: p.u, v: p.v }))
+                : wallProfileEditorRectangle(subject),
+        );
     }
 
     /** Close the overlay and drop every listener. Safe to call any number of times. */
@@ -199,60 +184,25 @@ export class WallProfileEditor implements WallProfileEditorPort {
         this._disposers = [];
         this._root?.remove();
         this._root = null;
-        this._svg = null;
-        this._bound = null;
-        this._poly = null;
-        this._handleLayer = null;
+        this._surface = null;
         this._canvasWrap = null;
         this._status = null;
         this._subject = null;
         this._cbs = null;
-        this._ring = [];
-        this._dragIndex = null;
     }
 
     // ── geometry <-> pixels ──────────────────────────────────────────────────
-    // ⭐ THE DIMENSIONAL CONTRACT, stated once so a later edit cannot quietly break it:
-    //
-    //   x = pad + u * scale                 u = (x - pad) / scale
-    //   y = pad + (height - v) * scale      v = height - (y - pad) / scale
-    //
-    // `scale` is ONE number applied to BOTH axes, so the drawing's aspect ratio IS the wall's
-    // aspect ratio at every panel size. `pad` and `scale` appear identically in the forward and
-    // inverse maps, so `toModel(toPx(p)) === p` for every p, at every size. RESIZING CHANGES
-    // `scale` AND `pad` AND NOTHING ELSE — the ring is stored in metres and is never rescaled,
-    // which is why the enclosed area reported after a resize is the area before it.
-    private _x(u: number): number { return this._pad + u * this._scale; }
-    private _y(v: number): number { return this._pad + (this._subject!.height - v) * this._scale; }
-    private _u(x: number): number { return (x - this._pad) / this._scale; }
-    private _v(y: number): number { return this._subject!.height - (y - this._pad) / this._scale; }
-
-    private _padFor(w: number, h: number): number {
-        return clamp(Math.floor(Math.min(w, h) * 0.08), MIN_PAD_PX, MAX_PAD_PX);
-    }
+    // ⭐ THE DIMENSIONAL CONTRACT lives in `ElevationOutlineSurface` now (§OUTLINE81 moved it
+    // verbatim, comment and all); this method stays as the modal's public seam and delegates.
 
     /**
-     * B. RE-FIT THE DRAWING INTO A NEW CANVAS BOX. The whole of the resize behaviour, and
-     * deliberately PURE ARITHMETIC over two numbers — no DOM reads — so a test can drive it
-     * at sizes no headless layout engine would ever produce.
-     *
-     * ⛔ It must never touch `this._ring`. That is the invariant that makes a resize safe:
-     * the model is metres, the view is pixels, and only the view is a function of the box.
+     * B. RE-FIT THE DRAWING INTO A NEW CANVAS BOX. Delegates to the surface — still pure
+     * arithmetic over two numbers, still never touching the ring (the model is metres, the
+     * view is pixels, and only the view is a function of the box).
      */
     refitTo(availW: number, availH: number): void {
-        const s = this._subject;
-        if (!s || !this._svg) return;
-        const w = Math.max(MIN_CANVAS_PX, Number.isFinite(availW) ? availW : MIN_CANVAS_PX);
-        const h = Math.max(MIN_CANVAS_PX, Number.isFinite(availH) ? availH : MIN_CANVAS_PX);
-        const pad = this._padFor(w, h);
-        this._pad = pad;
-        this._scale = Math.max(MIN_SCALE, Math.min(
-            (w - pad * 2) / Math.max(s.length, 1e-3),
-            (h - pad * 2) / Math.max(s.height, 1e-3),
-        ));
-        this._svg.setAttribute('width',  String(s.length * this._scale + pad * 2));
-        this._svg.setAttribute('height', String(s.height * this._scale + pad * 2));
-        this._redraw();
+        if (!this._subject || !this._surface) return;
+        this._surface.refitTo(availW, availH);
     }
 
     /** Read the canvas wrapper's live box and re-fit into it. No-op where nothing is measurable. */
@@ -267,17 +217,10 @@ export class WallProfileEditor implements WallProfileEditorPort {
     }
 
     // ── UI ───────────────────────────────────────────────────────────────────
-    private _build(): void {
+    private _build(initialRing: WallProfileVertex[]): void {
         const s = this._subject!;
         const maxW = clamp(window.innerWidth - 160, 420, 920);
         const maxH = clamp(window.innerHeight - 320, 240, 520);
-        this._pad = this._padFor(maxW, maxH);
-        this._scale = Math.max(MIN_SCALE, Math.min(
-            (maxW - this._pad * 2) / Math.max(s.length, 1e-3),
-            (maxH - this._pad * 2) / Math.max(s.height, 1e-3),
-        ));
-        const w = s.length * this._scale + this._pad * 2;
-        const h = s.height * this._scale + this._pad * 2;
 
         const root = document.createElement('div');
         root.id = 'wall-profile-editor';
@@ -315,32 +258,20 @@ export class WallProfileEditor implements WallProfileEditorPort {
             'display:flex;align-items:center;justify-content:center;';
         root.appendChild(wrap);
 
-        const svg = document.createElementNS(SVG_NS, 'svg') as SVGSVGElement;
-        svg.setAttribute('width', String(w));
-        svg.setAttribute('height', String(h));
-        svg.style.cssText = 'display:block;background:#fafafe;border-radius:8px;touch-action:none;';
-
-        // The wall's own extent — the box a profile may only CUT inside (`WallProfile.ts`:
-        // "A profile SUBTRACTS from the rectangle; it never grows it").
-        const bound = document.createElementNS(SVG_NS, 'rect') as SVGRectElement;
-        bound.setAttribute('fill', 'none');
-        bound.setAttribute('stroke', '#c9c9d6');
-        bound.setAttribute('stroke-dasharray', '5 4');
-        svg.appendChild(bound);
-
-        const poly = document.createElementNS(SVG_NS, 'polygon') as SVGPolygonElement;
-        poly.setAttribute('fill', 'rgba(102,0,255,0.13)');
-        poly.setAttribute('stroke', '#6600FF');
-        poly.setAttribute('stroke-width', '2');
-        svg.appendChild(poly);
-
-        const handles = document.createElementNS(SVG_NS, 'g') as SVGGElement;
-        svg.appendChild(handles);
-
-        svg.addEventListener('pointermove',  (e) => this._onPointerMove(e as PointerEvent));
-        svg.addEventListener('pointerup',    () => this._onPointerUp());
-        svg.addEventListener('pointerleave', () => this._onPointerUp());
-        wrap.appendChild(svg);
+        // §OUTLINE81 — THE surface, shared with the window outline section. The wall modal
+        // never leaves 'select' mode, which is what keeps its behaviour byte-identical.
+        // (The wall's own extent — "a profile SUBTRACTS from the rectangle; it never grows
+        // it" — is the surface's dashed bound rectangle.)
+        const surface = new ElevationOutlineSurface({
+            extents: { length: s.length, height: s.height },
+            snap: wallProfileEditorSnap,
+            minVertices: PROFILE_MIN_VERTICES,
+            onChanged: () => this._setStatus(),
+            onDeleteRefused: () =>
+                this._setStatus(`A profile needs at least ${PROFILE_MIN_VERTICES} vertices.`),
+            attrPrefix: 'wpe',
+        });
+        wrap.appendChild(surface.svg);
 
         const status = document.createElement('div');
         status.className = 'wpe-status';
@@ -363,8 +294,7 @@ export class WallProfileEditor implements WallProfileEditorPort {
         row.style.cssText =
             'flex:0 0 auto;display:flex;flex-wrap:wrap;gap:8px;row-gap:6px;justify-content:flex-end;';
         row.appendChild(this._button('Reset to rectangle', '#f2f2f7', '#1a1a1a', () => {
-            this._ring = wallProfileEditorRectangle(this._subject!);
-            this._redraw();
+            this._surface?.setRing(wallProfileEditorRectangle(this._subject!));
         }));
         row.appendChild(this._button('Clear profile', '#f2f2f7', '#1a1a1a', () => {
             this._cbs?.onCommit(null);
@@ -386,13 +316,16 @@ export class WallProfileEditor implements WallProfileEditorPort {
 
         document.body.appendChild(root);
         this._root = root;
-        this._svg = svg;
-        this._bound = bound;
-        this._poly = poly;
-        this._handleLayer = handles;
+        this._surface = surface;
         this._canvasWrap = wrap;
         this._status = status;
-        this._syncBound();
+
+        // The initial fit + ring — the same arithmetic the old inline build ran (refitTo IS
+        // that arithmetic), so pad/scale for a given box are byte-identical.
+        surface.refitTo(maxW, maxH);
+        surface.setRing(initialRing);
+        const w = parseFloat(surface.svg.getAttribute('width') ?? '0');
+        const h = parseFloat(surface.svg.getAttribute('height') ?? '0');
 
         // Pin an explicit box ONCE, from the natural content size. Two reasons, both required:
         //   • `makeResizable` drives width/height in px, so the panel must already be in that
@@ -429,16 +362,6 @@ export class WallProfileEditor implements WallProfileEditorPort {
         window.addEventListener('keydown', this._onKeyDown, true);
     }
 
-    /** Keep the dashed wall-extent rectangle exactly on the current pad/scale. */
-    private _syncBound(): void {
-        const s = this._subject;
-        if (!this._bound || !s) return;
-        this._bound.setAttribute('x', String(this._pad));
-        this._bound.setAttribute('y', String(this._pad));
-        this._bound.setAttribute('width',  String(s.length * this._scale));
-        this._bound.setAttribute('height', String(s.height * this._scale));
-    }
-
     private _button(label: string, bg: string, fg: string, onClick: () => void): HTMLButtonElement {
         const b = document.createElement('button');
         b.textContent = label;
@@ -450,97 +373,15 @@ export class WallProfileEditor implements WallProfileEditorPort {
         return b;
     }
 
-    private _redraw(): void {
-        if (!this._poly || !this._handleLayer) return;
-        this._syncBound();
-        this._poly.setAttribute(
-            'points',
-            this._ring.map((p) => `${this._x(p.u)},${this._y(p.v)}`).join(' '),
-        );
-
-        this._handleLayer.replaceChildren();
-
-        // Edge-insertion targets first, so the vertex handles sit above them.
-        for (let i = 0; i < this._ring.length; i++) {
-            const a = this._ring[i]!;
-            const b = this._ring[(i + 1) % this._ring.length]!;
-            const mid = document.createElementNS(SVG_NS, 'circle');
-            mid.setAttribute('cx', String((this._x(a.u) + this._x(b.u)) / 2));
-            mid.setAttribute('cy', String((this._y(a.v) + this._y(b.v)) / 2));
-            mid.setAttribute('r', String(HANDLE_R - 2));
-            mid.setAttribute('fill', '#fff');
-            mid.setAttribute('stroke', '#b9a2ff');
-            mid.setAttribute('data-wpe-midpoint', String(i));
-            mid.style.cursor = 'copy';
-            const at = i;
-            mid.addEventListener('pointerdown', (e) => {
-                e.stopPropagation();
-                this._ring.splice(at + 1, 0, { u: (a.u + b.u) / 2, v: (a.v + b.v) / 2 });
-                this._redraw();
-            });
-            this._handleLayer.appendChild(mid);
-        }
-
-        for (let i = 0; i < this._ring.length; i++) {
-            const p = this._ring[i]!;
-            const c = document.createElementNS(SVG_NS, 'circle');
-            c.setAttribute('cx', String(this._x(p.u)));
-            c.setAttribute('cy', String(this._y(p.v)));
-            c.setAttribute('r', String(HANDLE_R));
-            c.setAttribute('fill', '#6600FF');
-            c.setAttribute('stroke', '#fff');
-            c.setAttribute('stroke-width', '2');
-            c.setAttribute('data-wpe-vertex', String(i));
-            c.style.cursor = 'grab';
-            const idx = i;
-            c.addEventListener('pointerdown', (e) => {
-                e.stopPropagation();
-                this._dragIndex = idx;
-            });
-            c.addEventListener('dblclick', (e) => {
-                e.stopPropagation();
-                this._deleteVertex(idx);
-            });
-            this._handleLayer.appendChild(c);
-        }
-
-        this._setStatus();
-    }
-
-    private _deleteVertex(idx: number): void {
-        // A ring below PROFILE_MIN_VERTICES cannot bound an area — the gate would refuse it,
-        // so the editor refuses to PRODUCE one rather than offering an edit that cannot commit.
-        if (this._ring.length <= PROFILE_MIN_VERTICES) {
-            this._setStatus(`A profile needs at least ${PROFILE_MIN_VERTICES} vertices.`);
-            return;
-        }
-        this._ring.splice(idx, 1);
-        this._redraw();
-    }
-
-    private _onPointerMove(e: PointerEvent): void {
-        if (this._dragIndex === null || !this._svg || !this._subject) return;
-        const r = this._svg.getBoundingClientRect();
-        const s = this._subject;
-        const u = clamp(wallProfileEditorSnap(this._u(e.clientX - r.left), !e.shiftKey), 0, s.length);
-        const v = clamp(wallProfileEditorSnap(this._v(e.clientY - r.top),  !e.shiftKey), 0, s.height);
-        this._ring[this._dragIndex] = { u, v };
-        this._redraw();
-    }
-
-    private _onPointerUp(): void {
-        this._dragIndex = null;
-    }
-
     /** Enclosed area of the working ring, square metres. */
     private _area(): number {
-        return Math.abs(wallProfileSignedArea2(this._ring)) / 2;
+        return Math.abs(wallProfileSignedArea2([...this.ring])) / 2;
     }
 
     private _setStatus(msg?: string): void {
         if (!this._status) return;
         this._status.textContent = msg
-            ?? `${this._ring.length} vertices, enclosed area ${this._area().toFixed(3)} m2`;
+            ?? `${this.ring.length} vertices, enclosed area ${this._area().toFixed(3)} m2`;
         this._status.style.color = msg ? '#b3261e' : '#555';
     }
 
@@ -551,7 +392,7 @@ export class WallProfileEditor implements WallProfileEditorPort {
      * consults, and is NOT re-implemented here (C84 EI-9: one answer per question).
      */
     private _commit(): void {
-        if (this._ring.length < PROFILE_MIN_VERTICES) {
+        if (this.ring.length < PROFILE_MIN_VERTICES) {
             this._setStatus(`A profile needs at least ${PROFILE_MIN_VERTICES} vertices.`);
             return;
         }
@@ -559,7 +400,7 @@ export class WallProfileEditor implements WallProfileEditorPort {
             this._setStatus('This outline encloses no area - the wall would render as nothing.');
             return;
         }
-        this._cbs?.onCommit(this._ring.map((p) => ({ u: p.u, v: p.v })));
+        this._cbs?.onCommit(this.ring.map((p) => ({ u: p.u, v: p.v })));
     }
 
     /** Surface a refusal the TOOL obtained from the gate. The editor owns no refusal text. */
