@@ -47,6 +47,14 @@ export * from './builders/JapaneseBedBuilder';
 export * from './builders/KitchenBuilder';
 export * from './builders/KitchenPlanSymbolBuilder';
 export * from './builders/LampBuilder';
+// §CARPET97 (2026-08-25) — the ten new procedural carpets. `carpetPatterns` is
+// the PURE pattern library (also consumed by the editor's carousel thumbnails so
+// a card and the rug it places are drawn by the same code); `carpetTexture` is
+// the THREE/DOM seam; the two builder files are the geometry.
+export * from './builders/carpetPatterns';
+export * from './builders/carpetTexture';
+export * from './builders/ParametricCarpetBuilders';
+export * from './builders/RoundBraidedCarpetBuilder';
 export * from './builders/PatchworkCarpetBuilder';
 export * from './builders/Plant01Builder';
 export * from './builders/Plant02Builder';

@@ -243,6 +243,19 @@ export const FURNITURE_TYPE_TO_MATERIAL_INTENT: Readonly<Record<FurnitureType, F
     'parametric_chevron_carpet':    'fabric-soft',
     'parametric_patchwork_carpet':  'fabric-soft',
     'parametric_stripe_carpet':     'fabric-soft',
+    // §CARPET97 (2026-08-25) — the ten new procedural carpets read as woven
+    // textile exactly as the three above do, jute included: jute is a soft
+    // floor-covering fibre, not a hard finish.
+    'parametric_staggered_stripe_carpet': 'fabric-soft',
+    'parametric_checkerboard_carpet':     'fabric-soft',
+    'parametric_bordered_jute_carpet':    'fabric-soft',
+    'parametric_braided_jute_carpet':     'fabric-soft',
+    'parametric_colour_block_carpet':     'fabric-soft',
+    'parametric_moons_carpet':            'fabric-soft',
+    'parametric_round_braided_carpet':    'fabric-soft',
+    'parametric_line_art_carpet':         'fabric-soft',
+    'parametric_fine_stripe_carpet':      'fabric-soft',
+    'parametric_diamond_trellis_carpet':  'fabric-soft',
     'rug':                          'fabric-soft', // §67.1 — auto-furnish rug
 
     // ── Curtains + window dressing ────────────────────────────────────

@@ -151,6 +151,18 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'parametric_chevron_carpet': 'decor',
     'parametric_patchwork_carpet': 'decor',
     'parametric_stripe_carpet': 'decor',
+    // §CARPET97 (2026-08-25) — the ten new procedural carpets. Same category as
+    // the three above so they sort together everywhere the map is consulted.
+    'parametric_staggered_stripe_carpet': 'decor',
+    'parametric_checkerboard_carpet':     'decor',
+    'parametric_bordered_jute_carpet':    'decor',
+    'parametric_braided_jute_carpet':     'decor',
+    'parametric_colour_block_carpet':     'decor',
+    'parametric_moons_carpet':            'decor',
+    'parametric_round_braided_carpet':    'decor',
+    'parametric_line_art_carpet':         'decor',
+    'parametric_fine_stripe_carpet':      'decor',
+    'parametric_diamond_trellis_carpet':  'decor',
     'rug':                      'soft_furnishings', // §67.1 — auto-furnish rug (laid under bed/table/sofa)
     'curtain_rod':              'soft_furnishings', // F1.11 — slim ceiling-adjacent rod
     'curtain_panel':            'soft_furnishings', // F1.11 — fabric panel (paired)

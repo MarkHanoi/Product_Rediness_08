@@ -102,6 +102,18 @@ export type FurnitureType =
     | 'parametric_chevron_carpet'
     | 'parametric_patchwork_carpet'
     | 'parametric_stripe_carpet'
+    // ── §CARPET97 (founder, 2026-08-25) — ten further procedural carpets.
+    // Mirrors the union in packages/geometry-furniture/src/FurnitureTypes.ts.
+    | 'parametric_staggered_stripe_carpet'
+    | 'parametric_checkerboard_carpet'
+    | 'parametric_bordered_jute_carpet'
+    | 'parametric_braided_jute_carpet'
+    | 'parametric_colour_block_carpet'
+    | 'parametric_moons_carpet'
+    | 'parametric_round_braided_carpet'
+    | 'parametric_line_art_carpet'
+    | 'parametric_fine_stripe_carpet'
+    | 'parametric_diamond_trellis_carpet'
     // ── Japanese Bed Collection (parametric — BedEngine) ──────────────────────
     | 'japanese_platform_bed'
     | 'japanese_float_bed'

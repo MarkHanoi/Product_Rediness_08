@@ -201,6 +201,22 @@ export type FurnitureType =
     | 'parametric_chevron_carpet'
     | 'parametric_patchwork_carpet'
     | 'parametric_stripe_carpet'
+    // ── §CARPET97 (founder, 2026-08-25) — ten further procedural carpets, drawn
+    // from the founder's reference photographs. Same builder family as the three
+    // above (thin slab + CanvasTexture overlay + short-end fringe) EXCEPT
+    // `parametric_round_braided_carpet`, whose body is a disc with no fringe —
+    // see RoundBraidedCarpetBuilder for the diameter rule. Pattern library:
+    // builders/carpetPatterns.ts.
+    | 'parametric_staggered_stripe_carpet'
+    | 'parametric_checkerboard_carpet'
+    | 'parametric_bordered_jute_carpet'
+    | 'parametric_braided_jute_carpet'
+    | 'parametric_colour_block_carpet'
+    | 'parametric_moons_carpet'
+    | 'parametric_round_braided_carpet'
+    | 'parametric_line_art_carpet'
+    | 'parametric_fine_stripe_carpet'
+    | 'parametric_diamond_trellis_carpet'
     // ── §67.1 (2026-06-11) — auto-furnish soft-furnishing RUG. A thin flat
     // rug the D-FLE engine lays UNDER the bed / dining table / sofa+coffee
     // table (floor z-order, collision-exempt). Routes to a carpet builder in

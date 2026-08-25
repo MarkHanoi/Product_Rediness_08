@@ -47,6 +47,14 @@ import { Plant08Builder } from './Plant08Builder';
 import { ChevronCarpetBuilder } from './ChevronCarpetBuilder';
 import { PatchworkCarpetBuilder } from './PatchworkCarpetBuilder';
 import { StripeCarpetBuilder } from './StripeCarpetBuilder';
+// §CARPET97 (founder, 2026-08-25) — ten further procedural carpets.
+import {
+    StaggeredStripeCarpetBuilder, CheckerboardCarpetBuilder, BorderedJuteCarpetBuilder,
+    BraidedJuteCarpetBuilder, ColourBlockCarpetBuilder, MoonsCarpetBuilder,
+    LineArtCarpetBuilder, FineStripeCarpetBuilder, DiamondTrellisCarpetBuilder,
+    VarietyRugBuilder,
+} from './ParametricCarpetBuilders';
+import { RoundBraidedCarpetBuilder } from './RoundBraidedCarpetBuilder';
 import { AIElementEngine } from '../AIElementEngine';
 import { FurnitureData } from '../FurnitureTypes';
 import { KitchenBuilder } from './KitchenBuilder';
@@ -225,10 +233,30 @@ export class FurnitureFactory {
             case 'parametric_chevron_carpet':   return new ChevronCarpetBuilder(materialService);
             case 'parametric_patchwork_carpet': return new PatchworkCarpetBuilder(materialService);
             case 'parametric_stripe_carpet':    return new StripeCarpetBuilder(materialService);
-            // §67.1 (2026-06-11) — the auto-furnish semantic `rug` kind. Routes
-            // to the patchwork carpet builder (a soft, broadly-liked flat rug);
-            // the thin profile + dimensions come from the FurnitureData footprint.
-            case 'rug':                          return new PatchworkCarpetBuilder(materialService);
+
+            // ── §CARPET97 (founder, 2026-08-25) — ten further procedural carpets,
+            // built from the founder's reference photographs. Nine rectangles
+            // share ParametricCarpetBuilder; the round one is its own body.
+            case 'parametric_staggered_stripe_carpet': return new StaggeredStripeCarpetBuilder(materialService);
+            case 'parametric_checkerboard_carpet':     return new CheckerboardCarpetBuilder(materialService);
+            case 'parametric_bordered_jute_carpet':    return new BorderedJuteCarpetBuilder(materialService);
+            case 'parametric_braided_jute_carpet':     return new BraidedJuteCarpetBuilder(materialService);
+            case 'parametric_colour_block_carpet':     return new ColourBlockCarpetBuilder(materialService);
+            case 'parametric_moons_carpet':            return new MoonsCarpetBuilder(materialService);
+            case 'parametric_round_braided_carpet':    return new RoundBraidedCarpetBuilder(materialService);
+            case 'parametric_line_art_carpet':         return new LineArtCarpetBuilder(materialService);
+            case 'parametric_fine_stripe_carpet':      return new FineStripeCarpetBuilder(materialService);
+            case 'parametric_diamond_trellis_carpet':  return new DiamondTrellisCarpetBuilder(materialService);
+
+            // §67.1 (2026-06-11) — the auto-furnish semantic `rug` kind; the thin
+            // profile + dimensions come from the FurnitureData footprint.
+            // §CARPET97 (2026-08-25) — was ALWAYS the patchwork carpet, so every
+            // auto-furnished room in a project got the identical rug. It now
+            // draws deterministically (from world position, the §DECOR-VARIETY
+            // seed) from a pool of TWELVE rectangular carpets — the three
+            // originals, patchwork included, plus the nine new designs. Nothing
+            // previously reachable became unreachable.
+            case 'rug':                          return new VarietyRugBuilder(materialService);
 
             case 'wardrobe':           return { build: () => new THREE.Group() };
             case 'wardrobe_glass_door': return new WardrobeGlassBuilder(materialService);

@@ -54,6 +54,21 @@ const DECORATIVE_EXACT = new Set<string>([
     'parametric_chevron_carpet',
     'parametric_patchwork_carpet',
     'parametric_stripe_carpet',
+    // §CARPET97 (2026-08-25) — the ten new procedural carpets. A rug is 4 mm
+    // thick and lies ON the floor: its cast shadow is a 4 mm sliver that
+    // contributes nothing to reading the space, which is precisely the test the
+    // three carpets above already passed. Listed by exact name rather than by a
+    // `parametric_` prefix so this set stays as conservative as its doc claims.
+    'parametric_staggered_stripe_carpet',
+    'parametric_checkerboard_carpet',
+    'parametric_bordered_jute_carpet',
+    'parametric_braided_jute_carpet',
+    'parametric_colour_block_carpet',
+    'parametric_moons_carpet',
+    'parametric_round_braided_carpet',
+    'parametric_line_art_carpet',
+    'parametric_fine_stripe_carpet',
+    'parametric_diamond_trellis_carpet',
 ]);
 
 const DECORATIVE_PREFIXES: readonly string[] = ['plant_', 'arbol_t_'];
