@@ -32,6 +32,7 @@
 // dispatch, the same mechanism the batch commands already use) renders them
 // instead of a generic "Done".
 
+import type { FacadeOpeningProgram } from '@pryzm/ai-host';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { houseRequestFromBrief, officeRequestFromBrief, residentialGenerationFromBrief } from './generationRequest.js';
 
@@ -62,6 +63,22 @@ export interface GenerationBuildingPayload {
         readonly facadeColor?: string;
         readonly roofGarden?: boolean;
     };
+    /**
+     * ⭐⭐ §GEN-FACADE-OPENINGS (L-11080 · C108 Milestone 2, L-11006) — the opening
+     * LATTICE measured from an attached photograph: bays, bands, per-cell size
+     * FRACTIONS and a CONTINUOUS archness.
+     *
+     * ⛔ THIS IS THE FIELD `facade` ABOVE COULD NEVER BE. Those four booleans and a
+     * colour were the ENTIRE channel from a photograph to the generator, and the
+     * founder's ~35 measured openings, five arches and five bays had nowhere to go —
+     * his building came out a plain white box with balconies, and it had balconies
+     * only because `balconies` happened to be one of the four.
+     *
+     * ⛔ NOT A LENGTH ANYWHERE. Every number is a ratio or a count; the metres come
+     * from the footprint (C108 §2.2, L-11009). Present only when the lattice was read
+     * at or above the confidence floor.
+     */
+    readonly facadeOpeningProgram?: FacadeOpeningProgram;
     /** Recognised façade description the generator CANNOT produce. Repeated on the
      *  post-build transcript: the Confirm card is seen once, the report persists. */
     readonly facadeUnavailable?: readonly string[];
@@ -225,8 +242,18 @@ async function readBoundaryLineFootprint(
 /**
  * The ONE footprint decision for every typology: the drawn boundary line when the
  * sentence asked for it, else the site parcel exactly as before.
+ *
+ * ⭐ EXPORTED (L-11063) so the reachability suite can assert the resolved POLYGON
+ * itself rather than only the transcript the generator eventually prints. It is not
+ * a test-only hatch: this is the seam's single footprint decision, shared by all
+ * three typology arms, and it is exactly the leg that was broken — asserting it
+ * directly is the difference between proving the join and inferring it from a
+ * downstream refusal. The residential EXECUTOR's last leg needs the browser-only
+ * legacy `commandManager` global, so a headless process cannot follow the ring all
+ * the way to elements; this function is the furthest point that can be measured
+ * honestly without faking the engine.
  */
-async function resolveGenerationFootprint(
+export async function resolveGenerationFootprint(
     rt: PryzmRuntime,
     cmd: GenerationBuildingPayload,
 ): Promise<
@@ -282,6 +309,12 @@ async function runResidential(rt: PryzmRuntime, cmd: GenerationBuildingPayload):
         if (f.roofGarden === true) md['roofGarden'] = true;
         if (typeof f.facadeColor === 'string') md['facadeColor'] = f.facadeColor;
     }
+    // ⭐⭐ §GEN-FACADE-OPENINGS (L-11080 · C108 Milestone 2, L-11006) — the OPENING
+    // LATTICE, which the four fields above could never carry. `residentialBriefMapper`
+    // validates it structurally and drops the whole program on one bad cell; the
+    // executor lays the GROUND storey out on the measured bay rhythm and cuts the
+    // arched heads through the existing §OPENING-PROFILE axis.
+    if (cmd.facadeOpeningProgram !== undefined) md['facadeOpeningProgram'] = cmd.facadeOpeningProgram;
     const { request } = residentialGenerationFromBrief(md, footprint);
 
     const { ResidentialBuildingController } = await import('../residential-building/ResidentialBuildingController.js');
