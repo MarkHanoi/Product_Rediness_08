@@ -974,3 +974,26 @@ export {
     PHOTO_NOT_USED_COLOUR_PREFIX,
 } from './intents/FacadePhotoBrief.js';
 export type { FacadePhotoBrief, FacadePhotoReading } from './intents/FacadePhotoBrief.js';
+
+// ── §GEN-FACADE-OPENINGS (L-11080 · C108 Milestone 2, L-11006) ──────────────
+// The façade IR's OPENING LATTICE — bays, bands, per-cell size fractions and a
+// CONTINUOUS archness — carried all the way to real windows. Exported because
+// the chat panel (L7) produces the program from the reconstruction it ran, and
+// the residential executor (L7) consumes it; the measurement rule itself lives
+// here and is not restated at either end.
+export {
+    extractFacadeOpeningProgram,
+    resolveOpeningProfileFromArchness,
+    planFacadeOpenings,
+    mapStoreyToBand,
+    PROFILE_CANONICAL_ARCHNESS,
+} from './intents/FacadeOpeningProgram.js';
+export type {
+    FacadeOpeningProgram,
+    FacadeOpeningCell,
+    FacadeWallRun,
+    FacadeOpeningPlan,
+    PlanFacadeOpeningsInput,
+    PlannedFacadeOpening,
+    ResolvedOpeningProfile,
+} from './intents/FacadeOpeningProgram.js';
