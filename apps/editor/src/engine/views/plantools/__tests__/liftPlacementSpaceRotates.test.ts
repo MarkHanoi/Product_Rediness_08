@@ -100,7 +100,7 @@ describe('§LIFT94 — SPACE is BOUND during lift placement (L-11344)', () => {
             const h = new LiftPlanToolHandler();
             h.activate(makeCtx(vi.fn()));
             h.onMouseMove({ worldX: 0, worldZ: 0 } as never);
-            expect(h.onKeyDown(e as KeyboardEvent), JSON.stringify(e)).toBe(true);
+            expect(h.onKeyDown(e as unknown as KeyboardEvent), JSON.stringify(e)).toBe(true);
         }
     });
 

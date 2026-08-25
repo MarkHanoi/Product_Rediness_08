@@ -444,7 +444,7 @@ export function determineCategoryElements(
     // confident "0 Lifts" — and "the runtime is not up yet" and "there are no lifts"
     // would be the same value on screen, which is exactly the class of defect this
     // whole `determined` / `undetermined` split exists to prevent.
-    if (catLabel === 'Lifts' && !bag.runtime?.stores?.lift) {
+    if (catLabel === 'Lifts' && !_liftCompoundStore(bag)) {
         return {
             kind: 'undetermined', scope, reason: 'RELATIONSHIP_NOT_READABLE',
             detail: 'runtime.stores.lift is not available yet — the store was never read, ' +
@@ -478,6 +478,27 @@ export function categoryCountOrUnknown(bag: UBPBag, catLabel: string): number | 
 }
 
 /**
+ * §LIFT94 (L-11342) — the C104 lift COMPOUND store, read off the composed runtime.
+ *
+ * ⚠ WHY THIS INDEXES THE STORES BAG STRUCTURALLY RATHER THAN READING
+ * `runtime.stores.lift` DIRECTLY. `StoresSlot` (packages/runtime-composer/src/types.ts
+ * :2835) does not declare a `lift` member, so the typed read does not compile. The
+ * store is genuinely there — `PluginRegistry.ts:505-507` declares `storeKey: 'lift'`
+ * and builds a `LiftCompoundStore`, and `apps/editor/__tests__/
+ * liftReachableThroughComposedRuntime.test.ts` reads `rt.stores.lift` off the REAL
+ * composition root — so the RIGHT fix is a `lift` row on `StoresSlot`. That file is
+ * owned by another live lane, so it is reported as a coordination item (L-11346) and
+ * narrowed here instead of edited there. ⛔ When `StoresSlot` gains the row, DELETE
+ * this helper and read the typed member — do not leave both.
+ *
+ * ⛔ AND IT IS NOT `window.liftStore`, which is the LOD-200 MASSING lift (C104 §1).
+ */
+function _liftCompoundStore(bag: UBPBag): { getState?(): Map<string, any> } | undefined {
+    const stores = bag.runtime?.stores as unknown as Record<string, unknown> | undefined;
+    return stores?.['lift'] as { getState?(): Map<string, any> } | undefined;
+}
+
+/**
  * The raw switch. Kept private and UNGUARDED: `determineCategoryElements` owns
  * the try/catch, so the discrimination happens in exactly one place.
  */
@@ -502,7 +523,7 @@ function _rawCategoryElements(bag: UBPBag, catLabel: string): any[] {
         // ⚠ `getAll()` is deliberately absent: `Store` (packages/stores/src/Store.ts)
         // exposes `getState(): ReadonlyMap`, not the legacy `getAll()` the fifteen rows
         // above rely on. Reading the map is the store's real interface, not a shim.
-        case 'Lifts':             return [...((bag.runtime?.stores?.lift as { getState?(): Map<string, any> } | undefined)?.getState?.()?.values() ?? [])];
+        case 'Lifts':             return [...(_liftCompoundStore(bag)?.getState?.()?.values() ?? [])];
         case 'Handrails':         return window.handrailStore?.getAll?.()     ?? [];
         case 'Columns':           return window.columnStore?.getAll?.()       ?? [];
         case 'Beams':             return window.beamStore?.getAll?.()         ?? [];
