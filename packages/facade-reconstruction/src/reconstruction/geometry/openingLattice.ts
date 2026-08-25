@@ -157,10 +157,25 @@ export function deriveLatticeFromOpenings(
     if (!(medianSize > 0)) return refusal(axis, 'degenerate opening sizes');
     const lo = medianSize / opts.openingLatticeSizeBandFactor;
     const hi = medianSize * opts.openingLatticeSizeBandFactor;
+    // ⭐ §L-11125 — THE BAND IS TWO-DIMENSIONAL. On the founder's real photograph the
+    // corner balconies wrap the rounded ends and their railings are detected as
+    // blobs at the far left and right — WINDOW-WIDE, so they pass a band measured
+    // along x alone, but a third of a window TALL. Six storeys of them voted two
+    // phantom bay lines at the edges. A window-sized object is window-sized on
+    // BOTH axes; the orthogonal size is checked against the same factor and the
+    // same median statistic (the orthogonal median of the blob set), so no second
+    // constant enters.
+    const ortho: LatticeAxis = axis === 'x' ? 'y' : 'x';
+    const orthoSizes = blobs.map((b) => sizeOf(b.bbox, ortho));
+    const medianOrtho = median(orthoSizes);
+    const loO = medianOrtho / opts.openingLatticeSizeBandFactor;
+    const hiO = medianOrtho * opts.openingLatticeSizeBandFactor;
     const voters: { centre: number; idx: number }[] = [];
     for (let i = 0; i < blobs.length; i++) {
         const s = sizes[i]!;
         if (s < lo || s > hi) continue;
+        const o = orthoSizes[i]!;
+        if (medianOrtho > 0 && (o < loO || o > hiO)) continue;
         voters.push({ centre: centreOf(blobs[i]!.bbox, axis), idx: i });
     }
     if (voters.length < 2) {
@@ -249,8 +264,17 @@ export function deriveLatticeFromOpenings(
     // pass (C108 §9); it sits in the middle of a 16x margin.
     const continuousMembers: number[][] = [];
     const vacated: number[] = [];
-    if (kept.length >= 3) {
-        const ortho: LatticeAxis = axis === 'x' ? 'y' : 'x';
+    // ⛔ COLUMNS ONLY (§L-11126). The founder's real photograph found the row
+    // analogue misfiring: an ARCADE is a row of openings separated by thin piers,
+    // and its largest horizontal gap is a small fraction of an arch — exactly the
+    // signature of a sliced strip, read along the other axis. The screen removed
+    // the ground-floor row and the lattice read 6 zones on a 7-storey building.
+    // The physical phenomenon this screen exists for — a full-height element cut
+    // into per-storey slices by slab shadows — is VERTICAL; nothing in the corpus
+    // or either real photograph shows a horizontal band sliced by pier shadows,
+    // while arcades with thin piers are everywhere. Rows are exempt until a
+    // measured case says otherwise (C108 §9: no rule without ground truth).
+    if (axis === 'x' && kept.length >= 3) {
         const ratioOf = (k: { idx: number[] }): number | null => {
             if (k.idx.length < 2) return null;
             const boxes = k.idx
