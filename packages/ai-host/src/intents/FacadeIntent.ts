@@ -90,6 +90,15 @@ export interface FacadeIntentParse {
  * the arcade and the balconies — which is exactly why they are listed. A table of
  * unavailable features that does not cover the case in front of you is decoration.
  */
+/**
+ * §HONESTY65-ARCHES-ROW (L-11152) — the stable prefix of the arches row, exported
+ * so the resolver (the ONE layer holding both the sentence and the photo) can
+ * recognise and REMOVE the row when the photo's measured ground band means the
+ * arcade genuinely IS built with arched heads. Same mechanism as
+ * `PHOTO_NOT_USED_COLOUR_PREFIX`: prefix-matched, never index-matched.
+ */
+export const FACADE_UNAVAILABLE_ARCHES_PREFIX = 'arched openings';
+
 export const FACADE_UNAVAILABLE: ReadonlyArray<{ readonly test: RegExp; readonly say: string }> = [
     {
         test: /\brounded corners?\b|\bcurved corners?\b|\bradiused corners?\b/,
@@ -113,7 +122,21 @@ export const FACADE_UNAVAILABLE: ReadonlyArray<{ readonly test: RegExp; readonly
     },
     {
         test: /\barch(?:es|ed)\b|\barcade[sd]?\b(?=.*\barch)/,
-        say: 'arched openings — the arcade is built as a square-headed shopfront, not as arches',
+        // ⚠ §HONESTY65-ARCHES-ROW (L-11152) — this row used to read "the arcade is
+        // built as a square-headed shopfront, not as arches", flatly. That went
+        // STALE the day the executor learned to cut arches from a photograph
+        // (§GEN-FACADE-OPENINGS, L-11080/L-11081): on the founder's own arcade
+        // scenario — photo attached, ground band measured arched — the transcript
+        // contradicted the build. This parser sees only WORDS, so the row states
+        // the words-only truth; the resolver, which holds BOTH halves, REMOVES it
+        // via `FACADE_UNAVAILABLE_ARCHES_PREFIX` when the photo's ground band is
+        // measured arched (the arcade is then genuinely built with arched heads).
+        // When the curtain-shopfront mode wins instead, the executor's own
+        // §HONESTY65-CURTAIN-DROP-NAMED (L-11151) line covers what happened to
+        // the lattice.
+        say: `${FACADE_UNAVAILABLE_ARCHES_PREFIX} — from words alone the arcade comes out as a ` +
+            'square-headed shopfront; arches are cut only when an attached photo measures the ' +
+            'ground band as arched',
     },
     {
         test: /\bbrick(?:work)?\b|\bstone(?:work)?\b|\brender\b|\bstucco\b|\btimber clad\w*\b/,

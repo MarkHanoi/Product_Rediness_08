@@ -177,7 +177,11 @@ import { exampleColorNames, resolveColorRef } from './colorRef.js';
 // §GEN-FACADE-INTENT (L-10823) — the pure façade vocabulary table. One-way
 // dependency, like DeleteFamilies / DimensionFamilies: this file imports the table;
 // the table imports nothing from here.
-import { facadeUnavailableSentence, parseFacadeIntent } from './FacadeIntent.js';
+import { FACADE_UNAVAILABLE_ARCHES_PREFIX, facadeUnavailableSentence, parseFacadeIntent } from './FacadeIntent.js';
+// §HONESTY65-ARCHES-ROW (L-11152) — the SAME arched-band verdict the executor
+// uses to choose arcade-over-curtain (§GEN-FACADE-OPENINGS): one ladder, no
+// second threshold.
+import { bandIsArched } from './FacadeOpeningProgram.js';
 // §GEN-PHOTO-BRIEF (L-11020) — the photograph's contribution, ALREADY MAPPED.
 // The resolver never sees pixels: the bridge decodes the image, runs
 // `reconstructFacade` and maps the IR through the ONE mapper, then injects the
@@ -2813,7 +2817,24 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       // parts that will NOT happen named BEFORE Confirm rather than after the build.
       const facadeApplied = si.facadeApplied ?? [];
       const facadeLabel = facadeApplied.length > 0 ? ` with ${facadeApplied.join(', ')}` : '';
-      const facadeGap = facadeUnavailableSentence(si.facadeUnavailable ?? []);
+      // ⚠ §HONESTY65-ARCHES-ROW (L-11152) — ONE ROW IS REMOVED, AND ONLY HERE,
+      // because only this layer holds both halves. The sentence parser sees words
+      // alone, so "with arches" always minted the row "arched openings — …" — and
+      // since §GEN-FACADE-OPENINGS (L-11080/L-11081) the executor genuinely BUILDS
+      // the arcade with arched heads whenever the photo's ground band measures
+      // arched. On the founder's own scenario the Confirm card and the post-build
+      // transcript would say the arcade is square-headed about a build that was,
+      // at that very moment, cutting arches. The verdict is the executor's own
+      // (`bandIsArched`, band 0 — one ladder, no second threshold), so the row
+      // disappears exactly when the arcade is real; the curtain-mode drop keeps
+      // the row AND gets the executor's §HONESTY65-CURTAIN-DROP-NAMED (L-11151)
+      // line about the lattice.
+      const photoBuildsArches = photo?.openings != null && bandIsArched(photo.openings, 0);
+      const facadeUnavailableRows = (si.facadeUnavailable ?? []).filter(
+        (row) => !(photoBuildsArches && row.startsWith(FACADE_UNAVAILABLE_ARCHES_PREFIX)),
+      );
+      const archesRowRemoved = facadeUnavailableRows.length < (si.facadeUnavailable ?? []).length;
+      const facadeGap = facadeUnavailableSentence(facadeUnavailableRows);
 
       // ── §GEN-PHOTO-BRIEF (L-11020) — MERGE, then SHOW WHAT CAME FROM WHERE ──
       //
@@ -2841,6 +2862,13 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         }
         if (photoFacadeFields.balconies === true && si.facade?.balconies === undefined) {
           photoFacadeApplied.push('balconies');
+        }
+        // §HONESTY65-ARCHES-ROW (L-11152) — arcade built ⇒ SAY SO. The removed
+        // "can't do arches" row is replaced by the positive fact, on the same
+        // card and in the same photo→applying sentence, so the ask is answered
+        // rather than silently no-longer-refused.
+        if (archesRowRemoved) {
+          photoFacadeApplied.push('the arched openings you asked for (the measured arches are cut into the ground band)');
         }
       }
       // ══ ⭐⭐ THE PROVENANCE CARD ═══════════════════════════════════════════
@@ -2969,8 +2997,10 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
             ...(photo?.openings != null ? { facadeOpeningProgram: photo.openings } : {}),
             // Carried to the execution layer so the post-build transcript can repeat
             // what was NOT done — the Confirm card is seen once, the report persists.
-            ...(si.facadeUnavailable !== undefined && si.facadeUnavailable.length > 0
-              ? { facadeUnavailable: si.facadeUnavailable }
+            // §HONESTY65-ARCHES-ROW (L-11152) — the FILTERED rows, so the persistent
+            // transcript can never re-print the arches contradiction the card removed.
+            ...(facadeUnavailableRows.length > 0
+              ? { facadeUnavailable: facadeUnavailableRows }
               : {}),
             // §GEN-PHOTO-BRIEF (L-11020) — what the PHOTOGRAPH contributed, and what
             // it could not. Repeated on the post-build transcript for the same reason
