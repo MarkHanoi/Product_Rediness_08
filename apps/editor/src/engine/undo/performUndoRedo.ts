@@ -89,6 +89,7 @@ import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { applyRingBufferSide, fromJsonPointer, type ApplyRingBufferOutcome } from '@pryzm/command-bus';
 import type { PatchPair, PatchSide } from '@pryzm/runtime-undo-stack';
 import { adaptElementStoreMap, type PatchApplicableAdapter } from './elementUndoStoreAdapter.js';
+import { boundaryLineUndoAdapter, resolveBoundaryLineStoreFromWindow } from './pluginStoreUndoAdapter.js';
 
 const _tracer = trace.getTracer('pryzm-engine');
 
@@ -445,6 +446,14 @@ export function buildUndoStoreMap(): Record<string, PatchApplicableAdapter | und
     // NOTE: door / window / level are intentionally ABSENT — and so are TEN
     // other keys, for a DIFFERENT reason. Both sets are enumerated, with their
     // reason, in UNMAPPED_BUS_STORE_KEYS below. Read it before adding a key here.
+
+    // §FIX-BOUNDARY-LINE-UNDO-STRANDED (L-11160) — the FIRST twin-less plugin store
+    // on the undo path. Not a legacy global: the adapter resolves
+    // `runtime.stores.boundaryLine` at APPLY time and re-emits the family's bus
+    // events so the 3-D/plan bridge does the rendering half. See
+    // pluginStoreUndoAdapter.ts for why this is not the sheet/schedule shape
+    // problem, and why lazy resolution is the honest form of "present".
+    boundaryLine: boundaryLineUndoAdapter(resolveBoundaryLineStoreFromWindow),
   };
 }
 

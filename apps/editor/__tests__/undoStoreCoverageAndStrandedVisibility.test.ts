@@ -178,7 +178,10 @@ describe('§EI-7c ARM 1 — every bus store key is MAPPED or DECLARED', () => {
     // missing store), so no ring entry is minted and no keypress strands. They are
     // declared because the map claimed them, not because Ctrl+Z fails today.
     expect(stranded).toEqual(
-      ['active-view', 'dimension', 'pool', 'schedule', 'section', 'selection', 'sheet', 'structural', 'view', 'water'],
+      // §L-7310..L-7312 (2026-08-23) added balcony / lift / liftPart to the declared
+      // stranded set; this literal was not moved with them and read RED for two days.
+      // §L-11160 (2026-08-25): boundaryLine is NOT here — it gained a real adapter.
+      ['active-view', 'balcony', 'dimension', 'lift', 'liftPart', 'pool', 'schedule', 'section', 'selection', 'sheet', 'structural', 'view', 'water'],
     );
   });
 
