@@ -485,8 +485,15 @@ export const DUPLICATE_TO_LEVEL_REFUSALS: Readonly<Record<string, DuplicateToLev
         clause: 'C16 CA-18',
         evidence:
             'packages/geometry-lift/src/LiftTypes.ts:54-57 — `levelId`, `baseLevelId`, `topLevelId` (base..top ' +
-            '"must differ") · `ls plugins/` (2026-08-19) has NO `lift` package at all, so there is no ' +
-            '`lift.create` bus verb to dispatch and no `LEVEL_CHANGE_VERBS` row either',
+            '"must differ"); a single-target duplicate is ambiguous by construction, and THAT half is unchanged. ' +
+            '⚠ CORRECTED 2026-08-25 (§LIFT94, L-11343): this row previously read *"`ls plugins/` (2026-08-19) ' +
+            'has NO `lift` package at all, so there is no `lift.create` bus verb to dispatch"*. THAT IS FALSE. ' +
+            '`plugins/lift` EXISTS (`plugins/lift/src/handlers/CreateLift.ts`, exported as `CreateLiftHandler` ' +
+            'and registered by `buildLiftHandlerSet` at PluginRegistry.ts:98), `lift.create` is a real bus verb ' +
+            'declaring `affectedStores = [lift, liftPart, wall, curtainwall, door, slab]`, and it is dispatched ' +
+            'from `LiftPlanToolHandler.ts:218`. THE DISPOSITION IS STILL `deferred`, but the SURVIVING reason is ' +
+            'only the span ambiguity above — the "no verb exists" leg is gone, so a duplicate is now blocked by ' +
+            'a DECISION rather than by a missing mechanism. There is still no `LEVEL_CHANGE_VERBS` row.',
         disposition: 'deferred',
     },
     // ── §L-1032 D3 — SIX ROWS REMOVED FROM THIS TABLE, ON PURPOSE ───────────
