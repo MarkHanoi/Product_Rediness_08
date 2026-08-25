@@ -39,16 +39,29 @@ export function setWindowSectionCommandManager(cm: { execute: (cmd: any) => any 
     _commandManager = cm;
 }
 
-function dispatch(windowId: string, patch: Partial<WindowOpening>): void {
+/**
+ * ⭐ §FIX-PANEL-REFUSAL-SWALLOWED (L-10948) — RETURNS THE REFUSAL INSTEAD OF EATING IT.
+ *
+ * This used to return `void` and send every failure to `console.warn`. The founder reported
+ * *"if i change the type of window - the profile (rectangle - circle) doesnt work - why?"*, and
+ * `console.warn` is the answer to "why?" that nobody can read. A command that refuses WITH A
+ * REASON — `openingProfileRefusal` names both the cause and the live alternative, C16 CA-18 —
+ * and a panel that drops that reason on the floor is C74 broken at the last hop: the user sees a
+ * control that appears to do nothing.
+ *
+ * ⛔ Returns the reason string on refusal, `null` on success. Existing callers that ignore the
+ * return keep their exact previous behaviour, so this is additive.
+ */
+function dispatch(windowId: string, patch: Partial<WindowOpening>): string | null {
     const cmdMgr = _commandManager ?? window.commandManager; // TODO(TASK-06)
     if (!cmdMgr) {
         console.error('[WindowSection] commandManager not configured — call setWindowSectionCommandManager() at bootstrap');
-        return;
+        return 'The command manager is not available in this session, so nothing was changed.';
     }
     const current = windowStore.getById(windowId);
     if (!current) {
         console.warn('[WindowSection] Window not found in store:', windowId);
-        return;
+        return `This window is no longer in the model (${windowId}), so nothing was changed.`;
     }
     const prevFields: Partial<WindowOpening> = {};
     for (const key of Object.keys(patch) as (keyof WindowOpening)[]) {
@@ -56,9 +69,17 @@ function dispatch(windowId: string, patch: Partial<WindowOpening>): void {
     }
     const cmd = new UpdateWindowParameterCommand(windowId, patch, prevFields);
     const result = cmdMgr.execute(cmd); // TODO(TASK-06)
-    if (!result.success) {
-        console.warn('[WindowSection] UpdateWindowParameterCommand failed:', result.info);
+    if (!result?.success) {
+        console.warn('[WindowSection] UpdateWindowParameterCommand failed:', result?.info);
+        // ⚠ UNREADABLE IS NOT THE SAME AS REFUSED. A command that came back with no
+        // readable `info` told us nothing about WHY; saying so is honest, inventing a
+        // reason is not (§CONTEXT-DATA-HONESTY).
+        const stated = Array.isArray(result?.info) ? result.info.filter(Boolean).join(' ') : '';
+        return stated.length > 0
+            ? stated
+            : 'That change was refused and no reason was given — nothing was changed, and nothing about the model is confirmed.';
     }
+    return null;
 }
 
 function makeField(label: string, control: HTMLElement): HTMLElement {
@@ -407,18 +428,46 @@ export function buildWindowSection(windowId: string): HTMLElement | null {
     // ⛔ A change the host cannot carry (a curved wall) is REFUSED by
     // `UpdateWindowParameterCommand` with the reason and the live alternative — never a silent
     // no-op, and never a rectangle substituted quietly.
-    body.appendChild(makeField('Shape',
-        makeSelect(
-            OPENING_PROFILE_KINDS.map(k => ({
-                value: k,
-                label: k === 'segmental-arch'
-                    ? `${OPENING_PROFILE_LABELS[k]} (rise 1/${Math.round(1 / SEGMENTAL_RISE_RATIO)} of width)`
-                    : OPENING_PROFILE_LABELS[k],
-            })),
-            win.openingProfile ?? 'rectangular',
-            v => dispatch(windowId, { openingProfile: v as never })
-        )
-    ));
+    //
+    // ⭐⭐ §FIX-PANEL-REFUSAL-SWALLOWED (L-10948) — THE REFUSAL IS ON SCREEN NOW.
+    //
+    // The founder wrote *"if i change the type of window - the profile (rectangle - circle)
+    // doesnt work - why?"*. The control above him was correct, the command's refusal was
+    // correct, and the REASON went to `console.warn`. Two things ship here:
+    //
+    //   1. the reason is rendered beside the control, verbatim (C74, C16 CA-18);
+    //   2. ⛔ the SELECT IS PUT BACK to what the store holds. A dropdown left showing
+    //      "Circular" over a rectangle the model kept is the panel asserting a shape the
+    //      model does not have — the frame/void divergence of C86 §11 #1, in the UI.
+    //
+    // ⚠ The value is re-read from the STORE, never from the variable this closure captured:
+    // a `circular` change squares the box, so the record after a SUCCESSFUL write is not the
+    // record this function was built from either.
+    const shapeNote = document.createElement('div');
+    shapeNote.className = 'dw-label';
+    shapeNote.style.cssText = 'grid-column:1/-1;opacity:0.85;font-size:11px;line-height:1.45;display:none;';
+    const shapeSelect = makeSelect(
+        OPENING_PROFILE_KINDS.map(k => ({
+            value: k,
+            label: k === 'segmental-arch'
+                ? `${OPENING_PROFILE_LABELS[k]} (rise 1/${Math.round(1 / SEGMENTAL_RISE_RATIO)} of width)`
+                : OPENING_PROFILE_LABELS[k],
+        })),
+        win.openingProfile ?? 'rectangular',
+        v => {
+            const refusal = dispatch(windowId, { openingProfile: v as never });
+            if (refusal === null) {
+                shapeNote.textContent = '';
+                shapeNote.style.display = 'none';
+                return;
+            }
+            shapeNote.textContent = `⛔ ${refusal}`;
+            shapeNote.style.display = '';
+            shapeSelect.value = windowStore.getById(windowId)?.openingProfile ?? 'rectangular';
+        },
+    );
+    body.appendChild(makeField('Shape', shapeSelect));
+    body.appendChild(shapeNote);
 
     // ── ⭐ §FEAT-WINDOW-REVEAL (L-1920 … L-1929) — THE FOUNDER'S TWO ASKS, ONE BLOCK ──
     //

@@ -39,18 +39,24 @@ export function setDoorSectionCommandManager(cm: { execute: (cmd: any) => any } 
     _commandManager = cm;
 }
 
-function dispatch(doorId: string, patch: Partial<DoorOpening>): void {
+/**
+ * ⭐ §FIX-PANEL-REFUSAL-SWALLOWED (L-10948) — RETURNS THE REFUSAL INSTEAD OF EATING IT.
+ * The window twin of the same fix; see `WindowSection.dispatch` for the founder report that
+ * produced it. Returns the reason on refusal, `null` on success — additive, so every caller
+ * that ignores the return keeps its exact previous behaviour.
+ */
+function dispatch(doorId: string, patch: Partial<DoorOpening>): string | null {
     // §DOOR-AUDIT-2026: prefer injected reference; fall back to window during the
     // migration window so existing call sites keep working.
     const cmdMgr = _commandManager ?? window.commandManager; // TODO(TASK-06)
     if (!cmdMgr) {
         console.error('[DoorSection] commandManager not configured — call setDoorSectionCommandManager() at bootstrap');
-        return;
+        return 'The command manager is not available in this session, so nothing was changed.';
     }
     const current = doorStore.getById(doorId);
     if (!current) {
         console.warn('[DoorSection] Door not found in store:', doorId);
-        return;
+        return `This door is no longer in the model (${doorId}), so nothing was changed.`;
     }
     // NOTE: the previous-fields snapshot is now also captured by
     // UpdateDoorParameterCommand.execute() at execute-time (§DOOR-AUDIT-2026
@@ -63,9 +69,16 @@ function dispatch(doorId: string, patch: Partial<DoorOpening>): void {
     }
     const cmd = new UpdateDoorParameterCommand(doorId, patch, prevFields);
     const result = cmdMgr.execute(cmd); // TODO(TASK-06)
-    if (!result.success) {
-        console.warn('[DoorSection] UpdateDoorParameterCommand failed:', result.info);
+    if (!result?.success) {
+        console.warn('[DoorSection] UpdateDoorParameterCommand failed:', result?.info);
+        // ⚠ UNREADABLE IS NOT REFUSED. No readable `info` means we were told nothing about
+        // WHY; say that, rather than invent a reason (§CONTEXT-DATA-HONESTY).
+        const stated = Array.isArray(result?.info) ? result.info.filter(Boolean).join(' ') : '';
+        return stated.length > 0
+            ? stated
+            : 'That change was refused and no reason was given — nothing was changed, and nothing about the model is confirmed.';
     }
+    return null;
 }
 
 function makeField(label: string, control: HTMLElement): HTMLElement {
@@ -223,18 +236,36 @@ export function buildDoorSection(doorId: string): HTMLElement | null {
     //
     // ⚠ The segmental rise (1/6 of the span) is printed in the option itself: it is a DECLARED
     // default with no authored source, and NOT MEASURED against an architect's expectation.
-    body.appendChild(makeField('Head Shape',
-        makeSelect(
-            openingProfilesFor('door').map(k => ({
-                value: k,
-                label: k === 'segmental-arch'
-                    ? `${OPENING_PROFILE_LABELS[k]} (rise 1/${Math.round(1 / SEGMENTAL_RISE_RATIO)} of width)`
-                    : OPENING_PROFILE_LABELS[k],
-            })),
-            (door as { openingProfile?: string }).openingProfile ?? 'rectangular',
-            v => dispatch(doorId, { openingProfile: v as never })
-        )
-    ));
+    //
+    // ⭐⭐ §FIX-PANEL-REFUSAL-SWALLOWED (L-10948) — the reason is rendered, and the select is
+    // PUT BACK to what the store holds. A dropdown left showing a head the model refused is the
+    // panel asserting a shape the model does not have (C86 §11 #1, in the UI).
+    const shapeNote = document.createElement('div');
+    shapeNote.className = 'dw-label';
+    shapeNote.style.cssText = 'grid-column:1/-1;opacity:0.85;font-size:11px;line-height:1.45;display:none;';
+    const shapeSelect = makeSelect(
+        openingProfilesFor('door').map(k => ({
+            value: k,
+            label: k === 'segmental-arch'
+                ? `${OPENING_PROFILE_LABELS[k]} (rise 1/${Math.round(1 / SEGMENTAL_RISE_RATIO)} of width)`
+                : OPENING_PROFILE_LABELS[k],
+        })),
+        (door as { openingProfile?: string }).openingProfile ?? 'rectangular',
+        v => {
+            const refusal = dispatch(doorId, { openingProfile: v as never });
+            if (refusal === null) {
+                shapeNote.textContent = '';
+                shapeNote.style.display = 'none';
+                return;
+            }
+            shapeNote.textContent = `⛔ ${refusal}`;
+            shapeNote.style.display = '';
+            shapeSelect.value =
+                (doorStore.getById(doorId) as { openingProfile?: string } | undefined)?.openingProfile ?? 'rectangular';
+        },
+    );
+    body.appendChild(makeField('Head Shape', shapeSelect));
+    body.appendChild(shapeNote);
 
     appendDwGroup(body, 'Operation');
     body.appendChild(makeField('Hinges Side',
