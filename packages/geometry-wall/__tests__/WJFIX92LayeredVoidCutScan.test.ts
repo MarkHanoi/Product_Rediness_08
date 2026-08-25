@@ -30,6 +30,8 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
 import { buildLayeredWallSegmentsAroundOpenings, clusterOpenings } from '../src/LayeredWallOpeningBuilder';
+import { WallFragmentBuilder } from '../src/WallFragmentBuilder';
+import { WallJoinResolver } from '../src/WallJoinResolver';
 import type { WallData, Opening } from '../src/WallTypes';
 
 const OPENING: Opening = {
@@ -135,6 +137,59 @@ describe('§WJFIX92 F-1 — the layered-grid arm speaks the body-part vocabulary
         expect(hole, `bands were ${JSON.stringify(bands)}`).toBeDefined();
         // The two readings must AGREE. That agreement is the fix; their disagreement
         // was the defect.
+        expect(coordinatorVoidCutScan(group).voidCut).toBe(true);
+    });
+});
+
+/**
+ * CONTROL — the PLAIN (non-layered) opening-bearing wall, through the REAL builder.
+ *
+ * Raised as a cross-lane concern (UNDO93): `WallFragmentBuilder.createWallBodyFragment`
+ * (the V2 arm and the legacy MiterPrism arm) stamps `role:'geometry'` with NO
+ * `elementType`, so "plain walls with openings must be failing the void scan too".
+ *
+ * MEASURED, and the concern does NOT reach this scan: a wall WITH openings never takes
+ * `createWallBodyFragment` at all — the opening-bearing body is built as segments tagged
+ * `'WallPart'`, and the scan reads bodyParts=1. `createWallBodyFragment` is the
+ * openings-FREE single-body arm, and the scan is only consulted `if (_openings.length > 0)`,
+ * so its missing tag cannot produce a §DIAG-OPENING-VOID false positive. Those two sites
+ * are a real vocabulary gap with real consumers of their own (selection sweeps, the
+ * `WallProfileNonRegressionBaseline` P1a/P3 rows currently pin `_` there) — logged
+ * separately rather than stamped here on a rationale that measurement does not support.
+ *
+ * This block is therefore a REGRESSION PIN, not a fix pin: it passed before F-1 and after.
+ * It exists so the plain arm cannot silently drift into the defect the layered arm had.
+ */
+describe('§WJFIX92 F-1 CONTROL — the PLAIN opening-bearing wall was never blind to the scan', () => {
+    const levelProvider = {
+        getLevelById: (id: string) => ({ id, name: 'G', elevation: 0, height: 3, childrenIds: [] }),
+        getLevels: () => [{ id: 'L0', name: 'G', elevation: 0, height: 3, childrenIds: [] }],
+    };
+
+    function wall(id: string, s: [number, number], e: [number, number], withOpening: boolean): WallData {
+        return {
+            id, type: 'wall', levelId: 'L0', properties: {},
+            childrenIds: withOpening ? ['win-1'] : [],
+            baseLine: [{ x: s[0], y: 0, z: s[1] }, { x: e[0], y: 0, z: e[1] }],
+            height: 3, thickness: 0.3, baseOffset: 0,
+            openings: withOpening ? [OPENING] : [],
+            metadata: { createdAt: 1, modifiedAt: 1, createdBy: 'test', version: 1 },
+        } as unknown as WallData;
+    }
+
+    it('a plain wall with a window presents WallPart bodies ⇒ voidCut=true (no false positive)', () => {
+        const scene = new THREE.Scene();
+        const builder = new WallFragmentBuilder(scene, levelProvider as never);
+        // A JOINED corner, so the joined arm is the one exercised.
+        const walls = [wall('W1', [0, 0], [6, 0], true), wall('W2', [6, 0], [6, 4], false)];
+        const joins = WallJoinResolver.resolveLevel(
+            walls.map(w => ({ ...w })) as never, { snapRadius: 0.5 },
+        ) as Map<string, unknown>;
+        for (const w of walls) builder.buildWall(w, (joins.get(w.id) ?? null) as never, undefined, 0);
+
+        const group = scene.children.find(c => (c.userData as { id?: string })?.id === 'W1') as THREE.Group;
+        expect(group, 'the builder produced a group for W1').toBeTruthy();
+        expect(coordinatorVoidCutScan(group).bodyParts).toBeGreaterThan(0);
         expect(coordinatorVoidCutScan(group).voidCut).toBe(true);
     });
 });

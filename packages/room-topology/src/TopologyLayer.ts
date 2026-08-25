@@ -429,6 +429,8 @@ export class TopologyLayer {
         // render-aggregate-identity`); `ProjectIsolationAudit` hit this same seam at
         // §C13-INSTANCED-GROUP-ARM. Do not re-roll the test here.
         const elementIds: string[] = [];
+        /** §WJFIX92 F-4 — id → the node's own `elementType`/`type`, for the lost-edge hint. */
+        const typeById = new Map<string, string>();
         let syntheticUnmarked = 0;
         const syntheticSample: string[] = [];
         for (const child of this._scene.children) {
@@ -452,6 +454,15 @@ export class TopologyLayer {
             const id = realElementIdOf(child);
             if (!id) continue;
             elementIds.push(id);
+            // §WJFIX92 F-4 (L-11313) — remember WHAT each node is, in the loop that
+            // already visits it. The §WALL30-ADJ-DELTA hint below used to send every lost
+            // edge to the re-weld engine; the re-weld engine only handles WALL↔WALL, so
+            // for any other pair that hint pointed the reader at a subsystem that cannot,
+            // by design, have anything to do with the loss. `WallFragmentBuilder` stamps
+            // a wall group `elementType: 'wall'` (non-writable, :1096-1108), so this is a
+            // read of the identity the producer already locked, not a new inference.
+            const _t = child.userData?.elementType ?? child.userData?.type;
+            if (typeof _t === 'string') typeById.set(id, _t);
         }
 
         if (syntheticUnmarked > 0) {
@@ -534,10 +545,59 @@ export class TopologyLayer {
                 ? `, ⚠ ${removed.length} LOST since the last rebuild ` +
                   `[${removed.slice(0, 8).map(r => `${r.sourceId}↔${r.targetId}`).join(', ')}` +
                   `${removed.length > 8 ? `, +${removed.length - 8} more` : ''}]` +
-                  ` — §WALL30-ADJ-DELTA: a lost edge is EITHER a wall genuinely moved apart ` +
-                  `OR a join the re-weld failed to close; check §MOVE-REWELD-DISPATCH for these ids.`
+                  ` — §WALL30-ADJ-DELTA: ` + this._lostEdgeHint(removed, typeById)
                 : '.'),
         );
+    }
+
+    /**
+     * §WJFIX92 F-4 (L-11313) — TELL THE TRUTH ABOUT WHAT A LOST EDGE MEANS.
+     *
+     * This hint used to read, unconditionally: *"a lost edge is EITHER a wall genuinely
+     * moved apart OR a join the re-weld failed to close; check §MOVE-REWELD-DISPATCH for
+     * these ids."* For a WALL↔WALL pair that is exactly right and is kept verbatim.
+     *
+     * For every OTHER pair it is false, and expensively so. These edges come from a
+     * bbox-proximity scan (`_classifyRelationship`, above) that is entirely element-type
+     * agnostic, so window↔wall, stair↔wall, railing↔wall and curtainwall↔floor all land
+     * here — and `WallMoveReweldService` handles NONE of them: it is wall-only by design
+     * and its displacement gate (`MIN_MOVE_M`) rejects an opening-value edit outright.
+     * The WINJOINT91 investigation lost time following this exact hint from a window↔wall
+     * loss into the weld engine, which is where it says to look and where nothing was; the
+     * founder's own console said the same thing to him. (L-10830's shape: a diagnostic that
+     * names a subsystem it has not checked is worse than one that names none.)
+     *
+     * A hosted-element loss is a SYMPTOM of the host being rebuilt — the group's bounds
+     * changed under the scan — so the honest instruction is to look at the host's rebuild.
+     */
+    private _lostEdgeHint(
+        removed: ReadonlyArray<AdjacencyRelationship>,
+        typeById: ReadonlyMap<string, string>,
+    ): string {
+        const isWall = (id: string): boolean => typeById.get(id) === 'wall';
+        const wallWall = removed.filter(r => isWall(r.sourceId) && isWall(r.targetId));
+        const other    = removed.filter(r => !(isWall(r.sourceId) && isWall(r.targetId)));
+        const parts: string[] = [];
+        if (wallWall.length > 0) {
+            parts.push(
+                `${wallWall.length} wall↔wall — EITHER a wall genuinely moved apart OR a join ` +
+                `the re-weld failed to close; check §MOVE-REWELD-DISPATCH for those ids`,
+            );
+        }
+        if (other.length > 0) {
+            const kinds = new Set(
+                other.map(r => `${typeById.get(r.sourceId) ?? '?'}↔${typeById.get(r.targetId) ?? '?'}`),
+            );
+            parts.push(
+                `${other.length} NON-wall↔wall [${[...kinds].slice(0, 4).join(', ')}] — these are ` +
+                `bbox adjacencies of hosted/other-family elements, which the re-weld engine does ` +
+                `NOT handle by design (wall-only arms + a MIN_MOVE_M displacement gate). ` +
+                `⛔ Do NOT look at §MOVE-REWELD-DISPATCH for them: the loss is a SYMPTOM of the ` +
+                `HOST/neighbour being rebuilt (its group bounds moved under this scan) — look at ` +
+                `that element's rebuild path instead`,
+            );
+        }
+        return `${parts.join('; ')}.`;
     }
 
     /**

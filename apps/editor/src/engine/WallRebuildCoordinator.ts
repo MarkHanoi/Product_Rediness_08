@@ -1,9 +1,10 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { getFrameScheduler, deferWork, type TickListenerDisposer, type DeferWorkCanceller } from '@pryzm/frame-scheduler';
-import { WallStore, WallData, WallBaseline, OpeningRenderMap, OpeningRenderData, WallJoinResolver, JoinData, WallJunctionInfillManager, computeJunctionInfills, resolveSlabBaseOffsetForWall, isWallPipelineV2Enabled, classifyWallDelta, composeWallGeometryHash, composeWallPaintSignature } from '@pryzm/geometry-wall';
+import { WallStore, WallData, WallBaseline, OpeningRenderMap, OpeningRenderData, WallJoinResolver, DEFAULT_SNAP_RADIUS, JoinData, WallJunctionInfillManager, computeJunctionInfills, resolveSlabBaseOffsetForWall, isWallPipelineV2Enabled, classifyWallDelta, composeWallGeometryHash, composeWallPaintSignature } from '@pryzm/geometry-wall';
 import {
-    DEFAULT_SNAP_PIXEL_RADIUS,
-    getWorldToleranceForActiveCamera,
+    // §WJFIX92 F-2 — `DEFAULT_SNAP_PIXEL_RADIUS` / `getWorldToleranceForActiveCamera`
+    // were imported here for the single (now removed) camera-derived join resolve; see
+    // the block at `_flush`. The zoom-aware tolerances that remain are the TOOLS' own.
     perfTraceOn,
     perfLog,
     semanticGraphManager,
@@ -208,7 +209,79 @@ export class WallRebuildCoordinator {
     private _wallRebuildDiscarding = false;
     private _viewSwitchInProgress = false;
     private _prevJoinMap = new Map<string, JoinData>();
+    /**
+     * §WJFIX92 F-3 (L-11312) — levelId → the `_joinInputSig` of the level AT THE MOMENT
+     * `_prevJoinMap` was last seeded for it. `_prevJoinMap` on its own cannot answer the
+     * only question that matters when an adjustment goes missing — *"did the model change,
+     * or did the SOLVE change?"* — and for want of that answer the coordinator assumed the
+     * model and square-capped a standing mitre (the WINJOINT91 defect). This map is what
+     * makes the question answerable. Cleared wherever `_prevJoinMap` is.
+     */
+    private _prevJoinInputSig = new Map<string, string>();
     private static readonly _ADJACENCY_TOL = 0.31;
+
+    /**
+     * §WJFIX92 F-3 — a stable signature of EXACTLY the inputs `WallJoinResolver.resolveLevel`
+     * consumes for a level: per wall, id + baseline @ mm + the archived PRE-TRIM
+     * `_sourceBaseLine` @ mm + thickness @ mm + curve control @ mm + systemTypeId.
+     *
+     * Deliberately EXCLUDES openings, height, baseOffset, material and every paint field:
+     * a junction is a function of centrelines and thickness, so an openings-only or
+     * material-only edit must leave this signature byte-identical — that is the whole point
+     * (it is precisely the delta class that produced the founder's report). Equally
+     * deliberately INCLUDES the wall SET via the sorted id list, so a create/delete/re-host
+     * always moves it: a neighbour leaving IS a real join change and must NOT be masked.
+     *
+     * Distinct from `_levelWallSig` (§FIX-WALLFLUSH-NOPROGRESS-GUARD), which covers every
+     * rebuild input including openings and paint and answers a different question.
+     */
+    private static _joinInputSig(levelWalls: ReadonlyArray<any>): string {
+        const mm = (n: number | undefined): number => Math.round((Number(n) || 0) * 1000);
+        const parts: string[] = [];
+        for (const w of levelWalls) {
+            const bl = w?.baseLine;
+            const src = (w as { _sourceBaseLine?: ReadonlyArray<{ x: number; z: number }> })?._sourceBaseLine;
+            const pt = (p: { x: number; z: number } | undefined): string =>
+                p ? `${mm(p.x)},${mm(p.z)}` : '_';
+            parts.push([
+                String(w?.id ?? '?'),
+                pt(bl?.[0]), pt(bl?.[1]),
+                pt(src?.[0]), pt(src?.[1]),
+                mm(w?.thickness),
+                w?.curve ? pt(w.curve.control) : '_',
+                String((w as { systemTypeId?: string })?.systemTypeId ?? '_'),
+            ].join(':'));
+        }
+        parts.sort();
+        return parts.join('|');
+    }
+
+    /**
+     * §WJFIX92 F-3 — the cached `JoinData` this wall should be rebuilt with when the fresh
+     * solve returned no adjustment for it, or `null` to keep the historical square-cap.
+     *
+     * Returns the cache ONLY when all of:
+     *   • the wall HAD a join at the last solve (`prevHadJoin`), and
+     *   • no join input on the level moved since that solve (`joinInputsUnchanged`), and
+     *   • the cached JoinData is present, valid (§WJR-INVALID) and finite.
+     * Any real geometry change ⇒ `joinInputsUnchanged` is false ⇒ `null` ⇒ the pre-existing
+     * behaviour, unchanged. A neighbour genuinely moving away still square-caps, correctly.
+     */
+    private _retainableJoinFor(
+        wallId: string,
+        prevHadJoin: ReadonlySet<string>,
+        joinInputsUnchanged: boolean,
+    ): JoinData | null {
+        if (!joinInputsUnchanged || !prevHadJoin.has(wallId)) return null;
+        const cached = this._prevJoinMap.get(wallId);
+        if (!cached || cached.invalid === true) return null;
+        const bl = cached.baseLine;
+        if (!bl || bl.length < 2) return null;
+        for (const p of bl) {
+            if (!Number.isFinite(p?.x) || !Number.isFinite(p?.y) || !Number.isFinite(p?.z)) return null;
+        }
+        return cached;
+    }
 
     // ─── §PERF-WALL-MOVE-INCREMENTAL-REBUILD (L-234) ──────────────────────────────
     //
@@ -850,6 +923,9 @@ export class WallRebuildCoordinator {
         if (this._wallRafHandle !== null) { try { this._wallRafHandle(); } catch { /* ignore */ } this._wallRafHandle = null; }
         this._pendingWallEvents.clear();
         this._prevJoinMap.clear();
+        // §WJFIX92 F-3 — the signature is only meaningful alongside the map it describes;
+        // a stale one would let a NEW project's first flush retain a DEAD project's join.
+        this._prevJoinInputSig.clear();
         // §PERF-WALL-MOVE-INCREMENTAL-REBUILD — a project switch throws the scene away;
         // every wall must rebuild from scratch on the new project's first flush.
         this._lastBuildKey.clear();
@@ -1880,9 +1956,51 @@ export class WallRebuildCoordinator {
                 const levelWalls = store.getAll().filter((w: any) => w.levelId === levelId);
                 const prevHadJoin = new Set<string>(this._prevJoinMap.keys());
 
-                const _cam    = this._world.camera?.three;
-                const _canvas = this._world.renderer?.three?.domElement as HTMLCanvasElement | undefined;
-                const snapR   = getWorldToleranceForActiveCamera(DEFAULT_SNAP_PIXEL_RADIUS, _cam, _canvas);
+                // §WJFIX92 F-3 (L-11312) — did anything a JOIN depends on actually move?
+                // `_joinInputSig` covers exactly the resolver's inputs (id + baseline + source
+                // baseline + thickness + curve control + system type), and NOT openings,
+                // material, height or offset. When it matches the signature recorded the last
+                // time `_prevJoinMap` was seeded for this level, every junction that existed
+                // then must still exist now — so an adjustment that has GONE MISSING is an
+                // artefact of the solve, never a real topology change, and the cached JoinData
+                // is the truthful input for the rebuild. Consumed by §STALE-CACHE-FIX below.
+                const _joinInputSig = WallRebuildCoordinator._joinInputSig(levelWalls);
+                const _joinInputsUnchanged = this._prevJoinInputSig.get(levelId) === _joinInputSig;
+
+                // ── §WJFIX92 F-2 (L-11311) — A JUNCTION'S EXISTENCE IS NOT A FUNCTION OF ZOOM ──
+                //
+                // This resolve used to run at
+                //   `getWorldToleranceForActiveCamera(DEFAULT_SNAP_PIXEL_RADIUS, cam, canvas)`
+                // — 8 px converted to metres at the ACTIVE CAMERA, clamped to [0.05 .. 1.0] m
+                // (`CameraToleranceService.ts`). The junctions in `_prevJoinMap` were solved at
+                // whatever zoom happened to be active at the time; a later structural rebuild
+                // re-solved the SAME unchanged walls at a DIFFERENT zoom, and every junction
+                // outside the new (tighter) radius simply vanished from `adjustments`.
+                //
+                // What a vanished adjustment costs, measured (WINJOINT91 probe 1, real
+                // `WallJoinResolver.resolveLevel`):
+                //   S1 exact-coincident L corner .... mitred at 0.50 / 0.12 / 0.05 m (control)
+                //   S2 corner, 0.20 m welded-band gap  0.50 m → mitred, gap 0.0000 m
+                //                                      0.12 m → NO adjustments, MN false, gap 0.2000 m
+                //   S3 T-stem on the host FACE ....... 0.50 m → trimmed, MN true
+                //                                      0.12 m → NO adjustments, MN false
+                // A wall in `prevHadJoin` with no fresh adjustment is then rebuilt with
+                // `joinData = null` — SQUARE CAPS — by §STALE-CACHE-FIX below, and evicted from
+                // `_prevJoinMap` at :2437, so the good mitre is unrecoverable. That is the
+                // founder's "the mitred joint went out" on a RAC window batch, and (before F-1)
+                // every window edit on a layered wall walked straight into it.
+                //
+                // Why UNCONDITIONAL is the precise answer, not a blunt one: `_flush` is never an
+                // interactive resolve BY CONSTRUCTION — `_scheduleFlush` DEFERS it outright while
+                // `window.__wallDragInProgress` is set (§PERF-WALL-DRAG-DEFER / ADR-061, :1233),
+                // so every caller of this line is a structural rebuild (store event, load,
+                // openings-only fallback, undo/redo). The genuinely interactive, zoom-aware
+                // tolerances live in the TOOLS and are untouched by this lane:
+                // `WallTool.ts:1282`, `CurtainWallTool.ts:745`, `BeamTool.ts:410`.
+                // `WallJoinResolver.ts:3122-3134` already names this camera-derived radius as
+                // hazard-bearing for §SHORT-WALL-SAFETY. Zoom is UI state (P7's spirit); the
+                // solved topology of a level is not.
+                const snapR = DEFAULT_SNAP_RADIUS;
                 // §PERF-GEN-INSTRUMENT (L-131 P0) — time the whole-level resolve and count how
                 // many times each level is resolved during one generation. Zero-cost when
                 // perf-trace is off (single boolean read). This is the measurement the founder
@@ -2018,6 +2136,12 @@ export class WallRebuildCoordinator {
                 // square-capped. Counted and reported separately: a log that averages a
                 // mitre and a square cap into one number cannot report this defect.
                 let _nullJoinRebuilds = 0;
+                // §WJFIX92 F-3 (L-11312) — walls this iteration rebuilt with their RETAINED
+                // cached JoinData because the level's join INPUTS did not move (see
+                // `_joinInputSig`). Counted apart from both totals: a preserved mitre is not a
+                // fresh adjustment, and it is emphatically not a square cap.
+                let _retainedJoinRebuilds = 0;
+                const _retainedJoins = new Map<string, JoinData>();
 
                 adjustments.forEach((adjustment: JoinData & { baseLine: [THREE.Vector3, THREE.Vector3] }, wallId: string) => {
                     const _adjBL = adjustment.baseLine;
@@ -2403,10 +2527,16 @@ export class WallRebuildCoordinator {
                             // §PERF-WALL-MOVE-INCREMENTAL-REBUILD — built via the builder's own
                             // guard with a null join, outside the memo. Drop the entry.
                             this._lastBuildKey.delete(wallId);
+                            // §WJFIX92 F-3 — the batched twin of the §STALE-CACHE-FIX rescue
+                            // below, and the one that carries the founder's own defect: on the
+                            // §DIAG-OPENING-VOID fallback the EDITED wall is IN the batch, so
+                            // its lost adjustment is square-capped HERE, not there.
+                            const _retained = this._retainableJoinFor(wallId, prevHadJoin, _joinInputsUnchanged);
                             try {
-                                builder.updateWall(fresh, null, resolveOpeningRenderMap(fresh, store), slabOff);
+                                builder.updateWall(fresh, _retained, resolveOpeningRenderMap(fresh, store), slabOff);
                                 _rebuiltWallIds.add(wallId);
-                                _nullJoinRebuilds++;
+                                if (_retained) { _retainedJoins.set(wallId, _retained); _retainedJoinRebuilds++; }
+                                else _nullJoinRebuilds++;
                             } catch (err) {
                                 console.error(`[WallRebuildCoordinator] §WALL-AUDIT-2026-C1: updateWall (isolated) failed for wall "${wallId}" — continuing.`, err);
                             }
@@ -2423,10 +2553,18 @@ export class WallRebuildCoordinator {
                             // §PERF-WALL-MOVE-INCREMENTAL-REBUILD — the wall LOST its join;
                             // rebuilt with a null join outside the memo. Drop the entry.
                             this._lastBuildKey.delete(w.id);
+                            // §WJFIX92 F-3 (L-11312) — "lost its join" was ASSUMED, never
+                            // checked. When no join input on this level moved, the loss is the
+                            // solver's, not the model's; hand back the cached JoinData rather
+                            // than `null` (square caps) — the same JoinData `_flushOpeningsOnly`
+                            // (:1377) already trusts for exactly this reason. C86 §7: a rebuild
+                            // that is not a change must land on the same rendered joint.
+                            const _retained = this._retainableJoinFor(w.id, prevHadJoin, _joinInputsUnchanged);
                             try {
-                                builder.updateWall(fresh, null, resolveOpeningRenderMap(fresh, store), slabOff);
+                                builder.updateWall(fresh, _retained, resolveOpeningRenderMap(fresh, store), slabOff);
                                 _rebuiltWallIds.add(w.id);
-                                _nullJoinRebuilds++;
+                                if (_retained) { _retainedJoins.set(w.id, _retained); _retainedJoinRebuilds++; }
+                                else _nullJoinRebuilds++;
                             } catch (err) {
                                 console.error(`[WallRebuildCoordinator] §WALL-AUDIT-2026-C1: updateWall (stale-join) failed for wall "${w.id}" — continuing.`, err);
                             }
@@ -2436,6 +2574,36 @@ export class WallRebuildCoordinator {
 
                 for (const w of levelWalls) this._prevJoinMap.delete(w.id);
                 adjustments.forEach((adj: JoinData, wallId: string) => this._prevJoinMap.set(wallId, adj));
+                // §WJFIX92 F-3 — a retained mitre must survive the eviction that follows the
+                // re-seed too, or the NEXT flush finds no cache and square-caps after all
+                // (the "unrecoverable" half of the defect). Written after the fresh
+                // adjustments so a real adjustment always wins over a retained one.
+                for (const [wallId, adj] of _retainedJoins) {
+                    if (!adjustments.has(wallId)) this._prevJoinMap.set(wallId, adj);
+                }
+                // The signature these joins were solved against, for the NEXT flush's
+                // `_joinInputsUnchanged` test. RECOMPUTED from fresh store data rather than
+                // reusing `_joinInputSig` from the top of the iteration: this flush itself
+                // writes back preserved/anchored baselines and archives `_sourceBaseLine`
+                // (§POST-RESOLVE-PRESERVE, §V2-PRETRIM-FIX), so the pre-flush value would
+                // differ from what the NEXT flush measures and the guard would never fire
+                // on the very edit it exists for. Measured: without this, an opening-only
+                // edit read `_joinInputsUnchanged=false` and square-capped anyway.
+                this._prevJoinInputSig.set(
+                    levelId,
+                    WallRebuildCoordinator._joinInputSig(
+                        store.getAll().filter((w: any) => w?.levelId === levelId),
+                    ),
+                );
+                if (_retainedJoinRebuilds > 0) {
+                    // eslint-disable-next-line no-console
+                    console.warn(
+                        `[WallRebuildCoordinator] §WJFIX92 level=${levelId} — ${_retainedJoinRebuilds} wall(s) ` +
+                        `RETAINED their cached join: the resolver returned no adjustment while every join input ` +
+                        `on this level was byte-identical to the last solve. The solve disagrees with the model; ` +
+                        `the model wins. ids=[${Array.from(_retainedJoins.keys()).slice(0, 8).join(',')}]`,
+                    );
+                }
 
                 // §PERF-WALL-MOVE-INCREMENTAL-REBUILD (L-234) — the number the founder has
                 // been waiting months for. BEFORE this fix `rebuilt` was ALWAYS the whole
