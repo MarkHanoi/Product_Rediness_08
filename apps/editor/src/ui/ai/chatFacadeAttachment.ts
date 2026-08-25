@@ -63,6 +63,9 @@
  */
 
 import { reconstructFacade } from '@pryzm/facade-reconstruction';
+
+/** The engine's own quad type, taken from its option surface so the two cannot drift. */
+export type FacadeQuad = NonNullable<NonNullable<Parameters<typeof reconstructFacade>[1]>['facadeQuad']>;
 import { mapFacadeIRToPhotoBrief, type FacadePhotoBrief } from '@pryzm/ai-host';
 
 import { decodeImageFile, type DecodedImage } from '../facade/facadeRaster.js';
@@ -95,6 +98,12 @@ export interface ChatAttachment {
      * Never rejects — it settles to an `AttachmentReading`.
      */
     readonly reading: Promise<AttachmentReading>;
+    /**
+     * §L-11127 — the user's four facade corners in the DECODED frame, or `null`
+     * when not set. ⛔ NEVER ASSUMED: with `null` the reading runs with the plane
+     * UNKNOWN (C108 §4.3), the ledger says so, and the chip asks for them.
+     */
+    readonly quad: FacadeQuad | null;
 }
 
 /**
@@ -179,11 +188,52 @@ export async function setChatAttachment(
         sizeBytes: file.size,
         decoded,
         previewUrl,
-        // ⭐ Started HERE, awaited on send. See the header for why.
-        reading: runReconstruction(decoded),
+        // ⭐ Started HERE, awaited on send. See the header for why. No corners
+        // yet — the plane is UNKNOWN until the user sets them (§L-11127).
+        reading: runReconstruction(decoded, null),
+        quad: null,
     };
     pending = attachment;
     return { ok: true, attachment };
+}
+
+/**
+ * §L-11127 — the engine options the chat uses, as a function of the corners.
+ *
+ *  · `autoDetectFacadePlane: false` — C108 §3.2 as amended: corners are ASKED FOR
+ *    every time and never assumed. Detection is a labelled shortcut in the Facade
+ *    panel; the chat has no such button, so it never guesses. Without corners the
+ *    plane is UNKNOWN and §4.3 propagates that honestly — which is exactly what
+ *    the founder's ledger printed ("confidence 0.00, under the 0.50 floor"): the
+ *    fix is to GIVE it corners, not to lower the floor.
+ *  · `cropEnabled: false` — the corners are clicked on the DECODED frame; a crop
+ *    stage that moved the frame under them would silently mis-place all four. A
+ *    phone photograph has no screenshot chrome to crop.
+ */
+export function reconstructionOptionsFor(quad: FacadeQuad | null): NonNullable<Parameters<typeof reconstructFacade>[1]> {
+    return {
+        ...(quad !== null ? { facadeQuad: quad } : {}),
+        autoDetectFacadePlane: false,
+        cropEnabled: false,
+    };
+}
+
+/**
+ * §L-11127 — set (or clear) the pending attachment's corners and RE-READ the
+ * photograph with them. The old reading is dropped: its plane was unknown and
+ * everything under it inherited that.
+ *
+ * Returns `false` when nothing is attached — the caller then has nothing to
+ * re-render, which is a state, not an error.
+ */
+export function setChatAttachmentQuad(quad: FacadeQuad | null): boolean {
+    if (pending === null) return false;
+    pending = {
+        ...pending,
+        quad,
+        reading: runReconstruction(pending.decoded, quad),
+    };
+    return true;
 }
 
 /**
@@ -194,10 +244,10 @@ export async function setChatAttachment(
  * in the repository where a photograph becomes a building brief and exactly one
  * place to audit when a number looks wrong.
  */
-async function runReconstruction(decoded: DecodedImage): Promise<AttachmentReading> {
+async function runReconstruction(decoded: DecodedImage, quad: FacadeQuad | null): Promise<AttachmentReading> {
     const started = Date.now();
     try {
-        const result = await reconstructFacade(decoded.image);
+        const result = await reconstructFacade(decoded.image, reconstructionOptionsFor(quad));
         return {
             ok: true,
             brief: mapFacadeIRToPhotoBrief(result),

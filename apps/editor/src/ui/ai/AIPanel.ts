@@ -36,6 +36,8 @@ import {
     getChatAttachment,
     setChatAttachment,
 } from './chatFacadeAttachment';
+import { setChatAttachmentQuad } from './chatFacadeAttachment.js';
+import { pickFacadeCorners } from './chatFacadeCornerPicker.js';
 // The LANGUAGE half of "the sentence asked for a photograph". Whether one is
 // ATTACHED is UI state this panel holds; the rule itself is L2 and is read, never
 // restated here (a client may not own a measurement rule).
@@ -1247,7 +1249,38 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
                 : `${att.decoded.image.width}×${att.decoded.image.height} · full resolution`;
         text.appendChild(nameLine);
         text.appendChild(metaLine);
+
+        // §L-11127 — THE FRONT DOOR. Without corners the facade plane is UNKNOWN,
+        // C108 §4.3 zeroes every downstream confidence, and the founder's ledger
+        // read "confidence 0.00, under the 0.50 floor" — nothing of the photo ever
+        // reached the building. Corners are ASKED FOR here, never assumed.
+        const cornersLine = document.createElement('div');
+        cornersLine.className = 'ai-chat-attach-corners';
+        cornersLine.textContent = att.quad === null
+            ? 'corners NOT set — the photo will not shape the building until you set them'
+            : 'corners set ✓ — facade plane 1.00';
+        text.appendChild(cornersLine);
         chip.appendChild(text);
+
+        const cornersBtn = document.createElement('button');
+        cornersBtn.type = 'button';
+        cornersBtn.className = 'ai-chat-attach-corners-btn' + (att.quad === null ? ' ai-chat-attach-corners-btn--ask' : '');
+        cornersBtn.textContent = att.quad === null ? 'Set facade corners' : 'Re-set corners';
+        cornersBtn.title = 'Click the four corners of the facade, clockwise from top-left (C108 §3.2)';
+        cornersBtn.addEventListener('click', () => {
+            void (async () => {
+                const quad = await pickFacadeCorners({
+                    previewUrl: att.previewUrl,
+                    imageWidth: att.decoded.image.width,
+                    imageHeight: att.decoded.image.height,
+                    name: att.name,
+                });
+                if (quad === null) return; // cancelled — keep asking, never guess
+                setChatAttachmentQuad(quad);
+                renderAttachment();
+            })();
+        });
+        chip.appendChild(cornersBtn);
 
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
@@ -1265,7 +1298,9 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
 
         const hint = document.createElement('div');
         hint.className = 'ai-chat-attach-hint';
-        hint.textContent = 'will be read as a façade for your next message';
+        hint.textContent = att.quad === null
+            ? 'set the corners, then send — a photo without corners is measured with an UNKNOWN plane'
+            : 'will be read as a façade for your next message';
         attachRowEl.appendChild(hint);
     };
 
