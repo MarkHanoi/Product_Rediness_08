@@ -52,7 +52,11 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { findMaterialById } from '@pryzm/core-app-model/material-library';
-import type { PreviewSubject, PreviewPart } from './OpeningPreviewSubject';
+import type {
+    AnyPreviewPart,
+    PreviewExtrudedOutlinePart,
+    PreviewSubject,
+} from './OpeningPreviewSubject';
 import type { GraphSubject } from './GraphPreviewSubject';
 
 /**
@@ -281,7 +285,7 @@ export function previewRigDiagnostics(): {
  * "in a way indistinguishable from success", and a preview is exactly the surface
  * where such a substitution would be most convincing and most wrong.
  */
-function resolvePartMaterial(part: PreviewPart): THREE.MeshStandardMaterial {
+function resolvePartMaterial(part: AnyPreviewPart): THREE.MeshStandardMaterial {
     const id = part.materialId;
     let colour = part.fallbackHex ?? UNRESOLVED_COLOUR;
     let metalness = 0.1;
@@ -346,11 +350,20 @@ function buildContent(r: Rig, subject: PreviewSubject): void {
     // about its corner.
     const [ex, ey] = subject.extent;
     for (const part of subject.parts) {
-        const geo = new THREE.BoxGeometry(
-            Math.max(part.size[0], 1e-4),
-            Math.max(part.size[1], 1e-4),
-            Math.max(part.size[2], 1e-4),
-        );
+        let geo: THREE.BufferGeometry;
+        if ('kind' in part && part.kind === 'extrudedOutline') {
+            // §OUTLINE81 (D8) — the outline part, extruded on this already-P2-legal path.
+            // The points arrive in the subject's own (x, y) elevation metres; the shape
+            // carries its own position, so the mesh sits at `center` (typically the
+            // origin) and only the whole-subject vertical centring below applies.
+            geo = extrudedOutlineGeometry(part);
+        } else {
+            geo = new THREE.BoxGeometry(
+                Math.max(part.size[0], 1e-4),
+                Math.max(part.size[1], 1e-4),
+                Math.max(part.size[2], 1e-4),
+            );
+        }
         const mesh = new THREE.Mesh(geo, resolvePartMaterial(part));
         mesh.position.set(part.center[0], part.center[1] - ey / 2, part.center[2]);
         mesh.name = part.name;
@@ -360,6 +373,24 @@ function buildContent(r: Rig, subject: PreviewSubject): void {
     }
     void ex;
     builtKey = subject.key;
+}
+
+/**
+ * §OUTLINE81 (D8) — build the extruded-outline geometry for a
+ * {@link PreviewExtrudedOutlinePart}. The ring and its holes become a `THREE.Shape`;
+ * the extrusion is centred about z = 0 so `center[2]` means the same thing it means
+ * for a box part. No bevel — the real builder's `extrudeCentred` has none either,
+ * and a bevelled preview would show edges the placed window will not have.
+ */
+function extrudedOutlineGeometry(part: PreviewExtrudedOutlinePart): THREE.BufferGeometry {
+    const shape = new THREE.Shape(part.points.map((p) => new THREE.Vector2(p.x, p.y)));
+    for (const hole of part.holes ?? []) {
+        shape.holes.push(new THREE.Path(hole.map((p) => new THREE.Vector2(p.x, p.y))));
+    }
+    const depth = Math.max(part.depth, 1e-4);
+    const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
+    geo.translate(0, 0, -depth / 2);
+    return geo;
 }
 
 function frameCamera(r: Rig, subject: PreviewSubject, orbit: OrbitState): void {

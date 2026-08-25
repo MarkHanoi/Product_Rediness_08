@@ -50,6 +50,23 @@ import {
 // the port built below, so the chat and the controls cannot disagree about the type.
 import { mountFinishTypeChat } from './FinishTypeChatStrip';
 import { draftFieldsFor } from './FinishTypeDraftIntent';
+// §OUTLINE81 (D7, C86 §10.6) — the reused wall-profile editor surface + the L2 authoring
+// model, from the PURE subpaths (L-11261 import discipline: never the geometry-wall barrel).
+import { ElevationOutlineSurface } from '../ElevationOutlineSurface';
+import { wallProfileEditorSnap } from '@pryzm/geometry-wall/profile-editor';
+import {
+    denormaliseOutline,
+    normaliseOutlineToUnit,
+    outlineRectangle,
+} from '@pryzm/geometry-wall/outline-authoring';
+import {
+    openingOutlinePreset,
+    OPENING_OUTLINE_PRESET_IDS,
+    OPENING_OUTLINE_PRESET_LABELS,
+    resolveCustomOutlineInput,
+    validateCustomOutline,
+    type OpeningOutlinePresetId,
+} from '@pryzm/geometry-wall/opening-profile';
 
 /** The draft under edit — a family type record minus identity fields. */
 export type FinishTypeDraft = Record<string, any> & {
@@ -651,6 +668,180 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
         gridRow('Rows', grid.rowsKey, grid.maxRows);
     }
 
+    // ── Elevation outline (§OUTLINE81 D7, C86 §10.6) ─────────────────────────
+    //
+    // Rendered only for a family that DECLARES `finishEditor.outline` — a capability,
+    // never a family branch (C65 §3.5). Door declares none, and the registry names why
+    // (D12). The drawing surface is THE reused wall-profile editor surface
+    // (`ElevationOutlineSurface`), authored at the type's default width × height so the
+    // author draws true proportions (D2); the draft stores the ring NORMALISED to the
+    // unit box through the L2 commit map, which asks THE one predicate — so this section
+    // can never write a ring the schema, the codec or the adapter would refuse.
+    const outlineDecl = opts.authoring.finishEditor?.outline;
+    let outlineSurface: ElevationOutlineSurface | null = null;
+    if (outlineDecl) {
+        groupHeading('Elevation outline');
+        const oHost = mk('div', 'margin-bottom:12px;');
+        oHost.className = 'fte-outline';
+        controls.appendChild(oHost);
+
+        const oStatus = mk('div', 'font-size:11.5px;line-height:1.4;color:' + MUTED + ';margin:6px 0;min-height:15px;');
+        oStatus.className = 'fte-outline-status';
+
+        const dimsRec = (draft.dimensions ?? {}) as Record<string, number | undefined>;
+        const inheritedO = resolveInheritedOpeningDimensions(
+            opts.authoring.family, typeof draft.id === 'string' ? draft.id : undefined);
+        const oExtents = {
+            length: dimsRec.width ?? inheritedO.width ?? 1.2,
+            height: dimsRec.height ?? inheritedO.height ?? 1.4,
+        };
+
+        const setOutlineStatus = (msg: string | null, isRefusal = false): void => {
+            if (msg) {
+                oStatus.textContent = msg;
+                oStatus.style.color = isRefusal ? '#b3261e' : MUTED;
+                return;
+            }
+            const ring = resolveCustomOutlineInput(draft[outlineDecl.key]);
+            oStatus.textContent = ring
+                ? `Custom outline: ${ring.vertices.length} vertices. New windows from this type ` +
+                  'adopt a copy of this shape; existing windows are unchanged.'
+                : 'No custom outline — windows from this type are rectangular. Draw a polyline, ' +
+                  'an arc run, or pick a preset.';
+            oStatus.style.color = MUTED;
+        };
+
+        outlineSurface = new ElevationOutlineSurface({
+            extents: oExtents,
+            snap: wallProfileEditorSnap,
+            minVertices: 3,
+            onChanged: () => {
+                const surf = outlineSurface;
+                if (!surf) return;
+                if (surf.mode !== 'select') {
+                    const n = surf.draft?.length ?? 0;
+                    setOutlineStatus(
+                        surf.mode === 'polyline'
+                            ? `Placing points — ${n} so far. Enter closes the ring, Esc abandons it.` +
+                              (orthoBox.checked ? ' Ortho is ABSOLUTE: each point locks to the previous point’s axis.' : '')
+                            : `Arc — click start, a point ON the curve, then the end (${n} placed). Enter closes, Esc abandons.`,
+                    );
+                    return;
+                }
+                // Select mode: the working ring IS the candidate template. Commit it to the
+                // draft through the L2 map; a refusal names itself and leaves the draft as
+                // it was (the last valid ring, or none).
+                const res = normaliseOutlineToUnit([...surf.ring]);
+                if (!res.ok) { setOutlineStatus(`Not committed: ${res.refusal.reason}`, true); return; }
+                // The full-box rectangle means "no custom outline" — that is what Rectangle
+                // (reset) produces, and a template equal to the plain opening would only
+                // force 'custom' for no shape gain.
+                const isFullRect = res.ring.vertices.length === 4 &&
+                    res.ring.vertices.every(p => (p.u === 0 || p.u === 1) && (p.v === 0 || p.v === 1));
+                if (isFullRect) delete draft[outlineDecl.key];
+                else draft[outlineDecl.key] = res.ring;
+                setOutlineStatus(null);
+                redraw();
+            },
+            onDeleteRefused: () => setOutlineStatus('An outline needs at least 3 vertices.', true),
+            attrPrefix: 'fteo',
+        });
+
+        // Mode bar: Rectangle (reset) · Polyline · Arc · Presets · Ortho.
+        const bar = mk('div', 'display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px;');
+        const modeBtn = (label: string, onClick: () => void): HTMLButtonElement => {
+            const b = mk('button',
+                'padding:5px 10px;border:1px solid ' + LINE + ';border-radius:6px;background:#fff;' +
+                'color:' + INK + ';font:inherit;font-size:11.5px;font-weight:600;cursor:pointer;');
+            b.type = 'button';
+            b.textContent = label;
+            b.setAttribute('data-fte-outline-mode', label);
+            b.addEventListener('click', (e) => { e.preventDefault(); onClick(); });
+            return b;
+        };
+        bar.appendChild(modeBtn('Rectangle', () => {
+            outlineSurface!.setMode('select');
+            outlineSurface!.setRing(outlineRectangle(oExtents));
+        }));
+        bar.appendChild(modeBtn('Polyline', () => {
+            outlineSurface!.setMode('polyline');
+            outlineSurface!.redraw();
+        }));
+        bar.appendChild(modeBtn('Arc', () => {
+            outlineSurface!.setMode('arc');
+            outlineSurface!.redraw();
+        }));
+        const presetSel = mk('select',
+            'padding:5px 8px;border:1px solid ' + LINE + ';border-radius:6px;background:#fff;' +
+            'color:' + INK + ';font:inherit;font-size:11.5px;cursor:pointer;');
+        presetSel.className = 'fte-outline-preset';
+        const ph = document.createElement('option');
+        ph.value = ''; ph.textContent = 'Presets…';
+        presetSel.appendChild(ph);
+        for (const pid of OPENING_OUTLINE_PRESET_IDS) {
+            const o = document.createElement('option');
+            o.value = pid;
+            o.textContent = OPENING_OUTLINE_PRESET_LABELS[pid];
+            presetSel.appendChild(o);
+        }
+        presetSel.addEventListener('change', () => {
+            const pid = presetSel.value as OpeningOutlinePresetId | '';
+            if (!pid) return;
+            outlineSurface!.setMode('select');
+            outlineSurface!.setRing(denormaliseOutline(openingOutlinePreset(pid), oExtents));
+            presetSel.value = '';
+        });
+        bar.appendChild(presetSel);
+
+        const orthoWrap = mk('label',
+            'display:flex;gap:5px;align-items:center;font-size:11.5px;color:' + INK + ';cursor:pointer;');
+        const orthoBox = mk('input', 'accent-color:' + PURPLE + ';');
+        orthoBox.type = 'checkbox';
+        orthoBox.className = 'fte-outline-ortho';
+        orthoBox.addEventListener('change', () => {
+            // ⛔ ABSOLUTE while on (founder ruling 2026-08-24) — the L2 helper enforces it;
+            // this checkbox only turns the mode on and off.
+            outlineSurface!.orthoOn = orthoBox.checked;
+            outlineSurface!.redraw();
+        });
+        orthoWrap.append(orthoBox, document.createTextNode('Ortho'));
+        bar.appendChild(orthoWrap);
+
+        oHost.appendChild(bar);
+        const oCanvasWrap = mk('div', 'display:flex;justify-content:center;overflow:hidden;');
+        oCanvasWrap.appendChild(outlineSurface.svg);
+        oHost.appendChild(oCanvasWrap);
+        oHost.appendChild(oStatus);
+
+        // Initial state: the stored template (denormalised at the authoring extents), or
+        // the full-box rectangle meaning "no custom outline".
+        outlineSurface.refitTo(300, 220);
+        const storedRing = resolveCustomOutlineInput(draft[outlineDecl.key]);
+        outlineSurface.setRing(storedRing
+            ? denormaliseOutline(storedRing, oExtents)
+            : outlineRectangle(oExtents));
+
+        // Enter/Esc drive the DRAFT while a construction mode is live — they must not
+        // save/close the whole dialog mid-gesture. Capture phase, so this runs before
+        // the modal's own key handling below.
+        overlay.addEventListener('keydown', (e: KeyboardEvent) => {
+            const surf = outlineSurface;
+            if (!surf || surf.mode === 'select') return;
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!surf.closeDraft()) {
+                    setOutlineStatus('A ring needs at least 3 placed points before Enter can close it.', true);
+                }
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                surf.cancelDraft();
+                surf.setMode('select');
+            }
+        }, true);
+    }
+
     // §FEAT-ELEMENT-TYPE-AUTHORING — the instance-linkage decision, stated where the
     // user can act on it (mirrors the wall editor; see the registry's `instanceLinkage`).
     //
@@ -788,6 +979,14 @@ export function openFinishTypeEditor(opts: FinishTypeEditorOptions): () => void 
             if (!draft[slot.key]?.materialId) {
                 return `Pick a library material for ${slot.label}.`;
             }
+        }
+        // §OUTLINE81 (D3/D7) — the outline commit gate, asked of THE one predicate. The
+        // section only ever writes rings that pass it, so this firing means the draft
+        // arrived with one (a hand-edited duplicate source) — refuse BY NAME either way.
+        const oKey = opts.authoring.finishEditor?.outline?.key;
+        if (oKey && draft[oKey] !== undefined) {
+            const refusal = validateCustomOutline(resolveCustomOutlineInput(draft[oKey]));
+            if (refusal) return `Elevation outline: ${refusal.reason}`;
         }
         return null;
     }

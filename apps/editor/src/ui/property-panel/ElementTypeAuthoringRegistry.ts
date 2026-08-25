@@ -161,6 +161,19 @@ export interface ElementTypeAuthoring {
             maxColumns: number;
             maxRows: number;
         };
+        /**
+         * §OUTLINE81 (SPEC-WINDOW-CUSTOM-OUTLINE D7, C86 §10.6) — the "Elevation outline"
+         * section: the family's type may carry a free-form `customOutline` shape TEMPLATE,
+         * authored on the reused wall-profile editor surface. A CAPABILITY DECLARATION,
+         * never a family branch in the modal (C65 §3.5). `undefined` for a family whose
+         * void shape is not free-form authorable — DOOR declares nothing here ON PURPOSE
+         * (D12: a door is a floor notch; `notchWalk` assumes two feet at the base, which a
+         * free-form ring does not guarantee), and that absence is a decision, not a gap.
+         */
+        outline?: {
+            /** The draft key the section writes — `'customOutline'`. */
+            key: string;
+        };
     };
     /**
      * PROOF, not intent (C05). The serializer field its custom types are written to,
@@ -297,6 +310,11 @@ const AUTHORING: ElementTypeAuthoring[] = [
                 maxColumns: 4,
                 maxRows:    3,
             },
+            // §OUTLINE81 (D6/D7) — the window type may carry a free-form outline TEMPLATE.
+            // A window created while this type is active adopts a COPY of the ring; the
+            // instance owns it from then on (C86 §10.5.b amendment — type change never
+            // reshapes; "Apply shape from type" is the explicit route).
+            outline: { key: 'customOutline' },
         },
         persisted: {
             snapshotField: 'windowSystemTypes',

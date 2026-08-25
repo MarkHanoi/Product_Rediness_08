@@ -41,6 +41,19 @@
 
 import { resolveWindowDimensions } from '@pryzm/geometry-window';
 import { resolveDoorDimensions } from '@pryzm/geometry-door';
+// §OUTLINE81 (D8, C84 EI-11) — the SAME derivations the real builder's profiled arm uses
+// (`WindowBuilder._buildProfiledVisuals`): ONE outline producer, ONE inset, ONE base-run
+// predicate. The preview calls them; it never re-implements "what does this ring's frame
+// look like". Pure subpath per the L-11261 import discipline.
+import {
+    insetOutlinePoints,
+    openingOutline,
+    openingProfileTag,
+    outlineBaseRun,
+    resolveCustomOutlineInput,
+    validateCustomOutline,
+    type CustomOutline,
+} from '@pryzm/geometry-wall/opening-profile';
 
 /** One axis-aligned box, in metres, centred at `center`. */
 export interface PreviewPart {
@@ -62,10 +75,41 @@ export interface PreviewPart {
     readonly opacity?: number;
 }
 
+/** A point of an extruded outline, metres, in the subject's elevation (x, y) plane. */
+export interface PreviewOutlinePoint {
+    readonly x: number;
+    readonly y: number;
+}
+
+/**
+ * §OUTLINE81 (SPEC-WINDOW-CUSTOM-OUTLINE D8) — a part that is an EXTRUDED OUTLINE rather
+ * than an axis-aligned box: a closed ring (first vertex not repeated) with optional holes,
+ * extruded `depth` metres about `center`. THREE-free by construction — the renderer builds
+ * the Shape/Extrude on the P2-legal path. This is how a custom window's frame band (outer
+ * ring + inner hole), glass plate and any future profiled part reach the showroom without
+ * the subject growing a rival tessellator: the POINTS come from the same `openingOutline` /
+ * `insetOutlinePoints` calls the real builder makes (C84 EI-11).
+ */
+export interface PreviewExtrudedOutlinePart {
+    readonly kind: 'extrudedOutline';
+    readonly name: string;
+    readonly points: readonly PreviewOutlinePoint[];
+    readonly holes?: readonly (readonly PreviewOutlinePoint[])[];
+    /** Full extrusion depth, metres, centred about `center[2]`. */
+    readonly depth: number;
+    readonly center: readonly [number, number, number];
+    readonly materialId?: string | undefined;
+    readonly fallbackHex?: string | undefined;
+    readonly opacity?: number;
+}
+
+/** Every part shape the renderer can draw. A part with no `kind` is a box (the original). */
+export type AnyPreviewPart = PreviewPart | PreviewExtrudedOutlinePart;
+
 export interface PreviewSubject {
     /** Changes whenever the drawn content changes; the canvas re-renders on a new key. */
     readonly key: string;
-    readonly parts: readonly PreviewPart[];
+    readonly parts: readonly AnyPreviewPart[];
     /** Overall bounds in metres, for framing the camera. */
     readonly extent: readonly [number, number, number];
     /** Short human line under the canvas — what the user is looking at. */
@@ -120,6 +164,21 @@ export function buildWindowPreviewSubject(draft: {
 
     const frame = finishRef(draft.frameFinish);
     const sill = finishRef(draft.sillFinish);
+
+    // ── §OUTLINE81 (D6/D8) — a type carrying a customOutline TEMPLATE previews the
+    // ACTUAL ring, through the same derivations the placed window's builder uses.
+    const templateRing = resolveCustomOutlineInput(
+        (draft as { customOutline?: unknown }).customOutline,
+    );
+    if (templateRing && validateCustomOutline(templateRing) === null) {
+        return buildCustomOutlineWindowSubject(draft, {
+            W, H, ft, fd,
+            glazingThickness: d.glazingThickness,
+            sill: d.sill, sillOverhang: d.sillOverhang,
+            sillThickness: d.sillThickness, sillDepth: d.sillDepth,
+        }, templateRing, frame, sill, glassOpacity);
+    }
+
     const parts: PreviewPart[] = [];
 
     // Outer frame — head, sill member, two jambs. Drawn as four boxes so the
@@ -275,6 +334,126 @@ export function buildDoorPreviewSubject(draft: {
         parts,
         extent: [extentW, H, fd],
         caption: `${fmt(W)} × ${fmt(H)} m · ${segs.length} segment${segs.length === 1 ? '' : 's'}`,
+    };
+}
+
+/**
+ * §OUTLINE81 (D8, C84 EI-11) — the custom-outline window subject. Every ring below comes
+ * from the SAME functions `WindowBuilder._buildProfiledVisuals` calls with the same
+ * arguments — `openingOutline` (THE one producer, PR-1), `insetOutlinePoints` (THE one
+ * inset), `outlineBaseRun` (THE one sill predicate). This function decides NOTHING about
+ * shape; it only projects those answers into preview parts.
+ *
+ * The mirrored honesty rules:
+ *   • an inset that fails renders the opening as SOLID FRAME (the builder's own truthful
+ *     fallback), never a rectangle inside a shaped hole;
+ *   • a ring with no horizontal base run gets NO sill and SAYS SO in the caption (D4:
+ *     "no sill, reported by name") — the acceptance script's apex-down triangle case.
+ */
+function buildCustomOutlineWindowSubject(
+    draft: { id?: string; name?: string },
+    dims: {
+        W: number; H: number; ft: number; fd: number;
+        glazingThickness: number;
+        sill: boolean; sillOverhang: number; sillThickness: number; sillDepth: number;
+    },
+    ring: CustomOutline,
+    frame: Ref,
+    sillRef: Ref,
+    glassOpacity: number,
+): PreviewSubject {
+    const { W, H, ft, fd } = dims;
+    // Centred on x = 0, based at y = 0 — the same frame the box parts already use.
+    const outline = openingOutline({
+        profile: 'custom',
+        offset: -W / 2,
+        width: W,
+        height: H,
+        sillHeight: 0,
+        customOutline: ring,
+    });
+    // `openingOutline` returning null here means the gate above was skipped — its own
+    // header calls that a bug at the call site. The ring was validated, so this cannot
+    // fire; the guard exists so a future regression fails VISIBLY (magenta box), not
+    // by throwing inside a preview.
+    if (!outline) {
+        return {
+            key: `window|${draft.id ?? '<draft>'}|custom-outline-null`,
+            parts: [{ name: 'outline-error', size: [W, H, fd], center: [0, H / 2, 0] }],
+            extent: [W, H, fd],
+            caption: 'custom outline could not be produced',
+        };
+    }
+
+    const pts: PreviewOutlinePoint[] = outline.points.map((p) => ({ x: p.x, y: p.y }));
+    const parts: AnyPreviewPart[] = [];
+
+    const frameInner = insetOutlinePoints(outline.points, ft);
+    if (frameInner) {
+        parts.push({
+            kind: 'extrudedOutline',
+            name: 'frame-band',
+            points: pts,
+            holes: [frameInner.map((p) => ({ x: p.x, y: p.y }))],
+            depth: fd,
+            center: [0, 0, 0],
+            materialId: frame.materialId,
+            fallbackHex: frame.fallbackHex,
+        });
+        parts.push({
+            kind: 'extrudedOutline',
+            name: 'glass-plate',
+            points: frameInner.map((p) => ({ x: p.x, y: p.y })),
+            depth: dims.glazingThickness,
+            center: [0, 0, 0],
+            materialId: GLASS_MATERIAL_ID,
+            opacity: glassOpacity,
+        });
+    } else {
+        // The member does not fit — SOLID FRAME, the builder's own truthful reading.
+        parts.push({
+            kind: 'extrudedOutline',
+            name: 'frame-solid',
+            points: pts,
+            depth: fd,
+            center: [0, 0, 0],
+            materialId: frame.materialId,
+            fallbackHex: frame.fallbackHex,
+        });
+    }
+
+    // Sill = the ring's OWN lowest horizontal run (D4), through THE one predicate.
+    const baseRun = outlineBaseRun(outline);
+    if (dims.sill && baseRun) {
+        const runLen = baseRun.x1 - baseRun.x0;
+        const runCx = (baseRun.x0 + baseRun.x1) / 2;
+        parts.push(box(
+            'sill-board',
+            [runLen + 2 * dims.sillOverhang, dims.sillThickness, fd + dims.sillDepth],
+            [runCx, dims.sillThickness / 2, dims.sillDepth / 2],
+            sillRef,
+        ));
+    }
+
+    const noSill = dims.sill && !baseRun;
+    return {
+        // The ring folds into the key via THE one tag (the same one the wall's cache
+        // uses) — a ring edit re-renders, a name keystroke does not.
+        key: [
+            'window', draft.id ?? '<draft>',
+            [W, H, fd, ft, dims.glazingThickness, dims.sillDepth, dims.sillThickness, dims.sillOverhang]
+                .map((n) => n.toFixed(4)).join(','),
+            frame.materialId ?? frame.fallbackHex ?? '-',
+            sillRef.materialId ?? sillRef.fallbackHex ?? '-',
+            glassOpacity.toFixed(3),
+            openingProfileTag('custom', ring),
+        ].join('|'),
+        parts,
+        extent: [W + 2 * dims.sillOverhang, H, fd + dims.sillDepth],
+        caption:
+            `${fmt(W)} × ${fmt(H)} m · custom outline, ${ring.vertices.length} vertices` +
+            (frameInner ? '' : ' · frame does not fit — shown solid') +
+            (noSill ? ' · no sill: the outline has no horizontal base run' : ''),
     };
 }
 
