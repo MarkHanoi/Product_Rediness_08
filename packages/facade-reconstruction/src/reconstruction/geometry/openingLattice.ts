@@ -1,0 +1,322 @@
+// C108 §3.4 / SPEC S9 (brief §7) — THE LATTICE, DERIVED FROM THE DETECTED OPENINGS.
+//
+// ⭐ WHY THIS FILE EXISTS, AND WHAT IT REPLACES AS THE *PRIMARY* SOURCE.
+//
+// The pipeline used to compute the zone/bay lattice from an INDEPENDENT signal —
+// the row/column gradient projection profile — and then fit the detected openings
+// into whatever grid that signal produced. On the founder's first real photograph
+// (L-11001, 2026-08-25) the profile comb returned a period of half the extent on
+// BOTH axes, so the lattice was 2 zones x 2 bays = FOUR CELLS on a seven-storey,
+// five-bay building. Four openings matched because four was the total number of
+// cells that existed; the other ~34 detections became outliers; the five arcade
+// arches were never examined because archness is fitted per MATCHED CELL.
+//
+// His own reading of it is the design of this file:
+//
+//     "it clearly can identify the windows — so therefore the levels too? same with
+//      vertical [bays] — as it understands the opening also the vertical lines?"
+//
+// He is right. ~40 opening boxes on a 5 x 7 grid ALREADY ENCODE the floor lines and
+// the bay lines. Computing the lattice from a second, weaker signal and then trying
+// to reconcile the two is the defect — the openings ARE the measurement.
+//
+// ── THE MECHANISM THE PROFILE COMB FAILS BY, MEASURED (§L-10971) ─────────────
+// `scoreComb` scores a comb as (mean profile value AT the teeth) / (mean everywhere).
+// That ratio REWARDS FEWER TEETH: a comb at twice the true period hits half the
+// lines and is free to hit the STRONGEST half. On a perfectly uniform synthetic
+// facade every line is equally strong, the fundamental and its first harmonic tie,
+// and `fitComb`'s "prefer the shortest period within 5%" tie-break rescues it. On
+// anything with real variation the harmonic scores STRICTLY BETTER and the tie-break
+// never runs. Measured on corpus case L: clean, rows lock to period 68.9 (7 zones,
+// correct); with additive noise of ±6 levels — a fraction of what a camera adds —
+// they lock to 139.5, EXACTLY DOUBLE, at a HIGHER fit (0.822 vs 0.800), and the
+// lattice collapses 8 zones -> 4, matched 30 -> 20, outliers 0 -> 33.
+//
+// ⛔ THE PROFILE PATH IS NOT DELETED. It remains the FALLBACK for a facade whose
+// openings do not support a lattice (too few, or no repetition), and it remains a
+// CROSS-CHECK that is reported in the stage notes when the two disagree. A
+// disagreement is information: it is the pipeline saying "the wall says one thing
+// and the windows say another", which is exactly what a human wants to know.
+//
+// ── ANTI-OVERFIT (brief §22, C108 §9) ───────────────────────────────────────
+// Nothing here knows about floors, bays, arcades or buildings. It knows that
+// openings on a facade repeat, that a repeated thing clusters along an axis, and
+// that the SPACING between clusters is a measured quantity. Every threshold below
+// is expressed as a fraction of a quantity MEASURED FROM THIS IMAGE (the median
+// opening size, the median cluster spacing, the median cluster support) and never as
+// a count, a pixel size or a building property.
+
+import type { Rect } from '../../contracts/RasterImage.js';
+import type { FacadeReconstructionOptions } from '../../contracts/Options.js';
+
+/** The axis a lattice is derived along. `x` gives bays, `y` gives zones. */
+export type LatticeAxis = 'x' | 'y';
+
+export interface OpeningLattice {
+    readonly axis: LatticeAxis;
+    /** Accepted line positions in samples, ascending. One per zone/bay. */
+    readonly centres: readonly number[];
+    /** Band edges in samples, ascending, always starting at 0 and ending at `extent`. */
+    readonly boundaries: readonly number[];
+    /** How many openings voted for each accepted centre, in `centres` order. */
+    readonly support: readonly number[];
+    /** Median spacing between adjacent centres, in samples. The MEASURED pitch. */
+    readonly pitch: number;
+    /** Median cluster support — the evidence behind a typical line. */
+    readonly medianSupport: number;
+    /**
+     * Cluster tightness in [0,1]: 1 = every voting opening sits exactly on its line.
+     *
+     * C108 §4.3 names "cluster tightness" as a legitimate own-support term, and this
+     * is that term literally. It is NOT derived from any other confidence.
+     */
+    readonly tightness: number;
+    /** Lines INSERTED into an integer-multiple gap — a bay/zone with no openings. */
+    readonly interpolated: number;
+    /** Lines added beyond the outermost cluster because a whole pitch still fitted. */
+    readonly extended: number;
+    /** Clusters REJECTED for insufficient support — aperiodic clutter. */
+    readonly rejected: number;
+    /** Why the derivation refused, when it did. `null` when it succeeded. */
+    readonly refusedReason: string | null;
+}
+
+/** The ascending-sorted lower median. Stated so ties are a total order (C108 §5.2). */
+function median(values: readonly number[]): number {
+    if (values.length === 0) return 0;
+    const s = [...values].sort((a, b) => a - b);
+    return s[Math.floor((s.length - 1) / 2)]!;
+}
+
+function centreOf(bbox: Rect, axis: LatticeAxis): number {
+    return axis === 'x' ? (bbox.x0 + bbox.x1) / 2 : (bbox.y0 + bbox.y1) / 2;
+}
+
+function sizeOf(bbox: Rect, axis: LatticeAxis): number {
+    return axis === 'x' ? bbox.x1 - bbox.x0 : bbox.y1 - bbox.y0;
+}
+
+function refusal(axis: LatticeAxis, reason: string): OpeningLattice {
+    return {
+        axis,
+        centres: [],
+        boundaries: [],
+        support: [],
+        pitch: 0,
+        medianSupport: 0,
+        tightness: 0,
+        interpolated: 0,
+        extended: 0,
+        rejected: 0,
+        refusedReason: reason,
+    };
+}
+
+/**
+ * Cluster detected-opening centres along one axis into the facade's lines.
+ *
+ * Returns a lattice, or a REFUSAL carrying the reason. A refusal is a real answer —
+ * a facade with three irregular holes in it has no lattice, and the caller falls
+ * back to the projection profile rather than being handed an invented one.
+ *
+ * @param blobs   every detection, unfiltered. Filtering happens here, by MEASURED
+ *                size and MEASURED support, so the caller needs no policy.
+ * @param axis    `x` for bay lines, `y` for zone lines.
+ * @param extent  the rectified facade's size along `axis`, in samples.
+ */
+export function deriveLatticeFromOpenings(
+    blobs: readonly { readonly bbox: Rect }[],
+    axis: LatticeAxis,
+    extent: number,
+    opts: FacadeReconstructionOptions,
+): OpeningLattice {
+    if (blobs.length < 2 || extent < 4) {
+        return refusal(axis, `only ${blobs.length} detection(s) — a lattice needs repetition`);
+    }
+
+    // ── 1. THE SIZE BAND ────────────────────────────────────────────────────
+    // An object several bays wide contributes ONE centre, at its own middle, and
+    // that middle is not a bay line. Corpus case B's ground-floor opening spans
+    // 4.4 bays; case F's central element spans every storey. Both must be kept out
+    // of the vote for the axis they span, and both are excluded by SIZE relative to
+    // the median opening — a measured quantity, not a building property.
+    //
+    // The band is two-sided: a speck a fraction of a window is no more a vote for a
+    // line than a slab is.
+    const sizes = blobs.map((b) => sizeOf(b.bbox, axis));
+    const medianSize = median(sizes);
+    if (!(medianSize > 0)) return refusal(axis, 'degenerate opening sizes');
+    const lo = medianSize / opts.openingLatticeSizeBandFactor;
+    const hi = medianSize * opts.openingLatticeSizeBandFactor;
+    const voters: number[] = [];
+    for (let i = 0; i < blobs.length; i++) {
+        const s = sizes[i]!;
+        if (s < lo || s > hi) continue;
+        voters.push(centreOf(blobs[i]!.bbox, axis));
+    }
+    if (voters.length < 2) {
+        return refusal(axis, `only ${voters.length} detection(s) within the size band`);
+    }
+    voters.sort((a, b) => a - b);
+
+    // ── 2. 1-D CLUSTERING BY GAP ────────────────────────────────────────────
+    // Openings in the SAME bay differ in centre by jitter; openings in ADJACENT
+    // bays differ by the bay pitch. The separating threshold is a fraction of the
+    // MEDIAN OPENING SIZE, and that choice is geometric rather than tuned: an
+    // opening cannot be wider than the cell that contains it, so half an opening
+    // width is always strictly less than half a pitch — the gap between two
+    // adjacent lines can never fall below it, and the jitter within one line is
+    // essentially never above it.
+    //
+    // Kernel-density peak-picking would do the same job; gap clustering is chosen
+    // because it needs no bandwidth constant of its own and no peak-prominence
+    // threshold, so it adds ONE named number instead of three.
+    const gapThreshold = medianSize * opts.openingLatticeGapFactor;
+    const groups: number[][] = [[voters[0]!]];
+    for (let i = 1; i < voters.length; i++) {
+        const v = voters[i]!;
+        const current = groups[groups.length - 1]!;
+        if (v - current[current.length - 1]! > gapThreshold) groups.push([v]);
+        else current.push(v);
+    }
+
+    // ── 3. THE SUPPORT FILTER ───────────────────────────────────────────────
+    // ⭐ THE GUARD THAT KEEPS CLUTTER FROM MINTING A BAY. Corpus case H draws two
+    // aperiodic foreground objects in the wall gaps; each is one vote at a position
+    // no line occupies. A line supported by ONE opening where the typical line is
+    // supported by four is not a line, it is an object — and the comparison is to
+    // the MEDIAN support of this image, never to a constant.
+    const rawCentres = groups.map((g) => g.reduce((a, b) => a + b, 0) / g.length);
+    const rawSupport = groups.map((g) => g.length);
+    const medianSupport = median(rawSupport);
+    if (medianSupport < 2) {
+        // Every line has a single voter, so "line" and "object" are indistinguishable
+        // by repetition and there is nothing here to be confident about. The profile
+        // fallback may still find structure in the WALL that the openings cannot.
+        return refusal(axis, `median line support ${medianSupport} — no repetition to cluster`);
+    }
+    const minSupport = medianSupport * opts.openingLatticeMinSupportRatio;
+    const kept: { centre: number; support: number; members: number[] }[] = [];
+    for (let i = 0; i < groups.length; i++) {
+        if (rawSupport[i]! < minSupport) continue;
+        kept.push({ centre: rawCentres[i]!, support: rawSupport[i]!, members: groups[i]! });
+    }
+    const rejected = groups.length - kept.length;
+    if (kept.length < opts.openingLatticeMinLines) {
+        return refusal(axis, `${kept.length} supported line(s) — below the minimum of ${opts.openingLatticeMinLines}`);
+    }
+
+    // ── 4. THE PITCH, AND THE LINES THAT HAVE NO OPENINGS ───────────────────
+    // A bay whose windows were all bricked up, an arcade whose arches the detector
+    // missed, a storey behind a tree: the LINE still exists and the gap that
+    // contains it is an INTEGER MULTIPLE of the measured pitch. Filling those is
+    // measurement, not assumption — the alternative is a lattice that silently
+    // renumbers every bay after the gap.
+    const centres = kept.map((k) => k.centre);
+    const spacings: number[] = [];
+    for (let i = 1; i < centres.length; i++) spacings.push(centres[i]! - centres[i - 1]!);
+    const pitch = median(spacings);
+    if (!(pitch > 0)) return refusal(axis, 'degenerate line spacing');
+
+    const filled: number[] = [centres[0]!];
+    let interpolated = 0;
+    for (let i = 1; i < centres.length; i++) {
+        const a = centres[i - 1]!;
+        const b = centres[i]!;
+        const ratio = (b - a) / pitch;
+        const k = Math.round(ratio);
+        if (k >= 2 && Math.abs(ratio - k) <= opts.openingLatticeGapIntegerTolerance) {
+            for (let j = 1; j < k; j++) {
+                filled.push(a + ((b - a) * j) / k);
+                interpolated++;
+            }
+        }
+        filled.push(b);
+    }
+
+    // ── 5. THE EDGES ────────────────────────────────────────────────────────
+    // Same argument, applied outward: if a WHOLE pitch still fits between the
+    // outermost line and the edge of the facade, there is room for another line
+    // there and the openings simply did not report it. Corpus case B is exactly
+    // this — its lowest storey is one wide opening that the size band excludes, so
+    // without this step the ground zone vanishes from the lattice entirely.
+    //
+    // ⛔ Keyed on the MEASURED pitch and the MEASURED extent. It is not "add a
+    // ground floor"; it is "a full period of space is not part of its neighbour".
+    let extended = 0;
+    while (filled[0]! - pitch > 0) {
+        filled.unshift(filled[0]! - pitch);
+        extended++;
+    }
+    while (filled[filled.length - 1]! + pitch < extent) {
+        filled.push(filled[filled.length - 1]! + pitch);
+        extended++;
+    }
+
+    // ── 6. BOUNDARIES ───────────────────────────────────────────────────────
+    // Midway between adjacent lines, with the facade's own edges closing the ends.
+    // The bands therefore tile [0, extent] exactly, with no gap and no overlap —
+    // which is what C108 §2.1 requires of the zones it produces.
+    const boundaries: number[] = [0];
+    for (let i = 1; i < filled.length; i++) boundaries.push((filled[i - 1]! + filled[i]!) / 2);
+    boundaries.push(extent);
+
+    // ── 7. TIGHTNESS — this stage's OWN support (C108 §4.3) ─────────────────
+    // Mean absolute deviation of the voting centres about their own line, as a
+    // fraction of the pitch. A lattice whose openings sit dead on its lines is
+    // strong evidence; one whose openings scatter a quarter of a pitch is none.
+    let devSum = 0;
+    let devCount = 0;
+    for (const k of kept) {
+        if (k.members.length < 2) continue;
+        for (const m of k.members) {
+            devSum += Math.abs(m - k.centre);
+            devCount++;
+        }
+    }
+    const spread = devCount > 0 ? devSum / devCount / pitch : 0;
+    const tightness = Math.max(0, Math.min(1, 1 - spread / opts.openingLatticeTightnessScale));
+
+    return {
+        axis,
+        centres: filled,
+        boundaries,
+        support: kept.map((k) => k.support),
+        pitch,
+        medianSupport,
+        tightness,
+        interpolated,
+        extended,
+        rejected,
+        refusedReason: null,
+    };
+}
+
+/** True when a derivation produced a usable lattice rather than a refusal. */
+export function latticeIsUsable(lattice: OpeningLattice): boolean {
+    return lattice.refusedReason === null && lattice.centres.length >= 2;
+}
+
+/**
+ * The confidence of one axis's lattice, in [0,1].
+ *
+ * ⛔ C108 §4.3: computed from THIS stage's own support and then capped by its
+ * inputs — never derived from another confidence, and never a product. Two own-
+ * support terms are combined by `min`, which is the conservative reading:
+ *
+ *  • `tightness`     — do the openings actually sit on these lines?
+ *  • `supportScore`  — is each line carried by as many openings as there are lines
+ *                      on the other axis? A 5 x 7 grid should give every bay seven
+ *                      votes; three votes means over half the cells are empty and
+ *                      the lattice is correspondingly less certain.
+ *
+ * `perpendicularLines` is the OTHER axis's line count — the number of openings a
+ * fully populated line would have. It is a count, not a confidence, so using it
+ * here is not confidence-from-confidence.
+ */
+export function latticeConfidence(lattice: OpeningLattice, perpendicularLines: number): number {
+    if (!latticeIsUsable(lattice)) return 0;
+    const expected = Math.max(1, perpendicularLines);
+    const supportScore = Math.max(0, Math.min(1, lattice.medianSupport / expected));
+    return Math.max(0, Math.min(1, Math.min(lattice.tightness, supportScore)));
+}

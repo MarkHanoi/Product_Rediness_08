@@ -55,6 +55,43 @@ export interface ProfileDiagnostic {
     readonly breaks: readonly number[];
 }
 
+/**
+ * One axis of the lattice, and WHICH OF TWO RIVAL MEASUREMENTS produced it.
+ *
+ * ⭐ C108 §3.4 keeps both sources alive: the openings are primary and the wall's
+ * projection profile is the fallback AND the cross-check. This record is what makes
+ * that visible rather than merely true — a consumer can see which signal was
+ * believed, what the other one said, and whether they agreed.
+ *
+ * ⛔ A disagreement is INFORMATION, not an error. It is the pipeline saying "the
+ * wall says one thing and the windows say another", which is the single most useful
+ * sentence it can offer a human looking at a facade it got wrong.
+ */
+export interface LatticeAxisDiagnostic {
+    /** Which measurement the boundaries below actually came from. */
+    readonly source: 'openings' | 'projection-profile';
+    /** Band edges in RECTIFIED samples, ascending, tiling `[0, extent]`. */
+    readonly boundaries: readonly number[];
+    /** Bands produced by the source that was USED. */
+    readonly bands: number;
+    /** Bands the OPENING clustering produced, or `null` when it refused. */
+    readonly fromOpenings: number | null;
+    /** Bands the PROJECTION PROFILE produced. Always computed, always reported. */
+    readonly fromProfile: number;
+    /** Set when the opening derivation refused, naming why (C62 §1.1). */
+    readonly refusedReason: string | null;
+    /** Measured line pitch in samples, from whichever source was used. */
+    readonly pitch: number | null;
+    /** Openings voting for a typical line — the evidence behind the lattice. */
+    readonly medianSupport: number | null;
+    /** Lines interpolated into integer-multiple gaps (a bay with no openings). */
+    readonly interpolated: number;
+    /** Lines added beyond the outermost cluster because a whole pitch still fitted. */
+    readonly extended: number;
+    /** Clusters rejected for insufficient support — aperiodic clutter. */
+    readonly rejected: number;
+}
+
 /** A detected connected component before it is classified (brief §18). */
 export interface DetectedBlob {
     readonly bbox: Rect;
@@ -98,6 +135,14 @@ export interface FacadeDiagnostics {
     /** brief §18 — "horizontal floor/zone lines" + "vertical bay lines". */
     readonly rows: ProfileDiagnostic | null;
     readonly cols: ProfileDiagnostic | null;
+    /**
+     * brief §18 — the lattice actually used, per axis, and the rival reading.
+     *
+     * ⚠ `rows`/`cols` above are the PROFILE COMB's own diagnostic and are NOT the
+     * lattice. They were the lattice until 2026-08-25 (C108 §3.4, L-10971), and an
+     * overlay that draws `rows.period` is drawing the comb, not the zones.
+     */
+    readonly lattice: { readonly zones: LatticeAxisDiagnostic; readonly bays: LatticeAxisDiagnostic };
     /** brief §18 — "opening masks". */
     readonly blobs: readonly DetectedBlob[];
     /** brief §18 — "symmetry axis". */

@@ -142,6 +142,69 @@ export interface FacadeReconstructionOptions {
     superellipseNMax: number;
     superellipseNSteps: number;
 
+    // ── S9 lattice from openings (brief §7, C108 §3.4) ───────────────────────
+    /**
+     * ⭐ WHERE THE ZONE/BAY LATTICE COMES FROM.
+     *
+     * `openings` — cluster the DETECTED OPENING CENTRES; the projection profile is
+     * kept as the fallback when they support no lattice, and as a cross-check that
+     * is reported in the notes when the two disagree. This is the default because
+     * the openings are the STRONGER signal: on corpus case L the profile comb
+     * period-doubles under ±6 levels of noise and the lattice collapses from 8
+     * zones to 4, while all 40 detections survive unchanged.
+     *
+     * `projection-profile` — the pre-2026-08-25 behaviour, unchanged and not
+     * deleted. It is the right answer for a facade with no detectable openings at
+     * all, and it is the A/B control that makes the claim above measurable.
+     */
+    latticeSource: 'openings' | 'projection-profile';
+    /**
+     * Re-run opening DETECTION once against the corrected mean cell area.
+     *
+     * `openingMinArea` is a floor relative to a CELL, and the cell is not known
+     * until the lattice is. Pass 1 detects against the profile lattice's cells;
+     * when the opening-derived lattice disagrees materially, the floor it implies
+     * is a different number and pass 2 applies it. ⛔ EXACTLY ONE refinement pass,
+     * never a loop to convergence: two passes are bounded and deterministic, and an
+     * iteration whose stopping point depends on the image is neither.
+     */
+    openingLatticeRefine: boolean;
+    /**
+     * Cluster-splitting gap, as a fraction of the MEDIAN OPENING SIZE on the axis.
+     *
+     * Geometric rather than tuned: an opening fits inside its cell, so half an
+     * opening is always less than half a pitch. Below the gap between two adjacent
+     * lines, above the jitter within one.
+     */
+    openingLatticeGapFactor: number;
+    /**
+     * Detections outside `[median/f, median*f]` on an axis do not vote for that
+     * axis's lines. Case B's ground opening spans 4.4 bays and case F's central
+     * element spans every storey: a multi-cell object contributes one centre at its
+     * own middle, and that middle is not a line.
+     */
+    openingLatticeSizeBandFactor: number;
+    /**
+     * A cluster is kept only if its support reaches this fraction of the MEDIAN
+     * cluster support. Case H's two aperiodic foreground objects are one vote each
+     * where a real line carries four.
+     */
+    openingLatticeMinSupportRatio: number;
+    /**
+     * How close a gap must be to a whole number of pitches before missing lines are
+     * interpolated into it. Case F's central bay has no windows at all and must
+     * still be a bay.
+     */
+    openingLatticeGapIntegerTolerance: number;
+    /** Below this many supported lines the derivation REFUSES and the profile runs. */
+    openingLatticeMinLines: number;
+    /**
+     * Cluster spread, as a fraction of the pitch, at which `tightness` reaches 0.
+     * A quarter of a pitch of scatter is a lattice carrying no information about
+     * where its own lines are.
+     */
+    openingLatticeTightnessScale: number;
+
     // ── S13 matching (brief §10, §15) ────────────────────────────────────────
     /** Max distance from a comb node for a detection to MATCH, in cell widths. */
     combMatchTolerance: number;
@@ -246,6 +309,25 @@ export const DEFAULT_OPTIONS: Readonly<FacadeReconstructionOptions> = Object.fre
     superellipseNMin: 1,
     superellipseNMax: 8,
     superellipseNSteps: 36,
+
+    // ⭐ The openings, not the wall. See the field comment and C108 §3.4.
+    latticeSource: 'openings',
+    openingLatticeRefine: true,
+    // Case L: median opening 48 px in a 76 px bay. 0.5 -> 24 px, which is above the
+    // few-pixel jitter within a bay and well below the 76 px between two of them.
+    openingLatticeGapFactor: 0.5,
+    // Case B: the wide ground opening is 7.3x the median window width and must not
+    // vote for a bay line. Case H: the smaller clutter object is 0.46x and must not
+    // vote for a zone line. 2.5 sits between the two, with the SUPPORT filter as the
+    // primary guard behind it.
+    openingLatticeSizeBandFactor: 2.5,
+    // Case H: clutter support 1 against a median of 4 -> 0.25. Case G: the sparsest
+    // real bay is 3 against a median of 3 -> 1.0. 0.4 separates them with margin at
+    // both ends, and it is a RATIO so it does not move with the facade's size.
+    openingLatticeMinSupportRatio: 0.4,
+    openingLatticeGapIntegerTolerance: 0.25,
+    openingLatticeMinLines: 2,
+    openingLatticeTightnessScale: 0.25,
 
     combMatchTolerance: 0.5,
     combMatchMaxSizeRatio: 1.3,

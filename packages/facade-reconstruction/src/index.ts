@@ -33,7 +33,7 @@ import type {
     Protrusion,
     Zone,
 } from './contracts/FacadeIR.js';
-import type { DetectedBlob, FacadeDiagnostics } from './contracts/Diagnostics.js';
+import type { DetectedBlob, FacadeDiagnostics, LatticeAxisDiagnostic } from './contracts/Diagnostics.js';
 import type { Point2, Quad, RasterImage, Rect } from './contracts/RasterImage.js';
 import { cropRaster, grayToRaster, toGray } from './contracts/RasterImage.js';
 import type { FacadeConfidence } from './contracts/FacadeConfidence.js';
@@ -51,6 +51,12 @@ import {
     projectionProfiles,
 } from './reconstruction/periodicity/comb.js';
 import { bandsFromBoundaries, bandToNormalizedX, bandToNormalizedY, boundaries } from './reconstruction/geometry/lattice.js';
+import type { OpeningLattice } from './reconstruction/geometry/openingLattice.js';
+import {
+    deriveLatticeFromOpenings,
+    latticeConfidence,
+    latticeIsUsable,
+} from './reconstruction/geometry/openingLattice.js';
 import { findBlobs, fitArch, otsuThreshold } from './reconstruction/openings/detect.js';
 import { measureCurvature } from './reconstruction/curvature/residual.js';
 import { detectSoffits } from './reconstruction/projections/soffit.js';
@@ -178,21 +184,16 @@ function runPipeline(image: RasterImage, opts: FacadeReconstructionOptions): Fac
     const rowsDiag = profileDiagnostic(rows, opts);
     const colsDiag = profileDiagnostic(cols, opts);
 
-    const periodicityConfidence: FacadeConfidence = capBy(
-        rowFit === null || colFit === null
-            ? unknown('geometry-incomplete')
-            : measured(Math.max(0, Math.min(1, Math.min(rowFit.fit, colFit.fit)))),
-        planeConfidence,
-    );
-
-    // ── S9 LATTICE (brief §7) ────────────────────────────────────────────────
+    // ── S9a THE PROJECTION-PROFILE LATTICE (brief §7) ────────────────────────
+    // ⛔ NOT DELETED, and not demoted to dead code: this is the FALLBACK for a
+    // facade whose openings support no lattice, and the CROSS-CHECK reported
+    // whenever the two readings disagree (C108 §3.4).
     const minSepY = Math.max(2, Math.round(rectified.height * opts.minPeakSeparationFraction * 2));
     const minSepX = Math.max(2, Math.round(rectified.width * opts.minPeakSeparationFraction * 2));
-    const zoneBands = bandsFromBoundaries(
-        boundaries(rectified.height, rowFit, rowBreaks, minSepY),
-    );
-    const bayBands = bandsFromBoundaries(boundaries(rectified.width, colFit, colBreaks, minSepX));
-    notes.push(`lattice: ${zoneBands.length} zone(s) x ${bayBands.length} bay(s)`);
+    const profileZoneBoundaries = boundaries(rectified.height, rowFit, rowBreaks, minSepY);
+    const profileBayBoundaries = boundaries(rectified.width, colFit, colBreaks, minSepX);
+    const profileZoneBands = bandsFromBoundaries(profileZoneBoundaries);
+    const profileBayBands = bandsFromBoundaries(profileBayBoundaries);
 
     // ── S11 OPENINGS, DETECTED GLOBALLY (brief §8) ───────────────────────────
     // Global, not per cell — see findBlobs' header: a per-cell search can only ever
@@ -200,9 +201,154 @@ function runPipeline(image: RasterImage, opts: FacadeReconstructionOptions): Fac
     // be preserved whole.
     const fullRect: Rect = { x0: 0, y0: 0, x1: rectified.width, y1: rectified.height };
     const threshold = otsuThreshold(rectGray, fullRect);
-    const meanCellArea =
-        (rectified.width * rectified.height) / Math.max(1, zoneBands.length * bayBands.length);
-    const blobs = findBlobs(rectGray, fullRect, threshold, opts, meanCellArea);
+    const cellAreaFor = (zoneCount: number, bayCount: number): number =>
+        (rectified.width * rectified.height) / Math.max(1, zoneCount * bayCount);
+    let blobs = findBlobs(
+        rectGray,
+        fullRect,
+        threshold,
+        opts,
+        cellAreaFor(profileZoneBands.length, profileBayBands.length),
+    );
+
+    // ── S9b ⭐ THE LATTICE, DERIVED FROM THOSE OPENINGS (C108 §3.4) ──────────
+    //
+    // The founder's reading of his own first real run, and it is the correct one:
+    // the pipeline "clearly can identify the windows — so therefore the levels too".
+    // ~40 opening boxes on a 5 x 7 grid ALREADY ENCODE the floor lines and the bay
+    // lines. Computing the lattice from the weaker projection signal and then
+    // fitting the openings into it is the ordering that produced a 2 x 2 lattice on
+    // a seven-storey building (L-10971).
+    let zoneLattice = deriveLatticeFromOpenings(blobs, 'y', rectified.height, opts);
+    let bayLattice = deriveLatticeFromOpenings(blobs, 'x', rectified.width, opts);
+
+    // ⚠ THE ONE CIRCULARITY IN THE PIPELINE, RESOLVED IN EXACTLY TWO PASSES.
+    // `openingMinArea` is a floor relative to a CELL; the cell is not known until
+    // the lattice is; the lattice is not known until the openings are. Pass 1 used
+    // the profile lattice's cells. If the opening-derived lattice implies a
+    // materially different cell, pass 2 re-detects against it and the lattice is
+    // re-derived from THAT set. ⛔ Two passes, never a loop to convergence: an
+    // iteration whose stopping point depends on the image is not deterministic in
+    // any way worth defending (C108 §5.2).
+    let refinedPass = false;
+    if (
+        opts.latticeSource === 'openings' &&
+        opts.openingLatticeRefine &&
+        latticeIsUsable(zoneLattice) &&
+        latticeIsUsable(bayLattice)
+    ) {
+        const derivedCells = (zoneLattice.centres.length) * (bayLattice.centres.length);
+        const pass1Cells = profileZoneBands.length * profileBayBands.length;
+        if (derivedCells !== pass1Cells) {
+            const refined = findBlobs(
+                rectGray,
+                fullRect,
+                threshold,
+                opts,
+                cellAreaFor(zoneLattice.centres.length, bayLattice.centres.length),
+            );
+            const zone2 = deriveLatticeFromOpenings(refined, 'y', rectified.height, opts);
+            const bay2 = deriveLatticeFromOpenings(refined, 'x', rectified.width, opts);
+            // Keep pass 2 only if it still yields a lattice. A refinement that
+            // REFUSES is a refinement that found nothing, not a reason to lose the
+            // answer pass 1 already had.
+            if (latticeIsUsable(zone2) && latticeIsUsable(bay2)) {
+                blobs = refined;
+                zoneLattice = zone2;
+                bayLattice = bay2;
+                refinedPass = true;
+                notes.push(
+                    `lattice: refined — detection re-run against the derived cell ` +
+                        `(${pass1Cells} -> ${derivedCells} cells), ${refined.length} opening(s)`,
+                );
+            }
+        }
+    }
+
+    const useOpeningLattice =
+        opts.latticeSource === 'openings' && latticeIsUsable(zoneLattice) && latticeIsUsable(bayLattice);
+    const zoneBands = useOpeningLattice
+        ? bandsFromBoundaries(zoneLattice.boundaries)
+        : profileZoneBands;
+    const bayBands = useOpeningLattice ? bandsFromBoundaries(bayLattice.boundaries) : profileBayBands;
+
+    const latticeDiagnostic = (
+        lat: OpeningLattice,
+        used: boolean,
+        bands: readonly { from: number; to: number }[],
+        profileBands: number,
+        boundsUsed: readonly number[],
+    ): LatticeAxisDiagnostic => ({
+        source: used ? 'openings' : 'projection-profile',
+        boundaries: boundsUsed,
+        bands: bands.length,
+        fromOpenings: lat.refusedReason === null ? lat.centres.length : null,
+        fromProfile: profileBands,
+        refusedReason: lat.refusedReason,
+        pitch: used ? lat.pitch : null,
+        medianSupport: lat.refusedReason === null ? lat.medianSupport : null,
+        interpolated: lat.interpolated,
+        extended: lat.extended,
+        rejected: lat.rejected,
+    });
+    const zoneBoundsUsed = useOpeningLattice ? zoneLattice.boundaries : profileZoneBoundaries;
+    const bayBoundsUsed = useOpeningLattice ? bayLattice.boundaries : profileBayBoundaries;
+
+    notes.push(
+        `lattice: ${zoneBands.length} zone(s) x ${bayBands.length} bay(s) from ` +
+            `${useOpeningLattice ? 'THE DETECTED OPENINGS' : 'the projection profile'}` +
+            (refinedPass ? ' (refined)' : ''),
+    );
+    if (!useOpeningLattice && opts.latticeSource === 'openings') {
+        // ⭐ The refusal is NAMED, not swallowed. A fallback that happens silently is
+        // a fallback nobody can debug.
+        notes.push(
+            `lattice: opening-derived lattice REFUSED — zones: ${zoneLattice.refusedReason ?? 'ok'}; ` +
+                `bays: ${bayLattice.refusedReason ?? 'ok'}. Falling back to the projection profile.`,
+        );
+    }
+    if (useOpeningLattice) {
+        // ⛔ THE CROSS-CHECK. Where the wall and the windows disagree, SAY SO. This
+        // is the sentence that would have made the 2 x 2 collapse obvious on the
+        // first real run instead of on the second.
+        const zd = zoneBands.length !== profileZoneBands.length;
+        const bd = bayBands.length !== profileBayBands.length;
+        if (zd || bd) {
+            notes.push(
+                `lattice: ⚠ SOURCES DISAGREE — openings say ${zoneBands.length}x${bayBands.length}, ` +
+                    `the projection profile says ${profileZoneBands.length}x${profileBayBands.length} ` +
+                    `(comb period rows ${rowFit === null ? 'none' : rowFit.period.toFixed(1)}, ` +
+                    `cols ${colFit === null ? 'none' : colFit.period.toFixed(1)} samples). ` +
+                    'The openings were used (C108 §3.4).',
+            );
+        }
+        notes.push(
+            `lattice: pitch ${zoneLattice.pitch.toFixed(1)} x ${bayLattice.pitch.toFixed(1)} samples, ` +
+                `median support ${zoneLattice.medianSupport} / ${bayLattice.medianSupport} opening(s) per line, ` +
+                `${zoneLattice.interpolated + bayLattice.interpolated} line(s) interpolated into gaps, ` +
+                `${zoneLattice.extended + bayLattice.extended} extended to the edge, ` +
+                `${zoneLattice.rejected + bayLattice.rejected} low-support cluster(s) rejected`,
+        );
+    }
+
+    // ── STRUCTURE CONFIDENCE (C108 §4.3) ─────────────────────────────────────
+    // Computed from the SOURCE THAT WAS ACTUALLY USED — cluster tightness and line
+    // support for the opening lattice, comb fit for the profile — then capped by the
+    // facade plane. Never derived from another confidence, never a product.
+    const structureConfidence: FacadeConfidence = capBy(
+        useOpeningLattice
+            ? measured(
+                  Math.min(
+                      latticeConfidence(zoneLattice, bayLattice.centres.length),
+                      latticeConfidence(bayLattice, zoneLattice.centres.length),
+                  ),
+              )
+            : rowFit === null || colFit === null
+              ? unknown('geometry-incomplete')
+              : measured(Math.max(0, Math.min(1, Math.min(rowFit.fit, colFit.fit)))),
+        planeConfidence,
+    );
+    const periodicityConfidence = structureConfidence;
 
     // ── S13 MATCH: cell / feature / outlier (brief §10, §15) ─────────────────
     // ONE measured rule serves both clauses. Nothing here knows what a lightwell is.
@@ -382,11 +528,35 @@ function runPipeline(image: RasterImage, opts: FacadeReconstructionOptions): Fac
             score: sym.score,
             ...pair(symConfidence),
         },
+        // ⭐ brief §14's repeated structure, read off THE SOURCE THAT PRODUCED THE
+        // LATTICE. Reporting a comb period here while the zones came from the
+        // openings would put two rival answers in one IR and let a consumer pick
+        // the wrong one — which is precisely how the founder's run reported
+        // "repeat Y 2" beside a facade with seven storeys of windows in it.
+        // ⛔ Still MEASURED, never a constant: it is a count of clustered lines or
+        // `round(extent / period)`, and there is nowhere here for `if (fiveFloors)`
+        // to live (C108 §9.1).
         periodicity: {
-            repeatX: colFit === null ? null : Math.max(1, Math.round(rectified.width / colFit.period)),
-            repeatY: rowFit === null ? null : Math.max(1, Math.round(rectified.height / rowFit.period)),
-            periodX: colFit === null ? null : Math.min(1, colFit.period / rectified.width),
-            periodY: rowFit === null ? null : Math.min(1, rowFit.period / rectified.height),
+            repeatX: useOpeningLattice
+                ? bayBands.length
+                : colFit === null
+                  ? null
+                  : Math.max(1, Math.round(rectified.width / colFit.period)),
+            repeatY: useOpeningLattice
+                ? zoneBands.length
+                : rowFit === null
+                  ? null
+                  : Math.max(1, Math.round(rectified.height / rowFit.period)),
+            periodX: useOpeningLattice
+                ? Math.min(1, bayLattice.pitch / rectified.width)
+                : colFit === null
+                  ? null
+                  : Math.min(1, colFit.period / rectified.width),
+            periodY: useOpeningLattice
+                ? Math.min(1, zoneLattice.pitch / rectified.height)
+                : rowFit === null
+                  ? null
+                  : Math.min(1, rowFit.period / rectified.height),
             ...pair(periodicityConfidence),
         },
         surface: {
@@ -430,6 +600,22 @@ function runPipeline(image: RasterImage, opts: FacadeReconstructionOptions): Fac
         rectified: { image: quad === null ? null : rectified, aspect },
         rows: rowsDiag,
         cols: colsDiag,
+        lattice: {
+            zones: latticeDiagnostic(
+                zoneLattice,
+                useOpeningLattice,
+                zoneBands,
+                profileZoneBands.length,
+                zoneBoundsUsed,
+            ),
+            bays: latticeDiagnostic(
+                bayLattice,
+                useOpeningLattice,
+                bayBands,
+                profileBayBands.length,
+                bayBoundsUsed,
+            ),
+        },
         blobs: diagBlobs,
         symmetry: {
             axisX: sym.axis === null ? null : sym.axis / rectified.width,
