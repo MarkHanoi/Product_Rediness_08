@@ -511,3 +511,53 @@ describe('C108 §3.4 — the projection profile is a FALLBACK, not dead code', (
         }
     });
 });
+
+describe('C108 §3.2 / brief §6 — the four corners are ASKED FOR, never assumed', () => {
+    it('⛔ with detection not requested, NO cell claims a confidence — unknown in, unknown out', async () => {
+        // The founder's own reading, 2026-08-25: his four clicks scored 1.00 where
+        // detection scored 0.64 on the same photograph, and his rectification was
+        // visibly better. C108 §4.3 makes a 0.64 plane cap EVERY downstream number,
+        // so the honest default is to ask. This asserts the propagation: with the
+        // plane unknown, the count of cells carrying a numeric confidence is ZERO —
+        // not "low", not 0.0, but absent (C108 §2.3).
+        const { ir, diagnostics } = await reconstructFacade(caseA().image, {
+            autoDetectFacadePlane: false,
+        });
+        expect(diagnostics.facadeQuad.status).toBe('needs-user');
+        expect(diagnostics.facadeQuad.quad).toBeNull();
+        expect(diagnostics.facadeQuad.confidence).toBeNull();
+        expect(diagnostics.rectified.image).toBeNull();
+        expect(ir.facade.confidence).toBeNull();
+        const cells = ir.facade.zones.flatMap((z) => z.cells);
+        expect(cells.filter((c) => c.confidence !== null).length).toBe(0);
+        expect(ir.facade.periodicity.confidence).toBeNull();
+        // ⭐ And it still produced something to LOOK at (brief §18): the refusal is a
+        // refusal to CLAIM, not a refusal to run. The crop and the edge map are the
+        // layers a user needs in order to place the four corners at all.
+        const c = caseA();
+        expect(diagnostics.crop.image.width).toBe(c.image.width);
+        expect(diagnostics.edges.image.width).toBe(c.image.width);
+        expect(diagnostics.lines.length).toBeGreaterThan(0);
+        expect(diagnostics.notes.some((n) => n.includes('ASKED FOR, never assumed'))).toBe(true);
+        // ⚠ AND WHAT IS *NOT* PRODUCED, STATED RATHER THAN IMPLIED (L-10977). On the
+        // UN-RECTIFIED frame Otsu's threshold separates SKY from WALL rather than
+        // OPENING from WALL, so opening detection returns NOTHING: 0 blobs on the
+        // very grid that yields 20 once a plane exists. The engine header calls this
+        // path a "preliminary answer"; this is how preliminary it actually is, and
+        // it is the strongest argument for asking for the corners up front.
+        expect(diagnostics.blobs.length).toBe(0);
+    });
+
+    it('a user-supplied quad beats detection on the SAME image, and scores 1.00', async () => {
+        // brief §6/§23 step 5: the user's quad always wins. Case I is the perspective
+        // case, so its drawn quad is known and is exactly what a user would click.
+        const c = caseI();
+        const detected = await reconstructFacade(c.image);
+        const supplied = await reconstructFacade(c.image, { facadeQuad: c.truth.facadeQuad });
+        expect(supplied.diagnostics.facadeQuad.status).toBe('user-supplied');
+        expect(supplied.diagnostics.facadeQuad.confidence).toBe(1);
+        expect(detected.diagnostics.facadeQuad.confidence as number).toBeLessThan(1);
+        expect(supplied.ir.facade.periodicity.repeatX).toBe(c.truth.bays);
+        expect(supplied.ir.facade.periodicity.repeatY).toBe(c.truth.storeys);
+    });
+});

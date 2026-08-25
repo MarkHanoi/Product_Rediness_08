@@ -127,3 +127,95 @@ describe('§FACADE-PANEL-REACHABILITY · ARM C — the hub handler acts on that 
         expect(src).toContain(`'${ACTION_ID}': [`);
     });
 });
+
+/**
+ * §FACADE-CORNERS-ARE-ASKED-FOR · ARM D (L-10973) — the panel does NOT silently
+ * guess the facade plane.
+ *
+ * ⭐ THE FOUNDER'S OWN MEASUREMENT IS THE REQUIREMENT. On 2026-08-25 he ran the
+ * first real photograph: automatic detection scored 0.64, his four hand-placed
+ * corners scored 1.00, and his rectification was visibly better. C108 §4.3 makes an
+ * uncertain plane CAP every downstream confidence, so a 0.64 plane poisons the whole
+ * reading while still looking like an answer — and he asked for "Set facade corners"
+ * to become MANDATORY.
+ *
+ * The honest form of mandatory is ASKED FOR EVERY TIME, NEVER ASSUMED, and that is
+ * what is asserted here — BEHAVIOURALLY, on a real panel instance measuring a real
+ * raster, not by reading the source for a flag. Arms B and C above are source reads
+ * and say so; this one runs the thing.
+ */
+describe('§FACADE-CORNERS-ARE-ASKED-FOR · ARM D — the plane is asked for, not assumed', () => {
+    const load = async (): Promise<{
+        panel: import('../FacadeReconstructionPanel').FacadeReconstructionPanel;
+        image: import('@pryzm/facade-reconstruction').RasterImage;
+    }> => {
+        const [{ FacadeReconstructionPanel }, { caseA }] = await Promise.all([
+            import('../FacadeReconstructionPanel'),
+            import('@pryzm/facade-reconstruction/testing'),
+        ]);
+        const image = caseA().image;
+        return { panel: new FacadeReconstructionPanel(), image };
+    };
+
+    it('⛔ a freshly loaded photograph gets NO detected plane and NO claimed confidence', async () => {
+        const { panel, image } = await load();
+        await panel.loadImage({ image, scale: 1, sourceWidth: image.width, sourceHeight: image.height });
+        const d = panel.diagnostics;
+        const ir = panel.ir;
+        expect(d).not.toBeNull();
+        expect(ir).not.toBeNull();
+        expect(d!.facadeQuad.status).toBe('needs-user');
+        expect(d!.facadeQuad.quad).toBeNull();
+        expect(d!.facadeQuad.confidence).toBeNull();
+        // C108 §4.3 propagation: unknown in ⇒ unknown out, at every node.
+        expect(ir!.facade.confidence).toBeNull();
+        expect(ir!.facade.periodicity.confidence).toBeNull();
+        expect(ir!.facade.zones.flatMap((z) => z.cells).filter((c) => c.confidence !== null).length).toBe(0);
+        panel.close();
+    }, 120_000);
+
+    it('⭐ four supplied corners score 1.00 and rectify, where detection was never run', async () => {
+        const { panel, image } = await load();
+        await panel.loadImage({ image, scale: 1, sourceWidth: image.width, sourceHeight: image.height });
+        // The corners of the facade the generator DREW, in cropped-frame pixels.
+        await panel.setFacadeQuad([
+            { x: 40, y: 30 },
+            { x: 440, y: 30 },
+            { x: 440, y: 330 },
+            { x: 40, y: 330 },
+        ]);
+        const d = panel.diagnostics!;
+        expect(d.facadeQuad.status).toBe('user-supplied');
+        expect(d.facadeQuad.confidence).toBe(1);
+        expect(d.rectified.image).not.toBeNull();
+        // And the structure the drawn grid actually has: 5 bays x 4 storeys.
+        expect(panel.ir!.facade.zones.length).toBe(4);
+        expect(panel.ir!.facade.zones[0]!.cells.length).toBe(5);
+        panel.close();
+    }, 120_000);
+
+    it('⛔ CLEARING the corners returns to ASKING — it is not a back door into guessing', async () => {
+        const { panel, image } = await load();
+        await panel.loadImage({ image, scale: 1, sourceWidth: image.width, sourceHeight: image.height });
+        await panel.setFacadeQuad([
+            { x: 40, y: 30 },
+            { x: 440, y: 30 },
+            { x: 440, y: 330 },
+            { x: 40, y: 330 },
+        ]);
+        expect(panel.diagnostics!.facadeQuad.status).toBe('user-supplied');
+        await panel.setFacadeQuad(null);
+        expect(panel.diagnostics!.facadeQuad.status).toBe('needs-user');
+        expect(panel.diagnostics!.facadeQuad.confidence).toBeNull();
+        panel.close();
+    }, 120_000);
+
+    it('offers detection as a LABELLED shortcut whose cost is written on it', async () => {
+        const { panel, image } = await load();
+        await panel.loadImage({ image, scale: 1, sourceWidth: image.width, sourceHeight: image.height });
+        const labels = [...panel.element.querySelectorAll('button')].map((b) => b.textContent ?? '');
+        expect(labels).toContain('Set facade corners');
+        expect(labels).toContain('Detect the plane automatically instead');
+        panel.close();
+    }, 120_000);
+});

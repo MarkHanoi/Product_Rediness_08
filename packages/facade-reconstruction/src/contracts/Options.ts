@@ -101,6 +101,27 @@ export interface FacadeReconstructionOptions {
     quadMinConfidence: number;
     /** A user-supplied facade quad. ⭐ ALWAYS WINS over detection (brief §6, §23). */
     facadeQuad?: Quad;
+    /**
+     * Run automatic facade-plane detection when no `facadeQuad` was supplied.
+     *
+     * ⭐ THE FOUNDER ASKED FOR "SET FACADE CORNERS" TO BE MANDATORY (2026-08-25),
+     * after his own four clicks scored 1.00 against detection's 0.64 on the same
+     * photograph and produced a visibly better rectification. Brief §6 already says
+     * "do not force automatic detection"; C108 §4.3 says an uncertain plane CAPS
+     * every downstream confidence. A 0.64 plane therefore poisons the whole reading
+     * while still looking like an answer.
+     *
+     * ⛔ The honest form of "mandatory" is ASKED FOR EVERY TIME, NEVER ASSUMED — so
+     * the engine default stays `true` (a CLI or a test that wants a preliminary
+     * reading gets one) and the UI passes `false` on first load, shows the
+     * photograph, and asks. Detection is then a LABELLED SHORTCUT the user chooses,
+     * not something that happened to them.
+     *
+     * With `false` and no quad the stage emits `needs-user`, no quad and no
+     * rectification, every derived confidence is UNKNOWN by propagation, and the
+     * downstream stages still run so there is something to look at (brief §18).
+     */
+    autoDetectFacadePlane: boolean;
     /** Output size of the rectified facade, longest side, pixels. */
     rectifiedLongSide: number;
 
@@ -299,6 +320,9 @@ export const DEFAULT_OPTIONS: Readonly<FacadeReconstructionOptions> = Object.fre
     familyAngleToleranceDeg: 30,
     quadSupportFraction: 0.25,
     quadMinConfidence: 0.25,
+    // ⭐ TRUE here and FALSE in the editor panel — see the field comment. A default
+    // of false would make the CLI and every corpus case refuse to measure anything.
+    autoDetectFacadePlane: true,
     rectifiedLongSide: 512,
 
     minPeakSeparationFraction: 0.02,

@@ -93,11 +93,29 @@ export class FacadeReconstructionPanel {
     private readonly _quadButton: HTMLButtonElement;
     private readonly _refButton: HTMLButtonElement;
     private readonly _clearQuadButton: HTMLButtonElement;
+    private readonly _autoDetectButton: HTMLButtonElement;
 
     private _decoded: DecodedImage | null = null;
     private _ir: FacadeIR | null = null;
     private _diagnostics: FacadeDiagnostics | null = null;
     private _quad: Quad | null = null;
+    /**
+     * ⭐ WHETHER THIS PANEL HAS BEEN GIVEN PERMISSION TO GUESS THE FACADE PLANE.
+     *
+     * `false` on every newly loaded photograph, and it is the point of the whole
+     * flow. The founder ran the first real image on 2026-08-25: automatic detection
+     * scored 0.64, his four clicks scored 1.00, and his rectification was visibly
+     * better. C108 §4.3 makes an uncertain plane cap EVERY downstream confidence, so
+     * a 0.64 plane poisons the entire reading while still looking like an answer —
+     * and he asked for "Set facade corners" to become MANDATORY.
+     *
+     * ⛔ The honest form of mandatory is ASKED FOR EVERY TIME, NEVER ASSUMED. So the
+     * panel does not silently auto-detect: it measures what it can WITHOUT a plane,
+     * shows the photograph, and arms the four-corner pick. Detection is still
+     * reachable — as a LABELLED SHORTCUT the user chooses — and skipping is still
+     * possible, because a refusing tool with no way past it is its own defect.
+     */
+    private _autoDetectPermitted = false;
     private _reference: ReferencePick | null = null;
     private _pickMode: PickMode = 'none';
     private _picked: Point2[] = [];
@@ -151,7 +169,19 @@ export class FacadeReconstructionPanel {
         this._quadButton = this._button('Set facade corners', () => this._beginQuadPick());
         this._clearQuadButton = this._button('Clear corners', () => this._clearQuad());
         this._refButton = this._button('Set reference dimension', () => this._beginReferencePick());
-        toolbar.append(fileLabel, this._quadButton, this._clearQuadButton, this._refButton);
+        // ⭐ The labelled shortcut. It says what it costs, because a button called
+        // "Auto" that quietly caps every number on the panel is not a choice the
+        // user made — it is one that happened to them.
+        this._autoDetectButton = this._button('Detect the plane automatically instead', () =>
+            this._permitAutoDetect(),
+        );
+        toolbar.append(
+            fileLabel,
+            this._quadButton,
+            this._autoDetectButton,
+            this._clearQuadButton,
+            this._refButton,
+        );
 
         // ── hint + status ────────────────────────────────────────────────────
         this._hint = document.createElement('div');
@@ -278,8 +308,28 @@ export class FacadeReconstructionPanel {
         // A new photograph invalidates a quad and a reference picked on the old one.
         this._quad = null;
         this._reference = null;
+        // ⛔ AND IT REVOKES PERMISSION TO GUESS. A plane accepted for the previous
+        // photograph says nothing about this one.
+        this._autoDetectPermitted = false;
         this._activeLayer = 'crop';
         await this._run();
+        // ⭐ ASK, DO NOT ASSUME. The pipeline has run far enough to give the user a
+        // cropped photograph and an edge map to click on; it has NOT guessed a plane.
+        if (this._diagnostics !== null) this._beginQuadPick();
+    }
+
+    /**
+     * The user's explicit choice to let detection guess the plane (brief §6).
+     *
+     * ⚠ Not a fallback and not a default — a decision, taken by a person, with the
+     * consequence stated on the button and in the status line beneath it.
+     */
+    private _permitAutoDetect(): void {
+        if (this._decoded === null) return;
+        this._autoDetectPermitted = true;
+        this._quad = null;
+        this._cancelPick();
+        void this._run();
     }
 
     /**
@@ -292,6 +342,9 @@ export class FacadeReconstructionPanel {
      */
     public setFacadeQuad(quad: Quad | null): Promise<void> {
         this._quad = quad;
+        // ⛔ Clearing the corners returns to ASKING, never to guessing. "Clear" must
+        // not be a back door into the behaviour the founder asked to stop.
+        if (quad === null) this._autoDetectPermitted = false;
         this._cancelPick();
         return this._run();
     }
@@ -352,6 +405,9 @@ export class FacadeReconstructionPanel {
         try {
             const result = await reconstructFacade(decoded.image, {
                 facadeQuad: this._quad ?? undefined,
+                // ⭐ FALSE until the user either sets four corners or explicitly asks
+                // for detection. See `_autoDetectPermitted`.
+                autoDetectFacadePlane: this._autoDetectPermitted,
             });
             this._diagnostics = result.diagnostics;
             this._ir = this._withReference(result.ir);
@@ -394,8 +450,10 @@ export class FacadeReconstructionPanel {
         this._refForm.classList.add('frp-hidden');
         this._setHint(
             'Click the FOUR corners of the facade on the photograph, clockwise from TOP-LEFT. ' +
-                'Your quad always wins over automatic detection (brief §6) — this is the specified ' +
-                'fallback, not a failure. Press Escape to cancel.',
+                'This is asked for EVERY time and never assumed: your corners score 1.00, and a ' +
+                'detected plane CAPS every other confidence on this panel (brief §6, C108 §4.3). ' +
+                'If you would rather let it guess, use "Detect the plane automatically instead". ' +
+                'Press Escape to cancel.',
         );
         this._render();
     }
@@ -590,11 +648,43 @@ export class FacadeReconstructionPanel {
                 confidence: f.confidence,
                 caveat:
                     d.facadeQuad.status === 'needs-user'
-                        ? 'NO PLANE FOUND. Structure below was measured on the UN-RECTIFIED frame and every ' +
-                          'derived confidence is UNKNOWN by propagation (C108 §4.3). Set the four corners.'
-                        : undefined,
+                        ? (this._autoDetectPermitted
+                              ? 'NO PLANE FOUND, even with detection permitted. '
+                              : 'NOT YET SET — the four corners are ASKED FOR, never assumed (brief §6). ') +
+                          'Everything below was measured on the UN-RECTIFIED frame, so every derived ' +
+                          'confidence is UNKNOWN by propagation (C108 §4.3), and opening detection on a ' +
+                          'frame that still contains sky typically finds nothing at all. Set the four ' +
+                          'corners, or choose detection explicitly.'
+                        : d.facadeQuad.status === 'detected'
+                          ? 'AUTO-DETECTED at your request. This confidence CAPS every other one on this ' +
+                            'panel (C108 §4.3). Four clicked corners score 1.00.'
+                          : undefined,
             },
-            { label: 'Lattice', value: `${f.zones.length} zone(s) × ${bays} bay(s)`, confidence: f.confidence },
+            {
+                label: 'Lattice',
+                value:
+                    `${f.zones.length} zone(s) × ${bays} bay(s) — from ` +
+                    (d.lattice.zones.source === 'openings'
+                        ? 'THE DETECTED OPENINGS'
+                        : 'the wall projection profile'),
+                confidence: f.confidence,
+                // ⭐ C108 §3.4 keeps TWO rival measurements alive on purpose, and a
+                // disagreement between them is INFORMATION: it is the pipeline
+                // saying "the wall says one thing and the windows say another".
+                // Reporting only the winner is how a 2 zone × 2 bay lattice on a
+                // seven-storey building looked like an answer (L-10971).
+                caveat:
+                    d.lattice.zones.source === 'projection-profile'
+                        ? 'The openings did not support a lattice, so the WALL was used instead: ' +
+                          `${d.lattice.zones.refusedReason ?? 'refused'}.`
+                        : d.lattice.zones.fromProfile !== f.zones.length ||
+                            d.lattice.bays.fromProfile !== bays
+                          ? '⚠ THE TWO SOURCES DISAGREE. The wall projection profile reads ' +
+                            `${d.lattice.zones.fromProfile} zone(s) × ${d.lattice.bays.fromProfile} bay(s). ` +
+                            'The openings were used (C108 §3.4) — compare the "Horizontal zone lines" ' +
+                            'layer against the photograph and judge for yourself.'
+                          : undefined,
+            },
             {
                 label: 'Openings',
                 value: `${openings} matched · ${f.features.length} feature(s) · ${f.outliers.length} outlier(s)`,
@@ -710,6 +800,14 @@ export class FacadeReconstructionPanel {
         this._quadButton.disabled = !hasResult;
         this._refButton.disabled = !hasResult;
         this._clearQuadButton.disabled = !hasResult || this._quad === null;
+        // The shortcut is offered only while the plane is still being ASKED for.
+        // Once corners exist or detection has already been permitted, it is spent.
+        this._autoDetectButton.disabled =
+            !hasResult || this._autoDetectPermitted || this._quad !== null;
+        // ⭐ The primary action while no plane has been established, so the panel
+        // LOOKS like it is asking rather than merely being willing to be asked.
+        const asking = hasResult && this._quad === null && !this._autoDetectPermitted;
+        this._quadButton.classList.toggle('frp-btn--primary', asking);
         this._quadButton.classList.toggle('frp-btn--armed', this._pickMode === 'quad');
         this._refButton.classList.toggle('frp-btn--armed', this._pickMode === 'reference');
         this._canvas.classList.toggle('frp-canvas--picking', this._pickMode !== 'none');

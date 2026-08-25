@@ -137,6 +137,19 @@ function runPipeline(image: RasterImage, opts: FacadeReconstructionOptions): Fac
         quadStatus = 'user-supplied';
         quadConfidence = 1;
         notes.push('facadeQuad: user-supplied — detection skipped (brief §6)');
+    } else if (!opts.autoDetectFacadePlane) {
+        // ⭐ brief §6's "do not force automatic detection", as a DEFAULT rather than
+        // a fallback. The caller has declared that the four corners are to be ASKED
+        // FOR. Nothing is guessed, nothing downstream claims a measurement, and the
+        // pipeline still runs so there is a photograph and an edge map to click on.
+        quad = null;
+        quadStatus = 'needs-user';
+        quadConfidence = 0;
+        notes.push(
+            'facadeQuad: NOT DETECTED — automatic detection was not requested. The four corners are ' +
+                'ASKED FOR, never assumed (brief §6). Every derived confidence is UNKNOWN until they ' +
+                'are set (C108 §4.3), and detection remains available as a labelled shortcut.',
+        );
     } else {
         const detected = facadeQuad(lines, cropped.width, cropped.height, opts);
         notes.push(...detected.notes);
