@@ -22,6 +22,9 @@ import { trace } from '@opentelemetry/api';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import {
     orchestrateResidentialBuilding,
+    // §GEN-FACADE-OPENINGS (L-11080) — the photograph's measured opening lattice. TYPE only here:
+    // this controller threads it to the executor and makes no measurement of its own.
+    type FacadeOpeningProgram,
     type ResidentialBuildingOrchestratorInput,
     type ResidentialBuildingResult,
     type ResidentialBuildingOk,
@@ -84,6 +87,15 @@ export interface ResidentialBuildingRequest {
     /** §RESI-GROUND-COMMERCIAL-CURTAIN (2026-06-24) — ground shopfront style. Default false ⇒ solid
      *  shell + big commercial windows; true ⇒ the curtain-wall shopfront. */
     readonly groundCommercialCurtain?: boolean;
+    /**
+     * §GEN-FACADE-OPENINGS (L-11080 · C108 Milestone 2, L-11006) — the opening lattice MEASURED
+     * from an attached photograph: bays, bands, per-cell size FRACTIONS and a CONTINUOUS archness.
+     *
+     * ⛔ NOT A LENGTH ANYWHERE (C108 §2.2, L-11009). The building's size still comes from the
+     * footprint; the photograph supplies proportions and counts only. Absent on every request that
+     * carried no photo, and the whole façade path is then byte-identical to before.
+     */
+    readonly facadeOpeningProgram?: FacadeOpeningProgram;
 }
 
 export interface ResidentialBuildingRequestResult {
@@ -389,11 +401,21 @@ export class ResidentialBuildingController {
                 balconies: req.balconies !== false,
                 ...(typeof req.facadeColor === 'string' ? { facadeColor: req.facadeColor } : {}),
                 groundCommercialCurtain: req.groundCommercialCurtain === true,
+                // §GEN-FACADE-OPENINGS (L-11080) — the photograph's lattice reaches the executor
+                // ONLY on this headless (chat) path: the preview modal has no photograph to carry.
+                ...(req.facadeOpeningProgram !== undefined ? { facadeOpeningProgram: req.facadeOpeningProgram } : {}),
             });
             if (!execResult.ok) {
                 return { ok: false, reason: execResult.reason ?? 'the build executor refused', apartmentCount };
             }
-            return { ok: true, apartmentCount, report: buildResidentialHonestyReport(result, apartmentCount) };
+            // §GEN-FACADE-OPENINGS (L-11080) — the façade lines ride the SAME honesty report the
+            // rest of the build uses. ⛔ What the photograph asked for and the generator could not
+            // build is on the persistent transcript, not only on the Confirm card.
+            const report = [
+                ...buildResidentialHonestyReport(result, apartmentCount),
+                ...(execResult.facadeNotes ?? []),
+            ];
+            return { ok: true, apartmentCount, report };
         }
 
         this._pending = {

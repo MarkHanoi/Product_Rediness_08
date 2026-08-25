@@ -263,27 +263,65 @@ export interface ResolvedOpeningProfile {
  * caller can say what happened. It never proceeds on a refused combination, and
  * it never silently draws a rectangle where an arch was asked for.
  */
-export function resolveOpeningProfileFromArchness(
-    archness: number,
-    widthM: number,
-    heightM: number,
-    sillHeightM: number,
-): ResolvedOpeningProfile {
+/** Flattest → most arched. The step-down walk in
+ *  {@link resolveOpeningProfileFromArchness} relies on this order. */
+function profileLadder(): OpeningProfileKind[] {
     const legal = openingProfilesFor('window');
-    // Flattest → most arched. The step-down walk below relies on this order.
-    const ladder: OpeningProfileKind[] = (['rectangular', 'segmental-arch', 'round-arch'] as const)
+    return (['rectangular', 'segmental-arch', 'round-arch'] as const)
         .filter((k) => (legal as readonly string[]).includes(k));
+}
 
+/**
+ * The nearest buildable profile to a CONTINUOUS archness, on shape alone.
+ *
+ * ⚠ Dimension-free, so it answers "what did the photograph see" and NOT "what can
+ * this opening carry" — the second question needs `width`/`height` and is
+ * {@link resolveOpeningProfileFromArchness}'s job. Split because a caller
+ * deciding HOW TO BUILD A WHOLE STOREY (curtain wall or arcade) has no single
+ * opening to hand yet.
+ */
+export function nearestProfileByArchness(archness: number): OpeningProfileKind {
     const a = Number.isFinite(archness) ? Math.min(1, Math.max(0, archness)) : 0;
     let best: OpeningProfileKind = 'rectangular';
     let bestD = Infinity;
-    for (const kind of ladder) {
+    for (const kind of profileLadder()) {
         const canonical = PROFILE_CANONICAL_ARCHNESS[kind as keyof typeof PROFILE_CANONICAL_ARCHNESS];
         const d = Math.abs(a - canonical);
         // Strict `<` keeps the FLATTEST candidate on an exact tie — a stated total
         // order, never whichever the loop happened to reach last (C108 §5.2).
         if (d < bestD) { bestD = d; best = kind; }
     }
+    return best;
+}
+
+/**
+ * ⭐ DOES THIS BAND READ AS AN ARCADE?
+ *
+ * The founder's ground floor is a five-arch colonnade, and the generator has two
+ * incompatible ways to build a commercial ground floor: a frameless CURTAIN WALL,
+ * or a SOLID shell carrying openings. ⛔ **A curtain wall cannot carry an arch** —
+ * it has no wall to cut one in — so a façade measured as arched must take the
+ * second path, and the caller needs to know that BEFORE it builds the walls.
+ *
+ * The verdict is the mean archness's nearest profile. No new threshold: the
+ * ladder is the same one every opening is matched against.
+ */
+export function bandIsArched(program: FacadeOpeningProgram, bandIndex: number): boolean {
+    const row = program.cells.filter((c) => c.bandIndex === bandIndex);
+    if (row.length === 0) return false;
+    const mean = row.reduce((a, c) => a + c.archness, 0) / row.length;
+    return nearestProfileByArchness(mean) !== 'rectangular';
+}
+
+export function resolveOpeningProfileFromArchness(
+    archness: number,
+    widthM: number,
+    heightM: number,
+    sillHeightM: number,
+): ResolvedOpeningProfile {
+    const ladder = profileLadder();
+    const a = Number.isFinite(archness) ? Math.min(1, Math.max(0, archness)) : 0;
+    const best = nearestProfileByArchness(a);
 
     // Verify, and step down while refused. `rectangular` is refused by nothing,
     // so this walk always terminates.

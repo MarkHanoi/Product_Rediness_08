@@ -10,6 +10,7 @@
 //
 // PURE: no store reads, no DOM. Only a type import (erased at runtime).
 
+import type { FacadeOpeningProgram } from '@pryzm/ai-host';
 import type { ResidentialBuildingRequest } from './ResidentialBuildingController.js';
 
 /** Footprint point (metres, plan XZ). */
@@ -43,6 +44,65 @@ function readHexColor(md: Record<string, unknown>, ...keys: string[]): string | 
         if (m) return `#${m[1]}${m[1]}${m[2]}${m[2]}${m[3]}${m[3]}`.toLowerCase();
     }
     return undefined;
+}
+
+/**
+ * §GEN-FACADE-OPENINGS (L-11080 · C108 Milestone 2) — read the PHOTOGRAPH'S measured opening
+ * lattice out of the loosely-typed brief metadata.
+ *
+ * ⚠ VALIDATED STRUCTURALLY, NOT TRUSTED. The value arrives across the chat payload boundary as
+ * `unknown`, and a malformed lattice would place windows at NaN offsets. Every field is checked
+ * and a single bad cell drops THE WHOLE PROGRAM rather than half of it — a façade built from
+ * half a measurement is worse than one built from none, because nothing would say so.
+ *
+ * ⛔ NO LENGTHS ARE ACCEPTED. Every accepted number is a ratio in (0,1] or a positive count
+ * (C108 §2.2, L-11009); anything outside those ranges is not a lattice this code will build from.
+ */
+function readFacadeOpeningProgram(md: Record<string, unknown>): FacadeOpeningProgram | undefined {
+    const raw = md['facadeOpeningProgram'];
+    if (raw === null || typeof raw !== 'object') return undefined;
+    const p = raw as Record<string, unknown>;
+    const bays = typeof p['bays'] === 'number' ? p['bays'] : NaN;
+    const bands = typeof p['bands'] === 'number' ? p['bands'] : NaN;
+    if (!Number.isInteger(bays) || bays < 1) return undefined;
+    if (!Number.isInteger(bands) || bands < 1) return undefined;
+    const rawCells = p['cells'];
+    if (!Array.isArray(rawCells) || rawCells.length === 0) return undefined;
+
+    const ratio = (v: unknown): number | null =>
+        typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= 1 ? v : null;
+
+    const cells: FacadeOpeningProgram['cells'] = [];
+    for (const rc of rawCells) {
+        if (rc === null || typeof rc !== 'object') return undefined;
+        const c = rc as Record<string, unknown>;
+        const bayIndex = c['bayIndex'];
+        const bandIndex = c['bandIndex'];
+        const widthFraction = ratio(c['widthFraction']);
+        const heightFraction = ratio(c['heightFraction']);
+        const archness = c['archness'];
+        if (typeof bayIndex !== 'number' || !Number.isInteger(bayIndex) || bayIndex < 0) return undefined;
+        if (typeof bandIndex !== 'number' || !Number.isInteger(bandIndex) || bandIndex < 0 || bandIndex >= bands) return undefined;
+        if (widthFraction === null || heightFraction === null) return undefined;
+        if (typeof archness !== 'number' || !Number.isFinite(archness) || archness < 0 || archness > 1) return undefined;
+        const confRaw = c['confidence'];
+        cells.push({
+            bayIndex, bandIndex, widthFraction, heightFraction, archness,
+            // ⛔ `null` is UNKNOWN and is NOT zero (C108 §2.3). An absent or malformed
+            // confidence becomes UNKNOWN, never a confident zero.
+            confidence: typeof confRaw === 'number' && Number.isFinite(confRaw) ? confRaw : null,
+        });
+    }
+
+    const rawBandH = p['bandHeightFractions'];
+    const bandHeightFractions = Array.isArray(rawBandH)
+        ? rawBandH.map((v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0))
+        : [];
+    const confRoot = p['confidence'];
+    return {
+        bays, bands, cells, bandHeightFractions,
+        confidence: typeof confRoot === 'number' && Number.isFinite(confRoot) ? confRoot : null,
+    };
 }
 
 /** Read a boolean-ish from the brief metadata. Absent ⇒ undefined. */
@@ -98,6 +158,8 @@ export function residentialRequestFromBrief(
     const groundCommercialCurtain = readBool(md, 'groundCommercialCurtain', 'groundCurtain') === true;
     // §RESI-FACADE-COLOUR — a #rrggbb hex finish colour from the modal colour picker (else default).
     const facadeColor = readHexColor(md, 'facadeColor', 'finishColor', 'facadeColour');
+    // §GEN-FACADE-OPENINGS (L-11080) — the photograph's measured lattice, when one rode along.
+    const facadeOpeningProgram = readFacadeOpeningProgram(md);
 
     return {
         upperLevels,
@@ -110,6 +172,7 @@ export function residentialRequestFromBrief(
         ...(balconies ? {} : { balconies: false }),
         ...(groundCommercialCurtain ? { groundCommercialCurtain: true } : {}),
         ...(facadeColor ? { facadeColor } : {}),
+        ...(facadeOpeningProgram ? { facadeOpeningProgram } : {}),
         footprint,
     };
 }

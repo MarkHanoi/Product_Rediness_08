@@ -76,7 +76,14 @@ import {
     // L-864 §RESI-UNIT-CONTAINMENT — the pure per-apartment UNIT plan (one hierarchy Unit per
     // PLACED cell), in the SAME order this executor walks `perLevel.apartments`.
     planBuildingUnits,
+    // §GEN-FACADE-OPENINGS (L-11080 · C108 Milestone 2, L-11006) — the PHOTOGRAPH'S measured
+    // opening lattice, and the ONE planner that turns it into buildable openings. The
+    // measurement rule lives in `@pryzm/ai-host`; this executor is only its client.
+    bandIsArched,
+    planFacadeOpenings,
+    type FacadeOpeningProgram,
 } from '@pryzm/ai-host';
+import type { OpeningProfileKind } from '@pryzm/geometry-wall';
 import { computeStairFootprintRect } from '@pryzm/geometry-stair';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { triggerFloorLayout } from '../floor-layout/floorLayoutTrigger.js';
@@ -190,6 +197,15 @@ export interface ResidentialExecuteInput {
      *  style. Default false: build SOLID shell walls with BIG commercial window openings + a door
      *  (glass-in-frame). When true: keep the existing curtain-wall shopfront. */
     readonly groundCommercialCurtain?: boolean;
+    /**
+     * §GEN-FACADE-OPENINGS (L-11080 · C108 Milestone 2, L-11006) — the opening lattice MEASURED
+     * from a photograph: bays, bands, per-cell size fractions and a CONTINUOUS archness.
+     *
+     * ⛔ NOT A LENGTH ANYWHERE. Every number in it is a ratio; the metres come from the footprint
+     * this executor already built the walls from (C108 §2.2, L-11009). Absent ⇒ every façade pass
+     * behaves exactly as it did before.
+     */
+    readonly facadeOpeningProgram?: FacadeOpeningProgram;
 }
 
 export interface ResidentialExecuteResult {
@@ -199,6 +215,11 @@ export interface ResidentialExecuteResult {
     readonly apartmentCount?: number;
     readonly stairCount?: number;
     readonly liftCount?: number;
+    /** §GEN-FACADE-OPENINGS (L-11080) — what the PHOTOGRAPH'S measured lattice produced, and what
+     *  it could NOT be built as. ⛔ Reported, never dropped: a build that silently omitted the
+     *  arcade is the exact defect C108 exists to prevent (§0.3). Empty on every build that carried
+     *  no photograph. */
+    readonly facadeNotes?: readonly string[];
 }
 
 /** §PERF-BATCH-COALESCE-PER-LEVEL (L-131 P2) — the canonical `wall.batch.create` payload shape
@@ -323,7 +344,25 @@ export class ResidentialBuildingExecutor {
         const balconiesEnabled = input?.balconies !== false;
         // §RESI-GROUND-COMMERCIAL-CURTAIN (2026-06-24) — ground shopfront style. Default false ⇒
         // SOLID shell + big commercial windows; true ⇒ the curtain-wall shopfront.
-        const groundCurtain = input?.groundCommercialCurtain === true;
+        // §GEN-FACADE-OPENINGS (L-11080) — the PHOTOGRAPH'S measured lattice, when one was supplied.
+        const facadeProgram = input?.facadeOpeningProgram ?? null;
+        // ⛔ A CURTAIN WALL CANNOT CARRY AN ARCH. The two ground-floor styles are incompatible: a
+        // frameless curtain wall has no wall to cut a void in, and the founder's ground floor is a
+        // five-arch colonnade. When the photograph measured the ground band as ARCHED, the SOLID
+        // shell + arched openings is the only path that can render it — so the arcade wins over the
+        // curtain shopfront, and `facadeNotes` says so on the transcript rather than silently
+        // overriding a request. When the measured band is square-headed, nothing changes.
+        const groundBandArched = facadeProgram !== null && bandIsArched(facadeProgram, 0);
+        const groundCurtain = input?.groundCommercialCurtain === true && !groundBandArched;
+        // ⭐ Every "not built" the façade passes produce, gathered for the transcript.
+        const facadeReportNotes: string[] = [];
+        if (input?.groundCommercialCurtain === true && groundBandArched) {
+            facadeReportNotes.push(
+                'the ground floor is built as an ARCADE of arched openings in a solid shell rather ' +
+                'than a frameless curtain shopfront — the photograph measured arched heads, and a ' +
+                'curtain wall has no wall to cut an arch in',
+            );
+        }
         // §RESI-FACADE-COLOUR (2026-06-24) — the opaque-finish colour for shell / core / cell walls
         // + roof. Validate to a #rrggbb hex; an invalid/absent value ⇒ undefined (all-white default).
         const facadeColor = (typeof input?.facadeColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(input.facadeColor))
@@ -440,7 +479,7 @@ export class ResidentialBuildingExecutor {
         // openings (sill 0.01 m, head 3.5 m) hosted on them. These specs are punched in a deferred
         // pass once the ground shell walls land in the store (like the entrance door / apartment
         // openings) — the bus wall.batch.create is async.
-        const groundCommercialWindowSpecs: Array<{ wallId: string; offset: number; width: number; sillHeight: number; height: number; levelId: string }> = [];
+        const groundCommercialWindowSpecs: Array<{ wallId: string; offset: number; width: number; sillHeight: number; height: number; levelId: string; openingProfile?: OpeningProfileKind }> = [];
         // §RESI-GROUND-CORRIDOR — interior corridor walls linking the ground entrance to the core.
         let groundCorridorPayload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string } | undefined;
         const corridorBoundaryItems: Array<{ id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } }> = [];
@@ -501,8 +540,11 @@ export class ResidentialBuildingExecutor {
             let shellPayload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string };
             if (lvl.levelIndex === 0) {
                 const wec = this._rotate({ x: result.groundFloor.entranceCenter.x, z: result.groundFloor.entranceCenter.z }, xf);
-                const g = this._buildGroundShell(levelId, lvl.footprint, levelFtf, wec, groundCurtain);
+                const g = this._buildGroundShell(levelId, lvl.footprint, levelFtf, wec, groundCurtain, facadeProgram);
                 shellPayload = g.shellPayload;
+                // §GEN-FACADE-OPENINGS — carry what the measured lattice produced AND what it could
+                // not, so the post-build transcript can repeat both.
+                if (g.facadeNotes !== undefined) facadeReportNotes.push(...g.facadeNotes);
                 // §RESI-DOOR-CENTRE-SPINE — remember the door-bay wall for the centred entrance pass.
                 groundDoorBay = g.doorBay;
                 // §RESI-GROUND-COMMERCIAL-CURTAIN — only the curtain shopfront mode emits curtain
@@ -866,7 +908,10 @@ export class ResidentialBuildingExecutor {
             `rejected=${rejectedCount} stairs=${stairCount} lifts=${liftCount}`,
         );
 
-        return { ok: true, levelIds, apartmentCount: placedCount, stairCount, liftCount };
+        return {
+            ok: true, levelIds, apartmentCount: placedCount, stairCount, liftCount,
+            ...(facadeReportNotes.length > 0 ? { facadeNotes: facadeReportNotes } : {}),
+        };
     }
 
     /** §RESI-FACADE-INTERIOR-WHITE (founder 2026-06-24: "the exterior wall reads the façade colour
@@ -954,12 +999,22 @@ export class ResidentialBuildingExecutor {
         wallHeightM: number,
         worldEntranceCenter: { x: number; z: number },
         useCurtain: boolean,
+        /** §GEN-FACADE-OPENINGS (L-11080 · C108 Milestone 2) — the PHOTOGRAPH'S measured
+         *  opening lattice. Absent ⇒ every line below behaves exactly as it did before,
+         *  which is why this feature cannot regress a build that carries no photo. */
+        facadeProgram?: FacadeOpeningProgram | null,
     ): {
         shellPayload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string };
         curtainWalls: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number }; height: number; levelId: string }>;
         /** §RESI-GROUND-COMMERCIAL-CURTAIN — big window specs for the SOLID-shell mode (per
-         *  non-bay façade wall id), deferred-punched once the shell walls land. */
-        commercialWindows: Array<{ wallId: string; offset: number; width: number; sillHeight: number; height: number; levelId: string }>;
+         *  non-bay façade wall id), deferred-punched once the shell walls land.
+         *  §GEN-FACADE-OPENINGS — `openingProfile` carries the ARCHED HEAD when the photograph
+         *  measured one; absent ⇒ rectangular, exactly as before (`DEFAULT_OPENING_PROFILE`). */
+        commercialWindows: Array<{ wallId: string; offset: number; width: number; sillHeight: number; height: number; levelId: string; openingProfile?: OpeningProfileKind }>;
+        /** §GEN-FACADE-OPENINGS — what the measured lattice could NOT be built as, and every
+         *  arch that came out shallower than measured. ⛔ Surfaced on the transcript, never
+         *  dropped: a façade that quietly omitted the arcade is the defect C108 exists for. */
+        facadeNotes?: readonly string[];
         /** World-XZ centre of the entrance door (the bay/façade midpoint) — the executor runs the
          *  ground-floor interior corridor from here to the core (§RESI-GROUND-CORRIDOR). */
         doorCenter?: { x: number; z: number };
@@ -984,7 +1039,12 @@ export class ResidentialBuildingExecutor {
         }
         const walls: Array<Record<string, unknown>> = [];
         const curtainWalls: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number }; height: number; levelId: string }> = [];
-        const commercialWindows: Array<{ wallId: string; offset: number; width: number; sillHeight: number; height: number; levelId: string }> = [];
+        const commercialWindows: Array<{ wallId: string; offset: number; width: number; sillHeight: number; height: number; levelId: string; openingProfile?: OpeningProfileKind }> = [];
+        // §GEN-FACADE-OPENINGS — when a photograph supplied a lattice, the windowed runs are
+        // COLLECTED here and laid out in ONE pass after the ring loop, because the measured bay
+        // PITCH is a property of the whole elevation and cannot be known one edge at a time.
+        const facadeRuns: Array<{ wallId: string; lengthM: number }> = [];
+        const facadeNotes: string[] = [];
         let doorCenter: { x: number; z: number } | undefined;
         const MIN_SEG_M = 0.4;             // skip a curtain/wall stub shorter than this
         // §RESI-GROUND-COMMERCIAL-CURTAIN — big shopfront window geometry (founder: sill 0.01 m,
@@ -1025,6 +1085,14 @@ export class ResidentialBuildingExecutor {
                 baseLine: [{ x: pa.x, y: 0, z: pa.z }, { x: pb.x, y: 0, z: pb.z }],
                 height: groundWallH, thickness: SHELL_WALL_THICKNESS_M,
             });
+            // §GEN-FACADE-OPENINGS (L-11080) — a PHOTOGRAPH beats the even-divide default. The
+            // run is recorded and laid out below against the measured bay pitch; the built-in
+            // rhythm is skipped rather than run and overwritten, so exactly ONE rule places an
+            // opening on this wall and the two can never disagree.
+            if (windowed && facadeProgram) {
+                facadeRuns.push({ wallId: id, lengthM: len });
+                return id;
+            }
             if (windowed) {
                 // §RESI-GROUND-WINDOW-EVEN-DIVIDE — the founder's EXACT placement (all distances ALONG
                 // the wall's local baseLine axis; `len` is the wall length, `offset` is along-wall):
@@ -1115,7 +1183,64 @@ export class ResidentialBuildingExecutor {
                 pushFacadeEdge(a, b);
             }
         }
-        return { shellPayload: { walls, levelId }, curtainWalls, commercialWindows, ...(doorCenter ? { doorCenter } : {}), ...(doorBay ? { doorBay } : {}) };
+        // ── §GEN-FACADE-OPENINGS (L-11080 · C108 Milestone 2, L-11006) ──────────────────────
+        // ⭐ THE PHOTOGRAPH'S GROUND BAND BECOMES REAL OPENINGS. Run ONCE, after the ring, because
+        // the measured bay PITCH is a property of the whole elevation: the longest run is taken as
+        // the photographed frontage and every other run gets whole bays of that same pitch.
+        //
+        // ⛔ EVERY METRE HERE COMES FROM THE FOOTPRINT. `lengthM` is the wall the generator already
+        // built from the parcel and `groundWallH` is the storey the generator already resolved. The
+        // photograph contributes COUNTS and FRACTIONS only — C108 §2.2 / L-11009, and the reason
+        // `planFacadeOpenings` takes the heights as INPUTS rather than reading the IR.
+        //
+        // The band is 0 — the GROUND band. C108 §2.1 has façade Y counting UP, so band 0 is the
+        // lowest zone, which is `mapStoreyToBand(0, …)` by construction and the arcade in his photo.
+        if (facadeProgram && facadeRuns.length > 0) {
+            const plan = planFacadeOpenings({
+                program: facadeProgram,
+                runs: facadeRuns,
+                bandIndex: 0,
+                storeyHeightM: groundWallH,
+                // ⛔ THE SILL IS THE GENERATOR'S, NOT THE PHOTOGRAPH'S. C108 §1.1's opening node
+                // carries semi-axes and a head shape and NO position, so the image cannot say how
+                // high a sill sits. This is the shopfront sill the ground floor already used.
+                sillM: WIN_SILL_M,
+                cornerMarginM: WIN_EDGE_MARGIN_M,
+                minWidthM: 0.5,
+                headClearanceM: 0.1,
+            });
+            for (const o of plan.openings) {
+                commercialWindows.push({
+                    wallId: o.wallId, offset: o.offset, width: o.width,
+                    sillHeight: o.sillHeight, height: o.height, levelId,
+                    // §OPENING-PROFILE (L-1200) — the EXISTING void-shape axis, reused. There is no
+                    // second shape concept here: `CreateWallOpeningCommand` already reads this field
+                    // and `openingProfileRefusal` already gated it inside the planner.
+                    ...(o.openingProfile !== 'rectangular' ? { openingProfile: o.openingProfile } : {}),
+                });
+            }
+            const arched = plan.openings.filter((o) => o.openingProfile !== 'rectangular').length;
+            console.log(
+                `[resi-building] §GEN-FACADE-OPENINGS — ground band: ${plan.openings.length} opening(s) ` +
+                `on ${plan.baysPerRun.length} run(s), ${arched} arched ` +
+                `(measured lattice ${facadeProgram.bays} bay(s) x ${facadeProgram.bands} band(s))`,
+            );
+            if (plan.openings.length > 0) {
+                facadeNotes.push(
+                    `the ground floor was built from the photograph: ${plan.openings.length} opening(s) ` +
+                    `on the measured ${facadeProgram.bays}-bay rhythm` +
+                    (arched > 0 ? `, ${arched} of them arched` : ', all square-headed as measured'),
+                );
+            }
+            // ⛔ NOT BUILT AND SAID SO. A run left solid, an opening below the minimum pane, an arch
+            // that had to come out shallower — each reaches the transcript with its reason.
+            facadeNotes.push(...plan.notBuilt, ...plan.downgrades);
+        }
+        return {
+            shellPayload: { walls, levelId }, curtainWalls, commercialWindows,
+            ...(facadeNotes.length > 0 ? { facadeNotes } : {}),
+            ...(doorCenter ? { doorCenter } : {}), ...(doorBay ? { doorBay } : {}),
+        };
     }
 
     /** §RESI-GROUND-CORRIDOR (founder 2026-06-24: "the corridor must REACH the core (it leaves a
@@ -1583,7 +1708,7 @@ export class ResidentialBuildingExecutor {
      *  opening carries the SAME rich fields the engine's shell windows use (windowType +
      *  systemTypeId) so they render as real see-through glazing, not a blind recess. Never throws. */
     private _finishGroundCommercialWindows(
-        specs: ReadonlyArray<{ wallId: string; offset: number; width: number; sillHeight: number; height: number; levelId: string }>,
+        specs: ReadonlyArray<{ wallId: string; offset: number; width: number; sillHeight: number; height: number; levelId: string; openingProfile?: OpeningProfileKind }>,
     ): void {
         if (specs.length === 0) return;
         const cm = getCommandManager();
@@ -1621,6 +1746,14 @@ export class ResidentialBuildingExecutor {
                             // Clear commercial glazing (timber/alu casement default) so the
                             // shopfront reads as real see-through glass-in-frame.
                             systemTypeId: 'wt-timber-casement',
+                            // §GEN-FACADE-OPENINGS (L-11080) — the ARCHED HEAD, on the EXISTING
+                            // §OPENING-PROFILE axis (L-1200). `CreateWallOpeningCommand` already
+                            // reads `openingProfile` and forwards it to the wall AND the window
+                            // store, so the arch reaches the 3-D void, the frame and the plan
+                            // symbol from one field. Omitted when rectangular, which keeps every
+                            // pre-existing build byte-identical (`DEFAULT_OPENING_PROFILE`).
+                            ...(s.openingProfile !== undefined && s.openingProfile !== 'rectangular'
+                                ? { openingProfile: s.openingProfile } : {}),
                         },
                     }))));
                 }, { levelIds, totalElementCount: items.length, skipRedetectRooms: true });

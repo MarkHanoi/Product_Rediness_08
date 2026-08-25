@@ -984,6 +984,8 @@ export type { FacadePhotoBrief, FacadePhotoReading } from './intents/FacadePhoto
 export {
     extractFacadeOpeningProgram,
     resolveOpeningProfileFromArchness,
+    nearestProfileByArchness,
+    bandIsArched,
     planFacadeOpenings,
     mapStoreyToBand,
     PROFILE_CANONICAL_ARCHNESS,
