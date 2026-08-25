@@ -72,6 +72,12 @@ import {
 
 // ── Structural surfaces (kept minimal so probe doubles need no casts) ────────
 
+/** §FIX-RESIZE-NEEDS-A-TERM-FOR-NO-CHANGE (L-10801) — 0.1 mm: below the tolerance any
+ *  boundary derivation in this estate claims, so a difference under it is noise. */
+const RING_EPS_M = 1e-4;
+/** 1 cm² — under this an area "change" is not one anyone can schedule or bill. */
+const AREA_EPS_M2 = 1e-4;
+
 export interface FinishRecordLike {
     id: string;
     boundary: { polygon: XZ[] };
@@ -533,15 +539,64 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
         }
     }
 
+    /** Vertex-wise ring comparison at 0.1 mm — the term `resized` lacked (L-10801).
+     *  A different vertex COUNT is always a change; otherwise any vertex moving more
+     *  than the tolerance is. Deliberately NOT an area test: see the `resized` case. */
+    private static ringDiffers(a: XZ[], b: XZ[]): boolean {
+        if (!a || !b || a.length !== b.length) return true;
+        for (let i = 0; i < a.length; i++) {
+            if (Math.abs(a[i]!.x - b[i]!.x) > RING_EPS_M || Math.abs(a[i]!.z - b[i]!.z) > RING_EPS_M) return true;
+        }
+        return false;
+    }
+
     /** C79 §5.2 — the verdict is REPORTED, one of five states, never absorbed. */
     private reportAndWrite(rec: T, wallId: string, result: ReprojectFinishBoundaryResult): void {
         switch (result.state) {
-            case 'preserved':
-                return; // nothing happened, and we checked.
+            case 'preserved': {
+                // §FIX-RESIZE-NEEDS-A-TERM-FOR-NO-CHANGE (L-10801) — the no-op has a NAME.
+                // Two 'preserved' shapes reach here and they are NOT the same event:
+                //   · numbers ABSENT  — the moved wall does not touch this finish at all
+                //     (reprojectFinishBoundary :296). Silence is correct: reporting every
+                //     unrelated finish on every wall move would bury the real lines.
+                //   · numbers PRESENT — the wall DOES bound this finish, the ring was
+                //     RE-DERIVED, and it came out identical (:327). That is the founder's
+                //     trace ("resized 22.032 → 22.032", three times, same words as a real
+                //     resize — before this fix it printed as 'resized'; on this branch it
+                //     printed NOTHING, which is silence about a check that ran). Say it,
+                //     with the verb that means it: nothing happened, and we checked.
+                if (result.numbers !== undefined) {
+                    console.log(
+                        `[${this.constructorName()}] §C79-5.2 unchanged: ${this.kind} "${rec.id}" follows wall "${wallId}" — ` +
+                        `${result.numbers.oldAreaM2.toFixed(3)} m² → ${result.numbers.newAreaM2.toFixed(3)} m² ` +
+                        `(Δ +0.0000 m², ring IDENTICAL — no vertex moved).`
+                    );
+                }
+                return;
+            }
             case 'resized': {
+                // §FIX-RESIZE-NEEDS-A-TERM-FOR-NO-CHANGE (L-10801) — this printed
+                // "resized … 22.032 m² → 22.032 m²", three times in one gesture, in the
+                // SAME WORDS as a real resize. A success criterion with no term for the
+                // property that matters reads as evidence while measuring nothing.
+                //
+                // ⛔ AND EQUAL AREA IS NOT AN UNCHANGED RING — a pure translation holds
+                // area exactly while every vertex moves. Deciding on area alone would
+                // mislabel a real move as a no-op, so the RING is what is compared and
+                // the area delta is quoted alongside it. Three distinct outcomes:
+                //   resized   — the ring changed AND the area changed
+                //   reshaped  — the ring changed, the area did not (translation / swap)
+                //   unchanged — the ring is identical: nothing happened, and we checked
+                const oldPoly = rec.boundary.polygon;
+                const newPoly = result.polygon!;
+                const dA = result.numbers!.newAreaM2 - result.numbers!.oldAreaM2;
+                const ringMoved = FinishHostDependencyTracker.ringDiffers(oldPoly, newPoly);
+                const verb = !ringMoved ? 'unchanged' : (Math.abs(dA) >= AREA_EPS_M2 ? 'resized' : 'reshaped');
+                const delta = `Δ ${dA >= 0 ? '+' : ''}${dA.toFixed(4)} m²`;
                 console.log(
-                    `[${this.constructorName()}] §C79-5.2 resized: ${this.kind} "${rec.id}" follows wall "${wallId}" — ` +
-                    `${result.numbers!.oldAreaM2.toFixed(3)} m² → ${result.numbers!.newAreaM2.toFixed(3)} m².`
+                    `[${this.constructorName()}] §C79-5.2 ${verb}: ${this.kind} "${rec.id}" follows wall "${wallId}" — ` +
+                    `${result.numbers!.oldAreaM2.toFixed(3)} m² → ${result.numbers!.newAreaM2.toFixed(3)} m² (${delta}` +
+                    `${ringMoved ? '' : ', ring IDENTICAL — no vertex moved'}).`
                 );
                 this.writeBoundary(rec, {
                     elementId: rec.id,
@@ -555,10 +610,35 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
             case 'conflicted':
                 // §5.2.2 — refusal names BOTH numbers; never a silent clamp, never
                 // a substituted value. The record keeps its pre-move boundary.
+                // §FIX-CONFLICT-IS-SILENT-STALENESS (L-10802) — REFUSING TO WRITE IS THE
+                // RIGHT DISPOSITION, AND HOLDING IT SILENTLY IS NOT.
+                //
+                // Keeping the old ring is correct: a self-intersecting polygon is worse
+                // than a stale one on every axis — it is a corrupt QUANTITY and corrupt
+                // GEOMETRY at once, it renders as garbage, and it is unrecoverable
+                // without undo. A stale ring is at least a valid polygon. ⛔ Do not
+                // "fix" this by writing the re-derived ring anyway.
+                //
+                // But the record now DISAGREES WITH THE MODEL and looks untouched on
+                // screen — the founder's "the floor finish issue was not solved" was
+                // this: the floor is not wrong-shaped, it is UNCHANGED when it should
+                // have changed, which is indistinguishable from working. Quote the
+                // divergence so the reading is available at the moment it is asked.
+                const oldA = result.numbers?.oldAreaM2;
+                const newA = result.numbers?.newAreaM2;
+                const div = (oldA !== undefined && newA !== undefined && oldA > 0)
+                    ? ` — the stored boundary is now STALE by ${Math.abs(newA - oldA).toFixed(3)} m² ` +
+                      `(${(Math.abs(newA - oldA) / oldA * 100).toFixed(1)}%): it keeps its PRE-MOVE ring while the ` +
+                      `walls around it have moved. Nothing on screen shows this.`
+                    : '';
                 console.warn(
                     `[${this.constructorName()}] §C79-5.2 conflicted: ${this.kind} "${rec.id}" NOT re-projected — ` +
                     `${result.subReason} (old ${result.numbers?.oldAreaM2.toFixed(3)} m², ` +
-                    `re-derived ${result.numbers?.newAreaM2.toFixed(3)} m²).`
+                    `re-derived ${result.numbers?.newAreaM2.toFixed(3)} m²).${div}` +
+                    `\n    → A re-derived ring that SELF-INTERSECTS usually means the walls it was derived ` +
+                    `across have a junction that is VISUALLY CLOSED but TOPOLOGICALLY OPEN (§L-1571). Check ` +
+                    `the wall log for an UNREPAIRED-JUNCTION in this gesture before treating this as a finish ` +
+                    `defect. Run window.pryzmFinishHosts() to see which walls this ${this.kind} follows.`
                 );
                 return;
             case 'undetermined':
