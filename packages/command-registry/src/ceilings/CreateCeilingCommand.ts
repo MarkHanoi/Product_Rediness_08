@@ -30,7 +30,7 @@ import { ensureCeilingCCW as ensureCCW, validateCeilingPolygon as validatePolygo
 // ceiling-create chokepoint), exactly as `CreateFloorCommand` does (L-240). Both symbols
 // are called at execute() time only, never at module evaluation, so the command-registry ↔
 // room-topology cycle is not exercised at load (MEMORY §SCC: no barrel access at module load).
-import { resolveRoomFinishBoundary, ringsCoincide, type RoomFinishWall } from '@pryzm/room-topology';
+import { resolveRoomFinishBoundary, ringsCoincide, curtainWallAsRoomFinishWall, type RoomFinishWall } from '@pryzm/room-topology';
 // §REGION-HOST-ATTRIBUTION (C79 §6.3 row 7) — the SAME shared builder the floor uses.
 // Not a copy: C79 §3.4 requires one edge shape per relationship, and §7.4 forbids a
 // field being populated correctly on one path and not another. See the §10.3 design
@@ -290,7 +290,13 @@ export class CreateCeilingCommand implements Command {
         levelId,
         lookup: {
           getRoomById:    (id) => roomStore.getById?.(id),
-          getWallById:    (id) => wallStore.getById?.(id),
+          // §CW90 item 4 — see CreateFloorCommand: curtain walls are
+          // room-bounding, so the finish lookup falls through to the
+          // curtain-wall store (mullion face) on a wall-store miss.
+          getWallById:    (id) => wallStore.getById?.(id)
+              ?? curtainWallAsRoomFinishWall(
+                  (context.stores as any).curtainWallStore?.getById?.(id)
+                  ?? (context.stores as any).curtainWallStore?.get?.(id)),
           getWallsByLevel: (lid) => wallStore.getByLevel?.(lid) ?? [],
         },
       },

@@ -25,7 +25,10 @@ const DEFAULTS: UiPrefsData = {
     showRoomVolumeColour:       false,
     roomVolumeOpacity:          0.25,
     roomBoundingColumns:        false,
-    roomBoundingCurtainWalls:   false,
+    // §CW90 item 9 — FOUNDER RULING 2026-08-25: "important — they need to be
+    // room bounding — like a wall!" Default flipped OFF→ON. A user who ever
+    // toggled it keeps their stored choice (the localStorage merge wins).
+    roomBoundingCurtainWalls:   true,
 };
 
 class UiPreferencesClass {

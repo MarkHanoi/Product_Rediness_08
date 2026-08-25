@@ -201,7 +201,8 @@ export class RoomDetectionEngine {
     const includeCurtainWalls = UiPreferences.get('roomBoundingCurtainWalls');
     const includeColumns      = UiPreferences.get('roomBoundingColumns');
 
-    // Curtain walls — only when toggle is ON (default OFF per §ROOM-BOUNDING spec)
+    // Curtain walls — toggle default ON since §CW90 (founder 2026-08-25:
+    // "they need to be room bounding — like a wall!"); OFF remains a user choice.
     const curtainWalls = (includeCurtainWalls && this.curtainWallStore)
       ? this.curtainWallStore.getAll().filter(cw => cw.levelId === levelId)
       : [];
@@ -243,7 +244,13 @@ export class RoomDetectionEngine {
       }
     }
     for (const cw of curtainWalls) {
-      const t = (cw as { thickness?: number }).thickness;
+      // §CW90 item 9 — `CurtainWallData` has NO `thickness` field at all
+      // (C87 §13.9's own table), so this read was constant-undefined and every
+      // curtain wall entered the T-junction snap with no width. Its wall-like
+      // thickness is the MULLION face — C87 CW-Region-3, founder 2026-08-19:
+      // "to the mullion always" (`mullionSize`, default 0.08; never
+      // `panelThickness`) — the same substitution `WallFaceResolver` makes.
+      const t = (cw as { mullionSize?: number }).mullionSize ?? 0.08;
       if (typeof t === 'number' && t > 0) thicknessByBaseId.set(cw.id, t);
     }
 

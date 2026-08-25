@@ -41,7 +41,7 @@ import { resolveFinishSeating, DEFAULT_FINISH_THICKNESS_M } from '@pryzm/core-ap
 // (CreateFloorsByRoomTypeCommand already imports it); both symbols are called at execute()
 // time only, never at module evaluation, so the command-registry ↔ room-topology cycle is
 // not exercised at load (see MEMORY §SCC: no barrel access at module load).
-import { resolveRoomFinishBoundary, ringsCoincide, type RoomFinishWall } from '@pryzm/room-topology';
+import { resolveRoomFinishBoundary, ringsCoincide, curtainWallAsRoomFinishWall, type RoomFinishWall } from '@pryzm/room-topology';
 // §C83-S5 — the IMPOSSIBLE-class "two finishes over one floor area" predicate and
 // THE renderer that carries its code. Pure, same package, no store access.
 import {
@@ -464,7 +464,14 @@ export class CreateFloorCommand implements Command {
         levelId,
         lookup: {
           getRoomById:    (id) => roomStore.getById?.(id),
-          getWallById:    (id) => wallStore.getById?.(id),
+          // §CW90 item 4 — a room's boundingWallIds may name CURTAIN walls
+          // (room-bounding since the 2026-08-25 founder ruling). A wall-store
+          // miss falls through to the curtain-wall store, adapted to the
+          // mullion face, instead of silently degrading that edge to inset 0.
+          getWallById:    (id) => wallStore.getById?.(id)
+              ?? curtainWallAsRoomFinishWall(
+                  (context.stores as any).curtainWallStore?.getById?.(id)
+                  ?? (context.stores as any).curtainWallStore?.get?.(id)),
           getWallsByLevel: (lid) => wallStore.getByLevel?.(lid) ?? [],
         },
       },

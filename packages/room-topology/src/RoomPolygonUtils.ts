@@ -1360,6 +1360,32 @@ export interface RoomFinishStoreLookup {
 }
 
 /**
+ * §CW90 item 4 — adapt a curtain wall into the `RoomFinishWall` shape, so a
+ * room edge bounded by GLAZING insets like one bounded by masonry.
+ *
+ * `CurtainWallData` has no `thickness` (C87 §13.9's table); its wall-like face
+ * is the MULLION — C87 CW-Region-3, founder 2026-08-19: "to the mullion
+ * always" (`mullionSize` ?? 0.08, never `panelThickness`). No openings model:
+ * a curtain-wall door is a panel, not a `WallData.openings[]` entry, so the
+ * finish runs solid along the glazing (honest simplification, said here).
+ * Returns `undefined` for a record with no usable baseLine, so callers can
+ * chain it after the wall-store miss with `??`.
+ */
+export function curtainWallAsRoomFinishWall(
+  cw: {
+    baseLine?: ReadonlyArray<{ x: number; z: number }> | null;
+    mullionSize?: number;
+  } | null | undefined,
+): RoomFinishWall | undefined {
+  if (!cw?.baseLine || cw.baseLine.length < 2) return undefined;
+  return {
+    baseLine: [cw.baseLine[0]!, cw.baseLine[cw.baseLine.length - 1]!],
+    thickness: typeof cw.mullionSize === 'number' && cw.mullionSize > 0 ? cw.mullionSize : 0.08,
+    openings: [],
+  };
+}
+
+/**
  * §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS (L-240) — THE single store-aware derivation of
  * a room's floor-finish boundary: resolve the room's candidate bounding walls, then
  * delegate the geometry to the pure `deriveRoomFinishBoundary`.

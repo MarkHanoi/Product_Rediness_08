@@ -14,7 +14,7 @@
  *   showRoomVolumeColour       — Fill 3D height of rooms with their colour (not just floor plane)
  *   roomVolumeOpacity          — Opacity of the 3D room volume fill (0.05 – 0.6, default 0.25)
  *   roomBoundingColumns        — Include column footprints in room detection (default false)
- *   roomBoundingCurtainWalls   — Include curtain walls in room detection (default false)
+ *   roomBoundingCurtainWalls   — Include curtain walls in room detection (default TRUE — founder ruling 2026-08-25, §CW90)
  *
  * Boolean keys default to false; numeric keys default as documented.
  */
@@ -51,7 +51,10 @@ const DEFAULTS: UiPrefsData = {
     showRoomVolumeColour:       false,
     roomVolumeOpacity:          0.25,
     roomBoundingColumns:        false,
-    roomBoundingCurtainWalls:   false,
+    // §CW90 item 9 — FOUNDER RULING 2026-08-25: "important — they need to be
+    // room bounding — like a wall!" Default flipped OFF→ON. A user who ever
+    // toggled it keeps their stored choice (the localStorage merge wins).
+    roomBoundingCurtainWalls:   true,
 };
 
 // Phase B.13 (S73-WIRE) — singleton runtime threading per S72 §16.2 row B.13.

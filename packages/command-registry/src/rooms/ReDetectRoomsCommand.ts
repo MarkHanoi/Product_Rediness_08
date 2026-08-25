@@ -95,7 +95,14 @@ export class ReDetectRoomsCommand implements Command {
     if (!roomStore) return { success: false, affectedElementIds: [], error: 'RoomStore not available' };
 
     try {
-      const engine = new RoomDetectionEngine(ctx.stores.wallStore);
+      const engine = new RoomDetectionEngine(
+        ctx.stores.wallStore,
+        // §CW90 item 9 — the interactive path (initTools.ts:2909) always passed
+        // the curtain-wall store; the command path silently never did, so a
+        // redetect saw a HOLE where the glazing stands even with the
+        // room-bounding toggle ON. Same engine, same inputs, both paths.
+        ctx.stores.curtainWallStore,
+      );
       const detected = engine.detectRoomsForLevel(this.levelId, this.levelElevation, this.levelHeight);
       const existing = roomStore.getByLevel(this.levelId);
       const merged   = engine.mergeWithExisting(detected, existing);
