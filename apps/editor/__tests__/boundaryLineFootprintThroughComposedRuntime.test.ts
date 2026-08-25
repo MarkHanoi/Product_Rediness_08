@@ -184,9 +184,21 @@ describe('§BLSTORE-COMPOSED-PLUGIN-STORES — the drawn line reaches the chat f
         // What makes J-3 attributable rather than lucky. No parcel is loaded here, so
         // the parcel arm must resolve to nothing — which is what the founder used to
         // get for BOTH sources. Two sources, one process, measurably different.
-        const src = await resolveGenerationFootprint(rt, { typology: 'residential-building', floors: 5 });
+        //
+        // §ASK-FOOTPRINT (L-11066) — the parcel is named EXPLICITLY here. J-2 drew a
+        // usable closed line on the active level, so the SILENT form of this call
+        // now ASKS which footprint to build on instead of defaulting to the parcel;
+        // that ask, and its answers, are measured in generationFootprintAsk.test.ts.
+        // This arm's claim is unchanged: an explicit parcel source resolves the
+        // parcel path, silently, with the drawn line right there.
+        const src = await resolveGenerationFootprint(rt, {
+            typology: 'residential-building',
+            floors: 5,
+            footprintSource: 'parcel',
+        });
         expect(src.ok).toBe(true);
         if (!src.ok) return;
+        expect(src.source).toBe('parcel');
         expect(src.footprint).toHaveLength(0);
         expect(src.note).toBeNull();
     }, 600_000);

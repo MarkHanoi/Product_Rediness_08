@@ -62,11 +62,30 @@
  *     That is "nobody could be asked", which a caller must never fold into "declined".
  */
 
+/**
+ * §ASK-FOOTPRINT (L-11066) — the TWO ANSWERS a confirm card offers, when they are
+ * not "Confirm" / "Cancel".
+ *
+ * ⛔ THIS IS NOT A SECOND CONFIRMATION SURFACE. It is the SAME inline card
+ * (`AIPanel.showZeroTokenConfirm`), the same two buttons, the same resolve-to-a-
+ * boolean contract — only the words on the buttons change. It exists because a
+ * question of the form "which of these two?" cannot be asked honestly with buttons
+ * that read "Confirm" and "Cancel": the user would have to guess which footprint
+ * "Confirm" means. Absent ⇒ the buttons read exactly as they always have.
+ */
+export interface ChatConfirmChoices {
+    /** The PRIMARY answer — resolves `true`. Default "Confirm". */
+    readonly confirmLabel?: string;
+    /** The SECONDARY answer — resolves `false`. Default "Cancel". */
+    readonly cancelLabel?: string;
+}
+
 export interface ChatPromptHost {
     /** Append an assistant bubble to the transcript. */
     say(text: string): void;
-    /** Render an inline Confirm/Cancel card; resolves true only on Confirm. */
-    confirm(summary: string): Promise<boolean>;
+    /** Render an inline Confirm/Cancel card; resolves true only on Confirm (or on
+     *  the primary answer when `choices` renames the buttons). */
+    confirm(summary: string, choices?: ChatConfirmChoices): Promise<boolean>;
     /**
      * Is the transcript actually built and able to render? `AIPanel`'s confirm resolves
      * a fabricated `false` when it is not, so the accessor must be able to ask first.
@@ -182,7 +201,7 @@ export async function ensureChatSurface(deadlineMs: number = SURFACE_DEADLINE_MS
  * calling that "asking the user", which is the exact defect §PROMPT-REACHES-A-HUMAN
  * was opened for.
  */
-function fallbackConfirm(summary: string): Promise<boolean> | undefined {
+function fallbackConfirm(summary: string, choices?: ChatConfirmChoices): Promise<boolean> | undefined {
     const d = doc();
     if (!d?.body) return undefined;
     diagnostics.fallbackPrompts++;
@@ -211,7 +230,11 @@ function fallbackConfirm(summary: string): Promise<boolean> | undefined {
         flag.textContent = 'PRYZM could not open the AI chat panel — asking here instead';
         flag.style.cssText = 'font-weight:600;color:#6600FF;margin-bottom:8px;';
         const body = d.createElement('div');
-        body.textContent = `${summary}? This can be undone with Ctrl+Z.`;
+        // The SAME tail rule as `AIPanel.showZeroTokenConfirm`: a summary that already
+        // states its own undo cost is not contradicted by the generic single-undo tail.
+        body.textContent = /ctrl\s*\+\s*z/i.test(summary)
+            ? summary
+            : `${summary}? This can be undone with Ctrl+Z.`;
         const row = d.createElement('div');
         row.style.cssText = 'display:flex;gap:8px;margin-top:12px;justify-content:flex-end;';
         const mk = (label: string, primary: boolean, value: boolean): HTMLElement => {
@@ -224,8 +247,8 @@ function fallbackConfirm(summary: string): Promise<boolean> | undefined {
             b.addEventListener('click', () => finish(value));
             return b;
         };
-        row.appendChild(mk('Cancel', false, false));
-        row.appendChild(mk('Confirm', true, true));
+        row.appendChild(mk(choices?.cancelLabel ?? 'Cancel', false, false));
+        row.appendChild(mk(choices?.confirmLabel ?? 'Confirm', true, true));
         card.appendChild(flag);
         card.appendChild(body);
         card.appendChild(row);
@@ -269,17 +292,17 @@ export function chatSay(text: string): boolean {
  * DOM at all (a node harness) — the ONLY remaining case, and one a caller must never
  * fold into "declined", because it asserts a decision the user never made.
  */
-export async function chatConfirm(summary: string): Promise<boolean | undefined> {
+export async function chatConfirm(summary: string, choices?: ChatConfirmChoices): Promise<boolean | undefined> {
     const ready = await ensureChatSurface();
     if (ready && host) {
         try {
             openChatSurface();
-            return await host.confirm(summary);
+            return await host.confirm(summary, choices);
         } catch {
             // fall through to the visible fallback rather than to silence
         }
     }
-    const fb = fallbackConfirm(summary);
+    const fb = fallbackConfirm(summary, choices);
     if (fb) return fb;
     diagnostics.headlessAsks++;
     console.error(

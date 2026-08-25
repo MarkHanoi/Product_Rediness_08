@@ -44,7 +44,7 @@ import { pickFacadeCorners } from './chatFacadeCornerPicker.js';
 import { missingImageRefusal, readImageReference } from '@pryzm/ai-host';
 // §OPENED-REGION (L-880) / C83 §4.1.3 — the accessor for this panel's own
 // `ZeroTokenUiHooks` pair, so code outside `createAIPanel` reaches the SAME prompt.
-import { registerChatPromptHost } from './chatPromptHost';
+import { registerChatPromptHost, type ChatConfirmChoices } from './chatPromptHost';
 // §PLANNER (RAC U10.2) — the last rung of the ladder, between the zero-token
 // tiers and the legacy QueryEngine path.
 import { plannerIsConfigured, tryHandleWithPlanner } from './LlmPlannerBridge';
@@ -1327,7 +1327,14 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
     // §ADR-0313 — inline Confirm/Cancel card for DESTRUCTIVE zero-token
     // resolutions (delete etc.). Nothing dispatches until Confirm is clicked;
     // Cancel resolves false and the bridge reports "Cancelled".
-    const showZeroTokenConfirm = (summary: string): Promise<boolean> => {
+    //
+    // §ASK-FOOTPRINT (L-11066) — `choices` renames the two buttons for a
+    // "which of these two?" question ("Build on the boundary line" / "Build on
+    // the parcel"). SAME card, same two buttons, same boolean: the primary answer
+    // resolves true, the secondary false. It is deliberately NOT a third button
+    // and NOT a second card — every propose→consent question in the chat goes
+    // through this one surface (C83 §4.1).
+    const showZeroTokenConfirm = (summary: string, choices?: ChatConfirmChoices): Promise<boolean> => {
         return new Promise<boolean>((resolve) => {
             if (!transcriptEl) { resolve(false); return; }
             const card = document.createElement('div');
@@ -1365,8 +1372,8 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
                 });
                 return b;
             };
-            row.appendChild(mkBtn('Confirm', true, true));
-            row.appendChild(mkBtn('Cancel', false, false));
+            row.appendChild(mkBtn(choices?.confirmLabel ?? 'Confirm', true, true));
+            row.appendChild(mkBtn(choices?.cancelLabel ?? 'Cancel', false, false));
             bubble.appendChild(row);
             card.appendChild(bubble);
             transcriptEl.appendChild(card);
@@ -1798,7 +1805,7 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
         try {
             const handled = await tryHandleZeroToken(query, {
                 say: (text: string) => addMessage('assistant', text),
-                confirm: (summary: string) => showZeroTokenConfirm(summary),
+                confirm: (summary: string, choices?: ChatConfirmChoices) => showZeroTokenConfirm(summary, choices),
             }, turn);
             if (handled) return;
         } catch (err) {
@@ -1843,7 +1850,7 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
             try {
                 planned = await tryHandleWithPlanner(query, {
                     say: (text: string) => addMessage('assistant', text),
-                    confirm: (summary: string) => showZeroTokenConfirm(summary),
+                    confirm: (summary: string, choices?: ChatConfirmChoices) => showZeroTokenConfirm(summary, choices),
                 });
             } catch (err) {
                 console.error('[AIPanel] planner rung failed:', err);
@@ -1946,7 +1953,7 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
     // accessor and nothing more — no new message shape, no new card, no new store.
     registerChatPromptHost({
         say: (text: string) => { addMessage('assistant', text); },
-        confirm: (summary: string) => showZeroTokenConfirm(summary),
+        confirm: (summary: string, choices?: ChatConfirmChoices) => showZeroTokenConfirm(summary, choices),
         // §PROMPT-REACHES-A-HUMAN (L-881) — `showZeroTokenConfirm` resolves a
         // FABRICATED `false` when `transcriptEl` is falsy (`:1180`; the binding at
         // :819 is declared uninitialised and assigned during DOM build below). A

@@ -34,6 +34,8 @@
 
 import type { FacadeOpeningProgram } from '@pryzm/ai-host';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
+import { chatConfirm, type ChatConfirmChoices } from '../ai/chatPromptHost.js';
+import type { BoundaryLineCandidate, PlanPointXZ } from './boundaryLineFootprint.js';
 import { houseRequestFromBrief, officeRequestFromBrief, residentialGenerationFromBrief } from './generationRequest.js';
 
 /** The `generation.building` payload the resolver emits (§GEN-CHAT). */
@@ -45,9 +47,16 @@ export interface GenerationBuildingPayload {
     readonly roofKind?: 'flat' | 'gable' | 'hip';
     /**
      * §GEN-ON-BOUNDARY-LINE (L-7961 · C106 §7.2) — build on a drawn BOUNDARY LINE
-     * instead of the site parcel. Absent ⇒ the parcel, exactly as before.
+     * instead of the site parcel.
+     *
+     * §ASK-FOOTPRINT (L-11066 / L-11200) — `'parcel'` is the sentence saying "on the
+     * site / parcel / plot" OUT LOUD. Before it existed, an explicit "on the parcel"
+     * and saying nothing produced the SAME payload, so the seam could not tell a
+     * deliberate parcel build from a silent one — and only the silent one may be
+     * asked about. Absent ⇒ SILENT: the parcel, unless a usable boundary line exists
+     * on the active level, in which case `resolveGenerationFootprint` ASKS.
      */
-    readonly footprintSource?: 'boundary-line';
+    readonly footprintSource?: 'boundary-line' | 'parcel';
     /** The specific line, when the user had one SELECTED. Absent with
      *  `footprintSource:'boundary-line'` ⇒ run the ladder (the one closed line on
      *  the active level, else refuse naming the count). */
@@ -165,10 +174,20 @@ function resolveRuntime(): PryzmRuntime | undefined {
  * `houseFromBoundary` perform, so the chat cannot build on a different
  * footprint than the onboarding wizard would.
  */
-async function readSiteFootprint(rt: PryzmRuntime): Promise<{ x: number; z: number }[]> {
+async function readSiteFootprint(rt: PryzmRuntime): Promise<{
+    points: { x: number; z: number }[];
+    /** What a parcel build ACTUALLY uses — the cached C58 envelope, or the raw parcel. */
+    source: 'envelope' | 'parcel';
+    /** Area of the RAW parcel ring (0 when none is loaded) — a measured fact for the
+     *  §ASK-FOOTPRINT card, never a threshold (see boundaryLineFootprint.ts's header). */
+    parcelAreaM2: number;
+    /** Area of `points` — the ring the generator would be handed. */
+    usedAreaM2: number;
+}> {
     const polygon = rt.siteModelStore?.getParcelBoundary()?.polygon ?? [];
     const { resolveBuildableFootprint } = await import('../site/siteDispatch.js');
-    const { polygon: usable } = resolveBuildableFootprint(polygon);
+    const { ringAreaM2 } = await import('./boundaryLineFootprint.js');
+    const { polygon: usable, source } = resolveBuildableFootprint(polygon);
     const pts = usable.map((p) => ({ x: p.x, z: p.z }));
     // Drop a trailing duplicate of the first point (a closed ring) so a
     // zero-length edge never reaches an orchestrator.
@@ -177,7 +196,12 @@ async function readSiteFootprint(rt: PryzmRuntime): Promise<{ x: number; z: numb
         const b = pts[pts.length - 1]!;
         if (Math.abs(a.x - b.x) < 1e-6 && Math.abs(a.z - b.z) < 1e-6) pts.pop();
     }
-    return pts;
+    return {
+        points: pts,
+        source,
+        parcelAreaM2: ringAreaM2(polygon.map((p) => ({ x: p.x, z: p.z }))),
+        usedAreaM2: ringAreaM2(pts),
+    };
 }
 
 /**
@@ -194,12 +218,20 @@ async function readSiteFootprint(rt: PryzmRuntime): Promise<{ x: number; z: numb
  * `resolveBoundaryLineFootprint`, which is why the ladder and every refusal string are
  * unit-testable in plain Node without standing up a runtime.
  */
-async function readBoundaryLineFootprint(
-    rt: PryzmRuntime,
-    explicitId: string | undefined,
-): Promise<{ ok: true; footprint: { x: number; z: number }[]; note: string } | { ok: false; reason: string }> {
-    const { resolveBoundaryLineFootprint } = await import('./boundaryLineFootprint.js');
+/** Everything the pure resolver needs, read ONCE from the runtime — shared by the
+ *  explicit-line path and the §ASK-FOOTPRINT probe so the two can never read
+ *  different stores, levels or parcels. */
+type BoundaryLineRead =
+    | {
+          ok: true;
+          lines: BoundaryLineCandidate[];
+          activeLevelId: string | undefined;
+          /** The RAW parcel ring, or null when UNKNOWN (never "outside"). */
+          parcel: PlanPointXZ[] | null;
+      }
+    | { ok: false; reason: string };
 
+async function readBoundaryLines(rt: PryzmRuntime): Promise<BoundaryLineRead> {
     // The ONE authority for this family — C106 §1: `boundaryLine` has no geometry
     // twin, so this store IS the record, not a DTO mirror of one.
     //
@@ -251,13 +283,29 @@ async function readBoundaryLineFootprint(
     // merely sits in a setback strip).
     const parcel = rt.siteModelStore?.getParcelBoundary()?.polygon ?? null;
 
-    const res = resolveBoundaryLineFootprint({
+    return {
+        ok: true,
         lines,
-        explicitId,
         activeLevelId: resolveActiveLevelId() ?? undefined,
         parcel: parcel !== null && parcel.length >= 3
             ? parcel.map((p) => ({ x: p.x, z: p.z }))
             : null,
+    };
+}
+
+async function readBoundaryLineFootprint(
+    rt: PryzmRuntime,
+    explicitId: string | undefined,
+): Promise<{ ok: true; footprint: { x: number; z: number }[]; note: string } | { ok: false; reason: string }> {
+    const { resolveBoundaryLineFootprint } = await import('./boundaryLineFootprint.js');
+    const read = await readBoundaryLines(rt);
+    if (!read.ok) return read;
+
+    const res = resolveBoundaryLineFootprint({
+        lines: read.lines,
+        explicitId,
+        activeLevelId: read.activeLevelId,
+        parcel: read.parcel,
     });
     if (!res.ok) return { ok: false, reason: res.reason };
 
@@ -287,20 +335,217 @@ async function readBoundaryLineFootprint(
  * legacy `commandManager` global, so a headless process cannot follow the ring all
  * the way to elements; this function is the furthest point that can be measured
  * honestly without faking the engine.
+ *
+ * ⭐⭐ §ASK-FOOTPRINT (L-11066 · closes "AMBIGUITY MUST ASK") — THE LADDER:
+ *
+ *   1. the sentence named the LINE (`footprintSource:'boundary-line'` or a
+ *      `boundaryLineId`)                       → the line, no question asked;
+ *   2. the sentence named the PARCEL (`footprintSource:'parcel'`)
+ *                                              → the parcel, no question asked;
+ *   3. the sentence was SILENT:
+ *        a. no boundary line on the active level, or none USABLE (open,
+ *           degenerate, outside the site)      → the parcel, no question asked —
+ *           a confirmation nobody needs is its own defect;
+ *        b. exactly ONE usable closed line     → ASK: "Build on the boundary line"
+ *           / "Build on the parcel", with both areas, the level and the line's
+ *           name on the card;
+ *        c. TWO OR MORE usable closed lines    → ASK: "Build on the parcel" /
+ *           "Stop — I'll select a line". The choice is real but not binary, and
+ *           picking a line for the user is the silent wrong building this seam
+ *           exists to stop (L-11200).
+ *
+ * The founder's standing ruling on spatial validity is ASK, NEVER AUTO-EDIT
+ * ([[spatial-validity-rules-founder-direction]]). Before this branch the silent
+ * case built on the parcel with nothing on the transcript, while a line the user
+ * had just drawn inside that parcel sat unused. ⛔ ZERO TOKENS: every question here
+ * is a deterministic branch on store state, asked through the ONE chat card
+ * (`AIPanel.showZeroTokenConfirm` via `chatConfirm`) — never a second surface.
  */
+export type GenerationFootprintSource = 'boundary-line' | 'parcel';
+
+export type GenerationFootprint =
+    | {
+          ok: true;
+          footprint: { x: number; z: number }[];
+          /** A transcript line naming WHICH footprint was used and why — null only on
+           *  the ordinary silent-parcel path, so that transcript is unchanged. */
+          note: string | null;
+          source: GenerationFootprintSource;
+      }
+    | { ok: false; reason: string };
+
 export async function resolveGenerationFootprint(
     rt: PryzmRuntime,
     cmd: GenerationBuildingPayload,
-): Promise<
-    | { ok: true; footprint: { x: number; z: number }[]; note: string | null }
-    | { ok: false; reason: string }
-> {
+): Promise<GenerationFootprint> {
     const wantsLine = cmd.footprintSource === 'boundary-line' || cmd.boundaryLineId !== undefined;
     if (wantsLine) {
         const res = await readBoundaryLineFootprint(rt, cmd.boundaryLineId);
-        return res.ok ? { ok: true, footprint: res.footprint, note: res.note } : res;
+        return res.ok ? { ok: true, footprint: res.footprint, note: res.note, source: 'boundary-line' } : res;
     }
-    return { ok: true, footprint: await readSiteFootprint(rt), note: null };
+    if (cmd.footprintSource === 'parcel') {
+        // An EXPLICIT source wins silently — the user said "on the parcel".
+        return { ok: true, footprint: (await readSiteFootprint(rt)).points, note: null, source: 'parcel' };
+    }
+    return resolveSilentFootprint(rt);
+}
+
+/** The two answers, in words a person can act on — never "Confirm"/"Cancel", which
+ *  would leave the user guessing which footprint "Confirm" means. */
+const ASK_LINE_OR_PARCEL: ChatConfirmChoices = {
+    confirmLabel: 'Build on the boundary line',
+    cancelLabel: 'Build on the parcel',
+};
+const ASK_PARCEL_OR_STOP: ChatConfirmChoices = {
+    confirmLabel: 'Build on the parcel',
+    cancelLabel: 'Stop — I\'ll select a line',
+};
+
+/** The one honest outcome when there is NO surface to ask in (a headless process):
+ *  refuse, naming the choice and the words that avoid it. Never a guess. */
+const NOBODY_TO_ASK =
+    'I need to ask which footprint to build on — there is a usable boundary line on this level ' +
+    'as well as the site parcel — but there is no chat surface to ask in. Say "on the boundary ' +
+    'line" or "on the parcel" in the sentence and ask again.';
+
+/** Exported for the acceptance test only — the ONE undo sentence every ask card ends
+ *  with. It names Ctrl+Z, which is also what stops the card appending its generic
+ *  single-undo tail (§PLAN RAC U6): generation undo is STAGED (L-10822), and the
+ *  card must not contradict the Confirm card that already said so. */
+export const ASK_FOOTPRINT_UNDO_LINE =
+    'Ctrl+Z undoes the build afterwards, stage by stage, as the Confirm card said.';
+
+/** The active level, in the words the user sees in the level list — its authored
+ *  name when the BIM manager can supply one, else its id. */
+function levelLabel(levelId: string | undefined): string {
+    if (levelId === undefined || levelId.length === 0) return 'any level (no active level is set)';
+    const bm = (window as unknown as {
+        bimManager?: { getLevelById?: (id: string) => { name?: unknown } | undefined };
+    }).bimManager;
+    let name: unknown;
+    try { name = bm?.getLevelById?.(levelId)?.name; } catch { name = undefined; }
+    return typeof name === 'string' && name.trim().length > 0 ? `level "${name.trim()}"` : `level ${levelId}`;
+}
+
+/** The parcel half of the card — MEASURED facts about what a parcel build would use. */
+function describeParcel(site: Awaited<ReturnType<typeof readSiteFootprint>>): string {
+    if (site.points.length < 3) {
+        return 'the site parcel — none is loaded, so building on the parcel would be refused';
+    }
+    const parcel = `${Math.round(site.parcelAreaM2)} m²`;
+    return site.source === 'envelope'
+        ? `the site parcel — ${parcel} (a parcel build uses the ${Math.round(site.usedAreaM2)} m² buildable envelope inside it)`
+        : `the site parcel — ${parcel}`;
+}
+
+/**
+ * The closed lines on the active level that would each BUILD if chosen — each run
+ * through the SAME pure validation the explicit path uses, by id. With exactly one
+ * closed line in scope this is precisely "would `resolveBoundaryLineFootprint`
+ * return ok for the implicit ladder", which is the L-11066 firing condition.
+ */
+async function usableClosedLines(
+    read: Extract<BoundaryLineRead, { ok: true }>,
+): Promise<Array<{ lineId: string; lineLabel: string; areaM2: number; footprint: readonly PlanPointXZ[] }>> {
+    const { resolveBoundaryLineFootprint } = await import('./boundaryLineFootprint.js');
+    const inScope = read.activeLevelId !== undefined && read.activeLevelId.length > 0
+        ? read.lines.filter((l) => l.levelId === read.activeLevelId)
+        : read.lines;
+    const out: Array<{ lineId: string; lineLabel: string; areaM2: number; footprint: readonly PlanPointXZ[] }> = [];
+    for (const l of inScope) {
+        if (!l.closed) continue;
+        const r = resolveBoundaryLineFootprint({ lines: read.lines, explicitId: l.id, parcel: read.parcel });
+        if (r.ok) out.push({ lineId: r.lineId, lineLabel: r.lineLabel, areaM2: r.areaM2, footprint: r.footprint });
+    }
+    return out;
+}
+
+/** Rung 3 of the ladder: the sentence named no source. */
+async function resolveSilentFootprint(rt: PryzmRuntime): Promise<GenerationFootprint> {
+    const site = await readSiteFootprint(rt);
+    const read = await readBoundaryLines(rt);
+    if (!read.ok) {
+        // ⚠ UNREADABLE is not EMPTY (§CONTEXT-DATA-HONESTY). The parcel build is the
+        // pre-L-11066 behaviour and is kept; what is NOT kept is silence about the
+        // check that could not run.
+        return {
+            ok: true,
+            footprint: site.points,
+            source: 'parcel',
+            note:
+                `Built on the site parcel without checking for a drawn boundary line — ` +
+                `${read.reason}`,
+        };
+    }
+
+    const usable = await usableClosedLines(read);
+    // 3a — nothing to choose between: the parcel, and no question.
+    if (usable.length === 0) return { ok: true, footprint: site.points, note: null, source: 'parcel' };
+
+    const level = levelLabel(read.activeLevelId);
+    const parcelLine = describeParcel(site);
+
+    // 3b — ONE usable line: a real, binary choice.
+    if (usable.length === 1) {
+        const line = usable[0]!;
+        const lineArea = `${Math.round(line.areaM2)} m²`;
+        const card = [
+            `You didn't say which footprint to build on, and there are two:`,
+            `• the boundary line ${line.lineLabel} on ${level} — ${lineArea}, closed and inside the site ` +
+                `(the only closed boundary line on this level)`,
+            `• ${parcelLine}`,
+            ASK_FOOTPRINT_UNDO_LINE,
+        ].join('\n');
+        const answer = await chatConfirm(card, ASK_LINE_OR_PARCEL);
+        if (answer === undefined) return { ok: false, reason: NOBODY_TO_ASK };
+        if (answer) {
+            return {
+                ok: true,
+                source: 'boundary-line',
+                footprint: line.footprint.map((p) => ({ x: p.x, z: p.z })),
+                note:
+                    `Built on the boundary line ${line.lineLabel} (${lineArea}), as you chose when asked — ` +
+                    `the site parcel was left unused.`,
+            };
+        }
+        return {
+            ok: true,
+            source: 'parcel',
+            footprint: site.points,
+            note:
+                `Built on the site parcel, as you chose when asked — the boundary line ` +
+                `${line.lineLabel} (${lineArea}) was left unused.`,
+        };
+    }
+
+    // 3c — TWO OR MORE usable lines (L-11200): real, not binary, and not ours to pick.
+    const names = usable.map((u) => u.lineLabel).join(', ');
+    const card = [
+        `You didn't say which footprint to build on, and ${level} has ${usable.length} closed boundary ` +
+            `lines I could build on:`,
+        ...usable.map((u) => `• the boundary line ${u.lineLabel} — ${Math.round(u.areaM2)} m²`),
+        `• ${parcelLine}`,
+        `I won't pick a line for you. Build on the parcel now, or stop, select the line you want in plan, ` +
+            `and ask again. ${ASK_FOOTPRINT_UNDO_LINE}`,
+    ].join('\n');
+    const answer = await chatConfirm(card, ASK_PARCEL_OR_STOP);
+    if (answer === undefined) return { ok: false, reason: NOBODY_TO_ASK };
+    if (!answer) {
+        return {
+            ok: false,
+            reason:
+                `you chose to select a boundary line first — select the one you want in plan ` +
+                `(${names}) and ask again.`,
+        };
+    }
+    return {
+        ok: true,
+        source: 'parcel',
+        footprint: site.points,
+        note:
+            `Built on the site parcel, as you chose when asked — the ${usable.length} closed boundary ` +
+            `lines on this level (${names}) were left unused.`,
+    };
 }
 
 // ─── The residential arm ─────────────────────────────────────────────────────
@@ -390,17 +635,15 @@ async function runHouse(rt: PryzmRuntime, cmd: GenerationBuildingPayload): Promi
     const { storeyCount, options } = houseRequestFromBrief(md);
 
     // §GEN-ON-BOUNDARY-LINE — the house arm takes the SAME resolved footprint via
-    // `HouseFromBoundaryOptions.footprint`. Only overridden when a line was asked
-    // for; otherwise the mapper's own footprint decision is untouched.
-    const wantsLine = cmd.footprintSource === 'boundary-line' || cmd.boundaryLineId !== undefined;
-    let lineNote: string | null = null;
-    let lineFootprint: { x: number; z: number }[] | null = null;
-    if (wantsLine) {
-        const src = await readBoundaryLineFootprint(rt, cmd.boundaryLineId);
-        if (!src.ok) { emitReport(false, [src.reason]); return; }
-        lineFootprint = src.footprint;
-        lineNote = src.note;
-    }
+    // `HouseFromBoundaryOptions.footprint`. Only overridden when the decision landed
+    // on a LINE; on the parcel the mapper's own footprint decision is untouched.
+    // §ASK-FOOTPRINT (L-11066) — through the ONE footprint decision, so the house
+    // arm asks exactly when the residential and office arms do.
+    const src = await resolveGenerationFootprint(rt, cmd);
+    if (!src.ok) { emitReport(false, [src.reason]); return; }
+    const lineNote: string | null = src.note;
+    const lineFootprint: { x: number; z: number }[] | null =
+        src.source === 'boundary-line' ? src.footprint : null;
 
     const { generateHouseFromBoundary } = await import('../house-layout/houseFromBoundary.js');
     const res = await generateHouseFromBoundary(rt, storeyCount, {

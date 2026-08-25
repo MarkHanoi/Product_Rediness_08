@@ -90,6 +90,7 @@ import { batchCoordinator, selectionBus, storeRegistry } from '@pryzm/core-app-m
 import { resolveWallSystemTypeRef } from '@pryzm/command-registry';
 import { resolveActiveLevelId } from '../apartment-layout/activeLevel';
 import { resolveRoomWallScope } from './roomWallScope.js';
+import type { ChatConfirmChoices } from './chatPromptHost.js';
 // §FEAT-RAC-PROPERTY-QUERY (L-2210) — the ONE reader behind "how tall is this
 // wall?". Kept in its own module rather than inlined here so the capability's
 // `commandProof` can name a file whose whole job is the read.
@@ -1164,8 +1165,10 @@ async function buildContext(turn?: ChatTurnFacts): Promise<ResolverContext> {
 export interface ZeroTokenUiHooks {
     /** Append an assistant bubble to the transcript. */
     say(text: string): void;
-    /** Render an inline Confirm/Cancel card; resolves true only on Confirm. */
-    confirm(summary: string): Promise<boolean>;
+    /** Render an inline Confirm/Cancel card; resolves true only on Confirm.
+     *  §ASK-FOOTPRINT (L-11066) — `choices` renames the two buttons for a
+     *  "which of these two?" question; the card and the boolean are unchanged. */
+    confirm(summary: string, choices?: ChatConfirmChoices): Promise<boolean>;
 }
 
 // ─── Execution ───────────────────────────────────────────────────────────────

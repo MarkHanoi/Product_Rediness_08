@@ -2509,6 +2509,57 @@ describe('§GEN-CHAT — "generate a 3-storey residential building"', () => {
     expect(r.summary).not.toContain('from the site boundary');
   });
 
+  // ─── §ASK-FOOTPRINT (L-11066 / L-11200) — the parcel named OUT LOUD ──────
+  //
+  // The execution layer now ASKS "which footprint?" when the sentence is silent
+  // and a usable boundary line exists on the active level. A user who said "on
+  // the parcel" has already answered, so the sentence must reach the bus as an
+  // EXPLICIT source — before this, "on the parcel" and saying nothing produced
+  // byte-for-byte the same payload and the seam could not tell them apart.
+
+  it('"on the site" / "on the parcel" / "across the whole plot" reach the bus as footprintSource:parcel', () => {
+    const sentences = [
+      'generate a 5-storey residential building on the site',
+      'generate a 5-storey residential building on the parcel',
+      'build a 4-storey residential building across the whole plot',
+      'generate a 2-storey house on the site',
+      'generate an office building with 5 floors on the plot',
+    ];
+    for (const s of sentences) {
+      const r = resolveUtterance(s, ctxOf());
+      expect(r.kind, s).toBe('commands');
+      if (r.kind !== 'commands') continue;
+      expect(r.commands[0]!.type, s).toBe('generation.building');
+      expect(r.commands[0]!.payload, s).toMatchObject({ footprintSource: 'parcel' });
+      expect(r.commands[0]!.payload, s).not.toHaveProperty('boundaryLineId');
+      // The Confirm card says the sentence was heard, so no "which footprint?"
+      // question is expected to follow it.
+      expect(r.summary, s).toContain('as you asked');
+    }
+  });
+
+  it('SILENCE stays silent — the plain sentence still carries NO footprintSource at all', () => {
+    // The seam asks ONLY about silence, so silence must remain distinguishable.
+    const r = resolveUtterance('generate a 5-storey residential building', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toEqual({ typology: 'residential-building', floors: 5 });
+  });
+
+  it('"on the site boundary" is still the BOUNDARY-LINE sentence — the two flags never both fire', () => {
+    const r = resolveUtterance('create a 5-storey residential building on the site boundary', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toMatchObject({ footprintSource: 'boundary-line' });
+  });
+
+  it('"in a lot of …" does not fire the parcel signal — `lot` is deliberately not in the noun list', () => {
+    const r = resolveUtterance('generate a 5-storey residential building in a lot of glass', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).not.toHaveProperty('footprintSource');
+  });
+
   // ─── §GEN-UNDO-IS-STAGED (L-10822) ───────────────────────────────────────
   it('the Confirm summary tells the truth about undo — staged, not one entry', () => {
     const r = resolveUtterance('generate a 5-storey residential building', ctxOf());

@@ -1213,6 +1213,14 @@ export type SemanticIntent =
        */
       readonly onBoundaryLine?: boolean;
       /**
+       * §ASK-FOOTPRINT (L-11066 / L-11200) — the user asked for the SITE PARCEL out
+       * loud ("on the site", "on the parcel"). An intent flag like `onBoundaryLine`,
+       * and mutually exclusive with it (the boundary-line reading wins). Carried so
+       * the execution layer's "which footprint?" question is asked ONLY when the
+       * sentence was genuinely silent — never at someone who already answered it.
+       */
+      readonly onParcel?: boolean;
+      /**
        * §GEN-FACADE-INTENT (L-10823) — façade description in the user's own words,
        * split into what CAN be honoured and what cannot. Both halves are carried:
        * dropping `unavailable` here would put the silent half-ignored sentence back.
@@ -2791,6 +2799,12 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         ? (si.boundaryLineId !== undefined
             ? 'on the boundary line you have selected'
             : 'on the closed boundary line you drew')
+        // §ASK-FOOTPRINT — the user named the parcel; say so, so the card shows the
+        // sentence was heard and no "which footprint?" question will follow.
+        : si.onParcel === true
+        ? (t === 'office'
+            ? 'on the site parcel, as you asked (circular plate fitted inside the plot)'
+            : 'on the site parcel, as you asked')
         : t === 'office'
         ? 'on the site (circular plate fitted inside the plot)'
         : 'from the site boundary';
@@ -2988,6 +3002,10 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
             // that payload keeps its exact pre-existing shape.
             ...(useBoundaryLine ? { footprintSource: 'boundary-line' as const } : {}),
             ...(si.boundaryLineId !== undefined ? { boundaryLineId: si.boundaryLineId } : {}),
+            // §ASK-FOOTPRINT (L-11066 / L-11200) — the parcel named OUT LOUD. Omitted
+            // when the sentence was silent, so the silent payload keeps its exact
+            // shape and the seam can tell the two apart (only silence is asked about).
+            ...(!useBoundaryLine && si.onParcel === true ? { footprintSource: 'parcel' as const } : {}),
             // §GEN-FACADE-INTENT (L-10823) — the four façade fields
             // `residentialBriefMapper` has carried since §RESI-PREVIEW-OPTIONS and
             // that this payload used to drop on the floor. Omitted entirely when the
@@ -5135,6 +5153,24 @@ const GEN_ON_BOUNDARY_LINE_RE =
     /\b(?:on|in|at|inside|within|along|from|using|use)\s+(?:[a-z]+\s+){0,3}boundar(?:y|ies)(?:\s*-?\s*line)?\b|\bboundar(?:y|ies)\s*-?\s*line\b/;
 
 /**
+ * §ASK-FOOTPRINT (L-11066 / L-11200) — the sentence asked for the SITE PARCEL out
+ * loud: *"on the site"*, *"on the parcel"*, *"across the whole plot"*.
+ *
+ * ⭐ WHY AN EXPLICIT "PARCEL" SIGNAL HAS TO EXIST. The execution layer now ASKS
+ * which footprint to build on when the sentence names none and a usable boundary
+ * line exists (`resolveGenerationFootprint`, §ASK-FOOTPRINT). A user who typed
+ * "on the parcel" has already answered that question, and asking it again would
+ * be the confirmation-nobody-needs defect. Until this regex the payload for "on
+ * the parcel" and for saying nothing was BYTE-FOR-BYTE THE SAME, so the seam could
+ * not honour the words. Same adjective slot as the boundary-line regex (up to three
+ * words, punctuation is a barrier). `lot` is deliberately absent — "in a lot of"
+ * would fire it. Evaluated ONLY when the boundary-line regex missed: "on the site
+ * boundary" is that regex's sentence, and this one never contradicts it.
+ */
+const GEN_ON_PARCEL_RE =
+    /\b(?:on|in|at|inside|within|across|over|from|using|use|fill|filling)\s+(?:[a-z]+\s+){0,3}(?:parcel|plot|site)\b/;
+
+/**
  * §GEN-TYPOLOGY-NAMED (L-10821) — a building noun with NO typology qualifier.
  * Matching this CLAIMS the utterance so the apply arm can refuse by naming the
  * missing word, instead of the whole sentence silently missing every matcher.
@@ -5213,6 +5249,9 @@ export function parseGenerateBuildingIntent(
 
   // §GEN-ON-BOUNDARY-LINE — did the SENTENCE ask for the drawn line as the site?
   const onBoundaryLine = GEN_ON_BOUNDARY_LINE_RE.test(text);
+  // §ASK-FOOTPRINT — or did it name the PARCEL out loud? Only read when the line
+  // regex missed, so the two flags can never both be set.
+  const onParcel = !onBoundaryLine && GEN_ON_PARCEL_RE.test(text);
   //
   // ⭐ THE SENTENCE DECIDES THE SOURCE; THE SELECTION ONLY DECIDES WHICH LINE.
   //
@@ -5296,6 +5335,8 @@ export function parseGenerateBuildingIntent(
     // capability-acceptance suite asserts that payload with `toEqual`).
     ...(onBoundaryLine ? { onBoundaryLine: true } : {}),
     ...(selectedBoundaryLineId !== undefined ? { boundaryLineId: selectedBoundaryLineId } : {}),
+    // §ASK-FOOTPRINT — same rule: carried ONLY when true, so silence stays silent.
+    ...(onParcel ? { onParcel: true } : {}),
     ...(facade !== undefined ? { facade } : {}),
     ...(facadeParse !== null && facadeParse.applied.length > 0 ? { facadeApplied: facadeParse.applied } : {}),
     ...(facadeParse !== null && facadeParse.unavailable.length > 0
