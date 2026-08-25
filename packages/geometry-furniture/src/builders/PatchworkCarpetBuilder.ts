@@ -2,6 +2,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { IFurnitureBuilder } from './IFurnitureBuilder';
 import { FurnitureData } from '../FurnitureTypes';
 import { MaterialService } from '../MaterialService';
+import { legacyCarpetCanvasSize } from './carpetPatterns';
 
 /**
  * PatchworkCarpetBuilder
@@ -51,16 +52,18 @@ export class PatchworkCarpetBuilder implements IFurnitureBuilder {
         group.add(base);
 
         // ── 2. Patchwork pattern overlay (CanvasTexture on a top plane) ──────
+        // §CARPET97 (2026-08-25) — null where there is no 2D context; see the
+        // texture builder's header. This carpet is also the one the auto-furnish
+        // `rug` kind used to route EVERY room to, so it is the one whose canvas
+        // budget mattered most.
         const texture = this._buildPatchworkTexture(width, length);
-        const patternMat = new THREE.MeshStandardMaterial({
-            map: texture,
-            roughness: 0.92,
-            metalness: 0.0,
-        });
+        const patternMat = texture
+            ? new THREE.MeshStandardMaterial({ map: texture, roughness: 0.92, metalness: 0.0 })
+            : new THREE.MeshStandardMaterial({ color: baseColor, roughness: 0.92, metalness: 0.0 });
         // FurnitureFragmentBuilder disposes unique materials on rebuild but the
         // material's `.map` texture is NOT auto-disposed — hook the material's
         // dispose event so this CanvasTexture is freed too (no GPU leak).
-        patternMat.addEventListener('dispose', () => texture.dispose());
+        if (texture) patternMat.addEventListener('dispose', () => texture.dispose());
 
         const planeGeo = new THREE.PlaneGeometry(width, length);
         const pattern = new THREE.Mesh(planeGeo, patternMat);
@@ -92,23 +95,31 @@ export class PatchworkCarpetBuilder implements IFurnitureBuilder {
      * THREE.CanvasTexture. The grid resolution scales with the rug's real-world
      * dimensions so resizing extends the pattern (more tiles) rather than
      * stretching individual tiles.
+     *
+     * §CARPET97 (2026-08-25) — the canvas budget moved to the shared
+     * `legacyCarpetCanvasSize` (256 px/m, hard 1024 px cap). It was 64 px per
+     * 10 cm tile capped at 4096, i.e. 1920 × 1280 for a 3 × 2 m rug = 12.5 MB
+     * of RGBA with mips — and this builder served the `rug` kind in EVERY
+     * auto-furnished room. The tile step below is `canvasW / cols`, so the
+     * PATTERN IS UNCHANGED; only crispness moved. Now 768 × 512 = 2.0 MB.
+     *
+     * Returns null where there is no 2D context.
      */
-    private _buildPatchworkTexture(width: number, length: number): THREE.CanvasTexture {
+    private _buildPatchworkTexture(width: number, length: number): THREE.CanvasTexture | null {
         // Real-world tile size — chosen to match the reference photo (~10 cm).
         const TILE_SIZE_M = 0.10;
 
         const cols = Math.max(6, Math.round(width  / TILE_SIZE_M));
         const rows = Math.max(6, Math.round(length / TILE_SIZE_M));
 
-        // Canvas pixel budget: ~64 px per tile, capped at 4096 in either dim.
-        const PX_PER_TILE = 64;
-        const canvasW = Math.min(4096, cols * PX_PER_TILE);
-        const canvasH = Math.min(4096, rows * PX_PER_TILE);
+        const { canvasW, canvasH } = legacyCarpetCanvasSize(width, length);
 
+        if (typeof document === 'undefined') return null;
         const canvas = document.createElement('canvas');
         canvas.width  = canvasW;
         canvas.height = canvasH;
-        const ctx = canvas.getContext('2d')!;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return null;
 
         // Pale ivory ground — same tone as the lightest tiles so tile borders
         // disappear (no dark seams between patches).

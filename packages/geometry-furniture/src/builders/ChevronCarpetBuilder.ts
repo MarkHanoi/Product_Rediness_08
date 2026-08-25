@@ -2,6 +2,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { IFurnitureBuilder } from './IFurnitureBuilder';
 import { FurnitureData } from '../FurnitureTypes';
 import { MaterialService } from '../MaterialService';
+import { legacyCarpetCanvasSize } from './carpetPatterns';
 
 /**
  * ChevronCarpetBuilder
@@ -46,16 +47,19 @@ export class ChevronCarpetBuilder implements IFurnitureBuilder {
         // Pattern is regenerated every rebuild (when width/length change in the
         // property panel) so the chevron rows EXTEND rather than stretch — peak
         // density stays at a constant real-world spacing regardless of size.
+        // §CARPET97 (2026-08-25) — `_buildChevronTexture` may now return null
+        // where there is no 2D context (headless / SSR / the happy-dom test
+        // environment this package runs in). It used to write `getContext('2d')!`
+        // and TypeError on the next line, which is why this builder has never
+        // had a build() test. Fall back to the flat body colour instead.
         const texture = this._buildChevronTexture(width, length);
-        const patternMat = new THREE.MeshStandardMaterial({
-            map: texture,
-            roughness: 0.95,
-            metalness: 0.0,
-        });
+        const patternMat = texture
+            ? new THREE.MeshStandardMaterial({ map: texture, roughness: 0.95, metalness: 0.0 })
+            : new THREE.MeshStandardMaterial({ color: baseColor, roughness: 0.95, metalness: 0.0 });
         // FurnitureFragmentBuilder disposes unique materials on rebuild but the
         // material's `.map` texture is NOT auto-disposed — hook the material's
         // dispose event so this CanvasTexture is freed too (no GPU leak).
-        patternMat.addEventListener('dispose', () => texture.dispose());
+        if (texture) patternMat.addEventListener('dispose', () => texture.dispose());
 
         const planeGeo = new THREE.PlaneGeometry(width, length);
         const pattern = new THREE.Mesh(planeGeo, patternMat);
@@ -95,10 +99,17 @@ export class ChevronCarpetBuilder implements IFurnitureBuilder {
      *   EXTENDS the pattern (more rows / more peaks at the same scale) rather
      *   than stretching the existing chevrons.
      *
-     *   Canvas resolution targets ~256 px per peak — high enough to keep
-     *   crisp edges yet capped to avoid huge textures on big rugs.
+     *   §CARPET97 (2026-08-25) — the canvas budget moved to the shared
+     *   `legacyCarpetCanvasSize` (256 px/m, hard 1024 px cap) so this carpet
+     *   shares one ceiling with the other twelve. It was ~80 px per peak capped
+     *   at 4096, i.e. 2000 × 1333 for a 3 × 2 m rug — 13.6 MB of RGBA with mips,
+     *   in every room the auto-furnish `rug` kind touches. The step maths below
+     *   is `canvasW / peaks`, so the PATTERN IS UNCHANGED; only crispness moved.
+     *
+     * Returns null where there is no 2D context; the caller falls back to a
+     * flat colour rather than throwing.
      */
-    private _buildChevronTexture(width: number, length: number): THREE.CanvasTexture {
+    private _buildChevronTexture(width: number, length: number): THREE.CanvasTexture | null {
         // Real-world peak spacing — chosen to match the reference photo.
         const PEAK_WAVELENGTH_M = 0.12; // 12 cm horizontal wavelength
         const PEAK_HEIGHT_M     = 0.10; // 10 cm vertical row height
@@ -106,15 +117,14 @@ export class ChevronCarpetBuilder implements IFurnitureBuilder {
         const peaks    = Math.max(4, Math.round(width  / PEAK_WAVELENGTH_M));
         const rowCount = Math.max(6, Math.round(length / PEAK_HEIGHT_M));
 
-        // Canvas pixel budget: ~80 px per peak, capped at 4096 in either dim.
-        const PX_PER_PEAK = 80;
-        const canvasW = Math.min(4096, peaks    * PX_PER_PEAK);
-        const canvasH = Math.min(4096, Math.round(canvasW * (length / width)));
+        const { canvasW, canvasH } = legacyCarpetCanvasSize(width, length);
 
+        if (typeof document === 'undefined') return null;
         const canvas = document.createElement('canvas');
         canvas.width  = canvasW;
         canvas.height = canvasH;
-        const ctx = canvas.getContext('2d')!;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return null;
 
         // ── Background (off-white) ───────────────────────────────────────────
         ctx.fillStyle = '#f4f4f4';

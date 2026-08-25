@@ -103,6 +103,22 @@ describe('FurnitureMaterialIntent (F8.3)', () => {
         expect(deriveMaterialIntent('curtain_panel')).toBe('fabric-soft');
     });
 
+    it('§CARPET97 — the ten new procedural carpets read as fabric-soft', () => {
+        // `deriveMaterialIntent` THROWS on an unregistered type, so this is the
+        // test that would have caught a design added to the union and to the
+        // factory but never given a material intent. Jute included: jute is a
+        // soft floor-covering fibre, not a hard finish.
+        for (const t of [
+            'parametric_staggered_stripe_carpet', 'parametric_checkerboard_carpet',
+            'parametric_bordered_jute_carpet', 'parametric_braided_jute_carpet',
+            'parametric_colour_block_carpet', 'parametric_moons_carpet',
+            'parametric_round_braided_carpet', 'parametric_line_art_carpet',
+            'parametric_fine_stripe_carpet', 'parametric_diamond_trellis_carpet',
+        ] as const) {
+            expect(deriveMaterialIntent(t), t).toBe('fabric-soft');
+        }
+    });
+
     it('deriveMaterialIntent throws on unknown type (fail-explicit contract)', () => {
         // Cast through any to bypass the compile-time check.
         expect(() => deriveMaterialIntent('not_a_real_type' as never)).toThrow(/Unknown FurnitureType/);

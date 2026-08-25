@@ -338,6 +338,30 @@ export function carpetTextureBytes(plan: CarpetTexturePlan): number {
     return Math.round(plan.canvasW * plan.canvasH * 4 * (4 / 3));
 }
 
+/**
+ * §CARPET97 — the canvas budget for the THREE PRE-EXISTING carpets (chevron,
+ * patchwork, stripe), so the whole family shares one ceiling.
+ *
+ * Those three each computed `min(4096, motifs × 64-to-80 px)`, which for the
+ * 3.0 × 2.0 m rug the auto-furnish `rug` kind places in EVERY room mints a
+ * 1920 × 1280 canvas — 12.5 MB with mips, per rug, in every room. Their MOTIF
+ * maths is already resolution-independent (every one of them derives its step
+ * as `canvasW / motifCount`), so re-pointing the canvas size at this helper
+ * changes crispness and nothing else: the drawn pattern is unchanged.
+ *
+ * Kept as its own function rather than folded into `CARPET_PATTERNS` because
+ * those three are not §CARPET97 designs and do not belong in the design table.
+ */
+export function legacyCarpetCanvasSize(widthM: number, lengthM: number): {
+    canvasW: number; canvasH: number; pxPerMetreX: number; pxPerMetreY: number;
+} {
+    const w = Math.max(0.05, widthM);
+    const l = Math.max(0.05, lengthM);
+    const canvasW = clampFull(w * CARPET_PX_PER_METRE);
+    const canvasH = clampFull(l * CARPET_PX_PER_METRE);
+    return { canvasW, canvasH, pxPerMetreX: canvasW / w, pxPerMetreY: canvasH / l };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. Deterministic variety — how the auto-furnish `rug` kind picks a design
 // ─────────────────────────────────────────────────────────────────────────────

@@ -36,6 +36,20 @@ describe('furnitureShadowBudget (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () => {
         it('handles undefined safely', () => {
             expect(isDecorativeFurniture(undefined)).toBe(false);
         });
+        it('§CARPET97 — all ten new procedural carpets are decorative too', () => {
+            // A 4 mm rug lying on the floor casts a 4 mm sliver. Missing one
+            // here would leave it a shadow caster at the `performance` tier
+            // while its twelve siblings are not — an invisible perf regression.
+            for (const t of [
+                'parametric_staggered_stripe_carpet', 'parametric_checkerboard_carpet',
+                'parametric_bordered_jute_carpet', 'parametric_braided_jute_carpet',
+                'parametric_colour_block_carpet', 'parametric_moons_carpet',
+                'parametric_round_braided_carpet', 'parametric_line_art_carpet',
+                'parametric_fine_stripe_carpet', 'parametric_diamond_trellis_carpet',
+            ]) {
+                expect(isDecorativeFurniture(t), t).toBe(true);
+            }
+        });
     });
 
     describe('furnitureCastsShadowUnderBudget — default-preserving safety', () => {
