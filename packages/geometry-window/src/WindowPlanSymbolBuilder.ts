@@ -83,6 +83,18 @@ import { resolveWindowReveal } from './WindowReveal';
 // 3-D window; the plan symbol now calls it too, so the two cannot disagree about
 // where on the host the opening is or which way it faces.
 import { hostedElementFrame, withAuthoritativeGeometry, openingGeometryFromWall } from '@pryzm/geometry-wall';
+// §OUTLINE82 (SPEC-WINDOW-CUSTOM-OUTLINE D9) — THE ONE outline producer (C86 §10.1 PR-1). The
+// symbol reads the void's shape from it and never re-derives an arc or a ring.
+import {
+    openingOutline,
+    isRectangularProfile,
+    resolveOpeningProfile,
+    type OpeningOutline,
+    type OpeningProfileInput,
+} from '@pryzm/geometry-wall';
+// §OUTLINE82 — the plan cut plane's default height is the number the live plan CLIP is
+// registered with (`LevelClipPlaneCache.registerLevel`'s default), read from its owner.
+import { LevelClipPlaneCache } from '@pryzm/core-app-model';
 
 const WINDOW_LAYER = 'A-GLAZ';
 /**
@@ -97,6 +109,94 @@ const WINDOW_LAYER_PROJ = 'A-GLAZ-PROJ';
 const LW_CUT  = 2;
 const LW_PROJ = 1;
 
+// ═══ §OUTLINE82 — THE CUT PLANE, AND WHAT IT ACTUALLY CUTS (SPEC-WINDOW-CUSTOM-OUTLINE D9) ═══
+//
+// A plan is a SECTION at the view's cut height. For a rectangular window the cut width is the
+// opening width at every height, which is why this builder never had to ask. For a `circular`
+// window cut above its centre, a `segmental-arch` cut through its head, or a free-form `custom`
+// ring, the plane cuts a CHORD that is narrower than the bounding box — and a symbol drawn at
+// `width` there is the founder's *"the wall cut a circle and the frame drew a rectangle"* (C86
+// §10.1) in plan. So the jamb ticks, the frame faces and the glazing are set out on the span the
+// plane really crosses, read off the SAME outline the wall was cut with.
+
+/**
+ * The plan view's cut height above the level datum, in metres.
+ *
+ * Authority, in order: the view's own `viewRange.cut.offset` (`ViewRangeSettings` — metres above
+ * `cut.levelId`'s elevation, the Phase-VI plan range) when the view declares one; otherwise
+ * `LevelClipPlaneCache.DEFAULT_CUT_HEIGHT`, the number every level's live clip plane is registered
+ * with. ⛔ Never a literal here — the symbol must be cut where the clip is.
+ */
+export function resolvePlanCutHeight(
+    viewDef: { viewRange?: { cut?: { offset?: number } } } | null | undefined,
+): number {
+    const cut = viewDef?.viewRange?.cut?.offset;
+    return typeof cut === 'number' && Number.isFinite(cut) ? cut : LevelClipPlaneCache.DEFAULT_CUT_HEIGHT;
+}
+
+/** The along-wall span the plane `y = yCut` crosses, in wall-local `x` (same frame as the outline). */
+export interface PlanCutSpan {
+    readonly x0: number;
+    readonly x1: number;
+    /** How many ring edges the plane crossed. 2 for any convex ring; >2 means solid runs inside the span. */
+    readonly crossings: number;
+}
+
+/**
+ * Where the horizontal plane at wall-local `yCut` crosses the ring. `null` when it misses —
+ * above the head, below the sill, or through a notch the ring has no material in.
+ *
+ * Half-open on `y` so a vertex lying exactly on the plane is counted once, and a horizontal edge
+ * lying IN the plane contributes through its neighbours rather than twice.
+ */
+export function planCutSpanOf(outline: OpeningOutline, yCut: number): PlanCutSpan | null {
+    const pts = outline.points;
+    const n = pts.length;
+    const xs: number[] = [];
+    for (let i = 0; i < n; i++) {
+        const a = pts[i]!;
+        const b = pts[(i + 1) % n]!;
+        if ((a.y > yCut) !== (b.y > yCut)) {
+            xs.push(a.x + ((yCut - a.y) * (b.x - a.x)) / (b.y - a.y));
+        }
+    }
+    if (xs.length < 2) return null;
+    let x0 = Infinity, x1 = -Infinity;
+    for (const x of xs) { if (x < x0) x0 = x; if (x > x1) x1 = x; }
+    return { x0, x1, crossings: xs.length };
+}
+
+/**
+ * The ring's lowest HORIZONTAL straight run — where a sill can physically sit (D4). `null` when
+ * the bottom is a vertex or an arc (an apex-down triangle, a circle): such an opening has no
+ * sill, and the symbol draws none rather than a board under a point.
+ */
+export function outlineBaseRun(outline: OpeningOutline): { x0: number; x1: number } | null {
+    const y0 = outline.bbox.y0;
+    const EPS = 1e-9;
+    const pts = outline.points;
+    const n = pts.length;
+    let x0 = Infinity, x1 = -Infinity;
+    for (let i = 0; i < n; i++) {
+        const a = pts[i]!;
+        const b = pts[(i + 1) % n]!;
+        if (Math.abs(a.y - y0) < EPS && Math.abs(b.y - y0) < EPS && Math.abs(b.x - a.x) > EPS) {
+            x0 = Math.min(x0, a.x, b.x);
+            x1 = Math.max(x1, a.x, b.x);
+        }
+    }
+    return x1 > x0 ? { x0, x1 } : null;
+}
+
+/** What `_resolveCutSection` hands the symbol for a NON-rectangular opening. */
+interface CutSection {
+    /** Left edge of the cut chord along the wall (the jamb tick lands here). */
+    readonly offset: number;
+    /** Length of the cut chord — the symbol's `width` at this cut plane. */
+    readonly width: number;
+    /** The sill run relative to the CHORD centre, or `null` when the ring has no base run. */
+    readonly sillRun: { readonly s0: number; readonly s1: number } | null;
+}
 
 export class WindowPlanSymbolBuilder {
     /**
@@ -128,6 +228,9 @@ export class WindowPlanSymbolBuilder {
 
         let injectedCount = 0;
 
+        // §OUTLINE82 — resolved ONCE per view, from the view's own range or the clip's default.
+        const cutHeight = resolvePlanCutHeight(viewDef);
+
         // Prefer wallStore.getAllWindows() — authoritative after project reload.
         // windowStore singleton is only populated during the current session.
         const wins: any[] = typeof wallStore.getAllWindows === 'function'
@@ -150,7 +253,7 @@ export class WindowPlanSymbolBuilder {
                 category:    'window',
             });
 
-            const geos = this._computeSymbolGeometry(win, wallData, lod);
+            const geos = this._computeSymbolGeometry(win, wallData, lod, cutHeight);
             if (!geos) continue;
 
             // ── Cut symbol (medium pen) — the frame cut profile ────────────────
@@ -218,8 +321,12 @@ export class WindowPlanSymbolBuilder {
     // §L-916 fixed in 3D: after a host move the void in plan is re-cut from
     // RECORD A while the symbol was still drawn from the frame record's stale
     // offset — the same hole-without-a-frame, one view over.
-    private _computeSymbolGeometry(winRaw: any, wallData: any, lod: DetailLevel = 'medium'):
-        { cut: THREE.BufferGeometry | null; proj: THREE.BufferGeometry | null } | null {
+    private _computeSymbolGeometry(
+        winRaw: any,
+        wallData: any,
+        lod: DetailLevel = 'medium',
+        cutHeight: number = LevelClipPlaneCache.DEFAULT_CUT_HEIGHT,
+    ): { cut: THREE.BufferGeometry | null; proj: THREE.BufferGeometry | null } | null {
         const win = withAuthoritativeGeometry(winRaw, openingGeometryFromWall(wallData, winRaw?.id));
 
         const bl0 = wallData.baseLine?.[0];
@@ -241,7 +348,16 @@ export class WindowPlanSymbolBuilder {
         // the span [offset, offset+width]; the plan-symbol CENTRE = offset + width/2.
         const width  = Number(win.width);
         if (!Number.isFinite(width) || width <= 0) return null;
-        const halfW  = width / 2;
+
+        // ── §OUTLINE82 — the section plane, and what it actually cuts (D9) ─────
+        //
+        // `null` ⇒ RECTANGULAR: every expression below is the pre-existing one, untouched — C86
+        // §10.1 PR-2's short-circuit, which is what keeps every pre-L-1200 plan byte-identical.
+        // `'refused'` ⇒ the plane misses the ring, or the box cannot hold the profile: the symbol
+        // is OMITTED and the reason has already been said (C16 CA-18) — never drawn at the bbox.
+        const section = this._resolveCutSection(win, wallData, width, cutHeight);
+        if (section === 'refused') return null;
+        const halfW  = section ? section.width / 2 : width / 2;
 
         // ── The host's station mapper — §FIX-HOSTED-PLAN-SYMBOL-ON-CURVED-HOST ─
         //
@@ -251,7 +367,11 @@ export class WindowPlanSymbolBuilder {
         // special case. On a curved host that resolved a different point and a
         // different heading from the 3-D window, diverging progressively along the
         // curve. `hostedElementFrame` is now the only resolver in the path.
-        const host = hostedElementFrame(wallData, Number(win.offset), width);
+        // §OUTLINE82 — for a profiled opening the frame is centred on the CUT CHORD, not on the
+        // bounding box: a circle's chord is concentric with its box, a free-form ring's need not be.
+        const host = section
+            ? hostedElementFrame(wallData, section.offset, section.width)
+            : hostedElementFrame(wallData, Number(win.offset), width);
         if (!(host.length > 0)) return null;   // degenerate host — nothing to draw on
 
         // ── The window's REAL dimensions (L-127 — record → type → canonical) ──
@@ -290,7 +410,10 @@ export class WindowPlanSymbolBuilder {
         // the reveal displaces members across the wall and a curved station would re-seat
         // them onto the wrong normal. Parity by construction: if the 3-D leaf does not build
         // the box, the symbol must not draw one (L-1928).
-        const _revOn = _rev.active && !(wallData as { curve?: unknown }).curve;
+        // §OUTLINE82 — and a NON-RECTANGULAR profile is excluded on the same parity rule: the
+        // reveal is a four-side model (ADR-0342 excludes non-rectangular openings; C86 §12 R-16),
+        // so the 3-D leaf builds no box there and the symbol must not draw one.
+        const _revOn = _rev.active && !(wallData as { curve?: unknown }).curve && section === null;
         /** Across-wall position of the GLAZING plane. `0` — the wall centre — when unauthored. */
         const nGlaz  = _revOn ? _rev.zGlazing : 0;
         /** Along-wall shift of the glazing, non-zero only when the two jamb splays differ. */
@@ -564,13 +687,20 @@ export class WindowPlanSymbolBuilder {
         //
         // PROJECTION, not cut: the plan cut plane is above the sill, so the board is
         // seen beneath the cut — hence the thin pen, per Contract-23.
-        if (lod === 'fine' && dims.sill && dims.sillDepth > 0) {
+        //
+        // §OUTLINE82 (D4) — a PROFILED opening's sill is its lowest horizontal run, of THAT run's
+        // length: an arch keeps its full-width sill; a circle or an apex-down triangle has no run
+        // and gets no board (the omission is by construction, and it is the rule the 3-D builder
+        // follows). Rectangular keeps the literal pre-existing expressions.
+        if (lod === 'fine' && dims.sill && dims.sillDepth > 0 && (section === null || section.sillRun !== null)) {
             const nFace  = halfThk;                       // the wall face the sill sits on
             const nEdge  = halfThk + dims.sillDepth;      // the board's outer edge
-            const sEdge  = halfW + dims.sillOverhang;     // the board's ends
-            runSeg(projPositions, -sEdge, +sEdge, nEdge);    // the board line
-            projSeg(at(-sEdge, nFace), at(-sEdge, nEdge));   // returns to the wall face
-            projSeg(at(+sEdge, nFace), at(+sEdge, nEdge));
+            const sEdge  = halfW + dims.sillOverhang;     // the board's ends (rectangular)
+            const s0 = section ? section.sillRun!.s0 - dims.sillOverhang : -sEdge;
+            const s1 = section ? section.sillRun!.s1 + dims.sillOverhang : +sEdge;
+            runSeg(projPositions, s0, s1, nEdge);    // the board line
+            projSeg(at(s0, nFace), at(s0, nEdge));   // returns to the wall face
+            projSeg(at(s1, nFace), at(s1, nEdge));
         }
 
         const cutGeo = cutPositions.length > 0 ? new THREE.BufferGeometry() : null;
@@ -580,6 +710,84 @@ export class WindowPlanSymbolBuilder {
         if (projGeo) projGeo.setAttribute('position', new THREE.Float32BufferAttribute(projPositions, 3));
 
         return { cut: cutGeo, proj: projGeo };
+    }
+
+    /**
+     * §OUTLINE82 — resolve what the plan cut plane crosses for THIS opening.
+     *
+     * Returns `null` for a rectangular profile (the caller takes its pre-existing path, C86
+     * §10.1 PR-2), `'refused'` after saying why through this builder's diagnostics channel (the
+     * same `console.warn` the L-127 thickness refusal uses — condition, reason, live alternative,
+     * C16 CA-18), or the chord and sill run for a profiled ring.
+     *
+     * The shape is read from the HOST wall's `openings[]` record first — the void's shape belongs
+     * to the void, hence to the host `Opening` (C15 §3.1) — and from the window record only when
+     * the host carries none (the dual write of C15 §8.1 means they agree whenever both exist).
+     */
+    private _resolveCutSection(win: any, wallData: any, width: number, cutHeight: number): CutSection | null | 'refused' {
+        const hostOpening = (wallData?.openings as
+            ReadonlyArray<{ elementId?: string; openingProfile?: unknown; customOutline?: unknown }> | undefined)
+            ?.find(o => o.elementId === win.id);
+        const profileRaw = hostOpening?.openingProfile ?? win.openingProfile;
+        // PR-2 — the pre-existing path, untouched. (Until lane §OUTLINE80 lands, an unknown kind
+        // such as `'custom'` resolves to rectangular on this LOAD path by the producer's own rule.)
+        if (isRectangularProfile(profileRaw)) return null;
+
+        const profile    = resolveOpeningProfile(profileRaw);
+        const offset     = Number(win.offset);
+        const height     = Number(win.height);
+        const sillHeight = Number(win.sillHeight);
+        // §OUTLINE80 — the `custom` kind's companion ring rides along as an extra key; the
+        // producer ignores it for every other kind, and `OpeningProfileInput` declares it once
+        // that lane lands. The assertion keeps this file compiling on both sides.
+        const outline = openingOutline({
+            profile, offset, width, height, sillHeight,
+            customOutline: hostOpening?.customOutline ?? win.customOutline,
+        } as OpeningProfileInput);
+        if (!outline) {
+            console.warn(
+                `[WindowPlanSymbolBuilder] window ${win.id}: a ${profile} profile cannot be held by ` +
+                `${width} × ${height} m at sill ${sillHeight} m, so NO symbol is drawn — not a rectangle ` +
+                `in its place (C86 §10.1 WO-G-5). Resize the opening, or choose a profile its box can hold.`,
+            );
+            return 'refused';
+        }
+
+        // The outline's `y` is measured from the WALL BASE; the cut plane from the LEVEL datum.
+        // The wall base sits `baseOffset` above the level, so the plane is at `cutHeight −
+        // baseOffset` in the outline's frame. Dropping that term draws a raised wall's window
+        // cut at the wrong height — the same slab-term defect the elevation symbol records.
+        const baseOffset = Number(wallData?.baseOffset);
+        const yCut = cutHeight - (Number.isFinite(baseOffset) ? baseOffset : 0);
+        const span = planCutSpanOf(outline, yCut);
+        if (!span) {
+            console.warn(
+                `[WindowPlanSymbolBuilder] window ${win.id}: the plan cut plane (${cutHeight} m above the ` +
+                `level, ${yCut} m above the wall base) does not pass through the ${profile} opening, whose ` +
+                `ring spans ${outline.bbox.y0}–${outline.bbox.y1} m above the wall base and has no material ` +
+                `at that height. The symbol is OMITTED rather than drawn at the bounding box (C16 CA-18). ` +
+                `Move the view's cut plane (View Range → cut offset) to pass through the opening.`,
+            );
+            return 'refused';
+        }
+        if (span.crossings > 2) {
+            // A concave ring (an L, a star) can be crossed more than twice. The OUTER span is what
+            // the jamb ticks stand on — the wall really is cut there — and the solid runs INSIDE
+            // it are declared here rather than drawn, so the omission is named (C74).
+            console.warn(
+                `[WindowPlanSymbolBuilder] window ${win.id}: the cut plane crosses the ${profile} ring ` +
+                `${span.crossings} times; the symbol is set out on the outer span ${span.x0}–${span.x1} m ` +
+                `and the ${span.crossings / 2 - 1} solid run(s) inside it are NOT drawn (declared, not drawn).`,
+            );
+        }
+
+        const centre = span.x0 + (span.x1 - span.x0) / 2;
+        const base = outlineBaseRun(outline);
+        return {
+            offset: span.x0,
+            width: span.x1 - span.x0,
+            sillRun: base ? { s0: base.x0 - centre, s1: base.x1 - centre } : null,
+        };
     }
 }
 

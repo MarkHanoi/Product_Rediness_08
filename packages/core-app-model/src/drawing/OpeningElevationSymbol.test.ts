@@ -211,19 +211,146 @@ describe('§C — the symbol is PROFILE-DRIVEN, through the one outline producer
         expect(outlineOf(b).points).toEqual(outlineOf(a).points);
     });
 
-    it('the frame line of an ARCH is CONCENTRIC — proving the inset went back through the producer', () => {
-        // DIFFERENTIATING against offsetting the sampled polyline, which would NOT be concentric.
+    it('the frame line of an ARCH is the void ring moved inward by f — constant member, concentric to the mitre bound', () => {
+        // §OUTLINE82 (SPEC-WINDOW-CUSTOM-OUTLINE D9). This test USED TO assert exact concentricity
+        // (`toBeCloseTo(r, 6)`), which the record-inset path delivered. The frame line is now
+        // `insetOutlinePoints` on the producer's own ring — the same helper the 3-D frame member
+        // is built with — so the property that holds is CONSTANT MEMBER WIDTH: every frame vertex
+        // is exactly f from the void outline. Concentricity is then a CONSEQUENCE bounded by the
+        // mitre geometry, f·(1/cos(π/2n) − 1), and the bound is asserted rather than assumed.
         const door: ElevationSymbolOpening = {
             id: 'op-d', type: 'door', offset: 1.0, width: 1.0, height: 2.1, sillHeight: 0,
             openingProfile: 'round-arch',
         };
         const res = buildOpeningElevationSymbol(door, wall(0), { detail: 'fine' });
+        const voidRing = local(outlineOf(res).points);
         const frame = res.polylines.find(p => p.role === 'frame')!;
-        const pts = hv(frame.points, { x: 0, z: -1 });
-        const cx = 2 + 1.0 + 0.5, cy = 12.21 + 2.1 - 0.5;   // SAME centre as the void's head
-        const r = 0.5 - DEFAULT_FRAME_WIDTH_M;
-        for (const p of pts.filter(q => q.v > cy + 1e-9)) {
-            expect(Math.hypot(p.h - cx, p.v - cy)).toBeCloseTo(r, 6);
+        const inner = local(frame.points);
+        const f = DEFAULT_FRAME_WIDTH_M;
+        expect(inner.length).toBe(voidRing.length);
+        for (const p of inner) {
+            expect(pointInPolygon(p, voidRing)).toBe(true);
+            expect(distanceToPolygon(p, voidRing)).toBeCloseTo(f, 9);
+        }
+        // The head: concentric to within the mitre bound, and NOT better than a drawn line.
+        const cx = 1.0 + 0.5, cy = 2.1 - 0.5;
+        const headPts = inner.filter(q => q.y > cy + 1e-6);
+        const n = voidRing.filter(q => q.y > cy + 1e-9).length;          // arc samples on the head
+        const mitreBound = f * (1 / Math.cos(Math.PI / (2 * n)) - 1);
+        expect(headPts.length).toBeGreaterThan(8);
+        for (const p of headPts) {
+            const dr = (0.5 - f) - Math.hypot(p.x - cx, p.y - cy);
+            expect(dr).toBeGreaterThanOrEqual(-1e-9);
+            expect(dr).toBeLessThanOrEqual(mitreBound + 1e-9);
+        }
+        expect(mitreBound).toBeLessThan(0.001);   // the stated trade: under a drawn line's width
+    });
+});
+
+// ── §H — §OUTLINE82: the frame line is the ring moved inward, for EVERY profiled kind ──────
+//
+// `local()` inverts `toWorld` for the §H fixtures: `wall(0)` runs along +X from (2, 0) at base
+// Y 12.21 with no rake and `faceSign` 0, so wall-local (x, y) = (world.x − 2, world.y − 12.21).
+
+function local(points: readonly Vec3[]): Array<{ x: number; y: number }> {
+    return points.map(p => ({ x: p.x - 2, y: p.y - 12.21 }));
+}
+
+/** Ray-cast point-in-polygon; the polygon is implicitly closed (first vertex not repeated). */
+function pointInPolygon(p: { x: number; y: number }, ring: ReadonlyArray<{ x: number; y: number }>): boolean {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const a = ring[i]!, b = ring[j]!;
+        if ((a.y > p.y) !== (b.y > p.y)) {
+            const x = a.x + ((p.y - a.y) * (b.x - a.x)) / (b.y - a.y);
+            if (p.x < x) inside = !inside;
+        }
+    }
+    return inside;
+}
+
+/** Shortest distance from `p` to any edge of the implicitly closed `ring`. */
+function distanceToPolygon(p: { x: number; y: number }, ring: ReadonlyArray<{ x: number; y: number }>): number {
+    let best = Infinity;
+    for (let i = 0; i < ring.length; i++) {
+        const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const L2 = dx * dx + dy * dy;
+        const t = L2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2)) : 0;
+        best = Math.min(best, Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy)));
+    }
+    return best;
+}
+
+describe('§H — §OUTLINE82: the frame line is `insetOutlinePoints` of the void ring (D9)', () => {
+    it('RECTANGULAR is BYTE-IDENTICAL to the pre-§OUTLINE82 record-inset output (C86 §10.1 PR-2 pin)', () => {
+        // The pre-change formula, written out in the SAME operation order the code used, so this
+        // is a pin of the bytes that shipped — not of the new code against itself.
+        const f = DEFAULT_FRAME_WIDTH_M;
+        const offset = WINDOW.offset + f;
+        const width  = WINDOW.width - 2 * f;
+        const sill   = WINDOW.sillHeight + f;
+        const height = WINDOW.height - 2 * f;
+        const x0 = offset, x1 = offset + width, y0 = sill, y1 = sill + height;
+        const expected = [
+            { x: 2 + x0, y: 12.21 + y0, z: 0 },
+            { x: 2 + x1, y: 12.21 + y0, z: 0 },
+            { x: 2 + x1, y: 12.21 + y1, z: 0 },
+            { x: 2 + x0, y: 12.21 + y1, z: 0 },
+        ];
+        for (const profile of [undefined, 'rectangular'] as const) {
+            const res = buildOpeningElevationSymbol({ ...WINDOW, openingProfile: profile }, wall(0), { detail: 'fine' });
+            const frame = res.polylines.find(p => p.role === 'frame')!;
+            expect(frame.points).toEqual(expected);
+        }
+    });
+
+    it('a SEGMENTAL arch has its frame line strictly INSIDE the void ring, at constant member width', () => {
+        const seg: ElevationSymbolOpening = { ...WINDOW, width: 1.2, height: 1.4, openingProfile: 'segmental-arch' };
+        const res = buildOpeningElevationSymbol(seg, wall(0), { detail: 'fine' });
+        expect(res.refusal).toBeNull();
+        const ring = local(outlineOf(res).points);
+        const frame = res.polylines.find(p => p.role === 'frame');
+        expect(frame, 'a frame line must be emitted at LOD fine').toBeDefined();
+        const inner = local(frame!.points);
+        expect(inner.length).toBe(ring.length);
+        for (const p of inner) {
+            expect(pointInPolygon(p, ring)).toBe(true);
+            // CONSTANT member width along the head — the property the record inset could NOT
+            // give a segmental arch (its rise is a fraction of its width).
+            expect(distanceToPolygon(p, ring)).toBeCloseTo(DEFAULT_FRAME_WIDTH_M, 9);
+        }
+    });
+
+    it('a frame thicker than the void can hold emits NO frame line and NO substitute rectangle (WO-G-5)', () => {
+        const circ: ElevationSymbolOpening = { ...WINDOW, width: 0.3, height: 0.3, openingProfile: 'circular' };
+        const res = buildOpeningElevationSymbol(circ, wall(0), { detail: 'fine', frameWidthM: 0.2 });
+        expect(res.refusal).toBeNull();
+        expect(res.polylines.map(p => p.role)).toEqual(['void-outline']);
+    });
+
+    // §OUTLINE80 lands the `custom` kind. Until it does, `resolveOpeningProfile('custom')` falls
+    // to rectangular on the load path (by design — an unknown string must not brick a project),
+    // so this arm is gated on the producer actually returning a `custom` outline. Guarded by a
+    // string comparison rather than an imported symbol, so this file compiles on both sides.
+    const TRIANGLE = { vertices: [{ u: 0, v: 0 }, { u: 1, v: 0 }, { u: 0.5, v: 1 }] };
+    const customLanded = (() => {
+        const probe = buildOpeningElevationSymbol(
+            { ...WINDOW, openingProfile: 'custom', customOutline: TRIANGLE }, wall(0), { detail: 'coarse' },
+        );
+        return probe.refusal === null && local(outlineOf(probe).points).length === 3;
+    })();
+
+    it.skipIf(!customLanded)('a TRIANGLE (custom ring, §OUTLINE80) has its frame line strictly inside the ring', () => {
+        const tri: ElevationSymbolOpening = { ...WINDOW, openingProfile: 'custom', customOutline: TRIANGLE };
+        const res = buildOpeningElevationSymbol(tri, wall(0), { detail: 'fine' });
+        const ring = local(outlineOf(res).points);
+        const frame = res.polylines.find(p => p.role === 'frame')!;
+        const inner = local(frame.points);
+        expect(inner.length).toBe(3);
+        for (const p of inner) {
+            expect(pointInPolygon(p, ring)).toBe(true);
+            expect(distanceToPolygon(p, ring)).toBeCloseTo(DEFAULT_FRAME_WIDTH_M, 9);
         }
     });
 });

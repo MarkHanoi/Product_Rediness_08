@@ -106,7 +106,15 @@
  * @module OpeningElevationSymbol
  */
 
-import { openingOutline, resolveOpeningProfile, type OpeningProfileKind } from '@pryzm/geometry-wall';
+import {
+    openingOutline,
+    insetOutlinePoints,
+    resolveOpeningProfile,
+    type OpeningOutline,
+    type OpeningProfileInput,
+    type OpeningProfileKind,
+    type OutlinePoint,
+} from '@pryzm/geometry-wall';
 import { rakeShearPerMetre } from '@pryzm/geometry-wall';
 import type { DrawingZone } from './DrawingZone';
 import type { Vec3 } from './ElevationViewBasis';
@@ -148,6 +156,14 @@ export interface ElevationSymbolOpening {
     readonly sillHeight: number;
     /** The VOID SHAPE axis (C86 §10.1 PR-7). Absent ⇒ rectangular. */
     readonly openingProfile?: unknown;
+    /**
+     * §OUTLINE80 — the companion carrier of the `custom` kind (C86 §10.1 PR-7 as amended:
+     * ONE axis, the kind, plus its carrier). A normalised `{ vertices: {u, v}[] }` ring on the
+     * unit bounding box. Typed `unknown` here deliberately: this module hands it to the ONE
+     * producer untouched and never reads a vertex itself, so it does not import the carrier's
+     * type and cannot re-derive the ring (PR-1).
+     */
+    readonly customOutline?: unknown;
     /** The LEAF COUNT axis — orthogonal to the profile (C86 §9 WO-Voc-4). */
     readonly leafCount?: 'single' | 'double' | null;
     /**
@@ -307,13 +323,17 @@ export function buildOpeningElevationSymbol(
         };
     }
 
+    // §OUTLINE80 — `customOutline` rides along as an extra key. `OpeningProfileInput` does not
+    // declare it until lane OUTLINE80 lands; the assertion keeps this file compiling on both
+    // sides of that landing, and the producer ignores the key for every non-`custom` kind.
     const outline = openingOutline({
         profile,
         offset: opening.offset,
         width: opening.width,
         height: opening.height,
         sillHeight: opening.sillHeight,
-    });
+        customOutline: opening.customOutline,
+    } as OpeningProfileInput);
     if (!outline) {
         return {
             polylines: EMPTY,
@@ -366,23 +386,34 @@ export function buildOpeningElevationSymbol(
 
     // ── LOD 200+ — the frame line ─────────────────────────────────────────────
     //
-    // Produced by calling THE SAME `openingOutline` on an INSET record, never by offsetting the
-    // polyline. For an arc that matters: a concentric arc of radius r − f is the true parallel
-    // offset, and shrinking the record reproduces it exactly (the springing line rises by f as
-    // the radius drops by f), whereas offsetting sampled points would introduce a second, subtly
-    // different curve — the disagreement C86 §10.1 PR-1 exists to prevent.
+    // §OUTLINE82 (SPEC-WINDOW-CUSTOM-OUTLINE D9) — TWO paths, chosen by `isRectangular`, and the
+    // split is C86 §10.1 PR-2 applied literally:
+    //
+    //   · RECTANGULAR — the pre-existing path, byte-for-byte: THE SAME `openingOutline` on an
+    //     INSET record (`_insetRecord`). It is exact for a box, and keeping it is what pins every
+    //     pre-L-1200 opening's elevation unchanged.
+    //   · EVERY OTHER KIND — `insetOutlinePoints` on the producer's OWN sampled ring. This is the
+    //     helper the 3-D frame arm is built on (`OpeningProfileFrameGeometry`), so the drawn frame
+    //     line and the built frame member are the same polyline, one moved (C84 EI-11). It is the
+    //     only inset that MEANS anything for a free-form `custom` ring — there is no record to
+    //     shrink — and it is also the correct one for `segmental-arch`, whose rise is a fraction of
+    //     its WIDTH: shrinking the record there gave a SIMILAR arch, not a parallel one, so the
+    //     member's width varied along the head (the `insetOutlinePoints` header measures 50→57 mm).
+    //
+    // ⚠ What this trades, stated: for a `round-arch` / `circular` head the mitre inset of the
+    // tessellated ring is concentric only to within f·(1/cos(π/2n) − 1) — ≈ 0.2 mm at the default
+    // 2 mm sag tolerance and a 60 mm frame — where the shrunken record was concentric to the last
+    // digit. That departure is below a drawn line's width, and buying exactness there with a
+    // second inset rule per kind is the per-kind re-derivation PR-1 forbids.
     if (detail !== 'coarse' && frameW > 0) {
-        const inset = _insetRecord(opening, profile, frameW);
-        if (inset) {
-            const innerOutline = openingOutline({ profile, ...inset });
-            if (innerOutline) {
-                out.push({
-                    role: 'frame',
-                    zone: 'projection',
-                    points: innerOutline.points.map(p => toWorld(p.x, p.y)),
-                    closed: true,
-                });
-            }
+        const inner = _frameLinePoints(opening, outline, profile, frameW);
+        if (inner) {
+            out.push({
+                role: 'frame',
+                zone: 'projection',
+                points: inner.map(p => toWorld(p.x, p.y)),
+                closed: true,
+            });
         }
     }
 
@@ -438,7 +469,38 @@ export function buildOpeningElevationSymbol(
 }
 
 /**
- * The opening record, inset by `f` on every side.
+ * §OUTLINE82 — the frame line for one outline, in wall-local `(x, y)`, or `null` when the frame
+ * would collapse the void (an opening narrower than two frame widths has no visible reveal).
+ *
+ * `rectangular` takes the pre-existing record-inset path (PR-2: consumers MUST short-circuit on
+ * `isRectangular`); every other kind is the producer's own ring, offset inward by
+ * {@link insetOutlinePoints}. `null` from the inset is a REFUSAL of the member at that
+ * thickness — a spike, an inversion, or a corner too sharp — and the frame line is then simply
+ * absent, never replaced by a rectangle (C86 §10.1 WO-G-5).
+ */
+function _frameLinePoints(
+    opening: ElevationSymbolOpening,
+    outline: OpeningOutline,
+    profile: OpeningProfileKind,
+    f: number,
+): readonly OutlinePoint[] | null {
+    if (outline.isRectangular) {
+        const inset = _insetRecord(opening, profile, f);
+        if (!inset) return null;
+        const inner = openingOutline({ profile, ...inset });
+        return inner ? inner.points : null;
+    }
+    return insetOutlinePoints(outline.points, f);
+}
+
+/**
+ * The RECTANGULAR opening record, inset by `f` on every side.
+ *
+ * ⚠ **Since §OUTLINE82 this serves `rectangular` ONLY.** The paragraphs below are the argument
+ * that once justified it for every profile; they are kept because the algebra is correct and
+ * because the reason it was RETIRED for the profiled kinds — the segmental arch's rise scales
+ * with its width, so a shrunken record is a similar arch, not a parallel one, and a free-form
+ * ring has no record to shrink — is only legible against it. See `_frameLinePoints`.
  *
  * ⭐ **ONE uniform inset serves every profile, and that is a RESULT, not a convenience.** The
  * first draft special-cased the arches — *"the top of the box stays put while the sill rises, so
