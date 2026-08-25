@@ -27,7 +27,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { WallFaceResolver } from '../src/WallFaceResolver';
 import { assembleRegionBoundary } from '../src/RegionBoundarySources';
-import { wallsToAttributedSegments } from '../src/SlabRegionTracer';
+import { wallsToAttributedSegments, traceRegionSketchAtPoint } from '../src/SlabRegionTracer';
 import type { HostReferenceEdge } from '../src/SketchTypes';
 
 const MULLION = 0.08;        // CreateCurtainWallCommand.ts:162 — the real default
@@ -169,5 +169,62 @@ describe('C87 CW-Region-3 — the region assembler ATTRIBUTES the curtain wall (
         ]);
         expect(attributed[0]!.hostId).toBe('w-1');
         expect(attributed[0]!.hostType).toBe('wall');
+    });
+});
+
+describe('§CW90 item 3 — a rectangle of FOUR curtain walls yields a traceable region', () => {
+    // The founder's acceptance case, pinned end-to-end at the assembler+tracer seam:
+    // four curtain walls (no plain wall anywhere) enclose a 6x4 plate; a click inside
+    // must trace ONE region whose every edge FOLLOWS its curtain-wall host.
+    const RECT_CWS = [
+        { id: 'cw-a', baseLine: [{ x: 0, y: 0, z: 0 }, { x: 6, y: 0, z: 0 }] },
+        { id: 'cw-b', baseLine: [{ x: 6, y: 0, z: 0 }, { x: 6, y: 0, z: 4 }] },
+        { id: 'cw-c', baseLine: [{ x: 6, y: 0, z: 4 }, { x: 0, y: 0, z: 4 }] },
+        { id: 'cw-d', baseLine: [{ x: 0, y: 0, z: 4 }, { x: 0, y: 0, z: 0 }] },
+    ];
+
+    it('⭐ traces a closed region from curtain walls ALONE — no plain wall in the edge set', () => {
+        const set = assembleRegionBoundary({ curtainWalls: RECT_CWS });
+        expect(set.counts.curtainWallEdges).toBe(4);
+        expect(set.counts.walls).toBe(0);
+
+        const res = traceRegionSketchAtPoint(set.segments, 3, 2);
+        expect(res).not.toBeNull();
+        expect(res!.ring.length).toBeGreaterThanOrEqual(4);
+
+        // Every traced edge is a hostReference edge carrying the curtain-wall KIND,
+        // so the plate FOLLOWS the glazing (C87 CW-Region-3) instead of freezing.
+        const hostEdges = res!.sketch.outerLoop.edges.filter(
+            (e: any) => e.type === 'hostReference' && e.hostType === 'curtain-wall',
+        );
+        expect(hostEdges.length).toBe(4);
+        const hostIds = hostEdges.map((e: any) => e.hostId).sort();
+        expect(hostIds).toEqual(['cw-a', 'cw-b', 'cw-c', 'cw-d']);
+    });
+
+    it('a MIXED rectangle (2 walls + 2 curtain walls) traces, each edge naming its own kind', () => {
+        const set = assembleRegionBoundary({
+            walls: [
+                { id: 'w-1', baseLine: [{ x: 0, z: 0 }, { x: 6, z: 0 }] },
+                { id: 'w-2', baseLine: [{ x: 6, z: 4 }, { x: 0, z: 4 }] },
+            ],
+            curtainWalls: [
+                { id: 'cw-e', baseLine: [{ x: 6, y: 0, z: 0 }, { x: 6, y: 0, z: 4 }] },
+                { id: 'cw-f', baseLine: [{ x: 0, y: 0, z: 4 }, { x: 0, y: 0, z: 0 }] },
+            ],
+        });
+        const res = traceRegionSketchAtPoint(set.segments, 3, 2);
+        expect(res).not.toBeNull();
+
+        const kinds = res!.sketch.outerLoop.edges
+            .filter((e: any) => e.type === 'hostReference')
+            .map((e: any) => `${e.hostType}:${e.hostId}`)
+            .sort();
+        expect(kinds).toEqual(['curtain-wall:cw-e', 'curtain-wall:cw-f', 'wall:w-1', 'wall:w-2']);
+    });
+
+    it('a click OUTSIDE the curtain-wall rectangle refuses (null), not a phantom region', () => {
+        const set = assembleRegionBoundary({ curtainWalls: RECT_CWS });
+        expect(traceRegionSketchAtPoint(set.segments, 50, 50)).toBeNull();
     });
 });
