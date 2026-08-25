@@ -13,6 +13,13 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import { mat, mk, addBox, addCyl } from './FurnitureGeometryHelpers';
+// §CARPET97 (2026-08-25) — the carousel card and the rug it places are now drawn
+// by the SAME code. The three thumbnails below this import predate that and
+// hand-copy their builder's drawing; the ten new ones cannot drift by
+// construction, because they call the shared pattern library directly.
+import {
+    createCarpetTexture, CARPET_PATTERNS, type CarpetPatternId,
+} from '@pryzm/geometry-furniture';
 
 
 // ─── Parametric table thumbnails ──────────────────────────────────────────────
@@ -668,6 +675,42 @@ export function buildPatchworkCarpetThumb(g: THREE.Group): void {
     const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92 });
     mat.addEventListener('dispose', () => tex.dispose());
     const mesh = new THREE.Mesh(geom, mat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    g.add(mesh);
+}
+
+/**
+ * §CARPET97 (founder, 2026-08-25) — the thumbnail for any of the ten new
+ * procedural carpets.
+ *
+ * ONE function for all ten, because the card is drawn by the SAME pattern
+ * library the placed rug uses (`@pryzm/geometry-furniture/carpetPatterns`) at a
+ * card-sized 0.9 × 0.6 m. That is not a shortcut — it is the only way a card
+ * and the rug it places cannot drift apart, which the three hand-copied
+ * thumbnails above this one can and eventually will.
+ *
+ * The texture budget applies here too: a 0.9 × 0.6 m plan is ~230 × 154 px for a
+ * full-canvas design, and a tile for the periodic ones.
+ */
+export function buildParametricCarpetThumb(g: THREE.Group, patternId: CarpetPatternId): void {
+    const spec = CARPET_PATTERNS[patternId];
+    const isRound = spec.shape === 'round';
+    // A round rug's card is square; the rectangles keep the 3:2 registry aspect.
+    const w = isRound ? 0.7 : 0.9;
+    const l = isRound ? 0.7 : 0.6;
+
+    const made = createCarpetTexture(patternId, w, l);
+    const material = made
+        ? new THREE.MeshStandardMaterial({ map: made.texture, roughness: spec.roughness })
+        : new THREE.MeshStandardMaterial({ color: spec.bodyColor, roughness: spec.roughness });
+    // Same GPU-leak guard the runtime builders use — the map is not auto-freed.
+    if (made) material.addEventListener('dispose', () => made.texture.dispose());
+
+    const geom = isRound
+        ? new THREE.CircleGeometry(w / 2, 48)
+        : new THREE.PlaneGeometry(w, l);
+    const mesh = new THREE.Mesh(geom, material);
     mesh.rotation.x = -Math.PI / 2;
     mesh.castShadow = true; mesh.receiveShadow = true;
     g.add(mesh);

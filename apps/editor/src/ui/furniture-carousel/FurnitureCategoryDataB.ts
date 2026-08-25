@@ -208,6 +208,72 @@ export const CATEGORIES_B: readonly FurnitureCategoryDescriptor[] = [
                 defaultDimensions: { width: 3.0, length: 2.0, height: 0.004, baseOffset: 0.0 },
                 defaultMaterial: 'fabric',
             },
+            // ── §CARPET97 (founder, 2026-08-25) — ten further procedural
+            // carpets from the founder's reference photographs. Same 3.0 × 2.0 ×
+            // 0.004 default as the three above, EXCEPT the round rug: its body
+            // inscribes itself in min(width, length), so it ships a SQUARE
+            // default (2.4 × 2.4) — a 3 × 2 default would silently give a 2 m
+            // disc floating in a 3 m selection box.
+            {
+                type: 'parametric_staggered_stripe_carpet',
+                label: 'Staggered Stripe Carpet',
+                defaultDimensions: { width: 3.0, length: 2.0, height: 0.004, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+            },
+            {
+                type: 'parametric_checkerboard_carpet',
+                label: 'Checkerboard Carpet',
+                defaultDimensions: { width: 3.0, length: 2.0, height: 0.004, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+            },
+            {
+                type: 'parametric_bordered_jute_carpet',
+                label: 'Bordered Jute Carpet',
+                defaultDimensions: { width: 3.0, length: 2.0, height: 0.004, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+            },
+            {
+                type: 'parametric_braided_jute_carpet',
+                label: 'Braided Jute Carpet',
+                defaultDimensions: { width: 3.0, length: 2.0, height: 0.004, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+            },
+            {
+                type: 'parametric_colour_block_carpet',
+                label: 'Colour Block Carpet',
+                defaultDimensions: { width: 3.0, length: 2.0, height: 0.004, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+            },
+            {
+                type: 'parametric_moons_carpet',
+                label: 'Moons Carpet',
+                defaultDimensions: { width: 3.0, length: 2.0, height: 0.004, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+            },
+            {
+                type: 'parametric_round_braided_carpet',
+                label: 'Round Braided Rug',
+                defaultDimensions: { width: 2.4, length: 2.4, height: 0.004, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+            },
+            {
+                type: 'parametric_line_art_carpet',
+                label: 'Line Art Carpet',
+                defaultDimensions: { width: 3.0, length: 2.0, height: 0.004, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+            },
+            {
+                type: 'parametric_fine_stripe_carpet',
+                label: 'Fine Stripe Carpet',
+                defaultDimensions: { width: 3.0, length: 2.0, height: 0.004, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+            },
+            {
+                type: 'parametric_diamond_trellis_carpet',
+                label: 'Diamond Trellis Carpet',
+                defaultDimensions: { width: 3.0, length: 2.0, height: 0.004, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+            },
             {
                 type: 'kave_soft_rect_carpet',
                 label: 'Rectangular Rug',

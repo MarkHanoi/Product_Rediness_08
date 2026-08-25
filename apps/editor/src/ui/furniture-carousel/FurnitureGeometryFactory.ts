@@ -69,6 +69,7 @@ import {
     buildChevronCarpetThumb,
     buildPatchworkCarpetThumb,
     buildStripeCarpetThumb,
+    buildParametricCarpetThumb,
 } from './FurnitureGeometryBuildersB';
 
 // ── Plumbing sentinel helpers ─────────────────────────────────────────────────
@@ -218,6 +219,19 @@ export function buildFurnitureGeometry(
         case 'parametric_chevron_carpet':   buildChevronCarpetThumb(g);   break;
         case 'parametric_patchwork_carpet': buildPatchworkCarpetThumb(g); break;
         case 'parametric_stripe_carpet':    buildStripeCarpetThumb(g);    break;
+        // §CARPET97 (founder, 2026-08-25) — the ten new procedural carpets. All
+        // ten route through ONE thumbnail builder that calls the same pattern
+        // library the placed rug uses, so a card cannot drift from its rug.
+        case 'parametric_staggered_stripe_carpet': buildParametricCarpetThumb(g, 'staggered_stripe'); break;
+        case 'parametric_checkerboard_carpet':     buildParametricCarpetThumb(g, 'checkerboard');     break;
+        case 'parametric_bordered_jute_carpet':    buildParametricCarpetThumb(g, 'bordered_jute');    break;
+        case 'parametric_braided_jute_carpet':     buildParametricCarpetThumb(g, 'braided_jute');     break;
+        case 'parametric_colour_block_carpet':     buildParametricCarpetThumb(g, 'colour_block');     break;
+        case 'parametric_moons_carpet':            buildParametricCarpetThumb(g, 'moons');            break;
+        case 'parametric_round_braided_carpet':    buildParametricCarpetThumb(g, 'round_braided');    break;
+        case 'parametric_line_art_carpet':         buildParametricCarpetThumb(g, 'line_art');         break;
+        case 'parametric_fine_stripe_carpet':      buildParametricCarpetThumb(g, 'fine_stripe');      break;
+        case 'parametric_diamond_trellis_carpet':  buildParametricCarpetThumb(g, 'diamond_trellis');  break;
 
         // ── Fallback ─────────────────────────────────────────────────────────
         default:                    buildDefaultBox(g);

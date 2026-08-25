@@ -46,7 +46,6 @@ import {
     planCarpetTexture,
     carpetTextureBytes,
     carpetSeedFromPosition,
-    pickCarpetPatternForSeed,
 } from './carpetPatterns';
 import { createCarpetTexture } from './carpetTexture';
 import { ChevronCarpetBuilder } from './ChevronCarpetBuilder';
@@ -252,5 +251,7 @@ export function rugVarietyPool(ms: MaterialService): IFurnitureBuilder[] {
     ];
 }
 
-/** Re-exported so callers need one import for "which design does this seed give". */
-export { carpetSeedFromPosition, pickCarpetPatternForSeed };
+// NOTE: `carpetSeedFromPosition` / `pickCarpetPatternForSeed` are deliberately
+// NOT re-exported from here. The package barrel star-exports both this module
+// and `carpetPatterns`, and a name reachable through two star exports is an
+// ambiguity ESM resolves by dropping it. One home per export.
