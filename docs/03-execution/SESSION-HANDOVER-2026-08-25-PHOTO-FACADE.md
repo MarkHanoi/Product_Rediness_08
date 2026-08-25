@@ -66,3 +66,10 @@ History is local-only; nothing to force-push. Left as-is because workflows were 
 - `0b930322` S17 COLOUR stage (wall + opening colour; words win; opening colour reported not applied) — deploying.
 - L-11129: shutters/setback/rounded corners scoped honestly; rounded corners FEASIBLE (curved walls exist) — needs arc-fitting in the shell builder.
 - NXT audit still quota-blocked; resume `wf_39ea973c-a13` after 18:00 London.
+
+## UPDATE 15:20 — credits restored; parallel lanes
+- LIVE `1329a3a4`: colour-from-photo (S17) + rounded corners (first version). Committed after: `8a52e3cd` BUILDING TYPE pill (top, select + Do it myself) — awaiting UXPILL70 placement before deploy; `19532558`/`99675f33` ARCS66: shellArcs heuristic REPLACED by §L965 `resolveBoundarySegments` (exact), chain proven on composeRuntime through the chat entry (2 curved walls/storey, control 1e-6). L-11170..L-11175.
+- Running: SOFFIT67 (L-11124 soffit segments), SMALLPLATE68 (single-core small-plate typology + ADR), ASKFOOT69 (L-11066 ask boundary vs parcel), UXPILL70 (pill alignment/a11y), MASSCURVE71 (L-11172 Cesium massing draws chords of curved walls).
+- NXT audit workflow KILLED at the founder's request — do not resume.
+- OPEN DECISION for the founder: lift the hold on upper-floor window rhythm from the photo (the biggest remaining gap to "as close as possible", +2–3 days).
+- Founder's stated goal (yardstick): parcel → boundary line → chat + photo → "generate a 6-storey residential building on the boundary line with the facade as per the attached photo" → a building recognisably like the photo's main facade.
