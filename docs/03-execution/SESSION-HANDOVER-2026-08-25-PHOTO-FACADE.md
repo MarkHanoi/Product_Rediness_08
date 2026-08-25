@@ -40,3 +40,9 @@ The chain photo→…→wall store is PROVEN by execution (verification workflow
 
 ## Session totals
 7 deploys (all bundle-proofed 7/7 or 5/5 PASS), live = `862f58c5`. Lanes: CHATPHOTO57, CHATATTACH58, CHATAXIS59, FACADEREAL60 (lattice 2×2→7×5, arches 0→5, corpus 41/41), LEVELHEIGHT61 (plan clip literal 3.0 fixed), BLSTORE62 (composeRuntime dropped 29 plugin stores), MILESTONE2-63 (openings→windows ground leg, archness→profiles, arcade-vs-curtain). Verification: chain SOUND / runtime SOUND / tests+honesty DEFECT_FOUND (see above).
+
+## Late additions (final 2%)
+- `4ebc87af` finish-host-tracker orphan COMPLETED (resized/reshaped/unchanged verbs; conflicted staleness quoted; 54/54, pkg tsc clean). WD32 probe committed 2 pass + 1 SKIPPED WITH REASON (setup weld yields 1 wall, expected 2 -> divergence UNPROVEN).
+- `5e4cc138` FACADECAL64 phase 1 LANDED: case M reproduces the founder's photo defects synthetically -- phantom bay from the feature strip + archness 1.00 on 30 rectangular windows, PINNED. Phase 2 (fixes) may still be running -- check wf_e0cda35a and HONESTY65 wf_8cc4b0a5; generationChatSeam.ts has an in-flight modification from HONESTY65.
+- Left untracked deliberately: generator (empty stray), README.md (skeleton), probe*.mts (probes are not the package, precedent 031c3527).
+- NEXT SESSION: root tsc BEFORE any deploy -- late commits were package-gated only.
