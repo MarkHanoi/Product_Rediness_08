@@ -2024,6 +2024,19 @@ export class OnboardingStepController {
         // and explicitly asked to generate.
         const deferToOfficeSetup = this.isOfficeTypology();
 
+        // §L-11131 — RETAINED, UNREFERENCED BY THE COMPACT PILL (founder: delete nothing that
+        // might be in use). The old confirm card's chooser, copy and advisory members and the
+        // two route deferrals above are read here ONCE so root tsc (`noUnusedLocals`, the
+        // deploy gate — L-11207) stays green without deleting them. The pill re-derives both
+        // routes in `go()` at choose time and never calls the chooser or the advisory. Same
+        // idiom as the existing `void this.contextWarm;` earlier in this file.
+        void confirmCopyFor;
+        void deferToResidentialSetup;
+        void deferToOfficeSetup;
+        void this.pendingChooserFocus;
+        void this.buildTypologyChooser;
+        void this.zoningAdvisory;
+
         const body = this.clearBody();
         // §UX-COMPACT-TYPE-PILL (founder 2026-08-25: "this panel 'set up your project' is
         // terrible — make it much simpler and on the top, following the standard
