@@ -482,6 +482,11 @@ async function bootPlatform(): Promise<void> {
     // consumer is `workspaceMount.{ensure,show}()` on the project-open click,
     // and both gate on `_heavyWiringDone`.
     PlatformRouter.start(runtime);
+    // §PERF100 (L-11440) — `runtime:composed → platform:router-started` is the router's
+    // OWN synchronous mount (landing / hub / auth decision + DOM). It was inside the
+    // founder's unmarked 44.2 s hole with everything else; separating it is what lets the
+    // next reading say "the hole is hub work" rather than "the hole is somewhere in here".
+    markStartupPhase('platform:router-started');
 
     // ── PHASE B: deferred heavy wiring (background) ───────────────────────────
     // Yield two animation frames so the browser commits a paint of the landing
@@ -624,6 +629,14 @@ async function bootPlatform(): Promise<void> {
         void import('@app/rendering/rendererPrewarm').then(({ prewarmRenderer }) => {
             prewarmRenderer();
         }).catch(() => { /* pre-warm is best-effort; fallback in initScene.ts */ });
+
+        // §PERF100 (L-11440) — ⭐ WHEN the Wave-1.5 wiring ACTUALLY finished, as opposed to
+        // when someone awaited it. `boot:heavy-wiring-done` reads +0 ms whenever the wiring
+        // resolved BEFORE the click, which is the common case and is exactly why that mark
+        // EXONERATES this work rather than measuring it. This mark measures it: read
+        // `platform:router-started → wiring:heavy-resolved` for the real cost of the
+        // 2,433-LOC PlatformShell construction plus the four singleton hand-offs.
+        markStartupPhase('wiring:heavy-resolved');
     })();
 }
 

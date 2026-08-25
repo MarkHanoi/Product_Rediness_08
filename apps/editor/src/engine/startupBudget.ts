@@ -66,12 +66,45 @@
 //     it against `boot:ui-done`: that gap is O10, the snapshot hydrate, and it is the leg that
 //     decides whether ADR-0369 §7 Stage 3 (boot less) is the whole answer or only half of it.
 //
+// ⭐ ADDED 2026-08-25 (lane PERF100, §PERF100-OPEN-IS-NOT-THE-LIST, L-11440) — the HUB family,
+// because the founder's *"only 151 elements but it takes a few minutes to open"* run put
+// **44,230 ms** between `runtime:composed` and `boot:ensure-requested` with NOTHING named inside
+// it. His own reading already exonerated two suspects — `boot:heavy-wiring-done +0ms` (Wave 1.5)
+// and `boot:engine-start 532ms` + `boot:scene-done 608ms` (the engine and the 151 elements) — so
+// the hole was, by elimination, the PROJECT HUB. But elimination is not attribution, and this
+// vocabulary could not tell the two apart:
+//
+//   · platform:router-started — `PlatformRouter.start()`'s own synchronous mount.
+//   · hub:mount-start · hub:warm-start · hub:warm-thumbs-done · hub:grid-painted ·
+//     hub:warm-versions-done — the two IndexedDB migrations and the first grid paint.
+//     `hub:warm-versions-done` is the whole-corpus version-mirror warm: it reads EVERY project's
+//     entire compressed container, and NOTHING on the open path needs another project's history.
+//   · hub:sync-start · hub:sync-fetch-done · hub:sync-thumbs-done · hub:sync-residency-done ·
+//     hub:sync-done — the four legs of `ProjectHub.syncFromServer`: the server list PAGE, the
+//     thumbnail residency reconcile (47 rows on his run), the local-only residency audit (77 ids),
+//     and the single batched index write.
+//   · wiring:heavy-resolved — when the Wave-1.5 wiring ACTUALLY finished, not when it was awaited.
+//
+//   · ⭐ hub:open-clicked — THE ONE THAT MATTERS MOST, and the reason the old reading was
+//     unattributable IN PRINCIPLE rather than merely unmeasured. A hub that paints in 300 ms and
+//     then waits 43 s for the user to choose a card emits the SAME `runtime:composed` /
+//     `boot:ensure-requested` pair as a hub that blocks the main thread for 44 s. Human dwell and
+//     machine work were the same value — §CONTEXT-DATA-HONESTY, applied to a stopwatch. This mark
+//     splits them: everything before it is hub work ∥ human dwell; everything after it is machine
+//     work on the critical path of opening ONE project, and only that half is a perf defect.
+//     ⛔ Never quote the `runtime:composed → boot:ensure-requested` span as a cost again without
+//     `hub:open-clicked` in the same run. Say which half you measured.
+//
 // ⛔ These are MARKS, not gates. Adding one must never change what runs or in what order — the
 // "passive mark recorder" clause above is the whole contract of this module.
 //
 // ⚠ THE VOCABULARY IS NOW COMPLETE ACROSS THE FOUNDER'S INTERVAL, in this order on a cold
 // onboarding run: onboarding:shown → cesium:warm-start → globe:prewarm-start/-done →
-// runtime:composed → boot:ensure-requested → boot:heavy-wiring-done → boot:engine-start →
+// runtime:composed → platform:router-started → hub:mount-start → hub:warm-start →
+// hub:warm-thumbs-done → hub:grid-painted → hub:warm-versions-done → hub:sync-start →
+// hub:sync-fetch-done → hub:sync-thumbs-done → hub:sync-residency-done → hub:sync-done →
+// (wiring:heavy-resolved, whenever it lands) → hub:open-clicked → open:router-launch →
+// open:persistence-openProject → boot:ensure-requested → boot:heavy-wiring-done → boot:engine-start →
 // boot:scene-done → boot:builders-done → boot:tools-done → boot:bus-handlers-done →
 // boot:data-platform-done → boot:ui-done → globe:eager-init-start/-done → open:project-loaded →
 // location-step:open → geocode:start/end → context-warm:start/done → flight:parcel-arrival →

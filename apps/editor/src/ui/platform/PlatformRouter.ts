@@ -589,6 +589,9 @@ export class PlatformRouter {
         // Duplicate element ids also make `querySelector('#ph-grid')` answer about
         // the WRONG hub, which is how the surviving one would win the click.
         this.hub?.destroy();
+        // §PERF100 (L-11440) — the hub CONSTRUCTOR kicks off `_warmThenSync`, so this mark
+        // is the start of every leg of hub work the founder's 44.2 s hole contained.
+        markStartupPhase('hub:mount-start');
         this.hub = new ProjectHub(this.root, user, {
             onOpenProject: (projectId: string, projectName: string, opts?: { isNewProject?: boolean }) => {
                 this.launchWorkspace(projectId, projectName, opts);
@@ -1052,6 +1055,10 @@ export class PlatformRouter {
         }
         this._openGestureProjectId = projectId;
 
+        // §PERF100 (L-11440) — the router leg. `hub:open-clicked → open:router-launch` is
+        // the delegated-click dispatch + the gesture latch; everything after this is the
+        // open pipeline proper.
+        markStartupPhase('open:router-launch');
         console.log(`[PlatformRouter] Opening project: "${projectName}" (${projectId})${opts?.isNewProject ? ' [new]' : ''}`);
 
         // §L-1186 — DECLARE THE APP PHASE FOR THIS OPEN GESTURE, before anything mounts.
@@ -1208,6 +1215,13 @@ export class PlatformRouter {
                 name: projectName,
                 ...(opts?.isNewProject ? { isNewProject: true } : {}),
             };
+            // §PERF100 (L-11440) — `open:persistence-openProject → boot:ensure-requested`
+            // is `buildPersistence.openProject` STEP 1 alone: the project-summary resolve,
+            // which calls `controller.refresh()` (a server list round-trip) whenever
+            // `projectListStore` is still empty. That leg cannot be marked from inside
+            // `packages/runtime-composer` without an L3→L7 import, so it is bracketed from
+            // here (its only caller) instead.
+            markStartupPhase('open:persistence-openProject');
             await this.runtime.persistence.openProject(projectId, hint);
 
             // Hide the platform root so the editor canvas owns the viewport.

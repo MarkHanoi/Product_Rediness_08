@@ -47,6 +47,13 @@ import { OwnerSettingsPanel } from './OwnerSettingsPanel';
 import type { ProjectSummary } from '@pryzm/stores';
 import { renderShell as phRenderShell, renderSidebar as phRenderSidebar, sectionLabel as phSectionLabel, renderGrid as phRenderGrid } from './ProjectHubTemplates';
 import { generateUntitledSiteName } from './projectAutoName';
+// §STARTUP-BUDGET (L-10722) / §PERF100 (L-11440) — the EXISTING instrument, not a rival
+// timer. The founder's 2026-08-25 log had a 44.2 s hole between `runtime:composed` and
+// `boot:ensure-requested` with NOTHING named inside it, and everything the console showed
+// happening in there was hub work. These marks bracket every leg of that work so the next
+// reading names the culprit instead of leaving it to inference. ⛔ Marks only — no leg is
+// gated, delayed, retried or skipped because of one.
+import { markStartupPhase } from '../../engine/startupBudget';
 
 const _tracer = trace.getTracer('pryzm.platform.projectHub');
 
@@ -185,17 +192,21 @@ export class ProjectHub {
         // `bim-projects-index` vs `pryzm-project-versions` +
         // `bim-project-<id>-versions`), so running them concurrently is safe, and
         // `syncFromServer()` still runs only after BOTH have settled.
+        markStartupPhase('hub:warm-start');
         const versionWarm = warmVersionCache().catch(() => { /* non-fatal — server version fallback covers cold reads */ });
         const thumbWarm = warmThumbnailCache().catch(() => { /* non-fatal — server thumbnailUrl / placeholder still render */ });
 
         // Repaint the moment the previews are available, WITHOUT waiting for the
         // version history. This is the line that removes the flash.
         await thumbWarm;
+        markStartupPhase('hub:warm-thumbs-done');
         this.refreshGrid();
+        markStartupPhase('hub:grid-painted');
 
         // Sync projects from server AFTER both warms so the reconcile pass sees
         // the migrated (lean) index. Sync also fills localStorage across sessions.
         await versionWarm;
+        markStartupPhase('hub:warm-versions-done');
         await this.syncFromServer();
     }
 
@@ -238,8 +249,10 @@ export class ProjectHub {
      * with local versions are preserved for offline) are unchanged.
      */
     private async syncFromServer(): Promise<void> {
+        markStartupPhase('hub:sync-start');
         try {
             const reading = await this._fetchSummaries();
+            markStartupPhase('hub:sync-fetch-done');
             if (reading === null) return;
             const { summaries, completeness } = reading;
 
@@ -303,6 +316,8 @@ export class ProjectHub {
                     });
                 }
             }
+
+            markStartupPhase('hub:sync-thumbs-done');
 
             // ── Add / update entries from the server ──────────────────────────
             for (const s of summaries) {
@@ -419,6 +434,8 @@ export class ProjectHub {
                 console.log(`[ProjectHub] Purging empty stale local project ${lp.id} (not on server, no local data, index agrees)`);
                 deleteIds.push(lp.id);
             }
+
+            markStartupPhase('hub:sync-residency-done');
 
             if (refusedToPurge.length > 0) {
                 console.warn(
@@ -559,6 +576,8 @@ export class ProjectHub {
             if (errBody) {
                 console.warn('[ProjectHub] server response body:', errBody);
             }
+        } finally {
+            markStartupPhase('hub:sync-done');
         }
     }
 
@@ -1962,6 +1981,19 @@ export class ProjectHub {
     // ── Open project ──────────────────────────────────────────────────────────
 
     private openProject(id: string, name: string, opts?: { isNewProject?: boolean }): void {
+        // §PERF100 (L-11440) — ⭐ THE MARK THAT SEPARATES THE HUMAN FROM THE MACHINE.
+        //
+        // The founder's 44.2 s hole runs from `runtime:composed` to `boot:ensure-requested`,
+        // and NOTHING in the vocabulary distinguished "the app was busy" from "the app was
+        // waiting for the user to pick a card". Every reading of that hole before this mark
+        // was therefore unattributable in principle, not merely unmeasured: a hub that
+        // painted in 300 ms and then sat idle for 43 s produces the SAME two marks as one
+        // that blocked the main thread for 44 s. This is the boundary between them.
+        //   • runtime:composed → hub:open-clicked  = hub work ∥ human dwell (NOT a defect
+        //     by itself — read `hub:sync-done` against it to see which).
+        //   • hub:open-clicked → boot:ensure-requested = machine work on the CRITICAL PATH
+        //     of opening ONE project. This is the only half a perf fix can shrink.
+        markStartupPhase('hub:open-clicked');
         const card = this.el.querySelector(`[data-project-id="${id}"]`) as HTMLElement | null;
         if (card) {
             card.style.opacity = '0.6';
