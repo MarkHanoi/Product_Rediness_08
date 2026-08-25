@@ -93,8 +93,26 @@ export type BaseScopeDescriptor =
   /** Elements in a room, by room reference (name or occupancy — the U2.2
    *  RoomStore predicates). */
   | { readonly kind: 'room'; readonly roomRef: string; readonly elementKind?: string }
-  /** Exterior walls facing a compass direction (θ-threaded, U2.1). */
-  | { readonly kind: 'orientation'; readonly orientation: Compass4 };
+  /**
+   * Exterior walls facing a compass direction (θ-threaded, U2.1) — or, when
+   * `elementKind` names a HOSTED OPENING, the openings cut into those walls.
+   *
+   * ⭐ §CHAT-ORIENTATION-HOSTED-OPENINGS (L-10946) — `elementKind` is what
+   * makes "all windows in the south facade" expressible. Without it this
+   * descriptor could only ever answer with WALL ids, so a window capability
+   * scoped this way would have resized WALLS — which is exactly why
+   * `DimensionFamilies` declared `spatialKinds: ['level','room']` and said so
+   * out loud rather than claiming reach that existed only as a defect
+   * (C68 §6.3-G3).
+   *
+   * ⛔ ABSENT still means WALLS, byte-identically to the pre-L-10946 reading, so
+   * every existing caller keeps its exact previous answer. The definition of the
+   * hop is inherited, not invented: **an opening faces where its host wall
+   * faces** — a window has no independent facade — so the compass math, the
+   * ±45° quadrant tolerance and the true-north threading all stay
+   * `FacadeOrientationMath`'s, with no second constant anywhere.
+   */
+  | { readonly kind: 'orientation'; readonly orientation: Compass4; readonly elementKind?: string };
 
 /** RAC U8.1 — a base scope NARROWED by predicates. */
 export interface FilterScopeDescriptor {

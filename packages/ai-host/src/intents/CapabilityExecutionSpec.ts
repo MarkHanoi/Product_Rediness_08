@@ -79,6 +79,13 @@ import {
   dimensionFamilySpec,
   type DimensionFamilyIntentId,
 } from './DimensionFamilies.js';
+// §CHAT-OPENING-SHAPE (L-10945) — the SHAPE families, DERIVED from their table
+// rather than re-listed here, for the reason the catalogue block below records.
+import {
+  OPENING_SHAPE_FAMILIES,
+  openingShapeFamilySpec,
+  type OpeningShapeFamilyIntentId,
+} from './OpeningShapeFamilies.js';
 import type {
   BusCommandRef,
   ResolverContext,
@@ -124,6 +131,13 @@ export type SpecDrivenIntentId =
   // — a mass RESIZE is not a gesture whose extent is obvious from the sentence,
   // so the Confirm card must state a real count before consent.
   | DimensionFamilyIntentId
+  // ⭐ §CHAT-OPENING-SHAPE (L-10945) — the founder's "change all windows to
+  // segmental type", generated from OpeningShapeFamilies.ts. What makes these
+  // different from every spec above is that the value source is a CLOSED ENUM
+  // shipped in @pryzm/geometry-wall rather than an injected project catalogue,
+  // and that the enum carries a per-family LEGALITY RULE (a door may not be
+  // circular) the value stage states BY NAME instead of dropping the ask.
+  | OpeningShapeFamilyIntentId
   | 'add-wall-layer'
   // §FEAT-WALL-SIDE-FINISH — the founder's per-side finish ask. Sibling of
   // 'add-wall-layer', NOT a replacement: that one ADDS a construction layer
@@ -494,6 +508,18 @@ export const EXECUTION_SPECS: SpecTable = {
   ...(Object.fromEntries(
     CATALOGUE_FAMILIES.map((f) => [f.intent, catalogueFamilySpec(f)]),
   ) as unknown as Pick<SpecTable, CatalogueFamilyIntentId>),
+
+  // ── §CHAT-OPENING-SHAPE (L-10945) — the SHAPE families, generated ─────────
+  //
+  // "change all windows to segmental". Same generation seam as the catalogue
+  // families above and the same double check on it. What the generator ADDS
+  // here is a value stage whose source is a CLOSED ENUM rather than an injected
+  // catalogue, and a per-family LEGALITY gate: a door may not be circular
+  // (§OPENING-PROFILE-BY-FAMILY, L-1251), and the refusal states the RULE
+  // rather than dropping the ask.
+  ...(Object.fromEntries(
+    OPENING_SHAPE_FAMILIES.map((f) => [f.intent, openingShapeFamilySpec(f)]),
+  ) as unknown as Pick<SpecTable, OpeningShapeFamilyIntentId>),
 
   // ── RAC U9.2 — the DELETE FAMILIES, generated ─────────────────────────────
   //
@@ -929,7 +955,14 @@ export function applyExecutionSpec(
     } else if (base.kind === 'room') {
       baseDescriptor = { kind: 'room', roomRef: base.roomRef, elementKind: kind };
     } else {
-      baseDescriptor = { kind: 'orientation', orientation: base.orientation };
+      // ⭐ §CHAT-ORIENTATION-HOSTED-OPENINGS (L-10946) — the capability's own
+      // kind travels with the compass direction, so the resolver can answer
+      // "the south facade" with the WINDOWS cut into the south-facing walls
+      // rather than with the walls. Before this field existed the descriptor
+      // could only mean walls, which is why the dimension families declared
+      // `spatialKinds: ['level','room']` and named the gap rather than claiming
+      // reach that existed only as a defect.
+      baseDescriptor = { kind: 'orientation', orientation: base.orientation, elementKind: kind };
     }
     const descriptor: ScopeDescriptor = scope.kind === 'filter'
       ? { kind: 'filter', base: baseDescriptor, filters: scope.filters, elementKind: kind }

@@ -161,3 +161,130 @@ export function isHostDerivedKind(rows: readonly LevelBearingRow[]): boolean {
   }
   return sawHost;
 }
+
+// ─── §CHAT-ORIENTATION-HOSTED-OPENINGS (L-10946) ─────────────────────────────
+//
+// ⭐ THE FOUNDER TYPED **"Make all windows in the south facade 0.1 meters sill
+// height, 3 meters height and 1.5 meters wide"** and was told *"I can't find a
+// room 'south'"*.
+//
+// Two things were wrong, one grammar and one semantic, and they had to be fixed
+// in different files:
+//
+//   1. The shared scope tail had no compass noun class, so "south facade" fell
+//      through to ROOM. Fixed in `SpatialScopeTail.readSpatialTail`.
+//   2. ⭐ THE ORIENTATION SCOPE COULD ONLY EVER MEAN WALLS. The editor's arm
+//      answers a compass direction with `facadesByOrientation(...)` → WALL ids,
+//      so a window capability scoped that way would have resized WALLS.
+//      `DimensionFamilies` records that in as many words and declares
+//      `spatialKinds: ['level','room']` rather than claiming reach that exists
+//      only as a defect — *"declaring reach no sentence can reach is the same
+//      lie in the other direction"* (C68 §6.3-G3).
+//
+// That second half is this function. It is the HOP, not a second orientation
+// arm: the caller still resolves the facade through the ONE θ-threaded
+// `FacadeOrientationService`, and this maps the wall ids it returns to the
+// openings hosted in them.
+//
+// ── THE DEFINITION, STATED EXPLICITLY ───────────────────────────────────────
+//
+// **AN OPENING FACES WHERE ITS HOST WALL FACES.** A window has no independent
+// facade — it is a void cut through one wall, and its outward direction IS that
+// wall's. So:
+//
+//   • the compass math is `FacadeOrientationMath.orientationFromNormal`'s, not
+//     a second implementation;
+//   • the TOLERANCE is that function's ±45° QUADRANT, so the four directions
+//     partition the circle and every exterior wall has exactly one — a wall 35°
+//     off south IS south. ⛔ No tolerance constant is declared here, because a
+//     second one would be a second answer to one question;
+//   • a CURVED or FACETED facade is answered PER WALL: each segment classifies
+//     on its own normal, so a faceted bay contributes its south-ish segments and
+//     not its east-ish ones, and the openings follow their own segment.
+//
+// ⛔ AN OPENING WHOSE HOST WALL IS NOT IN THE FACADE SET IS SIMPLY NOT IN
+// SCOPE — that is an ordinary non-match, not a skip. What IS a counted skip is
+// an opening whose host wall the model no longer holds: its orientation is
+// UNKNOWN, and unknown is not "not south" (§CONTEXT-DATA-HONESTY, the same
+// distinction the level arm above exists for).
+
+export type HostedOrientationResolution =
+  | { readonly kind: 'resolved'; readonly ids: readonly string[]; readonly skipped: readonly ScopeSkip[] }
+  | { readonly kind: 'refused'; readonly error: string };
+
+/**
+ * Resolve "the `kind`s on the <compass> facade" from element rows, deriving a
+ * hosted opening's facade through its host wall.
+ *
+ * @param kind        element kind, for refusal/skip copy ("window").
+ * @param rows        every row of that kind in the project.
+ * @param facadeWallIds  the wall ids the facade service classified as facing
+ *                    this direction. EMPTY means the caller already refused;
+ *                    it is never conflated with "unknown" here.
+ * @param compassWord the direction as a word ("south"), for copy.
+ * @param wallExists  does the model still hold this wall? `null` ⇒ there is no
+ *                    wall store at all (REFUSE); `true`/`false` ⇒ a fact.
+ */
+export function resolveOrientationScopeByHost(
+  kind: string,
+  rows: readonly LevelBearingRow[],
+  facadeWallIds: readonly string[],
+  compassWord: string,
+  wallExists: (wallId: string) => boolean | null,
+): HostedOrientationResolution {
+  const facade = new Set(facadeWallIds);
+  const ids: string[] = [];
+  let orphaned = 0;
+  let unplaceable = 0;
+  let noWallStore = false;
+
+  for (const row of rows) {
+    const host = typeof row.wallId === 'string' ? row.wallId.trim() : '';
+    if (host.length === 0) {
+      // No host wall recorded: which way this opening faces is not KNOWN.
+      // Absence of a fact is not the fact "not on the south facade".
+      unplaceable += 1;
+      continue;
+    }
+    if (facade.has(host)) { ids.push(row.id); continue; }
+    // Not in the facade set. Before calling that a non-match, check the host is
+    // actually in the model — a wall the store no longer holds could not have
+    // been classified at all, and reporting it as "faces another way" would be
+    // a claim nobody measured.
+    const exists = wallExists(host);
+    if (exists === null) { noWallStore = true; break; }
+    if (!exists) { orphaned += 1; continue; }
+    // A real wall that faces another way (or is interior). An ordinary
+    // non-match — deliberately NOT a skip, or every project-wide facade ask
+    // would report thousands of them.
+  }
+
+  if (noWallStore) {
+    return {
+      kind: 'refused',
+      error:
+        `I can't tell which ${kind}s are on the ${compassWord} facade — a ${kind} faces the way ` +
+        `the wall that hosts it faces, and the wall store isn't available here. Nothing was ` +
+        `changed, and nothing about the model is confirmed.`,
+    };
+  }
+
+  const skipped: ScopeSkip[] = [];
+  if (orphaned > 0) {
+    skipped.push({
+      kind,
+      count: orphaned,
+      reason:
+        `the host wall is no longer in the model, so which way they face is unknown — ` +
+        `they were NOT included`,
+    });
+  }
+  if (unplaceable > 0) {
+    skipped.push({
+      kind,
+      count: unplaceable,
+      reason: `no host wall is recorded for them, so which way they face could not be decided`,
+    });
+  }
+  return { kind: 'resolved', ids, skipped };
+}

@@ -293,6 +293,15 @@ const VALUE_SOURCE_PHRASE: Readonly<Record<CapabilityValueSource, string>> = {
   // resolver cannot reach.
   'stair-types': 'a BUILT-IN stair type NAME ("Monolithic Concrete", "Steel Open Riser")',
   'handrail-types': "a railing type NAME from the project's railing catalogue (\"Frameless Glass Balustrade\")",
+  // ⭐ §CHAT-OPENING-SHAPE (L-10945) — the phrase NAMES ITS FOUR MEMBERS, and the
+  // difference from `enumeration` above (which deliberately does NOT name its list) is
+  // the reason this is a source of its own: the profile axis is a CLOSED enum shipped in
+  // @pryzm/geometry-wall, identical in every project, so naming it in the prompt cannot
+  // drift from a project catalogue — there is no project catalogue. ⚠ The per-family
+  // legality (a door may not be circular) is deliberately NOT in the phrase: it is
+  // enforced in the value stage with its geometric reason, and a prompt hint would be a
+  // second, weaker copy of a rule that must refuse rather than merely discourage.
+  'opening-shapes': "ONE of the four opening shapes — Rectangular, Arched, Segmental or Circular — copy the word the user said through verbatim",
   // §FEAT-CHAT-LIGHTING-TYPES (L-10220). ⭐ "the catalogue" and not "the
   // project's": BUILT_IN_LIGHTING_TYPES is the WHOLE accepted set here, because
   // element.changeType's lighting branch validates against that same table. The

@@ -200,6 +200,24 @@ export type CapabilityValueSource =
    * through it is NaN and the refusal then names the wrong problem (§L-3203 records that
    * failure from the other direction — a unitless 20 read as twenty METRES).
    */
+  /**
+   * ⭐ §CHAT-OPENING-SHAPE (L-10945) — the opening PROFILE axis:
+   * `OPENING_PROFILE_KINDS` (@pryzm/geometry-wall), four values, resolved by the
+   * ONE token vocabulary in `intents/OpeningShapeVocabulary.ts`.
+   *
+   * ⛔ A MEMBER OF ITS OWN, not folded into `enumeration`, and the difference is
+   * the same one that separates the catalogue sources from each other: this axis
+   * is a CLOSED ENUM shipped in geometry-wall, identical in every project and
+   * needing no injection — while `enumeration` is specifically the property
+   * vocabulary's `enumSpoken` table, which this is not in. Calling it a project
+   * catalogue would claim an injection channel it does not use; calling it free
+   * text would throw away the refusal that lists the four real names.
+   *
+   * ⚠ It also carries a per-FAMILY legality rule no other value source has — a
+   * door may not be circular (§OPENING-PROFILE-BY-FAMILY, L-1251) — which the
+   * value stage states BY NAME rather than dropping.
+   */
+  | 'opening-shapes'
   | 'enumeration';
 
 export interface ChatCapabilityParameter {
@@ -2342,6 +2360,115 @@ const CAPABILITIES: readonly ChatCapability[] = [
       'change all doors to white primed softwood',
       'change the door type to glazed timber',
       'convert the selected doors to fire door fd30',
+    ],
+  },
+  {
+    id: 'set-window-shape',
+    // ⭐⭐ §CHAT-OPENING-SHAPE (L-10945) — THE FOUNDER'S REFUSAL, CLOSED.
+    //
+    // He typed "change all windows to segmental type" and was told *"There is no
+    // window type called 'segmental type' in this project"*. There is not, and
+    // there never will be: "segmental" is not a TYPE, it is an opening PROFILE.
+    // The profile axis has been complete since L-1200/L-1250 — four values,
+    // family-aware, cut by WallHoleBodyBuilder, framed by
+    // OpeningProfileFrameGeometry, on both mode bars — and EDITABLE on an
+    // already-placed opening since L-1252. The capability existed; only the
+    // vocabulary was missing, so an entire axis was invisible to a sentence.
+    //
+    // Rides element.updateOpeningProfileBatch → UpdateOpeningProfileBatchCommand,
+    // which composes the LIVE UpdateWindowParameterCommand — the only route that
+    // carries a profile all the way to `wall.openings[]`, the record every
+    // wall-body arm consumes. A write that stopped at the windowStore would leave
+    // the wall cutting a rectangle under a curved frame (C86 §11 #1).
+    description: 'change the shape of a window opening (rectangular / arched / segmental / circular)',
+    verbs: ['change', 'set', 'convert', 'swap', 'make', 'turn', 'reshape'],
+    aliases: ['window shape', 'opening shape', 'opening profile', 'window head'],
+    refusalLabel: 'opening shape',
+    targets: ['window'],
+    parameters: [
+      {
+        name: 'shape',
+        description: 'the opening shape: Rectangular, Arched, Segmental or Circular',
+        required: true,
+        valueSource: 'opening-shapes',
+        example: 'segmental',
+      },
+    ],
+    scope: 'all',
+    // ⭐ ORIENTATION IS DECLARED, and it is real: §CHAT-ORIENTATION-HOSTED-OPENINGS
+    // (L-10946) teaches the scope resolver to answer "the south facade" with the
+    // OPENINGS hosted in the south-facing walls. Declaring it without that hop
+    // would have meant reshaping WALL ids — reach that exists only as a defect
+    // (C68 §6.3-G3), which is why DimensionFamilies declares only level+room.
+    scopeModes: ['all', 'selection', 'level', 'room', 'orientation'],
+    destructive: false,
+    busCommand: 'element.updateOpeningProfileBatch',
+    probe: { intent: 'set-window-shape', shapeRef: 'segmental', scope: 'selection' },
+    commandProof: [
+      {
+        file: 'plugins/view/src/handlers/UpdateOpeningProfileBatch.ts',
+        mustMention: ['element.updateOpeningProfileBatch', 'commandManager', 'affectedStores: [] as const'],
+        note: 'The LIVE route: a legacy bridge (commandManager + empty affectedStores — undo lives on the legacy stack) forwarding to UpdateOpeningProfileBatchCommand, so N reshapes are ONE undo entry instead of N.',
+      },
+      {
+        file: 'packages/command-registry/src/generic/UpdateOpeningProfileBatchCommand.ts',
+        mustMention: ['UpdateWindowParameterCommand', 'UpdateDoorParameterCommand', 'skipped'],
+        note: 'Composes the live single-opening route rather than re-implementing it: that command carries the updateOpening hop to wall.openings[], the circular box-squaring (width IS the diameter, PR-8) and openingProfileRefusal — the ONE gate the builders obey.',
+      },
+    ],
+    examples: [
+      'change all windows to segmental',
+      'change all windows to arched',
+      'make all windows circular',
+      'change all windows on level 2 to segmental',
+    ],
+  },
+  {
+    id: 'set-door-shape',
+    // §CHAT-OPENING-SHAPE (L-10945) — the door half. Same table, same generated
+    // spec, same bus verb.
+    //
+    // ⛔ A DOOR MAY NOT BE CIRCULAR (§OPENING-PROFILE-BY-FAMILY, L-1251), and the
+    // reason is GEOMETRY rather than taste: a door reaches the floor, so its
+    // opening is a NOTCH in the wall's outer profile rather than a closed hole,
+    // and a circle has no jamb feet for the notch walk to traverse. The value
+    // stage refuses it BY NAME with that rule and the three legal alternatives —
+    // never a silent drop. `targets` is doors only, so the claim surface matches.
+    description: 'change the shape of a door opening (rectangular / arched / segmental)',
+    verbs: ['change', 'set', 'convert', 'swap', 'make', 'turn', 'reshape'],
+    aliases: ['door shape', 'door head', 'doorway shape'],
+    refusalLabel: 'opening shape',
+    targets: ['door'],
+    parameters: [
+      {
+        name: 'shape',
+        description: 'the opening shape: Rectangular, Arched or Segmental (a door cannot be circular)',
+        required: true,
+        valueSource: 'opening-shapes',
+        example: 'arched',
+      },
+    ],
+    scope: 'all',
+    scopeModes: ['all', 'selection', 'level', 'room', 'orientation'],
+    destructive: false,
+    busCommand: 'element.updateOpeningProfileBatch',
+    probe: { intent: 'set-door-shape', shapeRef: 'arched', scope: 'selection' },
+    commandProof: [
+      {
+        file: 'plugins/view/src/handlers/UpdateOpeningProfileBatch.ts',
+        mustMention: ['element.updateOpeningProfileBatch', 'commandManager', 'affectedStores: [] as const'],
+        note: 'Same LIVE bridge as set-window-shape; the family is a payload field, not a second verb.',
+      },
+      {
+        file: 'packages/command-registry/src/generic/UpdateOpeningProfileBatchCommand.ts',
+        mustMention: ['UpdateDoorParameterCommand', 'openingProfilesFor', 'notch'],
+        note: 'The family gate is checked in canExecute AND execute — a validator that lives in one of two callers is a validator that will be bypassed. openingProfilesFor is the geometry-wall table itself, never a transcription.',
+      },
+    ],
+    examples: [
+      'change all doors to arched',
+      'change all doors to segmental',
+      'make all doors rectangular',
     ],
   },
   {

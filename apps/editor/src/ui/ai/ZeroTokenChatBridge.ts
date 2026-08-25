@@ -49,6 +49,9 @@ import {
     // proved this arm returned [] for every level of every project.
     resolveLevelScopeByHost,
     isHostDerivedKind,
+    // §CHAT-ORIENTATION-HOSTED-OPENINGS (L-10946) — the FACADE twin of the
+    // level hop above: an opening faces where its host wall faces.
+    resolveOrientationScopeByHost,
     // §RAC-APARTMENT-IN-ROOM (L-1640) — the room-number ladder LIFTED into the
     // shared layer (one implementation, two consumers). The local copy this
     // file carried is deleted; behaviour is byte-identical by import.
@@ -459,10 +462,64 @@ function makeScopeResolver(
                         : `No exterior wall faces ${label} here — nothing was changed.`,
                 };
             }
-            const ids = hits.map((f) => f.wallId);
+            const wallIds = hits.map((f) => f.wallId);
+            // ⭐ §CHAT-ORIENTATION-HOSTED-OPENINGS (L-10946) — THE HOP.
+            //
+            // The founder typed "all windows in the south facade" and was told
+            // *"I can't find a room 'south'"*. Half of that was a grammar gap
+            // (fixed in SpatialScopeTail); THIS is the other half. Until now
+            // this arm could only ever answer with WALL ids, so a window
+            // capability scoped by facade would have resized WALLS — which is
+            // exactly why `DimensionFamilies` declared spatialKinds
+            // ['level','room'] and named the gap out loud (C68 §6.3-G3).
+            //
+            // ⛔ THE DEFINITION IS INHERITED, NOT INVENTED: an opening faces
+            // where its HOST WALL faces. The compass math, the ±45° quadrant
+            // tolerance and the true-north threading all stay the service's;
+            // nothing here declares a second constant. The mapping itself is the
+            // pure `resolveOrientationScopeByHost` (@pryzm/ai-host), which is
+            // where the unknown-vs-not-south distinction is enforced.
+            //
+            // ⛔ ABSENT `elementKind` still means WALLS, byte-identically to the
+            // pre-L-10946 reading, so every existing caller keeps its answer.
+            const wantKind = scope.elementKind;
+            if (wantKind !== undefined && wantKind !== 'wall') {
+                const store = storeRegistry.getStoreForType(wantKind) as unknown as {
+                    getAll?: () => Array<{ id: string; levelId?: string; wallId?: string }>;
+                } | undefined;
+                if (!store?.getAll) {
+                    return { error: `I can't list ${wantKind}s here — that store isn't available.` };
+                }
+                const wallStore = storeRegistry.getStoreForType('wall') as unknown as {
+                    getById?: (id: string) => unknown;
+                } | undefined;
+                const hosted = resolveOrientationScopeByHost(
+                    wantKind,
+                    store.getAll() as unknown as readonly LevelBearingRow[],
+                    wallIds,
+                    label,
+                    // `null` = no wall store at all (REFUSE); a boolean = a fact.
+                    (wallId) => (wallStore?.getById === undefined ? null : wallStore.getById(wallId) !== undefined),
+                );
+                if (hosted.kind === 'refused') return { error: hosted.error };
+                if (hosted.ids.length === 0) {
+                    return {
+                        error:
+                            `No ${wantKind}s are hosted in the ${label}-facing walls — ` +
+                            `${wallIds.length} wall${wallIds.length === 1 ? '' : 's'} face ${label}, ` +
+                            `and none of them carries a ${wantKind}. Nothing was changed.`,
+                    };
+                }
+                return {
+                    ids: hosted.ids,
+                    kindCounts: { [wantKind]: hosted.ids.length },
+                    skipped: hosted.skipped,
+                    diagnostics: [`${label}-facing`],
+                };
+            }
             return {
-                ids,
-                kindCounts: { wall: ids.length },
+                ids: wallIds,
+                kindCounts: { wall: wallIds.length },
                 skipped: [],
                 diagnostics: [`${label}-facing exterior`],
             };

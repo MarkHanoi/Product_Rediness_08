@@ -87,6 +87,9 @@ import {
 // ENTRIES: one record generates both the CapabilityExecutionSpec and the
 // grammar below. Adding a family costs zero lines in this file.
 import { CATALOGUE_FAMILIES, type CatalogueLookup } from './CatalogueFamilies.js';
+// §CHAT-OPENING-SHAPE (L-10945) — the SHAPE axis's family table and grammar.
+import { parseOpeningShapeIntent } from './OpeningShapeFamilies.js';
+import { resolveOpeningShapeRef } from './OpeningShapeVocabulary.js';
 // §FEAT-CHAT-BARE-TREAD (L-1443) — THE accept-set for stair geometry, shared
 // with the sketch tool and the create command (StairGeometryLimits.ts, lane
 // STAIR1). The chat speaks its refusal verbatim rather than re-phrasing a
@@ -968,6 +971,31 @@ export type SemanticIntent =
   | {
       readonly intent: 'set-lighting-type';
       readonly typeRef: string;
+      readonly scope: IntentScope;
+    }
+  /**
+   * ⭐ §CHAT-OPENING-SHAPE (L-10945) — the founder's *"change all windows to
+   * segmental type"*, which the product answered with *"There is no window type
+   * called 'segmental type' in this project"*.
+   *
+   * There is not, and there never will be: "segmental" is not a TYPE, it is an
+   * opening PROFILE — a CLOSED four-value enum in `@pryzm/geometry-wall`,
+   * complete since L-1200, offered on both mode bars, and editable on an
+   * already-placed opening since L-1252. The capability existed; the vocabulary
+   * did not, so a whole axis of the product was invisible to a sentence.
+   *
+   * An OPENING SHAPE FAMILY table entry (OpeningShapeFamilies.ts): the spec, the
+   * grammar and every refusal are generated. Deliberately NOT a catalogue
+   * family — a catalogue is project-authored, injected and variable, while this
+   * is a fixed enum carrying a per-family LEGALITY RULE no catalogue has (a
+   * door may not be circular, L-1251). See that module's header.
+   */
+  | {
+      readonly intent: 'set-window-shape' | 'set-door-shape';
+      /** The user's words for the shape, resolved in the VALUE stage through
+       *  the one `resolveOpeningShapeRef` vocabulary — never here, so the
+       *  grammar and the refusal cannot disagree about what a shape is. */
+      readonly shapeRef: string;
       readonly scope: IntentScope;
     }
   /**
@@ -4575,6 +4603,26 @@ function makeHostedTypeParser(
     if (resolveColorRef(typeRef) !== null) {
       if (catalogue === undefined || catalogue(typeRef) === null) return null;
     }
+    // ⭐⭐ §CHAT-OPENING-SHAPE (L-10945) — THE SHAPE AXIS GETS THE SAME
+    // TREATMENT THE COLOUR AXIS ALREADY HAD, AND THIS ONE LINE IS THE FOUNDER'S
+    // REFUSAL.
+    //
+    // He typed "change all windows to segmental type". This parser claimed it,
+    // handed `typeRef` = "segmental type" to the catalogue, and the catalogue
+    // answered *"There is no window type called 'segmental type' in this
+    // project. The window types here are: …"* — a confident denial of a
+    // capability that has shipped since L-1200, on an axis this grammar never
+    // asked about.
+    //
+    // ⛔ THE CATALOGUE STILL GETS THE FIRST SAY, exactly as it does for
+    // colour: a project whose window type is genuinely called "Segmental
+    // Casement" keeps working, because only a ref the catalogue does NOT know
+    // is handed to the shape test. Nothing is narrowed — an unknown NON-shape
+    // ref still claims, and still earns the honest "there is no <noun> type
+    // called X; the types here are …" refusal that lists the real names.
+    if (resolveOpeningShapeRef(typeRef) !== null) {
+      if (catalogue === undefined || catalogue(typeRef) === null) return null;
+    }
     if (scoped === null) return { typeRef, base: 'selection' };
     const isAll = new RegExp(`^${WALL_SCOPE_ALL}$`).test(scoped[1]!);
     // The SHARED classifier: the preposition never decides the scope KIND, the
@@ -4676,6 +4724,11 @@ export function parseDoorTypeIntent(
   if (/\bswings?\b/.test(hit.typeRef)) return null;
   return { intent: 'set-door-type', ...hit };
 }
+
+// §CHAT-OPENING-SHAPE (L-10945) — the SHAPE axis's matcher. The grammar and
+// the family table live in `OpeningShapeFamilies.ts`; this is the one-line
+// adapter, exactly as `matchWallType` is for the wall type grammar.
+const matchOpeningShape: Matcher = (text, ctx) => parseOpeningShapeIntent(text, ctx);
 
 
 
@@ -5581,6 +5634,18 @@ const MATCHERS: readonly Matcher[] = [
   // untouched. Pinned in stair-chat-acceptance.test.ts, both ways.
   matchStairPart,
   ...CATALOGUE_FAMILY_MATCHERS,
+  // ⭐ §CHAT-OPENING-SHAPE (L-10945) — "change all windows to segmental".
+  //
+  // ⛔ AFTER the catalogue families, and the order IS the safety argument. The
+  // two grammars claim the same sentence shape; what separates them is the TAIL.
+  // A project whose window type is called "Segmental Casement" must keep
+  // resolving to that TYPE, so the catalogue is asked first and this matcher
+  // only ever sees a ref no catalogue claimed — the same arbitration
+  // `makeHostedTypeParser` already applies to colour refs, and the SECOND,
+  // INDEPENDENT guard that file's own header asks for ("ordering fixes it only
+  // while the array stays sorted"): the shape guard inside `runShape` means
+  // this would still work if the array were re-sorted tomorrow.
+  matchOpeningShape,
   // "create a window in the middle of every wall segment" — BEFORE
   // matchCreateWall: both start with creation verbs, but this one requires the
   // word "window", which the wall grammar never carries.

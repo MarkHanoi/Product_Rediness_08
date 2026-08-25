@@ -141,7 +141,7 @@ export type {
 // element kinds whose level lives on their HOST WALL (windows, doors). PURE and
 // DERIVED from the record shape, so the editor-side resolver does not carry a
 // hand-maintained list of hosted kinds.
-export { resolveLevelScopeByHost, isHostDerivedKind } from './intents/HostedOpeningScope.js';
+export { resolveLevelScopeByHost, isHostDerivedKind, resolveOrientationScopeByHost } from './intents/HostedOpeningScope.js';
 export type { LevelBearingRow, HostedLevelResolution } from './intents/HostedOpeningScope.js';
 // §FIX-SCOPE-TAIL-ONE-PARSER (L-1201) — THE level-vs-room ruling, in one place.
 export {

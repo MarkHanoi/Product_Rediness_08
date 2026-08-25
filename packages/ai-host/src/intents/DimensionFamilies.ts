@@ -207,6 +207,27 @@ export interface DimensionFamily {
    *  that CAN do it. Absent ⇒ the generic "no bulk route" copy. */
   readonly carrierGap?: Partial<Record<DimensionKey, string>>;
   /**
+   * ⭐ §CHAT-ORIENTATION-HOSTED-OPENINGS (L-10946) — the spatial kinds this
+   * family really answers. Absent ⇒ `['level','room']`, the pre-L-10946
+   * default and the reading the note in `dimensionFamilySpec` explains.
+   *
+   * WHY IT IS NOW A FIELD. That note ruled ORIENTATION out for EVERY family with
+   * one sentence: *"the editor's orientation arm answers 'facing south' with the
+   * WALLS that face south, so a window or door family scoped that way would
+   * resize WALL ids — reach that exists only as a defect."* That was TRUE and it
+   * is now FALSE: `resolveOrientationScopeByHost` maps those walls to the
+   * openings hosted in them, so a window family scoped by facade resizes
+   * WINDOWS. The ruling is not being overridden — its premise was removed, and
+   * the reach is declared per family rather than for all of them at once.
+   *
+   * ⛔ STAIR STAYS OUT, and the second half of that note is why: a stair is not
+   * hosted in a wall, so a facade has nothing to say about it. The wall family
+   * is IN — the arm has always addressed the right kind for walls; what it
+   * lacked was a grammar that could say it, which §CHAT-ORIENTATION-IS-NOT-A-ROOM
+   * now supplies.
+   */
+  readonly spatialKinds?: readonly ('level' | 'room' | 'orientation')[];
+  /**
    * ⭐⭐ §FIX-BULK-OUT-CLAIMS-SINGLE-VALIDATION (L-1442) — the family's own
    * geometry PREDICATE, so the BULK ask cannot accept a number the ONE-ELEMENT
    * ask refuses.
@@ -262,6 +283,10 @@ export const DIMENSION_FAMILIES: readonly DimensionFamily[] = [
   {
     intent: 'set-wall-dimensions',
     elementKind: 'wall',
+    // §CHAT-ORIENTATION-HOSTED-OPENINGS (L-10946) — "all walls in the south
+    // facade". See `DimensionFamily.spatialKinds` for what changed and why the
+    // stair family is deliberately not on this list.
+    spatialKinds: ['level', 'room', 'orientation'],
     nounAliases: [],
     nounPlural: 'walls',
     // The SHIPPED verb, dead for want of a grammar since 2026-08-11.
@@ -297,6 +322,10 @@ export const DIMENSION_FAMILIES: readonly DimensionFamily[] = [
   {
     intent: 'set-window-dimensions',
     elementKind: 'window',
+    // §CHAT-ORIENTATION-HOSTED-OPENINGS (L-10946) — "all windows in the south
+    // facade". See `DimensionFamily.spatialKinds` for what changed and why the
+    // stair family is deliberately not on this list.
+    spatialKinds: ['level', 'room', 'orientation'],
     nounAliases: ['glazing unit'],
     nounPlural: 'windows',
     busCommand: 'element.updateDimensionsBatch',
@@ -331,6 +360,10 @@ export const DIMENSION_FAMILIES: readonly DimensionFamily[] = [
   {
     intent: 'set-door-dimensions',
     elementKind: 'door',
+    // §CHAT-ORIENTATION-HOSTED-OPENINGS (L-10946) — "all doors in the south
+    // facade". See `DimensionFamily.spatialKinds` for what changed and why the
+    // stair family is deliberately not on this list.
+    spatialKinds: ['level', 'room', 'orientation'],
     nounAliases: [],
     nounPlural: 'doors',
     busCommand: 'element.updateDimensionsBatch',
@@ -529,7 +562,8 @@ export function dimensionFamilySpec(
     mismatchPrefix: family.mismatchPrefix,
     suggestions: family.suggestions,
     spatialAbility:
-      `resize all ${family.nounPlural}, the selected ones, or the ones on a level or in a room`,
+      `resize all ${family.nounPlural}, the selected ones, the ones on a level or in a room` +
+      (((family.spatialKinds ?? []).includes('orientation')) ? `, or the ones on one facade` : ``),
     // The two halves of a safe mass edit — see the doc comment above.
     requireResolvedIds: true,
     destructive: true,
@@ -541,14 +575,21 @@ export function dimensionFamilySpec(
     //
     //   • LEVEL and ROOM are produced by the grammar above and resolve to
     //     elements of this family's own kind.
-    //   • ORIENTATION is NOT. The editor's orientation arm answers "facing
-    //     south" with the WALLS that face south, so a window or door family
-    //     scoped that way would resize WALL ids — reach that exists only as a
-    //     defect. For the WALL family it would at least address the right kind,
-    //     but the grammar cannot produce it either ("set all south-facing walls
-    //     3m high" is not claimed), and declaring reach no sentence can reach is
-    //     the same lie in the other direction.
-    spatialKinds: ['level', 'room'],
+    //   • ⚠ ORIENTATION WAS NOT, AND NOW IS — FOR THREE OF THE FOUR FAMILIES.
+    //     This bullet used to read: *"the editor's orientation arm answers
+    //     'facing south' with the WALLS that face south, so a window or door
+    //     family scoped that way would resize WALL ids — reach that exists only
+    //     as a defect … the grammar cannot produce it either."* BOTH halves were
+    //     true when written and BOTH are now false, because
+    //     §CHAT-ORIENTATION-HOSTED-OPENINGS (L-10946) gave the arm a
+    //     host→hosted hop and §CHAT-ORIENTATION-IS-NOT-A-ROOM (L-10941) gave
+    //     the shared scope tail a compass noun class. The founder's *"all windows
+    //     in the south facade"* is the sentence both were written about.
+    //     ⛔ The RULING is not overridden — its premise was removed. STAIR stays
+    //     out (a stair is not hosted in a wall, so a facade has nothing to say
+    //     about it), which is why the reach is declared PER FAMILY on
+    //     `DimensionFamily.spatialKinds` rather than widened for all of them.
+    spatialKinds: family.spatialKinds ?? ['level', 'room'],
     resolveValue: (si, _ctx): SpecValueOutcome => {
       const ask = si.dims ?? {};
       const asked = DIMENSION_KEYS.filter((k) => typeof ask[k] === 'number' && Number.isFinite(ask[k]!));

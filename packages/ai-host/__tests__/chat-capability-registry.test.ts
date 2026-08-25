@@ -213,6 +213,12 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       // §FEAT-DOOR-TYPE-BATCH (RAC U4.3) — "change the door type to …" (the
       // spec-arm extension proof: metadata only, zero new case code).
       'set-door-type': ['door'],
+      // ⭐ §CHAT-OPENING-SHAPE (L-10945) — "change all windows to segmental".
+      // The SHAPE axis, which the type refusal used to deny existed. Each family
+      // targets its OWN kind: a door may not be circular, so a shared target
+      // list would claim reach the value stage refuses.
+      'set-window-shape': ['window'],
+      'set-door-shape': ['door'],
       // RAC U7.2 — the two catalogue families generated from CatalogueFamilies.ts.
       'set-slab-type': ['slab'],
       'set-ceiling-type': ['ceiling'],
@@ -430,7 +436,10 @@ describe('capability-aware refusals', () => {
     // `set-sill-height` now declares 'door'. This string is GENERATED from the
     // registry, never hand-written, so it moving is the evidence the declaration
     // reached the sentence the user actually reads.
-    expect(r!.reason).toContain('I can change door height, width, sill height and door type.');
+    // ⭐ §CHAT-OPENING-SHAPE (L-10945) — "and opening shape" is the EVIDENCE the
+    // new capability reached the sentence the user actually reads. This literal is
+    // derived from the registry, never hand-written, so it moving is the proof.
+    expect(r!.reason).toContain('I can change door height, width, sill height, door type and opening shape.');
   });
 
   it('does NOT manufacture a colour refusal for walls — wall colour is a live capability', () => {
