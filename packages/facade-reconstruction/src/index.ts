@@ -363,6 +363,17 @@ function runPipeline(image: RasterImage, opts: FacadeReconstructionOptions): Fac
         planeConfidence,
     );
     const periodicityConfidence = structureConfidence;
+    // ⛔ §CONF72 (L-11220) — A ZONE'S CONFIDENCE IS THE ZONE AXIS'S OWN MEASUREMENT.
+    // The storey count rests on the horizontal lattice alone; stamping every zone
+    // with the JOINT structure confidence let the BAY axis's support ratio (3 of 7
+    // on the founder's photograph, where the detector had missed half the windows)
+    // report "7 storeys — 0.43" for a zone lattice whose lines each carried 5 to 7
+    // openings. C108 §4.3: a reading's confidence is its OWN support capped by its
+    // INPUTS; the bay lattice is a sibling of the zone lattice, not an input to it.
+    // Cells keep the joint cap — a cell IS the product of both axes.
+    const zoneAxisConfidence: FacadeConfidence = useOpeningLattice
+        ? capBy(measured(latticeConfidence(zoneLattice, bayLattice.centres.length)), planeConfidence)
+        : structureConfidence;
 
     // ── S15 SOFFITS (brief §11) ──────────────────────────────────────────────
     //
@@ -615,7 +626,7 @@ function runPipeline(image: RasterImage, opts: FacadeReconstructionOptions): Fac
                 ...pair(cellConfidence),
             };
         });
-        return { y: zn.y, height: zn.height, cells, ...pair(periodicityConfidence) };
+        return { y: zn.y, height: zn.height, cells, ...pair(zoneAxisConfidence) };
     });
 
     const facade: Facade = {

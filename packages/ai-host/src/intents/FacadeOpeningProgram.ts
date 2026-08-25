@@ -154,6 +154,27 @@ function minConfidence(values: readonly (number | null)[]): number | null {
 }
 
 /**
+ * §CONF72 (L-11220) — the program's confidence over its CELLS is a MEDIAN, then
+ * capped by the structure (C108 §4.3: cap by INPUTS with `min`; peers are
+ * summarised by a support term). The previous MIN over every cell made one ragged
+ * window head among 24 read the whole lattice as "0.00" — measured on the
+ * founder's photograph AND, unasserted until now, on clean corpus cases E / I / J.
+ * Each cell still carries its own confidence for the consumer; a cell at 0 stays 0
+ * on that cell. UNKNOWN (null) anywhere still propagates as UNKNOWN.
+ */
+function medianConfidence(values: readonly (number | null)[]): number | null {
+    const measured: number[] = [];
+    for (const v of values) {
+        if (v === null) return null;
+        measured.push(v);
+    }
+    if (measured.length === 0) return 1;
+    const sorted = [...measured].sort((a, b) => a - b);
+    const mid = sorted.length >> 1;
+    return sorted.length % 2 === 1 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
+}
+
+/**
  * Façade IR → the normalized opening lattice, or `null` when the image supports
  * no lattice at all.
  *
@@ -217,7 +238,7 @@ export function extractFacadeOpeningProgram(ir: FacadeIR): FacadeOpeningProgram 
         bands: zones.length,
         bandHeightFractions,
         cells,
-        confidence: minConfidence([...confidences, ir.facade.confidence]),
+        confidence: minConfidence([medianConfidence(confidences), ir.facade.confidence]),
     };
 }
 

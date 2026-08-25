@@ -198,6 +198,14 @@ function groundZone(ir: FacadeIR): Zone | null {
     return lowest;
 }
 
+/** Median of a non-empty sample (§CONF72); 0 for an empty one — no measured peer, no support. */
+function medianOf(values: readonly number[]): number {
+    if (values.length === 0) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = sorted.length >> 1;
+    return sorted.length % 2 === 1 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
+}
+
 function round2(v: number): number {
     return Math.round(v * 100) / 100;
 }
@@ -322,14 +330,31 @@ export function mapFacadeIRToPhotoBrief(result: FacadeReconstructionResult): Fac
     const ground = groundZone(ir);
     const groundOpenings = (ground?.cells ?? []).flatMap((c) => (c.opening === null ? [] : [c.opening]));
     if (groundOpenings.length > 0) {
-        const meanArch =
-            groundOpenings.reduce((a, o) => a + o.archness, 0) / groundOpenings.length;
-        // The reading's own confidence: the mean opening-fit confidence of the
-        // ground zone. UNKNOWN in any opening makes the whole reading UNKNOWN.
+        // ⛔ §CONF72 (L-11220) — SIBLINGS ARE AGGREGATED BY FRACTION AND MEDIAN, NOT
+        // BY MIN. C108 §4.3 prescribes `min` for capping a reading by its INPUTS and
+        // names "matched fraction" as a legitimate own-support term; the ground-floor
+        // openings are 4–7 PEERS of one reading, and a MIN over them let one opening
+        // whose arch fit had failed (`residual 1` ⇒ confidence 0) report the founder's
+        // arcade — two arches at 0.93 — as "0.00", which the floor then dropped. An
+        // opening the fit could not measure is UNKNOWN for the archness mean (C108
+        // §2.3), and it lowers the reading through the MEASURED FRACTION rather than
+        // by erasing the openings that were measured. UNKNOWN (null) in any opening
+        // still makes the whole reading UNKNOWN.
         let archConfidence: number | null = 1;
+        const measuredConfidences: number[] = [];
+        const measuredOpenings: typeof groundOpenings = [];
         for (const o of groundOpenings) {
             if (o.confidence === null) { archConfidence = null; break; }
-            archConfidence = Math.min(archConfidence, o.confidence);
+            if (o.confidence > 0) {
+                measuredConfidences.push(o.confidence);
+                measuredOpenings.push(o);
+            }
+        }
+        const archSample = measuredOpenings.length > 0 ? measuredOpenings : groundOpenings;
+        const meanArch = archSample.reduce((a, o) => a + o.archness, 0) / archSample.length;
+        if (archConfidence !== null) {
+            const measuredFraction = measuredConfidences.length / groundOpenings.length;
+            archConfidence = Math.min(medianOf(measuredConfidences), measuredFraction);
         }
         if (meanArch >= GROUND_ARCH_THRESHOLD) {
             const usable = atOrAboveFloor(archConfidence);

@@ -313,6 +313,20 @@ function fitArchImpl(topProfile: readonly number[], opts: FacadeReconstructionOp
     // there — the non-vacuity twin in case M's probe holds the arcade at ~1.0.
     // No new constant is introduced: the only sizes are the existing trim and the
     // existing four-sample minimum.
+    //
+    // ⛔ §CONF72 (L-11220) — FLATNESS IS TESTED BEFORE THE STEP MODEL. Corpus cases
+    // E / I / J (8, 13 and 5 of 20 openings) found the order wrong: a FLAT window
+    // head with ONE pixel of boundary raggedness (`1,1,1,0,1,1,…`) let the step
+    // model win with a plateau = the short run of min-valued columns, the recursion
+    // below re-trimmed a <8-sample head and the `:211` sentinel returned
+    // `residual 1` — confidence ZERO for a perfectly rectangular window, and the
+    // mapper's MIN over cells turned that one cell into "0.00" for the whole
+    // reading. A profile whose fitted rise is below the resampler's own noise has
+    // no wings to find; it is the rectangle limit and is reported as such here.
+    const flatEpsilon = Math.max(1, halfWidth * 0.03);
+    if (bestAmplitude < flatEpsilon) {
+        return { n: opts.superellipseNMax, archness: 0, residual: 0 };
+    }
     if (core.length >= 8) {
         const n = core.length;
         const ps = new Array<number>(n + 1).fill(0);
@@ -350,20 +364,22 @@ function fitArchImpl(topProfile: readonly number[], opts: FacadeReconstructionOp
             // Wings detected: measure the head on the plateau only. The sub-profile
             // is re-trimmed by the same rule, so the recursion is bounded by length.
             const head = topProfile.slice(bestL + margin, bestR + margin + 1);
-            return fitArch(head, opts);
+            if (head.length >= 8) return fitArch(head, opts);
+            // §CONF72 — A SHORT PLATEAU IS A MEASURED FLAT HEAD, NOT A SENTINEL. The
+            // step model has just found that the plateau [L,R] is best described as
+            // depth 0; a head too short to fit a superellipse on is therefore a flat
+            // head whose evidence is the plateau's own residual about zero — a
+            // measurement of THIS opening, in the same units as the arch fit, never
+            // "residual 1" (C108 §2.3: a value the stage could not measure must not
+            // be reported as certainly wrong).
+            const plateauLen = bestR - bestL + 1;
+            const plateauResidual = Math.sqrt((ps2[bestR + 1]! - ps2[bestL]!) / plateauLen);
+            return {
+                n: opts.superellipseNMax,
+                archness: 0,
+                residual: Math.max(0, Math.min(1, plateauResidual / Math.max(1, flatEpsilon))),
+            };
         }
-    }
-
-    // ⚠ THE DEGENERATE CASE, NAMED RATHER THAN LEFT TO PRODUCE NONSENSE.
-    // A flat top has no rise, so no exponent is determined by it — every candidate
-    // fits a zero-amplitude curve equally well and the search would return whichever
-    // end of the grid the tie-break favours: an arbitrary number wearing a
-    // measurement's clothes. A flat-topped opening IS the rectangle limit of this
-    // family, so that is what is reported. Keyed on the MEASURED amplitude, never on
-    // a building property (brief §22).
-    const flatEpsilon = Math.max(1, halfWidth * 0.03);
-    if (bestAmplitude < flatEpsilon) {
-        return { n: opts.superellipseNMax, archness: 0, residual: 0 };
     }
 
     // archness: the fitted rise over the half-width. A semicircular head has

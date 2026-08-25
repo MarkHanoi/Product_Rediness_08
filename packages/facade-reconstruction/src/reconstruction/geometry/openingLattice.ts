@@ -372,20 +372,35 @@ export function deriveLatticeFromOpenings(
     boundaries.push(extent);
 
     // ── 7. TIGHTNESS — this stage's OWN support (C108 §4.3) ─────────────────
-    // Mean absolute deviation of the voting centres about their own line, as a
-    // fraction of the pitch. A lattice whose openings sit dead on its lines is
-    // strong evidence; one whose openings scatter a quarter of a pitch is none.
-    let devSum = 0;
-    let devCount = 0;
+    // Deviation of the voting centres about their own line, as a fraction of the
+    // pitch. A lattice whose openings sit dead on its lines is strong evidence; one
+    // whose openings scatter a quarter of a pitch is none.
+    //
+    // ⛔ §CONF72 (L-11220) — MEDIAN deviation about the cluster MEDIAN, not mean
+    // about mean. The founder's photograph measured what the mean could not survive:
+    // ONE railing-merged blob sitting mid-bay chained two columns into a single
+    // cluster of 13 votes (the gap clusterer is transitive), the cluster MEAN landed
+    // half a pitch from either column, and the mean deviation of a lattice whose
+    // other six columns were dead on their lines read 0.236 of a pitch — tightness
+    // 0.055 on a 7 × 5 grid the count had read correctly. The median deviation about
+    // the median centre reads the six good columns; the chained one is an outlier
+    // the count reports and the confidence must not be destroyed by.
+    const deviations: number[] = [];
     for (const k of kept) {
         if (k.members.length < 2) continue;
-        for (const m of k.members) {
-            devSum += Math.abs(m - k.centre);
-            devCount++;
-        }
+        const centre = median(k.members);
+        for (const m of k.members) deviations.push(Math.abs(m - centre));
     }
-    const spread = devCount > 0 ? devSum / devCount / pitch : 0;
+    const spread = deviations.length > 0 ? median(deviations) / pitch : 0;
     const tightness = Math.max(0, Math.min(1, 1 - spread / opts.openingLatticeTightnessScale));
+
+    // §CONF72 — the support behind a TYPICAL LINE is measured over the lines that
+    // survived the support filter and the continuity screen, never over the raw
+    // groups: a rejected clutter cluster of one vote is not a line, and letting it
+    // drag the median down reported "3 of 7" on a lattice whose lines each carried
+    // 5 to 7 openings. The `< 2` refusal above still reads the RAW median, so an
+    // image with no repetition at all still refuses before anything is kept.
+    const keptMedianSupport = median(kept.map((k) => k.support));
 
     return {
         axis,
@@ -393,7 +408,7 @@ export function deriveLatticeFromOpenings(
         boundaries,
         support: kept.map((k) => k.support),
         pitch,
-        medianSupport,
+        medianSupport: keptMedianSupport,
         tightness,
         interpolated,
         extended,
@@ -429,5 +444,15 @@ export function latticeConfidence(lattice: OpeningLattice, perpendicularLines: n
     if (!latticeIsUsable(lattice)) return 0;
     const expected = Math.max(1, perpendicularLines);
     const supportScore = Math.max(0, Math.min(1, lattice.medianSupport / expected));
-    return Math.max(0, Math.min(1, Math.min(lattice.tightness, supportScore)));
+    // §CONF72 (L-11220) — the MATCHED FRACTION (C108 §4.3's own words): of the lines
+    // this lattice REPORTS, how many did any opening actually vote for? Lines
+    // interpolated into gaps and extended to the edges are measurement (steps 4–5),
+    // but a lattice that is MOSTLY such lines is a pitch extrapolated from a few
+    // clusters. The perturbed case-M sweep found exactly that: three chained
+    // clusters, eight filled lines, "11 bays" for 5 at confidence 0.77. With this
+    // term it reads 3 / 11 and sits under any floor, where a wrong count belongs.
+    const reported = Math.max(1, lattice.centres.length);
+    const voted = Math.max(0, reported - lattice.interpolated - lattice.extended);
+    const coverage = Math.max(0, Math.min(1, voted / reported));
+    return Math.max(0, Math.min(1, Math.min(lattice.tightness, supportScore, coverage)));
 }

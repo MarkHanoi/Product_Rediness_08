@@ -817,11 +817,66 @@ function fillSlats(img: RasterImage, x0: number, y0: number, x1: number, y1: num
  * every upper-floor opening.
  */
 export function caseM(): SyntheticCase {
+    return caseMPerturbed(CASE_M_UNPERTURBED);
+}
+
+/**
+ * §CONF72 (L-11220..) — how case M is PERTURBED away from the drawn grid.
+ *
+ * ⭐ THE CORPUS NEVER JITTERED, AND THAT IS HOW THE TIGHTNESS TERM SHIPPED
+ * UNMEASURED. Every case A–M draws its openings dead on their lines, so the
+ * lattice's cluster-tightness term read 0.985–1.000 on all of them and no test
+ * ever exercised the region a real photograph lives in — where railings widen a
+ * blob asymmetrically and the camera puts every window centre a few pixels off
+ * the line. The founder's third real run (2026-08-25, build 69e3096a) read the
+ * COUNTS right — 7 storeys, 5 bays, 24 openings — and every confidence UNDER the
+ * floor. This perturbation is that photograph's class, drawn with ground truth.
+ *
+ * All three perturbations are SEEDED (C108 §5.2) and expressed as fractions of
+ * the drawn opening size, never as pixels.
+ */
+export interface CaseMPerturbation {
+    /** LCG seed. Ignored when every amplitude is zero. */
+    readonly seed: number;
+    /**
+     * Per-window centre displacement, uniform in [−j, +j] × (opening width in x,
+     * opening height in y). 0.10 moves a 48 px window by up to ±4.8 px.
+     */
+    readonly centreJitter: number;
+    /**
+     * Per-window, PER-SIDE railing wing width: `M_RAIL_WING × (1 + u·k)`, u uniform
+     * in [−1, 1]. 1.0 gives wings from 0 to 2× the drawn wing, independently on
+     * each side — the asymmetric widening a real railing does to a blob.
+     */
+    readonly wingJitter: number;
+    /**
+     * ⛔ THE CONTROL. When true, every upper-floor window is placed at a seeded
+     * RANDOM centre inside the upper wall (non-overlapping, clear of the strip)
+     * instead of on the grid. The arcade and the strip are drawn as usual. A
+     * lattice read off this must carry a confidence WELL UNDER any floor — it is
+     * the case that keeps a jitter-tolerant tightness from becoming a
+     * jitter-blind one.
+     */
+    readonly scramble: boolean;
+}
+
+export const CASE_M_UNPERTURBED: CaseMPerturbation = Object.freeze({
+    seed: 0,
+    centreJitter: 0,
+    wingJitter: 0,
+    scramble: false,
+});
+
+/** Case M with the given perturbation. `caseM()` is `caseMPerturbed(CASE_M_UNPERTURBED)`. */
+export function caseMPerturbed(p: CaseMPerturbation): SyntheticCase {
     const img = createRasterImage(MW, MH) as RasterImage;
     fillRect(img, 0, 0, MW, MH, SKY);
     fillRect(img, MFX0, MFY0, MFX1, MFY1, WALL);
 
     const openings: { x0: number; y0: number; x1: number; y1: number }[] = [];
+    const rnd = lcg(p.seed);
+    /** Uniform in [−1, 1]. */
+    const u = (): number => rnd() * 2 - 1;
 
     // Balcony soffit bands under every upper storey line (the case-L cue).
     for (let row = 1; row < M_UPPER; row++) {
@@ -829,34 +884,69 @@ export function caseM(): SyntheticCase {
         fillRect(img, MFX0, y, MFX1, y + M_SOFFIT, SHADOW);
     }
 
+    // The strip's horizontal extent, so scrambled windows stay clear of it.
+    const stripX0 = MFX0 + M_SLOT_W * M_STRIP_SLOT + 8;
+    const stripX1 = MFX0 + M_SLOT_W * (M_STRIP_SLOT + 1) - 8;
+    const arcadeTop = MFY1 - M_ARCADE_H;
+
+    // Window centres: on the grid (optionally jittered), or scrambled.
+    const centres: { cx: number; cy: number }[] = [];
+    if (p.scramble) {
+        // Rejection-sampled so no two windows touch (a merged blob is a different
+        // defect) and none overlaps the strip. Bounded attempts keep it total.
+        const wantCount = M_UPPER * M_WINDOW_SLOTS.length;
+        const clear = M_RAIL_WING + 4;
+        let attempts = 0;
+        while (centres.length < wantCount && attempts < 20000) {
+            attempts++;
+            const cx = MFX0 + M_OPEN_W / 2 + clear + rnd() * (MFX1 - MFX0 - M_OPEN_W - 2 * clear);
+            const cy = MFY0 + M_OPEN_H / 2 + clear + rnd() * (arcadeTop - MFY0 - M_OPEN_H - 2 * clear);
+            if (cx + M_OPEN_W / 2 + clear > stripX0 && cx - M_OPEN_W / 2 - clear < stripX1) continue;
+            let ok = true;
+            for (const c of centres) {
+                if (Math.abs(c.cx - cx) < M_OPEN_W + 2 * clear && Math.abs(c.cy - cy) < M_OPEN_H + 2 * clear) {
+                    ok = false;
+                    break;
+                }
+            }
+            if (ok) centres.push({ cx, cy });
+        }
+    } else {
+        for (let row = 0; row < M_UPPER; row++) {
+            for (const slot of M_WINDOW_SLOTS) {
+                const cx = MFX0 + M_SLOT_W * (slot + 0.5) + u() * p.centreJitter * M_OPEN_W;
+                const cy = MFY0 + M_UPPER_H * (row + 0.5) + u() * p.centreJitter * M_OPEN_H;
+                centres.push({ cx, cy });
+            }
+        }
+    }
+
     // Upper-floor windows: rectangular, shuttered, with a railing across the
     // bottom. ⛔ The RAILING IS NOT AN OPENING and is not in `openings`.
-    for (let row = 0; row < M_UPPER; row++) {
-        for (const slot of M_WINDOW_SLOTS) {
-            const cx = MFX0 + M_SLOT_W * (slot + 0.5);
-            const cy = MFY0 + M_UPPER_H * (row + 0.5);
-            const r = {
-                x0: cx - M_OPEN_W / 2,
-                y0: cy - M_OPEN_H / 2,
-                x1: cx + M_OPEN_W / 2,
-                y1: cy + M_OPEN_H / 2,
-            };
-            fillOpening(img, r.x0, r.y0, r.x1, r.y1, 0, 2, OPENING);
-            fillSlats(img, r.x0, r.y0, r.x1, r.y1);
-            fillRailing(
-                img,
-                r.x0 - M_RAIL_WING,
-                r.y1 - M_RAIL_OVERLAP,
-                r.x1 + M_RAIL_WING,
-                r.y1 + M_RAIL_BELOW,
-            );
-            openings.push(r);
-        }
+    for (const { cx, cy } of centres) {
+        const r = {
+            x0: cx - M_OPEN_W / 2,
+            y0: cy - M_OPEN_H / 2,
+            x1: cx + M_OPEN_W / 2,
+            y1: cy + M_OPEN_H / 2,
+        };
+        const wingL = M_RAIL_WING * (1 + u() * p.wingJitter);
+        const wingR = M_RAIL_WING * (1 + u() * p.wingJitter);
+        fillOpening(img, r.x0, r.y0, r.x1, r.y1, 0, 2, OPENING);
+        fillSlats(img, r.x0, r.y0, r.x1, r.y1);
+        fillRailing(
+            img,
+            r.x0 - wingL,
+            r.y1 - M_RAIL_OVERLAP,
+            r.x1 + wingR,
+            r.y1 + M_RAIL_BELOW,
+        );
+        openings.push(r);
     }
 
     // The arcade: 5 semicircular arches, one per WINDOW bay. The strip's ground
     // chunk continues to the pavement in slot 2.
-    const arcadeTop = MFY1 - M_ARCADE_H;
+    // (arcadeTop declared above — §CONF72)
     for (const slot of M_WINDOW_SLOTS) {
         const cx = MFX0 + M_SLOT_W * (slot + 0.5);
         const r = { x0: cx - M_ARCH_W / 2, y0: arcadeTop + 10, x1: cx + M_ARCH_W / 2, y1: MFY1 };
