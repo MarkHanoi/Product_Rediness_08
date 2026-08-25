@@ -72,7 +72,8 @@ function readFacadeOpeningProgram(md: Record<string, unknown>): FacadeOpeningPro
     const ratio = (v: unknown): number | null =>
         typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= 1 ? v : null;
 
-    const cells: FacadeOpeningProgram['cells'] = [];
+    // Mutable while building; the returned program's own type is readonly.
+    const cells: FacadeOpeningProgram['cells'][number][] = [];
     for (const rc of rawCells) {
         if (rc === null || typeof rc !== 'object') return undefined;
         const c = rc as Record<string, unknown>;
