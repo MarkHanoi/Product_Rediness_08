@@ -175,6 +175,23 @@ export interface PlatePartitionResult {
         /** The smallest per-apartment minimum the user's band asked for (m²). */
         readonly requestedMinAreaM2: number;
     };
+    /** §RESI-SINGLE-CORE-LANDING (ADR-0372, L-11190) — WHICH circulation typology produced this
+     *  partition. `'corridor'` is the corridor grid this file plans (core + public corridor band(s)
+     *  + band runs); `'single-core-landing'` is the small-plate typology planned by
+     *  `singleCoreLanding.ts` (one compact rear-corner core + a landing, no corridor: each apartment's
+     *  door opens straight off the landing). Absent ⇒ `'corridor'` (every pre-existing caller). The
+     *  preview card names it so a user is never shown a "corridor" that is a landing. */
+    readonly strategy?: 'corridor' | 'single-core-landing';
+    /** §RESI-SINGLE-CORE-LANDING / §CONTEXT-DATA-HONESTY — present when the typology left a REAL
+     *  region of the plate unassigned because it could not host an apartment on its own (short side
+     *  below the engine floor, or below the user's minimum) and no neighbouring cell could absorb it
+     *  as a rectangle. Carries the numbers so the stranded floor area is explained, never silent. */
+    readonly stranded?: {
+        readonly areaM2: number;
+        readonly widthM: number;
+        readonly depthM: number;
+        readonly reason: string;
+    };
     readonly diagnostic: string;
 }
 
@@ -188,7 +205,7 @@ export type PlatePartitionOutput = PlatePartitionResult | PlatePartitionRejected
 
 const EPS = 1e-6;
 /** Door clear width (m) — an apartment is "reached" when it shares ≥ this with the corridor. */
-const DOOR_WIDTH_M = 0.8;
+export const DOOR_WIDTH_M = 0.8;
 
 
 // §RESI-CELL-FEASIBLE (Task C) — the per-cell D-TGL engine soft-fails a cell that is
@@ -226,7 +243,7 @@ const MAX_OUTER_BAND_DEPTH_M = 12;
 // absorbResidual ENGINE_MIN_DEPTH_M gate. The hybrid grid only adds an INTERIOR corridor when its rows
 // clear this — so the perimeter fills with buildable units, never un-layable slivers the founder sees
 // as the same empty band.
-const ENGINE_MIN_ROW_DEPTH_M = 7.5;
+export const ENGINE_MIN_ROW_DEPTH_M = 7.5;
 /** Min cell width as a fraction of its depth — below this the cell is a sliver the
  *  engine rejects. 0.6 ⇒ a 9 m-deep cell is ≥ 5.4 m wide (aspect ≤ ~1.7:1). */
 const MIN_CELL_ASPECT = 0.6;
@@ -274,7 +291,7 @@ const COREFLANK_MIN_DEPTH_M = 7.5;
 // the cap is moot there.
 /** Engine-feasible MAX cell width (m) at a given row depth — the upper edge the frozen D-TGL engine
  *  reliably lays out, with margin below the per-depth reject edge. See the block comment above. */
-const engineMaxCellWidth = (depthM: number): number => Math.min(13, depthM + 4);
+export const engineMaxCellWidth = (depthM: number): number => Math.min(13, depthM + 4);
 /** Engine-feasible MIN cell width as a multiple of row depth — keeps a cell in the engine's upper
  *  (multi-room) band, away from the narrow studio-only sliver band. ≈ 7.65 m at a 9 m depth. */
 const ENGINE_MIN_WIDTH_FACTOR = 0.85;
@@ -290,12 +307,12 @@ const ENGINE_MIN_WIDTH_FACTOR = 0.85;
 // (FEWER, WIDER cells), CAPPED at an engine-feasible max so we never mint the 17×11 (b=4) / 17×10
 // (rejected) over-wide cell. A run too narrow for even one min-keep cell falls back to the ordinary
 // band → the cell scales down to the count it can hold (never a rejected cell, never a regression).
-interface KeepSpec { minW: number; targetW: number; maxW: number }
+export interface KeepSpec { minW: number; targetW: number; maxW: number }
 /** Per-typology cell WIDTH band (m) at the standard ~9 m depth, from the engine-feasibility grid:
  *  the cell must be ≥ minW to keep the full bedroom count, ≤ maxW to still lay out (engine rejects
  *  beyond), and we aim at targetW. Width scales inversely with depth at pack time (so a deeper row
  *  needs proportionally less width for the same area). T1/T2 keep the ordinary band (no entry). */
-const TYPOLOGY_KEEP_WIDTH: Partial<Record<Typology, KeepSpec>> = {
+export const TYPOLOGY_KEEP_WIDTH: Partial<Record<Typology, KeepSpec>> = {
     // 3-bed: 13×9 = 117 (b=3) … 17×9 = 153 (b=3, still lays out); aim ~14 m.
     T3: { minW: 13, targetW: 14, maxW: 16.5 },
     // 4-bed: 15×11 = 165 (b=4); at 9 m depth a 4-bed never reaches b=4 (needs depth), so the packer's
@@ -639,7 +656,7 @@ export const TYPOLOGY_AREA_BAND: Record<Typology, { min: number; max: number }> 
  *  the largest enabled typology whose band MIN ≤ area (so a big cell becomes a big unit); if the area
  *  is below every enabled min, the smallest enabled typology (the cell is a small unit of that type).
  *  Deterministic — `enabled` is iterated in a fixed T1→T4 order. */
-function typologyForArea(areaM2: number, enabled: readonly Typology[]): Typology {
+export function typologyForArea(areaM2: number, enabled: readonly Typology[]): Typology {
     const order: readonly Typology[] = ['T1', 'T2', 'T3', 'T4'];
     const present = order.filter((t) => enabled.includes(t));
     if (present.length === 0) return 'T2';
@@ -1140,12 +1157,26 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         return reject(levelIndex, 'no apartments requested');
     }
 
-    const coreN = normRect(core);
-    // Core must be inside the footprint.
-    if (coreN.x0 < bb.x0 - EPS || coreN.x1 > bb.x1 + EPS ||
-        coreN.z0 < bb.z0 - EPS || coreN.z1 > bb.z1 + EPS) {
+    // §RESI-CORE-FLUSH-TOLERANCE (lane SMALLPLATE68, L-11191) — the containment test used the
+    // 1e-6 `EPS` against the UN-rounded plate bbox while `normRect` rounds the core to 4 dp. A
+    // SIDE core placed FLUSH to `bb.x0` on any ROTATED parcel (bb.x0 = 100.00001234…, core.x0 =
+    // round4(…) = 100.0000) therefore read as "outside" by ~1e-5 m and the whole §RESI-NARROW-
+    // PLATE-SIDE-CORE fallback refused with `core is not contained in the footprint` — measured on
+    // the founder's 13.1753 × 16.0623 m boundary rotated 27°: the axis-aligned copy built, the
+    // rotated one refused. A flush core IS contained; the tolerance is now the millimetre-class
+    // `FLUSH_CONTAIN_TOL` and the core is SNAPPED onto the bbox edge it hugs so every downstream
+    // flush test (`coreFlushLeft`, the spine hug) sees the edge exactly. An interior core is
+    // byte-identical (no edge within the tolerance ⇒ no snap).
+    const FLUSH_CONTAIN_TOL = 1e-3;
+    const coreRaw = normRect(core);
+    if (coreRaw.x0 < bb.x0 - FLUSH_CONTAIN_TOL || coreRaw.x1 > bb.x1 + FLUSH_CONTAIN_TOL ||
+        coreRaw.z0 < bb.z0 - FLUSH_CONTAIN_TOL || coreRaw.z1 > bb.z1 + FLUSH_CONTAIN_TOL) {
         return reject(levelIndex, 'core is not contained in the footprint');
     }
+    const coreN: Rect = {
+        x0: Math.max(coreRaw.x0, bb.x0), z0: Math.max(coreRaw.z0, bb.z0),
+        x1: Math.min(coreRaw.x1, bb.x1), z1: Math.min(coreRaw.z1, bb.z1),
+    };
 
     // ── §RESI-FILL-PLATE — a GRID of parallel double-loaded corridors that fills the
     // WHOLE plate (not the old single central band that left most of a large plate empty).
@@ -2186,6 +2217,7 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         apartmentsCoreReachable: coreReached,
         fillRatio,
         corridorAreaM2,
+        strategy: 'corridor',
         ...(bandUnderfill !== undefined ? { bandUnderfill } : {}),
         diagnostic,
     };

@@ -20,3 +20,6 @@ export * from './clampOpeningToWall.js';
 // L-864 §RESI-UNIT-CONTAINMENT — the pure per-apartment UNIT plan (one hierarchy Unit per
 // placed cell) the executor uses to mint units + stamp the authoritative `room.unitId`.
 export * from './unitPlan.js';
+// §RESI-SINGLE-CORE-LANDING (ADR-0372, L-11190) — the small-plate typology planner: one compact
+// rear-corner core + a landing, no corridor, N ∈ {1,2} apartments per floor off the landing.
+export * from './singleCoreLanding.js';

@@ -105,17 +105,30 @@ describe('§RESI-NARROW-PLATE-SIDE-CORE — the derived floor is a WIDTH, not an
 });
 
 describe('§RESI-NARROW-PLATE-SIDE-CORE — the refusal below the floor is TRUE and names the real quantity', () => {
-    it('an 11 m-wide plate refuses AT ANY AREA, naming the measured width and the derived threshold', () => {
-        for (const [w, d] of [[11, 20], [11, 45], [11, 100]] as const) {
+    it('an 11 m-wide plate the CORRIDOR typology refuses at any area names the measured width and the derived threshold — and, since §RESI-SINGLE-CORE-LANDING, the landing typology is measured too', () => {
+        // ⚠ Corrected 2026-08-25 (lane SMALLPLATE68, ADR-0372): "refuses AT ANY AREA" was true of the
+        // ONE typology this engine knew. An 11 × 20 m plate now BUILDS: one apartment per floor off a
+        // rear-corner core + landing (no corridor), the rear bay explained as stranded. The deep 11 m
+        // plates still refuse — the landing typology's only front cell would exceed the engine's
+        // proven width — and the refusal now names BOTH typologies with their numbers (C74).
+        for (const [w, d] of [[11, 45], [11, 100]] as const) {
             const r = orchestrateResidentialBuilding(input({ footprint: rect(w, d) }));
             expect(r.status).toBe('rejected');
             if (r.status !== 'rejected') continue;
             expect(r.reason).toContain('too narrow');
             expect(r.reason).toContain(`${w} m across its short side`);   // the MEASURED quantity
             expect(r.reason).toContain(`${MIN_PLATE_WIDTH_M} m`);          // the DERIVED threshold
-            // ⚠ THE DEFECT BEING FIXED: never quote a plot AREA as the reason.
-            expect(r.reason).not.toContain('m²');
+            expect(r.reason).toContain('single-core landing');             // the SECOND typology, measured
+            // ⚠ THE DEFECT BEING FIXED: the corridor refusal never quotes a plot AREA as the reason.
+            // (The landing half quotes its measured CELLS in m² — a different, honest number.)
+            expect(r.reason.split(' — and the single-core landing')[0]).not.toContain('m²');
         }
+        const built = orchestrateResidentialBuilding(input({ footprint: rect(11, 20) }));
+        expect(built.status).toBe('ok');
+        if (built.status !== 'ok') return;
+        expect(built.circulationTypology).toBe('single-core-landing');
+        expect(upperApartments(built).length).toBe(1);
+        expect(built.perLevelApartments[1]?.stranded).toBeDefined();
     });
 
     it('the refusal is self-consistent — the measured value is below the threshold it quotes', () => {

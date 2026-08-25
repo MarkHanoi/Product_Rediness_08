@@ -41,7 +41,11 @@ import { trace } from '@opentelemetry/api';
 import { COINCIDENT_M, pointInPolygonXZ } from '@pryzm/geometry-kernel';
 // §RESI-CORE-REWORK — derive the minimum core plan size from the stair + lift footprints +
 // the 1.2 m approach clearances (single source of truth shared with the executor).
-import { deriveCoreSizing } from './coreSizing.js';
+import { deriveCoreSizing, APPROACH_CLEAR_M } from './coreSizing.js';
+// §RESI-SINGLE-CORE-LANDING (ADR-0372, L-11190) — the small-plate typology: one compact rear-corner
+// core + a landing, no corridor. Planned by its own pure module, consumed through the SAME
+// `PlatePartitionResult` shape as the corridor grid.
+import { partitionSingleCoreLanding } from './singleCoreLanding.js';
 import type { Pt, Rect } from '../apartmentLayout/tgl/rectDecomposition.js';
 import { rectArea, rectWidth, rectDepth, principalAxisAngle, rotatePt, decomposeToRects } from '../apartmentLayout/tgl/rectDecomposition.js';
 import type { ApartmentProgram } from '../apartmentLayout/types.js';
@@ -163,8 +167,15 @@ export const MIN_CENTRED_CORE_PLATE_WIDTH_M = Math.round((2 * MIN_SIDE_RUN_M + M
 export const MIN_PLATE_WIDTH_M = Math.round((MIN_CORE_DIM_M + MIN_SIDE_RUN_M) * 1e4) / 1e4;
 
 /** How the core is arranged on this plate. `'centre'` is the R-CENTRE default (double-loaded, a run
- *  either side); `'side'` is the narrow-plate single-loaded fallback (core flush to the x0 edge). */
-export type CorePlacementMode = 'centre' | 'side';
+ *  either side); `'side'` is the narrow-plate single-loaded fallback (core flush to the x0 edge);
+ *  `'corner'` is the §RESI-SINGLE-CORE-LANDING typology (ADR-0372): a compact core flush in a REAR
+ *  corner with a landing in front of it and NO corridor — the small-plate building the founder
+ *  photographed. Tried only after the corridor typology has measured itself unable to double-load a
+ *  floor (see `_orchestrate`), never on a size threshold. */
+export type CorePlacementMode = 'centre' | 'side' | 'corner';
+
+/** §RESI-SINGLE-CORE-LANDING — which circulation typology an OK result was built with. */
+export type CirculationTypology = 'corridor' | 'single-core-landing';
 
 /**
  * §RESI-SMALL-PLATE-CORE-SCALE + §RESI-NARROW-PLATE-SIDE-CORE — the EFFECTIVE core plan size for a
@@ -301,6 +312,15 @@ export interface PerLevelApartments {
         readonly largestRowUnitAreaM2: number;
         readonly requestedMinAreaM2: number;
     };
+    /** §RESI-SINGLE-CORE-LANDING / §CONTEXT-DATA-HONESTY — a REAL region of this level the typology
+     *  left unassigned (no cell could take it on its own; no rect neighbour could absorb it), with
+     *  its numbers and the measured reason, so the preview explains it instead of drawing white. */
+    readonly stranded?: {
+        readonly areaM2: number;
+        readonly widthM: number;
+        readonly depthM: number;
+        readonly reason: string;
+    };
 }
 
 /**
@@ -364,6 +384,12 @@ export interface ResidentialBuildingOk {
      *  echoed so the preview can flag units the stretch/absorb passes sized OUTSIDE it
      *  ("unit is NN m² — above your max band") instead of hiding the deviation. */
     readonly requestedBandM2: { readonly min: number; readonly max: number };
+    /** §RESI-SINGLE-CORE-LANDING (ADR-0372) — the circulation typology this building was planned
+     *  with. `'corridor'` = core + public corridor band(s) + apartment band runs (every result before
+     *  this field existed); `'single-core-landing'` = one compact rear-corner core + a landing, no
+     *  corridor, ≤ 2 apartments per floor opening straight off the landing. The preview card names
+     *  it so a landing is never captioned as a corridor. */
+    readonly circulationTypology: CirculationTypology;
     readonly diagnostic: string;
 }
 
@@ -407,22 +433,37 @@ const PRINCIPAL_AXIS_MIN_RAD = 0.01;
  * axis-aligned rectangle of side W×D and the whole downstream engine runs as if axis-aligned.
  * θ = 0 ⇒ the footprint passes through unrotated (identity). Pure + deterministic.
  */
-function deriveLocalFrame(footprintWorld: readonly Pt[]): {
+function deriveLocalFrame(footprintWorld: readonly Pt[], longAxisAlongZ = false): {
     thetaRad: number;
     pivot: { x: number; z: number };
     footprintLayout: Pt[];
 } {
     const raw = principalAxisAngle(footprintWorld);
-    const thetaRad = Math.abs(raw) >= PRINCIPAL_AXIS_MIN_RAD ? raw : 0;
+    let thetaRad = Math.abs(raw) >= PRINCIPAL_AXIS_MIN_RAD ? raw : 0;
     let cx = 0, cz = 0;
     for (const p of footprintWorld) { cx += p.x; cz += p.z; }
     const n = footprintWorld.length || 1;
     const pivot = { x: cx / n, z: cz / n };
     // De-rotate the parcel into the axis-aligned LOCAL (principal-axis) frame by −θ about
     // the pivot. θ = 0 ⇒ identity (the footprint is already axis-aligned).
-    const footprintLayout = thetaRad === 0
+    let footprintLayout = thetaRad === 0
         ? footprintWorld.map(p => ({ x: p.x, z: p.z }))
         : footprintWorld.map(p => rotatePt(p, -thetaRad, pivot));
+    // §RESI-SINGLE-CORE-LANDING — the landing typology is planned in the frame where the plate's
+    // LONG axis is Z: the executor builds the core with its lobby/fire door facing −Z and its solid
+    // back wall at +Z (`_createCore`, `_buildCorePerimeter`), so a rear-corner core + a landing +
+    // a front cell only tile the depth when the depth IS the long side. The principal-axis frame is
+    // indifferent to which family of edges lands on X, so when it put the long side on X we turn the
+    // whole local frame a quarter turn — the SAME rigid transform carries it back to the world
+    // parcel; nothing downstream sees a rotation it did not already handle. Corridor modes never
+    // pass the flag (byte-identical).
+    if (longAxisAlongZ) {
+        const b = bbox(footprintLayout);
+        if (rectWidth(b) > rectDepth(b) + 1e-9) {
+            thetaRad = thetaRad + Math.PI / 2;
+            footprintLayout = footprintWorld.map(p => rotatePt(p, -thetaRad, pivot));
+        }
+    }
     return { thetaRad, pivot, footprintLayout };
 }
 
@@ -552,7 +593,15 @@ export function computeGroundFloor(
     // Distance from the core to each of the two Z-façades; the entrance goes on the nearer one.
     const distToZ0 = core.z0 - plateBB.z0;   // gap in front of the core (toward z0)
     const distToZ1 = plateBB.z1 - core.z1;   // gap behind the core (toward z1)
-    const useZ0 = distToZ0 <= distToZ1;
+    // §RESI-SINGLE-CORE-LANDING — a façade the core is FLUSH against cannot host the entrance: the
+    // lobby band would be zero-deep and the front door would open straight into the core's solid
+    // back wall (the rear-corner core of the landing typology sits on z1 exactly). Such a side is
+    // out; the entrance goes on the other. A centred / side core (equidistant, both gaps > 0) is
+    // unchanged.
+    const MIN_LOBBY_DEPTH_M = 0.5;
+    const z0Hostable = distToZ0 >= MIN_LOBBY_DEPTH_M;
+    const z1Hostable = distToZ1 >= MIN_LOBBY_DEPTH_M;
+    const useZ0 = z0Hostable === z1Hostable ? distToZ0 <= distToZ1 : z0Hostable;
     const entranceEdge: FootprintEdge = useZ0 ? 'z0' : 'z1';
     // Lobby band: full span from the chosen façade to the core's near edge, so the
     // entrance opens into a band that reaches the stair/lift.
@@ -581,20 +630,160 @@ export function computeGroundFloor(
  */
 function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialBuildingResult {
     const centred = _orchestrateWith(input, 'centre');
-    if (centred.status === 'ok') return centred;
-    if (!centred.reason.includes('placed zero apartments')) return centred;
+    let corridor: ResidentialBuildingResult = centred;
+    if (centred.status !== 'ok' && centred.reason.includes('placed zero apartments')) {
+        const side = _orchestrateWith(input, 'side');
+        // §RESI-NARROW-PLATE-SIDE-CORE — the fallback must not BUY a build with junk. A single-loaded run
+        // on a SHALLOW plate degenerates into ribbons: MEASURED, a 40 × 8 m plate yields 34.0 m × 3.6 m
+        // cells (9.4 : 1), which is not an apartment. The partition's own stated ceiling for a rectangular
+        // unit is `MAX_RECT_ASPECT` (3.5 : 1 — "the sane max aspect the founder set", §RESI-FILL-COREFLANK).
+        // If the single-loaded plan can only produce cells past that ceiling it has NOT found a building,
+        // so we surface the ORIGINAL refusal instead of emitting ribbons. A plate that refuses today and
+        // would only gain ribbons therefore keeps refusing — the fallback strictly adds real buildings.
+        corridor = side.status !== 'ok' ? side : (allCellsWithinAspectCeiling(side) ? side : centred);
+    }
 
-    const side = _orchestrateWith(input, 'side');
-    if (side.status !== 'ok') return side;
-    // §RESI-NARROW-PLATE-SIDE-CORE — the fallback must not BUY a build with junk. A single-loaded run
-    // on a SHALLOW plate degenerates into ribbons: MEASURED, a 40 × 8 m plate yields 34.0 m × 3.6 m
-    // cells (9.4 : 1), which is not an apartment. The partition's own stated ceiling for a rectangular
-    // unit is `MAX_RECT_ASPECT` (3.5 : 1 — "the sane max aspect the founder set", §RESI-FILL-COREFLANK).
-    // If the single-loaded plan can only produce cells past that ceiling it has NOT found a building,
-    // so we surface the ORIGINAL refusal instead of emitting ribbons. A plate that refuses today and
-    // would only gain ribbons therefore keeps refusing — the fallback strictly adds real buildings.
-    if (!allCellsWithinAspectCeiling(side)) return centred;
-    return side;
+    // ── §RESI-SINGLE-CORE-LANDING (ADR-0372, L-11190) — the small-plate typology, SELECTED BY
+    // MEASUREMENT. A corridor exists to distribute a floor to at least two apartments. So the landing
+    // typology is planned only when the corridor typology (centred, then side) has measured itself
+    // NOT doing that on some upper level: it refused on capacity; it placed a single unit (on the
+    // founder's 13 × 16 m rectangle that "unit" was the whole floor absorbed as one 187 m² residual
+    // around a side core); or what it placed is not clean — a cell over the core or over a corridor
+    // band (L-11192: the side path on the founder's plate rotated 27° minted two rect cells that
+    // overlap the core by 0.85 × 4.6 m). The two are then compared by `preferByMeasurement`; ties
+    // keep the corridor result. R-CENTRE and the side fallback are untouched wherever they already
+    // double-load a floor cleanly (the residentialNarrowPlate sweep pins that), and there is no
+    // plate-size threshold in this switch.
+    if (corridor.status === 'ok' && minUpperLevelCells(corridor) >= 2 && hasCleanCells(corridor)) return corridor;
+    if (corridor.status !== 'ok' && isInputRefusal(corridor.reason)) return corridor;
+
+    const corner = _orchestrateWith(input, 'corner');
+    if (corner.status !== 'ok') {
+        if (corridor.status === 'ok') return corridor;
+        // C74 — BOTH typologies were measured; name both, with their numbers.
+        return reject(`${corridor.reason} — and the single-core landing typology also refused (${corner.reason})`);
+    }
+    if (corridor.status !== 'ok') return corner;
+    return preferByMeasurement(corridor, corner);
+}
+
+/**
+ * §RESI-SINGLE-CORE-LANDING — orchestrate under ONE named core arrangement, no ladder. The measuring
+ * instrument behind `_orchestrate`'s selection, exported so a test (or a diagnostic) can put the
+ * corridor result and the landing result for the same plate side by side and quote both — the
+ * selection is only as honest as what it compared. Production reaches the ladder through
+ * `orchestrateResidentialBuilding`. P8: one span.
+ */
+export function orchestrateResidentialBuildingWith(
+    input: ResidentialBuildingOrchestratorInput,
+    corePlacement: CorePlacementMode,
+): ResidentialBuildingResult {
+    return _tracer.startActiveSpan(
+        'pryzm.ai.workflow.residentialBuilding.orchestrateWith',
+        (span) => {
+            try {
+                span.setAttribute('pryzm.resi.orchestrate.corePlacement', corePlacement);
+                const out = _orchestrateWith(input, corePlacement);
+                span.setAttribute('pryzm.resi.orchestrate.status', out.status);
+                span.end();
+                return out;
+            } catch (err) {
+                span.recordException(err as Error);
+                span.end();
+                throw err;
+            }
+        },
+    ) as ResidentialBuildingResult;
+}
+
+/** §RESI-SINGLE-CORE-LANDING — the fewest placed cells on any upper level (0 when none). */
+function minUpperLevelCells(result: ResidentialBuildingOk): number {
+    let min = Infinity;
+    for (const level of result.perLevelApartments) {
+        if (level.role !== 'upper') continue;
+        min = Math.min(min, level.apartments.length);
+    }
+    return Number.isFinite(min) ? min : 0;
+}
+
+/** §RESI-SINGLE-CORE-LANDING — a refusal about the REQUEST (not about capacity): restating it under a
+ *  second typology would just restate it. Every other refusal is a capacity miss the landing typology
+ *  may close. Local (not exported) ⇒ no separate span obligation (P8). */
+function isInputRefusal(reason: string): boolean {
+    return reason.includes('upperLevels must be')
+        || reason.includes('core dimensions must be positive')
+        || reason.includes('corridor width must be')
+        || reason.includes('footprint needs')
+        || reason.includes('footprint is degenerate');
+}
+
+/** §RESI-SINGLE-CORE-LANDING — rect interiors intersect (1 mm tolerance). Local; no span (P8). */
+function rectsOverlap(p: Rect, q: Rect): boolean {
+    return Math.min(p.x1, q.x1) - Math.max(p.x0, q.x0) > 1e-3 && Math.min(p.z1, q.z1) - Math.max(p.z0, q.z0) > 1e-3;
+}
+
+/** §RESI-SINGLE-CORE-LANDING — does an apartment cell's REAL footprint overlap a rect (the core, a
+ *  band)? A rect cell (4-corner polygon) is its rect. A RESHAPED cell (§NONRECT-CELLS-P1, > 4
+ *  vertices — the L/U a residual-absorbed unit takes AROUND the core) is judged on its polygon, not
+ *  its bbox: MEASURED on 16.5 × 16.5 … 18 × 18 m the centred grid's two 8-vertex cells wrap the core
+ *  cleanly while their bboxes cover it, and a bbox test would have mis-read every one of those
+ *  R-CENTRE plates as defective. Overlap ⇔ some rect sample point (a 6 × 6 lattice inset 1 cm — a
+ *  sliver thinner than the lattice pitch is below the executor's wall gauge anyway) lies inside the
+ *  polygon, or some polygon vertex lies strictly inside the rect. Deterministic. */
+function cellOverlapsRect(cell: ApartmentCell, r: Rect): boolean {
+    const poly = cell.polygon;
+    if (!poly || poly.length <= 4) return rectsOverlap(cell.rect, r);
+    if (!rectsOverlap(cell.rect, r)) return false;      // bbox disjoint ⇒ polygon disjoint
+    const inset = 0.01;
+    const N = 6;
+    for (let i = 0; i < N; i++) {
+        for (let j = 0; j < N; j++) {
+            const x = r.x0 + inset + (r.x1 - r.x0 - 2 * inset) * (i / (N - 1));
+            const z = r.z0 + inset + (r.z1 - r.z0 - 2 * inset) * (j / (N - 1));
+            if (pointInPolygon(x, z, poly)) return true;
+        }
+    }
+    for (const v of poly) {
+        if (v.x > r.x0 + inset && v.x < r.x1 - inset && v.z > r.z0 + inset && v.z < r.z1 - inset) return true;
+    }
+    return false;
+}
+
+/** §RESI-SINGLE-CORE-LANDING — true iff on EVERY upper level no apartment cell overlaps the core or a
+ *  circulation band. A cell over the stair is not an apartment whatever it counts as (L-11192). */
+function hasCleanCells(result: ResidentialBuildingOk): boolean {
+    for (const level of result.perLevelApartments) {
+        if (level.role !== 'upper') continue;
+        for (const apt of level.apartments) {
+            if (cellOverlapsRect(apt.cell, result.core)) return false;
+            if (level.publicCorridor.some((band) => cellOverlapsRect(apt.cell, band))) return false;
+        }
+    }
+    return true;
+}
+
+/** §RESI-SINGLE-CORE-LANDING — compare two OK buildings by measurement, on the first upper level
+ *  AFTER the per-cell D-TGL engine has run. Strict order:
+ *   (1) CLEAN geometry — no apartment cell overlaps the core or a circulation band (L-11192);
+ *   (2) apartments that actually LAID OUT; (3) cells placed;
+ *   (4) placed area − λ·circulation area (λ = 1, the corridor-economy charge).
+ *  Ties keep `a` (the corridor result) so nothing that builds today changes. DELIBERATELY NOT a
+ *  criterion: whether the core holds its stair (the corridor typology's §RESI-SMALL-PLATE-CORE-SCALE
+ *  shrink to a 2.6 m "core" is an accepted, founder-visible compromise; ranking on it would move
+ *  R-CENTRE plates that double-load cleanly today — ADR-0372 §5 names it as the next decision). Pure. */
+function preferByMeasurement(a: ResidentialBuildingOk, b: ResidentialBuildingOk): ResidentialBuildingOk {
+    const measure = (r: ResidentialBuildingOk): { clean: boolean; laidOut: number; cells: number; net: number } => {
+        const level = r.perLevelApartments.find((l) => l.role === 'upper');
+        if (!level) return { clean: false, laidOut: 0, cells: 0, net: 0 };
+        const laidOut = level.apartments.filter((apt) => apt.status === 'ok').length;
+        const placed = level.apartments.reduce((s, apt) => s + apt.cell.areaM2, 0);
+        return { clean: hasCleanCells(r), laidOut, cells: level.apartments.length, net: placed - (level.corridorAreaM2 ?? 0) };
+    };
+    const ma = measure(a), mb = measure(b);
+    if (mb.clean !== ma.clean) return mb.clean ? b : a;
+    if (mb.laidOut !== ma.laidOut) return mb.laidOut > ma.laidOut ? b : a;
+    if (mb.cells !== ma.cells) return mb.cells > ma.cells ? b : a;
+    return mb.net > ma.net + 1e-6 ? b : a;
 }
 
 /** §RESI-NARROW-PLATE-SIDE-CORE — true iff EVERY placed cell is within the engine's own rectangular
@@ -643,16 +832,18 @@ function _orchestrateWith(
     // of the world parcel: a rotated W×D rectangle de-rotates to a clean axis-aligned W×D
     // rect, so every downstream geometry op (core / partition / packer / per-cell D-TGL) runs
     // EXACTLY as it did on an axis-aligned plate — no engine code changes.
-    const { thetaRad, pivot, footprintLayout } = deriveLocalFrame(footprintWorld);
+    const { thetaRad, pivot, footprintLayout } = deriveLocalFrame(footprintWorld, corePlacement === 'corner');
     const transform: ResidentialRigidTransform = { thetaRad, pivot };
 
     // The footprint expressed in the axis-aligned LOCAL frame. All core/partition/packer math
     // below uses THIS frame; only `levels[].footprint` (the shell) keeps the WORLD parcel.
     const footprint = footprintLayout;
-    const bb = bbox(footprint);
+    // `let` (was `const`): the 'corner' typology may narrow the plate to the largest axis-aligned
+    // rectangle INSIDE a hand-drawn boundary (see §RESI-SINGLE-CORE-LANDING core placement below).
+    let bb = bbox(footprint);
 
-    const plateW = rectWidth(bb);
-    const plateD = rectDepth(bb);
+    let plateW = rectWidth(bb);
+    let plateD = rectDepth(bb);
     // §RESI-DEGENERATE-REJECT — a genuinely degenerate / too-thin plate (after de-rotation)
     // is the ONLY plate-shape reject now (the old "must be axis-aligned rectangle" stub is
     // gone). A plate too small to even hold the core is also rejected with a clear reason.
@@ -681,15 +872,22 @@ function _orchestrateWith(
     // DERIVED threshold — never a plot area against a plate threshold (the defect the founder hit:
     // the old copy quoted "~674 m² < 400 m² of plate", which is both the wrong quantity and
     // self-contradictory).
-    if (plateW < MIN_PLATE_WIDTH_M - 1e-6) {
+    // §RESI-SINGLE-CORE-LANDING — this floor is DERIVED for the corridor typology (a side core + one
+    // run); the landing typology has no run and measures its own cells, so the gate does not apply.
+    if (corePlacement !== 'corner' && plateW < MIN_PLATE_WIDTH_M - 1e-6) {
         return reject(
             `plate is too narrow: the buildable plate measures ${round4(plateW)} m across its short ` +
             `side; a core + corridor + one apartment run needs at least ${MIN_PLATE_WIDTH_M} m`,
         );
     }
-    const { coreWidthM, coreDepthM } = effectiveCoreSize(
-        plateW, plateD, flooredCoreWidthM, flooredCoreDepthM, corePlacement,
-    );
+    // §RESI-SINGLE-CORE-LANDING — the landing typology builds the COMPACT core: exactly the clearance-
+    // derived functional minimum (a real U-stair + lift + their 1.2 m approaches, `deriveCoreSizing`),
+    // never the modal's default 6 × 4 and never a run-preserving shrink below the minimum — on a small
+    // plate every m² the core does not need belongs to an apartment, and a core that cannot hold its
+    // stair is not a core. The corridor modes keep `effectiveCoreSize` byte-identically.
+    const { coreWidthM, coreDepthM } = corePlacement === 'corner'
+        ? { coreWidthM: coreMin.coreWidthM, coreDepthM: coreMin.coreDepthM }
+        : effectiveCoreSize(plateW, plateD, flooredCoreWidthM, flooredCoreDepthM, corePlacement);
     if (coreWidthM >= plateW || coreDepthM >= plateD) {
         return reject('core does not fit inside the footprint');
     }
@@ -707,6 +905,46 @@ function _orchestrateWith(
         ? bb.x0 + coreWidthM / 2
         : (bb.x0 + bb.x1) / 2;
     let fcz = (bb.z0 + bb.z1) / 2;
+    // §RESI-SINGLE-CORE-LANDING — the REAR-CORNER core: flush to z1 (solid back wall on the plate
+    // edge) and to x0 (its solid side wall on the party wall), lobby door facing −Z into the landing.
+    // On a hand-drawn boundary the bbox corner can lie a few centimetres OUTSIDE the slanted edges,
+    // so when the corner core fails the in-boundary probe the WHOLE plate is narrowed to the largest
+    // axis-aligned rectangle inside the drawn line (the same `decomposeToRects` §RESI-CORE-IN-BOUNDARY
+    // uses) and the core sits in ITS rear corner — every cell, the landing and the core then stay
+    // inside the boundary; the shell is still built on the drawn line. x1 is tried before narrowing.
+    if (corePlacement === 'corner') {
+        const probeCorner = (plate: Rect, cx: number): boolean => {
+            const hw = Math.max(0, coreWidthM / 2 - 1e-3), hd = Math.max(0, coreDepthM / 2 - 1e-3);
+            const cz = plate.z1 - coreDepthM / 2;
+            return pointInPolygon(cx, cz, footprint)
+                && pointInPolygon(cx - hw, cz - hd, footprint) && pointInPolygon(cx + hw, cz - hd, footprint)
+                && pointInPolygon(cx + hw, cz + hd, footprint) && pointInPolygon(cx - hw, cz + hd, footprint);
+        };
+        let cornerPlate: Rect;
+        if (probeCorner(bb, bb.x0 + coreWidthM / 2)) {
+            cornerPlate = bb; fcx = bb.x0 + coreWidthM / 2;
+        } else if (probeCorner(bb, bb.x1 - coreWidthM / 2)) {
+            cornerPlate = bb; fcx = bb.x1 - coreWidthM / 2;
+        } else {
+            let bestR: Rect | null = null, bestA = -Infinity;
+            for (const r of decomposeToRects(footprint, Math.min(coreWidthM, coreDepthM))) {
+                if (rectWidth(r) < coreWidthM || rectDepth(r) < coreDepthM) continue;
+                const a = rectArea(r);
+                if (a > bestA) { bestA = a; bestR = r; }
+            }
+            if (!bestR) {
+                return reject(
+                    `single-core landing: the ${round4(coreWidthM)} × ${round4(coreDepthM)} m compact core fits ` +
+                    `in no axis-aligned rectangle inside the drawn boundary (${round4(plateW)} m × ${round4(plateD)} m box)`,
+                );
+            }
+            cornerPlate = bestR; fcx = bestR.x0 + coreWidthM / 2;
+        }
+        bb = cornerPlate;
+        plateW = rectWidth(bb);
+        plateD = rectDepth(bb);
+        fcz = bb.z1 - coreDepthM / 2;
+    }
     // §RESI-CORE-IN-BOUNDARY (founder 2026-06-29: an L-SHAPE plate filled only ~3 units, both wings
     // wasted) — on a CONCAVE plate the bbox CENTROID can fall in the NOTCH (the missing wing), so the
     // centred core would sit OUTSIDE the real building → the apartments can't ring it and circulation
@@ -727,7 +965,7 @@ function _orchestrateWith(
             pointInPolygon(cx - hw, cz - hd, footprint) && pointInPolygon(cx + hw, cz - hd, footprint) &&
             pointInPolygon(cx + hw, cz + hd, footprint) && pointInPolygon(cx - hw, cz + hd, footprint);
     };
-    if (!coreFullyInside(fcx, fcz)) {
+    if (corePlacement !== 'corner' && !coreFullyInside(fcx, fcz)) {
         const rects = decomposeToRects(footprint, Math.min(coreWidthM, coreDepthM));
         let bestR: Rect | null = null, bestA = -Infinity;
         for (const r of rects) {
@@ -828,7 +1066,13 @@ function _orchestrateWith(
         const plateDepth = Math.max(0, bb.z1 - bb.z0);
         const pitch = 2 * MAX_APARTMENT_DEPTH_M + corridorWidthM;
         const usableDepth = plateDepth * (2 * MAX_APARTMENT_DEPTH_M) / pitch;
-        const netAreaM2 = round4(usableDepth * placeableXSpan);
+        // §RESI-SINGLE-CORE-LANDING — the landing's minimum depth: the core's own approach clearance
+        // (a door must swing on it), never under the door-clear corridor floor. The net for the packer
+        // is then literally plate − core − landing: there are no corridor pitches to discount.
+        const landingMinDepthM = Math.max(APPROACH_CLEAR_M, corridorWidthM);
+        const netAreaM2 = corePlacement === 'corner'
+            ? round4(Math.max(0, plateW * plateD - coreWidthM * coreDepthM - coreWidthM * landingMinDepthM))
+            : round4(usableDepth * placeableXSpan);
 
         // §RESI-ENGINE-FEASIBLE-MIN (Task 1, 2026-06-23) — the per-cell D-TGL engine needs
         // a cell COMFORTABLY above the bare envelope grossMin before a real multi-room
@@ -944,7 +1188,23 @@ function _orchestrateWith(
         // including the enabled-typology tail whose min is the user's own slider number), not the
         // last (the k=1 prefix, whose demandFor-derived min is a number the user never typed).
         let firstRejectReason = '';
-        for (let k = allDemands.length; k >= 1; k--) {
+        if (corePlacement === 'corner') {
+            // §RESI-SINGLE-CORE-LANDING — ONE plan, no prefix trim: the typology consumes at most two
+            // demands and measures N ∈ {1, 2} from the plate itself.
+            const attempt = partitionSingleCoreLanding({
+                levelIndex,
+                footprint: platePoly,
+                core,
+                landingMinDepthM,
+                apartments: allDemands,
+                clipPolygon: footprint,
+                userMinApartmentAreaM2: minApartmentAreaM2,
+                userMaxApartmentAreaM2: maxApartmentAreaM2,
+            });
+            if (attempt.status === 'ok') partition = attempt;
+            else firstRejectReason = attempt.reason;
+        }
+        for (let k = corePlacement === 'corner' ? 0 : allDemands.length; k >= 1; k--) {
             const attempt = partitionLevelPlate({
                 levelIndex,
                 footprint: platePoly,
@@ -1075,6 +1335,8 @@ function _orchestrateWith(
             corridorAreaM2: partition.corridorAreaM2,
             // §RESI-BAND-UNDERFILL — carry the band-emptied-rows explanation to the preview card.
             ...(partition.bandUnderfill !== undefined ? { bandUnderfill: partition.bandUnderfill } : {}),
+            // §RESI-SINGLE-CORE-LANDING — a bay the landing typology could not assign, explained.
+            ...(partition.stranded !== undefined ? { stranded: partition.stranded } : {}),
         });
     }
 
@@ -1100,6 +1362,7 @@ function _orchestrateWith(
         transform,
         // §RESI-STRETCH-TO-RUN honesty — echo the user band so the preview can flag deviations.
         requestedBandM2: { min: minApartmentAreaM2, max: maxApartmentAreaM2 },
+        circulationTypology: corePlacement === 'corner' ? 'single-core-landing' : 'corridor',
         diagnostic,
     };
 }
