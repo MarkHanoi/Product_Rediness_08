@@ -3440,26 +3440,74 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   // is `#c8a96e`. Chat's own route writes the whole finish and does not have that
   // problem, which is why it is named here as the live alternative (C16 CA-18).
   ['floor.setMaterial', 'Writes a detached plugin DTO store nothing renders (§FIX-MATERIAL-DEAD-DISPATCH) — say "make all floors oak chevron"; chat drives floor.setFinishBatch, which writes materialId AND finishSpec to the geometry FloorStore. (The Properties panel Material dropdown reaches floor.update, but its value is masked by finishSpec.finishColor on any floor that has one — L-1884).'],
-  ['furniture.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
-  ['handrail.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
-  ['curtain-wall.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
-  ['lighting.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
-  ['plumbing.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
-  ['structural.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
-  ['handrail.updateColor', 'Handrail colour is not connected to chat yet — set it in the Properties panel.'],
+  // ══ §FIX-MATERIAL-REASON-NAMES-THE-CAUSE (L-11030) ═════════════════════════
+  //
+  // ⭐ TWELVE ROWS HERE ALL READ, VERBATIM: *"Materials are not connected to chat
+  // yet — set them in the Properties panel."* MEASURED 2026-08-25 (lane
+  // CHATPHOTO57), that sentence was WRONG IN BOTH HALVES for most of them — and a
+  // refusal that misnames its own cause is a lie sitting in the registry whose
+  // entire purpose is to prevent lies.
+  //
+  // ⛔ HALF ONE — THE CAUSE. "Not connected to chat yet" says the blocker is
+  // GRAMMAR. It is not. `<family>.setMaterial` writes a DETACHED plugin DTO store
+  // that no renderer, no 2-D projector, no IFC exporter and no persistence path
+  // reads (§FIX-MATERIAL-DEAD-DISPATCH), and `tools/ga-gate/mirror-reachability-ledger.json`
+  // holds the EXECUTED proof: `slab.setMaterial` and `roof.setMaterial` were
+  // dispatched through a real CommandBus and measured REFUSED at canExecute. A lane
+  // acting on the old sentence would wire chat to a dead verb and ship a silent
+  // no-op — the exact defect §FIX-MATERIAL-DEAD-DISPATCH was raised to close.
+  //
+  // ⛔ HALF TWO — THE REMEDY, and this half is worse. "Set them in the Properties
+  // panel" is FALSE for five of these families: `MaterialDispatch.ts` declares
+  // beam / stair / plumbing / lighting / structural in `MATERIAL_UNSUPPORTED_REASON`,
+  // so `dispatchSetMaterial` returns false and the panel commits nothing either. We
+  // were routing the user to a control that refuses him too — a refusing half whose
+  // escape hatch does not exist.
+  //
+  // ⭐ THE SPLIT BELOW IS THE FINDING: two genuinely different states were hiding
+  // behind one sentence. Every reason is sourced from `MaterialDispatch.ts`
+  // (measured at the BUILDER under Gate G7) or from the executed mirror ledger —
+  // not from reading the handler and inferring.
+
+  // ── CLASS 1 — A LIVE ROUTE EXISTS. Only the chat GRAMMAR is missing. ────────
+  // The honest sentence names the verb that really commits, so the next lane wires
+  // chat to THAT one instead of to the dead one.
+  ['furniture.setMaterial', 'A dead verb — it writes a detached plugin store nothing renders. Furniture colour DOES commit through furniture.updateParameters, which is the route the Properties panel uses; chat has no furniture-material grammar yet.'],
+  ['handrail.setMaterial', 'A dead verb — it writes a detached plugin store nothing renders. Handrail COLOUR commits through handrail.updateColor; a catalogue material does not, because the handrail builder has no material-library lookup. Set a colour in the Properties panel.'],
+  ['curtain-wall.setMaterial', 'A dead verb — it writes a detached plugin store nothing renders. Curtain-wall material DOES commit through wall.updateCurtainWall, which is the route the Properties panel uses; chat has no curtain-wall-material grammar yet.'],
+  ['handrail.updateColor', 'This is the LIVE handrail colour route — it reaches the handrail store and the builder reads it — but chat has no handrail-colour grammar yet. Set it in the Properties panel.'],
+
+  // ── CLASS 2 — NO LIVE PATH ANYWHERE. The panel cannot do it either. ─────────
+  // ⛔ These must NEVER say "set them in the Properties panel": measured at the
+  // BUILDER (Gate G7), there is nothing for any control to write.
+  ['lighting.setMaterial', 'Not a wiring gap — LightingData has no material field at all. A light fixture\'s colour lives in per-fixture parameter blocks (downlight, pendant, emission — a different field per fixture type), so there is nothing a single Material control could write, in chat or in the Properties panel. It needs a per-fixture-part colour UI first.'],
+  ['plumbing.setMaterial', 'Not a wiring gap — the plumbing builder honours a colour for the BATH fixture only. Sink, toilet, urinal, bidet, shower and accessories hardcode their ceramic and chrome, so a material would apply to one fixture type in six and silently do nothing on the rest. The Properties panel refuses it for the same reason.'],
+  ['structural.setMaterial', 'Not a wiring gap — there is no structural runtime family. The schema defines the element, but no store, no builder and no command exist anywhere; it is schema-only. The real structural element is the COLUMN, which has a full, live material path.'],
   // §FEAT-WALL-COLOR-BATCH (ADR-0314) — wall colour IS chat-drivable now, via
   // wall.updateColorBatch. These three stay deferred with the true reasons:
   ['wall.setColor', 'Writes a detached plugin store nothing renders (§FIX-MATERIAL-DEAD-DISPATCH) — say "make all walls white"; chat drives wall.updateColorBatch instead.'],
   ['wall.updateColor', 'The single-wall inspector route — from chat, "make all walls white" / "paint the selected walls …" drives wall.updateColorBatch (one undo entry, honest batch report).'],
   ['wall.bulkSetVisuals', 'Writes a detached plugin store nothing renders (§FIX-MATERIAL-DEAD-DISPATCH) — chat bulk colour drives wall.updateColorBatch, which reaches the geometry store.'],
-  ['slab.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
-  ['roof.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
-  ['room.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
-  ['beam.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
-  ['column.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
-  ['stair.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
-  ['door.setFrameColor', 'Door finishes are not connected to chat yet — set them in the Properties panel.'],
-  ['window.setFrameColor', 'Window finishes are not connected to chat yet — set them in the Properties panel.'],
+  // CLASS 1 continued — a live route exists; chat grammar is the only gap.
+  // ⭐ slab and roof are the two verbs the mirror ledger DISPATCHED and measured
+  // REFUSED. They are not inferred dead, they are PROVEN dead.
+  ['slab.setMaterial', 'A dead verb — dispatched through a real bus it REFUSES at canExecute, because it writes a detached plugin store nothing renders. A slab material DOES commit through slab.updateDimensions, which is the route the Properties panel uses; chat has no slab-material grammar yet.'],
+  ['roof.setMaterial', 'A dead verb — dispatched through a real bus it REFUSES at canExecute, because it writes a detached plugin store nothing renders. A roof material DOES commit through roof.update, which is the route the Properties panel uses; chat has no roof-material grammar yet.'],
+  ['column.setMaterial', 'A dead verb — it writes a detached plugin store nothing renders. A column material DOES commit through column.update, which is the route the Properties panel uses; chat has no column-material grammar yet.'],
+  // ⭐ ROOM IS THE EXCEPTION, AND THE OLD SENTENCE BURIED IT: this is the ONE
+  // `setMaterial` handler that writes the geometry store. Colour is LIVE; only the
+  // catalogue id is refused, and only because a room has no field to hold one.
+  ['room.setMaterial', 'Room COLOUR is live through this very verb — it is the one setMaterial that reaches the geometry store — but chat has no room-colour grammar yet, so set it in the Properties panel. A catalogue MATERIAL is refused: a room has no material-id field, and its fill comes from the room colour override.'],
+
+  // CLASS 2 continued — no live path; the panel refuses these too.
+  ['beam.setMaterial', 'Not a wiring gap — the beam builder HARDCODES its material, choosing between two shared steel and concrete materials from the section type, and BeamData carries no material fields at all. Nothing a Material control writes would reach the mesh, in chat or in the Properties panel.'],
+  ['stair.setMaterial', 'Not a wiring gap — StairData has no material or colour field. Its only material is a fixed enum (concrete, steel, timber, marble, glass, composite) resolved to a preset, which a material dropdown cannot express. It needs an enum picker first.'],
+
+  // ── Openings: the refusal is CORRECT, and now names the live route. ─────────
+  // A door/window finish comes from its SYSTEM TYPE (C15); the frame colour has its
+  // own dedicated panel control, and that control DOES commit to the record.
+  ['door.setFrameColor', 'Not connected to chat yet — the Frame Colour control in the Properties panel drives this and does commit to the record. A door\'s wider finish comes from its system type, so changing the door type is the other route.'],
+  ['window.setFrameColor', 'Not connected to chat yet — the Frame Colour control in the Properties panel drives this and does commit to the record. A window\'s wider finish comes from its system type, so changing the window type is the other route.'],
 
   // Selection is a pointer concern; the chat reads the selection, it does not
   // author it.
