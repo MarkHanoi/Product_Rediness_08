@@ -86,6 +86,16 @@ const FILL_A = 'rgba(102,0,255,0.10)';
 const MIN_LOOP_VERTS = 3;
 
 /**
+ * §LIFT94 (L-11344) — the four faces a rectangular shaft's landing can be on.
+ * A topology fact about a rectangle, not a lift dimension, so it is not in
+ * `LIFT_DIMENSION_DEFAULTS` either.
+ */
+const QUARTER_TURNS = 4;
+
+/** The four compass-ish labels the hint names, indexed by quarter-turn. */
+const LANDING_FACE_LABELS = ['front', 'right', 'back', 'left'] as const;
+
+/**
  * How far from a wall the cursor may be and still host the shaft on it, in metres.
  *
  * ⚠ NOT a lift dimension — a POINTER REACH, which is why it is here and not in
@@ -119,15 +129,40 @@ export class LiftPlanToolHandler implements PlanToolHandler {
   private _cursor: WorldPoint | null = null;
   /** The last refusal, shown on the overlay so it reaches a PERSON, not a console. */
   private _refusal: string | null = null;
+  /**
+   * §LIFT94 (L-11344) — QUARTER-TURNS THE USER HAS ADDED WITH SPACE, 0..3.
+   *
+   * THE FOUNDER: *"i can not click 'space' on preview to change the location of the
+   * door"*. Measured 2026-08-25: `onKeyDown` existed and handled `Escape` and nothing
+   * else, so SPACE fell through to the page. The handler was not missing — the key was
+   * UNBOUND. `DoorPlanToolHandler.ts:77` (§FEAT-DOOR-FLIP-ON-SPACE) is the precedent
+   * and this mirrors it exactly, including returning `true` so the overlay
+   * preventDefaults and the page never scrolls.
+   *
+   * ⭐ FOR A LIFT, "WHERE THE DOOR IS" **IS** THE ROTATION. `LiftCompound.rotation` is
+   * documented as *"Plan angle (radians about world Y). Local -Z is the LANDING side"*
+   * — so the landing side and the shaft's plan angle are one number, not two. A
+   * quarter-turn moves the landing to the next face, which is precisely the founder's
+   * "change the location of the door", and it is also the only user control over
+   * `rotation` that exists at all (the value was otherwise derived from the host wall
+   * and never adjustable — L-11345).
+   *
+   * ⚠ STICKY ACROSS PLACEMENTS, RESET ON ESCAPE. Placing a bank of lifts that all face
+   * the same corridor should not mean re-pressing SPACE for each one; Escape means
+   * "start over" and clears it.
+   */
+  private _landingQuarterTurns = 0;
 
   activate(ctx: PlanToolDrawContext): void {
     this._ctx = ctx;
     this._reset();
+    this._landingQuarterTurns = 0;
   }
 
   deactivate(): void {
     this._clearOverlay();
     this._reset();
+    this._landingQuarterTurns = 0;
     this._ctx = null;
   }
 
@@ -151,11 +186,23 @@ export class LiftPlanToolHandler implements PlanToolHandler {
       this.cancel();
       return true;
     }
+    // §LIFT94 (L-11344) — SPACE turns the shaft a quarter-turn, moving the LANDING
+    // SIDE (and therefore the landing doors) to the next face. Three spellings are
+    // tested because `DoorPlanToolHandler` tests three: `e.code` is the reliable one,
+    // `' '` is the modern `e.key`, and `'Spacebar'` is legacy Edge. Returning `true`
+    // tells `PlanViewToolOverlay._onKeyDown` to preventDefault/stopPropagation, so the
+    // page never scrolls and no other SPACE shortcut fires.
+    if (e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar') {
+      this._landingQuarterTurns = (this._landingQuarterTurns + 1) % QUARTER_TURNS;
+      this._draw();
+      return true;
+    }
     return false;
   }
 
   cancel(): void {
     this._reset();
+    this._landingQuarterTurns = 0;
     this._clearOverlay();
   }
 
@@ -202,7 +249,7 @@ export class LiftPlanToolHandler implements PlanToolHandler {
       enclosureType,
       ...(host ? { hostWallId: host.wallId } : {}),
       origin: { x: pt.worldX, y: 0, z: pt.worldZ },
-      rotation: host ? Math.atan2(host.segment.b.z - host.segment.a.z, host.segment.b.x - host.segment.a.x) : 0,
+      rotation: this._angleFor(host),
       servedLevels: served,
       enclosureIds: Array.from({ length: ENCLOSURE_SIDE_COUNT }, () => createId('wall')),
       landingDoorIds: served.map(() => createId('door')),
@@ -416,9 +463,7 @@ export class LiftPlanToolHandler implements PlanToolHandler {
     // `buildLiftAssembly` calls when the payload carries no overrides, which is what
     // this tool dispatches.
     const dims = resolveLiftDimensions({});
-    const angle = host
-      ? Math.atan2(host.segment.b.z - host.segment.a.z, host.segment.b.x - host.segment.a.x)
-      : 0;
+    const angle = this._angleFor(host);
     const ring = LiftPlanToolHandler._footprint(
       pt.worldX,
       pt.worldZ,
@@ -430,6 +475,19 @@ export class LiftPlanToolHandler implements PlanToolHandler {
     this._fillPath(ctx, pts);
     this._strokePath(ctx, pts);
 
+    // §LIFT94 (L-11344) — DRAW THE LANDING SIDE, HEAVILY.
+    //
+    // ⭐ WITHOUT THIS, THE FIX WOULD LOOK IDENTICAL TO THE BUG. The shaft footprint is
+    // very nearly square, so turning it a quarter-turn moves the outline by a few
+    // pixels and the founder would press SPACE and see, again, nothing happen. The
+    // landing edge is what actually moves, so the landing edge is what must be drawn.
+    //
+    // `_footprint` emits its corners in local order [(-hw,-hd), (hw,-hd), (hw,hd),
+    // (-hw,hd)], so edge 0→1 is the local -Z face — and `LiftCompound.rotation`'s own
+    // doc says *"Local -Z is the LANDING side"*. Reading the edge off the same array
+    // the outline is drawn from means the marker cannot drift from the shape.
+    this._strokeLandingEdge(ctx, pts[0]!, pts[1]!);
+
     const levelId = c.viewDef.spatial?.levelId;
     const storeys = levelId ? this._resolveServedLevels(levelId, pt).length : 0;
     this._drawHint(
@@ -437,7 +495,11 @@ export class LiftPlanToolHandler implements PlanToolHandler {
       cssH,
       `Lift · ${host ? 'wall-hosted' : 'standalone glass'} · ` +
         `${dims.shaftWidth.toFixed(2)} × ${dims.shaftDepth.toFixed(2)} m · ` +
-        `serves ${storeys} storey${storeys === 1 ? '' : 's'} from this level up · click to place`,
+        `serves ${storeys} storey${storeys === 1 ? '' : 's'} from this level up · ` +
+        // §LIFT94 (L-11344) — the key is NAMED on the overlay. A placement modifier
+        // nobody is told about is, from the user's side, indistinguishable from one
+        // that does not exist — which is exactly how this one was reported.
+        `SPACE: doors on the ${LANDING_FACE_LABELS[this._landingQuarterTurns]} face · click to place`,
     );
     ctx.restore();
   }
@@ -475,6 +537,28 @@ export class LiftPlanToolHandler implements PlanToolHandler {
     ctx.closePath();
     ctx.fill();
     ctx.globalAlpha = 1;
+  }
+
+  /**
+   * The LANDING edge of the shaft — the face the doors open onto — drawn as a thick
+   * solid bar over the thin outline, so a quarter-turn is unmistakable on a footprint
+   * that is nearly square.
+   */
+  private _strokeLandingEdge(
+    ctx: CanvasRenderingContext2D,
+    a: { sx: number; sy: number },
+    b: { sx: number; sy: number },
+  ): void {
+    ctx.save();
+    ctx.strokeStyle = STROKE;
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(a.sx, a.sy);
+    ctx.lineTo(b.sx, b.sy);
+    ctx.stroke();
+    ctx.restore();
   }
 
   private _strokePath(
@@ -527,6 +611,33 @@ export class LiftPlanToolHandler implements PlanToolHandler {
   private _reset(): void {
     this._cursor = null;
     this._refusal = null;
+    // ⛔ §LIFT94 (L-11344) — `_landingQuarterTurns` is DELIBERATELY NOT CLEARED HERE.
+    // `_commit` calls `_reset()` after every successful placement, so clearing it here
+    // would silently un-stick the landing side: a user placing a bank of four lifts
+    // onto one corridor would have to press SPACE again for each, and the second lift
+    // would face a different way than the preview they had just been looking at.
+    // Escape and tool-switch clear it explicitly, in `cancel()` and `deactivate()` —
+    // "start over" and "put the tool down" mean start over; "that one landed" does not.
+  }
+
+  /**
+   * §LIFT94 (L-11344/L-11345) — THE ONE PLACE THE SHAFT'S PLAN ANGLE IS DECIDED.
+   *
+   * ⚠ THIS EXISTS BECAUSE THE ANGLE WAS COMPUTED TWICE. `_commit` and `_draw` each
+   * carried their own copy of `Math.atan2(host.segment.b.z - host.segment.a.z, …)`.
+   * Two copies of one number is how a preview comes to show something the commit does
+   * not build (C84 EI-1), and adding the user's quarter-turn to only one of them would
+   * have produced exactly that: SPACE would rotate the purple rectangle and place an
+   * unrotated lift. One method, both callers.
+   *
+   * The host wall's bearing is the BASE angle — a wall-hosted lift faces the way its
+   * wall runs — and the user's SPACE turns are added on top of it.
+   */
+  private _angleFor(host: { segment: PlanSegment } | null): number {
+    const base = host
+      ? Math.atan2(host.segment.b.z - host.segment.a.z, host.segment.b.x - host.segment.a.x)
+      : 0;
+    return base + this._landingQuarterTurns * (Math.PI / 2);
   }
 
   private _clearOverlay(): void {
