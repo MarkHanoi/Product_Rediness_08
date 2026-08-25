@@ -82,6 +82,20 @@ export interface GenerationBuildingPayload {
     /** Recognised façade description the generator CANNOT produce. Repeated on the
      *  post-build transcript: the Confirm card is seen once, the report persists. */
     readonly facadeUnavailable?: readonly string[];
+    /**
+     * ⭐ §HONESTY65-PHOTO-LEDGER (L-11150) — the PHOTOGRAPH'S provenance ledger:
+     * what was read from the image (each at its measured confidence) and every
+     * `notUsed` row the mapper wrote (`FacadePhotoBrief.notUsed` — the photo's
+     * NOT-BUILT legs). The resolver has emitted this field since §GEN-PHOTO-BRIEF
+     * (L-11020) *"so the post-build transcript can repeat what was NOT done"* —
+     * and this seam DROPPED it: the field was not even declared here, so only the
+     * SENTENCE'S `facadeUnavailable` ever reached the persistent transcript and
+     * the photo's ledger died with the Confirm card. Kept separate from
+     * `facadeUnavailable` because the SOURCE is the point — "your sentence asked
+     * for something I can't build" and "your photo showed something I didn't use"
+     * are different sentences.
+     */
+    readonly photoProvenance?: readonly string[];
 }
 
 /** The `generation.apartment` payload the resolver emits (§GEN-CHAT-APARTMENT
@@ -117,6 +131,27 @@ function emitReport(success: boolean, info: readonly string[]): void {
     } catch (err) {
         console.warn('[gen-chat-seam] report emit failed (non-fatal):', err);
     }
+}
+
+/**
+ * ⭐ §HONESTY65-PHOTO-LEDGER (L-11150) — merge the photograph's provenance ledger
+ * into the SAME post-build report the engine's own lines ride on. ONE report, one
+ * line for the whole ledger, deduplicated: a row whose text already appears in a
+ * line above (the executor's `facadeNotes` or the sentence's `facadeUnavailable`)
+ * is not printed twice. Shared by all three typology arms because the resolver
+ * attaches a photo ledger to the payload regardless of typology.
+ *
+ * Exported for the acceptance test only — production callers are the three arms
+ * below.
+ */
+export function appendPhotoLedger(lines: string[], cmd: GenerationBuildingPayload): void {
+    if (cmd.photoProvenance === undefined || cmd.photoProvenance.length === 0) return;
+    const printed = lines.map((l) => l.toLowerCase());
+    const rows = [...new Set(cmd.photoProvenance)].filter(
+        (r) => !printed.some((l) => l.includes(r.toLowerCase())),
+    );
+    if (rows.length === 0) return;
+    lines.push(`From your photo, as shown before you confirmed: ${rows.join('; ')}.`);
 }
 
 function resolveRuntime(): PryzmRuntime | undefined {
@@ -338,6 +373,11 @@ async function runResidential(rt: PryzmRuntime, cmd: GenerationBuildingPayload):
     if (cmd.facadeUnavailable !== undefined && cmd.facadeUnavailable.length > 0) {
         lines.push(`Not built, as flagged before you confirmed: ${cmd.facadeUnavailable.join('; ')}.`);
     }
+    // ⭐ §HONESTY65-PHOTO-LEDGER (L-11150) — the PHOTO'S ledger, same report. Until
+    // this call, the sentence's not-built legs printed and the photograph's did
+    // not, so a build that quietly ignored half the image read as a complete
+    // success on the transcript that persists.
+    appendPhotoLedger(lines, cmd);
     emitReport(true, lines);
 }
 
@@ -376,6 +416,7 @@ async function runHouse(rt: PryzmRuntime, cmd: GenerationBuildingPayload): Promi
         ? [...res.report]
         : [`Built the ${storeyCount}-storey house.`];
     if (lineNote !== null) lines.unshift(lineNote);
+    appendPhotoLedger(lines, cmd);   // §HONESTY65-PHOTO-LEDGER — same ledger, same rule
     emitReport(true, lines);
 }
 
@@ -401,6 +442,7 @@ async function runOffice(rt: PryzmRuntime, cmd: GenerationBuildingPayload): Prom
         ? [...res.report]
         : [`Built a ${request.stories}-storey office tower (${res.deskCount ?? 0} desks).`];
     if (src.note !== null) lines.unshift(src.note);
+    appendPhotoLedger(lines, cmd);   // §HONESTY65-PHOTO-LEDGER — same ledger, same rule
     emitReport(true, lines);
 }
 
