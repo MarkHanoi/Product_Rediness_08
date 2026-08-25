@@ -2786,6 +2786,24 @@ export interface ElementStoresSlot {
   register(kind: string, store: ElementStoreHandle): void;
 }
 
+/**
+ * The one member the composition root — and its consumers — call on a plugin DTO
+ * store built by `PluginRegistry` and keyed by its descriptor's `storeKey`.
+ *
+ * ⚠ Deliberately a NAMED STRUCTURAL SHAPE rather than `unknown` plus a cast at the
+ * call site. An `any`-shaped seam is a defect factory
+ * ([[fake-more-capable-than-real]]), and this type exists because a cast hid a
+ * store that was never attached at all. `ProjectSerializer`'s `boundaryLineStore`
+ * port states the same rule for the same reason: a store that cannot answer
+ * `getState()` must be a COMPILE error, not a runtime silence.
+ *
+ * ⛔ Structural on purpose, so no layer inverts: the store classes live in
+ * `plugins/*` (L6) and this package is L3. Nothing is imported.
+ */
+export interface PluginDtoStoreHandle {
+  getState(): ReadonlyMap<string, unknown>;
+}
+
 /** Stores slot — typed umbrella for all registered element stores.
  *
  *  Wave 7: adds `hydrate(snapshot)` so the project-open chain has a
@@ -2802,6 +2820,39 @@ export interface StoresSlot {
    *  composed runtime instead of module-scope accident. See
    *  `ElementStoresSlot`. */
   readonly elements: ElementStoresSlot;
+
+  /**
+   * §BLSTORE-COMPOSED-PLUGIN-STORES (L-11060 · C106 §1 · C84 EI-1) — the ONE
+   * authority for the boundary-line family, reachable from the composed runtime.
+   *
+   * ⛔ THIS FIELD'S ABSENCE WAS THE FOUNDER'S #1 BLOCKER, and it is worth stating
+   * exactly what was wrong so nobody re-derives the "obvious" shortcut.
+   *
+   * FOUR production call sites were already written as `runtime.stores.boundaryLine`
+   * — `initTools.ts`'s 3-D bridge and its plan-symbol reader, `ProjectSerializer`'s
+   * save-time fallback, and `generationChatSeam.ts`'s footprint read. Every one of
+   * them reached the key through a cast, because `StoresSlot` did not declare it.
+   * `composeRuntime` never attached it. So all four read `undefined`, in silence,
+   * with the compiler unable to see the disagreement. Measured on a real
+   * `composeRuntime`: `Object.keys(runtime.stores)` → `['elements',
+   * 'registerHydrator', 'hydrate', 'viewState', 'project']`.
+   *
+   * ⭐ WHY THIS FAMILY IS DECLARED HERE AND THE OTHER 28 PLUGIN STORES ARE NOT.
+   * ADR-0318 moved the authoritative element stores behind `elements` precisely so
+   * nobody reads a plugin DTO store for a family that HAS a geometry twin — reading
+   * `stores.wall` would be reading the store MT-01 says nobody reads. `boundaryLine`
+   * has NO geometry twin: `plugins/boundary-line/src/store.ts` opens by declaring
+   * that this family has EXACTLY ONE store on purpose, so C84 EI-1 holds by
+   * construction. For this family the plugin store IS the record, not a DTO mirror
+   * of one, and exposing it is correct rather than a leak.
+   *
+   * Optional, and the absence is honest rather than defensive: a `bootstrapFn` that
+   * contributes no plugins (bench / headless stubs) leaves it undefined, and every
+   * consumer must keep saying UNREADABLE rather than guessing — `undefined` here
+   * means "this session cannot answer", never "there are no boundary lines"
+   * ([[context-data-honesty-family]]).
+   */
+  readonly boundaryLine?: PluginDtoStoreHandle | undefined;
 
   /** Fan out a full project snapshot to all registered stores via the
    *  engine's `loadDelegate.load()`.  Throws `RuntimeNotWiredError` if

@@ -150,10 +150,17 @@ async function readBoundaryLineFootprint(
 
     // The ONE authority for this family — C106 §1: `boundaryLine` has no geometry
     // twin, so this store IS the record, not a DTO mirror of one.
-    const store = (rt as unknown as {
-        stores?: { boundaryLine?: { getState?(): Map<string, unknown> } };
-    }).stores?.boundaryLine;
-    const state = store?.getState?.();
+    //
+    // ⭐ §BLSTORE-COMPOSED-PLUGIN-STORES (L-11060) — READ THROUGH THE DECLARED SLOT,
+    // NOT THROUGH A CAST. This read used to be
+    //   `(rt as unknown as { stores?: { boundaryLine?: … } }).stores?.boundaryLine`
+    // and that cast is the whole reason the founder's build was refused for a day:
+    // `composeRuntime` never attached the key, the cast asserted a shape the runtime
+    // did not have, and the compiler could not see the disagreement. `StoresSlot` now
+    // DECLARES `boundaryLine`, so if the composition root ever stops attaching it the
+    // failure is a type error at this line rather than a refusal in the chat.
+    const store = rt.stores?.boundaryLine;
+    const state = store?.getState();
     if (state === undefined) {
         // ⚠ UNREADABLE is not EMPTY (§CONTEXT-DATA-HONESTY). Say which one it is.
         return {

@@ -146,6 +146,7 @@ import {
   type StructuralSlot,
   type SearchSlot,
   type ElementStoresSlot,
+  type PluginDtoStoreHandle,
   type ElementStoreHandle,
 } from './types.js';
 import { buildViewRegistrySlot } from './buildViewRegistrySlot.js';
@@ -194,6 +195,30 @@ export interface EditorBootstrapResult {
   readonly host: any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly viewRegistry: any;
+  /**
+   * §BLSTORE-COMPOSED-PLUGIN-STORES (L-11060) — THE PLUGIN DTO STORES THE DATA
+   * HALF BUILT, keyed by each `PluginRegistry` descriptor's `storeKey`.
+   *
+   * ⛔ THIS FIELD'S ABSENCE WAS A SHIPPED DEFECT, and it is the `bus.has` defect
+   * (see `bus.has` below) one slot over. `bootstrapWithEverything` has always
+   * RETURNED these — measured on a real `composeRuntime`, `inner.stores` carries
+   * 29 keys (`wall`, `slab`, …, `boundaryLine`, …) — but this interface, which is
+   * the ONLY shape the composition root sees of the data half, did not declare
+   * `stores` at all. So the composer could not read them, never copied any of them
+   * onto the runtime handle, and `window.runtime.stores` shipped with exactly FIVE
+   * keys: `elements`, `registerHydrator`, `hydrate`, `viewState`, `project`.
+   *
+   * Every consumer that had been written to read `runtime.stores.<storeKey>` was
+   * therefore reading `undefined` — silently, because each one reaches the key
+   * through a cast (`runtime.stores as unknown as Record<string, unknown>`), so
+   * the compiler could not see the disagreement either. Declaring it here is what
+   * makes the next such omission a COMPILE error instead of a quiet `undefined`.
+   *
+   * Optional because bench / headless harnesses inject a lightweight
+   * `bootstrapFn` stub that builds no plugins at all; `composeRuntime` treats a
+   * missing map and a missing key as the same honest "not contributed".
+   */
+  readonly stores?: Readonly<Record<string, PluginDtoStoreHandle | undefined>>;
   tearDown(): void;
 }
 
@@ -1646,10 +1671,52 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       register: (kind, store: ElementStoreHandle) => storeRegistry.register(kind, store),
     };
 
+    // ── 6-pre-b. §BLSTORE-COMPOSED-PLUGIN-STORES (L-11060) — adopt the ONE
+    //    boundary-line store the data half already built ─────────────────────
+    //
+    // ⛔ THE DEFECT THIS CLOSES, stated as a measurement rather than a story:
+    // `inner.stores` carries 29 plugin DTO stores keyed by `storeKey` (measured:
+    // wall, slab, pool, water, door, window, roof, curtainwall, grid, column, beam,
+    // stair, handrail, ceiling, floor, balcony, lift, liftPart, boundaryLine,
+    // furniture, plumbing, lighting, rooms, structural, dimension, selection,
+    // annotation, view, section). The `StoresSlot` built below is a FRESH OBJECT
+    // and copied none of them, so `window.runtime.stores` shipped with five keys
+    // and `runtime.stores.boundaryLine` was `undefined` in every browser session.
+    //
+    // ⭐ ADOPTED, NEVER CONSTRUCTED — the same rule the ADR-0318 block above states
+    // for the authoritative element stores, and for the same reason: constructing a
+    // rival `BoundaryLineStore` here would fork state against the instance the bus
+    // hands every `boundaryLine.*` handler through `storesAsRecordView`, and the
+    // chat seam would then read an empty store while the drawn line sat in the
+    // other one. Identity is the property; `boundaryLineFootprintThroughComposedRuntime`
+    // asserts it rather than assuming it.
+    //
+    // ⚠ ONLY THIS FAMILY. See `StoresSlot.boundaryLine` for why exposing the other
+    // 28 would re-open exactly what ADR-0318 closed. The other twin-less families
+    // (lighting, plumbing, furniture, …) have the SAME latent unreachability and
+    // are logged as L-11064 rather than fixed blind here.
+    const boundaryLineStore: PluginDtoStoreHandle | undefined =
+      inner.stores?.['boundaryLine'];
+    if (boundaryLineStore === undefined && inner.stores !== undefined) {
+      // The data half ran and still did not contribute the key — that is a missing
+      // `PluginRegistry` descriptor, not a headless stub. Named at boot, because the
+      // whole cost of L-11060 was that nothing said anything.
+      console.warn(
+        '[runtime-composer] §BLSTORE-COMPOSED-PLUGIN-STORES: the data half contributed ' +
+        'no `boundaryLine` store, so `runtime.stores.boundaryLine` will be UNREADABLE — ' +
+        'boundary lines will not reach the plan projector, the serializer or the chat ' +
+        'footprint reader. Check the `boundary-line` descriptor in PluginRegistry.ts.',
+      );
+    }
+
     let _hydratorFn: ((snapshot: unknown) => void | Promise<void>) | null = null;
     const stores: StoresSlot = {
       // ADR-0318 — authoritative element stores (live view over storeRegistry).
       elements,
+      // §BLSTORE-COMPOSED-PLUGIN-STORES (L-11060) — C106 §1's single authority.
+      // `undefined` when the data half contributed none; consumers must report
+      // UNREADABLE, never EMPTY.
+      boundaryLine: boundaryLineStore,
       registerHydrator(fn: (snapshot: unknown) => void | Promise<void>): void {
         _hydratorFn = fn;
       },

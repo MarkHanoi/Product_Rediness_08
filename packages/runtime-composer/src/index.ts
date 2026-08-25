@@ -35,6 +35,7 @@ export type {
   PersistenceTierSlot,
   PryzmProjectBundle,
   StoresSlot,
+  PluginDtoStoreHandle,
   PersistenceClientLike,
   PersistenceStatus,
   PersistenceOpenProgress,
