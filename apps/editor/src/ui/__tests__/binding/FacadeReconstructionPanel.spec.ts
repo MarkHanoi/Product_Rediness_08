@@ -93,6 +93,25 @@ describe('FacadeReconstructionPanel — C108 §8 reachability + honesty', () => 
         const panel = new FacadeReconstructionPanel();
         await panel.loadImage(decodedCaseA());
 
+        // ── UPDATED 2026-08-25 (L-10973) — LOADING NO LONGER GUESSES A PLANE ──
+        // This test used to load a photograph and assert 4 zones x 5 bays straight
+        // afterwards, because the panel auto-detected the facade plane on load. It
+        // no longer does: the founder measured detection at 0.64 against 1.00 for
+        // his own four corners on the same image, and C108 §4.3 makes that 0.64 a
+        // CAP on every number the panel shows. The corners are now ASKED FOR on
+        // every photograph. ⭐ The assertion is STRENGTHENED rather than relaxed —
+        // both states are now pinned, in order.
+        expect(panel.diagnostics!.facadeQuad.status).toBe('needs-user');
+        expect(panel.ir!.facade.confidence).toBeNull();
+
+        // The four corners of the facade the generator DREW, in cropped-frame pixels.
+        await panel.setFacadeQuad([
+            { x: 40, y: 30 },
+            { x: 440, y: 30 },
+            { x: 440, y: 330 },
+            { x: 40, y: 330 },
+        ]);
+
         const ir = panel.ir;
         expect(ir).not.toBeNull();
         // Corpus case A draws a 5-bay x 4-storey grid. The panel is reading the

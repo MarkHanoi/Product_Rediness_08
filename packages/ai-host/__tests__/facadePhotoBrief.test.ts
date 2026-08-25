@@ -86,14 +86,28 @@ describe('§GEN-PHOTO-BRIEF — the soffit cue ⇒ balconies (L-11021: NOT protr
         const c = caseD();
         expect(c.truth.soffitBandHeight).toBeGreaterThan(0);
         const result = await reconstructFacade(c.image);
-        // ⚠ THE MEASUREMENT THAT FORCED THE DESIGN. The IR's own protrusion channel
+        // ⭐ THE ENGINE WAS FIXED, AND THIS ASSERTION IS WHAT TOLD US (L-10979).
+        // It used to read `toBe(0)` with the note: *"the IR's own protrusion channel
         // is EMPTY on the one case that draws balconies — the ±2 px soffit↔lattice
-        // match in the engine misses by 3 px. Asserted, so that if the engine is
-        // ever fixed this test tells us rather than silently passing either way.
+        // match misses by 3 px. Asserted, so that if the engine is ever fixed this
+        // test tells us rather than silently passing either way."* It did exactly
+        // that: lane FACADEREAL60 moved the lattice onto the DETECTED OPENINGS
+        // (C108 §3.4, L-10971), so the zone boundaries now fall midway between
+        // opening centres — which is where a storey line actually is — instead of
+        // at the comb's quiet phase, and the soffit cue lands inside the tolerance.
+        // ⛔ The mapper's SOURCE is unchanged: it still reads the diagnostics, so
+        // `balconies` does not depend on this channel. The channel simply stopped
+        // being empty. 3 interior storey lines x 5 bays = 15 cells.
         const protrusions = result.ir.facade.zones
             .flatMap((z) => z.cells)
             .filter((cell) => cell.protrusion !== null);
-        expect(protrusions.length).toBe(0);
+        expect(protrusions.length).toBe((c.truth.storeys - 1) * c.truth.bays);
+        // ⛔ And the DEPTH is still UNKNOWN in every one of them (C108 §3.10,
+        // L-11005). A channel that filled in is not a channel that started claiming.
+        for (const cell of protrusions) {
+            expect(cell.protrusion!.depth).toBeNull();
+            expect(cell.protrusion!.unknownReason).toBe('geometry-incomplete');
+        }
         // ...and the cue IS in the diagnostics, at every interior line.
         expect(result.diagnostics.soffits.length).toBe(c.truth.storeys - 1);
 
