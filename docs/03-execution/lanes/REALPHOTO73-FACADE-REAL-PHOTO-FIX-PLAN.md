@@ -51,7 +51,15 @@ Arcade blobs on M: h/medH 1.85–1.91 (band 2.5) — 5/5 as long as the blob EXI
 ## Defect outside the brief — S13 double count (C108 §3.8 "one rule")
 `index.ts` S13 pushes the loser of a cell contest as an outlier, then the `matched === null && !isAssigned` branch re-enters it: case H reports 2 features + 2 outliers; M-wing20 30 outliers from 20 blobs. Fix: `continue` after the loser branch; the displaced `existing` also keeps a stale `matchedCell`.
 
-## Sequence
+## H6 — rectified working resolution (from the founder's 5cd124af run, UNMEASURED)
+The panel's stage note reads `rectify: 441×512, aspect 0.862 via edge-length-ratio` for a 1017×1200 source: the rectified frame is ~half the source scale, so a window is ~40 samples and a 4-px jamb < 2 — the 8-sample minimum, the 5 % trim, `openingMinRectangularity` and the edge map all harden at that size. The output size is chosen from the ASPECT (edge-length ratio), not from the source resolution. Measure first (rectify at source scale, same photo, count matched openings) — cheapest possible lever on recall, and it precedes any detector change.
+
+## Check — feature bay index (UNMEASURED)
+On the same run, *Reconstructed geometry* draws the glass-block strip feature in column 2 of 6 while the photograph has it in column 3 — possibly off by one after the left-edge column. One probe row: feature `x` against the bay boundaries it was assigned to.
+
+**Sequence, revised:** H6 (measure) → H2 → H1 rule C → H4 → double count → H5. The founder's 5cd124af run confirmed the plan's shape: 7 zones / 6 bays right, 19 of 42 openings (left balcony bays lost = H2), arches 3 of 5 (lit interiors = H3/H5), strip chunks matched as openings, periodicity 0.43 = 3/7 honest support.
+
+## Sequence (original)
 CONF72 landed (`5cd124af`) → **H2** (head span: detection, S13, lattice vote) → **H1 rule C** → **H4** (P3 + per-cell) → double-count fix (any time) → **H5** last, behind the `@pryzm/raster-cv` extraction.
 
 ## Corpus case N (draws all five)
