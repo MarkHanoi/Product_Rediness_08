@@ -146,6 +146,48 @@ describe('§FIX-CW-BRIDGE-AUTHORED-VALUES — an authored curtain-wall value sur
         }
     });
 
+    it('ARM 5 §CW90-PLAN-TYPE-PARITY — the armed TYPE survives bridge + mirror into the store', async () => {
+        const stored = await storedCurtainWall({
+            systemTypeId:      'cw.metal.copper-frame',
+            mullionMaterialId: 'metal-copper',
+            mullionColor:      '#b87333',
+            glazingMaterialId: 'glass-ultra-clear',
+            bayWidth: 1.5, bayHeight: 3, mullionThickness: 0.1, panelThickness: 0.03,
+        });
+        // The whole of item CW90-1: a curtain wall drawn on the PLAN surface must
+        // land in the SAME store record shape the 3-D surface writes.
+        expect(stored['systemTypeId']).toBe('cw.metal.copper-frame');
+        expect(stored['mullionMaterialId']).toBe('metal-copper');
+        expect(stored['mullionColor']).toBe('#b87333');
+        expect(stored['glazingMaterialId']).toBe('glass-ultra-clear');
+        expect(stored['gridXSpacing']).toBe(1.5);
+        expect(stored['gridYSpacing']).toBe(3);
+        expect(stored['mullionSize']).toBe(0.1);
+        expect(stored['panelThickness']).toBe(0.03);
+    });
+
+    it('ARM 5 CONTROL A — a typeless wall mirrors WITHOUT the type keys (creation must not mint present-and-undefined)', async () => {
+        const stored = await storedCurtainWall();
+        expect('systemTypeId' in stored).toBe(false);
+        expect('glazingMaterialId' in stored).toBe(false);
+        expect('mullionMaterialId' in stored).toBe(false);
+        expect('mullionColor' in stored).toBe(false);
+    });
+
+    it('ARM 5 CONTROL B — the handler\'s materialId←systemTypeId FOLD no longer warns: the intent is recoverable', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        try {
+            const stored = await storedCurtainWall({ systemTypeId: 'cw.storefront' });
+            // The bridge folds materialId = materialId ?? systemTypeId; when the two
+            // are equal the first-class field carries the intent, so the mirror has
+            // nothing to warn about — ARM 3 stays warning for a REAL materialId.
+            expect(stored['systemTypeId']).toBe('cw.storefront');
+            expect(warn).not.toHaveBeenCalled();
+        } finally {
+            warn.mockRestore();
+        }
+    });
+
     it('ARM 4 — the accepted command-type set is exactly what the sole emitter can write', () => {
         // Paired positive + negative on the SAME value.
         expect(
