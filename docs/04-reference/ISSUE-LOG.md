@@ -52683,3 +52683,38 @@ would have said so did not declare the field and every reader reached it through
 **A shape agreed by everyone and implemented by nobody reads exactly like a shape that works.**
 The gate is not a unit test: it is that a store contributed by a `PluginRegistry` descriptor must
 be reachable from the object `composeRuntime()` returns, or the descriptor is decorative.
+
+---
+
+## §GEN-FACADE-OPENINGS (lane MILESTONE2-63, 2026-08-25) — C108 Milestone 2: the façade IR's opening lattice becomes real windows
+
+⭐ **The founder attached a photograph of a Barcelona apartment block — ~7 storeys, ~5 bays, a
+five-arch ground arcade — and typed "GENERATE 5-STOREY RESIDENTIAL BUILDING WITH THE FACADE AS PER
+THE ATTACHED PHOTO". He got a plain white box with balconies.** The parse was CORRECT. The façade
+half failed for one structural reason, and it was not a bug: **`generationChatSeam.ts:271-277` was
+the ENTIRE channel from a photograph to the generator — three booleans and a colour.** His building
+had balconies only because `balconies` happens to be one of the four.
+
+| Id | Finding | Status |
+|---|---|---|
+| **L-11080** | ⭐⭐ **THE MISSING SLOT.** `FacadeOpeningProgram` (`packages/ai-host/src/intents/FacadeOpeningProgram.ts`) carries the measured lattice — bays, bands, per-cell width/height FRACTIONS and a CONTINUOUS `archness` — plus `planFacadeOpenings`, which turns it into buildable openings. ⛔ **NOTHING IN THE PROGRAM IS A LENGTH** (C108 §2.2, L-11009): metres appear for the first time in the planner and come from the WALL RUN and the STOREY HEIGHT the generator already resolved from the footprint. ⭐ **The archness → profile mapping introduces no tuned threshold**: each candidate's canonical archness is derived from PRYZM's own geometry via `archness = rise/(width/2)` — rectangular 0, segmental `2 × SEGMENTAL_RISE_RATIO` (**imported**, never copied), round-arch 1 — then VERIFIED against `openingProfileRefusal` and stepped DOWN carrying the refusal verbatim. **23/23 green first run.** | **FIXED** `60320908` |
+| **L-11081** | ⭐ **THE GROUND BAND'S OPENINGS REACH THE WALL, AND A CURTAIN WALL CANNOT CARRY AN ARCH.** The executor lays the ground storey out on the measured bay PITCH (longest run = the photographed elevation; every other run gets whole bays of that same pitch) and cuts arched heads through the EXISTING §OPENING-PROFILE axis (L-1200) — `CreateWallOpeningCommand` has read `openingProfile` all along and forwards it to the wall AND window stores, so **no second command and no race**: the arch lands in the same batch as the opening. ⛔ The photo bridge maps a high ground archness to `groundCommercialCurtain`, which builds a **frameless curtain wall with no wall to cut a void in**; when the measured band reads arched the SOLID+arches path wins and `facadeNotes` says so. ⭐ **Additive by construction** — absent a program every line behaves exactly as before, and `openingProfile` is omitted when rectangular so existing builds stay byte-identical. | **FIXED** `e0eb1992` |
+| **L-11082** | ⭐⭐ **REACHABILITY WAS THE HALF THAT WAS MISSING.** [[committed-is-not-reachable]]: `mapFacadeIRToPhotoBrief` was already GREEN when the founder got his white box, because the CHANNEL stopped at four booleans. Four tests now assert the CHANNEL rather than the function — the `generation.building` payload carries `facadeOpeningProgram` with bays 5 / bands 7 = the drawn truth. ⭐ **The sentence still wins on count, asserted**: he typed FIVE, the photo shows SEVEN, `payload.floors === 5`, and the existing `effectiveFloors` / `floorsFromPhoto` precedence is REUSED — no rival rule minted. ⛔ Held below the confidence floor and reported in `notUsed` otherwise (C108 §4.3). | **FIXED** `c5a70640` |
+| **L-11083** | The seam edit itself — one `md['facadeOpeningProgram']` line closing the chain photo → `reconstructFacade` → `extractFacadeOpeningProgram` → `FacadePhotoBrief` → payload → `md` → `residentialRequestFromBrief` → `ResidentialExecuteInput` → `_buildGroundShell` → `CreateWallOpeningsBatchCommand`. | **FIXED** `5ede56a5` |
+| **L-11084** | The package typecheck passed and the ROOT one did not — a `readonly` cells array the accumulator could not `push`. [[build-uses-stricter-root-tsc]]. Root `npx tsc --noEmit --skipLibCheck`: **0 errors repo-wide**. | **FIXED** `862f58c5` |
+| **L-11085** | ⛔ **THE UPPER-FLOOR WINDOW RHYTHM IS NOT BUILT FROM THE PHOTOGRAPH, AND IT IS NAMED TO HIM BEFORE HE CONFIRMS.** Only the GROUND storey is laid out from the measured lattice. Above it, windows come from the apartment layout (D-TGL, `resolveAllShellWindows`), because **every habitable room must reach a façade for daylight and that rule outranks a photograph's rhythm** — inverting it is a multi-lane change to the generator, not a bridge. The honest option was taken: the limit rides `FacadePhotoBrief.notUsed` onto the Confirm card and the persistent transcript. ⭐ The designed next step is a REGULARISATION pass — keep D-TGL's count and host wall, snap the along-wall offset to the nearest measured bay node and resize to the measured fractions — which is what an architect does and needs no generator fork. | **OPEN — designed, not built, and REPORTED to the user** |
+| **L-11086** | ⛔ **THE SILL DOES NOT COME FROM THE PHOTOGRAPH AND CANNOT.** C108 §1.1's `opening` node is `{ a, b, n, archness }` — semi-axes and a head shape, with **NO x/y**. So the IR fixes an opening's SIZE relative to its cell and NOT its position inside it, and the generator supplies the sill. Stated in `notUsed`, asserted by a test. Not a defect: an IR field that does not exist may not be synthesised. | **OPEN by design** |
+| **L-11087** | ⚠ **`packages/facade-reconstruction/src/bim/` IS STILL EMPTY, and that is where C108 §8.1 says this belongs.** The pure bridge lives in `packages/ai-host/src/intents/FacadeOpeningProgram.ts` instead, because `packages/facade-reconstruction/**` was owned by lane FACADEREAL60 for the whole session. ⭐ **The placement is defensible on its own merits** — it sits beside `FacadePhotoBrief.ts` (L-11020), the other half of the same bridge, whose header argues the mapping may live neither in the engine (C108 §1.3 forbids semantic labels there — the engine has no word for "arcade" and must never acquire one) nor in the chat (a client may not own a measurement rule). **Moving it is a pure file move with no logic change**, and whoever does it should decide between the two homes deliberately rather than inherit this one. | **OPEN — stated, not hidden** |
+| **L-11006** | **FacadeIR → BIM elements** (brief §24), Milestone 2. **The openings leg is now wired end-to-end for the GROUND storey and PROVEN on corpus case L**; the upper-storey leg is L-11085 and is REPORTED rather than silently absent. | **PARTIALLY CLOSED** — see L-11080…L-11087 |
+
+⭐ **MEASURED, corpus case L (the founder's image CLASS — 7 zones × 5 bays with a five-arch
+arcade), BEFORE → AFTER on his exact request:** the ground storey went from *the generator's own
+1.8 m even-divide rhythm with square heads* to **5 openings on the measured 5-bay rhythm, all five
+`round-arch`** — the arcade. `bays` 5 and `bands` 7 both equal the drawn truth, and band 0's mean
+archness reads above 0.5 while every upper band reads below it (**if façade Y were read top-down
+this inverts, so it is asserted**). 27/27 in this lane's suite, 73/73 across all five pre-existing
+façade suites with no regression.
+
+⚠ **L-11001 STANDS AND THIS DOES NOT WEAKEN IT.** Case L is SYNTHETIC. A green run says what the
+algorithm does on a façade of that SHAPE with known ground truth; **it says nothing about his phone
+camera**, and reading it as "his building works" is exactly the substitution C108 §0.2 forbids.
