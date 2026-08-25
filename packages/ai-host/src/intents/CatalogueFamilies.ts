@@ -138,6 +138,9 @@
 // the bridge supplies one; the published tables are the honest floor beneath
 // them, and `publishedCatalogues.ts` states the limit that creates.
 
+// ⭐ §CHAT-AXIS-AWARE-REFUSAL (L-10942) — a type miss must try the OTHER axes
+// before it denies the word, and must say which ones it tried.
+import { unmatchedQualifierTail } from './QualifierAxes.js';
 import type {
   CapabilityExecutionSpec,
   SpecValueOutcome,
@@ -678,9 +681,31 @@ export function catalogueFamilySpec(
               `Did you mean "${near[0]!}"?`
             : `I could not read "${si.typeRef}" as a complete ${family.typeNoun} name. ` +
               `These contain it: ${near.map((n) => `"${n}"`).join(', ')} — name the one you mean.`;
+        // ⭐⭐ §CHAT-AXIS-AWARE-REFUSAL (L-10942) — THE DEFECT THIS WHOLE LANE
+        // IS ABOUT, AT ITS LOUDEST SITE.
+        //
+        // The founder typed "change all windows to segmental type" and read
+        // *"There is no window type called 'segmental type' in this project.
+        // The window types here are: …"*. Every word of that is true about the
+        // TYPE axis and the sentence as a whole is false: "segmental" is an
+        // opening SHAPE, and the product has been able to make one since L-1200.
+        // A refusal that names one axis's inventory and implies it is the whole
+        // vocabulary talks the user out of a shipped capability — which is worse
+        // than saying nothing, and is the failure C74 exists to forbid ("name
+        // what you measured AND what you needed").
+        //
+        // ⛔ The grammar upstream now routes his exact sentence to the SHAPE
+        // capability, so this tail is the BACKSTOP rather than the fix. It is
+        // here anyway, and it is data-driven, because the fix is per-sentence and
+        // this is per-AXIS: whatever axis is modelled next, a type miss will try
+        // it and name it without an edit at this site.
+        const axisTail = unmatchedQualifierTail(si.typeRef, family.elementKind, ctx, {
+          searchedAxis: 'type',
+          searchedNoun: `${family.elementKind} ${family.typeNoun}`,
+        });
         return {
           refusal: {
-            reason: head + listTail + noteTail,
+            reason: head + listTail + noteTail + axisTail.tail,
             // The near matches lead: they are the answer when there is one.
             suggestions: [...near, ...lookup.names]
               .filter((n, i, a) => a.indexOf(n) === i)

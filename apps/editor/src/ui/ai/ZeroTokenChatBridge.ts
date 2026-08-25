@@ -52,6 +52,9 @@ import {
     // §CHAT-ORIENTATION-HOSTED-OPENINGS (L-10946) — the FACADE twin of the
     // level hop above: an opening faces where its host wall faces.
     resolveOrientationScopeByHost,
+    // §CHAT-AXIS-AWARE-REFUSAL (L-10942) — try every modelled axis before
+    // denying a qualifier, and say which ones were tried.
+    unmatchedQualifierTail,
     // §RAC-APARTMENT-IN-ROOM (L-1640) — the room-number ladder LIFTED into the
     // shared layer (one implementation, two consumers). The local copy this
     // file carried is deleted; behaviour is byte-identical by import.
@@ -377,10 +380,40 @@ function makeScopeResolver(
                     .map((r) => describeRoomRow(r))
                     .filter((n) => n.length > 0)
                     .slice(0, 8);
+                // ⭐⭐ §CHAT-AXIS-AWARE-REFUSAL (L-10942) — THE FOUNDER'S SECOND
+                // REFUSAL, VERBATIM: *"I can't find a room 'south'. The rooms
+                // here are: 00-001 (Room 00-001)."* True about the ROOM axis,
+                // false as a sentence — "south" is an ORIENTATION.
+                //
+                // ⛔ The grammar upstream now reads a compass phrase as an
+                // ORIENTATION before it ever reaches here
+                // (§CHAT-ORIENTATION-IS-NOT-A-ROOM), so this tail is the
+                // BACKSTOP, not the fix. It stays because it is per-AXIS rather
+                // than per-sentence: whatever the next unmatched qualifier is,
+                // the refusal now says which axes were searched instead of
+                // presenting one list as the whole language.
+                //
+                // ⚠ The axis context is built from what THIS resolver really
+                // holds — the level list it was constructed with and the room
+                // rows it just read — and nothing else. An axis with no source
+                // here reports itself as NOT SEARCHED rather than as "not
+                // found", so the copy never claims a search it did not run.
+                const axisTail = unmatchedQualifierTail(
+                    scope.roomRef,
+                    scope.elementKind ?? 'wall',
+                    {
+                        selection: [],
+                        levels: levels.map((l) => ({ id: l.id, name: l.name, elevation: l.elevation ?? 0 })),
+                        rooms: allRooms.map((r) => ({ id: r.id, name: r.name, roomNumber: r.roomNumber })),
+                        mintId: () => '',
+                    } as unknown as ResolverContext,
+                    { searchedAxis: 'room', searchedNoun: 'room' },
+                );
                 return {
-                    error: labels.length === 0
+                    error: (labels.length === 0
                         ? `There are no rooms in this project yet — detect rooms first.`
-                        : `I can't find a room "${scope.roomRef}". The rooms here are: ${labels.join(', ')}.`,
+                        : `I can't find a room "${scope.roomRef}". The rooms here are: ${labels.join(', ')}.`)
+                        + axisTail.tail,
                 };
             }
             const kind = scope.elementKind ?? 'wall';

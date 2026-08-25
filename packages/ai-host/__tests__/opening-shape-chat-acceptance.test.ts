@@ -267,3 +267,45 @@ describe('§F — ⛔ a room really called "South" still wins', () => {
     expect(captured.some((d) => d.kind === 'level')).toBe(true);
   });
 });
+
+// ── §G — ⭐ SLICE 2: THE REFUSAL NAMES WHAT IT SEARCHED ──────────────────────
+//
+// The grammar fixes above are per-SENTENCE. This is per-AXIS, and it is the
+// part that stops the next unmatched qualifier producing the same defect: a
+// refusal may no longer present ONE axis's inventory as the whole vocabulary.
+
+describe('§G — an unmatched type ref no longer implies its list is the language', () => {
+  it('⭐ the type refusal states WHICH AXES were searched', () => {
+    const r = resolveFull('change all windows to timber flurble casement unit', ctxOf());
+    expect(intentOf(r)).toBe('set-window-type');
+    expect(r.kind).toBe('refusal');
+    const reason = (r as { reason: string }).reason;
+    // It still lists the real types — that half was always right.
+    expect(reason).toContain('Timber Casement');
+    // ⭐ And it no longer stops there.
+    expect(reason).toMatch(/I searched/);
+    expect(reason).toMatch(/opening shapes/);
+    expect(reason).toMatch(/compass orientations/);
+  });
+
+  it('⛔ NON-VACUITY — the founder\'s ORIGINAL sentence never reaches this refusal at all', () => {
+    const r = resolveFull('change all windows to segmental type', ctxOf());
+    const reason = (r as { reason?: string }).reason ?? '';
+    expect(reason).not.toContain('There is no window type called');
+    expect(r.kind).toBe('commands');
+  });
+
+  it('the WALL type refusal gained the same tail, without an opening-shape offer', () => {
+    const ctx = ctxOf({
+      resolveWallSystemType: () => null,
+      wallSystemTypeNames: ['Monolithic (Default)'],
+    } as Partial<ResolverContext>);
+    const r = resolveFull('change all walls to flurble bloop', ctx);
+    expect(intentOf(r)).toBe('set-wall-type');
+    const reason = (r as { reason: string }).reason;
+    expect(reason).toMatch(/I searched/);
+    // ⛔ A wall has no opening-shape axis, and the registry knows it. Offering
+    // one here would be the same over-claim in the other direction.
+    expect(reason).not.toMatch(/opening shapes/);
+  });
+});

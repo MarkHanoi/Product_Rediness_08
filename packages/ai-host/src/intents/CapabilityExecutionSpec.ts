@@ -63,6 +63,9 @@ import { planRoomOccupancyFanOut } from './roomAutoLabel.js';
 // constants, never re-typed (C65 §3.5: one policy, one place). Constants only;
 // the purity note above still holds — no store instance is constructed here.
 import { RAKE_MIN_DEG, RAKE_MAX_DEG } from '@pryzm/geometry-wall';
+// §CHAT-AXIS-AWARE-REFUSAL (L-10942) — try every modelled axis before denying
+// the word, and say which ones were tried.
+import { unmatchedQualifierTail } from './QualifierAxes.js';
 import {
   CATALOGUE_FAMILIES,
   catalogueFamilySpec,
@@ -345,9 +348,18 @@ export const EXECUTION_SPECS: SpecTable = {
               ? `I could not read "${si.typeRef}" as a complete wall type name. Did you mean "${near[0]!}"?`
               : `I could not read "${si.typeRef}" as a complete wall type name. `
                 + `These contain it: ${near.map((n) => `"${n}"`).join(', ')} — name the one you mean.`;
+          // §CHAT-AXIS-AWARE-REFUSAL (L-10942) — the WALL twin of the tail the
+          // catalogue families carry. A wall has no opening-shape axis, and the
+          // registry knows that (`appliesTo`), so this offers only the axes a
+          // wall really has — which is the point of a table rather than a
+          // per-site list of "other things it might have meant".
+          const axisTail = unmatchedQualifierTail(si.typeRef, 'wall', ctx, {
+            searchedAxis: 'type',
+            searchedNoun: 'wall type',
+          });
           return {
             refusal: {
-              reason: head + listTail,
+              reason: head + listTail + axisTail.tail,
               suggestions: [...near, ...names]
                 .filter((n, i, a) => a.indexOf(n) === i)
                 .slice(0, 2)

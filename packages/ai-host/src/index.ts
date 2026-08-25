@@ -142,6 +142,18 @@ export type {
 // DERIVED from the record shape, so the editor-side resolver does not carry a
 // hand-maintained list of hosted kinds.
 export { resolveLevelScopeByHost, isHostDerivedKind, resolveOrientationScopeByHost } from './intents/HostedOpeningScope.js';
+// §CHAT-AXIS-AWARE-REFUSAL (L-10942) — the modelled-axis registry, so a
+// refusal can try every axis and name the ones it searched.
+export {
+  probeQualifierAxes,
+  axesSearched,
+  unmatchedQualifierTail,
+  axesFor,
+  QUALIFIER_AXES,
+  type QualifierAxis,
+  type QualifierAxisId,
+  type AxisHit,
+} from './intents/QualifierAxes.js';
 export type { LevelBearingRow, HostedLevelResolution } from './intents/HostedOpeningScope.js';
 // §FIX-SCOPE-TAIL-ONE-PARSER (L-1201) — THE level-vs-room ruling, in one place.
 export {
