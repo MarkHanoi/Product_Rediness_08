@@ -164,6 +164,10 @@ export type CapabilityValueSource =
    * is no third catalogue for a refusal to be silent about.
    */
   | 'lighting-types'
+  /** §CW90 item 5 — the curtain-wall types (LIVE `curtainWallTypeStore`, 20
+   *  built-ins + project customs), resolved on the FULL resolveCatalogueRef
+   *  ladder — bridge row first, `publishedCurtainWallTypeCatalogue()` fallback. */
+  | 'curtain-wall-types'
   /** Finish names ("plaster", "limewash"), resolved by the ONE table in
    *  packages/ai-host/src/intents/finishRef.ts (materialLibrary-transcribed). */
   | 'finish'

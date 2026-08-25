@@ -308,6 +308,8 @@ const VALUE_SOURCE_PHRASE: Readonly<Record<CapabilityValueSource, string>> = {
   // stair wording above hedges because its source is a SUBSET; this one must not,
   // or the model learns to hedge about a catalogue with nothing outside it.
   'lighting-types': 'a lighting fixture type NAME from the fixture catalogue ("Recessed Downlight", "Linear Pendant", "Brass Arc Floor Lamp")',
+  // §CW90 item 5 — the curtain-wall type catalogue (live store + customs).
+  'curtain-wall-types': 'a curtain wall type, by catalogue name, a uniquely-matching few words of it, or id',
   finish: 'a finish name ("plaster", "limewash")',
   'project-levels': 'a level reference — a name ("Level 2") or a number ("2")',
   color: 'a colour name ("white", "light grey") or a #hex string',

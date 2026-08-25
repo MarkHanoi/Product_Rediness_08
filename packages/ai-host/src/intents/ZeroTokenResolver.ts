@@ -978,6 +978,19 @@ export type SemanticIntent =
       readonly scope: IntentScope;
     }
   /**
+   * §CW90 item 5 — the founder's "change all curtain walls [in ground level]
+   * to type X". Same arm shape, same table, same fan-out trade as the stair
+   * and lighting rows (element.changeType has no batch twin). Resolution is
+   * the FULL resolveCatalogueRef ladder — bridge row first, live-singleton
+   * fallback otherwise — so a few uniquely-matching words of a huge type name
+   * resolve, and an ambiguous ref refuses listing candidates (C72 §9).
+   */
+  | {
+      readonly intent: 'set-curtain-wall-type';
+      readonly typeRef: string;
+      readonly scope: IntentScope;
+    }
+  /**
    * ⭐ §CHAT-OPENING-SHAPE (L-10945) — the founder's *"change all windows to
    * segmental type"*, which the product answered with *"There is no window type
    * called 'segmental type' in this project"*.
@@ -1113,7 +1126,9 @@ export type SemanticIntent =
       // that by driving every family's own `examples` through this arm.
       readonly intent:
         | 'set-wall-dimensions' | 'set-window-dimensions' | 'set-door-dimensions'
-        | 'set-stair-dimensions';
+        // §CW90 item 5 — "make all curtain walls 5 meters height" (height only;
+        // the other keys are carrierGap-refused BY NAME on the table row).
+        | 'set-stair-dimensions' | 'set-curtain-wall-dimensions';
       /** The requested dimensions in METRES. One or several; a field the
        *  family's carrier cannot carry is REFUSED BY NAME in the value stage,
        *  never silently dropped. */
