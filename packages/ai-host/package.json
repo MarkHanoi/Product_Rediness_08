@@ -32,6 +32,7 @@
     "@pryzm/command-registry": "workspace:*",
     "@pryzm/constraint-solver": "workspace:*",
     "@pryzm/core-app-model": "workspace:*",
+    "@pryzm/facade-reconstruction": "workspace:*",
     "@pryzm/file-format": "workspace:*",
     "@pryzm/geometry-column": "workspace:*",
     "@pryzm/geometry-curtain-wall": "workspace:*",
