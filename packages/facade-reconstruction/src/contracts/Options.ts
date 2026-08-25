@@ -281,6 +281,20 @@ export interface FacadeReconstructionOptions {
      * reference band that is up to three-quarters dark.
      */
     soffitReferencePercentile: number;
+    /**
+     * Fraction of an unmatched blob's OWN rows that must lie inside one detected
+     * soffit band for the blob to be the band's shadow (§L-11180).
+     *
+     * ⭐ A soffit shadow split into segments by a feature strip reaches the
+     * classifier as N blobs, each straddling the zone boundary at its floor line —
+     * and §3.8's vertical-continuity rule reads a seven-row band as a feature. A
+     * blob that is wider than tall and MOSTLY inside a band S15 measured is that
+     * shadow; it is folded into the cue, never minted as a feature or outlier. 0.5
+     * is the definition of "mostly", exposed here because C108 §9.3 exposes every
+     * threshold; it was not chosen to make a case pass — the case-M segments lie
+     * ENTIRELY inside their bands, so any value below 1 reads them the same way.
+     */
+    soffitShadowMinInside: number;
 
     // ── S16 surface (brief §13) ──────────────────────────────────────────────
     /** Min autocorrelation peak for a tiling pattern to be reported as `grid`. */
@@ -388,6 +402,7 @@ export const DEFAULT_OPTIONS: Readonly<FacadeReconstructionOptions> = Object.fre
     soffitMinDrop: 12,
     soffitMinCoverage: 0.75,
     soffitReferencePercentile: 0.75,
+    soffitShadowMinInside: 0.5,
 
     surfaceMinPeak: 0.35,
 });

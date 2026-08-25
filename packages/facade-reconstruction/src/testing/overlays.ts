@@ -145,7 +145,11 @@ export function overlayOpenings(d: FacadeDiagnostics): RasterImage | null {
     if (rect === null) return null;
     const out = clone(rect);
     for (const b of d.blobs) {
-        box(out, b.bbox.x0, b.bbox.y0, b.bbox.x1 - 1, b.bbox.y1 - 1, b.matchedCell === null ? AMBER : PRYZM_PURPLE);
+        // PURPLE = matched to a cell; AMBER = unclassified (feature or outlier);
+        // RED = the SHADOW of an S15 soffit band (§L-11180) — the colour the soffit
+        // layer draws the slab line in, so the two layers agree at a glance.
+        const colour = b.matchedCell !== null ? PRYZM_PURPLE : b.soffitBand !== null ? RED : AMBER;
+        box(out, b.bbox.x0, b.bbox.y0, b.bbox.x1 - 1, b.bbox.y1 - 1, colour);
     }
     return out;
 }

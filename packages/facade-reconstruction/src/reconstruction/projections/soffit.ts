@@ -17,7 +17,7 @@
 // user-drawn depth — it arrives as a NEW write clearing that reason, with its own
 // provenance. It never appears quietly in the existing field.
 
-import type { GrayImage } from '../../contracts/RasterImage.js';
+import type { GrayImage, Rect } from '../../contracts/RasterImage.js';
 import type { FacadeReconstructionOptions } from '../../contracts/Options.js';
 
 export interface SoffitCue {
@@ -206,4 +206,91 @@ export function detectSoffits(
         out.push({ y: f.top, bandHeight: f.bottom - f.top, drop: f.drop });
     }
     return out;
+}
+
+/**
+ * §L-11124 / §L-11180 — IS THIS BLOB THE SHADOW ITSELF?
+ *
+ * S11's threshold sees a soffit band exactly as it sees a window: a connected dark
+ * region. Where a feature strip (corpus case M) or a bright slab face interrupts
+ * the band, every SEGMENT reaches the S13 classifier as a blob of its own — and
+ * because a slab shadow sits AT a floor line, each segment straddles the zone
+ * boundary the lattice placed there. §3.8's `zoneSpan >= 2` is then satisfied by
+ * a seven-row band, and case M minted TEN "features" for one drawn strip
+ * (measured: h/w 0.030–0.044, every one centred inside a band S15 had already
+ * reported).
+ *
+ * Returns the index of the S15 cue whose band holds the MAJORITY of the blob's
+ * rows, or `null`. Two comparisons, both between quantities measured on THIS
+ * image, no constant:
+ *   • the blob is WIDER than it is tall — a band, not a post. A vertically
+ *     continuous element that CROSSES a shadow band is taller than wide (the
+ *     case-M strip: h/w 8.0) and is never captured here;
+ *   • more than `minInside` of the blob's OWN rows lie inside ONE detected band.
+ *     0.5 is the definitional boundary of "mostly", not a tuned value; it is
+ *     exposed on options because C108 §9.3 says every threshold is.
+ *
+ * The band is taken as rows `[y, y + bandHeight]` inclusive — the union of the
+ * downward (`y+1..y+band`) and upward (`y-band..y-1`, re-based to `top`)
+ * conventions `detectSoffits` grows, so neither loses its edge row. Ties between
+ * bands are broken by the larger overlap, then the lower index (a total order,
+ * C108 §5.2).
+ */
+export function soffitShadowIndex(
+    bbox: Rect,
+    cues: readonly SoffitCue[],
+    minInside: number,
+): number | null {
+    const rows = bbox.y1 - bbox.y0;
+    const cols = bbox.x1 - bbox.x0;
+    if (rows <= 0 || cols <= 0) return null;
+    if (rows >= cols) return null;
+    let best: number | null = null;
+    let bestOverlap = 0;
+    for (let i = 0; i < cues.length; i++) {
+        const s = cues[i]!;
+        const overlap = Math.min(bbox.y1 - 1, s.y + s.bandHeight) - Math.max(bbox.y0, s.y) + 1;
+        if (overlap <= 0) continue;
+        if (overlap / rows <= minInside) continue;
+        if (overlap > bestOverlap) {
+            best = i;
+            bestOverlap = overlap;
+        }
+    }
+    return best;
+}
+
+/**
+ * §L-11181 — WHICH ZONE BOUNDARY DOES A BAND SIT AT? Measured, not ±2.
+ *
+ * The IR carries the cue as `cell.protrusion` on the zone whose TOP boundary the
+ * band sits at. That link used to accept a band whose top ROW lay within ±2 rows
+ * of the boundary — a constant — and on corpus case M four of the five detected
+ * bands sat 2.2–3.1 rows from their boundary, so the cue reached the IR on ONE
+ * zone of five while `diagnostics.soffits` reported all five. A stage that
+ * measures a band and then loses it on the way into the IR has measured nothing
+ * the consumer can see.
+ *
+ * A band serves the boundary that lies within ONE BAND-HEIGHT of the band's
+ * centre — a tolerance the band itself measured, so a thick shadow tolerates more
+ * offset than a thin one — and the nearest such band wins. Measured: D 3/3, L 5/5,
+ * M 5/5 link; none of case M's six railing bands (18–27 rows from any boundary,
+ * 12–13 rows tall) does. Ties keep the lower index (a total order, C108 §5.2).
+ */
+export function soffitCueForBoundary(
+    boundary: number,
+    cues: readonly SoffitCue[],
+): SoffitCue | null {
+    let best: SoffitCue | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const s of cues) {
+        const centre = s.y + s.bandHeight / 2;
+        const d = Math.abs(boundary - centre);
+        if (d > s.bandHeight) continue;
+        if (d < bestDistance) {
+            best = s;
+            bestDistance = d;
+        }
+    }
+    return best;
 }

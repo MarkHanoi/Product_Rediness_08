@@ -168,6 +168,20 @@ describe('C108 §6 corpus — D: balconies. The CUE is measured; the DEPTH is UN
         const { diagnostics } = await reconstructFacade(caseA().image);
         expect(diagnostics.soffits.length).toBe(0);
     });
+
+    it('folds the shadow BLOBS into the cue — one per band, no outliers, no features (L-11180)', async () => {
+        const c = caseD();
+        const { ir, diagnostics } = await reconstructFacade(c.image);
+        // Before §L-11180 the three drawn shadows reached the IR TWICE: as three
+        // soffit cues AND as three "unclassified" outliers, a fact no assertion here
+        // could see because case D draws no non-grid object (L-11184). One
+        // measurement, one name.
+        const shadows = diagnostics.blobs.filter((b) => b.soffitBand !== null);
+        expect(shadows).toHaveLength(diagnostics.soffits.length);
+        expect(ir.facade.outliers).toHaveLength(c.truth.nonGridObjects);
+        expect(ir.facade.features).toHaveLength(c.truth.nonGridObjects);
+        for (const b of shadows) expect(b.bbox.x1 - b.bbox.x0).toBeGreaterThan(b.bbox.y1 - b.bbox.y0);
+    });
 });
 
 describe('C108 §6 corpus — E: a curved corner (brief §12)', () => {
@@ -446,6 +460,17 @@ describe('C108 §6 corpus — L: seven zones, five bays, an arcade (brief §7, �
             expect(cell.protrusion.depth).toBeNull();
             expect(cell.protrusion.unknownReason).toBe('geometry-incomplete');
         }
+        // §L-11180 — the five shadow blobs are the cue, not five outliers (they
+        // were, before the fold, and nothing asserted it: L-11184).
+        expect(diagnostics.blobs.filter((b) => b.soffitBand !== null)).toHaveLength(5);
+        expect(ir.facade.outliers).toHaveLength(0);
+        expect(ir.facade.features).toHaveLength(0);
+        // §L-11181 — and the cue reaches the IR on every zone a band was drawn
+        // under: zones 1..5 top-down; zone 0 has no slab above, the arcade none.
+        for (const z of ir.facade.zones.slice(1, 6)) {
+            for (const cell of z.cells) expect(cell.protrusion).not.toBeNull();
+        }
+        for (const cell of ir.facade.zones[0]!.cells) expect(cell.protrusion).toBeNull();
     });
 
     it('⭐ beats the PROJECTION-PROFILE lattice on the same pixels — the A/B, measured', async () => {

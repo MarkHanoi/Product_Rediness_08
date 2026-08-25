@@ -20,10 +20,14 @@
 // ⭐ FIXED 2026-08-25 (§L-11121 continuity screen, §L-11122 reunion, §L-11123
 // head-region model selection). The assertions below now hold the engine to the
 // DRAWN TRUTH; the pinned-wrong values they replaced are quoted in each comment so
-// the before/after stays legible. One residue is named, not hidden: the 10
-// soffit-shadow segments that straddle zone boundaries still read as features
-// (drawn 1, engine 1 strip + 10 segments) — that is S15/S13 ordering, a separate
-// row, and it is NOT asserted away.
+// the before/after stays legible. The residue the first fix named — the 10
+// soffit-shadow segments straddling zone boundaries that still read as features
+// (drawn 1, engine 1 strip + 10 segments) — is FIXED 2026-08-25 (§L-11180: S15 runs
+// BEFORE S13 and an unmatched blob that is wider than tall and mostly inside a
+// measured band is that band's shadow; §L-11181: the band-to-zone link is measured,
+// not ±2 rows). Features read 1, as drawn. ⚠ One residue remains and is pinned
+// WRONG below rather than hidden: the six RAILING rows read as soffit bands
+// (L-11182), so `diagnostics.soffits` is 11 where 5 were drawn.
 //
 // ⛔ IT WAS A PROBE, AND ITS ASSERTIONS PINNED WHATEVER WAS TRUE THEN (the L-10947
 // pattern). Where the current behaviour is WRONG the test says so in a comment
@@ -93,11 +97,61 @@ describe('C108 corpus case M — PROBE: the feature strip + railing class (L-111
         expect(strip[0]!.zoneSpan).toBeGreaterThanOrEqual(CASE_M_TRUTH.zones - 1);
         expect(strip[0]!.x).toBeLessThan(CASE_M_TRUTH.stripCentreX);
         expect(strip[0]!.x + strip[0]!.width).toBeGreaterThan(CASE_M_TRUTH.stripCentreX);
-        // ⚠ RESIDUE, NAMED: the 10 soffit-shadow segments (each straddling a zone
-        // boundary) are still minted as features — drawn 1, engine 1 + 10. That is a
-        // separate S15/S13 ordering row; this test does not assert it away.
-        expect(ir.facade.features.length).toBeGreaterThanOrEqual(1);
+        // ⭐ FIXED (L-11180): was 11, held honestly as `>= 1`. The ten soffit-shadow
+        // segments — each straddling a zone boundary, so `zoneSpan` read 2 — are now
+        // the SHADOW of a band S15 measured, folded into the cue. Drawn 1, engine 1.
+        expect(ir.facade.features.length).toBe(CASE_M_TRUTH.features);
         expect(ir.facade.outliers.length).toBe(0);
+    });
+
+    it('FIXED (L-11180): the ten soffit-shadow segments are the CUE — wider than tall, centred in the band they name, never features', async () => {
+        const c = caseM();
+        const { ir, diagnostics } = await reconstructFacade(c.image);
+        const shadows = diagnostics.blobs.filter((b) => b.soffitBand !== null);
+        // Five slab shadows were drawn; the strip splits each in two (measured 10,
+        // the same ten that were minted as features before the fix).
+        expect(shadows).toHaveLength(10);
+        for (const b of shadows) {
+            const band = diagnostics.soffits[b.soffitBand!]!;
+            expect(b.matchedCell).toBeNull();
+            expect(b.bbox.x1 - b.bbox.x0).toBeGreaterThan(b.bbox.y1 - b.bbox.y0);
+            const centre = (b.bbox.y0 + b.bbox.y1) / 2;
+            expect(centre).toBeGreaterThanOrEqual(band.y);
+            expect(centre).toBeLessThanOrEqual(band.y + band.bandHeight + 1);
+        }
+        // The strip is untouched by the fold: taller than wide by a factor of eight,
+        // it can never be read as a band.
+        expect(ir.facade.features.filter((f) => f.note === 'continuous-object-reunited')).toHaveLength(1);
+        expect(ir.facade.features.some((f) => f.note === 'unmatched-vertically-continuous')).toBe(false);
+        expect(diagnostics.notes.some((n) => n.includes('soffit-shadow segment(s) folded into the S15 cue'))).toBe(true);
+        // ⚠ PINNED WRONG (L-11182, the L-10947 pattern): 11 soffit bands where 5 were
+        // drawn. The six extras are the RAILING rows — a dark band across >= 75% of
+        // the width beneath a wall-level reference is what a soffit looks like in
+        // luminance. When that row is fixed this line turns red on purpose.
+        expect(diagnostics.soffits).toHaveLength(11);
+    });
+
+    it('FIXED (L-11181): the protrusion cue reaches the IR on EVERY zone a slab shadow was drawn under — 5 of 5, not 1 of 5', async () => {
+        const c = caseM();
+        const { ir } = await reconstructFacade(c.image);
+        // Shadows were drawn under the five interior upper-storey lines: engine
+        // zones 1..5 (top-down). Zone 0 has no slab above it; the arcade (zone 6)
+        // was drawn with a slab FACE at the strip only, no shadow. Under the old
+        // "band top within ±2 rows of the boundary" constant the cue landed on
+        // zone 5 alone (bands sat 2.2–3.1 rows from their boundaries).
+        const zones = ir.facade.zones;
+        expect(zones).toHaveLength(CASE_M_TRUTH.zones);
+        for (const z of zones.slice(1, CASE_M_TRUTH.zones - 1)) {
+            for (const cell of z.cells) {
+                expect(cell.protrusion).not.toBeNull();
+                // ⛔ And still no depth (C108 §3.10).
+                expect(cell.protrusion!.depth).toBeNull();
+                expect(cell.protrusion!.unknownReason).toBe('geometry-incomplete');
+            }
+        }
+        for (const z of [zones[0]!, zones[CASE_M_TRUTH.zones - 1]!]) {
+            for (const cell of z.cells) expect(cell.protrusion).toBeNull();
+        }
     });
 
     it('FIXED (L-11123): NO archness stamped on the 30 drawn-RECTANGULAR windows despite the railing wings', async () => {

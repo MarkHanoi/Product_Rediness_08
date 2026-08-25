@@ -99,6 +99,13 @@ export interface DetectedBlob {
     readonly rectangularity: number;
     /** Which comb node it matched, or `null` — the S13 match (brief §10, §15). */
     readonly matchedCell: { readonly row: number; readonly col: number } | null;
+    /**
+     * Index into `soffits` of the S15 band this blob is the SHADOW of, or `null`
+     * (§L-11180). Non-null means the blob was neither matched nor classified: it
+     * is the measured cue itself, seen by the opening detector, and it reaches
+     * the IR as `cell.protrusion`, never as a feature or an outlier.
+     */
+    readonly soffitBand: number | null;
 }
 
 /**

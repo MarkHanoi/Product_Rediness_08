@@ -59,7 +59,7 @@ import {
 } from './reconstruction/geometry/openingLattice.js';
 import { findBlobs, fitArch, otsuThreshold } from './reconstruction/openings/detect.js';
 import { measureCurvature } from './reconstruction/curvature/residual.js';
-import { detectSoffits } from './reconstruction/projections/soffit.js';
+import { detectSoffits, soffitCueForBoundary, soffitShadowIndex } from './reconstruction/projections/soffit.js';
 import { measureColour } from './reconstruction/surface/colour.js';
 import { measureSurface } from './reconstruction/surface/tiling.js';
 import { unknownScale } from './reconstruction/scale/referenceDimension.js';
@@ -364,6 +364,27 @@ function runPipeline(image: RasterImage, opts: FacadeReconstructionOptions): Fac
     );
     const periodicityConfidence = structureConfidence;
 
+    // ── S15 SOFFITS (brief §11) ──────────────────────────────────────────────
+    //
+    // ⭐ BEFORE S13, NOT AFTER IT (§L-11124 / §L-11180). The classifier below asks
+    // "is this unmatched blob the shadow S15 measured?", so S15 must already have
+    // measured it. It used to run after the match loop, which is exactly how ten
+    // soffit-shadow segments on case M — each straddling the zone boundary at its
+    // floor line — reached §3.8's `zoneSpan >= 2` and were minted as features.
+    // Nothing S15 reads (the row peaks, the rectified gray) is produced by S13.
+    //
+    // ⚠ THE STRUCTURE ROWS, NOT THE LATTICE BOUNDARIES. Those are different lines and
+    // conflating them made both this stage and curvature measure nothing: since the
+    // lattice is placed where the profile is QUIET (see CombFit.latticePhase), a
+    // "slab line" taken from a zone boundary is by construction a row where no
+    // horizontal edge exists. Curvature then traced noise and reported 0.003 on a
+    // facade bent by 9%.
+    //
+    // The detected row PEAKS are the answer to "where are the horizontal lines",
+    // which is the question brief §7 actually asks.
+    const slabRows = rowsDiag.peaks.filter((y) => y > 2 && y < rectified.height - 2);
+    const soffits = detectSoffits(rectGray, slabRows, opts);
+
     // ── S13 MATCH: cell / feature / outlier (brief §10, §15) ─────────────────
     // ONE measured rule serves both clauses. Nothing here knows what a lightwell is.
     const cellOf = (bx: number, by: number): { row: number; col: number } | null => {
@@ -375,6 +396,8 @@ function runPipeline(image: RasterImage, opts: FacadeReconstructionOptions): Fac
     const diagBlobs: DetectedBlob[] = [];
     const features: Feature[] = [];
     const outliers: Outlier[] = [];
+    // §L-11180 — unmatched blobs that ARE a measured soffit band's shadow.
+    let shadowSegments = 0;
 
     // ── §L-11122 — REUNITE what the slab shadows cut apart ───────────────────
     // The lattice's continuity screen (openingLattice.ts §3b) rejected columns and
@@ -418,13 +441,20 @@ function runPipeline(image: RasterImage, opts: FacadeReconstructionOptions): Fac
     for (let blobIndex = 0; blobIndex < blobs.length; blobIndex++) {
         const blob = blobs[blobIndex]!;
         if (consumed.has(blobIndex)) {
-            diagBlobs.push({ bbox: blob.bbox, area: blob.area, rectangularity: blob.rectangularity, matchedCell: null });
+            diagBlobs.push({
+                bbox: blob.bbox,
+                area: blob.area,
+                rectangularity: blob.rectangularity,
+                matchedCell: null,
+                soffitBand: null,
+            });
             continue;
         }
         const bx = (blob.bbox.x0 + blob.bbox.x1) / 2;
         const by = (blob.bbox.y0 + blob.bbox.y1) / 2;
         const cell = cellOf(bx, by);
         let matched: { row: number; col: number } | null = null;
+        let soffitBand: number | null = null;
         if (cell !== null) {
             const zone = zoneBands[cell.row]!;
             const bay = bayBands[cell.col]!;
@@ -459,20 +489,32 @@ function runPipeline(image: RasterImage, opts: FacadeReconstructionOptions): Fac
             }
         }
         if (matched === null && !isAssigned(assigned, blob)) {
-            // ⭐ brief §10's signature, expressed as a measurement: vertical continuity
-            // across two or more zones makes it a FEATURE; anything else is an OUTLIER.
-            const zoneSpan = zoneBands.filter(
-                (b) => blob.bbox.y0 < b.to && blob.bbox.y1 > b.from,
-            ).length;
-            if (zoneSpan >= 2) {
-                features.push({
-                    ...normalizedBox(blob.bbox, rectified),
-                    zoneSpan,
-                    note: 'unmatched-vertically-continuous',
-                    ...pair(periodicityConfidence),
-                });
+            // ⛔ §L-11180 — FIRST: is it the shadow S15 already measured? A soffit
+            // band interrupted by a strip or a slab face reaches here as segments,
+            // each wider than tall and lying inside a detected band. That is the
+            // CUE, and the IR already carries it as `cell.protrusion`; minting it
+            // again as a feature (it straddles a floor line, so `zoneSpan` reads 2)
+            // or an outlier would report one measurement twice under two names.
+            soffitBand = soffitShadowIndex(blob.bbox, soffits, opts.soffitShadowMinInside);
+            if (soffitBand !== null) {
+                shadowSegments++;
             } else {
-                outliers.push(makeOutlier(blob.bbox, rectified, periodicityConfidence));
+                // ⭐ brief §10's signature, expressed as a measurement: vertical
+                // continuity across two or more zones makes it a FEATURE; anything
+                // else is an OUTLIER.
+                const zoneSpan = zoneBands.filter(
+                    (b) => blob.bbox.y0 < b.to && blob.bbox.y1 > b.from,
+                ).length;
+                if (zoneSpan >= 2) {
+                    features.push({
+                        ...normalizedBox(blob.bbox, rectified),
+                        zoneSpan,
+                        note: 'unmatched-vertically-continuous',
+                        ...pair(periodicityConfidence),
+                    });
+                } else {
+                    outliers.push(makeOutlier(blob.bbox, rectified, periodicityConfidence));
+                }
             }
         }
         diagBlobs.push({
@@ -480,10 +522,14 @@ function runPipeline(image: RasterImage, opts: FacadeReconstructionOptions): Fac
             area: blob.area,
             rectangularity: blob.rectangularity,
             matchedCell: matched,
+            soffitBand,
         });
     }
     notes.push(
-        `openings: ${assigned.size} matched to cells, ${features.length} feature(s), ${outliers.length} outlier(s)`,
+        `openings: ${assigned.size} matched to cells, ${features.length} feature(s), ${outliers.length} outlier(s)` +
+            (shadowSegments > 0
+                ? `, ${shadowSegments} soffit-shadow segment(s) folded into the S15 cue — not features, not outliers (L-11180)`
+                : ''),
     );
 
     // ── S17 COLOUR (§L-11128) — the wall between the openings, and the openings ──
@@ -495,20 +541,6 @@ function runPipeline(image: RasterImage, opts: FacadeReconstructionOptions): Fac
         quad !== null,
     );
     notes.push(...colour.notes);
-
-    // ── S15 SOFFITS (brief §11) ──────────────────────────────────────────────
-    //
-    // ⚠ THE STRUCTURE ROWS, NOT THE LATTICE BOUNDARIES. Those are different lines and
-    // conflating them made both this stage and curvature measure nothing: since the
-    // lattice is placed where the profile is QUIET (see CombFit.latticePhase), a
-    // "slab line" taken from a zone boundary is by construction a row where no
-    // horizontal edge exists. Curvature then traced noise and reported 0.003 on a
-    // facade bent by 9%.
-    //
-    // The detected row PEAKS are the answer to "where are the horizontal lines",
-    // which is the question brief §7 actually asks.
-    const slabRows = rowsDiag.peaks.filter((y) => y > 2 && y < rectified.height - 2);
-    const soffits = detectSoffits(rectGray, slabRows, opts);
 
     // ── S14 CURVATURE (brief §12) ────────────────────────────────────────────
     const curvature = measureCurvature(rectGray, slabRows, opts);
@@ -558,11 +590,12 @@ function runPipeline(image: RasterImage, opts: FacadeReconstructionOptions): Fac
             }
 
             // ⛔ brief §11 / C108 §3.10: the CUE is measured, the DEPTH is UNKNOWN.
-            const cue = soffits.find(
-                (s) => s.y >= zoneBand.from - 2 && s.y <= zoneBand.from + 2,
-            );
+            // §L-11181 — and the LINK from band to zone is measured too: the band
+            // whose centre lies within its own height of this zone's top boundary,
+            // never "top row within ±2". The constant lost four of five cues on M.
+            const cue = soffitCueForBoundary(zoneBand.from, soffits);
             const protrusion: Protrusion | null =
-                cue === undefined
+                cue === null
                     ? null
                     : {
                           depth: null,
