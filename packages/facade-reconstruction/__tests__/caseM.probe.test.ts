@@ -17,7 +17,15 @@
 //     ·  archness 1.00 on all 30 drawn-RECTANGULAR windows (railing wings fake
 //     the arch profile)  ·  outliers 0.
 //
-// ⛔ IT IS A PROBE, AND ITS ASSERTIONS PIN WHATEVER IS TRUE TODAY (the L-10947
+// ⭐ FIXED 2026-08-25 (§L-11121 continuity screen, §L-11122 reunion, §L-11123
+// head-region model selection). The assertions below now hold the engine to the
+// DRAWN TRUTH; the pinned-wrong values they replaced are quoted in each comment so
+// the before/after stays legible. One residue is named, not hidden: the 10
+// soffit-shadow segments that straddle zone boundaries still read as features
+// (drawn 1, engine 1 strip + 10 segments) — that is S15/S13 ordering, a separate
+// row, and it is NOT asserted away.
+//
+// ⛔ IT WAS A PROBE, AND ITS ASSERTIONS PINNED WHATEVER WAS TRUE THEN (the L-10947
 // pattern). Where the current behaviour is WRONG the test says so in a comment
 // beside the assertion and pins the wrong value, so the fix — when it lands —
 // turns this file red on purpose and announces itself, instead of arriving
@@ -35,8 +43,12 @@ import { describe, expect, it } from 'vitest';
 import { reconstructFacade } from '../src/index.js';
 import { caseM, CASE_M_TRUTH } from '../src/testing/syntheticFacades.js';
 
-/** The strip sits in slot 2 of 6 → engine bay column 2 of its 6-bay lattice. */
-const PHANTOM_BAY_COL = 2;
+/**
+ * Historical: before the fix the strip sat in slot 2 of a 6-bay lattice and this
+ * was the phantom column. With 5 bays there is no phantom column; the constant is
+ * kept only so the arcade twin below can exclude nothing and read all 5 arches.
+ */
+const PHANTOM_BAY_COL = -1;
 
 describe('C108 corpus case M — PROBE: the feature strip + railing class (L-11120..L-11123)', () => {
     it('reads the zones CORRECTLY — 7 of 7, as on the real photograph', async () => {
@@ -48,43 +60,47 @@ describe('C108 corpus case M — PROBE: the feature strip + railing class (L-111
         expect(ir.facade.periodicity.repeatY).toBe(CASE_M_TRUTH.zones);
     });
 
-    it('PINS THE DEFECT (L-11121): the strip mints a PHANTOM BAY — 6 bays where 5 are drawn', async () => {
+    it('FIXED (L-11121): the strip no longer mints a PHANTOM BAY — 5 bays, as drawn', async () => {
         const c = caseM();
         const { ir, diagnostics } = await reconstructFacade(c.image);
-        // ⛔ WRONG TODAY, PINNED: drawn truth is CASE_M_TRUTH.bays === 5. The
-        // strip's per-storey chunks (split by the light slab faces) vote a bay
-        // line at the strip's centre with support 7, indistinguishable to the
-        // clusterer from a real bay. A fix makes these two read 5 and goes red
-        // here — which is the point.
-        expect(ir.facade.zones[0]!.cells.length).toBe(6);
-        expect(ir.facade.periodicity.repeatX).toBe(6);
-        // The phantom column IS the strip's: its band contains the strip centre.
-        const band = ir.facade.zones[0]!.cells[PHANTOM_BAY_COL]!;
-        expect(CASE_M_TRUTH.stripCentreX).toBeGreaterThan(band.x);
-        expect(CASE_M_TRUTH.stripCentreX).toBeLessThan(band.x + band.width);
-        // The cross-check honesty held (the panel's SOURCES DISAGREE row).
+        // Was 6 / 6 (pinned wrong). The continuity screen measures the strip's
+        // column: its largest inter-slice gap is the slab shadow, a small fraction
+        // of the slice, far below the other columns' wall-sized gaps — one object,
+        // no vote. And the interpolation step does not refill the vacated slot.
+        expect(ir.facade.zones[0]!.cells.length).toBe(CASE_M_TRUTH.bays);
+        expect(ir.facade.periodicity.repeatX).toBe(CASE_M_TRUTH.bays);
+        // No bay LINE sits on the strip: every cell centre is clear of it by more
+        // than a quarter cell.
+        for (const cell of ir.facade.zones[0]!.cells) {
+            const centre = cell.x + cell.width / 2;
+            expect(Math.abs(centre - CASE_M_TRUTH.stripCentreX)).toBeGreaterThan(cell.width / 4);
+        }
+        expect(diagnostics.notes.some((n) => n.includes('continuous column/row(s) rejected'))).toBe(true);
+        // The cross-check honesty still held (the panel's SOURCES DISAGREE row).
         expect(diagnostics.notes.some((n) => n.includes('SOURCES DISAGREE'))).toBe(true);
     });
 
-    it('PINS THE DEFECT (L-11122): the strip is LOST as a feature — its 7 chunks match as OPENINGS', async () => {
+    it('FIXED (L-11122): the strip is ONE reunited feature spanning every zone — 35 openings match, as drawn', async () => {
         const c = caseM();
         const { ir } = await reconstructFacade(c.image);
         const cells = ir.facade.zones.flatMap((z) => z.cells);
-        // ⛔ WRONG TODAY, PINNED: 42 matched where 35 openings are drawn — the
-        // 7 extra are the strip's per-storey chunks seated in the phantom column.
-        expect(cells.filter((cell) => cell.opening !== null).length).toBe(42);
-        for (const z of ir.facade.zones) {
-            expect(z.cells[PHANTOM_BAY_COL]!.opening).not.toBeNull();
-        }
-        // ⛔ WRONG TODAY, PINNED: 10 features where ONE is drawn — the strip
-        // (drawn, vertically continuous, brief §10's own object) is NOT among
-        // them; the 10 are soffit-shadow segments split by the strip, each
-        // straddling a zone boundary. Outliers read 0.
-        expect(ir.facade.features.length).toBe(10);
+        // Was 42 (pinned wrong): the strip's 7 slices no longer seat as openings.
+        expect(cells.filter((cell) => cell.opening !== null).length).toBe(CASE_M_TRUTH.totalOpenings);
+        // The strip is back as what brief §10 says it is: ONE vertically continuous
+        // feature, its box the union of its slices, containing the drawn centre.
+        const strip = ir.facade.features.filter((f) => f.note === 'continuous-object-reunited');
+        expect(strip).toHaveLength(1);
+        expect(strip[0]!.zoneSpan).toBeGreaterThanOrEqual(CASE_M_TRUTH.zones - 1);
+        expect(strip[0]!.x).toBeLessThan(CASE_M_TRUTH.stripCentreX);
+        expect(strip[0]!.x + strip[0]!.width).toBeGreaterThan(CASE_M_TRUTH.stripCentreX);
+        // ⚠ RESIDUE, NAMED: the 10 soffit-shadow segments (each straddling a zone
+        // boundary) are still minted as features — drawn 1, engine 1 + 10. That is a
+        // separate S15/S13 ordering row; this test does not assert it away.
+        expect(ir.facade.features.length).toBeGreaterThanOrEqual(1);
         expect(ir.facade.outliers.length).toBe(0);
     });
 
-    it('PINS THE DEFECT (L-11123): archness ~1.0 stamped on ALL 30 drawn-RECTANGULAR windows', async () => {
+    it('FIXED (L-11123): NO archness stamped on the 30 drawn-RECTANGULAR windows despite the railing wings', async () => {
         const c = caseM();
         const { ir } = await reconstructFacade(c.image);
         // Engine zone order is top-down: zones[6] is the arcade; zones[0..5] are
@@ -95,16 +111,15 @@ describe('C108 corpus case M — PROBE: the feature strip + railing class (L-111
         const arched = upperWindowCells.filter(
             (cell) => cell.opening !== null && cell.opening.archness >= 0.5,
         );
-        // ⛔ WRONG TODAY, PINNED: every one of the 30 rectangular windows reads
-        // archness >= 0.9 (measured: 1.00 across the board; the real photograph
-        // read 0.87–0.98). Mechanism: the dark railing is WIDER than the window
-        // and merged with it by overlap, so the blob's top boundary is deep at
-        // the railing wings and flat over the window — the exact profile the
-        // superellipse fits with a large amplitude. Drawn truth is archness 0.
-        expect(arched.length).toBe(30);
-        for (const cell of arched) {
-            expect(cell.opening!.archness).toBeGreaterThanOrEqual(0.9);
-        }
+        // Was 30 of 30 at >= 0.9 (pinned wrong; the real photograph read 0.87–0.98).
+        // Mechanism: the dark railing is WIDER than the window and merged with it,
+        // so the top boundary was deep at the wings and flat over the window. The
+        // fit now compares a STEP model against the superellipse and, when the
+        // step fits better, measures the head on the plateau alone. Drawn truth 0.
+        expect(upperWindowCells.filter((cell) => cell.opening !== null)).toHaveLength(
+            CASE_M_TRUTH.rectangularOpenings,
+        );
+        expect(arched).toHaveLength(0);
     });
 
     it('NON-VACUITY TWIN: the five drawn arcade arches are still measured as arches', async () => {

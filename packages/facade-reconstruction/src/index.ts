@@ -375,7 +375,51 @@ function runPipeline(image: RasterImage, opts: FacadeReconstructionOptions): Fac
     const features: Feature[] = [];
     const outliers: Outlier[] = [];
 
-    for (const blob of blobs) {
+    // ── §L-11122 — REUNITE what the slab shadows cut apart ───────────────────
+    // The lattice's continuity screen (openingLattice.ts §3b) rejected columns and
+    // rows whose voters are slices of ONE continuous object. Those slices must not
+    // reach the matcher as N openings, and they must not scatter into N outliers
+    // either: brief §10's own example — a vertically continuous element — is ONE
+    // feature. Its box is the union of its slices; its zoneSpan is measured against
+    // the zone bands like any other feature. The slices are consumed here so the
+    // S13 loop below never sees them.
+    const consumed = new Set<number>();
+    let reunited = 0;
+    if (useOpeningLattice) {
+        const groups = [...bayLattice.continuousMembers, ...zoneLattice.continuousMembers];
+        for (const idx of groups) {
+            const members = idx.map((i) => blobs[i]!).filter((b) => b !== undefined);
+            if (members.length === 0) continue;
+            let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+            for (const m of members) {
+                x0 = Math.min(x0, m.bbox.x0); y0 = Math.min(y0, m.bbox.y0);
+                x1 = Math.max(x1, m.bbox.x1); y1 = Math.max(y1, m.bbox.y1);
+            }
+            const union = { x0, y0, x1, y1 };
+            const zoneSpan = zoneBands.filter((b) => union.y0 < b.to && union.y1 > b.from).length;
+            features.push({
+                ...normalizedBox(union, rectified),
+                zoneSpan,
+                note: 'continuous-object-reunited',
+                ...pair(periodicityConfidence),
+            });
+            for (const i of idx) consumed.add(i);
+            reunited++;
+        }
+        if (reunited > 0) {
+            notes.push(
+                `lattice: ${reunited} continuous column/row(s) rejected from the lattice and reunited ` +
+                    `as ${reunited} feature(s) — slices of one object, not repeating openings (L-11121/L-11122)`,
+            );
+        }
+    }
+
+    for (let blobIndex = 0; blobIndex < blobs.length; blobIndex++) {
+        const blob = blobs[blobIndex]!;
+        if (consumed.has(blobIndex)) {
+            diagBlobs.push({ bbox: blob.bbox, area: blob.area, rectangularity: blob.rectangularity, matchedCell: null });
+            continue;
+        }
         const bx = (blob.bbox.x0 + blob.bbox.x1) / 2;
         const by = (blob.bbox.y0 + blob.bbox.y1) / 2;
         const cell = cellOf(bx, by);

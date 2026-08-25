@@ -77,6 +77,14 @@ export interface OpeningLattice {
     readonly extended: number;
     /** Clusters REJECTED for insufficient support — aperiodic clutter. */
     readonly rejected: number;
+    /**
+     * §L-11121 — clusters REJECTED as CONTINUOUS OBJECTS: a column (or row) whose
+     * voters are slices of ONE vertically (horizontally) continuous thing, cut into
+     * per-storey chunks by slab shadows, rather than distinct repeating openings.
+     * Each entry is the member indices into the `blobs` the lattice was derived
+     * from, so the caller can reunite them into ONE feature instead of N openings.
+     */
+    readonly continuousMembers: readonly (readonly number[])[];
     /** Why the derivation refused, when it did. `null` when it succeeded. */
     readonly refusedReason: string | null;
 }
@@ -108,6 +116,7 @@ function refusal(axis: LatticeAxis, reason: string): OpeningLattice {
         interpolated: 0,
         extended: 0,
         rejected: 0,
+        continuousMembers: [],
         refusedReason: reason,
     };
 }
@@ -148,16 +157,16 @@ export function deriveLatticeFromOpenings(
     if (!(medianSize > 0)) return refusal(axis, 'degenerate opening sizes');
     const lo = medianSize / opts.openingLatticeSizeBandFactor;
     const hi = medianSize * opts.openingLatticeSizeBandFactor;
-    const voters: number[] = [];
+    const voters: { centre: number; idx: number }[] = [];
     for (let i = 0; i < blobs.length; i++) {
         const s = sizes[i]!;
         if (s < lo || s > hi) continue;
-        voters.push(centreOf(blobs[i]!.bbox, axis));
+        voters.push({ centre: centreOf(blobs[i]!.bbox, axis), idx: i });
     }
     if (voters.length < 2) {
         return refusal(axis, `only ${voters.length} detection(s) within the size band`);
     }
-    voters.sort((a, b) => a - b);
+    voters.sort((a, b) => a.centre - b.centre);
 
     // ── 2. 1-D CLUSTERING BY GAP ────────────────────────────────────────────
     // Openings in the SAME bay differ in centre by jitter; openings in ADJACENT
@@ -172,11 +181,11 @@ export function deriveLatticeFromOpenings(
     // because it needs no bandwidth constant of its own and no peak-prominence
     // threshold, so it adds ONE named number instead of three.
     const gapThreshold = medianSize * opts.openingLatticeGapFactor;
-    const groups: number[][] = [[voters[0]!]];
+    const groups: { centre: number; idx: number }[][] = [[voters[0]!]];
     for (let i = 1; i < voters.length; i++) {
         const v = voters[i]!;
         const current = groups[groups.length - 1]!;
-        if (v - current[current.length - 1]! > gapThreshold) groups.push([v]);
+        if (v.centre - current[current.length - 1]!.centre > gapThreshold) groups.push([v]);
         else current.push(v);
     }
 
@@ -186,7 +195,7 @@ export function deriveLatticeFromOpenings(
     // no line occupies. A line supported by ONE opening where the typical line is
     // supported by four is not a line, it is an object — and the comparison is to
     // the MEDIAN support of this image, never to a constant.
-    const rawCentres = groups.map((g) => g.reduce((a, b) => a + b, 0) / g.length);
+    const rawCentres = groups.map((g) => g.reduce((a, b) => a + b.centre, 0) / g.length);
     const rawSupport = groups.map((g) => g.length);
     const medianSupport = median(rawSupport);
     if (medianSupport < 2) {
@@ -196,12 +205,82 @@ export function deriveLatticeFromOpenings(
         return refusal(axis, `median line support ${medianSupport} — no repetition to cluster`);
     }
     const minSupport = medianSupport * opts.openingLatticeMinSupportRatio;
-    const kept: { centre: number; support: number; members: number[] }[] = [];
+    let kept: { centre: number; support: number; members: number[]; idx: number[] }[] = [];
     for (let i = 0; i < groups.length; i++) {
         if (rawSupport[i]! < minSupport) continue;
-        kept.push({ centre: rawCentres[i]!, support: rawSupport[i]!, members: groups[i]! });
+        kept.push({
+            centre: rawCentres[i]!,
+            support: rawSupport[i]!,
+            members: groups[i]!.map((v) => v.centre),
+            idx: groups[i]!.map((v) => v.idx),
+        });
     }
     const rejected = groups.length - kept.length;
+
+    // ── 3b. THE CONTINUITY SCREEN (§L-11121 / L-11122, corpus case M) ────────
+    // ⭐ THE DEFECT THE FOUNDER'S SECOND PHOTOGRAPH FOUND. A full-height glass-block
+    // strip is split by the light slab faces into per-storey chunks the size of a
+    // window; each chunk is a vote, the votes line up, support reads 7 — and the
+    // clusterer above cannot tell a column of SLICES OF ONE OBJECT from a column of
+    // REPEATING OPENINGS. It minted a phantom bay and lost the strip as a feature.
+    //
+    // What distinguishes them is measurable along the ORTHOGONAL axis: between two
+    // windows in the same bay there is wall — sill, lintel, spandrel — a gap
+    // comparable to the window itself. Between two slices of one strip there is
+    // only the slab shadow that cut it: a gap that is a small fraction of the slice.
+    // So per column we measure (LARGEST gap between consecutive members) / (median
+    // member size), and compare each column's ratio to the MEDIAN RATIO OF THIS
+    // IMAGE'S OTHER COLUMNS — never to a constant. A column far below its peers is
+    // one thing, not many, and it must not vote a line.
+    //
+    // ⛔ THE LARGEST GAP, DELIBERATELY. "One object" means there is no real break
+    // anywhere along it. Corpus case H found the alternative wrong: with the MEDIAN
+    // gap, a real column that two foreground objects had joined read a small median
+    // and was thrown away with its four windows. A column with even ONE wall-sized
+    // break is a column of things, whatever clutter sits between them.
+    //
+    // ⚠ Applied only with three or more supported lines: with two, the median is
+    // one of the two and a strip can never fall below itself — the screen stays
+    // conservative rather than guessing.
+    //
+    // Case M measures: window columns ~0.8, the strip column ~0.05. The factor is
+    // the SAME family of relative constant as `openingLatticeMinSupportRatio`, and
+    // any value from 0.1 to 0.9 separates them — it was not chosen to make the case
+    // pass (C108 §9); it sits in the middle of a 16x margin.
+    const continuousMembers: number[][] = [];
+    const vacated: number[] = [];
+    if (kept.length >= 3) {
+        const ortho: LatticeAxis = axis === 'x' ? 'y' : 'x';
+        const ratioOf = (k: { idx: number[] }): number | null => {
+            if (k.idx.length < 2) return null;
+            const boxes = k.idx
+                .map((i) => blobs[i]!.bbox)
+                .sort((a, b) => (ortho === 'y' ? a.y0 - b.y0 : a.x0 - b.x0));
+            const gaps: number[] = [];
+            for (let i = 1; i < boxes.length; i++) {
+                const prev = boxes[i - 1]!;
+                const next = boxes[i]!;
+                gaps.push(Math.max(0, ortho === 'y' ? next.y0 - prev.y1 : next.x0 - prev.x1));
+            }
+            const size = median(boxes.map((b) => sizeOf(b, ortho)));
+            return size > 0 ? Math.max(...gaps) / size : null;
+        };
+        const ratios = kept.map(ratioOf);
+        const measuredRatios = ratios.filter((r): r is number => r !== null);
+        if (measuredRatios.length >= 3) {
+            const medianRatio = median(measuredRatios);
+            const cut = medianRatio * opts.openingLatticeContinuityRatio;
+            const survivors: typeof kept = [];
+            for (let i = 0; i < kept.length; i++) {
+                const r = ratios[i] ?? null;
+                if (r !== null && r < cut) {
+                    continuousMembers.push(kept[i]!.idx);
+                    vacated.push(kept[i]!.centre);
+                } else survivors.push(kept[i]!);
+            }
+            kept = survivors;
+        }
+    }
     if (kept.length < opts.openingLatticeMinLines) {
         return refusal(axis, `${kept.length} supported line(s) — below the minimum of ${opts.openingLatticeMinLines}`);
     }
@@ -227,7 +306,14 @@ export function deriveLatticeFromOpenings(
         const k = Math.round(ratio);
         if (k >= 2 && Math.abs(ratio - k) <= opts.openingLatticeGapIntegerTolerance) {
             for (let j = 1; j < k; j++) {
-                filled.push(a + ((b - a) * j) / k);
+                const candidate = a + ((b - a) * j) / k;
+                // ⛔ A slot the continuity screen VACATED is not a bay whose windows
+                // went unreported — it is where the continuous object stands. Refilling
+                // it would reinstate the phantom line by another route (case M read 6
+                // bays after the screen for exactly this reason). The object is the
+                // caller's feature; the lattice leaves its slot to the neighbours.
+                if (vacated.some((v) => Math.abs(v - candidate) <= gapThreshold)) continue;
+                filled.push(candidate);
                 interpolated++;
             }
         }
@@ -288,6 +374,7 @@ export function deriveLatticeFromOpenings(
         interpolated,
         extended,
         rejected,
+        continuousMembers,
         refusedReason: null,
     };
 }

@@ -295,6 +295,65 @@ function fitArchImpl(topProfile: readonly number[], opts: FacadeReconstructionOp
         }
     }
 
+    // ── §L-11123 — THE HEAD REGION, NOT THE WHOLE OUTLINE (corpus case M) ─────
+    // ⭐ THE DEFECT THE FOUNDER'S SECOND PHOTOGRAPH FOUND. A balcony railing is WIDER
+    // than the window above it and dark enough to merge with it, so the blob's top
+    // boundary is FLAT over the window and DEEP at the railing's wings on either
+    // side — a profile the superellipse fits with a large amplitude. Thirty
+    // rectangular windows read archness 1.00; the 5% trim never reaches 12 px wings.
+    //
+    // The distinction is not a threshold, it is MODEL SELECTION. A wing is a STEP:
+    // flat, then a discontinuous drop, then flat again. An arch is SMOOTH. So a
+    // second model — plateau at the apex over [L,R], a constant depth on each side
+    // — is fitted by exhaustive search over (L,R) with prefix sums (O(n²), n is a
+    // window width in samples), and the two residuals are compared in the same
+    // units. If the step fits strictly better, the wings are real, the head is the
+    // plateau, and the superellipse is re-fitted on the plateau ALONE. A true arch
+    // is a ramp the step model cannot follow, so the superellipse keeps winning
+    // there — the non-vacuity twin in case M's probe holds the arcade at ~1.0.
+    // No new constant is introduced: the only sizes are the existing trim and the
+    // existing four-sample minimum.
+    if (core.length >= 8) {
+        const n = core.length;
+        const ps = new Array<number>(n + 1).fill(0);
+        const ps2 = new Array<number>(n + 1).fill(0);
+        for (let i = 0; i < n; i++) {
+            ps[i + 1] = ps[i]! + depth[i]!;
+            ps2[i + 1] = ps2[i]! + depth[i]! * depth[i]!;
+        }
+        const sseOutside = (a: number, b: number): number => {
+            // Sum of squared error of depth[a..b) around its own mean (0 if empty).
+            const cnt = b - a;
+            if (cnt <= 0) return 0;
+            const sum = ps[b]! - ps[a]!;
+            const sq = ps2[b]! - ps2[a]!;
+            return sq - (sum * sum) / cnt;
+        };
+        let bestStep = Infinity;
+        let bestL = 0;
+        let bestR = n - 1;
+        for (let L = 0; L < n; L++) {
+            for (let R = L + 3; R < n; R++) {
+                // Plateau predicts depth 0 (the apex) on [L,R]; sides take their means.
+                const inside = ps2[R + 1]! - ps2[L]!;
+                const sse = inside + sseOutside(0, L) + sseOutside(R + 1, n);
+                if (sse < bestStep) {
+                    bestStep = sse;
+                    bestL = L;
+                    bestR = R;
+                }
+            }
+        }
+        const stepResidual = Math.sqrt(bestStep / n);
+        const plateauIsWhole = bestL === 0 && bestR === n - 1;
+        if (!plateauIsWhole && stepResidual < bestResidual) {
+            // Wings detected: measure the head on the plateau only. The sub-profile
+            // is re-trimmed by the same rule, so the recursion is bounded by length.
+            const head = topProfile.slice(bestL + margin, bestR + margin + 1);
+            return fitArch(head, opts);
+        }
+    }
+
     // ⚠ THE DEGENERATE CASE, NAMED RATHER THAN LEFT TO PRODUCE NONSENSE.
     // A flat top has no rise, so no exponent is determined by it — every candidate
     // fits a zero-amplitude curve equally well and the search would return whichever

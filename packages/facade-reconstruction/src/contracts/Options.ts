@@ -220,6 +220,15 @@ export interface FacadeReconstructionOptions {
     /** Below this many supported lines the derivation REFUSES and the profile runs. */
     openingLatticeMinLines: number;
     /**
+     * §L-11121 — a supported line whose members' (median orthogonal gap / median
+     * member size) falls below this fraction of the MEDIAN such ratio across the
+     * image's other lines is one CONTINUOUS OBJECT sliced by slab shadows (a
+     * glass-block strip, a full-height stair window), not a line of repeating
+     * openings. It is removed from the lattice and reunited as one feature.
+     * Relative to the image, like `openingLatticeMinSupportRatio`; never a count.
+     */
+    openingLatticeContinuityRatio: number;
+    /**
      * Cluster spread, as a fraction of the pitch, at which `tightness` reaches 0.
      * A quarter of a pitch of scatter is a lattice carrying no information about
      * where its own lines are.
@@ -361,6 +370,11 @@ export const DEFAULT_OPTIONS: Readonly<FacadeReconstructionOptions> = Object.fre
     openingLatticeMinSupportRatio: 0.4,
     openingLatticeGapIntegerTolerance: 0.25,
     openingLatticeMinLines: 2,
+    // Case M: window columns measure ~0.8 (wall between windows ≈ window height),
+    // the strip column ~0.05 (only the slab shadow separates its slices). Any factor
+    // in 0.1–0.9 separates them; 0.4 sits mid-margin and mirrors the support ratio.
+    // NOT chosen to make case M pass (C108 §9) — the 16x margin is the evidence.
+    openingLatticeContinuityRatio: 0.4,
     openingLatticeTightnessScale: 0.25,
 
     combMatchTolerance: 0.5,
