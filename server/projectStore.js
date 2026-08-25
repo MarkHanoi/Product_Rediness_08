@@ -1100,14 +1100,55 @@ export async function createVersionTransactional({
                 [projectId, (projectName ?? 'Untitled').slice(0, 200), userId]
             );
         } else {
-            // ── Step 2b: Project exists — verify caller is the owner ──
+            // ── Step 2b: Project exists — verify the caller may WRITE to it ──
             // (GAP-03 coverage for the PG transaction path)
+            //
+            // §SHARE101 — THIS WAS THE HOLE THAT MADE SHARING WORTHLESS.
+            //
+            // L-336 part 2 widened every project READ to "owner OR member" and
+            // deliberately left the WRITES owner-only, saying so: widening writes
+            // "needs the ISO 19650 role matrix enforced per action". That was the
+            // right call for that commit and it is now the blocker. The observable
+            // result was that an invited collaborator could list the project, open
+            // it, load its latest version, edit the model in the browser — and then
+            // every autosave came back rejected with "owned by a different user".
+            // Making a project VISIBLE to a member while its save path still
+            // authorises on `owner_id` is worse than not sharing it: the user does
+            // real work and silently loses it.
+            //
+            // The matrix is now enforced, per action, exactly as L-336 asked:
+            //   `edit_model` → team_member, team_manager, lead_appointed.
+            // A `viewer` and an `appointing_party` still CANNOT save — they hold
+            // read rights only, and this must not become "any membership row can
+            // write". A non-member still cannot save. Nothing here grants an owner
+            // power: delete, rename, patch, thumbnail and member-management remain
+            // owner-only and are asserted so by projectStore-membership-reads.test.ts.
+            //
+            // Read INSIDE the `FOR UPDATE` transaction, so a role revoked
+            // concurrently cannot be used by an in-flight save — the membership row
+            // is read under the same serialisation as the version count below.
             const existingOwnerId = projResult.rows[0].owner_id;
             if (existingOwnerId !== userId) {
-                throw new ProjectConflictError(
-                    projectId,
-                    `Project ${projectId} is owned by a different user — save rejected`
+                const roleResult = await client.query(
+                    `SELECT role FROM project_members WHERE project_id = $1 AND user_id = $2 LIMIT 1`,
+                    [projectId, userId]
                 );
+                const callerRole = roleResult.rows[0]?.role ?? null;
+                // `isOwner` is the PLATFORM-owner flag and is NOT resolvable here
+                // (this store has no plan context), so it is passed false. The
+                // route layer already grants platform owners separately; defaulting
+                // it true here would silently widen every save.
+                if (!hasPermission(callerRole, 'edit_model', false)) {
+                    throw new ProjectConflictError(
+                        projectId,
+                        callerRole
+                            // ABSENT vs UNREACHABLE vs FORBIDDEN reported as three
+                            // different things (C01 §6 rule 6). "You are a viewer"
+                            // and "you are not on this project" have opposite fixes.
+                            ? `Project ${projectId} is shared with you as "${callerRole}", which does not carry edit rights — save rejected`
+                            : `Project ${projectId} is owned by a different user and you are not a member of it — save rejected`
+                    );
+                }
             }
 
             // ── Step 2c: GAP-06 — Optimistic locking check (inside FOR UPDATE lock) ──
@@ -1121,7 +1162,26 @@ export async function createVersionTransactional({
             }
 
             // Keep the project name current if the caller supplied one.
-            if (projectName) {
+            //
+            // §SHARE101 — the name update is now OWNER-ONLY, and the `updated_at`
+            // touch is split out so a member's save still bumps the timestamp.
+            //
+            // Before this commit only the owner could ever reach this line, so
+            // "save" and "rename" were the same authorisation. Now that a member
+            // may save, they are not: RENAME is a write the scope rule keeps
+            // owner-only (`renameProject` / `patchProject` both carry
+            // `WHERE owner_id = $n`, asserted by projectStore-membership-reads).
+            // Letting a member's autosave carry `projectName` through would have
+            // been a rename smuggled inside a save — a member silently renaming
+            // the owner's project by opening it with a stale local title. The
+            // widening this commit intends is `edit_model`, and nothing else.
+            // No `else` branch, deliberately: Step 5 below already runs
+            // `UPDATE projects SET updated_at = NOW(), version_count = …` on every
+            // save, so a member's save still bumps the hub's newest-first ordering.
+            // Adding a second UPDATE here to "make sure" would be a redundant write
+            // inside the FOR UPDATE transaction on the hottest path in the product.
+            const _callerIsOwner = existingOwnerId === userId;
+            if (projectName && _callerIsOwner) {
                 await client.query(
                     `UPDATE projects SET name = $1, updated_at = NOW() WHERE id = $2`,
                     [projectName.slice(0, 200), projectId]
