@@ -596,6 +596,7 @@ export function allCases(): SyntheticCase[] {
         caseK3(),
         caseK4(),
         caseL(),
+        caseM(),
     ];
 }
 
@@ -715,4 +716,207 @@ export const CASE_L_TRUTH = Object.freeze({
     totalOpenings: L_UPPER * L_BAYS + L_BAYS,
     /** Facade-normalized Y of the arcade zone's TOP boundary (C108 §2.1: Y counts up). */
     arcadeTopY: L_ARCADE_H / (LFY1 - LFY0),
+});
+
+// ── M — THE SECOND REAL PHOTOGRAPH'S FAILURE CLASS (lane FACADECAL64) ────────
+//
+// ⭐ WHY THIS CASE EXISTS, STATED PLAINLY: on 2026-08-25 the founder ran a SECOND
+// real photograph (live build 862f58c5) — 7 storeys x 5 window bays, ONE
+// full-height glazed feature strip (glass blocks) in the centre, balcony railings
+// overlapping the window bottoms, dark shutter slats inside the openings. The
+// engine read 7 zones (CORRECT) x 7 bays (WRONG), stamped archness 0.87–0.98 on
+// RECTANGULAR windows, and matched 23 / 4 features / 7 outliers where the case-L
+// class predicts ~35 matched. This is L-11001's first falsification of the
+// OPENING-DERIVED lattice (L-10971's fix): the feature strip and the railing
+// edges mint structure that is not the building's rhythm.
+//
+// Case L proved the SHAPE (multi-storey + arcade). What L does not contain is
+// CLUTTER ATTACHED TO THE OPENINGS THEMSELVES:
+//
+//   (a) a full-height feature strip whose glazing is DARK like an opening and is
+//       crossed by light slab bands at every floor — so the "one vertically
+//       continuous object" brief §10 describes arrives at the detector as SEVEN
+//       window-sized chunks stacked in a column, each of which votes for a bay
+//       line that is not a bay;
+//   (b) balcony railings that are DARK, WIDER than the window they guard, and
+//       merged with it by overlap — so the blob's top boundary is deep at the
+//       wings and flat over the window, which is exactly the profile a
+//       high-rise superellipse fits with a LARGE amplitude: a rectangular
+//       window measures as an arch;
+//   (c) fine horizontal slat texture (shutters) inside each opening — dark on
+//       dark, so the blob stays connected, but the texture is there for every
+//       edge-based stage to mismeasure.
+//
+// ⛔ The photograph is NOT in this repository (C108 §0.2). This is a SYNTHETIC
+// facade of the same CLASS with ground truth the generator drew. It proves the
+// class, not his building — and per C108 §9 nothing below may be fixed by a
+// threshold whose only justification is that this case passes.
+
+const MW = 560;
+const MH = 620;
+const MFX0 = 40;
+const MFY0 = 40;
+const MFX1 = 520;
+const MFY1 = 580;
+/** Six uniform SLOTS: window bays at 0,1,3,4,5; the feature strip at slot 2. */
+const M_SLOTS = 6;
+const M_SLOT_W = (MFX1 - MFX0) / M_SLOTS; // 80
+const M_WINDOW_SLOTS = [0, 1, 3, 4, 5] as const;
+const M_STRIP_SLOT = 2;
+/** Regular storeys ABOVE the arcade. The arcade is a seventh zone. */
+const M_UPPER = 6;
+const M_ARCADE_H = 100;
+const M_UPPER_H = (MFY1 - MFY0 - M_ARCADE_H) / M_UPPER; // 73.33
+const M_OPEN_W = M_SLOT_W * 0.6; // 48
+const M_OPEN_H = M_UPPER_H * 0.6; // 44
+const M_ARCH_W = 60;
+const M_ARCH_RISE = M_ARCH_W / 2;
+const M_SOFFIT = 8;
+/** Railing: overlaps the bottom 18% of the opening, wings 12 px past each jamb. */
+const M_RAIL_OVERLAP = Math.round(M_OPEN_H * 0.18); // 8
+const M_RAIL_WING = 12;
+const M_RAIL_BELOW = 4;
+const M_RAIL_ARC = 3;
+
+/** Dark railing ironwork — darker than wall, lighter than the opening void. */
+const RAILING: Rgb = { r: 52, g: 54, b: 58 };
+/** Shutter slat highlight — dark on dark, so the blob stays CONNECTED. */
+const SLAT: Rgb = { r: 82, g: 82, b: 88 };
+/** Glass-block glazing — dark like an opening, as the real strip photographs. */
+const GLAZING: Rgb = { r: 58, g: 62, b: 70 };
+/** Glass-block joint — a shade lighter, still below any plausible threshold. */
+const GLAZING_JOINT: Rgb = { r: 96, g: 100, b: 108 };
+/** The slab face crossing the strip — LIGHT concrete, near the wall's level. */
+const SLAB_FACE: Rgb = { r: 190, g: 186, b: 178 };
+
+/** Fill a railing band whose TOP edge carries a slight arc (rise at the centre). */
+function fillRailing(img: RasterImage, x0: number, y0: number, x1: number, y1: number): void {
+    const w = x1 - x0;
+    const cx = x0 + w / 2;
+    for (let x = Math.round(x0); x < Math.round(x1); x++) {
+        const u = Math.max(-1, Math.min(1, (x + 0.5 - cx) / (w / 2)));
+        const top = y0 - M_RAIL_ARC * (1 - u * u);
+        for (let y = Math.round(top); y < Math.round(y1); y++) setPixel(img, x, y, RAILING);
+    }
+}
+
+/** Horizontal shutter slats: 2 px of SLAT every 4 px, inside the opening box. */
+function fillSlats(img: RasterImage, x0: number, y0: number, x1: number, y1: number): void {
+    for (let y = Math.round(y0); y < Math.round(y1); y++) {
+        if ((y - Math.round(y0)) % 4 >= 2) continue;
+        for (let x = Math.round(x0); x < Math.round(x1); x++) setPixel(img, x, y, SLAT);
+    }
+}
+
+/**
+ * M — 7 zones x 5 window bays + a full-height glazed feature strip + railings
+ * + shutters. The clutter-on-the-openings class of the founder's second photo.
+ *
+ * Drawn ground truth: 5 bays, 7 zones, 35 openings (30 rectangular windows +
+ * 5 semicircular arcade arches), ONE non-grid object (the strip), archness 0 on
+ * every upper-floor opening.
+ */
+export function caseM(): SyntheticCase {
+    const img = createRasterImage(MW, MH) as RasterImage;
+    fillRect(img, 0, 0, MW, MH, SKY);
+    fillRect(img, MFX0, MFY0, MFX1, MFY1, WALL);
+
+    const openings: { x0: number; y0: number; x1: number; y1: number }[] = [];
+
+    // Balcony soffit bands under every upper storey line (the case-L cue).
+    for (let row = 1; row < M_UPPER; row++) {
+        const y = MFY0 + M_UPPER_H * row;
+        fillRect(img, MFX0, y, MFX1, y + M_SOFFIT, SHADOW);
+    }
+
+    // Upper-floor windows: rectangular, shuttered, with a railing across the
+    // bottom. ⛔ The RAILING IS NOT AN OPENING and is not in `openings`.
+    for (let row = 0; row < M_UPPER; row++) {
+        for (const slot of M_WINDOW_SLOTS) {
+            const cx = MFX0 + M_SLOT_W * (slot + 0.5);
+            const cy = MFY0 + M_UPPER_H * (row + 0.5);
+            const r = {
+                x0: cx - M_OPEN_W / 2,
+                y0: cy - M_OPEN_H / 2,
+                x1: cx + M_OPEN_W / 2,
+                y1: cy + M_OPEN_H / 2,
+            };
+            fillOpening(img, r.x0, r.y0, r.x1, r.y1, 0, 2, OPENING);
+            fillSlats(img, r.x0, r.y0, r.x1, r.y1);
+            fillRailing(
+                img,
+                r.x0 - M_RAIL_WING,
+                r.y1 - M_RAIL_OVERLAP,
+                r.x1 + M_RAIL_WING,
+                r.y1 + M_RAIL_BELOW,
+            );
+            openings.push(r);
+        }
+    }
+
+    // The arcade: 5 semicircular arches, one per WINDOW bay. The strip's ground
+    // chunk continues to the pavement in slot 2.
+    const arcadeTop = MFY1 - M_ARCADE_H;
+    for (const slot of M_WINDOW_SLOTS) {
+        const cx = MFX0 + M_SLOT_W * (slot + 0.5);
+        const r = { x0: cx - M_ARCH_W / 2, y0: arcadeTop + 10, x1: cx + M_ARCH_W / 2, y1: MFY1 };
+        fillOpening(img, r.x0, r.y0, r.x1, r.y1, M_ARCH_RISE, 2, OPENING);
+        openings.push(r);
+    }
+
+    // THE FEATURE STRIP (brief §10's object): dark glazing, full height, one bay
+    // wide, with a fine glass-block joint grid — and a LIGHT slab face crossing
+    // it at every floor line, which is what the real slab edge does to the real
+    // strip. ⛔ Nothing here is an opening; ground truth calls this ONE feature.
+    const sx0 = MFX0 + M_SLOT_W * M_STRIP_SLOT + 8;
+    const sx1 = MFX0 + M_SLOT_W * (M_STRIP_SLOT + 1) - 8;
+    const sTop = MFY0 + 6;
+    fillRect(img, sx0, sTop, sx1, MFY1, GLAZING);
+    // Glass-block joints: 1 px lines every 16 px, both directions, dark-on-dark.
+    for (let y = Math.round(sTop); y < MFY1; y += 16) fillRect(img, sx0, y, sx1, y + 1, GLAZING_JOINT);
+    for (let x = Math.round(sx0) + 8; x < sx1; x += 16) fillRect(img, x, sTop, x + 1, MFY1, GLAZING_JOINT);
+    // The slab faces: light bands where each floor crosses the strip (they also
+    // overwrite the soffit shadow inside the strip, as the real slab edge does).
+    for (let row = 1; row < M_UPPER; row++) {
+        const y = MFY0 + M_UPPER_H * row;
+        fillRect(img, sx0, y - 2, sx1, y + M_SOFFIT, SLAB_FACE);
+    }
+    fillRect(img, sx0, arcadeTop - 2, sx1, arcadeTop + M_SOFFIT, SLAB_FACE);
+
+    return {
+        id: 'M',
+        description:
+            'seven zones x 5 window bays + a full-height glazed feature strip, railings over ' +
+            "window bottoms, shutter slats — the founder's SECOND photograph's CLASS",
+        image: img,
+        truth: {
+            bays: 5,
+            storeys: M_UPPER + 1,
+            facadeRect: { x0: MFX0, y0: MFY0, x1: MFX1, y1: MFY1 },
+            openings,
+            archness: 0,
+            chromeTrim: NO_TRIM,
+            cropRefused: false,
+            nonGridObjects: 1,
+            soffitBandHeight: M_SOFFIT,
+            curved: false,
+        },
+    };
+}
+
+/** Ground truth about case M that the probe test measures against. */
+export const CASE_M_TRUTH = Object.freeze({
+    zones: M_UPPER + 1,
+    /** WINDOW bays drawn. The strip is NOT a bay — it is one feature. */
+    bays: 5,
+    /** 30 rectangular upper windows + 5 arcade arches. */
+    totalOpenings: M_UPPER * 5 + 5,
+    /** Openings drawn with archness 0 — every upper-floor window. */
+    rectangularOpenings: M_UPPER * 5,
+    arcadeOpenings: 5,
+    arcadeArchness: 1,
+    /** Non-grid objects drawn: the ONE full-height strip. */
+    features: 1,
+    /** Facade-normalized X of the strip's centre. */
+    stripCentreX: (M_SLOT_W * (M_STRIP_SLOT + 0.5)) / (MFX1 - MFX0),
 });
