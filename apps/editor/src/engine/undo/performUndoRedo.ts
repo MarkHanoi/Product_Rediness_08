@@ -570,6 +570,30 @@ export const UNMAPPED_BUS_STORE_KEYS: Readonly<Record<string, { readonly owner: 
   balcony:  { owner: 'nothing', reason: 'REACHABLE AND STRANDED (L-7310) — BalconyStore is built and `balcony.create` dispatches from BalconyPlanToolHandler, but there is no `window.balconyStore`, so the ring entry is never covered and nothing on the legacy stack reverts it.' },
   lift:     { owner: 'nothing', reason: 'REACHABLE AND STRANDED (L-7311) — LiftCompoundStore is built and `lift.create` dispatches from LiftPlanToolHandler. `window.liftStore` exists but holds the LOD-200 MASSING lift, a DIFFERENT store; aliasing it would breach C03 §4.6 U-2b. No adapter is claimed.' },
   liftPart: { owner: 'nothing', reason: 'REACHABLE AND STRANDED (L-7312) — LiftPartStore is built and is written by `lift.create` (a part is never created alone, C104 §2). No `window.liftPartStore` exists.' },
+  // ── §UNDO93 (L-11321, 2026-08-25) — the two keys ARM 1 COULD NOT SEE. ────────
+  //
+  // Neither of these is new, and neither was hidden by anything subtle: ARM 1's
+  // sweep selected its input by DIRECTORY NAME (`plugins/**/handlers/**`), so a
+  // bus handler that lives anywhere else was outside the question the gate asked.
+  // A gate that classifies by name is satisfied by relocating — the roadmap §7B.5
+  // shape, here costing two real families. ARM 1 now sweeps a STRUCTURAL predicate
+  // (`implements CommandHandler<` / `bus.register(`) UNIONED with the old directory
+  // scope, so neither a move nor a rename can hide the next one.
+  //
+  // ⛔ The sweep deliberately does NOT extend to `packages/command-registry/src`.
+  // Those are legacy `Command` CLASSES, whose `affectedStores` is a DIFFERENT
+  // vocabulary read by `CommandManagerImpl`'s scoped snapshot, not by `_covered()`
+  // — 18 keys (`opening`, `template`, `visibility-rule`, `hierarchy`, …) live there
+  // and demanding adapters for them would manufacture 18 false gaps. Measured
+  // 2026-08-25; the distinction is the point, not an omission.
+  cube: {
+    owner: 'nothing',
+    reason: 'REACHABLE AND STRANDED, dev demo — `MoveCubeCommand` (plugins/toy-cube/src/MoveCubeCommand.ts:48) is a real bus CommandHandler minting real produceCommand patches, and PluginRegistry.ts:1061 registers the toy-cube tool. It sits OUTSIDE any `handlers/` directory, which is the only reason ARM 1 never saw it. No `window.cubeStore` exists, so a ring entry is minted, `_covered()` declines it, and Ctrl+Z is a total no-op. Not worth an adapter (dev demo), but it must be DECLARED rather than invisible (L-11321).',
+  },
+  projectOrigin: {
+    owner: 'nothing',
+    reason: 'REACHABLE AND STRANDED — `projectOrigin.setPosition` / `.setVisible` are registered on the bus at initBusHandlers.ts:519-536 with `affectedStores: [projectOrigin]`, and they mutate `projectOriginStore` directly while returning `patches: []`. Empty patches mint NO ring entry, and the handler never calls `_cmExec`, so there is nothing on the legacy stack either: moving the project origin is not undoable by any path. ARM 1 could not see it because it is registered in apps/editor, outside the swept directory (L-11321). The real fix is a patch-producing handler over a patchable store (the L-11160 boundaryLine shape), NOT a map entry pointing at a global that does not exist.',
+  },
 };
 
 /**

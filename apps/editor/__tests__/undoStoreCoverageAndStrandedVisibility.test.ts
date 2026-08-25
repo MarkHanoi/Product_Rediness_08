@@ -129,9 +129,69 @@ function mappedKeys(): Set<string> {
   );
 }
 
+/**
+ * ⭐ §UNDO93 (L-11321, 2026-08-25) — WHAT THIS ARM IS ALLOWED TO LOOK AT.
+ *
+ * ── THE DEFECT IN THE GATE ITSELF ────────────────────────────────────────────
+ * This arm used to select its input by DIRECTORY NAME:
+ *
+ *     tsFilesUnder(join(REPO_ROOT, 'plugins')).filter(f => f.includes('/handlers/'))
+ *
+ * so a bus handler that does not live under a `handlers/` directory was outside
+ * the question the gate asked — not failing it, not exempted from it, simply
+ * never posed it. Measured 2026-08-25, that hid TWO live families:
+ *
+ *   • `cube`          — plugins/toy-cube/src/MoveCubeCommand.ts:48, a real
+ *                       `CommandHandler` minting real patches, one directory up
+ *                       from where the gate looks.
+ *   • `projectOrigin` — apps/editor/src/engine/initBusHandlers.ts:521, registered
+ *                       via `bus.register` in a directory the gate never entered.
+ *
+ * A gate that classifies by NAME is satisfied by RENAMING. That is the same
+ * failure shape CLAUDE.md records for `check:commandmanager`, and it is why the
+ * predicate below is STRUCTURAL: a file is swept if it DECLARES a bus handler
+ * (`implements CommandHandler<`) or REGISTERS one (`bus.register(`).
+ *
+ * ── WHY IT IS A UNION AND NOT A REPLACEMENT ─────────────────────────────────
+ * The structural predicate alone matches 263 files where the directory scope
+ * matched 309 — it DROPS 56 real handler files that declare `affectedStores`
+ * through some other form. Swapping one for the other would have closed two gaps
+ * and opened fifty-six. The union is strictly larger than what the gate checked
+ * before, which is the only direction a shrink-only invariant may move.
+ *
+ * ⛔ AND WHAT IS DELIBERATELY EXCLUDED: `packages/command-registry/src`. Those are
+ * legacy `Command` CLASSES. Their `affectedStores` is a DIFFERENT vocabulary, read
+ * by `CommandManagerImpl`'s scoped snapshot and never by `_covered()` — 18 keys
+ * (`opening`, `hierarchy`, `template`, `visibility-rule`, `view-intent-instance`,
+ * …) live there. Sweeping them would demand undo adapters for eighteen keys that
+ * no ring-buffer entry is ever tagged with, i.e. eighteen fabricated gaps. The
+ * live proof is the founder's own MOVE_STAIR: `MoveStairCommand` declares
+ * `['stair','opening','slab','floor','ceiling']`, but the bus handler that runs it
+ * (`plugins/stair/src/handlers/MoveStair.ts:122`) declares `['stair']` and returns
+ * EMPTY patches on the production path — so no ring entry exists, `commandManager`
+ * owns that undo, and the console reads `[CommandManager] UNDO: MOVE_STAIR`.
+ * "Declares affectedStores" and "mints a ring-buffer entry" are different facts.
+ */
+const BUS_HANDLER_DECL = /implements\s+CommandHandler\s*</;
+const BUS_HANDLER_REG = /\bbus\.register\s*\(/;
+
+function busHandlerFiles(): string[] {
+  const norm = (f: string): string => f.split('\\').join('/');
+  const byDirectory = tsFilesUnder(join(REPO_ROOT, 'plugins'))
+    .filter(f => norm(f).includes('/handlers/'));
+  const byStructure = [
+    ...tsFilesUnder(join(REPO_ROOT, 'plugins')),
+    ...tsFilesUnder(join(REPO_ROOT, 'apps', 'editor', 'src')),
+  ].filter(f => {
+    let text: string;
+    try { text = readFileSync(f, 'utf8'); } catch { return false; }
+    return BUS_HANDLER_DECL.test(text) || BUS_HANDLER_REG.test(text);
+  });
+  return [...new Set([...byDirectory, ...byStructure])];
+}
+
 describe('§EI-7c ARM 1 — every bus store key is MAPPED or DECLARED', () => {
-  const handlerFiles = tsFilesUnder(join(REPO_ROOT, 'plugins'))
-    .filter(f => f.split('\\').join('/').includes('/handlers/'));
+  const handlerFiles = busHandlerFiles();
   const declared = declaredKeysIn(handlerFiles);
   const productionGlobals = measureAssignedStoreGlobals();
 
@@ -143,6 +203,13 @@ describe('§EI-7c ARM 1 — every bus store key is MAPPED or DECLARED', () => {
     expect(declared.size).toBeGreaterThan(20);
     // The key whose absence made the corrupting curtain-wall undo route at all.
     expect(declared.has('curtainwall')).toBe(true);
+    // ⭐ §UNDO93 (L-11321) — THE WIDENING, PROVEN NON-VACUOUS. These two keys are
+    // declared by real bus handlers OUTSIDE `plugins/**/handlers/**`; the previous
+    // directory-name scope could not see either. If this expectation ever goes red,
+    // the sweep has narrowed back to a name-based filter — fix the predicate, do
+    // NOT delete the assertion.
+    expect(declared.has('cube'), 'plugins/toy-cube/src/MoveCubeCommand.ts not swept').toBe(true);
+    expect(declared.has('projectOrigin'), 'apps/editor/src/engine/initBusHandlers.ts not swept').toBe(true);
     // §L-980 — and the store fixture swept something too. Without this, an empty
     // `productionGlobals` would make EVERY key unmapped and the arm below would
     // demand a declaration for all of them, which is a different failure wearing
@@ -165,7 +232,7 @@ describe('§EI-7c ARM 1 — every bus store key is MAPPED or DECLARED', () => {
     ).toEqual([]);
   });
 
-  it('names the TEN stranded families the sweep measured — including the two the key-set arm could not see', () => {
+  it('names the stranded families the sweep measured — including the two the key-set arm could not see, and the two the DIRECTORY scope could not see', () => {
     const mapped = mappedKeys();
     const stranded = [...declared.keys()]
       .filter(k => !mapped.has(k) && UNMAPPED_BUS_STORE_KEYS[k]?.owner === 'nothing')
@@ -181,7 +248,12 @@ describe('§EI-7c ARM 1 — every bus store key is MAPPED or DECLARED', () => {
       // §L-7310..L-7312 (2026-08-23) added balcony / lift / liftPart to the declared
       // stranded set; this literal was not moved with them and read RED for two days.
       // §L-11160 (2026-08-25): boundaryLine is NOT here — it gained a real adapter.
-      ['active-view', 'balcony', 'dimension', 'lift', 'liftPart', 'pool', 'schedule', 'section', 'selection', 'sheet', 'structural', 'view', 'water'],
+      // §UNDO93 / L-11321 (2026-08-25): `cube` and `projectOrigin` join — NOT because
+      // anything changed at runtime (both have been stranded for as long as they have
+      // existed) but because ARM 1 now sweeps by STRUCTURE instead of by directory
+      // name. Same lesson as L-980's pool/water: the set only grows when the gate
+      // learns to ask a wider question, and the growth is the finding.
+      ['active-view', 'balcony', 'cube', 'dimension', 'lift', 'liftPart', 'pool', 'projectOrigin', 'schedule', 'section', 'selection', 'sheet', 'structural', 'view', 'water'],
     );
   });
 
