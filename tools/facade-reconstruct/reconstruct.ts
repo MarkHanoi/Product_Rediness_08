@@ -161,11 +161,30 @@ function summarise(ir: FacadeIR, d: FacadeDiagnostics, imagePath: string): strin
         L.push('                     brief §6 makes the four clicks the specified fallback.');
     }
     L.push(`  rectified       ${d.rectified.image === null ? 'none' : `${d.rectified.image.width}x${d.rectified.image.height}  aspect ${d.rectified.aspect === null ? 'UNKNOWN' : d.rectified.aspect.toFixed(3)}`}`);
-    L.push(`  lattice         ${f.zones.length} zone(s) x ${f.zones[0]?.cells.length ?? 0} bay(s)`);
+    // ⭐ C108 §3.4 keeps TWO rival measurements alive on purpose, so the summary
+    // names WHICH one produced this lattice and what the other one said. Printing
+    // only the winner is how "2 zone(s) x 2 bay(s)" looked like an answer on the
+    // first real photograph (L-10971).
+    const bayCount = f.zones[0]?.cells.length ?? 0;
+    L.push(
+        `  lattice         ${f.zones.length} zone(s) x ${bayCount} bay(s)   from ` +
+            (d.lattice.zones.source === 'openings'
+                ? 'THE DETECTED OPENINGS'
+                : 'the wall projection profile'),
+    );
+    if (d.lattice.zones.source === 'projection-profile') {
+        L.push(`                  ⚠ the openings did not support a lattice: ${d.lattice.zones.refusedReason ?? 'refused'}`);
+    } else if (d.lattice.zones.fromProfile !== f.zones.length || d.lattice.bays.fromProfile !== bayCount) {
+        L.push(
+            `                  ⚠ SOURCES DISAGREE — the wall projection profile reads ` +
+                `${d.lattice.zones.fromProfile} zone(s) x ${d.lattice.bays.fromProfile} bay(s).`,
+        );
+        L.push('                     Compare 05-structure.png against the photograph and judge.');
+    }
     const openings = f.zones.reduce((n, z) => n + z.cells.filter((c) => c.opening !== null).length, 0);
     L.push(`  openings        ${openings} matched · ${f.features.length} feature(s) · ${f.outliers.length} outlier(s)`);
     L.push(`  periodicity     repeatX ${f.periodicity.repeatX ?? 'UNKNOWN'} · repeatY ${f.periodicity.repeatY ?? 'UNKNOWN'}   confidence ${conf(f.periodicity.confidence)}`);
-    L.push(`  symmetry        axisX ${f.symmetry.axisX === null ? 'UNKNOWN' : f.symmetry.axisX.toFixed(3)} · score ${conf(f.symmetry.score)}`);
+    L.push(`  symmetry        axisX ${f.symmetry.axisX === null ? 'UNKNOWN' : f.symmetry.axisX.toFixed(3)} · score ${conf(f.symmetry.score)}   (UNVERIFIED, L-10978)`);
     L.push(`  curvature       left ${f.curvature.left.normalizedDeviation === null ? 'UNKNOWN' : f.curvature.left.normalizedDeviation.toFixed(4)} · right ${f.curvature.right.normalizedDeviation === null ? 'UNKNOWN' : f.curvature.right.normalizedDeviation.toFixed(4)}`);
     L.push(`  surface         ${f.surface.pattern}${f.surface.pattern === 'grid' ? ` pitch ${f.surface.scaleX?.toFixed(4) ?? '?'} x ${f.surface.scaleY?.toFixed(4) ?? '?'}` : ''}   confidence ${conf(f.surface.confidence)}`);
     L.push(`  scale           ${ir.scale.status.toUpperCase()}${ir.scale.status === 'user-supplied' ? ` — ${ir.scale.metersPerUnit!.toFixed(4)} m per normalized unit` : ` (${ir.scale.unknownReason ?? 'no reason recorded'})`}`);
@@ -178,6 +197,12 @@ function summarise(ir: FacadeIR, d: FacadeDiagnostics, imagePath: string): strin
     }
     L.push('  · PROTRUSION DEPTH is null in Milestone 1 and that is the correct value');
     L.push('    (C108 §3.10, L-11005). The soffit BAND is measured; the depth is not.');
+    L.push('  · THE SYMMETRY AXIS ABOVE IS NOT CERTIFIED (L-10978). Every corpus case is');
+    L.push('    drawn symmetric about 0.500 and NINE OF FOURTEEN report 0.299 at score 0.97:');
+    L.push('    a periodic facade has an exact mirror axis at every bay centre and every bay');
+    L.push('    boundary, so the argmax is choosing among many near-equal candidates. Read the');
+    L.push('    SCORE as "is this facade mirror-symmetric at all" and do NOT read the AXIS as');
+    L.push('    the building\'s centreline.');
     L.push('  · CURVATURE RADIUS is null in Milestone 1 (C108 §3.9, L-11004). One');
     L.push('    uncalibrated image says the edges bend, not by what radius.');
     L.push('  · SURFACE / TILING is UNVERIFIED and the surface row above is NOT a measurement');

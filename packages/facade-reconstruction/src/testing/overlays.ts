@@ -288,26 +288,51 @@ export function overlayConfidence(ir: FacadeIR, d: FacadeDiagnostics): RasterIma
 
 // ── reconstructed geometry (brief §18) ───────────────────────────────────────
 
-/** One superellipse outline: `|x/a|^n + |y/b|^n = 1`. */
-function superellipse(
+/**
+ * One opening outline: straight jambs, straight sill, and a head of the fitted
+ * superellipse whose RISE is `archness x a`.
+ *
+ * ⚠ NOT A FULL SUPERELLIPSE, and the difference is visible on any arcade. An
+ * earlier revision drew `|x/a|^n + |y/b|^n = 1` all the way round, so a measured
+ * ARCH — flat jambs, semicircular head — came out as an EGG, and the picture
+ * understated a reading that was correct. `fitArch` measures exactly two things:
+ * the head's exponent `n` and its RISE over the half-width (`archness`). Drawing
+ * both is drawing the measurement; drawing `n` alone is not.
+ *
+ * `archness === 0` renders a rectangle, which is the flat-head limit and is what
+ * the upper storeys of a facade actually are.
+ */
+function openingOutline(
     image: RasterImage,
     cx: number,
     cy: number,
     a: number,
     b: number,
     n: number,
+    archness: number,
     c: Rgba,
 ): void {
-    const steps = 128;
-    let px = cx + a;
-    let py = cy;
+    const rise = Math.max(0, Math.min(1, archness)) * a;
+    const springing = cy - b + rise; // where the curved head meets the jambs
+    // Sill and jambs, up to the springing.
+    line(image, cx - a, cy + b, cx + a, cy + b, c);
+    line(image, cx - a, cy + b, cx - a, springing, c);
+    line(image, cx + a, cy + b, cx + a, springing, c);
+    if (rise <= 0) {
+        line(image, cx - a, springing, cx + a, springing, c);
+        return;
+    }
+    // The head: the upper quadrant of the superellipse, left springing to right.
+    const steps = 96;
+    const e = 1 / Math.max(1e-6, n);
+    let px = cx - a;
+    let py = springing;
     for (let i = 1; i <= steps; i++) {
-        const t = (i / steps) * Math.PI * 2;
-        const ct = Math.cos(t);
-        const st = Math.sin(t);
-        const e = 2 / Math.max(1e-6, n);
-        const x = cx + Math.sign(ct) * Math.pow(Math.abs(ct), e) * a;
-        const y = cy - Math.sign(st) * Math.pow(Math.abs(st), e) * b;
+        const u = -1 + (2 * i) / steps;
+        const inner = 1 - Math.pow(Math.abs(u), n);
+        const v = inner <= 0 ? 0 : Math.pow(inner, e);
+        const x = cx + u * a;
+        const y = springing - v * rise;
         line(image, px, py, x, y, c);
         px = x;
         py = y;
@@ -337,13 +362,14 @@ export function overlayReconstruction(ir: FacadeIR, width = 512, height = 512): 
             box(out, X(cell.x), Y(cell.y + cell.height), X(cell.x + cell.width), Y(cell.y), grey);
             const o = cell.opening;
             if (o === null) continue;
-            superellipse(
+            openingOutline(
                 out,
                 X(cell.x + cell.width / 2),
                 Y(cell.y + cell.height / 2),
                 o.a * (width - 1),
                 o.b * (height - 1),
                 o.n,
+                o.archness,
                 PRYZM_PURPLE,
             );
         }

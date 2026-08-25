@@ -79,8 +79,15 @@ function hLine(ctx: CanvasRenderingContext2D, y: number, w: number): void {
 }
 
 /**
- * `|x/a|^n + |y/b|^n = 1` — the brief §8/§9 opening, drawn as the engine fitted
- * it rather than as a rectangle.
+ * The brief §8/§9 opening, drawn AS THE ENGINE FITTED IT: straight jambs, a
+ * straight sill, and a head of the fitted superellipse whose RISE is `archness x a`.
+ *
+ * ⚠ NOT A FULL SUPERELLIPSE. An earlier revision drew `|x/a|^n + |y/b|^n = 1` all
+ * the way round, so a measured ARCH — flat jambs, semicircular head — was drawn as
+ * an EGG and the picture understated a reading that was correct. `fitArch` measures
+ * two things, the head exponent `n` and the head RISE (`archness`); drawing both is
+ * drawing the measurement. `archness === 0` renders a rectangle, which is the flat
+ * limit and is what an ordinary window is.
  */
 function superellipse(
     ctx: CanvasRenderingContext2D,
@@ -89,17 +96,26 @@ function superellipse(
     a: number,
     b: number,
     n: number,
+    archness = 0,
 ): void {
-    const e = 2 / Math.max(1e-6, n);
+    const rise = Math.max(0, Math.min(1, archness)) * a;
+    const springing = cy - b + rise;
     ctx.beginPath();
-    for (let i = 0; i <= 160; i++) {
-        const t = (i / 160) * Math.PI * 2;
-        const ct = Math.cos(t);
-        const st = Math.sin(t);
-        const x = cx + Math.sign(ct) * Math.pow(Math.abs(ct), e) * a;
-        const y = cy - Math.sign(st) * Math.pow(Math.abs(st), e) * b;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+    ctx.moveTo(cx - a, springing);
+    ctx.lineTo(cx - a, cy + b);
+    ctx.lineTo(cx + a, cy + b);
+    ctx.lineTo(cx + a, springing);
+    if (rise <= 0) {
+        ctx.closePath();
+    } else {
+        const e = 1 / Math.max(1e-6, n);
+        for (let i = 0; i <= 96; i++) {
+            const u = 1 - (2 * i) / 96;
+            const inner = 1 - Math.pow(Math.abs(u), n);
+            const v = inner <= 0 ? 0 : Math.pow(inner, e);
+            ctx.lineTo(cx + u * a, springing - v * rise);
+        }
+        ctx.closePath();
     }
     ctx.stroke();
 }
@@ -287,6 +303,7 @@ export const FACADE_LAYERS: readonly FacadeLayer[] = [
                         o.a * canvas.width,
                         o.b * canvas.height,
                         o.n,
+                        o.archness,
                     );
                     // ⛔ The NUMBER, not a label. There is no threshold at which an
                     // opening "becomes an arch" (brief §9) and this overlay must not
@@ -423,7 +440,7 @@ export const FACADE_LAYERS: readonly FacadeLayer[] = [
                     const o = cell.opening;
                     if (o === null) continue;
                     stroke(ctx, PURPLE, 2);
-                    superellipse(ctx, r.x + r.width / 2, r.y + r.height / 2, o.a * W, o.b * H, o.n);
+                    superellipse(ctx, r.x + r.width / 2, r.y + r.height / 2, o.a * W, o.b * H, o.n, o.archness);
                 }
             }
             for (const f of ir.facade.features) {

@@ -359,6 +359,33 @@ export interface SymmetryResult {
  * whether this is statistically supported"** and **"measure the symmetry"**. So a
  * low score is REPORTED as low, `axis` is never defaulted to the middle, and an
  * asymmetric facade gets an honest answer rather than a flattering one.
+ *
+ * ── ⛔ AND THE AXIS IS WRONG. MEASURED 2026-08-25 (L-10978). READ THIS FIRST. ──
+ *
+ * EVERY corpus case is drawn symmetric about **0.500**. This function reports
+ * **0.299 on nine of the fourteen** (A, D, E, G, H, J, K1, K2, K3), 0.600 on B,
+ * 0.699 on I and 0.700 on L — all at score **0.94-0.98**. 0.299 is bay 1's centre
+ * on a five-bay grid. So it is not returning a low score at a wrong axis, which
+ * would be honest; it is returning a HIGH score at a WRONG axis, which is not.
+ *
+ * ⭐ WHY: a PERIODIC facade has an exact mirror axis at EVERY bay centre and EVERY
+ * bay boundary. The maximum is therefore one of many near-equal candidates, and
+ * which one wins is decided by effects that have nothing to do with the building's
+ * own symmetry. The argmax has no right to be believed.
+ *
+ * ⚠ THE OBVIOUS CAUSE WAS TESTED AND FALSIFIED, so do not re-fix it: `reach` varies
+ * per axis (`min(axis, n-1-axis)`), so short-reach axes are scored over a shorter
+ * window — but forcing a COMMON reach across all candidates STILL returns 0.299 on
+ * case A. Reach length is not the mechanism.
+ *
+ * ⛔ NOT FIXED HERE, DELIBERATELY. The fix is a design decision — restrict the
+ * candidates to lattice lines and REPORT the degeneracy rather than returning an
+ * argmax — and guessing at one risks the overfit C108 §9 forbids. No test asserts
+ * the current value either: a test that certifies a defect is worse than no test.
+ *
+ * ⚠ Note also that `score` maps correlation 0 to **0.5**, so a facade with NO
+ * mirror symmetry reports 0.5 and that 0.5 propagates as a confidence. Same
+ * chance-floor shape as L-10975's curvature consistency, unfixed here.
  */
 export function measureSymmetry(profile: readonly number[]): SymmetryResult {
     const n = profile.length;
