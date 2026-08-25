@@ -963,6 +963,21 @@ on the `Opening` interface **and** on `OpeningSchema`, shared by door and window
 where it is. **Two axes, one place** — which is what the founder's *"from the same place"* actually
 requires.
 
+> ⚠ **Amended 2026-08-25 (lane OUTLINE82, [ADR-0373](../adrs/ADR-0373-window-custom-outline-authored-in-elevation-via-the-wall-profile-editor.md)) — a fourth kind needs a carrier, not just an enum member.**
+> **What it said:** *"ONE field, on the host record"* — `openingProfile` alone was sufficient because
+> every kind so far (`round-arch`, `segmental-arch`, `circular`) is fully determined by `offset`,
+> `width`, `height`, `sillHeight`. **What it says now:** `openingProfile` gains a fifth kind,
+> **`'custom'`**, and a free-form ring cannot be squeezed into those four scalars — it needs its own
+> carrier, `customOutline: { vertices: { u: number; v: number }[] }` (SPEC-WINDOW-CUSTOM-OUTLINE D1),
+> present **iff** `openingProfile === 'custom'`, declared on the same three schemas `openingProfile`
+> is declared on (`WallDataSchema`, `WindowTypes`, `DoorTypes` — Zod strips undeclared keys, so all
+> three carry it or a ring silently vanishes on whichever one does not). **PR-7 is restated:** not
+> "one field" but **"one AXIS: the kind, plus its carrier, which no other kind may populate."** No
+> other kind may write `customOutline`, and `'custom'` without a valid `customOutline` refuses at the
+> schema (D3). **Why now, not before:** every prior kind was a closed enumeration of *derivable*
+> shapes; a free-form ring is data the schema must carry, not a formula the four existing scalars
+> already encode.
+
 **PR-8 — NO `radius` FIELD. The bounding box stays `width × height` for every profile.** A
 `circular` opening is `width === height`, `width` **is** the diameter, enforced by a `superRefine`
 rather than by a second dimension vocabulary. **Reason, and it is a measurement:** every downstream
@@ -972,6 +987,57 @@ parametric size grammar, IFC. A `radius?` field alongside `width`/`height` would
 one of which is nonsense** (both set) and would make every one of those consumers learn a second way
 to ask one question — EI-9, again. ⭐ It also means the parametric and chat size grammars need **no
 change at all**: `1x1m circular` already parses.
+
+> ⚠ **Amended 2026-08-25 (lane OUTLINE82, [ADR-0373](../adrs/ADR-0373-window-custom-outline-authored-in-elevation-via-the-wall-profile-editor.md)) — the `custom` kind is admissible under PR-8 ONLY because its ring is normalised, and that normalisation is what makes it admissible, not incidental to it.**
+> **What it said:** PR-8 forbids a second dimension vocabulary — proven for `radius` alongside
+> `width`/`height`. **What it says now:** the SAME proof extends to `customOutline`: its vertices are
+> `{u, v} ∈ [0,1]²`, normalised to the opening's own bounding box, so `width × height` remain the
+> **only** metres-valued size vocabulary in the record — `customOutline` never carries a real-world
+> length. **The consequence this buys, stated because it surprises people:** resizing a custom
+> opening stretches its ring non-uniformly (the ring is re-scaled against the new bbox, not
+> re-authored) — the SAME "one size vocabulary" discipline that makes a `circular` opening's diameter
+> track `width` automatically also makes a triangle's proportions track a resize. A vertex-list stored
+> in metres, independent of `width`/`height`, would recreate the exact `radius`-alongside-`width`
+> defect PR-8 exists to forbid, just one axis over.
+
+#### `custom` and the wall-body arms — one new row, ZERO new arm-level rulings
+
+`custom` is a fifth **kind** on the SAME axis PR-1..PR-6 already rule on; it does not reopen any of
+those rulings; the arms table above gains one row that states the existing rulings' names against it:
+
+| Arm | Code | Non-rectangular void? (incl. `custom`) |
+|---|---|---|
+| **`custom` — every arm** | *(no new code; the ring flows through the SAME per-arm consumer PR-1..PR-6 already name)* | **A** ✅ consumes the ring directly, same as any other profile (PR-3) · **B/C** ✅ bounding-box + gasket, `bbox − outline` (PR-4) — the OUTLINE80 lane pins this on a concave ring (an L, a star), which no prior kind exercised · **D** ⛔ refuses permanently, by name (PR-5 — arc-length space cannot host a flat ring any more than a circle) · **E** ⛔ excluded, pinned both ways (PR-6) |
+
+⭐ **The reason this is a table row and not a new PR:** PR-3/PR-4/PR-5/PR-6 are stated as rulings on
+*the profile axis*, not on the four kinds that existed when they were written. A ring is still an
+outline; the arms do not know or care whether it came from an arc formula or from vertices a user
+drew. Naming `custom` here is a completeness check on that claim (D5), not a new mechanism.
+
+#### `custom`'s own axis — validity and derivation, both ONE predicate/pipeline (added 2026-08-25, lane OUTLINE80/82, SPEC-WINDOW-CUSTOM-OUTLINE D3/D4)
+
+**Validity — `validateCustomOutline`, the ONE predicate, asked from three places** (the schema
+refine, the editor's commit gate, and `openingProfileShapeRefusal`; none re-derives the rule): ≥ 3
+vertices · a simple polygon (no self-intersection — reuses `geometry-kernel`'s
+`findSelfIntersection`) · CCW winding (normalised on commit, never refused for winding alone) · first
+vertex not repeated · a **tight** bounding box — some vertex touches each of `u=0`, `u=1`, `v=0`,
+`v=1` within `1e-6`, or `width`/`height` would silently lie about the shape they claim to bound
+(C84 EI-9) · area ≥ `PROFILE_MIN_AREA` as a fraction of the unit box, derived from
+`WallProfile.PROFILE_MIN_AREA_M2` at the type's default size · arcs are tessellated AT AUTHORING TIME
+(16 chords, `arcSegmentThroughMidpoint`, recoverable via `resolveBoundarySegments`) — no `curve`
+field, matching the convention `OpeningProfile.ts`/`BoundaryLine.ts` already share. Every refusal
+names the failing rule and its numbers ([C16 CA-18](C16-COMMAND-AUTHORING-PROTOCOL.md)).
+
+**Derivation — frame, sill and glass are DERIVED from the ring, never separately authored (C75),
+exactly as every other profiled kind already works (PR-1's "one producer" extends without
+exception):** frame = `insetOutlinePoints(ring·(w,h), frameThickness)` → `profiledBandGeometry`; an
+inset returning `null` refuses BY NAME at the type editor, naming the failing vertex and the frame
+thickness. Glass = `profiledPlateGeometry` on the sash inset. **Sill = the lowest horizontal straight
+run of the ring** — the edge(s) at `v = 0` with non-zero length get a sill board of that run's length
+plus `sillOverhang`; a ring whose bottom is a vertex or an arc (an apex-down triangle, a circle) gets
+**no sill, reported by name**, never a sill fabricated at a point and never a silent omission. The
+glazing grid on the profiled arm stays absent and stays declared (pre-existing gap, not widened
+here).
 
 #### The refusal surface this axis creates — **enumerated, because an unenumerated refusal is a silent narrowing**
 
@@ -1564,6 +1630,24 @@ than the gap. The splay angles, `revealProjection`, per-instance colour override
 height is a property of the **room** — a kitchen sill and a bedroom sill differ in one building
 using one window type.
 
+> ⚠ **Amended 2026-08-25 (lane OUTLINE82, [ADR-0373](../adrs/ADR-0373-window-custom-outline-authored-in-elevation-via-the-wall-profile-editor.md)) — a shape TEMPLATE is a third case this rule's binary (type-owns / instance-owns) did not name.**
+> **What it said:** an attribute lives on the type only where every instance placed from it shares
+> the value **live** — the MUST NOT clause above forbids "promoting an instance attribute to the type
+> to close a parity gap" because that makes every placed instance move together at the next type
+> edit. **What it says now:** `WindowSystemType.customOutline` (SPEC-WINDOW-CUSTOM-OUTLINE D6) is
+> neither of those two cases — it is a **template**, not a live binding. A window created while its
+> type carries a ring is created with a **copy** of that ring on its own `Opening`; the instance owns
+> its ring from that point on. Changing the type of an EXISTING window does **not** reshape it
+> (L-10948 stays literally true, unchanged by this amendment); editing the type's outline after
+> instances exist does **not** reach them either — only an explicit, undoable **"Apply shape from
+> type"** command copies the current template onto an existing instance. **Why this is not the
+> forbidden promotion:** the MUST NOT clause is about a field the type and instance would *share* at
+> read time; a template is copied at *write* time and diverges immediately, so no later type edit can
+> ever move an already-placed window — the exact failure mode the clause exists to prevent stays
+> prevented. **The rule, stated for the next reader:** a shape TEMPLATE may live on the type; the
+> instance owns its ring; type change never reshapes; "Apply shape from type" is the one explicit
+> route that copies template → instance.
+
 #### §10.5.c — The door/window asymmetries are CONSTRUCTION, and each is stated
 
 Two panels differing by accident and two differing on purpose look identical from the outside.
@@ -1596,4 +1680,74 @@ a consequence: the opening is **measured as unrated**. The placeholder now says 
 you cannot identify — and clipped the Reveal Direction note mid-sentence, removing the half that
 said the value is the user's CHOICE and not a detected fact. **An ellipsis is admissible only where
 the full text is recoverable elsewhere.**
+
+---
+
+### §10.6 — **THE AUTHORING TECHNOLOGY FOR A FREE-FORM OUTLINE IS THE WALL PROFILE EDITOR, REUSED** (added 2026-08-25, lane OUTLINE82, SPEC-WINDOW-CUSTOM-OUTLINE §6, [ADR-0373](../adrs/ADR-0373-window-custom-outline-authored-in-elevation-via-the-wall-profile-editor.md))
+
+> Ratified by the founder on the mapper's finding, 2026-08-25. This section is the CONTRACT copy;
+> the spec's §6 is the working copy — **this section wins if they ever differ.**
+
+**This is the authoring technology for a window's `custom` outline (§10.1) — not the plan-tool
+overlay, and not a new 3-D handle editor.** The wall's own PROFILE editor already exists, already
+draws in an abstract metric elevation frame, and already has the one property that matters here:
+
+- **L7 UI:** `apps/editor/src/ui/WallProfileEditor.ts` (569 lines) — an SVG surface in a draggable/
+  resizable modal, with vertex handles, midpoint-insert handles, double-click delete, Shift = free
+  drag, Esc/Enter.
+- **L2 model:** `packages/geometry-wall/src/WallProfileEditor.ts` (123 lines) —
+  `WallProfileEditorSubject {wallId, length, height, ring}` (`:49`),
+  `WallProfileEditorCallbacks` (`:59`), `WallProfileEditorPort` (`:86`),
+  `WALL_PROFILE_SNAP_M = 0.05` (`:104`), `wallProfileEditorSnap` (`:108`),
+  `wallProfileEditorRectangle` (`:117`).
+- **It already draws in an abstract metric ELEVATION frame.** `WallProfileVertex {u, v}`
+  (`packages/geometry-wall/src/WallProfile.ts:223`) — `u` along the baseline, `v` up from the base.
+  The px↔metre map is stated ONCE, at `apps/editor/src/ui/WallProfileEditor.ts:222-232`:
+  `x = pad + u·scale`, `y = pad + (height − v)·scale`, inverse at `:233-236`; `refitTo` `:245`;
+  drag/snap/clamp `:520-528`; area status `:531`; commit gate `:552-565`.
+- **Why an SVG modal, and not a 3-D handle editor** — its own header states the reason,
+  `packages/geometry-wall/src/WallProfileEditor.ts:26-38`: *"there is no camera in this repo
+  guaranteed to be looking at that plane."* A window's elevation frame has the same property; the
+  3-D viewer in the type editor stays the PREVIEW (D8), never the authoring surface.
+- **Why not the plan-tool overlay** (`PlanViewToolOverlay.ts`): it is Canvas2D bound to
+  `PlanViewCanvas` + `PlanViewInteraction`, and its `WorldPoint {worldX, worldZ}` vocabulary would
+  have to lie about a `(u, v)` frame to serve this. `SvpPlanToolOverlay` proves the handler interface
+  is surface-agnostic in principle, but no `PlanSurface` abstraction exists to extract one from, and
+  extracting one is more work than the outline editor needs and buys nothing here.
+
+**What must be generalised to serve a window outline, and where it lives (the 8-layer rule
+applies to the generalisation exactly as to any other L2/L7 split):**
+
+1. **L2 — generalise the FRAME, not the code.** `WallProfileEditorSubject/Callbacks/Port` become an
+   elevation-outline subject/port (`{u, v}` plus `length`/`height` extents) shared by both the wall
+   profile editor and the window outline section. It stays in `packages/geometry-wall` (L2) —
+   `ui-base` is L3, and the file already records that refutation
+   (`apps/editor/src/ui/WallProfileEditor.ts:47-51`); `geometry-window` imports the shared subject
+   from `geometry-wall`, which is a same-or-lower-layer import, not a violation.
+2. **L2 — the modes the founder means by "any polygon".** The editor today only DRAGS an existing
+   ring. Click-to-place polyline (Enter closes), ⛔ ortho absolute (the founder's 2026-08-24 ruling —
+   ortho never yields to a snap), and 3-click arcs are fed from the SAME pure primitives the
+   boundary-line tool already uses: `boundaryPath.ts:136 resolveBoundaryVertex`,
+   `boundaryArc.ts:79 arcSegmentThroughMidpoint` (16 chords, recoverable by
+   `resolveBoundarySegments`), `orthoConstraint.ts:84 orthoConstrainXZ` — through a `{u, v} ↔ {x, z}`
+   adapter. **Never a copy of these primitives** — `CurtainWallTool.ts:105`'s rival
+   `ARC_SEGMENTS = 10` is the cautionary case this repeats if it re-derives instead of reuses.
+3. **L2 — validation reuses, never re-derives.** `WallProfile.ts:243 PROFILE_MIN_VERTICES`,
+   `:246 PROFILE_MIN_AREA_M2`, `:306 wallProfileSignedArea2`,
+   `geometry-kernel/src/pure/pointInPolygon.ts:209 pointInPolygonXY`, and `geometry-kernel`'s
+   `findSelfIntersection` are the D3 predicate's entire ingredient list — `validateCustomOutline`
+   composes them, it does not restate them.
+4. **L7 — generalise the SURFACE.** The SVG surface plus its `makeDraggable`/`makeResizable` wiring
+   is EXTRACTED so the wall profile modal and the window outline section are two CALLERS of one
+   surface (both keep their existing behaviour, pinned by the wall profile editor's own tests).
+   Mounted from `FinishTypeEditorModal.ts` next to the grid block (`:606-651`), declared in
+   `ElementTypeAuthoringRegistry.ts` as capability `finishEditor.outline` — a declaration, never a
+   family branch (C65 §3.5). The P6 split is kept throughout: the surface hands a finished ring to
+   `onCommit`; the caller is the one that dispatches the command.
+
+**Consequence for readers of §10.1 alone:** a `custom` outline is never authored through a bespoke
+window-only editor. Every property this section states about the wall profile editor — its snap
+increment, its commit gate, its "no camera guarantees that view" rationale — applies unchanged to the
+window outline section, because it is the same L2 model and the same L7 surface, generalised, not
+duplicated.
 

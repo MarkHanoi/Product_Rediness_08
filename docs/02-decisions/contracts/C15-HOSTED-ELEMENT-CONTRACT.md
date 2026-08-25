@@ -246,6 +246,8 @@ Three consequences bind **this** contract:
   ([C16 CA-18](C16-COMMAND-AUTHORING-PROTOCOL.md)). ⛔ A silent fall-back to a rectangle is
   forbidden — it is the *"silently-wrong wall"* `WallRake.ts:102` names.
 
+> ⭐ **Pointer, 2026-08-25 (lane OUTLINE82, [ADR-0373](../adrs/ADR-0373-window-custom-outline-authored-in-elevation-via-the-wall-profile-editor.md)).** The profile axis this section defers to gained a fifth kind, `'custom'` — a free-form ring carried in the companion field `customOutline` on the SAME `Opening` record (SPEC-WINDOW-CUSTOM-OUTLINE D1). It is still, by this section's own rule, C86's ruling to make and this contract's to defer to: see [C86 §10.1 PR-7/PR-8](C86-ELEMENT-WALL-OPENING.md#§10.1) for the field and [C86 §10.6](C86-ELEMENT-WALL-OPENING.md#§10.6) for the authoring surface.
+
 ---
 
 ## §4 — Visual Tracking During Live Drag
