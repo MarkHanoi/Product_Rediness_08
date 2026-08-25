@@ -191,8 +191,16 @@ describe('§A — the outline: one producer, four profiles', () => {
     });
 
     it('every profile winds COUNTER-CLOCKWISE — consumers depend on it for hole/reveal winding', () => {
+        // §OUTLINE80 — `custom` has no fixed shape, so it is exercised here with a real ring rather
+        // than skipped: D3 normalises winding on commit, so an apex-up triangle authored CW must
+        // still come out CCW like every other profile.
+        const CUSTOM_TRIANGLE = { vertices: [{ u: 1, v: 0 }, { u: 0.5, v: 1 }, { u: 0, v: 0 }] };
         for (const kind of OPENING_PROFILE_KINDS) {
-            const o = openingOutline({ profile: kind, offset: 0, width: 1, height: 1, sillHeight: 0 })!;
+            const o = openingOutline({
+                profile: kind, offset: 0, width: 1, height: 1, sillHeight: 0,
+                ...(kind === 'custom' ? { customOutline: CUSTOM_TRIANGLE } : {}),
+            })!;
+            expect(o, `${kind} must produce an outline`).not.toBeNull();
             expect(signedArea(o.points), `${kind} must be CCW`).toBeGreaterThan(0);
         }
     });

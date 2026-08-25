@@ -36,22 +36,58 @@
  * gasket for a rectangle is empty and must never be emitted.
  */
 
+// §OUTLINE80 — the `'custom'` kind's companion carrier, validator and presets. A sibling module,
+// not inlined here: `CustomOutline.ts` needs `@pryzm/geometry-kernel` (the fold detector) and
+// `@pryzm/geometry-slab` (the arc tessellator) for the preset rings, and this file states its own
+// header promise to stay "deliberately THREE-free" — importing them HERE would not break that,
+// but keeping the ring/validator/presets together in one file is what lets a reader find "the
+// custom kind's whole story" in one place rather than three.
+import {
+    validateCustomOutline,
+    normaliseCustomOutlineWinding,
+    type CustomOutline,
+    type CustomOutlineVertex,
+} from './CustomOutline';
+export type {
+    CustomOutline,
+    CustomOutlineVertex,
+    CustomOutlineRefusal,
+    CustomOutlineRefusalCode,
+    OpeningOutlinePresetId,
+} from './CustomOutline';
+export {
+    validateCustomOutline,
+    normaliseCustomOutlineWinding,
+    openingOutlinePreset,
+    OPENING_OUTLINE_PRESET_IDS,
+    OPENING_OUTLINE_PRESET_LABELS,
+    CUSTOM_OUTLINE_BBOX_TOL,
+    CUSTOM_OUTLINE_MIN_AREA_FRACTION,
+} from './CustomOutline';
+
 /**
  * The void-shape axis. **ORTHOGONAL to the leaf-count axis** (`'single' | 'double'`), and C86 §9
  * WO-Voc-4 forbids flattening the two into one list: doing so makes `double × round-arch` — an
  * ordinary door — unexpressible.
+ *
+ * §OUTLINE80 (SPEC-WINDOW-CUSTOM-OUTLINE D1) — `'custom'` is the fifth kind: a free-form ring
+ * authored in elevation, carried on the companion field {@link CustomOutline} rather than derived
+ * from `width`/`height` like the other four. This amends C86 §10.1 PR-7 from "one field" to "one
+ * AXIS: the kind, plus its carrier, which no other kind may populate."
  */
 export type OpeningProfileKind =
     | 'rectangular'
     | 'round-arch'
     | 'segmental-arch'
-    | 'circular';
+    | 'circular'
+    | 'custom';
 
 export const OPENING_PROFILE_KINDS: readonly OpeningProfileKind[] = [
     'rectangular',
     'round-arch',
     'segmental-arch',
     'circular',
+    'custom',
 ] as const;
 
 /**
@@ -94,6 +130,7 @@ export const OPENING_PROFILE_LABELS: Readonly<Record<OpeningProfileKind, string>
     'round-arch':      'Arched',
     'segmental-arch':  'Segmental',
     'circular':        'Circular',
+    'custom':          'Custom',
 });
 
 /**
@@ -109,6 +146,12 @@ export const OPENING_PROFILE_LABELS: Readonly<Record<OpeningProfileKind, string>
  * ⭐ DECLARED HERE, BESIDE THE UNION, so the door mode bar, the window mode bar, the properties
  * panel and any future validator cannot disagree about what each family may hold. A per-surface
  * list would be four lists.
+ *
+ * §OUTLINE80 (D12) — `'custom'` is likewise NOT offered for a door: a door is a floor-reaching
+ * NOTCH (`WallHoleBodyBuilder.normaliseWallHoles` classifies it by `sillHeight`, not by profile),
+ * and `notchWalk` assumes two feet at the floor a free-form ring is not guaranteed to have. A
+ * WINDOW may be `'custom'` — it reaches this function through `OPENING_PROFILE_KINDS`, which now
+ * carries the fifth kind, so no second list needed to change for it to appear here.
  */
 export function openingProfilesFor(family: 'door' | 'window'): readonly OpeningProfileKind[] {
     return family === 'door'
@@ -127,7 +170,14 @@ export function nextOpeningProfileFor(
     family: 'door' | 'window',
     current: unknown,
 ): OpeningProfileKind {
-    const list = openingProfilesFor(family);
+    // §OUTLINE80 (D7) — `'custom'` needs an AUTHORED RING; a keyboard cycle must always land on a
+    // value it can build with no further input, so `'custom'` is excluded from the cycle even on
+    // a window, where it is otherwise a legal value. Reaching `'custom'` is a TYPE-EDITOR /
+    // preset act, never a keypress.
+    // ⚠ Widened explicitly: TS infers an exclude-type predicate from `k !== 'custom'`, which
+    // would otherwise narrow `list` to the 4-member union and make `cur` (still 5-member) fail
+    // `indexOf`'s type check below.
+    const list: readonly OpeningProfileKind[] = openingProfilesFor(family).filter((k) => k !== 'custom');
     const cur = resolveOpeningProfile(current);
     const i = list.indexOf(cur);
     // An out-of-family value (a door somehow holding `circular`) restarts the cycle rather than
@@ -145,9 +195,15 @@ export function nextOpeningProfileFor(
  * `A` (for *Arch*) was measured free and cycles the whole axis; the pills stay individually
  * clickable for anyone who would rather point at the one they want.
  */
+// §OUTLINE80 (D7) — the family-agnostic cycle excludes `'custom'` for the identical reason
+// `nextOpeningProfileFor` does: a keyboard cycle must always land on something buildable with no
+// further input.
+const CYCLABLE_OPENING_PROFILE_KINDS: readonly OpeningProfileKind[] =
+    OPENING_PROFILE_KINDS.filter((k) => k !== 'custom');
+
 export function nextOpeningProfile(current: unknown): OpeningProfileKind {
-    const i = OPENING_PROFILE_KINDS.indexOf(resolveOpeningProfile(current));
-    return OPENING_PROFILE_KINDS[(i + 1) % OPENING_PROFILE_KINDS.length]!;
+    const i = CYCLABLE_OPENING_PROFILE_KINDS.indexOf(resolveOpeningProfile(current));
+    return CYCLABLE_OPENING_PROFILE_KINDS[(i + 1) % CYCLABLE_OPENING_PROFILE_KINDS.length]!;
 }
 
 // ── Tessellation ────────────────────────────────────────────────────────────────────────────
@@ -252,11 +308,45 @@ export interface OpeningProfileInput {
     readonly width: number;
     readonly height: number;
     readonly sillHeight: number;
+    /**
+     * §OUTLINE80 — the `'custom'` kind's companion ring (D1). Consumed ONLY when
+     * `resolveOpeningProfile(profile) === 'custom'`; every other kind ignores this key entirely,
+     * which is what lets a caller pass it unconditionally (as `OpeningElevationSymbol.ts` and
+     * `WindowPlanSymbolBuilder.ts` already do, reading `Opening.customOutline` by string ahead of
+     * this lane landing) without special-casing the four pre-existing kinds.
+     *
+     * Typed `unknown` at this boundary, matching `profile` — the LOAD path must not throw on a
+     * malformed value from a newer build; `resolveCustomOutlineInput` is the tolerant reader.
+     */
+    readonly customOutline?: unknown;
 }
 
 function bboxOf(p: OpeningProfileInput): OutlineBBox {
     const y0 = p.sillHeight ?? 0;
     return { x0: p.offset, x1: p.offset + p.width, y0, y1: y0 + p.height };
+}
+
+/**
+ * §OUTLINE80 — the tolerant reader for {@link OpeningProfileInput.customOutline}. Structural
+ * checking only (array of `{u, v}` finite-number pairs) — SEMANTIC validity (simple polygon, tight
+ * bbox, area floor) is `validateCustomOutline`'s job, called separately by whichever surface needs
+ * a reason. This function exists so `openingOutline()` — the LOAD-adjacent producer, same rule as
+ * `resolveOpeningProfile` — degrades a malformed value to `null` (⇒ the caller's null-handling,
+ * never a thrown exception) rather than duplicating the shape check inline.
+ */
+export function resolveCustomOutlineInput(v: unknown): CustomOutline | null {
+    if (!v || typeof v !== 'object') return null;
+    const vertices = (v as { vertices?: unknown }).vertices;
+    if (!Array.isArray(vertices) || vertices.length === 0) return null;
+    const out: CustomOutlineVertex[] = [];
+    for (const p of vertices) {
+        if (!p || typeof p !== 'object') return null;
+        const u = (p as { u?: unknown }).u;
+        const vv = (p as { v?: unknown }).v;
+        if (typeof u !== 'number' || typeof vv !== 'number') return null;
+        out.push({ u, v: vv });
+    }
+    return { vertices: out };
 }
 
 function rectPoints(b: OutlineBBox): OutlinePoint[] {
@@ -327,8 +417,7 @@ export function openingOutline(p: OpeningProfileInput): OpeningOutline | null {
         return { kind, points: pts, bbox, isRectangular: false };
     }
 
-    // 'segmental-arch'
-    {
+    if (kind === 'segmental-arch') {
         // Rise, from the declared ratio, clamped so the arch can never eat the whole opening.
         const rise = segmentalRise(p.width, p.height);
         if (!(rise > 1e-6)) return null;
@@ -341,6 +430,26 @@ export function openingOutline(p: OpeningProfileInput): OpeningOutline | null {
         const aLeft = Math.PI - aRight;
         const pts: OutlinePoint[] = [{ x: bbox.x0, y: bbox.y0 }, { x: bbox.x1, y: bbox.y0 }];
         pts.push(...arcPoints(cx, cy, R, aRight, aLeft));
+        return { kind, points: pts, bbox, isRectangular: false };
+    }
+
+    // 'custom' — §OUTLINE80 (D1, D2). The ring is the AUTHOR'S OWN points, scaled from the unit
+    // bbox to this opening's actual `width × height` and translated to `bbox`'s origin. No arc
+    // maths, no re-derivation — this is the single place PR-1 permits a shape to enter the wall's
+    // one outline producer, and it is a linear map of exactly the ring the type editor drew.
+    //
+    // ⛔ INVALID INPUT RETURNS `null` HERE, THE SAME AS EVERY OTHER REFUSED KIND. This function is
+    // not the authoring gate (see its own header) — `openingProfileShapeRefusal` is, and it calls
+    // `validateCustomOutline` itself so the REASON reaches the user before geometry is asked to
+    // build anything.
+    {
+        const ring = resolveCustomOutlineInput(p.customOutline);
+        if (!ring || validateCustomOutline(ring) !== null) return null;
+        const normalised = normaliseCustomOutlineWinding(ring);
+        const pts: OutlinePoint[] = normalised.vertices.map((vtx) => ({
+            x: bbox.x0 + vtx.u * p.width,
+            y: bbox.y0 + vtx.v * p.height,
+        }));
         return { kind, points: pts, bbox, isRectangular: false };
     }
 }
@@ -406,6 +515,14 @@ export function openingProfileShapeRefusal(
      * its exact previous verdict.
      */
     sillHeight?: number,
+    /**
+     * §OUTLINE80 — the `'custom'` kind's companion ring (D1, D3). Optional and additive, exactly
+     * like `sillHeight` above: every pre-existing caller that never passes a `'custom'` profile
+     * keeps its exact previous verdict, and a caller that DOES pass `'custom'` without supplying a
+     * ring is refused by `validateCustomOutline`'s own "none were supplied" message rather than
+     * silently accepted.
+     */
+    customOutline?: unknown,
 ): string | null {
     const kind = resolveOpeningProfile(profile);
     if (kind === 'rectangular') return null;
@@ -443,6 +560,27 @@ export function openingProfileShapeRefusal(
             );
         }
     }
+    // §OUTLINE80 (D5) — a custom-outline WINDOW cannot reach the floor. A free-form ring is built
+    // by arm A as a CLOSED HOLE (`THREE.Path` inside the wall's `Shape`), never as a notch carved
+    // out of the outer boundary; a notch needs two feet at `v = 0` walking the ring the way
+    // `notchWalk` does for the four built-in kinds, and a free-form ring is not guaranteed to have
+    // any horizontal run there at all — D3 requires only that SOME vertex touch each bbox edge, a
+    // vertex, not a run. `openingProfilesFor('door')` already never offers `'custom'` (D12), so
+    // this check only ever fires for a WINDOW whose sill was set to (or edited down to) the floor —
+    // exactly the same shape of check `circular` already has above, and for the same structural
+    // reason (a circle has no jamb feet either).
+    if (kind === 'custom' && sillHeight !== undefined && sillHeight <= 1e-4) {
+        return (
+            `A custom-outline opening cannot reach the floor — a free-form window ring is built as ` +
+            `an interior HOLE in the wall face, not a notch carved from the wall's outer boundary, ` +
+            `and a hole cannot touch the wall's own base. Raise the sill above the floor, or use a ` +
+            `door instead, which is carved as a notch by design.`
+        );
+    }
+    if (kind === 'custom') {
+        const refusal = validateCustomOutline(resolveCustomOutlineInput(customOutline));
+        if (refusal) return `A custom outline is not valid: ${refusal.reason}`;
+    }
     return null;
 }
 
@@ -461,9 +599,13 @@ export function openingProfileRefusal(input: {
     /** Absent ⇒ the floor-reaching check is skipped (see {@link openingProfileShapeRefusal}). */
     sillHeight?: number;
     host?: OpeningProfileHost | null;
+    /** §OUTLINE80 — the `'custom'` kind's companion ring (D1, D3). */
+    customOutline?: unknown;
 }): string | null {
     return (
-        openingProfileShapeRefusal(input.profile, input.width, input.height, input.sillHeight) ??
+        openingProfileShapeRefusal(
+            input.profile, input.width, input.height, input.sillHeight, input.customOutline,
+        ) ??
         openingProfileHostRefusal(input.profile, input.host)
     );
 }
@@ -480,10 +622,21 @@ export function openingProfileRefusal(input: {
  * nothing at all** — the user flips Rectangular → Circular and the wall keeps its old mesh. That
  * is the three-invalidation-gates-in-series class (L-813), and it is why this ships in the SAME
  * slice as the geometry rather than a later one.
+ *
+ * §OUTLINE80 — for `'custom'` the KIND alone is not enough: two custom openings both carry
+ * `kind === 'custom'` but different rings, and a ring EDIT on an otherwise-unchanged opening must
+ * also invalidate — the same L-813 failure one level down (edit the ring, the wall keeps its old
+ * mesh). `customOutline` therefore folds its vertices into the tag, deterministically (no `Map`
+ * iteration order, no object identity) so the hash is stable across reloads.
  */
-export function openingProfileTag(profile: unknown): string {
+export function openingProfileTag(profile: unknown, customOutline?: unknown): string {
     const kind = resolveOpeningProfile(profile);
-    return kind === 'rectangular' ? '' : `:${kind}`;
+    if (kind === 'rectangular') return '';
+    if (kind !== 'custom') return `:${kind}`;
+    const ring = resolveCustomOutlineInput(customOutline);
+    if (!ring) return ':custom';
+    const digits = ring.vertices.map((p) => `${p.u.toFixed(4)},${p.v.toFixed(4)}`).join('|');
+    return `:custom:${digits}`;
 }
 
 // ── §OPENING-PROFILE-FRAME (L-1520) — THE FRAME IS THE OUTLINE, INSET ───────────────────────
@@ -638,6 +791,92 @@ export function insetOutlinePoints(
     return out;
 }
 
+/** A named reason `insetOutlinePoints` refused, for a caller that must SAY why (C16 CA-18). */
+export interface InsetFailureDiagnosis {
+    /** The vertex index (into the ORIGINAL `points`) whose offset spiked, collapsed or reversed. */
+    readonly vertexIndex: number;
+    readonly reason: 'non-finite' | 'mitre-limit-exceeded' | 'edge-reversed';
+}
+
+/**
+ * §OUTLINE80-INSET-DIAGNOSIS — WHY `insetOutlinePoints` returned `null`, naming the vertex.
+ *
+ * ⚠ **A DIAGNOSTIC TWIN, NOT A SECOND ANSWER.** It does not decide whether the inset is valid —
+ * `insetOutlinePoints` remains the ONE authority on that, and this function is only ever called
+ * AFTER it has already returned `null`, to explain the verdict rather than to reach one. It walks
+ * the identical per-vertex construction so the vertex it blames is the one the real algorithm
+ * actually tripped on, not a plausible-looking guess.
+ *
+ * @returns `null` when the ring itself is degenerate (< 3 vertices, non-CCW, non-finite inset) —
+ *          those cases have no single vertex to blame — else the first offending vertex.
+ */
+export function diagnoseInsetFailure(
+    points: readonly OutlinePoint[],
+    inset: number,
+): InsetFailureDiagnosis | null {
+    const n = points.length;
+    if (n < 3 || !Number.isFinite(inset) || inset <= 1e-9) return null;
+    const area0 = outlineSignedArea(points);
+    if (!(area0 > 0)) return null;
+
+    const dir: ({ x: number; y: number } | null)[] = [];
+    for (let i = 0; i < n; i++) {
+        const p = points[i]!;
+        const q = points[(i + 1) % n]!;
+        const dx = q.x - p.x;
+        const dy = q.y - p.y;
+        const L = Math.hypot(dx, dy);
+        dir.push(L > 1e-12 ? { x: dx / L, y: dy / L } : null);
+    }
+    const seek = (from: number, step: number): { x: number; y: number } | null => {
+        for (let k = 0; k < n; k++) {
+            const d = dir[(((from + step * k) % n) + n) % n];
+            if (d) return d;
+        }
+        return null;
+    };
+
+    const out: OutlinePoint[] = [];
+    for (let i = 0; i < n; i++) {
+        const p = points[i]!;
+        const d0 = seek(i - 1, -1);
+        const d1 = seek(i, +1);
+        if (!d0 || !d1) return { vertexIndex: i, reason: 'non-finite' };
+        const n0 = { x: -d0.y, y: d0.x };
+        const n1 = { x: -d1.y, y: d1.x };
+        const cross = d0.x * d1.y - d0.y * d1.x;
+        let px: number;
+        let py: number;
+        if (Math.abs(cross) < 1e-9) {
+            px = p.x + n1.x * inset;
+            py = p.y + n1.y * inset;
+        } else {
+            const ax = p.x + n0.x * inset;
+            const ay = p.y + n0.y * inset;
+            const bx = p.x + n1.x * inset;
+            const by = p.y + n1.y * inset;
+            const s = ((bx - ax) * d1.y - (by - ay) * d1.x) / cross;
+            px = ax + d0.x * s;
+            py = ay + d0.y * s;
+        }
+        if (!Number.isFinite(px) || !Number.isFinite(py)) return { vertexIndex: i, reason: 'non-finite' };
+        if (Math.hypot(px - p.x, py - p.y) > inset * INSET_MITRE_LIMIT) {
+            return { vertexIndex: i, reason: 'mitre-limit-exceeded' };
+        }
+        out.push({ x: px, y: py });
+    }
+    for (let i = 0; i < n; i++) {
+        const d = dir[i];
+        if (!d) continue;
+        const a = out[i]!;
+        const b = out[(i + 1) % n]!;
+        if ((b.x - a.x) * d.x + (b.y - a.y) * d.y <= 0) return { vertexIndex: i, reason: 'edge-reversed' };
+    }
+    // The per-vertex walk survived; a residual failure is the whole-ring area check, which has
+    // no single vertex to blame — treated the same as the degenerate-ring cases above.
+    return null;
+}
+
 /**
  * §OPENING-PROFILE-CLIP — the part of an outline at or ABOVE `yCut`, closed by the chord.
  *
@@ -686,8 +925,12 @@ export function openingOutlineLocal(
     profile: unknown,
     width: number,
     height: number,
+    /** §OUTLINE80 — the `'custom'` kind's companion ring; ignored by every other kind. */
+    customOutline?: unknown,
 ): OpeningOutline | null {
-    return openingOutline({ profile, offset: -width / 2, width, height, sillHeight: -height / 2 });
+    return openingOutline({
+        profile, offset: -width / 2, width, height, sillHeight: -height / 2, customOutline,
+    });
 }
 
 /**
@@ -703,8 +946,10 @@ export function openingOutlineLocal(
  * shorter than its own head). That is not a fallback — it is the SAME `null` the wall's arms take
  * their rectangular path on, so frame and void stay identical even when the record is wrong.
  */
-export function isProfiledOpening(profile: unknown, width: number, height: number): boolean {
-    const o = openingOutlineLocal(profile, width, height);
+export function isProfiledOpening(
+    profile: unknown, width: number, height: number, customOutline?: unknown,
+): boolean {
+    const o = openingOutlineLocal(profile, width, height, customOutline);
     return !!o && !o.isRectangular;
 }
 
@@ -719,16 +964,52 @@ export function isProfiledOpening(profile: unknown, width: number, height: numbe
  *
  * @returns `null` for `circular` — a circle HAS no straight run, and that is the honest answer
  *          rather than `y0`. (Doors cannot be circular anyway; see {@link openingProfilesFor}.)
+ *          §OUTLINE80: also `null` for `'custom'`, for the identical reason — a free-form ring is
+ *          not guaranteed to have exactly one straight run (it may have several, at different
+ *          heights, or none at all), so there is no single scalar this function could honestly
+ *          report. Never a fake number computed from a formula (e.g. the segmental rise) that does
+ *          not describe the ring actually authored.
  */
 export function openingSpringLineYLocal(
     profile: unknown,
     width: number,
     height: number,
+    customOutline?: unknown,
 ): number | null {
-    const o = openingOutlineLocal(profile, width, height);
+    const o = openingOutlineLocal(profile, width, height, customOutline);
     if (!o) return null;
     if (o.kind === 'rectangular') return o.bbox.y1;
     if (o.kind === 'circular') return null;
     if (o.kind === 'round-arch') return o.bbox.y1 - width / 2;
-    return o.bbox.y1 - segmentalRise(width, height);
+    if (o.kind === 'segmental-arch') return o.bbox.y1 - segmentalRise(width, height);
+    return null; // 'custom'
+}
+
+/**
+ * §OUTLINE80-SILL-RUN (D4) — the ring's lowest HORIZONTAL straight run, where a sill can
+ * physically sit. `null` when the bottom is a vertex or an arc (an apex-down triangle, a circle):
+ * such an opening has no sill, and the caller omits the board rather than drawing one under a
+ * point.
+ *
+ * ⭐ THE ONE PREDICATE, consumed by BOTH the drawing and the 3-D build. `WindowPlanSymbolBuilder`
+ * needs the identical answer for the plan symbol's sill line — two independent derivations of
+ * "does this opening have a sill run" is exactly the C84 EI-9 shape this producer exists to
+ * prevent, so this is declared here, beside the outline it reads, rather than inside either
+ * consumer.
+ */
+export function outlineBaseRun(outline: OpeningOutline): { x0: number; x1: number } | null {
+    const y0 = outline.bbox.y0;
+    const EPS = 1e-9;
+    const pts = outline.points;
+    const n = pts.length;
+    let x0 = Infinity, x1 = -Infinity;
+    for (let i = 0; i < n; i++) {
+        const a = pts[i]!;
+        const b = pts[(i + 1) % n]!;
+        if (Math.abs(a.y - y0) < EPS && Math.abs(b.y - y0) < EPS && Math.abs(b.x - a.x) > EPS) {
+            x0 = Math.min(x0, a.x, b.x);
+            x1 = Math.max(x1, a.x, b.x);
+        }
+    }
+    return x1 > x0 ? { x0, x1 } : null;
 }

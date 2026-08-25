@@ -28,6 +28,18 @@ import { rakeAuthorability } from './WallRake';
 import { OPENING_PROFILE_KINDS, type OpeningProfileKind } from './OpeningProfile';
 import { profileAuthorability } from './WallProfile';
 
+// §OUTLINE80 (SPEC-WINDOW-CUSTOM-OUTLINE D1) — the `'custom'` kind's companion ring, as a Zod
+// schema. Structurally identical to `CustomOutline`/`CustomOutlineVertex` in `CustomOutline.ts`
+// (that file stays THREE-free / Zod-free by design — see its own header — so the runtime
+// validation shape lives here, beside every other Opening field's Zod twin).
+const CustomOutlineVertexSchema = z.object({
+    u: z.number().finite({ message: 'opening.customOutline vertex.u must be finite' }),
+    v: z.number().finite({ message: 'opening.customOutline vertex.v must be finite' }),
+});
+export const CustomOutlineSchema = z.object({
+    vertices: z.array(CustomOutlineVertexSchema),
+});
+
 // ─── §WALL-AUDIT-2026 (RESOLVED 2026-04-24): semantic invariant constants ─────
 
 /**
@@ -132,6 +144,35 @@ export const OpeningSchema = z.object({
         OPENING_PROFILE_KINDS as unknown as [OpeningProfileKind, ...OpeningProfileKind[]],
         { message: `opening.openingProfile must be one of: ${OPENING_PROFILE_KINDS.join(', ')}` },
     ).optional(),
+    // §OUTLINE80 (D1) — the `'custom'` kind's companion carrier. ADDITIVE AND OPTIONAL, same
+    // C47 §1.2 reasoning as `openingProfile` above: absent on every opening authored before this
+    // field existed, so nothing needs migrating. The `superRefine` below is what enforces "present
+    // IFF openingProfile === 'custom'" — this key alone only declares the SHAPE.
+    customOutline: CustomOutlineSchema.optional(),
+}).superRefine((val, ctx) => {
+    // §OUTLINE80 (D1) — "one AXIS: the kind, plus its carrier, which no other kind may
+    // populate." Neither half may exist without the other: a 'custom' opening with no ring is a
+    // state `openingOutline()` already treats as degenerate (returns null), and a NON-custom
+    // opening carrying a stray ring is exactly the "two fields for one axis" shape C86 §9
+    // WO-Voc-4 forbids — so both directions are refused here, at the ONE gate every store write
+    // passes through (`WallStore.addOpening` calls `OpeningSchema.safeParse`).
+    const isCustom = val.openingProfile === 'custom';
+    if (isCustom && !val.customOutline) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "opening.customOutline is required when opening.openingProfile is 'custom'",
+            path: ['customOutline'],
+        });
+    }
+    if (!isCustom && val.customOutline !== undefined) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+                "opening.customOutline must be absent unless opening.openingProfile is 'custom' " +
+                `(got openingProfile=${JSON.stringify(val.openingProfile ?? 'rectangular')})`,
+            path: ['customOutline'],
+        });
+    }
 });
 
 export type OpeningInput = z.infer<typeof OpeningSchema>;

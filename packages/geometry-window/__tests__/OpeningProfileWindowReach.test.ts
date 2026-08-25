@@ -47,14 +47,20 @@ describe('§A — the two axes are ORTHOGONAL, in the one config store', () => {
         expect(getWindowToolConfig().windowType).toBe('single');
     });
 
-    it('the A key cycles the whole axis and returns to its start', () => {
+    it('the A key cycles the CYCLABLE profiles and returns to its start', () => {
+        // §OUTLINE80 (D1) — `custom` needs an authored ring, so it is not something the A key can
+        // cycle a window BLINDLY into: `nextOpeningProfileFor` excludes it from the cycle on
+        // purpose (OpeningProfile.ts's `CYCLABLE_OPENING_PROFILE_KINDS`). The cycle therefore
+        // visits `OPENING_PROFILE_KINDS.length - 1` distinct kinds, one fewer than the full axis.
         let p: unknown = 'rectangular';
         const seen: string[] = [];
-        for (let i = 0; i < OPENING_PROFILE_KINDS.length; i++) {
+        const cyclableCount = OPENING_PROFILE_KINDS.length - 1;
+        for (let i = 0; i < cyclableCount; i++) {
             p = nextOpeningProfile(p);
             seen.push(p as string);
         }
-        expect(new Set(seen).size).toBe(OPENING_PROFILE_KINDS.length);
+        expect(new Set(seen).size).toBe(cyclableCount);
+        expect(seen).not.toContain('custom');
         expect(p).toBe('rectangular');
     });
 

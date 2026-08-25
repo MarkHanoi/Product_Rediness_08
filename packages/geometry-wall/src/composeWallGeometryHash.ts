@@ -89,7 +89,11 @@ function hashOpening(o: Opening): string {
     // IDENTICALLY and no persisted geometry cache is invalidated. Contrast the rake fold above,
     // which lengthened the key for every wall and cost a one-time full rebuild — a profile can do
     // better precisely because absence and default coincide.
-    return `${o.id}:${t}:${f(o.offset)}:${f(o.width)}:${f(o.height)}:${f(o.sillHeight)}${openingProfileTag(o.openingProfile)}`;
+    // §OUTLINE80 — `customOutline` rides alongside `openingProfile`: for a `'custom'` opening the
+    // KIND alone does not distinguish two different rings, so `openingProfileTag` folds the ring's
+    // own vertices in too (see its own header). Empty/absent for every other kind, unchanged.
+    return `${o.id}:${t}:${f(o.offset)}:${f(o.width)}:${f(o.height)}:${f(o.sillHeight)}` +
+        openingProfileTag(o.openingProfile, (o as { customOutline?: unknown }).customOutline);
 }
 
 function hashJoin(joinData: JoinData | null | undefined): string {

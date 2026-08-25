@@ -59,10 +59,16 @@ import type {
 import {
   resolveOpeningShapeRef,
   openingShapeNames,
-  openingShapeLegalFor,
+  // §OUTLINE80 (D10) — the CHAT gate, not the bare family gate: `'custom'` is a legal WINDOW
+  // value but is not settable by adjective (see its own header). Composes `openingShapeLegalFor`
+  // internally, so this is a straight replacement, not an addition.
+  openingShapeChatRefusalFor,
   joinNames,
   type OpeningFamily,
 } from './OpeningShapeVocabulary.js';
+// §OUTLINE80 (D10) — the preset ring a NAMED shape word resolves to, so the payload can carry it
+// through to `UpdateOpeningProfileBatchCommand` alongside `openingProfile: 'custom'`.
+import { openingOutlinePreset } from '@pryzm/geometry-wall';
 import type { ResolverContext, SemanticIntent } from './ZeroTokenResolver.js';
 
 export type OpeningShapeFamilyIntentId = 'set-window-shape' | 'set-door-shape';
@@ -167,13 +173,22 @@ export function openingShapeFamilySpec(
         };
       }
       // ⛔ §OPENING-PROFILE-BY-FAMILY (L-1251) — a door may not be circular, and
-      // the refusal NAMES THE RULE rather than dropping the ask.
-      const illegal = openingShapeLegalFor(family.elementKind, hit.kind);
+      // §OUTLINE80 (D10) — bare "custom" is not settable by adjective either. Both refusals
+      // NAME THE RULE rather than dropping the ask; `openingShapeChatRefusalFor` composes them.
+      const illegal = openingShapeChatRefusalFor(family.elementKind, hit);
       if (illegal !== null) {
         return { refusal: { reason: illegal, suggestions: family.suggestions } };
       }
+      // §OUTLINE80 (D10) — a NAMED PRESET carries its ring alongside the kind, so the batch
+      // command can write both `openingProfile: 'custom'` and `customOutline` in one payload —
+      // "table rows, zero new resolver arms."
+      const customOutline = hit.presetId === undefined ? undefined : openingOutlinePreset(hit.presetId);
       return {
-        payload: { elementKind: family.elementKind, openingProfile: hit.kind },
+        payload: {
+          elementKind: family.elementKind,
+          openingProfile: hit.kind,
+          ...(customOutline === undefined ? {} : { customOutline }),
+        },
         summary: (scopeLabel, notesTail) => `Change ${scopeLabel} to ${hit.label}${notesTail}`,
       };
     },

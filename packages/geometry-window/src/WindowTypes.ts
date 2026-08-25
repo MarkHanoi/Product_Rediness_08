@@ -1,4 +1,26 @@
 import { z } from 'zod';
+// §OUTLINE80 — the void-shape vocabulary and the `'custom'` kind's ring carrier, imported rather
+// than retyped (C84 §8.d): a hand-copied `z.enum([...])` here would be a second list to keep in
+// agreement with `OpeningProfile.OPENING_PROFILE_KINDS`, the ONE authority.
+// §OUTLINE80-CYCLE-FIX — the pure './opening-profile' subpath, NOT the bare barrel: the barrel
+// drags in WallTool.ts -> @pryzm/command-registry -> this package -> the barrel again, mid-load
+// (geometry-wall/package.json's exports-note explains the family of bug this dodges).
+import { OPENING_PROFILE_KINDS, type OpeningProfileKind } from '@pryzm/geometry-wall/opening-profile';
+
+/**
+ * §OUTLINE80 (D1) — the `'custom'` kind's companion ring, as a Zod schema. Structurally identical
+ * to `CustomOutline`/`CustomOutlineVertex` in `@pryzm/geometry-wall`'s `CustomOutline.ts` (that
+ * module stays THREE-free / Zod-free by design), re-declared here — the same choice
+ * `WallDataSchema.ts` made for the identical reason: the runtime shape lives beside the field it
+ * validates.
+ */
+const CustomOutlineVertexSchema = z.object({
+    u: z.number().finite(),
+    v: z.number().finite(),
+});
+export const CustomOutlineSchema = z.object({
+    vertices: z.array(CustomOutlineVertexSchema),
+});
 
 /**
  * Finish layer schema — compatible with WindowFinishLayer in WindowSystemTypeStore.
@@ -45,7 +67,18 @@ export const WindowOpeningSchema = z.object({
      *
      * Absent ⇒ rectangular, so every window persisted before this loads unchanged.
      */
-    openingProfile: z.enum(['rectangular', 'round-arch', 'segmental-arch', 'circular']).optional(),
+    openingProfile: z.enum(
+        OPENING_PROFILE_KINDS as unknown as [OpeningProfileKind, ...OpeningProfileKind[]],
+        { message: `openingProfile must be one of: ${OPENING_PROFILE_KINDS.join(', ')}` },
+    ).optional(),
+
+    /**
+     * §OUTLINE80 (SPEC-WINDOW-CUSTOM-OUTLINE D1) — the companion carrier of `openingProfile ===
+     * 'custom'`. Same "not optional polish" warning as the field above applies verbatim: absent
+     * here, a ring authored anywhere upstream is stripped by `WindowStore.add`'s
+     * `Object.freeze({...safeParse(w).data})` the moment it reaches this schema.
+     */
+    customOutline: CustomOutlineSchema.optional(),
 
     // Frame
     frameThickness: z.number().positive().default(0.05),
@@ -154,6 +187,25 @@ export const WindowOpeningSchema = z.object({
 
     // Type system — reference to the WindowSystemType that generated this window's finish defaults
     systemTypeId:   z.string().optional(),
+}).superRefine((val, ctx) => {
+    // §OUTLINE80 (D1) — the SAME "one axis, one carrier" rule `WallDataSchema.OpeningSchema`
+    // enforces on the host record, restated on the window's own runtime twin so the two cannot
+    // disagree about what a valid `'custom'` window looks like.
+    const isCustom = val.openingProfile === 'custom';
+    if (isCustom && !val.customOutline) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "customOutline is required when openingProfile is 'custom'",
+            path: ['customOutline'],
+        });
+    }
+    if (!isCustom && val.customOutline !== undefined) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "customOutline must be absent unless openingProfile is 'custom'",
+            path: ['customOutline'],
+        });
+    }
 });
 
 export type WindowOpening = z.infer<typeof WindowOpeningSchema>;

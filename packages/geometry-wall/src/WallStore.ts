@@ -657,7 +657,12 @@ export class WallStore implements ILevelProvider {
                 this.windows.set(opening.elementId, cloneWindowData({
                     ...commonData,
                     type: 'window',
-                    windowType: opening.windowType
+                    windowType: opening.windowType,
+                    // §OUTLINE80 (L-3421) — same reasoning as `updateWindow`'s self-heal: this
+                    // WallStore-level `WindowData` record is a SEPARATE copy of the window
+                    // (C86 §2), and a field this literal omits does not round-trip to it at all.
+                    openingProfile: opening.openingProfile,
+                    customOutline: opening.customOutline,
                 }));
             } else if (opening.type === 'door' && !this.doors.has(opening.elementId)) {
                 this.doors.set(opening.elementId, cloneDoorData({
@@ -1281,7 +1286,11 @@ export class WallStore implements ILevelProvider {
                 const windowData: WindowData = {
                     ...commonData,
                     type: 'window',
-                    windowType: openingClone.windowType
+                    windowType: openingClone.windowType,
+                    // §OUTLINE80 (L-3421) — see the sync-path note above; this is the CREATE path
+                    // (`addOpening`), the one every new window actually reaches first.
+                    openingProfile: openingClone.openingProfile,
+                    customOutline: openingClone.customOutline,
                 };
                 this.windows.set(windowData.id, cloneWindowData(windowData));
                 // §3.5: elementRegistry.registerSemantic removed — the calling Command
@@ -1452,7 +1461,11 @@ export class WallStore implements ILevelProvider {
                 this.windows.set(opening.elementId, cloneWindowData({
                     ...commonData,
                     type: 'window',
-                    windowType: opening.windowType
+                    windowType: opening.windowType,
+                    // §OUTLINE80 (L-3421) — see the sync-path note above; this is the UNDO-RESTORE
+                    // path (undoing a delete), so a custom window's shape must survive undo too.
+                    openingProfile: opening.openingProfile,
+                    customOutline: opening.customOutline,
                 }));
                 // §3.5: elementRegistry.registerSemantic removed — the calling Command
                 // (DeleteElementCommand.undo) is responsible for registering in elementRegistry.
@@ -1548,7 +1561,14 @@ export class WallStore implements ILevelProvider {
                         width: updated.width,
                         height: updated.height,
                         sillHeight: updated.sillHeight,
-                        offset: updated.offset
+                        offset: updated.offset,
+                        // §OUTLINE80 (L-3421) — carried alongside the four geometric fields above
+                        // so this method can never DROP a profile/ring that was already correct on
+                        // `updated` (the window's own record, which `merged` above already folded
+                        // `updates` into). Idempotent for the overwhelmingly common case where
+                        // neither changed.
+                        openingProfile: updated.openingProfile,
+                        customOutline: updated.customOutline,
                     };
                 }
                 return cloneOpening(o);
@@ -1558,6 +1578,13 @@ export class WallStore implements ILevelProvider {
             // opening is missing from the wall (a prior out-of-bounds edit dropped
             // it), RE-CREATE it from the (now clamped, in-bounds) window record so the
             // wall re-cuts instead of staying solid with an orphaned window.
+            //
+            // §OUTLINE80 (L-3421) — MUST carry `openingProfile` AND `customOutline` too, or a
+            // self-healed opening silently reverts to a rectangle: this RE-CREATES the host
+            // record from `updated` (the window's own store record) rather than patching an
+            // existing one, so any field this literal omits is not merely stale — it is GONE from
+            // the wall's copy the moment the heal runs, which is the exact loss path this fix
+            // closes.
             if (!matched) {
                 openings.push({
                     id: updated.openingId,
@@ -1568,6 +1595,8 @@ export class WallStore implements ILevelProvider {
                     height: updated.height,
                     sillHeight: updated.sillHeight,
                     windowType: updated.windowType,
+                    openingProfile: updated.openingProfile,
+                    customOutline: updated.customOutline,
                 } as Opening);
             }
 

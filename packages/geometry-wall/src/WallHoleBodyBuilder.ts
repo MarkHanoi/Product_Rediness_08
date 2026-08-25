@@ -66,6 +66,16 @@ export interface WallOpeningRect {
      * works" was the wrong answer to the founder's question.
      */
     readonly openingProfile?: OpeningProfileKind;
+    /** §OUTLINE80 — the `'custom'` kind's companion ring; ignored by every other kind. */
+    readonly customOutline?: unknown;
+    /**
+     * §OUTLINE80 (D5) — which family this opening belongs to. Absent ⇒ the pre-existing
+     * classify-by-`sillHeight`-alone behaviour (every caller before this field existed). Present
+     * ONLY so this builder can refuse a `'custom'` WINDOW that has been pushed to the floor — see
+     * `normaliseWallHoles`'s own note on why that refusal lives HERE too, not only at the
+     * authoring gate.
+     */
+    readonly type?: 'window' | 'door';
 }
 
 export interface WallHoleBodyParams {
@@ -101,7 +111,11 @@ export interface WallHoleBodyParams {
 const OPENING_EPS_M = 1e-4;   // C73 §2.3 — 0.1 mm, in wall-local METRES: the margin that keeps a flush opening off the wall ends and stops two merely-touching rects reading as overlapping.
 
 /** A validated opening rectangle in wall-local metres, classified by kind. */
-export interface NormRect { x0: number; x1: number; y0: number; y1: number; floorNotch: boolean; profile?: OpeningProfileKind }
+export interface NormRect {
+    x0: number; x1: number; y0: number; y1: number; floorNotch: boolean; profile?: OpeningProfileKind;
+    /** §OUTLINE80 — the `'custom'` kind's companion ring; ignored by every other kind. */
+    customOutline?: unknown;
+}
 
 export interface NormWallHoles {
     /** Interior openings (sill > 0, head < height) → ExtrudeGeometry holes (windows). */
@@ -140,7 +154,19 @@ export function normaliseWallHoles(p: WallHoleBodyParams): NormWallHoles | null 
         if (y1 >= p.height - OPENING_EPS_M) return null;
         // Sill at (or below) the floor → floor notch (door); else interior hole.
         const floorNotch = y0 <= OPENING_EPS_M;
-        rects.push({ x0, x1, y0: floorNotch ? 0 : y0, y1, floorNotch, profile: op.openingProfile });
+        // §OUTLINE80 (D5) — a CUSTOM-OUTLINE WINDOW cannot reach the floor. `openingProfileShapeRefusal`
+        // is the AUTHORING gate that refuses this by name (naming the door alternative); this is
+        // defence-in-depth at the geometry layer, matching the `wallProfileRectFit` precedent
+        // above ("not defence-in-depth theatre... can only fire when the model was mutated behind
+        // both"). A free-form ring built as a floor NOTCH would need two feet at `v = 0` the way
+        // `notchWalk` assumes for the four built-in kinds, and D3 guarantees only a VERTEX on each
+        // bbox edge, never a RUN — so a custom ring pushed to the floor has no guaranteed foot for
+        // the notch walk to start from.
+        if (op.type === 'window' && floorNotch && op.openingProfile === 'custom') return null;
+        rects.push({
+            x0, x1, y0: floorNotch ? 0 : y0, y1, floorNotch,
+            profile: op.openingProfile, customOutline: op.customOutline,
+        });
     }
 
     // Overlapping openings self-intersect in the extrude — reject (segmented fallback).
@@ -356,6 +382,7 @@ function outlineFor(r: NormRect): readonly { x: number; y: number }[] | null {
         width: r.x1 - r.x0,
         height: r.y1 - r.y0,
         sillHeight: r.y0,
+        customOutline: r.customOutline,
     });
     return o && !o.isRectangular ? o.points : null;
 }

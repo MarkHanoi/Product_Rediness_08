@@ -73,6 +73,11 @@ import {
   OPENING_PROFILE_LABELS,
   openingProfilesFor,
   type OpeningProfileKind,
+  // §OUTLINE80 (D10) — the preset rings a NAMED shape word resolves to. The vocabulary never
+  // invents a ring: it names one of these four, exactly as `resolveOpeningShapeRef` names one of
+  // the four built-in kinds via `OPENING_PROFILE_LABELS`.
+  OPENING_OUTLINE_PRESET_LABELS,
+  type OpeningOutlinePresetId,
 } from '@pryzm/geometry-wall';
 
 /** The families that can host an opening profile — geometry-wall's own split. */
@@ -90,6 +95,14 @@ interface ShapeToken {
   readonly kind: OpeningProfileKind;
   /** 2 = names exactly one kind. 1 = names a family of kinds. */
   readonly specificity: 1 | 2;
+  /**
+   * §OUTLINE80 (D10) — present ONLY for a NAMED PRESET word ("triangular", "gothic", …). Such a
+   * token still resolves to `kind: 'custom'` (the axis value that gets WRITTEN), but carries WHICH
+   * preset ring the caller must apply. A bare "custom"/"freeform" token has no `presetId` — it
+   * resolves so the door-family / no-ring refusal can name it (the same reason `resolveOpeningShapeRef`
+   * already resolves "circular" for a door), but there is no ring for it to hand back.
+   */
+  readonly presetId?: OpeningOutlinePresetId;
 }
 
 /**
@@ -152,6 +165,23 @@ const SHAPE_TOKENS: Readonly<Record<string, ShapeToken>> = Object.freeze({
   rose: { kind: 'circular', specificity: 2 },
   disc: { kind: 'circular', specificity: 2 },
   disk: { kind: 'circular', specificity: 2 },
+
+  // ── custom (bare) ─────────────────────────────────────────────────────────
+  // §OUTLINE80 (D10) — resolves so the family gate / no-ring refusal can name it, exactly as
+  // "circular" already resolves for a door it is illegal on. NEVER settable by adjective alone —
+  // see `openingShapeChatRefusalFor`.
+  custom: { kind: 'custom', specificity: 2 },
+  freeform: { kind: 'custom', specificity: 2 },
+
+  // ── custom PRESETS — D7/D10: named rings, claimable, zero new resolver arms ────────────────
+  triangular: { kind: 'custom', specificity: 2, presetId: 'triangle' },
+  triangle: { kind: 'custom', specificity: 2, presetId: 'triangle' },
+  trapezoid: { kind: 'custom', specificity: 2, presetId: 'trapezoid' },
+  trapezoidal: { kind: 'custom', specificity: 2, presetId: 'trapezoid' },
+  gable: { kind: 'custom', specificity: 2, presetId: 'gable' },
+  pentagon: { kind: 'custom', specificity: 2, presetId: 'gable' },
+  pentagonal: { kind: 'custom', specificity: 2, presetId: 'gable' },
+  gothic: { kind: 'custom', specificity: 2, presetId: 'gothic' },
 });
 
 /**
@@ -210,6 +240,8 @@ const COMPOUND_GLUE: readonly (readonly [RegExp, string])[] = [
   [/\bfull (arch|arched)\b/g, 'semicircular'],
   [/\bsquare head(ed)?\b/g, 'square'],
   [/\bflat head(ed)?\b/g, 'flat'],
+  // §OUTLINE80 (D10) — "free form" / "free-form" (the hyphen is already a space by `normalise`).
+  [/\bfree form\b/g, 'freeform'],
 ];
 
 function glue(text: string): string {
@@ -223,6 +255,8 @@ export interface ResolvedOpeningShape {
   readonly kind: OpeningProfileKind;
   /** The user-facing name — geometry-wall's own label, never re-spelled. */
   readonly label: string;
+  /** §OUTLINE80 (D10) — present ONLY when a NAMED PRESET resolved (see {@link ShapeToken}). */
+  readonly presetId?: OpeningOutlinePresetId;
 }
 
 /**
@@ -240,15 +274,22 @@ export function resolveOpeningShapeRef(ref: string): ResolvedOpeningShape | null
 
   // Score: the best specificity each kind was argued for at, and how many
   // distinct tokens argued for it.
-  const best = new Map<OpeningProfileKind, { specificity: 1 | 2; hits: number }>();
+  const best = new Map<OpeningProfileKind, { specificity: 1 | 2; hits: number; presetId?: OpeningOutlinePresetId }>();
   let unknownWords = 0;
   for (const w of words) {
     const tok = SHAPE_TOKENS[w];
     if (tok === undefined) { unknownWords += 1; continue; }
     const prev = best.get(tok.kind);
+    // §OUTLINE80 (D10) — a NAMED preset always wins the slot over a bare "custom" token co-
+    // occurring in the same phrase ("custom triangular" names a real ring; the bare word does
+    // not). Two DIFFERENT presets in one phrase is not a sentence anyone types, so last-wins is
+    // an acceptable, simple tie-break rather than a case worth its own refusal.
+    const presetId = tok.presetId ?? prev?.presetId;
     best.set(tok.kind, {
       specificity: prev === undefined ? tok.specificity : (Math.max(prev.specificity, tok.specificity) as 1 | 2),
       hits: (prev?.hits ?? 0) + 1,
+      // `exactOptionalPropertyTypes` — omit the key entirely rather than set it to `undefined`.
+      ...(presetId === undefined ? {} : { presetId }),
     });
   }
   if (best.size === 0) return null;
@@ -267,7 +308,7 @@ export function resolveOpeningShapeRef(ref: string): ResolvedOpeningShape | null
   const maxSpec = Math.max(...[...best.values()].map((v) => v.specificity));
   const leaders = [...best.entries()].filter(([, v]) => v.specificity === maxSpec);
 
-  if (leaders.length === 1) return described(leaders[0]![0]);
+  if (leaders.length === 1) return described(leaders[0]![0], leaders[0]![1].presetId);
 
   // Two or more kinds argued at the same specificity. ONE English pair is
   // genuinely common and genuinely unambiguous to a reader: "round arch" —
@@ -284,8 +325,13 @@ export function resolveOpeningShapeRef(ref: string): ResolvedOpeningShape | null
   return null;
 }
 
-function described(kind: OpeningProfileKind): ResolvedOpeningShape {
-  return { kind, label: OPENING_PROFILE_LABELS[kind] };
+function described(kind: OpeningProfileKind, presetId?: OpeningOutlinePresetId): ResolvedOpeningShape {
+  return presetId === undefined
+    ? { kind, label: OPENING_PROFILE_LABELS[kind] }
+    // §OUTLINE80 (D10) — a preset's user-facing label is ITS OWN name ("Triangular"), never the
+    // bare axis label ("Custom") — the vocabulary's whole job here is to let the user say the
+    // shape they mean and see that name reflected back.
+    : { kind, label: OPENING_OUTLINE_PRESET_LABELS[presetId], presetId };
 }
 
 /** Every shape name this project offers a family, in the labels the mode bar
@@ -319,6 +365,36 @@ export function joinNames(names: readonly string[]): string {
   if (names.length === 0) return '';
   if (names.length === 1) return names[0]!;
   return `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]!}`;
+}
+
+/**
+ * §OUTLINE80 (D10) — THE CHAT-SPECIFIC GATE, composed IN FRONT of {@link openingShapeLegalFor}.
+ *
+ * `'custom'` is a legal WINDOW value (`openingProfilesFor('window')` includes it) but is NOT
+ * something chat can set by adjective — a free-form outline is DRAWN, not named. A NAMED PRESET
+ * ("triangular", "gothic", …) is different: it resolves to a REAL ring
+ * (`OpeningOutlinePresetId`), so it is exactly as settable as any other named shape.
+ *
+ * ⛔ Every caller that resolves a shape through this axis for a CHAT-DRIVEN write MUST call this
+ * function INSTEAD OF (not in addition to, though it delegates internally) `openingShapeLegalFor` —
+ * calling the family gate alone would let "make the windows custom" through, since `'custom'` IS a
+ * legal window value.
+ */
+export function openingShapeChatRefusalFor(
+  family: OpeningFamily,
+  resolved: ResolvedOpeningShape,
+): string | null {
+  const familyRefusal = openingShapeLegalFor(family, resolved.kind);
+  if (familyRefusal) return familyRefusal;
+  if (resolved.kind === 'custom' && resolved.presetId === undefined) {
+    return (
+      `"Custom" is not a shape I can set directly — a free-form outline is DRAWN, not named. ` +
+      `Open the window type editor's Elevation outline tool to draw one, or ask for a named preset ` +
+      `(${joinNames(Object.values(OPENING_OUTLINE_PRESET_LABELS))}), which I can apply. ` +
+      `Nothing was changed.`
+    );
+  }
+  return null;
 }
 
 /**

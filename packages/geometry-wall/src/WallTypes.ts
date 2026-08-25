@@ -6,6 +6,7 @@ import { WallStore } from './WallStore';
 import type { WallProfile } from './WallProfile';
 import type { WallProfileEditorPort } from './WallProfileEditor';
 import type { OpeningProfileKind } from './OpeningProfile';
+import type { CustomOutline } from './CustomOutline';
 
 export enum WallToolState {
     IDLE = 'IDLE',
@@ -85,6 +86,19 @@ export interface Opening {
      * See `OpeningProfile.ts` for the single outline producer and the refusals.
      */
     openingProfile?: OpeningProfileKind;
+
+    /**
+     * §OUTLINE80 (SPEC-WINDOW-CUSTOM-OUTLINE D1) — the companion carrier of `openingProfile ===
+     * 'custom'`. A normalised `{u, v} ∈ [0,1]` ring in the opening's own unit bounding box.
+     *
+     * ⛔ PRESENT IFF `openingProfile === 'custom'`, ABSENT OTHERWISE — enforced by a Zod
+     * `superRefine` on `OpeningSchema` (this interface's schema twin), not by convention alone.
+     * This is C86 §10.1 PR-7 amended: "one field" becomes "one AXIS: the kind, plus its carrier,
+     * which no other kind may populate."
+     *
+     * A door never carries this (D12 — `openingProfilesFor('door')` never offers `'custom'`).
+     */
+    customOutline?: CustomOutline;
 }
 
 export interface WindowData extends CoreElement {
@@ -99,6 +113,16 @@ export interface WindowData extends CoreElement {
     frameThickness: number;
     frameWidth: number;
     frameColor?: string;
+    /**
+     * §OUTLINE80 (L-3421) — mirrors `Opening.openingProfile`. This WallStore-level record is a
+     * SECOND, thinner copy of a window (C86 §2's "FOUR records for one door"); it did not carry
+     * this field before this fix, which is exactly the self-heal loss path L-3421 names — a store
+     * write path that reads `Opening.openingProfile` off the host but has nowhere on ITS OWN
+     * record to hold it back would silently drop it on the next round-trip through this type.
+     */
+    openingProfile?: OpeningProfileKind;
+    /** §OUTLINE80 (L-3421) — mirrors `Opening.customOutline`, same reasoning as the field above. */
+    customOutline?: CustomOutline;
     /** IFC / BIM fire-resistance rating (e.g. "30min", "60min"). */
     fireRating?: string;
     anchor?: {

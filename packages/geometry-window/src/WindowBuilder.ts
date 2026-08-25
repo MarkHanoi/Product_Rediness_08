@@ -46,6 +46,10 @@ import {
     // …and the SHARED frame solid derived from that outline. It lives beside the producer, in
     // `geometry-wall`, because the DOOR builder consumes the identical band — see its header.
     profiledBandGeometry, profiledPlateGeometry,
+    // §OUTLINE80 (D4) — the ONE "does this ring have a sill run" predicate, and the ONE frame-
+    // inset failure diagnostic — both declared beside `OpeningProfile`'s outline producer so
+    // neither this builder nor the plan-symbol drawer can derive a second answer.
+    outlineBaseRun, diagnoseInsetFailure,
     type OpeningOutline, type OutlinePoint,
 } from '@pryzm/geometry-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
@@ -392,6 +396,16 @@ export class WindowBuilder {
      * 3,304-window project is a per-rebuild console flood, not a diagnostic.
      */
     private _unresolvedFrameReported = new Set<string>();
+
+    /**
+     * §OUTLINE80 (D4) — `windowId` values already reported as having no sill run, and
+     * `${windowId}|${vertexIndex}` pairs already reported for a frame-inset failure. Same dedup
+     * discipline as `_unresolvedFrameReported` immediately above, for the identical reason: a
+     * profiled window rebuilds on every host-wall cascade, so an un-deduplicated `console.warn`
+     * here would flood the console across every rebuild of every custom-outline window.
+     */
+    private _noSillReported = new Set<string>();
+    private _frameInsetFailureReported = new Set<string>();
 
     /**
      * §INSTANCE-WINDOWS — optional GPU-instancing bridge (the SAME shared
@@ -909,7 +923,7 @@ export class WindowBuilder {
         // half that instances" would mint a second definition of "has a reveal" whose drift
         // shows up as a 1 m cube months later. Cost is one draw call per projecting window.
         const _hostRaked = rakeShearPerMetre((wallData as { rakeAngleDeg?: number }).rakeAngleDeg) !== 0;
-        const _profiled = !arc && isProfiledOpening(win.openingProfile, win.width, win.height);
+        const _profiled = !arc && isProfiledOpening(win.openingProfile, win.width, win.height, win.customOutline);
         if (this._instancingActive() && !_hostRaked && !arc && !_profiled && !reveal.active) {
             this._convertGroupToInstances(win, group, wallData.levelId);
         }
@@ -1336,6 +1350,43 @@ export class WindowBuilder {
     }
 
     /**
+     * §OUTLINE80 (D4) — the profiled outline has no horizontal run at its sill line, so no sill
+     * board is built. Reported ONCE per window through the SAME dedup channel
+     * `_reportUnresolvedFrameMaterial` uses, for the identical flood reason.
+     */
+    private _reportNoSill(winId: string, kind: string): void {
+        if (this._noSillReported.has(winId)) return;
+        this._noSillReported.add(winId);
+        console.warn(
+            `[WindowBuilder] §OUTLINE80 D4 — window ${winId}'s ${kind} outline has no horizontal ` +
+            `run at its sill line (the bottom is a vertex or an arc, not a straight edge), so no ` +
+            `sill board is built. The frame and glazing are unaffected.`,
+        );
+    }
+
+    /**
+     * §OUTLINE80 (D4) — the frame inset at `thicknessM` collapsed, spiked or inverted the outline
+     * at the named vertex, so the profiled arm draws the opening SOLID rather than a frame it
+     * cannot honestly build (see the call site's own comment). Reported ONCE per
+     * `(window, vertex)` pair — a window rebuilds on every host-wall cascade, the same flood this
+     * package already guards against twice above.
+     */
+    private _reportFrameInsetFailure(winId: string, vertexIndex: number | null, thicknessM: number): void {
+        const key = `${winId}|${vertexIndex ?? 'ring'}`;
+        if (this._frameInsetFailureReported.has(key)) return;
+        this._frameInsetFailureReported.add(key);
+        const where = vertexIndex === null
+            ? 'the outline itself (too few vertices, or not wound the way this producer requires)'
+            : `vertex ${vertexIndex} — the outline's corner there is too sharp for a constant-width member`;
+        console.warn(
+            `[WindowBuilder] §OUTLINE80 D4 — window ${winId}: the frame inset of ` +
+            `${(thicknessM * 1000).toFixed(0)} mm fails at ${where}. Reduce the frame thickness, or ` +
+            `open that corner's angle in the outline. Drawing the opening SOLID rather than a ` +
+            `frame that would spike through it.`,
+        );
+    }
+
+    /**
      * §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — THE WINDOW ROW OF ADR-121'S LOD MATRIX.
      *
      * The window's 3D + elevation cells were ✗. They are the door's row again (L-266), and it
@@ -1413,7 +1464,7 @@ export class WindowBuilder {
         // only consumes the one the gate already vetted.
         const outline: OpeningOutline | null = arc
             ? null
-            : openingOutlineLocal(win.openingProfile, w, h);
+            : openingOutlineLocal(win.openingProfile, w, h, win.customOutline);
         if (outline && !outline.isRectangular) {
             this._buildProfiledVisuals(win, group, outline, frameMat, glassMat, dims, ft, fd, lod, levelId, mats);
             return mats;
@@ -1742,6 +1793,14 @@ export class WindowBuilder {
      * rectangle has, so their board is unchanged and correct. A **CIRCULAR window has no cill in
      * this sense at all** — its outline has no bottom edge for a board to sit on — and drawing one
      * would be an unknown rendered as a rectangle. It is OMITTED.
+     *
+     * §OUTLINE80 (D4) — `baseRun` generalises the board's SPAN. `undefined` (every pre-existing
+     * caller) keeps the exact previous full-width, centred board. A profiled caller that HAS
+     * resolved a run (`OpeningProfile.outlineBaseRun`, in the centred `[-w/2, w/2]` frame) passes
+     * it here, and the board becomes that run's OWN length plus the overhang, centred on that
+     * run — which for `round-arch`/`segmental-arch` is algebraically the SAME full-width, centred
+     * board as before (their base run IS `[-w/2, w/2]`), and for a `custom` trapezoid narrower at
+     * the sill is the shorter, off-centre board the ring actually has.
      */
     private _addSillBoard(
         win: WindowOpening,
@@ -1751,9 +1810,14 @@ export class WindowBuilder {
         levelId: string,
         mats: THREE.Material[],
         arc: LeafArc | null,
+        baseRun?: { x0: number; x1: number },
     ): void {
         const { width: w, height: h } = win;
-        if (win.sill && win.sillDepth > 0 && win.sillThickness > 0) {
+        const runX0 = baseRun ? baseRun.x0 : -w / 2;
+        const runX1 = baseRun ? baseRun.x1 : w / 2;
+        const runWidth = runX1 - runX0;
+        const runCenterX = (runX0 + runX1) / 2;
+        if (win.sill && win.sillDepth > 0 && win.sillThickness > 0 && runWidth > 0) {
             // §INSTANCE-WINDOWS — sill mirrors the frame colour (roughness 0.7),
             // resolved from the SHARED cache so it coalesces across storeys too.
             const sillMat = this._sharedFrameMaterial(levelId, this._resolveFrameColor(win), false, 1, 0.7);
@@ -1768,10 +1832,10 @@ export class WindowBuilder {
                 // §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) — the board overhangs each jamb by
                 // the RESOLVED `sillOverhang` (was a bare `+ 0.04`). The plan sill line is
                 // drawn to the same overhang, so the symbol and the built board agree.
-                w + 2 * dims.sillOverhang,
+                runWidth + 2 * dims.sillOverhang,
                 win.sillThickness,
                 fd + win.sillDepth,
-                0,
+                runCenterX,
                 -h / 2 + win.sillThickness / 2,
                 win.sillDepth / 2,       // protrudes out from wall face
                 'windowSill',
@@ -1844,6 +1908,14 @@ export class WindowBuilder {
             // SOLID FRAME, and drawing it as such is the truthful reading of the record — far
             // better than falling back to a rectangle inside a circular hole, which would put the
             // C86 §11 #1 divergence back after removing it.
+            //
+            // §OUTLINE80 (D4) — REPORTED BY NAME before the fallback, on the SAME dedup channel
+            // `_reportUnresolvedFrameMaterial` uses. `diagnoseInsetFailure` is a read-only twin of
+            // `insetOutlinePoints` (never a second decision — see its own header) that names WHICH
+            // vertex the inset actually failed at, so the message is a real diagnosis and not a
+            // guess restated.
+            const diagnosis = diagnoseInsetFailure(pts, ft);
+            this._reportFrameInsetFailure(win.id, diagnosis?.vertexIndex ?? null, ft);
             addProfiled(group, frameMat, profiledPlateGeometry(pts, fd), 'windowFrame');
             return;
         }
@@ -1886,13 +1958,21 @@ export class WindowBuilder {
         addProfiled(group, glassMat, profiledPlateGeometry(sight, dims.glazingThickness), 'windowGlazing');
 
         // ── Sill board ─────────────────────────────────────────────────────
-        // ⛔ A CIRCLE HAS NO CILL. Its outline has no bottom edge for a board to sit on, and a
-        // board drawn across the underside of an oculus is a member no fabricator makes. The two
-        // ARCHES keep theirs unchanged: below the springing their outline IS the rectangle's, so
-        // the same board is the same correct board. `arc` is `null` on this whole path (a curved
-        // host cannot carry a profile — PR-5), which is why it is passed as such.
-        if (outline.kind !== 'circular') {
-            this._addSillBoard(win, group, dims, fd, levelId, mats, null);
+        // §OUTLINE80 (D4) — GENERALISED from "kind !== 'circular'" to the actual predicate that
+        // rule was standing in for: the ring's OWN lowest horizontal run, read through the ONE
+        // shared predicate `OpeningProfile.outlineBaseRun` (the same one the plan symbol's sill
+        // line consumes — C84 EI-9, one producer). `round-arch`/`segmental-arch` keep their exact
+        // previous full-width board (their base run IS the full width); `circular` keeps its exact
+        // previous omission (a circle's outline touches `y0` at one point, not a run); a `custom`
+        // ring's sill is now that ring's OWN run — narrower, wider or off-centre, whatever the
+        // author drew — or omitted and REPORTED BY NAME when the outline has no run at all (an
+        // apex-down triangle, a star). `arc` is `null` on this whole path (a curved host cannot
+        // carry a profile — PR-5), which is why it is passed as such.
+        const baseRun = outlineBaseRun(outline);
+        if (baseRun) {
+            this._addSillBoard(win, group, dims, fd, levelId, mats, null, baseRun);
+        } else {
+            this._reportNoSill(win.id, outline.kind);
         }
     }
 

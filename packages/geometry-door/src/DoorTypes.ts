@@ -1,4 +1,27 @@
 import { z } from 'zod';
+// §OUTLINE80 — imported rather than retyped (C84 §8.d): a hand-copied `z.enum([...])` here would
+// be a second list to keep in agreement with `OpeningProfile.OPENING_PROFILE_KINDS`.
+// §OUTLINE80-CYCLE-FIX — the pure './opening-profile' subpath, NOT the bare barrel: the barrel
+// drags in WallTool.ts -> @pryzm/command-registry -> this package -> the barrel again, mid-load
+// (geometry-wall/package.json's exports-note explains the family of bug this dodges).
+import { OPENING_PROFILE_KINDS, type OpeningProfileKind } from '@pryzm/geometry-wall/opening-profile';
+
+/**
+ * §OUTLINE80 (D1, D12) — the `'custom'` kind's companion ring, declared on the door's runtime
+ * record for the SAME reason `circular` is in the enum below despite never being offered to a
+ * door (`openingProfilesFor('door')`): the vocabulary is the OPENING's, shared with windows, and
+ * narrowing a family's SCHEMA rather than its offered CHOICES would mint a second vocabulary.
+ * `openingProfilesFor('door')` is what actually keeps a door from ever holding one in practice —
+ * D5's floor-reaching refusal in `openingProfileShapeRefusal` refuses it independently too, since
+ * a door's `sillHeight` is always at the floor.
+ */
+const CustomOutlineVertexSchema = z.object({
+    u: z.number().finite(),
+    v: z.number().finite(),
+});
+export const CustomOutlineSchema = z.object({
+    vertices: z.array(CustomOutlineVertexSchema),
+});
 
 /**
  * Finish layer schema — compatible with DoorFinishLayer in DoorSystemTypeStore.
@@ -61,8 +84,23 @@ export const DoorOpeningSchema = z.object({
      * `circular` IS in the union but is never offered for a door (`openingProfilesFor('door')`) —
      * the union is the OPENING's vocabulary, shared with windows, and narrowing it per family
      * here would mint a second vocabulary, which is the defect this axis was designed to avoid.
+     *
+     * §OUTLINE80 (D1) — `'custom'` joins the union for the identical reason. `openingProfilesFor
+     * ('door')` still never offers it (D12), and D5's floor-reaching refusal in
+     * `openingProfileShapeRefusal` refuses a `'custom'` opening at a floor-level sill independently
+     * — a door's sill is always at the floor, so this is doubly closed, not merely declared shut.
      */
-    openingProfile: z.enum(['rectangular', 'round-arch', 'segmental-arch', 'circular']).optional(),
+    openingProfile: z.enum(
+        OPENING_PROFILE_KINDS as unknown as [OpeningProfileKind, ...OpeningProfileKind[]],
+        { message: `openingProfile must be one of: ${OPENING_PROFILE_KINDS.join(', ')}` },
+    ).optional(),
+
+    /**
+     * §OUTLINE80 (D1) — the companion carrier of `openingProfile === 'custom'`. Declared here so
+     * Zod does not silently strip a ring on a malformed/legacy record; D12 means no live authoring
+     * surface ever WRITES this on a door, so in practice it is always absent.
+     */
+    customOutline: CustomOutlineSchema.optional(),
 
     // Frame
     frameThickness: z.number().positive().default(0.05),
@@ -112,6 +150,25 @@ export const DoorOpeningSchema = z.object({
 
     // Type system — reference to the DoorSystemType that generated this door's finish defaults
     systemTypeId:      z.string().optional(),
+}).superRefine((val, ctx) => {
+    // §OUTLINE80 (D1) — the same "one axis, one carrier" rule the host and window schemas
+    // enforce. In practice this never fires for a door in the field (D12), but the schema does
+    // not rely on that being true elsewhere to stay internally consistent.
+    const isCustom = val.openingProfile === 'custom';
+    if (isCustom && !val.customOutline) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "customOutline is required when openingProfile is 'custom'",
+            path: ['customOutline'],
+        });
+    }
+    if (!isCustom && val.customOutline !== undefined) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "customOutline must be absent unless openingProfile is 'custom'",
+            path: ['customOutline'],
+        });
+    }
 });
 
 export type DoorOpening = z.infer<typeof DoorOpeningSchema>;

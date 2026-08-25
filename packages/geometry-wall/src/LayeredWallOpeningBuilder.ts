@@ -93,6 +93,8 @@ interface OpeningRect {
      * EXACTLY as it always has, which is the PR-2 byte-identity guarantee for arm C.
      */
     profile?: OpeningProfileKind;
+    /** §OUTLINE80 — the `'custom'` kind's companion ring; ignored by every other kind. */
+    customOutline?: unknown;
 }
 
 function addUniqueBreak(values: number[], value: number): void {
@@ -111,7 +113,16 @@ function normaliseOpeningRects(openings: Opening[], wallLength: number, wallHeig
         const bottom = Math.max(0, op.sillHeight ?? 0);
         const top = Math.min(wallHeight, (op.sillHeight ?? 0) + op.height);
         if (right - left > 0.001 && top - bottom > 0.001) {
-            rects.push({ left, right, bottom, top, profile: (op as { openingProfile?: OpeningProfileKind }).openingProfile });
+            rects.push({
+                left, right, bottom, top,
+                profile: (op as { openingProfile?: OpeningProfileKind }).openingProfile,
+                // §OUTLINE80 — threaded alongside `openingProfile` for the identical reason: without
+                // it a `'custom'` window on a LAYERED wall would reach `openingOutline()` with no
+                // ring, get `null` back, and the gasket loop below would silently `continue` —
+                // exactly the "wall cut a circle, frame drew a rectangle" defect this axis exists
+                // to prevent, one level down (a layered wall drawing a bbox instead of a ring).
+                customOutline: (op as { customOutline?: unknown }).customOutline,
+            });
         }
     }
     return rects;
@@ -398,6 +409,7 @@ function buildContinuousLayerGeometry(
             width: r.right - r.left,
             height: r.top - r.bottom,
             sillHeight: r.bottom,
+            customOutline: r.customOutline,
         });
         // yShift 0 — `pushVertex` adds `wallBaseOffset` itself.
         const gasket = buildOpeningProfileGasket(outline, back, front, 0);
