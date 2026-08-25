@@ -74,6 +74,10 @@
 // fall through to the B3 `commandManager.undo()` fallback. See ADR-051.
 
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+// §G3-STALE-EVENT-HAS-NO-TRACKER (L-11042) — the REAL tracker. See `_vdt` below
+// for why the `window.__viewDependencyTracker` alias it replaces was always
+// undefined.
+import { viewDependencyTracker } from '@pryzm/core-app-model';
 import {
   resolveLegacyStoreUpdateDeclaration,
   type LegacyStoreUpdateDeclaration,
@@ -103,9 +107,42 @@ function _bim(): BimManagerLike | undefined {
 }
 
 interface VdtLike { registerElement?(id: string, levelId: string): void }
+
+/**
+ * §G3-STALE-EVENT-HAS-NO-TRACKER (L-11042, lane LEVELHEIGHT61) — THE TRACKER,
+ * not a dev-only window alias that was never assigned.
+ *
+ * ⛔ THIS FUNCTION RETURNED `undefined` ON EVERY CALL, IN EVERY BUILD, ALWAYS.
+ * It read `window.__viewDependencyTracker`, which is written at exactly one site
+ * — `window-shim.ts:106`, inside `exposeDevHelpers(refs)`, guarded by
+ * `if (refs.viewDependencyTracker !== undefined)`. Its ONE production caller is
+ * `engineLauncher.ts:1494`, which calls `exposeDevHelpers({})` — an EMPTY object,
+ * and only inside `if (import.meta.env.DEV)`. So the property is never set: not
+ * in dev (the ref is absent), not in production (the branch is not taken).
+ *
+ * Both call sites below are `_vdt()?.registerElement?.(…)`, so both no-opped in
+ * silence. The §G3-STALE-FIX their comments describe — pre-register the element
+ * so the tracker can attribute the store event to a level — HAS NEVER RUN.
+ *
+ * MEASURED, in the founder's console (2026-08-24): undoing a batch emits
+ * `[VDT] §G3-STALE-EVENT for unregistered element <uuid>` 9× for windows and
+ * again for slabs, and each one forces the coarse `no-graft-ids` whole-drawing
+ * re-projection instead of the O(dirty) graft. That is the cost of this line.
+ *
+ * [[committed-is-not-reachable]]: the fix was written, is correct, and reached
+ * nothing. Importing the singleton removes the reachability question entirely —
+ * a rename or a deleted export now fails the build instead of failing silently
+ * at runtime. It stays wrapped in a getter (rather than being called directly)
+ * so the two call sites keep their existing optional-chaining shape, and so a
+ * headless environment where the module cannot evaluate still degrades to the
+ * old no-op rather than throwing into an undo.
+ */
 function _vdt(): VdtLike | undefined {
-  if (typeof window === 'undefined') return undefined;
-  return (window as { __viewDependencyTracker?: VdtLike }).__viewDependencyTracker;
+  try {
+    return viewDependencyTracker as VdtLike;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Redo of a create re-adds the element via the store, which SYNCHRONOUSLY fires
