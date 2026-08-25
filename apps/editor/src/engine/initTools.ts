@@ -120,6 +120,9 @@ import { BoundaryLineMeshBuilder } from './BoundaryLineMeshBuilder';
 // §POOL95 / §FT-WATER — the swimming pool's water body. Same single-authority
 // shape as the boundary line above: one store, no legacy twin, straight to a mesh.
 import { WaterMeshBuilder } from './WaterMeshBuilder';
+// §POOL95 (L-11350) — the undo path reaches the SAME builder through this sink,
+// because `performUndoRedo` emits no bus events.
+import { registerWaterRenderSink } from './undo/poolUndoAdapter';
 // §FIX-BOUNDARY-LINE-INVISIBLE-IN-PLAN (L-10502) — the 2-D sibling of the builder above.
 import { installBoundaryLinePlanSymbolBuilder, type BoundaryLinePlanEntry } from './BoundaryLinePlanSymbolBuilder';
 import { WindowTool } from '@pryzm/geometry-window';
@@ -1856,6 +1859,19 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         // floor and the void behind, which is a worse and more confusing state than
         // the whole compound persisting. It is filed, not half-done.
         const waterMeshBuilder = new WaterMeshBuilder(world.scene.three);
+
+        // ⭐ §POOL95 (L-11350) — THE UNDO PATH'S ROAD TO THE SAME BUILDER.
+        // `performUndoRedo` applies inverse patches straight to the stores and emits
+        // NO bus events (measured: zero `events.emit` in that file), so without this
+        // the water would revert in the model and stay on screen. The `water`
+        // adapter's `flushWaterRender` drives these two closures over the SAME
+        // builder instance the `water.created` subscriber above drives — one source
+        // of render truth reached by two roads, which is `registerLiftRenderSink`'s
+        // shape and rationale exactly (§LIFT94).
+        registerWaterRenderSink({
+            update: (input) => { waterMeshBuilder.updateWater(input); },
+            remove: (waterId) => { waterMeshBuilder.removeWater(waterId); },
+        });
 
         runtime.events.on('water.created', (ev) => {
             if (!ev.waterId) return;

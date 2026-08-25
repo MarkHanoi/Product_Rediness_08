@@ -276,17 +276,41 @@ export const LEGACY_STORE_UPDATE_SEMANTICS: Readonly<Record<string, LegacyStoreU
   // DECLARED in `UNMAPPED_BUS_STORE_KEYS`. These two rows stay `unmeasured` — the
   // right answer for a store that does not exist — so that if the plugin is ever
   // wired, the write shape must be MEASURED at that point rather than assumed.
+  //
+  // ⭐ §POOL95 (L-11350, 2026-08-25) — THE PLUGIN WAS WIRED, so the instruction the
+  // paragraph above left behind has been carried out. `PluginRegistry` now builds
+  // both stores, both storeKeys are declared, and `PoolPlanToolHandler` dispatches
+  // `pool.create`; the family is REACHABLE and the L-980 verdict above is dated
+  // history, not current fact.
+  //
+  // ⛔ BOTH ROWS STAY `unmeasured`, AND THAT IS THE MEASURED ANSWER, NOT A DODGE.
+  // This table exists to describe what `update(id, arg)` does with keys the caller
+  // did NOT supply. ⭐ THE POOL NEVER CALLS `update(id, arg)`. Its coverage is
+  // `poolUndoAdapter` (§POOL95), which calls `Store.applyPatch(patches)` — the very
+  // method the bus itself calls on execute — so the inverse is applied by the store
+  // in exactly the shape it applied the forward, and the merge-vs-replace hazard
+  // this table guards against cannot arise. Declaring 'merge' or 'replace' here
+  // would assert a semantics for a code path the family does not take, which is
+  // L-977 in the other direction.
+  //
+  // ⚠ `boundaryLine`, `lift` and `liftPart` are the SAME NEW CLASS — plugin stores
+  // adapted by `applyPatch`, not by `update()` — and they have NO rows at all, so
+  // `LegacyStoreUpdateSemantics.measured.test.ts` reds on those three. That is
+  // pre-existing (L-11160 and §LIFT94) and is NOT this lane's to fix while the lift
+  // lane is live; it is reported rather than raced. The durable fix is a row KIND
+  // for `applyPatch`-adapted plugin stores, so the table stops being asked a
+  // question about a method they never call.
   pool: {
     semantics: 'unmeasured',
-    store: '(none — PoolStore is never constructed; window.poolStore is never assigned)',
-    evidence: 'plugins/pool/src/store.ts:29 (class exists, zero construction sites); apps/editor/src/PluginRegistry.ts (no `pool` storeKey)',
-    note: 'The family is unreachable, not just unmapped: pool.create throws at CommandBus.buildContext. Declared in UNMAPPED_BUS_STORE_KEYS (L-980).',
+    store: 'PoolStore (plugins/pool/src/store.ts) — built by PluginRegistry, reached as runtime.stores.pool',
+    evidence: 'apps/editor/src/PluginRegistry.ts (`buildStore: () => new PoolStore()`, storeKey `pool`); apps/editor/__tests__/poolUndoAdapter.test.ts ARM A',
+    note: 'NOT adapted by update(id, arg): poolUndoAdapter calls Store.applyPatch, the same method the bus calls on execute, so merge-vs-replace does not arise (§POOL95, L-11350).',
   },
   water: {
     semantics: 'unmeasured',
-    store: '(none — WaterStore is never constructed; window.waterStore is never assigned)',
-    evidence: 'plugins/pool/src/store.ts:58 (class exists, zero construction sites); apps/editor/src/PluginRegistry.ts (no `water` storeKey)',
-    note: 'Same measurement as pool — the water half of pool.create cannot execute either. Declared in UNMAPPED_BUS_STORE_KEYS (L-980).',
+    store: 'WaterStore (plugins/pool/src/store.ts) — built by PluginRegistry, reached as runtime.stores.water',
+    evidence: 'apps/editor/src/PluginRegistry.ts (`buildStore: () => new WaterStore()`, storeKey `water`); apps/editor/__tests__/poolUndoAdapter.test.ts ARM B',
+    note: 'Same route as pool — waterUndoAdapter calls Store.applyPatch and then redraws through the registered WaterMeshBuilder sink (§POOL95, L-11350).',
   },
 };
 

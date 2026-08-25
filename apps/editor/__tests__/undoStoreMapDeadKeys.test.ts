@@ -131,19 +131,46 @@ describe('§L-980 ARM 2 — the arm above can fail (deliberate break, then resto
   });
 });
 
-describe('§L-980 ARM 3 — pool / water are DECLARED gaps, not silent ones', () => {
+describe('§L-980 ARM 3 — pool / water are COVERED now (§POOL95, L-11350)', () => {
   const assigned = measureAssignedStoreGlobals();
 
   beforeEach(() => { installStoreGlobals(assigned); });
   afterEach(() => { clearStoreGlobals(assigned); });
 
-  it('both are in UNMAPPED_BUS_STORE_KEYS, owned by nothing, with a reason', () => {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⚠ THIS ARM WAS INVERTED BY §POOL95 (L-11350), AND ITS CONTROLS DID NOT MOVE.
+  // ═══════════════════════════════════════════════════════════════════════════
+  // It used to assert `UNMAPPED_BUS_STORE_KEYS['pool']` was DEFINED with
+  // `owner: 'nothing'`, and that `'pool' in buildUndoStoreMap()` was FALSE. Both
+  // were correct pins on L-980's honest 2026-08-18 measurement: the family was
+  // UNREACHABLE, so a declared gap was better than manufactured coverage reading
+  // `window.poolStore`, a global nothing ever assigned.
+  //
+  // ⭐ THREE OF L-980's FOUR AXES HAVE SINCE BEEN CLOSED by other lanes —
+  // `PluginRegistry` now builds `new PoolStore()` / `new WaterStore()`, both
+  // storeKeys are declared, and `PoolPlanToolHandler` dispatches `pool.create`
+  // from a live "Swimming Pool" palette button. The family became REACHABLE and
+  // therefore actually STRANDED, and nothing re-read these rows: Ctrl+Z after
+  // drawing a pool was a TOTAL no-op that left the void punched through the floor.
+  //
+  // ⛔ THE COVERAGE IS **NOT** THE `window.poolStore` FIX L-980 REFUSED. There is
+  // still no such global and none is invented. `poolUndoAdapter` resolves
+  // `runtime.stores.pool` / `.water` LAZILY at apply time — the boundaryLine
+  // (L-11160) and lift (L-11340) shape — and THROWS BY NAME when the runtime is
+  // absent. That is why the arm below can assert coverage without installing a
+  // single new global.
+
+  it('both are OUT of UNMAPPED_BUS_STORE_KEYS — the rows moved with the adapters', () => {
     for (const key of ['pool', 'water'] as const) {
-      const entry = UNMAPPED_BUS_STORE_KEYS[key];
-      expect(entry, `${key} must be declared — its handler IS registered in production`).toBeDefined();
-      expect(entry!.owner).toBe('nothing');
-      expect(entry!.reason.length).toBeGreaterThan(30);
+      expect(
+        UNMAPPED_BUS_STORE_KEYS[key],
+        `${key} has a real adapter now, so declaring it unmapped would re-set the trap`,
+      ).toBeUndefined();
     }
+    // The table is NOT empty — so this cannot pass by everything having been
+    // deleted from it. The genuinely stranded keys are still declared.
+    expect(Object.keys(UNMAPPED_BUS_STORE_KEYS).length).toBeGreaterThan(3);
+    expect(UNMAPPED_BUS_STORE_KEYS['structural'], 'a real gap is still declared').toBeDefined();
   });
 
   it('NEGATIVE CONTROL — a genuinely covered key is NOT in the table', () => {
@@ -151,13 +178,27 @@ describe('§L-980 ARM 3 — pool / water are DECLARED gaps, not silent ones', ()
     expect(UNMAPPED_BUS_STORE_KEYS['slab']).toBeUndefined();
   });
 
-  it('neither pool nor water nor stairLanding is in the store map any more', () => {
+  it('pool and water ARE in the store map; the dead aliases and stairLanding still are not', () => {
     const map = buildUndoStoreMap();
-    for (const key of ['pool', 'pools', 'water', 'waters', 'stairLanding']) {
+
+    // ⭐ THE FLIPPED HALF — and it asserts a WORKING adapter, not mere presence.
+    // `_covered()` checks `typeof map[s]?.applyPatch === 'function'`, so a key
+    // present with an `undefined` value is exactly as dead as an absent one. That
+    // distinction is what L-980 was written to expose; asserting `key in map`
+    // would have missed it.
+    for (const key of ['pool', 'water']) {
+      expect(typeof map[key]?.applyPatch, `${key} must have a working adapter`).toBe('function');
+    }
+
+    // ⛔ THE PLURAL ALIASES STAY DEAD, DELIBERATELY. `pools` / `waters` read
+    // globals that were never assigned; no handler declares them, and adding them
+    // back would be manufactured coverage for a key with no traffic — the exact
+    // "costume of a fix" L-980 named.
+    for (const key of ['pools', 'waters', 'stairLanding']) {
       expect(key in map, `${key} must not claim coverage it does not have`).toBe(false);
     }
-    // POSITIVE CONTROL on the same map: the keys that DO belong are still there,
-    // so "removed" cannot be satisfied by having removed everything.
+
+    // POSITIVE CONTROL on the same map, unchanged.
     expect('slab' in map).toBe(true);
     expect('stairRailing' in map).toBe(true);
   });
@@ -219,26 +260,106 @@ describe('§L-980 ARM 4 — the REAL performUndo, on the REAL pool.create declar
     delete (window as unknown as Record<string, unknown>).runtime;
   });
 
-  it("a pool entry strands, and the toast NAMES pool and water — it no longer says only 'could not revert'", async () => {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⚠ INVERTED BY §POOL95 (L-11350). This arm used to assert that a real
+  // `pool.create` declaration STRANDS — "`wall` and `slab` ARE covered; `pool`
+  // and `water` are not, and `_covered()` demands EVERY store — so the cursor
+  // never moves and the keypress achieves nothing", with a toast naming both
+  // families. That was a true and useful pin on a real gap, and the gap is closed:
+  // the pool is no longer declined AT THE KEY.
+  //
+  // ⭐ WHAT REPLACES IT IS STRICTLY STRONGER, because the old arm could not tell
+  // "declined for lack of an adapter" from "applied and failed". Both arms below
+  // are kept so the two remain distinguishable:
+  //   · with NO `runtime.stores`, coverage IS claimed, the apply IS attempted, and
+  //     the absent store surfaces as a NAMED failure — never a silent no-op;
+  //   · with the real stores present, the undo actually LANDS.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  it('a pool entry is COVERED now — it no longer strands on the `pool` key', async () => {
     installRingBuffer(['pool', 'wall', 'slab', 'water'], true);
     const out = performUndo();
 
-    // The measured consequence. `wall` and `slab` ARE covered; `pool` and `water`
-    // are not, and `_covered()` demands EVERY store — so the cursor never moves,
-    // commandManager holds nothing, and the keypress achieves nothing.
-    expect(out.status).toBe('stranded');
-    expect(out.status === 'stranded' && out.reason).toContain('pool');
+    // ⛔ THE HARNESS DELIBERATELY SUPPLIES NO `runtime.stores` (`installRingBuffer`
+    // installs only `runtime.bus.ringBuffer`), so `resolvePoolStoresFromWindow()`
+    // returns null and the adapters THROW BY NAME. That is the designed behaviour
+    // and it is the L-980 rule kept: an adapter that promised `_covered()` it could
+    // apply, and then cannot, must SAY SO.
+    const reason = out.status === 'stranded' ? out.reason : '';
+    expect(
+      reason,
+      'the reason must no longer be "no applyPatch adapter for store(s) [pool, water]"',
+    ).not.toMatch(/no applyPatch adapter/);
+    expect(reason, 'it failed on APPLY, which is a different and louder failure').toContain('apply failed');
+  });
 
-    await vi.waitFor(() => expect(showToast).toHaveBeenCalledTimes(1));
-    const [msg, kind] = showToast.mock.calls[0]!;
-    // THIS is what the UNMAPPED_BUS_STORE_KEYS entries buy: `_reportStranded`
-    // only names stores whose declared owner is 'nothing'. Before L-980 pool and
-    // water were in neither table, so `dead` was empty and the user got the
-    // generic "found a pending change it could not revert" with no family named.
-    expect(msg).toContain('pool');
-    expect(msg).toContain('water');
-    expect(msg).toContain('still there');
-    expect(kind).toBe('error');
+  it('...and with the real plugin stores present, the pool undo LANDS', async () => {
+    // ⭐ THE POSITIVE HALF — the assertion the founder's Ctrl+Z actually cares
+    // about. `resolvePoolStoresFromWindow` reads `runtime.stores.pool` / `.water`,
+    // so the harness supplies them exactly as `PluginRegistry` does in production.
+    const poolRows = new Map<string, unknown>([['el-1', { id: 'el-1' }]]);
+    const waterRows = new Map<string, unknown>();
+    const patchable = (rows: Map<string, unknown>) => ({
+      applyPatch: (patches: readonly { op: string; path: (string | number)[]; value?: unknown }[]) => {
+        const removed = new Set<string>();
+        const added = new Set<string>();
+        for (const p of patches) {
+          const id = String(p.path[0]);
+          if (p.op === 'remove') { rows.delete(id); removed.add(id); }
+          else { rows.set(id, p.value); added.add(id); }
+        }
+        return { added, updated: new Set<string>(), removed };
+      },
+      get: (id: string) => rows.get(id) as Record<string, unknown> | undefined,
+    });
+
+    // The other two stores in the declaration are LEGACY globals, read by
+    // `buildUndoStoreMap()` off `window`. `_covered()` is all-or-nothing, so
+    // without these the entry strands on `wall`/`slab` and this arm would be
+    // measuring the harness rather than the pool — the same trap the NEGATIVE
+    // CONTROL below installs `wallStore` to avoid.
+    const legacy = { add: () => {}, remove: () => {}, update: () => {}, getById: () => undefined };
+    (window as unknown as Record<string, unknown>).wallStore = legacy;
+    (window as unknown as Record<string, unknown>).slabStore = legacy;
+
+    // ⚠ THE PAIR IS BUILT HERE RATHER THAN BY `installRingBuffer`, AND THE REASON
+    // IS THE ONE ADR-0124 §5 RECORDS. A MULTI-STORE patch routes by
+    // `path[0] === storeKey`, so its ops MUST be store-key-prefixed
+    // (`/pool/el-1`), while the shared helper mints single-store-shaped `/el-1`
+    // ops. Feeding those to a four-store entry routes them to NOTHING and every
+    // store reports zero applied — which is precisely the multi-store routing bug
+    // ADR-0124 §5 had to fix in `produceMultiStoreCommand` before the pool could
+    // undo at all. Using the helper here would re-create that bug inside the test
+    // and read its symptom as a failure of this fix.
+    const pair = {
+      affectedStores: ['pool', 'wall', 'slab', 'water'],
+      timestamp: Date.now(),
+      gestureId: 'g-pool-covered',
+      forward: { ops: [{ op: 'add', path: '/pool/el-1', value: { id: 'el-1' } }] },
+      inverse: { ops: [{ op: 'remove', path: '/pool/el-1' }] },
+    };
+    const rt: Record<string, unknown> = {
+      bus: {
+        ringBuffer: {
+          canUndo: () => true,
+          canRedo: () => false,
+          current: () => pair,
+          peek: () => pair,
+          undoPatch: () => pair.inverse,
+          redoPatch: () => null,
+        },
+      },
+      stores: { pool: patchable(poolRows), water: patchable(waterRows) },
+    };
+    (window as unknown as Record<string, unknown>).runtime = rt;
+
+    const out = performUndo();
+
+    expect(out.status, 'a fully covered pool entry undoes for real').toBe('undone');
+    expect(poolRows.has('el-1'), 'the real adapter drove the real store').toBe(false);
+    // Silence is the success signal: no error toast for an undo that worked.
+    await new Promise(r => setTimeout(r, 20));
+    expect(showToast).not.toHaveBeenCalled();
   });
 
   it('NEGATIVE CONTROL — the same harness with a fully covered entry undoes and says nothing', async () => {

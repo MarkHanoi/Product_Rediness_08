@@ -91,6 +91,9 @@ import type { PatchPair, PatchSide } from '@pryzm/runtime-undo-stack';
 import { adaptElementStoreMap, type PatchApplicableAdapter } from './elementUndoStoreAdapter.js';
 import { boundaryLineUndoAdapter, resolveBoundaryLineStoreFromWindow } from './pluginStoreUndoAdapter.js';
 import { liftCompoundUndoAdapter, liftPartUndoAdapter, resolveLiftStoresFromWindow } from './liftUndoAdapter.js';
+// §POOL95 (L-11350) — the ADR-0124 pool assembly's two own stores. Same lazy
+// runtime-resolution shape as the two adapters above; see poolUndoAdapter.ts.
+import { poolUndoAdapter, waterUndoAdapter, resolvePoolStoresFromWindow } from './poolUndoAdapter.js';
 
 const _tracer = trace.getTracer('pryzm-engine');
 
@@ -469,6 +472,23 @@ export function buildUndoStoreMap(): Record<string, PatchApplicableAdapter | und
     // render half is a registered sink rather than a re-emitted bus event.
     lift:     liftCompoundUndoAdapter(resolveLiftStoresFromWindow),
     liftPart: liftPartUndoAdapter(resolveLiftStoresFromWindow),
+
+    // ⭐ §POOL95 (L-11350, 2026-08-25) — CLOSES THE POOL HALF OF L-980, and it is the
+    // THIRD family to need exactly this shape in three days (boundaryLine → lift →
+    // pool). `pool.create` declares FOUR stores; `wall` and `slab` were already
+    // adapted, `pool` and `water` were not, and `_covered()` is all-or-nothing — so
+    // the whole entry was declined and Ctrl+Z after drawing a pool was a TOTAL no-op
+    // that left the void punched through the floor plate.
+    //
+    // ⚠ THE ROWS BELOW USED TO SAY THIS COULD NOT HAPPEN, and they were honest when
+    // written: L-980 measured the family UNREACHABLE on four axes in August. THREE of
+    // those four have since been closed by other lanes (PoolStore IS constructed, the
+    // storeKeys ARE declared, `PoolPlanToolHandler` DOES dispatch `pool.create`), so
+    // the pool moved into the "REACHABLE AND THEREFORE STRANDED" state the lift rows
+    // described — without anything updating its rows. See poolUndoAdapter.ts's header
+    // for the axis-by-axis re-measurement.
+    pool:  poolUndoAdapter(resolvePoolStoresFromWindow),
+    water: waterUndoAdapter(resolvePoolStoresFromWindow),
   };
 }
 
@@ -554,8 +574,28 @@ export const UNMAPPED_BUS_STORE_KEYS: Readonly<Record<string, { readonly owner: 
   // defect — but the map claiming to cover it WAS one, because a permanently
   // `undefined` adapter and an absent key are the same value to `_covered()`, and
   // only one of the two is visible to a reader.
-  pool:  { owner: 'nothing', reason: 'UNREACHABLE — no PoolStore is ever constructed and PluginRegistry declares no `pool` storeKey, so pool.create throws at CommandBus.buildContext before mutating anything. Wiring undo means wiring the plugin descriptor FIRST (L-980).' },
-  water: { owner: 'nothing', reason: 'UNREACHABLE — same measurement as pool: WaterStore is never constructed and there is no `water` storeKey, so the water half of pool.create cannot execute either (L-980).' },
+  // ⭐ §POOL95 (L-11350, 2026-08-25) — `pool` and `water` ARE NO LONGER HERE. Both
+  // now carry real adapters in `buildUndoStoreMap()` above (`poolUndoAdapter` /
+  // `waterUndoAdapter`), resolving `runtime.stores.pool` / `.water` lazily at apply
+  // time. The pool half of L-980 is CLOSED.
+  //
+  // ⚠ THE PARAGRAPH ABOVE IS KEPT AS WRITTEN HISTORY, NOT DELETED, AND IT MUST BE
+  // READ AS DATED. Its four-axis measurement was correct on 2026-08-18 and THREE of
+  // its four axes were closed by later lanes:
+  //   (1) "`new PoolStore()` appears ZERO times repo-wide" → FALSE: `PluginRegistry`
+  //       builds `new PoolStore()` and `new WaterStore()`.
+  //   (2) "PluginRegistry declares no `pool`/`water` storeKey, so buildContext
+  //       THROWS" → FALSE: both descriptors exist and the bus resolves them.
+  //   (3) "no tool, toolbar entry or plan handler dispatches `pool.create`" → FALSE:
+  //       `PoolPlanToolHandler._commit()` dispatches it and the create panel's
+  //       LANDSCAPE section has a live "Swimming Pool" button.
+  //   (4) AI chat class B — STILL TRUE (L-5206), and untouched by this lane.
+  // So its conclusion — "Ctrl+Z after a pool is therefore not a live defect" —
+  // INVERTED the day axis 3 closed, and nothing re-read it. ⭐ That is the durable
+  // lesson worth more than the fix: a measurement is true as of a DATE, and a row
+  // asserting unreachability must be re-measured whenever the family becomes
+  // reachable — the two halves belong in one commit, which is why this one moves
+  // the rows and the adapters together.
   // ── §L-7310..L-7312 (2026-08-23) — the two COMPOUND families, and they are the
   //    OPPOSITE of pool/water: fully REACHABLE, and therefore actually stranded.
   //
