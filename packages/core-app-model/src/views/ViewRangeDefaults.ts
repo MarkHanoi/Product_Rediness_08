@@ -147,3 +147,76 @@ export function computeViewRangeDefaults(
         depth: { levelId: host.id, offset: depthOffset },
     };
 }
+
+// ─── §LEVEL-HEIGHT-IS-THE-PLAN-RANGE (L-11040, lane LEVELHEIGHT61) ───────────
+
+/**
+ * The plan-view near/far offsets, in metres above the host level's floor.
+ *
+ * ## Why this exists
+ *
+ * The founder set Ground's floor-to-floor height to 4.00 m in Levels & Grids.
+ * `SetLevelHeightCommand` executed correctly, the stack above translated, and
+ * the plan view went on drawing a 3 m storey — because
+ * `EdgeProjectorService.resolveClipRange()` computed the plan window as
+ *
+ *     near = level.elevation + (spatial.viewRange?.nearOffset ?? 1.2)
+ *     far  = level.elevation + (spatial.viewRange?.farOffset  ?? 3.0)
+ *
+ * and NO plan-view producer in the repo writes `spatial.viewRange`. So the far
+ * plane was the literal **3.0**, on every plan, for every storey height, for
+ * ever. `level.height` had no consumer on that path at all: the number the
+ * panel edited could not reach the drawing. That is the same class of defect
+ * `SetLevelHeightCommand`'s own header records for the pre-L-7201 height tag
+ * ("decorative in the strongest sense"), recurred one layer further out.
+ *
+ * ## The rule
+ *
+ * · **far** — the top of the visible range is the UNDERSIDE OF THE FLOOR ABOVE,
+ *   i.e. the host level's own floor-to-floor height. That is the Revit
+ *   convention this file already states three lines up in
+ *   `computeViewRangeDefaults` ("Top = level above at offset 0, else host level
+ *   + floor-to-floor height") and the one `NativeElementMeshExporter` already
+ *   uses for its level-overlap filter (`l.elevation + (l.height ?? 0)`). Before
+ *   this function the projector was the only one of the three that disagreed.
+ * · **near** — the cut plane stays at 1.2 m. It is an ABSOLUTE architectural
+ *   convention (roughly door-head / sill height), not a fraction of the storey:
+ *   a 4 m storey is still cut at 1.2 m, not at 1.6 m. Scaling it would move
+ *   every door and window swing in the drawing for a change that means nothing
+ *   to them.
+ *
+ * ## What still wins
+ *
+ * An EXPLICIT per-view `spatial.viewRange` override always wins, in both arms.
+ * A user (or `VIEW_RANGE_PRESETS.structural`) who has said "show me up to 4.0 m
+ * on this view" is not overruled by the level datum — this function only
+ * supplies the DEFAULT that used to be a constant.
+ *
+ * @param explicit      `viewDef.spatial.viewRange`, or undefined.
+ * @param levelHeightM  The host level's `height` (floor-to-floor, metres), or
+ *                      undefined when the level declares none. UNKNOWN is NOT
+ *                      zero (C78 §1.4): an absent height falls back to the
+ *                      3.0 m constant, exactly the pre-L-11040 behaviour, so a
+ *                      legacy project with no height on its levels is unchanged.
+ */
+export function resolvePlanViewRangeOffsets(
+    explicit: { nearOffset?: number; farOffset?: number } | undefined,
+    levelHeightM: number | undefined,
+): { nearOffset: number; farOffset: number } {
+    const explicitNear = _finitePositiveOrUndefined(explicit?.nearOffset, /* allowZero */ true);
+    const explicitFar  = _finitePositiveOrUndefined(explicit?.farOffset);
+    const levelFar     = _finitePositiveOrUndefined(levelHeightM);
+
+    return {
+        nearOffset: explicitNear ?? STD_OFFSETS.CUT,
+        farOffset:  explicitFar ?? levelFar ?? DEFAULT_FLOOR_HEIGHT,
+    };
+}
+
+/** A number is usable here only if it is finite and (unless zero is allowed) > 0. */
+function _finitePositiveOrUndefined(v: unknown, allowZero = false): number | undefined {
+    if (typeof v !== 'number' || !Number.isFinite(v)) return undefined;
+    if (v < 0) return undefined;
+    if (v === 0 && !allowZero) return undefined;
+    return v;
+}

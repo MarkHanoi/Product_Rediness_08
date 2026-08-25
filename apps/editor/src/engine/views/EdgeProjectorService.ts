@@ -42,6 +42,9 @@ import { ViewDefinition, VIEW_PROJECTION_DIRECTIONS, PLAN_VIEW_TYPES } from '@pr
 // §CROP-IS-THE-CLIP (L-4500) — the crop rectangle IS the clip range; ONE resolver
 // serves this projector AND the plan scope rectangle that draws it.
 import { resolveElevationClipRange, UNCLIPPED_ELEVATION_FAR_DEPTH_M } from '@pryzm/core-app-model';
+// §LEVEL-HEIGHT-IS-THE-PLAN-RANGE (L-11040) — the plan window's DEFAULT far
+// offset is the host level's own floor-to-floor height, not a 3.0 constant.
+import { resolvePlanViewRangeOffsets } from '@pryzm/core-app-model';
 // §ELEV-SCOPE-IS-THE-SCOPE (L-6000..L-6004) — the ORIENTED scope frame of a depth-projected
 // view now lives at L2 so `NativeElementMeshExporter` can read the SAME box this file drops
 // meshes against. `resolveSectionVolumeBox`'s explicit branch DELEGATES to it below; the
@@ -127,10 +130,19 @@ import { annotationStore } from '@pryzm/plugin-annotations';
 // ── Constants ────────────────────────────────────────────────────────────────
 
 /**
- * Default AEC cut height above floor — 1 200 mm (standard door/window cut).
- * DOC-1.5d: nearOffset is metres FROM THE LEVEL FLOOR ELEVATION (not below the cut plane).
+ * ⚠ THE 1.2 m CUT DEFAULT MOVED — do not re-mint it here (L-11040, LEVELHEIGHT61).
+ *
+ * `const DEFAULT_NEAR_OFFSET = 1.2` stood here and was read at exactly ONE site,
+ * `resolveClipRange()`'s plan branch. That branch now calls
+ * `resolvePlanViewRangeOffsets()` (@pryzm/core-app-model · ViewRangeDefaults),
+ * which owns BOTH plan offsets and already held the same 1.2 as `STD_OFFSETS.CUT`.
+ * Two constants for one convention is the rival-source defect this repo repeats,
+ * so the copy was removed rather than left as a second answer. `noUnusedLocals`
+ * would have failed the build on it in any case.
+ *
+ * DOC-1.5d still governs the meaning: nearOffset is metres FROM THE LEVEL FLOOR
+ * ELEVATION (not below the cut plane).
  */
-const DEFAULT_NEAR_OFFSET = 1.2;
 
 /**
  * §EPS-VERBOSE (OI-054 (a) perf, 2026-05-24) — master gate for the per-mesh /
@@ -4319,11 +4331,44 @@ export class EdgeProjectorService {
         // Elements with geometry between [floorElevation, floorElevation + farOffset] are
         // projected. Elements above farOffset are excluded.
         // See ViewDefinitionTypes.ts §spatial.viewRange JSDoc for full contract.
-        const nearOffset = viewDef.spatial.viewRange?.nearOffset ?? DEFAULT_NEAR_OFFSET;
-        const farOffset  = viewDef.spatial.viewRange?.farOffset  ?? DEFAULT_FAR_OFFSET;
+        //
+        // §LEVEL-HEIGHT-IS-THE-PLAN-RANGE (L-11040, lane LEVELHEIGHT61) — THE far
+        // OFFSET IS THE LEVEL'S OWN FLOOR-TO-FLOOR HEIGHT, not the literal 3.0.
+        //
+        // These two lines used to read `?? DEFAULT_NEAR_OFFSET` / `?? DEFAULT_FAR_OFFSET`
+        // and NO plan-view producer in this repo writes `spatial.viewRange` — so the far
+        // plane was the constant 3.0 on every plan, at every storey height, permanently.
+        // The founder set Ground to 4.00 m in Levels & Grids; `SetLevelHeightCommand` ran,
+        // the stack above translated, and the drawing went on cutting and clipping a 3 m
+        // storey, because `level.height` had NO consumer on this path. His console is the
+        // measurement: `elevation=3.000 … near=4.200 far=6.000` — 3.0+1.2 and 3.0+3.0,
+        // both constants.
+        //
+        // `resolvePlanViewRangeOffsets` puts this projector on the SAME rule the other two
+        // readers of the level band already use — `computeViewRangeDefaults` ("Top = level
+        // above at offset 0, else host level + floor-to-floor") and
+        // `NativeElementMeshExporter`'s overlap filter (`l.elevation + (l.height ?? 0)`).
+        // An EXPLICIT per-view `spatial.viewRange` still wins in both arms, so a view the
+        // user (or VIEW_RANGE_PRESETS.structural) has ranged by hand is never overruled by
+        // the datum; and an absent `level.height` falls back to the same 3.0 as before, so
+        // a legacy project with no heights on its levels is bit-for-bit unchanged.
+        //
+        // The CUT plane deliberately does NOT scale with the storey: 1.2 m is an absolute
+        // architectural convention (door head / sill), and scaling it would move every
+        // opening symbol in the drawing for a change that means nothing to them.
+        const { nearOffset, farOffset } = resolvePlanViewRangeOffsets(
+            viewDef.spatial.viewRange,
+            level?.height,
+        );
 
         const near = levelElevation + nearOffset;  // cut plane — upper clip boundary
         const far  = levelElevation + farOffset;   // top of view range — DOC-1.5d fix
+
+        console.log(
+            `[EdgeProjectorService] resolveClipRange() plan levelHeight=` +
+            `${typeof level?.height === 'number' ? level.height.toFixed(3) : 'none'} ` +
+            `near=${near.toFixed(3)} far=${far.toFixed(3)}`,
+        );
 
         return { near, far, floorY: levelElevation };
     }

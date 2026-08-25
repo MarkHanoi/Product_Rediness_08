@@ -482,7 +482,7 @@ export type {
 } from './views/PhaseFilterTypes.js';
 export { BUILT_IN_PHASE_FILTER_IDS } from './views/PhaseFilterTypes.js';
 
-export { VIEW_RANGE_PRESETS, computeViewRangeDefaults } from './views/ViewRangeDefaults.js';
+export { VIEW_RANGE_PRESETS, computeViewRangeDefaults, resolvePlanViewRangeOffsets } from './views/ViewRangeDefaults.js';
 
 export type { ElementSpatialIndexEntry } from './drawing/ElementSpatialIndex.js';
 export { ElementSpatialIndex, elementSpatialIndex } from './drawing/ElementSpatialIndex.js';

@@ -16,6 +16,8 @@
 
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { Level } from '@pryzm/core-app-model';
+// §LEVEL-DATUM-DIRTIES-ITS-VIEWS (L-11041) — see `_dirtyOwnViews`.
+import { viewDependencyTracker } from '@pryzm/core-app-model';
 import { DOMEventBus } from '@pryzm/event-bus';
 
 const _bus = new DOMEventBus();
@@ -88,6 +90,9 @@ export class UpdateLevelCommand implements Command {
         _bus.emit('bim-level-updated', { id: this.payload.levelId });
         _bus.emit('ai-model-update', { model: '' });
 
+        // §LEVEL-DATUM-DIRTIES-ITS-VIEWS (L-11041) — see `_dirtyOwnViews`.
+        this._dirtyOwnViews(this.payload.updates);
+
         const name = this.payload.updates.name ?? level.name;
         return {
             success: true,
@@ -109,11 +114,47 @@ export class UpdateLevelCommand implements Command {
         _bus.emit('update-project-ui', {});
         _bus.emit('bim-level-updated', { id: this.payload.levelId });
 
+        // §LEVEL-DATUM-DIRTIES-ITS-VIEWS (L-11041) — undo restores the whole
+        // snapshot, so it can move BOTH datum fields back; dirty unconditionally.
+        this._dirtyOwnViews({ elevation: this.prevSnapshot.elevation, height: this.prevSnapshot.height });
+
         return {
             success: true,
             affectedElementIds: [this.payload.levelId],
             info: [`Level "${this.prevSnapshot.name}" restored.`]
         };
+    }
+
+    /**
+     * §LEVEL-DATUM-DIRTIES-ITS-VIEWS (L-11041, lane LEVELHEIGHT61) — mark this
+     * level's 2D views stale when the edit moved the DATUM.
+     *
+     * `ViewDependencyTracker` listens to `StoreEventBus` ELEMENT events. A level
+     * is not a store element, so a datum edit dirtied no view. The elevation half
+     * was accidentally covered — `BimKernel.updateLevel` fires
+     * `spatial-authority-reconcile` on an elevation change, the builders re-run,
+     * and THEIR store events dirty the view — but that relay needs the level to
+     * have `childrenIds` (SpatialAuthority returns early otherwise), and the
+     * HEIGHT half has no dispatch at all (BimKernel:370 dispatches only on
+     * elevation). An empty or freshly-added level therefore kept a stale drawing.
+     *
+     * Scoped deliberately to `elevation` / `height`: a name, colour or visibility
+     * edit changes no projected geometry and must not pay for a re-projection.
+     *
+     * Never throws — the model change has already landed.
+     */
+    private _dirtyOwnViews(updates: Partial<Pick<Level, 'elevation' | 'height'>>): void {
+        if (updates.elevation === undefined && updates.height === undefined) return;
+        try {
+            viewDependencyTracker.markLevelsDirty([this.payload.levelId]);
+        } catch (err) {
+            console.warn(
+                `[UpdateLevelCommand] §LEVEL-DATUM-DIRTIES-ITS-VIEWS: could not mark views dirty for `
+                + `"${this.payload.levelId}" — the model change stands; the drawing may be stale until `
+                + 'the next edit or view activation.',
+                err,
+            );
+        }
     }
 
     serialize(): SerializedCommand {

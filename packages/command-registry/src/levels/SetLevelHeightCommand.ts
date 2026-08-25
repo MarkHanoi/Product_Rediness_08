@@ -100,6 +100,10 @@ import {
     CommandContext,
 } from '../types';
 import { Level } from '@pryzm/core-app-model';
+// §LEVEL-DATUM-DIRTIES-ITS-VIEWS (L-11041) — a level datum is not a store
+// ELEMENT, so ViewDependencyTracker (which subscribes to StoreEventBus element
+// events) never hears a height edit. See `_dirtyLevelViews` below.
+import { viewDependencyTracker } from '@pryzm/core-app-model';
 import { DOMEventBus } from '@pryzm/event-bus';
 import { ReseatLevelElementsCommand } from '../seating/ReseatLevelElementsCommand';
 
@@ -324,6 +328,10 @@ export class SetLevelHeightCommand implements Command {
                 _bus.emit('bim-level-updated', { id: levelId });
                 _bus.emit('ai-model-update', { model: '' });
 
+                // ── 5 · re-project the 2D views of every level this touched ──
+                // §LEVEL-DATUM-DIRTIES-ITS-VIEWS (L-11041). See `_dirtyLevelViews`.
+                this._dirtyLevelViews([levelId, ...this._movedLevels.map((m) => m.id)]);
+
                 span.setAttribute('pryzm.level.movedCount', landed);
                 span.setAttribute('pryzm.level.reseatedCount', reseatIds.length);
 
@@ -395,6 +403,12 @@ export class SetLevelHeightCommand implements Command {
                 _bus.emit('update-project-ui', {});
                 _bus.emit('bim-level-updated', { id: this.payload.levelId });
 
+                // §LEVEL-DATUM-DIRTIES-ITS-VIEWS (L-11041) — undo moves the datum
+                // back, so it must re-project exactly what execute() did. An undo
+                // that leaves the drawing showing the undone state is the same
+                // defect in the other direction.
+                this._dirtyLevelViews([this.payload.levelId, ...this._movedLevels.map((m) => m.id)]);
+
                 span.setAttribute('pryzm.level.undo.landed', landed);
                 span.setAttribute('pryzm.level.undo.attempted', attempted);
 
@@ -425,6 +439,62 @@ export class SetLevelHeightCommand implements Command {
     }
 
     // ── Private helpers ─────────────────────────────────────────────────────
+
+    /**
+     * §LEVEL-DATUM-DIRTIES-ITS-VIEWS (L-11041, lane LEVELHEIGHT61) — tell the
+     * view tracker that these levels' 2D drawings are stale.
+     *
+     * ## The defect this closes
+     *
+     * `ViewDependencyTracker` is driven ENTIRELY by `StoreEventBus` element
+     * events: `registerElement` / a store `create|update|delete` marks the views
+     * whose `spatial.levelId` matches. **A level is not a store element.** So a
+     * height edit — which changes the plan window of every view hosted on that
+     * level, and the world position of every view hosted above it — dirtied
+     * nothing at all. The founder's console is the measurement: `EXECUTE:
+     * SET_LEVEL_HEIGHT`, a snapshot line, and then NOTHING — no VDT flush, no
+     * re-projection, where `MOVE_WINDOW` and `CREATE_SLABS_ON_ALL_FLOORS` in the
+     * same log are each followed by both.
+     *
+     * It went unnoticed because the ELEVATION half accidentally covered for it:
+     * `bimManager.updateLevel({elevation})` fires `spatial-authority-reconcile`,
+     * whose consumer re-invokes the wall / slab / column / roof builders, and
+     * THOSE emit store events that dirty the view. Two things break that relay,
+     * and a pure height edit breaks both:
+     *
+     *   1. `updateLevel` dispatches ONLY on an elevation change (BimKernel:370),
+     *      so the edited level's own views were never covered even when the
+     *      cascade fired for the levels above it; and
+     *   2. `SpatialAuthority`'s listener returns early when the level has no
+     *      `childrenIds` — so editing the TOPMOST level (no levels above it, and
+     *      commonly nothing on it yet) produces no dispatch and no relay at all.
+     *
+     * Marking the levels explicitly is not a second mutation path (C03 §2.1):
+     * the tracker holds no model state, it holds a dirty SET. This is the same
+     * call `BatchCoordinator.onComplete()` makes for the same reason.
+     *
+     * `markLevelsDirty` (debounced, 300 ms) rather than `…Immediate` because a
+     * height edit is an INTERACTIVE commit — the founder can blur three rows in
+     * a row and this coalesces them into one re-projection, exactly as the
+     * method's own contract prescribes.
+     *
+     * Never throws: a re-projection that cannot be scheduled must not fail a
+     * commit that already landed in the model.
+     */
+    private _dirtyLevelViews(levelIds: readonly string[]): void {
+        try {
+            const unique = Array.from(new Set(levelIds.filter((id) => typeof id === 'string' && id.length > 0)));
+            if (unique.length === 0) return;
+            viewDependencyTracker.markLevelsDirty(unique);
+        } catch (err) {
+            console.warn(
+                '[SetLevelHeightCommand] §LEVEL-DATUM-DIRTIES-ITS-VIEWS: could not mark views dirty for '
+                + `${levelIds.join(', ')} — the model change stands; the drawing may be stale until the `
+                + 'next edit or view activation.',
+                err,
+            );
+        }
+    }
 
     /** Levels strictly above `level`, ascending. Ties do not move. */
     private _levelsAbove(context: CommandContext, level: Level): Level[] {
