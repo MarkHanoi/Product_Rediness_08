@@ -106,6 +106,18 @@ export const GROUND_ARCH_THRESHOLD = 0.5;
  */
 export const BALCONY_COVERAGE_THRESHOLD = 0.6;
 
+/**
+ * ⚠ THE ONE `notUsed` ENTRY A CONSUMER IS EXPECTED TO FIND AND REWRITE.
+ *
+ * This mapper sees a PHOTOGRAPH and never the sentence, so it can only ever say
+ * "colour did not come from the image" — which is true, and which reads as a
+ * CONTRADICTION on a card that is simultaneously applying the green façade the
+ * user asked for in words. The consumer holds both halves and fixes the wording;
+ * this constant exists so it finds the row by a NAMED, compile-checked prefix
+ * rather than by a string literal copied into a second file and left to rot.
+ */
+export const PHOTO_NOT_USED_COLOUR_PREFIX = 'the façade COLOUR';
+
 // ─── The output ──────────────────────────────────────────────────────────────
 
 /** One thing the photograph was read as, with the confidence that reading carries. */
@@ -297,7 +309,7 @@ export function mapFacadeIRToPhotoBrief(result: FacadeReconstructionResult): Fac
         if (meanArch >= GROUND_ARCH_THRESHOLD) {
             const usable = atOrAboveFloor(archConfidence);
             read.push({
-                label: `arcaded ground floor (mean archness ${round2(meanArch).toFixed(2)})`,
+                label: `arcaded ground floor, mean archness ${round2(meanArch).toFixed(2)}`,
                 confidence: archConfidence,
                 belowFloor: !usable,
             });
@@ -330,7 +342,7 @@ export function mapFacadeIRToPhotoBrief(result: FacadeReconstructionResult): Fac
         if (coverage >= BALCONY_COVERAGE_THRESHOLD) {
             const usable = atOrAboveFloor(balconyConfidence);
             read.push({
-                label: `balconies (a projecting slab at ${soffitCount} of ${interiorLines} storey lines)`,
+                label: `balconies, a projecting slab at ${soffitCount} of ${interiorLines} storey lines`,
                 confidence: balconyConfidence,
                 belowFloor: !usable,
             });
@@ -400,8 +412,8 @@ export function mapFacadeIRToPhotoBrief(result: FacadeReconstructionResult): Fac
     // ⛔ COLOUR — there is no colour-extraction stage, and this is said out loud
     // rather than left as a silent absence.
     notUsed.push(
-        'the façade COLOUR — nothing here reads colour out of an image. Say it in words ' +
-        '("a green façade") and I will apply it',
+        `${PHOTO_NOT_USED_COLOUR_PREFIX} — nothing here reads colour out of an image. Say it in ` +
+        'words ("a green façade") and I will apply it',
     );
 
     return {

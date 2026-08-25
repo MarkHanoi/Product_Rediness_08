@@ -175,6 +175,16 @@ import { exampleColorNames, resolveColorRef } from './colorRef.js';
 // dependency, like DeleteFamilies / DimensionFamilies: this file imports the table;
 // the table imports nothing from here.
 import { facadeUnavailableSentence, parseFacadeIntent } from './FacadeIntent.js';
+// §GEN-PHOTO-BRIEF (L-11020) — the photograph's contribution, ALREADY MAPPED.
+// The resolver never sees pixels: the bridge decodes the image, runs
+// `reconstructFacade` and maps the IR through the ONE mapper, then injects the
+// result here. So this file stays pure and the measurement rule stays in one place.
+import {
+  describeConfidence,
+  FACADE_PHOTO_CONFIDENCE_FLOOR,
+  PHOTO_NOT_USED_COLOUR_PREFIX,
+  type FacadePhotoBrief,
+} from './FacadePhotoBrief.js';
 // resolveFinishRef is the GRAMMAR's finish recognizer (word-window scan);
 // the refusal copy (exampleFinishNames) moved into CapabilityExecutionSpec.
 import { finishRefCandidates, resolveFinishRef } from './finishRef.js';
@@ -314,6 +324,21 @@ export interface ResolverContext {
    * never writes anything.
    */
   readonly readProperty?: PropertyReader;
+  /**
+   * §GEN-PHOTO-BRIEF (L-11020) — the FAÇADE PHOTOGRAPH the user attached to this
+   * message, already reduced to a brief by `mapFacadeIRToPhotoBrief`.
+   *
+   * ⭐ The founder's ask is "build the building from the photo + sentence", and
+   * this is the photo half. It is INJECTED rather than read, for the same reason
+   * every other value source here is: the resolver is pure L2 and cannot decode an
+   * image, run a CV pipeline or touch a canvas.
+   *
+   * ⛔ IT IS NOT A FOOTPRINT AND NOT A SIZE. A photograph carries no metres
+   * (C108 §2.2), so the building's size still comes from the boundary line or the
+   * site parcel — exactly as it did before this field existed. Absent ⇒ every
+   * generation sentence behaves byte-for-byte as it does today.
+   */
+  readonly photoFacade?: FacadePhotoBrief;
 }
 
 /** What the read-only visibility capability may truthfully report about the
@@ -1168,6 +1193,18 @@ export type SemanticIntent =
       };
       readonly facadeApplied?: readonly string[];
       readonly facadeUnavailable?: readonly string[];
+      /**
+       * §GEN-PHOTO-BRIEF (L-11020) — the attached FAÇADE PHOTOGRAPH's contribution,
+       * carried so the apply arm can (a) take the storey count MEASURED from it,
+       * (b) fill façade fields the sentence left unsaid, and (c) show the user
+       * WHAT CAME FROM WHERE on the Confirm card before anything is built.
+       *
+       * ⛔ THE SENTENCE ALWAYS WINS. Every field below is filled from the photo
+       * ONLY where the words said nothing — a photo may not overrule a typed
+       * instruction, and a user who says "6 storeys" gets 6 whatever the image
+       * shows.
+       */
+      readonly photo?: FacadePhotoBrief;
       /**
        * The boundary line the user POINTED AT, read from `ctx.selection`. This is the
        * one part of the choice the resolver CAN make purely: a selected line is an
@@ -2603,6 +2640,45 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       // ruled on by the SAME controllers the onboarding modal drives, and
       // their refusals come back verbatim via 'pryzm-generation-report'.
       const t = si.typology;
+      // ── §GEN-PHOTO-BRIEF (L-11020) — the attached photograph ────────────────
+      //
+      // ⛔ THE REFUSAL COMES FIRST, before the missing-typology question. Attaching
+      // an image is the most deliberate thing the user did in this turn; if it
+      // cannot be measured, saying "which kind of building?" first would answer a
+      // smaller question while sitting on the larger one (C74).
+      const photo = si.photo;
+      if (photo !== undefined && photo.refusal !== null) {
+        return {
+          kind: 'refusal', intent: 'generate-building',
+          reason: photo.refusal,
+          suggestions: ['generate a 5-storey residential building', 'generate a 2-storey house'],
+        };
+      }
+      // ⭐⭐ THE STOREY COUNT, AND WHERE IT CAME FROM.
+      //
+      // The sentence ALWAYS wins: a user who typed "6 storeys" gets 6 whatever the
+      // image shows. The photo fills the number ONLY when the words left it unsaid,
+      // which is precisely the founder's "photo + sentence" case.
+      //
+      // ⚠ A count BELOW the confidence floor is still USED — and is stated on the
+      // Confirm card at its measured confidence, with the floor named, so the user
+      // rejects it with one click if it is wrong. Silently dropping a measurement
+      // the engine made would be the "half the sentence ignored" defect wearing a
+      // different hat; silently trusting it would be worse.
+      const photoStoreys = photo?.storeys ?? null;
+      const floorsFromPhoto = si.floors === null && photoStoreys !== null;
+      const effectiveFloors = si.floors ?? photoStoreys;
+      // ⛔ A bound refusal must never say "you asked for 7" about a number the
+      // PHOTOGRAPH supplied. Naming the wrong source is the defect family this
+      // repository spent two days closing, in miniature.
+      const askedFor = floorsFromPhoto
+        ? `I read ${effectiveFloors} storeys from your photo`
+        : `you asked for ${effectiveFloors}`;
+      // ⚠ THERE IS NO SECOND "are you sure?" DIALOGUE, AND THAT IS DELIBERATE.
+      // A storey count under the confidence floor is USED, and is shown on the
+      // provenance card below at its measured confidence with the floor named, so
+      // one click rejects it. Asking a separate question would put a modal in
+      // front of information the card already carries.
       // ⭐ §GEN-TYPOLOGY-NAMED (L-10821) — the sentence named a BUILDING but not
       // which KIND. Name the missing word rather than shrugging: the parser knew
       // exactly which token was absent, so saying "I'm not sure how to help" would
@@ -2614,50 +2690,50 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
             `I can generate a building — I just need to know WHICH KIND, and that's the one word ` +
             `your message is missing. Say "residential building" (apartments over a shared core), ` +
             `"house" (1–3 storeys, single family) or "office building"` +
-            (si.floors !== null ? `, and I'll keep the ${si.floors} storeys you asked for.` : '.'),
-          suggestions: si.floors !== null
+            (effectiveFloors !== null ? `, and I'll keep the ${effectiveFloors} storeys ${floorsFromPhoto ? 'I read from your photo' : 'you asked for'}.` : '.'),
+          suggestions: effectiveFloors !== null
             ? [
-                `generate a ${si.floors}-storey residential building`,
-                `generate a ${si.floors}-storey office building`,
+                `generate a ${effectiveFloors}-storey residential building`,
+                `generate a ${effectiveFloors}-storey office building`,
               ]
             : ['generate a 5-storey residential building', 'generate a 2-storey house'],
         };
       }
       const label = t === 'residential-building' ? 'residential building' : t === 'house' ? 'house' : 'office tower';
-      if (si.floors !== null && (!Number.isInteger(si.floors) || si.floors < 1)) {
+      if (effectiveFloors !== null && (!Number.isInteger(effectiveFloors) || effectiveFloors < 1)) {
         return {
           kind: 'refusal', intent: 'generate-building',
-          reason: `${si.floors} is not a buildable storey count — I need a whole number of floors (at least 1).`,
+          reason: `${effectiveFloors} is not a buildable storey count — I need a whole number of floors (at least 1).`,
           suggestions: [`generate a 2-storey ${t === 'office' ? 'office building' : label}`],
         };
       }
       // Storey bounds — each generator's OWN limit, quoted honestly (the same
       // numbers the executors clamp/refuse at; never a silent clamp from chat).
-      if (t === 'house' && si.floors !== null && si.floors > 3) {
+      if (t === 'house' && effectiveFloors !== null && effectiveFloors > 3) {
         return {
           kind: 'refusal', intent: 'generate-building',
-          reason: `The house generator builds 1–3 storeys — you asked for ${si.floors}. For more floors, ask for a residential building (up to 21 storeys).`,
-          suggestions: ['generate a 3-storey house', `generate a ${si.floors}-storey residential building`],
+          reason: `The house generator builds 1–3 storeys — ${askedFor}. For more floors, ask for a residential building (up to 21 storeys).`,
+          suggestions: ['generate a 3-storey house', `generate a ${effectiveFloors}-storey residential building`],
         };
       }
-      if (t === 'residential-building' && si.floors !== null && si.floors < 2) {
+      if (t === 'residential-building' && effectiveFloors !== null && effectiveFloors < 2) {
         return {
           kind: 'refusal', intent: 'generate-building',
-          reason: `A multi-family residential building needs at least 2 storeys (ground + 1 apartment floor) — you asked for ${si.floors}. For a single storey, ask for a house.`,
+          reason: `A multi-family residential building needs at least 2 storeys (ground + 1 apartment floor) — ${askedFor}. For a single storey, ask for a house.`,
           suggestions: ['generate a 2-storey residential building', 'generate a 1-storey house'],
         };
       }
-      if (t === 'residential-building' && si.floors !== null && si.floors > 21) {
+      if (t === 'residential-building' && effectiveFloors !== null && effectiveFloors > 21) {
         return {
           kind: 'refusal', intent: 'generate-building',
-          reason: `The residential generator builds up to 21 storeys (ground + 20 apartment floors) — you asked for ${si.floors}.`,
+          reason: `The residential generator builds up to 21 storeys (ground + 20 apartment floors) — ${askedFor}.`,
           suggestions: ['generate a 21-storey residential building'],
         };
       }
-      if (t === 'office' && si.floors !== null && si.floors > 40) {
+      if (t === 'office' && effectiveFloors !== null && effectiveFloors > 40) {
         return {
           kind: 'refusal', intent: 'generate-building',
-          reason: `The office generator builds up to 40 storeys — you asked for ${si.floors}.`,
+          reason: `The office generator builds up to 40 storeys — ${askedFor}.`,
           suggestions: ['generate a 40-storey office building'],
         };
       }
@@ -2668,8 +2744,8 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       const mixLabel = mixEntries.length > 0
         ? ` with ${mixEntries.map((k) => MIX_LABEL[k]).join(' + ')} apartments`
         : t === 'residential-building' ? ' with the default 2-bed + 3-bed mix' : '';
-      const floorsLabel = si.floors !== null
-        ? `${si.floors}-storey`
+      const floorsLabel = effectiveFloors !== null
+        ? `${effectiveFloors}-storey`
         : t === 'house' ? '2-storey (default)'
         : t === 'office' ? '40-storey (default)'
         : '6-storey (default: ground + 5)';
@@ -2710,12 +2786,121 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       const facadeApplied = si.facadeApplied ?? [];
       const facadeLabel = facadeApplied.length > 0 ? ` with ${facadeApplied.join(', ')}` : '';
       const facadeGap = facadeUnavailableSentence(si.facadeUnavailable ?? []);
+
+      // ── §GEN-PHOTO-BRIEF (L-11020) — MERGE, then SHOW WHAT CAME FROM WHERE ──
+      //
+      // ⛔ THE SENTENCE WINS EVERY FIELD IT SPEAKS TO. The photo fills only what the
+      // words left unsaid. `facadeColor` is deliberately absent from the photo side
+      // and cannot appear here: there is no colour-extraction stage in C108 and this
+      // lane did not add one.
+      const photoFacadeFields = photo?.facade ?? {};
+      const mergedFacade =
+        photo === undefined
+          ? si.facade
+          : {
+              ...photoFacadeFields,
+              ...(si.facade ?? {}),
+            };
+      const mergedFacadeOut =
+        mergedFacade !== undefined && Object.keys(mergedFacade).length > 0 ? mergedFacade : undefined;
+      // Which façade fields the PHOTO supplied that the sentence did not — named
+      // individually, because "the photo helped" is not information.
+      const photoFacadeApplied: string[] = [];
+      if (photo !== undefined) {
+        if (photoFacadeFields.groundCommercialCurtain === true
+          && si.facade?.groundCommercialCurtain === undefined) {
+          photoFacadeApplied.push('an arcaded / shopfront ground floor');
+        }
+        if (photoFacadeFields.balconies === true && si.facade?.balconies === undefined) {
+          photoFacadeApplied.push('balconies');
+        }
+      }
+      // ══ ⭐⭐ THE PROVENANCE CARD ═══════════════════════════════════════════
+      //
+      // THE ONE QUESTION THIS FEATURE IS JUDGED ON: *before he confirms, can he
+      // see what came from where?* A build that quietly absorbed a photograph
+      // reads as a complete success whether it understood the image or not, and
+      // the user has no way to tell which — that is a magic trick, not a tool.
+      //
+      // ⚠ IT IS ROWS, NOT A PARAGRAPH, AND THE FORMAT IS THE FEATURE. `AIPanel`'s
+      // Confirm card sets `white-space: pre-line` (`showZeroTokenConfirm`) — the
+      // same property the multi-step plan card already depends on — so a `\n` here
+      // renders as a real line break. Four labelled rows are answerable at a
+      // glance; the identical words run together into prose are not, which is what
+      // this block used to be.
+      let photoBlock = '';
+      // Hoisted: the Confirm card is seen once and scrolls away, and the payload
+      // repeats these lines on the persistent transcript. They must be the SAME
+      // sentences — a transcript that contradicts the card the user agreed to is
+      // worse than no transcript.
+      let notUsedRows: readonly string[] = photo?.notUsed ?? [];
+      if (photo !== undefined) {
+        const DOT = ' · ';
+        // ROW 1 — WHAT THE PHOTOGRAPH SUPPLIED, each at the confidence it was read
+        // at. ⚠ A reading UNDER the floor is still shown, at its real number and
+        // tagged as under — so he rejects it with one click. Showing a measurement
+        // and letting him judge it is the entire difference between this and
+        // guessing on his behalf.
+        const fromPhoto = photo.read.map(
+          (r) =>
+            `${r.label} (${describeConfidence(r.confidence)}` +
+            `${r.belowFloor ? `, UNDER my ${FACADE_PHOTO_CONFIDENCE_FLOOR.toFixed(2)} floor` : ''})`,
+        );
+        // ROW 2 — WHAT HIS WORDS SUPPLIED. ⛔ The façade COLOUR lives on this row
+        // and can live nowhere else: there is no colour-extraction stage in C108
+        // and this lane did not add one. A colour on the photo row would be a lie
+        // about where a value came from.
+        const fromWords: string[] = [label];
+        if (effectiveFloors !== null && !floorsFromPhoto) fromWords.push(`${effectiveFloors} storeys`);
+        fromWords.push(...facadeApplied);
+        // ROW 3 — THE FOOTPRINT, named as the thing it actually is. ⛔ Metres never
+        // come from the image (C108 §2.2 — `scale.status` is `unknown` without a
+        // reference dimension), so the size is the boundary line's or the parcel's.
+        const fromSite = `the footprint — ${siteLabel.replace(/^(on|from) /, '')}` +
+          ` (a photograph carries no metres, so it never sets the size)`;
+        // ROW 4 — ⭐⭐ THE MOST IMPORTANT ROW ON THE CARD, and the one a hurried
+        // implementation drops. Detected-but-not-built MUST be visible. Silently
+        // dropping half of what was measured is the exact defect family this
+        // codebase has spent two days closing, and a photograph — which carries far
+        // more than the generator can build — is the easiest place to commit it.
+        //
+        // ⛔ The tile pattern reaches this row and NOWHERE ELSE. It is FALSIFIED,
+        // not merely unproven (L-11012), and `mapFacadeIRToPhotoBrief` never puts
+        // it in `facade`, so it cannot reach the payload from here.
+        //
+        // ⚠ ONE ROW IS REWRITTEN, AND THE REASON IS A CONTRADICTION THE CARD WOULD
+        // OTHERWISE PRINT. The mapper sees only the photograph, so it always says
+        // "the façade COLOUR — nothing here reads colour out of an image, say it in
+        // words and I will apply it". On a card that is at that very moment
+        // APPLYING the green façade he asked for in words, that reads as a refusal
+        // of something already granted. Only this layer holds both halves, so only
+        // this layer can say it correctly — the row is still SHOWN (the photograph
+        // genuinely supplied no colour), it is just no longer asking for something
+        // it already has.
+        const colourFromWords = mergedFacadeOut?.facadeColor !== undefined;
+        notUsedRows = photo.notUsed.map((n) =>
+          colourFromWords && n.startsWith(PHOTO_NOT_USED_COLOUR_PREFIX)
+            ? `${PHOTO_NOT_USED_COLOUR_PREFIX} — not read from the image (nothing here reads colour ` +
+              `out of a photo); it came from your words instead`
+            : n,
+        );
+        photoBlock =
+          `\n\nFrom the photo: ${fromPhoto.length > 0 ? fromPhoto.join(DOT) : 'nothing usable'}` +
+          (photoFacadeApplied.length > 0 ? ` → applying ${photoFacadeApplied.join(DOT)}` : '') +
+          `\nFrom your words: ${fromWords.join(DOT)}` +
+          `\nFrom the site: ${fromSite}` +
+          `\nNot used: ${notUsedRows.length > 0 ? notUsedRows.join(DOT) : 'nothing — every reading was used'}` +
+          `\n⚠ This façade engine has never been pointed at a real photograph (L-11001) — it is ` +
+          `proven on synthetic test images only, so check these numbers against what you can see.`;
+      }
+
       const summary =
         `Generate a ${floorsLabel} ${label}${mixLabel}${facadeLabel} ${siteLabel} — ` +
         `it builds new levels and elements alongside what's drawn (nothing is replaced). ` +
         `The recorded envelope height cap is enforced before building. ` +
         `Undo steps back one stage at a time: lighting, then furniture, then ceilings, then the building itself.` +
-        (facadeGap !== '' ? ` ${facadeGap}` : '');
+        (facadeGap !== '' ? ` ${facadeGap}` : '') +
+        photoBlock;
       return {
         kind: 'commands', intent: 'generate-building',
         summary,
@@ -2723,7 +2908,7 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
           type: 'generation.building',
           payload: {
             typology: t,
-            ...(si.floors !== null ? { floors: si.floors } : {}),
+            ...(effectiveFloors !== null ? { floors: effectiveFloors } : {}),
             ...(mixEntries.length > 0
               ? { typologies: { T1: si.mix?.T1 === true, T2: si.mix?.T2 === true, T3: si.mix?.T3 === true, T4: si.mix?.T4 === true } }
               : {}),
@@ -2737,11 +2922,31 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
             // `residentialBriefMapper` has carried since §RESI-PREVIEW-OPTIONS and
             // that this payload used to drop on the floor. Omitted entirely when the
             // sentence described nothing, so the plain payload is unchanged.
-            ...(si.facade !== undefined ? { facade: si.facade } : {}),
+            // §GEN-PHOTO-BRIEF (L-11020) — the MERGED façade: the sentence's fields,
+            // plus whatever the photograph supplied that the words did not.
+            ...(mergedFacadeOut !== undefined ? { facade: mergedFacadeOut } : {}),
             // Carried to the execution layer so the post-build transcript can repeat
             // what was NOT done — the Confirm card is seen once, the report persists.
             ...(si.facadeUnavailable !== undefined && si.facadeUnavailable.length > 0
               ? { facadeUnavailable: si.facadeUnavailable }
+              : {}),
+            // §GEN-PHOTO-BRIEF (L-11020) — what the PHOTOGRAPH contributed, and what
+            // it could not. Repeated on the post-build transcript for the same reason
+            // `facadeUnavailable` is: the Confirm card is seen once and scrolls away,
+            // the report persists. Kept in its own field rather than folded into
+            // `facadeUnavailable` because the SOURCE is the point — "your sentence
+            // asked for something I can't build" and "your photo showed something I
+            // can't build" are different sentences.
+            ...(photo !== undefined
+              ? {
+                  photoProvenance: [
+                    ...photo.read.map(
+                      (r) => `${r.label} — read from your photo, ${describeConfidence(r.confidence)}` +
+                        (r.belowFloor ? ` (under the ${FACADE_PHOTO_CONFIDENCE_FLOOR.toFixed(2)} floor)` : ''),
+                    ),
+                    ...notUsedRows.map((n) => `not used: ${n}`),
+                  ],
+                }
               : {}),
           },
         }],
@@ -4898,6 +5103,11 @@ export function parseGenerateBuildingIntent(
     ...(facadeParse !== null && facadeParse.unavailable.length > 0
       ? { facadeUnavailable: facadeParse.unavailable }
       : {}),
+    // §GEN-PHOTO-BRIEF (L-11020) — the attached photograph, already mapped. Carried
+    // ONLY when one is attached, so an ordinary typed generation keeps its exact
+    // existing intent shape (the capability-acceptance suite asserts it with
+    // `toEqual`).
+    ...(ctx?.photoFacade !== undefined ? { photo: ctx.photoFacade } : {}),
   };
 }
 
