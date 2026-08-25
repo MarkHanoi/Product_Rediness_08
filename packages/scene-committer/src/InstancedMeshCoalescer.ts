@@ -54,6 +54,79 @@ interface SourceRecord {
   readonly obj: THREE.InstancedMesh;
   /** Number of instances this IM contributes to the merged group. */
   readonly count: number;
+  /**
+   * §UNDO93-COALESCED-IM-KEEPS-ITS-LEVEL (L-11320) — the owning level, carried
+   * from the source's parent Group so the MERGED product can be stamped with it.
+   * It was already read (to build the group key) and then thrown away.
+   */
+  readonly levelId: string;
+  /**
+   * The parent Group's `elementType`, carried for the same reason. `undefined`
+   * when the source's parent never declared one — which is a real state, and is
+   * NOT the same fact as "the sources disagree" (see `_attributionFor`).
+   */
+  readonly elementType: string | undefined;
+}
+
+/**
+ * §UNDO93-COALESCED-IM-KEEPS-ITS-LEVEL (L-11320) — stamp the merged product with
+ * the attribution its sources carried.
+ *
+ * ── THE DEFECT, from the founder's console (2026-08-25, 65 elements / 7 levels) ──
+ *
+ *   §LEVEL-COVERAGE exploded: ⚠ 166 of 615 drawn objects (27.0%) are in NO level
+ *   group — they do not lift when exploded and are not hidden when soloed.
+ *   Worst: (unattributed)=97/131 … 97 of the 166 also carry no userData.elementType.
+ *
+ * A merged InstancedMesh is `scene.add(merged)` — a child of the SCENE ROOT, not
+ * of the wall Group it was built from. The level-coverage census
+ * (`BottomActionMenu._censusLevelCoverage`) decides "is this in a level group?" by
+ * walking `obj.parent` for an ancestor in the level-root set, so a scene-root
+ * object is covered ONLY if it is itself a level root — which requires a resolvable
+ * `levelId` on its own userData (`_isBimObject` + `_objectLevelId`).
+ *
+ * ⭐ **The `levelId` was never missing — it was DISCARDED.** It is the first
+ * segment of the group key (`${levelId}:${geoUUID}:${matUUID}`, :303): the merge is
+ * BY level, so a merged IM belongs to exactly one level by construction. The
+ * product simply never received the value that defined it. Consequence: the
+ * coalesced geometry — the VISIBLE half, since coalescing hides its sources
+ * (`src.obj.visible = false`) — does not lift on explode and is not hidden on solo,
+ * while the invisible sources it replaced would have. This is the same class as
+ * L-8103, which was closed for `InstancedElementRenderer` (it now stamps
+ * `elementType` at :469 and `levelId` at :490) and never applied here.
+ *
+ * ── Why `elementType` is stamped CONDITIONALLY and no vocabulary is invented ────
+ * C84 EI-9 is one vocabulary, not a second copy. A merged IM is an aggregate, so
+ * there is no honest single `elementType` unless every source agrees on one. When
+ * they do, the product carries THAT word — the sources' own. When they disagree, or
+ * when a source's parent never declared one, the field is left ABSENT rather than
+ * filled with an invented aggregate label: "the sources disagree" and "there is no
+ * type here" are different facts, and neither is served by minting a third word
+ * that no consumer's predicate knows. `levelId` has no such ambiguity and is always
+ * stamped.
+ *
+ * Coverage does NOT depend on the `elementType` half — `_isBimObject` accepts a
+ * `levelId` alone — so a disagreeing group still lifts. The `elementType` half only
+ * moves the object out of the census's `(unattributed)` bucket.
+ */
+function _attributionFor(sources: readonly SourceRecord[]): {
+  levelId: string;
+  elementType: string | undefined;
+} {
+  const levelId = sources[0]!.levelId;
+  const types = new Set(sources.map(s => s.elementType));
+  const only = types.size === 1 ? sources[0]!.elementType : undefined;
+  return { levelId, elementType: only };
+}
+
+/** Apply {@link _attributionFor} to a merged product. One writer, two mint sites. */
+function _stampAttribution(
+  mesh: THREE.InstancedMesh,
+  sources: readonly SourceRecord[],
+): void {
+  const { levelId, elementType } = _attributionFor(sources);
+  mesh.userData.levelId = levelId;
+  if (elementType !== undefined) mesh.userData.elementType = elementType;
 }
 
 interface CoalescedGroup {
@@ -302,7 +375,14 @@ export class InstancedMeshCoalescer {
 
       const key = `${levelId}:${geoUUID}:${matUUID}`;
       if (!pending.has(key)) pending.set(key, []);
-      pending.get(key)!.push({ elementId, obj: im, count: im.count });
+      pending.get(key)!.push({
+        elementId,
+        obj: im,
+        count: im.count,
+        // §UNDO93-COALESCED-IM-KEEPS-ITS-LEVEL (L-11320) — carried, not re-derived.
+        levelId,
+        elementType: parentUD.elementType as string | undefined,
+      });
     }
 
     // ── 3. Merge groups with ≥2 source IMs into a single InstancedMesh ────
@@ -325,6 +405,8 @@ export class InstancedMeshCoalescer {
       const merged = new THREE.InstancedMesh(geo, mat, totalCount);
       merged.userData.isCoalesced = true;
       merged.userData.coalescedKey = key;
+      // §UNDO93-COALESCED-IM-KEEPS-ITS-LEVEL (L-11320) — see _attributionFor.
+      _stampAttribution(merged, sources);
       merged.castShadow = first.obj.castShadow;
       merged.receiveShadow = first.obj.receiveShadow;
 
@@ -416,6 +498,13 @@ export class InstancedMeshCoalescer {
       const rebuilt = new THREE.InstancedMesh(geo, mat, totalCount);
       rebuilt.userData.isCoalesced = true;
       rebuilt.userData.coalescedKey = key;
+      // §UNDO93-COALESCED-IM-KEEPS-ITS-LEVEL (L-11320) — the DECOALESCE path mints a
+      // second product, and it must carry the same attribution as the first. This is
+      // the undo/redo half of the founder's report: a delete→undo cycle that shrinks
+      // and rebuilds a coalesced group would otherwise silently drop the level tag
+      // that the initial merge had, so the scene degrades ACROSS a gesture rather
+      // than being wrong from the start.
+      _stampAttribution(rebuilt, remaining);
 
       const instanceIndexToElementId = new Map<number, ElementId>();
       const tempMatrix = new THREE.Matrix4();
