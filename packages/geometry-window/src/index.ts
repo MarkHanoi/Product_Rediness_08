@@ -68,6 +68,8 @@ export { WindowBuilder } from './WindowBuilder';
 export { WindowDependencyTracker } from './WindowDependencyTracker';
 export { WindowLevelCleanupHandler } from './WindowLevelCleanupHandler';
 export { buildWindowSection, setWindowSectionCommandManager } from './WindowSection';
+// §OUTLINE81 (D7) — the L7-supplied "Edit outline…" opener port.
+export { setWindowOutlineEditorOpener, type WindowOutlineEditorRequest } from './WindowSection';
 
 // ── Sprint Z (2026-05-12) — WindowTool + WindowPlanSymbolBuilder ─────────────
 export { WindowTool } from './WindowTool';

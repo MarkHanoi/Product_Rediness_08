@@ -34,7 +34,12 @@ import { buildStairLevelSpanSection } from './StairLevelSpanWidget';
 // turning a second run is not a field write but a mirror of the flights.
 import { buildStairSecondRunSection } from './StairSecondRunWidget';
 import { buildDoorSection }         from '@pryzm/geometry-door';
-import { buildWindowSection }       from '@pryzm/geometry-window';
+import { buildWindowSection, setWindowOutlineEditorOpener } from '@pryzm/geometry-window';
+// §OUTLINE81 (D7) — wire the L7 outline-editor dialog into the L2 section's opener port,
+// at the module that MOUNTS the section, so the "Edit outline…" button is live wherever
+// the section is. A port nobody supplies is a dead feature ([[committed-is-not-reachable]]).
+import { openWindowOutlineEditorDialog } from '../WindowOutlineEditorDialog';
+setWindowOutlineEditorOpener(openWindowOutlineEditorDialog);
 import { RoofPropertySheet }        from './RoofPropertySheet';
 import {
     _buildSpatialSection,

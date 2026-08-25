@@ -12,7 +12,11 @@
  */
 
 import { windowStore } from './WindowStore';
+import { windowSystemTypeStore } from './WindowSystemTypeStore';
 import { OPENING_PROFILE_KINDS, OPENING_PROFILE_LABELS, SEGMENTAL_RISE_RATIO, wallStore } from '@pryzm/geometry-wall';
+// §OUTLINE81 (D7) — the ring reader, from the PURE subpath (L-11261 import discipline; the
+// bare-barrel import above predates the finding and survives by load order).
+import { resolveCustomOutlineInput, type CustomOutline } from '@pryzm/geometry-wall/opening-profile';
 // ⭐ §FEAT-WINDOW-REVEAL (L-1920 … L-1929) — the panel READS the model, it does not restate
 // it. The derived glass size shown below is `resolveWindowReveal`'s answer, not a second
 // piece of trigonometry that would drift from the geometry the user is looking at.
@@ -37,6 +41,34 @@ import { injectDwStyles, buildFinishMaterialSelect, appendDwGroup } from '@pryzm
 let _commandManager: { execute: (cmd: any) => any } | null = null;
 export function setWindowSectionCommandManager(cm: { execute: (cmd: any) => any } | null): void {
     _commandManager = cm;
+}
+
+/**
+ * §OUTLINE81 (D7) — the "Edit outline…" port. This module is L2 and cannot see the L7 SVG
+ * editor (`apps/editor/src/ui/WindowOutlineEditorDialog.ts`), so the app supplies an OPENER
+ * the same way it supplies the command manager above. The dialog hands back a NORMALISED
+ * ring; THIS module then dispatches the one real command (P6 — the editor surface never
+ * touches a store or the bus, the same split the wall profile editor makes).
+ *
+ * ⚠ A port whose implementation nobody supplies is a dead feature with an interface attached
+ * ([[committed-is-not-reachable]]) — so the BUTTON is honest about it: with no opener wired
+ * it renders a named refusal, never a silent no-op.
+ */
+export interface WindowOutlineEditorRequest {
+    readonly windowId: string;
+    /** The instance's own extents, metres — the editor authors at true proportions (D2). */
+    readonly width: number;
+    readonly height: number;
+    /** The instance's current ring, or null (the editor then starts from the full box). */
+    readonly ring: CustomOutline | null;
+    /** Receives the NORMALISED, predicate-accepted ring on Apply. */
+    onCommit(ring: CustomOutline): void;
+}
+let _outlineEditorOpener: ((req: WindowOutlineEditorRequest) => void) | null = null;
+export function setWindowOutlineEditorOpener(
+    fn: ((req: WindowOutlineEditorRequest) => void) | null,
+): void {
+    _outlineEditorOpener = fn;
 }
 
 /**
@@ -109,6 +141,12 @@ function makeSelect(options: { value: string; label: string }[], current: string
         if (opt.value === current) o.selected = true;
         sel.appendChild(o);
     }
+    // §OUTLINE81 — belt and braces: happy-dom (the test DOM) mis-derives `selectedIndex`
+    // from a pre-append `option.selected = true` (measured: marking the 5th option yields
+    // selectedIndex 1), and a real browser honours `value` assignment identically — so the
+    // select's VALUE is asserted once, after the options exist. An unknown `current` leaves
+    // the browser default (first option), same as before.
+    if (options.some(o => o.value === current)) sel.value = current;
     sel.addEventListener('change', () => onChange(sel.value));
     return sel;
 }
@@ -446,13 +484,19 @@ export function buildWindowSection(windowId: string): HTMLElement | null {
     const shapeNote = document.createElement('div');
     shapeNote.className = 'dw-label';
     shapeNote.style.cssText = 'grid-column:1/-1;opacity:0.85;font-size:11px;line-height:1.45;display:none;';
+    // §OUTLINE81 (D7) — `custom` is LISTED only when the instance actually HAS a ring: a
+    // dropdown entry that dispatches `openingProfile: 'custom'` with no ring can only ever be
+    // refused ("none were supplied"), and an option that always refuses is a trap, not a
+    // choice. The two routes INTO `custom` are the buttons below.
     const shapeSelect = makeSelect(
-        OPENING_PROFILE_KINDS.map(k => ({
-            value: k,
-            label: k === 'segmental-arch'
-                ? `${OPENING_PROFILE_LABELS[k]} (rise 1/${Math.round(1 / SEGMENTAL_RISE_RATIO)} of width)`
-                : OPENING_PROFILE_LABELS[k],
-        })),
+        OPENING_PROFILE_KINDS
+            .filter(k => k !== 'custom' || win.customOutline !== undefined)
+            .map(k => ({
+                value: k,
+                label: k === 'segmental-arch'
+                    ? `${OPENING_PROFILE_LABELS[k]} (rise 1/${Math.round(1 / SEGMENTAL_RISE_RATIO)} of width)`
+                    : OPENING_PROFILE_LABELS[k],
+            })),
         win.openingProfile ?? 'rectangular',
         v => {
             const refusal = dispatch(windowId, { openingProfile: v as never });
@@ -468,6 +512,99 @@ export function buildWindowSection(windowId: string): HTMLElement | null {
     );
     body.appendChild(makeField('Shape', shapeSelect));
     body.appendChild(shapeNote);
+
+    // ── §OUTLINE81 (D6/D7) — the two explicit routes into `custom` ────────────────────
+    //
+    // "Apply shape from type" is the ONE route that copies the type's template onto an
+    // EXISTING window (C86 §10.5.b amendment — a type change never reshapes, L-10948);
+    // "Edit outline…" opens the reused profile-editor surface on the instance's OWN ring.
+    // Both dispatch ONE UpdateWindowParameterCommand (one gesture = one undo entry,
+    // C16 §8.6) through the same `dispatch` every other row uses; refusals land on the
+    // same note, by name.
+    const syncShapeControl = (): void => {
+        const rec = windowStore.getById(windowId);
+        const hasCustomOption = Array.from(shapeSelect.options).some(o => o.value === 'custom');
+        if (rec?.customOutline !== undefined && !hasCustomOption) {
+            const o = document.createElement('option');
+            o.value = 'custom';
+            o.textContent = OPENING_PROFILE_LABELS['custom'];
+            shapeSelect.appendChild(o);
+        }
+        shapeSelect.value = rec?.openingProfile ?? 'rectangular';
+    };
+    const outlineButton = (label: string, onClick: () => void): HTMLButtonElement => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'dw-btn';
+        b.setAttribute('data-window-outline-action', label);
+        b.textContent = label;
+        b.addEventListener('click', (e) => { e.preventDefault(); onClick(); });
+        return b;
+    };
+    const outlineRow = document.createElement('div');
+    outlineRow.className = 'dw-field';
+    outlineRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
+    outlineRow.appendChild(outlineButton('Apply shape from type', () => {
+        const rec = windowStore.getById(windowId);
+        const typeId = rec?.systemTypeId;
+        const template = resolveCustomOutlineInput(
+            typeId
+                ? (windowSystemTypeStore.getById(typeId) as { customOutline?: unknown } | undefined)
+                    ?.customOutline
+                : undefined,
+        );
+        if (!template) {
+            shapeNote.textContent =
+                `⛔ ${typeId ? `The window type "${windowSystemTypeStore.getById(typeId)?.name ?? typeId}"` : 'This window has no type, and its (absent) type'} ` +
+                'carries no outline template — author one in the type editor (Elevation outline), then apply it here.';
+            shapeNote.style.display = '';
+            return;
+        }
+        const refusal = dispatch(windowId, {
+            openingProfile: 'custom',
+            customOutline: structuredClone(template),
+        } as Partial<WindowOpening>);
+        if (refusal) {
+            shapeNote.textContent = `⛔ ${refusal}`;
+            shapeNote.style.display = '';
+            return;
+        }
+        shapeNote.textContent = '';
+        shapeNote.style.display = 'none';
+        syncShapeControl();
+    }));
+    outlineRow.appendChild(outlineButton('Edit outline…', () => {
+        if (!_outlineEditorOpener) {
+            shapeNote.textContent =
+                '⛔ The outline editor is not wired in this session ' +
+                '(setWindowOutlineEditorOpener was never called) — nothing was changed.';
+            shapeNote.style.display = '';
+            return;
+        }
+        const rec = windowStore.getById(windowId);
+        if (!rec) return;
+        _outlineEditorOpener({
+            windowId,
+            width: rec.width,
+            height: rec.height,
+            ring: resolveCustomOutlineInput(rec.customOutline),
+            onCommit: (ring) => {
+                const refusal = dispatch(windowId, {
+                    openingProfile: 'custom',
+                    customOutline: ring,
+                } as Partial<WindowOpening>);
+                if (refusal) {
+                    shapeNote.textContent = `⛔ ${refusal}`;
+                    shapeNote.style.display = '';
+                    return;
+                }
+                shapeNote.textContent = '';
+                shapeNote.style.display = 'none';
+                syncShapeControl();
+            },
+        });
+    }));
+    body.appendChild(outlineRow);
 
     // ── ⭐ §FEAT-WINDOW-REVEAL (L-1920 … L-1929) — THE FOUNDER'S TWO ASKS, ONE BLOCK ──
     //

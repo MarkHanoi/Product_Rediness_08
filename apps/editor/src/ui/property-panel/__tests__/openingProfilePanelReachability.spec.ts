@@ -48,11 +48,16 @@
  *           perfectly correct while nothing carries the answer between them.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { wallStore, OPENING_PROFILE_LABELS, openingProfilesFor } from '@pryzm/geometry-wall';
-import { windowStore, buildWindowSection, setWindowSectionCommandManager } from '@pryzm/geometry-window';
+import { openingOutlinePreset } from '@pryzm/geometry-wall/opening-profile';
+import {
+    windowStore, buildWindowSection, setWindowSectionCommandManager,
+    setWindowOutlineEditorOpener, windowSystemTypeStore,
+    type WindowSystemType,
+} from '@pryzm/geometry-window';
 import { doorStore, buildDoorSection, setDoorSectionCommandManager } from '@pryzm/geometry-door';
 
 const BODY_RENDERER = resolve('apps/editor/src/ui/property-panel/PropertyPanelBodyRenderer.ts');
@@ -130,8 +135,10 @@ describe('§OPENING-PROFILE-PANEL-REACHABILITY · ARM B — the panel MOUNTS tho
     const src = readFileSync(BODY_RENDERER, 'utf8');
 
     it('imports both section builders', () => {
-        expect(src).toMatch(/import\s*\{\s*buildWindowSection\s*\}\s*from\s*'@pryzm\/geometry-window'/);
-        expect(src).toMatch(/import\s*\{\s*buildDoorSection\s*\}\s*from\s*'@pryzm\/geometry-door'/);
+        // §OUTLINE81 widened the window import to also carry the outline-editor opener,
+        // so the pattern matches the NAME inside the braces rather than the exact set.
+        expect(src).toMatch(/import\s*\{[^}]*\bbuildWindowSection\b[^}]*\}\s*from\s*'@pryzm\/geometry-window'/);
+        expect(src).toMatch(/import\s*\{[^}]*\bbuildDoorSection\b[^}]*\}\s*from\s*'@pryzm\/geometry-door'/);
     });
 
     it('mounts them for the window and door element types', () => {
@@ -160,7 +167,10 @@ describe('§OPENING-PROFILE-PANEL-REACHABILITY · ARM C — ⭐ THE JOIN', () =>
     it('the labels are geometry-wall\'s own, so the panel and the draw bar cannot drift', () => {
         const section = buildWindowSection(WINDOW_ID)!;
         const labels = Array.from(selectsByLabel(section).get('Shape')!.options).map((o) => o.textContent ?? '');
-        for (const kind of openingProfilesFor('window')) {
+        // §OUTLINE81 (D7) — `custom` is offered only when the INSTANCE carries a ring (an
+        // option that can only ever be refused is a trap), so a plain seeded window lists
+        // the four buildable kinds and not `custom`.
+        for (const kind of openingProfilesFor('window').filter((k) => k !== 'custom')) {
             expect(labels.some((l) => l.startsWith(OPENING_PROFILE_LABELS[kind]))).toBe(true);
         }
     });
@@ -211,6 +221,116 @@ describe('§OPENING-PROFILE-PANEL-REACHABILITY · ARM C — ⭐ THE JOIN', () =>
         shape.dispatchEvent(new Event('change'));
         expect(section.textContent ?? '').toMatch(/no reason was given/);
         setWindowSectionCommandManager(null);
+    });
+
+    // ── §OUTLINE81 (D6/D7) — ARM C for the `custom` kind ────────────────────────────
+    describe('§OUTLINE81 — custom in the Shape row, and the two explicit routes into it', () => {
+        const TRIANGLE = openingOutlinePreset('triangle');
+        const RINGED_TYPE_ID = 'wt-reach-ringed';
+        const PLAIN_TYPE_ID = 'wt-reach-plain';
+
+        beforeEach(() => {
+            for (const [id, ring] of [[RINGED_TYPE_ID, TRIANGLE], [PLAIN_TYPE_ID, null]] as const) {
+                if (!windowSystemTypeStore.has(id)) {
+                    windowSystemTypeStore.add({
+                        id, name: `Reach ${id}`, category: 'custom', isBuiltIn: false,
+                        frameFinish: { name: 'F', materialColor: '#eee' },
+                        sillFinish: { name: 'S', materialColor: '#ddd' },
+                        glazingOpacity: 0.3,
+                        ...(ring ? { customOutline: structuredClone(ring) } : {}),
+                        metadata: { createdAt: 1, modifiedAt: 1, createdBy: 'test', version: 1 },
+                    } as WindowSystemType);
+                }
+            }
+        });
+        afterEach(() => {
+            windowSystemTypeStore.remove(RINGED_TYPE_ID);
+            windowSystemTypeStore.remove(PLAIN_TYPE_ID);
+            setWindowSectionCommandManager(null);
+            setWindowOutlineEditorOpener(null);
+        });
+
+        it('⛔ a window WITHOUT a ring is NOT offered "custom" — an option that can only refuse is a trap', () => {
+            const section = buildWindowSection(WINDOW_ID)!;
+            const values = Array.from(selectsByLabel(section).get('Shape')!.options).map(o => o.value);
+            expect(values).not.toContain('custom');
+        });
+
+        it('⭐ a window WITH a ring lists "custom" as its current shape', () => {
+            windowStore.update(WINDOW_ID, {
+                openingProfile: 'custom',
+                customOutline: structuredClone(TRIANGLE),
+            } as never);
+            const section = buildWindowSection(WINDOW_ID)!;
+            const shape = selectsByLabel(section).get('Shape')!;
+            expect(Array.from(shape.options).map(o => o.value)).toContain('custom');
+            expect(shape.value).toBe('custom');
+        });
+
+        it('⭐ "Apply shape from type" dispatches ONE command carrying profile + ring copy', () => {
+            windowStore.update(WINDOW_ID, { systemTypeId: RINGED_TYPE_ID } as never);
+            const executed: any[] = [];
+            setWindowSectionCommandManager({
+                execute: (cmd) => { executed.push(cmd); return { success: true, affectedElementIds: [WINDOW_ID] }; },
+            });
+            const section = buildWindowSection(WINDOW_ID)!;
+            const btn = section.querySelector('[data-window-outline-action="Apply shape from type"]') as HTMLButtonElement;
+            expect(btn).not.toBeNull();
+            btn.click();
+            expect(executed.length).toBe(1);   // one gesture = one undo entry (C16 §8.6)
+            const patch = (executed[0] as { serialize(): { payload: { patch: Record<string, unknown> } } })
+                .serialize().payload.patch;
+            expect(patch.openingProfile).toBe('custom');
+            expect((patch.customOutline as { vertices: unknown[] }).vertices.length).toBe(3);
+        });
+
+        it('⛔ "Apply shape from type" on a TEMPLATE-LESS type refuses by name, dispatching nothing', () => {
+            windowStore.update(WINDOW_ID, { systemTypeId: PLAIN_TYPE_ID } as never);
+            const executed: any[] = [];
+            setWindowSectionCommandManager({
+                execute: (cmd) => { executed.push(cmd); return { success: true, affectedElementIds: [] }; },
+            });
+            const section = buildWindowSection(WINDOW_ID)!;
+            (section.querySelector('[data-window-outline-action="Apply shape from type"]') as HTMLButtonElement).click();
+            expect(executed.length).toBe(0);
+            expect(section.textContent).toContain('no outline template');
+        });
+
+        it('⭐ "Edit outline…" opens the wired editor with the INSTANCE\'s extents and ring, and its commit dispatches', () => {
+            windowStore.update(WINDOW_ID, {
+                openingProfile: 'custom',
+                customOutline: structuredClone(TRIANGLE),
+            } as never);
+            const executed: any[] = [];
+            setWindowSectionCommandManager({
+                execute: (cmd) => { executed.push(cmd); return { success: true, affectedElementIds: [WINDOW_ID] }; },
+            });
+            const requests: any[] = [];
+            setWindowOutlineEditorOpener((req) => { requests.push(req); });
+            const section = buildWindowSection(WINDOW_ID)!;
+            (section.querySelector('[data-window-outline-action="Edit outline…"]') as HTMLButtonElement).click();
+
+            expect(requests.length).toBe(1);
+            expect(requests[0].width).toBe(1.2);
+            expect(requests[0].height).toBe(1.5);
+            expect(requests[0].ring?.vertices?.length).toBe(3);
+
+            requests[0].onCommit(openingOutlinePreset('gable'));
+            expect(executed.length).toBe(1);
+            const patch = executed[0].serialize().payload.patch;
+            expect((patch.customOutline as { vertices: unknown[] }).vertices.length).toBe(5);
+        });
+
+        it('⛔ with NO opener wired, "Edit outline…" states the missing wire — never a silent no-op', () => {
+            const section = buildWindowSection(WINDOW_ID)!;
+            (section.querySelector('[data-window-outline-action="Edit outline…"]') as HTMLButtonElement).click();
+            expect(section.textContent).toContain('not wired');
+        });
+
+        it('ARM B — the mounting module actually wires the opener (source-level, named as such)', () => {
+            const src = readFileSync(BODY_RENDERER, 'utf8');
+            expect(src).toContain('setWindowOutlineEditorOpener(openWindowOutlineEditorDialog)');
+        });
     });
 
     it('the DOOR panel surfaces its refusal too', () => {

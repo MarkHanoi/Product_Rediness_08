@@ -46,6 +46,10 @@ const PROFILE_TITLES: Readonly<Record<OpeningProfileKind, string>> = Object.free
     'round-arch':     'Semicircular arched head, radius = half the width (A cycles)',
     'segmental-arch': `Shallow segmental arch, rise = 1/${Math.round(1 / SEGMENTAL_RISE_RATIO)} of the width (A cycles)`,
     'circular':       'Circular opening — the width IS the diameter, height follows it (A cycles)',
+    // §OUTLINE81 (D7) — never a clickable pill: a free-form ring cannot be invented by a click
+    // (there is nothing to build with), so `custom` appears ONLY as the read-only
+    // "Custom (from type)" pill when the active window TYPE carries an outline template.
+    'custom':         'Free-form outline from the window type — authored in the type editor, read-only here',
 });
 
 export class WindowModePicker {
@@ -60,6 +64,13 @@ export class WindowModePicker {
         initialType: 'single' | 'double',
         callbacks: WindowModePickerCallbacks,
         initialProfile: OpeningProfileKind = 'rectangular',
+        /**
+         * §OUTLINE81 (D7) — TRUE while the active window TYPE carries a `customOutline`
+         * template. The Shape row then shows the read-only `Custom (from type)` pill as
+         * ACTIVE and the four clickable pills disabled: the ring WINS at creation (the
+         * factory adopts it), so a clickable pill claiming otherwise would lie.
+         */
+        typeCarriesOutline = false,
     ): void {
         this.dismiss();
 
@@ -139,7 +150,11 @@ export class WindowModePicker {
             };
             profileSetActive = setActiveProfile;
 
-            for (const kind of OPENING_PROFILE_KINDS) {
+            // §OUTLINE81 (D7) — `custom` is NEVER a clickable pill (a click cannot supply a
+            // ring; the keyboard cycle already excludes it for the same reason,
+            // `nextOpeningProfile`'s own comment). It exists on this bar only as the
+            // read-only pill below.
+            for (const kind of OPENING_PROFILE_KINDS.filter((k) => k !== 'custom')) {
                 const btn = document.createElement('button');
                 btn.className = 'wdh-btn' + (kind === initialProfile ? ' wdh-btn--active' : '');
                 btn.dataset.windowProfile = kind;
@@ -150,11 +165,24 @@ export class WindowModePicker {
                 const keySpan = kind === 'rectangular' ? '<span class="wdh-key">A</span>' : '';
                 btn.innerHTML = `${keySpan}<span class="wdh-lbl">${OPENING_PROFILE_LABELS[kind]}</span>`;
                 btn.addEventListener('click', () => {
+                    if (this._typeCarriesOutline) return;   // read-only while the type's ring wins
                     setActiveProfile(kind);
                     callbacks.onSwitchProfile!(kind);
                 });
                 bar.appendChild(btn);
             }
+
+            // §OUTLINE81 (D7) — the READ-ONLY pill. Present in the DOM always (so tests and
+            // the toggle below need no rebuild); visible only while the type carries a ring.
+            const customPill = document.createElement('button');
+            customPill.className = 'wdh-btn';
+            customPill.dataset.windowProfile = 'custom';
+            customPill.dataset.windowProfileReadonly = '1';
+            customPill.type = 'button';
+            customPill.disabled = true;
+            customPill.title = PROFILE_TITLES['custom'];
+            customPill.innerHTML = `<span class="wdh-lbl">Custom (from type)</span>`;
+            bar.appendChild(customPill);
         }
 
         const esc = document.createElement('span');
@@ -178,7 +206,7 @@ export class WindowModePicker {
                 e.stopImmediatePropagation();
                 setActive('double');
                 callbacks.onSwitchDouble();
-            } else if (key === 'a' && callbacks.onSwitchProfile && profileSetActive) {
+            } else if (key === 'a' && callbacks.onSwitchProfile && profileSetActive && !this._typeCarriesOutline) {
                 // §OPENING-PROFILE — `A` CYCLES the shape axis (Rectangular → Arched → Segmental
                 // → Circular → …). ONE letter for the whole axis, measured free on 2026-08-19 and
                 // re-grepped before binding, because `S` already carries SIX meanings across the
@@ -191,6 +219,30 @@ export class WindowModePicker {
             }
         };
         window.addEventListener('keydown', this.keyHandler);
+        this.setTypeOutline(typeCarriesOutline);
+    }
+
+    /** §OUTLINE81 (D7) — see `show`'s parameter. Mirrors the active TYPE's template state. */
+    private _typeCarriesOutline = false;
+
+    /**
+     * Toggle the read-only `Custom (from type)` state without rebuilding the HUD — called
+     * when the active window type changes while the bar is visible.
+     */
+    setTypeOutline(on: boolean): void {
+        this._typeCarriesOutline = on;
+        if (!this.el) return;
+        this.el.querySelectorAll<HTMLButtonElement>('[data-window-profile]').forEach(btn => {
+            const isCustomPill = btn.dataset.windowProfileReadonly === '1';
+            if (isCustomPill) {
+                btn.style.display = on ? '' : 'none';
+                btn.classList.toggle('wdh-btn--active', on);
+            } else {
+                // The four ordinary pills go quiet while the type's ring wins.
+                btn.disabled = on;
+                if (on) btn.classList.remove('wdh-btn--active');
+            }
+        });
     }
 
     /** Update the highlighted active PROFILE pill without rebuilding the HUD. */

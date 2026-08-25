@@ -32,6 +32,8 @@ import { CurtainWallModePicker, type CurtainWallPickerMode } from '../CurtainWal
 import { CurtainWallDrawingHUD } from '../CurtainWallDrawingHUD';
 import { DoorModePicker } from '../DoorModePicker';
 import { WindowModePicker } from '../WindowModePicker';
+// §OUTLINE81 (D7) — read the active type's customOutline template for the read-only pill.
+import { windowSystemTypeStore } from '@pryzm/geometry-window';
 import { CeilingModePicker } from '../CeilingModePicker';
 import { FloorModePicker } from '../FloorModePicker';
 import { FloorDrawingHUD } from '../FloorDrawingHUD';
@@ -1169,6 +1171,16 @@ export function mountToolsArea(
         props.toolManager.activateWindow = async (type: 'single' | 'double' = 'single', systemTypeId?: string) => {
             const windowTool = props.toolManager.windowTool ?? window.windowTool; // TODO(E.4.T): legacy windowTool — replace with runtime.tools.activate('window')
 
+            // §OUTLINE81 (D7) — does the ACTIVE window type carry a customOutline template?
+            // The ring WINS at creation (the factory adopts it), so the Shape row shows a
+            // read-only `Custom (from type)` pill while one is active.
+            const typeCarriesOutline = (): boolean => {
+                const id = windowTool?.systemTypeId;
+                if (!id) return false;
+                return !!(windowSystemTypeStore.getById(id) as { customOutline?: unknown } | undefined)
+                    ?.customOutline;
+            };
+
             if (windowModePicker.isVisible()) {
                 if (windowTool) windowTool.windowType = type;
                 windowModePicker.setMode(type);
@@ -1177,6 +1189,7 @@ export function mountToolsArea(
                 // disagrees with the store is how a user ends up authoring a shape they cannot
                 // see they selected.
                 if (windowTool) windowModePicker.setProfile(windowTool.openingProfile);
+                windowModePicker.setTypeOutline(typeCarriesOutline());
                 props.inspector.showWindowPreDraw?.(windowTool);
                 return;
             }
@@ -1192,7 +1205,7 @@ export function mountToolsArea(
                 onSwitchSingle: () => { if (windowTool) windowTool.windowType = 'single'; },
                 onSwitchDouble: () => { if (windowTool) windowTool.windowType = 'double'; },
                 onSwitchProfile: (profile) => { if (windowTool) windowTool.openingProfile = profile; },
-            }, windowTool?.openingProfile ?? 'rectangular');
+            }, windowTool?.openingProfile ?? 'rectangular', typeCarriesOutline());
 
             const escHandler = (e: KeyboardEvent) => {
                 if (e.key === 'Escape') {
