@@ -1684,21 +1684,56 @@ export const ONBOARDING_STYLES = `
 .rac-onboarding-overlay .rac-resize-grip:hover,
 .os-onboarding-overlay .os-resize-grip:hover { opacity: 0.9; }
 
-/* ── §UX-COMPACT-TYPE-PILL (founder 2026-08-25) — the confirm step as ONE pill at the
-   top, beside the view-mode bar: BUILDING TYPE ▾ + Do it myself. Same glass, same
-   radius token as the launcher pills; header / step chip / footer / grip hidden. ── */
-.os-onboarding-overlay.os-onboarding-overlay--compact {
+/* ── §UX-COMPACT-TYPE-PILL (founder 2026-08-25, L-11131; placement + parity by lane
+   UXPILL70) — the confirm step as ONE pill in the TOP BAND, beside the view-mode bar
+   (2D Site Map · 3D Site · 3D Globe · Split): BUILDING TYPE ▾ + Do it myself.
+
+   PARITY WITH .svq-bar IS THE SPEC (styles/panels/siteViewQuickToggle.ts). That bar is
+   the founder's "standard rectangular shape with curved edges", so every surface value
+   below is the bar's, not a fresh choice, and a source-text arm in
+   apps/editor/__tests__/onboardingCompactPill.test.ts pins each pair so they cannot
+   drift apart.
+     top       calc(6px + var(--shell-topbar-h, 36px) + 8px) — DERIVED, clears the band
+     padding   5px 6px — with 28px controls the pill is exactly the bar's height
+     surface   var(--app-panel-bg). The bar is OPAQUE, so the pill is opaque. The glass
+               token the previous pass used is not what the bar wears, and a translucent
+               pill beside an opaque bar reads as two materials. Opaque white also clears
+               every C43 floor with no alpha derivation (see UX1-CONFIRM-GLASS for the
+               method) — accent on white 6.98 to 1, body text on white 16.13 to 1, both
+               past WCAG 2.2 AA's 4.5 to 1, on a black or a white basemap alike because
+               nothing shows through.
+     border    1px solid var(--app-border) · shadow var(--app-shadow-panel)
+     radius    100px — the bar's own literal. There is no stadium token; the
+               --app-radius-* scale tops out at 16px, which at this height is a visibly
+               different shape. Matching the bar byte-for-byte beats minting a token for
+               one pair of surfaces.
+     type      var(--app-font) 12px / 600 on the controls, as the bar's segments.
+
+   HORIZONTAL POSITION IS MEASURED, NOT GUESSED. The bar's width follows its labels, so
+   the controller measures its live rect and the pure model (compactPillPlacement.ts)
+   decides beside-right / beside-left / below; the answer arrives as ONE data attribute
+   plus --os-compact-left / --os-compact-top on the overlay. With no bar on screen the
+   pill is CENTRED on the same --shell-canvas-cx the bar reads (C06 §15), so it is never
+   anchored to the viewport and never lands on a split pane.
+
+   SPECIFICITY (0,5,0) IS LOAD-BEARING (L-11206). The confirm card's glass is declared at
+   (0,4,0) on the drawing+confirm body — width min(264px, 92vw), glass, padding — and the
+   previous --compact pass authored at (0,3,0), so the body kept a 264px glass card BEHIND
+   the pill. Repeat the full class chain, as the opaque escapes above already do for the
+   same reason. Comments stay ABOVE selectors (UX1-COMMENT-EATS-THE-CLAMP). ── */
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm.os-onboarding-overlay--compact {
   inset: auto;
-  top: 56px;
-  left: 50%;
+  top: calc(6px + var(--shell-topbar-h, 36px) + 8px);
+  left: var(--os-compact-left, var(--shell-canvas-cx, 50%));
+  right: auto;
   bottom: auto;
   transform: translateX(-50%);
   width: auto;
-  max-width: 94vw;
+  max-width: calc(var(--shell-canvas-w, 100vw) - 32px);
   height: auto;
   max-height: none;
-  padding: 0;
   margin: 0;
+  padding: 0;
   background: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -1708,50 +1743,111 @@ export const ONBOARDING_STYLES = `
   overflow: visible;
   pointer-events: none;
 }
-.os-onboarding-overlay.os-onboarding-overlay--compact .os-header,
-.os-onboarding-overlay.os-onboarding-overlay--compact .os-footer,
-.os-onboarding-overlay.os-onboarding-overlay--compact .os-resize-grip { display: none; }
-.os-onboarding-overlay.os-onboarding-overlay--compact .os-body {
+/* A measured placement supplies the pill's LEFT EDGE, so the centring translate goes. */
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm.os-onboarding-overlay--compact[data-os-compact-placement="beside-right"],
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm.os-onboarding-overlay--compact[data-os-compact-placement="beside-left"],
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm.os-onboarding-overlay--compact[data-os-compact-placement="below"] {
+  transform: none;
+}
+/* Only the no-room fallback leaves the band, by a MEASURED top — never by a guess. */
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm.os-onboarding-overlay--compact[data-os-compact-placement="below"] {
+  top: var(--os-compact-top);
+}
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm.os-onboarding-overlay--compact .os-header,
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm.os-onboarding-overlay--compact .os-footer,
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm.os-onboarding-overlay--compact .os-resize-grip {
+  display: none;
+}
+/* The body is a transparent carrier; the pill row below is the only painted surface. */
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm.os-onboarding-overlay--compact .os-body {
   pointer-events: auto;
   flex: 0 0 auto;
+  width: auto;
+  max-width: none;
   overflow: visible;
   padding: 0;
   border: none;
+  border-radius: 0;
   background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   box-shadow: none;
 }
-.os-onboarding-overlay .os-compact-row {
+/* The pill. Every value here is .svq-bar's — see the block comment above. */
+.os-onboarding-overlay.os-onboarding-overlay--confirm .os-compact-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px 6px 12px;
-  background: var(--app-panel-glass);
-  backdrop-filter: var(--app-panel-glass-blur);
-  -webkit-backdrop-filter: var(--app-panel-glass-blur);
+  gap: 4px;
+  padding: 5px 6px;
+  background: var(--app-panel-bg);
   border: 1px solid var(--app-border);
-  border-radius: var(--app-radius-md);
+  border-radius: 100px;
   box-shadow: var(--app-shadow-panel);
+  font-family: var(--app-font);
   white-space: nowrap;
+  user-select: none;
 }
-.os-onboarding-overlay .os-compact-label {
-  font: 700 11px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+/* BUILDING TYPE — short, uppercase, the section-label idiom in the bar's own face. */
+.os-onboarding-overlay.os-onboarding-overlay--confirm .os-compact-label {
+  margin: 0;
+  padding: 0 4px 0 10px;
+  font-family: var(--app-font);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--app-accent);
-}
-.os-onboarding-overlay .os-compact-select {
-  font: 600 12px/1.2 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  color: var(--app-text);
-  background: #fff;
-  border: 1px solid var(--app-border);
-  border-radius: var(--app-radius-sm);
-  padding: 5px 8px;
-  min-width: 150px;
   cursor: pointer;
 }
-.os-onboarding-overlay .os-compact-notnow {
-  font-size: 11px;
-  padding: 5px 10px;
-  border-radius: 999px;
+/* C43 / WCAG 2.2 AA SC 2.5.8 — min-height 28px is the SAME floor .svq-btn carries; uiScale
+   clamps it to 24px on the way down. The explicit height (same value, same clamp) is
+   MEASURED, not decorative: Chromium gives a native select an intrinsic menulist height
+   of ~26.5px that ignores min-height, which rendered the pill 37px tall beside a 34.3px bar
+   (tests/e2e/static/onboardingCompactPill.static.ts caught it). border-box so the border
+   and the vertical padding live inside that height, as they do on the bar's segments. */
+.os-onboarding-overlay.os-onboarding-overlay--confirm .os-compact-select {
+  box-sizing: border-box;
+  min-height: 28px;
+  height: 28px;
+  padding: 0 8px;
+  font-family: var(--app-font);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--app-text);
+  background: var(--app-panel-bg);
+  border: 1.5px solid var(--app-border);
+  border-radius: 100px;
+  min-width: 140px;
+  cursor: pointer;
+}
+.os-onboarding-overlay.os-onboarding-overlay--confirm .os-compact-select:hover {
+  border-color: var(--app-accent);
+}
+.os-onboarding-overlay.os-onboarding-overlay--confirm .os-compact-select:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 1px;
+}
+/* Do it myself — the bar's ACTION treatment (.svq-btn--globe): accent text on the pill
+   surface, a transparent 1.5px border so hover cannot shift the label, purple fill with
+   white text on hover. Overrides .os-btn / .os-btn--ghost at (0,3,0). */
+.os-onboarding-overlay.os-onboarding-overlay--confirm .os-compact-row .os-compact-notnow {
+  min-height: 28px;
+  padding: 6px 12px;
+  font-family: var(--app-font);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--app-accent);
+  background: transparent;
+  border: 1.5px solid transparent;
+  border-radius: 100px;
+  white-space: nowrap;
+}
+.os-onboarding-overlay.os-onboarding-overlay--confirm .os-compact-row .os-compact-notnow:hover {
+  background: var(--app-accent);
+  border-color: var(--app-accent);
+  color: var(--app-panel-bg);
 }
 `;

@@ -88,6 +88,12 @@ import { fetchContextBuildingsNearAndFar } from '../geospatial/contextBuildings.
 import { warmAllContextLayers } from '../geospatial/contextLayerWarm.js';
 // §STARTUP-BUDGET (founder 2026-08-07, 5× startup) — passive phase marks; behaviour-free.
 import { markStartupPhase } from '../../engine/startupBudget';
+// §UX-COMPACT-TYPE-PILL (L-11131) — the confirm pill is placed BESIDE the view-mode bar,
+// so it needs the bar's ONE published handle (its testid) and the density factor the
+// rendered px are measured under. The placement decision is the pure model beside this file.
+import { SITE_VIEW_QUICK_TOGGLE_TESTID } from '../../engine/views/SiteViewQuickToggle';
+import { UI_SCALE } from '../styles/uiScale';
+import { placeCompactPill, readShellCanvasSpan } from './compactPillPlacement.js';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
 // §TYPOLOGY-CHOICE-AT-CONFIRM — the chooser's pure model (options + route + zoning
 // advisory) and the EXISTING active-brief stash the chosen typology is written through.
@@ -197,6 +203,15 @@ const DRAW_SURFACE_POLL_MS = 200;
    no value the code could test to answer "are we drawing yet?", which is why the
    banner was mounted at dispatch time rather than at readiness. Naming the two
    phases separately is the fix — the CSS change would only have hidden it. */
+/**
+ * §UX-COMPACT-TYPE-PILL (L-11131) — authored px between the view-mode bar and the pill,
+ * and from the canvas edge. The gutter is the bar's own: `.svq-bar` keeps
+ * `max-width: calc(var(--shell-canvas-w) - 32px)`, i.e. 16px a side. Rendered px are
+ * authored × UI_SCALE, exactly as every px in the injected sheet is (§UI-DENSITY-SCALE).
+ */
+const COMPACT_PILL_GAP_PX = 8;
+const COMPACT_PILL_GUTTER_PX = 16;
+
 type StepId = 'location' | 'site' | 'awaiting-draw-surface' | 'draw' | 'confirm' | 'generating';
 
 /**
@@ -307,7 +322,11 @@ export class OnboardingStepController {
     private typologyId: string;
     /** §CONFIRM-PANEL-UX (C43) — the typology id whose chooser chip must regain focus
      *  after the confirm step re-renders. Null on every render the chooser did not
-     *  cause, so the step never grabs focus unprompted. */
+     *  cause, so the step never grabs focus unprompted.
+     *  §L-11131 RETIRED FROM THE SURFACE, NOT DELETED — written only by `buildTypologyChooser`,
+     *  read by nothing since the confirm step became the compact pill (see the `void` block in
+     *  `renderGenerateConfirmStep`, L-11207). Do not "restore" the old panel by wiring this
+     *  back without reading L-11131. */
     private pendingChooserFocus: string | null = null;
     /** O.12.c — structured brief metadata, forwarded to the generate call. §RESI-MULTIFAMILY
      *  (Task 2): the residential program step MUTATES this with the user's level/area/typology
@@ -357,6 +376,11 @@ export class OnboardingStepController {
     /** §L-384 — the draw-commit wait (boundary-set listener + watchdog) disposer, tracked
      *  separately so BACK / re-draw can cancel JUST it without tearing down drag/resize. */
     private drawWaitCleanup: (() => void) | null = null;
+
+    /** §UX-COMPACT-TYPE-PILL (L-11131) — disposer for the confirm pill's placement observers
+     *  (bar resize / arrival / removal, pill resize, viewport resize). Run from `clearBody()`:
+     *  the observers belong to the pill, and the pill belongs to the body content. */
+    private compactPillCleanup: (() => void) | null = null;
 
     constructor(opts: OnboardingStepControllerOptions) {
         this.runtime = opts.runtime;
@@ -562,6 +586,10 @@ export class OnboardingStepController {
     private clearBody(): HTMLElement {
         const body = this.bodyEl;
         if (!body) throw new Error('overlay body not mounted');
+        // §UX-COMPACT-TYPE-PILL — whatever replaces the body content, the pill's placement
+        // observers go with the pill; left behind they would keep re-placing a node that is gone.
+        this.compactPillCleanup?.();
+        this.compactPillCleanup = null;
         while (body.firstChild) body.removeChild(body.firstChild);
         return body;
     }
@@ -1486,6 +1514,7 @@ export class OnboardingStepController {
      */
     private backFromConfirm(source: 'drawn' | 'default-plot'): void {
         this.overlay?.classList.remove('os-onboarding-overlay--confirm');
+        this.overlay?.classList.remove('os-onboarding-overlay--compact');
         this.overlay?.classList.remove('os-onboarding-overlay--resi');
         const w = window as unknown as { pryzmRearmBoundaryDraw?: () => void };
         if (source === 'drawn' && typeof w.pryzmRearmBoundaryDraw === 'function') {
@@ -2061,6 +2090,11 @@ export class OnboardingStepController {
         row.className = 'os-compact-row';
         row.setAttribute('data-testid', 'onboarding-compact-pill');
 
+        // ONE accessible name per control (C43 / WCAG 2.2 SC 1.3.1 + 2.5.3): the visible
+        // BUILDING TYPE label IS the select's name, through the for/id association — no
+        // parallel aria-label that could drift from the words on screen. The overlay is the
+        // landmark (role=region "Set up your project", set by setDrawingPresentation), so
+        // the pill announces itself ONCE on entry and each of its two controls once.
         const label = document.createElement('label');
         label.className = 'os-compact-label';
         label.htmlFor = 'os-compact-typology';
@@ -2070,12 +2104,17 @@ export class OnboardingStepController {
         select.id = 'os-compact-typology';
         select.className = 'os-compact-select';
         select.setAttribute('data-testid', 'onboarding-typology-chooser');
-        select.setAttribute('aria-label', 'Building type');
         const placeholder = document.createElement('option');
         placeholder.value = '';
         placeholder.textContent = 'Choose…';
         placeholder.disabled = true;
+        // Both: `.selected` is the live state; the `selected` ATTRIBUTE is what survives
+        // serialisation (the visual harness) and a form reset. Without the attribute a
+        // re-parsed select shows the first enabled option — "Apartment" — as though it had
+        // been chosen. Set as an attribute (not `defaultSelected`) so every DOM, happy-dom
+        // included, carries it.
         placeholder.selected = true;
+        placeholder.setAttribute('selected', '');
         select.appendChild(placeholder);
         if (choices.length > 0) {
             for (const c of choices) {
@@ -2095,7 +2134,12 @@ export class OnboardingStepController {
 
         // The SAME routing the Generate button used, re-derived from the choice at
         // the moment of choosing so the three paths can never disagree with the pick.
+        // `--compact` leaves on EVERY branch (L-11206): the residential / office setup
+        // steps are full cards with a header and a footer, and the compact modifier hides
+        // both and docks the overlay in the top band — a setup form rendered under it was
+        // headless, footerless and pinned to the top edge.
         const go = (): void => {
+            this.overlay?.classList.remove('os-onboarding-overlay--compact');
             if (resolveGenerateRoute(this.typologyId) === 'residential-building') {
                 console.log('[onboarding-step] type pill → residential — opening the residential setup step.');
                 this.renderResidentialProgramStep(source);
@@ -2108,7 +2152,6 @@ export class OnboardingStepController {
             }
             console.log('[onboarding-step] type pill → GENERATE (AI dispatch).');
             this.overlay?.classList.remove('os-onboarding-overlay--confirm');
-            this.overlay?.classList.remove('os-onboarding-overlay--compact');
             void this.generateAndFinish();
         };
         select.addEventListener('change', () => {
@@ -2131,11 +2174,123 @@ export class OnboardingStepController {
             void this.landInCanvasWithUnderlay();
         });
 
+        // Escape: SENSIBLE means NON-DESTRUCTIVE. The pill has no "close" — the step has
+        // nowhere else to be (re-drawing is the boundary tool itself) — and neither exit
+        // may fire from a key the user pressed to dismiss the dropdown. So Escape only
+        // hands keyboard focus back to the page; the pill stays and both routes stay unfired.
+        row.addEventListener('keydown', (ev: KeyboardEvent) => {
+            if (ev.key !== 'Escape') return;
+            const active = document.activeElement;
+            if (active instanceof HTMLElement && row.contains(active)) active.blur();
+        });
+
         row.appendChild(label);
         row.appendChild(select);
         row.appendChild(notNow);
         body.appendChild(row);
+        this.placeCompactPill(row);
         select.focus();
+    }
+
+    /**
+     * §UX-COMPACT-TYPE-PILL (L-11131) — the DOM half of the pill's placement. Measures the
+     * view-mode bar (`.svq-bar`, by its ONE published testid), the pill and the published
+     * canvas span, asks the pure model (`compactPillPlacement.ts`) where the pill goes, and
+     * writes the answer as ONE data attribute plus two inline custom properties that the
+     * sheet consumes (`onboardingStyles.ts` §UX-COMPACT-TYPE-PILL). Position stays DECLARED
+     * in CSS; JS supplies numbers only. The vertical band is never written here in the
+     * normal case — it is the same `calc()` as the bar's, derived in the sheet — only the
+     * BELOW fallback carries a measured top.
+     *
+     * Re-measured on: the bar re-rendering (ResizeObserver — its width follows its labels),
+     * the bar arriving or leaving (MutationObserver on body's direct children, which is
+     * where `mountSiteViewQuickToggle` appends it), the pill's own size changing (font
+     * load) and viewport resize. No rAF (P3 — the frame scheduler owns it): measurement is
+     * synchronous, and the observers ARE the scheduling.
+     */
+    private placeCompactPill(row: HTMLElement): void {
+        const overlay = this.overlay;
+        if (!overlay) return;
+        const gap = COMPACT_PILL_GAP_PX * UI_SCALE;
+        const gutter = COMPACT_PILL_GUTTER_PX * UI_SCALE;
+        const findBar = (): HTMLElement | null =>
+            document.querySelector<HTMLElement>(`[data-testid="${SITE_VIEW_QUICK_TOGGLE_TESTID}"]`);
+
+        const apply = (): void => {
+            if (this.disposed || !row.isConnected) return;
+            const bar = findBar();
+            const barRect = bar && typeof bar.getBoundingClientRect === 'function'
+                ? bar.getBoundingClientRect()
+                : null;
+            const pillRect = row.getBoundingClientRect();
+            const bodyStyle = document.body?.style;
+            const canvas = readShellCanvasSpan(
+                bodyStyle?.getPropertyValue('--shell-canvas-cx') ?? '',
+                bodyStyle?.getPropertyValue('--shell-canvas-w') ?? '',
+                window.innerWidth || 0,
+            );
+            const placement = placeCompactPill({
+                bar: barRect && barRect.width > 0 ? barRect : null,
+                canvas,
+                pillWidth: pillRect.width,
+                gap,
+                gutter,
+            });
+            overlay.setAttribute('data-os-compact-placement', placement.kind);
+            if (placement.kind === 'centred') {
+                overlay.style.removeProperty('--os-compact-left');
+                overlay.style.removeProperty('--os-compact-top');
+                return;
+            }
+            overlay.style.setProperty('--os-compact-left', `${placement.left}px`);
+            if (placement.kind === 'below') {
+                overlay.style.setProperty('--os-compact-top', `${placement.top}px`);
+            } else {
+                overlay.style.removeProperty('--os-compact-top');
+            }
+        };
+
+        apply();
+
+        const disposers: Array<() => void> = [];
+        window.addEventListener('resize', apply);
+        disposers.push(() => window.removeEventListener('resize', apply));
+
+        const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => apply()) : null;
+        if (ro) {
+            ro.observe(row);
+            const bar = findBar();
+            if (bar) ro.observe(bar);
+            disposers.push(() => ro.disconnect());
+        }
+        if (typeof MutationObserver === 'function' && document.body) {
+            const mo = new MutationObserver((records) => {
+                let barTouched = false;
+                for (const r of records) {
+                    for (const n of [...Array.from(r.addedNodes), ...Array.from(r.removedNodes)]) {
+                        if (n instanceof HTMLElement
+                            && n.getAttribute('data-testid') === SITE_VIEW_QUICK_TOGGLE_TESTID) {
+                            barTouched = true;
+                        }
+                    }
+                }
+                if (!barTouched) return;
+                const next = findBar();
+                if (next && ro) ro.observe(next);
+                apply();
+            });
+            mo.observe(document.body, { childList: true });
+            disposers.push(() => mo.disconnect());
+        }
+
+        this.compactPillCleanup = (): void => {
+            for (const d of disposers.splice(0)) {
+                try { d(); } catch { /* already gone */ }
+            }
+            overlay.removeAttribute('data-os-compact-placement');
+            overlay.style.removeProperty('--os-compact-left');
+            overlay.style.removeProperty('--os-compact-top');
+        };
     }
 
     /**
@@ -2163,6 +2318,10 @@ export class OnboardingStepController {
      * confirm step so the title, the CTA and the zoning advisory all follow the choice
      * (the copy must stop hard-coding "apartment").
      */
+    // §L-11131 RETIRED FROM THE SURFACE, NOT DELETED — the radio-card chooser of the old
+    // "Set up your project" card. Called by nothing since the confirm step became the
+    // compact BUILDING TYPE pill; read once by the `void` block in `renderGenerateConfirmStep`
+    // so root tsc stays green (L-11207).
     private buildTypologyChooser(
         choices: readonly TypologyChoice[],
         source: 'drawn' | 'default-plot',
@@ -2253,6 +2412,9 @@ export class OnboardingStepController {
      * from the SOLVED envelope (`getLastBuildableEnvelope`) rather than any number this
      * UI computes itself. Returns null when we cannot even name the choice's category.
      */
+    // §L-11131 RETIRED FROM THE SURFACE, NOT DELETED — the advisory line left the pill by
+    // the founder's instruction; called by nothing since, read once by the `void` block in
+    // `renderGenerateConfirmStep` so root tsc stays green (L-11207).
     private zoningAdvisory(choices: readonly TypologyChoice[]): ReturnType<typeof zoningAdvisoryFor> | null {
         const current = choices.find((c) => c.id === this.typologyId);
         if (!current) return null;
@@ -3231,6 +3393,7 @@ export class OnboardingStepController {
         this.step = 'generating';
         this.setDrawingPresentation(false);
         this.overlay?.classList.remove('os-onboarding-overlay--confirm');
+        this.overlay?.classList.remove('os-onboarding-overlay--compact');
         this.overlay?.classList.remove('os-onboarding-overlay--resi');
         this.overlay?.classList.remove('os-onboarding-overlay--office');
         this.setStepIndicator(4, 'Generating');
