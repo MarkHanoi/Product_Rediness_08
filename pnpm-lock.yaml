@@ -971,6 +971,9 @@ importers:
       '@pryzm/command-bus':
         specifier: workspace:*
         version: link:../../packages/command-bus
+      '@pryzm/core-app-model':
+        specifier: workspace:*
+        version: link:../../packages/core-app-model
       '@pryzm/entitlements':
         specifier: workspace:*
         version: link:../../packages/entitlements
@@ -995,6 +998,9 @@ importers:
       '@pryzm/geometry-lift':
         specifier: workspace:*
         version: link:../../packages/geometry-lift
+      '@pryzm/geometry-slab':
+        specifier: workspace:*
+        version: link:../../packages/geometry-slab
       '@pryzm/geospatial':
         specifier: workspace:*
         version: link:../../packages/geospatial
