@@ -2,7 +2,7 @@
 
 Read-only diagnostic lane; nothing tracked was modified. Contract: `docs/02-decisions/contracts/C108-FACADE-RECONSTRUCTION-FROM-IMAGE.md`.
 Line anchors are HEAD `10821b85`; CONF72 (`5cd124af`) shifts them by ~10 lines — cite the anchor TEXT.
-Probes (untracked, gitignored `*.local.mts`): `packages/facade-reconstruction/probe-rp73-main.local.mts` (`{M|H1|H2|H3|H4|H2DBG|corpus[:A,B,…]}`), `probe-rp73-h5.local.mts`, `probe-rp73-corpus-head.local.mts`.
+Probes (committed `e1abf4a4`): `packages/facade-reconstruction/probes/probe-rp73-main.local.mts` (`{M|H1|H2|H3|H4|H2DBG|corpus[:A,B,…]}`), `probes/probe-rp73-h5.local.mts`, `probes/probe-rp73-corpus-head.local.mts`.
 The probe re-implements S7–S9b, the lattice, S13 and S15 locally and asserts agreement with the shipped pipeline on every run (`drawM({})` byte-identical to `caseM()`; replica blobs identical to `diagnostics.blobs`).
 
 **Founder's symptoms (real photo, panel):** horizontals correct; verticals worse than before; many openings missing; arches 2 of 5; projection regions wrong. Case M as drawn reproduces NONE of them; every symptom below was reproduced with a drawn variant.
