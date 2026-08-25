@@ -37,6 +37,9 @@
 import { trace } from '@opentelemetry/api';
 import { doorSystemTypeStore } from '@pryzm/geometry-door';
 import { windowSystemTypeStore } from '@pryzm/geometry-window';
+// §OUTLINE81 (SPEC-WINDOW-CUSTOM-OUTLINE D6) — THE one ring predicate, from the pure subpath
+// (L-11261 import discipline). Draft validation surfaces the refusal's OWN reason text.
+import { resolveCustomOutlineInput, validateCustomOutline } from '@pryzm/geometry-wall/opening-profile';
 
 const _tracer = trace.getTracer('pryzm-engine');
 
@@ -128,6 +131,9 @@ function hostedAdapter(
     store: HostedTypeStore,
     idPrefix: string,
     requiredFinishKeys: readonly string[],
+    // §OUTLINE81 (D6/D12) — a capability PARAMETER, not a family branch (C65 §3.5): whether
+    // this family's type may carry a `customOutline` shape template. Doors do not (D12).
+    supportsOutlineTemplate = false,
 ): TypeStoreAdapter {
     return {
         family,
@@ -147,6 +153,16 @@ function hostedAdapter(
             if (d.glazingOpacity !== undefined &&
                 (typeof d.glazingOpacity !== 'number' || d.glazingOpacity < 0 || d.glazingOpacity > 1)) {
                 return 'draft.glazingOpacity must be a number between 0 and 1';
+            }
+            // §OUTLINE81 (D6) — the shape template is validated by THE one predicate, and the
+            // refusal is the predicate's OWN reason text (C16 CA-18) — never re-derived here.
+            if (d.customOutline !== undefined) {
+                if (!supportsOutlineTemplate) {
+                    return `a ${family} type cannot carry a customOutline template — free-form ` +
+                        `outlines are window-only (SPEC-WINDOW-CUSTOM-OUTLINE D12)`;
+                }
+                const refusal = validateCustomOutline(resolveCustomOutlineInput(d.customOutline));
+                if (refusal) return `draft.customOutline is not a valid outline: ${refusal.reason}`;
             }
             return null;
         },
@@ -177,7 +193,7 @@ function hostedAdapter(
 const ADAPTERS: Record<string, () => TypeStoreAdapter | null> = {
     wall:   wallAdapter,
     door:   () => hostedAdapter('door',   doorSystemTypeStore   as HostedTypeStore, 'dt-custom', ['frameFinish', 'leafFinish']),
-    window: () => hostedAdapter('window', windowSystemTypeStore as HostedTypeStore, 'wt-custom', ['frameFinish', 'sillFinish']),
+    window: () => hostedAdapter('window', windowSystemTypeStore as HostedTypeStore, 'wt-custom', ['frameFinish', 'sillFinish'], /* supportsOutlineTemplate (D6) */ true),
 };
 
 /** The adapter for a family, or null when the family is not authorable. */

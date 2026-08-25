@@ -50,6 +50,17 @@ export const PRESERVED_ON_TYPE_CHANGE: ReadonlySet<string> = new Set([
     'offset', 'width', 'height', 'sillHeight',
     'windowType',
     'mark',
+    // §OUTLINE81 (SPEC-WINDOW-CUSTOM-OUTLINE D6, L-10948) — THE SHAPE AXIS SURVIVES A TYPE
+    // CHANGE, both halves of it. Before this pair was added, `buildWindowStoreRecord`'s
+    // fallback (`o.openingProfile ?? getWindowToolConfig().openingProfile`) leaked the TOOL
+    // CONFIG's profile into the type-change patch — retyping a circular window while the mode
+    // bar sat on Rectangular silently squared it, which is exactly the "type change reshapes"
+    // defect L-10948 rules out. The ring rides with its kind for the same reason: a preserved
+    // `'custom'` whose carrier was overwritten would fail the schema's "carrier iff custom"
+    // refine inside `WindowStore.update`, which throws. "Apply shape from type" (an explicit,
+    // undoable command) is the ONE route that copies the type's template onto an instance.
+    'openingProfile',
+    'customOutline',
 ]);
 
 /** The outcome of planning a window type change. */

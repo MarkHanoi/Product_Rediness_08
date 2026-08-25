@@ -27,8 +27,23 @@
  * surface the explicit missing-type state (C65 §3.4), never a silent fallback.
  */
 
+// §OUTLINE81 (SPEC-WINDOW-CUSTOM-OUTLINE D6) — THE one ring predicate + its tolerant reader,
+// from the pure subpath (L-11261 import discipline). The codec asks the same question every
+// other surface asks; it does not re-derive what a valid ring is.
+import { resolveCustomOutlineInput, validateCustomOutline } from '@pryzm/geometry-wall/opening-profile';
+
 /** The two hosted-opening families this codec serves. */
 export type HostedTypeFamily = 'door' | 'window';
+
+/**
+ * §OUTLINE81 (D6/D12) — which families may carry a `customOutline` shape TEMPLATE on the type.
+ * Doors are excluded by decision (D12: a door is a floor notch; `notchWalk` assumes two feet),
+ * so a door-type snapshot carrying a ring is malformed data, not a future feature.
+ */
+const SUPPORTS_OUTLINE_TEMPLATE: Record<HostedTypeFamily, boolean> = {
+    door:   false,
+    window: true,
+};
 
 /**
  * The finish slots a record MUST carry to be usable by its family's builder.
@@ -72,6 +87,14 @@ export function decodeHostedSystemType(
     }
     // Present-but-wrong is malformed; absent is allowed (the builder defaults).
     if (r.glazingOpacity !== undefined && typeof r.glazingOpacity !== 'number') return null;
+
+    // §OUTLINE81 (D6) — same policy for the shape template: absent is allowed; present must be
+    // a ring THE one predicate accepts (a snapshot may not smuggle in a ring the type editor's
+    // own commit gate would refuse), and only on a family that supports the template (D12).
+    if (r.customOutline !== undefined) {
+        if (!SUPPORTS_OUTLINE_TEMPLATE[family]) return null;
+        if (validateCustomOutline(resolveCustomOutlineInput(r.customOutline)) !== null) return null;
+    }
 
     return {
         ...(structuredClone(raw) as Record<string, unknown>),

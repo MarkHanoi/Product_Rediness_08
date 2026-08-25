@@ -150,6 +150,29 @@ export class CreateWallOpeningCommand implements Command {
             elementId: this.openingElementId
         };
 
+        // §OUTLINE81 (SPEC-WINDOW-CUSTOM-OUTLINE D6, C86 §10.5.b amendment) — TYPE TEMPLATE
+        // ADOPTION AT CREATION, the one moment the template binds. A window created while its
+        // type carries a `customOutline` is created `openingProfile: 'custom'` with a COPY of
+        // the ring on its OWN opening — the instance owns its ring from here on; a later edit
+        // to the type reaches no placed window (L-10948 stays literally true). Placed BEFORE
+        // `addOpening` so the WALL's `{...openingData}` spread and the windowStore whitelist
+        // below both see the same pair — the frame and the void cannot diverge at birth.
+        // An EXPLICIT profile in openingData wins: the caller already decided the shape.
+        if (
+            opening.type !== 'door' &&
+            !opening.openingProfile &&
+            opening.customOutline === undefined &&
+            opening.systemTypeId
+        ) {
+            const t = windowSystemTypeStore.getById(opening.systemTypeId) as
+                | { customOutline?: unknown }
+                | undefined;
+            if (t?.customOutline) {
+                (opening as Record<string, unknown>).openingProfile = 'custom';
+                (opening as Record<string, unknown>).customOutline = structuredClone(t.customOutline);
+            }
+        }
+
         const updatedWall = wallStore.addOpening(this.data.wallId, opening);
         if (!updatedWall) return { success: false, affectedElementIds: [] };
 
@@ -274,6 +297,13 @@ export class CreateWallOpeningCommand implements Command {
                     // STORE RECORD. Omitting it is the C84 EI-2(a) silent-narrowing shape, and this
                     // command already loses four other authored fields exactly this way (C86 §11 #6).
                     ...(opening.openingProfile ? { openingProfile: opening.openingProfile as any } : {}),
+                    // §OUTLINE81 (D6) — the ring travels WITH its kind through the same whitelist,
+                    // for the same reason as the line above: `WindowPlanSymbolBuilder` and the
+                    // schemas' "carrier iff custom" refine both read the STORE RECORD, and a kind
+                    // that arrived without its ring would fail the store's own parse.
+                    ...(opening.customOutline !== undefined
+                        ? { customOutline: structuredClone(opening.customOutline) as any }
+                        : {}),
                     systemTypeId: opening.systemTypeId,
                     mark:         windowMark,
                     ...(winSysType ? {

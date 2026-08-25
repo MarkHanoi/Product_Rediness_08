@@ -106,3 +106,75 @@ describe('decodeHostedSystemType — §CONTEXT-DATA-HONESTY (refuse, never repai
         expect(decoded.tags).toEqual((wire as any).tags);
     });
 });
+
+// ── §OUTLINE81 (SPEC-WINDOW-CUSTOM-OUTLINE D6) — the shape TEMPLATE round-trips ────────────
+describe('§OUTLINE81 — WindowSystemType.customOutline through the codec', () => {
+    const TRIANGLE = { vertices: [{ u: 0, v: 0 }, { u: 1, v: 0 }, { u: 0.5, v: 1 }] };
+
+    function validWindowWithRing() {
+        return {
+            id: 'wt-o81-codec', name: 'O81 Ringed', category: 'custom', isBuiltIn: false,
+            frameFinish: { name: 'Frame', materialColor: '#e8e8e8' },
+            sillFinish:  { name: 'Sill',  materialColor: '#dddddd' },
+            glazingOpacity: 0.3,
+            customOutline: structuredClone(TRIANGLE),
+            metadata: { createdAt: 1, modifiedAt: 1, createdBy: 'test', version: 1 },
+        };
+    }
+
+    it('⭐ encode → decode round-trips the ring verbatim', () => {
+        const wire = encodeHostedSystemType(validWindowWithRing() as any);
+        const decoded = decodeHostedSystemType(wire, 'window')!;
+        expect(decoded).not.toBeNull();
+        expect(decoded.customOutline).toEqual(TRIANGLE);
+    });
+
+    it('⛔ a ring THE one predicate refuses is malformed data — decode returns null', () => {
+        const bad = validWindowWithRing();
+        // bow-tie: self-intersecting — the type editor commit gate would refuse it, so a
+        // snapshot may not smuggle it in either.
+        (bad as any).customOutline = {
+            vertices: [{ u: 0, v: 0 }, { u: 1, v: 1 }, { u: 1, v: 0 }, { u: 0, v: 1 }],
+        };
+        expect(decodeHostedSystemType(bad, 'window')).toBeNull();
+    });
+
+    it('⛔ a DOOR type carrying a ring is malformed (D12: doors never gain custom)', () => {
+        const door = {
+            id: 'dt-o81-codec', name: 'O81 Door', category: 'custom', isBuiltIn: false,
+            frameFinish: { name: 'Frame', materialColor: '#e8e8e8' },
+            leafFinish:  { name: 'Leaf',  materialColor: '#cccccc' },
+            customOutline: structuredClone(TRIANGLE),
+            metadata: { createdAt: 1, modifiedAt: 1, createdBy: 'test', version: 1 },
+        };
+        expect(decodeHostedSystemType(door, 'door')).toBeNull();
+        // control: the SAME record without the ring decodes fine
+        delete (door as any).customOutline;
+        expect(decodeHostedSystemType(door, 'door')).not.toBeNull();
+    });
+
+    it('absent stays allowed — a ringless window type decodes exactly as before', () => {
+        const plain = validWindowWithRing();
+        delete (plain as any).customOutline;
+        const decoded = decodeHostedSystemType(plain, 'window')!;
+        expect(decoded).not.toBeNull();
+        expect(decoded.customOutline).toBeUndefined();
+    });
+
+    it('⭐ REAL-STORE round-trip: authored ring survives encode → clear → decode → add', () => {
+        const source = windowSystemTypeStore.getAll().find(t => t.isBuiltIn)!;
+        const { id: _i, isBuiltIn: _b, metadata: _m, ...rest } = structuredClone(source) as any;
+        const created = performElementTypeAuthoring('create', {
+            family: 'window',
+            draft: { ...rest, name: 'O81 Store RT', customOutline: structuredClone(TRIANGLE) },
+        })!.created;
+
+        const wire = windowSystemTypeStore.getAll()
+            .filter(t => !t.isBuiltIn).map(t => encodeHostedSystemType(t));
+        windowSystemTypeStore.clearCustomTypes();
+        const decoded = decodeHostedSystemType(wire[0], 'window')!;
+        windowSystemTypeStore.add(decoded as any);
+
+        expect((windowSystemTypeStore.getById(created.id) as any)?.customOutline).toEqual(TRIANGLE);
+    });
+});

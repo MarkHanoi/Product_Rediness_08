@@ -59,6 +59,11 @@
 import { trace, type Tracer } from '@opentelemetry/api';
 import { resolveWindowDimensions } from './WindowDimensions';
 import { type OpeningProfileKind, isRectangularProfile } from '@pryzm/geometry-wall';
+// §OUTLINE81 (D6) — the `'custom'` kind's ring carrier + its tolerant reader, from the PURE
+// subpath (L-11261: the bare barrel re-enters itself via WallTool → command-registry → this
+// package, mid-load; the type-only import above predates that finding and survives only by load
+// order — new imports here use the subpath).
+import { resolveCustomOutlineInput, type CustomOutline } from '@pryzm/geometry-wall/opening-profile';
 import { windowSystemTypeStore } from './WindowSystemTypeStore';
 import {
     getWindowToolConfig,
@@ -91,6 +96,13 @@ export interface WindowOpeningData {
      * forget it — which is exactly how three fields were lost in three subsystems this week.
      */
     readonly openingProfile: OpeningProfileKind;
+    /**
+     * §OUTLINE81 (SPEC-WINDOW-CUSTOM-OUTLINE D6) — present iff `openingProfile === 'custom'`:
+     * a COPY of the active type's `customOutline` template, taken at creation. The instance
+     * owns this ring from here on (C86 §10.5.b amendment); later edits to the type's template
+     * do not reach it.
+     */
+    readonly customOutline?: CustomOutline;
     readonly frameThickness: number;
     readonly frameDepth: number;
     readonly glazingThickness: number;
@@ -173,8 +185,31 @@ export function buildWindowOpening(input: BuildWindowOpeningInput): WindowOpenin
             // every downstream consumer already measures an opening by (occupancy span, the
             // corner-overflow cap, `clampToWall`, the `WxH` grammar), so taking it keeps all of
             // them correct with no second rule.
-            const openingProfile: OpeningProfileKind =
+            let openingProfile: OpeningProfileKind =
                 input.config?.openingProfile ?? stored.openingProfile;
+
+            // ── §OUTLINE81 (SPEC-WINDOW-CUSTOM-OUTLINE D6/D7) — TYPE TEMPLATE ADOPTION ────
+            //
+            // A window created while its type carries a `customOutline` is created
+            // `openingProfile: 'custom'` with a COPY of that ring on its own record. The ring
+            // WINS over the profile pill — the pre-draw picker shows the shape as a READ-ONLY
+            // `custom (from type)` pill while such a type is active (D7), so there is no live
+            // choice for it to override; honouring the pill's stored value here instead would
+            // make the picker lie. The COPY (structuredClone, not a reference) is what makes
+            // the template one-way: editing the type's outline later reaches no placed window
+            // (L-10948 stays literally true; "Apply shape from type" is the explicit route).
+            // `resolveCustomOutlineInput` is the tolerant reader — a malformed template ring
+            // adopts nothing rather than minting a window its own store's schema refuses.
+            const typeRing = resolveCustomOutlineInput(
+                (windowSystemTypeStore.getById(systemTypeId) as { customOutline?: unknown } | undefined)
+                    ?.customOutline,
+            );
+            let customOutline: CustomOutline | undefined;
+            if (typeRing) {
+                openingProfile = 'custom';
+                customOutline = structuredClone(typeRing);
+            }
+
             const isCircle = openingProfile === 'circular';
             const resolvedWidth  = dims.width;
             const resolvedHeight = isCircle ? dims.width : dims.height;
@@ -198,6 +233,8 @@ export function buildWindowOpening(input: BuildWindowOpeningInput): WindowOpenin
                 height:           resolvedHeight,
                 sillHeight:       dims.sillHeight,
                 openingProfile,
+                // §OUTLINE81 (D6) — the ring rides WITH its kind; absent for every other kind.
+                ...(customOutline ? { customOutline } : {}),
                 frameThickness:   dims.frameThickness,
                 frameDepth:       wallThickness,
                 glazingThickness: dims.glazingThickness,
@@ -318,9 +355,37 @@ export function buildWindowStoreRecord(input: BuildWindowStoreRecordInput): Reco
                 // The opening's OWN value wins, falling back to the tool config, mirroring how
                 // `systemTypeId` is resolved above: a replayed or legacy opening that predates
                 // the field is rectangular, which is what it always was.
-                openingProfile:   typeof o.openingProfile === 'string' && o.openingProfile.length > 0
-                    ? o.openingProfile
-                    : getWindowToolConfig().openingProfile,
+                ...(() => {
+                    // §OUTLINE81 (D6) — the shape PAIR resolves together, one IIFE so the two
+                    // keys cannot be computed against different sources. The opening's own value
+                    // wins, falling back to the tool config, exactly as before for the kind.
+                    const profile = typeof o.openingProfile === 'string' && o.openingProfile.length > 0
+                        ? o.openingProfile
+                        : getWindowToolConfig().openingProfile;
+                    if (profile !== 'custom') return { openingProfile: profile };
+                    // The ring: the opening's own, else the TYPE's template (a replayed opening
+                    // written before the carrier was persisted). Tolerant reads on both — this
+                    // is a LOAD-adjacent path and must not throw on a malformed value.
+                    const ring = resolveCustomOutlineInput(o.customOutline)
+                        ?? resolveCustomOutlineInput(
+                            (sysType as { customOutline?: unknown } | undefined)?.customOutline,
+                        );
+                    if (!ring) {
+                        // ⛔ `'custom'` WITHOUT a ring would fail the store schema's "carrier iff
+                        // custom" refine, and `WindowStore.add` THROWS on a failed parse — on a
+                        // load path that bricks the record entirely. Degrading to rectangular is
+                        // the same tolerant-load asymmetry `resolveOpeningProfile` documents, and
+                        // it is LOUD, never silent.
+                        console.warn(
+                            `[WindowOpeningFactory] window ${elementId} claims openingProfile ` +
+                            `'custom' but carries no recoverable ring (and its type ` +
+                            `"${systemTypeId}" has no template) — degrading to 'rectangular' so ` +
+                            `the record loads. The shape is LOST; re-apply it from the type.`,
+                        );
+                        return { openingProfile: 'rectangular' };
+                    }
+                    return { openingProfile: 'custom', customOutline: structuredClone(ring) };
+                })(),
                 // §L-266 — PERSIST THE PROFILE. Before this, `buildWindowOpening` resolved
                 // the frame/sash/mullion sections and BOTH store writers threw them away,
                 // so the symbol had to re-derive them and could not honour a per-instance

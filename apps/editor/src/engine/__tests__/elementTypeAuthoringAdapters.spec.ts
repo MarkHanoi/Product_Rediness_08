@@ -156,3 +156,39 @@ describe('performElementTypeAuthoring — create / undo material (CA-11)', () =>
         expect(doorSystemTypeStore.getById(again.id)?.name).toBe('Deleted Then Restored');
     });
 });
+
+// ── §OUTLINE81 (SPEC-WINDOW-CUSTOM-OUTLINE D6) — the shape template in draft validation ─────
+describe('§OUTLINE81 — customOutline template on drafts', () => {
+    const TRIANGLE = { vertices: [{ u: 0, v: 0 }, { u: 1, v: 0 }, { u: 0.5, v: 1 }] };
+    const BOWTIE = { vertices: [{ u: 0, v: 0 }, { u: 1, v: 1 }, { u: 1, v: 0 }, { u: 0, v: 1 }] };
+
+    function windowDraft(extra: Record<string, any> = {}) {
+        const source = windowSystemTypeStore.getAll().find(t => t.isBuiltIn)!;
+        return { ...draftFrom(source as any, 'O81 Draft'), ...extra };
+    }
+
+    it('a window draft with a VALID ring passes, creates, and the record carries it', () => {
+        const err = validateElementTypeCommand(
+            { family: 'window', draft: windowDraft({ customOutline: TRIANGLE }) }, 'create');
+        expect(err).toBeNull();
+        const { created } = performElementTypeAuthoring('create', {
+            family: 'window', draft: windowDraft({ customOutline: TRIANGLE }),
+        })!;
+        expect(created.customOutline).toEqual(TRIANGLE);
+        windowSystemTypeStore.remove(created.id);
+    });
+
+    it('⛔ a self-intersecting ring is refused with THE predicate\'s own reason (CA-18)', () => {
+        const err = validateElementTypeCommand(
+            { family: 'window', draft: windowDraft({ customOutline: BOWTIE }) }, 'create');
+        expect(err).toContain('cross');   // the crossing named, not a bare "invalid"
+    });
+
+    it('⛔ a DOOR draft carrying a ring is refused naming D12', () => {
+        const source = doorSystemTypeStore.getAll().find(t => t.isBuiltIn)!;
+        const err = validateElementTypeCommand(
+            { family: 'door', draft: { ...draftFrom(source as any, 'O81 Door'), customOutline: TRIANGLE } },
+            'create');
+        expect(err).toContain('window-only');
+    });
+});
