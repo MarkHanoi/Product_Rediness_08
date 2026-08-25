@@ -106,6 +106,29 @@ export interface PreviewExtrudedOutlinePart {
 /** Every part shape the renderer can draw. A part with no `kind` is a box (the original). */
 export type AnyPreviewPart = PreviewPart | PreviewExtrudedOutlinePart;
 
+/**
+ * §OUTLINE81 — THE ONE narrowing predicate for {@link AnyPreviewPart}, and the reason it
+ * exists rather than each consumer writing `'kind' in part && part.kind === '…'` inline.
+ *
+ * ⛔ That inline form narrows only the POSITIVE branch. The negative branch of a compound
+ * `A && B` is `!A || !B`, which TypeScript cannot collapse back to "therefore a box", so
+ * `part` stays the full union and every `part.size` read after the `else` fails to compile —
+ * which is exactly how three sites in `ElementPreviewRenderer` and four in its spec went red
+ * the moment the second member joined the union. A user-defined type guard narrows BOTH
+ * branches, so the box arm gets `PreviewPart` for free and no consumer needs a cast.
+ *
+ * `PreviewPart` carries no `kind` at all (a box is the original shape and predates the
+ * union), so the discriminant is the PRESENCE of the property, not its value.
+ */
+export function isExtrudedOutlinePart(part: AnyPreviewPart): part is PreviewExtrudedOutlinePart {
+    return 'kind' in part && part.kind === 'extrudedOutline';
+}
+
+/** The complement of {@link isExtrudedOutlinePart} — a box part, the original shape. */
+export function isBoxPart(part: AnyPreviewPart): part is PreviewPart {
+    return !isExtrudedOutlinePart(part);
+}
+
 export interface PreviewSubject {
     /** Changes whenever the drawn content changes; the canvas re-renders on a new key. */
     readonly key: string;

@@ -57,6 +57,8 @@ import type {
     PreviewExtrudedOutlinePart,
     PreviewSubject,
 } from './OpeningPreviewSubject';
+// §OUTLINE81 — the ONE narrowing predicate for the part union (a value import, not a type).
+import { isExtrudedOutlinePart } from './OpeningPreviewSubject';
 import type { GraphSubject } from './GraphPreviewSubject';
 
 /**
@@ -351,7 +353,7 @@ function buildContent(r: Rig, subject: PreviewSubject): void {
     const [ex, ey] = subject.extent;
     for (const part of subject.parts) {
         let geo: THREE.BufferGeometry;
-        if ('kind' in part && part.kind === 'extrudedOutline') {
+        if (isExtrudedOutlinePart(part)) {
             // §OUTLINE81 (D8) — the outline part, extruded on this already-P2-legal path.
             // The points arrive in the subject's own (x, y) elevation metres; the shape
             // carries its own position, so the mesh sits at `center` (typically the

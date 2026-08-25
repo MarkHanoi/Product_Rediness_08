@@ -363,6 +363,20 @@ export function doorTypeRows(): { columns: string[]; rows: string[][] } {
     };
 }
 
+/**
+ * §OUTLINE81 (SPEC-WINDOW-CUSTOM-OUTLINE D7 · C86 §10.5.a) — the Outline column's cell.
+ *
+ * A window type either carries an authored free-form ring or it does not; absent means the
+ * type is rectangular, which is what every window authored before the `custom` kind existed
+ * is (C86 §10.1 PR-2's byte-identity rule, stated here in words a reader of the schedule can
+ * check). The vertex count is reported because it is the one number that distinguishes two
+ * custom outlines at a glance in a table that cannot draw them.
+ */
+function outlineSummary(ring: { readonly vertices: readonly unknown[] } | undefined): string {
+    const n = ring?.vertices.length ?? 0;
+    return n > 0 ? `Custom outline (${n} vertices)` : 'Rectangular';
+}
+
 export function windowTypeRows(): { columns: string[]; rows: string[][] } {
     const types = windowSystemTypeStore.getAll();
     return {
@@ -378,9 +392,12 @@ export function windowTypeRows(): { columns: string[]; rows: string[][] } {
             t.name, t.id, t.category,
             t.frameFinish.name, t.sillFinish.name,
             t.glazingOpacity === 0 ? 'Clear glass' : t.glazingOpacity === 1 ? 'Opaque' : `${Math.round((1 - t.glazingOpacity) * 100)}% glazed`,
-            (t as { customOutline?: { vertices?: unknown[] } }).customOutline?.vertices?.length
-                ? `Custom outline (${(t as { customOutline: { vertices: unknown[] } }).customOutline.vertices.length} vertices)`
-                : 'Rectangular',
+            // §OUTLINE81 — `customOutline` is a REAL declared field on `WindowSystemType` now
+            // (`WindowSystemTypeStore.ts:154`), so it is read directly. The two structural casts
+            // that stood here were written before the field existed and became a compile ERROR
+            // the moment it did — TS2352, "neither type sufficiently overlaps" — because the
+            // invented shape (`vertices?: unknown[]`) contradicted the real `CustomOutline`.
+            outlineSummary(t.customOutline),
             t.isBuiltIn ? 'Built-in' : 'Custom',
         ]),
     };

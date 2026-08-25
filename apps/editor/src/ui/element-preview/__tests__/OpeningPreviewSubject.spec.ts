@@ -22,6 +22,7 @@ import {
     buildWindowPreviewSubject,
     buildDoorPreviewSubject,
     buildOpeningPreviewSubject,
+    isBoxPart,
 } from '../OpeningPreviewSubject';
 
 const WINDOW_DRAFT = {
@@ -61,7 +62,11 @@ describe('§OPENING-SHOWROOM-PREVIEW — the subject does not invent dimensions 
 
     it('the frame members are the RESOLVED frameThickness, not a literal', () => {
         const d = resolveWindowDimensions({ systemTypeId: WINDOW_DRAFT.id, windowType: 'single' });
-        const head = buildWindowPreviewSubject(WINDOW_DRAFT).parts.find((p) => p.name === 'frame-head');
+        // §OUTLINE81 — `parts` is a union since the extruded-outline part joined it; the frame
+        // head of a RECTANGULAR window is a box, and `isBoxPart` is the one predicate that says so.
+        const head = buildWindowPreviewSubject(WINDOW_DRAFT).parts
+            .filter(isBoxPart)
+            .find((p) => p.name === 'frame-head');
         expect(head).toBeDefined();
         expect(head!.size[1]).toBeCloseTo(d.frameThickness, 6);
         expect(head!.size[2]).toBeCloseTo(d.frameDepth, 6);
@@ -130,10 +135,15 @@ describe('§OPENING-SHOWROOM-PREVIEW — subdivision comes from the TYPE', () =>
             defaultRowRatios: [],
         }).parts;
         expect(parts.filter((p) => p.name.startsWith('glass-')).length).toBe(1);
+        // ⛔ `center` is asserted on EVERY part — an extruded outline has one too, and a
+        // non-finite centre would put it nowhere. `size` exists only on the box arm, so it is
+        // asserted there; narrowing it away would silently stop checking the boxes this test
+        // was written for (§OUTLINE81 — the union arrived after this assertion did).
         for (const p of parts) {
+            expect(Number.isFinite(p.center[1])).toBe(true);
+            if (!isBoxPart(p)) continue;
             expect(Number.isFinite(p.size[0])).toBe(true);
             expect(Number.isFinite(p.size[1])).toBe(true);
-            expect(Number.isFinite(p.center[1])).toBe(true);
         }
     });
 
