@@ -140,7 +140,7 @@ describe('§FIX-SITE-OVERLAY-ENTER-CANVAS (L-78) — Finish lands in a framed ca
         // Wizard disposed; NO generate-confirm ever shown.
         expect(document.querySelector('[data-testid="onboarding-step-overlay"]')).toBeNull();
         expect(document.querySelector('[data-testid="onboarding-confirm-title"]')).toBeNull();
-        expect(document.querySelector('[data-testid="onboarding-confirm-generate"]')).toBeNull();
+        expect(document.querySelector('[data-testid="onboarding-typology-chooser"]')).toBeNull();
     });
 
     it('falls back to a plain GIS-exit when the BIM-view hook is absent', async () => {

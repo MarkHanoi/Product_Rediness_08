@@ -2025,139 +2025,104 @@ export class OnboardingStepController {
         const deferToOfficeSetup = this.isOfficeTypology();
 
         const body = this.clearBody();
-
-        console.log(`[onboarding-step] confirm step (source="${source}", typology="${this.typologyId}").`);
-
-        // ── §TYPOLOGY-CHOICE-AT-CONFIRM — the chooser ────────────────────────────
-        // The founder's ask (2026-08-07): let the user CHOOSE what to build at this
-        // moment, instead of inheriting the silent `'apartment'` default that
-        // `resolveSeededTypologyId` stamps for the no-modal "+ New Project" gesture.
-        // Options come from the REGISTRY (C50 §5.3 — registry-driven, never a
-        // hard-coded list), filtered to those with a wired generator so no entry can
-        // silently no-op. When only one typology is offerable the chooser is omitted
-        // entirely rather than rendering a single dead radio.
-        const choices = this.offerableTypologies();
-        if (choices.length > 1) {
-            body.appendChild(this.buildTypologyChooser(choices, source));
-        }
-        // §CONFIRM-PANEL-UX (C43) — selecting a chip re-renders this whole step, which
-        // destroys the element that had focus. Restore it onto the newly checked chip
-        // so keyboard selection can continue; only ever set by the chooser itself, so a
-        // fresh confirm step never steals focus from the map.
-        const restoreFocusTo = this.pendingChooserFocus;
-        this.pendingChooserFocus = null;
-        if (restoreFocusTo) {
-            const chip = body.querySelector<HTMLElement>(`[data-typology-id="${CSS.escape(restoreFocusTo)}"]`);
-            chip?.focus();
-        }
-
-        const typology = this.typologyLabel();
-
-        // §CONFIRM-PANEL-UX — title / body / CTA are DERIVED from the chosen route by
-        // one pure function, so the three can never describe different buildings. The
-        // body line used to be hard-coded to "rooms, walls, doors and windows", i.e. an
-        // apartment, on a card that can now generate a house, a residential building or
-        // an office tower. See `confirmCopyFor`'s block comment.
-        const copy = confirmCopyFor(resolveGenerateRoute(this.typologyId), typology, source);
-
-        const title = document.createElement('p');
-        title.className = 'os-prompt';
-        title.textContent = copy.title;
-        title.setAttribute('data-testid', 'onboarding-confirm-title');
-        body.appendChild(title);
-
-        const sub = document.createElement('p');
-        sub.className = 'os-hint';
-        sub.textContent = copy.body;
-        sub.setAttribute('data-testid', 'onboarding-confirm-body');
-        body.appendChild(sub);
-
-        // The zoning advisory for the CURRENT choice. Advisory only — see
-        // `zoningAdvisoryFor`'s block comment for the C58 §10.2 justification.
-        const advisory = this.zoningAdvisory(choices);
-        if (advisory && advisory.kind !== 'permitted') {
-            const note = document.createElement('p');
-            note.className = advisory.kind === 'conflict' ? 'os-hint os-hint--warn' : 'os-hint os-hint--muted';
-            note.setAttribute('data-testid', `onboarding-confirm-zoning-${advisory.kind}`);
-            note.textContent = advisory.message;
-            body.appendChild(note);
-        }
-
-        const actions = document.createElement('div');
-        actions.className = 'os-confirm-actions';
-
-        const generate = document.createElement('button');
-        generate.type = 'button';
-        generate.className = 'os-btn os-btn--primary';
-        generate.setAttribute('data-testid', 'onboarding-confirm-generate');
-        generate.textContent = copy.cta;
-
-        const notNow = document.createElement('button');
-        notNow.type = 'button';
-        notNow.className = 'os-btn os-btn--ghost';
-        notNow.setAttribute('data-testid', 'onboarding-confirm-notnow');
-        notNow.textContent = `Not now — I'll design it myself`;
-
-        // §L-384 — BACK: return to re-draw (drawn) / plot choice (default), clearing the
-        // immutable C19 boundary first (clear-then-recreate, never a mutation).
-        const back = document.createElement('button');
-        back.type = 'button';
-        back.className = 'os-btn os-btn--ghost';
-        back.setAttribute('data-testid', 'onboarding-confirm-back');
-        back.textContent = source === 'drawn' ? '← Back to drawing' : '← Back';
-        back.addEventListener('click', () => this.backFromConfirm(source));
-
-        // §CONFIRM-PANEL-UX — the primary CTA takes its own full-width row; the two
-        // EXITS share the row beneath it. Previously all three sat in one wrapping row
-        // at equal weight, which forced the card to be as wide as the longest label
-        // ("Not now — I'll design it myself") — most of why it was 560px. Both exits
-        // keep their full wording: the founder's constraint is fewer WORDS, not less
-        // clarity, and "I'll design it myself" is a first-class outcome (§L-424), so it
-        // is de-emphasised in weight, never in legibility.
+        // §UX-COMPACT-TYPE-PILL (founder 2026-08-25: "this panel 'set up your project' is
+        // terrible — make it much simpler and on the top, following the standard
+        // rectangular shape with curved edges: just a drop-down with the building
+        // typologies. Initially you only see BUILDING TYPE / DO IT MYSELF — that's all").
         //
-        // DOM order IS the tab order: Generate → Back → Not now. The action the user
-        // most likely wants comes first after the chooser.
-        actions.appendChild(generate);
-        const exits = document.createElement('div');
-        exits.className = 'os-confirm-exits';
-        exits.appendChild(back);
-        exits.appendChild(notNow);
-        actions.appendChild(exits);
-        body.appendChild(actions);
+        // So: ONE pill, docked at the top beside the view-mode bar, two controls.
+        //   · BUILDING TYPE ▾  — the registry-driven choices (C50 §5.3), never a
+        //     hard-coded list; choosing IS the opt-in and routes exactly where the old
+        //     Generate button did (residential/office → their setup steps; apartment/
+        //     house → generate). Nothing is pre-selected, so nothing generates until
+        //     the user picks (ASK, never auto-edit).
+        //   · Do it myself      — the §L-424 first-class exit, unchanged in behaviour.
+        // The title, the step chip, the sentence, the advisory and "Back to drawing"
+        // are gone from this surface by the founder's explicit instruction; the
+        // re-draw path remains the boundary tool itself.
+        this.overlay?.classList.add('os-onboarding-overlay--compact');
+        console.log(`[onboarding-step] confirm step (source="${source}", typology="${this.typologyId}") — compact type pill.`);
 
-        generate.addEventListener('click', () => {
-            // §RESI-SETUP-AFTER-GENERATE — residential opens its SETUP panel here, AFTER the user has
-            // seen the parcel + envelope and explicitly asked to generate. Every other typology goes
-            // straight to the generator, exactly as before.
-            if (deferToResidentialSetup) {
-                console.log('[onboarding-step] confirm → GENERATE BUILDING — opening the residential setup step.');
+        const choices = this.offerableTypologies();
+        const row = document.createElement('div');
+        row.className = 'os-compact-row';
+        row.setAttribute('data-testid', 'onboarding-compact-pill');
+
+        const label = document.createElement('label');
+        label.className = 'os-compact-label';
+        label.htmlFor = 'os-compact-typology';
+        label.textContent = 'BUILDING TYPE';
+
+        const select = document.createElement('select');
+        select.id = 'os-compact-typology';
+        select.className = 'os-compact-select';
+        select.setAttribute('data-testid', 'onboarding-typology-chooser');
+        select.setAttribute('aria-label', 'Building type');
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Choose…';
+        placeholder.disabled = true;
+        placeholder.selected = true;
+        select.appendChild(placeholder);
+        if (choices.length > 0) {
+            for (const c of choices) {
+                const o = document.createElement('option');
+                o.value = c.id;
+                o.textContent = c.chooserLabel || c.label;
+                select.appendChild(o);
+            }
+        } else {
+            // Registry unreachable: offer the current typology alone rather than an
+            // empty control — degrading to one choice is safe, inventing options is not.
+            const o = document.createElement('option');
+            o.value = this.typologyId;
+            o.textContent = this.typologyLabel();
+            select.appendChild(o);
+        }
+
+        // The SAME routing the Generate button used, re-derived from the choice at
+        // the moment of choosing so the three paths can never disagree with the pick.
+        const go = (): void => {
+            if (resolveGenerateRoute(this.typologyId) === 'residential-building') {
+                console.log('[onboarding-step] type pill → residential — opening the residential setup step.');
                 this.renderResidentialProgramStep(source);
                 return;
             }
-            // §TYPOLOGY-CHOICE-AT-CONFIRM — the office tower's setup step, now reached
-            // only from this opt-in (see `deferToOfficeSetup` above).
-            if (deferToOfficeSetup) {
-                console.log('[onboarding-step] confirm → GENERATE TOWER — opening the office setup step.');
+            if (this.isOfficeTypology()) {
+                console.log('[onboarding-step] type pill → office — opening the office setup step.');
                 this.renderOfficeProgramStep(source);
                 return;
             }
-            console.log('[onboarding-step] confirm → GENERATE (AI dispatch).');
+            console.log('[onboarding-step] type pill → GENERATE (AI dispatch).');
             this.overlay?.classList.remove('os-onboarding-overlay--confirm');
+            this.overlay?.classList.remove('os-onboarding-overlay--compact');
             void this.generateAndFinish();
+        };
+        select.addEventListener('change', () => {
+            const id = select.value;
+            if (!id) return;
+            if (id !== this.typologyId) this.setTypology(id);
+            go();
         });
+
+        const notNow = document.createElement('button');
+        notNow.type = 'button';
+        notNow.className = 'os-btn os-btn--ghost os-compact-notnow';
+        notNow.setAttribute('data-testid', 'onboarding-confirm-notnow');
+        notNow.textContent = 'Do it myself';
         notNow.addEventListener('click', () => {
-            // §L-424 (founder live-traced) — "I'll design it myself" must LAND THE USER IN THE
-            // PRYZM CANVAS, not just dispose the overlay (which stranded them on the 2D-map +
-            // Cesium site split — "on continue doesn't really continue to pryzm view yet").
-            // `landInCanvasWithUnderlay` runs the SAME tested transition Generate uses
-            // (close map → exit GIS / unmount the site split → BIM 3D + plan view, framed on the
-            // plot) but WITHOUT generating — so the user arrives in the editor with the parcel
-            // boundary + buildable-envelope volume already drawn as design guides
-            // (ParcelBoundarySceneRenderer, both 3D + plan), the site/boundary intact, ready to author.
-            console.log('[onboarding-step] confirm → NOT NOW — landing in the PRYZM canvas (boundary + envelope guides), no generate.');
+            // §L-424 (founder live-traced) — "I'll design it myself" must LAND THE USER IN
+            // THE PRYZM CANVAS with the parcel boundary + envelope as guides, no generate.
+            console.log('[onboarding-step] type pill → DO IT MYSELF — landing in the PRYZM canvas, no generate.');
             this.toast('Your plot + buildable envelope are in the canvas — design away, or generate any time from the AI panel.', 'info');
             void this.landInCanvasWithUnderlay();
         });
+
+        row.appendChild(label);
+        row.appendChild(select);
+        row.appendChild(notNow);
+        body.appendChild(row);
+        select.focus();
     }
 
     /**

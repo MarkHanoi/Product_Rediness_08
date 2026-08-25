@@ -1683,4 +1683,75 @@ export const ONBOARDING_STYLES = `
 }
 .rac-onboarding-overlay .rac-resize-grip:hover,
 .os-onboarding-overlay .os-resize-grip:hover { opacity: 0.9; }
+
+/* ── §UX-COMPACT-TYPE-PILL (founder 2026-08-25) — the confirm step as ONE pill at the
+   top, beside the view-mode bar: BUILDING TYPE ▾ + Do it myself. Same glass, same
+   radius token as the launcher pills; header / step chip / footer / grip hidden. ── */
+.os-onboarding-overlay.os-onboarding-overlay--compact {
+  inset: auto;
+  top: 56px;
+  left: 50%;
+  bottom: auto;
+  transform: translateX(-50%);
+  width: auto;
+  max-width: 94vw;
+  height: auto;
+  max-height: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+  pointer-events: none;
+}
+.os-onboarding-overlay.os-onboarding-overlay--compact .os-header,
+.os-onboarding-overlay.os-onboarding-overlay--compact .os-footer,
+.os-onboarding-overlay.os-onboarding-overlay--compact .os-resize-grip { display: none; }
+.os-onboarding-overlay.os-onboarding-overlay--compact .os-body {
+  pointer-events: auto;
+  flex: 0 0 auto;
+  overflow: visible;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+.os-onboarding-overlay .os-compact-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  background: var(--app-panel-glass);
+  backdrop-filter: var(--app-panel-glass-blur);
+  -webkit-backdrop-filter: var(--app-panel-glass-blur);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-md);
+  box-shadow: var(--app-shadow-panel);
+  white-space: nowrap;
+}
+.os-onboarding-overlay .os-compact-label {
+  font: 700 11px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--app-accent);
+}
+.os-onboarding-overlay .os-compact-select {
+  font: 600 12px/1.2 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--app-text);
+  background: #fff;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-sm);
+  padding: 5px 8px;
+  min-width: 150px;
+  cursor: pointer;
+}
+.os-onboarding-overlay .os-compact-notnow {
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 999px;
+}
 `;

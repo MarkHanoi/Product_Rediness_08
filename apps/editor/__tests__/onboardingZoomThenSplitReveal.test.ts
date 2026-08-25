@@ -87,7 +87,7 @@ describe('§22 — the early-split boundary listener (§21.1 finding 2, re-appli
         (controller as unknown as { armEarlySplitBoundaryListener(): void }).armEarlySplitBoundaryListener();
 
         runtime.events.emit('site.parcel-boundary-set', {});
-        expect(document.querySelector('[data-testid="onboarding-confirm-generate"]')).toBeTruthy();
+        expect(document.querySelector('[data-testid="onboarding-typology-chooser"]')).toBeTruthy();
     });
 
     it('is ONE-SHOT — a second boundary event does not re-render the confirm step', () => {
@@ -101,7 +101,7 @@ describe('§22 — the early-split boundary listener (§21.1 finding 2, re-appli
         // Navigate away, then re-emit — nothing may drag the user back to confirm.
         (controller as unknown as { renderSiteStep(): void }).renderSiteStep();
         runtime.events.emit('site.parcel-boundary-set', {});
-        expect(document.querySelector('[data-testid="onboarding-confirm-generate"]')).toBeNull();
+        expect(document.querySelector('[data-testid="onboarding-typology-chooser"]')).toBeNull();
         expect(document.querySelector('[data-testid="onboarding-site-draw"]')).toBeTruthy();
     });
 
@@ -135,6 +135,6 @@ describe('§22 — the early-split boundary listener (§21.1 finding 2, re-appli
         // The listener was disarmed before the emit, so exactly one confirm rendered — the
         // default-plot one, not a 'drawn'-labelled duplicate underneath it.
         expect(runtime.listenerCount('site.parcel-boundary-set')).toBe(0);
-        expect(document.querySelectorAll('[data-testid="onboarding-confirm-generate"]').length).toBe(1);
+        expect(document.querySelectorAll('[data-testid="onboarding-typology-chooser"]').length).toBe(1);
     });
 });
