@@ -189,6 +189,15 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
     private _arcMidPt:    WorldPoint | null = null;
     private _segmentCount = 0;
     private _cursor:      WorldPoint | null = null;
+    /**
+     * §CW90-PLAN-ENTER-CLOSES (C87 §13.8 CW-Poly-1, plan half) — THE ORIGIN of
+     * the polyline run. `_startPt` is the moving chain head (it advances to the
+     * last committed endpoint), so closing the loop needs the FIRST point kept
+     * separately — the same `_polylineFirstPoint` split `WallPlanToolHandler`
+     * carries. C87 §13.8 records this handler's absence of exactly this field
+     * ("no ENTER handler, no polyline origin and no closure at all").
+     */
+    private _polylineOrigin: WorldPoint | null = null;
 
     // ── DOM elements (owned by this handler, cleaned up in deactivate) ────────
     private _modeBar:       HTMLElement | null = null;
@@ -212,6 +221,7 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
         this._arcMidPt      = null;
         this._segmentCount  = 0;
         this._cursor        = null;
+        this._polylineOrigin = null;
         // §CURTAIN-WALL-AUDIT-2026 §7 (PERF-FIX-1): defer per-wall shadow passes
         // while the user is actively placing curtain walls in plan view. Shadows
         // are batched and re-enabled in one idle-callback flush on deactivate.
@@ -233,6 +243,7 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
         this._arcMidPt      = null;
         this._segmentCount  = 0;
         this._cursor        = null;
+        this._polylineOrigin = null;
         this._ctx           = null;
     }
 
@@ -259,6 +270,9 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
 
         if (!this._startPt) {
             this._startPt       = resolved;
+            // §CW90-PLAN-ENTER-CLOSES — the run's ORIGIN, kept while _startPt
+            // advances along the chain so ENTER can close back to it.
+            this._polylineOrigin = resolved;
             this._arcMidPt      = null;
             this._segmentCount  = 0;
             this._syncStatusOverlay();
@@ -298,6 +312,26 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
             return true;
         }
 
+        // §CW90-PLAN-ENTER-CLOSES (C87 §13.8 CW-Poly-1, the PLAN half) — ENTER
+        // closes the loop exactly as the wall tool does: after >= 2 committed
+        // segments, connect the chain head back to the run's origin as ONE more
+        // straight segment (one command, one undo entry — the wall's own shape).
+        // With no loop to close, ENTER commits the segment under the cursor,
+        // mirroring `WallPlanToolHandler`'s fallback arm.
+        if (e.key === 'Enter') {
+            if (this._canClosePolyline()) {
+                e.preventDefault();
+                this._closePolyline();
+                return true;
+            }
+            if (this._startPt && this._cursor) {
+                e.preventDefault();
+                this._commit(this._cursor);
+                return true;
+            }
+            return false;
+        }
+
         if (e.key === 'Escape') {
             if (this._arcMidPt) {
                 this._arcMidPt = null;
@@ -316,8 +350,51 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
         this._arcMidPt      = null;
         this._segmentCount  = 0;
         this._cursor        = null;
+        this._polylineOrigin = null;
         this._syncStatusOverlay();
         this._clearOverlay();
+    }
+
+    /**
+     * §CW90-PLAN-ENTER-CLOSES — ONE predicate, asked by ENTER and by the status
+     * text, so an affordance can never appear while the key refuses (the C87
+     * §13.8 lesson: wall re-typed its predicate five times and the copies
+     * drifted; the 3-D `CurtainWallTool._canClosePolyline()` extracted one, and
+     * this is its plan-surface twin). Two points with no committed segment is a
+     * chain, not a loop; a curved in-flight arc has no straight closure.
+     */
+    private _canClosePolyline(): boolean {
+        const mode = _getMode(this._deps);
+        return (mode === 'linear' || mode === 'ortho')
+            && this._segmentCount >= 2
+            && this._polylineOrigin !== null
+            && this._startPt !== null;
+    }
+
+    /**
+     * §CW90-PLAN-ENTER-CLOSES — commit the closing segment (chain head -> run
+     * origin) through the SAME `_commit()` every other segment uses: one
+     * `curtain-wall.create`, one undo entry, exactly like the wall tool's
+     * `_closePolyline()` (its 0.1 m minimum included), then reset the run.
+     */
+    private _closePolyline(): void {
+        const head   = this._startPt;
+        const origin = this._polylineOrigin;
+        if (!head || !origin) return;
+
+        if (Math.hypot(origin.worldX - head.worldX, origin.worldZ - head.worldZ) >= 0.1) {
+            this._arcMidPt = null; // force a straight closing segment
+            this._commit(origin);
+        }
+
+        this._startPt        = null;
+        this._polylineOrigin = null;
+        this._arcMidPt       = null;
+        this._segmentCount   = 0;
+        this._cursor         = null;
+        this._syncStatusOverlay();
+        this._clearOverlay();
+        console.log('[CurtainWallPlanToolHandler] Polyline closed');
     }
 
     redraw(): void {
@@ -699,6 +776,10 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
                 textEl.textContent = 'Click arc midpoint · Esc to cancel arc';
             } else if (mode === 'curved' && this._arcMidPt) {
                 textEl.textContent = 'Click end point to commit arc curtain wall';
+            } else if (this._canClosePolyline()) {
+                // §CW90-PLAN-ENTER-CLOSES — the hint asks the SAME predicate the
+                // key asks, so it can never advertise a refusal (C87 §13.8).
+                textEl.textContent = 'Click next point · ↵ Enter closes the loop · Esc to cancel';
             } else {
                 textEl.textContent = 'Click next point · chains automatically · Esc to cancel';
             }
