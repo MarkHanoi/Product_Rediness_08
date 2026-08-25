@@ -132,6 +132,7 @@ export const layerElements = [
   { type: 'L1', pattern: 'packages/geospatial/**' },       // [floor]  leaf, pure coordinate transforms (C12)
   { type: 'L1', pattern: 'packages/storage-driver/**' },   // [floor]  leaf
   { type: 'L1', pattern: 'packages/oauth2-pkce/**' },      // [floor]  leaf, pure PKCE/RFC-7636 utils
+  { type: 'L1', pattern: 'packages/facade-reconstruction/**' }, // [floor]  leaf (C108 8.1): imports zod + @opentelemetry/api and NOTHING from @pryzm/* above L0. THREE-free, DOM-free, I/O-free (C108 5.3). L1 is the strictest correct placement, which is the one that can never emit a false violation.
 
   // ── L2 — domain. ───────────────────────────────────────────────────────────
   { type: 'L2', pattern: 'packages/geometry-kernel/**' },     // [CLAUDE.md]

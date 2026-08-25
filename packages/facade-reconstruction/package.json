@@ -1,0 +1,28 @@
+{
+  "name": "@pryzm/facade-reconstruction",
+  "version": "0.1.0",
+  "description": "PRYZM — PHOTO -> FACADE GEOMETRY -> PRYZM BIM. Deterministic, classical-CV facade reconstruction from a single image: crop, facade plane, rectification, periodicity, openings, archness, symmetry, outliers. THREE-free, DOM-free, I/O-free. C108 / ADR-0371 / SPEC-FACADE-RECONSTRUCTION-PIPELINE.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ci": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@pryzm/schemas": "workspace:*",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.5"
+  }
+}
