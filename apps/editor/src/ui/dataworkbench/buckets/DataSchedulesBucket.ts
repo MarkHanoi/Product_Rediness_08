@@ -366,11 +366,21 @@ export function doorTypeRows(): { columns: string[]; rows: string[][] } {
 export function windowTypeRows(): { columns: string[]; rows: string[][] } {
     const types = windowSystemTypeStore.getAll();
     return {
-        columns: ['Name', 'ID', 'Category', 'Frame Finish', 'Sill Finish', 'Glazing', 'Type'],
+        // §OUTLINE81 (D7, C86 §10.5.a) — the Outline column DISPLAYS the shape-template
+        // state ("Custom outline (N vertices)" / "Rectangular"). Ring EDITING in the
+        // Workbench is a RECORDED OMISSION, not a silent gap: the schedule renderer is a
+        // read-only string table (`mountTypeSchedule` builds `<td>` text), and the editor
+        // lives in the type dialog's Elevation outline section — a second editing surface
+        // here would need the whole SVG surface embedded in a table cell for no new
+        // capability. Blocker named per §10.5.a; the display half ships.
+        columns: ['Name', 'ID', 'Category', 'Frame Finish', 'Sill Finish', 'Glazing', 'Outline', 'Type'],
         rows: types.map(t => [
             t.name, t.id, t.category,
             t.frameFinish.name, t.sillFinish.name,
             t.glazingOpacity === 0 ? 'Clear glass' : t.glazingOpacity === 1 ? 'Opaque' : `${Math.round((1 - t.glazingOpacity) * 100)}% glazed`,
+            (t as { customOutline?: { vertices?: unknown[] } }).customOutline?.vertices?.length
+                ? `Custom outline (${(t as { customOutline: { vertices: unknown[] } }).customOutline.vertices.length} vertices)`
+                : 'Rectangular',
             t.isBuiltIn ? 'Built-in' : 'Custom',
         ]),
     };
