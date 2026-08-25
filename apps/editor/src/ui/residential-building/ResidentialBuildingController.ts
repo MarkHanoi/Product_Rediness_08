@@ -253,6 +253,22 @@ export function buildResidentialHonestyReport(
         `Built ${floors} floor${floors === 1 ? '' : 's'} — ${apartmentCount} apartment${apartmentCount === 1 ? '' : 's'}, ` +
         `${perFloor} per apartment floor on average${fillLabel}.`,
     ];
+    // §RESI-SINGLE-CORE-LANDING (ADR-0372, L-11190) — name the typology when it is NOT the corridor
+    // one, so a landing is never read as a corridor; and explain any bay it could not assign
+    // (§CONTEXT-DATA-HONESTY: stranded floor area is said out loud, never drawn as white space).
+    if (result.circulationTypology === 'single-core-landing') {
+        lines.push(
+            'Small-plate typology: one compact stair/lift core in a rear corner with a landing in front of it — ' +
+            'no corridor; each apartment’s front door opens straight off the landing.',
+        );
+    }
+    const strandedReasons = new Set<string>();
+    for (const level of result.perLevelApartments) {
+        if (level.stranded) strandedReasons.add(level.stranded.reason);
+    }
+    for (const reason of strandedReasons) {
+        lines.push(`On each apartment floor ${reason}.`);
+    }
     const s = summarizeCellRejections(result);
     if (s.rejected > 0) {
         lines.push(

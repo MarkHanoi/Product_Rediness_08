@@ -98,6 +98,14 @@ export function friendlyResidentialError(
     // §RESI-REFUSAL-TRUE — "plate is too narrow: the buildable plate measures X m across its short
     // side; a core + corridor + one apartment run needs at least Y m". The engine measured the plate
     // and knows the derived threshold, so quote BOTH — never a plot area.
+    // §RESI-SINGLE-CORE-LANDING (ADR-0372, L-11190) — since the landing typology exists, a capacity
+    // refusal names BOTH typologies the engine measured (C74). The copy says so, so the user is not
+    // told "a corridor has to fit" on a plate where a landing plan was also tried and measured out.
+    const landingAlsoRefused = r.includes('single-core landing');
+    const landingNote = landingAlsoRefused
+        ? ' A single-core landing plan (one compact core, apartments straight off the landing, no corridor) was measured too and could not host an apartment either.'
+        : '';
+
     if (r.includes('too narrow')) {
         const raw = String(reason ?? '');
         const wM = parsePlateWidthM(raw);
@@ -110,7 +118,7 @@ export function friendlyResidentialError(
         return {
             kind: 'too-narrow',
             title: 'This plot is too narrow for a residential building',
-            body: `The buildable plate ${measured} across its short side.${needs}`,
+            body: `The buildable plate ${measured} across its short side.${needs}${landingNote}`,
             guidance: 'Width is the limit here, not area — a long thin plot of any size still can’t host a core plus an apartment beside it. Widen the boundary across its short side, or draw it on a wider part of the site.',
         };
     }
@@ -149,7 +157,7 @@ export function friendlyResidentialError(
         return {
             kind: 'too-small',
             title: "Can't fit apartments on this plot",
-            body: `No apartment fits on the ${plateTxt} buildable plate with the floors and apartment sizes requested. A central core (stair + lift), a public corridor and an apartment run all have to fit across it.`,
+            body: `No apartment fits on the ${plateTxt} buildable plate with the floors and apartment sizes requested. A central core (stair + lift), a public corridor and an apartment run all have to fit across it.${landingNote}`,
             guidance: 'Try a smaller minimum apartment size, fewer apartment types, or a boundary that is less elongated. The limit is the plate’s proportions, not its area.',
         };
     }
