@@ -2948,10 +2948,11 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         // §L-11128 — the photo DID read a usable colour, but the sentence named one:
         // words win, and the overridden reading is named rather than silently lost.
         if (colourFromWords && typeof colourFromPhoto === 'string') {
-          notUsedRows.push(
+          notUsedRows = [
+            ...notUsedRows,
             `${PHOTO_NOT_USED_COLOUR_PREFIX} read from the wall (${colourFromPhoto}) — ` +
               `it came from your words instead, and words win over the photograph's reading`,
-          );
+          ];
         }
         photoBlock =
           `\n\nFrom the photo: ${fromPhoto.length > 0 ? fromPhoto.join(DOT) : 'nothing usable'}` +
