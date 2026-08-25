@@ -595,5 +595,124 @@ export function allCases(): SyntheticCase[] {
         caseK2(),
         caseK3(),
         caseK4(),
+        caseL(),
     ];
 }
+
+// ── L — THE SHAPE THE CORPUS DID NOT HAVE (lane FACADEREAL60) ────────────────
+//
+// ⭐ WHY THIS CASE EXISTS, STATED PLAINLY: on 2026-08-25 the founder ran the FIRST
+// REAL PHOTOGRAPH through this pipeline (L-11001) — a seven-storey, five-bay street
+// block with a five-arch ground-floor arcade and balconies on every floor. The
+// lattice came back 2 zones x 2 bays: FOUR cells on a building with ~35 openings.
+//
+// A–K are all FIVE BAYS x FOUR STOREYS with a flat ground floor. That is one shape,
+// and it is a shape in which the true storey period is a QUARTER of the extent while
+// its first harmonic is a HALF — i.e. exactly at `maxPeriodFraction`. The corpus
+// therefore never contained a facade whose storey count was large enough for the
+// comb's preference for FEW TEETH to beat the fundamental. This case does.
+//
+// ⛔ The founder's photograph is NOT in this repository and is not his to
+// redistribute (C108 §0.2). This is a SYNTHETIC facade of the same CLASS, with
+// ground truth the generator drew, which is the only kind of evidence C108 §6.2
+// accepts. It proves the class, not his building.
+
+const LW = 480;
+const LH = 620;
+const LFX0 = 40;
+const LFY0 = 40;
+const LFX1 = 440;
+const LFY1 = 580;
+const L_BAYS = 5;
+/** Regular storeys ABOVE the arcade. The arcade is a seventh zone. */
+const L_UPPER = 6;
+const L_CELL_W = (LFX1 - LFX0) / L_BAYS; // 80
+/** The arcade zone is TALLER than a storey, as a street arcade is. */
+const L_ARCADE_H = 100;
+const L_UPPER_H = (LFY1 - LFY0 - L_ARCADE_H) / L_UPPER; // 73.33
+const L_OPEN_W = L_CELL_W * 0.6; // 48
+const L_OPEN_H = L_UPPER_H * 0.6; // 44
+/** Arch half-width == rise, so the drawn head is a true semicircle: archness 1. */
+const L_ARCH_W = 60;
+const L_ARCH_RISE = L_ARCH_W / 2;
+const L_SOFFIT = 8;
+
+/**
+ * L — a multi-storey, multi-bay facade with an ARCADED ground floor.
+ *
+ * Drawn: 6 upper storeys x 5 bays of rectangular windows, a balcony soffit band
+ * under every upper storey line, and 5 semicircular arches across the ground zone.
+ * Ground truth: 7 zones, 5 bays, 35 openings, ground-zone archness 1, upper 0.
+ */
+export function caseL(): SyntheticCase {
+    const img = createRasterImage(LW, LH) as RasterImage;
+    fillRect(img, 0, 0, LW, LH, SKY);
+    fillRect(img, LFX0, LFY0, LFX1, LFY1, WALL);
+
+    const openings: { x0: number; y0: number; x1: number; y1: number }[] = [];
+    for (let row = 0; row < L_UPPER; row++) {
+        for (let col = 0; col < L_BAYS; col++) {
+            const cx = LFX0 + L_CELL_W * (col + 0.5);
+            const cy = LFY0 + L_UPPER_H * (row + 0.5);
+            const r = {
+                x0: cx - L_OPEN_W / 2,
+                y0: cy - L_OPEN_H / 2,
+                x1: cx + L_OPEN_W / 2,
+                y1: cy + L_OPEN_H / 2,
+            };
+            fillOpening(img, r.x0, r.y0, r.x1, r.y1, 0, 2, OPENING);
+            openings.push(r);
+        }
+    }
+
+    // Balconies: the soffit band is the ONLY depth cue one image carries (C108 §3.10).
+    for (let row = 1; row < L_UPPER; row++) {
+        const y = LFY0 + L_UPPER_H * row;
+        fillRect(img, LFX0, y, LFX1, y + L_SOFFIT, SHADOW);
+    }
+
+    // The arcade. ⛔ Nothing in the engine is told these are arches, that they are at
+    // the bottom, or that a ground floor differs from a storey (brief §22).
+    const arcadeTop = LFY1 - L_ARCADE_H;
+    for (let col = 0; col < L_BAYS; col++) {
+        const cx = LFX0 + L_CELL_W * (col + 0.5);
+        const r = { x0: cx - L_ARCH_W / 2, y0: arcadeTop + 10, x1: cx + L_ARCH_W / 2, y1: LFY1 };
+        fillOpening(img, r.x0, r.y0, r.x1, r.y1, L_ARCH_RISE, 2, OPENING);
+        openings.push(r);
+    }
+
+    return {
+        id: 'L',
+        description:
+            'seven zones (6 storeys + a 5-arch arcade) x 5 bays, balcony soffits — the founder\'s image CLASS',
+        image: img,
+        truth: {
+            bays: L_BAYS,
+            storeys: L_UPPER + 1,
+            facadeRect: { x0: LFX0, y0: LFY0, x1: LFX1, y1: LFY1 },
+            openings,
+            // The UPPER openings are flat; the five arcade heads are semicircles.
+            archness: 0,
+            chromeTrim: NO_TRIM,
+            cropRefused: false,
+            nonGridObjects: 0,
+            soffitBandHeight: L_SOFFIT,
+            curved: false,
+        },
+    };
+}
+
+/** Ground truth about case L that no other case carries. */
+export const CASE_L_TRUTH = Object.freeze({
+    /** Zones, including the arcade. */
+    zones: L_UPPER + 1,
+    bays: L_BAYS,
+    /** Openings drawn in the ARCADE zone — the ones whose heads are semicircular. */
+    arcadeOpenings: L_BAYS,
+    /** `rise / halfWidth` of the drawn arcade heads. */
+    arcadeArchness: 1,
+    /** Total openings drawn. */
+    totalOpenings: L_UPPER * L_BAYS + L_BAYS,
+    /** Facade-normalized Y of the arcade zone's TOP boundary (C108 §2.1: Y counts up). */
+    arcadeTopY: L_ARCADE_H / (LFY1 - LFY0),
+});
