@@ -1235,6 +1235,24 @@ export class ResidentialBuildingExecutor {
             // ⛔ NOT BUILT AND SAID SO. A run left solid, an opening below the minimum pane, an arch
             // that had to come out shallower — each reaches the transcript with its reason.
             facadeNotes.push(...plan.notBuilt, ...plan.downgrades);
+        } else if (facadeProgram) {
+            // ⛔ §HONESTY65-CURTAIN-DROP-NAMED (L-11151) — a measured lattice with NOWHERE to land
+            // is NAMED, never silently dropped (C74: name what you measured and what you did with
+            // it). The curtain-shopfront mode is the one real path here: an explicit curtain ask
+            // whose measured ground band is square-headed keeps the curtain (§RESI-GROUND-
+            // COMMERCIAL-CURTAIN), and a frameless curtain wall has no solid wall to cut the
+            // measured openings into — so `facadeRuns` stays empty and, until this line, the
+            // ENTIRE lattice vanished from the transcript while the arched-band twin
+            // (§GEN-FACADE-OPENINGS above) said so out loud.
+            facadeNotes.push(
+                `the photograph's measured opening lattice (${facadeProgram.cells.length} opening(s) ` +
+                `on ${facadeProgram.bays} bay(s) × ${facadeProgram.bands} band(s)) was NOT built: ` +
+                (useCurtain
+                    ? 'you asked for the curtain-wall shopfront and the measured ground band is ' +
+                      'square-headed, so the frameless curtain wall wins — and it has no solid ' +
+                      'wall to cut the measured openings into'
+                    : 'no façade wall run long enough to host it survived on this footprint'),
+            );
         }
         return {
             shellPayload: { walls, levelId }, curtainWalls, commercialWindows,
