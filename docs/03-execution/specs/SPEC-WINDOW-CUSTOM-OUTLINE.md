@@ -1,6 +1,6 @@
 # SPEC — Window custom outline (free-form perimeter authored in elevation)
 
-**Status:** IN IMPLEMENTATION, INTERRUPTED 2026-08-25 — the two spawned lanes hit the account's weekly usage limit (resets 2026-08-28 09:00 Europe/London) mid-work. **OUTLINE80-MODEL: NOT STARTED** (zero files written, restart from scratch — see L-11251). **OUTLINE82-DRAWINGS-DOCS: PARTIAL** — items 1-2 done + tested (`a5238b8f`), item 3 orphaned/unwired, items 4-7 (ADR + C86 amendments) not started (L-11252). **OUTLINE81-AUTHORING: cannot start** (imports 80's API).
+**Status:** 2026-08-25 evening — credits restored, both lanes relaunched and landed. **OUTLINE80-MODEL: DONE** (`0cb6f367` — the data model, D1-D5/D10-D12, plus two real circular-import bugs found and fixed during verification, L-11260/L-11261). **OUTLINE82-DRAWINGS-DOCS: DONE** (`f795060d` + `e2afb925` — IFC wiring, ADR-0373, C86 amendments + §10.6). **OUTLINE81-AUTHORING: next** — the type-editor "Elevation outline" UI, now unblocked.
 **Lanes:** OUTLINE80-MODEL · OUTLINE81-AUTHORING · OUTLINE82-DRAWINGS-DOCS
 **Governs with:** C86 §10.1 (profile axis, PR-1…PR-8) · C86 §10.5 (authoring surfaces) · C15 §3.1 · C84 · C65 §3.5 · C67/C68 · C25 · C73 · C83
 **ADR:** ADR-WINDOW-CUSTOM-OUTLINE (minted by OUTLINE82; amends C86 §10.1 PR-7/PR-8 and §10.5.b in place)
