@@ -215,7 +215,7 @@
     "apps/editor/src/ui/geospatial/CesiumViewport.ts:GLOBE_GROUND_SEAT_EPSILON_M": "0.3",
     "apps/editor/src/ui/geospatial/CesiumViewport.ts:SQUARE_TOL_DEG": "0.5",
     "apps/editor/src/ui/geospatial/CesiumViewport.ts:STOREY_BAND_TOL_M": "0.5",
-    "apps/editor/src/ui/geospatial/CesiumViewport.ts:RING_EPS_M": "SNAP_M * 2",
+    "apps/editor/src/ui/geospatial/formaPerimeterRing.ts:RING_EPS_M": "SNAP_M * 2",
     "apps/editor/src/ui/geospatial/contextRingGeometry.ts:DEDUPE_EPS_M": "0.01",
     "apps/editor/src/ui/geospatial/contextRingGeometry.ts:COLLINEAR_EPS_M2": "1.0",
     "apps/editor/src/ui/geospatial/contextWater.ts:eps": "1e-4 * Math.min(spanX",

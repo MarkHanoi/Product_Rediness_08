@@ -147,6 +147,8 @@ import {
 import { makeDraggable } from '../makeDraggable';
 // FORMA.6 — pure geometry signature for the real-building GLB re-export cache.
 import { buildingGeometrySignature } from '../geospatial/formaBuildingFidelity';
+// §MASSING-FOLLOWS-THE-ARC (L-11172) — the pure wall-record → massing-wall mapper (curve-aware).
+import { formaWallFromRecord, type FormaMassingWall, type FormaWallRecordLike } from '../geospatial/formaWallCurve';
 // §FIX-GISLAYOUT-PLACE-REAL-MODEL-FORMA-AND-GLOBE-REENTRY (L-193) — PURE view-switch
 // decision helpers (no Cesium/DOM/THREE): the Forma real-model cache reuse decision +
 // its invalidation when the photoreal globe destroys the Forma primitive (Symptom A),
@@ -1656,55 +1658,23 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      * storey at its true elevation. Single-storey / apartment models have y=0 on
      * every wall, so this is a no-op for them.
      */
-    const getFormaWalls = (): Array<{
-        a: XZ;
-        b: XZ;
-        height: number;
-        thickness: number;
-        baseElevation: number;
-        levelId?: string;
-        materialColor?: string;
-    }> => {
-        type WallRecord = {
-            baseLine?: ReadonlyArray<{ x: number; y?: number; z: number }>;
-            height?: number;
-            thickness?: number;
-            baseOffset?: number;
-            levelId?: string;
-            // §A.21.D-GLOBE3 — the SAME per-wall finish hex the three.js BIM scene
-            // renders (WallFragmentBuilder: `wall.materialColor ?? '#d4c5b0'`), so the
-            // house on the photoreal globe reads in its real app-scene colours.
-            materialColor?: string;
-        };
+    const getFormaWalls = (): FormaMassingWall[] => {
+        // §MASSING-FOLLOWS-THE-ARC (L-11172) — the record → massing-wall mapping is the pure
+        // `formaWallFromRecord` (geospatial/formaWallCurve.ts). Its straight branch is the
+        // object this closure built before, key for key; a record with `Wall.curve` now ALSO
+        // carries the Bézier (control + segments + the archived pre-trim baseline), so the
+        // globe massing follows the arc instead of cutting the corner across its chord.
+        // §A.21.D-GLOBE3's `materialColor` — the SAME per-wall finish hex the three.js BIM
+        // scene renders (WallFragmentBuilder: `wall.materialColor ?? '#d4c5b0'`) — still rides
+        // along, so the house on the photoreal globe reads in its real app-scene colours.
         const wallStore = storeRegistry.getStoreForType('wall') as unknown as
-            | { getAll?: () => WallRecord[] }
+            | { getAll?: () => FormaWallRecordLike[] }
             | undefined;
         const all = wallStore?.getAll?.() ?? [];
-        const out: Array<{
-            a: XZ;
-            b: XZ;
-            height: number;
-            thickness: number;
-            baseElevation: number;
-            levelId?: string;
-            materialColor?: string;
-        }> = [];
+        const out: FormaMassingWall[] = [];
         for (const w of all) {
-            const bl = w.baseLine;
-            if (!bl || bl.length < 2 || !bl[0] || !bl[1]) continue;
-            const yElev = typeof bl[0].y === 'number' && Number.isFinite(bl[0].y) ? bl[0].y : 0;
-            const baseOffset =
-                typeof w.baseOffset === 'number' && Number.isFinite(w.baseOffset) ? w.baseOffset : 0;
-            out.push({
-                a: { x: bl[0].x, z: bl[0].z },
-                b: { x: bl[1].x, z: bl[1].z },
-                height: typeof w.height === 'number' && w.height > 0 ? w.height : 2.5,
-                thickness: typeof w.thickness === 'number' && w.thickness > 0 ? w.thickness : 0.1,
-                baseElevation: yElev + baseOffset,
-                levelId: typeof w.levelId === 'string' && w.levelId ? w.levelId : undefined,
-                materialColor:
-                    typeof w.materialColor === 'string' && w.materialColor ? w.materialColor : undefined,
-            });
+            const mapped = formaWallFromRecord(w);
+            if (mapped) out.push(mapped);
         }
         return out;
     };

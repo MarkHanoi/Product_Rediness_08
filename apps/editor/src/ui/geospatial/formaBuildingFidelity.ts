@@ -51,7 +51,11 @@ export function realModelStaysVisible(
  * any add/remove/move flips it. Pure + deterministic.
  */
 export function buildingGeometrySignature(input: {
-  walls: ReadonlyArray<{ a: { x: number; z: number }; b: { x: number; z: number }; height: number; thickness: number }>;
+  walls: ReadonlyArray<{
+    a: { x: number; z: number }; b: { x: number; z: number }; height: number; thickness: number;
+    /** §MASSING-FOLLOWS-THE-ARC (L-11172) — a curved wall's SHAPE is its control point too. */
+    curve?: { control: { x: number; z: number }; segments?: number } | null;
+  }>;
   openings: ReadonlyArray<{ a: { x: number; z: number }; height: number }>;
   slabCount: number;
   roofCount: number;
@@ -65,6 +69,10 @@ export function buildingGeometrySignature(input: {
   for (const w of input.walls) {
     mix(w.a.x * 100); mix(w.a.z * 100); mix(w.b.x * 100); mix(w.b.z * 100);
     mix(w.height * 100); mix(w.thickness * 100);
+    // §MASSING-FOLLOWS-THE-ARC (L-11172) — moving a curved wall's control point changes the
+    // building and must invalidate the GLB cache. A straight wall mixes nothing extra, so its
+    // signature is the string it was before.
+    if (w.curve) { mix(w.curve.control.x * 100); mix(w.curve.control.z * 100); mix(w.curve.segments ?? 0); }
   }
   for (const o of input.openings) {
     mix(o.a.x * 100); mix(o.a.z * 100); mix(o.height * 100);
