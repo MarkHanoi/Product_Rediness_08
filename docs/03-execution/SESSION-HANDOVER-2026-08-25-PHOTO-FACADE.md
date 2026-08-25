@@ -51,3 +51,10 @@ The chain photo→…→wall store is PROVEN by execution (verification workflow
 - `763908f7` carries a garbage message (orchestrator heredoc spillage). CONTENT = the WD32 probe test (284 lines, 2 pass + 1 skip-with-reason).
 - `868c1143` wears the probe's message. CONTENT = 35 ISSUE-LOG rows (FACADECAL64's L-11120..L-11123 family) — an --amend landed on a workflow commit that had slipped in between.
 History is local-only; nothing to force-push. Left as-is because workflows were still committing on top.
+
+## UPDATE 13:05 — detector fixes LANDED by the orchestrator (subagent quota exhausted until 18:00 London)
+- `178b87f9` — L-11121/22/23 FIXED (continuity screen on LARGEST orthogonal gap; vacated-slot guard on interpolation; strip reunited as ONE feature; arch head-region model selection, step vs superellipse). Case M: 5 bays / 35 matched / 0-of-30 false arches / arcade 0.87–1.00. Corpus 46/46; ai-host facade 70/70; editor facade 23/23; root tsc clean.
+- Residue named: L-11124 (10 soffit-shadow segments still read as features — S15/S13 ordering).
+- Deploy of `178b87f9` launched 13:05 with parallel gate. Live before it: `7cd907b5` (photo ledger in transcript).
+- STILL OPEN at the FRONT of the chat path: auto-detected facade plane (~0.64) vs corners-mandatory ruling; L-11066 ask-on-ambiguity; HONESTY65 fix #3 (stale "not as arches" row) and ai-host `test:ci` — its workflow died on the quota after landing fixes #1 (`7cd907b5`) and #2 (`ed22de60`).
+- NXT Activate audit workflow (`wf_39ea973c`, 8 auditors + synthesis) ran 0/9 on the quota — resume after 18:00 London with `Workflow({scriptPath: ..., resumeFromRunId: 'wf_39ea973c-a13'})`.
