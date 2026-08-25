@@ -2034,13 +2034,45 @@ export function wireCommandEventBridge(
           //     would put one id on two families and give the water a thickness it
           //     does not have — C84 EI-9, and the same refusal the lift made when it
           //     declined to feed its compound into the massing store.
+          //     ⭐ §POOL95 — AND AS OF THIS LANE IT DOES RENDER, THROUGH ITS OWN
+          //     CHANNEL. `water.created` is a typed event with a subscriber
+          //     (`initTools.ts`) and a mesh builder (`geometry-slab/src/water/
+          //     WaterBuilder.ts`). The paragraph below used to read "'water' has no
+          //     typed event, no subscriber and no mesh builder anywhere in the tree"
+          //     and printed on every pool anybody made; all three now exist, so the
+          //     water is emitted here rather than counted as a casualty.
+          //
+          //     ⛔ STILL NOT `slab.created`. Everything the refusal above says is
+          //     still true — this is a SECOND channel for a SECOND family, not the
+          //     slab channel with a blue material on it.
+          let _poolWaterMirrored = 0;
+          for (const [waterId, water] of _poolCommitted.get('water') ?? []) {
+            if (water['parentId'] !== p.poolId) continue;
+            events.emit('water.created', {
+              commandId:   record.id,
+              commandType: 'pool.create',
+              levelId:     (water['levelId'] as string | undefined) ?? _poolLevelId,
+              waterId,
+              poolId:      p.poolId,
+              boundary:    water['boundary'] as ReadonlyArray<{ x: number; y: number; z: number }> | undefined,
+              // Absolute world-Y, both of them, carried verbatim off the commit —
+              // never re-derived from a depth and a freeboard here. The assembly is
+              // the ONE place those become elevations (ADR-0124 §7).
+              surfaceElevation: water['surfaceElevation'] as number | undefined,
+              bottomElevation:  water['bottomElevation']  as number | undefined,
+              color:            water['color']   as string | undefined,
+              opacity:          water['opacity'] as number | undefined,
+            });
+            _poolWaterMirrored++;
+          }
+
           const _poolWaterCount = _poolCommitted.get('water')?.size ?? 0;
           const _poolUnmirrored: string[] = [];
-          if (_poolWaterCount > 0) {
+          if (_poolWaterCount > _poolWaterMirrored) {
             _poolUnmirrored.push(
-              `the WATER BODY (${_poolWaterCount} record(s)) — 'water' has no typed ` +
-              `event, no subscriber and no mesh builder anywhere in the tree; the ` +
-              `basin renders and the water in it does not (L-9941)`);
+              `${_poolWaterCount - _poolWaterMirrored} WATER record(s) whose parentId is ` +
+              `not this pool — not emitted, because a water body belongs to the pool that ` +
+              `holds it and mirroring a foreign one would render water in someone else's basin`);
           }
           if (p.hostSlabId && !_poolHostHoled) {
             _poolUnmirrored.push(

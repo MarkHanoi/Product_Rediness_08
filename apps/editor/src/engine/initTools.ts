@@ -117,6 +117,9 @@ import { registerElementLevelChangeBridge } from './elementLevelChangedMirror';
 import { registerElementUpdateBridge } from './elementUpdatedMirror';
 // §FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9944) — the boundary line's 3-D builder.
 import { BoundaryLineMeshBuilder } from './BoundaryLineMeshBuilder';
+// §POOL95 / §FT-WATER — the swimming pool's water body. Same single-authority
+// shape as the boundary line above: one store, no legacy twin, straight to a mesh.
+import { WaterMeshBuilder } from './WaterMeshBuilder';
 // §FIX-BOUNDARY-LINE-INVISIBLE-IN-PLAN (L-10502) — the 2-D sibling of the builder above.
 import { installBoundaryLinePlanSymbolBuilder, type BoundaryLinePlanEntry } from './BoundaryLinePlanSymbolBuilder';
 import { WindowTool } from '@pryzm/geometry-window';
@@ -1824,6 +1827,91 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 `[initTools] §FT-BOUNDARY-LINE: '${ev.boundaryLineId}' deleted — ` +
                 (had ? 'group disposed' : 'nothing was drawn for it'));
         });
+
+        // ── §FT-WATER (§POOL95 · ADR-0124 §4 · L-9941) ───────────────────────────
+        //
+        // ⭐ THE FOUNDER: *"add in the swimming pool a box with 70% transparency in
+        // blue looking like water within the walls and the slab"*. The water record
+        // has existed, been undoable and been schedulable since L-292; what it could
+        // not do was APPEAR. `CommandEventBridge`'s `pool.create` case printed
+        // *"'water' has no typed event, no subscriber and no mesh builder anywhere in
+        // the tree; the basin renders and the water in it does not"* on every pool
+        // anybody created. This subscriber is one of the three things that sentence
+        // named, and all three land together — any one alone leaves it true.
+        //
+        // ⭐ IT FOLLOWS THE BOUNDARY-LINE ROUTE DIRECTLY ABOVE, NOT §FT1's SLAB
+        // ROUTE, for the same measured reason: `water` is a SINGLE-AUTHORITY family
+        // (`plugins/pool/src/store.ts` — one Zod schema, one store, deliberately no
+        // legacy engine twin). §FT1 exists to feed a legacy store; minting a
+        // `WaterStore` to imitate it would create the second authority this family
+        // was designed without, and `legacyStoreUpdateSemantics.ts` records the
+        // absence of one as a PROPERTY, not a gap.
+        //
+        // ⛔ NO `water.deleted` ARM, AND THAT IS DECLARED RATHER THAN FORGOTTEN.
+        // `pool.delete` has no `CommandEventBridge` case at all (`mirror-debt.json`
+        // carries it as UNMIRRORED), and there is no generic element-deletion event
+        // in `RuntimeEvents` — `boundaryLine.deleted` is the only `.deleted` in the
+        // whole map, and it is family-private. Emitting a water-only deletion here
+        // would heal a quarter of the pool on screen and leave the basin walls, the
+        // floor and the void behind, which is a worse and more confusing state than
+        // the whole compound persisting. It is filed, not half-done.
+        const waterMeshBuilder = new WaterMeshBuilder(world.scene.three);
+
+        runtime.events.on('water.created', (ev) => {
+            if (!ev.waterId) return;
+            try {
+                const outcome = waterMeshBuilder.updateWater({
+                    id:               ev.waterId,
+                    levelId:          ev.levelId,
+                    poolId:           ev.poolId,
+                    boundary:         ev.boundary,
+                    surfaceElevation: ev.surfaceElevation,
+                    bottomElevation:  ev.bottomElevation,
+                    color:            ev.color,
+                    opacity:          ev.opacity,
+                });
+
+                if (outcome.drew === 'nothing') {
+                    // The builder's own sentence, verbatim. A pool whose basin is
+                    // visible and whose water is not now says WHY, at the layer that
+                    // knows — instead of being discovered from a screenshot.
+                    console.warn(`[initTools] §FT-WATER: '${ev.waterId}' drew NOTHING — ${outcome.reason}`);
+                    return;
+                }
+
+                // §FIX-PLAN-VDT-BIMMANAGER — the wall, slab, column, beam, lift and
+                // boundary-line bridges each carry this note: without these two calls
+                // a bus-created element is invisible to the PLAN pipeline. ⚠ There is
+                // no plan SYMBOL builder for water (see the census in the §POOL95
+                // report), so registering makes the id and its storey KNOWN to that
+                // pipeline — it is not what draws it.
+                //
+                // ⚠ Canonical level resolution, the §DIAG-WALL-LEVEL rule: `'' ?? 'L0'`
+                // is `''`, so an empty levelId must be REFUSED rather than defaulted,
+                // or the water bleeds onto the ground plan.
+                const levelId = (ev.levelId ?? '').trim();
+                if (levelId.length === 0) {
+                    console.warn(
+                        `[initTools] §FT-WATER ⚠ water.created with NO levelId — skipping ` +
+                        `spatial registration to avoid bleeding it onto the ground plan. waterId=`,
+                        ev.waterId);
+                } else {
+                    try { viewDependencyTracker.registerElement(ev.waterId, levelId); }
+                    catch (err) { console.warn('[initTools] §FT-WATER VDT.registerElement failed (non-fatal):', err); }
+                    try { bimManager.registerElement(ev.waterId, levelId); }
+                    catch { /* non-fatal — may already be registered */ }
+                }
+
+                console.log(
+                    `[initTools] §FT-WATER: '${ev.waterId}' created → volume ` +
+                    `(pool ${ev.poolId ?? '(unnamed)'}, surface y=${String(ev.surfaceElevation)})`);
+            } catch (err) {
+                console.error(
+                    '[initTools] §FT-WATER: WaterMeshBuilder.updateWater failed — the water ' +
+                    'will be absent from the 3-D scene:', err);
+            }
+        });
+        console.log('[initTools] §FT-WATER: water.created bus→mesh bridge registered.');
 
         // ⭐ §FIX-BOUNDARY-LINE-INVISIBLE-IN-PLAN (L-10502) — THE PLAN HALF, INSTALLED HERE.
         //

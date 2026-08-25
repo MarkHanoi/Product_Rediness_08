@@ -1071,6 +1071,51 @@ export interface RuntimeEvents {
     readonly createdBy?: string;
   };
 
+  /**
+   * §POOL95 — THE WATER BODY OF A SWIMMING POOL (ADR-0124 §4, L-9941).
+   *
+   * ⭐ THE CHANNEL `CommandEventBridge` NAMED AS MISSING, IN THOSE WORDS. Its
+   * `pool.create` case has been printing *"'water' has no typed event, no
+   * subscriber and no mesh builder anywhere in the tree; the basin renders and
+   * the water in it does not"* on every pool a person creates. This is the typed
+   * event; the subscriber and the builder land with it, because any one of the
+   * three alone leaves the sentence true.
+   *
+   * ⛔ NOT `slab.created` WITH A BLUE MATERIAL, AND THE REFUSAL IS LOAD-BEARING.
+   * ADR-0124 §4 decided water is its own family on three independent arguments,
+   * the decisive one being mechanical: a slab's thickness grows DOWN from its
+   * top, so a "water slab" couples the water SURFACE to the pool FLOOR and
+   * "the water level sits below the coping" becomes UNREPRESENTABLE. Smuggling
+   * water through the slab channel to make something blue appear would also put
+   * one id on two families (C84 EI-9) and add 8 m² of concrete to the building's
+   * gross floor area (§4.2). The bridge already refuses this in prose; the
+   * existence of this event is what makes the refusal affordable.
+   *
+   * ⚠ `surfaceElevation` / `bottomElevation` ARE ABSOLUTE WORLD-Y, NOT OFFSETS,
+   * and they are carried separately for the same reason they are stored
+   * separately: the whole point of the family is that the two move independently.
+   * A consumer that re-derives one from the other plus a thickness has rebuilt
+   * the blue slab inside the renderer.
+   */
+  'water.created': {
+    readonly commandId: string;
+    readonly commandType: string;
+    readonly levelId: string;
+    /** The water record's own id — also its mesh id and its selection id. */
+    readonly waterId: string;
+    /** The owning pool. Stamped as `parentId` so a click resolves to the pool (C15 §12). */
+    readonly poolId?: string;
+    /** Water-surface plan outline, WORLD coordinates, OPEN loop (no repeated vertex). */
+    readonly boundary?: ReadonlyArray<{ readonly x: number; readonly y: number; readonly z: number }>;
+    /** ABSOLUTE world-Y of the water's top face. */
+    readonly surfaceElevation?: number;
+    /** ABSOLUTE world-Y of the water's underside (= the pool floor's top face). */
+    readonly bottomElevation?: number;
+    /** Authored render intent, already resolved through the three-tier chain. */
+    readonly color?: string;
+    readonly opacity?: number;
+  };
+
   // ── F.events.1: Engine + Collaboration + IFC domain events ───────────────
   // Phase F.events.1 structural pass — adds typed entries for all TASK-15 and
   // TASK-12 tagged CustomEvent dispatches in apps/editor/src/engine/*.

@@ -456,36 +456,70 @@ describe('§FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9940) — the founder draws 
     });
 
     /**
-     * ARM 7 — ⛔ THE WATER IS NOT SMUGGLED THROUGH AS A SLAB.
+     * ARM 7 — ⭐ THE WATER REACHES THE SCREEN THROUGH ITS OWN CHANNEL, AND STILL
+     *          IS NOT SMUGGLED THROUGH AS A SLAB.
      *
-     * The cheapest way to make something blue appear would be to emit `slab.created`
-     * for the water body. That would put one id on two families and give the water a
-     * thickness it does not have — C84 EI-9, and the refusal the lift made when it
-     * declined to feed its compound into the massing store. The water record is REAL,
-     * COMMITTED and INVISIBLE, and the bridge says so by name (L-9941). This arm pins
-     * the refusal so a later lane cannot "fix" the gap by smuggling.
+     * ═══════════════════════════════════════════════════════════════════════════
+     * ⚠ THIS ARM WAS INVERTED BY §POOL95, DELIBERATELY, AND HALF OF IT DID NOT MOVE.
+     * ═══════════════════════════════════════════════════════════════════════════
+     * It used to assert `expect(emitted).not.toContain('water.created')` and that a
+     * console warning contained `'WATER BODY'` — pinning the state where the water
+     * record was REAL, COMMITTED and INVISIBLE (L-9941). That was the honest pin for
+     * a gap that existed; it is not a description of a desired end state, and
+     * `CommandEventBridge` said so itself, calling the water "a PARTIAL create, not
+     * a failed one and not a complete one".
+     *
+     * §POOL95 closed the gap the proper way — a `water.created` event, a subscriber
+     * and a `WaterMeshBuilder`, all three, because any one alone leaves the water
+     * invisible. So the emission assertion FLIPS.
+     *
+     * ⛔ WHAT DOES NOT FLIP, AND IS THE REASON THIS ARM STILL EXISTS: the cheapest
+     * way to have made something blue appear was always to emit `slab.created` for
+     * the water body. That would put one id on two families, give the water a
+     * thickness it does not have (C84 EI-9) and add its area to the building's gross
+     * floor area (ADR-0124 §4.2). The `slab.created` count assertion below is
+     * therefore UNCHANGED and is the load-bearing half: it fails identically whether
+     * a lane smuggles the water through the slab channel to fake the feature, or
+     * "optimises" the real fix into the slab channel later.
      */
-    it('ARM 7 — the water commits, is NOT emitted as another family, and is reported by name', async () => {
+    it('ARM 7 — the water is emitted on its OWN channel, and never as a second slab', async () => {
         const w = await makePoolWorld();
         const emitted: string[] = [];
+        const waterEvents: Record<string, unknown>[] = [];
         for (const name of ['wall.created', 'slab.created', 'element.updated', 'water.created']) {
-            w.events.on(name as never, () => emitted.push(name));
+            w.events.on(name as never, (ev: unknown) => {
+                emitted.push(name);
+                if (name === 'water.created') waterEvents.push(ev as Record<string, unknown>);
+            });
         }
-        const warnings: string[] = [];
-        const realWarn = console.warn;
-        console.warn = (...args: unknown[]) => { warnings.push(args.map(String).join(' ')); };
-        try {
-            await w.bus.executeCommand('pool.create', POOL_PAYLOAD);
-        } finally {
-            console.warn = realWarn;
-        }
+        await w.bus.executeCommand('pool.create', POOL_PAYLOAD);
 
         expect(Object.keys(w.world['water']!).length, 'the water record is real').toBe(1);
-        expect(emitted, 'no rival family event may carry the water').not.toContain('water.created');
-        expect(emitted.filter((e) => e === 'slab.created').length, 'exactly ONE slab — the pool floor; the water is not a second one').toBe(1);
+
+        // ── THE FLIPPED HALF: it now reaches a renderer. ────────────────────────
+        expect(emitted, 'the water must reach the screen through its OWN typed event').toContain('water.created');
+        expect(waterEvents, 'exactly one water body for one pool').toHaveLength(1);
+
+        // ── THE UNCHANGED HALF: still not a slab. ──────────────────────────────
         expect(
-            warnings.join('\n'),
-            'an invisible member must be NAMED at the layer that knows — R-13 (C104 §13.3)',
-        ).toContain('WATER BODY');
+            emitted.filter((e) => e === 'slab.created').length,
+            'exactly ONE slab — the pool floor; the water is NOT a second one (C84 EI-9)',
+        ).toBe(1);
+
+        // The payload must carry ABSOLUTE elevations, independently. This is
+        // ADR-0124 §4.1 enforced at the wire: a renderer handed a thickness instead
+        // could only rebuild the blue slab, and the two fields being separate and
+        // absolute is the entire reason the family exists.
+        const ev = waterEvents[0]!;
+        expect(typeof ev['surfaceElevation'], 'surface is an absolute world-Y').toBe('number');
+        expect(typeof ev['bottomElevation'], 'bottom is an absolute world-Y').toBe('number');
+        expect(ev['surfaceElevation'] as number, 'the surface sits above the pool floor')
+            .toBeGreaterThan(ev['bottomElevation'] as number);
+        expect(ev, 'a water body must not be given a thickness').not.toHaveProperty('thickness');
+
+        // And the founder's actual ask rides on this event, or the mesh cannot honour
+        // it: blue, and transparent.
+        expect(typeof ev['color'], 'the authored colour reaches the renderer').toBe('string');
+        expect(ev['opacity'] as number, 'the authored opacity reaches the renderer').toBeLessThan(1);
     });
 });

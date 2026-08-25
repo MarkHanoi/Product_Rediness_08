@@ -458,6 +458,12 @@ export class SelectionManager implements ISelectionManager {
         'wall', 'window', 'door', 'slab', 'furniture', 'column',
         'beam', 'roof', 'stair', 'ramp', 'handrail', 'opening',
         'curtainwall', 'ceiling', 'floor', 'lighting',
+        // §POOL95 — the swimming pool's water body (ADR-0124 §4). It is its own
+        // element family with its own mesh, so omitting it here is the same defect
+        // the comment above records for `stair`: the tie-break silently drops it and
+        // whatever sits UNDER it wins the click. The water is the topmost thing in a
+        // pool, so the loser would be every selection an architect tries to make on it.
+        'water',
         'instancedelement',
     ].map(type => type.toLowerCase());
 
