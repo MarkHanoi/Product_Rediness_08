@@ -617,13 +617,38 @@ export function buildLayeredWallSegmentsAroundOpenings(
     const makeMat = (matColor: string): THREE.MeshStandardMaterial =>
         new THREE.MeshStandardMaterial({ color: matColor, roughness: 0.85, metalness: 0.0 });
 
+    // §WJFIX92 F-1 (L-11310) — THE BODY-PART VOCABULARY, ADOPTED BY THIS ARM AT LAST.
+    //
+    // Every mesh this builder emits IS a wall body layer, and the rest of the codebase
+    // says so with `userData.elementType === 'WallLayer'`: the no-openings layered arm
+    // (`WallFragmentBuilder.ts:2187` / :2647 / :3867), `VGSceneApplicator`'s
+    // elementType→category map (:110), and every join/band test harness
+    // (`__tests__/support/wallJointHarness.ts:114` and its ~8 siblings) all key on it.
+    // This arm stamped `role:'geometry'` and NOTHING else, so to any consumer asking
+    // "is there a wall body here?" a layered wall WITH an opening had none.
+    //
+    // The measured consequence (WINJOINT91 probe 3): the coordinator's §DIAG-OPENING-VOID
+    // scan (`apps/editor/src/engine/WallRebuildCoordinator.ts:1409`) counts exactly
+    // `elementType === 'WallPart' | 'WallLayer'` children and read `bodyParts=0 →
+    // voidCut=false` on a wall whose void was GENUINELY cut (material-free band
+    // x∈[2.05..3.15] at mid-opening height). So EVERY window/door edit on EVERY layered
+    // wall failed that check and was routed to the whole-level `_rebuildWalls` fallback —
+    // which re-resolves the level's joins and (pre-F-2/F-3) square-capped the mitres the
+    // founder reported losing. A structural false positive, not a rare one.
+    //
+    // C84 EI-9 (one vocabulary per concept): adopt the existing tag, do NOT widen the
+    // consumer to `role === 'geometry'` (that predicate also matches non-body meshes).
+    // Nothing keys on these children being elementType-LESS: the removal/merge sweeps in
+    // `WallFragmentBuilder` (:3380, :3454, :3666) select `'WallPart'` only, and the
+    // `WallProfileNonRegressionBaseline` P2 row's own `expectTags: ['WallLayer']` has
+    // declared this tag the expected output of this path all along.
     const emitMesh = (
         geo: THREE.BufferGeometry,
         matColor: string,
         userData: Record<string, unknown>,
     ): void => {
         const mesh = new THREE.Mesh(geo, makeMat(matColor));
-        mesh.userData = userData;
+        mesh.userData = { elementType: 'WallLayer', ...userData };
         mesh.position.set(0, 0, 0);
         wallGroup.add(mesh);
         addedMeshes.push(mesh);

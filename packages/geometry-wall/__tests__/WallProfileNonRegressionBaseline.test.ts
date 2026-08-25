@@ -403,10 +403,24 @@ const BASELINE: Readonly<Record<string, string>> = Object.freeze({
         'window-part n=24 s=3903.246810 bb=[2.050000,0.950000,0.244552..3.150000,2.250000,0.612886]',
         'WallPart n=144 s=170312.222584 bb=[0.000000,0.000000,-0.100000..6.000000,3.000000,0.903848]',
     ),
+    // ── §WJFIX92-RETAG (2026-08-25, L-11310) — RE-CAPTURED, TAG ONLY, GEOMETRY FROZEN ──
+    // The three body rows below read `_` — NO `elementType` — while this case's own
+    // `expectTags: ['WallLayer']` (:312) declared the opposite. The declaration was right and
+    // the emitter was wrong: `LayeredWallOpeningBuilder.emitMesh` stamped `role:'geometry'`
+    // and nothing else, so a layered wall WITH an opening presented no body part to any
+    // consumer asking for one — including `WallRebuildCoordinator`'s §DIAG-OPENING-VOID scan,
+    // which therefore read `voidCut=false` on a correctly-carved wall and routed EVERY window
+    // edit to the whole-level rebuild that lost the founder's mitres.
+    //
+    //   WHAT MOVED: the leading tag token, `_` → `WallLayer`, on three rows.
+    //   WHAT DID NOT: every `n=`, every `s=`, every `bb=` — byte-identical, verified in the
+    //   failure diff before this edit (3 rows changed, 8 rows untouched, all numbers equal).
+    // This is the digest reporting a userData tag, not geometry; it is NOT the loosening the
+    // header forbids. If a NUMBER ever moves on these rows, that IS the forbidden case.
     'P2-layered-openings': L(
-        '_ n=144 s=154565.999823 bb=[0.000000,0.000000,-0.125000..6.000000,3.000000,-0.025000]',
-        '_ n=144 s=156928.199828 bb=[0.000000,0.000000,-0.025000..6.000000,3.000000,0.025000]',
-        '_ n=144 s=159263.999834 bb=[0.000000,0.000000,0.025000..6.000000,3.000000,0.125000]',
+        'WallLayer n=144 s=154565.999823 bb=[0.000000,0.000000,-0.125000..6.000000,3.000000,-0.025000]',
+        'WallLayer n=144 s=156928.199828 bb=[0.000000,0.000000,-0.025000..6.000000,3.000000,0.025000]',
+        'WallLayer n=144 s=159263.999834 bb=[0.000000,0.000000,0.025000..6.000000,3.000000,0.125000]',
         'window-part n=24 s=3052.320001 bb=[2.000000,0.900000,-0.135000..2.050000,2.300000,0.135000]',
         'window-part n=24 s=4032.120001 bb=[3.150000,0.900000,-0.135000..3.200000,2.300000,0.135000]',
         'window-part n=24 s=4177.619999 bb=[2.000000,2.250000,-0.135000..3.200000,2.300000,0.135000]',
