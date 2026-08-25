@@ -71,6 +71,14 @@ export type PropertyDrivenIntentId =
   // lines in ZeroTokenResolver.ts and zero in CapabilityExecutionSpec.ts.
   | 'set-mullion-size'
   | 'set-panel-thickness'
+  // §CW90 item 5 — post spacing (gridXSpacing) and transom spacing
+  // (gridYSpacing). The honesty blocker recorded at the foot of this table is
+  // PAID: these route through `wall.updateCurtainWall`, whose
+  // UpdateCurtainWallCommand merge can clear `gridSystem` alongside the
+  // spacing — the same mechanism resolveCurtainWallTypeFields uses — so the
+  // write is LIVE on grid-edited walls too, never a no-op reported as Done.
+  | 'set-post-spacing'
+  | 'set-transom-spacing'
   | 'set-baluster-spacing'
   | 'set-baluster-width'
   // §PROP-OVERHANG (RAC VERBS-CAP) — the roof eave. See the entry for why this
@@ -352,6 +360,62 @@ export const PROPERTY_VOCABULARY: Readonly<Record<PropertyDrivenIntentId, Proper
         kinds: ['curtain-wall'],
         busCommand: 'element.updateParameters',
         payload: generic('panelThickness'),
+      },
+    ],
+  },
+
+  /**
+   * §CW90 item 5 — "set the post spacing to 1.5m". `CurtainWallData.gridXSpacing`
+   * is the vertical-mullion (post) pitch `migrateToGridSystem` divides the run
+   * by. ⛔ NOT `generic('gridXSpacing')` on `element.updateParameters` — that
+   * command SKIPS explicit-undefined parameters, so it cannot clear
+   * `gridSystem`, and `CurtainWallBuilder` reads the spacing ONLY when
+   * `cw.gridSystem` is absent (`cw.gridSystem ?? migrateToGridSystem(…)`).
+   * This route rides `wall.updateCurtainWall` → UpdateCurtainWallCommand,
+   * whose `{...existing, ...updates}` merge overwrites `gridSystem` to
+   * undefined — exactly how a TYPE change clears it (CurtainWallTypeStore
+   * `resolveCurtainWallTypeFields:594`). A uniform pitch necessarily replaces
+   * a hand-edited grid; that is the ask, and undo restores the full snapshot.
+   */
+  'set-post-spacing': {
+    id: 'set-post-spacing',
+    property: 'post spacing',
+    synonyms: ['grid x spacing', 'vertical mullion spacing', 'bay width', 'u spacing'],
+    adjectives: [],
+    label: 'post spacing',
+    signed: false,
+    routes: [
+      {
+        kinds: ['curtain-wall'],
+        busCommand: 'wall.updateCurtainWall',
+        payload: (elementId, _elementType, value) => ({
+          id: elementId,
+          updates: { gridXSpacing: value, gridSystem: undefined },
+        }),
+      },
+    ],
+  },
+
+  /**
+   * §CW90 item 5 — "set the transom spacing to 1.2m". `gridYSpacing`, the
+   * horizontal (transom) course. Same route and same gridSystem clearing as
+   * post spacing — see that entry for the full rationale.
+   */
+  'set-transom-spacing': {
+    id: 'set-transom-spacing',
+    property: 'transom spacing',
+    synonyms: ['grid y spacing', 'horizontal mullion spacing', 'bay height', 'v spacing', 'transom course'],
+    adjectives: [],
+    label: 'transom spacing',
+    signed: false,
+    routes: [
+      {
+        kinds: ['curtain-wall'],
+        busCommand: 'wall.updateCurtainWall',
+        payload: (elementId, _elementType, value) => ({
+          id: elementId,
+          updates: { gridYSpacing: value, gridSystem: undefined },
+        }),
       },
     ],
   },
@@ -710,19 +774,17 @@ export const PROPERTY_VOCABULARY: Readonly<Record<PropertyDrivenIntentId, Proper
     ],
   },
 
-  // ── NOT ADDED, and the reason is the point of this table ──────────────────
+  // ── The gridXSpacing/gridYSpacing honesty blocker — PAID (§CW90 item 5) ───
   //
-  // `gridXSpacing` / `gridYSpacing` were the obvious fifth and sixth entries —
-  // both are editable NUMBER rows on the curtain-wall property panel, both are
-  // on `CurtainWallData`, and `resolveStore()` routes curtain-wall. They fail
-  // the honesty bar anyway: `CurtainWallBuilder` reads them ONLY when
-  // `cw.gridSystem` is absent (`const grid = cw.gridSystem ?? migrateToGrid…`).
-  // Any curtain wall whose grid has been edited by Add/RemoveCurtainGridLine
-  // carries a `gridSystem`, and on those the write lands in the record, the
-  // rebuild runs, and NOTHING moves — "Done" over a no-op, on exactly the walls
-  // a user is most likely to be tuning. A property whose liveness is
-  // conditional on other state is not a property this table may claim; it needs
-  // a command that edits the grid system, which is U9+ work.
+  // This block used to refuse those two entries because `CurtainWallBuilder`
+  // reads the spacings ONLY when `cw.gridSystem` is absent, so a
+  // `generic(...)` write on a grid-edited wall was "Done" over a no-op. The
+  // refusal was correct FOR THAT ROUTE. The `set-post-spacing` /
+  // `set-transom-spacing` entries above take a different one —
+  // `wall.updateCurtainWall`, whose command merge clears `gridSystem` with the
+  // spacing in one write, the type-change mechanism — so the liveness is
+  // unconditional. What remains U9+ is a command that EDITS a gridSystem
+  // in place (per-line moves from chat), which is a different capability.
 };
 
 // ─── Lookup surface ──────────────────────────────────────────────────────────

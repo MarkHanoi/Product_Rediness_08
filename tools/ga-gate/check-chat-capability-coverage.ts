@@ -533,6 +533,9 @@ const KNOWN_VALUE_SOURCES = new Set([
   // subject rather than the subject being wrong. Both resolve through
   // `publishedCatalogues.ts` and both are proved by CATALOGUE_SOURCES below.
   'stair-types', 'handrail-types', 'lighting-types',
+  // §CW90 item 5 — curtain-wall types: bridge row (full resolveCatalogueRef
+  // ladder over the LIVE curtainWallTypeStore) + published-catalogue fallback.
+  'curtain-wall-types',
 ]);
 
 // ADR-0315 U2.5 — the scope modes a capability may declare in `scopeModes`.
@@ -574,6 +577,7 @@ function proveParameterSources(cap: ChatCapability): string[] {
       : p.valueSource === 'door-system-types' ? typeof probe['typeRef'] === 'string'
       : p.valueSource === 'slab-system-types' ? typeof probe['typeRef'] === 'string'
       : p.valueSource === 'ceiling-system-types' ? typeof probe['typeRef'] === 'string'
+      : p.valueSource === 'curtain-wall-types' ? typeof probe['typeRef'] === 'string'
       : p.valueSource === 'finish' ? typeof probe['finishRef'] === 'string'
       // ADR-0315 U5a: duplicate-level carries its level refs as sourceQuery /
       // targetQueries — both resolved by the same findLevel authority.
@@ -946,6 +950,11 @@ const CATALOGUE_SOURCES: ReadonlyMap<string, { file: string; exported: string }>
   ['lighting-types', {
     file: 'packages/ai-host/src/intents/publishedCatalogues.ts',
     exported: 'publishedLightingTypeCatalogue',
+  }],
+  // §CW90 item 5 — the curtain-wall type catalogue (LIVE singleton, no note).
+  ['curtain-wall-types', {
+    file: 'packages/ai-host/src/intents/publishedCatalogues.ts',
+    exported: 'publishedCurtainWallTypeCatalogue',
   }],
 ]);
 

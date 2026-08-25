@@ -108,6 +108,8 @@ declare global {
     wallSystemTypeStore?: any;
     slabSystemTypeStore?: any;
     ceilingSystemTypeStore?: any;
+    /** §CW90 item 5 — the curtain-wall type catalogue (chat bridge row). */
+    curtainWallTypeStore?: any;
     floorSystemTypeStore?: any;
     windowSystemTypeStore?: any;
 

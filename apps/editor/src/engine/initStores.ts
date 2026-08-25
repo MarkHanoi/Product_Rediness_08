@@ -116,6 +116,13 @@ export function registerAllStores(stores: AllStores): void {
     if (stores.liftStore) r('verticalCirculation', stores.liftStore);
     if (stores.liftTypeStore) r('lift-type', stores.liftTypeStore);
     r('curtainwall',   stores.curtainWallStore);
+    // §CW90 item 5 — ALIAS, same instance. The chat layer's normalized kind is
+    // 'curtain-wall' (normalizeElementKind), and StoreRegistry.getStoreForType
+    // is a raw Map.get with no normalization — so the 'all'/'level' chat scopes
+    // could never enumerate curtain walls while only the unhyphenated key
+    // existed. Every other chat family's key matches its elementKind exactly;
+    // curtain wall was the one that disagreed.
+    r('curtain-wall',  stores.curtainWallStore);
     r('curtain-panel', stores.curtainPanelStore);
     r('door',          stores.doorStore);
     r('window',        stores.windowStore);

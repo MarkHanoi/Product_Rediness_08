@@ -187,7 +187,11 @@ export type DimensionFamilyIntentId =
   // §FEAT-CHAT-STAIR-WIDTH (L-1442) — the founder's "Change width of all stairs
   // to X". A stair carries exactly ONE of the four dimension keys, and the
   // other three are refused BY NAME with the route that can do them.
-  | 'set-stair-dimensions';
+  | 'set-stair-dimensions'
+  // §CW90 item 5 — the founder's "change/make all curtain walls [in ground
+  // level] to 5 meters height". Height ONLY: the other three keys are refused
+  // BY NAME (see carrierGap), never dropped.
+  | 'set-curtain-wall-dimensions';
 
 export interface DimensionFamily {
   readonly intent: DimensionFamilyIntentId;
@@ -317,6 +321,52 @@ export const DIMENSION_FAMILIES: readonly DimensionFamily[] = [
       'set all walls height to 3m',
       'make the selected walls 3m high',
       'set all walls on level 2 to 3.2m high',
+    ],
+  },
+  {
+    // §CW90 item 5 — curtain walls. LEGAL BY THE TABLE'S OWN INVARIANT: a
+    // family may only carry a key whose single-form capability already targets
+    // the kind, and `set-height` targets 'curtain-wall'
+    // (ChatCapabilityRegistry SET_HEIGHT_TARGETS, proven off
+    // UpdateElementParameterCommand.resolveStore, which routes curtain-wall to
+    // the geometry store and rebuilds via window.curtainWallBuilder).
+    intent: 'set-curtain-wall-dimensions',
+    elementKind: 'curtain-wall',
+    // ⛔ NO 'orientation' and NO 'room' — same reasoning as the fan-out
+    // catalogue families (the orientation descriptor answers with WALLS; room
+    // membership for curtain walls is new with §CW90 items 4+9 and the room
+    // scope arm is unmeasured against it).
+    spatialKinds: ['level'],
+    nounAliases: ['curtainwall', 'glazed wall', 'glass wall'],
+    nounPlural: 'curtain walls',
+    busCommand: 'element.updateDimensionsBatch',
+    idsField: 'elementIds',
+    carries: ['height'],
+    carrierGap: {
+      thickness:
+        'a curtain wall has no single thickness — its frame depth is MULLION SIZE and its glass is ' +
+        'PANEL THICKNESS; say "set the mullion size to 80mm" or "set the panel thickness to 20mm" ' +
+        'with the walls selected',
+      width:
+        'a curtain wall has no width; its run is set by moving its ends, and its bay rhythm is the ' +
+        'post spacing',
+      sillHeight: 'a curtain wall has no sill — only an opening (a window) does',
+    },
+    payload: (ask) => ({ elementKind: 'curtain-wall', dimensions: ask }),
+    noSelectionReason:
+      'No curtain walls are selected — select some, or say "make all curtain walls 5 meters high" to resize every one.',
+    mismatchPrefix: 'Curtain wall dimensions apply to curtain walls',
+    suggestions: ['make all curtain walls 5 meters high', 'set all curtain walls height to 4m'],
+    commandProof: {
+      file: 'packages/command-registry/src/generic/UpdateElementDimensionsBatchCommand.ts',
+      mustMention: ['UpdateElementParameterCommand', 'elementKind', 'skipped'],
+      note: "Per element it instantiates the LIVE UpdateElementParameterCommand with the height in ONE parameters object; that command's resolveStore() routes 'curtain-wall' to the geometry CurtainWallStore (the authority every builder/projector/exporter reads — C87 §2) and its triggerGeometryRebuild calls window.curtainWallBuilder.buildCurtainWall, so the grid re-migrates against the new height. An id the store no longer holds becomes a counted skip with its reason.",
+    },
+    examples: [
+      'make all curtain walls 5 meters high',
+      'change all curtain walls to 5 meters height',
+      'set all curtain walls height to 4m',
+      'make all curtain walls in ground level 5 meters high',
     ],
   },
   {

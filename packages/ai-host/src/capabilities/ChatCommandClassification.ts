@@ -290,7 +290,11 @@ const C_PLUMBING = family(
     'view.createDefinition', 'view.deleteDefinition', 'view.updateDefinition',
     'viewTemplate.create', 'viewTemplate.delete', 'viewTemplate.update',
     'room.recomputeBoundary', 'room.redetect', 'room.updateBoundary',
-    'handrail.recompute', 'wall.cascadeBaseline', 'wall.updateCurtainWall',
+    'handrail.recompute', 'wall.cascadeBaseline',
+    // 'wall.updateCurtainWall' left this list with §CW90 item 5: it is now a
+    // CAPABILITY DISPATCH (set-post-spacing / set-transom-spacing ride it,
+    // because element.updateParameters cannot clear gridSystem), so a sentence
+    // CAN mean this verb and classifying it as plumbing would double-book it.
     'section.mark.create', 'furniture.setActiveLod',
     'furniture.setRepresentation', 'projectOrigin.setPosition',
     'projectOrigin.setVisible',

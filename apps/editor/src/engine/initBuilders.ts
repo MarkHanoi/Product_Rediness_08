@@ -577,6 +577,11 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     ]);
     window.wallSystemTypeStore = wallSystemTypeStore; // TODO(TASK-08)
     window.slabSystemTypeStore = slabSystemTypeStore; // TODO(TASK-08)
+    // §CW90 item 5 — publish the curtain-wall type catalogue for the chat
+    // bridge's ctx.catalogues['curtain-wall'] row (ZeroTokenChatBridge
+    // buildCatalogueChannel reads window.curtainWallTypeStore).
+    const { curtainWallTypeStore } = await import('@pryzm/core-app-model/stores');
+    window.curtainWallTypeStore = curtainWallTypeStore; // TODO(TASK-08)
     console.log('[initBuilders] Wall + Slab system type stores loaded');
 
     // ── Roof subsystem ────────────────────────────────────────────────────────

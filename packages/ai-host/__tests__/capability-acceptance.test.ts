@@ -496,6 +496,18 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
     ],
   },
   {
+    // §CW90 item 5 — the founder's "make all curtain walls 5 meters height".
+    id: 'set-curtain-wall-dimensions',
+    ctx: scopedSel('curtain-wall'),
+    scoped: true,
+    phrasings: [
+      'make all curtain walls 5 meters high',
+      'change all curtain walls to 5 meters height',
+      'set all curtain walls height to 4m',
+      'make all curtain walls in ground level 5 meters high',
+    ],
+  },
+  {
     id: 'set-stair-railing-type',
     // scopedSel, not sel: these families FAN OUT, and `fanOutPerId` implies
     // `requireResolvedIds` — there are no ids to fan over until the scope is
@@ -540,6 +552,21 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
       'change all lightings in ground level to recessed downlight',
       'make all the lights linear pendant',
       'change the lighting type to brass arc floor lamp',
+    ],
+  },
+  {
+    // §CW90 item 5 — the founder's curtain-wall type sentence, level scope and
+    // all. Fan-out family (element.changeType), so `scopedSel` like lighting.
+    // "point-fixed glass" is deliberately a PARTIAL name: the published table's
+    // full name resolves from a uniquely-matching few words on the fuzzy ladder.
+    id: 'set-curtain-wall-type',
+    ctx: scopedSel('curtain-wall'),
+    scoped: true,
+    phrasings: [
+      'change all curtain walls to structural glazing',
+      'change all curtain walls in ground level to storefront',
+      'make all the curtain walls spider point-fixed',
+      'change the curtain wall type to unitised bronze',
     ],
   },
   // ── RAC U7.1 — the PROPERTY VOCABULARY families ─────────────────────────
@@ -592,6 +619,27 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
       'set the panel thickness to 12mm',
       'change the glazing thickness to 0.024m',
       'set the curtain wall panel thickness to 20mm',
+    ],
+  },
+  {
+    // §CW90 item 5 — post spacing, riding wall.updateCurtainWall so the
+    // gridSystem clears with the write (see PropertyVocabulary for why
+    // element.updateParameters could not carry this honestly).
+    id: 'set-post-spacing',
+    ctx: sel('curtain-wall'),
+    phrasings: [
+      'set the post spacing to 1.5m',
+      'change the post spacing to 1200mm',
+      'set the curtain wall bay width to 1m',
+    ],
+  },
+  {
+    id: 'set-transom-spacing',
+    ctx: sel('curtain-wall'),
+    phrasings: [
+      'set the transom spacing to 1.2m',
+      'change the transom spacing to 900mm',
+      'set the curtain wall bay height to 1.5m',
     ],
   },
   {

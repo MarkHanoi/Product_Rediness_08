@@ -71,6 +71,15 @@ import { BUILT_IN_STAIR_TYPES } from '@pryzm/geometry-stair';
 // for why this family needs NO limiting note, unlike stair.
 import { BUILT_IN_LIGHTING_TYPES } from '@pryzm/geometry-lighting';
 import { handrailTypeStore } from '@pryzm/core-app-model/stores';
+// §CW90 item 5 — the curtain-wall type catalogue, read from the LIVE
+// `curtainWallTypeStore` singleton — the SAME object `element.changeType`'s
+// curtain-wall branch calls `getById()` on (initBusHandlers.ts:2122), so a
+// name this resolves is a name that branch accepts. Built-ins AND
+// user-authored types, hence no limiting note (the handrail precedent).
+import { curtainWallTypeStore } from '@pryzm/core-app-model/stores';
+// §CW90 item 5 — THE fuzzy ladder itself (already a package dependency), so
+// the fallback resolves exactly as the editor bridge row does.
+import { resolveCatalogueRef } from '@pryzm/command-registry';
 import type { CatalogueLookup } from './CatalogueFamilies.js';
 
 /** Normalize a reference for comparison: case, punctuation and the hyphen/space
@@ -168,4 +177,43 @@ export function publishedRailingTypeCatalogue(): CatalogueLookup | null {
  */
 export function publishedLightingTypeCatalogue(): CatalogueLookup | null {
   return lookupOver(BUILT_IN_LIGHTING_TYPES.map((t) => ({ id: t.id, name: t.name })));
+}
+
+/**
+ * §CW90 item 5 — the curtain-wall type catalogue, from the LIVE
+ * `curtainWallTypeStore` singleton (20 built-ins + project customs). Same
+ * shape as `publishedRailingTypeCatalogue`: the live store, so no limiting
+ * note; unreadable is reported ABSENT, never EMPTY (§CONTEXT-DATA-HONESTY).
+ * The editor bridge's `ctx.catalogues['curtain-wall']` row rides the FULL
+ * `resolveCatalogueRef` ladder and wins whenever present; this is the pure
+ * fallback for contexts with no bridge.
+ */
+export function publishedCurtainWallTypeCatalogue(): CatalogueLookup | null {
+  let names: readonly string[];
+  try {
+    names = curtainWallTypeStore.getAll().map((t) => t.name);
+  } catch {
+    return null;
+  }
+  if (names.length === 0) return null;
+  return {
+    // ⭐ THE ONE LADDER, not `lookupOver`'s exact/normalized stopgap. The
+    // founder's type names are huge ("Structural glazing — silicone-jointed"),
+    // so a few uniquely-matching words MUST resolve and an ambiguous ref MUST
+    // miss into the refusal that lists candidates (L-10100 / C72 §9).
+    // `resolveCatalogueRef` is exactly that ladder, and `curtainWallTypeStore`
+    // satisfies its reader shape (`getById` + `getAll`).
+    resolve: (ref: string) => {
+      try {
+        const hit = resolveCatalogueRef(curtainWallTypeStore, ref, {
+          domainNoise: ['curtain', 'wall', 'curtainwall', 'glazed', 'glazing'],
+          spanDomain: 'pryzm.catalogue.curtainwall',
+        });
+        return hit.entry === null ? null : { id: hit.entry.id, name: hit.entry.name };
+      } catch {
+        return null;
+      }
+    },
+    names,
+  };
 }

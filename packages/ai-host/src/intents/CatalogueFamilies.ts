@@ -151,6 +151,7 @@ import type { ResolverContext } from './ZeroTokenResolver.js';
 // editor bridge's catalogue channel carries only slab + ceiling today. See
 // that module's header for why forwarding a raw ref would be unsafe here.
 import {
+  publishedCurtainWallTypeCatalogue,
   publishedLightingTypeCatalogue,
   publishedRailingTypeCatalogue,
   publishedStairTypeCatalogue,
@@ -173,7 +174,14 @@ export type CatalogueFamilyIntentId =
   // in ground level to X"*. The FIRST family added after the block above
   // corrected its own framing: lighting was never missing machinery, only
   // PUBLICATION. See the table row for what that turned out to cost.
-  | 'set-lighting-type';
+  | 'set-lighting-type'
+  // §CW90 item 5 — the founder's "change all curtain walls [in ground level]
+  // to type X", with his huge type names riding the SAME resolveCatalogueRef
+  // ladder editor-side (bridge row) and the live-store fallback here.
+  // CatalogueFamilies.ts:83-95 records that the old reason for its absence was
+  // FALSE since L-958: the wall type is READY (20 built-ins, `systemTypeId` on
+  // the record, the `element.changeType` branch at initBusHandlers.ts:2094).
+  | 'set-curtain-wall-type';
 
 /** The catalogue lookup a family needs, however it was injected. */
 export interface CatalogueLookup {
@@ -592,6 +600,46 @@ export const CATALOGUE_FAMILIES: readonly CatalogueFamily[] = [
     rejectRef: (ref) =>
       /^(?:on|off|dim|dimmer|dimmed|bright|brighter|brightness|intensity)$/i.test(ref.trim()),
     spatialKinds: ['level', 'room'],
+  },
+  // §CW90 item 5 — curtain-wall types. The route is `element.changeType`'s
+  // curtain-wall branch (initBusHandlers.ts:2094): it REFUSES an id
+  // `curtainWallTypeStore.getById()` does not know, resolves the type against
+  // the wall's OWN height (height-agnostic transom intent), dispatches
+  // `UpdateCurtainWallCommand` into the geometry store the builders read, and
+  // re-materialises surviving panels. Fan-out like lighting: no
+  // `curtain-wall.updateSystemTypeBatch` exists (the plugin DTO verbs
+  // `.setGrid`/`.setPanelType`/`.setMaterial` write a store nothing renders —
+  // C87 §4), so N walls are N undo steps, disclosed by `dispatchCommands`.
+  {
+    intent: 'set-curtain-wall-type',
+    // `storeRegistry` — the legacy key is 'curtainwall' (initStores.ts); the
+    // chat's normalized kind is 'curtain-wall', registered as an alias beside
+    // it so the 'all' and LEVEL scopes enumerate like every other family.
+    elementKind: 'curtain-wall',
+    nounAliases: ['curtainwall', 'glazed wall', 'glass wall', 'facade wall'],
+    busCommand: 'element.changeType',
+    idsField: 'elementId',
+    fanOutPerId: true,
+    typePayload: (id) => ({ elementType: 'curtain-wall', newTypeId: id }),
+    typeNoun: 'curtain wall type',
+    nounPlural: 'curtain walls',
+    noSelectionReason:
+      'No curtain walls are selected — select one, or say "change all curtain walls to storefront" to retype every one.',
+    mismatchPrefix: 'Curtain wall types apply to curtain walls',
+    suggestions: [
+      'change all curtain walls to structural glazing',
+      'change all curtain walls in ground level to storefront',
+    ],
+    // The bridge row (full resolveCatalogueRef ladder, fuzzy word-subset +
+    // ambiguity-lists-candidates, C72 §9) first; the LIVE-singleton fallback
+    // otherwise.
+    lookup: (ctx) => generic('curtain-wall')(ctx) ?? publishedCurtainWallTypeCatalogue(),
+    // Dimension/spacing sentences belong to other capabilities — a MISS is the
+    // honest answer, not a catalogue refusal listing 20 names (L-10100 rule:
+    // whole-ref, never a substring, so "Structural Glazing" stays claimable).
+    rejectRef: (ref) =>
+      /^(?:height|tall|taller|spacing|mullion|transom|panel|thickness)$/i.test(ref.trim()),
+    spatialKinds: ['level'],
   },
 ];
 

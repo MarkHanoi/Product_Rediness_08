@@ -513,7 +513,15 @@ const DIMENSION_FAMILY_CAPABILITIES: readonly ChatCapability[] = DIMENSION_FAMIL
   // unlike the scoped deletes, no other capability owns the multi-element
   // dimension ask — `set-dimensions` refuses it by design (ADR-0314 D3) and now
   // points here.
-  scopeModes: ['all', 'selection', 'level', 'room'],
+  //
+  // §CW90 item 5 — 'room' is declared ONLY when the family's own spatialKinds
+  // claims it: the curtain-wall family narrows to ['level'] (room membership
+  // for curtain walls is new with §CW90 items 4+9 and the room arm is
+  // unmeasured against it), and a declared mode the arm refuses is the C68
+  // §7.d lie the coverage gate rightly fails.
+  scopeModes: (family.spatialKinds === undefined || family.spatialKinds.includes('room'))
+    ? ['all', 'selection', 'level', 'room']
+    : ['all', 'selection', 'level'],
   destructive: true,
   busCommand: family.busCommand,
   // Selection-scope probe, for the same reason every batch capability uses one:
@@ -1477,6 +1485,91 @@ const CAPABILITIES: readonly ChatCapability[] = [
       'set the panel thickness to 12mm',
       'change the glazing thickness to 0.024m',
       'set the curtain wall panel thickness to 20mm',
+    ],
+  },
+  {
+    id: 'set-post-spacing',
+    // §CW90 item 5 — the vertical-mullion (post) pitch. ⛔ NOT
+    // element.updateParameters: that command skips explicit-undefined
+    // parameters and cannot clear `gridSystem`, which CurtainWallBuilder
+    // prefers over the spacing (`cw.gridSystem ?? migrateToGridSystem`). The
+    // route is wall.updateCurtainWall → UpdateCurtainWallCommand, whose merge
+    // clears gridSystem WITH the spacing — the type-change mechanism — so the
+    // write is live on grid-edited walls too.
+    description: 'change the curtain-wall post spacing (vertical mullion pitch)',
+    verbs: ['set', 'change'],
+    aliases: ['post spacing', 'grid x spacing', 'vertical mullion spacing', 'bay width', 'u spacing'],
+    refusalLabel: 'post spacing',
+    targets: ['curtain-wall'],
+    parameters: [
+      {
+        name: 'gridXSpacing',
+        description: 'the new post (vertical mullion) spacing',
+        required: true,
+        valueSource: 'measurement',
+        example: '1.5m',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'wall.updateCurtainWall',
+    probe: { intent: 'set-post-spacing', value: 1.5 },
+    commandProof: [
+      {
+        file: 'packages/command-registry/src/curtainwall/UpdateCurtainWallCommand.ts',
+        mustMention: ['curtainWallStore', 'updates'],
+        note: 'The wall.updateCurtainWall bridge (initBusHandlers §FIX-CW-UPDATE-REACH-RECORD) dispatches UpdateCurtainWallCommand, the only writer of the geometry curtainWallStore on an update; its merge overwrites gridSystem to undefined alongside gridXSpacing, and undo restores the full pre-mutation snapshot via store.set().',
+      },
+      {
+        file: 'packages/geometry-curtain-wall/src/CurtainGridSystem.ts',
+        mustMention: ['gridXSpacing'],
+        note: 'The READ half: with gridSystem cleared, migrateToGridSystem divides the run by gridXSpacing to mint the uLines — the posts really move.',
+      },
+    ],
+    examples: [
+      'set the post spacing to 1.5m',
+      'change the post spacing to 1200mm',
+      'set the curtain wall bay width to 1m',
+    ],
+  },
+  {
+    id: 'set-transom-spacing',
+    // §CW90 item 5 — the horizontal (transom) course. Same route and same
+    // gridSystem clearing as set-post-spacing.
+    description: 'change the curtain-wall transom spacing (horizontal course)',
+    verbs: ['set', 'change'],
+    aliases: ['transom spacing', 'grid y spacing', 'horizontal mullion spacing', 'bay height', 'v spacing', 'transom course'],
+    refusalLabel: 'transom spacing',
+    targets: ['curtain-wall'],
+    parameters: [
+      {
+        name: 'gridYSpacing',
+        description: 'the new transom (horizontal course) spacing',
+        required: true,
+        valueSource: 'measurement',
+        example: '1.2m',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'wall.updateCurtainWall',
+    probe: { intent: 'set-transom-spacing', value: 1.2 },
+    commandProof: [
+      {
+        file: 'packages/command-registry/src/curtainwall/UpdateCurtainWallCommand.ts',
+        mustMention: ['curtainWallStore', 'updates'],
+        note: 'Same writer and same snapshot undo as set-post-spacing; gridSystem is cleared with gridYSpacing in the one merge.',
+      },
+      {
+        file: 'packages/geometry-curtain-wall/src/CurtainGridSystem.ts',
+        mustMention: ['gridYSpacing'],
+        note: 'The READ half: migrateToGridSystem divides the height by gridYSpacing to mint the vLines — the transoms really move.',
+      },
+    ],
+    examples: [
+      'set the transom spacing to 1.2m',
+      'change the transom spacing to 900mm',
+      'set the curtain wall bay height to 1.5m',
     ],
   },
   {
@@ -2683,6 +2776,48 @@ const CAPABILITIES: readonly ChatCapability[] = [
       'change all lightings in ground level to recessed downlight',
       'make all the lights linear pendant',
       'change the lighting type to brass arc floor lamp',
+    ],
+  },
+  // §CW90 item 5 — curtain-wall types over the SAME fan-out route as lighting.
+  // The founder's type names are huge ("Point-Fixed Structural Glazing …"), so
+  // resolution is the FUZZY resolveCatalogueRef ladder (bridge row) — a few
+  // uniquely-matching words resolve, an ambiguous ref lists the candidates by
+  // name (C72 §9), never a silent pick.
+  {
+    id: 'set-curtain-wall-type',
+    description: 'change the curtain wall type',
+    verbs: ['change', 'set', 'convert', 'swap', 'make', 'turn'],
+    aliases: ['curtain wall type', 'curtainwall type', 'glazing type', 'facade type'],
+    refusalLabel: 'curtain wall type',
+    targets: ['curtain-wall'],
+    parameters: [
+      {
+        name: 'type',
+        description: 'the curtain wall type, by catalogue name, a uniquely-matching few words of it, or id',
+        required: true,
+        valueSource: 'curtain-wall-types',
+        example: 'Structural Glazing',
+      },
+    ],
+    scope: 'all',
+    // ⛔ NO 'orientation' (the descriptor answers with WALLS — same reasoning
+    // as set-lighting-type) and NO 'room' yet: room membership for curtain
+    // walls landed with §CW90 items 4+9 and the room scope arm is not measured
+    // against it — declaring it un-measured would be the C68 §6.3-G3 shape.
+    scopeModes: ['all', 'selection', 'level'],
+    destructive: false,
+    busCommand: 'element.changeType',
+    probe: { intent: 'set-curtain-wall-type', typeRef: 'Structural Glazing', scope: 'selection' },
+    commandProof: {
+      file: 'apps/editor/src/engine/initBusHandlers.ts',
+      mustMention: ['curtainWallTypeStore', 'resolveCurtainWallTypeFields', 'UpdateCurtainWallCommand'],
+      note: "element.changeType's curtain-wall branch (initBusHandlers.ts:2094) REFUSES any id curtainWallTypeStore.getById() does not know — the same LIVE singleton this capability's valueSource resolves against, so a name the chat resolves is a name the branch accepts. It resolves the type against the wall's OWN height (resolveCurtainWallTypeFields — transomCourse intent is height-agnostic), dispatches UpdateCurtainWallCommand into the legacy geometry store the builders / plan projector / IFC exporter read (C87 §2 THE AUTHORITY), and re-materialises the surviving panels via resolveCurtainWallTypePanelFields. Keyed by elementId; fan-out per wall, N undo steps disclosed.",
+    },
+    examples: [
+      'change all curtain walls to structural glazing',
+      'change all curtain walls in ground level to storefront',
+      'make all the curtain walls spider point-fixed',
+      'change the curtain wall type to unitised bronze',
     ],
   },
   {

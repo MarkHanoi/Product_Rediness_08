@@ -286,6 +286,26 @@ export const PROPERTY_QUERY_ROWS: readonly PropertyQueryRow[] = Object.freeze([
     unit: 'metres',
   },
   {
+    // §CW90 item 5 — the READ twins of set-post-spacing / set-transom-spacing,
+    // so the cells land BOTH rather than EXECUTE-ONLY (ADR-0344 arm A).
+    id: 'post-spacing',
+    capabilityId: 'set-post-spacing',
+    noun: 'post spacing',
+    synonyms: ['grid x spacing', 'vertical mullion spacing', 'bay width'],
+    adjectives: [],
+    field: 'gridXSpacing',
+    unit: 'metres',
+  },
+  {
+    id: 'transom-spacing',
+    capabilityId: 'set-transom-spacing',
+    noun: 'transom spacing',
+    synonyms: ['grid y spacing', 'horizontal mullion spacing', 'bay height'],
+    adjectives: [],
+    field: 'gridYSpacing',
+    unit: 'metres',
+  },
+  {
     id: 'baluster-spacing',
     capabilityId: 'set-baluster-spacing',
     noun: 'baluster spacing',

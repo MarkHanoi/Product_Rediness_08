@@ -937,6 +937,12 @@ async function buildCatalogueChannel(): Promise<Record<string, {
     const SOURCES: ReadonlyArray<readonly [string, unknown, readonly string[]]> = [
         ['slab',    w['slabSystemTypeStore'],    ['slab']],
         ['ceiling', w['ceilingSystemTypeStore'], ['ceiling']],
+        // §CW90 item 5 — C67's own estimate ("inject ctx.catalogues['curtain-wall']
+        // — nothing else") made real: the LIVE curtainWallTypeStore on the FULL
+        // resolveCatalogueRef ladder, so the founder's huge type names resolve
+        // from a few uniquely-matching words and an ambiguous ref lists its
+        // candidates by name instead of guessing (L-10100).
+        ['curtain-wall', w['curtainWallTypeStore'], ['curtain', 'wall', 'curtainwall']],
     ];
     const out: Record<string, {
         resolve: (ref: string) => { id: string; name: string } | null;

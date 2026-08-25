@@ -9,8 +9,6 @@
     "column.materialColor",
     "curtain-panel.materialOverride",
     "curtain-panel.panelType",
-    "curtain-wall.gridXSpacing",
-    "curtain-wall.gridYSpacing",
     "curtain-wall.mark",
     "door.accessibilityType",
     "door.doorType",
