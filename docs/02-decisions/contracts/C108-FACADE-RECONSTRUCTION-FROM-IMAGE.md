@@ -1,9 +1,11 @@
 # C108 — Facade Reconstruction From Image
 
-> **Stamp**: 2026-08-24 · **Lane**: FACADE53 · **Status**: CANONICAL — deliberately **NOT ACTIVE**
+> **Stamp**: 2026-08-24 · **Lane**: FACADE53 · **Amended**: 2026-08-25 · **Lane**: FACADEREAL60
+> **Status**: CANONICAL — deliberately **NOT ACTIVE**
 > **Ratified by**: [ADR-0371](../adrs/ADR-0371-a-facade-reconstruction-is-a-measurement-not-a-likeness.md)
 > **Specced by**: [SPEC-FACADE-RECONSTRUCTION-PIPELINE](../../03-execution/specs/SPEC-FACADE-RECONSTRUCTION-PIPELINE.md)
-> **Issue block**: [L-11000 … L-11011](../../04-reference/ISSUE-LOG.md)
+> **Issue block**: [L-11000 … L-11013](../../04-reference/ISSUE-LOG.md) · first-real-photograph
+> block [L-10970 … L-10978](../../04-reference/ISSUE-LOG.md) (lane FACADEREAL60, 2026-08-25)
 > **Governs**: `packages/facade-reconstruction/**`, `tools/facade-reconstruct/**`,
 > `apps/editor/src/ui/facade/**`, and every consumer of the **Facade IR**.
 > **Binds**: `C62` (confidence & typed unknowns — the vocabulary this subsystem INHERITS)
@@ -53,6 +55,32 @@ the real photograph is a **good** outcome — it names exactly which assumption 
 pipeline tuned to one photograph proves nothing at all, and §9 forbids it.
 
 **L-11001 stays OPEN until a real photograph has been run and its result recorded.**
+
+> ⭐ **2026-08-25 — IT HAS BEEN RUN, AND IT FAILED, AND THAT IS THE OUTCOME THIS SECTION PREDICTED.**
+> The founder put a ~7-storey × ~5-bay Barcelona street block with a five-arch ground arcade through
+> the pipeline with hand-placed corners. **The lattice came back 2 zones × 2 bays.** Four cells on a
+> building with roughly thirty-five openings; 34 detections in `outliers[]`; the five arches never
+> examined. The paragraph above says *"a pipeline that passes A–J synthetically and then FAILS on
+> the real photograph is a GOOD outcome — it names exactly which assumption reality breaks"*, and
+> the assumption it named is now recorded as **L-10971** and fixed in §3.4.
+>
+> ⛔ **L-11001 DOES NOT CLOSE, and the reason matters more than the fix.** Its exit condition is
+> that a real photograph *has been run and its result recorded* — both are now true, and the run is
+> recorded in L-10971/L-10973/L-10975. But:
+>
+> 1. **The photograph is still not in this repository** and is not ours to redistribute, so nothing
+>    here is reproducible by anyone else, and no test asserts anything about it.
+> 2. **Every fix made in response is proven against SYNTHETIC case L**, a facade of the same CLASS
+>    with ground truth this repository drew. Case L reproduced *two* of the three reported defects
+>    on first run and reproduced the third only once noise was added. **A synthetic sibling is not
+>    the photograph**, and reading "case L passes" as "his building works" is exactly the
+>    substitution §0.2 exists to forbid.
+> 3. **The correct next step is another real run**, not another synthetic one.
+>
+> ⚠ And one measurement corrected the brief that commissioned the fix: the symmetry axis was
+> believed correct because his run reported 0.511 on a symmetric building. **It is wrong on nine of
+> the fourteen A–K cases**, all drawn symmetric about 0.500 — see **L-10978**. *One plausible
+> reading from an un-asserted stage is not evidence that the stage works.*
 
 ### §0.3 — The one sentence this contract defends
 
@@ -193,6 +221,30 @@ stage emits `facadePlane.status = 'needs-user'` **and no quad**, and the UI asks
 `options.facadeQuad` (a user-supplied quad) **always wins** over detection — brief §6 requires the
 manual path to exist, and §23 step 5 requires it in Milestone 1.
 
+> ⭐ **AMENDED 2026-08-25 (L-10973) — THE CORNERS ARE ASKED FOR EVERY TIME, NEVER ASSUMED.** On the
+> first real run, detection scored **0.64** and the founder's four hand-placed corners scored
+> **1.00**, with a visibly better rectification. Because §4.3 makes the plane confidence a **cap on
+> every downstream confidence**, a 0.64 plane is not a slightly worse answer — it is a ceiling on
+> the entire reading, and it arrived without anyone choosing it. The founder asked for *"Set facade
+> corners"* to become **MANDATORY**.
+>
+> **`options.autoDetectFacadePlane`** (engine default `true`) governs this. With it `false` and no
+> quad supplied, the stage emits `needs-user` **without running detection at all**, and the
+> downstream stages still run so brief §18 has something to show.
+>
+> ⛔ **The binding rule is on the UI, not the engine.** `apps/editor/src/ui/facade/**` passes
+> `false` on **every newly loaded photograph** and arms the four-corner pick; automatic detection is
+> offered as a **labelled shortcut that states its own cost**; and clearing the corners returns to
+> **asking**, never to guessing. The engine default stays `true` so the CLI and the corpus still
+> measure. *"Mandatory" implemented as a refusal with no way past it would be its own defect*
+> ([[refusing-half-needs-its-escape-hatch]]), so skipping remains possible — it is simply never the
+> thing that happens by default.
+>
+> ⚠ **What the no-plane path actually delivers (L-10977).** It finds **ZERO** openings: on the
+> un-rectified frame Otsu separates SKY from WALL rather than OPENING from WALL, so the same grid
+> that yields 20 openings with a plane yields none without one. The crop, edge and line layers do
+> survive — which is precisely what a user needs in order to place the four corners.
+
 ### §3.3 — Rectification (brief §6)
 
 4-point DLT homography, inverse-mapped resample. The **target aspect ratio** is recovered from the
@@ -203,9 +255,49 @@ and collapsing the two confidences hides exactly that case.
 
 ### §3.4 — Structure lines and zones (brief §7)
 
-Row/column gradient projections on the **rectified** image → peaks → horizontal zones and vertical
-bays. ⛔ **Geometric, not semantic** — `zone 0: y = 0.00 → 0.20`, never `"ground floor"`. Values
-come from the peaks; a zone boundary that no peak supports does not exist.
+⛔ **Geometric, not semantic** — `zone 0: y = 0.00 → 0.20`, never `"ground floor"`. Values come
+from a measurement; a zone boundary that no measurement supports does not exist.
+
+> ⭐ **AMENDED 2026-08-25 (lane FACADEREAL60, L-10971) — THE PRIMARY SOURCE CHANGED.** This clause
+> used to read, in full: *"Row/column gradient projections on the rectified image → peaks →
+> horizontal zones and vertical bays."* On the **first real photograph ever run** through this
+> subsystem, that produced a **2 zone × 2 bay** lattice on a seven-storey, five-bay building, and
+> every downstream number inherited it. **Read §0.2 again: this is the outcome that clause was
+> written to make discoverable, and it worked.**
+
+**THE LATTICE IS DERIVED FROM THE DETECTED OPENINGS.** Opening-box centres are clustered along each
+axis; boundaries fall midway between adjacent lines; lines are interpolated into gaps that are an
+integer multiple of the measured pitch, and extended outward while a whole pitch still fits inside
+the facade. The founder's own reading of his first run is the argument:
+
+> *"it clearly can identify the windows — so therefore the levels too? same with vertical [bays] —
+> as it understands the opening also the vertical lines?"*
+
+~40 opening boxes on a 5 × 7 grid **already encode** the floor lines and the bay lines. Computing
+the lattice from a second, weaker signal and then fitting the openings into it was the defect.
+
+**⛔ THE PROJECTION PROFILE IS RETAINED, AND ITS TWO ROLES ARE BINDING:**
+
+1. **FALLBACK.** When the openings support no lattice — too few, no repetition, nothing inside the
+   size band — the derivation **REFUSES with a named reason** and the profile answers. Corpus
+   **K4** takes this path and is the test that keeps it reachable. A fallback nothing exercises is
+   dead code.
+2. **CROSS-CHECK.** Both readings are computed on every run, and when they disagree the stage notes
+   and the UI readout **say so, with both numbers**. ⭐ *A disagreement is information* — it is the
+   pipeline saying "the wall says one thing and the windows say another", which is the single most
+   useful sentence it can offer a human looking at a facade it got wrong.
+
+**Why the profile could not stay primary, measured rather than asserted (L-10971):** `scoreComb`
+scores a comb as *mean-at-teeth / mean-everywhere*, and that ratio **rewards fewer teeth** — a comb
+at twice the true period hits half the lines and may hit the strongest half. On a uniform synthetic
+the fundamental and its first harmonic tie and the *"shortest period within 5%"* tie-break rescues
+it; with ±6 levels of noise on corpus case L the harmonic scores **strictly better** (0.822 vs
+0.800), the tie-break never runs, and the lattice halves. **The bias is structural, not incidental.**
+
+⛔ **Anti-overfit (§9) is preserved, and that is why this is a rule rather than a tuning.** Every
+threshold in the derivation is a fraction of a quantity **measured from this image** — the median
+opening size, the median cluster support, the median line spacing. There is no floor count, no bay
+count, no pixel size and no building property anywhere in it.
 
 ### §3.5 — Periodicity (brief §14) — the stage that replaces every hard-coded count
 
@@ -258,6 +350,23 @@ After rectification, floor lines are fitted straight across the **central** regi
 same-signed deviation in the outer bands on each side is the curvature evidence. Output
 `{ left, right }`, each `{ normalizedDeviation, normalizedRadius | null, confidence }`.
 
+> ⚠ **AMENDED 2026-08-25 (L-10975) — THE CODE HAD DISAGREED WITH THIS CLAUSE'S OWN WORDS.**
+> `normalizedDeviation` was computed as `mean(|d|)`, which is **strictly positive by construction**,
+> so a flat facade could never report flat however unanimously its storeys agreed it was. The clause
+> above says **"the SYSTEMATIC, SAME-SIGNED deviation"**, and that is `|mean(d)|` — random signs
+> cancel, a real wrap does not. Per the governance rule, the code was the defect.
+>
+> **And `consistency` is NOT a confidence as measured.** It is the fraction of storeys sharing the
+> majority sign, so it **cannot fall below 0.5** — a coin flip scores exactly 0.50. Reported raw, it
+> made pure noise arrive downstream as *"0.5 confident"*. It is rescaled about its own chance level
+> before it becomes a confidence: chance → 0, unanimity → 1.
+>
+> Measured: corpus case L, drawn **dead flat**, read 0.0195 / 0.0199 at 0.62 and now reads
+> 0.0119 / 0.0143 at **0.23**; case E, drawn bent, is unchanged at 0.73. The founder's flat street
+> facade read 0.0164 / 0.0207 at 0.61 / 0.57 — the same wrong shape of answer on an unrelated
+> building. ⛔ **`curvatureMinDeviation` was NOT raised to make case L pass** (§9.3). The residual
+> itself is unexplained and stays open as **L-10976**.
+
 ⚠ **`normalizedRadius` is `null` in Milestone 1 and that is the honest value** (L-11004). A single
 uncalibrated image does not determine a radius; it determines that the edges bend and by roughly
 how much. Reporting a radius here would be [[envelope-solid-overstates-partial-data]] — an UNKNOWN
@@ -269,6 +378,22 @@ recover the curvature radius, estimate a normalized curvature and mark confidenc
 ⛔ **`protrusion.depth` is `null` in Milestone 1.** A single image with no calibration, no sun
 vector and no scale does not carry depth. What it *does* carry is a **soffit/shadow band** beneath
 a projecting slab, and that band's height is measurable. So:
+
+> ⚠ **AMENDED 2026-08-25 (L-10974) — THE CUE WAS MISSED ON EXACTLY THE BUILDINGS THAT HAVE IT.**
+> The band was searched for **downward only**, from a row-gradient peak. But a shadow band has
+> **two** edges, and peak suppression drops one of them as soon as the band is thinner than
+> `minPeakSeparationFraction × height` — **a threshold that scales with the image, so the failure
+> grows with the storey count.** Corpus case D (4 storeys) kept both edges and found all three
+> balconies; case L (7 zones) kept only the band's **bottom** and found none of five. Separately,
+> the reference "wall in daylight" was a **mean** over a band that contains windows, which on a
+> facade with 60% glazing reads ~104 where the wall reads ~200 and erases the drop entirely.
+>
+> The search now runs **both ways** (the longer run wins), the reference is a **high percentile** of
+> an immediately-adjacent band, and — because a soffit is a **band and therefore has a far side** —
+> a run that stopped at the image edge or the search cap is **REFUSED**. That last clause is not
+> optional: without it, fixing the first two turns the sky above a parapet into a balcony.
+>
+> ⛔ None of this changes what is CLAIMED. `depth` is still `null` with its `unknownReason`.
 
 ```
 protrusion: { depth: null, unknownReason: 'geometry-incomplete',
@@ -395,6 +520,19 @@ Plus this lane's own additions, forced by the orchestrator's correction to brief
 | **K2** | photograph inside screenshot chrome | the chrome is trimmed to the known inner rect |
 | **K3** | clean photograph with a large uniform sky | the sky **survives** (§3.1 refusal 3) |
 | **K4** | an image where chrome detection would over-trim | the crop is **REFUSED**, `crop.applied=false` |
+
+Plus the case added after the **first real photograph** was run (lane FACADEREAL60, L-10970):
+
+| Case | Content | The ground truth it exists to prove |
+|---|---|---|
+| **L** | 6 storeys + a **five-arch arcade zone** × 5 bays, balcony soffits on every floor | **7 zones × 5 bays**, 35 openings matched, arcade `archness` ≈ 1 with `n` ≈ 2 against flat heads above, the arcade band the **tallest** zone, five soffit bands, and the **A/B against `latticeSource: 'projection-profile'` on the same pixels** |
+
+⚠ **A–K WERE ONE FACADE UNDER FOURTEEN DEGRADATIONS** — 5 bays × 4 storeys, flat ground floor.
+Fourteen different *inputs* is not fourteen different *facades*, and the distinction is what §9.4 is
+actually buying. In that one shape the true storey period is a quarter of the extent and its first
+harmonic is a half, i.e. exactly at `maxPeriodFraction`, so §3.4's period-doubling bias **could not
+win** — and fourteen green cases certified an estimator that halves on real buildings. **A new case
+must differ in SHAPE, not only in degradation.**
 
 ### §6.2 — ⛔ Every assertion is a MEASURED QUANTITY against a KNOWN NUMBER
 
@@ -540,12 +678,29 @@ through it.
 | **L-11009** | No automatic scale estimator, by design (§2.2). Any future one is a new `status` value + a §1.2 row. | OPEN by design |
 | **L-11010** | The crop cap (§3.1) is proven against **synthetic** chrome only. Real screenshot chrome is untested. | **OPEN** |
 | **L-11011** | Foreground rejection (brief §2) is **mitigated by periodicity, not solved** (§3.12). | **OPEN** |
+| **L-10971** | The lattice was computed from the wall's projection profile and collapsed to 2×2 on the first real photograph. Primary source is now the DETECTED OPENINGS (§3.4). | CLOSED `9279adf4` |
+| **L-10972** | Corpus cases B and F had the WRONG lattice at HEAD and no test asserted it. | CLOSED `9279adf4` |
+| **L-10970** | The corpus was one facade under fourteen degradations; case **L** adds the arcaded multi-storey SHAPE (§6.1). | CLOSED `05bbc2aa` |
+| **L-10973** | The four facade corners are now ASKED FOR on every photograph, never assumed (§3.2). | CLOSED `2699f831` |
+| **L-10974** | The soffit/balcony cue was missed on any facade whose bands are thin relative to its height (§3.10). | CLOSED `39d2c22b` |
+| **L-10975** | Curvature reported noise as signal: an estimator that could not return zero, and a confidence with a floor of 0.5 (§3.9). | CLOSED `fad46f15` |
+| **L-10976** | The flat-facade curvature RESIDUAL (0.0119/0.0143) is still above the floor and is **not explained**. The per-column argmax trace is the suspect. | **OPEN** |
+| **L-10977** | The no-plane "preliminary" path finds **ZERO** openings — Otsu separates sky from wall on an un-rectified frame. | **OPEN — stated limit** |
+| **L-10978** | ⛔ **`measureSymmetry` reports the WRONG AXIS on 9 of 14 corpus cases at score 0.97.** Every case is drawn symmetric about 0.500; nine report 0.299. A periodic facade has an exact mirror axis at every bay centre and boundary, so the argmax has no right to be believed. The obvious cause (unequal reach per axis) was tested and FALSIFIED. **No fix guessed at; no test added that would certify the defect.** | **OPEN — measured, not certified** |
 
 ### §10.1 — The exit condition for ACTIVE
 
 All of: (a) L-11001 closed — a real photograph run, its diagnostics recorded, its failures named;
 (b) L-11008 closed — the corpus gated in CI; (c) L-11006 closed or explicitly deferred by the
 founder. **Until then this contract states intent, and §0.2 states what has actually been proven.**
+
+> ⚠ **2026-08-25 — (a) IS HALF MET AND MUST NOT BE READ AS MET.** A real photograph HAS been run,
+> its diagnostics recorded and its failures named (§0.2). What is missing is a **second real run
+> confirming the fixes on a real photograph**, since all of them are proven against synthetic case
+> L. **A fix verified on a synthetic sibling of the failing input is a hypothesis, not a result**
+> ([[committed-is-not-reachable]] applied to a repair). ⭐ And **L-10978 is a new blocker of its
+> own**: a stage reporting a confidently wrong axis on nine of fourteen known-symmetric cases is
+> not a subsystem that can be called ACTIVE.
 
 ---
 
