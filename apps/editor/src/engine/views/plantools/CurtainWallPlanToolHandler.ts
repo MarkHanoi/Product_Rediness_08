@@ -57,6 +57,14 @@ export interface CurtainWallPlanToolHandlerDependencies {
     curtainWallModePicker?: any;
     commandManager?: any;
     vgGovernanceStore?: any;
+    /**
+     * §CW90-PLAN-TYPE-PARITY (C84 EI-11) — the L2 `CurtainWallTool` whose
+     * `getPredrawConfig()` holds the ARMED type, resolved exactly once by
+     * `PropertyPanelPreDraw.armType()` → `resolveCurtainWallTypeFields()`.
+     * Reading it here is what makes the plan surface write the SAME resolved
+     * type the 3-D surface writes — no second derivation.
+     */
+    curtainWallTool?: any;
 }
 
 // ─── Helpers (window-fallback aware) ─────────────────────────────────────────
@@ -76,9 +84,40 @@ function _resolveCWColour(deps?: Partial<CurtainWallPlanToolHandlerDependencies>
 }
 
 function _mullionDepth(deps?: Partial<CurtainWallPlanToolHandlerDependencies>): number {
+    // §CW90-PLAN-TYPE-PARITY — preview the ARMED mullion size, not a constant.
+    // (The previous `curtainWallStore.getDefaultMullionDepth?.()` read was
+    // constant-false: `CurtainWallStore` has no such method, so the band always
+    // drew at 0.18 m regardless of the selected type — the L-972 shape.)
+    const armed = _predrawConfig(deps)?.mullionSize;
+    if (typeof armed === 'number' && armed > 0) return armed;
     const cwStore = deps?.curtainWallStore ?? window.curtainWallStore; // TODO(TASK-08)
     const depth = cwStore?.getDefaultMullionDepth?.();
     return typeof depth === 'number' && depth > 0 ? depth : DEFAULT_MULLION_DEPTH;
+}
+
+/**
+ * §CW90-PLAN-TYPE-PARITY (C84 EI-11) — the armed pre-draw config, read from the
+ * SAME L2 tool the 3-D surface commits from. `PropertyPanelPreDraw` arms it on
+ * every type pick (for BOTH surfaces — `ToolsAreaLayout` shows the pre-draw
+ * panel on `activateCurtainWall` regardless of the active view), and
+ * `resolveCurtainWallTypeFields()` is the ONE catalogue→fields derivation.
+ * Returns `null` when no tool is reachable (tests, degraded boot) — the caller
+ * then falls back to this file's legacy constants.
+ */
+function _predrawConfig(deps?: Partial<CurtainWallPlanToolHandlerDependencies>): {
+    height?: number;
+    uSpacing?: number;
+    vSpacing?: number;
+    mullionSize?: number;
+    panelThickness?: number;
+    systemTypeId?: string;
+    mullionMaterialId?: string;
+    mullionColor?: string;
+    glazingMaterialId?: string;
+} | null {
+    const tool = deps?.curtainWallTool ?? window.curtainWallTool;
+    const cfg = tool?.getPredrawConfig?.();
+    return cfg && typeof cfg === 'object' ? cfg : null;
 }
 
 /**
@@ -327,6 +366,23 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
 
         const mode = _getMode(this._deps);
 
+        // §CW90-PLAN-TYPE-PARITY (C84 EI-11) — the SAME resolved type the 3-D
+        // surface commits (`CurtainWallTool._createSegment` reads the identical
+        // `_predrawConfig`). Field spelling maps to the bus payload's legacy
+        // names: uSpacing→bayWidth, vSpacing→bayHeight, mullionSize→mullionThickness.
+        const pd = _predrawConfig(this._deps);
+        const typedFields = {
+            height:           typeof pd?.height    === 'number' ? pd.height    : DEFAULT_HEIGHT,
+            bayWidth:         typeof pd?.uSpacing  === 'number' ? pd.uSpacing  : DEFAULT_BAY_WIDTH,
+            bayHeight:        typeof pd?.vSpacing  === 'number' ? pd.vSpacing  : DEFAULT_BAY_HEIGHT,
+            mullionThickness: typeof pd?.mullionSize === 'number' ? pd.mullionSize : DEFAULT_MULLION_DEPTH,
+            ...(typeof pd?.panelThickness    === 'number' ? { panelThickness:    pd.panelThickness    } : {}),
+            ...(typeof pd?.systemTypeId      === 'string' ? { systemTypeId:      pd.systemTypeId      } : {}),
+            ...(typeof pd?.mullionMaterialId === 'string' ? { mullionMaterialId: pd.mullionMaterialId } : {}),
+            ...(typeof pd?.mullionColor      === 'string' ? { mullionColor:      pd.mullionColor      } : {}),
+            ...(typeof pd?.glazingMaterialId === 'string' ? { glazingMaterialId: pd.glazingMaterialId } : {}),
+        };
+
         if (mode === 'curved' && this._arcMidPt) {
             // ── Curved: Bézier arc sampled into ARC_SEGMENTS straight segments ──
             // Mirrors CurtainWallTool._createArcSegments() — the command has no curve
@@ -349,10 +405,7 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
                         { x: pts[i].worldX,     y: 0, z: pts[i].worldZ     },
                         { x: pts[i + 1].worldX, y: 0, z: pts[i + 1].worldZ },
                     ],
-                    height:           DEFAULT_HEIGHT,
-                    bayWidth:         DEFAULT_BAY_WIDTH,
-                    bayHeight:        DEFAULT_BAY_HEIGHT,
-                    mullionThickness: DEFAULT_MULLION_DEPTH,
+                    ...typedFields,
                     levelId,
                 })?.catch((e: Error) => console.error('[CurtainWallPlanToolHandler] curtain-wall.create arc seg', i, 'failed:', e));
             }
@@ -386,10 +439,7 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
                 { x: sp.worldX,    y: 0, z: sp.worldZ },
                 { x: endPt.worldX, y: 0, z: endPt.worldZ },
             ],
-            height:           DEFAULT_HEIGHT,
-            bayWidth:         DEFAULT_BAY_WIDTH,
-            bayHeight:        DEFAULT_BAY_HEIGHT,
-            mullionThickness: DEFAULT_MULLION_DEPTH,
+            ...typedFields,
             levelId,
         })?.catch((e: Error) => console.error('[CurtainWallPlanToolHandler] curtain-wall.create bus failed:', e));
 

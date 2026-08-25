@@ -33,6 +33,13 @@ export interface CurtainWallCreatedEventLike {
     panelThickness?: number;
     materialId?: string;
     panels?: ReadonlyArray<{ id: string }>;
+    /** §CW90-PLAN-TYPE-PARITY (C84 EI-11) — the armed TYPE, first-class. Unlike
+     *  `materialId` (an ambiguous fold), these four are spelt exactly as the
+     *  legacy `CurtainWallData` slots they land in. */
+    systemTypeId?: string;
+    mullionMaterialId?: string;
+    mullionColor?: string;
+    glazingMaterialId?: string;
 }
 
 export interface MirroredCurtainWallRecord {
@@ -49,6 +56,12 @@ export interface MirroredCurtainWallRecord {
     gridYSpacing: number;
     mullionSize: number;
     panelThickness: number;
+    /** §CW90-PLAN-TYPE-PARITY — present only when the event carried them, so a
+     *  typeless wall mirrors byte-identically to before this field existed. */
+    systemTypeId?: string;
+    mullionMaterialId?: string;
+    mullionColor?: string;
+    glazingMaterialId?: string;
 }
 
 /**
@@ -126,7 +139,12 @@ export function curtainWallRecordFromCreatedEvent(
     //
     // Refusing the whole wall over either would be worse than mirroring the
     // geometry, so the wall is built and the shortfall is NAMED.
-    if (ev.materialId) {
+    // §CW90-PLAN-TYPE-PARITY — when `materialId` is only the handler's fold of
+    // `systemTypeId` (the DTO seed does `materialId ?? systemTypeId`, and the
+    // bridge mirrors that fold), the intent IS recoverable: the first-class
+    // `systemTypeId` field carries it. Warn only about a materialId that says
+    // something the type fields do not.
+    if (ev.materialId && ev.materialId !== ev.systemTypeId) {
         console.warn(
             `[curtainWallCreatedMirror] §FIX-CW-BRIDGE-AUTHORED-VALUES: curtain wall ${ev.id} ` +
             `carries materialId "${ev.materialId}", which has no unambiguous slot in the legacy ` +
@@ -165,5 +183,13 @@ export function curtainWallRecordFromCreatedEvent(
         // through → undefined → `cw.mullionSize.toFixed(4)` threw (logging as `{}`).
         mullionSize:    typeof ev.mullionThickness === 'number' ? ev.mullionThickness : d.mullionThickness,
         panelThickness: typeof ev.panelThickness   === 'number' ? ev.panelThickness   : d.panelThickness,
+        // §CW90-PLAN-TYPE-PARITY (C84 EI-11) — the armed type and its finishes,
+        // spread ONLY when present so an untyped wall's record is unchanged
+        // (`systemTypeId: undefined` as a PRESENT key is minted by
+        // `element.changeType`'s normalise step, not by creation).
+        ...(typeof ev.systemTypeId      === 'string' ? { systemTypeId:      ev.systemTypeId      } : {}),
+        ...(typeof ev.mullionMaterialId === 'string' ? { mullionMaterialId: ev.mullionMaterialId } : {}),
+        ...(typeof ev.mullionColor      === 'string' ? { mullionColor:      ev.mullionColor      } : {}),
+        ...(typeof ev.glazingMaterialId === 'string' ? { glazingMaterialId: ev.glazingMaterialId } : {}),
     };
 }

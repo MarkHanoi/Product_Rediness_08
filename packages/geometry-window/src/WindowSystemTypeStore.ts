@@ -25,6 +25,13 @@ import { storeEventBus } from '@pryzm/core-app-model';
 // §01 §3.8 emission surface TASK-08 unifies. Work note relocated from the file header,
 // where it read to the C74 §3.4 M-B gate as a module-scaffold claim; this store is
 // production, not a stand-in (CO-06, 2026-08-14).
+// §OUTLINE81 (SPEC-WINDOW-CUSTOM-OUTLINE D6) — a TYPE-TYPE ONLY import, and type-only so it
+// is erased at runtime: `CustomOutline` never appears as a value here. The pure `./opening-profile`
+// subpath is used rather than the bare barrel for the SAME reason `WindowTypes.ts` already does
+// (see that file's own header) — this store is loaded early enough in the module graph that the
+// bare barrel's re-entry risk (L-11261) is worth avoiding even for a type-only import, since a
+// future edit could turn it into a value import without anyone re-deriving the reasoning.
+import type { CustomOutline } from '@pryzm/geometry-wall/opening-profile';
 
 // ─── Finish descriptor ─────────────────────────────────────────────────────────
 /** A single finish component on a window (frame, glazing, sill). */
@@ -131,6 +138,20 @@ export interface WindowSystemType {
      * `DEFAULT_WINDOW_DIMENSIONS`, i.e. unchanged behaviour.
      */
     dimensions?: WindowTypeDimensions;
+    /**
+     * §OUTLINE81 (SPEC-WINDOW-CUSTOM-OUTLINE D6, C86 §10.5.b amendment) — a shape TEMPLATE,
+     * not a live binding. Optional, normalised `{u,v} ∈ [0,1]²` ring (`CustomOutline` from
+     * `@pryzm/geometry-wall`).
+     *
+     * ⛔ THIS IS NOT "the type's shape". A window CREATED while the active type carries this
+     * ring is created `openingProfile: 'custom'` with a COPY of it on its OWN `Opening` — the
+     * instance owns its ring from that point on. Editing THIS field afterwards reaches no
+     * placed instance (that is the L-10948 "type does not change shape" ruling, unchanged by
+     * this field's existence); only the explicit, undoable "Apply shape from type" command
+     * copies template → instance. See `ElementTypeAuthoringRegistry.ts`'s `finishEditor.outline`
+     * declaration for the authoring surface and C86 §10.5.b for the ruling this field satisfies.
+     */
+    customOutline?: CustomOutline;
     tags?: string[];
     ifcTypeName?: string;
     metadata: { createdAt: number; modifiedAt: number; createdBy: string; version: number };

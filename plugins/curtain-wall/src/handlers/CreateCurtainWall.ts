@@ -28,6 +28,17 @@ export interface CreateCurtainWallPayload {
   readonly panels?: CurtainWallData['panels'];
   readonly materialId?: string;
   readonly systemTypeId?: string;
+  /**
+   * §CW90-PLAN-TYPE-PARITY (C84 EI-11) — the armed type's resolved finishes.
+   * DECLARED DESTINATION (C87 §5): NOT seeded into the L0 record (which has a
+   * single `materialId` slot — `systemTypeId` is folded into it below, as
+   * before); CARRIED first-class by `CommandEventBridge`'s
+   * `curtain-wall.created` emit into the legacy `CurtainWallData` slots of the
+   * same names via `curtainWallCreatedMirror`.
+   */
+  readonly mullionMaterialId?: string;
+  readonly mullionColor?: string;
+  readonly glazingMaterialId?: string;
 }
 
 type CWStores = Readonly<{ curtainwall: CurtainWallsState } & Record<string, unknown>>;

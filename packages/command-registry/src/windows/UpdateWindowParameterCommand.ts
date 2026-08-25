@@ -68,6 +68,18 @@ export class UpdateWindowParameterCommand implements Command {
             return { ok: false, reason: `Window not found: ${this.windowId}` };
         }
         const merged = { ...current, ...this.patch };
+        // §OUTLINE81 — mirror `_resolveProfilePatch`'s carrier-follows-the-kind consequence, or
+        // this parse refuses a transition `execute` handles: a `custom` window patched to
+        // `rectangular` still holds its ring in `merged`, and the schema's superRefine correctly
+        // rejects "ring without the kind" — but execute CLEARS the ring as a consequence of the
+        // kind change, so canExecute must judge the record execute will actually write.
+        if (
+            'openingProfile' in this.patch &&
+            this.patch.openingProfile !== 'custom' &&
+            !('customOutline' in this.patch)
+        ) {
+            delete (merged as Partial<WindowOpening>).customOutline;
+        }
         const parsed = WindowOpeningSchema.safeParse(merged);
         if (!parsed.success) {
             return { ok: false, reason: `Invalid window patch: ${parsed.error.issues.map(i => i.message).join('; ')}` };
@@ -262,18 +274,58 @@ export class UpdateWindowParameterCommand implements Command {
      * §OPENING-PROFILE (L-1252) — validate a profile change and carry its consequences.
      *
      * Returns the effective patch, or a REFUSAL STRING when the change cannot be made good.
-     * A patch that does not touch `openingProfile` is returned untouched, so every existing
-     * edit keeps its exact previous behaviour.
+     * A patch that does not touch `openingProfile` OR `customOutline` is returned untouched,
+     * so every existing edit keeps its exact previous behaviour.
+     *
+     * ⚠ §OUTLINE81 (SPEC-WINDOW-CUSTOM-OUTLINE) — WIDENED FROM `'openingProfile' in patch` TO
+     * ALSO FIRE ON A `customOutline`-ONLY PATCH, AND `customOutline` IS NOW FORWARDED TO THE
+     * GATE. Two real gaps, found while wiring "Apply shape from type" / "Edit outline…"
+     * through this exact path:
+     *   1. `openingProfileRefusal` was called WITHOUT `customOutline`, so any patch setting
+     *      `openingProfile: 'custom'` was refused UNCONDITIONALLY — `openingProfileShapeRefusal`
+     *      reads a missing ring as "none were supplied" regardless of what the patch actually
+     *      carried. Every custom-profile edit through this command failed before this fix.
+     *   2. A `customOutline`-only patch (editing an ALREADY-custom window's ring, never
+     *      touching `openingProfile`) used to skip this gate entirely — `canExecute`'s Zod
+     *      parse checks the ring's STRUCTURE (an array of finite `{u,v}` pairs) but never its
+     *      SEMANTIC validity (simple polygon, tight bbox, area floor), so a self-intersecting
+     *      or degenerate ring could be written with no refusal at all. Both patch shapes now
+     *      take the identical gate `validateCustomOutline` backs.
      */
     private _resolveProfilePatch(
         context: CommandContext,
         current: WindowOpening,
     ): Partial<WindowOpening> | string {
         const patch = this.patch;
-        if (!('openingProfile' in patch)) return patch;
+        if (!('openingProfile' in patch) && !('customOutline' in patch)) return patch;
 
-        const nextProfile = patch.openingProfile;
+        const nextProfile = (patch.openingProfile ?? current.openingProfile) as unknown;
         const out: Partial<WindowOpening> = { ...patch };
+
+        // §OUTLINE81 — THE CARRIER FOLLOWS THE KIND. Leaving `custom` (or a non-custom patch on a
+        // record that somehow still carries a ring) must CLEAR `customOutline` in the same write:
+        // both schemas' superRefine ("customOutline must be absent unless openingProfile is
+        // 'custom'") would otherwise refuse the merged record — `WindowStore.update` THROWS on a
+        // failed parse, so without this line a custom → rectangular flip is not a refusal but an
+        // exception. The explicit `undefined` key is what makes the store's `{...existing,
+        // ...patch}` merge unset the field, and it lands in the effective-patch key set, so `prev`
+        // captures the old ring and undo restores it.
+        if (nextProfile !== 'custom' && current.customOutline !== undefined && !('customOutline' in patch)) {
+            out.customOutline = undefined;
+        }
+
+        // §OUTLINE81 — the inverse mismatch REFUSES by name rather than throwing in the store: a
+        // DEFINED ring sent while the effective kind is not `'custom'` would sail past the shape
+        // gate (`rectangular` early-returns) and then fail both schemas' superRefine inside
+        // `WindowStore.update`, which THROWS — an exception where the user needed a reason.
+        if (nextProfile !== 'custom' && out.customOutline !== undefined) {
+            return (
+                `A custom outline can only be carried by the 'custom' opening profile — this edit ` +
+                `sends a ${(out.customOutline as { vertices?: unknown[] }).vertices?.length ?? 0}-vertex ` +
+                `ring while the profile is '${String(nextProfile ?? 'rectangular')}'. Set ` +
+                `openingProfile to 'custom' in the same edit, or drop the ring.`
+            );
+        }
 
         // A circle's bounding box is square, and `width` is the diameter. Carrying the height
         // here — rather than asking the user to set it — is the C84 EI-3 rule applied to an EDIT:
@@ -286,11 +338,12 @@ export class UpdateWindowParameterCommand implements Command {
 
         const wall = context.stores?.wallStore?.getById?.(current.wallId);
         const reason = openingProfileRefusal({
-            profile:    nextProfile,
-            width:      (out.width      ?? current.width)      as number,
-            height:     (out.height     ?? current.height)     as number,
-            sillHeight: (out.sillHeight ?? current.sillHeight) as number,
-            host:       wall ?? null,
+            profile:       nextProfile,
+            width:         (out.width      ?? current.width)      as number,
+            height:        (out.height     ?? current.height)     as number,
+            sillHeight:    (out.sillHeight ?? current.sillHeight) as number,
+            host:          wall ?? null,
+            customOutline: (out.customOutline ?? current.customOutline) as unknown,
         });
         return reason ?? out;
     }
@@ -313,7 +366,17 @@ export class UpdateWindowParameterCommand implements Command {
             // it replaces the whole `Opening`, and `cloneOpening` is a spread, so the new field
             // survives. Using it here rather than widening `updateWindow`'s field list keeps this
             // lane out of `WallStore.ts`, which another lane holds.
-            if (delta && 'openingProfile' in (delta as Record<string, unknown>)) {
+            // §OUTLINE81 — the hop fires on `customOutline` too, and carries BOTH halves of the
+            // axis. A ring-only edit (an already-`custom` window whose outline changed) touches
+            // no field `updateWindow` copies AND no `openingProfile` key — without this widening
+            // the wall kept cutting the OLD ring while the window record held the new one, the
+            // same frame/void divergence (C86 §11 #1) the `openingProfile` hop exists to prevent,
+            // one field over. Both keys are copied whenever either is present so the wall-side
+            // schema's "carrier iff custom" superRefine sees a consistent pair (the effective
+            // patch from `_resolveProfilePatch` always sends them consistently, including the
+            // explicit `customOutline: undefined` clear when leaving `custom`).
+            const d = delta as Record<string, unknown>;
+            if (delta && ('openingProfile' in d || 'customOutline' in d)) {
                 const win = ws.getWindow(this.windowId);
                 const wall = win ? ws.getById?.(win.wallId) : null;
                 const existing = wall?.openings?.find(
@@ -321,10 +384,10 @@ export class UpdateWindowParameterCommand implements Command {
                         o.elementId === this.windowId || o.id === win?.openingId,
                 );
                 if (wall && existing) {
-                    ws.updateOpening(wall.id, {
-                        ...existing,
-                        openingProfile: (delta as Record<string, unknown>).openingProfile,
-                    } as never);
+                    const next: Record<string, unknown> = { ...existing };
+                    if ('openingProfile' in d) next.openingProfile = d.openingProfile;
+                    if ('customOutline' in d) next.customOutline = d.customOutline;
+                    ws.updateOpening(wall.id, next as never);
                 }
             }
         } catch (err) {

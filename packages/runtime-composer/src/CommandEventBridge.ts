@@ -719,6 +719,9 @@ export function wireCommandEventBridge(
             panelThickness?: number;
             materialId?: string;
             systemTypeId?: string;
+            mullionMaterialId?: string;
+            mullionColor?: string;
+            glazingMaterialId?: string;
             panels?: ReadonlyArray<{ id: string }>;
           };
           events.emit('curtain-wall.created', {
@@ -739,6 +742,15 @@ export function wireCommandEventBridge(
             // record would disagree for a producer that sent only `systemTypeId`.
             materialId:       p.materialId ?? p.systemTypeId,
             panels:           p.panels,
+            // §CW90-PLAN-TYPE-PARITY (C84 EI-11) — the armed TYPE, first-class.
+            // The `materialId` fold above is kept for DTO parity, but it is
+            // ambiguous by construction (three legacy slots, one id); these four
+            // carry the resolved type in `CurtainWallData`'s own spelling so the
+            // §P3.1-CW mirror can place them without guessing.
+            systemTypeId:      p.systemTypeId,
+            mullionMaterialId: p.mullionMaterialId,
+            mullionColor:      p.mullionColor,
+            glazingMaterialId: p.glazingMaterialId,
           });
           break;
         }
@@ -761,6 +773,9 @@ export function wireCommandEventBridge(
               panelThickness?: number;
               materialId?: string;
               systemTypeId?: string;
+              mullionMaterialId?: string;
+              mullionColor?: string;
+              glazingMaterialId?: string;
               panels?: ReadonlyArray<{ id: string }>;
             }>;
             levelId?: string;
@@ -785,6 +800,11 @@ export function wireCommandEventBridge(
               panelThickness:   cw.panelThickness,
               materialId:       cw.materialId ?? cw.systemTypeId,
               panels:           cw.panels,
+              // §CW90-PLAN-TYPE-PARITY — same four fields as the single case.
+              systemTypeId:      cw.systemTypeId,
+              mullionMaterialId: cw.mullionMaterialId,
+              mullionColor:      cw.mullionColor,
+              glazingMaterialId: cw.glazingMaterialId,
             });
           }
           break;

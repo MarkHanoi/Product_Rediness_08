@@ -16,6 +16,9 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { wallStore } from '@pryzm/geometry-wall';
+// §OUTLINE81 — profile symbols from the PURE subpath, never the bare barrel (L-11261: the barrel
+// re-enters itself via WallTool -> @pryzm/command-registry -> geometry-window -> barrel, mid-load).
+import { openingOutlinePreset, type CustomOutline } from '@pryzm/geometry-wall/opening-profile';
 import { windowStore as standaloneWindowStore } from '@pryzm/geometry-window';
 import { UpdateWindowParameterCommand } from '../src/windows/UpdateWindowParameterCommand';
 
@@ -199,5 +202,136 @@ describe('§C — circular → rectangular, the founder-reported direction', () 
         const win = standaloneWindowStore.getById(WINDOW_ID)!;
         expect(win.width).toBe(1.2);
         expect(win.height).toBe(1.2);      // was 1.5 before the round trip
+    });
+});
+
+// ── §D (§OUTLINE81, SPEC-WINDOW-CUSTOM-OUTLINE D6/D7) — THE `custom` KIND THROUGH THIS COMMAND ──
+//
+// This is the exact path "Apply shape from type" and "Edit outline…" dispatch through, and it is
+// where two real pre-existing gaps lived (see `_resolveProfilePatch`'s own header): the gate was
+// called WITHOUT the ring (every custom edit refused unconditionally), and a ring-only patch
+// skipped the gate entirely (a self-intersecting ring wrote clean). Both directions are pinned
+// here, plus the carrier-follows-the-kind clear and the wall-store mirror hop for the ring.
+describe('§D — custom outline through the edit command (§OUTLINE81)', () => {
+    const TRIANGLE: CustomOutline = openingOutlinePreset('triangle');
+    const GABLE: CustomOutline = openingOutlinePreset('gable');
+    const BOWTIE: CustomOutline = {
+        // self-intersecting: edges (0-1) and (2-3) cross. Touches all four bbox edges, so the
+        // refusal below can ONLY be the self-intersection rule — non-vacuous by construction.
+        vertices: [{ u: 0, v: 0 }, { u: 1, v: 1 }, { u: 1, v: 0 }, { u: 0, v: 1 }],
+    };
+
+    beforeEach(() => seed());
+
+    function toCustom(ring: CustomOutline = TRIANGLE) {
+        return new UpdateWindowParameterCommand(
+            WINDOW_ID,
+            { openingProfile: 'custom', customOutline: ring } as never,
+            {} as never,
+        );
+    }
+
+    it('⭐ profile + ring in one patch SUCCEEDS and the ring lands on BOTH stores', () => {
+        const res = toCustom().execute(ctx());
+        expect(res.success).toBe(true);
+
+        expect(standaloneWindowStore.getById(WINDOW_ID)?.openingProfile).toBe('custom');
+        expect(standaloneWindowStore.getById(WINDOW_ID)?.customOutline?.vertices?.length).toBe(3);
+        // The record the geometry arms actually consume — same reason as §A.
+        expect(openingNow()?.openingProfile).toBe('custom');
+        expect(openingNow()?.customOutline?.vertices?.length).toBe(3);
+    });
+
+    it('canExecute AGREES with execute on a valid custom patch (the bus asks it first)', () => {
+        expect(toCustom().canExecute(ctx()).ok).toBe(true);
+    });
+
+    it('⛔ `custom` WITHOUT a ring refuses by name — not silently, not with a throw', () => {
+        const res = new UpdateWindowParameterCommand(
+            WINDOW_ID, { openingProfile: 'custom' } as never, {} as never,
+        ).execute(ctx());
+        expect(res.success).toBe(false);
+        expect((res.info ?? []).join(' ')).toContain('custom outline');
+        // and nothing half-applied
+        expect(standaloneWindowStore.getById(WINDOW_ID)?.openingProfile).toBeUndefined();
+        expect(openingNow()?.openingProfile).toBeUndefined();
+    });
+
+    it('⛔ a RING-ONLY edit takes the same gate: a self-intersecting ring is refused by name', () => {
+        expect(toCustom().execute(ctx()).success).toBe(true);
+        const res = new UpdateWindowParameterCommand(
+            WINDOW_ID, { customOutline: BOWTIE } as never, {} as never,
+        ).execute(ctx());
+        expect(res.success).toBe(false);
+        const reason = (res.info ?? []).join(' ').toLowerCase();
+        expect(reason).toContain('cross');           // the crossing, named — C16 CA-18
+        // the model kept the previous, valid ring
+        expect(standaloneWindowStore.getById(WINDOW_ID)?.customOutline?.vertices?.length).toBe(3);
+    });
+
+    it('⭐ a VALID ring-only edit reaches wall.openings[] — the hop `updateWindow` cannot make', () => {
+        expect(toCustom().execute(ctx()).success).toBe(true);
+        const res = new UpdateWindowParameterCommand(
+            WINDOW_ID, { customOutline: GABLE } as never, {} as never,
+        ).execute(ctx());
+        expect(res.success).toBe(true);
+        expect(standaloneWindowStore.getById(WINDOW_ID)?.customOutline?.vertices?.length).toBe(5);
+        // ⭐ Without the widened mirror hop this still reads 3 and the wall cuts the OLD ring.
+        expect(openingNow()?.customOutline?.vertices?.length).toBe(5);
+    });
+
+    it('⛔ a ring sent while the profile is NOT custom refuses by name, never throws', () => {
+        const res = new UpdateWindowParameterCommand(
+            WINDOW_ID, { customOutline: TRIANGLE } as never, {} as never,
+        ).execute(ctx());
+        expect(res.success).toBe(false);
+        expect((res.info ?? []).join(' ')).toContain("'custom'");
+        expect(standaloneWindowStore.getById(WINDOW_ID)?.customOutline).toBeUndefined();
+    });
+
+    it('custom → rectangular CLEARS the carrier on BOTH stores (the schema would refuse a ring without its kind)', () => {
+        expect(toCustom().execute(ctx()).success).toBe(true);
+        const res = new UpdateWindowParameterCommand(
+            WINDOW_ID, { openingProfile: 'rectangular' } as never, {} as never,
+        );
+        expect(res.canExecute(ctx()).ok).toBe(true);   // canExecute mirrors the clear
+        expect(res.execute(ctx()).success).toBe(true);
+        expect(standaloneWindowStore.getById(WINDOW_ID)?.openingProfile).toBe('rectangular');
+        expect(standaloneWindowStore.getById(WINDOW_ID)?.customOutline).toBeUndefined();
+        expect(openingNow()?.customOutline).toBeUndefined();
+    });
+
+    it('⭐ UNDO of the flip-to-custom restores BOTH stores (EI-7: the measured write set undoes)', () => {
+        const cmd = toCustom();
+        expect(cmd.execute(ctx()).success).toBe(true);
+        expect(cmd.undo(ctx()).success).toBe(true);
+        expect(standaloneWindowStore.getById(WINDOW_ID)?.openingProfile).toBeUndefined();
+        expect(standaloneWindowStore.getById(WINDOW_ID)?.customOutline).toBeUndefined();
+        expect(openingNow()?.openingProfile).toBeUndefined();
+        expect(openingNow()?.customOutline).toBeUndefined();
+    });
+
+    it('⭐ UNDO of custom → rectangular restores the RING on both stores', () => {
+        expect(toCustom().execute(ctx()).success).toBe(true);
+        const back = new UpdateWindowParameterCommand(
+            WINDOW_ID, { openingProfile: 'rectangular' } as never, {} as never,
+        );
+        expect(back.execute(ctx()).success).toBe(true);
+        expect(back.undo(ctx()).success).toBe(true);
+        expect(standaloneWindowStore.getById(WINDOW_ID)?.openingProfile).toBe('custom');
+        expect(standaloneWindowStore.getById(WINDOW_ID)?.customOutline?.vertices?.length).toBe(3);
+        expect(openingNow()?.customOutline?.vertices?.length).toBe(3);
+    });
+
+    it('⛔ a floor-reaching custom window refuses, naming the door alternative (D5)', () => {
+        const res = new UpdateWindowParameterCommand(
+            WINDOW_ID,
+            { openingProfile: 'custom', customOutline: TRIANGLE, sillHeight: 0 } as never,
+            {} as never,
+        ).execute(ctx());
+        expect(res.success).toBe(false);
+        const reason = (res.info ?? []).join(' ').toLowerCase();
+        expect(reason).toContain('floor');
+        expect(reason).toContain('door');
     });
 });

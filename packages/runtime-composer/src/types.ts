@@ -638,6 +638,23 @@ export interface RuntimeEvents {
     /** §FIX-CW-BRIDGE-AUTHORED-VALUES (L-972) — the L0 `CurtainWall.panels`
      *  (`CurtainWall.ts:70`), previously dropped here outright. */
     readonly panels?: ReadonlyArray<{ readonly id: string }>;
+    /**
+     * §CW90-PLAN-TYPE-PARITY (C84 EI-11) — the armed curtain-wall TYPE, carried
+     * FIRST-CLASS. `materialId` above folds `systemTypeId` in (matching the DTO
+     * handler's seed), which is exactly why the mirror could never recover the
+     * intent from it — three legacy slots, one ambiguous id. These four fields
+     * carry the resolved type the way `CurtainWallData` actually spells it, so a
+     * curtain wall drawn on the PLAN surface lands with the same type the 3-D
+     * surface writes via `CreateCurtainWallCommand`.
+     */
+    readonly systemTypeId?: string;
+    /** §CW90-PLAN-TYPE-PARITY — legacy `CurtainWallData.mullionMaterialId`. */
+    readonly mullionMaterialId?: string;
+    /** §CW90-PLAN-TYPE-PARITY — legacy `CurtainWallData.mullionColor`. */
+    readonly mullionColor?: string;
+    /** §CW90-PLAN-TYPE-PARITY — legacy `CurtainWallData.glazingMaterialId`
+     *  (the wall's default panel material, inherited by every synced cell). */
+    readonly glazingMaterialId?: string;
   };
 
   /** Fired after `column.create` or `column.batch.create` succeeds (Sprint A28/A29).
