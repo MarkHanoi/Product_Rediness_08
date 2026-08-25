@@ -5,7 +5,7 @@
 
 import * as WebIFC from 'web-ifc';
 import type { IfcAPI } from 'web-ifc';
-import type { Door } from '@pryzm/plugin-sdk';
+import type { Door, Wall } from '@pryzm/plugin-sdk';
 
 import { label, real, writeEntity } from '../api/webifc-helpers.js';
 import { buildBoxRepresentation, buildLocalPlacement } from '../geometry.js';
@@ -16,6 +16,11 @@ import type { OwnerHistoryRefs } from '../owner-history.js';
 import type { HierarchyRefs } from '../hierarchy.js';
 import { resolveStorey } from '../hierarchy.js';
 import type { ExportedElement } from './wall.js';
+import {
+  composeDescription,
+  declareOpeningProfile,
+  hostOpeningOf,
+} from './opening-profile-declaration.js';
 
 export interface DoorExportArgs {
   api: IfcAPI;
@@ -25,12 +30,20 @@ export interface DoorExportArgs {
   metaStore: IFCMetaStoreLike;
   door: Door;
   guid: GuidProvider;
+  /**
+   * §OUTLINE82 — the host wall list, so the exporter can look up this door's
+   * `Opening` row and declare a non-rectangular `openingProfile` per C25
+   * §1.9 / C86 §10.1. See `WindowExportArgs.walls` for the same contract;
+   * D12 keeps doors off the `custom` kind, but `round-arch`/`segmental-arch`
+   * already apply to doors (C86 §10.1 PR-3), so the declaration is shared.
+   */
+  walls?: ReadonlyArray<Wall>;
 }
 
 const DOOR_THICKNESS = 0.05;
 
 export function exportDoor(args: DoorExportArgs): ExportedElement {
-  const { api, modelId, hierarchy, ownerRefs, metaStore, door, guid } = args;
+  const { api, modelId, hierarchy, ownerRefs, metaStore, door, guid, walls } = args;
   return withSpan(
     'pryzm.ifc.export-door',
     () => {
@@ -50,6 +63,16 @@ export function exportDoor(args: DoorExportArgs): ExportedElement {
       const globalId = meta?.globalId ?? mintGlobalId(api, modelId, guid);
       const name = meta?.name ?? `Door ${door.id.slice(0, 8)}`;
 
+      // §OUTLINE82 (D9, C25 §1.9, C86 §10.1) — a non-rectangular void's real
+      // shape is not represented by `buildBoxRepresentation` above; declare
+      // that absence into `Description` rather than exporting it silently.
+      const hostOpening = hostOpeningOf(walls, door.wallId, door.id);
+      const declaration = declareOpeningProfile(door, hostOpening, {
+        width: door.width,
+        height: door.height,
+      });
+      const description = composeDescription(meta?.description, declaration);
+
       // IFCDOOR(GlobalId, OwnerHistory, Name, Description, ObjectType,
       //         ObjectPlacement, Representation, Tag, OverallHeight, OverallWidth,
       //         PredefinedType, OperationType, UserDefinedOperationType)
@@ -60,7 +83,7 @@ export function exportDoor(args: DoorExportArgs): ExportedElement {
         globalId,
         ownerRefs.ownerHistory,
         label(api, modelId, name),
-        meta?.description ? label(api, modelId, meta.description) : null,
+        description ? label(api, modelId, description) : null,
         meta?.objectType ? label(api, modelId, meta.objectType) : null,
         placement,
         representation,

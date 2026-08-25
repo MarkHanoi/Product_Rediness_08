@@ -323,7 +323,10 @@ export async function exportProjectToIFC4X3(
         runPsets(el);
       }
       for (const door of snapshot.doors ?? []) {
-        const el = exportDoor({ api, modelId, hierarchy, ownerRefs, metaStore, door, guid });
+        const el = exportDoor({
+          api, modelId, hierarchy, ownerRefs, metaStore, door, guid,
+          walls: snapshot.walls,
+        });
         exported.push(el);
         runPsets(el);
 
@@ -352,7 +355,10 @@ export async function exportProjectToIFC4X3(
         propertyCount += dpr.propertyCount;
       }
       for (const window of snapshot.windows ?? []) {
-        const el = exportWindow({ api, modelId, hierarchy, ownerRefs, metaStore, window, guid });
+        const el = exportWindow({
+          api, modelId, hierarchy, ownerRefs, metaStore, window, guid,
+          walls: snapshot.walls,
+        });
         exported.push(el);
         runPsets(el);
 

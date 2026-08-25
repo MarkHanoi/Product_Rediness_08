@@ -131,13 +131,19 @@ export async function exportProjectToIFC(
         stampProvenance(el, slab.provenance);
       }
       for (const door of snapshot.doors ?? []) {
-        const el = exportDoor({ api, modelId, hierarchy, ownerRefs, metaStore, door, guid });
+        const el = exportDoor({
+          api, modelId, hierarchy, ownerRefs, metaStore, door, guid,
+          walls: snapshot.walls,
+        });
         exported.push(el);
         runPsets(el);
         stampProvenance(el, door.provenance);
       }
       for (const window of snapshot.windows ?? []) {
-        const el = exportWindow({ api, modelId, hierarchy, ownerRefs, metaStore, window, guid });
+        const el = exportWindow({
+          api, modelId, hierarchy, ownerRefs, metaStore, window, guid,
+          walls: snapshot.walls,
+        });
         exported.push(el);
         runPsets(el);
         stampProvenance(el, window.provenance);
