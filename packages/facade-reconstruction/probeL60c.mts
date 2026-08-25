@@ -1,0 +1,20 @@
+import { reconstructFacade } from './src/index.js';
+import { caseL, CASE_L_TRUTH } from './src/testing/syntheticFacades.js';
+const c = caseL();
+const { ir, diagnostics: d } = await reconstructFacade(c.image);
+const zones = [...ir.facade.zones].sort((a, b) => a.y - b.y);
+console.log('zones', zones.length, 'bays', zones[0]!.cells.length);
+zones.forEach((z, i) => {
+  const arch = z.cells.map((cc) => cc.opening?.archness).filter((v): v is number => v !== undefined);
+  const n = z.cells.map((cc) => cc.opening?.n).filter((v): v is number => v !== undefined);
+  console.log(`  zone ${i} y=${z.y.toFixed(4)} h=${z.height.toFixed(4)} openings=${arch.length} meanArch=${(arch.reduce((a,b)=>a+b,0)/Math.max(1,arch.length)).toFixed(3)} meanN=${(n.reduce((a,b)=>a+b,0)/Math.max(1,n.length)).toFixed(2)}`);
+});
+console.log('truth arcadeTopY', CASE_L_TRUTH.arcadeTopY.toFixed(4), 'upper zone h', (1 - CASE_L_TRUTH.arcadeTopY) / 6);
+console.log('matched', zones.flatMap(z=>z.cells).filter(x=>x.opening).length, 'truth', CASE_L_TRUTH.totalOpenings);
+console.log('repX', ir.facade.periodicity.repeatX, 'repY', ir.facade.periodicity.repeatY, 'perX', ir.facade.periodicity.periodX?.toFixed(4), 'perY', ir.facade.periodicity.periodY?.toFixed(4), 'conf', ir.facade.periodicity.confidence?.toFixed(3));
+console.log('soffits', d.soffits.length, 'bandHeights', d.soffits.map(s=>s.bandHeight).join(','), 'rectH', d.rectified.image?.height);
+console.log('protrusions', zones.flatMap(z=>z.cells).filter(x=>x.protrusion).length);
+console.log('lattice.zones', JSON.stringify({...d.lattice.zones, boundaries: d.lattice.zones.boundaries.map(v=>+v.toFixed(1))}));
+console.log('lattice.bays ', JSON.stringify({...d.lattice.bays, boundaries: d.lattice.bays.boundaries.map(v=>+v.toFixed(1))}));
+console.log('outliers', ir.facade.outliers.length, ir.facade.outliers.map(o=>`${o.width.toFixed(3)}x${o.height.toFixed(3)}@y${o.y.toFixed(3)}`).join(' '));
+for (const n of d.notes) console.log('  |', n);

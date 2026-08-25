@@ -28,6 +28,8 @@ import {
     caseK2,
     caseK3,
     caseK4,
+    caseL,
+    CASE_L_TRUTH,
 } from '../src/testing/syntheticFacades.js';
 
 describe('C108 §6 corpus — A: a rectangular window grid', () => {
@@ -352,5 +354,160 @@ describe('C108 §3.1 crop — the four refusal cases', () => {
         expect(diagnostics.crop.applied).toBe(false);
         expect(diagnostics.crop.refusedReason).toBe('cap-exceeded');
         expect(diagnostics.crop.rect).toEqual({ x0: 0, y0: 0, x1: c.image.width, y1: c.image.height });
+    });
+});
+
+// ── L (lane FACADEREAL60) ────────────────────────────────────────────────────
+//
+// ⭐ THE CASE THE CORPUS DID NOT HAVE. A–K are one facade — 5 bays x 4 storeys,
+// flat ground floor — under fourteen different degradations. Case L is a DIFFERENT
+// FACADE: six regular storeys, a five-arch arcade zone, balcony soffits on every
+// floor, 35 openings, 7 zones. It was added on 2026-08-25 after the founder ran the
+// FIRST REAL PHOTOGRAPH (L-11001) and got a 2 zone x 2 bay lattice on a building of
+// exactly this class.
+//
+// ⛔ It is SYNTHETIC. It is not his building (C108 §0.2) and nothing here may be
+// read as evidence about his building. It proves the CLASS, against ground truth
+// the generator drew, which is the only oracle C108 §6.2 accepts.
+
+describe('C108 §6 corpus — L: seven zones, five bays, an arcade (brief §7, §14)', () => {
+    it('⭐ recovers the DRAWN zone and bay counts — 7 x 5, not 2 x 2', async () => {
+        const c = caseL();
+        const { ir } = await reconstructFacade(c.image);
+        expect(ir.facade.zones.length).toBe(CASE_L_TRUTH.zones);
+        expect(ir.facade.zones[0]!.cells.length).toBe(CASE_L_TRUTH.bays);
+        expect(ir.facade.periodicity.repeatY).toBe(CASE_L_TRUTH.zones);
+        expect(ir.facade.periodicity.repeatX).toBe(CASE_L_TRUTH.bays);
+    });
+
+    it('matches EVERY drawn opening to a cell — 35 of 35', async () => {
+        const c = caseL();
+        const { ir } = await reconstructFacade(c.image);
+        const matched = ir.facade.zones.flatMap((z) => z.cells).filter((cell) => cell.opening !== null);
+        expect(matched.length).toBe(CASE_L_TRUTH.totalOpenings);
+        expect(matched.length).toBe(c.truth.openings.length);
+    });
+
+    it('⭐ measures the FIVE ARCADE HEADS as arches and the upper storeys as flat (brief §9)', async () => {
+        // The generator drew the arcade heads as true semicircles (rise == half
+        // width, so archness 1) and every upper head flat (archness 0). ⛔ Nothing in
+        // the engine is told there is an arcade, that it is at the bottom, or that a
+        // ground floor differs from a storey — the zone is found by clustering and
+        // its heads are fitted by the same superellipse search as every other head.
+        const { ir } = await reconstructFacade(caseL().image);
+        const zones = [...ir.facade.zones].sort((a, b) => a.y - b.y);
+        const archnessOf = (zs: typeof zones): number => {
+            const v = zs
+                .flatMap((z) => z.cells)
+                .map((cell) => cell.opening?.archness)
+                .filter((a): a is number => a !== undefined);
+            return v.reduce((a, b) => a + b, 0) / Math.max(1, v.length);
+        };
+        const arcade = zones[0]!;
+        expect(arcade.cells.filter((cell) => cell.opening !== null).length).toBe(
+            CASE_L_TRUTH.arcadeOpenings,
+        );
+        // Drawn archness 1 in the arcade, 0 above it.
+        expect(archnessOf([arcade])).toBeGreaterThan(0.8);
+        expect(archnessOf(zones.slice(1))).toBeLessThan(0.05);
+        // And the drawn exponent was n = 2, a true semicircle.
+        const arcadeN =
+            arcade.cells.map((cell) => cell.opening?.n ?? 0).reduce((a, b) => a + b, 0) /
+            CASE_L_TRUTH.arcadeOpenings;
+        expect(arcadeN).toBeGreaterThan(1.5);
+        expect(arcadeN).toBeLessThan(3);
+    });
+
+    it('places the arcade boundary within 5% of the DRAWN one, and it is the TALLEST zone', async () => {
+        const { ir } = await reconstructFacade(caseL().image);
+        const zones = [...ir.facade.zones].sort((a, b) => a.y - b.y);
+        const arcade = zones[0]!;
+        expect(Math.abs(arcade.height - CASE_L_TRUTH.arcadeTopY)).toBeLessThan(0.05);
+        for (const z of zones.slice(1)) expect(arcade.height).toBeGreaterThan(z.height);
+    });
+
+    it('measures the DRAWN balcony soffit band on every storey line it was drawn on', async () => {
+        const c = caseL();
+        const { ir, diagnostics } = await reconstructFacade(c.image);
+        // Five bands were drawn, one under each interior upper-storey line.
+        expect(diagnostics.soffits.length).toBe(5);
+        const rect = diagnostics.rectified.image!;
+        const drawnFraction =
+            c.truth.soffitBandHeight / (c.truth.facadeRect.y1 - c.truth.facadeRect.y0);
+        const measuredFraction =
+            diagnostics.soffits.reduce((a, s) => a + s.bandHeight, 0) /
+            diagnostics.soffits.length /
+            rect.height;
+        expect(measuredFraction).toBeGreaterThan(drawnFraction * 0.5);
+        expect(measuredFraction).toBeLessThan(drawnFraction * 2.5);
+        // ⛔ And the DEPTH is still unknown (C108 §3.10, L-11005).
+        for (const cell of ir.facade.zones.flatMap((z) => z.cells)) {
+            if (cell.protrusion === null) continue;
+            expect(cell.protrusion.depth).toBeNull();
+            expect(cell.protrusion.unknownReason).toBe('geometry-incomplete');
+        }
+    });
+
+    it('⭐ beats the PROJECTION-PROFILE lattice on the same pixels — the A/B, measured', async () => {
+        // C108 §3.4 keeps both sources. This is the assertion that the primary one
+        // is primary for a REASON, on numbers rather than on a commit message.
+        const c = caseL();
+        const openings = await reconstructFacade(c.image);
+        const profile = await reconstructFacade(c.image, { latticeSource: 'projection-profile' });
+        const matched = (r: typeof openings): number =>
+            r.ir.facade.zones.flatMap((z) => z.cells).filter((cell) => cell.opening !== null).length;
+        expect(matched(openings)).toBe(CASE_L_TRUTH.totalOpenings);
+        expect(matched(profile)).toBeLessThan(matched(openings));
+        expect(profile.ir.facade.zones.length).not.toBe(CASE_L_TRUTH.zones);
+        expect(openings.ir.facade.zones.length).toBe(CASE_L_TRUTH.zones);
+        // And the disagreement is REPORTED, not swallowed (C108 §3.4).
+        expect(openings.diagnostics.lattice.zones.source).toBe('openings');
+        expect(openings.diagnostics.lattice.zones.fromProfile).not.toBe(CASE_L_TRUTH.zones);
+        expect(openings.diagnostics.notes.some((n) => n.includes('SOURCES DISAGREE'))).toBe(true);
+    });
+
+    it('⛔ reports a FLAT facade at LOW curvature confidence, not moderate (L-10975)', async () => {
+        // Case L is drawn DEAD FLAT (`truth.curved === false`). Case E is drawn
+        // bent. The assertion is the SEPARATION between them, because a stage that
+        // reports every facade as slightly curved has measured nothing.
+        const flat = await reconstructFacade(caseL().image);
+        const curved = await reconstructFacade(caseE().image);
+        expect(caseL().truth.curved).toBe(false);
+        expect(caseE().truth.curved).toBe(true);
+        const conf = (r: typeof flat, side: 'left' | 'right'): number =>
+            r.ir.facade.curvature[side].confidence ?? 1;
+        expect(conf(flat, 'left')).toBeLessThan(0.35);
+        expect(conf(flat, 'right')).toBeLessThan(0.35);
+        expect(conf(curved, 'left')).toBeGreaterThan(conf(flat, 'left') + 0.3);
+        expect(conf(curved, 'right')).toBeGreaterThan(conf(flat, 'right') + 0.3);
+    });
+});
+
+describe('C108 §3.4 — the projection profile is a FALLBACK, not dead code', () => {
+    it('K4 has no lattice-supporting openings, so the derivation REFUSES and names why', async () => {
+        // ⭐ The case that proves the fallback is reachable. K4 carries two dark
+        // components and no repetition at all, so opening clustering cannot produce
+        // a lattice — and the honest answer is to say so and let the projection
+        // profile answer, not to invent a grid out of two boxes.
+        const { diagnostics } = await reconstructFacade(caseK4().image);
+        expect(diagnostics.lattice.zones.source).toBe('projection-profile');
+        expect(diagnostics.lattice.zones.fromOpenings).toBeNull();
+        expect(typeof diagnostics.lattice.zones.refusedReason).toBe('string');
+        expect(diagnostics.lattice.zones.bands).toBe(diagnostics.lattice.zones.fromProfile);
+    });
+
+    it('case A answers IDENTICALLY from either source — the change is not a rewrite', async () => {
+        const openings = await reconstructFacade(caseA().image);
+        const profile = await reconstructFacade(caseA().image, {
+            latticeSource: 'projection-profile',
+        });
+        const c = caseA();
+        for (const r of [openings, profile]) {
+            expect(r.ir.facade.zones.length).toBe(c.truth.storeys);
+            expect(r.ir.facade.zones[0]!.cells.length).toBe(c.truth.bays);
+            expect(
+                r.ir.facade.zones.flatMap((z) => z.cells).filter((cell) => cell.opening !== null).length,
+            ).toBe(c.truth.openings.length);
+        }
     });
 });

@@ -150,9 +150,30 @@ export function measureCurvature(
     }
 
     /**
-     * Consistency is the fraction of storeys whose deviation shares the MAJORITY
-     * SIGN. Noise gives ~0.5 (random signs); a real wrap gives ~1.0. Reporting the
-     * magnitude without this would call every noisy facade curved.
+     * ── ⚠ TWO CORRECTIONS MADE 2026-08-25 (§L-10975), BOTH FROM ONE MEASUREMENT ──
+     *
+     * On corpus case L — a facade drawn DEAD FLAT — this stage reported deviation
+     * 0.0195 / 0.0199 at "confidence" 0.62. The founder's first real photograph, of
+     * a flat street facade, reported 0.0164 / 0.0207 at 0.61 / 0.57. Two different
+     * flat facades, the same wrong shape of answer: noise reported as signal at
+     * moderate confidence.
+     *
+     * (1) THE DEVIATION WAS A MEAN OF ABSOLUTE VALUES, WHICH CANNOT BE ZERO.
+     *     `mean(|d|)` over noisy traces is strictly positive by construction, so a
+     *     flat facade could never report flat however many storeys agreed it was.
+     *     C108 §3.9's own words are *"the SYSTEMATIC, SAME-SIGNED deviation"* — so
+     *     the estimator is `|mean(d)|`, in which random signs CANCEL and a real
+     *     wrap does not. The code disagreed with its contract; the code was wrong.
+     *     ⛔ Not a threshold change. Raising `curvatureMinDeviation` until case L
+     *     fell under it would be tuning to a case, which C108 §9.3 forbids.
+     *
+     * (2) CONSISTENCY IS NOT A CONFIDENCE — ITS FLOOR IS 0.5, NOT 0.
+     *     It is the fraction sharing the MAJORITY sign, so by construction it can
+     *     never fall below one half: a coin flip scores 0.5. Reporting it raw meant
+     *     PURE NOISE arrived downstream as "0.5 confident", and 0.62 — barely above
+     *     chance — read as moderate support. C62 forbids exactly this: a number
+     *     whose floor is chance is not a measure of belief. It is rescaled about its
+     *     own chance level, so chance reads 0 and unanimity reads 1.
      */
     const summarise = (deviations: readonly number[], side: string): EdgeCurvature => {
         if (deviations.length < 2) {
@@ -161,19 +182,26 @@ export function measureCurvature(
         }
         const positives = deviations.filter((d) => d > 0).length;
         const majority = Math.max(positives, deviations.length - positives);
-        const consistency = majority / deviations.length;
-        const magnitude =
-            deviations.reduce((a, b) => a + Math.abs(b), 0) / deviations.length;
-        if (magnitude < opts.curvatureMinDeviation) {
+        const agreement = majority / deviations.length;
+        // (2) — chance is 0.5, so 0.5 maps to 0 and 1.0 maps to 1.
+        const consistency = Math.max(0, Math.min(1, (agreement - 0.5) / 0.5));
+        // (1) — the SYSTEMATIC component. Random signs cancel; a wrap does not.
+        const systematic = Math.abs(deviations.reduce((a, b) => a + b, 0) / deviations.length);
+        const scatter = deviations.reduce((a, b) => a + Math.abs(b), 0) / deviations.length;
+        if (systematic < opts.curvatureMinDeviation) {
             notes.push(
-                `curvature ${side}: FLAT — mean |deviation| ${magnitude.toFixed(4)} < ${opts.curvatureMinDeviation}`,
+                `curvature ${side}: FLAT — systematic deviation ${systematic.toFixed(4)} < ` +
+                    `${opts.curvatureMinDeviation} (mean |deviation| ${scatter.toFixed(4)} is SCATTER, ` +
+                    `not a bend; sign agreement ${agreement.toFixed(2)} of a 0.50 chance floor)`,
             );
             return { normalizedDeviation: 0, normalizedRadius: null, consistency };
         }
         notes.push(
-            `curvature ${side}: deviation ${magnitude.toFixed(4)}, sign-consistency ${consistency.toFixed(2)} — RADIUS NOT RECOVERABLE from one image (L-11004)`,
+            `curvature ${side}: systematic deviation ${systematic.toFixed(4)} (scatter ${scatter.toFixed(4)}), ` +
+                `sign agreement ${agreement.toFixed(2)} -> consistency ${consistency.toFixed(2)} — ` +
+                'RADIUS NOT RECOVERABLE from one image (L-11004)',
         );
-        return { normalizedDeviation: magnitude, normalizedRadius: null, consistency };
+        return { normalizedDeviation: systematic, normalizedRadius: null, consistency };
     };
 
     return {
