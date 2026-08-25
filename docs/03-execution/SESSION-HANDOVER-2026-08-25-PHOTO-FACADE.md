@@ -58,3 +58,11 @@ History is local-only; nothing to force-push. Left as-is because workflows were 
 - Deploy of `178b87f9` launched 13:05 with parallel gate. Live before it: `7cd907b5` (photo ledger in transcript).
 - STILL OPEN at the FRONT of the chat path: auto-detected facade plane (~0.64) vs corners-mandatory ruling; L-11066 ask-on-ambiguity; HONESTY65 fix #3 (stale "not as arches" row) and ai-host `test:ci` — its workflow died on the quota after landing fixes #1 (`7cd907b5`) and #2 (`ed22de60`).
 - NXT Activate audit workflow (`wf_39ea973c`, 8 auditors + synthesis) ran 0/9 on the quota — resume after 18:00 London with `Workflow({scriptPath: ..., resumeFromRunId: 'wf_39ea973c-a13'})`.
+
+## UPDATE 14:10 — solo progress after the quota (all deployed or deploying)
+- `d774d9f3` boundary-line UNDO adapter (first twin-less plugin store on the undo path) — LIVE.
+- `208395e9` detector: 2-D size band (corner-balcony phantom bays), continuity screen columns-only (arcade row) — LIVE.
+- `c6d0750a` ⭐ CORNERS STEP IN CHAT (L-11127) — the front door; chip asks, picker overlay, re-read with facadeQuad — LIVE.
+- `0b930322` S17 COLOUR stage (wall + opening colour; words win; opening colour reported not applied) — deploying.
+- L-11129: shutters/setback/rounded corners scoped honestly; rounded corners FEASIBLE (curved walls exist) — needs arc-fitting in the shell builder.
+- NXT audit still quota-blocked; resume `wf_39ea973c-a13` after 18:00 London.
