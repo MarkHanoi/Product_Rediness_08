@@ -1,0 +1,12 @@
+import { reconstructFacade } from '../src/index.js';
+import { caseL } from '../src/testing/syntheticFacades.js';
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { encodePng } from '../src/testing/png.js';
+import { allOverlays } from '../src/testing/overlays.js';
+const c = caseL();
+const r = await reconstructFacade(c.image);
+const dir = 'C:/Users/LENOVO/AppData/Local/Temp/claude/c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08/beb33dfe-f32f-462e-9ed8-2a910f85af86/scratchpad/overlays';
+mkdirSync(dir, { recursive: true });
+const all = allOverlays(r.diagnostics, r.ir);
+for (const o of all) writeFileSync(`${dir}/${o.name}.png`, encodePng(o.image));
+console.log('overlays:', all.map(o => o.name).join(' '));

@@ -67,3 +67,6 @@ apps/bench/.run-output/
 # (public/items already demonstrates the cost of the other choice: ~185MB of GLB that
 # must then be .dockerignore-d back out of the image.)
 tools/texture-pipeline/out/
+
+# playwright output (regenerable)
+test-results/
