@@ -73,3 +73,8 @@ History is local-only; nothing to force-push. Left as-is because workflows were 
 - NXT audit workflow KILLED at the founder's request — do not resume.
 - OPEN DECISION for the founder: lift the hold on upper-floor window rhythm from the photo (the biggest remaining gap to "as close as possible", +2–3 days).
 - Founder's stated goal (yardstick): parcel → boundary line → chat + photo → "generate a 6-storey residential building on the boundary line with the facade as per the attached photo" → a building recognisably like the photo's main facade.
+
+## UPDATE 16:30 — ALL SIX LANES LANDED; full-demo build LIVE
+- LIVE `69e3096a` (proof 5/5): ARCS66 exact curved-corner recovery (§L965 solver) + chain proven on composeRuntime; ASKFOOT69 ask boundary-line vs parcel (16/16); SOFFIT67 shadows no longer features, balcony cue 5/5 zones; SMALLPLATE68 landing typology for the founder's 13×16 m plot (2 apts/floor, ADR-0372); UXPILL70 BUILDING TYPE pill in the view-mode bar band (4 defects in the orchestrator's pill commit found + fixed, L-11206..L-11209, incl. a FALSE "tsc clean" claim — L-11207).
+- Deploying `3f5469d1`: MASSCURVE71 — globe massing follows the curved shell wall (L-11172 closed; L-11212 drape 128-face cap, L-11215 undeclared editor deps OPEN).
+- NEXT: founder tests the exact flow (parcel → boundary → chat + photo + corners → "generate a 6-storey residential building on the boundary line with the facade as per the attached photo"), then decides on photo-driven UPPER-FLOOR RHYTHM (+2–3 days). Remaining named gaps: balconies-per-bay, glass-block strip as curtain strip, shutter/window colour route, L-11182 railings read as soffits, L-11215 deps + lockfile sync.
