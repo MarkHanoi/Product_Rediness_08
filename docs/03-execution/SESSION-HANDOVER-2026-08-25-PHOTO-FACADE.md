@@ -46,3 +46,8 @@ The chain photo→…→wall store is PROVEN by execution (verification workflow
 - `5e4cc138` FACADECAL64 phase 1 LANDED: case M reproduces the founder's photo defects synthetically -- phantom bay from the feature strip + archness 1.00 on 30 rectangular windows, PINNED. Phase 2 (fixes) may still be running -- check wf_e0cda35a and HONESTY65 wf_8cc4b0a5; generationChatSeam.ts has an in-flight modification from HONESTY65.
 - Left untracked deliberately: generator (empty stray), README.md (skeleton), probe*.mts (probes are not the package, precedent 031c3527).
 - NEXT SESSION: root tsc BEFORE any deploy -- late commits were package-gated only.
+
+## Commit-message mislabels (content intact, messages wrong — do NOT be confused)
+- `763908f7` carries a garbage message (orchestrator heredoc spillage). CONTENT = the WD32 probe test (284 lines, 2 pass + 1 skip-with-reason).
+- `868c1143` wears the probe's message. CONTENT = 35 ISSUE-LOG rows (FACADECAL64's L-11120..L-11123 family) — an --amend landed on a workflow commit that had slipped in between.
+History is local-only; nothing to force-push. Left as-is because workflows were still committing on top.
