@@ -127,6 +127,8 @@ export default defineConfig({
       // `vitest run <path>` prints "No test files found" rather than failing. That
       // is the same authored-but-unreachable shape as the button this suite guards.
       'apps/editor/src/ui/facade/__tests__/**/*.spec.ts',
+      // §L-11130 — the generator's pure helpers (shell arcs) live beside the executor.
+      'apps/editor/src/ui/residential-building/__tests__/**/*.spec.ts',
       // §XSS-SINK-SCAN (L-407): the GA-gate HTML-sink classifier + the repo-wide
       // ratchet assertion. Pure Node (fs + string analysis); lives here because
       // `test:root` is the only suite CI runs over non-package tooling.

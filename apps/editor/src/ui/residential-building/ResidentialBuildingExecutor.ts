@@ -25,6 +25,7 @@
 // `execute` boundary. The pure orchestrator already carries its own spans.
 
 import { trace } from '@opentelemetry/api';
+import { splitRingIntoRuns } from './shellArcs.js';
 import { batchCoordinator, storeRegistry, storeEventBus, perfLog, perfTraceOn } from '@pryzm/core-app-model';
 // §FIX-HANDRAIL-GENERATOR-NO-MATERIAL (L-1203, C95 §15.16.7) — this executor
 // hand-listed its handrail payload and never consulted the type catalogue, so every
@@ -969,15 +970,20 @@ export class ResidentialBuildingExecutor {
     ): { walls: ReadonlyArray<Record<string, unknown>>; levelId: string } {
         const ring = this._cleanRing(footprint);
         const walls: Array<Record<string, unknown>> = [];
-        for (let i = 0; i < ring.length; i++) {
-            const a = ring[i]!;
-            const b = ring[(i + 1) % ring.length]!;
+        // §L-11130 — ROUNDED CORNERS. A curved boundary arrives densified; an arc run
+        // becomes ONE curved wall (`Wall.curve`, quadratic Bézier) instead of a fan of
+        // facets. Straight runs are unchanged, edge for edge.
+        for (const run of splitRingIntoRuns(ring)) {
+            const { a, b } = run;
             walls.push({
                 id: createId('wall'),
                 levelId,
                 baseLine: [{ x: a.x, y: 0, z: a.z }, { x: b.x, y: 0, z: b.z }],
                 height: wallHeightM,
                 thickness: SHELL_WALL_THICKNESS_M,
+                ...(run.kind === 'arc'
+                    ? { curve: { control: { x: run.control.x, y: 0, z: run.control.z }, segments: run.segments } }
+                    : {}),
             });
         }
         return { walls, levelId };
@@ -1159,7 +1165,31 @@ export class ResidentialBuildingExecutor {
             if (useCurtain) pushCurtain(pa, pb);
             else pushWall(pa, pb, true);
         };
+        // §L-11130 — ROUNDED CORNERS on the ground shell. Arc runs become ONE solid
+        // curved wall each: no shopfront window and no curtain on a curve (C03 §1.2 —
+        // curved walls take no openings at creation), and never a façade run for the
+        // photograph's lattice, which is laid out on straight elevations. The straight
+        // edges below are indexed exactly as before, so `entranceEdge` still resolves.
+        const arcRuns = splitRingIntoRuns(ring).filter((r) => r.kind === 'arc');
+        const arcStarts = new Set(arcRuns.map((r) => `${r.a.x},${r.a.z}`));
+        const arcSkip = new Set<number>();
+        for (const run of arcRuns) {
+            if (run.kind !== 'arc') continue;
+            // Mark every ring edge inside this arc so the straight loop skips them.
+            let k = ring.findIndex((v) => v.x === run.a.x && v.z === run.a.z);
+            for (let c = 0; c < run.chords && k >= 0; c++) { arcSkip.add(k); k = (k + 1) % ring.length; }
+            const id = createId('wall');
+            walls.push({
+                id, levelId,
+                baseLine: [{ x: run.a.x, y: 0, z: run.a.z }, { x: run.b.x, y: 0, z: run.b.z }],
+                height: groundWallH, thickness: SHELL_WALL_THICKNESS_M,
+                curve: { control: { x: run.control.x, y: 0, z: run.control.z }, segments: run.segments },
+            });
+            facadeNotes.push(`a rounded corner was built as ONE curved wall (${run.chords} drawn chords → 1 wall, solid)`);
+        }
+        void arcStarts;
         for (let i = 0; i < ring.length; i++) {
+            if (arcSkip.has(i)) continue;
             const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
             if (i === entranceEdge) {
                 // Split the entrance edge into [glazed/windowed] | solid door-bay | [glazed/windowed].
