@@ -533,6 +533,12 @@ export class BottomActionMenu {
             const apply = (mat: THREE.Material): THREE.Material => {
                 // Skip shader materials (grid etc. never reach here, but be safe).
                 if (mat instanceof THREE.ShaderMaterial) return mat;
+                // §CW90 item 8 — authored GLASS stays glass. A curtain panel's
+                // glazing material is already transparent; forcing the x-ray
+                // recipe onto it would DESTROY the authored look (double
+                // transparency at a different opacity) for no added see-through.
+                // Mullions and opaque infill panels take the x-ray like a wall.
+                if ((mat as any).transparent === true) return mat;
                 const clone = mat.clone();
                 (clone as any).transparent = true;
                 (clone as any).opacity = XRAY_OPACITY;
@@ -1313,9 +1319,26 @@ export class BottomActionMenu {
         return String(obj.userData?.levelId ?? '');
     }
 
+    /**
+     * §CW90 item 8 — the ONE wall-like predicate BOTH viewport modes funnel
+     * through (Cutaway via the `_isWallMeshOrDescendant` ancestor walk, Low
+     * Height via the raw traverse in `_applySceneVisibilityFilters`). The
+     * founder: cutaway and low-height must treat curtain walls AS walls.
+     * All the spellings the curtain-wall family stamps are listed because the
+     * visibility path has NO ancestor walk: the root Group says 'CurtainWall',
+     * its part meshes say 'CurtainWallPart', panels say 'CurtainPanel' /
+     * 'curtain-panel' / 'CurtainPanelInstanced' (CurtainWallBuilder :1230/:1334,
+     * CurtainPanelFactory :195, CurtainPanelStore :294, InstanceManager :440).
+     */
+    private static readonly _WALL_LIKE_TYPES = new Set([
+        'wall', 'walls',
+        'curtainwall', 'curtain-wall',
+        'curtainwallpart', 'curtainpanel', 'curtain-panel', 'curtainpanelinstanced',
+    ]);
+
     private _isWallObject(obj: any): boolean {
         const type = String(obj.userData?.elementType ?? obj.userData?.type ?? '').toLowerCase();
-        return type === 'wall' || type === 'walls';
+        return BottomActionMenu._WALL_LIKE_TYPES.has(type);
     }
 
     // §CEILING-HIDDEN-IN-3D (2026-06-24) — a scene object is a ceiling when its

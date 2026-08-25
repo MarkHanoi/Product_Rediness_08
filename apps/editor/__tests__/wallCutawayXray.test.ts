@@ -124,3 +124,81 @@ describe('§WALL-CUTAWAY-XRAY — wall cutaway makes walls transparent, not clip
         expect(wall.body.material).toBe(wall.bodyMat);
     });
 });
+
+// §CW90 item 8 — curtain walls are treated AS walls by both viewport modes.
+function makeCurtainWall(id: string): {
+    group: THREE.Group;
+    mullion: THREE.Mesh; mullionMat: THREE.MeshStandardMaterial;
+    panel: THREE.Mesh; panelMat: THREE.MeshStandardMaterial;
+} {
+    const group = new THREE.Group();
+    group.userData.id = id;
+    group.userData.elementType = 'CurtainWall';
+    group.userData.type = 'curtain-wall';
+    // A mullion part — opaque, stamped like CurtainWallBuilder does.
+    const mullionMat = new THREE.MeshStandardMaterial({ color: 0x777777 });
+    const mullion = new THREE.Mesh(new THREE.BoxGeometry(0.08, 3, 0.08), mullionMat);
+    mullion.userData = { elementType: 'CurtainWallPart', role: 'mullion', parentId: id };
+    // A GLASS panel — the authored glazing material (transparent, catalogue row).
+    const panelMat = new THREE.MeshStandardMaterial({ color: 0xeef8ff, transparent: true, opacity: 0.18 });
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.5, 0.02), panelMat);
+    panel.userData = { elementType: 'CurtainWallPart', role: 'panel', parentId: id };
+    group.add(mullion, panel);
+    return { group, mullion, mullionMat, panel, panelMat };
+}
+
+describe('§CW90 item 8 — cutaway + low-height treat curtain walls as walls', () => {
+    let scene: THREE.Scene;
+    let cw: ReturnType<typeof makeCurtainWall>;
+
+    beforeEach(() => {
+        scene = new THREE.Scene();
+        cw = makeCurtainWall('cw-1');
+        scene.add(cw.group);
+        (window as any).scene = scene;
+    });
+
+    afterEach(() => {
+        delete (window as any).scene;
+    });
+
+    it('⭐ cutaway x-rays the curtain-wall MULLION like a wall body', () => {
+        const menu = new BottomActionMenu(STUB_PROPS);
+        (menu as any)._toggleWallCutaway();
+
+        const m = cw.mullion.material as THREE.Material;
+        expect(m).not.toBe(cw.mullionMat);
+        expect((m as any).transparent).toBe(true);
+        expect((m as any).opacity).toBeLessThan(1);
+    });
+
+    it('⭐ cutaway leaves the authored GLASS panel material untouched (glass stays glass)', () => {
+        const menu = new BottomActionMenu(STUB_PROPS);
+        (menu as any)._toggleWallCutaway();
+
+        // Already transparent — forcing the x-ray recipe would destroy the
+        // authored glazing for no added see-through.
+        expect(cw.panel.material).toBe(cw.panelMat);
+        expect((cw.panelMat as any).opacity).toBeCloseTo(0.18, 6);
+    });
+
+    it('cutaway OFF restores the mullion material exactly', () => {
+        const menu = new BottomActionMenu(STUB_PROPS);
+        (menu as any)._toggleWallCutaway();
+        (menu as any)._toggleWallCutaway();
+        expect(cw.mullion.material).toBe(cw.mullionMat);
+    });
+
+    it('⭐ low-height mode includes the curtain wall in the wall target set (parity with walls)', () => {
+        const menu = new BottomActionMenu(STUB_PROPS);
+        // The ONE predicate both modes funnel through.
+        expect((menu as any)._isWallObject(cw.group)).toBe(true);
+        expect((menu as any)._isWallObject(cw.mullion)).toBe(true);
+        expect((menu as any)._isWallObject(cw.panel)).toBe(true);
+        // And its mode rule answers exactly as it does for a wall.
+        (menu as any)._wallCutMode = 'down';
+        expect((menu as any)._wallVisibleInMode(cw.group)).toBe(false);
+        (menu as any)._wallCutMode = 'up';
+        expect((menu as any)._wallVisibleInMode(cw.group)).toBe(true);
+    });
+});
