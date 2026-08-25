@@ -26,7 +26,20 @@ import { CommandProposal, CommandType } from '@pryzm/command-registry';
 import { aiApprovalStore } from '@pryzm/ai-host';
 import { AIResponseParser } from '@pryzm/ai-host';
 // §ADR-0313 — zero-token tier 0/1 command resolution in front of the LLM path.
-import { tryHandleZeroToken } from './ZeroTokenChatBridge';
+import { tryHandleZeroToken, type ChatTurnFacts } from './ZeroTokenChatBridge';
+// §CHAT-ATTACH (L-10904..L-10908) — the founder's "photo + sentence". The chat had
+// NO file input at all; every other piece of the path was already live.
+import {
+    clearChatAttachment,
+    consumeChatAttachment,
+    describeAttachment,
+    getChatAttachment,
+    setChatAttachment,
+} from './chatFacadeAttachment';
+// The LANGUAGE half of "the sentence asked for a photograph". Whether one is
+// ATTACHED is UI state this panel holds; the rule itself is L2 and is read, never
+// restated here (a client may not own a measurement rule).
+import { missingImageRefusal, readImageReference } from '@pryzm/ai-host';
 // §OPENED-REGION (L-880) / C83 §4.1.3 — the accessor for this panel's own
 // `ZeroTokenUiHooks` pair, so code outside `createAIPanel` reaches the SAME prompt.
 import { registerChatPromptHost } from './chatPromptHost';
@@ -820,6 +833,10 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
     let pillsRowEl: HTMLElement;
     let levelLabelEl: HTMLElement;
     let inputEl: HTMLInputElement;
+    /** §CHAT-ATTACH — the strip above the input that shows the pending photograph.
+     *  Empty and `display:none` when nothing is attached, so the chat looks exactly
+     *  as it does today until a file is picked. */
+    let attachRowEl: HTMLElement;
 
     // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -1175,6 +1192,101 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
     const addProposalCard = (proposal: CommandProposal): void => {
         messages.push({ role: 'card', proposal });
         renderTranscript();
+    };
+
+    // ══ §CHAT-ATTACH (L-10904..L-10908) — the photograph on the next message ══
+    //
+    // ⭐ THE CHIP MUST BE VISIBLE BEFORE SEND, and that is the whole requirement,
+    // not a nicety. An attachment the user cannot SEE is one he cannot know will
+    // be used — so he presses Enter not knowing whether he is asking for "a
+    // 5-storey building" or "a 5-storey building like this photo". Those are two
+    // different requests, and the difference has to be on screen before he commits
+    // to one.
+    //
+    // ⛔ IT REBUILDS RATHER THAN PATCHES, for the same reason `renderTranscript`
+    // does: there is exactly one attachment and exactly one place that draws it,
+    // so a stale chip (the defect: a removed photo whose chip survives, and rides
+    // along with the next sentence) cannot exist.
+
+    /** Draw — or hide — the pending-attachment strip. Safe before the DOM exists. */
+    const renderAttachment = (): void => {
+        if (!attachRowEl) return;
+        attachRowEl.innerHTML = '';
+        const att = getChatAttachment();
+        if (att === null) {
+            attachRowEl.style.display = 'none';
+            return;
+        }
+        attachRowEl.style.display = 'flex';
+
+        const chip = document.createElement('div');
+        chip.className = 'ai-chat-attach-chip';
+
+        const thumb = document.createElement('img');
+        thumb.className = 'ai-chat-attach-thumb';
+        thumb.src = att.previewUrl;
+        // The file name is the alt text: a screen reader gets the same identity a
+        // sighted user gets from the picture.
+        thumb.alt = att.name;
+        chip.appendChild(thumb);
+
+        const text = document.createElement('div');
+        text.className = 'ai-chat-attach-text';
+        const nameLine = document.createElement('div');
+        nameLine.className = 'ai-chat-attach-name';
+        nameLine.textContent = att.name;
+        const metaLine = document.createElement('div');
+        metaLine.className = 'ai-chat-attach-meta';
+        // ⚠ THE DOWNSCALE IS NAMED HERE, not only in the transcript. The decode
+        // caps the long side at 1 200 px and genuinely loses fine texture; a user
+        // whose 12 MP photo was measured at 1 200 px is entitled to know BEFORE he
+        // sends, not to infer it from a reading that missed what he can see.
+        metaLine.textContent =
+            att.decoded.scale < 1
+                ? `${att.decoded.image.width}×${att.decoded.image.height} · downscaled from ${att.decoded.sourceWidth}×${att.decoded.sourceHeight}`
+                : `${att.decoded.image.width}×${att.decoded.image.height} · full resolution`;
+        text.appendChild(nameLine);
+        text.appendChild(metaLine);
+        chip.appendChild(text);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'ai-chat-attach-remove';
+        removeBtn.textContent = '×';
+        removeBtn.title = 'Remove this image from the next message';
+        removeBtn.setAttribute('aria-label', `Remove attached image ${att.name}`);
+        removeBtn.addEventListener('click', () => {
+            clearChatAttachment();
+            renderAttachment();
+        });
+        chip.appendChild(removeBtn);
+
+        attachRowEl.appendChild(chip);
+
+        const hint = document.createElement('div');
+        hint.className = 'ai-chat-attach-hint';
+        hint.textContent = 'will be read as a façade for your next message';
+        attachRowEl.appendChild(hint);
+    };
+
+    /**
+     * Take a file from ANY of the three routes (button, drop, paste) and attach it.
+     *
+     * ⛔ ONE FUNCTION FOR ALL THREE. Three routes with three error paths is three
+     * chances for one of them to fail silently — which is exactly how a drop target
+     * ends up looking like it worked. Every refusal reaches the transcript as a
+     * sentence, never a console line.
+     */
+    const attachFile = async (file: File): Promise<void> => {
+        const res = await setChatAttachment(file);
+        renderAttachment();
+        if (!res.ok) {
+            addMessage('assistant', res.reason);
+            return;
+        }
+        // Reading starts NOW (see chatFacadeAttachment's header) and finishes while
+        // he types. Nothing is announced yet: the chip is the acknowledgement, and a
+        // chat line per attach would push his own sentence off the screen.
     };
 
     // §ADR-0313 — inline Confirm/Cancel card for DESTRUCTIVE zero-token
@@ -1602,6 +1714,48 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
     const _executeSend = async (query: string): Promise<void> => {
         if (!transcriptEl) return;
 
+        // ══ §CHAT-ATTACH (L-10906..L-10908) — the PHOTO half of "photo + sentence" ══
+        //
+        // Runs BEFORE the resolver, because the photograph changes what the
+        // sentence MEANS: with an image, "5 storeys" is a correction of what was
+        // measured; without one, "as per the image" is a request for something the
+        // user has not supplied. Neither can be decided after the fact.
+        let turn: ChatTurnFacts | undefined;
+        const taken = await consumeChatAttachment();
+        renderAttachment();
+
+        if (taken !== null) {
+            // The record of WHAT was read, on the persistent transcript. The chip
+            // is gone by now — the transcript is the only place this survives.
+            addMessage('assistant', describeAttachment(taken.attachment));
+            if (!taken.reading.ok) {
+                // ⛔ REFUSE, DO NOT QUIETLY BUILD WITHOUT IT. He attached that file
+                // deliberately; a building that arrives anyway looks like the photo
+                // was used. [[context-data-honesty-family]] — failure and absence
+                // must not print the same value.
+                addMessage(
+                    'assistant',
+                    `I could not read that image — ${taken.reading.reason} Nothing was created.`,
+                );
+                return;
+            }
+            turn = { photoFacade: taken.reading.brief };
+        } else {
+            // ── The sentence named an image and none is attached ─────────────
+            //
+            // ⚠ THE TRADE-OFF IS DELIBERATE AND IT IS THE CHEAP DIRECTION. A false
+            // positive here costs ONE question, and the refusal carries its own
+            // escape hatch ("ignore the image"). A false negative silently drops
+            // half of what he asked for and hands back a plain block. The rule is
+            // L2 (`readImageReference`) and requires an explicit referring
+            // construction, so a bare noun in an unrelated clause does not fire.
+            const ref = readImageReference(query);
+            if (ref.referenced) {
+                addMessage('assistant', missingImageRefusal(ref.phrase));
+                return;
+            }
+        }
+
         // §ADR-0313 — zero-token resolution ladder FIRST (tier 0 grammar,
         // tier 1 synonyms/typos). Command-shaped utterances dispatch through
         // the bus with 0 tokens; refusals are honest chat replies; only a
@@ -1610,13 +1764,30 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
             const handled = await tryHandleZeroToken(query, {
                 say: (text: string) => addMessage('assistant', text),
                 confirm: (summary: string) => showZeroTokenConfirm(summary),
-            });
+            }, turn);
             if (handled) return;
         } catch (err) {
             // Never let the zero-token path take the chat down — report and
             // fall through (§CONTEXT-DATA-HONESTY: the user sees the failure).
             console.error('[AIPanel] zero-token path failed:', err);
             addMessage('assistant', 'The quick command path hit an error — falling back to the AI.');
+        }
+
+        // ⭐ §CHAT-ATTACH — THE PHOTO WAS READ AND NOBODY USED IT. Everything below
+        // this line (planner, then the LLM) is text-only: neither carries the
+        // façade brief. Falling through in silence would consume his photograph and
+        // answer as though he had never attached one — the [[committed-is-not-reachable]]
+        // failure at the level of a single turn. Say it, and say which sentence
+        // does reach the generator.
+        if (turn !== undefined) {
+            addMessage(
+                'assistant',
+                'I read that photo, but I did not understand this sentence as a request to GENERATE a ' +
+                    'building, so nothing used it. The façade reading only feeds building generation — ' +
+                    'try "create a residential building with the facade as per the image, 5 storeys, on ' +
+                    'the current boundary line". Attach the photo again with that sentence.',
+            );
+            return;
         }
 
         // §PLANNER (RAC U10.2) — the LAST rung before the legacy path. Reached
@@ -1830,9 +2001,46 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
     // Initial suggestion render
     renderSuggestions();
 
+    // §CHAT-ATTACH — the pending-photograph strip, ABOVE the input so it sits
+    // between what he typed and the Send button he is about to press.
+    attachRowEl = document.createElement('div');
+    attachRowEl.className = 'ai-chat-attach-row';
+    attachRowEl.style.display = 'none';
+    panel.appendChild(attachRowEl);
+
     // Input row
     const inputRow = document.createElement('div');
     inputRow.className = 'ai-chat-input-row';
+
+    // ── §CHAT-ATTACH — ROUTE 1 of 3: the paperclip ──────────────────────────
+    // A real `<input type="file">`, kept off-screen rather than `display:none`:
+    // a hidden input is not focusable and some assistive tech will not reach it,
+    // and the label/button pairing below is what makes the control announceable.
+    const fileInputEl = document.createElement('input');
+    fileInputEl.type = 'file';
+    // ⭐ `image/*` PLUS the explicit HEIC/HEIF types. Several mobile browsers do
+    // not match a camera-roll HEIC against the `image/*` wildcard, so the founder
+    // would open the picker and find his own photographs greyed out.
+    fileInputEl.accept = 'image/*,.heic,.heif,image/heic,image/heif';
+    fileInputEl.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;';
+    fileInputEl.addEventListener('change', () => {
+        const f = fileInputEl.files?.[0];
+        // Reset FIRST so picking the SAME file twice still fires `change` — the
+        // input keeps its value otherwise and the second pick is silently ignored.
+        fileInputEl.value = '';
+        if (f !== undefined) void attachFile(f);
+    });
+
+    const attachBtn = document.createElement('button');
+    attachBtn.type = 'button';
+    attachBtn.className = 'ai-chat-attach-btn';
+    attachBtn.textContent = '📎';
+    attachBtn.title = 'Attach a photo of a façade — "create a residential building with the facade as per the image"';
+    attachBtn.setAttribute('aria-label', 'Attach a façade photo');
+    attachBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        fileInputEl.click();
+    });
 
     inputEl = document.createElement('input');
     inputEl.type = 'text';
@@ -1840,6 +2048,25 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
     inputEl.placeholder = 'Type a command or question…';
     inputEl.autocomplete = 'off';
     inputEl.spellcheck = false;
+
+    // ── §CHAT-ATTACH — ROUTE 2 of 3: paste ──────────────────────────────────
+    // ⭐ THE CHEAPEST ROUTE AND THE ONE HE IS MOST LIKELY TO USE. A screenshot on
+    // Windows goes to the clipboard, not to a file. Without this he would have to
+    // save it somewhere first just to hand it to the chat.
+    inputEl.addEventListener('paste', (e: ClipboardEvent) => {
+        const items = e.clipboardData?.items;
+        if (items === undefined) return;
+        for (const item of Array.from(items)) {
+            if (item.kind !== 'file') continue;
+            const f = item.getAsFile();
+            if (f === null) continue;
+            // Only swallow the event once we KNOW there is a file — a plain text
+            // paste must still land in the input.
+            e.preventDefault();
+            void attachFile(f);
+            return;
+        }
+    });
 
     // Wire input to filter suggestions in real time
     inputEl.addEventListener('input', () => {
@@ -1858,9 +2085,62 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
     sendBtn.textContent = 'Send';
     sendBtn.addEventListener('click', handleSend);
 
+    inputRow.appendChild(fileInputEl);
+    inputRow.appendChild(attachBtn);
     inputRow.appendChild(inputEl);
     inputRow.appendChild(sendBtn);
     panel.appendChild(inputRow);
+
+    // ── §CHAT-ATTACH — ROUTE 3 of 3: drag and drop onto the whole panel ─────
+    //
+    // ⚠ `dragover` MUST call `preventDefault()` or the browser navigates away to
+    // the dropped file and the editor session is gone. That is not a styling
+    // detail — it is the difference between a drop target and losing the model.
+    //
+    // The target is the WHOLE panel, not a small strip: a user dragging a
+    // photograph aims at the conversation, not at a 24-pixel affordance he has to
+    // find first.
+    let dragDepth = 0;
+    const setDragActive = (active: boolean): void => {
+        panel.classList.toggle('ai-chat-dropzone--active', active);
+    };
+    panel.addEventListener('dragenter', (e: DragEvent) => {
+        if (e.dataTransfer === null || !Array.from(e.dataTransfer.types).includes('Files')) return;
+        e.preventDefault();
+        // ⚠ DEPTH-COUNTED, not a boolean. `dragenter`/`dragleave` fire for every
+        // CHILD element crossed, so a boolean flickers off the moment the pointer
+        // moves from the transcript onto a bubble inside it — and the highlight
+        // disappears while the file is still over the panel.
+        dragDepth += 1;
+        setDragActive(true);
+    });
+    panel.addEventListener('dragover', (e: DragEvent) => {
+        if (e.dataTransfer === null || !Array.from(e.dataTransfer.types).includes('Files')) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+    });
+    panel.addEventListener('dragleave', () => {
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (dragDepth === 0) setDragActive(false);
+    });
+    panel.addEventListener('drop', (e: DragEvent) => {
+        const files = e.dataTransfer?.files;
+        if (files === undefined || files.length === 0) return;
+        e.preventDefault();
+        dragDepth = 0;
+        setDragActive(false);
+        const f = files[0];
+        if (f !== undefined) void attachFile(f);
+        if (files.length > 1) {
+            // ⛔ SAY SO. Silently taking the first of five files and building from
+            // it is a wrong answer wearing a right one's clothes.
+            addMessage(
+                'assistant',
+                `You dropped ${files.length} files — I read one façade per message, so I took ` +
+                    `"${f?.name ?? 'the first'}". Send this one, then attach the next.`,
+            );
+        }
+    });
 
     // Expose on window for backward compatibility — other subsystems may trigger
     // the approval modal directly (e.g. voice interface, AmbientIntelligence).

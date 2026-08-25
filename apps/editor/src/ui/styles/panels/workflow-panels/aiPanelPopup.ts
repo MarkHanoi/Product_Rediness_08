@@ -728,6 +728,119 @@ export const AI_PANEL_POPUP_STYLES = `
 
     .ai-chat-send-btn:hover { opacity: 0.9; }
 
+    /* ── §CHAT-ATTACH (L-10904) — the façade photo on the next message ─────
+       ⛔ TOKENS ONLY, NO NEW COLOURS. Every value below is an existing
+       --app-* custom property, so this strip inherits light/dark and the
+       PRYZM purple accent exactly as the rest of the panel does. The founder's
+       standing instruction is "don't compromise graphics" — the way to honour
+       that is to add no palette, not to add a careful one. */
+
+    .ai-chat-attach-btn {
+        padding: 6px 8px;
+        background: transparent;
+        color: var(--app-text-muted);
+        border: 1px solid var(--app-border);
+        border-radius: var(--app-radius-sm);
+        font-size: 13px;
+        line-height: 1;
+        cursor: pointer;
+        font-family: var(--app-font);
+        flex-shrink: 0;
+        transition: border-color 0.12s, color 0.12s;
+    }
+
+    .ai-chat-attach-btn:hover {
+        border-color: var(--app-accent);
+        color: var(--app-text);
+    }
+
+    .ai-chat-attach-btn:focus-visible {
+        outline: 2px solid var(--app-accent);
+        outline-offset: 1px;
+    }
+
+    .ai-chat-attach-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px 0 12px;
+        background: var(--app-panel-bg);
+        flex-shrink: 0;
+    }
+
+    .ai-chat-attach-chip {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 6px 4px 4px;
+        border: 1px solid var(--app-border);
+        border-radius: var(--app-radius-sm);
+        background: var(--app-bg);
+        max-width: 70%;
+        min-width: 0;
+    }
+
+    .ai-chat-attach-thumb {
+        width: 32px;
+        height: 32px;
+        object-fit: cover;
+        border-radius: 3px;
+        flex-shrink: 0;
+        display: block;
+    }
+
+    .ai-chat-attach-text {
+        min-width: 0;
+        font-family: var(--app-font);
+        line-height: 1.25;
+    }
+
+    .ai-chat-attach-name {
+        font-size: 11px;
+        color: var(--app-text);
+        /* A long phone filename must not push the remove control off the chip. */
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .ai-chat-attach-meta {
+        font-size: 9px;
+        color: var(--app-text-muted);
+        white-space: nowrap;
+    }
+
+    .ai-chat-attach-remove {
+        background: transparent;
+        border: none;
+        color: var(--app-text-muted);
+        font-size: 15px;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0 2px;
+        flex-shrink: 0;
+        font-family: var(--app-font);
+    }
+
+    .ai-chat-attach-remove:hover { color: var(--app-text); }
+
+    .ai-chat-attach-hint {
+        font-size: 9px;
+        color: var(--app-text-muted);
+        font-family: var(--app-font);
+        font-style: italic;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Drag-and-drop feedback. An inset ring rather than a border so the panel
+       does not RESIZE on dragenter — a target that jumps while you are dragging
+       onto it is a target you miss. */
+    .ai-chat-dropzone--active {
+        box-shadow: inset 0 0 0 2px var(--app-accent);
+    }
+
     .ai-chat-typing {
         font-size: 11px;
         color: var(--app-text-muted);

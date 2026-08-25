@@ -58,6 +58,7 @@ import {
     type ConversationContext,
     type PlanReport,
     type ResolverContext,
+    type FacadePhotoBrief,
     type ResolverSelection,
     type ResolverWallSystemType,
     type VisibilityIntentSnapshot,
@@ -882,7 +883,24 @@ async function buildCatalogueChannel(): Promise<Record<string, {
     return Object.keys(out).length === 0 ? null : out;
 }
 
-async function buildContext(): Promise<ResolverContext> {
+/**
+ * §CHAT-ATTACH (L-10905) — per-message facts that are NOT read off the model.
+ *
+ * ⭐ WHY THIS IS A PARAMETER AND NOT A MODULE-LEVEL READ. Everything else in
+ * `buildContext` is a snapshot of the PROJECT — selection, levels, catalogues —
+ * and is correctly re-read on every turn. A photograph is a property of ONE
+ * MESSAGE. Reaching into the panel's attachment state from here would make the
+ * context depend on UI state that outlives the turn, which is precisely how a
+ * photo would leak into the NEXT sentence the user typed.
+ */
+export interface ChatTurnFacts {
+    /** The attached façade photograph, already reduced to a brief by
+     *  `mapFacadeIRToPhotoBrief`. Absent ⇒ every sentence behaves exactly as it
+     *  did before attachments existed. */
+    readonly photoFacade?: FacadePhotoBrief;
+}
+
+async function buildContext(turn?: ChatTurnFacts): Promise<ResolverContext> {
     const levels = (win().bimManager?.getLevels?.() ?? []).map((l, i) => ({
         id: l.id,
         name: l.name ?? `Level ${i}`,
@@ -1003,6 +1021,10 @@ async function buildContext(): Promise<ResolverContext> {
     return {
         selection: currentSelection(),
         levels,
+        // §CHAT-ATTACH (L-10905) — the photograph attached to THIS message, if
+        // any. Omitted entirely when there is none, so a typed-only sentence
+        // produces the byte-for-byte context it produced before this existed.
+        ...(turn?.photoFacade !== undefined ? { photoFacade: turn.photoFacade } : {}),
         ...(roomsSnapshot !== null ? { rooms: roomsSnapshot } : {}),
         ...(activeLevelId !== undefined ? { activeLevelId } : {}),
         ...(visibility !== undefined ? { visibility } : {}),
@@ -1692,11 +1714,17 @@ function offerFinishChain(): void {
  * reason) — the caller must then NOT send the utterance to the LLM.
  * Returns false only on a miss so the existing aiService path runs unchanged.
  */
-export async function tryHandleZeroToken(query: string, hooks: ZeroTokenUiHooks): Promise<boolean> {
+export async function tryHandleZeroToken(
+    query: string,
+    hooks: ZeroTokenUiHooks,
+    /** §CHAT-ATTACH (L-10905) — facts belonging to THIS message, not to the
+     *  project: today, the attached façade photograph. Omit and nothing changes. */
+    turn?: ChatTurnFacts,
+): Promise<boolean> {
     let resolution: ZeroTokenResolution;
     let ctx: ResolverContext;
     try {
-        ctx = await buildContext();
+        ctx = await buildContext(turn);
         // §PLAN (RAC U6) — the compound stage runs FIRST, and answers only when
         // the user explicitly sequenced clauses ("…, then …"). It resolves each
         // clause through this same ladder and stands aside (null) for every
@@ -1772,8 +1800,8 @@ export async function tryHandleZeroToken(query: string, hooks: ZeroTokenUiHooks)
 /** The live ResolverContext the whole ladder shares (selection, levels, the
  *  injected catalogue lookups and scope resolver). Exported so the planner rung
  *  prompts and validates against the SAME facts the deterministic tiers used. */
-export async function buildZeroTokenContext(): Promise<ResolverContext> {
-    return buildContext();
+export async function buildZeroTokenContext(turn?: ChatTurnFacts): Promise<ResolverContext> {
+    return buildContext(turn);
 }
 
 /** Execute an already-resolved outcome — the identical three-way switch
