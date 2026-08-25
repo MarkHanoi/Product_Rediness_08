@@ -1,4 +1,4 @@
-// shellArcs — ROUNDED PLAN CORNERS for the generated shell (§L-11130).
+// shellArcs — ROUNDED PLAN CORNERS for the generated shell (§L-11130 · §L-11170).
 //
 // THE GAP. The boundary-line tool has a Curved mode and PRYZM builds CURVED WALLS
 // (`Wall.curve`, a quadratic Bézier — live in production). But a curved boundary
@@ -9,22 +9,45 @@
 // definitely do curved walls — this is fully working on production."
 //
 // WHAT THIS DOES. Split the footprint ring into RUNS: straight edges stay straight;
-// a maximal chain of short, gently-turning, same-sign edges is ONE ARC and becomes
-// a single curved wall. Nothing here knows about corners, buildings or radii — it
-// knows that a polyline approximating an arc has short edges and small consistent
-// turns, and that a real corner of a rectangle is one sharp turn.
+// an arc the tool tessellated becomes ONE arc run and one curved wall.
 //
-// ⭐ EVERY THRESHOLD IS RELATIVE TO THE RING ITSELF. "Short" is a fraction of the
-// ring's LONGEST edge; "gentle" is a turn well below a right angle. A slight wobble
-// on a long straight facade is not an arc (its edges are long); a genuine 90°
-// corner is not an arc (its turn is sharp). The two named constants below are
-// stated with their reasons and are not tuned to any case.
+// ⛔ §L-11170 — THE FIRST VERSION OF THIS FILE WAS A HEURISTIC, AND IT FAILED THE
+// FOUNDER'S OWN SHAPE. It flagged "short, gently-turning, same-sign" edges relative
+// to the ring's LONGEST edge. Measured on the ring the Curved tool ACTUALLY emits
+// (`shellArcsRealTool.spec.ts`, built by calling the tool's own sampler):
+//   • a 30 × 12 block with BOTH right-hand corners rounded at r = 4 — the
+//     photograph — came back as ONE arc of 33 chords: the 4 m straight between the
+//     two corners is "short" against a 30 m façade, so the walk ran straight through
+//     it and asked one quadratic Bézier to turn 180°, which it cannot.
+//   • a user who never leaves Curved mode (straight edges as collinear "arcs") got
+//     68 straight walls — the L-965 drum, one storey up.
+// A relative threshold cannot tell "a short straight between two arcs" from "a
+// chord". The fix is not another constant: the repo ALREADY has the exact answer.
 //
-// THE CURVE. `Wall.curve` is a quadratic Bézier via `control`. For an arc the
-// control is chosen so the curve PASSES THROUGH the polyline's middle vertex at
-// t = 0.5 (control = 2·M − (A + B)/2) — an interpolating fit that keeps the wall
-// on the drawn geometry to within ~1–2% radially for arcs up to a quarter turn,
-// instead of the ~6% bulge of a tangent-intersection control.
+// ⭐ THE ONE ARC-RECOVERY AUTHORITY. `resolveBoundarySegments` in
+// `@pryzm/geometry-slab` (§L965-RECOVER-BOUNDARY-ARCS) reads a uniformly-sampled
+// quadratic Bézier run back out of a polygon EXACTLY — constant second difference,
+// control point solved in closed form, every claim REBUILT through the forward
+// sampler and refused unless it reproduces the vertices to 1 mm. It was written for
+// "walls by slab" on precisely this input (the same `arcSegmentThroughMidpoint`
+// output), and it handles two gestures sharing a vertex. This module CONSUMES it;
+// it does not re-derive it (C84 EI-8 — one vocabulary; the same lesson
+// `curvedWallTessellation.ts` records after being copied three times).
+//
+// WHAT THAT BUYS. The curved wall's control is the control the user AUTHORED —
+// the wall passes through the clicked midpoint exactly, not to "~1–2%". And a ring
+// this recovery cannot read (an imported polyline, a ring decimated by the
+// executor's 5 cm de-dupe at r < ~0.5 m, a true circle) falls back to straight
+// edges — the pre-L-11130 behaviour, which is the honest fallback rather than a
+// guessed curve. That limit is NAMED in the spec, not hidden.
+//
+// COLLINEAR CHORDS ARE ONE WALL. After recovery, consecutive straight chords whose
+// interior vertices lie within 1 mm of the merged line are ONE straight run. That
+// is the Curved-mode-for-everything case above (a collinear "arc" tessellates to 16
+// exactly collinear chords) and it is a 1 mm rule, not an angle: a 5 cm wobble a
+// user actually clicked on a 20 m façade is NOT merged, because it is 5 cm.
+
+import { resolveBoundarySegments } from '@pryzm/geometry-slab';
 
 export interface XZ { readonly x: number; readonly z: number }
 
@@ -34,7 +57,7 @@ export type ShellRun =
           readonly kind: 'arc';
           readonly a: XZ;
           readonly b: XZ;
-          /** Quadratic-Bézier control (world XZ). */
+          /** Quadratic-Bézier control (world XZ) — the control the tool authored, recovered exactly. */
           readonly control: XZ;
           /** Tessellation count for `Wall.curve.segments` (≥ 4). */
           readonly segments: number;
@@ -42,27 +65,29 @@ export type ShellRun =
           readonly chords: number;
       };
 
-/** An edge is "short" when it is at most this fraction of the ring's longest edge. */
-export const ARC_SHORT_EDGE_FRACTION = 0.25;
-/** A turn is "gentle" when it is at most this many degrees (a rectangle corner is 90°). */
-export const ARC_MAX_TURN_DEG = 60;
-/** A turn below this is collinear noise, not curvature. */
-export const ARC_MIN_TURN_DEG = 1;
+/**
+ * A straight vertex is dropped only when it sits within this distance of the line
+ * through its run's endpoints — the same 1 mm the arc recovery uses to accept a
+ * claim. Geometry never moves by more than this.
+ */
+export const COLLINEAR_TOLERANCE_M = 1e-3;
 
-function turnDeg(p: XZ, q: XZ, r: XZ): number {
-    const ax = q.x - p.x, az = q.z - p.z;
-    const bx = r.x - q.x, bz = r.z - q.z;
-    const cross = ax * bz - az * bx;
-    const dot = ax * bx + az * bz;
-    return (Math.atan2(cross, dot) * 180) / Math.PI; // signed
+/** `Wall.curve.segments` for a recovered arc: twice the drawn chord count, never under 8. */
+function segmentsFor(chords: number): number {
+    return Math.max(8, chords * 2);
 }
 
-function len(a: XZ, b: XZ): number {
-    return Math.hypot(b.x - a.x, b.z - a.z);
+/** Perpendicular distance from `p` to the infinite line through `a` and `b`. */
+function distToLine(p: XZ, a: XZ, b: XZ): number {
+    const dx = b.x - a.x, dz = b.z - a.z;
+    const len = Math.hypot(dx, dz);
+    if (len < 1e-12) return Math.hypot(p.x - a.x, p.z - a.z);
+    return Math.abs((p.x - a.x) * dz - (p.z - a.z) * dx) / len;
 }
 
 /**
  * Split a CLOSED ring (no repeated last vertex) into runs. Pure and deterministic.
+ * The result covers every ring edge exactly once, in ring order.
  * A ring with fewer than 3 vertices returns straight edges only.
  */
 export function splitRingIntoRuns(ring: ReadonlyArray<XZ>): ShellRun[] {
@@ -72,93 +97,48 @@ export function splitRingIntoRuns(ring: ReadonlyArray<XZ>): ShellRun[] {
         for (let i = 0; i < n; i++) out.push({ kind: 'line', a: ring[i]!, b: ring[(i + 1) % n]! });
         return out;
     }
-    let longest = 0;
-    for (let i = 0; i < n; i++) longest = Math.max(longest, len(ring[i]!, ring[(i + 1) % n]!));
-    const shortMax = longest * ARC_SHORT_EDGE_FRACTION;
 
-    // Flag each vertex as ARC-INTERIOR: gentle, non-zero turn AND at least one short
-    // adjacent edge (the arc's first/last vertex sits between a long straight edge
-    // and a short chord, and must still be flagged so the arc starts on the tangent).
-    const turns = new Array<number>(n);
-    const flagged = new Array<boolean>(n).fill(false);
-    for (let i = 0; i < n; i++) {
-        const p = ring[(i - 1 + n) % n]!, q = ring[i]!, r = ring[(i + 1) % n]!;
-        const t = turnDeg(p, q, r);
-        turns[i] = t;
-        const gentle = Math.abs(t) >= ARC_MIN_TURN_DEG && Math.abs(t) <= ARC_MAX_TURN_DEG;
-        const shortNeighbour = len(p, q) <= shortMax || len(q, r) <= shortMax;
-        flagged[i] = gentle && shortNeighbour;
-    }
+    // 1 · EXACT recovery. Segments come back in ring order covering all n chords;
+    //     an arc carries `control`, a straight chord does not.
+    const segments = resolveBoundarySegments(ring);
 
-    // Walk the ring from a vertex that is NOT flagged (a straight-run corner), so no
-    // arc is split by the array's wrap-around. If EVERY vertex is flagged the ring is
-    // one closed curve; treat it as straight edges (a circle-shaped shell is out of
-    // scope here and must not become one degenerate Bézier).
-    let start = flagged.findIndex((f) => !f);
-    if (start < 0) {
-        const out: ShellRun[] = [];
-        for (let i = 0; i < n; i++) out.push({ kind: 'line', a: ring[i]!, b: ring[(i + 1) % n]! });
-        return out;
-    }
-
+    // 2 · Straight chords between arcs are grouped into maximal collinear runs.
     const runs: ShellRun[] = [];
-    let i = start;
-    let visited = 0;
-    while (visited < n) {
-        const cur = ring[i]!;
-        const next = (i + 1) % n;
-        if (!flagged[next]) {
-            runs.push({ kind: 'line', a: cur, b: ring[next]! });
-            i = next;
-            visited++;
+    let i = 0;
+    while (i < segments.length) {
+        const seg = segments[i]!;
+        if (seg.control !== undefined) {
+            runs.push({
+                kind: 'arc',
+                a: ring[seg.startIndex]!,
+                b: ring[seg.endIndex]!,
+                control: { x: seg.control.x, z: seg.control.z },
+                segments: segmentsFor(seg.chords),
+                chords: seg.chords,
+            });
+            i++;
             continue;
         }
-        // An arc begins at `cur` (the last straight vertex) — but only if `cur`'s
-        // OUTGOING edge is short; otherwise the arc begins at `next` itself.
-        const arcStartIdx = len(cur, ring[next]!) <= shortMax ? i : next;
-        if (arcStartIdx === next) {
-            runs.push({ kind: 'line', a: cur, b: ring[next]! });
-            visited++;
+        // Extend a straight run over following straight chords while every interior
+        // vertex stays within tolerance of the line from the run's start to the
+        // candidate end. Never across an arc (the loop stops at `control`).
+        const startIdx = seg.startIndex;
+        let endIdx = seg.endIndex;
+        let j = i + 1;
+        while (j < segments.length && segments[j]!.control === undefined) {
+            const candEnd = segments[j]!.endIndex;
+            const a = ring[startIdx]!, b = ring[candEnd]!;
+            // interior vertices: startIdx+1 … candEnd-1 (ring order, wrapping)
+            let ok = true;
+            for (let k = (startIdx + 1) % n; k !== candEnd; k = (k + 1) % n) {
+                if (distToLine(ring[k]!, a, b) > COLLINEAR_TOLERANCE_M) { ok = false; break; }
+            }
+            if (!ok) break;
+            endIdx = candEnd;
+            j++;
         }
-        // Collect consecutive flagged vertices with the SAME turn sign.
-        const sign = Math.sign(turns[next]!);
-        let j = next;
-        let count = 0;
-        // ⛔ A LONG EDGE ENDS THE ARC. Two rounded corners joined by a straight facade
-        // are two arcs, not one: the straight edge between them is long, so the walk
-        // stops there even though the next corner's first vertex is flagged too.
-        while (
-            flagged[(j + 1) % n] &&
-            Math.sign(turns[(j + 1) % n]!) === sign &&
-            len(ring[j]!, ring[(j + 1) % n]!) <= shortMax &&
-            count < n
-        ) {
-            j = (j + 1) % n;
-            count++;
-        }
-        // The arc spans arcStartIdx → the vertex AFTER the last flagged one (its
-        // outgoing edge is the last chord), unless that edge is long — then it ends
-        // at the last flagged vertex.
-        const lastFlagged = j;
-        const after = (lastFlagged + 1) % n;
-        const arcEndIdx = len(ring[lastFlagged]!, ring[after]!) <= shortMax ? after : lastFlagged;
-        const chordCount = ((arcEndIdx - arcStartIdx + n) % n);
-        if (chordCount >= 2) {
-            const a = ring[arcStartIdx]!;
-            const b = ring[arcEndIdx]!;
-            const midIdx = (arcStartIdx + Math.floor(chordCount / 2)) % n;
-            const m = ring[midIdx]!;
-            const control: XZ = { x: 2 * m.x - (a.x + b.x) / 2, z: 2 * m.z - (a.z + b.z) / 2 };
-            runs.push({ kind: 'arc', a, b, control, segments: Math.max(8, chordCount * 2), chords: chordCount });
-            i = arcEndIdx;
-            // `visited` counts EDGES consumed: lines pushed + chords inside arcs.
-            visited = runs.reduce((acc, r) => acc + (r.kind === 'line' ? 1 : r.chords), 0);
-            continue;
-        }
-        // Fewer than 2 chords: not an arc — emit straight edges and move on.
-        runs.push({ kind: 'line', a: ring[arcStartIdx]!, b: ring[(arcStartIdx + 1) % n]! });
-        i = (arcStartIdx + 1) % n;
-        visited = runs.reduce((acc, r) => acc + (r.kind === 'line' ? 1 : r.chords), 0);
+        runs.push({ kind: 'line', a: ring[startIdx]!, b: ring[endIdx]! });
+        i = j;
     }
     return runs;
 }

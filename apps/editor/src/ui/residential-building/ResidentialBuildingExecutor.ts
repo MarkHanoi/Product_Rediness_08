@@ -1036,10 +1036,18 @@ export class ResidentialBuildingExecutor {
             return { shellPayload: this._buildShellPerimeter(levelId, footprint, wallHeightM), curtainWalls: [], commercialWindows: [] };
         }
         let doorBay: { wallId: string; wallLengthM: number } | undefined;
-        // The entrance edge = the façade edge whose midpoint is nearest the world entrance centre.
-        let entranceEdge = 0, best = Infinity;
-        for (let i = 0; i < ring.length; i++) {
-            const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
+        // §L-11130 / §L-11170 — the ring as RUNS: a straight run per straight façade
+        // (collinear chords merged), ONE arc run per rounded corner. The ground shell
+        // walks these, not raw ring edges, so it agrees with the upper storeys.
+        const runs = splitRingIntoRuns(ring);
+        // The entrance edge = the STRAIGHT run whose midpoint is nearest the world
+        // entrance centre. Never an arc: a curved wall takes no opening at creation
+        // (C03 §1.2), so a door bay on it would be a bay with no door.
+        let entranceEdge = -1, best = Infinity;
+        for (let i = 0; i < runs.length; i++) {
+            const run = runs[i]!;
+            if (run.kind !== 'line') continue;
+            const { a, b } = run;
             const d = Math.hypot((a.x + b.x) / 2 - worldEntranceCenter.x, (a.z + b.z) / 2 - worldEntranceCenter.z);
             if (d < best) { best = d; entranceEdge = i; }
         }
@@ -1168,29 +1176,20 @@ export class ResidentialBuildingExecutor {
         // §L-11130 — ROUNDED CORNERS on the ground shell. Arc runs become ONE solid
         // curved wall each: no shopfront window and no curtain on a curve (C03 §1.2 —
         // curved walls take no openings at creation), and never a façade run for the
-        // photograph's lattice, which is laid out on straight elevations. The straight
-        // edges below are indexed exactly as before, so `entranceEdge` still resolves.
-        const arcRuns = splitRingIntoRuns(ring).filter((r) => r.kind === 'arc');
-        const arcStarts = new Set(arcRuns.map((r) => `${r.a.x},${r.a.z}`));
-        const arcSkip = new Set<number>();
-        for (const run of arcRuns) {
-            if (run.kind !== 'arc') continue;
-            // Mark every ring edge inside this arc so the straight loop skips them.
-            let k = ring.findIndex((v) => v.x === run.a.x && v.z === run.a.z);
-            for (let c = 0; c < run.chords && k >= 0; c++) { arcSkip.add(k); k = (k + 1) % ring.length; }
-            const id = createId('wall');
-            walls.push({
-                id, levelId,
-                baseLine: [{ x: run.a.x, y: 0, z: run.a.z }, { x: run.b.x, y: 0, z: run.b.z }],
-                height: groundWallH, thickness: SHELL_WALL_THICKNESS_M,
-                curve: { control: { x: run.control.x, y: 0, z: run.control.z }, segments: run.segments },
-            });
-            facadeNotes.push(`a rounded corner was built as ONE curved wall (${run.chords} drawn chords → 1 wall, solid)`);
-        }
-        void arcStarts;
-        for (let i = 0; i < ring.length; i++) {
-            if (arcSkip.has(i)) continue;
-            const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
+        // photograph's lattice, which is laid out on straight elevations.
+        for (let i = 0; i < runs.length; i++) {
+            const run = runs[i]!;
+            if (run.kind === 'arc') {
+                walls.push({
+                    id: createId('wall'), levelId,
+                    baseLine: [{ x: run.a.x, y: 0, z: run.a.z }, { x: run.b.x, y: 0, z: run.b.z }],
+                    height: groundWallH, thickness: SHELL_WALL_THICKNESS_M,
+                    curve: { control: { x: run.control.x, y: 0, z: run.control.z }, segments: run.segments },
+                });
+                facadeNotes.push(`a rounded corner was built as ONE curved wall (${run.chords} drawn chords → 1 wall, solid)`);
+                continue;
+            }
+            const { a, b } = run;
             if (i === entranceEdge) {
                 // Split the entrance edge into [glazed/windowed] | solid door-bay | [glazed/windowed].
                 const len = Math.hypot(b.x - a.x, b.z - a.z);
