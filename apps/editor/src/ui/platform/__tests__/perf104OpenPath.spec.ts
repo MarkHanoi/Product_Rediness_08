@@ -63,7 +63,7 @@
 // Everything below is MAIN-THREAD CPU at founder scale. That is exactly the axis that
 // makes a click feel dead, and it is the axis this lane changes.
 import { describe, it, beforeAll } from 'vitest';
-import { encodeCompressed } from '../../../workers/compressCodec';
+import { encodeCompressed, decodeCompressed } from '../../../workers/compressCodec';
 import { hashJournalChunk, JOURNAL_SIDECAR_VERSION } from '@pryzm/persistence-client';
 
 const V3 = '\x00fflate3\x01';
@@ -282,6 +282,92 @@ describe('§PERF104 — per-phase main-thread cost of opening ONE project', () =
             `[PERF104] the opened container is ${(containerBytes / 1024 / 1024).toFixed(2)} MB and every one of the ` +
             `${N_PROJECTS} residency probes JSON.parses a whole container envelope — the cost of opening ONE project ` +
             'is a function of how many OTHER projects exist. That is the defect, in one sentence.',
+        );
+    }, 600_000);
+
+    // ── THE JOURNAL / SAVE-REWRITE QUESTION ─────────────────────────────────────
+    //
+    // Asked directly: *"does version persistence re-write all N versions each save?"*
+    // The answer is **two different answers for two different costs, and collapsing
+    // them is how the §JOURNAL-SIDECAR claim can look both true and false**:
+    //
+    //   • RE-COMPRESSION is incremental and the L-5801 / L-9983 claims HOLD. An
+    //     autosave DEFLATEs exactly one version blob and exactly one journal tail
+    //     chunk; the other nine versions and every SEALED chunk are carried forward
+    //     as bytes (`_PendingSlot.blob`, `_planJournal`'s `reuse`).
+    //   • RE-SERIALIZATION AND RE-WRITE ARE WHOLE-CONTAINER, EVERY SINGLE SAVE.
+    //     `_envelopeContainer` JSON.parses the entire stored container on the way in
+    //     (ProjectRepository.ts:1617) and `_assembleContainer` JSON.stringifies the
+    //     entire container on the way out (ProjectRepository.ts:2352), which then goes
+    //     to `putVersions` as one IndexedDB write of the whole thing. So in the I/O
+    //     sense the founder is RIGHT: all N versions ARE re-persisted on every tick.
+    //
+    // ⛔ AND THE JOURNAL IS NEVER PRUNED. `_prepareJournalSlot` writes `incoming =
+    // det.mutations`, i.e. the LIVE snapshot's complete `temporalGraph.mutations`.
+    // Versions are trimmed at MAX_VERSIONS_STORED = 20; the design journal has no
+    // retention policy anywhere in the storage layer. The sidecar can only leave the
+    // container when NO stored version references it — and every save writes a cursor,
+    // so that never happens. 2 056 → 5 361 records in one day is not an anomaly, it is
+    // the designed behaviour, and every open pays for all of it.
+    it('measures the per-save cost and projects the journal growth', async () => {
+        const raw = localStorage.getItem(`bim-project-${openedId}-versions`)!;
+        const body = raw.slice(V3.length);
+        const time = (fn: () => unknown): number => {
+            const t = performance.now();
+            fn();
+            return Math.round(performance.now() - t);
+        };
+
+        // The two whole-container legs every autosave pays, incremental compression
+        // notwithstanding.
+        let parsed!: { v: Array<{ i: string; b: string; r?: number }>; j: { k: number; n: number; c: Array<{ b: string; n: number; h: string }> } };
+        const msParse = time(() => { parsed = JSON.parse(body); });
+        const msStringify = time(() => JSON.stringify(parsed));
+
+        // The compression legs — what IS incremental, measured against what it replaced.
+        const oneVersionJson = JSON.stringify({ id: 'v-new', snapshot: { elements: Array.from({ length: N_ELEMENTS }, (_, i) => makeElement(i)) } });
+        const msOneVersion = time(() => encodeCompressed(oneVersionJson));
+        const msAllVersions = time(() => { for (const e of parsed.v) encodeCompressed(JSON.stringify(e)); });
+
+        // The journal legs. `tail` is what an append re-compresses; `all` is what a
+        // DIVERGENT lineage (restore-an-old-version-then-save) costs instead.
+        const chunks = parsed.j.c;
+        const tailText = JSON.stringify(Array.from({ length: N_JOURNAL % JOURNAL_CHUNK }, (_, i) => makeMutation(i)));
+        const msJournalTail = time(() => { encodeCompressed(tailText); hashJournalChunk(tailText); });
+        const msJournalAll = time(() => {
+            for (const ch of chunks) { const t = decodeCompressed(ch.b); encodeCompressed(t); hashJournalChunk(t); }
+        });
+        const msJournalRead = time(() => {
+            for (const ch of chunks) { const t = decodeCompressed(ch.b); hashJournalChunk(t); }
+        });
+
+        const journalBytes = chunks.reduce((a, c) => a + c.b.length, 0);
+        const perRecordReadUs = (msJournalRead * 1000) / N_JOURNAL;
+
+        console.log('\n[PERF104] ══ THE JOURNAL / SAVE-REWRITE VERDICT ══');
+        console.log(`  container ${(raw.length / 1024 / 1024).toFixed(2)} MB · ${parsed.v.length} versions · ` +
+            `${parsed.j.n} journal records in ${chunks.length} chunks (${(journalBytes / 1024).toFixed(0)} KB compressed)`);
+        console.log('  ── paid on EVERY autosave, whole-container, NOT incremental ──');
+        console.log(`    JSON.parse  (_envelopeContainer, :1617)   ${String(msParse).padStart(5)} ms`);
+        console.log(`    JSON.stringify (_assembleContainer, :2352)${String(msStringify).padStart(5)} ms`);
+        console.log(`    + one IndexedDB put of the whole ${(raw.length / 1024 / 1024).toFixed(2)} MB payload`);
+        console.log('  ── genuinely incremental (the §JOURNAL-SIDECAR claim, upheld) ──');
+        console.log(`    DEFLATE one changed version              ${String(msOneVersion).padStart(5)} ms`);
+        console.log(`    …vs re-DEFLATE all ${String(parsed.v.length).padStart(2)} versions          ${String(msAllVersions).padStart(5)} ms  ← what is AVOIDED`);
+        console.log(`    DEFLATE the journal TAIL chunk           ${String(msJournalTail).padStart(5)} ms`);
+        console.log(`    …vs re-DEFLATE all ${String(chunks.length).padStart(2)} chunks             ${String(msJournalAll).padStart(5)} ms  ← what a DIVERGENT lineage costs`);
+        console.log('  ── paid on EVERY open, and it grows without bound ──');
+        console.log(`    inflate + digest-verify the whole journal${String(msJournalRead).padStart(5)} ms  (${perRecordReadUs.toFixed(3)} ms/1000 records)`);
+        for (const mult of [2, 4, 10]) {
+            console.log(`      projected at ${String(N_JOURNAL * mult).padStart(6)} records (×${mult}): ` +
+                `~${Math.round(msJournalRead * mult)} ms per open, ~${Math.round(journalBytes * mult / 1024)} KB stored`);
+        }
+        console.log(
+            '  ⛔ NO RETENTION POLICY. Versions trim at MAX_VERSIONS_STORED=20; the design journal ' +
+            'never trims. `_prepareJournalSlot` stores the LIVE `temporalGraph.mutations` in full, and the ' +
+            'sidecar may only leave the container when NO stored version references it — but every save ' +
+            'writes a cursor, so that condition is unreachable. The projection above is therefore the ' +
+            'trajectory, not a worst case.',
         );
     }, 600_000);
 });
