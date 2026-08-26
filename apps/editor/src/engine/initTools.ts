@@ -235,7 +235,7 @@ import type { CurtainWallStore, CurtainPanelStore, CurtainWallData } from '@pryz
 import type { RoofStore, RoofData } from '@pryzm/geometry-roof';
 import type { PlumbingStore } from '@pryzm/geometry-plumbing';
 import type { FurnitureStore } from '@pryzm/geometry-furniture';
-import type { LightingStore } from '@pryzm/geometry-lighting';
+import type { LightingStore, LightingData, LightingFragmentBuilder } from '@pryzm/geometry-lighting';
 import type { RoomStore } from '@pryzm/room-topology';
 import type {
     StairStore, StairTypeStore, StairLandingStore, StairRailingStore,
@@ -2727,11 +2727,28 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     // §FT-LIGHTING (LIGHTING-BUS-MIGRATION — C11 §11.11): bus → legacy-LightingStore.
     // After a bus `lighting.create` succeeds, CommandEventBridge emits `lighting.created`
     // with id/kind/origin. This subscriber translates the PRYZM3 `kind`/`origin` shape
-    // into the legacy `LightingData` (`fixtureType`/`position`) and calls
-    // lightingStore.add() — LightingStore.add() fires `bim-lighting-added` →
-    // LightingFragmentBuilder builds the 3D fixture mesh. Lighting is NOT in
-    // GEOMETRY_ELEMENT_TYPES (no plan-view projection — by design), so no
-    // viewDependencyTracker registration. Mirrors the §FT-HANDRAIL bridge.
+    // into the legacy `LightingData` (`fixtureType`/`position`), calls
+    // lightingStore.add() AND builds the 3-D mesh (see the §LIGHT121 correction
+    // below). Lighting is NOT in GEOMETRY_ELEMENT_TYPES (no plan-view projection —
+    // by design), so no viewDependencyTracker registration. Mirrors the §FT-HANDRAIL
+    // bridge.
+    //
+    // ⚠ CORRECTED §LIGHT121 (L-11902, founder: "I can't remove some lighting
+    // fixtures — e.g. terracotta lamp table"). This comment used to claim
+    // *"LightingStore.add() fires `bim-lighting-added` → LightingFragmentBuilder
+    // builds the 3D fixture mesh"*. THE SECOND HALF WAS FICTION: a repo-wide sweep
+    // finds NO production listener that routes `bim-lighting-added` (or the
+    // storeEventBus 'create') into `LightingFragmentBuilder.add` — the consumers are
+    // SelectionManager cache invalidation, the browser-panel refresh, the tier pass.
+    // So every BUS-created fixture (the AI lighting-layout executor, auto-furnish,
+    // and the plan tool) got a STORE RECORD AND NO MESH. The record painted a plan
+    // symbol (renderLightingSymbols reads the store), so the fixture LOOKED real in
+    // plan — but `SelectionManager.selectById` resolves a selection by scanning the
+    // scene for `userData.id`, found nothing, returned false, and keyboard Delete
+    // then refused with "No element selected". The founder's undeletable fixtures
+    // are exactly the bus-created class; fixtures placed by the 3-D tool or restored
+    // by ProjectLoader run `CreateLightingCommand`, which calls `builder.add`
+    // directly, and those delete fine — "some fixtures and not others".
     if (runtime) {
         runtime.events.on('lighting.created', (ev) => {
             if (ev.commandType !== 'lighting.create' || !ev.id || !ev.origin) return;
@@ -2772,13 +2789,37 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                         ceilingStore.getByLevel(_levelId),
                         _probe,
                     ).y;
-                _ls.add({
+                const _data: LightingData = {
                     id:          ev.id,
                     type:        'lighting',
                     levelId:     _levelId,
                     fixtureType: _fixtureType,
                     position:    { x: ev.origin.x, y: _seatY, z: ev.origin.z },
-                });
+                };
+                _ls.add(_data);
+                // §LIGHT121 (L-11902) — build the 3-D mesh HERE, not via an event
+                // listener that never existed. `LightingStore.add()` fires
+                // `bim-lighting-added`, but no production subscriber to that event
+                // ever called `LightingFragmentBuilder.add` (see the correction
+                // above); the comment that used to claim otherwise was fiction. Every
+                // bus-created fixture (PLAN tool, copy/duplicate, AI lighting-layout)
+                // got a store record and a plan symbol but NO scene mesh, so
+                // `SelectionManager.selectById` (scene-scan by `userData.id`) found
+                // nothing and keyboard/plan/3-D Delete all refused silently. Mirrors
+                // `CreateLightingCommand.execute` (`store.add` + `builder.add`, both
+                // explicit, no event-listener seam) so the two creation paths cannot
+                // drift again.
+                // §FIX-ANY-STORE-SEAM (L-980) — same doctrine as `_ls`/`_fs` above:
+                // the REAL class via a cast, not a structural `any`. Only
+                // `window.lightingBuilder` is ever assigned in this app
+                // (`initBuilders.ts:886`) — `window.lightingFragmentBuilder` is a
+                // command-registry-only alias never populated here.
+                const _builder = window.lightingBuilder as LightingFragmentBuilder | undefined;
+                if (_builder?.add) {
+                    _builder.add(_data);
+                } else {
+                    console.error('[initTools] §FT-LIGHTING: no lightingFragmentBuilder available — fixture', ev.id, 'has a store record but NO mesh and will not be selectable/deletable.');
+                }
                 try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
                 console.log('[initTools] §FT-LIGHTING: lighting mirrored to legacy store', ev.id);
             } catch (err) {
