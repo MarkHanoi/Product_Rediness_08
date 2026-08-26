@@ -93,7 +93,8 @@ import {
 } from './graphReadModel';
 import { censusPlacement, censusLevels, getCensus } from './analysisReadModel';
 import { AREA_STANDARDS, areaStandard, setAreaStandard } from './areaStandards';
-import { renderNodeLink, renderEdgeLegend } from './nodeLinkSvg';
+import { renderNodeLink, renderEdgeLegend, renderNodeLegend } from './nodeLinkSvg';
+import { foldOpen, setFoldOpen } from './analysisLayout';
 import {
   HIERARCHY_VIEWS,
   DISCIPLINE_ORDER,
@@ -109,6 +110,7 @@ import {
   buildGraphSubject,
   dataUrlToBlob,
   downloadFile,
+  graphExpanded,
   graphFocusDepth,
   graphLabels,
   graphMode,
@@ -117,6 +119,7 @@ import {
   graphView,
   resetGraphViewState,
   serialiseNetwork,
+  setGraphExpanded,
   setGraphFocusDepth,
   setGraphLabels,
   setGraphMode,
@@ -200,30 +203,151 @@ function selectFigure(axis: AnalysisAxis, f: AnalysisFigure): void {
   toggleFacet(axis, f);
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// §ANALYSIS-FOLD-STATE (L-12063) — the note blocks fold; the QUALIFIER does not
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// ⭐ THE FOUNDER'S REQUEST, VERBATIM: *"Can you make all those sections foldable
+// or unfoldable? They are taking too much space and they are just notes — that I
+// mostly don't care about."* He is right about the space and he is right that the
+// prose is not what he is reading the card for.
+//
+// ⛔⛔ AND THIS IS THE ONE PLACE THE OBVIOUS IMPLEMENTATION IS A DEFECT. Those
+// blocks are §CONTEXT-DATA-HONESTY artefacts: they exist so a LOWER-BOUND number
+// is never read as a complete one. A fold that hid the whole block would turn a
+// QUALIFIED number into an apparently-unqualified one — the reader would see
+// "302 relationships" with nothing beside it, which is a different and false
+// claim. That is the same family as "I hold nothing" and "I hold something I
+// cannot attribute" collapsing to one value, and this repository has paid for it
+// four times.
+//
+// ⭐ SO THE SPLIT IS: THE QUALIFIER LIVES ON THE HEADER, THE EXPLANATION FOLDS.
+// A collapsed fold still shows its label and its state CHIPS — "⚠ LOWER BOUND",
+// "⚠ STALE", "Showing 320 of 488 elements". What goes away is the paragraph
+// explaining WHY, which is exactly the part he does not want and the part whose
+// absence changes no number's meaning.
+//
+// ⚠ CHIPS ARE STATE WORDS AND SHORT AUTHORED COUNTS, NEVER PARAPHRASES. A
+// paraphrase of a governed sentence is a second, quietly-divergent copy of it,
+// and the first qualifier dropped in the shortening is the one that mattered.
+
+/** The plate a fold paints on. Same four tones the strips already use. */
+type FoldTone = 'warn' | 'err' | 'ok' | 'scope';
+
+/** A chip that stays on the header in BOTH states. */
+interface FoldChip {
+  readonly text: string;
+  readonly tone: 'warn' | 'err' | 'ok' | 'neutral';
+}
+
+interface FoldSpec {
+  /** Stable storage id. Persisted per project through `analysisLayout`. */
+  readonly id: string;
+  /** Always visible. Carries any number the reader must not lose. */
+  readonly label: string;
+  readonly chips?: readonly FoldChip[];
+  /** Open when this reader has never touched this fold. */
+  readonly defaultOpen: boolean;
+  readonly tone: FoldTone;
+  /** Fills the body. Called only while OPEN — see the note below. */
+  readonly fill: (body: HTMLElement) => void;
+}
+
+/**
+ * One collapsible note block.
+ *
+ * ⛔ A COLLAPSED BODY IS NOT IN THE DOCUMENT, it is not merely `hidden`. Two
+ * reasons, and the second is the one that matters:
+ *   1. a `hidden` subtree still contributes to `textContent`, so "the prose is
+ *      folded away" would be a claim no test could distinguish from a lie;
+ *   2. the surface's whole argument is that what is on screen is what is true.
+ *      Keeping the paragraph in the tree and merely invisible leaves a second,
+ *      unreachable copy of a governed sentence for the next reader to find.
+ *
+ * ⛔ TOGGLING REBUILDS THIS FOLD ONLY — it does NOT fire `GRAPH_VIEW_EVENT`. A
+ * surface-wide refresh here would dispose and re-mount the shared WebGL viewport
+ * every time the reader opened a paragraph, which is a GPU context churn paid for
+ * a disclosure triangle.
+ */
+function foldable(host: HTMLElement, spec: FoldSpec): HTMLElement {
+  const wrap = el('div', `anl-fold anl-fold--${spec.tone}`);
+  wrap.dataset.fold = spec.id;
+
+  const head = el('button', 'anl-fold-head');
+  head.type = 'button';
+  const caret = el('span', 'anl-fold-caret');
+  const label = el('span', 'anl-fold-label', spec.label);
+  head.append(caret, label);
+  for (const c of spec.chips ?? []) {
+    head.appendChild(el('span', `anl-fold-chip anl-fold-chip--${c.tone}`, c.text));
+  }
+
+  const body = el('div', 'anl-fold-body');
+  wrap.append(head, body);
+
+  const paint = (open: boolean): void => {
+    head.setAttribute('aria-expanded', String(open));
+    head.title = open ? 'Hide this note' : 'Show the full note';
+    caret.textContent = open ? '▾' : '▸';
+    body.replaceChildren();
+    body.hidden = !open;
+    if (open) spec.fill(body);
+  };
+
+  paint(foldOpen(spec.id, spec.defaultOpen));
+
+  head.addEventListener('click', () => {
+    const next = head.getAttribute('aria-expanded') !== 'true';
+    setFoldOpen(spec.id, next);
+    paint(next);
+  });
+
+  host.appendChild(wrap);
+  return wrap;
+}
+
 // ── The completeness / coverage strips ────────────────────────────────────────
 
 /**
  * The strip that makes `complete: false` visible ON THE CARD'S FACE. SPEC §2:
  * a widget with `complete:false` MUST say so; it may not round, extrapolate, or
  * omit. This is that requirement, rendered.
+ *
+ * ⚠ AMENDED 2026-08-26 (§ANALYSIS-FOLD-STATE, L-12063). It is now a FOLD, and
+ * what folds is the reason list, never the claim. The header reads *"Incomplete —
+ * every total here is a LOWER BOUND"* in both states; only the producers' cited
+ * causes go away. SPEC §2's requirement is *"a widget with `complete:false` MUST
+ * say so"*, and it still says so, on one line instead of four.
  */
 export function completenessStrip(result: AnalysisResult): HTMLElement | null {
   if (result.complete) return null;
-  const strip = el('div', 'anl-strip anl-strip--warn');
-  strip.appendChild(
-    el(
-      'span',
-      'anl-strip-text',
-      // §ANALYSIS-INCOMPLETE-REASON (L-3303) — the producer's own words. This
-      // string used to be built from `unreachable.length` alone, so a truncated
-      // or stale GRAPH card announced "0 source(s) could not be read", which is
-      // both false and self-refuting.
-      result.incompleteReason.length > 0
-        ? `Incomplete — every total here is a LOWER BOUND: ${result.incompleteReason.join(' · ')}`
-        : 'Incomplete — every total here is a LOWER BOUND, and the source named no cause.',
-    ),
-  );
-  return strip;
+  const host = el('div', 'anl-fold-host');
+  foldable(host, {
+    id: 'w.completeness',
+    // ⛔ THE CLAIM IS THE LABEL. Shortening this to "Incomplete" would leave the
+    // reader with a word that could mean a slow load; "LOWER BOUND" is what tells
+    // them the numbers below are floors.
+    label: 'Incomplete — every total here is a LOWER BOUND',
+    chips: [{ text: '⚠ LOWER BOUND', tone: 'warn' }],
+    defaultOpen: false,
+    tone: 'warn',
+    fill: (b) => {
+      b.appendChild(
+        el(
+          'span',
+          'anl-strip-text',
+          // §ANALYSIS-INCOMPLETE-REASON (L-3303) — the producer's own words. This
+          // string used to be built from `unreachable.length` alone, so a truncated
+          // or stale GRAPH card announced "0 source(s) could not be read", which is
+          // both false and self-refuting.
+          result.incompleteReason.length > 0
+            ? `Why: ${result.incompleteReason.join(' · ')}`
+            : 'The source named no cause. Treat every figure here as a floor.',
+        ),
+      );
+    },
+  });
+  return host;
 }
 
 const COVERAGE_ORDER: Record<CoverageState, number> = { NOT_MEASURED: 0, COUNTED_ONLY: 1, MEASURED: 2 };
@@ -874,25 +998,30 @@ function levelScopePicker(): HTMLElement {
  *
  * ⛔ Renders ONCE per change. No animation, no rAF (P3) — the 3-D viewport draws
  * on demand through the frame scheduler and costs zero frames while idle.
+ *
+ * ═════════════════════════════════════════════════════════════════════════════
+ * ⚠ AMENDED 2026-08-26 (§ANALYZE129 — the founder read the shipped card)
+ * ═════════════════════════════════════════════════════════════════════════════
+ * *"The relationship graph is absolutely amazing; however it is difficult to
+ * read."* Four of items 1-7 above were correct and unreadable, and the changes are
+ * all about the READING, never about what is counted:
+ *
+ *   · items 2, 6, 7 and the basis line are now FOLDS (§ANALYSIS-FOLD-STATE). The
+ *     qualifier stays on the header; the paragraph folds. Default shut.
+ *   · the graph has its own STAGE with a corner expand control (§GRAPH-EXPAND)
+ *     and real height. Nothing it shows changes when it grows.
+ *   · nodes are separated by a measured repulsion multiplier (§GRAPH-SEPARATION).
+ *   · ⭐ AND THE NODES ARE COLOURED, WHICH THEY WERE SUPPOSED TO BE ALREADY — see
+ *     `graphNodeColour` below for the one-line bug that made the founder's 3-D
+ *     graph a grey cloud while the card's own footer claimed "colour = element
+ *     family".
  */
 export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result: AnalysisResult): void {
   const g = projectGraph(censusPlacement());
+  bindExpandEscape();
 
   // ── Scope, above everything it governs ─────────────────────────────────────
   host.appendChild(levelScopePicker());
-
-  // ── Liveness: it qualifies everything below it ─────────────────────────────
-  const live = el('div', `anl-strip ${g.liveness?.freshness === 'stale' ? 'anl-strip--err' : 'anl-strip--ok'}`);
-  live.appendChild(el('span', 'anl-strip-text', livenessSentence(g.liveness)));
-  host.appendChild(live);
-
-  // ── The scope statement, on its OWN plate ──────────────────────────────────
-  // ⛔ 'anl-scope', never 'anl-strip--warn'. A filter and a truncation must never
-  // render identically: this says what universe you are looking at, the amber
-  // strip below says what the tool could not deliver inside it.
-  const scope = el('div', 'anl-scope');
-  scope.appendChild(el('span', 'anl-scope-text', scopeSentence(g.scope)));
-  host.appendChild(scope);
 
   if (g.unreachable.length > 0) {
     host.appendChild(
@@ -920,14 +1049,11 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
     ifc: null,
   });
 
-  const basis = el('div', 'anl-scope');
-  basis.appendChild(el('span', 'anl-scope-text', projection.def.basis));
-  host.appendChild(basis);
-
   if (projection.empty !== null) {
     // ⛔ THE NAMED CAUSE, NEVER A BLANK CANVAS. The System view reaches this on
     // every model and it must read as a fact about the product, not a broken
     // feature. The toolbar still ships, so the reader can leave the empty view.
+    graphNotes(host, g, projection, null);
     host.appendChild(graphToolbar(host, projection, g));
     host.appendChild(el('p', 'anl-empty', projection.empty));
     host.appendChild(categoryTree(projection));
@@ -944,56 +1070,107 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
   const focus = selected.length > 0
     ? focusNeighbourhood(projection, [...selected], graphFocusDepth())
     : null;
-  if (focus) {
-    const strip = el('div', 'anl-scope');
-    strip.appendChild(el('span', 'anl-scope-text', describeFocus(focus, projection.def.label)));
-    host.appendChild(strip);
-  }
 
-  // ── Stable colour indices, shared by BOTH modes and the legend ─────────────
+  // ── Stable colour indices, shared by BOTH modes and BOTH legends ───────────
   const edgeTypeIndex = new Map<string, number>();
   for (const t of projection.edgeCounts.keys()) if (!edgeTypeIndex.has(t)) edgeTypeIndex.set(t, edgeTypeIndex.size);
   const groupIndex = new Map<string, number>();
   const familyOf = new Map<string, string>();
   const labelOf = new Map<string, string>();
+  const familyCounts = new Map<string, number>();
   for (const n of projection.nodes) {
     const fam = familyOfNode(n, families) ?? n.kind;
     familyOf.set(n.id, fam);
     labelOf.set(n.id, readableLabel(n));
     if (!groupIndex.has(fam)) groupIndex.set(fam, groupIndex.size);
+    familyCounts.set(fam, (familyCounts.get(fam) ?? 0) + 1);
   }
 
   const degrees = nodeDegrees(projection.edges);
 
-  if (g.truncated) {
-    host.appendChild(
+  // ── The note blocks, folded (§ANALYSIS-FOLD-STATE, L-12063) ────────────────
+  graphNotes(host, g, projection, focus);
+
+  // ═══ THE STAGE (§GRAPH-EXPAND, L-12062) ═══════════════════════════════════
+  //
+  // ⭐ THE STAGE IS ONE ELEMENT AND THE EXPANDED VIEW IS THE SAME ELEMENT WITH A
+  // CLASS ON IT. Not a modal, not a second render, not a cloned subtree. That is
+  // what makes "preserve the selection and the layout across expand and collapse"
+  // true by construction: there is nothing to preserve THROUGH, because nothing is
+  // rebuilt from different inputs. The orbit and the solved layout are module
+  // state in `graphViewState`, the selection is `selectionBus`, and neither is
+  // keyed on size.
+  //
+  // ⛔ IT EXPANDS TO FILL THE ANALYSIS PANEL, NOT THE VIEWPORT, and that is an
+  // architectural choice rather than a CSS convenience. ADR-0343 §D.1 reason 2:
+  // every widget on this surface is a SELECTOR, and clicking a node here paints
+  // the element in the 3-D model on the LEFT HALF of the screen. A graph that
+  // covered the model would sever the one join that makes the card worth reading.
+  const stage = el('div', `anl-graph-stage${graphExpanded() ? ' anl-graph-stage--expanded' : ''}`);
+
+  // ⭐⭐ THE HONESTY PIN — NEVER FOLDABLE, NEVER OUTSIDE THE STAGE.
+  //
+  // Two independent reasons, and the second is why it lives HERE rather than
+  // beside the folds:
+  //   1. every note block on this card can be shut. The claim "these totals are
+  //      floors" must survive that, or folding would have turned a qualified
+  //      number into an apparently-unqualified one — the defect §ANALYSIS-FOLD-STATE
+  //      is written against.
+  //   2. the EXPANDED stage covers the card's own header, and the `INCOMPLETE`
+  //      badge lives in that header. Without this line, maximising the graph would
+  //      silently drop the surface's loudest qualifier at exactly the moment the
+  //      reader is looking hardest at the picture.
+  if (!g.complete) {
+    stage.appendChild(
       el(
         'p',
-        'anl-strip anl-strip--warn',
-        `Showing the ${g.nodes.length} most-connected of ${g.totalNodes} elements — the layout is Barnes-Hut ` +
-          `O(n log n) and ${GRAPH_NODE_CAP} is the largest size measured inside a 100 ms one-shot budget. ` +
-          'Every count on this card is therefore a lower bound.',
+        'anl-honesty-pin',
+        `⚠ INCOMPLETE — every total on this card is a LOWER BOUND  ·  ` +
+          `${projection.nodes.length} of ${g.totalNodes} elements and ` +
+          `${projection.edges.length} of ${g.totalEdges} relationships drawn` +
+          (g.incompleteReason.length > 0 ? `  ·  ${g.incompleteReason[0]!}` : ''),
       ),
     );
   }
 
-  host.appendChild(graphToolbar(host, projection, g));
+  stage.appendChild(graphToolbar(host, projection, g));
 
   const focusCtl = new SeriesFocus(host);
+  const frame = el('div', 'anl-graph-frame');
   const box = el('div', 'anl-nodelink-box');
-  host.appendChild(box);
+  frame.append(box, expandButton());
+  stage.appendChild(frame);
+
+  // ⚠ HEIGHT IS PASSED, NOT LEFT TO CSS, because the 3-D viewport sizes a canvas
+  // BACKING STORE from `frame.clientHeight` and happy-dom/first paint would hand
+  // it a zero. The two numbers below are the founder's other request — item (a) of
+  // ASK 3: the canvas was 380 px under a stack of note blocks taller than itself.
+  const heightPx = graphExpanded()
+    ? Math.max(460, (typeof window === 'undefined' ? 900 : window.innerHeight) - 300)
+    : 430;
 
   if (graphMode() === '3d') {
     const handle = mountGraphViewport(box, {
       subject: buildGraphSubject({
         projection,
         degrees,
+        // ⛔ HANDED OVER AS A TOKEN, DELIBERATELY — see §GRAPH-NODE-COLOUR below.
+        // Token → literal is OWNED by `styles/categoricalPalette.resolveCssColour`
+        // (lane QTYHL132, L-12120) and is applied downstream, at the consumer that
+        // actually needs a literal. ⚠ DO NOT WRITE DOWN WHICH FILE THAT IS: it
+        // moved twice while this lane was open. The durable statement is the arm —
+        // `graph3dColourReachesThree.spec.ts` fails if a `var()` ever reaches
+        // THREE — and the rule, which is that there is exactly ONE resolver.
+        // This lane had added a second call here and removed it: two resolvers for
+        // one value is the rival-mapping defect C84 EI-9 names, and the copy is
+        // always the one that rots.
         nodeColour: (id) => seriesColour(groupIndex.get(familyOf.get(id) ?? '') ?? 0, familyOf.get(id)),
         edgeColour: (t) => seriesColour(edgeTypeIndex.get(t) ?? 0, t),
         focus,
         scale: graphNodeScale(),
         caption: `${projection.def.label} — ${projection.nodes.length} elements, ${projection.edges.length} relations`,
       }),
+      heightPx,
       labels: graphLabels(),
       labelOf: (id) => labelOf.get(id) ?? id,
       // The orbit is owned OUTSIDE the widget so a re-render (which every
@@ -1024,9 +1201,21 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
       group: familyOf.get(n.id) ?? n.kind,
       weight: degrees.get(n.id) ?? 1,
     }));
+    box.style.minHeight = `${heightPx}px`;
     renderNodeLink(box, nodes, projection.edges, {
-      width: 620,
-      height: 380,
+      // §GRAPH-SEPARATION (L-12060). ⛔ THE 2-D LEVER IS THE EXTENT, NOT THE
+      // REPULSION MULTIPLIER, and that is measured rather than assumed — see
+      // `forceLayoutND.SEPARATION_DEFAULT`. At 620×380 with 320 nodes the pass is
+      // saturated against the padding clamp: mean nearest-neighbour distance is
+      // 18.29 and the MINIMUM is 0.00, i.e. exactly-coincident bodies were
+      // reachable on the shipped card. At 900×560 they are 28.87 and 14.42.
+      width: GRAPH_2D_EXTENT[0],
+      height: GRAPH_2D_EXTENT[1],
+      // ⭐ The marks are scaled BACK UP by the same factor the viewBox grew, so
+      // the extra room lands in the GAPS rather than being cancelled by the
+      // uniform rescale an SVG viewBox performs. `graphNodeScale()` rides along —
+      // in 2-D the "Node size" slider reached nothing at all before this lane.
+      markScale: graphNodeScale() * (GRAPH_2D_EXTENT[0] / 620),
       edgeTypeIndex,
       groupIndex,
       onPick: (id) => selectionBus.dispatch({ type: 'select', source: 'analytics', elementIds: [id] }),
@@ -1034,12 +1223,22 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
     });
   }
 
+  // ── The two legends, inside the stage so they survive expansion ────────────
+  //
+  // ⭐ THE NODE LEGEND IS NEW AND IT CLOSES A CLAIM THE CARD HAS ALWAYS MADE. The
+  // footer says "colour = element family"; until now there was no table saying
+  // WHICH family each colour was, so the sentence was unreadable and the picture
+  // was eight anonymous hues.
+  renderNodeLegend(stage, groupIndex, familyCounts, focusCtl);
+
   // The legend is also a QUERY surface: a row lights its whole relation family.
   // ⚠ Built from `projection.edgeCounts`, which includes families that produced
   // NOTHING — a legend listing only what fired cannot tell the reader what did not.
   const counts = new Map<string, number>();
   for (const [t, n] of projection.edgeCounts) counts.set(t, n);
-  renderEdgeLegend(host, edgeTypeIndex, counts, focusCtl);
+  renderEdgeLegend(stage, edgeTypeIndex, counts, focusCtl);
+
+  host.appendChild(stage);
 
   if (projection.undirected.size > 0) {
     host.appendChild(
@@ -1066,6 +1265,238 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
           : ''),
     ),
   );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §GRAPH-NODE-COLOUR (L-12064) — the axis, the legend, and who owns the fix
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// ⭐ THE FOUNDER ASKED FOR COLOURED NODES. THE CARD ALREADY HAD THEM, ON PAPER.
+// `renderGraph` has always filled nodes from `seriesColour(groupIndex…)` and its
+// footer has always printed *"colour = element family"* — and in 2-D that is
+// exactly what happens. In 3-D, the DEFAULT mode and the one in his screenshot,
+// every node was the same pale grey.
+//
+// ⛔ THE CAUSE WAS ONE UNRESOLVED CSS VARIABLE. `seriesColour()` returns the TOKEN
+// `var(--app-cat-1)`, which is right for SVG and for CSS and is meaningless to
+// `THREE.Color.set()`; an unparseable string leaves the instance at its default
+// (WHITE) and prints a warning nobody was reading, so every node drew white under
+// a MeshStandardMaterial over a near-white ground. `GraphNodeMark.colour`'s own
+// type had already declared the contract — *"already resolved by the caller"* —
+// and the caller was not resolving.
+//
+// ⭐⭐ THAT HALF IS **NOT THIS LANE'S FIX, AND SAYING SO IS THE POINT.** Lane
+// QTYHL132 (L-12120…L-12123) found the same defect concurrently and closed it at a
+// strictly better seam: `styles/categoricalPalette.ts` makes TypeScript the
+// AUTHORITY for the nine values, generates the `--app-cat-*` CSS from it, and
+// resolves through `resolveCssColour` — a table lookup needing no live document,
+// which refuses in the designated magenta rather than in a plausible colour. This
+// lane had written a second resolution at the call site above and **DELETED IT**
+// on finding theirs: two resolvers for one value is the rival-mapping defect
+// C84 EI-9 names, and it does not stop being one because both copies happen to be
+// correct today.
+//
+// ⚠ WHERE that resolver is CALLED moved twice inside one afternoon (subject
+// builder → THREE consumer), which is exactly why neither this block nor the call
+// site names a file for it. The invariant is "exactly one resolver, and no `var()`
+// reaches THREE"; the artefact that holds it is `graph3dColourReachesThree.spec.ts`.
+// Read the arm, not this paragraph.
+//
+// ⚠ WHAT THIS LANE OWNS IS THE AXIS AND THE KEY. A categorical encoding with no
+// legend is decoration, and the card had none for nodes — eight anonymous hues
+// under a footer claiming they meant something. `renderNodeLegend` is that key.
+//
+// ⭐ WHY THE AXIS IS ELEMENT FAMILY AND NOT RELATION FAMILY. The founder pasted
+// the six-view RELATIONSHIPS row beside his request, so the reading matters and it
+// is deliberately the conservative one:
+//   · a VIEW is a GLOBAL MODE, not a per-node property. Colouring by it would give
+//     every node on screen the same colour — the grey cloud again, with an extra
+//     step and a legend of one row;
+//   · the relation family ALREADY OWNS A CHANNEL. It is the EDGE colour and it has
+//     had a legend since the card shipped. Spending the same eight-value rotation
+//     on both would put two meanings on one scale and make the edge legend a lie;
+//   · "what IS this thing" — wall, door, room, slab — is the question a reader has
+//     while looking at a node, and it is the axis the card's own footer claims.
+// So: NODES = element family, EDGES = relation family, two legends, two SWATCH
+// SHAPES (disc vs bar) so the two keys cannot be confused. No "colour by" switch
+// is offered, because the alternative axis is already on screen.
+//
+// ⚠ THE BRAND ACCENT STAYS THE ACCENT. `--app-cat-1` IS #6600FF, so the rotation
+// leads with the brand rather than beside it; the focused/hovered node keeps its
+// purple ring (`GraphViewport.PURPLE`, `.anl-focused` → `--app-accent`) and the
+// dormant treatment stays LIGHTENING, never removal. Nothing here mints a colour.
+
+/**
+ * §GRAPH-SEPARATION (L-12060) — the 2-D layout box.
+ *
+ * ⛔ NOT A CANVAS SIZE. It is the viewBox the force layout solves inside; the SVG
+ * is `width:100%` and scales to whatever the card gives it. Enlarging it buys
+ * ROOM BETWEEN NODES, and `markScale` puts the mark sizes back so that room is not
+ * immediately cancelled by the rescale. Measured at n=320: 620×380 → mean
+ * nearest-neighbour 18.29 / minimum 0.00; 900×560 → 28.87 / 14.42.
+ */
+const GRAPH_2D_EXTENT: readonly [number, number] = [900, 560];
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §GRAPH-EXPAND (L-12062) — the corner control, and the way back out
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** The conventional maximise/restore control, in the graph's own top-right corner. */
+function expandButton(): HTMLElement {
+  const on = graphExpanded();
+  const b = el('button', 'anl-graph-expand', on ? '⤡' : '⤢');
+  b.type = 'button';
+  b.title = on
+    ? 'Put the graph back into the card (Esc)'
+    : 'Open the graph on its own, filling this panel. Every control comes with it, and nothing it counts changes.';
+  b.setAttribute('aria-label', on ? 'Restore the graph to its card' : 'Expand the graph');
+  b.setAttribute('aria-pressed', String(on));
+  b.addEventListener('click', () => setGraphExpanded(!on));
+  return b;
+}
+
+/**
+ * Escape closes the expanded graph.
+ *
+ * ⛔ ONE LISTENER FOR THE LIFE OF THE TAB, INSTALLED LAZILY AND NEVER REMOVED, and
+ * that is the correct shape here rather than laziness. The relationship card is
+ * rebuilt WHOLE on every selection change, so a listener registered per render
+ * would accumulate one handler per click and every one of them would fire. The
+ * handler reads the LIVE state through `graphExpanded()` and returns immediately
+ * when nothing is expanded, so an idle listener costs one comparison per keystroke
+ * and can never act on a stale flag.
+ *
+ * ⚠ It does not `stopPropagation`. Escape is a shared gesture on this app and a
+ * widget that swallowed it would break whatever else is listening; it only
+ * `preventDefault`s the case it actually handled.
+ */
+let _escapeBound = false;
+function bindExpandEscape(): void {
+  if (_escapeBound || typeof window === 'undefined') return;
+  _escapeBound = true;
+  window.addEventListener('keydown', (ev: KeyboardEvent) => {
+    if (ev.key !== 'Escape' || !graphExpanded()) return;
+    ev.preventDefault();
+    // Announces `GRAPH_VIEW_EVENT`, so the surface re-renders through the ONE
+    // path the expand button also takes. Two ways to leave a mode is how the two
+    // come to disagree.
+    setGraphExpanded(false);
+  });
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §ANALYSIS-FOLD-STATE (L-12063) — the graph card's note blocks, folded
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Every prose block on the relationship card, as folds, in one compact row.
+ *
+ * ⛔ WHAT SURVIVES A FULLY-COLLAPSED CARD, enumerated because the founder's brief
+ * asks for exactly this and because a later reader must be able to check it:
+ *   · the card header's `INCOMPLETE` badge (owned by `AnalysisSurface._card`);
+ *   · the always-visible honesty pin INSIDE the graph stage — see `renderGraph`;
+ *   · this row's fold LABELS, which carry the numbers: "Showing 320 of 488
+ *     elements", "1 element selected";
+ *   · this row's CHIPS: "⚠ LOWER BOUND", "LIVE" / "⚠ STALE", the storey scope;
+ *   · the card's own footer line, which is not a fold and still prints the "≥".
+ * What goes away is the PARAGRAPH under each of those, and no paragraph is the
+ * sole carrier of a qualifier.
+ *
+ * ⚠ `projection` may be the empty-view one and `focus` may be null; both cases
+ * simply contribute no fold, never an empty one. A fold with nothing in it is
+ * chrome that teaches the reader to stop looking at this row.
+ */
+function graphNotes(
+  host: HTMLElement,
+  g: GraphProjection,
+  projection: HierarchyProjection | null,
+  focus: ReturnType<typeof focusNeighbourhood> | null,
+): HTMLElement {
+  const row = el('div', 'anl-notes');
+  const stale = g.liveness?.freshness === 'stale';
+
+  foldable(row, {
+    id: 'graph.liveness',
+    label: 'Graph liveness',
+    // ⛔ A STATE WORD, NOT A SUMMARY OF THE SENTENCE. `livenessSentence()` is a
+    // governed string; paraphrasing it onto a chip would be a second copy, and the
+    // qualifier dropped in the shortening is always the one that mattered.
+    chips: [stale ? { text: '⚠ STALE', tone: 'err' } : { text: 'LIVE', tone: 'ok' }],
+    defaultOpen: false,
+    tone: stale ? 'err' : 'ok',
+    fill: (b) => { b.appendChild(el('span', 'anl-strip-text', livenessSentence(g.liveness))); },
+  });
+
+  foldable(row, {
+    id: 'graph.scope',
+    label: 'Scope',
+    // ⛔ 'anl-fold--scope', never the warn tone. A filter and a truncation must
+    // never render identically (L-3620): this says what universe you are looking
+    // at and every figure in it is exact; the truncation fold below says what the
+    // tool could not deliver inside that universe.
+    chips: [{ text: g.scope.levelId === null ? 'every storey' : 'one storey', tone: 'neutral' }],
+    defaultOpen: false,
+    tone: 'scope',
+    fill: (b) => { b.appendChild(el('span', 'anl-scope-text', scopeSentence(g.scope))); },
+  });
+
+  if (projection) {
+    foldable(row, {
+      id: 'graph.basis',
+      label: `What “${projection.def.label}” means`,
+      defaultOpen: false,
+      tone: 'scope',
+      fill: (b) => { b.appendChild(el('span', 'anl-scope-text', projection.def.basis)); },
+    });
+  }
+
+  if (projection && focus) {
+    foldable(row, {
+      id: 'graph.focus',
+      // The COUNTS are on the label, because they are the half of this block the
+      // reader is actually tracking. BOTH of them: "1 selected · 302 related".
+      label: `${focus.seeds.length} selected · ${focus.nodeIds.size} related within ${focus.depth} hop(s)`,
+      // ⛔ A SEED THAT IS NOT IN THIS VIEW GETS ITS OWN CHIP, and it survives the
+      // fold. `NeighbourhoodFocus.seedsNotInView` exists precisely because "the
+      // graph found nothing near this wall" and "this wall is not in the graph at
+      // all" are different facts; folding the paragraph away while leaving only a
+      // count would silently merge them back into one.
+      chips:
+        focus.seedsNotInView.length > 0
+          ? [{ text: `⚠ ${focus.seedsNotInView.length} not in this view`, tone: 'warn' as const }]
+          : undefined,
+      defaultOpen: false,
+      tone: focus.seedsNotInView.length > 0 ? 'warn' : 'scope',
+      fill: (b) => {
+        b.appendChild(el('span', 'anl-scope-text', describeFocus(focus, projection.def.label)));
+      },
+    });
+  }
+
+  if (g.truncated) {
+    foldable(row, {
+      id: 'graph.truncation',
+      // ⛔ BOTH NUMBERS ON THE LABEL. "Showing 320" alone would read as a fact
+      // about the model; it is a fact about the tool, and only the pair says so.
+      label: `⚠ Showing the ${g.nodes.length} most-connected of ${g.totalNodes} elements`,
+      chips: [{ text: '⚠ LOWER BOUND', tone: 'warn' }],
+      defaultOpen: false,
+      tone: 'warn',
+      fill: (b) => {
+        b.appendChild(
+          el(
+            'span',
+            'anl-strip-text',
+            `The layout is Barnes-Hut O(n log n) and ${GRAPH_NODE_CAP} is the largest size measured inside a ` +
+              '100 ms one-shot budget. Every count on this card is therefore a lower bound.',
+          ),
+        );
+      },
+    });
+  }
+
+  host.appendChild(row);
+  return row;
 }
 
 /**

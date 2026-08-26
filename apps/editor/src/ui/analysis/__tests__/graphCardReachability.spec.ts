@@ -218,6 +218,25 @@ describe('§GRAPH-3D-VIEWPORT — the viewport mounts, and its failure is NAMED'
   });
 });
 
+/**
+ * Open one of the card's note folds and return the card.
+ *
+ * ⚠ ADDED 2026-08-26 (§ANALYSIS-FOLD-STATE, L-12063). The prose blocks on this
+ * card now ship COLLAPSED at the founder's explicit request, and a collapsed fold
+ * does not keep its body in the document — see `foldable()` for why `hidden` was
+ * refused. So a suite that reads the prose must OPEN the disclosure, which makes
+ * these arms strictly stronger than they were: they now prove the fold reveals,
+ * not merely that a paragraph exists somewhere in the tree.
+ */
+function openFold(card: HTMLElement, id: string): HTMLElement {
+  const fold = card.querySelector<HTMLElement>(`[data-fold="${id}"]`);
+  expect(fold, `no fold "${id}" on the relationship card`).not.toBeNull();
+  const head = fold!.querySelector<HTMLButtonElement>('.anl-fold-head')!;
+  if (head.getAttribute('aria-expanded') !== 'true') head.click();
+  expect(head.getAttribute('aria-expanded')).toBe('true');
+  return fold!;
+}
+
 describe('§GRAPH-FOCUS-FROM-MODEL — selecting in the model reaches the graph', () => {
   it('⭐⭐ a selectionBus dispatch re-renders the card WITH a focus sentence', async () => {
     await resetCard();
@@ -233,8 +252,12 @@ describe('§GRAPH-FOCUS-FROM-MODEL — selecting in the model reaches the graph'
     await settle();
 
     const card = document.querySelector<HTMLElement>('[data-widget="relationship-graph"]')!;
-    const text = card.textContent ?? '';
-    expect(text).toMatch(/1 selected/);
+    // ⭐ COLLAPSED, THE COUNTS ARE STILL ON SCREEN. §ANALYSIS-FOLD-STATE's whole
+    // rule: the qualifier rides the fold header, only the explanation folds.
+    expect(card.textContent ?? '').toMatch(/1 selected/);
+    expect(card.textContent ?? '').toMatch(/3 related within 1 hop/);
+
+    const text = openFold(card, 'graph.focus').textContent ?? '';
     expect(text).toMatch(/related element\(s\) within 1 hop/);
     // ⛔ DORMANT, NOT GONE — the sentence must say so, because every count above
     // it still covers the whole scope.
@@ -243,7 +266,7 @@ describe('§GRAPH-FOCUS-FROM-MODEL — selecting in the model reaches the graph'
 
   it('⛔ names the per-family tallies, so the reader can decompose the answer', async () => {
     const card = document.querySelector<HTMLElement>('[data-widget="relationship-graph"]')!;
-    const text = card.textContent ?? '';
+    const text = openFold(card, 'graph.focus').textContent ?? '';
     // wall_a: one `bounds` to room_1, one `hostedIn` from door_1.
     expect(text).toMatch(/bounds 1/);
     expect(text).toMatch(/hostedIn 1/);

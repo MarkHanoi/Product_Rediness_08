@@ -48,11 +48,56 @@ let _labels = true;
 let _nodeScale = 1;
 let _focusDepth = 1;
 
+/**
+ * §GRAPH-EXPAND (L-12062) — is the graph filling the panel on its own?
+ *
+ * ⭐ IT LIVES HERE, BESIDE THE ORBIT, AND FOR THE SAME REASON. The relationship
+ * card is rebuilt WHOLE on every selection change. A flag owned by the renderer
+ * would collapse the expanded view every time the founder clicked a node inside
+ * it — which is precisely the shape L-8451 already fixed once for the camera. The
+ * founder's brief is explicit that expanding and collapsing must not reset his
+ * view; keeping the flag outside the thing that is rebuilt is what makes that
+ * true by construction rather than by care.
+ *
+ * ⚠ NOT PERSISTED, unlike the FOLD state — and the asymmetry is deliberate. This
+ * module's header records why nothing here survives a session: a view restored
+ * from a previous session shows a subset of the model with nothing on screen
+ * explaining why. An expanded graph is the loudest possible state and could not
+ * hide, but "the graph is full-screen and I never asked for it" is still a state
+ * nobody chose in this session, and the fold state is the one the founder asked
+ * to be remembered.
+ */
+let _expanded = false;
+
 export function graphView(): HierarchyView { return _view; }
 export function graphMode(): GraphMode { return _mode; }
 export function graphLabels(): boolean { return _labels; }
 export function graphNodeScale(): number { return _nodeScale; }
 export function graphFocusDepth(): number { return _focusDepth; }
+export function graphExpanded(): boolean { return _expanded; }
+
+/**
+ * §GRAPH-SEPARATION (L-12060) — the 3-D repulsion multiplier the card asks for.
+ *
+ * ⭐ 2.2, AND IT IS A MEASURED CHOICE WITH A MEASURED CEILING. See
+ * `forceLayoutND.SEPARATION_DEFAULT` for the sweep. At n=320 it takes mean
+ * nearest-neighbour distance from 42.26 to 50.47 (+19.4%) while IMPROVING the
+ * minimum separation (21.92 → 22.11), and it costs nothing (+2.5%, inside noise).
+ *
+ * ⛔ IT MUST NOT BE RAISED "A BIT MORE" WITHOUT RE-RUNNING THE SWEEP, AND THE
+ * REASON IS TWO FACTS OF DIFFERENT STRENGTHS — do not flatten them:
+ *   1. THE GAIN SATURATES around sep 3 and then oscillates (50.47 at 2.2, 51.89
+ *      at 3.0, 50.20 at 4.0, 49.67 at 8.0). Past that the box clamp is doing the
+ *      work, not the force, so a higher number buys noise. This is clean.
+ *   2. AT THE CAP THE INTERIOR EVACUATES — at n=320 the fraction of nodes inside
+ *      half the cloud radius is 4.7% at 2.2 and 0.6% / 0.3% / 0.0% at 4 / 5 / 8,
+ *      which reads as a SHELL, i.e. structure the model does not contain. ⚠ This
+ *      one is NOT monotone and does NOT reproduce at n=240. It is a real hazard
+ *      at the operating point and it is not a curve to interpolate.
+ * The full table, and the correction of an earlier comment here that stated (2)
+ * as a smooth trend, are in `forceLayoutND.SEPARATION_DEFAULT`.
+ */
+export const GRAPH_SEPARATION_3D = 2.2;
 
 function announce(): void {
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(GRAPH_VIEW_EVENT));
@@ -91,6 +136,21 @@ export function setGraphNodeScale(v: number): void {
   announce();
 }
 
+/**
+ * §GRAPH-EXPAND (L-12062) — open the graph on its own, or put it back.
+ *
+ * ⛔ IT CHANGES NOTHING THE GRAPH SHOWS. Not the view, not the scope, not the
+ * cap, not the layout, not the selection, not the orbit. The expanded picture is
+ * the SAME projection at the same counts, drawn larger — which is what makes the
+ * truncation notice, the lower-bound chips and every number on the card exactly
+ * as true on one side of this toggle as the other.
+ */
+export function setGraphExpanded(on: boolean): void {
+  if (_expanded === on) return;
+  _expanded = on;
+  announce();
+}
+
 /** Focus radius in hops, clamped to the same 1..4 `focusNeighbourhood` enforces. */
 export function setGraphFocusDepth(v: number): void {
   const next = Math.max(1, Math.min(4, Math.round(v)));
@@ -123,6 +183,14 @@ export function setGraphFocusDepth(v: number): void {
  * them. "Reset view" deliberately keeps the layout: re-solving a 320-node graph
  * because the reader pressed a button that says *view* would be the cost defect
  * ADR-0343 §D.3 forbids.
+ *
+ * ⛔ AND IT DOES NOT COLLAPSE AN EXPANDED GRAPH (§GRAPH-EXPAND, L-12062). The
+ * button's own tooltip enumerates what it restores — orientation, zoom, view,
+ * labels, node size — and "expanded" is not on that list. A reader who presses
+ * "Reset view" inside the expanded graph is asking for the camera back, not to be
+ * thrown out of the window they opened; ejecting them would be a second, unnamed
+ * effect on a control that names its effects. `clearAnalysisGraphScope()` DOES
+ * collapse it, because a new project must open in the ordinary card.
  */
 export function resetGraphViewState(): void {
   _view = 'topology';
@@ -266,10 +334,17 @@ export function buildGraphSubject(input: SubjectInputs): GraphSubject {
   // The cache key names the GEOMETRY's inputs only. `ids.join` rather than a
   // count: two different node sets of the same size are different graphs, and a
   // count-keyed cache would draw one building's layout under another's ids.
+  // ⚠ `GRAPH_SEPARATION_3D` is NOT in the key, and that is correct rather than an
+  // omission: it is a compile-time constant, so two solves under one build can
+  // never disagree about it. Putting a constant in a cache key would imply it can
+  // change at runtime, which is exactly the kind of implied-but-false capability
+  // this file's §C13 block was written to stop.
   const key = `${projection.view}|${ids.length}|${pairs.length}|${ids.join(',')}`;
   if (_layoutKey !== key || _layoutPos === null) {
     _layoutKey = key;
-    _layoutPos = normaliseToCube(forceLayout3D(ids, pairs, 600, 600, 600));
+    _layoutPos = normaliseToCube(
+      forceLayout3D(ids, pairs, 600, 600, 600, 160, GRAPH_SEPARATION_3D),
+    );
     // §C13-ANALYSIS-GRAPH-OWNER — stamp the owner in the same statement group that
     // mints the resource, so the two can never drift apart.
     _layoutProjectId = activeProjectId();
@@ -490,6 +565,10 @@ export function clearAnalysisGraphScope(): void {
   _orbit.yaw = -0.62;
   _orbit.pitch = 0.22;
   _orbit.zoom = 1;
+  // §GRAPH-EXPAND (L-12062) — a project switch DOES collapse. "Reset view" does
+  // not (see that function); this does, because Project B must open in the
+  // ordinary card rather than inheriting a window opened over Project A.
+  _expanded = false;
   resetGraphViewState();
 }
 

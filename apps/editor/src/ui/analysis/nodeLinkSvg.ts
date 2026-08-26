@@ -46,7 +46,7 @@
 
 import { seriesColour } from './AnalysisTypes';
 import { markSeries, type SeriesFocus } from './seriesFocus';
-import { layoutND } from './forceLayoutND';
+import { layoutND, SEPARATION_DEFAULT } from './forceLayoutND';
 
 /**
  * The focus-key namespaces. §ANALYSIS-SERIES-FOCUS (L-3610).
@@ -58,6 +58,19 @@ import { layoutND } from './forceLayoutND';
  */
 export const FOCUS_NODE = (id: string): string => `n:${id}`;
 export const FOCUS_EDGE = (type: string): string => `e:${type}`;
+
+/**
+ * §GRAPH-NODE-LEGEND (L-12061) — the NODE GROUP namespace: "light every wall".
+ *
+ * ⛔ `encodeURIComponent`, and it is not decoration. `markSeries`'s own doc binds
+ * the rule: *"A key may not contain whitespace, because the attribute is a token
+ * list"*. A node group is an ELEMENT FAMILY, which is a census group key — model
+ * data, not a vocabulary this file controls — so "curtain wall" is representable
+ * and would split into two tokens, silently lighting whatever else happened to
+ * carry `g:curtain` or `wall`. Encoding is total and injective, so two families
+ * can never collapse onto one key either.
+ */
+export const FOCUS_GROUP = (group: string): string => `g:${encodeURIComponent(group)}`;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -93,6 +106,32 @@ export interface NodeLinkOptions {
    * anything, so the truncation notice and the counts above stay true.
    */
   readonly focus?: SeriesFocus;
+  /**
+   * §GRAPH-SEPARATION (L-12060) — repulsion multiplier handed to `forceLayout`.
+   *
+   * ⚠ Default 1, and the 2-D card is expected to LEAVE IT THERE. `forceLayoutND`'s
+   * `SEPARATION_DEFAULT` doc carries the measurement: in two dimensions the pass is
+   * already saturated against the padding clamp, so raising this makes the picture
+   * very slightly WORSE. The 2-D lever is `width`/`height`. It is exposed anyway
+   * because the option is real and a caller that hides a knob it uses in 3-D would
+   * be inviting the next reader to re-derive the measurement.
+   */
+  readonly separation?: number;
+  /**
+   * §GRAPH-SEPARATION — multiplier on the drawn MARKS (radius, label, strokes).
+   *
+   * ⭐ THIS IS WHAT MAKES A BIGGER viewBox AN ACTUAL IMPROVEMENT RATHER THAN A ZOOM.
+   * The SVG is `width:100%` inside its box, so enlarging the viewBox alone rescales
+   * everything by the same factor and the reader sees an identical picture. Passing
+   * `W / 620` here holds the marks at their previous APPARENT size while the layout
+   * gains room, so the extra space lands entirely in the gaps between nodes — which
+   * is the founder's actual request.
+   *
+   * ⛔ It also carries the card's "Node size" slider, which in 2-D reached NOTHING
+   * before this lane: `graphNodeScale()` was read for the 3-D subject only, so a
+   * reader on the 2-D tab moved a control that did nothing and had no way to know.
+   */
+  readonly markScale?: number;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -122,7 +161,7 @@ export interface NodeLinkOptions {
 // still the ones lifted from `RoomGraphPanel._forceLayout`; they now live one
 // module down.
 
-export { EXACT_BELOW, THETA } from './forceLayoutND';
+export { EXACT_BELOW, THETA, SEPARATION_DEFAULT } from './forceLayoutND';
 export { forceLayout3D } from './forceLayoutND';
 
 /**
@@ -146,9 +185,10 @@ export function forceLayout(
   W: number,
   H: number,
   iterations = 160,
+  separation: number = SEPARATION_DEFAULT,
 ): Map<string, { x: number; y: number }> {
   const out = new Map<string, { x: number; y: number }>();
-  for (const [id, p] of layoutND(nodeIds, edgePairs, [W, H], iterations)) {
+  for (const [id, p] of layoutND(nodeIds, edgePairs, [W, H], iterations, separation)) {
     out.set(id, { x: p[0]!, y: p[1]! });
   }
   return out;
@@ -187,7 +227,8 @@ export function renderNodeLink(
   const pairs = edges
     .filter((e) => present.has(e.from) && present.has(e.to))
     .map((e) => [e.from, e.to] as const);
-  const pos = forceLayout(ids, pairs, W, H);
+  const pos = forceLayout(ids, pairs, W, H, 160, opts.separation ?? SEPARATION_DEFAULT);
+  const mark = opts.markScale ?? 1;
 
   // Adjacency over the DRAWN edges only — see the note on the node keys below.
   const neighbours = new Map<string, Set<string>>();
@@ -211,7 +252,7 @@ export function renderNodeLink(
     line.setAttribute('x2', String(b.x));
     line.setAttribute('y2', String(b.y));
     line.setAttribute('stroke', seriesColour(opts.edgeTypeIndex.get(e.type) ?? 0, e.type));
-    line.setAttribute('stroke-width', '1.5');
+    line.setAttribute('stroke-width', String(1.5 * mark));
     line.setAttribute('stroke-opacity', '0.5');
     // Three keys: this edge lights when EITHER endpoint is picked, or when its
     // relation family is. That is what makes "click a node" answer "what does
@@ -235,27 +276,35 @@ export function renderNodeLink(
     // Its own key PLUS one per neighbour, so picking a neighbour lights this
     // node too. The set is built from the drawn `edges`, never from the whole
     // graph: a node dimmed here is dimmed because nothing DRAWN reaches it.
-    markSeries(g, FOCUS_NODE(n.id), ...[...(neighbours.get(n.id) ?? [])].map(FOCUS_NODE));
+    // ⚠ THREE namespaces on one mark: its own id, its FAMILY (so the node legend
+    // can light "every wall"), and one per drawn neighbour. The family key is what
+    // makes `renderNodeLegend` a query surface rather than a colour table.
+    markSeries(
+      g,
+      FOCUS_NODE(n.id),
+      FOCUS_GROUP(n.group),
+      ...[...(neighbours.get(n.id) ?? [])].map(FOCUS_NODE),
+    );
     g.setAttribute('tabindex', '0');
     g.setAttribute('role', 'button');
     g.setAttribute('aria-label', `${n.label} — ${n.group}. Select in the model.`);
     g.style.cursor = opts.onPick ? 'pointer' : 'default';
 
-    const r = 6 + 8 * Math.sqrt((n.weight ?? 1) / maxW);
+    const r = (6 + 8 * Math.sqrt((n.weight ?? 1) / maxW)) * mark;
     const circle = document.createElementNS(SVG_NS, 'circle');
     circle.setAttribute('cx', String(p.x));
     circle.setAttribute('cy', String(p.y));
     circle.setAttribute('r', String(r));
     circle.setAttribute('fill', seriesColour(opts.groupIndex.get(n.group) ?? 0, n.group));
     circle.setAttribute('stroke', 'var(--app-panel-bg)');
-    circle.setAttribute('stroke-width', '1.5');
+    circle.setAttribute('stroke-width', String(1.5 * mark));
     g.appendChild(circle);
 
     const text = document.createElementNS(SVG_NS, 'text');
     text.setAttribute('x', String(p.x));
-    text.setAttribute('y', String(p.y + r + 11));
+    text.setAttribute('y', String(p.y + r + 11 * mark));
     text.setAttribute('text-anchor', 'middle');
-    text.setAttribute('font-size', '9');
+    text.setAttribute('font-size', String(9 * mark));
     text.setAttribute('fill', 'var(--app-text-2)');
     text.textContent = n.label.length > 18 ? `${n.label.slice(0, 17)}…` : n.label;
     g.appendChild(text);
@@ -285,6 +334,64 @@ export function renderNodeLink(
   svg.appendChild(nodeG);
 
   return svg;
+}
+
+/**
+ * §GRAPH-NODE-LEGEND (L-12061) — a legend row per NODE GROUP (element family),
+ * coloured identically to the discs.
+ *
+ * ⭐ WHY THIS DID NOT EXIST AND HAD TO. The card's own footer has always claimed
+ * *"colour = element family"*, and the nodes have always been filled from
+ * `seriesColour(groupIndex)`. There was no legend, so the claim was unreadable:
+ * the reader saw eight hues and had no table telling them which family each hue
+ * was. A categorical encoding with no key is decoration.
+ *
+ * ⛔ TOTAL BY CONSTRUCTION, over the same `groupIndex` the discs are filled from.
+ * It iterates the INDEX MAP, not the node array, so every colour that can appear
+ * on the picture has a row — including a family whose nodes were all dimmed.
+ * Building it from the drawn nodes would let a colour exist with no key entry,
+ * which is the failure this function exists to close.
+ *
+ * ⚠ A DISC, WHERE THE EDGE LEGEND USES A BAR. The two legends sit one above the
+ * other and both use the same eight-value rotation; the SHAPE is what says which
+ * legend you are reading. Colour is never the only channel (SC 1.4.1) and here it
+ * is not even the only channel between the two legends.
+ */
+export function renderNodeLegend(
+  host: HTMLElement,
+  groupIndex: ReadonlyMap<string, number>,
+  counts: ReadonlyMap<string, number>,
+  focus?: SeriesFocus,
+): HTMLElement {
+  const legend = document.createElement('div');
+  legend.className = 'anl-nodelink-legend anl-nodelink-legend--nodes';
+  const lead = document.createElement('span');
+  lead.className = 'anl-nodelink-legend-lead';
+  lead.textContent = 'Node colour = element family';
+  legend.appendChild(lead);
+  for (const [group, index] of groupIndex) {
+    const row = markSeries(document.createElement('span'), FOCUS_GROUP(group));
+    row.className = 'anl-nodelink-legend-row';
+    if (focus) {
+      row.tabIndex = 0;
+      row.setAttribute('role', 'button');
+      row.title = `Light every ${group} and dim the rest`;
+      const go = (): void => focus.toggle(FOCUS_GROUP(group));
+      row.addEventListener('click', go);
+      row.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); }
+      });
+    }
+    const swatch = document.createElement('span');
+    swatch.className = 'anl-nodelink-swatch anl-nodelink-swatch--node';
+    swatch.style.background = seriesColour(index, group);
+    const label = document.createElement('span');
+    label.textContent = `${group} · ${counts.get(group) ?? 0}`;
+    row.append(swatch, label);
+    legend.appendChild(row);
+  }
+  host.appendChild(legend);
+  return legend;
 }
 
 /** A legend row per edge type, coloured identically to the lines. */

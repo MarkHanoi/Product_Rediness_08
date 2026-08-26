@@ -130,7 +130,26 @@ describe('§ANALYSIS-MOUNT — the workspace-mode event drives it', () => {
     expect(kpi!.textContent).toContain('≥');
     expect(kpi!.textContent).toContain('4');
     // …and the card says so on its face rather than only in the number.
-    expect(el.querySelector('[data-widget="element-count"] .anl-strip--warn')).not.toBeNull();
+    //
+    // ⚠ AMENDED 2026-08-26 (§ANALYSIS-FOLD-STATE, L-12063). This used to select
+    // `.anl-strip--warn`, which is the PLATE the reason list used to sit on. The
+    // block is now a FOLD and ships COLLAPSED, so that plate is gone — but the
+    // requirement never was "there is an amber rectangle", it was SPEC §2's *"a
+    // widget with `complete:false` MUST say so"*. The assertion is therefore
+    // repointed at the CLAIM rather than at its old container, which is a
+    // strictly stronger test: it fails if the fold header is ever shortened to a
+    // bare "Incomplete", and it fails if the fold ever ships open-by-default and
+    // then gets closed by a reader.
+    const card = el.querySelector('[data-widget="element-count"]')!;
+    const fold = card.querySelector('[data-fold="w.completeness"]');
+    expect(fold, 'the completeness fold did not render').not.toBeNull();
+    expect(
+      fold!.querySelector('.anl-fold-head')!.getAttribute('aria-expanded'),
+      'the completeness note must ship COLLAPSED — the founder asked for it',
+    ).toBe('false');
+    // ⭐ THE HONESTY PIN: collapsed, the header still carries the whole claim.
+    expect(fold!.querySelector('.anl-fold-label')!.textContent).toContain('LOWER BOUND');
+    expect(fold!.querySelector('.anl-fold-chip--warn')!.textContent).toContain('LOWER BOUND');
     expect(el.textContent).toContain('LOWER BOUND');
   });
 

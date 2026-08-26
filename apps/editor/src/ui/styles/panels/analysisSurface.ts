@@ -47,6 +47,15 @@ export const ANALYSIS_SURFACE_STYLES = `
   height: 100%;
   overflow: hidden;
   background: var(--app-bg);
+  /* §GRAPH-EXPAND (L-12062) — the containing block the expanded graph stage fills.
+     ⛔ It must be THIS element and not '.anl-grid': the grid SCROLLS, and an
+     'inset: 0' child of a scroll container is positioned against the CONTENT box,
+     so a maximised graph would scroll away with the cards under it. It must also
+     not be 'position: fixed' against the viewport: this panel owns the right 50%
+     and the 3-D model owns the left, and every widget here is a SELECTOR whose
+     clicks land in that model (ADR-0343 §D.1 reason 2). A graph that covered the
+     model would sever the join that makes the card worth reading. */
+  position: relative;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1039,7 +1048,20 @@ export const ANALYSIS_SURFACE_STYLES = `
   gap: 6px;
   padding: 7px 14px;
   border-bottom: 1px solid var(--app-border);
-  background: var(--app-wash);
+  /* ⚠ CORRECTED 2026-08-26 (§ANALYZE129, L-12065). This read 'var(--app-wash)',
+     and THERE IS NO SUCH TOKEN — the declared family is --app-wash-hover /
+     -selected / -ring. An undefined custom property with no fallback makes the
+     declaration invalid at computed-value time, so 'background' fell back to its
+     initial value: the facet bar has had NO background since it shipped, and the
+     rule that was supposed to give it one has been dead the whole time. Found by
+     'panelBrandStandard.spec.ts' ARM C while this lane was adding fold styles to
+     the same sheet.
+     ⛔ Repointed at an EXISTING token rather than declaring '--app-wash'. Minting
+     a token to satisfy a dangling reference makes the reference right and leaves
+     nobody asking what the value should be; '--app-violet-soft' is the soft
+     accent band this sheet already uses for '.anl-scope', which is the same
+     "you are looking at a narrowed universe" role the facet bar plays. */
+  background: var(--app-violet-soft);
   flex-shrink: 0;
 }
 .anl-facets[hidden] { display: none; }
@@ -1212,6 +1234,181 @@ export const ANALYSIS_SURFACE_STYLES = `
   color: var(--app-text-muted);
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §ANALYSIS-FOLD-STATE (L-12063) — the note blocks fold, the QUALIFIER does not
+   ═══════════════════════════════════════════════════════════════════════════
+
+   The founder: "make all those sections foldable — they are taking too much
+   space and they are just notes." So a collapsed fold is ONE ROW, and the row
+   wraps: five collapsed notes occupy two lines where the five open blocks
+   occupied more vertical space than the graph itself.
+
+   ⛔ THE CHIP IS NOT DECORATION AND MUST NOT BE HIDDEN AT ANY WIDTH. It is the
+   qualifier — "LOWER BOUND", "STALE" — surviving the fold. A media query or an
+   ellipsis that dropped it would turn a qualified number into an apparently
+   unqualified one, which is the exact defect the fold was designed around.
+   'flex: 0 0 auto' on the chip and 'min-width: 0' on the LABEL is that rule in
+   CSS: when the row runs out of room the label truncates, never the chip.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.anl-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.anl-fold {
+  border-radius: var(--app-radius-sm);
+  border-left: 3px solid var(--app-border);
+  background: var(--app-surface-sunken);
+  min-width: 0;
+  max-width: 100%;
+}
+.anl-fold--warn  { border-left-color: var(--app-status-warning-line); background: var(--app-status-warning-bg); }
+.anl-fold--err   { border-left-color: var(--app-status-error-line);   background: var(--app-status-error-bg);   }
+.anl-fold--ok    { border-left-color: var(--app-status-success-line); background: var(--app-status-success-bg); }
+/* A SCOPE is not a warning — the L-3620 separation, carried into the folds. */
+.anl-fold--scope { border-left-color: var(--app-accent);              background: var(--app-violet-soft);       }
+
+.anl-fold-head {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--app-font);
+  padding: 5px 9px;
+  min-height: 24px;
+  border-radius: var(--app-radius-sm);
+}
+.anl-fold-head:hover { background: var(--app-wash-hover); }
+.anl-fold-head:focus-visible { outline: none; box-shadow: var(--app-focus-ring); }
+
+.anl-fold-caret {
+  font-size: 8.5px;
+  color: var(--app-text-muted);
+  flex: 0 0 auto;
+}
+.anl-fold-label {
+  font-size: 10.2px;
+  font-weight: 600;
+  color: var(--app-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.anl-fold-chip {
+  flex: 0 0 auto;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+.anl-fold-chip--warn    { color: var(--app-status-warning-ink); background: var(--app-panel-bg); }
+.anl-fold-chip--err     { color: var(--app-status-error-ink);   background: var(--app-panel-bg); }
+.anl-fold-chip--ok      { color: var(--app-status-success-ink); background: var(--app-panel-bg); }
+.anl-fold-chip--neutral { color: var(--app-text-muted);         background: var(--app-panel-bg); }
+
+.anl-fold-body { padding: 0 9px 8px 9px; }
+.anl-fold-body[hidden] { display: none; }
+
+/* The completeness fold is a full-width statement, not a chip in a wrap row. */
+.anl-fold-host { display: block; }
+.anl-fold-host > .anl-fold { display: block; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §GRAPH-EXPAND (L-12062) + the HONESTY PIN
+   ═══════════════════════════════════════════════════════════════════════════
+
+   ⛔ THE PIN IS NEVER FOLDABLE AND NEVER LEAVES THE STAGE. When the stage is
+   expanded it covers the card head, and the 'INCOMPLETE' badge lives there — so
+   without this line, maximising the graph would silently drop the surface's
+   loudest qualifier at the moment the reader is looking hardest.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.anl-graph-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.anl-graph-stage--expanded {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  background: var(--app-bg);
+  box-shadow: var(--app-shadow-modal);
+  padding: 12px 14px;
+  overflow: auto;
+}
+
+.anl-honesty-pin {
+  margin: 0;
+  padding: 5px 9px;
+  border-radius: var(--app-radius-sm);
+  border-left: 3px solid var(--app-status-warning-line);
+  background: var(--app-status-warning-bg);
+  color: var(--app-status-warning-ink);
+  font-size: 10.2px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* The positioned wrapper the corner control sits in. */
+.anl-graph-frame { position: relative; min-width: 0; }
+.anl-graph-stage--expanded .anl-graph-frame { flex: 1 1 auto; }
+
+.anl-graph-expand {
+  appearance: none;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background: var(--app-panel-bg);
+  color: var(--app-text-2);
+  font-family: var(--app-font);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.anl-graph-expand:hover { color: var(--app-accent); border-color: var(--app-accent); }
+.anl-graph-expand:focus-visible { outline: none; box-shadow: var(--app-focus-ring); }
+
+/* §GRAPH-NODE-LEGEND (L-12061). ⛔ A DISC, where the edge legend uses a BAR: the
+   two legends sit one above the other on the same eight-value rotation, and the
+   SHAPE is what says which key you are reading. Colour is never the only
+   channel — here it is not even the only channel between the two keys. */
+.anl-nodelink-legend-lead {
+  flex: 0 0 100%;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+.anl-nodelink-swatch--node {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
 
 /* The two sliders on the graph toolbar. They sit INSIDE an '.anl-scope-label', so

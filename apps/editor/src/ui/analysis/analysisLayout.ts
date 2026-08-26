@@ -110,6 +110,8 @@ interface StoredLayoutShape {
    *  rest: absent and "not an array" are both answered as `undefined` by the
    *  readers, which is the legacy signal — never `[]`. */
   knownWidgets?: unknown;
+  /** §ANALYSIS-FOLD-STATE (L-12063). See {@link foldOpen}. */
+  folds?: unknown;
 }
 
 /** Every widget id this build's catalogue holds. Derived; never hand-maintained. */
@@ -282,6 +284,99 @@ function keyFor(projectId: string | null): string {
   return LS_PREFIX + (projectId ?? 'unscoped');
 }
 
+// =============================================================================
+// §ANALYSIS-FOLD-STATE (L-12063) — which note blocks the reader has folded away
+// =============================================================================
+//
+// ⭐ THE FOUNDER ASKED FOR FOLDABLE NOTE BLOCKS AND FOR THE FOLD TO STICK. The
+// surface already tells him, in its own status line, *"Arrangement saved in this
+// browser (L-3007)"* — so a fold that forgot itself on the next render would be a
+// visible contradiction of a promise printed six pixels away. C84 EI-9: reuse the
+// mechanism, do not mint a second one.
+//
+// ⛔ FOLDS ARE A SIBLING FIELD OF THE STORED RECORD, NOT A FIELD OF `AnalysisLayout`,
+// AND THAT IS THE WHOLE DESIGN. `AnalysisSurface` holds ONE long-lived
+// `this._layout` object loaded at `_show()` and writes it back on a tab switch, an
+// add and a remove. A fold toggled from inside a card between two of those writes
+// would be silently CLOBBERED by the stale in-memory copy on the next save — the
+// classic two-writers-one-document defect. Keeping folds out of the layout object
+// makes that unrepresentable: nothing but the two functions below ever writes them,
+// and `saveLayout` carries the stored value forward untouched.
+//
+// ⚠ ONE STORAGE KEY, project-scoped exactly like the arrangement. A fold is a
+// statement about a project's dashboard, so a project switch must not carry it.
+
+/** The stored fold map, or `{}`. Never throws; unreadable storage is "nothing folded". */
+function readFolds(projectId: string | null): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(keyFor(projectId));
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as StoredLayoutShape;
+    const f = parsed.folds;
+    if (f == null || typeof f !== 'object' || Array.isArray(f)) return {};
+    const out: Record<string, boolean> = {};
+    for (const [k, v] of Object.entries(f as Record<string, unknown>)) {
+      if (typeof v === 'boolean') out[k] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Is fold `id` open? `dflt` answers when the reader has never touched it.
+ *
+ * ⛔ `dflt` IS NOT A FALLBACK FOR AN ERROR. "the reader folded this shut" and
+ * "the reader has never seen this fold" are different facts and only the second
+ * one takes the default — §CONTEXT-DATA-HONESTY applied to a preference. A reader
+ * who deliberately OPENED a block that ships collapsed must find it open next time,
+ * and a `?? dflt` over a boolean that can legitimately be `false` would erase
+ * exactly that. Hence the explicit `undefined` test.
+ */
+export function foldOpen(id: string, dflt: boolean, projectId: string | null = currentProjectId()): boolean {
+  return withHandlerSpan('pryzm.analysis.layout.fold_read', { 'pryzm.surface': 'analysis' }, () => {
+    const v = readFolds(projectId)[id];
+    return v === undefined ? dflt : v;
+  });
+}
+
+/**
+ * Record fold `id`'s state. Returns whether it was written.
+ *
+ * ⚠ READ-MERGE-WRITE against the LIVE record, never against a cached one: another
+ * card on the same tab may have toggled its own fold since this one rendered.
+ */
+export function setFoldOpen(id: string, open: boolean, projectId: string | null = currentProjectId()): boolean {
+  return withHandlerSpan(
+    'pryzm.analysis.layout.fold_write',
+    { 'pryzm.surface': 'analysis', 'pryzm.analysis.fold': id, 'pryzm.analysis.fold_open': open },
+    () => {
+      try {
+        const raw = localStorage.getItem(keyFor(projectId));
+        const record = (raw ? (JSON.parse(raw) as StoredLayoutShape) : {}) as Record<string, unknown>;
+        record.folds = { ...readFolds(projectId), [id]: open };
+        localStorage.setItem(keyFor(projectId), JSON.stringify(record));
+        return true;
+      } catch (e) {
+        console.warn('[analysis] the fold state could not be saved in this browser:', e);
+        return false;
+      }
+    },
+  );
+}
+
+/** Test seam — drop every fold for a project. */
+export function _clearFoldsForTest(projectId: string | null = currentProjectId()): void {
+  try {
+    const raw = localStorage.getItem(keyFor(projectId));
+    if (!raw) return;
+    const record = JSON.parse(raw) as Record<string, unknown>;
+    delete record.folds;
+    localStorage.setItem(keyFor(projectId), JSON.stringify(record));
+  } catch { /* §SWALLOW-TEST-SEAM — a seam that cannot clear leaves the default, which is the state under test anyway */ }
+}
+
 /** The live project id, or `null`. Read-only; never asserts a project exists. */
 export function currentProjectId(): string | null {
   const ctx = window.projectContext as { projectId?: string } | undefined;
@@ -381,7 +476,17 @@ export function saveLayout(layout: AnalysisLayout, projectId: string | null = cu
         // these on purpose" control) or a reset to `defaults()`.
         const stamped: AnalysisLayout =
           layout.knownWidgets === undefined ? layout : { ...layout, knownWidgets: catalogueIds() };
-        localStorage.setItem(keyFor(projectId), JSON.stringify(stamped));
+        // §ANALYSIS-FOLD-STATE (L-12063). ⛔ CARRY THE STORED FOLDS FORWARD. They
+        // are a sibling field of the record and are NOT part of `AnalysisLayout`
+        // (see that section's header): the surface holds one long-lived layout
+        // object and writes it back on tab switches, so serialising `stamped`
+        // alone would silently delete every fold the reader had set since the
+        // object was loaded. This line is the whole reason folds are safe to write
+        // from inside a card.
+        const folds = readFolds(projectId);
+        const record =
+          Object.keys(folds).length > 0 ? { ...stamped, folds } : { ...stamped };
+        localStorage.setItem(keyFor(projectId), JSON.stringify(record));
         return true;
       } catch (e) {
         console.warn('[analysis] the layout could not be saved in this browser:', e);

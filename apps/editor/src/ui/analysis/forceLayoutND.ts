@@ -260,25 +260,106 @@ function repulsionFor(extent: readonly number[], n: number): number {
 }
 
 /**
+ * §GRAPH-SEPARATION (L-12060) — the ONE knob that moves nodes apart.
+ *
+ * ⭐ IT IS A MULTIPLIER ON REPULSION, NOT A NEW FORCE. The founder asked for
+ * "slightly more separated" nodes. The three implementable answers were a
+ * collision term, a longer rest length on the springs, or more repulsion; only
+ * the third leaves the algorithm — and therefore the measured O(n log n) shape
+ * and the whole `graphLayout3d.spec.ts` fixture argument — exactly as it was. A
+ * collision pass would have been a SECOND O(n²) loop bolted onto a file whose
+ * entire reason for existing is that the first one was too slow.
+ *
+ * ⛔ DEFAULTS TO 1, AND `x * 1` IS EXACT IN IEEE-754. Every existing caller and
+ * every fixture in `graphLayout3d.spec.ts` therefore produces the identical
+ * picture, bit for bit. The card opts in explicitly (`GRAPH_SEPARATION`); nothing
+ * changes underneath a caller that did not ask.
+ *
+ * ⚠ SEPARATION IS FREE, AND THAT IS MEASURED RATHER THAN ARGUED. It changes
+ * where the bodies settle, never how many comparisons are made: the iteration
+ * count, the tree, the opening criterion and the cooling schedule are untouched.
+ * Interleaved before/after, n=320, 160 iterations, 9 rounds, one process
+ * (2026-08-26, §ANALYZE129):
+ *
+ *     3-D 600³   sep 1.0 → median 564.4 ms   sep 2.2 → median 578.4 ms  (+2.5%)
+ *     2-D 620×380 → 900×560, sep 1.0        420.3 ms → 391.9 ms        (−6.8%)
+ *
+ * ⛔ THOSE ARE NOT A BUDGET READING AND MUST NOT BE QUOTED AS ONE. They were
+ * taken on a contended 8-lane developer box whose absolute numbers are ~5× the
+ * founder's-machine bench recorded at `graphReadModel.GRAPH_NODE_CAP` (n=320 →
+ * 70.0 ms). What they establish is the DELTA: separation costs nothing, so the
+ * 100 ms one-shot budget the 320-node cap rests on is unaffected and the cap did
+ * not have to move. C66 §1.1 — a reading is not a supported-capacity claim.
+ *
+ * ⭐ WHAT SEPARATION ACTUALLY BUYS, PER DIMENSION — and the two answers are
+ * DIFFERENT, which is why the card sets them differently:
+ *
+ *   · 3-D IS WHERE THE MULTIPLIER WORKS. Mean nearest-neighbour distance at
+ *     n=320, deterministic: sep 1.0 → 42.26, 1.4 → 46.78, 1.8 → 47.94,
+ *     **2.2 → 50.47 (+19.4%)**, 2.6 → 51.26, 3.0 → 51.89, 3.2 → 52.65,
+ *     4.0 → 50.20, 5.0 → 50.34, 6.0 → 51.54, 8.0 → 49.67. ⛔ THE GAIN
+ *     SATURATES around 3 and then oscillates — the box clamp is doing the work
+ *     past that point, not the force — so anything above ~2.5 buys noise.
+ *     2.2 also has the best MINIMUM separation of the low sweep (22.11 vs 21.92
+ *     at sep 1.0): it spreads the crowd without pushing any pair closer.
+ *
+ *     ⚠⚠ AND HERE IS THE MEASUREMENT THAT DID NOT SAY WHAT THE FIRST DRAFT OF
+ *     THIS COMMENT CLAIMED. That draft read *"past it the cloud HOLLOWS … 10.3%
+ *     → 4.7% → 3.4% → 0.6%"* as if hollowing were a smooth function of
+ *     separation. **It is not.** Fraction of bodies inside half the cloud radius,
+ *     re-measured across the full sweep:
+ *
+ *         n=320  1.0 → 10.3%   2.2 → 4.7%   3.0 → 4.7%   4.0 → 0.6%
+ *                5.0 → 0.3%    6.0 → 2.5%   8.0 → 0.0%
+ *         n=240  1.0 →  5.4%   2.2 → 5.0%   3.0 → 4.6%   4.0 → 5.8%
+ *                5.0 →  6.7%   6.0 → 7.5%   8.0 → 1.7%
+ *
+ *     At n=320 the interior really does evacuate from 4.0 up — four of the five
+ *     readings there are at or under 2.5% — but the series is NOT monotone, and
+ *     at n=240 it does not evacuate at all until 8. So the honest statement is:
+ *     **interior evacuation is real at the cap and is not a trend that can be
+ *     extrapolated.** The ceiling on this constant rests on the SATURATION of the
+ *     mean (which is clean) plus that evacuation (which is not), and a lane
+ *     raising it must re-run the sweep AT THE NODE COUNT IT CARES ABOUT rather
+ *     than interpolating this table. `relationshipGraphLegibility.spec.ts` pins
+ *     only the part that reproduces — that 2.2 leaves the interior populated —
+ *     and says in its own text that it cannot pin the rest.
+ *   · 2-D IT DOES NOTHING, AND SAYING SO IS THE POINT. The 2-D pass is already
+ *     saturated against the padding clamp: mean nearest-neighbour at 620×380 is
+ *     18.29 at sep 1.0 and 17.85 at sep 2.2 — worse, not better. The lever there
+ *     is the EXTENT: 620×380 → 900×560 takes it 18.29 → 28.87 (+58%) and lifts
+ *     the MINIMUM from 0.00 (yes — exactly coincident bodies were reachable at
+ *     the old card size) to 14.42. So the card enlarges the 2-D viewBox and
+ *     leaves its separation at 1.
+ */
+export const SEPARATION_DEFAULT = 1;
+
+/**
  * Deterministic force-directed layout in `extent.length` dimensions.
  *
  * ⚠ COST. Below `EXACT_BELOW` the repulsion pass is the exact O(n²) one, above it
  * the Barnes-Hut tree at O(n log n). Per C66 §1.1 nothing here is a supported
  * capacity claim: `graphLayoutScale.spec.ts` asserts the COMPLEXITY SHAPE — which
  * is machine-stable — never a millisecond budget, which is not.
+ *
+ * `separation` scales the repulsion constant only. See {@link SEPARATION_DEFAULT}.
  */
 export function layoutND(
   nodeIds: readonly string[],
   edgePairs: ReadonlyArray<readonly [string, string]>,
   extent: readonly number[],
   iterations = 160,
+  separation: number = SEPARATION_DEFAULT,
 ): Map<string, number[]> {
   const out = new Map<string, number[]>();
   if (nodeIds.length === 0) return out;
 
   const dims = extent.length;
   const positions = seed(nodeIds, extent);
-  const repulsion = repulsionFor(extent, nodeIds.length);
+  // ⛔ `* separation` and NOT a branch on `separation === 1`. A branch would be a
+  // second code path that only the default exercises, and the multiply by exactly
+  // 1.0 is already exact — a guard would buy nothing and could rot.
+  const repulsion = repulsionFor(extent, nodeIds.length) * separation;
   const attraction = 0.05;
 
   for (let iter = 0; iter < iterations; iter++) {
@@ -375,8 +456,9 @@ export function forceLayout3D(
   H: number,
   D: number = Math.min(W, H),
   iterations = 160,
+  separation: number = SEPARATION_DEFAULT,
 ): Map<string, readonly [number, number, number]> {
-  const raw = layoutND(nodeIds, edgePairs, [W, H, D], iterations);
+  const raw = layoutND(nodeIds, edgePairs, [W, H, D], iterations, separation);
   const out = new Map<string, readonly [number, number, number]>();
   for (const [id, p] of raw) out.set(id, [p[0]!, p[1]!, p[2]!] as const);
   return out;
