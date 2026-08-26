@@ -3806,6 +3806,30 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
     // exists to shout about.
     return row === undefined ? [] : [[`${kind}.changeLevel`, row.reason] as const];
   }),
+
+  // ── §RACKITCHEN127 — the founder's kitchen-material RAC ask, BUILT but the
+  // grammar not yet wired. ────────────────────────────────────────────────────
+  //
+  // "I want to change the carcass body, door front and countertop material via
+  // RAC for kitchens — for ALL kitchens in a floor, for ALL kitchens in the
+  // project, etc." `furniture.bulkUpdateKitchenMaterial` and its command
+  // (`BulkUpdateKitchenMaterialCommand`, @pryzm/command-registry) ship this
+  // release: one element / one level / the whole project, ONE undo entry,
+  // §CONTEXT-DATA-HONESTY partial-failure reporting, and a forgiving lookup
+  // against STANDARD_MATERIAL_LIBRARY (`resolveKitchenMaterialRef`). The
+  // command is real and reachable by any caller (`window.commandManager` bridge,
+  // an AI-panel pill, a future test) — what is NOT done is teaching
+  // `ZeroTokenResolver` to turn "change all kitchen countertops on level 2 to
+  // marble" into that bus command. That needs its OWN family (not a
+  // `CatalogueFamilies` / `DimensionFamilies` row — this capability has an
+  // extra axis, WHICH surface (carcass / door-front / countertop), that no
+  // existing spec-driven family carries) plus a `ChatCapabilityRegistry`
+  // capability entry with its own `probe`/`commandProof`/acceptance examples.
+  // Declared here rather than left undeclared so the shrink-only
+  // `MAX_UNDECLARED` coverage ratchet in `check-chat-capability-coverage.ts`
+  // reads this command HONESTLY (built, not yet chat-driven) instead of
+  // silently failing the next unrelated PR that trips the ratchet.
+  ['furniture.bulkUpdateKitchenMaterial', 'Bulk kitchen material changes are not wired to chat yet — use the kitchen\'s Edit Kitchen Layout panel for one kitchen at a time. (The bulk command itself is built — only the sentence-to-command grammar is missing.)'],
 ]);
 
 // ─── Lookup surface ──────────────────────────────────────────────────────────

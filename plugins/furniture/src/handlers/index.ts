@@ -15,6 +15,9 @@ import { SetFurnitureMaterialHandler } from './SetFurnitureMaterial.js'; // §FE
 // `@pryzm/command-bus` `LEVEL_CHANGE_VERBS`; see that file for the four parts a
 // level change must complete before this row may exist.
 import { ChangeFurnitureLevelHandler } from './ChangeFurnitureLevel.js';
+// §RACKITCHEN127 — bulk kitchen carcass/door-front/countertop material change,
+// scoped to one kitchen, a level, or the whole project, in ONE undo step.
+import { BulkUpdateKitchenMaterialHandler } from './BulkUpdateKitchenMaterial.js';
 
 export const FURNITURE_HANDLER_TYPES = [
   'furniture.create',
@@ -32,6 +35,8 @@ export const FURNITURE_HANDLER_TYPES = [
   // without it Ctrl+Z falls through to the whole-record-REPLACE `update()` and
   // destroys the record.
   'furniture.changeLevel',
+  // §RACKITCHEN127 — bulk kitchen material batch (element / level / project scope).
+  'furniture.bulkUpdateKitchenMaterial',
 ] as const;
 
 export type FurnitureHandlerType = (typeof FURNITURE_HANDLER_TYPES)[number];
@@ -49,6 +54,7 @@ export function buildFurnitureHandlerSet(): readonly CommandHandler<unknown>[] {
     UpdateFurnitureParametersHandler as unknown as CommandHandler<unknown>,
     new SetFurnitureMaterialHandler() as unknown as CommandHandler<unknown>,
     new ChangeFurnitureLevelHandler() as unknown as CommandHandler<unknown>,
+    BulkUpdateKitchenMaterialHandler as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -75,3 +81,10 @@ export {
 export { UpdateFurnitureParametersHandler, type UpdateFurnitureParametersPayload } from './UpdateFurnitureParameters.js';
 export { SetFurnitureMaterialHandler, type SetFurnitureMaterialPayload } from './SetFurnitureMaterial.js';
 export { ChangeFurnitureLevelHandler, type ChangeFurnitureLevelPayload } from './ChangeFurnitureLevel.js';
+export {
+  BulkUpdateKitchenMaterialHandler,
+  type BulkUpdateKitchenMaterialPayload,
+  type BulkUpdateKitchenMaterialScope,
+  type KitchenMaterialBatchReport,
+  KITCHEN_MATERIAL_BATCH_REPORT_EVENT,
+} from './BulkUpdateKitchenMaterial.js';

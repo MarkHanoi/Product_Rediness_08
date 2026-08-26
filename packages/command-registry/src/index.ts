@@ -105,6 +105,8 @@ export * from './furniture/ChangeFurnitureTypeCommand';
 export * from './furniture/CreateFurnitureCommand';
 export * from './furniture/UpdateAIElementParametersCommand';
 export * from './furniture/UpdateFurnitureParametersCommand';
+// §RACKITCHEN127 — bulk kitchen carcass/door-front/countertop material change.
+export * from './furniture/BulkUpdateKitchenMaterialCommand';
 
 // ─── Generic ──────────────────────────────────────────────────────────────
 export * from './generic/UpdateElementParameterCommand';

@@ -161,6 +161,8 @@ import { UpdateFurnitureParametersCommand } from '@pryzm/command-registry';
 // §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — placed-furniture type swap; make it
 // replay-survive collaboration catch-up (same class as UPDATE_FURNITURE_PARAMETERS).
 import { ChangeFurnitureTypeCommand } from '@pryzm/command-registry';
+// §RACKITCHEN127 — bulk kitchen carcass/door-front/countertop material batch.
+import { BulkUpdateKitchenMaterialCommand } from '@pryzm/command-registry';
 import { CreatePlumbingFixtureCommand } from '@pryzm/command-registry';
 import { UpdatePlumbingParametersCommand } from '@pryzm/command-registry';
 import { MovePlumbingCommand } from '@pryzm/command-registry';
@@ -428,6 +430,8 @@ const REGISTRY = new Map<string, CommandFactory>([
     ['UPDATE_FURNITURE_PARAMETERS', (s) => new UpdateFurnitureParametersCommand(s.payload as any)],
     // §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — placed-furniture type swap survives replay.
     ['CHANGE_FURNITURE_TYPE', (s) => new ChangeFurnitureTypeCommand(s.payload as any)],
+    // §RACKITCHEN127 — bulk kitchen material batch replays as ONE command remotely too.
+    ['BULK_UPDATE_KITCHEN_MATERIAL', (s) => BulkUpdateKitchenMaterialCommand.deserialize(s)],
     ['CREATE_PLUMBING_FIXTURE', (s) => new CreatePlumbingFixtureCommand(s.payload as any)],
     // §ELEMENT-REPLAY-AUDIT — same revert-on-catch-up gap as furniture for the OTHER
     // placed elements the user moves/rotates. With §REMOTE-EXEC-FALLBACK these factories

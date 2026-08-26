@@ -184,6 +184,9 @@ export enum CommandType {
     // type/asset in place, preserving id + transform + host. The furniture member
     // of the uniform "change element type" contract.
     CHANGE_FURNITURE_TYPE = 'CHANGE_FURNITURE_TYPE',
+    // §RACKITCHEN127 — recolour carcass / door-front / countertop for MANY
+    // kitchens (single element, a level, or the whole project) in ONE undo step.
+    BULK_UPDATE_KITCHEN_MATERIAL = 'BULK_UPDATE_KITCHEN_MATERIAL',
     CREATE_PLUMBING_FIXTURE = 'CREATE_PLUMBING_FIXTURE',
     UPDATE_PLUMBING_PARAMETERS = 'UPDATE_PLUMBING_PARAMETERS',
     MOVE_PLUMBING = 'MOVE_PLUMBING',
