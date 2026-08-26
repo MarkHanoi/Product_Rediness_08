@@ -66,6 +66,14 @@ import { isElementInstancingEnabled } from '@pryzm/core-app-model/rendering';
 // §SURFACE-WITH-NO-AREA-REFUSES-THE-PASS. A named function import, not `* as THREE`
 // (P2 holds); `surfaceArea.ts` is structurally typed and pulls no renderer with it.
 import { getZeroAreaSurfaceReport } from '@pryzm/renderer-three';
+// ⭐ §MESH110 (L-11564, CLOSED) — the heavy-scene swap thresholds were hand-COPIED
+// here (importing `autoWebGLHeavyScene` would pull the renderer-creation graph into
+// a diagnostic). They now have ONE owner: the zero-import leaf module
+// `heavySceneSwapThreshold.ts`, which both the guard and this census read.
+import {
+    SWAP_ELEMENT_THRESHOLD as HEAVY_SCENE_ELEMENT_ARM,
+    SWAP_MESH_THRESHOLD as HEAVY_SCENE_MESH_ARM,
+} from '../rendering/heavySceneSwapThreshold';
 
 // ── Structural views of live objects (no THREE import — P2) ─────────────────
 
@@ -513,8 +521,8 @@ export function logSceneCensusOnce(scene: unknown, label: string): void {
 let _censusPrintedFor: string | null = null;
 
 /**
- * ⛔ §PERF105-CENSUS-IS-TEXT (L-11563) — THE HEAVY-SCENE GUARD'S OWN ARITHMETIC,
- * restated here so the census can print the HEADROOM and not merely the count.
+ * §PERF105-CENSUS-IS-TEXT (L-11563) — THE HEAVY-SCENE GUARD'S OWN ARITHMETIC, so
+ * the census can print the HEADROOM and not merely the count.
  *
  * `autoWebGLHeavyScene.ts` swaps the renderer backend when the scene reaches
  * **≥ 400 BIM elements OR ≥ 1000 meshes**. The founder crossed the mesh arm by
@@ -522,16 +530,13 @@ let _censusPrintedFor: string | null = null;
  * from 978 — and the backend swapped to `webgl-classic` MID-EDIT behind an overlay
  * that said only "switching render…".
  *
- * ⚠ THESE ARE COPIES OF A THRESHOLD THAT LIVES SOMEWHERE ELSE, and that is a debt,
- * not a design. They are duplicated rather than imported because this console module
- * loads on every boot while `autoWebGLHeavyScene` pulls in the renderer-creation graph
- * — importing it here to print a number would make a DIAGNOSTIC change what it
- * measures. If the guard's numbers move, these must move with them; the census prints
- * them verbatim so a divergence shows up in the founder's own paste instead of
- * silently (L-11564 tracks giving the two one owner).
+ * ⭐ §MESH110 (L-11564, CLOSED): these were hand-copied constants because importing
+ * `autoWebGLHeavyScene` pulls in the renderer-creation graph — a DIAGNOSTIC must not
+ * change what it measures. The thresholds now live in the ZERO-IMPORT leaf module
+ * `heavySceneSwapThreshold.ts`, which both the guard and this census import (see the
+ * `HEAVY_SCENE_*_ARM` aliases in the import block at the top of this file) — one
+ * owner, and the import costs the console module nothing.
  */
-const HEAVY_SCENE_ELEMENT_ARM = 400;
-const HEAVY_SCENE_MESH_ARM = 1_000;
 
 /**
  * ⭐ §PERF105-CENSUS-IS-TEXT (L-11563) — PRINT THE CENSUS AS PLAIN TEXT LINES.

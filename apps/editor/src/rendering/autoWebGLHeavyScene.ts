@@ -78,26 +78,16 @@
 
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { getRendererBackendPreference, type RendererBackendPreference } from './createRenderer';
+// §MESH110 (L-11564) — the swap thresholds now have ONE owner: the zero-import leaf
+// module `heavySceneSwapThreshold.ts`, shared with the census's
+// §NAV-BACKEND-SWAP-HEADROOM line in pryzmPerfConsole.ts (which could never import
+// THIS module — it pulls in the renderer-creation graph via createRenderer, and a
+// diagnostic must not change what it measures). The rationale for the values — a
+// DEDICATED device-loss-risk threshold (ADR-0267 §Fix-1 / L-366), deliberately far
+// below LevelScoped3DCullingService.isHeavyModel — lives with the constants.
+import { SWAP_ELEMENT_THRESHOLD, SWAP_MESH_THRESHOLD } from './heavySceneSwapThreshold';
 
 const TRACER = trace.getTracer('pryzm-engine');
-
-// ── §AUTO-WEBGL-HEAVY dedicated swap threshold (ADR-0267 §Fix-1 / L-366) ─────
-// A DEDICATED device-loss-risk threshold for the WebGPU→WebGL swap decision,
-// intentionally DECOUPLED from LevelScoped3DCullingService.isHeavyModel. That
-// predicate is owned by the massing-LOD system and must stay HIGH (≥ 15 levels AND
-// ≥ 1000 elems, OR ≥ 4000 elems) so it never massing-shades a modest building — but
-// the WebGPU swap must fire far EARLIER: on the affected hardware a normal building
-// generation (~6 storeys / ~1,300 elements / ~1,645 meshes) reliably TDRs the WebGPU
-// device, and that scene is nowhere near isHeavyModel, so reusing it left the building
-// on WebGPU to crash (L-361). We swap when the scene crosses EITHER arm:
-//   • ≥ 400 top-level BIM elements — a whole building is several hundred+ elements;
-//     a single room / manual edit is < ~100, so trivial edits never trip it.
-//   • ≥ 1000 meshes — the count SceneQualityTier already computes. Building geometry
-//     explodes to > 1000 sub-meshes (openings, finishes, frames) well before it
-//     reaches 400 COUNTED top-level roots, so this arm catches heavy scenes whose
-//     geometry arrives with sparse top-level userData ids (the resi/office path).
-const SWAP_ELEMENT_THRESHOLD = 400;
-const SWAP_MESH_THRESHOLD = 1000;
 
 /**
  * §AUTO-WEBGL-HEAVY — **THE** backend-swap heaviness predicate (C04 §1.4, NORMATIVE).
