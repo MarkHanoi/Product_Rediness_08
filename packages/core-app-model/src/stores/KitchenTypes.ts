@@ -96,6 +96,42 @@ export interface KitchenUnitConfig {
     appliance?: KitchenApplianceType;
 }
 
+// ── Upper (wall) cabinet per-unit configuration ─────────────────────────────
+//
+// §KITCHEN107 (L-11600) — the upper row is its OWN unit list with a NARROWER,
+// row-specific vocabulary: no appliances, no drawers (both unrepresentable —
+// see @pryzm/geometry-furniture KitchenTypes.ts, which is the authoritative
+// copy of this DTO; keep the two in lock-step).
+
+export type KitchenUpperUnitFront =
+    | 'door'
+    | 'glass_door'
+    | 'framed_glass_door'
+    | 'shelf'
+    | 'none'
+    | 'omitted';
+
+export interface KitchenUpperUnitConfig {
+    /** Slot index within its arm (0-based) — aligns with the arm's slot grid. */
+    readonly index: number;
+    /** Which arm this unit belongs to (used for L/U layouts) */
+    readonly arm: 'main' | 'left' | 'right';
+    /** Front finish for this wall-cabinet unit */
+    front: KitchenUpperUnitFront;
+    /** Override width for this unit (falls back to the arm's upper slot width) */
+    width?: number;
+    /** Optional user label */
+    label?: string;
+    /** Door material override from STANDARD_MATERIAL_LIBRARY */
+    doorMaterialId?: string;
+    /** Door colour override when no material id is selected */
+    doorColor?: string;
+    /** Handle style override for this unit */
+    handleStyle?: KitchenHandleStyle;
+    /** Shelf count override for open-shelf fronts (2 | 3 | 4) */
+    numShelves?: number;
+}
+
 // ── Global kitchen cabinet config ───────────────────────────────────────────
 
 export interface KitchenCabinetConfig {
@@ -147,8 +183,15 @@ export interface KitchenCabinetConfig {
     handleColor?: string;
 
     // ── Per-unit configurations ───────────────────────────────────────────────
-    /** Customisation state for every unit. Indexed by arm + index. */
+    /** Customisation state for every BASE unit. Indexed by arm + index. */
     units?: KitchenUnitConfig[];
+
+    /**
+     * §KITCHEN107 (L-11600) — customisation state for every UPPER (wall
+     * cabinet) unit on tall layouts. ADDITIVE (C47: optional, omit-when-
+     * absent); legacy records without it render via `deriveUpperUnits()`.
+     */
+    upperUnits?: KitchenUpperUnitConfig[];
 }
 
 // ── Defaults ─────────────────────────────────────────────────────────────────

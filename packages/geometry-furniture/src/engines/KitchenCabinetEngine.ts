@@ -20,10 +20,19 @@
  *   - L / U arms: the MAIN arm's slab covers the corner junction fully;
  *     arm slabs start after the corner (no double-counting).
  *
- * Tall layouts (kitchen_*_tall):
+ * Tall layouts (kitchen_*_tall) — §KITCHEN107 (L-11600):
  *   - Same base cabinets as the matching standard layout.
  *   - Additional upper wall cabinet row above, with configurable height/depth/gap.
- *   - Upper units share the same unitFront config as base for simplicity.
+ *   - The upper row is an INDEPENDENT unit list (`config.upperUnits`, its own
+ *     vocabulary — no appliances / drawers, unrepresentable at the type level).
+ *     Legacy records without `upperUnits` derive a sound default row via
+ *     `deriveUpperUnits()` (features dropped, count/positions kept).
+ *   - Upper rows are FLUSH with the wall plane (back of base run), and the
+ *     corner follows the SAME convention as the base row / countertop at the
+ *     upper row's own depth: the MAIN arm covers the corner, perpendicular
+ *     arms butt against it (zero overlap, zero gap — C84 EI-9, one rule).
+ *   - An upper slot whose footprint intersects a TALL appliance bay (a
+ *     full-height fridge reaching into the wall-cabinet zone) is not built.
  *
  * Unit meshes carry:
  *   userData.kitchenUnitIndex — zero-based index within its arm
@@ -48,9 +57,12 @@ import {
     KitchenHandleStyle,
     KitchenLayoutType,
     KitchenApplianceType,
+    KitchenUpperUnitConfig,
     KITCHEN_DEFAULTS,
+    TALL_KITCHEN_APPLIANCES,
     isTallKitchenLayout,
     baseKitchenLayout,
+    deriveUpperUnits,
 } from '../KitchenTypes';
 import { STANDARD_MATERIAL_LIBRARY } from '@pryzm/core-app-model/material-library';
 
@@ -192,6 +204,52 @@ export class KitchenCabinetEngine {
         // ── Resolve effective base layout (strips _tall suffix) ───────────────
         const effectiveLayout: KitchenLayoutType = baseLayout;
 
+        // ── §KITCHEN107 (L-11600) — independent upper row ─────────────────────
+        // The upper row renders from its OWN unit list. Legacy records (no
+        // `upperUnits`) derive a sound default: mirrored hob/sink/drawer/
+        // appliance state is unrepresentable in the upper vocabulary and is
+        // dropped; slot count and positions are kept.
+        const upperUnits: KitchenUpperUnitConfig[] = isTall
+            ? (config.upperUnits ?? deriveUpperUnits(units, d.numUnits, numLeft, numRight))
+            : [];
+        const upperMain  = upperUnits.filter(u => u.arm === 'main');
+        const upperLeft  = upperUnits.filter(u => u.arm === 'left');
+        const upperRight = upperUnits.filter(u => u.arm === 'right');
+
+        // Footprints (root-local XZ rects) of base bays holding TALL appliances
+        // (full-height fridges reach into the wall-cabinet zone): an upper slot
+        // intersecting one of these is not built, wherever it sits — same-arm
+        // or across the corner.
+        const tallRects: Array<{ x0: number; x1: number; z0: number; z1: number }> = [];
+        if (isTall) {
+            for (let i = 0; i < d.numUnits; i++) {
+                const u = mainUnits[i];
+                if (u?.appliance && TALL_KITCHEN_APPLIANCES.has(u.appliance)) {
+                    tallRects.push({ x0: i * mainUnitW, x1: (i + 1) * mainUnitW, z0: -d.depth / 2, z1: d.depth / 2 });
+                }
+            }
+            for (let i = 0; i < numLeft; i++) {
+                const u = leftUnits[i];
+                if (u?.appliance && TALL_KITCHEN_APPLIANCES.has(u.appliance)) {
+                    tallRects.push({ x0: 0, x1: d.depth, z0: d.depth / 2 + i * leftUnitW, z1: d.depth / 2 + (i + 1) * leftUnitW });
+                }
+            }
+            for (let i = 0; i < numRight; i++) {
+                const u = rightUnits[i];
+                if (u?.appliance && TALL_KITCHEN_APPLIANCES.has(u.appliance)) {
+                    tallRects.push({ x0: d.length - d.depth, x1: d.length, z0: d.depth / 2 + i * rightUnitW, z1: d.depth / 2 + (i + 1) * rightUnitW });
+                }
+            }
+        }
+
+        // §KITCHEN107 corner rule (C84 EI-9 — the base row's convention applied
+        // at the upper row's own depth): every upper row is FLUSH with its wall
+        // plane; the MAIN upper run covers the corner over the full length; the
+        // perpendicular upper runs start exactly where the main upper's
+        // footprint ends (butt joint: zero overlap, zero gap) and finish flush
+        // with their base arm's far end.
+        const upperArmStartZ = -d.depth / 2 + upperDep;
+
         // ── STRAIGHT / L / U layouts ───────────────────────────────────────────
 
         // Main arm (along +X): units from cx=0 to cx=length in root local
@@ -228,11 +286,19 @@ export class KitchenCabinetEngine {
 
         // ── Tall: Main arm UPPER cabinets ──────────────────────────────────────
         if (isTall) {
-            this._buildUpperRow(
-                root, mainUnits, d.numUnits, mainUnitW, d.length,
-                upperH, upperDep, d, 0,
-                upperBaseY, upperCarcassMat,
-            );
+            this._buildUpperRow({
+                root,
+                arm:        'main',
+                upperUnits: upperMain,
+                numSlots:   d.numUnits,
+                alongAxis:  'X',
+                alongStart: 0,
+                runLen:     d.length,
+                perpCenter: -d.depth / 2 + upperDep / 2,   // back flush at the wall plane z = -depth/2
+                rotationY:  0,
+                upperH, upperDep, upperBaseY,
+                d, upperMat: upperCarcassMat, tallRects,
+            });
         }
 
         // ── Left arm (along +Z from X=0 end) ──────────────────────────────────
@@ -273,16 +339,23 @@ export class KitchenCabinetEngine {
                 mat:          countertopMat,
             });
 
-            // Tall: Left arm upper cabinets
+            // Tall: Left arm upper cabinets — back flush at the wall plane
+            // x = 0; run butts against the main upper's footprint and ends
+            // flush with the base arm's far end.
             if (isTall) {
-                const upperArmGroup = new THREE.Group();
-                this._buildUpperRow(
-                    upperArmGroup, leftUnits, numLeft, leftUnitW, leftLen,
-                    upperH, upperDep, d, Math.PI / 2,
-                    upperBaseY, upperCarcassMat,
-                );
-                upperArmGroup.position.set(d.depth / 2, 0, d.depth / 2);
-                root.add(upperArmGroup);
+                this._buildUpperRow({
+                    root,
+                    arm:        'left',
+                    upperUnits: upperLeft,
+                    numSlots:   numLeft,
+                    alongAxis:  'Z',
+                    alongStart: upperArmStartZ,
+                    runLen:     (d.depth / 2 + leftLen) - upperArmStartZ,
+                    perpCenter: upperDep / 2,
+                    rotationY:  Math.PI / 2,
+                    upperH, upperDep, upperBaseY,
+                    d, upperMat: upperCarcassMat, tallRects,
+                });
             }
         }
 
@@ -324,16 +397,22 @@ export class KitchenCabinetEngine {
                 mat:          countertopMat,
             });
 
-            // Tall: Right arm upper cabinets
+            // Tall: Right arm upper cabinets — back flush at the wall plane
+            // x = length; same corner rule mirrored.
             if (isTall) {
-                const upperArmGroup = new THREE.Group();
-                this._buildUpperRow(
-                    upperArmGroup, rightUnits, numRight, rightUnitW, rightLen,
-                    upperH, upperDep, d, -Math.PI / 2,
-                    upperBaseY, upperCarcassMat,
-                );
-                upperArmGroup.position.set(d.length - d.depth / 2, 0, d.depth / 2);
-                root.add(upperArmGroup);
+                this._buildUpperRow({
+                    root,
+                    arm:        'right',
+                    upperUnits: upperRight,
+                    numSlots:   numRight,
+                    alongAxis:  'Z',
+                    alongStart: upperArmStartZ,
+                    runLen:     (d.depth / 2 + rightLen) - upperArmStartZ,
+                    perpCenter: d.length - upperDep / 2,
+                    rotationY:  -Math.PI / 2,
+                    upperH, upperDep, upperBaseY,
+                    d, upperMat: upperCarcassMat, tallRects,
+                });
             }
         }
 
@@ -412,11 +491,9 @@ export class KitchenCabinetEngine {
         // worktop-less gap over the washer bay; they are under-counter (see
         // `_addWashingMachine`, which sizes the body to `height - ctH` so it fits UNDER
         // the worktop), so they now get a SOLID slab over them like a plain base unit.
-        const TALL_APPLIANCES = new Set([
-            'fridge_compact_silver', 'fridge_compact_dark',
-            'fridge_combi_silver',   'fridge_combi_dark',
-            'fridge_side_silver',    'fridge_side_dark',
-        ]);
+        // §KITCHEN107 — ONE tall-appliance vocabulary, shared with the
+        // upper-row collision skip and the upper-unit derivation (C84 EI-9).
+        const TALL_APPLIANCES = TALL_KITCHEN_APPLIANCES;
         const SINK_APPLIANCES = new Set(['sink_inox', 'sink_dark']);
         // A unit interrupts the solid slab only when it is a sink (cut a basin hole) or
         // a tall/free-standing appliance (omit the slab). Everything else — plain base
@@ -505,18 +582,30 @@ export class KitchenCabinetEngine {
     }
 
     /**
-     * Build a row of wall/upper cabinets and add them to `parent`.
-     * The row shares the same arm layout (number of units, unit widths) as the base cabinets.
-     * Units face the same direction as base (determined by `rotationY`).
+     * §KITCHEN107 (L-11600) — build one arm's row of wall/upper cabinets.
+     *
+     * The row renders from its OWN `KitchenUpperUnitConfig` list (never the
+     * base units — the upper vocabulary cannot represent appliances or drawer
+     * stacks, so the founder's mirrored-hob defect is unrepresentable here).
+     * The arm's slot grid is `numSlots` equal slots over `runLen`, starting at
+     * `alongStart` on `alongAxis`; `perpCenter` fixes the perpendicular
+     * coordinate so the cabinet backs sit flush on the wall plane. A slot is
+     * skipped when its config says 'omitted' or when its footprint intersects
+     * a TALL appliance bay (`tallRects` — a full-height fridge below).
      */
-    private _buildUpperRow(
-        parent:       THREE.Group,
-        unitConfigs:  { arm: string; front: string; width?: number }[],
-        numUnits:     number,
-        _unitW:       number,
-        totalLen:     number,
-        upperH:       number,
-        upperDep:     number,
+    private _buildUpperRow(opts: {
+        root:       THREE.Group;
+        arm:        'main' | 'left' | 'right';
+        upperUnits: ReadonlyArray<KitchenUpperUnitConfig>;
+        numSlots:   number;
+        alongAxis:  'X' | 'Z';
+        alongStart: number;
+        runLen:     number;
+        perpCenter: number;
+        rotationY:  number;
+        upperH:     number;
+        upperDep:   number;
+        upperBaseY: number;
         d: {
             depth: number; length: number; height: number; numUnits: number;
             countertopHeight: number;
@@ -524,18 +613,39 @@ export class KitchenCabinetEngine {
             frontColor: string; frontMaterialId?: string;
             countertopColor: string; countertopMaterialId?: string;
             handleColor: string;
-        },
-        rotationY:    number,
-        upperBaseY:   number,
-        upperMat:     THREE.MeshStandardMaterial,
-    ): void {
-        const upperUnitW = totalLen / numUnits;
+        };
+        upperMat:  THREE.MeshStandardMaterial;
+        tallRects: ReadonlyArray<{ x0: number; x1: number; z0: number; z1: number }>;
+    }): void {
+        const {
+            root, arm, upperUnits, numSlots, alongAxis, alongStart, runLen,
+            perpCenter, rotationY, upperH, upperDep, upperBaseY, d, upperMat, tallRects,
+        } = opts;
+        if (numSlots <= 0 || runLen < 0.01) return;
 
-        for (let i = 0; i < numUnits; i++) {
-            const cfg = unitConfigs[i] as any ?? { index: i, arm: 'main', front: 'door' };
-            const uw  = cfg.width ?? upperUnitW;
-            const cz  = i * upperUnitW + upperUnitW / 2;
+        const slotW = runLen / numSlots;
+        const EPS   = 1e-6;
 
+        for (let i = 0; i < numSlots; i++) {
+            const cfg: KitchenUpperUnitConfig =
+                upperUnits.find(u => u.index === i) ?? { index: i, arm, front: 'door' };
+            if (cfg.front === 'omitted') continue;
+
+            const along0 = alongStart + i * slotW;
+            const along1 = along0 + slotW;
+            const alongC = (along0 + along1) / 2;
+
+            // Slot footprint in root XZ for the tall-appliance collision skip.
+            const rect = alongAxis === 'X'
+                ? { x0: along0, x1: along1, z0: perpCenter - upperDep / 2, z1: perpCenter + upperDep / 2 }
+                : { x0: perpCenter - upperDep / 2, x1: perpCenter + upperDep / 2, z0: along0, z1: along1 };
+            const collides = tallRects.some(t =>
+                Math.min(rect.x1, t.x1) - Math.max(rect.x0, t.x0) > EPS &&
+                Math.min(rect.z1, t.z1) - Math.max(rect.z0, t.z0) > EPS,
+            );
+            if (collides) continue;
+
+            const uw = cfg.width ?? slotW;
             const upperUnit = this._buildUnit(cfg, uw, upperDep, upperH, {
                 ...d,
                 depth: upperDep,
@@ -543,15 +653,17 @@ export class KitchenCabinetEngine {
                 countertopHeight: 0,
             }, rotationY, upperMat);
 
-            // Position along local Z axis (same axis used for left/right arms);
-            // for main arm (rotationY = 0) we place along X directly.
-            if (rotationY === 0) {
-                upperUnit.position.set(cz, upperBaseY, 0);
+            if (alongAxis === 'X') {
+                upperUnit.position.set(alongC, upperBaseY, perpCenter);
             } else {
-                upperUnit.position.set(0, upperBaseY, cz);
+                upperUnit.position.set(perpCenter, upperBaseY, alongC);
             }
             upperUnit.userData.isUpperCabinet = true;
-            parent.add(upperUnit);
+            // Root-local slot footprint — the corner contract is measurable:
+            // slot rects of the three upper runs must tile without overlap
+            // (butt joints), which the kitchenUpperRow test pins.
+            upperUnit.userData.kitchenUpperSlot = rect;
+            root.add(upperUnit);
         }
     }
 

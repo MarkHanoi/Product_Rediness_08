@@ -390,6 +390,16 @@ export class KitchenPlanSymbolBuilder {
              */
             upperDepth?: number;
             /**
+             * §KITCHEN107 (L-11600) — set for the PERPENDICULAR arms of L/U tall
+             * layouts. The 3-D upper (wall cabinet) run there starts at the MAIN
+             * wall plane + upperDepth (the corner belongs to the main upper run —
+             * same convention as the base row, applied at the upper row's own
+             * depth), i.e. arm-local u = upperDepth − depth (negative: the dashed
+             * rect extends INTO the corner region the base arm does not cover).
+             * The dashed dividers subdivide the UPPER run's own slot grid.
+             */
+            upperCornerExtend?: boolean;
+            /**
              * §FEAT-KITCHEN-PLAN-SYMBOL (ADR-0112, founder L-35) — collector for the
              * work-triangle. When supplied, each sink / hob / fridge unit pushes its
              * ROOT-space centre {x,z, kind} so the caller can draw the dashed
@@ -465,8 +475,20 @@ export class KitchenPlanSymbolBuilder {
         const upperDepth = opts.upperDepth ?? 0;
         if (upperDepth > 0) {
             const ud = Math.min(upperDepth, depth);          // never deeper than the base
-            this._dashedRect(tmp, 0, 0, runLen, ud);
-            for (let i = 1; i < numUnits; i++) this._dashed(tmp, i * unitW, 0, i * unitW, ud);
+            // §KITCHEN107 — perpendicular arms extend the upper run into the
+            // corner (see upperCornerExtend above); the dividers follow the
+            // UPPER run's own slot grid, which no longer matches the base grid
+            // on those arms.
+            const uStart = opts.upperCornerExtend ? ud - depth : 0;
+            const upperRunLen = runLen - uStart;
+            if (upperRunLen > 0.01) {
+                this._dashedRect(tmp, uStart, 0, runLen, ud);
+                const upperSlotW = numUnits > 0 ? upperRunLen / numUnits : upperRunLen;
+                for (let i = 1; i < numUnits; i++) {
+                    const u = uStart + i * upperSlotW;
+                    this._dashed(tmp, u, 0, u, ud);
+                }
+            }
         }
 
         // ── Apply arm-local rotation + translation, then push to out ─────
@@ -673,6 +695,7 @@ export class KitchenPlanSymbolBuilder {
                 swapUV:   true,
                 withCountertopOverhang: true,
                 upperDepth,
+                upperCornerExtend: true,
                 triPoints: tri,
             });
         }
@@ -712,6 +735,7 @@ export class KitchenPlanSymbolBuilder {
                 swapUV:   true,
                 withCountertopOverhang: true,
                 upperDepth,
+                upperCornerExtend: true,
                 triPoints: tri,
             });
         }
@@ -726,6 +750,7 @@ export class KitchenPlanSymbolBuilder {
                 rotY:    -Math.PI / 2,
                 withCountertopOverhang: true,
                 upperDepth,
+                upperCornerExtend: true,
                 triPoints: tri,
             });
         }

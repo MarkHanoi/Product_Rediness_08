@@ -64,6 +64,25 @@ export type KitchenHandleStyle =
     | 'line'
     | 'none';
 
+// ── Upper (wall) cabinet per-unit front finish ──────────────────────────────
+//
+// §KITCHEN107 (L-11600) — the upper row's vocabulary is ROW-SPECIFIC and
+// deliberately NARROWER than the base row's. A wall cabinet can carry a door
+// (solid / glass / framed glass), an open shelf, an open cavity, or be omitted
+// entirely — it can NEVER carry a hob, a sink, a drawer stack or a free-standing
+// appliance. That impossibility is encoded at the TYPE level (the union simply
+// does not include those states), not filtered at runtime: an upper unit with a
+// hob is unrepresentable, which is what makes the founder's "hob mirrored into
+// the wall cabinet" defect structurally impossible rather than merely patched.
+
+export type KitchenUpperUnitFront =
+    | 'door'              // solid door with handle
+    | 'glass_door'        // frameless glass door
+    | 'framed_glass_door' // glass door with solid frame
+    | 'shelf'             // open shelves (numShelves controls count)
+    | 'none'              // open cavity (no front)
+    | 'omitted';          // NO cabinet in this slot (explicit absence — mergeable)
+
 // ── Per-unit configuration ──────────────────────────────────────────────────
 
 export interface KitchenUnitConfig {
@@ -94,6 +113,34 @@ export interface KitchenUnitConfig {
      * the carcass entirely and the unit `front` is automatically treated as 'none'.
      */
     appliance?: KitchenApplianceType;
+}
+
+// ── Upper (wall) cabinet per-unit configuration ─────────────────────────────
+//
+// §KITCHEN107 (L-11600) — the upper row is its OWN unit list. It shares only
+// the ARM GEOMETRY (arm layout / lengths / slot counts) with the base row;
+// per-unit state is independent. Note there is deliberately NO `appliance`
+// field and NO drawer fields here — see KitchenUpperUnitFront above.
+
+export interface KitchenUpperUnitConfig {
+    /** Slot index within its arm (0-based) — aligns with the arm's slot grid. */
+    readonly index: number;
+    /** Which arm this unit belongs to (used for L/U layouts) */
+    readonly arm: 'main' | 'left' | 'right';
+    /** Front finish for this wall-cabinet unit */
+    front: KitchenUpperUnitFront;
+    /** Override width for this unit (falls back to the arm's upper slot width) */
+    width?: number;
+    /** Optional user label */
+    label?: string;
+    /** Door material override from STANDARD_MATERIAL_LIBRARY */
+    doorMaterialId?: string;
+    /** Door colour override when no material id is selected */
+    doorColor?: string;
+    /** Handle style override for this unit */
+    handleStyle?: KitchenHandleStyle;
+    /** Shelf count override for open-shelf fronts (2 | 3 | 4) */
+    numShelves?: number;
 }
 
 // ── Global kitchen cabinet config ───────────────────────────────────────────
@@ -147,8 +194,20 @@ export interface KitchenCabinetConfig {
     handleColor?: string;
 
     // ── Per-unit configurations ───────────────────────────────────────────────
-    /** Customisation state for every unit. Indexed by arm + index. */
+    /** Customisation state for every BASE unit. Indexed by arm + index. */
     units?: KitchenUnitConfig[];
+
+    /**
+     * §KITCHEN107 (L-11600) — customisation state for every UPPER (wall
+     * cabinet) unit on tall layouts. Indexed by arm + slot index, one entry
+     * per slot ('omitted' = no cabinet in that slot). ADDITIVE field (C47:
+     * optional, omit-when-absent): records persisted before this field render
+     * via `deriveUpperUnits()` at build time — the upper row keeps the base
+     * row's count/positions but the physically impossible mirrored features
+     * (hob / sink / drawers / appliances) are dropped, since they were never
+     * authorable intent for a wall cabinet. Ignored on non-tall layouts.
+     */
+    upperUnits?: KitchenUpperUnitConfig[];
 }
 
 // ── Defaults ─────────────────────────────────────────────────────────────────
@@ -249,6 +308,145 @@ export function mergeUnits(
     return merged;
 }
 
+// ── Upper-row helpers (§KITCHEN107, L-11600) ────────────────────────────────
+
+/**
+ * The appliances that occupy the FULL unit height (1.78–1.85 m free-standing
+ * fridges) and therefore reach into the wall-cabinet zone. ONE vocabulary,
+ * shared by the countertop-omission rule, the upper-row derivation and the
+ * engine's upper-slot collision skip (C84 EI-9 — never re-declare this set).
+ */
+export const TALL_KITCHEN_APPLIANCES: ReadonlySet<string> = new Set([
+    'fridge_compact_silver', 'fridge_compact_dark',
+    'fridge_combi_silver',   'fridge_combi_dark',
+    'fridge_side_silver',    'fridge_side_dark',
+]);
+
+/**
+ * Derive a DEFAULT upper (wall cabinet) unit list from the base row — used
+ * (a) to mint `upperUnits` for a fresh tall kitchen and (b) at BUILD time for
+ * records persisted before `upperUnits` existed (the mirrored-upper defect,
+ * L-11600). The upper row keeps the base row's arm layout and slot count;
+ * per-slot state maps by physical possibility:
+ *   • base slot hosts a TALL appliance (fridge) → 'omitted' (the appliance
+ *     occupies the upper zone — a cabinet there would intersect it);
+ *   • base front is representable in the upper vocabulary and the slot has no
+ *     appliance → the front carries over (door / glass / framed glass / shelf /
+ *     none), with its material / colour / handle / shelf-count overrides;
+ *   • anything else (drawer stacks, hob / sink / washer slots) → plain 'door'.
+ * Mirrored appliances are dropped by construction — `KitchenUpperUnitConfig`
+ * cannot represent them.
+ */
+export function deriveUpperUnits(
+    baseUnits: ReadonlyArray<KitchenUnitConfig>,
+    numMain: number,
+    numLeft: number,
+    numRight: number,
+): KitchenUpperUnitConfig[] {
+    const out: KitchenUpperUnitConfig[] = [];
+    const arms: Array<{ arm: 'main' | 'left' | 'right'; count: number }> = [
+        { arm: 'main',  count: numMain  },
+        { arm: 'left',  count: numLeft  },
+        { arm: 'right', count: numRight },
+    ];
+    const UPPER_FRONTS: ReadonlySet<string> = new Set(
+        ['door', 'glass_door', 'framed_glass_door', 'shelf', 'none'],
+    );
+    for (const { arm, count } of arms) {
+        const armUnits = baseUnits.filter(u => u.arm === arm);
+        for (let i = 0; i < count; i++) {
+            const base = armUnits.find(u => u.index === i);
+            if (base?.appliance && TALL_KITCHEN_APPLIANCES.has(base.appliance)) {
+                out.push({ index: i, arm, front: 'omitted' });
+                continue;
+            }
+            const carryFront =
+                !base?.appliance && base?.front && UPPER_FRONTS.has(base.front)
+                    ? (base.front as KitchenUpperUnitFront)
+                    : 'door';
+            const upper: KitchenUpperUnitConfig = { index: i, arm, front: carryFront };
+            if (base && !base.appliance) {
+                if (base.doorMaterialId !== undefined) upper.doorMaterialId = base.doorMaterialId;
+                if (base.doorColor      !== undefined) upper.doorColor      = base.doorColor;
+                if (base.handleStyle    !== undefined) upper.handleStyle    = base.handleStyle;
+                if (carryFront === 'shelf' && base.numShelves !== undefined) upper.numShelves = base.numShelves;
+            }
+            out.push(upper);
+        }
+    }
+    return out;
+}
+
+/** Merge existing UPPER unit configs with newly required counts (preserves
+ *  user choices, fills new slots with plain doors). Mirrors `mergeUnits`. */
+export function mergeUpperUnits(
+    existing: ReadonlyArray<KitchenUpperUnitConfig>,
+    numMain: number,
+    numLeft: number,
+    numRight: number,
+): KitchenUpperUnitConfig[] {
+    const merged: KitchenUpperUnitConfig[] = [];
+    const arms: Array<{ arm: 'main' | 'left' | 'right'; count: number }> = [
+        { arm: 'main',  count: numMain  },
+        { arm: 'left',  count: numLeft  },
+        { arm: 'right', count: numRight },
+    ];
+    for (const { arm, count } of arms) {
+        const armUnits = existing.filter(u => u.arm === arm);
+        for (let i = 0; i < count; i++) {
+            merged.push(armUnits.find(u => u.index === i) ?? { index: i, arm, front: 'door' });
+        }
+    }
+    return merged;
+}
+
+/**
+ * §KITCHEN107 (L-11601) — re-target an existing kitchen config to a NEW layout
+ * type. This is what makes `CHANGE_FURNITURE_TYPE` actually change the kitchen:
+ * `KitchenBuilder` routes on `kitchenConfig.layoutType`, NOT on the record's
+ * `furnitureType`, so a type swap that keeps the old config verbatim is a
+ * visual no-op (the founder's "changing type doesn't really change it").
+ * Shared dimensions / materials / per-unit choices survive; arm fields are
+ * seeded with defaults when the new layout needs arms the old one lacked, and
+ * the unit lists are re-merged to the new arm counts.
+ */
+export function retargetKitchenConfig(
+    oldCfg: KitchenCabinetConfig | undefined,
+    layout: KitchenLayoutType,
+): KitchenCabinetConfig {
+    if (!oldCfg) return buildDefaultKitchenConfig(layout);
+
+    const isIsland  = layout === 'kitchen_island';
+    const needLeft  = !isIsland && layout !== 'kitchen_straight' && layout !== 'kitchen_straight_tall';
+    const needRight = layout === 'kitchen_u_shape' || layout === 'kitchen_u_shape_tall';
+
+    const numLeft  = needLeft  ? (oldCfg.numUnitsLeft  ?? 3) : 0;
+    const numRight = needRight ? (oldCfg.numUnitsRight ?? 3) : 0;
+
+    const units = mergeUnits(oldCfg.units ?? [], oldCfg.numUnits, numLeft, numRight);
+
+    const cfg: KitchenCabinetConfig = {
+        ...oldCfg,
+        layoutType:    layout,
+        numUnits:      oldCfg.numUnits,
+        lengthLeft:    needLeft  ? (oldCfg.lengthLeft  ?? 1.80) : undefined,
+        numUnitsLeft:  needLeft  ? numLeft                       : undefined,
+        lengthRight:   needRight ? (oldCfg.lengthRight ?? 1.80) : undefined,
+        numUnitsRight: needRight ? numRight                      : undefined,
+        units,
+    };
+
+    if (isTallKitchenLayout(layout)) {
+        cfg.upperUnits = oldCfg.upperUnits
+            ? mergeUpperUnits(oldCfg.upperUnits, oldCfg.numUnits, numLeft, numRight)
+            : deriveUpperUnits(units, oldCfg.numUnits, numLeft, numRight);
+    }
+    // Non-tall targets keep any existing `upperUnits` untouched (the engine
+    // ignores them) so toggling tall → non-tall → tall round-trips authoring.
+
+    return cfg;
+}
+
 /**
  * Build a complete `KitchenCabinetConfig` for the given layout, populated with
  * the default arm lengths, unit counts, materials and per-unit configs that
@@ -303,6 +501,11 @@ export function buildDefaultKitchenConfig(
         lengthRight:          numRight > 0 ? 1.80 : undefined,
         numUnitsRight:        numRight > 0 ? numRight : undefined,
         units,
+        // §KITCHEN107 (L-11600) — tall layouts mint an EXPLICIT independent
+        // upper row (wall cabinets) rather than mirroring the base units.
+        ...(isTallKitchenLayout(layout)
+            ? { upperUnits: deriveUpperUnits(units, numUnits, numLeft, numRight) }
+            : {}),
         // Default materials: oak doors, marble countertop (Carrara for islands).
         frontMaterialId:      'wood-oak',
         countertopMaterialId: isIsland ? 'stone-marble-carrara' : 'stone-marble-white',
