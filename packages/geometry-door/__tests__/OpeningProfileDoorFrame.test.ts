@@ -57,6 +57,7 @@ function buildGroup(door: Record<string, unknown> = DOOR, lod: Lod = 'fine'): TH
     } as never;
     const scene = new THREE.Scene();
     const builder = new DoorBuilder(scene, wallStoreStub);
+    builder.setMeshConsolidation(false); // §MESH110 — this file pins the BUILD stage (per-part structure); the MERGE stage is pinned in DoorMeshConsolidation.test.ts
     (builder as unknown as { rebuild(x: unknown): void }).rebuild(door);
     let group: THREE.Group | null = null;
     scene.traverse(o => { if (o.userData?.id === door.id && o !== scene) group = o as THREE.Group; });

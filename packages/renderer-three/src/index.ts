@@ -61,6 +61,11 @@ export { CSS2DRenderer, CSS2DObject } from './addons/CSS2DRenderer.js';
 export type { CSS2DParameters } from './addons/CSS2DRenderer.js';
 
 export { mergeGeometries, toCreasedNormals, mergeVertices } from './addons/BufferGeometryUtils.js';
+// §MESH110-CONSOLIDATE (L-11567 #1) — the ONE same-material sibling-mesh merge,
+// shared by every element builder (doors today; lighting carries a private copy
+// pending §OUTDOOR112's edit of that file).
+export { consolidateSiblingMeshes } from './consolidateSiblingMeshes.js';
+export type { ConsolidateSiblingMeshesOptions, ConsolidateSiblingMeshesReport } from './consolidateSiblingMeshes.js';
 
 export { EffectComposer, Pass, FullScreenQuad } from './addons/postprocessing/EffectComposer.js';
 

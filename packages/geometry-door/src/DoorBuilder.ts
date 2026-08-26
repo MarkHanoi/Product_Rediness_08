@@ -1,7 +1,8 @@
 import * as THREE from '@pryzm/renderer-three/three';
 // §I2 — WebGPU-safe disposal: routing material/geometry teardown through these
 // stops the `[DoorBuilder] build error: … usedTimes` throw aborting rebuild().
-import { safeDisposeGeometry, safeDisposeMaterial } from '@pryzm/renderer-three';
+// §MESH110-DOOR-MERGE (L-11567 #1b) — the ONE shared sibling-mesh merge (renderer-three).
+import { safeDisposeGeometry, safeDisposeMaterial, consolidateSiblingMeshes } from '@pryzm/renderer-three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { doorStore } from './DoorStore';
 import { doorSystemTypeStore } from './DoorSystemTypeStore';
@@ -262,6 +263,15 @@ export class DoorBuilder {
     // ── C11 §2 step 3: FrameScheduler adaptive drain ──────────────────────────
     /** Pending door builds keyed by id — later update wins (dedup). */
     private _pendingBuilds = new Map<string, DoorBuildTask>();
+
+    /**
+     * §MESH110-DOOR-MERGE (L-11567 #1b) — whether the MERGE stage runs after the
+     * build stage. DEFAULT ON — the production path always merges. The seam
+     * exists so the build-stage pins (per-part BoxGeometry structure, the
+     * L-957 byte-identical digest) keep measuring the stage they were written
+     * for; it is not a feature flag and nothing in production turns it off.
+     */
+    private _consolidateMeshes = true;
     /** FrameScheduler disposer for the drain loop — null when idle. */
     private _rafHandle: TickListenerDisposer | null = null;
     /** Adaptive per-frame budget, starts at 5, adjusts by ±1 each frame. */
@@ -620,6 +630,25 @@ export class DoorBuilder {
         }
         const mats = this.buildVisuals(door, group, frameDepth, vgStyle, lod, arc);
         this.doorMaterials.set(door.id, mats);
+        // ⭐ §MESH110-DOOR-MERGE (L-11567 #1b) — THE MERGE STAGE. A door built 13-15
+        // meshes typical / ~30 worst (3 hinges + 4 handle parts + 5 leaf parts + 3
+        // stops + frame, every one its own draw of identical material state), and
+        // the founder crossed the 1000-mesh backend-swap arm with ONE door create.
+        // Same-(material, role, shadow-intent) siblings now collapse to one mesh:
+        // frame + leaf + hinges + handle ≈ 4 at `fine`. `role` is a bucket term so
+        // the plan projector's `doorLeaf` gate and `skipInPlan` partition (stamped
+        // below, per mesh, from `role`) are unchanged; every merged mesh still hangs
+        // under `group`, so selection's ancestor walk resolves it to the door.
+        // Runs on curved hosts too — a re-seated member's `rotation.y` is baked.
+        // The BUILD stage above stays byte-identical (L-957 slice 0): the pins that
+        // measure per-part structure opt out via `setMeshConsolidation(false)`; the
+        // merge stage has its own pins in DoorMeshConsolidation.test.ts.
+        if (this._consolidateMeshes) {
+            consolidateSiblingMeshes(group, {
+                keyOf: (m) => (m.userData.role as string | undefined) ?? '',
+                mergedName: 'door-merged',
+            });
+        }
         this.positionGroup(door, group, wallData);
         group.traverse(obj => {
             if (obj !== group && obj instanceof THREE.Mesh) {
@@ -670,6 +699,14 @@ export class DoorBuilder {
         // F.events.18 — typed bus replaces variable CustomEvent
         if (isUpdate) _bus.emit('bim-door-updated', { id: door.id });
         else _bus.emit('bim-door-added', { id: door.id });
+    }
+
+    /**
+     * §MESH110-DOOR-MERGE — see `_consolidateMeshes`. Test seam for BUILD-stage
+     * structure pins; production never calls this.
+     */
+    setMeshConsolidation(enabled: boolean): void {
+        this._consolidateMeshes = enabled;
     }
 
     private positionGroup(door: DoorOpening, group: THREE.Group, wallData: any): void {
@@ -1384,12 +1421,17 @@ export class DoorBuilder {
 
         const group = this.doorGroups.get(id);
         if (group) {
+            // §MESH110 / ADR-0297 invariant L2 (dispose-before-detach) — this was the
+            // ONLY remaining raw L2 inversion in the element builders (ISSUE-LOG's
+            // per-family survey): geometry was freed while the group was still IN the
+            // scene, so a frame encoded in between could draw destroyed buffers.
+            // DETACH first, release second — the same order WindowBuilder took.
+            this.scene.remove(group);
             group.traverse(obj => {
                 if (obj instanceof THREE.Mesh) {
                     safeDisposeGeometry(obj.geometry); // §I2 — WebGPU-safe
                 }
             });
-            this.scene.remove(group);
             this.doorGroups.delete(id);
             elementRegistry.unregisterRoot(id);
 

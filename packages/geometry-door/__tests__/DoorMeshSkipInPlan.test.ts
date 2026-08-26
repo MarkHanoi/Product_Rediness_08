@@ -58,6 +58,7 @@ const DOOR = {
 function buildDoor(door: Record<string, unknown>): THREE.Mesh[] {
     const scene = new THREE.Scene();
     const builder = new DoorBuilder(scene, wallStoreStub);
+    builder.setMeshConsolidation(false); // §MESH110 — this file pins the BUILD stage (per-part structure); the MERGE stage is pinned in DoorMeshConsolidation.test.ts
     (builder as unknown as { rebuild(d: unknown): void }).rebuild(door);
     const meshes: THREE.Mesh[] = [];
     scene.traverse(o => { if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh); });
