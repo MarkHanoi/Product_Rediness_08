@@ -56,6 +56,41 @@ export type SlabLayerFunction =
     | 'surfacing';
 
 /**
+ * §SLABTYPES117 — how a layer is ARTICULATED in 3D when it is not a solid poché.
+ *
+ * A plain layer is the outline extruded to the layer's thickness. The founder's
+ * *"glass structural slab with metal beams"* needs one layer that is a GRID of beams,
+ * and two of the fancy rows need a layer that is only a perimeter BAND. Both are
+ * still layers — a name, a thickness, a function, a master material — and this
+ * field says only what the record does not already say. In particular:
+ *
+ *   · beam DEPTH is the layer's `thickness` (one number, one vocabulary);
+ *   · beam COLOUR is the layer's `materialId` (C84 EI-9 — there is deliberately no
+ *     `beamColor`; the Layers editor and the §SLAB116 restyle path already own it).
+ *
+ * ADDITIVE and OPTIONAL (C47): every pre-existing layer has none and is a solid.
+ * Drawn by `CompositeSlabBuilder`; the count of beams is DERIVED from the span at a
+ * constant beam size, so a wider slab gets more beams, never fatter ones.
+ */
+export type SlabLayerArticulation =
+    | {
+        kind: 'beam-grid';
+        /** Beam width in metres — constant; never derived from the span. */
+        beamWidth: number;
+        /** Centre-to-centre ceiling in metres: bays = ceil(span / maxSpacing). */
+        maxSpacing: number;
+        /** `'both'` (default) is an orthogonal grid; `'x'` / `'z'` are one-way joists. */
+        direction?: 'x' | 'z' | 'both';
+        /** A ring beam at the outline and a trimmer around every opening (default true). */
+        perimeter?: boolean;
+      }
+    | {
+        kind: 'perimeter-band';
+        /** Band width in metres, measured inward from the outline (and outward from a hole). */
+        bandWidth: number;
+      };
+
+/**
  * §03-1.3: A single material layer within a slab system type.
  * Thickness is in metres. materialColor is a CSS hex string.
  */
@@ -80,6 +115,11 @@ export interface SlabLayer {
      * every pre-existing layer is exactly that — so this field is additive.
      */
     materialId?: string;
+    /**
+     * §SLABTYPES117 — see {@link SlabLayerArticulation}. Absent ⇒ a solid layer,
+     * which is every layer authored before this field existed.
+     */
+    articulation?: SlabLayerArticulation;
 }
 
 export interface SlabData extends CoreElement {

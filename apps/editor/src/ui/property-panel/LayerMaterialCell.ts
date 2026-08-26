@@ -115,7 +115,11 @@ export const LAYER_COLOUR_PRECEDENCE: Readonly<Record<LayeredFamily, LayerColour
             "the layer's own colour",
             "the slab's Color Override",
         ],
-        evidence: "packages/geometry-slab/src/SlabFragmentBuilder.ts:692 — layerMasterHex ?? layer.materialColor ?? data.materialColor ?? '#909090'",
+        // §SLAB116 (L-11780): the ladder moved out of the layered build arm into ONE
+        // named function that the single-layer body and the in-place restyle path
+        // also call — until then a one-layer slab (every plan-tool slab) was painted
+        // from slab-level fields and this sentence was false for it.
+        evidence: "packages/geometry-slab/src/SlabFragmentBuilder.ts:1696 — SlabFragmentBuilder.resolveLayerPaint(): masterHex(layer.materialId) ?? layer.materialColor ?? data.materialColor ?? '#909090'",
         note: 'A layer that names a material is painted in THAT material’s colour. The colour box beside it is kept as a fallback and is used only if the material is ever missing. Clear the material to paint your own colour.',
         divergedLabel: 'material wins',
         divergedHint: 'This slab layer is painted in its material’s colour (%s), not the colour shown. Click ↺ to match them, or set the material to “— no material —” to paint your own colour.',

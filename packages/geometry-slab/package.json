@@ -13,7 +13,8 @@
     "./region-tracer": "./src/SlabRegionTracer.ts",
     "./region-boundary": "./src/RegionBoundarySources.ts",
     "./boundary-arc": "./src/boundaryArc.ts",
-    "./boundary-loops": "./src/boundaryLoops.ts"
+    "./boundary-loops": "./src/boundaryLoops.ts",
+    "./type-catalogue": "./src/SlabTypeCatalogue.ts"
   },
   "files": [
     "src"

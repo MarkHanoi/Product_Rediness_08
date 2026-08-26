@@ -9,6 +9,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { detachAndReleaseChildren, scheduleGpuRelease } from '@pryzm/renderer-three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { SlabData } from './SlabTypes';
+import { createArticulatedLayerMesh } from './CompositeSlabBuilder';
 import { BimManager } from '@pryzm/core-app-model';
 // §FEAT-LANDSCAPE-SLAB-TYPES (L-963) / C100 — the THREE-free-facing edge of the
 // master material catalogue. `materialHexById` is the sanctioned way to read a
@@ -175,6 +176,23 @@ export interface SlabBuildVerdict {
     detail: string;
     at: number;
 }
+
+/**
+ * §SLAB116 (L-11780) — WHAT A BODY MESH PAINTS, stamped on `mesh.userData.paintSlot`
+ * at build time and read by the in-place restyle path.
+ *
+ *   · `body`  — the slab-level `materialId` / `materialColor` (a record with no layer
+ *               stack, or a multi-layer stack drawn as ONE merged body at LOD coarse).
+ *   · `layer` — layer `index` of `data.layers`, through `resolveLayerPaint`'s ladder
+ *               (the per-layer assembly, and a one-layer stack's single body).
+ *
+ * A closed union on purpose: a composite slab's parts (glass panel, beam — SLABTYPES117)
+ * are added HERE as new members with their own `_materialForSlot` arm, never encoded
+ * as a positional index into a plan. See `_materialForSlot` for the seam.
+ */
+export type SlabPaintSlot =
+    | { readonly kind: 'body' }
+    | { readonly kind: 'layer'; readonly index: number };
 
 export class SlabFragmentBuilder {
     /**
@@ -366,7 +384,175 @@ export class SlabFragmentBuilder {
             }
             return;
         }
+        // §SLAB116-RESTYLE-NOT-RESEAT (L-11780) — an APPEARANCE-ONLY change swaps
+        // materials on the existing meshes and touches NOTHING else: no ring
+        // re-resolution, no triangulation, no root.position write. See
+        // _tryRestyleInPlace for the decision table and why a byte-identical
+        // record still rebuilds (SlabStore.triggerRebuild's contract).
+        if (this._tryRestyleInPlace(data)) return;
         this._buildSlab(data);
+    }
+
+    /**
+     * ─── §SLAB116-RESTYLE-NOT-RESEAT (L-11780, founder 2026-08-26) ──────────────
+     *
+     * THE DEFECT THIS CLOSES. Setting a slab's Color Override dispatched
+     * `UPDATE_ELEMENT_PARAMETER` → `SlabStore.update` → `bim-slab-updated` → a FULL
+     * `_buildSlab`: the sketch loop re-resolved against the live walls, the ring was
+     * re-outset and re-triangulated, and `root.position` was re-written — for an edit
+     * that changed one hex string. The founder's console showed the consequence:
+     * `[TopologyLayer] … 1 LOST [lift↔slab] … its group bounds moved under this scan`,
+     * and his screenshot showed the slab re-seated visibly outside the building. A
+     * restyle must not be able to re-seat, and after this change it cannot: the
+     * appearance path never computes a transform at all.
+     *
+     * WHEN IT RESTYLES — every condition below must hold, all measured against the
+     * data this builder actually built (`_builtData`), never against assumptions:
+     *   · the slab has a live root AND a previous build in this session;
+     *   · no geometry build for this id is queued (a restyle must not overtake one);
+     *   · the resolved Detail Level tier is unchanged (a tier change re-articulates);
+     *   · the GEOMETRY signature is unchanged (polygon, sketch, holes, thickness,
+     *     baseOffset, level, position, width/depth, per-layer thicknesses);
+     *   · something ELSE about the record DID change (colour, material, name…).
+     *
+     * ⛔ A BYTE-IDENTICAL RECORD REBUILDS, DELIBERATELY. `SlabStore.triggerRebuild`
+     * fires `bim-slab-updated` with an UNCHANGED record precisely to request a
+     * geometry re-projection (opening holes live in the openingStore, outside the
+     * record). Treating "nothing changed" as "restyle" would silently break every
+     * opening punch. Reference equality catches the triggerRebuild fast path (the
+     * store hands out the same frozen instance); the JSON comparison is the backstop
+     * for a cloned-but-equal record.
+     */
+    private _tryRestyleInPlace(data: SlabData): boolean {
+        const prev = this._builtData.get(data.id);
+        if (!prev) return false;
+        const root = this.slabRoots.get(data.id);
+        if (!root) return false;
+        // A queued geometry build holds NEWER geometry than the scene — restyling
+        // over it would paint the old shape and let the drain later rebuild stale.
+        if (this._pendingBuilds.some(b => b.id === data.id)) return false;
+        if (this._pausedBuilds.some(b => b.id === data.id)) return false;
+        // Tier moved ⇒ the ARTICULATION changes (assembly vs merged body) — rebuild.
+        if (this._lodFor(data) !== this._builtLod.get(data.id)) return false;
+        // Identical record ⇒ this is a re-projection REQUEST, not an edit — rebuild.
+        if (prev === data) return false;
+        const prevJson = JSON.stringify(prev);
+        const nextJson = JSON.stringify(data);
+        if (prevJson === nextJson) return false;
+        // Any geometry-bearing field moved ⇒ rebuild.
+        if (SlabFragmentBuilder._geometrySignature(prev) !== SlabFragmentBuilder._geometrySignature(data)) {
+            return false;
+        }
+
+        // ── PER-MATERIAL-SLOT, TWO-PHASE ─────────────────────────────────────────
+        // Every body mesh was stamped at build time with the PAINT SLOT it draws
+        // (`userData.paintSlot`, see `SlabPaintSlot`). Phase 1 resolves a material for
+        // every mesh from its slot and the NEW record; a mesh whose slot cannot be
+        // resolved — no stamp, an unknown kind, a layer index the record no longer
+        // has — refuses the whole restyle BEFORE anything is assigned, so the scene
+        // is never left half-painted. Phase 2 swaps. Slots, not positions, are what
+        // let a composite slab (glass panel + beam meshes, each its own slot) restyle
+        // without a rebuild: the seat is never recomputed on this path at all.
+        const meshes: THREE.Mesh[] = [];
+        for (const child of root.children) {
+            const m = child as THREE.Mesh;
+            if (m.isMesh && m.userData?.role === 'geometry') meshes.push(m);
+        }
+        if (meshes.length === 0) return false;
+        const next: THREE.Material[] = [];
+        for (const mesh of meshes) {
+            const material = this._materialForSlot(data, mesh.userData?.paintSlot);
+            if (!material) {
+                // Phase-1 refusal: nothing minted above must leak.
+                for (const m of next) scheduleGpuRelease(m);
+                return false;
+            }
+            next.push(material);
+        }
+        for (let i = 0; i < meshes.length; i++) {
+            const mesh = meshes[i]!;
+            const oldMaterial = mesh.material;
+            mesh.material = next[i]!;
+            // §GPU-RESOURCE-LIFETIME (ADR-0297 L2) — release the replaced material at
+            // the next frame boundary, never synchronously while a frame may encode.
+            scheduleGpuRelease(oldMaterial as THREE.Material);
+        }
+
+        // M7 §SLAB-SYSTEM-AUDIT-2026 delete-not-undefined semantics, same as _buildSlab.
+        if (data.materialColor !== undefined) root.userData.materialColor = data.materialColor;
+        else delete root.userData.materialColor;
+        if (data.materialId !== undefined) root.userData.materialId = data.materialId;
+        else delete root.userData.materialId;
+
+        this._builtData.set(data.id, data);
+
+        // Ungated on purpose (fires at user-gesture rate, not load rate): the absence
+        // of any restyle/rebuild line is exactly what made L-11780 cost a session.
+        console.log(
+            `[SlabFragmentBuilder] §SLAB116 RESTYLE slabId="${data.id}" meshes=${meshes.length} — `
+            + `appearance-only change; geometry and world position untouched.`,
+        );
+        return true;
+    }
+
+    /**
+     * §SLAB116 — the fields whose change means the MESH or its SEAT changes.
+     * One projection, compared as a string, so the restyle gate cannot drift from
+     * the build inputs field by field. `properties`, colours, materials, names and
+     * `systemTypeId` are deliberately absent: they never reach the triangulator.
+     */
+    private static _geometrySignature(data: SlabData): string {
+        return JSON.stringify({
+            levelId: data.levelId,
+            thickness: data.thickness,
+            baseOffset: data.baseOffset ?? 0,
+            position: data.position,
+            width: data.width,
+            depth: data.depth,
+            polygon: data.polygon ?? null,
+            holes: data.holes ?? null,
+            sketch: data.sketch ?? null,
+            layerThicknesses: Array.isArray(data.layers)
+                ? data.layers.map(l => l.thickness)
+                : null,
+        });
+    }
+
+    /**
+     * §SLAB116 — the material a body mesh should carry NOW, resolved from the slot
+     * it was stamped with at build time and the CURRENT record. Returns `null` for
+     * anything it cannot answer honestly — no stamp, an unknown kind, a layer the
+     * record no longer has — and `null` means "rebuild", never "paint the default".
+     *
+     * ⭐ THE EXTENSION SEAM. A new body-mesh kind (a composite slab's glass panel or
+     * beam, SLABTYPES117) adds ONE member to {@link SlabPaintSlot}, ONE arm here that
+     * derives its material from the record, and stamps the slot where it builds the
+     * mesh. Nothing about the seat is consulted on this path, so the new kind restyles
+     * without re-seating by construction. Until its arm exists, an unknown kind falls
+     * back to a full rebuild — correct, merely slower — rather than being painted as
+     * the body (which would turn a glass panel opaque).
+     */
+    private _materialForSlot(data: SlabData, slot: unknown): THREE.Material | null {
+        if (!slot || typeof slot !== 'object') return null;
+        const s = slot as Partial<SlabPaintSlot>;
+        switch (s.kind) {
+            case 'body':
+                return SlabFragmentBuilder.resolveBodyMaterial(
+                    { materialId: data.materialId, materialColor: data.materialColor },
+                    this._deps,
+                );
+            case 'layer': {
+                if (typeof s.index !== 'number') return null;
+                const layer = Array.isArray(data.layers) ? data.layers[s.index] : undefined;
+                if (!layer) return null;
+                return SlabFragmentBuilder.resolveBodyMaterial(
+                    SlabFragmentBuilder.resolveLayerPaint(data, layer),
+                    this._deps,
+                );
+            }
+            default:
+                return null;
+        }
     }
 
     // ── §BATCH-SLAB-PAUSE: public control surface ────────────────────────────
@@ -652,7 +838,8 @@ export class SlabFragmentBuilder {
             // Layers are ordered top-to-bottom (Revit convention).
             // Y=0 is the slab bottom; Y=totalThickness is the top.
             let yOffset = data.thickness; // start at the top face
-            for (const layer of data.layers) {
+            for (let layerIndex = 0; layerIndex < data.layers.length; layerIndex++) {
+                const layer = data.layers[layerIndex]!;
                 const layerThickness = layer.thickness;
                 if (!layerThickness || layerThickness <= 0) continue;
                 const yBottom = yOffset - layerThickness;
@@ -676,21 +863,82 @@ export class SlabFragmentBuilder {
                 // A layer that names NO material is untouched: both resolve to
                 // undefined and the stored hex is used exactly as before, which is what
                 // keeps the four structural built-ins byte-identical.
-                const layerMasterHex = layer.materialId ? materialHexById(layer.materialId) : undefined;
-                if (layer.materialId && !layerMasterHex) {
-                    // C84 §5 / C100 §5 — a miss is REPORTED, never silently substituted.
-                    // Falling through to the stored hex without saying so is how "this
-                    // material was lost" and "this layer is grey" become one value.
-                    console.warn(
-                        `[SlabFragmentBuilder] §FEAT-LANDSCAPE-SLAB-TYPES layer "${layer.name}" on slab "${data.id}" ` +
-                        `names material "${layer.materialId}", which is not in the master catalogue — falling back to its stored colour.`
+                // §SLAB116 (L-11780) — the ladder itself now lives in `resolveLayerPaint`,
+                // shared with the single-layer body arm below and with the in-place
+                // restyle path, so "which colour is this layer painted" has ONE answer
+                // (C84 EI-9). The precedence is unchanged: material → layer colour →
+                // slab Color Override → default, exactly as LayerMaterialCell declares.
+                const paint = SlabFragmentBuilder.resolveLayerPaint(data, layer);
+
+                // §SLABTYPES117-ARTICULATION (L-11800/L-11801) — a layer that declares
+                // `articulation` (beam-grid / perimeter-band) is not a solid poché: it
+                // is drawn by CompositeSlabBuilder's already-tested pure planner instead
+                // of the box/polygon extrusion every other layer takes below. The ring
+                // is the SAME one `createSlabMeshWithEdges` resolves for a plain layer
+                // (`resolveBuildRing`, box-fallback synthesised the identical way the
+                // box branch below is centred at the local origin), so a beam grid never
+                // disagrees with its own slab's footprint. Material comes off the SAME
+                // ladder (`resolveLayerPaint` → `resolveBodyMaterial`) the plain arm and
+                // the in-place restyle path (`_materialForSlot`'s `'layer'` case) both
+                // use — one vocabulary, C84 EI-9 — so an articulated layer restyles
+                // in place exactly like any other the moment only its material changes.
+                // ⚠ NAMED GAP, not silent (C79 §7.4): only `data.holes` are punched
+                // here. Live OpeningStore holes and parametric-sketch inner loops are
+                // NOT yet threaded through this arm — an opening cut into an articulated
+                // layer after the fact will not appear in its beam grid until that is
+                // built. A plain layer already has both; this one does not. L-11801.
+                if (layer.articulation) {
+                    const ringChoice = SlabFragmentBuilder.resolveBuildRing(data);
+                    const isBoxRing = !ringChoice.ring || ringChoice.ring.length < 3;
+                    const w = data.width ?? 0;
+                    const d = data.depth ?? 0;
+                    const localRing = isBoxRing
+                        ? [
+                            { x: -w / 2, y: -d / 2 }, { x: w / 2, y: -d / 2 },
+                            { x: w / 2, y: d / 2 }, { x: -w / 2, y: d / 2 },
+                        ]
+                        : ringChoice.ring!;
+                    const holes = data.holes ?? [];
+                    const artMaterial = SlabFragmentBuilder.resolveBodyMaterial(paint, this._deps);
+                    const aMesh = createArticulatedLayerMesh(localRing, holes, layer.articulation, layerThickness, artMaterial);
+                    aMesh.position.set(isBoxRing ? 0 : childOffsetX, yBottom, isBoxRing ? 0 : childOffsetZ);
+                    aMesh.userData = {
+                        id: data.id,
+                        parentId: data.id,
+                        elementType: 'SlabPart',
+                        modelId: 'model-default',
+                        role: 'geometry',
+                        selectable: false,
+                        paintSlot: { kind: 'layer', index: layerIndex } satisfies SlabPaintSlot,
+                    };
+                    const aEdgeSettings = SLAB_EDGE_MODE_SETTINGS['3d'];
+                    const aEdges = new THREE.LineSegments(
+                        new THREE.EdgesGeometry(aMesh.geometry, 30),
+                        new THREE.LineBasicMaterial({
+                            color: aEdgeSettings.color,
+                            depthTest: aEdgeSettings.depthTest,
+                            depthWrite: aEdgeSettings.depthWrite,
+                        }),
                     );
+                    aEdges.renderOrder = aEdgeSettings.renderOrder;
+                    aEdges.position.copy(aMesh.position);
+                    aEdges.visible = false;
+                    aEdges.userData = { id: data.id, parentId: data.id, elementType: 'SlabEdges', role: 'edges', selectable: false };
+                    if (batchCoordinator.isBatching) {
+                        aMesh.castShadow = false;
+                        aMesh.receiveShadow = false;
+                    }
+                    root.add(aMesh);
+                    root.add(aEdges);
+                    yOffset = yBottom;
+                    continue;
                 }
+
                 const layerData = {
                     ...data,
                     thickness: layerThickness,
-                    materialColor: layerMasterHex ?? layer.materialColor ?? data.materialColor ?? '#909090',
-                    materialId: layer.materialId,
+                    materialColor: paint.materialColor,
+                    materialId: paint.materialId,
                 };
                 const { mesh: lMesh, edges: lEdges } = SlabFragmentBuilder.createSlabMeshWithEdges(layerData, {}, this._deps);
                 // Shift sub-mesh up to the correct vertical band, and laterally to
@@ -706,8 +954,14 @@ export class SlabFragmentBuilder {
                 // the plain-slab branch below already applies.
                 const lIsBox = lMesh.geometry instanceof THREE.BoxGeometry;
                 const lY = lIsBox ? yBottom + layerThickness / 2 : yBottom;
-                lMesh.position.set(childOffsetX, lY, childOffsetZ);
-                lEdges.position.set(childOffsetX, lY, childOffsetZ);
+                // §SLAB116-BOX-AT-CENTROID (L-11781) — see the plain-slab arm below:
+                // a BoxGeometry is centred on its own origin, so it belongs at the
+                // PIVOT (local 0), never at `childOffset` (which is −centroid and only
+                // correct for a polygon body whose vertices are already in world XZ).
+                lMesh.position.set(lIsBox ? 0 : childOffsetX, lY, lIsBox ? 0 : childOffsetZ);
+                lEdges.position.set(lIsBox ? 0 : childOffsetX, lY, lIsBox ? 0 : childOffsetZ);
+                // §SLAB116 — the PAINT SLOT this mesh draws, for the restyle path.
+                lMesh.userData.paintSlot = { kind: 'layer', index: layerIndex } satisfies SlabPaintSlot;
                 // P1.4: Defer shadow flags during batch — post-batch _enableShadowsOnScene
                 // runs once at batch-end via batchCoordinator.setPostBatchCallback (P1.3).
                 if (batchCoordinator.isBatching) {
@@ -720,12 +974,50 @@ export class SlabFragmentBuilder {
             }
         } else {
             // ── Plain slab: single mesh (existing behaviour) ────────────────────
-            const { mesh, edges } = SlabFragmentBuilder.createSlabMeshWithEdges(data, {}, this._deps);
+            // ⭐ §SLAB116-LAYER-PAINT-REACHES-THE-BODY (L-11780, founder 2026-08-26):
+            // "layer colour / layer material NEVER reaches the 3D scene." MEASURED ROOT:
+            // this arm passed `data` straight to createSlabMeshWithEdges, whose material
+            // reads `data.materialId` / `data.materialColor` — the SLAB-LEVEL fields — and
+            // never the layer stack. Every plan-tool slab starts as a one-layer stack
+            // (the Layers editor synthesises "Layer 1" on first open, Save Layers writes
+            // `layers: [that one]`), so `layers.length > 1` was false, the layered arm
+            // above never ran, and the stack the panel wrote was read by NOTHING in 3D.
+            // The rebuild fired every time and faithfully re-painted the old colour.
+            // That is C84 EI-9 — two vocabularies for one concept — and the UI's own
+            // declared precedence (LayerMaterialCell) cited the layered arm as evidence
+            // for a rule this arm never implemented.
+            //
+            // A one-layer stack IS the body, so it is painted through the SAME ladder
+            // the layered arm uses. A record with NO layers keeps its slab-level fields
+            // exactly as before (generator / legacy slabs are byte-identical). A multi-
+            // layer stack drawn as ONE merged body (LOD coarse) also keeps slab-level
+            // paint: a merged assembly has no single honest layer, and inventing one
+            // here would be a second rule — that gap is named in L-11780, not hidden.
+            const bodyData = (Array.isArray(data.layers) && data.layers.length === 1)
+                ? { ...data, ...SlabFragmentBuilder.resolveLayerPaint(data, data.layers[0]!) }
+                : data;
+            const { mesh, edges } = SlabFragmentBuilder.createSlabMeshWithEdges(bodyData, {}, this._deps);
+            // §SLAB116 — the PAINT SLOT this body draws, for the restyle path: the one
+            // layer when the stack has exactly one, else the slab-level fields.
+            mesh.userData.paintSlot = (bodyData !== data
+                ? { kind: 'layer', index: 0 }
+                : { kind: 'body' }) satisfies SlabPaintSlot;
             // Offset child laterally to compensate for the root pivot being at the centroid.
             // For BoxGeometry the existing Y offset (thickness/2) is preserved.
             const isBox = (mesh.geometry instanceof THREE.BoxGeometry);
-            mesh.position.set(childOffsetX, isBox ? data.thickness / 2 : 0, childOffsetZ);
-            edges.position.set(childOffsetX, isBox ? data.thickness / 2 : 0, childOffsetZ);
+            // ⭐ §SLAB116-BOX-AT-CENTROID (L-11781) — THE "SNAPS TOWARD THE PROJECT
+            // ORIGIN" DISPLACEMENT. `childOffset` is `position − pivot` = −centroid: it
+            // is the correction for a POLYGON body whose vertices are baked in world XZ
+            // (world = pivot − centroid + vertex = vertex). A BoxGeometry has no world
+            // vertices — it is centred on its own origin — so placing it at −centroid
+            // put its centre at pivot − centroid = `data.position`, which the plan tool
+            // writes as {0,0,0}. Every degraded slab therefore rendered as a width×depth
+            // box centred on the WORLD ORIGIN at the correct storey height, whatever
+            // ring it was authored on. The box belongs at the pivot (local 0), which is
+            // the resolved ring's centroid — or `position` when no ring resolved, where
+            // the two formulas coincide and nothing moves.
+            mesh.position.set(isBox ? 0 : childOffsetX, isBox ? data.thickness / 2 : 0, isBox ? 0 : childOffsetZ);
+            edges.position.set(isBox ? 0 : childOffsetX, isBox ? data.thickness / 2 : 0, isBox ? 0 : childOffsetZ);
             // P1.4: Defer shadow flags during batch — post-batch _enableShadowsOnScene
             // runs once at batch-end via batchCoordinator.setPostBatchCallback (P1.3).
             if (batchCoordinator.isBatching) {
@@ -1454,6 +1746,81 @@ export class SlabFragmentBuilder {
     }
 
     /**
+     * §SLAB116 (L-11780) — THE ONE LAYER-PAINT LADDER (C84 EI-9).
+     *
+     * material (master hex) → the layer's own colour → the slab's Color Override →
+     * default. This is the precedence `LayerMaterialCell.LAYER_COLOUR_PRECEDENCE.slab`
+     * declares to the user and cites as evidence; it was previously an inline
+     * expression inside the layered build arm, implemented NOWHERE else — so a
+     * one-layer slab, painted by the plain arm from slab-level fields, silently
+     * contradicted the sentence above the founder's Layers table.
+     *
+     * A named material that is NOT in the catalogue is REPORTED (C84 §5 / C100 §5)
+     * and the stored hex is used — falling through silently is how "this material
+     * was lost" and "this layer is grey" become one value.
+     */
+    static resolveLayerPaint(
+        data: SlabData,
+        layer: { name?: string; materialId?: string; materialColor?: string },
+    ): { materialColor: string; materialId: string | undefined } {
+        const masterHex = layer.materialId ? materialHexById(layer.materialId) : undefined;
+        if (layer.materialId && !masterHex) {
+            console.warn(
+                `[SlabFragmentBuilder] §FEAT-LANDSCAPE-SLAB-TYPES layer "${layer.name}" on slab "${data.id}" ` +
+                `names material "${layer.materialId}", which is not in the master catalogue — falling back to its stored colour.`
+            );
+        }
+        return {
+            materialColor: masterHex ?? layer.materialColor ?? data.materialColor ?? '#909090',
+            materialId: layer.materialId,
+        };
+    }
+
+    /**
+     * §SLAB116 — the ONE body-material constructor, used by `createSlabMeshWithEdges`
+     * (build) and `_tryRestyleInPlace` (appearance-only edit). Behaviour is the block
+     * that lived inline in `createSlabMeshWithEdges` until L-11780, moved verbatim:
+     * a resolvable `materialId` takes the injected `materialMap` row (PBR params,
+     * schematic collapse, texture maps at real-world scale); anything else is a flat
+     * MeshStandardMaterial in `materialColor` (default `#808080`).
+     */
+    static resolveBodyMaterial(
+        src: { materialId?: string; materialColor?: string },
+        deps: SlabBuilderDeps = {},
+    ): THREE.Material {
+        const materialMap = deps.materialMap;
+        if (src.materialId && materialMap) {
+            const matDef = materialMap.get(src.materialId);
+            if (matDef) {
+                const params: THREE.MeshStandardMaterialParameters = { ...matDef.params };
+                const visualStyle = deps.getVisualStyle ? deps.getVisualStyle() : 0;
+                if (visualStyle === 1) {
+                    // SCHEMATIC collapses PBR to flat matte on purpose; a pattern
+                    // would contradict the whole point of the style.
+                    params.metalness = 0;
+                    params.roughness = 1;
+                } else {
+                    // §MATERIAL-MAPS-AND-TILING (L-1702). `UV_METRES` is a CLAIM
+                    // about this geometry and it is true for every arm of
+                    // createSlabMeshWithEdges. The adapter returns a named state; an
+                    // unresolved map leaves the base colour rendering and is reported
+                    // once per path rather than silently swallowed (C100 §5).
+                    applyMaterialMaps(params, matDef, UV_METRES);
+                }
+                // DoubleSide ensures sides render correctly for any polygon winding.
+                params.side = THREE.DoubleSide;
+                return new THREE.MeshStandardMaterial(params);
+            }
+        }
+        return new THREE.MeshStandardMaterial({
+            color: new THREE.Color(src.materialColor || '#808080'),
+            side: THREE.DoubleSide,
+            roughness: 0.8,
+            metalness: 0.0
+        });
+    }
+
+    /**
      * FIX-5: Extended signature — accepts optional `deps` as the third argument.
      *
      * When called from updateSlab() the instance passes `this._deps` so the method
@@ -1666,47 +2033,10 @@ export class SlabFragmentBuilder {
 
         // ── Material ───────────────────────────────────────────────────────
         // FIX-5: materialMap and visualStyle resolved from injected deps, not from
-        // window.materialMap / window.projectContext.
-        let material: THREE.Material;
-        const materialMap = deps.materialMap;
-
-        if (data.materialId && materialMap) {
-            const matDef = materialMap.get(data.materialId);
-            if (matDef) {
-                const params: THREE.MeshStandardMaterialParameters = { ...matDef.params };
-                const visualStyle = deps.getVisualStyle ? deps.getVisualStyle() : 0;
-                if (visualStyle === 1) {
-                    // SCHEMATIC collapses PBR to flat matte on purpose; a pattern
-                    // would contradict the whole point of the style.
-                    params.metalness = 0;
-                    params.roughness = 1;
-                } else {
-                    // §MATERIAL-MAPS-AND-TILING (L-1702). `UV_METRES` is a CLAIM
-                    // about this geometry and it is now true for every arm above.
-                    // The adapter returns a named state; an unresolved map leaves
-                    // the base colour rendering and is reported once per path
-                    // rather than silently swallowed (C100 §5).
-                    applyMaterialMaps(params, matDef, UV_METRES);
-                }
-                // DoubleSide ensures sides render correctly for any polygon winding.
-                params.side = THREE.DoubleSide;
-                material = new THREE.MeshStandardMaterial(params);
-            } else {
-                material = new THREE.MeshStandardMaterial({
-                    color: new THREE.Color(data.materialColor || '#808080'),
-                    side: THREE.DoubleSide,
-                    roughness: 0.8,
-                    metalness: 0.0
-                });
-            }
-        } else {
-            material = new THREE.MeshStandardMaterial({
-                color: new THREE.Color(data.materialColor || '#808080'),
-                side: THREE.DoubleSide,
-                roughness: 0.8,
-                metalness: 0.0
-            });
-        }
+        // window.materialMap / window.projectContext. §SLAB116 — the block that
+        // used to live here is `resolveBodyMaterial`, shared with the in-place
+        // restyle path so a restyled mesh and a rebuilt mesh cannot disagree.
+        const material = SlabFragmentBuilder.resolveBodyMaterial(data, deps);
 
         // ── Solid mesh ─────────────────────────────────────────────────────
         const mesh = new THREE.Mesh(geometry, material);

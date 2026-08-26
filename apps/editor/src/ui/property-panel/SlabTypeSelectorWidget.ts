@@ -21,6 +21,9 @@
 // `l.materialColor ?? '#ccc'` painted every landscape type a uniform grey: the
 // picker would have contradicted the slab the user was about to get.
 import { materialHexById } from '@pryzm/core-app-model/material-library';
+// §SLABTYPES117 — the optgroup ORDER only. The rows themselves are read from the
+// store (registry-derived, C84 EI-9.1); this deep path is THREE-free and DOM-free.
+import { SLAB_TYPE_GROUP_ORDER, SLAB_TYPE_CUSTOM_GROUP } from '@pryzm/geometry-slab/type-catalogue';
 
 /**
  * §FIX-TYPE-CREATED-THEN-NOTHING (L-10068) — lane LAYERMAT10, 2026-08-23.
@@ -123,15 +126,39 @@ export function buildSlabTypeSelectorWidget(
     noneOpt.style.cssText = 'background:#1e3a5f;color:#fff;';
     sel.appendChild(noneOpt);
 
-    allTypes.forEach((t: any) => {
+    // §SLABTYPES117 — sixty-odd built-ins are unusable as one flat list, so the rows
+    // are shown under their catalogue GROUP (an <optgroup> each, in catalogue order).
+    // The membership is still `typeStore.getAll()` — nothing here knows a row by name:
+    // removing a row from the catalogue removes its option (pinned by
+    // slabTypeDropdownDerivesFromRegistry.spec.ts). User-created types carry no
+    // group and land under "Custom", after every built-in group.
+    const byGroup = new Map<string, any[]>();
+    for (const t of allTypes) {
+        const g: string = t.group ?? SLAB_TYPE_CUSTOM_GROUP;
+        if (!byGroup.has(g)) byGroup.set(g, []);
+        byGroup.get(g)!.push(t);
+    }
+    const knownOrder: readonly string[] = SLAB_TYPE_GROUP_ORDER;
+    const groupOrder = [
+        ...knownOrder.filter(g => byGroup.has(g)),
+        ...[...byGroup.keys()].filter(g => !knownOrder.includes(g)),
+    ];
+    const makeOpt = (t: any): HTMLOptionElement => {
         const opt = document.createElement('option');
         opt.value = t.id;
         const thkMm = Math.round(t.totalThickness * 1000);
         opt.textContent = `${t.name}  (${thkMm}mm)`;
         opt.style.cssText = 'background:#1e3a5f;color:#fff;';
         if (t.id === elementData.systemTypeId) opt.selected = true;
-        sel.appendChild(opt);
-    });
+        return opt;
+    };
+    for (const g of groupOrder) {
+        const og = document.createElement('optgroup');
+        og.label = g;
+        og.style.cssText = 'background:#1e3a5f;color:#93c5fd;';
+        for (const t of byGroup.get(g)!) og.appendChild(makeOpt(t));
+        sel.appendChild(og);
+    }
 
     if (allTypes.length > 0) {
         const sep = document.createElement('option');

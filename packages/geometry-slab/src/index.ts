@@ -16,6 +16,11 @@ export * from './SlabValidator';
 // ── Store ─────────────────────────────────────────────────────────────────────
 export * from './SlabStore';
 export * from './SlabSystemTypeStore';
+// §SLABTYPES117 — the built-in type table the store seeds from (pure data, THREE-free;
+// also reachable at the deep path `@pryzm/geometry-slab/type-catalogue`).
+export * from './SlabTypeCatalogue';
+// §SLABTYPES117 — geometry for an ARTICULATED layer (beam grid / perimeter band).
+export * from './CompositeSlabBuilder';
 
 // ── Geometry utilities ────────────────────────────────────────────────────────
 export * from './SlabGeomUtils';

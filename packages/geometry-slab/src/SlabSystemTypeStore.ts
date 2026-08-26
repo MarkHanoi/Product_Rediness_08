@@ -15,6 +15,8 @@
 
 import { SlabLayer } from './SlabTypes';
 import { storeEventBus } from '@pryzm/core-app-model';
+// §SLABTYPES117 — the data table this registry seeds from (THREE-free, DOM-free).
+import { SLAB_TYPE_CATALOGUE, type SlabTypeGroup } from './SlabTypeCatalogue';
 
 export interface SlabSystemType {
     id: string;
@@ -39,211 +41,25 @@ export interface SlabSystemType {
      * Do not write a comment here implying protection that is not built.
      */
     loadBearing?: boolean;
+    /**
+     * §SLABTYPES117 — the dropdown optgroup this built-in belongs to. Absent on every
+     * USER-created type (they land under "Custom"). Display grouping only: no consumer
+     * may branch on it for behaviour, and it is not persisted (built-ins never are).
+     */
+    group?: SlabTypeGroup;
     createdAt: number;
     modifiedAt: number;
 }
 
-// ─── FACTORY ──────────────────────────────────────────────────────────────────
-
-function makeBuiltIn(
-    id: string,
-    name: string,
-    description: string,
-    layers: SlabLayer[],
-    loadBearing?: boolean
-): SlabSystemType {
-    return {
-        id, name, description, layers,
-        totalThickness: parseFloat(layers.reduce((s, l) => s + l.thickness, 0).toFixed(6)),
-        ...(loadBearing === undefined ? {} : { loadBearing }),
-        createdAt: 0, modifiedAt: 0
-    };
-}
-
 // ─── BUILT-IN PRESETS ─────────────────────────────────────────────────────────
+//
+// §SLABTYPES117 — THE ROWS LIVE IN `SlabTypeCatalogue.ts`, not here. This store is
+// the REGISTRY (what every consumer reads through `getAll()`); the catalogue is the
+// DATA TABLE it seeds from. Two files, one answer: adding a type is adding a row
+// there, and it is in the dropdown, the AI ladder and the schedules by construction.
+// The four original concrete types and the ten landscape types moved there verbatim.
 
-const BUILTIN_TYPES: SlabSystemType[] = [
-    makeBuiltIn(
-        'st-monolithic-rc-200',
-        'RC Slab – Monolithic 200mm',
-        'Single-pour reinforced concrete slab — identical to pre-type-system slabs.',
-        [
-            { name: 'RC Concrete', thickness: 0.200, function: 'structure', materialColor: '#909090' }
-        ]
-    ),
-    makeBuiltIn(
-        'st-composite-deck-300',
-        'Composite Deck – 300mm',
-        'Structural concrete with insulation and screed finish.',
-        [
-            { name: 'Screed',        thickness: 0.050, function: 'screed',      materialColor: '#c8bfa8' },
-            { name: 'Insulation',    thickness: 0.050, function: 'insulation',   materialColor: '#f5e07a' },
-            { name: 'RC Concrete',   thickness: 0.200, function: 'structure',    materialColor: '#909090' }
-        ]
-    ),
-    makeBuiltIn(
-        'st-insulated-screed',
-        'Insulated Screed – 250mm',
-        'Ground-bearing slab with waterproofing, insulation, screed and finish.',
-        [
-            { name: 'Floor Finish',    thickness: 0.010, function: 'finish-surface', materialColor: '#e8e0d8' },
-            { name: 'Screed',          thickness: 0.065, function: 'screed',         materialColor: '#c8bfa8' },
-            { name: 'Insulation',      thickness: 0.075, function: 'insulation',      materialColor: '#f5e07a' },
-            { name: 'Waterproofing',   thickness: 0.005, function: 'waterproofing',   materialColor: '#404040' },
-            { name: 'RC Concrete',     thickness: 0.100, function: 'structure',       materialColor: '#909090' }
-        ]
-    ),
-    makeBuiltIn(
-        'st-topping-slab-150',
-        'Topping Slab – 150mm',
-        'Thin lightweight concrete topping over structural substrate.',
-        [
-            { name: 'Screed Topping', thickness: 0.050, function: 'screed',     materialColor: '#c8bfa8' },
-            { name: 'Substrate',      thickness: 0.100, function: 'substrate',   materialColor: '#a0a0a0' }
-        ]
-    ),
-
-    // ══ §FEAT-LANDSCAPE-SLAB-TYPES (L-963) — GRASS AND SOIL ═════════════════
-    //
-    // Founder: "For the slab — I need more slab types for landscape with grass
-    // types and soil types."
-    //
-    // ── THREE RULES THESE TEN OBEY, AND WHY ─────────────────────────────────
-    //
-    // 1. EVERY layer NAMES a master material (`materialId`) and NONE carries a
-    //    `materialColor`. The four concrete types above hard-code hexes; that is
-    //    pre-existing and left untouched, but a new type may not copy a colour
-    //    out of `MATERIAL_CATALOG` (C100 §2 — REFERENCE, never MATERIALISE). All
-    //    ids below already exist in the master's `Landscape & Ground` category:
-    //    THIS FEATURE ADDED ZERO MASTER ROWS.
-    //
-    // 2. EVERY type has AT LEAST TWO layers, and that is load-bearing on the
-    //    RENDER, not a stylistic choice. `SlabFragmentBuilder` takes its layered
-    //    path only on `data.layers.length > 1`; a single-layer type falls to the
-    //    plain path, which reads `data.materialId` — a field `UpdateSlabLayersCommand`
-    //    never writes (it sets layers + thickness + systemTypeId only). A
-    //    one-layer landscape type would therefore be stored perfectly and render
-    //    GREY. Soils are genuinely layered anyway, so the honest model and the
-    //    working one coincide.
-    //
-    // 3. `loadBearing: false` on all ten — metadata, with nothing enforcing it.
-    //    See the field's note on `SlabSystemType`.
-    //
-    // ⚠ FOUR grass types, not five. The founder's list named meadow AND
-    // wildflower; the master has ONE row for both — `landscape-grass-meadow`,
-    // labelled "Wildflower Meadow". Publishing two types that resolve to one
-    // material would put two names in the dropdown that render identically, an
-    // affordance with nothing behind it. One honest type instead.
-
-    // ── GRASS ───────────────────────────────────────────────────────────────
-    makeBuiltIn(
-        'st-landscape-lawn-280',
-        'Lawn — Mown Turf on Topsoil',
-        'Domestic/amenity lawn: turf over a screened topsoil root zone on a free-draining gravel raft. Not structural.',
-        [
-            { name: 'Mown Lawn Turf',   thickness: 0.030, function: 'growing-medium', materialId: 'landscape-grass-lawn' },
-            { name: 'Screened Topsoil', thickness: 0.150, function: 'growing-medium', materialId: 'landscape-topsoil' },
-            { name: 'Drainage Gravel',  thickness: 0.100, function: 'drainage',       materialId: 'landscape-gravel-light' }
-        ],
-        false
-    ),
-    makeBuiltIn(
-        'st-landscape-meadow-330',
-        'Wildflower Meadow on Low-Nutrient Subsoil',
-        'Species-rich meadow. The sward sits on a deliberately LOW-nutrient sandy loam — fertile topsoil favours coarse grasses and suppresses flowering species, so this is not "lawn with a different colour". Covers both "meadow" and "wildflower": the master catalogue holds ONE row for both. Not structural.',
-        [
-            { name: 'Meadow Sward',           thickness: 0.080, function: 'growing-medium', materialId: 'landscape-grass-meadow' },
-            { name: 'Low-Nutrient Sandy Loam', thickness: 0.200, function: 'growing-medium', materialId: 'landscape-soil-sandy-loam' },
-            { name: 'Drainage Gravel',        thickness: 0.050, function: 'drainage',       materialId: 'landscape-gravel-light' }
-        ],
-        false
-    ),
-    makeBuiltIn(
-        'st-landscape-sports-turf-400',
-        'Sports Turf — Ryegrass on Sand Rootzone',
-        'Pitch construction: ryegrass sward on a free-draining sand rootzone over a gravel carpet. ⚠ The material REFERENCED is `landscape-grass-ryegrass` because perennial ryegrass IS the standard sports-pitch species — this is a deliberate reference, NOT a gap. Do not "fix" it by minting a "sports turf" master row; that would be a duplicate of a row that already says the right thing. Not structural.',
-        [
-            { name: 'Ryegrass Sward',        thickness: 0.040, function: 'growing-medium', materialId: 'landscape-grass-ryegrass' },
-            { name: 'Sand Rootzone',         thickness: 0.250, function: 'growing-medium', materialId: 'landscape-sand' },
-            { name: 'Gravel Drainage Carpet', thickness: 0.110, function: 'drainage',      materialId: 'landscape-gravel-basalt' }
-        ],
-        false
-    ),
-    makeBuiltIn(
-        'st-landscape-turf-artificial-160',
-        'Artificial Turf on Sand Blinding',
-        'Synthetic turf pile on a sharp-sand blinding over a compacted sub-base. The pile is `surfacing`, not `growing-medium` — nothing grows in it. Not structural.',
-        [
-            { name: 'Artificial Turf Pile', thickness: 0.035, function: 'surfacing', materialId: 'landscape-grass-artificial' },
-            { name: 'Sharp Sand Blinding',  thickness: 0.025, function: 'drainage',  materialId: 'landscape-sand' },
-            { name: 'Compacted Sub-base',   thickness: 0.100, function: 'sub-base',  materialId: 'ground-decomposed-granite' }
-        ],
-        false
-    ),
-
-    // ── SOIL AND GROUND ─────────────────────────────────────────────────────
-    makeBuiltIn(
-        'st-landscape-topsoil-350',
-        'Topsoil Planting Bed',
-        'Deep screened topsoil over retained clay subsoil — the general-purpose planting bed. Not structural.',
-        [
-            { name: 'Screened Topsoil', thickness: 0.300, function: 'growing-medium', materialId: 'landscape-topsoil' },
-            { name: 'Clay Subsoil',     thickness: 0.050, function: 'substrate',      materialId: 'landscape-soil-clay' }
-        ],
-        false
-    ),
-    makeBuiltIn(
-        'st-landscape-subsoil-500',
-        'Subsoil Fill — Unimproved Ground',
-        'Placed subsoil with a sandy-loam transition layer: made-up ground, bunds and regrading where no planting medium is intended. Not structural.',
-        [
-            { name: 'Clay Subsoil',            thickness: 0.450, function: 'substrate', materialId: 'landscape-soil-clay' },
-            { name: 'Sandy Loam Transition',   thickness: 0.050, function: 'substrate', materialId: 'landscape-soil-sandy-loam' }
-        ],
-        false
-    ),
-    makeBuiltIn(
-        'st-landscape-gravel-200',
-        'Gravel Bed on Geotextile',
-        'Decorative pea-gravel dressing over a weed-suppressant geotextile on a coarse gravel sub-base. Not structural.',
-        [
-            { name: 'Pea Gravel Dressing',     thickness: 0.070, function: 'surfacing',  materialId: 'landscape-gravel-light' },
-            { name: 'Weed-Suppressant Geotextile', thickness: 0.005, function: 'geotextile', materialId: 'membrane-green-roof-root' },
-            { name: 'Coarse Gravel Sub-base',  thickness: 0.125, function: 'sub-base',   materialId: 'landscape-gravel-basalt' }
-        ],
-        false
-    ),
-    makeBuiltIn(
-        'st-landscape-sand-300',
-        'Sand Bed',
-        'Play sand or beach-edge sand over a drainage gravel raft. Not structural.',
-        [
-            { name: 'Sand',            thickness: 0.200, function: 'surfacing', materialId: 'landscape-sand' },
-            { name: 'Drainage Gravel', thickness: 0.100, function: 'drainage',  materialId: 'landscape-gravel-light' }
-        ],
-        false
-    ),
-    makeBuiltIn(
-        'st-landscape-bark-mulch-250',
-        'Bark Mulch over Topsoil',
-        'Mulched shrub bed: bark dressing over a topsoil root zone. Not structural.',
-        [
-            { name: 'Bark Mulch',       thickness: 0.075, function: 'surfacing',      materialId: 'landscape-bark-mulch' },
-            { name: 'Screened Topsoil', thickness: 0.175, function: 'growing-medium', materialId: 'landscape-topsoil' }
-        ],
-        false
-    ),
-    makeBuiltIn(
-        'st-landscape-decomposed-granite-175',
-        'Decomposed Granite Path',
-        'Compacted self-binding decomposed granite on a gravel sub-base — informal paths and terraces. Trafficked, but not a structural slab. Not structural.',
-        [
-            { name: 'Compacted Decomposed Granite', thickness: 0.075, function: 'surfacing', materialId: 'ground-decomposed-granite' },
-            { name: 'Gravel Sub-base',              thickness: 0.100, function: 'sub-base',  materialId: 'landscape-gravel-basalt' }
-        ],
-        false
-    ),
-];
+const BUILTIN_TYPES: readonly SlabSystemType[] = SLAB_TYPE_CATALOGUE;
 
 // ─────────────────────────────────────────────────────────────────────────────
 

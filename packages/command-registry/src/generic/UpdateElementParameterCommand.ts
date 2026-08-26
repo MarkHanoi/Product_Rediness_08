@@ -1146,10 +1146,25 @@ export class UpdateElementParameterCommand implements Command {
                 }
 
             } else if (t === 'slab') {
-                const builder = window.slabBuilder;
-                const store   = window.slabStore // TODO(TASK-07);
-                const slab    = store?.getById?.(elementId);
-                if (slab && builder?.buildSlab) builder.buildSlab(slab);
+                // §SLAB116-ONE-WRITE-ONE-REBUILD (L-11782) — DELIBERATELY EMPTY, and
+                // the call it replaces was DEAD.
+                //
+                // This branch read `window.slabBuilder` and called `builder.buildSlab(slab)`
+                // behind an `if (builder?.buildSlab)` guard. `window.slabBuilder` is the
+                // `SlabFragmentBuilder` (`initBuilders.ts:361`), whose API is `updateSlab`;
+                // it has NEVER had a `buildSlab` method, so the guard was false on every
+                // call and the branch was a silent no-op — a fake more capable than the
+                // real thing, in the founder's phrase.
+                //
+                // The rebuild that DOES happen is the store's: `SlabStore.update()` fans
+                // out `bim-slab-updated` unconditionally (`SlabStore.ts:189`), and
+                // `initBuilders.ts:385` re-reads the record and calls `updateSlab`. So the
+                // slab is already ONE write → ONE event → ONE rebuild-or-restyle (C16
+                // §8.6), identical in shape to the handrail branch below. Wiring a
+                // `updateSlab` call here "to fix the dead code" would be the
+                // §FIX-HANDRAIL-PARAM-DOUBLE-REBUILD defect on the slab: two builds per
+                // edit, the second of which re-derives geometry for a colour change —
+                // exactly the re-seat L-11780 was reported for.
 
             } else if (t === 'curtainwall' || t === 'curtain-wall') {
                 const builder = window.curtainWallBuilder;

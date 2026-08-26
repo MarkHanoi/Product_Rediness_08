@@ -63,6 +63,24 @@ export const SlabDataSchema = z.object({
         // C100 §5), so the builder reports the miss instead of the schema
         // rejecting it or inventing a substitute colour.
         materialId:    z.string().optional(),
+        // §SLABTYPES117 — the articulation record, the SECOND spelling of
+        // `SlabLayerArticulation` (SlabTypes.ts). The two must be extended together
+        // or a valid composite layer is rejected at the store boundary. Positive
+        // sizes only: a zero-width beam is not a beam and would plan nothing while
+        // the record claimed a grid.
+        articulation: z.discriminatedUnion('kind', [
+            z.object({
+                kind:       z.literal('beam-grid'),
+                beamWidth:  z.number().positive(),
+                maxSpacing: z.number().positive(),
+                direction:  z.enum(['x', 'z', 'both']).optional(),
+                perimeter:  z.boolean().optional(),
+            }),
+            z.object({
+                kind:      z.literal('perimeter-band'),
+                bandWidth: z.number().positive(),
+            }),
+        ]).optional(),
     })).optional(),
     width:         z.number().optional(),
     depth:         z.number().optional(),
