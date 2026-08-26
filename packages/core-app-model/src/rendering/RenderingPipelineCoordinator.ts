@@ -683,11 +683,34 @@ export class RenderingPipelineCoordinator {
         // (188× during one generation in the founder's session), so we must not spam.
         // Log ALWAYS on a real tier change; for the steady-state "[unchanged]"
         // confirmation, log at most once per settle window.
+        // ⭐ §PERF105-WHY-THIS-TIER (L-11562) — SAY WHO CHOSE THE TIER, AND ON WHAT.
+        //
+        // THE FOUNDER'S QUESTION, verbatim: *"yesterday while designing was working
+        // well"* — same project, same day-old build, and the only difference was that
+        // the line below printed `tier=performance` yesterday and `tier=cinematic`
+        // today. It could not tell him why, because it named the OUTCOME and none of the
+        // three inputs that produce it: the backend (which decides what is even
+        // possible), whether a PIN or the automatic policy chose it, and whether the
+        // 38.7 s-class whole-scene PBR pass is consequently armed.
+        //
+        // A line that answers "yesterday X, today Y" from one paste is worth more than
+        // any amount of after-the-fact reconstruction (ADR-0292: the reason must be a
+        // FACT in the log, not an inference).
+        const chooser = result.pinned
+            ? `PIN (user chose "${tier}"; automatic policy would have chosen "${result.automaticTier}")`
+            : 'AUTO (mesh-count policy; no user pin)';
+        const backend = isWebGPU === true ? 'real-WebGPU'
+            : isWebGPU === false ? 'NOT-WebGPU (webgl/webgl-fallback → capability gate applied)'
+            : 'unknown (gate not applied)';
         const tierLine =
             `[SceneQualityTier] ${meshCount} meshes → tier=${tier} ` +
+            `chosenBy=${chooser} backend=${backend} ` +
             `(SSGI=${settings.ssgi ? 'on' : 'off'} TRAA=${settings.traa ? 'on' : 'off'} ` +
             `shadows=${settings.shadows ? settings.shadowLevel : 'OFF'} ` +
-            `decorativeShadows=${settings.decorativeFurnitureShadows ? 'on' : 'off'})`;
+            `decorativeShadows=${settings.decorativeFurnitureShadows ? 'on' : 'off'} ` +
+            `probes=${settings.reflectionProbes ? 'on' : 'off'} ` +
+            // The setting that was invisible and cost the most. Named, always.
+            `fullScenePbrTraverse=${settings.fullScenePbrTraverse ? 'ON ⚠ (the ~38.7s whole-scene material re-traverse is ARMED)' : 'off'})`;
         const tierTransitioned = tier !== this._lastLoggedTier;
         if (tierTransitioned) {
             console.log(tierLine);
@@ -859,8 +882,21 @@ export class RenderingPipelineCoordinator {
      * behaviour is unchanged for small scenes.
      */
     shouldRunFullPbrUpgrade(): boolean {
+        // ⭐ §PERF105-BACKEND-GATE-MISSED-ITS-COSTLIEST-SETTING (L-11562) — THIS METHOD
+        // USED TO READ `settingsForTier(tier).fullScenePbrTraverse`, RE-DERIVING FROM THE
+        // RAW TIER AND THEREBY SKIPPING `applyBackendGate` ENTIRELY.
+        //
+        // Every other consumer of tier settings reads the GATED object that `update()`
+        // returns. This one did not, so even after the gate learned to cap
+        // `fullScenePbrTraverse` on a non-WebGPU backend, this caller would still have
+        // said yes. Two independent defects, one hole — and the second is the more
+        // dangerous shape: a capability gate bypassed by a caller who does not know it
+        // exists. `appliedSettings` is the settings actually applied, gate included.
+        const applied = sceneQualityTierManager.appliedSettings;
+        if (applied !== undefined) return applied.fullScenePbrTraverse;
+        // Cold start (no update() yet) — unchanged: small scenes still get the upgrade.
         const tier = sceneQualityTierManager.currentTier;
-        if (tier === undefined) return true; // cold start — unchanged for small scenes
+        if (tier === undefined) return true;
         return settingsForTier(tier).fullScenePbrTraverse;
     }
 

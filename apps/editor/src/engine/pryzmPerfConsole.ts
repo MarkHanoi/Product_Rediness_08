@@ -76,6 +76,18 @@ interface TraversableLike {
 
 interface SceneNodeLike {
     isMesh?: boolean;
+    /**
+     * §PERF105-CENSUS-IS-TEXT (L-11563) — structural, NOT a THREE import (P2). Only the
+     * two counts a triangle census needs are named.
+     */
+    geometry?: {
+        index?: { count?: number } | null;
+        attributes?: { position?: { count?: number } };
+    };
+    /** For the "(unattributed)" parent-chain examples — the founder's ask. */
+    parent?: SceneNodeLike | null;
+    name?: string;
+    type?: string;
     isInstancedMesh?: boolean;
     /** §NAV-FAMILY-CENSUS — line objects (edge overlays) draw too, and are not meshes. */
     isLine?: boolean;
@@ -323,6 +335,17 @@ interface FamilyRow {
     shadowCasters: number;
     /** Line / LineSegments objects (edge overlays) — decoration that still draws. */
     lines: number;
+    /**
+     * §PERF105-CENSUS-IS-TEXT (L-11563) — triangles this family submits per forward
+     * frame: index count / 3 (or position count / 3 for a non-indexed geometry),
+     * multiplied by `InstancedMesh.count` for an aggregate.
+     *
+     * ⚠ It is a SUBMISSION count, not a rasterised one — frustum culling and occlusion
+     * both reduce what the GPU actually shades, and neither is visible from a traverse.
+     * The founder's freeze is a MAIN-THREAD problem (his RTX 4050 is 11 % utilised), so
+     * this column is here to RANK families by weight, not to predict GPU time.
+     */
+    triangles: number;
 }
 
 interface SceneCensus {
@@ -346,6 +369,13 @@ interface SceneCensus {
      * renderer's own `drawCalls` row and the GAP is the shadow/post/multi-pass cost.
      */
     estimatedForwardDrawCalls: number;
+    /**
+     * §PERF105-CENSUS-IS-TEXT (L-11563) — up to three parent chains for meshes carrying
+     * no `userData.elementType`. A count of unattributed geometry says a problem exists;
+     * a CHAIN says which producer to go and look at, which is what the founder needs
+     * from a paste.
+     */
+    unattributedExamples: string[];
 }
 
 /**
@@ -366,12 +396,34 @@ function censusScene(scene: TraversableLike): SceneCensus {
         visibleLineObjects: 0,
         shadowCasters: 0,
         estimatedForwardDrawCalls: 0,
+        unattributedExamples: [],
     };
     const idsByFamily: Record<string, Set<string>> = {};
     const famRow = (name: string): FamilyRow => (c.families[name] ??= {
         elements: 0, standaloneMeshes: 0, instancedGroups: 0,
-        instances: 0, shadowCasters: 0, lines: 0,
+        instances: 0, shadowCasters: 0, lines: 0, triangles: 0,
     });
+
+    /** §PERF105-CENSUS-IS-TEXT — triangles one draw submits. Indexed geometry wins. */
+    const trisOf = (o: SceneNodeLike): number => {
+        const g = o.geometry;
+        if (!g) return 0;
+        const idx = g.index?.count;
+        if (typeof idx === 'number') return Math.floor(idx / 3);
+        const pos = g.attributes?.position?.count;
+        return typeof pos === 'number' ? Math.floor(pos / 3) : 0;
+    };
+    /** The parent chain, for the "(unattributed)" examples the founder asked for. */
+    const chainOf = (o: SceneNodeLike): string => {
+        const parts: string[] = [];
+        let cur: SceneNodeLike | null | undefined = o;
+        for (let d = 0; d < 6 && cur; d++) {
+            const tag = cur.userData?.elementType ?? cur.userData?.id ?? cur.name ?? cur.type ?? '?';
+            parts.push(String(tag).slice(0, 32) || '(anon)');
+            cur = cur.parent;
+        }
+        return parts.join(' < ');
+    };
 
     scene.traverse((o) => {
         const type = o.userData?.elementType;
@@ -405,10 +457,16 @@ function censusScene(scene: TraversableLike): SceneCensus {
             const row = famRow(fam);
             row.instancedGroups++;
             row.instances += o.count ?? 0;
+            row.triangles += trisOf(o) * (o.count ?? 0);
             if (visible) c.estimatedForwardDrawCalls++;
         } else {
-            famRow(fam).standaloneMeshes++;
+            const row = famRow(fam);
+            row.standaloneMeshes++;
+            row.triangles += trisOf(o);
             if (visible) c.estimatedForwardDrawCalls++;
+        }
+        if (type === undefined && c.unattributedExamples.length < 3) {
+            c.unattributedExamples.push(chainOf(o));
         }
 
         const id = o.userData?.id;
@@ -450,49 +508,133 @@ function censusScene(scene: TraversableLike): SceneCensus {
 export function logSceneCensusOnce(scene: unknown, label: string): void {
     if (_censusPrintedFor === label) return;
     _censusPrintedFor = label;
+    printSceneCensus(scene, label);
+}
+let _censusPrintedFor: string | null = null;
+
+/**
+ * ⛔ §PERF105-CENSUS-IS-TEXT (L-11563) — THE HEAVY-SCENE GUARD'S OWN ARITHMETIC,
+ * restated here so the census can print the HEADROOM and not merely the count.
+ *
+ * `autoWebGLHeavyScene.ts` swaps the renderer backend when the scene reaches
+ * **≥ 400 BIM elements OR ≥ 1000 meshes**. The founder crossed the mesh arm by
+ * creating ONE DOOR — his console: `§SWAP-PAINTS-THE-BUILDING … sceneMeshes=1005`,
+ * from 978 — and the backend swapped to `webgl-classic` MID-EDIT behind an overlay
+ * that said only "switching render…".
+ *
+ * ⚠ THESE ARE COPIES OF A THRESHOLD THAT LIVES SOMEWHERE ELSE, and that is a debt,
+ * not a design. They are duplicated rather than imported because this console module
+ * loads on every boot while `autoWebGLHeavyScene` pulls in the renderer-creation graph
+ * — importing it here to print a number would make a DIAGNOSTIC change what it
+ * measures. If the guard's numbers move, these must move with them; the census prints
+ * them verbatim so a divergence shows up in the founder's own paste instead of
+ * silently (L-11564 tracks giving the two one owner).
+ */
+const HEAVY_SCENE_ELEMENT_ARM = 400;
+const HEAVY_SCENE_MESH_ARM = 1_000;
+
+/**
+ * ⭐ §PERF105-CENSUS-IS-TEXT (L-11563) — PRINT THE CENSUS AS PLAIN TEXT LINES.
+ *
+ * THE FOUNDER'S REPORT, verbatim: the per-family table reached him as **`Array(22)`**.
+ * `console.table` renders in DevTools and collapses to that when the console is COPIED,
+ * and his entire workflow is *"provide them to you, and you provide me the answer"* —
+ * so a diagnostic that cannot survive a copy-paste has not been delivered at all.
+ * Twenty-two family rows existed and not one of them reached anybody.
+ *
+ * ⛔ THE RULE FOR THIS LANE AND EVERY LANE AFTER IT: one row per line, fixed columns,
+ * plain `console.log`. Never `console.table`, never a bare object or array.
+ * `[linework-probe]` and `[ProjectIsolationAudit]` already print this way and their
+ * output has always been usable; this one did not and was not.
+ *
+ * Printed once per project load, and on demand via `window.pryzmPerf.census()`.
+ */
+export function printSceneCensus(scene: unknown, label: string): void {
     try {
         const c = censusScene(scene as TraversableLike);
-        const rows = Object.entries(c.families)
-            .map(([family, r]) => {
-                const drawn = r.standaloneMeshes + r.instancedGroups;
-                return {
-                    family,
-                    elements: r.elements,
-                    standalone: r.standaloneMeshes,
-                    groups: r.instancedGroups,
-                    instances: r.instances,
-                    // ⛔ A family with 0 distinct ids reports '—', never Infinity and never 0.
-                    // "(unattributed)" geometry has no elements BY DEFINITION, and printing a
-                    // ratio there would invent a denominator.
-                    'meshes/elem': r.elements > 0 ? +(drawn / r.elements).toFixed(2) : '—',
-                    'draws (fwd)': drawn,
-                    shadowCasters: r.shadowCasters,
-                    lines: r.lines,
-                };
-            })
-            .sort((a, b) => b['draws (fwd)'] - a['draws (fwd)']);
+        const P = (line: string): void => console.log(line);
 
-        console.log(
-            `[pryzmPerf] §NAV-MESH-PER-ELEMENT-CENSUS (${label}) — ${c.meshes} mesh(es), ` +
-            `${c.elements} element(s), scene-wide ${c.elements > 0 ? (c.meshes / c.elements).toFixed(2) : '?'} meshes/element. ` +
-            `⭐ The scene-wide number is an AVERAGE and decides nothing — read the top row, sorted by forward draw cost. ` +
-            `estimatedForwardDrawCalls=${c.estimatedForwardDrawCalls} (EXCLUDES the shadow pass: ` +
-            `${c.shadowCasters} caster(s) are re-submitted whenever the shadow map refreshes — §NAV-SHADOW-CAMERA-CANNOT-CHANGE-IT).`,
-        );
-        console.table(rows);
+        const rows = Object.entries(c.families)
+            .map(([family, r]) => ({ family, r, draws: r.standaloneMeshes + r.instancedGroups }))
+            .sort((a, b) => b.draws - a.draws);
+
+        const pad  = (v: string | number, w: number): string => String(v).padStart(w);
+        const padE = (v: string, w: number): string => v.padEnd(w);
+
+        P(`[pryzmPerf] §NAV-MESH-PER-ELEMENT-CENSUS (${label}) — ${c.meshes} mesh(es), `
+          + `${c.elements} element(s), scene-wide `
+          + `${c.elements > 0 ? (c.meshes / c.elements).toFixed(2) : '?'} meshes/element.`);
+        P('[pryzmPerf] ⭐ The scene-wide number is an AVERAGE and decides nothing — read the '
+          + 'TOP ROW, sorted by forward draw cost. One row per line so it survives a copy-paste.');
+        P('[pryzmPerf] census  '
+          + padE('family', 22) + pad('elems', 6) + pad('meshes', 7) + pad('m/elem', 8)
+          + pad('inst.grp', 9) + pad('instances', 10) + pad('tris', 10)
+          + pad('shadow', 8) + pad('lines', 7) + '  instanced?');
+        for (const { family, r, draws } of rows) {
+            // ⛔ A family with 0 distinct ids reports '—', never Infinity and never 0.
+            // "(unattributed)" geometry has no elements BY DEFINITION, and printing a
+            // ratio there would invent a denominator.
+            const mPerE = r.elements > 0 ? (draws / r.elements).toFixed(2) : '—';
+            // THREE states, not two: a family holding BOTH aggregates and loose meshes is
+            // PARTIAL, and reporting that as "yes" is how an instancing gap stays invisible.
+            const inst = r.instancedGroups > 0 && r.standaloneMeshes > 0 ? 'PARTIAL'
+                : r.instancedGroups > 0 ? 'yes'
+                : 'NO';
+            P('[pryzmPerf] census  '
+              + padE(family.slice(0, 21), 22) + pad(r.elements, 6) + pad(draws, 7) + pad(mPerE, 8)
+              + pad(r.instancedGroups, 9) + pad(r.instances, 10) + pad(r.triangles, 10)
+              + pad(r.shadowCasters, 8) + pad(r.lines, 7) + '  ' + inst);
+        }
+
+        // ── The shadow census — a caster is a SECOND submission of the same geometry, so
+        // it belongs BESIDE the forward count and never inside it.
+        const casterRows = rows.filter(x => x.r.shadowCasters > 0)
+            .sort((a, b) => b.r.shadowCasters - a.r.shadowCasters)
+            .slice(0, 8)
+            .map(x => `${x.family}=${x.r.shadowCasters}`)
+            .join(' ');
+        P(`[pryzmPerf] §NAV-SHADOW-CENSUS — ${c.shadowCasters} caster(s) of ${c.meshes} mesh(es) `
+          + `(${c.meshes > 0 ? ((c.shadowCasters / c.meshes) * 100).toFixed(0) : '0'}%). Every one is `
+          + `RE-SUBMITTED on each shadow-map refresh, so the true submission count is `
+          + `forward + casters = ${c.estimatedForwardDrawCalls} + ${c.shadowCasters} = `
+          + `${c.estimatedForwardDrawCalls + c.shadowCasters}.`);
+        P(`[pryzmPerf] §NAV-SHADOW-CENSUS  by family (top 8): ${casterRows || '(none)'}`);
+        P('[pryzmPerf] §NAV-SHADOW-CENSUS  a refresh fires when a light moves or changes, when '
+          + 'the shadow level changes (ShadowQualityUpgrader.setLevel), and on any frame that set '
+          + '`shadowMap.needsUpdate`. `furnitureShadowBudget` caps FURNITURE casters only — no '
+          + 'other family is budgeted (§PERF105, L-11565).');
+
+        // ── The heavy-scene guard headroom.
+        const meshHeadroom = HEAVY_SCENE_MESH_ARM - c.meshes;
+        const elemHeadroom = HEAVY_SCENE_ELEMENT_ARM - c.elements;
+        const perElem = c.elements > 0 ? c.meshes / c.elements : 0;
+        P(`[pryzmPerf] §NAV-BACKEND-SWAP-HEADROOM — the auto heavy-scene guard swaps the renderer `
+          + `backend at ≥${HEAVY_SCENE_ELEMENT_ARM} elements OR ≥${HEAVY_SCENE_MESH_ARM} meshes. NOW: `
+          + `${c.elements} elements (${elemHeadroom > 0 ? elemHeadroom + ' to go' : 'ARM TRIPPED'}), `
+          + `${c.meshes} meshes (${meshHeadroom > 0 ? meshHeadroom + ' to go' : 'ARM TRIPPED'}).`);
+        if (meshHeadroom > 0 && meshHeadroom < 120) {
+            P(`[pryzmPerf] ⚠ §NAV-BACKEND-SWAP-HEADROOM — ONLY ${meshHeadroom} MESHES OF HEADROOM. `
+              + `At ${perElem.toFixed(1)} meshes/element that is ~`
+              + `${perElem > 0 ? Math.max(1, Math.floor(meshHeadroom / perElem)) : '?'} more element(s) `
+              + `before the backend swaps MID-EDIT. The founder crossed it with ONE DOOR (978→1005). `
+              + `⛔ The fix is fewer meshes per element, NOT a higher threshold.`);
+        }
+        P('[pryzmPerf] §NAV-BACKEND-SWAP-HEADROOM  the guard counts an InstancedMesh as ONE mesh, '
+          + 'so instancing a family genuinely buys headroom rather than hiding the cost.');
+
         if (c.families['(unattributed)']) {
-            console.log(
-                '[pryzmPerf] ⚠ "(unattributed)" is geometry carrying no `userData.elementType`. It is a FINDING, ' +
-                'not a rounding bucket: nothing can hide it, isolate it, or select it by type, and no per-family ' +
-                'optimisation can reach it.',
-            );
+            P('[pryzmPerf] ⚠ "(unattributed)" is geometry carrying no `userData.elementType`. It is a '
+              + 'FINDING, not a rounding bucket: nothing can hide it, isolate it, or select it by type, '
+              + 'and no per-family optimisation can reach it.');
+            for (const chain of c.unattributedExamples) {
+                P(`[pryzmPerf]   (unattributed) example: ${chain}`);
+            }
         }
     } catch (e) {
         // A diagnostic that throws must never take a load with it.
         console.warn('[pryzmPerf] §NAV-MESH-PER-ELEMENT-CENSUS could not run:', e);
     }
 }
-let _censusPrintedFor: string | null = null;
 
 /** Re-arm the once-per-load guard (project switch). */
 export function resetSceneCensusOnce(): void { _censusPrintedFor = null; }
@@ -1373,6 +1515,16 @@ export interface PryzmPerfApi {
      * is the point of shipping the probe rather than an opinion.
      */
     pick(): PryzmPickPassReport | null;
+    /**
+     * §PERF105-CENSUS-IS-TEXT (L-11563) — re-print the per-family census on demand,
+     * as PLAIN TEXT LINES.
+     *
+     * It already printed once per project load, but the founder needs it AFTER a
+     * gesture too ("I created a door — and 'switching render…' appeared"): the whole
+     * question is what the mesh count did across the edit, and a once-per-load line
+     * cannot answer it. Same traverse, same rows, no timer.
+     */
+    census(): void;
 }
 
 /** §NAV-PICK-QUADRATIC (L-1850) — one measured GPU-pick membership pass. */
@@ -1441,11 +1593,27 @@ export function installPryzmPerfConsole(): void {
             );
             return r;
         },
+        census(): void {
+            const scene =
+                safe(() => _sources.getScene?.() ?? null) ??
+                safe(() => g<{ scene?: { three?: TraversableLike } }>('world')?.scene?.three ?? null);
+            if (!scene) {
+                console.warn(
+                    '[§PRYZM-PERF] census() — no scene reachable (window.world.scene.three). '
+                    + 'Open a project first.',
+                );
+                return;
+            }
+            printSceneCensus(scene, 'on-demand');
+        },
     };
 
     (globalThis as unknown as { pryzmPerf?: PryzmPerfApi }).pryzmPerf = api;
     console.log(
         '[§PRYZM-PERF] ready — window.pryzmPerf.on() → gesture → window.pryzmPerf.report()\n' +
+        '[§PRYZM-PERF] per-family census (L-11563) — window.pryzmPerf.census() prints one '
+        + 'PLAIN-TEXT ROW PER FAMILY (elements, meshes, meshes/elem, instanced?, triangles, '
+        + 'shadow casters) plus the backend-swap headroom. Copy-paste safe.\n' +
         '[§PRYZM-PERF] freeze probe (L-1850) — window.pryzmPerf.pick() prints the ' +
         'main-thread cost of ONE hover pick pass. Above ~16 ms is a frozen scene.',
     );

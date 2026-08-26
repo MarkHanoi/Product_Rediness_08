@@ -294,6 +294,40 @@ export function applyBackendGate(
                 decorativeFurnitureShadows: false,
                 // Cap to the lightweight shadow level (basic shadows on WebGL2).
                 shadowLevel: 'standard',
+                // ⚠ §PERF105-PBR-TRAVERSE-ON-WEBGL2 (L-11562) — **INVESTIGATED, NOT
+                // CHANGED.** `fullScenePbrTraverse` is the ONE setting this gate does not
+                // cap, and the gate's own docblock above says its purpose is to leave the
+                // WebGL2 path with *"standard PBR + basic shadows"* — so capping it here
+                // looked obviously right, and this lane implemented it before backing it
+                // out. It is recorded rather than shipped, because the case is
+                // CORRELATIONAL and this repo's ISSUE-LOG is full of confident perf
+                // diagnoses that were wrong.
+                //
+                // WHAT POINTS AT IT: the founder's scene is **977 meshes** — under the
+                // 1,200 ADR-0094 cap and under the 1,500 cinematic bound — so the
+                // automatic tier is `cinematic`, the ONLY tier with
+                // `fullScenePbrTraverse: true`. Yesterday he ran a `performance` PIN and
+                // reported *"working well"*; he cleared the pin for more live lights and
+                // reported *"navigation is completely frozen"*. On his `webgl-fallback`
+                // backend every OTHER cinematic setting was already gated off and his log
+                // already read `shadow=standard`. This was the only difference.
+                //
+                // ⛔ WHY IT WAS NOT SHIPPED ANYWAY: the "38.7 s" this setting is famous
+                // for is a 2026-05 measurement of a SYNCHRONOUS whole-scene pass. That
+                // pass no longer exists — §A.21.D40 PBR-SCOPE scoped it to NEW meshes
+                // only, §FIX-POST-BATCH-PBR-CHUNK chunks it at 120 meshes/frame, and
+                // PERF-DEFER-PBR-IDLE runs it from `requestIdleCallback`. A chunked,
+                // scoped, idle-scheduled pass over one batch's additions is a poor
+                // candidate for a navigation freeze, and no one has measured its cost on
+                // WebGL2 at all. Flipping a documented decision (`SceneQualityTierManager
+                // .test.ts` asserts this field is deliberately backend-independent) on a
+                // correlation would be exactly the mistake this comment exists to avoid.
+                //
+                // ⭐ WHAT SETTLES IT: the `[SceneQualityTier]` line now prints
+                // `fullScenePbrTraverse=ON/off` together with the backend and WHO chose
+                // the tier, so the founder's next paste answers it without reconstruction.
+                // If a `cinematic` + `NOT-WebGPU` boot is slow and the same project pinned
+                // to `performance` is not, cap it here and delete this block.
             };
         },
     );
@@ -494,6 +528,11 @@ export class SceneQualityTierManager {
     private _lastIsWebGPU: boolean | undefined = undefined;
     /** The last tier actually APPLIED (pin-aware) — drives `changed`. */
     private _lastAppliedTier: SceneQualityTier | undefined = undefined;
+    /**
+     * §PERF105-BACKEND-GATE-MISSED-ITS-COSTLIEST-SETTING (L-11562) — the last settings
+     * actually applied, AFTER `applyBackendGate`. See {@link appliedSettings}.
+     */
+    private _appliedSettings: SceneQualitySettings | undefined = undefined;
 
     /**
      * The tier currently in force — the pin when one is set, otherwise the held automatic
@@ -521,6 +560,26 @@ export class SceneQualityTierManager {
     /** The backend flag the last {@link update} was given, so a caller can re-apply with it. */
     get lastIsWebGPU(): boolean | undefined {
         return this._lastIsWebGPU;
+    }
+
+    /**
+     * ⭐ §PERF105-BACKEND-GATE-MISSED-ITS-COSTLIEST-SETTING (L-11562) — the settings
+     * ACTUALLY APPLIED by the last {@link update}, i.e. after {@link applyBackendGate}.
+     *
+     * WHY THIS EXISTS: `RenderingPipelineCoordinator.shouldRunFullPbrUpgrade()` answered
+     * `settingsForTier(sceneQualityTierManager.currentTier).fullScenePbrTraverse` — it
+     * re-derived from the RAW tier and so never passed through the backend gate at all.
+     * Every other consumer of tier settings reads the gated object; that one did not.
+     * Two independent bugs therefore had to be fixed to close one hole: the gate did not
+     * cap the setting, AND the consumer would not have seen the cap if it had.
+     *
+     * ⛔ Read THIS, not `settingsForTier(currentTier)`. Re-deriving from the tier is how
+     * a capability gate gets bypassed by a caller who does not know it exists.
+     *
+     * `undefined` before the first `update()`.
+     */
+    get appliedSettings(): SceneQualitySettings | undefined {
+        return this._appliedSettings;
     }
 
     /**
@@ -592,6 +651,9 @@ export class SceneQualityTierManager {
                 // WebGL2 are a capability the machine does not have, not a preference the
                 // user may express. See the `_override` docblock.
                 const settings = applyBackendGate(settingsForTier(next), isWebGPU);
+                // §PERF105 (L-11562) — remember what was APPLIED, so no consumer has to
+                // re-derive it from the raw tier and thereby skip the backend gate.
+                this._appliedSettings = settings;
                 return { tier: next, changed, settings, automaticTier, pinned: this._override !== null };
             },
         );
@@ -612,6 +674,7 @@ export class SceneQualityTierManager {
             this._lastAppliedTier = undefined;
             this._lastMeshCount = undefined;
             this._lastIsWebGPU = undefined;
+            this._appliedSettings = undefined;
         });
     }
 }
