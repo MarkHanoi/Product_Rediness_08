@@ -99,7 +99,7 @@ let unsubMulti: () => void;
 const highlight = { primary: [] as string[], secondary: [] as string[][] };
 
 const setMode = (mode: string): void => bus.emit('pryzm-workspace-mode', { mode });
-const selectStorey = (): void => selectionBus.selectMany(STOREY_IDS, 'schedule');
+const selectStorey = (): void => selectionBus.selectMany(STOREY_IDS, 'analytics');
 const display = (): string => panel.element.style.display;
 
 beforeAll(() => {
@@ -128,7 +128,7 @@ beforeAll(() => {
 
 afterAll(() => {
   unsubMulti();
-  selectionBus.clearAll('schedule');
+  selectionBus.clearAll('analytics');
   selectionBus.setSelectionManager(null);
   panel.element.remove();
 });
@@ -137,7 +137,7 @@ beforeEach(() => {
   // Back to the neutral start state: Author mode, panel closed, nothing selected.
   setMode('author');
   panel.hide();
-  selectionBus.clearAll('schedule');
+  selectionBus.clearAll('analytics');
   highlight.primary.length = 0;
   highlight.secondary.length = 0;
 });
@@ -251,7 +251,7 @@ describe('§PANEL-MODE-GATE ARM C — switching modes with the panel already ope
     expect(display(), 'the panel must not resurrect itself on mode return').toBe('none');
 
     // …and the gate is lifted, not merely quiet: a fresh selection opens it.
-    selectionBus.clearAll('schedule');
+    selectionBus.clearAll('analytics');
     selectStorey();
     expect(display()).toBe('block');
   });
@@ -295,7 +295,7 @@ describe('§PANEL-MODE-GATE ARM D — selection and highlighting survive the gat
     const authorIds = selectionBus.currentIds;
 
     for (const mode of WORKSPACE_MODES.filter((m) => m.propertiesPanel === 'suppressed')) {
-      selectionBus.clearAll('schedule');
+      selectionBus.clearAll('analytics');
       setMode(mode.id);
       selectStorey();
       expect(highlight.primary.at(-1), mode.id).toBe(authorPrimary);
