@@ -2972,6 +2972,27 @@ export interface StoresSlot {
   /** §BATH102 (L-11064) — the lift's cabin/shaft parts. See `lift` above. */
   readonly liftPart?: PluginDtoStoreHandle | undefined;
 
+  /**
+   * §BATH102 (L-11064) — the ADR-0124 POOL ASSEMBLY's two stores, in the same state
+   * and closed for the same reason as `lift` / `liftPart` above.
+   *
+   * ⛔ MEASURED, NOT ASSUMED: `poolUndoAdapter.ts`'s production resolver
+   * `resolvePoolStoresFromWindow()` reads `window.runtime.stores.pool` / `.water`
+   * through a cast, and neither was declared here or attached by `composeRuntime` —
+   * so §POOL95 (L-11350) landed a correct adapter onto a resolver that returned
+   * `null`, and every pool Ctrl+Z threw a named per-store failure instead of
+   * reverting. Precisely the lift's shape.
+   *
+   * ⭐ AND THIS FAMILY PASSES THE NO-GEOMETRY-TWIN TEST BY MEASUREMENT, not by
+   * assertion: `performUndoRedo.ts`'s own L-980 correction records that **nothing
+   * ever assigns `window.poolStore` / `window.waterStore`** — the four legacy map
+   * entries were `undefined` from the day they were added. There is no twin to
+   * diverge from, so exposing these is correct rather than a leak.
+   */
+  readonly pool?: PluginDtoStoreHandle | undefined;
+  /** §BATH102 (L-11064) — the water body a pool holds (ADR-0124 §4). See `pool`. */
+  readonly water?: PluginDtoStoreHandle | undefined;
+
   /** Fan out a full project snapshot to all registered stores via the
    *  engine's `loadDelegate.load()`.  Throws `RuntimeNotWiredError` if
    *  called before `initPersistence` registers the hydrator. */

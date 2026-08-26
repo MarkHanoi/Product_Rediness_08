@@ -249,6 +249,9 @@ import type { SlabSystemTypeStore } from '@pryzm/geometry-slab';
 import { installProjectIsolationAudit } from '@pryzm/core-app-model';
 // §LIFT94 (L-11340) — the undo/redo render seam for the C104 lift compound.
 import { registerLiftRenderSink } from './undo/liftUndoAdapter.js';
+// §BATH102 (L-11480) — the C109 pod's members become real `plumbing` fixture records,
+// projected off the pod store's OWN dirty diff. See `bathroomPodMemberMirror.ts`.
+import { attachBathroomPodMemberMirror, type DirtyPodStore } from './bathroomPodMemberMirror.js';
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -1700,6 +1703,39 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             remove: (liftId) => { liftCompoundMeshBuilder.removeLift(liftId); },
         });
         console.log('[initTools] §LIFT94: lift undo/redo render sink registered (L-11340).');
+    }
+
+    // ── §BATH102 (L-11480..L-11486 · C109 §2/§7/§9 axes 6-7) ────────────────────
+    //
+    // ⭐ THE POD'S MEMBERS BECOME REAL `plumbing` FIXTURE RECORDS, THROUGH ONE ROAD.
+    // `bathroomPod.create` declares ONE affected store (see `CreateBathroomPod.ts` for
+    // the two measurements that make `'plumbing'` the CORRUPTING declaration), so the
+    // members reach the family that draws them by projection instead. `Store.applyPatch`
+    // notifies `subscribeDirty` on EXECUTE, UNDO and REDO alike, so create / undo / redo
+    // / delete all arrive through this ONE subscription — no second channel that could
+    // drift from the first, which is what the lift needed a hand-built sink to achieve.
+    //
+    // ⚠ THIS IS NOT A `registerXRenderSink` CALL and deliberately does not look like
+    // one. There IS a legacy store to mirror INTO here (`window.plumbingStore`, which
+    // `initBuilders.ts` publishes and whose `add()`/`remove()` already drive
+    // `PlumbingFragmentBuilder`), so the mirror mints no render capability of its own.
+    if (runtime) {
+        const podStore = (runtime as unknown as {
+            stores?: { bathroomPod?: unknown };
+        }).stores?.bathroomPod as DirtyPodStore | undefined;
+        if (podStore && typeof podStore.subscribeDirty === 'function') {
+            attachBathroomPodMemberMirror(podStore);
+            console.log('[initTools] §BATH102: bathroom-pod member mirror attached (L-11480).');
+        } else {
+            // ⛔ NAMED, NEVER SILENT. The whole cost of L-11060 was that nothing said
+            // anything when a composed plugin store was absent.
+            console.warn(
+                '[initTools] §BATH102: runtime.stores.bathroomPod is UNREADABLE, so pod ' +
+                'members will not reach the plumbing family — no mesh, no plan symbol, no ' +
+                'elevation symbol, no IFC. Check the `bathroomPod` descriptor in ' +
+                'PluginRegistry.ts and the adoption line in composeRuntime.ts.',
+            );
+        }
     }
 
     // §FT-BOUNDARY-LINE (§FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE, L-9944..L-9946 ·

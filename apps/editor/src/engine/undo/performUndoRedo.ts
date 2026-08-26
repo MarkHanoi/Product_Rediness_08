@@ -94,6 +94,9 @@ import { liftCompoundUndoAdapter, liftPartUndoAdapter, resolveLiftStoresFromWind
 // §POOL95 (L-11350) — the ADR-0124 pool assembly's two own stores. Same lazy
 // runtime-resolution shape as the two adapters above; see poolUndoAdapter.ts.
 import { poolUndoAdapter, waterUndoAdapter, resolvePoolStoresFromWindow } from './poolUndoAdapter.js';
+// §BATH102 (L-11480) — the C109 bathroom pod. Same lazy runtime-resolution shape as
+// the three above; the render half is the store's own `subscribeDirty`, not a sink.
+import { bathroomPodUndoAdapter, resolveBathroomPodStoreFromWindow } from './bathroomPodUndoAdapter.js';
 
 const _tracer = trace.getTracer('pryzm-engine');
 
@@ -489,6 +492,23 @@ export function buildUndoStoreMap(): Record<string, PatchApplicableAdapter | und
     // for the axis-by-axis re-measurement.
     pool:  poolUndoAdapter(resolvePoolStoresFromWindow),
     water: waterUndoAdapter(resolvePoolStoresFromWindow),
+
+    // ⭐ §BATH102 (L-11480, 2026-08-26) — the C109 BATHROOM POD, and the FOURTH family
+    // to need this exact shape in three days (boundaryLine → lift → pool → bathroomPod).
+    // `bathroomPod.create` declares ONE store and `_covered()` is all-or-nothing, so
+    // without this row every pod PatchPair would be declined and Ctrl+Z would fall
+    // through to `commandManager`, which has never heard of the verb.
+    //
+    // ⛔ IT DOES NOT POINT AT `window.plumbingStore`. That is the LEGACY FIXTURE store —
+    // a different store holding different records — and applying a pod inverse to it
+    // would be C03 §4.6 U-2b's corrupting case, the same aliasing the `lift` rows above
+    // refuse for `window.liftStore`. The pod family has EXACTLY ONE store on purpose
+    // (C84 EI-1 by construction), and this resolves it off the composed runtime.
+    //
+    // ⭐ THE RENDER HALF IS NOT HERE AND NEEDS NO SINK. `Store.applyPatch()` notifies
+    // `subscribeDirty` on EXECUTE, UNDO and REDO alike, and `bathroomPodMemberMirror`
+    // is subscribed to it — so one road serves all four directions. See that module.
+    bathroomPod: bathroomPodUndoAdapter(resolveBathroomPodStoreFromWindow),
   };
 }
 

@@ -1729,11 +1729,21 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     const bathroomPodStore: PluginDtoStoreHandle | undefined = inner.stores?.['bathroomPod'];
     const liftCompoundStore: PluginDtoStoreHandle | undefined = inner.stores?.['lift'];
     const liftPartStore: PluginDtoStoreHandle | undefined = inner.stores?.['liftPart'];
+    // §BATH102 (L-11064) — the pool assembly's two stores, in the SAME state and closed
+    // for the SAME reason: `resolvePoolStoresFromWindow()` reads these two keys through
+    // a cast and returned `null`, so §POOL95's correct adapter threw instead of
+    // reverting. `performUndoRedo.ts`'s own L-980 correction records that NOTHING ever
+    // assigns `window.poolStore` / `window.waterStore`, so there is no twin to diverge
+    // from and exposing them is correct rather than a leak.
+    const poolStore: PluginDtoStoreHandle | undefined = inner.stores?.['pool'];
+    const waterStore: PluginDtoStoreHandle | undefined = inner.stores?.['water'];
     if (inner.stores !== undefined) {
       for (const [key, value] of [
         ['bathroomPod', bathroomPodStore],
         ['lift', liftCompoundStore],
         ['liftPart', liftPartStore],
+        ['pool', poolStore],
+        ['water', waterStore],
       ] as const) {
         if (value === undefined) {
           // The data half ran and still did not contribute the key — that is a
@@ -1763,6 +1773,9 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // L-11340 and finding `undefined`.
       lift: liftCompoundStore,
       liftPart: liftPartStore,
+      // §BATH102 (L-11064) — the ADR-0124 pool assembly, same measurement.
+      pool: poolStore,
+      water: waterStore,
       registerHydrator(fn: (snapshot: unknown) => void | Promise<void>): void {
         _hydratorFn = fn;
       },
