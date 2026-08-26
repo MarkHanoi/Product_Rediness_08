@@ -225,18 +225,18 @@ export function buildFurnitureGeometry(
         case 'table_ceramic_curve':         buildTableCeramicCurveThumb(g);       break;
 
         // ── §DESK108 desks + dining — cards drawn by the element's own builder ──
-        case 'desk_zen':      buildDesk108Thumb(g, type, (ms) => new ZenDeskBuilder(ms),      1.8, 0.8, 0.75); break;
-        case 'desk_skeleton': buildDesk108Thumb(g, type, (ms) => new SkeletonDeskBuilder(ms), 1.6, 0.7, 0.75); break;
-        case 'desk_vertex':   buildDesk108Thumb(g, type, (ms) => new VertexDeskBuilder(ms),   1.7, 0.75, 0.75); break;
-        case 'desk_panel':    buildDesk108Thumb(g, type, (ms) => new PanelDeskBuilder(ms),    1.5, 0.7, 0.75); break;
+        case 'desk_zen':      buildDesk108Thumb(g, 'desk_zen', (ms) => new ZenDeskBuilder(ms),      1.8, 0.8, 0.75); break;
+        case 'desk_skeleton': buildDesk108Thumb(g, 'desk_skeleton', (ms) => new SkeletonDeskBuilder(ms), 1.6, 0.7, 0.75); break;
+        case 'desk_vertex':   buildDesk108Thumb(g, 'desk_vertex', (ms) => new VertexDeskBuilder(ms),   1.7, 0.75, 0.75); break;
+        case 'desk_panel':    buildDesk108Thumb(g, 'desk_panel', (ms) => new PanelDeskBuilder(ms),    1.5, 0.7, 0.75); break;
         case 'dining_table_extending':
-            buildDesk108Thumb(g, type, (ms) => new ExtendingDiningTableBuilder(ms), 1.8, 0.9, 0.76); break;
+            buildDesk108Thumb(g, 'dining_table_extending', (ms) => new ExtendingDiningTableBuilder(ms), 1.8, 0.9, 0.76); break;
         case 'dining_set_rustic':
-            buildDesk108Thumb(g, type, (ms) => new RusticDiningSetBuilder(ms), 2.0, 1.0, 0.75); break;
+            buildDesk108Thumb(g, 'dining_set_rustic', (ms) => new RusticDiningSetBuilder(ms), 2.0, 1.0, 0.75); break;
         case 'dining_set_modern':
-            buildDesk108Thumb(g, type, (ms) => new ModernDiningSetBuilder(ms), 2.2, 1.0, 0.75); break;
+            buildDesk108Thumb(g, 'dining_set_modern', (ms) => new ModernDiningSetBuilder(ms), 2.2, 1.0, 0.75); break;
         case 'dining_set_shell':
-            buildDesk108Thumb(g, type, (ms) => new ShellDiningSetBuilder(ms), 2.6, 1.1, 0.75); break;
+            buildDesk108Thumb(g, 'dining_set_shell', (ms) => new ShellDiningSetBuilder(ms), 2.6, 1.1, 0.75); break;
 
         // ── Bedroom ─────────────────────────────────────────────────────────
         case 'bed':                    buildBed(g, 1.50);             break;
