@@ -31,7 +31,10 @@ import { MATERIAL_CATALOG } from '@pryzm/schemas/materials';
 // §FIX-LIGHTING-VOCABULARY (L-1331) — the L0 accepted set, and the REAL element
 // schema the bus path parses against. Not a stand-in: `Lighting.parse` is the
 // exact call `CreateLightingHandler` makes.
-import { ACCEPTED_LIGHTING_KINDS, isAcceptedLightingKind } from '@pryzm/schemas/lighting';
+import {
+    ACCEPTED_LIGHTING_KINDS, isAcceptedLightingKind,
+    NAMED_FIXTURE_IDS, LEGACY_CONSTRUCTION_FORMS,
+} from '@pryzm/schemas/lighting';
 import { Lighting } from '@pryzm/schemas';
 // ⚠ A REAL branded id. The first draft of these arms passed a plain string and every
 // parse failed on `id | invalid_format | Expected lighting_<ulid>` — an assertion that
@@ -63,8 +66,17 @@ import {
 import { FLOOR_MOUNTED_FIXTURES } from './LightingTypes.js';
 
 describe('§FEAT-LOD200-LUMINAIRES — the founder ask, measured', () => {
-    it('ships exactly TWENTY LOD-200 families', () => {
-        expect(LOD200_FIXTURE_ROWS).toHaveLength(20);
+    /**
+      * ⚠ A LITERAL, deliberately — this is the ONE tripwire in the file that a row
+      * cannot satisfy by construction. Every other count below is now DERIVED from
+      * this array (see §LIGHT102 note there), because a hand-copied count next to a
+      * derived one is how a correct total ends up describing the wrong set.
+      *
+      * 20 on 2026-08-19 (§FEAT-LOD200-LUMINAIRES) → 25 on 2026-08-26 (§LIGHT102,
+      * L-11500: the founder's five new decorative pendant rows).
+      */
+    it('ships exactly TWENTY-FIVE LOD-200 families', () => {
+        expect(LOD200_FIXTURE_ROWS).toHaveLength(25);
     });
 
     it('every id is unique, snake_case and stable (they are PERSISTED)', () => {
@@ -320,12 +332,16 @@ describe('§FEAT-LOD200-LUMINAIRES — everything else is DERIVED, not authored'
 // ── Integration with the one photometric authority ──────────────────────────
 
 describe('§FEAT-LOD200-LUMINAIRES — one table, reachable by the renderer', () => {
-    it('all twenty are IN the single photometry table', () => {
+    it('every LOD-200 family is IN the single photometry table', () => {
         for (const id of LOD200_FIXTURE_IDS) {
             expect(LIGHTING_FIXTURE_PHOTOMETRY[id], `${id} missing from the photometry table`).toBeDefined();
         }
-        // 12 named + 20 LOD-200.
-        expect(Object.keys(LIGHTING_FIXTURE_PHOTOMETRY)).toHaveLength(32);
+        // §LIGHT102 — DERIVED: the hand-authored families plus the matrix, with no
+        // third source. This used to be the literal `32`, which rotted the moment a
+        // row was added; the invariant was never "there are 32", it was "the table is
+        // exactly the two known populations and nothing else".
+        expect(Object.keys(LIGHTING_FIXTURE_PHOTOMETRY))
+            .toHaveLength(NAMED_FIXTURE_IDS.length + LOD200_FIXTURE_ROWS.length);
     });
 
     it('every one resolves through the renderer’s own lookup — NOT the fallback', () => {
@@ -350,9 +366,11 @@ describe('§FEAT-LOD200-LUMINAIRES — one table, reachable by the renderer', ()
             .toBeGreaterThan(sceneIntensityFor(photometryForFixture('recessed_downlight'), false));
     });
 
-    it('all twenty are SELECTABLE — they reach the type-picker catalogue', () => {
+    it('every LOD-200 family is SELECTABLE — they reach the type-picker catalogue', () => {
         const defs = lod200TypeDefinitionRows();
-        expect(defs).toHaveLength(20);
+        // §LIGHT102 — DERIVED from the rows: the claim is "one picker row per matrix
+        // row", not "there are twenty".
+        expect(defs).toHaveLength(LOD200_FIXTURE_ROWS.length);
         for (const d of defs) {
             expect(d.name.length, `${d.id} name`).toBeGreaterThan(2);
             expect(d.description.length, `${d.id} description`).toBeGreaterThan(20);
@@ -376,10 +394,11 @@ describe('§FIX-LIGHTING-VOCABULARY — everything the tool OFFERS, the pipeline
         const refused = offered.filter((k) => !isAcceptedLightingKind(k));
         expect(refused, `families the picker offers but the schema refuses: ${refused.join(', ')}`)
             .toEqual([]);
-        expect(offered).toHaveLength(32);
+        // §LIGHT102 — DERIVED, as above.
+        expect(offered).toHaveLength(NAMED_FIXTURE_IDS.length + LOD200_FIXTURE_ROWS.length);
     });
 
-    it('⭐ the REAL element schema parses all 32 — this is the exact call the bus handler makes', () => {
+    it('⭐ the REAL element schema parses EVERY family — the exact call the bus handler makes', () => {
         // `CreateLightingHandler` does `Lighting.parse(seed)` and rethrows as
         // LightingSchemaError. Before L-1331 this threw for 30 of the 32.
         for (const kind of Object.keys(LIGHTING_FIXTURE_PHOTOMETRY)) {
@@ -418,13 +437,23 @@ describe('§FIX-LIGHTING-VOCABULARY — everything the tool OFFERS, the pipeline
         }
     });
 
-    it('the accepted set is DERIVED — the twenty arrive without being re-typed', () => {
+    it('the accepted set is DERIVED — matrix rows arrive without being re-typed', () => {
         for (const id of LOD200_FIXTURE_IDS) {
             expect(ACCEPTED_LIGHTING_KINDS, `${id} missing from the accepted set`).toContain(id);
         }
-        // 5 legacy + 12 named + 20 LOD-200, minus the {downlight, pendant} overlap
-        // that appears in two of the three sources — the two-value overlap that made
-        // the original five-value transcription look reasonable.
-        expect(ACCEPTED_LIGHTING_KINDS).toHaveLength(5 + 12 + 20 - 2);
+        // 5 legacy construction forms + the named families + the matrix, minus the
+        // {downlight, pendant} overlap that appears in two of the three sources —
+        // the two-value overlap that made the original five-value transcription look
+        // reasonable.
+        //
+        // §LIGHT102 — the three population SIZES are read from their own sources
+        // rather than transcribed. The literal `5 + 12 + 20 - 2` here was the last
+        // hand-copied count in this suite and it broke the moment a row was added,
+        // for a reason that had nothing to do with what it was asserting.
+        const OVERLAP = ['downlight', 'pendant'];   // in LEGACY *and* NAMED
+        expect(ACCEPTED_LIGHTING_KINDS).toHaveLength(
+            LEGACY_CONSTRUCTION_FORMS.length + NAMED_FIXTURE_IDS.length
+            + LOD200_FIXTURE_IDS.length - OVERLAP.length,
+        );
     });
 });

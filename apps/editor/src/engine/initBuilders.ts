@@ -889,14 +889,29 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     // The fixtures NEAREST the camera get a real THREE PointLight; the rest keep
     // only their (photometry-driven) emissive lens, so they still read as
     // switched-on. Without a focus the ordering falls back to distance-from-origin,
-    // which is deterministic but arbitrary — so wire the camera when we have one.
+    // which is deterministic but arbitrary.
+    //
+    // ⭐ §LIGHT102 (L-11427, 2026-08-26) — WIRED UNCONDITIONALLY, RESOLVED LATE.
+    //
+    // This block used to read `window.world.camera.three` HERE and install the
+    // provider only `if (cam?.position)`. When the camera was not yet on `window`
+    // at this point in boot, NOTHING was wired — not then, not later — and every
+    // fixture in that session was ranked by distance from the WORLD ORIGIN. The
+    // budget still worked and was still deterministic, so it never looked broken;
+    // it just lit the wrong three fixtures for the rest of the session, and the
+    // only trace was `focused: false` on L-11420's honesty stamp.
+    //
+    // The camera is now resolved INSIDE the closure, on every budget sync, and the
+    // provider returns `null` when there is genuinely no camera — so a camera that
+    // arrives after `initBuilders` is picked up on the next add/remove/tier change,
+    // and `focused` reports what actually happened rather than what was installed.
+    // Same reasoning as the handrail instance-bridge injection below: gate the USE,
+    // never the wiring, or flipping the condition changes nothing at runtime.
     try {
-        const cam = window.world?.camera?.three as { position?: { x: number; y: number; z: number } } | undefined;
-        if (cam?.position) {
-            lightingBuilder.setFocusProvider(() => ({
-                x: cam.position!.x, y: cam.position!.y, z: cam.position!.z,
-            }));
-        }
+        lightingBuilder.setFocusProvider(() => {
+            const pos = (window.world?.camera?.three as { position?: { x: number; y: number; z: number } } | undefined)?.position;
+            return pos ? { x: pos.x, y: pos.y, z: pos.z } : null;
+        });
     } catch (focusErr) {
         console.warn('[initBuilders] §FEAT-FIXTURE-PHOTOMETRY light-budget focus wiring failed:', focusErr);
     }

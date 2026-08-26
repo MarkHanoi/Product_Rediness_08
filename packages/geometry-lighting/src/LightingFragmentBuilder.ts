@@ -151,6 +151,34 @@ const UNRESOLVED_MATERIAL_COLOR = '#ff00ff';
 const LOD200_LENS_BASE = 1.0;
 
 /**
+ * §LIGHT102 (L-11500) — the `capsule` archetype's mouth, as SHARED constants.
+ *
+ * ⭐ These live at module scope, not inside `_lod200Capsule`, because TWO places
+ * need them: the builder (which seats the lens) and `_lod200EmitterOffset` (which
+ * seats the LIGHT). Those two disagreeing is precisely the `mirror_light` defect —
+ * a fixture drawn emitting from one point while illuminating from another — so the
+ * arithmetic is written once and read twice.
+ *
+ * The lower cap is cut at 150° of arc rather than a full 180°: it still READS as a
+ * hemispherical end, while leaving a real aperture (radius `sin 150° · r` = r/2) at
+ * `|cos 150°| · r` below the sphere centre for the lens to sit INSIDE. That recess
+ * is what makes the row's 60° beam a description of the geometry rather than a claim.
+ */
+const CAPSULE_MOUTH_PHI  = (150 * Math.PI) / 180;
+const CAPSULE_MOUTH_R    = Math.sin(CAPSULE_MOUTH_PHI);
+const CAPSULE_MOUTH_DROP = Math.abs(Math.cos(CAPSULE_MOUTH_PHI));
+
+/**
+ * §LIGHT102 (L-11500) — the `dome` archetype's EXPOSED GLOBE radius, derived from
+ * the bowl and clamped to the 55–110 mm band a real G95–G200 decorative globe lamp
+ * occupies. Shared by the builder and the emitter offset for the same reason as
+ * the capsule constants above.
+ */
+function domeGlobeRadius(bowlRadius: number): number {
+    return Math.min(0.11, Math.max(0.055, bowlRadius * 0.28));
+}
+
+/**
  * §FEAT-LOD200-LUMINAIRES — one fixture's resolved build context: its matrix row,
  * its per-instance overrides applied, dimensions converted to metres, and the
  * POOLED body material (plus the raw appearance, so an archetype needing a
@@ -170,10 +198,21 @@ interface Lod200Ctx {
     readonly tilt: number;
     /** Radial arm count (`arms` archetype). */
     readonly arms: number;
+    /** §LIGHT102 — visible ceiling-rose depth, metres. 0 = none drawn. */
+    readonly canopy: number;
+    /** §LIGHT102 — `bar` end-chamfer depth, metres. 0 = square-cut ends. */
+    readonly endChamfer: number;
     readonly bodyMat: THREE.MeshStandardMaterial;
     readonly bodyColor: string;
     readonly bodyMetalness: number;
     readonly bodyRoughness: number;
+    /**
+     * §LIGHT102 — the master material's own opacity/transparency, carried so an
+     * archetype that must re-pool a variant (the double-sided high-bay shell, the
+     * glass tube) keeps the finish instead of silently dropping to opaque.
+     */
+    readonly bodyOpacity: number;
+    readonly bodyTransparent: boolean;
     /** Lens tint, DERIVED from the row's kelvin — never authored. */
     readonly lensTint: string;
 }
@@ -368,7 +407,7 @@ export class LightingFragmentBuilder {
      * yields a deterministic (if arbitrary) ordering, so the budget is never
      * undefined behaviour.
      */
-    private _focusProvider: (() => { x: number; y: number; z: number }) | null = null;
+    private _focusProvider: (() => { x: number; y: number; z: number } | null) | null = null;
 
     /** F.events.14 — unsub handle for bam:day-night-changed runtime.events listener. */
     private _unsubDayNight: (() => void) | undefined;
@@ -417,8 +456,25 @@ export class LightingFragmentBuilder {
     /**
      * §FEAT-FIXTURE-PHOTOMETRY — supply the importance origin (normally the
      * camera). Fixtures nearest this point win the live-light budget.
+     *
+     * ⭐ §LIGHT102 (L-11427, 2026-08-26) — the provider may now return `null`,
+     * meaning *"I have no focus point right now"*.
+     *
+     * WHY: `initBuilders.ts` used to read `window.world.camera.three` ONCE, at
+     * init, and wire the provider only `if (cam?.position)`. The camera is not
+     * always there yet at that moment, and when it was not, nothing was wired —
+     * ever — and the whole scene silently ranked its fixtures by distance from the
+     * WORLD ORIGIN for the rest of the session. `focused: false` reported it (that
+     * is L-11420's honesty stamp doing its job), but nothing fixed it.
+     *
+     * A provider that can say `null` lets the caller wire ONCE, UNCONDITIONALLY,
+     * and resolve the camera LATE — at each sync — so a camera that arrives after
+     * `initBuilders` is picked up on the next add/remove/tier change instead of
+     * never. `focused` then means *"the provider returned a real point on this
+     * pass"* rather than *"a function was installed at boot"*, which is the
+     * stronger and more honest claim.
      */
-    setFocusProvider(fn: () => { x: number; y: number; z: number }): void {
+    setFocusProvider(fn: () => { x: number; y: number; z: number } | null): void {
         this._focusProvider = fn;
     }
 
@@ -1375,8 +1431,13 @@ export class LightingFragmentBuilder {
      */
     private _syncAllLights(): void {
         const byId = new Map(this._getAllData().map(d => [d.id, d]));
-        const focus = this._focusProvider?.() ?? { x: 0, y: 0, z: 0 };
-        const focused = this._focusProvider !== null;
+        // §LIGHT102 (L-11427) — `focused` is now "the provider RETURNED a point on
+        // this pass", not "a provider was installed at boot". A late-arriving camera
+        // therefore starts being used the moment it exists, and a genuinely absent
+        // one still reports the distance-from-ORIGIN fallback honestly.
+        const focusPoint = this._focusProvider?.() ?? null;
+        const focus = focusPoint ?? { x: 0, y: 0, z: 0 };
+        const focused = focusPoint !== null;
 
         const candidates = [...this._roots.entries()].map(([id, group]) => ({
             id,
@@ -1698,8 +1759,27 @@ export class LightingFragmentBuilder {
         // rather than a plausible grey: a lost material must never look like a finish.
         const matId = o.bodyMaterialId ?? row.bodyMaterialId;
         const look = lod200BodyAppearance(matId)
-            ?? { color: UNRESOLVED_MATERIAL_COLOR, metalness: 0, roughness: 0.6 };
-        const bodyMat = sharedMat(look.color, { metalness: look.metalness, roughness: look.roughness });
+            ?? { color: UNRESOLVED_MATERIAL_COLOR, metalness: 0, roughness: 0.6, opacity: 1, transparent: false };
+
+        // ⭐ §LIGHT102 (L-11500) — a TRANSPARENT master material renders transparent.
+        //
+        // `glass-clear` carries `opacity: 0.3, transparent: true` in the C100 master
+        // catalogue, and `lod200BodyAppearance` used to project only colour/metalness/
+        // roughness — so a glass shade would have drawn as an OPAQUE pale-blue tube:
+        // the material correctly resolved and incorrectly applied, with the UI still
+        // reporting it as applied (C100 §2.1). `DoubleSide` because you see the far
+        // wall of an open glass cylinder through the near one.
+        //
+        // ⚠ The opaque branch is spelled SEPARATELY on purpose: passing
+        // `{transparent:false, opacity:1}` would be visually identical but would
+        // change the `sharedMat` cache KEY for all twenty pre-existing families,
+        // re-minting their materials for no reason. Opaque rows keep their exact key.
+        const bodyMat = look.transparent
+            ? sharedMat(look.color, {
+                metalness: look.metalness, roughness: look.roughness,
+                transparent: true, opacity: look.opacity, side: THREE.DoubleSide,
+            })
+            : sharedMat(look.color, { metalness: look.metalness, roughness: look.roughness });
 
         // The lens tint is DERIVED from the fixture's CCT, not typed: a 6500 K exit
         // sign must not glow the same colour as a 2700 K chandelier. This is an
@@ -1715,10 +1795,16 @@ export class LightingFragmentBuilder {
             drop: this._mm(o.dropMm ?? row.dropMm ?? 0),
             tilt: (o.tiltDeg ?? 0) * (Math.PI / 180),
             arms: Math.max(2, Math.min(12, Math.round(o.armCount ?? row.arms ?? 6))),
+            // §LIGHT102 — a canopy the user set to 0 must STAY 0, so `??` (not `||`):
+            // an explicit "no canopy" is a real answer, not a missing one.
+            canopy: Math.max(0, this._mm(o.canopyMm ?? row.canopyMm ?? 0)),
+            endChamfer: Math.max(0, this._mm(row.endChamferMm ?? 0)),
             bodyMat,
             bodyColor: look.color,
             bodyMetalness: look.metalness,
             bodyRoughness: look.roughness,
+            bodyOpacity: look.opacity,
+            bodyTransparent: look.transparent,
             lensTint,
         };
     }
@@ -1740,15 +1826,238 @@ export class LightingFragmentBuilder {
             case 'arms': this._lod200Arms(g, ctx); break;
             case 'yoke': this._lod200Yoke(g, ctx); break;
             case 'sign': this._lod200Sign(g, ctx); break;
+            // §LIGHT102 (L-11500) — the three decorative masses.
+            case 'dome': this._lod200Dome(g, ctx); break;
+            case 'capsule': this._lod200Capsule(g, ctx); break;
+            case 'tube': this._lod200Tube(g, ctx); break;
         }
         return g;
+    }
+
+    /**
+     * §LIGHT102 (L-11500) — the visible CEILING ROSE, shared by every suspended
+     * archetype that authors one.
+     *
+     * ⭐ This is the founder's seventh reference fixture, and it is a HELPER rather
+     * than a family: a canopy is where a pendant meets its ceiling, so it belongs
+     * to whichever pendant is hanging, not to a luminaire of its own (C84 EI-9).
+     * Guarded on `canopy > 0`, so every pre-existing row — none of which authors
+     * one — draws exactly what it drew before.
+     *
+     * Radius is DERIVED from the body, clamped to the 50–110 mm band real ceiling
+     * roses occupy: a 500 mm disc pendant must not arrive wearing a 70 mm-radius
+     * dinner plate on the soffit.
+     */
+    private _lod200Canopy(g: THREE.Group, c: Lod200Ctx): void {
+        if (c.canopy <= 0) return;
+        const r = Math.min(0.11, Math.max(0.05, c.L * 0.14));
+        const rose = new THREE.Mesh(
+            new THREE.CylinderGeometry(r, r * 0.92, c.canopy, SEG_TRIM),
+            c.bodyMat,
+        );
+        rose.position.y = -c.canopy / 2;
+        rose.castShadow = true;
+        g.add(rose);
+    }
+
+    /**
+     * §LIGHT102 (L-11500) — a single suspension cable from the canopy to the body.
+     *
+     * Spans from the underside of the canopy to `-drop`, so a fixture with a
+     * canopy has no gap and one without still hangs from the mount plane.
+     */
+    private _lod200Cable(g: THREE.Group, c: Lod200Ctx, radius = 0.005): void {
+        const top = -c.canopy;
+        const len = Math.max(0, c.drop - c.canopy);
+        if (len <= 0) return;
+        const cable = new THREE.Mesh(
+            new THREE.CylinderGeometry(radius, radius, len, SEG_CABLE),
+            c.bodyMat,
+        );
+        cable.position.y = top - len / 2;
+        g.add(cable);
+    }
+
+    /**
+     * DOME — §LIGHT102 (L-11500), founder reference #1: a wide SPHERICAL-CAP bowl
+     * with an EXPOSED GLOBE hanging beneath its mouth.
+     *
+     * ⛔ Not a `cone`. A truncated cone and a spherical cap are different surfaces,
+     * and the difference is the entire read of the fixture — a bowl curves away
+     * from the eye, a cone runs straight to its rim. `_lod200Cone` already draws
+     * the cone for the high bay; reusing it here would have shipped the founder a
+     * high-bay reflector with a bulb under it.
+     *
+     * The globe is the LENS: the fixture's luminous body is genuinely the visible
+     * sphere, which is what makes the row's 300° beam angle a description rather
+     * than a decoration.
+     */
+    private _lod200Dome(g: THREE.Group, c: Lod200Ctx): void {
+        this._lod200Canopy(g, c);
+        this._lod200Cable(g, c, 0.006);
+
+        const r = c.L / 2;
+        const mouthY = -c.drop;
+
+        // The bowl: a sphere sliced so its OPEN rim has radius `r` and its crown
+        // sits `c.D` above that rim. Same construction as `emissiveLens`'s cap,
+        // solved for the authored depth instead of a bulge fraction, and left
+        // OPEN-ENDED (no cap) so the globe is seen inside it.
+        const depth = Math.max(0.02, c.D * 0.55);
+        const sphereR = (r * r + depth * depth) / (2 * depth);
+        const phi = Math.asin(Math.min(1, r / sphereR));
+        const bowlGeo = new THREE.SphereGeometry(
+            sphereR, SEG_BODY, Math.max(8, Math.round(SEG_BODY / 2)), 0, Math.PI * 2, 0, phi,
+        );
+        // As built, the crown sits at local y = sphereR and the open rim at
+        // y = sphereR·cos φ, which is exactly sphereR − depth (that identity is what
+        // choosing sphereR from (r, depth) buys). So translating by
+        // `mouthY − (sphereR − depth)` lands the RIM on the mouth plane and the crown
+        // `depth` above it — the bowl opens downward into the room.
+        bowlGeo.translate(0, mouthY - (sphereR - depth), 0);
+        const bowl = new THREE.Mesh(
+            bowlGeo,
+            sharedMat(c.bodyColor, {
+                metalness: c.bodyMetalness, roughness: c.bodyRoughness, side: THREE.DoubleSide,
+            }),
+        );
+        bowl.castShadow = true;
+        g.add(bowl);
+
+        // The exposed globe, hanging BELOW the bowl's mouth — the whole point of
+        // the fixture. Radius via the SHARED `domeGlobeRadius` so the emitter offset
+        // anchors on the same sphere (see §LIGHT102 on that function).
+        const globeR = domeGlobeRadius(r);
+        const globe = new THREE.Mesh(
+            new THREE.SphereGeometry(globeR, SEG_LENS, Math.max(8, Math.round(SEG_LENS / 2))),
+            sharedLensMat(c.lensTint, LOD200_LENS_BASE),
+        );
+        globe.position.y = mouthY - globeR * 0.55;
+        tagLens(globe, c.lensTint, LOD200_LENS_BASE);
+        g.add(globe);
+    }
+
+    /**
+     * CAPSULE — §LIGHT102 (L-11500), founder reference #3: a slim opaque PILL with
+     * hemispherical ends and a RECESSED lens.
+     *
+     * The recessed mouth is the optic. A `can` draws its lens flush at the body
+     * mouth, which would have given a wide throw and made the row's 60° beam a
+     * claim the geometry contradicts; here the lower hemisphere is cut short of
+     * its pole, leaving a mouth the lens sits INSIDE.
+     */
+    private _lod200Capsule(g: THREE.Group, c: Lod200Ctx): void {
+        this._lod200Canopy(g, c);
+        this._lod200Cable(g, c, 0.005);
+
+        const r = c.L / 2;
+        const topY = -c.drop;
+        // The straight middle, with a hemisphere's worth of height reserved at each
+        // end. Clamped at 0 so a squat capsule degrades to two hemispheres rather
+        // than a negative-height cylinder (which THREE draws inside-out).
+        const barrel = Math.max(0, c.D - 2 * r);
+
+        if (barrel > 0) {
+            const body = new THREE.Mesh(
+                new THREE.CylinderGeometry(r, r, barrel, SEG_BODY),
+                c.bodyMat,
+            );
+            body.position.y = topY - r - barrel / 2;
+            body.castShadow = true;
+            g.add(body);
+        }
+
+        // Upper shoulder — a full hemisphere.
+        const shoulder = new THREE.Mesh(
+            new THREE.SphereGeometry(r, SEG_BODY, Math.max(6, Math.round(SEG_BODY / 3)), 0, Math.PI * 2, 0, Math.PI / 2),
+            c.bodyMat,
+        );
+        shoulder.position.y = topY - r;
+        g.add(shoulder);
+
+        // Lower end — a hemisphere cut at 150° of arc, so it still READS as
+        // hemispherical while leaving a real aperture at the bottom.
+        const base = new THREE.Mesh(
+            new THREE.SphereGeometry(r, SEG_BODY, Math.max(6, Math.round(SEG_BODY / 3)), 0, Math.PI * 2, Math.PI / 2, CAPSULE_MOUTH_PHI - Math.PI / 2),
+            sharedMat(c.bodyColor, {
+                metalness: c.bodyMetalness, roughness: c.bodyRoughness, side: THREE.DoubleSide,
+            }),
+        );
+        base.position.y = topY - r - barrel;
+        base.castShadow = true;
+        g.add(base);
+
+        // The lens sits INSIDE the mouth, not across it. ⚠ `_lod200EmitterOffset`
+        // reproduces this exact expression for the `capsule` case — keep them equal.
+        const mouthR = r * CAPSULE_MOUTH_R;
+        g.add(this._lod200Lens(mouthR * 0.9, c, topY - r - barrel - CAPSULE_MOUTH_DROP * r * 0.55, 0, 0, 0.12));
+    }
+
+    /**
+     * TUBE — §LIGHT102 (L-11500), founder reference #4: an open CLEAR-GLASS
+     * cylinder with the lamp visible inside.
+     *
+     * ⭐ The first TRANSPARENT shade in the matrix. Its transparency is not
+     * authored here — it is the `glass-clear` master row's own `opacity` /
+     * `transparent`, carried through `lod200BodyAppearance` and pooled by
+     * `sharedMat` (which keys on its options, so all glass tubes share ONE
+     * material — a `.clone()` here would be the per-instance leak LIGHT99 removed).
+     */
+    private _lod200Tube(g: THREE.Group, c: Lod200Ctx): void {
+        this._lod200Canopy(g, c);
+        this._lod200Cable(g, c, 0.004);
+
+        const r = c.L / 2;
+        const topY = -c.drop;
+
+        // A metal collar at the top, so the fixture has a body and the cable does
+        // not appear to enter the glass. It is the CANOPY's material, not the
+        // shade's — a glass collar would be invisible.
+        const collarMat = sharedMat(c.bodyColor, {
+            metalness: c.bodyMetalness, roughness: c.bodyRoughness,
+        });
+        const collar = new THREE.Mesh(
+            new THREE.CylinderGeometry(r * 1.02, r * 1.02, Math.min(0.03, c.D * 0.12), SEG_TRIM),
+            collarMat,
+        );
+        collar.position.y = topY - Math.min(0.03, c.D * 0.12) / 2;
+        g.add(collar);
+
+        // The glass: open-ended, so both faces are seen. ⛔ No `castShadow` — a
+        // clear shade that cast an opaque shadow would contradict its own material.
+        const glass = new THREE.Mesh(
+            new THREE.CylinderGeometry(r, r, c.D, SEG_BODY, 1, true),
+            c.bodyMat,
+        );
+        glass.position.y = topY - c.D / 2;
+        g.add(glass);
+
+        // The lamp INSIDE the glass — this is what a clear shade is for, and what
+        // makes the row's 340° beam angle describe the fixture rather than decorate it.
+        const lampR = Math.max(0.028, r * 0.45);
+        const lamp = new THREE.Mesh(
+            new THREE.SphereGeometry(lampR, SEG_LENS, Math.max(8, Math.round(SEG_LENS / 2))),
+            sharedLensMat(c.lensTint, LOD200_LENS_BASE),
+        );
+        lamp.position.y = topY - c.D * 0.55;
+        tagLens(lamp, c.lensTint, LOD200_LENS_BASE);
+        g.add(lamp);
     }
 
     /** CAN — cylindrical body ± trim ring ± stem. Recessed downlights, adjustable
      *  downlights, wall washers, emergency downlights, track heads. */
     private _lod200Can(g: THREE.Group, c: Lod200Ctx): void {
         const r = c.L / 2;
-        const stem = this._mm(c.row.stemMm ?? 0);
+        // §LIGHT102 (L-11500) — the suspension length is the stem PLUS the drop.
+        //
+        // `pendant_cylinder_spot` is a `can` on a 900 mm rod, and it authors that as
+        // `dropMm` rather than `stemMm` deliberately: `suspended` is DERIVED from the
+        // drop and `constructionFormFor` reads `suspended`, so a pendant authored on a
+        // stem would have been classified as a flush DOWNLIGHT in every schedule.
+        // ⚠ `track_head` (stem 90, drop 0) and every recessed row (drop 0) are
+        // arithmetically untouched by this line.
+        const stem = this._mm(c.row.stemMm ?? 0) + c.drop;
+        this._lod200Canopy(g, c);
 
         // A tiltable head is its own sub-group so the aim rotates the BODY and its
         // lens together — tilting only the lens would light a direction the fixture
@@ -1789,7 +2098,7 @@ export class LightingFragmentBuilder {
      *  troffers, surface battens, coves (face up), under-cabinet strips, suspended
      *  linears, up/down sconces, wall packs and step markers. */
     private _lod200Bar(g: THREE.Group, c: Lod200Ctx): void {
-        const body = new THREE.Mesh(new THREE.BoxGeometry(c.L, c.D, c.W), c.bodyMat);
+        const body = new THREE.Mesh(this._lod200BarBodyGeo(c), c.bodyMat);
 
         if (c.row.mount === 'wall') {
             // Wall frame convention, matching `_buildMirrorLight`: the fixture
@@ -1839,14 +2148,88 @@ export class LightingFragmentBuilder {
         }
     }
 
-    /** DISC — flush circular oyster with a domed lens. */
+    /**
+     * §LIGHT102 (L-11500) — the `bar` body, with CHAMFERED ENDS when the row
+     * authors them.
+     *
+     * ⭐ Founder reference #2 is the existing `linear_pendant` row (already
+     * `face: 'updown'` with a real up-lens, already two cables, already a 700 mm
+     * drop). Lane LIGHT99 mapped it as REUSE and named the ONE missing thing: the
+     * chamfered end profile. This is that one thing.
+     *
+     * The chamfer is a real TAPER, not a stepped approximation: the four vertices
+     * on each end face are pulled toward the mid-plane in Y, so the extrusion runs
+     * out to a thin lip exactly as a mitred aluminium end cap does. `BoxGeometry`
+     * duplicates its corners per face, so selecting by |x| = L/2 touches ONLY the
+     * two end faces; normals are recomputed afterwards.
+     *
+     * ⛔ Guarded on `endChamferMm > 0`, which ONLY `linear_pendant` authors. The
+     * other nine `bar` rows — a 600 × 600 troffer, a plaster-in slot, a step marker
+     * — are square-cut by construction and get the identical `BoxGeometry` they
+     * always did. Chamfering the ARCHETYPE instead of the ROW would have re-shaped
+     * every one of them.
+     */
+    private _lod200BarBodyGeo(c: Lod200Ctx): THREE.BufferGeometry {
+        const geo = new THREE.BoxGeometry(c.L, c.D, c.W);
+        const ch = Math.min(c.endChamfer, c.L * 0.2);
+        if (ch <= 0) return geo;
+
+        // How much of the end face survives, as a fraction of the body depth. A
+        // chamfer of `ch` on a body of depth `D` leaves a lip of `D − 2·ch`, floored
+        // at 25% so a deep chamfer narrows the end rather than collapsing it to a
+        // zero-area knife edge (which would produce degenerate normals).
+        const lip = Math.max(0.25, (c.D - 2 * ch) / c.D);
+        const halfL = c.L / 2;
+        const pos = geo.attributes.position as THREE.BufferAttribute;
+        for (let i = 0; i < pos.count; i++) {
+            if (Math.abs(Math.abs(pos.getX(i)) - halfL) < 1e-9) {
+                pos.setY(i, pos.getY(i) * lip);
+            }
+        }
+        pos.needsUpdate = true;
+        geo.computeVertexNormals();
+        return geo;
+    }
+
+    /**
+     * DISC — flush circular oyster with a domed lens, or (§LIGHT102, L-11500) the
+     * same disc SUSPENDED on a canopy and cables.
+     *
+     * ⭐ Founder references #6 AND #7 are this one archetype and this one row:
+     * `pendant_disc` with `canopyMm: 80` is "flat disc with a visible canopy", and
+     * `lod200Params.canopyMm = 0` is the bare disc. A canopy is a mounting detail
+     * (C84 EI-9); it does not earn a family.
+     *
+     * ⚠ `disc` previously ignored `drop` entirely — its only row was a flush
+     * oyster, so nothing noticed. The suspension is guarded on `drop > 0`, which
+     * means `surface_ceiling_disc` (no drop, no canopy) renders byte-for-byte what
+     * it rendered before.
+     */
     private _lod200Disc(g: THREE.Group, c: Lod200Ctx): void {
         const r = c.L / 2;
+        const topY = -c.drop;
+        if (c.drop > 0) {
+            this._lod200Canopy(g, c);
+            // TWO cables at opposite quarter points — what makes a wide disc read as
+            // hanging level rather than balanced on a single stalk. Same reasoning as
+            // the suspended linear in `_lod200Bar`.
+            const span = Math.min(r * 0.6, 0.18);
+            const len = Math.max(0, c.drop - c.canopy);
+            if (len > 0) {
+                for (const sx of [-span, span]) {
+                    const cable = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.004, 0.004, len, SEG_CABLE), c.bodyMat,
+                    );
+                    cable.position.set(sx, -c.canopy - len / 2, 0);
+                    g.add(cable);
+                }
+            }
+        }
         const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.96, c.D, SEG_BODY), c.bodyMat);
-        body.position.y = -(c.D / 2);
+        body.position.y = topY - c.D / 2;
         body.castShadow = true;
         g.add(body);
-        g.add(this._lod200Lens(r * 0.9, c, -c.D, 0, 0, 0.3));
+        g.add(this._lod200Lens(r * 0.9, c, topY - c.D, 0, 0, 0.3));
     }
 
     /** CONE — industrial high-bay reflector on a drop rod. */
@@ -2016,11 +2399,21 @@ export class LightingFragmentBuilder {
      * inside the wall plane contributing almost nothing (see that case below).
      * Deriving the anchor from the ARCHETYPE rather than per family means a
      * twenty-first row cannot repeat it: the row inherits its archetype's anchor.
+     *
+     * ⛔ §LIGHT102 (L-11500) — THIS SWITCH IS THE TRAP. It RETURNS from every arm
+     * and carries no `default`, so a new `Lod200Archetype` member makes the
+     * function return `undefined`, the emitter silently falls back to the group
+     * origin (inside the ceiling), and the ROOT `tsc` gate fails. Lane LIGHT99
+     * started widening the union, hit exactly this, and reverted. The three
+     * §LIGHT102 archetypes are handled below. ⛔ Do NOT add a `default` to "fix"
+     * it — the exhaustiveness is the guard rail, and a default would turn a build
+     * failure into a fixture that lights from inside its own housing.
      */
     private _lod200EmitterOffset(data: LightingData): { x: number; y: number; z: number } | null {
         const c = this._lod200Ctx(data);
         if (!c) return null;
-        const stem = this._mm(c.row.stemMm ?? 0);
+        // §LIGHT102 — stem AND drop, matching `_lod200Can`'s suspension length.
+        const stem = this._mm(c.row.stemMm ?? 0) + c.drop;
         switch (c.row.archetype) {
             case 'can':
                 return { x: 0, y: c.row.recessed ? -0.02 : -(stem + c.D + 0.02), z: 0 };
@@ -2033,12 +2426,34 @@ export class LightingFragmentBuilder {
                 return c.row.face === 'up'
                     ? { x: 0, y: -c.drop + c.D + 0.05, z: 0 }
                     : { x: 0, y: -(c.drop + (c.row.recessed ? 0.02 : c.D + 0.02)), z: 0 };
-            case 'disc': return { x: 0, y: -(c.D + 0.03), z: 0 };
+            // §LIGHT102 — `disc` now honours its drop (it had only a flush row).
+            case 'disc': return { x: 0, y: -(c.drop + c.D + 0.03), z: 0 };
             case 'cone': return { x: 0, y: -(c.drop + c.D + 0.05), z: 0 };
             case 'post': return { x: 0, y: c.D * 0.85, z: 0 };
             case 'arms': return { x: 0, y: -(c.drop + c.D * 0.1), z: 0 };
             case 'yoke': return { x: 0, y: 0, z: this._mm(c.row.stemMm ?? 60) + c.D + 0.05 };
             case 'sign': return { x: 0, y: -(c.drop + c.W / 2), z: 0 };
+
+            // ── §LIGHT102 (L-11500) — the three decorative masses ────────────
+            // Each anchor is the fixture's ACTUAL luminous body, not a guess:
+            // getting this wrong is what left `mirror_light` emitting from inside
+            // a wall, which is the defect this whole function exists to prevent.
+            case 'dome':
+                // The EXPOSED GLOBE, which hangs just below the bowl's mouth. The
+                // emitter must be under the bowl or the bowl occludes its own lamp.
+                return { x: 0, y: -(c.drop + domeGlobeRadius(c.L / 2) * 0.55), z: 0 };
+            case 'capsule': {
+                // Inside the recessed mouth at the bottom of the lower hemisphere —
+                // the SAME arithmetic `_lod200Capsule` seats its lens with, so the
+                // beam leaves exactly where the fixture is drawn to emit.
+                const r = c.L / 2;
+                const barrel = Math.max(0, c.D - 2 * r);
+                return { x: 0, y: -(c.drop + r + barrel + CAPSULE_MOUTH_DROP * r * 0.55), z: 0 };
+            }
+            case 'tube':
+                // The lamp INSIDE the glass, at 55% of the shade height — a clear
+                // shade does not occlude, so the emitter belongs where the lamp is.
+                return { x: 0, y: -(c.drop + c.D * 0.55), z: 0 };
         }
     }
 

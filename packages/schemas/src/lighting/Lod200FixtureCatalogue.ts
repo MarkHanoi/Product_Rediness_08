@@ -2,10 +2,10 @@
  * @file Lod200FixtureCatalogue.ts
  * §FEAT-LOD200-LUMINAIRES (L-1330, 2026-08-19)
  *
- * The LOD-200 luminaire matrix: twenty generic fixture families, each authored as
+ * The LOD-200 luminaire matrix: a set of generic fixture families, each authored as
  * a SHORT ROW OF INDEPENDENT FACTS with every other field DERIVED.
  *
- * ── Why a matrix and not twenty hand-written definitions ────────────────────
+ * ── Why a matrix and not N hand-written definitions ─────────────────────────
  *
  * The twelve pre-existing fixture families are spelled out four times over — a
  * union member in `LightingTypes.ts` (×3 duplicate copies), a `*_DEFAULTS`
@@ -33,7 +33,7 @@
  *   • the catalogue row   ← {@link lod200TypeDefinitionRows}
  *   • the 3-D mass        ← `archetype` + dimensions, in LightingFragmentBuilder
  *
- * Adding a twenty-first luminaire is ONE ROW. It cannot arrive missing a field,
+ * Adding the NEXT luminaire is ONE ROW. It cannot arrive missing a field,
  * because there are no other fields to miss.
  *
  * ── LOD 200, stated as a limit rather than implied ──────────────────────────
@@ -89,8 +89,11 @@ import { findMaterialRecord } from '../materials/index.js';
 /**
  * The LOD-200 generic MASS a fixture is drawn as. This is the only geometry
  * input a row carries: `LightingFragmentBuilder` has one builder per archetype,
- * so twenty families share seven masses rather than needing twenty bespoke
- * builders (which would be the enumerated-list defect wearing a different hat).
+ * so the families share a handful of masses rather than needing one bespoke
+ * builder each (which would be the enumerated-list defect wearing a different hat).
+ *
+ * ⛔ Cite `LOD200_FIXTURE_ROWS.length`, never a count written in prose here — the
+ * counts in this file have already been wrong once (§LIGHT102 added five rows).
  *
  *   can    — cylindrical body, optional trim ring, lens at the mouth; optionally
  *            recessed into its host plane and optionally on a short stem.
@@ -104,8 +107,36 @@ import { findMaterialRecord } from '../materials/index.js';
  *   arms   — canopy + stem + N radial arms carrying small lenses (chandelier).
  *   yoke   — base plate + U-bracket + barrel (adjustable floodlight).
  *   sign   — flat internally-illuminated panel (exit sign).
+ *
+ * ── §LIGHT102 (L-11500, 2026-08-26) — three DECORATIVE masses ───────────────
+ *
+ *   dome    — a WIDE SPHERICAL-CAP bowl with an EXPOSED GLOBE hanging beneath its
+ *             mouth. ⛔ NOT `cone`: a truncated cone and a spherical cap are
+ *             different surfaces of revolution, and the difference is the whole
+ *             read of the fixture. ⛔ NOT `disc` either — the globe is a separate
+ *             visible mass, which is what makes ~300° of emission truthful.
+ *   capsule — a vertical PILL: hemispherical shoulder, cylindrical body, and a
+ *             near-hemispherical bottom cut to leave a small mouth with the lens
+ *             recessed inside it. The recessed mouth is why it is opaque AND
+ *             narrow-beam; a `can` would draw the lens flush at the mouth and the
+ *             optic would be a lie.
+ *   tube    — an OPEN, TRANSPARENT cylinder shade with the lamp visible inside.
+ *             The first transparent shade in the matrix (see
+ *             {@link lod200BodyAppearance}, which now carries opacity through).
+ *
+ * ⚠ ADDING AN ARCHETYPE IS NOT FREE — read this before minting a fourth.
+ * `LightingFragmentBuilder` holds TWO exhaustive switches over this union
+ * (`_buildLod200` and `_lod200EmitterOffset`), and the second one RETURNS from
+ * every arm with no `default`. A new member therefore returns `undefined`, the
+ * emitter falls back to the group origin, and the ROOT `tsc` gate fails. Lane
+ * LIGHT99 hit exactly that and reverted. Both switches are updated here; grep
+ * `\.archetype` before adding another (measured 2026-08-26: those two switches
+ * plus the two `===` comparisons in `efficacyClassFor` below are the only
+ * consumers in the repo).
  */
-export type Lod200Archetype = 'can' | 'bar' | 'disc' | 'cone' | 'post' | 'arms' | 'yoke' | 'sign';
+export type Lod200Archetype =
+    | 'can' | 'bar' | 'disc' | 'cone' | 'post' | 'arms' | 'yoke' | 'sign'
+    | 'dome' | 'capsule' | 'tube';
 
 /**
  * Which way the luminous face points, in the fixture's own frame. Drives where
@@ -188,14 +219,38 @@ export interface Lod200FixtureRow {
     readonly arms?: number;
     /** Stem length below the mount plane, mm — `can` on a track, `yoke` bracket. */
     readonly stemMm?: number;
+
+    // ── §LIGHT102 (L-11500) — two MOUNTING/PROFILE details, not families ─────
+    /**
+     * Visible ceiling-rose (canopy) depth, mm. 0/absent = no drawn canopy.
+     *
+     * ⭐ C84 EI-9 — ONE VOCABULARY. The founder's seventh reference fixture is
+     * "the flat disc pendant, but with a visible canopy". A canopy is where a
+     * suspended fixture MEETS ITS CEILING; it is a mounting detail of the same
+     * luminaire, exactly as `dropMm` is. Minting a second family for it would
+     * put two rows in the schedule for one product and force every downstream
+     * consumer (photometry, picker, vocabulary, serialiser) to carry the
+     * duplicate forever. So it is a FIELD, overridable per instance via
+     * `Lod200OverrideParams.canopyMm` — set it to 0 for the bare disc.
+     */
+    readonly canopyMm?: number;
+    /**
+     * End-chamfer depth on a `bar`, mm. 0/absent = square-cut ends.
+     *
+     * Authored per ROW rather than per archetype because ten families share
+     * `bar`: chamfering all of them would re-shape a 600 × 600 troffer and a
+     * plaster-in slot, which are square-cut by construction. Only the suspended
+     * linear pendant carries it.
+     */
+    readonly endChamferMm?: number;
 }
 
-// ── The twenty rows ─────────────────────────────────────────────────────────
+// ── The rows ────────────────────────────────────────────────────────────────
 
 /**
- * §FEAT-LOD200-LUMINAIRES — the twenty families.
+ * §FEAT-LOD200-LUMINAIRES — the families. Cite `LOD200_FIXTURE_ROWS.length`.
  *
- * ── Why THESE twenty ───────────────────────────────────────────────────────
+ * ── Why THESE twenty (the original 2026-08-19 set) ─────────────────────────
  *
  * The set is chosen to complete the way fixtures are actually SPECIFIED, given
  * what the catalogue already had. The twelve pre-existing families are almost
@@ -277,11 +332,24 @@ export const LOD200_FIXTURE_ROWS: readonly Lod200FixtureRow[] = Object.freeze([
         bodyMaterialId: 'aluminium-powder-coated-white', lMm: 1500, wMm: 60, dMm: 60,
     },
     {
+        // ⭐ §LIGHT102 (L-11500) — the founder's reference fixture #2, "linear bar
+        // with an uplight", is THIS ROW. It was already `face: 'updown'` (a real
+        // up-facing lens, not a mirrored down one), already on a 700 mm drop with
+        // two suspension cables, already 4000 K / CRI 90 / 110°. Minting a second
+        // linear pendant would have produced two rows for one product — the exact
+        // duplication C84 EI-9 forbids and the reason lane LIGHT99 mapped it as
+        // REUSE. The ONE thing genuinely missing was the chamfered end profile, so
+        // that is the ONE thing added: `endChamferMm`, geometry only.
+        //
+        // ⛔ NOT ONE PHOTOMETRIC VALUE CHANGED. These numbers are already on disk in
+        // every project that has ever placed a linear pendant; re-tuning them to
+        // "match the founder's photo" would silently re-light existing scenes.
         id: 'linear_pendant', name: 'Linear Pendant',
         use: 'Suspended direct/indirect linear over a desk run or a long dining table.',
         archetype: 'bar', mount: 'ceiling', face: 'updown', dropMm: 700, location: 'interior',
         lumens: 4200, watts: 38, kelvin: 4000, cri: 90, beamAngleDeg: 110, ipRating: 20,
         bodyMaterialId: 'aluminium-powder-coated-white', lMm: 1500, wMm: 70, dMm: 70,
+        endChamferMm: 25,
     },
     {
         id: 'surface_ceiling_disc', name: 'Surface Ceiling Disc',
@@ -382,6 +450,170 @@ export const LOD200_FIXTURE_ROWS: readonly Lod200FixtureRow[] = Object.freeze([
         lumens: 4500, watts: 40, kelvin: 4000, cri: 80, beamAngleDeg: 30, ipRating: 66,
         bodyMaterialId: 'aluminium-powder-coated-dark', lMm: 220, wMm: 180, dMm: 80,
     },
+
+    // ── §LIGHT102 (L-11500, 2026-08-26) — the founder's DECORATIVE PENDANTS ──
+    //
+    // Five rows closing six of the founder's seven reference fixtures (#2 is the
+    // `linear_pendant` row above, reused; #7 is #6 with its canopy, which is a
+    // field on this row, not a family — see `canopyMm`).
+    //
+    // ⭐ WHY THE MATRIX AND NOT FIVE HAND-WRITTEN FAMILIES. Lane LIGHT99 measured
+    // the cost: a hand-written family touches TWENTY files (a union member in
+    // three copies of `LightingTypes.ts`, a `*_DEFAULTS` const, a photometry row,
+    // a `BUILT_IN_LIGHTING_TYPES` row, a builder method, an emitter case, a
+    // vocabulary entry…) and can arrive missing any one of them. A matrix row
+    // touches FOUR, three of which are tests. These five are rows.
+    //
+    // ── THE NUMBERS, AND WHAT EACH ONE STANDS ON ────────────────────────────
+    //
+    // ⛔ NOT COPIED FROM A NEIGHBOUR. A bare-globe dome, a clear-glass cylinder
+    // and a recessed-lens cylinder spot genuinely differ on every photometric
+    // axis, and copying one row's numbers into the next is how a catalogue ends
+    // up with five fixtures that light identically. Each row's basis is stated at
+    // the row. Where a figure is genuinely the SAME as an existing row (the disc
+    // pendant's 120° diffuser), it says so and says why, rather than being
+    // perturbed to look independent.
+    //
+    // ⚠ NOT MANUFACTURER DATA. Every figure below is an ORDINARY MID-MARKET
+    // PRODUCT-CLASS value for the family named — the kind of number that appears
+    // on a generic datasheet for that class. LOD 200 is generic families, not
+    // products (see the file header), and no IES distribution exists here.
+
+    {
+        // FOUNDER #1 — wide dome/bowl with an EXPOSED GLOBE beneath its mouth.
+        //
+        // lumens 1100 — ONE E27 decorative globe LED lamp. The G125 globe class is
+        //   declared at ~1055 lm (the 75 W-incandescent replacement rung); 1100 is
+        //   that rung, and because the globe is EXPOSED almost none of it is
+        //   absorbed before it leaves the fixture. That is also why this row is
+        //   BRIGHTER than the shaded `pendant_conical` (900 lm) despite a similar
+        //   lamp — the bowl reflects rather than encloses.
+        // watts 13 — the same lamp class draws 11–13 W; 13 W is the fixture figure
+        //   including driver. 84.6 lm/W, high for a decorative row precisely
+        //   BECAUSE the source is exposed (nothing to absorb).
+        // kelvin 2700 — decorative/dining warm white, the residential norm and the
+        //   same CCT the twelve hand-authored pendants already use.
+        // cri 90 — it hangs over a dining table, where food and faces are the
+        //   subject; Ra 90 is the specification norm for that duty.
+        // beam 300° — a bare globe below an open bowl radiates almost fully, blocked
+        //   only by the bowl above it. (`pendant_conical`, whose shade encloses the
+        //   lamp, is 150° — the axis that makes these two different fixtures.)
+        // drop 900 — a dining pendant's canopy-to-shade drop putting the shade
+        //   mouth ~1.55 m above the floor under a 2.6 m ceiling.
+        id: 'pendant_dome_globe', name: 'Dome Pendant (Exposed Globe)',
+        use: 'Wide spun bowl over a dining table with a large exposed globe lamp hanging beneath its mouth.',
+        archetype: 'dome', mount: 'ceiling', face: 'down', dropMm: 900, location: 'interior',
+        lumens: 1100, watts: 13, kelvin: 2700, cri: 90, beamAngleDeg: 300, ipRating: 20,
+        bodyMaterialId: 'aluminium-powder-coated-white', lMm: 450, wMm: 450, dMm: 210,
+        canopyMm: 60,
+    },
+    {
+        // FOUNDER #3 — slim opaque CAPSULE/PILL over an island or a bar.
+        //
+        // lumens 900 — an integrated-LED pendant downlight of this aperture puts
+        //   the same flux on a worktop as the 10 W recessed downlight already in
+        //   this matrix (900 lm): it is the SAME optic in a suspended body, which
+        //   is the honest reason the figure matches rather than a copy.
+        // watts 12 — 75 lm/W, LOWER than the flush downlight's 90 because a deep
+        //   opaque tube with a recessed lens absorbs at the mouth. That loss is the
+        //   price of the narrow beam and it is why this row is `decorative`.
+        // kelvin 3000 — task/island lighting; the residential task norm.
+        // cri 90 — over a food-preparation surface.
+        // beam 60° — the mouth is recessed inside the lower hemisphere, so the
+        //   cut-off is sharp. This is the row's defining optic.
+        // drop 800 — pendant bottom ~1.5 m above the floor over a 0.9 m worktop.
+        id: 'pendant_capsule', name: 'Capsule Pendant',
+        use: 'Slim opaque pill pendant with hemispherical ends and a recessed lens — kitchen islands and bars.',
+        archetype: 'capsule', mount: 'ceiling', face: 'down', dropMm: 800, location: 'interior',
+        lumens: 900, watts: 12, kelvin: 3000, cri: 90, beamAngleDeg: 60, ipRating: 20,
+        bodyMaterialId: 'aluminium-powder-coated-dark', lMm: 120, wMm: 120, dMm: 320,
+        canopyMm: 60,
+    },
+    {
+        // FOUNDER #4 — CLEAR-GLASS CYLINDER with the lamp visible inside.
+        //   ⭐ The first TRANSPARENT shade in the matrix.
+        //
+        // lumens 800 — one E27 LED lamp at the 60 W-replacement rung (declared
+        //   806 lm in the EU energy-label class). Clear glass transmits ~90%, so
+        //   the FIXTURE figure and the LAMP figure are within rounding of each
+        //   other — which is exactly what a clear shade means and why this row is
+        //   not simply the dome's number scaled.
+        // watts 9 — that lamp class is 7–9 W; 9 W with driver. 88.9 lm/W.
+        // kelvin 2700 — decorative bar/dining warm white.
+        // cri 80 — ⭐ DELIBERATELY NOT the 90 of its neighbours. A decorative lamp
+        //   behind clear glass is the mass-market Ra 80 class; specifying Ra 90
+        //   here would be inventing a precision this family does not have.
+        // beam 340° — a clear cylinder emits almost fully spherically; only the
+        //   metal top cap and the cable interrupt it. (`pendant` — an opaque
+        //   cylinder — is 180°. Same mass, different material, 160° apart.)
+        // drop 900 — bar/dining hanging height.
+        id: 'pendant_glass_cylinder', name: 'Clear Glass Cylinder Pendant',
+        use: 'Open clear-glass cylinder shade with the lamp visible inside — bars, counters and dining.',
+        archetype: 'tube', mount: 'ceiling', face: 'down', dropMm: 900, location: 'interior',
+        lumens: 800, watts: 9, kelvin: 2700, cri: 80, beamAngleDeg: 340, ipRating: 20,
+        bodyMaterialId: 'glass-clear', lMm: 120, wMm: 120, dMm: 280,
+        canopyMm: 50,
+    },
+    {
+        // FOUNDER #5 — CYLINDER SPOT on a suspension rod.
+        //   ⭐ ZERO NEW GEOMETRY: the existing `can` archetype already draws a
+        //   cylindrical body on a rod with a lens at the mouth. This row is the
+        //   whole fixture.
+        //
+        //   ⚠ It uses `dropMm`, NOT `stemMm`. `suspended` is DERIVED from the drop,
+        //   and `constructionFormFor` reads `suspended` — a pendant authored on a
+        //   stem would have classified as a flush DOWNLIGHT in every schedule.
+        //   `_lod200Can` now adds drop and stem, so `track_head` (stem 90, drop 0)
+        //   is untouched.
+        //
+        // lumens 1000 — an architectural cylinder spot of this aperture. Slightly
+        //   under the 1100 lm retail `track_head` because a domestic/hospitality
+        //   accent cylinder is specified softer than a shop-floor track head.
+        // watts 12 — 83.3 lm/W, an ordinary architectural figure.
+        // kelvin 3000 — accent lighting in a residential/hospitality room.
+        // cri 90 — ⭐ NOT 95. Ra 95 is reserved for `track_head`, whose duty is
+        //   gallery and merchandise rendering; flattening the two would erase the
+        //   one axis that distinguishes them.
+        // beam 36° — the middle rung of the standard 24/36/60 architectural beam
+        //   ladder: narrower than a wall washer, wider than the 24° gimbal.
+        // drop 900 — rod-suspended over a counter or a feature.
+        id: 'pendant_cylinder_spot', name: 'Cylinder Spot Pendant',
+        use: 'Suspended cylindrical spot on a rod, aiming a medium beam at a counter, island or feature.',
+        archetype: 'can', mount: 'ceiling', face: 'down', dropMm: 900, location: 'interior',
+        lumens: 1000, watts: 12, kelvin: 3000, cri: 90, beamAngleDeg: 36, ipRating: 20,
+        bodyMaterialId: 'steel-blackened', lMm: 90, wMm: 90, dMm: 160,
+        canopyMm: 40,
+    },
+    {
+        // FOUNDER #6 **AND** #7 — the FLAT DISC pendant, and the flat disc pendant
+        // WITH A VISIBLE CANOPY. ⭐ ONE ROW (C84 EI-9). See `canopyMm` on
+        // `Lod200FixtureRow`: a canopy is where a suspended fixture meets its
+        // ceiling, not a second product. `canopyMm: 80` ships the founder's #7 by
+        // default; `lod200Params.canopyMm = 0` gives #6 bare.
+        //
+        //   ⭐ ZERO NEW GEOMETRY: the existing `disc` archetype draws it. `disc`
+        //   simply never honoured `dropMm` (its only row was a flush oyster);
+        //   it does now, guarded on `drop > 0` so that row is untouched.
+        //
+        // lumens 2400 — a 500 mm edge-lit LED disc pendant. Sized from the duty,
+        //   not from a neighbour: EN 12464-1 asks ~300 lx on a dining/work surface;
+        //   a ~1.6 m² table needs ~480 lm ON the surface, and a diffuse pendant at
+        //   0.9 m delivers roughly 20–25% of fixture flux there, so ~2000–2400 lm
+        //   is the honest fixture rating for that task.
+        // watts 24 — 100 lm/W, the ordinary figure for a modern LED disc.
+        // kelvin 3000 — residential dining/work amenity.
+        // cri 90 — over a dining or work surface.
+        // beam 120° — ⭐ THE SAME NUMBER as `surface_ceiling_disc`, on purpose and
+        //   said out loud: it is the same flat diffuser optic in a suspended body.
+        //   Perturbing it to look independently derived would be the dishonest move.
+        // drop 900 — dining hanging height.
+        id: 'pendant_disc', name: 'Disc Pendant',
+        use: 'Slim flat disc suspended over a dining table or desk, with a visible ceiling canopy.',
+        archetype: 'disc', mount: 'ceiling', face: 'down', dropMm: 900, location: 'interior',
+        lumens: 2400, watts: 24, kelvin: 3000, cri: 90, beamAngleDeg: 120, ipRating: 20,
+        bodyMaterialId: 'aluminium-powder-coated-white', lMm: 500, wMm: 500, dMm: 40,
+        canopyMm: 80,
+    },
 ] as const satisfies readonly Lod200FixtureRow[]);
 
 /**
@@ -473,9 +705,35 @@ export function efficacyLmPerW(row: Lod200FixtureRow): number {
  * miniature optics (a 2 W step light's driver overhead swamps the LED), and
  * everything else is a straightforward architectural luminaire.
  */
+/**
+ * §LIGHT102 (L-11500) — the DECORATIVE archetypes, as a set rather than a chain
+ * of `||`s, so the rule stays one readable statement as the union grows.
+ *
+ * A decorative luminaire is one whose SHADE OR SOURCE is part of the design and
+ * therefore sits in the light path: an arm-and-cup chandelier, a spun bowl over a
+ * bare globe, an opaque pill with a recessed mouth, a glass cylinder around a
+ * visible lamp. Each of those construction facts costs flux (or, for the exposed
+ * globe, costs the ability to control it), which is why they are judged against
+ * the wider `decorative` lm/W band and not the architectural one.
+ *
+ * ⛔ Membership is by ARCHETYPE — a construction fact the row cannot choose for
+ * itself — never by a flag on the row. A row that could name its own class could
+ * name the lenient one to excuse its own numbers, which is the whole failure
+ * `efficacyClassFor` exists to prevent.
+ *
+ * ⚠ `can` and `disc` are deliberately ABSENT even though `pendant_cylinder_spot`
+ * and `pendant_disc` are decorative-looking pendants: those archetypes are shared
+ * with `recessed_downlight` and `surface_ceiling_disc`, and both new rows are
+ * genuinely architectural LED luminaires (83 and 100 lm/W). Widening the set to
+ * cover them would hand the lenient band to every recessed downlight in the
+ * matrix — the exact thing this function refuses to allow.
+ */
+const DECORATIVE_ARCHETYPES: ReadonlySet<Lod200Archetype> =
+    new Set<Lod200Archetype>(['arms', 'dome', 'capsule', 'tube']);
+
 export function efficacyClassFor(row: Lod200FixtureRow): Lod200EfficacyClass {
     if (row.isEmergency || row.archetype === 'sign') return 'signalling';
-    if (row.archetype === 'arms') return 'decorative';
+    if (DECORATIVE_ARCHETYPES.has(row.archetype)) return 'decorative';
     if (Math.max(row.lMm, row.wMm) <= 100 && row.lumens < 200) return 'miniature';
     return 'architectural';
 }
@@ -595,17 +853,34 @@ export function isGeneralLightingFixture(fixtureType: string): boolean {
  *
  * Returns `null` for an unknown id — the caller renders the C100 §5 unresolved
  * marker rather than inventing an appearance.
+ *
+ * ⭐ §LIGHT102 (L-11500) — `opacity` and `transparent` are now carried too.
+ *
+ * They were being DROPPED, and until this lane nothing noticed because every
+ * LOD-200 row named an opaque material. `pendant_glass_cylinder` names
+ * `glass-clear`, whose master row is `opacity: 0.3, transparent: true` — read
+ * through the old three-field projection it would have rendered as an OPAQUE pale
+ * blue tube. That is a C100 §2.1 identity break wearing the costume of a finish:
+ * the material would have been correctly resolved and incorrectly applied, and
+ * the UI would still have reported it as applied. A projection must map the
+ * master faithfully or say it cannot (C84 §1.3).
  */
 export function lod200BodyAppearance(
     bodyMaterialId: string,
-): { color: string; metalness: number; roughness: number } | null {
+): { color: string; metalness: number; roughness: number; opacity: number; transparent: boolean } | null {
     const rec = findMaterialRecord(bodyMaterialId);
     if (!rec) return null;
-    return { color: rec.color, metalness: rec.metalness, roughness: rec.roughness };
+    return {
+        color: rec.color,
+        metalness: rec.metalness,
+        roughness: rec.roughness,
+        opacity: rec.opacity,
+        transparent: rec.transparent,
+    };
 }
 
 /**
- * §PHOTOMETRY-DERIVED — the twenty photometry rows, computed from the matrix.
+ * §PHOTOMETRY-DERIVED — the photometry rows, computed from the matrix.
  *
  * Returned as a plain record so `LIGHTING_FIXTURE_PHOTOMETRY` can spread it
  * beside the twelve hand-authored families. Shape-compatible with
@@ -628,7 +903,7 @@ export interface Lod200PhotometryRow {
 
 export function photometryRowsForLod200(): Record<Lod200FixtureId, Lod200PhotometryRow> {
     // Keyed as a loose record while it is built, then returned at the EXACT union
-    // type: the twenty keys come from the twenty rows, so the assertion is a
+    // type: the keys come from the rows one-for-one, so the assertion is a
     // statement about the loop, not a hole. The exhaustiveness of the result is
     // what lets `LIGHTING_FIXTURE_PHOTOMETRY` spread it and still typecheck as a
     // total `Record<LightingFixtureType, …>`.
@@ -656,7 +931,7 @@ export function photometryRowsForLod200(): Record<Lod200FixtureId, Lod200Photome
  * §DEFINITIONS-DERIVED — the type-picker rows, computed from the matrix.
  *
  * `LightingTypeDefinitions.BUILT_IN_LIGHTING_TYPES` concatenates these rather
- * than restating twenty names, so a row added to the matrix is SELECTABLE in the
+ * than restating the names, so a row added to the matrix is SELECTABLE in the
  * properties panel by construction. The mount value is the row's own, so it
  * cannot disagree with `FLOOR_MOUNTED_FIXTURES` — the classic silent placement
  * bug this shape removes.

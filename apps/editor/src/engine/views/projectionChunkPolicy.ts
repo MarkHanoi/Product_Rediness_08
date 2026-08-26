@@ -54,8 +54,77 @@ export const PER_LAYER_YIELD_ELEMENT_TYPE = 'curtainwall';
  * Groups per frame-yield for ordinary (non-per-layer) groups.
  *
  * 4 × ~12 ms ≈ 48 ms — just inside the 50 ms LONGTASK threshold.
+ *
+ * ⚠ **THIS CONSTANT NO LONGER DECIDES YIELDS (lane PERF105, L-11560).** It is retained
+ * because `shouldCancelAtGroupBoundary` still uses it as the CANCELLATION cadence —
+ * a deliberately separate decision since L-5400 — and because the `estimateFrameYields`
+ * ledger is written in its terms. The yield decision moved to
+ * `shouldYieldAfterGroupTimed`, for the reason recorded there.
  */
 export const GROUP_CHUNK_SIZE = 4;
+
+/**
+ * §PERF105-YIELD-IS-A-TIME-BUDGET (L-11560) — the elapsed-work slice, in ms, after
+ * which the projection loop yields a display frame.
+ *
+ * ─── WHY A BUDGET REPLACED A GROUP COUNT ────────────────────────────────────
+ *
+ * `GROUP_CHUNK_SIZE = 4` is a PROXY for elapsed time, and its calibration —
+ * "4 × ~12 ms ≈ 48 ms" — was measured in 2026-05 against a projector that then had
+ * no per-element cache and a much denser per-group pipeline. **It is now wrong by
+ * 5.5×.**
+ *
+ * MEASURED (`packages/room-topology/probes/probe-perf105-02-projection-group-cost.local.mts`,
+ * 2026-08-26 — `updateWorldMatrix` + `EdgesGeometry` + `mergeGeometries` per group, the
+ * CPU half of the per-group pipeline, at realistic mesh counts per family):
+ *
+ *     wall 0.89 ms · window 1.76 · door 2.15 · slab 0.47 · stair 4.77
+ *     curtainwall 23.74 · furniture 3.59 · lighting 0.30 · column 0.22
+ *     → mean 2.19 ms per group, NOT 12 ms.
+ *
+ * So four ordinary groups are ~8.8 ms of work, and four LIGHTING groups are **1.2 ms**
+ * — and the loop then spends a whole 16.7 ms display frame relieving it. On a
+ * 169-group model the pass does **370 ms of CPU work and spends 800 ms waiting for
+ * 48 frames: 68 % of the elapsed re-projection is yield, not work.** That is the
+ * founder's *"extremely slow with not even 200 elements"* on the interaction clock.
+ *
+ * ⛔ THIS IS NOT "YIELD LESS AND HOPE". The yields exist to bound the LONGTASK, and a
+ * budget bounds it DIRECTLY instead of through a proxy that has drifted. 16 ms is
+ * **stricter** than the 50 ms the replaced comment claimed to be enforcing, and it is
+ * C10 NFT-4's interactive frame budget (16.6 ms p95) — one slice, one frame's worth of
+ * work. The policy also becomes self-calibrating: a 23.7 ms curtain-wall group blows
+ * the budget on its own and yields; four lighting groups do not, and no longer buy a
+ * frame of latency for 1.2 ms of work.
+ *
+ * LEDGER (`estimateTimedFrameYields`, pinned in `projectionChunkPolicy.test.ts`):
+ * the same 370 ms of work costs **48 yields ⇒ 23 yields**, 800 ms ⇒ 384 ms of calendar
+ * time, with every slice still ≤ 16 ms.
+ */
+export const GROUP_YIELD_BUDGET_MS = 16;
+
+/**
+ * Does the loop yield a display frame now, given how long it has worked since the
+ * last one?
+ *
+ * This is the SINGLE yield decision — it replaces both the per-`GROUP_CHUNK_SIZE`
+ * group yield AND the curtain-wall per-LAYER yield. The two existed because a
+ * curtain-wall group cost ~20× an ordinary one and a group COUNT cannot express that;
+ * a time budget can, so one rule now covers both and there is no longer a family
+ * special case to keep in sync with the builders.
+ *
+ * ⚠ THE CALLER OWNS THE CLOCK, and must restamp it AFTER the yield resolves, not
+ * before it starts — a display frame is ~16.7 ms of calendar time, so charging the
+ * frame itself against the next slice would make every subsequent group yield and
+ * invert the fix.
+ *
+ * @param msSinceLastYield  elapsed ms of WORK since the loop last yielded.
+ */
+export function shouldYieldAfterGroupTimed(
+    msSinceLastYield: number,
+    budgetMs: number = GROUP_YIELD_BUDGET_MS,
+): boolean {
+    return msSinceLastYield >= budgetMs;
+}
 
 /**
  * Does THIS group need a frame yield after every layer?
@@ -78,20 +147,23 @@ export function groupNeedsPerLayerYield(elementTypeLower: string | undefined): b
 }
 
 /**
- * Does the loop yield a frame after finishing this group?
+ * ⛔ `shouldYieldAfterGroup(perLayerYielded, workGroupsDone)` WAS HERE AND IS GONE
+ * (lane PERF105, L-11560). It decided the yield from a group COUNT:
  *
- * A group that already yielded after each of its layers must NOT yield again at its
- * own boundary — that would add a frame per group on top of the per-layer relief for
- * no benefit. Everything else yields once per `GROUP_CHUNK_SIZE` groups.
+ *     if (perLayerYielded) return false;
+ *     return workGroupsDone % GROUP_CHUNK_SIZE === 0;
  *
- * @param perLayerYielded  `groupNeedsPerLayerYield()` for the group just finished.
- * @param workGroupsDone   count of groups that ran the FULL pipeline (cache hits are
- *                         nearly free and deliberately do not advance this counter).
+ * It was DELETED rather than deprecated because leaving it beside
+ * `shouldYieldAfterGroupTimed` would be two rival answers to one question — the
+ * defect shape this repo keeps re-committing — and because the whole point of
+ * lifting the policy into this module (L-5401) was that there is exactly ONE place
+ * the loop's scheduling can be read from. Its measured replacement, and the numbers
+ * that condemned the group count, are documented on `GROUP_YIELD_BUDGET_MS` above.
+ *
+ * `GROUP_CHUNK_SIZE` itself SURVIVES: `shouldCancelAtGroupBoundary` still uses it as
+ * the cancellation cadence, which L-5400 established is a DIFFERENT decision that must
+ * not ride on the yield.
  */
-export function shouldYieldAfterGroup(perLayerYielded: boolean, workGroupsDone: number): boolean {
-    if (perLayerYielded) return false;
-    return workGroupsDone % GROUP_CHUNK_SIZE === 0;
-}
 
 /** Inputs to the cancellation decision at a group boundary. */
 export interface CancelDecisionInput {
@@ -181,4 +253,26 @@ export function estimateFrameYields(
     const perLayer = Math.round(cwGroups * layersPerGroup);
     const perChunk = Math.floor(otherGroups / GROUP_CHUNK_SIZE);
     return perLayer + perChunk;
+}
+
+/**
+ * §PERF105-YIELD-IS-A-TIME-BUDGET (L-11560) — frame yields one pass costs under the
+ * BUDGET policy, so the two regimes can be compared in one ledger instead of one being
+ * asserted and the other described.
+ *
+ * The loop yields whenever the accumulated slice reaches the budget, and never after
+ * the final group (there is nothing left to relieve), so a pass doing `workMs` of CPU
+ * work crosses the budget `ceil(workMs / budgetMs) - 1` times.
+ *
+ * ⚠ This is the CALENDAR cost only. The CPU work is unchanged by either policy — that
+ * is the whole point: the yields were never doing any of the projection.
+ *
+ * @param workMs   total CPU ms the pass spends projecting groups.
+ */
+export function estimateTimedFrameYields(
+    workMs: number,
+    budgetMs: number = GROUP_YIELD_BUDGET_MS,
+): number {
+    if (workMs <= 0 || budgetMs <= 0) return 0;
+    return Math.max(0, Math.ceil(workMs / budgetMs) - 1);
 }

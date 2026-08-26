@@ -399,6 +399,17 @@ export interface Lod200OverrideParams {
     readonly tiltDeg:  number;
     /** Radial arm count — the `arms` archetype (chandelier) only. */
     readonly armCount: number;
+    /**
+     * §LIGHT102 (L-11500) — visible ceiling-rose (canopy) depth, millimetres.
+     * 0 = no drawn canopy.
+     *
+     * ⭐ The founder's seventh reference pendant is "the flat disc, but with a
+     * visible canopy". A canopy is a MOUNTING DETAIL of the same luminaire — it
+     * is where a suspended fixture meets its ceiling, exactly as `dropMm` is how
+     * far below it hangs — so it is a parameter here, NOT a second family
+     * (C84 EI-9, one vocabulary). `pendant_disc` ships with one; set 0 for bare.
+     */
+    readonly canopyMm: number;
     /** An EXISTING `MATERIAL_CATALOG` id overriding the row's body material. */
     readonly bodyMaterialId: string;
 }

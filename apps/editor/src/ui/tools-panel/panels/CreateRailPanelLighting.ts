@@ -6,10 +6,111 @@
  *
  * Design rules:
  *  - Pure DOM factory — no class state, no store writes.
+ *
+ * ── ⭐ §LIGHT102 (L-11424, 2026-08-26) — THE HAND-LIST IS GONE ───────────────
+ *
+ * This file used to carry a hand-written array of TEN fixture definitions —
+ * `{ type, label, description, icon }` × 10 — grouped by hand into three
+ * headings. The catalogue holds far more than ten, and every family missing from
+ * that array was AUTHORED, PLACEABLE, PARSEABLE AND UNREACHABLE: the tool could
+ * build it, the schema accepted it, the properties panel would even offer it as a
+ * type change — but nothing in the create rail could start one. Lane LIGHT99
+ * measured the gap at **22 of 32 families** (L-11424).
+ *
+ * It is the same defect the fixture catalogue itself was built to kill, one layer
+ * up: AN ENUMERATED LIST THAT MUST BE REMEMBERED RATHER THAN DERIVED. Adding a
+ * fixture row correctly — matrix row, photometry, vocabulary, picker registry, 3-D
+ * mass, all derived — still left it invisible here, because a human had to
+ * remember to type it into this array too.
+ *
+ * So the panel now READS `BUILT_IN_LIGHTING_TYPES`, the registry that already
+ * carries every family's id, name, description and mount class. What remains
+ * authored here is genuinely presentational and genuinely cannot be derived:
+ *
+ *   • the GROUPING and its order — the registry knows `mount`, so the groups are
+ *     keyed on mount and a family lands in the right one by construction;
+ *   • the ICON — a small, closed cosmetic map from mount + name shape to an
+ *     icon name, with a per-mount FALLBACK so a family can never fail to render.
+ *     ⛔ It is a decoration table, not a membership list: an unmatched family
+ *     still appears, wearing its mount's default icon. That distinction is the
+ *     whole point — a missing icon must not silently remove a fixture.
+ *
+ * ⚠ NOT A NEW VOCABULARY. Nothing here names a fixture id. Grep this file for a
+ * `LightingFixtureType` literal: there is none, which is what makes the reachable
+ * set equal the registry set by construction rather than by discipline.
  */
 
 import type { LightingFixtureType } from '@pryzm/core-app-model';
+import {
+    BUILT_IN_LIGHTING_TYPES,
+    type LightingMountClass,
+} from '@pryzm/geometry-lighting';
 import * as PryzmIcons from '../../icons/PryzmIcons';
+
+/**
+ * The four mount classes, in the order an architect picks them, with the heading
+ * and the placement hint the old hand-written groups carried.
+ *
+ * ⭐ This is the ONLY list in the file, and it enumerates MOUNT CLASSES — a closed
+ * four-value vocabulary owned by `LightingTypeDefinitions` — never fixtures. A
+ * thirty-eighth family joins whichever of these four its registry row names.
+ */
+const MOUNT_GROUPS: readonly {
+    mount: LightingMountClass;
+    heading: string;
+    hint: string;
+    /** Icon used when no name rule below matches — never "no icon". */
+    fallbackIcon: string;
+}[] = [
+    {
+        mount: 'ceiling',
+        heading: 'Ceiling & Pendant',
+        hint: 'Place on ceiling / slab underside',
+        fallbackIcon: 'material-symbols:light',
+    },
+    {
+        mount: 'wall',
+        heading: 'Wall Mounted',
+        hint: 'Place on a wall face',
+        fallbackIcon: 'material-symbols:wall-lamp',
+    },
+    {
+        mount: 'floor',
+        heading: 'Floor Standing',
+        hint: 'Place on floor surface',
+        fallbackIcon: 'material-symbols:floor-lamp',
+    },
+    {
+        mount: 'table',
+        heading: 'Table Lamps',
+        hint: 'Place on table or bedside surface',
+        fallbackIcon: 'material-symbols:table-lamp',
+    },
+];
+
+/**
+ * Cosmetic icon rules, matched against the registry row's NAME (case-insensitive)
+ * in order, first match wins.
+ *
+ * ⛔ DECORATION ONLY. A family that matches nothing here still renders, with its
+ * mount group's `fallbackIcon` — the failure mode of an icon gap must be a duller
+ * card, never a missing fixture. That is the difference between this table and the
+ * hand-list it replaced.
+ */
+const ICON_RULES: readonly { match: RegExp; icon: string }[] = [
+    { match: /pendant|chandelier|dome|capsule|globe/i, icon: 'material-symbols:pendant-lamp' },
+    { match: /linear|batten|slot|strip|cove|troffer|panel/i, icon: 'material-symbols:fluorescent' },
+    { match: /downlight|spot|track|wash|high bay/i, icon: 'material-symbols:light-group' },
+    { match: /floor lamp|bollard/i, icon: 'material-symbols:floor-lamp' },
+    { match: /table lamp/i, icon: 'material-symbols:table-lamp' },
+    { match: /exit|emergency|marker|step/i, icon: 'material-symbols:emergency-home' },
+    { match: /flood|wall pack|sconce|mirror|vanity/i, icon: 'material-symbols:wall-lamp' },
+];
+
+function iconFor(name: string, fallback: string): string {
+    for (const rule of ICON_RULES) if (rule.match.test(name)) return rule.icon;
+    return fallback;
+}
 
 /**
  * Build and return the lighting fixture picker panel HTMLElement.
@@ -38,86 +139,22 @@ export function buildLightingPanel(): HTMLElement {
         items: FixtureDef[];
     };
 
-    const groups: FixtureGroup[] = [
-        {
-            heading: 'Hanging (Ceiling)',
-            hint: 'Place on ceiling / slab underside',
-            items: [
-                {
-                    type:        'pendant_pebble',
-                    label:       'Pebble Pendant',
-                    description: 'Wide flat disc shade — cream/beige',
-                    icon:        'material-symbols:light',
-                },
-                {
-                    type:        'pendant_ceramic_bell',
-                    label:       'Ceramic Bell Pendant',
-                    description: 'Dark-red glazed ceramic bell, exposed bulb',
-                    icon:        'material-symbols:pendant-lamp',
-                },
-                {
-                    type:        'pendant_conical',
-                    label:       'Conical Pendant',
-                    description: 'Wide UFO brim shade — cream/beige',
-                    icon:        'material-symbols:light',
-                },
-                {
-                    type:        'downlight',
-                    label:       'Surface Downlight',
-                    description: 'Cylindrical canister, flush ceiling mount',
-                    icon:        'material-symbols:light-group',
-                },
-                {
-                    type:        'pendant',
-                    label:       'Cylinder Pendant',
-                    description: 'Slim cylinder, cable suspension',
-                    icon:        'material-symbols:light',
-                },
-                {
-                    type:        'linear_led',
-                    label:       'Linear LED',
-                    description: 'Rectangular bar with LED strip',
-                    icon:        'material-symbols:fluorescent',
-                },
-            ],
-        },
-        {
-            heading: 'Floor Lamps',
-            hint: 'Place on floor surface',
-            items: [
-                {
-                    type:        'floor_wood_post',
-                    label:       'Wood Post Floor Lamp',
-                    description: 'Cross-base oak post, white drum shade',
-                    icon:        'material-symbols:floor-lamp',
-                },
-                {
-                    type:        'floor_arc_brass',
-                    label:       'Arc Brass Floor Lamp',
-                    description: 'Brass arc rod, marble disc base, dome shade',
-                    icon:        'material-symbols:floor-lamp',
-                },
-                {
-                    type:        'floor_tripod_black',
-                    label:       'Tripod Floor Lamp',
-                    description: 'Black tripod legs, large drum shade',
-                    icon:        'material-symbols:floor-lamp',
-                },
-            ],
-        },
-        {
-            heading: 'Table Lamps',
-            hint: 'Place on table or bedside surface',
-            items: [
-                {
-                    type:        'table_terracotta',
-                    label:       'Terracotta Table Lamp',
-                    description: 'Terracotta column body, cream cone shade',
-                    icon:        'material-symbols:table-lamp',
-                },
-            ],
-        },
-    ];
+    // ⭐ DERIVED, not typed. Every registry row lands in exactly one group, keyed
+    // on the `mount` the registry itself carries — the same value the photometry
+    // table and `FLOOR_MOUNTED_FIXTURES` read, so the card cannot promise a
+    // placement the tool will not perform.
+    const groups: FixtureGroup[] = MOUNT_GROUPS.map((g) => ({
+        heading: g.heading,
+        hint: g.hint,
+        items: BUILT_IN_LIGHTING_TYPES
+            .filter((t) => t.mount === g.mount)
+            .map((t) => ({
+                type: t.id as LightingFixtureType,
+                label: t.name,
+                description: t.description,
+                icon: iconFor(t.name, g.fallbackIcon),
+            })),
+    })).filter((g) => g.items.length > 0);
 
     const cardStyle = `
         display: flex;
@@ -158,12 +195,17 @@ export function buildLightingPanel(): HTMLElement {
             padding: 8px 2px 3px 2px;
         `;
         groupHead.textContent = group.heading;
+        groupHead.title = group.hint;
         root.appendChild(groupHead);
 
         for (const def of group.items) {
             const card = document.createElement('button');
             card.type = 'button';
             card.style.cssText = cardStyle;
+            // §LIGHT102 — the id the card will dispatch, readable by a test without
+            // a click. The panel offers what the registry holds; this is how that is
+            // asserted rather than asserted about.
+            card.dataset.fixtureType = def.type;
 
             card.addEventListener('mouseenter', () => {
                 card.style.borderColor = 'var(--app-accent, #6600ff)';
@@ -189,6 +231,7 @@ export function buildLightingPanel(): HTMLElement {
             const descEl = document.createElement('div');
             descEl.style.cssText = 'font-size:9px;color:var(--app-text-muted,#888);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
             descEl.textContent = def.description;
+            descEl.title = def.description;
 
             textWrap.appendChild(labelEl);
             textWrap.appendChild(descEl);

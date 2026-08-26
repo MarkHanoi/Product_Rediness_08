@@ -167,9 +167,12 @@ import { ProjectionSupersededError } from './projectionCancellation';
 // §PERF-CW-YIELD-IS-PER-GROUP / §PERF-CANCEL-IS-NOT-A-YIELD-RIDER (L-5400..L-5401, L-5404) —
 // the per-group SCHEDULING policy, lifted into a pure leaf module so the tests drive the
 // SAME code this loop runs. There is no hand-written model of the loop any more.
+// §PERF105-YIELD-IS-A-TIME-BUDGET (L-11560) — `shouldYieldAfterGroup` (a group COUNT)
+// was replaced by `shouldYieldAfterGroupTimed` (an elapsed-work budget). The measured
+// reason is on `GROUP_YIELD_BUDGET_MS` in that module.
 import {
     groupNeedsPerLayerYield,
-    shouldYieldAfterGroup,
+    shouldYieldAfterGroupTimed,
     shouldCancelAtGroupBoundary,
 } from './projectionChunkPolicy';
 export { ProjectionSupersededError, isProjectionSuperseded } from './projectionCancellation';
@@ -2596,6 +2599,16 @@ export class EdgeProjectorService {
             // display frame (~16.7 ms) of calendar time whether or not the CPU is busy.
             let _perLayerYieldCount = 0;
             let _groupYieldCount    = 0;
+            /**
+             * §PERF105-YIELD-IS-A-TIME-BUDGET (L-11560) — the clock the yield decision
+             * reads. Restamped AFTER every yield resolves, never before it starts: a
+             * display frame is ~16.7 ms of calendar time, so charging the frame itself
+             * against the next slice would make every following group blow the budget
+             * and would invert the fix into "yield after every group".
+             */
+            let _lastYieldAt = performance.now();
+            /** Ledger for the §PERF-EDGEPROJECTOR-CHUNK line — CPU ms actually spent. */
+            let _workMsTotal = 0;
 
             let __diag_group_idx = 0;
             /**
@@ -3396,8 +3409,25 @@ export class EdgeProjectorService {
                     // for ONE pass — while he navigates, with a plan pane open, and (§L-5400)
                     // with cancellation switched off. `isCWGroup` is the question the comment
                     // was always describing.
-                    if (isCWGroup) {
+                    //
+                    // ⭐ §PERF105-YIELD-IS-A-TIME-BUDGET (L-11560) — `if (isCWGroup)` ALONE
+                    // WAS STILL A PROXY, AND IT WAS THE FOUNDER'S DOMINANT COST. His console
+                    // reads `49 group(s), 30 frame yield(s)`; the per-chunk arithmetic accounts
+                    // for only 10 of those, so ~20 were THESE — one whole display frame after
+                    // each layer of each curtain wall, whatever that layer cost. MEASURED
+                    // (probe-perf105-02): a curtain-wall group is 23.7 ms of CPU across ~3
+                    // layers ≈ 8 ms per layer, so the loop was buying 16.7 ms of latency to
+                    // relieve 8 ms of work — the relief costs twice the work.
+                    //
+                    // The family test is now a BUDGET test. A genuinely expensive layer still
+                    // yields (the LONGTASK guarantee this exists for is intact, and at 16 ms it
+                    // is STRICTER than the 50 ms the comment above claims); a cheap one does
+                    // not. `isCWGroup` is kept as the gate for WHICH groups may yield mid-group
+                    // at all — a non-CW group's layers are not independently disposable
+                    // cancellation points — but it no longer decides that they DO.
+                    if (isCWGroup && shouldYieldAfterGroupTimed(performance.now() - _lastYieldAt)) {
                         _perLayerYieldCount++;
+                        _workMsTotal += performance.now() - _lastYieldAt;
                         // §FIX-EDGEPROJECTOR-RAF-YIELD-P3 (Task 1.2) — migrated from raw rAF
                         // to FrameScheduler.scheduleOnce() to maintain P3 single-rAF-owner invariant.
                         // Semantics are identical: scheduleOnce fires on the next pre-render tick
@@ -3405,6 +3435,7 @@ export class EdgeProjectorService {
                         await new Promise<void>(resolve =>
                             getFrameScheduler().scheduleOnce('eps-cw-layer-yield', () => resolve(), 'pre-render'),
                         );
+                        _lastYieldAt = performance.now();   // AFTER the frame, never before.
                     }
                 }
 
@@ -3449,12 +3480,30 @@ export class EdgeProjectorService {
                 // Semantics are identical (VSYNC-synchronized via RafAdapter.ts).
                 //
                 // COST: Adds ~16ms × (chunks−1) of calendar time vs setTimeout(0).
+                //
+                // ⭐ §PERF105-YIELD-IS-A-TIME-BUDGET (L-11560) — "every GROUP_CHUNK_SIZE
+                // groups" WAS the ~50 ms claim above, expressed as a proxy, and the proxy
+                // has drifted 5.5×. MEASURED (probe-perf105-02): the mean group costs
+                // 2.19 ms, not 12 — so four groups is ~8.8 ms, and four LIGHTING groups
+                // (0.30 ms each) is 1.2 ms. The loop was spending a whole 16.7 ms display
+                // frame to relieve 1.2 ms of work. Over a 169-group model: 370 ms of CPU
+                // work and 800 ms of waiting — 68 % of the elapsed pass was yield.
+                //
+                // The budget bounds the LONGTASK directly instead of through a count, so
+                // the guarantee is strictly stronger (≤16 ms slices, not ≤50 ms) AND the
+                // calendar cost falls 48 → 23 yields on that model.
+                //
+                // `_chunkGroupIdx` still advances on every work-group: it is the
+                // CANCELLATION cadence (§PERF-CANCEL-IS-NOT-A-YIELD-RIDER, L-5400 —
+                // a deliberately separate decision), not the yield cadence.
                 _chunkGroupIdx++;
-                if (shouldYieldAfterGroup(isCWGroup, _chunkGroupIdx)) {
+                if (shouldYieldAfterGroupTimed(performance.now() - _lastYieldAt)) {
                     _groupYieldCount++;
+                    _workMsTotal += performance.now() - _lastYieldAt;
                     await new Promise<void>(resolve =>
                         getFrameScheduler().scheduleOnce('eps-chunk-yield', () => resolve(), 'pre-render'),
                     );
+                    _lastYieldAt = performance.now();   // AFTER the frame, never before.
                 }
 
                 {
@@ -3547,6 +3596,14 @@ export class EdgeProjectorService {
                     // whole display frame of calendar time.
                     `${nativeMeshGroups.length} group(s), ${_perLayerYieldCount + _groupYieldCount} frame yield(s) ` +
                     `(${_perLayerYieldCount} per-layer / ${_groupYieldCount} per-chunk), ` +
+                    // ⭐ §PERF105-YIELD-IS-A-TIME-BUDGET (L-11560) — THE TWO NUMBERS THE
+                    // FOUNDER NEEDED SIDE BY SIDE. "30 frame yield(s)" alone cannot say
+                    // whether the pass was slow because the work is heavy or because the
+                    // SCHEDULER is buying frames it does not need; on his model it was the
+                    // latter, and the log could not tell him. Yields are priced at one
+                    // display frame each (~16.7 ms of calendar time, busy CPU or not).
+                    `work=${(_workMsTotal + (performance.now() - _lastYieldAt)).toFixed(0)}ms ` +
+                    `yieldCalendar≈${((_perLayerYieldCount + _groupYieldCount) * (1000 / 60)).toFixed(0)}ms, ` +
                     `${totalGeoCount} edge geometries across ${totalLayerCount} ISO layer(s) ` +
                     `(per-element UUID tagging active)`,
                 );
