@@ -155,14 +155,29 @@ describe('§FEAT-CURTAIN-WALL-TYPE-CATALOGUE — a published type must reach the
         expect(Math.max(1, Math.floor(rec.height / rec.gridYSpacing))).toBe(1);
     });
 
-    it('CLEARS a pre-existing gridSystem, or the swap is a dead control reporting success', () => {
+    it('REGENERATES a pre-existing gridSystem to the NEW pitch — not a dead control, and not merely cleared', () => {
         expect(geometry.get(CW_ID)?.gridSystem?.uLines).toHaveLength(3);
 
         changeType({ elementId: CW_ID, elementType: 'curtainwall', newTypeId: 'cw.glazed.pitch-500' });
 
-        // Without this the builder keeps honouring the OLD three-line grid, and the user
-        // sees nothing change while the panel reports the type was applied.
-        expect(geometry.get(CW_ID)?.gridSystem).toBeUndefined();
+        // §CW-4 (C87 §13.6, commit 85b1f5f9, 2026-08-19 — ONE DAY after this test was
+        // written 2026-08-18) changed the MECHANISM this assertion was pinned against:
+        // UpdateCurtainWallCommand no longer clears `gridSystem` to `undefined` and lets
+        // CurtainWallBuilder.build() re-derive it lazily at build time — it re-derives
+        // the grid ITSELF, synchronously, inside the command, and writes the concrete
+        // result (`_mergedUpdates.gridSystem = nextGrid`, UpdateCurtainWallCommand.ts:141).
+        // The record therefore keeps a `gridSystem` (never `undefined` — the literal
+        // assertion this test used to make), but it must be the NEW one: 0.5 m pitch
+        // across a 6 m wall is 12 uniform divisions (13 lines), and the OLD
+        // hand-inserted line at t=0.37 must be gone — or the swap changed nothing the
+        // builder reads and merely relabelled itself "applied", which is the exact
+        // "dead control" this test exists to catch, just via the current mechanism.
+        const rec = geometry.get(CW_ID);
+        expect(rec?.gridSystem).toBeDefined();
+        expect(rec!.gridSystem!.uLines).toHaveLength(13);
+        expect(rec!.gridSystem!.uLines.some(l => Math.abs(l.t - 0.37) < 0.001)).toBe(false);
+        // top/bottom rails only — no intermediate transom (C87 §13.6 height-agnostic rule).
+        expect(rec!.gridSystem!.vLines).toHaveLength(2);
     });
 
     // ── C84 EI-7b — undo after a type swap ──────────────────────────────────────
