@@ -16,6 +16,9 @@
  *   pryzm-set-inspect-lens         { lens }        → switch active lens
  *   pryzm-delta-updated            { deltaMap }    → re-apply lens with fresh DeltaMap
  *   pryzm-inspect-room-focus       { roomId }      → §1.3 selected jewel — re-apply with selection
+ *   pryzm-audit-room-select        { roomId, source } → §HILITE140 (L-12280) — see note at
+ *                                    `_onAuditSelect` for why this ROOM-named event is ALSO the
+ *                                    bottom Inspect table's per-element (walls/doors/… row click.
  *   pryzm-zslicer-change           { pct: 0..1 }   → §3 Z-Slicer — set renderer.clippingPlanes
  *   pryzm-inspect-discovery        { rooms, ... }  → discovery heatmap (DiagnosticMaterialManager)
  *   pryzm-inspect-element-type     { elementType } → toggle room-lens ↔ ghost-with-focus
@@ -88,6 +91,8 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
   private _unsubMode:           (() => void) | null = null;
   private _unsubDelta:          (() => void) | null = null;
   private _unsubRoomFocus:      (() => void) | null = null;
+  /** §HILITE140 (L-12280) — the bottom Inspect table's per-element row click. */
+  private _unsubAuditSelect:    (() => void) | null = null;
   private _unsubElementType:    (() => void) | null = null;
   private _unsubAttributeFocus: (() => void) | null = null;
   private _unsubSelection:      (() => void) | null = null;
@@ -110,6 +115,9 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
     this._unsubMode           = window.runtime?.events?.on('pryzm-workspace-mode',           this._onWorkspaceMode.bind(this)) ?? null;
     this._unsubDelta          = window.runtime?.events?.on('pryzm-delta-updated',            this._onDeltaUpdated.bind(this)) ?? null;
     this._unsubRoomFocus      = window.runtime?.events?.on('pryzm-inspect-room-focus',       this._onRoomFocus.bind(this)) ?? null;
+    // §HILITE140 (L-12280) — see `_onAuditSelect` for why this event, despite its
+    // room-shaped name, is the wire that was missing for every OTHER family.
+    this._unsubAuditSelect    = window.runtime?.events?.on('pryzm-audit-room-select',        this._onAuditSelect.bind(this)) ?? null;
     this._unsubElementType    = window.runtime?.events?.on('pryzm-inspect-element-type',     this._onElementType.bind(this)) ?? null;
     this._unsubAttributeFocus = window.runtime?.events?.on('pryzm-inspect-attribute-focus',  this._onAttributeFocus.bind(this)) ?? null;
     // §ANALYSIS-IS-GREY-AND-PURPLE (L-6410) — the canonical selection event.
@@ -221,6 +229,7 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
     this._unsubMode?.();           this._unsubMode = null;
     this._unsubDelta?.();          this._unsubDelta = null;
     this._unsubRoomFocus?.();      this._unsubRoomFocus = null;
+    this._unsubAuditSelect?.();    this._unsubAuditSelect = null;
     this._unsubElementType?.();    this._unsubElementType = null;
     this._unsubAttributeFocus?.(); this._unsubAttributeFocus = null;
     this._unsubSelection?.();      this._unsubSelection = null;
@@ -425,6 +434,58 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
     // a room field reads as normal for months. It now names the event, not a type
     // it cannot check.
     console.log(`[InspectModeCoordinator] Inspect focus set from room-focus event: ${roomId ?? '(cleared)'}`);
+  }
+
+  /**
+   * §HILITE140 (L-12280) — the bottom Inspect table's per-element row click.
+   *
+   * ── THE DEFECT THIS CLOSES, measured 2026-08-26 ─────────────────────────────
+   *
+   * Founder: *"when a user selects a ROOM it highlights in the 3-D view in Inspect
+   * mode, but for other elements like WALLS it doesn't. I want all of them
+   * highlighted."* His screenshots show the Inspect bottom table (`renderAuditMode`
+   * for rooms, `renderPolymorphicMatrix` — `AuditGridZone.ts` — for every OTHER
+   * family) and click a wall row.
+   *
+   * `renderAuditMode`'s ROOM row click emits BOTH `pryzm-audit-room-select`
+   * (`AuditGridZone.ts:209`) AND `pryzm-inspect-room-focus` (:211) — the second
+   * event is what actually reaches `_setFocusedElements`. `renderPolymorphicMatrix`'s
+   * per-element row click (:558, covering walls/doors/windows/slabs/… — every
+   * non-room family) emits ONLY `pryzm-audit-room-select`. Nothing engine-side
+   * ever subscribed to it, so a wall row's click reached `AuditStack`'s own
+   * tree-sync listener (which ignores its own `source: 'audit-stack'`) and reached
+   * NOTHING ELSE. The click, the store lookup and the table repaint were all
+   * correct; the 3-D lens was never told a wall had been selected at all — the
+   * founder's "it doesn't" was literal, not a rendering defect once it arrived.
+   *
+   * ⭐ THIS IS THE SAME SHAPE `ProjectTreeZone.ts` already fixed for the PROJECT
+   * TREE at the top of the panel (§INSPECT-FOCUS-IS-ELEMENT-SHAPED, L-8201): its
+   * element row now dispatches on `selectionBus` in addition to the room-shaped
+   * event, and `InspectModeCoordinator` already subscribes to that bus. The
+   * BOTTOM TABLE's polymorphic-matrix row never received the equivalent fix — one
+   * sibling file in the same rollout, not touched.
+   *
+   * ⭐ FIXED AT THIS LAYER, NOT IN THE UI FILE, DELIBERATELY. `pryzm-audit-room-select`
+   * already fires for EVERY row in BOTH audit-grid renderers — its own declared
+   * type says "when the user selects a room/element" — so subscribing to it HERE
+   * is a CLASS fix: every family the bottom table lists is covered by one
+   * subscription, not a per-family patch to a UI click handler. It also means this
+   * fix does not touch `apps/editor/src/ui/inspect/audit/**`, which a concurrent
+   * lane (ROOMTREE139) is restructuring.
+   *
+   * ⚠ HARMLESS ON A ROOM ROW. A room row emits this event TOO (alongside
+   * `pryzm-inspect-room-focus`), so both reach `_setFocusedElements` with the
+   * same id — idempotent, and coalesced into one apply by `applyLens`'s own RAF
+   * debounce (see its class doc comment).
+   */
+  private _onAuditSelect(payload: unknown): void {
+    const { roomId, source } = (payload as { roomId?: string; source?: string }) ?? {};
+    if (!roomId) return;
+    this._setFocusedElements([roomId]);
+    console.log(
+      `[InspectModeCoordinator] Inspect focus set from audit-select event `
+      + `(source=${source ?? 'unknown'}): ${roomId}`,
+    );
   }
 
   /**

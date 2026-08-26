@@ -64,6 +64,30 @@
  *             points honour it. A mesh whose entire contract is "never drawn" is
  *             never a ghost subject.
  *
+ * Fix 5 — Focus stopped at the hit-proxy; families with NO proxy stayed dark
+ *   (§INSPECT-INSTANCED-FOCUS-CLASS, L-12280/L-12281, 2026-08-26):
+ *   Symptom:  Founder — "when a user selects a ROOM it highlights in the 3-D view
+ *             in Inspect mode, but for other elements like WALLS it doesn't."
+ *             Measured: the Inspect bottom table's per-element rows (every family
+ *             except rooms) never reached `_setFocusedElements` at all — a
+ *             sibling wire (`InspectModeCoordinator`) was missing, not this file —
+ *             but auditing every family surfaced a SECOND, independent gap here:
+ *             `StairRailingBuilder`/`HandrailFragmentBuilder` deliberately add NO
+ *             hit-proxy for their instanced members, and furniture's instanced
+ *             parts carry none either, so even a correctly-focused id had nothing
+ *             in `_applyElementFocus`'s two phases to paint.
+ *   Root cause: A hit-proxy is a per-family OPT-IN, not a property of instancing
+ *             itself. Every family sharing `InstancedElementRenderer` already
+ *             stamps a per-slot resolver (`getOccupiedInstanceSlots` /
+ *             `getInstanceElementId` / `getInstanceObb`) for SelectionManager's
+ *             own instanced-pick highlight, but `_applyElementFocus` never read it.
+ *   Fix:      A third phase reads that SAME resolver (and, separately,
+ *             `CurtainWallInstanceManager`'s unrelated `instancePanelIds` array
+ *             shape) to paint a single-instance OBB overlay when neither real
+ *             geometry nor a hit-proxy exists.
+ *   Files:    _applyElementFocus() / _resolveInstancedFocusTransform() /
+ *             _paintInstancedFocusOverlay() — line ~1606
+ *
  * Fix 3 — ACTUAL uZoom crash root cause (SimpleGrid ShaderMaterial replacement):
  *   Symptom:  Same uZoom crash — moving the camera in Inspect mode throws
  *             "Cannot read properties of undefined (reading 'uZoom')"
@@ -1606,7 +1630,7 @@ export class DiagnosticMaterialManager {
   private _applyElementFocus(scene: THREE.Scene, focusedElementIds: ReadonlySet<string>): void {
     if (focusedElementIds.size === 0) return;
 
-    // ── TWO PHASES, and the second one exists because of a MEASUREMENT ─────────
+    // ── THREE PHASES — Phase C added §INSPECT-INSTANCED-FOCUS-CLASS (L-12281) ──
     //
     // ⭐ `WallFragmentBuilder.ts:1303` estimates 70–85% of walls take the INSTANCED
     // path, and an instanced element has NO visible mesh carrying its own id — the
@@ -1620,12 +1644,32 @@ export class DiagnosticMaterialManager {
     // satisfied. Phase B paints a proxy ONLY for an id Phase A could not satisfy.
     // ⛔ That ordering is the whole of L-2031 preserved: a proxy is never surfaced
     // for an element the user did not select, and never when real geometry existed.
+    //
+    // ⭐ PHASE C — measured 2026-08-26 (L-12280/L-12281, lane HILITE140): a hit-proxy
+    // is NOT universal. `StairRailingBuilder.ts:211` and `HandrailFragmentBuilder.ts`
+    // deliberately add NONE for their instanced members ("would partly defeat the
+    // instancing win"), and both are ON by default in production
+    // (`ElementInstanceBridge.ts` `_FAMILY_DEFAULTS`). Furniture's instanced parts
+    // carry no proxy either. Those families are NOT unreachable — every one of them
+    // registers through the SAME `InstancedElementRenderer` walls/columns/beams/
+    // windows use, which stamps `getOccupiedInstanceSlots()` / `getInstanceElementId()`
+    // / `getInstanceObb()` on every group (`InstancedElementRenderer.ts:427-441`) for
+    // exactly this reason (SelectionManager's own instanced-pick highlight already
+    // reads it). Phase C reads the SAME closures to paint a single-instance OBB
+    // overlay instead of repainting a shared material or needing a proxy mesh.
+    // See `_resolveInstancedFocusTransform` for the second, unrelated per-instance
+    // shape (`CurtainWallInstanceManager`'s raw `instancePanelIds` array) it also
+    // reads, and L-12142 for why neither shape can highlight a soft-deleted slot.
     const proxiesByElement = new Map<string, THREE.Mesh[]>();
     const satisfied        = new Set<string>();
+    const instancedMeshes: THREE.Mesh[] = [];
     let painted = 0;
 
     scene.traverse(obj => {
       if (!(obj instanceof THREE.Mesh)) return;
+      if ((obj as unknown as { isInstancedMesh?: boolean }).isInstancedMesh) {
+        instancedMeshes.push(obj);
+      }
       const subject = this._focusSubject(obj);
       const role    = resolveFocusRole(subject, focusedElementIds);
       if (role === 'proxy-fallback') {
@@ -1647,6 +1691,19 @@ export class DiagnosticMaterialManager {
         this._paintFocusedSolid(proxy);
         viaProxy++;
       }
+      // Mark it — Phase C below must never double-highlight an id the proxy
+      // already carried (one focused element, one overlay, not two).
+      satisfied.add(id);
+    }
+
+    let viaInstanced = 0;
+    for (const id of focusedElementIds) {
+      if (satisfied.has(id)) continue;
+      const transform = this._resolveInstancedFocusTransform(instancedMeshes, id);
+      if (!transform) continue;
+      this._paintInstancedFocusOverlay(transform);
+      satisfied.add(id);
+      viaInstanced++;
     }
 
     // §INSPECT-FOCUS-IS-ELEMENT-SHAPED — the honesty half, and the SAME honesty
@@ -1659,14 +1716,160 @@ export class DiagnosticMaterialManager {
       `[§INSPECT-FOCUS-IS-ELEMENT-SHAPED] focus=[${[...focusedElementIds].join(', ')}] — `
       + `${painted} solid mesh(es) in the inspect blue`
       + (viaProxy > 0 ? `, ${viaProxy} via the instanced hit-proxy fallback` : '')
-      + (painted === 0 && viaProxy === 0
+      + (viaInstanced > 0 ? `, ${viaInstanced} via the instanced-slot OBB overlay` : '')
+      + (painted === 0 && viaProxy === 0 && viaInstanced === 0
         ? ' ⚠ ZERO MESHES MATCHED — if the focused id is a ROOM this is CORRECT '
           + '(the room jewel is painted by the lens pass, not here); otherwise no mesh in '
           + 'the scene resolves to this id via userData.id/elementId on itself or an ancestor, '
-          + 'and no hit-proxy stands in for it either (a stair-railing member is the known case '
-          + '— StairRailingBuilder.ts:211 deliberately adds none). See editor-chrome-map.md §13.'
+          + 'no hit-proxy stands in for it, and no instanced group has a slot for it either '
+          + '(an OPENING is the known un-coverable case — SlabFragmentBuilder/RoofFragmentBuilder '
+          + 'cut a hole into the host mesh and never give the opening its own object at all; '
+          + 'L-12282, OPEN). See editor-chrome-map.md §13.'
         : ''),
     );
+  }
+
+  /**
+   * §INSPECT-INSTANCED-FOCUS-CLASS (L-12281) — Phase C's resolver: "which instance
+   * of which mesh IS element `id`", read from whichever of the two per-instance
+   * identity shapes this codebase actually has, without assuming either is
+   * universal.
+   *
+   *  (a) `InstancedElementRenderer`'s own closures — `getOccupiedInstanceSlots()` +
+   *      `getInstanceElementId(slot)` + `getInstanceObb(slot)`
+   *      (`InstancedElementRenderer.ts:427-441`). Every family sharing the ONE
+   *      renderer singleton (walls, columns, beams, windows, handrails, stair
+   *      railings, furniture — via `ElementInstanceBridge` / `FurnitureInstanceBridge`,
+   *      both thin delegators to the same object) exposes this. ⚠ L-12142: `mesh.count`
+   *      is a monotonic high-water mark that still includes soft-deleted, zero-scale
+   *      parked slots — but `getOccupiedInstanceSlots()` is backed by a MAP written at
+   *      register/unregister, never by iterating `0..count`, so a removed slot is
+   *      simply absent from it. No extra guard is needed for this shape; the upstream
+   *      map already excludes it.
+   *
+   *  (b) `CurtainWallInstanceManager`'s own, UNRELATED shape —
+   *      `userData.instancePanelIds: string[]`, index === instance slot
+   *      (`CurtainWallInstanceManager.ts:414-450`). It never touches
+   *      `InstancedElementRenderer`, so shape (a) sees nothing for it — this is a
+   *      SECOND instancing implementation in the repo, not a variant of the first.
+   *      The instance matrix is read directly here, and a near-zero determinant
+   *      (a parked/degenerate slot) is rejected explicitly, mirroring the same
+   *      guard `buildEdgeOverlayGeometry`/`liveInstanceMatrices` already use for
+   *      the identical hazard on the edge-overlay path.
+   *
+   * Returns the matching instance's WORLD-space centre / orientation / full size,
+   * or `null` when no candidate mesh carries this id in either shape.
+   */
+  private _resolveInstancedFocusTransform(
+    candidates: readonly THREE.Mesh[],
+    id: string,
+  ): { center: THREE.Vector3; quaternion: THREE.Quaternion; size: THREE.Vector3 } | null {
+    for (const mesh of candidates) {
+      const ud = mesh.userData as {
+        getOccupiedInstanceSlots?: () => readonly number[];
+        getInstanceElementId?:     (slot: number) => string | undefined;
+        getInstanceObb?:           (slot: number) => {
+          center:     { x: number; y: number; z: number };
+          size:       { x: number; y: number; z: number };
+          quaternion: { x: number; y: number; z: number; w: number };
+        } | undefined;
+        instancePanelIds?: unknown;
+      };
+
+      // (a) InstancedElementRenderer's own per-slot resolver.
+      if (typeof ud.getOccupiedInstanceSlots === 'function' && typeof ud.getInstanceElementId === 'function') {
+        for (const slot of ud.getOccupiedInstanceSlots()) {
+          if (ud.getInstanceElementId(slot) !== id) continue;
+          const obb = ud.getInstanceObb?.(slot);
+          if (!obb) return null; // matched the id but no OBB was ever recorded for it
+          return {
+            center:     new THREE.Vector3(obb.center.x, obb.center.y, obb.center.z),
+            quaternion: new THREE.Quaternion(obb.quaternion.x, obb.quaternion.y, obb.quaternion.z, obb.quaternion.w),
+            size: new THREE.Vector3(
+              Math.max(obb.size.x, 1e-4),
+              Math.max(obb.size.y, 1e-4),
+              Math.max(obb.size.z, 1e-4),
+            ),
+          };
+        }
+        continue;
+      }
+
+      // (b) CurtainWallInstanceManager's plain per-slot id array.
+      if (Array.isArray(ud.instancePanelIds)) {
+        const im  = mesh as THREE.InstancedMesh;
+        const idx = (ud.instancePanelIds as unknown[]).indexOf(id);
+        if (idx < 0 || idx >= im.count) continue;
+        const local = new THREE.Matrix4();
+        im.getMatrixAt(idx, local);
+        // §L-12142-class guard for shape (b): a parked/zero-scale slot collapses
+        // to a degenerate matrix and must render no overlay, not a speck at its
+        // origin — the exact hazard `DEGENERATE_INSTANCE_DET_EPSILON` names.
+        if (Math.abs(local.determinant()) <= 1e-12) continue;
+
+        const localCenter = new THREE.Vector3();
+        const localQuat   = new THREE.Quaternion();
+        const localScale  = new THREE.Vector3();
+        local.decompose(localCenter, localQuat, localScale);
+
+        im.geometry.computeBoundingBox();
+        const geoSize = new THREE.Vector3();
+        (im.geometry.boundingBox as THREE.Box3).getSize(geoSize);
+
+        // The instance matrix is in the MESH's own local space (the mesh is a
+        // child of the curtain wall's root group, which carries the wall's own
+        // position/rotation) — fold in the mesh's world matrix so the overlay
+        // lands at the panel's true WORLD transform, not the wall-local one.
+        im.updateWorldMatrix(true, false);
+        const center = localCenter.clone().applyMatrix4(im.matrixWorld);
+        const worldPos   = new THREE.Vector3();
+        const worldQuat  = new THREE.Quaternion();
+        const worldScale = new THREE.Vector3();
+        im.matrixWorld.decompose(worldPos, worldQuat, worldScale);
+        const quaternion = worldQuat.clone().multiply(localQuat);
+
+        return {
+          center,
+          quaternion,
+          size: new THREE.Vector3(
+            Math.max(geoSize.x * localScale.x, 1e-4),
+            Math.max(geoSize.y * localScale.y, 1e-4),
+            Math.max(geoSize.z * localScale.z, 1e-4),
+          ),
+        };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * §INSPECT-INSTANCED-FOCUS-CLASS (L-12281) — paint Phase C's stand-in: a solid
+   * Inspect-blue box at the resolved instance's own world transform, the same
+   * treatment `_paintFocusedSolid` gives real geometry, built fresh because there
+   * is no existing mesh in the scene to repaint (repainting the shared
+   * `InstancedMesh` material would highlight EVERY instance in the group, not the
+   * one the user selected).
+   */
+  private _paintInstancedFocusOverlay(t: {
+    center:     THREE.Vector3;
+    quaternion: THREE.Quaternion;
+    size:       THREE.Vector3;
+  }): void {
+    const geo = new THREE.BoxGeometry(t.size.x, t.size.y, t.size.z);
+    const mat = new THREE.MeshPhongMaterial({
+      color:             FOCUS_ELEMENT_COLOR,
+      emissive:          new THREE.Color(FOCUS_ELEMENT_EMISSIVE),
+      emissiveIntensity: FOCUS_ELEMENT_EMISSIVE_INTENSITY,
+      side:              THREE.DoubleSide,
+    });
+    const overlay = new THREE.Mesh(geo, mat);
+    overlay.position.copy(t.center);
+    overlay.quaternion.copy(t.quaternion);
+    this._addOverlay(overlay);
+
+    const edges = new THREE.EdgesGeometry(geo);
+    const lineMat = new THREE.LineBasicMaterial({ color: FOCUS_ELEMENT_EDGE_COLOR, linewidth: 1 });
+    this._addOverlayAsChildOf(overlay, new THREE.LineSegments(edges, lineMat));
   }
 
   /** The focused-solid treatment, shared by the real-geometry and proxy arms. */
@@ -1735,8 +1938,18 @@ export class DiagnosticMaterialManager {
   private _resolveElementId(obj: THREE.Object3D): string | null {
     let cur: THREE.Object3D | null = obj;
     while (cur) {
-      const id = cur.userData.id ?? cur.userData.elementId ?? null;
-      if (id) return id as string;
+      // §INSPECT-INSTANCED-FOCUS-CLASS (L-12281) — `InstancedElementRenderer`
+      // stamps `userData.id = 'instanced-group-<key>'` on its shared mesh as a
+      // HOSTING HANDLE ONLY, and says so at the source: "this id is a hosting
+      // handle only — the resolved selection is the per-instance element id …
+      // never the group id" (InstancedElementRenderer.ts:477-479). Without this
+      // guard, a stray/leaked synthetic group id reaching `focusedElementIds`
+      // would resolve here and repaint the WHOLE shared instanced material as
+      // if one element had been selected — every instance in the group, not one.
+      if (!cur.userData?.isInstancedGroup) {
+        const id = cur.userData.id ?? cur.userData.elementId ?? null;
+        if (id) return id as string;
+      }
       cur = cur.parent;
     }
     return null;
