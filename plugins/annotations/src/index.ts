@@ -47,6 +47,13 @@ export {
     annotationStore,
 } from './subsystem/AnnotationStore.js';
 
+// §GRID106 — load-time purge of orphan grid-linked annotations (ghost bubbles
+// persisted by pre-fix saves). Called by engineLauncher on 'pryzm-project-loaded'.
+export {
+    purgeOrphanGridAnnotations,
+    type PurgeableAnnotationStore,
+} from './subsystem/purgeOrphanGridAnnotations.js';
+
 // §ANN-TYPE — annotation SYSTEM TYPES (the Revit Type/Instance split for annotation).
 export {
     type AnnotationSystemType,

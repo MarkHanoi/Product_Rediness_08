@@ -40,7 +40,7 @@ import { ScheduleRegistry } from '@pryzm/core-app-model';
 import { SchedulePanel } from '@app/ui/SchedulePanel/SchedulePanel';
 import { DataWorkbench } from '@app/ui/dataworkbench/DataWorkbench';
 import { UpdateElementMarkCommand, CreatePlanViewCommand, ReDetectRoomsCommand, CopyElementCommand } from '@pryzm/command-registry';
-import { annotationStore } from '@pryzm/plugin-annotations';
+import { annotationStore, purgeOrphanGridAnnotations } from '@pryzm/plugin-annotations';
 import { WallInstanceBridge, WallMoveReweldService } from '@pryzm/geometry-wall';
 // §MOVE-REWELD-DISPATCH (L-871/L-872) — cascade command class + the cross-service
 // latch, injected into WallMoveReweldService (factory pattern: geometry-wall must
@@ -1431,6 +1431,22 @@ export async function bootstrap(
             return;
         }
         setTimeout(() => { zoomToAll(true).catch(() => {}); }, 150);
+    });
+
+    // ── §GRID106: purge orphan grid annotations on project load ──────────────
+    // Projects saved before the RemoveGridCommand sweep (2026-08-26) carry
+    // immortal ghost grid bubbles: 'grid-bubble' AnnotationElements whose
+    // `parameters.gridId` names a grid the founder deleted. The command-side
+    // sweep stops NEW ghosts; this one-shot normalisation removes the ones a
+    // pre-fix save baked in. Load-time store write, no undo entry — same class
+    // as ProjectLoader's own writes.
+    window.runtime?.events?.on('pryzm-project-loaded', () => { // F.events.9
+        try {
+            const liveGridIds = new Set(gridStore.getAll().map((g: { id: string }) => g.id));
+            purgeOrphanGridAnnotations(liveGridIds);
+        } catch (e) {
+            console.warn('[EngineBootstrap] §GRID106 orphan grid-annotation purge failed:', e);
+        }
     });
 
     // ── C13 §4: Level camera tracking + project lifecycle ─────────────────────
