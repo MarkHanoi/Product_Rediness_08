@@ -31,9 +31,12 @@ import type { IFurnitureBuilder } from './IFurnitureBuilder';
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  Geometry helpers (shared with CornerSofaBuilder pattern)                  */
+/*  §SOFA113 (2026-08-26): exported so SectionalSofaBuilder builds its L-     */
+/*  sectional from the SAME section profile (C84 EI-9 — one sofa vocabulary,  */
+/*  no rival helper set). Geometry output unchanged.                          */
 /* ────────────────────────────────────────────────────────────────────────── */
 
-function roundedBox(w: number, h: number, d: number, r: number, segs: number): THREE.BufferGeometry {
+export function roundedBox(w: number, h: number, d: number, r: number, segs: number): THREE.BufferGeometry {
     const radius = Math.min(r, Math.min(w, h, d) * 0.49);
     const shape  = new THREE.Shape();
     const wH = w / 2, hH = h / 2;
@@ -61,7 +64,7 @@ function roundedBox(w: number, h: number, d: number, r: number, segs: number): T
     return geo;
 }
 
-function plumpCushion(w: number, h: number, d: number): THREE.BufferGeometry {
+export function plumpCushion(w: number, h: number, d: number): THREE.BufferGeometry {
     const r = Math.min(w, h, d) * 0.30;
     return roundedBox(w, h, d, r, 5);
 }
