@@ -39,6 +39,14 @@
 // every Arbol tree species, every kitchen-cabinet sub-type, …) still land
 // mechanically in later slices.
 //
+// §DESK108 (2026-08-26) — grow from 59 → 67 entries (60..67): four LOD 300
+// working desks (desk_zen / desk_skeleton / desk_vertex / desk_panel) +
+// extending dining table + three one-element dining sets (rustic / modern /
+// shell). Registered the same day the FurnitureTypes were minted — the ten
+// §CARPET97 carpets were found MISSING from this seed (L-11382); this block
+// exists so the desks/sets never repeat that gap. The count guard lives in
+// composeRuntime.familyRegistry.test.ts (now pinned 67).
+//
 // Out of scope (deferred to a later slice):
 //   • The full 50+ FurnitureType seed (every Barcelona-chair variant, every
 //     plant species, every kitchen-cabinet sub-type, …). This slice already
@@ -1668,6 +1676,219 @@ export function buildCoreFamilySeeds(): RegisteredFamily[] {
             },
             schemaHash: 'core:wall_mirror:1.0.0',
             tags:       ['mirror', 'wall-mirror', 'bedroom', 'master-bedroom', 'decor'],
+        },
+
+        // ═══════════════════════════════════════════════════════════════════
+        // §DESK108 (founder, 2026-08-26) — entries 60..67.
+        // Four LOD 300 working desks + extending dining table + three dining
+        // sets. Registered here the SAME DAY the types were minted — the ten
+        // §CARPET97 carpets were found MISSING from this seed (L-11382), and
+        // this block exists so the desks/sets never repeat that gap.
+        // ═══════════════════════════════════════════════════════════════════
+
+        // ── 60. Zen working desk — floor / private_office (study) ──────────
+        {
+            identity: {
+                id:      'family/core/desk_zen',
+                name:    'Zen working desk',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'tables',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'private_office', anchor: 'wall-window', group: 'desk' },
+                { occupancy: 'study',          anchor: 'wall-window', group: 'desk' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'DESK',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:desk_zen:1.0.0',
+            tags:       ['desk', 'office', 'study', 'workstation', 'travertine'],
+        },
+
+        // ── 61. Skeleton working desk — floor / private_office (study) ─────
+        {
+            identity: {
+                id:      'family/core/desk_skeleton',
+                name:    'Skeleton working desk',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'tables',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'private_office', anchor: 'wall-window', group: 'desk' },
+                { occupancy: 'study',          anchor: 'wall-window', group: 'desk' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'DESK',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:desk_skeleton:1.0.0',
+            tags:       ['desk', 'office', 'study', 'workstation', 'oak', 'steel'],
+        },
+
+        // ── 62. Vertex desk — floor / private_office (study) ───────────────
+        {
+            identity: {
+                id:      'family/core/desk_vertex',
+                name:    'Vertex desk',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'tables',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'private_office', anchor: 'wall-window', group: 'desk' },
+                { occupancy: 'study',          anchor: 'wall-window', group: 'desk' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'DESK',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:desk_vertex:1.0.0',
+            tags:       ['desk', 'office', 'study', 'workstation', 'waterfall', 'oak'],
+        },
+
+        // ── 63. Panel desk — floor / private_office (study) ────────────────
+        {
+            identity: {
+                id:      'family/core/desk_panel',
+                name:    'Panel desk',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'tables',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'private_office', anchor: 'wall-window', group: 'desk' },
+                { occupancy: 'study',          anchor: 'wall-window', group: 'desk' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'DESK',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:desk_panel:1.0.0',
+            tags:       ['desk', 'office', 'study', 'workstation', 'oak', 'drawers'],
+        },
+
+        // ── 64. Extending dining table — floor / kitchen+living ────────────
+        // §DESK108 item 1 — table only (no chairs); same multi-occupancy as
+        // the core dining_table.
+        {
+            identity: {
+                id:      'family/core/dining_table_extending',
+                name:    'Extending dining table',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'tables',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'kitchen', anchor: 'center', group: 'dining-set' },
+                { occupancy: 'living',  anchor: 'center', group: 'dining-set' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'TABLE',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:dining_table_extending:1.0.0',
+            tags:       ['table', 'dining', 'extending', 'kitchen', 'living'],
+        },
+
+        // ── 65. Rustic dining set — floor / kitchen+living ─────────────────
+        // ONE element: gateleg table + slatted chairs (chairCount parametric).
+        {
+            identity: {
+                id:      'family/core/dining_set_rustic',
+                name:    'Rustic dining set',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'tables',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'kitchen', anchor: 'center', group: 'dining-set' },
+                { occupancy: 'living',  anchor: 'center', group: 'dining-set' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'TABLE',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:dining_set_rustic:1.0.0',
+            tags:       ['table', 'dining', 'dining-set', 'rustic', 'kitchen', 'living'],
+        },
+
+        // ── 66. Modern dining set — floor / kitchen+living ─────────────────
+        // ONE element: oak/black-frame table + quilted shell chairs.
+        {
+            identity: {
+                id:      'family/core/dining_set_modern',
+                name:    'Modern dining set',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'tables',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'kitchen', anchor: 'center', group: 'dining-set' },
+                { occupancy: 'living',  anchor: 'center', group: 'dining-set' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'TABLE',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:dining_set_modern:1.0.0',
+            tags:       ['table', 'dining', 'dining-set', 'modern', 'kitchen', 'living'],
+        },
+
+        // ── 67. Shell dining set — floor / kitchen+living ──────────────────
+        // ONE element: long splayed-leg oak table + eight grey shell chairs.
+        {
+            identity: {
+                id:      'family/core/dining_set_shell',
+                name:    'Shell dining set',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'tables',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'kitchen', anchor: 'center', group: 'dining-set' },
+                { occupancy: 'living',  anchor: 'center', group: 'dining-set' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'TABLE',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:dining_set_shell:1.0.0',
+            tags:       ['table', 'dining', 'dining-set', 'shell', 'kitchen', 'living'],
         },
     ];
 }

@@ -171,15 +171,17 @@ describe('composeRuntime() — familyRegistryStore (P0.3 slice B)', () => {
   // ── Test 2 ──────────────────────────────────────────────────────────────
   // Slice B extension 2 (2026-05-31): grew 25 → 40.
   // Slice B extension 3 (2026-05-31): grew 40 → 59.
-  it('after compose, the store contains exactly 59 seeded core families', () => {
+  // §DESK108 (2026-08-26): grew 59 → 67 — four working desks + extending
+  // dining table + three dining sets (seedCoreFamilies entries 60..67).
+  it('after compose, the store contains exactly 67 seeded core families', () => {
     const ids = Object.keys(runtime.familyRegistryStore.get().byId);
-    expect(ids).toHaveLength(59);
+    expect(ids).toHaveLength(67);
   });
 
   // ── Test 3 ──────────────────────────────────────────────────────────────
   it('every seeded family has origin = "core"', () => {
     const families = Object.values(runtime.familyRegistryStore.get().byId);
-    expect(families).toHaveLength(59);
+    expect(families).toHaveLength(67);
     for (const f of families) {
       expect(f.origin).toBe('core');
     }
@@ -296,7 +298,7 @@ describe('composeRuntime() — familyRegistryStore (P0.3 slice B)', () => {
     const seeds = buildCoreFamilySeeds();
     const ids = Object.keys(runtime.familyRegistryStore.get().byId);
     expect(ids).toHaveLength(seeds.length);
-    expect(seeds).toHaveLength(59);
+    expect(seeds).toHaveLength(67); // §DESK108: 59 → 67
   });
 
   // ── Test 14 — Slice B extension 2: plumbing wet-fixtures → IfcSanitaryTerminal ──
@@ -410,12 +412,14 @@ describe('composeRuntime() — familyRegistryStore (P0.3 slice B)', () => {
   // ── Test 21 — Slice B extension 3: total-count guard ────────────────────
   // Equivalent to Test 13's assertion but written as an explicit equality so
   // the next slice has to bump exactly one number here when the seed grows.
-  it('buildCoreFamilySeeds().length === byId size === 59 (slice B extension 3)', async () => {
+  // §DESK108 (2026-08-26): 59 → 67 (entries 60..67 — four working desks +
+  // extending dining table + three dining sets).
+  it('buildCoreFamilySeeds().length === byId size === 67 (§DESK108)', async () => {
     const { buildCoreFamilySeeds } = await import('@pryzm/stores');
     const seeds = buildCoreFamilySeeds();
-    expect(seeds).toHaveLength(59);
+    expect(seeds).toHaveLength(67);
     const ids = Object.keys(runtime.familyRegistryStore.get().byId);
-    expect(ids).toHaveLength(59);
+    expect(ids).toHaveLength(67);
   });
 
   // ── Test 11 ─────────────────────────────────────────────────────────────

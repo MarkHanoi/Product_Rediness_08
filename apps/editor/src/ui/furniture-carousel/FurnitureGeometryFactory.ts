@@ -24,6 +24,16 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import { FurnitureType } from '@pryzm/geometry-furniture';
+// §DESK108 (founder, 2026-08-26) — the desk/dining cards are drawn by the SAME
+// builders that build the placed element (the §CARPET97 no-drift rule: a card
+// hand-copied from its builder eventually drifts; one drawn by it cannot).
+import {
+    MaterialService,
+    ZenDeskBuilder, SkeletonDeskBuilder, VertexDeskBuilder, PanelDeskBuilder,
+    ExtendingDiningTableBuilder, RusticDiningSetBuilder,
+    ModernDiningSetBuilder, ShellDiningSetBuilder,
+} from '@pryzm/geometry-furniture';
+import type { FurnitureData, IFurnitureBuilder } from '@pryzm/geometry-furniture';
 import { createToiletGeometry, createShowerGeometry, createAccessoryGeometry } from '@pryzm/geometry-plumbing';
 import type { ToiletVariant, ShowerVariant, BathroomAccessoryVariant } from '@pryzm/geometry-plumbing';
 import { normalise } from './FurnitureGeometryHelpers';
@@ -125,6 +135,34 @@ function buildPlumbingThumb(g: THREE.Group, family: string, variant: string): bo
     return false;
 }
 
+// ── §DESK108 thumbnails — real builders at card scale ────────────────────────
+
+/**
+ * ONE shared MaterialService for every §DESK108 thumbnail. Its materials are
+ * cached + shared exactly like this module's own PBR materials, and
+ * disposeFurnitureGeometry deliberately never disposes materials — so the
+ * lifecycle matches the file's existing "materials are shared module-level"
+ * contract (and no per-thumb material is ever minted — C100 §2.1).
+ */
+const DESK108_THUMB_MATERIALS = new MaterialService();
+
+function buildDesk108Thumb(
+    g: THREE.Group,
+    type: FurnitureType,
+    make: (ms: MaterialService) => IFurnitureBuilder,
+    w: number, l: number, h: number,
+): void {
+    const data: FurnitureData = {
+        id: `thumb-${type}`, type: 'furniture', furnitureType: type,
+        position: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0, order: 'XYZ' },
+        levelId: 'thumb', levelName: 'thumb', levelElevation: 0, baseOffset: 0,
+        width: w, length: l, height: h,
+        material: 'wood', properties: {},
+    };
+    const built = make(DESK108_THUMB_MATERIALS).build(data);
+    while (built.children.length > 0) g.add(built.children[0]);
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function buildFurnitureGeometry(
@@ -185,6 +223,20 @@ export function buildFurnitureGeometry(
         case 'table_wood_double_conic':     buildTableWoodDoubleConicThumb(g);    break;
         case 'table_wood_4leg':             buildTableWoodFourLegThumb(g);        break;
         case 'table_ceramic_curve':         buildTableCeramicCurveThumb(g);       break;
+
+        // ── §DESK108 desks + dining — cards drawn by the element's own builder ──
+        case 'desk_zen':      buildDesk108Thumb(g, type, (ms) => new ZenDeskBuilder(ms),      1.8, 0.8, 0.75); break;
+        case 'desk_skeleton': buildDesk108Thumb(g, type, (ms) => new SkeletonDeskBuilder(ms), 1.6, 0.7, 0.75); break;
+        case 'desk_vertex':   buildDesk108Thumb(g, type, (ms) => new VertexDeskBuilder(ms),   1.7, 0.75, 0.75); break;
+        case 'desk_panel':    buildDesk108Thumb(g, type, (ms) => new PanelDeskBuilder(ms),    1.5, 0.7, 0.75); break;
+        case 'dining_table_extending':
+            buildDesk108Thumb(g, type, (ms) => new ExtendingDiningTableBuilder(ms), 1.8, 0.9, 0.76); break;
+        case 'dining_set_rustic':
+            buildDesk108Thumb(g, type, (ms) => new RusticDiningSetBuilder(ms), 2.0, 1.0, 0.75); break;
+        case 'dining_set_modern':
+            buildDesk108Thumb(g, type, (ms) => new ModernDiningSetBuilder(ms), 2.2, 1.0, 0.75); break;
+        case 'dining_set_shell':
+            buildDesk108Thumb(g, type, (ms) => new ShellDiningSetBuilder(ms), 2.6, 1.1, 0.75); break;
 
         // ── Bedroom ─────────────────────────────────────────────────────────
         case 'bed':                    buildBed(g, 1.50);             break;

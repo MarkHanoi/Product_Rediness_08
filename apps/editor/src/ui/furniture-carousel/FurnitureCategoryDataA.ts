@@ -393,6 +393,66 @@ export const CATEGORIES_A: readonly FurnitureCategoryDescriptor[] = [
                 defaultDimensions: { width: 1.35, length: 0.85, height: 0.74, baseOffset: 0.0 },
                 defaultMaterial: 'wood',
             },
+            // ── §DESK108 (founder, 2026-08-26) — four LOD 300 working desks.
+            // This category is the founder's "within desk/table" home (its own
+            // description reads "All table types and desks"). Cards + placed
+            // elements are drawn by the SAME builders (§CARPET97 no-drift rule
+            // — see buildDesk108Thumb in FurnitureGeometryFactory.ts).
+            {
+                type: 'desk_zen',
+                label: 'Zen Working Desk',
+                defaultDimensions: { width: 1.8, length: 0.8, height: 0.75, baseOffset: 0.0 },
+                defaultMaterial: 'wood',
+            },
+            {
+                type: 'desk_skeleton',
+                label: 'Skeleton Working Desk',
+                defaultDimensions: { width: 1.6, length: 0.7, height: 0.75, baseOffset: 0.0 },
+                defaultMaterial: 'wood',
+            },
+            {
+                type: 'desk_vertex',
+                label: 'Vertex Desk',
+                defaultDimensions: { width: 1.7, length: 0.75, height: 0.75, baseOffset: 0.0 },
+                defaultMaterial: 'wood',
+            },
+            {
+                type: 'desk_panel',
+                label: 'Panel Desk',
+                defaultDimensions: { width: 1.5, length: 0.7, height: 0.75, baseOffset: 0.0 },
+                defaultMaterial: 'wood',
+            },
+            // ── §DESK108 — extending dining table + three dining SETS (one
+            // element each, chairs built in; chairCount is the parameter the
+            // card seeds via defaultProperties). Dimensions are the TABLE
+            // footprint — tucked chairs overhang the long sides by design.
+            {
+                type: 'dining_table_extending',
+                label: 'Extending Dining Table',
+                defaultDimensions: { width: 1.8, length: 0.9, height: 0.76, baseOffset: 0.0 },
+                defaultMaterial: 'wood',
+            },
+            {
+                type: 'dining_set_rustic',
+                label: 'Rustic Dining Set (4)',
+                defaultDimensions: { width: 2.0, length: 1.0, height: 0.75, baseOffset: 0.0 },
+                defaultMaterial: 'wood',
+                defaultProperties: { chairCount: 4 },
+            },
+            {
+                type: 'dining_set_modern',
+                label: 'Modern Dining Set (6)',
+                defaultDimensions: { width: 2.2, length: 1.0, height: 0.75, baseOffset: 0.0 },
+                defaultMaterial: 'wood',
+                defaultProperties: { chairCount: 6 },
+            },
+            {
+                type: 'dining_set_shell',
+                label: 'Shell Dining Set (8)',
+                defaultDimensions: { width: 2.6, length: 1.1, height: 0.75, baseOffset: 0.0 },
+                defaultMaterial: 'wood',
+                defaultProperties: { chairCount: 8 },
+            },
             {
                 type: 'kave_coffee_table',
                 label: 'Coffee Table (Kave)',
