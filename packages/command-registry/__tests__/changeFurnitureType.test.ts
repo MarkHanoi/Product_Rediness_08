@@ -143,4 +143,81 @@ describe('ChangeFurnitureTypeCommand — §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105)',
         expect(ser.type).toBe('CHANGE_FURNITURE_TYPE');
         expect((ser.payload as any).newFurnitureType).toBe('sofa_2seat');
     });
+
+    // ── §KITCHEN107 (L-11601) — kitchen→kitchen swaps RE-TARGET the config ───
+    //
+    // KitchenBuilder routes on `kitchenConfig.layoutType`, NOT on the record's
+    // `furnitureType`. Before this fix the command kept the old config verbatim
+    // on kitchen→kitchen swaps, so "L-Shape → U-Shape" changed the type STRING
+    // while the rebuilt mesh reproduced the OLD shape (the founder's "changing
+    // type doesn't really change it").
+    describe('kitchen layout re-target (§KITCHEN107, L-11601)', () => {
+        function makeKitchen(): any {
+            return makeFurniture({
+                furnitureType: 'kitchen_l_shape_tall',
+                furnitureCategory: 'kitchen',
+                kitchenConfig: {
+                    layoutType: 'kitchen_l_shape_tall',
+                    depth: 0.60, length: 3.60, height: 0.90,
+                    numUnits: 6,
+                    lengthLeft: 2.40, numUnitsLeft: 4,
+                    frontMaterialId: 'wood-oak',
+                    units: [
+                        ...Array.from({ length: 6 }, (_, i) => ({ index: i, arm: 'main', front: 'door' })),
+                        ...Array.from({ length: 4 }, (_, i) => ({ index: i, arm: 'left', front: 'door' })),
+                    ],
+                },
+            });
+        }
+
+        it('L→U: the config layoutType FOLLOWS the new type and the right arm is seeded', () => {
+            const store = makeStore(makeKitchen());
+            const cmd = new ChangeFurnitureTypeCommand({ id: 'fu-1', newFurnitureType: 'kitchen_u_shape' as any });
+            cmd.execute(makeCtx(store));
+            const next = store.peek('fu-1');
+            expect(next.furnitureType).toBe('kitchen_u_shape');
+            // THE pin: the builder's routing field moved too.
+            expect(next.kitchenConfig.layoutType).toBe('kitchen_u_shape');
+            // Dimensions / materials survive (a resized run is not stomped).
+            expect(next.kitchenConfig.length).toBe(3.60);
+            expect(next.kitchenConfig.numUnits).toBe(6);
+            expect(next.kitchenConfig.frontMaterialId).toBe('wood-oak');
+            // The U-shape's right arm exists now.
+            expect(next.kitchenConfig.numUnitsRight).toBeGreaterThan(0);
+            expect(next.kitchenConfig.units.some((u: any) => u.arm === 'right')).toBe(true);
+        });
+
+        it('tall→tall keeps an upper row; the swap is undoable back to the exact L', () => {
+            const store = makeStore(makeKitchen());
+            const cmd = new ChangeFurnitureTypeCommand({ id: 'fu-1', newFurnitureType: 'kitchen_u_shape_tall' as any });
+            cmd.execute(makeCtx(store));
+            const next = store.peek('fu-1');
+            expect(next.kitchenConfig.layoutType).toBe('kitchen_u_shape_tall');
+            // §KITCHEN107 — the independent upper row is materialised for the
+            // new arm set (derived, since the record predates `upperUnits`).
+            expect(Array.isArray(next.kitchenConfig.upperUnits)).toBe(true);
+            expect(next.kitchenConfig.upperUnits.some((u: any) => u.arm === 'right')).toBe(true);
+
+            const undoRes = cmd.undo(makeCtx(store));
+            expect(undoRes.success).toBe(true);
+            const restored = store.peek('fu-1');
+            expect(restored.furnitureType).toBe('kitchen_l_shape_tall');
+            expect(restored.kitchenConfig.layoutType).toBe('kitchen_l_shape_tall');
+            expect(restored.kitchenConfig.numUnitsLeft).toBe(4);
+        });
+
+        it('an explicit newKitchenConfig still wins over the derived retarget', () => {
+            const store = makeStore(makeKitchen());
+            const explicit = {
+                layoutType: 'kitchen_straight', depth: 0.6, length: 2.4, height: 0.9, numUnits: 4,
+            };
+            const cmd = new ChangeFurnitureTypeCommand({
+                id: 'fu-1',
+                newFurnitureType: 'kitchen_straight' as any,
+                newKitchenConfig: explicit as any,
+            });
+            cmd.execute(makeCtx(store));
+            expect(store.peek('fu-1').kitchenConfig).toEqual(explicit);
+        });
+    });
 });

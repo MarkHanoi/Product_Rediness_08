@@ -24,7 +24,7 @@
 // unchanged so selection / hosting / the property panel stay bound.
 
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
-import { FurnitureData, FurnitureType, FurnitureMaterial } from '@pryzm/geometry-furniture';
+import { FurnitureData, FurnitureType, FurnitureMaterial, isKitchenLayoutType, retargetKitchenConfig } from '@pryzm/geometry-furniture';
 import type { KitchenCabinetConfig } from '@pryzm/geometry-furniture';
 import type { WardrobeCabinetConfig } from '@pryzm/geometry-furniture';
 
@@ -119,7 +119,20 @@ export class ChangeFurnitureTypeCommand implements Command {
         const isWardrobe = t === 'wardrobe' || t === 'wardrobe_glass_door' || t === 'corner_wardrobe';
         const isWardrobeCabinet = t.startsWith('wardrobe_') && !isWardrobe;
 
-        newData.kitchenConfig         = isKitchen        ? (this.payload.newKitchenConfig         ?? furniture.kitchenConfig)         : undefined;
+        // §KITCHEN107 (L-11601) — a kitchen target must RE-TARGET the config,
+        // never keep it verbatim: KitchenBuilder routes on
+        // `kitchenConfig.layoutType`, NOT on `furnitureType`, so carrying the
+        // old config forward made every kitchen→kitchen type swap a visual
+        // no-op (the founder's "changing type doesn't really change it").
+        // `retargetKitchenConfig` stamps the new layout while preserving
+        // dimensions / materials / per-unit choices, seeds missing arm fields,
+        // and re-merges the base + upper unit lists to the new arm counts.
+        newData.kitchenConfig = isKitchen
+            ? (this.payload.newKitchenConfig
+                ?? (isKitchenLayoutType(t)
+                    ? retargetKitchenConfig(furniture.kitchenConfig, t)
+                    : furniture.kitchenConfig))
+            : undefined;
         newData.wardrobeCabinetConfig = isWardrobeCabinet ? (this.payload.newWardrobeCabinetConfig ?? furniture.wardrobeCabinetConfig) : undefined;
         newData.wardrobeConfig        = isWardrobe        ? (this.payload.newWardrobeConfig        ?? furniture.wardrobeConfig)        : undefined;
         // ai_element / glb_import configs belong to their own types only.
