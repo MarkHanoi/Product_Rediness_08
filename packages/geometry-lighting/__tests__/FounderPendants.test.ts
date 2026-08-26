@@ -219,19 +219,29 @@ describe('§LIGHT102 #2 — LINEAR BAR: REUSE, and the reuse must not have re-tu
         // the −x side. A square-cut extrusion is symmetric and returns exactly 1;
         // a tapered end wedge returns its lip ratio. The MIN across the body's
         // pieces is the fixture's answer.
+        // §MESH110-FIXTURE-MERGE — the measurement is per 24-VERTEX CHUNK, not per
+        // mesh: the builder now merges same-material sibling boxes into one
+        // BufferGeometry (`_consolidateFixtureMeshes`), and `mergeGeometries`
+        // CONCATENATES attribute buffers in order, so each source box's 24
+        // vertices stay contiguous. Evaluating the identical asymmetry measure
+        // per chunk gives the SAME verdicts as the old per-mesh walk on both the
+        // merged and the unmerged shape — the pin is renegotiated in HOW it
+        // reads the geometry, never in WHAT it asserts (the L-11505 chamfer).
         const endTaper = (root: THREE.Object3D): number => {
             let worst = 1;
             for (const m of meshes(root)) {
                 const pos = m.geometry.attributes.position as THREE.BufferAttribute | undefined;
-                if (!pos || pos.count !== 24) continue;      // box-like bodies only
-                let yPos = 0, yNeg = 0;
-                for (let i = 0; i < pos.count; i++) {
-                    const y = Math.abs(pos.getY(i));
-                    if (pos.getX(i) > 0) yPos = Math.max(yPos, y);
-                    else                 yNeg = Math.max(yNeg, y);
+                if (!pos || pos.count % 24 !== 0) continue;  // box-like bodies (merged or not)
+                for (let base = 0; base < pos.count; base += 24) {
+                    let yPos = 0, yNeg = 0;
+                    for (let i = base; i < base + 24; i++) {
+                        const y = Math.abs(pos.getY(i));
+                        if (pos.getX(i) > 0) yPos = Math.max(yPos, y);
+                        else                 yNeg = Math.max(yNeg, y);
+                    }
+                    const hi = Math.max(yPos, yNeg);
+                    if (hi > 0) worst = Math.min(worst, Math.min(yPos, yNeg) / hi);
                 }
-                const hi = Math.max(yPos, yNeg);
-                if (hi > 0) worst = Math.min(worst, Math.min(yPos, yNeg) / hi);
             }
             return worst;
         };
@@ -381,11 +391,24 @@ describe('§LIGHT102 #6 + #7 — FLAT DISC and DISC+CANOPY are ONE family (C84 E
         expect(lod200Row('pendant_disc')!.canopyMm).toBeGreaterThan(0);
     });
 
-    it('⭐ `canopyMm: 0` gives #6 BARE — one mesh fewer, same family, same id', () => {
+    it('⭐ `canopyMm: 0` gives #6 BARE — the canopy mass is real and removable, same family, same id', () => {
+        // §MESH110-FIXTURE-MERGE — this pin used to be "exactly one mesh fewer".
+        // The builder now merges the canopy into the body's same-material bucket
+        // (`_consolidateFixtureMeshes`), so MESH count no longer changes — but the
+        // canopy is still a real drawn mass, and VERTICES cannot lie about that.
+        // The intent is unchanged: `canopyMm: 0` must remove real geometry, and
+        // the override is a mounting detail, never a different fixture id.
+        const vertexCount = (root: THREE.Object3D): number => {
+            let n = 0;
+            for (const m of meshes(root)) {
+                n += (m.geometry.attributes.position as THREE.BufferAttribute | undefined)?.count ?? 0;
+            }
+            return n;
+        };
         const withC = build('pendant_disc', { id: 'd1' });
         const without = build('pendant_disc', { id: 'd2', lod200Params: { canopyMm: 0 } });
-        expect(meshes(withC.root).length - meshes(without.root).length,
-            'the canopy is not a drawn mass, or it is not removable').toBe(1);
+        expect(vertexCount(withC.root) - vertexCount(without.root),
+            'the canopy is not a drawn mass, or it is not removable').toBeGreaterThan(0);
         // Same family: the override changes a mounting detail, never the fixture id.
         expect(withC.root.userData.fixtureType).toBe(without.root.userData.fixtureType);
         withC.b.dispose(); without.b.dispose();

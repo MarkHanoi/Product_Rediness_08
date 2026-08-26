@@ -45,7 +45,9 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import { scheduleGpuRelease } from '@pryzm/renderer-three';
+// §MESH110-FIXTURE-MERGE (L-11567 #1) — mergeGeometries via the ONE authorised
+// re-export (C04 §1.1), the same import shape WallFragmentBuilder uses.
+import { scheduleGpuRelease, mergeGeometries } from '@pryzm/renderer-three';
 // §FIX-LIGHT-NIGHT-CONTRIBUTION (2026-08-06) — these consts used to come from the
 // `@pryzm/core-app-model` ROOT barrel, which reaches them only by a long chain
 // (index → stores/index → stores/LightingTypes.js) while this package owns an
@@ -178,6 +180,62 @@ function domeGlobeRadius(bowlRadius: number): number {
     return Math.min(0.11, Math.max(0.055, bowlRadius * 0.28));
 }
 
+// ── §OUTDOOR112 (2026-08-26) — the three SITE archetypes' layouts, SHARED ─────
+//
+// Same discipline as the capsule constants and `domeGlobeRadius` above: each
+// archetype's luminous-body position is written ONCE and read TWICE — by the
+// builder that draws it and by `_lod200EmitterOffset` that lights from it. Two
+// copies disagreeing is the `mirror_light` defect (drawn emitting from one
+// point, illuminating from another).
+
+/**
+ * `bollard` — the head band under the cap. `h` is the row's `dMm` (HEIGHT, as
+ * for `post`). Cap and band are clamped to real bollard proportions (a 35 mm
+ * cap, a <=160 mm band) so a 1 m bollard and a 0.6 m one read as the same family.
+ */
+function bollardHeadLayout(h: number): { capH: number; bandH: number; bandCentreY: number } {
+    const capH  = Math.min(0.035, h * 0.06);
+    const bandH = Math.min(0.16,  h * 0.22);
+    return { capH, bandH, bandCentreY: h - capH - bandH / 2 };
+}
+
+/**
+ * `globe_post` — the globe atop the pole. `poleH` is `dMm` (the pole/post
+ * height to the globe's underside); the globe diameter is the row's `headMm`,
+ * falling back to 2.2x the pole diameter (>= 160 mm) when a row omits it. The
+ * centre sits at 0.85 r above the pole top so the pole visibly ENTERS the
+ * globe rather than balancing a tangent sphere on a point.
+ */
+function globePostHead(poleH: number, headMm: number | undefined, poleR: number): { r: number; centreY: number } {
+    const r = headMm !== undefined && headMm > 0 ? (headMm / 1000) / 2 : Math.max(0.08, poleR * 2.2);
+    return { r, centreY: poleH + r * 0.85 };
+}
+
+/**
+ * `street_arm` — pole, cantilever arm and raked head. `poleH` is `dMm`, the
+ * arm reach is the row's `stemMm` (the same "projection off the mount" meaning
+ * `yoke` gives it), `headLenM` is `lMm` — the head's long axis runs ALONG the
+ * arm, over the road. The pole radius DERIVES from height (a 5 m pole is a
+ * 110 mm section, a 4 m one 90 mm — taller, thicker, as the structure demands),
+ * clamped to the 90–180 mm band real street columns occupy. The head is raked
+ * +6° (far end up) — the modern flat-head look; `lod200Params.tiltDeg` adds.
+ */
+function streetArmLayout(poleH: number, armMm: number | undefined, headLenM: number): {
+    poleR: number; armY: number; headThk: number;
+    headCentreY: number; headCentreZ: number; rakeRad: number;
+} {
+    const poleR   = Math.min(0.09, Math.max(0.045, poleH * 0.011));
+    const armM    = Math.max(0.2, (armMm ?? 600) / 1000);
+    const headThk = 0.075;
+    const armY    = poleH - poleR;                 // the arm springs just under the pole top
+    return {
+        poleR, armY, headThk,
+        headCentreY: armY + headThk * 0.2,
+        headCentreZ: armM + headLenM * 0.25,       // the head runs past the arm's end
+        rakeRad: (6 * Math.PI) / 180,
+    };
+}
+
 /**
  * §FEAT-LOD200-LUMINAIRES — one fixture's resolved build context: its matrix row,
  * its per-instance overrides applied, dimensions converted to metres, and the
@@ -280,11 +338,28 @@ const LENS_WARM = '#fff8e0';
  */
 const _lensMatCache = new Map<string, THREE.MeshStandardMaterial>();
 
-function sharedLensMat(tint: string, emissive: number): THREE.MeshStandardMaterial {
+/**
+ * §OUTDOOR112 — `opacity` / `transparent` are part of the POOL KEY.
+ *
+ * A GLOWING TRANSLUCENT GLOBE (the founder's globe bollard and globe post
+ * light) is a lens that is also see-through: its emission is kelvin-derived
+ * like every lens, and its translucency is the `glass-frosted` master row's own
+ * `opacity`/`transparent`, carried through `lod200BodyAppearance` (the L-11501
+ * carriage). Both facts must survive `_syncLens`, which re-pools the material
+ * on every day/night pass — so they ride the key, and `tagLens` remembers them
+ * per mesh. Defaults (1 / false) leave every pre-existing lens on the SAME
+ * opaque material it always had (a new key string, the same object per key).
+ */
+function sharedLensMat(
+    tint: string,
+    emissive: number,
+    opacity = 1,
+    transparent = false,
+): THREE.MeshStandardMaterial {
     // Quantise to 0.05 so continuous photometric values collapse onto a small,
     // bounded set of materials instead of one per fixture.
     const q = Math.round(Math.max(0, emissive) * 20) / 20;
-    const key = `${tint}|${q}`;
+    const key = `${tint}|${q}|${opacity}|${transparent ? 1 : 0}`;
     let mat = _lensMatCache.get(key);
     if (!mat) {
         mat = new THREE.MeshStandardMaterial({
@@ -293,6 +368,7 @@ function sharedLensMat(tint: string, emissive: number): THREE.MeshStandardMateri
             emissiveIntensity: q,
             roughness: 1,
             metalness: 0,
+            ...(transparent ? { transparent: true, opacity } : {}),
         });
         _lensMatCache.set(key, mat);
     }
@@ -333,10 +409,20 @@ function emissiveLens(
  */
 export const LENS_ROLE = 'lighting.lens';
 
-function tagLens(mesh: THREE.Mesh, tint: string, authoredEmissive: number): void {
+function tagLens(
+    mesh: THREE.Mesh,
+    tint: string,
+    authoredEmissive: number,
+    opacity = 1,
+    transparent = false,
+): void {
     mesh.userData.role      = LENS_ROLE;
     mesh.userData.lensTint  = tint;
     mesh.userData.lensBase  = authoredEmissive;
+    // §OUTDOOR112 — a translucent lens (frosted globe) stays translucent through
+    // every `_syncLens` re-pool; absent on every pre-existing lens (= opaque).
+    mesh.userData.lensOpacity     = opacity;
+    mesh.userData.lensTransparent = transparent;
 }
 
 // ── Builder ───────────────────────────────────────────────────────────────────
@@ -521,6 +607,11 @@ export class LightingFragmentBuilder {
         if (this._roots.has(data.id)) this.remove(data.id);
 
         const group = this._buildFixture(data);
+        // §MESH110-FIXTURE-MERGE (L-11567 #1) — collapse same-material sibling
+        // parts into one mesh per (parent, material, shadow-intent) bucket
+        // BEFORE stamping/scene-add, so a 4-8 mesh fixture submits ~2-4 draws.
+        // Lenses are never touched (see the method's contract).
+        this._consolidateFixtureMeshes(group);
 
         // §FEAT-ELEMENT-TYPE-PICKER-REGISTRY — `enumerable: true` is LOad-BEARING.
         //
@@ -672,6 +763,110 @@ export class LightingFragmentBuilder {
     }
 
     // ── Geometry builders ─────────────────────────────────────────────────────
+
+    /**
+     * §MESH110-FIXTURE-MERGE (L-11567 #1) — collapse a built fixture's
+     * same-material sibling parts into ONE mesh per bucket.
+     *
+     * THE MEASUREMENT (§PERF105): a fixture is 4-8 meshes (a chandelier ~21, a
+     * 7-pendant cluster ~29) with NO merge in the package, on a heavy-scene
+     * guard that swaps the renderer backend at 1000 scene meshes — the founder
+     * crossed it with ONE door create. Every one of those parts is a separate
+     * draw submission for identical material state.
+     *
+     * THE BUCKET KEY is (direct parent, material uuid, castShadow,
+     * receiveShadow, role) — and each term is load-bearing:
+     *   · direct parent — parts inside a posed sub-group (`_lod200Can`'s
+     *     tilting `head`, `_lod200Yoke`'s aim) merge only with siblings, so
+     *     per-instance aim transforms survive untouched;
+     *   · material uuid — every material here is POOLED (`sharedMat` /
+     *     `sharedLensMat`, L-11421), so the merged mesh binds the same pooled
+     *     object and `remove()`'s `scheduleGpuRelease(group, false)` contract
+     *     (never dispose pooled materials) is unchanged;
+     *   · castShadow — the builder's deliberate per-part shadow intent (bodies
+     *     cast, cables/glass never — §NIGHT-ALL-LIGHTS-ON's mesh analog) is
+     *     preserved EXACTLY: a caster never merges with a non-caster;
+     *   · role — `LENS_ROLE` meshes are EXCLUDED OUTRIGHT (skipped, not
+     *     bucketed): `_syncLens` re-assigns `.material` per lens mesh and
+     *     tests pin per-lens position/rotation (the `updown` bar's π-rotated
+     *     up-lens, the dome's below-mouth globe), so a lens is never merged —
+     *     with a body or with another lens.
+     *
+     * Each member's LOCAL matrix is baked into a geometry clone so the merged
+     * mesh sits at the parent origin with identical world geometry. Buckets of
+     * ONE are left completely untouched (original geometry object, parameters,
+     * position — the single-part assertions in the suite keep meaning).
+     * A failed merge declines that bucket and keeps the originals — behaviour
+     * over beauty, never a dropped part.
+     */
+    private _consolidateFixtureMeshes(group: THREE.Group): void {
+        // Collect meshes by DIRECT parent first — never re-parent anything.
+        const byParent = new Map<THREE.Object3D, THREE.Mesh[]>();
+        group.traverse((child) => {
+            if (!(child as THREE.Mesh).isMesh) return;
+            const m = child as THREE.Mesh;
+            if (m.userData?.role === LENS_ROLE) return;      // lenses: never touched
+            if (Array.isArray(m.material)) return;           // multi-material: decline
+            const parent = m.parent;
+            if (!parent) return;
+            const list = byParent.get(parent);
+            if (list) list.push(m);
+            else byParent.set(parent, [m]);
+        });
+
+        for (const [parent, meshes] of byParent) {
+            // Bucket within this parent. Insertion order (traversal order) keeps
+            // the merged geometry deterministic build-to-build.
+            const buckets = new Map<string, THREE.Mesh[]>();
+            for (const m of meshes) {
+                const mat = m.material as THREE.Material;
+                const key = `${mat.uuid}|${m.castShadow ? 1 : 0}|${m.receiveShadow ? 1 : 0}|${m.userData?.role ?? ''}`;
+                const b = buckets.get(key);
+                if (b) b.push(m);
+                else buckets.set(key, [m]);
+            }
+
+            for (const bucket of buckets.values()) {
+                if (bucket.length < 2) continue;             // singles stay untouched
+
+                const baked: THREE.BufferGeometry[] = [];
+                for (const m of bucket) {
+                    m.updateMatrix();
+                    const g = m.geometry.clone();
+                    g.applyMatrix4(m.matrix);
+                    baked.push(g);
+                }
+
+                let merged: THREE.BufferGeometry | null;
+                try {
+                    merged = mergeGeometries(baked, false);
+                } catch {
+                    merged = null;
+                }
+                if (!merged) {
+                    // Decline this bucket — keep the originals, drop nothing.
+                    for (const g of baked) g.dispose();
+                    continue;
+                }
+                for (const g of baked) g.dispose();          // mergeGeometries copied
+
+                const proto = bucket[0]!;
+                const mergedMesh = new THREE.Mesh(merged, proto.material as THREE.Material);
+                mergedMesh.castShadow    = proto.castShadow;
+                mergedMesh.receiveShadow = proto.receiveShadow;
+                mergedMesh.name          = 'fixture-merged';
+
+                for (const m of bucket) {
+                    parent.remove(m);
+                    // Per-fixture geometry, never pooled — safe to free now, the
+                    // mesh was never rendered (we are pre-scene-add). Materials
+                    // are pooled and stay untouched (L-11421 / remove() contract).
+                    m.geometry.dispose();
+                }
+                parent.add(mergedMesh);
+            }
+        }
+    }
 
     private _buildFixture(data: LightingData): THREE.Group {
         // §FEAT-LOD200-LUMINAIRES (L-1330) — a LOD-200 family is drawn from its matrix
@@ -1538,7 +1733,11 @@ export class LightingFragmentBuilder {
             const tint = child.userData.lensTint as string | undefined;
             const base = child.userData.lensBase as number | undefined;
             if (tint === undefined || base === undefined) return;
-            (child as THREE.Mesh).material = sharedLensMat(tint, base * factor);
+            // §OUTDOOR112 — carry the lens's own translucency into the re-pool,
+            // or a frosted globe would turn opaque on the first day/night pass.
+            const opacity     = (child.userData.lensOpacity as number | undefined) ?? 1;
+            const transparent = (child.userData.lensTransparent as boolean | undefined) ?? false;
+            (child as THREE.Mesh).material = sharedLensMat(tint, base * factor, opacity, transparent);
         });
     }
 
@@ -1830,6 +2029,10 @@ export class LightingFragmentBuilder {
             case 'dome': this._lod200Dome(g, ctx); break;
             case 'capsule': this._lod200Capsule(g, ctx); break;
             case 'tube': this._lod200Tube(g, ctx); break;
+            // §OUTDOOR112 — the three site masses.
+            case 'bollard': this._lod200Bollard(g, ctx); break;
+            case 'globe_post': this._lod200GlobePost(g, ctx); break;
+            case 'street_arm': this._lod200StreetArm(g, ctx); break;
         }
         return g;
     }
@@ -2042,6 +2245,195 @@ export class LightingFragmentBuilder {
         lamp.position.y = topY - c.D * 0.55;
         tagLens(lamp, c.lensTint, LOD200_LENS_BASE);
         g.add(lamp);
+    }
+
+    // ── §OUTDOOR112 (2026-08-26) — the founder's five OUTDOOR SITE fixtures ──
+    //
+    // ⭐ BORN WITHIN THE MESH BUDGET, through ONE road. Every body part below is
+    // drawn in the pooled `c.bodyMat` with `castShadow = true`, so
+    // `_consolidateFixtureMeshes` (§MESH110-FIXTURE-MERGE) collapses them into
+    // ONE body mesh per fixture; the luminous parts are `LENS_ROLE` and stay
+    // separate by that method's contract. Result: bollard = 2 meshes, globe post
+    // = 2–3, street luminaire = 2 — a path of twenty bollards is forty draws,
+    // not two hundred. No second merge authority is minted here.
+    //
+    // All three stand UP from the floor plane (+Y from the group origin), like
+    // `post`: the seating datum is the ground, and the fixture rises from it.
+
+    /**
+     * BOLLARD — §OUTDOOR112, founder outdoor #2 (louvred) and #3 (diffuser band):
+     * a cylinder whose head is a LATERAL luminous band under a flat cap, sliced
+     * by `row.louvres` horizontal slats (0 = the clean diffuser band).
+     *
+     * ⛔ Not `post`. `_lod200Post` conceals its lens UNDER the cap, facing down —
+     * a full-cut-off optic that lights the path and never the eye (the legacy
+     * `bollard_light`, untouched). The founder's bollards show a side-emitting
+     * band: the luminous body is visible from across the path, which is a
+     * different fixture and a different distribution, not a parameter.
+     *
+     * The band is recessed (0.90 r) behind slats at 1.03 r, so the louvres read
+     * IN FRONT of the diffuser exactly as in his reference — and the emitter
+     * anchor sits at the band's centre via the shared `bollardHeadLayout`.
+     */
+    private _lod200Bollard(g: THREE.Group, c: Lod200Ctx): void {
+        const r = c.L / 2;
+        const h = c.D;                                   // for a bollard, `dMm` is the HEIGHT
+        const { capH, bandH, bandCentreY } = bollardHeadLayout(h);
+        const louvres = Math.max(0, Math.min(12, Math.round(c.row.louvres ?? 0)));
+
+        const shaftH = h - capH - bandH;
+        const shaft = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.04, shaftH, SEG_BODY), c.bodyMat);
+        shaft.position.y = shaftH / 2;
+        shaft.castShadow = true;
+        g.add(shaft);
+
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.05, r * 1.05, capH, SEG_BODY), c.bodyMat);
+        cap.position.y = h - capH / 2;
+        cap.castShadow = true;
+        g.add(cap);
+
+        // Louvre slats, evenly across the band. Same material and shadow intent
+        // as the shaft, so the consolidation pass folds them into the body.
+        const slatH = Math.min(0.012, bandH * 0.12);
+        for (let i = 0; i < louvres; i++) {
+            const slat = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.03, r * 1.03, slatH, SEG_BODY), c.bodyMat);
+            slat.position.y = shaftH + bandH * ((i + 0.5) / louvres);
+            slat.castShadow = true;
+            g.add(slat);
+        }
+
+        // The luminous band — the fixture's actual emitting body. Open-ended, so
+        // it is a surface not a solid, and recessed behind the slats.
+        const band = new THREE.Mesh(
+            new THREE.CylinderGeometry(r * 0.90, r * 0.90, bandH * 0.96, SEG_LENS, 1, true),
+            sharedLensMat(c.lensTint, LOD200_LENS_BASE),
+        );
+        band.position.y = bandCentreY;
+        tagLens(band, c.lensTint, LOD200_LENS_BASE);
+        g.add(band);
+    }
+
+    /**
+     * GLOBE POST — §OUTDOOR112, founder outdoor #1 (globe mini-bollard) and #4
+     * (globe post light): base + post/pole + a GLOWING TRANSLUCENT SPHERE.
+     *
+     * ⭐ The globe is a LENS that is also SEE-THROUGH. Its emission is the row's
+     * kelvin (like every lens); its translucency is `row.headMaterialId`'s
+     * master-row `opacity`/`transparent` — `glass-frosted` for both rows —
+     * carried through `lod200BodyAppearance` (L-11501) into the lens pool and
+     * remembered by `tagLens`, so it SURVIVES `_syncLens`. ⛔ No `castShadow`
+     * on the globe: a translucent shade casting an opaque shadow would
+     * contradict its own material (the `tube` rule).
+     *
+     * `louvres > 0` (the mini-bollard): the founder's louvre stack sits INSIDE
+     * the globe with a flat cap on top. `louvres` absent (the post light): a
+     * visible lamp sits inside instead — what a frosted globe is for.
+     */
+    private _lod200GlobePost(g: THREE.Group, c: Lod200Ctx): void {
+        const poleR = c.L / 2;
+        const poleH = c.D;                               // `dMm` is the pole/post height
+        const head  = globePostHead(poleH, c.row.headMm, poleR);
+        const louvres = Math.max(0, Math.min(12, Math.round(c.row.louvres ?? 0)));
+
+        const baseR = Math.max(poleR * 1.7, 0.06);
+        const baseH = Math.min(0.05, poleH * 0.1);
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(baseR, baseR * 1.05, baseH, SEG_BODY), c.bodyMat);
+        base.position.y = baseH / 2;
+        base.castShadow = true;
+        g.add(base);
+
+        const poleLen = Math.max(0.01, poleH - baseH);
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(poleR, poleR * 1.06, poleLen, SEG_BODY), c.bodyMat);
+        pole.position.y = baseH + poleLen / 2;
+        pole.castShadow = true;
+        g.add(pole);
+
+        // The globe — translucent from the head master material, glowing from the
+        // row's kelvin. Unresolved head id → opaque lens (never an invented alpha).
+        const headLook = c.row.headMaterialId ? lod200BodyAppearance(c.row.headMaterialId) : null;
+        const opacity     = headLook?.opacity ?? 1;
+        const transparent = headLook?.transparent ?? false;
+        const globe = new THREE.Mesh(
+            new THREE.SphereGeometry(head.r, SEG_LENS, Math.max(8, Math.round(SEG_LENS / 2))),
+            sharedLensMat(c.lensTint, LOD200_LENS_BASE, opacity, transparent),
+        );
+        globe.position.y = head.centreY;
+        tagLens(globe, c.lensTint, LOD200_LENS_BASE, opacity, transparent);
+        g.add(globe);
+
+        if (louvres > 0) {
+            // The founder's louvre stack inside the globe, and its flat cap on top.
+            const stackH = head.r;
+            const slatH  = Math.min(0.01, stackH * 0.12);
+            for (let i = 0; i < louvres; i++) {
+                const slat = new THREE.Mesh(
+                    new THREE.CylinderGeometry(head.r * 0.58, head.r * 0.58, slatH, SEG_BODY), c.bodyMat,
+                );
+                slat.position.y = head.centreY - stackH / 2 + stackH * ((i + 0.5) / louvres);
+                slat.castShadow = true;
+                g.add(slat);
+            }
+            const capH = 0.018;
+            const cap = new THREE.Mesh(
+                new THREE.CylinderGeometry(head.r * 0.42, head.r * 0.42, capH, SEG_BODY), c.bodyMat,
+            );
+            cap.position.y = head.centreY + head.r * 0.96 + capH / 2;
+            cap.castShadow = true;
+            g.add(cap);
+        } else {
+            // The lamp INSIDE the globe — visible through the frosted shade, and
+            // the reason the row's 320° beam describes the fixture.
+            const lampR = Math.max(0.03, head.r * 0.28);
+            const lamp = new THREE.Mesh(
+                new THREE.SphereGeometry(lampR, SEG_LENS, Math.max(8, Math.round(SEG_LENS / 2))),
+                sharedLensMat(c.lensTint, LOD200_LENS_BASE),
+            );
+            lamp.position.y = head.centreY;
+            tagLens(lamp, c.lensTint, LOD200_LENS_BASE);
+            g.add(lamp);
+        }
+    }
+
+    /**
+     * STREET ARM — §OUTDOOR112, founder outdoor #5: a pole, a CANTILEVERED arm
+     * along +Z, and a flat, slightly-raked rectangular LED head with a
+     * down-facing lens. The head's long axis (`lMm`) runs along the arm — over
+     * the road; `wMm` is across it; `dMm` is the pole height; `stemMm` the reach.
+     *
+     * Nothing existing cantilevers: `yoke` is a wall bracket. The rake is the
+     * shared `streetArmLayout` (+6°), plus the instance `tiltDeg` override, and
+     * the lens tilts WITH the head so the drawn emission and the light agree.
+     */
+    private _lod200StreetArm(g: THREE.Group, c: Lod200Ctx): void {
+        const s = streetArmLayout(c.D, c.row.stemMm, c.L);
+
+        // A tapered street column: full section at the ground, 85% at the top.
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(s.poleR * 0.85, s.poleR, c.D, SEG_BODY), c.bodyMat);
+        pole.position.y = c.D / 2;
+        pole.castShadow = true;
+        g.add(pole);
+
+        // The cantilever, from the pole axis to the head centre, along +Z.
+        const arm = new THREE.Mesh(
+            new THREE.CylinderGeometry(s.poleR * 0.5, s.poleR * 0.5, s.headCentreZ, SEG_THIN), c.bodyMat,
+        );
+        arm.rotation.x = Math.PI / 2;
+        arm.position.set(0, s.armY, s.headCentreZ / 2);
+        arm.castShadow = true;
+        g.add(arm);
+
+        const rake = s.rakeRad + c.tilt;
+        const head = new THREE.Mesh(new THREE.BoxGeometry(c.W, s.headThk, c.L), c.bodyMat);
+        head.rotation.x = rake;
+        head.position.set(0, s.headCentreY, s.headCentreZ);
+        head.castShadow = true;
+        g.add(head);
+
+        // The LED face under the head — the same rake, so it aims where the head does.
+        const lens = this._lod200Lens(0, c, 0, c.W * 0.86, c.L * 0.80);
+        lens.rotation.x = rake;
+        lens.position.set(0, s.headCentreY - s.headThk / 2 - 0.004, s.headCentreZ);
+        g.add(lens);
     }
 
     /** CAN — cylindrical body ± trim ring ± stem. Recessed downlights, adjustable
@@ -2479,6 +2871,22 @@ export class LightingFragmentBuilder {
                 // The lamp INSIDE the glass, at 55% of the shade height — a clear
                 // shade does not occlude, so the emitter belongs where the lamp is.
                 return { x: 0, y: -(c.drop + c.D * 0.55), z: 0 };
+
+            // ── §OUTDOOR112 (2026-08-26) — the three site masses ──────────────
+            // Each anchor is the SAME arithmetic the builder draws with (the
+            // shared layout functions at module scope), never a second guess.
+            case 'bollard':
+                // The centre of the luminous band under the cap.
+                return { x: 0, y: bollardHeadLayout(c.D).bandCentreY, z: 0 };
+            case 'globe_post':
+                // The centre of the glowing globe atop the pole.
+                return { x: 0, y: globePostHead(c.D, c.row.headMm, c.L / 2).centreY, z: 0 };
+            case 'street_arm': {
+                // Just under the LED face at the end of the arm — over the road,
+                // not at the pole.
+                const s = streetArmLayout(c.D, c.row.stemMm, c.L);
+                return { x: 0, y: s.headCentreY - s.headThk / 2 - 0.05, z: s.headCentreZ };
+            }
         }
     }
 
